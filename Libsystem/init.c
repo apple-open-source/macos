@@ -51,6 +51,7 @@ extern void _libxpc_initializer(void);		// from libxpc.dylib
 extern void _libsecinit_initializer(void);        // from libsecinit.dylib
 extern void _libtrace_init(void);		// from libsystem_trace.dylib
 extern void _container_init(const char *apple[]); // from libsystem_containermanager.dylib
+extern void __libdarwin_init(void);		// from libsystem_darwin.dylib
 
 
 // signal malloc stack logging that initialisation has finished
@@ -155,7 +156,7 @@ libSystem_initializer(int argc,
 	// TODO: Move __malloc_init before __libc_init after breaking malloc's upward link to Libc
 	__malloc_init(apple);
 
-#if !TARGET_OS_SIMULATOR && !TARGET_OS_TV && !TARGET_OS_WATCH
+#if TARGET_OS_OSX
 	/* <rdar://problem/9664631> */
 	__keymgr_initializer();
 #endif
@@ -176,9 +177,11 @@ libSystem_initializer(int argc,
 	_container_init(apple);
 #endif
 
+	__libdarwin_init();
+
 	__stack_logging_early_finished();
 
-#if TARGET_OS_EMBEDDED && !TARGET_OS_WATCH && !__LP64__
+#if TARGET_OS_EMBEDDED && TARGET_OS_IOS && !__LP64__
 	_vminterpose_init();
 #endif
 

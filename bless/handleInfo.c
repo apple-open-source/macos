@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <paths.h>
 
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -58,12 +59,16 @@
 #include <IOKit/IOBSD.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+
+#define kPrebootIndicator	"<Preboot>"
+
 static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char *bootdevice, int deviceLen,
                               char *relPath, char *relPathLen);
 
 static void addElements(const void *key, const void *value, void *context);
 
 static int findBootRootAggregate(BLContextPtr context, char *memberPartition, char *bootRootDevice, int deviceLen);
+static int FixupPrebootMountPointInPaths(CFMutableDictionaryRef dict, const char *mountPoint);
 
 
 
@@ -100,13 +105,28 @@ static const char *messages[7][2] = {
 };
 
 int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
-    int                 ret;
-    CFDictionaryRef     dict;
-    struct statfs       sb;
+    int                 	ret;
+    CFDictionaryRef     	dict;
+    struct statfs       	sb;
     CFMutableDictionaryRef  allInfo = NULL;
-	int					isHFS = 0;
-    int                 isAPFS = 0;
-	
+	int						isHFS = 0;
+    int                 	isAPFS = 0;
+	bool					doSearch = false;
+	char					booterPart[MNAMELEN];
+	CFDictionaryRef			booterDict;
+	CFArrayRef				prebootBSDs;
+	CFStringRef				prebootDev;
+	char					prebootNode[MNAMELEN];
+	CFMutableDictionaryRef	matching;
+	bool					explicitPreboot = false;
+	bool					noAccessToPreboot = false;
+	char					*volToCheck;
+	io_service_t			service = IO_OBJECT_NULL;
+	CFStringRef				newBSDName;
+	int             		mntsize;
+	struct statfs   		*mnts;
+	char            		realMountPoint[MAXPATHLEN];
+
     if(!actargs[kinfo].hasArg || actargs[kgetboot].present) {
         char currentDev[1024]; // may contain URLs like bsdp://foo
         char currentPath[MAXPATHLEN];
@@ -162,7 +182,6 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             char parentDev[MNAMELEN];
             uint32_t partNum;
             BLPartitionType mapType;
-            io_service_t service = IO_OBJECT_NULL;
             CFStringRef contentHint;
             int apfs = 0;
             
@@ -177,14 +196,6 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             IOObjectRelease(service);
             
             if (contentHint && CFGetTypeID(contentHint) == CFStringGetTypeID()) {
-                bool doSearch = false;
-                char booterPart[MNAMELEN];
-                CFDictionaryRef booterDict;
-                CFArrayRef  prebootBSDs;
-                CFStringRef prebootDev;
-                char prebootNode[MNAMELEN];
-                CFMutableDictionaryRef  matching;
-                
                 ret = BLGetParentDeviceAndPartitionType(context, currentDev,
                                                         parentDev,
                                                         &partNum,
@@ -210,8 +221,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                         CFIndex count, i;
                         CFStringRef uuidStr;
                         char *slash = NULL;
-                        CFStringRef newBSDName;
-                        
+						
                         count = CFArrayGetCount(prebootBSDs);
                         for (i = 0; i < count; i++) {
                             prebootDev = CFArrayGetValueAtIndex(prebootBSDs, i);
@@ -232,10 +242,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                 // Either there was no path in NVRAM or it didn't have the right form.
                                 // Let's try to get the path from the volume bless information.
                                 // Check if the preboot volume is mounted.
-                                int             mntsize;
-                                struct statfs   *mnts;
                                 char            prebootMountPoint[MAXPATHLEN];
-                                char            realMountPoint[MAXPATHLEN];
                                 bool            mustUnmount = false;
                                 uint64_t        blessWords[2];
                                 
@@ -441,16 +448,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 		allInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict);
 		CFRelease(dict);
 		dict = NULL;
-    } else if (isAPFS) {
-        ret = BLCreateAPFSVolumeInformationDictionary(context, actargs[kmount].argument, &dict);
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelError,  "Can't print volume boot information\n" );
-            return 1;
-        }
-        allInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict);
-        CFRelease(dict);
-        dict = NULL;
-    } else {
+    } else if (!isAPFS) {
 		allInfo = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	}
     
@@ -460,6 +458,78 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelError,  "Can't get booter information\n" );
 		return 3;
     }
+	
+	if (isAPFS) {
+		prebootBSDs = CFDictionaryGetValue(dict, kBLAPFSPrebootVolumesKey);
+		if (prebootBSDs && CFGetTypeID(prebootBSDs) == CFArrayGetTypeID()) {
+			CFIndex count, i;
+			char            prebootMountPoint[MAXPATHLEN];
+			bool            mustUnmount = false;
+
+			count = CFArrayGetCount(prebootBSDs);
+			for (i = 0; i < count; i++) {
+				prebootDev = CFArrayGetValueAtIndex(prebootBSDs, i);
+				CFStringGetCString(prebootDev, prebootNode, sizeof prebootNode, kCFStringEncodingUTF8);
+				if (strcmp(prebootNode, sb.f_mntfromname + strlen(_PATH_DEV)) == 0) break;
+			}
+			if (i < count) {
+				// We're being asked directly about the preboot volume.
+				explicitPreboot = true;
+				volToCheck = actargs[kmount].argument;
+			} else if (count > 0) {
+				// We've been asked about a non-preboot volume.  We need to find the preboot
+				// volume and get its information.
+				prebootDev = CFArrayGetValueAtIndex(prebootBSDs, 0);
+				CFStringGetCString(prebootDev, prebootNode, sizeof prebootNode, kCFStringEncodingUTF8);
+				
+				mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+				for (i = 0; i < mntsize; i++) {
+					if (strcmp(mnts[i].f_mntfromname + strlen(_PATH_DEV), prebootNode) == 0) break;
+				}
+				if (i < mntsize) {
+					strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
+				} else {
+					// The preboot volume isn't mounted right now.  We'll have to mount it.
+					ret = MountPrebootVolume(context, prebootNode, prebootMountPoint, sizeof prebootMountPoint);
+					if (ret) {
+						blesscontextprintf(context, kBLLogLevelError, "Couldn't mount preboot volume /dev/%s\n", prebootNode);
+						noAccessToPreboot = true;
+						ret = 0;
+					} else {
+						mustUnmount = true;
+					}
+				}
+				volToCheck = prebootMountPoint;
+			} else {
+				blesscontextprintf(context, kBLLogLevelError, "The container for this APFS volume doesn't appear to have a preboot volume\n");
+				return 5;
+			}
+			if (noAccessToPreboot) {
+				allInfo = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			} else {
+				ret = BLCreateAPFSVolumeInformationDictionary(context, volToCheck, (void *)&allInfo);
+				if (mustUnmount) UnmountPrebootVolume(context, prebootMountPoint);
+				if (ret) {
+					blesscontextprintf(context, kBLLogLevelError, "Couldn't get bless data from preboot volume.\n");
+					return 4;
+				}
+			}
+			if (mustUnmount) {
+				// We had to privately mount the preboot volume, and now that it's
+				// been unmounted, the mount-point part of the paths in the dictionary
+				// don't make much sense.  So let's clean them up.
+				ret = FixupPrebootMountPointInPaths(allInfo, volToCheck);
+				if (ret) {
+					blesscontextprintf(context, kBLLogLevelError, "Couldn't fix path names for blessed file and folder.\n");
+					return 3;
+				}
+				volToCheck = kPrebootIndicator;
+			}
+		} else {
+			blesscontextprintf(context, kBLLogLevelError, "The container for this APFS volume doesn't appear to have a preboot volume\n");
+			return 5;
+		}
+	}
     
     CFDictionaryApplyFunction(dict, addElements, (void *)allInfo);    
     CFRelease(dict);
@@ -476,11 +546,11 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
         CFRelease(tempData);
         
     } else if (isHFS) {
-        CFArrayRef finfo = CFDictionaryGetValue(dict, CFSTR("Finder Info"));
-        int j;
-        CFNumberRef vsdbref;
-        uint64_t vsdb;
-        
+        CFArrayRef	finfo = CFDictionaryGetValue(dict, CFSTR("Finder Info"));
+        int			j;
+        CFNumberRef	vsdbref;
+        uint64_t	vsdb;
+		
         for(j = 0; j < (8-2); j++) {
             CFDictionaryRef word = CFArrayGetValueAtIndex(finfo, j);
             CFNumberRef dirID = CFDictionaryGetValue(word, CFSTR("Directory ID"));
@@ -515,35 +585,94 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                            vsdb);
         
     } else if (isAPFS) {
-        CFArrayRef binfo = CFDictionaryGetValue(dict, CFSTR("Bless Info"));
-        int j;
-        
-        for (j = 0; j < 2; j++) {
-            CFDictionaryRef word = CFArrayGetValueAtIndex(binfo, j);
-            CFNumberRef dirID = CFDictionaryGetValue(word, CFSTR("Directory ID"));
-            CFStringRef path = CFDictionaryGetValue(word, CFSTR("Path"));
-            uint64_t dirint;
-            char cpath[MAXPATHLEN];
-            
-            if (!CFNumberGetValue(dirID, kCFNumberSInt64Type, &dirint)) {
-                continue;
-            }
-            
-            if (dirint > 0 && CFStringGetLength(path) == 0) {
-                strlcpy(cpath, MISSINGMSG, sizeof cpath);
-            } else {
-                if (!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
-                    continue;
-                }
-            }
-            
-            blesscontextprintf(context, kBLLogLevelNormal,
-                               "%12llu => %s%s\n", dirint,
-                               messages[1-j][dirint > 0], cpath);
-            
-        }
-    }
-    
+		if (noAccessToPreboot) {
+			blesscontextprintf(context, kBLLogLevelNormal, "This is an APFS volume.  The preboot volume in its container\n"
+							   "cannot be accessed.  Try mounting the preboot volume (/dev/%s)\nor running as root.\n", prebootNode);
+			return 5;
+		} else {
+			CFArrayRef binfo = CFDictionaryGetValue(dict, CFSTR("Bless Info"));
+			CFDictionaryRef word;
+			CFNumberRef dirID;
+			CFStringRef path;
+			uint64_t dirint;
+			char cpath[MAXPATHLEN];
+			int j;
+			
+			for (j = 0; j < 2; j++) {
+				word = CFArrayGetValueAtIndex(binfo, j);
+				dirID = CFDictionaryGetValue(word, CFSTR("Directory ID"));
+				path = CFDictionaryGetValue(word, CFSTR("Path"));
+				
+				if (!CFNumberGetValue(dirID, kCFNumberSInt64Type, &dirint)) {
+					continue;
+				}
+				
+				if (dirint > 0 && CFStringGetLength(path) == 0) {
+					strlcpy(cpath, MISSINGMSG, sizeof cpath);
+				} else {
+					if (!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
+						continue;
+					}
+				}
+				
+				blesscontextprintf(context, kBLLogLevelNormal,
+								   "%12llu => %s%s\n", dirint,
+								   messages[1-j][dirint > 0], cpath);
+				
+				if (!explicitPreboot && j == 1) {
+					char cpath[MAXPATHLEN];
+					char *slash;
+					CFStringRef uuidStr;
+					char		bsd[64] = _PATH_DEV;
+					int			i;
+					bool		gotIt = false;
+					
+					CFStringGetCString(path, cpath, sizeof cpath, kCFStringEncodingUTF8);
+					if (strcmp(volToCheck, kPrebootIndicator) != 0) {
+						realpath(volToCheck, realMountPoint);
+					} else {
+						strlcpy(realMountPoint, kPrebootIndicator, sizeof realMountPoint);
+					}
+					memmove(cpath, cpath + strlen(realMountPoint), strlen(cpath) - strlen(realMountPoint) + 1);
+					slash = strchr(cpath + 1, '/');
+					if (!slash || slash - (cpath+1) != 36) {
+						// Can't find a valid UUID in blessed path.
+						blesscontextprintf(context, kBLLogLevelError, "Couldn't find a valid volume UUID in the boot path\n");
+						return 4;
+					}
+					*slash = '\0';
+					uuidStr = CFStringCreateWithCString(kCFAllocatorDefault, cpath + 1, kCFStringEncodingUTF8);
+					matching = IOServiceMatching("AppleAPFSVolume");
+					CFDictionarySetValue(matching, CFSTR(kIOMediaUUIDKey), uuidStr);
+					CFRelease(uuidStr);
+					service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+					if (service) {
+						newBSDName = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+						if (newBSDName) {
+							CFStringGetCString(newBSDName, bsd + strlen(_PATH_DEV), sizeof bsd - strlen(_PATH_DEV),
+											   kCFStringEncodingUTF8);
+							gotIt = true;
+							mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+							for (i = 0; i < mntsize; i++) {
+								if (strcmp(mnts[i].f_mntfromname, bsd) == 0) break;
+							}
+							if (i < mntsize) {
+								blesscontextprintf(context, kBLLogLevelNormal, "The blessed volume in this APFS container is \"%s\"\n",
+												   mnts[i].f_mntonname);
+							} else {
+								blesscontextprintf(context, kBLLogLevelNormal, "The blessed volume in this APFS container is %s, which is not mounted\n", bsd);
+							}
+						}
+					}
+					if (!gotIt) {
+						blesscontextprintf(context, kBLLogLevelError, "Could not find an APFS volume with UUID %s\n", cpath + 1);
+						return 6;
+					}
+				}
+			}
+		}
+	}
+
 	CFRelease(dict);
     
     return 0;
@@ -754,4 +883,28 @@ static void addElements(const void *key, const void *value, void *context)
     CFMutableDictionaryRef dict = (CFMutableDictionaryRef)context;
     
     CFDictionaryAddValue(dict, key, value);
+}
+
+
+static int FixupPrebootMountPointInPaths(CFMutableDictionaryRef dict, const char *mountPoint)
+{
+	char canonicalPath[MAXPATHLEN];
+	CFStringRef				mount;
+	int						j;
+	CFMutableArrayRef		binfo;
+	CFMutableDictionaryRef	word;
+	CFStringRef				path;
+	CFMutableStringRef		newPath;
+	
+	realpath(mountPoint, canonicalPath);
+	mount = CFStringCreateWithCString(kCFAllocatorDefault, canonicalPath, kCFStringEncodingUTF8);
+	binfo = (void *)CFDictionaryGetValue(dict, CFSTR("Bless Info"));
+	for (j = 0; j < 2; j++) {
+		word = (void *)CFArrayGetValueAtIndex(binfo, j);
+		path = CFDictionaryGetValue(word, CFSTR("Path"));
+		newPath = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, path);
+		CFStringFindAndReplace(newPath, mount, CFSTR(kPrebootIndicator), CFRangeMake(0, CFStringGetLength(newPath)), 0);
+		CFDictionarySetValue(word, CFSTR("Path"), newPath);
+	}
+	return 0;
 }

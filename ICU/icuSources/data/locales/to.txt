@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/to.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 to{
     AuxExemplarCharacters{
         "[à ă â å ä æ b c ç d è ĕ ê ë g ì ĭ î ï j ñ ò ŏ ô ö ø œ q r ù ŭ û ü w x y ÿ z"
@@ -137,7 +131,7 @@ to{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.23.79"}
+    Version{"2.1.31.74"}
     calendar{
         generic{
             DateTimePatterns{
@@ -282,8 +276,8 @@ to{
         }
         gregorian{
             AmPmMarkers{
-                "AM",
-                "PM",
+                "hengihengi",
+                "efiafi",
             }
             AmPmMarkersAbbr{
                 "AM",
@@ -443,8 +437,8 @@ to{
                         pm{"PM"}
                     }
                     wide{
-                        am{"AM"}
-                        pm{"PM"}
+                        am{"HH"}
+                        pm{"EA"}
                     }
                 }
             }
@@ -986,7 +980,7 @@ to{
         second{
             dn{"sekoni"}
             relative{
-                "0"{"taimiʻni"}
+                "0"{"taimí ni"}
             }
             relativeTime{
                 future{
@@ -1208,6 +1202,12 @@ to{
     }
     listPattern{
         standard{
+            2{"{0} mo {1}"}
+            end{"{0} mo {1}"}
+            middle{"{0} mo {1}"}
+            start{"{0} mo {1}"}
+        }
+        standard-short{
             2{"{0} mo {1}"}
             end{"{0} mo {1}"}
             middle{"{0} mo {1}"}

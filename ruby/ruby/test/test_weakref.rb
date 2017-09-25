@@ -1,26 +1,34 @@
+# frozen_string_literal: false
 require 'test/unit'
 require 'weakref'
-require_relative './ruby/envutil'
 
 class TestWeakRef < Test::Unit::TestCase
   def make_weakref(level = 10)
-    obj = Object.new
-    str = obj.to_s
-    level.times {obj = WeakRef.new(obj)}
-    return WeakRef.new(obj), str
+    if level > 0
+      make_weakref(level - 1)
+    else
+      WeakRef.new(Object.new)
+    end
   end
 
   def test_ref
-    weak, str = make_weakref
-    assert_equal(str, weak.to_s)
+    obj = Object.new
+    weak = WeakRef.new(obj)
+    assert_equal(obj.to_s, weak.to_s)
+    assert_predicate(weak, :weakref_alive?)
   end
 
   def test_recycled
-    weak, str = make_weakref
-    assert_nothing_raised(WeakRef::RefError) {weak.to_s}
-    ObjectSpace.garbage_collect
-    ObjectSpace.garbage_collect
+    weaks = []
+    weak = nil
+    100.times do
+      weaks << make_weakref
+      ObjectSpace.garbage_collect
+      ObjectSpace.garbage_collect
+      break if weak = weaks.find {|w| !w.weakref_alive?}
+    end
     assert_raise(WeakRef::RefError) {weak.to_s}
+    assert_not_predicate(weak, :weakref_alive?)
   end
 
   def test_not_reference_different_object
@@ -52,5 +60,13 @@ class TestWeakRef < Test::Unit::TestCase
         ObjectSpace.garbage_collect
       end
     }, bug7304
+  end
+
+  def test_repeated_object_memory_leak
+    bug10537 = '[ruby-core:66428]'
+    assert_no_memory_leak(%w(-rweakref), '', <<-'end;', bug10537, timeout: 60)
+      a = Object.new
+      150_000.times { WeakRef.new(a) }
+    end;
   end
 end

@@ -723,7 +723,7 @@ tests(void)
             pthread_create(&client_thread, NULL, securetransport_ssl_thread, client);
             pthread_create(&server_thread, NULL, securetransport_ssl_thread, server);
 
-            int server_err, client_err;
+            intptr_t server_err, client_err;
             pthread_join(client_thread, (void*)&client_err);
             pthread_join(server_thread, (void*)&server_err);
 

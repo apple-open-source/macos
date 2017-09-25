@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'psych/json/ruby_events'
 require 'psych/json/yaml_events'
 
@@ -6,6 +7,7 @@ module Psych
     class Stream < Psych::Visitors::JSONTree
       include Psych::JSON::RubyEvents
       include Psych::Streaming
+      extend Psych::Streaming::ClassMethods
 
       class Emitter < Psych::Stream::Emitter # :nodoc:
         include Psych::JSON::YAMLEvents

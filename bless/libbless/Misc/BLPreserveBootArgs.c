@@ -48,12 +48,21 @@ int BLPreserveBootArgs(BLContextPtr context,
                        char *output,
                        int outputLen)
 {
+    return BLPreserveBootArgsIfChanged(context, input, output, outputLen, NULL);
+}
+
+int BLPreserveBootArgsIfChanged(BLContextPtr context,
+                                const char *input,
+                                char *output,
+                                size_t outputLen,
+                                bool *outChanged)
+{
     char oldbootargs[1024];
     char bootargs[1024];
     size_t bootleft=sizeof(bootargs)-1;
     char *token, *restargs;
     int firstarg=1;
-    
+    bool changed=false;
     
     strncpy(oldbootargs, input, sizeof(oldbootargs)-1);
     oldbootargs[sizeof(oldbootargs)-1] = '\0';
@@ -86,7 +95,9 @@ int BLPreserveBootArgs(BLContextPtr context,
             }
         }
         
-        if(shouldbesaved) {
+        if(!shouldbesaved) {
+            changed = true;
+        } else {
             // append to bootargs if it should be preserved
             if(firstarg) {
                 firstarg = 0;
@@ -102,6 +113,7 @@ int BLPreserveBootArgs(BLContextPtr context,
     }
     
     strlcpy(output, bootargs, outputLen);
+    if (outChanged) *outChanged = changed;
     
     return 0;
 }

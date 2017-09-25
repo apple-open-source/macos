@@ -29,8 +29,6 @@
 
 #include "regenc.h"
 
-#define numberof(array) (int)(sizeof(array) / sizeof((array)[0]))
-
 #define ENC_ISO_8859_2_TO_LOWER_CASE(c) EncISO_8859_2_ToLowerCaseTable[c]
 #define ENC_IS_ISO_8859_2_CTYPE(code,ctype) \
   ((EncISO_8859_2_CtypeTable[code] & CTYPE_TO_BIT(ctype)) != 0)
@@ -242,13 +240,3 @@ OnigEncodingDefine(iso_8859_2, ISO_8859_2) = {
   ONIGENC_FLAG_NONE,
 };
 ENC_ALIAS("ISO8859-2", "ISO-8859-2")
-
-/*
- * Name: windows-1250
- * MIBenum: 2250
- * Link: http://www.iana.org/assignments/character-sets
- * Link: http://www.microsoft.com/globaldev/reference/sbcs/1250.mspx
- * Link: http://en.wikipedia.org/wiki/Windows-1250
- */
-ENC_REPLICATE("Windows-1250", "ISO-8859-2")
-ENC_ALIAS("CP1250", "Windows-1250")

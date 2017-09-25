@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,6 +39,8 @@ __private_extern__
 void
 do_dictInit(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (value != NULL) {
 		CFRelease(value);
 	}
@@ -57,6 +59,8 @@ __private_extern__
 void
 do_dictShow(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (value == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("d.show: dictionary must be initialized.\n"));
 		return;
@@ -239,6 +243,7 @@ __private_extern__
 void
 do_dictRemoveKey(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFStringRef		key;
 	CFMutableDictionaryRef	val;
 

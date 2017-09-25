@@ -59,7 +59,7 @@ bool IOHIDevice::start(IOService * provider)
     // IOHIDevice.  Also propegate value is property
     // was already set in provider.
     if (!getProperty(kIOHIDVirtualHIDevice)) {
-        OSObject * prop;
+        OSObject * prop = NULL;
 
         while (provider) {
             prop = provider->copyProperty(kIOHIDVirtualHIDevice);

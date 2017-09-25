@@ -1,4 +1,5 @@
-require "rss-testcase"
+# frozen_string_literal: false
+require_relative "rss-testcase"
 
 require "rss/maker"
 
@@ -13,7 +14,6 @@ module RSS
       duration_components = [0, 4, 5]
       explicit = true
       keywords = ["salt", "pepper", "shaker", "exciting"]
-      new_feed_url = "http://newlocation.com/example.rss"
       owner = {:name => "John Doe", :email => "john.doe@example.com"}
       subtitle = "A show about everything"
       summary = "All About Everything is a show about " +

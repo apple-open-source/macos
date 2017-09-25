@@ -118,21 +118,14 @@ sslGetMatchingCertInArray(
 		return NULL;
 	}
 
-	CFDataRef certData = SecCertificateCopyData(certRef);
-	if (certData) {
-		CFIndex idx, count = CFArrayGetCount(certArray);
-		for(idx=0; idx<count; idx++) {
-			SecCertificateRef aCert = (SecCertificateRef)CFArrayGetValueAtIndex(certArray, idx);
-			CFDataRef aData = SecCertificateCopyData(aCert);
-			if (aData && CFEqual(aData, certData)) {
-				matchedCert = aCert;
-			}
-			CFReleaseSafe(aData);
-			if (matchedCert)
-				break;
-		}
-		CFReleaseSafe(certData);
-	}
+    CFIndex idx, count = CFArrayGetCount(certArray);
+    for (idx = 0; idx < count; idx++) {
+        SecCertificateRef otherCert = (SecCertificateRef) CFArrayGetValueAtIndex(certArray, idx);
+        if (CFEqual(certRef, otherCert)) {
+            matchedCert = otherCert;
+            break;
+        }
+    }
 
     return matchedCert;
 }
@@ -178,7 +171,8 @@ static OSStatus sslVerifyCertChain(
 	}
 
 	SecTrustResultType secTrustResult;
-	require_noerr(status = SecTrustEvaluate(trust, &secTrustResult), errOut);
+    require_noerr(status = SecTrustEvaluate(trust, &secTrustResult), errOut);
+
 	switch (secTrustResult) {
         case kSecTrustResultUnspecified:
             /* cert chain valid, no special UserTrust assignments */
@@ -187,7 +181,6 @@ static OSStatus sslVerifyCertChain(
             status = errSecSuccess;
             break;
         case kSecTrustResultDeny:
-        case kSecTrustResultConfirm:
         case kSecTrustResultRecoverableTrustFailure:
         default:
             if(ctx->allowAnyRoot) {

@@ -13,9 +13,9 @@ Submission      = 100
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
-Environment	= YACC=/usr/local/bin/bison-1.28 \
-			php_cv_bison_version=1.28 \
-			LEX=/usr/local/bin/lex-2.5.4 \
+Environment	= YACC=$(shell xcrun -f bison) \
+			php_cv_bison_version=2.3 \
+			LEX=$(shell xcrun -f lex) \
 			MAKEOBJDIR="$(BuildDirectory)" \
 			INSTALL_ROOT="$(DSTROOT)" \
 			TMPDIR="$(TMPDIR)" TEMPDIR="$(TMPDIR)" 
@@ -23,7 +23,7 @@ Environment	= YACC=/usr/local/bin/bison-1.28 \
 #SDK variables for configure
 SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
 SDK = -isysroot $(SDKROOT)
-APXS = $(shell xcrun -find -sdk $(SDKROOT) apxs)
+APXS = $(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs
 SDKUSRDIR = $(SDKROOT)$(USRDIR)
 			
 # This allows extra variables to be passed _just_ to configure.
@@ -40,7 +40,6 @@ build_host_target_alias=`$SHELL "$(Sources)/config.guess"`
 # Extra indentation represents suboptions.
 Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-libdir=lib \
-			--with-apxs2=$(USRSBINDIR)/apxs \
 			--enable-cli \
 			--with-iconv=$(SDKUSRDIR) \
 			--with-config-file-path=/etc \
@@ -68,14 +67,16 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-libedit=$(SDKUSRDIR) \
 			--enable-mbstring \
 			--enable-mbregex \
-			--with-mysql=mysqlnd \
 			--with-mysqli=mysqlnd \
-			--with-pdo-pgsql=/usr/local/bin/pg_config \
-			--with-pgsql=/usr/local/bin/pg_config \
+			--with-pcre-regex=$(SDKUSRDIR) \
+			--without-pcre-jit \
+			--with-pdo-pgsql=$(DT_TOOLCHAIN_DIR)/usr/local/bin \
+			--with-pgsql=$(DT_TOOLCHAIN_DIR)/local/bin \
 			--without-pear \
 			--with-pear=no\
 			--with-pdo-mysql=mysqlnd \
 			--with-mysql-sock=/var/mysql/mysql.sock \
+			--disable-phpdbg \
 			--with-readline=$(SDKUSRDIR) \
 			--enable-shmop \
 			--with-snmp=$(SDKUSRDIR) \
@@ -87,7 +88,6 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-xmlrpc \
 			--with-iconv-dir=$(SDKUSRDIR) \
 			--with-xsl=$(SDKUSRDIR) \
-			--enable-zend-multibyte \
 			--with-apxs2=$(APXS) \
 			--enable-zip
 
@@ -98,9 +98,10 @@ AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \
 			iconv.patch pear.patch phar.patch \
+			pcre_jit.patch \
 			libressl.patch dyld.patch
 AEP_ConfigDir	= $(ETCDIR)
-AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
+AEP_Binaries	= $(shell $(APXS) -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1
 Dependencies	= libpng libjpeg
 GnuAfterInstall = archive-strip-binaries install-macosx install-xdebug install-open-source-files # needs a path adjustment
@@ -339,17 +340,6 @@ TMPDIR		= $(OBJROOT)/Build/tmp
 # INSTALL_ROOT (which is included in Environment).
 Install_Flags	= DESTDIR="$(DSTROOT)"
 
-#
-# "ifeq / ifneq" are processed at read time; since these use variables defined
-# by the included files above, this must be performed after the includes.
-#
-# The PCRE library is only installed on Snow Leopard and later.
-#
-# use pcre files found on the build system at $(SDKUSRDIR)/local/include
-ifneq ($(strip $(wildcard $(SDKUSRDIR)/local/include/pcre.*)),)
-Extra_Configure_Flags	+= --with-pcre-regex=$(SDKUSRDIR)
-endif
-
 # Build rules
 # Dependency info necessary to ensure temp directory and cleanup are performed.
 lazy_install_source:: $(TMPDIR)
@@ -358,7 +348,7 @@ $(GNUConfigStamp): post-extract-source $(TMPDIR)
 # Post-extract target
 post-extract-source: extract-source
 	@echo "Executing extra patch after extraction..."
-	$(PERL) -i -pe 's|-i -a -n php5|-i -n php5|g' $(Sources)/configure
+	$(PERL) -i -pe 's|-i -a -n php7|-i -n php7|g' $(Sources)/configure
 	$(PERL) -i -pe 's|rm -f conftest|rm -rf conftest|g' $(Sources)/configure
 
 # Invoke pearcmd.php manually (instead of via /usr/bin/pear) so we can force
@@ -372,8 +362,8 @@ install-macosx:
 	-$(RMDIR) $(DSTROOT)$(ETCDIR)/apache2
 	$(CHOWN) -R root:wheel $(DSTROOT)/
 	$(INSTALL_FILE) $(Sources)/php.ini-production $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = $(USRLIBDIR)/php/extensions/no-debug-non-zts-20121212|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRLIBDIR)/php/extensions/no-debug-non-zts-20121212
+	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = $(USRLIBDIR)/php/extensions/no-debug-non-zts-20160303|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRLIBDIR)/php/extensions/no-debug-non-zts-20160303
 	@echo "Removing references to DSTROOT in php-config and include files..."
 	$(CP) $(DSTROOT)$(USRBINDIR)/php-config $(SYMROOT)/php-config \
 		&& $(SED) -e 's=-L$(DSTROOT)$(USRDIR)/local/lib==' $(SYMROOT)/php-config \
@@ -389,7 +379,6 @@ install-macosx:
 	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/bin
 	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/share
 	@echo "Installing PEAR phar for installation at setup time."
-	$(INSTALL_FILE) $(SRCROOT)/install-pear-nozlib.phar $(DSTROOT)$(USRLIBDIR)/php
 	@echo "Fixing PEAR configuration file..."
 	if [ -e $(DSTROOT)/$(USRLIBDIR)/php/pear/pearcmd.php ]; then	\
 		$(CP) $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php $(PEAR_Cmd);	\
@@ -432,5 +421,4 @@ $(DSTROOT)$(LIBEXECDIR)/apache2 $(TMPDIR):
 	$(MKDIR) $@
 
 refresh-pear:
-	curl -RO# http://pear.php.net/install-pear-nozlib.phar
 	curl -RO# http://pear2.php.net/pyrus.phar

@@ -4,26 +4,28 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2017-02-07</string>
+		<string>2017-07-08</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceSHA256</key>
-		<string>a105c293fa1dbff118b5b0ca74029e6c461f8c78f49b337a2a98be9e32c27906</string>
+		<string>079b6792987f38dc485f92258c04f9e02dedd593f9d260ebe725343f812d1ff8</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
 			<string>Missing man pages</string>
 			<string>Bug fixes for phar</string>
+			<string>Patch for proper building without PCRE JIT support</string>
 			<string>Removed GPLv3 bison-generated parsers</string>
+			<string>Removed install-pear-nozlib.phar</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceURL</key>
 		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>5.6.30</string>
+		<string>7.1.7</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
@@ -49,21 +51,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2013-07-11</string>
+		<string>2016-12-21</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceMD5</key>
-		<string>e49cec9861b45dc0b36eae33bf8a14fa</string>
+		<string>5306da5948e195c2e4585c9abd7741f9</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>xdebug</string>
 		<key>OpenSourceSHA1</key>
-		<string>045dee86f69051d7944da594db648b337a97f48a</string>
+		<string>0d31602a6ee2ba6d2e18a6db79bdb9a2a706bcd9</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.xdebug.org/files/xdebug-2.1.3.tgz</string>
+		<string>http://www.xdebug.org/files/xdebug-2.5.0.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.2.3</string>
+		<string>2.5.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.xdebug.org/</string>
 	</dict>

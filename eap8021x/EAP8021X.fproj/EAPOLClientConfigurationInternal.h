@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,8 @@ struct __EAPOLClientConfiguration {
     CFMutableDictionaryRef	domains;	/* domain -> profileID */
     CFDictionaryRef		def_auth_props;	/* EAPClientProperties.h */
     Boolean			def_auth_props_changed;
+    CFStringRef 		system_mode_profile_id; /* System Ethernet profileID */
+    Boolean 			system_mode_profile_id_changed; /* System Ethernet profileID changed */
 };
 
 /**

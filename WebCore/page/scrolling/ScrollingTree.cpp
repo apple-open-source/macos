@@ -119,6 +119,8 @@ void ScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree> scrollin
 {
     bool rootStateNodeChanged = scrollingStateTree->hasNewRootStateNode();
     
+    LOG(Scrolling, "\nScrollingTree::commitTreeState");
+    
     ScrollingStateScrollingNode* rootNode = scrollingStateTree->rootStateNode();
     if (rootNode
         && (rootStateNodeChanged
@@ -179,7 +181,7 @@ void ScrollingTree::updateTreeFromStateNode(const ScrollingStateNode* stateNode,
         if (parentIt != m_nodeMap.end()) {
             ScrollingTreeNode* parent = parentIt->value;
             node->setParent(parent);
-            parent->appendChild(node);
+            parent->appendChild(*node);
         }
     }
 
@@ -189,7 +191,7 @@ void ScrollingTree::updateTreeFromStateNode(const ScrollingStateNode* stateNode,
     if (auto nodeChildren = node->children()) {
         for (auto& childScrollingNode : *nodeChildren) {
             childScrollingNode->setParent(nullptr);
-            orphanNodes.add(childScrollingNode->scrollingNodeID(), childScrollingNode);
+            orphanNodes.add(childScrollingNode->scrollingNodeID(), childScrollingNode.get());
         }
         nodeChildren->clear();
     }

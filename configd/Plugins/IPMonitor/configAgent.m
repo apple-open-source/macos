@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,8 +54,9 @@
 	return @kConfigAgentTypeGeneric;
 }
 
-+ (instancetype)agentFromData:(__unused NSData *)data
++ (instancetype)agentFromData:(NSData *)data
 {
+#pragma unused(data)
 	return nil;
 }
 
@@ -144,6 +145,7 @@
 
 - (BOOL)startAgentWithOptions:(NSDictionary *)options
 {
+#pragma unused(options)
 	BOOL ok = NO;
 	if (!self.active) {
 		self.active = YES;

@@ -60,7 +60,8 @@ public:
         OpacityFilter    = 1L << 13,
         BlurFilter       = 1L << 14,
         AlphaBlur        = 1L << 15,
-        ContentTexture   = 1L << 16
+        ContentTexture   = 1L << 16,
+        ManualRepeat     = 1L << 17
     };
 
     typedef unsigned Options;
@@ -76,6 +77,7 @@ public:
     TEXMAP_DECLARE_UNIFORM(modelViewMatrix)
     TEXMAP_DECLARE_UNIFORM(projectionMatrix)
     TEXMAP_DECLARE_UNIFORM(textureSpaceMatrix)
+    TEXMAP_DECLARE_UNIFORM(textureColorSpaceMatrix)
     TEXMAP_DECLARE_UNIFORM(opacity)
     TEXMAP_DECLARE_UNIFORM(color)
     TEXMAP_DECLARE_UNIFORM(expandedQuadEdgesInScreenSpace)

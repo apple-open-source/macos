@@ -44,7 +44,7 @@ _mechanism_finalize(CFTypeRef value)
 {
     mechanism_t mech = (mechanism_t)value;
     
-    CFReleaseSafe(mech->data);
+    CFReleaseNull(mech->data);
     free_safe(mech->string);
 }
 

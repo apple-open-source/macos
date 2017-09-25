@@ -14,7 +14,6 @@
 0700	501	501	private/var/mobile/Library/Preferences
 0700	501	501	private/var/mobile/Library/Safari
 0700	501	501	private/var/mobile/Library/WebClips
-0700	501	501	private/var/mobile/Library/WebKit
 0750	501	501	private/var/mobile/Media
 0750	501	501	private/var/mobile/Media/DCIM
 0750	501	501	private/var/mobile/Media/PhotoData
@@ -26,7 +25,6 @@
 0755	501	501	private/var/Managed Preferences/mobile
 0755	root	wheel	private/var/preferences
 0755	root	wheel	private/var/preferences/Logging
-0755	root	wheel	private/var/preferences/Logging/Events
 0755	root	wheel	private/var/preferences/Logging/Processes
 0755	root	wheel	private/var/preferences/Logging/Subsystems
 0755	64	wheel	private/var/Keychains

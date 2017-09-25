@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebLoaderStrategy_h
-#define WebLoaderStrategy_h
+#pragma once
 
 #include "WebResourceLoader.h"
 #include <WebCore/LoaderStrategy.h>
@@ -35,6 +34,7 @@
 namespace WebKit {
 
 class NetworkProcessConnection;
+class WebURLSchemeTaskProxy;
 typedef uint64_t ResourceLoadIdentifier;
 
 class WebLoaderStrategy : public WebCore::LoaderStrategy {
@@ -57,10 +57,17 @@ public:
 
     void createPingHandle(WebCore::NetworkingContext*, WebCore::ResourceRequest&, bool shouldUseCredentialStorage, bool shouldFollowRedirects) override;
 
+    void storeDerivedDataToCache(const SHA1::Digest& bodyHash, const String& type, const String& partition, WebCore::SharedBuffer&) override;
+
+    void setCaptureExtraNetworkLoadMetricsEnabled(bool) override;
+
     WebResourceLoader* webResourceLoaderForIdentifier(ResourceLoadIdentifier identifier) const { return m_webResourceLoaders.get(identifier); }
     RefPtr<WebCore::NetscapePlugInStreamLoader> schedulePluginStreamLoad(WebCore::Frame&, WebCore::NetscapePlugInStreamLoaderClient&, const WebCore::ResourceRequest&);
 
     void networkProcessCrashed();
+
+    void addURLSchemeTaskProxy(WebURLSchemeTaskProxy&);
+    void removeURLSchemeTaskProxy(WebURLSchemeTaskProxy&);
 
 private:
     void scheduleLoad(WebCore::ResourceLoader&, WebCore::CachedResource*, bool shouldClearReferrerOnHTTPSToHTTPRedirect);
@@ -72,8 +79,7 @@ private:
     RunLoop::Timer<WebLoaderStrategy> m_internallyFailedLoadTimer;
     
     HashMap<unsigned long, RefPtr<WebResourceLoader>> m_webResourceLoaders;
+    HashMap<unsigned long, WebURLSchemeTaskProxy*> m_urlSchemeTasks;
 };
 
 } // namespace WebKit
-
-#endif

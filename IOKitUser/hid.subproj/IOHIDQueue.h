@@ -249,7 +249,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns valid IOHIDValueRef if data is available.
 */
 CF_EXPORT
-IOHIDValueRef IOHIDQueueCopyNextValue(
+IOHIDValueRef _Nullable IOHIDQueueCopyNextValue(
                                 IOHIDQueueRef                   queue)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
@@ -267,7 +267,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns valid IOHIDValueRef if data is available.
 */
 CF_EXPORT
-IOHIDValueRef IOHIDQueueCopyNextValueWithTimeout(
+IOHIDValueRef _Nullable IOHIDQueueCopyNextValueWithTimeout(
                                 IOHIDQueueRef                   queue,
                                 CFTimeInterval                  timeout)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;

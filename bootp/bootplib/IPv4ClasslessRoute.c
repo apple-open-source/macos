@@ -41,7 +41,6 @@
 #include <stddef.h>
 #include <arpa/inet.h>
 #include "IPConfigurationLog.h"
-#include <SystemConfiguration/SCValidation.h>
 #include "IPv4ClasslessRoute.h"
 #include "symbol_scope.h"
 #include "cfutil.h"

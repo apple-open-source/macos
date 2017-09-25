@@ -77,8 +77,7 @@ SecKeyRef create_private_key_from_der(bool ecdsa, const unsigned char *pkey_der,
 }
 
 static
-CF_RETURNS_RETAINED
-CFArrayRef chain_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey_der_len, const unsigned char *cert_der, size_t cert_der_len)
+CFArrayRef CF_RETURNS_RETAINED chain_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey_der_len, const unsigned char *cert_der, size_t cert_der_len)
 {
     SecKeyRef pkey = NULL;
     SecCertificateRef cert = NULL;

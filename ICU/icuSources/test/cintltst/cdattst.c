@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT:
  * Copyright (c) 1997-2016, International Business Machines Corporation and
@@ -1712,7 +1714,7 @@ static void TestOverrideNumberFormat(void) {
         overrideFmt = NULL; // no longer valid
         assertSuccess("udat_setNumberFormatForField()", &status);
 
-        getter_result = udat_getNumberFormatForField(fmt, 'd');
+        getter_result = udat_getNumberFormatForField(fmt, 0x0064 /*'d'*/);
         if(getter_result == NULL) {
             log_err("FAIL: udat_getNumberFormatForField did not return a valid pointer\n");
         }
@@ -1819,6 +1821,7 @@ static void TestParseErrorReturnValue(void) {
 static const char localeForFields[] = "en_US";
 /* zoneGMT[]defined above */
 static const UDate date2015Feb25 = 1424841000000.0; /* Wednesday, February 25, 2015 at 5:10:00 AM GMT */
+static const UChar patNoFields[] = { 0x0027, 0x0078, 0x0078, 0x0078, 0x0027, 0 }; /* "'xxx'" */
 
 typedef struct {
     int32_t field;
@@ -1908,6 +1911,19 @@ static void TestFormatForFields(void) {
                 }
             }
 
+            udat_applyPattern(udfmt, FALSE, patNoFields, -1);
+            status = U_ZERO_ERROR;
+            ulen = udat_formatForFields(udfmt, date2015Feb25, ubuf, kUBufFieldsLen, fpositer, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("udat_formatForFields with no-field pattern fails, status %s\n", u_errorName(status));
+            } else {
+                field = ufieldpositer_next(fpositer, &beginPos, &endPos);
+                if (field >= 0) {
+                    log_err("udat_formatForFields with no-field pattern as \"%s\"; expect field < 0, get field %d range %d-%d\n",
+                            aescstrdup(ubuf, ulen), field, beginPos, endPos);
+                }
+            }
+
             ucal_close(ucal);
             udat_close(udfmt);
         }
@@ -1929,9 +1945,9 @@ typedef struct {
 
 static const StandardPatternItem stdPatternItems[] = {
     { "en_JP", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 5:10" },
-    { "en_CN", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015, 5:10 AM" },
-    { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015, 5:10 AM" },
-    { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015, 5:10 AM" },
+    { "en_CN", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
+    { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
+    { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
 
@@ -2430,9 +2446,9 @@ static const char * remapResults_ja[] = {
     "H:mm",          // short
     "H:mm",          //   force24
     "aK:mm",         //   force12
-    "y\\u5E74M\\u6708d\\u65E5EEEE H:mm:ss z",  // long_df
-    "y\\u5E74M\\u6708d\\u65E5EEEE H:mm:ss z",  //   force24
-    "y\\u5E74M\\u6708d\\u65E5EEEE aK:mm:ss z", //   force12
+    "y\\u5E74M\\u6708d\\u65E5 EEEE H:mm:ss z",  // long_df
+    "y\\u5E74M\\u6708d\\u65E5 EEEE H:mm:ss z",  //   force24
+    "y\\u5E74M\\u6708d\\u65E5 EEEE aK:mm:ss z", //   force12
     "y/MM/dd H:mm",  // short_ds
     "y/MM/dd H:mm",  //   force24
     "y/MM/dd aK:mm", //   force12
@@ -2657,6 +2673,66 @@ static const char * remapResults_hi[] = {
     NULL
 };
 
+static const char * remapResults_ar[] = {
+    "h:mm:ss\\u00A0a zzzz", // full
+    "HH:mm:ss zzzz",        //   force24
+    "h:mm:ss\\u00A0a zzzz", //   force12
+    "h:mm:ss\\u00A0a z",    // long
+    "HH:mm:ss z",           //   force24
+    "h:mm:ss\\u00A0a z",    //   force12
+    "h:mm:ss\\u00A0a",      // medium
+    "HH:mm:ss",             //   force24
+    "h:mm:ss\\u00A0a",      //   force12
+    "h:mm\\u00A0a",         // short
+    "HH:mm",                //   force24
+    "h:mm\\u00A0a",         //   force12
+    "EEEE\\u060C d MMMM\\u060C y\\u060C h:mm:ss\\u00A0a z", // long_df
+    "EEEE\\u060C d MMMM\\u060C y\\u060C HH:mm:ss z",        //   force24
+    "EEEE\\u060C d MMMM\\u060C y\\u060C h:mm:ss\\u00A0a z", //   force12
+    "d\\u200F/M\\u200F/y\\u060C h:mm\\u00A0a",              // short_ds
+    "d\\u200F/M\\u200F/y\\u060C HH:mm",                     //   force24
+    "d\\u200F/M\\u200F/y\\u060C h:mm\\u00A0a",              //   force12
+
+    "h:mm:ss\\u00A0a",      // jmmss
+    "HH:mm:ss",             //   force24
+    "h:mm:ss\\u00A0a",      //   force12
+    "h:mm:ss\\u00A0a",      // jjmmss
+    "HH:mm:ss",             //   force24
+    "HH:mm:ss",             //   force24 | match hour field length
+    "h:mm:ss\\u00A0a",      //   force12
+    "hh:mm:ss\\u00A0a",     //   force12 | match hour field length
+    "hh:mm",                // Jmm
+    "HH:mm",                //   force24
+    "hh:mm",                //   force12
+    "h:mm:ss\\u00A0a v",    // jmsv
+    "HH:mm:ss v",           //   force24
+    "h:mm:ss\\u00A0a v",    //   force12
+    "h:mm:ss\\u00A0a z",    // jmsz
+    "HH:mm:ss z",           //   force24
+    "h:mm:ss\\u00A0a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ssa",                           // "H:mm:ss" (should there be \\u00A0 before a?)
+    "H:mm:ss",                            //
+    "h:mm:ssa d MMM y",                   // "H:mm:ss d MMM y" (should there be \\u00A0 before a?)
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ssa 'hrs'",  // "EEE, d MMM y 'aha' H:mm:ss 'hrs'" (should there be \\u00A0 before a?)
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ssa",    // "EEE, d MMM y 'aha' H'h'mm'm'ss" (should there be \\u00A0 before a?)
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+    NULL
+};
+
 typedef struct {
     const char * locale;
     const char ** resultsPtr;
@@ -2669,6 +2745,7 @@ static const RemapPatternLocaleResults remapLocResults[] = {
     { "ko",     remapResults_ko   },
     { "th",     remapResults_th   },
     { "hi",     remapResults_hi   },
+    { "ar",     remapResults_ar   },
     { NULL,     NULL }
 };
 

@@ -21,6 +21,8 @@
 //
 #ifndef _H_OSXCODE
 #define _H_OSXCODE
+#include <TargetConditionals.h>
+
 
 #include <security_utilities/refcount.h>
 #include <security_utilities/cfutilities.h>

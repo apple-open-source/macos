@@ -52,7 +52,7 @@
     <p>Wenn Sie von einer Unterversion auf die nächste aktualisieren (z.B.
     von 2.0.50 auf 2.0.51), springen Sie bitte zum Abschnitt <a href="#upgrading">Upgrade</a>.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Überblick für die Ungeduldigen</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Überblick für die Ungeduldigen</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#requirements">Anforderungen</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#download">Download</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#extract">Auspacken</a></li>
@@ -427,7 +427,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/install.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Module</a> | <a href="./mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossar</a> | <a href="./sitemap.html">Seitenindex</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

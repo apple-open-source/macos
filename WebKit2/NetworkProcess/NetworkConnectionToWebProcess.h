@@ -29,6 +29,8 @@
 #include "Connection.h"
 #include "DownloadID.h"
 #include "NetworkConnectionToWebProcessMessages.h"
+#include "NetworkRTCProvider.h"
+
 #include <WebCore/ResourceLoadPriority.h>
 #include <wtf/RefCounted.h>
 
@@ -41,8 +43,13 @@ namespace WebKit {
 
 class NetworkConnectionToWebProcess;
 class NetworkResourceLoader;
+class NetworkSocketStream;
 class SyncNetworkResourceLoader;
 typedef uint64_t ResourceLoadIdentifier;
+
+namespace NetworkCache {
+struct DataKey;
+}
 
 class NetworkConnectionToWebProcess : public RefCounted<NetworkConnectionToWebProcess>, IPC::Connection::Client {
 public:
@@ -53,7 +60,12 @@ public:
 
     void didCleanupResourceLoader(NetworkResourceLoader&);
 
+    bool captureExtraNetworkLoadMetricsEnabled() const { return m_captureExtraNetworkLoadMetricsEnabled; }
+
     RefPtr<WebCore::BlobDataFileReference> getBlobDataFileReferenceForPath(const String& path);
+
+    void cleanupForSuspension(Function<void()>&&);
+    void endSuspension();
 
 private:
     NetworkConnectionToWebProcess(IPC::Connection::Identifier);
@@ -67,9 +79,9 @@ private:
     // Message handlers.
     void didReceiveNetworkConnectionToWebProcessMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveSyncNetworkConnectionToWebProcessMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
-    
+
     void scheduleResourceLoad(const NetworkResourceLoadParameters&);
-    void performSynchronousLoad(const NetworkResourceLoadParameters&, RefPtr<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>&&);
+    void performSynchronousLoad(const NetworkResourceLoadParameters&, Ref<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>&&);
     void loadPing(const NetworkResourceLoadParameters&);
     void prefetchDNS(const String&);
 
@@ -85,7 +97,6 @@ private:
     void cookieRequestHeaderFieldValue(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, String& result);
     void getRawCookies(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&, Vector<WebCore::Cookie>&);
     void deleteCookie(WebCore::SessionID, const WebCore::URL&, const String& cookieName);
-    void addCookie(WebCore::SessionID, const WebCore::URL&, const WebCore::Cookie&);
 
     void registerFileBlobURL(const WebCore::URL&, const String& path, const SandboxExtension::Handle&, const String& contentType);
     void registerBlobURL(const WebCore::URL&, Vector<WebCore::BlobPart>&&, const String& contentType);
@@ -97,12 +108,30 @@ private:
     void unregisterBlobURL(const WebCore::URL&);
     void writeBlobsToTemporaryFiles(const Vector<String>& blobURLs, uint64_t requestIdentifier);
 
+    void storeDerivedDataToCache(const WebKit::NetworkCache::DataKey&, const IPC::DataReference&);
+
+    void setCaptureExtraNetworkLoadMetricsEnabled(bool);
+
+    void createSocketStream(WebCore::URL&&, WebCore::SessionID, String cachePartition, uint64_t);
+    void destroySocketStream(uint64_t);
+    
     void ensureLegacyPrivateBrowsingSession();
 
+#if USE(LIBWEBRTC)
+    NetworkRTCProvider& rtcProvider();
+#endif
+    
     Ref<IPC::Connection> m_connection;
 
+    HashMap<uint64_t, RefPtr<NetworkSocketStream>> m_networkSocketStreams;
     HashMap<ResourceLoadIdentifier, RefPtr<NetworkResourceLoader>> m_networkResourceLoaders;
     HashMap<String, RefPtr<WebCore::BlobDataFileReference>> m_blobDataFileReferences;
+
+#if USE(LIBWEBRTC)
+    RefPtr<NetworkRTCProvider> m_rtcProvider;
+#endif
+
+    bool m_captureExtraNetworkLoadMetricsEnabled { false };
 };
 
 } // namespace WebKit

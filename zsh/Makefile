@@ -4,11 +4,12 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 5.2
+ProjectVersion	      = 5.3
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
 Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte \
+                        --enable-unicode9 \
                         --enable-max-function-depth=700
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries

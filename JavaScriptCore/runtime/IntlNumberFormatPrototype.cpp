@@ -47,7 +47,7 @@ static EncodedJSValue JSC_HOST_CALL IntlNumberFormatPrototypeFuncResolvedOptions
 
 namespace JSC {
 
-const ClassInfo IntlNumberFormatPrototype::s_info = { "Object", &IntlNumberFormat::s_info, &numberFormatPrototypeTable, CREATE_METHOD_TABLE(IntlNumberFormatPrototype) };
+const ClassInfo IntlNumberFormatPrototype::s_info = { "Object", &Base::s_info, &numberFormatPrototypeTable, nullptr, CREATE_METHOD_TABLE(IntlNumberFormatPrototype) };
 
 /* Source for IntlNumberFormatPrototype.lut.h
 @begin numberFormatPrototypeTable
@@ -69,7 +69,7 @@ Structure* IntlNumberFormatPrototype::createStructure(VM& vm, JSGlobalObject* gl
 }
 
 IntlNumberFormatPrototype::IntlNumberFormatPrototype(VM& vm, Structure* structure)
-    : IntlNumberFormat(vm, structure)
+    : Base(vm, structure)
 {
 }
 
@@ -105,14 +105,14 @@ EncodedJSValue JSC_HOST_CALL IntlNumberFormatPrototypeGetterFormat(ExecState* st
 
     // 11.3.3 Intl.NumberFormat.prototype.format (ECMA-402 2.0)
     // 1. Let nf be this NumberFormat object.
-    IntlNumberFormat* nf = jsDynamicCast<IntlNumberFormat*>(state->thisValue());
+    IntlNumberFormat* nf = jsDynamicCast<IntlNumberFormat*>(vm, state->thisValue());
 
     // FIXME: Workaround to provide compatibility with ECMA-402 1.0 call/apply patterns.
     // https://bugs.webkit.org/show_bug.cgi?id=153679
     if (!nf) {
         JSValue value = state->thisValue().get(state, vm.propertyNames->builtinNames().intlSubstituteValuePrivateName());
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
-        nf = jsDynamicCast<IntlNumberFormat*>(value);
+        nf = jsDynamicCast<IntlNumberFormat*>(vm, value);
     }
 
     if (!nf)
@@ -141,14 +141,14 @@ EncodedJSValue JSC_HOST_CALL IntlNumberFormatPrototypeFuncResolvedOptions(ExecSt
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     // 11.3.5 Intl.NumberFormat.prototype.resolvedOptions() (ECMA-402 2.0)
-    IntlNumberFormat* numberFormat = jsDynamicCast<IntlNumberFormat*>(state->thisValue());
+    IntlNumberFormat* numberFormat = jsDynamicCast<IntlNumberFormat*>(vm, state->thisValue());
 
     // FIXME: Workaround to provide compatibility with ECMA-402 1.0 call/apply patterns.
     // https://bugs.webkit.org/show_bug.cgi?id=153679
     if (!numberFormat) {
         JSValue value = state->thisValue().get(state, vm.propertyNames->builtinNames().intlSubstituteValuePrivateName());
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
-        numberFormat = jsDynamicCast<IntlNumberFormat*>(value);
+        numberFormat = jsDynamicCast<IntlNumberFormat*>(vm, value);
     }
 
     if (!numberFormat)

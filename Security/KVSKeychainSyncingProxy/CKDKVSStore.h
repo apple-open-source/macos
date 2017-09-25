@@ -13,6 +13,7 @@
 - (instancetype)init;
 
 - (void)connectToProxy: (UbiqitousKVSProxy*) proxy;
+- (void)addOneToOutGoing;
 
 - (NSObject*)objectForKey:(NSString*)key;
 

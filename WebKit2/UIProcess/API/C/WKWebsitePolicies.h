@@ -33,10 +33,29 @@ extern "C" {
 
 WK_EXPORT WKTypeID WKWebsitePoliciesGetTypeID();
 
+enum WKWebsiteAutoplayPolicy {
+    kWKWebsiteAutoplayPolicyDefault,
+    kWKWebsiteAutoplayPolicyAllow,
+    kWKWebsiteAutoplayPolicyAllowWithoutSound,
+    kWKWebsiteAutoplayPolicyDeny
+};
+
+typedef uint32_t WKWebsiteAutoplayQuirk;
+enum {
+    kWKWebsiteAutoplayQuirkSynthesizedPauseEvents = 1 << 0,
+    kWKWebsiteAutoplayQuirkInheritedUserGestures = 1 << 1,
+};
+
 WK_EXPORT WKWebsitePoliciesRef WKWebsitePoliciesCreate();
 
 WK_EXPORT bool WKWebsitePoliciesGetContentBlockersEnabled(WKWebsitePoliciesRef);
 WK_EXPORT void WKWebsitePoliciesSetContentBlockersEnabled(WKWebsitePoliciesRef, bool);
+
+WK_EXPORT WKWebsiteAutoplayQuirk WKWebsitePoliciesGetAllowedAutoplayQuirks(WKWebsitePoliciesRef);
+WK_EXPORT void WKWebsitePoliciesSetAllowedAutoplayQuirks(WKWebsitePoliciesRef, WKWebsiteAutoplayQuirk);
+
+WK_EXPORT WKWebsiteAutoplayPolicy WKWebsitePoliciesGetAutoplayPolicy(WKWebsitePoliciesRef);
+WK_EXPORT void WKWebsitePoliciesSetAutoplayPolicy(WKWebsitePoliciesRef, WKWebsiteAutoplayPolicy);
 
 #ifdef __cplusplus
 }

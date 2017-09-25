@@ -180,14 +180,18 @@
 /* .IP "\fBdefault_database_type (see 'postconf -d' output)\fR"
 /*	The default database type for use in \fBnewaliases\fR(1), \fBpostalias\fR(1)
 /*	and \fBpostmap\fR(1) commands.
+/* .IP "\fBimport_environment (see 'postconf -d' output)\fR"
+/*	The list of environment parameters that a privileged Postfix
+/*	process will import from a non-Postfix parent process, or name=value
+/*	environment overrides.
 /* .IP "\fBsmtputf8_enable (yes)\fR"
 /*	Enable preliminary SMTPUTF8 support for the protocols described
 /*	in RFC 6531..6533.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-/*	The mail system name that is prepended to the process name in syslog
-/*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/*	A prefix that is prepended to the process name in syslog
+/*	records, so that, for example, "smtpd" becomes "prefix/smtpd".
 /* STANDARDS
 /*	RFC 822 (ARPA Internet Text Messages)
 /* SEE ALSO
@@ -246,6 +250,7 @@
 #include <vstring_vstream.h>
 #include <set_eugid.h>
 #include <warn_stat.h>
+#include <clean_env.h>
 
 /* Global library. */
 
@@ -257,6 +262,7 @@
 #include <mkmap.h>
 #include <mail_task.h>
 #include <dict_proxy.h>
+#include <mail_parm_split.h>
 
 /* Application-specific. */
 
@@ -499,7 +505,7 @@ static int postalias_queries(VSTREAM *in, char **maps, const int map_count,
 	dicts[n] = 0;
 
     /*
-     * Perform all queries. Open maps on the fly, to avoid opening unecessary
+     * Perform all queries. Open maps on the fly, to avoid opening unnecessary
      * maps.
      */
     while (vstring_get_nonl(keybuf, in) != VSTREAM_EOF) {
@@ -700,6 +706,7 @@ int     main(int argc, char **argv)
     char   *delkey = 0;
     int     sequence = 0;
     int     found;
+    ARGV   *import_env;
 
     /*
      * Fingerprint executables and core dumps.
@@ -806,6 +813,10 @@ int     main(int argc, char **argv)
 	}
     }
     mail_conf_read();
+    /* Enforce consistent operation of different Postfix parts. */
+    import_env = mail_parm_split(VAR_IMPORT_ENVIRON, var_import_environ);
+    update_env(import_env->argv);
+    argv_free(import_env);
     /* Re-evaluate mail_task() after reading main.cf. */
     msg_syslog_init(mail_task(argv[0]), LOG_PID, LOG_FACILITY);
     mail_dict_init();

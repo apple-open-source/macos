@@ -1,8 +1,15 @@
 #!./miniruby -s
 
+# This script, which is run when ruby is built, generates rbconfig.rb by
+# parsing information from config.status.  rbconfig.rb contains build
+# information for ruby (compiler flags, paths, etc.) and is used e.g. by
+# mkmf to build compatible native extensions.
+
 # avoid warnings with -d.
 $install_name ||= nil
 $so_name ||= nil
+arch = $arch or raise "missing -arch"
+version = $version or raise "missing -version"
 
 srcdir = File.expand_path('../..', __FILE__)
 $:.replace [srcdir+"/lib"] unless defined?(CROSS_COMPILING)
@@ -16,7 +23,6 @@ unless File.directory?(dir = File.dirname(rbconfig_rb))
   FileUtils.makedirs(dir, :verbose => true)
 end
 
-version = RUBY_VERSION
 config = ""
 def config.write(arg)
   concat(arg.to_s)
@@ -24,25 +30,16 @@ end
 $stdout = config
 
 fast = {'prefix'=>TRUE, 'ruby_install_name'=>TRUE, 'INSTALL'=>TRUE, 'EXEEXT'=>TRUE}
-print %[
-# This file was created by #{mkconfig} when ruby was built.  Any
-# changes made to this file will be lost the next time ruby is built.
 
-module RbConfig
-  RUBY_VERSION == "#{version}" or
-    raise "ruby lib version (#{version}) doesn't match executable version (\#{RUBY_VERSION})"
-
-]
-
-arch = RUBY_PLATFORM
 win32 = /mswin/ =~ arch
 universal = /universal.*darwin/ =~ arch
 v_fast = []
 v_others = []
-v_runtime = {}
 vars = {}
 continued_name = nil
 continued_line = nil
+install_name = nil
+so_name = nil
 File.foreach "config.status" do |line|
   next if /^#/ =~ line
   name = nil
@@ -73,12 +70,16 @@ File.foreach "config.status" do |line|
   if name
     case name
     when /^(?:ac_.*|configure_input|(?:top_)?srcdir|\w+OBJS)$/; next
-    when /^(?:X|(?:MINI|RUN|BASE)RUBY$)/; next
-    when /^(?:MAJOR|MINOR|TEENY)$/; next
-    when /^RUBY_INSTALL_NAME$/; next if $install_name
-    when /^RUBY_SO_NAME$/; next if $so_name
+    when /^(?:X|(?:MINI|RUN|(?:HAVE_)?BASE|BOOTSTRAP|BTEST)RUBY(?:_COMMAND)?$)/; next
+    when /^INSTALLDOC|TARGET$/; next
+    when /^DTRACE/; next
+    when /^(?:MAJOR|MINOR|TEENY)$/; vars[name] = val; next
+    when /^LIBRUBY_D?LD/; next
+    when /^RUBY_INSTALL_NAME$/; next vars[name] = (install_name = val).dup if $install_name
+    when /^RUBY_SO_NAME$/; next vars[name] = (so_name = val).dup if $so_name
     when /^arch$/; if val.empty? then val = arch else arch = val end
     when /^sitearch$/; val = '$(arch)' if val.empty?
+    when /^DESTDIR$/; next
     end
     case val
     when /^\$\(ac_\w+\)$/; next
@@ -116,12 +117,6 @@ File.foreach "config.status" do |line|
     eq = win32 && vars[name] ? '<< "\n"' : '='
     vars[name] = val
     if name == "configure_args"
-      if win32
-        val.gsub!(/\G(--[-a-z0-9]+)((=\S+)|(?:\s+(?!-)\S+)+)?(\s*)/) {
-          _, opt, list, arg, sep = *$~
-          "#{opt}#{arg || list && list.sub(/^\s+/, '=').tr_s(' ', ',')}#{sep}"
-        }
-      end
       val.gsub!(/--with-out-ext/, "--without-ext")
     end
     val = val.gsub(/\$(?:\$|\{?(\w+)\}?)/) {$1 ? "$(#{$1})" : $&}.dump
@@ -133,7 +128,7 @@ File.foreach "config.status" do |line|
     when /^UNIVERSAL_ARCHNAMES$/
       universal, val = val, 'universal' if universal
     when /^includedir$/
-      val = "(ENV['SDKROOT'] || (File.exists?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
+      val = "(ENV['SDKROOT'] || (File.exist?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
     when /^(CXXFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
       if universal
         # configure didn't strip -arch nor -m32/64 from CXXFLAGS
@@ -142,6 +137,10 @@ File.foreach "config.status" do |line|
           val.gsub!(/\s*-(arch\s*\w+|m(32|64))/, '')
         end
       end
+    when /^CC$/
+      val = '"xcrun clang"'
+    when /^CXX$/
+      val = '"xcrun clang++"'
     end
     v = "  CONFIG[\"#{name}\"] #{eq} #{val}\n"
     if fast[name]
@@ -150,7 +149,7 @@ File.foreach "config.status" do |line|
       v_others << v
     end
     case name
-    when "ruby_version"
+    when "RUBY_PROGRAM_VERSION"
       version = val[/\A"(.*)"\z/, 1]
     end
   end
@@ -177,10 +176,22 @@ def vars.expand(val, config = self)
   val.replace(newval) unless newval == val
   val
 end
-vars["prefix"] = ""
-vars["exec_prefix"] = ""
-prefix = vars.expand(vars["rubyarchdir"])
-print "  TOPDIR = File.dirname(__FILE__).chomp!(#{prefix.dump})\n"
+prefix = vars.expand(vars["prefix"] ||= "")
+rubyarchdir = vars.expand(vars["rubyarchdir"] ||= "")
+relative_archdir = rubyarchdir.rindex(prefix, 0) ? rubyarchdir[prefix.size..-1] : rubyarchdir
+puts %[\
+# frozen-string-literal: false
+# This file was created by #{mkconfig} when ruby was built.  It contains
+# build information for ruby which is used e.g. by mkmf to build
+# compatible native extensions.  Any changes made to this file will be
+# lost the next time ruby is built.
+
+module RbConfig
+  RUBY_VERSION.start_with?("#{version[/^[0-9]+\.[0-9]+\./] || version}") or
+    raise "ruby lib version (#{version}) doesn't match executable version (\#{RUBY_VERSION})"
+
+]
+print "  TOPDIR = File.dirname(__FILE__).chomp!(#{relative_archdir.dump})\n"
 print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
 print <<'ARCH' if universal
   arch_flag = ENV['ARCHFLAGS'] || ((e = ENV['RC_ARCHS']) && e.split.uniq.map {|a| "-arch #{a}"}.join(' '))
@@ -226,15 +237,24 @@ end
 v_others.compact!
 
 if $install_name
+  if install_name and vars.expand("$(RUBY_INSTALL_NAME)") == $install_name
+    $install_name = install_name
+  end
   v_fast << "  CONFIG[\"ruby_install_name\"] = \"" + $install_name + "\"\n"
   v_fast << "  CONFIG[\"RUBY_INSTALL_NAME\"] = \"" + $install_name + "\"\n"
 end
 if $so_name
+  if so_name and vars.expand("$(RUBY_SO_NAME)") == $so_name
+    $so_name = so_name
+  end
   v_fast << "  CONFIG[\"RUBY_SO_NAME\"] = \"" + $so_name + "\"\n"
 end
 
 print(*v_fast)
 print(*v_others)
+print <<EOS if /darwin/ =~ arch
+  CONFIG["SDKROOT"] = ENV["SDKROOT"] || "" # don't run xcrun everytime, usually useless.
+EOS
 print <<EOS
   CONFIG["archdir"] = "$(rubyarchdir)"
   CONFIG["topdir"] = File.dirname(__FILE__)
@@ -270,7 +290,6 @@ print <<EOS
     )
   end
 end
-autoload :Config, "rbconfig/obsolete.rb" # compatibility for ruby-1.8.4 and older.
 CROSS_COMPILING = nil unless defined? CROSS_COMPILING
 RUBY_FRAMEWORK = true
 RUBY_FRAMEWORK_VERSION = RbConfig::CONFIG['ruby_version']

@@ -28,6 +28,7 @@
 #include "TextIterator.h"
 
 #include "Document.h"
+#include "Editing.h"
 #include "FontCascade.h"
 #include "Frame.h"
 #include "HTMLBodyElement.h"
@@ -52,15 +53,16 @@
 #include "RenderTextFragment.h"
 #include "ShadowRoot.h"
 #include "SimpleLineLayout.h"
+#include "SimpleLineLayoutFunctions.h"
 #include "SimpleLineLayoutResolver.h"
 #include "TextBoundaries.h"
-#include <wtf/text/TextBreakIterator.h>
 #include "TextControlInnerElements.h"
 #include "VisiblePosition.h"
 #include "VisibleUnits.h"
-#include "htmlediting.h"
+#include <wtf/Function.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/TextBreakIterator.h>
 #include <wtf/unicode/CharacterNames.h>
 
 #if !UCONFIG_NO_COLLATION
@@ -444,6 +446,11 @@ static inline Node* parentNodeOrShadowHost(TextIteratorBehavior options, Node& n
     return node.parentOrShadowHostNode();
 }
 
+static inline bool hasDisplayContents(Node& node)
+{
+    return is<Element>(node) && downcast<Element>(node).hasDisplayContents();
+}
+
 void TextIterator::advance()
 {
     ASSERT(!atEnd());
@@ -491,12 +498,12 @@ void TextIterator::advance()
         }
         
         auto* renderer = m_node->renderer();
-        if (!renderer) {
-            m_handledNode = true;
-            m_handledChildren = !((m_behavior & TextIteratorTraversesFlatTree) && is<Element>(*m_node) && downcast<Element>(*m_node).hasDisplayContents());
-        } else {
-            // handle current node according to its type
-            if (!m_handledNode) {
+        if (!m_handledNode) {
+            if (!renderer) {
+                m_handledNode = true;
+                m_handledChildren = !hasDisplayContents(*m_node);
+            } else {
+                // handle current node according to its type
                 if (renderer->isText() && m_node->isTextNode())
                     m_handledNode = handleTextNode();
                 else if (isRendererReplacedElement(renderer))
@@ -648,7 +655,8 @@ bool TextIterator::handleTextNode()
         auto range = m_flowRunResolverCache->rangeForRenderer(renderer);
         auto it = range.begin();
         auto end = range.end();
-        while (it != end && (*it).end() <= (static_cast<unsigned>(m_offset) + m_accumulatedSimpleTextLengthInFlow))
+        auto startPosition = static_cast<unsigned>(m_offset) + m_accumulatedSimpleTextLengthInFlow;
+        while (it != end && (*it).end() <= startPosition)
             ++it;
         if (m_nextRunNeedsWhitespace && rendererText[m_offset - 1] == '\n') {
             emitCharacter(' ', textNode, nullptr, m_offset, m_offset + 1);
@@ -664,7 +672,17 @@ bool TextIterator::handleTextNode()
             emitCharacter(' ', textNode, nullptr, m_offset, m_offset + 1);
             return false;
         }
-        const auto run = *it;
+        // If the position we are looking for is to the left of the renderer's first run, it could mean that
+        // the runs and the renderers are out of sync (e.g. we skipped a renderer in between).
+        // Better bail out at this point.
+        auto run = *it;
+        if (run.start() > startPosition) {
+            ASSERT(m_flowRunResolverCache);
+            if (&(rendererForPosition(m_flowRunResolverCache->flowContents(), startPosition)) != &renderer) {
+                ASSERT_NOT_REACHED();
+                return true;
+            }
+        }
         ASSERT(run.end() - run.start() <= rendererText.length());
         // contentStart skips leading whitespace.
         unsigned contentStart = std::max<unsigned>(m_offset, run.start() - m_accumulatedSimpleTextLengthInFlow);
@@ -2493,10 +2511,10 @@ int TextIterator::rangeLength(const Range* range, bool forSelectionPreservation)
     return length;
 }
 
-Ref<Range> TextIterator::subrange(Range* entireRange, int characterOffset, int characterCount)
+Ref<Range> TextIterator::subrange(Range& entireRange, int characterOffset, int characterCount)
 {
-    CharacterIterator entireRangeIterator(*entireRange);
-    return characterSubrange(entireRange->ownerDocument(), entireRangeIterator, characterOffset, characterCount);
+    CharacterIterator entireRangeIterator(entireRange);
+    return characterSubrange(entireRange.ownerDocument(), entireRangeIterator, characterOffset, characterCount);
 }
 
 static inline bool isInsideReplacedElement(TextIterator& iterator)
@@ -2656,10 +2674,28 @@ static Ref<Range> collapsedToBoundary(const Range& range, bool forward)
     return result;
 }
 
-static std::optional<std::pair<size_t, size_t>> findPlainTextOffset(SearchBuffer& buffer, CharacterIterator& findIterator, bool searchForward)
+static TextIteratorBehavior findIteratorOptions(FindOptions options)
 {
-    size_t matchStart = 0;
-    size_t matchLength = 0;
+    TextIteratorBehavior iteratorOptions = TextIteratorEntersTextControls | TextIteratorClipsToFrameAncestors;
+    if (!(options & DoNotTraverseFlatTree))
+        iteratorOptions |= TextIteratorTraversesFlatTree;
+    return iteratorOptions;
+}
+
+static void findPlainTextMatches(const Range& range, const String& target, FindOptions options, const WTF::Function<bool(size_t, size_t)>& match)
+{
+    SearchBuffer buffer(target, options);
+    if (buffer.needsMoreContext()) {
+        Ref<Range> beforeStartRange = range.ownerDocument().createRange();
+        beforeStartRange->setEnd(range.startContainer(), range.startOffset());
+        for (SimplifiedBackwardsTextIterator backwardsIterator(beforeStartRange.get()); !backwardsIterator.atEnd(); backwardsIterator.advance()) {
+            buffer.prependContext(backwardsIterator.text());
+            if (!buffer.needsMoreContext())
+                break;
+        }
+    }
+
+    CharacterIterator findIterator(range, findIteratorOptions(options));
     while (!findIterator.atEnd()) {
         findIterator.advance(buffer.append(findIterator.text()));
         while (1) {
@@ -2674,45 +2710,53 @@ static std::optional<std::pair<size_t, size_t>> findPlainTextOffset(SearchBuffer
             }
             size_t lastCharacterInBufferOffset = findIterator.characterOffset();
             ASSERT(lastCharacterInBufferOffset >= matchStartOffset);
-            matchStart = lastCharacterInBufferOffset - matchStartOffset;
-            matchLength = newMatchLength;
-            if (searchForward) // Look for the last match when searching backwards instead.
-                return std::pair<size_t, size_t> { matchStart, matchLength };
+            if (match(lastCharacterInBufferOffset - matchStartOffset, newMatchLength))
+                return;
         }
     }
+}
 
+static Ref<Range> rangeForMatch(const Range& range, FindOptions options, size_t matchStart, size_t matchLength, bool searchForward)
+{
     if (!matchLength)
-        return std::nullopt;
+        return collapsedToBoundary(range, searchForward);
+    CharacterIterator rangeComputeIterator(range, findIteratorOptions(options));
+    return characterSubrange(range.ownerDocument(), rangeComputeIterator, matchStart, matchLength);
+}
 
-    return std::pair<size_t, size_t> { matchStart, matchLength };
+Ref<Range> findClosestPlainText(const Range& range, const String& target, FindOptions options, unsigned targetOffset)
+{
+    size_t matchStart = 0;
+    size_t matchLength = 0;
+    size_t distance = std::numeric_limits<size_t>::max();
+    auto match = [targetOffset, &distance, &matchStart, &matchLength] (size_t start, size_t length) {
+        size_t newDistance = std::min(abs(static_cast<signed>(start - targetOffset)), abs(static_cast<signed>(start + length - targetOffset)));
+        if (newDistance < distance) {
+            matchStart = start;
+            matchLength = length;
+            distance = newDistance;
+        }
+        return false;
+    };
+
+    findPlainTextMatches(range, target, options, WTFMove(match));
+    return rangeForMatch(range, options, matchStart, matchLength, !(options & Backwards));
 }
 
 Ref<Range> findPlainText(const Range& range, const String& target, FindOptions options)
 {
-    SearchBuffer buffer(target, options);
-
-    if (buffer.needsMoreContext()) {
-        Ref<Range> beforeStartRange = range.ownerDocument().createRange();
-        beforeStartRange->setEnd(range.startContainer(), range.startOffset());
-        for (SimplifiedBackwardsTextIterator backwardsIterator(beforeStartRange.get()); !backwardsIterator.atEnd(); backwardsIterator.advance()) {
-            buffer.prependContext(backwardsIterator.text());
-            if (!buffer.needsMoreContext())
-                break;
-        }
-    }
-
     bool searchForward = !(options & Backwards);
-    TextIteratorBehavior iteratorOptions = TextIteratorEntersTextControls | TextIteratorClipsToFrameAncestors;
-    if (!(options & DoNotTraverseFlatTree))
-        iteratorOptions |= TextIteratorTraversesFlatTree;
+    size_t matchStart = 0;
+    size_t matchLength = 0;
+    auto match = [searchForward, &matchStart, &matchLength] (size_t start, size_t length) {
+        matchStart = start;
+        matchLength = length;
+        // Look for the last match when searching backwards instead.
+        return searchForward;
+    };
 
-    CharacterIterator findIterator(range, iteratorOptions);
-    auto result = findPlainTextOffset(buffer, findIterator, searchForward);
-    if (!result)
-        return collapsedToBoundary(range, searchForward);
-
-    CharacterIterator rangeComputeIterator(range, iteratorOptions);
-    return characterSubrange(range.ownerDocument(), rangeComputeIterator, result->first, result->second);
+    findPlainTextMatches(range, target, options, WTFMove(match));
+    return rangeForMatch(range, options, matchStart, matchLength, searchForward);
 }
 
 }

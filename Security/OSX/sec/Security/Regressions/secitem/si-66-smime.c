@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AssertMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 #include <Security/SecCMS.h>
@@ -55,6 +56,7 @@
 
 #include "shared_regressions.h"
 #include "si-66-smime/signed-receipt.h"
+#include "si-66-smime/smime_attr_emails.h"
 
 uint8_t message_hash[] = {
     0x61, 0x49, 0xAE, 0x84, 0xA6, 0xE6, 0xDE, 0x73,
@@ -2437,7 +2439,7 @@ int writeFile(
     int     fd;
 
     fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0600);
-    if(fd < 0) {
+    if(fd == -1) {
         return errno;
     }
     rtn = (int)lseek(fd, 0, SEEK_SET);
@@ -2530,15 +2532,17 @@ static void tests(void)
                                                                 self_key, self_val, array_size(self_key), NULL, NULL);
 
     const void * cn[] = { kSecOidCommonName, CFSTR("Root CA") };
-    CFArrayRef cn_dn = CFArrayCreate(kCFAllocatorDefault, cn, 2, NULL);
-    CFArrayRef rdns = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_dn, 1, NULL);
+    CFArrayRef cn_atv = CFArrayCreate(kCFAllocatorDefault, cn, 2, NULL);
+    CFArrayRef cn_rdn = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_atv, 1, NULL);
+    CFArrayRef rdns = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_rdn, 1, NULL);
     SecCertificateRef cert = SecGenerateSelfSignedCertificate(rdns,
                          self_signed_parameters, publicKey, privateKey);
     CFReleaseNull(subject_alt_names);
     CFReleaseNull(key_usage_num);
 
     CFReleaseSafe(rdns);
-    CFReleaseNull(cn_dn);
+    CFReleaseNull(cn_rdn);
+    CFReleaseNull(cn_atv);
     CFReleaseSafe(self_signed_parameters);
     SECOidTag algorithmTag;
     int keySize;
@@ -2686,11 +2690,192 @@ static void tests(void)
     CFReleaseNull(msg);
 }
 
+#if TARGET_OS_OSX
+static OSStatus
+SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd,
+                                 SecCmsDigestContextRef digestContext)
+{
+    SecAsn1Item * *digests;
+
+    PLArenaPool *arena = NULL;
+
+    if ((arena = PORT_NewArena(1024)) == NULL)
+        goto loser;
+
+    if (SecCmsDigestContextFinishMultiple(digestContext, (SecArenaPoolRef)arena, &digests) != SECSuccess)
+        goto loser;
+
+    SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(sigd);
+    if(digestAlgorithms == NULL) {
+        goto loser;
+    }
+
+    if (SecCmsSignedDataSetDigests(sigd, digestAlgorithms, digests) != SECSuccess)
+        goto loser;
+
+    if (arena) {
+        PORT_FreeArena(arena, PR_FALSE);
+    }
+    return 0;
+loser:
+    if (arena)
+        PORT_FreeArena(arena, PR_FALSE);
+    return errSecInternal;
+}
+
+#endif
+
+static void testEncKeyPrefs(uint8_t *content, size_t content_length, uint8_t *signature, size_t sig_length) {
+    SecCmsDecoderRef decoder = NULL;
+    SecCmsMessageRef cmsg = NULL;
+    SecCmsContentInfoRef cinfo = NULL;
+    SecCmsSignedDataRef sigd = NULL;
+    SecCmsSignerInfoRef signerinfo = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    SecCertificateRef cert = NULL;
+    SECAlgorithmID **digestalgs = NULL;
+    SecCmsDigestContextRef digcx = NULL;
+
+    /* Decode the message */
+#if TARGET_OS_IPHONE
+    require_noerr_action(SecCmsDecoderCreate(NULL, NULL, NULL, NULL,
+                                             NULL, NULL, &decoder), out,
+                         fail("Failed to create decoder"));
+#else
+    require_noerr_action(SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL,
+                                             NULL, NULL, &decoder), out,
+                         fail("Failed to create decoder"));
+#endif
+    require_noerr_action(SecCmsDecoderUpdate(decoder, signature, sig_length), out,
+                         fail("Failed to add data "));
+    OSStatus status = SecCmsDecoderFinish(decoder, &cmsg);
+    decoder = NULL; // SecCmsDecoderFinish always frees the decoder
+    require_noerr_action(status, out, fail("Failed to finish decoder"));
+
+    /* Get the signed data */
+    require_action(cinfo = SecCmsMessageContentLevel(cmsg, 0), out,
+                   fail("Failed to get content info"));
+    require_action(SEC_OID_PKCS7_SIGNED_DATA == SecCmsContentInfoGetContentTypeTag(cinfo), out,
+                   fail("Content type was pkcs7 signed data"));
+    require_action(sigd = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(cinfo), out,
+                   fail("Failed to get signed data"));
+
+    /* Set the detached message content */
+    require_action(!SecCmsSignedDataHasDigests(sigd), out,
+                   fail("Signed data has content already"));
+    require_action(digestalgs = SecCmsSignedDataGetDigestAlgs(sigd), out,
+                   fail("Failed to get digest algorithms"));
+    require_action(digcx = SecCmsDigestContextStartMultiple(digestalgs), out,
+                   fail("Failed to create digest context"));
+    SecCmsDigestContextUpdate(digcx, content, content_length);
+    require_noerr_action(SecCmsSignedDataSetDigestContext(sigd, digcx), out,
+                         fail("Failed to set digest context"));
+
+    /* Verify the signature */
+    require_action(policy = SecPolicyCreateBasicX509(), out,
+                  fail("Failed to create basic policy"));
+    require_noerr_action(SecCmsSignedDataVerifySignerInfo(sigd, 0, NULL, policy, &trust), out,
+                         fail("Failed to verify signature"));
+
+    /* Get the Encryption Key Preference certificate */
+    require_action(signerinfo = SecCmsSignedDataGetSignerInfo(sigd, 0), out,
+                   fail("Failed to get signer info"));
+    ok(cert = SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(signerinfo),
+       "Failed to get encryption key preference cert");
+
+out:
+    if (decoder) { SecCmsDecoderDestroy(decoder); }
+    if (cmsg) { SecCmsMessageDestroy(cmsg); }
+#if TARGET_OS_IPHONE
+    if (digcx) { SecCmsDigestContextDestroy(digcx); }
+#endif
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(cert);
+}
+
+static void test_smime_attrs(void) {
+    testEncKeyPrefs(_thunderbird_ua_content, sizeof(_thunderbird_ua_content), _thunderbird_ua_cms, sizeof(_thunderbird_ua_cms));
+    testEncKeyPrefs(_outlook15_ua_content, sizeof(_outlook15_ua_content), _outlook15_ua_cms, sizeof(_outlook15_ua_cms));
+}
+
+static void test_sign_no_priv(void) {
+    SecIdentityRef signer = NULL;
+    SecCertificateRef cert = NULL;
+    SecKeyRef publicKey = NULL, privateKey = NULL;
+
+    SecCmsMessageRef cmsg = NULL;
+    SecCmsContentInfoRef cinfo =  NULL;
+    SecCmsSignedDataRef sigd = NULL;
+
+    const void *keygen_keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits };
+    const void *keygen_vals[] = { kSecAttrKeyTypeRSA, CFSTR("2048") };
+    CFDictionaryRef parameters = CFDictionaryCreate(kCFAllocatorDefault,
+                                                    keygen_keys, keygen_vals, array_size(keygen_vals),
+                                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+    ok_status(SecKeyGeneratePair(parameters, &publicKey, &privateKey), "generate key pair");
+    CFReleaseNull(parameters);
+
+    CFMutableDictionaryRef subject_alt_names = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(subject_alt_names, CFSTR("rfc822name"), CFSTR("xey@nl"));
+    int key_usage = kSecKeyUsageDigitalSignature | kSecKeyUsageKeyEncipherment;
+    CFNumberRef key_usage_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &key_usage);
+    const void *self_key[] = { kSecCertificateKeyUsage, kSecSubjectAltName };
+    const void *self_val[] = { key_usage_num, subject_alt_names };
+    CFDictionaryRef self_signed_parameters = CFDictionaryCreate(kCFAllocatorDefault,
+                                                                self_key, self_val, array_size(self_key), NULL, NULL);
+
+    const void * cn[] = { kSecOidCommonName, CFSTR("Root CA") };
+    CFArrayRef cn_atv = CFArrayCreate(kCFAllocatorDefault, cn, 2, NULL);
+    CFArrayRef cn_rdn = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_atv, 1, NULL);
+    CFArrayRef rdns = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_rdn, 1, NULL);
+    cert = SecGenerateSelfSignedCertificate(rdns, self_signed_parameters, publicKey, privateKey);
+
+    // Bear with us here: the function parameters are slightly different on macOS
+    ok(signer = SecIdentityCreate(kCFAllocatorDefault, cert, publicKey), "identity");
+#if TARGET_OS_IPHONE
+    ok(cmsg = SecCmsMessageCreate(), "create message");
+#else
+    ok(cmsg = SecCmsMessageCreate(NULL), "create message");
+#endif
+    ok(sigd = SecCmsSignedDataCreate(cmsg), "create signed message");
+    ok(cinfo = SecCmsMessageGetContentInfo(cmsg), "get content info");
+#if TARGET_OS_IPHONE
+    ok_status(SecCmsContentInfoSetContentSignedData(cinfo, sigd), "signed message into message");
+#else
+    ok_status(SecCmsContentInfoSetContentSignedData(cmsg, cinfo, sigd), "signed message into message");
+#endif
+    ok(cinfo = SecCmsSignedDataGetContentInfo(sigd), "reset content info");
+#if TARGET_OS_IPHONE
+    ok_status(SecCmsContentInfoSetContentData(cinfo, NULL, false), "attached");
+    is(SecCmsSignerInfoCreate(sigd, signer, SEC_OID_SHA1), NULL, "set up signer with no private key");
+#else
+    ok_status(SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, false), "attached");
+    is(SecCmsSignerInfoCreate(cmsg, signer, SEC_OID_SHA1), NULL, "set up signer with no private key");
+#endif
+
+    CFReleaseNull(cert);
+    CFReleaseNull(publicKey);
+    CFReleaseNull(privateKey);
+    CFReleaseNull(subject_alt_names);
+    CFReleaseNull(key_usage_num);
+    CFReleaseNull(self_signed_parameters);
+    CFReleaseNull(cn_atv);
+    CFReleaseNull(cn_rdn);
+    CFReleaseNull(rdns);
+    CFReleaseNull(signer);
+    if (cmsg) SecCmsMessageDestroy(cmsg);
+}
+
 int si_66_smime(int argc, char *const *argv)
 {
-	plan_tests(33);
+	plan_tests(33+2+9);
 
 	tests();
+    test_smime_attrs();
+    test_sign_no_priv();
 
 	return 0;
 }

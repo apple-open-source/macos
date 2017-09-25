@@ -42,6 +42,12 @@
 				<array>
 					<dict>
 						<key>Content Hint</key>
+						<string>41504653-0000-11AA-AA11-00306543ECAC</string>
+						<key>Leaf</key>
+						<true/>
+					</dict>
+					<dict>
+						<key>Content Hint</key>
 						<string>48465300-0000-11AA-AA11-00306543ECAC</string>
 						<key>Leaf</key>
 						<true/>

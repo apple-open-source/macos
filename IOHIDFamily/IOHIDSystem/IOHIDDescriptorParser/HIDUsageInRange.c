@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -86,7 +86,7 @@ Boolean HIDUsageInRange (HIDP_UsageItem *ptUsage, HIDUsage usagePage, HIDUsage u
 */
 	if (ptUsage->isRange)
 	{
-		if ((ptUsage->usageMinimum > usage) || (ptUsage->usageMaximum < usage))
+		if ((ptUsage->usageMinimum > (SInt32)usage) || (ptUsage->usageMaximum < (SInt32)usage))
 			return false;
 	}
 	else

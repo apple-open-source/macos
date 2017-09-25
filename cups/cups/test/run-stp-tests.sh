@@ -3,7 +3,7 @@
 # Perform the complete set of IPP compliance tests specified in the
 # CUPS Software Test Plan.
 #
-# Copyright 2007-2016 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
@@ -141,8 +141,7 @@ esac
 
 echo ""
 echo "Now you can choose whether to create a SSL/TLS encryption key and"
-echo "certificate for testing; these tests currently require the OpenSSL"
-echo "tools:"
+echo "certificate for testing:"
 echo ""
 echo "0 - Do not do SSL/TLS encryption tests"
 echo "1 - Test but do not require encryption"
@@ -465,6 +464,7 @@ else
 	instfilter pdftopdf pdftopdf passthru
 	instfilter pdftops pdftops ps
 	instfilter pdftoraster pdftoraster raster
+	instfilter pdftoraster pdftourf raster
 	instfilter pstoraster pstoraster raster
 	instfilter texttopdf texttopdf pdf
 
@@ -603,6 +603,16 @@ if test `uname` = SunOS -a -r /usr/lib/libCrun.so.1; then
 fi
 export LD_PRELOAD
 
+if test -f $root/cups/libcups.2.dylib; then
+        if test "x$DYLD_INSERT_LIBRARIES" = x; then
+                DYLD_INSERT_LIBRARIES="$root/cups/libcups.2.dylib:$root/filter/libcupsimage.2.dylib:$root/cgi-bin/libcupscgi.1.dylib:$root/scheduler/libcupsmime.1.dylib:$root/ppdc/libcupsppdc.1.dylib"
+        else
+                DYLD_INSERT_LIBRARIES="$root/cups/libcups.2.dylib:$root/filter/libcupsimage.2.dylib:$root/cgi-bin/libcupscgi.1.dylib:$root/scheduler/libcupsmime.1.dylib:$root/ppdc/libcupsppdc.1.dylib:$DYLD_INSERT_LIBRARIES"
+        fi
+
+        export DYLD_INSERT_LIBRARIES
+fi
+
 if test "x$DYLD_LIBRARY_PATH" = x; then
 	DYLD_LIBRARY_PATH="$root/cups:$root/filter:$root/cgi-bin:$root/scheduler:$root/ppdc"
 else
@@ -652,7 +662,13 @@ echo "    $VALGRIND ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_l
 echo ""
 
 if test `uname` = Darwin -a "x$VALGRIND" = x; then
-	DYLD_INSERT_LIBRARIES="/usr/lib/libgmalloc.dylib" MallocStackLogging=1 ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_log 2>&1 &
+        if test "x$DYLD_INSERT_LIBRARIES" = x; then
+                insert="/usr/lib/libgmalloc.dylib"
+        else
+                insert="/usr/lib/libgmalloc.dylib:$DYLD_INSERT_LIBRARIES"
+        fi
+
+	DYLD_INSERT_LIBRARIES="$insert" MallocStackLogging=1 ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_log 2>&1 &
 else
 	$VALGRIND ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_log 2>&1 &
 fi
@@ -724,12 +740,7 @@ done
 
 date=`date "+%Y-%m-%d"`
 
-if test -d $root/.svn; then
-	rev=`svn info . | grep Revision: | awk '{print $2}'`
-	strfile=$BASE/cups-str-2.2-r$rev-$user.html
-else
-	strfile=$BASE/cups-str-2.2-$date-$user.html
-fi
+strfile=$BASE/cups-str-$date-$user.html
 
 rm -f $strfile
 cat str-header.html >$strfile
@@ -741,11 +752,11 @@ cat str-header.html >$strfile
 echo ""
 echo "Running IPP compliance tests..."
 
-echo "<H1><A NAME='IPP'>1 - IPP Compliance Tests</A></H1>" >>$strfile
-echo "<P>This section provides the results to the IPP compliance tests" >>$strfile
-echo "outlined in the CUPS Software Test Plan. These tests were run on" >>$strfile
-echo `date "+%Y-%m-%d"` by $user on `hostname`. >>$strfile
-echo "<PRE>" >>$strfile
+echo "    <h1><a name='IPP'>1 - IPP Compliance Tests</a></h1>" >>$strfile
+echo "    <p>This section provides the results to the IPP compliance tests" >>$strfile
+echo "    outlined in the CUPS Software Test Plan. These tests were run on" >>$strfile
+echo "    $date by $user on `hostname`." >>$strfile
+echo "    <pre>" >>$strfile
 
 fail=0
 for file in 4*.test ipp-2.1.test; do
@@ -770,7 +781,7 @@ for file in 4*.test ipp-2.1.test; do
 	fi
 done
 
-echo "</PRE>" >>$strfile
+echo "    </pre>" >>$strfile
 
 #
 # Run the command tests...
@@ -779,11 +790,11 @@ echo "</PRE>" >>$strfile
 echo ""
 echo "Running command tests..."
 
-echo "<H1><A NAME='COMMAND'>2 - Command Tests</A></H1>" >>$strfile
-echo "<P>This section provides the results to the command tests" >>$strfile
-echo "outlined in the CUPS Software Test Plan. These tests were run on" >>$strfile
-echo $date by $user on `hostname`. >>$strfile
-echo "<PRE>" >>$strfile
+echo "    <h1><a name='COMMAND'>2 - Command Tests</a></h1>" >>$strfile
+echo "    <p>This section provides the results to the command tests" >>$strfile
+echo "    outlined in the CUPS Software Test Plan. These tests were run on" >>$strfile
+echo "    $date by $user on `hostname`." >>$strfile
+echo "    <pre>" >>$strfile
 
 for file in 5*.sh; do
 	echo $ac_n "Performing $file: $ac_c"
@@ -804,6 +815,7 @@ done
 #
 # Log all allocations made by the scheduler...
 #
+
 if test `uname` = Darwin -a "x$VALGRIND" = x; then
 	malloc_history $cupsd -callTree -showContent >$BASE/log/malloc_log 2>&1
 fi
@@ -837,7 +849,7 @@ else
 	echo PASS
 fi
 
-echo "</PRE>" >>$strfile
+echo "    </pre>" >>$strfile
 
 #
 # Stop the server...
@@ -853,15 +865,15 @@ cupsdstatus=$?
 
 echo "Test Summary"
 echo ""
-echo "<H1><A NAME='SUMMARY'>3 - Test Summary</A></H1>" >>$strfile
+echo "    <h1><a name='SUMMARY'>3 - Test Summary</a></h1>" >>$strfile
 
 if test $cupsdstatus != 0; then
 	echo "FAIL: cupsd failed with exit status $cupsdstatus."
-	echo "<p>FAIL: cupsd failed with exit status $cupsdstatus.</p>" >>$strfile
+	echo "    <p>FAIL: cupsd failed with exit status $cupsdstatus.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: cupsd exited with no errors."
-	echo "<p>PASS: cupsd exited with no errors.</p>" >>$strfile
+	echo "    <p>PASS: cupsd exited with no errors.</p>" >>$strfile
 fi
 
 # Job control files
@@ -869,11 +881,11 @@ count=`ls -1 $BASE/spool | wc -l`
 count=`expr $count - 1`
 if test $count != 0; then
 	echo "FAIL: $count job control files were not purged."
-	echo "<P>FAIL: $count job control files were not purged.</P>" >>$strfile
+	echo "    <p>FAIL: $count job control files were not purged.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: All job control files purged."
-	echo "<P>PASS: All job control files purged.</P>" >>$strfile
+	echo "    <p>PASS: All job control files purged.</p>" >>$strfile
 fi
 
 # Pages printed on Test1 (within 1 page for timing-dependent cancel issues)
@@ -882,11 +894,11 @@ expected=`expr $pjobs \* 2 + 34`
 expected2=`expr $expected + 2`
 if test $count -lt $expected -a $count -gt $expected2; then
 	echo "FAIL: Printer 'Test1' produced $count page(s), expected $expected."
-	echo "<P>FAIL: Printer 'Test1' produced $count page(s), expected $expected.</P>" >>$strfile
+	echo "    <p>FAIL: Printer 'Test1' produced $count page(s), expected $expected.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: Printer 'Test1' correctly produced $count page(s)."
-	echo "<P>PASS: Printer 'Test1' correctly produced $count page(s).</P>" >>$strfile
+	echo "    <p>PASS: Printer 'Test1' correctly produced $count page(s).</p>" >>$strfile
 fi
 
 # Paged printed on Test2
@@ -894,11 +906,11 @@ count=`$GREP '^Test2 ' $BASE/log/page_log | awk 'BEGIN{count=0}{count=count+$7}E
 expected=`expr $pjobs \* 2 + 3`
 if test $count != $expected; then
 	echo "FAIL: Printer 'Test2' produced $count page(s), expected $expected."
-	echo "<P>FAIL: Printer 'Test2' produced $count page(s), expected $expected.</P>" >>$strfile
+	echo "    <p>FAIL: Printer 'Test2' produced $count page(s), expected $expected.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: Printer 'Test2' correctly produced $count page(s)."
-	echo "<P>PASS: Printer 'Test2' correctly produced $count page(s).</P>" >>$strfile
+	echo "    <p>PASS: Printer 'Test2' correctly produced $count page(s).</p>" >>$strfile
 fi
 
 # Paged printed on Test3
@@ -906,11 +918,11 @@ count=`$GREP '^Test3 ' $BASE/log/page_log | grep -v total | awk 'BEGIN{count=0}{
 expected=2
 if test $count != $expected; then
 	echo "FAIL: Printer 'Test3' produced $count page(s), expected $expected."
-	echo "<P>FAIL: Printer 'Test3' produced $count page(s), expected $expected.</P>" >>$strfile
+	echo "    <p>FAIL: Printer 'Test3' produced $count page(s), expected $expected.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: Printer 'Test3' correctly produced $count page(s)."
-	echo "<P>PASS: Printer 'Test3' correctly produced $count page(s).</P>" >>$strfile
+	echo "    <p>PASS: Printer 'Test3' correctly produced $count page(s).</p>" >>$strfile
 fi
 
 # Requests logged
@@ -918,24 +930,24 @@ count=`wc -l $BASE/log/access_log | awk '{print $1}'`
 expected=`expr 37 + 18 + 30 + $pjobs \* 8 + $pprinters \* $pjobs \* 4`
 if test $count != $expected; then
 	echo "FAIL: $count requests logged, expected $expected."
-	echo "<P>FAIL: $count requests logged, expected $expected.</P>" >>$strfile
+	echo "    <p>FAIL: $count requests logged, expected $expected.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count requests logged."
-	echo "<P>PASS: $count requests logged.</P>" >>$strfile
+	echo "    <p>PASS: $count requests logged.</p>" >>$strfile
 fi
 
 # Did CUPS-Get-Default get logged?
 if $GREP -q CUPS-Get-Default $BASE/log/access_log; then
 	echo "FAIL: CUPS-Get-Default logged with 'AccessLogLevel actions'"
-	echo "<P>FAIL: CUPS-Get-Default logged with 'AccessLogLevel actions'</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: CUPS-Get-Default logged with 'AccessLogLevel actions'</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP CUPS-Get-Default $BASE/log/access_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: CUPS-Get-Default not logged."
-	echo "<P>PASS: CUPS-Get-Default not logged.</P>" >>$strfile
+	echo "    <p>PASS: CUPS-Get-Default not logged.</p>" >>$strfile
 fi
 
 # Emergency log messages
@@ -943,14 +955,14 @@ count=`$GREP '^X ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count != 0; then
 	echo "FAIL: $count emergency messages, expected 0."
 	$GREP '^X ' $BASE/log/error_log
-	echo "<P>FAIL: $count emergency messages, expected 0.</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: $count emergency messages, expected 0.</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP '^X ' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count emergency messages."
-	echo "<P>PASS: $count emergency messages.</P>" >>$strfile
+	echo "    <p>PASS: $count emergency messages.</p>" >>$strfile
 fi
 
 # Alert log messages
@@ -958,14 +970,14 @@ count=`$GREP '^A ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count != 0; then
 	echo "FAIL: $count alert messages, expected 0."
 	$GREP '^A ' $BASE/log/error_log
-	echo "<P>FAIL: $count alert messages, expected 0.</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: $count alert messages, expected 0.</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP '^A ' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count alert messages."
-	echo "<P>PASS: $count alert messages.</P>" >>$strfile
+	echo "    <p>PASS: $count alert messages.</p>" >>$strfile
 fi
 
 # Critical log messages
@@ -973,14 +985,14 @@ count=`$GREP '^C ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count != 0; then
 	echo "FAIL: $count critical messages, expected 0."
 	$GREP '^C ' $BASE/log/error_log
-	echo "<P>FAIL: $count critical messages, expected 0.</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: $count critical messages, expected 0.</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP '^C ' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count critical messages."
-	echo "<P>PASS: $count critical messages.</P>" >>$strfile
+	echo "    <p>PASS: $count critical messages.</p>" >>$strfile
 fi
 
 # Error log messages
@@ -988,14 +1000,14 @@ count=`$GREP '^E ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count != 33; then
 	echo "FAIL: $count error messages, expected 33."
 	$GREP '^E ' $BASE/log/error_log
-	echo "<P>FAIL: $count error messages, expected 33.</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: $count error messages, expected 33.</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP '^E ' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count error messages."
-	echo "<P>PASS: $count error messages.</P>" >>$strfile
+	echo "    <p>PASS: $count error messages.</p>" >>$strfile
 fi
 
 # Warning log messages
@@ -1003,14 +1015,14 @@ count=`$GREP '^W ' $BASE/log/error_log | $GREP -v CreateProfile | wc -l | awk '{
 if test $count != 8; then
 	echo "FAIL: $count warning messages, expected 8."
 	$GREP '^W ' $BASE/log/error_log
-	echo "<P>FAIL: $count warning messages, expected 8.</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: $count warning messages, expected 8.</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP '^W ' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count warning messages."
-	echo "<P>PASS: $count warning messages.</P>" >>$strfile
+	echo "    <p>PASS: $count warning messages.</p>" >>$strfile
 fi
 
 # Notice log messages
@@ -1018,69 +1030,74 @@ count=`$GREP '^N ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count != 0; then
 	echo "FAIL: $count notice messages, expected 0."
 	$GREP '^N ' $BASE/log/error_log
-	echo "<P>FAIL: $count notice messages, expected 0.</P>" >>$strfile
-	echo "<PRE>" >>$strfile
+	echo "    <p>FAIL: $count notice messages, expected 0.</p>" >>$strfile
+	echo "    <pre>" >>$strfile
 	$GREP '^N ' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-	echo "</PRE>" >>$strfile
+	echo "    </pre>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count notice messages."
-	echo "<P>PASS: $count notice messages.</P>" >>$strfile
+	echo "    <p>PASS: $count notice messages.</p>" >>$strfile
 fi
 
 # Info log messages
 count=`$GREP '^I ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count = 0; then
 	echo "FAIL: $count info messages, expected more than 0."
-	echo "<P>FAIL: $count info messages, expected more than 0.</P>" >>$strfile
+	echo "    <p>FAIL: $count info messages, expected more than 0.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count info messages."
-	echo "<P>PASS: $count info messages.</P>" >>$strfile
+	echo "    <p>PASS: $count info messages.</p>" >>$strfile
 fi
 
 # Debug log messages
 count=`$GREP '^D ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count = 0; then
 	echo "FAIL: $count debug messages, expected more than 0."
-	echo "<P>FAIL: $count debug messages, expected more than 0.</P>" >>$strfile
+	echo "    <p>FAIL: $count debug messages, expected more than 0.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count debug messages."
-	echo "<P>PASS: $count debug messages.</P>" >>$strfile
+	echo "    <p>PASS: $count debug messages.</p>" >>$strfile
 fi
 
 # Debug2 log messages
 count=`$GREP '^d ' $BASE/log/error_log | wc -l | awk '{print $1}'`
 if test $count = 0; then
 	echo "FAIL: $count debug2 messages, expected more than 0."
-	echo "<P>FAIL: $count debug2 messages, expected more than 0.</P>" >>$strfile
+	echo "    <p>FAIL: $count debug2 messages, expected more than 0.</p>" >>$strfile
 	fail=`expr $fail + 1`
 else
 	echo "PASS: $count debug2 messages."
-	echo "<P>PASS: $count debug2 messages.</P>" >>$strfile
+	echo "    <p>PASS: $count debug2 messages.</p>" >>$strfile
 fi
 
 #
 # Log files...
 #
 
-echo "<H1><A NAME='LOGS'>4 - Log Files</A></H1>" >>$strfile
+echo "    <h1><a name='LOGS'>4 - Log Files</a></h1>" >>$strfile
 
-echo "<H2><A NAME='access_log'>access_log</A></H2>" >>$strfile
-echo "<PRE>" >>$strfile
-sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' $BASE/log/access_log >>$strfile
-echo "</PRE>" >>$strfile
+for file in $BASE/log/*_log; do
+        baselog=`basename $file`
 
-echo "<H2><A NAME='error_log'>error_log</A></H2>" >>$strfile
-echo "<PRE>" >>$strfile
-$GREP -v '^d' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
-echo "</PRE>" >>$strfile
+        echo "    <h2><a name=\"$baselog\">$baselog</a></h2>" >>$strfile
+        case $baselog in
+                error_log)
+                        echo "    <blockquote>Note: debug2 messages have been filtered out of the HTML report.</blockquote>" >>$strfile
+                        echo "    <pre>" >>$strfile
+                        $GREP -v '^d' $BASE/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
+                        echo "    </pre>" >>$strfile
+                        ;;
 
-echo "<H2><A NAME='page_log'>page_log</A></H2>" >>$strfile
-echo "<PRE>" >>$strfile
-sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' $BASE/log/page_log >>$strfile
-echo "</PRE>" >>$strfile
+                *)
+                        echo "    <pre>" >>$strfile
+                        sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' $file >>$strfile
+                        echo "    </pre>" >>$strfile
+                        ;;
+        esac
+done
 
 #
 # Format the reports and tell the user where to find them...
@@ -1089,29 +1106,23 @@ echo "</PRE>" >>$strfile
 cat str-trailer.html >>$strfile
 
 echo ""
+for file in $BASE/log/*_log; do
+        baselog=`basename $file`
+        cp $file $baselog-$date-$user
+        echo "Copied log file \"$baselog-$date-$user\" to test directory."
+done
+cp $strfile .
+echo "Copied report file \"cups-str-$date-$user.html\" to test directory."
 
-if test $fail != 0; then
-	echo "$fail tests failed."
+# Clean out old failure log files after 1 week...
+find . -name \*_log-\*-$user -a -mtime +7 -print -exec rm -f '{}' \; | awk '{print "Removed old log file \"" substr($1,3) "\" from test directory."}'
+find . -name cups-str-\*-$user.html -a -mtime +7 -print -exec rm -f '{}' \; | awk '{print "Removed old report file \"" $1 "\" from test directory."}'
 
-	if test -d $root/.svn; then
-		cp $BASE/log/error_log error_log-r$rev-$user
-	else
-		cp $BASE/log/error_log error_log-$date-$user
-	fi
-
-	cp $strfile .
-else
-	echo "All tests were successful."
-fi
-
-echo "Log files can be found in $BASE/log."
-echo "A HTML report was created in $strfile."
 echo ""
 
 if test $fail != 0; then
-	echo "Copies of the error_log and `basename $strfile` files are in"
-	echo "`pwd`."
-	echo ""
-
+	echo "$fail tests failed."
 	exit 1
+else
+	echo "All tests were successful."
 fi

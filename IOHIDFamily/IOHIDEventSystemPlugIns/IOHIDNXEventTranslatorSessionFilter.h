@@ -17,6 +17,7 @@
 #include <queue>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
 #include  <shared_mutex>
 #include "CF.h"
 
@@ -26,6 +27,7 @@
 #define kIOHIDDisplaySleepPolicyUpgradeThresholdMS  (25)
 #define LOG_MAX_ENTRIES                             (50)
 #define kIOHIDDisplayWakeAbortThresholdMS           (50)
+#define kIOHIDDeclareActivityThresholdMS            250
 
 struct LogEntry {
     struct timeval          time;
@@ -76,6 +78,8 @@ private:
     uint32_t                        _displaySleepAbortThreshold;
     uint32_t                        _displayWakeAbortThreshold;
     static IOPMAssertionID          _AssertionID;
+    uint64_t                        _previousEventTime;
+    uint64_t                        _declareActivityThreshold;
   
     CFMutableDictionaryRefWrap      _modifiers;
     CFMutableDictionaryRefWrap      _companions;
@@ -86,9 +90,8 @@ private:
     
     uint64_t    _powerStateChangeTime;
     uint64_t    _displayStateChangeTime;
-    uint64_t    _maxDisplayTickleDuration;
-  
-    std::queue<LogEntry> _displayLog;
+    
+    IOHIDSimpleQueueRef             _displayLog;
     
 private:
 
@@ -124,14 +127,12 @@ private:
     static void displayMatchNotificationCallback (void * refcon, io_iterator_t iterator);
     static void displayNotificationCallback (void * refcon, io_service_t	service, uint32_t messageType, void * messageArgument);
     void displayNotificationCallback (io_service_t	service, uint32_t messageType, void * messageArgument);
-    void displayTickle ();
     IOHIDEventRef displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event);
   
     boolean_t shouldCancelEvent (IOHIDEventRef  event);
     boolean_t resetStickyKeys(IOHIDEventRef event);
  
     void serialize (CFMutableDictionaryRef dict) const;
-    static CFStringRef timePointToTimeString (struct timeval *tv);
   
 private:
     IOHIDNXEventTranslatorSessionFilter();

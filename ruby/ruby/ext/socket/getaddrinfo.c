@@ -45,11 +45,7 @@
 #include <sys/types.h>
 #ifndef _WIN32
 #include <sys/param.h>
-#if defined(__BEOS__) && !defined(__HAIKU__) && !defined(BONE)
-# include <net/socket.h>
-#else
-# include <sys/socket.h>
-#endif
+#include <sys/socket.h>
 #include <netinet/in.h>
 #if defined(HAVE_ARPA_INET_H)
 #include <arpa/inet.h>
@@ -66,6 +62,9 @@
 #endif
 #include <unistd.h>
 #else
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#include <windows.h>
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
@@ -78,6 +77,10 @@
 
 #ifdef SOCKS5
 #include <socks.h>
+#endif
+
+#ifndef HAVE_TYPE_SOCKLEN_T
+typedef int socklen_t;
 #endif
 
 #include "addrinfo.h"
@@ -184,9 +187,9 @@ if (pai->ai_flags & AI_CANONNAME) {\
 	}\
 	memcpy((ai), pai, sizeof(struct addrinfo));\
 	(ai)->ai_addr = (struct sockaddr *)((ai) + 1);\
-	memset((ai)->ai_addr, 0, (afd)->a_socklen);\
-	SET_SA_LEN((ai)->ai_addr, (ai)->ai_addrlen = (afd)->a_socklen);\
-	(ai)->ai_addr->sa_family = (ai)->ai_family = (afd)->a_af;\
+	(ai)->ai_family = (afd)->a_af;\
+	(ai)->ai_addrlen = (afd)->a_socklen;\
+	INIT_SOCKADDR((ai)->ai_addr, (afd)->a_af, (afd)->a_socklen);\
 	((struct sockinet *)(ai)->ai_addr)->si_port = (port);\
 	p = (char *)((ai)->ai_addr);\
 	memcpy(p + (afd)->a_off, (addr), (afd)->a_addrlen);\
@@ -432,11 +435,8 @@ getaddrinfo(const char *hostname, const char *servname, const struct addrinfo *h
 			s = socket(afd->a_af, SOCK_DGRAM, 0);
 			if (s < 0)
 				continue;
-#if defined(__BEOS__)
-			closesocket(s);
-#else
+
 			close(s);
-#endif
 
 			if (pai->ai_flags & AI_PASSIVE) {
 				GET_AI(cur->ai_next, afd, afd->a_addrany, port);

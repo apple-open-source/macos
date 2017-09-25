@@ -6,6 +6,8 @@
 	<string>en</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -18,6 +20,8 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>5512668E-FF47-4E70-B33E-E1FFFAEF01A8</key>
@@ -28,29 +32,25 @@
 		<key>6B0340D3-5798-4064-AA17-9204C7B06FFD</key>
 		<string>5512668E-FF47-4E70-B33E-E1FFFAEF01A8</string>
 	</dict>
-	<key>CFPlugInDynamicRegistration</key>
-	<string>NO</string>
 	<key>Matching</key>
 	<dict>
 		<key>DeviceUsagePairs</key>
 		<array>
 			<dict>
-				<key>DeviceUsagePage</key>
-				<integer>1</integer>
 				<key>DeviceUsage</key>
 				<integer>6</integer>
+				<key>DeviceUsagePage</key>
+				<integer>1</integer>
 			</dict>
 			<dict>
-				<key>DeviceUsagePage</key>
-				<integer>12</integer>
 				<key>DeviceUsage</key>
 				<integer>1</integer>
+				<key>DeviceUsagePage</key>
+				<integer>12</integer>
 			</dict>
 		</array>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2013 Apple Inc. All rights reserved.</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}</string>
 </dict>
 </plist>

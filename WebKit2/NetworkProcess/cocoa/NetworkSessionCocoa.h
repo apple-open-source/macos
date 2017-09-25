@@ -34,6 +34,7 @@ OBJC_CLASS WKNetworkSessionDelegate;
 #include "DownloadID.h"
 #include "NetworkDataTaskCocoa.h"
 #include "NetworkSession.h"
+#include <WebCore/NetworkLoadMetrics.h>
 #include <wtf/HashMap.h>
 
 namespace WebKit {
@@ -41,15 +42,16 @@ namespace WebKit {
 class NetworkSessionCocoa final : public NetworkSession {
     friend class NetworkDataTaskCocoa;
 public:
-    static Ref<NetworkSession> create(WebCore::SessionID, CustomProtocolManager*);
+    static Ref<NetworkSession> create(WebCore::SessionID, LegacyCustomProtocolManager*);
     static NetworkSession& defaultSession();
     ~NetworkSessionCocoa();
 
     // Must be called before any NetworkSession has been created.
-    static void setCustomProtocolManager(CustomProtocolManager*);
+    static void setLegacyCustomProtocolManager(LegacyCustomProtocolManager*);
     static void setSourceApplicationAuditTokenData(RetainPtr<CFDataRef>&&);
     static void setSourceApplicationBundleIdentifier(const String&);
     static void setSourceApplicationSecondaryIdentifier(const String&);
+    static void setAllowsCellularAccess(bool);
 #if PLATFORM(IOS)
     static void setCTDataConnectionServiceType(const String&);
 #endif
@@ -61,7 +63,7 @@ public:
     DownloadID takeDownloadID(NetworkDataTaskCocoa::TaskIdentifier);
 
 private:
-    NetworkSessionCocoa(WebCore::SessionID, CustomProtocolManager*);
+    NetworkSessionCocoa(WebCore::SessionID, LegacyCustomProtocolManager*);
 
     void invalidateAndCancel() override;
     void clearCredentials() override;

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  normalizer2.h
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -30,6 +32,7 @@
 #include "unicode/unistr.h"
 #include "unicode/unorm2.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -280,7 +283,7 @@ public:
      *
      * When used on a standard NFC Normalizer2 instance,
      * it returns the Decomposition_Mapping only if the Decomposition_Type (dt) is Canonical (Can);
-     * in this case, the result contains either one or two code points (=1..4 UChars).
+     * in this case, the result contains either one or two code points (=1..4 char16_ts).
      *
      * This function is independent of the mode of the Normalizer2.
      * The default implementation returns FALSE.
@@ -653,6 +656,7 @@ private:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // !UCONFIG_NO_NORMALIZATION
 #endif  // __NORMALIZER2_H__

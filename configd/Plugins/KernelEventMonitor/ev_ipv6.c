@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,7 +107,7 @@ appendPrefixLen(CFMutableDictionaryRef dict, struct sockaddr_in6 *sin6)
 	CFArrayRef		prefixLens;
 	CFMutableArrayRef	newPrefixLens;
 
-	register int		byte;
+	register size_t		byte;
 	register int		bit;
 	int			plen		= 0;
 
@@ -238,7 +238,13 @@ updateStore(const void *key, const void *value, void *context)
 			SC_log(LOG_DEBUG, "Update interface configuration: %@: %@", key, newDict);
 			cache_SCDynamicStoreSetValue(store, key, newDict);
 		} else if (dict) {
-			SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
+			CFDictionaryRef		oldDict;
+
+			oldDict = cache_SCDynamicStoreCopyValue(store, key);
+			if (oldDict != NULL) {
+				SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
+				CFRelease(oldDict);
+			}
 			cache_SCDynamicStoreRemoveValue(store, key);
 		}
 		network_changed = TRUE;
@@ -435,4 +441,39 @@ ipv6_duplicated_address(const char * if_name, const struct in6_addr * addr,
 	CFRelease(key);
 	CFRelease(prefix);
 	CFRelease(if_name_cf);
+}
+
+__private_extern__
+void
+nat64_prefix_request(const char *if_name)
+{
+	CFStringRef		if_name_cf;
+	CFStringRef		key;
+
+	if_name_cf = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingASCII);
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    if_name_cf,
+							    kSCEntNetNAT64PrefixRequest);
+	CFRelease(if_name_cf);
+	SC_log(LOG_DEBUG, "Post NAT64 prefix request: %@", key);
+	cache_SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
+}
+
+__private_extern__ void
+ipv6_router_expired(const char *if_name)
+{
+	CFStringRef		if_name_cf;
+	CFStringRef		key;
+
+	if_name_cf = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingASCII);
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    if_name_cf,
+							    kSCEntNetIPv6RouterExpired);
+	CFRelease(if_name_cf);
+	SC_log(LOG_DEBUG, "Post IPv6 Router Expired: %@", key);
+	cache_SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
 }

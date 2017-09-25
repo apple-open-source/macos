@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 
 namespace JSC {
 
-const ClassInfo AbstractModuleRecord::s_info = { "AbstractModuleRecord", &Base::s_info, 0, CREATE_METHOD_TABLE(AbstractModuleRecord) };
+const ClassInfo AbstractModuleRecord::s_info = { "AbstractModuleRecord", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(AbstractModuleRecord) };
 
 AbstractModuleRecord::AbstractModuleRecord(VM& vm, Structure* structure, const Identifier& moduleKey)
     : Base(vm, structure)
@@ -53,13 +53,13 @@ void AbstractModuleRecord::destroy(JSCell* cell)
 void AbstractModuleRecord::finishCreation(ExecState* exec, VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("registryEntry")), jsUndefined());
     putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("evaluated")), jsBoolean(false));
 
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSMap* map = JSMap::create(exec, vm, globalObject()->mapStructure());
-    RELEASE_ASSERT(!scope.exception());
+    scope.releaseAssertNoException();
     m_dependenciesMap.set(vm, this, map);
     putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("dependenciesMap")), m_dependenciesMap.get());
 }
@@ -697,9 +697,10 @@ JSModuleNamespaceObject* AbstractModuleRecord::getModuleNamespace(ExecState* exe
     IdentifierSet exportedNames;
     getExportedNames(exec, this, exportedNames);
 
-    IdentifierSet unambiguousNames;
+    Vector<std::pair<Identifier, Resolution>> resolutions;
     for (auto& name : exportedNames) {
-        const AbstractModuleRecord::Resolution resolution = resolveExport(exec, Identifier::fromUid(exec, name.get()));
+        Identifier ident = Identifier::fromUid(exec, name.get());
+        const Resolution resolution = resolveExport(exec, ident);
         switch (resolution.type) {
         case Resolution::Type::NotFound:
             throwSyntaxError(exec, scope, makeString("Exported binding name '", String(name.get()), "' is not found."));
@@ -713,12 +714,12 @@ JSModuleNamespaceObject* AbstractModuleRecord::getModuleNamespace(ExecState* exe
             break;
 
         case Resolution::Type::Resolved:
-            unambiguousNames.add(name);
+            resolutions.append({ WTFMove(ident), resolution });
             break;
         }
     }
 
-    m_moduleNamespaceObject.set(vm, this, JSModuleNamespaceObject::create(exec, globalObject, globalObject->moduleNamespaceObjectStructure(), this, unambiguousNames));
+    m_moduleNamespaceObject.set(vm, this, JSModuleNamespaceObject::create(exec, globalObject, globalObject->moduleNamespaceObjectStructure(), this, WTFMove(resolutions)));
     return m_moduleNamespaceObject.get();
 }
 

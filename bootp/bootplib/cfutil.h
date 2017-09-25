@@ -24,15 +24,67 @@
 #ifndef _S_CFUTIL_H
 #define _S_CFUTIL_H
 
-#include <CoreFoundation/CFPropertyList.h>
-#include <CoreFoundation/CFString.h>
-#include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 #include "symbol_scope.h"
+
+#if NO_SYSTEMCONFIGURATION
+static __inline__ CFTypeRef
+isA_CFType(CFTypeRef obj, CFTypeID type)
+{
+	if (obj == NULL)
+		return (NULL);
+
+	if (CFGetTypeID(obj) != type)
+		return (NULL);
+
+	return (obj);
+}
+
+static __inline__ CFTypeRef
+isA_CFArray(CFTypeRef obj)
+{
+	return (isA_CFType(obj, CFArrayGetTypeID()));
+}
+
+static __inline__ CFTypeRef
+isA_CFBoolean(CFTypeRef obj)
+{
+	return (isA_CFType(obj, CFBooleanGetTypeID()));
+}
+
+static __inline__ CFTypeRef
+isA_CFData(CFTypeRef obj)
+{
+	return (isA_CFType(obj, CFDataGetTypeID()));
+}
+
+static __inline__ CFTypeRef
+isA_CFDictionary(CFTypeRef obj)
+{
+	return (isA_CFType(obj, CFDictionaryGetTypeID()));
+}
+
+static __inline__ CFTypeRef
+isA_CFNumber(CFTypeRef obj)
+{
+	return (isA_CFType(obj, CFNumberGetTypeID()));
+}
+
+static __inline__ CFTypeRef
+isA_CFString(CFTypeRef obj)
+{
+	return (isA_CFType(obj, CFStringGetTypeID()));
+}
+
+#else /* NO_SYSTEMCONFIGURATION */
+#include <SystemConfiguration/SCValidation.h>
+
+#endif /* NO_SYSTEMCONFIGURATION */
 
 void
 my_CFRelease(void * t);
@@ -95,6 +147,9 @@ my_CFStringAppendBytesAsHex(CFMutableStringRef str, const uint8_t * bytes,
 			    int length, char sep);
 char *
 my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding);
+
+void
+my_CFStringPrint(FILE * f, CFStringRef str);
 
 Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2);

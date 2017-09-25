@@ -23,16 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebGeolocationManagerProxy_h
-#define WebGeolocationManagerProxy_h
+#pragma once
 
 #include "APIObject.h"
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include "WebContextSupplement.h"
-#include "WebGeolocationProvider.h"
 #include <wtf/HashSet.h>
 #include <wtf/text/WTFString.h>
+
+namespace API {
+class GeolocationProvider;
+}
 
 namespace WebKit {
 
@@ -43,9 +45,9 @@ class WebGeolocationManagerProxy : public API::ObjectImpl<API::Object::Type::Geo
 public:
     static const char* supplementName();
 
-    static PassRefPtr<WebGeolocationManagerProxy> create(WebProcessPool*);
+    static Ref<WebGeolocationManagerProxy> create(WebProcessPool*);
 
-    void initializeProvider(const WKGeolocationProviderBase*);
+    void setProvider(std::unique_ptr<API::GeolocationProvider>&&);
 
     void providerDidChangePosition(WebGeolocationPosition*);
     void providerDidFailToDeterminePosition(const String& errorMessage = String());
@@ -79,9 +81,7 @@ private:
     HashSet<const IPC::Connection::Client*> m_updateRequesters;
     HashSet<const IPC::Connection::Client*> m_highAccuracyRequesters;
 
-    WebGeolocationProvider m_provider;
+    std::unique_ptr<API::GeolocationProvider> m_provider;
 };
 
 } // namespace WebKit
-
-#endif // WebGeolocationManagerProxy_h

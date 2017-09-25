@@ -23,7 +23,7 @@
 
 
 #include "misc.h"
-
+#include "SecCFRelease.h"
 
 // NOTE: the return may or allocate a fair bit more space then it needs.
 // Use it for short lived conversions (or strdup the result).
@@ -47,7 +47,7 @@ void CFfprintf(FILE *f, const char *format, ...) {
 	CFStringRef fmt = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
 	CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, ap);
 	va_end(ap);
-	CFRelease(fmt);
+	CFReleaseNull(fmt);
 	
 	CFIndex sz = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str), kCFStringEncodingUTF8);
 	sz += 1;
@@ -64,6 +64,7 @@ void CFfprintf(FILE *f, const char *format, ...) {
 		CFStringGetBytes(str, CFRangeMake(0, CFStringGetLength(str)), kCFStringEncodingUTF8, '?', FALSE, buf, sz, &used);
 	} else {
 		buf = (unsigned char *)"malloc failue during CFfprintf\n";
+        needs_free = false;
 	}
 	
 	fwrite(buf, 1, used, f);
@@ -71,13 +72,14 @@ void CFfprintf(FILE *f, const char *format, ...) {
 		free(buf);
 	}
 	
-	CFRelease(str);
+	CFReleaseNull(str);
 }
 
 CFErrorRef fancy_error(CFStringRef domain, CFIndex code, CFStringRef description) {
 	const void *v_ekey = kCFErrorDescriptionKey;
 	const void *v_description = description;
 	CFErrorRef err = CFErrorCreateWithUserInfoKeysAndValues(NULL, domain, code, &v_ekey, &v_description, 1);
+    CFAutorelease(err);
 	
 	return err;
 }
@@ -94,7 +96,7 @@ void add_t2ca(CFMutableDictionaryRef t2ca, CFStringRef t, CFStringRef a) {
 
 void CFSafeRelease(CFTypeRef object) {
 	if (object) {
-		CFRelease(object);
+		CFReleaseNull(object);
 	}
 }
 
@@ -139,6 +141,7 @@ void graphviz(FILE *f, SecTransformRef tr) {
 				CFfprintf(f, "\t\t\"%@#%@\" [label=\"%@\"];\n", name, attrs[j], attrs[j]);
 			}
 			CFfprintf(f, "\t\t\"%@\" [fontcolor=blue, fontsize=20];\n\t}\n");
+            free(attrs);
 		}
 	}
 	

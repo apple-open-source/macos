@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (C) 1999-2014, International Business Machines
@@ -25,6 +27,7 @@
 #include "unicode/utrans.h" // UTransPosition, UTransDirection
 #include "unicode/strenum.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class UnicodeFilter;
@@ -1317,7 +1320,7 @@ inline int32_t Transliterator::getMaximumContextLength(void) const {
 inline void Transliterator::setID(const UnicodeString& id) {
     ID = id;
     // NUL-terminate the ID string, which is a non-aliased copy.
-    ID.append((UChar)0);
+    ID.append((char16_t)0);
     ID.truncate(ID.length()-1);
 }
 
@@ -1336,6 +1339,7 @@ inline Transliterator::Token Transliterator::pointerToken(void* p) {
 #endif  /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_TRANSLITERATION */
 

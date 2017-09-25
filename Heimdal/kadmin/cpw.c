@@ -93,7 +93,7 @@ set_password (krb5_principal principal, char *password, int keepold)
 	krb5_unparse_name(context, principal, &princ_name);
 	asprintf(&prompt, "%s's Password: ", princ_name);
 	free (princ_name);
-	ret = UI_UTIL_read_pw_string_stdio(pwbuf, sizeof(pwbuf), prompt, 1);
+	ret = UI_UTIL_read_pw_string(pwbuf, sizeof(pwbuf), prompt, 1);
 	free (prompt);
 	if(ret){
 	    return 0; /* XXX error code? */

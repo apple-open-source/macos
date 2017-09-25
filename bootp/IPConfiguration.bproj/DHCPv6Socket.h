@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,6 +78,9 @@ void
 DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
 			  DHCPv6SocketReceiveFuncPtr func, 
 			  void * arg1, void * arg2);
+
+bool
+DHCPv6SocketReceiveIsEnabled(DHCPv6SocketRef sock);
 
 void
 DHCPv6SocketDisableReceive(DHCPv6SocketRef sock);

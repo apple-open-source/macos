@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef Pasteboard_h
-#define Pasteboard_h
+#pragma once
 
 #include "DragImage.h"
 #include "URL.h"
@@ -33,8 +32,11 @@
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(IOS)
-OBJC_CLASS NSArray;
 OBJC_CLASS NSString;
+#endif
+
+#if PLATFORM(COCOA)
+OBJC_CLASS NSArray;
 #endif
 
 #if PLATFORM(WIN)
@@ -63,13 +65,14 @@ enum ShouldSerializeSelectedTextForDataTransfer { DefaultSelectedTextType, Inclu
 // For writing to the pasteboard. Generally sorted with the richest formats on top.
 
 struct PasteboardWebContent {
-#if !(PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(WIN))
+#if !(PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(WPE))
     WEBCORE_EXPORT PasteboardWebContent();
     WEBCORE_EXPORT ~PasteboardWebContent();
     bool canSmartCopyOrDelete;
     RefPtr<SharedBuffer> dataInWebArchiveFormat;
     RefPtr<SharedBuffer> dataInRTFDFormat;
     RefPtr<SharedBuffer> dataInRTFFormat;
+    RefPtr<SharedBuffer> dataInAttributedStringFormat;
     String dataInHTMLFormat;
     String dataInStringFormat;
     Vector<String> clientTypes;
@@ -77,6 +80,10 @@ struct PasteboardWebContent {
 #endif
 #if PLATFORM(GTK)
     bool canSmartCopyOrDelete;
+    String text;
+    String markup;
+#endif
+#if PLATFORM(WPE)
     String text;
     String markup;
 #endif
@@ -100,13 +107,17 @@ struct PasteboardImage {
 #if PLATFORM(MAC)
     RefPtr<SharedBuffer> dataInWebArchiveFormat;
 #endif
-#if !(PLATFORM(EFL) || PLATFORM(WIN))
+#if !PLATFORM(WIN)
     PasteboardURL url;
 #endif
-#if !(PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(WIN))
+#if !(PLATFORM(GTK) || PLATFORM(WIN))
     RefPtr<SharedBuffer> resourceData;
     String resourceMIMEType;
+    Vector<String> clientTypes;
+    Vector<RefPtr<SharedBuffer>> clientData;
 #endif
+    String suggestedName;
+    FloatSize imageSize;
 };
 
 // For reading from the pasteboard.
@@ -115,7 +126,7 @@ class PasteboardWebContentReader {
 public:
     virtual ~PasteboardWebContentReader() { }
 
-#if !(PLATFORM(EFL) || PLATFORM(GTK) || PLATFORM(WIN))
+#if !(PLATFORM(GTK) || PLATFORM(WIN))
     virtual bool readWebArchive(SharedBuffer*) = 0;
     virtual bool readFilenames(const Vector<String>&) = 0;
     virtual bool readHTML(const String&) = 0;
@@ -129,7 +140,7 @@ public:
 
 struct PasteboardPlainText {
     String text;
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     bool isURL;
 #endif
 };
@@ -179,10 +190,10 @@ public:
     virtual void writePasteboard(const Pasteboard& sourcePasteboard);
 
 #if ENABLE(DRAG_SUPPORT)
-    static std::unique_ptr<Pasteboard> createForDragAndDrop();
-    static std::unique_ptr<Pasteboard> createForDragAndDrop(const DragData&);
+    WEBCORE_EXPORT static std::unique_ptr<Pasteboard> createForDragAndDrop();
+    WEBCORE_EXPORT static std::unique_ptr<Pasteboard> createForDragAndDrop(const DragData&);
 
-    virtual void setDragImage(DragImageRef, const IntPoint& hotSpot);
+    virtual void setDragImage(DragImage, const IntPoint& hotSpot);
 #endif
 
 #if PLATFORM(WIN)
@@ -197,13 +208,16 @@ public:
 #endif
 
 #if PLATFORM(IOS)
-    static NSArray* supportedPasteboardTypes();
+    explicit Pasteboard(long changeCount);
+
+    static NSArray *supportedWebContentPasteboardTypes();
     static String resourceMIMEType(const NSString *mimeType);
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     explicit Pasteboard(const String& pasteboardName);
 
+    WEBCORE_EXPORT static NSArray *supportedFileUploadPasteboardTypes();
     const String& name() const { return m_pasteboardName; }
 #endif
 
@@ -217,6 +231,11 @@ public:
 #endif
 
 private:
+#if PLATFORM(IOS)
+    bool respectsUTIFidelities() const;
+    void readRespectingUTIFidelities(PasteboardWebContentReader&);
+#endif
+
 #if PLATFORM(WIN)
     void finishCreatingPasteboard();
     void writeRangeToDataObject(Range&, Frame&); // FIXME: Layering violation.
@@ -231,11 +250,7 @@ private:
     String m_name;
 #endif
 
-#if PLATFORM(IOS)
-    long m_changeCount;
-#endif
-
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     String m_pasteboardName;
     long m_changeCount;
 #endif
@@ -266,5 +281,3 @@ inline Pasteboard::~Pasteboard()
 #endif
 
 } // namespace WebCore
-
-#endif // Pasteboard_h

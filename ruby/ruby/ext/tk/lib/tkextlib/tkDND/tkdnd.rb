@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #  tkextlib/tkDND/tkdnd.rb
 #                               by Hidetoshi NAGAI (nagai@ai.kyutech.ac.jp)
@@ -158,7 +159,7 @@ module Tk
           cmd = Proc.new
         end
 
-        args = [None] if args.empty
+        args = [TkComm::None] if args.empty?
 
         tk_call('dnd', 'bindsource', @path, type, cmd, *args)
         self

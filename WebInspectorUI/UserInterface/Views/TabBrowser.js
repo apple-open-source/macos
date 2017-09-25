@@ -53,28 +53,35 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
 
         let showNextTab = () => { this._showNextTab(); };
         let showPreviousTab = () => { this._showPreviousTab(); };
-        let closeCurrentTab = () => {
-            let selectedTabBarItem = this._tabBar.selectedTabBarItem;
-            if (this._tabBar.tabBarItems.length > 3 || !selectedTabBarItem.isDefaultTab)
-                this._tabBar.removeTabBarItem(selectedTabBarItem);
-        };
 
-        this._closeCurrentTabKeyboardShortuct = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, "W", closeCurrentTab);
+        let isRTL = WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL;
 
-        this._showNextTabKeyboardShortcut1 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.RightCurlyBrace, showNextTab);
-        this._showPreviousTabKeyboardShortcut1 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.LeftCurlyBrace, showPreviousTab);
-        this._showNextTabKeyboardShortcut2 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Control, WebInspector.KeyboardShortcut.Key.Tab, showNextTab);
-        this._showPreviousTabKeyboardShortcut2 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Control | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.Tab, showPreviousTab);
+        let nextKey1 = isRTL ? WebInspector.KeyboardShortcut.Key.LeftCurlyBrace : WebInspector.KeyboardShortcut.Key.RightCurlyBrace;
+        let previousKey1 = isRTL ? WebInspector.KeyboardShortcut.Key.RightCurlyBrace : WebInspector.KeyboardShortcut.Key.LeftCurlyBrace;
 
-        this._showNextTabKeyboardShortcut3 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.Right, this._showNextTabCheckingForEditableField.bind(this));
-        this._showNextTabKeyboardShortcut3.implicitlyPreventsDefault = false;
-        this._showPreviousTabKeyboardShortcut3 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.Left, this._showPreviousTabCheckingForEditableField.bind(this));
-        this._showPreviousTabKeyboardShortcut3.implicitlyPreventsDefault = false;
+        this._showNextTabKeyboardShortcut1 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, nextKey1, showNextTab);
+        this._showPreviousTabKeyboardShortcut1 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, previousKey1, showPreviousTab);
+
+        let nextModifier2 = isRTL ? WebInspector.KeyboardShortcut.Modifier.Shift : 0;
+        let previousModifier2 = isRTL ? 0 : WebInspector.KeyboardShortcut.Modifier.Shift;
+
+        this._showNextTabKeyboardShortcut2 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Control | nextModifier2, WebInspector.KeyboardShortcut.Key.Tab, showNextTab);
+        this._showPreviousTabKeyboardShortcut2 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Control | previousModifier2, WebInspector.KeyboardShortcut.Key.Tab, showPreviousTab);
+
+        let previousTabKey = isRTL ? WebInspector.KeyboardShortcut.Key.Right : WebInspector.KeyboardShortcut.Key.Left;
+        let nextTabKey = isRTL ? WebInspector.KeyboardShortcut.Key.Left : WebInspector.KeyboardShortcut.Key.Right;
+        this._previousTabKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, previousTabKey, this._showPreviousTabCheckingForEditableField.bind(this));
+        this._previousTabKeyboardShortcut.implicitlyPreventsDefault = false;
+        this._nextTabKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, nextTabKey, this._showNextTabCheckingForEditableField.bind(this));
+        this._nextTabKeyboardShortcut.implicitlyPreventsDefault = false;
 
         this._tabBar.addEventListener(WebInspector.TabBar.Event.TabBarItemSelected, this._tabBarItemSelected, this);
+        this._tabBar.addEventListener(WebInspector.TabBar.Event.TabBarItemAdded, this._tabBarItemAdded, this);
         this._tabBar.addEventListener(WebInspector.TabBar.Event.TabBarItemRemoved, this._tabBarItemRemoved, this);
+        this._tabBar.newTabTabBarItem.addEventListener(WebInspector.PinnedTabBarItem.Event.ContextMenu, this._handleNewTabContextMenu, this);
 
         this._recentTabContentViews = [];
+        this._closedTabClasses = new Set;
     }
 
     // Public
@@ -111,11 +118,17 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         return null;
     }
 
-    bestTabContentViewForRepresentedObject(representedObject)
+    bestTabContentViewForRepresentedObject(representedObject, options = {})
     {
         console.assert(!this.selectedTabContentView || this.selectedTabContentView === this._recentTabContentViews[0]);
 
         for (var tabContentView of this._recentTabContentViews) {
+            if (options.ignoreSearchTab && tabContentView instanceof WebInspector.SearchTabContentView)
+                continue;
+
+            if (options.ignoreNetworkTab && tabContentView instanceof WebInspector.NetworkTabContentView)
+                continue;
+
             if (tabContentView.canShowRepresentedObject(representedObject))
                 return tabContentView;
         }
@@ -123,7 +136,7 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         return null;
     }
 
-    addTabForContentView(tabContentView, doNotAnimate, insertionIndex)
+    addTabForContentView(tabContentView, options = {})
     {
         console.assert(tabContentView instanceof WebInspector.TabContentView);
         if (!(tabContentView instanceof WebInspector.TabContentView))
@@ -150,10 +163,10 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         else
             this._recentTabContentViews.push(tabContentView);
 
-        if (typeof insertionIndex === "number")
-            this._tabBar.insertTabBarItem(tabBarItem, insertionIndex, doNotAnimate);
+        if (typeof options.insertionIndex === "number")
+            this._tabBar.insertTabBarItem(tabBarItem, options.insertionIndex, options);
         else
-            this._tabBar.addTabBarItem(tabBarItem, doNotAnimate);
+            this._tabBar.addTabBarItem(tabBarItem, options);
 
         console.assert(this._recentTabContentViews.length === this._tabBar.normalTabCount);
         console.assert(!this.selectedTabContentView || this.selectedTabContentView === this._recentTabContentViews[0]);
@@ -161,12 +174,13 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         return true;
     }
 
-    showTabForContentView(tabContentView, doNotAnimate, insertionIndex)
+    showTabForContentView(tabContentView, options = {})
     {
-        if (!this.addTabForContentView(tabContentView, doNotAnimate, insertionIndex))
+        if (!this.addTabForContentView(tabContentView, options))
             return false;
 
-        this._tabBar.selectedTabBarItem = tabContentView.tabBarItem;
+        if (!options.suppressSelection)
+            this._tabBar.selectedTabBarItem = tabContentView.tabBarItem;
 
         // FIXME: this is a workaround for <https://webkit.org/b/151876>.
         // Without this extra call, we might never lay out the child tab
@@ -178,7 +192,7 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         return true;
     }
 
-    closeTabForContentView(tabContentView, doNotAnimate)
+    closeTabForContentView(tabContentView, options = {})
     {
         console.assert(tabContentView instanceof WebInspector.TabContentView);
         if (!(tabContentView instanceof WebInspector.TabContentView))
@@ -191,7 +205,7 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         if (tabContentView.tabBarItem.parentTabBar !== this._tabBar)
             return false;
 
-        this._tabBar.removeTabBarItem(tabContentView.tabBarItem, doNotAnimate);
+        this._tabBar.removeTabBarItem(tabContentView.tabBarItem, options);
 
         console.assert(this._recentTabContentViews.length === this._tabBar.normalTabCount);
         console.assert(!this.selectedTabContentView || this.selectedTabContentView === this._recentTabContentViews[0]);
@@ -246,6 +260,17 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         this.dispatchEventToListeners(WebInspector.TabBrowser.Event.SelectedTabContentViewDidChange);
     }
 
+    _tabBarItemAdded(event)
+    {
+        let tabContentView = event.data.tabBarItem.representedObject;
+
+        console.assert(tabContentView);
+        if (!tabContentView)
+            return;
+
+        this._closedTabClasses.delete(tabContentView.constructor);
+    }
+
     _tabBarItemRemoved(event)
     {
         let tabContentView = event.data.tabBarItem.representedObject;
@@ -255,12 +280,45 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
             return;
 
         this._recentTabContentViews.remove(tabContentView);
+
+        if (!tabContentView.constructor.isEphemeral())
+            this._closedTabClasses.add(tabContentView.constructor);
+
         this._contentViewContainer.closeContentView(tabContentView);
 
         tabContentView.parentTabBrowser = null;
 
         console.assert(this._recentTabContentViews.length === this._tabBar.normalTabCount);
         console.assert(!this.selectedTabContentView || this.selectedTabContentView === this._recentTabContentViews[0]);
+    }
+
+    _handleNewTabContextMenu(event)
+    {
+        // The array must be reversed because Sets insert into the end, and we want to display the
+        // most recently closed item first (which is the last item added to the set).
+        let closedTabClasses = Array.from(this._closedTabClasses).reverse();
+        let allTabClasses = Array.from(WebInspector.knownTabClasses());
+        let tabClassesToDisplay = closedTabClasses.concat(allTabClasses.filter((tabClass) => {
+            if (closedTabClasses.includes(tabClass))
+                return false;
+
+            if (tabClass.isEphemeral())
+                return false;
+
+            return WebInspector.isNewTabWithTypeAllowed(tabClass.Type);
+        }));
+        if (!tabClassesToDisplay.length)
+            return;
+
+        let contextMenu = event.data.contextMenu;
+
+        contextMenu.appendItem(WebInspector.UIString("Recently Closed Tabs"), null, true);
+
+        for (let tabClass of tabClassesToDisplay) {
+            contextMenu.appendItem(tabClass.tabInfo().title, () => {
+                WebInspector.createNewTabWithType(tabClass.Type, {shouldShowNewTab: true});
+            });
+        }
     }
 
     _sidebarPanelSelected(event)

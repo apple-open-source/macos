@@ -1341,7 +1341,7 @@ do_conf(
 #ifdef ISC_PLATFORM_HAVESALEN
 		peeraddr.sa.sa_len = SOCKLEN(&peeraddr);
 #endif
-	
+
 		/* check mode value: 0 <= hmode <= 6
 		 *
 		 * There's no good global define for that limit, and
@@ -1357,7 +1357,7 @@ do_conf(
 			req_ack(srcadr, inter, inpkt, INFO_ERR_FMT);
 			return;
 		}
-	
+		
 		/* Any more checks on the values? Unchecked at this
 		 * point:
 		 *   - version
@@ -1367,7 +1367,7 @@ do_conf(
 		 *   - minpoll/maxpoll, but they are treated properly
 		 *     for all cases internally. Checking not necessary.
 		 */
-
+		
 		/* finally create the peer */
 		if (peer_config(&peeraddr, NULL, NULL,
 		    temp_cp.hmode, temp_cp.version, temp_cp.minpoll, 

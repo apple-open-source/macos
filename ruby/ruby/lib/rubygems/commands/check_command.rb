@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/command'
 require 'rubygems/version_option'
 require 'rubygems/validator'
@@ -77,6 +78,13 @@ class Gem::Commands::CheckCommand < Gem::Command
 
   def defaults_str # :nodoc:
     '--gems --alien'
+  end
+
+  def description # :nodoc:
+    <<-EOF
+The check command can list and repair problems with installed gems and
+specifications and will clean up gems that have been partially uninstalled.
+    EOF
   end
 
   def usage # :nodoc:

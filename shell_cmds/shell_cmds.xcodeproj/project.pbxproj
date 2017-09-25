@@ -255,6 +255,22 @@
 		FCE30EE014B536F200CC0294 /* locate.code.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA13A114A141A300AA698B /* locate.code.c */; };
 		FCE30EE114B536F800CC0294 /* locate.code.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA13B114A141A300AA698B /* locate.code.8 */; };
 		FCED3AF614B4FC1800C313C3 /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FCED3AF514B4FC1800C313C3 /* libpam.dylib */; };
+		FD155C751D6E37E5005A53CA /* legacy_test.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C721D6E37B5005A53CA /* legacy_test.sh */; };
+		FD155C891D6E38C0005A53CA /* legacy_test.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C771D6E3847005A53CA /* legacy_test.sh */; };
+		FD155C8A1D6E38C0005A53CA /* regress.b.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C7A1D6E3847005A53CA /* regress.b.out */; };
+		FD155C8B1D6E38C0005A53CA /* regress.d.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C7B1D6E3847005A53CA /* regress.d.out */; };
+		FD155C8C1D6E38C0005A53CA /* regress.f.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C7C1D6E3847005A53CA /* regress.f.out */; };
+		FD155C8D1D6E38C0005A53CA /* regress.l1.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C7D1D6E3847005A53CA /* regress.l1.out */; };
+		FD155C8E1D6E38C0005A53CA /* regress.l2.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C7E1D6E3847005A53CA /* regress.l2.out */; };
+		FD155C8F1D6E38C0005A53CA /* regress.m1.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C7F1D6E3847005A53CA /* regress.m1.out */; };
+		FD155C901D6E38C0005A53CA /* regress.m2.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C801D6E3847005A53CA /* regress.m2.out */; };
+		FD155C911D6E38C0005A53CA /* regress.m3.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C811D6E3847005A53CA /* regress.m3.out */; };
+		FD155C921D6E38C0005A53CA /* regress.m4.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C821D6E3847005A53CA /* regress.m4.out */; };
+		FD155C931D6E38C0005A53CA /* regress.m5.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C831D6E3847005A53CA /* regress.m5.out */; };
+		FD155C941D6E38C0005A53CA /* regress.missingpos1.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C841D6E3847005A53CA /* regress.missingpos1.out */; };
+		FD155C951D6E38C0005A53CA /* regress.s.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C851D6E3847005A53CA /* regress.s.out */; };
+		FD155C961D6E38C0005A53CA /* regress.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C861D6E3847005A53CA /* regress.sh */; };
+		FD155C971D6E38C0005A53CA /* regress.zero.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD155C871D6E3847005A53CA /* regress.zero.out */; };
 		FD6060B51B7C0388004BCA6A /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = FD6060B41B7C0388004BCA6A /* main.c */; };
 		FD6060D21B7C0471004BCA6A /* alias.c in Sources */ = {isa = PBXBuildFile; fileRef = FD6060BC1B7C0471004BCA6A /* alias.c */; };
 		FD6060D31B7C0471004BCA6A /* arith_yacc.c in Sources */ = {isa = PBXBuildFile; fileRef = FD6060BD1B7C0471004BCA6A /* arith_yacc.c */; };
@@ -1489,6 +1505,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		FD155C741D6E37D7005A53CA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/Tests/shell_cmds/test;
+			dstSubfolderSpec = 0;
+			files = (
+				FD155C751D6E37E5005A53CA /* legacy_test.sh in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD155C881D6E38AB005A53CA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/Tests/shell_cmds/printf;
+			dstSubfolderSpec = 0;
+			files = (
+				FD155C891D6E38C0005A53CA /* legacy_test.sh in CopyFiles */,
+				FD155C8A1D6E38C0005A53CA /* regress.b.out in CopyFiles */,
+				FD155C8B1D6E38C0005A53CA /* regress.d.out in CopyFiles */,
+				FD155C8C1D6E38C0005A53CA /* regress.f.out in CopyFiles */,
+				FD155C8D1D6E38C0005A53CA /* regress.l1.out in CopyFiles */,
+				FD155C8E1D6E38C0005A53CA /* regress.l2.out in CopyFiles */,
+				FD155C8F1D6E38C0005A53CA /* regress.m1.out in CopyFiles */,
+				FD155C901D6E38C0005A53CA /* regress.m2.out in CopyFiles */,
+				FD155C911D6E38C0005A53CA /* regress.m3.out in CopyFiles */,
+				FD155C921D6E38C0005A53CA /* regress.m4.out in CopyFiles */,
+				FD155C931D6E38C0005A53CA /* regress.m5.out in CopyFiles */,
+				FD155C941D6E38C0005A53CA /* regress.missingpos1.out in CopyFiles */,
+				FD155C951D6E38C0005A53CA /* regress.s.out in CopyFiles */,
+				FD155C961D6E38C0005A53CA /* regress.sh in CopyFiles */,
+				FD155C971D6E38C0005A53CA /* regress.zero.out in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -1686,6 +1736,22 @@
 		FCE30ED214B5368A00CC0294 /* locate.bigram */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = locate.bigram; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCE30EDE14B536C900CC0294 /* locate.code */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = locate.code; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCED3AF514B4FC1800C313C3 /* libpam.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.dylib; path = /usr/lib/libpam.dylib; sourceTree = "<absolute>"; };
+		FD155C721D6E37B5005A53CA /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = legacy_test.sh; sourceTree = "<group>"; };
+		FD155C771D6E3847005A53CA /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = legacy_test.sh; sourceTree = "<group>"; };
+		FD155C7A1D6E3847005A53CA /* regress.b.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.b.out; sourceTree = "<group>"; };
+		FD155C7B1D6E3847005A53CA /* regress.d.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.d.out; sourceTree = "<group>"; };
+		FD155C7C1D6E3847005A53CA /* regress.f.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.f.out; sourceTree = "<group>"; };
+		FD155C7D1D6E3847005A53CA /* regress.l1.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.l1.out; sourceTree = "<group>"; };
+		FD155C7E1D6E3847005A53CA /* regress.l2.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.l2.out; sourceTree = "<group>"; };
+		FD155C7F1D6E3847005A53CA /* regress.m1.out */ = {isa = PBXFileReference; lastKnownFileType = file; path = regress.m1.out; sourceTree = "<group>"; };
+		FD155C801D6E3847005A53CA /* regress.m2.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.m2.out; sourceTree = "<group>"; };
+		FD155C811D6E3847005A53CA /* regress.m3.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.m3.out; sourceTree = "<group>"; };
+		FD155C821D6E3847005A53CA /* regress.m4.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.m4.out; sourceTree = "<group>"; };
+		FD155C831D6E3847005A53CA /* regress.m5.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.m5.out; sourceTree = "<group>"; };
+		FD155C841D6E3847005A53CA /* regress.missingpos1.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.missingpos1.out; sourceTree = "<group>"; };
+		FD155C851D6E3847005A53CA /* regress.s.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.s.out; sourceTree = "<group>"; };
+		FD155C861D6E3847005A53CA /* regress.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = regress.sh; sourceTree = "<group>"; };
+		FD155C871D6E3847005A53CA /* regress.zero.out */ = {isa = PBXFileReference; lastKnownFileType = text; path = regress.zero.out; sourceTree = "<group>"; };
 		FD6060B21B7C0388004BCA6A /* ash */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ash; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD6060B41B7C0388004BCA6A /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		FD6060BC1B7C0471004BCA6A /* alias.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias.c; sourceTree = "<group>"; };
@@ -2551,6 +2617,7 @@
 			children = (
 				FCBA13D414A141A300AA698B /* printf.1 */,
 				FCBA13D514A141A300AA698B /* printf.c */,
+				FD155C761D6E3847005A53CA /* tests */,
 			);
 			path = printf;
 			sourceTree = "<group>";
@@ -2635,6 +2702,7 @@
 				FCBA13F814A141A300AA698B /* [.1 */,
 				FCBA13FA14A141A300AA698B /* test.1 */,
 				FCBA13FB14A141A300AA698B /* test.c */,
+				FD155C711D6E37B5005A53CA /* tests */,
 			);
 			path = test;
 			sourceTree = "<group>";
@@ -2737,6 +2805,36 @@
 				FCBA142E14A141A300AA698B /* yes.c */,
 			);
 			path = yes;
+			sourceTree = "<group>";
+		};
+		FD155C711D6E37B5005A53CA /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				FD155C721D6E37B5005A53CA /* legacy_test.sh */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		FD155C761D6E3847005A53CA /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				FD155C771D6E3847005A53CA /* legacy_test.sh */,
+				FD155C7A1D6E3847005A53CA /* regress.b.out */,
+				FD155C7B1D6E3847005A53CA /* regress.d.out */,
+				FD155C7C1D6E3847005A53CA /* regress.f.out */,
+				FD155C7D1D6E3847005A53CA /* regress.l1.out */,
+				FD155C7E1D6E3847005A53CA /* regress.l2.out */,
+				FD155C7F1D6E3847005A53CA /* regress.m1.out */,
+				FD155C801D6E3847005A53CA /* regress.m2.out */,
+				FD155C811D6E3847005A53CA /* regress.m3.out */,
+				FD155C821D6E3847005A53CA /* regress.m4.out */,
+				FD155C831D6E3847005A53CA /* regress.m5.out */,
+				FD155C841D6E3847005A53CA /* regress.missingpos1.out */,
+				FD155C851D6E3847005A53CA /* regress.s.out */,
+				FD155C861D6E3847005A53CA /* regress.sh */,
+				FD155C871D6E3847005A53CA /* regress.zero.out */,
+			);
+			path = tests;
 			sourceTree = "<group>";
 		};
 		FD6060B31B7C0388004BCA6A /* sh */ = {
@@ -3321,6 +3419,7 @@
 				FCBA159F14A1459000AA698B /* Sources */,
 				FCBA15A014A1459000AA698B /* Frameworks */,
 				FCBA15A114A1459000AA698B /* CopyFiles */,
+				FD155C881D6E38AB005A53CA /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -3474,6 +3573,7 @@
 				FCBA15E714A145AE00AA698B /* Sources */,
 				FCBA15E814A145AE00AA698B /* Frameworks */,
 				FCBA15E914A145AE00AA698B /* CopyFiles */,
+				FD155C741D6E37D7005A53CA /* CopyFiles */,
 			);
 			buildRules = (
 			);

@@ -44,18 +44,17 @@ VARIANT_LEGACY_MACROS = -U__DARWIN_UNIX03 -D__DARWIN_UNIX03=0 -U__DARWIN_64_BIT_
 
 VARIANT_LEGACY_INCLUDE = $(VARIANT_LEGACY_INCLUDE_$(PLATFORM_NAME))
 VARIANT_LEGACY_INCLUDE_macosx = $(VARIANT_LEGACY_INCLUDE_$(PLATFORM_NAME)_$(CURRENT_ARCH))
-VARIANT_LEGACY_INCLUDE_macosx_i386 = $(VARIANT_LEGACY_INCLUDE_compat) $(VARIANT_LEGACY_INCLUDE_gdtoa) $(VARIANT_LEGACY_INCLUDE_gen) $(VARIANT_LEGACY_INCLUDE_locale) $(VARIANT_LEGACY_INCLUDE_net) $(VARIANT_LEGACY_INCLUDE_regex) $(VARIANT_LEGACY_INCLUDE_stdio) $(VARIANT_LEGACY_INCLUDE_stdlib) $(VARIANT_LEGACY_INCLUDE_stdtime) $(VARIANT_LEGACY_INCLUDE_string) $(VARIANT_LEGACY_INCLUDE_sys)
+VARIANT_LEGACY_INCLUDE_macosx_i386 = $(VARIANT_LEGACY_INCLUDE_compat) $(VARIANT_LEGACY_INCLUDE_gdtoa) $(VARIANT_LEGACY_INCLUDE_gen) $(VARIANT_LEGACY_INCLUDE_locale) $(VARIANT_LEGACY_INCLUDE_net) $(VARIANT_LEGACY_INCLUDE_regex) $(VARIANT_LEGACY_INCLUDE_stdio) $(VARIANT_LEGACY_INCLUDE_stdlib) $(VARIANT_LEGACY_INCLUDE_stdtime) $(VARIANT_LEGACY_INCLUDE_sys)
 
 VARIANT_LEGACY_INCLUDE_compat = creat.c setregid.c setreuid.c sigcompat.c killpg.c
 VARIANT_LEGACY_INCLUDE_gdtoa = gdtoa-strtof.c gdtoa-strtod.c gdtoa-strtodg.c
-VARIANT_LEGACY_INCLUDE_gen = clock.c closedir.c confstr.c crypt.c fnmatch.c lockf.c nanosleep.c nftw.c nice.c opendir.c pause.c popen.c rewinddir.c seekdir.c setmode.c sleep.c telldir.c termios.c timezone.c ttyname.c usleep.c wait.c waitpid.c
+VARIANT_LEGACY_INCLUDE_gen = clock.c confstr.c crypt.c fnmatch.c lockf.c nanosleep.c nftw.c nice.c pause.c popen.c setmode.c sleep.c termios.c timezone.c ttyname.c usleep.c wait.c waitpid.c
 VARIANT_LEGACY_INCLUDE_locale = wcsftime.c
 VARIANT_LEGACY_INCLUDE_net = recv.c send.c
 VARIANT_LEGACY_INCLUDE_regex = regcomp.c
 VARIANT_LEGACY_INCLUDE_stdio = fdopen.c fopen.c fputs.c freopen.c fwrite.c tempnam.c
 VARIANT_LEGACY_INCLUDE_stdlib = getopt.c putenv.c realpath.c setenv.c system.c
 VARIANT_LEGACY_INCLUDE_stdtime = localtime.c strftime.c strptime.c
-VARIANT_LEGACY_INCLUDE_string = strerror.c
 VARIANT_LEGACY_INCLUDE_sys = msgctl.c semctl.c shmctl.c
 
 // INODE32 symbols
@@ -85,6 +84,8 @@ VARIANT_DYLD_INCLUDE_sys = _libc_init.c
 VARIANT_DYLD_INCLUDE_x86_64 = x86_64/string/strcpy.s x86_64/string/strlen.s x86_64/string/strncpy.s x86_64/string/strnlen.s            strstr.c
 VARIANT_DYLD_INCLUDE_i386 =     i386/string/strcpy.s   i386/string/strlen.s   i386/string/strncpy.s               strnlen.c            strstr.c
 VARIANT_DYLD_INCLUDE_armv7 =                strcpy.c    arm/string/strlen.s               strncpy.c    arm/string/strnlen.s arm/string/strstr.s
+VARIANT_DYLD_INCLUDE_arm64 =                strcpy.c                                      strncpy.c  arm64/string/strnlen.s            strstr.c
+VARIANT_DYLD_INCLUDE_arm64_32 =             strcpy.c                                      strncpy.c  arm64/string/strnlen.s            strstr.c
 
 VARIANT_DYLD_INCLUDE_armv7s = $(VARIANT_DYLD_INCLUDE_armv7)
 VARIANT_DYLD_INCLUDE_armv7k = $(VARIANT_DYLD_INCLUDE_armv7)

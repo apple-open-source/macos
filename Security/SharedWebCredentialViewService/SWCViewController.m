@@ -296,13 +296,18 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         CFRelease(credentialList);
     }
     
+    table.frame = CGRectMake(0.0, 0.0, 300.0, 45.0);
+    [table layoutIfNeeded]; // so autolayout can do its thing and then we can measure a cell
+    UITableViewCell* cell = table.visibleCells.firstObject;
+    CGFloat heightForOneRow = cell ? CGRectGetHeight(cell.frame) : 45.0;
     
     NSDictionary* views = NSDictionaryOfVariableBindings(table);
     
     if ([_credentials count] > 2)
     {
         
-        NSDictionary *metrics = @{@"height":@120.0};
+        CGFloat manyCredentialsHeight = CGFloatMax((heightForOneRow * 2) + 30.0, 120.0);
+        NSDictionary *metrics = @{@"height":@(manyCredentialsHeight)};
         [view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|-[table]-|"  options:0 metrics:metrics views:views]];
         [view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[table(height)]-|" options:0 metrics:metrics views:views]];
         
@@ -310,24 +315,24 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         table.layer.borderWidth = 1.0 / scale;
         table.layer.borderColor = [UIColor colorWithWhite:.5 alpha:.5].CGColor;
         
-        [self setPreferredContentSize:CGSizeMake(0,140)];
+        [self setPreferredContentSize:CGSizeMake(0, manyCredentialsHeight + 20.0)];
         
     } else if ([_credentials count] == 2) {
         
-        NSDictionary *metrics = @{@"height":@90.0};
+        NSDictionary *metrics = @{@"height":@(heightForOneRow * 2)};
         [view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[table]|"  options:0 metrics:metrics views:views]];
         [view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[table(height)]-|" options:0 metrics:metrics views:views]];
         
-        [self setPreferredContentSize:CGSizeMake(0,90)];
+        [self setPreferredContentSize:CGSizeMake(0, heightForOneRow * 2)];
         [table setScrollEnabled: NO];
         
     } else {  // [_credentials count] == 1
         
-        NSDictionary *metrics = @{@"height":@45.0};
+        NSDictionary *metrics = @{@"height":@(heightForOneRow)};
         [view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[table]|"  options:0 metrics:metrics views:views]];
         [view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|[table(height)]|" options:0 metrics:metrics views:views]];
         
-        [self setPreferredContentSize:CGSizeMake(0,45)];
+        [self setPreferredContentSize:CGSizeMake(0, heightForOneRow)];
         [table setScrollEnabled: NO];
         
     }
@@ -345,6 +350,7 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
     _selectedCell = [NSIndexPath indexPathForItem:0 inSection: 0];
     SWCItemCell *cell = (SWCItemCell *)[_table cellForRowAtIndexPath: _selectedCell];
     [cell setTicked: YES];
+    [cell layoutSubviews];
     [_table selectRowAtIndexPath: _selectedCell animated: NO scrollPosition: UITableViewScrollPositionTop];
     
     CFErrorRef error = NULL;

@@ -21,10 +21,10 @@
  */
 
 
-#include <IOKit/graphics/IOGraphicsDevice.h>
 #include <libkern/c++/OSContainers.h>
-
 #include <IOKit/assert.h>
+
+#include <IOKit/graphics/IOGraphicsDevice.h>
 
 #define super IOService
 

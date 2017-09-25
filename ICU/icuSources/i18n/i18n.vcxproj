@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -26,21 +26,25 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -100,6 +104,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -107,7 +112,7 @@
       <AdditionalIncludeDirectories>../common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <OutputFile>..\..\bin\icuin57.dll</OutputFile>
+      <OutputFile>..\..\bin\icuin59.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ProgramDatabaseFile>.\..\..\lib\icuin.pdb</ProgramDatabaseFile>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -144,6 +149,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -151,7 +157,7 @@
       <AdditionalIncludeDirectories>../common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <OutputFile>..\..\bin\icuin57d.dll</OutputFile>
+      <OutputFile>..\..\bin\icuin59d.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>.\..\..\lib\icuind.pdb</ProgramDatabaseFile>
@@ -185,6 +191,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -192,7 +199,7 @@
       <AdditionalIncludeDirectories>../common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <OutputFile>..\..\bin64\icuin57.dll</OutputFile>
+      <OutputFile>..\..\bin64\icuin59.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ProgramDatabaseFile>.\..\..\lib64\icuin.pdb</ProgramDatabaseFile>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -227,6 +234,7 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -234,7 +242,7 @@
       <AdditionalIncludeDirectories>../common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <OutputFile>..\..\bin64\icuin57d.dll</OutputFile>
+      <OutputFile>..\..\bin64\icuin59d.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>.\..\..\lib64\icuind.pdb</ProgramDatabaseFile>
@@ -312,11 +320,11 @@
     <ClCompile Include="datefmt.cpp" />
     <ClCompile Include="dayperiodrules.cpp" />
     <ClCompile Include="dcfmtsym.cpp" />
-    <ClCompile Include="decContext.c" />
+    <ClCompile Include="decContext.cpp" />
     <ClCompile Include="decfmtst.cpp" />
     <ClCompile Include="decimalformatpattern.cpp" />
     <ClCompile Include="decimfmt.cpp" />
-    <ClCompile Include="decNumber.c" />
+    <ClCompile Include="decNumber.cpp" />
     <ClCompile Include="digitlst.cpp" />
     <ClCompile Include="dtfmtsym.cpp" />
     <ClCompile Include="dtitvfmt.cpp" />
@@ -333,7 +341,6 @@
     <ClCompile Include="gregocal.cpp" />
     <ClCompile Include="gregoimp.cpp" />
     <ClCompile Include="hebrwcal.cpp" />
-    <ClCompile Include="identifier_info.cpp" />
     <ClCompile Include="indiancal.cpp" />
     <ClCompile Include="islamcal.cpp" />
     <ClCompile Include="japancal.cpp" />
@@ -377,14 +384,14 @@
     <ClCompile Include="udateintervalformat.cpp" />
     <ClCompile Include="udatpg.cpp" />
     <ClCompile Include="ufieldpositer.cpp" />
-    <ClCompile Include="ulocdata.c" />
+    <ClCompile Include="ulocdata.cpp" />
     <ClCompile Include="umsg.cpp" />
     <ClCompile Include="unum.cpp" />
     <ClCompile Include="unumsys.cpp" />
     <ClCompile Include="upluralrules.cpp" />
     <ClCompile Include="utf16collationiterator.cpp" />
     <ClCompile Include="utf8collationiterator.cpp" />
-    <ClCompile Include="utmscale.c" />
+    <ClCompile Include="utmscale.cpp" />
     <ClCompile Include="vtzone.cpp" />
     <ClCompile Include="vzone.cpp" />
     <ClCompile Include="windtfmt.cpp">
@@ -460,7 +467,6 @@
     <ClCompile Include="uspoof_build.cpp" />
     <ClCompile Include="uspoof_conf.cpp" />
     <ClCompile Include="uspoof_impl.cpp" />
-    <ClCompile Include="uspoof_wsconf.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="unicode\alphaindex.h">
@@ -848,6 +854,7 @@
     <ClInclude Include="decNumber.h" />
     <ClInclude Include="decNumberLocal.h" />
     <ClInclude Include="digitlst.h" />
+    <ClInclude Include="dt_impl.h" />
     <CustomBuild Include="unicode\dtfmtsym.h">
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">copy "%(FullPath)" ..\..\include\unicode
 </Command>
@@ -1681,11 +1688,9 @@
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\unicode\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
-    <ClInclude Include="identifier_info.h" />
     <ClInclude Include="scriptset.h" />
     <ClInclude Include="uspoof_conf.h" />
     <ClInclude Include="uspoof_impl.h" />
-    <ClInclude Include="uspoof_wsconf.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="i18n.rc" />

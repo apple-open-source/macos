@@ -83,7 +83,7 @@ extern const CFStringRef kSecCompressionRatio;
 /*!
  @function SecEncodeTransformCreate
  @abstract			Creates an encode computation object.
- @param encodeType	The type of digest to compute.  You may pass NULL
+ @param encodeType	The type of encoding to compute.  You may pass NULL
  for this parameter, in which case an appropriate
  algorithm will be chosen for you.
  @param error		A pointer to a CFErrorRef.  This pointer will be set

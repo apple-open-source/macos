@@ -27,25 +27,23 @@
  * Framework and CSSM
  */
 
+#include "config.h"
+
 #include <Security/SecCertificate.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
-#include <Security/SecKey.h>
+#include <Security/SecKeyPriv.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecItem.h>
 #include <TargetConditionals.h>
 #include <Security/SecItemPriv.h>
-#if TARGET_OS_EMBEDDED
+#ifndef HAVE_OPENSSL
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecCertificatePriv.h>
 #else
 #include <Security/SecBase.h>
 #include <Security/SecIdentityPriv.h>
-#include <Security/SecIdentitySearch.h>
-#include <Security/SecKeychain.h>
-#include <Security/SecKeychainItem.h>
-#include <Security/SecKeychainItemPriv.h>
 #include <Security/SecCertificateOIDs.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/oidsalg.h>
@@ -54,6 +52,10 @@
 #endif
 #include <CoreFoundation/CoreFoundation.h>
 #if !TARGET_OS_EMBEDDED
+#include <Security/SecIdentitySearch.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
+#include <Security/SecKeychainItemPriv.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #endif
 #include "plog.h"
@@ -68,8 +70,7 @@
 
 static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef, SecKeyRef *publicKeyRef);
 
-#if !TARGET_OS_EMBEDDED
-#endif
+
 
 static SecPolicyRef
 crypto_cssm_x509cert_get_SecPolicyRef (CFStringRef hostname)
@@ -124,11 +125,11 @@ crypto_cssm_CopySubjectSequence(SecCertificateRef certRef)
 }
 
 
-static cert_status_t
+cert_status_t
 crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
 {
 	cert_status_t       certStatus = CERT_STATUS_OK;
-#if TARGET_OS_EMBEDDED
+#ifndef HAVE_OPENSSL
 	CFAbsoluteTime		timeNow = 0;
 	CFAbsoluteTime		notvalidbeforedate = 0;
 	CFAbsoluteTime		notvalidafterdate = 0;
@@ -136,63 +137,57 @@ crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
 	CFDateRef			notvalidbeforedatedata = NULL;
 	CFDateRef			notvalidafterdatedata = NULL;
 	CFArrayRef			certProparray = NULL;
-	CFDictionaryRef		propDict = NULL;
-	const void			*datevalue = NULL;
-	const void			*labelvalue = NULL;
-	CFGregorianDate		gregoriandate;
-	CFIndex				count;
-	CFIndex				i;
-	
-	if ((certProparray = SecCertificateCopyProperties(certificateRef))){
-		if ((count = CFArrayGetCount( certProparray ))){
-			for( i = 0; i < count; i++) {  
-				if ((propDict = CFArrayGetValueAtIndex(certProparray, i))) {
-					if ( CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyValue, (const void**)&datevalue)){
-						/* get kSecPropertyKeyLabel */
-						if ( (datevalue) && (CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyLabel, (const void**)&labelvalue))){
-							if ( (labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid Before"), 0) == kCFCompareEqualTo)){
-								if ( (notvalidbeforedate = CFDateGetAbsoluteTime(datevalue))) {
-									if (notvalidbeforedatedata) {
-										CFRelease(notvalidbeforedatedata);
-									}
-									notvalidbeforedatedata = CFDateCreate(NULL, notvalidbeforedate);
-								}
-							}else if ((labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid After"), 0 ) == kCFCompareEqualTo)){
-								if ( (notvalidafterdate = CFDateGetAbsoluteTime(datevalue))) {
-									if (notvalidafterdatedata) {
-										CFRelease(notvalidafterdatedata);
-									}
-									notvalidafterdatedata = CFDateCreate(NULL, notvalidafterdate);
-								}
-							}
-						}
-					}
-				}
-			}	
-		}
-	}
 
-	if ( (timeNow = CFAbsoluteTimeGetCurrent()) && (nowcfdatedata = CFDateCreate( NULL, timeNow))){
-		if ( notvalidbeforedatedata ){
-			gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidbeforedate, NULL);
-			plog(ASL_LEVEL_DEBUG, 
-				 "Certificate not valid before yr %d, mon %d, days %d, hours %d, min %d\n", (int)gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
-			gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidafterdate, NULL);
-			plog(ASL_LEVEL_DEBUG, 
-				 "Certificate not valid after yr %d, mon %d, days %d, hours %d, min %d\n", (int)gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
-			if ( CFDateCompare( nowcfdatedata, notvalidbeforedatedata, NULL ) == kCFCompareLessThan){
-				plog(ASL_LEVEL_ERR, 
-					 "current time before valid time\n");
-				certStatus = CERT_STATUS_PREMATURE;
-			} else if (notvalidafterdatedata && (CFDateCompare( nowcfdatedata, notvalidafterdatedata, NULL ) == kCFCompareGreaterThan)){
-				plog(ASL_LEVEL_ERR, 
-					 "current time after valid time\n");
-				certStatus = CERT_STATUS_EXPIRED;
-			}else {
-				plog(ASL_LEVEL_INFO, "Certificate expiration date is OK\n");
-				certStatus = CERT_STATUS_OK;
+	if ((timeNow = CFAbsoluteTimeGetCurrent())) {
+		if (SecCertificateIsValid(certificateRef, timeNow)) {
+			plog(ASL_LEVEL_NOTICE, "Certificate expiration date is OK\n");
+			certStatus = CERT_STATUS_OK;
+		} else {
+			nowcfdatedata = CFDateCreate( NULL, timeNow);
+
+			if ((notvalidbeforedate = SecCertificateNotValidBefore(certificateRef))) {
+				notvalidbeforedatedata = CFDateCreate(NULL, notvalidbeforedate);
+			}
+
+			if ((notvalidafterdate = SecCertificateNotValidAfter(certificateRef))) {
+				notvalidafterdatedata = CFDateCreate(NULL, notvalidafterdate);
+			}
+
+			int year = 0;
+			int month = 0;
+			int day = 0;
+			int hour = 0;
+			int minute = 0;
+			CFCalendarRef calendar = CFCalendarCreateWithIdentifier(kCFAllocatorDefault, kCFGregorianCalendar);
+			if (calendar)
+			{
+				if (notvalidbeforedate) {
+					CFCalendarDecomposeAbsoluteTime(calendar, notvalidbeforedate, "yMdHm", &year, &month, &day, &hour, &minute);
+					plog(ASL_LEVEL_DEBUG, "Certificate not valid before yr %d, mon %d, days %d, hours %d, min %d\n", year, month, day, hour, minute);
+				}
+
+				if (notvalidafterdate) {
+					CFCalendarDecomposeAbsoluteTime(calendar, notvalidafterdate, "yMdHm", &year, &month, &day, &hour, &minute);
+					plog(ASL_LEVEL_DEBUG, "Certificate not valid after yr %d, mon %d, days %d, hours %d, min %d\n", year, month, day, hour, minute);
+				}
+				CFRelease(calendar);
+			}
+
+			if (nowcfdatedata != NULL) {
+				if (notvalidbeforedatedata && CFDateCompare(nowcfdatedata, notvalidbeforedatedata, NULL) == kCFCompareLessThan){
+					plog(ASL_LEVEL_ERR,
+						 "current time before valid time\n");
+					certStatus = CERT_STATUS_PREMATURE;
+				} else if (notvalidafterdatedata && (CFDateCompare( nowcfdatedata, notvalidafterdatedata, NULL ) == kCFCompareGreaterThan)){
+					plog(ASL_LEVEL_ERR,
+						 "current time after valid time\n");
+					certStatus = CERT_STATUS_EXPIRED;
+				}
 			}
 		}
+	} else {
+		plog(ASL_LEVEL_ERR, "CFAbsoluteTimeGetCurrent() failed");
+		certStatus = CERT_STATUS_INVALID;
 	}
 
 	if (notvalidbeforedatedata)
@@ -282,7 +277,7 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 	
 	if (status != noErr && status != -1) {
 		plog(ASL_LEVEL_ERR, 
-			 "error %d %s.\n", (int)status, GetSecurityErrorString(status));
+			 "check_x509cert error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	} else if (certStatus == CERT_STATUS_PREMATURE || certStatus == CERT_STATUS_EXPIRED) {
 		status = -1;
@@ -365,7 +360,7 @@ end:
 
 	if (status != noErr && status != -1) {
 		plog(ASL_LEVEL_ERR, 
-			"error %d %s.\n", (int)status, GetSecurityErrorString(status));
+			"getsign error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	}			
 	return sig;
@@ -443,7 +438,7 @@ end:
 	
 	if (status != noErr && status != -1) {
 		plog(ASL_LEVEL_ERR, 
-			"error %d %s.\n", (int)status, GetSecurityErrorString(status));
+			"get_x509cert error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	}			
 	return cert;
@@ -553,7 +548,7 @@ end:
 
 	if (status != noErr && status != -1) {
 		plog(ASL_LEVEL_ERR, 
-			"error %d %s.\n", (int)status, GetSecurityErrorString(status));
+			"EvaluateCert error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	}			
 	return status;
@@ -580,7 +575,9 @@ GetSecurityErrorString(OSStatus err)
 			return "paramErr";
 		case unimpErr:
 			return "unimpErr";
+#endif
 
+#ifndef HAVE_OPENSSL
         /* SecBase.h: */
 		case errSecReadOnly:
 			return "errSecReadOnly";

@@ -30,6 +30,7 @@
 #include "WebAutomationSessionMessages.h"
 #include "WebAutomationSessionProxyMessages.h"
 #include "WebAutomationSessionProxyScriptSource.h"
+#include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebImage.h"
 #include "WebPage.h"
@@ -47,7 +48,7 @@
 #include <WebCore/HTMLFrameElementBase.h>
 #include <WebCore/JSElement.h>
 #include <WebCore/MainFrame.h>
-#include <WebCore/UUID.h>
+#include <wtf/UUID.h>
 
 namespace WebKit {
 
@@ -122,7 +123,7 @@ static JSValueRef evaluate(JSContextRef context, JSObjectRef function, JSObjectR
 
 static JSValueRef createUUID(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-    return toJSValue(context, WebCore::createCanonicalUUIDString().convertToASCIIUppercase());
+    return toJSValue(context, createCanonicalUUIDString().convertToASCIIUppercase());
 }
 
 static JSValueRef evaluateJavaScriptCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -205,7 +206,7 @@ WebCore::Element* WebAutomationSessionProxy::elementForNodeHandle(WebFrame& fram
     if (!element)
         return nullptr;
 
-    auto elementWrapper = WebCore::jsDynamicDowncast<WebCore::JSElement*>(toJS(element));
+    auto elementWrapper = WebCore::jsDynamicDowncast<WebCore::JSElement*>(toJS(context)->vm(), toJS(element));
     if (!elementWrapper)
         return nullptr;
 
@@ -272,7 +273,9 @@ void WebAutomationSessionProxy::evaluateJavaScriptFunction(uint64_t pageID, uint
         if (exceptionName->string() == "NodeNotFound")
             errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::NodeNotFound);
         else if (exceptionName->string() == "InvalidElementState")
-            errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::InvalidElementState);        
+            errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::InvalidElementState);
+        else if (exceptionName->string() == "InvalidParameter")
+            errorType = Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::InvalidParameter);
 
         JSValueRef messageValue = JSObjectGetProperty(context, const_cast<JSObjectRef>(exception), toJSString(ASCIILiteral("message")).get(), nullptr);
         exceptionMessage.adopt(JSValueToStringCopy(context, messageValue, nullptr));
@@ -534,7 +537,7 @@ void WebAutomationSessionProxy::takeScreenshot(uint64_t pageID, uint64_t callbac
 
     RefPtr<WebImage> image = page->scaledSnapshotWithOptions(snapshotRect, 1, SnapshotOptionsShareable);
     if (image)
-        image->bitmap()->createHandle(handle, SharedMemory::Protection::ReadOnly);
+        image->bitmap().createHandle(handle, SharedMemory::Protection::ReadOnly);
 
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidTakeScreenshot(callbackID, handle, String()), 0);    
 }

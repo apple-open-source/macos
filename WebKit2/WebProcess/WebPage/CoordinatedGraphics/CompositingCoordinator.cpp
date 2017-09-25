@@ -36,7 +36,12 @@
 #include <WebCore/InspectorController.h>
 #include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
+#include <wtf/MemoryPressureHandler.h>
 #include <wtf/SetForScope.h>
+
+#if USE(GLIB_EVENT_LOOP)
+#include <wtf/glib/RunLoopSourcePriority.h>
+#endif
 
 using namespace WebCore;
 
@@ -45,8 +50,11 @@ namespace WebKit {
 CompositingCoordinator::CompositingCoordinator(Page* page, CompositingCoordinator::Client& client)
     : m_page(page)
     , m_client(client)
-    , m_releaseInactiveAtlasesTimer(*this, &CompositingCoordinator::releaseInactiveAtlasesTimerFired)
+    , m_releaseInactiveAtlasesTimer(RunLoop::main(), this, &CompositingCoordinator::releaseInactiveAtlasesTimerFired)
 {
+#if USE(GLIB_EVENT_LOOP)
+    m_releaseInactiveAtlasesTimer.setPriority(RunLoopSourcePriority::ReleaseUnusedResourcesTimer);
+#endif
 }
 
 CompositingCoordinator::~CompositingCoordinator()
@@ -129,6 +137,9 @@ bool CompositingCoordinator::flushPendingLayerChanges()
 
         m_client.commitSceneState(m_state);
 
+        if (!m_atlasesToRemove.isEmpty())
+            m_client.releaseUpdateAtlases(WTFMove(m_atlasesToRemove));
+
         clearPendingStateChanges();
         m_shouldSyncFrame = false;
     }
@@ -146,22 +157,15 @@ double CompositingCoordinator::timestamp() const
 
 void CompositingCoordinator::syncDisplayState()
 {
-#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER) && !USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    // Make sure that any previously registered animation callbacks are being executed before we flush the layers.
-    m_lastAnimationServiceTime = timestamp();
-    m_page->mainFrame().view()->serviceScriptedAnimations();
-#endif
     m_page->mainFrame().view()->updateLayoutAndStyleIfNeededRecursive();
 }
 
-#if ENABLE(REQUEST_ANIMATION_FRAME)
 double CompositingCoordinator::nextAnimationServiceTime() const
 {
     // According to the requestAnimationFrame spec, rAF callbacks should not be faster than 60FPS.
     static const double MinimalTimeoutForAnimations = 1. / 60.;
     return std::max<double>(0., MinimalTimeoutForAnimations - timestamp() + m_lastAnimationServiceTime);
 }
-#endif
 
 void CompositingCoordinator::clearPendingStateChanges()
 {
@@ -175,7 +179,6 @@ void CompositingCoordinator::clearPendingStateChanges()
     m_state.imagesToClear.clear();
 
     m_state.updateAtlasesToCreate.clear();
-    m_state.updateAtlasesToRemove.clear();
 }
 
 void CompositingCoordinator::initializeRootCompositingLayerIfNeeded()
@@ -206,11 +209,11 @@ void CompositingCoordinator::syncLayerState(CoordinatedLayerID id, CoordinatedGr
     m_state.layersToUpdate.append(std::make_pair(id, state));
 }
 
-Ref<CoordinatedImageBacking> CompositingCoordinator::createImageBackingIfNeeded(Image* image)
+Ref<CoordinatedImageBacking> CompositingCoordinator::createImageBackingIfNeeded(Image& image)
 {
-    CoordinatedImageBackingID imageID = CoordinatedImageBacking::getCoordinatedImageBackingID(image);
-    auto addResult = m_imageBackings.ensure(imageID, [this, image] {
-        return CoordinatedImageBacking::create(this, image);
+    CoordinatedImageBackingID imageID = CoordinatedImageBacking::getCoordinatedImageBackingID(&image);
+    auto addResult = m_imageBackings.ensure(imageID, [this, &image] {
+        return CoordinatedImageBacking::create(*this, image);
     });
     return *addResult.iterator->value;
 }
@@ -263,7 +266,7 @@ void CompositingCoordinator::notifyFlushRequired(const GraphicsLayer*)
         m_client.notifyFlushRequired();
 }
 
-void CompositingCoordinator::paintContents(const GraphicsLayer* graphicsLayer, GraphicsContext& graphicsContext, GraphicsLayerPaintingPhase, const FloatRect& clipRect)
+void CompositingCoordinator::paintContents(const GraphicsLayer* graphicsLayer, GraphicsContext& graphicsContext, GraphicsLayerPaintingPhase, const FloatRect& clipRect, GraphicsLayerPaintBehavior)
 {
     m_client.paintLayerContents(graphicsLayer, graphicsContext, enclosingIntRect(clipRect));
 }
@@ -298,7 +301,7 @@ void CompositingCoordinator::removeUpdateAtlas(uint32_t atlasID)
 {
     if (m_isPurging)
         return;
-    m_state.updateAtlasesToRemove.append(atlasID);
+    m_atlasesToRemove.append(atlasID);
 }
 
 FloatRect CompositingCoordinator::visibleContentsRect() const
@@ -398,25 +401,31 @@ bool CompositingCoordinator::paintToSurface(const IntSize& size, CoordinatedSurf
     return m_updateAtlases.last()->paintOnAvailableBuffer(size, atlasID, offset, client);
 }
 
-const double ReleaseInactiveAtlasesTimerInterval = 0.5;
+const Seconds releaseInactiveAtlasesTimerInterval { 500_ms };
 
 void CompositingCoordinator::scheduleReleaseInactiveAtlases()
 {
     if (!m_releaseInactiveAtlasesTimer.isActive())
-        m_releaseInactiveAtlasesTimer.startRepeating(ReleaseInactiveAtlasesTimerInterval);
+        m_releaseInactiveAtlasesTimer.startRepeating(releaseInactiveAtlasesTimerInterval);
 }
 
 void CompositingCoordinator::releaseInactiveAtlasesTimerFired()
+{
+    releaseAtlases(MemoryPressureHandler::singleton().isUnderMemoryPressure() ? ReleaseUnused : ReleaseInactive);
+}
+
+void CompositingCoordinator::releaseAtlases(ReleaseAtlasPolicy policy)
 {
     // We always want to keep one atlas for root contents layer.
     std::unique_ptr<UpdateAtlas> atlasToKeepAnyway;
     bool foundActiveAtlasForRootContentsLayer = false;
     for (int i = m_updateAtlases.size() - 1;  i >= 0; --i) {
         UpdateAtlas* atlas = m_updateAtlases[i].get();
-        if (!atlas->isInUse())
-            atlas->addTimeInactive(ReleaseInactiveAtlasesTimerInterval);
+        bool inUse = atlas->isInUse();
+        if (!inUse)
+            atlas->addTimeInactive(releaseInactiveAtlasesTimerInterval.value());
         bool usableForRootContentsLayer = !atlas->supportsAlpha();
-        if (atlas->isInactive()) {
+        if (atlas->isInactive() || (!inUse && policy == ReleaseUnused)) {
             if (!foundActiveAtlasForRootContentsLayer && !atlasToKeepAnyway && usableForRootContentsLayer)
                 atlasToKeepAnyway = WTFMove(m_updateAtlases[i]);
             m_updateAtlases.remove(i);
@@ -431,6 +440,21 @@ void CompositingCoordinator::releaseInactiveAtlasesTimerFired()
 
     if (m_updateAtlases.size() <= 1)
         m_releaseInactiveAtlasesTimer.stop();
+
+    if (!m_atlasesToRemove.isEmpty())
+        m_client.releaseUpdateAtlases(WTFMove(m_atlasesToRemove));
+}
+
+void CompositingCoordinator::clearUpdateAtlases()
+{
+    if (m_isPurging)
+        return;
+
+    m_releaseInactiveAtlasesTimer.stop();
+    m_updateAtlases.clear();
+
+    if (!m_atlasesToRemove.isEmpty())
+        m_client.releaseUpdateAtlases(WTFMove(m_atlasesToRemove));
 }
 
 } // namespace WebKit

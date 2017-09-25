@@ -39,6 +39,7 @@ my $useOutputDir = "";
 my $useOutputHeadersDir = "";
 my $useDirectories = "";
 my $preprocessor;
+my $idlAttributes;
 my $writeDependencies = 0;
 my $defines = "";
 my $targetIdlFilePath = "";
@@ -71,7 +72,7 @@ my %stringTypeHash = (
     "USVString" => 1,
 );
 
-my %typedArrayTypes = (
+my %bufferSourceTypes = (
     "ArrayBuffer" => 1,
     "ArrayBufferView" => 1,
     "DataView" => 1,
@@ -144,6 +145,7 @@ sub new
     $writeDependencies = shift;
     $verbose = shift;
     $targetIdlFilePath = shift;
+    $idlAttributes = shift;
 
     bless($reference, $object);
     return $reference;
@@ -314,6 +316,15 @@ sub IDLFileForInterface
     return $idlFiles->{$interfaceName};
 }
 
+sub GetInterfaceForAttribute
+{
+    my ($object, $currentInterface, $attribute) = @_;
+
+    return undef unless $object->IsInterfaceType($attribute->type);
+
+    return $object->ParseInterface($currentInterface, $attribute->type->name);
+}
+
 sub GetAttributeFromInterface
 {
     my ($object, $outerInterface, $interfaceName, $attributeName) = @_;
@@ -346,7 +357,7 @@ sub ParseInterface
 
     # Step #2: Parse the found IDL file (in quiet mode).
     my $parser = IDLParser->new(1);
-    my $document = $parser->Parse($filename, $defines, $preprocessor);
+    my $document = $parser->Parse($filename, $defines, $preprocessor, $idlAttributes);
 
     foreach my $interface (@{$document->interfaces}) {
         if ($interface->type->name eq $interfaceName) {
@@ -440,7 +451,7 @@ sub GetEnumByType
 
     my $name = $type->name;
 
-    die "GetEnumByName() was called with an undefined enumeration name" unless defined($name);
+    die "GetEnumByType() was called with an undefined enumeration name" unless defined($name);
 
     for my $enumeration (@{$useDocument->enumerations}) {
         return $enumeration if $enumeration->type->name eq $name;
@@ -457,7 +468,7 @@ sub GetEnumByType
     if ($fileContents =~ /\benum\s+$name/gs) {
         # Parse the IDL.
         my $parser = IDLParser->new(1);
-        my $document = $parser->Parse($filename, $defines, $preprocessor);
+        my $document = $parser->Parse($filename, $defines, $preprocessor, $idlAttributes);
 
         foreach my $enumeration (@{$document->enumerations}) {
             next unless $enumeration->type->name eq $name;
@@ -525,7 +536,7 @@ sub GetDictionaryByType
     if ($fileContents =~ /\bdictionary\s+$name/gs) {
         # Parse the IDL.
         my $parser = IDLParser->new(1);
-        my $document = $parser->Parse($filename, $defines, $preprocessor);
+        my $document = $parser->Parse($filename, $defines, $preprocessor, $idlAttributes);
 
         foreach my $dictionary (@{$document->dictionaries}) {
             next unless $dictionary->type->name eq $name;
@@ -575,45 +586,6 @@ sub GetDictionaryImplementationNameOverride
     assert("Not a type") if ref($type) ne "IDLType";
 
     return $dictionaryTypeImplementationNameOverrides{$type->name};
-}
-
-sub IsNonPointerType
-{
-    my ($object, $type) = @_;
-
-    assert("Not a type") if ref($type) ne "IDLType";
-
-    return 1 if $object->IsPrimitiveType($type);
-    return 0;
-}
-
-sub IsTypedArrayType
-{
-    my ($object, $type) = @_;
-
-    assert("Not a type") if ref($type) ne "IDLType";
-
-    return 1 if $typedArrayTypes{$type->name};
-    return 0;
-}
-
-sub IsRefPtrType
-{
-    my ($object, $type) = @_;
-
-    assert("Not a type") if ref($type) ne "IDLType";
-
-    return 0 if $object->IsPrimitiveType($type);
-    return 0 if $object->IsDictionaryType($type);
-    return 0 if $object->IsEnumType($type);
-    return 0 if $object->IsSequenceOrFrozenArrayType($type);
-    return 0 if $object->IsRecordType($type);
-    return 0 if $object->IsStringType($type);
-    return 0 if $type->isUnion;
-    return 0 if $type->name eq "any";
-    return 0 if $type->name eq "object";
-
-    return 1;
 }
 
 sub IsSVGAnimatedTypeName
@@ -675,6 +647,25 @@ sub IsRecordType
     assert("Not a type") if ref($type) ne "IDLType";
 
     return $type->name eq "record";
+}
+
+sub IsBufferSourceType
+{
+    my ($object, $type) = @_;
+
+    assert("Not a type") if ref($type) ne "IDLType";
+
+    return 1 if $bufferSourceTypes{$type->name};
+    return 0;
+}
+
+sub IsPromiseType
+{
+    my ($object, $type) = @_;
+
+    assert("Not a type") if ref($type) ne "IDLType";
+
+    return $type->name eq "Promise";
 }
 
 # These match WK_lcfirst and WK_ucfirst defined in builtins_generator.py.
@@ -745,17 +736,17 @@ sub NamespaceForAttributeName
 
 # Identifies overloaded functions and for each function adds an array with
 # links to its respective overloads (including itself).
-sub LinkOverloadedFunctions
+sub LinkOverloadedOperations
 {
     my ($object, $interface) = @_;
 
-    my %nameToFunctionsMap = ();
-    foreach my $function (@{$interface->functions}) {
-        my $name = $function->name;
-        $nameToFunctionsMap{$name} = [] if !exists $nameToFunctionsMap{$name};
-        push(@{$nameToFunctionsMap{$name}}, $function);
-        $function->{overloads} = $nameToFunctionsMap{$name};
-        $function->{overloadIndex} = @{$nameToFunctionsMap{$name}};
+    my %nameToOperationsMap = ();
+    foreach my $operation (@{$interface->operations}) {
+        my $name = $operation->name;
+        $nameToOperationsMap{$name} = [] if !exists $nameToOperationsMap{$name};
+        push(@{$nameToOperationsMap{$name}}, $operation);
+        $operation->{overloads} = $nameToOperationsMap{$name};
+        $operation->{overloadIndex} = @{$nameToOperationsMap{$name}};
     }
 
     my $index = 1;
@@ -874,16 +865,15 @@ sub IsBuiltinType
     return 1 if $object->IsSequenceOrFrozenArrayType($type);
     return 1 if $object->IsRecordType($type);
     return 1 if $object->IsStringType($type);
-    return 1 if $object->IsTypedArrayType($type);
+    return 1 if $object->IsBufferSourceType($type);
     return 1 if $type->isUnion;
+    return 1 if $type->name eq "EventListener";
+    return 1 if $type->name eq "JSON";
+    return 1 if $type->name eq "Promise";
+    return 1 if $type->name eq "SerializedScriptValue";
+    return 1 if $type->name eq "XPathNSResolver";
     return 1 if $type->name eq "any";
     return 1 if $type->name eq "object";
-    return 1 if $type->name eq "BufferSource";
-    return 1 if $type->name eq "Promise";
-    return 1 if $type->name eq "XPathNSResolver";    
-    return 1 if $type->name eq "EventListener";    
-    return 1 if $type->name eq "SerializedScriptValue";    
-    return 1 if $type->name eq "JSON";    
 
     return 0;
 }
@@ -909,6 +899,47 @@ sub IsWrapperType
 
     return 1 if $object->IsInterfaceType($type);
     return 1 if $type->name eq "XPathNSResolver";
+
+    return 0;
+}
+
+sub InheritsSerializable
+{
+    my ($object, $interface) = @_;
+
+    my $anyParentIsSerializable = 0;
+    $object->ForAllParents($interface, sub {
+        my $parentInterface = shift;
+        $anyParentIsSerializable = 1 if $parentInterface->serializable;
+    }, 0);
+
+    return $anyParentIsSerializable;
+}
+
+sub IsSerializableAttribute
+{
+    my ($object, $interface, $attribute) = @_;
+
+    # https://heycam.github.io/webidl/#dfn-serializable-type
+
+    my $type = $attribute->type;
+    return 1 if $type->name eq "boolean";
+    return 1 if $object->IsNumericType($type);
+    return 1 if $object->IsEnumType($type);
+    return 1 if $object->IsStringType($type);
+    return 0 if $type->name eq "EventHandler";
+
+    if ($type->isUnion || $object->IsSequenceType($type) || $object->IsDictionaryType($type)) {
+        die "Serializer for non-primitive types is not currently supported\n";
+    }
+
+    return 0 if !$object->IsInterfaceType($type);
+
+    my $interfaceForAttribute = $object->GetInterfaceForAttribute($interface, $attribute);
+    if ($interfaceForAttribute) {
+        return 1 if $interfaceForAttribute->serializable;
+        return $object->InheritsSerializable($interfaceForAttribute);
+    }
 
     return 0;
 }

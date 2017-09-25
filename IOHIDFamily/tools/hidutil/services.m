@@ -9,7 +9,6 @@
 #import  <Foundation/Foundation.h>
 #include <IOKit/hid/IOHIDEventSystemKeys.h>
 #include "hdutil.h"
-#include "AssertMacros.h"
 #include <getopt.h>
 #include "utility.h"
 
@@ -124,7 +123,10 @@ int list (int argc __unused, const char * argv[] __unused) {
     }
     
     client = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
-    require_action (client, exit, status = STATUS_ERROR;);
+    if (!client) {
+        status = STATUS_ERROR;
+        goto exit;
+    }
     
     if (filterDictionary) {
         IOHIDEventSystemClientSetMatching (client, (__bridge CFDictionaryRef)(filterDictionary));
@@ -234,10 +236,17 @@ int property (int argc, const char * argv[]) {
         }
     }
     
-    require_action (!(propertyKey == NULL && propertyDicitonary == NULL) || (propertyKey != NULL && propertyDicitonary != NULL), exit, status = STATUS_ERROR;);
+    if ((!propertyKey && !propertyDicitonary) ||
+        (propertyKey && propertyDicitonary)) {
+        status = STATUS_ERROR;
+        goto exit;
+    }
 
     client = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
-    require_action (client, exit, status = STATUS_ERROR;);
+    if (!client) {
+        status = STATUS_ERROR;
+        goto exit;
+    }
 
     if (filterDictionary) {
         IOHIDEventSystemClientSetMatching (client, (__bridge CFDictionaryRef)(filterDictionary));

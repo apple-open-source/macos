@@ -31,6 +31,7 @@
 #ifndef _PMAssertions_h_
 #define _PMAssertions_h_
 
+#include "XCTest_FunctionDefinitions.h"
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
@@ -194,25 +195,26 @@ typedef struct {
 } effectStats_t;
 
 typedef struct {
-#if !TARGET_OS_EMBEDDED
     uint8_t    assert_cnt [kIOPMNumAssertionTypes];  // Number of assertions of each type.
                                                      // Set only for app sleep preventing assertions
     uint32_t   aggTypes;                             // Aggregate assertion types of this proc. 
                                                      // Set only for app sleep preventing assertions
-#endif
     effectStats_t       stats[kMaxEffectStats]; // Stats per assertion effect
     void                *reportBuf;                  // Stats buffer for IOReporter
                                   
     uint32_t            retain_cnt;     // Retain cnt of this structure
     CFStringRef         name;           // Process name
-    dispatch_source_t   disp_src;       // Dispatch src to handle process exit
-    pid_t               pid;            // PID 
+    
+
+    XCT_UNSAFE_UNRETAINED dispatch_source_t   disp_src;       // Dispatch src to handle process exit
+    
+    pid_t               pid;            // PID
     uint32_t            create_seq;
 
     CFStringRef         assertionExceptionAggdKey;     // Aggd keys for updating stats for
     CFStringRef         aggregateExceptionAggdKey;     // assertion exception on this process
 
-    xpc_object_t        remoteConnection;   // Connection for xpc based assertions
+    XCT_UNSAFE_UNRETAINED xpc_object_t        remoteConnection;   // Connection for xpc based assertions
 
     uint32_t            maxAssertLength;    // Max assertion duration expected by this process
     uint32_t            aggAssertLength;    // Total duration assertions held since last reset
@@ -247,8 +249,9 @@ typedef struct assertion {
     pid_t           causingPid;         // PID for process on whose behalf this assertion is raised
     ProcessInfo     *causingPinfo;      // Corresponding ProcessInfo struct 
 
-    dispatch_source_t   procTimer;      // Timer set based on the value provided for this process.
-                                        // Ths timer triggers log collection
+    
+    XCT_UNSAFE_UNRETAINED dispatch_source_t   procTimer;      // Timer set based on the value provided for this process.
+    // Ths timer triggers log collection
     // System Qualifiers
     uint32_t        audioin:1;
     uint32_t        audioout:1;
@@ -304,8 +307,9 @@ struct assertionType {
     LIST_HEAD(, assertion) inactive;     /* timed out assertions/Level 0 assertions etc */
 
     kerAssertionType    kassert;
-    dispatch_source_t   timer;          /* dispatch source for Per assertion timer */  
-    dispatch_source_t   globalTimer;    /* dispatch source for all assertions of this type */
+    XCT_UNSAFE_UNRETAINED dispatch_source_t   timer;          /* dispatch source for Per assertion timer */
+    
+    XCT_UNSAFE_UNRETAINED dispatch_source_t   globalTimer;    /* dispatch source for all assertions of this type */
 
     CFStringRef     entitlement;        /* if set, caller must have this entitlement to create this assertion */
     uint64_t        globalTimeout;      /* Relative time at which assertion is timedout */
@@ -326,6 +330,28 @@ struct assertionType {
 
     uint32_t   enTrQuality;             /* Quality or intensity for energy tracing */
 } ;
+
+
+// Selectors for AppleSmartBatteryManagerUserClient
+enum {
+    kSBUCInflowDisable              = 0,
+    kSBUCChargeInhibit              = 1
+};
+
+typedef enum {
+    kTimerTypeTimedOut              = 0,
+    kTimerTypeReleased              = 1
+} TimerType;
+
+enum {
+    kIOPMSystemActivityAssertionDisabled = 0,
+    kIOPMSystemActivityAssertionEnabled  = 1
+};
+
+enum {
+    kIOPMActiveAssertions = 0,
+    kIOPMInactiveAssertions
+};
 
 /* Flag bits for assertionType_t structure */
 #define kAssertionTypeNotValidOnBatt        0x01     /* By default, this assertion type is not valid on battery power */
@@ -431,6 +457,7 @@ __private_extern__ void setAssertionActivityLog(int value);
 __private_extern__ void setAssertionActivityAggregate(pid_t pid, int value);
 __private_extern__ kern_return_t setReservePwrMode(int enable);
 __private_extern__ void releaseStatsBufForDeadProcs( );
+__private_extern__ void sendActivityTickle ();
 
 __private_extern__ void logASLAllAssertions( );
 __private_extern__ IOReturn  copyAssertionActivityAggregate(CFDictionaryRef *data);
@@ -440,11 +467,9 @@ void asyncAssertionRelease(xpc_object_t remoteConnection, xpc_object_t msg);
 void asyncAssertionProperties(xpc_object_t remoteConnection, xpc_object_t msg);
 void releaseConnectionAssertions(xpc_object_t remoteConnection);
 void checkForAsyncAssertions(void *acknowledgementToken);
-#if !TARGET_OS_EMBEDDED
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type);
 
-#endif
 
 
 #endif

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # httpauth/htpasswd -- Apache compatible htpasswd file
 #
@@ -75,13 +76,16 @@ module WEBrick
 
       def flush(output=nil)
         output ||= @path
-        tmp = Tempfile.new("htpasswd", File::dirname(output))
+        tmp = Tempfile.create("htpasswd", File::dirname(output))
+        renamed = false
         begin
           each{|item| tmp.puts(item.join(":")) }
           tmp.close
           File::rename(tmp.path, output)
-        rescue
-          tmp.close(true)
+          renamed = true
+        ensure
+          tmp.close if !tmp.closed?
+          File.unlink(tmp.path) if !renamed
         end
       end
 

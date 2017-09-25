@@ -65,6 +65,7 @@
 #include <sys/dirent.h>
 #include <sys/cdefs.h>
 #include <Availability.h>
+#include <sys/_pthread/_pthread_types.h> /* __darwin_pthread_mutex_t */
 
 struct _telldir;		/* forward reference */
 
@@ -76,7 +77,7 @@ typedef struct {
 	char	*__dd_buf;	/* data buffer */
 	int	__dd_len;	/* size of data buffer */
 	long	__dd_seek;	/* magic cookie returned */
-	long	__dd_rewind;	/* magic cookie for rewinding */
+	__unused long	__padding; /* (__dd_rewind space left for bincompat) */
 	int	__dd_flags;	/* flags for readdir */
 	__darwin_pthread_mutex_t __dd_lock; /* for thread locking */
 	struct _telldir *__dd_td; /* telldir position recording */
@@ -92,6 +93,7 @@ typedef struct {
 #define DTF_NODUP	0x0002	/* don't return duplicate names */
 #define DTF_REWIND	0x0004	/* rewind after reading union stack */
 #define __DTF_READALL	0x0008	/* everything has been read */
+#define        __DTF_SKIPREAD  0x0010  /* assume internal buffer is populated */
 
 #endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 

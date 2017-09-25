@@ -16,6 +16,11 @@
   */
 typedef int bool;
 
+#ifdef USE_TLS
+#include <openssl/opensslv.h>		/* OPENSSL_VERSION_NUMBER */
+#include <openssl/objects.h>		/* SN_* and NID_* macros */
+#endif
+
  /*
   * Name used when this mail system announces itself.
   */
@@ -394,7 +399,7 @@ extern char *var_drop_hdrs;
 extern bool var_strict_rfc821_env;
 
  /*
-  * Standards violation: send "250 AUTH=list" in order to accomodate clients
+  * Standards violation: send "250 AUTH=list" in order to accommodate clients
   * that implement an old version of the protocol.
   */
 #define VAR_BROKEN_AUTH_CLNTS	"broken_sasl_auth_clients"
@@ -1345,7 +1350,11 @@ extern char *var_smtpd_tls_dh512_param_file;
 extern char *var_smtpd_tls_dh1024_param_file;
 
 #define VAR_SMTPD_TLS_EECDH	"smtpd_tls_eecdh_grade"
+#if OPENSSL_VERSION_NUMBER >= 0x1000200fUL
+#define DEF_SMTPD_TLS_EECDH	"auto"
+#else
 #define DEF_SMTPD_TLS_EECDH	"strong"
+#endif
 extern char *var_smtpd_tls_eecdh;
 
 #define VAR_SMTPD_TLS_LOGLEVEL	"smtpd_tls_loglevel"
@@ -1795,6 +1804,10 @@ extern char *var_smtp_sasl_auth_cache_name;
 #define VAR_LMTP_SASL_AUTH_CACHE_TIME	"lmtp_sasl_auth_cache_time"
 #define DEF_LMTP_SASL_AUTH_CACHE_TIME	"90d"
 extern int var_smtp_sasl_auth_cache_time;
+
+#define VAR_SMTP_TCP_PORT	"smtp_tcp_port"
+#define DEF_SMTP_TCP_PORT	"smtp"
+extern char *var_smtp_tcp_port;
 
  /*
   * LMTP client. Timeouts inspired by RFC 1123. The LMTP recipient limit
@@ -3139,8 +3152,7 @@ extern bool var_smtp_cname_overr;
   * TLS cipherlists
   */
 #ifdef USE_TLS
-#include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#if OPENSSL_VERSION_NUMBER >= 0x1000000fUL
 #define PREFER_aNULL "aNULL:-aNULL:"
 #else
 #define PREFER_aNULL ""
@@ -3169,6 +3181,40 @@ extern char *var_tls_export_clist;
 #define DEF_TLS_NULL_CLIST	"eNULL:!aNULL"
 extern char *var_tls_null_clist;
 
+#if defined(SN_X25519) && defined(NID_X25519)
+#define DEF_TLS_EECDH_AUTO_1 SN_X25519 " "
+#else
+#define DEF_TLS_EECDH_AUTO_1 ""
+#endif
+#if defined(SN_X448) && defined(NID_X448)
+#define DEF_TLS_EECDH_AUTO_2 SN_X448 " "
+#else
+#define DEF_TLS_EECDH_AUTO_2 ""
+#endif
+#if defined(SN_X9_62_prime256v1) && defined(NID_X9_62_prime256v1)
+#define DEF_TLS_EECDH_AUTO_3 SN_X9_62_prime256v1 " "
+#else
+#define DEF_TLS_EECDH_AUTO_3 ""
+#endif
+#if defined(SN_secp521r1) && defined(NID_secp521r1)
+#define DEF_TLS_EECDH_AUTO_4 SN_secp521r1 " "
+#else
+#define DEF_TLS_EECDH_AUTO_4 ""
+#endif
+#if defined(SN_secp384r1) && defined(NID_secp384r1)
+#define DEF_TLS_EECDH_AUTO_5 SN_secp384r1
+#else
+#define DEF_TLS_EECDH_AUTO_5 ""
+#endif
+
+#define VAR_TLS_EECDH_AUTO	"tls_eecdh_auto_curves"
+#define DEF_TLS_EECDH_AUTO      DEF_TLS_EECDH_AUTO_1 \
+                                DEF_TLS_EECDH_AUTO_2 \
+                                DEF_TLS_EECDH_AUTO_3 \
+                                DEF_TLS_EECDH_AUTO_4 \
+                                DEF_TLS_EECDH_AUTO_5
+extern char *var_tls_eecdh_auto;
+
 #define VAR_TLS_EECDH_STRONG	"tls_eecdh_strong_curve"
 #define DEF_TLS_EECDH_STRONG	"prime256v1"
 extern char *var_tls_eecdh_strong;
@@ -3187,8 +3233,8 @@ extern bool var_tls_multi_wildcard;
 
  /* The tweak for CVE-2010-4180 is needed in some versions prior to 1.0.1 */
  /* The tweak for CVE-2005-2969 is needed in some versions prior to 1.0.0 */
-#if defined(USE_TLS) && (OPENSSL_VERSION_NUMBER < 0x1000100fL)
-#if (OPENSSL_VERSION_NUMBER < 0x1000000fL)
+#if defined(USE_TLS) && (OPENSSL_VERSION_NUMBER < 0x1000100fUL)
+#if (OPENSSL_VERSION_NUMBER < 0x1000000fUL)
 #define TLS_BUG_TWEAKS		"CVE-2005-2969 CVE-2010-4180"
 #else
 #define TLS_BUG_TWEAKS		"CVE-2010-4180"
@@ -3206,7 +3252,7 @@ extern char *var_tls_bug_tweaks;
 extern char *var_tls_ssl_options;
 
 #define VAR_TLS_TKT_CIPHER	"tls_session_ticket_cipher"
-#define DEF_TLS_TKT_CIPHER	"aes-128-cbc"
+#define DEF_TLS_TKT_CIPHER	"aes-256-cbc"
 extern char *var_tls_tkt_cipher;
 
 #define VAR_TLS_BC_PKEY_FPRINT	"tls_legacy_public_key_fingerprints"
@@ -3246,6 +3292,11 @@ extern bool var_tls_dane_taa_dgst;
 #define DEF_SMTPD_MILTERS		""
 extern char *var_smtpd_milters;
 
+#define VAR_SMTPD_MILTER_MAPS		"smtpd_milter_maps"
+#define DEF_SMTPD_MILTER_MAPS		""
+extern char *var_smtpd_milter_maps;
+#define SMTPD_MILTERS_DISABLE		"DISABLE"
+
 #define VAR_CLEANUP_MILTERS		"non_smtpd_milters"
 #define DEF_CLEANUP_MILTERS		""
 extern char *var_cleanup_milters;
@@ -3255,7 +3306,7 @@ extern char *var_cleanup_milters;
 extern char *var_milt_def_action;
 
 #define VAR_MILT_CONN_MACROS		"milter_connect_macros"
-#define DEF_MILT_CONN_MACROS		"j {daemon_name} v"
+#define DEF_MILT_CONN_MACROS		"j {daemon_name} {daemon_addr} v"
 extern char *var_milt_conn_macros;
 
 #define VAR_MILT_HELO_MACROS		"milter_helo_macros"
@@ -3445,7 +3496,7 @@ extern bool var_strict_mbox_owner;
 extern int var_inet_windowsize;
 
  /*
-  * Plug-in multi-instance support. Only the first two paramaters are used by
+  * Plug-in multi-instance support. Only the first two parameters are used by
   * Postfix itself; the other ones are reserved for the instance manager.
   */
 #define VAR_MULTI_CONF_DIRS	"multi_instance_directories"
@@ -3931,8 +3982,10 @@ extern char *var_meta_dir;
   * SMTPUTF8 support.
   */
 #define VAR_SMTPUTF8_ENABLE		"smtputf8_enable"
+#ifndef DEF_SMTPUTF8_ENABLE
 #define DEF_SMTPUTF8_ENABLE		"${{$compatibility_level} < {1} ? " \
 					"{no} : {yes}}"
+#endif
 extern int var_smtputf8_enable;
 
 #define VAR_STRICT_SMTPUTF8		"strict_smtputf8"
@@ -3943,6 +3996,10 @@ extern int var_strict_smtputf8;
 #define DEF_SMTPUTF8_AUTOCLASS		MAIL_SRC_NAME_SENDMAIL ", " \
 					MAIL_SRC_NAME_VERIFY
 extern char *var_smtputf8_autoclass;
+
+#define VAR_IDNA2003_COMPAT		"enable_idna2003_compatibility"
+#define DEF_IDNA2003_COMPAT		"no"
+extern int var_idna2003_compat;
 
  /*
   * Workaround for future incompatibility. Our implementation of RFC 2308
@@ -3965,6 +4022,11 @@ extern bool var_dns_ncache_ttl_fix;
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 #endif

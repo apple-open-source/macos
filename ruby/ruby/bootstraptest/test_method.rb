@@ -3,7 +3,7 @@ assert_equal '1',       'def m() 1 end; m()'
 assert_equal '1',       'def m(a) a end; m(1)'
 assert_equal '[1, 2]',  'def m(a,b) [a, b] end; m(1,2)'
 assert_equal '[1, 2, 3]', 'def m(a,b,c) [a, b, c] end; m(1,2,3)'
-assert_equal 'wrong number of arguments (1 for 0)', %q{
+assert_match /\Awrong number of arguments \(.*\b1\b.* 0\)\z/, %q{
   def m; end
   begin
     m(1)
@@ -12,7 +12,7 @@ assert_equal 'wrong number of arguments (1 for 0)', %q{
   end
 }
 
-assert_equal 'wrong number of arguments (0 for 1)', %q{
+assert_match /\Awrong number of arguments \(.*\b0\b.* 1\)\z/, %q{
   def m a; end
   begin
     m
@@ -886,50 +886,6 @@ class C0; def m *args; [:C0_m, args]; end; end
 class C1 < C0; def m a, o=:o; super; end; end
 ; C1.new.m 1, 2}
 
-assert_equal %q{[:ok, :ok, :ok, :ok, :ok, :ok, :ng, :ng]}, %q{
-  $ans = []
-  class Foo
-    def m
-    end
-  end
-
-  c1 = c2 = nil
-
-  lambda{
-    $SAFE = 4
-    c1 = Class.new{
-      def m
-      end
-    }
-    c2 = Class.new(Foo){
-      alias mm m
-    }
-  }.call
-
-  def test
-    begin
-      yield
-    rescue SecurityError
-      $ans << :ok
-    else
-      $ans << :ng
-    end
-  end
-
-  o1 = c1.new
-  o2 = c2.new
-
-  test{o1.m}
-  test{o2.mm}
-  test{o1.send :m}
-  test{o2.send :mm}
-  test{o1.public_send :m}
-  test{o2.public_send :mm}
-  test{o1.method(:m).call}
-  test{o2.method(:mm).call}
-  $ans
-}
-
 assert_equal 'ok', %q{
   class C
     def x=(n)
@@ -951,34 +907,6 @@ assert_equal 'ok', %q{
     end
   }.call
   C.new.m
-}, '[ruby-core:11998]'
-
-assert_equal 'ok', %q{
-  proc{
-    $SAFE = 2
-    class C
-      def m
-        :ok
-      end
-    end
-  }.call
-  C.new.m
-}, '[ruby-core:11998]'
-
-assert_equal 'ok', %q{
-  proc{
-    $SAFE = 3
-    class C
-      def m
-        :ng
-      end
-    end
-  }.call
-  begin
-    C.new.m
-  rescue SecurityError
-    :ok
-  end
 }, '[ruby-core:11998]'
 
 assert_equal 'ok', %q{

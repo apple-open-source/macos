@@ -1,4 +1,5 @@
 # coding: utf-8
+# frozen_string_literal: false
 
 require 'test/unit'
 require 'webrick'
@@ -7,22 +8,23 @@ require "xmlrpc/server"
 require 'xmlrpc/client'
 require 'logger'
 
+module TestXMLRPC
 class Test_Webrick < Test::Unit::TestCase
   include WEBrick_Testing
 
-  @@basic_auth = WEBrick::HTTPAuth::BasicAuth.new(
-    :Realm => 'auth',
-    :UserDB => WEBrick::HTTPAuth::Htpasswd.new(File.expand_path('./htpasswd', File.dirname(__FILE__))),
-    :Logger => Logger.new(File::NULL),
-  )
-
-  def create_servlet
+  def create_servlet(server)
     s = XMLRPC::WEBrickServlet.new
 
-    def s.service(req, res)
-      @@basic_auth.authenticate(req, res)
+    basic_auth = WEBrick::HTTPAuth::BasicAuth.new(
+      :Realm => 'auth',
+      :UserDB => WEBrick::HTTPAuth::Htpasswd.new(File.expand_path('./htpasswd', File.dirname(__FILE__))),
+      :Logger => server.logger,
+    )
+
+    class << s; self end.send(:define_method, :service) {|req, res|
+      basic_auth.authenticate(req, res)
       super(req, res)
-    end
+    }
 
     s.add_handler("test.add") do |a,b|
       a + b
@@ -46,10 +48,10 @@ class Test_Webrick < Test::Unit::TestCase
     return s
   end
 
-  def setup_http_server(port, use_ssl)
+  def setup_http_server_option(use_ssl)
     option = {
       :BindAddress => "localhost",
-      :Port => port,
+      :Port => 0,
       :SSLEnable => use_ssl,
     }
     if use_ssl
@@ -60,30 +62,29 @@ class Test_Webrick < Test::Unit::TestCase
       )
     end
 
-    start_server(option) {|w| w.mount('/RPC2', create_servlet) }
+    option
   end
 
-  PORT = 8071
   def test_client_server
     # NOTE: I don't enable SSL testing as this hangs
     [false].each do |use_ssl|
-      begin
-        setup_http_server(PORT, use_ssl)
-        @s = XMLRPC::Client.new3(:port => PORT, :use_ssl => use_ssl)
+      option = setup_http_server_option(use_ssl)
+      with_server(option, method(:create_servlet)) {|addr|
+        @s = XMLRPC::Client.new3(:host => addr.ip_address, :port => addr.ip_port, :use_ssl => use_ssl)
         @s.user = 'admin'
         @s.password = 'admin'
         silent do
           do_test
         end
-        @s = XMLRPC::Client.new3(:port => PORT, :use_ssl => use_ssl)
+        @s.http.finish
+        @s = XMLRPC::Client.new3(:host => addr.ip_address, :port => addr.ip_port, :use_ssl => use_ssl)
         @s.user = '01234567890123456789012345678901234567890123456789012345678901234567890123456789'
         @s.password = 'guest'
         silent do
           do_test
         end
-      ensure
-        stop_server
-      end
+        @s.http.finish
+      }
     end
   end
 
@@ -131,4 +132,5 @@ class Test_Webrick < Test::Unit::TestCase
     # multibyte characters
     assert_equal "あいうえおかきくけこ", @s.call('test.add', "あいうえお", "かきくけこ")
   end
+end
 end

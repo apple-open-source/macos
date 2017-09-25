@@ -30,7 +30,8 @@
 
 #import "DataReference.h"
 #import <WebCore/PassKitSPI.h>
-#import <WebCore/SoftLinking.h>
+#import <WebCore/PaymentAuthorizationStatus.h>
+#import <wtf/SoftLinking.h>
 
 #if PLATFORM(MAC)
 SOFT_LINK_PRIVATE_FRAMEWORK(PassKit)
@@ -81,6 +82,22 @@ bool ArgumentCoder<WebCore::Payment>::decode(Decoder& decoder, WebCore::Payment&
     return true;
 }
 
+void ArgumentCoder<WebCore::PaymentAuthorizationResult>::encode(Encoder& encoder, const WebCore::PaymentAuthorizationResult& result)
+{
+    encoder << result.status;
+    encoder << result.errors;
+}
+
+bool ArgumentCoder<WebCore::PaymentAuthorizationResult>::decode(Decoder& decoder, WebCore::PaymentAuthorizationResult& result)
+{
+    if (!decoder.decode(result.status))
+        return false;
+    if (!decoder.decode(result.errors))
+        return false;
+
+    return true;
+}
+
 void ArgumentCoder<WebCore::PaymentContact>::encode(Encoder& encoder, const WebCore::PaymentContact& paymentContact)
 {
     auto data = adoptNS([[NSMutableData alloc] init]);
@@ -112,6 +129,25 @@ bool ArgumentCoder<WebCore::PaymentContact>::decode(Decoder& decoder, WebCore::P
     }
 
     [unarchiver finishDecoding];
+    return true;
+}
+
+void ArgumentCoder<WebCore::PaymentError>::encode(Encoder& encoder, const WebCore::PaymentError& error)
+{
+    encoder << error.code;
+    encoder << error.message;
+    encoder << error.contactField;
+}
+
+bool ArgumentCoder<WebCore::PaymentError>::decode(Decoder& decoder, WebCore::PaymentError& error)
+{
+    if (!decoder.decode(error.code))
+        return false;
+    if (!decoder.decode(error.message))
+        return false;
+    if (!decoder.decode(error.contactField))
+        return false;
+
     return true;
 }
 
@@ -184,6 +220,19 @@ bool ArgumentCoder<WebCore::PaymentMethod>::decode(Decoder& decoder, WebCore::Pa
     return true;
 }
 
+void ArgumentCoder<WebCore::PaymentMethodUpdate>::encode(Encoder& encoder, const WebCore::PaymentMethodUpdate& update)
+{
+    encoder << update.newTotalAndLineItems;
+}
+
+bool ArgumentCoder<WebCore::PaymentMethodUpdate>::decode(Decoder& decoder, WebCore::PaymentMethodUpdate& update)
+{
+    if (!decoder.decode(update.newTotalAndLineItems))
+        return false;
+
+    return true;
+}
+
 void ArgumentCoder<PaymentRequest>::encode(Encoder& encoder, const PaymentRequest& request)
 {
     encoder << request.countryCode();
@@ -199,6 +248,7 @@ void ArgumentCoder<PaymentRequest>::encode(Encoder& encoder, const PaymentReques
     encoder << request.lineItems();
     encoder << request.total();
     encoder << request.applicationData();
+    encoder << request.supportedCountries();
 }
 
 bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& request)
@@ -267,6 +317,11 @@ bool ArgumentCoder<PaymentRequest>::decode(Decoder& decoder, PaymentRequest& req
     if (!decoder.decode(applicationData))
         return false;
     request.setApplicationData(applicationData);
+
+    Vector<String> supportedCountries;
+    if (!decoder.decode(supportedCountries))
+        return false;
+    request.setSupportedCountries(WTFMove(supportedCountries));
 
     return true;
 }
@@ -370,6 +425,37 @@ bool ArgumentCoder<PaymentRequest::TotalAndLineItems>::decode(Decoder& decoder, 
     return true;
 }
 
+void ArgumentCoder<WebCore::ShippingContactUpdate>::encode(Encoder& encoder, const WebCore::ShippingContactUpdate& update)
+{
+    encoder << update.errors;
+    encoder << update.newShippingMethods;
+    encoder << update.newTotalAndLineItems;
 }
 
+bool ArgumentCoder<WebCore::ShippingContactUpdate>::decode(Decoder& decoder, WebCore::ShippingContactUpdate& update)
+{
+    if (!decoder.decode(update.errors))
+        return false;
+    if (!decoder.decode(update.newShippingMethods))
+        return false;
+    if (!decoder.decode(update.newTotalAndLineItems))
+        return false;
+
+    return true;
+}
+
+void ArgumentCoder<WebCore::ShippingMethodUpdate>::encode(Encoder& encoder, const WebCore::ShippingMethodUpdate& update)
+{
+    encoder << update.newTotalAndLineItems;
+}
+
+bool ArgumentCoder<WebCore::ShippingMethodUpdate>::decode(Decoder& decoder, WebCore::ShippingMethodUpdate& update)
+{
+    if (!decoder.decode(update.newTotalAndLineItems))
+        return false;
+
+    return true;
+}
+
+}
 #endif

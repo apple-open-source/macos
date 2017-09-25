@@ -76,6 +76,9 @@ void AppleRAID::removeSet(AppleRAIDSet * set)
 
 AppleRAIDSet * AppleRAID::findSet(const OSString *uuid)
 {
+    if (OSDynamicCast(OSString, uuid) == NULL) {
+        return NULL;
+    }
     return OSDynamicCast(AppleRAIDSet, raidSets->getObject(uuid));
 }
 

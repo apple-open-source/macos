@@ -1,23 +1,22 @@
 /*
- * $Id: ossl_cipher.c 49249 2015-01-14 07:25:48Z usa $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
 
-#define WrapCipher(obj, klass, ctx) \
-    (obj) = Data_Wrap_Struct((klass), 0, ossl_cipher_free, (ctx))
+#define NewCipher(klass) \
+    TypedData_Wrap_Struct((klass), &ossl_cipher_type, 0)
 #define MakeCipher(obj, klass, ctx) \
-    (obj) = Data_Make_Struct((klass), EVP_CIPHER_CTX, 0, ossl_cipher_free, (ctx))
+    (obj) = TypedData_Make_Struct((klass), EVP_CIPHER_CTX, &ossl_cipher_type, (ctx))
 #define AllocCipher(obj, ctx) \
-    memset(DATA_PTR(obj) = (ctx) = ALLOC(EVP_CIPHER_CTX), 0, sizeof(EVP_CIPHER_CTX))
+    (DATA_PTR(obj) = (ctx) = ZALLOC(EVP_CIPHER_CTX))
 #define GetCipherInit(obj, ctx) do { \
-    Data_Get_Struct((obj), EVP_CIPHER_CTX, (ctx)); \
+    TypedData_Get_Struct((obj), EVP_CIPHER_CTX, &ossl_cipher_type, (ctx)); \
 } while (0)
 #define GetCipher(obj, ctx) do { \
     GetCipherInit((obj), (ctx)); \
@@ -37,6 +36,15 @@ VALUE cCipher;
 VALUE eCipherError;
 
 static VALUE ossl_cipher_alloc(VALUE klass);
+static void ossl_cipher_free(void *ptr);
+static size_t ossl_cipher_memsize(const void *ptr);
+
+static const rb_data_type_t ossl_cipher_type = {
+    "OpenSSL/Cipher",
+    {0, ossl_cipher_free, ossl_cipher_memsize,},
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY,
+};
 
 /*
  * PUBLIC
@@ -70,22 +78,26 @@ ossl_cipher_new(const EVP_CIPHER *cipher)
  * PRIVATE
  */
 static void
-ossl_cipher_free(EVP_CIPHER_CTX *ctx)
+ossl_cipher_free(void *ptr)
 {
+    EVP_CIPHER_CTX *ctx = ptr;
     if (ctx) {
 	EVP_CIPHER_CTX_cleanup(ctx);
 	ruby_xfree(ctx);
     }
 }
 
+static size_t
+ossl_cipher_memsize(const void *ptr)
+{
+    const EVP_CIPHER_CTX *ctx = ptr;
+    return sizeof(*ctx);
+}
+
 static VALUE
 ossl_cipher_alloc(VALUE klass)
 {
-    VALUE obj;
-
-    WrapCipher(obj, klass, 0);
-
-    return obj;
+    return NewCipher(klass);
 }
 
 /*
@@ -158,7 +170,7 @@ add_cipher_name_to_ary(const OBJ_NAME *name, VALUE ary)
 #ifdef HAVE_OBJ_NAME_DO_ALL_SORTED
 /*
  *  call-seq:
- *     Cipher.ciphers -> array[string...]
+ *     OpenSSL::Cipher.ciphers -> array[string...]
  *
  *  Returns the names of all available ciphers in an array.
  */
@@ -183,7 +195,7 @@ ossl_s_ciphers(VALUE self)
  *     cipher.reset -> self
  *
  *  Fully resets the internal state of the Cipher. By using this, the same
- *  Cipher instance may be used several times for en- or decryption tasks.
+ *  Cipher instance may be used several times for encryption or decryption tasks.
  *
  *  Internally calls EVP_CipherInit_ex(ctx, NULL, NULL, NULL, NULL, -1).
  */
@@ -997,4 +1009,3 @@ Init_ossl_cipher(void)
     rb_define_method(cCipher, "block_size", ossl_cipher_block_size, 0);
     rb_define_method(cCipher, "padding=", ossl_cipher_set_padding, 1);
 }
-

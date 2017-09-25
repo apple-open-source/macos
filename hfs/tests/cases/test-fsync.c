@@ -109,6 +109,7 @@ int run_fsync(__unused test_ctx_t *ctx)
 	free(file);
 	free(sock);
 	free(fifo);
+	free(buf);
 
 	return 0;
 }

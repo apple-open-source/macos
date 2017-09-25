@@ -37,6 +37,7 @@
 #include <Security/SecureObjectSync/SOSPeer.h>
 #include <Security/SecureObjectSync/SOSConcordanceTrust.h>
 #include <Security/SecureObjectSync/SOSGenCount.h>
+#include <Security/SecureObjectSync/SOSPiggyback.h>
 
 
 __BEGIN_DECLS
@@ -53,6 +54,7 @@ SOSCircleRef SOSCircleCopyCircle(CFAllocatorRef allocator, SOSCircleRef otherCir
 
 bool SOSCircleSetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFDataRef signature, CFErrorRef *error);
 CFDataRef SOSCircleGetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);
+CFDictionaryRef SOSCircleCopyAllSignatures(SOSCircleRef circle);
 bool SOSCircleSign(SOSCircleRef circle, SecKeyRef privkey, CFErrorRef *error);
 bool SOSCircleVerifySignatureExists(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error);
 bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);

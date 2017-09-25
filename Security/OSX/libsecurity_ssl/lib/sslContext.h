@@ -36,7 +36,9 @@
 #include <tls_stream_parser.h>
 #include <tls_cache.h>
 
-
+#ifdef USE_CDSA_CRYPTO
+#include <Security/cssmtype.h>
+#else
 #if TARGET_OS_IPHONE
 #include <Security/SecDH.h>
 #include <Security/SecKeyInternal.h>
@@ -45,6 +47,7 @@
 // typedef struct OpaqueSecDHContext *SecDHContext;
 #endif
 #include <corecrypto/ccec.h>
+#endif
 
 #include <CoreFoundation/CFRuntime.h>
 #include <AssertMacros.h>
@@ -73,8 +76,8 @@ typedef enum
     SSL_HdskStateReady,                 /* Handshake is done */
     SSL_HdskStateGracefulClose,
     SSL_HdskStateErrorClose,
-    SSL_HdskStateNoNotifyClose,			/* server disconnected with no
-                                         *   notify msg */
+    SSL_HdskStateNoNotifyClose,			/* Server disconnected with no notify msg */
+    SSL_HdskStateOutOfBandError,        /* The caller encountered an error with out-of-band message processing */
 } SSLHandshakeState;
 
 #define SSLChangeHdskState(ctx, newState) { ctx->state=newState; }
@@ -93,6 +96,7 @@ struct SSLContext
     int writeCipher_ready;
 
     SSLHandshakeState   state;
+    OSStatus outOfBandError;
 
 	/* 
 	 * Prior to successful protocol negotiation, negProtocolVersion
@@ -205,6 +209,12 @@ struct SSLContext
     Boolean             signalCertRequest;
     Boolean             signalClientAuth;
     Boolean             breakOnClientHello;
+    Boolean             allowServerIdentityChange;
+    Boolean             allowRenegotiation;
+    Boolean             enableSessionTickets;
+
+    /* cached configuration buffer */
+    SSLBuffer           contextConfigurationBuffer;
 
     /* List of peer-specified supported_signature_algorithms */
 	unsigned					 numPeerSigAlgs;
@@ -258,8 +268,10 @@ static inline bool sslVersionIsLikeTls12(SSLContext *ctx)
     return ctx->isDTLS ? ctx->negProtocolVersion > DTLS_Version_1_0 : ctx->negProtocolVersion >= TLS_Version_1_2;
 }
 
+OSStatus SSLGetSessionConfigurationIdentifier(SSLContext *ctx, SSLBuffer *buffer);
+
 /* This is implemented in tls_callbacks.c */
-    int sslGetSessionID(SSLContext *myCtx, SSLBuffer *sessionID);
+int sslGetSessionID(SSLContext *myCtx, SSLBuffer *sessionID);
 
 #ifdef __cplusplus
 }

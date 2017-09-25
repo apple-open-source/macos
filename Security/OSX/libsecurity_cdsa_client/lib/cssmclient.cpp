@@ -458,8 +458,12 @@ AttachmentImpl::AttachmentImpl(const Module &module, CSSM_SERVICE_TYPE subservic
 }
 
 AttachmentImpl::~AttachmentImpl()
+try
 {
 	detach();
+}
+catch (...) {
+    return;
 }
 
 void

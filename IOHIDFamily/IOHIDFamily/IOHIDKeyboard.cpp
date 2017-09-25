@@ -33,7 +33,8 @@
 #include <IOKit/hidsystem/IOHIDUsageTables.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
-#include <IOKit/usb/USB.h>
+#include <IOKit/hid/IOHIDPrivateKeys.h>
+#include <IOKit/usb/IOUSBHostFamily.h>
 
 #include "IOHIDKeyboard.h"
 #include "IOHIDKeys.h"
@@ -105,9 +106,6 @@ IOHIDKeyboard::start(IOService *provider)
 	OSNumber *xml_use_pc_keyboard;
     OSObject *obj;
 	
-    UInt16 productIDVal;
-    UInt16 vendorIDVal;
-
     _provider = OSDynamicCast(IOHIDEventService, provider);
     
     if ( !_provider )
@@ -115,9 +113,6 @@ IOHIDKeyboard::start(IOService *provider)
 
     if ( _isDispatcher )
         setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
-
-    productIDVal    = _provider->getProductID();
-    vendorIDVal     = _provider->getVendorID();
 
     obj = provider->copyProperty("Swap control and capslock");
     xml_swap_CTRL_CAPSLOCK = OSDynamicCast(OSNumber, obj);
@@ -218,7 +213,6 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
 {
     UInt32  alpha   = usage;
     bool    repeat  = ((options & kHIDDispatchOptionKeyboardNoRepeat) == 0);
-    UInt32          vendorID = _provider ? _provider->getVendorID() : 0;
     unsigned int    keycode = 0xff;
     
     if ((usagePage > 0xffff) || (usage > 0xffff))
@@ -283,8 +277,11 @@ void
 IOHIDKeyboard::_asyncLED(OSObject *target)
 {
     IOHIDKeyboard *me = OSDynamicCast(IOHIDKeyboard, target);
-    IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadActive, me, me ? me->_ledState : -1, me ? (uintptr_t)me->_provider : (uintptr_t)-1, 0);
-    me->Set_LED_States( me->_ledState ); 
+    
+    if (me) {
+        IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadActive, me, me ? me->_ledState : -1, me ? (uintptr_t)me->_provider : (uintptr_t)-1, 0);
+        me->Set_LED_States( me->_ledState );
+    }
 }
 
 void
@@ -465,7 +462,7 @@ IOHIDKeyboard::handlerID ( void )
     if (_provider) {
         UInt16 productID    = _provider->getProductID();
         UInt16 vendorID     = _provider->getVendorID();
-    if (vendorID == kIOUSBVendorIDAppleComputer)
+    if (vendorID == kUSBHostVendorIDAppleComputer)
     {
         switch (productID)
         {
@@ -972,17 +969,19 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
 //====================================================================================================
 IOReturn IOHIDKeyboard::setParamProperties( OSDictionary * dict )
 {
-    IOHID_DEBUG(kIOHIDDebugCode_KeyboardSetParam, this, dict, dict ? dict->getCount() : 0, 0);
-
-    if ( _containsFKey ) {
-        setProperty(kIOHIDFKeyModeKey, OSDynamicCast(OSNumber, dict->getObject(kIOHIDFKeyModeKey)));
-    }
-    
-    if ( _asyncLEDThread ) {
-        if ( OSDynamicCast(OSBoolean, dict->getObject(kIOHIDResetLEDsKey) ) ) {
-        	_resyncLED = TRUE;
-            IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadTrigger, this, _ledState, 2, 0);
-            thread_call_enter(_asyncLEDThread);
+    if (dict) {
+        IOHID_DEBUG(kIOHIDDebugCode_KeyboardSetParam, this, dict, dict ? dict->getCount() : 0, 0);
+        
+        if ( _containsFKey ) {
+            setProperty(kIOHIDFKeyModeKey, OSDynamicCast(OSNumber, dict->getObject(kIOHIDFKeyModeKey)));
+        }
+        
+        if ( _asyncLEDThread ) {
+            if ( OSDynamicCast(OSBoolean, dict->getObject(kIOHIDResetLEDsKey) ) ) {
+                _resyncLED = TRUE;
+                IOHID_DEBUG(kIOHIDDebugCode_KeyboardLEDThreadTrigger, this, _ledState, 2, 0);
+                thread_call_enter(_asyncLEDThread);
+            }
         }
     }
     

@@ -15,15 +15,6 @@ RUBY_VERSION_NAME=@RUBY_VERSION_NAME@
 RUBY_SO_NAME=@RUBY_SO_NAME@
 RUBY_INSTALL_NAME=@RUBY_INSTALL_NAME@
 DEFFILE=@DEFFILE@
-LIBPATH=@LIBPATH@
-LIBRUBY_A=@LIBRUBY_A@
-LIBRUBY_SO=@LIBRUBY_SO@
-LIBRUBY=@LIBRUBY@
-LIBRUBYARG_SHARED=@LIBRUBYARG_SHARED@
-LIBRUBYARG_STATIC=@LIBRUBYARG_STATIC@
-LIBRUBYARG=@LIBRUBYARG@
-LIBS=@LIBS@
-DLDFLAGS=@DLDFLAGS@
 archlibdir=@archlibdir@
 sitearchlibdir=@sitearchlibdir@
 archincludedir=@archincludedir@
@@ -43,11 +34,23 @@ sitearchdir=@sitearchdir@
 rubyhdrdir=@rubyhdrdir@
 vendorhdrdir=@vendorhdrdir@
 sitehdrdir=@sitehdrdir@
+rubyarchhdrdir=@rubyarchhdrdir@
+vendorarchhdrdir=@vendorarchhdrdir@
+sitearchhdrdir=@sitearchhdrdir@
+LIBPATH=@LIBPATH@
+LIBRUBY_A=@LIBRUBY_A@
+LIBRUBY_SO=@LIBRUBY_SO@
+LIBRUBY=@LIBRUBY@
+LIBRUBYARG_SHARED=@LIBRUBYARG_SHARED@
+LIBRUBYARG_STATIC=@LIBRUBYARG_STATIC@
+LIBRUBYARG=@LIBRUBYARG@
+LIBS=@LIBS@
+DLDFLAGS=@DLDFLAGS@
 
 Name: Ruby
 Description: Object Oriented Script Language
 Version: ${ruby_version}
 URL: http://www.ruby-lang.org
-Cflags: -I${rubyhdrdir}/${arch} -I${rubyhdrdir}
+Cflags: -I${rubyarchhdrdir} -I${rubyhdrdir}
 Libs: ${DLDFLAGS} ${LIBRUBYARG_SHARED} ${LIBS}
 Requires:

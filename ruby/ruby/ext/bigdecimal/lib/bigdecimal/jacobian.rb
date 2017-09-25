@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # require 'bigdecimal/jacobian'
 #
@@ -51,7 +52,6 @@ module Jacobian
     dx = fx[i].abs/ratio if isEqual(dx,f.zero,f.zero,f.eps)
     dx = f.one/f.ten     if isEqual(dx,f.zero,f.zero,f.eps)
     until ok>0 do
-      s = f.zero
       deriv = []
       nRetry += 1
       if nRetry > 100
@@ -76,7 +76,7 @@ module Jacobian
   # Computes the Jacobian of f at x. fx is the value of f at x.
   def jacobian(f,fx,x)
     n = x.size
-    dfdx = Array::new(n*n)
+    dfdx = Array.new(n*n)
     for i in 0...n do
       df = dfdxi(f,fx,x,i)
       for j in 0...n do

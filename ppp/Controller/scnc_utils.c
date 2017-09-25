@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,6 +57,8 @@ includes
 #include <netinet6/in6_var.h>
 #include <netinet6/nd6.h>
 #include <network_information.h>
+#include <os/log.h>
+#include <os/log_private.h>
 
 #include "ppp_msg.h"
 #include "../Family/if_ppplink.h"
@@ -3203,7 +3205,17 @@ scnc_log(int level, CFStringRef format, ...)
 		va_list args;
 		va_start(args, format);
 		if (!ne_sm_bridge_logv(level, format, args)) {
-			SCLoggerVLog(NULL, level, format, args);
+			const char	*format_c;
+
+			format_c = CFStringGetCStringPtr(format, kCFStringEncodingUTF8);
+			if (format_c != NULL) {
+				os_log_type_t	type = _SC_syslog_os_log_mapping(level);
+				os_log_with_args(OS_LOG_DEFAULT,
+						 type,
+						 format_c,
+						 args,
+						 __builtin_return_address(0));
+			}
 		}
 		va_end(args);
 	}

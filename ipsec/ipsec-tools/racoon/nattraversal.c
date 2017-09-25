@@ -123,7 +123,7 @@ natt_hash_addr (phase1_handle_t *iph1, struct sockaddr_storage *addr)
   size_t buf_size, addr_size;
 
 	if (iph1->approval) {
-		plog(ASL_LEVEL_INFO, "Hashing %s with algo #%d %s\n",
+		plog(ASL_LEVEL_NOTICE, "Hashing %s with algo #%d %s\n",
 			 saddr2str((struct sockaddr *)addr), iph1->approval->hashtype, 
 			 (iph1->rmconf->nat_traversal == NATT_FORCE)?"(NAT-T forced)":"");
 	}

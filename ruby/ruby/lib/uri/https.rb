@@ -1,8 +1,9 @@
+# frozen_string_literal: false
 # = uri/https.rb
 #
 # Author:: Akira Yamada <akira@ruby-lang.org>
 # License:: You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: https.rb 31555 2011-05-13 20:03:21Z drbrain $
+# Revision:: $Id: https.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 # See URI for general documentation
 #

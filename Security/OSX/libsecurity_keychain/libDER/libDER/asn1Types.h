@@ -30,7 +30,9 @@
 #ifndef	_ASN1_TYPES_H_
 #define _ASN1_TYPES_H_
 
+#if !defined(__WIN32__)
 #include <sys/cdefs.h>
+#endif
 
 #include <libDER/libDER_config.h>
 

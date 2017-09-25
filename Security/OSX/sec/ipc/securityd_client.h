@@ -25,6 +25,8 @@
 
 #include <stdint.h>
 
+#include <securityd/SecKeybagSupport.h>
+
 #include <Security/SecTrust.h>
 #include <Security/SecTask.h>
 #ifndef MINIMIZE_INCLUDES
@@ -55,16 +57,18 @@ typedef struct SecCertificatePath *SecCertificatePathRef;
 #include <xpc/xpc.h>
 #include <CoreFoundation/CFXPCBridge.h>
 
-// TODO: This should be in client of XPC code locations...
-#if SECITEM_SHIM_OSX
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
 #define kSecuritydXPCServiceName "com.apple.securityd.xpc"
+#define kSecuritydSystemXPCServiceName "com.apple.securityd.system.xpc"
 #define kTrustdAgentXPCServiceName "com.apple.trustd.agent"
 #define kTrustdXPCServiceName "com.apple.trustd"
 #else
 #define kSecuritydXPCServiceName "com.apple.securityd"
-#define kTrustdAgentXPCServiceName "com.apple.securityd"
-#define kTrustdXPCServiceName "com.apple.securityd"
-#endif // *** END SECITEM_SHIM_OSX ***
+#define kTrustdAgentXPCServiceName "com.apple.trustd"
+#define kTrustdXPCServiceName "com.apple.trustd"
+#endif // *** END TARGET_OS_OSX ***
 
 //
 // MARK: XPC Information.
@@ -74,6 +78,7 @@ extern CFStringRef sSecXPCErrorDomain;
 
 extern const char *kSecXPCKeyOperation;
 extern const char *kSecXPCKeyResult;
+extern const char *kSecXPCKeyEndpoint;
 extern const char *kSecXPCKeyError;
 extern const char *kSecXPCKeyPeerInfoArray;
 extern const char *kSecXPCKeyUserLabel;
@@ -93,12 +98,17 @@ extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyFileDescriptor;
 extern const char *kSecXPCKeyAccessGroups;
 extern const char *kSecXPCKeyClasses;
+extern const char *kSecXPCKeyNormalizedIssuer;
+extern const char *kSecXPCKeySerialNumber;
+extern const char *kSecXPCKeyBackupKeybagIdentifier;
+extern const char *kSecXPCKeyBackupKeybagPath;
 
 //
 // MARK: Dispatch macros
 //
 
 #define SECURITYD_XPC(sdp, wrapper, ...) ((gSecurityd && gSecurityd->sdp) ? gSecurityd->sdp(__VA_ARGS__) : wrapper(sdp ## _id, __VA_ARGS__))
+#define TRUSTD_XPC(sdp, wrapper, ...) ((gTrustd && gTrustd->sdp) ? gTrustd->sdp(__VA_ARGS__) : wrapper(sdp ## _id, __VA_ARGS__))
 
 //
 // MARK: Object to XPC format conversion.
@@ -140,6 +150,7 @@ extern const char *kSecXPCKeyString;
 extern const char *kSecXPCKeyArray;
 extern const char *kSecXPCKeySet;
 extern const char *kSecXPCKeySet2;
+extern const char *kSecXPCVersion;
 
 extern const char *kSecXPCKeyReason;
 
@@ -233,7 +244,6 @@ enum SecXPCOperation {
     kSecXPCOpCopyEngineState,
     kSecXPCOpCopyMyPeerInfo,
 	kSecXPCOpAccountSetToNew,
-	kSecXPCOpSetHSA2AutoAcceptInfo,
     kSecXPCOpSetNewPublicBackupKey,
     kSecXPCOpSetBagForAllSlices,
     kSecXPCOpWaitForInitialSync,
@@ -248,12 +258,15 @@ enum SecXPCOperation {
     kSecXPCOpCopyApplication,
     kSecXPCOpCopyCircleJoiningBlob,
     kSecXPCOpJoinWithCircleJoiningBlob,
+    kSecXPCOpKVSKeyCleanup,
+    kSecXPCOpPopulateKVS,
     kSecXPCOpAccountHasPublicKey,
     kSecXPCOpAccountIsNew,
     kSecXPCOpClearKVSPeerMessage,
     kSecXPCOpRegisterRecoveryPublicKey,
     kSecXPCOpGetRecoveryPublicKey,
     kSecXPCOpCopyBackupInformation,
+    kSecXPCOpCopyInitialSyncBlob,
     /* after this is free for all */
     kSecXPCOpWhoAmI,
     kSecXPCOpTransmogrifyToSyncBubble,
@@ -268,18 +281,25 @@ enum SecXPCOperation {
     sec_keychain_backup_keybag_uuid_id,
     kSecXPCOpPeersHaveViewsEnabled,
     kSecXPCOpProcessSyncWithPeers,
-    sec_device_is_internal_id,
     kSecXPCOpMessageFromPeerIsPending,
     kSecXPCOpSendToPeerIsPending,
+    sec_item_copy_parent_certificates_id,
+    sec_item_certificate_exists_id,
+    kSecXPCOpCKKSEndpoint,
+    kSecXPCOpSOSEndpoint,
+    kSecXPCOpSecuritydXPCServerEndpoint,
+    kSecXPCOpBackupKeybagAdd,
+    kSecXPCOpBackupKeybagDelete,
 };
 
 
-typedef struct {
+typedef struct SecurityClient {
     SecTaskRef task;
     CFArrayRef accessGroups;
     bool allowSystemKeychain;
     bool allowSyncBubbleKeychain;
     bool isNetworkExtension;
+    bool canAccessNetworkExtensionAccessGroups;
     uid_t uid;
     CFDataRef musr;
 #if TARGET_OS_EMBEDDED && TARGET_HAS_KEYSTORE
@@ -304,14 +324,9 @@ struct securityd {
     bool (*sec_item_delete)(CFDictionaryRef query, SecurityClient *client, CFErrorRef* error);
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
     bool (*sec_copy_shared_web_credential)(CFDictionaryRef query, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
-    SecTrustStoreRef (*sec_trust_store_for_domain)(CFStringRef domainName, CFErrorRef* error);       // TODO: remove, has no msg id
-    bool (*sec_trust_store_contains)(SecTrustStoreRef ts, CFDataRef digest, bool *contains, CFErrorRef* error);
-    bool (*sec_trust_store_set_trust_settings)(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef* error);
-    bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef* error);
-    bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);                         // TODO: remove, has no msg id
     bool (*sec_item_delete_all)(CFErrorRef* error);
-    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
-    bool (*sec_device_is_internal)(CFErrorRef* error);
+    CFArrayRef (*sec_item_copy_parent_certificates)(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);
+    bool (*sec_item_certificate_exists)(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);
     CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
@@ -320,7 +335,6 @@ struct securityd {
     int (*sec_item_backup_handoff_fd)(CFStringRef backupName, CFErrorRef *error);
     bool (*sec_item_backup_set_confirmed_manifest)(CFStringRef backupName, CFDataRef keybagDigest, CFDataRef manifest, CFErrorRef *error);
     bool (*sec_item_backup_restore)(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFDataRef backup, CFErrorRef *error);
-    int (*sec_ota_pki_asset_version)(CFErrorRef* error);
     CFDataRef (*sec_otr_session_create_remote)(CFDataRef publicPeerId, CFErrorRef* error);
     bool (*sec_otr_session_process_packet_remote)(CFDataRef sessionData, CFDataRef inputPacket, CFDataRef* outputSessionData, CFDataRef* outputPacket, bool *readyForMessages, CFErrorRef* error);
     bool (*soscc_TryUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
@@ -373,8 +387,6 @@ struct securityd {
     CFStringRef (*soscc_CopyIncompatibilityInfo)(CFErrorRef* error);
     enum DepartureReason (*soscc_GetLastDepartureReason)(CFErrorRef* error);
     bool (*soscc_SetLastDepartureReason)(enum DepartureReason, CFErrorRef* error);
-	CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
-	int (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
     CFSetRef (*soscc_ProcessSyncWithPeers)(CFSetRef peerIDs, CFSetRef backupPeerIDs, CFErrorRef* error);
     SyncWithAllPeersReason (*soscc_ProcessSyncWithAllPeers)(CFErrorRef* error);
     bool (*soscc_EnsurePeerRegistration)(CFErrorRef* error);
@@ -384,7 +396,6 @@ struct securityd {
     bool   (*sec_set_xpc_log_settings)(CFTypeRef type, CFErrorRef* error);
     bool   (*sec_set_circle_log_settings)(CFTypeRef type, CFErrorRef* error);
     SOSPeerInfoRef (*soscc_CopyMyPeerInfo)(CFErrorRef*);
-	bool (*soscc_SetHSA2AutoAcceptInfo)(CFDataRef, CFErrorRef*);
     bool (*soscc_WaitForInitialSync)(CFErrorRef*);
     CFArrayRef (*soscc_CopyYetToSyncViewsList)(CFErrorRef*);
     bool (*soscc_SetEscrowRecords)(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
@@ -398,12 +409,13 @@ struct securityd {
     bool (*soscc_DeleteEngineState)(CFErrorRef *error);
     SOSPeerInfoRef (*soscc_CopyApplicant)(CFErrorRef *error);
     CFDataRef (*soscc_CopyCircleJoiningBlob)(SOSPeerInfoRef applicant, CFErrorRef *error);
-    bool (*soscc_JoinWithCircleJoiningBlob)(CFDataRef joiningBlob, CFErrorRef *error);
+    CFDataRef (*soscc_CopyInitialSyncData)(CFErrorRef *error);
+    bool (*soscc_JoinWithCircleJoiningBlob)(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
+    bool (*soscc_SOSCCCleanupKVSKeys)(CFErrorRef *error);
+    bool (*soscc_SOSCCTestPopulateKVSWithBadKeys)(CFErrorRef *error);
     bool (*soscc_AccountHasPublicKey)(CFErrorRef *error);
     bool (*soscc_AccountIsNew)(CFErrorRef *error);
     bool (*sec_item_update_token_items)(CFStringRef tokenID, CFArrayRef query, SecurityClient *client, CFErrorRef* error);
-    bool (*sec_trust_store_copy_all)(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
-    bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     bool (*soscc_IsThisDeviceLastBackup)(CFErrorRef *error);
     bool (*soscc_requestSyncWithPeerOverKVS)(CFStringRef peerID, CFDataRef message, CFErrorRef *error);
@@ -413,16 +425,34 @@ struct securityd {
     bool (*soscc_requestSyncWithPeerOverKVSIDOnly)(CFStringRef peerID, CFErrorRef *error);
     bool (*soscc_SOSCCMessageFromPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
     bool (*soscc_SOSCCSendToPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
+    CFTypeRef (*soscc_status)(void);
+    CFTypeRef secd_xpc_server;
 };
 
 extern struct securityd *gSecurityd;
+
+struct trustd {
+    SecTrustStoreRef (*sec_trust_store_for_domain)(CFStringRef domainName, CFErrorRef* error);
+    bool (*sec_trust_store_contains)(SecTrustStoreRef ts, CFDataRef digest, bool *contains, CFErrorRef* error);
+    bool (*sec_trust_store_set_trust_settings)(SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef* error);
+    bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef* error);
+    bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);
+    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
+    int (*sec_ota_pki_asset_version)(CFErrorRef* error);
+    CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
+    int (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
+    bool (*sec_trust_store_copy_all)(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
+    bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
+};
+
+extern struct trustd *gTrustd;
 
 CFArrayRef SecAccessGroupsGetCurrent(void);
 
 // TODO Rename me
 CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op);
-xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error);
-xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef *error);
 bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
 
 
@@ -433,5 +463,78 @@ bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
 // For testing only, never call this in a threaded program!
 void SecServerSetMachServiceName(const char *name);
 
+XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyEndpoint(enum SecXPCOperation op, CFErrorRef *error);
+
+#if __OBJC__
+#import <Foundation/Foundation.h>
+#import <Foundation/NSXPCConnection.h>
+typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
+
+@protocol SecuritydXPCCallbackProtocol
+- (void)callCallback: (bool) result error:(NSError*) error;
+@end
+
+@protocol SecuritydXPCProtocol
+- (void) SecItemAddAndNotifyOnSync:(NSDictionary*) attributes
+                      syncCallback:(id<SecuritydXPCCallbackProtocol>) callback
+                          complete:(void (^) (NSDictionary* opDictResult, NSArray* opArrayResult, NSError* operror)) complete;
+
+// For the given item (specified exactly by its hash (currently SHA1)), attempt to set the CloudKit 'current' pointer
+// to point to the given item.
+// This can fail if:
+//    1. your knowledge of the old current item is out of date
+//    2. either the new item or old item has changed (checked by hash)
+//    3. If this device can't talk with CloudKit for any reason
+- (void)secItemSetCurrentItemAcrossAllDevices:(NSData*)newItemPersistentRef
+                           newCurrentItemHash:(NSData*)newItemSHA1
+                                  accessGroup:(NSString*)accessGroup
+                                   identifier:(NSString*)identifier
+                                     viewHint:(NSString*)viewHint
+                      oldCurrentItemReference:(NSData*)oldCurrentItemPersistentRef
+                           oldCurrentItemHash:(NSData*)oldItemSHA1
+                                     complete:(void (^) (NSError* operror)) complete;
+
+// For the given access group and identifier, check the current local idea of the 'current' item
+-(void)secItemFetchCurrentItemAcrossAllDevices:(NSString*)accessGroup
+                                    identifier:(NSString*)identifier
+                                      viewHint:(NSString*)viewHint
+                               fetchCloudValue:(bool)fetchCloudValue
+                                      complete:(void (^) (NSData* persistentref, NSError* operror)) complete;
+
+
+// For each item in the keychainClass, return a persistant reference and the digest of the value
+// The digest is not stable, and can change any time, the only promise is that if the digest
+// value didn't change, the item didn't change. If digest change, the value MIGHT have changed,/
+// but it could also just have stayed the same.
+// The this interface bypass SEP/AKS and for that reason is a higher performance then SecItemCopyMatching().
+- (void) secItemDigest:(NSString *)keychainClass
+           accessGroup:(NSString *)accessGroup
+              complete:(void (^)(NSArray<NSDictionary *> *digest, NSError* error))complete;
+@end
+
+// Call this to receive a proxy object conforming to SecuritydXPCProtocol that you can call methods on.
+// It's probably a remote object for securityd/secd, but it might be in-process if you've configured it that way.
+id<SecuritydXPCProtocol> SecuritydXPCProxyObject(void (^rpcErrorHandler)(NSError *));
+
+// Set up a local securityxpcserver: after this call, all securitydxpc calls will be handled in-process instead of actually transferring to securityd
+id<SecuritydXPCProtocol> SecCreateLocalSecuritydXPCServer(void);
+
+// Make a SecBoolNSErrorCallback block into an Objective-C object (for proxying across NSXPC)
+@interface SecuritydXPCCallback : NSObject <SecuritydXPCCallbackProtocol> {
+    SecBoolNSErrorCallback _callback;
+}
+@property SecBoolNSErrorCallback callback;
+- (instancetype)initWithCallback: (SecBoolNSErrorCallback) callback;
+@end
+
+@interface SecuritydXPCClient : NSObject {
+    NSXPCConnection* _connection;
+}
+@property NSXPCConnection* connection;
+
++(void)configureSecuritydXPCProtocol: (NSXPCInterface*) interface;
+@end
+
+#endif // OBJC
 
 #endif /* _SECURITYD_CLIENT_H_ */

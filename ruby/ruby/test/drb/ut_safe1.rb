@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'drb/drb'
 require 'drb/extserv'
 
@@ -12,4 +13,5 @@ if __FILE__ == $0
                     {:safe_level => 1})
   es = DRb::ExtServ.new(ARGV.shift, ARGV.shift)
   DRb.thread.join
+  es.stop_service if es.alive?
 end

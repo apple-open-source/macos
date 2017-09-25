@@ -459,14 +459,18 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 				MacOSError::throwMe(errSecCSBadLVArch);
 			}
 		}
-		
+
+		bool mainBinary = arch.source.get()->type() == MH_EXECUTE;
+
 		arch.ireqs(requirements, rep->defaultRequirements(&arch.architecture, *this), context);
 		if (editor->attribute(writerNoGlobal))	// can't store globally, add per-arch
 			populate(arch);
 		for (auto type = digestAlgorithms().begin(); type != digestAlgorithms().end(); ++type) {
 			arch.eachDigest(^(CodeDirectory::Builder& builder) {
 				populate(builder, arch, arch.ireqs,
-						 arch.source->offset(), arch.source->signingExtent(), unsigned(digestAlgorithms().size()-1));
+						 arch.source->offset(), arch.source->signingExtent(),
+						 mainBinary, rep->execSegBase(&(arch.architecture)), rep->execSegLimit(&(arch.architecture)),
+						 unsigned(digestAlgorithms().size()-1));
 			});
 		}
 	
@@ -531,12 +535,16 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 		(new DetachedBlobWriter(*this)) : rep->writer();
 	
 	CodeDirectorySet cdSet;
+
 	for (auto type = digestAlgorithms().begin(); type != digestAlgorithms().end(); ++type) {
 		CodeDirectory::Builder builder(*type);
 		InternalRequirements ireqs;
 		ireqs(requirements, rep->defaultRequirements(NULL, *this), context);
 		populate(*writer);
-		populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit(), unsigned(digestAlgorithms().size()-1));
+		populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit(),
+				 false,		// only machOs can currently be main binaries
+				 rep->execSegBase(NULL), rep->execSegLimit(NULL),
+				 unsigned(digestAlgorithms().size()-1));
 		
 		CodeDirectory *cd = builder.build();
 		if (!state.mDryRun)
@@ -581,7 +589,9 @@ void SecCodeSigner::Signer::populate(DiskRep::Writer &writer)
 // for the purposes of this call.
 //
 void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
-	InternalRequirements &ireqs, size_t offset, size_t length, unsigned alternateDigestCount)
+									 InternalRequirements &ireqs, size_t offset, size_t length,
+									 bool mainBinary, size_t execSegBase, size_t execSegLimit,
+									 unsigned alternateDigestCount)
 {
 	// fill the CodeDirectory
 	builder.executable(rep->mainExecutablePath(), pagesize, offset, length);
@@ -589,6 +599,7 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	builder.identifier(identifier);
 	builder.teamID(teamID);
 	builder.platform(state.mPlatform);
+	builder.execSeg(execSegBase, execSegLimit, mainBinary ? kSecCodeExecSegMainBinary : 0);
 
 	if (CFRef<CFDataRef> data = rep->component(cdInfoSlot))
 		builder.specialSlot(cdInfoSlot, data);
@@ -602,6 +613,10 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	if (entitlements) {
 		writer.component(cdEntitlementSlot, entitlements);
 		builder.specialSlot(cdEntitlementSlot, entitlements);
+
+		if (mainBinary) {
+			builder.addExecSegFlags(entitlementsToExecSegFlags(entitlements));
+		}
 	}
 	if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot))
 		builder.specialSlot(cdRepSpecificSlot, repSpecific);
@@ -762,6 +777,49 @@ std::string SecCodeSigner::Signer::uniqueName() const
 	return result;
 }
 
+bool SecCodeSigner::Signer::booleanEntitlement(CFDictionaryRef entDict, CFStringRef key) {
+	CFBooleanRef entValue = (CFBooleanRef)CFDictionaryGetValue(entDict, key);
+
+	if (entValue == NULL || CFGetTypeID(entValue) != CFBooleanGetTypeID()) {
+		return false;
+	}
+
+	return CFBooleanGetValue(entValue);
+}
+
+uint64_t SecCodeSigner::Signer::entitlementsToExecSegFlags(CFDataRef entitlements)
+{
+	if (!entitlements) {
+		return 0;
+	}
+
+	const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlements));
+
+	if (blob == NULL || !blob->validateBlob(CFDataGetLength(entitlements))) {
+		return 0;
+	}
+
+	try {
+		CFRef<CFDictionaryRef> entDict = blob->entitlements();
+
+		uint64_t flags = 0;
+
+		flags |= booleanEntitlement(entDict, CFSTR("get-task-allow")) ? kSecCodeExecSegAllowUnsigned : 0;
+		flags |= booleanEntitlement(entDict, CFSTR("run-unsigned-code")) ? kSecCodeExecSegAllowUnsigned : 0;
+		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.cs.debugger")) ? kSecCodeExecSegDebugger : 0;
+		flags |= booleanEntitlement(entDict, CFSTR("dynamic-codesigning")) ? kSecCodeExecSegJit : 0;
+		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.skip-library-validation")) ? kSecCodeExecSegSkipLibraryVal : 0;
+		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.amfi.can-load-cdhash")) ? kSecCodeExecSegCanLoadCdHash : 0;
+		flags |= booleanEntitlement(entDict, CFSTR("com.apple.private.amfi.can-execute-cdhash")) ? kSecCodeExecSegCanExecCdHash : 0;
+
+		return flags;
+
+	} catch (const CommonError &err) {
+		// Not fatal.
+		secwarning("failed to parse entitlements: %s", err.what());
+		return 0;
+	}
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

@@ -36,11 +36,11 @@
 #import "WebFullScreenManagerProxy.h"
 #import "WebPageProxy.h"
 #import <QuartzCore/QuartzCore.h>
-#import <WebCore/DisplaySleepDisabler.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/GeometryUtilities.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/SleepDisabler.h>
 #import <WebCore/WebCoreFullScreenPlaceholderView.h>
 #import <WebCore/WebCoreFullScreenWindow.h>
 #import <wtf/BlockObjCExceptions.h>
@@ -383,6 +383,7 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
         // fullscreen was exited without being initiated by WebKit. Do not return early, but continue to
         // clean up our state by calling those methods which would have been called by -exitFullscreen,
         // and proceed to close the fullscreen window.
+        [self _manager]->requestExitFullScreen();
         [_webViewPlaceholder setTarget:nil];
         [self _manager]->setAnimatingFullScreen(false);
         [self _manager]->willExitFullScreen();
@@ -426,7 +427,7 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
     _repaintCallback = VoidCallback::create([self](WebKit::CallbackBase::Error) {
         [self completeFinishExitFullScreenAnimationAfterRepaint];
     });
-    _page->forceRepaint(_repaintCallback);
+    _page->forceRepaint(_repaintCallback.copyRef());
 }
 
 - (void)completeFinishExitFullScreenAnimationAfterRepaint

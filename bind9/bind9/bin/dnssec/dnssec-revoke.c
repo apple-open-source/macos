@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009-2012, 2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,13 +14,10 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dnssec-revoke.c,v 1.22.124.2 2011/10/20 23:46:27 tbox Exp $ */
-
 /*! \file */
 
 #include <config.h>
 
-#include <libgen.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -66,6 +63,7 @@ usage(void) {
 	fprintf(stderr, "    -r:	   remove old keyfiles after "
 					   "creating revoked version\n");
 	fprintf(stderr, "    -v level:	   set level of verbosity\n");
+	fprintf(stderr, "    -V: print version information\n");
 	fprintf(stderr, "Output:\n");
 	fprintf(stderr, "     K<name>+<alg>+<new id>.key, "
 			     "K<name>+<alg>+<new id>.private\n");
@@ -105,7 +103,7 @@ main(int argc, char **argv) {
 
 	isc_commandline_errprint = ISC_FALSE;
 
-	while ((ch = isc_commandline_parse(argc, argv, "E:fK:rRhv:")) != -1) {
+	while ((ch = isc_commandline_parse(argc, argv, "E:fK:rRhv:V")) != -1) {
 		switch (ch) {
 		    case 'E':
 			engine = isc_commandline_argument;
@@ -141,7 +139,12 @@ main(int argc, char **argv) {
 					program, isc_commandline_option);
 			/* Falls into */
 		    case 'h':
+			/* Does not return. */
 			usage();
+
+		    case 'V':
+			/* Does not return. */
+			version(program);
 
 		    default:
 			fprintf(stderr, "%s: unhandled option -%c\n",
@@ -250,12 +253,10 @@ main(int argc, char **argv) {
 			dst_key_buildfilename(key, DST_TYPE_PRIVATE, dir, &buf);
 			if (strcmp(oldname, newname) == 0)
 				goto cleanup;
-			if (access(oldname, F_OK) == 0)
-				unlink(oldname);
+			(void)unlink(oldname);
 			isc_buffer_clear(&buf);
 			dst_key_buildfilename(key, DST_TYPE_PUBLIC, dir, &buf);
-			if (access(oldname, F_OK) == 0)
-				unlink(oldname);
+			(void)unlink(oldname);
 		}
 	} else {
 		dst_key_format(key, keystr, sizeof(keystr));

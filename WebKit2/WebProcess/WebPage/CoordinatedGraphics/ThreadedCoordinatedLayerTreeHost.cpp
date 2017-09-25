@@ -52,21 +52,31 @@ ThreadedCoordinatedLayerTreeHost::~ThreadedCoordinatedLayerTreeHost()
 ThreadedCoordinatedLayerTreeHost::ThreadedCoordinatedLayerTreeHost(WebPage& webPage)
     : CoordinatedLayerTreeHost(webPage)
     , m_compositorClient(*this)
-    , m_surface(AcceleratedSurface::create(webPage))
+    , m_surface(AcceleratedSurface::create(webPage, *this))
+    , m_viewportController(webPage.size())
 {
+    if (FrameView* frameView = m_webPage.mainFrameView()) {
+        auto contentsSize = frameView->contentsSize();
+        if (!contentsSize.isEmpty())
+            m_viewportController.didChangeContentsSize(contentsSize);
+    }
+
+    IntSize scaledSize(m_webPage.size());
+    scaledSize.scale(m_webPage.deviceScaleFactor());
+    float scaleFactor = m_webPage.deviceScaleFactor() * m_viewportController.pageScaleFactor();
+
     if (m_surface) {
         TextureMapper::PaintFlags paintFlags = 0;
 
         if (m_surface->shouldPaintMirrored())
             paintFlags |= TextureMapper::PaintingMirrored;
 
-        // Do not do frame sync when rendering offscreen in the web process to ensure that SwapBuffers never blocks.
-        // Rendering to the actual screen will happen later anyway since the UI process schedules a redraw for every update,
-        // the compositor will take care of syncing to vblank.
-        m_compositor = ThreadedCompositor::create(m_compositorClient, m_surface->window(), ThreadedCompositor::ShouldDoFrameSync::No, paintFlags);
+        m_compositor = ThreadedCompositor::create(m_compositorClient, webPage, scaledSize, scaleFactor, ThreadedCompositor::ShouldDoFrameSync::Yes, paintFlags);
         m_layerTreeContext.contextID = m_surface->surfaceID();
     } else
-        m_compositor = ThreadedCompositor::create(m_compositorClient);
+        m_compositor = ThreadedCompositor::create(m_compositorClient, webPage, scaledSize, scaleFactor);
+
+    didChangeViewport();
 }
 
 void ThreadedCoordinatedLayerTreeHost::invalidate()
@@ -82,6 +92,38 @@ void ThreadedCoordinatedLayerTreeHost::forceRepaint()
     m_compositor->forceRepaint();
 }
 
+void ThreadedCoordinatedLayerTreeHost::frameComplete()
+{
+    m_compositor->frameComplete();
+}
+
+uint64_t ThreadedCoordinatedLayerTreeHost::nativeSurfaceHandleForCompositing()
+{
+    if (!m_surface)
+        return m_layerTreeContext.contextID;
+
+    m_surface->initialize();
+    return m_surface->window();
+}
+
+void ThreadedCoordinatedLayerTreeHost::didDestroyGLContext()
+{
+    if (m_surface)
+        m_surface->finalize();
+}
+
+void ThreadedCoordinatedLayerTreeHost::willRenderFrame()
+{
+    if (m_surface)
+        m_surface->willRenderFrame();
+}
+
+void ThreadedCoordinatedLayerTreeHost::didRenderFrame()
+{
+    if (m_surface)
+        m_surface->didRenderFrame();
+}
+
 void ThreadedCoordinatedLayerTreeHost::scrollNonCompositedContents(const IntRect& rect)
 {
     FrameView* frameView = m_webPage.mainFrameView();
@@ -89,17 +131,28 @@ void ThreadedCoordinatedLayerTreeHost::scrollNonCompositedContents(const IntRect
         return;
 
     m_viewportController.didScroll(rect.location());
-    didChangeViewport();
+    if (m_isDiscardable)
+        m_discardableSyncActions |= DiscardableSyncActions::UpdateViewport;
+    else
+        didChangeViewport();
 }
 
 void ThreadedCoordinatedLayerTreeHost::contentsSizeChanged(const IntSize& newSize)
 {
     m_viewportController.didChangeContentsSize(newSize);
-    didChangeViewport();
+    if (m_isDiscardable)
+        m_discardableSyncActions |= DiscardableSyncActions::UpdateViewport;
+    else
+        didChangeViewport();
 }
 
 void ThreadedCoordinatedLayerTreeHost::deviceOrPageScaleFactorChanged()
 {
+    if (m_isDiscardable) {
+        m_discardableSyncActions |= DiscardableSyncActions::UpdateScale;
+        return;
+    }
+
     if (m_surface && m_surface->resize(m_webPage.size()))
         m_layerTreeContext.contextID = m_surface->surfaceID();
 
@@ -109,12 +162,23 @@ void ThreadedCoordinatedLayerTreeHost::deviceOrPageScaleFactorChanged()
 
 void ThreadedCoordinatedLayerTreeHost::pageBackgroundTransparencyChanged()
 {
+    if (m_isDiscardable) {
+        m_discardableSyncActions |= DiscardableSyncActions::UpdateBackground;
+        return;
+    }
+
     CoordinatedLayerTreeHost::pageBackgroundTransparencyChanged();
     m_compositor->setDrawsBackground(m_webPage.drawsBackground());
 }
 
 void ThreadedCoordinatedLayerTreeHost::sizeDidChange(const IntSize& size)
 {
+    if (m_isDiscardable) {
+        m_discardableSyncActions |= DiscardableSyncActions::UpdateSize;
+        m_viewportController.didChangeViewportSize(size);
+        return;
+    }
+
     if (m_surface && m_surface->resize(size))
         m_layerTreeContext.contextID = m_surface->surfaceID();
 
@@ -126,10 +190,13 @@ void ThreadedCoordinatedLayerTreeHost::sizeDidChange(const IntSize& size)
     didChangeViewport();
 }
 
-void ThreadedCoordinatedLayerTreeHost::didChangeViewportProperties(const ViewportAttributes& attr)
+void ThreadedCoordinatedLayerTreeHost::didChangeViewportAttributes(ViewportAttributes&& attr)
 {
-    m_viewportController.didChangeViewportAttributes(attr);
-    didChangeViewport();
+    m_viewportController.didChangeViewportAttributes(WTFMove(attr));
+    if (m_isDiscardable)
+        m_discardableSyncActions |= DiscardableSyncActions::UpdateViewport;
+    else
+        didChangeViewport();
 }
 
 #if PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)
@@ -181,6 +248,45 @@ void ThreadedCoordinatedLayerTreeHost::commitSceneState(const CoordinatedGraphic
     CoordinatedLayerTreeHost::commitSceneState(state);
     m_compositor->updateSceneState(state);
 }
+
+void ThreadedCoordinatedLayerTreeHost::releaseUpdateAtlases(Vector<uint32_t>&& atlasesToRemove)
+{
+    m_compositor->releaseUpdateAtlases(WTFMove(atlasesToRemove));
+}
+
+void ThreadedCoordinatedLayerTreeHost::setIsDiscardable(bool discardable)
+{
+    m_isDiscardable = discardable;
+    if (m_isDiscardable) {
+        m_discardableSyncActions = OptionSet<DiscardableSyncActions>();
+        return;
+    }
+
+    if (m_discardableSyncActions.isEmpty())
+        return;
+
+    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateBackground))
+        pageBackgroundTransparencyChanged();
+
+    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateSize)) {
+        // Size changes already sets the scale factor and updates the viewport.
+        sizeDidChange(m_webPage.size());
+        return;
+    }
+
+    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateScale))
+        deviceOrPageScaleFactorChanged();
+
+    if (m_discardableSyncActions.contains(DiscardableSyncActions::UpdateViewport))
+        didChangeViewport();
+}
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+RefPtr<WebCore::DisplayRefreshMonitor> ThreadedCoordinatedLayerTreeHost::createDisplayRefreshMonitor(PlatformDisplayID displayID)
+{
+    return m_compositor->displayRefreshMonitor(displayID);
+}
+#endif
 
 } // namespace WebKit
 

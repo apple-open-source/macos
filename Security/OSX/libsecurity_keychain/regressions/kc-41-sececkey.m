@@ -195,9 +195,21 @@ static void testkeygen(size_t keySizeInBits) {
 	CFRelease(kzib);
 	CFRelease(kgp);
 
+    SecKeyRef pubKeybis = SecKeyCopyPublicKey(privKey);
+    ok(pubKeybis!=NULL);
+    is(CFGetRetainCount(pubKeybis),2); // pubKey + pubKeybis
+    CFDataRef PubKeyData = SecKeyCopyExternalRepresentation(pubKey, NULL);
+    CFDataRef PubKeybisData = SecKeyCopyExternalRepresentation(pubKeybis, NULL);
+    isnt(CFDataGetLength(PubKeyData),0);
+    ok(CFEqual(PubKeyData,PubKeybisData));
+    CFReleaseNull(PubKeyData);
+    CFReleaseNull(PubKeybisData);
+    CFReleaseNull(pubKeybis);
+
+
 SKIP: {
     skip("keygen failed", 8, status == errSecSuccess);
-    ok(pubKey, "pubkey returned");
+    ok(pubKey, "pubKey returned");
     ok(privKey, "privKey returned");
     is(SecKeyGetSize(pubKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "public key size is ok");
     is(SecKeyGetSize(privKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "private key size is ok");
@@ -229,14 +241,14 @@ SKIP: {
     ok_status(SecItemDelete(privitem), "delete private key");
     CFReleaseNull(privitem);
 
-    const void *pubkeys[] = {
+    const void *pubKeys[] = {
         kSecValueRef
     };
     const void *pubvalues[] = {
         pubKey
     };
-    CFDictionaryRef pubitem = CFDictionaryCreate(NULL, pubkeys, pubvalues,
-                                                 sizeof(pubkeys) / sizeof(*pubkeys), NULL, NULL);
+    CFDictionaryRef pubitem = CFDictionaryCreate(NULL, pubKeys, pubvalues,
+                                                 sizeof(pubKeys) / sizeof(*pubKeys), NULL, NULL);
 #if TARGET_OS_IPHONE
     ok_status(SecItemAdd(pubitem, NULL), "add public key");
 #endif
@@ -288,7 +300,7 @@ static void testkeygen2(size_t keySizeInBits) {
 
 SKIP: {
     skip("keygen failed", 8, status == errSecSuccess);
-    ok(pubKey, "pubkey returned");
+    ok(pubKey, "pubKey returned");
     ok(privKey, "privKey returned");
     is(SecKeyGetSize(pubKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "public key size is ok");
     is(SecKeyGetSize(privKey, kSecKeyKeySizeInBits), (size_t) keySizeInBits, "private key size is ok");
@@ -335,6 +347,39 @@ SKIP: {
 	CFRelease(pubd);
 	CFRelease(privd);
 }
+
+static void testkeygen3(size_t keySizeInBits) {
+    SecKeyRef pubKey = NULL, privKey = NULL;
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    CFNumberRef kzib;
+
+    kzib = CFNumberCreate(NULL, kCFNumberSInt64Type, &keySizeInBits);
+    CFMutableDictionaryRef kgp = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+    CFDictionaryAddValue(kgp, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
+    CFDictionaryAddValue(kgp, kSecAttrKeySizeInBits, kzib);
+    CFDictionaryAddValue(kgp, kSecAttrIsPermanent, kCFBooleanFalse);
+
+    ok(privKey = SecKeyCreateRandomKey(kgp, NULL));
+    CFRelease(kzib);
+    CFRelease(kgp);
+
+    ok(pubKey = SecKeyCopyPublicKey(privKey));
+    is(CFGetRetainCount(pubKey),1);
+
+    /* Sign something. */
+    uint8_t something[20] = {0x80, 0xbe, 0xef, 0xba, 0xd0, };
+    uint8_t sig[8+2*keySizeInBytes];
+    size_t sigLen = sizeof(sig);
+    ok_status(SecKeyRawSign(privKey, kSecPaddingNone,
+                            something, sizeof(something), sig, &sigLen), "sign something");
+    ok_status(SecKeyRawVerify(pubKey, kSecPaddingNone,
+                              something, sizeof(something), sig, sigLen), "verify sig on something");
+
+    /* Cleanup. */
+    CFReleaseNull(pubKey);
+    CFReleaseNull(privKey);
+}
+
 
 #if TARGET_OS_IPHONE
 // Raw DER Key
@@ -411,8 +456,8 @@ const uint8_t EC_P256_SigDER_LargeInt[]={
 
 static void testsignformat(void)
 {
-    SecKeyRef pkey = NULL;
-    SecKeyRef pubkey = NULL;
+    SecKeyRef privKey = NULL;
+    SecKeyRef pubKey = NULL;
     CFArrayRef KeyArrayPub=NULL;
     CFArrayRef KeyArrayPriv=NULL;
     uint8_t EC_signature_DER[72];
@@ -423,13 +468,13 @@ static void testsignformat(void)
 #if TARGET_OS_IPHONE
     // Key import for iOS
     {
-        ok((pkey = SecKeyCreateECPrivateKey(kCFAllocatorDefault,
+        ok((privKey = SecKeyCreateECPrivateKey(kCFAllocatorDefault,
                                             EC_P256_KeyDER, sizeof(EC_P256_KeyDER),
                                             kSecKeyEncodingPkcs1)) != NULL, "import privkey");
         CFDataRef pubdata = NULL;
-        ok_status(SecKeyCopyPublicBytes(pkey, &pubdata), "pub key from priv key");
+        ok_status(SecKeyCopyPublicBytes(privKey, &pubdata), "pub key from priv key");
 
-        ok((pubkey = SecKeyCreateECPublicKey(kCFAllocatorDefault,
+        ok((pubKey = SecKeyCreateECPublicKey(kCFAllocatorDefault,
                                              CFDataGetBytePtr(pubdata), CFDataGetLength(pubdata),
                                              kSecKeyEncodingBytes))!=NULL,
            "recreate seckey");
@@ -447,7 +492,7 @@ static void testsignformat(void)
         seit=kSecItemTypePublicKey;
         ok_status(SecItemImport(DER_key,NULL,&sef,&seit,0,NULL,NULL,&KeyArrayPub), "Import DER key");
         ok((!(KeyArrayPub==NULL) && CFArrayGetCount(KeyArrayPub)==1), "One key imported");
-        pubkey=(SecKeyRef)CFArrayGetValueAtIndex(KeyArrayPub,0);
+        pubKey=(SecKeyRef)CFArrayGetValueAtIndex(KeyArrayPub,0);
         CFReleaseNull(DER_key);
 
         // Private key
@@ -455,41 +500,41 @@ static void testsignformat(void)
         seit=kSecItemTypePrivateKey;
         ok_status(SecItemImport(DER_key,NULL,&sef,&seit,0,NULL,NULL,&KeyArrayPriv), "Import DER key");
         ok((!(KeyArrayPriv==NULL) && CFArrayGetCount(KeyArrayPriv)==1), "One key imported");
-        pkey=(SecKeyRef)CFArrayGetValueAtIndex(KeyArrayPriv,0);
+        privKey=(SecKeyRef)CFArrayGetValueAtIndex(KeyArrayPriv,0);
         CFReleaseNull(DER_key);
     }
 #endif
 
     // Verify fixed signature
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+    ok_status(SecKeyRawVerify(pubKey, kSecPaddingPKCS1,
                               EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER, sizeof(EC_P256_SigDER)), "verify DER sig on something");
 
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
+    ok_status(SecKeyRawVerify(pubKey, kSecPaddingSigRaw,
                               EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigRaw, sizeof(EC_P256_SigRaw)), "verify RAW sig on something");
 
     // Verify signature with mismatching format
-    ok_status(!SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
+    ok_status(!SecKeyRawVerify(pubKey, kSecPaddingSigRaw,
                                EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER, sizeof(EC_P256_SigDER)), "verify DER sig with RAW option");
 
-    ok_status(!SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+    ok_status(!SecKeyRawVerify(pubKey, kSecPaddingPKCS1,
                                EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigRaw, sizeof(EC_P256_SigRaw)), "verify RAW sig with DER something");
 
     // Sign something in each format
-    ok_status(SecKeyRawSign(pkey, kSecPaddingPKCS1,
+    ok_status(SecKeyRawSign(privKey, kSecPaddingPKCS1,
                             EC_SigDigest, sizeof(EC_SigDigest), EC_signature_DER, &EC_signature_DER_size), "sign DER sig on something");
 
-    ok_status(SecKeyRawSign(pkey, kSecPaddingSigRaw,
+    ok_status(SecKeyRawSign(privKey, kSecPaddingSigRaw,
                             EC_SigDigest, sizeof(EC_SigDigest), EC_signature_RAW, &EC_signature_RAW_size), "sign RAW sig on something");
 
     // Verify expecting that verification does the right thing.
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+    ok_status(SecKeyRawVerify(pubKey, kSecPaddingPKCS1,
                               EC_SigDigest, sizeof(EC_SigDigest), EC_signature_DER, EC_signature_DER_size), "verify DER sig on something");
 
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
+    ok_status(SecKeyRawVerify(pubKey, kSecPaddingSigRaw,
                               EC_SigDigest, sizeof(EC_SigDigest), EC_signature_RAW, EC_signature_RAW_size), "verify RAW sig on something");
 
     // Verify signature with one integer larger than it should be
-    ok_status(!SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+    ok_status(!SecKeyRawVerify(pubKey, kSecPaddingPKCS1,
                                EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER_LargeInt, sizeof(EC_P256_SigDER_LargeInt)),
               "verify DER sig with large integer");
 
@@ -523,6 +568,17 @@ static void testkeyexchange(unsigned long keySizeInBits)
     ok_status(status = SecKeyGeneratePair((CFDictionaryRef)kgp1, &pubKey1, &privKey1),
               "Generate %ld bit (%ld byte) EC keypair (status = %d)",
               keySizeInBits, keySizeInBytes, (int)status);
+
+    SecKeyRef pubKey1bis = SecKeyCopyPublicKey(privKey1);
+    ok(pubKey1bis!=NULL);
+    is(CFGetRetainCount(pubKey1bis),1);
+    CFDataRef PubKey1Data = SecKeyCopyExternalRepresentation(pubKey1, NULL);
+    CFDataRef PubKey1bisData = SecKeyCopyExternalRepresentation(pubKey1bis, NULL);
+    isnt(CFDataGetLength(PubKey1Data),0);
+    ok(CFEqual(PubKey1Data,PubKey1bisData));
+    CFReleaseNull(PubKey1Data);
+    CFReleaseNull(PubKey1bisData);
+    CFReleaseNull(pubKey1bis);
 
     SecKeyRef pubKey2 = NULL, privKey2 = NULL;
     NSDictionary *kgp2 = @{
@@ -607,6 +663,10 @@ static void tests(void)
 	testkeygen2(384);
 	testkeygen2(521);
 
+    testkeygen3(256);
+    testkeygen3(384);
+    testkeygen3(521);
+
     testkeyexchange(256);
     testkeyexchange(384);
     testkeyexchange(521);
@@ -614,7 +674,7 @@ static void tests(void)
 
 int kc_41_sececkey(int argc, char *const *argv)
 {
-	plan_tests(245);
+	plan_tests(288);
 
 	tests();
 

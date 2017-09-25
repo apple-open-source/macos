@@ -134,7 +134,7 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
         matches = false;
     }
     
-    OSSafeRelease(obj);
+    OSSafeReleaseNULL(obj);
     return matches;
 }
 
@@ -268,9 +268,9 @@ bool CompareNumberPropertyArray( IOService * owner, OSDictionary * matching, con
         if ( OSDynamicCast(OSNumber, registryProperty ) )
         {
             OSNumber *propertyFromArray;
-            int i = 0;
+            unsigned int i = 0;
             
-            for ( i = 0; i < propertyArray->getCount(); i ++ )
+            for (i = 0; i < propertyArray->getCount(); i ++ )
             {
                 propertyFromArray = OSDynamicCast(OSNumber, propertyArray->getObject(i));
                 if ( propertyFromArray && propertyFromArray->isEqualTo(registryProperty) )
@@ -304,7 +304,7 @@ bool CompareNumberPropertyArrayWithMask( IOService * owner, OSDictionary * match
             UInt32  registryValue = registryProperty->unsigned32BitValue();
             UInt32  mask = valueMask->unsigned32BitValue();
             
-            int i = 0;
+            unsigned int i = 0;
             
             for ( i = 0; i < propertyArray->getCount(); i ++ )
             {
@@ -351,8 +351,8 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
     bool    versNumMatch    = CompareProperty(owner, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    manMatch        = CompareProperty(owner, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    serialMatch     = CompareProperty(owner, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement);
+    bool    phisicalDeviceUniqueID = CompareProperty(owner, table, kIOHIDPhysicalDeviceUniqueIDKey, &ven3Score, kHIDVendor3ScoreIncrement);
     bool    bootPMatch      = CompareProperty(owner, table, "BootProtocol", score);
-    
     // Compare properties.
     if (!pUPMatch ||
         !pUMatch ||
@@ -366,6 +366,7 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
         !manMatch ||
         !serialMatch ||
         !bootPMatch ||
+        !phisicalDeviceUniqueID ||
         (table->getObject("HIDDefaultBehavior") && !owner->getProperty("HIDDefaultBehavior")) ||
         (table->getObject(kIOHIDCompatibilityInterface) && !owner->getProperty(kIOHIDCompatibilityInterface))
         )
@@ -408,7 +409,7 @@ extern "C" kern_return_t sysdiagnose_notify_user(uint32_t keycode);
 
 void handle_stackshot_keychord(uint32_t keycode)
 {
-    kern_stack_snapshot_with_reason("Stackshot triggered using keycombo");
+    kern_stack_snapshot_with_reason((char *)"Stackshot triggered using keycombo");
     sysdiagnose_notify_user(keycode);
     HIDLog("IOHIDSystem posted stackshot event 0x%08x", keycode);
 }

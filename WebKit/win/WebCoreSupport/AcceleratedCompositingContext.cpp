@@ -44,6 +44,7 @@
 #include <WebCore/TextureMapperLayer.h>
 
 #if USE(OPENGL_ES_2)
+#define GL_GLEXT_PROTOTYPES 1
 #include <GLES2/gl2.h>
 #else
 #include <GL/gl.h>
@@ -349,7 +350,7 @@ void AcceleratedCompositingContext::scheduleLayerFlush()
     if (m_layerFlushTimer.isActive())
         return;
 
-    m_layerFlushTimer.startOneShot(0.05);
+    m_layerFlushTimer.startOneShot(50_ms);
 }
 
 bool AcceleratedCompositingContext::flushPendingLayerChanges()
@@ -402,7 +403,7 @@ void AcceleratedCompositingContext::layerFlushTimerFired()
         scheduleLayerFlush();
 }
 
-void AcceleratedCompositingContext::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase, const FloatRect& rectToPaint)
+void AcceleratedCompositingContext::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase, const FloatRect& rectToPaint, GraphicsLayerPaintBehavior)
 {
     context.save();
     context.clip(rectToPaint);

@@ -1,5 +1,7 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
- * COPYRIGHT:
+ * COPYRIGHT: 
  * Copyright (c) 1997-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
@@ -39,6 +41,8 @@ log_data_err("Failure at file %s, line %d, error = %s (Are you missing data?)\n"
 #define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
 log_data_err("Test Failure at file %s, line %d (Are you missing data?)\n", __FILE__, __LINE__);}}
 
+#define APPLE_ADDITIONS 1
+
 #if !UCONFIG_NO_FILE_IO
 static void TestBreakIteratorSafeClone(void);
 #endif
@@ -50,6 +54,9 @@ static void TestBreakIteratorTailoring(void);
 static void TestBreakIteratorRefresh(void);
 static void TestBug11665(void);
 static void TestBreakIteratorSuppressions(void);
+#if APPLE_ADDITIONS
+static void TestRuleBasedTokenizer(void);
+#endif
 
 void addBrkIterAPITest(TestNode** root);
 
@@ -66,7 +73,12 @@ void addBrkIterAPITest(TestNode** root)
     addTest(root, &TestBreakIteratorTailoring, "tstxtbd/cbiapts/TestBreakIteratorTailoring");
     addTest(root, &TestBreakIteratorRefresh, "tstxtbd/cbiapts/TestBreakIteratorRefresh");
     addTest(root, &TestBug11665, "tstxtbd/cbiapts/TestBug11665");
+#if !UCONFIG_NO_FILTERED_BREAK_ITERATION
     addTest(root, &TestBreakIteratorSuppressions, "tstxtbd/cbiapts/TestBreakIteratorSuppressions");
+#endif
+#if APPLE_ADDITIONS
+    addTest(root, &TestRuleBasedTokenizer, "tstxtbd/cbiapts/TestRuleBasedTokenizer");
+#endif
 }
 
 #define CLONETEST_ITERATOR_COUNT 2
@@ -584,6 +596,43 @@ static void TestBreakIteratorRules() {
         }
     }
 
+    /* #12914 add basic sanity test for ubrk_getBinaryRules, ubrk_openBinaryRules */
+    /* Underlying functionality checked in C++ rbbiapts.cpp TestRoundtripRules */
+    status = U_ZERO_ERROR;
+    int32_t rulesLength = ubrk_getBinaryRules(bi, NULL, 0, &status); /* preflight */
+    if (U_FAILURE(status)) {
+        log_err("FAIL: ubrk_getBinaryRules preflight err: %s", u_errorName(status));
+    } else {
+        uint8_t* binaryRules = (uint8_t*)uprv_malloc(rulesLength);
+        if (binaryRules == NULL) {
+            log_err("FAIL: unable to malloc rules buffer, size %u", rulesLength);
+        } else {
+            rulesLength = ubrk_getBinaryRules(bi, binaryRules, rulesLength, &status);
+            if (U_FAILURE(status)) {
+                log_err("FAIL: ubrk_getBinaryRules err: %s", u_errorName(status));
+            } else {
+                UBreakIterator* bi2 = ubrk_openBinaryRules(binaryRules, rulesLength, uData, -1, &status);
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: ubrk_openBinaryRules err: %s", u_errorName(status));
+                } else {
+                    int32_t maxCount = sizeof(breaks); /* fail-safe test limit */
+                    int32_t pos2 = ubrk_first(bi2);
+                    pos = ubrk_first(bi);
+                    do {
+                        if (pos2 != pos) {
+                            log_err("FAIL: interator from ubrk_openBinaryRules does not match original, get pos = %d instead of %d", pos2, pos);
+                        }
+                        pos2 = ubrk_next(bi2);
+                        pos = ubrk_next(bi);
+                    } while ((pos != UBRK_DONE || pos2 != UBRK_DONE) && maxCount-- > 0);
+                    
+                    ubrk_close(bi2);
+                }
+            }
+            uprv_free(binaryRules);
+        }
+    }
+
     freeToUCharStrings(&freeHook);
     ubrk_close(bi);
 }
@@ -764,6 +813,16 @@ static const UChar kmTest[] = { /* 00 */ 0x179F, 0x17BC, 0x1798, 0x1785, 0x17C6,
 static const int32_t kmTestOffs_kmFwd[] =  {  3, /*8,*/ 11, 17, 23, 31, /*33,*/  40,  43, 51 }; /* TODO: Investigate failure to break at offset 8 */
 static const int32_t kmTestOffs_kmRev[] =  { 43,  40,   /*33,*/ 31, 23, 17, 11, /*8,*/ 3,  0 };
 
+
+/* Korean keepAll vs Normal */
+static const UChar koTest[] = { /* 00 */ 0xBAA8, 0xB4E0, 0x0020, 0xC778, 0xB958, 0x0020, 0xAD6C, 0xC131, 0xC6D0, 0xC758,
+                                /* 10 */ 0x0020, 0xCC9C, 0xBD80, 0xC758, 0x0020, 0xC874, 0xC5C4, 0xC131, 0xACFC, 0x0020,
+                                /* 20 */ 0xB3D9, 0xB4F1, 0xD558, 0xACE0, 0x0020, 0xC591, 0xB3C4, 0xD560, 0 };
+static const int32_t koTestOffs_koKeepFwd[] =  {   3,  6, 11, 15, 20, 25, 28 };
+static const int32_t koTestOffs_koKeepRev[] =  {  25, 20, 15, 11,  6,  3,  0 };
+static const int32_t koTestOffs_koNormFwd[] =  {  1,  3,  4,  6,  7,  8,  9, 11, 12, 13, 15, 16, 17, 18, 20, 21, 22, 23, 25, 26, 27, 28 };
+static const int32_t koTestOffs_koNormRev[] =  { 27, 26, 25, 23, 22, 21, 20, 18, 17, 16, 15, 13, 12, 11,  9,  8,  7,  6,  4,  3,  1,  0 };
+
 typedef struct {
     const char * locale;
     UBreakIteratorType type;
@@ -774,13 +833,16 @@ typedef struct {
 } RBBITailoringTest;
 
 static const RBBITailoringTest tailoringTests[] = {
-    { "en", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
-    { "en_US_POSIX", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
-    { "en", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
-    { "he", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
-    { "en", UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, UPRV_LENGTHOF(fiTestOffs_enFwd) },
-    { "fi", UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, UPRV_LENGTHOF(fiTestOffs_fiFwd) },
-    { "km", UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, UPRV_LENGTHOF(kmTestOffs_kmFwd) },
+    { "en",            UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en_US_POSIX",   UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en",            UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "he",            UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "en",            UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, UPRV_LENGTHOF(fiTestOffs_enFwd) },
+    { "fi",            UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, UPRV_LENGTHOF(fiTestOffs_fiFwd) },
+    { "km",            UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, UPRV_LENGTHOF(kmTestOffs_kmFwd) },
+    { "ko",            UBRK_LINE,      koTest, koTestOffs_koKeepFwd, koTestOffs_koKeepRev, UPRV_LENGTHOF(koTestOffs_koKeepFwd) },
+    { "ko@lw=keepall", UBRK_LINE,      koTest, koTestOffs_koKeepFwd, koTestOffs_koKeepRev, UPRV_LENGTHOF(koTestOffs_koKeepFwd) },
+    { "ko@lw=normal",  UBRK_LINE,      koTest, koTestOffs_koNormFwd, koTestOffs_koNormRev, UPRV_LENGTHOF(koTestOffs_koNormFwd) },
     { NULL, 0, NULL, NULL, NULL, 0 },
 };
 
@@ -794,6 +856,7 @@ static void TestBreakIteratorTailoring(void) {
             UBool foundError;
 
             foundError = FALSE;
+            ubrk_first(ubrkiter);
             for (offsindx = 0; (offset = ubrk_next(ubrkiter)) != UBRK_DONE; ++offsindx) {
                 if (!foundError && offsindx >= testPtr->numOffsets) {
                     log_err("FAIL: locale %s, break type %d, ubrk_next expected UBRK_DONE, got %d\n",
@@ -807,10 +870,11 @@ static void TestBreakIteratorTailoring(void) {
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
                 log_err("FAIL: locale %s, break type %d, ubrk_next expected %d, got UBRK_DONE\n",
-                    	testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
+                        testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
             }
 
             foundError = FALSE;
+            ubrk_last(ubrkiter);
             for (offsindx = 0; (offset = ubrk_previous(ubrkiter)) != UBRK_DONE; ++offsindx) {
                 if (!foundError && offsindx >= testPtr->numOffsets) {
                     log_err("FAIL: locale %s, break type %d, ubrk_previous expected UBRK_DONE, got %d\n",
@@ -824,7 +888,7 @@ static void TestBreakIteratorTailoring(void) {
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
                 log_err("FAIL: locale %s, break type %d, ubrk_previous expected %d, got UBRK_DONE\n",
-                    	testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
+                        testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
             }
 
             ubrk_close(ubrkiter);
@@ -1001,8 +1065,11 @@ typedef struct {
 static const TestBISuppressionsItem testBISuppressionsItems[] = {
     { "en@ss=standard", testSentenceSuppressionsEn, testSentSuppFwdOffsetsEn, testSentSuppRevOffsetsEn },
     { "en",             testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     },
+    { "en_CA",             testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     },
+    { "en_CA@ss=standard", testSentenceSuppressionsEn, testSentSuppFwdOffsetsEn, testSentSuppRevOffsetsEn },
     { "fr@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     },
-    { "af@ss=standard", testSentenceSuppressionsEn, testSentSuppFwdOffsetsEn, testSentSuppRevOffsetsEn }, /* no brkiter data => en suppressions? */
+    { "af@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* no brkiter data => nosuppressions? */
+    { "af_ZA@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* no brkiter data => nosuppressions? */
     { "zh@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* brkiter data, no suppressions data => no suppressions */
     { "zh_Hant@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn, testSentRevOffsetsEn    }, /* brkiter data, no suppressions data => no suppressions */
     { "fi@ss=standard", testSentenceSuppressionsEn, testSentFwdOffsetsEn,     testSentRevOffsetsEn     }, /* brkiter data, no suppressions data => no suppressions */
@@ -1112,6 +1179,282 @@ static void TestBreakIteratorSuppressions(void) {
         }
     }
 }
+
+#if APPLE_ADDITIONS
+#include <stdio.h>
+#include "unicode/urbtok.h"
+#include "cstring.h"
+
+static const char testRulesFilePath[] = "../testdata/word_urbTokTest.txt";
+static const UChar textToTokenize[] = {
+/*
+"Short phrase! Another (with parens); done.\n
+At 4:00, tea-time.\n
+He wouldn't've wanted y'all to ... come at 3:30pm for $3 coffee @funman :)\n
+x3:30 -- x1.0"
+*/
+    0x53,0x68,0x6F,0x72,0x74,0x20,0x70,0x68,0x72,0x61,0x73,0x65,0x21,0x20,
+    0x41,0x6E,0x6F,0x74,0x68,0x65,0x72,0x20,0x28,0x77,0x69,0x74,0x68,0x20,0x70,0x61,0x72,0x65,0x6E,0x73,0x29,0x3B,0x20,0x64,0x6F,0x6E,0x65,0x2E,0x0A,
+    0x41,0x74,0x20,0x34,0x3A,0x30,0x30,0x2C,0x20,0x74,0x65,0x61,0x2D,0x74,0x69,0x6D,0x65,0x2E,0x0A,
+    0x48,0x65,0x20,0x77,0x6F,0x75,0x6C,0x64,0x6E,0x27,0x74,0x27,0x76,0x65,0x20,0x77,0x61,0x6E,0x74,0x65,0x64,0x20,
+    0x79,0x27,0x61,0x6C,0x6C,0x20,0x74,0x6F,0x20,0x2E,0x2E,0x2E,0x20, 0x63,0x6F,0x6D,0x65,0x20,0x61,0x74,0x20,
+    0x33,0x3A,0x33,0x30,0x70,0x6D,0x20,0x66,0x6F,0x72,0x20,0x24,0x33,0x20,0x63,0x6F,0x66,0x66,0x65,0x65,0x20,
+    0x40,0x66,0x75,0x6E,0x6D,0x61,0x6E,0x20,0x3A,0x29,0x0A,
+    0x78,0x33,0x3A,0x33,0x30,0x20,0x2D,0x2D,0x20,0x78,0x31,0x2E,0x30,0
+};
+typedef struct {
+    RuleBasedTokenRange token;
+    unsigned long       flags;
+} RBTokResult;
+static const RBTokResult expectedResults[] = { // 66 tokens
+    { {  0, 5 }, 0xC8 },  // Short
+    { {  5, 1 }, 0x01 },  // _sp_
+    { {  6, 6 }, 0xC8 },  // phrase
+    { { 12, 1 }, 0x00 },  // !
+    { { 13, 1 }, 0x01 },  // _sp_
+    { { 14, 7 }, 0xC8 },  // Another
+    { { 21, 1 }, 0x01 },  // _sp_
+    { { 22, 1 }, 0x00 },  // (
+    { { 23, 4 }, 0xC8 },  // with
+    { { 27, 1 }, 0x01 },  // _sp_
+    { { 28, 6 }, 0xC8 },  // parens
+    { { 34, 1 }, 0x00 },  // )
+    { { 35, 1 }, 0x00 },  // ;
+    { { 36, 1 }, 0x01 },  // _sp_
+    { { 37, 4 }, 0xC8 },  // done
+    { { 41, 1 }, 0x14 },  // .
+    { { 42, 1 }, 0x00 },  // _nl_
+
+    { { 43, 2 }, 0xC8 },  // At
+    { { 45, 1 }, 0x01 },  // _sp_
+    { { 46, 4 }, 0x76 },  // 4:00       ** here RBBI has x64
+    { { 50, 1 }, 0x00 },  // ,
+    { { 51, 1 }, 0x01 },  // _sp_
+    { { 52, 3 }, 0xC8 },  // tea
+    { { 55, 1 }, 0x15 },  // -
+    { { 56, 4 }, 0xC8 },  // time
+    { { 60, 1 }, 0x14 },  // .
+    { { 61, 1 }, 0x00 },  // _nl_
+
+    { { 62, 2 }, 0xC8 },  // He
+    { { 64, 1 }, 0x01 },  // _sp_
+    { { 65, 8 }, 0xCA },  // wouldn't
+    { { 73, 1 }, 0x16 },  // '
+    { { 74, 2 }, 0xC8 },  // ve
+    { { 76, 1 }, 0x01 },  // _sp_
+    { { 77, 6 }, 0xC8 },  // wanted
+    { { 83, 1 }, 0x01 },  // _sp_
+    { { 84, 5 }, 0xCA },  // y'all
+    { { 89, 1 }, 0x01 },  // _sp_
+    { { 90, 2 }, 0xC8 },  // to
+    { { 92, 1 }, 0x01 },  // _sp_
+    { { 93, 3 }, 0x3C },  // ...        ** here RBBI has 0x28
+    { { 96, 1 }, 0x01 },  // _sp_
+    { { 97, 4 }, 0xC8 },  // come
+    { { 101, 1 }, 0x01 },  // _sp_
+    { { 102, 2 }, 0xC8 },  // at
+    { { 104, 1 }, 0x01 },  // _sp_
+    { { 105, 6 }, 0xC8 },  // 3:30pm
+    { { 111, 1 }, 0x01 },  // _sp_
+    { { 112, 3 }, 0xC8 },  // for
+    { { 115, 1 }, 0x01 },  // _sp_
+    { { 116, 1 }, 0x00 },  // $
+    { { 117, 1 }, 0x64 },  // 3
+    { { 118, 1 }, 0x01 },  // _sp_
+    { { 119, 6 }, 0xC8 },  // coffee
+    { { 125, 1 }, 0x01 },  // _sp_
+    { { 126, 7 }, 0xDF },  // @funman   ** here RBBI has 0xC8
+    { { 133, 1 }, 0x01 },  // _sp_
+    { { 134, 2 }, 0x20 },  // :)
+    { { 136, 1 }, 0x00 },  // _nl_
+
+    // ** incorrect ranges (and flags) currently produced by RBTok
+    { { 137, 2 }, 0xEC },  // x3
+    { { 139, 1 }, 0x00 },  // :
+    { { 140, 2 }, 0x64 },  // 30
+    // ** for the above, RBBI has
+    //{ { 137, 1 }, 0x64 },  // x
+    //{ { 138, 4 }, 0x64 },  // 3:30
+    //
+    { { 142, 1 }, 0x01 },  // _sp_
+    { { 143, 2 }, 0x3D },  // --        ** here RBBI has 0x28
+    { { 145, 1 }, 0x01 },  //  _sp_
+    { { 146, 2 }, 0xEC },  // x1        ** here RBBI has 0xC8
+    { { 148, 1 }, 0x14 },  // .
+    { { 149, 1 }, 0x64 },  // 0
+};
+enum {
+    kNumTokensExpected = UPRV_LENGTHOF(expectedResults), // 66
+    kMaxTokens = 96
+};
+
+static void TestRuleBasedTokenizer(void) {
+    FILE * testRulesFile;
+    char * testRulesUTF8Buf;
+    UChar* testRulesUTF16Buf = NULL;
+    long testRulesFileSize, testRulesFileRead = 0;
+    long testRulesUTF8Offset = 0;
+    int32_t testRulesUTF16Size;
+    UErrorCode status = U_ZERO_ERROR;
+
+    testRulesFile = fopen(testRulesFilePath, "r");
+    if (testRulesFile == NULL) {
+        log_data_err("FAIL: fopen fails for: %s\n", testRulesFilePath);
+        return;
+    }
+    fseek(testRulesFile, 0, SEEK_END);
+    testRulesFileSize = ftell(testRulesFile);
+    rewind(testRulesFile);
+
+    testRulesUTF8Buf = (char *)uprv_malloc(testRulesFileSize);
+    if (testRulesUTF8Buf != NULL) {
+        testRulesFileRead = fread(testRulesUTF8Buf, 1, testRulesFileSize, testRulesFile);
+    }
+    fclose(testRulesFile);
+    if (testRulesUTF8Buf == NULL) {
+        log_data_err("FAIL: uprv_malloc fails for testRulesUTF8Buf[%ld]\n", testRulesFileSize);
+        return;
+    }
+    if (testRulesFileRead < testRulesFileSize) {
+        log_data_err("FAIL: fread fails for %s, read %ld of %ld\n", testRulesFile, testRulesFileRead, testRulesFileSize);
+        uprv_free(testRulesUTF8Buf);
+        return;
+    }
+    /* done with file, UTF8 rules in testRulesUTF8Buf. Handle UTF8 BOM: */
+    if (uprv_strncmp(testRulesUTF8Buf, "\xEF\xBB\xBF", 3) == 0) {
+        testRulesUTF8Offset = 3;
+        testRulesFileSize -= testRulesUTF8Offset;
+    }
+
+    u_strFromUTF8(NULL, 0, &testRulesUTF16Size, testRulesUTF8Buf+testRulesUTF8Offset, testRulesFileSize, &status); /* preflight */
+    if (status == U_BUFFER_OVERFLOW_ERROR) { /* expected for preflight */
+        status = U_ZERO_ERROR;
+    }
+    if (U_FAILURE(status)) {
+        log_data_err("FAIL: u_strFromUTF8 preflight fails: %s\n", u_errorName(status));
+    } else {
+        testRulesUTF16Buf = (UChar *)uprv_malloc(testRulesUTF16Size*sizeof(UChar));
+        if (testRulesUTF16Buf == NULL) {
+            log_data_err("FAIL: uprv_malloc fails for testRulesUTF16Buf[%ld]\n", testRulesUTF16Size*sizeof(UChar));
+        } else {
+            u_strFromUTF8(testRulesUTF16Buf, testRulesUTF16Size, &testRulesUTF16Size, testRulesUTF8Buf+testRulesUTF8Offset, testRulesFileSize, &status);
+        }
+    }
+    uprv_free(testRulesUTF8Buf);
+    if (testRulesUTF16Buf == NULL) {
+        return;
+    }
+    if (U_FAILURE(status)) {
+        log_data_err("FAIL: u_strFromUTF8 fails: %s\n", u_errorName(status));
+    } else {
+        UParseError parseErr;
+        UBreakIterator *brkFromRules = urbtok_openRules(testRulesUTF16Buf, testRulesUTF16Size, &parseErr, &status);
+        if (U_FAILURE(status)) {
+            log_err("FAIL: urbtok_openRules status: %s\n", u_errorName(status));
+        } else {
+            uint8_t *rulesBinaryBuf;
+            uint32_t rulesBinarySize;
+            rulesBinarySize = urbtok_getBinaryRules(brkFromRules, NULL, 0, &status);
+            if (U_FAILURE(status)) {
+                log_err("FAIL: urbtok_getBinaryRules preflight status: %s, rulesBinarySize %u\n", u_errorName(status), rulesBinarySize);
+            } else {
+                rulesBinaryBuf = (uint8_t *)uprv_malloc(rulesBinarySize);
+                if (rulesBinaryBuf == NULL) {
+                    log_data_err("FAIL: uprv_malloc fails for rulesBinaryBuf[%ld]\n", rulesBinarySize);
+                } else {
+                    rulesBinarySize = urbtok_getBinaryRules(brkFromRules, rulesBinaryBuf, rulesBinarySize, &status);
+                    if (U_FAILURE(status)) {
+                        log_err("FAIL: urbtok_getBinaryRules status: %s, rulesBinarySize %u\n", u_errorName(status), rulesBinarySize);
+                    } else {
+                        UBreakIterator *brkFromBinary = urbtok_openBinaryRules(rulesBinaryBuf, &status);
+                        if (U_FAILURE(status)) {
+                            log_err("FAIL: urbtok_openBinaryRules status: %s\n", u_errorName(status));
+                        } else {
+                            RuleBasedTokenRange tokens[kMaxTokens];
+                            unsigned long       flags[kMaxTokens];
+                            int32_t iToken, numTokens = 0;
+
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(brkFromRules, textToTokenize, -1, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: ubrk_setText brkFromRules status: %s\n", u_errorName(status));
+                            } else {
+                                numTokens = urbtok_tokenize(brkFromRules, kMaxTokens, tokens, flags);
+                                UBool fail = (numTokens != kNumTokensExpected);
+                                for (iToken = 0; !fail && iToken < numTokens; iToken++) {
+                                    if (  tokens[iToken].location != expectedResults[iToken].token.location ||
+                                          tokens[iToken].length   != expectedResults[iToken].token.length   ||
+                                          flags[iToken]           != expectedResults[iToken].flags ) {
+                                        fail = TRUE;
+                                    }
+                                }
+                                if (fail) {
+                                    log_err("FAIL: urbtok_tokenize brkFromRules expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
+                                    printf("# expect          get\n");
+                                    printf("# loc len flags   loc len flags\n");
+                                    int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
+                                    for (iToken = 0; iToken < maxTokens; iToken++) {
+                                        if (iToken < kNumTokensExpected) {
+                                            printf("  %3ld %3ld 0x%03lX", expectedResults[iToken].token.location,
+                                                expectedResults[iToken].token.length, expectedResults[iToken].flags);
+                                        } else {
+                                            printf("             ");
+                                        }
+                                        if (iToken < numTokens) {
+                                            printf("   %3ld %3ld 0x%03lX\n",  tokens[iToken].location, tokens[iToken].length, flags[iToken] );
+                                        } else {
+                                            printf("\n");
+                                        }
+                                    }
+                                }
+                            }
+
+                            status = U_ZERO_ERROR;
+                            ubrk_setText(brkFromBinary, textToTokenize, -1, &status);
+                            if (U_FAILURE(status)) {
+                                log_err("FAIL: ubrk_setText brkFromBinary status: %s\n", u_errorName(status));
+                            } else {
+                                numTokens = urbtok_tokenize(brkFromBinary, kMaxTokens, tokens, flags);
+                                UBool fail = (numTokens != kNumTokensExpected);
+                                for (iToken = 0; !fail && iToken < numTokens; iToken++) {
+                                    if (  tokens[iToken].location != expectedResults[iToken].token.location ||
+                                          tokens[iToken].length   != expectedResults[iToken].token.length   ||
+                                          flags[iToken]           != expectedResults[iToken].flags ) {
+                                        fail = TRUE;
+                                    }
+                                }
+                                if (fail) {
+                                    log_err("FAIL: urbtok_tokenize brkFromBinary expected %d tokens, got %d\n", kNumTokensExpected, numTokens);
+                                    printf("# expect          get\n");
+                                    printf("# loc len flags   loc len flags\n");
+                                    int32_t maxTokens = (numTokens >= kNumTokensExpected)? numTokens: kNumTokensExpected;
+                                    for (iToken = 0; iToken < maxTokens; iToken++) {
+                                        if (iToken < kNumTokensExpected) {
+                                            printf("  %3ld %3ld 0x%03lX", expectedResults[iToken].token.location,
+                                                expectedResults[iToken].token.length, expectedResults[iToken].flags);
+                                        } else {
+                                            printf("             ");
+                                        }
+                                        if (iToken < numTokens) {
+                                            printf("   %3ld %3ld 0x%03lX\n",  tokens[iToken].location, tokens[iToken].length, flags[iToken] );
+                                        } else {
+                                            printf("\n");
+                                        }
+                                    }
+                                }
+                            }
+                            ubrk_close(brkFromBinary);
+                        }
+                    }
+                    uprv_free(rulesBinaryBuf);
+                }
+            }
+            ubrk_close(brkFromRules);
+        }
+    }
+    uprv_free(testRulesUTF16Buf);
+}
+#endif
 
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

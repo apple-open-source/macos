@@ -26,9 +26,11 @@
 #define _DER_PLIST_INTERNAL_H_
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <utilities/SecCFError.h>
 
 // Always returns false, to satisfy static analysis
-bool SecCFDERCreateError(CFIndex errorCode, CFStringRef descriptionString, CFErrorRef previousError, CFErrorRef *newError);
+#define SecCFDERCreateError(errorCode, descriptionString, previousError, newError) \
+    SecCFCreateErrorWithFormat(errorCode, sSecDERErrorDomain, previousError, newError, NULL, descriptionString)
 
 
 // CFArray <-> DER

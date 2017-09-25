@@ -1,4 +1,5 @@
 # coding: US-ASCII
+# frozen_string_literal: false
 require 'rexml/encoding'
 
 module REXML
@@ -62,7 +63,7 @@ module REXML
     # requirements; for another, the source can be consumed.  You can easily
     # confuse this method.  Originally, the patterns were easier
     # to construct and this method more robust, because this method
-    # generated search regexes on the fly; however, this was
+    # generated search regexps on the fly; however, this was
     # computationally expensive and slowed down the entire REXML package
     # considerably, since this is by far the most commonly called method.
     # @param pattern must be a Regexp, and must be in the form of
@@ -185,7 +186,7 @@ module REXML
       # You'll notice that this next section is very similar to the same
       # section in match(), but just a liiittle different.  This is
       # because it is a touch faster to do it this way with scan()
-      # than the way match() does it; enough faster to warrent duplicating
+      # than the way match() does it; enough faster to warrant duplicating
       # some code
       if rv.size == 0
         until @buffer =~ pattern or @source.nil?
@@ -285,7 +286,7 @@ module REXML
       case @encoding
       when "UTF-16BE", "UTF-16LE"
         @source.binmode
-        @source.set_encoding(@encoding)
+        @source.set_encoding(@encoding, @encoding)
       end
       @line_break = encode(">")
       @pending_buffer, @buffer = @buffer, ""

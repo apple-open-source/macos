@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009-2011, 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,7 +32,9 @@
 #include <mach/mach.h>
 #include <pthread.h>
 #include <regex.h>
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 #include <os/activity.h>
+#endif	// VERBOSE_ACTIVITY_LOGGING
 #include <os/log.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -66,8 +68,10 @@ typedef struct {
 	CFStringRef			name;
 	CFDictionaryRef			options;
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	/* activity tracing */
 	os_activity_t			activity;
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	/* server side of the "configd" session */
 	mach_port_t			server;

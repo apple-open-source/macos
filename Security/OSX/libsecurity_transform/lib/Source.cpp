@@ -17,7 +17,7 @@ Source::Source(CFStringRef sourceObjectName, Transform* destination, CFStringRef
 	mLastValue = NULL;
 	mDispatchQueue = MyDispatchQueueCreate(queueName_cstr, NULL);
     free((void*)queueName_cstr);
-    CFRelease(queueName);
+    CFReleaseNull(queueName);
 }
 
 
@@ -26,7 +26,7 @@ Source::~Source()
 {
 	if (mLastValue != NULL)
 	{
-		CFRelease(mLastValue);
+		CFReleaseNull(mLastValue);
 	}
 	
 	dispatch_release(mDispatchQueue);
@@ -48,19 +48,10 @@ void Source::SetValue(CFTypeRef value)
 		return;
 	}
 	
-	if (mLastValue != NULL) // is there an existing value?  If so, release it
-	{
-		CFRelease(mLastValue);
-	}
-	
-	if (value != NULL)
-	{
-		mLastValue = CFRetain(value);
-	}
-	else
-	{
-		mLastValue = NULL;
-	}
+	// is there an existing value?  If so, release it
+    CFReleaseNull(mLastValue);
+
+    mLastValue = CFRetainSafe(value);
 }
 
 

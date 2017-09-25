@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * PostScript is a trademark of Adobe Systems, Inc.
  *
@@ -923,7 +923,7 @@ main(int  argc,				/* I - Number of command-line args */
 	int	junkint;			/* Temp integer */
 
 
-        if (sscanf(attr->value, "(%[^)])%d", junkstr, &junkint) != 2)
+        if (sscanf(attr->value, "(%254[^)\n])%d", junkstr, &junkint) != 2)
 	{
 	  if (verbose >= 0)
 	  {

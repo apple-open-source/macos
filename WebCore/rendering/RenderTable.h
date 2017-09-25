@@ -222,7 +222,7 @@ public:
     bool needsSectionRecalc() const { return m_needsSectionRecalc; }
     void setNeedsSectionRecalc()
     {
-        if (documentBeingDestroyed())
+        if (renderTreeBeingDestroyed())
             return;
         m_needsSectionRecalc = true;
         setNeedsLayout();
@@ -314,7 +314,7 @@ private:
 
     void addOverflowFromChildren() final;
 
-    void subtractCaptionRect(LayoutRect&) const;
+    void adjustBorderBoxRectForPainting(LayoutRect&) override;
 
     void recalcCollapsedBorders();
     void recalcSections() const;
@@ -366,6 +366,7 @@ private:
     LayoutUnit m_borderEnd;
     mutable LayoutUnit m_columnOffsetTop;
     mutable LayoutUnit m_columnOffsetHeight;
+    bool m_inRecursiveSectionMovedWithPagination { false };
 };
 
 inline RenderTableSection* RenderTable::topSection() const

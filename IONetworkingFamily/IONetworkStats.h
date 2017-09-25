@@ -23,6 +23,8 @@
 #ifndef _IONETWORKSTATS_H
 #define _IONETWORKSTATS_H
 
+#include <libkern/OSTypes.h>
+
 /*! @header IONetworkStats.h
     @discussion Generic network statistics. */
 

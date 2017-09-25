@@ -9,7 +9,7 @@
 #include "IOHIDNXEventDescription.h"
 #include <mach/mach_time.h>
 
-CFStringRef NxEventCreateGenericDescription  (NXEvent *event);
+CFStringRef NxEventCreateGenericDescription  (NXEvent *event, NXEventExtension *ext);
 CFStringRef NxEventCreateMouseDescription (NXEvent *event, NXEventExtension *ext);
 CFStringRef NxEventCreateKeyboardDescription (NXEvent *event, NXEventExtension *ext);
 CFStringRef NxEventCreateCompoundDescription (NXEvent *event, NXEventExtension *ext);
@@ -21,7 +21,6 @@ CFStringRef NxEventCreateHeaderDescription  (NXEvent *event, NXEventExtension *e
 CFStringRef NxEventGetTitleForType (SInt32 type);
 CFStringRef NxEventCreateProximityDescription (NXTabletProximityData *proximity);
 CFStringRef NxEventCreatePointDataDescription (NXTabletPointData *point);
-CFStringRef NxEventExtantionDescription  (NXEvent *event, NXEventExtension *ext);
 CFStringRef __NxEventCreateDescription (NXEvent *event, NXEventExtension *ext);
 
 typedef CFStringRef (*NXEVENT_DESCRIPTION_FUNC) (NXEvent *event, NXEventExtension *ext);
@@ -134,7 +133,15 @@ CFStringRef __NxEventCreateDescription (NXEvent *event, NXEventExtension *ext) {
     if (title != NULL) {
         data = __nxEventDescriptionHelper[event->type] (event, ext);
     }
-    extension = NxEventExtantionDescription(event, ext);
+    if (ext) {
+        extension = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
+                                             CFSTR(
+                                             "NXEventExtension\n"
+                                             "flags      : 0x%x\n"
+                                             ),
+                                             (unsigned int)ext->flags
+                                             );
+    }
     
     CFStringRef result = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
                                                   CFSTR(
@@ -157,21 +164,8 @@ CFStringRef __NxEventCreateDescription (NXEvent *event, NXEventExtension *ext) {
     return result;
 }
 
-CFStringRef NxEventExtantionDescription  (NXEvent *event, NXEventExtension *ext) {
-    if (ext == NULL) {
-        return CFSTR("");
-    }
-    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
-                                    CFSTR(
-                                    "NXEventExtension\n"
-                                    "flags      : 0x%x\n"
-                                    ),
-                                    ext->flags
-                                    );
-}
-
 CFStringRef NxEventGetTitleForType  (SInt32 type) {
-    if (type < 0 || type >= (sizeof(__nxEventDescriptionHelper) / sizeof(__nxEventDescriptionHelper[0])) || __nxEventDescriptionHelper[type] == NULL) {
+    if (type < 0 || type >= (SInt32)(sizeof(__nxEventDescriptionHelper) / sizeof(__nxEventDescriptionHelper[0])) || __nxEventDescriptionHelper[type] == NULL) {
         return NULL;
     }
     return __nxEventDescription[type];
@@ -198,14 +192,14 @@ CFStringRef NxEventCreateHeaderDescription  (NXEvent *event, NXEventExtension *e
                                               "ext_pid      : %d\n"
                                               ),
                                         title == NULL ? CFSTR ("UNKNOWN") : title,
-                                        event->type,
+                                        (int)event->type,
                                         *((float*)&event->location.x),
                                         *((float*)&event->location.y),
                                         event->time, (uint64_t)((event->time * timeBaseinfo.numer) / (timeBaseinfo.denom * 1000)),
-                                        event->flags,
-                                        event->window,
+                                        (int)event->flags,
+                                        (unsigned int)event->window,
                                         event->service_id,
-                                        event->ext_pid
+                                        (int)event->ext_pid
                                         );
     }
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
@@ -221,18 +215,18 @@ CFStringRef NxEventCreateHeaderDescription  (NXEvent *event, NXEventExtension *e
                                       "ext_pid      : %d\n"
                                     ),
                                     title == NULL ? CFSTR ("UNKNOWN") : title,
-                                    event->type,
-                                    event->location.x,
-                                    event->location.y,
+                                    (int)event->type,
+                                    (int)event->location.x,
+                                    (int)event->location.y,
                                     event->time, (uint64_t)((event->time * timeBaseinfo.numer) / (timeBaseinfo.denom * 1000)),
-                                    event->flags,
-                                    event->window,
+                                    (int)event->flags,
+                                    (unsigned int)event->window,
                                     event->service_id,
-                                    event->ext_pid
+                                    (int)event->ext_pid
                                     );
 }
 
-CFStringRef NxEventCreateGenericDescription  (NXEvent *event) {
+CFStringRef NxEventCreateGenericDescription  (NXEvent *event __unused, NXEventExtension *ext __unused) {
   return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR(
           ""
@@ -241,7 +235,7 @@ CFStringRef NxEventCreateGenericDescription  (NXEvent *event) {
 }
 
 
-CFStringRef NxEventCreateMouseDescription  (NXEvent *event, NXEventExtension *ext) {
+CFStringRef NxEventCreateMouseDescription  (NXEvent *event, NXEventExtension *ext __unused) {
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR(
           "NXEvent.NXEventData.mouse:\n"
@@ -256,14 +250,14 @@ CFStringRef NxEventCreateMouseDescription  (NXEvent *event, NXEventExtension *ex
           event->data.mouse.subx,
           event->data.mouse.suby,
           event->data.mouse.eventNum,
-          event->data.mouse.click,
+          (int)event->data.mouse.click,
           event->data.mouse.pressure,
           event->data.mouse.buttonNumber,
           event->data.mouse.subType
           );
 }
 
-CFStringRef NxEventCreateKeyboardDescription (NXEvent *event, NXEventExtension *ext) {
+CFStringRef NxEventCreateKeyboardDescription (NXEvent *event, NXEventExtension *ext __unused) {
   return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR(
           "NXEvent.NXEventData.key:\n"
@@ -281,11 +275,11 @@ CFStringRef NxEventCreateKeyboardDescription (NXEvent *event, NXEventExtension *
           event->data.key.charCode,
           event->data.key.keyCode,
           event->data.key.origCharCode,
-          event->data.key.keyboardType
+          (unsigned int)event->data.key.keyboardType
           );
 }
 
-CFStringRef NxEventCreateCompoundDescription (NXEvent *event, NXEventExtension *ext) {
+CFStringRef NxEventCreateCompoundDescription (NXEvent *event, NXEventExtension *ext __unused) {
   if (event->data.compound.subType == NX_SUBTYPE_AUX_CONTROL_BUTTONS) {
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
               CFSTR(
@@ -299,12 +293,12 @@ CFStringRef NxEventCreateCompoundDescription (NXEvent *event, NXEventExtension *
                 "  compound.misc.L[2] :  0x%x\n"
                 ),
                 event->data.compound.subType,
-                event->data.compound.misc.L[0],
-                (event->data.compound.misc.L[0] >> 16),
-                (event->data.compound.misc.L[0] >> 8) & 0xff,
-                event->data.compound.misc.L[0] & 0xff,
-                event->data.compound.misc.L[1],
-                event->data.compound.misc.L[2]
+                (int)event->data.compound.misc.L[0],
+                (int)(event->data.compound.misc.L[0] >> 16),
+                (unsigned int)(event->data.compound.misc.L[0] >> 8) & 0xff,
+                (unsigned int)event->data.compound.misc.L[0] & 0xff,
+                (int)event->data.compound.misc.L[1],
+                (int)event->data.compound.misc.L[2]
                 );
   }
     if (event->data.compound.subType == NX_SUBTYPE_AUX_MOUSE_BUTTONS) {
@@ -318,10 +312,10 @@ CFStringRef NxEventCreateCompoundDescription (NXEvent *event, NXEventExtension *
                                               "    hwButtons        :  0x%x\n"
                                               ),
                                         event->data.compound.subType,
-                                        event->data.compound.misc.L[0],
-                                        event->data.compound.misc.L[0],
-                                        event->data.compound.misc.L[1],
-                                        event->data.compound.misc.L[1]
+                                        (int)event->data.compound.misc.L[0],
+                                        (int)event->data.compound.misc.L[0],
+                                        (int)event->data.compound.misc.L[1],
+                                        (int)event->data.compound.misc.L[1]
                                         );
     }
 
@@ -335,7 +329,7 @@ CFStringRef NxEventCreateCompoundDescription (NXEvent *event, NXEventExtension *
           );
 }
 
-CFStringRef NxEventCreateScrollZoomDescription (NXEvent *event, NXEventExtension *ext) {
+CFStringRef NxEventCreateScrollZoomDescription (NXEvent *event, NXEventExtension *ext __unused) {
 
   return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR(
@@ -356,20 +350,20 @@ CFStringRef NxEventCreateScrollZoomDescription (NXEvent *event, NXEventExtension
           event->data.scrollWheel.deltaAxis1,
           event->data.scrollWheel.deltaAxis2,
           event->data.scrollWheel.deltaAxis3,
-          event->data.scrollWheel.fixedDeltaAxis1,
-          event->data.scrollWheel.fixedDeltaAxis2,
-          event->data.scrollWheel.fixedDeltaAxis3,
-          event->data.scrollWheel.pointDeltaAxis1,
-          event->data.scrollWheel.pointDeltaAxis2,
-          event->data.scrollWheel.pointDeltaAxis3,
+          (int)event->data.scrollWheel.fixedDeltaAxis1,
+          (int)event->data.scrollWheel.fixedDeltaAxis2,
+          (int)event->data.scrollWheel.fixedDeltaAxis3,
+          (int)event->data.scrollWheel.pointDeltaAxis1,
+          (int)event->data.scrollWheel.pointDeltaAxis2,
+          (int)event->data.scrollWheel.pointDeltaAxis3,
           event->data.scrollWheel.reserved1,
-          event->data.scrollWheel.reserved8[0],
-          event->data.scrollWheel.reserved8[1]
+          (int)event->data.scrollWheel.reserved8[0],
+          (int)event->data.scrollWheel.reserved8[1]
                                   
           );
 }
 
-CFStringRef NxEventCreateTabletDescription (NXEvent *event, NXEventExtension *ext) {
+CFStringRef NxEventCreateTabletDescription (NXEvent *event, NXEventExtension *ext __unused) {
  CFStringRef point  = NxEventCreatePointDataDescription ((NXTabletPointData*)&event->data.tablet);
  CFStringRef description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
                             CFSTR(
@@ -385,7 +379,7 @@ CFStringRef NxEventCreateTabletDescription (NXEvent *event, NXEventExtension *ex
  return description;
 }
 
-CFStringRef NxEventCreateTabletProximityDescription (NXEvent *event, NXEventExtension *ext) {
+CFStringRef NxEventCreateTabletProximityDescription (NXEvent *event, NXEventExtension *ext __unused) {
  CFStringRef proximity  = NxEventCreateProximityDescription ((NXTabletProximityData*)&event->data.proximity);
  CFStringRef description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
                             CFSTR(
@@ -429,8 +423,8 @@ CFStringRef NxEventCreateMouseMoveDescription (NXEvent *event, NXEventExtension 
               "  suby     :  %d\n"
               "  subType  :  %d\n"
               ),
-              event->data.mouseMove.dx,
-              event->data.mouseMove.dy,
+              (int)event->data.mouseMove.dx,
+              (int)event->data.mouseMove.dy,
               event->data.mouseMove.subx,
               event->data.mouseMove.suby,
               event->data.mouseMove.subType
@@ -461,9 +455,9 @@ CFStringRef NxEventCreateProximityDescription (NXTabletProximityData *proximity)
           proximity->deviceID,
           proximity->systemTabletID,
           proximity->vendorPointerType,
-          proximity->pointerSerialNumber,
+          (unsigned int)proximity->pointerSerialNumber,
           proximity->uniqueID,
-          proximity->capabilityMask,
+          (unsigned int)proximity->capabilityMask,
           proximity->pointerType,
           proximity->enterProximity
           );
@@ -487,9 +481,9 @@ CFStringRef NxEventCreatePointDataDescription (NXTabletPointData *point) {
           "  vendor2            :  %d\n"
           "  vendor3            :  %d\n"
           ),
-          point->x,
-          point->y,
-          point->z,
+          (int)point->x,
+          (int)point->y,
+          (int)point->z,
           point->buttons,
           point->pressure,
           point->tilt.x,

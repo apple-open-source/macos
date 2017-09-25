@@ -38,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class WKBackForwardList;
 @class WKBackForwardListItem;
 @class WKNavigation;
+@class WKSnapshotConfiguration;
 @class WKWebViewConfiguration;
 
 @protocol WKNavigationDelegate;
@@ -220,6 +221,19 @@ WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 */
 - (void)evaluateJavaScript:(NSString *)javaScriptString completionHandler:(void (^ _Nullable)(_Nullable id, NSError * _Nullable error))completionHandler;
 
+/*! @abstract Get a snapshot for the visible viewport of WKWebView.
+ @param snapshotConfiguration An object that specifies how the snapshot is configured.
+ @param completionHandler A block to invoke when the snapshot is ready.
+ @discussion If the WKSnapshotConfiguration is nil, the method will snapshot the bounds of the 
+ WKWebView and create an image that is the width of the bounds of the WKWebView and scaled to the 
+ device scale. The completionHandler is passed the image of the viewport contents or an error.
+ */
+#if TARGET_OS_IPHONE
+- (void)takeSnapshotWithConfiguration:(nullable WKSnapshotConfiguration *)snapshotConfiguration completionHandler:(void (^)(UIImage * _Nullable snapshotImage, NSError * _Nullable error))completionHandler WK_API_AVAILABLE(ios(WK_IOS_TBA));
+#else
+- (void)takeSnapshotWithConfiguration:(nullable WKSnapshotConfiguration *)snapshotConfiguration completionHandler:(void (^)(NSImage * _Nullable snapshotImage, NSError * _Nullable error))completionHandler WK_API_AVAILABLE(macosx(WK_MAC_TBA));
+#endif
+
 /*! @abstract A Boolean value indicating whether horizontal swipe gestures
  will trigger back-forward list navigations.
  @discussion The default value is NO.
@@ -264,6 +278,11 @@ WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 - (void)setMagnification:(CGFloat)magnification centeredAtPoint:(CGPoint)point;
 
 #endif
+
+/* @abstract Checks whether or not WKWebViews handle the given URL scheme by default.
+ @param scheme The URL scheme to check.
+ */
++ (BOOL)handlesURLScheme:(NSString *)urlScheme WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end
 

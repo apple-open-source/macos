@@ -276,6 +276,11 @@ void RenderTableCell::layout()
         layoutBlock(cellWidthChanged());
     }
     invalidateHasEmptyCollapsedBorders();
+    
+    // FIXME: This value isn't the intrinsic content logical height, but we need
+    // to update the value as its used by flexbox layout. crbug.com/367324
+    cacheIntrinsicContentLogicalHeightForFlexItem(contentLogicalHeight());
+
     setCellWidthChanged(false);
 }
 
@@ -1276,9 +1281,9 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, const Lay
         adjustedPaintOffset.moveBy(location());
 
     Color c = backgroundObject->style().visitedDependentColor(CSSPropertyBackgroundColor);
-    const FillLayer* bgLayer = backgroundObject->style().backgroundLayers();
+    auto& bgLayer = backgroundObject->style().backgroundLayers();
 
-    if (bgLayer->hasImage() || c.isValid()) {
+    if (bgLayer.hasImage() || c.isValid()) {
         // We have to clip here because the background would paint
         // on top of the borders otherwise.  This only matters for cells and rows.
         bool shouldClip = backgroundObject->hasLayer() && (backgroundObject == this || backgroundObject == parent()) && tableElt->collapseBorders();
@@ -1302,6 +1307,8 @@ void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoin
         return;
 
     LayoutRect paintRect = LayoutRect(paintOffset, frameRect().size());
+    adjustBorderBoxRectForPainting(paintRect);
+
     paintBoxShadow(paintInfo, paintRect, style(), Normal);
     
     // Paint our cell background.
@@ -1324,7 +1331,10 @@ void RenderTableCell::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (!tableElt->collapseBorders() && style().emptyCells() == HIDE && !firstChild())
         return;
    
-    paintMaskImages(paintInfo, LayoutRect(paintOffset, frameRect().size()));
+    LayoutRect paintRect = LayoutRect(paintOffset, frameRect().size());
+    adjustBorderBoxRectForPainting(paintRect);
+
+    paintMaskImages(paintInfo, paintRect);
 }
 
 bool RenderTableCell::boxShadowShouldBeAppliedToBackground(const LayoutPoint&, BackgroundBleedAvoidance, InlineFlowBox*) const

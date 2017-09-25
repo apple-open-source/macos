@@ -228,6 +228,7 @@ int main(int argc, char *argv[])
 			}
 			
 			if (di) {
+				// disk_image_cleanup(di) will free di.
 				disk_image_cleanup(di);
 				systemx("/bin/rm", SYSTEMX_QUIET, "-rf", "/tmp/mnt", NULL);
 			}

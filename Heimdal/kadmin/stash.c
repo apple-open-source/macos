@@ -98,7 +98,7 @@ stash(struct stash_options *opt, int argc, char **argv)
 	    if (opt->print_password_flag)
 		printf("Using random master stash password: %s\n", buf);
 	} else {
-	    if(UI_UTIL_read_pw_string_stdio(buf, sizeof(buf), "Master key: ", 1)) {
+	    if(UI_UTIL_read_pw_string(buf, sizeof(buf), "Master key: ", 1)) {
 		hdb_free_master_key(context, mkey);
 		return 0;
 	    }

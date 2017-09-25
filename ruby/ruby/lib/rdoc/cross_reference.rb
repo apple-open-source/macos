@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 ##
 # RDoc::CrossReference is a reusable way to create cross references for names.
 
@@ -18,7 +19,7 @@ class RDoc::CrossReference
   #
   # See CLASS_REGEXP_STR
 
-  METHOD_REGEXP_STR = '([a-z]\w*[!?=]?|%|===)(?:\([\w.+*/=<>-]*\))?'
+  METHOD_REGEXP_STR = '([a-z]\w*[!?=]?|%|===|\[\]=?|<<|>>)(?:\([\w.+*/=<>-]*\))?'
 
   ##
   # Regular expressions matching text that should potentially have

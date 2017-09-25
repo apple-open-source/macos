@@ -1,4 +1,5 @@
-# $Id: fileasserts.rb 35553 2012-05-07 01:23:07Z nobu $
+# frozen_string_literal: false
+# $Id: fileasserts.rb 53141 2015-12-16 05:07:31Z naruse $
 
 module Test
   module Unit
@@ -34,7 +35,7 @@ module Test
         assert(File.symlink?(path), "is not a symlink: #{path}#{message&&': '}#{message||''}")
       end
 
-      def assert_not_symlink(path)
+      def assert_not_symlink(path, message=nil)
         assert(!File.symlink?(path), "is a symlink: #{path}#{message&&': '}#{message||''}")
       end
 
@@ -67,6 +68,45 @@ EOT
         assert_equal(expected.tv_sec, actual.tv_sec, full_message)
       end
 
+      def assert_filemode(expected, file, message=nil, mask: 07777)
+        width = ('%o' % mask).size
+        actual = File.stat(file).mode & mask
+        assert expected == actual, <<EOT
+File mode of "#{file}" unexpected:
+ Expected: <#{'%0*o' % [width, expected]}>
+   Actual: <#{'%0*o' % [width, actual]}>
+EOT
+      end
+
+      def assert_equal_filemode(file1, file2, message=nil, mask: 07777)
+        mode1, mode2 = [file1, file2].map { |file|
+          File.stat(file).mode & mask
+        }
+        width = ('%o' % mask).size
+        assert mode1 == mode2, <<EOT
+File modes expected to be equal:
+ <#{'%0*o' % [width, mode1]}>: "#{file1}"
+ <#{'%0*o' % [width, mode2]}>: "#{file2}"
+EOT
+      end
+
+      def assert_ownership_group(expected, file)
+        actual = File.stat(file).gid
+        assert expected == actual, <<EOT
+File group ownership of "#{file}" unexpected:
+ Expected: <#{expected}>
+   Actual: <#{actual}>
+EOT
+      end
+
+      def assert_ownership_user(expected, file)
+        actual = File.stat(file).uid
+        assert expected == actual, <<EOT
+File user ownership of "#{file}" unexpected:
+ Expected: <#{expected}>
+   Actual: <#{actual}>
+EOT
+      end
     end
   end
 end

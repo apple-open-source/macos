@@ -367,8 +367,10 @@ void extract(const char *srcName, const char *dstName)
 		deleteKey(dstDb, keyLabel);
 		derive(&dlDbData, spec, masterKey);
 	}
-	
-    addReferralRecord(srcDb, dstDb->dlDbIdentifier(), NULL, CFDataCreate(kCFAllocatorDefault, (UInt8*)keyLabel.data(), keyLabel.length()));
+
+    CFDataRef dstCFName = CFDataCreate(kCFAllocatorDefault, (UInt8*)keyLabel.data(), keyLabel.length());
+    addReferralRecord(srcDb, dstDb->dlDbIdentifier(), NULL, dstCFName);
+    CFRelease(dstCFName);
     
 	notice("%s can now be unlocked with a key in %s", srcName, dstName);
 }
@@ -574,7 +576,9 @@ void flattenKey(const CssmKey &rawKey, CssmDataContainer &flatKey)
 
 void systemKeychainCheck()
 {
-	launch_data_t checkinRequest = launch_data_new_string(LAUNCH_KEY_CHECKIN);
+    xpc_transaction_begin();
+
+    launch_data_t checkinRequest = launch_data_new_string(LAUNCH_KEY_CHECKIN);
     launch_data_t checkinResponse = launch_msg(checkinRequest);
 	
 	if (!checkinResponse) {
@@ -595,7 +599,7 @@ void systemKeychainCheck()
 			syslog(LOG_ERR, "No sockets to listen to");
 			exit(EX_DATAERR);
 		}
-		
+
 		__block uint32 requestsProcessedSinceLastTimeoutCheck = 0;
 		dispatch_queue_t makeDoneFile = dispatch_queue_create("com.apple.security.make-done-file", NULL);
 		// Use low priority I/O for making the done files -- keeping this process running a little longer
@@ -624,41 +628,49 @@ void systemKeychainCheck()
 					requestsProcessedSinceLastTimeoutCheck++;
 				}
 			});
-			
+
+            xpc_transaction_begin();
+
 			dispatch_async(makeDoneFile, ^{
-				// All of the errors in here are "merely" logged, failure to write the done file just
+                const char *searchFor = ".socket";
+                const char *replaceWith = ".done";
+                size_t searchForLength = strlen(searchFor);
+
+                struct sockaddr_un socketName;
+                socklen_t socketNameLength = sizeof(socketName);
+                size_t pathLength;
+
+                // All of the errors in here are "merely" logged, failure to write the done file just
 				// means we will be spawned at some future time and given a chance to do it again.
-				struct sockaddr_un socketName;
-				socklen_t socketNameLength = sizeof(socketName);
 				int rc = getsockname(serverSocket, (struct sockaddr *)&socketName, &socketNameLength);
 				if (0 != rc) {
 					syslog(LOG_ERR, "Can't getsockname fd#%d %m", serverSocket);
-					return;
+                    goto end;
 				}
-				
+                pathLength = strlen(socketName.sun_path);
+
 				// If searchFor or replaceWith is ever changed, make sure strlen(searchFor) <= strlen(replaceWith),
 				// or change the code below to check for overflowing sun_path's length.
-				const char *searchFor = ".socket";
-				const char *replaceWith = ".done";
-				size_t searchForLength = strlen(searchFor);
-				size_t pathLength = strlen(socketName.sun_path);
 				if (pathLength > searchForLength && socketName.sun_path[0] == '/') {
 					strcpy(socketName.sun_path + pathLength - searchForLength, replaceWith);
 					syslog(LOG_ERR, "done file: %s", socketName.sun_path);
 					int fd = open(socketName.sun_path, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR|S_IRGRP|S_IROTH);
 					if (fd < 0) {
 						syslog(LOG_ERR, "Could not create done file %s: %m", socketName.sun_path);
-						return;
+                        goto end;
 					} else {
 						if (-1 == close(fd)) {
 							syslog(LOG_ERR, "Could not close file %s (fd#%d): %m", socketName.sun_path, fd);
-							return;
+                            goto end;
 						}
 					}
 				} else {
 					syslog(LOG_ERR, "Unexpected socket name %s", socketName.sun_path);
 				}
-			});
+
+            end:
+                xpc_transaction_end();
+            });
 			
 			dispatch_resume(connectRequest);
 		}
@@ -698,8 +710,9 @@ void systemKeychainCheck()
 		// but will prevent a premature exit in that unlikely case).
 		dispatch_async(dispatch_get_main_queue(), ^{
 			dispatch_resume(makeDoneFile);
+            xpc_transaction_end();
 		});
-		
+
 		dispatch_main();
 		// NOTE: dispatch_main does not return.
 	} else if (LAUNCH_DATA_ERRNO == replyType) {

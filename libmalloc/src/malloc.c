@@ -102,12 +102,18 @@ static os_once_t _malloc_initialize_pred;
 
 static const char Malloc_Facility[] = "com.apple.Libsystem.malloc";
 
+// Used by memory resource exceptions and enabling/disabling malloc stack logging via malloc_memory_event_handler
+static boolean_t warn_mode_entered = false;
+static boolean_t warn_mode_disable_retries = false;
+static stack_logging_mode_type msl_type_enabled_at_runtime = stack_logging_mode_none;
+
 /*
  * Counters that coordinate zone destruction (in malloc_zone_unregister) with
  * find_registered_zone (here abbreviated as FRZ).
  */
-static int counterAlice = 0, counterBob = 0;
-static int *pFRZCounterLive = &counterAlice, *pFRZCounterDrain = &counterBob;
+static int32_t volatile counterAlice = 0, counterBob = 0;
+static int32_t volatile * volatile pFRZCounterLive = &counterAlice;
+static int32_t volatile * volatile pFRZCounterDrain = &counterBob;
 
 static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((always_inline));
 
@@ -120,12 +126,8 @@ static inline malloc_zone_t *inline_malloc_default_zone(void) __attribute__((alw
 #define DEFAULT_PUREGEABLE_ZONE_STRING "DefaultPurgeableMallocZone"
 
 boolean_t malloc_engaged_nano(void);
-#if CONFIG_NANOZONE
-boolean_t _malloc_engaged_nano;
-#endif
 
 /*********	Utilities	************/
-__attribute__((visibility("hidden"))) uint64_t malloc_entropy[2] = {0, 0};
 static bool _malloc_entropy_initialized;
 
 void __malloc_init(const char *apple[]);
@@ -164,18 +166,13 @@ __entropy_from_kernel(const char *str)
 void
 __malloc_init(const char *apple[])
 {
-	const char **p;
 #if CONFIG_NANOZONE
-	_malloc_engaged_nano = 0;
-	for (p = apple; p && *p; p++) {
-		if (0 == strncmp(*p, "MallocNanoZone=1", strlen("MallocNanoZone=1"))) {
-			// _malloc_printf(ASL_LEVEL_INFO, "MallocNanoZone=1\n");
-			_malloc_engaged_nano = 1;
-			break;
-		}
-	}
+	// TODO: envp should be passed down from Libsystem
+	const char **envp = (const char **)*_NSGetEnviron();
+	nano_init(envp, apple);
 #endif
 
+	const char **p;
 	for (p = apple; p && *p; p++) {
 		if (strstr(*p, "malloc_entropy") == *p) {
 			int count = __entropy_from_kernel(*p);
@@ -191,6 +188,8 @@ __malloc_init(const char *apple[])
 		getentropy((void*)malloc_entropy, sizeof(malloc_entropy));
 		_malloc_entropy_initialized = true;
 	}
+
+	mvm_aslr_init();
 }
 
 static malloc_zone_t* lite_zone = NULL;
@@ -331,7 +330,7 @@ default_zone_print(malloc_zone_t *zone, boolean_t verbose)
 {
 	zone = runtime_default_zone();
 	
-	return zone->introspect->check(zone);
+	return (void)zone->introspect->check(zone);
 }
 
 static void
@@ -483,11 +482,11 @@ find_registered_zone(const void *ptr, size_t *returned_size)
 		}
 	}
 
-	int *pFRZCounter = pFRZCounterLive;   // Capture pointer to the counter of the moment
-	__sync_fetch_and_add(pFRZCounter, 1); // Advance this counter -- our thread is in FRZ
+	int32_t volatile *pFRZCounter = pFRZCounterLive;   // Capture pointer to the counter of the moment
+	OSAtomicIncrement32Barrier(pFRZCounter); // Advance this counter -- our thread is in FRZ
 
 	unsigned index;
-	int32_t limit = *(volatile int32_t *)&malloc_num_zones;
+	int32_t limit = *(int32_t volatile *)&malloc_num_zones;
 	malloc_zone_t **zones = &malloc_zones[1];
 
 	// From this point on, FRZ is accessing the malloc_zones[] array without locking
@@ -509,19 +508,18 @@ find_registered_zone(const void *ptr, size_t *returned_size)
 		zone = *zones;
 		size = zone->size(zone, ptr);
 		if (size) { // Claimed by this zone?
-			if (returned_size) {
-				*returned_size = size;
-			}
-			__sync_fetch_and_sub(pFRZCounter, 1); // our thread is leaving FRZ
-			return zone;
+			goto out;
 		}
 	}
 	// Unclaimed by any zone.
+	zone = NULL;
+	size = 0;
+out:
 	if (returned_size) {
-		*returned_size = 0;
+		*returned_size = size;
 	}
-	__sync_fetch_and_sub(pFRZCounter, 1); // our thread is leaving FRZ
-	return NULL;
+	OSAtomicDecrement32Barrier(pFRZCounter); // our thread is leaving FRZ
+	return zone;
 }
 
 void
@@ -612,7 +610,7 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 
 		/* Update the malloc_zones pointer, which we leak if it was previously
 		 * allocated, and the number of zones allocated */
-		protect_size = alloc_size;
+		protect_size = (size_t)alloc_size;
 		malloc_zones = new_zones;
 		malloc_num_zones_allocated = (int32_t)(alloc_size / sizeof(malloc_zone_t *));
 	} else {
@@ -627,11 +625,11 @@ malloc_zone_register_while_locked(malloc_zone_t *zone)
 	 * in malloc_num_zones is visible then the pointer write before it must also be visible.
 	 *
 	 * While we could be slightly more efficent here with atomic ops the cleanest way to
-	 * ensure the proper store-release operation is performed is to use __sync... to update
-	 * malloc_num_zones.
+	 * ensure the proper store-release operation is performed is to use OSAtomic*Barrier
+	 * to update malloc_num_zones.
 	 */
 	malloc_zones[malloc_num_zones] = zone;
-	__sync_fetch_and_add(&malloc_num_zones, 1);
+	OSAtomicIncrement32Barrier(&malloc_num_zones);
 
 	/* Finally, now that the zone is registered, disallow write access to the
 	 * malloc_zones array */
@@ -700,12 +698,13 @@ turn_on_stack_logging(stack_logging_mode_type mode)
 						malloc_printf("zone[0] is not the normal default zone so can't turn on lite mode.\n", mode);
 						ret = false;
 					} else {
-						malloc_printf("recording malloc (but not VM allocation) stacks using lite mode\n");
+						malloc_printf("recording malloc (and VM allocation) stacks using lite mode\n");
 						
 						if (lite_zone) {
 							enable_stack_logging_lite();
 						} else {
 							if (__prepare_to_log_stacks(true)) {
+								__syscall_logger = __disk_stack_logging_log_stack;
 								stack_logging_mode = stack_logging_mode_lite;
 								stack_logging_enable_logging = 1;
 								__prepare_to_log_stacks_stage2();
@@ -847,6 +846,7 @@ _malloc_initialize(void *context __unused)
 			__syscall_logger = __disk_stack_logging_log_stack;
 			break;
 		case stack_logging_mode_lite:
+			__syscall_logger = __disk_stack_logging_log_stack;
 			create_and_insert_lite_zone_while_locked();
 			enable_stack_logging_lite();
 			break;
@@ -976,7 +976,7 @@ malloc_default_purgeable_zone(void)
 		malloc_zone_t *tmp = create_purgeable_zone(0, inline_malloc_default_scalable_zone(), malloc_debug_flags);
 		malloc_zone_register(tmp);
 		malloc_set_zone_name(tmp, DEFAULT_PUREGEABLE_ZONE_STRING);
-		if (!__sync_bool_compare_and_swap(&dpz, NULL, tmp)) {
+		if (!OSAtomicCompareAndSwapPtrBarrier(NULL, tmp, (void**)&dpz)) {
 			malloc_destroy_zone(tmp);
 		}
 	}
@@ -1079,7 +1079,7 @@ set_flags_from_environment(void)
 
 		if (strcmp(flag, "lite") == 0) {
 			stack_logging_mode = stack_logging_mode_lite;
-			_malloc_printf(ASL_LEVEL_INFO, "recording malloc (but not VM allocation) stacks using lite mode\n");
+			_malloc_printf(ASL_LEVEL_INFO, "recording malloc and VM allocation stacks using lite mode\n");
 		} else if (strcmp(flag,"malloc") == 0) {
 			stack_logging_mode = stack_logging_mode_malloc;
 			_malloc_printf(ASL_LEVEL_INFO, "recording malloc (but not VM allocation) stacks to disk using standard recorder\n");
@@ -1111,16 +1111,6 @@ set_flags_from_environment(void)
 	if (getenv("MallocTracing")) {
 		malloc_tracing_enabled = true;
 	}
-#if CONFIG_NANOZONE
-	/* Explicit overrides from the environment */
-	if ((flag = getenv("MallocNanoZone"))) {
-		if (flag[0] == '1') {
-			_malloc_engaged_nano = 1;
-		} else if (flag[0] == '0') {
-			_malloc_engaged_nano = 0;
-		}
-	}
-#endif /* CONFIG_NANOZONE */
 
 #if __LP64__
 /* initialization above forces MALLOC_ABORT_ON_CORRUPTION of 64-bit processes */
@@ -1283,7 +1273,7 @@ internal_check(void)
 			if (b) {
 				_simple_sappend(b, "Stack for last operation where the malloc check succeeded: ");
 				while (index < num_frames)
-					_simple_sprintf(b, "%p ", frames[index++]);
+					_simple_sprintf(b, "%p ", (void*)frames[index++]);
 				malloc_printf("%s\n(Use 'atos' for a symbolic stack)\n", _simple_string(b));
 			} else {
 				/*
@@ -1529,10 +1519,10 @@ malloc_zone_unregister(malloc_zone_t *z)
 		// Exchange the roles of the FRZ counters. The counter that has captured the number of threads presently
 		// executing *inside* find_regiatered_zone is swapped with the counter drained to zero last time through.
 		// The former is then allowed to drain to zero while this thread yields.
-		int *p = pFRZCounterLive;
+		int32_t volatile *p = pFRZCounterLive;
 		pFRZCounterLive = pFRZCounterDrain;
 		pFRZCounterDrain = p;
-		__sync_synchronize(); // Full memory barrier
+		OSMemoryBarrier(); // Full memory barrier
 
 		while (0 != *pFRZCounterDrain) {
 			yield();
@@ -1941,6 +1931,65 @@ is_eligible_for_lite_mode_mre_handling(void)
 
 #endif
 
+static void
+handle_msl_memory_event(unsigned long event)
+{
+	// don't mix and match enabling mechanisms
+	if (warn_mode_entered) {
+		return;
+	}
+	
+	event &= NOTE_MEMORYSTATUS_MSL_STATUS;
+	
+	// sanity check
+	if (event == 0) {
+		return;
+	}
+	
+	// first check if the disable bit is set
+	if (event & MEMORYSTATUS_DISABLE_MSL) {
+		turn_off_stack_logging();
+		return;
+	}
+	
+	boolean_t msl_malloc = (event & MEMORYSTATUS_ENABLE_MSL_MALLOC);
+	boolean_t msl_vm = (event & MEMORYSTATUS_ENABLE_MSL_VM);
+	boolean_t msl_lite = (event & MEMORYSTATUS_ENABLE_MSL_LITE);
+	
+	// The following always checks to make it's not possible to enable two different modes
+	// For instance this would not be allowed:
+	// Enable lite
+	// Disable
+	// Enable full
+	
+	// Currently there is no separation of malloc/vm in lite mode
+	if (msl_lite) {
+		if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_lite) {
+			msl_type_enabled_at_runtime = stack_logging_mode_lite;
+			turn_on_stack_logging(stack_logging_mode_lite);
+		}
+		return;
+	} else if (msl_malloc && msl_vm) {
+		if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_all) {
+			msl_type_enabled_at_runtime = stack_logging_mode_all;
+			turn_on_stack_logging(stack_logging_mode_all);
+		}
+		return;
+	} else if (msl_malloc) {
+		if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_malloc) {
+			msl_type_enabled_at_runtime = stack_logging_mode_malloc;
+			turn_on_stack_logging(stack_logging_mode_malloc);
+		}
+		return;
+	} else if (msl_vm) {
+		if (msl_type_enabled_at_runtime == stack_logging_mode_none || msl_type_enabled_at_runtime == stack_logging_mode_vm) {
+			msl_type_enabled_at_runtime = stack_logging_mode_vm;
+			turn_on_stack_logging(stack_logging_mode_vm);
+		}
+		return;
+	}
+}
+
 // Note that malloc_memory_event_handler is not thread-safe, and we are relying on the callers of this for synchronization
 void
 malloc_memory_event_handler(unsigned long event)
@@ -1948,11 +1997,15 @@ malloc_memory_event_handler(unsigned long event)
 	if (event & NOTE_MEMORYSTATUS_PRESSURE_WARN) {
 		malloc_zone_pressure_relief(0, 0);
 	}
+	
+	// First check for enable/disable MSL - only recognize if all other bits are 0
+	// Don't attempt this if we've either entered or exited MRE mode
+	if ((event & NOTE_MEMORYSTATUS_MSL_STATUS) != 0 && (event & ~NOTE_MEMORYSTATUS_MSL_STATUS) == 0 && !warn_mode_entered && !warn_mode_disable_retries) {
+		handle_msl_memory_event(event);
+		return;
+	}
 
 #if ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING
-	static boolean_t warn_mode_entered = false;
-	static boolean_t warn_mode_disable_retries = false;
-
 	// If we have reached EXC_RESOURCE, we no longer need stack log data.
 	// If we are under system-wide memory pressure, we should jettison stack log data.
 	if ((event & (NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL | NOTE_MEMORYSTATUS_PRESSURE_CRITICAL)) &&

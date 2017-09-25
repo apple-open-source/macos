@@ -43,25 +43,13 @@
 #include <security_ocspd/ocspdUtils.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreFoundation/CFRunLoop.h>
 #include <dispatch/dispatch.h>
 #include <AssertMacros.h>
-#include <pthread.h>
 #include <notify.h>
 
-/*
- * MARK: CFRunloop
- */
 
-static void *SecTrustOSXCFRunloop(__unused void *unused) {
-    CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault, (CFTimeInterval) UINT_MAX, 0, 0, 0, ^(__unused CFRunLoopTimerRef _timer) {
-        /* do nothing */
-    });
-
-    /* add a timer to force the runloop to stay running */
-    CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
+void SecTrustLegacySourcesListenForKeychainEvents(void) {
     /* Register for CertificateTrustNotification */
-
     int out_token = 0;
     notify_register_dispatch(kSecServerCertificateTrustNotification, &out_token,
                              dispatch_get_main_queue(),
@@ -72,37 +60,6 @@ static void *SecTrustOSXCFRunloop(__unused void *unused) {
                                  SecTrustSettingsPurgeUserAdminCertsCache();
 
                              });
-
-    try {
-        CFRunLoopRun();
-    }
-    catch (...) {
-        /* An exception was rethrown from the runloop. Since we can't reliably
-         * obtain info about changes to keychains or trust settings anymore,
-         * just exit and respawn the process when needed. */
-
-        secerror("Exception occurred in CFRunLoopRun; exiting");
-        exit(0);
-    }
-    CFRelease(timer);
-    return NULL;
-}
-
-void SecTrustLegacySourcesEventRunloopCreate(void) {
-    /* A runloop is currently necessary to receive notifications about changes in the
-     * legacy keychains and trust settings. */
-    static dispatch_once_t once;
-
-    dispatch_once(&once, ^{
-        pthread_attr_t attrs;
-        pthread_t thread;
-
-        pthread_attr_init(&attrs);
-        pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
-
-        /* we do this with traditional pthread to avoid impacting our 512 WQ thread limit since this is a parked thread */
-        pthread_create(&thread, &attrs, SecTrustOSXCFRunloop, NULL);
-    });
 }
 
 /*

@@ -49,6 +49,10 @@
 #include <security_asn1/secerr.h>
 #include <security_asn1/secport.h>
 
+#if USE_CDSA_CRYPTO
+#include <Security/SecKeychain.h>
+#endif
+
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecInternal.h>
@@ -56,6 +60,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <CoreFoundation/CFTimeZone.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecItem.h>
 
 
 #define HIDIGIT(v) (((v) / 10) + '0')    
@@ -189,11 +194,21 @@ SecCmsSignerInfoCreate(SecCmsSignedDataRef sigd, SecIdentityRef identity, SECOid
     SecCmsSignerInfoRef signerInfo = NULL;
     SecCertificateRef cert = NULL;
     SecPrivateKeyRef signingKey = NULL;
+    CFDictionaryRef keyAttrs = NULL;
 
     if (SecIdentityCopyCertificate(identity, &cert))
 	goto loser;
     if (SecIdentityCopyPrivateKey(identity, &signingKey))
 	goto loser;
+
+    /* In some situations, the "Private Key" in the identity is actually a public key. Check. */
+    keyAttrs = SecKeyCopyAttributes(signingKey);
+    if (!keyAttrs)
+        goto loser;
+    CFTypeRef class = CFDictionaryGetValue(keyAttrs, kSecAttrKeyClass);
+    if (!class || (CFGetTypeID(class) != CFStringGetTypeID()) || !CFEqual(class, kSecAttrKeyClassPrivate)) {
+        goto loser;
+    }
 
     signerInfo = nss_cmssignerinfo_create(sigd, SecCmsSignerIDIssuerSN, cert, NULL, NULL, signingKey, digestalgtag);
 
@@ -202,6 +217,8 @@ loser:
 	CFRelease(cert);
     if (signingKey)
 	CFRelease(signingKey);
+    if (keyAttrs)
+        CFRelease(keyAttrs);
 
     return signerInfo;
 }
@@ -287,11 +304,17 @@ loser:
 void
 SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si)
 {
-    if (si->cert != NULL)
-	CERT_DestroyCertificate(si->cert);
+    if (si->cert != NULL) {
+        CERT_DestroyCertificate(si->cert);
+    }
 
-    if (si->certList != NULL) 
-	CFRelease(si->certList);
+    if (si->certList != NULL) {
+        CFRelease(si->certList);
+    }
+
+    if (si->hashAgilityAttrValue != NULL) {
+        CFRelease(si->hashAgilityAttrValue);
+    }
 
     /* XXX storage ??? */
 }
@@ -334,12 +357,34 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
         privkey = signerinfo->signingKey;
         signerinfo->signingKey = NULL;
         cert = signerinfo->cert;
+#if USE_CDSA_CRYPTO
+	if (SecCertificateGetAlgorithmID(cert,&algID)) {
+	    PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+	    goto loser;
+        }
+#else
         _algID = SecCertificateGetPublicKeyAlgorithmID(cert);
         algID = &_algID;
+#endif
         break;
     case SecCmsSignerIDSubjectKeyID:
         privkey = signerinfo->signingKey;
         signerinfo->signingKey = NULL;
+#if 0
+        spki = SECKEY_CreateSubjectPublicKeyInfo(signerinfo->pubKey);
+        SECKEY_DestroyPublicKey(signerinfo->pubKey);
+        signerinfo->pubKey = NULL;
+        SECOID_CopyAlgorithmID(NULL, &freeAlgID, &spki->algorithm);
+        SECKEY_DestroySubjectPublicKeyInfo(spki);
+        algID = &freeAlgID;
+#else
+#if USE_CDSA_CRYPTO
+	if (SecKeyGetAlgorithmID(signerinfo->pubKey,&algID)) {
+	    PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+	    goto loser;
+        }
+#endif
+#endif
 	CFRelease(signerinfo->pubKey);
         signerinfo->pubKey = NULL;
         break;
@@ -355,6 +400,19 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
         PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
         goto loser;
     }
+
+#if USE_CDSA_CRYPTO
+    if (signerinfo->signerIdentifier.identifierType == SecCmsSignerIDSubjectKeyID) {
+      SECOID_DestroyAlgorithmID(&freeAlgID, PR_FALSE);
+    }
+#endif
+#if 0
+    // @@@ Not yet
+    /* Fortezza MISSI have weird signature formats.  
+     * Map them to standard DSA formats 
+     */
+    pubkAlgTag = PK11_FortezzaMapSig(pubkAlgTag);
+#endif
 
     if (signerinfo->authAttr != NULL) {
 	SecAsn1Item encoded_attrs;
@@ -399,6 +457,10 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
 	                &encoded_attrs) == NULL)
 	    goto loser;
 
+#if USE_CDSA_CRYPTO
+	rv = SEC_SignData(&signature, encoded_attrs.Data, encoded_attrs.Length, 
+	                  privkey, digestalgtag, pubkAlgTag);
+#else
         signature.Length = SecKeyGetSize(privkey, kSecKeySignatureSize);
         signature.Data = PORT_ZAlloc(signature.Length);
         if (!signature.Data) {
@@ -410,6 +472,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
             PORT_ZFree(signature.Data, signature.Length);
             signature.Length = 0;
         }
+#endif
 
 	PORT_FreeArena(tmppoolp, PR_FALSE); /* awkward memory management :-( */
 	tmppoolp = 0;
@@ -455,6 +518,7 @@ loser:
     return SECFailure;
 }
 
+#if !USE_CDSA_CRYPTO
 static CFArrayRef
 SecCmsSignerInfoCopySigningCertificates(SecCmsSignerInfoRef signerinfo)
 {
@@ -499,8 +563,20 @@ SecCmsSignerInfoCopySigningCertificates(SecCmsSignerInfoRef signerinfo)
             CFRelease(cert);
         }
     }
+
+    if ((CFArrayGetCount(certs) == 0) &&
+        (signerinfo->signerIdentifier.identifierType == SecCmsSignerIDSubjectKeyID))
+    {
+        SecCertificateRef cert = CERT_FindCertificateBySubjectKeyID(signerinfo->signedData->certs,
+                                                                    signerinfo->signerIdentifier.id.subjectKeyID);
+        if (cert) {
+            CFArrayAppendValue(certs, cert);
+            CFRelease(cert);
+        }
+    }
     return certs;
 }
+#endif
 
 OSStatus
 SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef keychainOrArray,
@@ -509,9 +585,15 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
     CFAbsoluteTime stime;
     OSStatus rv;
 
+#if USE_CDSA_CRYPTO
+    SecCertificateRef cert;
+    
+    if ((cert = SecCmsSignerInfoGetSigningCertificate(signerinfo, keychainOrArray)) == NULL) {
+#else
     CFArrayRef certs;
 
     if ((certs = SecCmsSignerInfoCopySigningCertificates(signerinfo)) == NULL) {
+#endif
 	signerinfo->verificationStatus = SecCmsVSSigningCertNotFound;
 	return SECFailure;
     }
@@ -523,15 +605,27 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
     if (SecCmsSignerInfoGetSigningTime(signerinfo, &stime) != SECSuccess)
 	stime = CFAbsoluteTimeGetCurrent();
 
+#if USE_CDSA_CRYPTO
+    rv = CERT_VerifyCert(keychainOrArray, cert, policies, stime, trustRef);
+#else
     rv = CERT_VerifyCert(keychainOrArray, certs, policies, stime, trustRef);
     CFRelease(certs);
+#endif
     if (rv || !trustRef)
     {
 	if (PORT_GetError() == SEC_ERROR_UNTRUSTED_CERT)
 	{
 		/* Signature or digest level verificationStatus errors should supercede certificate level errors, so only change the verificationStatus if the status was GoodSignature. */
+#if 0
+#warning DEBUG - SecCmsSignerInfoVerifyCertificate trusts everything!
+		if (signerinfo->verificationStatus == SecCmsVSGoodSignature) {
+			 syslog(LOG_ERR, "SecCmsSignerInfoVerifyCertificate ignoring SEC_ERROR_UNTRUSTED_CERT");
+			 rv = SECSuccess;
+		}
+#else
 		if (signerinfo->verificationStatus == SecCmsVSGoodSignature)
 			signerinfo->verificationStatus = SecCmsVSSigningCertNotTrusted;
+#endif
 	}
     }
 
@@ -564,9 +658,16 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, Sec
 	goto loser;
     }
 
+#if USE_CDSA_CRYPTO
+    if (SecCertificateCopyPublicKey(cert, &publickey)) {
+	vs = SecCmsVSProcessingError;
+	goto loser;
+    }
+#else
     publickey = SecCertificateCopyPublicKey(cert);
     if (publickey == NULL)
         goto loser;
+#endif
 
     if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr)) {
 	if (contentType) {
@@ -814,6 +915,31 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
     /* @@@ Make sure we search though all the certs in the cms message itself as well, it's silly
        to require them to be added to a keychain first. */
 
+#if USE_CDSA_CRYPTO
+    SecCmsSignerIdentifier *sid;
+
+    /*
+     * This cert will also need to be freed, but since we save it
+     * in signerinfo for later, we do not want to destroy it when
+     * we leave this function -- we let the clean-up of the entire
+     * cinfo structure later do the destroy of this cert.
+     */
+    sid = &signerinfo->signerIdentifier;
+    switch (sid->identifierType) {
+    case SecCmsSignerIDIssuerSN:
+	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, sid->id.issuerAndSN);
+	break;
+    case SecCmsSignerIDSubjectKeyID:
+	cert = CERT_FindCertBySubjectKeyID(keychainOrArray, sid->id.subjectKeyID);
+	break;
+    default:
+	cert = NULL;
+	break;
+    }
+
+    /* cert can be NULL at that point */
+    signerinfo->cert = cert;	/* earmark it */
+#else
     SecAsn1Item **cert_datas = signerinfo->signedData->rawCerts;
     SecAsn1Item *cert_data;
     if (cert_datas) while ((cert_data = *cert_datas) != NULL) {
@@ -845,6 +971,11 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
         cert = CERT_FindCertificateByIssuerAndSN(signerinfo->signedData->certs, signerinfo->signerIdentifier.id.issuerAndSN);
         signerinfo->cert = cert;
     }
+    if (!signerinfo->cert && (signerinfo->signerIdentifier.identifierType == SecCmsSignerIDSubjectKeyID)) {
+        cert = CERT_FindCertificateBySubjectKeyID(signerinfo->signedData->certs, signerinfo->signerIdentifier.id.subjectKeyID);
+        signerinfo->cert = cert;
+    }
+#endif
 
     return cert;
 }
@@ -868,6 +999,9 @@ SecCmsSignerInfoGetSignerCommonName(SecCmsSignerInfoRef sinfo)
     if ((signercert = SecCmsSignerInfoGetSigningCertificate(sinfo, NULL)) == NULL)
 	return NULL;
 
+#if USE_CDSA_CRYPTO
+    SecCertificateGetCommonName(signercert, &commonName);
+#else
     CFArrayRef commonNames = SecCertificateCopyCommonNames(signercert);
     if (commonNames) {
         /* SecCertificateCopyCommonNames doesn't return empty arrays */
@@ -875,6 +1009,7 @@ SecCmsSignerInfoGetSignerCommonName(SecCmsSignerInfoRef sinfo)
         CFRetain(commonName);
         CFRelease(commonNames);
     }
+#endif
 
     return commonName;
 }
@@ -896,6 +1031,9 @@ SecCmsSignerInfoGetSignerEmailAddress(SecCmsSignerInfoRef sinfo)
     if ((signercert = SecCmsSignerInfoGetSigningCertificate(sinfo, NULL)) == NULL)
 	return NULL;
 
+#if USE_CDSA_CRYPTO
+    SecCertificateGetEmailAddress(signercert, &emailAddress);
+#else
     CFArrayRef names = SecCertificateCopyRFC822Names(signercert);
     if (names) {
         if (CFArrayGetCount(names) > 0)
@@ -904,6 +1042,7 @@ SecCmsSignerInfoGetSignerEmailAddress(SecCmsSignerInfoRef sinfo)
             CFRetain(emailAddress);
         CFRelease(names);
     }
+#endif
     return emailAddress;
 }
 
@@ -1193,6 +1332,33 @@ SecCmsSignerInfoAddAppleCodesigningHashAgility(SecCmsSignerInfoRef signerinfo, C
 loser:
     PORT_ArenaRelease(poolp, mark);
     return status;
+}
+
+SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSignerInfoRef signerinfo) {
+    SecCertificateRef cert = NULL;
+    SecCmsAttribute *attr;
+    SecAsn1Item *ekp;
+
+    /* sanity check - see if verification status is ok (unverified does not count...) */
+    if (signerinfo->verificationStatus != SecCmsVSGoodSignature)
+        return NULL;
+
+    /* find preferred encryption cert */
+    if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr) &&
+        (attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr,
+                                                     SEC_OID_SMIME_ENCRYPTION_KEY_PREFERENCE, PR_TRUE)) != NULL)
+    { /* we have a SMIME_ENCRYPTION_KEY_PREFERENCE attribute! Find the cert. */
+        ekp = SecCmsAttributeGetValue(attr);
+        if (ekp == NULL)
+            return NULL;
+
+        SecAsn1Item **rawCerts = NULL;
+        if (signerinfo->signedData) {
+            rawCerts = signerinfo->signedData->rawCerts;
+        }
+        cert = SecSMIMEGetCertFromEncryptionKeyPreference(rawCerts, ekp);
+    }
+    return cert;
 }
 
 /*

@@ -38,16 +38,17 @@ Delete one message with the named queue ID from the named
 mail queue(s) (default: \fBhold\fR, \fBincoming\fR, \fBactive\fR and
 \fBdeferred\fR).
 
-If a \fIqueue_id\fR of \fB\-\fR is specified, the program reads
-queue IDs from standard input. For example, to delete all mail
+To delete multiple files, specify the \fB\-d\fR option multiple
+times, or specify a \fIqueue_id\fR of \fB\-\fR to read queue IDs
+from standard input. For example, to delete all mail
 with exactly one recipient \fBuser@example.com\fR:
 .sp
 .nf
-mailq | tail +2 | grep \-v '^ *(' | awk  \'BEGIN { RS = "" }
+mailq | tail \-n +2 | grep \-v '^ *(' | awk  'BEGIN { RS = "" }
     # $7=sender, $8=recipient1, $9=recipient2
     { if ($8 == "user@example.com" && $9 == "")
           print $1 }
-\' | tr \-d '*!' | postsuper \-d \-
+ ' | tr \-d '*!' | postsuper \-d \-
 .fi
 .sp
 Specify "\fB\-d ALL\fR" to remove all messages; for example, specify
@@ -83,8 +84,9 @@ Move one message with the named queue ID from the named
 mail queue(s) (default: \fBincoming\fR, \fBactive\fR and
 \fBdeferred\fR) to the \fBhold\fR queue.
 
-If a \fIqueue_id\fR of \fB\-\fR is specified, the program reads
-queue IDs from standard input.
+To hold multiple files, specify the \fB\-h\fR option multiple
+times, or specify a \fIqueue_id\fR of \fB\-\fR to read queue IDs
+from standard input.
 .sp
 Specify "\fB\-h ALL\fR" to hold all messages; for example, specify
 "\fB\-h ALL deferred\fR" to hold all mail in the \fBdeferred\fR queue.
@@ -102,8 +104,9 @@ Release mail that was put "on hold".
 Move one message with the named queue ID from the named
 mail queue(s) (default: \fBhold\fR) to the \fBdeferred\fR queue.
 
-If a \fIqueue_id\fR of \fB\-\fR is specified, the program reads
-queue IDs from standard input.
+To release multiple files, specify the \fB\-H\fR option multiple
+times, or specify a \fIqueue_id\fR of \fB\-\fR to read queue IDs
+from standard input.
 .sp
 Note: specify "\fBpostsuper \-r\fR" to release mail that was kept on
 hold for a significant fraction of \fB$maximal_queue_lifetime\fR
@@ -121,11 +124,10 @@ software crashes.
 Requeue the message with the named queue ID from the named
 mail queue(s) (default: \fBhold\fR, \fBincoming\fR, \fBactive\fR and
 \fBdeferred\fR).
-To requeue multiple messages, specify multiple \fB\-r\fR
-command\-line options.
 
-Alternatively, if a \fIqueue_id\fR of \fB\-\fR is specified,
-the program reads queue IDs from standard input.
+To requeue multiple files, specify the \fB\-r\fR option multiple
+times, or specify a \fIqueue_id\fR of \fB\-\fR to read queue IDs
+from standard input.
 .sp
 Specify "\fB\-r ALL\fR" to requeue all messages. As a safety
 measure, the word \fBALL\fR must be specified in upper case.
@@ -242,13 +244,17 @@ the hash_queue_names parameter.
 .IP "\fBhash_queue_names (deferred, defer)\fR"
 The names of queue directories that are split across multiple
 subdirectory levels.
+.IP "\fBimport_environment (see 'postconf -d' output)\fR"
+The list of environment parameters that a privileged Postfix
+process will import from a non\-Postfix parent process, or name=value
+environment overrides.
 .IP "\fBqueue_directory (see 'postconf -d' output)\fR"
 The location of the Postfix top\-level queue directory.
 .IP "\fBsyslog_facility (mail)\fR"
 The syslog facility of Postfix logging.
 .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-The mail system name that is prepended to the process name in syslog
-records, so that "smtpd" becomes, for example, "postfix/smtpd".
+A prefix that is prepended to the process name in syslog
+records, so that, for example, "smtpd" becomes "prefix/smtpd".
 .PP
 Available in Postfix version 2.9 and later:
 .IP "\fBenable_long_queue_ids (no)\fR"

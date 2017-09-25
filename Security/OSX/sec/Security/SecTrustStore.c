@@ -55,8 +55,8 @@ SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain) {
         return NULL;
     }
 
-    if (gSecurityd) {
-        return gSecurityd->sec_trust_store_for_domain(domainName, NULL);
+    if (gTrustd) {
+        return gTrustd->sec_trust_store_for_domain(domainName, NULL);
     } else {
         return (SecTrustStoreRef)domainName;
     }
@@ -94,7 +94,7 @@ Boolean SecTrustStoreContains(SecTrustStoreRef ts,
     
 
     ok = (SecOSStatusWith(^bool (CFErrorRef *error) {
-        return SECURITYD_XPC(sec_trust_store_contains, string_data_to_bool_bool_error, ts, digest, &contains, error);
+        return TRUSTD_XPC(sec_trust_store_contains, string_data_to_bool_bool_error, ts, digest, &contains, error);
     }) == errSecSuccess);
     
 errOut:
@@ -206,7 +206,7 @@ OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     
     os_activity_initiate("SecTrustStoreSetTrustSettings", OS_ACTIVITY_FLAG_DEFAULT, ^{
         result = SecOSStatusWith(^bool (CFErrorRef *error) {
-            return SECURITYD_XPC(sec_trust_store_set_trust_settings, string_cert_cftype_to_error, ts, certificate, validatedTrustSettings, error);
+            return TRUSTD_XPC(sec_trust_store_set_trust_settings, string_cert_cftype_to_error, ts, certificate, validatedTrustSettings, error);
         });
     });
 
@@ -224,10 +224,10 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
     os_activity_t trace_activity = os_activity_start("SecTrustStoreRemoveCertificate", OS_ACTIVITY_FLAG_DEFAULT);
     require(ts, errOut);
     require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
-    require(gSecurityd || ts == (SecTrustStoreRef)kSecTrustStoreUserName, errOut);
+    require(gTrustd || ts == (SecTrustStoreRef)kSecTrustStoreUserName, errOut);
     
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        return SECURITYD_XPC(sec_trust_store_remove_certificate, string_data_to_bool_error, ts, digest, error);
+        return TRUSTD_XPC(sec_trust_store_remove_certificate, string_data_to_bool_error, ts, digest, error);
     });
 
 errOut:
@@ -287,7 +287,7 @@ OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContent
     require(ts, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        return SECURITYD_XPC(sec_trust_store_copy_all, string_to_array_error, ts, &results, error);
+        return TRUSTD_XPC(sec_trust_store_copy_all, string_to_array_error, ts, &results, error);
     });
 
     *trustStoreContents = results;
@@ -320,7 +320,7 @@ OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, SecCertificateRe
     require(usageConstraints, errOut);
 
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        return SECURITYD_XPC(sec_trust_store_copy_usage_constraints, string_data_to_array_error, ts, digest, &results, error);
+        return TRUSTD_XPC(sec_trust_store_copy_usage_constraints, string_data_to_array_error, ts, digest, &results, error);
     });
 
     *usageConstraints = results;

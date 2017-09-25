@@ -35,13 +35,13 @@ TransactionBase::Outcome TransactionBase::finalOutcome() const
 {
 	switch (mOutcome) {
 	case successful:
-	case cancelled:
+	case canceled:
 		return mOutcome;
 	case conditional:
-		return std::uncaught_exception() ? cancelled : successful;
+		return std::uncaught_exception() ? canceled : successful;
 	default:
 		assert(false);
-		return cancelled;
+		return canceled;
 	}
 }
 

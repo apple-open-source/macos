@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 # = uri/generic.rb
 #
 # Author:: Akira Yamada <akira@ruby-lang.org>
 # License:: You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: generic.rb 49669 2015-02-21 00:49:36Z usa $
+# Revision:: $Id: generic.rb 56243 2016-09-25 21:33:38Z nagachika $
 #
 # See URI for general documentation
 #
@@ -55,16 +57,9 @@ module URI
       self::COMPONENT
     end
 
-    #
-    # Default to not use the registry for a URI::Generic
-    #
-    USE_REGISTRY = false
+    USE_REGISTRY = false # :nodoc:
 
-    #
-    # Returns whether a registry of naming
-    # authorities are being used.
-    #
-    def self.use_registry
+    def self.use_registry # :nodoc:
       self::USE_REGISTRY
     end
 
@@ -185,7 +180,6 @@ module URI
       @path = nil
       @query = nil
       @opaque = nil
-      @registry = nil
       @fragment = nil
       @parser = parser == DEFAULT_PARSER ? nil : parser
 
@@ -197,7 +191,6 @@ module URI
         self.path = path
         self.query = query
         self.opaque = opaque
-        self.registry = registry
         self.fragment = fragment
       else
         self.set_scheme(scheme)
@@ -205,14 +198,13 @@ module URI
         self.set_host(host)
         self.set_port(port)
         self.set_path(path)
-        self.set_query(query)
+        self.query = query
         self.set_opaque(opaque)
-        self.set_registry(registry)
-        self.set_fragment(fragment)
+        self.fragment=(fragment)
       end
-      if @registry && !self.class.use_registry
+      if registry
         raise InvalidURIError,
-          "the scheme #{@scheme} does not accept registry part: #{@registry} (or bad hostname?)"
+          "the scheme #{@scheme} does not accept registry part: #{registry} (or bad hostname?)"
       end
 
       @scheme.freeze if @scheme
@@ -257,11 +249,9 @@ module URI
     #
     attr_reader :port
 
-    # returns the registry component of the URI.
-    #
-    #  (see RFC2396 Section 3.2)
-    #
-    attr_reader :registry
+    def registry # :nodoc:
+      nil
+    end
 
     # returns the path component of the URI.
     #
@@ -401,9 +391,9 @@ module URI
     # with a user component defined.
     #
     def check_user(v)
-      if @registry || @opaque
+      if @opaque
         raise InvalidURIError,
-          "can not set user with registry or opaque"
+          "can not set user with opaque"
       end
 
       return v unless v
@@ -425,9 +415,9 @@ module URI
     # with a user component defined.
     #
     def check_password(v, user = @user)
-      if @registry || @opaque
+      if @opaque
         raise InvalidURIError,
-          "can not set password with registry or opaque"
+          "can not set password with opaque"
       end
       return v unless v
 
@@ -438,7 +428,7 @@ module URI
 
       if parser.regexp[:USERINFO] !~ v
         raise InvalidComponentError,
-          "bad component(expected user component): #{v}"
+          "bad password component"
       end
 
       return true
@@ -552,10 +542,10 @@ module URI
     protected :set_password
 
     # returns the userinfo +ui+ as user, password
-    # if properly formated as 'user:password'
+    # if properly formatted as 'user:password'
     def split_userinfo(ui)
       return nil, nil unless ui
-      user, password = ui.split(/:/, 2)
+      user, password = ui.split(':', 2)
 
       return user, password
     end
@@ -563,7 +553,7 @@ module URI
 
     # escapes 'user:password' +v+ based on RFC 1738 section 3.1
     def escape_userpass(v)
-      v = parser.escape(v, /[@:\/]/o) # RFC 1738 section 3.1 #/
+      parser.escape(v, /[@:\/]/o) # RFC 1738 section 3.1 #/
     end
     private :escape_userpass
 
@@ -598,7 +588,7 @@ module URI
     def check_host(v)
       return v unless v
 
-      if @registry || @opaque
+      if @opaque
         raise InvalidURIError,
           "can not set host with registry or opaque"
       elsif parser.regexp[:HOST] !~ v
@@ -651,7 +641,7 @@ module URI
     # extract the host part of the URI and unwrap brackets for IPv6 addresses.
     #
     # This method is same as URI::Generic#host except
-    # brackets for IPv6 (andn future IP) addresses are removed.
+    # brackets for IPv6 (and future IP) addresses are removed.
     #
     # u = URI("http://[::1]/bar")
     # p u.hostname      #=> "::1"
@@ -672,7 +662,7 @@ module URI
     # u.hostname = "::1"
     # p u.to_s                  #=> "http://[::1]/bar"
     #
-    # If the arugument seems IPv6 address,
+    # If the argument seems IPv6 address,
     # it is wrapped by brackets.
     #
     def hostname=(v)
@@ -690,12 +680,12 @@ module URI
     def check_port(v)
       return v unless v
 
-      if @registry || @opaque
+      if @opaque
         raise InvalidURIError,
           "can not set port with registry or opaque"
       elsif !v.kind_of?(Fixnum) && parser.regexp[:PORT] !~ v
         raise InvalidComponentError,
-          "bad component(expected port component): #{v}"
+          "bad component(expected port component): #{v.inspect}"
       end
 
       return true
@@ -707,13 +697,7 @@ module URI
     # see also URI::Generic.port=
     #
     def set_port(v)
-      unless !v || v.kind_of?(Fixnum)
-        if v.empty?
-          v = nil
-        else
-          v = v.to_i
-        end
-      end
+      v = v.empty? ? nil : v.to_i unless !v || v.kind_of?(Fixnum)
       @port = v
     end
     protected :set_port
@@ -747,57 +731,18 @@ module URI
       port
     end
 
-    #
-    # check the registry +v+ component for RFC2396 compliance
-    # and against the URI::Parser Regexp for :REGISTRY
-    #
-    # Can not have a host, port or user component defined,
-    # with a registry component defined.
-    #
-    def check_registry(v)
-      return v unless v
-
-      # raise if both server and registry are not nil, because:
-      # authority     = server | reg_name
-      # server        = [ [ userinfo "@" ] hostport ]
-      if @host || @port || @user # userinfo = @user + ':' + @password
-        raise InvalidURIError,
-          "can not set registry with host, port, or userinfo"
-      elsif v && parser.regexp[:REGISTRY] !~ v
-        raise InvalidComponentError,
-          "bad component(expected registry component): #{v}"
-      end
-
-      return true
+    def check_registry(v) # :nodoc:
+      raise InvalidURIError, "can not set registry"
     end
     private :check_registry
 
-    # protected setter for the registry component +v+
-    #
-    # see also URI::Generic.registry=
-    #
-    def set_registry(v)
-      @registry = v
+    def set_registry(v) #:nodoc:
+      raise InvalidURIError, "can not set registry"
     end
     protected :set_registry
 
-    #
-    # == Args
-    #
-    # +v+::
-    #    String
-    #
-    # == Description
-    #
-    # public setter for the registry component +v+.
-    # (with validation)
-    #
-    # see also URI::Generic.check_registry
-    #
     def registry=(v)
-      check_registry(v)
-      set_registry(v)
-      v
+      raise InvalidURIError, "can not set registry"
     end
 
     #
@@ -825,7 +770,8 @@ module URI
             "bad component(expected absolute path component): #{v}"
         end
       else
-        if v && v != '' && parser.regexp[:ABS_PATH] !~ v && parser.regexp[:REL_PATH] !~ v
+        if v && v != '' && parser.regexp[:ABS_PATH] !~ v &&
+           parser.regexp[:REL_PATH] !~ v
           raise InvalidComponentError,
             "bad component(expected relative path component): #{v}"
         end
@@ -874,42 +820,6 @@ module URI
     end
 
     #
-    # check the query +v+ component for RFC2396 compliance
-    # and against the URI::Parser Regexp for :QUERY
-    #
-    # Can not have a opaque component defined,
-    # with a query component defined.
-    #
-    def check_query(v)
-      return v unless v
-
-      # raise if both hier and opaque are not nil, because:
-      # absoluteURI   = scheme ":" ( hier_part | opaque_part )
-      # hier_part     = ( net_path | abs_path ) [ "?" query ]
-      if @opaque
-        raise InvalidURIError,
-          "query conflicts with opaque"
-      end
-
-      if v && v != '' && parser.regexp[:QUERY] !~ v
-          raise InvalidComponentError,
-            "bad component(expected query component): #{v}"
-      end
-
-      return true
-    end
-    private :check_query
-
-    # protected setter for the query component +v+
-    #
-    # see also URI::Generic.query=
-    #
-    def set_query(v)
-      @query = v
-    end
-    protected :set_query
-
-    #
     # == Args
     #
     # +v+::
@@ -918,9 +828,6 @@ module URI
     # == Description
     #
     # public setter for the query component +v+.
-    # (with validation)
-    #
-    # see also URI::Generic.check_query
     #
     # == Usage
     #
@@ -933,9 +840,17 @@ module URI
     #   #=> #<URI::HTTP:0x000000008e89e8 URL:http://my.example.com/?id=1>
     #
     def query=(v)
-      check_query(v)
-      set_query(v)
-      v
+      return @query = nil unless v
+      raise InvalidURIError, "query conflicts with opaque" if @opaque
+
+      x = v.to_str
+      v = x.dup if x.equal? v
+      v.encode!(Encoding::UTF_8) rescue nil
+      v.delete!("\t\r\n")
+      v.force_encoding(Encoding::ASCII_8BIT)
+      v.gsub!(/(?!%\h\h|[!$-&(-;=?-_a-~])./n.freeze){'%%%02X' % $&.ord}
+      v.force_encoding(Encoding::US_ASCII)
+      @query = v
     end
 
     #
@@ -994,27 +909,6 @@ module URI
     #
     # check the fragment +v+ component against the URI::Parser Regexp for :FRAGMENT
     #
-    def check_fragment(v)
-      return v unless v
-
-      if v && v != '' && parser.regexp[:FRAGMENT] !~ v
-        raise InvalidComponentError,
-          "bad component(expected fragment component): #{v}"
-      end
-
-      return true
-    end
-    private :check_fragment
-
-    # protected setter for the fragment component +v+
-    #
-    # see also URI::Generic.fragment=
-    #
-    def set_fragment(v)
-      @fragment = v
-    end
-    protected :set_fragment
-
     #
     # == Args
     #
@@ -1025,8 +919,6 @@ module URI
     #
     # public setter for the fragment component +v+.
     # (with validation)
-    #
-    # see also URI::Generic.check_fragment
     #
     # == Usage
     #
@@ -1039,9 +931,16 @@ module URI
     #   #=> #<URI::HTTP:0x000000007a81f8 URL:http://my.example.com/?id=25#time=1305212086>
     #
     def fragment=(v)
-      check_fragment(v)
-      set_fragment(v)
-      v
+      return @fragment = nil unless v
+
+      x = v.to_str
+      v = x.dup if x.equal? v
+      v.encode!(Encoding::UTF_8) rescue nil
+      v.delete!("\t\r\n")
+      v.force_encoding(Encoding::ASCII_8BIT)
+      v.gsub!(/(?!%\h\h|[!-~])./n){'%%%02X' % $&.ord}
+      v.force_encoding(Encoding::US_ASCII)
+      @fragment = v
     end
 
     #
@@ -1211,12 +1110,12 @@ module URI
 
       # RFC2396, Section 5.2, 2)
       if (rel.path.nil? || rel.path.empty?) && !authority && !rel.query
-        base.set_fragment(rel.fragment) if rel.fragment
+        base.fragment=(rel.fragment) if rel.fragment
         return base
       end
 
-      base.set_query(nil)
-      base.set_fragment(nil)
+      base.query = nil
+      base.fragment=(nil)
 
       # RFC2396, Section 5.2, 4)
       if !authority
@@ -1230,8 +1129,8 @@ module URI
       base.set_userinfo(rel.userinfo) if rel.userinfo
       base.set_host(rel.host)         if rel.host
       base.set_port(rel.port)         if rel.port
-      base.set_query(rel.query)       if rel.query
-      base.set_fragment(rel.fragment) if rel.fragment
+      base.query = rel.query       if rel.query
+      base.fragment=(rel.fragment) if rel.fragment
 
       return base
     end # merge
@@ -1318,7 +1217,7 @@ module URI
       end
       rel = URI::Generic.new(nil, # it is relative URI
                              self.userinfo, self.host, self.port,
-                             self.registry, self.path, self.opaque,
+                             nil, self.path, self.opaque,
                              self.query, self.fragment, parser)
 
       if rel.userinfo != oth.userinfo ||
@@ -1338,11 +1237,11 @@ module URI
 
       if rel.path && rel.path == oth.path
         rel.set_path('')
-        rel.set_query(nil) if rel.query == oth.query
+        rel.query = nil if rel.query == oth.query
         return rel, rel
       elsif rel.opaque && rel.opaque == oth.opaque
         rel.set_opaque('')
-        rel.set_query(nil) if rel.query == oth.query
+        rel.query = nil if rel.query == oth.query
         return rel, rel
       end
 
@@ -1427,7 +1326,7 @@ module URI
     # Destructive version of #normalize
     #
     def normalize!
-      if path && path == ''
+      if path&.empty?
         set_path('/')
       end
       if scheme && scheme != scheme.downcase
@@ -1438,21 +1337,11 @@ module URI
       end
     end
 
-    # returns the assemble String with path and query components
-    def path_query
-      str = @path
-      if @query
-        str += '?' + @query
-      end
-      str
-    end
-    private :path_query
-
     #
     # Constructs String from URI
     #
     def to_s
-      str = ''
+      str = ''.dup
       if @scheme
         str << @scheme
         str << ':'
@@ -1460,35 +1349,31 @@ module URI
 
       if @opaque
         str << @opaque
-
       else
-        if @registry
-          str << @registry
-        else
-          if @host
-            str << '//'
-          end
-          if self.userinfo
-            str << self.userinfo
-            str << '@'
-          end
-          if @host
-            str << @host
-          end
-          if @port && @port != self.default_port
-            str << ':'
-            str << @port.to_s
-          end
+        if @host
+          str << '//'
         end
-
-        str << path_query
+        if self.userinfo
+          str << self.userinfo
+          str << '@'
+        end
+        if @host
+          str << @host
+        end
+        if @port && @port != self.default_port
+          str << ':'
+          str << @port.to_s
+        end
+        str << @path
+        if @query
+          str << '?'
+          str << @query
+        end
       end
-
       if @fragment
         str << '#'
         str << @fragment
       end
-
       str
     end
 
@@ -1562,9 +1447,8 @@ module URI
       end
     end
 
-    @@to_s = Kernel.instance_method(:to_s)
     def inspect
-      @@to_s.bind(self).call.sub!(/>\z/) {" URL:#{self}>"}
+      "#<#{self.class} #{self}>"
     end
 
     #

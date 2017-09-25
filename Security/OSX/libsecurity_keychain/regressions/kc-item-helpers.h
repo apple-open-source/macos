@@ -56,7 +56,7 @@ static CFMutableDictionaryRef addLabel(CFMutableDictionaryRef query, CFStringRef
     return query;
 }
 
-static CFMutableDictionaryRef makeBaseItemDictionary(CFStringRef itemclass, CFStringRef service) {
+static CFMutableDictionaryRef createBaseItemDictionary(CFStringRef itemclass, CFStringRef service) {
     CFMutableDictionaryRef query = makeBaseDictionary(itemclass);
 
     if(CFEqual(itemclass, kSecClassInternetPassword)) {
@@ -70,7 +70,7 @@ static CFMutableDictionaryRef makeBaseItemDictionary(CFStringRef itemclass, CFSt
 }
 
 static CFMutableDictionaryRef createQueryItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef service) {
-    return convertToQuery(makeBaseItemDictionary(itemclass, service), kc);
+    return convertToQuery(createBaseItemDictionary(itemclass, service), kc);
 }
 static CFMutableDictionaryRef createQueryItemDictionary(SecKeychainRef kc, CFStringRef itemclass) {
     return createQueryItemDictionaryWithService(kc, itemclass, NULL);
@@ -90,7 +90,7 @@ static CFMutableDictionaryRef createQueryCustomItemDictionary(SecKeychainRef kc,
 }
 
 static CFMutableDictionaryRef createAddCustomItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef account, CFStringRef service) {
-    CFMutableDictionaryRef query = makeBaseItemDictionary(itemclass, service);
+    CFMutableDictionaryRef query = createBaseItemDictionary(itemclass, service);
 
     CFDictionaryAddValue(query, kSecUseKeychain, kc);
     CFDictionarySetValue(query, kSecAttrAccount, account);

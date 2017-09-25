@@ -159,7 +159,10 @@ init_generate (const char *filename, const char *base)
 	     "#define __%s_h__\n\n", headerbase, headerbase);
     fprintf (headerfile,
 	     "#include <stddef.h>\n"
-		 "#include <time.h>\n\n");
+	     "#include <time.h>\n\n");
+    if (foundation_flag)
+	fprintf (headerfile,
+		 "#include <Foundation/Foundation.h>\n\n");
     fprintf (headerfile,
 	     "#ifndef __asn1_common_definitions__\n"
 	     "#define __asn1_common_definitions__\n\n");
@@ -247,13 +250,37 @@ init_generate (const char *filename, const char *base)
 	  "      if((R) != 0) {                                           \\\n"
 	  "        CFRelease((_CFDATA));                                  \\\n"
 	  "        (_CFDATA) = NULL;                                      \\\n"
-	  "      }                                                        \\\n"
-	  "      if((__size##_TYPE) != (__length##_TYPE)) {               \\\n"
+	  "      } else if((__size##_TYPE) != (__length##_TYPE)) {        \\\n"
 	  "        asn1_abort(\"internal asn1 error\");                   \\\n"
 	  "      }                                                        \\\n"
 	  "    }                                                          \\\n"
 	  "  } while (0)\n\n",
 	  headerfile);
+
+    if (foundation_flag) {
+	fputs("#define ASN1_ENCODE_NSMutableData(_TYPE, _NSDATA, S, _NSERROR) \\\n"
+	      "  do {                                                         \\\n"
+	      "    int __ret##_TYPE;			                      \\\n"
+	      "    size_t __length##_TYPE;			              \\\n"
+	      "    size_t __size##_TYPE = length_##_TYPE((S));                \\\n"
+	      "    (_NSDATA) = [NSMutableData dataWithLength:(__size##_TYPE)];\\\n"
+	      "    if((_NSDATA) == NULL) {                                    \\\n"
+	      "      (__ret##_TYPE) = ENOMEM;                                 \\\n"
+	      "    } else {                                                   \\\n"
+	      "      (__ret##_TYPE) = encode_##_TYPE(((unsigned char*)([(_NSDATA) mutableBytes])) + (__size##_TYPE) - 1, (__size##_TYPE), \\\n"
+	      "                       (S), &(__length##_TYPE));               \\\n"
+	      "      if((__ret##_TYPE) != 0) {                                \\\n"
+	      "        (_NSDATA) = NULL;                                      \\\n"
+	      "      } else if((__size##_TYPE) != (__length##_TYPE)) {        \\\n"
+	      "        asn1_abort(\"internal asn1 error\");                   \\\n"
+	      "      }                                                        \\\n"
+	      "    }                                                          \\\n"
+	      "    if ((__ret##_TYPE) && (_NSERROR)) {                        \\\n"
+	      "      *(_NSERROR) = [NSError errorWithDomain:@\"com.apple.HeimASN1\" code:(__ret##_TYPE) userInfo:@{ NSLocalizedDescriptionKey : @\"Failed encoding type \" #_TYPE } ]; \\\n"
+	      "    }			                                      \\\n"
+	      "  } while (0)\n\n",
+	      headerfile);
+    }
     fputs("#ifdef _WIN32\n"
 	  "#ifndef ASN1_LIB\n"
 	  "#define ASN1EXP  __declspec(dllimport)\n"
@@ -405,6 +432,9 @@ generate_header_of_codefile(const char *name)
     if (parse_units_flag)
 	fprintf (codefile,
 		 "#include <parse_units.h>\n\n");
+    if (foundation_flag)
+	fprintf (codefile,
+		 "#include <Foundation/Foundation.h>\n\n");
 
 }
 
@@ -1063,6 +1093,13 @@ generate_type (const Symbol *s)
 	exp = "";
     }
 
+    if (foundation_flag) {
+	fprintf (h,
+		 "%sint    ASN1CALL\n"
+		 "nsheim_decode_%s(NSData *, %s *);\n",
+		 exp,
+		 s->gen_name, s->gen_name);
+    }
     fprintf (h,
 	     "%sint    ASN1CALL "
 	     "decode_%s(const unsigned char *, size_t, %s *, size_t *);\n",

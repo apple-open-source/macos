@@ -29,9 +29,9 @@ WebInspector.TimelineTabContentView = class TimelineTabContentView extends WebIn
     {
         let {image, title} = WebInspector.TimelineTabContentView.tabInfo();
         let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
-        let detailsSidebarPanels = [WebInspector.resourceDetailsSidebarPanel, WebInspector.probeDetailsSidebarPanel];
+        let detailsSidebarPanelConstructors = [WebInspector.ResourceDetailsSidebarPanel, WebInspector.ProbeDetailsSidebarPanel];
 
-        super(identifier || "timeline", "timeline", tabBarItem, null, detailsSidebarPanels);
+        super(identifier || "timeline", "timeline", tabBarItem, null, detailsSidebarPanelConstructors);
 
         // Maintain an invisible tree outline containing tree elements for all recordings.
         // The visible recording's tree element is selected when the content view changes.
@@ -84,9 +84,6 @@ WebInspector.TimelineTabContentView = class TimelineTabContentView extends WebIn
             this._addRecording(recording);
 
         this._recordingCountChanged();
-
-        if (WebInspector.timelineManager.activeRecording)
-            this._recordingLoaded();
 
         // Explicitly update the path for the navigation bar to prevent it from showing up as blank.
         this.contentBrowser.updateHierarchicalPathForCurrentContentView();
@@ -309,22 +306,21 @@ WebInspector.TimelineTabContentView = class TimelineTabContentView extends WebIn
         return representedObject instanceof WebInspector.TimelineRecording;
     }
 
-    get supportsSplitContentBrowser()
-    {
-        return false;
-    }
-
     // Protected
 
     restoreFromCookie(cookie)
     {
         console.assert(cookie);
-        console.assert(this._displayedContentView);
 
         this._restoredShowingTimelineRecordingContentView = cookie[WebInspector.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey];
         if (!this._restoredShowingTimelineRecordingContentView) {
-            if (!this.contentBrowser.currentContentView)
+            if (!this.contentBrowser.currentContentView) {
+                // If this is the first time opening the tab, render the currently active recording.
+                if (!this._displayedRecording && WebInspector.timelineManager.activeRecording)
+                    this._recordingLoaded();
+
                 this._showTimelineViewForType(WebInspector.TimelineTabContentView.OverviewTimelineIdentifierCookieValue);
+            }
             return;
         }
 
@@ -518,8 +514,14 @@ WebInspector.TimelineTabContentView = class TimelineTabContentView extends WebIn
         if (this._viewMode === mode)
             return;
 
+        let navigationItemForViewMode = this.contentBrowser.navigationBar.findNavigationItem(mode);
+        console.assert(navigationItemForViewMode, "Couldn't find navigation item for this view mode.");
+        if (!navigationItemForViewMode)
+            return;
+
         this._viewMode = mode;
-        this.contentBrowser.navigationBar.selectedNavigationItem = this._viewMode;
+
+        this.contentBrowser.navigationBar.selectedNavigationItem = navigationItemForViewMode;
 
         if (!selectedByUser)
             return;
@@ -536,6 +538,9 @@ WebInspector.TimelineTabContentView = class TimelineTabContentView extends WebIn
 
     _showTimelineViewForType(timelineType)
     {
+        console.assert(this._displayedRecording);
+        console.assert(this._displayedContentView);
+
         let timeline = timelineType ? this._displayedRecording.timelines.get(timelineType) : null;
         if (timeline)
             this._displayedContentView.showTimelineViewForTimeline(timeline);

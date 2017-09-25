@@ -23,7 +23,7 @@ private:
     static bool RegisterTransform_prelocked(TransformFactory* tf, CFStringRef name);
 
 public:
-	static SecTransformRef MakeTransformWithType(CFStringRef type, CFErrorRef* baseError);
+	static SecTransformRef MakeTransformWithType(CFStringRef type, CFErrorRef* baseError) CF_RETURNS_RETAINED;
 
 	TransformFactory(CFStringRef type, bool registerGlobally = false, CFStringRef cftype = NULL);
 	static void Setup();

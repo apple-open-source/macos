@@ -1,0 +1,71 @@
+#!/usr/sbin/dtrace -s
+
+/*
+IOReturn IOFramebuffer::extSetDisplayMode( OSObject * target, void * reference, IOExternalMethodArguments * args)
+	IOReturn IOFramebuffer::doSetDisplayMode( IODisplayModeID displayMode, IOIndex depth)
+		virtual IOReturn getCurrentDisplayMode( IODisplayModeID * displayMode, IOIndex * depth ) = 0;
+		bool IOFramebuffer::suspend(bool now)
+		IOReturn IOFramebuffer::setDisplayMode( IODisplayModeID displayMod , IOIndex depth )
+
+void IOFBController::asyncWork(IOInterruptEventSource * evtSrc, int intCount)
+	IOReturn IOFBController::processConnectChange(IOOptionBits mode)
+		IOReturn IOFramebuffer::processConnectChange(IOOptionBits mode)
+			void IOFramebuffer::displaysOnline(bool nowOnline)
+				bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
+				bool IOFramebuffer::suspend(bool now)
+				IOReturn IOFramebuffer::getAttributeForConnection( IOIndex connectIndex, IOSelect attribute, uintptr_t * value )
+				IOReturn IOFramebuffer::extSetMirrorOne(uint32_t value, IOFramebuffer * other)
+				bool IOFramebuffer::updateOnline(void)
+					IOReturn IOFramebuffer::getAttributeForConnection( IOIndex connectIndex, IOSelect attribute, uintptr_t * value )
+					virtual IOItemCount getDisplayModeCount( void ) = 0;
+					virtual IOReturn getDisplayModes( IODisplayModeID * allDisplayModes ) = 0;
+					IOReturn IOFramebuffer::getTimingInfoForDisplayMode(IODisplayModeID displayMode,IOTimingInformation * info )
+				IOReturn IOFramebuffer::setCursorImage( void * cursorImage )
+				IOIndex IOFramebuffer::closestDepth(IODisplayModeID mode, IOPixelInformation * matchInfo)
+					virtual IOReturn getPixelInformation( IODisplayModeID displayMode, IOIndex depth, IOPixelAperture aperture, IOPixelInformation * pixelInfo ) = 0;
+				IOReturn IOFramebuffer::setDisplayMode( IODisplayModeID displayMode, IOIndex depth )
+
+void IOFBController::asyncWork(IOInterruptEventSource * evtSrc, int intCount)
+	IOReturn IOFBController::matchOnlineFramebuffers()
+		IOReturn IOFramebuffer::matchFramebuffer(void)
+			IOReturn IOFramebuffer::validateDetailedTiming( void * description, IOByteCount descripSize )
+			IOReturn IOFramebuffer::setDetailedTimings( OSArray * array )
+			IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
+				IOReturn IOFramebuffer::getAttributeForConnection( IOIndex connectIndex, IOSelect attribute, uintptr_t * value )
+				IOReturn IOFramebuffer::setAttributeForConnection( IOIndex connectIndex, IOSelect attribute, uintptr_t info )
+			IOIndex IOFramebuffer::closestDepth(IODisplayModeID mode, IOPixelInformation * matchInfo)
+			IOReturn IOFramebuffer::setDisplayMode( IODisplayModeID displayMode, IOIndex depth )
+			IOReturn IOFramebuffer::updateGammaTable( UInt32 channelCount, UInt32 srcDataCount, UInt32 dataWidth, const void * data, SInt32 syncType, bool immediate)
+
+IOReturn IOFramebuffer::extProcessConnectionChange(void)
+	IOReturn IOFramebuffer::matchFramebuffer(void)
+		IOReturn IOFramebuffer::validateDetailedTiming( void * description, IOByteCount descripSize )
+		IOReturn IOFramebuffer::setDetailedTimings( OSArray * array )
+		IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
+			IOReturn IOFramebuffer::getAttributeForConnection( IOIndex connectIndex, IOSelect attribute, uintptr_t * value )
+			IOReturn IOFramebuffer::setAttributeForConnection( IOIndex connectIndex, IOSelect attribute, uintptr_t info )
+		IOIndex IOFramebuffer::closestDepth(IODisplayModeID mode, IOPixelInformation * matchInfo)
+		IOReturn IOFramebuffer::setDisplayMode( IODisplayModeID displayMode, IOIndex depth )
+		IOReturn IOFramebuffer::updateGammaTable( UInt32 channelCount, UInt32 srcDataCount, UInt32 dataWidth, const void * data, SInt32 syncType, bool immediate)
+*/
+
+
+/*
+virtual IOReturn IOFramebuffer:setDisplayMode:( IODisplayModeID displayMode, IOIndex depth )
+*/
+fbt::*setDisplayMode*:entry
+{
+	printf("\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+	trace(execname);
+	self->inTime[probefunc] = timestamp;
+	printf("\ndisplayMode: %#x, depth: %u\n", arg1, arg2 );
+	stack();
+	ustack();
+}
+
+fbt::*setDisplayMode*:return
+{
+	printf(" %d ns tid: %d(%#x)\n", timestamp - self->inTime[probefunc], tid, tid );
+	self->inTime[probefunc] = 0;
+}
+

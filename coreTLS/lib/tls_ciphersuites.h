@@ -46,6 +46,7 @@ typedef enum {
     SSL_CipherAlgorithmAES_256_CBC,
     SSL_CipherAlgorithmAES_128_GCM,
     SSL_CipherAlgorithmAES_256_GCM,
+    SSL_CipherAlgorithmChaCha20_Poly1305,
 } SSL_CipherAlgorithm;
 
 /* The HMAC algorithms we support */

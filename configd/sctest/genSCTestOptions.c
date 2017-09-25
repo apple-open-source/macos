@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@ SCTestOption testOptions[] = {
 	{"config_agent", "gopher_proxy", "kSCTestConfigAgentGopherProxy", required_argument, "Add a proxy agent with Gopher proxy. Format of the argument is 'server:port'"},
 	{"config_agent", "http_proxy", "kSCTestConfigAgentHTTPProxy", required_argument, "Add a proxy agent with HTTP proxy. Format of the argument is 'server:port'"},
 	{"config_agent", "https_proxy", "kSCTestConfigAgentHTTPSProxy", required_argument, "Add a proxy agent with HTTPS proxy. Format of the argument is 'server:port'"},
-	{"config_agent", "proxy_match_domain", "kSCTestConfigAgentProxyMatchDomain", required_argument, "Add a proxy agent for a match domain. If this option is not specified, 'apple.com' will be used"},
+	{"config_agent", "proxy_match_domain", "kSCTestConfigAgentProxyMatchDomain", required_argument, "Configures the Proxy server for certain domains. A comma-separated list of domains can be specified. Default is 'apple.com'"},
 	{"config_agent", "remove_proxy", "kSCTestConfigAgentRemoveProxy", no_argument, "Remove a proxy configuration, previously configured via 'sctest'"},
 	{"config_agent", "socks_proxy", "kSCTestConfigAgentSOCKSProxy", required_argument, "Add a proxy agent with SOCKS proxy. Format of the argument is 'server:port'"},
 

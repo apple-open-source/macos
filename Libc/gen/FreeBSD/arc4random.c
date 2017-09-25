@@ -112,7 +112,7 @@ arc4_init(void)
 
 	uint8_t entropy[BUFFERSIZE];
 	int ret;
-	rng_custom.ecb = ccaes_ecb_encrypt_mode();
+	rng_custom.ctr_info = ccaes_ctr_crypt_mode();
 	rng_custom.keylen = 16;
 	rng_custom.strictFIPS = 0;
 	rng_custom.use_df = 1;

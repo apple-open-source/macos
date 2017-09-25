@@ -148,9 +148,6 @@ __unused static const char copyright[] =
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef HAVE_POLL_H
-#include <poll.h>
-#endif
 #include <sysexits.h>
 #include <getopt.h>
 
@@ -178,6 +175,8 @@ struct tv32 {
 #define	DEFDATALEN	ICMP6ECHOTMLEN
 #define MAXDATALEN	MAXPACKETLEN - IP6LEN - ICMP6ECHOLEN
 #define	NROUTES		9		/* number of record route slots */
+#define	MAXWAIT		10000		/* max ms to wait for response */
+#define	MAXALARM	(60 * 60)	/* max seconds for alarm timeout */
 
 #define	A(bit)		rcvd_tbl[(bit)>>3]	/* identify byte in array */
 #define	B(bit)		(1 << ((bit) & 0x07))	/* identify bit in byte */
@@ -217,6 +216,7 @@ struct tv32 {
 #define	F_SWEEP		0x2000000
 #define F_CONNECT	0x4000000
 #define F_NOUSERDATA	(F_NODEADDR | F_FQDN | F_FQDNOLD | F_SUPTYPES)
+#define	F_WAITTIME	0x8000000
 u_int options;
 
 static int longopt_flag = 0;
@@ -267,12 +267,6 @@ struct cmsghdr *cm = NULL;
 char *boundif;
 unsigned int ifscope;
 int nocell;
-#ifdef HAVE_POLL_H
-struct pollfd fdmaskp[1];
-#else
-fd_set *fdmaskp = NULL;
-int fdmasks;
-#endif
 
 /* counters */
 long nmissedmax;		/* max value of ntransmitted - nreceived - 1 */
@@ -280,7 +274,10 @@ long npackets;			/* max packets to transmit */
 long nreceived;			/* # of packets we got back */
 long nrepeats;			/* number of duplicates */
 long ntransmitted;		/* sequence # for outbound packets = #sent */
-struct timeval interval = {1, 0}; /* interval between packets */
+static int interval = 1000;	/* interval between packets in ms */
+static int waittime = MAXWAIT;	/* timeout for each packet */
+static long nrcvtimeout = 0;	/* # of packets we got back after waittime */
+
 long snpackets = 0;		/* max packets to transmit in one sweep */
 long sntransmitted = 0;		/* # of packets we sent in this sweep */
 int sweepmax = 0;		/* max value of payload in sweep */
@@ -327,7 +324,6 @@ int	 get_tclass(struct msghdr *);
 int	 get_so_traffic_class(struct msghdr *);
 struct in6_pktinfo *get_rcvpktinfo(struct msghdr *);
 void	 onsignal(int);
-void	 retransmit(void);
 void	 onint(int);
 size_t	 pingerlen(void);
 int	 pinger(void);
@@ -349,7 +345,7 @@ void	 pr_retip(struct ip6_hdr *, u_char *);
 void	 summary(void);
 void	 tvsub(struct timeval *, struct timeval *);
 int	 setpolicy(int, char *);
-char	*nigroup(char *);
+char	*nigroup(char *, int);
 static int str2sotc(const char *, bool *);
 static int str2netservicetype(const char *, bool *);
 static u_int8_t str2tclass(const char *, bool *);
@@ -358,19 +354,12 @@ void	 usage(void);
 int
 main(int argc, char *argv[])
 {
-	struct itimerval itimer;
+	struct timeval last, intvl;
 	struct sockaddr_in6 from;
-#ifndef HAVE_ARC4RANDOM
-	struct timeval seed;
-#endif
-#ifdef HAVE_POLL_H
-	int timeout;
-#else
-	struct timeval timeout, *tv;
-#endif
 	struct addrinfo hints;
 	int cc, i;
-	int ch, hold, packlen, preload, optval, ret_ga;
+	int almost_done, ch, hold, packlen, preload, optval, ret_ga;
+	int nig_oldmcprefix = -1;
 	u_char *datap;
 	char *e, *target, *ifname = NULL, *gateway = NULL;
 	int ip6optlen = 0;
@@ -388,7 +377,8 @@ main(int argc, char *argv[])
 	char *policy_in = NULL;
 	char *policy_out = NULL;
 #endif
-	double intval;
+	double t;
+	u_long alarmtimeout;
 	size_t rthlen;
 #ifdef IPV6_USE_MIN_MTU
 	int mflag = 0;
@@ -396,7 +386,6 @@ main(int argc, char *argv[])
 	/* T_CLASS value -1 means default, so -2 means do not bother */
 	int tclass = -2;
 	bool valid;
-	struct timeval intvl;
 
 	/* just to be sure */
 	memset(&smsghdr, 0, sizeof(smsghdr));
@@ -583,22 +572,22 @@ main(int argc, char *argv[])
 #endif
 			break;
 		case 'i':		/* wait between sending packets */
-			intval = strtod(optarg, &e);
+			t = strtod(optarg, &e);
 			if (*optarg == '\0' || *e != '\0')
 				errx(1, "illegal timing interval %s", optarg);
-			if (intval < 0.1 && getuid()) {
-				errx(1, "%s: only root may use interval < 0.1s",
+			if (t < 1 && getuid()) {
+				errx(1, "%s: only root may use interval < 1s",
 				    strerror(EPERM));
 			}
-			interval.tv_sec = (long)intval;
-			interval.tv_usec =
-			    (long)((intval - interval.tv_sec) * 1000000);
-			if (interval.tv_sec < 0)
+			intvl.tv_sec = (long)t;
+			intvl.tv_usec =
+			    (long)((t - intvl.tv_sec) * 1000000);
+			if (intvl.tv_sec < 0)
 				errx(1, "illegal timing interval %s", optarg);
 			/* less than 1/hz does not make sense */
-			if (interval.tv_sec == 0 && interval.tv_usec < 1) {
+			if (intvl.tv_sec == 0 && intvl.tv_usec < 1) {
 				warnx("too small interval, raised to .000001");
-				interval.tv_usec = 1;
+				intvl.tv_usec = 1;
 			}
 			options |= F_INTERVAL;
 			break;
@@ -650,6 +639,7 @@ main(int argc, char *argv[])
 			break;
 		case 'N':
 			options |= F_NIGROUP;
+			nig_oldmcprefix++;
 			break;
 		case 'o':
 			options |= F_ONCE;
@@ -719,6 +709,16 @@ main(int argc, char *argv[])
 			if (valid == false)
 				errx(1, "illegal TOS value -- %s", optarg);
 			rcvtclass = 1;
+			break;
+		case 'X':
+			alarmtimeout = strtoul(optarg, &e, 0);
+			if (alarmtimeout < 1 || alarmtimeout == ULONG_MAX)
+				errx(EX_USAGE, "invalid timeout: `%s'",
+				    optarg);
+			if (alarmtimeout > MAXALARM)
+				errx(EX_USAGE, "invalid timeout: `%s' > %d",
+				    optarg, MAXALARM);
+			alarm((int)alarmtimeout);
 			break;
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
@@ -794,7 +794,7 @@ main(int argc, char *argv[])
 	}
 
 	if (options & F_NIGROUP) {
-		target = nigroup(argv[argc - 1]);
+		target = nigroup(argv[argc - 1], nig_oldmcprefix);
 		if (target == NULL) {
 			usage();
 			/*NOTREACHED*/
@@ -813,7 +813,7 @@ main(int argc, char *argv[])
 	if (ret_ga)
 		errx(1, "getaddrinfo -- %s", gai_strerror(ret_ga));
 	if (res->ai_canonname)
-		hostname = res->ai_canonname;
+		hostname = strdup(res->ai_canonname);
 	else
 		hostname = target;
 
@@ -935,6 +935,11 @@ main(int argc, char *argv[])
 	}
 	
 	if ((options & F_NOUSERDATA) == 0) {
+		if (datalen >= sizeof(struct tv32)) {
+			/* we can time transfer */
+			timing = 1;
+		} else
+			timing = 0;
 		/* in F_VERBOSE case, we may get non-echoreply packets*/
 		if (options & F_VERBOSE)
 			packlen = MAX(2048, sweepmax) + IP6LEN + ICMP6ECHOLEN + EXTRA;
@@ -947,30 +952,21 @@ main(int argc, char *argv[])
 		packlen = 2048 + IP6LEN + ICMP6ECHOLEN + EXTRA;
 	}
 
-	if (!(packet = (u_char *)malloc((u_int)MAX(datalen, sweepmax))))
+	if (!(packet = (u_char *)malloc(packlen)))
 		err(1, "Unable to allocate packet");
 	if (!(options & F_PINGFILLED))
 		for (i = ICMP6ECHOLEN; i < MAX(datalen, sweepmax); ++i)
 			*datap++ = i;
 
 	ident = getpid() & 0xFFFF;
-#ifndef HAVE_ARC4RANDOM
-	gettimeofday(&seed, NULL);
-	srand((unsigned int)(seed.tv_sec ^ seed.tv_usec ^ (long)ident));
-	memset(nonce, 0, sizeof(nonce));
-	for (i = 0; i < sizeof(nonce); i += sizeof(int))
-		*((int *)&nonce[i]) = rand();
-#else
-	memset(nonce, 0, sizeof(nonce));
-	for (i = 0; i < sizeof(nonce); i += sizeof(u_int32_t))
-		*((u_int32_t *)&nonce[i]) = arc4random();
-#endif
+	arc4random_buf(nonce, sizeof(nonce));
 	optval = 1;
 	if (options & F_DONTFRAG)
 		if (setsockopt(s, IPPROTO_IPV6, IPV6_DONTFRAG,
 		    &optval, sizeof(optval)) == -1)
 			err(1, "IPV6_DONTFRAG");
 	hold = 1;
+
 	if (options & F_SO_DEBUG)
 		(void)setsockopt(s, SOL_SOCKET, SO_DEBUG, (char *)&hold,
 		    sizeof(hold));
@@ -1375,8 +1371,15 @@ main(int argc, char *argv[])
 	printf("%s --> ", pr_addr((struct sockaddr *)&src, sizeof(src)));
 	printf("%s\n", pr_addr((struct sockaddr *)&dst, sizeof(dst)));
 
-	while (preload--)		/* Fire off them quickies. */
-		(void)pinger();
+	if (preload == 0)
+		pinger();
+	else {
+		if (npackets != 0 && preload > npackets)
+			preload = npackets;
+		while (preload--)
+			pinger();
+	}
+	gettimeofday(&last, NULL);
 
 	/*
 	 * rdar://25829310
@@ -1397,170 +1400,145 @@ main(int argc, char *argv[])
 #ifdef SIGINFO
 	(void)signal(SIGINFO, onsignal);
 #endif
-
-	if ((options & F_FLOOD) == 0) {
-		if (signal(SIGALRM, onsignal) == SIG_ERR)
-			warn("signal(SIGALRM)");
-		itimer.it_interval = interval;
-		itimer.it_value = interval;
-		(void)setitimer(ITIMER_REAL, &itimer, NULL);
-		if (ntransmitted == 0)
-			retransmit();
+	if (alarmtimeout > 0) {
+		(void)signal(SIGALRM, onsignal);
 	}
 
 	if (options & F_FLOOD) {
 		intvl.tv_sec = 0;
 		intvl.tv_usec = 10000;
-	} else {
-		intvl.tv_sec = interval.tv_sec;
-		intvl.tv_usec = interval.tv_usec;
+	} else if ((options & F_INTERVAL) == 0) {
+		intvl.tv_sec = interval / 1000;
+		intvl.tv_usec = interval % 1000 * 1000;
 	}
-	
-#ifndef HAVE_POLL_H
-	fdmasks = howmany(s + 1, NFDBITS) * sizeof(fd_mask);
-	if ((fdmaskp = malloc(fdmasks)) == NULL)
-		err(1, "malloc");
-#endif
 
 	/* For control (ancillary) data received from recvmsg() */
 	cm = (struct cmsghdr *)malloc(CONTROLLEN);
 	if (cm == NULL)
 		err(1, "malloc");
 
-	for (;;) {
+	almost_done = 0;
+	while (seenint == 0) {
+		struct timeval now, timeout;
 		struct msghdr m;
 		struct iovec iov[2];
+		fd_set rfds;
+		int n;
 
 		/* signal handling */
-		if (seenalrm) {
-			seenalrm = 0;
-			/* last packet sent, timeout reached? */
-			if (npackets && ntransmitted >= npackets)
-				break;
-			/* sweep done ? */
-			if (sweepmax && datalen > sweepmax)
-				break;
-			retransmit();
-			continue;
-		}
-		if (seenint) {
-			seenint = 0;
+		if (seenint)
 			onint(SIGINT);
-			continue;
-		}
 #ifdef SIGINFO
 		if (seeninfo) {
-			seeninfo = 0;
 			summary();
+			seeninfo = 0;
 			continue;
 		}
 #endif
+		FD_ZERO(&rfds);
+		FD_SET(s, &rfds);
+		gettimeofday(&now, NULL);
+		timeout.tv_sec = last.tv_sec + intvl.tv_sec - now.tv_sec;
+		timeout.tv_usec = last.tv_usec + intvl.tv_usec - now.tv_usec;
+		while (timeout.tv_usec < 0) {
+			timeout.tv_usec += 1000000;
+			timeout.tv_sec--;
+			}
+		while (timeout.tv_usec > 1000000) {
+			timeout.tv_usec -= 1000000;
+			timeout.tv_sec++;
+		}
+		if (timeout.tv_sec < 0)
+			timeout.tv_sec = timeout.tv_usec = 0;
 
-		if (options & F_FLOOD) {
-			if (pinger() != 0)
+		n = select(s + 1, &rfds, NULL, NULL, &timeout);
+		if (n < 0)
+			continue;	/* EINTR */
+		if (n == 1) {
+			m.msg_name = (caddr_t)&from;
+			m.msg_namelen = sizeof(from);
+			memset(&iov, 0, sizeof(iov));
+			iov[0].iov_base = (caddr_t)packet;
+			iov[0].iov_len = packlen;
+			m.msg_iov = iov;
+			m.msg_iovlen = 1;
+			memset(cm, 0, CONTROLLEN);
+			m.msg_control = (void *)cm;
+			m.msg_controllen = CONTROLLEN;
+			m.msg_flags = 0;
+
+			cc = recvmsg(s, &m, 0);
+			if (cc < 0) {
+				if (errno != EINTR) {
+					warn("recvmsg");
+					sleep(1);
+				}
+				continue;
+			} else if (cc == 0) {
+				int mtu;
+
+				/*
+				 * receive control messages only. Process the
+				 * exceptions (currently the only possibility is
+				 * a path MTU notification.)
+				 */
+				if ((mtu = get_pathmtu(&m)) > 0) {
+					if ((options & F_VERBOSE) != 0) {
+						printf("new path MTU (%d) is "
+						       "notified\n", mtu);
+					}
+				}
+				continue;
+			} else {
+				/*
+				 * an ICMPv6 message (probably an echoreply)
+				 * arrived.
+				 */
+				pr_pack(packet, cc, &m);
+			}
+			if (((options & F_ONCE) != 0 && nreceived > 0) ||
+			    (npackets > 0 && nreceived >= npackets) ||
+			     (sweepmax && datalen > sweepmax))
 				break;
-#ifdef HAVE_POLL_H
-			timeout = 10;
-#else
-			timeout.tv_sec = 0;
-			timeout.tv_usec = 10000;
-			tv = &timeout;
-#endif
-		} else {
-#ifdef HAVE_POLL_H
-			timeout = INFTIM;
-#else
-			tv = NULL;
-#endif
 		}
-#ifdef HAVE_POLL_H
-		fdmaskp[0].fd = s;
-		fdmaskp[0].events = POLLIN;
-		cc = poll(fdmaskp, 1, timeout);
-#else
-		memset(fdmaskp, 0, fdmasks);
-		FD_SET(s, fdmaskp);
-		cc = select(s + 1, fdmaskp, NULL, NULL, tv);
-#endif
-		if (cc < 0) {
-			if (errno != EINTR) {
-#ifdef HAVE_POLL_H
-				warn("poll");
-#else
-				warn("select");
-#endif
-				sleep(1);
-			}
-			continue;
-		} else if (cc == 0) {
-			continue;
-		}
-		m.msg_name = (caddr_t)&from;
-		m.msg_namelen = sizeof(from);
-		memset(&iov, 0, sizeof(iov));
-		iov[0].iov_base = (caddr_t)packet;
-		iov[0].iov_len = packlen;
-		m.msg_iov = iov;
-		m.msg_iovlen = 1;
-		memset(cm, 0, CONTROLLEN);
-		m.msg_control = (void *)cm;
-		m.msg_controllen = CONTROLLEN;
-
-		cc = recvmsg(s, &m, 0);
-		if (cc < 0) {
-			if (errno != EINTR) {
-				warn("recvmsg");
-				sleep(1);
-			}
-			continue;
-		} else if (cc == 0) {
-			int mtu;
-
-			/*
-			 * receive control messages only. Process the
-			 * exceptions (currently the only possibility is
-			 * a path MTU notification.)
-			 */
-			if ((mtu = get_pathmtu(&m)) > 0) {
-				if ((options & F_VERBOSE) != 0) {
-					printf("new path MTU (%d) is "
-					    "notified\n", mtu);
+		if (n == 0 || (options & F_FLOOD)) {
+			if (npackets == 0 || ntransmitted < npackets)
+				pinger();
+			else {
+				if (almost_done)
+					break;
+				almost_done = 1;
+				/*
+				 * If we're not transmitting any more packets,
+				 * change the timer to wait two round-trip times
+				 * if we've received any packets or (waittime)
+				 * milliseconds if we haven't.
+				 */
+				intvl.tv_usec = 0;
+				if (nreceived) {
+					intvl.tv_sec = 2 * tmax / 1000;
+					if (intvl.tv_sec == 0)
+						intvl.tv_sec = 1;
+				} else {
+					intvl.tv_sec = waittime / 1000;
+					intvl.tv_usec = waittime % 1000 * 1000;
 				}
 			}
-			continue;
-		} else {
-			/*
-			 * an ICMPv6 message (probably an echoreply) arrived.
-			 */
-			pr_pack(packet, cc, &m);
-		}
-		if (((options & F_ONCE) != 0 && nreceived > 0) ||
-		    (npackets > 0 && nreceived >= npackets))
-			break;
-		if (ntransmitted - nreceived - 1 > nmissedmax) {
-			nmissedmax = ntransmitted - nreceived - 1;
-			if (options & F_MISSED)
-				(void)write(STDOUT_FILENO, &BBELL, 1);
+			gettimeofday(&last, NULL);
+			if (ntransmitted - nreceived - 1 > nmissedmax) {
+				nmissedmax = ntransmitted - nreceived - 1;
+				if (options & F_MISSED)
+					(void)write(STDOUT_FILENO, &BBELL, 1);
+			}
 		}
 	}
+	sigemptyset(&newset);
+	if (sigprocmask(SIG_SETMASK, &newset, NULL) != 0)
+		err(EX_OSERR, "sigprocmask(newset)");
 	summary();
-
-	if (res != NULL)
-		freeaddrinfo(res);
 
         if (packet != NULL)
                 free(packet);
-
-	if (cm != NULL)
-		free(cm);
-
-	if (scmsg != NULL)
-		free(scmsg);
-
-#ifndef HAVE_POLL_H
-        if (fdmaskp != NULL)
-                free(fdmaskp);
-#endif
 
 	exit(nreceived == 0 ? 2 : 0);
 }
@@ -1571,10 +1549,8 @@ onsignal(int sig)
 	fflush(stdout);
 	
 	switch (sig) {
-	case SIGALRM:
-		seenalrm++;
-		break;
 	case SIGINT:
+	case SIGALRM:
 		seenint++;
 		break;
 #ifdef SIGINFO
@@ -1583,38 +1559,6 @@ onsignal(int sig)
 		break;
 #endif
 	}
-}
-
-/*
- * retransmit --
- *	This routine transmits another ping6.
- */
-void
-retransmit(void)
-{
-	struct itimerval itimer;
-
-	if (pinger() == 0) {
-		return;
-	}
-	/*
-	 * If we're not transmitting any more packets, change the timer
-	 * to wait two round-trip times if we've received any packets or
-	 * ten seconds if we haven't.
-	 */
-#define	MAXWAIT		10
-	if (nreceived) {
-		itimer.it_value.tv_sec =  2 * tmax / 1000;
-		if (itimer.it_value.tv_sec == 0)
-			itimer.it_value.tv_sec = 1;
-	} else
-		itimer.it_value.tv_sec = MAXWAIT;
-	itimer.it_interval.tv_sec = 0;
-	itimer.it_interval.tv_usec = 0;
-	itimer.it_value.tv_usec = 0;
-
-	(void)signal(SIGALRM, onsignal);
-	(void)setitimer(ITIMER_REAL, &itimer, NULL);
 }
 
 /*
@@ -1727,11 +1671,6 @@ pinger(void)
 		icp->icmp6_code = 0;
 		icp->icmp6_id = htons(ident);
 		icp->icmp6_seq = ntohs(seq);
-		if (datalen >= sizeof(struct tv32)) {
-			/* we can time transfer */
-			timing = 1;
-		} else
-			timing = 0;
 		if (timing) {
 			struct timeval tv;
 			struct tv32 *tv32;
@@ -1956,6 +1895,11 @@ pr_pack(u_char *buf, int cc, struct msghdr *mhdr)
 		if (options & F_QUIET)
 			return;
 
+		if (options & F_WAITTIME && triptime > waittime) {
+			++nrcvtimeout;
+			return;
+		}
+
 		if (options & F_FLOOD)
 			(void)write(STDOUT_FILENO, &BSPACE, 1);
 		else {
@@ -1993,9 +1937,7 @@ pr_pack(u_char *buf, int cc, struct msghdr *mhdr)
 			dp = outpack + ICMP6ECHOLEN + ICMP6ECHOTMLEN;
 			for (i = 8; cp < end; ++i, ++cp, ++dp) {
 				if (*cp != *dp) {
-					(void)printf("\nwrong data byte #%d "
-					    "should be 0x%x but was 0x%x",
-					    i, *dp, *cp);
+					(void)printf("\nwrong data byte #%d should be 0x%x but was 0x%x", i, *dp, *cp);
 					break;
 				}
 			}
@@ -2006,8 +1948,10 @@ pr_pack(u_char *buf, int cc, struct msghdr *mhdr)
 		if (TST(seq % mx_dup_ck)) {
 			++nrepeats;
 			--nreceived;
+			dupflag = 1;
 		} else {
 			SET(seq % mx_dup_ck);
+			dupflag = 0;
 		}
 
 		if (options & F_QUIET)
@@ -2101,8 +2045,7 @@ pr_pack(u_char *buf, int cc, struct msghdr *mhdr)
 					putchar(')');
 					goto fqdnend;
 				}
-				ttl = (int32_t)ntohl(*(u_int32_t *)
-				    &buf[off+ICMP6ECHOLEN+8]);
+				ttl = (int32_t)ntohl(*(u_long *)&buf[off+ICMP6ECHOLEN+8]);
 				if (comma)
 					printf(",");
 				if (!(ni->ni_flags & NI_FQDN_FLAG_VALIDTTL)) {
@@ -2173,6 +2116,7 @@ pr_exthdrs(struct msghdr *mhdr)
 	void	*bufp;
 	struct cmsghdr *cm;
 
+	bufsize = 0;
 	bufp = mhdr->msg_control;
 	for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(mhdr); cm;
 	     cm = (struct cmsghdr *)CMSG_NXTHDR(mhdr, cm)) {
@@ -2673,30 +2617,12 @@ tvsub(struct timeval *out, struct timeval *in)
 void
 onint(int notused __unused)
 {
-	summary();
-
-	if (res != NULL)
-		freeaddrinfo(res);
-
-        if (packet != NULL)
-                free(packet);
-
-	if (cm != NULL)
-		free(cm);
-
-	if (scmsg != NULL)
-		free(scmsg);
-
-#ifndef HAVE_POLL_H
-        if (fdmaskp != NULL)
-                free(fdmaskp);
-#endif
-
-	(void)signal(SIGINT, SIG_DFL);
-	(void)kill(getpid(), SIGINT);
-
-	/* NOTREACHED */
-	exit(1);
+	/*
+	 * When doing reverse DNS lookups, the seenint flag might not
+	 * be noticed for a while.  Just exit if we get a second SIGINT.
+	 */
+	if ((options & F_HOSTNAME) && seenint != 0)
+		_exit(nreceived ? 0 : 2);
 }
 
 /*
@@ -2719,6 +2645,8 @@ summary(void)
 			    ((((double)ntransmitted - nreceived) * 100.0) /
 			    ntransmitted));
 	}
+	if (nrcvtimeout)
+		printf(", %ld packets out of wait time", nrcvtimeout);
 	(void)putchar('\n');
 	if (nreceived && timing) {
 		/* Only display average to microseconds */
@@ -3162,7 +3090,7 @@ setpolicy(int so __unused, char *policy)
 #endif
 
 char *
-nigroup(char *name)
+nigroup(char *name, int nig_oldmcprefix)
 {
 	char *p;
 	char *q;
@@ -3172,6 +3100,7 @@ nigroup(char *name)
 	size_t l;
 	char hbuf[NI_MAXHOST];
 	struct in6_addr in6;
+	int valid;
 
 	p = strchr(name, '.');
 	if (!p)
@@ -3187,7 +3116,7 @@ nigroup(char *name)
 			*q = tolower(*(unsigned char *)q);
 	}
 
-	/* generate 8 bytes of pseudo-random value. */
+	/* generate 16 bytes of pseudo-random value. */
 	memset(&ctxt, 0, sizeof(ctxt));
 	MD5Init(&ctxt);
 	c = l & 0xff;
@@ -3195,9 +3124,23 @@ nigroup(char *name)
 	MD5Update(&ctxt, (unsigned char *)name, l);
 	MD5Final(digest, &ctxt);
 
-	if (inet_pton(AF_INET6, "ff02::2:0000:0000", &in6) != 1)
+	if (nig_oldmcprefix) {
+		/* draft-ietf-ipngwg-icmp-name-lookup */
+		valid = inet_pton(AF_INET6, "ff02::2:0000:0000", &in6);
+	} else {
+		/* RFC 4620 */
+		valid = inet_pton(AF_INET6, "ff02::2:ff00:0000", &in6);
+	}
+	if (valid != 1)
 		return NULL;	/*XXX*/
+	
+	if (nig_oldmcprefix) {
+		/* draft-ietf-ipngwg-icmp-name-lookup */
 	bcopy(digest, &in6.s6_addr[12], 4);
+	} else {
+		/* RFC 4620 */
+		bcopy(digest, &in6.s6_addr[13], 3);
+	}
 
 	if (inet_ntop(AF_INET6, &in6, hbuf, sizeof(hbuf)) == NULL)
 		return NULL;

@@ -498,14 +498,27 @@ add_match_sub(Cmatcher m, char *l, int ll, char *w, int wl)
 /**/
 int
 match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
-	  int sfx, int test, int part)
+	  const int sfx, int test, int part)
 {
-    int ll = strlen(l), lw = strlen(w), oll = ll, olw = lw, exact = 0, wexact = 0;
-    int il = 0, iw = 0, t, ind, add, he = 0, bpc, obc = bc, bslash;
+    /* How many characters from the line string and from the word string are
+     * yet to be matched. */
+    int ll = strlen(l), lw = strlen(w);
+    /* Number of characters from the line string and word string matched. */
+    int il = 0, iw = 0;
+    /* How many characters were matched exactly in the line and in the word. */
+    int exact = 0, wexact = 0;
+    int he = 0;
+    int bslash;
     char *ow;
-    Cmlist ms;
+    Cmlist ms; /* loop variable */
     Cmatcher mp, lm = NULL;
     Brinfo bp = NULL;
+    const int obc = bc;
+    const int ind = (sfx ? -1 : 0);
+    const int add = (sfx ? -1 : 1);
+    const int original_ll = ll, original_lw = lw;
+
+    /* INVARIANT: il+ll == original_ll; iw+lw == original_lw */
 
     if (!test) {
 	start_match();
@@ -516,9 +529,6 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 
     if (sfx) {
 	l += ll; w += lw;
-	ind = -1; add = -1;
-    } else {
-	ind = 0; add = 1;
     }
     /* ow will always point to the beginning (or end) of that sub-string
      * in w that wasn't put in the match-variables yet. */
@@ -559,8 +569,7 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 	bslash = 0;
 	if (!sfx && lw && (!part || test) &&
 	    (l[ind] == w[ind] ||
-	     (bslash = (lw > 1 && w[ind] == '\\' &&
-			(ind ? (w[0] == l[0]) : (w[1] == l[0])))))) {
+	     (bslash = (lw > 1 && w[ind] == '\\' && w[ind+1] == l[0])))) {
 	    /* No matcher could be used, but the strings have the same
 	     * character here, skip over it. */
 	    l += add; w += (bslash ? (add + add) : add);
@@ -583,9 +592,8 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 	/* First try the matchers. Err... see above. */
 	for (mp = NULL, ms = mstack; !mp && ms; ms = ms->next) {
 	    for (mp = ms->matcher; mp; mp = mp->next) {
-		t = 1;
 		if ((lm && lm == mp) ||
-		    ((oll == ll || olw == lw) &&
+		    ((original_ll == ll || original_lw == lw) &&
 		     (test == 1 || (test && !mp->left && !mp->right)) &&
 		     mp->wlen < 0))
 		    /* If we were called recursively, don't use `*' patterns
@@ -593,9 +601,88 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 		    continue;
 
 		if (mp->wlen < 0) {
-		    int both, loff, aoff, llen, alen, zoff, moff, ct, ict, aol;
-		    char *tp, savl = '\0', savw;
-		    Cpattern ap, aop;
+		    /* `*'-pattern. */
+		    /*
+		     * Similar to the identically-named variable in the 'else'
+		     * block.
+		     */
+		    int t;
+		    /* 
+		     * 1 iff the anchor and the word are on the same side of
+		     * the line pattern; that is: if either
+		     * - the anchor is on the left and we are matching
+		     *   a prefix; or
+		     * - the anchor is on the right and we are matching
+		     *   a suffix.
+		     */
+		    int both;
+		    /*
+		     * Offset from the line pattern pointer ('l') to the start
+		     * of the line pattern.
+		     */
+		    int loff;
+		    /*
+		     * Offset from the line pattern pointer ('l') to the start
+		     * of the anchor.
+		     */
+		    int aoff;
+		    /*
+		     * The length of the line pattern.
+		     */
+		    int llen;
+		    /*
+		     * The length of the anchor.
+		     *
+		     * SEE: ap; aol, aop
+		     */
+		    int alen;
+		    /*
+		     * ### Related to 'zoff', which was removed in 2016.
+		     */
+		    int moff;
+		    /*
+		     * ### These two are related.
+		     *
+		     * ### They may have a relation similar to that of lw/iw
+		     * ### (q.v.), at least during the 'for' loop.  They may be
+		     * ### overloaded/repurposed after it.
+		     */
+		    int ct, ict;
+		    /*
+		     * The length of the OTHER anchor: the left anchor when
+		     * we're anchored on the right, and of the right anchor
+		     * when we're anchored on the left.
+		     */
+		    int aol;
+		    /*
+		     * LOST: Documentation comment.  Last seen 10 years ago in
+		     * the temporal lobe.  Reward promised for its safe return.
+		     * Contact zsh-workers@zsh.org.
+		     */
+		    char *tp;
+		    /* 
+		     * Temporary variable.  Used as temporary storage for a
+		     *
+		     *     {
+		     *         () {
+		     *           local foo="$foo"
+		     *           foo[1]=bar
+		     *           ...
+		     *         }
+		     *         (use original $foo here)
+		     *     }
+		     *
+		     * operation.  Similar to savw.
+		     */
+		    char savl = 0;
+		    /*
+		     * The anchor on this end.
+		     */
+		    Cpattern ap;
+		    /*
+		     * The anchor on the other end.
+		     */
+		    Cpattern aop;
 
 		    /* This is for `*' patterns, first initialise some
 		     * local variables. */
@@ -611,14 +698,14 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 			continue;
 
 		    if (mp->flags & CMF_LEFT) {
-			ap = mp->left; zoff = 0; moff = alen; aop = mp->right;
+			ap = mp->left; moff = alen; aop = mp->right;
 			if (sfx) {
 			    both = 0; loff = -llen; aoff = -(llen + alen);
 			} else {
 			    both = 1; loff = alen; aoff = 0;
 			}
 		    } else {
-			ap = mp->right; zoff = alen; moff = 0; aop = mp->left;
+			ap = mp->right; moff = 0; aop = mp->left;
 			if (sfx) {
 			    both = 1; loff = -(llen + alen); aoff = -alen;
 			} else {
@@ -644,8 +731,8 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 
 		    /* Fine, now we call ourselves recursively to find the
 		     * string matched by the `*'. */
-		    if (sfx && (savl = l[-(llen + zoff)]))
-			l[-(llen + zoff)] = '\0';
+		    if (sfx && (savl = l[-(llen + alen)]))
+			l[-(llen + alen)] = '\0';
 		    for (t = 0, tp = w, ct = 0, ict = lw - alen + 1;
 			 ict;
 			 tp += add, ct++, ict--) {
@@ -667,22 +754,25 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 				!match_parts(l + aoff , tp - moff, alen, part))
 				break;
 			    if (sfx) {
-				if ((savw = tp[-zoff]))
-				    tp[-zoff] = '\0';
+				/* Call ourselves recursively with the
+				 * anchor removed. */
+				char savw;
+				if ((savw = tp[-alen]))
+				    tp[-alen] = '\0';
 				t = match_str(l - ll, w - lw,
-					      NULL, 0, NULL, 1, 2, part);
+					      NULL, 0, NULL, sfx, 2, part);
 				if (savw)
-				    tp[-zoff] = savw;
+				    tp[-alen] = savw;
 			    } else
 				t = match_str(l + llen + moff, tp + moff,
-					      NULL, 0, NULL, 0, 1, part);
+					      NULL, 0, NULL, sfx, 1, part);
 			    if (t || (mp->wlen == -1 && !both))
 				break;
 			}
 		    }
 		    ict = ct;
 		    if (sfx && savl)
-			l[-(llen + zoff)] = savl;
+			l[-(llen + alen)] = savl;
 
 		    /* Have we found a position in w where the rest of l
 		     * matches? */
@@ -752,18 +842,22 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 		    bc += llen;
 		    exact = 0;
 
-		    if (!test)
+		    if (!test) {
+			int bpc;
 			while (bp &&
 			       bc >= (bpc = (useqbr ? bp->qpos : bp->pos))) {
 			    bp->curpos = matchbufadded + bpc - bc + obc;
 			    bp = bp->next;
 			}
+		    }
 		    ow = w;
 
 		    if (!llen && !alen) {
 			lm = mp;
-			if (he)
+			if (he) {
+			    /* Signal the outer for loop to continue. */
 			    mp = NULL;
+			}
 			else
 			    he = 1;
 		    } else {
@@ -772,6 +866,11 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 		    break;
 		} else if (ll >= mp->llen && lw >= mp->wlen) {
 		    /* Non-`*'-pattern. */
+		    /*
+		     * Similar to the identically-named variable in the 'if'
+		     * block.
+		     */
+		    int t = 1;
 		    char *tl, *tw;
 		    int tll, tlw, til, tiw;
 
@@ -875,12 +974,14 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 		    bc += mp->llen;
 		    exact = 0;
 
-		    if (!test)
+		    if (!test) {
+			int bpc;
 			while (bp &&
 			       bc >= (bpc = (useqbr ? bp->qpos : bp->pos))) {
 			    bp->curpos = matchbufadded + bpc - bc + obc;
 			    bp = bp->next;
 			}
+		    }
 		    ow = w;
 		    lm = NULL;
 		    he = 0;
@@ -896,8 +997,7 @@ match_str(char *l, char *w, Brinfo *bpp, int bc, int *rwlp,
 	bslash = 0;
 	if ((!test || sfx) && lw &&
 	    (l[ind] == w[ind] ||
-	     (bslash = (lw > 1 && w[ind] == '\\' &&
-			(ind ? (w[0] == l[0]) : (w[1] == l[0])))))) {
+	     (bslash = (lw > 1 && w[ind] == '\\' && w[ind+1] == l[0])))) {
 	    /* No matcher could be used, but the strings have the same
 	     * character here, skip over it. */
 	    l += add; w += (bslash ? (add + add ) : add);

@@ -47,9 +47,8 @@ public:
 private:
     bool isSearchField() const final { return true; }
 
-    void centerContainerIfNeeded(RenderBox*) const override;
+    void willBeDestroyed() override;
     LayoutUnit computeControlLogicalHeight(LayoutUnit lineHeight, LayoutUnit nonContentHeight) const override;
-    LayoutUnit computeLogicalHeightLimit() const override;
     void updateFromElement() override;
     EVisibility visibilityForCancelButton() const;
     const AtomicString& autosaveName() const;

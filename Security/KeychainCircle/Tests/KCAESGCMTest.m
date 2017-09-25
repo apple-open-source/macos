@@ -72,6 +72,7 @@
     [archiver finishEncoding];
 
     NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingWithData:data];
+    unarchiver.requiresSecureCoding = YES;
 
     // Customize the unarchiver.
     KCAESGCMDuplexSession *result = [unarchiver decodeObjectForKey:@"Top"];

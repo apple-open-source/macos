@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *****************************************************************************************
 * Copyright (C) 2010-2012,2015-2016 International Business Machines
@@ -138,7 +140,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUDateIntervalFormatPointer, UDateIntervalFormat
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 
 /**

@@ -125,7 +125,7 @@ struct cmatch {
 #define CMF_REMOVE   (1<< 1)	/* remove the suffix */
 #define CMF_ISPAR    (1<< 2)	/* is paramter expansion */
 #define CMF_PARBR    (1<< 3)	/* paramter expansion with a brace */
-#define CMF_PARNEST  (1<< 4)	/* nested paramter expansion */
+#define CMF_PARNEST  (1<< 4)	/* nested parameter expansion */
 #define CMF_NOLIST   (1<< 5)	/* should not be listed */
 #define CMF_DISPLINE (1<< 6)	/* display strings one per line */
 #define CMF_HIDE     (1<< 7)	/* temporarily hide this one */
@@ -153,16 +153,24 @@ struct cmatcher {
     Cpattern line;		/* what matches on the line */
     int llen;			/* length of line pattern */
     Cpattern word;		/* what matches in the word */
-    int wlen;			/* length of word pattern */
+    int wlen;			/* length of word pattern, or:
+				    -1: word pattern is one asterisk
+				    -2: word pattern is two asterisks */
     Cpattern left;		/* left anchor */
     int lalen;			/* length of left anchor */
     Cpattern right;		/* right anchor */
     int ralen;			/* length of right anchor */
 };
 
+/* Flags for cmatcher::flags */
+/* Upon match, insert the string from the line rather than the string
+ * from the trial completion ("word"). */
 #define CMF_LINE  1
+/* Match with an anchor on the left. */
 #define CMF_LEFT  2
+/* Match with an anchor on the right. */
 #define CMF_RIGHT 4
+/* ... */
 #define CMF_INTER 8
 
 /*
@@ -229,7 +237,6 @@ struct cpattern {
  * the anchor. */
 
 typedef struct cline *Cline;
-typedef struct clsub Clsub;
 
 struct cline {
     Cline next;
@@ -285,14 +292,14 @@ struct menuinfo {
 
 /* Flags for compadd and addmatches(). */
 
-#define CAF_QUOTE    1
-#define CAF_NOSORT   2
-#define CAF_MATCH    4
-#define CAF_UNIQCON  8
-#define CAF_UNIQALL 16
-#define CAF_ARRAYS  32
-#define CAF_KEYS    64
-#define CAF_ALL    128
+#define CAF_QUOTE    1    /* compadd -Q: positional arguments already quoted */
+#define CAF_NOSORT   2    /* compadd -V: don't sort */
+#define CAF_MATCH    4    /* compadd without -U: do matching */
+#define CAF_UNIQCON  8    /* compadd -2: don't deduplicate */
+#define CAF_UNIQALL 16    /* compadd -1: deduplicate */
+#define CAF_ARRAYS  32    /* compadd -a or -k: array/assoc parameter names */
+#define CAF_KEYS    64    /* compadd -k: assoc parameter names */
+#define CAF_ALL    128    /* compadd -C: _all_matches */
 
 /* Data for compadd and addmatches() */
 
@@ -367,7 +374,7 @@ typedef void (*CLPrintFunc)(Cmgroup, Cmatch *, int, int, int, int);
 #define CP_QISUFFIX    (1 <<  CPN_QISUFFIX)
 #define CPN_COMPSTATE  9
 #define CP_COMPSTATE   (1 <<  CPN_COMPSTATE)
-
+/* See comprpms */
 #define CP_REALPARAMS  10
 #define CP_ALLREALS    ((unsigned int) 0x3ff)
 
@@ -424,7 +431,7 @@ typedef void (*CLPrintFunc)(Cmgroup, Cmatch *, int, int, int, int);
 #define CP_QUOTES      (1 << CPN_QUOTES)
 #define CPN_IGNORED    25
 #define CP_IGNORED     (1 << CPN_IGNORED)
-
+/* See compkpms */
 #define CP_KEYPARAMS   26
 #define CP_ALLKEYS     ((unsigned int) 0x3ffffff)
 

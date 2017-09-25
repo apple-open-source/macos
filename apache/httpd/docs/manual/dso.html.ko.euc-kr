@@ -43,7 +43,7 @@
 
     <p>이 문서는 DSO 모듈 사용법과 배경 이론을 설명한다.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#implementation">구현</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#implementation">구현</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#usage">사용법 요약</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#background">배경지식</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#advantages">장단점</a></li>
@@ -297,7 +297,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/dso.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">모듈</a> | <a href="./mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">용어</a> | <a href="./sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

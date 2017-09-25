@@ -264,7 +264,7 @@ xpc_object_t create_all_sandbox_extensions(xpc_object_t path_dict)
 static
 void handle_request_event(struct connection_info *info, xpc_object_t event)
 {
-    xpc_connection_t peer = xpc_dictionary_get_connection(event);
+    xpc_connection_t peer = xpc_dictionary_get_remote_connection(event);
     xpc_type_t xtype = xpc_get_type(event);
     if (info->done) {
         syslog(LOG_ERR, "event %p while done", event);
@@ -414,6 +414,9 @@ int main(int argc, const char *argv[])
             syslog(LOG_ERR, "Can't lookup SecKeychainGetPath in %p: %s", security_framework, dlerror());
             return EX_OSERR;
         }
+    } else {
+        syslog(LOG_ERR, "Failed to open Security framework: %s", dlerror());
+        return EX_OSERR;
     }
     
     xpc_main(handle_connection_event);

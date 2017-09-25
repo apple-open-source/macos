@@ -37,7 +37,7 @@
 available</td></tr>
 <tr><th><a href="module-dict.html#Status">Status:</a></th><td>Core</td></tr></table>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#acceptfilter">AcceptFilter</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#acceptpathinfo">AcceptPathInfo</a></li>
@@ -850,13 +850,17 @@ DocumentRoot "/var/www/${servername}/htdocs"</pre>
     <p>Variable names may not contain colon ":" characters, to avoid clashes
     with <code class="directive"><a href="../mod/mod_rewrite.html#rewritemap">RewriteMap</a></code>'s syntax.</p>
 
-    <p>While this directive is supported in virtual host and directory context,
-       the changes it makes are visible to any later configuration
-       directives, beyond any enclosing configuration section (matching or not).
-       Support for the other configuration sections was erroneously permitted by the initial
-       implementation of this directive and is only preserved (with unintuitive 
-       results) to maintain backward compatibility.</p>
+    <div class="note"><h3>Virtual Host scope and pitfalls</h3>
+      <p>While this directive is supported in virtual host context,
+         the changes it makes are visible to any later configuration
+         directives, beyond any enclosing virtual host.</p>
+    </div>
 
+<h3>See also</h3>
+<ul>
+<li><code class="directive"><a href="#undefine">UnDefine</a></code></li>
+<li><code class="directive"><a href="#ifdefine">IfDefine</a></code></li>
+</ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="Directory" id="Directory">&lt;Directory&gt;</a> <a name="directory" id="directory">Directive</a></h2>
@@ -1014,7 +1018,7 @@ the contents of file-system directories matching a regular expression.</td></tr>
     <p>matches directories in <code>/www/</code> (or any subdirectory thereof)
     that consist of three numbers.</p>
 
-   <div class="note"><h3>Compatability</h3>
+   <div class="note"><h3>Compatibility</h3>
       Prior to 2.3.9, this directive implicitly applied to sub-directories
       (like <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code>) and
       could not match the end of line symbol ($).  In 2.3.9 and later,
@@ -1095,6 +1099,7 @@ satisfied by a request at runtime</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table>
     <p>The <code class="directive">&lt;Else&gt;</code> applies the enclosed
     directives if and only if the most recent
@@ -1142,6 +1147,7 @@ satisfied</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table>
     <p>The <code class="directive">&lt;ElseIf&gt;</code> applies the enclosed
     directives if and only if both the given condition evaluates to true and
@@ -2017,56 +2023,106 @@ media type in the HTTP Content-Type header field</td></tr>
     (<a href="https://tools.ietf.org/html/rfc7230#section-3.1.1">RFC 7230 §3.1.1</a>) and the HTTP Request Header Fields
     (<a href="https://tools.ietf.org/html/rfc7230#section-3.2">RFC 7230 §3.2</a>), which are now applied by default or using
     the <code>Strict</code> option. Due to legacy modules, applications or
-    custom user-agents which must be deperecated the <code>Unsafe</code>
-    option has been added to revert to the legacy behaviors. These rules
-    are applied prior to request processing, so must be configured at the
-    global or default (first) matching virtual host section, by IP/port
-    interface (and not by name) to be honored.</p>
+    custom user-agents which must be deprecated the <code>Unsafe</code>
+    option has been added to revert to the legacy behaviors.</p>
 
-    <p>Prior to the introduction of this directive, the Apache HTTP Server
-    request message parsers were tolerant of a number of forms of input
-    which did not conform to the protocol.
-    <a href="https://tools.ietf.org/html/rfc7230#section-9.4">RFC 7230 §9.4 Request Splitting</a> and
-    <a href="https://tools.ietf.org/html/rfc7230#section-9.5">§9.5 Response Smuggling</a> call out only two of the potential
-    risks of accepting non-conformant request messages, while
-    <a href="https://tools.ietf.org/html/rfc7230#section-3.5">RFC 7230 §3.5</a> "Message Parsing Robustness" identify the
-    risks of accepting obscure whitespace and request message formatting. 
-    As of the introduction of this directive, all grammer rules of the
-    specification are enforced in the default <code>Strict</code> operating
-    mode, and the strict whitespace suggested by section 3.5 is enforced
-    and cannot be relaxed.</p>
+    <p>These rules are applied prior to request processing,
+    so must be configured at the global or default (first) matching
+    virtual host section, by IP/port interface (and not by name)
+    to be honored.</p>
 
-    <p>Users are strongly cautioned against toggling the <code>Unsafe</code>
-    mode of operation, particularly on outward-facing, publicly accessible
-    server deployments.  If an interface is required for faulty monitoring
-    or other custom service consumers running on an intranet, users should
-    toggle the Unsafe option only on a specific virtual host configured
-    to service their internal private network.</p>
+    <p>The directive accepts three parameters from the following list
+       of choices, applying the default to the ones not specified:</p>
 
-    <p>Reviewing the messages logged to the <code class="directive">ErrorLog</code>,
-    configured with <code class="directive">LogLevel</code> <code>debug</code> level,
+    <dl>
+    <dt>Strict|Unsafe</dt>
+    <dd>
+      <p>Prior to the introduction of this directive, the Apache HTTP Server
+      request message parsers were tolerant of a number of forms of input
+      which did not conform to the protocol.
+      <a href="https://tools.ietf.org/html/rfc7230#section-9.4">RFC 7230 §9.4 Request Splitting</a> and
+      <a href="https://tools.ietf.org/html/rfc7230#section-9.5">§9.5 Response Smuggling</a> call out only two of the potential
+      risks of accepting non-conformant request messages, while
+      <a href="https://tools.ietf.org/html/rfc7230#section-3.5">RFC 7230 §3.5</a> "Message Parsing Robustness" identify the
+      risks of accepting obscure whitespace and request message formatting. 
+      As of the introduction of this directive, all grammar rules of the
+      specification are enforced in the default <code>Strict</code> operating
+      mode, and the strict whitespace suggested by section 3.5 is enforced
+      and cannot be relaxed.</p>
+
+      <div class="warning"><h3>Security risks of Unsafe</h3>
+        <p>Users are strongly cautioned against toggling the <code>Unsafe</code>
+        mode of operation, particularly on outward-facing, publicly accessible
+        server deployments.  If an interface is required for faulty monitoring
+        or other custom service consumers running on an intranet, users should
+        toggle the Unsafe option only on a specific virtual host configured
+        to service their internal private network.</p>
+      </div>
+
+      <div class="example"><h3>Example of a request leading to HTTP 400 with Strict mode</h3><p><code>
+        
+        # Missing CRLF<br />
+        GET / HTTP/1.0\n\n
+      </code></p></div>
+      <div class="warning"><h3>Command line tools and CRLF</h3>
+        <p>Some tools need to be forced to use CRLF, otherwise httpd will return
+        a HTTP 400 response like described in the above use case. For example,
+        the <strong>OpenSSL s_client needs the -crlf parameter to work
+        properly</strong>.</p>
+        <p>The <code class="directive"><a href="../mod/mod_dumpio.html#dumpioinput">DumpIOInput</a></code> directive
+        can help while reviewing the HTTP request to identify issues like the
+        absence of CRLF.</p>
+      </div>
+    </dd>
+    <dt>RegisteredMethods|LenientMethods</dt>
+    <dd>
+      <p><a href="https://tools.ietf.org/html/rfc7231#section-4.1">RFC 7231 §4.1</a> "Request Methods" "Overview" requires that
+      origin servers shall respond with a HTTP 501 status code when an
+      unsupported method is encountered in the request line.
+      This already happens when the <code>LenientMethods</code> option is used,
+      but administrators may wish to toggle the <code>RegisteredMethods</code>
+      option and register any non-standard methods using the
+      <code class="directive"><a href="#registerhttpmethod">RegisterHttpMethod</a></code>
+      directive, particularly if the <code>Unsafe</code>
+      option has been toggled.</p>
+
+      <div class="warning"><h3>Forward Proxy compatibility</h3>
+        <p>The <code>RegisteredMethods</code> option should <strong>not</strong>
+        be toggled for forward proxy hosts, as the methods supported by the
+        origin servers are unknown to the proxy server.</p>
+      </div>
+
+      <div class="example"><h3>Example of a request leading to HTTP 501 with LenientMethods mode</h3><p><code>
+        
+        # Unknown HTTP method<br />
+        WOW / HTTP/1.0\r\n\r\n<br /><br />
+        # Lowercase HTTP method<br />
+        get / HTTP/1.0\r\n\r\n<br />
+      </code></p></div>
+      </dd>
+      <dt>Allow0.9|Require1.0</dt>
+      <dd>
+      <p><a href="https://tools.ietf.org/html/rfc2616#section-19.6">RFC 2616 §19.6</a> "Compatibility With Previous Versions" had
+      encouraged HTTP servers to support legacy HTTP/0.9 requests. RFC 7230
+      supersedes this with "The expectation to support HTTP/0.9 requests has
+      been removed" and offers additional comments in 
+      <a href="https://tools.ietf.org/html/rfc7230#appendix-A">RFC 7230 Appendix A</a>. The <code>Require1.0</code> option allows
+      the user to remove support of the default <code>Allow0.9</code> option's
+      behavior.</p>
+
+      <div class="example"><h3>Example of a request leading to HTTP 400 with Require1.0 mode</h3><p><code>
+        
+        # Unsupported HTTP version<br />
+        GET /\r\n\r\n
+      </code></p></div>
+    </dd>
+    </dl>
+    <p>Reviewing the messages logged to the
+    <code class="directive"><a href="#errorlog">ErrorLog</a></code>, configured with
+    <code class="directive"><a href="#loglevel">LogLevel</a></code> <code>debug</code> level,
     can help identify such faulty requests along with their origin.
     Users should pay particular attention to the 400 responses in the access
     log for invalid requests which were unexpectedly rejected.</p>
-
-    <p><a href="https://tools.ietf.org/html/rfc7231#section-4.1">RFC 7231 §4.1</a> "Request Methods" "Overview" requires that
-    origin servers shall respond with an error when an unsupported method
-    is encountered in the request line. This already happens when the
-    <code>LenientMethods</code> option is used, but administrators may wish
-    to toggle the <code>RegisteredMethods</code> option and register any
-    non-standard methods using the <code class="directive">RegisterHttpMethod</code>
-    directive, particularly if the <code>Unsafe</code> option has been toggled.
-    The <code>RegisteredMethods</code> option should <strong>not</strong>
-    be toggled for forward proxy hosts, as the methods supported by the
-    origin servers are unknown to the proxy server.</p>
-
-    <p><a href="https://tools.ietf.org/html/rfc2616#section-19.6">RFC 2616 §19.6</a> "Compatibility With Previous Versions" had
-    encouraged HTTP servers to support legacy HTTP/0.9 requests. RFC 7230
-    superceeds this with "The expectation to support HTTP/0.9 requests has
-    been removed" and offers additional comments in 
-    <a href="https://tools.ietf.org/html/rfc7230#appendix-A">RFC 7230 Appendix A</a>. The <code>Require1.0</code> option allows
-    the user to remove support of the default <code>Allow0.9</code> option's
-    behavior.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -2079,6 +2135,7 @@ satisfied by a request at runtime</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table>
     <p>The <code class="directive">&lt;If&gt;</code> directive
     evaluates an expression at runtime, and applies the enclosed
@@ -3816,7 +3873,7 @@ as if 'QualifyRedirectURL ON' was configured.</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
-<p>HTTP Methods that are not conforming to the relvant RFCs are normally
+<p>HTTP Methods that are not conforming to the relevant RFCs are normally
 rejected by request processing in Apache HTTPD. To avoid this, modules
 can register non-standard HTTP methods they support.
 The <code class="directive">RegisterHttpMethod</code> allows to register such
@@ -4508,8 +4565,9 @@ certain events before failing a request</td></tr>
       for an acknowledgement of a packet if the send buffer is
       full.</li>
 
-      <li>In <code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code>, the length of time to wait for
-      output from a CGI script.</li>
+      <li>In <code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code> and <code class="module"><a href="../mod/mod_cgid.html">mod_cgid</a></code>,
+      the length of time to wait for any individual block of output
+      from a CGI script.</li>
 
       <li>In <code class="module"><a href="../mod/mod_ext_filter.html">mod_ext_filter</a></code>, the length of time to
       wait for output from a filtering process.</li>
@@ -4574,6 +4632,11 @@ certain events before failing a request</td></tr>
        the changes it makes are visible to any later configuration
        directives, beyond any enclosing virtual host.</p>
 
+<h3>See also</h3>
+<ul>
+<li><code class="directive"><a href="#define">Define</a></code></li>
+<li><code class="directive"><a href="#ifdefine">IfDefine</a></code></li>
+</ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="UseCanonicalName" id="UseCanonicalName">UseCanonicalName</a> <a name="usecanonicalname" id="usecanonicalname">Directive</a></h2>
@@ -4831,7 +4894,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

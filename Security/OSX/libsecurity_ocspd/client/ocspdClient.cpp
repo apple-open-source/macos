@@ -39,7 +39,8 @@ class ocspdGlobals
 public:
 	ocspdGlobals();
 	~ocspdGlobals();
-	mach_port_t serverPort();
+    void resetServerPort();
+    mach_port_t serverPort();
 private:
 	UnixPlusPlus::ForkMonitor mForkMonitor;
 	MachPlusPlus::Port mServerPort;
@@ -88,6 +89,15 @@ mach_port_t ocspdGlobals::serverPort()
 	}
 	return mServerPort;
 }
+
+void ocspdGlobals::resetServerPort()
+{
+    try {
+        mServerPort.deallocate();
+    } catch(...) {
+    }
+}
+
 
 static ModuleNexus<ocspdGlobals> OcspdGlobals;
 
@@ -171,6 +181,8 @@ CSSM_RETURN ocspdCacheFlushStale()
 	}
 	krtn = ocsp_client_ocspdCacheFlushStale(serverPort);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocsp_client_ocspdCacheFlushStale: RPC returned %d\n", krtn);
 		return (CSSM_RETURN)krtn;
 	}
@@ -201,6 +213,8 @@ CSSM_RETURN ocspdCertFetch(
 	krtn = ocsp_client_certFetch(serverPort, certURL.Data, (mach_msg_type_number_t)certURL.Length,
 		(void **)&rtnData, &rtnLen);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocspdCertFetch: RPC returned %d\n", krtn);
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
@@ -252,6 +266,8 @@ CSSM_RETURN ocspdCRLFetch(
 		verifyTime, (mach_msg_type_number_t)strlen(verifyTime),
 		(void **)&rtnData, &rtnLen);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocspdCRLFetch: RPC returned %d\n", krtn);
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
@@ -297,6 +313,8 @@ CSSM_RETURN ocspdCRLStatus(
 		issuers.Data, (mach_msg_type_number_t)issuers.Length,
 		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? (mach_msg_type_number_t)crlIssuer->Length : 0,
 		crlURL ? crlURL->Data : NULL, crlURL ? (mach_msg_type_number_t)crlURL->Length : 0);
+    if (krtn == MACH_SEND_INVALID_DEST)
+        OcspdGlobals().resetServerPort();
 
 	return krtn;
 }
@@ -323,6 +341,8 @@ CSSM_RETURN ocspdCRLRefresh(
 	krtn = ocsp_client_crlRefresh(serverPort, staleDays, expireOverlapSeconds,
 		purgeAll, fullCryptoVerify);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocspdCRLRefresh: RPC returned %d\n", krtn);
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
@@ -350,6 +370,8 @@ CSSM_RETURN ocspdCRLFlush(
 	
 	krtn = ocsp_client_crlFlush(serverPort, crlURL.Data, (mach_msg_type_number_t)crlURL.Length);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocspdCRLFlush: RPC returned %d\n", krtn);
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
@@ -381,6 +403,8 @@ OSStatus ocspdTrustSettingsRead(
 	krtn = ocsp_client_trustSettingsRead(serverPort, domain,
 		(void **)&rtnData, &rtnLen, &ortn);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocspdTrustSettingsRead: RPC returned %d\n", krtn);
 		return errSecNotAvailable;
 	}
@@ -426,6 +450,8 @@ OSStatus ocspdTrustSettingsWrite(
 		trustSettings.Data, (mach_msg_type_number_t)trustSettings.Length,
 		&ortn);
 	if(krtn) {
+        if (krtn == MACH_SEND_INVALID_DEST)
+            OcspdGlobals().resetServerPort();
 		ocspdErrorLog("ocspdTrustSettingsWrite: RPC returned %d\n", krtn);
 		return errSecInternalComponent;
 	}

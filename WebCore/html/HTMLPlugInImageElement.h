@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -83,7 +83,7 @@ public:
 protected:
     HTMLPlugInImageElement(const QualifiedName& tagName, Document&, bool createdByParser);
 
-    void didMoveToNewDocument(Document& oldDocument) override;
+    void didMoveToNewDocument(Document& oldDocument, Document& newDocument) override;
     bool requestObject(const String& url, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues) final;
 
     bool isImageType();
@@ -118,7 +118,7 @@ private:
     void defaultEventHandler(Event&) final;
     void dispatchPendingMouseClick() final;
 
-    void updateSnapshot(PassRefPtr<Image>) final;
+    void updateSnapshot(Image*) final;
 
     void startLoadingImage();
     void updateWidgetIfNecessary();

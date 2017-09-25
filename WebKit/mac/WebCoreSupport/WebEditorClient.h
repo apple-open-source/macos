@@ -58,7 +58,7 @@ private:
     int spellCheckerDocumentTag() final;
 
     bool smartInsertDeleteEnabled() final;
-    bool isSelectTrailingWhitespaceEnabled() final;
+    bool isSelectTrailingWhitespaceEnabled() const final;
 
     bool shouldDeleteRange(WebCore::Range*) final;
 
@@ -115,8 +115,8 @@ private:
     void discardedComposition(WebCore::Frame*) final;
     void canceledComposition() final;
 
-    void registerUndoStep(PassRefPtr<WebCore::UndoStep>) final;
-    void registerRedoStep(PassRefPtr<WebCore::UndoStep>) final;
+    void registerUndoStep(WebCore::UndoStep&) final;
+    void registerRedoStep(WebCore::UndoStep&) final;
     void clearUndoRedoOperations() final;
 
     bool canCopyCut(WebCore::Frame*, bool defaultValue) const final;
@@ -150,6 +150,8 @@ private:
     bool performsTwoStepPaste(WebCore::DocumentFragment*) final;
     int pasteboardChangeCount() final;
 #endif
+
+    bool performTwoStepDrop(WebCore::DocumentFragment&, WebCore::Range& destination, bool isMove) final;
     
     bool shouldEraseMarkersAfterChangeSelection(WebCore::TextCheckingType) const final;
     void ignoreWordInSpellDocument(const String&) final;
@@ -166,7 +168,7 @@ private:
 
     void willSetInputMethodState() final;
     void setInputMethodState(bool enabled) final;
-    void requestCheckingOfString(PassRefPtr<WebCore::TextCheckingRequest>, const WebCore::VisibleSelection& currentSelection) final;
+    void requestCheckingOfString(WebCore::TextCheckingRequest&, const WebCore::VisibleSelection& currentSelection) final;
 
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     void requestCandidatesForSelection(const WebCore::VisibleSelection&) final;
@@ -174,7 +176,7 @@ private:
     void handleAcceptedCandidateWithSoftSpaces(WebCore::TextCheckingResult) final;
 #endif
 
-    void registerUndoOrRedoStep(PassRefPtr<WebCore::UndoStep>, bool isRedo);
+    void registerUndoOrRedoStep(WebCore::UndoStep&, bool isRedo);
 
     WebView *m_webView;
     RetainPtr<WebEditorUndoTarget> m_undoTarget;

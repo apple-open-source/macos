@@ -1,16 +1,17 @@
+# frozen_string_literal: false
 # scanf for Ruby
 #
 #--
 # $Release Version: 1.1.2 $
-# $Revision: 33638 $
-# $Id: scanf.rb 33638 2011-11-05 07:37:47Z ktsj $
-# $Author: ktsj $
+# $Revision: 53141 $
+# $Id: scanf.rb 53141 2015-12-16 05:07:31Z naruse $
+# $Author: naruse $
 #++
 #
 # == Description
 #
 # scanf is an implementation of the C function scanf(3), modified as necessary
-# for ruby compatibility.
+# for Ruby compatibility.
 #
 # the methods provided are String#scanf, IO#scanf, and
 # Kernel#scanf. Kernel#scanf is a wrapper around STDIN.scanf.  IO#scanf
@@ -471,8 +472,7 @@ module Scanf
     end
 
     def width
-      w = @spec_string[/%\*?(\d+)/, 1]
-      w && w.to_i
+      @spec_string[/%\*?(\d+)/, 1]&.to_i
     end
 
     def mid_match?
@@ -603,14 +603,14 @@ class IO
   # If a block is given, the value from that is returned from
   # the yield is added to an output array.
   #
-  #   "123 456".block_scanf("%d) do |digit,| # the ',' unpacks the Array
+  #   "123 456".block_scanf("%d") do |digit,| # the ',' unpacks the Array
   #     digit + 100
   #   end
   #   # => [223, 556]
   #
   # See Scanf for details on creating a format string.
   #
-  # You will need to require 'scanf' to use use IO#scanf.
+  # You will need to require 'scanf' to use IO#scanf.
   def scanf(str,&b) #:yield: current_match
     return block_scanf(str,&b) if b
     return [] unless str.size > 0
@@ -657,7 +657,12 @@ class IO
       break if fstr.last_spec
       fstr.prune
     end
-    seek(start_position + matched_so_far, IO::SEEK_SET) rescue Errno::ESPIPE
+
+    begin
+      seek(start_position + matched_so_far, IO::SEEK_SET)
+    rescue Errno::ESPIPE
+    end
+
     soak_up_spaces if fstr.last_spec && fstr.space
 
     return final_result

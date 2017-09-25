@@ -35,7 +35,7 @@ using namespace WebCore;
 
 namespace JSC {
 
-const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &Base::s_info, 0, CREATE_METHOD_TABLE(RuntimeArray) };
+const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(RuntimeArray) };
 
 RuntimeArray::RuntimeArray(ExecState* exec, Structure* structure)
     : JSArray(exec->vm(), structure, 0)
@@ -46,7 +46,7 @@ RuntimeArray::RuntimeArray(ExecState* exec, Structure* structure)
 void RuntimeArray::finishCreation(VM& vm, Bindings::Array* array)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     m_array = array;
 }
 
@@ -65,7 +65,7 @@ EncodedJSValue RuntimeArray::lengthGetter(ExecState* exec, EncodedJSValue thisVa
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    RuntimeArray* thisObject = jsDynamicDowncast<RuntimeArray*>(JSValue::decode(thisValue));
+    RuntimeArray* thisObject = jsDynamicDowncast<RuntimeArray*>(vm, JSValue::decode(thisValue));
     if (!thisObject)
         return throwVMTypeError(exec, scope);
     return JSValue::encode(jsNumber(thisObject->getLength()));

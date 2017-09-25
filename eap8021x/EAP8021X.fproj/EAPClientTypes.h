@@ -54,6 +54,7 @@ enum {
     kEAPClientStatusResourceUnavailable = 16,
     kEAPClientStatusProtocolError = 17,
     kEAPClientStatusAuthenticationStalled = 18,
+    kEAPClientStatusIdentityDecryptionError = 19,
 
     /* domain specific errors */
     kEAPClientStatusDomainSpecificErrorStart = 1000,

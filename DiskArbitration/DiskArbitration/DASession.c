@@ -477,7 +477,6 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator )
 
                 status = _DAServerSessionCreate( masterPort,
                                                  basename( ( char * ) _dyld_get_image_name( 0 ) ),
-                                                 getpid( ),
                                                  &server );
 
                 mach_port_deallocate( mach_task_self( ), masterPort );

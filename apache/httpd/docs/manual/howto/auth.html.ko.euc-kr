@@ -26,6 +26,7 @@
 접근제어(Access Control)</h1>
 <div class="toplang">
 <p><span>가능한 언어: </span><a href="../en/howto/auth.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/auth.html" hreflang="es" rel="alternate" title="Espa&#241;ol">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/auth.html" hreflang="fr" rel="alternate" title="Fran&#231;ais">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/auth.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/auth.html" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -38,7 +39,7 @@
     확인하는 절차이다. 권한부여(authorization)는 가고 싶은 곳으로
     가도록 혹은 원하는 정보를 얻도록 허용하는 과정이다.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">관련 모듈과 지시어</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">관련 모듈과 지시어</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#introduction">소개</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#theprerequisites">기본 지식</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#gettingitworking">기본적인 설정하기</a></li>
@@ -322,6 +323,7 @@
 </div></div>
 <div class="bottomlang">
 <p><span>가능한 언어: </span><a href="../en/howto/auth.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/auth.html" hreflang="es" rel="alternate" title="Espa&#241;ol">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/auth.html" hreflang="fr" rel="alternate" title="Fran&#231;ais">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/auth.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/auth.html" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -344,7 +346,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/auth.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

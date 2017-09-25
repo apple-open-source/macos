@@ -124,7 +124,7 @@ static void tests(void)
     /* SHA1 cert now passes SSL server*/
     setTrust(&trust, sha1_certs, serverPolicy);
     require_noerr_string(SecTrustEvaluate(trust, &trustResult), cleanup, "failed to evaluate trust");
-    is(trustResult, kSecTrustResultUnspecified, "accept test: user-trusted SHA-1 SSL server");
+    is(trustResult, kSecTrustResultProceed, "accept test: user-trusted SHA-1 SSL server");
 
     /* Remove trust setting for root */
 #if TARGET_OS_IPHONE

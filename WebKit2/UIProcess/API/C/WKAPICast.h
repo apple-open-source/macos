@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@
 #include "HTTPCookieAcceptPolicy.h"
 #include "InjectedBundleHitTestResultMediaType.h"
 #include "PluginModuleInfo.h"
+#include "ProcessTerminationReason.h"
 #include "ResourceCachesToClear.h"
 #include "WKBundleHitTestResult.h"
 #include "WKContext.h"
@@ -40,10 +41,10 @@
 #include "WKPage.h"
 #include "WKPreferencesRef.h"
 #include "WKPreferencesRefPrivate.h"
+#include "WKProcessTerminationReason.h"
 #include "WKProtectionSpaceTypes.h"
 #include "WKResourceCacheManager.h"
 #include "WKSharedAPICast.h"
-#include "WebGrammarDetail.h"
 #include <WebCore/Credential.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/PluginData.h>
@@ -51,6 +52,8 @@
 #include <WebCore/Settings.h>
 
 namespace API {
+class ContentRuleList;
+class ContentRuleListStore;
 class ExperimentalFeature;
 class FrameHandle;
 class FrameInfo;
@@ -63,8 +66,6 @@ class OpenPanelParameters;
 class PageConfiguration;
 class ProcessPoolConfiguration;
 class SessionState;
-class UserContentExtension;
-class UserContentExtensionStore;
 class UserScript;
 class WebsiteDataStore;
 class WebsitePolicies;
@@ -91,7 +92,6 @@ class WebFramePolicyListenerProxy;
 class WebFrameProxy;
 class WebGeolocationManagerProxy;
 class WebGeolocationPosition;
-class WebGrammarDetail;
 class WebIconDatabase;
 class WebInspectorProxy;
 class WebMediaSessionFocusManager;
@@ -107,9 +107,9 @@ class WebProcessPool;
 class WebProtectionSpace;
 class WebRenderLayer;
 class WebRenderObject;
+class WebResourceLoadStatisticsManager;
 class WebTextChecker;
 class WebUserContentControllerProxy;
-class WebVibrationProxy;
 class WebViewportAttributes;
 struct WebsitePolicies;
 
@@ -133,7 +133,6 @@ WK_ADD_API_MAPPING(WKFrameRef, WebFrameProxy)
 WK_ADD_API_MAPPING(WKGeolocationManagerRef, WebGeolocationManagerProxy)
 WK_ADD_API_MAPPING(WKGeolocationPermissionRequestRef, GeolocationPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKGeolocationPositionRef, WebGeolocationPosition)
-WK_ADD_API_MAPPING(WKGrammarDetailRef, WebGrammarDetail)
 WK_ADD_API_MAPPING(WKHitTestResultRef, API::HitTestResult)
 WK_ADD_API_MAPPING(WKIconDatabaseRef, WebIconDatabase)
 WK_ADD_API_MAPPING(WKInspectorRef, WebInspectorProxy)
@@ -156,15 +155,15 @@ WK_ADD_API_MAPPING(WKPreferencesRef, WebPreferences)
 WK_ADD_API_MAPPING(WKProtectionSpaceRef, WebProtectionSpace)
 WK_ADD_API_MAPPING(WKRenderLayerRef, WebRenderLayer)
 WK_ADD_API_MAPPING(WKRenderObjectRef, WebRenderObject)
+WK_ADD_API_MAPPING(WKResourceLoadStatisticsManagerRef, WebResourceLoadStatisticsManager)
 WK_ADD_API_MAPPING(WKSessionStateRef, API::SessionState)
 WK_ADD_API_MAPPING(WKTextCheckerRef, WebTextChecker)
 WK_ADD_API_MAPPING(WKUserContentControllerRef, WebUserContentControllerProxy)
-WK_ADD_API_MAPPING(WKUserContentExtensionStoreRef, API::UserContentExtensionStore)
-WK_ADD_API_MAPPING(WKUserContentFilterRef, API::UserContentExtension)
+WK_ADD_API_MAPPING(WKUserContentExtensionStoreRef, API::ContentRuleListStore)
+WK_ADD_API_MAPPING(WKUserContentFilterRef, API::ContentRuleList)
 WK_ADD_API_MAPPING(WKUserMediaPermissionCheckRef, UserMediaPermissionCheckProxy)
 WK_ADD_API_MAPPING(WKUserMediaPermissionRequestRef, UserMediaPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKUserScriptRef, API::UserScript)
-WK_ADD_API_MAPPING(WKVibrationRef, WebVibrationProxy)
 WK_ADD_API_MAPPING(WKViewportAttributesRef, WebViewportAttributes)
 WK_ADD_API_MAPPING(WKWebsiteDataStoreRef, API::WebsiteDataStore)
 WK_ADD_API_MAPPING(WKWebsitePoliciesRef, API::WebsitePolicies)
@@ -229,6 +228,22 @@ inline WKCacheModel toAPI(CacheModel cacheModel)
     }
     
     return kWKCacheModelDocumentViewer;
+}
+
+inline WKProcessTerminationReason toAPI(ProcessTerminationReason reason)
+{
+    switch (reason) {
+    case ProcessTerminationReason::ExceededMemoryLimit:
+        return kWKProcessTerminationReasonExceededMemoryLimit;
+    case ProcessTerminationReason::ExceededCPULimit:
+        return kWKProcessTerminationReasonExceededCPULimit;
+    case ProcessTerminationReason::RequestedByClient:
+        return kWKProcessTerminationReasonRequestedByClient;
+    case ProcessTerminationReason::Crash:
+        return kWKProcessTerminationReasonCrash;
+    }
+
+    return kWKProcessTerminationReasonCrash;
 }
 
 inline FontSmoothingLevel toFontSmoothingLevel(WKFontSmoothingLevel wkLevel)
@@ -544,19 +559,14 @@ inline WKWebGLLoadPolicy toAPI(WebCore::WebGLLoadPolicy webGLLoadPolicy)
     return kWKWebGLLoadPolicyLoadNormally;
 }
 
-inline ProxyingRefPtr<WebGrammarDetail> toAPI(const WebCore::GrammarDetail& grammarDetail)
-{
-    return ProxyingRefPtr<WebGrammarDetail>(WebGrammarDetail::create(grammarDetail));
-}
-
 } // namespace WebKit
 
 #if defined(BUILDING_GTK__)
 #include "WKAPICastGtk.h"
 #endif
 
-#if defined(BUILDING_EFL__)
-#include "WKAPICastEfl.h"
+#if defined(BUILDING_WPE__)
+#include "WKAPICastWPE.h"
 #endif
 
 #endif // WKAPICast_h

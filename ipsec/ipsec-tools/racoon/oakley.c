@@ -60,9 +60,6 @@
 #  include <time.h>
 # endif
 #endif
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
 
 #include "var.h"
 #include "misc.h"
@@ -91,14 +88,13 @@
 #if HAVE_OPENDIR
 #include "open_dir.h"
 #endif
-#include "dnssec.h"
 #include "sockmisc.h"
 #include "strnames.h"
 #include "gcmalloc.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include "remoteconf.h"
 #include "vpn_control.h"
-#if TARGET_OS_EMBEDDED
+#ifndef HAVE_OPENSSL
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #endif
@@ -851,7 +847,7 @@ oakley_compute_hash3(phase1_handle_t *iph1, u_int32_t msgid, vchar_t *body)
 	len = 1 + sizeof(u_int32_t) + body->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -899,7 +895,7 @@ oakley_compute_hash1(phase1_handle_t *iph1, u_int32_t msgid, vchar_t *body)
 	len = sizeof(u_int32_t) + body->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -1262,8 +1258,15 @@ oakley_verify_userid(phase1_handle_t *iph1)
 	cert_t  *p;
 	vchar_t *user_id;
 	int      user_id_found = 0;
+#ifndef HAVE_OPENSSL
+	SecCertificateRef certificate;
+	CFArrayRef commonNames;
+	CFIndex i, l;
+	CFStringRef name;
+#endif /* HAVE_OPENSSL */
 
 	for (p = iph1->cert_p; p; p = p->chain) {
+#ifdef HAVE_OPENSSL
 		user_id = eay_get_x509_common_name(&p->cert); //%%%%%%%% fix this
 		if (user_id) {
 			user_id_found = 1;
@@ -1274,6 +1277,45 @@ oakley_verify_userid(phase1_handle_t *iph1)
 			}
 			vfree(user_id);
 		}
+#else /* HAVE_OPENSSL */
+		certificate = crypto_cssm_x509cert_CreateSecCertificateRef(&p->cert);
+		if (certificate == NULL) {
+			plog(ASL_LEVEL_ERR,
+				 "ovuid failed to get SecCertificateRef\n");
+			continue;
+		}
+
+		commonNames = SecCertificateCopyCommonNames(certificate);
+		if (commonNames == NULL) {
+			plog(ASL_LEVEL_ERR,
+				 "ovuid failed to get commonNames\n");
+			CFRelease(certificate);
+			continue;
+		}
+
+		l = CFArrayGetCount(commonNames);
+		for (i = 0; i < l; i++) {
+			name = CFArrayGetValueAtIndex(commonNames, i);
+			user_id = vmalloc(CFStringGetMaximumSizeForEncoding(CFStringGetLength(name),
+																kCFStringEncodingUTF8) + 1);
+			if (user_id) {
+				if (CFStringGetCString(name, user_id->v, user_id->l,
+										kCFStringEncodingUTF8)) {
+					user_id_found = 1;
+					// the following functions will check if user_id == 0
+					if (open_dir_authorize_id(user_id, iph1->rmconf->open_dir_auth_group)) {
+						vfree(user_id);
+						CFRelease(certificate);
+						CFRelease(commonNames);
+						return 0;
+					}
+				}
+				vfree(user_id);
+			}
+		}
+		CFRelease(certificate);
+		CFRelease(commonNames);
+#endif /* HAVE_OPENSSL */
 	}
 	if (user_id_found) {
 		plog(ASL_LEVEL_ERR, 
@@ -1393,7 +1435,7 @@ oakley_validate_auth(phase1_handle_t *iph1)
 			return ISAKMP_NTYPE_PAYLOAD_MALFORMED;
 		}
 
-		plog(ASL_LEVEL_DEBUG, "*** SIGN passed\n");
+		plog(ASL_LEVEL_DEBUG, "SIGN passed\n");
 
 		/* get peer's cert */
 		switch (iph1->rmconf->getcert_method) {
@@ -1565,7 +1607,7 @@ oakley_validate_auth(phase1_handle_t *iph1)
 			return ISAKMP_NTYPE_SITUATION_NOT_SUPPORTED;
 			break;
 		}
-		plog(ASL_LEVEL_INFO, "No SIG was passed, "
+		plog(ASL_LEVEL_NOTICE, "No SIG was passed, "
 		    "but hybrid auth is enabled\n");
 
 		return 0;
@@ -1622,7 +1664,7 @@ static
 int
 oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (phase1_handle_t *iph1, int notify_initiator)
 {
-#if TARGET_OS_EMBEDDED
+#ifndef HAVE_OPENSSL
 	int premature = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_PREMATURE);
 	int expired = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_EXPIRED);
 	if (premature || expired) {
@@ -1636,7 +1678,7 @@ oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (phase1_handle_t *iph1, in
 		vpncontrol_notify_ike_failed(fail_reason, notify_initiator, iph1_get_remote_v4_address(iph1), 0, NULL);
 		return -1;
 	}
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* HAVE_OPENSSL */
 	return 0;
 }
 
@@ -1873,10 +1915,10 @@ static int
 oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_status_t *certStatus)
 {
 
-	int len;
+	int len = 0;
 	int error = 0;
 
-#if !TARGET_OS_EMBEDDED
+#ifdef HAVE_OPENSSL
     int type;
 	char *altname = NULL;
 #endif
@@ -1886,7 +1928,7 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
 	{
         CFDataRef subject;
         SecCertificateRef certificate;
-        UInt8* namePtr;
+		UInt8* namePtr = NULL;
 
 		certificate = crypto_cssm_x509cert_CreateSecCertificateRef(cert);
 		if (certificate == NULL) {
@@ -1920,8 +1962,12 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
         if (error) {
             plog(ASL_LEVEL_ERR,
                  "ID mismatched with certificate subjectName\n");
-            plogdump(ASL_LEVEL_ERR, namePtr, len, "subjectName (type %s):\n",
-                     s_ipsecdoi_ident(idtype));
+			if (namePtr != NULL) {
+				plogdump(ASL_LEVEL_ERR, namePtr, len, "subjectName (type %s):\n",
+						 s_ipsecdoi_ident(idtype));
+			} else {
+				plog(ASL_LEVEL_ERR, "subjectName (type %s):\n", s_ipsecdoi_ident(idtype));
+			}
             plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
             if (certStatus && !*certStatus) {
                 *certStatus = CERT_STATUS_INVALID_SUBJNAME;
@@ -1938,7 +1984,7 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
 	case IPSECDOI_ID_IPV4_ADDR:			
 	case IPSECDOI_ID_IPV6_ADDR:
 	{
-#if TARGET_OS_EMBEDDED
+#ifndef HAVE_OPENSSL
 		CFIndex pos, count;
 		SecCertificateRef certificate;
 		CFArrayRef addresses;
@@ -2100,10 +2146,10 @@ oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_statu
 			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		
-#endif /* TARGET_OS_EMBEDDED */	
+#endif /* HAVE_OPENSSL */
 	}
 
-#if TARGET_OS_EMBEDDED
+#ifndef HAVE_OPENSSL
 	case IPSECDOI_ID_FQDN:
 	{
 		CFIndex pos, count;

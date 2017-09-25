@@ -27,20 +27,34 @@
 #include "MemoryRelease.h"
 
 #import "GCController.h"
+#import "GraphicsServicesSPI.h"
 #import "IOSurfacePool.h"
 #import "LayerPool.h"
 #import <notify.h>
 
-extern "C" void _sqlite3_purgeEligiblePagerCacheMemory(void);
+#if PLATFORM(IOS)
+#import "LegacyTileCache.h"
+#import "TileControllerMemoryHandlerIOS.h"
+#endif
+
 
 namespace WebCore {
 
 void platformReleaseMemory(Critical)
 {
-    _sqlite3_purgeEligiblePagerCacheMemory();
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+    // FIXME: Remove this call to GSFontInitialize() once <rdar://problem/32886715> is fixed.
+    GSFontInitialize();
+    GSFontPurgeFontCache();
+#endif
 
     for (auto& pool : LayerPool::allLayerPools())
         pool->drain();
+
+#if PLATFORM(IOS)
+    LegacyTileCache::drainLayerPool();
+    tileControllerMemoryHandler().trimUnparentedTilesToTarget(0);
+#endif
 
 #if USE(IOSURFACE)
     IOSurfacePool::sharedPool().discardAllSurfaces();
@@ -50,6 +64,8 @@ void platformReleaseMemory(Critical)
 void jettisonExpensiveObjectsOnTopLevelNavigation()
 {
 #if PLATFORM(IOS)
+    using namespace std::literals::chrono_literals;
+
     // Protect against doing excessive jettisoning during repeated navigations.
     const auto minimumTimeSinceNavigation = 2s;
 

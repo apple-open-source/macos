@@ -30,6 +30,7 @@
 #include "IOHIDDeviceClass.h"
 #include "IOHIDUPSClass.h"
 #include "IOHIDEventServiceClass.h"
+#include "IOHIDEventServiceFastPathClass.h"
 
 extern "C" void *IOHIDLibFactory(CFAllocatorRef allocator __unused, CFUUIDRef typeID);
 
@@ -43,6 +44,8 @@ void *IOHIDLibFactory(CFAllocatorRef allocator __unused, CFUUIDRef typeID)
         return (void *) IOHIDEventServiceClass::alloc();
     else if (CFEqual(typeID, kIOUPSPlugInTypeID))
         return (void *) IOHIDUPSClass::alloc();
+    else if (CFEqual(typeID, kIOHIDServiceFastPathPlugInTypeID))
+        return (void *) IOHIDEventServiceFastPathClass::alloc();
     else
         return NULL;
 }

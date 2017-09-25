@@ -1,16 +1,16 @@
 #! /usr/bin/env perl
 
 # Program for testing regular expressions with perl to check that PCRE handles
-# them the same. This is the version that supports /8 for UTF-8 testing. As it
-# stands, it requires at least Perl 5.8 for UTF-8 support. However, it needs to
-# have "use utf8" at the start for running the UTF-8 tests, but *not* for the
-# other tests. The only way I've found for doing this is to cat this line in
-# explicitly in the RunPerlTest script.
+# them the same. This version needs to have "use utf8" at the start for running
+# the UTF-8 tests, but *not* for the other tests. The only way I've found for
+# doing this is to cat this line in explicitly in the RunPerlTest script. I've
+# also used this method to supply "require Encode" for the UTF-8 tests, so that
+# the main test will still run where Encode is not installed.
 
-# use locale;  # With this included, \x0b matches \s!
+#use utf8;
+#require Encode;
 
-# Function for turning a string into a string of printing chars. There are
-# currently problems with UTF-8 strings; this fudges round them.
+# Function for turning a string into a string of printing chars.
 
 sub pchars {
 my($t) = "";
@@ -21,10 +21,10 @@ if ($utf8)
   foreach $c (@p)
     {
     if ($c >= 32 && $c < 127) { $t .= chr $c; }
-      else { $t .= sprintf("\\x{%02x}", $c); }
+      else { $t .= sprintf("\\x{%02x}", $c);
+      }
     }
   }
-
 else
   {
   foreach $c (split(//, $_[0]))
@@ -68,7 +68,7 @@ for (;;)
   printf "  re> " if $infile eq "STDIN";
   last if ! ($_ = <$infile>);
   printf $outfile "$_" if $infile ne "STDIN";
-  next if ($_ eq "");
+  next if ($_ =~ /^\s*$/ || $_ =~ /^< forbid/);
 
   $pattern = $_;
 
@@ -80,20 +80,40 @@ for (;;)
     $pattern .= $_;
     }
 
-   chomp($pattern);
-   $pattern =~ s/\s+$//;
+  chomp($pattern);
+  $pattern =~ s/\s+$//;
 
   # The private /+ modifier means "print $' afterwards".
 
-  $showrest = ($pattern =~ s/\+(?=[a-z]*$)//);
+  $showrest = ($pattern =~ s/\+(?=[a-zA-Z]*$)//);
+
+  # A doubled version is used by pcretest to print remainders after captures
+
+  $pattern =~ s/\+(?=[a-zA-Z]*$)//;
 
   # Remove /8 from a UTF-8 pattern.
 
-  $utf8 = $pattern =~ s/8(?=[a-z]*$)//;
+  $utf8 = $pattern =~ s/8(?=[a-zA-Z]*$)//;
 
   # Remove /J from a pattern with duplicate names.
 
-  $pattern =~ s/J(?=[a-z]*$)//;
+  $pattern =~ s/J(?=[a-zA-Z]*$)//;
+
+  # Remove /K from a pattern (asks pcretest to check MARK data) */
+
+  $pattern =~ s/K(?=[a-zA-Z]*$)//;
+
+  # /W asks pcretest to set PCRE_UCP; change this to /u for Perl
+
+  $pattern =~ s/W(?=[a-zA-Z]*$)/u/;
+
+  # Remove /S or /SS from a pattern (asks pcretest to study or not to study)
+
+  $pattern =~ s/S(?=[a-zA-Z]*$)//g;
+
+  # Remove /Y and /O from a pattern (disable PCRE optimizations)
+
+  $pattern =~ s/[YO](?=[a-zA-Z]*$)//;
 
   # Check that the pattern is valid
 
@@ -101,6 +121,14 @@ for (;;)
   if ($@)
     {
     printf $outfile "Error: $@";
+    if ($infile != "STDIN")
+      {
+      for (;;)
+        {
+        last if ! ($_ = <$infile>);
+        last if $_ =~ /^\s*$/;
+        }
+      }
     next NEXT_RE;
     }
 
@@ -127,8 +155,9 @@ for (;;)
     chomp;
     printf $outfile "$_\n" if $infile ne "STDIN";
 
-    s/\s+$//;
-    s/^\s+//;
+    s/\s+$//;  # Remove trailing space
+    s/^\s+//;  # Remove leading space
+    s/\\Y//g;  # Remove \Y (pcretest flag to set PCRE_NO_START_OPTIMIZE)
 
     last if ($_ eq "");
     $x = eval "\"$_\"";   # To get escapes processed
@@ -171,7 +200,7 @@ for (;;)
       {
       printf $outfile "No match";
       if (defined $REGERROR && $REGERROR != 1)
-        { print $outfile (", mark = $REGERROR"); }
+        { printf $outfile (", mark = %s", &pchars($REGERROR)); }
       printf $outfile "\n";
       }
     else
@@ -193,8 +222,17 @@ for (;;)
           }
         splice(@subs, 0, 18);
         }
+
+      # It seems that $REGMARK is not marked as UTF-8 even when use utf8 is
+      # set and the input pattern was a UTF-8 string. We can, however, force
+      # it to be so marked.
+
       if (defined $REGMARK && $REGMARK != 1)
-        { print $outfile ("MK: $REGMARK\n"); }
+        {
+        $xx = $REGMARK;
+        $xx = Encode::decode_utf8($xx) if $utf8;
+        printf $outfile ("MK: %s\n", &pchars($xx));
+        }
       }
     }
   }

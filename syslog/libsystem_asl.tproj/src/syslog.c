@@ -60,6 +60,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <pthread.h>
 #include <dispatch/dispatch.h>
 #include <asl.h>
@@ -67,12 +68,6 @@
 #include <asl_private.h>
 #include <os/log.h>
 #include <os/log_private.h>
-
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 #define	LOG_NO_NOTIFY	0x1000
 extern const char *asl_syslog_faciliy_num_to_name(int n);
@@ -110,9 +105,7 @@ extern uint32_t _asl_evaluate_send(asl_object_t client, asl_object_t m, int slev
 extern uint32_t _asl_lib_vlog(asl_object_t obj, uint32_t eval, asl_object_t msg, const char *format, va_list ap);
 extern uint32_t _asl_lib_vlog_text(asl_object_t obj, uint32_t eval, asl_object_t msg, const char *format, va_list ap);
 
-
-/* SHIM SPI */
-asl_object_t
+static void
 _syslog_asl_client()
 {
 	pthread_mutex_lock(&_sl_lock);
@@ -123,35 +116,31 @@ _syslog_asl_client()
 		asl_set_filter(_sl_asl, _sl_mask);
 	}
 	pthread_mutex_unlock(&_sl_lock);
-
-	return _sl_asl;
 }
 
-/*
- * syslog, vsyslog --
- *	print message on log file; output is intended for syslogd(8).
- */
-
-void
-vsyslog(int pri, const char *fmt, va_list ap)
+static void
+_vsyslog(int pri, const char *fmt, va_list ap, void *addr, bool mirror)
 {
 	int level = pri & LOG_PRIMASK;
 	int fac = pri & LOG_FACMASK;
+	asl_object_t msg;
 	uint32_t eval;
-	void *addr;
+	bool trace;
 
 	_syslog_asl_client();
 
-	eval = _asl_evaluate_send(_sl_asl, NULL, level);
+	msg = asl_new(ASL_TYPE_MSG);
 
-	/* don't send install messages to Activity Tracing */
-	if (fac == LOG_INSTALL || (fac == 0 && _sl_fac == LOG_INSTALL)) {
-		eval &= ~EVAL_SEND_TRACE;
+	if (fac != 0)
+	{
+		const char *facility = asl_syslog_faciliy_num_to_name(fac);
+		if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
 	}
 
-	addr = __builtin_return_address(0);
+	eval = _asl_evaluate_send(_sl_asl, msg, level);
+	trace = (eval & EVAL_SEND_TRACE) && os_log_shim_enabled(addr);
 
-	if ((eval & EVAL_SEND_TRACE) && os_log_shim_enabled(addr))
+	if (trace)
 	{
 		va_list ap_copy;
 		os_log_type_t type = shim_syslog_to_log_type[level];
@@ -160,123 +149,60 @@ vsyslog(int pri, const char *fmt, va_list ap)
 		os_log_with_args(OS_LOG_DEFAULT, type, fmt, ap_copy, addr);
 		va_end(ap_copy);
 
-		if (eval & EVAL_TEXT_FILE)
+		if ((eval & EVAL_TEXT_FILE) && !mirror)
 		{
-			asl_object_t msg = asl_new(ASL_TYPE_MSG);
-			const char *facility;
-
-			if (fac != 0)
-			{
-				facility = asl_syslog_faciliy_num_to_name(fac);
-				if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
-			}
-
 			_asl_lib_vlog_text(_sl_asl, eval, msg, fmt, ap);
-
-			asl_release(msg);
 		}
 	}
-	else if (eval & EVAL_ASL)
+
+	if ((eval & EVAL_ASL) && (mirror || !trace))
 	{
-		asl_object_t msg = asl_new(ASL_TYPE_MSG);
-		const char *facility;
-
-		if (fac != 0)
-		{
-			facility = asl_syslog_faciliy_num_to_name(fac);
-			if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
-		}
-
 		_asl_lib_vlog(_sl_asl, eval, msg, fmt, ap);
-
-		asl_release(msg);
 	}
+
+	asl_release(msg);
+}
+
+#if TARGET_OS_OSX
+
+extern typeof(syslog) syslog_legacy asm("_syslog");
+extern typeof(syslog) syslog_os_log asm("_syslog" __DARWIN_SUF_EXTSN);
+
+void
+syslog_legacy(int pri, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	_vsyslog(pri, fmt, ap, __builtin_return_address(0), true);
+	va_end(ap);
 }
 
 void
-#ifdef __STDC__
-syslog(int pri, const char *fmt, ...)
-#else
-syslog(pri, fmt, va_alist)
-int pri;
-char *fmt;
-va_dcl
-#endif
+syslog_os_log(int pri, const char *fmt, ...)
 {
-	int level = pri & LOG_PRIMASK;
-	int fac = pri & LOG_FACMASK;
-	uint32_t eval;
-	void *addr;
+	va_list ap;
+	va_start(ap, fmt);
+	_vsyslog(pri, fmt, ap, __builtin_return_address(0), false);
+	va_end(ap);
+}
 
-	_syslog_asl_client();
+#else /* !TARGET_OS_OSX */
 
-	eval = _asl_evaluate_send(_sl_asl, NULL, level);
+void
+syslog(int pri, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	_vsyslog(pri, fmt, ap, __builtin_return_address(0), false);
+	va_end(ap);
+}
 
-	/* don't send install messages to Activity Tracing */
-	if (fac == LOG_INSTALL || (fac == 0 && _sl_fac == LOG_INSTALL)) {
-		eval &= ~EVAL_SEND_TRACE;
-	}
+#endif /* !TARGET_OS_OSX */
 
-	addr = __builtin_return_address(0);
-
-	if ((eval & EVAL_SEND_TRACE) && os_log_shim_enabled(addr))
-	{
-		va_list ap;
-		os_log_type_t type = shim_syslog_to_log_type[level];
-
-#ifdef __STDC__
-		va_start(ap, fmt);
-#else
-		va_start(ap);
-#endif
-		os_log_with_args(OS_LOG_DEFAULT, type, fmt, ap, addr);
-		va_end(ap);
-
-		if (eval & EVAL_TEXT_FILE)
-		{
-			va_list ap;
-			asl_object_t msg = asl_new(ASL_TYPE_MSG);
-			const char *facility;
-
-			if (fac != 0)
-			{
-				facility = asl_syslog_faciliy_num_to_name(fac);
-				if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
-			}
-
-#ifdef __STDC__
-			va_start(ap, fmt);
-#else
-			va_start(ap);
-#endif
-			_asl_lib_vlog_text(_sl_asl, eval, msg, fmt, ap);
-			va_end(ap);
-
-			asl_release(msg);
-		}
-	}
-	else if (eval & EVAL_ASL)
-	{
-		va_list ap;
-		asl_object_t msg = asl_new(ASL_TYPE_MSG);
-		const char *facility;
-
-		if (fac != 0)
-		{
-			facility = asl_syslog_faciliy_num_to_name(fac);
-			if (facility != NULL) asl_set(msg, ASL_KEY_FACILITY, facility);
-		}
-
-#ifdef __STDC__
-		va_start(ap, fmt);
-#else
-		va_start(ap);
-#endif
-		_asl_lib_vlog(_sl_asl, eval, msg, fmt, ap);
-		va_end(ap);
-
-		asl_release(msg);
-	}
+void
+vsyslog(int pri, const char *fmt, va_list ap)
+{
+	_vsyslog(pri, fmt, ap, __builtin_return_address(0), false);
 }
 
 #ifndef BUILDING_VARIANT

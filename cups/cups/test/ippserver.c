@@ -7,7 +7,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -1019,7 +1019,7 @@ create_job(_ipp_client_t *client)	/* I - Client */
     * Only accept a single job at a time...
     */
 
-    _cupsRWLockWrite(&(client->printer->rwlock));
+    _cupsRWUnlock(&(client->printer->rwlock));
     return (NULL);
   }
 
@@ -5007,7 +5007,6 @@ load_attributes(const char *filename,	/* I - File to load */
 		break;
 
 	      ippSetCollection(attrs, &attrptr, ippGetCount(attrptr), col);
-	      lastcol = attrptr;
 	    }
 	    while (!strcmp(token, "{"));
 	    break;
@@ -7015,7 +7014,7 @@ valid_doc_attributes(
     attr = ippAddString(client->request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE, "document-format", NULL, format);
   }
 
-  if (!strcmp(format, "application/octet-stream") && (ippGetOperation(client->request) == IPP_OP_PRINT_JOB || ippGetOperation(client->request) == IPP_OP_SEND_DOCUMENT))
+  if (format && !strcmp(format, "application/octet-stream") && (ippGetOperation(client->request) == IPP_OP_PRINT_JOB || ippGetOperation(client->request) == IPP_OP_SEND_DOCUMENT))
   {
    /*
     * Auto-type the file using the first 8 bytes of the file...

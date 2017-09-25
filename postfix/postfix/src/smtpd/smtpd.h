@@ -79,9 +79,12 @@ typedef struct {
     char   *namaddr;			/* name[address]:port */
     char   *rfc_addr;			/* address for RFC 2821 */
     int     addr_family;		/* address family */
-    char   *dest_addr;			/* for Dovecot AUTH */
+    char   *dest_addr;			/* Dovecot AUTH, Milter {daemon_addr} */
+    char   *dest_port;			/* Milter {daemon_port} */
     struct sockaddr_storage sockaddr;	/* binary client endpoint */
     SOCKADDR_SIZE sockaddr_len;		/* binary client endpoint */
+    struct sockaddr_storage dest_sockaddr;	/* binary local endpoint */
+    SOCKADDR_SIZE dest_sockaddr_len;	/* binary local endpoint */
     int     name_status;		/* 2=ok 4=soft 5=hard 6=forged */
     int     reverse_name_status;	/* 2=ok 4=soft 5=hard */
     int     conn_count;			/* connections from this client */
@@ -137,7 +140,7 @@ typedef struct {
     int     discard;			/* discard message */
     char   *saved_filter;		/* postponed filter action */
     char   *saved_redirect;		/* postponed redirect action */
-    char   *saved_bcc;			/* postponed bcc action */
+    ARGV   *saved_bcc;			/* postponed bcc action */
     int     saved_flags;		/* postponed hold/discard */
 #ifdef DELAY_ACTION
     int     saved_delay;		/* postponed deferred delay */
@@ -179,6 +182,7 @@ typedef struct {
     const char **milter_argv;		/* SMTP command vector */
     ssize_t milter_argc;		/* SMTP command vector */
     const char *milter_reject_text;	/* input to call-back from Milter */
+    MILTERS *milters;			/* Milter initialization status.*/
 
     /*
      * EHLO temporary space.
@@ -278,6 +282,11 @@ extern void smtpd_state_reset(SMTPD_STATE *);
 #define CLIENT_IDENT_UNKNOWN	0
 #define CLIENT_DOMAIN_UNKNOWN	0
 #define CLIENT_LOGIN_UNKNOWN	0
+
+#define SERVER_ATTR_UNKNOWN	"unknown"
+
+#define SERVER_ADDR_UNKNOWN	SERVER_ATTR_UNKNOWN
+#define SERVER_PORT_UNKNOWN	SERVER_ATTR_UNKNOWN
 
 #define IS_AVAIL_CLIENT_ATTR(v)	((v) && strcmp((v), CLIENT_ATTR_UNKNOWN))
 
@@ -396,6 +405,11 @@ extern double smtpd_space_multf;
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*
 /*	TLS support originally by:
 /*	Lutz Jaenicke

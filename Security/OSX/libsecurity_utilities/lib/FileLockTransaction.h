@@ -24,6 +24,8 @@
 #ifndef FileLockTransaction_h
 #define FileLockTransaction_h
 
+#if TARGET_OS_OSX
+
 #include <security_cdsa_client/dlclient.h>
 //
 // This class performs a file lock transaction on a Cssm Db object.
@@ -65,5 +67,7 @@ protected:
     bool mFinalized;
     bool mDeleteOnFailure;
 };
+
+#endif // TARGET_OS_OSX
 
 #endif

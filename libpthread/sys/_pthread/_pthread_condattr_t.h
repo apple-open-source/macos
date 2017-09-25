@@ -27,5 +27,6 @@
  */
 #ifndef _PTHREAD_CONDATTR_T
 #define _PTHREAD_CONDATTR_T
+#include <sys/_pthread/_pthread_types.h> /* __darwin_pthread_condattr_t */
 typedef __darwin_pthread_condattr_t pthread_condattr_t;
 #endif /* _PTHREAD_CONDATTR_T */

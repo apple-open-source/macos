@@ -65,6 +65,12 @@
 #include <errno.h>
 #include <stdio.h>
 
+// SCLog()
+#include <syslog.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SCPrivate.h>
+#define pfkey_log_err(format, ...) SCLog(TRUE, LOG_ERR, CFSTR("%s: " format "\n"), __FUNCTION__, ##__VA_ARGS__)
+
 #include "ipsec_strerror.h"
 #include "libpfkey.h"
 
@@ -378,14 +384,17 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 
 	/* validity check */
 	if (src == NULL || dst == NULL) {
+		pfkey_log_err("null param");
 		__ipsec_errcode = EIPSEC_INVAL_ARGUMENT;
 		return -1;
 	}
 	if (src->sa_family != dst->sa_family) {
+		pfkey_log_err("address family mismatch");
 		__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
 		return -1;
 	}
 	if (min > max || (min > 0 && min <= 255)) {
+		pfkey_log_err("invalid SPI");
 		__ipsec_errcode = EIPSEC_INVAL_SPI;
 		return -1;
 	}
@@ -397,6 +406,7 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 		plen = sizeof(struct in6_addr) << 3;
 		break;
 	default:
+		pfkey_log_err("invalid address family");
 		__ipsec_errcode = EIPSEC_INVAL_FAMILY;
 		return -1;
 	}
@@ -416,6 +426,7 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -424,12 +435,14 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 	    len, satype, seq, getpid());
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 
 	p = pfkey_setsadbxsa2(p, ep, mode, reqid);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbxsa2() failed");
 		return -1;
 	}
 
@@ -438,6 +451,7 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(SRC) failed");
 		return -1;
 	}
 
@@ -446,6 +460,7 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(DST) failed");
 		return -1;
 	}
 
@@ -455,6 +470,7 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 
 		if (p + sizeof(spirange) > ep) {
 			free(newmsg);
+			pfkey_log_err("response too long");
 			return -1;
 		}
 
@@ -470,6 +486,7 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 	}
 	if (p != ep) {
 		free(newmsg);
+		pfkey_log_err("bad response length");
 		return -1;
 	}
 
@@ -477,8 +494,10 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;
@@ -589,10 +608,12 @@ pfkey_send_delete_all(so, satype, mode, src, dst)
 
 	/* validity check */
 	if (src == NULL || dst == NULL) {
+		pfkey_log_err("null param");
 		__ipsec_errcode = EIPSEC_INVAL_ARGUMENT;
 		return -1;
 	}
 	if (src->sa_family != dst->sa_family) {
+		pfkey_log_err("address family mismatch");
 		__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
 		return -1;
 	}
@@ -604,6 +625,7 @@ pfkey_send_delete_all(so, satype, mode, src, dst)
 		plen = sizeof(struct in6_addr) << 3;
 		break;
 	default:
+		pfkey_log_err("invalid address family");
 		__ipsec_errcode = EIPSEC_INVAL_FAMILY;
 		return -1;
 	}
@@ -617,6 +639,7 @@ pfkey_send_delete_all(so, satype, mode, src, dst)
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -625,18 +648,21 @@ pfkey_send_delete_all(so, satype, mode, src, dst)
 	    getpid());
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_SRC, src, plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(SRC) failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_DST, dst, plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p || p != ep) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(DST) failed");
 		return -1;
 	}
 
@@ -644,8 +670,10 @@ pfkey_send_delete_all(so, satype, mode, src, dst)
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;
@@ -1143,10 +1171,12 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 
 	/* validity check */
 	if (src == NULL || dst == NULL) {
+		pfkey_log_err("null param");
 		__ipsec_errcode = EIPSEC_INVAL_ARGUMENT;
 		return -1;
 	}
 	if (src->sa_family != dst->sa_family) {
+		pfkey_log_err("address family mismatch");
 		__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
 		return -1;
 	}
@@ -1158,6 +1188,7 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 		plen = sizeof(struct in6_addr) << 3;
 		break;
 	default:
+		pfkey_log_err("invalid address family");
 		__ipsec_errcode = EIPSEC_INVAL_FAMILY;
 		return -1;
 	}
@@ -1165,31 +1196,37 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 	switch (satype) {
 	case SADB_SATYPE_ESP:
 		if (e_type == SADB_EALG_NONE) {
+			pfkey_log_err("no ESP algs");
 			__ipsec_errcode = EIPSEC_NO_ALGS;
 			return -1;
 		}
 		break;
 	case SADB_SATYPE_AH:
 		if (e_type != SADB_EALG_NONE) {
+			pfkey_log_err("no AHe algs");
 			__ipsec_errcode = EIPSEC_INVAL_ALGS;
 			return -1;
 		}
 		if (a_type == SADB_AALG_NONE) {
+			pfkey_log_err("no AHa algs");
 			__ipsec_errcode = EIPSEC_NO_ALGS;
 			return -1;
 		}
 		break;
 	case SADB_X_SATYPE_IPCOMP:
 		if (e_type == SADB_X_CALG_NONE) {
+			pfkey_log_err("no IPCOMPe algs");
 			__ipsec_errcode = EIPSEC_INVAL_ALGS;
 			return -1;
 		}
 		if (a_type != SADB_AALG_NONE) {
+			pfkey_log_err("no IPCOMPa algs");
 			__ipsec_errcode = EIPSEC_NO_ALGS;
 			return -1;
 		}
 		break;
 	default:
+		pfkey_log_err("invalid SA type");
 		__ipsec_errcode = EIPSEC_INVAL_SATYPE;
 		return -1;
 	}
@@ -1212,6 +1249,7 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -1220,28 +1258,33 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 	                     satype, seq, getpid());
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 	p = pfkey_setsadbsa(p, ep, spi, wsize, a_type, e_type, flags);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbsa() failed");
 		return -1;
 	}
 	p = pfkey_setsadbxsa2(p, ep, mode, reqid);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbxsa2() failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_SRC, src, plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(SRC) failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_DST, dst, plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(DST) failed");
 		return -1;
 	}
 
@@ -1250,6 +1293,7 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 		                   keymat, e_keylen);
 		if (!p) {
 			free(newmsg);
+			pfkey_log_err("pfkey_setsadbkey(ENC) failed");
 			return -1;
 		}
 	}
@@ -1258,6 +1302,7 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 		                   keymat + e_keylen, a_keylen);
 		if (!p) {
 			free(newmsg);
+			pfkey_log_err("pfkey_setsadbkey(AUTH) failed");
 			return -1;
 		}
 	}
@@ -1267,12 +1312,14 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 			l_alloc, l_bytes, l_addtime, l_usetime);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadblifetime(HARD) failed");
 		return -1;
 	}
 	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_SOFT,
 			l_alloc, l_bytes, l_addtime, l_usetime);
 	if (!p || p != ep) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadblifetime(SOFT) failed");
 		return -1;
 	}
 
@@ -1280,8 +1327,10 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;
@@ -1303,10 +1352,12 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 
 	/* validity check */
 	if (src == NULL || dst == NULL) {
+		pfkey_log_err("null param");
 		__ipsec_errcode = EIPSEC_INVAL_ARGUMENT;
 		return -1;
 	}
 	if (src->sa_family != dst->sa_family) {
+		pfkey_log_err("address family mismatch");
 		__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
 		return -1;
 	}
@@ -1318,6 +1369,7 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 		plen = sizeof(struct in6_addr) << 3;
 		break;
 	default:
+		pfkey_log_err("invalid address family");
 		__ipsec_errcode = EIPSEC_INVAL_FAMILY;
 		return -1;
 	}
@@ -1332,6 +1384,7 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -1340,23 +1393,27 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 	    getpid());
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 	p = pfkey_setsadbsa(p, ep, spi, 0, 0, 0, 0);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbsa() failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_SRC, src, plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(SRC) failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_DST, dst, plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p || p != ep) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(DST) failed");
 		return -1;
 	}
 
@@ -1364,8 +1421,10 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;
@@ -1389,6 +1448,7 @@ pfkey_send_x3(so, type, satype)
 	switch (type) {
 	case SADB_X_PROMISC:
 		if (satype != 0 && satype != 1) {
+			pfkey_log_err("invalid PROMISC satype %u (type %u)", satype, type);
 			__ipsec_errcode = EIPSEC_INVAL_SATYPE;
 			return -1;
 		}
@@ -1401,6 +1461,7 @@ pfkey_send_x3(so, type, satype)
 		case SADB_X_SATYPE_IPCOMP:
 			break;
 		default:
+			pfkey_log_err("invalid satype %u", satype);
 			__ipsec_errcode = EIPSEC_INVAL_SATYPE;
 			return -1;
 		}
@@ -1411,6 +1472,7 @@ pfkey_send_x3(so, type, satype)
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -1419,6 +1481,7 @@ pfkey_send_x3(so, type, satype)
 	    getpid());
 	if (!p || p != ep) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 
@@ -1426,8 +1489,10 @@ pfkey_send_x3(so, type, satype)
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;
@@ -1453,10 +1518,12 @@ pfkey_send_x4(so, type, src, prefs, dst, prefd, proto,
 
 	/* validity check */
 	if (src == NULL || dst == NULL) {
+		pfkey_log_err("null param");
 		__ipsec_errcode = EIPSEC_INVAL_ARGUMENT;
 		return -1;
 	}
 	if (src->sa_family != dst->sa_family) {
+		pfkey_log_err("address family mismatch");
 		__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
 		return -1;
 	}
@@ -1469,10 +1536,12 @@ pfkey_send_x4(so, type, src, prefs, dst, prefd, proto,
 		plen = sizeof(struct in6_addr) << 3;
 		break;
 	default:
+		pfkey_log_err("unknown address family");
 		__ipsec_errcode = EIPSEC_INVAL_FAMILY;
 		return -1;
 	}
 	if (prefs > plen || prefd > plen) {
+		pfkey_log_err("invalid prefix length");
 		__ipsec_errcode = EIPSEC_INVAL_PREFIXLEN;
 		return -1;
 	}
@@ -1488,6 +1557,7 @@ pfkey_send_x4(so, type, src, prefs, dst, prefd, proto,
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -1496,22 +1566,26 @@ pfkey_send_x4(so, type, src, prefs, dst, prefd, proto,
 	    SADB_SATYPE_UNSPEC, seq, getpid());
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_SRC, src, prefs, proto);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(SRC) failed");
 		return -1;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_DST, dst, prefd, proto);
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbaddr(DST) failed");
 		return -1;
 	}
 	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_HARD,
 			0, 0, ltime, vtime);
 	if (!p || p + policylen != ep) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadblifetime() failed");
 		return -1;
 	}
 	memcpy(p, policy, policylen);
@@ -1520,8 +1594,10 @@ pfkey_send_x4(so, type, src, prefs, dst, prefd, proto,
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;
@@ -1546,6 +1622,7 @@ pfkey_send_x5(so, type, spid)
 
 	if ((newmsg = CALLOC(len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
+		pfkey_log_err("allocation failure");
 		return -1;
 	}
 	ep = ((caddr_t)newmsg) + len;
@@ -1554,11 +1631,13 @@ pfkey_send_x5(so, type, spid)
 	    SADB_SATYPE_UNSPEC, 0, getpid());
 	if (!p) {
 		free(newmsg);
+		pfkey_log_err("pfkey_setsadbmsg() failed");
 		return -1;
 	}
 
 	if (p + sizeof(xpl) != ep) {
 		free(newmsg);
+		pfkey_log_err("bad message length");
 		return -1;
 	}
 	memset(&xpl, 0, sizeof(xpl));
@@ -1571,8 +1650,10 @@ pfkey_send_x5(so, type, spid)
 	len = pfkey_send(so, newmsg, len);
 	free(newmsg);
 
-	if (len < 0)
+	if (len < 0) {
+		pfkey_log_err("pfkey_send() failed");
 		return -1;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return len;

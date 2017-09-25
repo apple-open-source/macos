@@ -72,12 +72,17 @@ extern const char *kOperationSynchronizeAndWait;
 extern const char *kOperationPUTDictionary;
 extern const char *kOperationGETv2;
 extern const char *kOperationRegisterKeys;
+extern const char *kOperationRemoveKeys;
+
 extern const char *kOperationGetDeviceID;
 extern const char *kOperationHasPendingKey;
+extern const char *kOperationGetIDSPerfCounters;
 
 extern const uint64_t kCKDXPCVersion;
 
 extern const char *kOperationFlush;
+
+extern const char *kOperationPerfCounters;
 
 extern const char *kOperationRequestSyncWithPeers;
 extern const char *kOperationHasPendingSyncWithPeer;

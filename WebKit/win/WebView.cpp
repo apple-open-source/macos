@@ -35,7 +35,6 @@
 #include "PluginDatabase.h"
 #include "PluginView.h"
 #include "SocketProvider.h"
-#include "SoftLinking.h"
 #include "SubframeLoader.h"
 #include "TextIterator.h"
 #include "WebApplicationCache.h"
@@ -77,6 +76,7 @@
 #include "resource.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/Exception.h>
+#include <JavaScriptCore/HeapInlines.h>
 #include <JavaScriptCore/InitializeThreading.h>
 #include <JavaScriptCore/JSCJSValue.h>
 #include <JavaScriptCore/JSLock.h>
@@ -122,6 +122,7 @@
 #include <WebCore/IntRect.h>
 #include <WebCore/JSElement.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/LibWebRTCProvider.h>
 #include <WebCore/LogInitialization.h>
 #include <WebCore/Logging.h>
 #include <WebCore/MIMETypeRegistry.h>
@@ -168,6 +169,7 @@
 #include <d2d1.h>
 #include <wtf/MainThread.h>
 #include <wtf/RAMSize.h>
+#include <wtf/SoftLinking.h>
 #include <wtf/UniqueRef.h>
 
 #if USE(CG)
@@ -408,7 +410,6 @@ bool WebView::s_allowSiteSpecificHacks = false;
 WebView::WebView()
 {
     JSC::initializeThreading();
-    WTF::initializeMainThread();
     RunLoop::initializeMainRunLoop();
 
     m_backingStoreSize.cx = m_backingStoreSize.cy = 0;
@@ -525,7 +526,7 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
     unsigned cacheTotalCapacity = 0;
     unsigned cacheMinDeadCapacity = 0;
     unsigned cacheMaxDeadCapacity = 0;
-    auto deadDecodedDataDeletionInterval = std::chrono::seconds { 0 };
+    Seconds deadDecodedDataDeletionInterval;
 
     unsigned pageCacheSize = 0;
 
@@ -637,7 +638,7 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
         // can prove that the overall system gain would justify the regression.
         cacheMaxDeadCapacity = max(24u, cacheMaxDeadCapacity);
 
-        deadDecodedDataDeletionInterval = std::chrono::seconds { 60 };
+        deadDecodedDataDeletionInterval = 60_s;
 
         // Memory cache capacity (in bytes)
         // (These values are small because WebCore does most caching itself.)
@@ -1037,9 +1038,10 @@ void WebView::sizeChanged(const IntSize& newSize)
     deleteBackingStore();
 
     if (Frame* coreFrame = core(topLevelFrame())) {
-        IntSize logicalSize = newSize;
+        FloatSize logicalSize = newSize;
         logicalSize.scale(1.0f / deviceScaleFactor());
-        coreFrame->view()->resize(logicalSize);
+        auto clientRect = enclosingIntRect(FloatRect(FloatPoint(), logicalSize));
+        coreFrame->view()->resize(clientRect.size());
     }
 
 #if USE(CA)
@@ -1516,7 +1518,7 @@ void WebView::closeWindowSoon()
     m_closeWindowTimer = WindowCloseTimer::create(this);
     if (!m_closeWindowTimer)
         return;
-    m_closeWindowTimer->startOneShot(0);
+    m_closeWindowTimer->startOneShot(0_s);
 
     AddRef();
 }
@@ -2724,7 +2726,7 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
         case WM_XP_THEMECHANGED:
             if (Frame* coreFrame = core(mainFrameImpl)) {
                 webView->deleteBackingStore();
-                coreFrame->page()->theme().themeChanged();
+                RenderTheme::singleton().themeChanged();
                 ScrollbarTheme::theme().themeChanged();
                 RECT windowRect;
                 ::GetClientRect(hWnd, &windowRect);
@@ -2889,6 +2891,8 @@ HRESULT WebView::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppvObject)
         *ppvObject = static_cast<IWebViewPrivate3*>(this);
     else if (IsEqualGUID(riid, IID_IWebViewPrivate4))
         *ppvObject = static_cast<IWebViewPrivate4*>(this);
+    else if (IsEqualGUID(riid, IID_IWebViewPrivate5))
+        *ppvObject = static_cast<IWebViewPrivate5*>(this);
     else if (IsEqualGUID(riid, IID_IWebIBActions))
         *ppvObject = static_cast<IWebIBActions*>(this);
     else if (IsEqualGUID(riid, IID_IWebViewCSS))
@@ -3099,7 +3103,11 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
 
     m_inspectorClient = new WebInspectorClient(this);
 
-    PageConfiguration configuration(makeUniqueRef<WebEditorClient>(this), SocketProvider::create());
+    PageConfiguration configuration(
+        makeUniqueRef<WebEditorClient>(this),
+        SocketProvider::create(),
+        makeUniqueRef<LibWebRTCProvider>()
+    );
     configuration.backForwardClient = BackForwardList::create();
     configuration.chromeClient = new WebChromeClient(this);
     configuration.contextMenuClient = new WebContextMenuClient(this);
@@ -3852,9 +3860,10 @@ HRESULT WebView::hostWindow(_Deref_opt_out_ HWND* window)
 
 static Frame *incrementFrame(Frame *curr, bool forward, bool wrapFlag)
 {
+    CanWrap canWrap = wrapFlag ? CanWrap::Yes : CanWrap::No;
     return forward
-        ? curr->tree().traverseNextWithWrap(wrapFlag)
-        : curr->tree().traversePreviousWithWrap(wrapFlag);
+        ? curr->tree().traverseNext(canWrap)
+        : curr->tree().traversePrevious(canWrap);
 }
 
 HRESULT WebView::searchFor(_In_ BSTR str, BOOL forward, BOOL caseFlag, BOOL wrapFlag, _Out_ BOOL* found)
@@ -5181,7 +5190,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings.setShouldDisplayTextDescriptions(enabled);
 #endif
 
-    COMPtr<IWebPreferencesPrivate4> prefsPrivate(Query, preferences);
+    COMPtr<IWebPreferencesPrivate5> prefsPrivate { Query, preferences };
     if (prefsPrivate) {
         hr = prefsPrivate->localStorageDatabasePath(&str);
         if (FAILED(hr))
@@ -5228,10 +5237,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
 
     // FIXME: Add preferences for the runtime enabled features.
 
-#if ENABLE(INDEXED_DATABASE)
-    RuntimeEnabledFeatures::sharedFeatures().setWebkitIndexedDBEnabled(true);
-#endif
-
 #if ENABLE(FETCH_API)
     hr = prefsPrivate->fetchAPIEnabled(&enabled);
     if (FAILED(hr))
@@ -5249,15 +5254,42 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     RuntimeEnabledFeatures::sharedFeatures().setCustomElementsEnabled(!!enabled);
 
-    hr = prefsPrivate->es6ModulesEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    settings.setEs6ModulesEnabled(!!enabled);
-
     hr = prefsPrivate->modernMediaControlsEnabled(&enabled);
     if (FAILED(hr))
         return hr;
     RuntimeEnabledFeatures::sharedFeatures().setModernMediaControlsEnabled(!!enabled);
+
+#if ENABLE(WEB_ANIMATIONS)
+    hr = prefsPrivate->webAnimationsEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(!!enabled);
+#endif
+
+    hr = prefsPrivate->userTimingEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setUserTimingEnabled(!!enabled);
+
+    hr = prefsPrivate->resourceTimingEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setResourceTimingEnabled(!!enabled);
+
+    hr = prefsPrivate->linkPreloadEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setLinkPreloadEnabled(!!enabled);
+
+    hr = prefsPrivate->mediaPreloadingEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setMediaPreloadingEnabled(!!enabled);
+
+    hr = prefsPrivate->isSecureContextAttributeEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    RuntimeEnabledFeatures::sharedFeatures().setIsSecureContextAttributeEnabled(!!enabled);
 
     hr = preferences->privateBrowsingEnabled(&enabled);
     if (FAILED(hr))
@@ -5401,11 +5433,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings.setExperimentalNotificationsEnabled(enabled);
 
-    hr = prefsPrivate->allowsPageCacheWithWindowOpener(&enabled);
-    if (FAILED(hr))
-        return hr;
-    settings.setAllowsPageCacheWithWindowOpener(enabled);
-
     hr = prefsPrivate->isWebSecurityEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5439,7 +5466,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     hr = prefsPrivate->isFrameFlatteningEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    settings.setFrameFlatteningEnabled(enabled);
+    settings.setFrameFlattening(enabled ? FrameFlatteningFullyEnabled : FrameFlatteningDisabled);
 
     hr = prefsPrivate->acceleratedCompositingEnabled(&enabled);
     if (FAILED(hr))
@@ -5860,7 +5887,7 @@ HRESULT WebView::standardUserAgentWithApplicationName(_In_ BSTR applicationName,
 HRESULT WebView::clearFocusNode()
 {
     if (m_page)
-        m_page->focusController().setFocusedElement(0, 0);
+        m_page->focusController().setFocusedElement(nullptr, m_page->focusController().focusedOrMainFrame());
     return S_OK;
 }
 
@@ -6494,7 +6521,7 @@ HRESULT WebView::reportException(_In_ JSContextRef context, _In_ JSValueRef exce
     JSC::JSLockHolder lock(execState);
 
     // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a WebView.
-    if (!toJSDOMWindow(execState->lexicalGlobalObject()))
+    if (!toJSDOMWindow(execState->vm(), execState->lexicalGlobalObject()))
         return E_FAIL;
 
     WebCore::reportException(execState, toJS(execState, exception));
@@ -6513,7 +6540,7 @@ HRESULT WebView::elementFromJS(_In_ JSContextRef context, _In_ JSValueRef nodeOb
 
     JSC::ExecState* exec = toJS(context);
     JSC::JSLockHolder lock(exec);
-    Element* elt = JSElement::toWrapped(toJS(exec, nodeObject));
+    Element* elt = JSElement::toWrapped(exec->vm(), toJS(exec, nodeObject));
     if (!elt)
         return E_FAIL;
 
@@ -6720,7 +6747,7 @@ HRESULT WebView::globalHistoryItem(_COM_Outptr_opt_ IWebHistoryItem** item)
         return S_OK;
     }
 
-    *item = WebHistoryItem::createInstance(m_globalHistoryItem);
+    *item = WebHistoryItem::createInstance(m_globalHistoryItem.copyRef());
     return S_OK;
 }
 
@@ -7455,7 +7482,7 @@ HRESULT WebView::defaultMinimumTimerInterval(_Out_ double* interval)
 {
     if (!interval)
         return E_POINTER;
-    *interval = DOMTimer::defaultMinimumInterval().count() / 1000.;
+    *interval = DOMTimer::defaultMinimumInterval().seconds();
     return S_OK;
 }
 
@@ -7464,8 +7491,7 @@ HRESULT WebView::setMinimumTimerInterval(double interval)
     if (!m_page)
         return E_FAIL;
 
-    auto intervalMS = std::chrono::milliseconds((std::chrono::milliseconds::rep)(interval * 1000));
-    page()->settings().setMinimumDOMTimerInterval(intervalMS);
+    page()->settings().setMinimumDOMTimerInterval(Seconds { interval });
     return S_OK;
 }
 
@@ -7513,9 +7539,9 @@ FullScreenController* WebView::fullScreenController()
     return m_fullscreenController.get();
 }
 
-void WebView::setFullScreenElement(PassRefPtr<Element> element)
+void WebView::setFullScreenElement(RefPtr<Element>&& element)
 {
-    m_fullScreenElement = element;
+    m_fullScreenElement = WTFMove(element);
 }
 
 HWND WebView::fullScreenClientWindow() const
@@ -7818,5 +7844,12 @@ HRESULT WebView::setVisibilityState(WebPageVisibilityState visibilityState)
     if (visibilityState == WebPageVisibilityStatePrerender)
         m_page->setIsPrerender();
 
+    return S_OK;
+}
+
+HRESULT WebView::exitFullscreenIfNeeded()
+{
+    if (fullScreenController() && fullScreenController()->isFullScreen())
+        fullScreenController()->close();
     return S_OK;
 }

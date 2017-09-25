@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require "webrick"
 require "stringio"
 require "test/unit"
@@ -349,7 +350,7 @@ GET /
     l = msg.size
     req.continue
     assert_not_equal l, msg.size
-    assert_match /HTTP\/1.1 100 continue\r\n\r\n\z/, msg
+    assert_match(/HTTP\/1.1 100 continue\r\n\r\n\z/, msg)
     assert !req['expect']
   end
 

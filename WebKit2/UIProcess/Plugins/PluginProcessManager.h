@@ -58,12 +58,12 @@ public:
 
     uint64_t pluginProcessToken(const PluginModuleInfo&, PluginProcessType, PluginProcessSandboxPolicy);
 
-    void getPluginProcessConnection(uint64_t pluginProcessToken, PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>);
+    void getPluginProcessConnection(uint64_t pluginProcessToken, Ref<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>&&);
     void removePluginProcessProxy(PluginProcessProxy*);
 
-    void fetchWebsiteData(const PluginModuleInfo&, std::function<void (Vector<String>)> completionHandler);
-    void deleteWebsiteData(const PluginModuleInfo&, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
-    void deleteWebsiteDataForHostNames(const PluginModuleInfo&, const Vector<String>& hostNames, std::function<void ()> completionHandler);
+    void fetchWebsiteData(const PluginModuleInfo&, WTF::Function<void (Vector<String>)>&& completionHandler);
+    void deleteWebsiteData(const PluginModuleInfo&, std::chrono::system_clock::time_point modifiedSince, WTF::Function<void ()>&& completionHandler);
+    void deleteWebsiteDataForHostNames(const PluginModuleInfo&, const Vector<String>& hostNames, WTF::Function<void ()>&& completionHandler);
 
 #if PLATFORM(COCOA)
     inline ProcessSuppressionDisabledToken processSuppressionDisabledToken();

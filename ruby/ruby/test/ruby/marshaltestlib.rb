@@ -1,4 +1,5 @@
 # coding: utf-8
+# frozen_string_literal: false
 module MarshalTestLib
   # include this module to a Test::Unit::TestCase and define encode(o) and
   # decode(s) methods.  e.g.
@@ -40,6 +41,14 @@ module MarshalTestLib
     end
   end
 
+  def marshal_equal_with_ancestry(o1, msg = nil)
+    marshal_equal(o1, msg) do |o|
+      ancestry = o.singleton_class.ancestors
+      ancestry[ancestry.index(o.singleton_class)] = :singleton_class
+      ancestry
+    end
+  end
+
   class MyObject; def initialize(v) @v = v end; attr_reader :v; end
   def test_object
     o1 = Object.new
@@ -54,24 +63,26 @@ module MarshalTestLib
   def test_object_extend
     o1 = Object.new
     o1.extend(Mod1)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
     o1.extend(Mod2)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
   end
 
   def test_object_subclass_extend
     o1 = MyObject.new(2)
     o1.extend(Mod1)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
     o1.extend(Mod2)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
+    marshal_equal_with_ancestry(o1)
+  end
+
+  def test_object_prepend
+    bug8041 = '[ruby-core:53202] [Bug #8041]'
+
+    o1 = MyObject.new(42)
+    o1.singleton_class.class_eval {prepend Mod1}
+    assert_nothing_raised(ArgumentError, bug8041) {
+      marshal_equal_with_ancestry(o1, bug8041)
     }
   end
 
@@ -141,25 +152,17 @@ module MarshalTestLib
   def test_hash_extend
     o1 = Hash.new
     o1.extend(Mod1)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
     o1.extend(Mod2)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
   end
 
   def test_hash_subclass_extend
     o1 = MyHash.new(2)
     o1.extend(Mod1)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
     o1.extend(Mod2)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
   end
 
   def test_bignum
@@ -237,7 +240,7 @@ module MarshalTestLib
     str = MyString.new(10, "b")
     str.instance_eval { @v = str }
     marshal_equal(str) { |o|
-      assert_equal(o.__id__, o.instance_eval { @v }.__id__)
+      assert_same(o, o.instance_eval { @v })
       o.instance_eval { @v }
     }
   end
@@ -247,36 +250,17 @@ module MarshalTestLib
     o.extend(Mod1)
     str = MyString.new(o, "c")
     marshal_equal(str) { |v|
-      assert(v.instance_eval { @v }.kind_of?(Mod1))
+      assert_kind_of(Mod1, v.instance_eval { @v })
     }
   end
 
   MyStruct = Struct.new("MyStruct", :a, :b)
-  if RUBY_VERSION < "1.8.0"
-    # Struct#== is not defined in ruby/1.6
-    class MyStruct
-      def ==(rhs)
-	return true if __id__ == rhs.__id__
-	return false unless rhs.is_a?(::Struct)
-	return false if self.class != rhs.class
-	members.each do |member|
-	  return false if self.__send__(member) != rhs.__send__(member)
-	end
-	return true
-      end
-    end
-  end
   class MySubStruct < MyStruct; def initialize(v, *args) super(*args); @v = v; end end
   def test_struct
     marshal_equal(MyStruct.new(1,2))
   end
 
   def test_struct_subclass
-    if RUBY_VERSION < "1.8.0"
-      # Substruct instance cannot be dumped in ruby/1.6
-      # ::Marshal.dump(MySubStruct.new(10, 1, 2)) #=> uninitialized struct
-      return false
-    end
     marshal_equal(MySubStruct.new(10,1,2))
   end
 
@@ -289,13 +273,9 @@ module MarshalTestLib
   def test_struct_subclass_extend
     o1 = MyStruct.new
     o1.extend(Mod1)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
     o1.extend(Mod2)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
+    marshal_equal_with_ancestry(o1)
   end
 
   def test_symbol
@@ -409,7 +389,7 @@ module MarshalTestLib
     o = Object.new
     o.extend Mod1
     o.extend Mod2
-    marshal_equal(o) {|obj| class << obj; ancestors end}
+    marshal_equal_with_ancestry(o)
     o = Object.new
     o.extend Module.new
     assert_raise(TypeError) { marshaltest(o) }
@@ -422,7 +402,7 @@ module MarshalTestLib
     o = ""
     o.extend Mod1
     o.extend Mod2
-    marshal_equal(o) {|obj| class << obj; ancestors end}
+    marshal_equal_with_ancestry(o)
     o = ""
     o.extend Module.new
     assert_raise(TypeError) { marshaltest(o) }
@@ -450,20 +430,6 @@ module MarshalTestLib
   end
 
   MyStruct2 = Struct.new(:a, :b)
-  if RUBY_VERSION < "1.8.0"
-    # Struct#== is not defined in ruby/1.6
-    class MyStruct2
-      def ==(rhs)
-	return true if __id__ == rhs.__id__
-	return false unless rhs.is_a?(::Struct)
-	return false if self.class != rhs.class
-	members.each do |member|
-	  return false if self.__send__(member) != rhs.__send__(member)
-	end
-	return true
-      end
-    end
-  end
   def test_struct_toplevel
     o = MyStruct2.new(1,2)
     marshal_equal(o)

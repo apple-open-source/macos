@@ -38,14 +38,16 @@
 #include "AccessibilityList.h"
 #include "AccessibilityListBoxOption.h"
 #include "AccessibilityTable.h"
+#include "AccessibilityTableCell.h"
 #include "Document.h"
+#include "Editing.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "HTMLTableElement.h"
 #include "HostWindow.h"
 #include "RenderAncestorIterator.h"
-#include "RenderFieldset.h"
+#include "RenderBlock.h"
 #include "RenderObject.h"
 #include "SVGElement.h"
 #include "Settings.h"
@@ -65,7 +67,6 @@
 #include "WebKitAccessibleInterfaceText.h"
 #include "WebKitAccessibleInterfaceValue.h"
 #include "WebKitAccessibleUtil.h"
-#include "htmlediting.h"
 #include <glib/gprintf.h>
 #include <wtf/text/CString.h>
 
@@ -172,13 +173,11 @@ static void removeAtkRelationByType(AtkRelationSet* relationSet, AtkRelationType
 
 static void setAtkRelationSetFromCoreObject(AccessibilityObject* coreObject, AtkRelationSet* relationSet)
 {
-    // FIXME: We're not implementing all the relation types, most notably the inverse/reciprocal
-    // types. Filed as bug 155494.
-
     // Elements with aria-labelledby should have the labelled-by relation as per the ARIA AAM spec.
     // Controls with a label element and fieldsets with a legend element should also use this relation
     // as per the HTML AAM spec. The reciprocal label-for relation should also be used.
     removeAtkRelationByType(relationSet, ATK_RELATION_LABELLED_BY);
+    removeAtkRelationByType(relationSet, ATK_RELATION_LABEL_FOR);
     if (coreObject->isControl()) {
         if (AccessibilityObject* label = coreObject->correspondingLabelForControlElement())
             atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, label->wrapper());
@@ -186,9 +185,11 @@ static void setAtkRelationSetFromCoreObject(AccessibilityObject* coreObject, Atk
         if (AccessibilityObject* label = coreObject->titleUIElement())
             atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, label->wrapper());
     } else if (coreObject->roleValue() == LegendRole) {
-        if (RenderFieldset* renderFieldset = ancestorsOfType<RenderFieldset>(*coreObject->renderer()).first()) {
-            AccessibilityObject* fieldset = coreObject->axObjectCache()->getOrCreate(renderFieldset);
-            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, fieldset->wrapper());
+        if (RenderBlock* renderFieldset = ancestorsOfType<RenderBlock>(*coreObject->renderer()).first()) {
+            if (renderFieldset->isFieldset()) {
+                AccessibilityObject* fieldset = coreObject->axObjectCache()->getOrCreate(renderFieldset);
+                atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, fieldset->wrapper());
+            }
         }
     } else if (AccessibilityObject* control = coreObject->correspondingControlForLabelElement()) {
         atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, control->wrapper());
@@ -199,12 +200,25 @@ static void setAtkRelationSetFromCoreObject(AccessibilityObject* coreObject, Atk
             atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, accessibilityObject->wrapper());
     }
 
+    // Elements referenced by aria-labelledby should have the label-for relation as per the ARIA AAM spec.
+    AccessibilityObject::AccessibilityChildrenVector labels;
+    coreObject->ariaLabelledByReferencingElements(labels);
+    for (const auto& accessibilityObject : labels)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, accessibilityObject->wrapper());
+
     // Elements with aria-flowto should have the flows-to relation as per the ARIA AAM spec.
     removeAtkRelationByType(relationSet, ATK_RELATION_FLOWS_TO);
     AccessibilityObject::AccessibilityChildrenVector ariaFlowToElements;
     coreObject->ariaFlowToElements(ariaFlowToElements);
     for (const auto& accessibilityObject : ariaFlowToElements)
         atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_FLOWS_TO, accessibilityObject->wrapper());
+
+    // Elements referenced by aria-flowto should have the flows-from relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_FLOWS_FROM);
+    AccessibilityObject::AccessibilityChildrenVector flowFrom;
+    coreObject->ariaFlowToReferencingElements(flowFrom);
+    for (const auto& accessibilityObject : flowFrom)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_FLOWS_FROM, accessibilityObject->wrapper());
 
     // Elements with aria-describedby should have the described-by relation as per the ARIA AAM spec.
     removeAtkRelationByType(relationSet, ATK_RELATION_DESCRIBED_BY);
@@ -213,12 +227,70 @@ static void setAtkRelationSetFromCoreObject(AccessibilityObject* coreObject, Atk
     for (const auto& accessibilityObject : ariaDescribedByElements)
         atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_DESCRIBED_BY, accessibilityObject->wrapper());
 
+    // Elements referenced by aria-describedby should have the description-for relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_DESCRIPTION_FOR);
+    AccessibilityObject::AccessibilityChildrenVector describers;
+    coreObject->ariaDescribedByReferencingElements(describers);
+    for (const auto& accessibilityObject : describers)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_DESCRIPTION_FOR, accessibilityObject->wrapper());
+
     // Elements with aria-controls should have the controller-for relation as per the ARIA AAM spec.
     removeAtkRelationByType(relationSet, ATK_RELATION_CONTROLLER_FOR);
     AccessibilityObject::AccessibilityChildrenVector ariaControls;
     coreObject->ariaControlsElements(ariaControls);
     for (const auto& accessibilityObject : ariaControls)
         atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_CONTROLLER_FOR, accessibilityObject->wrapper());
+
+    // Elements referenced by aria-controls should have the controlled-by relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_CONTROLLED_BY);
+    AccessibilityObject::AccessibilityChildrenVector controllers;
+    coreObject->ariaControlsReferencingElements(controllers);
+    for (const auto& accessibilityObject : controllers)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_CONTROLLED_BY, accessibilityObject->wrapper());
+
+    // Elements with aria-owns should have the node-parent-of relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_NODE_PARENT_OF);
+    AccessibilityObject::AccessibilityChildrenVector ariaOwns;
+    coreObject->ariaOwnsElements(ariaOwns);
+    for (const auto& accessibilityObject : ariaOwns)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_NODE_PARENT_OF, accessibilityObject->wrapper());
+
+    // Elements referenced by aria-owns should have the node-child-of relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_NODE_CHILD_OF);
+    AccessibilityObject::AccessibilityChildrenVector owners;
+    coreObject->ariaOwnsReferencingElements(owners);
+    for (const auto& accessibilityObject : owners)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_NODE_CHILD_OF, accessibilityObject->wrapper());
+
+#if ATK_CHECK_VERSION(2, 25, 2)
+    // Elements with aria-details should have the details relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_DETAILS);
+    AccessibilityObject::AccessibilityChildrenVector ariaDetails;
+    coreObject->ariaDetailsElements(ariaDetails);
+    for (const auto& accessibilityObject : ariaDetails)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_DETAILS, accessibilityObject->wrapper());
+
+    // Elements referenced by aria-details should have the details-for relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_DETAILS_FOR);
+    AccessibilityObject::AccessibilityChildrenVector details;
+    coreObject->ariaDetailsReferencingElements(details);
+    for (const auto& accessibilityObject : details)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_DETAILS_FOR, accessibilityObject->wrapper());
+
+    // Elements with aria-errormessage should have the error-message relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_ERROR_MESSAGE);
+    AccessibilityObject::AccessibilityChildrenVector ariaErrorMessage;
+    coreObject->ariaErrorMessageElements(ariaErrorMessage);
+    for (const auto& accessibilityObject : ariaErrorMessage)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_ERROR_MESSAGE, accessibilityObject->wrapper());
+
+    // Elements referenced by aria-errormessage should have the error-for relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_ERROR_FOR);
+    AccessibilityObject::AccessibilityChildrenVector errors;
+    coreObject->ariaErrorMessageReferencingElements(errors);
+    for (const auto& accessibilityObject : errors)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_ERROR_FOR, accessibilityObject->wrapper());
+#endif
 }
 
 static gpointer webkitAccessibleParentClass = nullptr;
@@ -357,8 +429,6 @@ static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
     AtkAttributeSet* attributeSet = nullptr;
 #if PLATFORM(GTK)
     attributeSet = addToAtkAttributeSet(attributeSet, "toolkit", "WebKitGtk");
-#elif PLATFORM(EFL)
-    attributeSet = addToAtkAttributeSet(attributeSet, "toolkit", "WebKitEfl");
 #endif
 
     AccessibilityObject* coreObject = core(object);
@@ -391,17 +461,48 @@ static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
             attributeSet = addToAtkAttributeSet(attributeSet, "multiscript-type", "post");
     }
 
-    // Set the 'layout-guess' attribute to help Assistive
-    // Technologies know when an exposed table is not data table.
-    if (is<AccessibilityTable>(*coreObject) && downcast<AccessibilityTable>(*coreObject).isExposableThroughAccessibility() && !coreObject->isDataTable())
-        attributeSet = addToAtkAttributeSet(attributeSet, "layout-guess", "true");
+    if (is<AccessibilityTable>(*coreObject) && downcast<AccessibilityTable>(*coreObject).isExposableThroughAccessibility()) {
+        auto& table = downcast<AccessibilityTable>(*coreObject);
+        int rowCount = table.ariaRowCount();
+        if (rowCount)
+            attributeSet = addToAtkAttributeSet(attributeSet, "rowcount", String::number(rowCount).utf8().data());
+
+        int columnCount = table.ariaColumnCount();
+        if (columnCount)
+            attributeSet = addToAtkAttributeSet(attributeSet, "colcount", String::number(columnCount).utf8().data());
+    }
+
+    if (is<AccessibilityTableCell>(*coreObject)) {
+        auto& cell = downcast<AccessibilityTableCell>(*coreObject);
+        int rowIndex = cell.ariaRowIndex();
+        if (rowIndex != -1)
+            attributeSet = addToAtkAttributeSet(attributeSet, "rowindex", String::number(rowIndex).utf8().data());
+
+        int columnIndex = cell.ariaColumnIndex();
+        if (columnIndex != -1)
+            attributeSet = addToAtkAttributeSet(attributeSet, "colindex", String::number(columnIndex).utf8().data());
+
+        int rowSpan = cell.ariaRowSpan();
+        if (rowSpan != -1)
+            attributeSet = addToAtkAttributeSet(attributeSet, "rowspan", String::number(rowSpan).utf8().data());
+
+        int columnSpan = cell.ariaColumnSpan();
+        if (columnSpan != -1)
+            attributeSet = addToAtkAttributeSet(attributeSet, "colspan", String::number(columnSpan).utf8().data());
+    }
 
     String placeholder = coreObject->placeholderValue();
     if (!placeholder.isEmpty())
         attributeSet = addToAtkAttributeSet(attributeSet, "placeholder-text", placeholder.utf8().data());
 
-    if (coreObject->ariaHasPopup())
-        attributeSet = addToAtkAttributeSet(attributeSet, "haspopup", "true");
+    if (coreObject->supportsARIAAutoComplete())
+        attributeSet = addToAtkAttributeSet(attributeSet, "autocomplete", coreObject->ariaAutoCompleteValue().utf8().data());
+
+    if (coreObject->supportsARIAHasPopup())
+        attributeSet = addToAtkAttributeSet(attributeSet, "haspopup", coreObject->ariaPopupValue().utf8().data());
+
+    if (coreObject->supportsARIACurrent())
+        attributeSet = addToAtkAttributeSet(attributeSet, "current", coreObject->ariaCurrentValue().utf8().data());
 
     AccessibilitySortDirection sortDirection = coreObject->sortDirection();
     if (sortDirection != SortDirectionNone) {
@@ -427,15 +528,20 @@ static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
     // According to the W3C Core Accessibility API Mappings 1.1, section 5.4.1 General Rules:
     // "User agents must expose the WAI-ARIA role string if the API supports a mechanism to do so."
     // In the case of ATK, the mechanism to do so is an object attribute pair (xml-roles:"string").
-    // The computedRoleString is primarily for testing, and not limited to elements with ARIA roles.
-    // Because the computedRoleString currently contains the ARIA role string, we'll use it for
-    // both purposes, as the "computed-role" object attribute for all elements which have a value
-    // and also via the "xml-roles" attribute for elements with ARIA, as well as for landmarks.
-    String roleString = coreObject->computedRoleString();
-    if (!roleString.isEmpty()) {
-        if (coreObject->ariaRoleAttribute() != UnknownRole || coreObject->isLandmark())
-            attributeSet = addToAtkAttributeSet(attributeSet, "xml-roles", roleString.utf8().data());
-        attributeSet = addToAtkAttributeSet(attributeSet, "computed-role", roleString.utf8().data());
+    // We cannot use the computedRoleString for this purpose because it is not limited to elements
+    // with ARIA roles, and it might not contain the actual ARIA role value (e.g. DPub ARIA).
+    String roleString = coreObject->getAttribute(HTMLNames::roleAttr);
+    if (!roleString.isEmpty())
+        attributeSet = addToAtkAttributeSet(attributeSet, "xml-roles", roleString.utf8().data());
+
+    String computedRoleString = coreObject->computedRoleString();
+    if (!computedRoleString.isEmpty()) {
+        attributeSet = addToAtkAttributeSet(attributeSet, "computed-role", computedRoleString.utf8().data());
+
+        // The HTML AAM maps several elements to ARIA landmark roles. In order for the type of landmark
+        // to be obtainable in the same fashion as an ARIA landmark, fall back on the computedRoleString.
+        if (coreObject->ariaRoleAttribute() == UnknownRole && coreObject->isLandmark())
+            attributeSet = addToAtkAttributeSet(attributeSet, "xml-roles", computedRoleString.utf8().data());
     }
 
     String roleDescription = coreObject->roleDescription();
@@ -449,9 +555,9 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
 {
     AccessibilityRole role = coreObject->roleValue();
     switch (role) {
-    case ApplicationAlertDialogRole:
     case ApplicationAlertRole:
         return ATK_ROLE_ALERT;
+    case ApplicationAlertDialogRole:
     case ApplicationDialogRole:
         return ATK_ROLE_DIALOG;
     case ApplicationStatusRole:
@@ -522,6 +628,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case WindowRole:
         return ATK_ROLE_WINDOW;
     case PopUpButtonRole:
+        return coreObject->ariaHasPopup() ? ATK_ROLE_PUSH_BUTTON : ATK_ROLE_COMBO_BOX;
     case ComboBoxRole:
         return ATK_ROLE_COMBO_BOX;
     case SplitGroupRole:
@@ -532,8 +639,6 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
 #if PLATFORM(GTK)
         // ATK_ROLE_COLOR_CHOOSER is defined as a dialog (i.e. it's what appears when you push the button).
         return ATK_ROLE_PUSH_BUTTON;
-#elif PLATFORM(EFL)
-        return ATK_ROLE_COLOR_CHOOSER;
 #endif
     case ListRole:
         return ATK_ROLE_LIST;
@@ -544,14 +649,18 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case GridRole:
     case TableRole:
         return ATK_ROLE_TABLE;
+    case TreeGridRole:
+        return ATK_ROLE_TREE_TABLE;
     case ApplicationRole:
         return ATK_ROLE_APPLICATION;
+    case ApplicationGroupRole:
+    case FeedRole:
+    case FigureRole:
+    case GroupRole:
     case RadioGroupRole:
     case SVGRootRole:
     case TabPanelRole:
         return ATK_ROLE_PANEL;
-    case GroupRole:
-        return coreObject->isStyleFormatGroup() ? ATK_ROLE_SECTION : ATK_ROLE_PANEL;
     case RowHeaderRole:
         return ATK_ROLE_ROW_HEADER;
     case ColumnHeaderRole:
@@ -597,9 +706,15 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
 #if ATK_CHECK_VERSION(2, 11, 3)
         return ATK_ROLE_BLOCK_QUOTE;
 #endif
+    case FootnoteRole:
+#if ATK_CHECK_VERSION(2, 25, 2)
+        return ATK_ROLE_FOOTNOTE;
+#endif
+    case ApplicationTextGroupRole:
     case DivRole:
     case PreRole:
     case SVGTextRole:
+    case TextGroupRole:
         return ATK_ROLE_SECTION;
     case FooterRole:
         return ATK_ROLE_FOOTER;
@@ -661,6 +776,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case LandmarkBannerRole:
     case LandmarkComplementaryRole:
     case LandmarkContentInfoRole:
+    case LandmarkDocRegionRole:
     case LandmarkMainRole:
     case LandmarkNavigationRole:
     case LandmarkRegionRole:
@@ -670,6 +786,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
 #if ATK_CHECK_VERSION(2, 11, 4)
     case DescriptionListRole:
         return ATK_ROLE_DESCRIPTION_LIST;
+    case TermRole:
     case DescriptionListTermRole:
         return ATK_ROLE_DESCRIPTION_TERM;
     case DescriptionListDetailRole:
@@ -686,6 +803,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
         return ATK_ROLE_STATIC;
     case SVGTextPathRole:
     case SVGTSpanRole:
+    case TimeRole:
         return ATK_ROLE_STATIC;
 #endif
     default:
@@ -748,7 +866,8 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
     bool isListBoxOption = parent && parent->isListBox();
 
     // Please keep the state list in alphabetical order
-    if (isListBoxOption && coreObject->isSelectedOptionActive())
+    if ((isListBoxOption && coreObject->isSelectedOptionActive())
+        || coreObject->ariaCurrentState() != ARIACurrentFalse)
         atk_state_set_add_state(stateSet, ATK_STATE_ACTIVE);
 
     if (coreObject->isBusy())
@@ -788,6 +907,9 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
     else if (coreObject->orientation() == AccessibilityOrientationVertical)
         atk_state_set_add_state(stateSet, ATK_STATE_VERTICAL);
 
+    if (coreObject->ariaHasPopup())
+        atk_state_set_add_state(stateSet, ATK_STATE_HAS_POPUP);
+
     if (coreObject->isIndeterminate())
         atk_state_set_add_state(stateSet, ATK_STATE_INDETERMINATE);
 
@@ -795,6 +917,9 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
         if (coreObject->checkboxOrRadioValue() == ButtonStateMixed)
             atk_state_set_add_state(stateSet, ATK_STATE_INDETERMINATE);
     }
+
+    if (coreObject->isAriaModalNode())
+        atk_state_set_add_state(stateSet, ATK_STATE_MODAL);
 
     if (coreObject->invalidStatus() != "false")
         atk_state_set_add_state(stateSet, ATK_STATE_INVALID_ENTRY);
@@ -851,6 +976,9 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
         atk_state_set_add_state(stateSet, ATK_STATE_SINGLE_LINE);
 
     // TODO: ATK_STATE_SENSITIVE
+
+    if (coreObject->supportsARIAAutoComplete() && coreObject->ariaAutoCompleteValue() != "none")
+        atk_state_set_add_state(stateSet, ATK_STATE_SUPPORTS_AUTOCOMPLETION);
 
     if (coreObject->isVisited())
         atk_state_set_add_state(stateSet, ATK_STATE_VISITED);
@@ -1065,7 +1193,7 @@ static bool roleIsTextType(AccessibilityRole role)
 {
     return role == ParagraphRole || role == HeadingRole || role == DivRole || role == CellRole
         || role == LinkRole || role == WebCoreLinkRole || role == ListItemRole || role == PreRole
-        || role == GridCellRole;
+        || role == GridCellRole || role == TextGroupRole || role == ApplicationTextGroupRole;
 }
 
 static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
@@ -1128,11 +1256,11 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
         interfaceMask |= 1 << WAIImage;
 
     // Table
-    if (role == TableRole || role == GridRole)
+    if (coreObject->isTable())
         interfaceMask |= 1 << WAITable;
 
 #if ATK_CHECK_VERSION(2,11,90)
-    if (role == CellRole || role == ColumnHeaderRole || role == RowHeaderRole)
+    if (role == CellRole || role == GridCellRole || role == ColumnHeaderRole || role == RowHeaderRole)
         interfaceMask |= 1 << WAITableCell;
 #endif
 
@@ -1141,7 +1269,7 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
         interfaceMask |= 1 << WAIDocument;
 
     // Value
-    if (role == SliderRole || role == SpinButtonRole || role == ScrollBarRole || role == ProgressIndicatorRole)
+    if (coreObject->supportsRangeValue())
         interfaceMask |= 1 << WAIValue;
 
 #if ENABLE(INPUT_TYPE_COLOR)

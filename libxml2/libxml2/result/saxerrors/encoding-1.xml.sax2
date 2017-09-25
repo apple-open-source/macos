@@ -1,0 +1,8 @@
+SAX.setDocumentLocator()
+SAX.startDocument()
+SAX.startElementNs(⳴, NULL, NULL, 0, 0, 0)
+SAX.characters(', 1)
+SAX.characters(샀샀쀀샰ః샀샀샀뿀샀, 36)
+SAX.error: Char 0xDCC0 out of allowed range
+SAX.error: Extra content at the end of the document
+SAX.endDocument()

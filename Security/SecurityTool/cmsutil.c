@@ -64,6 +64,7 @@
 #include <Security/SecIdentitySearch.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <utilities/SecCFRelease.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -148,7 +149,9 @@ static SecPolicyRef CERT_PolicyForCertUsage(SECCertUsage certUsage, const char *
             emailAddress
         };
         CSSM_DATA value = { sizeof(options), (uint8 *)&options };
-        SEC_CHECK(SecPolicySetValue(policy, &value), "SecPolicySetValue");
+        if (SecPolicySetValue(policy, &value)) {
+            goto loser;
+        }
     }
 
     // @@@ Need to set values for SSL and other policies.
@@ -642,10 +645,10 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
 											 false)) == NULL)
 		{
 			// look for identity by common name rather than email address
-			if ((identity = find_identity(signOptions->options->certDBHandle,
-										  signOptions->nickname,
-										  NULL,
-										  signOptions->options->certUsage)) == NULL)
+			if ((identity = CopyMatchingIdentity(signOptions->options->certDBHandle,
+                                                 signOptions->nickname,
+                                                 NULL,
+                                                 signOptions->options->certUsage)) == NULL)
 			{
 				sec_error("could not find signing identity for name: \"%s\"", signOptions->nickname);
 				return NULL;
@@ -1028,12 +1031,12 @@ static SecCmsMessageRef signed_data_certsonly(struct certsonlyOptionsStr *certso
     // build chain of objects: message->signedData->data
     SEC_CHECK0(sigd = SecCmsSignedDataCreateCertsOnly(cmsg, certs[0], true),
                "cannot create certs only CMS signedData object");
-    CFRelease(certs[0]);
+    CFReleaseNull(certs[0]);
     for (i = 1; i < cnt; ++i)
     {
         SEC_CHECK2(SecCmsSignedDataAddCertChain(sigd, certs[i]),
                    "cannot add cert chain for \"%s\"", certsonlyOptions->recipients[i]);
-        CFRelease(certs[i]);
+        CFReleaseNull(certs[i]);
     }
 
     SEC_CHECK0(cinfo = SecCmsMessageGetContentInfo(cmsg),
@@ -1053,7 +1056,7 @@ loser:
     if (certs)
     {
         for (; i < cnt; ++i)
-            CFRelease(certs[i]);
+            CFReleaseNull(certs[i]);
 
         free(certs);
     }
@@ -1141,6 +1144,10 @@ int cms_util(int argc, char * const *argv)
             if (mode != SIGN) {
                 sec_error("option -n only supported with option -D");
                 result = 2; /* Trigger usage message. */
+                goto loser;
+            }
+            if(!optarg) {
+                result = 2;
                 goto loser;
             }
             decodeOptions.suppressContent = true;
@@ -1319,7 +1326,7 @@ int cms_util(int argc, char * const *argv)
 
         case 'u':
         {
-            int usageType = atoi (strdup(optarg));
+            int usageType = atoi (optarg);
             if (usageType < certUsageSSLClient || usageType > certUsageAnyCA)
             {
                 result = 1;
@@ -1546,6 +1553,21 @@ int cms_util(int argc, char * const *argv)
     }
 
 loser:
+    if(signOptions.encryptionKeyPreferenceNick) {
+        free(signOptions.encryptionKeyPreferenceNick);
+    }
+    if(signOptions.nickname) {
+        free(signOptions.nickname);
+    }
+    if(signOptions.subjectKeyID) {
+        free(signOptions.subjectKeyID);
+    }
+    if(signOptions.timestampingURL) {
+        free(signOptions.timestampingURL);
+    }
+    if(envFileName) {
+        free(envFileName);
+    }
     if (cmsg)
         SecCmsMessageDestroy(cmsg);
     if (outFile != stdout)

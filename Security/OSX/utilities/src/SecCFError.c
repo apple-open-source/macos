@@ -162,16 +162,6 @@ bool SecAllocationError(const void *allocated, CFErrorRef *error, CFStringRef fo
     return false;
 }
 
-
-bool SecCFCreateError(CFIndex errorCode, CFStringRef domain, CFStringRef descriptionString,
-                      CFErrorRef previousError, CFErrorRef *newError)
-{
-#pragma clang diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-security"
-    return SecCFCreateErrorWithFormat(errorCode, domain, previousError, newError, NULL, descriptionString);
-#pragma clang diagnostic pop
-}
-
 bool SecCFCreateErrorWithFormat(CFIndex errorCode, CFStringRef domain, CFErrorRef previousError, CFErrorRef *newError,
                                 CFDictionaryRef formatoptions, CFStringRef format, ...)
 {

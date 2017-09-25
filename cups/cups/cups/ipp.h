@@ -1,14 +1,14 @@
 /*
  * Internet Printing Protocol definitions for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -77,7 +77,7 @@ extern "C" {
  * Types and structures...
  */
 
-typedef enum ipp_dstate_e		/**** Document states ****/
+typedef enum ipp_dstate_e		/**** Document states @exclude all@ ****/
 {
   IPP_DOCUMENT_PENDING = 3,		/* Document is pending */
   IPP_DOCUMENT_PROCESSING = 5,		/* Document is processing */
@@ -94,10 +94,10 @@ typedef enum ipp_dstate_e		/**** Document states ****/
 #  endif /* !_CUPS_NO_DEPRECATED */
 } ipp_dstate_t;
 
-typedef enum ipp_finishings_e		/**** Finishings ****/
+typedef enum ipp_finishings_e		/**** Finishings values ****/
 {
   IPP_FINISHINGS_NONE = 3,		/* No finishing */
-  IPP_FINISHINGS_STAPLE,		/* Staple (any location) */
+  IPP_FINISHINGS_STAPLE,		/* Staple (any location/method) */
   IPP_FINISHINGS_PUNCH,			/* Punch (any location/count) */
   IPP_FINISHINGS_COVER,			/* Add cover */
   IPP_FINISHINGS_BIND,			/* Bind */
@@ -150,6 +150,10 @@ typedef enum ipp_finishings_e		/**** Finishings ****/
   IPP_FINISHINGS_PUNCH_QUAD_TOP,	/* Punch 4 holes top edge */
   IPP_FINISHINGS_PUNCH_QUAD_RIGHT,	/* Punch 4 holes right side */
   IPP_FINISHINGS_PUNCH_QUAD_BOTTOM,	/* Punch 4 holes bottom edge */
+  IPP_FINISHINGS_PUNCH_MULTIPLE_LEFT,	/* Pucnh multiple holes left side */
+  IPP_FINISHINGS_PUNCH_MULTIPLE_TOP,	/* Pucnh multiple holes top edge */
+  IPP_FINISHINGS_PUNCH_MULTIPLE_RIGHT,	/* Pucnh multiple holes right side */
+  IPP_FINISHINGS_PUNCH_MULTIPLE_BOTTOM,	/* Pucnh multiple holes bottom edge */
   IPP_FINISHINGS_FOLD_ACCORDIAN = 90,	/* Accordian-fold the paper vertically into four sections */
   IPP_FINISHINGS_FOLD_DOUBLE_GATE,	/* Fold the top and bottom quarters of the paper towards the midline, then fold in half vertically */
   IPP_FINISHINGS_FOLD_GATE,		/* Fold the top and bottom quarters of the paper towards the midline */
@@ -161,41 +165,42 @@ typedef enum ipp_finishings_e		/**** Finishings ****/
   IPP_FINISHINGS_FOLD_POSTER,		/* Fold the paper in half horizontally and vertically; sometimes also called a cross fold */
   IPP_FINISHINGS_FOLD_RIGHT_GATE,	/* Fold the bottom quarter of the paper towards the midline */
   IPP_FINISHINGS_FOLD_Z,		/* Fold the paper vertically into three sections, forming a Z */
+  IPP_FINISHINGS_FOLD_ENGINEERING_Z,	/* Fold the paper vertically into two small sections and one larger, forming an elongated Z */
 
   /* CUPS extensions for finishings (pre-standard versions of values above) */
   IPP_FINISHINGS_CUPS_PUNCH_TOP_LEFT = 0x40000046,
-					/* Punch 1 hole top left */
-  IPP_FINISHINGS_CUPS_PUNCH_BOTTOM_LEFT,/* Punch 1 hole bottom left */
-  IPP_FINISHINGS_CUPS_PUNCH_TOP_RIGHT,	/* Punch 1 hole top right */
+					/* Punch 1 hole top left @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_BOTTOM_LEFT,/* Punch 1 hole bottom left @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_TOP_RIGHT,	/* Punch 1 hole top right @exclude all@ */
   IPP_FINISHINGS_CUPS_PUNCH_BOTTOM_RIGHT,
-					/* Punch 1 hole bottom right */
-  IPP_FINISHINGS_CUPS_PUNCH_DUAL_LEFT,	/* Punch 2 holes left side */
-  IPP_FINISHINGS_CUPS_PUNCH_DUAL_TOP,	/* Punch 2 holes top edge */
-  IPP_FINISHINGS_CUPS_PUNCH_DUAL_RIGHT,	/* Punch 2 holes right side */
-  IPP_FINISHINGS_CUPS_PUNCH_DUAL_BOTTOM,/* Punch 2 holes bottom edge */
-  IPP_FINISHINGS_CUPS_PUNCH_TRIPLE_LEFT,/* Punch 3 holes left side */
-  IPP_FINISHINGS_CUPS_PUNCH_TRIPLE_TOP,	/* Punch 3 holes top edge */
+					/* Punch 1 hole bottom right @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_DUAL_LEFT,	/* Punch 2 holes left side @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_DUAL_TOP,	/* Punch 2 holes top edge @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_DUAL_RIGHT,	/* Punch 2 holes right side @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_DUAL_BOTTOM,/* Punch 2 holes bottom edge @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_TRIPLE_LEFT,/* Punch 3 holes left side @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_TRIPLE_TOP,	/* Punch 3 holes top edge @exclude all@ */
   IPP_FINISHINGS_CUPS_PUNCH_TRIPLE_RIGHT,
-					/* Punch 3 holes right side */
+					/* Punch 3 holes right side @exclude all@ */
   IPP_FINISHINGS_CUPS_PUNCH_TRIPLE_BOTTOM,
-					/* Punch 3 holes bottom edge */
-  IPP_FINISHINGS_CUPS_PUNCH_QUAD_LEFT,	/* Punch 4 holes left side */
-  IPP_FINISHINGS_CUPS_PUNCH_QUAD_TOP,	/* Punch 4 holes top edge */
-  IPP_FINISHINGS_CUPS_PUNCH_QUAD_RIGHT,	/* Punch 4 holes right side */
-  IPP_FINISHINGS_CUPS_PUNCH_QUAD_BOTTOM,/* Punch 4 holes bottom edge */
+					/* Punch 3 holes bottom edge @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_QUAD_LEFT,	/* Punch 4 holes left side @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_QUAD_TOP,	/* Punch 4 holes top edge @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_QUAD_RIGHT,	/* Punch 4 holes right side @exclude all@ */
+  IPP_FINISHINGS_CUPS_PUNCH_QUAD_BOTTOM,/* Punch 4 holes bottom edge @exclude all@ */
 
   IPP_FINISHINGS_CUPS_FOLD_ACCORDIAN = 0x4000005A,
-					/* Accordian-fold the paper vertically into four sections */
-  IPP_FINISHINGS_CUPS_FOLD_DOUBLE_GATE,	/* Fold the top and bottom quarters of the paper towards the midline, then fold in half vertically */
-  IPP_FINISHINGS_CUPS_FOLD_GATE,	/* Fold the top and bottom quarters of the paper towards the midline */
-  IPP_FINISHINGS_CUPS_FOLD_HALF,	/* Fold the paper in half vertically */
-  IPP_FINISHINGS_CUPS_FOLD_HALF_Z,	/* Fold the paper in half horizontally, then Z-fold the paper vertically */
-  IPP_FINISHINGS_CUPS_FOLD_LEFT_GATE,	/* Fold the top quarter of the paper towards the midline */
-  IPP_FINISHINGS_CUPS_FOLD_LETTER,	/* Fold the paper into three sections vertically; sometimes also known as a C fold*/
-  IPP_FINISHINGS_CUPS_FOLD_PARALLEL,	/* Fold the paper in half vertically two times, yielding four sections */
-  IPP_FINISHINGS_CUPS_FOLD_POSTER,	/* Fold the paper in half horizontally and vertically; sometimes also called a cross fold */
-  IPP_FINISHINGS_CUPS_FOLD_RIGHT_GATE,	/* Fold the bottom quarter of the paper towards the midline */
-  IPP_FINISHINGS_CUPS_FOLD_Z		/* Fold the paper vertically into three sections, forming a Z */
+					/* Accordian-fold the paper vertically into four sections @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_DOUBLE_GATE,	/* Fold the top and bottom quarters of the paper towards the midline, then fold in half vertically @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_GATE,	/* Fold the top and bottom quarters of the paper towards the midline @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_HALF,	/* Fold the paper in half vertically @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_HALF_Z,	/* Fold the paper in half horizontally, then Z-fold the paper vertically @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_LEFT_GATE,	/* Fold the top quarter of the paper towards the midline @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_LETTER,	/* Fold the paper into three sections vertically; sometimes also known as a C fold @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_PARALLEL,	/* Fold the paper in half vertically two times, yielding four sections @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_POSTER,	/* Fold the paper in half horizontally and vertically; sometimes also called a cross fold @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_RIGHT_GATE,	/* Fold the bottom quarter of the paper towards the midline @exclude all@ */
+  IPP_FINISHINGS_CUPS_FOLD_Z		/* Fold the paper vertically into three sections, forming a Z @exclude all@ */
 } ipp_finishings_t;
 #  ifndef _CUPS_NO_DEPRECATED
 #    define IPP_FINISHINGS_JOB_OFFSET	IPP_FINISHINGS_JOG_OFFSET
@@ -203,7 +208,7 @@ typedef enum ipp_finishings_e		/**** Finishings ****/
 typedef enum ipp_finishings_e ipp_finish_t;
 #  endif /* !_CUPS_NO_DEPRECATED */
 
-typedef enum ipp_jcollate_e		/**** Job collation types ****/
+typedef enum ipp_jcollate_e		/**** Job collation types @deprecated@ @exclude all@ ****/
 {
   IPP_JCOLLATE_UNCOLLATED_SHEETS = 3,
   IPP_JCOLLATE_COLLATED_DOCUMENTS,
@@ -243,98 +248,98 @@ typedef enum ipp_op_e			/**** IPP operations ****/
 {
   IPP_OP_CUPS_INVALID = -1,		/* Invalid operation name for @link ippOpValue@ */
   IPP_OP_CUPS_NONE = 0,			/* No operation @private@ */
-  IPP_OP_PRINT_JOB = 0x0002,		/* Print a single file */
-  IPP_OP_PRINT_URI,			/* Print a single URL */
-  IPP_OP_VALIDATE_JOB,			/* Validate job options */
-  IPP_OP_CREATE_JOB,			/* Create an empty print job */
-  IPP_OP_SEND_DOCUMENT,			/* Add a file to a job */
-  IPP_OP_SEND_URI,			/* Add a URL to a job */
-  IPP_OP_CANCEL_JOB,			/* Cancel a job */
-  IPP_OP_GET_JOB_ATTRIBUTES,		/* Get job attributes */
-  IPP_OP_GET_JOBS,			/* Get a list of jobs */
-  IPP_OP_GET_PRINTER_ATTRIBUTES,	/* Get printer attributes */
-  IPP_OP_HOLD_JOB,			/* Hold a job for printing */
-  IPP_OP_RELEASE_JOB,			/* Release a job for printing */
-  IPP_OP_RESTART_JOB,			/* Reprint a job */
-  IPP_OP_PAUSE_PRINTER = 0x0010,	/* Stop a printer */
-  IPP_OP_RESUME_PRINTER,		/* Start a printer */
-  IPP_OP_PURGE_JOBS,			/* Cancel all jobs */
-  IPP_OP_SET_PRINTER_ATTRIBUTES,	/* Set printer attributes */
-  IPP_OP_SET_JOB_ATTRIBUTES,		/* Set job attributes */
-  IPP_OP_GET_PRINTER_SUPPORTED_VALUES,	/* Get supported attribute values */
-  IPP_OP_CREATE_PRINTER_SUBSCRIPTIONS,	/* Create one or more printer subscriptions @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_CREATE_JOB_SUBSCRIPTIONS,	/* Create one of more job subscriptions @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_GET_SUBSCRIPTION_ATTRIBUTES,	/* Get subscription attributes @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_GET_SUBSCRIPTIONS,		/* Get list of subscriptions @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_RENEW_SUBSCRIPTION,		/* Renew a printer subscription @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_CANCEL_SUBSCRIPTION,		/* Cancel a subscription @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_GET_NOTIFICATIONS,		/* Get notification events @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_SEND_NOTIFICATIONS,		/* Send notification events @private@ */
-  IPP_OP_GET_RESOURCE_ATTRIBUTES,	/* Get resource attributes @private@ */
-  IPP_OP_GET_RESOURCE_DATA,		/* Get resource data @private@ */
-  IPP_OP_GET_RESOURCES,			/* Get list of resources @private@ */
-  IPP_OP_GET_PRINT_SUPPORT_FILES,	/* Get printer support files @private@ */
-  IPP_OP_ENABLE_PRINTER,		/* Start a printer */
-  IPP_OP_DISABLE_PRINTER,		/* Stop a printer */
+  IPP_OP_PRINT_JOB = 0x0002,		/* Print-Job: Print a single file */
+  IPP_OP_PRINT_URI,			/* Print-URI: Print a single URL @exclude all@ */
+  IPP_OP_VALIDATE_JOB,			/* Validate-Job: Validate job values prior to submission */
+  IPP_OP_CREATE_JOB,			/* Create-Job: Create an empty print job */
+  IPP_OP_SEND_DOCUMENT,			/* Send-Document: Add a file to a job */
+  IPP_OP_SEND_URI,			/* Send-URI: Add a URL to a job @exclude all@ */
+  IPP_OP_CANCEL_JOB,			/* Cancel-Job: Cancel a job */
+  IPP_OP_GET_JOB_ATTRIBUTES,		/* Get-Job-Attribute: Get information about a job */
+  IPP_OP_GET_JOBS,			/* Get-Jobs: Get a list of jobs */
+  IPP_OP_GET_PRINTER_ATTRIBUTES,	/* Get-Printer-Attributes: Get information about a printer */
+  IPP_OP_HOLD_JOB,			/* Hold-Job: Hold a job for printing */
+  IPP_OP_RELEASE_JOB,			/* Release-Job: Release a job for printing */
+  IPP_OP_RESTART_JOB,			/* Restart-Job: Reprint a job @deprecated@ */
+  IPP_OP_PAUSE_PRINTER = 0x0010,	/* Pause-Printer: Stop a printer */
+  IPP_OP_RESUME_PRINTER,		/* Resume-Printer: Start a printer */
+  IPP_OP_PURGE_JOBS,			/* Purge-Jobs: Delete all jobs @deprecated@ @exclude all@ */
+  IPP_OP_SET_PRINTER_ATTRIBUTES,	/* Set-Printer-Attributes: Set printer values */
+  IPP_OP_SET_JOB_ATTRIBUTES,		/* Set-Job-Attributes: Set job values */
+  IPP_OP_GET_PRINTER_SUPPORTED_VALUES,	/* Get-Printer-Supported-Values: Get supported values */
+  IPP_OP_CREATE_PRINTER_SUBSCRIPTIONS,	/* Create-Printer-Subscriptions: Create one or more printer subscriptions @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_CREATE_JOB_SUBSCRIPTIONS,	/* Create-Job-Subscriptions: Create one of more job subscriptions @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_GET_SUBSCRIPTION_ATTRIBUTES,	/* Get-Subscription-Attributes: Get subscription information @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_GET_SUBSCRIPTIONS,		/* Get-Subscriptions: Get list of subscriptions @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_RENEW_SUBSCRIPTION,		/* Renew-Subscription: Renew a printer subscription @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_CANCEL_SUBSCRIPTION,		/* Cancel-Subscription: Cancel a subscription @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_GET_NOTIFICATIONS,		/* Get-Notifications: Get notification events @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_SEND_NOTIFICATIONS,		/* Send-Notifications: Send notification events @private@ */
+  IPP_OP_GET_RESOURCE_ATTRIBUTES,	/* Get-Resource-Attributes: Get resource information @private@ */
+  IPP_OP_GET_RESOURCE_DATA,		/* Get-Resource-Data: Get resource data @private@ @deprecated@ */
+  IPP_OP_GET_RESOURCES,			/* Get-Resources: Get list of resources @private@ */
+  IPP_OP_GET_PRINT_SUPPORT_FILES,	/* Get-Printer-Support-Files: Get printer support files @private@ */
+  IPP_OP_ENABLE_PRINTER,		/* Enable-Printer: Accept new jobs for a printer */
+  IPP_OP_DISABLE_PRINTER,		/* Disable-Printer: Reject new jobs for a printer */
   IPP_OP_PAUSE_PRINTER_AFTER_CURRENT_JOB,
-					/* Stop printer after the current job */
-  IPP_OP_HOLD_NEW_JOBS,			/* Hold new jobs */
-  IPP_OP_RELEASE_HELD_NEW_JOBS,		/* Release new jobs */
-  IPP_OP_DEACTIVATE_PRINTER,		/* Stop a printer */
-  IPP_OP_ACTIVATE_PRINTER,		/* Start a printer */
-  IPP_OP_RESTART_PRINTER,		/* Restart a printer */
-  IPP_OP_SHUTDOWN_PRINTER,		/* Turn a printer off */
-  IPP_OP_STARTUP_PRINTER,		/* Turn a printer on */
-  IPP_OP_REPROCESS_JOB,			/* Reprint a job */
-  IPP_OP_CANCEL_CURRENT_JOB,		/* Cancel the current job */
-  IPP_OP_SUSPEND_CURRENT_JOB,		/* Suspend the current job */
-  IPP_OP_RESUME_JOB,			/* Resume the current job */
-  IPP_OP_PROMOTE_JOB,			/* Promote a job to print sooner */
-  IPP_OP_SCHEDULE_JOB_AFTER,		/* Schedule a job to print after another */
-  IPP_OP_CANCEL_DOCUMENT = 0x0033,	/* Cancel-Document */
-  IPP_OP_GET_DOCUMENT_ATTRIBUTES,	/* Get-Document-Attributes */
-  IPP_OP_GET_DOCUMENTS,			/* Get-Documents */
-  IPP_OP_DELETE_DOCUMENT,		/* Delete-Document */
-  IPP_OP_SET_DOCUMENT_ATTRIBUTES,	/* Set-Document-Attributes */
-  IPP_OP_CANCEL_JOBS,			/* Cancel-Jobs */
-  IPP_OP_CANCEL_MY_JOBS,		/* Cancel-My-Jobs */
-  IPP_OP_RESUBMIT_JOB,			/* Resubmit-Job */
-  IPP_OP_CLOSE_JOB,			/* Close-Job */
-  IPP_OP_IDENTIFY_PRINTER,		/* Identify-Printer */
-  IPP_OP_VALIDATE_DOCUMENT,		/* Validate-Document */
-  IPP_OP_SEND_HARDCOPY_DOCUMENT,	/* Send-Hardcopy-Document */
-  IPP_OP_ACKNOWLEDGE_DOCUMENT,		/* Acknowledge-Document */
-  IPP_OP_ACKNOWLEDGE_IDENTIFY_PRINTER,	/* Acknowledge-Identify-Printer */
-  IPP_OP_ACKNOWLEDGE_JOB,		/* Acknowledge-Job */
-  IPP_OP_FETCH_DOCUMENT,		/* Fetch-Document */
-  IPP_OP_FETCH_JOB,			/* Fetch-Job */
-  IPP_OP_GET_OUTPUT_DEVICE_ATTRIBUTES,	/* Get-Output-Device-Attributes */
-  IPP_OP_UPDATE_ACTIVE_JOBS,		/* Update-Active-Jobs */
-  IPP_OP_DEREGISTER_OUTPUT_DEVICE,	/* Deregister-Output-Device */
-  IPP_OP_UPDATE_DOCUMENT_STATUS,	/* Update-Document-Status */
-  IPP_OP_UPDATE_JOB_STATUS,		/* Update-Job-Status */
+					/* Pause-Printer-After-Current-Job: Stop printer after the current job */
+  IPP_OP_HOLD_NEW_JOBS,			/* Hold-New-Jobs: Hold new jobs */
+  IPP_OP_RELEASE_HELD_NEW_JOBS,		/* Release-Held-New-Jobs: Release new jobs that were previously held */
+  IPP_OP_DEACTIVATE_PRINTER,		/* Deactivate-Printer: Stop a printer and do not accept jobs @deprecated@ @exclude all@ */
+  IPP_OP_ACTIVATE_PRINTER,		/* Activate-Printer: Start a printer and accept jobs @deprecated@ @exclude all@ */
+  IPP_OP_RESTART_PRINTER,		/* Restart-Printer: Restart a printer @exclude all@ */
+  IPP_OP_SHUTDOWN_PRINTER,		/* Shutdown-Printer: Turn a printer off @exclude all@ */
+  IPP_OP_STARTUP_PRINTER,		/* Startup-Printer: Turn a printer on @exclude all@ */
+  IPP_OP_REPROCESS_JOB,			/* Reprocess-Job: Reprint a job @deprecated@ @exclude all@*/
+  IPP_OP_CANCEL_CURRENT_JOB,		/* Cancel-Current-Job: Cancel the current job */
+  IPP_OP_SUSPEND_CURRENT_JOB,		/* Suspend-Current-Job: Suspend the current job */
+  IPP_OP_RESUME_JOB,			/* Resume-Job: Resume the current job */
+  IPP_OP_PROMOTE_JOB,			/* Promote-Job: Promote a job to print sooner */
+  IPP_OP_SCHEDULE_JOB_AFTER,		/* Schedule-Job-After: Schedule a job to print after another */
+  IPP_OP_CANCEL_DOCUMENT = 0x0033,	/* Cancel-Document: Cancel a document @exclude all@ */
+  IPP_OP_GET_DOCUMENT_ATTRIBUTES,	/* Get-Document-Attributes: Get document information @exclude all@ */
+  IPP_OP_GET_DOCUMENTS,			/* Get-Documents: Get a list of documents in a job @exclude all@ */
+  IPP_OP_DELETE_DOCUMENT,		/* Delete-Document: Delete a document @deprecated@  @exclude all@ */
+  IPP_OP_SET_DOCUMENT_ATTRIBUTES,	/* Set-Document-Attributes: Set document values @exclude all@ */
+  IPP_OP_CANCEL_JOBS,			/* Cancel-Jobs: Cancel all jobs (administrative) */
+  IPP_OP_CANCEL_MY_JOBS,		/* Cancel-My-Jobs: Cancel a user's jobs */
+  IPP_OP_RESUBMIT_JOB,			/* Resubmit-Job: Copy and reprint a job @exclude all@ */
+  IPP_OP_CLOSE_JOB,			/* Close-Job: Close a job and start printing */
+  IPP_OP_IDENTIFY_PRINTER,		/* Identify-Printer: Make the printer beep, flash, or display a message for identification */
+  IPP_OP_VALIDATE_DOCUMENT,		/* Validate-Document: Validate document values prior to submission @exclude all@ */
+  IPP_OP_ADD_DOCUMENT_IMAGES,		/* Add-Document-Images: Add image(s) from the specified scanner source @exclude all@ */
+  IPP_OP_ACKNOWLEDGE_DOCUMENT,		/* Acknowledge-Document: Acknowledge processing of a document @exclude all@ */
+  IPP_OP_ACKNOWLEDGE_IDENTIFY_PRINTER,	/* Acknowledge-Identify-Printer: Acknowledge action on an Identify-Printer request @exclude all@ */
+  IPP_OP_ACKNOWLEDGE_JOB,		/* Acknowledge-Job: Acknowledge processing of a job @exclude all@ */
+  IPP_OP_FETCH_DOCUMENT,		/* Fetch-Document: Fetch a document for processing @exclude all@ */
+  IPP_OP_FETCH_JOB,			/* Fetch-Job: Fetch a job for processing @exclude all@ */
+  IPP_OP_GET_OUTPUT_DEVICE_ATTRIBUTES,	/* Get-Output-Device-Attributes: Get printer information for a specific output device @exclude all@ */
+  IPP_OP_UPDATE_ACTIVE_JOBS,		/* Update-Active-Jobs: Update the list of active jobs that a proxy has processed @exclude all@ */
+  IPP_OP_DEREGISTER_OUTPUT_DEVICE,	/* Deregister-Output-Device: Remove an output device @exclude all@ */
+  IPP_OP_UPDATE_DOCUMENT_STATUS,	/* Update-Document-Status: Update document values @exclude all@ */
+  IPP_OP_UPDATE_JOB_STATUS,		/* Update-Job-Status: Update job values @exclude all@ */
   IPP_OP_UPDATE_OUTPUT_DEVICE_ATTRIBUTES,
-					/* Update-Output-Device-Attributes */
-  IPP_OP_GET_NEXT_DOCUMENT_DATA,	/* Get-Next-Document-Data */
+					/* Update-Output-Device-Attributes: Update output device values @exclude all@ */
+  IPP_OP_GET_NEXT_DOCUMENT_DATA,	/* Get-Next-Document-Data: Scan more document data @exclude all@ */
 
   IPP_OP_PRIVATE = 0x4000,		/* Reserved @private@ */
-  IPP_OP_CUPS_GET_DEFAULT,		/* Get the default printer */
-  IPP_OP_CUPS_GET_PRINTERS,		/* Get a list of printers and/or classes */
-  IPP_OP_CUPS_ADD_MODIFY_PRINTER,	/* Add or modify a printer */
-  IPP_OP_CUPS_DELETE_PRINTER,		/* Delete a printer */
-  IPP_OP_CUPS_GET_CLASSES,		/* Get a list of classes @deprecated@ */
-  IPP_OP_CUPS_ADD_MODIFY_CLASS,		/* Add or modify a class */
-  IPP_OP_CUPS_DELETE_CLASS,		/* Delete a class */
-  IPP_OP_CUPS_ACCEPT_JOBS,		/* Accept new jobs on a printer */
-  IPP_OP_CUPS_REJECT_JOBS,		/* Reject new jobs on a printer */
-  IPP_OP_CUPS_SET_DEFAULT,		/* Set the default printer */
-  IPP_OP_CUPS_GET_DEVICES,		/* Get a list of supported devices @deprecated@ */
-  IPP_OP_CUPS_GET_PPDS,			/* Get a list of supported drivers @deprecated@ */
-  IPP_OP_CUPS_MOVE_JOB,			/* Move a job to a different printer */
-  IPP_OP_CUPS_AUTHENTICATE_JOB,		/* Authenticate a job @since CUPS 1.2/macOS 10.5@ */
-  IPP_OP_CUPS_GET_PPD,			/* Get a PPD file @deprecated@ */
-  IPP_OP_CUPS_GET_DOCUMENT = 0x4027,	/* Get a document file @since CUPS 1.4/macOS 10.6@ */
-  IPP_OP_CUPS_CREATE_LOCAL_PRINTER	/* Create a local (temporary) printer @since CUPS 2.2 */
+  IPP_OP_CUPS_GET_DEFAULT,		/* CUPS-Get-Default: Get the default printer */
+  IPP_OP_CUPS_GET_PRINTERS,		/* CUPS-Get-Printers: Get a list of printers and/or classes */
+  IPP_OP_CUPS_ADD_MODIFY_PRINTER,	/* CUPS-Add-Modify-Printer: Add or modify a printer */
+  IPP_OP_CUPS_DELETE_PRINTER,		/* CUPS-Delete-Printer: Delete a printer */
+  IPP_OP_CUPS_GET_CLASSES,		/* CUPS-Get-Classes: Get a list of classes @deprecated@ @exclude all@ */
+  IPP_OP_CUPS_ADD_MODIFY_CLASS,		/* CUPS-Add-Modify-Class: Add or modify a class */
+  IPP_OP_CUPS_DELETE_CLASS,		/* CUPS-Delete-Class: Delete a class */
+  IPP_OP_CUPS_ACCEPT_JOBS,		/* CUPS-Accept-Jobs: Accept new jobs on a printer @exclude all@ */
+  IPP_OP_CUPS_REJECT_JOBS,		/* CUPS-Reject-Jobs: Reject new jobs on a printer @exclude all@ */
+  IPP_OP_CUPS_SET_DEFAULT,		/* CUPS-Set-Default: Set the default printer */
+  IPP_OP_CUPS_GET_DEVICES,		/* CUPS-Get-Devices: Get a list of supported devices @deprecated@ */
+  IPP_OP_CUPS_GET_PPDS,			/* CUPS-Get-PPDs: Get a list of supported drivers @deprecated@ */
+  IPP_OP_CUPS_MOVE_JOB,			/* CUPS-Move-Job: Move a job to a different printer */
+  IPP_OP_CUPS_AUTHENTICATE_JOB,		/* CUPS-Authenticate-Job: Authenticate a job @since CUPS 1.2/macOS 10.5@ */
+  IPP_OP_CUPS_GET_PPD,			/* CUPS-Get-PPD: Get a PPD file @deprecated@ */
+  IPP_OP_CUPS_GET_DOCUMENT = 0x4027,	/* CUPS-Get-Document: Get a document file @since CUPS 1.4/macOS 10.6@ */
+  IPP_OP_CUPS_CREATE_LOCAL_PRINTER	/* CUPS-Create-Local-Printer: Create a local (temporary) printer @since CUPS 2.2@ */
 
 #  ifndef _CUPS_NO_DEPRECATED
 #    define IPP_PRINT_JOB			IPP_OP_PRINT_JOB
@@ -359,7 +364,7 @@ typedef enum ipp_op_e			/**** IPP operations ****/
 #    define IPP_CREATE_PRINTER_SUBSCRIPTION	IPP_OP_CREATE_PRINTER_SUBSCRIPTIONS
 #    define IPP_CREATE_JOB_SUBSCRIPTION		IPP_OP_CREATE_JOB_SUBSCRIPTIONS
 #    define IPP_OP_CREATE_PRINTER_SUBSCRIPTION	IPP_OP_CREATE_PRINTER_SUBSCRIPTIONS
-#    define IPP_OP_CREATE_JOB_SUBSCRIPTION		IPP_OP_CREATE_JOB_SUBSCRIPTIONS
+#    define IPP_OP_CREATE_JOB_SUBSCRIPTION	IPP_OP_CREATE_JOB_SUBSCRIPTIONS
 #    define IPP_GET_SUBSCRIPTION_ATTRIBUTES	IPP_OP_GET_SUBSCRIPTION_ATTRIBUTES
 #    define IPP_GET_SUBSCRIPTIONS		IPP_OP_GET_SUBSCRIPTIONS
 #    define IPP_RENEW_SUBSCRIPTION		IPP_OP_RENEW_SUBSCRIPTION
@@ -397,6 +402,7 @@ typedef enum ipp_op_e			/**** IPP operations ****/
 #    define IPP_CLOSE_JOB			IPP_OP_CLOSE_JOB
 #    define IPP_IDENTIFY_PRINTER		IPP_OP_IDENTIFY_PRINTER
 #    define IPP_VALIDATE_DOCUMENT		IPP_OP_VALIDATE_DOCUMENT
+#    define IPP_OP_SEND_HARDCOPY_DOCUMENT	IPP_OP_ADD_DOCUMENT_IMAGES
 #    define IPP_PRIVATE				IPP_OP_PRIVATE
 #    define CUPS_GET_DEFAULT			IPP_OP_CUPS_GET_DEFAULT
 #    define CUPS_GET_PRINTERS			IPP_OP_CUPS_GET_PRINTERS
@@ -436,7 +442,7 @@ typedef enum ipp_orient_e		/**** Orientation values ****/
 #  endif /* !_CUPS_NO_DEPRECATED */
 } ipp_orient_t;
 
-typedef enum ipp_pstate_e		/**** Printer states ****/
+typedef enum ipp_pstate_e		/**** Printer state values ****/
 {
   IPP_PSTATE_IDLE = 3,			/* Printer is idle */
   IPP_PSTATE_PROCESSING,		/* Printer is working */
@@ -449,7 +455,7 @@ typedef enum ipp_pstate_e		/**** Printer states ****/
 #  endif /* _CUPS_NO_DEPRECATED */
 } ipp_pstate_t;
 
-typedef enum ipp_quality_e		/**** Qualities ****/
+typedef enum ipp_quality_e		/**** Print quality values ****/
 {
   IPP_QUALITY_DRAFT = 3,		/* Draft quality */
   IPP_QUALITY_NORMAL,			/* Normal quality */
@@ -462,7 +468,7 @@ typedef enum ipp_res_e			/**** Resolution units ****/
   IPP_RES_PER_CM			/* Pixels per centimeter */
 } ipp_res_t;
 
-typedef enum ipp_state_e		/**** IPP states ****/
+typedef enum ipp_state_e		/**** ipp_t state values ****/
 {
   IPP_STATE_ERROR = -1,			/* An error occurred */
   IPP_STATE_IDLE,			/* Nothing is happening/request completed */
@@ -479,7 +485,7 @@ typedef enum ipp_state_e		/**** IPP states ****/
 #  endif /* !_CUPS_NO_DEPRECATED */
 } ipp_state_t;
 
-typedef enum ipp_status_e		/**** IPP status codes ****/
+typedef enum ipp_status_e		/**** IPP status code values ****/
 {
   IPP_STATUS_CUPS_INVALID = -1,		/* Invalid status name for @link ippErrorValue@ */
   IPP_STATUS_OK = 0x0000,		/* successful-ok */
@@ -492,7 +498,7 @@ typedef enum ipp_status_e		/**** IPP status codes ****/
   IPP_STATUS_OK_EVENTS_COMPLETE,	/* successful-ok-events-complete */
   IPP_STATUS_REDIRECTION_OTHER_SITE = 0x0200,
 					/* redirection-other-site @private@ */
-  IPP_STATUS_CUPS_SEE_OTHER = 0x0280,	/* cups-see-other */
+  IPP_STATUS_CUPS_SEE_OTHER = 0x0280,	/* cups-see-other @private@ */
   IPP_STATUS_ERROR_BAD_REQUEST = 0x0400,/* client-error-bad-request */
   IPP_STATUS_ERROR_FORBIDDEN,		/* client-error-forbidden */
   IPP_STATUS_ERROR_NOT_AUTHENTICATED,	/* client-error-not-authenticated */
@@ -568,7 +574,7 @@ typedef enum ipp_status_e		/**** IPP status codes ****/
   IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED = 0x1000,
 					/* cups-authentication-canceled - Authentication canceled by user @since CUPS 1.5/macOS 10.7@ */
   IPP_STATUS_ERROR_CUPS_PKI,		/* cups-pki-error - Error negotiating a secure connection @since CUPS 1.5/macOS 10.7@ */
-  IPP_STATUS_ERROR_CUPS_UPGRADE_REQUIRED/* cups-upgrade-required - TLS upgrade required */
+  IPP_STATUS_ERROR_CUPS_UPGRADE_REQUIRED/* cups-upgrade-required - TLS upgrade required @since CUPS 1.5/macOS 10.7@ */
 
 #  ifndef _CUPS_NO_DEPRECATED
 #    define IPP_OK				IPP_STATUS_OK
@@ -630,7 +636,7 @@ typedef enum ipp_status_e		/**** IPP status codes ****/
 #  endif /* _CUPS_NO_DEPRECATED */
 } ipp_status_t;
 
-typedef enum ipp_tag_e			/**** Format tags for attributes ****/
+typedef enum ipp_tag_e			/**** Value and group tag values for attributes ****/
 {
   IPP_TAG_CUPS_INVALID = -1,		/* Invalid tag name for @link ippTagValue@ */
   IPP_TAG_ZERO = 0x00,			/* Zero tag - used for separators */
@@ -642,7 +648,7 @@ typedef enum ipp_tag_e			/**** Format tags for attributes ****/
   IPP_TAG_SUBSCRIPTION,			/* Subscription group */
   IPP_TAG_EVENT_NOTIFICATION,		/* Event group */
   IPP_TAG_RESOURCE,			/* Resource group @private@ */
-  IPP_TAG_DOCUMENT,			/* Document group */
+  IPP_TAG_DOCUMENT,			/* Document group @exclude all@ */
   IPP_TAG_UNSUPPORTED_VALUE = 0x10,	/* Unsupported value */
   IPP_TAG_DEFAULT,			/* Default value */
   IPP_TAG_UNKNOWN,			/* Unknown value */
@@ -657,10 +663,10 @@ typedef enum ipp_tag_e			/**** Format tags for attributes ****/
   IPP_TAG_DATE,				/* Date/time value */
   IPP_TAG_RESOLUTION,			/* Resolution value */
   IPP_TAG_RANGE,			/* Range value */
-  IPP_TAG_BEGIN_COLLECTION,		/* Beginning of collection value */
+  IPP_TAG_BEGIN_COLLECTION,		/* Beginning of collection value @exclude all@ */
   IPP_TAG_TEXTLANG,			/* Text-with-language value */
   IPP_TAG_NAMELANG,			/* Name-with-language value */
-  IPP_TAG_END_COLLECTION,		/* End of collection value */
+  IPP_TAG_END_COLLECTION,		/* End of collection value @exclude all@ */
   IPP_TAG_TEXT = 0x41,			/* Text value */
   IPP_TAG_NAME,				/* Name value */
   IPP_TAG_RESERVED_STRING,		/* Reserved for future string value @private@ */
@@ -670,8 +676,8 @@ typedef enum ipp_tag_e			/**** Format tags for attributes ****/
   IPP_TAG_CHARSET,			/* Character set value */
   IPP_TAG_LANGUAGE,			/* Language value */
   IPP_TAG_MIMETYPE,			/* MIME media type value */
-  IPP_TAG_MEMBERNAME,			/* Collection member name value */
-  IPP_TAG_EXTENSION = 0x7f,		/* Extension point for 32-bit tags */
+  IPP_TAG_MEMBERNAME,			/* Collection member name value @exclude all@ */
+  IPP_TAG_EXTENSION = 0x7f,		/* Extension point for 32-bit tags @exclude all@ */
   IPP_TAG_CUPS_MASK = 0x7fffffff,	/* Mask for copied attribute values @private@ */
   /* The following expression is used to avoid compiler warnings with +/-0x80000000 */
   IPP_TAG_CUPS_CONST = -0x7fffffff-1	/* Bitflag for copied/const attribute values @private@ */
@@ -682,17 +688,18 @@ typedef enum ipp_tag_e			/**** Format tags for attributes ****/
 #  endif /* !_CUPS_NO_DEPRECATED */
 } ipp_tag_t;
 
-typedef unsigned char ipp_uchar_t;	/**** Unsigned 8-bit integer/character ****/
+typedef unsigned char ipp_uchar_t;	/**** Unsigned 8-bit integer/character @exclude all@ ****/
 typedef struct _ipp_s ipp_t;		/**** IPP request/response data ****/
 typedef struct _ipp_attribute_s ipp_attribute_t;
 					/**** IPP attribute ****/
 
 /**** New in CUPS 1.2/macOS 10.5 ****/
 typedef ssize_t	(*ipp_iocb_t)(void *context, ipp_uchar_t *buffer, size_t bytes);
-					/**** IPP IO Callback Function @since CUPS 1.2/macOS 10.5@ ****/
+					/**** ippReadIO/ippWriteIO callback function @since CUPS 1.2/macOS 10.5@ ****/
 
 /**** New in CUPS 1.6/macOS 10.8 ****/
 typedef int (*ipp_copycb_t)(void *context, ipp_t *dst, ipp_attribute_t *attr);
+                                        /**** ippCopyAttributes callback function @since CUPS 1.6/macOS 10.8 ****/
 
 
 /*
@@ -799,7 +806,7 @@ typedef union _ipp_value_u		/**** Attribute Value ****/
 } _ipp_value_t;
 typedef _ipp_value_t ipp_value_t;	/**** Convenience typedef that will be removed @private@ ****/
 
-struct _ipp_attribute_s			/**** Attribute ****/
+struct _ipp_attribute_s			/**** IPP attribute ****/
 {
   ipp_attribute_t *next;		/* Next attribute in list */
   ipp_tag_t	group_tag,		/* Job/Printer/Operation group tag */

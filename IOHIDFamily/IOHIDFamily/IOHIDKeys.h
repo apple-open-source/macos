@@ -164,6 +164,7 @@ __BEGIN_DECLS
 #define kIOHIDElementValueLocationKey               "ValueLocation"
 #define kIOHIDElementDuplicateIndexKey              "DuplicateIndex"
 #define kIOHIDElementParentCollectionKey            "ParentCollection"
+#define kIOHIDElementVariableSizeKey                "VariableSize"
 
 #ifndef __ppc__
     #define kIOHIDElementVendorSpecificKey          "VendorSpecific"
@@ -420,33 +421,6 @@ typedef uint32_t IOHIDValueOptions;
 #define kIOHIDKeyboardEjectDelay            "EjectDelay"
 
 /*!
- @defined Press count tracking keys
- @abstract Keys used to set the parameters for press count tracking
- @discussion CFBoolean value for kIOHIDKeyboardPressCountTrackingEnabledKey is used to turn on the feature or turn it off
-    CFArray value for kIOHIDKeyboardPressCountUsagePairsKey stores 32bit CFNumbers (UsagePage<<16)|Usage designating the keyboard events to process
-    If kIOHIDKeyboardPressCountUsagePairsKey is not set, all keyboard events will be processed
-    kIOHIDKeyboardPressCountTriplePressTimeoutKey and kIOHIDKeybaordPressCountDoublePressTimeoutKey take CFNumberRef values
-    The numbers represent the timeout values for determining the value kIOHIDEventFieldKeyboardPressCount
-    kIOHIDKeyboardLongPressTimeoutKey value is used to determine the timeout for long presses
- */
-#define kIOHIDKeyboardPressCountTrackingEnabledKey      "PressCountTrackingEnabled"
-#define kIOHIDKeyboardPressCountUsagePairsKey           "PressCountUsagePairs"
-#define kIOHIDKeyboardPressCountTriplePressTimeoutKey   "PressCountTriplePressTimeout"
-#define kIOHIDKeyboardPressCountDoublePressTimeoutKey   "PressCountDoublePressTimeout"
-#define kIOHIDKeyboardLongPressTimeoutKey               "LongPressTimeout"
-
-/*!
- @defined Tap count tracking keys
- @abstract Keys used to set the parameters for tap count tracking
- @discussion CFBoolean value for kIOHIDBiometricTapTrackingEnabledKey is used to turn on the feature or turn it off
- kIOHIDBiometricDoubleTapTimeoutKey and kIOHIDBiometricTripleTapTimeoutKey take CFNumberRef values
- The numbers represent the timeout values for determining the value kIOHIDEventFieldBiometricTapCount
- */
-#define kIOHIDBiometricTapTrackingEnabledKey            "TapTrackingEnabled"
-#define kIOHIDBiometricDoubleTapTimeoutKey              "DoubleTapTimeout"
-#define kIOHIDBiometricTripleTapTimeoutKey              "TripleTapTimeout"
-
-/*!
     @defined kFnFunctionUsageMapKey
     @abstract top row key remapping for consumer usages
     @discussion string of comma separated uint64_t value representing (usagePage<<32) | usage pairs
@@ -468,7 +442,7 @@ typedef uint32_t IOHIDValueOptions;
 
 /*!
  @defined kIOHIDDeviceOpenedByEventSystemKey
- @abstract Property set when correcponding event service object opened by HID event system
+ @abstract Property set when corresponding event service object opened by HID event system
  @discussion boolean value
  
  */

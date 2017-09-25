@@ -216,6 +216,65 @@ done:
 }
 
 static OSStatus
+_AuthorizationPreauthorizeCredentials_send_message(xpc_object_t message)
+{
+	OSStatus status = errAuthorizationInternal;
+	xpc_object_t reply = NULL;
+
+	// Send
+	require_action(message != NULL, done, status = errAuthorizationInternal);
+
+	// Reply
+	reply = xpc_connection_send_message_with_reply_sync(get_authorization_connection(), message);
+	require_action(reply != NULL, done, status = errAuthorizationInternal);
+	require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
+
+	// Status
+	status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);
+
+done:
+	xpc_release_safe(reply);
+	return status;
+}
+
+static OSStatus
+_AuthorizationPreauthorizeCredentials_prepare_message(AuthorizationRef authorization, const AuthorizationItemSet *credentials, xpc_object_t *message_out)
+{
+	OSStatus status = errAuthorizationInternal;
+	AuthorizationBlob *blob = NULL;
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	require_action(message != NULL, done, status = errAuthorizationInternal);
+
+	require_action(authorization != NULL, done, status = errAuthorizationInvalidRef);
+	blob = (AuthorizationBlob *)authorization;
+
+	xpc_dictionary_set_uint64(message, AUTH_XPC_TYPE, AUTHORIZATION_PREAUTHORIZE_CREDENTIALS);
+	xpc_dictionary_set_data(message, AUTH_XPC_BLOB, blob, sizeof(AuthorizationBlob));
+	setItemSet(message, AUTH_XPC_DATA, credentials);
+
+	*message_out = message;
+	message = NULL;
+	status = errAuthorizationSuccess;
+
+done:
+	xpc_release_safe(message);
+	return status;
+}
+
+OSStatus AuthorizationPreauthorizeCredentials(AuthorizationRef authorization, const AuthorizationItemSet *credentials)
+{
+	OSStatus status = errAuthorizationInternal;
+	xpc_object_t message = NULL;
+
+	require_noerr(status = _AuthorizationPreauthorizeCredentials_prepare_message(authorization, credentials, &message), done);
+	require_noerr(status = _AuthorizationPreauthorizeCredentials_send_message(message), done);
+
+done:
+	xpc_release_safe(message);
+	return status;
+}
+
+static OSStatus
 _AuthorizationCopyRights_send_message(xpc_object_t message, AuthorizationRights **authorizedRights)
 {
     OSStatus status = errAuthorizationInternal;

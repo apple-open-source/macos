@@ -6,8 +6,10 @@ set(bmalloc_INCLUDE_DIRECTORIES
 
 set(bmalloc_SOURCES
     bmalloc/Allocator.cpp
+    bmalloc/AvailableMemory.cpp
     bmalloc/Cache.cpp
     bmalloc/Deallocator.cpp
+    bmalloc/DebugHeap.cpp
     bmalloc/Environment.cpp
     bmalloc/Heap.cpp
     bmalloc/LargeMap.cpp

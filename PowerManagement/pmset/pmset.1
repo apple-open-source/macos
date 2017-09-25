@@ -34,7 +34,7 @@ relative
 .Op wake | poweron
 seconds
 .Nm
-.Op touch | sleepnow | displaysleepnow  | lock | boot
+.Op touch | sleepnow | displaysleepnow | boot
 .\.Nm
 .\.Op Fl a b c u
 .\.Op dim
@@ -347,9 +347,6 @@ a problem with an aging battery.
 .Sh OTHER ARGUMENTS
 .Ar boot 
 - tell the kernel that system boot is complete (normally LoginWindow does this). May be useful to Darwin users.
-.br
-.Ar force 
-- tells PM to immediately activate these settings. Does not write them to disk, and the settings may easily be overwritten. Useful in circumstances where PM's configd plugin happens not to be running.
 .br
 .Ar touch
 - PM re-reads existing settings from disk.

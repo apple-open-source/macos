@@ -50,7 +50,7 @@ void clearOpensslErrors();
 unsigned long logSslErrInfo(const char *op);
 
 void throwRsaDsa(
-	const char *op);
+	const char *op) __attribute__((analyzer_noreturn));
 	
 /*
  * given an openssl-style error, throw appropriate CssmError.

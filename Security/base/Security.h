@@ -35,7 +35,7 @@
 #include <Security/SecImportExport.h>
 #include <Security/SecTrust.h>
 
-#if SEC_OS_IPHONE
+#if SEC_OS_IPHONE_INCLUDES
 #include <Security/SecSharedCredential.h>
 #endif
 
@@ -43,7 +43,7 @@
 #include <Security/AuthSession.h>
 #endif
 
-#if SEC_OS_OSX
+#if SEC_OS_OSX_INCLUDES
 /* CDSA */
 #include <Security/cssmconfig.h>
 #include <Security/cssmapple.h>

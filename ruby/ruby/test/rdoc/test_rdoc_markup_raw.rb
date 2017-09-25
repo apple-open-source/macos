@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocMarkupRaw < RDoc::TestCase
@@ -6,13 +7,6 @@ class TestRDocMarkupRaw < RDoc::TestCase
     super
 
     @p = @RM::Raw.new
-  end
-
-  def mu_pp obj
-    s = ''
-    s = PP.pp obj, s
-    s.force_encoding Encoding.default_external if defined? Encoding
-    s.chomp
   end
 
   def test_push

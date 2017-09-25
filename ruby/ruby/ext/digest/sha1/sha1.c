@@ -1,7 +1,7 @@
 /*	$NetBSD: sha1.c,v 1.2 2001/03/22 09:51:48 agc Exp $	*/
 /*	$OpenBSD: sha1.c,v 1.9 1997/07/23 21:12:32 kstailey Exp $	*/
 /*	$RoughId: sha1.c,v 1.2 2001/07/13 19:49:10 knu Exp $	*/
-/*	$Id: sha1.c 25189 2009-10-02 12:04:37Z akr $	*/
+/*	$Id: sha1.c 46827 2014-07-15 14:59:20Z nobu $	*/
 
 /*
  * SHA-1 in C
@@ -199,7 +199,7 @@ void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64])
 /*
  * SHA1_Init - Initialize new context
  */
-void SHA1_Init(SHA1_CTX *context)
+int SHA1_Init(SHA1_CTX *context)
 {
 
     _DIAGASSERT(context != 0);
@@ -211,6 +211,7 @@ void SHA1_Init(SHA1_CTX *context)
     context->state[3] = 0x10325476;
     context->state[4] = 0xC3D2E1F0;
     context->count[0] = context->count[1] = 0;
+    return 1;
 }
 
 
@@ -244,7 +245,7 @@ void SHA1_Update(SHA1_CTX *context, const uint8_t *data, size_t len)
 /*
  * Add padding and return the message digest.
  */
-void SHA1_Finish(SHA1_CTX* context, uint8_t digest[20])
+int SHA1_Finish(SHA1_CTX* context, uint8_t digest[20])
 {
     size_t i;
     uint8_t finalcount[8];
@@ -266,4 +267,5 @@ void SHA1_Finish(SHA1_CTX* context, uint8_t digest[20])
 	    digest[i] = (uint8_t)
 		((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
     }
+    return 1;
 }

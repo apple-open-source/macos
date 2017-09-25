@@ -113,6 +113,16 @@ SEC_CONST_DECL (kSecAttrTombstone, "tomb");
 SEC_CONST_DECL (kSecAttrNoLegacy, "nleg");
 SEC_CONST_DECL (kSecAttrMultiUser, "musr");
 SEC_CONST_DECL (kSecAttrTokenOID, "toid");
+SEC_CONST_DECL (kSecAttrUUID, "UUID");
+SEC_CONST_DECL (kSecAttrPersistantReference, "persistref");
+SEC_CONST_DECL (kSecAttrPersistentReference, "persistref");
+SEC_CONST_DECL (kSecAttrSysBound, "sysb");
+SEC_CONST_DECL (kSecAttrSHA1, "sha1");
+
+SEC_CONST_DECL (kSecAttrDeriveSyncIDFromItemAttributes, "dspk");
+SEC_CONST_DECL (kSecAttrPCSPlaintextServiceIdentifier, "pcss");
+SEC_CONST_DECL (kSecAttrPCSPlaintextPublicKey, "pcsk");
+SEC_CONST_DECL (kSecAttrPCSPlaintextPublicIdentity, "pcsi");
 
 /* Predefined access groups constants */
 SEC_CONST_DECL (kSecAttrAccessGroupToken, "com.apple.token");
@@ -230,6 +240,8 @@ SEC_CONST_DECL (kSecAttrKeyTypeECDSA, "73");
 SEC_CONST_DECL (kSecAttrKeyTypeEC, "73"); /* rdar://13326326 */
 SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandom, "73");
 SEC_CONST_DECL (kSecAttrKeyTypeAES, "2147483649"); /* <Security/cssmapple.h> */
+SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandomPKA, "2147483678");  /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED */
+SEC_CONST_DECL (kSecAttrKeyTypeSecureEnclaveAttestation, "2147483679"); /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED + 1 */
 
 SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA1, "hsha1");
 SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA224, "hsha224");
@@ -244,4 +256,3 @@ SEC_CONST_DECL (kSecPrivateKeyAttrs, "private");
 SEC_CONST_DECL (kSecPublicKeyAttrs, "public");
 /* Used for SecKeyGenerateSymmetric */
 SEC_CONST_DECL (kSecSymmetricKeyAttrs, "symmetric");
-

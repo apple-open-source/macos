@@ -32,6 +32,7 @@ __BEGIN_DECLS
 #include <mach/port.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/IODataQueueShared.h>
+#include <stdint.h> /* uint32_t */
 
 /*!
  * @function IODataQueueDataAvailable

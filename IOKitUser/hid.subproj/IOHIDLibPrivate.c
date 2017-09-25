@@ -25,10 +25,17 @@
 #include <IOKit/IOReturn.h>
 #include <stdarg.h>
 #include <asl.h>
+#include <os/log.h>
 #include <mach/mach_time.h>
+#include <sys/kdebug.h>
+#include <sys/syscall.h>
 
 #include "IOHIDLibPrivate.h"
 #include "IOHIDBase.h"
+#include "IOHIDDebugTrace.h"
+#include "IOHIDEvent.h"
+#include <IOKit/hid/AppleHIDUsageTables.h>
+#include <os/assumes.h>
 
 void _IOObjectCFRelease(        CFAllocatorRef          allocator  __unused, 
                                 const void *            value)
@@ -80,6 +87,7 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
         log[kIOHIDLogCategoryTrace]         = os_log_create(kIOHIDLogSubsytem, "trace");
         log[kIOHIDLogCategoryProperty]      = os_log_create(kIOHIDLogSubsytem, "property");
         log[kIOHIDLogCategoryActivity]      = os_log_create(kIOHIDLogSubsytem, "activity");
+        log[kIOHIDLogCategoryFastPath]      = os_log_create(kIOHIDLogSubsytem, "fastpath");
     });
     return log[category];
 }
@@ -87,7 +95,7 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
 //------------------------------------------------------------------------------
 // _IOHIDUnitlCopyTimeString
 //------------------------------------------------------------------------------
-CFStringRef _IOHIDCreateTimeString(struct timeval *tv)
+CFStringRef _IOHIDCreateTimeString(CFAllocatorRef allocator, struct timeval *tv)
 {
     struct tm tmd;
     struct tm *local_time;
@@ -103,7 +111,7 @@ CFStringRef _IOHIDCreateTimeString(struct timeval *tv)
     }
   
   
-    CFStringRef time = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s.%06d"), time_str, tv->tv_usec);
+    CFStringRef time = CFStringCreateWithFormat(allocator, NULL, CFSTR("%s.%06d"), time_str, tv->tv_usec);
     return time;
 }
 
@@ -117,4 +125,304 @@ uint64_t  _IOHIDGetMonotonicTime () {
         mach_timebase_info(&timebaseInfo);
 
     return ((mach_absolute_time( ) * timebaseInfo.numer) / timebaseInfo.denom);
+}
+
+//------------------------------------------------------------------------------
+// _IOHIDGetTimestampDelta
+//------------------------------------------------------------------------------
+uint64_t _IOHIDGetTimestampDelta(uint64_t timestampA, uint64_t timestampB, uint32_t scaleFactor)
+{
+    static mach_timebase_info_data_t timebaseInfo;
+    uint64_t delta = 0;
+    
+    if (timebaseInfo.denom == 0)
+        mach_timebase_info(&timebaseInfo);
+    
+    delta = timestampA - timestampB;
+    
+    delta *= timebaseInfo.numer;
+    delta /= timebaseInfo.denom;
+    
+    return delta / scaleFactor;
+}
+
+void _IOHIDDebugTrace(uint32_t code, uint32_t func, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4) {
+    if (!gIOHIDDebugConfig) {
+        return;
+    }
+    
+    if (code < kHID_ES_EventCallback) {
+        if ((gIOHIDDebugConfig & kIOHIDDebugTraceUserDevice) == 0) {
+            return;
+        }
+    } else {
+        if ((gIOHIDDebugConfig & kIOHIDDebugTraceEventSystem) == 0) {
+            return;
+        }
+    }
+
+    if (gIOHIDDebugConfig & kIOHIDDebugTraceWithKTrace) {
+        kdebug_trace(IOHID_DEBUG_CODE(code) | func, arg1, arg2, arg3, arg4);
+    }
+
+    if (gIOHIDDebugConfig & kIOHIDDebugTraceWithOsLog) {
+        os_log(_IOHIDLogCategory(kIOHIDLogCategoryTrace), "0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx", (unsigned long long) (IOHID_DEBUG_CODE(code) | func), (unsigned long long)arg1, (unsigned long long)arg2, (unsigned long long)arg3, (unsigned long long)arg4);
+    }
+}
+
+void _IOHIDDebugEventAddPerfData(IOHIDEventRef event, int timepoint, uint64_t timestamp) {
+    
+    IOHIDEventRef perfEvent = NULL;
+    if (!(gIOHIDDebugConfig & kIOHIDDebugPerfEvent)) {
+        return ;
+    }
+    
+    if (IOHIDEventConformsTo(event,kIOHIDEventTypeVendorDefined)) {
+        CFArrayRef children = IOHIDEventGetChildren(event);
+        for (CFIndex i = 0, count = (children) ? CFArrayGetCount(children) : 0;  i < count; i++) {
+            IOHIDEventRef child = (IOHIDEventRef)CFArrayGetValueAtIndex(children, i);
+            if (IOHIDEventGetType(child) == kIOHIDEventTypeVendorDefined  &&
+                IOHIDEventGetIntegerValue(child, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendor_Perf &&
+                IOHIDEventGetIntegerValue(child, kIOHIDEventFieldVendorDefinedUsagePage) == kHIDPage_AppleVendor) {
+                perfEvent = child;
+                break;
+            }
+        }
+    }
+    
+    if (!perfEvent) {
+        IOHIDEventPerfData data = {0, 0, 0, 0, 0};
+        perfEvent = IOHIDEventCreateVendorDefinedEvent(
+                                                       CFGetAllocator(event),
+                                                       mach_absolute_time(),
+                                                       kHIDPage_AppleVendor,
+                                                       kHIDUsage_AppleVendor_Perf,
+                                                       0,
+                                                       (uint8_t *)&data,
+                                                       sizeof(data),
+                                                       0);
+        
+        if (perfEvent) {
+            IOHIDEventAppendEvent(event, perfEvent, 0);
+            CFRelease(perfEvent);
+        }
+    }
+    
+    if (!perfEvent) {
+        return;
+    }
+    
+    IOHIDEventPerfData *data = NULL;
+    CFIndex     eventLength = 0;
+    IOHIDEventGetVendorDefinedData(perfEvent, (uint8_t**)&data, &eventLength);
+    if (data) {
+        switch (timepoint) {
+            case kIOHIDEventPerfDataPointEventSystemReceive:
+                data->eventSystemReceiveTime = timestamp;
+                break;
+            case kIOHIDEventPerfDataPointEventSystemFilter:
+                data->eventSystemFilterTime = timestamp;
+                break;
+            case kIOHIDEventPerfDataPointEventSystemDispatch:
+                data->eventSystemDispatchTime = timestamp;
+                break;
+            case kIOHIDEventPerfDataPointEventSystemClientDispatch:
+                data->eventSystemClientDispatchTime = timestamp;
+                break;
+        }
+    }
+}
+
+typedef struct {
+    size_t             count;
+    size_t             length;
+    size_t             head;
+    size_t             tail;
+} _IOHIDSimpleQueueHeader;
+
+IOHIDSimpleQueueRef _IOHIDSimpleQueueCreate (CFAllocatorRef allocator, size_t entrySize, size_t count)
+{
+    size_t bufferLength = entrySize * (count + 1) + sizeof(_IOHIDSimpleQueueHeader);
+    
+    CFMutableDataRef buffer = CFDataCreateMutable(allocator, bufferLength);
+    if (!buffer) {
+        return buffer;
+    }
+    
+    CFDataSetLength(buffer, bufferLength);
+    
+    _IOHIDSimpleQueueHeader * header = (_IOHIDSimpleQueueHeader *) CFDataGetBytePtr(buffer);
+    
+    header->count  = count + 1;
+    header->length = entrySize;
+    header->head   = 0;
+    header->tail   = 0;
+    
+    return (IOHIDSimpleQueueRef) buffer;
+}
+
+void * _IOHIDSimpleQueuePeek (IOHIDSimpleQueueRef buffer)
+{
+    _IOHIDSimpleQueueHeader * header = (_IOHIDSimpleQueueHeader *)CFDataGetBytePtr(buffer);
+    
+    size_t tail = header->tail;
+    if (tail == header->head) {
+        return NULL;
+    }
+    return (void *) ((uint8_t*)header + sizeof(header) + header->length * tail);
+}
+
+void _IOHIDSimpleQueueApplyBlock (IOHIDSimpleQueueRef buffer, IOHIDSimpleQueueBlock applier, void * ctx)
+{
+    _IOHIDSimpleQueueHeader * header = (_IOHIDSimpleQueueHeader *) CFDataGetBytePtr(buffer);
+    size_t head = header->head;
+    do {
+        if (header->tail == head) {
+            return;
+        }
+        void *entry =  (void *) ((uint8_t*)header + sizeof (_IOHIDSimpleQueueHeader) + header->length * head);
+        
+        applier (entry, ctx);
+        
+        head = (head + 1) % (header->count);
+        
+    } while (true);
+    
+}
+
+IOReturn  _IOHIDSimpleQueueEnqueue (IOHIDSimpleQueueRef buffer, void *entry, boolean_t doOverride)
+{
+    
+    IOReturn status = kIOReturnSuccess;
+    
+    _IOHIDSimpleQueueHeader * header = (_IOHIDSimpleQueueHeader *) CFDataGetBytePtr(buffer);
+    
+    size_t tail = header->tail;
+    size_t newTail = (tail + 1) % (header->count);
+    
+    if (newTail == header->head) {
+        if (doOverride) {
+            header->head = (header->head + 1) % (header->count);
+        } else {
+            status = kIOReturnNoSpace;
+        }
+    }
+    
+    memcpy ((uint8_t*) header + sizeof (_IOHIDSimpleQueueHeader) + header->length * tail, entry, header->length);
+    
+    header->tail = newTail;
+    
+    return status;
+}
+
+
+boolean_t  _IOHIDSimpleQueueDequeue (IOHIDSimpleQueueRef buffer, void * entry)
+{
+    void * e = _IOHIDSimpleQueuePeek (buffer);
+    
+    if (!e) {
+        return false;
+    }
+    
+    _IOHIDSimpleQueueHeader * header = (_IOHIDSimpleQueueHeader *) CFDataGetBytePtr(buffer);
+    
+    if (entry) {
+        memcpy(entry, e, header->length);
+    }
+    
+    header->head = (header->head + 1) % (header->count);
+    
+    return true;
+}
+
+void _IOHIDDictionaryAddSInt32 (CFMutableDictionaryRef dict, CFStringRef key, SInt32 value)
+{
+    CFNumberRef num = CFNumberCreate(CFGetAllocator(dict), kCFNumberSInt32Type, &value);
+    if (num) {
+        CFDictionaryAddValue(dict, key, num);
+        CFRelease(num);
+    }
+}
+
+void _IOHIDDictionaryAddSInt64 (CFMutableDictionaryRef dict, CFStringRef key, SInt64 value)
+{
+    CFNumberRef num = CFNumberCreate(CFGetAllocator(dict), kCFNumberSInt64Type, &value);
+    if (num) {
+        CFDictionaryAddValue(dict, key, num);
+        CFRelease(num);
+    }
+}
+
+
+CFTypeRef _IOHIDObjectInternalRetain (CFTypeRef cf)
+{
+    const IOHIDObjectClass * class = (const IOHIDObjectClass *)_CFRuntimeGetClassWithTypeID(CFGetTypeID(cf));
+    if (class) {
+        class->intRetainCount (+1, cf);
+    }
+    return cf;
+}
+
+void _IOHIDObjectInternalRelease (CFTypeRef cf)
+{
+    const IOHIDObjectClass * class = (const IOHIDObjectClass *)_CFRuntimeGetClassWithTypeID(CFGetTypeID(cf));
+    if (class) {
+        class->intRetainCount (-1, cf);
+    }
+}
+
+uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isInternal)
+{
+    uint32_t                  retainCount = 0;
+    IOHIDObjectBase           *object =  (IOHIDObjectBase *) cf;
+    uint32_t                  *cnt =  isInternal ? &object->intRetainCount : &object->extRetainCount;
+    switch (op) {
+        case 1:
+            retainCount = atomic_fetch_add((_Atomic uint32_t *)cnt, 1);
+            os_assert(retainCount < UINT_MAX);
+            ++retainCount;
+            break;
+        case 0:
+            retainCount = atomic_load((_Atomic uint32_t *)cnt);
+            break;
+        case -1:
+            retainCount = atomic_fetch_sub((_Atomic uint32_t *)cnt, 1);
+            os_assert(retainCount);
+            if ((retainCount) == 1) {
+                const IOHIDObjectClass * class = (const IOHIDObjectClass *)_CFRuntimeGetClassWithTypeID(CFGetTypeID(cf));
+                void (*finalizer)(CFTypeRef cf) = isInternal ? class->intFinalize : class->cfClass.finalize;
+                if (finalizer) {
+                    finalizer (cf);
+                }
+                if (isInternal) {
+                    CFAllocatorRef allocator = CFGetAllocator(cf);
+                    CFAllocatorDeallocate(allocator, (void*)cf);
+                } else {
+                    _IOHIDObjectInternalRelease (cf);
+                }
+            }
+            --retainCount;
+            break;
+        default:
+            break;
+    }
+    return  retainCount;
+}
+
+CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * __unused category)
+{
+    
+    IOHIDObjectBase * object;
+    object = (IOHIDObjectBase *) _CFRuntimeCreateInstance(allocator, typeID, extraBytes, NULL);
+    
+    if (!object) {
+        return object;
+    }
+    
+    bzero((uint8_t*)object + sizeof(CFRuntimeBase), extraBytes);
+    
+    object->intRetainCount = 1;
+    object->extRetainCount = 1;
+    
+    return object;
 }

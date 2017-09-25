@@ -242,12 +242,12 @@ static bool SecPolicyGetCSSMDataValueForString(SecPolicyRef policyRef, CFStringR
 		// stash this in a place where it will be released when the policy is destroyed
 		if (policyRef) {
 			SecPolicySetOptionsValue(policyRef, CFSTR("policy_data"), data);
-			CFRelease(data);
 		}
 		else {
 			syslog(LOG_ERR, "WARNING: policy dictionary not found to store returned data; will leak!");
 		}
 	}
+    CFReleaseNull(data);
 	return true;
 }
 
@@ -575,22 +575,35 @@ SecPolicyCreateWithOID(CFTypeRef policyOID)
 CFArrayRef
 SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
 {
-    /* implement with unified SecPolicyRef instances */
-    SecPolicyRef policy = NULL;
     CFMutableArrayRef resultPolicyArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (!resultPolicyArray) {
         return NULL;
     }
-    policy = SecPolicyCreateWithProperties(kSecPolicyAppleTimeStamping, NULL);
-    if (policy) {
-        CFArrayAppendValue(resultPolicyArray, policy);
-        CFReleaseNull(policy);
+    SecPolicyRef tsPolicy = SecPolicyCreateWithProperties(kSecPolicyAppleTimeStamping, NULL);
+    if (tsPolicy) {
+        CFArrayAppendValue(resultPolicyArray, tsPolicy);
+        CFReleaseNull(tsPolicy);
     }
-    policy = SecPolicyCreateWithProperties(kSecPolicyAppleRevocation, NULL);
-    if (policy) {
-        CFArrayAppendValue(resultPolicyArray, policy);
-        CFReleaseNull(policy);
+
+    /* check the provided argument for a revocation policy */
+    CFMutableArrayRef policies = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (policies && policyOrArray) {
+        if (CFGetTypeID(policyOrArray) == SecPolicyGetTypeID()) {
+            CFArrayAppendValue(policies, policyOrArray);
+        } else if (CFGetTypeID(policyOrArray) == CFArrayGetTypeID()) {
+            CFIndex arrayLength = CFArrayGetCount((CFArrayRef)policyOrArray);
+            CFArrayAppendArray(policies, (CFArrayRef)policyOrArray, CFRangeMake(0, arrayLength));
+        }
     }
+    CFIndex numPolicies = (policies) ? CFArrayGetCount(policies) : 0;
+    for (CFIndex index=0; index<numPolicies; index++) {
+        SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, index);
+        CFStringRef policyName = (policy) ? SecPolicyGetName(policy) : NULL;
+        if (policyName && CFEqual(CFSTR("revocation"), policyName)) {
+            CFArrayAppendValue(resultPolicyArray, policy);
+        }
+    }
+    CFReleaseNull(policies);
     return resultPolicyArray;
 }
 

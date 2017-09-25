@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "CallbackID.h"
 #include "DrawingAreaInfo.h"
 #include "LayerTreeContext.h"
 #include "MessageReceiver.h"
@@ -34,7 +35,6 @@
 #include <WebCore/LayerFlushThrottleState.h>
 #include <WebCore/LayoutMilestones.h>
 #include <WebCore/PlatformScreen.h>
-#include <functional>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TypeCasts.h>
@@ -52,6 +52,7 @@ class FrameView;
 class GraphicsLayer;
 class GraphicsLayerFactory;
 class MachSendRight;
+struct ViewportAttributes;
 }
 
 namespace WebKit {
@@ -78,7 +79,7 @@ public:
     // FIXME: These should be pure virtual.
     virtual void pageBackgroundTransparencyChanged() { }
     virtual void forceRepaint() { }
-    virtual bool forceRepaintAsync(uint64_t /*callbackID*/) { return false; }
+    virtual bool forceRepaintAsync(CallbackID) { return false; }
     virtual void setLayerTreeStateIsFrozen(bool) { }
     virtual bool layerTreeStateIsFrozen() const { return false; }
     virtual LayerTreeHost* layerTreeHost() const { return 0; }
@@ -103,7 +104,7 @@ public:
 
     virtual bool supportsAsyncScrolling() { return false; }
 
-    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) { return false; }
+    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) { return false; }
 
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return nullptr; }
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
@@ -114,13 +115,9 @@ public:
     virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
 #endif
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection&, IPC::Decoder&) = 0;
-#endif
+    virtual void dispatchAfterEnsuringUpdatedScrollPosition(WTF::Function<void ()>&&);
 
-    virtual void dispatchAfterEnsuringUpdatedScrollPosition(std::function<void ()>);
-
-    virtual void activityStateDidChange(WebCore::ActivityState::Flags, bool /* wantsDidUpdateActivityState */, const Vector<uint64_t>& /* callbackIDs */) { }
+    virtual void activityStateDidChange(WebCore::ActivityState::Flags, bool /* wantsDidUpdateActivityState */, const Vector<CallbackID>&) { }
     virtual void setLayerHostingMode(LayerHostingMode) { }
 
     virtual bool markLayersVolatileImmediatelyIfPossible() { return true; }
@@ -139,6 +136,15 @@ public:
 #endif
 
     virtual void layerHostDidFlushLayers() { };
+
+#if USE(COORDINATED_GRAPHICS)
+    virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) = 0;
+    virtual void resetUpdateAtlasForTesting() = 0;
+#endif
+
+#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
+    virtual void deviceOrPageScaleFactorChanged() = 0;
+#endif
 
 protected:
     DrawingArea(DrawingAreaType, WebPage&);
@@ -169,7 +175,7 @@ private:
     virtual void adjustTransientZoom(double scale, WebCore::FloatPoint origin) { }
     virtual void commitTransientZoom(double scale, WebCore::FloatPoint origin) { }
 
-    virtual void addTransactionCallbackID(uint64_t callbackID) { ASSERT_NOT_REACHED(); }
+    virtual void addTransactionCallbackID(WebKit::CallbackID) { ASSERT_NOT_REACHED(); }
 #endif
 
 #if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)

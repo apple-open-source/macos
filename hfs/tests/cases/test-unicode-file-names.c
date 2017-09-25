@@ -68,7 +68,8 @@ int run_unicode_file_names(__unused test_ctx_t *ctx)
 	assert((fd = open(path3, O_RDONLY)) >= 0);
 
 	assert_no_err(unlink(path3));
-	
+	assert_no_err (close(fd));
+
 	free(dir);
 	free(path);
 	free(path2);

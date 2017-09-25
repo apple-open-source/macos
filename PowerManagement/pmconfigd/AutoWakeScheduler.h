@@ -44,11 +44,36 @@
  * MIN_SLEEP_DURATION - Minimum duration(in secs) for which we like the system to sleep. Any user wake requests 
  *                      that are going to wake the system before this duration should prevent sleep.
  */
-#if TARGET_OS_EMBEDDED
-#define MIN_SLEEP_DURATION      15
-#else
 #define MIN_SLEEP_DURATION      60
-#endif
+
+
+
+typedef void (*powerEventCallout)(CFDictionaryRef);
+
+/*
+ * We use one PowerEventBehavior struct per-type of schedule power event
+ * sleep/wake/power/shutdown/wakeORpower/restart.
+ * The struct contains special behavior per-type.
+ */
+struct PowerEventBehavior {
+    // These values change to reflect the state of current
+    // and upcoming power events
+    CFMutableArrayRef       array;
+    CFDictionaryRef         currentEvent;
+    CFRunLoopTimerRef       timer;
+    
+    CFStringRef             title;
+    
+    // wake and poweron sharedEvents pointer points to wakeorpoweron struct
+    struct PowerEventBehavior      *sharedEvents;
+    
+    // Callouts will be defined at startup time and not modified after that
+    powerEventCallout       timerExpirationCallout;
+    powerEventCallout       scheduleNextCallout;
+    powerEventCallout       noScheduledEventCallout;
+};
+typedef struct PowerEventBehavior PowerEventBehavior;
+
 
 __private_extern__ void             AutoWake_prime(void);
 __private_extern__ void             AutoWakeCapabilitiesNotification(IOPMSystemPowerStateCapabilities old_cap, IOPMSystemPowerStateCapabilities new_cap);
@@ -59,7 +84,12 @@ __private_extern__ void             destroySCSession(SCPreferencesRef prefs, int
 __private_extern__ CFAbsoluteTime   getWakeScheduleTime(CFDictionaryRef event);
 __private_extern__ CFTimeInterval   getEarliestRequestAutoWake(void);
 __private_extern__ CFDictionaryRef copyEarliestRequestAutoWakeEvent(void);
+__private_extern__ CFDictionaryRef copyEarliestShutdownRestartEvent(void);
+__private_extern__ CFDictionaryRef copyEarliestEvent(PowerEventBehavior *behav);
+
+
 __private_extern__ bool             checkPendingWakeReqs(int options);
+
 
 
 #endif // _AutoWakeScheduler_h_

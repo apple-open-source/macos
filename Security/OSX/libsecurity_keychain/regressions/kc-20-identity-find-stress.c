@@ -33,6 +33,8 @@
 
 #define BLOCKS 7000
 
+static long concurrentBlocks = 64;
+
 static void tests() {
 
     SecKeychainRef kc = getPopulatedTestKeychain();
@@ -55,21 +57,34 @@ static void tests() {
     });
     dispatch_group_t g = dispatch_group_create();
 
-    for(int i = 0; i < BLOCKS; i++) {
-        dispatch_group_async(g, release_queue, ^() {
-            SecIdentityRef blockId = NULL;
-            SecKeyRef blockKeyRef = NULL;
+    __block int iteration = 0;
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(concurrentBlocks);
 
-            ok_status(SecIdentityCreateWithCertificate(kc, certRef, &blockId), "%s: SecIdentityCreateWithCertificate", testName);
-            ok_status(SecIdentityCopyPrivateKey(blockId, &blockKeyRef), "%s: SecIdentityCopyPrivateKey", testName);
+    dispatch_block_t identityBlock = ^() {
+        SecIdentityRef blockId = NULL;
+        SecKeyRef blockKeyRef = NULL;
 
-            CFReleaseNull(blockKeyRef);
-            CFReleaseNull(blockId);
-        });
-    }
+        ok_status(SecIdentityCreateWithCertificate(kc, certRef, &blockId), "%s: SecIdentityCreateWithCertificate", testName);
+        ok_status(SecIdentityCopyPrivateKey(blockId, &blockKeyRef), "%s: SecIdentityCopyPrivateKey", testName);
+
+        CFReleaseNull(blockKeyRef);
+        CFReleaseNull(blockId);
+
+        dispatch_semaphore_signal(semaphore);
+    };
+
+    // Send this to background queue, so that when we wait, it doesn't block main queue
+
+    dispatch_group_async(g, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        for (iteration = 0; iteration < BLOCKS; iteration++) {
+            // Wait until one of our concurrentBlocks "slots" are available
+            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+
+            dispatch_group_async(g, release_queue, identityBlock);
+        }
+    });
 
     dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
-    CFReleaseNull(certRef);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", testName);
     CFReleaseNull(kc);

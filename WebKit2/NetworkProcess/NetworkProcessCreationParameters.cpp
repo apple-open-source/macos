@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #include "NetworkProcessCreationParameters.h"
 
 #include "ArgumentCoders.h"
+#include "WebCoreArgumentCoders.h"
 
 #if PLATFORM(COCOA)
 #include "ArgumentCodersCF.h"
@@ -53,7 +54,7 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << shouldEnableNetworkCacheSpeculativeRevalidation;
 #endif
 #endif
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+#if PLATFORM(MAC)
     encoder << uiProcessCookieStorageIdentifier;
 #endif
 #if PLATFORM(IOS)
@@ -63,9 +64,9 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
     encoder << shouldSuppressMemoryPressureHandler;
     encoder << shouldUseTestingNetworkSession;
-    encoder << urlParserEnabled;
     encoder << loadThrottleLatency;
     encoder << urlSchemesRegisteredForCustomProtocols;
+    encoder << presentingApplicationPID;
 #if PLATFORM(COCOA)
     encoder << parentProcessName;
     encoder << uiProcessBundleIdentifier;
@@ -73,12 +74,13 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << nsURLCacheDiskCapacity;
     encoder << sourceApplicationBundleIdentifier;
     encoder << sourceApplicationSecondaryIdentifier;
+    encoder << allowsCellularAccess;
 #if PLATFORM(IOS)
     encoder << ctDataConnectionServiceType;
 #endif
     encoder << httpProxy;
     encoder << httpsProxy;
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if PLATFORM(COCOA)
     IPC::encode(encoder, networkATSContext.get());
 #endif
     encoder << cookieStoragePartitioningEnabled;
@@ -89,6 +91,7 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder.encodeEnum(cookieAcceptPolicy);
     encoder << ignoreTLSErrors;
     encoder << languages;
+    encoder << proxySettings;
 #endif
 #if OS(LINUX)
     encoder << memoryPressureMonitorHandle;
@@ -123,7 +126,7 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
 #endif
 #endif
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+#if PLATFORM(MAC)
     if (!decoder.decode(result.uiProcessCookieStorageIdentifier))
         return false;
 #endif
@@ -139,11 +142,11 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.shouldUseTestingNetworkSession))
         return false;
-    if (!decoder.decode(result.urlParserEnabled))
-        return false;
     if (!decoder.decode(result.loadThrottleLatency))
         return false;
     if (!decoder.decode(result.urlSchemesRegisteredForCustomProtocols))
+        return false;
+    if (!decoder.decode(result.presentingApplicationPID))
         return false;
 #if PLATFORM(COCOA)
     if (!decoder.decode(result.parentProcessName))
@@ -158,6 +161,8 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.sourceApplicationSecondaryIdentifier))
         return false;
+    if (!decoder.decode(result.allowsCellularAccess))
+        return false;
 #if PLATFORM(IOS)
     if (!decoder.decode(result.ctDataConnectionServiceType))
         return false;
@@ -166,7 +171,7 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.httpsProxy))
         return false;
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if PLATFORM(COCOA)
     if (!IPC::decode(decoder, result.networkATSContext))
         return false;
 #endif
@@ -184,6 +189,8 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
     if (!decoder.decode(result.ignoreTLSErrors))
         return false;
     if (!decoder.decode(result.languages))
+        return false;
+    if (!decoder.decode(result.proxySettings))
         return false;
 #endif
 

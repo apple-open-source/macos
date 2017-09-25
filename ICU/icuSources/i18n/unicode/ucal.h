@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 1996-2015, International Business Machines Corporation and
@@ -423,10 +425,12 @@ enum UCalendarDateFields {
    */
   UCAL_IS_LEAP_MONTH,
 
-  /**
-   * Field count
-   * @stable ICU 2.6
-   */
+    /* Do not conditionalize the following with #ifndef U_HIDE_DEPRECATED_API,
+     * it is needed for layout of Calendar, DateFormat, and other objects */
+    /**
+     * One more than the highest normal UCalendarDateFields value.
+     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     */
   UCAL_FIELD_COUNT,
 
  /**
@@ -716,7 +720,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUCalendarPointer, UCalendar, ucal_close);
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
  * Open a copy of a UCalendar.

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 1997-2015, International Business Machines Corporation and    *
@@ -47,6 +49,7 @@
 #include "unicode/utf16.h"
 #include "unicode/numsys.h"
 #include "unicode/localpointer.h"
+#include "unicode/ustring.h"
 #include "uresimp.h"
 #include "ucurrimp.h"
 #include "charstr.h"
@@ -840,7 +843,7 @@ DecimalFormat::format(  double number,
 
 
 UnicodeString&
-DecimalFormat::format(const StringPiece &number,
+DecimalFormat::format(StringPiece number,
                       UnicodeString &toAppendTo,
                       FieldPositionIterator *posIter,
                       UErrorCode &status) const
@@ -1664,7 +1667,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text,
         // if we didn't see a decimal and it is required, check to see if the pattern had one
         if(!sawDecimal && isDecimalPatternMatchRequired()) 
         {
-            if(formatPattern.indexOf(DecimalFormatSymbols::kDecimalSeparatorSymbol) != 0) 
+            if(formatPattern.indexOf(kPatternDecimalSeparator) != -1)
             {
                 parsePosition.setIndex(oldStart);
                 parsePosition.setErrorIndex(position);
@@ -1790,7 +1793,7 @@ printf("PP -> %d, SLOW = [%s]!    pp=%d, os=%d, err=%s\n", position, parsedNum.d
     // check if we missed a required decimal point
     if(fastParseOk && isDecimalPatternMatchRequired()) 
     {
-        if(formatPattern.indexOf(DecimalFormatSymbols::kDecimalSeparatorSymbol) != 0) 
+        if(formatPattern.indexOf(kPatternDecimalSeparator) != -1)
         {
             parsePosition.setIndex(oldStart);
             parsePosition.setErrorIndex(position);

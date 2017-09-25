@@ -1,14 +1,8 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/en_HK.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_HK{
     %%Parent{"en_001"}
-    Version{"2.1.19.14"}
+    Version{"2.1.31.33"}
     calendar{
         generic{
             DateTimePatterns{
@@ -23,7 +17,7 @@ en_HK{
                 "{1}, {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
-                "{1}, {0}",
+                "{1} 'at' {0}",
                 "{1}, {0}",
             }
             availableFormats{
@@ -35,36 +29,36 @@ en_HK{
             }
             intervalFormats{
                 MEd{
-                    M{"E, d/M – E, d/M"}
-                    d{"E, d/M – E, d/M"}
+                    M{"E, d/M – E, d/M"}
+                    d{"E, d/M – E, d/M"}
                 }
                 MMMEd{
-                    M{"E, d MMM – E, d MMM"}
-                    d{"E, d MMM – E, d MMM"}
+                    M{"E, d MMM – E, d MMM"}
+                    d{"E, d MMM – E, d MMM"}
                 }
                 Md{
-                    M{"d/M – d/M"}
-                    d{"d/M – d/M"}
+                    M{"d/M – d/M"}
+                    d{"d/M – d/M"}
                 }
                 yMEd{
-                    M{"E, d/M/y – E, d/M/y G"}
-                    d{"E, d/M/y – E, d/M/y G"}
-                    y{"E, d/M/y – E, d/M/y G"}
+                    M{"E, d/M/y – E, d/M/y G"}
+                    d{"E, d/M/y – E, d/M/y G"}
+                    y{"E, d/M/y – E, d/M/y G"}
                 }
                 yMMMEd{
-                    M{"E, d MMM – E, d MMM, y G"}
-                    d{"E, d MMM – E, d MMM, y G"}
-                    y{"E, d MMM, y – E, d MMM, y G"}
+                    M{"E, d MMM – E, d MMM, y G"}
+                    d{"E, d MMM – E, d MMM, y G"}
+                    y{"E, d MMM, y – E, d MMM, y G"}
                 }
                 yMMMd{
-                    M{"d MMM – d MMM, y G"}
-                    d{"d – d MMM, y G"}
-                    y{"d MMM, y – d MMM, y G"}
+                    M{"d MMM – d MMM, y G"}
+                    d{"d – d MMM, y G"}
+                    y{"d MMM, y – d MMM, y G"}
                 }
                 yMd{
-                    M{"d/M/y – d/M/y G"}
-                    d{"d/M/y – d/M/y G"}
-                    y{"d/M/y – d/M/y G"}
+                    M{"d/M/y – d/M/y G"}
+                    d{"d/M/y – d/M/y G"}
+                    y{"d/M/y – d/M/y G"}
                 }
             }
         }
@@ -81,7 +75,7 @@ en_HK{
                 "{1}, {0}",
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
-                "{1}, {0}",
+                "{1} 'at' {0}",
                 "{1}, {0}",
             }
             availableFormats{
@@ -90,26 +84,26 @@ en_HK{
             }
             intervalFormats{
                 MEd{
-                    M{"E, d/M – E, d/M"}
-                    d{"E, d/M – E, d/M"}
+                    M{"E, d/M – E, d/M"}
+                    d{"E, d/M – E, d/M"}
                 }
                 MMMEd{
-                    M{"E, d MMM – E, d MMM"}
-                    d{"E, d MMM – E, d MMM"}
+                    M{"E, d MMM – E, d MMM"}
+                    d{"E, d MMM – E, d MMM"}
                 }
                 Md{
-                    M{"d/M – d/M"}
-                    d{"d/M – d/M"}
+                    M{"d/M – d/M"}
+                    d{"d/M – d/M"}
                 }
                 yMEd{
-                    M{"E, d/M/y – E, d/M/y"}
-                    d{"E, d/M/y – E, d/M/y"}
-                    y{"E, d/M/y – E, d/M/y"}
+                    M{"E, d/M/y – E, d/M/y"}
+                    d{"E, d/M/y – E, d/M/y"}
+                    y{"E, d/M/y – E, d/M/y"}
                 }
                 yMd{
-                    M{"d/M/y – d/M/y"}
-                    d{"d/M/y – d/M/y"}
-                    y{"d/M/y – d/M/y"}
+                    M{"d/M/y – d/M/y"}
+                    d{"d/M/y – d/M/y"}
+                    y{"d/M/y – d/M/y"}
                 }
             }
         }

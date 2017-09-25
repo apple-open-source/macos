@@ -87,6 +87,7 @@
 /* Begin PBXBuildFile section */
 		442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 442403301DA86E6E0041C533 /* MobileWiFi.framework */; };
 		449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 449213AB1D12062700D8FB30 /* CoreTelephony.framework */; };
+		44951A3B1EBA79C6003614DE /* eapolcfg_auth.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */; };
 		44980A3E1ABBC60400B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
 		44980A3F1ABBC61A00B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
 		44B18DC71CC8319D000227D6 /* com.apple.eapol.plist in copy os_log subsystem plist */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
@@ -438,6 +439,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		44951A391EBA799C003614DE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				44951A3B1EBA79C6003614DE /* eapolcfg_auth.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		44B18DC51CC83169000227D6 /* copy os_log subsystem plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -476,6 +487,7 @@
 		442403301DA86E6E0041C533 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
 		4478B6F71AE19D0100051F29 /* sim_simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sim_simulator.h; sourceTree = "<group>"; };
 		449213AB1D12062700D8FB30 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = ../../../../../../../../../System/Library/Frameworks/CoreTelephony.framework; sourceTree = "<group>"; };
+		44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = eapolcfg_auth.8; sourceTree = "<group>"; };
 		44980A3C1ABB93B200B76F01 /* sim_simulator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sim_simulator.c; sourceTree = "<group>"; };
 		44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = com.apple.eapol.plist; sourceTree = "<group>"; };
 		44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLSIMPrefsManage.c; sourceTree = "<group>"; };
@@ -1035,6 +1047,7 @@
 		F92EC9961135A9DC00517A0F /* eapolcfg_auth.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */,
 				F92EC9A51135BB0300517A0F /* com.apple.eapolcfg_auth.plist */,
 				F92EC9971135A9DC00517A0F /* eapolcfg_auth.c */,
 			);
@@ -1294,6 +1307,7 @@
 				F92EC86811358ED000517A0F /* Sources */,
 				F92EC9A41135BAE800517A0F /* CopyFiles */,
 				F92EC86911358ED000517A0F /* Frameworks */,
+				44951A391EBA799C003614DE /* CopyFiles */,
 			);
 			buildRules = (
 			);

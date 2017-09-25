@@ -39,8 +39,6 @@
 #include <SystemConfiguration/scprefs_observer.h>
 #include "InterfaceNamerControlPrefs.h"
 
-os_log_t	__log_InterfaceNamer();
-
 /*
  * kInterfaceNamerControlPrefsID
  * - identifies the InterfaceNamer preferences file that contains 'AllowNewInterfaces'

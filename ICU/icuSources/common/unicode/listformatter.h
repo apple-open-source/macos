@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  listformatter.h
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -22,6 +24,7 @@
 #include "unicode/unistr.h"
 #include "unicode/locid.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /** @internal */
@@ -155,6 +158,8 @@ class U_COMMON_API ListFormatter : public UObject{
   private:
     static void initializeHash(UErrorCode& errorCode);
     static const ListFormatInternal* getListFormatInternal(const Locale& locale, const char *style, UErrorCode& errorCode);
+    struct ListPatternsSink;
+    static ListFormatInternal* loadListFormatInternal(const Locale& locale, const char* style, UErrorCode& errorCode);
 
     ListFormatter();
 
@@ -163,5 +168,6 @@ class U_COMMON_API ListFormatter : public UObject{
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif

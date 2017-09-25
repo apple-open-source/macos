@@ -345,6 +345,7 @@
 #include <myaddrinfo.h>
 #include <sock_addr.h>
 #include <midna_domain.h>
+#include <clean_env.h>
 
 #define STR(x)		vstring_str(x)
 
@@ -355,6 +356,7 @@
 #include <mail_conf.h>
 #include <smtp_stream.h>
 #include <dsn_buf.h>
+#include <mail_parm_split.h>
 
 /* DNS library. */
 
@@ -1511,7 +1513,7 @@ static int finger(STATE *state)
     return (0);
 }
 
-#ifdef USE_TLS
+#if defined(USE_TLS) && OPENSSL_VERSION_NUMBER < 0x10100000L
 
 /* ssl_cleanup - free memory allocated in the OpenSSL library */
 
@@ -1529,7 +1531,8 @@ static void ssl_cleanup(void)
     CRYPTO_cleanup_all_ex_data();
 }
 
-#endif
+#endif					/* USE_TLS && OPENSSL_VERSION_NUMBER
+					 * < 0x10100000L */
 
 /* run - do what we were asked to do. */
 
@@ -1918,6 +1921,7 @@ int     main(int argc, char *argv[])
     static STATE state;
     char   *loopenv = getenv("VALGRINDLOOP");
     int     loop = loopenv ? atoi(loopenv) : 1;
+    ARGV   *import_env;
 
     /* Don't die when a peer goes away unexpectedly. */
     signal(SIGPIPE, SIG_IGN);
@@ -1935,6 +1939,11 @@ int     main(int argc, char *argv[])
     parse_options(&state, argc, argv);
     mail_params_init();
     parse_tas(&state);
+
+    /* Enforce consistent operation of different Postfix parts. */
+    import_env = mail_parm_split(VAR_IMPORT_ENVIRON, var_import_environ);
+    update_env(import_env->argv);
+    argv_free(import_env);
 
     argc -= optind;
     argv += optind;
@@ -1955,7 +1964,9 @@ int     main(int argc, char *argv[])
 
     /* Be valgrind friendly and clean-up */
     cleanup(&state);
-#ifdef USE_TLS
+
+    /* OpenSSL 1.1.0 and later (de)initialization is implicit */
+#if defined(USE_TLS) && OPENSSL_VERSION_NUMBER < 0x10100000L
     ssl_cleanup();
 #endif
 

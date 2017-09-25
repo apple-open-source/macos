@@ -57,7 +57,7 @@ uint32_t ACCEL_TABLE_ENTRY::length () const {
   return count() * sizeof(uint32_t) * 2 + sizeof (uint32_t) + sizeof(uint16_t) ;
 }
 
-std::ostream & operator<<(std::ostream &os, const ACCEL_TABLE_ENTRY& e) {
+inline std::ostream & operator<<(std::ostream &os, const ACCEL_TABLE_ENTRY& e) {
   os << " Entry: " <<  std::setw(16) << std::hex << (void*)&e << "\n";
   os << "    acceleration: " <<  e.acceleration<double>() << "\n";
   for (uint32_t i = 0 ; i < e.count(); i++) {

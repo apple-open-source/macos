@@ -59,6 +59,9 @@
 #include <sys/sysctl.h>
 #include <sys/kauth.h>
 #include <sys/csr.h>
+__BEGIN_DECLS
+#include <corecrypto/ccmode_siv.h>
+__END_DECLS
 
 void unflattenKey(const CssmData &flatKey, CssmKey &rawKey);	//>> make static method on KeychainDatabase
 
@@ -842,6 +845,7 @@ void KeychainDatabase::stashDbCheck()
             free(stash_key);
         }
     } else {
+        secnotice("KCdb", "failed to get stash from securityd_service: %d", (int)rc);
         CssmError::throwMe(rc);
     }
     
@@ -1038,6 +1042,14 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
                 if (decode()) {
 					return;
                 }
+				break;
+			case CSSM_SAMPLE_TYPE_KEYBAG_KEY:
+				assert(mBlob);
+				secinfo("KCdb", "%p attempting keybag key unlock", this);
+				common().setup(mBlob, keyFromKeybag(sample));
+				if (decode()) {
+					return;
+				}
 				break;
 			// explicitly defeat the default action but don't try anything in particular
 			case CSSM_WORDID_CANCELED:
@@ -1428,6 +1440,76 @@ void unflattenKey(const CssmData &flatKey, CssmKey &rawKey)
 	Security::n2hi(rawKey.KeyHeader);	// convert it to host byte order
 }
 
+CssmClient::Key
+KeychainDatabase::keyFromKeybag(const TypedList &sample)
+{
+    service_context_t context;
+    uint8_t *session_key;
+    int session_key_size;
+    int rc;
+    const struct ccmode_siv *mode = ccaes_siv_decrypt_mode();
+    const size_t session_key_wrapped_len = 40;
+    const size_t version_len = 1, nonce_len = 16;
+    uint8_t *decrypted_data;
+    size_t decrypted_len;
+
+    assert(sample.type() == CSSM_SAMPLE_TYPE_KEYBAG_KEY);
+
+    CssmData &unlock_token = sample[2].data();
+
+    context = common().session().get_current_service_context();
+    rc = service_client_kb_unwrap_key(&context, unlock_token.data(), session_key_wrapped_len, key_class_ak, (void **)&session_key, &session_key_size);
+    if (rc != 0) {
+        CssmError::throwMe(CSSM_ERRCODE_INVALID_CRYPTO_DATA);
+    }
+
+    uint8_t *indata = (uint8_t *)unlock_token.data() + session_key_wrapped_len;
+    size_t inlen = unlock_token.length() - session_key_wrapped_len;
+
+    decrypted_len = ccsiv_plaintext_size(mode, inlen - (version_len + nonce_len));
+    decrypted_data = (uint8_t *)calloc(1, decrypted_len);
+
+    ccsiv_ctx_decl(mode->size, ctx);
+
+    rc = ccsiv_init(mode, ctx, session_key_size, session_key);
+    if (rc != 0) CssmError::throwMe(CSSM_ERRCODE_INVALID_CRYPTO_DATA);
+    rc = ccsiv_set_nonce(mode, ctx, nonce_len, indata + version_len);
+    if (rc != 0) CssmError::throwMe(CSSM_ERRCODE_INVALID_CRYPTO_DATA);
+    rc = ccsiv_aad(mode, ctx, 1, indata);
+    if (rc != 0) CssmError::throwMe(CSSM_ERRCODE_INVALID_CRYPTO_DATA);
+    rc = ccsiv_crypt(mode, ctx, inlen - (version_len + nonce_len), indata + version_len + nonce_len, decrypted_data);
+    if (rc != 0) CssmError::throwMe(CSSM_ERRCODE_INVALID_CRYPTO_DATA);
+
+    ccsiv_ctx_clear(mode->size, ctx);
+
+    //free(decrypted_data);
+    free(session_key);
+    return makeRawKey(decrypted_data, decrypted_len, CSSM_ALGID_3DES_3KEY_EDE, CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT);
+}
+
+// adapted from DatabaseCryptoCore::makeRawKey
+CssmClient::Key KeychainDatabase::makeRawKey(void *data, size_t length,
+    CSSM_ALGORITHMS algid, CSSM_KEYUSE usage)
+{
+    // build a fake key
+    CssmKey key;
+    key.header().BlobType = CSSM_KEYBLOB_RAW;
+    key.header().Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+    key.header().AlgorithmId = algid;
+    key.header().KeyClass = CSSM_KEYCLASS_SESSION_KEY;
+    key.header().KeyUsage = usage;
+    key.header().KeyAttr = 0;
+    key.KeyData = CssmData(data, length);
+
+    // unwrap it into the CSP (but keep it raw)
+    CssmClient::UnwrapKey unwrap(Server::csp(), CSSM_ALGID_NONE);
+    CssmKey unwrappedKey;
+    CssmData descriptiveData;
+    unwrap(key,
+        CssmClient::KeySpec(CSSM_KEYUSE_ANY, CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE),
+        unwrappedKey, &descriptiveData, NULL);
+    return CssmClient::Key(Server::csp(), unwrappedKey);
+}
 
 //
 // Verify a putative database passphrase.
@@ -1835,7 +1917,6 @@ void KeychainDbCommon::setUnlocked()
 
 void KeychainDbCommon::lockDb()
 {
-    bool lock = false;
     {
         StLock<Mutex> _(*this);
         if (!isLocked()) {
@@ -1845,7 +1926,6 @@ void KeychainDbCommon::lockDb()
             Server::active().clearTimer(this);
 
             mIsLocked = true;		// mark locked
-            lock = true;
             
             // this call may destroy us if we have no databases anymore
             session().removeReference(*this);

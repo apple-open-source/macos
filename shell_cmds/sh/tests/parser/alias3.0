@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/parser/alias3.0 214709 2010-11-02 23:44:29Z jilles $
 
 alias alias0=exit
 x=alias0

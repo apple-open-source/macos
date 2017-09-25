@@ -40,6 +40,7 @@
 
 namespace Inspector {
 class InspectorObject;
+class InjectedScriptManager;
 }
 
 namespace WebCore {
@@ -49,7 +50,7 @@ class Document;
 class DocumentLoader;
 class DocumentThreadableLoader;
 class InspectorPageAgent;
-class NetworkLoadTiming;
+class NetworkLoadMetrics;
 class NetworkResourcesData;
 class ResourceError;
 class ResourceLoader;
@@ -58,6 +59,7 @@ class ResourceResponse;
 class URL;
 
 #if ENABLE(WEB_SOCKETS)
+class WebSocket;
 struct WebSocketFrame;
 #endif
 
@@ -76,10 +78,9 @@ public:
     void willRecalculateStyle();
     void didRecalculateStyle();
     void willSendRequest(unsigned long identifier, DocumentLoader&, ResourceRequest&, const ResourceResponse& redirectResponse);
-    void markResourceAsCached(unsigned long identifier);
     void didReceiveResponse(unsigned long identifier, DocumentLoader&, const ResourceResponse&, ResourceLoader*);
     void didReceiveData(unsigned long identifier, const char* data, int dataLength, int encodedDataLength);
-    void didFinishLoading(unsigned long identifier, DocumentLoader&, double finishTime);
+    void didFinishLoading(unsigned long identifier, DocumentLoader&, const NetworkLoadMetrics&, ResourceLoader*);
     void didFailLoading(unsigned long identifier, DocumentLoader&, const ResourceError&);
     void didLoadResourceFromMemoryCache(DocumentLoader&, CachedResource&);
     void didReceiveThreadableLoaderResponse(unsigned long identifier, DocumentThreadableLoader&);
@@ -111,13 +112,21 @@ public:
     void disable(ErrorString&) override;
     void setExtraHTTPHeaders(ErrorString&, const Inspector::InspectorObject& headers) override;
     void getResponseBody(ErrorString&, const String& requestId, String* content, bool* base64Encoded) override;
-    void setCacheDisabled(ErrorString&, bool cacheDisabled) override;
+    void setResourceCachingDisabled(ErrorString&, bool disabled) override;
     void loadResource(ErrorString&, const String& frameId, const String& url, Ref<LoadResourceCallback>&&) override;
+#if ENABLE(WEB_SOCKETS)
+    void resolveWebSocket(ErrorString&, const String& requestId, const String* const objectGroup, RefPtr<Inspector::Protocol::Runtime::RemoteObject>&) override;
+#endif
 
 private:
     void enable();
 
-    Ref<Inspector::Protocol::Network::ResourceTiming> buildObjectForTiming(const NetworkLoadTiming&, ResourceLoader&);
+#if ENABLE(WEB_SOCKETS)
+    WebSocket* webSocketForRequestId(const String& requestId);
+#endif
+
+    Ref<Inspector::Protocol::Network::ResourceTiming> buildObjectForTiming(const NetworkLoadMetrics&, ResourceLoader&);
+    Ref<Inspector::Protocol::Network::Metrics> buildObjectForMetrics(const NetworkLoadMetrics&);
     RefPtr<Inspector::Protocol::Network::Response> buildObjectForResourceResponse(const ResourceResponse&, ResourceLoader*);
     Ref<Inspector::Protocol::Network::CachedResource> buildObjectForCachedResource(CachedResource*);
 
@@ -125,6 +134,7 @@ private:
 
     std::unique_ptr<Inspector::NetworkFrontendDispatcher> m_frontendDispatcher;
     RefPtr<Inspector::NetworkBackendDispatcher> m_backendDispatcher;
+    Inspector::InjectedScriptManager& m_injectedScriptManager;
     InspectorPageAgent* m_pageAgent { nullptr };
 
     // FIXME: InspectorNetworkAgent should not be aware of style recalculation.
@@ -133,7 +143,6 @@ private:
 
     std::unique_ptr<NetworkResourcesData> m_resourcesData;
     bool m_enabled { false };
-    bool m_cacheDisabled { false };
     bool m_loadingXHRSynchronously { false };
     HashMap<String, String> m_extraRequestHeaders;
     HashSet<unsigned long> m_hiddenRequestIdentifiers;

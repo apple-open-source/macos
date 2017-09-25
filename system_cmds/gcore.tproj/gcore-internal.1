@@ -1,0 +1,194 @@
+.Dd 9/29/16
+.Dt gcore-internal 1
+.Os Darwin
+.Sh NAME
+.Nm gcore
+.Nd get core images of running processes and corpses
+.Sh SYNOPSIS
+.Nm
+.Op Fl x
+.Op Fl F
+.Op Fl C
+.Op Fl Z Ar compopts
+.Op Fl t Ar threshold
+.Op Fl d
+.Ar args ...
+.Nm
+.Sy conv
+.Op Fl L Ar searchpath
+.Op Fl z
+.Op Fl v
+.Op Fl d
+.Ar incore outcore
+.Nm
+.Sy map
+.Ar corefile
+.Nm
+.Sy fref
+.Ar corefile
+.Sh DESCRIPTION
+For an introduction to this command and its options, see
+.Xr gcore 1 .
+This page describes various experimental capabilities
+of the
+.Nm
+command intended, for the moment, for internal use only.
+.Pp
+The following set of additional flags are available:
+.Bl -tag -width Fl
+.It Fl x
+Create extended (compact) core files.  With this flag,
+.Nm
+elides empty and unmapped regions from the dump, and uses
+metadata from the VM system and
+.Xr dyld 1
+to minimize the size of the dump, writing compressed versions of
+the active regions of the address space into the dump file.
+.Nm
+also records file references to the various files mapped into the
+address space, potentially including the shared cache, to
+avoid duplicating content already present on the filesystem.
+Taken together, these techniques can lead to very significant
+space savings for the core file, particularly for smaller programs.
+.It Fl F
+Normally when
+.Fl x
+is specified,
+.Nm
+makes conservative assumptions about which files should be
+incorporated into the dump as file references so that the
+full core file can be recreated later.  This flag attempts to make
+.Em every
+mapped file into a file reference.  While this can occasionally
+be useful for applications that map many files into their address space,
+it may be
+.Em extremely
+difficult to recreate the process image as a result.
+Use cautiously!
+.El
+.Pp
+The remaining options are more relevant to the
+.Nm
+maintainers:
+.Bl -tag -width Fl
+.It Fl C
+Forcibly generate a corpse for the process, even if the process is suspended.
+.It Fl Z Ar compopts
+Specify compression options e.g. algorithm and chunksize.
+.It Fl t Ar threshold
+Set the threshold at which I/O caching is disabled to
+.Ar threshold
+KiBytes.
+.It Fl d
+Enable debugging of the
+.Nm
+command.
+.El
+.Pp
+If the
+.Ar pid
+value is specified as 0,
+.Nm
+assumes it has been passed a corpse port by its parent;
+if so it will generate a core dump for that corpse.  The
+.Fl c
+flag may not be used in this case, as the process context may no longer exist.
+.Pp
+The
+.Nm
+command supports several sub-commands that can be
+used with extended core files created using the
+.Fl x
+flag.  These are:
+.Bl -tag -width frefs
+.\" -compact -offset indent
+.Pp
+.It Sy conv
+Copy and convert a core file to the "pre-coreinfo" format
+compatible with
+.Xr lldb(1) .
+This operation reads the input core file dereferencing any file
+references it contains by copying the content
+and decompressing any compressed data into the output core file.
+This conversion usually makes the core file substantially larger.
+.Pp
+Files to be dereferenced must be accessible on the
+local filesystem by the same relative paths as they were originally recorded
+when the dump was taken.
+Files that are Mach-O objects containing UUIDs are required to match
+the UUIDs recorded at the time the core dump was taken.
+Files are otherwise only checked for matching modification times, and
+thus can easily be "forged" using
+.Xr touch 1 .
+.Pp
+Several flags can be used with the conversion:
+.Pp
+.Bl -tag -width Fl
+.It Fl L Ar searchpath
+When processing file references,
+look for the pathnames in the directories specified in
+.Ar searchpath .
+These should be specified as a colon-separated
+list of base directories which will be prepended to each pathname in turn
+for each file reference.
+.It Fl z
+During conversion, if any mapped file
+identified by modification time
+cannot be located, substitute zeroed memory.
+.It Fl v
+Report progress on the conversion as it proceeds.
+.It Fl d
+Enable debugging of the
+.Sy conv
+subcommand.
+.El
+.It Sy map
+Print a representation of the address space contained in the core file.
+.Pp
+.It Sy frefs
+Print a list of files corresponding to the file references
+in the core file.
+Can be used to capture the set of files needed to bind the file references
+into the core file at a later time.
+.El
+.Sh BUGS
+.Pp
+When using the
+.Fl x
+flag,
+.Nm
+will likely incorporate a reference to the shared cache into
+.Ar corefile
+including the UUID of that cache.
+On some platforms, the cache is created when the release is built
+and since it resides on a read-only root filesystem it should
+generally be easy to retrieve.
+However on the desktop, the lifecycle of this cache is managed locally
+e.g. with
+.Xr update_dyld_shared_cache 1.
+When this cache is recreated it is given a new UUID, the directory
+entry for the old cache is removed, and the same filename
+is used for the new cache.
+Thus when the last named copy of the shared cache is removed from the
+filesystem, extended core files that contain references to that cache
+can no longer be converted.
+.Pp
+When using the
+.Fl x
+flag,
+.Nm
+may be unable to locate the currently mapped shared cache in the filesystem.
+In this case 
+.Nm
+does not generate any file references to the content of the
+shared cache; it just copies as much of the content
+as is needed from the memory image into the core file.
+This may lead to substantially larger core files than expected.
+.Pp
+It would be nice if
+.Xr lldb 1
+could examine extended core files directly i.e. without the conversion step.
+.Pp
+.Sh SEE ALSO 
+.Xr dyld 1 ,
+.Xr update_dyld_shared_cache 1

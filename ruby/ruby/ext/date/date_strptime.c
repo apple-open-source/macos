@@ -103,10 +103,12 @@ read_digits(const char *s, VALUE *n, size_t width)
 	return l;
     }
     else {
-	char *s2 = ALLOCA_N(char, l + 1);
+	VALUE vbuf = 0;
+	char *s2 = ALLOCV_N(char, vbuf, l + 1);
 	memcpy(s2, s, l);
 	s2[l] = '\0';
 	*n = rb_cstr_to_inum(s2, 10, 0);
+	ALLOCV_END(vbuf);
 	return l;
     }
 }
@@ -291,8 +293,9 @@ date__strptime_internal(const char *str, size_t slen,
 		    if (!valid_range_p(n, 0, 99))
 			fail();
 		    set_hash("cwyear",n);
-		    set_hash("_cent",
-			     INT2FIX(f_ge_p(n, INT2FIX(69)) ? 19 : 20));
+		    if (NIL_P(ref_hash("_cent")))
+			set_hash("_cent",
+				 INT2FIX(f_ge_p(n, INT2FIX(69)) ? 19 : 20));
 		    goto matched;
 		}
 
@@ -556,8 +559,9 @@ date__strptime_internal(const char *str, size_t slen,
 		    if (sign == -1)
 			n = f_negate(n);
 		    set_hash("year", n);
-		    set_hash("_cent",
-			     INT2FIX(f_ge_p(n, INT2FIX(69)) ? 19 : 20));
+		    if (NIL_P(ref_hash("_cent")))
+			set_hash("_cent",
+				 INT2FIX(f_ge_p(n, INT2FIX(69)) ? 19 : 20));
 		    goto matched;
 		}
 

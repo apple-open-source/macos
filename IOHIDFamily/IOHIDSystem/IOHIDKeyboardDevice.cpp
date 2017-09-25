@@ -169,9 +169,11 @@ bool IOHIDKeyboardDevice::handleStart( IOService * provider )
 
     _report = IOBufferMemoryDescriptor::withCapacity(
         sizeof(GenericKeyboardRpt), kIODirectionNone, true);        
-                                        
-    bzero(_report->getBytesNoCopy(), sizeof(GenericKeyboardRpt));
-
+    
+    if (_report) {
+        bzero(_report->getBytesNoCopy(), sizeof(GenericKeyboardRpt));
+    }
+    
     return (_report) ? true : false;
 }
 

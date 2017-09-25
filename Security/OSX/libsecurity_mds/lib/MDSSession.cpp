@@ -146,8 +146,8 @@ static std::string GetMDSBaseDBDir(bool isRoot)
 		if (result == 0)
 		{
 			// we have an error, log it
-			syslog(LOG_CRIT, "confstr on _CS_DARWIN_USER_CACHE_DIR returned an error.");
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			syslog(LOG_CRIT, "confstr on _CS_DARWIN_USER_CACHE_DIR returned an error: %d", errno);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 			
 		retValue = strBuffer;
@@ -326,7 +326,7 @@ static bool doesFileExist(
 		}
 		if(purge) {
 			/* If we can't stat it we sure can't delete it. */
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 		return false;
 	}
@@ -344,17 +344,17 @@ static bool doesFileExist(
 	if(fileType == S_IFDIR) {
 		/* directory: clean then remove */
 		if(cleanDir(filePath, NULL, 0)) {
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 		if(rmdir(filePath)) {
 			MSDebug("rmdir(%s) returned %d", filePath, errno);
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 	}
 	else {
 		if(unlink(filePath)) {
 			MSDebug("unlink(%s) returned %d", filePath, errno);
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 	}
 	
@@ -397,13 +397,13 @@ static bool doFilesExist(
 	if(objectExist) {
 		if(unlink(objDbFile)) {
 			MSDebug("unlink(%s) returned %d", objDbFile, errno);
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 	}
 	if(directExist) {
 		if(unlink(directDbFile)) {
 			MSDebug("unlink(%s) returned %d", directDbFile, errno);
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 	}
 	return false;
@@ -580,7 +580,7 @@ MDSSession::install ()
 	// Installation requires root
 	//
 	if(geteuid() != (uid_t)0) { 
-		CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+		CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 	}
 	
 	//
@@ -593,19 +593,19 @@ MDSSession::install ()
 		/* ensure MDS base directory exists with correct permissions */
 		if(createDir(MDS_BASE_DB_DIR, MDS_SYSTEM_UID, MDS_BASE_DB_DIR_MODE)) {
 			MSDebug("Error creating base MDS dir; aborting.");
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 		       
 		/* ensure the the system MDS DB directory exists with correct permissions */
 		if(createDir(MDS_SYSTEM_DB_DIR, MDS_SYSTEM_UID, MDS_SYSTEM_DB_DIR_MODE)) {
 			MSDebug("Error creating system MDS dir; aborting.");
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 
         LockHelper lh;
         
 		if(!lh.obtainLock(MDS_INSTALL_LOCK_PATH, DB_LOCK_TIMEOUT)) {
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 
 		/* 
@@ -616,13 +616,13 @@ MDSSession::install ()
 		const char *savedFile = MDS_INSTALL_LOCK_NAME;
 		if(cleanDir(MDS_SYSTEM_DB_DIR, &savedFile, 1)) {
 			/* this should never happen - we're root */
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 		
 		const char *savedFiles[] = {MDS_SYSTEM_DB_COMP, kExceptionDeletePath};
 		if(cleanDir(MDS_BASE_DB_DIR, savedFiles, 2)) {
 			/* this should never happen - we're root */
-			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+			CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 		}
 				
 		/* 
@@ -645,7 +645,7 @@ MDSSession::install ()
 void
 MDSSession::uninstall ()
 {
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+	CssmError::throwMeNoLogging(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
 /*
@@ -698,7 +698,7 @@ void MDSSession::DbOpen(const char *DbName,
 	 * a system MDS DB file or a per-user MDS DB file).  
 	 */
 	if(DbName == NULL) {
-		CssmError::throwMe(CSSMERR_DL_INVALID_DB_NAME);
+		CssmError::throwMeNoLogging(CSSMERR_DL_INVALID_DB_NAME);
 	}
 	const char *dbName;
 	if(!strcmp(DbName, MDS_OBJECT_DIRECTORY_NAME)) {
@@ -708,7 +708,7 @@ void MDSSession::DbOpen(const char *DbName,
 		dbName = MDS_DIRECT_DB_NAME;
 	}
 	else {
-		CssmError::throwMe(CSSMERR_DL_INVALID_DB_NAME);
+		CssmError::throwMeNoLogging(CSSMERR_DL_INVALID_DB_NAME);
 	}
 	char fullPath[MAXPATHLEN];
 	dbFullPath(dbName, fullPath);
@@ -750,7 +750,7 @@ void MDSSession::GetDbNameFromHandle(CSSM_DB_HANDLE DBHandle,
 	char **DbName)
 {
 	printf("GetDbNameFromHandle: code on demand\n");
-	CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+	CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 }
 
 //
@@ -891,7 +891,7 @@ static void safeCopyFile(
 
 	if(!doesFileExist(fromPath, fromUid, false, sb)) {
 		MSDebug("safeCopyFile: bad system DB file %s", fromPath);
-		CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+		CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 	}
 	
 	/* create temp destination */
@@ -900,7 +900,7 @@ static void safeCopyFile(
 	if(destFd < 0) {
 		error = errno;
 		MSDebug("Error %d opening user DB file %s\n", error, tmpToPath);
-		UnixError::throwMe(error);
+		UnixError::throwMeNoLogging(error);
 	}
 	
 	struct flock fl;
@@ -909,7 +909,7 @@ static void safeCopyFile(
 		if(fchmod(destFd, toMode)) {
 			error = errno;
 			MSDebug("Error %d chmoding user DB file %s\n", error, tmpToPath);
-			UnixError::throwMe(error);
+			UnixError::throwMeNoLogging(error);
 		}
 
 		/* open source for reading */
@@ -917,7 +917,7 @@ static void safeCopyFile(
 		if(srcFd < 0) {
 			error = errno;
 			MSDebug("Error %d opening system DB file %s\n", error, fromPath);
-			UnixError::throwMe(error);
+			UnixError::throwMeNoLogging(error);
 		}
 		
 		/* acquire the same kind of lock AtomicFile uses */
@@ -936,7 +936,7 @@ static void safeCopyFile(
 					continue;
 				}
 				MSDebug("Error %d locking system DB file %s\n", error, fromPath);
-				UnixError::throwMe(error);
+				UnixError::throwMeNoLogging(error);
 			}
 			else {
 				break;
@@ -960,7 +960,7 @@ static void safeCopyFile(
 				delete [] buf;
 				error = errno;
 				MSDebug("Error %d reading system DB file %s\n", error, fromPath);
-				UnixError::throwMe(error);
+				UnixError::throwMeNoLogging(error);
 			}
 
 			ssize_t bytesWritten;
@@ -973,7 +973,7 @@ static void safeCopyFile(
 				delete [] buf;
 				error = errno;
 				MSDebug("Error %d writing user DB file %s\n", error, tmpToPath);
-				UnixError::throwMe(error);
+				UnixError::throwMeNoLogging(error);
 			}
 		}
 		delete [] buf;
@@ -1004,7 +1004,7 @@ static void safeCopyFile(
 		}
 	}
 	if(error) {
-		UnixError::throwMe(error);
+		UnixError::throwMeNoLogging(error);
 	}
 }
 
@@ -1104,7 +1104,7 @@ void MDSSession::updateDataBases()
     LockHelper lh;
 
 	if(!lh.obtainLock(userDbLockPath.c_str(), DB_LOCK_TIMEOUT)) {
-		CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+		CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 	}
 	try {
 		if(!isRoot) {
@@ -1326,7 +1326,7 @@ MDSSession::createSystemDatabase(
 		free(dbInfoP->DefaultParsingModules);
 		free(dbInfoP->RecordAttributeNames);
 		free(dbInfoP->RecordIndexes);
-		CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+		CssmError::throwMeNoLogging(CSSM_ERRCODE_MDS_ERROR);
 	}
 	free(dbInfoP->DefaultParsingModules);
 	free(dbInfoP->RecordAttributeNames);
@@ -1403,7 +1403,7 @@ MDSSession::DbFilesInfo::DbFilesInfo(
 	if(rtn) {
 		int error = errno;
 		MSDebug("Error %d statting DB file %s", error, path);
-		UnixError::throwMe(error);
+		UnixError::throwMeNoLogging(error);
 	}
 	mLaterTimestamp = sb.st_mtimespec.tv_sec;
 	sprintf(path, "%s/%s", mDbPath, MDS_DIRECT_DB_NAME);
@@ -1412,7 +1412,7 @@ MDSSession::DbFilesInfo::DbFilesInfo(
 	if(rtn) {
 		int error = errno;
 		MSDebug("Error %d statting DB file %s", error, path);
-		UnixError::throwMe(error);
+		UnixError::throwMeNoLogging(error);
 	}
 	if(sb.st_mtimespec.tv_sec > mLaterTimestamp) {
 		mLaterTimestamp = sb.st_mtimespec.tv_sec;
@@ -1494,12 +1494,11 @@ void MDSSession::DbFilesInfo::updateSystemDbInfo(
 MDSSession::DbFilesInfo::TbdRecord::TbdRecord(
 	const CSSM_DATA &guid)
 {
-	assert(guid.Length <= MAX_GUID_LEN);
-	assert(guid.Length != 0);
-	memmove(mGuid, guid.Data, guid.Length);
-	if(mGuid[guid.Length - 1] != '\0') {
-		mGuid[guid.Length] = '\0';
-	}
+    if (guid.Length != 0 && guid.Length < MAX_GUID_LEN) {
+        memmove(mGuid, guid.Data, guid.Length);
+        // mGuid is treated as a string elsewhere; terminate
+        mGuid[guid.Length] = '\0';
+    }
 }
 
 /*
@@ -1530,9 +1529,13 @@ void MDSSession::DbFilesInfo::checkOutdatedPlugin(
 		obsolete = true;
 	}
 	if(obsolete) {
-		TbdRecord *tbdRecord = new TbdRecord(guidValue);
-		tbdVector.push_back(tbdRecord);
-		MSDebug("checkOutdatedPlugin: flagging %s obsolete", path.c_str());
+        if (guidValue.Length != 0 && guidValue.Length < MAX_GUID_LEN) {
+            TbdRecord *tbdRecord = new TbdRecord(guidValue);
+            tbdVector.push_back(tbdRecord);
+            MSDebug("checkOutdatedPlugin: flagging %s obsolete", path.c_str());
+        } else {
+            MSDebug("checkOutdatedPlugin: flagging %s obsolete, but guid length is invalid (%zu)", path.c_str(), guidValue.Length);
+        }
 	}
 }
 

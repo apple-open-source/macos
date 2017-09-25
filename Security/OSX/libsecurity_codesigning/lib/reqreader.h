@@ -27,7 +27,7 @@
 #ifndef _H_REQREADER
 #define _H_REQREADER
 
-#include <security_codesigning/requirement.h>
+#include "requirement.h"
 #include <Security/SecCertificate.h>
 
 namespace Security {

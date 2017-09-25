@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
 *   Copyright (C) 1997-2016, International Business Machines
@@ -699,8 +701,8 @@ uhash_equals(const UHashtable* hash1, const UHashtable* hash2);
 U_NAMESPACE_BEGIN
 
 /**
- * \class LocalUResourceBundlePointer
- * "Smart pointer" class, closes a UResourceBundle via ures_close().
+ * \class LocalUHashtablePointer
+ * "Smart pointer" class, closes a UHashtable via uhash_close().
  * For most methods see the LocalPointerBase base class.
  *
  * @see LocalPointerBase
@@ -711,6 +713,6 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUHashtablePointer, UHashtable, uhash_close);
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif

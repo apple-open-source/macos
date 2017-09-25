@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #pragma once
 
 #include "CodeBlock.h"
-#include "Interpreter.h"
 
 namespace JSC {
 
@@ -52,9 +51,10 @@ void computeUsesForBytecodeOffset(Block* codeBlock, OpcodeID opcodeID, Instructi
     case op_create_direct_arguments:
     case op_create_cloned_arguments:
     case op_get_rest_length:
-    case op_watchdog:
+    case op_check_traps:
     case op_get_argument:
     case op_nop:
+    case op_unreachable:
         return;
     case op_assert:
     case op_get_scope:
@@ -171,6 +171,7 @@ void computeUsesForBytecodeOffset(Block* codeBlock, OpcodeID opcodeID, Instructi
     case op_to_index_string:
     case op_create_lexical_environment:
     case op_resolve_scope:
+    case op_resolve_scope_for_hoisting_func_decl_in_eval:
     case op_get_from_scope:
     case op_to_primitive:
     case op_try_get_by_id:
@@ -360,11 +361,12 @@ void computeDefsForBytecodeOffset(Block* codeBlock, OpcodeID opcodeID, Instructi
     case op_profile_control_flow:
     case op_put_to_arguments:
     case op_set_function_name:
-    case op_watchdog:
+    case op_check_traps:
     case op_log_shadow_chicken_prologue:
     case op_log_shadow_chicken_tail:
     case op_yield:
     case op_nop:
+    case op_unreachable:
 #define LLINT_HELPER_OPCODES(opcode, length) case opcode:
         FOR_EACH_LLINT_OPCODE_EXTENSION(LLINT_HELPER_OPCODES);
 #undef LLINT_HELPER_OPCODES
@@ -384,6 +386,7 @@ void computeDefsForBytecodeOffset(Block* codeBlock, OpcodeID opcodeID, Instructi
     case op_push_with_scope:
     case op_create_lexical_environment:
     case op_resolve_scope:
+    case op_resolve_scope_for_hoisting_func_decl_in_eval:
     case op_strcat:
     case op_to_primitive:
     case op_create_this:

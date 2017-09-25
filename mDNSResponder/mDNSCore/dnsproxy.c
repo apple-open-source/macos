@@ -19,6 +19,8 @@
 
 #ifndef UNICAST_DISABLED
 
+mDNSexport mDNS mDNSStorage;
+
 // Implementation Notes
 //
 // DNS Proxy listens on port 53 (UDPv4v6 & TCPv4v6) for DNS queries. It handles only
@@ -72,7 +74,7 @@ struct DNSProxyClient_struct {
 };
 
 #define MIN_DNS_MESSAGE_SIZE    512
-DNSProxyClient *DNSProxyClients;
+static DNSProxyClient *DNSProxyClients;
 
 mDNSlocal void FreeDNSProxyClient(DNSProxyClient *pc)
 {
@@ -130,7 +132,7 @@ mDNSexport mDNSu8 *DNSProxySetAttributes(DNSQuestion *q, DNSMessageHeader *h, DN
     return ptr;
 }
 
-mDNSlocal mDNSu8 *AddEDNS0Option(mDNS *const m, mDNSu8 *ptr, mDNSu8 *limit)
+mDNSlocal mDNSu8 *AddEDNS0Option(mDNSu8 *ptr, mDNSu8 *limit)
 {
     int len = 4096;
 
@@ -139,7 +141,7 @@ mDNSlocal mDNSu8 *AddEDNS0Option(mDNS *const m, mDNSu8 *ptr, mDNSu8 *limit)
         LogInfo("AddEDNS0Option: not enough space");
         return mDNSNULL;
     }
-    m->omsg.h.numAdditionals++;
+    mDNSStorage.omsg.h.numAdditionals++;
     ptr[0] = 0;
     ptr[1] = (mDNSu8) (kDNSType_OPT >> 8);
     ptr[2] = (mDNSu8) (kDNSType_OPT & 0xFF);
@@ -180,9 +182,9 @@ mDNSlocal mDNSOpaque16 SetResponseFlags(DNSProxyClient *pc, const mDNSOpaque16 r
     return rFlags;
 }
 
-mDNSlocal mDNSu8 *AddResourceRecords(mDNS *const m, DNSProxyClient *pc, mDNSu8 **prevptr, mStatus *error)
+mDNSlocal mDNSu8 *AddResourceRecords(DNSProxyClient *pc, mDNSu8 **prevptr, mStatus *error)
 {
-    mDNSu32 slot;
+    mDNS *const m = &mDNSStorage;
     CacheGroup *cg;
     CacheRecord *cr;
     int len = sizeof(DNSMessageHeader);
@@ -229,9 +231,8 @@ mDNSlocal mDNSu8 *AddResourceRecords(mDNS *const m, DNSProxyClient *pc, mDNSu8 *
 
 again:
     nsec = soa = cname = mDNSNULL;
-    slot = HashSlot(&tempQName);
 
-    cg = CacheGroupForName(m, slot, tempQNameHash, &tempQName);
+    cg = CacheGroupForName(m, tempQNameHash, &tempQName);
     if (!cg)
     {
         LogInfo("AddResourceRecords: CacheGroup not found for %##s", tempQName.c);
@@ -355,7 +356,7 @@ again:
     }
     if (pc->rcvBufSize)
     {
-        ptr = AddEDNS0Option(m, ptr, limit);
+        ptr = AddEDNS0Option(ptr, limit);
         if (!ptr)
         {
             *prevptr = orig;
@@ -408,7 +409,7 @@ mDNSlocal void ProxyClientCallback(mDNS *const m, DNSQuestion *question, const R
             return;
         }
     }
-    ptr = AddResourceRecords(m, pc, &prevptr, &error);
+    ptr = AddResourceRecords(pc, &prevptr, &error);
     if (!ptr)
     {
         LogInfo("ProxyClientCallback: AddResourceRecords NULL for %##s (%s)", &pc->qname.c, DNSTypeName(pc->q.qtype));
@@ -494,9 +495,10 @@ done:
     FreeDNSProxyClient(pc);
 }
 
-mDNSlocal void SendError(mDNS *const m, void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *dstaddr,
+mDNSlocal void SendError(void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *dstaddr,
     const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, mDNSBool tcp, void *context, mDNSu8 rcode)
 {
+    mDNS *const m = &mDNSStorage;
     int pktlen = (int)(end - (mDNSu8 *)msg);
 
     // RFC 1035 requires that we copy the question back and RFC 2136 is okay with sending nothing
@@ -509,7 +511,8 @@ mDNSlocal void SendError(mDNS *const m, void *socket, DNSMessage *const msg, con
     mDNSPlatformMemCopy(&m->omsg.h, &msg->h, sizeof(DNSMessageHeader));
     m->omsg.h.flags.b[0] |= kDNSFlag0_QR_Response;
     m->omsg.h.flags.b[1] = rcode;
-    mDNSPlatformMemCopy(m->omsg.data, (mDNSu8 *)&msg->h.numQuestions, pktlen);
+    mDNSPlatformMemCopy(m->omsg.data, (mDNSu8 *)&msg->data, (pktlen - sizeof(DNSMessageHeader)));
+    
     if (!tcp)
     {
         mDNSSendDNSMessage(m, &m->omsg, (mDNSu8 *)&m->omsg + pktlen, InterfaceID, socket, dstaddr, dstport, mDNSNULL, mDNSNULL,
@@ -523,14 +526,12 @@ mDNSlocal void SendError(mDNS *const m, void *socket, DNSMessage *const msg, con
     mDNSPlatformDisposeProxyContext(context);
 }
 
-mDNSlocal DNSQuestion *IsDuplicateClient(const mDNS *const m, const mDNSAddr *const addr, const mDNSIPPort port, const mDNSOpaque16 id,
+mDNSlocal DNSQuestion *IsDuplicateClient(const mDNSAddr *const addr, const mDNSIPPort port, const mDNSOpaque16 id,
     const DNSQuestion *const question)
 {
     DNSProxyClient *pc;
 
-    (void) m; // unused
-
-    for (pc = DNSProxyClients; pc; pc = pc->next)
+	for (pc = DNSProxyClients; pc; pc = pc->next)
     {
         if (mDNSSameAddress(&pc->addr, addr)   &&
             mDNSSameIPPort(pc->port, port)  &&
@@ -546,8 +547,9 @@ mDNSlocal DNSQuestion *IsDuplicateClient(const mDNS *const m, const mDNSAddr *co
     return(mDNSNULL);
 }
 
-mDNSlocal mDNSBool CheckDNSProxyIpIntf(const mDNS *const m, mDNSInterfaceID InterfaceID)
+mDNSlocal mDNSBool CheckDNSProxyIpIntf(mDNSInterfaceID InterfaceID)
 {
+    mDNS *const m = &mDNSStorage;
     int i;
     mDNSu32 ip_ifindex = (mDNSu32)(unsigned long)InterfaceID;
 
@@ -570,9 +572,10 @@ mDNSlocal mDNSBool CheckDNSProxyIpIntf(const mDNS *const m, mDNSInterfaceID Inte
 
 }
 
-mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr,
+mDNSlocal void ProxyCallbackCommon(void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr,
     const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, mDNSBool tcp, void *context)
 {
+    mDNS *const m = &mDNSStorage;
     mDNSu8 QR_OP;
     const mDNSu8 *ptr;
     DNSQuestion q, *qptr;
@@ -586,7 +589,7 @@ mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *cons
 
     debugf("ProxyCallbackCommon: DNS Query coming from InterfaceID %p", InterfaceID);
     // Ignore if the DNS Query is not from a Valid Input InterfaceID
-    if (!CheckDNSProxyIpIntf(m, InterfaceID))
+    if (!CheckDNSProxyIpIntf(InterfaceID))
     {
         LogMsg("ProxyCallbackCommon: Rejecting DNS Query coming from InterfaceID %p", InterfaceID);
         return;
@@ -598,14 +601,6 @@ mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *cons
         return;
     }
 
-    QR_OP = (mDNSu8)(msg->h.flags.b[0] & kDNSFlag0_QROP_Mask);
-    if (QR_OP != kDNSFlag0_QR_Query)
-    {
-        LogInfo("ProxyCallbackCommon: Not a query(%d) for pkt from %#a:%d", QR_OP, srcaddr, mDNSVal16(srcport));
-        SendError(m, socket, msg, end, srcaddr, srcport, InterfaceID, tcp, context, kDNSFlag1_RC_NotImpl);
-        return;
-    }
-
     // Read the integer parts which are in IETF byte-order (MSB first, LSB second)
     ptr = (mDNSu8 *)&msg->h.numQuestions;
     msg->h.numQuestions   = (mDNSu16)((mDNSu16)ptr[0] << 8 | ptr[1]);
@@ -613,11 +608,19 @@ mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *cons
     msg->h.numAuthorities = (mDNSu16)((mDNSu16)ptr[4] << 8 | ptr[5]);
     msg->h.numAdditionals = (mDNSu16)((mDNSu16)ptr[6] << 8 | ptr[7]);
 
+    QR_OP = (mDNSu8)(msg->h.flags.b[0] & kDNSFlag0_QROP_Mask);
+    if (QR_OP != kDNSFlag0_QR_Query)
+    {
+        LogInfo("ProxyCallbackCommon: Not a query(%d) for pkt from %#a:%d", QR_OP, srcaddr, mDNSVal16(srcport));
+        SendError(socket, msg, end, srcaddr, srcport, InterfaceID, tcp, context, kDNSFlag1_RC_NotImpl);
+        return;
+    }
+    
     if (msg->h.numQuestions != 1 || msg->h.numAnswers || msg->h.numAuthorities)
     {
         LogInfo("ProxyCallbackCommon: Malformed pkt from %#a:%d, Q:%d, An:%d, Au:%d", srcaddr, mDNSVal16(srcport),
             msg->h.numQuestions, msg->h.numAnswers, msg->h.numAuthorities);
-        SendError(m, socket, msg, end, srcaddr, srcport, InterfaceID, tcp, context, kDNSFlag1_RC_FormErr);
+        SendError(socket, msg, end, srcaddr, srcport, InterfaceID, tcp, context, kDNSFlag1_RC_FormErr);
         return;
     }
     ptr = msg->data;
@@ -625,7 +628,7 @@ mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *cons
     if (!ptr)
     {
         LogInfo("ProxyCallbackCommon: Question cannot be parsed for pkt from %#a:%d", srcaddr, mDNSVal16(srcport));
-        SendError(m, socket, msg, end, srcaddr, srcport, InterfaceID, tcp, context, kDNSFlag1_RC_FormErr);
+        SendError(socket, msg, end, srcaddr, srcport, InterfaceID, tcp, context, kDNSFlag1_RC_FormErr);
         return;
     }
     else
@@ -653,7 +656,7 @@ mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *cons
         LogInfo("ProxyCallbackCommon: EDNS0 opt not present in Question %##s (%s), ptr %p", q.qname.c, DNSTypeName(q.qtype), ptr);
     }
         
-    qptr = IsDuplicateClient(m, srcaddr, srcport, msg->h.id, &q);
+    qptr = IsDuplicateClient(srcaddr, srcport, msg->h.id, &q);
     if (qptr)
     {
         LogInfo("ProxyCallbackCommon: Found a duplicate for pkt from %#a:%d, ignoring this", srcaddr, mDNSVal16(srcport));
@@ -730,21 +733,21 @@ mDNSlocal void ProxyCallbackCommon(mDNS *const m, void *socket, DNSMessage *cons
     mDNS_StartQuery(m, &pc->q);
 }
 
-mDNSexport void ProxyUDPCallback(mDNS *const m, void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr,
+mDNSexport void ProxyUDPCallback(void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr,
     const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, void *context)
 {
     LogInfo("ProxyUDPCallback: DNS Message from %#a:%d to %#a:%d length %d", srcaddr, mDNSVal16(srcport), dstaddr, mDNSVal16(dstport), (int)(end - (mDNSu8 *)msg));
-    ProxyCallbackCommon(m, socket, msg, end, srcaddr, srcport, dstaddr, dstport, InterfaceID, mDNSfalse, context);
+    ProxyCallbackCommon(socket, msg, end, srcaddr, srcport, dstaddr, dstport, InterfaceID, mDNSfalse, context);
 }
 
-mDNSexport void ProxyTCPCallback(mDNS *const m, void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr,
+mDNSexport void ProxyTCPCallback(void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr,
     const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, void *context)
 {
     LogInfo("ProxyTCPCallback: DNS Message from %#a:%d to %#a:%d length %d", srcaddr, mDNSVal16(srcport), dstaddr, mDNSVal16(dstport), (int)(end - (mDNSu8 *)msg));
     
     // If the connection was closed from the other side or incoming packet does not match stored input interface list, locate the client
     // state and free it.
-    if (((end - (mDNSu8 *)msg) == 0) || (!CheckDNSProxyIpIntf(m, InterfaceID)))
+    if (((end - (mDNSu8 *)msg) == 0) || (!CheckDNSProxyIpIntf(InterfaceID)))
     {
         DNSProxyClient **ppc = &DNSProxyClients;
         DNSProxyClient **prevpc;
@@ -767,11 +770,12 @@ mDNSexport void ProxyTCPCallback(mDNS *const m, void *socket, DNSMessage *const 
         FreeDNSProxyClient(*ppc);
         return;
     }
-    ProxyCallbackCommon(m, socket, msg, end, srcaddr, srcport, dstaddr, dstport, InterfaceID, mDNStrue, context);
+    ProxyCallbackCommon(socket, msg, end, srcaddr, srcport, dstaddr, dstport, InterfaceID, mDNStrue, context);
 }
 
-mDNSexport void DNSProxyInit(mDNS *const m, mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf)
+mDNSexport void DNSProxyInit(mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf)
 {
+    mDNS *const m = &mDNSStorage;
     int i;
 
     // Store DNSProxy Interface fields in mDNS struct
@@ -783,8 +787,9 @@ mDNSexport void DNSProxyInit(mDNS *const m, mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf
             m->dp_ipintf[1], m->dp_ipintf[2], m->dp_ipintf[3], m->dp_ipintf[4], m->dp_opintf);
 }
 
-mDNSexport void DNSProxyTerminate(mDNS *const m)
+mDNSexport void DNSProxyTerminate(void)
 {
+    mDNS *const m = &mDNSStorage;
     int i;
     
     // Clear DNSProxy Interface fields from mDNS struct
@@ -797,9 +802,8 @@ mDNSexport void DNSProxyTerminate(mDNS *const m)
 }
 #else // UNICAST_DISABLED
 
-mDNSexport void ProxyUDPCallback(mDNS *const m, void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr, const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, void *context)
+mDNSexport void ProxyUDPCallback(void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr, const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, void *context)
 {
-    (void) m;
     (void) socket;
     (void) msg;
     (void) end;
@@ -811,9 +815,8 @@ mDNSexport void ProxyUDPCallback(mDNS *const m, void *socket, DNSMessage *const 
     (void) context;
 }
 
-mDNSexport void ProxyTCPCallback(mDNS *const m, void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr, const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, void *context)
+mDNSexport void ProxyTCPCallback(void *socket, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr, const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, void *context)
 {
-    (void) m;
     (void) socket;
     (void) msg;
     (void) end;
@@ -825,15 +828,13 @@ mDNSexport void ProxyTCPCallback(mDNS *const m, void *socket, DNSMessage *const 
     (void) context;
 }
 
-mDNSexport void DNSProxyInit(mDNS *const m, mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf)
+mDNSexport void DNSProxyInit(mDNSu32 IpIfArr[MaxIp], mDNSu32 OpIf)
 {
-    (void) m;
     (void) IpIfArr;
     (void) OpIf;
 }
-extern void DNSProxyTerminate(mDNS *const m)
+extern void DNSProxyTerminate(void)
 {
-    (void) m;
 }
 
 

@@ -34,7 +34,7 @@
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecPolicySearch.h>
+#include <Security/SecPolicyPriv.h>
 #include <Security/oidsalg.h>
 #include <Security/cssmapi.h>
 #include <Security/oidscert.h>
@@ -244,82 +244,63 @@ endNewClass()
 
 CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage, Boolean includeRoot)
 {
-    SecPolicySearchRef searchRef = NULL;
     SecPolicyRef policy = NULL;
     CFArrayRef wrappedCert = NULL;
     SecTrustRef trust = NULL;
-    CFArrayRef certChain = NULL;
-    CSSM_TP_APPLE_EVIDENCE_INFO *statusChain;
-    CFDataRef actionData = NULL;
+    CFMutableArrayRef certs = NULL;
     OSStatus status = 0;
 
     if (!cert)
 	goto loser;
 
-    status = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_X509_BASIC, NULL, &searchRef);
-    if (status)
-	goto loser;
-    status = SecPolicySearchCopyNext(searchRef, &policy);
-    if (status)
-	goto loser;
+    policy = SecPolicyCreateBasicX509();
+    if (!policy)
+        goto loser;
 
     wrappedCert = CERT_CertListFromCert(cert);
     status = SecTrustCreateWithCertificates(wrappedCert, policy, &trust);
     if (status)
 	goto loser;
 
-    /* Tell SecTrust that we don't care if any certs in the chain have expired,
-       nor do we want to stop when encountering a cert with a trust setting;
-       we always want to build the full chain.
-    */
-    CSSM_APPLE_TP_ACTION_DATA localActionData = {
-        CSSM_APPLE_TP_ACTION_VERSION,
-        CSSM_TP_ACTION_ALLOW_EXPIRED | CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT
-    };
-    actionData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)&localActionData, sizeof(localActionData), kCFAllocatorNull);
-    if (!actionData)
-        goto loser;
-
-    status = SecTrustSetParameters(trust, CSSM_TP_ACTION_DEFAULT, actionData);
-    if (status)
-        goto loser;
-
+    /* SecTrustEvaluate will build us the best chain available using its heuristics.
+     * We'll ignore the trust result. */
     status = SecTrustEvaluate(trust, NULL);
     if (status)
 	goto loser;
+    CFIndex idx, count = SecTrustGetCertificateCount(trust);
 
-    status = SecTrustGetResult(trust, NULL, &certChain, &statusChain);
-    if (status)
-	goto loser;
-
-    /* We don't drop the root if there is only 1 (self signed) certificate in the chain. */
-    if (!includeRoot && CFArrayGetCount(certChain) > 1)
-    {
-	CFMutableArrayRef subChain =  CFArrayCreateMutableCopy(NULL, 0, certChain);
-	CFRelease(certChain);
-	certChain = subChain;
-	if (subChain)
-	    CFArrayRemoveValueAtIndex(subChain, CFArrayGetCount(subChain) - 1);
+    /* If we weren't able to build a chain to a self-signed cert, warn. */
+    Boolean isSelfSigned = false;
+    SecCertificateRef lastCert = SecTrustGetCertificateAtIndex(trust, count - 1);
+    if (lastCert && (0 == SecCertificateIsSelfSigned(lastCert, &isSelfSigned)) && !isSelfSigned) {
+        CFStringRef commonName = NULL;
+        (void)SecCertificateCopyCommonName(cert, &commonName);
+        fprintf(stderr, "Warning: unable to build chain to self-signed root for signer \"%s\"",
+                commonName ? CFStringGetCStringPtr(commonName, kCFStringEncodingUTF8) : "");
+        if (commonName) { CFRelease(commonName); }
     }
 
+    /* We don't drop the root if there is only 1 certificate in the chain. */
+    if (!includeRoot && count > 1) { count--; }
+
+    certs = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
+    for(idx = 0; idx < count; idx++)
+        CFArrayAppendValue(certs, SecTrustGetCertificateAtIndex(trust, idx));
+
 loser:
-    if (searchRef)
-	CFRelease(searchRef);
     if (policy)
 	CFRelease(policy);
     if (wrappedCert)
 	CFRelease(wrappedCert);
     if (trust)
 	CFRelease(trust);
-    if (actionData)
-	CFRelease(actionData);
-    if (certChain && status)
+    if (certs && status)
     {
-	CFRelease(certChain);
-	certChain = NULL;
+	CFRelease(certs);
+	certs = NULL;
     }
 
-    return certChain;
+    return certs;
 }
 
 CFArrayRef CERT_CertListFromCert(SecCertificateRef cert)
@@ -395,9 +376,9 @@ static int compareCssmData(
 // Generate a certificate key from the issuer and serialnumber, then look it up in the database.
 // Return the cert if found. "issuerAndSN" is the issuer and serial number to look for
 SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, PRArenaPool *pl, const SecCmsIssuerAndSN *issuerAndSN)
+    CSSM_DATA_PTR *rawCerts, CFArrayRef certList, PRArenaPool *pl, const SecCmsIssuerAndSN *issuerAndSN)
 {
-    SecCertificateRef certificate;
+    SecCertificateRef certificate = NULL;
     int numRawCerts = SecCmsArrayCount((void **)rawCerts);
     int dex;
     OSStatus ortn;
@@ -429,6 +410,27 @@ SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray,
 	dprintf("CERT_FindCertByIssuerAndSN: found cert %p\n", certificate);
 	return certificate;
     }
+
+    /* Search the user-added certList */
+    if (certList && CFArrayGetCount(certList)) {
+        CFIndex c, count = CFArrayGetCount(certList);
+        for (c = 0; c < count; c++) {
+            SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certList, c);
+            SecCmsIssuerAndSN *isn = CERT_GetCertIssuerAndSN(pl, cert);
+            if(isn == NULL) {
+                continue;
+            }
+            if(!compareCssmData(&isn->derIssuer, &issuerAndSN->derIssuer)) {
+                continue;
+            }
+            if(!compareCssmData(&isn->serialNumber, &issuerAndSN->serialNumber)) {
+                continue;
+            }
+            certificate = cert;
+            break;
+        }
+        if (certificate) { return certificate; }
+    }
     
     /* now search keychain(s) */
     OSStatus status = SecCertificateFindByIssuerAndSN(keychainOrArray, &issuerAndSN->derIssuer,
@@ -443,7 +445,7 @@ SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray,
 }
 
 SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, const SECItem *subjKeyID)
+    CSSM_DATA_PTR *rawCerts, CFArrayRef certList, const SECItem *subjKeyID)
 {
     SecCertificateRef certificate;
     int numRawCerts = SecCmsArrayCount((void **)rawCerts);
@@ -476,6 +478,23 @@ SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray,
 	CFRelease(certificate);
     }
 
+    /* Search the user-added certList */
+    if (certList && CFArrayGetCount(certList)) {
+        CFDataRef subjectkeyid = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, subjKeyID->Data, subjKeyID->Length, kCFAllocatorNull);
+        CFIndex c, count = CFArrayGetCount(certList);
+        for (c = 0; c < count; c++) {
+            SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certList, c);
+            CFDataRef skid = (cert) ? SecCertificateGetSubjectKeyID(cert) : NULL;
+            if (skid && CFEqual(skid, subjectkeyid)) {
+                CFRetain(cert);
+                certificate = cert;
+                break;
+            }
+        }
+        if (subjectkeyid) { CFRelease(subjectkeyid); };
+        if (certificate) { return certificate; }
+    }
+
     /* now search keychain(s) */
     OSStatus status = SecCertificateFindBySubjectKeyID(keychainOrArray,subjKeyID,&certificate);
     if (status)
@@ -504,7 +523,7 @@ CERT_FindIdentityByCertificate (CFTypeRef keychainOrArray, SecCertificateRef CF_
 SecIdentityRef
 CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN)
 {
-    SecCertificateRef certificate = CERT_FindCertByIssuerAndSN(keychainOrArray, NULL, NULL, issuerAndSN);
+    SecCertificateRef certificate = CERT_FindCertByIssuerAndSN(keychainOrArray, NULL, NULL, NULL, issuerAndSN);
     if (!certificate)
 	return NULL;
 
@@ -514,7 +533,7 @@ CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAnd
 SecIdentityRef
 CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray, const SECItem *subjKeyID)
 {
-    SecCertificateRef certificate = CERT_FindCertBySubjectKeyID(keychainOrArray, NULL, subjKeyID);
+    SecCertificateRef certificate = CERT_FindCertBySubjectKeyID(keychainOrArray, NULL, NULL, subjKeyID);
     if (!certificate)
 	return NULL;
 
@@ -809,10 +828,7 @@ loser:
 CFTypeRef
 CERT_PolicyForCertUsage(SECCertUsage certUsage)
 {
-    SecPolicySearchRef search = NULL;
     SecPolicyRef policy = NULL;
-    const CSSM_OID *policyOID;
-    OSStatus rv;
 
     switch (certUsage)
     {
@@ -823,35 +839,25 @@ CERT_PolicyForCertUsage(SECCertUsage certUsage)
 	goto loser;
 	break;
     case certUsageSSLClient:
+        policy = SecPolicyCreateSSL(false, NULL);
+        break;
     case certUsageSSLServer:
-	policyOID = &CSSMOID_APPLE_TP_SSL;
-	break;
-    case certUsageUserCertImport:
-	policyOID = &CSSMOID_APPLE_TP_CSR_GEN;
+        policy = SecPolicyCreateSSL(true, NULL);
 	break;
     case certUsageStatusResponder:
-	policyOID = &CSSMOID_APPLE_TP_REVOCATION_OCSP;
+        policy = SecPolicyCreateOCSPSigner();
 	break;
     case certUsageObjectSigner:
     case certUsageProtectedObjectSigner:
-	policyOID = &CSSMOID_APPLE_ISIGN;
-	break;
+    case certUsageUserCertImport:
     case certUsageEmailSigner:
     case certUsageEmailRecipient:
-	policyOID = &CSSMOID_APPLE_X509_BASIC;
+        policy = SecPolicyCreateBasicX509();
 	break;
     default:
 	goto loser;
     }
-    rv = SecPolicySearchCreate(CSSM_CERT_X_509v3, policyOID, NULL, &search);
-    if (rv)
-	goto loser;
-
-    rv = SecPolicySearchCopyNext(search, &policy);
-    if (rv)
-	goto loser;
 
 loser:
-    if(search) CFRelease(search);
     return policy;
 }

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #  tkextlib/iwidgets/scrolledcanvas.rb
 #                               by Hidetoshi NAGAI (nagai@ai.kyutech.ac.jp)
@@ -64,7 +65,7 @@ class Tk::Iwidgets::Scrolledcanvas
     elsif tag.kind_of?(Tk::Itk::Component)
       tag.name
     else
-      tag  # maybe an Array of configure paramters
+      tag  # maybe an Array of configure parameters
     end
   end
   private :tagid

@@ -31,7 +31,6 @@
 
 #if USE(SOUP)
 
-#include "CookieJarSoup.h"
 #include "CredentialStorage.h"
 #include "FileSystem.h"
 #include "GUniquePtrSoup.h"
@@ -59,6 +58,7 @@
 #endif
 #include <wtf/CurrentTime.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/RunLoopSourcePriority.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -69,9 +69,6 @@ static bool createSoupRequestAndMessageForHandle(ResourceHandle*, const Resource
 static void cleanupSoupRequestOperation(ResourceHandle*, bool isDestroying = false);
 static void sendRequestCallback(GObject*, GAsyncResult*, gpointer);
 static void readCallback(GObject*, GAsyncResult*, gpointer);
-#if ENABLE(WEB_TIMING)
-static double milisecondsSinceRequest(double requestTime);
-#endif
 static void continueAfterDidReceiveResponse(ResourceHandle*);
 
 ResourceHandleInternal::~ResourceHandleInternal()
@@ -81,8 +78,8 @@ ResourceHandleInternal::~ResourceHandleInternal()
 static SoupSession* sessionFromContext(NetworkingContext* context)
 {
     if (!context || !context->isValid())
-        return SoupNetworkSession::defaultSession().soupSession();
-    return context->storageSession().soupNetworkSession().soupSession();
+        return NetworkStorageSession::defaultStorageSession().getOrCreateSoupNetworkSession().soupSession();
+    return context->storageSession().getOrCreateSoupNetworkSession().soupSession();
 }
 
 ResourceHandle::~ResourceHandle()
@@ -92,7 +89,36 @@ ResourceHandle::~ResourceHandle()
 
 SoupSession* ResourceHandleInternal::soupSession()
 {
-    return sessionFromContext(m_context.get());
+    return m_session ? m_session->soupSession() : sessionFromContext(m_context.get());
+}
+
+RefPtr<ResourceHandle> ResourceHandle::create(SoupNetworkSession& session, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
+{
+    auto newHandle = adoptRef(*new ResourceHandle(session, request, client, defersLoading, shouldContentSniff));
+
+    if (newHandle->d->m_scheduledFailureType != NoFailure)
+        return WTFMove(newHandle);
+
+    if (newHandle->start())
+        return WTFMove(newHandle);
+
+    return nullptr;
+}
+
+ResourceHandle::ResourceHandle(SoupNetworkSession& session, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
+    : d(std::make_unique<ResourceHandleInternal>(this, nullptr, request, client, defersLoading, shouldContentSniff && shouldContentSniffURL(request.url())))
+{
+    if (!request.url().isValid()) {
+        scheduleFailure(InvalidURLFailure);
+        return;
+    }
+
+    if (!portAllowed(request.url())) {
+        scheduleFailure(BlockedFailure);
+        return;
+    }
+
+    d->m_session = &session;
 }
 
 bool ResourceHandle::cancelledOrClientless()
@@ -173,15 +199,17 @@ static void applyAuthenticationToRequest(ResourceHandle* handle, ResourceRequest
     // m_user/m_pass are credentials given manually, for instance, by the arguments passed to XMLHttpRequest.open().
     ResourceHandleInternal* d = handle->getInternal();
 
+    String partition = request.cachePartition();
+
     if (handle->shouldUseCredentialStorage()) {
         if (d->m_user.isEmpty() && d->m_pass.isEmpty())
-            d->m_initialCredential = CredentialStorage::defaultCredentialStorage().get(request.url());
+            d->m_initialCredential = CredentialStorage::defaultCredentialStorage().get(partition, request.url());
         else if (!redirect) {
             // If there is already a protection space known for the URL, update stored credentials
             // before sending a request. This makes it possible to implement logout by sending an
             // XMLHttpRequest with known incorrect credentials, and aborting it immediately (so that
             // an authentication dialog doesn't pop up).
-            CredentialStorage::defaultCredentialStorage().set(Credential(d->m_user, d->m_pass, CredentialPersistenceNone), request.url());
+            CredentialStorage::defaultCredentialStorage().set(partition, Credential(d->m_user, d->m_pass, CredentialPersistenceNone), request.url());
         }
     }
 
@@ -217,7 +245,7 @@ static void restartedCallback(SoupMessage*, gpointer data)
     if (!handle || handle->cancelledOrClientless())
         return;
 
-    handle->m_requestTime = monotonicallyIncreasingTime();
+    handle->m_requestTime = MonotonicTime::now();
 }
 #endif
 
@@ -295,7 +323,6 @@ static void doRedirect(ResourceHandle* handle)
     URL newURL = URL(URL(soup_message_get_uri(message)), location);
     bool crossOrigin = !protocolHostAndPortAreEqual(handle->firstRequest().url(), newURL);
     newRequest.setURL(newURL);
-    newRequest.setFirstPartyForCookies(newURL);
 
     if (newRequest.httpMethod() != "GET") {
         // Change newRequest method to GET if change was made during a previous redirection
@@ -356,7 +383,7 @@ static void redirectSkipCallback(GObject*, GAsyncResult* asyncResult, gpointer d
     }
 
     if (bytesSkipped > 0) {
-        g_input_stream_skip_async(d->m_inputStream.get(), gDefaultReadBufferSize, G_PRIORITY_DEFAULT,
+        g_input_stream_skip_async(d->m_inputStream.get(), gDefaultReadBufferSize, RunLoopSourcePriority::AsyncIONetwork,
             d->m_cancellable.get(), redirectSkipCallback, handle.get());
         return;
     }
@@ -438,7 +465,7 @@ static void nextMultipartResponsePartCallback(GObject* /*source*/, GAsyncResult*
     }
 
     if (!d->m_inputStream) {
-        handle->client()->didFinishLoading(handle.get(), 0);
+        handle->client()->didFinishLoading(handle.get());
         cleanupSoupRequestOperation(handle.get());
         return;
     }
@@ -487,7 +514,7 @@ static void sendRequestCallback(GObject*, GAsyncResult* result, gpointer data)
 
         if (SOUP_STATUS_IS_REDIRECTION(soupMessage->status_code) && shouldRedirect(handle.get())) {
             d->m_inputStream = inputStream;
-            g_input_stream_skip_async(d->m_inputStream.get(), gDefaultReadBufferSize, G_PRIORITY_DEFAULT,
+            g_input_stream_skip_async(d->m_inputStream.get(), gDefaultReadBufferSize, RunLoopSourcePriority::AsyncIONetwork,
                 d->m_cancellable.get(), redirectSkipCallback, handle.get());
             return;
         }
@@ -500,7 +527,7 @@ static void sendRequestCallback(GObject*, GAsyncResult* result, gpointer data)
     }
 
 #if ENABLE(WEB_TIMING)
-    d->m_response.networkLoadTiming().responseStart = milisecondsSinceRequest(handle->m_requestTime);
+    d->m_response.deprecatedNetworkLoadMetrics().responseStart = MonotonicTime::now() - handle->m_requestTime;
 #endif
 
     if (soupMessage && d->m_response.isMultipart())
@@ -525,7 +552,7 @@ static void continueAfterDidReceiveResponse(ResourceHandle* handle)
 
     ResourceHandleInternal* d = handle->getInternal();
     if (d->m_soupMessage && d->m_multipartInputStream && !d->m_inputStream) {
-        soup_multipart_input_stream_next_part_async(d->m_multipartInputStream.get(), G_PRIORITY_DEFAULT,
+        soup_multipart_input_stream_next_part_async(d->m_multipartInputStream.get(), RunLoopSourcePriority::AsyncIONetwork,
             d->m_cancellable.get(), nextMultipartResponsePartCallback, handle);
         return;
     }
@@ -533,18 +560,13 @@ static void continueAfterDidReceiveResponse(ResourceHandle* handle)
     ASSERT(d->m_inputStream);
     handle->ensureReadBuffer();
     g_input_stream_read_async(d->m_inputStream.get(), const_cast<char*>(d->m_soupBuffer->data), d->m_soupBuffer->length,
-        G_PRIORITY_DEFAULT, d->m_cancellable.get(), readCallback, handle);
+        RunLoopSourcePriority::AsyncIONetwork, d->m_cancellable.get(), readCallback, handle);
 }
 
 #if ENABLE(WEB_TIMING)
-static double milisecondsSinceRequest(double requestTime)
-{
-    return (monotonicallyIncreasingTime() - requestTime) * 1000.0;
-}
-
 void ResourceHandle::didStartRequest()
 {
-    getInternal()->m_response.networkLoadTiming().requestStart = milisecondsSinceRequest(m_requestTime);
+    getInternal()->m_response.deprecatedNetworkLoadMetrics().requestStart = MonotonicTime::now() - m_requestTime;
 }
 
 #if SOUP_CHECK_VERSION(2, 49, 91)
@@ -564,24 +586,24 @@ static void networkEventCallback(SoupMessage*, GSocketClientEvent event, GIOStre
         return;
 
     ResourceHandleInternal* d = handle->getInternal();
-    double deltaTime = milisecondsSinceRequest(handle->m_requestTime);
+    Seconds deltaTime = MonotonicTime::now() - handle->m_requestTime;
     switch (event) {
     case G_SOCKET_CLIENT_RESOLVING:
-        d->m_response.networkLoadTiming().domainLookupStart = deltaTime;
+        d->m_response.deprecatedNetworkLoadMetrics().domainLookupStart = deltaTime;
         break;
     case G_SOCKET_CLIENT_RESOLVED:
-        d->m_response.networkLoadTiming().domainLookupEnd = deltaTime;
+        d->m_response.deprecatedNetworkLoadMetrics().domainLookupEnd = deltaTime;
         break;
     case G_SOCKET_CLIENT_CONNECTING:
-        d->m_response.networkLoadTiming().connectStart = deltaTime;
-        if (d->m_response.networkLoadTiming().domainLookupStart != -1) {
+        d->m_response.deprecatedNetworkLoadMetrics().connectStart = deltaTime;
+        if (d->m_response.deprecatedNetworkLoadMetrics().domainLookupStart != Seconds(-1)) {
             // WebCore/inspector/front-end/RequestTimingView.js assumes
             // that DNS time is included in connection time so must
             // substract here the DNS delta that will be added later (see
             // WebInspector.RequestTimingView.createTimingTable in the
             // file above for more details).
-            d->m_response.networkLoadTiming().connectStart -=
-                d->m_response.networkLoadTiming().domainLookupEnd - d->m_response.networkLoadTiming().domainLookupStart;
+            d->m_response.deprecatedNetworkLoadMetrics().connectStart -=
+                d->m_response.deprecatedNetworkLoadMetrics().domainLookupEnd - d->m_response.deprecatedNetworkLoadMetrics().domainLookupStart;
         }
         break;
     case G_SOCKET_CLIENT_CONNECTED:
@@ -593,12 +615,12 @@ static void networkEventCallback(SoupMessage*, GSocketClientEvent event, GIOStre
     case G_SOCKET_CLIENT_PROXY_NEGOTIATED:
         break;
     case G_SOCKET_CLIENT_TLS_HANDSHAKING:
-        d->m_response.networkLoadTiming().secureConnectionStart = deltaTime;
+        d->m_response.deprecatedNetworkLoadMetrics().secureConnectionStart = deltaTime;
         break;
     case G_SOCKET_CLIENT_TLS_HANDSHAKED:
         break;
     case G_SOCKET_CLIENT_COMPLETE:
-        d->m_response.networkLoadTiming().connectEnd = deltaTime;
+        d->m_response.deprecatedNetworkLoadMetrics().connectEnd = deltaTime;
         break;
     default:
         ASSERT_NOT_REACHED();
@@ -746,11 +768,11 @@ void ResourceHandle::timeoutFired()
 void ResourceHandle::sendPendingRequest()
 {
 #if ENABLE(WEB_TIMING)
-    m_requestTime = monotonicallyIncreasingTime();
+    m_requestTime = MonotonicTime::now();
 #endif
 
     if (d->m_firstRequest.timeoutInterval() > 0)
-        d->m_timeoutSource.startOneShot(d->m_firstRequest.timeoutInterval());
+        d->m_timeoutSource.startOneShot(1_s * d->m_firstRequest.timeoutInterval());
 
     // Balanced by a deref() in cleanupSoupRequestOperation, which should always run.
     ref();
@@ -795,6 +817,8 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
 {
     ASSERT(d->m_currentWebChallenge.isNull());
 
+    String partition = firstRequest().cachePartition();
+
     // FIXME: Per the specification, the user shouldn't be asked for credentials if there were incorrect ones provided explicitly.
     bool useCredentialStorage = shouldUseCredentialStorage();
     if (useCredentialStorage) {
@@ -802,17 +826,17 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
             // The stored credential wasn't accepted, stop using it. There is a race condition
             // here, since a different credential might have already been stored by another
             // ResourceHandle, but the observable effect should be very minor, if any.
-            CredentialStorage::defaultCredentialStorage().remove(challenge.protectionSpace());
+            CredentialStorage::defaultCredentialStorage().remove(partition, challenge.protectionSpace());
         }
 
         if (!challenge.previousFailureCount()) {
-            Credential credential = CredentialStorage::defaultCredentialStorage().get(challenge.protectionSpace());
+            Credential credential = CredentialStorage::defaultCredentialStorage().get(partition, challenge.protectionSpace());
             if (!credential.isEmpty() && credential != d->m_initialCredential) {
                 ASSERT(credential.persistence() == CredentialPersistenceNone);
 
                 // Store the credential back, possibly adding it as a default for this directory.
                 if (isAuthenticationFailureStatusCode(challenge.failureResponse().httpStatusCode()))
-                    CredentialStorage::defaultCredentialStorage().set(credential, challenge.protectionSpace(), challenge.failureResponse().url());
+                    CredentialStorage::defaultCredentialStorage().set(partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
 
                 soup_auth_authenticate(challenge.soupAuth(), credential.user().utf8().data(), credential.password().utf8().data());
                 return;
@@ -859,13 +883,15 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         return;
     }
 
+    String partition = firstRequest().cachePartition();
+
     if (shouldUseCredentialStorage()) {
         // Eventually we will manage per-session credentials only internally or use some newly-exposed API from libsoup,
         // because once we authenticate via libsoup, there is no way to ignore it for a particular request. Right now,
         // we place the credentials in the store even though libsoup will never fire the authenticate signal again for
         // this protection space.
         if (credential.persistence() == CredentialPersistenceForSession || credential.persistence() == CredentialPersistencePermanent)
-            CredentialStorage::defaultCredentialStorage().set(credential, challenge.protectionSpace(), challenge.failureResponse().url());
+            CredentialStorage::defaultCredentialStorage().set(partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
 
         if (credential.persistence() == CredentialPersistencePermanent) {
             d->m_credentialDataToSaveInPersistentStore.credential = credential;
@@ -979,14 +1005,14 @@ static void readCallback(GObject*, GAsyncResult* asyncResult, gpointer data)
         // If this is a multipart message, we'll look for another part.
         if (d->m_soupMessage && d->m_multipartInputStream) {
             d->m_inputStream.clear();
-            soup_multipart_input_stream_next_part_async(d->m_multipartInputStream.get(), G_PRIORITY_DEFAULT,
+            soup_multipart_input_stream_next_part_async(d->m_multipartInputStream.get(), RunLoopSourcePriority::AsyncIONetwork,
                 d->m_cancellable.get(), nextMultipartResponsePartCallback, handle.get());
             return;
         }
 
         g_input_stream_close(d->m_inputStream.get(), 0, 0);
 
-        handle->client()->didFinishLoading(handle.get(), 0);
+        handle->client()->didFinishLoading(handle.get());
         cleanupSoupRequestOperation(handle.get());
         return;
     }
@@ -1010,7 +1036,7 @@ static void readCallback(GObject*, GAsyncResult* asyncResult, gpointer data)
     }
 
     handle->ensureReadBuffer();
-    g_input_stream_read_async(d->m_inputStream.get(), const_cast<char*>(d->m_soupBuffer->data), d->m_soupBuffer->length, G_PRIORITY_DEFAULT,
+    g_input_stream_read_async(d->m_inputStream.get(), const_cast<char*>(d->m_soupBuffer->data), d->m_soupBuffer->length, RunLoopSourcePriority::AsyncIONetwork,
         d->m_cancellable.get(), readCallback, handle.get());
 }
 

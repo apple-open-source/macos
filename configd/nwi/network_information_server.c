@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,6 +31,7 @@
 #include <notify.h>
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
+#include <os/state_private.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -373,7 +374,66 @@ process_new_connection(xpc_connection_t c)
 
 
 #pragma mark -
-#pragma mark Network Information server SPIs
+#pragma mark Network information state
+
+
+static void
+add_state_handler()
+{
+#if	!TARGET_OS_SIMULATOR
+	os_state_block_t	state_block;
+	os_state_handle_t	state_handle;
+
+	state_block = ^os_state_data_t(os_state_hints_t hints) {
+#pragma unused(hints)
+		os_state_data_t	state_data;
+		size_t		state_data_size;
+		CFIndex		state_len;
+
+		state_len = (S_nwi_info.data != NULL) ? CFDataGetLength(S_nwi_info.data) : 0;
+		state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
+		if (state_data_size > MAX_STATEDUMP_SIZE) {
+			SC_log(LOG_ERR, "Network information : state data too large (%zd > %zd)",
+			       state_data_size,
+			       MAX_STATEDUMP_SIZE);
+			return NULL;
+		}
+
+		state_data = calloc(1, state_data_size);
+		if (state_data == NULL) {
+			SC_log(LOG_ERR, "Network information: could not allocate state data");
+			return NULL;
+		}
+
+		state_data->osd_type = OS_STATE_DATA_CUSTOM;
+		state_data->osd_data_size = (uint32_t)state_len;
+		strlcpy(state_data->osd_decoder.osdd_library,
+			"SystemConfiguration",
+			sizeof(state_data->osd_decoder.osdd_library));
+		strlcpy(state_data->osd_decoder.osdd_type,
+			"nwi",
+			sizeof(state_data->osd_decoder.osdd_type));
+		strlcpy(state_data->osd_title, "Network information", sizeof(state_data->osd_title));
+		if (state_len > 0) {
+			memcpy(state_data->osd_data, CFDataGetBytePtr(S_nwi_info.data), state_len);
+		}
+
+		return state_data;
+	};
+
+	state_handle = os_state_add_handler(_nwi_state_server_queue(), state_block);
+	if (state_handle == 0) {
+		SC_log(LOG_ERR, "Network information: os_state_add_handler() failed");
+	}
+#endif	// !TARGET_OS_SIMULATOR
+
+
+	return;
+}
+
+
+#pragma mark -
+#pragma mark Network information server SPIs
 
 
 __private_extern__
@@ -381,6 +441,7 @@ void
 load_NetworkInformation(CFBundleRef		bundle,
 			_nwi_sync_handler_t	syncHandler)
 {
+#pragma unused(bundle)
 	xpc_connection_t	c;
 	const char		*name;
 
@@ -388,6 +449,11 @@ load_NetworkInformation(CFBundleRef		bundle,
 	 * keep track of Network information acknowledgements
 	 */
 	_libSC_info_server_init(&S_nwi_info);
+
+	/*
+	 * add a state dump handler
+	 */
+	add_state_handler();
 
 	/*
 	 * save the in-sync/not-in-sync handler

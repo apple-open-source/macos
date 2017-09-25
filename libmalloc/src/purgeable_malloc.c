@@ -135,7 +135,7 @@ purgeable_realloc(szone_t *szone, void *ptr, size_t new_size)
 	}
 
 	if (!old_size) {
-		szone_error(szone, 1, "pointer being reallocated was not allocated", ptr, NULL);
+		szone_error(szone->debug_flags, 1, "pointer being reallocated was not allocated", ptr, NULL);
 		return NULL;
 	}
 
@@ -186,16 +186,16 @@ purgeable_destroy(szone_t *szone)
 		large = szone->large_entries + index;
 		if (large->address) {
 			// we deallocate_pages, including guard pages
-			deallocate_pages(szone, (void *)(large->address), large->size, szone->debug_flags);
+			mvm_deallocate_pages((void *)(large->address), large->size, szone->debug_flags);
 		}
 	}
 	large_entries_free_no_lock(szone, szone->large_entries, szone->num_large_entries, &range_to_deallocate);
 	if (range_to_deallocate.size) {
-		deallocate_pages(szone, (void *)range_to_deallocate.address, (size_t)range_to_deallocate.size, 0);
+		mvm_deallocate_pages((void *)range_to_deallocate.address, (size_t)range_to_deallocate.size, 0);
 	}
 
 	/* Now destroy the separate szone region */
-	deallocate_pages(szone, (void *)szone, SZONE_PAGED_SIZE, 0);
+	mvm_deallocate_pages((void *)szone, SZONE_PAGED_SIZE, 0);
 }
 
 static unsigned
@@ -334,7 +334,7 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	uint64_t hw_memsize = 0;
 
 	/* get memory for the zone. */
-	szone = allocate_pages(NULL, SZONE_PAGED_SIZE, 0, 0, VM_MEMORY_MALLOC);
+	szone = mvm_allocate_pages(SZONE_PAGED_SIZE, 0, 0, VM_MEMORY_MALLOC);
 	if (!szone) {
 		return NULL;
 	}
@@ -353,21 +353,8 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	sysctlbyname("hw.memsize", &hw_memsize, &uint64_t_size, 0, 0);
 #endif
 
-	szone->trg[0].nextgen = &(szone->trg[1]);
-	szone->trg[1].nextgen = &(szone->trg[0]);
-	szone->tiny_region_generation = &(szone->trg[0]);
-
-	szone->tiny_region_generation->hashed_regions = szone->initial_tiny_regions;
-	szone->tiny_region_generation->num_regions_allocated = INITIAL_NUM_REGIONS;
-	szone->tiny_region_generation->num_regions_allocated_shift = INITIAL_NUM_REGIONS_SHIFT;
-
-	szone->srg[0].nextgen = &(szone->srg[1]);
-	szone->srg[1].nextgen = &(szone->srg[0]);
-	szone->small_region_generation = &(szone->srg[0]);
-
-	szone->small_region_generation->hashed_regions = szone->initial_small_regions;
-	szone->small_region_generation->num_regions_allocated = INITIAL_NUM_REGIONS;
-	szone->small_region_generation->num_regions_allocated_shift = INITIAL_NUM_REGIONS_SHIFT;
+	rack_init(&szone->tiny_rack, RACK_TYPE_TINY, 0, debug_flags | MALLOC_PURGEABLE);
+	rack_init(&szone->small_rack, RACK_TYPE_SMALL, 0, debug_flags | MALLOC_PURGEABLE);
 
 	/* Purgeable zone does not participate in the adaptive "largemem" sizing. */
 	szone->is_largemem = 0;
@@ -375,8 +362,8 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	szone->vm_copy_threshold = VM_COPY_THRESHOLD;
 
 #if CONFIG_LARGE_CACHE
-	szone->large_entry_cache_reserve_limit =
-	hw_memsize >> 10; // madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
+	// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
+	szone->large_entry_cache_reserve_limit = (size_t)(hw_memsize >> 10);
 
 	/* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
 	int32_t libSystemVersion = NSVersionOfLinkTimeLibrary("System");

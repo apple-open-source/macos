@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,7 +49,7 @@ static struct sigaction		*oact	= NULL;
 static char *
 elapsed()
 {
-	int			n;
+	size_t			n;
 	static char		str[128];
 	struct tm		tm_diff;
 	struct tm		tm_now;
@@ -80,7 +80,9 @@ elapsed()
 
 
 static CFComparisonResult
-sort_keys(const void *p1, const void *p2, void *context) {
+sort_keys(const void *p1, const void *p2, void *context)
+{
+#pragma unused(context)
 	CFStringRef key1 = (CFStringRef)p1;
 	CFStringRef key2 = (CFStringRef)p2;
 	return CFStringCompare(key1, key2, 0);
@@ -91,6 +93,7 @@ __private_extern__
 void
 storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
+#pragma unused(info)
 	int		i;
 	CFIndex		n;
 
@@ -118,6 +121,7 @@ __private_extern__
 void
 do_notify_list(int argc, char **argv)
 {
+#pragma unused(argv)
 	int			i;
 	CFArrayRef		list;
 	CFIndex			listCnt;
@@ -247,6 +251,8 @@ __private_extern__
 void
 do_notify_changes(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	CFArrayRef	list;
 	CFIndex		listCnt;
 	int		i;
@@ -279,6 +285,7 @@ do_notify_changes(int argc, char **argv)
 static void *
 _watcher(void *arg)
 {
+#pragma unused(arg)
 	notifyRl = CFRunLoopGetCurrent();
 	if (notifyRl == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("  CFRunLoopGetCurrent() failed\n"));
@@ -312,6 +319,8 @@ __private_extern__
 void
 do_notify_watch(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	pthread_attr_t	tattr;
 	pthread_t	tid;
 
@@ -335,6 +344,8 @@ __private_extern__
 void
 do_notify_wait(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (!SCDynamicStoreNotifyWait(store)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
@@ -489,6 +500,8 @@ __private_extern__
 void
 do_notify_cancel(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (notifyRls != NULL) {
 		if (doDispatch) {
 			if (!SCDynamicStoreSetDispatchQueue(store, NULL)) {

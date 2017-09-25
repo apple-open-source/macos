@@ -58,6 +58,7 @@
 				849447FC13E4CD9D00049B13 /* CopyFiles */,
 				8491B475145B491900DD2767 /* CopyFiles */,
 				84B286E214F3285C00A9FD4D /* CopyFiles */,
+				CEF578EA1DD2AD8000B6D9EE /* CopyFiles */,
 			);
 			dependencies = (
 			);
@@ -73,6 +74,7 @@
 				848E7369150688A4006AE483 /* CopyFiles */,
 				848E7373150688A4006AE483 /* CopyFiles */,
 				848E737F150688A4006AE483 /* CopyFiles */,
+				CEF578F21DD2B30100B6D9EE /* CopyFiles */,
 			);
 			dependencies = (
 			);
@@ -461,6 +463,8 @@
 		7C0966D0182091F200FB91A5 /* IOAVInterfaceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7C0966CF182091F200FB91A5 /* IOAVInterfaceUserClient.h */; };
 		7C0966D11820920E00FB91A5 /* IOAVInterfaceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7C0966CF182091F200FB91A5 /* IOAVInterfaceUserClient.h */; };
 		7C21786F1820AD480005BE30 /* IOAVControlInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */; };
+		7CAB08CB1E232464006CFF2C /* IOAVDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7CAB08CA1E232404006CFF2C /* IOAVDefs.h */; };
+		7CAB08CC1E23246F006CFF2C /* IOAVDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7CAB08CA1E232404006CFF2C /* IOAVDefs.h */; };
 		7CB4DC1D18209ACB00D5A5AC /* IOAVControlInterface.c in Sources */ = {isa = PBXBuildFile; fileRef = 7CB4DC1C18209ACB00D5A5AC /* IOAVControlInterface.c */; };
 		7CB4DC1E18209ACB00D5A5AC /* IOAVControlInterface.c in Sources */ = {isa = PBXBuildFile; fileRef = 7CB4DC1C18209ACB00D5A5AC /* IOAVControlInterface.c */; };
 		7CB4DC1F18209ACB00D5A5AC /* IOAVControlInterface.c in Sources */ = {isa = PBXBuildFile; fileRef = 7CB4DC1C18209ACB00D5A5AC /* IOAVControlInterface.c */; };
@@ -1055,6 +1059,8 @@
 		B9EFD2721324BFEB00025D69 /* IOHIDUserDevice.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 84E02A170E8784A400850EED /* IOHIDUserDevice.h */; };
 		B9EFD2741324C12500025D69 /* IOHIDResourceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B9EFD2731324C12500025D69 /* IOHIDResourceUserClient.h */; };
 		BABB8C3C07DF311D005D5A3C /* IOPMLibPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = BABB8C3707DF311D005D5A3C /* IOPMLibPrivate.c */; };
+		CEF578F01DD2B08A00B6D9EE /* IOHDCPTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = CEF578EF1DD2B08A00B6D9EE /* IOHDCPTypes.h */; };
+		CEF578F31DD2B35300B6D9EE /* IOHDCPTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = CEF578EF1DD2B08A00B6D9EE /* IOHDCPTypes.h */; };
 		CEFD2A071C160A9F00CE9BA2 /* IOAVLibUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = CEFD2A041C160A9F00CE9BA2 /* IOAVLibUtil.c */; };
 		CEFD2A081C160A9F00CE9BA2 /* IOAVLibUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = CEFD2A041C160A9F00CE9BA2 /* IOAVLibUtil.c */; };
 		CEFD2A091C160BBD00CE9BA2 /* IOAVLibUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = CEFD2A031C160A7800CE9BA2 /* IOAVLibUtil.h */; };
@@ -1067,10 +1073,23 @@
 		D855FFCA1CA5BF26008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
 		D855FFCB1CA5BF34008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
 		D855FFCC1CA5BF42008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
+		D86C89991E037FEA00BF54D5 /* IOHIDServiceConnectionCache.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
+		D86C899A1E0382A200BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
+		D86C899B1E0382B900BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
+		D86C899C1E0382CF00BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
 		D86F30D91D3880600078EB6E /* IOHIDServiceKeys.c in Sources */ = {isa = PBXBuildFile; fileRef = D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */; };
 		D86F30DA1D3880740078EB6E /* IOHIDServiceKeys.c in Sources */ = {isa = PBXBuildFile; fileRef = D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */; };
 		D86F30DB1D3880830078EB6E /* IOHIDServiceKeys.c in Sources */ = {isa = PBXBuildFile; fileRef = D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */; };
 		D86F30DC1D3880910078EB6E /* IOHIDServiceKeys.c in Sources */ = {isa = PBXBuildFile; fileRef = D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */; };
+		D87B3EEB1E610F5800B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EE81E610F5800B77E93 /* IOHIDEventFieldDefs.h */; };
+		D87B3EEC1E610F5800B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EE91E610F5800B77E93 /* IOHIDEventMacroDefs.h */; };
+		D87B3EED1E610F5800B77E93 /* IOHIDEventStructDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EEA1E610F5800B77E93 /* IOHIDEventStructDefs.h */; };
+		D87B3EF11E610F6700B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EEE1E610F6700B77E93 /* IOHIDEventFieldDefs.h */; };
+		D87B3EF21E610F6700B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EEF1E610F6700B77E93 /* IOHIDEventMacroDefs.h */; };
+		D87B3EF31E610F6700B77E93 /* IOHIDEventStructDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EF01E610F6700B77E93 /* IOHIDEventStructDefs.h */; };
+		D87B3EF71E610F8400B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EF41E610F8400B77E93 /* IOHIDEventFieldDefs.h */; };
+		D87B3EF81E610F8400B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EF51E610F8400B77E93 /* IOHIDEventMacroDefs.h */; };
+		D87B3EF91E610F8400B77E93 /* IOHIDEventStructDefs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D87B3EF61E610F8400B77E93 /* IOHIDEventStructDefs.h */; };
 		DA3CE2A40D46AF6B009749E9 /* IOUSBDeviceControllerLib.c in Sources */ = {isa = PBXBuildFile; fileRef = DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */; };
 		DA3CE2A50D46AF6B009749E9 /* IOUSBDeviceControllerLib.h in Headers */ = {isa = PBXBuildFile; fileRef = DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */; };
 		DA3CE2B10D46B10E009749E9 /* IOUSBDeviceControllerLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */; };
@@ -1248,6 +1267,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				D86C899A1E0382A200BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */,
 				D855FFCA1CA5BF26008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */,
 				844A36AA172A05270086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */,
 				3F116D121638DFAD001C6A14 /* IOHIDEventSystemConnection.h in CopyFiles */,
@@ -1473,6 +1493,9 @@
 			dstSubfolderSpec = 16;
 			files = (
 				48438B9B1CEBB1020067C8C2 /* IOHIDProperties.h in CopyFiles */,
+				D87B3EF11E610F6700B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */,
+				D87B3EF21E610F6700B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */,
+				D87B3EF31E610F6700B77E93 /* IOHIDEventStructDefs.h in CopyFiles */,
 				3F73AFA91649D4B10021F107 /* IOHIDResourceUserClient.h in CopyFiles */,
 				3F73AFAA1649D4B10021F107 /* AppleHIDUsageTables.h in CopyFiles */,
 				3F73AFAB1649D4B10021F107 /* IOHIDEventData.h in CopyFiles */,
@@ -1792,6 +1815,9 @@
 			files = (
 				48438B9A1CEBB0F20067C8C2 /* IOHIDProperties.h in CopyFiles */,
 				F70101600C07CA24007591A4 /* AppleHIDUsageTables.h in CopyFiles */,
+				D87B3EEB1E610F5800B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */,
+				D87B3EEC1E610F5800B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */,
+				D87B3EED1E610F5800B77E93 /* IOHIDEventStructDefs.h in CopyFiles */,
 				B9EFD2741324C12500025D69 /* IOHIDResourceUserClient.h in CopyFiles */,
 				843C24AE0C07B56E0009057F /* IOHIDEventData.h in CopyFiles */,
 				843C24AF0C07B56E0009057F /* IOHIDEventTypes.h in CopyFiles */,
@@ -1923,6 +1949,9 @@
 			dstSubfolderSpec = 16;
 			files = (
 				48438B9C1CEBB1050067C8C2 /* IOHIDProperties.h in CopyFiles */,
+				D87B3EF71E610F8400B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */,
+				D87B3EF81E610F8400B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */,
+				D87B3EF91E610F8400B77E93 /* IOHIDEventStructDefs.h in CopyFiles */,
 				849648FB0E885E4600B26A1C /* IOHIDResourceUserClient.h in CopyFiles */,
 				842053A40CFE59CE00C2EF0D /* AppleHIDUsageTables.h in CopyFiles */,
 				842053A50CFE59CE00C2EF0D /* IOHIDEventData.h in CopyFiles */,
@@ -1967,6 +1996,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				D86C89991E037FEA00BF54D5 /* IOHIDServiceConnectionCache.h in Copy HID Private Headers A */,
 				D855FFC91CA5BF06008AFE9B /* IOHIDEventPrivateKeys.h in Copy HID Private Headers A */,
 				84B28F60174EF237007B8D25 /* IOHIDEventSystemKeysPrivate.h in Copy HID Private Headers A */,
 				84EADB0D1736121A000776EA /* IOHIDEventSystemClientPrivate.h in Copy HID Private Headers A */,
@@ -2022,6 +2052,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				D86C899B1E0382B900BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */,
 				D855FFCB1CA5BF34008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */,
 				84B28F5F174EF228007B8D25 /* IOHIDEventSystemKeysPrivate.h in CopyFiles */,
 				844A36AB172A05340086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */,
@@ -2191,6 +2222,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				D86C899C1E0382CF00BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */,
 				D855FFCC1CA5BF42008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */,
 				844A36AC172A05450086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */,
 				840933E115FC25AD00F0AA90 /* IOHIDEventSystemConnection.h in CopyFiles */,
@@ -2440,6 +2472,7 @@
 			dstPath = include/IOKit/audio_video;
 			dstSubfolderSpec = 16;
 			files = (
+				7CAB08CC1E23246F006CFF2C /* IOAVDefs.h in CopyFiles */,
 				848E7374150688A4006AE483 /* EDID.h in CopyFiles */,
 				848E7375150688A4006AE483 /* IOAV.h in CopyFiles */,
 				848E7376150688A4006AE483 /* IOAVAudioInterfaceUserClient.h in CopyFiles */,
@@ -2473,6 +2506,7 @@
 			dstPath = include/IOKit/audio_video;
 			dstSubfolderSpec = 16;
 			files = (
+				7CAB08CB1E232464006CFF2C /* IOAVDefs.h in CopyFiles */,
 				8491B476145B492100DD2767 /* EDID.h in CopyFiles */,
 				8491B477145B492100DD2767 /* IOAV.h in CopyFiles */,
 				8491B478145B492100DD2767 /* IOAVAudioInterfaceUserClient.h in CopyFiles */,
@@ -2545,6 +2579,26 @@
 				B908943014644AC500309232 /* IOHIDLibSPI.h in Copy HIDSystem Private Headers */,
 			);
 			name = "Copy HIDSystem Private Headers";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CEF578EA1DD2AD8000B6D9EE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = include/IOKit/hdcp;
+			dstSubfolderSpec = 16;
+			files = (
+				CEF578F01DD2B08A00B6D9EE /* IOHDCPTypes.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CEF578F21DD2B30100B6D9EE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = include/IOKit/hdcp;
+			dstSubfolderSpec = 16;
+			files = (
+				CEF578F31DD2B35300B6D9EE /* IOHDCPTypes.h in CopyFiles */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -2674,7 +2728,8 @@
 		727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOPMAssertions.c; sourceTree = "<group>"; };
 		729061E40CDFC6490046821C /* IOPMPowerNotifications.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOPMPowerNotifications.c; sourceTree = "<group>"; };
 		72C9226E142B9AD800E268F0 /* SMCUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SMCUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/smc/SMCUserClient.h; sourceTree = SDKROOT; };
-		7C0966CF182091F200FB91A5 /* IOAVInterfaceUserClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOAVInterfaceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVInterfaceUserClient.h; sourceTree = "<absolute>"; };
+		7C0966CF182091F200FB91A5 /* IOAVInterfaceUserClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOAVInterfaceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVInterfaceUserClient.h; sourceTree = SDKROOT; };
+		7CAB08CA1E232404006CFF2C /* IOAVDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVDefs.h; sourceTree = SDKROOT; };
 		7CB4DC1C18209ACB00D5A5AC /* IOAVControlInterface.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOAVControlInterface.c; sourceTree = "<group>"; };
 		7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAVControlInterface.h; sourceTree = "<group>"; };
 		80515E131AAA5E620067A770 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = usr/lib/libenergytrace.dylib; sourceTree = SDKROOT; };
@@ -2783,17 +2838,17 @@
 		847A12570C07C3A400F3CCDB /* IOHIDTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDTypes.h; sourceTree = "<group>"; };
 		8483D7BD1742AC390052EA97 /* IODataQueueClientPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IODataQueueClientPrivate.h; sourceTree = "<group>"; };
 		848E733915068444006AE483 /* IOKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = IOKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		8491B45F145B48E100DD2767 /* EDID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = EDID.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/EDID.h; sourceTree = "<absolute>"; };
-		8491B460145B48E100DD2767 /* IOAV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAV.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAV.h; sourceTree = "<absolute>"; };
-		8491B461145B48E100DD2767 /* IOAVAudioInterfaceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVAudioInterfaceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVAudioInterfaceUserClient.h; sourceTree = "<absolute>"; };
-		8491B462145B48E100DD2767 /* IOAVCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVCommandKeys.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVCommandKeys.h; sourceTree = "<absolute>"; };
-		8491B463145B48E100DD2767 /* IOAVCommandTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVCommandTypes.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVCommandTypes.h; sourceTree = "<absolute>"; };
-		8491B464145B48E100DD2767 /* IOAVControllerUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVControllerUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVControllerUserClient.h; sourceTree = "<absolute>"; };
-		8491B465145B48E100DD2767 /* IOAVDeviceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVDeviceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVDeviceUserClient.h; sourceTree = "<absolute>"; };
-		8491B466145B48E100DD2767 /* IOAVPropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVPropertyKeys.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVPropertyKeys.h; sourceTree = "<absolute>"; };
-		8491B467145B48E100DD2767 /* IOAVServiceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVServiceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVServiceUserClient.h; sourceTree = "<absolute>"; };
-		8491B468145B48E100DD2767 /* IOAVTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVTypes.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVTypes.h; sourceTree = "<absolute>"; };
-		8491B469145B48E100DD2767 /* IOAVVideoInterfaceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVVideoInterfaceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVVideoInterfaceUserClient.h; sourceTree = "<absolute>"; };
+		8491B45F145B48E100DD2767 /* EDID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = EDID.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/EDID.h; sourceTree = SDKROOT; };
+		8491B460145B48E100DD2767 /* IOAV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAV.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAV.h; sourceTree = SDKROOT; };
+		8491B461145B48E100DD2767 /* IOAVAudioInterfaceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVAudioInterfaceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVAudioInterfaceUserClient.h; sourceTree = SDKROOT; };
+		8491B462145B48E100DD2767 /* IOAVCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVCommandKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVCommandKeys.h; sourceTree = SDKROOT; };
+		8491B463145B48E100DD2767 /* IOAVCommandTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVCommandTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVCommandTypes.h; sourceTree = SDKROOT; };
+		8491B464145B48E100DD2767 /* IOAVControllerUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVControllerUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVControllerUserClient.h; sourceTree = SDKROOT; };
+		8491B465145B48E100DD2767 /* IOAVDeviceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVDeviceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVDeviceUserClient.h; sourceTree = SDKROOT; };
+		8491B466145B48E100DD2767 /* IOAVPropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVPropertyKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVPropertyKeys.h; sourceTree = SDKROOT; };
+		8491B467145B48E100DD2767 /* IOAVServiceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVServiceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVServiceUserClient.h; sourceTree = SDKROOT; };
+		8491B468145B48E100DD2767 /* IOAVTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVTypes.h; sourceTree = SDKROOT; };
+		8491B469145B48E100DD2767 /* IOAVVideoInterfaceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOAVVideoInterfaceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVVideoInterfaceUserClient.h; sourceTree = SDKROOT; };
 		8491B48A145B4B4B00DD2767 /* libioav.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libioav.a; path = usr/local/lib/libioav.a; sourceTree = SDKROOT; };
 		8491B48C145B4BC500DD2767 /* libiodp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libiodp.a; path = usr/local/lib/libiodp.a; sourceTree = SDKROOT; };
 		8494480513E4D0CD00049B13 /* IODPDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IODPDevice.h; sourceTree = "<group>"; };
@@ -2817,15 +2872,15 @@
 		84A1B76411863F9C0099A3AD /* IOHIDEventServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventServer.h; sourceTree = "<group>"; };
 		84A60FE913E5A43B0034FE11 /* IODPService.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IODPService.c; sourceTree = "<group>"; };
 		84A60FEB13E5A4480034FE11 /* IODPService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IODPService.h; sourceTree = "<group>"; };
-		84A60FFE13E646230034FE11 /* DPCD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DPCD.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/DPCD.h; sourceTree = "<absolute>"; };
-		84A6100013E646230034FE11 /* IODP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODP.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODP.h; sourceTree = "<absolute>"; };
-		84A6100213E646230034FE11 /* IODPCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPCommandKeys.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPCommandKeys.h; sourceTree = "<absolute>"; };
-		84A6100313E646230034FE11 /* IODPCommandTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPCommandTypes.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPCommandTypes.h; sourceTree = "<absolute>"; };
-		84A6100413E646230034FE11 /* IODPControllerUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPControllerUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPControllerUserClient.h; sourceTree = "<absolute>"; };
-		84A6100513E646230034FE11 /* IODPDeviceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPDeviceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPDeviceUserClient.h; sourceTree = "<absolute>"; };
-		84A6100713E646230034FE11 /* IODPPropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPPropertyKeys.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPPropertyKeys.h; sourceTree = "<absolute>"; };
-		84A6100813E646230034FE11 /* IODPServiceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPServiceUserClient.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPServiceUserClient.h; sourceTree = "<absolute>"; };
-		84A6100913E646230034FE11 /* IODPTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPTypes.h; path = $SDKROOT/System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPTypes.h; sourceTree = "<absolute>"; };
+		84A60FFE13E646230034FE11 /* DPCD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DPCD.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/DPCD.h; sourceTree = SDKROOT; };
+		84A6100013E646230034FE11 /* IODP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODP.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODP.h; sourceTree = SDKROOT; };
+		84A6100213E646230034FE11 /* IODPCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPCommandKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPCommandKeys.h; sourceTree = SDKROOT; };
+		84A6100313E646230034FE11 /* IODPCommandTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPCommandTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPCommandTypes.h; sourceTree = SDKROOT; };
+		84A6100413E646230034FE11 /* IODPControllerUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPControllerUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPControllerUserClient.h; sourceTree = SDKROOT; };
+		84A6100513E646230034FE11 /* IODPDeviceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPDeviceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPDeviceUserClient.h; sourceTree = SDKROOT; };
+		84A6100713E646230034FE11 /* IODPPropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPPropertyKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPPropertyKeys.h; sourceTree = SDKROOT; };
+		84A6100813E646230034FE11 /* IODPServiceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPServiceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPServiceUserClient.h; sourceTree = SDKROOT; };
+		84A6100913E646230034FE11 /* IODPTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IODPTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/display_port/IODPTypes.h; sourceTree = SDKROOT; };
 		84B286DD14F3276700A9FD4D /* IOUSBDeviceCommandKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBDeviceCommandKeys.h; path = "$SDKROOT//System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb_device/IOUSBDeviceCommandKeys.h"; sourceTree = "<absolute>"; };
 		84B286DE14F3276700A9FD4D /* IOUSBDevicePropertyKeys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUSBDevicePropertyKeys.h; path = "$SDKROOT//System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/usb_device/IOUSBDevicePropertyKeys.h"; sourceTree = "<absolute>"; };
 		84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystemKeysPrivate.h; sourceTree = "<group>"; };
@@ -2873,9 +2928,19 @@
 		BABB8C3807DF311D005D5A3C /* IOPMLibPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPMLibPrivate.h; sourceTree = "<group>"; };
 		BABB8C3907DF311D005D5A3C /* IOPMUPSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPMUPSPrivate.h; sourceTree = "<group>"; };
 		BABB8C3A07DF311D005D5A3C /* powermanagement_mig.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = powermanagement_mig.h; sourceTree = "<group>"; };
+		CEF578EF1DD2B08A00B6D9EE /* IOHDCPTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHDCPTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hdcp/IOHDCPTypes.h; sourceTree = SDKROOT; };
 		CEFD2A031C160A7800CE9BA2 /* IOAVLibUtil.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOAVLibUtil.h; sourceTree = "<group>"; };
 		CEFD2A041C160A9F00CE9BA2 /* IOAVLibUtil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOAVLibUtil.c; sourceTree = "<group>"; };
 		D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOHIDServiceKeys.c; sourceTree = "<group>"; };
+		D87B3EE81E610F5800B77E93 /* IOHIDEventFieldDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventFieldDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventFieldDefs.h; sourceTree = SDKROOT; };
+		D87B3EE91E610F5800B77E93 /* IOHIDEventMacroDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventMacroDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventMacroDefs.h; sourceTree = SDKROOT; };
+		D87B3EEA1E610F5800B77E93 /* IOHIDEventStructDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventStructDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventStructDefs.h; sourceTree = SDKROOT; };
+		D87B3EEE1E610F6700B77E93 /* IOHIDEventFieldDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventFieldDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventFieldDefs.h; sourceTree = SDKROOT; };
+		D87B3EEF1E610F6700B77E93 /* IOHIDEventMacroDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventMacroDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventMacroDefs.h; sourceTree = SDKROOT; };
+		D87B3EF01E610F6700B77E93 /* IOHIDEventStructDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventStructDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventStructDefs.h; sourceTree = SDKROOT; };
+		D87B3EF41E610F8400B77E93 /* IOHIDEventFieldDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventFieldDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventFieldDefs.h; sourceTree = SDKROOT; };
+		D87B3EF51E610F8400B77E93 /* IOHIDEventMacroDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventMacroDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventMacroDefs.h; sourceTree = SDKROOT; };
+		D87B3EF61E610F8400B77E93 /* IOHIDEventStructDefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventStructDefs.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventStructDefs.h; sourceTree = SDKROOT; };
 		D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventPrivateKeys.h; sourceTree = "<group>"; };
 		DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUSBDeviceControllerLib.c; sourceTree = "<group>"; };
 		DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDeviceControllerLib.h; sourceTree = "<group>"; };
@@ -3201,6 +3266,9 @@
 		723853DE087F2C3700B36ABB /* IOHIDFamily IOKit Headers */ = {
 			isa = PBXGroup;
 			children = (
+				D87B3EE81E610F5800B77E93 /* IOHIDEventFieldDefs.h */,
+				D87B3EE91E610F5800B77E93 /* IOHIDEventMacroDefs.h */,
+				D87B3EEA1E610F5800B77E93 /* IOHIDEventStructDefs.h */,
 				48438B991CEBB0940067C8C2 /* IOHIDProperties.h */,
 				B9EFD2731324C12500025D69 /* IOHIDResourceUserClient.h */,
 				F701015E0C07C9FC007591A4 /* AppleHIDUsageTables.h */,
@@ -3303,6 +3371,7 @@
 				842053060CFE525D00C2EF0D /* xnu IOKit Headers */,
 				842053070CFE526B00C2EF0D /* IONetworkingFamily IOKit Headers */,
 				842053080CFE528600C2EF0D /* IOGraphics IOKit Headers */,
+				CEF578F11DD2B14200B6D9EE /* IOHDCPFamily IOKit Headers */,
 				842053090CFE52AA00C2EF0D /* IOHIDFamily IOKit Headers */,
 				8491B431145B455C00DD2767 /* IOAVFamily IOKit Headers */,
 				849447F213E4CD5D00049B13 /* IODisplayPortFamily IOKit Headers */,
@@ -3539,6 +3608,7 @@
 			isa = PBXGroup;
 			children = (
 				8491B45F145B48E100DD2767 /* EDID.h */,
+				7CAB08CA1E232404006CFF2C /* IOAVDefs.h */,
 				8491B460145B48E100DD2767 /* IOAV.h */,
 				8491B461145B48E100DD2767 /* IOAVAudioInterfaceUserClient.h */,
 				8491B462145B48E100DD2767 /* IOAVCommandKeys.h */,
@@ -3714,6 +3784,14 @@
 				98599EBD1A71677000D3EE9E /* IOHIDDebugTrace.h */,
 			);
 			name = IOHIDDebug;
+			sourceTree = "<group>";
+		};
+		CEF578F11DD2B14200B6D9EE /* IOHDCPFamily IOKit Headers */ = {
+			isa = PBXGroup;
+			children = (
+				CEF578EF1DD2B08A00B6D9EE /* IOHDCPTypes.h */,
+			);
+			name = "IOHDCPFamily IOKit Headers";
 			sourceTree = "<group>";
 		};
 		E1AF5FF707B40A70007EADEA /* IOKit */ = {
@@ -4757,7 +4835,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# When building for Aspen, we still build IOKit.framework as a deep framework, so we need to create the necessary symlinks by hand.\nif [ \\( \"${PLATFORM_NAME}\" = \"iphoneos\" -o \"${PLATFORM_NAME}\" = \"tvos\"  -o \"${PLATFORM_NAME}\" = \"appletvos\" -o \"${PLATFORM_NAME}\" = \"watchos\" \\) -a \\( \"${CONFIGURATION}\" = \"Development-Embedded\" -o \"${CONFIGURATION}\" = \"Deployment-Embedded\" \\) ]\nthen\n\techo \"cd \\\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\\\"\"\n\tcd \"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\tfor filename in Headers PrivateHeaders \"${EXECUTABLE_NAME}\"\n\tdo\n\t\techo \"/bin/ln -sF \\\"Versions/${FRAMEWORK_VERSION}/${filename}\\\" \\\"${filename}\\\"\"\n\t\t/bin/ln -sF \"Versions/${FRAMEWORK_VERSION}/${filename}\" \"${filename}\"\n\tdone\n    echo \"/bin/ln -sF \\\"${FRAMEWORK_VERSION}\\\" \\\"Versions/Current\\\"\"\n    /bin/ln -sF \"${FRAMEWORK_VERSION}\" \"Versions/Current\"\nfi\nexit 0\n";
+			shellScript = "# When building for Aspen, we still build IOKit.framework as a deep framework, so we need to create the necessary symlinks by hand.\nif [ \\( \"${PLATFORM_NAME}\" = \"iphoneos\" -o \"${PLATFORM_NAME}\" = \"tvos\"  -o \"${PLATFORM_NAME}\" = \"appletvos\" -o \"${PLATFORM_NAME}\" = \"watchos\" -o \"${PLATFORM_NAME}\" = \"bridgeos\" \\) -a \\( \"${CONFIGURATION}\" = \"Development-Embedded\" -o \"${CONFIGURATION}\" = \"Deployment-Embedded\" \\) ]\nthen\n\techo \"cd \\\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\\\"\"\n\tcd \"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\tfor filename in Headers PrivateHeaders \"${EXECUTABLE_NAME}\"\n\tdo\n\t\techo \"/bin/ln -sF \\\"Versions/${FRAMEWORK_VERSION}/${filename}\\\" \\\"${filename}\\\"\"\n\t\t/bin/ln -sF \"Versions/${FRAMEWORK_VERSION}/${filename}\" \"${filename}\"\n\tdone\n    echo \"/bin/ln -sF \\\"${FRAMEWORK_VERSION}\\\" \\\"Versions/Current\\\"\"\n    /bin/ln -sF \"${FRAMEWORK_VERSION}\" \"Versions/Current\"\nfi\nexit 0\n";
 		};
 		2D76BD2308DD0F83009A41B5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5448,6 +5526,7 @@
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
@@ -6001,6 +6080,7 @@
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
@@ -6595,6 +6675,7 @@
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
@@ -6699,6 +6780,7 @@
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";

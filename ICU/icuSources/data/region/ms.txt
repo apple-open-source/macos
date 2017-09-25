@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ms.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ms{
     Countries{
         001{"Dunia"}
@@ -95,7 +89,7 @@ ms{
         CW{"Curacao"}
         CX{"Pulau Krismas"}
         CY{"Cyprus"}
-        CZ{"Republik Czech"}
+        CZ{"Czechia"}
         DE{"Jerman"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -137,7 +131,7 @@ ms{
         GU{"Guam"}
         GW{"Guinea Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong SAR China"}
+        HK{"Hong Kong (China)"}
         HM{"Kepulauan Heard & McDonald"}
         HN{"Honduras"}
         HR{"Croatia"}
@@ -191,7 +185,7 @@ ms{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Macau SAR China"}
+        MO{"Macau (China)"}
         MP{"Kepulauan Mariana Utara"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -278,6 +272,7 @@ ms{
         UA{"Ukraine"}
         UG{"Uganda"}
         UM{"Kepulauan Terpencil A.S."}
+        UN{"Bangsa-bangsa Bersatu"}
         US{"Amerika Syarikat"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
@@ -303,15 +298,17 @@ ms{
         HK{"Hong Kong"}
         MO{"Macau"}
         PS{"Palestin"}
+        UN{"PBB"}
         US{"A.S"}
     }
     Countries%variant{
         CD{"Congo (DRC)"}
         CG{"Congo (Republik)"}
         CI{"Ivory Coast"}
+        CZ{"Republik Czech"}
         FK{"Kepulauan Falkland (Islas Malvinas)"}
         MK{"Macedonia (FYROM)"}
         TL{"Timor Timur"}
     }
-    Version{"2.1.24.16"}
+    Version{"2.1.32.59"}
 }

@@ -619,6 +619,11 @@ SecKeyRef SecKeyUnwrapSymmetric(CFDataRef _Nullable * __nonnull keyToUnwrap,
     * kSecAttrCanWrap default false for private keys, true for public keys
     * kSecAttrCanUnwrap default true for private keys, false for public keys
 
+    NOTE: The function always saves keys in the keychain on macOS and as such attribute
+    kSecAttrIsPermanent is ignored. The function respects attribute kSecAttrIsPermanent
+    on iOS, tvOS and watchOS.
+    It is recommended to use SecKeyCreateRandomKey() which respects kSecAttrIsPermanent
+    on all platforms.
 */
 OSStatus SecKeyGeneratePair(CFDictionaryRef parameters,
     SecKeyRef * _Nullable CF_RETURNS_RETAINED publicKey, SecKeyRef * _Nullable CF_RETURNS_RETAINED privateKey)
@@ -924,6 +929,46 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
     @constant kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512
     RSA signature with PKCS#1 padding, SHA-512 digest is generated from input data of any size.
 
+    @constant kSecKeyAlgorithmRSASignatureDigestPSSSHA1
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, input data must be SHA-1 generated digest.
+    PSS padding is calculated using MGF1 with SHA1 and saltLength parameter is set to 20 (SHA-1 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureDigestPSSSHA224
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, input data must be SHA-224 generated digest.
+    PSS padding is calculated using MGF1 with SHA224 and saltLength parameter is set to 28 (SHA-224 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureDigestPSSSHA256
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, input data must be SHA-256 generated digest.
+    PSS padding is calculated using MGF1 with SHA256 and saltLength parameter is set to 32 (SHA-256 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureDigestPSSSHA384
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, input data must be SHA-384 generated digest.
+    PSS padding is calculated using MGF1 with SHA384 and saltLength parameter is set to 48 (SHA-384 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureDigestPSSSHA512
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, input data must be SHA-512 generated digest.
+    PSS padding is calculated using MGF1 with SHA512 and saltLength parameter is set to 64 (SHA-512 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureMessagePSSSHA1
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, SHA-1 digest is generated from input data of any size.
+    PSS padding is calculated using MGF1 with SHA1 and saltLength parameter is set to 20 (SHA-1 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureMessagePSSSHA224
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, SHA-224 digest is generated from input data of any size.
+    PSS padding is calculated using MGF1 with SHA224 and saltLength parameter is set to 28 (SHA-224 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureMessagePSSSHA256
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, SHA-256 digest is generated from input data of any size.
+    PSS padding is calculated using MGF1 with SHA256 and saltLength parameter is set to 32 (SHA-256 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureMessagePSSSHA384
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, SHA-384 digest is generated from input data of any size.
+    PSS padding is calculated using MGF1 with SHA384 and saltLength parameter is set to 48 (SHA-384 output size).
+
+    @constant kSecKeyAlgorithmRSASignatureMessagePSSSHA512
+    RSA signature with RSASSA-PSS padding according to PKCS#1 v2.1, SHA-512 digest is generated from input data of any size.
+    PSS padding is calculated using MGF1 with SHA512 and saltLength parameter is set to 64 (SHA-512 output size).
+
     @constant kSecKeyAlgorithmECDSASignatureRFC4754
     ECDSA algorithm, signature is concatenated r and s, big endian, data is message digest.
 
@@ -1029,74 +1074,130 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
     as authentication data for AES-GCM encryption.
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA1AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM in new code.
     Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA224AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
 
     @constant kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM
-    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
-    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1.  AES Key size
+    Legacy ECIES encryption or decryption, use kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM in new code.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512.  AES Key size
     is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
     and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG and
     all-zero 16 byte long IV (initialization vector).
+
+    @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
+
+    @constant kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM
+    ECIES encryption or decryption.  This algorithm does not limit the size of the message to be encrypted or decrypted.
+    Encryption is done using AES-GCM with key negotiated by kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512.  AES Key size
+    is 128bit for EC keys <=256bit and 256bit for bigger EC keys.  Ephemeral public key data is used as sharedInfo for KDF,
+    and static public key data is used as authenticationData for AES-GCM processing.  AES-GCM uses 16 bytes long TAG, AES key
+    is first half of KDF output and 16 byte long IV (initialization vector) is second half of KDF output.
 
     @constant kSecKeyAlgorithmECDHKeyExchangeCofactor
     Compute shared secret using ECDH cofactor algorithm, suitable only for kSecAttrKeyTypeECSECPrimeRandom keys.
@@ -1188,6 +1289,28 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
 extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA1
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA224
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA256
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA384
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA512
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA1
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA224
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA256
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA384
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA512
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
 extern const SecKeyAlgorithm kSecKeyAlgorithmECDSASignatureRFC4754
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
@@ -1262,6 +1385,24 @@ extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AE
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 extern const SecKeyAlgorithm kSecKeyAlgorithmECDHKeyExchangeStandard
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);

@@ -27,6 +27,7 @@
 
 #import "DOM.h"
 
+#import "ExceptionHandlers.h"
 #import "DOMElementInternal.h"
 #import "DOMHTMLCanvasElement.h"
 #import "DOMHTMLTableCellElementInternal.h"
@@ -163,7 +164,7 @@ static Class lookupElementClass(const QualifiedName& tag)
 {
     // Do a special lookup to ignore element prefixes
     if (tag.hasPrefix())
-        return elementClassMap->get(QualifiedName(nullAtom, tag.localName(), tag.namespaceURI()).impl());
+        return elementClassMap->get(QualifiedName(nullAtom(), tag.localName(), tag.namespaceURI()).impl());
     
     return elementClassMap->get(tag.impl());
 }
@@ -210,7 +211,9 @@ static inline WKQuad zeroQuad()
     return { CGPointZero, CGPointZero, CGPointZero, CGPointZero };
 }
 
-@implementation WKQuadObject
+@implementation WKQuadObject {
+    WKQuad _quad;
+}
 
 - (id)initWithQuad:(WKQuad)quad
 {
@@ -534,7 +537,7 @@ id <DOMEventTarget> kit(EventTarget* eventTarget)
 + (id)_nodeFromJSWrapper:(JSObjectRef)jsWrapper
 {
     JSObject* object = toJS(jsWrapper);
-    if (!object->inherits(JSNode::info()))
+    if (!object->inherits(*object->vm(), JSNode::info()))
         return nil;
     return kit(&jsCast<JSNode*>(object)->wrapped());
 }
@@ -856,7 +859,11 @@ WebCore::NodeFilter* core(DOMNodeFilter *wrapper)
 
 - (short)acceptNode:(DOMNode *)node
 {
-    return core(self)->acceptNode(core(node));
+    if (!node)
+        raiseTypeErrorException();
+    
+    auto result = core(self)->acceptNode(*core(node));
+    return result.type() == CallbackResultType::Success ? result.releaseReturnValue() : NodeFilter::FILTER_REJECT;
 }
 
 @end

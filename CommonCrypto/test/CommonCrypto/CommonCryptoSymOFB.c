@@ -60,14 +60,14 @@ int CommonCryptoSymOFB(int __unused argc, char *const * __unused argv)
     
 	// 15
 	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "2aa3f398be4651e20e15f6d666a493a";
+	cipherText = "2aa3f398be4651e20e15f6d666a493";
     retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
     ok(retval == 0, "OFB Mode 15 byte");
     accum += retval;
     
 	// 16
     plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "2aa3f398be4651e20e15f6d666a49360a";
+	cipherText = "2aa3f398be4651e20e15f6d666a49360";
     retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
     ok(retval == 0, "OFB Mode single byte");
     accum += retval;

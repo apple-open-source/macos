@@ -50,7 +50,7 @@ süreçlilik modülü.</td></tr>
       çocuk süreç için konuşlandırılacak evre sayısını belirleyen <code class="directive"><a href="../mod/mpm_common.html#threadsperchild">ThreadsPerChild</a></code> yönergesi ile devreye
       sokulacak toplam evre sayısının azamisini belirleyen <code class="directive"><a href="../mod/mpm_common.html#maxrequestworkers">MaxRequestWorkers</a></code> yönergesidir.</p>
 </div>
-<div id="quickview"><h3>Konular</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Konular</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#how-it-works">Nasıl çalışır?</a></li>
 </ul><h3 class="directives">Yönergeler</h3>
@@ -194,7 +194,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/worker.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

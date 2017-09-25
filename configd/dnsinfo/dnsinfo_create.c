@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2009, 2011-2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2009, 2011-2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -63,6 +63,7 @@ _dns_configuration_create()
 	_dns_config_buf_t	*config;
 
 	config = calloc(1, INITIAL_CONFIGURATION_BUF_SIZE);
+	config->config.version = DNSINFO_VERSION;
 	config->config.generation = mach_absolute_time();
 //	config->n_attribute = 0;
 //	config->n_padding = 0;
@@ -79,7 +80,6 @@ config_add_attribute(dns_create_config_t	*_config,
 {
 	_dns_config_buf_t	*config	= (_dns_config_buf_t *)*_config;
 	dns_attribute_t		*header;
-	int			i;
 	uint32_t		newLen;
 	uint32_t		newSize;
 	uint32_t		oldLen;
@@ -90,7 +90,7 @@ config_add_attribute(dns_create_config_t	*_config,
 	oldLen         = ntohl(config->n_attribute);
 	rounded_length = ROUNDUP(attribute_length, sizeof(uint32_t));
 	newLen         = sizeof(dns_attribute_t) + rounded_length;
-	newSize = sizeof(_dns_config_buf_t) + oldLen + newLen;
+	newSize        = sizeof(_dns_config_buf_t) + oldLen + newLen;
 	if (newSize > INITIAL_CONFIGURATION_BUF_SIZE) {
 		config = realloc(config, newSize);
 	}
@@ -109,7 +109,7 @@ config_add_attribute(dns_create_config_t	*_config,
 	// add attribute [data]
 
 	bcopy(attribute, &header->attribute[0], attribute_length);
-	for (i = attribute_length; i < rounded_length; i++) {
+	for (uint32_t i = attribute_length; i < rounded_length; i++) {
 		header->attribute[i] = 0;
 	}
 
@@ -252,7 +252,6 @@ _dns_resolver_add_attribute(dns_create_resolver_t	*_resolver,
 			    void			*attribute)
 {
 	dns_attribute_t		*header;
-	int			i;
 	uint32_t		newLen;
 	uint32_t		newSize;
 	uint32_t		oldLen;
@@ -280,7 +279,7 @@ _dns_resolver_add_attribute(dns_create_resolver_t	*_resolver,
 	// add attribute [data]
 
 	bcopy(attribute, &header->attribute[0], attribute_length);
-	for (i = attribute_length; i < rounded_length; i++) {
+	for (uint32_t i = attribute_length; i < rounded_length; i++) {
 		header->attribute[i] = 0;
 	}
 
@@ -381,11 +380,16 @@ _dns_resolver_set_flags(dns_create_resolver_t *_resolver, uint32_t flags)
 
 __private_extern__
 void
-_dns_resolver_set_if_index(dns_create_resolver_t *_resolver, uint32_t if_index)
+_dns_resolver_set_if_index(dns_create_resolver_t	*_resolver,
+			   uint32_t			if_index,
+			   const char			*if_name)
 {
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
 	resolver->resolver.if_index = htonl(if_index);
+	if (if_name != NULL) {
+		_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_INTERFACE_NAME, (uint32_t)strlen(if_name), (void *)if_name);
+	}
 	return;
 }
 

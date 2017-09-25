@@ -57,8 +57,8 @@ void sendTSARequest(CFDataRef tsaReq, const char *tsaURL, TSARequestCompletionBl
     if ((self = [super init]))
     {
         NSString *escapedURLStr = [urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        self.url = [NSURL URLWithString:escapedURLStr];
-        self.urlRequest = [[NSMutableURLRequest alloc] initWithURL:self.url 
+        url = [[NSURL alloc] initWithString:escapedURLStr];
+        urlRequest = [[NSMutableURLRequest alloc] initWithURL:self.url
             cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:(NSTimeInterval)15.0];
     }
     return self;

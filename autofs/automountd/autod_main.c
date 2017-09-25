@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2013 Apple Inc.
+ * Portions Copyright 2007-2017 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_main.c	1.69	05/06/08 SMI"
@@ -457,8 +457,13 @@ new_worker_thread(void)
 		    strerror(error));
 		numthreads--;
 	}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
 	if (numthreads == 2)
 		vproc_transaction = vproc_transaction_begin(NULL);
+#pragma clang diagnostic pop
+
 out:
 	(void) pthread_mutex_unlock(&numthreads_lock);
 }
@@ -475,8 +480,12 @@ end_worker_thread(void)
 {
 	(void) pthread_mutex_lock(&numthreads_lock);
 	numthreads--;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated"
 	if (numthreads == 1)
 		vproc_transaction_end(NULL, vproc_transaction);
+#pragma clang diagnostic pop
 	if (numthreads < MAXTHREADS)
 		pthread_cond_signal(&numthreads_cv);
 	(void) pthread_mutex_unlock(&numthreads_lock);
@@ -891,8 +900,8 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	 * Failed mounts can come in bursts of dozens of
 	 * these messages - so limit to one in 5 sec interval.
 	 */
-	if (status && prevmsg < time((time_t) NULL)) {
-		prevmsg = time((time_t) NULL) + 5;
+	if (status && prevmsg < time((time_t *) NULL)) {
+		prevmsg = time((time_t *) NULL) + 5;
 		if (isdirect) {
 			/* direct mount */
 			syslog(LOG_ERR, "mount of %s%s failed: %s", path,

@@ -1,1 +1,0 @@
-barfed: [[% error.type %]] [[% error.info %]]

@@ -32,7 +32,6 @@ class IOHIDDevice;
 
 /*! @class IOHIDInterface : public IOService
     @abstract In kernel interface to a HID device.
-    @discussion
 */
 
 class IOHIDInterface: public IOService
@@ -48,7 +47,7 @@ public:
         @param target Pointer to your data object.
         @param timestamp Time when the report was delivered.
         @param report A memory descriptor that describes the report. 
-        @param reportType The type of report.
+        @param type The type of report.
         @param reportID The ID of the report.
         @param refcon void * pointer to more data.
     */  
@@ -63,8 +62,8 @@ public:
     /*!
         @typedef IOHIDInterface::CompletionAction
         @discussion Function called when HID I/O completes.
-        @param target
-        @param refcon
+        @param target Pointer to your data object.
+        @param refcon void * pointer to more data.
         @param status Completion status.
         @param bufferSizeRemaining Bytes left to be transferred.
     */
@@ -109,7 +108,7 @@ protected:
         then call super::free() to propagate the call to our superclass. 
     */
 
-    virtual void            free();
+    virtual void            free() APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -121,12 +120,12 @@ public:
         @discussion Prime the IOHIDInterface object and prepare it to support
         a probe() or a start() call. This implementation will simply call
         super::init().
-        @param A dictionary A property table associated with this IOHIDInterface
+        @param dictionary A dictionary associated with this IOHIDInterface
         instance.
         @result True on sucess, or false otherwise. 
     */
 
-    virtual bool            init( OSDictionary * dictionary = 0 );
+    virtual bool            init( OSDictionary * dictionary = 0 ) APPLE_KEXT_OVERRIDE;
 
     /*! 
         @function start
@@ -138,10 +137,10 @@ public:
         @result True on success, or false otherwise. 
     */
 
-    virtual bool            start( IOService * provider );
+    virtual bool            start( IOService * provider ) APPLE_KEXT_OVERRIDE;
     
 
-    virtual void            stop( IOService * provider );
+    virtual void            stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
     /*! 
         @function matchPropertyTable
         @abstract Called by the provider during a match
@@ -152,7 +151,7 @@ public:
 
     virtual bool            matchPropertyTable(
                                 OSDictionary *              table, 
-                                SInt32 *                    score);    
+                                SInt32 *                    score) APPLE_KEXT_OVERRIDE;
 
     virtual bool            open (
                                 IOService *                 client,
@@ -162,7 +161,7 @@ public:
 
     virtual void			close(  
 								IOService *					client,
-								IOOptionBits				options = 0 );
+								IOOptionBits				options = 0 ) APPLE_KEXT_OVERRIDE;
 
     virtual OSString *      getTransport ();
     virtual UInt32          getLocationID ();
@@ -217,7 +216,7 @@ public:
     virtual IOReturn        message(
                                 UInt32 type,
                                 IOService * provider,
-                                void * argument = NULL);
+                                void * argument = NULL) APPLE_KEXT_OVERRIDE;
     
     OSMetaClassDeclareReservedUsed(IOHIDInterface,  0);
     virtual UInt32             getReportInterval ();

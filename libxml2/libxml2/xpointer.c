@@ -102,6 +102,10 @@ xmlXPtrErr(xmlXPathParserContextPtr ctxt, int error,
 #pragma clang diagnostic pop
 	return;
     }
+
+    /* cleanup current last error */
+    xmlResetError(&ctxt->context->lastError);
+
     ctxt->context->lastError.domain = XML_FROM_XPOINTER;
     ctxt->context->lastError.code = error;
     ctxt->context->lastError.level = XML_ERR_ERROR;
@@ -955,8 +959,10 @@ xmlXPtrEvalXPtrPart(xmlXPathParserContextPtr ctxt, xmlChar *name) {
     if (name == NULL)
 	XP_ERROR(XPATH_EXPR_ERROR);
 
-    if (CUR != '(')
+    if (CUR != '(') {
+        xmlFree(name);
 	XP_ERROR(XPATH_EXPR_ERROR);
+    }
     NEXT;
     level = 1;
 
@@ -965,6 +971,7 @@ xmlXPtrEvalXPtrPart(xmlXPathParserContextPtr ctxt, xmlChar *name) {
     buffer = (xmlChar *) xmlMallocAtomic(len * sizeof (xmlChar));
     if (buffer == NULL) {
         xmlXPtrErrMemory("allocating buffer");
+        xmlFree(name);
 	return;
     }
 
@@ -989,6 +996,7 @@ xmlXPtrEvalXPtrPart(xmlXPathParserContextPtr ctxt, xmlChar *name) {
     *cur = 0;
 
     if ((level != 0) && (CUR == 0)) {
+        xmlFree(name);
 	xmlFree(buffer);
 	XP_ERROR(XPTR_SYNTAX_ERROR);
     }
@@ -1021,6 +1029,7 @@ xmlXPtrEvalXPtrPart(xmlXPathParserContextPtr ctxt, xmlChar *name) {
 	    if (name2 == NULL) {
 		CUR_PTR = left;
 		xmlFree(buffer);
+                xmlFree(name);
 		XP_ERROR(XPATH_EXPR_ERROR);
 	    }
 	    xmlXPtrEvalChildSeq(ctxt, name2);

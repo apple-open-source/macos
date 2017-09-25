@@ -30,9 +30,9 @@
 #import "DOMCSSStyleDeclarationInternal.h"
 #import "DOMCSSValueInternal.h"
 #import "DOMCounterInternal.h"
-#import "DOMDOMImplementationInternal.h"
 #import "DOMEventInternal.h"
 #import "DOMHTMLCollectionInternal.h"
+#import "DOMImplementationInternal.h"
 #import "DOMInternal.h"
 #import "DOMMediaListInternal.h"
 #import "DOMNamedNodeMapInternal.h"
@@ -51,7 +51,7 @@
 #import <WebCore/JSCSSRuleList.h>
 #import <WebCore/JSCSSStyleDeclaration.h>
 #import <WebCore/JSDOMImplementation.h>
-#import <WebCore/JSDOMWindowShell.h>
+#import <WebCore/JSDOMWindowProxy.h>
 #import <WebCore/JSDeprecatedCSSOMCounter.h>
 #import <WebCore/JSDeprecatedCSSOMRGBColor.h>
 #import <WebCore/JSDeprecatedCSSOMRect.h>
@@ -74,8 +74,9 @@
 
 static WebScriptObject *createDOMWrapper(JSC::JSObject& jsWrapper)
 {
+    JSC::VM& vm = *jsWrapper.vm();
     #define WRAP(className) \
-        if (auto* wrapped = WebCore::JS##className::toWrapped(&jsWrapper)) \
+        if (auto* wrapped = WebCore::JS##className::toWrapped(vm, &jsWrapper)) \
             return kit(wrapped);
 
     WRAP(CSSRule)
@@ -84,7 +85,7 @@ static WebScriptObject *createDOMWrapper(JSC::JSObject& jsWrapper)
     WRAP(DeprecatedCSSOMValue)
     WRAP(DeprecatedCSSOMCounter)
     WRAP(DOMImplementation)
-    WRAP(DOMWindowShell)
+    WRAP(DOMWindowProxy)
     WRAP(Event)
     WRAP(HTMLOptionsCollection)
     WRAP(MediaList)

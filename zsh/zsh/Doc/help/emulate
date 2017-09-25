@@ -79,7 +79,7 @@ emulate [ -lLR ] [ {zsh|sh|ksh|csh} [ flags ... ] ]
        because fni is also marked for sticky sh  emulation,  no  option
        changes  take  place  on  entry  to  or exit from it.  Hence the
        option cshnullglob, turned off by sh emulation, will  be  turned
-       on within fni and remain on on return to fno.  On exit from fno,
+       on  within  fni  and remain on return to fno.  On exit from fno,
        the emulation mode and all options will be restored to the state
        they were in before entry to the temporary emulation.
 

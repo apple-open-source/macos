@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  loclikely.cpp
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -20,6 +22,7 @@
 #include "unicode/utypes.h"
 #include "unicode/locid.h"
 #include "unicode/putil.h"
+#include "unicode/uchar.h"
 #include "unicode/uloc.h"
 #include "unicode/ures.h"
 #include "unicode/uscript.h"
@@ -1330,6 +1333,8 @@ Locale::isRightToLeft() const {
     return uloc_isRightToLeft(getBaseName());
 }
 
+U_NAMESPACE_END
+
 // The following must at least allow for rg key value (6) plus terminator (1).
 #define ULOC_RG_BUFLEN 8
 
@@ -1379,4 +1384,3 @@ ulocimp_getRegionForSupplementalData(const char *localeID, UBool inferRegion,
     return u_terminateChars(region, regionCapacity, rgLen, status);
 }
 
-U_NAMESPACE_END

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (c) 2002-2016, International Business Machines
@@ -117,7 +119,7 @@ U_NAMESPACE_BEGIN
 
 // EquivIterator iterates over all strings that are equivalent to a given
 // string, s. Note that EquivIterator will never yield s itself.
-class EquivIterator : icu::UMemory {
+class EquivIterator : public icu::UMemory {
 public:
     // Constructor. hash stores the equivalence relationships; s is the string
     // for which we find equivalent strings.
@@ -1023,11 +1025,13 @@ collectCurrencyNames(const char* locale,
             (*currencySymbols)[(*total_currency_symbol_count)++].currencyNameLen = len;
             // Add equivalent symbols
             if (currencySymbolsEquiv != NULL) {
-                icu::EquivIterator iter(*currencySymbolsEquiv, UnicodeString(TRUE, s, len));
+                UnicodeString str(TRUE, s, len);
+                icu::EquivIterator iter(*currencySymbolsEquiv, str);
                 const UnicodeString *symbol;
                 while ((symbol = iter.next()) != NULL) {
                     (*currencySymbols)[*total_currency_symbol_count].IsoCode = iso;
-                    (*currencySymbols)[*total_currency_symbol_count].currencyName = (UChar*) symbol->getBuffer();
+                    (*currencySymbols)[*total_currency_symbol_count].currencyName =
+                        const_cast<UChar*>(symbol->getBuffer());
                     (*currencySymbols)[*total_currency_symbol_count].flag = 0;
                     (*currencySymbols)[(*total_currency_symbol_count)++].currencyNameLen = symbol->length();
                 }

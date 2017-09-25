@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -76,8 +76,12 @@ totext_opt(ARGS_TOTEXT) {
 			RETERR(str_totext(tctx->linebreak, target));
 			or = r;
 			or.length = length;
-			RETERR(isc_base64_totext(&or, tctx->width - 2,
-						 tctx->linebreak, target));
+			if (tctx->width == 0)   /* No splitting */
+				RETERR(isc_base64_totext(&or, 60, "", target));
+			else
+				RETERR(isc_base64_totext(&or, tctx->width - 2,
+							 tctx->linebreak,
+							 target));
 			isc_region_consume(&r, length);
 			if ((tctx->flags & DNS_STYLEFLAG_MULTILINE) != 0)
 				RETERR(str_totext(" )", target));
@@ -93,6 +97,7 @@ static inline isc_result_t
 fromwire_opt(ARGS_FROMWIRE) {
 	isc_region_t sregion;
 	isc_region_t tregion;
+	isc_uint16_t opt;
 	isc_uint16_t length;
 	unsigned int total;
 
@@ -108,17 +113,56 @@ fromwire_opt(ARGS_FROMWIRE) {
 	while (sregion.length != 0) {
 		if (sregion.length < 4)
 			return (ISC_R_UNEXPECTEDEND);
-		/*
-		 * Eat the 16bit option code.  There is nothing to
-		 * be done with it currently.
-		 */
+		opt = uint16_fromregion(&sregion);
 		isc_region_consume(&sregion, 2);
 		length = uint16_fromregion(&sregion);
 		isc_region_consume(&sregion, 2);
 		total += 4;
 		if (sregion.length < length)
 			return (ISC_R_UNEXPECTEDEND);
-		isc_region_consume(&sregion, length);
+		switch (opt) {
+		case DNS_OPT_CLIENT_SUBNET: {
+			isc_uint16_t family;
+			isc_uint8_t addrlen;
+			isc_uint8_t scope;
+			isc_uint8_t addrbytes;
+
+			if (length < 4)
+				return (DNS_R_FORMERR);
+			family = uint16_fromregion(&sregion);
+			isc_region_consume(&sregion, 2);
+			addrlen = uint8_fromregion(&sregion);
+			isc_region_consume(&sregion, 1);
+			scope = uint8_fromregion(&sregion);
+			isc_region_consume(&sregion, 1);
+			switch (family) {
+			case 1:
+				if (addrlen > 32U || scope > 32U)
+					return (DNS_R_FORMERR);
+				break;
+			case 2:
+				if (addrlen > 128U || scope > 128U)
+					return (DNS_R_FORMERR);
+				break;
+			}
+			addrbytes = (addrlen + 7) / 8;
+			if (addrbytes + 4 != length)
+				return (DNS_R_FORMERR);
+			isc_region_consume(&sregion, addrbytes);
+			break;
+		}
+		case DNS_OPT_EXPIRE:
+			/*
+			 * Request has zero length.  Response is 32 bits.
+			 */
+			if (length != 0 && length != 4)
+				return (DNS_R_FORMERR);
+			isc_region_consume(&sregion, length);
+			break;
+		default:
+			isc_region_consume(&sregion, length);
+			break;
+		}
 		total += length;
 	}
 
@@ -126,7 +170,7 @@ fromwire_opt(ARGS_FROMWIRE) {
 	isc_buffer_availableregion(target, &tregion);
 	if (tregion.length < total)
 		return (ISC_R_NOSPACE);
-	memcpy(tregion.base, sregion.base, total);
+	memmove(tregion.base, sregion.base, total);
 	isc_buffer_forward(source, total);
 	isc_buffer_add(target, total);
 
@@ -280,6 +324,65 @@ checknames_opt(ARGS_CHECKNAMES) {
 static inline int
 casecompare_opt(ARGS_COMPARE) {
 	return (compare_opt(rdata1, rdata2));
+}
+
+isc_result_t
+dns_rdata_opt_first(dns_rdata_opt_t *opt) {
+
+	REQUIRE(opt != NULL);
+	REQUIRE(opt->common.rdtype == 41);
+	REQUIRE(opt->options != NULL || opt->length == 0);
+
+	if (opt->length == 0)
+		return (ISC_R_NOMORE);
+
+	opt->offset = 0;
+	return (ISC_R_SUCCESS);
+}
+
+isc_result_t
+dns_rdata_opt_next(dns_rdata_opt_t *opt) {
+	isc_region_t r;
+	isc_uint16_t length;
+
+	REQUIRE(opt != NULL);
+	REQUIRE(opt->common.rdtype == 41);
+	REQUIRE(opt->options != NULL && opt->length != 0);
+	REQUIRE(opt->offset < opt->length);
+
+	INSIST(opt->offset + 4 <= opt->length);
+	r.base = opt->options + opt->offset + 2;
+	r.length = opt->length - opt->offset - 2;
+	length = uint16_fromregion(&r);
+	INSIST(opt->offset + 4 + length <= opt->length);
+	opt->offset = opt->offset + 4 + length;
+	if (opt->offset == opt->length)
+		return (ISC_R_NOMORE);
+	return (ISC_R_SUCCESS);
+}
+
+isc_result_t
+dns_rdata_opt_current(dns_rdata_opt_t *opt, dns_rdata_opt_opcode_t *opcode) {
+	isc_region_t r;
+
+	REQUIRE(opt != NULL);
+	REQUIRE(opcode != NULL);
+	REQUIRE(opt->common.rdtype == 41);
+	REQUIRE(opt->options != NULL);
+	REQUIRE(opt->offset < opt->length);
+
+	INSIST(opt->offset + 4 <= opt->length);
+	r.base = opt->options + opt->offset;
+	r.length = opt->length - opt->offset;
+
+	opcode->opcode = uint16_fromregion(&r);
+	isc_region_consume(&r, 2);
+	opcode->length = uint16_fromregion(&r);
+	isc_region_consume(&r, 2);
+	opcode->data = r.base;
+	INSIST(opt->offset + 4 + opcode->length <= opt->length);
+
+	return (ISC_R_SUCCESS);
 }
 
 #endif	/* RDATA_GENERIC_OPT_41_C */

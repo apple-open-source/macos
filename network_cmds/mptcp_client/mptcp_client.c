@@ -79,14 +79,18 @@ static int verbose = 0;
 
 static int32_t thiszone = 0;	/* time difference with gmt */
 
-char* setup_buffer1(int bufsz)
+char *setup_buffer1(int bufsz)
 {
 	int i = 0, j = 1;
-        char *buf = malloc(bufsz);
-        if (buf) {
-                bzero(buf, bufsz);
-                strlcpy(buf, MSG_HDR, sizeof(MSG_HDR));
-        }
+	char *buf;
+
+	buf = malloc(bufsz);
+	if (!buf)
+		return NULL;
+
+	bzero(buf, bufsz);
+	strlcpy(buf, MSG_HDR, sizeof(MSG_HDR));
+
 	for (i = sizeof(MSG_HDR); i < bufsz; i++) {
 		buf[i] = j;
 		j++;
@@ -96,15 +100,19 @@ char* setup_buffer1(int bufsz)
         return buf;
 }
 
-char* setup_buffer2(int bufsz)
+char *setup_buffer2(int bufsz)
 {
 	int i = 0;
 	char j = 'A';
-        char *buf = malloc(bufsz);
-        if (buf) {
-                bzero(buf, bufsz);
-                strlcpy(buf, MSG_HDR, sizeof(MSG_HDR));
-        }
+	char *buf;
+
+	buf = malloc(bufsz);
+	if (!buf)
+		return NULL;
+
+	bzero(buf, bufsz);
+	strlcpy(buf, MSG_HDR, sizeof(MSG_HDR));
+
 	for (i = sizeof(MSG_HDR); i < bufsz; i++) {
 		buf[i] = j;
 		j++;
@@ -116,10 +124,13 @@ char* setup_buffer2(int bufsz)
 
 char *setup_buffer3(int bufsz)
 {
-	char *buf = malloc(bufsz);
-	if (buf) {
-		bzero(buf, bufsz);
-	}
+	char *buf;
+
+	buf = malloc(bufsz);
+	if (!buf)
+		return NULL;
+
+	bzero(buf, bufsz);
 	return buf;
 }
 
@@ -134,7 +145,7 @@ gmt2local(time_t t)
 	int dt, dir;
 	struct tm *gmt, *loc;
 	struct tm sgmt;
-	
+
 	if (t == 0)
 		t = time(NULL);
 	gmt = &sgmt;
@@ -142,7 +153,7 @@ gmt2local(time_t t)
 	loc = localtime(&t);
 	dt = (loc->tm_hour - gmt->tm_hour) * 60 * 60 +
 	(loc->tm_min - gmt->tm_min) * 60;
-	
+
 	/*
 	 * If the year or julian day is different, we span 00:00 GMT
 	 * and must add or subtract a day. Check the year first to
@@ -152,7 +163,7 @@ gmt2local(time_t t)
 	if (dir == 0)
 		dir = loc->tm_yday - gmt->tm_yday;
 	dt += dir * 24 * 60 * 60;
-	
+
 	return (dt);
 }
 
@@ -165,9 +176,9 @@ ts_print(void)
 {
 	int s;
 	struct timeval tv;
-	
+
 	gettimeofday(&tv, NULL);
-	
+
 	/* Default */
 	s = (tv.tv_sec + thiszone) % 86400;
 	printf("%02d:%02d:%02d.%06u ", s / 3600, (s % 3600) / 60, s % 60,
@@ -178,7 +189,7 @@ static const char *
 basename(const char * str)
 {
 	const char *last_slash = strrchr(str, '/');
-	
+
 	if (last_slash == NULL)
 		return (str);
 	else
@@ -198,10 +209,6 @@ struct option_desc option_desc_list[] = {
 	{ "--rsplen n", "length of response (256 by default)", 0 },
 	{ "--ntimes n", "number of time to send request (1 by default)", 0 },
 	{ "--alt_addr addr", "alternate server to connect to", 0 },
-	{ "--connorder add", "alternate server to connect to", 0 },
-	{ "--longlived n", "number of reconnection for long lived (default 0)", 0 },
-	{ "--fastjoin (0|1)", "use fast join (default 0)", 0 },
-	{ "--nowaitforjoin (0|1)", "do not wait for join (default 0 -- i.e. wait)", 0 },
 	{ "--verbose", "increase verbosity", 0 },
 	{ "--help", "display this help", 0 },
 
@@ -214,54 +221,47 @@ usage(const char *cmd)
 	struct option_desc *option_desc;
 	char *usage_str = malloc(LINE_MAX);
 	size_t usage_len;
-	
+
 	if (usage_str == NULL)
 		err(1, "%s: malloc(%d)", __func__, LINE_MAX);
-	
+
 	usage_len = snprintf(usage_str, LINE_MAX, "# usage: %s ", basename(cmd));
-	
+
 	for (option_desc = option_desc_list; option_desc->option != NULL; option_desc++) {
 		int len;
-		
+
 		if (option_desc->required)
 			len = snprintf(usage_str + usage_len, LINE_MAX - usage_len, "%s ", option_desc->option);
 		else
 			len = snprintf(usage_str + usage_len, LINE_MAX - usage_len, "[%s] ", option_desc->option);
 		if (len < 0)
 			err(1, "%s: snprintf(", __func__);
-		
+
 		usage_len += len;
 		if (usage_len > LINE_MAX)
 			break;
 	}
 	printf("%s\n", usage_str);
 	printf("options:\n");
-	
+
 	for (option_desc = option_desc_list; option_desc->option != NULL; option_desc++) {
 		printf(" %-24s # %s\n", option_desc->option, option_desc->description);
 	}
 	printf("\n");
 	printf("# legacy usage: ");
-	printf("%s hostname port reqlen rsplen ntimes alt_addr 0 connorder longlived fastjoin nowaitforjoin\n",
-		basename(cmd));
 }
 
 static struct option longopts[] = {
-	{ "host",		required_argument, 	NULL, 		'c' },
-	{ "port",		required_argument, 	NULL, 		'p' },
-	{ "reqlen",		required_argument, 	NULL, 		'r' },
-	{ "rsplen",		required_argument, 	NULL,		'R' },
-	{ "ntimes",		required_argument, 	NULL, 		'n' },
-	{ "alt_addr",		required_argument, 	NULL,		'a' },
-	{ "connorder",		required_argument, 	NULL,		'o' },
-	{ "longlived",		required_argument, 	NULL, 		'l' },
-	{ "fastjoin",		required_argument, 	NULL,		'f' },
-	{ "nowaitforjoin",	required_argument, 	NULL, 		'w' },
-	{ "help",		no_argument, 		NULL, 		'h' },
-	{ "verbose",		no_argument, 		NULL, 		'v' },
-	{ "quiet",		no_argument, 		NULL, 		'q' },
-	{ NULL,			0, 			NULL,		0 }
-	
+	{ "host",		required_argument,	NULL,		'c' },
+	{ "port",		required_argument,	NULL,		'p' },
+	{ "reqlen",		required_argument,	NULL,		'r' },
+	{ "rsplen",		required_argument,	NULL,		'R' },
+	{ "ntimes",		required_argument,	NULL,		'n' },
+	{ "alt_addr",		required_argument,	NULL,		'a' },
+	{ "help",		no_argument,		NULL,		'h' },
+	{ "verbose",		no_argument,		NULL,		'v' },
+	{ "quiet",		no_argument,		NULL,		'q' },
+	{ NULL,			0,			NULL,		0 }
 };
 
 static int
@@ -272,16 +272,16 @@ sprint_sockaddr(char *str, socklen_t strlen, struct sockaddr *sa)
 	if (sa->sa_family == AF_INET) {
 		struct sockaddr_in      *sin = (struct sockaddr_in*)sa;
 		char str4[INET_ADDRSTRLEN];
-		
+
 		inet_ntop(AF_INET, &sin->sin_addr, str4, sizeof(str4));
-		
+
 		retval = snprintf(str, strlen, "%s:%u", str4, ntohs(sin->sin_port));
 	} else  if (sa->sa_family == AF_INET6) {
 		struct sockaddr_in6     *sin6 = (struct sockaddr_in6*)sa;
 		char                    str6[INET6_ADDRSTRLEN];
 		char                    ifname[IF_NAMESIZE];
 		char                    scopestr[2 + IF_NAMESIZE];
-		
+
 		inet_ntop(AF_INET6, &sin6->sin6_addr, str6, sizeof(str6));
 
 		if (sin6->sin6_scope_id == 0)
@@ -290,7 +290,7 @@ sprint_sockaddr(char *str, socklen_t strlen, struct sockaddr *sa)
 			if_indextoname(sin6->sin6_scope_id, ifname);
 			snprintf(scopestr, sizeof(scopestr), "%%%s", ifname);
 		}
-		
+
 		retval = snprintf(str, strlen, "%s%s:%u",
 			str6,
 			scopestr,
@@ -301,14 +301,11 @@ sprint_sockaddr(char *str, socklen_t strlen, struct sockaddr *sa)
 
 int main(int argc, char * const *argv)
 {
-	int sockfd, ps, portno;
+	int sockfd, portno;
 	ssize_t n;
 	int reqlen = 256;
 	int rsplen = 256;
 	int ntimes = 1;
-	int connordrtest = 0;
-	int longlived = 0;
-	int fastjoin = 0;
 	char *buffer = NULL;
 	char *buffer1;
 	char *buffer2;
@@ -320,8 +317,6 @@ int main(int argc, char * const *argv)
 	sae_connid_t cid1, cid2;
 	int iter;
 	int bytes_to_rdwr;
-	int peeled_off = 0;
-	int nowaitforjoin = 0;
 	int ch;
 	const char *host_arg = NULL;
 	const char *port_arg = NULL;
@@ -330,15 +325,11 @@ int main(int argc, char * const *argv)
 	const char *ntimes_arg = "1";
 	const char *alt_addr_arg = NULL;
 	const char *alt_port_arg = "0";
-	const char *connorder_arg = NULL;
-	const char *longlived_arg = NULL;
-	const char *fastjoin_arg = NULL;
-	const char *nowaitforjoin_arg = NULL;
 	int gotopt = 0;
 
 	thiszone = gmt2local(0);
-	
-	while ((ch = getopt_long(argc, argv, "a:c:f:hl:n:o:p:qr:R:vw:", longopts, NULL)) != -1) {
+
+	while ((ch = getopt_long(argc, argv, "a:c:hn:p:qr:R:v", longopts, NULL)) != -1) {
 		gotopt = 1;
 		switch (ch) {
 			case 'a':
@@ -347,17 +338,8 @@ int main(int argc, char * const *argv)
 			case 'c':
 				host_arg = optarg;
 				break;
-			case 'f':
-				fastjoin_arg = optarg;
-				break;
-			case 'l':
-				longlived_arg = optarg;
-				break;
 			case 'n':
 				ntimes_arg = optarg;
-				break;
-			case 'o':
-				connorder_arg = optarg;
 				break;
 			case 'p':
 				port_arg = optarg;
@@ -374,17 +356,12 @@ int main(int argc, char * const *argv)
 			case 'v':
 				verbose++;
 				break;
-			case 'w':
-				nowaitforjoin_arg = optarg;
-				break;
-				
 			default:
 				usage(argv[0]);
 				exit(EX_USAGE);
-			
 		}
 	}
-	
+
 	if (gotopt == 0) {
 		if (argc == 12) {
 			host_arg = argv[1];
@@ -393,16 +370,12 @@ int main(int argc, char * const *argv)
 			rsplen_arg = argv[4];
 			ntimes_arg = argv[5];
 			alt_addr_arg = argv[6];
-			connorder_arg = argv[8];
-			longlived_arg = argv[9];
-			fastjoin_arg = argv[10];
-			nowaitforjoin_arg = argv[11];
 		} else {
 			usage(argv[0]);
 			exit(EX_USAGE);
 		}
 	}
-	
+
 	if (host_arg == NULL)
 		errx(EX_USAGE, "missing required host option\n");
 
@@ -414,97 +387,68 @@ int main(int argc, char * const *argv)
 
 	if (reqlen_arg != NULL) {
 		reqlen = atoi(reqlen_arg);
-		if (reqlen < 0)
+		if (reqlen < 0 || reqlen > 1024 * 1024)
 			errx(EX_USAGE, "invalid request length %s\n", reqlen_arg);
 	}
 
 	if (rsplen_arg != NULL) {
 		rsplen = atoi(rsplen_arg);
-		if (rsplen < 0)
+		if (rsplen < 0 || rsplen > 1024 * 1024)
 			errx(EX_USAGE, "invalid response length %s\n", rsplen_arg);
 	}
-	
+
 	if (ntimes_arg != NULL) {
 		ntimes = atoi(ntimes_arg);
 		if (ntimes < 1)
 			errx(EX_USAGE, "invalid ntimes option %s\n", ntimes_arg);
 	}
-	
-	if (connorder_arg != NULL) {
-		connordrtest = atoi(connorder_arg);
-		if (connordrtest != 0 && connordrtest != 1)
-			errx(EX_USAGE, "invalid connorder count %s\n", connorder_arg);
-	}
-	
-	if (longlived_arg != NULL) {
-		longlived = atoi(longlived_arg);
-		if (longlived < 0)
-			errx(EX_USAGE, "invalid longlived count %s\n", longlived_arg);
-	}
-	
-	if (fastjoin_arg != NULL) {
-		fastjoin = atoi(fastjoin_arg);
-		if (fastjoin != 0 && fastjoin != 1)
-			errx(EX_USAGE, "invalid fastjoin option %s\n", fastjoin_arg);
-	}
-	
-	if (nowaitforjoin_arg != NULL) {
-		nowaitforjoin = atoi(nowaitforjoin_arg);
-		if (nowaitforjoin != 0 && nowaitforjoin != 1)
-			errx(EX_USAGE, "invalid nowaitforjoin option %s\n", nowaitforjoin_arg);
-	}
-	
+
 	buffer1 = setup_buffer1(reqlen);
 	if (!buffer1) {
 		printf("client: failed to alloc buffer space \n");
 		return -1;
 	}
-	
+
 	buffer2 = setup_buffer2(reqlen);
 	if (!buffer2) {
 		printf("client: failed to alloc buffer space \n");
 		return -1;
 	}
-	
+
 	buffer3 = setup_buffer3(rsplen);
 	if (!buffer3) {
 		printf("client: failed to alloc buffer space \n");
 		return -1;
 	}
-	
+
 	if (verbose > 0)
-		printf("host: %s port: %s reqlen: %d rsplen: %d ntimes: %d alt_addr: %s connorder: %d longlived: %d fasjoin: %d nowaitforjoin: %d\n",
-			host_arg, port_arg, reqlen, rsplen, ntimes, alt_addr_arg, connordrtest, longlived, fastjoin, nowaitforjoin);
-	
+		printf("host: %s port: %s reqlen: %d rsplen: %d ntimes: %d alt_addr: %s\n",
+			host_arg, port_arg, reqlen, rsplen, ntimes, alt_addr_arg);
+
 	sockfd = socket(AF_MULTIPATH, SOCK_STREAM, 0);
 	if (sockfd < 0)
 		err(EX_OSERR, "ERROR opening socket");
-#define SO_MPTCP_FASTJOIN 0x1111
-	opterr = setsockopt(sockfd, SOL_SOCKET, SO_MPTCP_FASTJOIN, &fastjoin, sizeof(fastjoin));
-	if (opterr != 0)
-		warn("setsockopt(SO_MPTCP_FASTJOIN, %d)", fastjoin);
-	
+
 	memset(&ahints, 0, sizeof(struct addrinfo));
 	ahints.ai_family = AF_INET;
 	ahints.ai_socktype = SOCK_STREAM;
 	ahints.ai_protocol = IPPROTO_TCP;
-	
+
 	retval = getaddrinfo(host_arg, port_arg, &ahints, &ares);
 	if (retval != 0)
 		printf("getaddrinfo(%s, %s) failed %d\n", host_arg, port_arg, retval);
-	
+
 	bytes_to_rdwr = reqlen;
-connect_again:
-	
+
 	cid1 = cid2 = SAE_CONNID_ANY;
 	int ifscope = 0;
 	int error = 0;
-	
+
 	if (verbose > 0) {
 		char str[2 * INET6_ADDRSTRLEN];
-		
+
 		ts_print();
-		
+
 		sprint_sockaddr(str, sizeof(str), ares->ai_addr);
 		printf("connectx(%s, %d, %d)\n", str, ifscope, cid1);
 	}
@@ -515,30 +459,18 @@ connect_again:
 	sa.sae_srcif = ifscope;
 
 	error = connectx(sockfd, &sa, SAE_ASSOCID_ANY, 0, NULL, 0, NULL, &cid1);
-	if ((error != 0) && (errno != EPROTO)) {
+	if (error != 0)
 		err(EX_OSERR, "ERROR connecting");
-	} else if ((error != 0) && (errno == EPROTO)) {
-		ps = peeloff(sockfd, SAE_ASSOCID_ANY);
-		
-		if (ps != -1) {
-			close(sockfd);
-			sockfd = ps;
-		}
-		peeled_off = 1;
-		ts_print();
-		printf("%s: peeled off\n", __func__);
-	}
-	
+
 	iter = 0;
-	
+
 	while (ntimes) {
-		
-		if ((iter == 0) && (peeled_off == 0)) {
+		if (iter == 0) {
 			/* Add alternate path if available */
-			
+
 			if (alt_addr_arg && alt_addr_arg[0] != 0) {
 				retval = getaddrinfo(alt_addr_arg, alt_port_arg, &ahints, &altres);
-				
+
 				if (retval != 0)
 					printf("client: alternate address resolution failed. \n");
 				else {
@@ -548,7 +480,7 @@ connect_again:
 						char str[2 * INET6_ADDRSTRLEN];
 
 						ts_print();
-						
+
 						sprint_sockaddr(str, sizeof(str), altres->ai_addr);
 						printf("connectx(%s, %d, %d)\n", str, ifscope, cid1);
 					}
@@ -559,42 +491,15 @@ connect_again:
 					sa.sae_srcaddrlen = altres->ai_addrlen;
 					sa.sae_dstaddr = ares->ai_addr;
 					sa.sae_dstaddrlen = ares->ai_addrlen;
-					
+
 					error = connectx(sockfd, &sa, SAE_ASSOCID_ANY, 0, NULL, 0, NULL, &cid2);
 					if (error < 0) {
 						err(EX_OSERR, "ERROR setting up alternate path");
 					}
 				}
 			}
-			
 		}
-		
-		if ((iter == 10) && (connordrtest == 1)) {
-			int retval = 0;
 
-			socorder.sco_cid = cid2;
-			socorder.sco_rank = 1;
-			retval = ioctl(sockfd, SIOCSCONNORDER, &socorder);
-			if (retval != 0)
-				warn("Error in changing priority");
-
-			bzero(&socorder, sizeof(socorder));
-			socorder.sco_cid = cid2;
-			retval = ioctl(sockfd, SIOCGCONNORDER, &socorder);
-			printf("cid %d rank %d", socorder.sco_cid, socorder.sco_rank);
-
-			socorder.sco_cid = cid1;
-			socorder.sco_rank = 0;
-			retval = ioctl(sockfd, SIOCSCONNORDER, &socorder);
-			if (retval != 0)
-				warn("Error in changing priority");
-
-			bzero(&socorder, sizeof(socorder));
-			socorder.sco_cid = cid1;
-			retval = ioctl(sockfd, SIOCGCONNORDER, &socorder);
-			printf("cid %d rank %d \n", socorder.sco_cid, socorder.sco_rank);
-		}
-		
 		if (which_buf == 0) {
 			buffer = buffer1;
 			which_buf = 1;
@@ -602,7 +507,7 @@ connect_again:
 			buffer = buffer2;
 			which_buf = 0;
 		}
-		
+
 		while (bytes_to_rdwr) {
 			if (verbose) {
 				ts_print();
@@ -625,7 +530,7 @@ connect_again:
 				printf("reading %d bytes\n", rsplen);
 			}
 			n = read(sockfd, buffer3, rsplen);
-			
+
 			if (n <= 0) {
 				err(EX_OSERR, "ERROR reading from socket");
 			}
@@ -639,60 +544,18 @@ connect_again:
 		ntimes--;
 		iter++;
 	}
-	
+
 	printf("client: Req size %d Rsp size %d Read/Write %d times \n", reqlen, rsplen, iter);
-	
+
 	showmpinfo(sockfd);
-	
-	if ((!longlived) || (peeled_off == 1)) {
-		if (verbose) {
-			ts_print();
-			printf("close(%d)\n", sockfd);
-		}
-		close(sockfd);
-	} else {
-		printf("Longlived countdown # %d. \n", longlived);
-		if (verbose) {
-			ts_print();
-			printf("disconnectx(%d, %d)\n", sockfd, cid1);
-		}
-		disconnectx(sockfd, SAE_ASSOCID_ANY, cid1);
-		if (cid2 != SAE_CONNID_ANY) {
-			if (verbose) {
-				ts_print();
-				printf("disconnectx(%d, %d)\n", sockfd, cid2);
-			}
-			disconnectx(sockfd, SAE_ASSOCID_ANY, cid2);
-		}
-		if (!nowaitforjoin) {
-			if (verbose) {
-				ts_print();
-				printf("sleep(10)\n");
-			}
-			sleep(10);
-		}
-		longlived--;
-		
-		ntimes = atoi(ntimes_arg);
-		
-		/* If fastjoin must be tested, write some data before doing the next connectx() */
-		bytes_to_rdwr = reqlen / 2;
-		if (verbose) {
-			ts_print();
-			printf("fastjoin writing %d bytes\n", bytes_to_rdwr);
-		}
-		n = write(sockfd, buffer, bytes_to_rdwr);
-		if (n <= 0) {
-			warnx("Fastjoin: Error writing to socket. \n");
-		} else {
-			bytes_to_rdwr = reqlen - (int)n;
-			printf("FastJoin: Wrote %zd bytes, remaining %d of %d \n", n, bytes_to_rdwr, reqlen);
-		}
-		
-		goto connect_again;
+
+	if (verbose) {
+		ts_print();
+		printf("close(%d)\n", sockfd);
 	}
-	if (ares)
-		freeaddrinfo(ares);
+	close(sockfd);
+
+	freeaddrinfo(ares);
 	if (altres)
 		freeaddrinfo(altres);
 	return 0;
@@ -711,7 +574,7 @@ printb(const char *s, unsigned v, const char *bits)
 {
 	int i, any = 0;
 	char c;
-	
+
 	if (bits && *bits == 8)
 		printf("%s=%o", s, v);
 	else
@@ -741,18 +604,17 @@ showconninfo(int s, sae_connid_t cid)
 	char buf[INET6_ADDRSTRLEN];
 	conninfo_t *cfo = NULL;
 	int err;
-	
+
 	err = copyconninfo(s, cid, &cfo);
 	if (err != 0) {
 		printf("getconninfo failed for cid %d\n", cid);
 		goto out;
 	}
-	
+
 	printf("%6d:\t", cid);
 	printb("flags", cfo->ci_flags, CIF_BITS);
 	printf("\n");
-	//printf("\toutif %s\n", if_indextoname(cfo->ci_ifindex, buf));
-#if 1
+
 	if (cfo->ci_src != NULL) {
 		printf("\tsrc %s port %d\n", inet_ntop(cfo->ci_src->sa_family,
 						       (cfo->ci_src->sa_family == AF_INET) ?
@@ -785,11 +647,10 @@ showconninfo(int s, sae_connid_t cid)
 				break;
 		}
 	}
-#endif
 out:
 	if (cfo != NULL)
 		freeconninfo(cfo);
-	
+
 	return (err);
 }
 
@@ -800,7 +661,7 @@ showmpinfo(int s)
 	sae_associd_t *aid = NULL;
 	sae_connid_t *cid = NULL;
 	int i, error = 0;
-	
+
 	error = copyassocids(s, &aid, &aid_cnt);
 	if (error != 0) {
 		printf("copyassocids failed\n");
@@ -814,7 +675,7 @@ showmpinfo(int s)
 		}
 		printf("\n");
 	}
-	
+
 	/* just do an association for now */
 	error = copyconnids(s, SAE_ASSOCID_ANY, &cid, &cid_cnt);
 	if (error != 0) {
@@ -831,7 +692,7 @@ showmpinfo(int s)
 		}
 		printf("\n");
 	}
-	
+
 done:
 	if (aid != NULL)
 		freeassocids(aid);

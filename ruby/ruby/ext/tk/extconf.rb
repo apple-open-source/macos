@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 ##############################################################
 # extconf.rb for tcltklib
 # release date: 2010-07-30
@@ -9,10 +10,10 @@ TkLib_Config['search_versions'] =
   # %w[8.9 8.8 8.7 8.6 8.5 8.4 8.3 8.2 8.1 8.0 7.6 4.2]
   # %w[8.7 8.6 8.5 8.4 8.3 8.2 8.1 8.0]
   # %w[8.7 8.6 8.5 8.4 8.0] # to shorten search steps
-  %w[8.5 8.4] # At present, Tcl/Tk8.6 is not supported.
+  %w[8.6 8.5 8.4]
 
 TkLib_Config['unsupported_versions'] =
-  %w[8.8 8.7 8.6] # At present, Tcl/Tk8.6 is not supported.
+  %w[8.8 8.7]
 
 TkLib_Config['major_nums'] = '87'
 
@@ -623,7 +624,7 @@ def libcheck_for_tclConfig(tcldir, tkdir, tclconf, tkconf)
           $INCFLAGS << " -I" << File.join(File.dirname(File.dirname(file)),"include") if is_win32?
         else
           tcllibs = append_library($libs, libname)
-          tcllibs = "-L#{tcldir.quote} -Wl,-R#{tcldir.quote} " + tcllibs
+          tcllibs = "#{libpathflag([tcldir])} #{tcllibs}"
 
           # FIX ME: avoid pathname trouble (fail to find) on MinGW.
           $INCFLAGS << " -I" << File.join(File.dirname(tcldir),"include") if is_win32?
@@ -665,7 +666,7 @@ def libcheck_for_tclConfig(tcldir, tkdir, tclconf, tkconf)
         else
           tklibs = append_library("", libname)
           #tklibs = append_library("", $1)
-          tklibs = "-L#{tkdir.quote} -Wl,-R#{tkdir.quote} " + tklibs
+          tklibs = "#{libpathflag([tkdir])} #{tklibs}"
 
           # FIX ME: avoid pathname trouble (fail to find) on MinGW.
           $INCFLAGS << " -I" << File.join(File.dirname(tcldir),"include") if is_win32?
@@ -1137,7 +1138,7 @@ def find_tcl(tcllib, stubs, version, *opt_paths)
       if tcllib
         print(".")
         if have_library(tcllib, func, ["tcl.h"])
-          return [true, path, lib_w_sufx, nil, *inc]
+          return [true, path, tcllib, nil, *inc]
         end
       else
         sufx_list = ['', 't', 'g', 's', 'x']
@@ -1161,7 +1162,7 @@ def find_tcl(tcllib, stubs, version, *opt_paths)
                   tcllibs = libs_param + " -DSTATIC_BUILD " + fname.quote
                 else
                   tcllibs = append_library($libs, lib_w_sufx)
-                  tcllibs = "-L#{path.quote} -Wl,-R#{path.quote} " + tcllibs
+                  tcllibs = "#{libpathflag([path])} #{tcllibs}"
                 end
                 if try_func(func, tcllibs, ["tcl.h"])
                   return [true, path, nil, tcllibs, *inc]
@@ -1277,7 +1278,7 @@ def find_tk(tklib, stubs, version, *opt_paths)
       if tklib
         print(".")
         if have_library(tklib, func, ["tcl.h", "tk.h"])
-          return [true, path, lib_w_sufx, nil, *inc]
+          return [true, path, tklib, nil, *inc]
         end
       else
         sufx_list = ['', 't', 'g', 's', 'x']
@@ -1300,7 +1301,7 @@ def find_tk(tklib, stubs, version, *opt_paths)
                   tklibs = libs_param + " -DSTATIC_BUILD " + fname.quote
                 else
                   tklibs = append_library($libs, lib_w_sufx)
-                  tklibs = "-L#{path.quote} -Wl,-R#{path.quote} " + tklibs
+                  tklibs = "#{libpathflag([path])} #{tklibs}"
                 end
                 if try_func(func, tklibs, ["tcl.h", "tk.h"])
                   return [true, path, nil, tklibs, *inc]
@@ -1530,8 +1531,8 @@ end
 
 def setup_for_macosx_framework(tclver, tkver)
   # use framework, but no tclConfig.sh
-  unless $LDFLAGS && $LDFLAGS.include?('-framework')
-    ($LDFLAGS ||= "") << ' -framework Tk -framework Tcl'
+  unless $LIBS && $LIBS.include?('-framework')
+    ($LIBS ||= "") << ' -framework Tk -framework Tcl'
   end
 
   if TkLib_Config["tcl-framework-header"]
@@ -1646,7 +1647,7 @@ def pthread_check()
 
   if TclConfig_Info['config_file_path']
     if tcl_enable_thread == true
-      puts("Warning: definiton of tclConfig.sh is ignored, because --enable-tcl-thread option is given.")
+      puts("Warning: definition of tclConfig.sh is ignored, because --enable-tcl-thread option is given.")
     elsif tcl_enable_thread == false
       puts("Warning: definition of tclConfig.sh is ignored, because --disable-tcl-thread option is given.")
     else
@@ -1792,23 +1793,15 @@ end
 ##############################################################
 # check header file
 print("check functions.")
-have_func("ruby_native_thread_p", "ruby.h")
-print(".") # progress
-have_func("rb_errinfo", "ruby.h")
-print(".") # progress
-have_func("rb_safe_level", "ruby.h")
-print(".") # progress
-have_func("rb_hash_lookup", "ruby.h")
-print(".") # progress
-have_func("rb_proc_new", "ruby.h")
-print(".") # progress
-have_func("rb_obj_untrust", "ruby.h")
-print(".") # progress
-have_func("rb_obj_taint", "ruby.h")
-print(".") # progress
-have_func("rb_set_safe_level_force", "ruby.h")
-print(".") # progress
-have_func("rb_sourcefile", "ruby.h")
+
+%w"ruby_native_thread_p rb_errinfo rb_safe_level rb_hash_lookup
+ rb_proc_new rb_obj_untrust rb_obj_taint rb_set_safe_level_force
+ rb_sourcefile rb_thread_alive_p rb_thread_check_trap_pending
+ ruby_enc_find_basename
+".each do |func|
+  have_func(func, "ruby.h")
+  print(".") # progress
+end
 print("\n") # progress
 
 print("check struct members.")
@@ -2013,7 +2006,7 @@ $defs += collect_tcltk_defs(TclConfig_Info['TCL_DEFS'], TkConfig_Info['TK_DEFS']
 # MacOS X Frameworks?
 if TkLib_Config["tcltk-framework"]
   puts("Use MacOS X Frameworks.")
-  ($LDFLAGS ||= "") << " -L#{TkLib_Config["tcl-build-dir"].quote} -Wl,-R#{TkLib_Config["tcl-build-dir"].quote}" if TkLib_Config["tcl-build-dir"]
+  ($LDFLAGS ||= "") << " " << libpathflag([TkLib_Config["tcl-build-dir"]]) if TkLib_Config["tcl-build-dir"]
 
   libs = ''
   if tcl_cfg_dir
@@ -2039,7 +2032,7 @@ if TkLib_Config["tcltk-framework"]
     end
   end
 
-  libs << " -L#{TkLib_Config["tk-build-dir"].quote} -Wl,-R#{TkLib_Config["tk-build-dir"].quote}" if TkLib_Config["tk-build-dir"]
+  libs << " " << libpathflag([TkLib_Config["tk-build-dir"]]) if TkLib_Config["tk-build-dir"]
 
   if tk_cfg_dir
     TkConfig_Info['TK_LIBS'] ||= ""

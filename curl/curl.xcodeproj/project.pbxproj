@@ -68,30 +68,6 @@
 		3E3D1EB91D2C5FB90007C4BE /* spnego_sspi.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E3D1E901D2C5F860007C4BE /* spnego_sspi.c */; };
 		3E3D1EBA1D2C5FB90007C4BE /* vauth.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E3D1E911D2C5F860007C4BE /* vauth.c */; };
 		3E3D1EBB1D2C5FB90007C4BE /* vauth.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E3D1E921D2C5F860007C4BE /* vauth.h */; };
-		3E8B52281ECA18C8008D2652 /* CURLINFO_PROTOCOL.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52111ECA1843008D2652 /* CURLINFO_PROTOCOL.3 */; };
-		3E8B52291ECA18C8008D2652 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52121ECA1843008D2652 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 */; };
-		3E8B522A1ECA18C8008D2652 /* CURLINFO_SCHEME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52131ECA1843008D2652 /* CURLINFO_SCHEME.3 */; };
-		3E8B522B1ECA18C8008D2652 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52141ECA1843008D2652 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 */; };
-		3E8B522C1ECA18C8008D2652 /* CURLOPT_PRE_PROXY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52151ECA1843008D2652 /* CURLOPT_PRE_PROXY.3 */; };
-		3E8B522D1ECA18C8008D2652 /* CURLOPT_PROXY_CAINFO.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52161ECA1843008D2652 /* CURLOPT_PROXY_CAINFO.3 */; };
-		3E8B522E1ECA18C8008D2652 /* CURLOPT_PROXY_CAPATH.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52171ECA1843008D2652 /* CURLOPT_PROXY_CAPATH.3 */; };
-		3E8B522F1ECA18C8008D2652 /* CURLOPT_PROXY_CRLFILE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52181ECA1843008D2652 /* CURLOPT_PROXY_CRLFILE.3 */; };
-		3E8B52301ECA18C8008D2652 /* CURLOPT_PROXY_KEYPASSWD.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52191ECA1843008D2652 /* CURLOPT_PROXY_KEYPASSWD.3 */; };
-		3E8B52311ECA18C8008D2652 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B521A1ECA1843008D2652 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 */; };
-		3E8B52321ECA18C8008D2652 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B521B1ECA1843008D2652 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 */; };
-		3E8B52331ECA18C8008D2652 /* CURLOPT_PROXY_SSL_OPTIONS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B521C1ECA1843008D2652 /* CURLOPT_PROXY_SSL_OPTIONS.3 */; };
-		3E8B52341ECA18C8008D2652 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B521D1ECA1843008D2652 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 */; };
-		3E8B52351ECA18C8008D2652 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B521E1ECA1843008D2652 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 */; };
-		3E8B52361ECA18C8008D2652 /* CURLOPT_PROXY_SSLCERT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B521F1ECA1843008D2652 /* CURLOPT_PROXY_SSLCERT.3 */; };
-		3E8B52371ECA18C8008D2652 /* CURLOPT_PROXY_SSLCERTTYPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52201ECA1843008D2652 /* CURLOPT_PROXY_SSLCERTTYPE.3 */; };
-		3E8B52381ECA18C8008D2652 /* CURLOPT_PROXY_SSLKEY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52211ECA1843008D2652 /* CURLOPT_PROXY_SSLKEY.3 */; };
-		3E8B52391ECA18C8008D2652 /* CURLOPT_PROXY_SSLKEYTYPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52221ECA1843008D2652 /* CURLOPT_PROXY_SSLKEYTYPE.3 */; };
-		3E8B523A1ECA18C8008D2652 /* CURLOPT_PROXY_SSLVERSION.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52231ECA1843008D2652 /* CURLOPT_PROXY_SSLVERSION.3 */; };
-		3E8B523B1ECA18C8008D2652 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52241ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 */; };
-		3E8B523C1ECA18C8008D2652 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52251ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 */; };
-		3E8B523D1ECA18C8008D2652 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52261ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 */; };
-		3E8B523E1ECA18C8008D2652 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8B52271ECA1843008D2652 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 */; };
-		3E8B523F1ECA18E2008D2652 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E8B520E1ECA17C5008D2652 /* rand.c */; };
 		3E8C59E91D2DA9E600BC0468 /* curl_multi_socket_all.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8C59B21D2DA87700BC0468 /* curl_multi_socket_all.3 */; };
 		3E8C59EA1D2DA9E600BC0468 /* CURLINFO_ACTIVESOCKET.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8C59B31D2DA9AF00BC0468 /* CURLINFO_ACTIVESOCKET.3 */; };
 		3E8C59EB1D2DA9E600BC0468 /* CURLINFO_APPCONNECT_TIME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8C59B41D2DA9AF00BC0468 /* CURLINFO_APPCONNECT_TIME.3 */; };
@@ -147,7 +123,32 @@
 		3E8C5A1D1D2DA9E600BC0468 /* CURLOPT_STREAM_WEIGHT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8C59E61D2DA9B000BC0468 /* CURLOPT_STREAM_WEIGHT.3 */; };
 		3E8C5A1E1D2DA9E600BC0468 /* CURLOPT_TCP_FASTOPEN.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8C59E71D2DA9B000BC0468 /* CURLOPT_TCP_FASTOPEN.3 */; };
 		3E8C5A1F1D2DA9E600BC0468 /* CURLOPT_TFTP_NO_OPTIONS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3E8C59E81D2DA9B000BC0468 /* CURLOPT_TFTP_NO_OPTIONS.3 */; };
-		3E9CF8521ECA196A00955CCA /* system.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E9CF8511ECA195800955CCA /* system.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3EEA808B1ECCAB550061E531 /* system.h in Headers */ = {isa = PBXBuildFile; fileRef = 3EEA808A1ECCAB4C0061E531 /* system.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3EEA80A31ECCABC10061E531 /* CURLINFO_PROTOCOL.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA808C1ECCAB950061E531 /* CURLINFO_PROTOCOL.3 */; };
+		3EEA80A41ECCABC10061E531 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA808D1ECCAB950061E531 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 */; };
+		3EEA80A51ECCABC10061E531 /* CURLINFO_SCHEME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA808E1ECCAB950061E531 /* CURLINFO_SCHEME.3 */; };
+		3EEA80A61ECCABC10061E531 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA808F1ECCAB950061E531 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 */; };
+		3EEA80A71ECCABC10061E531 /* CURLOPT_PRE_PROXY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80901ECCAB950061E531 /* CURLOPT_PRE_PROXY.3 */; };
+		3EEA80A81ECCABC10061E531 /* CURLOPT_PROXY_CAINFO.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80911ECCAB950061E531 /* CURLOPT_PROXY_CAINFO.3 */; };
+		3EEA80A91ECCABC10061E531 /* CURLOPT_PROXY_CAPATH.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80921ECCAB950061E531 /* CURLOPT_PROXY_CAPATH.3 */; };
+		3EEA80AA1ECCABC10061E531 /* CURLOPT_PROXY_CRLFILE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80931ECCAB950061E531 /* CURLOPT_PROXY_CRLFILE.3 */; };
+		3EEA80AB1ECCABC10061E531 /* CURLOPT_PROXY_KEYPASSWD.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80941ECCAB950061E531 /* CURLOPT_PROXY_KEYPASSWD.3 */; };
+		3EEA80AC1ECCABC10061E531 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80951ECCAB950061E531 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 */; };
+		3EEA80AD1ECCABC10061E531 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80961ECCAB950061E531 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 */; };
+		3EEA80AE1ECCABC10061E531 /* CURLOPT_PROXY_SSL_OPTIONS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80971ECCAB950061E531 /* CURLOPT_PROXY_SSL_OPTIONS.3 */; };
+		3EEA80AF1ECCABC10061E531 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80981ECCAB950061E531 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 */; };
+		3EEA80B01ECCABC10061E531 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80991ECCAB950061E531 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 */; };
+		3EEA80B11ECCABC10061E531 /* CURLOPT_PROXY_SSLCERT.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA809A1ECCAB950061E531 /* CURLOPT_PROXY_SSLCERT.3 */; };
+		3EEA80B21ECCABC10061E531 /* CURLOPT_PROXY_SSLCERTTYPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA809B1ECCAB950061E531 /* CURLOPT_PROXY_SSLCERTTYPE.3 */; };
+		3EEA80B31ECCABC10061E531 /* CURLOPT_PROXY_SSLKEY.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA809C1ECCAB950061E531 /* CURLOPT_PROXY_SSLKEY.3 */; };
+		3EEA80B41ECCABC10061E531 /* CURLOPT_PROXY_SSLKEYTYPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA809D1ECCAB950061E531 /* CURLOPT_PROXY_SSLKEYTYPE.3 */; };
+		3EEA80B51ECCABC10061E531 /* CURLOPT_PROXY_SSLVERSION.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA809E1ECCAB950061E531 /* CURLOPT_PROXY_SSLVERSION.3 */; };
+		3EEA80B61ECCABC10061E531 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA809F1ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 */; };
+		3EEA80B71ECCABC10061E531 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80A01ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 */; };
+		3EEA80B81ECCABC10061E531 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80A11ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 */; };
+		3EEA80B91ECCABC10061E531 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 in Install man3 */ = {isa = PBXBuildFile; fileRef = 3EEA80A21ECCAB950061E531 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 */; };
+		3EEA80BD1ECCAC050061E531 /* rand.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EEA80BA1ECCABF60061E531 /* rand.c */; };
+		9201A3941ED2C95A00572A78 /* libapple_nghttp2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 9201A3931ED2C95A00572A78 /* libapple_nghttp2.tbd */; };
 		FC41A7FA12455ACC007EDB1C /* base64.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A64F12455686007EDB1C /* base64.c */; };
 		FC41A7FB12455ACC007EDB1C /* connect.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A65B12455686007EDB1C /* connect.c */; };
 		FC41A7FC12455ACC007EDB1C /* content_encoding.c in Sources */ = {isa = PBXBuildFile; fileRef = FC41A65D12455686007EDB1C /* content_encoding.c */; };
@@ -766,29 +767,29 @@
 			dstPath = "$(CURL_PREFIX)/share/man/man3";
 			dstSubfolderSpec = 0;
 			files = (
-				3E8B52281ECA18C8008D2652 /* CURLINFO_PROTOCOL.3 in Install man3 */,
-				3E8B52291ECA18C8008D2652 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 in Install man3 */,
-				3E8B522A1ECA18C8008D2652 /* CURLINFO_SCHEME.3 in Install man3 */,
-				3E8B522B1ECA18C8008D2652 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 in Install man3 */,
-				3E8B522C1ECA18C8008D2652 /* CURLOPT_PRE_PROXY.3 in Install man3 */,
-				3E8B522D1ECA18C8008D2652 /* CURLOPT_PROXY_CAINFO.3 in Install man3 */,
-				3E8B522E1ECA18C8008D2652 /* CURLOPT_PROXY_CAPATH.3 in Install man3 */,
-				3E8B522F1ECA18C8008D2652 /* CURLOPT_PROXY_CRLFILE.3 in Install man3 */,
-				3E8B52301ECA18C8008D2652 /* CURLOPT_PROXY_KEYPASSWD.3 in Install man3 */,
-				3E8B52311ECA18C8008D2652 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 in Install man3 */,
-				3E8B52321ECA18C8008D2652 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 in Install man3 */,
-				3E8B52331ECA18C8008D2652 /* CURLOPT_PROXY_SSL_OPTIONS.3 in Install man3 */,
-				3E8B52341ECA18C8008D2652 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 in Install man3 */,
-				3E8B52351ECA18C8008D2652 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 in Install man3 */,
-				3E8B52361ECA18C8008D2652 /* CURLOPT_PROXY_SSLCERT.3 in Install man3 */,
-				3E8B52371ECA18C8008D2652 /* CURLOPT_PROXY_SSLCERTTYPE.3 in Install man3 */,
-				3E8B52381ECA18C8008D2652 /* CURLOPT_PROXY_SSLKEY.3 in Install man3 */,
-				3E8B52391ECA18C8008D2652 /* CURLOPT_PROXY_SSLKEYTYPE.3 in Install man3 */,
-				3E8B523A1ECA18C8008D2652 /* CURLOPT_PROXY_SSLVERSION.3 in Install man3 */,
-				3E8B523B1ECA18C8008D2652 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 in Install man3 */,
-				3E8B523C1ECA18C8008D2652 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 in Install man3 */,
-				3E8B523D1ECA18C8008D2652 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 in Install man3 */,
-				3E8B523E1ECA18C8008D2652 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 in Install man3 */,
+				3EEA80A31ECCABC10061E531 /* CURLINFO_PROTOCOL.3 in Install man3 */,
+				3EEA80A41ECCABC10061E531 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 in Install man3 */,
+				3EEA80A51ECCABC10061E531 /* CURLINFO_SCHEME.3 in Install man3 */,
+				3EEA80A61ECCABC10061E531 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 in Install man3 */,
+				3EEA80A71ECCABC10061E531 /* CURLOPT_PRE_PROXY.3 in Install man3 */,
+				3EEA80A81ECCABC10061E531 /* CURLOPT_PROXY_CAINFO.3 in Install man3 */,
+				3EEA80A91ECCABC10061E531 /* CURLOPT_PROXY_CAPATH.3 in Install man3 */,
+				3EEA80AA1ECCABC10061E531 /* CURLOPT_PROXY_CRLFILE.3 in Install man3 */,
+				3EEA80AB1ECCABC10061E531 /* CURLOPT_PROXY_KEYPASSWD.3 in Install man3 */,
+				3EEA80AC1ECCABC10061E531 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 in Install man3 */,
+				3EEA80AD1ECCABC10061E531 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 in Install man3 */,
+				3EEA80AE1ECCABC10061E531 /* CURLOPT_PROXY_SSL_OPTIONS.3 in Install man3 */,
+				3EEA80AF1ECCABC10061E531 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 in Install man3 */,
+				3EEA80B01ECCABC10061E531 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 in Install man3 */,
+				3EEA80B11ECCABC10061E531 /* CURLOPT_PROXY_SSLCERT.3 in Install man3 */,
+				3EEA80B21ECCABC10061E531 /* CURLOPT_PROXY_SSLCERTTYPE.3 in Install man3 */,
+				3EEA80B31ECCABC10061E531 /* CURLOPT_PROXY_SSLKEY.3 in Install man3 */,
+				3EEA80B41ECCABC10061E531 /* CURLOPT_PROXY_SSLKEYTYPE.3 in Install man3 */,
+				3EEA80B51ECCABC10061E531 /* CURLOPT_PROXY_SSLVERSION.3 in Install man3 */,
+				3EEA80B61ECCABC10061E531 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 in Install man3 */,
+				3EEA80B71ECCABC10061E531 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 in Install man3 */,
+				3EEA80B81ECCABC10061E531 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 in Install man3 */,
+				3EEA80B91ECCABC10061E531 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 in Install man3 */,
 				3E8C59EA1D2DA9E600BC0468 /* CURLINFO_ACTIVESOCKET.3 in Install man3 */,
 				3E8C59EB1D2DA9E600BC0468 /* CURLINFO_APPCONNECT_TIME.3 in Install man3 */,
 				3E8C59EC1D2DA9E600BC0468 /* CURLINFO_CERTINFO.3 in Install man3 */,
@@ -1159,31 +1160,6 @@
 		3E3D1E901D2C5F860007C4BE /* spnego_sspi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = spnego_sspi.c; path = vauth/spnego_sspi.c; sourceTree = "<group>"; };
 		3E3D1E911D2C5F860007C4BE /* vauth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vauth.c; path = vauth/vauth.c; sourceTree = "<group>"; };
 		3E3D1E921D2C5F860007C4BE /* vauth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vauth.h; path = vauth/vauth.h; sourceTree = "<group>"; };
-		3E8B520E1ECA17C5008D2652 /* rand.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rand.c; sourceTree = "<group>"; };
-		3E8B520F1ECA17C5008D2652 /* rand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rand.h; sourceTree = "<group>"; };
-		3E8B52111ECA1843008D2652 /* CURLINFO_PROTOCOL.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_PROTOCOL.3; sourceTree = "<group>"; };
-		3E8B52121ECA1843008D2652 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_PROXY_SSL_VERIFYRESULT.3; sourceTree = "<group>"; };
-		3E8B52131ECA1843008D2652 /* CURLINFO_SCHEME.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_SCHEME.3; sourceTree = "<group>"; };
-		3E8B52141ECA1843008D2652 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_ABSTRACT_UNIX_SOCKET.3; sourceTree = "<group>"; };
-		3E8B52151ECA1843008D2652 /* CURLOPT_PRE_PROXY.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PRE_PROXY.3; sourceTree = "<group>"; };
-		3E8B52161ECA1843008D2652 /* CURLOPT_PROXY_CAINFO.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_CAINFO.3; sourceTree = "<group>"; };
-		3E8B52171ECA1843008D2652 /* CURLOPT_PROXY_CAPATH.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_CAPATH.3; sourceTree = "<group>"; };
-		3E8B52181ECA1843008D2652 /* CURLOPT_PROXY_CRLFILE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_CRLFILE.3; sourceTree = "<group>"; };
-		3E8B52191ECA1843008D2652 /* CURLOPT_PROXY_KEYPASSWD.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_KEYPASSWD.3; sourceTree = "<group>"; };
-		3E8B521A1ECA1843008D2652 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_PINNEDPUBLICKEY.3; sourceTree = "<group>"; };
-		3E8B521B1ECA1843008D2652 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_CIPHER_LIST.3; sourceTree = "<group>"; };
-		3E8B521C1ECA1843008D2652 /* CURLOPT_PROXY_SSL_OPTIONS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_OPTIONS.3; sourceTree = "<group>"; };
-		3E8B521D1ECA1843008D2652 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_VERIFYHOST.3; sourceTree = "<group>"; };
-		3E8B521E1ECA1843008D2652 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_VERIFYPEER.3; sourceTree = "<group>"; };
-		3E8B521F1ECA1843008D2652 /* CURLOPT_PROXY_SSLCERT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLCERT.3; sourceTree = "<group>"; };
-		3E8B52201ECA1843008D2652 /* CURLOPT_PROXY_SSLCERTTYPE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLCERTTYPE.3; sourceTree = "<group>"; };
-		3E8B52211ECA1843008D2652 /* CURLOPT_PROXY_SSLKEY.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLKEY.3; sourceTree = "<group>"; };
-		3E8B52221ECA1843008D2652 /* CURLOPT_PROXY_SSLKEYTYPE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLKEYTYPE.3; sourceTree = "<group>"; };
-		3E8B52231ECA1843008D2652 /* CURLOPT_PROXY_SSLVERSION.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLVERSION.3; sourceTree = "<group>"; };
-		3E8B52241ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_TLSAUTH_PASSWORD.3; sourceTree = "<group>"; };
-		3E8B52251ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_TLSAUTH_TYPE.3; sourceTree = "<group>"; };
-		3E8B52261ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_TLSAUTH_USERNAME.3; sourceTree = "<group>"; };
-		3E8B52271ECA1843008D2652 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_SUPPRESS_CONNECT_HEADERS.3; sourceTree = "<group>"; };
 		3E8C59B21D2DA87700BC0468 /* curl_multi_socket_all.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = curl_multi_socket_all.3; sourceTree = "<group>"; };
 		3E8C59B31D2DA9AF00BC0468 /* CURLINFO_ACTIVESOCKET.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_ACTIVESOCKET.3; sourceTree = "<group>"; };
 		3E8C59B41D2DA9AF00BC0468 /* CURLINFO_APPCONNECT_TIME.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_APPCONNECT_TIME.3; sourceTree = "<group>"; };
@@ -1239,7 +1215,33 @@
 		3E8C59E61D2DA9B000BC0468 /* CURLOPT_STREAM_WEIGHT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_STREAM_WEIGHT.3; sourceTree = "<group>"; };
 		3E8C59E71D2DA9B000BC0468 /* CURLOPT_TCP_FASTOPEN.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_TCP_FASTOPEN.3; sourceTree = "<group>"; };
 		3E8C59E81D2DA9B000BC0468 /* CURLOPT_TFTP_NO_OPTIONS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_TFTP_NO_OPTIONS.3; sourceTree = "<group>"; };
-		3E9CF8511ECA195800955CCA /* system.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = system.h; sourceTree = "<group>"; };
+		3EEA808A1ECCAB4C0061E531 /* system.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = system.h; sourceTree = "<group>"; };
+		3EEA808C1ECCAB950061E531 /* CURLINFO_PROTOCOL.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_PROTOCOL.3; sourceTree = "<group>"; };
+		3EEA808D1ECCAB950061E531 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_PROXY_SSL_VERIFYRESULT.3; sourceTree = "<group>"; };
+		3EEA808E1ECCAB950061E531 /* CURLINFO_SCHEME.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLINFO_SCHEME.3; sourceTree = "<group>"; };
+		3EEA808F1ECCAB950061E531 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_ABSTRACT_UNIX_SOCKET.3; sourceTree = "<group>"; };
+		3EEA80901ECCAB950061E531 /* CURLOPT_PRE_PROXY.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PRE_PROXY.3; sourceTree = "<group>"; };
+		3EEA80911ECCAB950061E531 /* CURLOPT_PROXY_CAINFO.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_CAINFO.3; sourceTree = "<group>"; };
+		3EEA80921ECCAB950061E531 /* CURLOPT_PROXY_CAPATH.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_CAPATH.3; sourceTree = "<group>"; };
+		3EEA80931ECCAB950061E531 /* CURLOPT_PROXY_CRLFILE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_CRLFILE.3; sourceTree = "<group>"; };
+		3EEA80941ECCAB950061E531 /* CURLOPT_PROXY_KEYPASSWD.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_KEYPASSWD.3; sourceTree = "<group>"; };
+		3EEA80951ECCAB950061E531 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_PINNEDPUBLICKEY.3; sourceTree = "<group>"; };
+		3EEA80961ECCAB950061E531 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_CIPHER_LIST.3; sourceTree = "<group>"; };
+		3EEA80971ECCAB950061E531 /* CURLOPT_PROXY_SSL_OPTIONS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_OPTIONS.3; sourceTree = "<group>"; };
+		3EEA80981ECCAB950061E531 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_VERIFYHOST.3; sourceTree = "<group>"; };
+		3EEA80991ECCAB950061E531 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSL_VERIFYPEER.3; sourceTree = "<group>"; };
+		3EEA809A1ECCAB950061E531 /* CURLOPT_PROXY_SSLCERT.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLCERT.3; sourceTree = "<group>"; };
+		3EEA809B1ECCAB950061E531 /* CURLOPT_PROXY_SSLCERTTYPE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLCERTTYPE.3; sourceTree = "<group>"; };
+		3EEA809C1ECCAB950061E531 /* CURLOPT_PROXY_SSLKEY.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLKEY.3; sourceTree = "<group>"; };
+		3EEA809D1ECCAB950061E531 /* CURLOPT_PROXY_SSLKEYTYPE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLKEYTYPE.3; sourceTree = "<group>"; };
+		3EEA809E1ECCAB950061E531 /* CURLOPT_PROXY_SSLVERSION.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_SSLVERSION.3; sourceTree = "<group>"; };
+		3EEA809F1ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_TLSAUTH_PASSWORD.3; sourceTree = "<group>"; };
+		3EEA80A01ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_TLSAUTH_TYPE.3; sourceTree = "<group>"; };
+		3EEA80A11ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_PROXY_TLSAUTH_USERNAME.3; sourceTree = "<group>"; };
+		3EEA80A21ECCAB950061E531 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CURLOPT_SUPPRESS_CONNECT_HEADERS.3; sourceTree = "<group>"; };
+		3EEA80BA1ECCABF60061E531 /* rand.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rand.c; sourceTree = "<group>"; };
+		3EEA80BB1ECCABF60061E531 /* rand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rand.h; sourceTree = "<group>"; };
+		9201A3931ED2C95A00572A78 /* libapple_nghttp2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libapple_nghttp2.tbd; path = usr/lib/libapple_nghttp2.tbd; sourceTree = SDKROOT; };
 		FC41A5D71245564C007EDB1C /* curl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = curl; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC41A5DF12455686007EDB1C /* curl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curl.h; sourceTree = "<group>"; };
 		FC41A5E012455686007EDB1C /* curlbuild.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curlbuild.h; sourceTree = "<group>"; };
@@ -1870,6 +1872,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9201A3941ED2C95A00572A78 /* libapple_nghttp2.tbd in Frameworks */,
 				FD07CC53149ABC39004DE255 /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1957,13 +1960,22 @@
 			name = vauth;
 			sourceTree = "<group>";
 		};
+		9201A3921ED2C95900572A78 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FC41A85C12455C98007EDB1C /* libz.dylib */,
+				9201A3931ED2C95A00572A78 /* libapple_nghttp2.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FC0A9E99124554EE00173580 = {
 			isa = PBXGroup;
 			children = (
 				FD07CC40149AAED0004DE255 /* curl */,
 				FD07CC42149AAEEF004DE255 /* xcconfigs */,
 				FC9968D61245562A00BCBD38 /* Products */,
-				FC41A85C12455C98007EDB1C /* libz.dylib */,
+				9201A3921ED2C95900572A78 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1986,7 +1998,7 @@
 				FC41A5E912455686007EDB1C /* mprintf.h */,
 				FC41A5EA12455686007EDB1C /* multi.h */,
 				FC41A5EC12455686007EDB1C /* stdcheaders.h */,
-				3E9CF8511ECA195800955CCA /* system.h */,
+				3EEA808A1ECCAB4C0061E531 /* system.h */,
 				FC41A5ED12455686007EDB1C /* typecheck-gcc.h */,
 			);
 			path = curl;
@@ -2138,8 +2150,8 @@
 				FC41A6DD12455686007EDB1C /* pop3.h */,
 				FC41A6DE12455686007EDB1C /* progress.c */,
 				FC41A6DF12455686007EDB1C /* progress.h */,
-				3E8B520E1ECA17C5008D2652 /* rand.c */,
-				3E8B520F1ECA17C5008D2652 /* rand.h */,
+				3EEA80BA1ECCABF60061E531 /* rand.c */,
+				3EEA80BB1ECCABF60061E531 /* rand.h */,
 				FC41A6EE12455686007EDB1C /* rtsp.c */,
 				FC41A6EF12455686007EDB1C /* rtsp.h */,
 				FC41A6F012455686007EDB1C /* security.c */,
@@ -2462,29 +2474,29 @@
 		FDDC11921981DD8E002F032D /* opts */ = {
 			isa = PBXGroup;
 			children = (
-				3E8B52111ECA1843008D2652 /* CURLINFO_PROTOCOL.3 */,
-				3E8B52121ECA1843008D2652 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 */,
-				3E8B52131ECA1843008D2652 /* CURLINFO_SCHEME.3 */,
-				3E8B52141ECA1843008D2652 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 */,
-				3E8B52151ECA1843008D2652 /* CURLOPT_PRE_PROXY.3 */,
-				3E8B52161ECA1843008D2652 /* CURLOPT_PROXY_CAINFO.3 */,
-				3E8B52171ECA1843008D2652 /* CURLOPT_PROXY_CAPATH.3 */,
-				3E8B52181ECA1843008D2652 /* CURLOPT_PROXY_CRLFILE.3 */,
-				3E8B52191ECA1843008D2652 /* CURLOPT_PROXY_KEYPASSWD.3 */,
-				3E8B521A1ECA1843008D2652 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 */,
-				3E8B521B1ECA1843008D2652 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 */,
-				3E8B521C1ECA1843008D2652 /* CURLOPT_PROXY_SSL_OPTIONS.3 */,
-				3E8B521D1ECA1843008D2652 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 */,
-				3E8B521E1ECA1843008D2652 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 */,
-				3E8B521F1ECA1843008D2652 /* CURLOPT_PROXY_SSLCERT.3 */,
-				3E8B52201ECA1843008D2652 /* CURLOPT_PROXY_SSLCERTTYPE.3 */,
-				3E8B52211ECA1843008D2652 /* CURLOPT_PROXY_SSLKEY.3 */,
-				3E8B52221ECA1843008D2652 /* CURLOPT_PROXY_SSLKEYTYPE.3 */,
-				3E8B52231ECA1843008D2652 /* CURLOPT_PROXY_SSLVERSION.3 */,
-				3E8B52241ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 */,
-				3E8B52251ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 */,
-				3E8B52261ECA1843008D2652 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 */,
-				3E8B52271ECA1843008D2652 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 */,
+				3EEA808C1ECCAB950061E531 /* CURLINFO_PROTOCOL.3 */,
+				3EEA808D1ECCAB950061E531 /* CURLINFO_PROXY_SSL_VERIFYRESULT.3 */,
+				3EEA808E1ECCAB950061E531 /* CURLINFO_SCHEME.3 */,
+				3EEA808F1ECCAB950061E531 /* CURLOPT_ABSTRACT_UNIX_SOCKET.3 */,
+				3EEA80901ECCAB950061E531 /* CURLOPT_PRE_PROXY.3 */,
+				3EEA80911ECCAB950061E531 /* CURLOPT_PROXY_CAINFO.3 */,
+				3EEA80921ECCAB950061E531 /* CURLOPT_PROXY_CAPATH.3 */,
+				3EEA80931ECCAB950061E531 /* CURLOPT_PROXY_CRLFILE.3 */,
+				3EEA80941ECCAB950061E531 /* CURLOPT_PROXY_KEYPASSWD.3 */,
+				3EEA80951ECCAB950061E531 /* CURLOPT_PROXY_PINNEDPUBLICKEY.3 */,
+				3EEA80961ECCAB950061E531 /* CURLOPT_PROXY_SSL_CIPHER_LIST.3 */,
+				3EEA80971ECCAB950061E531 /* CURLOPT_PROXY_SSL_OPTIONS.3 */,
+				3EEA80981ECCAB950061E531 /* CURLOPT_PROXY_SSL_VERIFYHOST.3 */,
+				3EEA80991ECCAB950061E531 /* CURLOPT_PROXY_SSL_VERIFYPEER.3 */,
+				3EEA809A1ECCAB950061E531 /* CURLOPT_PROXY_SSLCERT.3 */,
+				3EEA809B1ECCAB950061E531 /* CURLOPT_PROXY_SSLCERTTYPE.3 */,
+				3EEA809C1ECCAB950061E531 /* CURLOPT_PROXY_SSLKEY.3 */,
+				3EEA809D1ECCAB950061E531 /* CURLOPT_PROXY_SSLKEYTYPE.3 */,
+				3EEA809E1ECCAB950061E531 /* CURLOPT_PROXY_SSLVERSION.3 */,
+				3EEA809F1ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_PASSWORD.3 */,
+				3EEA80A01ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_TYPE.3 */,
+				3EEA80A11ECCAB950061E531 /* CURLOPT_PROXY_TLSAUTH_USERNAME.3 */,
+				3EEA80A21ECCAB950061E531 /* CURLOPT_SUPPRESS_CONNECT_HEADERS.3 */,
 				3E8C59B31D2DA9AF00BC0468 /* CURLINFO_ACTIVESOCKET.3 */,
 				3E8C59B41D2DA9AF00BC0468 /* CURLINFO_APPCONNECT_TIME.3 */,
 				3E8C59B51D2DA9AF00BC0468 /* CURLINFO_CERTINFO.3 */,
@@ -2788,7 +2800,7 @@
 				FDC61C7B14983BDE005BBE36 /* curlbuild.h in Headers */,
 				FDC61C7C14983BDE005BBE36 /* curlrules.h in Headers */,
 				FDC61C7D14983BDE005BBE36 /* curlver.h in Headers */,
-				3E9CF8521ECA196A00955CCA /* system.h in Headers */,
+				3EEA808B1ECCAB550061E531 /* system.h in Headers */,
 				FDC61C7E14983BDE005BBE36 /* easy.h in Headers */,
 				FDC61C7F14983BDE005BBE36 /* mprintf.h in Headers */,
 				FDC61C8014983BDE005BBE36 /* multi.h in Headers */,
@@ -3081,7 +3093,7 @@
 				FC41A83D12455ACC007EDB1C /* telnet.c in Sources */,
 				FC41A87E12455F64007EDB1C /* netrc.c in Sources */,
 				FC41A80D12455ACC007EDB1C /* getinfo.c in Sources */,
-				3E8B523F1ECA18E2008D2652 /* rand.c in Sources */,
+				3EEA80BD1ECCAC050061E531 /* rand.c in Sources */,
 				FC41A84012455ACC007EDB1C /* transfer.c in Sources */,
 				FD35DF2F1DCC1811009B763D /* strcase.c in Sources */,
 				FC41A80512455ACC007EDB1C /* easy.c in Sources */,
@@ -3416,11 +3428,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(PROJECT_DIR)",
-					"$(PROJECT_DIR)/curl/include",
-					"$(PROJECT_DIR)/curl/include/curl",
-				);
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/curl/include";
 				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -3447,7 +3455,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = "$(CURL_PREFIX)/bin";
 				PRODUCT_NAME = curl;
-				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/curl/lib";
 			};
 			name = Release;
 		};

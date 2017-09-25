@@ -1,14 +1,14 @@
 /*
  * Internet Printing Protocol support functions for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -209,7 +209,7 @@ static const char * const ipp_std_ops[] =
 		  "Close-Job",
 		  "Identify-Printer",
 		  "Validate-Document",
-		  "Send-Hardcopy-Document",
+		  "Add-Document-Images",
 		  "Acknowledge-Document",
 
 		  /* 0x0040 - 0x004a */
@@ -429,10 +429,10 @@ static const char * const ipp_document_states[] =
 		  "punch-quad-top",	/* Finishings 2.0 */
 		  "punch-quad-right",	/* Finishings 2.0 */
 		  "punch-quad-bottom",	/* Finishings 2.0 */
-		  "86",
-		  "87",
-		  "88",
-		  "89",
+		  "punch-multiple-left",/* Finishings 2.1/Canon */
+		  "punch-multiple-top",	/* Finishings 2.1/Canon */
+		  "punch-multiple-right",/* Finishings 2.1/Canon */
+		  "punch-multiple-bottom",/* Finishings 2.1/Canon */
 		  "fold-accordian",	/* Finishings 2.0 */
 		  "fold-double-gate",	/* Finishings 2.0 */
 		  "fold-gate",		/* Finishings 2.0 */
@@ -443,7 +443,8 @@ static const char * const ipp_document_states[] =
 		  "fold-parallel",	/* Finishings 2.0 */
 		  "fold-poster",	/* Finishings 2.0 */
 		  "fold-right-gate",	/* Finishings 2.0 */
-		  "fold-z"		/* Finishings 2.0 */
+		  "fold-z",		/* Finishings 2.0 */
+                  "fold-engineering-z"	/* Finishings 2.1 */
 		},
 		* const ipp_finishings_vendor[] =
 		{
@@ -896,12 +897,14 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "k-octets",
     "k-octets-processed",
     "last-document",
+    "materials-col-actual",		/* IPP 3D */
     "media-actual",
     "media-col-actual",
     "media-input-tray-check-actual",
     "media-sheets",
     "media-sheets-completed",
     "more-info",
+    "multiple-object-handling-actual",	/* IPP 3D */
     "number-up-actual",
     "orientation-requested-actual",
     "output-bin-actual",
@@ -913,12 +916,17 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "pages",
     "pages-completed",
     "pages-completed-current-copy",
+    "platform-temperature-actual",	/* IPP 3D */
     "presentation-direction-number-up-actual",
+    "print-accuracy-actual",		/* IPP 3D */
+    "print-base-actual",		/* IPP 3D */
     "print-color-mode-actual",
     "print-content-optimize-actual",
+    "print-objects-actual",		/* IPP 3D */
     "print-quality-actual",
     "print-rendering-intent-actual",
     "print-scaling-actual",		/* IPP Paid Printing */
+    "print-supports-actual",		/* IPP 3D */
     "printer-resolution-actual",
     "printer-up-time",
     "separator-sheets-actual",
@@ -973,6 +981,20 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "insert-sheet",
     "insert-sheet-default",
     "insert-sheet-supported",
+    "material-amount-units-supported",	/* IPP 3D */
+    "material-diameter-supported",	/* IPP 3D */
+    "material-purpose-supported",	/* IPP 3D */
+    "material-rate-supported",		/* IPP 3D */
+    "material-rate-units-supported",	/* IPP 3D */
+    "material-shell-thickness-supported",/* IPP 3D */
+    "material-temperature-supported",	/* IPP 3D */
+    "material-type-supported",		/* IPP 3D */
+    "materials-col",			/* IPP 3D */
+    "materials-col-database",		/* IPP 3D */
+    "materials-col-default",		/* IPP 3D */
+    "materials-col-ready",		/* IPP 3D */
+    "materials-col-supported",		/* IPP 3D */
+    "max-materials-col-supported",	/* IPP 3D */
     "max-stitching-locations-supported",
     "media",
     "media-back-coating-supported",
@@ -1005,6 +1027,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "multiple-document-handling",
     "multiple-document-handling-default",
     "multiple-document-handling-supported",
+    "multiple-object-handling",		/* IPP 3D */
+    "multiple-object-handling-default",	/* IPP 3D */
+    "multiple-object-handling-supported",/* IPP 3D */
     "number-up",
     "number-up-default",
     "number-up-supported",
@@ -1033,15 +1058,27 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "pdl-init-file-name-subdirectory-supported",
     "pdl-init-file-name-supported",
     "pdl-init-file-supported",
+    "platform-temperature",		/* IPP 3D */
+    "platform-temperature-default",	/* IPP 3D */
+    "platform-temperature-supported",	/* IPP 3D */
     "presentation-direction-number-up",
     "presentation-direction-number-up-default",
     "presentation-direction-number-up-supported",
+    "print-accuracy",			/* IPP 3D */
+    "print-accuracy-default",		/* IPP 3D */
+    "print-accuracy-supported",		/* IPP 3D */
+    "print-base",			/* IPP 3D */
+    "print-base-default",		/* IPP 3D */
+    "print-base-supported",		/* IPP 3D */
     "print-color-mode",
     "print-color-mode-default",
     "print-color-mode-supported",
     "print-content-optimize",
     "print-content-optimize-default",
     "print-content-optimize-supported",
+    "print-objects",			/* IPP 3D */
+    "print-objects-default",		/* IPP 3D */
+    "print-objects-supported",		/* IPP 3D */
     "print-quality",
     "print-quality-default",
     "print-quality-supported",
@@ -1051,6 +1088,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "print-scaling",			/* IPP Paid Printing */
     "print-scaling-default",		/* IPP Paid Printing */
     "print-scaling-supported",		/* IPP Paid Printing */
+    "print-supports",			/* IPP 3D */
+    "print-supports-default",		/* IPP 3D */
+    "print-supports-supported",		/* IPP 3D */
     "printer-resolution",
     "printer-resolution-default",
     "printer-resolution-supported",
@@ -1165,10 +1205,12 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "job-state-reasons",
     "job-uri",
     "job-uuid",
+    "materials-col-actual",		/* IPP 3D */
     "media-actual",
     "media-col-actual",
     "media-check-input-tray-actual",
     "multiple-document-handling-actual",
+    "multiple-object-handling-actual",	/* IPP 3D */
     "number-of-documents",
     "number-of-intervening-jobs",
     "number-up-actual",
@@ -1180,12 +1222,17 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "page-delivery-actual",
     "page-order-received-actual",
     "page-ranges-actual",
+    "platform-temperature-actual",	/* IPP 3D */
     "presentation-direction-number-up-actual",
+    "print-accuracy-actual",		/* IPP 3D */
+    "print-base-actual",		/* IPP 3D */
     "print-color-mode-actual",
     "print-content-optimize-actual",
+    "print-objects-actual",		/* IPP 3D */
     "print-quality-actual",
     "print-rendering-intent-actual",
     "print-scaling-actual",		/* IPP Paid Printing */
+    "print-supports-actual",		/* IPP 3D */
     "printer-resolution-actual",
     "separator-sheets-actual",
     "sheet-collate-actual",
@@ -1207,6 +1254,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
   };
   static const char * const job_template[] =
   {					/* job-template group */
+    "accuracy-units-supported",		/* IPP 3D */
     "confirmation-sheet-print",		/* IPP FaxOut */
     "confirmation-sheet-print-default",
     "copies",
@@ -1314,6 +1362,20 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "job-sheets-default",
     "job-sheets-supported",
     "logo-uri-schemes-supported",
+    "material-amount-units-supported",	/* IPP 3D */
+    "material-diameter-supported",	/* IPP 3D */
+    "material-purpose-supported",	/* IPP 3D */
+    "material-rate-supported",		/* IPP 3D */
+    "material-rate-units-supported",	/* IPP 3D */
+    "material-shell-thickness-supported",/* IPP 3D */
+    "material-temperature-supported",	/* IPP 3D */
+    "material-type-supported",		/* IPP 3D */
+    "materials-col",			/* IPP 3D */
+    "materials-col-database",		/* IPP 3D */
+    "materials-col-default",		/* IPP 3D */
+    "materials-col-ready",		/* IPP 3D */
+    "materials-col-supported",		/* IPP 3D */
+    "max-materials-col-supported",	/* IPP 3D */
     "max-save-info-supported",
     "max-stitching-locations-supported",
     "media",
@@ -1347,6 +1409,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "multiple-document-handling",
     "multiple-document-handling-default",
     "multiple-document-handling-supported",
+    "multiple-object-handling",		/* IPP 3D */
+    "multiple-object-handling-default",	/* IPP 3D */
+    "multiple-object-handling-supported",/* IPP 3D */
     "number-of-retries",		/* IPP FaxOut */
     "number-of-retries-default",
     "number-of-retries-supported",
@@ -1384,15 +1449,27 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "pdl-init-file-name-subdirectory-supported",
     "pdl-init-file-name-supported",
     "pdl-init-file-supported",
+    "platform-temperature",		/* IPP 3D */
+    "platform-temperature-default",	/* IPP 3D */
+    "platform-temperature-supported",	/* IPP 3D */
     "presentation-direction-number-up",
     "presentation-direction-number-up-default",
     "presentation-direction-number-up-supported",
+    "print-accuracy",			/* IPP 3D */
+    "print-accuracy-default",		/* IPP 3D */
+    "print-accuracy-supported",		/* IPP 3D */
+    "print-base",			/* IPP 3D */
+    "print-base-default",		/* IPP 3D */
+    "print-base-supported",		/* IPP 3D */
     "print-color-mode",
     "print-color-mode-default",
     "print-color-mode-supported",
     "print-content-optimize",
     "print-content-optimize-default",
     "print-content-optimize-supported",
+    "print-objects",			/* IPP 3D */
+    "print-objects-default",		/* IPP 3D */
+    "print-objects-supported",		/* IPP 3D */
     "print-quality",
     "print-quality-default",
     "print-quality-supported",
@@ -1402,6 +1479,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "print-scaling",			/* IPP Paid Printing */
     "print-scaling-default",		/* IPP Paid Printing */
     "print-scaling-supported",		/* IPP Paid Printing */
+    "print-supports",			/* IPP 3D */
+    "print-supports-default",		/* IPP 3D */
+    "print-supports-supported",		/* IPP 3D */
     "printer-resolution",
     "printer-resolution-default",
     "printer-resolution-supported",
@@ -1532,6 +1612,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "pages-per-minute",
     "pages-per-minute-color",
     "pdf-k-octets-supported",		/* CUPS extension */
+    "pdf-features-supported",		/* IPP 3D */
     "pdf-versions-supported",		/* CUPS extension */
     "pdl-override-supported",
     "port-monitor",			/* CUPS extension */
@@ -2044,7 +2125,7 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
   * See if the operation ID is a known value...
   */
 
-  if (op >= IPP_OP_PRINT_JOB && op <= IPP_OP_VALIDATE_DOCUMENT)
+  if (op >= IPP_OP_PRINT_JOB && op < (ipp_op_t)(sizeof(ipp_std_ops) / sizeof(ipp_std_ops[0])))
     return (ipp_std_ops[op]);
   else if (op == IPP_OP_PRIVATE)
     return ("windows-ext");
@@ -2162,7 +2243,7 @@ ippStateString(ipp_state_t state)	/* I - State value */
 /*
  * 'ippTagString()' - Return the tag name corresponding to a tag value.
  *
- * The returned names are defined in RFC 2911 and 3382.
+ * The returned names are defined in RFC 8011 and the IANA IPP Registry.
  *
  * @since CUPS 1.4/macOS 10.6@
  */
@@ -2182,7 +2263,7 @@ ippTagString(ipp_tag_t tag)		/* I - Tag value */
 /*
  * 'ippTagValue()' - Return the tag value corresponding to a tag name.
  *
- * The tag names are defined in RFC 2911 and 3382.
+ * The tag names are defined in RFC 8011 and the IANA IPP Registry.
  *
  * @since CUPS 1.4/macOS 10.6@
  */

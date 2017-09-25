@@ -65,32 +65,56 @@ CFArrayRef SecOTAPKICopyAllowListForAuthKeyID(SecOTAPKIRef otapkiRef, CFStringRe
 CF_EXPORT
 CFArrayRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve a copy of the current CT whitelist.
-// Caller is responsible for releasing the returned CFSetRef
+// Accessor to retrieve a copy of the current pinning list.
+// Caller is responsible for releasing the returned CFArrayRef
 CF_EXPORT
-CFDataRef SecOTAPKICopyCTWhiteList(SecOTAPKIRef otapkiRef);
+CFArrayRef SecOTAPKICopyPinningList(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve the array of Escrow certificates
+// Accessor to retrieve the array of Escrow certificates.
 // Caller is responsible for releasing the returned CFArrayRef
 CF_EXPORT
 CFArrayRef SecOTAPKICopyEscrowCertificates(uint32_t escrowRootType, SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve the dictionary of EV Policy OIDs to Anchor digest
+// Accessor to retrieve the dictionary of EV Policy OIDs to Anchor digest.
 // Caller is responsible for releasing the returned CFDictionaryRef
 CF_EXPORT
 CFDictionaryRef SecOTAPKICopyEVPolicyToAnchorMapping(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve the dictionary of anchor digest to file offest
+// Accessor to retrieve the dictionary of anchor digest to file offset.
 // Caller is responsible for releasing the returned CFDictionaryRef
 CF_EXPORT
 CFDictionaryRef SecOTAPKICopyAnchorLookupTable(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve the ponter to the top of the anchor certs file
+// Accessor to retrieve the pointer to the top of the anchor certs file.
 // Caller should NOT free the returned pointer.  The caller should hold
-// a reference to the SecOTAPKIRef object until finishing processing with
-// the returned const char*
+// a reference to the SecOTAPKIRef object until finished with
+// the returned pointer.
 CF_EXPORT
-const char*	SecOTAPKIGetAnchorTable(SecOTAPKIRef otapkiRef);
+const char* SecOTAPKIGetAnchorTable(SecOTAPKIRef otapkiRef);
+
+// Accessor to retrieve the full path to the valid update snapshot resource.
+// The return value may be NULL if the resource does not exist.
+// Caller should NOT free the returned pointer.  The caller should hold
+// a reference to the SecOTAPKIRef object until finished with
+// the returned pointer.
+CF_EXPORT
+const char* SecOTAPKIGetValidUpdateSnapshot(SecOTAPKIRef otapkiRef);
+
+// Accessor to retrieve the full path to the valid database snapshot resource.
+// The return value may be NULL if the resource does not exist.
+// Caller should NOT free the returned pointer.  The caller should hold
+// a reference to the SecOTAPKIRef object until finished with
+// the returned pointer.
+CF_EXPORT
+const char* SecOTAPKIGetValidDatabaseSnapshot(SecOTAPKIRef otapkiRef);
+
+// Accessor to retrieve the current valid snapshot version.
+CF_EXPORT
+CFIndex SecOTAPKIGetValidSnapshotVersion(SecOTAPKIRef otapkiRef);
+
+// Accessor to retrieve the current valid snapshot format.
+CF_EXPORT
+CFIndex SecOTAPKIGetValidSnapshotFormat(SecOTAPKIRef otapkiRef);
 
 // Accessor to retrieve the current OTA PKI asset version number
 CF_EXPORT

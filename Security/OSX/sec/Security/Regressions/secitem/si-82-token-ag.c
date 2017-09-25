@@ -19,8 +19,8 @@ static void tests(void) {
     CFDictionaryAddValue(dict, kSecAttrService, CFSTR("test"));
     CFDictionaryAddValue(dict, kSecAttrAccessGroup, kSecAttrAccessGroupToken);
 
-    ok_status(SecItemAdd(dict, NULL));
-    ok_status(SecItemDelete(dict));
+    is_status(SecItemAdd(dict, NULL), errSecParam);
+    is_status(SecItemCopyMatching(dict, NULL), errSecItemNotFound);
 
     CFRelease(dict);
 }

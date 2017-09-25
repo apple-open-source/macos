@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2001 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2001 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -153,10 +153,10 @@ OSStatus HIDSetUsageValueArray(HIDReportType reportType,
 /*
  *				Write out the data
 */
-				iStart = ptReportItem->startBit + (ptReportItem->globals.reportSize * iUsageIndex);
-				byteCount = (ptReportItem->globals.reportSize * iCount + 7)/8;
-				if (byteCount > iByteLength)
-					byteCount = iByteLength;
+				iStart = (int)(ptReportItem->startBit + (ptReportItem->globals.reportSize * iUsageIndex));
+				byteCount = (int)(ptReportItem->globals.reportSize * iCount + 7)/8;
+				if (byteCount > (int)iByteLength)
+					byteCount = (int)iByteLength;
 				for (i=0; i<byteCount; i++)
 				{
 					iValue = *psUsageBuffer++;

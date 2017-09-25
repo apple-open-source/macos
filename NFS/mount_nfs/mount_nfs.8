@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2015 Apple Inc.  All rights reserved.
+.\" Copyright (c) 1999-2017 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -399,7 +399,8 @@ This may be useful for UDP mounts that exhibit high retry rates, since it
 is possible that the dynamically estimated timeout interval is too short.
 .Pp
 .It Cm timeo Ns = Ns Aq Ar timeout
-Set the initial retransmit timeout to the specified value.
+Set the initial retransmit timeout to the specified value
+(in tenths of a second).
 The default is 1 second.
 May be useful for fine tuning UDP mounts over internetworks
 with high packet loss rates or an overloaded server.
@@ -460,10 +461,10 @@ This should effectively disable features that require callback requests
 such as delegations.
 .Pp
 .It Cm nonamedattr
-For NFSv4 mounts, don't support named attributes even if the server does.
-By default, if the server appears to support named attributes, they
-will be used to store extended attributes and named streams (e.g. FinderInfo
-and resource forks).
+For NFSv4 mounts, don't support named attributes even if the server does. This is the default.
+.Pp
+.It Cm namedattr
+For NFSv4 mounts, if the server appears to support named attributes, they will be used to store extended attributes and named streams (e.g. FinderInfo and resource forks).
 .Pp
 .It Cm noacl
 For NFSv4 mounts, don't support ACLs even if the server does.
@@ -707,7 +708,8 @@ could not resolve the name of the remote host.
 .Xr rpcinfo 8 ,
 .Xr showmount 8 ,
 .Xr automount 8 ,
-.Xr nfs.conf 5
+.Xr nfs.conf 5 ,
+.Xr nfs 5
 .Sh CAVEATS
 An NFS server shouldn't loopback-mount its own exported file systems because
 it's fundamentally prone to deadlock.

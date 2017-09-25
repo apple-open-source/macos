@@ -1,4 +1,0 @@
-/^char \*syck_yaml2byte/a
-int syck_str_is_unquotable_integer(char*, long);
-.
-w

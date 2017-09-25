@@ -30,6 +30,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <mach-o/dyld_priv.h>
+#include <mach-o/dyld_cache_format.h>
+#include <mach/mach_time.h>
 
 #include "BootCache_private.h"
 
@@ -45,44 +47,57 @@ static int	jettison_cache(void);
 static int	merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch);
 static int	print_statistics(struct BC_statistics *ss);
 static void	print_history(struct BC_history *he);
-static int	print_playlist(const char *pfname, int source);
+static int	print_playlist_on_disk(const char *pfname);
 static int	unprint_playlist(const char *pfname);
 static int	generalize_playlist(const char *pfname);
-static int	generate_playlist(const char *pfname, const char *root);
 static int	truncate_playlist(const char *pfname, char *larg);
-static int  add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared, const bool low_priority);
-static int  add_directory(struct BC_playlist *pc, const char *fname, const int batch, const bool shared);
-static int  add_fseventsd_files(struct BC_playlist *pc, const int batch, const bool shared);
-static int  add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk);
-static int  add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch, int shared);
+static int	add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool low_priority);
+static int	add_directory(struct BC_playlist *pc, const char *fname, const int batch);
+static int	add_fseventsd_files(struct BC_playlist *pc, const int batch);
+static int	add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk);
+static int	add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch);
+static int	add_native_shared_cache(struct BC_playlist *pc, int batch, bool low_priority);
+static int	add_32bit_shared_cache(struct BC_playlist *pc, int batch, bool low_priority);
 
 static int verbose;
 static char *myname;
 
+static FILE *outstream;
+
+/*
+ * Files we read in during every boot.
+ */
+#define BC_DYLD_SHARED_CACHE_32 "/var/db/dyld/dyld_shared_cache_i386"
+
+
+#define LOG(fmt, args...) fprintf(outstream, fmt"\n", ##args)
+#define LOG_ERRNO(fmt, args...) LOG(fmt": %d %s", ## args, errno, strerror(errno))
+
 #ifdef DEBUG
-static FILE* outstream;
-#define DLOG(args...) fprintf(outstream, ##args)
+#define DLOG(fmt, args...) LOG(fmt, ##args)
 #else
-#define DLOG(args...)
+#define DLOG(fmt, args...)
 #endif
 
 int
 main(int argc, char *argv[])
 {
-	int ch, cflag, batch;
+	int ch, batch;
 	int* pbatch;
 	char *pfname;
+
+	outstream = stdout;
+	bc_log_stream = stdout;
 	
 	myname = argv[0];
 	pfname = NULL;
 	pbatch = NULL;
-	cflag = 0;
 	while ((ch = getopt(argc, argv, "b:cvf:t:")) != -1) {
 		switch(ch) {
 			case 'b':
 				usage("blocksize is no longer required, ignoring");
 			case 'c':
-				cflag++;
+				// no longer used
 				break;
 			case 'v':
 				verbose++;
@@ -104,7 +119,7 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
-	
+
 	if (argc < 1)
 		return(usage("missing command"));
 	/* documented interface */
@@ -127,22 +142,24 @@ main(int argc, char *argv[])
 	if (!strcmp(argv[0], "merge"))
 		return(merge_playlists(pfname, argc - 1, argv + 1, pbatch));
 	if (!strcmp(argv[0], "print"))
-		return(print_playlist(pfname, cflag));
+		return(print_playlist_on_disk(pfname));
 	if (!strcmp(argv[0], "unprint"))
 		return(unprint_playlist(pfname));
 	if (!strcmp(argv[0], "generalize"))
 		return(generalize_playlist(pfname));
-	if (!strcmp(argv[0], "generate"))
-		return(generate_playlist(pfname, argc < 2 ? NULL : argv[1]));
+	if (!strcmp(argv[0], "generate")) {
+		LOG("generate is no longer supported");
+		return(1);
+	}
 	if (!strcmp(argv[0], "truncate")) {
-		if (argc < 2) 
+		if (argc < 2)
 			return(usage("missing truncate length"));
 		return(truncate_playlist(pfname, argv[1]));
 	}
-	
+
 	if (!strcmp(argv[0], "unload")) {
 		if (BC_unload()) {
-			warnx("could not unload cache");
+			LOG("could not unload cache");
 			return(1);
 		} else {
 			return(0);
@@ -158,33 +175,30 @@ static int
 usage(const char *reason)
 {
 	if (reason != NULL)
-		warnx("%s", reason);
-	fprintf(stderr, "Usage: %s [-vvv] [-f <playlistfile>] start\n", myname);
-	fprintf(stderr, "           Start recording history and play back <playlistfile>.\n");
-	fprintf(stderr, "       %s [-vvv] [-f <playlistfile>] stop\n", myname);
-	fprintf(stderr, "           Stop recording history and write the playlist to <playlistfile>.\n");
-	fprintf(stderr, "       %s mount\n", myname);
-	fprintf(stderr, "           Notify the boot cache of a new mount.\n");
-	fprintf(stderr, "       %s [-vvv] jettison\n", myname);
-	fprintf(stderr, "           Jettison the cache.\n");
-	fprintf(stderr, "       %s statistics\n", myname);
-	fprintf(stderr, "           Print statistics for the currently-active cache.\n");
-	fprintf(stderr, "       %s tag\n", myname);
-	fprintf(stderr, "           Insert the end-prefetch tag.\n");
-	fprintf(stderr, "       %s [-vvv] [-t batchnum] -f <playlistfile> merge <playlistfile1> [<playlistfile2>...]\n", myname);
-	fprintf(stderr, "           Merge <playlistfile1>... into <playlistfile>.\n");
-	fprintf(stderr, "           Playlist files after the first will be offset <batchnum> batches, if provided\n");
-	fprintf(stderr, "       %s [-c] -f <playlistfile> print\n", myname);
-	fprintf(stderr, "           Print the contents of <playlistfile>.\n");
-	fprintf(stderr, "       %s -f <playlistfile> unprint\n", myname);
-	fprintf(stderr, "           Read a playlist from standard input and write to <playlistfile>.\n");
-	fprintf(stderr, "       %s -f <playlistfile> generate [<volume>]\n", myname);
-	fprintf(stderr, "           Generate a playlist from standard input data for <volume> and write to <playlistfile>.\n");
-	fprintf(stderr, "       %s -f <playlistfile> truncate <count>\n", myname);
-	fprintf(stderr, "           Truncate <playlistfile> to <count> entries.\n");
-	fprintf(stderr, "       %s -f <playlistfile> generalize\n", myname);
-	fprintf(stderr, "           Modify <playlistfile> to apply to any root volume.\n");
-	fflush(stderr);
+		LOG("%s", reason);
+	LOG("Usage: %s [-vvv] [-f <playlistfile>] start", myname);
+	LOG("           Start recording history and play back <playlistfile>.");
+	LOG("       %s [-vvv] [-f <playlistfile>] stop", myname);
+	LOG("           Stop recording history and write the playlist to <playlistfile>.");
+	LOG("       %s mount", myname);
+	LOG("           Notify the boot cache of a new mount.");
+	LOG("       %s [-vvv] jettison", myname);
+	LOG("           Jettison the cache.");
+	LOG("       %s statistics", myname);
+	LOG("           Print statistics for the currently-active cache.");
+	LOG("       %s tag", myname);
+	LOG("           Insert the end-prefetch tag.");
+	LOG("       %s [-vvv] [-t batchnum] -f <playlistfile> merge <playlistfile1> [<playlistfile2>...]", myname);
+	LOG("           Merge <playlistfile1>... into <playlistfile>.");
+	LOG("           Playlist files after the first will be offset <batchnum> batches, if provided");
+	LOG("       %s -f <playlistfile> print", myname);
+	LOG("           Print the contents of <playlistfile>.");
+	LOG("       %s -f <playlistfile> unprint", myname);
+	LOG("           Read a playlist from standard input and write to <playlistfile>.");
+	LOG("       %s -f <playlistfile> truncate <count>", myname);
+	LOG("           Truncate <playlistfile> to <count> entries.");
+	LOG("       %s -f <playlistfile> generalize", myname);
+	LOG("           Modify <playlistfile> to apply to any root volume.");
 	return(1);
 }
 
@@ -202,39 +216,39 @@ static inline const char* uuid_string(uuid_t uuid)
 	return (char*)uuidString;
 }
 
-static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch, int shared)
+static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch)
 {
-    char filename[MAXPATHLEN];
-	
-    FILE *lpl = fopen(playlist, "r");
-    if (lpl == NULL){
-        if (errno != ENOENT && errno != EINVAL) {
-            warnx("Could not read playlist %s: %s", playlist, strerror(errno));
-        }
-        return -1;
-    }
-    
-    while (fgets(filename, sizeof filename, lpl)){
-        int len = strlen(filename);
-        if (len < 3)
-            continue;
-        
-        if (filename[len - 1] == '\n')
-            filename[len - 1] = '\0';
-        
-        if (filename[len - 2] == '/'){
-            filename[len - 2] = '\0';
-            int error;
-            if ((error = add_directory(pc, filename, batch, shared)) 
-                && error != ENOENT && error != EINVAL)
-                warnx("Error adding files in directory %s: %s", filename, strerror(errno));
-        } else {
-            add_file(pc, filename, batch, shared, false);
-        }
-    }
-    fclose(lpl);
-    
-    return 0;
+	char filename[MAXPATHLEN];
+
+	FILE *lpl = fopen(playlist, "r");
+	if (lpl == NULL){
+		if (errno != ENOENT && errno != EINVAL) {
+			LOG_ERRNO("Could not read playlist %s", playlist);
+		}
+		return -1;
+	}
+
+	while (fgets(filename, sizeof filename, lpl)){
+		int len = strlen(filename);
+		if (len < 3)
+			continue;
+
+		if (filename[len - 1] == '\n')
+			filename[len - 1] = '\0';
+
+		if (filename[len - 2] == '/'){
+			filename[len - 2] = '\0';
+			int error;
+			if ((error = add_directory(pc, filename, batch))
+				&& error != ENOENT && error != EINVAL)
+				LOG_ERRNO("Error adding files in directory %s", filename);
+		} else {
+			add_file(pc, filename, batch, false);
+		}
+	}
+	fclose(lpl);
+
+	return 0;
 }
 
 /*
@@ -246,120 +260,122 @@ isRootCPDK()
 	//*********************************************//
 	// Get the bsd device name for the root volume //
 	//*********************************************//
-	
+
 	char* bsdDevPath = NULL;
-	
+
 	struct statfs buffer;
 	bzero (&buffer, sizeof (buffer));
 	if (0 == statfs("/", &buffer)) {
-		
+
 		if (strlen(buffer.f_mntfromname) >= 9) { /* /dev/disk */
-			
-			bsdDevPath = &(buffer.f_mntfromname[5]);	
+
+			bsdDevPath = &(buffer.f_mntfromname[5]);
 
 		}
 	}
-	
+
 	if (NULL == bsdDevPath) {
 		// No bsd device? Assume not composite
 		return false;
 	}
-	
+
 	//*************************************************************//
 	// Get the CoreStorage Logical Volume UUID from the bsd device //
 	//*************************************************************//
-	
+
 	CFStringRef lvUUID = NULL;
-	
+
 	mach_port_t masterPort;
 	if (KERN_SUCCESS == IOMasterPort(bootstrap_port, &masterPort)) {
-		
+
 		io_registry_entry_t diskObj = IOServiceGetMatchingService(masterPort, IOBSDNameMatching(masterPort, 0, bsdDevPath));
 		if (IO_OBJECT_NULL != diskObj) {
-			
+
 			if (IOObjectConformsTo(diskObj, kCoreStorageLogicalClassName)) {
-				
+
 				CFTypeRef cfRef = IORegistryEntryCreateCFProperty(diskObj, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
 				if (NULL != cfRef) {
-					
+
 					if (CFGetTypeID(cfRef) == CFStringGetTypeID()) {
-						
+
 						lvUUID = CFStringCreateCopy(NULL, cfRef);
-						DLOG("CoreStorage Logical Volume UUID is %p %s\n", lvUUID, CFStringGetCStringPtr(lvUUID, 0));
+						DLOG("CoreStorage Logical Volume UUID is %p %s", lvUUID, CFStringGetCStringPtr(lvUUID, 0));
 
 					}
-					
+
 					CFRelease(cfRef);
 				}
-				
+
 			} else {
 				//Common case for non-CoreStorage filesystems
 			}
-			
+
 			IOObjectRelease(diskObj);
 		}
-		
+
 	}
-	
+
 	if (NULL == lvUUID) {
 		// Not composite if it's not CoreStorage
 		return false;
 	}
-	
+
 	//****************************************************************************************//
 	// Get the CoreStorage Logical Volume Group UUID from the CoreStorage Logical Volume UUID //
-	//****************************************************************************************//	
-	
+	//****************************************************************************************//
+
 	CFStringRef lvgUUID = NULL;
-	
+
 	CFMutableDictionaryRef propLV = CoreStorageCopyVolumeProperties ((CoreStorageLogicalRef)lvUUID);
 	CFRelease(lvUUID);
 	if (NULL != propLV) {
-		
+
 		lvgUUID = CFDictionaryGetValue(propLV, CFSTR(kCoreStorageLogicalGroupUUIDKey));
 		if (NULL != lvgUUID) {
 
 			lvgUUID = CFStringCreateCopy(NULL, lvgUUID);
-			DLOG("CoreStorage Logical Volume Group UUID is %p %s\n", lvgUUID, CFStringGetCStringPtr(lvgUUID, 0));
+			DLOG("CoreStorage Logical Volume Group UUID is %p %s", lvgUUID, CFStringGetCStringPtr(lvgUUID, 0));
 
 		}
-		
+
 		CFRelease(propLV);
 	}
-	
+
 	if (NULL == lvgUUID) {
 		// Can't get the group? Assume not composite
 		return false;
 	}
-	
+
 	//**************************************************************************************************//
 	// Check if the Core Storage Group Type of the CoreStorage Logical Volume Group is a Composite Disk //
-	//**************************************************************************************************//	
-	
+	//**************************************************************************************************//
+
 	bool isCompositeDisk = false;
-	
+
 	CFMutableDictionaryRef lvgProperties = CoreStorageCopyLVGProperties ((CoreStorageGroupRef)lvgUUID);
 	CFRelease(lvgUUID);
 	if (NULL != lvgProperties) {
-		
+
 		CFStringRef groupType = CFDictionaryGetValue(lvgProperties, CFSTR(kCoreStorageGroupTypeKey));
 		if (NULL != groupType) {
-			
+
 			isCompositeDisk = (kCFCompareEqualTo == CFStringCompare(groupType, CFSTR(kCoreStorageGroupTypeCPDK), 0x0));
-			
+
 		}
-		
+
 		CFRelease(lvgProperties);
 	}
-	
+
 	if (isCompositeDisk) {
-		DLOG("is cpdk\n");
+		DLOG("is cpdk");
 	} else {
-		DLOG("is not cpdk\n");
+		DLOG("is not cpdk");
 	}
-	
+
 	return isCompositeDisk;
 }
+
+static struct BC_userspace_statistics boot_statistics;
 
 /*
  * Kick off the boot cache.
@@ -367,124 +383,139 @@ isRootCPDK()
 static int
 do_boot_cache()
 {
+	boot_statistics.ssup_launch_timestamp = mach_absolute_time();
 #ifdef DEBUG
 	outstream = fopen("/var/log/BootCacheControl.log", "a");
 	err_set_file(outstream);
+	bc_log_stream = outstream;
 #endif
-	
+
 	struct BC_playlist *pc;
 	int error;
 	const char* pfname = BC_ROOT_PLAYLIST;
-	
+
 	if ((error = BC_test()) != 0) {
 		return error;
 	}
-	
+
 	bool isCompositeDisk = isRootCPDK();
-	
+
 	/* set up to start recording with no playback */
 	pc = NULL;
-	
+
 	/*
 	 * If we have a playlist, open it and prepare to load it.
 	 */
 	error = BC_read_playlist(pfname, &pc);
-	
+
 	/*
 	 * If the playlist is missing or invalid, ignore it. We'll
 	 * overwrite it later.
 	 */
 	if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
-		warnx("could not read playlist %s: %s", pfname, strerror(error));
-		return error;
+		errno = error;
+		LOG_ERRNO("could not read playlist %s", pfname);
 	}
 	
+	/*
+	 * Remove the consumed playlist: it'll be replaced once BootCache
+	 * completes successfully.
+	 */
+	
+#ifdef DEBUG
+	char prev_path[MAXPATHLEN];
+	snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
+	error = rename(pfname, prev_path); // for debugging
+	if (error != 0 && errno != ENOENT) {
+		LOG_ERRNO("could not rename bootcache playlist %s", pfname);
+	}
+#else
+	error = unlink(pfname);
+	if (error != 0 && errno != ENOENT) {
+		LOG_ERRNO("could not unlink bootcache playlist %s", pfname);
+	}
+#endif
+	
+
+
 	int last_shutdown_was_clean = 0;
 	size_t wasCleanSz = sizeof(wasCleanSz);
 	error = sysctlbyname("vfs.generic.root_unmounted_cleanly", &last_shutdown_was_clean, &wasCleanSz, NULL, 0);
 	if (error != 0) {
-		warnx("Unable to check for hard shutdown");
+		LOG_ERRNO("Unable to check for hard shutdown");
 	}
-	
+
 	if (pc) {
-		
-		/*
-		 * Remove the consumed playlist: it'll be replaced once BootCache 
-		 * completes successfully.
-		 */
-		
-		//char prev_path[MAXPATHLEN];
-		//snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
-		//error = rename(pfname, prev_path); // for debugging
-		error = unlink(pfname);
-		if (error != 0 && errno != ENOENT)
-			errx(1, "could not unlink bootcache playlist %s: %d %s", pfname, errno, strerror(errno));
-		
+
 		if (! last_shutdown_was_clean) {
 			struct timeval start_time = {0,0}, end_time = {0,0};
 			(void)gettimeofday(&start_time, NULL); // can't fail
-			
-			// Make sure the unlink hits disk in case we panic rdar://8947415
+
+			// Make sure the unlink(pfname) above hits disk in case we panic rdar://8947415
 			int fd = open("/var/db/", O_RDONLY);
 			if (fd != -1) {
 				if (-1 != fcntl(fd, F_FULLFSYNC)) {
-					fprintf(stderr, "Synced /var/db/\n");
+					LOG("Synced /var/db/");
 				} else {
-					warnx("Unable to sync /var/db/: %d %s", errno, strerror(errno));
+					LOG_ERRNO("Unable to sync /var/db/");
 				}
 				close(fd);
 			} else {
-				warnx("Unable to open /var/db/: %d %s", errno, strerror(errno));
+				LOG_ERRNO("Unable to open /var/db/");
 			}
-			
+
 			(void)gettimeofday(&end_time, NULL); // can't fail
 			timersub(&end_time, &start_time, &end_time);
-			// warnx("Took %dus to sync /var/db/\n", end_time.tv_usec);
+			// LOG("Took %dus to sync /var/db/", end_time.tv_usec);
 		}
-		
+
 		if (! isCompositeDisk) {
 			// rdar://9424845 Add any files we know are read in every boot, but change every boot
-			add_fseventsd_files(pc, 0, false);
-			add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0, false);
-			add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2, false);
+			add_fseventsd_files(pc, 0);
+			add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0);
+			add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2);
 		}
 	} else {
 		if (last_shutdown_was_clean) {
-			pc = calloc(1, sizeof(*pc));
-			
+			pc = BC_allocate_playlist(0, 0, 0);
+
 			// No Root playlist: we're during an install so use our premade logical playlists
-			
+
 			if (! isCompositeDisk) {
-				add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0, false);
-				add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2, false);
+				add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0);
+				add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2);
 			}
 		}
 	}
-	
+
 	// If we don't have a playlist here, we don't want to play back anything
 	if (pc) {
 		// Add the login playlist of user we expect to log in to the boot playlist
 		if (0 != add_playlist_for_preheated_user(pc, isCompositeDisk)) {
 			// Unable to add user playlist, add 32-bit shared cache to low-priority playlist
-			add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
-			warnx("Added 32-bit shared cache to the low priority batch");
+			add_32bit_shared_cache(pc, 0, true);
+			DLOG("Added 32-bit shared cache to the low priority batch");
 		}
-		
+
 		// rdar://9021675 Always warm the shared cache
-		const char* shared_cache_path = dyld_shared_cache_file_path();
-		if (shared_cache_path) {
-			DLOG("Shared cache path is %s\n", shared_cache_path);
-			add_file(pc, shared_cache_path, -1, true, false);
-		} else {
-			warnx("No shared cache path");
-		}
+		DLOG("Adding shared cache");
+		add_native_shared_cache(pc, -1, false);
 	}
 
+	boot_statistics.ssup_oid_timestamp = mach_absolute_time();
+	BC_set_userspace_statistics(&boot_statistics);
+
 	error = BC_start(pc);
-	if (error != 0)
-		warnx("could not start cache: %d %s", error, strerror(error));
-	
+	if (error != 0) {
+		errno = error;
+		LOG_ERRNO("could not start cache");
+	}
+
 	PC_FREE_ZERO(pc);
+	
+#ifdef DEBUG
+	fflush(outstream);
+#endif
 	return(error);
 }
 
@@ -493,31 +524,31 @@ do_boot_cache()
  */
 static int
 add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
-	
+
 	if (!pc) return 1;
-	
+
 	// These defines match those in warmd
-#define PLAYLIST_DIR                         "/var/db/BootCaches/"
-#define MERGED_PLAYLIST                      "Merged.playlist"
-#define LOGIN_PLAYLIST                       "Login.playlist"
-#define DEFAULT_USER_DIR                     PLAYLIST_DIR"PreheatedUser/"
-#define APP_CACHE_PLAYLIST_PREFIX            "app."
-#define PLAYLIST_SUFFIX                      ".playlist"
-#define RUNNING_XATTR_NAME                   "BC_RUNNING"
-#define I386_XATTR_NAME                      "BC_I386"
-#define MAX_PLAYLIST_PATH_LENGTH             256
-#define TAL_LOGIN_FOREGROUND_APP_BATCH_NUM   0
-#define TAL_LOGIN_BACKGROUND_APP_BATCH_NUM   (TAL_LOGIN_FOREGROUND_APP_BATCH_NUM + 1)
-#define TAL_LOGIN_LOWPRI_DATA_BATCH_NUM      (TAL_LOGIN_BACKGROUND_APP_BATCH_NUM + 1)
-#define I386_SHARED_CACHE_NULL_BATCH_NUM         (-2)
+#define PLAYLIST_DIR						 "/var/db/BootCaches/"
+#define MERGED_PLAYLIST						 "Merged.playlist"
+#define LOGIN_PLAYLIST						 "Login.playlist"
+#define DEFAULT_USER_DIR					 PLAYLIST_DIR"PreheatedUser/"
+#define APP_CACHE_PLAYLIST_PREFIX			 "app."
+#define PLAYLIST_SUFFIX						 ".playlist"
+#define RUNNING_XATTR_NAME					 "BC_RUNNING"
+#define I386_XATTR_NAME						 "BC_I386"
+#define MAX_PLAYLIST_PATH_LENGTH			 256
+#define TAL_LOGIN_FOREGROUND_APP_BATCH_NUM	 0
+#define TAL_LOGIN_BACKGROUND_APP_BATCH_NUM	 (TAL_LOGIN_FOREGROUND_APP_BATCH_NUM + 1)
+#define TAL_LOGIN_LOWPRI_DATA_BATCH_NUM		 (TAL_LOGIN_BACKGROUND_APP_BATCH_NUM + 1)
+#define I386_SHARED_CACHE_NULL_BATCH_NUM		 (-2)
 #define I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM (-1)
-	
+
 	int error, i;
 	int playlist_path_end_idx = 0;
 	char playlist_path[MAX_PLAYLIST_PATH_LENGTH] = DEFAULT_USER_DIR;
 	struct BC_playlist* user_playlist = NULL;
 	bool already_added_i386_shared_cache = false;
-	
+
 	// Limit the playlist size
 	ssize_t playlist_size = 0;
 	ssize_t max_playlist_size = 0;
@@ -525,82 +556,82 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	error = sysctlbyname("hw.memsize", &max_playlist_size, &len, NULL, 0);
 	if(error != 0) {
 		max_playlist_size = (1024 * 1024 * 1024);
-		warnx("sysctlbyname(\"hw.memsize\") failed => %d (%d). Assuming 1GB", error, errno);
+		LOG_ERRNO("sysctlbyname(\"hw.memsize\") failed. Assuming 1GB");
 	}
 	max_playlist_size = (max_playlist_size / 2) - (512 * 1024 * 1024);
 	if (max_playlist_size < (512 * 1024 * 1024)) {
 		max_playlist_size = (512 * 1024 * 1024);
 	}
-	
+
 	for (i = 0; i < pc->p_nentries; i++) {
 		playlist_size += pc->p_entries[i].pe_length;
 	}
-	
+
 	if (playlist_size >= max_playlist_size) goto out;
-	
+
 	//rdar://8830944&9209576 Detect FDE user
 	io_registry_entry_t service = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen");
 	if (service != MACH_PORT_NULL) {
-		
+
 		CFDataRef fde_login_user = IORegistryEntryCreateCFProperty(service, CFSTR(kCSFDEEFILoginUnlockIdentID),
 																   kCFAllocatorDefault, kNilOptions);
 		IOObjectRelease(service);
 		if (fde_login_user != NULL) {
 			char fde_login_user_str[128] = {0};
-			
+
 			CFDataGetBytes(fde_login_user, CFRangeMake(0, sizeof(fde_login_user_str)), (UInt8*)fde_login_user_str);
 			CFRelease(fde_login_user);
-			
+
 			snprintf(playlist_path, sizeof(playlist_path), "%s%s/", PLAYLIST_DIR, fde_login_user_str);
 			struct stat statbuf;
 			if (0 == stat(playlist_path, &statbuf)) {
-				warnx("Using FDE user %s", fde_login_user_str);
+				DLOG("Using FDE user %s", fde_login_user_str);
 			} else {
-				warnx("No such FDE user %s, using Preheated User", fde_login_user_str);
+				LOG("No such FDE user %s, using Preheated User", fde_login_user_str);
 				snprintf(playlist_path, sizeof(playlist_path), "%s", DEFAULT_USER_DIR);
 			}
 		}
 	}
-	
+
 	playlist_path_end_idx = strlen(playlist_path);
-	
-	// warnx("Reading user playlists from user dir %s", playlist_path);
-	
+
+	// DLOG("Reading user playlists from user dir %s", playlist_path);
+
 	// Check for the merged playlist warmd has left
 	strlcpy(playlist_path + playlist_path_end_idx, MERGED_PLAYLIST, sizeof(playlist_path) - playlist_path_end_idx);
 	error = BC_read_playlist(playlist_path, &user_playlist);
-	
+
 	if (error == 0) {
 		int i386_shared_cache_batch_num = I386_SHARED_CACHE_NULL_BATCH_NUM;
 		if (-1 != getxattr(playlist_path, I386_XATTR_NAME, &i386_shared_cache_batch_num, sizeof(i386_shared_cache_batch_num), 0, 0x0)) {
 			if (i386_shared_cache_batch_num != I386_SHARED_CACHE_NULL_BATCH_NUM) {
 				if (i386_shared_cache_batch_num == I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM) {
-					add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, 0, true, true);
+					add_32bit_shared_cache(pc, 0, true);
 				} else {
-					add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, i386_shared_cache_batch_num, true, false);
+					add_32bit_shared_cache(pc, i386_shared_cache_batch_num, false);
 				}
-				// warnx("Added 32-bit shared cache to batch %d", i386_shared_cache_batch_num);
-				
+				// DLOG("Added 32-bit shared cache to batch %d", i386_shared_cache_batch_num);
+
 				// already_added_i386_shared_cache = true; dead store...
 			}
 		}
-		
+
 	} else if (ENOENT == error) {
 		// No merged playlist for the preheated user. Try to create one from its login and app playlists
-		
+
 		strlcpy(playlist_path + playlist_path_end_idx, LOGIN_PLAYLIST, sizeof(playlist_path) - playlist_path_end_idx);
 		error = BC_read_playlist(playlist_path, &user_playlist);
 		if (0 == error) {
-			
+
 			struct BC_playlist *app_playlist = NULL;
 			struct dirent* direntry;
 			int suffix_length = strlen(PLAYLIST_SUFFIX);
 			int app_prefix_length = strlen(APP_CACHE_PLAYLIST_PREFIX);
-			
+
 			playlist_path[playlist_path_end_idx] = '\0';
 			DIR* dir = opendir(playlist_path);
-			
-			
+
+
 			// Iterate over the app playlists twice:
 			// The first iteration to add the running apps to the playlist.
 			// The second iteration to add the non-running apps to the low-priority playlist
@@ -620,82 +651,82 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 					batch_offset = TAL_LOGIN_LOWPRI_DATA_BATCH_NUM;
 					flags |= BC_PE_LOWPRIORITY;
 				}
-				
+
 				while ((direntry = readdir(dir)) != NULL) {
 					if (direntry->d_namlen > suffix_length && 0 == strncmp(direntry->d_name + direntry->d_namlen - suffix_length, PLAYLIST_SUFFIX, suffix_length)) {
 						if (0 == strncmp(direntry->d_name, APP_CACHE_PLAYLIST_PREFIX, app_prefix_length)) {
-							
+
 							snprintf(playlist_path + playlist_path_end_idx, sizeof(playlist_path) - playlist_path_end_idx, "/%s", direntry->d_name);
-							
+
 							bool is_running = (-1 != getxattr(playlist_path, RUNNING_XATTR_NAME, NULL, 0, 0, 0x0));
 							if ((iteration == 0) == is_running) { // First iteration we're looking for running apps; second, for non-running
-								
+
 								if (0 == BC_read_playlist(playlist_path, &app_playlist)) {
-									
+
 									// Adjust the flags and batch for this playlist as necessary
 									for (i = 0; i < app_playlist->p_nentries; i++) {
 										app_playlist->p_entries[i].pe_flags |= flags;
 										app_playlist->p_entries[i].pe_batch += batch_offset;
 										playlist_size += app_playlist->p_entries[i].pe_length;
 									}
-									
+
 									// Make sure we don't oversize the playlist
 									if (playlist_size > max_playlist_size) {
-										// warnx("Login cache maximum size of %ldMB reached", max_playlist_size / (1024 * 0124));
+										// DLOG("Login cache maximum size of %ldMB reached", max_playlist_size / (1024 * 0124));
 										PC_FREE_ZERO(app_playlist);
 										break;
 									}
-									
+
 									if (0 != (error = BC_merge_playlists(user_playlist, app_playlist))) {
 										PC_FREE_ZERO(app_playlist);
 										goto out;
 									}
-									
+
 									if (!already_added_i386_shared_cache) {
 										if (-1 != getxattr(playlist_path, I386_XATTR_NAME, NULL, 0, 0, 0x0)) {
-											add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, batch_offset, true, flags & BC_PE_LOWPRIORITY);
+											add_32bit_shared_cache(pc, batch_offset, flags & BC_PE_LOWPRIORITY);
 											already_added_i386_shared_cache = true;
 										}
 									}
-									
+
 									PC_FREE_ZERO(app_playlist);
-									// warnx("Added playlist for app %s", playlist_path);
+									// DLOG("Added playlist for app %s", playlist_path);
 								}
-								
+
 							}
-						}					
+						}
 					} else {
 						playlist_path[playlist_path_end_idx] = '\0';
-						// warnx("Unknown file in user playlist directory %s: %s", playlist_path, direntry->d_name);
+						// DLOG("Unknown file in user playlist directory %s: %s", playlist_path, direntry->d_name);
 					}
 				}
-				
+
 				if (playlist_size > max_playlist_size) {
 					break;
 				}
-				
+
 				if (iteration == 0) {
 					rewinddir(dir);
 				}
 			}
 			closedir(dir);
 			dir = NULL;
-			
-			
-			
-			
+
+
+
+
 		}
 	}
-	
+
 	if (error != 0) {
 		goto out;
 	}
-	
+
 	if (! isCompositeDisk) {
 		// Add any files we know are read in every login, but change every login
 		// --- none yet, use add_file ---
 	}
-	
+
 	// Slide the user playlist by the number of batches we have in the boot playlist
 	int batch_max = 0;
 	for (i = 0; i < pc->p_nentries; i++) {
@@ -707,122 +738,118 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isCompositeDisk) {
 	for (i = 0; i < user_playlist->p_nentries; i++) {
 		user_playlist->p_entries[i].pe_batch += batch_max;
 	}
-	
+
 	error = BC_merge_playlists(pc, user_playlist);
 	if (error != 0) {
-		if (pc->p_entries) {
-			free(pc->p_entries);
-		}
-		if (pc->p_mounts) {
-			free(pc->p_mounts);
-		}
-		memset(pc, 0, sizeof(*pc));
+		BC_reset_playlist(pc);
 	}
-	
+
 out:
 	PC_FREE_ZERO(user_playlist);
 	return (error);
+}
+
+
+/*
+ * Add contents of the file to the bootcache
+ */
+static int
+merge_into_batch(struct BC_playlist *dest, const struct BC_playlist *source, const int batch, const bool low_priority)
+{
+	if (low_priority) {
+		for (int i = 0; i < source->p_nentries; i++) {
+			source->p_entries[i].pe_flags |= BC_PE_LOWPRIORITY;
+		}
+	} else {
+		
+		if(batch > 0){
+			int i;
+			for (i = 0; i < source->p_nentries; i++) {
+				source->p_entries[i].pe_batch += batch;
+			}
+		} else if (batch < 0) {
+			int i;
+			int inverse_batch = 0 - batch;
+			for (i = 0; i < dest->p_nentries; i++) {
+				dest->p_entries[i].pe_batch += inverse_batch;
+			}
+		}
+	}
+	
+	int error = BC_merge_playlists(dest, source);
+	
+	if (error != 0) {
+		BC_reset_playlist(dest);
+	}
+	
+	return error;
 }
 
 /*
  * Add contents of the file to the bootcache
  */
 static int
-add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool shared, const bool low_priority)
+add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool low_priority)
 {
-#define MAX_FILESIZE (10ll * 1024 * 1024)
-    int error;
-    int fd = open(fname, O_RDONLY);
+#define MAX_FILESIZE (10ll * 1024 * 1024) // 10MB
+	int error;
+	int fd = open(fname, O_RDONLY);
 	if (fd == -1) {
-        if (errno != ENOENT && errno != EINVAL) {
-            warnx("Unable to open %s to add it to the boot cache: %d %s", fname, errno, strerror(errno));
-        }
-        return errno;
+		if (errno != ENOENT && errno != EINVAL) {
+			LOG_ERRNO("Unable to open %s to add it to the boot cache", fname);
+		}
+		return errno;
 	}
-    
-    off_t maxsize = MAX_FILESIZE;
-    if (shared) {
-        maxsize = 0;
-    }
-    
-    struct BC_playlist *playlist = NULL;
-    error = BC_playlist_for_filename(fd, fname, maxsize, &playlist);
-    close(fd);
-    if (playlist == NULL) {
-        if (error != ENOENT && error != EINVAL) {
-            warnx("Unable to create playlist for %s: %d %s", fname, error, strerror(error));
-        }
-        return error;
-    }
-    if(shared || low_priority){
-        int i;
-		u_int16_t flags = 0x0;
-		if (shared)	      flags |= BC_PE_SHARED;
-		if (low_priority) flags |= BC_PE_LOWPRIORITY;
-        for (i = 0; i < playlist->p_nentries; i++) {
-			playlist->p_entries[i].pe_flags |= flags;
-        }
-    }
-    
-    if(batch > 0){
-        int i;
-        for (i = 0; i < playlist->p_nentries; i++) {
-            playlist->p_entries[i].pe_batch += batch;
-        }
-    } else if (batch < 0) {
-        int i;
-		int inverse_batch = 0 - batch;
-        for (i = 0; i < pc->p_nentries; i++) {
-            pc->p_entries[i].pe_batch += inverse_batch;
-        }
-	}
-    
-    error = BC_merge_playlists(pc, playlist);
-    PC_FREE_ZERO(playlist);
+
+	off_t maxsize = MAX_FILESIZE;
 	
-	if (error != 0) {
-		if (pc->p_entries) {
-			free(pc->p_entries);
+	struct BC_playlist *playlist = NULL;
+	error = BC_playlist_for_filename(fd, fname, maxsize, &playlist);
+	close(fd);
+	if (playlist == NULL) {
+		if (error != ENOENT && error != EINVAL) {
+			LOG_ERRNO("Unable to create playlist for %s", fname);
 		}
-		if (pc->p_mounts) {
-			free(pc->p_mounts);
-		}
-		memset(pc, 0, sizeof(*pc));
+		return error;
 	}
 	
-    return error;
+	error = merge_into_batch(pc, playlist, batch, low_priority);
+	PC_FREE_ZERO(playlist);
+	
+	return error;
 }
 
 /*
  * Add contents of a directory to the bootcache.  Does not operate recursively.
  */
 static int
-add_directory(struct BC_playlist *pc, const char *dname, const int batch, const bool shared){
+add_directory(struct BC_playlist *pc, const char *dname, const int batch)
+{
 #define MAX_FILES_PER_DIR 10
-	
-    DIR *dirp = opendir(dname);
-    if (!dirp)
-        return errno;
-    
-    int count = 0;
-    
-    struct dirent *dp;
-    while ((dp = readdir(dirp)) != NULL){
-        if (dp->d_type != DT_REG)
-            continue;
-        
-        char fname[MAXPATHLEN];
-        int ret = snprintf(fname, MAXPATHLEN, "%s/%s", dname, dp->d_name);
-        if (ret < 0 || ret >= MAXPATHLEN)
-            continue;
-        
-        add_file(pc, fname, batch, shared, false);
-        if (++count >= MAX_FILES_PER_DIR) break;
-    }
-    
-    closedir(dirp);
-    
-    return 0;
+
+	DIR *dirp = opendir(dname);
+	if (!dirp)
+		return errno;
+
+	int count = 0;
+
+	struct dirent *dp;
+	while ((dp = readdir(dirp)) != NULL){
+		if (dp->d_type != DT_REG)
+			continue;
+
+		char fname[MAXPATHLEN];
+		int ret = snprintf(fname, MAXPATHLEN, "%s/%s", dname, dp->d_name);
+		if (ret < 0 || ret >= MAXPATHLEN)
+			continue;
+
+		add_file(pc, fname, batch, false);
+		if (++count >= MAX_FILES_PER_DIR) break;
+	}
+
+	closedir(dirp);
+
+	return 0;
 }
 
 /*
@@ -831,74 +858,302 @@ add_directory(struct BC_playlist *pc, const char *dname, const int batch, const 
  * We add the 10 newest files of the fsventsd folder to the boot cache
  */
 static int
-add_fseventsd_files(struct BC_playlist *pc, const int batch, const bool shared){
-#define FSEVENTSD_DIR     "/.fseventsd"
+add_fseventsd_files(struct BC_playlist *pc, const int batch)
+{
+#define FSEVENTSD_DIR	  "/.fseventsd"
 #define MAX_NAME_LENGTH   64
 #define NUM_FILES_TO_WARM 10
-    
-    DIR *dirp = opendir(FSEVENTSD_DIR);
-    if (!dirp)
-        return errno;
-    
+
+	DIR *dirp = opendir(FSEVENTSD_DIR);
+	if (!dirp)
+		return errno;
+
 	char newest_files[NUM_FILES_TO_WARM][MAX_NAME_LENGTH];
-    int i;
+	int i;
 	for (i = 0; i < NUM_FILES_TO_WARM; i++) {
 		newest_files[i][0] = '\0';
 	}
-    
-    // Copy the first 10 files into our array
-    struct dirent *dp;
-    for (i = 0; i < NUM_FILES_TO_WARM && (dp = readdir(dirp)) != NULL; i++) {
-        if (dp->d_type != DT_REG)
-            continue;
-        strlcpy(newest_files[i], dp->d_name, MAX_NAME_LENGTH);
-    }
-    
-    // Check if we ran out of directory entries
-    if (dp) {
-        
-        //Find the oldest file of the first 10
-        char* oldest_new_file = newest_files[0];
-        for (i = 1; i < NUM_FILES_TO_WARM; i++) {
-            if (strncmp(newest_files[i], oldest_new_file, MAX_NAME_LENGTH) < 0) {
-                oldest_new_file = newest_files[i];
-            }
-        }
-        
-        // Find any files that are newer than the first 10
-        while ((dp = readdir(dirp)) != NULL){
-            if (dp->d_type != DT_REG)
-                continue;
-            
-            // We want the last 10 files, and they're ordered alphabetically
-            if (strncmp(oldest_new_file, dp->d_name, MAX_NAME_LENGTH) < 0) {
-                strlcpy(oldest_new_file, dp->d_name, MAX_NAME_LENGTH);
-                
-                // We replaced the oldest file, find the oldest of the 10 newest again
-                for (i = 0; i < NUM_FILES_TO_WARM; i++) {
-                    if (strncmp(newest_files[i], oldest_new_file, MAX_NAME_LENGTH) < 0) {
-                        oldest_new_file = newest_files[i];
-                    }
-                }
-            }
-        }
-    }
-    closedir(dirp);
-	
-    for (i = 0; i < NUM_FILES_TO_WARM; i++) {
-        if (newest_files[i][0] != '\0') {
-            char fname[128];
-            int ret = snprintf(fname, 128, "%s/%s", FSEVENTSD_DIR, newest_files[i]);
-            if (ret < 0 || ret >= 128)
-                continue;
-            
-            add_file(pc, fname, batch, shared, false);
-        }
-    }
-    
-    
-    return 0;
+
+	// Copy the first 10 files into our array
+	struct dirent *dp;
+	for (i = 0; i < NUM_FILES_TO_WARM && (dp = readdir(dirp)) != NULL; i++) {
+		if (dp->d_type != DT_REG)
+			continue;
+		strlcpy(newest_files[i], dp->d_name, MAX_NAME_LENGTH);
+	}
+
+	// Check if we ran out of directory entries
+	if (dp) {
+
+		//Find the oldest file of the first 10
+		char* oldest_new_file = newest_files[0];
+		for (i = 1; i < NUM_FILES_TO_WARM; i++) {
+			if (strncmp(newest_files[i], oldest_new_file, MAX_NAME_LENGTH) < 0) {
+				oldest_new_file = newest_files[i];
+			}
+		}
+
+		// Find any files that are newer than the first 10
+		while ((dp = readdir(dirp)) != NULL){
+			if (dp->d_type != DT_REG)
+				continue;
+
+			// We want the last 10 files, and they're ordered alphabetically
+			if (strncmp(oldest_new_file, dp->d_name, MAX_NAME_LENGTH) < 0) {
+				strlcpy(oldest_new_file, dp->d_name, MAX_NAME_LENGTH);
+
+				// We replaced the oldest file, find the oldest of the 10 newest again
+				for (i = 0; i < NUM_FILES_TO_WARM; i++) {
+					if (strncmp(newest_files[i], oldest_new_file, MAX_NAME_LENGTH) < 0) {
+						oldest_new_file = newest_files[i];
+					}
+				}
+			}
+		}
+	}
+	closedir(dirp);
+
+	for (i = 0; i < NUM_FILES_TO_WARM; i++) {
+		if (newest_files[i][0] != '\0') {
+			char fname[128];
+			int ret = snprintf(fname, 128, "%s/%s", FSEVENTSD_DIR, newest_files[i]);
+			if (ret < 0 || ret >= 128)
+				continue;
+
+			add_file(pc, fname, batch, false);
+		}
+	}
+
+
+	return 0;
 }
+
+
+/*
+ * Add the native shared cache to the bootcache.
+ */
+static int
+add_shared_cache(struct BC_playlist *pc, const char* shared_cache_path, int batch, bool low_priority, bool look_for_update, uint64_t max_text_size, uint64_t max_data_size, uint64_t max_linkedit_size)
+{
+	int error;
+	
+	int fd = open(shared_cache_path, O_RDONLY);
+	if (fd == -1) {
+		if (errno != ENOENT && errno != EINVAL) {
+			LOG_ERRNO("Unable to open %s to add it to the boot cache", shared_cache_path);
+		}
+		return errno;
+	}
+	struct stat statbuf;
+	if (fstat(fd, &statbuf) == -1) {
+		LOG_ERRNO("Unable to stat %s", shared_cache_path);
+		close(fd);
+		return errno;
+	}
+	
+	int nextents = 0;
+	struct bc_file_extent extents[7];
+
+	if (low_priority) {
+		extents[0].offset = 0;
+		extents[0].length = statbuf.st_size;
+		extents[0].flags = BC_PE_SHARED | BC_PE_LOWPRIORITY;
+		
+		nextents = 1;
+	} else {
+		
+		uint64_t shared_cache_text_offset;
+		uint64_t shared_cache_text_length = 0;
+		uint64_t shared_cache_data_offset;
+		uint64_t shared_cache_data_length = 0;
+		uint64_t shared_cache_linkedit_offset;
+		uint64_t shared_cache_linkedit_length = 0;
+		
+		
+		// Code to find regions of the shared cache copied from dyld_shared_cache_util
+		// For a better way to find this information rather than using dyld's structure layout,
+		// see <rdar://problem/33641354> SPI to get layout of dyld shared cache like provided by dyld_shared_cache_util -info
+		const void* shared_cache_buf = mmap(NULL, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+		if (shared_cache_path == MAP_FAILED) {
+			LOG_ERRNO("Unable to mmap %s", shared_cache_path);
+			close(fd);
+			return errno;
+		}
+		
+		const struct dyld_cache_header* header = shared_cache_buf;
+		const struct dyld_cache_mapping_info* mappings = (shared_cache_buf + header->mappingOffset);
+		for (int i = 0; i < header->mappingCount; i++) {
+			
+			DLOG("mapping: %#llx address, %#llx size, %#llx fileOffset, %#x maxProt, %#x initProt", mappings[i].address, mappings[i].size,  mappings[i].fileOffset, mappings[i].maxProt, mappings[i].initProt);
+			
+			if (mappings[i].initProt & VM_PROT_EXECUTE) {
+				shared_cache_text_offset = mappings[i].fileOffset;
+				shared_cache_text_length = mappings[i].size;
+			} else if (mappings[i].initProt & VM_PROT_WRITE) {
+				shared_cache_data_offset = mappings[i].fileOffset;
+				shared_cache_data_length = mappings[i].size;
+			} else if (mappings[i].initProt & VM_PROT_READ) {
+				shared_cache_linkedit_offset = mappings[i].fileOffset;
+				shared_cache_linkedit_length = mappings[i].size;
+			}
+		}
+		
+		munmap((void*)shared_cache_buf, statbuf.st_size);
+		
+		if (shared_cache_text_length == 0 ||
+			shared_cache_data_length == 0 ||
+			shared_cache_linkedit_length == 0) {
+			
+			LOG("Couldn't find all the sections in the shared cache: %#llx, %#llx, %#llx", shared_cache_text_length, shared_cache_data_length, shared_cache_linkedit_length);
+			close(fd);
+			return EINVAL;
+		}
+		
+		
+		uint64_t shared_cache_text_highpri_offset = shared_cache_text_offset;
+		uint64_t shared_cache_data_highpri_offset = shared_cache_data_offset;
+		uint64_t shared_cache_linkedit_highpri_offset = shared_cache_linkedit_offset;
+		
+		uint64_t shared_cache_text_highpri_length = (shared_cache_text_length <= max_text_size ? shared_cache_text_length : max_text_size);
+		uint64_t shared_cache_data_highpri_length = (shared_cache_data_length <= max_data_size ? shared_cache_data_length : max_data_size);
+		uint64_t shared_cache_linkedit_highpri_length = (shared_cache_linkedit_length <= max_linkedit_size ? shared_cache_linkedit_length : max_linkedit_size);
+		
+		uint64_t shared_cache_text_lowpri_offset = shared_cache_text_offset + shared_cache_text_highpri_length;
+		uint64_t shared_cache_data_lowpri_offset = shared_cache_data_offset + shared_cache_data_highpri_length;
+		uint64_t shared_cache_linkedit_lowpri_offset = shared_cache_linkedit_offset + shared_cache_linkedit_highpri_length;
+		
+		uint64_t shared_cache_text_lowpri_length = shared_cache_text_length > max_text_size ? shared_cache_text_length - max_text_size : 0;
+		uint64_t shared_cache_data_lowpri_length = shared_cache_data_length > max_data_size ? shared_cache_data_length - max_data_size : 0;
+		uint64_t shared_cache_linkedit_lowpri_length = shared_cache_linkedit_length > max_linkedit_size ? shared_cache_linkedit_length - max_linkedit_size : 0;
+		
+		
+		extents[0].offset = shared_cache_text_highpri_offset;
+		extents[0].length = shared_cache_text_highpri_length;
+		extents[0].flags = BC_PE_SHARED;
+		extents[1].offset = shared_cache_text_lowpri_offset;
+		extents[1].length = shared_cache_text_lowpri_length;
+		extents[1].flags = BC_PE_SHARED | BC_PE_LOWPRIORITY;
+		extents[2].offset = shared_cache_data_highpri_offset;
+		extents[2].length = shared_cache_data_highpri_length;
+		extents[2].flags = BC_PE_SHARED;
+		extents[3].offset = shared_cache_data_lowpri_offset;
+		extents[3].length = shared_cache_data_lowpri_length;
+		extents[3].flags = BC_PE_SHARED | BC_PE_LOWPRIORITY;
+		extents[4].offset = shared_cache_linkedit_highpri_offset;
+		extents[4].length = shared_cache_linkedit_highpri_length;
+		extents[4].flags = BC_PE_SHARED;
+		extents[5].offset = shared_cache_linkedit_lowpri_offset;
+		extents[5].length = shared_cache_linkedit_lowpri_length;
+		extents[5].flags = BC_PE_SHARED | BC_PE_LOWPRIORITY;
+		//	extents[6].offset = shared_cache_codesign_offset;
+		//	extents[6].length = shared_cache_codesign_length;
+		//	extents[6].flags = BC_PE_SHARED;
+		
+		nextents = 6;
+	}
+	
+#ifdef DEBUG
+	DLOG("Shared cache %s:", shared_cache_path);
+	for (int i = 0; i < nextents; i++) {
+		if (extents[i].length > 0) {
+			DLOG("%#10llx-%#10llx (%#llx), %#x", extents[i].offset, extents[i].offset + extents[i].length, extents[i].length, extents[i].flags);
+		}
+	}
+#endif
+	
+	struct BC_playlist *playlist = NULL;
+	error = BC_playlist_for_file_extents(fd, nextents, extents, &playlist);
+	close(fd);
+	if (playlist == NULL) {
+		if (error != ENOENT && error != EINVAL) {
+			LOG_ERRNO("Unable to create playlist for %s", shared_cache_path);
+		}
+		return error;
+	}
+	
+	// Handle dyld shared cache being updated since last boot
+	if (look_for_update) {
+		
+		// Check for overlap between our playlist and the new shared cache
+		if (! BC_playlists_intersect(pc, playlist)) {
+			DLOG("Shared cache has moved, removing old shared cache entries, and explicitly new shared cache at high priority");
+			
+			// Remove all old shared cache entires (all shared caches, since when one updates, they probably both have updated)
+			for (int i = 0; i < pc->p_nentries; i++) {
+				if (pc->p_entries[i].pe_flags & BC_PE_SHARED) {
+					pc->p_entries[i].pe_length = 0;
+				}
+			}
+			
+			if (low_priority) {
+				// This shared cache was explicitly low priority, make it high priority becaue it has changed and our recorded extents were bad
+				for (int i = 0; i < playlist->p_nentries; i++) {
+					playlist->p_entries[i].pe_flags &= (~BC_PE_LOWPRIORITY);
+				}
+				low_priority = false;
+			} else {
+				// Keep whatever high priority/low priority we picked
+			}
+			
+		} else {
+			DLOG("Shared cache hasn't moved");
+			// The shared cache is in the same place on disk as last boot, don't need to do anything special
+		}
+	}
+	
+
+	error = merge_into_batch(pc, playlist, batch, low_priority);
+	PC_FREE_ZERO(playlist);
+	
+	return error;
+}
+
+/*
+ * Add the native shared cache to the bootcache.
+ */
+static int
+add_32bit_shared_cache(struct BC_playlist *pc, int batch, bool low_priority)
+{
+#if ! BC_ADD_SHARED_CACHE_AT_HIGH_PRIORITY
+	low_priority = true;
+#endif
+	
+	// <rdar://problem/30244516> Limit amount of shared cache pulled in by the BootCache
+	
+	// We ended up not using these, so they're all very high so we include the entire shared cache
+#define BC_NONNATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
+#define BC_NONNATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
+#define BC_NONNATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES (10000 * 1024 * 1024)
+	
+	return add_shared_cache(pc, BC_DYLD_SHARED_CACHE_32, batch, low_priority, false, BC_NONNATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES, BC_NONNATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES, BC_NONNATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES);
+}
+
+/*
+ * Add the native shared cache to the bootcache.
+ */
+static int
+add_native_shared_cache(struct BC_playlist *pc, int batch, bool low_priority)
+{
+#if ! BC_ADD_SHARED_CACHE_AT_HIGH_PRIORITY
+	low_priority = true;
+#endif
+	
+	const char* shared_cache_path = dyld_shared_cache_file_path();
+	if (! shared_cache_path) {
+		LOG("No shared cache path");
+		return ENOENT;
+	}
+
+	// <rdar://problem/30244516> Limit amount of shared cache pulled in by the BootCache
+	
+	// We ended up not using these, so they're all very high so we include the entire shared cache
+#define BC_NATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
+#define BC_NATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
+#define BC_NATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES (10000 * 1024 * 1024)
+	
+	return add_shared_cache(pc, shared_cache_path, batch, low_priority, true, BC_NATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES, BC_NATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES, BC_NATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES);
+}
+
 
 /*
  * Start the cache, optionally passing in the playlist file.
@@ -908,51 +1163,55 @@ start_cache(const char *pfname)
 {
 	struct BC_playlist *pc;
 	int error;
-	
+
 	/* set up to start recording with no playback */
 	pc = NULL;
-	
+
 	if (pfname == NULL)
 		errx(1, "No playlist provided");
-	
-	/* 
+
+	/*
 	 * TAL App Cache needs a way to record without playback
 	 */
 	if (strcmp(pfname, "nofile")) {
-		
+
 		/*
 		 * If we have a playlist, open it and prepare to load it.
 		 */
 		error = BC_read_playlist(pfname, &pc);
-		
+
 		/*
 		 * If the playlist is missing or invalid, ignore it. We'll
 		 * overwrite it later.
 		 */
 		if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
-			warnx("could not read playlist %s: %s", pfname, strerror(error));
+			errno = error;
+			LOG_ERRNO("could not read playlist %s", pfname);
 			PC_FREE_ZERO(pc);
 			return(error);
 		}
-		
+
 		/*
-		 * Remove the consumed playlist: it'll be replaced once BootCache 
+		 * Remove the consumed playlist: it'll be replaced once BootCache
 		 * completes successfully.
 		 */
-		
+
 		//char prev_path[MAXPATHLEN];
 		//snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
 		//error = rename(pfname, prev_path); // for debugging
 		error = unlink(pfname);
 		if (error != 0 && errno != ENOENT) {
-			warnx("could not unlink playlist %s: %s", pfname, strerror(errno));
+			LOG_ERRNO("could not unlink playlist %s", pfname);
 		}
 	}
-	
+
 	error = BC_start(pc);
-	if (error != 0)
-		warnx("could not start cache: %d %s", error, strerror(error));
-	
+	if (error != 0) {
+		errno = error;
+		LOG_ERRNO("could not start cache");
+	} else {
+		LOG("Started cache successfully");
+	}
 	PC_FREE_ZERO(pc);
 	return(error);
 }
@@ -966,26 +1225,32 @@ stop_cache(const char *pfname, int debugging)
 {
 	struct BC_playlist *pc;
 	struct BC_history  *hc;
+	struct BC_omap_history *oh;
 	struct BC_statistics *ss;
 	int error;
-	
+
 	/*
 	 * Notify whoever cares that BootCache has stopped recording.
 	 */
 	notify_post("com.apple.system.private.bootcache.done");
-	
+
 	/*
-	 * Stop the cache and fetch the history list.
+	 * Stop the cache and fetch the history and omap list.
 	 */
-	if ((error = BC_stop(&hc)) != 0)
+	if ((error = BC_stop_and_fetch(&hc, &oh)) != 0) {
+		errno = error;
+		LOG_ERRNO("Could not stop history and omaps");
+		HC_FREE_ZERO(hc);
+		OH_FREE_ZERO(oh);
 		return error;
-	
+	}
+
 	if (verbose > 0) {
 		print_statistics(NULL);
 		if (verbose > 1)
 			print_history(hc);
 	}
-	
+
 	/* write history and stats to debug logs if debugging */
 	if (debugging) {
 		BC_print_history(BC_BOOT_HISTFILE, hc);
@@ -995,105 +1260,39 @@ stop_cache(const char *pfname, int debugging)
 			BC_print_statistics(BC_BOOT_STATFILE, ss);
 		}
 	}
-	
+
 	/*
 	 * If we have not been asked to update the history list, we are done
 	 * here.
 	 */
 	if (pfname == NULL) {
 		HC_FREE_ZERO(hc);
+		OH_FREE_ZERO(oh);
 		return(0);
 	}
-	
+
 	/*
-	 * Convert the history list to playlist format.
+	 * Convert the history and omap list to playlist with omap format.
 	 */
-	if ((error = BC_convert_history(hc, &pc)) != 0) {
+	if ((error = BC_convert_history_and_omaps(hc, oh, &pc)) != 0) {
 		if (!debugging) {
 			BC_print_history(BC_BOOT_HISTFILE, hc);
 		}
 		HC_FREE_ZERO(hc);
+		OH_FREE_ZERO(oh);
 		errx(1, "history to playlist conversion failed: %d %s", error, strerror(error));
 	}
-	
-	/*
-	 * Sort the playlist into block order and coalesce into the smallest set
-	 * of read operations.
-	 */
-	//TODO: Check for SSD and don't sort (and fix coalesceing to work with unsorted lists)
-#ifdef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-	BC_sort_playlist(pc);
-#endif
-	BC_coalesce_playlist(pc);
-	
-	
-#if 0 	
-	/* 
-	 * Turning off playlist merging: this tends to bloat the cache and 
-	 * gradually slow the boot until the hitrate drops far enough to force
-	 * a clean slate. Previous attempts to outsmart the system, such as
-	 * truncating cache growth at 5% per boot, have led to fragile behavior
-	 * when the boot sequence changes. Out of a variety of strategies 
-	 * (merging, intersection, voting), a memoryless cache gets 
-	 * close-to-optimal performance and recovers most quickly from any 
-	 * strangeness at boot time.
-	 */
-	int onentries;
-	struct BC_playlist_entry *opc;
-	
-	/*
-	 * In order to ensure best possible coverage, we try to merge the
-	 * existing playlist with our new history (provided that the hit
-	 * rate has been good).
-	 *
-	 * We check the number of initiated reads from our statistics against
-	 * the number of entries in the "old" playlist to ensure that the
-	 * filename we've been given matches the playlist that was just run.
-	 *
-	 * XXX we hardcode the "good" threshold here to 85%, should be tunable
-	 */
-	opc = NULL;
-	if (ss == NULL) {
-		warnx("no statistics, not merging playlists");
-		goto nomerge;	/* no stats, can't make sane decision */
-	}
-	if (ss->ss_total_extents < 1) {
-		warnx("no playlist in kernel, not merging");
-		goto nomerge;
-	}
-	if (BC_read_playlist(pfname, &opc, &onentries) != 0) {
-		warnx("no old playlist '%s', not merging", pfname);
-		goto nomerge;	/* can't read old playlist, nothing to merge */
-	}
-	if (onentries != ss->ss_total_extents) {
-		warnx("old playlist does not match in-kernel playlist, not merging");
-		goto nomerge;	/* old playlist doesn't match in-kernel playlist */
-	}
-	if (((nentries * 100) / onentries) < 105) {
-		warnx("new playlist not much bigger than old playlist, not merging");
-		goto nomerge;	/* new playlist has < 5% fewer extents */
-	}
-	if (((ss->ss_spurious_blocks * 100) / (ss->ss_read_blocks + 1)) > 10) {
-		warnx("old playlist has excess block wastage, not merging");
-		goto nomerge;	/* old playlist has > 10% block wastage */
-	}
-	if (((ss->ss_hit_blocks * 100) / (ss->ss_requested_blocks + 1)) < 85) {
-		warnx("old playlist has poor hitrate, not merging");
-		goto nomerge;	/* old playlist had < 85% hitrate */
-	}
-	BC_merge_playlists(&pc, &nentries, opc, onentries);
-	
-nomerge:
-	PC_FREE_ZERO(opc);
-#endif /* 0 */
+
+	HC_FREE_ZERO(hc);
+	OH_FREE_ZERO(oh);
 	
 	/*
 	 * Securely overwrite the previous playlist.
 	 */
-	if ((error = BC_write_playlist(pfname, pc)) != 0) {
+	if ((error = BC_write_playlist(pfname, pc) != 0)) {
 		errx(1, "could not write playlist: %d %s", error, strerror(error));
 	}
-	
+
 	return(0);
 }
 
@@ -1104,16 +1303,16 @@ static int
 jettison_cache(void)
 {
 	int error;
-	
+
 	/*
 	 * Stop the cache and fetch the history list.
 	 */
 	if ((error = BC_jettison()) != 0)
 		return error;
-	
+
 	if (verbose > 0)
 		print_statistics(NULL);
-	
+
 	return(0);
 }
 
@@ -1126,18 +1325,18 @@ merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch)
 {
 	struct BC_playlist *pc = NULL, *npc = NULL;
 	int i, j, error;
-	
+
+	/* Created just for the purposes of a proper initial merge */
+	pc = BC_allocate_playlist(0, 0, 0);
+
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to merge");
-	
-	pc = calloc(1, sizeof(*pc));
-	if(!pc) errx(1, "could not allocate initial playlist");
-	
+
 	/*
 	 * Read playlists into memory.
 	 */
 	for (i = 0; i < argc; i++) {
-		
+
 		/*
 		 * Read the next playlist and merge with the current set.
 		 */
@@ -1145,27 +1344,29 @@ merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch)
 			error = 1;
 			goto out;
 		}
-		
+
 		/*
 		 * Force the second and subsequent playlists into the specified batch
 		 */
-		if (pbatch && i > 0)
-			for (j = 0; j < npc->p_nentries; j++)
+		if (pbatch && i > 0) {
+			for (j = 0; j < npc->p_nentries; j++) {
 				npc->p_entries[j].pe_batch += *pbatch;
-		
+			}
+		}
+
 		if (BC_merge_playlists(pc, npc)){
 			error = 1;
 			goto out;
 		}
 		PC_FREE_ZERO(npc);
 	}
-	
+
 	error = BC_write_playlist(pfname, pc);
-	
+
 out:
 	PC_FREE_ZERO(npc);
 	PC_FREE_ZERO(pc);
-	
+
 	return error;
 }
 
@@ -1176,13 +1377,13 @@ static int
 print_statistics(struct BC_statistics *ss)
 {
 	int error;
-	
+
 	if (ss == NULL) {
 		if ((error = BC_fetch_statistics(&ss)) != 0) {
 			errx(1, "could not fetch statistics: %d %s", error, strerror(error));
 		}
 	}
-	
+
 	return(BC_print_statistics(NULL, ss));
 }
 
@@ -1194,13 +1395,14 @@ print_history(struct BC_history *hc)
 {
 	int i;
 	for (i = 0; i < hc->h_nentries; i++) {
-		printf("%s %-12llu %-8llu %5u%s%s\n",
+		LOG("%s %#-12llx %#-8llx %#-12llx %5u%s%s",
 			   uuid_string(hc->h_mounts[hc->h_entries[i].he_mount_idx].hm_uuid),
 			   hc->h_entries[i].he_offset, hc->h_entries[i].he_length,
+			   hc->h_entries[i].he_crypto_offset,
 			   hc->h_entries[i].he_pid,
-			   hc->h_entries[i].he_flags & BC_HE_HIT    ? " hit"    :
-			   hc->h_entries[i].he_flags & BC_HE_WRITE  ? " write"  :
-			   hc->h_entries[i].he_flags & BC_HE_TAG    ? " tag"    : " miss",
+			   hc->h_entries[i].he_flags & BC_HE_HIT	? " hit"	:
+			   hc->h_entries[i].he_flags & BC_HE_WRITE	? " write"	:
+			   hc->h_entries[i].he_flags & BC_HE_TAG	? " tag"	: " miss",
 			   hc->h_entries[i].he_flags & BC_HE_SHARED ? " shared" : "");
 	}
 }
@@ -1209,93 +1411,41 @@ print_history(struct BC_history *hc)
  * Print a playlist from a file.
  */
 static int
-print_playlist(const char *pfname, int source)
+print_playlist_on_disk(const char *pfname)
 {
 	struct BC_playlist *pc;
-	struct BC_playlist_mount *pm;
-	struct BC_playlist_entry *pe;
-	int i;
-	u_int64_t size = 0, size_lowpri = 0, size_batch[BC_MAXBATCHES] = {0};
-	
+
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to print");
-	
+
 	/*
 	 * Suck in the playlist.
 	 */
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist");
-	
-	if (source) {
-		printf("static struct BC_playlist_mount BC_mounts[] = {\n");
-		for (i = 0; i < pc->p_nmounts; i++) {
-			pm = pc->p_mounts + i;
-			printf("    {\"%s\", 0x%x}%s\n",
-				   uuid_string(pm->pm_uuid), pm->pm_nentries,
-				   (i < (pc->p_nmounts - 1)) ? "," : "");
-		}
-		printf("};\n");
-		printf("static struct BC_playlist_entry BC_entries[] = {\n");
-	} else {
-		for (i = 0; i < pc->p_nmounts; i++) {
-			pm = pc->p_mounts + i;
-			printf("Mount %s %5d entries\n",
-				   uuid_string(pm->pm_uuid), pm->pm_nentries);
-		}
-	}
-	
-	/*
-	 * Print entries in source or "human-readable" format.
-	 */
-	for (i = 0; i < pc->p_nentries; i++) {
-		pe = pc->p_entries + i;
-		if (source) {
-			printf("    {0x%llx, 0x%llx, 0x%x, 0x%x, 0x%x}%s\n",
-				   pe->pe_offset, pe->pe_length, pe->pe_batch, pe->pe_flags, pe->pe_mount_idx,
-				   (i < (pc->p_nentries - 1)) ? "," : "");
-		} else {
-			printf("%s %-12llu %-8llu %d 0x%x\n",
-				   uuid_string(pc->p_mounts[pe->pe_mount_idx].pm_uuid), pe->pe_offset, pe->pe_length, pe->pe_batch, pe->pe_flags);
-		}
-		if (pe->pe_flags & BC_PE_LOWPRIORITY) {
-			size_lowpri += pe->pe_length;
-		} else {
-			size += pe->pe_length;
-			size_batch[pe->pe_batch] += pe->pe_length;
-		}
-	}
-	if (source) {
-		printf("};\n");
-	} else {
-		printf("%12llu bytes\n", size);
-		printf("%12llu low-priority bytes\n", size_lowpri);
-		for (i = 0; i < BC_MAXBATCHES; i++) {
-			if (size_batch[i] != 0) {
-				printf("%12llu bytes batch %d\n", size_batch[i], i);
-			}
-		}
-	}
-	
-	PC_FREE_ZERO(pc);	
+
+	BC_print_playlist(pc);
+
+	PC_FREE_ZERO(pc);
 	return(0);
 }
 
 static void get_volume_uuid(const char* volume, uuid_t uuid_out)
-{			
+{
 	struct attrlist list = {
 		.bitmapcount = ATTR_BIT_MAP_COUNT,
 		.volattr = ATTR_VOL_INFO | ATTR_VOL_UUID,
 	};
-	
+
 	struct {
 		uint32_t size;
-		uuid_t   uuid;
+		uuid_t	 uuid;
 	} attrBuf = {0};
-	
+
 	if (0 != getattrlist(volume,  &list, &attrBuf, sizeof(attrBuf), 0)) {
 		errx(1, "unable to determine uuid for volume %s", volume);
 	}
-	
+
 	uuid_copy(uuid_out, attrBuf.uuid);
 }
 
@@ -1311,44 +1461,47 @@ unprint_playlist(const char *pfname)
 	uuid_t uuid;
 	int seen_old_style;
 	int m_nentries;
+	int m_fs_flags;
 	uint64_t unused;
 	char buf[128];
-	
-	pc = calloc(1, sizeof(*pc));
+
+	pc = BC_allocate_playlist(0, 0, 0);
 	if(!pc) errx(1, "could not allocate initial playlist");
-	
+
 	alloced = 0;
 	nentries = 0;
 	seen_old_style = 0;
-	
+
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to create");
-	
+
 	while (NULL != fgets(buf, sizeof(buf), stdin)) {
-		
+
 		/*
 		 * Parse mounts
 		 */
-		got = sscanf(buf, "Mount %s %u entries ",
-					 uuid_string, &m_nentries);
-		
-		if (got == 2) {
+		got = sscanf(buf, "Mount %s flags 0x%x, %u entries",
+					 uuid_string, &m_fs_flags, &m_nentries);
+
+		if (got == 3) {
 			/* make sure we have space for the next mount */
 			if ((pc->p_mounts = realloc(pc->p_mounts, (pc->p_nmounts + 1) * sizeof(*pc->p_mounts))) == NULL)
 				errx(1, "could not allocate memory for %d mounts", pc->p_nmounts + 1);
-			
+
 			pc->p_mounts[pc->p_nmounts].pm_nentries  = m_nentries;
+			pc->p_mounts[pc->p_nmounts].pm_fs_flags  = m_fs_flags;
+			pc->p_mounts[pc->p_nmounts].pm_nomaps = 0;
 			uuid_parse(uuid_string, pc->p_mounts[pc->p_nmounts].pm_uuid);
-			
+
 			pc->p_nmounts++;
-			
+
 			continue;
 		}
-		
+
 		/*
 		 * Parse entries
 		 */
-		
+
 		/* make sure we have space for the next entry */
 		if (nentries >= alloced) {
 			if (alloced == 0) {
@@ -1359,14 +1512,15 @@ unprint_playlist(const char *pfname)
 			if ((pc->p_entries = realloc(pc->p_entries, alloced * sizeof(*pc->p_entries))) == NULL)
 				errx(1, "could not allocate memory for %d entries", alloced);
 		}
-		
+
 		/* read input */
-		got = sscanf(buf, "%s %lli %lli %hi %hi",
+		got = sscanf(buf, "%s %llx %llx %hi %hx %llx",
 					 uuid_string,
 					 &(pc->p_entries + nentries)->pe_offset,
 					 &(pc->p_entries + nentries)->pe_length,
 					 &(pc->p_entries + nentries)->pe_batch,
-					 &(pc->p_entries + nentries)->pe_flags);
+					 &(pc->p_entries + nentries)->pe_flags,
+					 &(pc->p_entries + nentries)->pe_crypto_offset);
 		if (got == 5) {
 			uuid_parse(uuid_string, uuid);
 			for (i = 0; i < pc->p_nmounts; i++) {
@@ -1378,76 +1532,78 @@ unprint_playlist(const char *pfname)
 			if (i == pc->p_nmounts) {
 				errx(1, "entry doesn't match any existing mount:\n%s", buf);
 			}
-			
+
 			nentries++;
 			continue;
-			
+
 		}
-		
+
 		/* Support old-style format (no UUID, root volume implied) */
 		got = sscanf(buf, "%llu %llu %hu",
 					 &(pc->p_entries + nentries)->pe_offset,
 					 &(pc->p_entries + nentries)->pe_length,
 					 &(pc->p_entries + nentries)->pe_batch);
 		if (got == 3) {
-			
+
 			if (! seen_old_style) {
 				if (pc->p_nmounts > 0) {
 					errx(1, "Bad entry line (Needs mount UUID):\n%s", buf);
 				}
-				warnx("No mount UUID provided, assuuming root volume");
+				LOG("No mount UUID provided, assuuming root volume");
 				pc->p_nmounts = 1;
-				if ((pc->p_mounts = malloc(sizeof(*pc->p_mounts))) == NULL)
+				if ((pc->p_mounts = calloc(1, sizeof(*pc->p_mounts))) == NULL)
 					errx(1, "could not allocate memory for %d mounts", pc->p_nmounts);
 				pc->p_mounts[0].pm_nentries = 0;
+				pc->p_mounts[0].pm_fs_flags = 0; // Only support non-encrypted for this old style
 				get_volume_uuid("/", pc->p_mounts[0].pm_uuid);
 				seen_old_style = 1;
 			}
-			
+
 			(pc->p_entries + nentries)->pe_mount_idx = 0;
 			(pc->p_entries + nentries)->pe_flags = 0;
+			(pc->p_entries + nentries)->pe_crypto_offset = 0;
 			nentries++;
-			
+
 			continue;
 		}
-		
+
 		/* Ignore the line from print_playlist that has the total size of the cache */
 		got = sscanf(buf, "%llu bytes", &unused);
 		if (got == 1) {
 			continue;
 		}
-		
+
 		got = sscanf(buf, "%llu low-priority bytes", &unused);
 		if (got == 1) {
 			continue;
 		}
-		
+
 		/* Ignore the line from the old-style print_playlist that has the block size of the cache */
 		got = sscanf(buf, "%llu-byte blocks", &unused);
 		if (got == 1) {
 			continue;
 		}
-		
+
 		/* Ignore the line from theold-style print_playlist that has the total size of the cache */
 		got = sscanf(buf, "%llu blocks", &unused);
 		if (got == 1) {
 			continue;
 		}
-		
+
 		errx(1, "Bad input line: '%s'", buf);
 	}
-	
+
 	pc->p_nentries = nentries;
 	if (seen_old_style)
 		pc->p_mounts[0].pm_nentries = nentries;
 	
 	if (BC_verify_playlist(pc)) {
 		errx(1, "Playlist failed verification");
-	}	
-	
+	}
+
 	if ((error = BC_write_playlist(pfname, pc)) != 0)
 		errx(1, "could not create playlist: %d %s", error, strerror(error));
-	
+
 	PC_FREE_ZERO(pc);
 	return(0);
 }
@@ -1459,189 +1615,23 @@ static int
 generalize_playlist(const char *pfname)
 {
 	struct BC_playlist *pc;
-	
+
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to print");
-	
+
 	/*
 	 * Suck in the playlist.
 	 */
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist");
-	
+
 	if (pc->p_nmounts != 1)
 		errx(1, "Playlist generalization only works on playlists with a single mount");
-	
+
 	uuid_clear(pc->p_mounts[0].pm_uuid);
 	BC_write_playlist(pfname, pc);
-	
-	PC_FREE_ZERO(pc);
-	return(0);
-}
 
-/*
- * Read a canned playlist specification from stdin and generate
- * a sorted playlist from it, as applied to the given root volume
- * (which defaults to "/"). This is used during the OS Install to
- * seed a bootcache for first boot from a list of files + offsets.
- */
-static int
-generate_playlist(const char *pfname, const char *root)
-{
-	struct BC_playlist *pc;
-	int nentries, alloced;
-    long block_size;
-	
-	if (pfname == NULL)
-		errx(1, "must specify a playlist file to create");
-	
-	if (root == NULL)
-		root = "/";
-	if (strlen(root) >= 512)
-		errx(1, "root path must be less than 512 characters");
-	
-	pc = malloc(sizeof(*pc));
-	
-	/* Setup the root volume as the only mount */
-	pc->p_nmounts = 1;
-	if ((pc->p_mounts = malloc(sizeof(*pc->p_mounts))) == NULL)
-		errx(1, "could not allocate memory for %d mounts", pc->p_nmounts);
-	pc->p_mounts[0].pm_nentries = 0;
-    
-	struct statfs statfs_buf;
-    if (0 != statfs(root, &statfs_buf)) {
-		warnx("Unable to stafs %s: %d %s", root, errno, strerror(errno));
-        // Assume 512-byte block size
-        block_size = 512;
-	} else {
-        block_size = statfs_buf.f_bsize;
-	}
-	
-	get_volume_uuid(root, pc->p_mounts[0].pm_uuid);
-	
-	/* Fill in the entries */
-	nentries = 0;
-	alloced = 4096; /* we know the rough size of the list */
-	pc->p_entries = malloc(alloced * sizeof(*pc->p_entries));
-	if(!pc->p_entries) errx(1, "could not allocate initial playlist");	
-	for (;;) { /* go over each line */
-		
-		/* read input */
-		int64_t offset, count;
-		int batch;
-		if(fscanf(stdin, "%lli %lli %i ", &offset, &count, &batch) < 3) break;
-		
-		/* build the path */
-		char path[2048];
-		unsigned int path_offset = (unsigned int) strlen(root);
-		strlcpy(path, root, sizeof(path));
-		while(path_offset < 2048) {
-			int read = fgetc(stdin);
-			if(read == EOF || read == '\n') {
-				path[path_offset] = '\0';
-				break;
-			} else {
-				path[path_offset++] = (char) read;
-			}
-		}
-		if(path_offset == 2048) continue;
-		
-		/* open and stat the file */
-		struct stat sb;
-		int fd = open(path, O_RDONLY);
-		if(fd == -1 || fstat(fd, &sb) < 0) {
-			/* give up on this line */
-			if(fd != -1) close(fd);
-			continue;
-		}
-        
-        // Round up to the block size
-        sb.st_size = (((sb.st_size + (block_size - 1)) / block_size) * block_size);
-		
-		/* add metadata blocks for file */
-		/*	TODO:
-		 as a further enhancement, since we know we're going to access this file
-		 by name, it would make sense to add to the bootcache any blocks that
-		 will be used in doing so, including the directory entries of the parent
-		 directories on up the chain.
-		 */
-		
-		/* find blocks in the file */
-		off_t position;
-		for(position = offset; position < offset + count && position < sb.st_size; ) {
-			
-			off_t remaining = (count - (position - offset));
-			struct log2phys l2p = {
-				.l2p_flags       = 0,
-				.l2p_devoffset   = position,   //As an IN parameter to F_LOG2PHYS_EXT, this is the offset into the file
-				.l2p_contigbytes = remaining, //As an IN parameter to F_LOG2PHYS_EXT, this is the number of bytes to be queried
-			};
-			
-			int ret = fcntl(fd, F_LOG2PHYS_EXT, &l2p);
-			if (ret != 0) {
-				errx(1, "fcntl(%d (%s), F_LOG2PHYS_EXT, &{.offset: %lld, .bytes: %lld}) => %d (errno: %d %s)",
-					 fd, path, l2p.l2p_devoffset, l2p.l2p_contigbytes, ret, errno, strerror(errno));
-				break;
-			}
-			
-			// l2p.l2p_devoffset;   as an OUT parameter from F_LOG2PHYS_EXT, this is the offset in bytes on the disk
-			// l2p.l2p_contigbytes; as an OUT parameter from F_LOG2PHYS_EXT, this is the number of bytes in the range
-			
-			position += l2p.l2p_contigbytes;
-			
-			if (remaining < l2p.l2p_contigbytes ) {
-				warnx("Invalid size returned for %d from disk (%lld bytes requested, %lld bytes returned)", fd, remaining, l2p.l2p_contigbytes);
-				break;
-			}
-			
-			if (l2p.l2p_contigbytes <= 0) {
-				//RLOG(INFO, "%"PRIdoff":%"PRIdoff" returned %"PRIdoff":%"PRIdoff"\n", position, remaining, l2p.l2p_devoffset, l2p.l2p_contigbytes);
-				break;
-			}
-			
-			if (l2p.l2p_devoffset + l2p.l2p_contigbytes <= l2p.l2p_devoffset) {
-				warnx("Invalid block range return for %d from disk (%lld:%lld returned %lld:%lld)\n", fd, position, remaining, l2p.l2p_devoffset, l2p.l2p_contigbytes);
-				break;
-			}
-			
-			/* create the new entry */
-			pc->p_entries[nentries].pe_offset = l2p.l2p_devoffset;
-			pc->p_entries[nentries].pe_length = l2p.l2p_contigbytes;
-			pc->p_entries[nentries].pe_batch = batch;
-			pc->p_entries[nentries].pe_flags = 0;
-			pc->p_entries[nentries].pe_mount_idx = 0;
-			
-			/* create space for a new entry */
-			if(++nentries >= alloced) {
-				alloced *= 2;
-				if((pc->p_entries = realloc(pc->p_entries, alloced * sizeof(*pc->p_entries))) == NULL) {
-					errx(1, "could not allocate memory for %d entries", alloced);
-				}
-			}
-			
-		}
-		close(fd);
-	}
-	if(nentries == 0)
-		errx(1, "no blocks found for playlist");
-	
-	pc->p_nentries = nentries;
-	pc->p_mounts[0].pm_nentries = nentries;
-	
-	if (BC_verify_playlist(pc)) {
-		errx(1, "Playlist failed verification");
-	}	
-	
-	/* sort the playlist */
-#ifdef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
-	BC_sort_playlist(pc);
-#endif
-	BC_coalesce_playlist(pc);
-	
-	/* write the playlist */
-	if (BC_write_playlist(pfname, pc) != 0)
-		errx(1, "could not create playlist");
-	
+	PC_FREE_ZERO(pc);
 	return(0);
 }
 
@@ -1655,39 +1645,39 @@ truncate_playlist(const char *pfname, char *larg)
 	struct BC_playlist *pc;
 	char *cp;
 	int length, error, i;
-	
+
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to truncate");
-	
+
 	length = (int) strtol(larg, &cp, 0);
 	if ((*cp != 0) || (length < 1))
 		err(1, "bad truncate length '%s'", larg);
-	
+
 	/*
 	 * Suck in the playlist.
 	 */
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist to truncate");
-	
+
 	/*
 	 * Make sure the new length is shorter.
 	 */
 	if (length > pc->p_nentries) {
-		warnx("playlist is shorter than specified truncate length");
+		LOG("playlist is shorter than specified truncate length");
 	} else {
-		
+
 		for (i = length; i < pc->p_nentries; i++) {
 			pc->p_mounts[pc->p_entries[i].pe_mount_idx].pm_nentries--;
 		}
 		for (i = 0; i < pc->p_nmounts; i++) {
-			if (pc->p_mounts[i].pm_nentries == 0) {
+			if (pc->p_mounts[i].pm_nentries == 0 && pc->p_mounts[i].pm_nomaps == 0) {
 				memcpy(pc->p_mounts + i, pc->p_mounts + i + 1, pc->p_nmounts - i - 1);
 				pc->p_nmounts--;
 				i--;
 			}
 		}
 		pc->p_nentries = length;
-		
+
 		/*
 		 * Write a shortened version of the same playlist.
 		 */

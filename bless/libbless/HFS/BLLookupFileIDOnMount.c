@@ -115,9 +115,13 @@ int BLLookupFileIDOnMount64(BLContextPtr context, const char *mountpoint, uint64
         return errno;
     }
     
-    err = fsgetpath(out, bufsize, &sfs.f_fsid, fileID);
-    if (err < 0) return errno;
-    
+	if (__builtin_available(macOS 10.13, *)) {
+		err = fsgetpath(out, bufsize, &sfs.f_fsid, fileID);
+		if (err < 0) return errno;
+	} else {
+		err = ENOTSUP;
+	}
+	
     return 0;
 }
 

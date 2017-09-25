@@ -59,8 +59,6 @@ extern int do_quiet;
 /* If 1 attempt to be as verbose as possible. */
 extern int do_verbose;
 
-extern const char* prog_name;
-
 __END_DECLS
 
 #endif /*  _SECURITY_H_ */

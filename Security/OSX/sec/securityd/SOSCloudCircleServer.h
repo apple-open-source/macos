@@ -25,9 +25,10 @@
 #ifndef _SECURITY_SOSCLOUDCIRCLESERVER_H_
 #define _SECURITY_SOSCLOUDCIRCLESERVER_H_
 
-#include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSAccount.h>
-
+#import <Security/SecureObjectSync/SOSCloudCircle.h>
+#import <Security/SecureObjectSync/SOSRing.h>
+#import <Security/SecKey.h>
+#import <xpc/xpc.h>
 
 __BEGIN_DECLS
 
@@ -101,7 +102,6 @@ SOSSecurityPropertyResultCode SOSCCSecurityProperty_Server(CFStringRef property,
 CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error);
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error);
 bool SOSCCSetLastDepartureReason_Server(enum DepartureReason reason, CFErrorRef *error);
-bool SOSCCSetHSA2AutoAcceptInfo_Server(CFDataRef pubKey, CFErrorRef *error);
 
 bool SOSCCProcessEnsurePeerRegistration_Server(CFErrorRef* error);
 
@@ -124,7 +124,6 @@ CF_RETURNS_RETAINED CFDataRef SOSWrapToBackupSliceKeyBag(SOSBackupSliceKeyBagRef
 // MARK: Internal kicks.
 //
 CF_RETURNS_RETAINED CFArrayRef SOSCCHandleUpdateMessage(CFDictionaryRef updates);
-void sync_the_last_data_to_kvs(SOSAccountRef account, bool waitForeverForSynchronization);
 
 
 // Expected to be called when the data source changes.
@@ -136,17 +135,16 @@ void SOSCCRequestSyncWithBackupPeer(CFStringRef backupPeerId);
 bool SOSCCIsSyncPendingFor(CFStringRef peerID, CFErrorRef *error);
 
 void SOSCCEnsurePeerRegistration(void);
-void SOSCCAddSyncablePeerBlock(CFStringRef ds_name, SOSAccountSyncablePeersBlock changeBlock);
+typedef void (^SOSAccountSyncablePeersBlock)(CFArrayRef trustedPeers, CFArrayRef addedPeers, CFArrayRef removedPeers);
+
 dispatch_queue_t SOSCCGetAccountQueue(void);
+
+CFTypeRef GetSharedAccountRef(void); // returns SOSAccount* but this header is imported by C files, so we cast through CFTypeRef
 
 //
 // MARK: Internal access to local account for tests.
 //
-typedef SOSDataSourceFactoryRef (^SOSCCAccountDataSourceFactoryBlock)();
-
-SOSAccountRef SOSKeychainAccountGetSharedAccount(void);
-bool SOSKeychainAccountSetFactoryForAccount(SOSCCAccountDataSourceFactoryBlock factory);
-
+CFTypeRef SOSKeychainAccountGetSharedAccount(void);
 //
 // MARK: Internal SPIs for testing
 //
@@ -166,8 +164,6 @@ bool SOSKeychainSaveAccountDataAndPurge(CFErrorRef *error);
 // MARK: Constants for where we store persistent information in the keychain
 //
 
-extern CFStringRef kSOSInternalAccessGroup;
-
 extern CFStringRef kSOSAccountLabel;
 extern CFStringRef kSOSPeerDataLabel;
 
@@ -183,13 +179,23 @@ CFDictionaryRef SOSCCCopyBackupInformation_Server(CFErrorRef *error);
 
 SOSPeerInfoRef SOSCCCopyApplication_Server(CFErrorRef *error);
 CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef *error);
-bool SOSCCJoinWithCircleJoiningBlob_Server(CFDataRef joiningBlob, CFErrorRef *error);
+bool SOSCCJoinWithCircleJoiningBlob_Server(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
+CFDataRef SOSCCCopyInitialSyncData_Server(CFErrorRef *error);
+bool SOSCCCleanupKVSKeys_Server(CFErrorRef *error);
 
 bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error);
 bool SOSCCAccountIsNew_Server(CFErrorRef *error);
+bool SOSCCTestPopulateKVSWithBadKeys_Server(CFErrorRef *error);
+
+void sync_the_last_data_to_kvs(CFTypeRef account, bool waitForeverForSynchronization);
 
 bool SOSCCMessageFromPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error);
 bool SOSCCSendToPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_endpoint_t SOSCCCreateSOSEndpoint_server(CFErrorRef *error);
+
+void SOSCCPerformWithOctagonSigningKey(void (^action)(SecKeyRef octagonPrivKey, CFErrorRef error));
+void SOSCCResetOTRNegotiation_Server(CFStringRef peerid);
+void SOSCCPeerRateLimiterSendNextMessage_Server(CFStringRef peerid, CFStringRef accessGroup);
 
 __END_DECLS
 

@@ -30,10 +30,6 @@
 #include "complete.mdh"
 #include "compcore.pro"
 
-/* The last completion widget called. */
-
-static Widget lastcompwidget;
-
 /* Flags saying what we have to do with the result. */
 
 /**/
@@ -429,6 +425,7 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
 	}
     } else {
 	invalidatelist();
+	lastambig = isset(BASHAUTOLIST);
 	if (forcelist)
 	    clearlist = 1;
 	zlemetacs = 0;
@@ -471,8 +468,7 @@ before_complete(UNUSED(Hookdef dummy), int *lst)
 
     /* If we are doing a menu-completion... */
 
-    if (minfo.cur && menucmp && *lst != COMP_LIST_EXPAND && 
-	(menucmp != 1 || !compwidget || compwidget == lastcompwidget)) {
+    if (minfo.cur && menucmp && *lst != COMP_LIST_EXPAND) {
 	do_menucmp(*lst);
 	return 1;
     }
@@ -481,7 +477,6 @@ before_complete(UNUSED(Hookdef dummy), int *lst)
 	onlyexpl = listdat.valid = 0;
 	return 1;
     }
-    lastcompwidget = compwidget;
 
     /* We may have to reset the cursor to its position after the   *
      * string inserted by the last completion. */
@@ -841,6 +836,7 @@ callcompfunc(char *s, char *fn)
 	endparamscope();
 	lastcmd = 0;
 	incompfunc = icf;
+	startauto = 0;
 
 	if (!complist)
 	    uselist = 0;
@@ -888,8 +884,13 @@ callcompfunc(char *s, char *fn)
 		useline = 1, usemenu = 1;
 	    else if (strpfx("auto", compinsert))
 		useline = 1, usemenu = 2;
-	    else
+	    else {
 		useline = usemenu = 0;
+		/* if compstate[insert] was emptied, no unambiguous prefix
+		 * ever gets inserted so allow the next tab to already start
+		 * menu completion */
+		startauto = lastambig = isset(AUTOMENU);
+	    }
 
 	    if (useline && (p = strchr(compinsert, ':'))) {
 		insmnum = atoi(++p);
@@ -902,7 +903,7 @@ callcompfunc(char *s, char *fn)
 #endif
 	    }
 	}
-	startauto = ((compinsert &&
+	startauto = startauto || ((compinsert &&
 		      !strcmp(compinsert, "automenu-unambiguous")) ||
 		     (bashlistfirst && isset(AUTOMENU) &&
                       (!compinsert || !*compinsert)));
@@ -1049,6 +1050,13 @@ makecomplist(char *s, int incmd, int lst)
     }
 }
 
+/*
+ * Quote 's' according to compqstack, aka $compstate[all_quotes].
+ *
+ * If 'ign' is 1, skip the innermost quoting level.  Otherwise 'ign'
+ * must be 0.
+ */
+
 /**/
 mod_export char *
 multiquote(char *s, int ign)
@@ -1056,12 +1064,11 @@ multiquote(char *s, int ign)
     if (s) {
 	char *os = s, *p = compqstack;
 
-	if (p && *p && (ign < 1 || p[ign])) {
-	    if (ign > 0)
-		p += ign;
+	if (p && *p && (ign == 0 || p[1])) {
+	    if (ign)
+		p++;
 	    while (*p) {
-		if (ign >= 0 || p[1])
-		    s = quotestring(s, NULL, *p);
+		s = quotestring(s, *p);
 		p++;
 	    }
 	}
@@ -1070,6 +1077,12 @@ multiquote(char *s, int ign)
     DPUTS(1, "BUG: null pointer in multiquote()");
     return NULL;
 }
+
+/*
+ * tildequote(s, ign): Equivalent to multiquote(s, ign), except that if
+ * compqstack[0] == QT_BACKSLASH and s[0] == '~', then that tilde is not
+ * quoted.
+ */
 
 /**/
 mod_export char *
@@ -1970,6 +1983,11 @@ get_user_var(char *nam)
     }
 }
 
+/*
+ * If KEYS, then NAME is an associative array; return its keys.
+ * Else, NAME is a plain array; return its elements.
+ */
+
 static char **
 get_data_arr(char *name, int keys)
 {
@@ -2031,16 +2049,17 @@ addmatch(char *str, int flags, char ***dispp, int line)
 int
 addmatches(Cadata dat, char **argv)
 {
+    /* ms: "match string" - string to use as completion.
+     * Overloaded at one place as a temporary. */
     char *s, *ms, *lipre = NULL, *lisuf = NULL, *lpre = NULL, *lsuf = NULL;
     char **aign = NULL, **dparr = NULL, *oaq = autoq, *oppre = dat->ppre;
     char *oqp = qipre, *oqs = qisuf, qc, **disp = NULL, *ibuf = NULL;
     char **arrays = NULL;
-    int lpl, lsl, pl, sl, bcp = 0, bcs = 0, bpadd = 0, bsadd = 0;
+    int lpl, lsl, bcp = 0, bcs = 0, bpadd = 0, bsadd = 0;
     int ppl = 0, psl = 0, ilen = 0;
     int llpl = 0, llsl = 0, nm = mnum, gflags = 0, ohp = haspattern;
     int isexact, doadd, ois = instring, oib = inbackt;
     Cline lc = NULL, pline = NULL, sline = NULL;
-    Cmatch cm;
     struct cmlist mst;
     Cmlist oms = mstack;
     Patprog cp = NULL, *pign = NULL;
@@ -2199,9 +2218,14 @@ addmatches(Cadata dat, char **argv)
 
 	    /* Test if there is an existing -P prefix. */
 	    if (dat->pre && *dat->pre) {
-		pl = pfxlen(dat->pre, lpre);
-		llpl -= pl;
-		lpre += pl;
+		int prefix_length = pfxlen(dat->pre, lpre);
+		if (dat->pre[prefix_length] == '\0' ||
+		    lpre[prefix_length] == '\0') {
+		    /* $compadd_args[-P] is a prefix of ${PREFIX}, or
+		     * vice-versa. */
+		    llpl -= prefix_length;
+		    lpre += prefix_length;
+		}
 	    }
 	}
 	/* Now duplicate the strings we have from the command line. */
@@ -2413,6 +2437,7 @@ addmatches(Cadata dat, char **argv)
 	if (dat->psuf)
 	    psl = strlen(dat->psuf);
 	for (; (s = *argv); argv++) {
+	    int sl;
 	    bpl = obpl;
 	    bsl = obsl;
 	    if (disp) {
@@ -2473,6 +2498,7 @@ addmatches(Cadata dat, char **argv)
 		goto next_array;
 	    }
 	    if (doadd) {
+		Cmatch cm;
 		Brinfo bp;
 
 		for (bp = obpl; bp; bp = bp->next)

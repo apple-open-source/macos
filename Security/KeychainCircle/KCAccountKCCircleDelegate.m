@@ -34,9 +34,9 @@
  Data the acceptor made to allow us to join the circle.
 
  */
-- (bool) processCircleJoinData: (NSData*) circleJoinData error: (NSError**)error {
+- (bool) processCircleJoinData: (NSData*) circleJoinData version:(PiggyBackProtocolVersion) version error: (NSError**)error {
     CFErrorRef failure = NULL;
-    bool result = SOSCCJoinWithCircleJoiningBlob((__bridge CFDataRef) circleJoinData, &failure);
+    bool result = SOSCCJoinWithCircleJoiningBlob((__bridge CFDataRef) circleJoinData, version, &failure);
     if (failure != NULL && error != nil) {
         *error = (__bridge_transfer NSError*) failure;
     }
@@ -63,6 +63,15 @@
                         error: (NSError**) error {
     CFErrorRef failure = NULL;
     CFDataRef result = SOSCCCopyCircleJoiningBlob(peer, &failure);
+    if (failure != NULL && error != nil) {
+        *error = (__bridge_transfer NSError*) failure;
+    }
+    return (__bridge_transfer NSData*) result;
+}
+
+-(NSData*) circleGetInitialSyncViews: (NSError**) error{
+    CFErrorRef failure = NULL;
+    CFDataRef result = SOSCCCopyInitialSyncData(&failure);
     if (failure != NULL && error != nil) {
         *error = (__bridge_transfer NSError*) failure;
     }

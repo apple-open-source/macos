@@ -189,10 +189,10 @@ static uint32_t getalg(cnContextPtr context, const char * name)
         default:
             return 0;
     }
-            
-    size_t nlen = strlen(name);
+    
     uint32_t alg = 0;
     for (int x = 0; x < num; x++) {
+        size_t nlen = strlen(algMap[x].name);
         if (strncasecmp(algMap[x].name, name, nlen) == 0) {
             alg = algMap[x].alg;
             break;
@@ -404,9 +404,10 @@ static void pcrc(cnContextPtr context, uint64_t crc)
     } else {
         fprintf(context->out_file, "%llx", crc);
     }
-    PRINT(" %llu", context->totalBytes);
+    PRINT(" %i", context->alg);
     if (context->file)
         PRINT(" %s", context->file);
+    PRINT(" %llu", context->totalBytes);
     fprintf(context->out_file, "\n");
 }
 

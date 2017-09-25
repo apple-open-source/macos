@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/builtins/getopts5.0 265616 2014-05-07 21:45:25Z jilles $
 
 set -- -x arg
 opt=not

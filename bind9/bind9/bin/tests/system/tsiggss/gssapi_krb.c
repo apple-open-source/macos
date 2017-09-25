@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2011  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,13 +14,19 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: gssapi_krb.c,v 1.3 2011/04/05 19:16:54 smann Exp $ */
 
 #include <config.h>
 
 int
 main() {
-#if defined(HAVE_GSSAPI_H) && defined(HAVE_KRB5_H)
+#if (defined(HAVE_GSSAPI_H) || \
+     defined(HAVE_GSSAPI_GSSAPI_H)) && \
+    (defined(HAVE_KRB5_H) || \
+     defined(HAVE_KRB5_KRB5_H) || \
+     defined(HAVE_GSSAPI_GSSAPI_KRB5_H) || \
+     defined(HAVE_GSSAPI_KRB5_H) || \
+     defined(HAVE_KERBEROSV5_KRB5_H))
 	return (0);
 #else
 	return (1);

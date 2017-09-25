@@ -43,7 +43,8 @@
 #include <unistd.h>
 
 
-#define	SC_LOG_HANDLE	__log_PreferencesMonitor()
+#define	SC_LOG_HANDLE		__log_PreferencesMonitor()
+#define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -327,8 +328,12 @@ establishNewPreferences()
 	}
 
 	if (!ok) {
-		SC_log(LOG_NOTICE, "Could not establish network configuration: %s",
-		       SCErrorString(sc_status));
+		if (sc_status == kSCStatusOK) {
+			SC_log(LOG_NOTICE, "Network configuration not updated");
+		} else {
+			SC_log(LOG_NOTICE, "Could not establish network configuration: %s",
+			       SCErrorString(sc_status));
+		}
 	}
 
 	(void)SCPreferencesUnlock(prefs);
@@ -382,8 +387,6 @@ watchSCDynamicStore()
 }
 
 
-
-
 static Boolean
 previousConfigurationAvailable()
 {
@@ -408,6 +411,7 @@ done:
 static void
 storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
+#pragma unused(info)
 	CFDictionaryRef	dict;
 	Boolean		quiet		= FALSE;
 	Boolean		timeout		= FALSE;
@@ -542,6 +546,7 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 static void
 updateCache(const void *key, const void *value, void *context)
 {
+#pragma unused(context)
 	CFStringRef		configKey	= (CFStringRef)key;
 	CFPropertyListRef	configData	= (CFPropertyListRef)value;
 	CFPropertyListRef	cacheData;
@@ -1056,6 +1061,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    SCPreferencesNotification   notificationType,
 		    void			*info)
 {
+#pragma unused(info)
 	os_activity_t	activity;
 
 	activity = os_activity_create("processing [SC] preferences.plist changes",
@@ -1118,6 +1124,8 @@ __private_extern__
 void
 load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
+#pragma unused(bundle)
+#pragma unused(bundleVerbose)
 	SC_log(LOG_DEBUG, "load() called");
 	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 

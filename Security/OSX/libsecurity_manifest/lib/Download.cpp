@@ -109,7 +109,6 @@ void Download::GoOrNoGo (SecTrustResultType result)
 		// we don't in this case, as the Apple signing root had better be
 		// in X509 anchors.  I'm leaving this broken out for ease of use
 		// in case we change our minds...
-		case kSecTrustResultConfirm:
 		case kSecTrustResultRecoverableTrustFailure:
 		case kSecTrustResultUnspecified:
 		{
@@ -181,7 +180,7 @@ void Download::ParseTicket (CFDataRef ticket)
 	
 	// from the hashing dictionary, get the sector size
 	number = (CFNumberRef) CFDictionaryGetValue (hashInfo, SD_XML_SECTOR_SIZE);
-	CFNumberGetValue (number, kCFNumberSInt32Type, &mSectorSize);
+	CFNumberGetValue (number, kCFNumberSInt64Type, &mSectorSize);
 	
 	// get the hashes
 	mHashes = (CFDataRef) CFDictionaryGetValue (hashInfo, SD_XML_DIGESTS);

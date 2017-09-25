@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GraphicsLayerCARemote_h
-#define GraphicsLayerCARemote_h
+#pragma once
 
 #include <WebCore/GraphicsLayerCA.h>
 #include <WebCore/PlatformLayer.h>
@@ -48,9 +47,9 @@ public:
 private:
     bool isGraphicsLayerCARemote() const override { return true; }
 
-    PassRefPtr<WebCore::PlatformCALayer> createPlatformCALayer(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient* owner) override;
-    PassRefPtr<WebCore::PlatformCALayer> createPlatformCALayer(PlatformLayer*, WebCore::PlatformCALayerClient* owner) override;
-    PassRefPtr<WebCore::PlatformCAAnimation> createPlatformCAAnimation(WebCore::PlatformCAAnimation::AnimationType, const String& keyPath) override;
+    Ref<WebCore::PlatformCALayer> createPlatformCALayer(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient* owner) override;
+    Ref<WebCore::PlatformCALayer> createPlatformCALayer(PlatformLayer*, WebCore::PlatformCALayerClient* owner) override;
+    Ref<WebCore::PlatformCAAnimation> createPlatformCAAnimation(WebCore::PlatformCAAnimation::AnimationType, const String& keyPath) override;
 
     // PlatformCALayerRemote can't currently proxy directly composited image contents, so opt out of this optimization.
     bool shouldDirectlyCompositeImage(WebCore::Image*) const override { return false; }
@@ -61,5 +60,3 @@ private:
 } // namespace WebKit
 
 SPECIALIZE_TYPE_TRAITS_GRAPHICSLAYER(WebKit::GraphicsLayerCARemote, isGraphicsLayerCARemote())
-
-#endif // GraphicsLayerCARemote_h

@@ -89,12 +89,8 @@ void Font::platformInit()
     m_fontMetrics.setDescent(descent);
     m_fontMetrics.setCapHeight(capHeight);
 
-#if PLATFORM(EFL)
-    m_fontMetrics.setLineSpacing(ascent + descent + lineGap);
-#else
     // Match CoreGraphics metrics.
     m_fontMetrics.setLineSpacing(lroundf(ascent) + lroundf(descent) + lroundf(lineGap));
-#endif
     m_fontMetrics.setLineGap(lineGap);
 
     cairo_text_extents_t textExtents;
@@ -129,7 +125,7 @@ RefPtr<Font> Font::platformCreateScaledFont(const FontDescription& fontDescripti
         scaledFontDescription,
         m_platformData.syntheticBold(),
         m_platformData.syntheticOblique()),
-        isCustomFont(), false);
+        origin(), Interstitial::No);
 }
 
 void Font::determinePitch()

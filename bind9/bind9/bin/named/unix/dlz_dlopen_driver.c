@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2011-2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dlz_dlopen_driver.c,v 1.1.4.6 2012/02/22 23:46:35 tbox Exp $ */
+/* $Id$ */
 
 #include <config.h>
 
@@ -143,7 +143,7 @@ dlopen_dlz_allowzonexfr(void *driverarg, void *dbdata, const char *name,
 
 static isc_result_t
 dlopen_dlz_authority(const char *zone, void *driverarg, void *dbdata,
-		   dns_sdlzlookup_t *lookup)
+		     dns_sdlzlookup_t *lookup)
 {
 	dlopen_data_t *cd = (dlopen_data_t *) dbdata;
 	isc_result_t result;
@@ -177,7 +177,9 @@ dlopen_dlz_findzonedb(void *driverarg, void *dbdata, const char *name)
 
 static isc_result_t
 dlopen_dlz_lookup(const char *zone, const char *name, void *driverarg,
-		  void *dbdata, dns_sdlzlookup_t *lookup)
+		  void *dbdata, dns_sdlzlookup_t *lookup,
+		  dns_clientinfomethods_t *methods,
+		  dns_clientinfo_t *clientinfo)
 {
 	dlopen_data_t *cd = (dlopen_data_t *) dbdata;
 	isc_result_t result;
@@ -185,7 +187,8 @@ dlopen_dlz_lookup(const char *zone, const char *name, void *driverarg,
 	UNUSED(driverarg);
 
 	MAYBE_LOCK(cd);
-	result = cd->dlz_lookup(zone, name, cd->dbdata, lookup);
+	result = cd->dlz_lookup(zone, name, cd->dbdata, lookup,
+				methods, clientinfo);
 	MAYBE_UNLOCK(cd);
 	return (result);
 }
@@ -225,7 +228,9 @@ dlopen_dlz_create(const char *dlzname, unsigned int argc, char *argv[],
 		return (ISC_R_FAILURE);
 	}
 
-	isc_mem_create(0, 0, &mctx);
+	result = isc_mem_create(0, 0, &mctx);
+	if (result != ISC_R_SUCCESS)
+		return (result);
 
 	cd = isc_mem_get(mctx, sizeof(*cd));
 	if (cd == NULL) {
@@ -238,16 +243,20 @@ dlopen_dlz_create(const char *dlzname, unsigned int argc, char *argv[],
 
 	cd->dl_path = isc_mem_strdup(cd->mctx, argv[1]);
 	if (cd->dl_path == NULL) {
+		result = ISC_R_NOMEMORY;
 		goto failed;
 	}
 
 	cd->dlzname = isc_mem_strdup(cd->mctx, dlzname);
 	if (cd->dlzname == NULL) {
+		result = ISC_R_NOMEMORY;
 		goto failed;
 	}
 
 	/* Initialize the lock */
-	isc_mutex_init(&cd->lock);
+	result = isc_mutex_init(&cd->lock);
+	if (result != ISC_R_SUCCESS)
+		goto failed;
 
 	/* Open the library */
 	dlopen_flags = RTLD_NOW|RTLD_GLOBAL;
@@ -270,6 +279,7 @@ dlopen_dlz_create(const char *dlzname, unsigned int argc, char *argv[],
 		dlopen_log(ISC_LOG_ERROR,
 			   "dlz_dlopen failed to open library '%s' - %s",
 			   cd->dl_path, dlerror());
+		result = ISC_R_FAILURE;
 		goto failed;
 	}
 
@@ -288,6 +298,7 @@ dlopen_dlz_create(const char *dlzname, unsigned int argc, char *argv[],
 	    cd->dlz_findzonedb == NULL)
 	{
 		/* We're missing a required symbol */
+		result = ISC_R_FAILURE;
 		goto failed;
 	}
 
@@ -323,6 +334,7 @@ dlopen_dlz_create(const char *dlzname, unsigned int argc, char *argv[],
 			   "dlz_dlopen: incorrect version %d "
 			   "should be %d in '%s'",
 			   cd->version, DLZ_DLOPEN_VERSION, cd->dl_path);
+		result = ISC_R_FAILURE;
 		goto failed;
 	}
 
@@ -351,11 +363,11 @@ dlopen_dlz_create(const char *dlzname, unsigned int argc, char *argv[],
 
 failed:
 	dlopen_log(ISC_LOG_ERROR, "dlz_dlopen of '%s' failed", dlzname);
-	if (cd->dl_path)
+	if (cd->dl_path != NULL)
 		isc_mem_free(mctx, cd->dl_path);
-	if (cd->dlzname)
+	if (cd->dlzname != NULL)
 		isc_mem_free(mctx, cd->dlzname);
-	if (dlopen_flags)
+	if (dlopen_flags != 0)
 		(void) isc_mutex_destroy(&cd->lock);
 #ifdef HAVE_DLCLOSE
 	if (cd->dl_handle)
@@ -365,7 +377,6 @@ failed:
 	isc_mem_destroy(&mctx);
 	return (result);
 }
-
 
 /*
  * Called when bind is shutting down

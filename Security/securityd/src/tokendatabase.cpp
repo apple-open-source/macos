@@ -711,7 +711,6 @@ void TokenDatabase::findRecordHandle(Database::Record *rRecord,
 	GUARD
 	access().Tokend::ClientSession::findRecordHandle(record->tokenHandle(),
 		inAttributes, inAttributesLength, data, hKey, outAttributes, outAttributesLength);
-	rRecord = record;
 	if (hKey != noKey && data) {		// tokend returned a key reference & data
 		CssmKey &keyForm = *data->interpretedAs<CssmKey>(CSSMERR_CSP_INVALID_KEY);
 		key = new TokenKey(*this, hKey, keyForm.header());

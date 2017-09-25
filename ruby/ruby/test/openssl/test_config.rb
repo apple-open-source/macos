@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require_relative 'utils'
 
 class OpenSSL::TestConfig < Test::Unit::TestCase
@@ -17,7 +18,7 @@ __EOD__
   end
 
   def teardown
-    @tmpfile.unlink
+    @tmpfile.close!
   end
 
   def test_constants
@@ -121,13 +122,12 @@ __EOC__
     assert_equal("", c.to_s)
     assert_equal([], c.sections)
     #
-    file = Tempfile.open("openssl.cnf")
-    file.close
-    c = OpenSSL::Config.load(file.path)
-    assert_equal("[ default ]\n\n", c.to_s)
-    assert_equal(['default'], c.sections)
-  ensure
-    file.unlink if file
+    Tempfile.create("openssl.cnf") {|file|
+      file.close
+      c = OpenSSL::Config.load(file.path)
+      assert_equal("[ default ]\n\n", c.to_s)
+      assert_equal(['default'], c.sections)
+    }
   end
 
   def test_initialize
@@ -137,13 +137,12 @@ __EOC__
   end
 
   def test_initialize_with_empty_file
-    file = Tempfile.open("openssl.cnf")
-    file.close
-    c = OpenSSL::Config.new(file.path)
-    assert_equal("[ default ]\n\n", c.to_s)
-    assert_equal(['default'], c.sections)
-  ensure
-    file.unlink if file
+    Tempfile.create("openssl.cnf") {|file|
+      file.close
+      c = OpenSSL::Config.new(file.path)
+      assert_equal("[ default ]\n\n", c.to_s)
+      assert_equal(['default'], c.sections)
+    }
   end
 
   def test_initialize_with_example_file
@@ -169,7 +168,7 @@ __EOC__
   end
 
   def test_value
-    # supress deprecation warnings
+    # suppress deprecation warnings
     OpenSSL::TestUtils.silent do
       assert_equal('CA_default', @it.value('ca', 'default_ca'))
       assert_equal(nil, @it.value('ca', 'no such key'))
@@ -296,4 +295,4 @@ __EOC__
     @it['newsection'] = {'a' => 'b'}
     assert_not_equal(@it.sections.sort, c.sections.sort)
   end
-end if defined?(OpenSSL)
+end if defined?(OpenSSL::TestUtils)

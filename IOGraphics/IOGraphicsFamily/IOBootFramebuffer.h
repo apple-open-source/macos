@@ -25,8 +25,9 @@
 #ifndef _IOKIT_IOBOOTFRAMEBUFFER_H
 #define _IOKIT_IOBOOTFRAMEBUFFER_H
 
-#include        <IOKit/graphics/IOFramebuffer.h>
 #include <IOKit/IOPlatformExpert.h>
+
+#include <IOKit/graphics/IOFramebuffer.h>
 
 
 class IOBootFramebuffer : public IOFramebuffer
@@ -36,38 +37,38 @@ class IOBootFramebuffer : public IOFramebuffer
 public:
 
     virtual IOService * probe(  IOService *     provider,
-                                SInt32 *        score );
+                                SInt32 *        score ) APPLE_KEXT_OVERRIDE;
 
-//    virtual bool start( IOService * provider );
+//    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual const char * getPixelFormats( void );
+    virtual const char * getPixelFormats( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOItemCount getDisplayModeCount( void );
+    virtual IOItemCount getDisplayModeCount( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn getDisplayModes( IODisplayModeID * allDisplayModes );
+    virtual IOReturn getDisplayModes( IODisplayModeID * allDisplayModes ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getInformationForDisplayMode( IODisplayModeID displayMode,
-                    IODisplayModeInformation * info );
+                    IODisplayModeInformation * info ) APPLE_KEXT_OVERRIDE;
 
     virtual UInt64  getPixelFormatsForDisplayMode( IODisplayModeID displayMode,
-                    IOIndex depth );
+                    IOIndex depth ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getPixelInformation(
         IODisplayModeID displayMode, IOIndex depth,
-        IOPixelAperture aperture, IOPixelInformation * pixelInfo );
+        IOPixelAperture aperture, IOPixelInformation * pixelInfo ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getCurrentDisplayMode( IODisplayModeID * displayMode,
-                            IOIndex * depth );
+                            IOIndex * depth ) APPLE_KEXT_OVERRIDE;
 
-    virtual IODeviceMemory * getApertureRange( IOPixelAperture aperture );
+    virtual IODeviceMemory * getApertureRange( IOPixelAperture aperture ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool isConsoleDevice( void );
+    virtual bool isConsoleDevice( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn setCLUTWithEntries( IOColorEntry * colors, UInt32 index,
-                UInt32 numEntries, IOOptionBits options );
+                UInt32 numEntries, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
-                    UInt32 dataWidth, void * data );
+                    UInt32 dataWidth, void * data ) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* ! _IOKIT_IOBOOTFRAMEBUFFER_H */

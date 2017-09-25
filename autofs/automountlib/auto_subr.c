@@ -833,21 +833,6 @@ void
 trace_prt(__unused int newmsg, char *fmt, ...)
 {
 	va_list args;
-        static dispatch_once_t pred;
-
-        dispatch_once(&pred, ^{
-		/*
-		 * Send a message to the syslog that turns
-		 * off the messages-per-second limit.
-		 */
-		aslmsg m = asl_new(ASL_TYPE_MSG);
-	
-		asl_set(m, "ASLOption", "control");
-		asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
-		asl_set(m, ASL_KEY_MSG, "= mps_limit 0");
-	 	asl_send(NULL, m);
-		asl_free(m);
-	});
 
 	va_start(args, fmt);
 	(void) vsyslog(LOG_ERR, fmt, args);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -277,7 +277,13 @@ _find_interface(int argc, char **argv, int *nArgs)
 
 	selected = _SCNetworkInterfaceCreateWithBSDName(NULL, select_name, kIncludeNoVirtualInterfaces);
 	if (selected != NULL) {
-		goto done;
+		if (_SCNetworkInterfaceGetIOPath(selected) != NULL) {
+			// if [real] interface exists
+			goto done;
+		}
+
+		CFRelease(selected);
+		selected = NULL;
 	}
 
 	// try to select the interface by its interface type
@@ -937,6 +943,8 @@ __private_extern__
 void
 show_interfaces(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	CFIndex		i;
 	CFIndex		n;
 
@@ -1047,6 +1055,9 @@ show_interfaces(int argc, char **argv)
 static int
 __doRank(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(key)
+#pragma unused(info)
+#pragma unused(newConfiguration)
 	SCNetworkInterfaceRef		interface;
 	CFStringRef			interfaceName;
 	Boolean				ok	= FALSE;
@@ -1151,6 +1162,10 @@ static options qosOptions[] = {
 static int
 __doQoSMarking(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(key)
+#pragma unused(description)
+#pragma unused(info)
+#pragma unused(newConfiguration)
 	CFStringRef		interfaceName;
 	CFMutableDictionaryRef	newPolicy;
 	Boolean			ok;
@@ -1340,6 +1355,7 @@ set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfigura
 static int
 __doCapability(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(info)
 	Boolean	ok	= FALSE;
 
 	if (argc < 1) {
@@ -1436,6 +1452,8 @@ set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfigur
 static int
 __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	CFStringRef	encryptionType;
 
 	if (argc < 1) {
@@ -1514,6 +1532,8 @@ __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int 
 static int
 __doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("IPSec shared secret type mode not specified\n"));
 		return -1;
@@ -1540,6 +1560,8 @@ __doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, 
 static int
 __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	CFStringRef	encryptionType;
 
 	if (argc < 1) {
@@ -1619,6 +1641,8 @@ __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int
 static int
 __doIPSecXAuthPasswordType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("IPSec XAuth password type mode not specified\n"));
 		return -1;
@@ -1662,6 +1686,8 @@ __cleanupDomainName(CFStringRef domain)
 static int
 __doOnDemandDomains(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	CFMutableArrayRef	domains;
 
 	if (argc < 1) {
@@ -1733,6 +1759,9 @@ static options ipsecOnDemandOptions[] = {
 static int
 __doIPSecOnDemandMatch(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(key)
+#pragma unused(description)
+#pragma unused(info)
 	Boolean	ok;
 
 	if (argc < 1) {
@@ -1920,6 +1949,8 @@ set_interface_modem(int argc, char **argv, CFMutableDictionaryRef newConfigurati
 static int
 __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	CFStringRef	encryptionType;
 
 	if (argc < 1) {
@@ -1999,6 +2030,8 @@ __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 static int
 __doPPPAuthPWType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("PPP password type mode not specified\n"));
 		return -1;
@@ -2038,6 +2071,10 @@ static options l2tp_ipsecOptions[] = {
 static int
 __doPPPIPSec(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newPPPConfiguration)
 {
+#pragma unused(key)
+#pragma unused(description)
+#pragma unused(info)
+#pragma unused(newPPPConfiguration)
 	SCNetworkInterfaceRef	childInterface;
 	CFStringRef		childInterfaceType;
 	CFDictionaryRef		configuration;
@@ -2265,6 +2302,9 @@ set_interface_ppp(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 static Boolean
 set_interface_vlan(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(argc)
+#pragma unused(argv)
+#pragma unused(newConfiguration)
 // xxxxx ("device", "tag")
 SCPrint(TRUE, stdout, CFSTR("vlan interface management not yet supported\n"));
 	return FALSE;
@@ -2278,6 +2318,8 @@ SCPrint(TRUE, stdout, CFSTR("vlan interface management not yet supported\n"));
 static int
 __doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	CFStringRef	encryptionType;
 
 	if (argc < 1) {
@@ -2356,6 +2398,8 @@ __doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 static int
 __doVPNAuthPWType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+#pragma unused(description)
+#pragma unused(info)
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("VPN password type mode not specified\n"));
 		return -1;

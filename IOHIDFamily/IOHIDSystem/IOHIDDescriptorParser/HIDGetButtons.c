@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -132,14 +132,14 @@ HIDGetButtons  (HIDReportType			reportType,
 				
 				if ((ptReportItem->dataModes & kHIDDataArrayBit) == kHIDDataArray)
 				{
-					status = HIDGetData(psReport, iReportLength, iStart, ptReportItem->globals.reportSize, &iValue, false);
+					status = HIDGetData(psReport, iReportLength, iStart, (UInt32)ptReportItem->globals.reportSize, &iValue, false);
 					if (!status)
 						status = HIDPostProcessRIValue (ptReportItem, &iValue);
 					if (status) return status;
 					
 					iStart += ptReportItem->globals.reportSize;
 					HIDUsageAndPageFromIndex(preparsedDataRef,ptReportItem,ptReportItem->globals.logicalMinimum+iE,&tUsageAndPage);
-					if (*piUsageListLength >= iMaxUsages)
+					if (*piUsageListLength >= (UInt32)iMaxUsages)
 						return kHIDBufferTooSmallErr;
 					ptUsageList[(*piUsageListLength)++] = tUsageAndPage;
 				}
@@ -154,7 +154,7 @@ HIDGetButtons  (HIDReportType			reportType,
 					if (iValue != 0)
 					{
 						HIDUsageAndPageFromIndex(preparsedDataRef,ptReportItem,ptReportItem->globals.logicalMinimum+iE,&tUsageAndPage);
-						if (*piUsageListLength >= iMaxUsages)
+						if (*piUsageListLength >= (UInt32)iMaxUsages)
 							return kHIDBufferTooSmallErr;
 						ptUsageList[(*piUsageListLength)++] = tUsageAndPage;
 					}

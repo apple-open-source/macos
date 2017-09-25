@@ -109,6 +109,15 @@ public:
         m_eventNumber = webEvent.eventNumber();
         m_menuTypeForEvent = webEvent.menuTypeForEvent();
 #endif
+        m_modifierFlags = 0;
+        if (webEvent.shiftKey())
+            m_modifierFlags |= WebEvent::ShiftKey;
+        if (webEvent.controlKey())
+            m_modifierFlags |= WebEvent::ControlKey;
+        if (webEvent.altKey())
+            m_modifierFlags |= WebEvent::AltKey;
+        if (webEvent.metaKey())
+            m_modifierFlags |= WebEvent::MetaKey;
     }
 };
 
@@ -146,9 +155,11 @@ public:
         m_wheelTicksY = webEvent.wheelTicks().height();
         m_granularity = (webEvent.granularity() == WebWheelEvent::ScrollByPageWheelEvent) ? WebCore::ScrollByPageWheelEvent : WebCore::ScrollByPixelWheelEvent;
         m_directionInvertedFromDevice = webEvent.directionInvertedFromDevice();
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
         m_phase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.phase());
         m_momentumPhase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.momentumPhase());
+#endif
+#if PLATFORM(COCOA)
         m_hasPreciseScrollingDeltas = webEvent.hasPreciseScrollingDeltas();
         m_scrollCount = webEvent.scrollCount();
         m_unacceleratedScrollingDeltaX = webEvent.unacceleratedScrollingDelta().width();

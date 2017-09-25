@@ -27,7 +27,7 @@
 #include "Utilities.h"
 #include <Security/Security.h>
 #include "misc.h"
-
+#include <mach-o/dyld_priv.h> // for dyld_get_program_sdk_version
 
 const static CFStringRef SignName = CFSTR("com.apple.security.Sign"), VerifyName = CFSTR("com.apple.security.Verify");
 const CFStringRef __nonnull kSecKeyAttributeName = CFSTR("KEY"), kSecSignatureAttributeName = CFSTR("Signature"), kSecInputIsAttributeName = CFSTR("InputIs");
@@ -38,7 +38,7 @@ static
 CFErrorRef do_sec_fail(OSStatus code, const char *func, const char *file, int line) {
 	CFStringRef msg = CFStringCreateWithFormat(NULL, NULL, CFSTR("Internal error #%x at %s %s:%d"), (unsigned)code, func, file, line);
 	CFErrorRef err = fancy_error(CFSTR("Internal CSSM error"), code, msg);
-	CFRelease(msg);
+	CFReleaseNull(msg);
 	
 	return err;
 }
@@ -62,7 +62,7 @@ CFErrorRef accumulate_data(CFMutableArrayRef *a, CFDataRef d) {
 	}
 	CFIndex c = CFArrayGetCount(*a);
 	CFArrayAppendValue(*a, dc);
-	CFRelease(dc);
+	CFReleaseNull(dc);
 	if (CFArrayGetCount(*a) != c+1) {
 		return GetNoMemoryError();
 	}
@@ -99,17 +99,17 @@ CFErrorRef fetch_and_clear_accumulated_data(CFMutableArrayRef *a, CFDataRef *dat
 	}
 	
 	if (CFDataGetLength(out) != total) {
-		CFRelease(out);
+		CFReleaseNull(out);
 		return GetNoMemoryError();
 	}
 	
 	CFArrayRef accumulator = *a;
-	CFRelease(accumulator);
+	CFReleaseNull(accumulator);
 	*a = NULL;
 	
 	// This might be nice:
 	//   *data_out = CFDataCreateCopy(NULL, out);
-	//   CFRelease(out);
+	//   CFReleaseNull(out);
 	// but that is slow (for large values) AND isn't really all that important anyway
 	
 	*data_out = out;
@@ -279,12 +279,12 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
 				// Could use NoCopy and hold onto the allocation, and that will be a good idea when we can have it not so oversized
 				CFDataRef result = CFDataCreate(NULL, sig.Data, sig.Length);
 				SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, kSecTransformMetaAttributeValue, result);
-				CFRelease(result);
+				CFReleaseNull(result);
 				free(sig_data);
 				
 				key = NULL;
 				
-				CFRelease(digest);
+				CFReleaseNull(digest);
 				digest = NULL;
 				
 				digest_length = 0;
@@ -313,6 +313,7 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
 				CFDataRef alldata;
 				CFErrorRef err = fetch_and_clear_accumulated_data(&data_accumulator, &alldata);
 				if (err) {
+                    free(sig_data);
 					return (CFTypeRef)err;
 				}
 				CSSM_DATA c_d;
@@ -321,19 +322,19 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
 				
 				OSStatus rc = CSSM_SignData(cch, &c_d, 1, (input_is == kSecInputIsDigest) ? sign_alg->digest_algo : CSSM_ALGID_NONE, &sig);
 				SEC_FAIL(rc);
-				CFRelease(alldata);
+				CFReleaseNull(alldata);
 				
 				assert(sig.Length <= 32*1024);
 				CSSM_DeleteContext(cch);
 				// Could use NoCopy and hold onto the allocation, and that will be a good idea when we can have it not so oversized
 				CFDataRef result = CFDataCreate(NULL, sig.Data, sig.Length);
 				SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, kSecTransformMetaAttributeValue, result);
-				CFRelease(result);
+				CFReleaseNull(result);
 				free(sig_data);
 				
 				key = NULL;
 				
-				CFRelease(digest);
+				CFReleaseNull(digest);
 				digest = NULL;
 				
 				digest_length = 0;
@@ -392,7 +393,7 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
 		SecTransformSetAttributeAction(ref, kSecTransformActionAttributeNotification, kSecDigestTypeAttribute, 
 			^(SecTransformAttributeRef ah, CFTypeRef value) 
 			{
-				digest = CFRetain(value);
+				digest = CFRetainSafe(value);
 				return value;
 			});
 
@@ -408,15 +409,17 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
 			
 				OSStatus rc = SecKeyGetCSSMKey(key, &cssm_key);
 				SEC_FAIL(rc);
-			
-				if (!cssm_key->KeyHeader.KeyUsage & CSSM_KEYUSE_SIGN)
+
+                if (((!cssm_key->KeyHeader.KeyUsage) & CSSM_KEYUSE_SIGN)               // Keep the previous test to be compatible with existing apps
+                    || ((dyld_get_program_sdk_version() >= DYLD_MACOSX_VERSION_10_13)  // Better check for newly compiled apps
+                        && !(cssm_key->KeyHeader.KeyUsage & (CSSM_KEYUSE_SIGN|CSSM_KEYUSE_ANY))))
 				{
-					key = NULL;
-                    
+					key = NULL; // This key cannot sign! 
                     CFTypeRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Key %@ can not be used to sign", key);
 					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
                     return (CFTypeRef)NULL;
 				}
+
 				return value;
 			});
 		
@@ -535,13 +538,17 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
 			
 				rc = SecKeyGetCSSMKey((SecKeyRef)value, &cssm_key);
 				SEC_FAIL(rc);
-			
-				if (!cssm_key->KeyHeader.KeyUsage & CSSM_KEYUSE_VERIFY)
+
+                if (((!cssm_key->KeyHeader.KeyUsage) & CSSM_KEYUSE_SIGN)               // Keep the previous test to be compatible with existing apps
+                    || ((dyld_get_program_sdk_version() >= DYLD_MACOSX_VERSION_10_13)  // Better check for newly compiled apps
+                        && !(cssm_key->KeyHeader.KeyUsage & (CSSM_KEYUSE_VERIFY|CSSM_KEYUSE_ANY))))
 				{
-					// This key cannot verify!
-					return (CFTypeRef)CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Key %@ can not be used to verify", key);
+					key = NULL; // This key cannot verify!
+					CFTypeRef error = (CFTypeRef)CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Key %@ can not be used to verify", key);
+					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
+                    return (CFTypeRef)NULL;
 				}
-		
+
 				// we don't need to retain this because the owning transform is doing that for us
 				key = (SecKeyRef) value;
 				return value;
@@ -557,7 +564,7 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
 				OSStatus rc;
 				sig.Data = (void*)CFDataGetBytePtr(signature);
 				sig.Length = CFDataGetLength(signature);
-				CFRelease(signature);
+				CFReleaseNull(signature);
 				signature = NULL;
 				
 				if (input_is == kSecInputIsPlainText) {
@@ -574,7 +581,7 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
 					c_d.Data = (void*)CFDataGetBytePtr(alldata);
 					c_d.Length = CFDataGetLength(alldata);
 					rc = CSSM_VerifyData(cch, &c_d, 1, (input_is == kSecInputIsDigest) ? verify_alg->digest_algo : CSSM_ALGID_NONE, &sig);
-                    CFRelease(alldata);
+                    CFReleaseNull(alldata);
 
 				}
 				CSSM_DeleteContext(cch);
@@ -661,7 +668,7 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
 		SecTransformSetAttributeAction(ref, kSecTransformActionAttributeNotification, kSecDigestTypeAttribute, 
 			^(SecTransformAttributeRef ah, CFTypeRef value) 
 			{
-				digest = CFRetain(value);
+				digest = CFRetainSafe(value);
 				return value;
 			});
 		
@@ -714,7 +721,6 @@ SecTransformRef SecVerifyTransformCreate(SecKeyRef key, CFDataRef signature, CFE
 	{
 		SecTransformSetAttribute(tr, kSecSignatureAttributeName, signature, error);
 	}
-	SecTransformSetAttribute(tr, kSecDigestTypeAttribute, kSecDigestSHA1, NULL);
 	SecTransformSetAttribute(tr, kSecDigestTypeAttribute, kSecDigestSHA1, NULL);
 	SecTransformSetAttribute(tr, kSecInputIsAttributeName, kSecInputIsPlainText, NULL);
 

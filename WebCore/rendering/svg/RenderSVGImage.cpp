@@ -53,7 +53,12 @@ RenderSVGImage::RenderSVGImage(SVGImageElement& element, RenderStyle&& style)
 
 RenderSVGImage::~RenderSVGImage()
 {
+}
+
+void RenderSVGImage::willBeDestroyed()
+{
     imageResource().shutdown();
+    RenderSVGModelObject::willBeDestroyed();
 }
 
 SVGImageElement& RenderSVGImage::imageElement() const
@@ -131,7 +136,7 @@ void RenderSVGImage::layout()
 void RenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
 {
     if (paintInfo.context().paintingDisabled() || paintInfo.phase != PaintPhaseForeground
-        || style().visibility() == HIDDEN || !imageResource().hasImage())
+        || style().visibility() == HIDDEN || !imageResource().cachedImage())
         return;
 
     FloatRect boundingBox = repaintRectInLocalCoordinates();

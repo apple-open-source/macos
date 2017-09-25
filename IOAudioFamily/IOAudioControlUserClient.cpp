@@ -210,22 +210,26 @@ IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
 
     if (!isInactive()) {
         if (notificationMessage == 0) {
-            notificationMessage = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
-            if (!notificationMessage) {
+            IOAudioNotificationMessage *m = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
+            if (m == 0) {
                 return kIOReturnNoMemory;
             }
-        }
-		
-        bzero( notificationMessage, sizeof(IOAudioNotificationMessage) );
-        notificationMessage->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
-        notificationMessage->messageHeader.msgh_size = sizeof(IOAudioNotificationMessage);
-        notificationMessage->messageHeader.msgh_remote_port = port;
-        notificationMessage->messageHeader.msgh_local_port = MACH_PORT_NULL;
-        notificationMessage->messageHeader.msgh_reserved = 0;
-        notificationMessage->messageHeader.msgh_id = 0;
-    
-        // notificationMessage->type = type;				// ignored now that we have the generic sendChangeNotification routine
-        notificationMessage->ref = refCon;
+            bzero( m, sizeof(IOAudioNotificationMessage) );
+            m->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
+            m->messageHeader.msgh_size = sizeof(IOAudioNotificationMessage);
+            m->messageHeader.msgh_local_port = MACH_PORT_NULL;
+            m->messageHeader.msgh_reserved = 0;
+            m->messageHeader.msgh_id = 0;
+	    m->ref = refCon;
+	    m->messageHeader.msgh_remote_port = port;
+            notificationMessage = m;
+        } else {
+	    // synchronize with IOUserClient::releaseNotificationPort() by storing to 'msgh_remote_port' last, by use of built-in memory barrier
+	    notificationMessage->ref = refCon;
+            __sync_synchronize();
+	    notificationMessage->messageHeader.msgh_remote_port = port;
+	}
+
     } else {
         result = kIOReturnNoDevice;
     }

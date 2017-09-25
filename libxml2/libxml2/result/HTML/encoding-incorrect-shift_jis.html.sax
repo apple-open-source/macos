@@ -2,27 +2,27 @@ SAX.setDocumentLocator()
 SAX.startDocument()
 SAX.internalSubset(html, -//W3C//DTD XHTML 1.0 Transitional//EN, http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd)
 SAX.startElement(html, lang='ja', xml:lang='ja', xmlns='http://www.w3.org/1999/xhtml')
-SAX.ignorableWhitespace(
+SAX.characters(
 , 1)
 SAX.startElement(head)
-SAX.ignorableWhitespace(
+SAX.characters(
 , 1)
 SAX.error: htmlCheckEncoding: error switching to encoding 'Shift_JIS'
 SAX.startElement(meta, http-equiv='content-type', content='text/html; charset=Shift_JIS')
 SAX.error: Couldn't find end of Start Tag meta
 SAX.error: Unexpected end tag : title
-SAX.ignorableWhitespace(
+SAX.characters(
 , 1)
 SAX.endElement(head)
-SAX.ignorableWhitespace(
+SAX.characters(
 , 1)
 SAX.startElement(body)
 SAX.characters(
 , 1)
 SAX.endElement(body)
-SAX.ignorableWhitespace(
+SAX.characters(
 , 1)
 SAX.endElement(html)
-SAX.ignorableWhitespace(
+SAX.characters(
 , 1)
 SAX.endDocument()

@@ -71,6 +71,11 @@ size_t KernelDiskRep::signingLimit()
 	return 0;				// don't bother
 }
 
+size_t KernelDiskRep::execSegLimit(const Architecture *)
+{
+	return 0;				// don't bother
+}
+    
 string KernelDiskRep::format()
 {
 	return "system kernel";

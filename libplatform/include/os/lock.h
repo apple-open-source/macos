@@ -79,6 +79,7 @@ typedef struct os_unfair_lock_s {
 	uint32_t _os_unfair_lock_opaque;
 } os_unfair_lock, *os_unfair_lock_t;
 
+#ifndef OS_UNFAIR_LOCK_INIT
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #define OS_UNFAIR_LOCK_INIT ((os_unfair_lock){0})
 #elif defined(__cplusplus) && __cplusplus >= 201103L
@@ -88,6 +89,7 @@ typedef struct os_unfair_lock_s {
 #else
 #define OS_UNFAIR_LOCK_INIT {0}
 #endif
+#endif // OS_UNFAIR_LOCK_INIT
 
 /*!
  * @function os_unfair_lock_lock

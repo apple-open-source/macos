@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -178,11 +178,16 @@ __SCNetworkConnectionUseNetworkExtension(SCNetworkConnectionPrivateRef connectio
 		 * In that case, we try to get the service type/subtype from the dynamic store.
 		 */
 		if (!result && SCError() == kSCStatusInvalidArgument) {
-			CFStringRef interfaceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
-											     kSCDynamicStoreDomainSetup,
-											     SCNetworkServiceGetServiceID(connectionPrivate->service),
-											     kSCEntNetInterface);
-			CFDictionaryRef interfaceDict = SCDynamicStoreCopyValue(NULL, interfaceKey);
+			CFStringRef	interfaceKey;
+			CFDictionaryRef	interfaceDict;
+			CFStringRef	serviceID;
+
+			serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
+			interfaceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+										   kSCDynamicStoreDomainSetup,
+										   serviceID,
+										   kSCEntNetInterface);
+			interfaceDict = SCDynamicStoreCopyValue(NULL, interfaceKey);
 			if (isA_CFDictionary(interfaceDict)) {
 				CFStringRef interfaceType = CFDictionaryGetValue(interfaceDict, kSCPropNetInterfaceType);
 				if (isA_CFString(interfaceType)) {
@@ -217,6 +222,7 @@ __SCNetworkConnectionUsingNetworkExtension(SCNetworkConnectionPrivateRef connect
 #if !TARGET_OS_SIMULATOR
     return (connectionPrivate->ne_session != NULL);
 #else
+#pragma unused(connectionPrivate)
 	return FALSE;
 #endif /* !TARGET_OS_SIMULATOR */
 }
@@ -401,19 +407,24 @@ __SCNetworkConnectionNotify(SCNetworkConnectionRef	connection,
 			    void			(*context_release)(const void *),
 			    void			*context_info)
 {
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_activity_t	activity;
 
-	activity = os_activity_create("processing SCHelper request",
+	activity = os_activity_create("processing SCNetworkConnection notification",
 				      OS_ACTIVITY_CURRENT,
 				      OS_ACTIVITY_FLAG_DEFAULT);
 	os_activity_scope(activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	SC_log(LOG_DEBUG, "exec SCNetworkConnection callout");
 	(*rlsFunction)(connection, nc_status, context_info);
 	if ((context_release != NULL) && (context_info != NULL)) {
 		(*context_release)(context_info);
 	}
+
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_release(activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	return;
 }
@@ -561,6 +572,8 @@ __SCNetworkConnectionCallBack(void *connection)
 static void
 __SCNetworkConnectionMachCallBack(CFMachPortRef port, void * msg, CFIndex size, void * info)
 {
+#pragma unused(port)
+#pragma unused(size)
 	mach_no_senders_notification_t	*buf			= msg;
 	mach_msg_id_t			msgid			= buf->not_header.msgh_id;
 	SCNetworkConnectionRef		connection		= (SCNetworkConnectionRef)info;
@@ -2488,6 +2501,7 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 					   CFStringRef			runLoopMode,
 					   dispatch_queue_t		queue)
 {
+#pragma unused(queue)
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	dispatch_group_t		drainGroup		= NULL;
 	dispatch_queue_t		drainQueue		= NULL;
@@ -2731,6 +2745,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 								dispatch_retain(wait_for_session);
 								ne_session_set_event_handler(new_session, __SCNetworkConnectionQueue(),
 									^(ne_session_event_t event, void *event_data) {
+#pragma unused(event_data)
 										os_activity_t	activity;
 
 										activity = os_activity_create("processing ne_session notification",
@@ -2920,7 +2935,7 @@ SCNetworkConnectionCopyFlowDivertToken(SCNetworkConnectionRef	connection,
 
 
 int
-SCNetworkConnectionGetServiceIdentifier		(SCNetworkConnectionRef		connection)
+SCNetworkConnectionGetServiceIdentifier	(SCNetworkConnectionRef	connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	int				service_identifier	= -1;
@@ -3396,8 +3411,7 @@ __SCNetworkConnectionCopyMatchingTriggerWithName(CFDictionaryRef	configuration,
 	CFDictionaryRef	result		= NULL;
 	int		sc_status	= kSCStatusOK;
 	CFArrayRef	triggers;
-	uint64_t	triggersCount	= 0;
-	int		triggersIndex;
+	CFIndex		triggersCount	= 0;
 	Boolean		usedOnDemandRetry = FALSE;
 
 	if (triggerNow != NULL) {
@@ -3410,7 +3424,7 @@ __SCNetworkConnectionCopyMatchingTriggerWithName(CFDictionaryRef	configuration,
 
 	triggers = CFDictionaryGetValue(configuration, kSCNetworkConnectionOnDemandTriggers);
 	triggersCount = isA_CFArray(triggers) ? CFArrayGetCount(triggers) : 0;
-	for (triggersIndex = 0; triggersIndex < triggersCount; triggersIndex++) {
+	for (CFIndex triggersIndex = 0; triggersIndex < triggersCount; triggersIndex++) {
 		CFStringRef	matched_domain	= NULL;
 		CFStringRef	matched_probe_string = NULL;
 		CFDictionaryRef	trigger;
@@ -3536,12 +3550,11 @@ __SCNetworkConnectionCopyTriggerWithService(CFDictionaryRef	configuration,
 					    CFStringRef		service_id)
 {
 	CFArrayRef	triggers;
-	uint64_t	triggersCount	= 0;
-	int		triggersIndex;
+	CFIndex		triggersCount;
 
 	triggers = CFDictionaryGetValue(configuration, kSCNetworkConnectionOnDemandTriggers);
 	triggersCount = isA_CFArray(triggers) ? CFArrayGetCount(triggers) : 0;
-	for (triggersIndex = 0; triggersIndex < triggersCount; triggersIndex++) {
+	for (CFIndex triggersIndex = 0; triggersIndex < triggersCount; triggersIndex++) {
 		CFDictionaryRef	trigger;
 		CFStringRef	trigger_service_id;
 
@@ -3634,6 +3647,7 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 					      SCNetworkConnectionStatus	*connectionStatus,
 					      CFStringRef		*vpnRemoteAddress)	/*  CFDictionaryRef *info */
 {
+#pragma unused(storeP)
 	CFDictionaryRef		configuration;
 	Boolean			ok		= FALSE;
 	int			sc_status	= kSCStatusOK;
@@ -4093,9 +4107,7 @@ __SCNetworkConnectionIPv4AddressMatchesRoutes (struct sockaddr_in *addr_in, CFDi
 void
 __SCNetworkConnectionMaskIPv6Address(struct in6_addr *addr, struct in6_addr *mask)
 {
-	int	i;
-
-	for (i = 0; i < sizeof(struct in6_addr); i++)
+	for (size_t i = 0; i < sizeof(struct in6_addr); i++)
 		addr->s6_addr[i] &= mask->s6_addr[i];
 }
 
@@ -4931,6 +4943,7 @@ copyPasswordFromKeychain(CFStringRef uniqueID)
 
 	return password;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(uniqueID)
 	return NULL;
 #endif	// !TARGET_OS_IPHONE
 }

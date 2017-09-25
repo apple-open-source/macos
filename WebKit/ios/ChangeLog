@@ -1,24 +1,397 @@
-2017-02-05  Matthew Hanson  <matthew_hanson@apple.com>
+2017-07-12  Daniel Bates  <dabates@apple.com>
 
-        Merge r211551. rdar://problem/26685576
+        Rename NavigationInitiatedByMainFrame to InitiatedByMainFrame
+        https://bugs.webkit.org/show_bug.cgi?id=174427
 
-    2017-02-02  Yongjun Zhang  <yongjun_zhang@apple.com>
+        Rubber-stamped by Brady Eidson.
 
-            In iOS, we should take background assertion when accessing localstorage databases.
-            https://bugs.webkit.org/show_bug.cgi?id=165478
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
 
-            Move application background task handling code from WebKit to WebCore.
+2017-07-09  Brady Eidson  <beidson@apple.com>
 
-            Reviewed by Brady Eidson.
+        Remove some obsolete WebKitVersionChecks.
+        https://bugs.webkit.org/show_bug.cgi?id=174294
 
-            * Misc/WebUIKitSupport.h: Remove several methods that only used internally for background
-                task handling. They are not needed in WebKit any more since background task handling
-                is moved to WebCore and wrapped in WebBackgroundTaskController class.
-            * Misc/WebUIKitSupport.mm:
-            (WebKitSetInvalidWebBackgroundTaskIdentifier): Instead of storing the value in a static global
-                variable, save it in WebBackgroundTaskController.
-            (WebKitSetStartBackgroundTaskBlock): Ditto.
-            (WebKitSetEndBackgroundTaskBlock): Ditto.
+        Reviewed by Dan Bernstein.
+
+        * WebView/WebPDFViewIOS.mm:
+        (-[WebPDFView drawPage:]):
+
+2017-07-05  Don Olmstead  <don.olmstead@sony.com>
+
+        [WTF] Move SoftLinking.h into WTF
+        https://bugs.webkit.org/show_bug.cgi?id=174000
+
+        Reviewed by Alex Christensen.
+
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        * WebView/WebPDFViewPlaceholder.mm:
+
+2017-07-05  Brady Eidson  <beidson@apple.com>
+
+        Allow navigations in subframes to get a ShouldOpenExternalURLsPolicy of "ShouldAllow".
+        <rdar://problem/22485589> and https://bugs.webkit.org/show_bug.cgi?id=174178
+
+        Reviewed by Alex Christensen.
+
+        Adopt to the new constructor for FrameLoadRequest.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2017-07-01  Tim Horton  <timothy_horton@apple.com>
+
+        Expose viewport-fit value to UIKit via viewport arguments dictionary
+        https://bugs.webkit.org/show_bug.cgi?id=174071
+        <rdar://problem/33096620>
+
+        Reviewed by Wenson Hsieh.
+
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (nameForViewportFitValue):
+        (dictionaryForViewportArguments):
+        Make use of the named constants we already have for these; the code
+        that reads this dictionary uses them, so we might as well!
+
+        Add viewport-fit -> { auto, contain, cover } to the dictionary.
+
+        * WebKit.iOS.exp:
+
+2017-06-30  Daniel Bates  <dabates@apple.com>
+
+        API::FrameInfo should know the web page that contains the frame; add API property webView to WKFrameInfo
+        https://bugs.webkit.org/show_bug.cgi?id=165160
+        <rdar://problem/29451999>
+
+        Reviewed by Brady Eidson.
+
+        Pass the document that is requesting the load to the loader.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2017-06-22  Daniel Bates  <dabates@apple.com>
+
+        Make FrameLoadRequest a move-only type
+        https://bugs.webkit.org/show_bug.cgi?id=173682
+
+        Reviewed by Alex Christensen and Darin Adler.
+
+        A FrameLoadRequest groups together the information to perform a load into a single object
+        that is more manageable to pass around than its constituent parts. Code that receives a
+        FrameLoadRequest is expected to extract out the information it needs to complete its task.
+        And it does not make sense to re-use the same FrameLoadRequest object for more than one
+        load. Therefore, it is sufficient to make FrameLoadRequest a move-only type.
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2017-06-21  Daniel Bates  <dabates@apple.com>
+
+        Cleanup FrameLoadRequest
+        https://bugs.webkit.org/show_bug.cgi?id=173564
+        <rdar://problem/32903570>
+
+        Reviewed by Brent Fulgham.
+
+        Move FrameLoadRequest instantiation into a local variable and use C++11 brace initialization
+        syntax to make it easier to identify the arguments passed to FrameLoader::loadFrameRequest().
+
+        * WebView/WebPDFViewPlaceholder.mm:
+        (-[WebPDFViewPlaceholder simulateClickOnLinkToURL:]):
+
+2017-06-09  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS DnD] Add a hook to perform two-step drops in editable content
+        https://bugs.webkit.org/show_bug.cgi?id=172992
+        <rdar://problem/32590174>
+
+        Reviewed by Tim Horton.
+
+        Add an empty implementation of performTwoStepDrop for WebDefaultUIKitDelegate. See WebCore ChangeLogs.
+
+        * DefaultDelegates/WebDefaultUIKitDelegate.m:
+        (-[WebDefaultUIKitDelegate performTwoStepDrop:atDestination:isMove:]):
+        * WebView/WebUIKitDelegate.h:
+
+2017-06-07  Zalan Bujtas  <zalan@apple.com>
+
+        [iOS WK1 WebThread] Do not call out to the main thread for device orientation.
+        https://bugs.webkit.org/show_bug.cgi?id=173044
+        <rdar://problem/32449338>
+
+        Reviewed by Tim Horton.
+
+        On iOS WK1 we could end up with an inconsistent state, where the web thread is inside
+        the Document's constructor waiting on a delegate callback on the main thread
+        while the main thread executes a pending task that assumes a valid Document.
+        This patch ensures that we don't call out to the main thread from the Document's constructor.
+ 
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::deviceOrientation): Caches deviceOrientation on the WebView so that we
+        don't have to lift the WebThread lock. 
+
+2017-05-12  Chris Dumez  <cdumez@apple.com>
+
+        Drop uses of PassRefPtr in WebKit/mac
+        https://bugs.webkit.org/show_bug.cgi?id=172066
+
+        Reviewed by Sam Weinig.
+
+        Build fix.
+
+        * Misc/WebGeolocationProviderIOS.mm:
+
+2017-05-01  Chris Dumez  <cdumez@apple.com>
+
+        Remove some usage of PassRefPtr in editing code
+        https://bugs.webkit.org/show_bug.cgi?id=171490
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        (-[WebFrame previousUnperturbedDictationResultBoundaryFromPosition:]):
+        (-[WebFrame nextUnperturbedDictationResultBoundaryFromPosition:]):
+
+2017-04-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [WK2] Support Icon creation from file URLs on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=170809
+        <rdar://problem/31286130>
+
+        Reviewed by Tim Horton.
+
+        Adjust for changes in the ChromeClient in WebCore.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::createIconForFiles):
+
+2017-03-02  Sam Weinig  <sam@webkit.org>
+
+        Rename htmlediting.h/cpp to Editing.h/cpp
+        https://bugs.webkit.org/show_bug.cgi?id=169103
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        * WebCoreSupport/WebVisiblePosition.mm:
+
+2017-02-23  Aakash Jain  <aakash_jain@apple.com>
+
+        Move instance member from WebFixedPositionContent to implementation file
+        https://bugs.webkit.org/show_bug.cgi?id=168766
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebFixedPositionContent.h: Moving instance member to implementation file.
+        * WebCoreSupport/WebFixedPositionContent.mm: Ditto.
+
+2017-02-22  Aakash Jain  <aakash_jain@apple.com>
+
+        Move instance members from WebPDFView to implementation file
+        https://bugs.webkit.org/show_bug.cgi?id=168765
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebPDFViewIOS.h: Moving instance members to implementation file.
+        * WebView/WebPDFViewIOS.mm: Ditto.
+
+2017-02-22  Aakash Jain  <aakash_jain@apple.com>
+
+        Export m_isLoggingEnabled symbol from MemoryMeasure.h
+        https://bugs.webkit.org/show_bug.cgi?id=168760
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKit.iOS.exp: Exporting m_isLoggingEnabled symbol.
+
+2017-02-22  Aakash Jain  <aakash_jain@apple.com>
+
+        Move instance members from WebPDFViewPlaceholder.h to implementation file
+        https://bugs.webkit.org/show_bug.cgi?id=168705
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebPDFViewPlaceholder.h: Moving instance members to implementation file.
+        * WebView/WebPDFViewPlaceholder.mm: Ditto.
+
+2017-02-22  Aakash Jain  <aakash_jain@apple.com>
+
+        Move instance members from WebSelectionRect.h to implementation file
+        https://bugs.webkit.org/show_bug.cgi?id=168732
+
+        Reviewed by Tim Horton.
+
+        * WebCoreSupport/WebSelectionRect.h: Moving instance members to implementation file.
+        * WebCoreSupport/WebSelectionRect.m: Ditto.
+
+2017-02-22  Aakash Jain  <aakash_jain@apple.com>
+
+        Move iOS specific symbols to WebKit.ios.exp
+        https://bugs.webkit.org/show_bug.cgi?id=168726
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKit.iOS.exp:
+
+2017-02-21  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r212768.
+        https://bugs.webkit.org/show_bug.cgi?id=168698
+
+        Rolling out since this would break other projects. (Requested
+        by aakashjain on #webkit).
+
+        Reverted changeset:
+
+        "[iOS] Remove old WebKit1 MemoryMeasure helper."
+        https://bugs.webkit.org/show_bug.cgi?id=168675
+        http://trac.webkit.org/changeset/212768
+
+2017-02-21  Andreas Kling  <akling@apple.com>
+
+        [iOS] Remove old WebKit1 MemoryMeasure helper.
+        <https://webkit.org/b/168675>
+
+        Reviewed by Sam Weinig.
+
+        Remove the MemoryMeasure logging helper from the WebKit1 days. It was using an old way
+        of measuring memory, and we were only using it in a single place anyway.
+
+        * Misc/MemoryMeasure.h: Removed.
+        * Misc/MemoryMeasure.mm: Removed.
+        * WebKit.iOS.exp:
+
+2017-02-21  Andreas Kling  <akling@apple.com>
+
+        [iOS] WebKit1 should use shared memory pressure handler code.
+        <https://webkit.org/b/168653>
+
+        Reviewed by Antti Koivisto.
+
+        * Misc/WebUIKitSupport.mm:
+        (WebKitInitialize): Don't unconditionally install a memory warning handler just
+        because the framework is loaded.
+
+2017-02-20  Alexey Proskuryakov  <ap@apple.com>
+
+        List of WebCore symbols to re-export from WebKitLegacy should be built automatically
+        https://bugs.webkit.org/show_bug.cgi?id=168342
+        rdar://problem/26182266
+
+        Reviewed by Tim Horton.
+
+        * WebKit.iOS.exp: Removed manually added symbols.
+
+2017-02-20  Aakash Jain  <aakash_jain@apple.com>
+
+        Stop exporting WebPluginController from WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=168603
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKit.iOS.exp:
+
+2017-02-10  Aakash Jain  <aakash_jain@apple.com>
+
+        WebKitLegacy doesn't re-export various symbols from WebCore required by clients
+        https://bugs.webkit.org/show_bug.cgi?id=168158
+        <rdar://problem/24527933>
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.iOS.exp: Exporting various symbols which are required by clients. This 
+        would enable clients to stop linking against WebCore and instead link against WebKit.
+
+2017-02-02  Yongjun Zhang  <yongjun_zhang@apple.com>
+
+        In iOS, we should take background assertion when accessing localstorage databases.
+        https://bugs.webkit.org/show_bug.cgi?id=165478
+
+        Move application background task handling code from WebKit to WebCore.
+
+        Reviewed by Brady Eidson.
+
+        * Misc/WebUIKitSupport.h: Remove several methods that only used internally for background
+            task handling. They are not needed in WebKit any more since background task handling
+            is moved to WebCore and wrapped in WebBackgroundTaskController class.
+        * Misc/WebUIKitSupport.mm:
+        (WebKitSetInvalidWebBackgroundTaskIdentifier): Instead of storing the value in a static global
+            variable, save it in WebBackgroundTaskController.
+        (WebKitSetStartBackgroundTaskBlock): Ditto.
+        (WebKitSetEndBackgroundTaskBlock): Ditto.
+
+2017-01-25  Aakash Jain  <aakash_jain@apple.com>
+
+        LoadWebLocalizedStrings method should be moved in correct file
+        https://bugs.webkit.org/show_bug.cgi?id=167393
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Misc/WebUIKitSupport.mm:
+        (LoadWebLocalizedStringsTimerCallback): Moved from WebLocalizableStrings.mm
+        (LoadWebLocalizedStrings): Moved from WebLocalizableStrings.mm
+
+2017-01-21  Darin Adler  <darin@apple.com>
+
+        Remove PassRefPtr from "page" directory of WebCore, also deploy references
+        https://bugs.webkit.org/show_bug.cgi?id=167224
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebChromeClientIOS.h: Update for changes to ChromeClient.
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::runJavaScriptAlert): Ditto.
+        (WebChromeClientIOS::runJavaScriptConfirm): Ditto.
+        (WebChromeClientIOS::runJavaScriptPrompt): Ditto.
+        (WebChromeClientIOS::setNeedsScrollNotifications): Ditto.
+        (WebChromeClientIOS::observedContentChange): Ditto.
+        (WebChromeClientIOS::clearContentChangeObservers): Ditto.
+        (WebChromeClientIOS::notifyRevealedSelectionByScrollingFrame): Ditto.
+        (WebChromeClientIOS::elementDidFocus): Ditto.
+        (WebChromeClientIOS::elementDidBlur): Ditto.
+        (WebChromeClientIOS::createPopupMenu): Ditto.
+        (WebChromeClientIOS::createSearchPopupMenu): Ditto.
+        (WebChromeClientIOS::attachRootGraphicsLayer): Ditto.
+
+2017-01-21  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove the unused -[WebFixedPositionContent minimumOffsetFromFixedPositionLayersToAnchorEdge:ofRect:inLayer:]
+        https://bugs.webkit.org/show_bug.cgi?id=167273
+
+        Reviewed by Alex Christensen.
+
+        This function was added for an experiment, but is no longer used, so remove it.
+
+        * WebCoreSupport/WebFixedPositionContent.h:
+        * WebCoreSupport/WebFixedPositionContent.mm:
+        (anchorEdgeFlagsForAnchorEdge): Deleted.
+        (-[WebFixedPositionContent minimumOffsetFromFixedPositionLayersToAnchorEdge:ofRect:inLayer:]): Deleted.
+
+2017-01-15  Darin Adler  <darin@apple.com>
+
+        Remove PassRefPtr from "loader" directory of WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=167055
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebChromeClientIOS.h: Updated runOpenPanel to take references.
+        Made class final and most functions private and final.
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::runOpenPanel): Updated to take references.
+
+2016-12-30  Darin Adler  <darin@apple.com>
+
+        Remove PassRefPtr use from the "dom" directory, related cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=166569
+
+        Reviewed by Alex Christensen.
+
+        * WebView/WebPDFViewIOS.mm:
+        (-[WebPDFView _checkPDFTitle]): Use aggregate-style syntax for StringWithDirection.
+        Not needed now, but useful later if we ever can get rid of the explicit constructors.
 
 2016-12-15  Myles C. Maxfield  <mmaxfield@apple.com>
 

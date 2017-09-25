@@ -19,8 +19,22 @@ SecRKRegisterBackupPublicKey(SecRecoveryKey *rk, CFErrorRef *error);
 
 #if __OBJC__
 
+/*
+ * Constants for the verifier dictionary returned from SecRKCopyAccountRecoveryVerifier
+ */
+
+extern NSString *const kSecRVSalt;
+extern NSString *const kSecRVIterations;
+extern NSString *const kSecRVProtocol;
+extern NSString *const kSecRVVerifier;
+extern NSString *const kSecRVMasterID;
+
+
 SecRecoveryKey *
 SecRKCreateRecoveryKey(NSString *recoveryKey);
+
+SecRecoveryKey *
+SecRKCreateRecoveryKeyWithError(NSString *masterKey, NSError **error);
 
 NSString *
 SecRKCreateRecoveryKeyString(NSError **error);
@@ -33,6 +47,10 @@ SecRKCopyBackupFullKey(SecRecoveryKey *rk);
 
 NSData *
 SecRKCopyBackupPublicKey(SecRecoveryKey *rk);
+
+NSDictionary *
+SecRKCopyAccountRecoveryVerifier(NSString *recoveryKey,
+                                 NSError **error);
 
 #else
 

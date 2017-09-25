@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		07828B591E3FDD25009D2106 /* hfs_libraries */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 07828B5D1E3FDD25009D2106 /* Build configuration list for PBXAggregateTarget "hfs_libraries" */;
+			buildPhases = (
+			);
+			dependencies = (
+				07828B5F1E3FDD2E009D2106 /* PBXTargetDependency */,
+			);
+			name = hfs_libraries;
+			productName = hfs_libraries;
+		};
 		4DBD523B1548A488007AA736 /* Common */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 4DBD523C1548A488007AA736 /* Build configuration list for PBXAggregateTarget "Common" */;
@@ -15,7 +26,6 @@
 			dependencies = (
 				FBA540011B7BF2DF00899E5B /* PBXTargetDependency */,
 				FBC234C41B4EC6AE0002D849 /* PBXTargetDependency */,
-				8657285C18319A93007F580F /* PBXTargetDependency */,
 				4DBD523F1548A499007AA736 /* PBXTargetDependency */,
 				4DBD52411548A49A007AA736 /* PBXTargetDependency */,
 				4DBD52431548A49D007AA736 /* PBXTargetDependency */,
@@ -23,7 +33,6 @@
 				4DBD52471548A4A2007AA736 /* PBXTargetDependency */,
 				4DBD52491548A4A4007AA736 /* PBXTargetDependency */,
 				4DBD524B1548A4A7007AA736 /* PBXTargetDependency */,
-				4DBD524D1548A4AA007AA736 /* PBXTargetDependency */,
 			);
 			name = Common;
 			productName = Common;
@@ -34,6 +43,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				07CA47231DA859CA00138D78 /* PBXTargetDependency */,
 				FBE3A5A51BBEE34400CB9A33 /* PBXTargetDependency */,
 				FB48E4BC1BB30CC400523121 /* PBXTargetDependency */,
 				FBC234C61B4EC6B90002D849 /* PBXTargetDependency */,
@@ -49,6 +59,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				07828B611E3FDD3B009D2106 /* PBXTargetDependency */,
 				FBE3A5A31BBEE33D00CB9A33 /* PBXTargetDependency */,
 				4DBD524F1548A4C8007AA736 /* PBXTargetDependency */,
 			);
@@ -135,6 +146,7 @@
 /* Begin PBXBuildFile section */
 		0703A0541CD826160035BCFD /* test-defrag.c in Sources */ = {isa = PBXBuildFile; fileRef = 0703A0531CD826160035BCFD /* test-defrag.c */; };
 		07C2BF891CB43F5E00D8327D /* test-renamex.c in Sources */ = {isa = PBXBuildFile; fileRef = 07C2BF881CB43F5E00D8327D /* test-renamex.c */; };
+		09D6B7D71E317ED2003C20DC /* test_disklevel.c in Sources */ = {isa = PBXBuildFile; fileRef = 09D6B7D61E317ED2003C20DC /* test_disklevel.c */; };
 		2A386A3B1C22209C007FEDAC /* test-list-ids.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A386A3A1C221E67007FEDAC /* test-list-ids.c */; };
 		2A84DBD41D9E15F2007964B8 /* test-raw-dev-unaligned.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */; };
 		2A9399951BDFEB5200FB075B /* test-access.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399941BDFEA6E00FB075B /* test-access.c */; };
@@ -354,6 +366,27 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		07828B5E1E3FDD2E009D2106 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 86CBF37E183186C300A64A93;
+			remoteInfo = hfs_metadata;
+		};
+		07828B601E3FDD3B009D2106 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 07828B591E3FDD25009D2106;
+			remoteInfo = hfs_libraries;
+		};
+		07CA47221DA859CA00138D78 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D07DCB71538EF3A002B57CB;
+			remoteInfo = fstyp_hfs;
+		};
 		4DBD523E1548A499007AA736 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -403,13 +436,6 @@
 			remoteGlobalIDString = 4DFD93F31535FF510039B6BA;
 			remoteInfo = fsck_hfs;
 		};
-		4DBD524C1548A4AA007AA736 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4D07DCB71538EF3A002B57CB;
-			remoteInfo = fstyp_hfs;
-		};
 		4DBD524E1548A4C8007AA736 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -430,13 +456,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4DFD94BC15373C2C0039B6BA;
 			remoteInfo = fsck_makestrings;
-		};
-		8657285B18319A93007F580F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 86CBF37E183186C300A64A93;
-			remoteInfo = hfs_metadata;
 		};
 		FB48E4BB1BB30CC400523121 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -718,6 +737,7 @@
 /* Begin PBXFileReference section */
 		0703A0531CD826160035BCFD /* test-defrag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-defrag.c"; sourceTree = "<group>"; };
 		07C2BF881CB43F5E00D8327D /* test-renamex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-renamex.c"; sourceTree = "<group>"; };
+		09D6B7D61E317ED2003C20DC /* test_disklevel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_disklevel.c; sourceTree = "<group>"; };
 		2A386A3A1C221E67007FEDAC /* test-list-ids.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-list-ids.c"; sourceTree = "<group>"; };
 		2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-raw-dev-unaligned.c"; sourceTree = "<group>"; };
 		2A9399941BDFEA6E00FB075B /* test-access.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-access.c"; sourceTree = "<group>"; };
@@ -1427,6 +1447,7 @@
 				FB285C281B7E81180099B2ED /* test-sparse-dev.c */,
 				FB2B5C551B87656900ACEDD9 /* test-transcode.m */,
 				FBD69AF81B91309C0022ECAD /* test-dateadded.c */,
+				09D6B7D61E317ED2003C20DC /* test_disklevel.c */,
 			);
 			path = cases;
 			sourceTree = "<group>";
@@ -1963,6 +1984,10 @@
 			attributes = {
 				LastUpgradeCheck = 0710;
 				TargetAttributes = {
+					07828B591E3FDD25009D2106 = {
+						CreatedOnToolsVersion = 8.3;
+						ProvisioningStyle = Automatic;
+					};
 					FB20E0DF1AE950C200CEBE7B = {
 						CreatedOnToolsVersion = 6.3;
 					};
@@ -2043,6 +2068,7 @@
 				FBCC52FD1B852758008B752C /* hfs-alloc-trace */,
 				FB48E5031BB3798500523121 /* Sim_Headers */,
 				FB7C140C1C2368E6004F8B2C /* kext-version */,
+				07828B591E3FDD25009D2106 /* hfs_libraries */,
 			);
 		};
 /* End PBXProject section */
@@ -2467,6 +2493,7 @@
 				2A9399D31BE2C06800FB075B /* test-uncached-io.c in Sources */,
 				2A9399D11BE2BFFD00FB075B /* test-throttled-io.c in Sources */,
 				2A9399CF1BE2BCEA00FB075B /* test-mod-time.c in Sources */,
+				09D6B7D71E317ED2003C20DC /* test_disklevel.c in Sources */,
 				2A9399CD1BE2BC6900FB075B /* test-mmap-mod-time.c in Sources */,
 				2A9399CA1BE18A5000FB075B /* test-invalid-ranges.m in Sources */,
 				2A9399C91BE1747900FB075B /* test-map-private.m in Sources */,
@@ -2557,6 +2584,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		07828B5F1E3FDD2E009D2106 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 86CBF37E183186C300A64A93 /* hfs_metadata */;
+			targetProxy = 07828B5E1E3FDD2E009D2106 /* PBXContainerItemProxy */;
+		};
+		07828B611E3FDD3B009D2106 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 07828B591E3FDD25009D2106 /* hfs_libraries */;
+			targetProxy = 07828B601E3FDD3B009D2106 /* PBXContainerItemProxy */;
+		};
+		07CA47231DA859CA00138D78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D07DCB71538EF3A002B57CB /* fstyp_hfs */;
+			targetProxy = 07CA47221DA859CA00138D78 /* PBXContainerItemProxy */;
+		};
 		4DBD523F1548A499007AA736 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4DFD95111537402A0039B6BA /* hfs.fs */;
@@ -2592,11 +2634,6 @@
 			target = 4DFD93F31535FF510039B6BA /* fsck_hfs */;
 			targetProxy = 4DBD524A1548A4A7007AA736 /* PBXContainerItemProxy */;
 		};
-		4DBD524D1548A4AA007AA736 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4D07DCB71538EF3A002B57CB /* fstyp_hfs */;
-			targetProxy = 4DBD524C1548A4AA007AA736 /* PBXContainerItemProxy */;
-		};
 		4DBD524F1548A4C8007AA736 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4DBD523B1548A488007AA736 /* Common */;
@@ -2611,11 +2648,6 @@
 			isa = PBXTargetDependency;
 			target = 4DFD94BC15373C2C0039B6BA /* fsck_makestrings */;
 			targetProxy = 4DBD52521548A4D4007AA736 /* PBXContainerItemProxy */;
-		};
-		8657285C18319A93007F580F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 86CBF37E183186C300A64A93 /* hfs_metadata */;
-			targetProxy = 8657285B18319A93007F580F /* PBXContainerItemProxy */;
 		};
 		FB48E4BC1BB30CC400523121 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2736,6 +2768,27 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		07828B5A1E3FDD25009D2106 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		07828B5B1E3FDD25009D2106 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		07828B5C1E3FDD25009D2106 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -4654,6 +4707,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		07828B5D1E3FDD25009D2106 /* Build configuration list for PBXAggregateTarget "hfs_libraries" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07828B5A1E3FDD25009D2106 /* Release */,
+				07828B5B1E3FDD25009D2106 /* Debug */,
+				07828B5C1E3FDD25009D2106 /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
 		1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "hfs.util" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

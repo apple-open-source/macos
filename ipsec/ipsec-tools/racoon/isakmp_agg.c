@@ -61,10 +61,6 @@
 #include "schedule.h"
 #include "debug.h"
 
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
-
 #include "fsm.h"
 #include "localconf.h"
 #include "remoteconf.h"
@@ -519,6 +515,7 @@ agg_i2recv(iph1, msg)
 				if (isakmp_p2ph (&natd->payload, pa->ptr) < 0) {
 					plog(ASL_LEVEL_ERR, 
 						 "failed to process NATD payload");
+					racoon_free(natd);
 					goto end;
 				}
 
@@ -578,7 +575,7 @@ agg_i2recv(iph1, msg)
 		struct natd_payload *natd = NULL;
 		int natd_verified;
 		
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
 
@@ -592,7 +589,7 @@ agg_i2recv(iph1, msg)
 			natd_verified = natt_compare_addr_hash (iph1,
 				natd->payload, natd->seq);
 
-			plog (ASL_LEVEL_INFO, "NAT-D payload #%d %s\n",
+			plog (ASL_LEVEL_NOTICE, "NAT-D payload #%d %s\n",
 				natd->seq - 1,
 				natd_verified ? "verified" : "doesn't match");
 			
@@ -602,7 +599,7 @@ agg_i2recv(iph1, msg)
 			racoon_free (natd);
 		}
 
-		plog (ASL_LEVEL_INFO, "NAT %s %s%s\n",
+		plog (ASL_LEVEL_NOTICE, "NAT %s %s%s\n",
 		      iph1->natt_flags & NAT_DETECTED ? 
 		      		"detected:" : "not detected",
 		      iph1->natt_flags & NAT_DETECTED_ME ? "ME " : "",
@@ -806,7 +803,7 @@ agg_i3send(iph1, msg)
 #ifdef ENABLE_NATT
 	/* generate NAT-D payloads */
 	if (NATT_AVAILABLE(iph1)) {
-		plog (ASL_LEVEL_INFO, "Adding remote and local NAT-D payloads.\n");
+		plog (ASL_LEVEL_NOTICE, "Adding remote and local NAT-D payloads.\n");
 		if ((natd[0] = natt_hash_addr (iph1, iph1->remote)) == NULL) {
 			plog(ASL_LEVEL_ERR, 
 				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->remote));
@@ -1048,7 +1045,7 @@ agg_r1recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
 		ike_session_update_natt_version(iph1);
@@ -1232,7 +1229,7 @@ agg_r2send(iph1, msg)
 		vid_natt = set_vendorid(iph1->natt_options->version);
 
 		/* generate NAT-D payloads */
-		plog (ASL_LEVEL_INFO, "Adding remote and local NAT-D payloads.\n");
+		plog (ASL_LEVEL_NOTICE, "Adding remote and local NAT-D payloads.\n");
 		if ((natd[0] = natt_hash_addr (iph1, iph1->remote)) == NULL) {
 			plog(ASL_LEVEL_ERR, 
 				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->remote));
@@ -1346,7 +1343,7 @@ agg_r2send(iph1, msg)
 
 #ifdef ENABLE_HYBRID
 	if (iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) {
-		plog (ASL_LEVEL_INFO, "Adding xauth VID payload.\n");
+		plog (ASL_LEVEL_NOTICE, "Adding xauth VID payload.\n");
 		if ((xauth_vid = set_vendorid(VENDORID_XAUTH)) == NULL) {
 			plog(ASL_LEVEL_ERR, 
 			    "Cannot create Xauth vendor ID\n");
@@ -1570,7 +1567,7 @@ agg_r3recv(iph1, msg0)
 				natd_verified = natt_compare_addr_hash (iph1,
 					natd_received, natd_seq++);
 				
-				plog (ASL_LEVEL_INFO, "NAT-D payload #%d %s\n",
+				plog (ASL_LEVEL_NOTICE, "NAT-D payload #%d %s\n",
 					natd_seq - 1,
 					natd_verified ? "verified" : "doesn't match");
 				
@@ -1594,7 +1591,7 @@ agg_r3recv(iph1, msg0)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1))
-		plog (ASL_LEVEL_INFO, "NAT %s %s%s\n",
+		plog (ASL_LEVEL_NOTICE, "NAT %s %s%s\n",
 		      iph1->natt_flags & NAT_DETECTED ? 
 		      		"detected:" : "not detected",
 		      iph1->natt_flags & NAT_DETECTED_ME ? "ME " : "",

@@ -17,12 +17,23 @@
 #import "SyncedDefaults/SYDConstants.h"
 #include <os/activity.h>
 
-//KVS error codes
-#define UPDATE_RESUBMIT 4
+struct CKDKVSCounters {
+    uint64_t synchronize;
+    uint64_t synchronizeWithCompletionHandler;
+    uint64_t incomingMessages;
+    uint64_t outgoingMessages;
+    uint64_t totalWaittimeSynchronize;
+    uint64_t longestWaittimeSynchronize;
+    uint64_t synchronizeFailures;
+};
+
+
 
 @interface CKDKVSStore ()
 @property (readwrite, weak) UbiqitousKVSProxy* proxy;
 @property (readwrite) NSUbiquitousKeyValueStore* cloudStore;
+@property (assign,readwrite) struct CKDKVSCounters *perfCounters;
+@property dispatch_queue_t perfQueue;
 @end
 
 @implementation CKDKVSStore
@@ -41,8 +52,16 @@
         secerror("NO NSUbiquitousKeyValueStore defaultStore!!!");
         return nil;
     }
+    self.perfQueue = dispatch_queue_create("CKDKVSStorePerfQueue", NULL);
+    self.perfCounters = calloc(1, sizeof(struct CKDKVSCounters));
+    
 
     return self;
+}
+
+- (void)dealloc {
+    if (_perfCounters)
+        free(_perfCounters);
 }
 
 - (void) connectToProxy: (UbiqitousKVSProxy*) proxy {
@@ -86,12 +105,19 @@
 
 - (void)pushWrites {
     [[self cloudStore] synchronize];
+    dispatch_async(self.perfQueue, ^{
+        self.perfCounters->synchronize++;
+    });
 }
 
 // Runs on the same thread that posted the notification, and that thread _may_ be the
 // kdkvsproxy_queue (see 30470419). Avoid deadlock by bouncing through global queue.
 - (void)kvsStoreChangedAsync:(NSNotification *)notification
 {
+    secnotice("CloudKeychainProxy", "%@ KVS Remote changed notification: %@", self, notification);
+    dispatch_async(self.perfQueue, ^{
+        self.perfCounters->incomingMessages++;
+    });
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         [self kvsStoreChanged:notification];
     });
@@ -129,6 +155,12 @@
     os_activity_initiate("cloudChanged", OS_ACTIVITY_FLAG_DEFAULT, ^{
         secdebug(XPROXYSCOPE, "%@ KVS Remote changed notification: %@", self, notification);
 
+        UbiqitousKVSProxy* proxy = self.proxy;
+        if(!proxy) {
+            // Weak reference went away.
+            return;
+        }
+
         NSDictionary *userInfo = [notification userInfo];
         NSNumber *reason = [userInfo objectForKey:NSUbiquitousKeyValueStoreChangeReasonKey];
         NSArray *keysChangedArray = [userInfo objectForKey:NSUbiquitousKeyValueStoreChangedKeysKey];
@@ -136,11 +168,11 @@
 
         if (reason) switch ([reason integerValue]) {
             case NSUbiquitousKeyValueStoreInitialSyncChange:
-                [self.proxy storeKeysChanged: keysChanged initial: YES];
+                [proxy storeKeysChanged: keysChanged initial: YES];
                 break;
 
             case NSUbiquitousKeyValueStoreServerChange:
-                [self.proxy storeKeysChanged: keysChanged initial: NO];
+                [proxy storeKeysChanged: keysChanged initial: NO];
                 break;
 
             case NSUbiquitousKeyValueStoreQuotaViolationChange:
@@ -148,7 +180,7 @@
                 break;
 
             case NSUbiquitousKeyValueStoreAccountChange:
-                [self.proxy storeAccountChanged];
+                [proxy storeAccountChanged];
                 break;
 
             default:
@@ -158,49 +190,65 @@
     });
 }
 
-// try to synchronize asap, and invoke the handler on completion to take incoming changes.
-
-static bool isResubmitError(NSError* error) {
-    return error && (CFErrorGetCode((__bridge CFErrorRef) error) == UPDATE_RESUBMIT) &&
-        (CFErrorGetDomain((__bridge CFErrorRef)error) == __SYDErrorKVSDomain);
-}
-
 - (BOOL) pullUpdates:(NSError **)failure
 {
     __block NSError *tempFailure = nil;
-    const int kMaximumTries = 10;
-    int tryCount = 0;
-    // Retry up to 10 times, since we're told this can fail and WE have to deal with it.
-
+    
     dispatch_semaphore_t freshSemaphore = dispatch_semaphore_create(0);
-
-    do {
-        ++tryCount;
-        secnoticeq("fresh", "%s CALLING OUT TO syncdefaultsd SWCH, try %d: %@", kWAIT2MINID, tryCount, self);
-
-        [[self cloudStore] synchronizeWithCompletionHandler:^(NSError *error) {
-            if (error) {
-                tempFailure = error;
-                secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@: %@", kWAIT2MINID, self, error);
-            } else {
-                secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
-                [[self cloudStore] synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
-                secnotice("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
-            }
-            dispatch_semaphore_signal(freshSemaphore);
-        }];
-        dispatch_semaphore_wait(freshSemaphore, DISPATCH_TIME_FOREVER);
-    } while (tryCount < kMaximumTries && isResubmitError(tempFailure));
-
-    if (isResubmitError(tempFailure)) {
-        secerrorq("%s %d retry attempts to request freshness exceeded, failing", kWAIT2MINID, tryCount);
-    }
-
+    
+    secnoticeq("fresh", "%s CALLING OUT TO syncdefaultsd SWCH: %@", kWAIT2MINID, self);
+    
+    dispatch_async(self.perfQueue, ^{
+        self.perfCounters->synchronizeWithCompletionHandler++;
+    });
+    
+    [[self cloudStore] synchronizeWithCompletionHandler:^(NSError *error) {
+        if (error) {
+            dispatch_async(self.perfQueue, ^{
+                self.perfCounters->synchronizeFailures++;
+            });
+            tempFailure = error;
+            secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@: %@", kWAIT2MINID, self, error);
+        } else {
+            dispatch_async(self.perfQueue, ^{
+                self.perfCounters->synchronize++;
+            });
+            secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
+            [[self cloudStore] synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
+            secnotice("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
+        }
+        dispatch_semaphore_signal(freshSemaphore);
+    }];
+    dispatch_semaphore_wait(freshSemaphore, DISPATCH_TIME_FOREVER);
+    
     if (failure && (*failure == NULL)) {
         *failure = tempFailure;
     }
-
+    
     return tempFailure == nil;
 }
+
+- (void)perfCounters:(void(^)(NSDictionary *counters))callback
+{
+    dispatch_async(self.perfQueue, ^{
+        callback(@{
+            @"CKDKVS-synchronize" : @(self.perfCounters->synchronize),
+            @"CKDKVS-synchronizeWithCompletionHandler" : @(self.perfCounters->synchronizeWithCompletionHandler),
+            @"CKDKVS-incomingMessages" : @(self.perfCounters->incomingMessages),
+            @"CKDKVS-outgoingMessages" : @(self.perfCounters->outgoingMessages),
+            @"CKDKVS-totalWaittimeSynchronize" : @(self.perfCounters->totalWaittimeSynchronize),
+            @"CKDKVS-longestWaittimeSynchronize" : @(self.perfCounters->longestWaittimeSynchronize),
+            @"CKDKVS-synchronizeFailures" : @(self.perfCounters->synchronizeFailures),
+        });
+ });
+}
+
+- (void)addOneToOutGoing
+{
+    dispatch_async(self.perfQueue, ^{
+        self.perfCounters->outgoingMessages++;
+    });
+}
+
 
 @end

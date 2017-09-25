@@ -1642,6 +1642,8 @@ arp_session_new_if_session(arp_session_t * session, interface_t * if_p)
     }
     switch (if_link_type(if_p)) {
     case IFT_ETHER:
+    case IFT_L2VLAN:
+    case IFT_IEEE8023ADLAG:
 	break;
     case IFT_IEEE1394:
 	/* copy in the firewire address */

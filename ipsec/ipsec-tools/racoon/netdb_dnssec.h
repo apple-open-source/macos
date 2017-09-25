@@ -32,6 +32,10 @@
 #ifndef _NETDB_DNSSEC_H
 #define _NETDB_DNSSEC_H
 
+#include "config.h"
+
+#if ENABLE_DNSSEC_CERTS
+
 #ifndef T_CERT
 #define T_CERT	37		/* defined by RFC2538 section 2 */
 #endif
@@ -68,5 +72,7 @@ struct certinfo {
 
 extern void freecertinfo (struct certinfo *);
 extern int getcertsbyname (char *, struct certinfo **);
+
+#endif /* ENABLE_DNSSEC_CERTS */
 
 #endif /* _NETDB_DNSSEC_H */

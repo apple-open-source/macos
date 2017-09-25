@@ -55,3 +55,11 @@ extern void _tlv_exit();
 void
 exit(int status)
 {
+#if !TARGET_IPHONE_SIMULATOR && (__i386__ || __x86_64__)
+	_tlv_exit(); // C++11 requires thread_local objects to be destroyed before global objects
+#endif
+	__cxa_finalize(NULL);
+	if (__cleanup)
+		(*__cleanup)();
+	__exit(status);
+}

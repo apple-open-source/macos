@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -101,8 +101,10 @@
 }
 
 void
-myReachabilityCallback(SCNetworkReachabilityRef	target, SCNetworkReachabilityFlags flags, void *info)
+myReachabilityCallback(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info)
 {
+#pragma unused(target)
+#pragma unused(info)
 	struct tm	tm_now;
 	struct timeval	tv_now;
 	(void)gettimeofday(&tv_now, NULL);

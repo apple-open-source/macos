@@ -1,6 +1,7 @@
 #include "StreamSource.h"
 #include <string>
 #include "misc.h"
+#include "SecCFRelease.h"
 
 using namespace std;
 
@@ -14,7 +15,7 @@ StreamSource::StreamSource(CFReadStreamRef input, Transform* transform, CFString
 	mReading(dispatch_group_create())
 {
 	dispatch_group_enter(mReading);
-	CFRetain(mReadStream);
+	CFRetainSafe(mReadStream);
 }
 
 void StreamSource::BackgroundActivate()
@@ -36,7 +37,7 @@ void StreamSource::BackgroundActivate()
 
 			CFErrorRef error = mDestination->SetAttribute(mDestinationName, data);
 			
-			CFRelease(data);
+			CFReleaseNull(data);
 
 			if (error != NULL) // we have a problem, there was probably an abort on the chain
 			{
@@ -53,8 +54,8 @@ void StreamSource::BackgroundActivate()
 		if (error)
 		{
 			// NOTE: CF doesn't always tell us about this error.   Arguably it could be better to
-			// "invent" a generic error, but it is a hard argument that we want to crash in CFRelease(NULL)...
-			CFRelease(error);
+			// "invent" a generic error, but it is a hard argument that we want to crash in CFReleaseNull(NULL)...
+			CFReleaseNull(error);
 		}
 	}
 	else
@@ -66,10 +67,10 @@ void StreamSource::BackgroundActivate()
 
 void StreamSource::DoActivate()
 {
-	CFRetain(mDestination->GetCFObject());
+	CFRetainSafe(mDestination->GetCFObject());
 	dispatch_group_async(mReading, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{ 
 		this->BackgroundActivate();
-		CFRelease(mDestination->GetCFObject());
+		CFReleaseSafe(mDestination->GetCFObject());
 	});
 	dispatch_group_leave(mReading);
 }
@@ -83,7 +84,7 @@ void StreamSource::Finalize()
 
 StreamSource::~StreamSource()
 {
-	CFRelease(mReadStream);
+	CFReleaseNull(mReadStream);
 	mReadStream = NULL;
 	dispatch_release(mReading);
 	mReading = NULL;

@@ -1,5 +1,5 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestProc < Test::Unit::TestCase
   def setup
@@ -77,6 +77,18 @@ class TestProc < Test::Unit::TestCase
     assert_equal(2, proc{|(x, y), z|[x,y]}.arity)
     assert_equal(1, proc{|(x, y), z=0|[x,y]}.arity)
     assert_equal(-4, proc{|x, *y, z, a|}.arity)
+    assert_equal(0, proc{|**|}.arity)
+    assert_equal(0, proc{|**o|}.arity)
+    assert_equal(1, proc{|x, **o|}.arity)
+    assert_equal(0, proc{|x=0, **o|}.arity)
+    assert_equal(1, proc{|x, y=0, **o|}.arity)
+    assert_equal(2, proc{|x, y=0, z, **o|}.arity)
+    assert_equal(-3, proc{|x, y=0, *z, w, **o|}.arity)
+
+    assert_equal(2, proc{|x, y=0, z, a:1|}.arity)
+    assert_equal(3, proc{|x, y=0, z, a:|}.arity)
+    assert_equal(-4, proc{|x, y, *rest, a:, b:, c:|}.arity)
+    assert_equal(3, proc{|x, y=0, z, a:, **o|}.arity)
 
     assert_equal(0, lambda{}.arity)
     assert_equal(0, lambda{||}.arity)
@@ -95,6 +107,13 @@ class TestProc < Test::Unit::TestCase
     assert_equal(2, lambda{|(x, y), z|[x,y]}.arity)
     assert_equal(-2, lambda{|(x, y), z=0|[x,y]}.arity)
     assert_equal(-4, lambda{|x, *y, z, a|}.arity)
+    assert_equal(-1, lambda{|**|}.arity)
+    assert_equal(-1, lambda{|**o|}.arity)
+    assert_equal(-2, lambda{|x, **o|}.arity)
+    assert_equal(-1, lambda{|x=0, **o|}.arity)
+    assert_equal(-2, lambda{|x, y=0, **o|}.arity)
+    assert_equal(-3, lambda{|x, y=0, z, **o|}.arity)
+    assert_equal(-3, lambda{|x, y=0, *z, w, **o|}.arity)
 
     assert_arity(0) {}
     assert_arity(0) {||}
@@ -104,6 +123,10 @@ class TestProc < Test::Unit::TestCase
     assert_arity(-3) {|x, *y, z|}
     assert_arity(-1) {|*x|}
     assert_arity(-1) {|*|}
+    assert_arity(-1) {|**o|}
+    assert_arity(-1) {|**|}
+    assert_arity(-2) {|x, *y, **|}
+    assert_arity(-3) {|x, *y, z, **|}
   end
 
   def m(x)
@@ -182,7 +205,14 @@ class TestProc < Test::Unit::TestCase
     b = b.binding
     assert_instance_of(Binding, b, '[ruby-core:25589]')
     bug10432 = '[ruby-core:65919] [Bug #10432]'
-    assert_same(self, b.eval("self"), bug10432)
+    assert_same(self, b.receiver, bug10432)
+    assert_not_send [b, :local_variable_defined?, :value]
+    assert_raise(NameError) {
+      b.local_variable_get(:value)
+    }
+    assert_equal 42, b.local_variable_set(:value, 42)
+    assert_send [b, :local_variable_defined?, :value]
+    assert_equal 42, b.local_variable_get(:value)
   end
 
   def test_block_given_method
@@ -387,6 +417,7 @@ class TestProc < Test::Unit::TestCase
     t = Thread.new { sleep }
     assert_raise(ThreadError) { t.instance_eval { initialize { } } }
     t.kill
+    t.join
   end
 
   def test_to_proc
@@ -402,7 +433,7 @@ class TestProc < Test::Unit::TestCase
     assert_equal(:noreason, exc.reason)
   end
 
-  def test_binding2
+  def test_curry_binding
     assert_raise(ArgumentError) { proc {}.curry.binding }
   end
 
@@ -549,7 +580,7 @@ class TestProc < Test::Unit::TestCase
     assert_equal [1, 2, 3], pr.call([1,2,3,4,5,6])
   end
 
-  def test_proc_args_opt_signle
+  def test_proc_args_opt_single
     bug7621 = '[ruby-dev:46801]'
     pr = proc {|a=:a|
       a
@@ -1089,6 +1120,13 @@ class TestProc < Test::Unit::TestCase
   def pmo6(a, *b, c, &d) end
   def pmo7(a, b = :b, *c, d, &e) end
   def pma1((a), &b) a; end
+  def pmk1(**) end
+  def pmk2(**o) nil && o end
+  def pmk3(a, **o) nil && o end
+  def pmk4(a = nil, **o) nil && o end
+  def pmk5(a, b = nil, **o) nil && o end
+  def pmk6(a, b = nil, c, **o) nil && o end
+  def pmk7(a, b = nil, *c, d, **o) nil && o end
 
 
   def test_bound_parameters
@@ -1103,6 +1141,13 @@ class TestProc < Test::Unit::TestCase
     assert_equal([[:req, :a], [:rest, :b], [:req, :c], [:block, :d]], method(:pmo6).to_proc.parameters)
     assert_equal([[:req, :a], [:opt, :b], [:rest, :c], [:req, :d], [:block, :e]], method(:pmo7).to_proc.parameters)
     assert_equal([[:req], [:block, :b]], method(:pma1).to_proc.parameters)
+    assert_equal([[:keyrest]], method(:pmk1).to_proc.parameters)
+    assert_equal([[:keyrest, :o]], method(:pmk2).to_proc.parameters)
+    assert_equal([[:req, :a], [:keyrest, :o]], method(:pmk3).to_proc.parameters)
+    assert_equal([[:opt, :a], [:keyrest, :o]], method(:pmk4).to_proc.parameters)
+    assert_equal([[:req, :a], [:opt, :b], [:keyrest, :o]], method(:pmk5).to_proc.parameters)
+    assert_equal([[:req, :a], [:opt, :b], [:req, :c], [:keyrest, :o]], method(:pmk6).to_proc.parameters)
+    assert_equal([[:req, :a], [:opt, :b], [:rest, :c], [:req, :d], [:keyrest, :o]], method(:pmk7).to_proc.parameters)
 
     assert_equal([], "".method(:upcase).to_proc.parameters)
     assert_equal([[:rest]], "".method(:gsub).to_proc.parameters)
@@ -1115,7 +1160,7 @@ class TestProc < Test::Unit::TestCase
     assert_match(/^#<Proc:0x\h+ \(lambda\)>$/, method(:p).to_proc.to_s)
     x = proc {}
     x.taint
-    assert(x.to_s.tainted?)
+    assert_predicate(x.to_s, :tainted?)
   end
 
   @@line_of_source_location_test = __LINE__ + 1
@@ -1201,13 +1246,99 @@ class TestProc < Test::Unit::TestCase
     }
   end
 
-  def test_overriden_lambda
+  def test_overridden_lambda
     bug8345 = '[ruby-core:54687] [Bug #8345]'
     assert_normal_exit('def lambda; end; method(:puts).to_proc', bug8345)
   end
 
-  def test_overriden_proc
+  def test_overridden_proc
     bug8345 = '[ruby-core:54688] [Bug #8345]'
     assert_normal_exit('def proc; end; ->{}.curry', bug8345)
+  end
+
+  def get_binding if: 1, case: 2, when: 3, begin: 4, end: 5
+    a ||= 0
+    binding
+  end
+
+  def test_local_variables
+    b = get_binding
+    assert_equal(%i'if case when begin end a', b.local_variables)
+    a = tap {|;a, b| break binding.local_variables}
+    assert_equal(%i[a b], a.sort)
+  end
+
+  def test_local_variables_nested
+    b = tap {break binding}
+    assert_equal(%i[b], b.local_variables, '[ruby-dev:48351] [Bug #10001]')
+  end
+
+  def local_variables_of(bind)
+    this_should_not_be_in_bind = 2
+    bind.local_variables
+  end
+
+  def test_local_variables_in_other_context
+    feature8773 = '[Feature #8773]'
+    assert_equal([:feature8773], local_variables_of(binding), feature8773)
+  end
+
+  def test_local_variable_get
+    b = get_binding
+    assert_equal(0, b.local_variable_get(:a))
+    assert_raise(NameError){ b.local_variable_get(:b) }
+
+    # access keyword named local variables
+    assert_equal(1, b.local_variable_get(:if))
+    assert_equal(2, b.local_variable_get(:case))
+    assert_equal(3, b.local_variable_get(:when))
+    assert_equal(4, b.local_variable_get(:begin))
+    assert_equal(5, b.local_variable_get(:end))
+  end
+
+  def test_local_variable_set
+    b = get_binding
+    b.local_variable_set(:a, 10)
+    b.local_variable_set(:b, 20)
+    assert_equal(10, b.local_variable_get(:a))
+    assert_equal(20, b.local_variable_get(:b))
+    assert_equal(10, b.eval("a"))
+    assert_equal(20, b.eval("b"))
+  end
+
+  def test_local_variable_defined?
+    b = get_binding
+    assert_equal(true, b.local_variable_defined?(:a))
+    assert_equal(false, b.local_variable_defined?(:b))
+  end
+
+  def test_binding_receiver
+    feature8779 = '[ruby-dev:47613] [Feature #8779]'
+
+    assert_same(self, binding.receiver, feature8779)
+
+    obj = Object.new
+    def obj.b; binding; end
+    assert_same(obj, obj.b.receiver, feature8779)
+  end
+
+  def test_proc_mark
+    assert_normal_exit(<<-'EOS')
+      def f
+        Enumerator.new{
+          100000.times {|i|
+            yield
+            s = "#{i}"
+          }
+        }
+      end
+
+      def g
+        x = proc{}
+        f(&x)
+      end
+      e = g
+      e.each {}
+    EOS
   end
 end

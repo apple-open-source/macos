@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2013 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd October 7, 2013
+.Dd December 21, 2016
 .Dt XATTR_NAME_WITH_FLAGS 3
 .Os
 .Sh NAME
@@ -56,7 +56,7 @@ argument indicates it should not be preserved for the given
 intent, or 1 if it should.
 .Pp
 The function
-.Fn xattr_presere_for_intent
+.Fn xattr_preserve_for_intent
 combines the functions above, and will return zero if the
 named extended attribute should be preserved during a copy for
 the given intent.
@@ -73,7 +73,7 @@ case.
 .It Dv XATTR_OPERATION_INTENT_SAVE
 Indicates that intent is to perform a save (perhaps as in a "safe save").
 This differs from a copy in that the content may be changing; the destination
-may be over-writing or replacing the source, and som extended attributes should
+may be over-writing or replacing the source, and some extended attributes should
 not be preserved during this process.
 .It Dv XATTR_OPERATION_INTENT_SHARE
 Indicates that the intent is to share, or export, the object.  For example,

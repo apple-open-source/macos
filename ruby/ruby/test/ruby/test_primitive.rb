@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'test/unit'
 
 class TestRubyPrimitive < Test::Unit::TestCase
@@ -415,9 +416,9 @@ class TestRubyPrimitive < Test::Unit::TestCase
     end
     x.to_a_called = false
     [0, *x]
-    assert(x.to_a_called, bug3658)
+    assert_predicate(x, :to_a_called, bug3658)
     x.to_a_called = false
     [0, *x, 2]
-    assert(x.to_a_called, bug3658)
+    assert_predicate(x, :to_a_called, bug3658)
   end
 end

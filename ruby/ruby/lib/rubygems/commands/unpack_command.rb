@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/command'
 require 'rubygems/installer'
 require 'rubygems/version_option'
@@ -32,6 +33,24 @@ class Gem::Commands::UnpackCommand < Gem::Command
 
   def defaults_str # :nodoc:
     "--version '#{Gem::Requirement.default}'"
+  end
+
+  def description
+    <<-EOF
+The unpack command allows you to examine the contents of a gem or modify
+them to help diagnose a bug.
+
+You can add the contents of the unpacked gem to the load path using the
+RUBYLIB environment variable or -I:
+
+  $ gem unpack my_gem
+  Unpacked gem: '.../my_gem-1.0'
+  [edit my_gem-1.0/lib/my_gem.rb]
+  $ ruby -Imy_gem-1.0/lib -S other_program
+
+You can repackage an unpacked gem using the build command.  See the build
+command help for an example.
+    EOF
   end
 
   def usage # :nodoc:
@@ -116,7 +135,7 @@ class Gem::Commands::UnpackCommand < Gem::Command
 
     specs = dependency.matching_specs
 
-    selected = specs.sort_by { |s| s.version }.last # HACK: hunt last down
+    selected = specs.max_by { |s| s.version }
 
     return Gem::RemoteFetcher.fetcher.download_to_cache(dependency) unless
       selected

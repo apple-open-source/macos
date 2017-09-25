@@ -105,6 +105,7 @@
 		605A42301695070C00959114 /* DAAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 605A422E1695070C00959114 /* DAAgent.h */; };
 		605A42351695074300959114 /* DAAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42311695074300959114 /* DAAgent.m */; };
 		605A42361695074300959114 /* DADialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42331695074300959114 /* DADialog.m */; };
+		60C835DE1E96BC1F000438E6 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 60C835DD1E96BC1F000438E6 /* libbsm.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -222,6 +223,7 @@
 		605A42321695074300959114 /* DAAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAAgent.h; path = DiskArbitrationAgent/DAAgent.h; sourceTree = "<group>"; };
 		605A42331695074300959114 /* DADialog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DADialog.m; path = DiskArbitrationAgent/DADialog.m; sourceTree = "<group>"; };
 		605A42341695074300959114 /* DADialog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DADialog.h; path = DiskArbitrationAgent/DADialog.h; sourceTree = "<group>"; };
+		60C835DD1E96BC1F000438E6 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = usr/lib/libbsm.dylib; sourceTree = SDKROOT; };
 		60D0C1B41695F6CF0074B7BF /* DiskArbitrationAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DiskArbitrationAgent.h; path = DiskArbitrationAgent/DiskArbitrationAgent.h; sourceTree = "<group>"; };
 		60D0C1CF16964B2D0074B7BF /* DiskArbitrationAgent.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = DiskArbitrationAgent.entitlements; path = DiskArbitrationAgent/DiskArbitrationAgent.entitlements; sourceTree = "<group>"; };
 		6D0B6E2903DC776600A87B01 /* fstab.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = fstab.c; path = diskarbitrationd/fstab.c; sourceTree = "<group>"; };
@@ -293,6 +295,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				60C835DE1E96BC1F000438E6 /* libbsm.dylib in Frameworks */,
 				6054BAF01A76C970005039A0 /* libfs.a in Frameworks */,
 				603C87EF08EC8117004474CD /* CoreFoundation.framework in Frameworks */,
 				603C87F008EC8117004474CD /* IOKit.framework in Frameworks */,
@@ -339,6 +342,7 @@
 		12363830031ABDDD03A87B01 /* diskarbitrationd */ = {
 			isa = PBXGroup;
 			children = (
+				60C835DD1E96BC1F000438E6 /* libbsm.dylib */,
 				6054BAEF1A76C970005039A0 /* libfs.a */,
 				124AF5F0030ADDC203A87B01 /* CoreFoundation.framework */,
 				124AF319030ADD7603A87B01 /* IOKit.framework */,

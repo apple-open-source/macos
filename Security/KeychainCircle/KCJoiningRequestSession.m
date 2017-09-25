@@ -35,26 +35,48 @@ typedef enum {
     kRequestCircleDone
 } KCJoiningRequestCircleSessionState;
 
+
 @interface KCJoiningRequestSecretSession ()
 @property (readonly) NSObject<KCJoiningRequestSecretDelegate>* secretDelegate;
 @property (readonly) KCSRPClientContext* context;
 @property (readonly) uint64_t dsid;
 @property (readonly) KCJoiningRequestSecretSessionState state;
-
+@property (readwrite) NSString* piggy_uuid;
+@property (readwrite) uint64_t piggy_version;
 @property (readwrite) NSData* challenge;
 @property (readwrite) NSData* salt;
 @end
+
+static const uint64_t KCProtocolVersion = kPiggyV1;
 
 @implementation KCJoiningRequestSecretSession : NSObject
 
 - (nullable NSData*) initialMessage: (NSError**) error {
     NSData* start = [self->_context copyStart: error];
     if (start == nil) return nil;
+    
+    NSMutableData* initialMessage = NULL;
+    
+    
+    if(KCProtocolVersion == kPiggyV1)
+    {
+        NSUUID *uuid = [NSUUID UUID];
+        uuid_t uuidBytes;
 
-    NSMutableData* initialMessage = [NSMutableData dataWithLength: sizeof_initialmessage(start)];
+        self.piggy_uuid = [uuid UUIDString];
+        [uuid getUUIDBytes:uuidBytes];
+        NSData *uuidData = [NSData dataWithBytes:uuidBytes length:sizeof(uuid_t)];
 
-    if (NULL == encode_initialmessage(start, error, initialMessage.mutableBytes, initialMessage.mutableBytes + initialMessage.length))
-        return nil;
+        initialMessage = [NSMutableData dataWithLength: sizeof_initialmessage_version1(start, KCProtocolVersion, uuidData)];
+
+        if (NULL == encode_initialmessage_version1(start, uuidData, KCProtocolVersion, error, initialMessage.mutableBytes, initialMessage.mutableBytes + initialMessage.length))
+            return nil;
+    }
+    else{
+        initialMessage = [NSMutableData dataWithLength: sizeof_initialmessage(start)];
+        if (NULL == encode_initialmessage(start, error, initialMessage.mutableBytes, initialMessage.mutableBytes + initialMessage.length))
+            return nil;
+    }
     
     return initialMessage;
 }
@@ -318,7 +340,7 @@ typedef enum {
     NSData* circleBlob = [self.session decryptAndVerify:message.firstData error:error];
     if (circleBlob == nil) return nil;
 
-    if (![self.circleDelegate processCircleJoinData: circleBlob error:error])
+    if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error])
         return nil;
 
     self->_state = kRequestCircleDone;

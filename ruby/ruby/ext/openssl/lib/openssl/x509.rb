@@ -1,7 +1,5 @@
+# frozen_string_literal: false
 #--
-#
-# $RCSfile$
-#
 # = Ruby-space definitions that completes C-space funcs for X509 and subclasses
 #
 # = Info
@@ -10,12 +8,8 @@
 # All rights reserved.
 #
 # = Licence
-# This program is licenced under the same licence as Ruby.
+# This program is licensed under the same licence as Ruby.
 # (See the file 'LICENCE'.)
-#
-# = Version
-# $Id: x509.rb 36895 2012-09-04 00:57:31Z nobu $
-#
 #++
 
 module OpenSSL
@@ -70,7 +64,7 @@ module OpenSSL
         HexPair = /#{HexChar}#{HexChar}/
         HexString = /#{HexPair}+/
         Pair = /\\(?:[#{Special}]|\\|"|#{HexPair})/
-        StringChar = /[^#{Special}\\"]/
+        StringChar = /[^\\"#{Special}]/
         QuoteChar = /[^\\"]/
         AttributeType = /[a-zA-Z][0-9a-zA-Z]*|[0-9]+(?:\.[0-9]+)*/
         AttributeValue = /
@@ -151,11 +145,31 @@ module OpenSSL
 
         alias parse parse_openssl
       end
+
+      def pretty_print(q)
+        q.object_group(self) {
+          q.text ' '
+          q.text to_s(OpenSSL::X509::Name::RFC2253)
+        }
+      end
     end
 
     class StoreContext
       def cleanup
         warn "(#{caller.first}) OpenSSL::X509::StoreContext#cleanup is deprecated with no replacement" if $VERBOSE
+      end
+    end
+
+    class Certificate
+      def pretty_print(q)
+        q.object_group(self) {
+          q.breakable
+          q.text 'subject='; q.pp self.subject; q.text ','; q.breakable
+          q.text 'issuer='; q.pp self.issuer; q.text ','; q.breakable
+          q.text 'serial='; q.pp self.serial; q.text ','; q.breakable
+          q.text 'not_before='; q.pp self.not_before; q.text ','; q.breakable
+          q.text 'not_after='; q.pp self.not_after
+        }
       end
     end
   end

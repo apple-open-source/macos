@@ -87,11 +87,6 @@ Specify the path to Apple's libpthread package, so that appropriate headers
 Specify the path to Apple's libplatform package, so that appropriate headers
 	can be found and used.
 
-`--with-apple-libclosure-source`
-
-Specify the path to Apple's Libclosure package, so that appropriate headers
-	can be found and used.
-
 `--with-apple-xnu-source`
 
 Specify the path to Apple's XNU package, so that appropriate headers can be
@@ -103,11 +98,6 @@ On systems where -fblocks is supported, specify an additional library path in wh
 
 The following options are likely to only be useful when building libdispatch on
 OS X as a replacement for /usr/lib/system/libdispatch.dylib:
-
-`--with-apple-objc4-source`
-
-Specify the path to Apple's objc4 package, so that appropriate headers can
-	be found and used.
 
 `--disable-libdispatch-init-constructor`
 
@@ -131,9 +121,7 @@ libdispatch for /usr/lib/system on OS X El Capitan:
 		--enable-apple-tsd-optimizations \
 		--with-apple-libpthread-source=/path/to/10.11.0/libpthread-137.1.1 \
 		--with-apple-libplatform-source=/path/to/10.11.0/libplatform-73.1.1 \
-		--with-apple-libclosure-source=/path/to/10.11.0/libclosure-65 \
 		--with-apple-xnu-source=/path/to/10.11.0/xnu-3247.1.106 \
-		--with-apple-objc4-source=/path/to/10.11.0/objc4-680
 	make check
 
 ### Building and installing for FreeBSD
@@ -152,14 +140,7 @@ on Ubuntu; currently supported versions are 14.04, 15.10 and 16.04.
 
 1. The first thing to do is install required packages:
 
- 1a. Install build tools and clang compiler.
-    `sudo apt-get install autoconf libtool pkg-config clang`
-
- 1b. Install dtrace (to generate provider.h)
-    `sudo apt-get install systemtap-sdt-dev`
-
- 1c. Install additional libdispatch dependencies
-    `sudo apt-get install libblocksruntime-dev libkqueue-dev libbsd-dev`
+    `sudo apt-get install autoconf libtool pkg-config clang systemtap-sdt-dev libbsd-dev linux-libc-dev`
 
     Note: compiling libdispatch requires clang 3.8 or better and
 the gold linker. If the default clang on your Ubuntu version is
@@ -167,16 +148,7 @@ too old, see http://apt.llvm.org/ to install a newer version.
 On older Ubuntu releases, you may need to install binutils-gold
 to get the gold linker.
 
-2. Initialize git submodules.
-  We are using git submodules to incorporate specific revisions of the
-  upstream pthread_workqueue and libkqueue projects into the build.
-
-    ```
-    git submodule init
-    git submodule update
-    ```
-
-3. Build (as in the general instructions above)
+2. Build (as in the general instructions above)
 
     ```
     sh autogen.sh

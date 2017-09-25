@@ -134,7 +134,6 @@ WebInspector.NativeConstructorFunctionParameters = {
         construct: "target, argumentsList, [newTarget=target]",
         defineProperty: "target, propertyKey, attributes",
         deleteProperty: "target, propertyKey",
-        enumerate: "target",
         get: "target, propertyKey, [receiver]",
         getOwnPropertyDescriptor: "target, propertyKey",
         getPrototypeOf: "target",
@@ -408,8 +407,6 @@ WebInspector.NativePrototypeFunctionParameters = {
         removeAttribute: "attributeName",
         removeAttributeNS: "namespace, attributeName",
         removeAttributeNode: "attributeName",
-        scrollByLines: "[lines]",
-        scrollByPages: "[pages]",
         scrollIntoView: "[alignWithTop]",
         scrollIntoViewIfNeeded: "[centerIfNeeded]",
         setAttribute: "name, value",
@@ -696,11 +693,6 @@ WebInspector.NativePrototypeFunctionParameters = {
         __proto__: null,
     },
 
-    ClientRectList: {
-        item: "[index]",
-        __proto__: null,
-    },
-
     CommandLineAPIHost: {
         copyText: "text",
         databaseId: "database",
@@ -728,7 +720,7 @@ WebInspector.NativePrototypeFunctionParameters = {
     },
 
     CustomEvent: {
-        initCustomEvent: "[typeArg], [canBubbleArg], [cancelableArg], [detailArg]",
+        initCustomEvent: "type, [bubbles], [cancelable], [detail]",
         __proto__: null,
     },
 
@@ -820,7 +812,7 @@ WebInspector.NativePrototypeFunctionParameters = {
     },
 
     Event: {
-        initEvent: "type, canBubble, cancelable",
+        initEvent: "type, [bubbles], [cancelable]",
         __proto__: null,
     },
 
@@ -1119,8 +1111,7 @@ WebInspector.NativePrototypeFunctionParameters = {
     },
 
     MessageEvent: {
-        initMessageEvent: "[typeArg], [canBubbleArg], [cancelableArg], [dataArg], [originArg], [lastEventIdArg], [sourceArg], [messagePorts]",
-        webkitInitMessageEvent: "[typeArg], [canBubbleArg], [cancelableArg], [dataArg], [originArg], [lastEventIdArg], [sourceArg], [transferables]",
+        initMessageEvent: "type, [bubbles], [cancelable], [data], [origin], [lastEventId], [source], [messagePorts]",
         __proto__: null,
     },
 
@@ -1162,7 +1153,7 @@ WebInspector.NativePrototypeFunctionParameters = {
     },
 
     Navigator: {
-        webkitGetUserMedia: "options, successCallback, errorCallback",
+        getUserMedia: "options, successCallback, errorCallback",
         __proto__: null,
     },
 
@@ -1228,6 +1219,27 @@ WebInspector.NativePrototypeFunctionParameters = {
         moveTo: "[x], [y]",
         quadraticCurveTo: "[cpx], [cpy], [x], [y]",
         rect: "[x], [y], [width], [height]",
+        __proto__: null,
+    },
+
+    Performance: {
+        clearMarks: "[name]",
+        clearMeasures: "name",
+        getEntriesByName: "name, [type]",
+        getEntriesByType: "type",
+        mark: "name",
+        measure: "name, [startMark], [endMark]",
+        __proto__: null,
+    },
+
+    PerformanceObserver: {
+        observe: "options",
+        __proto__: null,
+    },
+
+    PerformanceObserverEntryList: {
+        getEntriesByName: "name, [type]",
+        getEntriesByType: "type",
         __proto__: null,
     },
 

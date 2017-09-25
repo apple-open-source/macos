@@ -1,3 +1,0 @@
-header.tt2:
-  title: [% title %]
-  menu: [% INCLUDE menu %]

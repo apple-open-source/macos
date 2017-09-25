@@ -56,6 +56,4 @@
 			.osl_unlock = _os_lock_##type##_unlock, \
 		}
 
-#include "os/internal.h"
-
 #endif // __OS_LOCK_INTERNAL__

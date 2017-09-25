@@ -34,7 +34,9 @@
 #include <security_utilities/dispatch.h>
 #include <security_utilities/hashing.h>
 #include <security_utilities/unix++.h>
+#if TARGET_OS_OSX
 #include <security_cdsa_utilities/cssmdata.h>
+#endif
 #include <copyfile.h>
 #include <asl.h>
 #include <cstdarg>
@@ -60,20 +62,38 @@ bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest);
 	
 inline size_t scanFileData(UnixPlusPlus::FileDesc fd, size_t limit, void (^handle)(const void *buffer, size_t size))
 {
-	unsigned char buffer[4096];
+	UnixPlusPlus::FileDesc::UnixStat st;
 	size_t total = 0;
-	for (;;) {
-		size_t size = sizeof(buffer);
-		if (limit && limit < size)
-			size = limit;
-		size_t got = fd.read(buffer, size);
-		total += got;
-		if (fd.atEnd())
-			break;
-		handle(buffer, got);
-		if (limit && (limit -= got) == 0)
-			break;
+	unsigned char *buffer = NULL;
+
+	try {
+		fd.fstat(st);
+		size_t bufSize = MAX(64 * 1024, st.st_blksize);
+		buffer = (unsigned char *)valloc(bufSize);
+		if (!buffer)
+			return 0;
+
+		for (;;) {
+			size_t size = bufSize;
+			if (limit && limit < size)
+				size = limit;
+			size_t got = fd.read(buffer, size);
+			total += got;
+			if (fd.atEnd())
+				break;
+			handle(buffer, got);
+			if (limit && (limit -= got) == 0)
+				break;
+		}
 	}
+	catch(...) {
+		/* don't leak this on error */
+		if (buffer)
+			free(buffer);
+		throw;
+	}
+	
+	free(buffer);
 	return total;
 }
 
@@ -104,9 +124,11 @@ size_t hashFileData(const char *path, _Hash *hasher)
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,
 // even ones not recognized by the local CL. It does not return any value, only presence.
 //
+
+#if TARGET_OS_OSX
 bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid);
 bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid);
-
+#endif
 
 //
 // Encapsulation of the copyfile(3) API.
@@ -139,8 +161,8 @@ class MessageTrace {
 public:
 	MessageTrace(const char *domain, const char *signature);
 	~MessageTrace() { ::asl_free(mAsl); }
-	void add(const char *key, const char *format, ...);
-	void send(const char *format, ...);
+	void add(const char *key, const char *format, ...) __attribute__((format(printf,3,4)));
+	void send(const char *format, ...) __attribute__((format(printf,2,3)));
 
 private:
 	aslmsg mAsl;

@@ -27,9 +27,12 @@
 #ifndef _H_REQINTERP
 #define _H_REQINTERP
 
-#include <security_codesigning/reqreader.h>
+#include "reqreader.h"
 #include <Security/SecTrustSettings.h>
+
+#if TARGET_OS_OSX
 #include <security_cdsa_utilities/cssmdata.h>	// CssmOid
+#endif
 
 namespace Security {
 namespace CodeSigning {
@@ -69,10 +72,12 @@ protected:
 	bool infoKeyValue(const std::string &key, const Match &match);
 	bool entitlementValue(const std::string &key, const Match &match);
 	bool certFieldValue(const string &key, const Match &match, SecCertificateRef cert);
+#if TARGET_OS_OSX
 	bool certFieldGeneric(const string &key, const Match &match, SecCertificateRef cert);
 	bool certFieldGeneric(const CssmOid &oid, const Match &match, SecCertificateRef cert);
 	bool certFieldPolicy(const string &key, const Match &match, SecCertificateRef cert);
 	bool certFieldPolicy(const CssmOid &oid, const Match &match, SecCertificateRef cert);
+#endif
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
 	bool appleSigned();
 	bool appleAnchored();

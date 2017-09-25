@@ -89,9 +89,13 @@ configuration_profile_copy_property_list(const char *ident)
 	}
 
 	data = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-	if (data != NULL) out = xpc_create_from_plist(data, sb.st_size);
+	
+	if (data != MAP_FAILED)
+	{
+		out = xpc_create_from_plist(data, sb.st_size);
+		munmap(data, sb.st_size);
+	}
 
-	munmap(data, sb.st_size);
 	close(fd);
 
 	return out;

@@ -24,8 +24,16 @@
 #include <libkern/c++/OSContainers.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #include <IOKit/pci/IOPCIDevice.h>
+#pragma clang diagnostic pop
 #include <IOKit/IOHibernatePrivate.h>
+
+#include <IOKit/assert.h>
+
+#include <pexpert/pexpert.h>
+#include <string.h>
 
 #include "IONDRV.h"
 
@@ -34,10 +42,6 @@
 #include <IOKit/ndrvsupport/IONDRVLibraries.h>
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 
-#include <IOKit/assert.h>
-
-#include <pexpert/pexpert.h>
-#include <string.h>
 
 extern "C"
 {
@@ -218,6 +222,8 @@ OSStatus EXP(RegistryPropertyDelete)( const RegEntryID * entryID, const RegPrope
     return (err);
 }
 
+void IONDRVSetNVRAMPropertyName( IORegistryEntry * regEntry,
+                                const OSSymbol * sym );
 void IONDRVSetNVRAMPropertyName( IORegistryEntry * regEntry,
                                     const OSSymbol * sym )
 {

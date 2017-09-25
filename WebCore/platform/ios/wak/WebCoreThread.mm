@@ -32,16 +32,17 @@
 #import "FloatingPointEnvironment.h"
 #import "RuntimeApplicationChecks.h"
 #import "ThreadGlobalData.h"
+#import "WAKWindow.h"
 #import "WebCoreThreadInternal.h"
 #import "WebCoreThreadMessage.h"
 #import "WebCoreThreadRun.h"
-#import "WebCoreThreadSafe.h"
 #import "WKUtilities.h"
 
 #import <runtime/InitializeThreading.h>
 #import <runtime/JSLock.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
+#import <wtf/RunLoop.h>
 #import <wtf/Threading.h>
 #import <wtf/text/AtomicString.h>
 
@@ -139,11 +140,10 @@ WEBCORE_EXPORT volatile bool webThreadShouldYield;
 
 static pthread_mutex_t WebCoreReleaseLock;
 static void WebCoreObjCDeallocOnWebThreadImpl(id self, SEL _cmd);
+static void WebCoreObjCDeallocWithWebThreadLock(Class cls);
 static void WebCoreObjCDeallocWithWebThreadLockImpl(id self, SEL _cmd);
 
 static NSMutableArray *sAsyncDelegates = nil;
-
-static CFStringRef delegateSourceRunLoopMode;
 
 static inline void SendMessage(NSInvocation *invocation)
 {
@@ -710,6 +710,8 @@ static void StartWebThread()
     // Initialize AtomicString on the main thread.
     WTF::AtomicString::init();
 
+    RunLoop::initializeMainRunLoop();
+
     // register class for WebThread deallocation
     WebCoreObjCDeallocOnWebThread([WAKWindow class]);
     WebCoreObjCDeallocWithWebThreadLock([WAKView class]);
@@ -729,12 +731,11 @@ static void StartWebThread()
     CFRunLoopRef runLoop = CFRunLoopGetCurrent();
     CFRunLoopSourceContext delegateSourceContext = {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, HandleDelegateSource};
     delegateSource = CFRunLoopSourceCreate(NULL, 0, &delegateSourceContext);
+
     // We shouldn't get delegate callbacks while scrolling, but there might be
     // one outstanding when we start.  Add the source for all common run loop
     // modes so we don't block the web thread while scrolling.
-    if (!delegateSourceRunLoopMode)
-        delegateSourceRunLoopMode = kCFRunLoopCommonModes;
-    CFRunLoopAddSource(runLoop, delegateSource, delegateSourceRunLoopMode);
+    CFRunLoopAddSource(runLoop, delegateSource, kCFRunLoopCommonModes);
 
     sAsyncDelegates = [[NSMutableArray alloc] init];
 
@@ -986,17 +987,6 @@ NSRunLoop* WebThreadNSRunLoop(void)
 WebThreadContext *WebThreadCurrentContext(void)
 {
     return CurrentThreadContext();
-}
-
-bool WebThreadContextIsCurrent(void)
-{   
-    return WebThreadCurrentContext() == webThreadContext;
-}
-
-void WebThreadSetDelegateSourceRunLoopMode(CFStringRef mode)
-{
-    ASSERT(!webThreadStarted);
-    delegateSourceRunLoopMode = mode;
 }
 
 void WebThreadEnable(void)

@@ -23,6 +23,7 @@
 #include <fcntl.h>
 
 #include <libxml/parser.h>
+#include <libxml/parserInternals.h>
 #include <libxml/tree.h>
 #include <libxml/uri.h>
 
@@ -812,6 +813,7 @@ static xmlSAXHandler emptySAXHandlerStruct = {
 static xmlSAXHandlerPtr emptySAXHandler = &emptySAXHandlerStruct;
 static int callbacks = 0;
 static int quiet = 0;
+static int saxFatalStop = 0;
 
 /**
  * isStandaloneDebug:
@@ -1366,7 +1368,7 @@ warningDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
  * extra parameters.
  */
 static void XMLCDECL LIBXML_ATTR_FORMAT(2,3)
-errorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
+errorDebug(void *ctx, const char *msg, ...)
 {
     va_list args;
 
@@ -1377,6 +1379,13 @@ errorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
     fprintf(SAXdebug, "SAX.error: ");
     vfprintf(SAXdebug, msg, args);
     va_end(args);
+
+    if (saxFatalStop) {
+        xmlParserCtxtPtr ctxt = (xmlParserCtxtPtr)ctx;
+        xmlErrorPtr error = xmlCtxtGetLastError(ctxt);
+        if (error != NULL && error->level == XML_ERR_FATAL)
+            xmlStopParser(ctxt);
+    }
 }
 
 /**
@@ -1679,7 +1688,6 @@ static xmlSAXHandler debugHTMLSAXHandlerStruct = {
 static xmlSAXHandlerPtr debugHTMLSAXHandler = &debugHTMLSAXHandlerStruct;
 #endif /* LIBXML_HTML_ENABLED */
 
-#ifdef LIBXML_SAX1_ENABLED
 /**
  * saxParseTest:
  * @filename: the file to parse
@@ -1720,12 +1728,20 @@ saxParseTest(const char *filename, const char *result,
 	ret = 0;
     } else
 #endif
-    ret = xmlSAXUserParseFile(emptySAXHandler, NULL, filename);
+    {
+        xmlParserCtxtPtr ctxt = xmlCreateFileParserCtxt(filename);
+        memcpy(ctxt->sax, emptySAXHandler, sizeof(xmlSAXHandler));
+        xmlCtxtUseOptions(ctxt, options);
+        xmlParseDocument(ctxt);
+        ret = ctxt->wellFormed ? 0 : ctxt->errNo;
+        xmlFreeDoc(ctxt->myDoc);
+        xmlFreeParserCtxt(ctxt);
+    }
     if (ret == XML_WAR_UNDECLARED_ENTITY) {
         fprintf(SAXdebug, "xmlSAXUserParseFile returned error %d\n", ret);
         ret = 0;
     }
-    if (ret != 0) {
+    if (ret != 0 && !saxFatalStop) {
         fprintf(stderr, "Failed to parse %s\n", filename);
 	ret = 1;
 	goto done;
@@ -1736,13 +1752,25 @@ saxParseTest(const char *filename, const char *result,
 	ret = 0;
     } else
 #endif
-    if (options & XML_PARSE_SAX1) {
-	ret = xmlSAXUserParseFile(debugSAXHandler, NULL, filename);
-    } else {
-	ret = xmlSAXUserParseFile(debugSAX2Handler, NULL, filename);
+    {
+        xmlParserCtxtPtr ctxt = xmlCreateFileParserCtxt(filename);
+        if (options & XML_PARSE_SAX1) {
+            memcpy(ctxt->sax, debugSAXHandler, sizeof(xmlSAXHandler));
+            options -= XML_PARSE_SAX1;
+        } else {
+            memcpy(ctxt->sax, debugSAX2Handler, sizeof(xmlSAXHandler));
+        }
+        xmlCtxtUseOptions(ctxt, options);
+        xmlParseDocument(ctxt);
+        ret = ctxt->wellFormed ? 0 : ctxt->errNo;
+        xmlFreeDoc(ctxt->myDoc);
+        xmlFreeParserCtxt(ctxt);
     }
     if (ret == XML_WAR_UNDECLARED_ENTITY) {
         fprintf(SAXdebug, "xmlSAXUserParseFile returned error %d\n", ret);
+        ret = 0;
+    }
+    if (ret == XML_ERR_USER_STOP && saxFatalStop) {
         ret = 0;
     }
     fclose(SAXdebug);
@@ -1763,7 +1791,17 @@ done:
 
     return(ret);
 }
-#endif
+
+static int
+saxFatalStopParseTest(const char *filename, const char *result,
+                      const char *err, int options) {
+    int ret;
+    int oldSAXFatalStop = saxFatalStop;
+    saxFatalStop = 1;
+    ret = saxParseTest(filename, result, err, options);
+    saxFatalStop = oldSAXFatalStop;
+    return ret;
+}
 
 /************************************************************************
  *									*
@@ -4058,7 +4096,7 @@ c14n11WithoutCommentTest(const char *filename,
     return(c14nCommonTest(filename, 0, XML_C14N_1_1, "1-1-without-comments"));
 }
 #endif
-#if defined(LIBXML_THREAD_ENABLED) && defined(LIBXML_CATALOG_ENABLED) && defined (LIBXML_SAX1_ENABLED)
+#if defined(LIBXML_THREAD_ENABLED) && defined(LIBXML_CATALOG_ENABLED)
 /************************************************************************
  *									*
  *			Catalog and threads test			*
@@ -4105,7 +4143,11 @@ thread_specific_data(void *private_data)
         xmlDoValidityCheckingDefaultValue = 1;
         xmlGenericErrorContext = stderr;
     }
+#ifdef LIBXML_SAX1_ENABLED
     myDoc = xmlParseFile(filename);
+#else
+    myDoc = xmlReadFile(filename, NULL, XML_WITH_CATALOG);
+#endif
     if (myDoc) {
         xmlFreeDoc(myDoc);
     } else {
@@ -4346,6 +4388,12 @@ testDesc testDescriptions[] = {
     { "XML regression tests on memory" ,
       memParseTest, "./test/*", "result/", "", NULL,
       0 },
+    { "XML recover regression tests" ,
+      errParseTest, "./test/recover/xml/*", "result/recover/xml/", "", ".err",
+      XML_PARSE_RECOVER },
+    { "XML recover huge regression tests" ,
+      errParseTest, "./test/recover-huge/xml/*", "result/recover-huge/xml/", "", ".err",
+      XML_PARSE_HUGE | XML_PARSE_RECOVER },
     { "XML entity subst regression tests" ,
       noentParseTest, "./test/*", "result/noent/", "", NULL,
       XML_PARSE_NOENT },
@@ -4355,6 +4403,9 @@ testDesc testDescriptions[] = {
     { "Error cases regression tests",
       errParseTest, "./test/errors/*.xml", "result/errors/", "", ".err",
       0 },
+    { "Error cases regression tests (old 1.0)",
+      errParseTest, "./test/errors10/*.xml", "result/errors10/", "", ".err",
+      XML_PARSE_OLD10 },
 #ifdef LIBXML_READER_ENABLED
     { "Error cases stream regression tests",
       streamParseTest, "./test/errors/*.xml", "result/errors/", NULL, ".str",
@@ -4376,10 +4427,16 @@ testDesc testDescriptions[] = {
     { "SAX1 callbacks regression tests" ,
       saxParseTest, "./test/*", "result/", ".sax", NULL,
       XML_PARSE_SAX1 },
+#endif
     { "SAX2 callbacks regression tests" ,
       saxParseTest, "./test/*", "result/", ".sax2", NULL,
       0 },
-#endif
+    { "SAX2 callbacks regression tests with entity substitution" ,
+      saxParseTest, "./test/*", "result/noent/", ".sax2", NULL,
+      XML_PARSE_NOENT },
+    { "SAX2 stop on fatal error regression tests" ,
+      saxFatalStopParseTest, "./test/saxerrors/*", "result/saxerrors/", ".sax2", NULL,
+      0 },
 #ifdef LIBXML_PUSH_ENABLED
     { "XML push regression tests" ,
       pushParseTest, "./test/*", "result/", "", NULL,
@@ -4394,11 +4451,12 @@ testDesc testDescriptions[] = {
       pushParseTest, "./test/HTML/*", "result/HTML/", "", ".err",
       XML_PARSE_HTML },
 #endif
-#ifdef LIBXML_SAX1_ENABLED
+    { "HTML recover regression tests" ,
+      errParseTest, "./test/recover/html/*", "result/recover/html/", "", ".err",
+      XML_PARSE_HTML | XML_PARSE_RECOVER },
     { "HTML SAX regression tests" ,
       saxParseTest, "./test/HTML/*", "result/HTML/", ".sax", NULL,
       XML_PARSE_HTML },
-#endif
 #endif
 #ifdef LIBXML_VALID_ENABLED
     { "Valid documents regression tests" ,
@@ -4507,7 +4565,7 @@ testDesc testDescriptions[] = {
       c14n11WithoutCommentTest, "./test/c14n/1-1-without-comments/*.xml", NULL, NULL, NULL,
       0 },
 #endif
-#if defined(LIBXML_THREAD_ENABLED) && defined(LIBXML_CATALOG_ENABLED) && defined(LIBXML_SAX1_ENABLED)
+#if defined(LIBXML_THREAD_ENABLED) && defined(LIBXML_CATALOG_ENABLED)
     { "Catalog and Threads regression tests" ,
       threadsTest, NULL, NULL, NULL, NULL,
       0 },

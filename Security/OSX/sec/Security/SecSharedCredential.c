@@ -105,7 +105,7 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 		errStr = CFSTR("non-nil password was not of type CFString");
 	}
 	if (errStr) {
-		SecError(errSecParam, &error, errStr);
+		SecError(errSecParam, &error, CFSTR("%@"), errStr);
 		dispatch_async(dst_queue, ^{
 			if (completionHandler) {
 				completionHandler(error);
@@ -212,7 +212,7 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
 		errStr = CFSTR("account was empty or not a CFString");
 	}
 	if (errStr) {
-		SecError(errSecParam, &error, errStr);
+		SecError(errSecParam, &error, CFSTR("%@"), errStr);
 		dispatch_async(dst_queue, ^{
 			if (completionHandler) {
 				completionHandler(result, error);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -686,6 +686,7 @@ dns_request_createraw3(dns_requestmgr_t *requestmgr, isc_buffer_t *msgbuf,
 	dns_messageid_t	id;
 	isc_boolean_t tcp = ISC_FALSE;
 	isc_region_t r;
+	unsigned int dispopt = 0;
 
 	REQUIRE(VALID_REQUESTMGR(requestmgr));
 	REQUIRE(msgbuf != NULL);
@@ -751,9 +752,14 @@ dns_request_createraw3(dns_requestmgr_t *requestmgr, isc_buffer_t *msgbuf,
 	if (result != ISC_R_SUCCESS)
 		goto cleanup;
 
-	result = dns_dispatch_addresponse2(request->dispatch, destaddr, task,
-					   req_response, request, &id,
-					   &request->dispentry,
+	if ((options & DNS_REQUESTOPT_FIXEDID) != 0) {
+		id = (r.base[0] << 8) | r.base[1];
+		dispopt |= DNS_DISPATCHOPT_FIXEDID;
+	}
+
+	result = dns_dispatch_addresponse3(request->dispatch, dispopt,
+					   destaddr, task, req_response,
+					   request, &id, &request->dispentry,
 					   requestmgr->socketmgr);
 	if (result != ISC_R_SUCCESS)
 		goto cleanup;
@@ -894,12 +900,14 @@ dns_request_createvia3(dns_requestmgr_t *requestmgr, dns_message_t *message,
 	REQUIRE(action != NULL);
 	REQUIRE(requestp != NULL && *requestp == NULL);
 	REQUIRE(timeout > 0);
-	if (srcaddr != NULL)
-		REQUIRE(isc_sockaddr_pf(srcaddr) == isc_sockaddr_pf(destaddr));
 
 	mctx = requestmgr->mctx;
 
 	req_log(ISC_LOG_DEBUG(3), "dns_request_createvia");
+
+	if (srcaddr != NULL &&
+	    isc_sockaddr_pf(srcaddr) != isc_sockaddr_pf(destaddr))
+		return (ISC_R_FAMILYMISMATCH);
 
 	if (isblackholed(requestmgr->dispatchmgr, destaddr))
 		return (DNS_R_BLACKHOLED);

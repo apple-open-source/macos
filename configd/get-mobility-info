@@ -75,7 +75,10 @@ if [ -z $OUTDIR ]; then
 	if [ -d ~/Desktop ]; then
 		OUTDIR=~/Desktop
 	elif [ "`readlink /tmp`" = "private/var/tmp" ]; then
-		OUTDIR=/Library/Logs/CrashReporter
+		OUTDIR=/Library/Logs/DiagnosticReports
+		if [ ! -d /Library/Logs/DiagnosticReports -a -d /Library/Logs/CrashReporter ]; then
+			OUTDIR=/Library/Logs/CrashReporter
+		fi
 		mkdir -p ${OUTDIR}
 	fi
 fi
@@ -113,8 +116,22 @@ echo ""
 #
 # collect packet capture with kernel ring buffer if available
 #
+stop_pcap () {
+	#
+	# Stop the packet capture
+	#
+	if [ ${PCAP_STARTED} -ne 0 ]; then
+		trap '' SIGINT
+		/usr/local/bin/netdiagnose stop packetcapture			2>&1
+		PCAP_STARTED=0
+	fi
+}
+
+PCAP_STARTED=0
 if [ -x /usr/local/bin/netdiagnose -a ${NO_PCAP} -ne 1 ]; then
+	trap stop_pcap SIGINT
 	/usr/local/bin/netdiagnose -p "${WORKDIR}" start packetcapture		2>&1
+	PCAP_STARTED=1
 fi
 
 #
@@ -669,9 +686,7 @@ wait
 #
 # Stop the packet capture
 #
-if [ -x /usr/local/bin/netdiagnose -a ${NO_PCAP} -ne 1 ]; then
-	/usr/local/bin/netdiagnose stop packetcapture		2>&1
-fi
+stop_pcap
 
 if [ $NO_TAR -eq 0 ]; then
 	#

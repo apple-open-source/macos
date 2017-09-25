@@ -10,7 +10,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -36,7 +36,8 @@ struct _cups_raster_s			/**** Raster stream data ****/
   cups_raster_iocb_t	iocb;		/* IO callback */
   cups_mode_t		mode;		/* Read/write mode */
   cups_page_header2_t	header;		/* Raster header for current page */
-  unsigned		count,		/* Current row run-length count */
+  unsigned		rowheight,	/* Row height in lines */
+			count,		/* Current row run-length count */
 			remaining,	/* Remaining rows in page image */
 			bpp;		/* Bytes per pixel/color */
   unsigned char		*pixels,	/* Pixels for current row */
@@ -51,6 +52,7 @@ struct _cups_raster_s			/**** Raster stream data ****/
 #ifdef DEBUG
   size_t		iocount;	/* Number of bytes read/written */
 #endif /* DEBUG */
+  unsigned		apple_page_count;/* Apple raster page count */
 };
 
 
@@ -418,7 +420,9 @@ cupsRasterOpenIO(
         r->sync != CUPS_RASTER_SYNCv1 &&
         r->sync != CUPS_RASTER_REVSYNCv1 &&
         r->sync != CUPS_RASTER_SYNCv2 &&
-        r->sync != CUPS_RASTER_REVSYNCv2)
+        r->sync != CUPS_RASTER_REVSYNCv2 &&
+        r->sync != CUPS_RASTER_SYNCapple &&
+        r->sync != CUPS_RASTER_REVSYNCapple)
     {
       _cupsRasterAddError("Unknown raster format %08x!\n", r->sync);
       free(r);
@@ -426,13 +430,32 @@ cupsRasterOpenIO(
     }
 
     if (r->sync == CUPS_RASTER_SYNCv2 ||
-        r->sync == CUPS_RASTER_REVSYNCv2)
+        r->sync == CUPS_RASTER_REVSYNCv2 ||
+        r->sync == CUPS_RASTER_SYNCapple ||
+        r->sync == CUPS_RASTER_REVSYNCapple)
       r->compressed = 1;
 
     if (r->sync == CUPS_RASTER_REVSYNC ||
         r->sync == CUPS_RASTER_REVSYNCv1 ||
-        r->sync == CUPS_RASTER_REVSYNCv2)
+        r->sync == CUPS_RASTER_REVSYNCv2 ||
+        r->sync == CUPS_RASTER_REVSYNCapple)
       r->swapped = 1;
+
+    if (r->sync == CUPS_RASTER_SYNCapple ||
+        r->sync == CUPS_RASTER_REVSYNCapple)
+    {
+      unsigned char	header[8];	/* File header */
+
+      if (cups_raster_io(r, (unsigned char *)header, sizeof(header)) !=
+	      sizeof(header))
+      {
+	_cupsRasterAddError("Unable to read header from raster stream: %s\n",
+			    strerror(errno));
+	free(r);
+	return (NULL);
+      }
+
+    }
 
     DEBUG_printf(("1cupsRasterOpenIO: r->swapped=%d, r->sync=%08x\n", r->swapped, r->sync));
   }
@@ -458,6 +481,13 @@ cupsRasterOpenIO(
           r->compressed = 1;
           r->sync       = htonl(CUPS_RASTER_SYNC_PWG);
           r->swapped    = r->sync != CUPS_RASTER_SYNC_PWG;
+	  break;
+
+      case CUPS_RASTER_WRITE_APPLE :
+          r->compressed     = 1;
+          r->sync           = htonl(CUPS_RASTER_SYNCapple);
+          r->swapped        = r->sync != CUPS_RASTER_SYNCapple;
+          r->apple_page_count = 0xffffffffU;
 	  break;
     }
 
@@ -662,7 +692,31 @@ cupsRasterReadPixels(cups_raster_t *r,	/* I - Raster stream */
 	  return (0);
 	}
 
-	if (byte & 128)
+        if (byte == 128)
+        {
+         /*
+          * Clear to end of line...
+          */
+
+          switch (r->header.cupsColorSpace)
+          {
+            case CUPS_CSPACE_W :
+            case CUPS_CSPACE_RGB :
+            case CUPS_CSPACE_SW :
+            case CUPS_CSPACE_SRGB :
+            case CUPS_CSPACE_RGBW :
+            case CUPS_CSPACE_ADOBERGB :
+                memset(temp, 0xff, (size_t)bytes);
+                break;
+            default :
+                memset(temp, 0x00, (size_t)bytes);
+                break;
+          }
+
+          temp += bytes;
+          bytes = 0;
+        }
+	else if (byte & 128)
 	{
 	 /*
 	  * Copy N literal pixels...
@@ -891,6 +945,60 @@ cupsRasterWriteHeader(
 
     return (cups_raster_io(r, (unsigned char *)&fh, sizeof(fh)) == sizeof(fh));
   }
+  else if (r->mode == CUPS_RASTER_WRITE_APPLE)
+  {
+   /*
+    * Raw raster data is always network byte order with most of the page header
+    * zeroed.
+    */
+
+    unsigned char appleheader[32];	/* Raw page header */
+
+    if (r->apple_page_count == 0xffffffffU)
+    {
+     /*
+      * Write raw page count from raster page header...
+      */
+
+      r->apple_page_count = r->header.cupsInteger[0];
+
+      appleheader[0] = 'A';
+      appleheader[1] = 'S';
+      appleheader[2] = 'T';
+      appleheader[3] = 0;
+      appleheader[4] = (unsigned char)(r->apple_page_count >> 24);
+      appleheader[5] = (unsigned char)(r->apple_page_count >> 16);
+      appleheader[6] = (unsigned char)(r->apple_page_count >> 8);
+      appleheader[7] = (unsigned char)(r->apple_page_count);
+
+      if (cups_raster_io(r, appleheader, 8) != 8)
+        return (0);
+    }
+
+    memset(appleheader, 0, sizeof(appleheader));
+
+    appleheader[0]  = (unsigned char)r->header.cupsBitsPerPixel;
+    appleheader[1]  = r->header.cupsColorSpace == CUPS_CSPACE_SRGB ? 1 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_RGBW ? 2 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_ADOBERGB ? 3 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_W ? 4 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_RGB ? 5 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_CMYK ? 6 : 0;
+    appleheader[12] = (unsigned char)(r->header.cupsWidth >> 24);
+    appleheader[13] = (unsigned char)(r->header.cupsWidth >> 16);
+    appleheader[14] = (unsigned char)(r->header.cupsWidth >> 8);
+    appleheader[15] = (unsigned char)(r->header.cupsWidth);
+    appleheader[16] = (unsigned char)(r->header.cupsHeight >> 24);
+    appleheader[17] = (unsigned char)(r->header.cupsHeight >> 16);
+    appleheader[18] = (unsigned char)(r->header.cupsHeight >> 8);
+    appleheader[19] = (unsigned char)(r->header.cupsHeight);
+    appleheader[20] = (unsigned char)(r->header.HWResolution[0] >> 24);
+    appleheader[21] = (unsigned char)(r->header.HWResolution[0] >> 16);
+    appleheader[22] = (unsigned char)(r->header.HWResolution[0] >> 8);
+    appleheader[23] = (unsigned char)(r->header.HWResolution[0]);
+
+    return (cups_raster_io(r, appleheader, sizeof(appleheader)) == sizeof(appleheader));
+  }
   else
     return (cups_raster_io(r, (unsigned char *)&(r->header), sizeof(r->header))
 		== sizeof(r->header));
@@ -901,7 +1009,7 @@ cupsRasterWriteHeader(
  * 'cupsRasterWriteHeader2()' - Write a raster page header from a version 2
  *                              page header structure.
  *
- * The page header can be initialized using @link cupsRasterInterpretPPD@.
+ * The page header can be initialized using @link cupsRasterInitPWGHeader@.
  *
  * @since CUPS 1.2/macOS 10.5@
  */
@@ -923,6 +1031,16 @@ cupsRasterWriteHeader2(
 
   if (!cups_raster_update(r))
     return (0);
+
+  if (r->mode == CUPS_RASTER_WRITE_APPLE)
+  {
+    r->rowheight = h->HWResolution[0] / h->HWResolution[1];
+
+    if (h->HWResolution[0] != (r->rowheight * h->HWResolution[1]))
+      return (0);
+  }
+  else
+    r->rowheight = 1;
 
  /*
   * Write the raster header...
@@ -984,6 +1102,62 @@ cupsRasterWriteHeader2(
     fh.cupsInteger[7]        = htonl(0xffffff);
 
     return (cups_raster_io(r, (unsigned char *)&fh, sizeof(fh)) == sizeof(fh));
+  }
+  else if (r->mode == CUPS_RASTER_WRITE_APPLE)
+  {
+   /*
+    * Raw raster data is always network byte order with most of the page header
+    * zeroed.
+    */
+
+    unsigned char appleheader[32];	/* Raw page header */
+    unsigned height = r->header.cupsHeight * r->rowheight;
+					/* Computed page height */
+
+    if (r->apple_page_count == 0xffffffffU)
+    {
+     /*
+      * Write raw page count from raster page header...
+      */
+
+      r->apple_page_count = r->header.cupsInteger[0];
+
+      appleheader[0] = 'A';
+      appleheader[1] = 'S';
+      appleheader[2] = 'T';
+      appleheader[3] = 0;
+      appleheader[4] = (unsigned char)(r->apple_page_count >> 24);
+      appleheader[5] = (unsigned char)(r->apple_page_count >> 16);
+      appleheader[6] = (unsigned char)(r->apple_page_count >> 8);
+      appleheader[7] = (unsigned char)(r->apple_page_count);
+
+      if (cups_raster_io(r, appleheader, 8) != 8)
+        return (0);
+    }
+
+    memset(appleheader, 0, sizeof(appleheader));
+
+    appleheader[0]  = (unsigned char)r->header.cupsBitsPerPixel;
+    appleheader[1]  = r->header.cupsColorSpace == CUPS_CSPACE_SRGB ? 1 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_RGBW ? 2 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_ADOBERGB ? 3 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_W ? 4 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_RGB ? 5 :
+                        r->header.cupsColorSpace == CUPS_CSPACE_CMYK ? 6 : 0;
+    appleheader[12] = (unsigned char)(r->header.cupsWidth >> 24);
+    appleheader[13] = (unsigned char)(r->header.cupsWidth >> 16);
+    appleheader[14] = (unsigned char)(r->header.cupsWidth >> 8);
+    appleheader[15] = (unsigned char)(r->header.cupsWidth);
+    appleheader[16] = (unsigned char)(height >> 24);
+    appleheader[17] = (unsigned char)(height >> 16);
+    appleheader[18] = (unsigned char)(height >> 8);
+    appleheader[19] = (unsigned char)(height);
+    appleheader[20] = (unsigned char)(r->header.HWResolution[0] >> 24);
+    appleheader[21] = (unsigned char)(r->header.HWResolution[0] >> 16);
+    appleheader[22] = (unsigned char)(r->header.HWResolution[0] >> 8);
+    appleheader[23] = (unsigned char)(r->header.HWResolution[0]);
+
+    return (cups_raster_io(r, appleheader, sizeof(appleheader)) == sizeof(appleheader));
   }
   else
     return (cups_raster_io(r, (unsigned char *)&(r->header), sizeof(r->header))
@@ -1116,7 +1290,7 @@ cupsRasterWritePixels(cups_raster_t *r,	/* I - Raster stream */
           * Increase the repeat count...
 	  */
 
-	  r->count ++;
+	  r->count += r->rowheight;
 	  r->pcurrent = r->pixels;
 
 	 /*
@@ -1132,7 +1306,7 @@ cupsRasterWritePixels(cups_raster_t *r,	/* I - Raster stream */
 	    else
 	      return (len);
 	  }
-	  else if (r->count == 256)
+	  else if (r->count > (256 - r->rowheight))
 	  {
 	    if (cups_raster_write(r, r->pixels) <= 0)
 	      return (0);
@@ -1161,7 +1335,7 @@ cupsRasterWritePixels(cups_raster_t *r,	/* I - Raster stream */
         * Increase the repeat count...
 	*/
 
-	r->count ++;
+	r->count += r->rowheight;
 	r->pcurrent = r->pixels;
 
        /*
@@ -1201,53 +1375,118 @@ cups_raster_read_header(
 
   DEBUG_printf(("4cups_raster_read_header: r->iocount=" CUPS_LLFMT, CUPS_LLCAST r->iocount));
 
- /*
-  * Get the length of the raster header...
-  */
-
-  if (r->sync == CUPS_RASTER_SYNCv1 || r->sync == CUPS_RASTER_REVSYNCv1)
-    len = sizeof(cups_page_header_t);
-  else
-    len = sizeof(cups_page_header2_t);
-
-  DEBUG_printf(("4cups_raster_read_header: len=%d", (int)len));
+  memset(&(r->header), 0, sizeof(r->header));
 
  /*
   * Read the header...
   */
 
-  memset(&(r->header), 0, sizeof(r->header));
-
-  if (cups_raster_read(r, (unsigned char *)&(r->header), len) < (ssize_t)len)
+  switch (r->sync)
   {
-    DEBUG_printf(("4cups_raster_read_header: EOF, r->iocount=" CUPS_LLFMT, CUPS_LLCAST r->iocount));
-    return (0);
-  }
+    default :
+       /*
+	* Get the length of the raster header...
+	*/
 
- /*
-  * Swap bytes as needed...
-  */
+	if (r->sync == CUPS_RASTER_SYNCv1 || r->sync == CUPS_RASTER_REVSYNCv1)
+	  len = sizeof(cups_page_header_t);
+	else
+	  len = sizeof(cups_page_header2_t);
 
-  if (r->swapped)
-  {
-    unsigned	*s,			/* Current word */
-		temp;			/* Temporary copy */
+	DEBUG_printf(("4cups_raster_read_header: len=%d", (int)len));
+
+       /*
+        * Read it...
+        */
+
+	if (cups_raster_read(r, (unsigned char *)&(r->header), len) < (ssize_t)len)
+	{
+	  DEBUG_printf(("4cups_raster_read_header: EOF, r->iocount=" CUPS_LLFMT, CUPS_LLCAST r->iocount));
+	  return (0);
+	}
+
+       /*
+	* Swap bytes as needed...
+	*/
+
+	if (r->swapped)
+	{
+	  unsigned	*s,		/* Current word */
+			temp;		/* Temporary copy */
 
 
-    DEBUG_puts("4cups_raster_read_header: Swapping header bytes.");
+	  DEBUG_puts("4cups_raster_read_header: Swapping header bytes.");
 
-    for (len = 81, s = &(r->header.AdvanceDistance);
-	 len > 0;
-	 len --, s ++)
-    {
-      temp = *s;
-      *s   = ((temp & 0xff) << 24) |
-             ((temp & 0xff00) << 8) |
-             ((temp & 0xff0000) >> 8) |
-             ((temp & 0xff000000) >> 24);
+	  for (len = 81, s = &(r->header.AdvanceDistance);
+	       len > 0;
+	       len --, s ++)
+	  {
+	    temp = *s;
+	    *s   = ((temp & 0xff) << 24) |
+		   ((temp & 0xff00) << 8) |
+		   ((temp & 0xff0000) >> 8) |
+		   ((temp & 0xff000000) >> 24);
 
-      DEBUG_printf(("4cups_raster_read_header: %08x => %08x", temp, *s));
-    }
+	    DEBUG_printf(("4cups_raster_read_header: %08x => %08x", temp, *s));
+	  }
+	}
+        break;
+
+    case CUPS_RASTER_SYNCapple :
+    case CUPS_RASTER_REVSYNCapple :
+        {
+          unsigned char	appleheader[32];	/* Raw header */
+          static const unsigned rawcspace[] =
+          {
+            CUPS_CSPACE_SW,
+            CUPS_CSPACE_SRGB,
+            CUPS_CSPACE_RGBW,
+            CUPS_CSPACE_ADOBERGB,
+            CUPS_CSPACE_W,
+            CUPS_CSPACE_RGB,
+            CUPS_CSPACE_CMYK
+          };
+          static const unsigned rawnumcolors[] =
+          {
+            1,
+            3,
+            4,
+            3,
+            1,
+            3,
+            4
+          };
+
+	  if (cups_raster_read(r, appleheader, sizeof(appleheader)) < (ssize_t)sizeof(appleheader))
+	  {
+	    DEBUG_printf(("4cups_raster_read_header: EOF, r->iocount=" CUPS_LLFMT, CUPS_LLCAST r->iocount));
+	    return (0);
+	  }
+
+	  strlcpy(r->header.MediaClass, "PwgRaster", sizeof(r->header.MediaClass));
+					      /* PwgRaster */
+          r->header.cupsBitsPerPixel = appleheader[0];
+          r->header.cupsColorSpace   = appleheader[1] >= (sizeof(rawcspace) / sizeof(rawcspace[0])) ? CUPS_CSPACE_DEVICE1 : rawcspace[appleheader[1]];
+          r->header.cupsNumColors    = appleheader[1] >= (sizeof(rawnumcolors) / sizeof(rawnumcolors[0])) ? 1 : rawnumcolors[appleheader[1]];
+          r->header.cupsBitsPerColor = r->header.cupsBitsPerPixel / r->header.cupsNumColors;
+          r->header.cupsWidth        = ((((((unsigned)appleheader[12] << 8) | (unsigned)appleheader[13]) << 8) | (unsigned)appleheader[14]) << 8) | (unsigned)appleheader[15];
+          r->header.cupsHeight       = ((((((unsigned)appleheader[16] << 8) | (unsigned)appleheader[17]) << 8) | (unsigned)appleheader[18]) << 8) | (unsigned)appleheader[19];
+          r->header.cupsBytesPerLine = r->header.cupsWidth * r->header.cupsBitsPerPixel / 8;
+          r->header.cupsColorOrder   = CUPS_ORDER_CHUNKED;
+          r->header.HWResolution[0]  = r->header.HWResolution[1] = ((((((unsigned)appleheader[20] << 8) | (unsigned)appleheader[21]) << 8) | (unsigned)appleheader[22]) << 8) | (unsigned)appleheader[23];
+
+          if (r->header.HWResolution[0] > 0)
+          {
+	    r->header.PageSize[0]     = (unsigned)(r->header.cupsWidth * 72 / r->header.HWResolution[0]);
+	    r->header.PageSize[1]     = (unsigned)(r->header.cupsHeight * 72 / r->header.HWResolution[1]);
+	    r->header.cupsPageSize[0] = (float)(r->header.cupsWidth * 72.0 / r->header.HWResolution[0]);
+	    r->header.cupsPageSize[1] = (float)(r->header.cupsHeight * 72.0 / r->header.HWResolution[1]);
+          }
+
+          r->header.cupsInteger[0] = r->apple_page_count;
+          r->header.cupsInteger[7] = 0xffffff;
+        }
+        break;
   }
 
  /*

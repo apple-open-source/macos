@@ -4,13 +4,26 @@
 #include <limits.h>
 #include <pthread.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 #define STACK_ALLOWANCE (1024ULL * 6)
 
 static void *
 pthread_attr_setstacksize_func(void *arg)
 {
+    if ((size_t)arg < 1024ULL * 32) {
+        /*
+         * We can't use darwintest because it requires a bigger stack than
+         * this, so cheat and use the return value for the test.
+         */
+#ifndef __arm64__
+        if ((size_t)arg != pthread_get_stacksize_np(pthread_self())) {
+            return NULL;
+        }
+#endif
+        return (void*)pthread_attr_setstacksize_func;
+    }
+
 #if defined(__arm64__)
     // Because of <rdar://problem/19941744>, the kext adds additional size to the stack on arm64.
     T_EXPECTFAIL;

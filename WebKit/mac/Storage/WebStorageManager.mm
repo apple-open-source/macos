@@ -26,6 +26,7 @@
 #import "WebStorageManagerInternal.h"
 
 #import "StorageTracker.h"
+#import "WebKitVersionChecks.h"
 #import "WebSecurityOriginInternal.h"
 #import "WebStorageNamespaceProvider.h"
 #import "WebStorageTrackerClient.h"
@@ -51,7 +52,6 @@ static pthread_once_t registerLocalStoragePath = PTHREAD_ONCE_INIT;
     return sharedManager;
 }
 
-#if PLATFORM(IOS)
 - (id)init
 {
     if (!(self = [super init]))
@@ -61,7 +61,6 @@ static pthread_once_t registerLocalStoragePath = PTHREAD_ONCE_INIT;
     
     return self;
 }
-#endif
 
 - (NSArray *)origins
 {
@@ -116,7 +115,7 @@ static pthread_once_t registerLocalStoragePath = PTHREAD_ONCE_INIT;
 
 + (void)setStorageDatabaseIdleInterval:(double)interval
 {
-    WebKit::StorageTracker::tracker().setStorageDatabaseIdleInterval(interval);
+    WebKit::StorageTracker::tracker().setStorageDatabaseIdleInterval(1_s * interval);
 }
 
 + (void)closeIdleLocalStorageDatabases
@@ -141,9 +140,15 @@ void WebKitInitializeStorageIfNecessary()
     static BOOL initialized = NO;
     if (initialized)
         return;
-    
-    WebKit::StorageTracker::initializeTracker([WebStorageManager _storageDirectoryPath], WebStorageTrackerClient::sharedWebStorageTrackerClient());
-        
+
+    auto *storagePath = [WebStorageManager _storageDirectoryPath];
+    WebKit::StorageTracker::initializeTracker(storagePath, WebStorageTrackerClient::sharedWebStorageTrackerClient());
+
+#if PLATFORM(IOS)
+    if (linkedOnOrAfter(SDKVersion::FirstToExcludeLocalStorageFromBackup))
+        [[NSURL fileURLWithPath:storagePath] setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
+#endif
+
     initialized = YES;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -191,10 +191,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case ArithFloor:
     case ArithCeil:
     case ArithTrunc:
-    case ArithSin:
-    case ArithCos:
-    case ArithTan:
-    case ArithLog:
+    case ArithUnary:
     case ValueAdd:
     case TryGetById:
     case DeleteById:
@@ -220,7 +217,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case GetButterfly:
     case CallDOMGetter:
     case CallDOM:
-    case CheckDOM:
+    case CheckSubClass:
     case CheckArray:
     case Arrayify:
     case ArrayifyToStructure:
@@ -269,6 +266,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case ProfileType:
     case ProfileControlFlow:
     case CheckTypeInfoFlags:
+    case ParseInt:
     case OverridesHasInstance:
     case InstanceOf:
     case InstanceOfCustom:
@@ -287,6 +285,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case ToPrimitive:
     case ToString:
     case ToNumber:
+    case NumberToStringWithRadix:
     case SetFunctionName:
     case StrCat:
     case CallStringConstructor:
@@ -316,7 +315,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case ThrowStaticError:
     case CountExecution:
     case ForceOSRExit:
-    case CheckWatchdogTimer:
+    case CheckTraps:
     case LogShadowChickenPrologue:
     case LogShadowChickenTail:
     case StringFromCharCode:
@@ -374,15 +373,27 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case RecordRegExpCachedResult:
     case GetDynamicVar:
     case PutDynamicVar:
+    case ResolveScopeForHoistingFuncDeclInEval:
     case ResolveScope:
     case MapHash:
     case ToLowerCase:
     case GetMapBucket:
     case LoadFromJSMapBucket:
     case IsNonEmptyMapBucket:
+    case AtomicsAdd:
+    case AtomicsAnd:
+    case AtomicsCompareExchange:
+    case AtomicsExchange:
+    case AtomicsLoad:
+    case AtomicsOr:
+    case AtomicsStore:
+    case AtomicsSub:
+    case AtomicsXor:
+    case AtomicsIsLockFree:
         return true;
 
-    case ArraySlice: {
+    case ArraySlice:
+    case ArrayIndexOf: {
         // You could plausibly move this code around as long as you proved the
         // incoming array base structure is an original array at the hoisted location.
         // Instead of doing that extra work, we just conservatively return false.
@@ -407,6 +418,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case GetByVal:
     case GetIndexedPropertyStorage:
     case GetArrayLength:
+    case GetVectorLength:
     case ArrayPush:
     case ArrayPop:
     case StringCharAt:
@@ -433,7 +445,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
         PropertyOffset offset = node->storageAccessData().offset;
 
         if (state.structureClobberState() == StructuresAreWatched) {
-            if (JSObject* knownBase = node->child1()->dynamicCastConstant<JSObject*>()) {
+            if (JSObject* knownBase = node->child1()->dynamicCastConstant<JSObject*>(graph.m_vm)) {
                 if (graph.isSafeToLoad(knownBase, offset))
                     return true;
             }

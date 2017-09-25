@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -228,6 +228,8 @@
 void
 myTestCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *ctx)
 {
+#pragma unused(store)
+#pragma unused(changedKeys)
 	SCTestDynamicStore *test = (__bridge SCTestDynamicStore *)ctx;
 	test.counter++;
 	if (test.sem != NULL) {

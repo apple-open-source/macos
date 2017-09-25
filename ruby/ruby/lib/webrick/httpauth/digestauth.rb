@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # httpauth/digestauth.rb -- HTTP digest access authentication
 #
@@ -128,8 +129,7 @@ module WEBrick
       end
 
       ##
-      # Returns a challenge response which asks for for authentication
-      # information
+      # Returns a challenge response which asks for authentication information
 
       def challenge(req, res, stale=false)
         nonce = generate_next_nonce(req)
@@ -204,7 +204,7 @@ module WEBrick
 
         password = @userdb.get_passwd(@realm, auth_req['username'], @reload_db)
         unless password
-          error('%s: the user is not allowd.', auth_req['username'])
+          error('%s: the user is not allowed.', auth_req['username'])
           return false
         end
 

@@ -1,4 +1,4 @@
-/* $Id: rmd160ossl.h 25189 2009-10-02 12:04:37Z akr $ */
+/* $Id: rmd160ossl.h 49564 2015-02-11 02:09:23Z nobu $ */
 
 #ifndef RMD160OSSL_H_INCLUDED
 #define RMD160OSSL_H_INCLUDED
@@ -14,6 +14,7 @@
 #define RMD160_BLOCK_LENGTH		RIPEMD160_CBLOCK
 #define RMD160_DIGEST_LENGTH		RIPEMD160_DIGEST_LENGTH
 
-void RMD160_Finish(RMD160_CTX *ctx, char *buf);
+static DEFINE_FINISH_FUNC_FROM_FINAL(RIPEMD160)
+#define RMD160_Finish rb_digest_RIPEMD160_finish
 
 #endif

@@ -28,10 +28,12 @@
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/errors.h>
 #include <security_utilities/debugging.h>
+#include <security_utilities/unix++.h>
 #include <utilities/SecCFRelease.h>
 #include <cstdarg>
 #include <vector>
 
+#include <sys/mman.h>
 
 namespace Security {
 
@@ -254,7 +256,7 @@ string cfString(CFTypeRef it, OSStatus err)
 //
 // CFURLAccess wrappers for specific purposes
 //
-CFDataRef cfLoadFile(CFURLRef url)
+CFDataRef cfReadFile(CFURLRef url)
 {
 	assert(url);
 	CFDataRef data;
@@ -268,7 +270,7 @@ CFDataRef cfLoadFile(CFURLRef url)
 	}
 }
 
-CFDataRef cfLoadFile(int fd, size_t bytes)
+CFDataRef cfReadFile(int fd, size_t bytes)
 {
 	uint8_t *buffer = (uint8_t *) malloc(bytes);
 
@@ -314,6 +316,133 @@ CFMutableArrayRef makeCFMutableArray(CFIndex count, ...)
 		CFArrayAppendValue(array, va_arg(args, CFTypeRef));
 	va_end(args);
 	return array;
+}
+
+struct mmapAllocatorInfo {
+    size_t size;
+};
+
+static void *mmapDeallocatorAllocate(CFIndex allocSize, CFOptionFlags hint, void *info) {
+    /* We do nothing here. makeMappedData already did everything, the only thing we want
+     * this allocator for is to deallocate. */
+    return NULL;
+}
+
+static void mmapDeallocatorDeallocate(void *ptr, void *info) {
+    struct mmapAllocatorInfo const *mmapInfo =
+    reinterpret_cast<struct mmapAllocatorInfo const *>
+    (CFDataGetBytePtr(reinterpret_cast<CFDataRef>(info)));
+
+    if (munmap(ptr, mmapInfo->size) != 0) {
+        secdebug("mmapdeallocatordeallocate", "could not unmap: errno %d", errno);
+    }
+}
+
+static CFIndex mmapPreferredSize(CFIndex size, CFOptionFlags hint, void *info) {
+    return size + sizeof(struct mmapAllocatorInfo); // No need to be exact here.
+}
+
+CFDataRef cfMapFile(int fd, size_t bytes)
+{
+    off_t offset = lseek(fd, 0, SEEK_CUR);
+
+    if (offset == -1) {
+        secdebug("cfmapfile", "cannot get file offset, errno %d", errno);
+    }
+
+    uint8_t *buf = (uint8_t*)mmap(NULL, bytes, PROT_READ, MAP_PRIVATE, fd, offset);
+
+    if (buf == MAP_FAILED) {
+        secdebug("cfmapfile", "cannot mmap file, errno %d", errno);
+        return NULL;
+    }
+
+    /* We're finally set up. */
+
+    struct mmapAllocatorInfo info = {
+        .size = bytes
+    };
+
+    CFRef<CFDataRef> infoData = makeCFData(&info, sizeof(info));
+
+    CFAllocatorContext context = {
+        .version = 0,
+        .info = NULL,
+        .retain = CFRetain,
+        .release = CFRelease,
+        .copyDescription = NULL,
+        .allocate = mmapDeallocatorAllocate,
+        .reallocate = NULL,
+        .deallocate = mmapDeallocatorDeallocate,
+        .preferredSize = mmapPreferredSize
+    };
+
+    context.info = (void*)infoData.get();
+
+    CFRef<CFAllocatorRef> deallocator = CFAllocatorCreate(NULL, &context);
+
+    CFDataRef result = CFDataCreateWithBytesNoCopy(NULL, buf, info.size, deallocator.get());
+
+    // If CFDataCreateWithBytesNoCopy fails, the buffer is not unallocated
+    if (result == NULL) {
+        munmap(buf, bytes);
+        return NULL;
+    }
+    
+    return result;
+}
+
+CFDataRef cfMapFile(CFURLRef url) {
+    string path;
+
+    /* This is contrived,
+     * but we want this as compatible to cfLoadFile as possible, which also means
+     * not throwing the exceptions that cfString might, as cfLoadFile does not call
+     * cfString. */
+
+    try {
+        path = cfString(url);
+    } catch (...) {
+        secdebug("cfmapfile", "Exception while forming path from URL, giving up.");
+        return NULL;
+    }
+
+    UnixPlusPlus::AutoFileDesc fd(path.c_str(), O_RDONLY, 0666 | UnixPlusPlus::AutoFileDesc::modeMissingOk);
+
+    struct stat st;
+
+    if (!fd.isOpen()) {
+        secdebug("cfmapfile", "cannot open file '%s', errno %d", path.c_str(), errno);
+        return NULL;
+    }
+
+    if (fstat(fd.fd(), &st) != 0) {
+        secdebug("cfmapfile", "cannot stat '%s', errno %d", path.c_str(), errno);
+        return NULL;
+    }
+
+    if (st.st_size < 0) {
+        secdebug("cfmapfile", "size for '%s' is negative", path.c_str());
+        return NULL;
+    }
+
+    return cfMapFile(fd.fd(), fd.fileSize());
+}
+
+CFDataRef cfLoadFile(CFURLRef url){
+#if TARGET_OS_EMBEDDED
+    return cfMapFile(url);
+#else
+    return cfReadFile(url);
+#endif
+}
+
+CFDataRef cfLoadFile(int fd, size_t bytes){
+#if TARGET_OS_EMBEDDED
+    return cfMapFile(fd, bytes);
+#else
+    return cfReadFile(fd, bytes);
+#endif
 }
 
 

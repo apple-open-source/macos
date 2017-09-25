@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,7 +105,7 @@ RefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context, const 
 void ResourceHandle::scheduleFailure(FailureType type)
 {
     d->m_scheduledFailureType = type;
-    d->m_failureTimer.startOneShot(0);
+    d->m_failureTimer.startOneShot(0_s);
 }
 
 void ResourceHandle::failureTimerFired()
@@ -258,7 +258,7 @@ void ResourceHandle::setDefersLoading(bool defers)
             d->m_failureTimer.stop();
     } else if (d->m_scheduledFailureType != NoFailure) {
         ASSERT(!d->m_failureTimer.isActive());
-        d->m_failureTimer.startOneShot(0);
+        d->m_failureTimer.startOneShot(0_s);
     }
 
     platformSetDefersLoading(defers);

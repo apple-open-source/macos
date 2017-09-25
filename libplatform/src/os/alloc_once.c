@@ -27,6 +27,7 @@
  */
 
 #include "os/internal.h"
+#include "resolver.h"
 #include "os/alloc_once_impl.h"
 #include <mach/mach_init.h>
 #include <mach/mach_vm.h>
@@ -42,7 +43,12 @@ typedef struct _os_alloc_heap_metadata_s {
 
 #define allocation_size (2 * vm_page_size)
 #define usable (allocation_size-sizeof(_os_alloc_heap_metadata_s))
-static void * volatile _os_alloc_heap;
+OS_NOEXPORT void * volatile _os_alloc_heap;
+
+OS_ATOMIC_EXPORT void* _os_alloc_once(struct _os_alloc_once_s *slot, size_t sz,
+		os_function_t init);
+
+void * volatile _os_alloc_heap;
 
 /*
  * Simple allocator that doesn't have to worry about ever freeing allocations.

@@ -28,7 +28,3 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 CFStringRef sSecDERErrorDomain = CFSTR("com.apple.security.cfder.error");
-
-bool SecCFDERCreateError(CFIndex errorCode, CFStringRef descriptionString, CFErrorRef previousError, CFErrorRef *newError) {
-    return SecCFCreateError(errorCode, sSecDERErrorDomain, descriptionString, previousError, newError);
-}

@@ -44,6 +44,30 @@ static VALUE io_wait_readable _((int argc, VALUE *argv, VALUE io));
 static VALUE io_wait_writable _((int argc, VALUE *argv, VALUE io));
 void Init_wait _((void));
 
+static struct timeval *
+get_timeout(int argc, VALUE *argv, struct timeval *timerec)
+{
+    VALUE timeout = Qnil;
+    rb_check_arity(argc, 0, 1);
+    if (!argc || NIL_P(timeout = argv[0])) {
+	return NULL;
+    }
+    else {
+	*timerec = rb_time_interval(timeout);
+	return timerec;
+    }
+}
+
+static int
+wait_for_single_fd(rb_io_t *fptr, int events, struct timeval *tv)
+{
+    int i = rb_wait_for_single_fd(fptr->fd, events, tv);
+    if (i < 0)
+	rb_sys_fail(0);
+    rb_io_check_closed(fptr);
+    return (i & events);
+}
+
 /*
  * call-seq:
  *   io.nread -> int
@@ -62,7 +86,7 @@ io_nread(VALUE io)
     GetOpenFile(io, fptr);
     rb_io_check_readable(fptr);
     len = rb_io_read_pending(fptr);
-    if (len > 0) return len;
+    if (len > 0) return INT2FIX(len);
     if (!FIONREAD_POSSIBLE_P(fptr->fd)) return INT2FIX(0);
     if (ioctl(fptr->fd, FIONREAD, &n)) return INT2FIX(0);
     if (n > 0) return ioctl_arg2num(n);
@@ -81,55 +105,42 @@ static VALUE
 io_ready_p(VALUE io)
 {
     rb_io_t *fptr;
-    ioctl_arg n;
+    struct timeval tv = {0, 0};
 
     GetOpenFile(io, fptr);
     rb_io_check_readable(fptr);
     if (rb_io_read_pending(fptr)) return Qtrue;
-    if (!FIONREAD_POSSIBLE_P(fptr->fd)) return Qnil;
-    if (ioctl(fptr->fd, FIONREAD, &n)) return Qnil;
-    if (n > 0) return Qtrue;
+    if (wait_for_single_fd(fptr, RB_WAITFD_IN, &tv))
+	return Qtrue;
     return Qfalse;
 }
 
 /*
  * call-seq:
- *   io.wait          -> IO, true, false or nil
- *   io.wait(timeout) -> IO, true, false or nil
+ *   io.wait          -> IO, true or nil
+ *   io.wait(timeout) -> IO, true or nil
+ *   io.wait_readable          -> IO, true or nil
+ *   io.wait_readable(timeout) -> IO, true or nil
  *
- * Waits until input is available or times out and returns self or nil when
- * EOF is reached.
+ * Waits until IO is readable without blocking and returns +self+, or
+ * +nil+ when times out.
+ * Returns +true+ immediately when buffered data is available.
  */
 
 static VALUE
 io_wait_readable(int argc, VALUE *argv, VALUE io)
 {
     rb_io_t *fptr;
-    int i;
-    ioctl_arg n;
-    VALUE timeout;
     struct timeval timerec;
     struct timeval *tv;
 
     GetOpenFile(io, fptr);
     rb_io_check_readable(fptr);
-    rb_scan_args(argc, argv, "01", &timeout);
-    if (NIL_P(timeout)) {
-	tv = NULL;
-    }
-    else {
-	timerec = rb_time_interval(timeout);
-	tv = &timerec;
-    }
-
+    tv = get_timeout(argc, argv, &timerec);
     if (rb_io_read_pending(fptr)) return Qtrue;
-    if (!FIONREAD_POSSIBLE_P(fptr->fd)) return Qfalse;
-    i = rb_wait_for_single_fd(fptr->fd, RB_WAITFD_IN, tv);
-    if (i < 0)
-	rb_sys_fail(0);
-    rb_io_check_closed(fptr);
-    if (ioctl(fptr->fd, FIONREAD, &n)) rb_sys_fail(0);
-    if (n > 0) return io;
+    if (wait_for_single_fd(fptr, RB_WAITFD_IN, tv)) {
+	return io;
+    }
     return Qnil;
 }
 
@@ -138,35 +149,22 @@ io_wait_readable(int argc, VALUE *argv, VALUE io)
  *   io.wait_writable          -> IO
  *   io.wait_writable(timeout) -> IO or nil
  *
- * Waits until IO writable is available or times out and returns self or
- * nil when EOF is reached.
+ * Waits until IO is writable without blocking and returns +self+ or
+ * +nil+ when times out.
  */
 static VALUE
 io_wait_writable(int argc, VALUE *argv, VALUE io)
 {
     rb_io_t *fptr;
-    int i;
-    VALUE timeout;
     struct timeval timerec;
     struct timeval *tv;
 
     GetOpenFile(io, fptr);
     rb_io_check_writable(fptr);
-    rb_scan_args(argc, argv, "01", &timeout);
-    if (NIL_P(timeout)) {
-	tv = NULL;
-    }
-    else {
-	timerec = rb_time_interval(timeout);
-	tv = &timerec;
-    }
-
-    i = rb_wait_for_single_fd(fptr->fd, RB_WAITFD_OUT, tv);
-    if (i < 0)
-	rb_sys_fail(0);
-    rb_io_check_closed(fptr);
-    if (i & RB_WAITFD_OUT)
+    tv = get_timeout(argc, argv, &timerec);
+    if (wait_for_single_fd(fptr, RB_WAITFD_OUT, tv)) {
 	return io;
+    }
     return Qnil;
 }
 
@@ -175,7 +173,7 @@ io_wait_writable(int argc, VALUE *argv, VALUE io)
  */
 
 void
-Init_wait()
+Init_wait(void)
 {
     rb_define_method(rb_cIO, "nread", io_nread, 0);
     rb_define_method(rb_cIO, "ready?", io_ready_p, 0);

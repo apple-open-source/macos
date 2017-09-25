@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ***************************************************************************
-*   Copyright (C) 1999-2014 International Business Machines Corporation   *
+*   Copyright (C) 1999-2016 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
 
@@ -32,6 +34,7 @@
 
 struct UTrie;
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /** @internal */
@@ -56,14 +59,12 @@ struct RBBIStateTable;
  *
  * <p>See the ICU User Guide for information on Break Iterator Rules.</p>
  *
- * <p>This class is not intended to be subclassed.  (Class DictionaryBasedBreakIterator
- *    is a subclass, but that relationship is effectively internal to the ICU
- *    implementation.  The subclassing interface to RulesBasedBreakIterator is
- *    not part of the ICU API, and may not remain stable.</p>
- *
+ * <p>This class is not intended to be subclassed.</p>
  */
 class U_COMMON_API RuleBasedBreakIterator /*U_FINAL*/ : public BreakIterator {
 
+// The following was changed from protected to private per #12071.
+// However Apple code needs these, so change back to protected.
 protected:
     /**
      * The UText through which this BreakIterator accesses the text
@@ -139,7 +140,7 @@ protected:
      * @internal
      */
     int32_t             fPositionInCache;
-    
+
     /**
      *
      * If present, UStack of LanguageBreakEngine objects that might handle
@@ -148,7 +149,7 @@ protected:
      * @internal
      */
     UStack              *fLanguageBreakEngines;
-    
+
     /**
      *
      * If present, the special LanguageBreakEngine used for handling
@@ -157,21 +158,20 @@ protected:
      * @internal
      */
     UnhandledEngine     *fUnhandledBreakEngine;
-    
+
     /**
      *
      * The type of the break iterator, or -1 if it has not been set.
      * @internal
      */
     int32_t             fBreakType;
-    
-protected:
+
     //=======================================================================
     // constructors
     //=======================================================================
 
-#ifndef U_HIDE_INTERNAL_API
     /**
+     * Open-source ICU eliminated this enum in #12071, restored here since Apple needs it
      * Constant to be used in the constructor
      * RuleBasedBreakIterator(RBBIDataHeader*, EDontAdopt, UErrorCode &);
      * which does not adopt the memory indicated by the RBBIDataHeader*
@@ -196,6 +196,7 @@ protected:
     RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode &status);
 
     /**
+     * Open-source ICU eliminated this method in #12071, restored here since Apple needs it
      * Constructor from a flattened set of RBBI data in memory which need not
      *             be malloced (e.g. it may be a memory-mapped file, etc.).
      *
@@ -204,7 +205,6 @@ protected:
      * @internal
      */
     RuleBasedBreakIterator(const RBBIDataHeader* data, enum EDontAdopt dontAdopt, UErrorCode &status);
-#endif  /* U_HIDE_INTERNAL_API */
 
 
     friend class RBBIRuleBuilder;
@@ -248,7 +248,7 @@ public:
      * constuction from source rules.
      *
      * Ownership of the storage containing the compiled rules remains with the
-     * caller of this function.  The compiled rules must not be  modified or 
+     * caller of this function.  The compiled rules must not be  modified or
      * deleted during the life of the break iterator.
      *
      * The compiled rules are not compatible across different major versions of ICU.
@@ -402,6 +402,11 @@ public:
     /**
      * Set the iterator to analyze a new piece of text.  This function resets
      * the current iteration position to the beginning of the text.
+     *
+     * The BreakIterator will retain a reference to the supplied string.
+     * The caller must not modify or delete the text while the BreakIterator
+     * retains the reference.
+     *
      * @param newText The text to analyze.
      *  @stable ICU 2.0
      */
@@ -661,6 +666,8 @@ public:
     virtual RuleBasedBreakIterator &refreshInputText(UText *input, UErrorCode &status);
 
 
+// The following was changed from protected to private per #12071.
+// However Apple code needs these, so change back to protected.
 protected:
     //=======================================================================
     // implementation
@@ -670,39 +677,19 @@ protected:
      * in text or iteration position.
      * @internal
      */
-    virtual void reset(void);
-
-#if 0
-    /**
-      * Return true if the category lookup for this char
-      * indicates that it is in the set of dictionary lookup chars.
-      * This function is intended for use by dictionary based break iterators.
-      * @return true if the category lookup for this char
-      * indicates that it is in the set of dictionary lookup chars.
-      * @internal
-      */
-    virtual UBool isDictionaryChar(UChar32);
-
-    /**
-      * Get the type of the break iterator.
-      * @internal
-      */
-    virtual int32_t getBreakType() const;
-#endif
+    void reset(void);
 
     /**
       * Set the type of the break iterator.
       * @internal
       */
-    virtual void setBreakType(int32_t type);
+    void setBreakType(int32_t type);
 
-#ifndef U_HIDE_INTERNAL_API
     /**
       * Common initialization function, used by constructors and bufferClone.
       * @internal
       */
     void init();
-#endif  /* U_HIDE_INTERNAL_API */
 
 private:
 
@@ -730,7 +717,6 @@ private:
 
 protected:
 
-#ifndef U_HIDE_INTERNAL_API
     /**
      * This is the function that actually implements dictionary-based
      * breaking.  Covering at least the range from startPos to endPos,
@@ -746,7 +732,6 @@ protected:
      * @internal
      */
     int32_t checkDictionary(int32_t startPos, int32_t endPos, UBool reverse);
-#endif  /* U_HIDE_INTERNAL_API */
 
 private:
 
@@ -776,6 +761,7 @@ inline UBool RuleBasedBreakIterator::operator!=(const BreakIterator& that) const
 }
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
 

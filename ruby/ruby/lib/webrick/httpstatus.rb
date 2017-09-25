@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #--
 # httpstatus.rb -- HTTPStatus Class
 #
@@ -7,6 +8,8 @@
 # reserved.
 #
 # $IPR: httpstatus.rb,v 1.11 2003/03/24 20:18:55 gotoyuzo Exp $
+
+require 'webrick/accesslog'
 
 module WEBrick
 
@@ -39,7 +42,7 @@ module WEBrick
 
     # Root of the HTTP info statuses
     class Info        < Status; end
-    # Root of the HTTP sucess statuses
+    # Root of the HTTP success statuses
     class Success     < Status; end
     # Root of the HTTP redirect statuses
     class Redirect    < Status; end

@@ -56,7 +56,7 @@ void p12IntToData(
 
 /* CFDataRef <--> CSSM_DATA */
 CFDataRef p12CssmDataToCf(
-	const CSSM_DATA &c);
+	const CSSM_DATA &c) CF_RETURNS_RETAINED;
 void p12CfDataToCssm(
 	CFDataRef cf,
 	CSSM_DATA &c,

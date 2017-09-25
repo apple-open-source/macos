@@ -352,18 +352,6 @@ SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailA
     END_SECCERTAPI
 }
 
-/* OS X only */
-OSStatus
-SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emailAddresses)
-{
-    // This macro creates an ItemImpl certificate if it does not exist
-    BEGIN_SECCERTAPI
-
-    Required(emailAddresses) = Certificate::required(__itemImplRef)->copyEmailAddresses();
-
-    END_SECCERTAPI
-}
-
 /* Return a zero terminated list of CSSM_DATA_PTR's with the values of the field specified by field.
  * Caller must call releaseFieldValues to free the storage allocated by this call.
  *

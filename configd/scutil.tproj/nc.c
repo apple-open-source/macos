@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -558,6 +558,7 @@ checkOnDemandHost(SCDynamicStoreRef store, CFStringRef nodeName, Boolean retry)
 static void
 nc_ondemand_callback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
+#pragma unused(info)
 	CFStringRef		key		= NULL;
 	CFDictionaryRef		ondemand_dict	= NULL;
 	struct tm		tm_now;
@@ -765,6 +766,8 @@ nc_print_VPN_service(SCNetworkServiceRef service)
 static void
 nc_list(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	CFIndex			count;
 	CFIndex			i;
 	CFArrayRef		services	= NULL;
@@ -1139,6 +1142,8 @@ done:
 static void
 nc_help(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	SCPrint(TRUE, stderr, CFSTR("Valid commands for scutil --nc (VPN connections)\n"));
 	SCPrint(TRUE, stderr, CFSTR("Usage: scutil --nc [command]\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));

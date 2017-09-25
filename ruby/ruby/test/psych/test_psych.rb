@@ -1,4 +1,5 @@
-require 'psych/helper'
+# frozen_string_literal: false
+require_relative 'helper'
 
 require 'stringio'
 require 'tempfile'
@@ -8,7 +9,17 @@ class TestPsych < Psych::TestCase
     Psych.domain_types.clear
   end
 
-  def test_line_width
+  def test_line_width_invalid
+    assert_raises(ArgumentError) { Psych.dump('x', { :line_width => -2 }) }
+  end
+
+  def test_line_width_no_limit
+    data = { 'a' => 'a b' * 50}
+    expected = "---\na: #{'a b' * 50}\n"
+    assert_equal(expected, Psych.dump(data, { :line_width => -1 }))
+  end
+
+  def test_line_width_limit
     yml = Psych.dump('123456 7', { :line_width => 5 })
     assert_match(/^\s*7/, yml)
   end
@@ -64,11 +75,10 @@ class TestPsych < Psych::TestCase
 
   def test_dump_file
     hash = {'hello' => 'TGIF!'}
-    Tempfile.open('fun.yml') do |io|
+    Tempfile.create('fun.yml') do |io|
       assert_equal io, Psych.dump(hash, io)
       io.rewind
       assert_equal Psych.dump(hash), io.read
-      io.close(true)
     end
   end
 
@@ -126,21 +136,26 @@ class TestPsych < Psych::TestCase
   end
 
   def test_load_file
-    t = Tempfile.new(['yikes', 'yml'])
-    t.binmode
-    t.write('--- hello world')
-    t.close
-    assert_equal 'hello world', Psych.load_file(t.path)
-    t.close(true)
+    Tempfile.create(['yikes', 'yml']) {|t|
+      t.binmode
+      t.write('--- hello world')
+      t.close
+      assert_equal 'hello world', Psych.load_file(t.path)
+    }
+  end
+
+  def test_load_file_with_fallback
+    t = Tempfile.create(['empty', 'yml'])
+    assert_equal Hash.new, Psych.load_file(t.path, Hash.new)
   end
 
   def test_parse_file
-    t = Tempfile.new(['yikes', 'yml'])
-    t.binmode
-    t.write('--- hello world')
-    t.close
-    assert_equal 'hello world', Psych.parse_file(t.path).transform
-    t.close(true)
+    Tempfile.create(['yikes', 'yml']) {|t|
+      t.binmode
+      t.write('--- hello world')
+      t.close
+      assert_equal 'hello world', Psych.parse_file(t.path).transform
+    }
   end
 
   def test_degenerate_strings

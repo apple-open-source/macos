@@ -53,6 +53,7 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Chrome.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/Editor.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/File.h>
 #include <WebCore/Frame.h>
@@ -109,7 +110,7 @@ static uint64_t generateListenerID()
     return uniqueListenerID++;
 }
 
-PassRefPtr<WebFrame> WebFrame::createWithCoreMainFrame(WebPage* page, WebCore::Frame* coreFrame)
+Ref<WebFrame> WebFrame::createWithCoreMainFrame(WebPage* page, WebCore::Frame* coreFrame)
 {
     auto frame = create(std::unique_ptr<WebFrameLoaderClient>(static_cast<WebFrameLoaderClient*>(&coreFrame->loader().client())));
     page->send(Messages::WebPageProxy::DidCreateMainFrame(frame->frameID()), page->pageID(), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
@@ -120,30 +121,32 @@ PassRefPtr<WebFrame> WebFrame::createWithCoreMainFrame(WebPage* page, WebCore::F
     return frame;
 }
 
-PassRefPtr<WebFrame> WebFrame::createSubframe(WebPage* page, const String& frameName, HTMLFrameOwnerElement* ownerElement)
+Ref<WebFrame> WebFrame::createSubframe(WebPage* page, const String& frameName, HTMLFrameOwnerElement* ownerElement)
 {
     auto frame = create(std::make_unique<WebFrameLoaderClient>());
     page->send(Messages::WebPageProxy::DidCreateSubframe(frame->frameID()), page->pageID(), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 
-    Ref<WebCore::Frame> coreFrame = Frame::create(page->corePage(), ownerElement, frame->m_frameLoaderClient.get());
+    auto coreFrame = Frame::create(page->corePage(), ownerElement, frame->m_frameLoaderClient.get());
     frame->m_coreFrame = coreFrame.ptr();
-    frame->m_coreFrame->tree().setName(frameName);
+
+    coreFrame->tree().setName(frameName);
     if (ownerElement) {
         ASSERT(ownerElement->document().frame());
-        ownerElement->document().frame()->tree().appendChild(WTFMove(coreFrame));
+        ownerElement->document().frame()->tree().appendChild(coreFrame.get());
     }
-    frame->m_coreFrame->init();
+    coreFrame->init();
+
     return frame;
 }
 
-PassRefPtr<WebFrame> WebFrame::create(std::unique_ptr<WebFrameLoaderClient> frameLoaderClient)
+Ref<WebFrame> WebFrame::create(std::unique_ptr<WebFrameLoaderClient> frameLoaderClient)
 {
     auto frame = adoptRef(*new WebFrame(WTFMove(frameLoaderClient)));
 
     // Add explict ref() that will be balanced in WebFrameLoaderClient::frameLoaderDestroyed().
     frame->ref();
 
-    return WTFMove(frame);
+    return frame;
 }
 
 WebFrame::WebFrame(std::unique_ptr<WebFrameLoaderClient> frameLoaderClient)
@@ -206,14 +209,14 @@ void WebFrame::invalidate()
     m_coreFrame = 0;
 }
 
-uint64_t WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction policyFunction)
+uint64_t WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction&& policyFunction)
 {
     // FIXME: <rdar://5634381> We need to support multiple active policy listeners.
 
     invalidatePolicyListener();
 
     m_policyListenerID = generateListenerID();
-    m_policyFunction = policyFunction;
+    m_policyFunction = WTFMove(policyFunction);
     return m_policyListenerID;
 }
 
@@ -224,7 +227,7 @@ void WebFrame::invalidatePolicyListener()
 
     m_policyDownloadID = { };
     m_policyListenerID = 0;
-    m_policyFunction = 0;
+    m_policyFunction = nullptr;
 }
 
 void WebFrame::didReceivePolicyDecision(uint64_t listenerID, PolicyAction action, uint64_t navigationID, DownloadID downloadID)
@@ -474,7 +477,7 @@ bool WebFrame::allowsFollowingLink(const WebCore::URL& url) const
     if (!m_coreFrame)
         return true;
         
-    return m_coreFrame->document()->securityOrigin()->canDisplay(url);
+    return m_coreFrame->document()->securityOrigin().canDisplay(url);
 }
 
 JSGlobalContextRef WebFrame::jsContext()
@@ -600,10 +603,10 @@ bool WebFrame::hasVerticalScrollbar() const
     return view->verticalScrollbar();
 }
 
-PassRefPtr<InjectedBundleHitTestResult> WebFrame::hitTest(const IntPoint point) const
+RefPtr<InjectedBundleHitTestResult> WebFrame::hitTest(const IntPoint point) const
 {
     if (!m_coreFrame)
-        return 0;
+        return nullptr;
 
     return InjectedBundleHitTestResult::create(m_coreFrame->eventHandler().hitTestResultAtPoint(point, HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent));
 }
@@ -671,13 +674,12 @@ void WebFrame::stopLoading()
 
 WebFrame* WebFrame::frameForContext(JSContextRef context)
 {
-    JSObjectRef globalObjectRef = JSContextGetGlobalObject(context);
-    JSC::JSObject* globalObjectObj = toJS(globalObjectRef);
-    if (strcmp(globalObjectObj->classInfo()->className, "JSDOMWindowShell") != 0)
-        return 0;
 
-    Frame* frame = static_cast<JSDOMWindowShell*>(globalObjectObj)->window()->wrapped().frame();
-    return WebFrame::fromCoreFrame(*frame);
+    JSC::JSGlobalObject* globalObjectObj = toJS(context)->lexicalGlobalObject();
+    JSDOMWindow* window = jsDynamicDowncast<JSDOMWindow*>(globalObjectObj->vm(), globalObjectObj);
+    if (!window)
+        return nullptr;
+    return WebFrame::fromCoreFrame(*(window->wrapped().frame()));
 }
 
 JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleNodeHandle* nodeHandle, InjectedBundleScriptWorld* world)
@@ -718,7 +720,7 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleFileHandle* fileHandle, Inj
 
 String WebFrame::counterValue(JSObjectRef element)
 {
-    if (!toJS(element)->inherits(JSElement::info()))
+    if (!toJS(element)->inherits(*toJS(element)->vm(), JSElement::info()))
         return String();
 
     return counterValueForElement(&jsCast<JSElement*>(toJS(element))->wrapped());
@@ -816,7 +818,7 @@ RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void
 }
 #endif
 
-PassRefPtr<ShareableBitmap> WebFrame::createSelectionSnapshot() const
+RefPtr<ShareableBitmap> WebFrame::createSelectionSnapshot() const
 {
     std::unique_ptr<ImageBuffer> snapshot = snapshotSelection(*coreFrame(), WebCore::SnapshotOptionsForceBlackText);
     if (!snapshot)
@@ -833,7 +835,7 @@ PassRefPtr<ShareableBitmap> WebFrame::createSelectionSnapshot() const
     graphicsContext->scale(deviceScaleFactor);
     graphicsContext->drawConsumingImageBuffer(WTFMove(snapshot), FloatPoint());
 
-    return WTFMove(sharedSnapshot);
+    return sharedSnapshot;
 }
     
 } // namespace WebKit

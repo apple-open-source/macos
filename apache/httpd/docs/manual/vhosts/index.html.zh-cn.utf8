@@ -48,7 +48,7 @@
     <p>以下解释是在 Apache 中支持虚拟主机的所有详细信息的文档页面列表。</p>
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#support">虚拟主机支持</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#support">虚拟主机支持</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#directives">配置指令</a></li>
 </ul><h3>参见</h3><ul class="seealso"><li><code class="module"><a href="../mod/mod_vhost_alias.html">mod_vhost_alias</a></code></li><li><a href="name-based.html">基于名称的虚拟主机</a></li><li><a href="ip-based.html">基于 IP 的虚拟主机</a></li><li><a href="examples.html">虚拟主机样例</a></li><li><a href="fd-limits.html">文件句柄限制</a></li><li><a href="mass.html">动态配置的大规模虚拟主机</a></li><li><a href="details.html">虚拟主机匹配的深入讨论</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -96,7 +96,7 @@
 <a href="../tr/vhosts/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/vhosts/" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />基于 <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> 许可证.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />基于 <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> 许可证.</p>
 <p class="menu"><a href="../mod/">模块</a> | <a href="../mod/directives.html">指令</a> | <a href="http://wiki.apache.org/httpd/FAQ">常见问题</a> | <a href="../glossary.html">术语</a> | <a href="../sitemap.html">网站导航</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

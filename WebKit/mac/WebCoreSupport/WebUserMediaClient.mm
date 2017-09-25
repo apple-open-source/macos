@@ -33,7 +33,6 @@
 #import "WebViewInternal.h"
 #import <WebCore/CaptureDevice.h>
 #import <WebCore/MediaDevicesEnumerationRequest.h>
-#import <WebCore/Page.h>
 #import <WebCore/RealtimeMediaSourceCenter.h>
 #import <WebCore/ScriptExecutionContext.h>
 #import <WebCore/UserMediaRequest.h>
@@ -49,7 +48,7 @@ using namespace WebCore;
 {
     RefPtr<UserMediaRequest> _request;
 }
-- (id)initWithUserMediaRequest:(PassRefPtr<UserMediaRequest>)request;
+- (id)initWithUserMediaRequest:(Ref<UserMediaRequest>&&)request;
 - (void)cancelUserMediaAccessRequest;
 - (void)deny;
 @end
@@ -57,7 +56,7 @@ using namespace WebCore;
 @interface WebUserMediaPolicyCheckerListener : NSObject <WebAllowDenyPolicyListener> {
     RefPtr<MediaDevicesEnumerationRequest> _request;
 }
-- (id)initWithMediaDevicesEnumerationRequest:(PassRefPtr<MediaDevicesEnumerationRequest>)request;
+- (id)initWithMediaDevicesEnumerationRequest:(Ref<MediaDevicesEnumerationRequest>&&)request;
 - (void)cancelMediaDevicesEnumerationRequest;
 - (void)deny;
 @end
@@ -142,7 +141,7 @@ void WebUserMediaClient::requestUserMediaAccess(UserMediaRequest& request)
         return;
     }
 
-    WebUserMediaPolicyListener *listener = [[WebUserMediaPolicyListener alloc] initWithUserMediaRequest:&request];
+    WebUserMediaPolicyListener *listener = [[WebUserMediaPolicyListener alloc] initWithUserMediaRequest:request];
     WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:request.userMediaDocumentOrigin()];
 
     AddRequestToRequestMap(&request, listener);
@@ -175,7 +174,7 @@ void WebUserMediaClient::enumerateMediaDevices(MediaDevicesEnumerationRequest& r
         return;
     }
 
-    WebUserMediaPolicyCheckerListener *listener = [[WebUserMediaPolicyCheckerListener alloc] initWithMediaDevicesEnumerationRequest:&request];
+    WebUserMediaPolicyCheckerListener *listener = [[WebUserMediaPolicyCheckerListener alloc] initWithMediaDevicesEnumerationRequest:request];
     WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:request.userMediaDocumentOrigin()];
 
     AddPermissionCheckToMap(&request, listener);
@@ -200,13 +199,13 @@ void WebUserMediaClient::cancelMediaDevicesEnumerationRequest(WebCore::MediaDevi
 
 @implementation WebUserMediaPolicyListener
 
-- (id)initWithUserMediaRequest:(PassRefPtr<UserMediaRequest>)request
+- (id)initWithUserMediaRequest:(Ref<UserMediaRequest>&&)request
 {
 #if ENABLE(MEDIA_STREAM)
     if (!(self = [super init]))
         return nil;
 
-    _request = request;
+    _request = WTFMove(request);
     return self;
 #endif
 }
@@ -262,13 +261,13 @@ void WebUserMediaClient::cancelMediaDevicesEnumerationRequest(WebCore::MediaDevi
 
 @implementation WebUserMediaPolicyCheckerListener
 
-- (id)initWithMediaDevicesEnumerationRequest:(PassRefPtr<MediaDevicesEnumerationRequest>)request
+- (id)initWithMediaDevicesEnumerationRequest:(Ref<MediaDevicesEnumerationRequest>&&)request
 {
 #if ENABLE(MEDIA_STREAM)
     if (!(self = [super init]))
         return nil;
 
-    _request = request;
+    _request = WTFMove(request);
     return self;
 #endif
 }

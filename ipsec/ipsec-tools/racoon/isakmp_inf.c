@@ -61,9 +61,6 @@
 #  include <time.h>
 # endif
 #endif
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
 
 #include "libpfkey.h"
 
@@ -134,7 +131,7 @@ isakmp_ph1_responder_lifetime (phase1_handle_t *iph1, struct isakmp_pl_resp_life
     }
     spi = val2str((char *)(notify + 1), notify->spi_size);
 
-    plog(ASL_LEVEL_DEBUG,
+    plog(ASL_LEVEL_NOTICE,
          "notification message ISAKMP-SA RESPONDER-LIFETIME, "
          "doi=%d proto_id=%d spi=%s(size=%d).\n",
          ntohl(notify->doi), notify->proto_id, spi, notify->spi_size);
@@ -165,7 +162,7 @@ isakmp_ph2_responder_lifetime (phase2_handle_t *iph2, struct isakmp_pl_resp_life
     }
     spi = val2str((char *)(notify + 1), notify->spi_size);
     
-    plog(ASL_LEVEL_DEBUG,
+    plog(ASL_LEVEL_NOTICE,
          "notification message IPSEC-SA RESPONDER-LIFETIME, "
          "doi=%d proto_id=%d spi=%s(size=%d).\n",
          ntohl(notify->doi), notify->proto_id, spi, notify->spi_size);
@@ -200,7 +197,7 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 	int flag = 0;
 	int disconnect = 0;
 
-	plog(ASL_LEVEL_DEBUG, "receive Information.\n");
+	plog(ASL_LEVEL_NOTICE, "receive Information.\n");
 
 	encrypted = ISSET(((struct isakmp *)msg0->v)->flags, ISAKMP_FLAG_E);
 	msgid = ((struct isakmp *)msg0->v)->msgid;
@@ -551,7 +548,7 @@ isakmp_info_recv_n(phase1_handle_t *iph1, struct isakmp_pl_n *notify, u_int32_t 
 		}
 		spi = val2str((char *)(notify + 1), notify->spi_size);
 
-		plog(ASL_LEVEL_DEBUG,
+		plog(ASL_LEVEL_NOTICE,
 			"Notification message %d:%s, "
 			"doi=%d proto_id=%d spi=%s(size=%d).\n",
 			type, s_isakmp_notify_msg(type),
@@ -677,7 +674,7 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 		return 0;
 	}
 
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		"delete payload for protocol %s\n",
 		s_ipsecdoi_proto(delete->proto_id));
 
@@ -727,7 +724,7 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 #endif
 			if (del_ph1->rmconf->natt_multiple_user &&
 				del_ph1->parent_session->is_l2tpvpn_ipsec) {
-			    	plog(ASL_LEVEL_DEBUG, "Ignoring IKE delete from peer for L2TP server\n");
+			    	plog(ASL_LEVEL_NOTICE, "Ignoring IKE delete from peer for L2TP server\n");
 				break;
 			}
 			isakmp_ph1expire(del_ph1);
@@ -750,7 +747,7 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 			
 			if (iph2 != NULL) {
 				iph2->is_defunct = 1;
-				plog(ASL_LEVEL_DEBUG, "Ignoring SA delete from peer for L2TP server\n");
+				plog(ASL_LEVEL_NOTICE, "Ignoring SA delete from peer for L2TP server\n");
 	    			break;
 			}
 		}
@@ -785,7 +782,7 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 		return 0;
 	}
 
-	plog(ASL_LEVEL_DEBUG, "purged SAs.\n");
+	plog(ASL_LEVEL_NOTICE, "purged SAs.\n");
 
 	return 0;
 }
@@ -878,7 +875,7 @@ isakmp_info_send_d2(phase2_handle_t *iph2)
 								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
 								CONSTSTR("Delete IPSEC-SA"),
 								CONSTSTR("Failed to transmit Delete-IPSEC-SA message"));
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			 "No ph1 handler found, could not send DELETE_SA\n");
 		return 0;
 	}
@@ -1369,7 +1366,7 @@ isakmp_info_send_common(phase1_handle_t *iph1, vchar_t *payload, u_int32_t np, i
 		goto err;
 	}
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		"sendto Information %s.\n", s_isakmp_nptype(np));
 
 	/*
@@ -1468,7 +1465,7 @@ purge_ipsec_spi(struct sockaddr_storage *dst0, int proto, u_int32_t *spi /*netwo
 
 	buf = pfkey_dump_sadb(ipsecdoi2pfkey_proto(proto));
 	if (buf == NULL) {
-		plog(ASL_LEVEL_DEBUG,
+		plog(ASL_LEVEL_NOTICE,
 			"pfkey_dump_sadb returned nothing.\n");
 		return;
 	}
@@ -1553,7 +1550,7 @@ purge_ipsec_spi(struct sockaddr_storage *dst0, int proto, u_int32_t *spi /*netwo
 				}
 			}
 
-			plog(ASL_LEVEL_INFO, "Purged IPsec-SA proto_id=%s spi=%u.\n",
+			plog(ASL_LEVEL_NOTICE, "Purged IPsec-SA proto_id=%s spi=%u.\n",
                 s_ipsecdoi_proto(proto),
                 ntohl(spi[i]));
 		}
@@ -1608,7 +1605,7 @@ info_recv_initialcontact(phase1_handle_t *iph1)
 	for (i = 0; i < pfkey_nsatypes; i++) {
 		proto_id = pfkey2ipsecdoi_proto(pfkey_satypes[i].ps_satype);
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 		    "purging %s SAs for %s -> %s\n",
 		    pfkey_satypes[i].ps_name, loc, rem);
 		if (pfkey_send_delete_all(lcconf->sock_pfkey,
@@ -1623,7 +1620,7 @@ info_recv_initialcontact(phase1_handle_t *iph1)
 
 		ike_session_deleteallph2(iph1->local, iph1->remote, proto_id);
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 		    "purging %s SAs for %s -> %s\n",
 		    pfkey_satypes[i].ps_name, rem, loc);
 		if (pfkey_send_delete_all(lcconf->sock_pfkey,
@@ -1650,7 +1647,7 @@ info_recv_initialcontact(phase1_handle_t *iph1)
 
 	buf = pfkey_dump_sadb(SADB_SATYPE_UNSPEC);
 	if (buf == NULL) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"pfkey_dump_sadb returned nothing.\n");
 		return;
 	}
@@ -1747,7 +1744,7 @@ info_recv_initialcontact(phase1_handle_t *iph1)
 			continue;
 		}
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 			"purging spi=%u.\n", ntohl(sa->sadb_sa_spi));
 		pfkey_send_delete(lcconf->sock_pfkey,
 			msg->sadb_msg_satype,
@@ -1776,7 +1773,7 @@ isakmp_check_notify(struct isakmp_gen *gen /* points to Notify payload */, phase
 {
 	struct isakmp_pl_n *notify = (struct isakmp_pl_n *)gen;
 
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		"Notify Message received\n");
 
 	switch (ntohs(notify->type)) {
@@ -1816,7 +1813,7 @@ isakmp_check_ph2_notify(struct isakmp_gen *gen /* points to Notify payload */, p
 {
 	struct isakmp_pl_n *notify = (struct isakmp_pl_n *)gen;
     
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
          "Phase 2 Notify Message received\n");
     
 	switch (ntohs(notify->type)) {
@@ -1861,18 +1858,18 @@ isakmp_info_recv_lb(phase1_handle_t *iph1, struct isakmp_pl_lb *n, int encrypted
 
 	if (iph1->side != INITIATOR)
 	{
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"LOAD-BALANCE notification ignored - we are not the initiator.\n");
 		return 0;
 	}
 	if (!encrypted) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"LOAD-BALANCE notification ignored - not protected.\n");
 		return 0;
 	}
 	if (ntohs(n->h.len) != sizeof(struct isakmp_pl_lb)) {
-		plog(ASL_LEVEL_DEBUG, 
-			"Invalid length of payload\n");
+		plog(ASL_LEVEL_NOTICE,
+			"isakmp_info_recv_lb Invalid length of payload\n");
 		return -1;
 	}
 
@@ -1883,7 +1880,7 @@ isakmp_info_recv_lb(phase1_handle_t *iph1, struct isakmp_pl_lb *n, int encrypted
 			"Received LOAD_BALANCE notification.\n");
 
     if (((struct sockaddr_in*)iph1->remote)->sin_addr.s_addr != ntohl(n->address)) {
-        plog(ASL_LEVEL_DEBUG,
+        plog(ASL_LEVEL_NOTICE,
              "Deleting old Phase 1 because of LOAD_BALANCE notification - redirect address=%x.\n",
              ntohl(n->address));
 
@@ -1906,7 +1903,7 @@ isakmp_info_recv_r_u (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int32_t 
 	int tlen;
 	int error = 0;
 
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		 "DPD R-U-There received\n");
 
 	/* XXX should compare cookies with iph1->index?
@@ -1950,7 +1947,7 @@ isakmp_info_recv_r_u (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int32_t 
 								CONSTSTR(NULL));
 	}
 
-	plog(ASL_LEVEL_DEBUG, "received a valid R-U-THERE, ACK sent\n");
+	plog(ASL_LEVEL_NOTICE, "received a valid R-U-THERE, ACK sent\n");
 
 	/* Should we mark tunnel as active ? */
 	return error;
@@ -1960,7 +1957,7 @@ static int
 isakmp_info_recv_r_u_ack (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int32_t msgid)
 {
 
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		 "DPD R-U-There-Ack received\n");
 
 	/* XXX Maintain window of acceptable sequence numbers ?
@@ -2002,7 +1999,7 @@ isakmp_info_recv_r_u_ack (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int3
 								CONSTSTR("Responder DPD Response"),
 								CONSTSTR(NULL));
 	}
-	plog(ASL_LEVEL_DEBUG, "received an R-U-THERE-ACK\n");
+	plog(ASL_LEVEL_NOTICE, "received an R-U-THERE-ACK\n");
 
 #ifdef ENABLE_VPNCONTROL_PORT
 	vpncontrol_notify_peer_resp_ph1(1, iph1);
@@ -2027,7 +2024,7 @@ isakmp_info_send_r_u(void *arg)
 	int error = 0;
 
     if (!FSM_STATE_IS_ESTABLISHED(iph1->status)) {
-        plog(ASL_LEVEL_DEBUG, "DPD r-u send aborted, invalid Phase 1 status %d....\n",
+        plog(ASL_LEVEL_NOTICE, "DPD r-u send aborted, invalid Phase 1 status %d....\n",
              iph1->status);
         return;
     }
@@ -2041,7 +2038,7 @@ isakmp_info_send_r_u(void *arg)
 		(void)vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PEER_DEAD, FROM_LOCAL, iph1_get_remote_v4_address(iph1), 0, NULL);
 
 		purge_remote(iph1);
-		plog(ASL_LEVEL_DEBUG,
+		plog(ASL_LEVEL_NOTICE,
 			 "DPD: remote seems to be dead\n");
 
 		/* Do not reschedule here: phase1 is deleted,
@@ -2105,7 +2102,7 @@ isakmp_info_send_r_u(void *arg)
 								CONSTSTR("Responder DPD Request"),
 								CONSTSTR(NULL));
 	}
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		 "DPD R-U-There sent (%d)\n", error);
 
 	/* will be decreased if ACK received... */
@@ -2115,7 +2112,7 @@ isakmp_info_send_r_u(void *arg)
 	 * will be deleted/rescheduled if ACK received before */
 	isakmp_sched_r_u(iph1, 1);
 
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		 "rescheduling send_r_u (%d).\n", iph1->rmconf->dpd_retry);
 }
 
@@ -2126,12 +2123,12 @@ static void
 isakmp_info_monitor_r_u_algo_inbound_detect (phase1_handle_t *iph1)
 {
     if (!FSM_STATE_IS_ESTABLISHED(iph1->status)) {
-        plog(ASL_LEVEL_DEBUG, "DPD monitoring (for ALGORITHM_INBOUND_DETECT) aborted, invalid Phase 1 status %d....\n",
+        plog(ASL_LEVEL_NOTICE, "DPD monitoring (for ALGORITHM_INBOUND_DETECT) aborted, invalid Phase 1 status %d....\n",
              iph1->status);
         return;
     }
 
-	plog(ASL_LEVEL_DEBUG, "DPD monitoring (for ALGORITHM_INBOUND_DETECT) ....\n");
+	plog(ASL_LEVEL_NOTICE, "DPD monitoring (for ALGORITHM_INBOUND_DETECT) ....\n");
     
     // check phase1 for ike packets received from peer
     if (iph1->peer_sent_ike) {
@@ -2141,7 +2138,7 @@ isakmp_info_monitor_r_u_algo_inbound_detect (phase1_handle_t *iph1)
         /* ike packets received from peer... reschedule dpd */
         isakmp_sched_r_u(iph1, 0);
         
-        plog(ASL_LEVEL_DEBUG,
+        plog(ASL_LEVEL_NOTICE,
              "ike packets received from peer... reschedule monitor.\n");
 
         return;
@@ -2153,7 +2150,7 @@ isakmp_info_monitor_r_u_algo_inbound_detect (phase1_handle_t *iph1)
     } else {
         isakmp_sched_r_u(iph1, 0);
         
-        plog(ASL_LEVEL_DEBUG,
+        plog(ASL_LEVEL_NOTICE,
              "rescheduling DPD monitoring (for ALGORITHM_INBOUND_DETECT).\n");
     }
     iph1->parent_session->peer_sent_data_sc_dpd = 0;
@@ -2166,12 +2163,12 @@ static void
 isakmp_info_monitor_r_u_algo_blackhole_detect (phase1_handle_t *iph1)
 {
     if (!FSM_STATE_IS_ESTABLISHED(iph1->status)) {
-        plog(ASL_LEVEL_DEBUG, "DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) aborted, invalid Phase 1 status %d....\n",
+        plog(ASL_LEVEL_NOTICE, "DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) aborted, invalid Phase 1 status %d....\n",
              iph1->status);
         return;
     }
 
-	plog(ASL_LEVEL_DEBUG, "DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) ....\n");
+	plog(ASL_LEVEL_NOTICE, "DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) ....\n");
 
     // check if data was sent but none was received
     if (iph1->parent_session->i_sent_data_sc_dpd &&
@@ -2180,7 +2177,7 @@ isakmp_info_monitor_r_u_algo_blackhole_detect (phase1_handle_t *iph1)
     } else {
         isakmp_sched_r_u(iph1, 0);
         
-        plog(ASL_LEVEL_DEBUG,
+        plog(ASL_LEVEL_NOTICE,
              "rescheduling DPD monitoring (for ALGORITHM_BLACKHOLE_DETECT) i = %d, peer %d.\n",
              iph1->parent_session->i_sent_data_sc_dpd,
              iph1->parent_session->peer_sent_data_sc_dpd);
@@ -2203,7 +2200,7 @@ isakmp_info_monitor_r_u(void *arg)
         } else if (iph1->rmconf->dpd_algo == DPD_ALGO_BLACKHOLE_DETECT) {
             isakmp_info_monitor_r_u_algo_blackhole_detect(iph1);
         } else {
-            plog(ASL_LEVEL_DEBUG, "DPD monitoring aborted, invalid algorithm %d....\n",
+            plog(ASL_LEVEL_NOTICE, "DPD monitoring aborted, invalid algorithm %d....\n",
                  iph1->rmconf->dpd_algo);
         }
     }
@@ -2260,7 +2257,7 @@ isakmp_reschedule_info_monitor_if_pending (phase1_handle_t *iph1, char *reason)
 
         isakmp_sched_r_u(iph1, 0);
 
-        plog(ASL_LEVEL_DEBUG,
+        plog(ASL_LEVEL_NOTICE,
              "%s... rescheduling send_r_u.\n",
              reason);
     }

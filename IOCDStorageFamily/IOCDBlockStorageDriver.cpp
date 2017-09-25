@@ -678,6 +678,7 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
 
     clock_get_uptime(&context->timeStart);
 
+    retain();
     completionOut.target    = this;
     completionOut.action    = prepareRequestCompletion;
     completionOut.parameter = context;

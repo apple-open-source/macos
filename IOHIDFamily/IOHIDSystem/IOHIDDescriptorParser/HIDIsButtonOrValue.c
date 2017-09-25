@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -90,7 +90,7 @@ Boolean HIDIsButton(HIDReportItem *ptReportItem, HIDPreparsedDataRef preparsedDa
 		// if the first usage item is range, then check that one
 		// (we will not worry about report items with multiple zero usages, 
 		//  as I dont think that is a case that makes sense)
-		if (ptReportItem->firstUsageItem < ptPreparsedData->usageItemCount)
+		if (ptReportItem->firstUsageItem < (SInt32)ptPreparsedData->usageItemCount)
 		{
 			HIDP_UsageItem * ptUsageItem = &ptPreparsedData->usageItems[ptReportItem->firstUsageItem];
 			
@@ -147,7 +147,7 @@ Boolean HIDIsVariable(HIDReportItem *ptReportItem, HIDPreparsedDataRef preparsed
 		// if the first usage item is range, then check that one
 		// (we will not worry about report items with multiple zero usages, 
 		//  as I dont think that is a case that makes sense)
-		if (ptReportItem->firstUsageItem < ptPreparsedData->usageItemCount)
+		if (ptReportItem->firstUsageItem < (SInt32)ptPreparsedData->usageItemCount)
 		{
 			HIDP_UsageItem * ptUsageItem = &ptPreparsedData->usageItems[ptReportItem->firstUsageItem];
 			

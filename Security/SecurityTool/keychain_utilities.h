@@ -70,7 +70,7 @@ extern void GetCStringFromCFString(CFStringRef cfstring, char** cstr, size_t* le
 
 extern void print_partition_id_list(FILE *stream, CFStringRef description);
 
-extern void safe_CFRelease(void *cfTypeRefPtr);
+extern void safe_CFRelease(void CF_CONSUMED *cfTypeRefPtr);
 
 extern void check_obsolete_keychain(const char *kcName);
 

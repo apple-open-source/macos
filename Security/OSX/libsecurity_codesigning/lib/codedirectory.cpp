@@ -292,21 +292,19 @@ CodeDirectory::HashAlgorithm CodeDirectory::bestHashOf(const HashAlgorithms &typ
 void CodeDirectory::multipleHashFileData(FileDesc fd, size_t limit, CodeDirectory::HashAlgorithms types, void (^action)(HashAlgorithm type, DynamicHash* hasher))
 {
 	assert(!types.empty());
-	vector<RefPointer<DynamicHash> > hashers;
+	map<HashAlgorithm, RefPointer<DynamicHash> > hashes;
 	for (auto it = types.begin(); it != types.end(); ++it) {
 		if (CodeDirectory::viableHash(*it))
-			hashers.push_back(CodeDirectory::hashFor(*it));
+			hashes[*it] = CodeDirectory::hashFor(*it);
 	}
 	scanFileData(fd, limit, ^(const void *buffer, size_t size) {
-		unsigned n = 0;
-		for (auto it = types.begin(); it != types.end(); ++it, ++n) {
-			hashers[n]->update(buffer, size);
+		for (auto it = hashes.begin(); it != hashes.end(); ++it) {
+            it->second->update(buffer, size);
 		}
 	});
 	CFRef<CFMutableDictionaryRef> result = makeCFMutableDictionary();
-	unsigned n = 0;
-	for (auto it = types.begin(); it != types.end(); ++it, ++n) {
-		action(*it, hashers[n]);
+	for (auto it = hashes.begin(); it != hashes.end(); ++it) {
+		action(it->first, it->second);
 	}
 }
     

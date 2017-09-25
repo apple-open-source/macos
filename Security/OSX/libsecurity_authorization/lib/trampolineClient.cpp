@@ -131,6 +131,7 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 	int notify[2];
 	if (pipe(notify)) {
         fclose(mbox);
+        if(argv) { free(argv); }
 		return errAuthorizationToolExecuteFailure;
     }
 
@@ -139,6 +140,7 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 	if (communicationsPipe && socketpair(AF_UNIX, SOCK_STREAM, 0, comm)) {
 		close(notify[READ]); close(notify[WRITE]);
         fclose(mbox);
+        if(argv) { free(argv); }
 		return errAuthorizationToolExecuteFailure;
 	}
 
@@ -159,7 +161,8 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 			}
 			secinfo("authexec", "fork failed (errno=%d)", errno);
 			close(notify[READ]); close(notify[WRITE]);
-			return errAuthorizationToolExecuteFailure;
+			status = errAuthorizationToolExecuteFailure;
+            goto exit_point;
 
 		default: {	// parent
 			// close foreign side of pipes

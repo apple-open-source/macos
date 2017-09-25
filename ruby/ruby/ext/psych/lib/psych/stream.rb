@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 module Psych
   ###
   # Psych::Stream is a streaming YAML emitter.  It will not buffer your YAML,
@@ -32,5 +33,6 @@ module Psych
     end
 
     include Psych::Streaming
+    extend Psych::Streaming::ClassMethods
   end
 end

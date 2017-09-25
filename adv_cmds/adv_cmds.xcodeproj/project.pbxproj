@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -54,7 +54,6 @@
 				FDF277670FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF277650FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF277630FC6102600D7A3C6 /* PBXTargetDependency */,
-				FDF277610FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF2775F0FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF2775D0FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF2775B0FC6102600D7A3C6 /* PBXTargetDependency */,
@@ -88,10 +87,6 @@
 		FDF2777D0FC610EC00D7A3C6 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF276F40FC60FDF00D7A3C6 /* util.c */; };
 		FDF2779D0FC611B800D7A3C6 /* finger.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDF276ED0FC60FDF00D7A3C6 /* finger.conf.5 */; };
 		FDF2779E0FC611BA00D7A3C6 /* finger.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF276EB0FC60FDF00D7A3C6 /* finger.1 */; };
-		FDF277A90FC6125300D7A3C6 /* fingerd.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = FDF276F70FC60FDF00D7A3C6 /* fingerd.8 */; };
-		FDF277AA0FC6125500D7A3C6 /* finger.plist in Install launchd plist */ = {isa = PBXBuildFile; fileRef = FDF276F60FC60FDF00D7A3C6 /* finger.plist */; };
-		FDF277B30FC6127900D7A3C6 /* fingerd.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF276F80FC60FDF00D7A3C6 /* fingerd.c */; };
-		FDF277B70FC6128800D7A3C6 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FDF277B60FC6128800D7A3C6 /* libutil.dylib */; };
 		FDF277BE0FC612B000D7A3C6 /* whois.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF277490FC60FDF00D7A3C6 /* whois.c */; };
 		FDF277C20FC612C800D7A3C6 /* whois.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF277480FC60FDF00D7A3C6 /* whois.1 */; };
 		FDF277C40FC6133400D7A3C6 /* tty.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF277450FC60FDF00D7A3C6 /* tty.c */; };
@@ -238,13 +233,6 @@
 			remoteGlobalIDString = FDF2768C0FC60F3D00D7A3C6;
 			remoteInfo = gencat;
 		};
-		FDF277600FC6102600D7A3C6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FDF276860FC60F3700D7A3C6;
-			remoteInfo = fingerd;
-		};
 		FDF277620FC6102600D7A3C6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
@@ -342,28 +330,6 @@
 				FDF2779D0FC611B800D7A3C6 /* finger.conf.5 in Install man5 */,
 			);
 			name = "Install man5";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		FDF277AB0FC6126900D7A3C6 /* Install man8 */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				FDF277A90FC6125300D7A3C6 /* fingerd.8 in Install man8 */,
-			);
-			name = "Install man8";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		FDF277AC0FC6126900D7A3C6 /* Install launchd plist */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/LaunchDaemons;
-			dstSubfolderSpec = 0;
-			files = (
-				FDF277AA0FC6125500D7A3C6 /* finger.plist in Install launchd plist */,
-			);
-			name = "Install launchd plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FDF277C30FC612D900D7A3C6 /* Install man1 */ = {
@@ -498,7 +464,6 @@
 		FDF276750FC60F2100D7A3C6 /* cap_mkdb */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cap_mkdb; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF2767B0FC60F2A00D7A3C6 /* colldef */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = colldef; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276810FC60F3100D7A3C6 /* finger */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = finger; sourceTree = BUILT_PRODUCTS_DIR; };
-		FDF276870FC60F3700D7A3C6 /* fingerd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fingerd; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF2768D0FC60F3D00D7A3C6 /* gencat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gencat; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276930FC60F4B00D7A3C6 /* last */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = last; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276990FC60F5000D7A3C6 /* locale */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = locale; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -570,7 +535,6 @@
 		FDF277450FC60FDF00D7A3C6 /* tty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tty.c; sourceTree = "<group>"; };
 		FDF277480FC60FDF00D7A3C6 /* whois.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = whois.1; sourceTree = "<group>"; };
 		FDF277490FC60FDF00D7A3C6 /* whois.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = whois.c; sourceTree = "<group>"; };
-		FDF277B60FC6128800D7A3C6 /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = /usr/lib/libutil.dylib; sourceTree = "<absolute>"; };
 		FDF277E70FC6144400D7A3C6 /* libtermcap.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtermcap.dylib; path = /usr/lib/libtermcap.dylib; sourceTree = "<absolute>"; };
 		FDF2795D0FC6272500D7A3C6 /* libl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libl.a; path = /usr/lib/libl.a; sourceTree = "<absolute>"; };
 		FDF279760FC629B100D7A3C6 /* localedef.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = localedef.pl; sourceTree = "<group>"; };
@@ -618,14 +582,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FDF276850FC60F3700D7A3C6 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FDF277B70FC6128800D7A3C6 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -703,7 +659,6 @@
 			children = (
 				FDF276DA0FC60FD800D7A3C6 /* Source */,
 				FDF2765D0FC60EF600D7A3C6 /* Products */,
-				FDF277B60FC6128800D7A3C6 /* libutil.dylib */,
 				FDF277E70FC6144400D7A3C6 /* libtermcap.dylib */,
 				FDF2795D0FC6272500D7A3C6 /* libl.a */,
 				FDCD383A143BC63000AB81C6 /* libsysmon.dylib */,
@@ -718,7 +673,6 @@
 				FDF276750FC60F2100D7A3C6 /* cap_mkdb */,
 				FDF2767B0FC60F2A00D7A3C6 /* colldef */,
 				FDF276810FC60F3100D7A3C6 /* finger */,
-				FDF276870FC60F3700D7A3C6 /* fingerd */,
 				FDF2768D0FC60F3D00D7A3C6 /* gencat */,
 				FDF276930FC60F4B00D7A3C6 /* last */,
 				FDF276990FC60F5000D7A3C6 /* locale */,
@@ -1038,24 +992,6 @@
 			productReference = FDF276810FC60F3100D7A3C6 /* finger */;
 			productType = "com.apple.product-type.tool";
 		};
-		FDF276860FC60F3700D7A3C6 /* fingerd */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FDF276CB0FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "fingerd" */;
-			buildPhases = (
-				FDF276840FC60F3700D7A3C6 /* Sources */,
-				FDF276850FC60F3700D7A3C6 /* Frameworks */,
-				FDF277AB0FC6126900D7A3C6 /* Install man8 */,
-				FDF277AC0FC6126900D7A3C6 /* Install launchd plist */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = fingerd;
-			productName = fingerd;
-			productReference = FDF276870FC60F3700D7A3C6 /* fingerd */;
-			productType = "com.apple.product-type.tool";
-		};
 		FDF2768C0FC60F3D00D7A3C6 /* gencat */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDF276CC0FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "gencat" */;
@@ -1198,9 +1134,10 @@
 		FDF276430FC60E9000D7A3C6 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 0820;
 			};
 			buildConfigurationList = FDF276460FC60E9000D7A3C6 /* Build configuration list for PBXProject "adv_cmds" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1216,7 +1153,6 @@
 				FDF276740FC60F2100D7A3C6 /* cap_mkdb */,
 				FDF2767A0FC60F2A00D7A3C6 /* colldef */,
 				FDF276800FC60F3100D7A3C6 /* finger */,
-				FDF276860FC60F3700D7A3C6 /* fingerd */,
 				FDF2768C0FC60F3D00D7A3C6 /* gencat */,
 				FDF276920FC60F4B00D7A3C6 /* last */,
 				FDF276980FC60F5000D7A3C6 /* locale */,
@@ -1326,14 +1262,6 @@
 				FDF2777B0FC610EC00D7A3C6 /* net.c in Sources */,
 				FDF2777C0FC610EC00D7A3C6 /* sprint.c in Sources */,
 				FDF2777D0FC610EC00D7A3C6 /* util.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FDF276840FC60F3700D7A3C6 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FDF277B30FC6127900D7A3C6 /* fingerd.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1481,11 +1409,6 @@
 			target = FDF2768C0FC60F3D00D7A3C6 /* gencat */;
 			targetProxy = FDF2775E0FC6102600D7A3C6 /* PBXContainerItemProxy */;
 		};
-		FDF277610FC6102600D7A3C6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FDF276860FC60F3700D7A3C6 /* fingerd */;
-			targetProxy = FDF277600FC6102600D7A3C6 /* PBXContainerItemProxy */;
-		};
 		FDF277630FC6102600D7A3C6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FDF276800FC60F3100D7A3C6 /* finger */;
@@ -1547,16 +1470,28 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -1564,6 +1499,7 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
+				SDKROOT = macosx.internal;
 				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = __;
@@ -1637,14 +1573,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = finger;
-			};
-			name = Release;
-		};
-		FDF276890FC60F3700D7A3C6 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALL_PATH = /usr/libexec;
-				PRODUCT_NAME = fingerd;
 			};
 			name = Release;
 		};
@@ -1804,14 +1732,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FDF276830FC60F3100D7A3C6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		FDF276CB0FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "fingerd" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FDF276890FC60F3700D7A3C6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

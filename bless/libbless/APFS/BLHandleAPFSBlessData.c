@@ -39,7 +39,16 @@
 
 int BLGetAPFSBlessData(BLContextPtr context, const char *mountpoint, uint64_t *words)
 {
-    return fsctl(mountpoint, APFSIOC_GET_BOOTINFO, words, 0) < 0 ? errno : 0;
+    int ret = 0;
+    
+    if (fsctl(mountpoint, APFSIOC_GET_BOOTINFO, words, 0) < 0) {
+        if (errno == ENOENT) {
+            words[0] = words[1] = 0;
+        } else {
+            ret = errno;
+        }
+    }
+    return ret;
 }
 
 

@@ -54,7 +54,7 @@ bool dumping(const char *scope)
 #if defined(NDEBUG_STUBS)
     return false;
 #else
-	return Target::get().dump(scope);
+	return Target::get().dumping(scope);
 #endif
 }
 
@@ -255,7 +255,7 @@ void Target::dump(const char *format, va_list args)
 	sink->dump(buffer);
 }
 
-bool Target::dump(const char *scope)
+bool Target::dumping(const char *scope)
 {
 	return dumpSelector(scope);
 }
@@ -419,6 +419,11 @@ Target &Target::get()
 	if (singleton == NULL) {
 		Target *t = new Target;
 		t->setFromEnvironment();
+
+        // The Target constructor attempts to set singleton to the object. If it didn't succeed, we don't need T anymore.
+        if(singleton != t) {
+            delete t;
+        }
 	}
 	return *singleton;
 }

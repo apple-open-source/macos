@@ -72,13 +72,27 @@ private:
         uint32_t                    cursor_count;
         uint32_t                    modifier_count;
     } KeyStats;
+    
+    typedef struct {
+        uint32_t                    open_count;
+        uint32_t                    close_count;
+        uint32_t                    toggled_50ms;
+        uint32_t                    toggled_50_100ms;
+        uint32_t                    toggled_100_250ms;
+        uint32_t                    toggled_250_500ms;
+        uint32_t                    toggled_500_1000ms;
+    } HESStats;
 
     Buttons _pending_buttons;
     MotionStats _pending_motionstats;
     uint64_t _last_motionstat_ts;
     KeyStats _pending_keystats;
+    HESStats _pending_hesstats;
     
     CFMutableSetRef             _keyServices;
+    CFMutableSetRef             _hesServices;
+    
+    IOHIDEventRef               _attachEvent;
     
     CFMutableArrayRef           _logStrings;
     aslclient                   _asl;
@@ -104,6 +118,7 @@ private:
     
     bool collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event);
     bool collectKeyStats(IOHIDServiceRef sender, IOHIDEventRef event);
+    bool collectHESStats(IOHIDServiceRef sender, IOHIDEventRef event);
     
     static bool isCharacterKey(uint16_t usagePage, uint16_t usage);
     static bool isSymbolKey(uint16_t usagePage, uint16_t usage);

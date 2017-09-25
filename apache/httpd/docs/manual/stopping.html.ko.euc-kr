@@ -39,7 +39,7 @@
     실행하기</a>에서, 윈도우즈 9x와 ME 사용자는 <a href="platform/windows.html#wincons">콜솔 프로그램으로
     아파치 실행하기</a>에서 플래폼별 아파치 조작법을 알 수 있다.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">소개</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">소개</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#term">당장 중단</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#graceful">점잖은 재시작</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#hup">당장 재시작</a></li>
@@ -226,7 +226,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/stopping.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">모듈</a> | <a href="./mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">용어</a> | <a href="./sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

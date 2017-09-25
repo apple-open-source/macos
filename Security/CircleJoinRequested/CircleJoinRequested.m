@@ -1,10 +1,26 @@
-//
-//  CircleJoinRequested.m
-//  CircleJoinRequested
-//
-//  Created by J Osborne on 3/5/13.
-//  Copyright (c) 2013-2014 Apple Inc. All Rights Reserved.
-//
+/*
+ * Copyright (c) 2013-2017 Apple Inc. All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 #import <Accounts/Accounts.h>
 #import <Accounts/ACAccountStore_Private.h>
 #import <Accounts/ACAccountType_Private.h>
@@ -47,6 +63,7 @@
 
 #import "CoreCDP/CDPFollowUpController.h"
 #import "CoreCDP/CDPFollowUpContext.h"
+#import <CoreCDP/CDPAccount.h>
 
 // As long as we are logging the failure use exit code of zero to make launchd happy
 #define EXIT_LOGGED_FAILURE(code)  xpc_transaction_end();  exit(0)
@@ -62,12 +79,31 @@ dispatch_block_t doOnceInMainBlockChain = NULL;
 bool _isLocked = true;
 bool processApplicantsAfterUnlock = false;
 bool _unlockedSinceBoot = false;
+bool _hasPostedFollowupAndStillInError = false;
+bool _isAccountICDP = false;
 
-NSString *castleKeychainUrl = @"prefs:root=CASTLE&path=Keychain/ADVANCED";
-NSString *rejoinICDPUrl     = @"prefs:root=CASTLE&aaaction=CDP&command=rejoin";
+
+NSString *castleKeychainUrl = @"prefs:root=APPLE_ACCOUNT&path=ICLOUD_SERVICE/com.apple.Dataclass.KeychainSync/ADVANCED";
+NSString *rejoinICDPUrl     = @"prefs:root=APPLE_ACCOUNT&aaaction=CDP&command=rejoin";
 
 BOOL processRequests(CFErrorRef *error);
 
+static void PSKeychainSyncIsUsingICDP(void)
+{
+    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccount *account = [accountStore aa_primaryAppleAccount];
+    NSString *dsid = account.accountProperties[@"personID"];
+    BOOL isICDPEnabled = NO;
+    if (dsid) {
+        isICDPEnabled = [CDPAccount isICDPEnabledForDSID:dsid];
+        NSLog(@"iCDP: PSKeychainSyncIsUsingICDP returning %@", isICDPEnabled ? @"TRUE" : @"FALSE");
+    } else {
+        NSLog(@"iCDP: no primary account");
+    }
+    
+    _isAccountICDP = isICDPEnabled;
+    secnotice("cjr", "account is icdp: %d", _isAccountICDP);
+}
 
 static void keybagDidLock()
 {
@@ -84,7 +120,28 @@ static void keybagDidUnlock()
         processRequests(&error);
         processApplicantsAfterUnlock = false;
     }
-    
+
+    SOSCCStatus circleStatus = SOSCCThisDeviceIsInCircle(&error);
+    if(_isAccountICDP && (circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false){
+        NSError *localError = nil;
+        CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+        CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+        [cdpd postFollowUpWithContext:context error:&localError ];
+        secnotice("cjr", "account is icdp");
+        if(localError){
+            secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+        }
+        else{
+            secnotice("cjr", "CoreCDP handling follow up");
+            _hasPostedFollowupAndStillInError = true;
+        }
+    }
+    else if(_isAccountICDP && circleStatus == kSOSCCInCircle){
+        _hasPostedFollowupAndStillInError = false;
+    }
+    else{
+        secnotice("cjr", "account not icdp");
+    }
 }
 
 static bool updateIsLocked ()
@@ -305,7 +362,10 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 
 static void passwordFailurePrompt()
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	NSString	 *pwIncorrect = [NSString stringWithFormat:(NSString *)CFBridgingRelease(SecCopyCKString(SEC_CK_PASSWORD_INCORRECT)), appleIDAccountName()];
+#pragma clang diagnostic pop
 	NSString 	 *tryAgain    = CFBridgingRelease(SecCopyCKString(SEC_CK_TRY_AGAIN));
 	NSDictionary *noteAttributes = @{
 		(id) kCFUserNotificationAlertHeaderKey			   : pwIncorrect,
@@ -348,14 +408,17 @@ static NSDictionary *createNote(Applicant *applicantToAskAbout)
 	if(!applicantToAskAbout || !applicantToAskAbout.name || !applicantToAskAbout.deviceType)
 		return NULL;
 
-	NSString *header = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE_IOS), applicantToAskAbout.name];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+	NSString *header = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE), applicantToAskAbout.name];
 	NSString *body   = [NSString stringWithFormat: getLocalizedApprovalBody(applicantToAskAbout.deviceType), appleIDAccountName()];
+#pragma clang diagnostic pop
 
 	return @{
 		(id) kCFUserNotificationAlertHeaderKey		   : header,
 		(id) kCFUserNotificationAlertMessageKey		   : body,
-		(id) kCFUserNotificationDefaultButtonTitleKey  : (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_ALLOW),
-		(id) kCFUserNotificationAlternateButtonTitleKey: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_DONT_ALLOW),
+		(id) kCFUserNotificationDefaultButtonTitleKey  : (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVE),
+		(id) kCFUserNotificationAlternateButtonTitleKey: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_DECLINE),
 		(id) kCFUserNotificationTextFieldTitlesKey	   : (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_ICLOUD_PASSWORD),
 		(id) kCFUserNotificationAlertTopMostKey		   : @YES,				//  get us onto the lock screen
 		(__bridge_transfer id) SBUserNotificationDontDismissOnUnlock: @YES,
@@ -525,21 +588,9 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
 	if (responseFlags == kCFUserNotificationDefaultResponse) {
 		// We need to let things unwind to main for the new state to get saved
 		doOnceInMain(^{
-			ACAccountStore	  *store	= [ACAccountStore new];
-			ACAccount		  *primary  = [store aa_primaryAppleAccount];
-			NSString		  *dsid 	= [primary aa_personID];
-			bool			  localICDP = false;
-			if (dsid) {
-				NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
-				PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
-
-				if (identity) {
-					localICDP = PCSIdentitySetIsICDP(identity, NULL);
-					CFRelease(identity);
-				}
-			}
-			NSURL    		  *url		= [NSURL URLWithString: localICDP ? rejoinICDPUrl : castleKeychainUrl];
+			NSURL    		  *url		= [NSURL URLWithString: _isAccountICDP ? rejoinICDPUrl : castleKeychainUrl];
 			BOOL 			  ok		= [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:url withOptions:nil];
+            secnotice("cjr","kickOutChoice account is iCDP: %d", _isAccountICDP);
             secnotice("cjr", "ok=%d opening %@", ok, url);
 		});
 	}
@@ -547,29 +598,18 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
     else if (responseFlags == kCFUserNotificationAlternateResponse) {
         // We need to let things unwind to main for the new state to get saved
         doOnceInMain(^{
-            CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-            ACAccountStore	  *store	= [ACAccountStore new];
-            ACAccount		  *primary  = [store aa_primaryAppleAccount];
-            NSString		  *dsid 	= [primary aa_personID];
-            bool			  localICDP = false;
-            if (dsid) {
-                NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
-                PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
-                
-                if (identity) {
-                    localICDP = PCSIdentitySetIsICDP(identity, NULL);
-                    CFRelease(identity);
-                }
-            }
-            if(localICDP){
+          if(_isAccountICDP){
+              CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
                 NSError *localError = nil;
                 CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
                 [cdpd postFollowUpWithContext:context error:&localError ];
                 if(localError){
                     secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
                 }
-                else
+                else{
                     secnotice("cjr", "CoreCDP handling follow up");
+                    _hasPostedFollowupAndStillInError = true;
+                }
             }
         });
 
@@ -643,8 +683,11 @@ static void postKickedOutAlert(enum DepartureReason reason)
 			"unknown reason"
 		};
 		int idx = (kSOSDepartureReasonError <= reason && reason <= kSOSLostPrivateKey) ? reason : (kSOSLostPrivateKey + 1);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 		NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL),
 								departureReasonStrings[idx]];
+#pragma clang diagnostic pop
 		message = [message stringByAppendingString: reason_str];
 	}
 
@@ -722,19 +765,57 @@ static bool processEvents()
 			scheduleActivity(ceil(timeUntilApplicationAlert));
 		}
 	}
-
-    if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)) {
-        secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
+    
+    PSKeychainSyncIsUsingICDP();
+    
+    if(_isAccountICDP){
+        if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {
+            secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
+            secnotice("cjr", "iCDP: We need to get back into the circle");
+            doOnceInMain(^{
+                if(_isAccountICDP){
+                    NSError *localError = nil;
+                    CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+                    CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+                    [cdpd postFollowUpWithContext:context error:&localError ];
+                    if(localError){
+                        secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+                    }
+                    else{
+                        secnotice("cjr", "CoreCDP handling follow up");
+                        _hasPostedFollowupAndStillInError = true;
+                    }
+                }
+                else{
+                    postKickedOutAlert(kSOSPasswordChanged);
+                    state.lastCircleStatus = kSOSCCError;
+                    [state writeToStorage];
+                }
+            });
+            state.lastCircleStatus = circleStatus;
+            return false;
+        }
+        else if(circleStatus == kSOSCCInCircle){
+            secnotice("cjr", "follow up should be resolved");
+            _hasPostedFollowupAndStillInError = false;
+        }
+        else{
+            secnotice("cjr", "followup not resolved");
+            return false;
+        }
+    }
+    else if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)
+            && !_isAccountICDP) {
+        secnotice("cjr", "SA: error from SOSCCThisDeviceIsInCircle: %@", error);
         CFIndex errorCode = CFErrorGetCode(error);
         if(errorCode == kSOSErrorPublicKeyAbsent){
-            secnotice("cjr", "We need the password to re-validate ourselves - it's changed on another device");
+            secnotice("cjr", "SA: We need the password to re-validate ourselves - it's changed on another device");
             postKickedOutAlert(kSOSPasswordChanged);
             state.lastCircleStatus = kSOSCCError;
             [state writeToStorage];
             return true;
         }
     }
-    
 	// No longer in circle?
 	if ((state.lastCircleStatus == kSOSCCInCircle     && (circleStatus == kSOSCCNotInCircle || circleStatus == kSOSCCCircleAbsent)) ||
 		(state.lastCircleStatus == kSOSCCCircleAbsent && circleStatus == kSOSCCNotInCircle && state.absentCircleWithNoReason) ||
@@ -753,7 +834,26 @@ static bool processEvents()
 		if (departureReason != kSOSDepartureReasonError) {
 			state.absentCircleWithNoReason = (circleStatus == kSOSCCCircleAbsent && departureReason == kSOSNeverLeftCircle);
 			secnotice("cjr", "Depature reason %d", departureReason);
-			postKickedOutAlert(departureReason);
+            if(!_isAccountICDP){
+                secnotice("cjr", "posting revocation notification!");
+                postKickedOutAlert(departureReason);
+            }
+            else if(_isAccountICDP && _hasPostedFollowupAndStillInError == false){
+                NSError *localError = nil;
+                CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+                CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+                [cdpd postFollowUpWithContext:context error:&localError ];
+                if(localError){
+                    secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+                }
+                else{
+                    secnotice("cjr", "CoreCDP handling follow up");
+                    _hasPostedFollowupAndStillInError = true;
+                }
+            }
+            else{
+                secnotice("cjr", "still waiting for followup to resolve");
+            }
 			secnotice("cjr", "pKOA returned (cS %d lCS %d)", circleStatus, state.lastCircleStatus);
 		} else {
 			secnotice("cjr", "Couldn't get last departure reason: %@", departError);

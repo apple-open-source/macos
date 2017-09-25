@@ -15,12 +15,6 @@ require 'optparse'
 
 op_id_offset = 128
 
-token_op_ids = %w[
-  tDOT2 tDOT3 tUPLUS tUMINUS tPOW tDSTAR tCMP tLSHFT tRSHFT
-  tLEQ tGEQ tEQ tEQQ tNEQ tMATCH tNMATCH tAREF tASET
-  tCOLON2 tCOLON3
-]
-
 defs = File.join(File.dirname(File.dirname(erb.filename)), "defs/id.def")
 ids = eval(File.read(defs), binding, defs)
 types = ids.keys.grep(/^[A-Z]/)
@@ -28,54 +22,48 @@ types = ids.keys.grep(/^[A-Z]/)
 #ifndef RUBY_ID_H
 #define RUBY_ID_H
 
-#define ID_SCOPE_SHIFT 3
-#define ID_SCOPE_MASK 0x07
-#define ID_LOCAL      0x00
-#define ID_INSTANCE   0x01
-#define ID_GLOBAL     0x03
-#define ID_ATTRSET    0x04
-#define ID_CONST      0x05
-#define ID_CLASS      0x06
-#define ID_JUNK       0x07
-#define ID_INTERNAL   ID_JUNK
+enum ruby_id_types {
+    RUBY_ID_STATIC_SYM  = 0x01,
+    RUBY_ID_LOCAL       = 0x00,
+    RUBY_ID_INSTANCE    = (0x01<<1),
+    RUBY_ID_GLOBAL      = (0x03<<1),
+    RUBY_ID_ATTRSET     = (0x04<<1),
+    RUBY_ID_CONST       = (0x05<<1),
+    RUBY_ID_CLASS       = (0x06<<1),
+    RUBY_ID_JUNK        = (0x07<<1),
+    RUBY_ID_INTERNAL    = RUBY_ID_JUNK,
+    RUBY_ID_SCOPE_SHIFT = 4,
+    RUBY_ID_SCOPE_MASK  = (~(~0U<<(RUBY_ID_SCOPE_SHIFT-1))<<1)
+};
 
-#define ID2ATTRSET(id) (((id)&~ID_SCOPE_MASK)|ID_ATTRSET)
+#define ID_STATIC_SYM  RUBY_ID_STATIC_SYM
+#define ID_SCOPE_SHIFT RUBY_ID_SCOPE_SHIFT
+#define ID_SCOPE_MASK  RUBY_ID_SCOPE_MASK
+#define ID_LOCAL       RUBY_ID_LOCAL
+#define ID_INSTANCE    RUBY_ID_INSTANCE
+#define ID_GLOBAL      RUBY_ID_GLOBAL
+#define ID_ATTRSET     RUBY_ID_ATTRSET
+#define ID_CONST       RUBY_ID_CONST
+#define ID_CLASS       RUBY_ID_CLASS
+#define ID_JUNK        RUBY_ID_JUNK
+#define ID_INTERNAL    RUBY_ID_INTERNAL
 
 #define symIFUNC ID2SYM(idIFUNC)
 #define symCFUNC ID2SYM(idCFUNC)
 
-% token_op_ids.each_with_index do |token, index|
-#define RUBY_TOKEN_<%=token[/\At(.+)\z/, 1]%> <%=op_id_offset + index%>
+% index = op_id_offset
+% ids[:token_op].each do |_id, _op, token|
+%   next unless token
+#define RUBY_TOKEN_<%=token%> <%=index%>
+%   index += 1
 % end
 #define RUBY_TOKEN(t) RUBY_TOKEN_##t
 
 enum ruby_method_ids {
-    idDot2 = RUBY_TOKEN(DOT2),
-    idDot3 = RUBY_TOKEN(DOT3),
-    idUPlus = RUBY_TOKEN(UPLUS),
-    idUMinus = RUBY_TOKEN(UMINUS),
-    idPow = RUBY_TOKEN(POW),
-    idCmp = RUBY_TOKEN(CMP),
-    idPLUS = '+',
-    idMINUS = '-',
-    idMULT = '*',
-    idDIV = '/',
-    idMOD = '%',
-    idLT = '<',
-    idLTLT = RUBY_TOKEN(LSHFT),
-    idLE = RUBY_TOKEN(LEQ),
-    idGT = '>',
-    idGE = RUBY_TOKEN(GEQ),
-    idEq = RUBY_TOKEN(EQ),
-    idEqq = RUBY_TOKEN(EQQ),
-    idNeq = RUBY_TOKEN(NEQ),
-    idNot = '!',
-    idBackquote = '`',
-    idEqTilde = RUBY_TOKEN(MATCH),
-    idNeqTilde = RUBY_TOKEN(NMATCH),
-    idAREF = RUBY_TOKEN(AREF),
-    idASET = RUBY_TOKEN(ASET),
-    tPRESERVED_ID_BEGIN = <%=op_id_offset + token_op_ids.size - 1%>,
+% ids[:token_op].uniq {|_, op| op}.each do |id, op, token|
+    id<%=id%> = <%=token ? "RUBY_TOKEN(#{token})" : "'#{op}'"%>,
+% end
+    tPRESERVED_ID_BEGIN = <%=index-1%>,
 % ids[:preserved].each do |token|
     id<%=token%>,
 % end
@@ -83,10 +71,11 @@ enum ruby_method_ids {
 % ids.values_at(*types).flatten.each do |token|
     t<%=token%>,
 % end
+    tNEXT_ID,
 % types.each do |type|
 %   types = ids[type] or next
 %   types.empty? and next
-#define TOKEN2<%=type%>ID(n) id##n = ((t##n<<ID_SCOPE_SHIFT)|ID_<%=type%>)
+#define TOKEN2<%=type%>ID(n) id##n = ((t##n<<ID_SCOPE_SHIFT)|ID_<%=type%>|ID_STATIC_SYM)
 %   types.each do |token|
     TOKEN2<%=type%>ID(<%=token%>),
 %   end

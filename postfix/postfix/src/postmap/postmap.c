@@ -42,9 +42,13 @@
 /*	starts with whitespace continues a logical line.
 /* .PP
 /*	The \fIkey\fR and \fIvalue\fR are processed as is, except that
-/*	surrounding white space is stripped off. Unlike with Postfix alias
-/*	databases, quotes cannot be used to protect lookup keys that contain
-/*	special characters such as `#' or whitespace.
+/*	surrounding white space is stripped off. Whitespace in lookup
+/*	keys is supported as of Postfix 3.2.
+/*
+/*	When the \fIkey\fR specifies email address information, the
+/*	localpart should be enclosed with double quotes if required
+/*	by RFC 5322. For example, an address localpart that contains
+/*	";", or a localpart that starts or ends with ".".
 /*
 /*	By default the lookup key is mapped to lowercase to make
 /*	the lookups case insensitive; as of Postfix 2.3 this case
@@ -60,7 +64,7 @@
 /* .IP \fB-b\fR
 /*	Enable message body query mode. When reading lookup keys
 /*	from standard input with "\fB-q -\fR", process the input
-/*	as if it is an email message in RFC 2822 format.  Each line
+/*	as if it is an email message in RFC 5322 format.  Each line
 /*	of body content becomes one lookup key.
 /* .sp
 /*	By default, the \fB-b\fR option starts generating lookup
@@ -97,7 +101,7 @@
 /* .IP \fB-h\fR
 /*	Enable message header query mode. When reading lookup keys
 /*	from standard input with "\fB-q -\fR", process the input
-/*	as if it is an email message in RFC 2822 format.  Each
+/*	as if it is an email message in RFC 5322 format.  Each
 /*	logical header line becomes one lookup key. A multi-line
 /*	header becomes one lookup key with one or more embedded
 /*	newline characters.
@@ -246,14 +250,18 @@
 /* .IP "\fBdefault_database_type (see 'postconf -d' output)\fR"
 /*	The default database type for use in \fBnewaliases\fR(1), \fBpostalias\fR(1)
 /*	and \fBpostmap\fR(1) commands.
+/* .IP "\fBimport_environment (see 'postconf -d' output)\fR"
+/*	The list of environment parameters that a privileged Postfix
+/*	process will import from a non-Postfix parent process, or name=value
+/*	environment overrides.
 /* .IP "\fBsmtputf8_enable (yes)\fR"
 /*	Enable preliminary SMTPUTF8 support for the protocols described
 /*	in RFC 6531..6533.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-/*	The mail system name that is prepended to the process name in syslog
-/*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/*	A prefix that is prepended to the process name in syslog
+/*	records, so that, for example, "smtpd" becomes "prefix/smtpd".
 /* SEE ALSO
 /*	postalias(1), create/update/query alias database
 /*	postconf(1), supported database types
@@ -307,6 +315,7 @@
 #include <vstring_vstream.h>
 #include <set_eugid.h>
 #include <warn_stat.h>
+#include <clean_env.h>
 
 /* Global library. */
 
@@ -319,6 +328,7 @@
 #include <dict_proxy.h>
 #include <mime_state.h>
 #include <rec_type.h>
+#include <mail_parm_split.h>
 
 /* Application-specific. */
 
@@ -421,10 +431,12 @@ static void postmap(char *map_type, char *path_name, int postmap_flags,
 	    msg_fatal("seek %s: %m", VSTREAM_PATH(source_fp));
 
 	/*
-	 * Add records to the database.
+	 * Add records to the database. XXX This duplicates the parser in
+	 * dict_thash.c.
 	 */
 	last_line = 0;
 	while (readllines(line_buffer, source_fp, &last_line, &lineno)) {
+	    int     in_quotes = 0;
 
 	    /*
 	     * First some UTF-8 checks sans casefolding.
@@ -439,17 +451,39 @@ static void postmap(char *map_type, char *path_name, int postmap_flags,
 	    }
 
 	    /*
-	     * Split on the first whitespace character, then trim leading and
-	     * trailing whitespace from key and value.
+	     * Terminate the key on the first unquoted whitespace character,
+	     * then trim leading and trailing whitespace from the value.
 	     */
-	    key = STR(line_buffer);
-	    value = key + strcspn(key, CHARS_SPACE);
+	    for (value = STR(line_buffer); *value; value++) {
+		if (*value == '\\') {
+		    if (*++value == 0)
+			break;
+		} else if (ISSPACE(*value)) {
+		    if (!in_quotes)
+			break;
+		} else if (*value == '"') {
+		    in_quotes = !in_quotes;
+		}
+	    }
+	    if (in_quotes) {
+		msg_warn("%s, line %d: unbalanced '\"' in '%s'"
+			 " -- ignoring this line",
+			 VSTREAM_PATH(source_fp), lineno, STR(line_buffer));
+		continue;
+	    }
 	    if (*value)
 		*value++ = 0;
 	    while (ISSPACE(*value))
 		value++;
-	    trimblanks(key, 0)[0] = 0;
 	    trimblanks(value, 0)[0] = 0;
+
+	    /*
+	     * Leave the key in quoted form, because 1) postmap cannot assume
+	     * that a string without @ contains an email address localpart,
+	     * and 2) an address localpart may require quoting even when the
+	     * quoted form contains no backslash or ".
+	     */
+	    key = STR(line_buffer);
 
 	    /*
 	     * Enforce the "key whitespace value" format. Disallow missing
@@ -465,7 +499,8 @@ static void postmap(char *map_type, char *path_name, int postmap_flags,
 			 VSTREAM_PATH(source_fp), lineno);
 
 	    /*
-	     * Store the value under a case-insensitive key.
+	     * Store the value under a (possibly case-insensitive) key, as
+	     * specified with open_flags.
 	     */
 	    mkmap_append(mkmap, key, value);
 	    if (mkmap->dict->error)
@@ -828,6 +863,7 @@ int     main(int argc, char **argv)
     int     sequence = 0;
     int     found;
     int     force_utf8 = 0;
+    ARGV   *import_env;
 
     /*
      * Fingerprint executables and core dumps.
@@ -946,6 +982,10 @@ int     main(int argc, char **argv)
 	}
     }
     mail_conf_read();
+    /* Enforce consistent operation of different Postfix parts. */
+    import_env = mail_parm_split(VAR_IMPORT_ENVIRON, var_import_environ);
+    update_env(import_env->argv);
+    argv_free(import_env);
     /* Re-evaluate mail_task() after reading main.cf. */
     msg_syslog_init(mail_task(argv[0]), LOG_PID, LOG_FACILITY);
     mail_dict_init();

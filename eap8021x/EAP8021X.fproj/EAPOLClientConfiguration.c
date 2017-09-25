@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,7 +61,8 @@ const char * 	kEAPOLClientConfigurationChangedNotifyKey = "com.apple.network.eap
 /**
  ** 802.1X Profiles Schema
  **/
-#define kConfigurationKeyProfiles 	CFSTR("Profiles")
+#define kConfigurationKeyProfiles				CFSTR("Profiles")
+#define kConfigurationKeySystemModeEthernetProfileID		CFSTR("SystemModeEthernetProfileID")
 #define kConfigurationKeyDefaultAuthenticationProperties	CFSTR("DefaultAuthenticationProperties")
 
 /**
@@ -1045,7 +1046,8 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
     existing_prefs_dict = SCPreferencesGetValue(cfg->eap_prefs,
 						kConfigurationKeyProfiles);
     if (cfg->def_auth_props_changed == FALSE
-	&& my_CFEqual(existing_prefs_dict, prefs_dict)) {
+	&& my_CFEqual(existing_prefs_dict, prefs_dict)
+	&& cfg->system_mode_profile_id_changed == FALSE) {
 	/* configuration is the same, no need to save */
     }
     else {
@@ -1070,6 +1072,29 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 		   SCErrorString(SCError()));
 	    goto done;
 	}
+
+	if (cfg->system_mode_profile_id_changed == TRUE) {
+	    if (cfg->system_mode_profile_id == NULL) {
+		ret = SCPreferencesRemoveValue(cfg->eap_prefs, kConfigurationKeySystemModeEthernetProfileID);
+		if (ret == FALSE) {
+		    EAPLOG(LOG_NOTICE,
+			   "EAPOLClientConfigurationSave SCPreferencesRemoveValue"
+			   " failed %s", SCErrorString(SCError()));
+		    goto done;
+		}
+	     }
+	     else {
+		ret = SCPreferencesSetValue(cfg->eap_prefs, kConfigurationKeySystemModeEthernetProfileID,
+					    cfg->system_mode_profile_id);
+		my_CFRelease(&cfg->system_mode_profile_id);
+		if (ret == FALSE) {
+		    EAPLOG(LOG_NOTICE,
+			   "EAPOLClientConfigurationSave SCPreferencesRemoveValue"
+			   " failed %s", SCErrorString(SCError()));
+		    goto done;
+		}
+	     }
+	}
 	ret = SCPreferencesCommitChanges(cfg->eap_prefs);
 	if (ret == FALSE) {
 	    EAPLOG(LOG_NOTICE,
@@ -1078,6 +1103,7 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 	    return (FALSE);
 	}
 	cfg->def_auth_props_changed = FALSE;
+	cfg->system_mode_profile_id_changed = FALSE;
 	SCPreferencesApplyChanges(cfg->eap_prefs);
 	changed = TRUE;
     }
@@ -1214,7 +1240,8 @@ EAPOLClientConfigurationRemoveProfile(EAPOLClientConfigurationRef cfg,
 {
     CFStringRef			profileID = EAPOLClientProfileGetID(profile);
     CFDataRef			ssid;
-    
+    CFStringRef			sys_mode_profile_id = NULL;
+
     if (EAPOLClientConfigurationGetProfileWithID(cfg, profileID) != profile) {
 	/* trying to remove profile that isn't part of the configuration */
 	return (FALSE);
@@ -1224,6 +1251,18 @@ EAPOLClientConfigurationRemoveProfile(EAPOLClientConfigurationRef cfg,
 	CFDictionaryRemoveValue(cfg->ssids, ssid);
     }
     CFDictionaryRemoveValue(cfg->profiles, profileID);
+
+    /* check if the profile ID matches with the one for System Ethernet profile */
+    sys_mode_profile_id = SCPreferencesGetValue(cfg->eap_prefs,
+					       kConfigurationKeySystemModeEthernetProfileID);
+    if (isA_CFString(sys_mode_profile_id) != NULL &&
+	my_CFEqual(sys_mode_profile_id, profileID)) {
+	/* remove the reference to System Ethernet profile */
+	cfg->system_mode_profile_id_changed = TRUE;
+	if (cfg->system_mode_profile_id != NULL) {
+	    my_CFRelease(&cfg->system_mode_profile_id);
+	}
+    }
     return (TRUE);
 }
 
@@ -1603,11 +1642,66 @@ EAPOLClientConfigurationSetSystemProfile(EAPOLClientConfigurationRef cfg,
     return (ret);
 }
 
+EAPOLClientProfileRef
+EAPOLClientConfigurationGetSystemEthernetProfile(EAPOLClientConfigurationRef cfg)
+{
+    CFStringRef 	sysModeProfileID = NULL;
+
+    sysModeProfileID = SCPreferencesGetValue(cfg->eap_prefs,
+				     kConfigurationKeySystemModeEthernetProfileID);
+    if (isA_CFString(sysModeProfileID) != NULL) {
+	return ((EAPOLClientProfileRef)
+		CFDictionaryGetValue(cfg->profiles, sysModeProfileID));
+    }
+    return NULL;
+}
+
+Boolean
+EAPOLClientConfigurationSetSystemEthernetProfile(EAPOLClientConfigurationRef cfg,
+					       EAPOLClientProfileRef profile)
+{
+    CFStringRef 	existing_profileID = NULL;
+    CFStringRef 	profileID = NULL;
+    Boolean 		ret = FALSE;
+
+    if (cfg->system_mode_profile_id != NULL) {
+	my_CFRelease(&cfg->system_mode_profile_id);
+    }
+    cfg->system_mode_profile_id_changed = FALSE;
+    existing_profileID = SCPreferencesGetValue(cfg->eap_prefs,
+					       kConfigurationKeySystemModeEthernetProfileID);
+    if (profile == NULL) {
+	if (isA_CFString(existing_profileID) != NULL) {
+	    /* Delete System Ethernet profile */
+	    ret = TRUE;
+	    cfg->system_mode_profile_id_changed = TRUE;
+	}
+	goto done;
+    }
+    profileID = EAPOLClientProfileGetID(profile);
+    if (profileID == NULL) {
+	/* error */
+	goto done;
+    }
+    if (isA_CFString(existing_profileID) != NULL &&
+	my_CFEqual(existing_profileID, profileID)) {
+	/* nothing to do */
+	goto done;
+    }
+    cfg->system_mode_profile_id_changed = TRUE;
+    cfg->system_mode_profile_id = profileID;
+    CFRetain(cfg->system_mode_profile_id);
+    ret = TRUE;
+
+done:
+    return (ret);
+}
+
 /*
  * Function: EAPOLClientConfigurationCopyAllSystemProfiles
  *
  * Purpose:
- *   Determine which interfaces have System mode configured.  
+ *   Determine which interfaces have System mode configured.
  *   Return the results in a dictionary of EAPOLClientProfile
  *   keyed by the interface name.
  *

@@ -32,8 +32,10 @@
 
 #include "CachedResourceHandle.h"
 #include "CachedScript.h"
+#include "CachedScriptFetcher.h"
 #include "CachedScriptSourceProvider.h"
 #include "URL.h"
+#include <parser/SourceCode.h>
 #include <parser/SourceProvider.h>
 #include <wtf/text/TextPosition.h>
 #include <wtf/RefPtr.h>
@@ -43,16 +45,23 @@ namespace WebCore {
 class ScriptSourceCode {
 public:
     ScriptSourceCode(const String& source, const URL& url = URL(), const TextPosition& startPosition = TextPosition(), JSC::SourceProviderSourceType sourceType = JSC::SourceProviderSourceType::Program)
-        : m_provider(JSC::StringSourceProvider::create(source, url.isNull() ? String() : url.string(), startPosition, sourceType))
-        , m_code(m_provider, startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt())
+        : m_provider(JSC::StringSourceProvider::create(source, JSC::SourceOrigin { url.string() }, url.string(), startPosition, sourceType))
+        , m_code(m_provider.copyRef(), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt())
         , m_url(url)
     {
     }
 
-    explicit ScriptSourceCode(CachedScript* cachedScript, JSC::SourceProviderSourceType sourceType)
-        : m_provider(CachedScriptSourceProvider::create(cachedScript, sourceType))
-        , m_code(m_provider)
+    ScriptSourceCode(CachedScript* cachedScript, JSC::SourceProviderSourceType sourceType, Ref<CachedScriptFetcher>&& scriptFetcher)
+        : m_provider(CachedScriptSourceProvider::create(cachedScript, sourceType, WTFMove(scriptFetcher)))
+        , m_code(m_provider.copyRef())
         , m_cachedScript(cachedScript)
+    {
+    }
+
+    ScriptSourceCode(const String& source, const URL& url, const TextPosition& startPosition, JSC::SourceProviderSourceType sourceType, Ref<CachedScriptFetcher>&& scriptFetcher)
+        : m_provider(JSC::StringSourceProvider::create(source, JSC::SourceOrigin { url.string(), WTFMove(scriptFetcher) }, url.string(), startPosition, sourceType))
+        , m_code(m_provider.copyRef(), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt())
+        , m_url(url)
     {
     }
 
@@ -69,7 +78,7 @@ public:
     const URL& url() const { return m_url; }
     
 private:
-    RefPtr<JSC::SourceProvider> m_provider;
+    Ref<JSC::SourceProvider> m_provider;
     JSC::SourceCode m_code;
     CachedResourceHandle<CachedScript> m_cachedScript;
     URL m_url;

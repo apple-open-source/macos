@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocMarkupToHtmlSnippet < RDoc::Markup::FormatterTestCase
@@ -309,7 +310,7 @@ class TestRDocMarkupToHtmlSnippet < RDoc::Markup::FormatterTestCase
   end
 
   def accept_verbatim
-    assert_equal "\n<pre>hi\n  world</pre>\n", @to.res.join
+    assert_equal "\n<pre class=\"ruby\"><span class=\"ruby-identifier\">hi</span>\n  <span class=\"ruby-identifier\">world</span>\n</pre>\n", @to.res.join
     assert_equal 10, @to.characters
   end
 
@@ -427,8 +428,7 @@ class TestRDocMarkupToHtmlSnippet < RDoc::Markup::FormatterTestCase
 
     expected = <<-EXPECTED
 
-<pre>#{inner}
-</pre>
+<pre>#{inner}</pre>
     EXPECTED
 
     assert_equal expected, @to.res.join
@@ -588,8 +588,9 @@ This routine modifies its +comment+ parameter.
     expected = <<-EXPECTED
 <p>Look for directives in a normal comment block:
 
-<pre># :stopdoc:
-#{inner}</pre>
+<pre class=\"ruby\"><span class=\"ruby-comment\"># :stopdoc:</span>
+<span class=\"ruby-comment\">#{inner}</span>
+</pre>
     EXPECTED
 
     actual = @to.convert rdoc
@@ -626,15 +627,15 @@ This routine modifies its +comment+ parameter.
   def test_convert_RDOCLINK_label_foottext
     result = @to.convert 'rdoc-label:foottext-1'
 
-    assert_equal "<p>*1\n", result
-    assert_equal 2, @to.characters
+    assert_equal "<p>1\n", result
+    assert_equal 1, @to.characters
   end
 
   def test_convert_RDOCLINK_label_footmark
     result = @to.convert 'rdoc-label:footmark-1'
 
-    assert_equal "<p>^1\n", result
-    assert_equal 2, @to.characters
+    assert_equal "<p>1\n", result
+    assert_equal 1, @to.characters
   end
 
   def test_convert_RDOCLINK_ref
@@ -665,8 +666,9 @@ This routine modifies its +comment+ parameter.
     expected = <<-EXPECTED
 <p>one
 
-<pre>verb1
-verb2</pre>
+<pre class=\"ruby\"><span class=\"ruby-identifier\">verb1</span>
+<span class=\"ruby-identifier\">verb2</span>
+</pre>
 <p>two
 
     EXPECTED

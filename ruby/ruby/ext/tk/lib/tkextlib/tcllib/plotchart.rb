@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #  tkextlib/tcllib/plotchart.rb
 #                               by Hidetoshi NAGAI (nagai@ai.kyutech.ac.jp)
@@ -519,7 +520,7 @@ module Tk::Tcllib::Plotchart
   class Histogram < XYPlot
     TkCommandNames = [
       'canvas'.freeze,
-      '::Plotchart::createHistgram'.freeze
+      '::Plotchart::createHistogram'.freeze
     ].freeze
   end
 

@@ -1,14 +1,14 @@
 #
 # Backend makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 # This file is subject to the Apple OS-Developed Software exception.
 #
@@ -24,7 +24,7 @@ include ../Makedefs
 # UBACKENDS and ULBACKENDS are installed mode 0755 so cupsd will run them as
 # an unprivileged user...
 #
-# See http://www.cups.org/documentation.php/api-filter.html for more info...
+# See http://www.cups.org/doc/api-filter.html for more info...
 RBACKENDS =	\
 		ipp \
 		lpd \
@@ -207,7 +207,7 @@ uninstall:
 
 test1284:	test1284.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o test1284 test1284.o ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o test1284 test1284.o ../cups/$(LIBCUPSSTATIC) \
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
@@ -217,7 +217,7 @@ test1284:	test1284.o ../cups/$(LIBCUPSSTATIC)
 
 testbackend:	testbackend.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o testbackend testbackend.o ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o testbackend testbackend.o ../cups/$(LIBCUPSSTATIC) \
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
@@ -227,7 +227,7 @@ testbackend:	testbackend.o ../cups/$(LIBCUPSSTATIC)
 
 testsupplies:	testsupplies.o libbackend.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o testsupplies testsupplies.o libbackend.a \
+	$(LD_CC) $(LDFLAGS) -o testsupplies testsupplies.o libbackend.a \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
 
@@ -249,7 +249,7 @@ libbackend.a:	$(LIBOBJS)
 
 dnssd:	dnssd.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o dnssd dnssd.o libbackend.a $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o dnssd dnssd.o libbackend.a $(LIBS)
 	if test `uname` = Darwin; then \
 		$(RM) mdns; \
 		$(LN) dnssd mdns; \
@@ -262,7 +262,7 @@ dnssd:	dnssd.o ../cups/$(LIBCUPS) libbackend.a
 
 ipp:	ipp.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o ipp ipp.o libbackend.a $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o ipp ipp.o libbackend.a $(LIBS)
 	$(RM) http
 	$(LN) ipp http
 
@@ -273,7 +273,7 @@ ipp:	ipp.o ../cups/$(LIBCUPS) libbackend.a
 
 lpd:	lpd.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o lpd lpd.o libbackend.a $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o lpd lpd.o libbackend.a $(LIBS)
 
 
 #
@@ -282,7 +282,7 @@ lpd:	lpd.o ../cups/$(LIBCUPS) libbackend.a
 
 snmp:	snmp.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o snmp snmp.o libbackend.a $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o snmp snmp.o libbackend.a $(LIBS)
 
 
 #
@@ -291,11 +291,11 @@ snmp:	snmp.o ../cups/$(LIBCUPS) libbackend.a
 
 socket:	socket.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o socket socket.o libbackend.a $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o socket socket.o libbackend.a $(LIBS)
 
 socket-static:	socket.o  ../cups/$(LIBCUPSSTATIC) libbackend.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o socket-static socket.o libbackend.a \
+	$(LD_CC) $(LDFLAGS) -o socket-static socket.o libbackend.a \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
 
@@ -306,7 +306,7 @@ socket-static:	socket.o  ../cups/$(LIBCUPSSTATIC) libbackend.a
 
 usb:	usb.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o usb usb.o libbackend.a $(LIBUSB) \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o usb usb.o libbackend.a $(LIBUSB) \
 		$(BACKLIBS) $(LIBS)
 usb.o:	usb.c usb-darwin.c usb-libusb.c usb-unix.c
 

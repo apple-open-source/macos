@@ -19,6 +19,7 @@ _tls_handshake_negotiate
 _tls_handshake_request_renegotiation
 _tls_handshake_close
 _tls_handshake_retransmit_timer_expired
+_tls_handshake_send_alert
 
 _tls_handshake_set_renegotiation
 _tls_handshake_set_resumption

@@ -269,8 +269,10 @@ typedef enum {
     // bits 2-7 reserved
     kBRBlessFull    = 0x11, // FSDefault + boot-device->targetPartition
                             // (system will boot these until changed)
-    kBRBlessOnce    = 0x20  // efi-boot-next -> dev/boot.efi
+    kBRBlessOnce    = 0x20, // efi-boot-next -> dev/boot.efi
                             // (system will boot these files once)
+    kBRBlessRecovery = 0x40 // attempt to bless recovery if present,
+                            // if successful will erase old boot files
     // kBRBlessFSDefault|kBRBlessOnce will configure the filesystem(s)
     // always to boot the target (for example, from the option picker)
     // but will only set NVRAM to boot it once.
@@ -278,6 +280,9 @@ typedef enum {
 typedef uint32_t BRCopyFilesOpts;
 #define  kBROptsNone        0x0
 #define  kBRAnyBootStamps   0x10000   // any bootstamps written to top level
+// Use the designated staging directory. Requires targetDir == NULL.
+// Clients using this flag are responsible for unmounting the target volume.
+#define  kBRUseStagingDir   0x20000
 OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
                               CFURLRef initialRoot,
                               CFDictionaryRef bootPrefOverrides,
@@ -286,6 +291,8 @@ OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
                               BRBlessStyle blessSpec,
                               CFStringRef pickerLabel,
                               BRCopyFilesOpts opts);
+
+#define  kBRStagingDirName    "com.apple.boot.once"
 
 /*!
  *  @function   BREraseBootFiles

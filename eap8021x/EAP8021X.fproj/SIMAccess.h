@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +47,12 @@ SIMCopyIMSI(void);
 
 CFStringRef
 SIMCopyRealm(void);
+
+CFDictionaryRef
+SIMCopyEncryptedIMSIInfo(EAPType type);
+
+void
+SIMReportDecryptionError(CFDataRef encryptedIdentity);
 
 /*
  * Function: SIMAuthenticateGSM

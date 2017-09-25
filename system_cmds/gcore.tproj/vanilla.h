@@ -7,9 +7,10 @@
 #ifndef _VANILLA_H
 #define _VANILLA_H
 
-extern walk_region_cbfn_t vanilla_region_optimization;
+struct proc_bsdinfo;
 
-extern int coredump(task_t, int);
+extern void validate_core_header(const native_mach_header_t *, off_t);
+extern int coredump(task_t, int, const struct proc_bsdinfo *);
 extern int coredump_write(task_t, int, struct regionhead *, const uuid_t, mach_vm_offset_t, mach_vm_offset_t);
 extern struct regionhead *coredump_prepare(task_t, uuid_t);
 

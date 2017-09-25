@@ -39,10 +39,6 @@ struct KeypressCommand;
 }
 #endif
 
-#if PLATFORM(EFL)
-#include <Evas.h>
-#endif
-
 #if PLATFORM(GTK)
 #include "InputMethodFilter.h"
 #include <WebCore/CompositionResults.h>
@@ -52,7 +48,11 @@ typedef union _GdkEvent GdkEvent;
 
 #if PLATFORM(IOS)
 #include <wtf/RetainPtr.h>
-OBJC_CLASS WebIOSEvent;
+OBJC_CLASS WebEvent;
+#endif
+
+#if PLATFORM(WPE)
+struct wpe_input_keyboard_event;
 #endif
 
 namespace WebKit {
@@ -64,11 +64,10 @@ public:
 #elif PLATFORM(GTK)
     NativeWebKeyboardEvent(const NativeWebKeyboardEvent&);
     NativeWebKeyboardEvent(GdkEvent*, const WebCore::CompositionResults&, InputMethodFilter::EventFakedForComposition, Vector<String>&& commands);
-#elif PLATFORM(EFL)
-    NativeWebKeyboardEvent(const Evas_Event_Key_Down*, bool);
-    NativeWebKeyboardEvent(const Evas_Event_Key_Up*);
 #elif PLATFORM(IOS)
-    NativeWebKeyboardEvent(WebIOSEvent *);
+    NativeWebKeyboardEvent(::WebEvent *);
+#elif PLATFORM(WPE)
+    NativeWebKeyboardEvent(struct wpe_input_keyboard_event*);
 #endif
 
 #if USE(APPKIT)
@@ -77,11 +76,10 @@ public:
     GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
     const WebCore::CompositionResults& compositionResults() const  { return m_compositionResults; }
     bool isFakeEventForComposition() const { return m_fakeEventForComposition; }
-#elif PLATFORM(EFL)
-    const void* nativeEvent() const { return m_nativeEvent; }
-    bool isFiltered() const { return m_isFiltered; }
 #elif PLATFORM(IOS)
-    WebIOSEvent* nativeEvent() const { return m_nativeEvent.get(); }
+    ::WebEvent* nativeEvent() const { return m_nativeEvent.get(); }
+#elif PLATFORM(WPE)
+    const void* nativeEvent() const { return nullptr; }
 #endif
 
 private:
@@ -91,11 +89,8 @@ private:
     GUniquePtr<GdkEvent> m_nativeEvent;
     WebCore::CompositionResults m_compositionResults;
     bool m_fakeEventForComposition;
-#elif PLATFORM(EFL)
-    const void* m_nativeEvent;
-    bool m_isFiltered;
 #elif PLATFORM(IOS)
-    RetainPtr<WebIOSEvent> m_nativeEvent;
+    RetainPtr<::WebEvent> m_nativeEvent;
 #endif
 };
 

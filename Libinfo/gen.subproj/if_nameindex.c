@@ -32,6 +32,8 @@
 #include <ifaddrs.h>
 #include <stdlib.h>
 #include <string.h>
+#include <os/overflow.h>
+#include <sys/errno.h>
 
 /*
  * From RFC 2553:
@@ -79,8 +81,9 @@ if_nameindex(void)
 	struct ifaddrs *ifaddrs, *ifa;
 	unsigned int ni;
 	size_t nbytes;
-	struct if_nameindex *ifni, *ifni2;
+	struct if_nameindex *ifni= NULL, *ifni2;
 	char *cp;
+	size_t cpsz;
 
 	if (getifaddrs(&ifaddrs) < 0)
 		return(NULL);
@@ -94,17 +97,38 @@ if_nameindex(void)
 	for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
 		if (ifa->ifa_addr &&
 		    ifa->ifa_addr->sa_family == AF_LINK) {
-			nbytes += strlen(ifa->ifa_name) + 1;
-			ni++;
+			/*
+			 * Security Check: Verify nbytes and ni do not overflow
+			 */
+			if (os_add_overflow(nbytes, strlen(ifa->ifa_name) + 1, &nbytes) ||
+				os_add_overflow(ni, 1, &ni)) {
+				errno = EOVERFLOW;
+				goto out;
+			}
 		}
 	}
 
+	/*
+	 * Security Check: Verify cpsz does not overflow in next 3 operations
+	 */
+	if (os_add_overflow(ni, 1, &cpsz)) {
+		errno = EOVERFLOW;
+		goto out;
+	}
+	if (os_mul_overflow(cpsz, sizeof(struct if_nameindex), &cpsz)) {
+		errno = EOVERFLOW;
+		goto out;
+	}
+	if (os_add_overflow(cpsz, nbytes, &cpsz)) {
+		errno = EOVERFLOW;
+		goto out;
+	}
 	/*
 	 * Next, allocate a chunk of memory, use the first part
 	 * for the array of structures, and the last part for
 	 * the strings.
 	 */
-	cp = malloc((ni + 1) * sizeof(struct if_nameindex) + nbytes);
+	cp = malloc(cpsz);
 	ifni = (struct if_nameindex *)cp;
 	if (ifni == NULL)
 		goto out;

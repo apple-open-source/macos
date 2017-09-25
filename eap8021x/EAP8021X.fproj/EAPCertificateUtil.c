@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,7 @@
 #include <string.h>
 #include "EAPLog.h"
 #include "EAPTLSUtil.h"
+#include "EAPClientProperties.h"
 #include "EAPCertificateUtil.h"
 #include "EAPSecurity.h"
 #include "myCFUtil.h"
@@ -82,6 +83,40 @@ _EAPCFDataCreateSecCertificate(CFDataRef data_cf)
 {
     return (SecCertificateCreateWithData(NULL, data_cf));
 }
+
+#if TARGET_OS_EMBEDDED
+static __inline__ SecCertificateRef
+_EAPPersistRefCreateSecCertificate(CFDataRef data_cf)
+{
+    OSStatus			status = errSecParam;
+    CFMutableDictionaryRef	query = NULL;
+    CFTypeRef			cert_ref = NULL;
+
+    query = CFDictionaryCreateMutable(NULL, 0,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+    CFDictionaryAddValue(query, kSecReturnRef, kCFBooleanTrue);
+    CFDictionaryAddValue(query, kSecValuePersistentRef, data_cf);
+    if (query == NULL) {
+	return NULL;
+    }
+    status = SecItemCopyMatching(query, &cert_ref);
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_ERR, "SecItemCopyMatching failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+    if (isA_SecCertificate(cert_ref) == NULL) {
+	EAPLOG_FL(LOG_ERR, "Certificate data with incorrect data type");
+	my_CFRelease(&cert_ref);
+    }
+
+done:
+    my_CFRelease(&query);
+    return (SecCertificateRef)cert_ref;
+}
+#endif /* TARGET_OS_EMBEDDED */
 
 OSStatus
 EAPSecIdentityListCreate(CFArrayRef * ret_array)
@@ -110,6 +145,59 @@ EAPSecIdentityListCreate(CFArrayRef * ret_array)
 	*ret_array = results;
     }
     return (status);
+}
+
+static OSStatus
+IdentityCreateFromIdentityData(CFDictionaryRef dict, SecIdentityRef * ret_identity)
+{
+    OSStatus		status = errSecParam;
+    CFDictionaryRef	query = NULL;
+    CFTypeRef		result = NULL;
+
+    if (dict == NULL) {
+	return status;
+    }
+
+    *ret_identity = NULL;
+    CFDataRef data = CFDictionaryGetValue(dict, kEAPClientPropTLSClientIdentityData);
+    if (isA_CFData(data) == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "invalid data found in %@ property.", kEAPClientPropTLSClientIdentityData);
+	return status;
+    }
+
+    const void *		keys[] = {
+	kSecClass,
+	kSecReturnRef,
+	kSecValuePersistentRef
+    };
+    const void *		values[] = {
+	kSecClassIdentity,
+	kCFBooleanTrue,
+	data
+    };
+    query = CFDictionaryCreate(NULL, keys, values,
+			       sizeof(keys) / sizeof(*keys),
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks);
+    if (query == NULL) {
+	return errSecAllocate;
+    }
+    status = SecItemCopyMatching(query, &result);
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_NOTICE, "SecItemCopyMatching failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+    if (isA_SecIdentity(result) == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "Identity data with incorrect data type");
+	goto done;
+    }
+    *ret_identity = (SecIdentityRef)result;
+    status = noErr;
+
+done:
+    my_CFRelease(&query);
+    return status;
 }
 
 /* 
@@ -149,7 +237,7 @@ IdentityCreateFromDictionary(CFDictionaryRef dict,
 	status = EINVAL;
 	certid_type = CFDictionaryGetValue(dict, kEAPSecIdentityHandleType);
 	if (isA_CFString(certid_type) == NULL) {
-	    goto done;
+	    return IdentityCreateFromIdentityData(dict, ret_identity);
 	}
 	if (!CFEqual(certid_type, kEAPSecIdentityHandleTypeCertificateData)) {
 	    goto done;
@@ -195,12 +283,78 @@ IdentityCreateFromDictionary(CFDictionaryRef dict,
     }
     CFRelease(identity_list);
 
- done:
+done:
     my_CFRelease(&cert_to_match);
     return (status);
 }
 
 #if TARGET_OS_EMBEDDED
+
+/*
+ * Function: EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs
+ * Purpose:
+ *   Create client's certificate trust chain using the configuration passed
+ *   by NEHotspotConfiguration application.
+ */
+OSStatus
+EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef persistent_refs, CFArrayRef * ret_array)
+{
+    OSStatus			status = errSecParam;
+    CFMutableDictionaryRef	query = NULL;
+    CFIndex			count;
+    CFMutableArrayRef		array = NULL;
+
+    *ret_array = NULL;
+    count = CFArrayGetCount(persistent_refs);
+    if (count == 0) {
+	return status;
+    }
+    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (array == NULL) {
+	return errSecAllocate;
+    }
+    CFArrayAppendValue(array, (SecIdentityRef)sec_identity);
+    query = CFDictionaryCreateMutable(NULL, 0,
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+    if (query == NULL) {
+	status = errSecAllocate;
+	goto done;
+    }
+    CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+    CFDictionaryAddValue(query, kSecReturnRef, kCFBooleanTrue);
+
+    for (int i = 0; i < count; i ++) {
+	CFTypeRef cert_ref = NULL;
+	CFDataRef data = CFArrayGetValueAtIndex(persistent_refs, i);
+	if (isA_CFData(data) == NULL) {
+	    EAPLOG_FL(LOG_ERR, "Persistent reference with incorrect data type.");
+	    goto done;
+	}
+	CFDictionarySetValue(query, kSecValuePersistentRef, data);
+	status = SecItemCopyMatching(query, &cert_ref);
+	if (status != errSecSuccess) {
+	    EAPLOG_FL(LOG_ERR, "SecItemCopyMatching failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
+	    goto done;
+	}
+	if (isA_SecCertificate(cert_ref) == NULL) {
+	    EAPLOG_FL(LOG_ERR, "Certificate data with incorrect data type");
+	    goto done;
+	}
+	CFArrayAppendValue(array, (SecCertificateRef)cert_ref);
+	my_CFRelease(&cert_ref);
+    }
+    status = errSecSuccess;
+
+done:
+    if (status != errSecSuccess) {
+	my_CFRelease(&array);
+    }
+    *ret_array = array;
+    my_CFRelease(&query);
+    return status;
+}
 
 static OSStatus
 IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
@@ -535,7 +689,15 @@ EAPCFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 	}
 	cert = _EAPCFDataCreateSecCertificate(data);
 	if (cert == NULL) {
+#if TARGET_OS_EMBEDDED
+	    /* try to treat the data as a persistent ref (hotspot configuration case) */
+	    cert = _EAPPersistRefCreateSecCertificate(data);
+	    if (cert == NULL) {
+		goto failed;
+	    }
+#else
 	    goto failed;
+#endif
 	}
 	CFArrayAppendValue(array, cert);
 	my_CFRelease(&cert);
@@ -553,6 +715,11 @@ isA_SecCertificate(CFTypeRef obj)
     return (isA_CFType(obj, SecCertificateGetTypeID()));
 }
 
+CFTypeRef
+isA_SecIdentity(CFTypeRef obj)
+{
+    return (isA_CFType(obj, SecIdentityGetTypeID()));
+}
 
 #if TARGET_OS_EMBEDDED
 typedef CFArrayRef (*cert_names_func_t)(SecCertificateRef cert);

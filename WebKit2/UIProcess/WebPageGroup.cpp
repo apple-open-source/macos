@@ -27,10 +27,10 @@
 #include "WebPageGroup.h"
 
 #include "APIArray.h"
-#include "APIUserContentExtension.h"
+#include "APIContentRuleList.h"
 #include "APIUserScript.h"
 #include "APIUserStyleSheet.h"
-#include "WebCompiledContentExtension.h"
+#include "WebCompiledContentRuleList.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
 #include "WebUserContentControllerProxy.h"
@@ -54,9 +54,9 @@ static WebPageGroupMap& webPageGroupMap()
     return map;
 }
 
-PassRefPtr<WebPageGroup> WebPageGroup::create(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
+Ref<WebPageGroup> WebPageGroup::create(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)
 {
-    return adoptRef(new WebPageGroup(identifier, visibleToInjectedBundle, visibleToHistoryClient));
+    return adoptRef(*new WebPageGroup(identifier, visibleToInjectedBundle, visibleToHistoryClient));
 }
 
 Ref<WebPageGroup> WebPageGroup::createNonNull(const String& identifier, bool visibleToInjectedBundle, bool visibleToHistoryClient)

@@ -80,7 +80,7 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
         case tls_handshake_message_server_hello:
             myCtx->serverHelloReceived = true;
             alpn_data = tls_handshake_get_peer_alpn_data(myCtx->hdsk);
-            if(alpn_data) {
+            if (alpn_data && myCtx->alpnFunc != NULL) {
                 myCtx->alpnFunc(myCtx, myCtx->alpnFuncInfo, alpn_data->data, alpn_data->length);
             } else {
                 npn_data = tls_handshake_get_peer_npn_data(myCtx->hdsk);
@@ -197,16 +197,55 @@ int tls_handshake_set_protocol_version_callback(tls_handshake_ctx_t ctx,
 }
 
 static int
+_buildConfigurationSpecificSessionCacheKey(SSLContext *myCtx, SSLBuffer *sessionKey, SSLBuffer *outputBuffer)
+{
+    SSLBuffer configurationBuffer;
+    configurationBuffer.data = NULL;
+    configurationBuffer.length = 0;
+    int err = SSLGetSessionConfigurationIdentifier(myCtx, &configurationBuffer);
+    if (err != errSecSuccess) {
+        return err;
+    }
+
+    outputBuffer->length = configurationBuffer.length + sessionKey->length;
+    outputBuffer->data = (uint8_t *) malloc(outputBuffer->length);
+    if (outputBuffer->data == NULL) {
+        free(configurationBuffer.data);
+        return errSecAllocate;
+    }
+
+    memcpy(outputBuffer->data, configurationBuffer.data, configurationBuffer.length);
+    memcpy(outputBuffer->data + configurationBuffer.length, sessionKey->data, sessionKey->length);
+
+    free(configurationBuffer.data);
+
+    return errSecSuccess;
+}
+
+static int
 tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, SSLBuffer sessionKey, SSLBuffer sessionData)
 {
     int err = errSSLSessionNotFound;
     SSLContext *myCtx = (SSLContext *)ctx;
 
-    sslDebugLog("%s: %p, key len=%zd, k[0]=%02x, data len=%zd\n", __FUNCTION__, myCtx, sessionKey.length, sessionKey.data[0], sessionData.length);
-
-    if(myCtx->cache) {
-        err = tls_cache_save_session_data(myCtx->cache, &sessionKey, &sessionData, myCtx->sessionCacheTimeout);
+    if (myCtx->cache == NULL) {
+        return errSSLSessionNotFound;
     }
+
+    SSLBuffer configurationSpecificKey;
+    configurationSpecificKey.data = NULL;
+    configurationSpecificKey.length = 0;
+    err = _buildConfigurationSpecificSessionCacheKey(myCtx, &sessionKey, &configurationSpecificKey);
+    if (err  != errSecSuccess) {
+        return err;
+    }
+
+    sslDebugLog("%s: %p, key len=%zd, k[0]=%02x, data len=%zd\n", __FUNCTION__, myCtx, configurationSpecificKey.length, configurationSpecificKey.data[0], sessionData.length);
+
+    err = tls_cache_save_session_data(myCtx->cache, &configurationSpecificKey, &sessionData, myCtx->sessionCacheTimeout);
+
+    free(configurationSpecificKey.data);
+
     return err;
 }
 
@@ -217,11 +256,23 @@ tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, SSLBuffer sess
     int err = errSSLSessionNotFound;
 
     SSLFreeBuffer(&myCtx->resumableSession);
-    if(myCtx->cache) {
-        err = tls_cache_load_session_data(myCtx->cache, &sessionKey, &myCtx->resumableSession);
+    if (myCtx->cache == NULL) {
+        return errSSLSessionNotFound;
     }
-    sslDebugLog("%p, key len=%zd, data len=%zd, err=%d\n", ctx, sessionKey.length, sessionData->length, err);
+
+    SSLBuffer configurationSpecificKey;
+    configurationSpecificKey.data = NULL;
+    configurationSpecificKey.length = 0;
+    err = _buildConfigurationSpecificSessionCacheKey(myCtx, &sessionKey, &configurationSpecificKey);
+    if (err  != errSecSuccess) {
+        return err;
+    }
+
+    err = tls_cache_load_session_data(myCtx->cache, &configurationSpecificKey, &myCtx->resumableSession);
+    sslDebugLog("%p, key len=%zd, data len=%zd, err=%d\n", ctx, configurationSpecificKey.length, sessionData->length, err);
     *sessionData = myCtx->resumableSession;
+
+    free(configurationSpecificKey.data);
 
     return err;
 }

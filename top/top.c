@@ -237,6 +237,14 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
 	return COMP(a_usec, b_usec);
     }
 
+	case STATISTIC_INSTRS:
+		return COMP(a_a->instructions - a_a->p_instructions,
+				a_b->instructions - a_b->p_instructions);
+
+	case STATISTIC_CYCLES:
+		return COMP(a_a->cycles - a_a->p_cycles,
+				a_b->cycles - a_b->p_cycles);
+
     case STATISTIC_USER:
 	/* Handle the == case first, since it's common. */
 	if (a_a->uid == a_b->uid) return 0;
@@ -271,8 +279,7 @@ void top_insert(void *ptr) {
     char *user;
     unsigned long uid = 0;
     int nprocs;
-    pid_t pid;
-    
+
     c->reset_insertion(c);
 
     top_sample();

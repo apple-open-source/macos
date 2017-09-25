@@ -1,2 +1,0 @@
-[% "name: $template.name  modtime: $template.modtime\n" IF showname -%]
-This is the baz file, a: [% a %][% a = 'charlie' %]

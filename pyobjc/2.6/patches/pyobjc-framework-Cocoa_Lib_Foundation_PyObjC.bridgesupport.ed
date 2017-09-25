@@ -1,7 +1,0 @@
-/'propertyListWithData:options:format:error:'/a
-		  <arg index='2' type_modifier='o' />
-.
-/'propertyListWithStream:options:format:error:'/a
-		  <arg index='2' type_modifier='o' />
-.
-w

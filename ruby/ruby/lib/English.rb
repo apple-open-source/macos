@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #  Include the English library file in a Ruby script, and you can
 #  reference the global variables such as \VAR{\$\_} using less
 #  cryptic names, listed in the following table.% \vref{tab:english}.
@@ -6,7 +7,7 @@
 #
 #      $\ = ' -- '
 #      "waterbuffalo" =~ /buff/
-#      print $", $', $$, "\n"
+#      print $', $$, "\n"
 #
 #  With English:
 #
@@ -14,7 +15,7 @@
 #
 #      $OUTPUT_FIELD_SEPARATOR = ' -- '
 #      "waterbuffalo" =~ /buff/
-#      print $LOADED_FEATURES, $POSTMATCH, $PID, "\n"
+#      print $POSTMATCH, $PID, "\n"
 #
 #  Below is a full list of descriptive aliases and their associated global
 #  variable:

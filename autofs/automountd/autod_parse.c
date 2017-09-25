@@ -1205,8 +1205,8 @@ set_and_fake_mapent_mntlevel(hiernode *rootnode, const char *subdir,
 	char traversed_path[MAXPATHLEN]; /* used in building fake mapentries */
 
 	const char *subdir_child = subdir;
-	hiernode *prevnode = rootnode;
-	hiernode *currnode = rootnode->subdir;
+	hiernode *prevnode;
+	hiernode *currnode;
 	int rc = 0;
 	traversed_path[0] = '\0';
 
@@ -2540,7 +2540,6 @@ retry:
 	}
 
 	/* now sort by length of names - to get mount order right */
-	exlist = ex;
 	texlist = NULL;
 #ifdef lint
 	exnext = NULL;

@@ -40,14 +40,10 @@
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/IOCFSerialize.h>
 
-#if TARGET_OS_EMBEDDED
-    #define PLATFORM_HAS_DISPLAYSERVICES    0
-#else
     #define PLATFORM_HAS_DISPLAYSERVICES    1
     // ResentAmbientLightAll is defined in <DisplayServices/DisplayServices.h> 
     // and implemented by DisplayServices.framework
     IOReturn DisplayServicesResetAmbientLightAll( void );
-#endif
 
 #include "CommonLib.h"
 
@@ -87,6 +83,8 @@
 // Settings options
 #define ARG_DIM             "dim"
 #define ARG_DISPLAYSLEEP    "displaysleep"
+#define ARG_ADAPTIVEDISPLAY "adaptivedisplay"
+#define ARG_ADAPTIVESTANDBY "adaptivestandby"
 #define ARG_SLEEP           "sleep"
 #define ARG_SPINDOWN        "spindown"
 #define ARG_DISKSLEEP       "disksleep"
@@ -190,7 +188,6 @@
 #define ARG_POLLBOOT        "readboot"
 #define ARG_POLLALL         "readall"
 #define ARG_POLLUSER        "readuser"
-#define ARG_FORCE           "force"
 #define ARG_TOUCH           "touch"
 #define ARG_NOIDLE          "noidle"
 #define ARG_SLEEPNOW        "sleepnow"
@@ -407,10 +404,8 @@ static void show_power_statelog(char **argv);
 static void show_rdStats(char **argv);
 static void show_sysstate(char **argv);
 static void show_sleep_blockers(char **argv);
-#if !TARGET_OS_EMBEDDED
 static void print_fba(char **argv);
 static void show_NULL_HID_events(void);
-#endif
 static void show_everything(char **);
 
 static void show_power_event_history(void);
@@ -510,7 +505,6 @@ static int parseArgs(
         char* argv[], 
         CFDictionaryRef             *settings,
         int                         *modified_power_sources,
-        bool                        *force_activate_settings,
         CFDictionaryRef             *system_power_settings,
         CFDictionaryRef             *ups_thresholds,
         ScheduledEventReturnType    **scheduled_event,
@@ -579,10 +573,8 @@ static CommandAndAction the_getters[] =
     	{kActionGetLog,         ARG_LISTEN,         ^(char **arg){ listen_for_everything(); }},
     	{kActionGetOnceNoArgs,  ARG_HISTORY,        ^(char **arg){ show_power_event_history(); }},
     	{kActionGetOnceNoArgs,  ARG_HISTORY_DETAILED, ^(char **arg){ show_power_event_history_detailed(); }},
-#if !TARGET_OS_EMBEDDED
     	{kActionGetOnceNoArgs,  ARG_HID_NULL,       ^(char **arg){ show_NULL_HID_events(); }},
         {kActionNotForEverything, ARG_FBA,          ^(char **arg){print_fba(arg); }},
-#endif
     	{kActionGetOnceNoArgs,  ARG_USERCLIENTS,    ^(char **arg){ show_root_domain_user_clients(); }},
         {kActionGetOnceNoArgs,  ARG_UUID,           ^(char **arg){ show_uuid(kActionGetOnceNoArgs); }},
     	{kActionGetLog,         ARG_UUID_LOG,       ^(char **arg){ show_uuid(kActionGetLog); }},
@@ -619,7 +611,6 @@ int main(int argc, char *argv[]) {
     io_connect_t                    fb;
     CFDictionaryRef                 es_custom_settings = 0;
     int                             modified_power_sources = 0;
-    bool                            force_it = 0;
     CFDictionaryRef                 ups_thresholds = 0;
     CFDictionaryRef                 system_power_settings = 0;
     ScheduledEventReturnType        *scheduled_event_return = 0;
@@ -629,7 +620,7 @@ int main(int argc, char *argv[]) {
     uint32_t                        pmCommand = 0;
         
     ret = parseArgs(argc, argv, 
-        &es_custom_settings, &modified_power_sources, &force_it,
+        &es_custom_settings, &modified_power_sources,
         &system_power_settings,
         &ups_thresholds,
         &scheduled_event_return, &cancel_scheduled_event,
@@ -714,74 +705,6 @@ int main(int argc, char *argv[]) {
             break;
     }
     
-    if(force_it && es_custom_settings)
-    {
-
-        mach_port_t             pm_server = MACH_PORT_NULL;
-        CFDataRef               settings_data;
-        int32_t                 return_code;
-        kern_return_t           kern_result;
-        
-        /* 
-         * Step 1 - send these forced settings over to powerd.
-         * 
-         */
-        err = _pm_connect(&pm_server);
-        if (kIOReturnSuccess == err) {
-            settings_data = IOCFSerialize(es_custom_settings, 0);
-            
-            if (settings_data)
-            {
-                kern_result = io_pm_force_active_settings(
-                        pm_server, 
-                        (vm_offset_t)CFDataGetBytePtr(settings_data),
-                        (mach_msg_type_number_t)CFDataGetLength(settings_data),
-                        &return_code);
-            
-                if( KERN_SUCCESS != kern_result ) {
-                    printf("exit kern_result = 0x%08x\n", kern_result);
-                }
-                if( kIOReturnSuccess != return_code ) {
-                    printf("exit return_code = 0x%08x\n", return_code);
-                }
-
-                CFRelease(settings_data);
-
-                if (KERN_SUCCESS != kern_result || kIOReturnSuccess != return_code) {
-                    exit(1);
-                }
-            }
-            _pm_disconnect(pm_server);
-        }
-
-        /* 
-         * Step 2 - this code might be running in a partilially uninitialized OS,
-         * and powerd might not be running. e.g. at Installer context.
-         * Since powerd may not be running, we also activate these settings directly 
-         * to the controlling drivers in the kernel.
-         *
-         */
-        CFTypeRef       powersources = IOPSCopyPowerSourcesInfo();
-        CFStringRef     activePowerSource = NULL;
-        CFDictionaryRef useSettings = NULL;
-        if (powersources) {
-            activePowerSource = IOPSGetProvidingPowerSourceType(powersources);
-            if (!activePowerSource) {
-                activePowerSource = CFSTR(kIOPMACPowerKey);
-            }
-            useSettings = CFDictionaryGetValue(es_custom_settings, activePowerSource);
-            if (useSettings) {
-                ActivatePMSettings(useSettings, true);
-            }
-            CFRelease(powersources);
-        }
-
-        // Return here. If this is a 'force' call we do _not_ want
-        // to attempt to write any settings to the disk, or to try anything
-        // else at all, as our environment may be unwritable / diskless
-        // (booted from install CD)
-        return 0;
-    }
 
     if(es_custom_settings)
     {
@@ -2105,7 +2028,7 @@ static void show_power_sources(int which)
     CFStringRef         transport;
     CFStringRef         health;
     CFStringRef         confidence;
-    CFStringRef         failure;
+    CFStringRef         failure = NULL;
     char                _health[kMaxHealthLength];
     char                _confidence[kMaxHealthLength];
     char                _name[kMaxNameLength];
@@ -2246,17 +2169,10 @@ static void show_power_sources(int which)
         present = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsPresentKey));
         health = CFDictionaryGetValue(one_ps, CFSTR(kIOPSBatteryHealthKey));
         confidence = CFDictionaryGetValue(one_ps, CFSTR(kIOPSHealthConfidenceKey));
-        failure = CFDictionaryGetValue(one_ps, CFSTR("Failure"));
+        CFDictionaryGetValueIfPresent(one_ps, CFSTR("Failure"), (const void **)&failure);
         charged = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsChargedKey));
         finishingCharge = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsFinishingChargeKey));
         id = CFDictionaryGetValue(one_ps, CFSTR(kIOPSPowerSourceIDKey));
-#if TARGET_OS_EMBEDDED
-        CFBooleanRef        value = NULL;
-        rawExternalConnected = -1;
-        if (CFDictionaryGetValueIfPresent(one_ps, CFSTR(kIOPSRawExternalConnectivityKey), (const void **)&value) == true) {
-            rawExternalConnected = (value == kCFBooleanTrue) ? 1 : 0;
-        }
-#endif
         
         permFailuresArray = CFDictionaryGetValue(one_ps, CFSTR(kIOPSBatteryFailureModesKey));
         
@@ -2504,12 +2420,10 @@ static void show_assertions_system_aggregates(bool updates_only)
                 continue;
         }
         
-#if !TARGET_OS_EMBEDDED
         if ((kCFCompareEqualTo == CFStringCompare(assertionNames[i], kIOPMAssertionTypeEnableIdleSleep, 0)) ||
             (kCFCompareEqualTo == CFStringCompare(assertionNames[i], kIOPMAssertAwakeReservePower, 0)) ||
             (kCFCompareEqualTo == CFStringCompare(assertionNames[i], kIOPMAssertionTypeSystemIsActive, 0)))
             continue;
-#endif
         
         if (updates_only) {
             if ((prevAssertionNames == NULL) || (prevAssertionValues == NULL) ||
@@ -3339,7 +3253,7 @@ static void show_useractivity_level(uint64_t lev, uint64_t msb)
 
 static void log_useractivity_level(bool runOnce)
 {
-    IOPMNotificationHandle pmHandle = NULL;
+    IOPMNotificationHandle pmHandle = 0;
     uint64_t userLevel, significantLevel;
     IOReturn r;
 
@@ -3789,16 +3703,13 @@ void myPMConnectionHandler(
     IOPMConnectionMessageToken          token, 
     IOPMSystemPowerStateCapabilities    capabilities)
 {
-#if TARGET_OS_EMBEDDED
-    return;
-#else
     char                        stateDescriptionStr[100];
     IOReturn                    ret;
     const                       char *earlyStr;
 
     printf("\n");
     print_pretty_date(CFAbsoluteTimeGetCurrent(), true);
-    IOPMGetCapabilitiesDescription(stateDescriptionStr, sizeof(stateDescriptionStr), (uint64_t)capabilities);
+    IOPMGetCapabilitiesDescription(stateDescriptionStr, sizeof(stateDescriptionStr), (IOPMCapabilityBits)capabilities);
 
     if (kIOPMEarlyWakeNotification & capabilities) {
         earlyStr = "(Early)";
@@ -3826,14 +3737,10 @@ void myPMConnectionHandler(
     {
         printf("\t-> PM Connection acknowledgement error 0x%08x\n", ret);    
     }
-#endif /* TARGET_OS_EMBEDDED */
 }
 
 static void install_listen_PM_connection(void)
 {
-#if TARGET_OS_EMBEDDED
-    return;
-#else
     IOPMConnection      myConnection;
     IOReturn            ret;
 
@@ -3875,7 +3782,6 @@ static void install_listen_PM_connection(void)
         printf("IOPMConnection ScheduleWithRunloop: Error 0x%08x\n", ret);
         return;
     }
-#endif /* TARGET_OS_EMBEDDED */
 }
 
 static void install_listen_com_apple_powermanagement_sleepservices_notify(void)
@@ -3943,7 +3849,7 @@ static void listen_for_everything(void)
     install_listen_IORegisterForSystemPower();
     install_listen_com_apple_powermanagement_sleepservices_notify();
     
-    IOPMNotificationHandle prefsHandle = NULL;
+    IOPMNotificationHandle prefsHandle = 0;
     prefsHandle = IOPMRegisterPrefsChangeNotification(dispatch_get_main_queue(),
                                                       ^(void) {
                                                           pmPrefsCallBack();
@@ -4162,20 +4068,22 @@ static void show_power_adapter(void)
         printf(" Current = %dmA\n", val); 
     }
 
-    if ((valNum = CFDictionaryGetValue(acInfo, CFSTR("Voltage")))) {
+    valNum = CFDictionaryGetValue(acInfo, CFSTR("Voltage"));
+    if (valNum) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" Voltage = %dmV\n", val);
     }
 
-    // Legacy format
-    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterIDKey));
-    if (valNum) {
+
+    valNum = NULL;
+    if(CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterIDKey), (const void **)&valNum) && isA_CFNumber(valNum)) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
-        printf(" AdapterID = 0x%04x\n", val); 
+        printf(" AdapterID = %d\n", val);
     }
 
-    valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterManufacturerIDKey));
-    if (valStr) {
+    valStr = NULL;
+    if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterManufacturerIDKey), (const void **)&valStr)
+            && isA_CFString(valStr)) {
         bzero(buf, sizeof(buf));
         CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
         if (buf[0]) {
@@ -4184,18 +4092,22 @@ static void show_power_adapter(void)
 
     }
 
-    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterFamilyKey));
-    if (valNum) {
+    valNum = NULL;
+    if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterFamilyKey), (const void **)&valNum)
+            && isA_CFNumber(valNum)) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" Family Code = 0x%04x\n", val); 
     }
 
-    valNum = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterSerialNumberKey));
-    if (valNum) {
+    valNum = NULL;
+    valStr = NULL;
+    if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterSerialNumberKey), (const void **)&valNum)
+            && isA_CFNumber(valNum)) {
         CFNumberGetValue(valNum, kCFNumberIntType, &val);
         printf(" Serial Number = 0x%08x\n", val); 
     }
-    else if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterSerialStringKey)))) {
+    else if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterSerialStringKey), (const void **)&valStr)
+            && isA_CFString(valStr)) {
         bzero(buf, sizeof(buf));
         CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
         if (buf[0]) {
@@ -4203,7 +4115,8 @@ static void show_power_adapter(void)
         }
     }
 
-    if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterNameKey)))) {
+    valStr = NULL;
+    if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterNameKey), (const void **)&valStr) && isA_CFString(valStr)) {
         bzero(buf, sizeof(buf));
         CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
         if (buf[0]) {
@@ -4211,7 +4124,9 @@ static void show_power_adapter(void)
         }
     }
 
-    if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterHardwareVersionKey)))) {
+    valStr = NULL;
+    if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterHardwareVersionKey), (const void **)&valStr)
+            && isA_CFString(valStr)) {
         bzero(buf, sizeof(buf));
         CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
         if (buf[0]) {
@@ -4219,7 +4134,9 @@ static void show_power_adapter(void)
         }
     }
 
-    if ((valStr = CFDictionaryGetValue(acInfo, CFSTR(kIOPSPowerAdapterFirmwareVersionKey)))) {
+    valStr = NULL;
+    if (CFDictionaryGetValueIfPresent(acInfo, CFSTR(kIOPSPowerAdapterFirmwareVersionKey), (const void **)&valStr)
+            && isA_CFString(valStr)) {
         bzero(buf, sizeof(buf));
         CFStringGetCString(valStr, buf, sizeof(buf), kCFStringEncodingMacRoman);
         if (buf[0]) {
@@ -4848,7 +4765,6 @@ static int parseArgs(int argc,
     char* argv[], 
     CFDictionaryRef             *settings,
     int                         *modified_power_sources,
-    bool                        *force_activate_settings,
     CFDictionaryRef             *system_power_settings,
     CFDictionaryRef             *ups_thresholds,
     ScheduledEventReturnType    **scheduled_event,
@@ -5267,10 +5183,6 @@ static int parseArgs(int argc,
                 }
                 goto exit;
 
-            } else if(0 == strncmp(argv[i], ARG_FORCE, kMaxArgStringLength))
-            {
-                *force_activate_settings = true;
-                i++;
             } else if( (0 == strncmp(argv[i], ARG_DIM, kMaxArgStringLength)) ||
                        (0 == strncmp(argv[i], ARG_DISPLAYSLEEP, kMaxArgStringLength)) )
             {
@@ -5459,7 +5371,7 @@ static int parseArgs(int argc,
                 char            *endptr = NULL;
                 long            val;
 
-                if( argv[i+1] ) 
+                if( argv[i+1] )
                 {
                     val = strtol(argv[i+1], &endptr, 10);
                     
@@ -5473,7 +5385,7 @@ static int parseArgs(int argc,
                     // Any non-zero value of val (preferably 1) means Allow storing
                     // FDE Keys to hardware
                     // A zero value means Avoid storing keys to hardware
-    
+
                     CFDictionarySetValue( local_system_power_settings, 
                                           CFSTR(kIOPMDestroyFVKeyOnStandbyKey), 
                                           val ? kCFBooleanTrue : kCFBooleanFalse );
@@ -5481,7 +5393,6 @@ static int parseArgs(int argc,
                     modified |= kModSystemSettings;
                 }
                 i+=2;
-
             } else if(0 == strncmp(argv[i], ARG_HALTLEVEL, kMaxArgStringLength))
             {
                 if(-1 == setUPSValue(argv[i+1], CFSTR(kIOPMDefaultUPSThresholds), 
@@ -6981,7 +6892,7 @@ static void set_btInterval(char **argv)
 
 static void set_dwlInterval(char **argv)
 {
-    uint32_t newInterval, oldInterval;
+    uint32_t newInterval;
     IOReturn err;
 
     newInterval = (uint32_t)strtol(argv[0], NULL, 0);
@@ -6989,10 +6900,9 @@ static void set_dwlInterval(char **argv)
         printf("Invalid argument\n");
         return;
     }
-    err = IOPMSetDWLingerInterval(newInterval, &oldInterval);
+    err = IOPMSetDWLingerInterval(newInterval);
     if(err == kIOReturnSuccess)
-        printf("DarkWake linger interval changed from %d secs to %d secs\n",
-                oldInterval, newInterval);
+        printf("DarkWake linger interval changed to %d secs\n", newInterval);
     else
         printf("Failed to change DarkWake linger interval. err=0x%x\n", err);
 }
@@ -7237,7 +7147,6 @@ static void show_uuid(bool keep_running)
 }
 
 
-#if !TARGET_OS_EMBEDDED
 static void show_NULL_HID_events(void)
 {
     CFArrayRef          systemHIDEvents = NULL;
@@ -7309,7 +7218,6 @@ exit:
         CFRelease(systemHIDEvents);
     return;
 }
-#endif
 
 static bool is_display_dim_captured(void)
 {
@@ -7621,7 +7529,7 @@ static void display_statelog(IOReportChannelRef ch, int nobjects)
 {
     uint32_t nstates, i;
     uint64_t state_id, transitions, ticks;
-    uint64_t drv_name = IOReportChannelGetDriverName(ch);
+    CFStringRef drv_name = IOReportChannelGetDriverName(ch);
     const char *dname_cstr;
     char dname_buf[22], *spcptr;
     uint32_t max_st=0;
@@ -7849,6 +7757,7 @@ static void cancelAggregates( int param )
 
 static void show_sleep_blockers(char **argv)
 {
+    dispatch_async(dispatch_get_main_queue(), ^{
     IOReturn ret;
     CFDictionaryRef basis = NULL;
     CFDictionaryRef update = NULL;
@@ -7944,8 +7853,14 @@ static void show_sleep_blockers(char **argv)
         if (basis) CFRelease(basis);
         basis = update;
     }
+    });
 
-    IOPMSetAssertionActivityAggregate(false);
+    dispatch_source_t sig_info = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT,
+                                                        0, dispatch_get_main_queue());
+    dispatch_source_set_event_handler(sig_info, ^{ IOPMSetAssertionActivityAggregate(false); });
+    dispatch_resume(sig_info);
+
+    dispatch_main();
 }
 
 #define kIOPMSystemCapabilitiesKey  "System Capabilities"
@@ -8010,7 +7925,6 @@ exit:
 
 }
 
-#if !TARGET_OS_EMBEDDED
 
 static void get_sw_failure_string(long boottime, char *failure, size_t len)
 {
@@ -8118,7 +8032,6 @@ static void print_fba(char **argv)
 
 }
 
-#endif
 static void show_everything(char **argv)
 {
     printf("pmset is invoking all non-blocking -g arguments");

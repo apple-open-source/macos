@@ -32,6 +32,10 @@
 #ifndef _H_MUSCLE_PP
 #define _H_MUSCLE_PP
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+
 #include <security_utilities/refcount.h>
 #include <security_utilities/pcsc++.h>
 #include <PCSC/musclecard.h>
@@ -194,5 +198,5 @@ public:
 }	// namespace Muscle
 }	// namespace Security
 
-
+#endif //TARGET_OS_OSX
 #endif //_H_MUSCLE_PP

@@ -40,6 +40,14 @@
 >NO:{a}
 >NO:{b}
 
+ tst_arguments ':desc2:((a\:a\ value b\:other\\\\value))'
+ comptest $'tst \t'
+0:a and b with descriptions
+>line: {tst }{}
+>DESCRIPTION:{desc2}
+>NO:{a  -- a value}
+>NO:{b  -- other\value}
+
  tst_arguments ':desc1:(arg1)' ':desc2:(arg2)' ':desc3:(arg3)'
  comptest $'tst \t\t\t\C-w\C-w\C-w\C-d'
 0:three arguments
@@ -81,6 +89,74 @@
 >line: {tst -o a }{}
 >line: {tst -o a b }{}
 
+ tst_arguments '!-x:arg:(ok)'
+ comptest $'tst -x \t'
+0:option argument to ignored option
+>line: {tst -x ok }{}
+
+ tst_arguments '!-a' -b
+ comptest $'tst -\t'
+0:ignored option not completed
+>line: {tst -b }{}
+
+ tst_arguments +x +y '!+z' ':arg:(x)'
+ comptest $'tst +z \t'
+0:ignored option is not taken to be the normal argument
+>line: {tst +z x }{}
+
+ tst_arguments --known --other
+ comptest $'tst --unknown -\t'
+0:unrecognised option has no effect on proceedings with no normal arguments
+>line: {tst --unknown --}{}
+
+ tst_arguments +x +y ':arg:(x)'
+ comptest $'tst +z \t'
+0:unrecognised option is taken to be the normal argument
+>line: {tst +z +}{}
+
+ tst_arguments '*-a:value:(1)'
+ comptest $'tst -a\t\t -a=\t'
+0:option argument follows in next argument
+>line: {tst -a }{}
+>line: {tst -a 1 }{}
+>line: {tst -a 1 -a=}{}
+>MESSAGE:{no arguments}
+
+ tst_arguments '*-a+:value:(1)'
+ comptest $'tst -a\t -a \t -a=\t'
+0:option argument either direct or in following argument
+>line: {tst -a1 }{}
+>line: {tst -a1 -a 1 }{}
+>line: {tst -a1 -a 1 -a=}{}
+
+ tst_arguments '*-a-:value:(1)'
+ comptest $'tst -a\t -a \t=\t'
+0:option argument follows directly
+>line: {tst -a1 }{}
+>line: {tst -a1 -a -a}{}
+>line: {tst -a1 -a -a=}{}
+
+ tst_arguments '*-a=:value:(1)'
+ comptest $'tst -a\t\t -a \t'
+0:option argument follows optional equals
+>line: {tst -a=}{}
+>line: {tst -a=1 }{}
+>line: {tst -a=1 -a 1 }{}
+
+ tst_arguments -s '*-a=:value:(1)'
+ comptest $'tst -a\t-a=\t -a \t'
+0:option argument follows optional equals, with -s
+>line: {tst -a1 }{}
+>line: {tst -a1 -a=1 }{}
+>line: {tst -a1 -a=1 -a 1 }{}
+
+ tst_arguments '*-a=-:value:(1)'
+ comptest $'tst -a\t\t-a \t'
+0:option argument follows mandatory equals
+>line: {tst -a=}{}
+>line: {tst -a=1 }{}
+>line: {tst -a=1 -a -a=}{}
+
  tst_arguments '-x:arg:'
  comptest $'tst -x\t'
 0:sticky option argument
@@ -99,6 +175,11 @@
 >DESCRIPTION:{option}
 >NO:{-x}
 
+ tst_arguments '-x' ": :_guard '[0-9]#' number"
+ comptest $'tst -\t'
+0:argument beginning with minus, guard on rest argument
+>line: {tst -x }{}
+
  tst_arguments '-o::optarg:(oa)' ':arg1:(a1)'
  comptest $'tst -o\t\t'
 0:optional option argument
@@ -110,19 +191,59 @@
 >NO:{a1}
 
  tst_arguments '-o:*a:a:(a)' ':A:(A)' ':B:(B)'
- comptest $'tst A -o a \t'
+ comptest $'tst A -o a \t\C-W\C-w-a -b -c a \t'
 0:variable length option arguments
 >line: {tst A -o a B }{}
+>line: {tst A -o -a -b -c a B }{}
 
  tst_arguments -s '-a' '-b' ':descr:{compadd - $+opt_args[-a]}'
  comptest $'tst -ab \t'
 0:opt_args
 >line: {tst -ab 1 }{}
 
+ tst_arguments '-a:one: :two' ':descr:{compadd -Q - $opt_args[-a]}'
+ comptest $'tst -a 1:x \\2 \t'
+0:opt_args with multiple arguments and quoting of colons and backslashes
+>line: {tst -a 1:x \2 1\:x:\\2 }{}
+
  tst_arguments '-a' '*::rest:{compadd - -b}'
  comptest $'tst arg -\t'
 0:rest arguments
 >line: {tst arg -b }{}
+
+ tst_arguments -a :more '*:rest:{ compadd - $words }'
+ comptest $'tst x -a rest \t'
+0:rest arguments with single colon
+>line: {tst x -a rest }{}
+>NO:{-a}
+>NO:{rest}
+>NO:{tst}
+>NO:{x}
+
+ tst_arguments -a :more '*::rest:{ compadd - $words }'
+ comptest $'tst x -a rest \t\eb\eb\eb\et\C-E \t'
+0:rest arguments with two colons
+>line: {tst x -a rest rest }{}
+>line: {tst -a x rest rest }{}
+>NO:{rest}
+>NO:{x}
+
+ tst_arguments -a -b :more '*:::rest:{ compadd - $words }'
+ comptest $'tst -b x -a -x rest \t'
+0:rest arguments with three colons
+>line: {tst -b x -a -x rest }{}
+>NO:{-x}
+>NO:{rest}
+
+ tst_arguments -a ::more '*:::rest:{ compadd - $words }'
+ comptest $'tst -a opt rest \t'
+0:rest arguments with three colons following optional argument
+>line: {tst -a opt rest rest }{}
+
+ tst_arguments -a::arg '*:::rest:{ compadd - $words }'
+ comptest $'tst -a opt rest \t'
+0:rest arguments with three colons following optional argument to an option
+>line: {tst -a opt rest rest }{}
 
  tst_arguments '-e:*last:::b:{compadd "${(j:,:)words}"}' ':arg1:(arg1)'
  comptest $'tst -\t\tla\t\C-hst\t\t\eb\eb\C-b\t\t'
@@ -135,20 +256,281 @@
 >line: {tst -e ,last }{ last arg1}
 >line: {tst -e ,last ,last,,last }{ last arg1}
 
- tst_arguments -s '-d+:msg1:' '*::msg2:{compadd $CURRENT}' 
+ tst_arguments -s '-d+:msg1:' '*::msg2:{compadd $CURRENT}'
  comptest $'tst add \t\t\t'
 0:opt_args
 >line: {tst add 2 }{}
 >line: {tst add 2 3 }{}
 >line: {tst add 2 3 4 }{}
 
- tst_arguments -s '-a' '-b' '-c' ':words:compadd - abyyy abzzz' 
+ tst_arguments -s '-a' '-b' '-c' ':words:compadd - abyyy abzzz'
  comptest $'tst ab\t'
 0:options and words (zsh-workers:12257)
 >line: {tst ab}{}
 >DESCRIPTION:{words}
 >NO:{abyyy}
 >NO:{abzzz}
+
+ tst_arguments -M 'm:{j}={y}' -y -n ':yes/no:(y n)'
+ comptest $'tst j\t\eb-\C-e\t'
+0:matcher applies to options but not rest arguments
+>line: {tst j}{}
+>line: {tst -y }{}
+
+ tst_arguments -x :word
+ comptest $'tst -- -\t'
+0:option after --
+>line: {tst -- -x }{}
+
+ tst_arguments -S -x ':word:()'
+ comptest $'tst -- -\t'
+0:disallowed option after --
+>line: {tst -- -}{}
+
+ tst_arguments -S -x ':word:()'
+ comptest $'tst - --\eB\C-b\t'
+0:allowed option before --
+>line: {tst -x }{ --}
+
+ tst_arguments -x :word
+ comptest $'tst word -\t'
+0:option after a word
+>line: {tst word -x }{}
+
+ tst_arguments -A'-*' -x :word
+ comptest $'tst word -\t'
+0:option after word that doesn't match -A pattern, no space before pattern
+>line: {tst word -}{}
+>MESSAGE:{no more arguments}
+
+ tst_arguments -A '-*' -x ':word:(-word)'
+ comptest $'tst  word\eB\C-b-\t'
+0:option before a word that doesn't match -A pattern, separate -A from pattern
+>line: {tst -}{ word}
+>DESCRIPTION:{word}
+>NO:{-word}
+>DESCRIPTION:{option}
+>NO:{-x}
+
+ tst_arguments -A '-*' -h -V -a '*: :(-x more)'
+ comptest $'tst -a -x m\t'
+0:continue completion after rest argument that looks like an option
+>line: {tst -a -x more }{}
+
+ tst_arguments '*-v'
+ comptest $'tst -v -\t'
+0:repeatable options
+>line: {tst -v -v }{}
+
+# necessary to exclude the rest arguments for the other set because
+# it is currently any unknown option rather than options from another
+# set that causes a set to be excluded
+ tst_arguments -A '-*' - help -h -V - other -a '*: :(-x more)'
+ comptest $'tst -a -x m\t'
+0:continue completion after rest argument that looks like an option (with sets)
+>line: {tst -a -x m}{}
+#>line: {tst -a -x more }{}
+
+  tst_arguments - '(help)' -h -V - other -a '*:rest:(1 2 3)'
+  comptest $'tst -h \t'
+0:unknown option disables whole set (without -A)
+>line: {tst -h }{}
+>MESSAGE:{no arguments}
+
+  tst_arguments -A "-*" - '(help)' -h -V - other -a '*:rest:(1 2 3)'
+  comptest $'tst -h \t'
+0:unknown option disables whole set (with -A)
+>line: {tst -h }{}
+>MESSAGE:{no arguments}
+
+ tst_arguments '(-C)-a' - set1 -C -v - set2 '(-a)-C' -w
+ comptest $'tst -a -\t' $'\C-w\C-w-C -\t'
+0:exclude option common to two sets and from one common option
+>line: {tst -a -}{}
+>DESCRIPTION:{option}
+>NO:{-v}
+>NO:{-w}
+>line: {tst -C -}{}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-v}
+>NO:{-w}
+
+# _arguments doesn't know what rest arguments might be so any non-option
+# might apply: for the one set, it accepts "a"
+ tst_arguments -e - one -o '*:number:(1 2)' - two '(-e)*:letter:(a b)'
+ comptest $'tst \t' $'a -\t'
+0:rest argument rule in two sets
+>line: {tst }{}
+>DESCRIPTION:{letter}
+>NO:{a}
+>NO:{b}
+>DESCRIPTION:{number}
+>NO:{1}
+>NO:{2}
+>line: {tst  a -}{}
+>DESCRIPTION:{option}
+>NO:{-e}
+>NO:{-o}
+
+ tst_arguments '(set1-: set2-* set3-1)-a' - set1 '1: :(1)' '2: :(2)' - set2 '*:rest:(rest)' - set3 '1:num:(num)' '*: :(allowable)' - set4 ': :(allowed)'
+ comptest $'tst -a \t'
+0:exclude various forms of rest argument in set specific form
+>line: {tst -a allow}{}
+
+ tst_arguments '(-v)-a' '(set1--m -a)-b' - '(set1)' '( -a )-m' '( )-n' - set2 '(-w)*-v' -w
+ comptest $'tst -a -\t' $'\C-w\C-w-'{b,m,v}$' -\t'
+0:exclusion lists
+>line: {tst -a -}{}
+>DESCRIPTION:{option}
+>NO:{-b}
+>NO:{-m}
+>NO:{-n}
+>NO:{-w}
+>line: {tst -b -}{}
+>DESCRIPTION:{option}
+>NO:{-n}
+>NO:{-v}
+>NO:{-w}
+>line: {tst -m -b }{}
+>line: {tst -v -}{}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-b}
+>NO:{-v}
+
+ tst_arguments -a - set1 -d - set2 '(set2)-m' -n -o ':arg:(x)' - set2 -x
+ comptest $'tst -m \t'
+0:exclude own set from an option
+>line: {tst -m -a }{}
+
+# the following two tests only verify the current questionable behaviour
+ tst_arguments - set1 '(set2)-a' -m -n - set2 -a -t -u
+ comptest $'tst -a -\t'
+0:exclude later set from an option common to both
+>line: {tst -a -}{}
+>DESCRIPTION:{option}
+>NO:{-m}
+>NO:{-n}
+
+ tst_arguments - set2 -a -t -u - set1 '(set2)-a' -m -n
+ comptest $'tst -a -\t'
+0:exclude later set from an option common to both
+>line: {tst -a -}{}
+>DESCRIPTION:{option}
+>NO:{-m}
+>NO:{-n}
+>NO:{-t}
+>NO:{-u}
+
+ tst_arguments '(-)-h' -a -b -c
+ comptest $'tst -h -\t'
+0:exclude all other options
+>line: {tst -h -}{}
+>MESSAGE:{no arguments}
+
+ tst_arguments -a '(-a)-b'
+ comptest $'tst - -b\C-b\C-b\C-b\t'
+0:exclusion only applies to later words
+>line: {tst -}{ -b}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-b}
+F:shouldn't offer -b as it is already on the command-line
+
+ tst_arguments -s : '(-d)-a' -b -c -d
+ comptest $'tst -ab\t -\t\eb\eb \C-b-\t'
+0:exclusion with clumped options, in, after and before
+>line: {tst -ab}{}
+>DESCRIPTION:{option}
+>NO:{-c}
+>NO:{-d}
+>line: {tst -ab -c }{}
+>line: {tst -}{ -ab -c}
+>DESCRIPTION:{option}
+>NO:{-a}
+>NO:{-b}
+>NO:{-c}
+>NO:{-d}
+F:the first tab press shouldn't offer -d since -a is on the command line
+
+ tst_arguments '-a:arg' -b '(-b)-c'
+ comptest $'tst -a -c -\t'
+0:exclusion with option argument that looks like an option
+>line: {tst -a -c -}{}
+>MESSAGE:{no arguments}
+F:The current behaviour is wrong; the correct expected output is:
+F:>line: {tst -a -c -}{}
+F:>DESCRIPTION:{option}
+F:>NO:{-b}
+F:>NO:{-c}
+
+ tst_arguments --abc --aah :arg:
+ comptesteval 'setopt bashautolist automenu'
+ comptest $'tst --a\t\t\t'
+0:with message and bashautolist, a third tab will get menu completion
+>line: {tst --a}{}
+>line: {tst --a}{}
+>DESCRIPTION:{arg}
+>DESCRIPTION:{option}
+>NO:{--aah}
+>NO:{--abc}
+>line: {tst --aah}{}
+
+ tst_arguments --abc --aah :arg:
+ comptesteval 'setopt bashautolist noautomenu'
+ comptest $'tst --a\t\t\t'
+0:with message and bashautolist, a third tab is needed to display the list
+>line: {tst --a}{}
+>line: {tst --a}{}
+>DESCRIPTION:{arg}
+>DESCRIPTION:{option}
+>NO:{--aah}
+>NO:{--abc}
+>line: {tst --a}{}
+
+ tst_arguments --abc --aah :arg:
+ comptesteval 'setopt nobashautolist noautomenu'
+ comptest $'tst --\t\t'
+0:with message and noautomenu second tab redisplays the list
+>line: {tst --}{}
+>DESCRIPTION:{arg}
+>DESCRIPTION:{option}
+>NO:{--aah}
+>NO:{--abc}
+>line: {tst --}{}
+>DESCRIPTION:{arg}
+>DESCRIPTION:{option}
+>NO:{--aah}
+>NO:{--abc}
+
+ tst_arguments --abc --aah :arg:
+ comptesteval 'setopt nobashautolist automenu'
+ comptest $'tst --\t\t'
+0:with message two tabs will start menu completion
+>line: {tst --}{}
+>DESCRIPTION:{arg}
+>DESCRIPTION:{option}
+>NO:{--aah}
+>NO:{--abc}
+>line: {tst --aah}{}
+
+ tst_arguments --abc --aah :arg:
+ comptesteval 'zstyle ":completion:*::::" completer _oldlist _complete'
+ comptest $'tst --\t\t'
+0:with message and _oldlist, two tabs will start menu completion
+>line: {tst --}{}
+>DESCRIPTION:{arg}
+>DESCRIPTION:{option}
+>NO:{--aah}
+>NO:{--abc}
+>line: {tst --aah}{}
+
+ tst_arguments '--prefix=: :(one two)' '--prop=: :(three four)' --pre
+ comptest $'tst --pre=o\t --=\t'
+0:partial completion of option with an argument
+>line: {tst --prefix=one }{}
+>line: {tst --prefix=one --prop=}{}
 
 %clean
 

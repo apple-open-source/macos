@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/fr_CA.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 fr_CA{
     NumberElements{
         latn{
@@ -105,7 +99,7 @@ fr_CA{
             }
         }
     }
-    Version{"2.1.24.13"}
+    Version{"2.1.31.33"}
     calendar{
         generic{
             DateTimePatterns{
@@ -135,33 +129,41 @@ fr_CA{
             }
             intervalFormats{
                 MEd{
-                    M{"E MM-dd – E MM-dd"}
-                    d{"E MM-dd – E MM-dd"}
+                    M{"E MM-dd – E MM-dd"}
+                    d{"E MM-dd – E MM-dd"}
                 }
                 MMMEd{
-                    d{"E d – E d MMM"}
+                    d{"E d – E d MMM"}
                 }
                 Md{
-                    M{"MM-dd – MM-dd"}
-                    d{"MM-dd – MM-dd"}
+                    M{"MM-dd – MM-dd"}
+                    d{"MM-dd – MM-dd"}
                 }
                 yM{
-                    M{"y-MM – y-MM G"}
-                    y{"y-MM – y-MM G"}
+                    M{"y-MM – y-MM G"}
+                    y{"y-MM – y-MM G"}
                 }
                 yMEd{
-                    M{"E y-MM-dd – E y-MM-dd G"}
-                    d{"E y-MM-dd – E y-MM-dd G"}
-                    y{"E y-MM-dd – E y-MM-dd G"}
+                    M{"E y-MM-dd – E y-MM-dd G"}
+                    d{"E y-MM-dd – E y-MM-dd G"}
+                    y{"E y-MM-dd – E y-MM-dd G"}
                 }
                 yMd{
-                    M{"y-MM-dd – y-MM-dd G"}
-                    d{"y-MM-dd – y-MM-dd G"}
-                    y{"y-MM-dd – y-MM-dd G"}
+                    M{"y-MM-dd – y-MM-dd G"}
+                    d{"y-MM-dd – y-MM-dd G"}
+                    y{"y-MM-dd – y-MM-dd G"}
                 }
             }
         }
         gregorian{
+            AmPmMarkers{
+                "a.m.",
+                "p.m.",
+            }
+            AmPmMarkersAbbr{
+                "a.m.",
+                "p.m.",
+            }
             AmPmMarkersNarrow{
                 "a",
                 "p",
@@ -195,9 +197,9 @@ fr_CA{
                 format{
                     abbreviated{
                         afternoon1{"après-midi"}
-                        evening1{"soir"}
-                        midnight{"min."}
-                        morning1{"mat."}
+                        evening1{"du soir"}
+                        midnight{"minuit"}
+                        morning1{"du mat."}
                         night1{"du matin"}
                         noon{"midi"}
                     }
@@ -218,46 +220,118 @@ fr_CA{
                         noon{"midi"}
                     }
                 }
+                stand-alone{
+                    abbreviated{
+                        afternoon1{"après-midi"}
+                        am{"a.m."}
+                        evening1{"soir"}
+                        morning1{"mat."}
+                        night1{"nuit"}
+                        pm{"p.m."}
+                    }
+                    narrow{
+                        afternoon1{"après-midi"}
+                        evening1{"soir"}
+                        morning1{"mat."}
+                        night1{"nuit"}
+                    }
+                    wide{
+                        am{"a.m."}
+                        pm{"p.m."}
+                    }
+                }
+            }
+            eras{
+                wide%variant{
+                    "avant l’ère chrétienne",
+                    "de l’ère chrétienne",
+                }
             }
             intervalFormats{
                 H{
-                    H{"H 'h' – H 'h'"}
+                    H{"H 'h' – H 'h'"}
                 }
                 Hv{
-                    H{"H 'h' – H 'h' v"}
+                    H{"H 'h' – H 'h' v"}
+                }
+                M{
+                    M{"M–M"}
                 }
                 MEd{
-                    M{"E MM-dd – E MM-dd"}
-                    d{"E MM-dd – E MM-dd"}
+                    M{"E MM-dd – E MM-dd"}
+                    d{"E MM-dd – E MM-dd"}
+                }
+                MMM{
+                    M{"MMM – MMM"}
                 }
                 Md{
-                    M{"MM-dd – MM-dd"}
-                    d{"MM-dd – MM-dd"}
+                    M{"MM-dd – MM-dd"}
+                    d{"MM-dd – MM-dd"}
                 }
                 d{
-                    d{"d – d"}
+                    d{"d–d"}
                 }
                 h{
-                    a{"h 'h' a – h 'h' a"}
-                    h{"h 'h' – h 'h' a"}
+                    a{"h 'h' a – h 'h' a"}
+                    h{"h 'h' – h 'h' a"}
                 }
                 hv{
-                    a{"h 'h' a – h 'h' a v"}
-                    h{"h 'h' – h 'h' a v"}
+                    a{"h 'h' a – h 'h' a v"}
+                    h{"h 'h' – h 'h' a v"}
+                }
+                y{
+                    y{"y–y"}
                 }
                 yM{
-                    M{"y-MM – y-MM"}
-                    y{"y-MM – y-MM"}
+                    M{"y-MM – y-MM"}
+                    y{"y-MM – y-MM"}
                 }
                 yMEd{
-                    M{"E y-MM-dd – E y-MM-dd"}
-                    d{"E y-MM-dd – E y-MM-dd"}
-                    y{"E y-MM-dd – E y-MM-dd"}
+                    M{"E y-MM-dd – E y-MM-dd"}
+                    d{"E y-MM-dd – E y-MM-dd"}
+                    y{"E y-MM-dd – E y-MM-dd"}
+                }
+                yMMM{
+                    M{"MMM – MMM y"}
                 }
                 yMd{
-                    M{"y-MM-dd – y-MM-dd"}
-                    d{"y-MM-dd – y-MM-dd"}
-                    y{"y-MM-dd – y-MM-dd"}
+                    M{"y-MM-dd – y-MM-dd"}
+                    d{"y-MM-dd – y-MM-dd"}
+                    y{"y-MM-dd – y-MM-dd"}
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "janv.",
+                        "févr.",
+                        "mars",
+                        "avr.",
+                        "mai",
+                        "juin",
+                        "juill.",
+                        "août",
+                        "sept.",
+                        "oct.",
+                        "nov.",
+                        "déc.",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "janv.",
+                        "févr.",
+                        "mars",
+                        "avr.",
+                        "mai",
+                        "juin",
+                        "juill.",
+                        "août",
+                        "sept.",
+                        "oct.",
+                        "nov.",
+                        "déc.",
+                    }
                 }
             }
         }
@@ -286,15 +360,20 @@ fr_CA{
             }
         }
     }
+    characterLabel{
+        braille{"braille"}
+        bullets_stars{"puces/astérisques"}
+        dash_connector{"tirets/connecteurs"}
+        emoji{"Emojis"}
+        ideographic_desc_characters{"symboles de description sinographique"}
+    }
+    delimiters{
+        alternateQuotationEnd{"“"}
+        alternateQuotationStart{"”"}
+        quotationEnd{"»"}
+        quotationStart{"«"}
+    }
     fields{
-        day-short{
-            relativeTime{
-                future{
-                    one{"dans {0} j"}
-                    other{"dans {0} j"}
-                }
-            }
-        }
         hour-narrow{
             relativeTime{
                 future{
@@ -307,16 +386,19 @@ fr_CA{
                 }
             }
         }
-        minute{
+        minute-narrow{
             relativeTime{
-                future{
-                    one{"Dans {0} minute"}
-                    other{"Dans {0} minutes"}
-                }
                 past{
-                    one{"Il y a {0} minute"}
-                    other{"Il y a {0} minutes"}
+                    one{"-{0} min"}
+                    other{"-{0} min"}
                 }
+            }
+        }
+        quarter{
+            relative{
+                "-1"{"le trimestre dernier"}
+                "0"{"ce trimestre-ci"}
+                "1"{"le trimestre prochain"}
             }
         }
         second-narrow{
@@ -341,33 +423,6 @@ fr_CA{
         }
         year-short{
             dn{"a"}
-        }
-    }
-    transformNames{
-        x-Publishing{"Édition"}
-    }
-    unitsShort{
-        energy{
-            calorie{
-                one{"{0} cal"}
-                other{"{0} cal"}
-            }
-            foodcalorie{
-                one{"{0} kcal"}
-                other{"{0} kcal"}
-            }
-            joule{
-                one{"{0} J"}
-                other{"{0} J"}
-            }
-            kilocalorie{
-                one{"{0} kcal"}
-                other{"{0} kcal"}
-            }
-            kilojoule{
-                one{"{0} kJ"}
-                other{"{0} kJ"}
-            }
         }
     }
 }

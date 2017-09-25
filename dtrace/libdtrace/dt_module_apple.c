@@ -21,6 +21,8 @@
 #include <dt_impl.h>
 #include <assert.h>
 
+extern int _dtrace_argmax; /* maximum probe arguments */
+
 /*
  * Check if the fbt providers is supposed to provide probes for the private
  * symbols (aka private probes).
@@ -42,6 +44,86 @@ int dtrace_private_probes_requested(void) {
 
 	return value;
 }
+
+void
+dt_module_get_types(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
+	dtrace_argdesc_t *adp, int *nargs)
+{
+	dt_module_t *dmp;
+	GElf_Sym sym;
+	ctf_funcinfo_t f;
+	uint_t id;
+	ctf_id_t argv[_dtrace_argmax];
+	int argc = sizeof (argv) / sizeof (argv[0]);
+	int args = *nargs, i;
+
+	assert(args <= _dtrace_argmax);
+
+	dmp = dt_module_lookup_by_name(dtp, pdp->dtpd_mod);
+
+	/*
+	 * Not finding the module is not an error, we'll just carry on
+	 * without the argument types
+	 */
+	if (dmp == NULL)
+		goto out;
+
+	if (dmp->dm_ops->do_symname(dmp, pdp->dtpd_func, &sym, &id) == NULL) {
+		goto out;
+	}
+	if (ctf_func_info(dmp->dm_ctfp, id, &f) == CTF_ERR) {
+		dt_dprintf("failed to retrieve func info (ctf_errno: %d)\n", ctf_errno(dmp->dm_ctfp));
+		goto out;
+	}
+
+	if (strcmp(pdp->dtpd_name, "return") == 0) {
+		if (args < 2)
+			goto out;
+		/*
+		 * args[0] on fbt return probes is always the offset of the
+		 * returning instruction in the function text
+		 */
+		bzero(adp, sizeof (dtrace_argdesc_t));
+		adp->dtargd_ndx = 0;
+		adp->dtargd_id = pdp->dtpd_id;
+		adp->dtargd_mapping = adp->dtargd_ndx;
+		strncpy(adp->dtargd_native, "int", DTRACE_ARGTYPELEN);
+		adp++;
+
+		/*
+		 * args[1] contains the return value
+		 */
+		bzero(adp, sizeof (dtrace_argdesc_t));
+		adp->dtargd_ndx = 1;
+		adp->dtargd_id = pdp->dtpd_id;
+		adp->dtargd_mapping = adp->dtargd_ndx;
+		ctf_type_name(dmp->dm_ctfp, f.ctc_return, adp->dtargd_native, DTRACE_ARGTYPELEN);
+		*nargs = 2;
+	}
+	else {
+		if (ctf_func_args(dmp->dm_ctfp, id, argc, argv) == CTF_ERR) {
+			dt_dprintf("failed to retrieve func args (ctf_errno: %d)\n", ctf_errno(dmp->dm_ctfp));
+			goto out;
+		}
+		args = MIN(args, f.ctc_argc);
+		for (i = 0; i < args; adp++, i++) {
+			bzero(adp, sizeof (dtrace_argdesc_t));
+			adp->dtargd_ndx = i;
+			adp->dtargd_id = pdp->dtpd_id;
+			adp->dtargd_mapping = adp->dtargd_ndx;
+			ctf_type_name(dmp->dm_ctfp, argv[i], adp->dtargd_native, DTRACE_ARGTYPELEN);
+		}
+		*nargs = args;
+	}
+	return;
+out:
+	/*
+	 * We need to indicate that we have no typed arguments if we could not
+	 * find the module or an error happened
+	 */
+	*nargs = 0;
+}
+
 
 /*
  * Create a symbolicator by using CoreSymbolication.

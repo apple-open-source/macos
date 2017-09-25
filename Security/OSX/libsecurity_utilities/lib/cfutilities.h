@@ -555,12 +555,28 @@ void cfDictionaryApplyBlock(CFDictionaryRef source, CFDictionaryApplierBlock blo
 
 //
 // CFURLAccess wrappers for specific purposes
+// cfLoadFile family will use mmap(2) when appropriate
+// cfReadFile will read the data into memory
+// cfMapFile will mmap(2) the file
 //
 CFDataRef CF_RETURNS_RETAINED cfLoadFile(CFURLRef url);
 CFDataRef CF_RETURNS_RETAINED cfLoadFile(int fd, size_t bytes);
 inline CFDataRef CF_RETURNS_RETAINED cfLoadFile(CFStringRef path) { return cfLoadFile(CFTempURL(path)); }
 inline CFDataRef CF_RETURNS_RETAINED cfLoadFile(const std::string &path) { return cfLoadFile(CFTempURL(path)); }
 inline CFDataRef CF_RETURNS_RETAINED cfLoadFile(const char *path) { return cfLoadFile(CFTempURL(path)); }
+
+
+CFDataRef cfReadFile(CFURLRef url) CF_RETURNS_RETAINED;
+CFDataRef cfReadFile(int fd, size_t bytes) CF_RETURNS_RETAINED;
+inline CFDataRef cfReadFile(CFStringRef path) { return cfReadFile(CFTempURL(path)); }
+inline CFDataRef cfReadFile(const std::string &path) { return cfReadFile(CFTempURL(path)); }
+inline CFDataRef cfReadFile(const char *path) { return cfReadFile(CFTempURL(path)); }
+
+CFDataRef cfMapFile(CFURLRef url) CF_RETURNS_RETAINED;
+CFDataRef cfMapFile(int fd, size_t bytes) CF_RETURNS_RETAINED;
+inline CFDataRef cfMapFile(CFStringRef path) { return cfMapFile(CFTempURL(path)); }
+inline CFDataRef cfMapFile(const std::string &path) { return cfMapFile(CFTempURL(path)); }
+inline CFDataRef cfMapFile(const char *path) { return cfMapFile(CFTempURL(path)); }
 
 
 //

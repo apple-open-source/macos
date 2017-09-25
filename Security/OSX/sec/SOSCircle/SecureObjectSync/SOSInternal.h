@@ -69,8 +69,24 @@ enum {
 
     kSOSErrorNoiCloudPeer       = 1044,
     kSOSErrorParam              = 1045,
+    kSOSErrorNotInCircle        = 1046,
 };
 
+typedef enum {
+    kSecIDSErrorNoDeviceID = -1, //default case
+    kSecIDSErrorNotRegistered = -2,
+    kSecIDSErrorFailedToSend=-3,
+    kSecIDSErrorCouldNotFindMatchingAuthToken = -4,
+    kSecIDSErrorDeviceIsLocked = -5,
+    kSecIDSErrorNoPeersAvailable = -6
+
+} idsError;
+
+
+extern const CFStringRef SOSTransportMessageTypeIDSV2;
+extern const CFStringRef SOSTransportMessageTypeKVS;
+extern const CFStringRef SOSTransportMessageTypeIDS;
+extern const CFStringRef kSOSDSIDKey;
 
 // Returns false unless errorCode is 0.
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef descriptionString, ...);
@@ -111,7 +127,7 @@ CFDataRef SOSCopyDeviceBackupPublicKey(CFDataRef entropy, CFErrorRef *error);
 // Wrapping and Unwrapping
 //
 
-CFMutableDataRef SOSCopyECWrappedData(ccec_pub_ctx *ec_ctx, CFDataRef data, CFErrorRef *error);
+CFMutableDataRef SOSCopyECWrappedData(ccec_pub_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error);
 bool             SOSPerformWithUnwrappedData(ccec_full_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error,
                                              void (^operation)(size_t size, uint8_t *buffer));
 CFMutableDataRef SOSCopyECUnwrappedData(ccec_full_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error);
@@ -149,8 +165,6 @@ extern const CFStringRef kIDSMessageUniqueID;
 extern const CFStringRef kIDSMessageRecipientPeerID;
 extern const CFStringRef kIDSMessageRecipientDeviceID;
 extern const CFStringRef kIDSMessageUsesAckModel;
-
-
 
 __END_DECLS
 

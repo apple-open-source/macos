@@ -81,6 +81,10 @@ then commands are read from that file instead of var(file).
 If any arguments var(arg) are given,
 they become the positional parameters; the old positional
 parameters are restored when the var(file) is done executing.
+However, if no arguments are given,
+the positional parameters remain those of the calling context,
+and no restoring is done.
+
 If var(file) was not found the return status is 127; if var(file) was found
 but contained a syntax error the return status is 126; else the return
 status is the exit status of the last command executed.
@@ -566,7 +570,7 @@ with emulations to be set to their values in tt(sh).  tt(fno) then
 calls tt(fni); because tt(fni) is also marked for sticky tt(sh)
 emulation, no option changes take place on entry to or exit from it.
 Hence the option tt(cshnullglob), turned off by tt(sh) emulation, will
-be turned on within tt(fni) and remain on on return to tt(fno).  On exit
+be turned on within tt(fni) and remain on return to tt(fno).  On exit
 from tt(fno), the emulation mode and all options will be restored to the
 state they were in before entry to the temporary emulation.
 
@@ -652,7 +656,7 @@ An EOF condition will also cause the shell to exit, unless
 the tt(IGNORE_EOF) option is set.
 
 See notes at the end of
-ifzman(the section JOBS in in zmanref(zshmisc))\
+ifzman(the section JOBS in zmanref(zshmisc))\
 ifnzman(noderef(Jobs & Signals)) for some possibly unexpected interactions
 of the tt(exit) command with jobs.
 )
@@ -693,7 +697,7 @@ specifies the most recent event beginning with the given string.  All
 substitutions var(old)tt(=)var(new), if any, are then performed on the
 text of the events.
 
-In addition to the the number range,
+In addition to the number range,
 startsitem()
 sitem(tt(-I))(restricts to only internal events (not from tt($HISTFILE)))
 sitem(tt(-L))(restricts to only local events (not from other shells, see
@@ -1079,6 +1083,7 @@ startsitem()
 sitem(var(n)tt(h))(hours)
 sitem(var(n)tt(k))(kilobytes (default))
 sitem(var(n)tt(m))(megabytes or minutes)
+sitem(var(n)tt(g))(gigabytes)
 sitem([var(mm)tt(:)]var(ss))(minutes and seconds)
 endsitem()
 
@@ -1124,7 +1129,7 @@ tt(popd) that do not change the environment seen by an interactive user.
 )
 findex(print)
 xitem(tt(print )[ tt(-abcDilmnNoOpPrsSz) ] [ tt(-u) var(n) ] [ tt(-f) var(format) ] [ tt(-C) var(cols) ])
-item(SPACES()[ tt(-xX) var(tab-stop) ] [ tt(-R) [ tt(-en) ]] [ var(arg) ... ])(
+item(SPACES()[ tt(-v) var(name) ] [ tt(-xX) var(tabstop) ] [ tt(-R) [ tt(-en) ]] [ var(arg) ... ])(
 With the `tt(-f)' option the arguments are printed as described by tt(printf).
 With no flags or with the flag `tt(-)', the arguments are printed on
 the standard output as described by tt(echo), with the following differences:
@@ -1219,6 +1224,9 @@ tt(HIST_LEX_WORDS) option active.
 item(tt(-u) var(n))(
 Print the arguments to file descriptor var(n).
 )
+item(tt(-v) var(name))(
+Store the printed arguments as the value of the parameter var(name).
+)
 item(tt(-x) var(tab-stop))(
 Expand leading tabs on each line of output in the printed string
 assuming a tab stop every var(tab-stop) characters.  This is appropriate
@@ -1250,7 +1258,7 @@ If any of `tt(-m)', `tt(-o)' or `tt(-O)' are used in combination with
 case of `tt(-m)') then nothing is printed.
 )
 findex(printf)
-item(tt(printf) var(format) [ var(arg) ... ])(
+item(tt(printf) [ -v var(name) ] var(format) [ var(arg) ... ])(
 Print the arguments according to the format specification. Formatting
 rules are the same as used in C. The same escape sequences as for tt(echo)
 are recognised in the format. All C conversion specifications ending in
@@ -1279,6 +1287,11 @@ until all arguments have been consumed. With the tt(print) builtin, this
 can be suppressed by using the tt(-r) option. If more arguments are
 required by the format than have been specified, the behaviour is as if
 zero or an empty string had been specified as the argument.
+
+The tt(-v) option causes the output to be stored as the value of the
+parameter var(name), instead of printed. If var(name) is an array and
+the format string is reused when consuming arguments then one
+array element will be used for each use of the format string.
 )
 findex(pushd)
 pindex(PUSHD_TO_HOME, use of)
@@ -1459,7 +1472,10 @@ cancels both tt(-p) and tt(-u).
 The tt(-c) or tt(-l) flags cancel any and all of tt(-kpquz).
 )
 cindex(parameters, marking readonly)
-alias(readonly)(typeset -r)
+item(tt(readonly))(
+Same as tt(typeset -r).  With the tt(POSIX_BUILTINS) option set, same
+as tt(typeset -gr).
+)
 alias(rehash)(hash -r)
 findex(return)
 cindex(functions, returning from)
@@ -1744,7 +1760,8 @@ xitem(SPACES()[ tt(+) | var(SCALAR)[tt(=)var(value)] var(array)[tt(=LPAR())var(v
 item(tt(typeset) tt(-f) [ {tt(PLUS())|tt(-)}tt(TUkmtuz) ] [ tt(+) ] [ var(name) ... ])(
 Set or display attributes and values for shell parameters.
 
-A parameter is created for each var(name) that does not already refer
+Except as noted below for control flags that change the behavior,
+a parameter is created for each var(name) that does not already refer
 to one.  When inside a function, a new parameter is created for every
 var(name) (even those that already exist), and is unset again when the
 function completes.  See
@@ -1754,18 +1771,31 @@ ifnzman(noderef(Local Parameters))\
 retain their special attributes when made local.
 
 For each var(name)tt(=)var(value) assignment, the parameter
-var(name) is set to var(value).  All forms of the command
-handle scalar assignment.
+var(name) is set to var(value).
 
-If any of the reserved words tt(declare), tt(export), tt(float),
+If the shell option tt(TYPESET_SILENT) is not set, for each remaining
+var(name) that refers to a parameter that is already set, the name and
+value of the parameter are printed in the form of an assignment.
+Nothing is printed for newly-created parameters, or when any attribute
+flags listed below are given along with the var(name).  Using
+`tt(PLUS())' instead of minus to introduce an attribute turns it off.
+
+If no var(name) is present, the names and values of all parameters are
+printed.  In this case the attribute flags restrict the display to only
+those parameters that have the specified attributes, and using `tt(PLUS())'
+rather than `tt(-)' to introduce the flag suppresses printing of the values
+of parameters when there is no parameter name.
+
+All forms of the command handle scalar assignment.  Array assignment is
+possible if any of the reserved words tt(declare), tt(export), tt(float),
 tt(integer), tt(local), tt(readonly) or tt(typeset) is matched when the
-line is parsed (N.B. not when it is executed) the shell will try to parse
-arguments as assignments, except that the `tt(+=)' syntax and the
-tt(GLOB_ASSIGN) option are not supported.  This has two major differences
-from normal command line argument parsing: array assignment is possible,
-and scalar values after tt(=) are not split further into words even if
-expanded (regardless of the setting of the tt(KSH_TYPESET) option; this
-option is obsolete).  Here is an example:
+line is parsed (N.B. not when it is executed).  In this case the arguments
+are parsed as assignments, except that the `tt(+=)' syntax and the
+tt(GLOB_ASSIGN) option are not supported, and scalar values after tt(=)
+are em(not) split further into words, even if expanded (regardless of the
+setting of the tt(KSH_TYPESET) option; this option is obsolete).
+
+Examples of the differences between command and reserved word parsing:
 
 example(# Reserved word parsing
 typeset svar=$(echo one word) avar=(several words))
@@ -1782,7 +1812,7 @@ example(# Normal builtin interface
 builtin typeset svar=$(echo two words))
 
 The tt(builtin) keyword causes the above to use the standard builtin
-interface to tt(typeset) in which argument parsing is perfomed in the same
+interface to tt(typeset) in which argument parsing is performed in the same
 way as for other commands.  This example creates a scalar tt(svar)
 containing the value tt(two) and another scalar parameter tt(words) with
 no value.  An array value in this case would either cause an error or be
@@ -1812,20 +1842,27 @@ this means.
 Note that each interface to any of the commands my be disabled
 separately.  For example, `tt(disable -r typeset)' disables the reserved
 word interface to tt(typeset), exposing the builtin interface, while
-`tt(disable typeset)' disables the builtin.
+`tt(disable typeset)' disables the builtin.  Note that disabling the
+reserved word interface for tt(typeset) may cause problems with the
+output of `tt(typeset -p)', which assumes the reserved word interface is
+available in order to restore array and associative array values.
 
-If the shell option tt(TYPESET_SILENT) is not set, for each remaining
-var(name) that refers to a parameter that is already set, the name and
-value of the parameter are printed in the form of an assignment.
-Nothing is printed for newly-created parameters, or when any attribute
-flags listed below are given along with the var(name).  Using
-`tt(PLUS())' instead of minus to introduce an attribute turns it off.
+Unlike parameter assignment statements, tt(typeset)'s exit status on an
+assignment that involves a command substitution does not reflect the exit
+status of the command substitution.  Therefore, to test for an error in
+a command substitution, separate the declaration of the parameter from its
+initialization:
 
-If no var(name) is present, the names and values of all parameters are
-printed.  In this case the attribute flags restrict the display to only
-those parameters that have the specified attributes, and using `tt(PLUS())'
-rather than `tt(-)' to introduce the flag suppresses printing of the values
-of parameters when there is no parameter name.
+example(# WRONG
+typeset var1=$(exit 1) || echo "Trouble with var1"
+
+# RIGHT
+typeset var1 && var1=$(exit 1) || echo "Trouble with var1"
+)
+
+To initialize a parameter var(param) to a command output and mark it readonly,
+use tt(typeset -r )var(param) or tt(readonly )var(param) after the parameter
+assignment statement.
 
 If no attribute flags are given, and either no var(name) arguments are
 present or the flag tt(+m) is used, then each parameter name printed is
@@ -1880,15 +1917,9 @@ does not.
 )
 item(tt(-p))(
 If the tt(-p) option is given, parameters and values are printed in the
-form of a typeset command and an assignment (which will be printed
-separately for arrays and associative arrays), regardless of other flags
+form of a typeset command with an assignment, regardless of other flags
 and options.  Note that the tt(-H) flag on parameters is respected; no
 value will be shown for these parameters.
-
-As the intention of this option is to produce output that can restore
-the current state, readonly specials (whose values cannot be
-changed) are not shown and assignments to arrays are shown before
-the tt(typeset) rendering the array readonly.
 )
 item(tt(-T) [ var(scalar)[tt(=)var(value)] var(array)[tt(=LPAR())var(value) ...tt(RPAR())] [ var(sep) ] ])(
 This flag has a different meaning when used with tt(-f); see below.
@@ -1968,6 +1999,11 @@ item(tt(-U))(
 For arrays (but not for associative arrays), keep only the first
 occurrence of each duplicated value.  This may also be set for
 colon-separated special parameters like tt(PATH) or tt(FIGNORE), etc.
+Note the flag takes effect on assignment, and the type of the
+variable being assigned to is determinative; for variables with
+shared values it is therefore recommended to set the flag for
+all interfaces, e.g. `tt(typeset -U PATH path)'.
+
 This flag has a different meaning when used with tt(-f); see below.
 )
 item(tt(-Z) [ var(n) ])(
@@ -1980,16 +2016,18 @@ place in the output.
 )
 item(tt(-a))(
 The names refer to array parameters.  An array parameter may be
-created this way, but it may not be assigned to in the tt(typeset)
-statement.  When displaying, both normal and associative arrays are
-shown.
+created this way, but it may be assigned to in the tt(typeset)
+statement only if the reserved word form of tt(typeset) is enabled
+(as it is by default).  When displaying, both normal and associative
+arrays are shown.
 )
 item(tt(-f))(
 The names refer to functions rather than parameters.  No assignments
 can be made, and the only other valid flags are tt(-t), tt(-T), tt(-k),
 tt(-u), tt(-U) and tt(-z).  The flag tt(-t) turns on execution tracing
 for this function; the flag tt(-T) does the same, but turns off tracing
-on any function called from the present one, unless that function also
+for any named (not anonymous) function called from the present one,
+unless that function also
 has the tt(-t) or tt(-T) flag.  The tt(-u) and tt(-U) flags cause the
 function to be marked for autoloading; tt(-U) also causes alias
 expansion to be suppressed when the function is loaded.  See the

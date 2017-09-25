@@ -1,4 +1,4 @@
-# Copyright (C) 2011  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +12,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: tests.sh,v 1.2.2.3 2011/03/03 16:18:12 each Exp $
+# $Id: tests.sh,v 1.3 2011/03/03 16:16:46 each Exp $
 
 SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
@@ -29,9 +29,9 @@ echo "I:checking dnssec-lookaside "'"auto"'"; with views of multiple classes ($n
 if [ -s  ns2/named.pid ]
 then
 	ret=0
-	kill -TERM `cat ns2/named.pid`
+	$PERL $SYSTEMTESTTOP/stop.pl . ns2 || ret=1
 	sleep 1
-	(cd ns2; $NAMED -f -d 100 -c named.conf >> named.run 2>&1 & )
+	(cd ns2; $NAMED -g -d 100 -c named.conf >> named.run 2>&1 & )
 	sleep 2
 	$DIG $DIGOPTS soa . @10.53.0.2 > dig.out.ns2.test$n || ret=1
 	grep "status: NOERROR" dig.out.ns2.test$n > /dev/null || ret=1

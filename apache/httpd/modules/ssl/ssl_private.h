@@ -123,6 +123,16 @@
 #define MODSSL_SSL_METHOD_CONST
 #endif
 
+#if defined(LIBRESSL_VERSION_NUMBER)
+/* Missing from LibreSSL */
+#define SSL_CTRL_SET_MIN_PROTO_VERSION          123
+#define SSL_CTRL_SET_MAX_PROTO_VERSION          124
+#define SSL_CTX_set_min_proto_version(ctx, version) \
+        SSL_CTX_ctrl(ctx, SSL_CTRL_SET_MIN_PROTO_VERSION, version, NULL)
+#define SSL_CTX_set_max_proto_version(ctx, version) \
+        SSL_CTX_ctrl(ctx, SSL_CTRL_SET_MAX_PROTO_VERSION, version, NULL)
+#endif
+
 #if defined(OPENSSL_FIPS)
 #define HAVE_FIPS
 #endif
@@ -133,6 +143,13 @@
 
 #if defined(SSL_CONF_FLAG_FILE)
 #define HAVE_SSL_CONF_CMD
+#endif
+
+/* session id constness */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+#define IDCONST
+#else
+#define IDCONST const
 #endif
 
 /**
@@ -151,6 +168,8 @@
 /* OCSP stapling */
 #if !defined(OPENSSL_NO_OCSP) && defined(SSL_CTX_set_tlsext_status_cb)
 #define HAVE_OCSP_STAPLING
+/* All exist but are no longer macros since OpenSSL 1.1.0 */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 /* backward compatibility with OpenSSL < 1.0 */
 #ifndef sk_OPENSSL_STRING_num
 #define sk_OPENSSL_STRING_num sk_num
@@ -161,7 +180,8 @@
 #ifndef sk_OPENSSL_STRING_pop
 #define sk_OPENSSL_STRING_pop sk_pop
 #endif
-#endif
+#endif /* if OPENSSL_VERSION_NUMBER < 0x10100000L */
+#endif /* if !defined(OPENSSL_NO_OCSP) && defined(SSL_CTX_set_tlsext_status_cb) */
 
 /* TLS session tickets */
 #if defined(SSL_CTX_set_tlsext_ticket_key_cb)
@@ -188,6 +208,36 @@
 #endif
 
 #endif /* !defined(OPENSSL_NO_TLSEXT) && defined(SSL_set_tlsext_host_name) */
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+#define BN_get_rfc2409_prime_768   get_rfc2409_prime_768
+#define BN_get_rfc2409_prime_1024  get_rfc2409_prime_1024
+#define BN_get_rfc3526_prime_1536  get_rfc3526_prime_1536
+#define BN_get_rfc3526_prime_2048  get_rfc3526_prime_2048
+#define BN_get_rfc3526_prime_3072  get_rfc3526_prime_3072
+#define BN_get_rfc3526_prime_4096  get_rfc3526_prime_4096
+#define BN_get_rfc3526_prime_6144  get_rfc3526_prime_6144
+#define BN_get_rfc3526_prime_8192  get_rfc3526_prime_8192
+#define BIO_set_init(x,v)          (x->init=v)
+#define BIO_get_data(x)            (x->ptr)
+#define BIO_set_data(x,v)          (x->ptr=v)
+#define BIO_get_shutdown(x)        (x->shutdown)
+#define BIO_set_shutdown(x,v)      (x->shutdown=v)
+#define DH_bits(x)                 (BN_num_bits(x->p))
+#else
+void init_bio_methods(void);
+void free_bio_methods(void);
+#endif
+
+#if OPENSSL_VERSION_NUMBER < 0x10002000L || defined(LIBRESSL_VERSION_NUMBER)
+#define X509_STORE_CTX_get0_store(x) (x->ctx)
+#endif
+
+#if OPENSSL_VERSION_NUMBER < 0x10000000L
+#ifndef X509_STORE_CTX_get0_current_issuer
+#define X509_STORE_CTX_get0_current_issuer(x) (x->current_issuer)
+#endif
+#endif
 
 /* mod_ssl headers */
 #include "ssl_util_ssl.h"
@@ -455,12 +505,12 @@ typedef struct {
      * partial fix for CVE-2009-3555. */
     enum {
         RENEG_INIT = 0, /* Before initial handshake */
-        RENEG_REJECT, /* After initial handshake; any client-initiated
-                       * renegotiation should be rejected */
-        RENEG_ALLOW, /* A server-initiated renegotiation is taking
-                      * place (as dictated by configuration) */
-        RENEG_ABORT /* Renegotiation initiated by client, abort the
-                     * connection */
+        RENEG_REJECT,   /* After initial handshake; any client-initiated
+                         * renegotiation should be rejected */
+        RENEG_ALLOW,    /* A server-initiated renegotiation is taking
+                         * place (as dictated by configuration) */
+        RENEG_ABORT     /* Renegotiation initiated by client, abort the
+                         * connection */
     } reneg_state;
 
     server_rec *server;
@@ -643,6 +693,12 @@ typedef struct {
     BOOL ocsp_use_request_nonce;
     apr_uri_t *proxy_uri;
 
+    BOOL ocsp_noverify; /* true if skipping OCSP certification verification like openssl -noverify */
+    /* Declare variables for using OCSP Responder Certs for OCSP verification */
+    int ocsp_verify_flags; /* Flags to use when verifying OCSP response */
+    const char *ocsp_certs_file; /* OCSP other certificates filename */
+    STACK_OF(X509) *ocsp_certs; /* OCSP other certificates */
+
 #ifdef HAVE_SSL_CONF_CMD
     SSL_CONF_CTX *ssl_ctx_config; /* Configuration context */
     apr_array_header_t *ssl_ctx_param; /* parameters to pass to SSL_CTX */
@@ -771,6 +827,11 @@ const char *ssl_cmd_SSLOCSPUseRequestNonce(cmd_parms *cmd, void *dcfg, int flag)
 const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, int flag);
 const char *ssl_cmd_SSLOCSPProxyURL(cmd_parms *cmd, void *dcfg, const char *arg);
 
+/* Declare OCSP Responder Certificate Verification Directive */
+const char *ssl_cmd_SSLOCSPNoVerify(cmd_parms *cmd, void *dcfg, int flag);
+/* Declare OCSP Responder Certificate File Directive */
+const char *ssl_cmd_SSLOCSPResponderCertificateFile(cmd_parms *cmd, void *dcfg, const char *arg);
+
 #ifdef HAVE_SSL_CONF_CMD
 const char *ssl_cmd_SSLOpenSSLConfCmd(cmd_parms *cmd, void *dcfg, const char *arg1, const char *arg2);
 #endif
@@ -813,7 +874,7 @@ int          ssl_callback_SSLVerify(int, X509_STORE_CTX *);
 int          ssl_callback_SSLVerify_CRL(int, X509_STORE_CTX *, conn_rec *);
 int          ssl_callback_proxy_cert(SSL *ssl, X509 **x509, EVP_PKEY **pkey);
 int          ssl_callback_NewSessionCacheEntry(SSL *, SSL_SESSION *);
-SSL_SESSION *ssl_callback_GetSessionCacheEntry(SSL *, unsigned char *, int, int *);
+SSL_SESSION *ssl_callback_GetSessionCacheEntry(SSL *, IDCONST unsigned char *, int, int *);
 void         ssl_callback_DelSessionCacheEntry(SSL_CTX *, SSL_SESSION *);
 void         ssl_callback_Info(const SSL *, int, int);
 #ifdef HAVE_TLSEXT
@@ -834,10 +895,10 @@ int ssl_callback_alpn_select(SSL *ssl, const unsigned char **out,
 apr_status_t ssl_scache_init(server_rec *, apr_pool_t *);
 void         ssl_scache_status_register(apr_pool_t *p);
 void         ssl_scache_kill(server_rec *);
-BOOL         ssl_scache_store(server_rec *, UCHAR *, int,
+BOOL         ssl_scache_store(server_rec *, IDCONST UCHAR *, int,
                               apr_time_t, SSL_SESSION *, apr_pool_t *);
-SSL_SESSION *ssl_scache_retrieve(server_rec *, UCHAR *, int, apr_pool_t *);
-void         ssl_scache_remove(server_rec *, UCHAR *, int,
+SSL_SESSION *ssl_scache_retrieve(server_rec *, IDCONST UCHAR *, int, apr_pool_t *);
+void         ssl_scache_remove(server_rec *, IDCONST UCHAR *, int,
                                apr_pool_t *);
 
 /** Proxy Support */
@@ -885,7 +946,12 @@ void         ssl_util_ppclose(server_rec *, apr_pool_t *, apr_file_t *);
 char        *ssl_util_readfilter(server_rec *, apr_pool_t *, const char *,
                                  const char * const *);
 BOOL         ssl_util_path_check(ssl_pathcheck_t, const char *, apr_pool_t *);
+#if APR_HAS_THREADS
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 void         ssl_util_thread_setup(apr_pool_t *);
+#endif
+void         ssl_util_thread_id_setup(apr_pool_t *);
+#endif
 int          ssl_init_ssl_connection(conn_rec *c, request_rec *r);
 
 BOOL         ssl_util_vhost_matches(const char *servername, server_rec *s);
@@ -982,6 +1048,10 @@ OCSP_RESPONSE *modssl_dispatch_ocsp_request(const apr_uri_t *uri,
                                             apr_interval_time_t timeout,
                                             OCSP_REQUEST *request,
                                             conn_rec *c, apr_pool_t *p);
+
+/* Initialize OCSP trusted certificate list */
+void ssl_init_ocsp_certificates(server_rec *s, modssl_ctx_t *mctx);
+
 #endif
 
 /* Retrieve DH parameters for given key length.  Return value should

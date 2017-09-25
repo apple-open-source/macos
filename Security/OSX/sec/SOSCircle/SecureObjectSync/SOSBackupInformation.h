@@ -44,6 +44,6 @@ extern const CFStringRef kSOSBkpInfoStatus;
 extern const CFStringRef kSOSBkpInfoBSKB;
 extern const CFStringRef kSOSBkpInfoRKBG;
 
-CFDictionaryRef SOSBackupInformation(SOSAccountTransactionRef txn, CFErrorRef *error);
+CFDictionaryRef SOSBackupInformation(SOSAccountTransaction* txn, CFErrorRef *error);
 
 #endif /* SOSBackupInformation_h */

@@ -1,0 +1,14 @@
+SAX.setDocumentLocator()
+SAX.startDocument()
+SAX.startElementNs(html, NULL, NULL, 0, 0, 0)
+SAX.characters(
+, 1)
+SAX.startElementNs(body, NULL, NULL, 0, 0, 0)
+SAX.characters(
+, 1)
+SAX.startElementNs(span, NULL, NULL, 0, 0, 0)
+SAX.characters(
+Lorem ipsum.  Lorem ipsum.  L, 42)
+SAX.error: Comment not terminated
+SAX.error: Extra content at the end of the document
+SAX.endDocument()

@@ -28,11 +28,11 @@ bool OSStatusError(OSStatus status, NSError * _Nullable * _Nullable error, NSStr
 
 + (instancetype) errorWithOSStatus:(OSStatus) status
                        description:(NSString*)description
-                              args:(va_list)va;
+                              args:(va_list)va NS_FORMAT_FUNCTION(2, 0);
 
 - (instancetype) initWithOSStatus:(OSStatus) status
                       description:(NSString*)description
-                             args:(va_list)va;
+                             args:(va_list)va NS_FORMAT_FUNCTION(2, 0);
 
 + (instancetype) errorWithCoreCryptoStatus:(int) status
                                   userInfo:(NSDictionary *)dict;
@@ -42,11 +42,11 @@ bool OSStatusError(OSStatus status, NSError * _Nullable * _Nullable error, NSStr
 
 + (instancetype) errorWithCoreCryptoStatus:(int) status
                                description:(NSString*)description
-                                      args:(va_list)va;
+                                      args:(va_list)va NS_FORMAT_FUNCTION(2, 0);
 
 - (instancetype) initWithCoreCryptoStatus:(int) status
                               description:(NSString*)description
-                                     args:(va_list)va;
+                                     args:(va_list)va NS_FORMAT_FUNCTION(2, 0);
 
 @end
 

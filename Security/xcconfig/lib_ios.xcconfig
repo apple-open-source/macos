@@ -5,16 +5,16 @@ EXECUTABLE_EXTENSION = a
 
 CODE_SIGN_IDENTITY =
 
-HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX/sec/ipc $(PROJECT_DIR)/OSX/sectask $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/libsecurity_ssl $(PROJECT_DIR)/OSX/regressions $(PROJECT_DIR)/OSX/ibsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR)/usr/local/include
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/header_symlinks $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX/sec/ipc $(PROJECT_DIR)/OSX/sectask $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/libsecurity_ssl $(PROJECT_DIR)/OSX/regressions $(PROJECT_DIR)/OSX/ibsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR)/usr/local/include
 
-HEADER_SEARCH_PATHS[sdk=macosx*] = $(inherited) $(PROJECT_DIR)/OSX/libsecurity_smime $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers
-
-HEADER_SEARCH_PATHS[sdk=embedded*] = $(inherited) $(PROJECT_DIR)/libsecurity_smime $(PROJECT_DIR)/OSX/sec/sectask
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(inherited) $(PROJECT_DIR)/OSX/libsecurity_smime $(PROJECT_DIR)/header_symlinks/macOS $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers
+HEADER_SEARCH_PATHS[sdk=embedded*] = $(inherited) $(PROJECT_DIR)/libsecurity_smime $(PROJECT_DIR)/OSX/sec/sectask $(PROJECT_DIR)/header_symlinks/iOS
 
 // Turning off deprecations here is the worst hack. Enable whenever possible.
 WARNING_CFLAGS = -Wno-deprecated-declarations -Wglobal-constructors -Wmost -Wno-four-char-constants -Wno-unknown-pragmas $(inherited)
 
-OTHER_CFLAGS = -isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders -iframework$(SDKROOT)/System/Library/PrivateFrameworks $(inherited)
+
+OTHER_CFLAGS = -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders -fconstant-cfstrings $(inherited)
 
 DEAD_CODE_STRIPPING = YES
 COPY_PHASE_STRIP = NO
@@ -44,3 +44,5 @@ GCC_WARN_SHADOW = NO
 
 GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = $(inherited) SEC_IOS_ON_OSX=1
 GCC_PREPROCESSOR_DEFINITIONS[sdk=embeddedsimulator*] = $(inherited) NO_SERVER=1
+
+GCC_PREPROCESSOR_DEFINITIONS[config=Debug][sdk=embedded] = $(inherited) NO_SERVER=1

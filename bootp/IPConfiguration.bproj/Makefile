@@ -45,7 +45,9 @@ arptest: arp_session.c arp_session.h
 ##	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -g -Wall -c arp_session.c -DTEST_ARP_SESSION $(SYSTEM_PRIVATE) -I../bootplib
 ##
 
-inet6_addrs: ifutil.c rtutil.c ../bootplib/arp.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c
+IFUTIL_FILES = ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c HostUUID.c rsakey.c
+
+inet6_addrs: $(IFUTIL_FILES) rtutil.c ../bootplib/arp.c
 	cc -DTEST_INET6_ADDRLIST -DCONFIGURE_IPV6 -I../bootplib $(SYSTEM_PRIVATE) -framework SystemConfiguration -framework CoreFoundation -g -o $@ $^
 
 dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c IPv6Socket.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ../bootplib/interfaces.c ../bootplib/DHCPv6.c ../bootplib/DHCPv6Options.c ../bootplib/DHCPDUID.c DHCPv6Socket.c DHCPDUIDIAID.c ../bootplib/DNSNameList.c ../bootplib/cfutil.c ../bootplib/util.c
@@ -54,8 +56,8 @@ dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c IPv6So
 dhcpduid: DHCPDUIDIAID.c ../bootplib/util.c ../bootplib/DHCPDUID.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/cfutil.c HostUUID.c ../bootplib/IPConfigurationLog.c
 	cc -DTEST_DHCPDUIDIAID -I$(BLIB) -g -Wall -framework CoreFoundation -framework SystemConfiguration -o $@ $^
 
-rtadv: RTADVSocket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c
-	cc -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) -I../bootplib -DTEST_RTADVSOCKET -framework CoreFoundation -framework SystemConfiguration -o $@ $^
+rtadv: RTADVSocket.c IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c ../bootplib/DNSNameList.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) -I../bootplib -DTEST_RTADVSOCKET -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 rsakey: RSAKey.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c
 	cc -I../bootplib -DTEST_RSAKEY -framework SystemConfiguration -framework CoreFoundation -g -Wall -o $@ $^
@@ -66,9 +68,18 @@ cga: CGA.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c RSAKey.c HostUU
 ndadvert: IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/IPConfigurationLog.c ifutil.c CGA.c ../bootplib/util.c ../bootplib/cfutil.c rsakey.c HostUUID.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) -I../bootplib -DTEST_NEIGHBOR_ADVERT -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^
 
-ipv6ll: ifutil.c ../bootplib/cfutil.c ../bootplib/util.c ../bootplib/IPConfigurationLog.c rtutil.c ../bootplib/arp.c
+ipv6ll: $(IFUTIL_FILES) rtutil.c ../bootplib/arp.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -I../bootplib -DTEST_IPV6_LL -framework SystemConfiguration -framework CoreFoundation $(SC_PRIV) -g -Wall -o $@ $^
 
+IPv6AWDReportTest: IPv6AWDReport.m
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_IPV6_AWD_REPORT -framework Foundation -weak_framework WirelessDiagnostics -framework CoreFoundation -framework SystemConfiguration -framework ProtocolBuffer $(SC_PRIV) $(PF_INC) -I AWD -I../bootplib ../bootplib/IPConfigurationLog.c AWD/AWDIPConfigurationIPv6Report.m -o $@ $^
+
+ipv6lladdr: $(IFUTIL_FILES)
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_IPV6_LINKLOCAL_ADDRESS -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) -I../bootplib -o $@ $^
+
+ipv6defpfx: $(IFUTIL_FILES)
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_IPV6_ROUTER_PREFIX_COUNT -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) -I../bootplib -o $@ $^
+
 clean:
-	rm -f arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll
+	rm -f arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest
 	rm -rf *.dSYM/

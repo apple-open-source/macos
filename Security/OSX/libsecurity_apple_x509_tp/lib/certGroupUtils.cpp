@@ -300,6 +300,10 @@ static const char *tpSubStr(
 	const char 	*substr,
 	uint32		substrLen)
 {
+    if(!bigstr || !substr || bigstrLen == 0 || substrLen == 0) {
+        return NULL;
+    }
+
 	/* stop searching substrLen chars before end of bigstr */
 	const char *endBigStr = bigstr + bigstrLen - substrLen;
 	for( ; bigstr <= endBigStr; ) {

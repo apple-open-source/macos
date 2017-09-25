@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/command'
 
@@ -182,6 +183,61 @@ class TestGemCommand < Gem::TestCase
     args = ['-h', 'command']
     @cmd.handles?(args)
     assert_equal ['-h', 'command'], args
+  end
+
+  def test_show_lookup_failure_suggestions_local
+    correct    = "non_existent_with_hint"
+    misspelled = "nonexistent_with_hint"
+
+    spec_fetcher do |fetcher|
+      fetcher.spec correct, 2
+    end
+
+    use_ui @ui do
+      @cmd.show_lookup_failure misspelled, Gem::Requirement.default, [], :local
+    end
+
+    expected = <<-EXPECTED
+ERROR:  Could not find a valid gem 'nonexistent_with_hint' (>= 0) in any repository
+    EXPECTED
+
+    assert_equal expected, @ui.error
+  end
+
+  def test_show_lookup_failure_suggestions_none
+    spec_fetcher do |fetcher|
+      fetcher.spec 'correct', 2
+    end
+
+    use_ui @ui do
+      @cmd.show_lookup_failure 'other', Gem::Requirement.default, [], :remote
+    end
+
+    expected = <<-EXPECTED
+ERROR:  Could not find a valid gem 'other' (>= 0) in any repository
+    EXPECTED
+
+    assert_equal expected, @ui.error
+  end
+
+  def test_show_lookup_failure_suggestions_remote
+    correct    = "non_existent_with_hint"
+    misspelled = "nonexistent_with_hint"
+
+    spec_fetcher do |fetcher|
+      fetcher.spec correct, 2
+    end
+
+    use_ui @ui do
+      @cmd.show_lookup_failure misspelled, Gem::Requirement.default, [], :remote
+    end
+
+    expected = <<-EXPECTED
+ERROR:  Could not find a valid gem 'nonexistent_with_hint' (>= 0) in any repository
+ERROR:  Possible alternatives: non_existent_with_hint
+    EXPECTED
+
+    assert_equal expected, @ui.error
   end
 
 end

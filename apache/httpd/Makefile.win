@@ -57,6 +57,15 @@ USEMAK=0
 USEDSW=1
 !ENDIF
 
+# APU 1.6 (and up?)
+!IF EXIST("srclib\apr-util\xml\xml.mak")
+EXPAT=xml
+EXPBCK = ..
+!ELSE
+EXPAT=xml\expat\lib
+EXPBCK = ..\..\..
+!ENDIF
+
 default: _buildr
 
 !IF ("$(CTARGET)" == "") && ($(USESLN) == 1)
@@ -102,17 +111,32 @@ UTILDIR=apr-util
 !IF EXIST("srclib\openssl")
 !IF "$(LONG)" == "Debug" && EXIST("srclib\openssl\out32dll.dbg\openssl.exe")
 SSLBIN=out32dll.dbg
+SSLAPP=out32dll.dbg
+SSLCRP=libeay32
+SSLLIB=ssleay32
+!ELSEIF EXIST("srclib\openssl\libcrypto.lib")
+!MESSAGE Building with OpenSSL 1.1.0
+!MESSAGE 
+SSLBIN=.
+SSLAPP=apps
+SSLCRP=libcrypto
+SSLLIB=libssl
+SSLOPT=_HAVE_OSSL110=1
 !ELSE
 SSLBIN=out32dll
+SSLAPP=out32dll
+SSLCRP=libeay32
+SSLLIB=ssleay32
 !ENDIF
+
 
 _tryssl:
 !IF $(USEMAK) == 1
 	cd modules\ssl
-	$(MAKE) $(MAKEOPT) -f mod_ssl.mak CFG="mod_ssl - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	$(MAKE) $(MAKEOPT) $(SSLOPT) -f mod_ssl.mak CFG="mod_ssl - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..\..
 	cd support
-	$(MAKE) $(MAKEOPT) -f abs.mak CFG="abs - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	$(MAKE) $(MAKEOPT) $(SSLOPT) -f abs.mak CFG="abs - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..
 !ELSEIF $(USESLN) == 1
 	devenv $(TLP).sln /useenv $(CTARGET) $(LONG) /project mod_ssl
@@ -241,6 +265,33 @@ _trynghttp2:
 	@echo mod_http2 will not build unless nghttp2 is installed in srclib\nghttp2.
 	@echo Version 1.0 includes an lib\makefile.msvc that will satisfy this
 	@echo requirement.
+
+!ENDIF
+
+!IF EXIST("srclib\brotli")
+
+_trybrotli:
+!IF $(USEMAK) == 1
+	cd modules\filters
+	$(MAKE) $(MAKEOPT) -f mod_brotli.mak CFG="mod_brotli - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	cd ..\..
+!ELSEIF $(USESLN) == 1
+	devenv $(TLP).sln /useenv $(CTARGET) $(LONG) /project mod_brotli
+!ELSE
+	@msdev $(TLP).dsw /USEENV /MAKE \
+		"mod_brotli - Win32 $(LONG)" /NORECURSE $(CTARGET)
+!ENDIF
+
+!ELSE
+#     NOT EXIST("srclib\brotli")
+
+_trybrotli:
+	@echo -----
+	@echo mod_brotli will not build unless brotli is built in srclib\brotli.  
+	@echo Version 1.0.0 and later available from https://github.com/google/brotli/releases
+	@echo build with:
+	@echo cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+	@echo nmake
 
 !ENDIF
 
@@ -375,11 +426,11 @@ _build:
 	cd ..
 !ENDIF
 	cd ..\..
-	cd srclib\apr-util\xml\expat\lib
+	cd srclib\apr-util\$(EXPAT)
 	 $(MAKE) $(MAKEOPT) -f xml.mak             CFG="xml - Win32 $(LONG)" RECURSE=0 $(CTARGET)
-	cd ..\..\..
-	 $(MAKE) $(MAKEOPT) -f aprutil.mak         CFG="aprutil - Win32 $(LONG)" RECURSE=0 $(CTARGET)
-	 $(MAKE) $(MAKEOPT) -f libaprutil.mak      CFG="libaprutil - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	cd $(EXPBCK)
+	 $(MAKE) $(MAKEOPT) $(SSLOPT) -f aprutil.mak         CFG="aprutil - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	 $(MAKE) $(MAKEOPT) $(SSLOPT) -f libaprutil.mak      CFG="libaprutil - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ldap
 	 $(MAKE) $(MAKEOPT) -f apr_ldap.mak        CFG="apr_ldap - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..
@@ -480,6 +531,9 @@ _build:
 	cd ..\..
 !ENDIF
 	cd modules\filters
+!IF EXIST("srclib\brotli")
+	 $(MAKE) $(MAKEOPT) -f mod_brotli.mak      CFG="mod_brotli - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+!ENDIF
 	 $(MAKE) $(MAKEOPT) -f mod_buffer.mak      CFG="mod_buffer - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f mod_charset_lite.mak CFG="mod_charset_lite - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f mod_data.mak        CFG="mod_data - Win32 $(LONG)" RECURSE=0 $(CTARGET)
@@ -585,10 +639,10 @@ _build:
 #	 $(MAKE) $(MAKEOPT) -f mod_session_crypto.mak CFG="mod_session_crypto - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 #	cd ..\..
 	cd modules\ssl
-	 $(MAKE) $(MAKEOPT) -f mod_ssl.mak         CFG="mod_ssl - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	 $(MAKE) $(MAKEOPT) $(SSLOPT) -f mod_ssl.mak         CFG="mod_ssl - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..\..
 	cd support
-	 $(MAKE) $(MAKEOPT) -f abs.mak             CFG="abs - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	 $(MAKE) $(MAKEOPT) $(SSLOPT) -f abs.mak             CFG="abs - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..
 !ENDIF
 	cd support
@@ -754,6 +808,9 @@ _copybin:
 	copy modules\examples\$(LONG)\mod_example_hooks.$(src_so)  "$(inst_so)" <.y
 	copy modules\examples\$(LONG)\mod_example_ipc.$(src_so)	   "$(inst_so)" <.y
 !ENDIF
+!IF EXIST("srclib\brotli")
+	copy modules\filters\$(LONG)\mod_brotli.$(src_so) 	"$(inst_so)" <.y
+!ENDIF
 	copy modules\filters\$(LONG)\mod_buffer.$(src_so) 	"$(inst_so)" <.y
 	copy modules\filters\$(LONG)\mod_charset_lite.$(src_so)	"$(inst_so)" <.y
 	copy modules\filters\$(LONG)\mod_data.$(src_so)	"$(inst_so)" <.y
@@ -848,9 +905,9 @@ _copybin:
 !IF EXIST("srclib\openssl")
 #	copy modules\session\$(LONG)\mod_session_crypto.$(src_so) "$(inst_so)" <.y
 	copy modules\ssl\$(LONG)\mod_ssl.$(src_so) 		"$(inst_so)" <.y
-	-copy srclib\openssl\$(SSLBIN)\libeay32.$(src_dll) 	"$(inst_dll)" <.y
-	-copy srclib\openssl\$(SSLBIN)\ssleay32.$(src_dll) 	"$(inst_dll)" <.y
-	-copy srclib\openssl\$(SSLBIN)\openssl.$(src_exe) 	"$(inst_exe)" <.y
+	-copy srclib\openssl\$(SSLBIN)\$(SSLCRP)*.$(src_dll) 	"$(inst_dll)" <.y
+	-copy srclib\openssl\$(SSLBIN)\$(SSLLIB)*.$(src_dll) 	"$(inst_dll)" <.y
+	-copy srclib\openssl\$(SSLAPP)\openssl.$(src_exe) 	"$(inst_exe)" <.y
 	copy support\$(LONG)\abs.$(src_exe) 			"$(inst_exe)" <.y
 !ENDIF
 	copy support\$(LONG)\ab.$(src_exe) 			"$(inst_exe)" <.y
@@ -1078,6 +1135,25 @@ BEGIN {
 }
 <<
 !ENDIF
+!IF EXIST("srclib\brotli")
+	type << >> "$(INSTDIR)\NOTICE.txt"
+
+This binary distribution of mod_brotli.so includes Brotli C library written 
+by the Brotli Authors. For complete information, visit Brotli's web site 
+at https://github.com/google/brotli
+<<
+	-awk -f <<script.awk < "srclib\brotli\LICENSE" >> "$(INSTDIR)\LICENSE.txt"
+BEGIN {
+    print "";
+    print "For the mod_brotli component:";
+    print "";
+	    while ( getline > 0 ) {
+	print $$0;
+    }
+    exit 0;
+}
+<<
+!ENDIF
 	$(MAKE) $(MAKEOPT) -f Makefile.win SHORT=$(SHORT) LONG=$(LONG) \
 		_copybin src_exe=exe src_dll=dll src_so=so             \
 		inst_exe="$(INSTDIR)\bin"                              \
@@ -1143,8 +1219,8 @@ BEGIN {
 !IF EXIST("srclib\apr-util")
 	copy srclib\apr-util\Lib$(SHORT)\aprutil-1.lib	"$(INSTDIR)\lib" <.y
 	copy srclib\apr-util\Lib$(SHORT)\aprutil-1.pdb	"$(INSTDIR)\lib" <.y
-	copy srclib\apr-util\xml\expat\lib\Lib$(SHORT)\xml.lib "$(INSTDIR)\lib" <.y
-	copy srclib\apr-util\xml\expat\lib\Lib$(SHORT)\xml.pdb "$(INSTDIR)\lib" <.y
+	copy srclib\apr-util\$(EXPAT)\Lib$(SHORT)\xml.lib "$(INSTDIR)\lib" <.y
+	copy srclib\apr-util\$(EXPAT)\Lib$(SHORT)\xml.pdb "$(INSTDIR)\lib" <.y
 	copy srclib\apr-util\$(LONG)\libaprutil-1.lib 	"$(INSTDIR)\lib" <.y
 	copy srclib\apr-util\$(LONG)\libaprutil-1.exp 	"$(INSTDIR)\lib" <.y
 	copy srclib\apr-iconv\$(LONG)\libapriconv-1.lib	"$(INSTDIR)\lib" <.y

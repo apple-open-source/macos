@@ -14,10 +14,9 @@
 #include <IOKit/hid/IOHIDEventSystemClient.h>
 #include <IOKit/hid/IOHIDEventSystemKeys.h>
 #include "hdutil.h"
-#include "AssertMacros.h"
 #include "utility.h"
 
-static int                          _outFile            = 1; // default stdout
+static int                          _outFile            = STDOUT_FILENO; // default stdout
 static CFMutableDictionaryRef       _output             = NULL;
 static IOHIDEventSystemClientRef    _eventSystemRef     = NULL;
 
@@ -123,6 +122,9 @@ int dump (int argc, const char * argv[]) {
                 return STATUS_SUCCESS;
              // --output
             case 'o':
+                if (_outFile > STDERR_FILENO) {
+                    close(_outFile);
+                }
                 if ((_outFile = open(optarg, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) == -1) {
                     printf("Error opening output file\n");
                     return STATUS_ERROR;
@@ -154,15 +156,23 @@ int dump (int argc, const char * argv[]) {
             callFunc = &getServices;
         } else {
             printf("unrecognized object: %s\n", argv[optind+1]);
-            return STATUS_ERROR;
+            status = STATUS_ERROR;
+            goto exit;
         }
     }
   
     _eventSystemRef = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
-    require_action(_eventSystemRef, exit, printf("Unable to create client\n") ; status = STATUS_ERROR);
+    if (!_eventSystemRef) {
+        printf("Unable to create client\n");
+        status = STATUS_ERROR;
+        goto exit;
+    }
     
     _output = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    require_action(_output, exit, status = STATUS_ERROR);
+    if (!_output) {
+        status = STATUS_ERROR;
+        goto exit;
+    }
     
     if (callFunc) {
         callFunc();
@@ -177,7 +187,7 @@ exit:
         CFRelease(_eventSystemRef);
     if (_output)
         CFRelease(_output);
-    if (_outFile > 2) {
+    if (_outFile > STDERR_FILENO) {
         close(_outFile);
     }
     return status;

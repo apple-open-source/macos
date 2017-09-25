@@ -146,6 +146,9 @@ __private_extern__
 Boolean
 _prefs_open(CFStringRef name, CFStringRef prefsID)
 {
+#if	TARGET_OS_EMBEDDED
+	char			*env		= NULL;
+#endif	// TARGET_OS_EMBEDDED
 	CFMutableDictionaryRef	options		= NULL;
 	Boolean			useHelper	= FALSE;
 	Boolean			useOptions	= FALSE;
@@ -164,17 +167,33 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 	}
 
 	if (getenv("SCPREFERENCES_REMOVE_WHEN_EMPTY") != NULL) {
-		// if we have options
-		useOptions = TRUE;
+		if (options == NULL) {
+			options = CFDictionaryCreateMutable(NULL,
+							    0,
+							    &kCFTypeDictionaryKeyCallBacks,
+							    &kCFTypeDictionaryValueCallBacks);
+			useOptions = TRUE;
+		}
+		CFDictionarySetValue(options, kSCPreferencesOptionRemoveWhenEmpty, kCFBooleanTrue);
+	}
+
+#if	TARGET_OS_EMBEDDED
+	env = getenv("SCPREFERENCES_PROTECTION_CLASS");
+	if (env != NULL) {
+		CFStringRef	str;
 
 		if (options == NULL) {
 			options = CFDictionaryCreateMutable(NULL,
 							    0,
 							    &kCFTypeDictionaryKeyCallBacks,
 							    &kCFTypeDictionaryValueCallBacks);
+			useOptions = TRUE;
 		}
-		CFDictionarySetValue(options, kSCPreferencesOptionRemoveWhenEmpty, kCFBooleanTrue);
+		str = CFStringCreateWithCString(NULL, env, kCFStringEncodingASCII);
+		CFDictionarySetValue(options, kSCPreferencesOptionProtectionClass, str);
+		CFRelease(str);
 	}
+#endif	// TARGET_OS_EMBEDDED
 
 	if (!useHelper && !useOptions) {
 		// if no helper/options needed
@@ -286,6 +305,8 @@ _prefs_commitRequired(int argc, char **argv, const char *command)
 static void
 get_ComputerName(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	CFStringEncoding	encoding;
 	CFStringRef		hostname;
 
@@ -362,6 +383,8 @@ set_ComputerName(int argc, char **argv)
 static void
 get_HostName(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	CFStringRef	hostname;
 	Boolean		ok;
 
@@ -442,6 +465,8 @@ set_HostName(int argc, char **argv)
 static void
 get_LocalHostName(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	CFStringRef	hostname;
 
 	hostname = SCDynamicStoreCopyLocalHostName(NULL);
@@ -655,6 +680,7 @@ __private_extern__
 void
 do_prefs_lock(int argc, char **argv)
 {
+#pragma unused(argv)
 	Boolean	wait	= (argc > 0) ? TRUE : FALSE;
 
 	if (!SCPreferencesLock(prefs, wait)) {
@@ -670,6 +696,8 @@ __private_extern__
 void
 do_prefs_unlock(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (!SCPreferencesUnlock(prefs)) {
 		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 		return;
@@ -683,6 +711,8 @@ __private_extern__
 void
 do_prefs_commit(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (!SCPreferencesCommitChanges(prefs)) {
 		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 		return;
@@ -697,6 +727,8 @@ __private_extern__
 void
 do_prefs_apply(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (!SCPreferencesApplyChanges(prefs)) {
 		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 	}
@@ -737,13 +769,17 @@ __private_extern__
 void
 do_prefs_synchronize(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	SCPreferencesSynchronize(prefs);
 	return;
 }
 
 
 static CFComparisonResult
-sort_paths(const void *p1, const void *p2, void *context) {
+sort_paths(const void *p1, const void *p2, void *context)
+{
+#pragma unused(context)
 	CFStringRef path1 = (CFStringRef)p1;
 	CFStringRef path2 = (CFStringRef)p2;
 	return CFStringCompare(path1, path2, 0);
@@ -822,6 +858,7 @@ __private_extern__
 void
 do_prefs_get(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFDictionaryRef		dict;
 	CFStringRef		link;
 	CFIndex			n;
@@ -955,6 +992,7 @@ __private_extern__
 void
 do_prefs_remove(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFStringRef	path;
 
 	path = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);

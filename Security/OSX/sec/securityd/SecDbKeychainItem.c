@@ -568,7 +568,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
         attributes = s3dl_item_v3_decode(plainText, error);
     }
     
-    require_action_quiet(attributes, out, { ok = false; secerror("decode v%d failed: %@ [item: %@]", version, error ? *error : NULL, plainText); });
+    require_action_quiet(attributes, out, { ok = false; secerror("decode v%d failed: %@", version, error ? *error : NULL); });
 
 #if USE_KEYSTORE
     if (version >= 4 && authenticated_attributes != NULL) {
@@ -881,7 +881,7 @@ static bool SecDbItemImportMigrate(SecDbItemRef item, CFErrorRef *error) {
 
     if (!isString(agrp) || !isString(accessible))
         return ok;
-    if (SecDbItemGetClass(item) == &genp_class && CFEqual(accessible, kSecAttrAccessibleAlwaysPrivate)) {
+    if (SecDbItemGetClass(item) == genp_class() && CFEqual(accessible, kSecAttrAccessibleAlwaysPrivate)) {
         CFStringRef svce = SecDbItemGetCachedValueWithName(item, kSecAttrService);
         if (!isString(svce)) return ok;
         if (CFEqual(agrp, CFSTR("apple"))) {
@@ -900,7 +900,7 @@ static bool SecDbItemImportMigrate(SecDbItemRef item, CFErrorRef *error) {
                 }
             }
         }
-    } else if (SecDbItemGetClass(item) == &inet_class && CFEqual(accessible, kSecAttrAccessibleAlwaysPrivate)) {
+    } else if (SecDbItemGetClass(item) == inet_class() && CFEqual(accessible, kSecAttrAccessibleAlwaysPrivate)) {
         if (CFEqual(agrp, CFSTR("PrintKitAccessGroup"))) {
             ok = SecDbItemSetValueWithName(item, kSecAttrAccessible, kSecAttrAccessibleWhenUnlocked, error);
         } else if (CFEqual(agrp, CFSTR("apple"))) {
@@ -981,7 +981,7 @@ bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error)
     if (!isString(agrp))
         return true;
 
-    if (CFEqual(agrp, CFSTR("com.apple.cfnetwork")) && SecDbItemGetClass(item) == &inet_class) {
+    if (CFEqual(agrp, CFSTR("com.apple.cfnetwork")) && SecDbItemGetClass(item) == inet_class()) {
         CFTypeRef srvr = SecDbItemGetCachedValueWithName(item, kSecAttrServer);
         CFTypeRef ptcl = SecDbItemGetCachedValueWithName(item, kSecAttrProtocol);
         CFTypeRef atyp = SecDbItemGetCachedValueWithName(item, kSecAttrAuthenticationType);
@@ -1027,7 +1027,7 @@ bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRe
 
     CFStringRef className;
     sqlite3_int64 rowid;
-    if (!_SecItemParsePersistentRef(ref, &className, &rowid))
+    if (!_SecItemParsePersistentRef(ref, &className, &rowid, NULL))
         return SecError(errSecDecode, error, CFSTR("v_PersistentRef %@ failed to decode"), ref);
 
     if (!CFEqual(SecDbItemGetClass(item)->name, className))
@@ -1056,8 +1056,22 @@ static CFTypeRef SecDbItemCopyDigestWithMask(SecDbItemRef item, CFOptionFlags ma
     return digest;
 }
 
+static CFTypeRef SecDbItemCopySHA256DigestWithMask(SecDbItemRef item, CFOptionFlags mask, CFErrorRef *error) {
+    CFDataRef digest = NULL;
+    CFDataRef der = SecDbItemCopyDERWithMask(item, mask, error);
+    if (der) {
+        digest = CFDataCopySHA256Digest(der, error);
+        CFRelease(der);
+    }
+    return digest;
+}
+
 CFTypeRef SecDbKeychainItemCopyPrimaryKey(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error) {
     return SecDbItemCopyDigestWithMask(item, kSecDbPrimaryKeyFlag, error);
+}
+
+CFTypeRef SecDbKeychainItemCopySHA256PrimaryKey(SecDbItemRef item, CFErrorRef *error) {
+    return SecDbItemCopySHA256DigestWithMask(item, kSecDbPrimaryKeyFlag, error);
 }
 
 CFTypeRef SecDbKeychainItemCopySHA1(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error) {

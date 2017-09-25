@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/it_CH.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 it_CH{
     NumberElements{
         latn{
@@ -14,11 +8,11 @@ it_CH{
             }
             symbols{
                 decimal{"."}
-                group{"'"}
+                group{"’"}
             }
         }
     }
-    Version{"2.1.24.15"}
+    Version{"2.1.31.33"}
     calendar{
         generic{
             DateTimePatterns{
@@ -52,24 +46,6 @@ it_CH{
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-            }
-            monthNames{
-                stand-alone{
-                    wide{
-                        "gennaio",
-                        "febbraio",
-                        "marzo",
-                        "aprile",
-                        "maggio",
-                        "giugno",
-                        "luglio",
-                        "agosto",
-                        "settembre",
-                        "ottobre",
-                        "novembre",
-                        "dicembre",
-                    }
-                }
             }
         }
     }

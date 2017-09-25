@@ -40,8 +40,6 @@
 
 #define kHIDQueueSize           16384
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 #define super IOUserClient
 
 
@@ -343,7 +341,7 @@ IOMemoryDescriptor * IOHIDResourceDeviceUserClient::createMemoryDescriptorFromIn
 //----------------------------------------------------------------------------------------------------
 IOService * IOHIDResourceDeviceUserClient::getService(void)
 {
-    return _owner ? _owner : NULL;
+    return _device ? _device : NULL;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -429,7 +427,8 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     propertiesData = IOMalloc(propertiesLength);
     require_action(propertiesData, exit, result=kIOReturnNoMemory);
     
-    propertiesDesc->prepare();
+    result = propertiesDesc->prepare();
+    require_noerr(result, exit);
     propertiesDesc->readBytes(0, propertiesData, propertiesLength);
     propertiesDesc->complete();
     

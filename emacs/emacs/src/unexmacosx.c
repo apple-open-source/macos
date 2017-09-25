@@ -163,6 +163,7 @@ static int nlc;
    Regions with addresses beyond this are assumed to be allocated
    dynamically and thus require dumping.  */
 static vm_address_t infile_lc_highest_addr = 0;
+static vm_address_t last_vmaddr = 0; // for __LINKEDIT
 
 /* The lowest file offset used by the all sections in the __TEXT
    segments.  This leaves room at the beginning of the file to store
@@ -976,6 +977,7 @@ copy_data_segment (struct load_command *lc)
       strncpy (sc.segname, SEG_DATA, 16);
       sc.vmaddr = unexec_regions[j].range.address;
       sc.vmsize = unexec_regions[j].range.size;
+      last_vmaddr = sc.vmaddr + sc.vmsize; // for __LINKEDIT
       sc.fileoff = curr_file_offset;
       sc.filesize = unexec_regions[j].filesize;
       sc.maxprot = VM_PROT_READ | VM_PROT_WRITE;
@@ -1230,8 +1232,9 @@ dump_it ()
 		    unexec_error ("cannot handle multiple LINKEDIT segments"
 				  " in input file");
 		  linkedit_delta = curr_file_offset - scp->fileoff;
+		  printf("Bumping LINKEDIT vmaddr from %llx to %lx\n", scp->vmaddr, last_vmaddr);
+		  scp->vmaddr = last_vmaddr;
 		}
-
 	      copy_segment (lca[i]);
 	    }
 	}

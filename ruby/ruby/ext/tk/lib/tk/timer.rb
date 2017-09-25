@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   tk/timer.rb : methods for Tcl/Tk after command
 #
-#   $Id: timer.rb 25189 2009-10-02 12:04:37Z akr $
+#   $Id: timer.rb 53143 2015-12-16 05:31:54Z naruse $
 #
 require 'tk'
 
@@ -498,10 +499,6 @@ class TkTimer
   end
 
   def wait(on_thread = true, check_root = false)
-    if $SAFE >= 4
-      fail SecurityError, "can't wait timer at $SAFE >= 4"
-    end
-
     unless @running
       if @return_value.kind_of?(Exception)
         fail @return_value

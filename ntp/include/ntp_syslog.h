@@ -26,6 +26,12 @@ extern FILE *	syslog_file;	/* if syslogit is FALSE, log to
 extern char *	syslog_fname;
 extern char *	syslog_abs_fname;
 
+#ifdef __APPLE__
+/* On 10.12.4 and higher, LOG_INFO is lost.  Use LOG_NOTICE instead */
+#undef LOG_INFO
+#define LOG_INFO LOG_NOTICE
+#endif
+
 #if defined(VMS) || defined (SYS_VXWORKS)
 #define	LOG_EMERG	0	/* system is unusable */
 #define	LOG_ALERT	1	/* action must be taken immediately */

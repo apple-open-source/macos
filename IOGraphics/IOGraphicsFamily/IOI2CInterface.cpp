@@ -24,11 +24,14 @@
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOLocks.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
-#include <IOKit/ndrvsupport/IONDRVFramebuffer.h>
 #include <IOKit/assert.h>
 #include <libkern/c++/OSContainers.h>
 
+#include <IOKit/ndrvsupport/IONDRVFramebuffer.h>
 #include <IOKit/i2c/IOI2CInterfacePrivate.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
+
+#include "IOGraphicsKTrace.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -41,6 +44,8 @@ OSDefineMetaClassAndAbstractStructors(IOI2CInterface, IOService)
 
 bool IOI2CInterface::registerI2C( UInt64 id )
 {
+    IOI2C_START(registerI2C,id,0,0);
+
     bool result = true;
 
     fID = id;
@@ -49,6 +54,7 @@ bool IOI2CInterface::registerI2C( UInt64 id )
 
     registerService();
 
+    IOI2C_END(registerI2C,result,0,0);
     return (result);
 }
 
@@ -58,11 +64,17 @@ IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
                                         IOUserClient ** handler )
 
 {
+    IOI2C_START(registerI2C,type,0,0);
+
     IOReturn            err = kIOReturnSuccess;
     IOUserClient *      newConnect = 0;
 
     if (type)
+    {
+        IOI2C_END(registerI2C,kIOReturnBadArgument,0,0);
+        IOLog("IOI2CInterface::newUserClient failed, bad argument\n");
         return (kIOReturnBadArgument);
+    }
 
     newConnect = IOI2CInterfaceUserClient::withTask(owningTask);
 
@@ -83,6 +95,9 @@ IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
 
     *handler = newConnect;
 
+    IOI2C_END(registerI2C,err,0,0);
+    if (err)
+        IOLog("IOI2CInterface::newUserClient failed 0x%08x\n", err);
     return (err);
 }
 
@@ -97,65 +112,88 @@ OSDefineMetaClassAndStructors(IOI2CInterfaceUserClient, IOUserClient)
 
 IOI2CInterfaceUserClient * IOI2CInterfaceUserClient::withTask( task_t owningTask )
 {
-    IOI2CInterfaceUserClient * inst;
+    IOI2CUC_START(withTask,0,0,0);
+
+    IOI2CInterfaceUserClient * inst = NULL;
 
     inst = new IOI2CInterfaceUserClient;
     if (inst && !inst->init())
     {
         inst->release();
-        inst = 0;
+        inst = NULL;
     }
     if (inst)
         inst->fTask = owningTask;
 
+    IOI2CUC_END(withTask,0,0,0);
     return (inst);
 }
 
 bool IOI2CInterfaceUserClient::start( IOService * provider )
 {
-    if (!super::start(provider))
-        return (false);
+    IOI2CUC_START(start,0,0,0);
 
+    if (!super::start(provider))
+    {
+        IOI2CUC_END(start,false,0,0);
+        return (false);
+    }
+
+    IOI2CUC_END(start,true,0,0);
     return (true);
 }
 
 IOReturn IOI2CInterfaceUserClient::clientClose( void )
 {
+    IOI2CUC_START(clientClose,0,0,0);
     terminate();
+    IOI2CUC_END(clientClose,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
 IOService * IOI2CInterfaceUserClient::getService( void )
 {
-    return (getProvider());
+    IOI2CUC_START(getService,0,0,0);
+    IOService * srv = getProvider();
+    IOI2CUC_END(getService,0,0,0);
+    return (srv);
 }
 
 IOExternalMethod * IOI2CInterfaceUserClient::getTargetAndMethodForIndex(
     IOService ** targetP, UInt32 index )
 {
+    IOI2CUC_START(getTargetAndMethodForIndex,index,0,0);
     static const IOExternalMethod methodTemplate[] = {
                 /* 0 */  { NULL, (IOMethod) &IOI2CInterfaceUserClient::extAcquireBus,
                            kIOUCScalarIScalarO, 0, 0 },
                 /* 1 */  { NULL, (IOMethod) &IOI2CInterfaceUserClient::extReleaseBus,
                            kIOUCScalarIScalarO, 0, 0 },
-                /* 3 */  { NULL, (IOMethod) &IOI2CInterfaceUserClient::extIO,
+                /* 2 */  { NULL, (IOMethod) &IOI2CInterfaceUserClient::extIO,
                            kIOUCStructIStructO, 0xffffffff, 0xffffffff },
             };
 
     if (index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
+    {
+        IOI2CUC_END(getTargetAndMethodForIndex,-1,0,0);
         return (NULL);
+    }
 
     *targetP = this;
+
+    IOI2CUC_END(getTargetAndMethodForIndex,0,0,0);
     return ((IOExternalMethod *)(methodTemplate + index));
 }
 
 IOReturn IOI2CInterfaceUserClient::setProperties( OSObject * properties )
 {
+    IOI2CUC_START(setProperties,0,0,0);
+    IOI2CUC_END(setProperties,kIOReturnUnsupported,0,0);
     return (kIOReturnUnsupported);
 }
 
 IOReturn IOI2CInterfaceUserClient::extAcquireBus( void )
 {
+    IOI2CUC_START(extAcquireBus,0,0,0);
     IOReturn            ret = kIOReturnNotReady;
     IOI2CInterface *    provider;
 
@@ -165,11 +203,13 @@ IOReturn IOI2CInterfaceUserClient::extAcquireBus( void )
         provider->release();
     }
 
+    IOI2CUC_END(extAcquireBus,ret,0,0);
     return (ret);
 }
 
 IOReturn IOI2CInterfaceUserClient::extReleaseBus( void )
 {
+    IOI2CUC_START(extReleaseBus,0,0,0);
     IOReturn            ret = kIOReturnNotReady;
     IOI2CInterface *    provider;
 
@@ -180,6 +220,7 @@ IOReturn IOI2CInterfaceUserClient::extReleaseBus( void )
         ret = kIOReturnSuccess;
     }
 
+    IOI2CUC_END(extReleaseBus,ret,0,0);
     return (ret);
 }
 
@@ -187,6 +228,7 @@ IOReturn IOI2CInterfaceUserClient::extIO(
     void * inStruct, void * outStruct,
     IOByteCount inSize, IOByteCount * outSize )
 {
+    IOI2CUC_START(extIO,0,0,0);
     IOReturn            err = kIOReturnNotReady;
     IOI2CInterface *    provider;
     IOI2CBuffer *       buffer;
@@ -196,42 +238,48 @@ IOReturn IOI2CInterfaceUserClient::extIO(
     IOI2CRequest          requestV2;
 
     if (inSize < sizeof(IOI2CBuffer))
+    {
+        IOI2CUC_END(extIO,kIOReturnNoSpace,__LINE__,0);
         return (kIOReturnNoSpace);
+    }
     if (*outSize < inSize)
+    {
+        IOI2CUC_END(extIO,kIOReturnNoSpace,__LINE__,0);
         return (kIOReturnNoSpace);
+    }
 
-        buffer = (IOI2CBuffer *) inStruct;
-        request = &buffer->request;
+    buffer = (IOI2CBuffer *) inStruct;
+    request = &buffer->request;
 
-        if (!request->sendTransactionType && !request->replyTransactionType)
-        {
-                requestV1 = (typeof (requestV1)) &buffer->request;
-                bzero(&requestV2, sizeof(requestV2));
-                request = &requestV2;
+    if (!request->sendTransactionType && !request->replyTransactionType)
+    {
+        requestV1 = (IOGRAPHICS_TYPEOF(requestV1)) &buffer->request;
+        bzero(&requestV2, sizeof(requestV2));
+        request = &requestV2;
 
-                request->sendTransactionType  = requestV1->sendTransactionType;
-                request->replyTransactionType = requestV1->replyTransactionType;
-                request->sendAddress          = requestV1->sendAddress;
-                request->replyAddress         = requestV1->replyAddress;
-                request->sendBytes            = requestV1->sendBytes;
-                request->replyBytes           = requestV1->replyBytes;
-                request->sendSubAddress       = requestV1->sendSubAddress;
-                request->replySubAddress      = requestV1->replySubAddress;
-                request->commFlags            = requestV1->commFlags;
-                request->minReplyDelay        = requestV1->minReplyDelay;
-        }
-        else
-        {
-            /*
-             <rdar://problem/23955672> ZDI-CAN-3453: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability IOI2CInterfaceUserClient::extIO
-             <rdar://problem/24172232> ZDI-CAN-3453: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability IOI2CInterfaceUserClient::extIO
-             <rdar://problem/24065934> ZDI- CAN-3489: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability
-             <rdar://problem/24172270> ZDI- CAN-3489: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability
+        request->sendTransactionType  = requestV1->sendTransactionType;
+        request->replyTransactionType = requestV1->replyTransactionType;
+        request->sendAddress          = requestV1->sendAddress;
+        request->replyAddress         = requestV1->replyAddress;
+        request->sendBytes            = requestV1->sendBytes;
+        request->replyBytes           = requestV1->replyBytes;
+        request->sendSubAddress       = requestV1->sendSubAddress;
+        request->replySubAddress      = requestV1->replySubAddress;
+        request->commFlags            = requestV1->commFlags;
+        request->minReplyDelay        = requestV1->minReplyDelay;
+    }
+    else
+    {
+        /*
+         <rdar://problem/23955672> ZDI-CAN-3453: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability IOI2CInterfaceUserClient::extIO
+         <rdar://problem/24172232> ZDI-CAN-3453: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability IOI2CInterfaceUserClient::extIO
+         <rdar://problem/24065934> ZDI- CAN-3489: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability
+         <rdar://problem/24172270> ZDI- CAN-3489: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability
 
-             Force completion to NULL if passed in from user land (V1 only case), V2 case handled by the bzero of the V2 structure (above).
-             */
-            request->completion = NULL;
-        }
+         Force completion to NULL if passed in from user land (V1 only case), V2 case handled by the bzero of the V2 structure (above).
+         */
+        request->completion = NULL;
+    }
 
     if ((provider = (IOI2CInterface *) copyParentEntry(gIOServicePlane)))
         do
@@ -265,10 +313,10 @@ IOReturn IOI2CInterfaceUserClient::extIO(
 
             err = provider->startIO( request );
 
-                        if (requestV1)
-                                requestV1->result = request->result;
+            if (requestV1)
+                requestV1->result = request->result;
         }
-        while (false);
+    while (false);
 
     if (provider)
         provider->release();
@@ -281,9 +329,70 @@ IOReturn IOI2CInterfaceUserClient::extIO(
     else
         *outSize = 0;
 
+    IOI2CUC_END(extIO,err,request->sendTransactionType,request->replyTransactionType);
     return (err);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+bool IOI2CInterfaceUserClient::willTerminate(IOService *provider, IOOptionBits options)
+{
+    IOI2CUC_START(willTerminate,0,0,0);
+    DEBG1("I2C-UC", " provider=%p options=%#x\n", provider, (uint32_t)options);
+    bool status = super::willTerminate(provider, options);
+    IOI2CUC_END(willTerminate,status,0,0);
+    return status;
+}
+
+bool IOI2CInterfaceUserClient::didTerminate(IOService *provider, IOOptionBits options, bool *defer)
+{
+    IOI2CUC_START(didTerminate,0,0,0);
+    DEBG1("I2C-UC", " provider=%p options=%#x\n", provider, (uint32_t)options);
+    bool status = super::didTerminate(provider, options, defer);
+    IOI2CUC_END(didTerminate,status,0,0);
+    return status;
+}
+
+bool IOI2CInterfaceUserClient::requestTerminate(IOService *provider, IOOptionBits options)
+{
+    IOI2CUC_START(requestTerminate,0,0,0);
+    DEBG1("I2C-UC", " provider=%p options=%#x\n", provider, (uint32_t)options);
+    bool status = super::requestTerminate(provider, options);
+    IOI2CUC_END(requestTerminate,status,0,0);
+    return status;
+}
+
+bool IOI2CInterfaceUserClient::terminate(IOOptionBits options)
+{
+    IOI2CUC_START(terminate,0,0,0);
+    DEBG1("I2C-UC", "\n");
+    bool status = super::terminate(options);
+    IOI2CUC_END(terminate,status,0,0);
+    return status;
+}
+
+bool IOI2CInterfaceUserClient::finalize(IOOptionBits options)
+{
+    IOI2CUC_START(finalize,0,0,0);
+    DEBG1("I2C-UC", "(%#x)\n", options);
+    bool status = super::finalize(options);
+    IOI2CUC_END(finalize,status,0,0);
+    return status;
+}
+
+void IOI2CInterfaceUserClient::stop(IOService *provider)
+{
+    IOI2CUC_START(stop,0,0,0);
+    DEBG1("I2C-UC", "(%p)\n", provider);
+    super::stop(provider);
+    IOI2CUC_END(stop,0,0,0);
+}
+
+void IOI2CInterfaceUserClient::free()
+{
+    IOI2CUC_START(free,0,0,0);
+    DEBG1("I2C-UC", "\n");
+    super::free();
+    IOI2CUC_END(free,0,0,0);
+}
 

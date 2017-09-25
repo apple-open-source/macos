@@ -20,6 +20,8 @@
 .Op --exclude
 .Op --size=BYTES
 .Op --capsize=BYTES
+.Op --tag=tag
+.Op --zsize=BYTES
 .Op classname
 .Op ...
 .Sh DESCRIPTION
@@ -91,6 +93,14 @@ bytes. The default is 1 byte.
 Only capture allocations >=
 .Ar n
 bytes. The default is 1 byte.
+.It Cm --tag Ns = Ns Ar tag
+Only report allocations with the vm tag
+.Ar tag
+\&.
+.It Cm --zsize Ns = Ns Ar n
+Only report allocations in the kalloc zone of size
+.Ar n
+bytes.
 .El
 .Sh EXAMPLES
 Display instance counts for IOPCIDevice and AppleTestPCI:

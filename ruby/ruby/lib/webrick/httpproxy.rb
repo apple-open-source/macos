@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # httpproxy.rb -- HTTPProxy Class
 #
@@ -11,8 +12,6 @@
 
 require "webrick/httpserver"
 require "net/http"
-
-Net::HTTP::version_1_2 if RUBY_VERSION < "1.7"
 
 module WEBrick
 
@@ -158,12 +157,12 @@ module WEBrick
           os << proxy_request_line << CRLF
           @logger.debug("CONNECT: > #{proxy_request_line}")
           if credentials
-            @logger.debug("CONNECT: sending a credentials")
+            @logger.debug("CONNECT: sending credentials")
             os << "Proxy-Authorization: " << credentials << CRLF
           end
           os << CRLF
           proxy_status_line = os.gets(LF)
-          @logger.debug("CONNECT: read a Status-Line form the upstream server")
+          @logger.debug("CONNECT: read Status-Line from the upstream server")
           @logger.debug("CONNECT: < #{proxy_status_line}")
           if %r{^HTTP/\d+\.\d+\s+200\s*} =~ proxy_status_line
             while line = os.gets(LF)
@@ -203,7 +202,7 @@ module WEBrick
             ua.syswrite(buf)
           end
         end
-      rescue => ex
+      rescue
         os.close
         @logger.debug("CONNECT #{host}:#{port}: closed")
       end
@@ -314,7 +313,7 @@ module WEBrick
       http.start do
         if @config[:ProxyTimeout]
           ##################################   these issues are
-          http.open_timeout = 30   # secs  #   necessary (maybe bacause
+          http.open_timeout = 30   # secs  #   necessary (maybe because
           http.read_timeout = 60   # secs  #   Ruby's bug, but why?)
           ##################################
         end

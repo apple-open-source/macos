@@ -184,6 +184,13 @@ IOReturn        IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
 #define kIOPSNotifyPercentChange                "com.apple.system.powersources.percent"
 
 /*!
+ * @define      kIOPSNotifyAdapterChange
+ * @abstract    Notify(3) key. The system delivers notifications on this key when
+ *              an adapter is connected or disconnected from the sytem.
+ */
+#define kIOPSNotifyAdapterChange                "com.apple.system.powermanagement.poweradapter"
+
+/*!
  * @function    IOPSGetPercentRemaining
  * @abstract    Get the percent charge remaining for the device power source(s).
  * @param       percent - Returns the percent charge remaining (0 to 100).

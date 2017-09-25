@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -52,6 +52,22 @@
 
 namespace WebCore {
 
+#if !LOG_DISABLED
+static const char* toString(MediaSource::ReadyState readyState)
+{
+    switch (readyState) {
+    case MediaSource::ReadyState::Closed:
+        return "closed";
+    case MediaSource::ReadyState::Ended:
+        return "ended";
+    case MediaSource::ReadyState::Open:
+        return "open";
+    default:
+        return "(unknown)";
+    }
+}
+#endif
+
 URLRegistry* MediaSource::s_registry;
 
 void MediaSource::setRegistry(URLRegistry* registry)
@@ -71,7 +87,6 @@ MediaSource::MediaSource(ScriptExecutionContext& context)
     : ActiveDOMObject(&context)
     , m_duration(MediaTime::invalidTime())
     , m_pendingSeekTime(MediaTime::invalidTime())
-    , m_readyState(closedKeyword())
     , m_asyncEventQueue(*this)
 {
     LOG(MediaSource, "MediaSource::MediaSource %p", this);
@@ -83,24 +98,6 @@ MediaSource::~MediaSource()
 {
     LOG(MediaSource, "MediaSource::~MediaSource %p", this);
     ASSERT(isClosed());
-}
-
-const AtomicString& MediaSource::openKeyword()
-{
-    static NeverDestroyed<const AtomicString> open("open", AtomicString::ConstructFromLiteral);
-    return open;
-}
-
-const AtomicString& MediaSource::closedKeyword()
-{
-    static NeverDestroyed<const AtomicString> closed("closed", AtomicString::ConstructFromLiteral);
-    return closed;
-}
-
-const AtomicString& MediaSource::endedKeyword()
-{
-    static NeverDestroyed<const AtomicString> ended("ended", AtomicString::ConstructFromLiteral);
-    return ended;
 }
 
 void MediaSource::setPrivateAndOpen(Ref<MediaSourcePrivate>&& mediaSourcePrivate)
@@ -126,7 +123,7 @@ void MediaSource::setPrivateAndOpen(Ref<MediaSourcePrivate>&& mediaSourcePrivate
 
     // 2. Set the readyState attribute to "open".
     // 3. Queue a task to fire a simple event named sourceopen at the MediaSource.
-    setReadyState(openKeyword());
+    setReadyState(ReadyState::Open);
 
     // 4. Continue the resource fetch algorithm by running the remaining "Otherwise (mode is local)" steps,
     // with these clarifications:
@@ -192,7 +189,7 @@ std::unique_ptr<PlatformTimeRanges> MediaSource::buffered() const
     m_buffered->add(MediaTime::zeroTime(), highestEndTime);
 
     // 5. For each SourceBuffer object in activeSourceBuffers run the following steps:
-    bool ended = readyState() == endedKeyword();
+    bool ended = readyState() == ReadyState::Ended;
     for (auto& sourceRanges : activeRanges) {
         // 5.1 Let source ranges equal the ranges returned by the buffered attribute on the current SourceBuffer.
         // 5.2 If readyState is "ended", then set the end time on the last range in source ranges to highest end time.
@@ -236,6 +233,7 @@ void MediaSource::seekToTime(const MediaTime& time)
     // ↳ Otherwise
     // Continue
 
+    m_private->waitForSeekCompleted();
     completeSeek();
 }
 
@@ -466,18 +464,18 @@ void MediaSource::monitorSourceBuffers()
 ExceptionOr<void> MediaSource::setDuration(double duration)
 {
     // 2.1 Attributes - Duration
-    // https://dvcs.w3.org/hg/html-media/raw-file/tip/media-source/media-source.html#attributes
+    // https://www.w3.org/TR/2016/REC-media-source-20161117/#attributes
 
     // On setting, run the following steps:
-    // 1. If the value being set is negative or NaN then throw an INVALID_ACCESS_ERR exception and abort these steps.
+    // 1. If the value being set is negative or NaN then throw a TypeError exception and abort these steps.
     if (duration < 0.0 || std::isnan(duration))
-        return Exception { INVALID_ACCESS_ERR };
+        return Exception { TypeError };
 
-    // 2. If the readyState attribute is not "open" then throw an INVALID_STATE_ERR exception and abort these steps.
+    // 2. If the readyState attribute is not "open" then throw an InvalidStateError exception and abort these steps.
     if (!isOpen())
         return Exception { INVALID_STATE_ERR };
 
-    // 3. If the updating attribute equals true on any SourceBuffer in sourceBuffers, then throw an INVALID_STATE_ERR
+    // 3. If the updating attribute equals true on any SourceBuffer in sourceBuffers, then throw an InvalidStateError
     // exception and abort these steps.
     for (auto& sourceBuffer : *m_sourceBuffers) {
         if (sourceBuffer->updating())
@@ -491,7 +489,7 @@ ExceptionOr<void> MediaSource::setDuration(double duration)
 ExceptionOr<void> MediaSource::setDurationInternal(const MediaTime& duration)
 {
     // 2.4.6 Duration Change
-    // https://rawgit.com/w3c/media-source/45627646344eea0170dd1cbc5a3d508ca751abb8/media-source-respec.html#duration-change-algorithm
+    // https://www.w3.org/TR/2016/REC-media-source-20161117/#duration-change-algorithm
 
     MediaTime newDuration = duration;
 
@@ -528,12 +526,10 @@ ExceptionOr<void> MediaSource::setDurationInternal(const MediaTime& duration)
     return { };
 }
 
-void MediaSource::setReadyState(const AtomicString& state)
+void MediaSource::setReadyState(ReadyState state)
 {
-    ASSERT(state == openKeyword() || state == closedKeyword() || state == endedKeyword());
-
-    AtomicString oldState = readyState();
-    LOG(MediaSource, "MediaSource::setReadyState(%p) : %s -> %s", this, oldState.string().ascii().data(), state.string().ascii().data());
+    auto oldState = readyState();
+    LOG(MediaSource, "MediaSource::setReadyState(%p) : %s -> %s", this, toString(oldState), toString(state));
 
     if (oldState == state)
         return;
@@ -572,7 +568,7 @@ void MediaSource::streamEndedWithError(std::optional<EndOfStreamError> error)
 
     // 1. Change the readyState attribute value to "ended".
     // 2. Queue a task to fire a simple event named sourceended at the MediaSource.
-    setReadyState(endedKeyword());
+    setReadyState(ReadyState::Ended);
 
     // 3.
     if (!error) {
@@ -660,7 +656,7 @@ ExceptionOr<SourceBuffer&> MediaSource::addSourceBuffer(const String& type)
     // column of the byte stream format registry [MSE-REGISTRY] entry that is associated with type.
     // NOTE: In the current byte stream format registry <http://www.w3.org/2013/12/byte-stream-format-registry/>
     // only the "MPEG Audio Byte Stream Format" has the "Generate Timestamps Flag" value set.
-    bool shouldGenerateTimestamps = contentType.type() == "audio/aac" || contentType.type() == "audio/mpeg";
+    bool shouldGenerateTimestamps = contentType.containerType() == "audio/aac" || contentType.containerType() == "audio/mpeg";
     buffer->setShouldGenerateTimestamps(shouldGenerateTimestamps);
 
     // 7. If the generate timestamps flag equals true:
@@ -693,18 +689,18 @@ ExceptionOr<void> MediaSource::removeSourceBuffer(SourceBuffer& buffer)
     buffer.abortIfUpdating();
 
     // 4. Let SourceBuffer audioTracks list equal the AudioTrackList object returned by sourceBuffer.audioTracks.
-    RefPtr<AudioTrackList> audioTracks = buffer.audioTracks();
+    auto& audioTracks = buffer.audioTracks();
 
     // 5. If the SourceBuffer audioTracks list is not empty, then run the following steps:
-    if (audioTracks->length()) {
+    if (audioTracks.length()) {
         // 5.1 Let HTMLMediaElement audioTracks list equal the AudioTrackList object returned by the audioTracks
         // attribute on the HTMLMediaElement.
         // 5.2 Let the removed enabled audio track flag equal false.
         bool removedEnabledAudioTrack = false;
 
         // 5.3 For each AudioTrack object in the SourceBuffer audioTracks list, run the following steps:
-        while (audioTracks->length()) {
-            auto& track = *audioTracks->lastItem();
+        while (audioTracks.length()) {
+            auto& track = *audioTracks.lastItem();
 
             // 5.3.1 Set the sourceBuffer attribute on the AudioTrack object to null.
             track.setSourceBuffer(nullptr);
@@ -723,7 +719,7 @@ ExceptionOr<void> MediaSource::removeSourceBuffer(SourceBuffer& buffer)
             // 5.3.5 Remove the AudioTrack object from the SourceBuffer audioTracks list.
             // 5.3.6 Queue a task to fire a trusted event named removetrack, that does not bubble and is not
             // cancelable, and that uses the TrackEvent interface, at the SourceBuffer audioTracks list.
-            audioTracks->remove(track);
+            audioTracks.remove(track);
         }
 
         // 5.4 If the removed enabled audio track flag equals true, then queue a task to fire a simple event
@@ -733,18 +729,18 @@ ExceptionOr<void> MediaSource::removeSourceBuffer(SourceBuffer& buffer)
     }
 
     // 6. Let SourceBuffer videoTracks list equal the VideoTrackList object returned by sourceBuffer.videoTracks.
-    RefPtr<VideoTrackList> videoTracks = buffer.videoTracks();
+    auto& videoTracks = buffer.videoTracks();
 
     // 7. If the SourceBuffer videoTracks list is not empty, then run the following steps:
-    if (videoTracks->length()) {
+    if (videoTracks.length()) {
         // 7.1 Let HTMLMediaElement videoTracks list equal the VideoTrackList object returned by the videoTracks
         // attribute on the HTMLMediaElement.
         // 7.2 Let the removed selected video track flag equal false.
         bool removedSelectedVideoTrack = false;
 
         // 7.3 For each VideoTrack object in the SourceBuffer videoTracks list, run the following steps:
-        while (videoTracks->length()) {
-            auto& track = *videoTracks->lastItem();
+        while (videoTracks.length()) {
+            auto& track = *videoTracks.lastItem();
 
             // 7.3.1 Set the sourceBuffer attribute on the VideoTrack object to null.
             track.setSourceBuffer(nullptr);
@@ -763,7 +759,7 @@ ExceptionOr<void> MediaSource::removeSourceBuffer(SourceBuffer& buffer)
             // 7.3.5 Remove the VideoTrack object from the SourceBuffer videoTracks list.
             // 7.3.6 Queue a task to fire a trusted event named removetrack, that does not bubble and is not
             // cancelable, and that uses the TrackEvent interface, at the SourceBuffer videoTracks list.
-            videoTracks->remove(track);
+            videoTracks.remove(track);
         }
 
         // 7.4 If the removed selected video track flag equals true, then queue a task to fire a simple event
@@ -773,18 +769,18 @@ ExceptionOr<void> MediaSource::removeSourceBuffer(SourceBuffer& buffer)
     }
 
     // 8. Let SourceBuffer textTracks list equal the TextTrackList object returned by sourceBuffer.textTracks.
-    RefPtr<TextTrackList> textTracks = buffer.textTracks();
+    auto& textTracks = buffer.textTracks();
 
     // 9. If the SourceBuffer textTracks list is not empty, then run the following steps:
-    if (textTracks->length()) {
+    if (textTracks.length()) {
         // 9.1 Let HTMLMediaElement textTracks list equal the TextTrackList object returned by the textTracks
         // attribute on the HTMLMediaElement.
         // 9.2 Let the removed enabled text track flag equal false.
         bool removedEnabledTextTrack = false;
 
         // 9.3 For each TextTrack object in the SourceBuffer textTracks list, run the following steps:
-        while (textTracks->length()) {
-            auto& track = *textTracks->lastItem();
+        while (textTracks.length()) {
+            auto& track = *textTracks.lastItem();
 
             // 9.3.1 Set the sourceBuffer attribute on the TextTrack object to null.
             track.setSourceBuffer(nullptr);
@@ -803,7 +799,7 @@ ExceptionOr<void> MediaSource::removeSourceBuffer(SourceBuffer& buffer)
             // 9.3.5 Remove the TextTrack object from the SourceBuffer textTracks list.
             // 9.3.6 Queue a task to fire a trusted event named removetrack, that does not bubble and is not
             // cancelable, and that uses the TrackEvent interface, at the SourceBuffer textTracks list.
-            textTracks->remove(track);
+            textTracks.remove(track);
         }
 
         // 9.4 If the removed enabled text track flag equals true, then queue a task to fire a simple event
@@ -840,7 +836,7 @@ bool MediaSource::isTypeSupported(const String& type)
     String codecs = contentType.parameter("codecs");
 
     // 2. If type does not contain a valid MIME type string, then return false.
-    if (contentType.type().isEmpty())
+    if (contentType.containerType().isEmpty())
         return false;
 
     // 3. If type contains a media type or media subtype that the MediaSource does not support, then return false.
@@ -848,8 +844,7 @@ bool MediaSource::isTypeSupported(const String& type)
     // 5. If the MediaSource does not support the specified combination of media type, media subtype, and codecs then return false.
     // 6. Return true.
     MediaEngineSupportParameters parameters;
-    parameters.type = contentType.type();
-    parameters.codecs = codecs;
+    parameters.type = contentType;
     parameters.isMediaSource = true;
     MediaPlayer::SupportsType supported = MediaPlayer::supportsType(parameters, 0);
 
@@ -861,17 +856,17 @@ bool MediaSource::isTypeSupported(const String& type)
 
 bool MediaSource::isOpen() const
 {
-    return readyState() == openKeyword();
+    return readyState() == ReadyState::Open;
 }
 
 bool MediaSource::isClosed() const
 {
-    return readyState() == closedKeyword();
+    return readyState() == ReadyState::Closed;
 }
 
 bool MediaSource::isEnded() const
 {
-    return readyState() == endedKeyword();
+    return readyState() == ReadyState::Ended;
 }
 
 void MediaSource::detachFromElement(HTMLMediaElement& element)
@@ -883,7 +878,7 @@ void MediaSource::detachFromElement(HTMLMediaElement& element)
 
     // 1. Set the readyState attribute to "closed".
     // 7. Queue a task to fire a simple event named sourceclose at the MediaSource.
-    setReadyState(closedKeyword());
+    setReadyState(ReadyState::Closed);
 
     // 2. Update duration to NaN.
     m_duration = MediaTime::invalidTime();
@@ -920,10 +915,10 @@ bool MediaSource::attachToElement(HTMLMediaElement& element)
 
 void MediaSource::openIfInEndedState()
 {
-    if (m_readyState != endedKeyword())
+    if (m_readyState != ReadyState::Ended)
         return;
 
-    setReadyState(openKeyword());
+    setReadyState(ReadyState::Open);
     m_private->unmarkEndOfStream();
 }
 
@@ -938,7 +933,7 @@ void MediaSource::stop()
     m_asyncEventQueue.close();
     if (m_mediaElement)
         m_mediaElement->detachMediaSource();
-    m_readyState = closedKeyword();
+    m_readyState = ReadyState::Closed;
     m_private = nullptr;
 }
 
@@ -952,7 +947,7 @@ const char* MediaSource::activeDOMObjectName() const
     return "MediaSource";
 }
 
-void MediaSource::onReadyStateChange(const AtomicString& oldState, const AtomicString& newState)
+void MediaSource::onReadyStateChange(ReadyState oldState, ReadyState newState)
 {
     for (auto& buffer : *m_sourceBuffers)
         buffer->readyStateChanged();
@@ -962,7 +957,7 @@ void MediaSource::onReadyStateChange(const AtomicString& oldState, const AtomicS
         return;
     }
 
-    if (oldState == openKeyword() && newState == endedKeyword()) {
+    if (oldState == ReadyState::Open && newState == ReadyState::Ended) {
         scheduleEvent(eventNames().sourceendedEvent);
         return;
     }

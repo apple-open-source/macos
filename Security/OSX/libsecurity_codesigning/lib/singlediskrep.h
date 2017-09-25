@@ -50,6 +50,7 @@ public:
 	std::string mainExecutablePath();						// base path
 	CFURLRef copyCanonicalPath();							// base path
 	size_t signingLimit();									// size of file
+	size_t execSegLimit(const Architecture *arch);			// size of executable segment
 	UnixPlusPlus::FileDesc &fd();							// readable fd for this file
 	void flush();											// close cached fd
 	

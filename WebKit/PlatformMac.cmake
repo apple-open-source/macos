@@ -60,8 +60,6 @@ list(APPEND WebKit_SOURCES
     mac/DOM/DOMCSSValue.mm
     mac/DOM/DOMCSSValueList.mm
     mac/DOM/DOMCustomXPathNSResolver.mm
-    mac/DOM/DOMDOMImplementation.mm
-    mac/DOM/DOMDOMTokenList.mm
     mac/DOM/DOMDocument.mm
     mac/DOM/DOMDocumentFragment.mm
     mac/DOM/DOMDocumentType.mm
@@ -133,6 +131,7 @@ list(APPEND WebKit_SOURCES
     mac/DOM/DOMHTMLUListElement.mm
     mac/DOM/DOMHTMLVideoElement.mm
     mac/DOM/DOMInternal.mm
+    mac/DOM/DOMImplementation.mm
     mac/DOM/DOMKeyboardEvent.mm
     mac/DOM/DOMMediaError.mm
     mac/DOM/DOMMediaList.mm
@@ -154,6 +153,7 @@ list(APPEND WebKit_SOURCES
     mac/DOM/DOMText.mm
     mac/DOM/DOMTextEvent.mm
     mac/DOM/DOMTimeRanges.mm
+    mac/DOM/DOMTokenList.mm
     mac/DOM/DOMTreeWalker.mm
     mac/DOM/DOMUIEvent.mm
     mac/DOM/DOMUIKitExtensions.mm
@@ -169,7 +169,7 @@ list(APPEND WebKit_SOURCES
     mac/DefaultDelegates/WebDefaultContextMenuDelegate.mm
     mac/DefaultDelegates/WebDefaultEditingDelegate.m
     mac/DefaultDelegates/WebDefaultPolicyDelegate.m
-    mac/DefaultDelegates/WebDefaultUIDelegate.m
+    mac/DefaultDelegates/WebDefaultUIDelegate.mm
 
     mac/History/BackForwardList.mm
     mac/History/BinaryPropertyList.cpp
@@ -188,7 +188,7 @@ list(APPEND WebKit_SOURCES
     mac/Misc/WebKitLogging.m
     mac/Misc/WebKitNSStringExtras.mm
     mac/Misc/WebKitStatistics.m
-    mac/Misc/WebKitVersionChecks.m
+    mac/Misc/WebKitVersionChecks.mm
     mac/Misc/WebLocalizableStrings.mm
     mac/Misc/WebLocalizableStringsInternal.mm
     mac/Misc/WebNSControlExtras.m
@@ -320,8 +320,6 @@ list(APPEND WebKit_SOURCES
     mac/WebView/WebViewData.mm
 )
 
-set(WebKit_LIBRARY_TYPE SHARED)
-
 set(WebKitLegacy_FORWARDING_HEADERS_DIRECTORIES
     mac/DOM
     mac/DefaultDelegates
@@ -372,7 +370,6 @@ set(C99_FILES
     mac/Misc/WebKitLogging.m
     mac/Misc/WebKitStatistics.m
     mac/Misc/WebKitSystemBits.m
-    mac/Misc/WebKitVersionChecks.m
     mac/Misc/WebNSArrayExtras.m
     mac/Misc/WebNSControlExtras.m
     mac/Misc/WebNSDataExtras.m
@@ -442,7 +439,7 @@ list(APPEND WebKit_SOURCES
 )
 
 WEBKIT_CREATE_FORWARDING_HEADERS(WebKitLegacy DIRECTORIES ${WebKitLegacy_FORWARDING_HEADERS_DIRECTORIES} FILES ${WebKitLegacy_FORWARDING_HEADERS_FILES})
-WEBKIT_CREATE_FORWARDING_HEADERS(WebKit DIRECTORIES ${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKitLegacy)
+WEBKIT_CREATE_FORWARDING_HEADERS(WebKit DIRECTORIES ${FORWARDING_HEADERS_DIR}/WebKitLegacy)
 
 # FIXME: Forwarding headers should be copies of actual headers.
 file(GLOB ObjCHeaders ${WEBCORE_DIR}/plugins/*.h)
@@ -452,8 +449,8 @@ list(APPEND ObjCHeaders
 )
 foreach (_file ${ObjCHeaders})
     get_filename_component(_name ${_file} NAME)
-    if (NOT EXISTS ${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKitLegacy/${_name})
-        file(WRITE ${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKitLegacy/${_name} "#import <WebCore/${_name}>")
+    if (NOT EXISTS ${FORWARDING_HEADERS_DIR}/WebKitLegacy/${_name})
+        file(WRITE ${FORWARDING_HEADERS_DIR}/WebKitLegacy/${_name} "#import <WebCore/${_name}>")
     endif ()
 endforeach ()
 

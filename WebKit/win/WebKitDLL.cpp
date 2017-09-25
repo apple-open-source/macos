@@ -39,6 +39,7 @@
 #include <WebCore/IconDatabase.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
+#include <WebCore/PlatformDisplay.h>
 #include <WebCore/RenderThemeWin.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/WebCoreInstanceHandle.h>
@@ -164,11 +165,14 @@ void shutDownWebKit()
 {
     WebCore::iconDatabase().close();
     WebKit::WebStorageNamespaceProvider::closeLocalStorage();
+#if USE(EGL)
+    PlatformDisplay::shutDownEglDisplays();
+#endif
 }
 
 //FIXME: We should consider moving this to a new file for cross-project functionality
-WEBKIT_API PassRefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name);
-PassRefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name)
+WEBKIT_API RefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name);
+RefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name)
 {
     int idr;
     // temporary hack to get resource id
@@ -221,17 +225,17 @@ PassRefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name)
     else if (!strcmp(name, "fsVideoPlay"))
         idr = IDR_FS_VIDEO_PLAY;
     else
-        return 0;
+        return nullptr;
 
     HRSRC resInfo = FindResource(gInstance, MAKEINTRESOURCE(idr), L"PNG");
     if (!resInfo)
-        return 0;
+        return nullptr;
     HANDLE res = LoadResource(gInstance, resInfo);
     if (!res)
-        return 0;
+        return nullptr;
     void* resource = LockResource(res);
     if (!resource)
-        return 0;
+        return nullptr;
     unsigned size = SizeofResource(gInstance, resInfo);
 
     return WebCore::SharedBuffer::create(reinterpret_cast<const char*>(resource), size);

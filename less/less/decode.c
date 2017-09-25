@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -98,8 +98,12 @@ static unsigned char cmdtable[] =
 	ESC,']',0,			A_RSHIFT,
 	ESC,'(',0,			A_LSHIFT,
 	ESC,')',0,			A_RSHIFT,
+	ESC,'{',0,			A_LLSHIFT,
+	ESC,'}',0,			A_RRSHIFT,
 	SK(SK_RIGHT_ARROW),0,		A_RSHIFT,
 	SK(SK_LEFT_ARROW),0,		A_LSHIFT,
+	SK(SK_CTL_RIGHT_ARROW),0,	A_RRSHIFT,
+	SK(SK_CTL_LEFT_ARROW),0,	A_LLSHIFT,
 	'{',0,				A_F_BRACKET|A_EXTRA,	'{','}',0,
 	'}',0,				A_B_BRACKET|A_EXTRA,	'{','}',0,
 	'(',0,				A_F_BRACKET|A_EXTRA,	'(',')',0,
@@ -109,6 +113,7 @@ static unsigned char cmdtable[] =
 	ESC,CONTROL('F'),0,		A_F_BRACKET,
 	ESC,CONTROL('B'),0,		A_B_BRACKET,
 	'G',0,				A_GOEND,
+	ESC,'G',0,			A_GOEND_BUF,
 	ESC,'>',0,			A_GOEND,
 	'>',0,				A_GOEND,
 	SK(SK_END),0,			A_GOEND,

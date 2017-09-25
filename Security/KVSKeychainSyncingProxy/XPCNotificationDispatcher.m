@@ -66,11 +66,12 @@ static const char *kXPCNotificationNameKey = "Notification";
     if (self) {
         self.queue = dispatch_queue_create("XPC Notification Dispatch", DISPATCH_QUEUE_SERIAL);
         self.listeners = [NSPointerArray weakObjectsPointerArray];
+        __weak typeof(self) weakSelf = self;
 
         xpc_set_event_stream_handler(kXPCNotificationStreamName, self.queue, ^(xpc_object_t event){
             const char *notificationName = xpc_dictionary_get_string(event, kXPCNotificationNameKey);
             if (notificationName) {
-                [self notification:notificationName];
+                [weakSelf notification:notificationName];
             }
         });
     }

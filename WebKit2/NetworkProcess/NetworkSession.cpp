@@ -31,6 +31,7 @@
 #include "NetworkDataTask.h"
 #include <WebCore/NetworkStorageSession.h>
 #include <wtf/MainThread.h>
+#include <wtf/RunLoop.h>
 
 #if PLATFORM(COCOA)
 #include "NetworkSessionCocoa.h"
@@ -44,7 +45,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-Ref<NetworkSession> NetworkSession::create(SessionID sessionID, CustomProtocolManager* customProtocolManager)
+Ref<NetworkSession> NetworkSession::create(SessionID sessionID, LegacyCustomProtocolManager* customProtocolManager)
 {
 #if PLATFORM(COCOA)
     return NetworkSessionCocoa::create(sessionID, customProtocolManager);
@@ -60,7 +61,7 @@ NetworkSession& NetworkSession::defaultSession()
 #if PLATFORM(COCOA)
     return NetworkSessionCocoa::defaultSession();
 #else
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
     static NetworkSession* session = &NetworkSession::create(SessionID::defaultSessionID()).leakRef();
     return *session;
 #endif

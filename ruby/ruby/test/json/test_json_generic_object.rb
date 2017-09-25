@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
+# frozen_string_literal: false
 
 require 'test/unit'
 require File.join(File.dirname(__FILE__), 'setup_variant')
@@ -47,6 +48,21 @@ class TestJSONGenericObject < Test::Unit::TestCase
     assert_kind_of GenericObject, result.foo.quux.first
     assert_equal   true, result.foo.quux.first.foobar
     assert_equal   true, GenericObject.from_hash(true)
+  end
+
+  def test_json_generic_object_load
+    empty = JSON::GenericObject.load(nil)
+    assert_kind_of JSON::GenericObject, empty
+    simple_json = '{"json_class":"JSON::GenericObject","hello":"world"}'
+    simple = JSON::GenericObject.load(simple_json)
+    assert_kind_of JSON::GenericObject, simple
+    assert_equal "world", simple.hello
+    converting = JSON::GenericObject.load('{ "hello": "world" }')
+    assert_kind_of JSON::GenericObject, converting
+    assert_equal "world", converting.hello
+
+    json = JSON::GenericObject.dump(JSON::GenericObject[:hello => 'world'])
+    assert_equal JSON(json), JSON('{"json_class":"JSON::GenericObject","hello":"world"}')
   end
 
   private

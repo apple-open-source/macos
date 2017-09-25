@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <assert.h>
-
 #include <sys/queue.h>
 
 /*
@@ -70,9 +69,7 @@ new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_subma
     R_SETADDR(r, vmaddr);
     R_SETSIZE(r, vmsize);
     r->r_info = *infop;
-#ifdef CONFIG_PURGABLE
     r->r_purgable = VM_PURGABLE_DENY;
-#endif
     r->r_insharedregion = in_shared_region(vmaddr);
     r->r_incommregion = in_comm_region(vmaddr, &r->r_info);
     r->r_inzfodregion = in_zfod_region(&r->r_info);
@@ -84,7 +81,6 @@ new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_subma
     return r;
 }
 
-#ifdef CONFIG_REFSC
 void
 del_fileref_region(struct region *r)
 {
@@ -95,16 +91,13 @@ del_fileref_region(struct region *r)
     poison(r, 0xdeadbeeb, sizeof (*r));
     free(r);
 }
-#endif /* CONFIG_REFSC */
 
 void
 del_zfod_region(struct region *r)
 {
     assert(&zfod_ops == r->r_op);
     assert(r->r_inzfodregion && 0 == r->r_nsubregions);
-#ifdef CONFIG_REFSC
     assert(NULL == r->r_fileref);
-#endif
     poison(r, 0xdeadbeed, sizeof (*r));
     free(r);
 }
@@ -114,9 +107,7 @@ del_vanilla_region(struct region *r)
 {
     assert(&vanilla_ops == r->r_op);
     assert(!r->r_inzfodregion && 0 == r->r_nsubregions);
-#ifdef CONFIG_REFSC
     assert(NULL == r->r_fileref);
-#endif
     poison(r, 0xdeadbeef, sizeof (*r));
     free(r);
 }
@@ -174,9 +165,10 @@ walk_regions(task_t task, struct regionhead *rhead)
     mach_vm_offset_t vm_addr = MACH_VM_MIN_ADDRESS;
     natural_t depth = 0;
 
-    if (opt->debug > 3)
+	if (OPTIONS_DEBUG(opt, 3)) {
+		printf("Building raw region list\n");
         print_memory_region_header();
-
+	}
     while (1) {
         vm_region_submap_info_data_64_t info;
         mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
@@ -194,7 +186,7 @@ walk_regions(task_t task, struct regionhead *rhead)
             goto bad;
         }
 
-        if (opt->debug > 3) {
+        if (OPTIONS_DEBUG(opt, 3)) {
             struct region *d = new_region(vm_addr, vm_size, &info);
             ROP_PRINT(d);
             ROP_DELETE(d);
@@ -227,14 +219,13 @@ walk_regions(task_t task, struct regionhead *rhead)
         if (KERN_SUCCESS != ret)
             err_mach(ret, r, "getting pageinfo at %llx", R_ADDR(r));
 
-#ifdef CONFIG_PURGABLE
         /* record the purgability */
 
         ret = mach_vm_purgable_control(task, vm_addr, VM_PURGABLE_GET_STATE, &r->r_purgable);
         if (KERN_SUCCESS != ret)
             r->r_purgable = VM_PURGABLE_DENY;
-#endif
-        STAILQ_INSERT_TAIL(rhead, r, r_linkage);
+
+		STAILQ_INSERT_TAIL(rhead, r, r_linkage);
 
         vm_addr += vm_size;
     }
@@ -307,7 +298,7 @@ setpageshift(void)
             pshift++;
         pageshift_host = pshift;
     }
-    if (opt->debug)
+    if (OPTIONS_DEBUG(opt, 3))
         printf("host page size: %lu\n", 1ul << pageshift_host);
 
     if (0 == pageshift_app) {
@@ -317,56 +308,8 @@ setpageshift(void)
             pshift++;
         pageshift_app = pshift;
     }
-    if (opt->debug && pageshift_app != pageshift_host)
+    if (OPTIONS_DEBUG(opt, 3) && pageshift_app != pageshift_host)
         printf("app page size: %lu\n", 1ul << pageshift_app);
-}
-
-static const char *
-strshared(const int sm)
-{
-    switch (sm) {
-        case SM_COW:
-            return "cow";
-        case SM_PRIVATE:
-            return "priv";
-        case SM_EMPTY:
-            return "empty";
-        case SM_SHARED:
-            return "shr";
-        case SM_TRUESHARED:
-            return "true_shr";
-        case SM_PRIVATE_ALIASED:
-            return "priv_alias";
-        case SM_SHARED_ALIASED:
-            return "shr_alias";
-        case SM_LARGE_PAGE:
-            return "large_pg";
-        default:
-            return "share?";
-    }
-}
-
-typedef char prot_str_t[9]; /* rwxNCWT& */
-
-static const char *
-str_prot(prot_str_t pstr, const vm_prot_t prot)
-{
-    snprintf(pstr, sizeof (prot_str_t), "%c%c%c",
-             prot & VM_PROT_READ ? 'r' : '-',
-             prot & VM_PROT_WRITE ? 'w' : '-',
-             prot & VM_PROT_EXECUTE ? 'x' : '-');
-    /* for completeness */
-    if (prot & VM_PROT_NO_CHANGE)
-        strlcat(pstr, "N", sizeof (prot_str_t));
-    if (prot & VM_PROT_COPY)
-        strlcat(pstr, "C", sizeof (prot_str_t));
-    if (prot & VM_PROT_WANTS_COPY)
-        strlcat(pstr, "W", sizeof (prot_str_t));
-    if (prot & 0x20)
-        strlcat(pstr, "T", sizeof (prot_str_t));
-    if (prot & VM_PROT_IS_MASK)
-        strlcat(pstr, "&", sizeof (prot_str_t));
-    return pstr;
 }
 
 void
@@ -387,10 +330,8 @@ print_memory_region_header(void)
 static __inline char
 region_type(const struct region *r)
 {
-#ifdef CONFIG_REFSC
     if (r->r_fileref)
         return 'f';
-#endif
     if (r->r_inzfodregion)
         return 'z';
     if (r->r_incommregion)
@@ -403,14 +344,14 @@ region_type(const struct region *r)
 void
 print_memory_region(const struct region *r)
 {
-    prot_str_t pstr, pstr_max;
     hsize_str_t hstr;
+    tag_str_t tstr;
 
     printf("%016llx-%016llx %c %-7s %s/%s %8x %16llx ",
            R_ADDR(r), R_ENDADDR(r), region_type(r),
            str_hsize(hstr, R_SIZE(r)),
-           str_prot(pstr, r->r_info.protection),
-           str_prot(pstr_max, r->r_info.max_protection),
+           str_prot(r->r_info.protection),
+           str_prot(r->r_info.max_protection),
            r->r_info.object_id, r->r_pageinfo.object_id
            );
 
@@ -418,7 +359,7 @@ print_memory_region(const struct region *r)
            r->r_info.external_pager ?
            r->r_pageinfo.offset : r->r_info.offset,
            r->r_info.user_tag,
-           strshared(r->r_info.share_mode),
+           str_shared(r->r_info.share_mode),
            r->r_info.ref_count
            );
 #ifdef CONFIG_SUBMAP
@@ -431,12 +372,12 @@ print_memory_region(const struct region *r)
                r->r_info.pages_shared_now_private,
                r->r_info.pages_dirtied,
                r->r_info.external_pager ? "ext" : "");
-#if CONFIG_REFSC
-        if (r->r_fileref)
+		if (r->r_fileref)
             printf("\n    %s at %lld ",
-                   r->r_fileref->fr_libent->le_filename,
+                   r->r_fileref->fr_pathname,
                    r->r_fileref->fr_offset);
-#endif
+		else
+			printf("%s", str_tagr(tstr, r));
         printf("\n");
         if (r->r_nsubregions) {
             printf("    %-33s %7s %12s\t%s\n",
@@ -450,19 +391,8 @@ print_memory_region(const struct region *r)
                        S_FILENAME(s));
             }
         }
-    } else {
-        switch (r->r_info.user_tag) {
-            case VM_MEMORY_SHARED_PMAP:
-                printf("// VM_MEMORY_SHARED_PMAP");
-                break;
-            case VM_MEMORY_UNSHARED_PMAP:
-                printf("// VM_MEMORY_UNSHARED_PMAP");
-                break;
-            default:
-                printf("// is a submap");
-                break;
-        }
-        printf("\n");
+	} else {
+		printf("%5s %5s %5s %3s %s\n", "", "", "", "", str_tagr(tstr, r));
     }
 }
 
@@ -471,6 +401,13 @@ region_print_memory(struct region *r, __unused void *arg)
 {
     ROP_PRINT(r);
     return WALK_CONTINUE;
+}
+
+void
+print_one_memory_region(const struct region *r)
+{
+    print_memory_region_header();
+    ROP_PRINT(r);
 }
 
 #ifdef RDAR_23744374
@@ -485,7 +422,7 @@ region_print_memory(struct region *r, __unused void *arg)
  * Figure out what the "non-faulting" size of the object is to
  * *host* page size resolution.
  */
-boolean_t
+bool
 is_actual_size(const task_t task, const struct region *r, mach_vm_size_t *hostvmsize)
 {
     if (!r->r_info.external_pager ||

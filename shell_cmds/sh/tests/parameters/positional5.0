@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/parameters/positional5.0 268576 2014-07-12 21:54:11Z jilles $
 
 i=1
 r=0

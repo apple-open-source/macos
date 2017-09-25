@@ -29,6 +29,7 @@
 #include "ArgumentCoders.h"
 #include "Decoder.h"
 #include "Encoder.h"
+#include "WebCoreArgumentCoders.h"
 
 using namespace WebCore;
 
@@ -44,6 +45,8 @@ void NavigationActionData::encode(IPC::Encoder& encoder) const
     encoder << canHandleRequest;
     encoder.encodeEnum(shouldOpenExternalURLsPolicy);
     encoder << downloadAttribute;
+    encoder << clickLocationInRootViewCoordinates;
+    encoder << isRedirect;
 }
 
 bool NavigationActionData::decode(IPC::Decoder& decoder, NavigationActionData& result)
@@ -63,6 +66,10 @@ bool NavigationActionData::decode(IPC::Decoder& decoder, NavigationActionData& r
     if (!decoder.decodeEnum(result.shouldOpenExternalURLsPolicy))
         return false;
     if (!decoder.decode(result.downloadAttribute))
+        return false;
+    if (!decoder.decode(result.clickLocationInRootViewCoordinates))
+        return false;
+    if (!decoder.decode(result.isRedirect))
         return false;
 
     return true;

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require "rexml/parent"
 require "rexml/namespace"
 require "rexml/attribute"
@@ -206,7 +207,7 @@ module REXML
       return namespaces
     end
 
-    # Evalutas to the URI for a prefix, or the empty string if no such
+    # Evaluates to the URI for a prefix, or the empty string if no such
     # namespace is declared for this element. Evaluates recursively for
     # ancestors.  Returns the default namespace, if there is one.
     # prefix::
@@ -678,11 +679,8 @@ module REXML
     #   pretty-printed in such a way that the added whitespace does not affect
     #   the parse tree of the document
     # ie_hack::
-    #   Internet Explorer is the worst piece of crap to have ever been
-    #   written, with the possible exception of Windows itself.  Since IE is
-    #   unable to parse proper XML, we have to provide a hack to generate XML
-    #   that IE's limited abilities can handle.  This hack inserts a space
-    #   before the /> on empty tags.  Defaults to false
+    #   This hack inserts a space before the /> on empty tags to address
+    #   a limitation of Internet Explorer.  Defaults to false
     #
     #  out = ''
     #  doc.write( out )     #-> doc is written to the string 'out'
@@ -990,7 +988,7 @@ module REXML
     end
 
     def to_a
-      values.flatten
+      enum_for(:each_attribute).to_a
     end
 
     # Returns the number of attributes the owning Element contains.
@@ -1184,9 +1182,8 @@ module REXML
         prefix = '' unless prefix
       end
       old = fetch(name, nil)
-      attr = nil
       if old.kind_of? Hash # the supplied attribute is one of many
-        attr = old.delete(prefix)
+        old.delete(prefix)
         if old.size == 1
           repl = nil
           old.each_value{|v| repl = v}
@@ -1195,7 +1192,6 @@ module REXML
       elsif old.nil?
         return @element
       else # the supplied attribute is a top-level one
-        attr = old
         super(name)
       end
       @element

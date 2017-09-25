@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TiledCoreAnimationDrawingAreaProxy_h
-#define TiledCoreAnimationDrawingAreaProxy_h
+#pragma once
 
 #if !PLATFORM(IOS)
 
@@ -41,7 +40,6 @@ private:
     // DrawingAreaProxy
     void deviceScaleFactorDidChange() override;
     void sizeDidChange() override;
-    void waitForPossibleGeometryUpdate(Seconds timeout = didUpdateBackingStoreStateTimeout()) override;
     void colorSpaceDidChange() override;
     void minimumLayoutSizeDidChange() override;
 
@@ -53,7 +51,7 @@ private:
     void commitTransientZoom(double scale, WebCore::FloatPoint origin) override;
 
     void waitForDidUpdateActivityState() override;
-    void dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)>) override;
+    void dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&&) override;
 
     void willSendUpdateGeometry() override;
 
@@ -80,5 +78,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_DRAWING_AREA_PROXY(TiledCoreAnimationDrawingAreaProxy, DrawingAreaTypeTiledCoreAnimation)
 
 #endif // !PLATFORM(IOS)
-
-#endif // TiledCoreAnimationDrawingAreaProxy_h

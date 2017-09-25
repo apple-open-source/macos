@@ -28,17 +28,17 @@ static char RandomChar()
 }
 
 
-static CFStringRef ah_set_describe(const void *v) {
+static CFStringRef ah_set_describe(const void *v) CF_RETURNS_RETAINED {
 	transform_attribute *ta = ah2ta(static_cast<SecTransformAttributeRef>(const_cast<void*>(v)));
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@=%@ (conn: %@)"), ta->transform->GetName(), ta->name, ta->value ? ta->value : CFSTR("NULL"), ta->connections ? static_cast<CFTypeRef>(ta->connections) : static_cast<CFTypeRef>(CFSTR("NONE")));
 }
 
-static CFStringRef AttributeHandleFormat(CFTypeRef ah, CFDictionaryRef dict) {
+static CFStringRef AttributeHandleFormat(CFTypeRef ah, CFDictionaryRef dict) CF_RETURNS_RETAINED {
 	transform_attribute *ta = ah2ta(ah);
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@"), ta->transform->GetName(), ta->name);
 }
 
-static CFStringRef AttributeHandleDebugFormat(CFTypeRef ah) {
+static CFStringRef AttributeHandleDebugFormat(CFTypeRef ah) CF_RETURNS_RETAINED {
 	transform_attribute *ta = ah2ta(ah);
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@ (%p)"), ta->transform->GetName(), ta->name, ta);
 }
@@ -61,14 +61,14 @@ static void AttributeHandleFinalize(CFTypeRef ah)
 	
 	if (ta->value)
 	{
-		CFRelease(ta->value);
+		CFReleaseNull(ta->value);
 	}
 	
 	// ta->q already released
 	
 	if (ta->connections)
 	{
-		CFRelease(ta->connections);
+		CFReleaseNull(ta->connections);
 	}
 	
 	if (ta->semaphore)
@@ -117,7 +117,7 @@ SecTransformAttributeRef Transform::makeAH(transform_attribute *ta) {
 static pthread_key_t ah_search_key_slot;
 
 static void destroy_ah_search_key(void *ah) {
-	CFRelease(ah);
+	CFReleaseNull(ah);
 	pthread_setspecific(ah_search_key_slot, NULL);
 }
 
@@ -198,7 +198,7 @@ SecTransformAttributeRef Transform::getAH(SecTransformStringOrAttributeRef attri
 		CFSetAddValue(mAttributes, ah);
 		if (CFSetGetCount(mAttributes) != cnt+1)
 		{
-			CFRelease(ta->name);
+			CFReleaseNull(ta->name);
 			free(ta);
 			return NULL;
 		}
@@ -209,7 +209,7 @@ SecTransformAttributeRef Transform::getAH(SecTransformStringOrAttributeRef attri
 		CFStringGetBytes(qname, CFRangeMake(0, CFStringGetLength(qname)), kCFStringEncodingUTF8, '?', FALSE, qnbuf, sz, &used);
 		qnbuf[used] = '\0';
 		ta->q = dispatch_queue_create((char*)qnbuf, NULL);
-		CFRelease(qname);
+		CFReleaseNull(qname);
 		ta->semaphore = dispatch_semaphore_create(kMaxPendingTransactions);
 
 		
@@ -375,7 +375,7 @@ Transform::Transform(CFStringRef transformType, CFStringRef CFobjectType) :
 	ta->ignore_while_externalizing = 1;
 	CFStringRef attributeName = CFStringCreateWithCStringNoCopy(NULL, name, 0, kCFAllocatorMalloc);
 	SetAttributeNoCallback(kSecTransformTransformName, attributeName);
-	CFRelease(attributeName);
+	CFReleaseNull(attributeName);
 	
 	free(dqName);
 	free(aqName);
@@ -423,7 +423,7 @@ void Transform::FinalizeForClang()
 		set_dispatch_finalizer(ta->q, ^{
 			// NOTE: not done until all pending use of the attribute queue has ended AND retain count is zero
 			ta->transform = NULL;
-			CFRelease(ah);
+			CFReleaseSafe(ah);
 		});
 		// If there is a pending pushback the attribute queue will be suspended, and needs a kick before it can be destructed.
 		if (__sync_bool_compare_and_swap(&ta->pushback_state, transform_attribute::pb_value, transform_attribute::pb_discard)) {
@@ -474,25 +474,25 @@ void Transform::Finalize()
 
 Transform::~Transform()
 {
-	CFRelease(mAttributes);
+	CFReleaseNull(mAttributes);
 	if (mAbortError) {
-		CFRelease(mAbortError);
+		CFReleaseNull(mAbortError);
         mAbortError = NULL;
 	}
 	
 	// See if we can catch anything using us after our death
 	mDispatchQueue = (dispatch_queue_t)0xdeadbeef;
 	
-	CFRelease(mTypeName);
+	CFReleaseNull(mTypeName);
 	
 	if (NULL != mPushedback)
 	{
-		CFRelease(mPushedback);
+		CFReleaseNull(mPushedback);
 	}
 	dispatch_release(mActivationPending);
 }
 
-CFStringRef Transform::GetName() {
+CFStringRef Transform::GetName() CF_RETURNS_NOT_RETAINED {
 	return (CFStringRef)GetAttribute(kSecTransformTransformName);
 }
 
@@ -599,14 +599,14 @@ CFErrorRef Transform::RefactorErrorToIncludeAbortingTransform(CFErrorRef sourceE
 	CFStringRef domain = CFErrorGetDomain(sourceError);
 	CFDictionaryRef oldUserInfo = CFErrorCopyUserInfo(sourceError);
 	CFMutableDictionaryRef userInfo = CFDictionaryCreateMutableCopy(NULL, 0, oldUserInfo);
-	CFRelease(oldUserInfo);
+	CFReleaseNull(oldUserInfo);
 	
 	// add the new key and value to the dictionary
 	CFDictionaryAddValue(userInfo, kSecTransformAbortOriginatorKey, GetCFObject());
 	
 	// make a new CFError
 	CFErrorRef newError = CFErrorCreate(NULL, domain, code, userInfo);
-	CFRelease(userInfo);
+	CFReleaseNull(userInfo);
 	return newError;
 }
 
@@ -627,7 +627,7 @@ void Transform::AbortJustThisTransform(CFErrorRef abortErr)
         // by the dispatch queue finalizer so we don't need a retain/release of
         // abortErr for the abortAction block, but we do need to retain it
         // here to match with the release by the destructor.
-        CFRetain(abortErr);
+        CFRetainSafe(abortErr);
         
 		dispatch_block_t abortAction = ^{
             // This actually makes the abort happen, it needs to run on the transform's queue while the
@@ -674,14 +674,18 @@ void Transform::AbortAllTransforms(CFTypeRef err)
 	
 	if (CFGetTypeID(err) != CFErrorGetTypeID())
 	{
-		replacementErr = err = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "ABORT set to a %@ (%@) not a %@", CFCopyTypeIDDescription(CFGetTypeID(err)), err, CFCopyTypeIDDescription(CFErrorGetTypeID()));
+        CFStringRef thisErrorTypeDescription = CFCopyTypeIDDescription(CFGetTypeID(err));
+        CFStringRef regularErrorTypeDescription = CFCopyTypeIDDescription(CFErrorGetTypeID());
+		replacementErr = err = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "ABORT set to a %@ (%@) not a %@", thisErrorTypeDescription, err, regularErrorTypeDescription);
+        CFReleaseNull(thisErrorTypeDescription);
+        CFReleaseNull(regularErrorTypeDescription);
 	}
 	
 	error = RefactorErrorToIncludeAbortingTransform((CFErrorRef)err);
 
 	if (replacementErr)
 	{
-		CFRelease(replacementErr);
+		CFReleaseNull(replacementErr);
 	}
 	
     GroupTransform *root = GetRootGroup();
@@ -693,7 +697,7 @@ void Transform::AbortAllTransforms(CFTypeRef err)
             t->AbortJustThisTransform(error);
         });
         dispatch_group_notify(all_aborted, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(void) {
-            CFRelease(error);
+            CFReleaseSafe(error);
             dispatch_release(all_aborted);
         });
 	}
@@ -871,10 +875,10 @@ CFErrorRef Transform::SetAttributeNoCallback(SecTransformStringOrAttributeRef ke
 		
 		if (ta->value != value) {
 			if (value && !doNotRetain) {
-				CFRetain(value);
+				CFRetainSafe(value);
 			}
 			if (ta->value) {
-				CFRelease(ta->value);
+				CFReleaseNull(ta->value);
 			}
 		}
 		
@@ -947,7 +951,9 @@ CFErrorRef Transform::SetAttribute(CFTypeRef key, CFTypeRef value)
 {
 	if (mAbortError)
 	{
-		return CreateSecTransformErrorRef(kSecTransformErrorAborted, "ABORT has been sent to the transform (%@)", mAbortError);
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorAborted, "ABORT has been sent to the transform (%@)", mAbortError);
+        CFAutorelease(result);
+        return result;
 	}
 	
 	// queue up the setting of the key and value
@@ -961,32 +967,27 @@ CFErrorRef Transform::SetAttribute(CFTypeRef key, CFTypeRef value)
 		ah = getAH(static_cast<CFStringRef>(key));
 		if (!ah)
 		{
-			return CreateSecTransformErrorRef(kSecTransformErrorUnsupportedAttribute, "Can't set attribute %@ in transform %@", key, GetName());
+            CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorUnsupportedAttribute, "Can't set attribute %@ in transform %@", key, GetName());
+            CFAutorelease(result);
+            return result;
 		}
 	}
 	else
 	{
-		return CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "Transform::SetAttribute called with %@, requires a string or an AttributeHandle", key);
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "Transform::SetAttribute called with %@, requires a string or an AttributeHandle", key);
+        CFAutorelease(result);
+        return result;
 	}
 	
 	// Do this after the error check above so we don't leak
-	if (value != NULL)
-	{
-		CFRetain(value); // if we use dispatch_async we need to own the value (the matching release is in the set block)
-	}
-
+    CFRetainSafe(value); // if we use dispatch_async we need to own the value (the matching release is in the set block)
 	
 	transform_attribute *ta = ah2ta(ah);
 
 	dispatch_block_t set = ^{
 		Do(ah, value);
-
 		dispatch_semaphore_signal(ta->semaphore);
-
-		if (value != NULL)
-		{
-			CFRelease(value);
-		}
+        CFReleaseSafe(value);
 	};
 	
 	
@@ -1062,7 +1063,7 @@ CFErrorRef Transform::Pushback(SecTransformAttributeRef ah, CFTypeRef value)
 	}
 	if (value) 
 	{
-		CFRetain(value);
+		CFRetainSafe(value);
 	}
 	ta->pushback_value = value;
 	dispatch_suspend(ta->q);
@@ -1094,7 +1095,7 @@ void Transform::try_pushbacks() {
 		Do(ah, v);
 		if (v) 
 		{
-			CFRelease(v);
+			CFReleaseNull(v);
 		}
 		if (ta->pushback_state == transform_attribute::pb_repush) {
 			ta->pushback_state = transform_attribute::pb_empty;
@@ -1106,7 +1107,7 @@ void Transform::try_pushbacks() {
 		dispatch_resume(ta->q);
 	}
 	
-	CFRelease(pb);
+	CFReleaseNull(pb);
 	
 	if (succeeded && CFArrayGetCount(mPushedback)) {
 		// some attribute changed while we proceeded the last batch of pushbacks, so any "new" pushbacks are eligible to run again.
@@ -1130,7 +1131,7 @@ void Transform::Debug(const char *cfmt, ...) {
 				CFURLRef p = CFURLCreateWithFileSystemPath(NULL, CFSTR("/dev/stderr"), kCFURLPOSIXPathStyle, FALSE);
 				StdErrWriteStream = CFWriteStreamCreateWithFile(NULL, p);
 				CFWriteStreamOpen(StdErrWriteStream);
-				CFRelease(p);
+				CFReleaseNull(p);
 			});
 			out = StdErrWriteStream;
 		}
@@ -1140,7 +1141,7 @@ void Transform::Debug(const char *cfmt, ...) {
 		
 		CFStringRef fmt = CFStringCreateWithCString(NULL, cfmt, kCFStringEncodingUTF8);
 		CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, ap);
-		CFRelease(fmt);
+		CFReleaseNull(fmt);
 		va_end(ap);
 
 		
@@ -1171,7 +1172,7 @@ void Transform::Debug(const char *cfmt, ...) {
 			}
 		});
 		
-		CFRelease(str);
+		CFReleaseNull(str);
 	}
 }
 
@@ -1252,7 +1253,7 @@ CFTypeRef Transform::Execute(dispatch_queue_t deliveryQueue, SecMessageBlock del
 			if (isFinal)
 			{
 				dispatch_async(this->mDispatchQueue, ^{
-					CFRelease(g);
+					CFReleaseSafe(g);
 				});
 			}
 		};
@@ -1261,7 +1262,7 @@ CFTypeRef Transform::Execute(dispatch_queue_t deliveryQueue, SecMessageBlock del
 		
 		if (!deliveryBlock)
 		{
-			CFRelease(g);
+			CFReleaseNull(g);
 		}
 		
 		return ret;
@@ -1279,7 +1280,7 @@ CFTypeRef Transform::Execute(dispatch_queue_t deliveryQueue, SecMessageBlock del
 
 	// Do a retain on our parent since we are using it
     GroupTransform *rootGroup = GetRootGroup();
-	CFRetain(rootGroup->GetCFObject());
+	CFRetainSafe(rootGroup->GetCFObject());
 
 	CFTypeRef result = NULL;
 	
@@ -1311,8 +1312,8 @@ CFTypeRef Transform::Execute(dispatch_queue_t deliveryQueue, SecMessageBlock del
         // It is safe to keep the monitors attached, because it is invalid to try to execute again, BUT
         // we do need to release the reference to the group that the monitor would normally release
         // when it processes the final message.
-        CFRelease(rootGroup->GetCFObject());
-        CFRelease(monitorRef);
+        CFReleaseSafe(rootGroup->GetCFObject());
+        CFReleaseNull(monitorRef);
         rootGroup->StartedExecutionInGroup(false);
         return NULL;
 	}
@@ -1335,7 +1336,7 @@ CFTypeRef Transform::Execute(dispatch_queue_t deliveryQueue, SecMessageBlock del
 		dispatch_group_notify(activated, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 			dispatch_release(activated);
 			// once we have been activated (but not before!), the monitor belongs to the group, and we can drop our claim
-			CFRelease(monitorRef);
+			CFReleaseSafe(monitorRef);
 			rootGroup->StartedExecutionInGroup(true);
 		});
 	});
@@ -1411,8 +1412,8 @@ CFErrorRef Transform::ExecuteOperation(CFStringRef &outputAttached, SecMonitorRe
 	if (still_need) {
 		CFStringRef elist = CFStringCreateByCombiningStrings(NULL, still_need, CFSTR(", "));
 		CFErrorRef err = CreateSecTransformErrorRef(kSecTransformErrorMissingParameter, "Can not execute %@, missing required attributes: %@", GetName(), elist);
-		CFRelease(elist);
-		CFRelease(still_need);
+		CFReleaseNull(elist);
+		CFReleaseNull(still_need);
 		return err;
 	}		
 
@@ -1514,17 +1515,11 @@ bool Transform::IsExternalizable()
 }
 
 static const void *CFTypeOrNULLRetain(CFAllocatorRef allocator, const void *value) {
-	if (value != NULL) {
-		return CFRetain(value);
-	} else {
-		return value;
-	}
+    return CFRetainSafe(value);
 }
 
 static void CFTypeOrNULLRelease(CFAllocatorRef allocator, const void *value) {
-	if (value != NULL) {
-		CFRelease(value);
-	}
+    CFReleaseNull(value);
 }
 
 static CFStringRef CFTypeOrNULLCopyDescription (const void *value) {
@@ -1593,7 +1588,7 @@ CFDictionaryRef Transform::GetAHDictForSaveState(SecTransformStringOrAttributeRe
 	
 	for(i = 0; i < cnt; ++i)
 	{
-		CFRelease(keys[i]);
+		CFReleaseNull(keys[i]);
 	}
 	
 	return ret;
@@ -1624,7 +1619,7 @@ CFDictionaryRef Transform::CopyState()
 		transform_attribute *ta = attrs[i];
 		if (!ta->ignore_while_externalizing)
 		{
-			CFRelease(values[j++]);
+			CFReleaseNull(values[j++]);
 		}
 	}
 	
@@ -1673,18 +1668,12 @@ void Transform::RestoreState(CFDictionaryRef state)
 			else
 			{
 				CFErrorRef result = SendMetaAttribute(ah, (SecTransformMetaAttributeType)t, meta_values[j]);
-				if (result)
-				{
-					CFRelease(result); // see <rdar://problem/8741628> Transform::RestoreState is ignoring error returns
-				}
+                CFReleaseNull(result); // see <rdar://problem/8741628> Transform::RestoreState is ignoring error returns
 			}
 		}
 		
 		CFErrorRef result = SendMetaAttribute(ah, kSecTransformMetaAttributeExternalize, kCFBooleanTrue);
-		if (result)
-		{
-			CFRelease(result); // see <rdar://problem/8741628> Transform::RestoreState is ignoring error returns
-		}
+        CFReleaseNull(result); // see <rdar://problem/8741628> Transform::RestoreState is ignoring error returns
 	}
 }
 
@@ -1737,6 +1726,7 @@ CFDictionaryRef Transform::Externalize(CFErrorRef* error)
 		// Really?  This just seems like a bad idea
 		if (NULL != error)
 		{
+            CFRetainSafe(err);
 			*error = err;
 		}
 		return NULL;
@@ -1749,8 +1739,8 @@ CFDictionaryRef Transform::Externalize(CFErrorRef* error)
 	CFDictionaryAddValue(output, EXTERN_TRANSFORM_CONNECTION_ARRAY, connections);
 		
 	// clean up
-	CFRelease(connections);
-	CFRelease(transforms);
+	CFReleaseNull(connections);
+	CFReleaseNull(transforms);
 	
 	return output;
 }
@@ -1772,24 +1762,24 @@ CFErrorRef Transform::ProcessExternalize(CFMutableArrayRef transforms, CFMutable
 	
 	CFTypeRef type = CFStringCreateCopy(NULL, mTypeName);
 	CFDictionaryAddValue(node, EXTERN_TRANSFORM_TYPE, type);
-	CFRelease(type);
+	CFReleaseNull(type);
 	
 	if (state != NULL)
 	{
 		CFDictionaryAddValue(node, EXTERN_TRANSFORM_STATE, state);
-		CFRelease(state);
+		CFReleaseNull(state);
 	}
 	
 	CFDictionaryRef customItems = GetCustomExternalData();
 	if (NULL != customItems)
 	{
 		CFDictionaryAddValue(node, EXTERN_TRANSFORM_CUSTOM_EXPORTS_DICTIONARY, customItems);
-		CFRelease(customItems);
+		CFReleaseNull(customItems);
 	}
 	
 	// append the resulting dictionary to the node list
 	CFArrayAppendValue(transforms, node);
-	CFRelease(node);
+	CFReleaseNull(node);
 	
 	// now walk the attribute list
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
@@ -1824,7 +1814,7 @@ CFErrorRef Transform::ProcessExternalize(CFMutableArrayRef transforms, CFMutable
 				CFDictionaryAddValue(connection, EXTERN_TRANSFORM_TO_ATTRIBUTE, ta->name);
 				
 				CFArrayAppendValue(connections, connection);
-				CFRelease(connection);
+				CFReleaseNull(connection);
 			}
 		}
 	}

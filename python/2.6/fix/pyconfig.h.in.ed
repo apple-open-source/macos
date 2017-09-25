@@ -1,6 +1,0 @@
-/^#undef __EXTENSIONS__/a
-
-/* Define on Mac OS X to activate all library features */
-#undef _DARWIN_C_SOURCE
-.
-w

@@ -1,6 +1,7 @@
+# frozen_string_literal: false
 require_relative 'utils'
 
-if defined?(OpenSSL)
+if defined?(OpenSSL::TestUtils)
 
 require 'socket'
 require_relative '../ruby/ut_eof'
@@ -49,7 +50,7 @@ module OpenSSL::SSLPairM
       return c, s
     end
   ensure
-    if th && th.alive?
+    if th&.alive?
       th.kill
       th.join
     end
@@ -83,16 +84,22 @@ end
 module OpenSSL::TestEOF1M
   def open_file(content)
     s1, s2 = ssl_pair
-    Thread.new { s2 << content; s2.close }
+    th = Thread.new { s2 << content; s2.close }
     yield s1
+  ensure
+    th.join if th
+    s1.close
   end
 end
 
 module OpenSSL::TestEOF2M
   def open_file(content)
     s1, s2 = ssl_pair
-    Thread.new { s1 << content; s1.close }
+    th = Thread.new { s1 << content; s1.close }
     yield s2
+  ensure
+    th.join if th
+    s2.close
   end
 end
 
@@ -104,13 +111,25 @@ module OpenSSL::TestPairM
     }
   end
 
+  def test_gets_eof_limit
+    ssl_pair {|s1, s2|
+      s1.write("hello")
+      s1.close # trigger EOF
+      assert_match "hello", s2.gets("\n", 6), "[ruby-core:70149] [Bug #11140]"
+    }
+  end
+
   def test_readpartial
     ssl_pair {|s1, s2|
       s2.write "a\nbcd"
       assert_equal("a\n", s1.gets)
-      assert_equal("bcd", s1.readpartial(10))
+      result = ""
+      result << s1.readpartial(10) until result.length == 3
+      assert_equal("bcd", result)
       s2.write "efg"
-      assert_equal("efg", s1.readpartial(10))
+      result = ""
+      result << s1.readpartial(10) until result.length == 3
+      assert_equal("efg", result)
       s2.close
       assert_raise(EOFError) { s1.readpartial(10) }
       assert_raise(EOFError) { s1.readpartial(10) }
@@ -157,7 +176,7 @@ module OpenSSL::TestPairM
   def test_read_nonblock
     ssl_pair {|s1, s2|
       err = nil
-      assert_raise(OpenSSL::SSL::SSLError) {
+      assert_raise(OpenSSL::SSL::SSLErrorWaitReadable) {
         begin
           s2.read_nonblock(10)
         ensure
@@ -172,20 +191,69 @@ module OpenSSL::TestPairM
       ret = nil
       assert_nothing_raised("[ruby-core:20298]") { ret = s2.read_nonblock(10) }
       assert_equal("def\n", ret)
+      s1.close
+      sleep 0.1
+      assert_raise(EOFError) { s2.read_nonblock(10) }
     }
+  end
+
+  def test_read_nonblock_no_exception
+    ssl_pair {|s1, s2|
+      assert_equal :wait_readable, s2.read_nonblock(10, exception: false)
+      s1.write "abc\ndef\n"
+      IO.select([s2])
+      assert_equal("ab", s2.read_nonblock(2, exception: false))
+      assert_equal("c\n", s2.gets)
+      ret = nil
+      assert_nothing_raised("[ruby-core:20298]") { ret = s2.read_nonblock(10, exception: false) }
+      assert_equal("def\n", ret)
+      s1.close
+      sleep 0.1
+      assert_equal(nil, s2.read_nonblock(10, exception: false))
+    }
+  end
+
+  def write_nonblock(socket, meth, str)
+    ret = socket.send(meth, str)
+    ret.is_a?(Symbol) ? 0 : ret
+  end
+
+  def write_nonblock_no_ex(socket, str)
+    ret = socket.write_nonblock str, exception: false
+    ret.is_a?(Symbol) ? 0 : ret
   end
 
   def test_write_nonblock
     ssl_pair {|s1, s2|
       n = 0
       begin
-        n += s1.write_nonblock("a" * 100000)
-        n += s1.write_nonblock("b" * 100000)
-        n += s1.write_nonblock("c" * 100000)
-        n += s1.write_nonblock("d" * 100000)
-        n += s1.write_nonblock("e" * 100000)
-        n += s1.write_nonblock("f" * 100000)
+        n += write_nonblock s1, :write_nonblock, "a" * 100000
+        n += write_nonblock s1, :write_nonblock, "b" * 100000
+        n += write_nonblock s1, :write_nonblock, "c" * 100000
+        n += write_nonblock s1, :write_nonblock, "d" * 100000
+        n += write_nonblock s1, :write_nonblock, "e" * 100000
+        n += write_nonblock s1, :write_nonblock, "f" * 100000
       rescue IO::WaitWritable
+      end
+      s1.close
+      assert_equal(n, s2.read.length)
+    }
+  end
+
+  def test_write_nonblock_no_exceptions
+    ssl_pair {|s1, s2|
+      n = 0
+      begin
+        n += write_nonblock_no_ex s1, "a" * 100000
+        n += write_nonblock_no_ex s1, "b" * 100000
+        n += write_nonblock_no_ex s1, "c" * 100000
+        n += write_nonblock_no_ex s1, "d" * 100000
+        n += write_nonblock_no_ex s1, "e" * 100000
+        n += write_nonblock_no_ex s1, "f" * 100000
+      rescue OpenSSL::SSL::SSLError => e
+        # on some platforms (maybe depend on OpenSSL version), writing to
+        # SSLSocket after SSL_ERROR_WANT_WRITE causes this error.
+        raise e if n == 0
       end
       s1.close
       assert_equal(n, s2.read.length)
@@ -202,19 +270,189 @@ module OpenSSL::TestPairM
     }
   end
 
-  def test_connect_accept_nonblock
+  def test_write_nonblock_with_buffered_data_no_exceptions
+    ssl_pair {|s1, s2|
+      s1.write "foo"
+      s1.write_nonblock("bar", exception: false)
+      s1.write "baz"
+      s1.close
+      assert_equal("foobarbaz", s2.read)
+    }
+  end
+
+  def test_write_zero
+    ssl_pair {|s1, s2|
+      assert_equal 0, s2.write_nonblock('', exception: false)
+      assert_kind_of Symbol, s1.read_nonblock(1, exception: false)
+      assert_equal 0, s2.syswrite('')
+      assert_kind_of Symbol, s1.read_nonblock(1, exception: false)
+      assert_equal 0, s2.write('')
+      assert_kind_of Symbol, s1.read_nonblock(1, exception: false)
+    }
+  end
+
+  def tcp_pair
     host = "127.0.0.1"
-    port = 0
-    ctx = OpenSSL::SSL::SSLContext.new()
-    ctx.ciphers = "ADH"
-    ctx.tmp_dh_callback = proc { OpenSSL::TestUtils::TEST_KEY_DH1024 }
-    serv = TCPServer.new(host, port)
-
+    serv = TCPServer.new(host, 0)
     port = serv.connect_address.ip_port
-
     sock1 = TCPSocket.new(host, port)
     sock2 = serv.accept
     serv.close
+    [sock1, sock2]
+  ensure
+    serv.close if serv && !serv.closed?
+  end
+
+  def test_connect_works_when_setting_dh_callback_to_nil
+    ctx2 = OpenSSL::SSL::SSLContext.new
+    ctx2.ciphers = "DH"
+    ctx2.tmp_dh_callback = nil
+    sock1, sock2 = tcp_pair
+    s2 = OpenSSL::SSL::SSLSocket.new(sock2, ctx2)
+    accepted = s2.accept_nonblock(exception: false)
+
+    ctx1 = OpenSSL::SSL::SSLContext.new
+    ctx1.ciphers = "DH"
+    ctx1.tmp_dh_callback = nil
+    s1 = OpenSSL::SSL::SSLSocket.new(sock1, ctx1)
+    t = Thread.new { s1.connect }
+
+    accept = s2.accept
+    assert_equal s1, t.value
+    assert accept
+  ensure
+    t.join if t
+    s1.close if s1
+    s2.close if s2
+    sock1.close if sock1
+    sock2.close if sock2
+    accepted.close if accepted.respond_to?(:close)
+  end
+
+  def test_connect_without_setting_dh_callback
+    ctx2 = OpenSSL::SSL::SSLContext.new
+    ctx2.ciphers = "DH"
+    sock1, sock2 = tcp_pair
+    s2 = OpenSSL::SSL::SSLSocket.new(sock2, ctx2)
+    accepted = s2.accept_nonblock(exception: false)
+
+    ctx1 = OpenSSL::SSL::SSLContext.new
+    ctx1.ciphers = "DH"
+    s1 = OpenSSL::SSL::SSLSocket.new(sock1, ctx1)
+    t = Thread.new { s1.connect }
+
+    accept = s2.accept
+    assert_equal s1, t.value
+    assert accept
+  ensure
+    t.join if t
+    s1.close if s1
+    s2.close if s2
+    sock1.close if sock1
+    sock2.close if sock2
+    accepted.close if accepted.respond_to?(:close)
+  end
+
+  def test_ecdh_callback
+    called = false
+    ctx2 = OpenSSL::SSL::SSLContext.new
+    ctx2.ciphers = "ECDH"
+    ctx2.tmp_ecdh_callback = ->(*args) {
+      called = true
+      OpenSSL::PKey::EC.new "prime256v1"
+    }
+
+    sock1, sock2 = tcp_pair
+
+    s2 = OpenSSL::SSL::SSLSocket.new(sock2, ctx2)
+    ctx1 = OpenSSL::SSL::SSLContext.new
+    ctx1.ciphers = "ECDH"
+
+    s1 = OpenSSL::SSL::SSLSocket.new(sock1, ctx1)
+    th = Thread.new do
+      begin
+        rv = s1.connect_nonblock(exception: false)
+        case rv
+        when :wait_writable
+          IO.select(nil, [s1], nil, 5)
+        when :wait_readable
+          IO.select([s1], nil, nil, 5)
+        end
+      end until rv == s1
+    end
+
+    accepted = s2.accept
+
+    assert called, 'ecdh callback should be called'
+  rescue OpenSSL::SSL::SSLError => e
+    if e.message =~ /no cipher match/
+      skip "ECDH cipher not supported."
+    else
+      raise e
+    end
+  ensure
+    th.join if th
+    s1.close if s1
+    s2.close if s2
+    sock1.close if sock1
+    sock2.close if sock2
+    accepted.close if accepted.respond_to?(:close)
+  end
+
+  def test_connect_accept_nonblock_no_exception
+    ctx2 = OpenSSL::SSL::SSLContext.new
+    ctx2.ciphers = "ADH"
+    ctx2.tmp_dh_callback = proc { OpenSSL::TestUtils::TEST_KEY_DH1024 }
+
+    sock1, sock2 = tcp_pair
+
+    s2 = OpenSSL::SSL::SSLSocket.new(sock2, ctx2)
+    accepted = s2.accept_nonblock(exception: false)
+    assert_equal :wait_readable, accepted
+
+    ctx1 = OpenSSL::SSL::SSLContext.new
+    ctx1.ciphers = "ADH"
+    s1 = OpenSSL::SSL::SSLSocket.new(sock1, ctx1)
+    th = Thread.new do
+      rets = []
+      begin
+        rv = s1.connect_nonblock(exception: false)
+        rets << rv
+        case rv
+        when :wait_writable
+          IO.select(nil, [s1], nil, 5)
+        when :wait_readable
+          IO.select([s1], nil, nil, 5)
+        end
+      end until rv == s1
+      rets
+    end
+
+    until th.join(0.01)
+      accepted = s2.accept_nonblock(exception: false)
+      assert_includes([s2, :wait_readable, :wait_writable ], accepted)
+    end
+
+    rets = th.value
+    assert_instance_of Array, rets
+    rets.each do |rv|
+      assert_includes([s1, :wait_readable, :wait_writable ], rv)
+    end
+  ensure
+    th.join if th
+    s1.close if s1
+    s2.close if s2
+    sock1.close if sock1
+    sock2.close if sock2
+    accepted.close if accepted.respond_to?(:close)
+  end
+
+  def test_connect_accept_nonblock
+    ctx = OpenSSL::SSL::SSLContext.new()
+    ctx.ciphers = "ADH"
+    ctx.tmp_dh_callback = proc { OpenSSL::TestUtils::TEST_KEY_DH1024 }
+
+    sock1, sock2 = tcp_pair
 
     th = Thread.new {
       s2 = OpenSSL::SSL::SSLSocket.new(sock2, ctx)
@@ -253,9 +491,9 @@ module OpenSSL::TestPairM
     s1.print "a\ndef"
     assert_equal("a\n", s2.gets)
   ensure
+    th.join if th
     s1.close if s1 && !s1.closed?
     s2.close if s2 && !s2.closed?
-    serv.close if serv && !serv.closed?
     sock1.close if sock1 && !sock1.closed?
     sock2.close if sock2 && !sock2.closed?
   end

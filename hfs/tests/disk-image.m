@@ -30,6 +30,7 @@
 bool disk_image_cleanup(disk_image_t *di)
 {
 	pid_t pid;
+	bool result = false;
 	
 	// We need to be root
 	assert(seteuid(0) == 0);
@@ -61,10 +62,15 @@ bool disk_image_cleanup(disk_image_t *di)
 	if (WIFEXITED(status) && !WEXITSTATUS(status)
 		&& stat(di->disk, &sb) == -1 && errno == ENOENT) {
 		unlink(di->path);
-		return true;
+		result = true;
+		// We are the last user of di, so free it.
+		free(di->mount_point);
+		free(di->disk);
+		free(di->path);
+		free(di);
 	}
-	
-	return false;
+
+	return result;
 }
 
 void *zalloc(__unused void *opaque, uInt items, uInt size)
@@ -196,12 +202,6 @@ disk_image_t *disk_image_create(const char *path, disk_image_opts_t *opts)
 	
 	di->mount_point = strdup(opts->mount_point);
 	
-	char *chown_args[5] = { "chown", "-R", "mobile:mobile", (char *)di->mount_point, NULL };
-	assert_no_err(posix_spawn(&pid, "/usr/sbin/chown", NULL, NULL, chown_args, NULL));
-	
-	assert_with_errno(ignore_eintr(waitpid(pid, &status, 0), -1) == pid);
-	assert(WIFEXITED(status) && !WEXITSTATUS(status));
-	
 	if (strcmp(path, SHARED_PATH)) { // Don't register a cleanup for the shared image
 		test_cleanup(^ bool {
 			return disk_image_cleanup(di);
@@ -223,11 +223,21 @@ disk_image_t *disk_image_get(void)
 		di->mount_point = SHARED_MOUNT;
 		di->disk = strdup(sfs.f_mntfromname);
 		di->path = SHARED_PATH;
+
+		// Make sure the di struct is freed when tests are complete.
+		test_cleanup(^ bool {
+			free(di->disk);
+			free(di);
+			return true;
+		});
 	} else {
 		disk_image_opts_t opts = {
 			.mount_point = SHARED_MOUNT
 		};
 		di = disk_image_create(SHARED_PATH, &opts);
+		// Per the contract of disk_image_create(),
+		// di will be freed when disk_image_cleanup() is called,
+		// so don't free it here.
 	}
 	
 	return di;
@@ -241,6 +251,7 @@ bool disk_image_cleanup(disk_image_t *di)
 		= { "hdiutil", "detach", (char *)di->disk, "-force", NULL };
 
 	pid_t pid;
+	bool result = false;
 
 	posix_spawn_file_actions_t facts;
 	posix_spawn_file_actions_init(&facts);
@@ -260,10 +271,16 @@ bool disk_image_cleanup(disk_image_t *di)
 		&& stat(di->disk, &sb) == -1 && errno == ENOENT) {
 		if (unlink(di->path) && errno == EACCES && !seteuid(0))
 			unlink(di->path);
-		return true;
+		result = true;
+
+		// We are the last user of di, so free it.
+		free(di->mount_point);
+		free(di->disk);
+		free(di->path);
+		free(di);
 	}
-	
-	return false;
+
+	return result;
 }
 
 disk_image_t *disk_image_create(const char *path, disk_image_opts_t *opts)
@@ -454,12 +471,22 @@ disk_image_t *disk_image_get(void)
 		di->mount_point = SHARED_MOUNT;
 		di->disk = strdup(sfs.f_mntfromname);
 		di->path = SHARED_PATH;
+
+		// Make sure the di struct is freed when tests are complete.
+		test_cleanup(^ bool {
+			free(di->disk);
+			free(di);
+			return true;
+		});
 	} else {
 		disk_image_opts_t opts = {
 			.size = 4 GB,
 			.mount_point = SHARED_MOUNT
 		};
 		di = disk_image_create(SHARED_PATH, &opts);
+		// Per the contract of disk_image_create(),
+		// di will be freed when disk_image_cleanup() is called,
+		// so don't free it here.
 	}
 
 	return di;

@@ -3,7 +3,7 @@
 <title>NTP Configuration File User's Manual</title>
 <meta http-equiv="Content-Type" content="text/html">
 <meta name="description" content="NTP Configuration File User's Manual">
-<meta name="generator" content="makeinfo 4.13">
+<meta name="generator" content="makeinfo 4.7">
 <link title="Top" rel="top" href="#Top">
 <link href="http://www.gnu.org/software/texinfo/" rel="generator-home" title="Texinfo Homepage">
 <meta http-equiv="Content-Style-Type" content="text/css">
@@ -14,20 +14,18 @@
   pre.smallformat  { font-family:inherit; font-size:smaller }
   pre.smallexample { font-size:smaller }
   pre.smalllisp    { font-size:smaller }
-  span.sc    { font-variant:small-caps }
-  span.roman { font-family:serif; font-weight:normal; } 
-  span.sansserif { font-family:sans-serif; font-weight:normal; } 
+  span.sc { font-variant:small-caps }
+  span.roman { font-family: serif; font-weight: normal; } 
 --></style>
 </head>
 <body>
 <h1 class="settitle">NTP Configuration File User's Manual</h1>
 <div class="node">
-<a name="Top"></a>
 <p><hr>
-Next:&nbsp;<a rel="next" accesskey="n" href="#ntp_002econf-Description">ntp.conf Description</a>,
+<a name="Top"></a>Next:&nbsp;<a rel="next" accesskey="n" href="#ntp_002econf-Description">ntp.conf Description</a>,
 Previous:&nbsp;<a rel="previous" accesskey="p" href="#dir">(dir)</a>,
 Up:&nbsp;<a rel="up" accesskey="u" href="#dir">(dir)</a>
-
+<br>
 </div>
 
 <h2 class="unnumbered">NTP's Configuration File User Manual</h2>
@@ -35,9 +33,9 @@ Up:&nbsp;<a rel="up" accesskey="u" href="#dir">(dir)</a>
 <p>This document describes the configuration file for the NTP Project's
 <code>ntpd</code> program.
 
-  <p>This document applies to version 4.2.8p8 of <code>ntp.conf</code>.
+  <p>This document applies to version 4.2.8p10 of <code>ntp.conf</code>.
 
-  <div class="shortcontents">
+       <div class="shortcontents">
 <h2>Short Contents</h2>
 <ul>
 <a href="#Top">NTP's Configuration File User Manual</a>
@@ -50,12 +48,10 @@ Up:&nbsp;<a rel="up" accesskey="u" href="#dir">(dir)</a>
 </ul>
 
 <div class="node">
-<a name="ntp.conf-Description"></a>
-<a name="ntp_002econf-Description"></a>
 <p><hr>
-Previous:&nbsp;<a rel="previous" accesskey="p" href="#Top">Top</a>,
+<a name="ntp_002econf-Description"></a>Previous:&nbsp;<a rel="previous" accesskey="p" href="#Top">Top</a>,
 Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
-
+<br>
 </div>
 
 <!-- node-name,  next,  previous,  up -->
@@ -65,11 +61,9 @@ Up:&nbsp;<a rel="up" accesskey="u" href="#Top">Top</a>
 by default <code>ntp.conf</code>.
 
 <div class="node">
-<a name="ntp.conf-Notes"></a>
-<a name="ntp_002econf-Notes"></a>
 <p><hr>
-
-
+<a name="ntp_002econf-Notes"></a>
+<br>
 </div>
 
 <h3 class="section">Notes about ntp.conf</h3>
@@ -83,7 +77,7 @@ configuration file is read at initial startup by the
 daemon in order to specify the synchronization sources,
 modes and other related information. 
 Usually, it is installed in the
-<samp><span class="file">/etc</span></samp>
+<span class="file">/etc</span>
 directory,
 but could be installed elsewhere
 (see the daemon's
@@ -94,7 +88,7 @@ command line option).
 <span class="sc">unix</span>
 configuration files. 
 Comments begin with a
-&lsquo;#&rsquo;
+#
 character and extend to the end of the line;
 blank lines are ignored. 
 Configuration commands consist of an initial keyword
@@ -112,7 +106,7 @@ The
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>)
+<span class="file">/usr/share/doc/ntp</span>)
 contains an extended discussion of these options. 
 In addition to the discussion of general
 <a href="#Configuration-Options">Configuration Options</a>,
@@ -139,10 +133,9 @@ or
 <code>manycastclient</code>
 commands. 
 <div class="node">
-<a name="Configuration-Support"></a>
 <p><hr>
-
-
+<a name="Configuration-Support"></a>
+<br>
 </div>
 
 <h4 class="subsection">Configuration Support</h4>
@@ -183,7 +176,7 @@ or
 <code>ntpdc(1ntpdcmdoc)</code>,
 IPv6 addresses are automatically generated. 
 IPv6 addresses can be identified by the presence of colons
-&ldquo;:&rdquo;
+:
 in the address field. 
 IPv6 addresses can be used almost everywhere where
 IPv4 addresses can be used,
@@ -213,7 +206,7 @@ Additional information on association behavior can be found in the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>).
+<span class="file">/usr/share/doc/ntp</span>).
      <dl>
 <dt><code>pool</code><dd>For type s addresses, this command mobilizes a persistent
 client mode association with a number of remote servers. 
@@ -364,7 +357,7 @@ See the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>)
+<span class="file">/usr/share/doc/ntp</span>)
 for further information. 
 <br><dt><code>true</code><dd>Forces the association to always survive the selection and clustering algorithms. 
 This option should almost certainly
@@ -447,10 +440,9 @@ The default value for
 is 5. 
 </dl>
 <div class="node">
-<a name="Authentication-Support"></a>
 <p><hr>
-
-
+<a name="Authentication-Support"></a>
+<br>
 </div>
 
 <h4 class="subsection">Authentication Support</h4>
@@ -600,7 +592,7 @@ authenticate NTP packets.
 Keys and
 related information are specified in a key
 file, usually called
-<samp><span class="file">ntp.keys</span></samp>,
+<span class="file">ntp.keys</span>,
 which must be distributed and stored using
 secure means beyond the scope of the NTP protocol itself. 
 Besides the keys used
@@ -897,34 +889,34 @@ location of a file is relative to the keys directory specified
 in the
 <code>keysdir</code>
 command or default
-<samp><span class="file">/usr/local/etc</span></samp>. 
+<span class="file">/usr/local/etc</span>. 
 Following are the subcommands:
           <dl>
 <dt><code>cert</code> <kbd>file</kbd><dd>Specifies the location of the required host public certificate file. 
 This overrides the link
-<samp><span class="file">ntpkey_cert_</span></samp><kbd>hostname</kbd>
+<span class="file">ntpkey_cert_</span><kbd>hostname</kbd>
 in the keys directory. 
 <br><dt><code>gqpar</code> <kbd>file</kbd><dd>Specifies the location of the optional GQ parameters file. 
 This
 overrides the link
-<samp><span class="file">ntpkey_gq_</span></samp><kbd>hostname</kbd>
+<span class="file">ntpkey_gq_</span><kbd>hostname</kbd>
 in the keys directory. 
 <br><dt><code>host</code> <kbd>file</kbd><dd>Specifies the location of the required host key file. 
 This overrides
 the link
-<samp><span class="file">ntpkey_key_</span></samp><kbd>hostname</kbd>
+<span class="file">ntpkey_key_</span><kbd>hostname</kbd>
 in the keys directory. 
 <br><dt><code>iffpar</code> <kbd>file</kbd><dd>Specifies the location of the optional IFF parameters file. 
 This overrides the link
-<samp><span class="file">ntpkey_iff_</span></samp><kbd>hostname</kbd>
+<span class="file">ntpkey_iff_</span><kbd>hostname</kbd>
 in the keys directory. 
 <br><dt><code>leap</code> <kbd>file</kbd><dd>Specifies the location of the optional leapsecond file. 
 This overrides the link
-<samp><span class="file">ntpkey_leap</span></samp>
+<span class="file">ntpkey_leap</span>
 in the keys directory. 
 <br><dt><code>mvpar</code> <kbd>file</kbd><dd>Specifies the location of the optional MV parameters file. 
 This overrides the link
-<samp><span class="file">ntpkey_mv_</span></samp><kbd>hostname</kbd>
+<span class="file">ntpkey_mv_</span><kbd>hostname</kbd>
 in the keys directory. 
 <br><dt><code>pw</code> <kbd>password</kbd><dd>Specifies the password to decrypt files containing private keys and
 identity parameters. 
@@ -936,7 +928,7 @@ The defaults are described in the main text above.
 <br><dt><code>sign</code> <kbd>file</kbd><dd>Specifies the location of the optional sign key file. 
 This overrides
 the link
-<samp><span class="file">ntpkey_sign_</span></samp><kbd>hostname</kbd>
+<span class="file">ntpkey_sign_</span><kbd>hostname</kbd>
 in the keys directory. 
 If this file is
 not found, the host key is also the sign key. 
@@ -954,7 +946,7 @@ command line option.
 <br><dt><code>keysdir</code> <kbd>path</kbd><dd>This command specifies the default directory path for
 cryptographic keys, parameters and certificates. 
 The default is
-<samp><span class="file">/usr/local/etc/</span></samp>. 
+<span class="file">/usr/local/etc/</span>. 
 <br><dt><code>requestkey</code> <kbd>key</kbd><dd>Specifies the key identifier to use with the
 <code>ntpdc(1ntpdcmdoc)</code>
 utility program, which uses a
@@ -1032,10 +1024,9 @@ The certificate is missing, corrupted or bogus.
 The identity key is missing, corrupt or bogus. 
 </dl>
   <div class="node">
-<a name="Monitoring-Support"></a>
 <p><hr>
-
-
+<a name="Monitoring-Support"></a>
+<br>
 </div>
 
 <h4 class="subsection">Monitoring Support</h4>
@@ -1051,7 +1042,7 @@ for a listing and example of each type of statistics currently
 supported. 
 Statistic files are managed using file generation sets
 and scripts in the
-<samp><span class="file">./scripts</span></samp>
+<span class="file">./scripts</span>
 directory of the source code distribution. 
 Using
 these facilities and
@@ -1073,7 +1064,8 @@ Each update
 received from a clock driver appends a line of the following form to
 the file generation set named
 <code>clockstats</code>:
-<pre class="verbatim">          49213 525.624 127.127.4.1 93 226 00:08:29.606 D
+<pre class="verbatim">          
+          49213 525.624 127.127.4.1 93 226 00:08:29.606 D
      </pre>
 
           <p>The first two fields show the date (Modified Julian Day) and time
@@ -1093,7 +1085,8 @@ enables recording of cryptographic public key protocol information.
 Each message received by the protocol module appends a line of the
 following form to the file generation set named
 <code>cryptostats</code>:
-<pre class="verbatim">          49213 525.624 127.127.4.1 message
+<pre class="verbatim">          
+          49213 525.624 127.127.4.1 message
      </pre>
 
           <p>The first two fields show the date (Modified Julian Day) and time
@@ -1109,7 +1102,8 @@ Each
 update of the local clock outputs a line of the following form to
 the file generation set named
 <code>loopstats</code>:
-<pre class="verbatim">          50935 75440.031 0.000006019 13.778190 0.000351733 0.0133806
+<pre class="verbatim">          
+          50935 75440.031 0.000006019 13.778190 0.000351733 0.0133806
      </pre>
 
           <p>The first two fields show the date (Modified Julian Day) and
@@ -1126,7 +1120,8 @@ Each valid update appends a
 line of the following form to the current element of a file
 generation set named
 <code>peerstats</code>:
-<pre class="verbatim">          48773 10847.650 127.127.4.1 9714 -0.001605376 0.000000000 0.001424877 0.000958674
+<pre class="verbatim">          
+          48773 10847.650 127.127.4.1 9714 -0.001605376 0.000000000 0.001424877 0.000958674
      </pre>
 
           <p>The first two fields show the date (Modified Julian Day) and
@@ -1146,7 +1141,8 @@ Each NTP message
 received from a peer or clock driver appends a line of the
 following form to the file generation set named
 <code>rawstats</code>:
-<pre class="verbatim">          50928 2132.543 128.4.1.1 128.4.1.20 3102453281.584327000 3102453281.58622800031 02453332.540806000 3102453332.541458000
+<pre class="verbatim">          
+          50928 2132.543 128.4.1.1 128.4.1.20 3102453281.584327000 3102453281.58622800031 02453332.540806000 3102453332.541458000
      </pre>
 
           <p>The first two fields show the date (Modified Julian Day) and
@@ -1164,7 +1160,8 @@ Each
 hour a line of the following form is appended to the file generation
 set named
 <code>sysstats</code>:
-<pre class="verbatim">          50928 2132.543 36000 81965 0 9546 56 71793 512 540 10 147
+<pre class="verbatim">          
+          50928 2132.543 36000 81965 0 9546 56 71793 512 540 10 147
      </pre>
 
           <p>The first two fields show the date (Modified Julian Day) and time
@@ -1242,13 +1239,13 @@ generation can be configured using the
 option explained above. 
 <br><dt><code>filename</code><dd>This string is directly concatenated to the prefix mentioned
 above (no intervening
-&lsquo;/&rsquo;). 
+/). 
 This can be modified using
 the file argument to the
 <kbd>filegen</kbd>
 statement. 
 No
-<samp><span class="file">..</span></samp>
+<span class="file">..</span>
 elements are
 allowed in this component to prevent filenames referring to
 parts outside the filesystem hierarchy denoted by
@@ -1270,7 +1267,7 @@ separating files belonging to different
 <code>ntpd(1ntpdmdoc)</code>
 server incarnations. 
 The set member filename is built by appending a
-&lsquo;.&rsquo;
+. 
 to concatenated
 <kbd>prefix</kbd>
 and
@@ -1284,7 +1281,7 @@ A day is
 defined as the period between 00:00 and 24:00 UTC. 
 The file set
 member suffix consists of a
-&lsquo;.&rsquo;
+. 
 and a day specification in
 the form
 <code>YYYYMMdd</code>. 
@@ -1356,10 +1353,9 @@ allows the current file to be accessed by a constant name.
           </dl>
      </dl>
 <div class="node">
-<a name="Access-Control-Support"></a>
 <p><hr>
-
-
+<a name="Access-Control-Support"></a>
+<br>
 </div>
 
 <h4 class="subsection">Access Control Support</h4>
@@ -1381,7 +1377,7 @@ Additional information and examples can be found in the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>).
+<span class="file">/usr/share/doc/ntp</span>).
 
   <p>The restriction facility was implemented in conformance
 with the access policies for the original NSFnet backbone
@@ -1609,10 +1605,9 @@ with the default entry (i.e., everything besides your own
 NTP server is unrestricted). 
 </dl>
 <div class="node">
-<a name="Automatic-NTP-Configuration-Options"></a>
 <p><hr>
-
-
+<a name="Automatic-NTP-Configuration-Options"></a>
+<br>
 </div>
 
 <h4 class="subsection">Automatic NTP Configuration Options</h4>
@@ -1931,9 +1926,25 @@ scheme starts all over from the beginning and
 the expanding ring shrinks to the minimum and increments
 from there while collecting all servers in scope.
 
-<h5 class="subsubsection">Manycast Options</h5>
+<h5 class="subsubsection">Broadcast Options</h5>
 
      <dl>
+<dt><code>tos</code> <code>[bcpollbstep </code><kbd>gate</kbd><code>]</code><dd>This command provides a way to delay,
+by the specified number of broadcast poll intervals,
+believing backward time steps from a broadcast server. 
+Broadcast time networks are expected to be trusted. 
+In the event a broadcast server's time is stepped backwards,
+there is clear benefit to having the clients notice this change
+as soon as possible. 
+Attacks such as replay attacks can happen, however,
+and even though there are a number of protections built in to
+broadcast mode, attempts to perform  a replay attack are possible. 
+This value defaults to 0, but can be changed
+to any number of poll intervals between 0 and 4.
+
+<h5 class="subsubsection">Manycast Options</h5>
+
+          <dl>
 <dt><code>tos</code> <code>[ceiling </code><kbd>ceiling</kbd><code> | cohort { 0 | 1 } | floor </code><kbd>floor</kbd><code> | minclock </code><kbd>minclock</kbd><code> | minsane </code><kbd>minsane</kbd><code>]</code><dd>This command affects the clock selection and clustering
 algorithms. 
 It can be used to select the quality and
@@ -1941,7 +1952,7 @@ quantity of peers used to synchronize the system clock
 and is most useful in manycast mode. 
 The variables operate
 as follows:
-          <dl>
+               <dl>
 <dt><code>ceiling</code> <kbd>ceiling</kbd><dd>Peers with strata above
 <code>ceiling</code>
 will be discarded if there are at least
@@ -1983,23 +1994,22 @@ Byzantine agreement,
 should be at least 4 in order to detect and discard
 a single falseticker. 
 </dl>
-     <br><dt><code>ttl</code> <kbd>hop</kbd> <kbd>...</kbd><dd>This command specifies a list of TTL values in increasing
+          <br><dt><code>ttl</code> <kbd>hop</kbd> <kbd>...</kbd><dd>This command specifies a list of TTL values in increasing
 order, up to 8 values can be specified. 
 In manycast mode these values are used in turn
 in an expanding-ring search. 
 The default is eight
 multiples of 32 starting at 31. 
 </dl>
-<div class="node">
-<a name="Reference-Clock-Support"></a>
+     <div class="node">
 <p><hr>
-
-
+<a name="Reference-Clock-Support"></a>
+<br>
 </div>
 
 <h4 class="subsection">Reference Clock Support</h4>
 
-<p>The NTP Version 4 daemon supports some three dozen different radio,
+     <p>The NTP Version 4 daemon supports some three dozen different radio,
 satellite and modem reference clocks plus a special pseudo-clock
 used for backup or when no other clock source is available. 
 Detailed descriptions of individual device drivers and options can
@@ -2008,7 +2018,7 @@ be found in the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>). 
+<span class="file">/usr/share/doc/ntp</span>). 
 Additional information can be found in the pages linked
 there, including the
 "Debugging Hints for Reference Clock Drivers"
@@ -2017,14 +2027,14 @@ and
 pages
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>). 
+<span class="file">/usr/share/doc/ntp</span>). 
 In addition, support for a PPS
 signal is available as described in the
 "Pulse-per-second (PPS) Signal Interfacing"
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>). 
+<span class="file">/usr/share/doc/ntp</span>). 
 Many
 drivers support special line discipline/streams modules which can
 significantly improve the accuracy using the driver. 
@@ -2034,9 +2044,9 @@ described in the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>).
+<span class="file">/usr/share/doc/ntp</span>).
 
-  <p>A reference clock will generally (though not always) be a radio
+       <p>A reference clock will generally (though not always) be a radio
 timecode receiver which is synchronized to a source of standard
 time such as the services offered by the NRC in Canada and NIST and
 USNO in the US. 
@@ -2052,7 +2062,7 @@ or the hardware port has not been appropriately configured results
 in a scalding remark to the system log file, but is otherwise non
 hazardous.
 
-  <p>For the purposes of configuration,
+       <p>For the purposes of configuration,
 <code>ntpd(1ntpdmdoc)</code>
 treats
 reference clocks in a manner analogous to normal NTP peers as much
@@ -2073,7 +2083,7 @@ While it may seem overkill, it is in fact
 sometimes useful to configure multiple reference clocks of the same
 type, in which case the unit numbers must be unique.
 
-  <p>The
+       <p>The
 <code>server</code>
 command is used to configure a reference
 clock, where the
@@ -2100,7 +2110,7 @@ information on this option can be found in the
 "Mitigation Rules and the prefer Keyword"
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>)
+<span class="file">/usr/share/doc/ntp</span>)
 page. 
 The
 <code>minpoll</code>
@@ -2111,7 +2121,7 @@ meaning only for selected clock drivers.
 See the individual clock
 driver document pages for additional information.
 
-  <p>The
+       <p>The
 <code>fudge</code>
 command is used to provide additional
 information for individual clock drivers and normally follows
@@ -2133,7 +2143,7 @@ in the
 <code>fudge</code>
 command as well.
 
-  <p>The stratum number of a reference clock is by default zero. 
+       <p>The stratum number of a reference clock is by default zero. 
 Since the
 <code>ntpd(1ntpdmdoc)</code>
 daemon adds one to the stratum of each
@@ -2156,11 +2166,11 @@ these options apply to all clock drivers.
 
 <h5 class="subsubsection">Reference Clock Commands</h5>
 
-     <dl>
+          <dl>
 <dt><code>server</code> <code>127.127.</code><kbd>t</kbd>.<kbd>u</kbd> <code>[prefer]</code> <code>[mode </code><kbd>int</kbd><code>]</code> <code>[minpoll </code><kbd>int</kbd><code>]</code> <code>[maxpoll </code><kbd>int</kbd><code>]</code><dd>This command can be used to configure reference clocks in
 special ways. 
 The options are interpreted as follows:
-          <dl>
+               <dl>
 <dt><code>prefer</code><dd>Marks the reference clock as preferred. 
 All other things being
 equal, this host will be chosen for synchronization among a set of
@@ -2170,7 +2180,7 @@ See the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>)
+<span class="file">/usr/share/doc/ntp</span>)
 for further information. 
 <br><dt><code>mode</code> <kbd>int</kbd><dd>Specifies a mode number which is interpreted in a
 device-specific fashion. 
@@ -2193,7 +2203,7 @@ defaults to 10 (17.1 m) and
 defaults to 14 (4.5 h). 
 The allowable range is 4 (16 s) to 17 (36.4 h) inclusive. 
 </dl>
-     <br><dt><code>fudge</code> <code>127.127.</code><kbd>t</kbd>.<kbd>u</kbd> <code>[time1 </code><kbd>sec</kbd><code>]</code> <code>[time2 </code><kbd>sec</kbd><code>]</code> <code>[stratum </code><kbd>int</kbd><code>]</code> <code>[refid </code><kbd>string</kbd><code>]</code> <code>[mode </code><kbd>int</kbd><code>]</code> <code>[flag1 0 | 1]</code> <code>[flag2 0 | 1]</code> <code>[flag3 0 | 1]</code> <code>[flag4 0 | 1]</code><dd>This command can be used to configure reference clocks in
+          <br><dt><code>fudge</code> <code>127.127.</code><kbd>t</kbd>.<kbd>u</kbd> <code>[time1 </code><kbd>sec</kbd><code>]</code> <code>[time2 </code><kbd>sec</kbd><code>]</code> <code>[stratum </code><kbd>int</kbd><code>]</code> <code>[refid </code><kbd>string</kbd><code>]</code> <code>[mode </code><kbd>int</kbd><code>]</code> <code>[flag1 0 | 1]</code> <code>[flag2 0 | 1]</code> <code>[flag3 0 | 1]</code> <code>[flag4 0 | 1]</code><dd>This command can be used to configure reference clocks in
 special ways. 
 It must immediately follow the
 <code>server</code>
@@ -2204,7 +2214,7 @@ is possible at run time using the
 program. 
 The options are interpreted as
 follows:
-          <dl>
+               <dl>
 <dt><code>time1</code> <kbd>sec</kbd><dd>Specifies a constant to be added to the time offset produced by
 the driver, a fixed-point decimal number in seconds. 
 This is used
@@ -2232,7 +2242,7 @@ page and operates as described in the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>). 
+<span class="file">/usr/share/doc/ntp</span>). 
 <br><dt><code>time2</code> <kbd>secs</kbd><dd>Specifies a fixed-point decimal number in seconds, which is
 interpreted in a driver-dependent way. 
 See the descriptions of
@@ -2241,7 +2251,7 @@ specific drivers in the
 page
 (available as part of the HTML documentation
 provided in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>). 
+<span class="file">/usr/share/doc/ntp</span>). 
 <br><dt><code>stratum</code> <kbd>int</kbd><dd>Specifies the stratum number assigned to the driver, an integer
 between 0 and 15. 
 This number overrides the default stratum number
@@ -2275,17 +2285,16 @@ Further information on the
 command can be found in
 <a href="#Monitoring-Options">Monitoring Options</a>. 
 </dl>
-     </dl>
-<div class="node">
-<a name="Miscellaneous-Options"></a>
+          </dl>
+     <div class="node">
 <p><hr>
-
-
+<a name="Miscellaneous-Options"></a>
+<br>
 </div>
 
 <h4 class="subsection">Miscellaneous Options</h4>
 
-     <dl>
+          <dl>
 <dt><code>broadcastdelay</code> <kbd>seconds</kbd><dd>The broadcast and multicast modes require a special calibration
 to determine the network delay between the local and remote
 servers. 
@@ -2318,7 +2327,7 @@ frequency of zero and creates the file when writing it for the first time.
 If this command is not given, the daemon will always start with an initial
 frequency of zero.
 
-     <p>The file format consists of a single line containing a single
+          <p>The file format consists of a single line containing a single
 floating point number, which records the frequency offset measured
 in parts-per-million (PPM). 
 The file is updated by first writing
@@ -2338,7 +2347,7 @@ Note that all of these flags
 can be controlled remotely using the
 <code>ntpdc(1ntpdcmdoc)</code>
 utility program.
-          <dl>
+               <dl>
 <dt><code>auth</code><dd>Enables the server to synchronize with unconfigured peers only if the
 peer has been correctly authenticated using either public key or
 private key cryptography. 
@@ -2473,7 +2482,7 @@ The
 default for this flag is
 <code>enable</code>. 
 </dl>
-     <br><dt><code>includefile</code> <kbd>includefile</kbd><dd>This command allows additional configuration commands
+          <br><dt><code>includefile</code> <kbd>includefile</kbd><dd>This command allows additional configuration commands
 to be included from a separate file. 
 Include files may
 be nested to a depth of five; upon reaching the end of any
@@ -2505,18 +2514,18 @@ By default, all output is turned on.
 All
 <kbd>configkeyword</kbd>
 keywords can be prefixed with
-&lsquo;=&rsquo;,
-&lsquo;+&rsquo;
+=,
++
 and
-&lsquo;-&rsquo;,
+-,
 where
-&lsquo;=&rsquo;
+=
 sets the
 <code>syslog(3)</code>
 priority mask,
-&lsquo;+&rsquo;
++
 adds and
-&lsquo;-&rsquo;
+-
 removes
 messages. 
 <code>syslog(3)</code>
@@ -2534,7 +2543,7 @@ and
 status messages
 (<code>status</code>).
 
-     <p>Configuration keywords are formed by concatenating the message class with
+          <p>Configuration keywords are formed by concatenating the message class with
 the event class. 
 The
 <code>all</code>
@@ -2546,18 +2555,20 @@ keyword to enable/disable all
 messages of the respective message class. 
 Thus, a minimal log configuration
 could look like this:
-<pre class="verbatim">     logconfig =syncstatus +sysevents
-</pre>
+<pre class="verbatim">          
+          logconfig =syncstatus +sysevents
+     </pre>
 
-     <p>This would just list the synchronizations state of
+          <p>This would just list the synchronizations state of
 <code>ntpd(1ntpdmdoc)</code>
 and the major system events. 
 For a simple reference server, the
 following minimum message configuration could be useful:
-<pre class="verbatim">     logconfig =syncall +clockall
-</pre>
+<pre class="verbatim">          
+          logconfig =syncall +clockall
+     </pre>
 
-     <p>This configuration will list all clock information and
+          <p>This configuration will list all clock information and
 synchronization information. 
 All other events and messages about
 peers, system events and so on is suppressed. 
@@ -2616,8 +2627,8 @@ for them.
 Emphasis added: twisters are on their own and can expect
 no help from the support group.
 
-     <p>The variables operate as follows:
-          <dl>
+          <p>The variables operate as follows:
+               <dl>
 <dt><code>allan</code> <kbd>allan</kbd><dd>The argument becomes the new value for the minimum Allan
 intercept, which is a parameter of the PLL/FLL clock discipline
 algorithm. 
@@ -2666,8 +2677,8 @@ be set to any positive number in seconds.
 If set to zero, the stepout
 pulses will not be suppressed. 
 </dl>
-     <br><dt><code>rlimit</code> <code>[memlock </code><kbd>Nmegabytes</kbd><code> | stacksize </code><kbd>N4kPages</kbd><code> filenum </code><kbd>Nfiledescriptors</kbd><code>]</code><dd>
-          <dl>
+          <br><dt><code>rlimit</code> <code>[memlock </code><kbd>Nmegabytes</kbd><code> | stacksize </code><kbd>N4kPages</kbd><code> filenum </code><kbd>Nfiledescriptors</kbd><code>]</code><dd>
+               <dl>
 <dt><code>memlock</code> <kbd>Nmegabytes</kbd><dd>Specify the number of megabytes of memory that should be
 allocated and locked. 
 Probably only available under Linux, this option may be useful
@@ -2684,7 +2695,7 @@ Defaults to 50 4k pages (200 4k pages in OpenBSD).
 <br><dt><code>filenum</code> <kbd>Nfiledescriptors</kbd><dd>Specifies the maximum number of file descriptors ntpd may have open at once. 
 Defaults to the system default. 
 </dl>
-     <br><dt><code>trap</code> <kbd>host_address</kbd> <code>[port </code><kbd>port_number</kbd><code>]</code> <code>[interface </code><kbd>interface_address</kbd><code>]</code><dd>This command configures a trap receiver at the given host
+          <br><dt><code>trap</code> <kbd>host_address</kbd> <code>[port </code><kbd>port_number</kbd><code>]</code> <code>[interface </code><kbd>interface_address</kbd><code>]</code><dd>This command configures a trap receiver at the given host
 address and port number for sending messages with the specified
 local interface address. 
 If the port number is unspecified, a value
@@ -2695,7 +2706,7 @@ message is sent through.
 Note that on a multihomed host the
 interface used may vary from time to time with routing changes.
 
-     <p>The trap receiver will generally log event messages and other
+          <p>The trap receiver will generally log event messages and other
 information from the server in a log file. 
 While such monitor
 programs may also request their own trap dynamically, configuring a
@@ -2709,11 +2720,11 @@ The default is eight multiples of 32 starting at
 31. 
 </dl>
 
-  <p>This section was generated by <strong>AutoGen</strong>,
+       <p>This section was generated by <strong>AutoGen</strong>,
 using the <code>agtexi-cmd</code> template and the option descriptions for the <code>ntp.conf</code> program. 
 This software is released under the NTP license, &lt;http://ntp.org/license&gt;.
 
-<ul class="menu">
+     <ul class="menu">
 <li><a accesskey="1" href="#ntp_002econf-Files">ntp.conf Files</a>:                   Files
 <li><a accesskey="2" href="#ntp_002econf-See-Also">ntp.conf See Also</a>:                See Also
 <li><a accesskey="3" href="#ntp_002econf-Bugs">ntp.conf Bugs</a>:                    Bugs
@@ -2721,77 +2732,69 @@ This software is released under the NTP license, &lt;http://ntp.org/license&gt;.
 </ul>
 
 <div class="node">
-<a name="ntp.conf-Files"></a>
-<a name="ntp_002econf-Files"></a>
 <p><hr>
-
-
+<a name="ntp_002econf-Files"></a>
+<br>
 </div>
 
 <h4 class="subsection">ntp.conf Files</h4>
 
-     <dl>
-<dt><samp><span class="file">/etc/ntp.conf</span></samp><dd>the default name of the configuration file
-<br><dt><samp><span class="file">ntp.keys</span></samp><dd>private MD5 keys
-<br><dt><samp><span class="file">ntpkey</span></samp><dd>RSA private key
-<br><dt><samp><span class="file">ntpkey_</span></samp><kbd>host</kbd><dd>RSA public key
-<br><dt><samp><span class="file">ntp_dh</span></samp><dd>Diffie-Hellman agreement parameters
+          <dl>
+<dt><span class="file">/etc/ntp.conf</span><dd>the default name of the configuration file
+<br><dt><span class="file">ntp.keys</span><dd>private MD5 keys
+<br><dt><span class="file">ntpkey</span><dd>RSA private key
+<br><dt><span class="file">ntpkey_</span><kbd>host</kbd><dd>RSA public key
+<br><dt><span class="file">ntp_dh</span><dd>Diffie-Hellman agreement parameters
 </dl>
-<div class="node">
-<a name="ntp.conf-See-Also"></a>
-<a name="ntp_002econf-See-Also"></a>
+     <div class="node">
 <p><hr>
-
-
+<a name="ntp_002econf-See-Also"></a>
+<br>
 </div>
 
 <h4 class="subsection">ntp.conf See Also</h4>
 
-<p><code>ntpd(1ntpdmdoc)</code>,
+     <p><code>ntpd(1ntpdmdoc)</code>,
 <code>ntpdc(1ntpdcmdoc)</code>,
 <code>ntpq(1ntpqmdoc)</code>
 
-  <p>In addition to the manual pages provided,
+       <p>In addition to the manual pages provided,
 comprehensive documentation is available on the world wide web
 at
 <code>http://www.ntp.org/</code>. 
 A snapshot of this documentation is available in HTML format in
-<samp><span class="file">/usr/share/doc/ntp</span></samp>. 
+<span class="file">/usr/share/doc/ntp</span>. 
 <br>
 
-  <p><br>
+       <p><br>
 David L. Mills, <em>Network Time Protocol (Version 4)</em>, RFC5905
 <div class="node">
-<a name="ntp.conf-Bugs"></a>
-<a name="ntp_002econf-Bugs"></a>
 <p><hr>
-
-
+<a name="ntp_002econf-Bugs"></a>
+<br>
 </div>
 
 <h4 class="subsection">ntp.conf Bugs</h4>
 
-<p>The syntax checking is not picky; some combinations of
+     <p>The syntax checking is not picky; some combinations of
 ridiculous and even hilarious options and modes may not be
 detected.
 
-  <p>The
-<samp><span class="file">ntpkey_</span></samp><kbd>host</kbd>
+       <p>The
+<span class="file">ntpkey_</span><kbd>host</kbd>
 files are really digital
 certificates. 
 These should be obtained via secure directory
 services when they become universally available. 
 <div class="node">
-<a name="ntp.conf-Notes"></a>
-<a name="ntp_002econf-Notes"></a>
 <p><hr>
-
-
+<a name="ntp_002econf-Notes"></a>
+<br>
 </div>
 
 <h4 class="subsection">ntp.conf Notes</h4>
 
-<p>This document was derived from FreeBSD.
+     <p>This document was derived from FreeBSD.
 
 </body></html>
 

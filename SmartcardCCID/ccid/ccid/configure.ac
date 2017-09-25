@@ -4,7 +4,7 @@
 # Require autoconf 2.61
 AC_PREREQ([2.69])
 
-AC_INIT([ccid],[1.4.25])
+AC_INIT([ccid],[1.4.27])
 AC_CONFIG_SRCDIR(src/ifdhandler.c)
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip subdir-objects)
@@ -227,7 +227,7 @@ if test "${pcsclite}" != no ; then
 	AC_MSG_CHECKING([for SCardEstablishContext])
 	AC_TRY_LINK_FUNC(SCardEstablishContext,
 	    [ AC_MSG_RESULT([yes]) ],
-		[ AC_MSG_ERROR([SCardEstablishContext() not found, install pcsc-lite 1.2.9-beta9 or later,or use PCSC_LIBS=...  ./configure]) ])
+		[ AC_MSG_ERROR([SCardEstablishContext() not found, install pcsc-lite, or use PCSC_LIBS=...  ./configure]) ])
 	LIBS="$OLD_LIBS"
 	CFLAGS="$OLD_CFLAGS"
 
@@ -263,6 +263,15 @@ AC_ARG_ENABLE(embedded,
 
 if test x$use_embedded = xyes; then
   AC_DEFINE(NO_LOG, 1, [Disable logging support])
+fi
+
+# --enable-zlp
+AC_ARG_ENABLE(zlp,
+  AS_HELP_STRING([--enable-zlp],[enable the Zero Length Packet patch for some Gemalto readers]),
+  [ use_zlp="${enableval}" ])
+
+if test x$use_zlp = xyes; then
+  AC_DEFINE(ENABLE_ZLP, 1, [Enable Zero Length Packet patch])
 fi
 
 # Setup dist stuff

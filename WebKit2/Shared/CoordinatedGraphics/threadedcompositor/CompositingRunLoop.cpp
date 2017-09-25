@@ -34,7 +34,7 @@
 #include <wtf/WorkQueue.h>
 
 #if USE(GLIB_EVENT_LOOP)
-#include <glib.h>
+#include <wtf/glib/RunLoopSourcePriority.h>
 #endif
 
 namespace WebKit {
@@ -45,14 +45,14 @@ class WorkQueuePool {
 public:
     static WorkQueuePool& singleton()
     {
-        ASSERT(isMainThread());
+        ASSERT(RunLoop::isMain());
         static NeverDestroyed<WorkQueuePool> workQueuePool;
         return workQueuePool;
     }
 
     void dispatch(void* context, Function<void ()>&& function)
     {
-        ASSERT(isMainThread());
+        ASSERT(RunLoop::isMain());
         getOrCreateWorkQueueForContext(context).dispatch(WTFMove(function));
     }
 
@@ -75,11 +75,8 @@ public:
 private:
     WorkQueuePool()
     {
-#if PLATFORM(GTK)
+        // FIXME: This is a sane default limit, but it should be configurable somehow.
         m_threadCountLimit = 1;
-#else
-        m_threadCountLimit = std::numeric_limits<unsigned>::max();
-#endif
     }
 
     WorkQueue& getOrCreateWorkQueueForContext(void* context)
@@ -108,29 +105,36 @@ private:
     unsigned m_threadCountLimit;
 };
 
-CompositingRunLoop::CompositingRunLoop(std::function<void ()>&& updateFunction)
+CompositingRunLoop::CompositingRunLoop(Function<void ()>&& updateFunction)
     : m_updateTimer(WorkQueuePool::singleton().runLoop(this), this, &CompositingRunLoop::updateTimerFired)
     , m_updateFunction(WTFMove(updateFunction))
 {
+    m_updateState.store(UpdateState::Completed);
+
 #if USE(GLIB_EVENT_LOOP)
-    m_updateTimer.setPriority(G_PRIORITY_HIGH_IDLE);
+    m_updateTimer.setPriority(RunLoopSourcePriority::CompositingThreadUpdateTimer);
+    m_updateTimer.setName("[WebKit] CompositingRunLoop");
 #endif
 }
 
 CompositingRunLoop::~CompositingRunLoop()
 {
-    WorkQueuePool::singleton().invalidate(this);
+    ASSERT(RunLoop::isMain());
+    // Make sure the WorkQueue is deleted after the CompositingRunLoop, because m_updateTimer has a reference
+    // of the WorkQueue run loop. Passing this is not a problem because the pointer will only be used as a
+    // HashMap key by WorkQueuePool.
+    RunLoop::main().dispatch([context = this] { WorkQueuePool::singleton().invalidate(context); });
 }
 
 void CompositingRunLoop::performTask(Function<void ()>&& function)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
     WorkQueuePool::singleton().dispatch(this, WTFMove(function));
 }
 
 void CompositingRunLoop::performTaskSync(Function<void ()>&& function)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
     LockHolder locker(m_dispatchSyncConditionMutex);
     WorkQueuePool::singleton().dispatch(this, [this, function = WTFMove(function)] {
         function();
@@ -140,28 +144,44 @@ void CompositingRunLoop::performTaskSync(Function<void ()>&& function)
     m_dispatchSyncCondition.wait(m_dispatchSyncConditionMutex);
 }
 
-void CompositingRunLoop::startUpdateTimer(UpdateTiming timing)
+bool CompositingRunLoop::isActive()
 {
-    if (m_updateTimer.isActive())
-        return;
-
-    const static double targetFPS = 60;
-    double nextUpdateTime = 0;
-    if (timing == WaitUntilNextFrame)
-        nextUpdateTime = std::max((1 / targetFPS) - (monotonicallyIncreasingTime() - m_lastUpdateTime), 0.0);
-
-    m_updateTimer.startOneShot(nextUpdateTime);
+    return m_updateState.load() != UpdateState::Completed;
 }
 
-void CompositingRunLoop::stopUpdateTimer()
+void CompositingRunLoop::scheduleUpdate()
+{
+    if (m_updateState.compareExchangeStrong(UpdateState::Completed, UpdateState::InProgress) == UpdateState::Completed) {
+        m_updateTimer.startOneShot(0);
+        return;
+    }
+
+    if (m_updateState.compareExchangeStrong(UpdateState::InProgress, UpdateState::PendingAfterCompletion) == UpdateState::InProgress)
+        return;
+}
+
+void CompositingRunLoop::stopUpdates()
 {
     m_updateTimer.stop();
+    m_updateState.store(UpdateState::Completed);
+}
+
+void CompositingRunLoop::updateCompleted()
+{
+    if (m_updateState.compareExchangeStrong(UpdateState::InProgress, UpdateState::Completed) == UpdateState::InProgress)
+        return;
+
+    if (m_updateState.compareExchangeStrong(UpdateState::PendingAfterCompletion, UpdateState::InProgress) == UpdateState::PendingAfterCompletion) {
+        m_updateTimer.startOneShot(0);
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 void CompositingRunLoop::updateTimerFired()
 {
     m_updateFunction();
-    m_lastUpdateTime = monotonicallyIncreasingTime();
 }
 
 } // namespace WebKit

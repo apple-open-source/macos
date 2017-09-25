@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #--
 # accesslog.rb -- Access log handling utilities
 #
@@ -85,7 +86,7 @@ module WEBrick
     # %q:: Request query string
     # %r:: First line of the request
     # %s:: Request status
-    # %t:: Time the request was recieved
+    # %t:: Time the request was received
     # %T:: Time taken to process the request
     # %u:: Remote user from auth
     # %U:: Unparsed URI

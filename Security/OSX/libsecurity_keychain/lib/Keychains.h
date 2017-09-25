@@ -138,7 +138,6 @@ public:
 	Mutex* getKeychainMutex();
 	Mutex* getMutexForObject() const;
 
-    ReadWriteLock* getKeychainReadWriteLock();
 	void aboutToDestruct();
 
 	bool operator ==(const KeychainImpl &) const;
@@ -323,11 +322,6 @@ private:
     // creation/returning needs a mutex. You should only hold this if you're
     // copying or changing the mDb object.
     Mutex mDbMutex;
-
-    // Used to protect mDb across calls.
-    // Grab a read lock if you expect to read from this keychain in the future.
-    // The write lock is taken if we're replacing the database wholesale with something new.
-    ReadWriteLock mRWLock;
 };
 
 

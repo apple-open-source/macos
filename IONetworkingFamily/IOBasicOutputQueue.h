@@ -83,7 +83,7 @@ protected:
     This parameter is not used. 
 */
 
-    virtual void serviceThread(void * param);
+    virtual void serviceThread(void * param) APPLE_KEXT_OVERRIDE;
 
 /*! @function output
     @abstract Transfers all packets in the mbuf queue to the target.
@@ -101,7 +101,7 @@ protected:
     @discussion This function releases allocated resources, then call super::free(). 
 */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 /*! @function handleNetworkDataAccess
     @abstract Handles an external access to the IONetworkData object
@@ -204,7 +204,7 @@ public:
     @result Always returns 0. 
 */
 
-    virtual UInt32 enqueue(mbuf_t m, void * param);
+    virtual UInt32 enqueue(mbuf_t m, void * param) APPLE_KEXT_OVERRIDE;
 
 /*! @function start
     @abstract Starts up the packet flow between the queue and its target.
@@ -212,7 +212,7 @@ public:
     packets to be removed from the queue, and then delivered to the target.
     @result Returns true if the queue was started successfully, false otherwise. */
 
-    virtual bool start();
+    virtual bool start() APPLE_KEXT_OVERRIDE;
 
 /*! @function stop
     @abstract Stops the packet flow between the queue and its target.
@@ -226,7 +226,7 @@ public:
     true if the queue was running, false if the queue was already stopped. 
 */
 
-    virtual bool stop();
+    virtual bool stop() APPLE_KEXT_OVERRIDE;
 
 /*! @enum ServiceAsync
     @abstract The option bits recognized by service().
@@ -248,7 +248,7 @@ public:
     the queue awaiting delivery, false otherwise. 
 */
 
-    virtual bool service(IOOptionBits options = 0);
+    virtual bool service(IOOptionBits options = 0) APPLE_KEXT_OVERRIDE;
 
 /*! @function flush
     @abstract Drops and frees all packets currently held by the queue.
@@ -258,7 +258,7 @@ public:
     @result Returns the number of packets that were dropped and freed. 
 */
 
-    virtual UInt32 flush();
+    virtual UInt32 flush() APPLE_KEXT_OVERRIDE;
 
 /*! @function setCapacity
     @abstract Changes the number of packets that the queue can hold
@@ -267,7 +267,7 @@ public:
     @result Returns true if the new capacity was accepted, false otherwise. 
 */
 
-    virtual bool setCapacity(UInt32 capacity);
+    virtual bool setCapacity(UInt32 capacity) APPLE_KEXT_OVERRIDE;
 
 /*! @function getCapacity
     @abstract Gets the number of packets that the queue can hold.
@@ -276,14 +276,14 @@ public:
     @result Returns the current queue capacity. 
 */
 
-    virtual UInt32 getCapacity() const;
+    virtual UInt32 getCapacity() const APPLE_KEXT_OVERRIDE;
 
 /*! @function getSize
     @abstract Gets the number of packets currently held in the queue.
     @result Returns the size of the queue. 
 */
 
-    virtual UInt32 getSize() const;
+    virtual UInt32 getSize() const APPLE_KEXT_OVERRIDE;
 
 /*! @function getDropCount
     @abstract Gets the number of packets dropped by the queue.
@@ -348,7 +348,7 @@ public:
     @result Returns an IONetworkData object. 
 */
 
-	virtual IONetworkData * getStatisticsData() const;
+	virtual IONetworkData * getStatisticsData() const APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* !_IOBASICOUTPUTQUEUE_H */

@@ -67,7 +67,15 @@
 }
 
 .sidebar > .panel.navigation.debugger .tree-outline.single-thread {
-    margin-left: -10px;
+    --tree-outline-single-thread-margin-start: -10px;
+}
+
+body[dir=ltr] .sidebar > .panel.navigation.debugger .tree-outline.single-thread {
+    margin-left: var(--tree-outline-single-thread-margin-start);
+}
+
+body[dir=rtl] .sidebar > .panel.navigation.debugger .tree-outline.single-thread {
+    margin-right: var(--tree-outline-single-thread-margin-start);
 }
 
 .sidebar > .panel.navigation.debugger .warning-banner > a {
@@ -77,6 +85,10 @@
 
 .sidebar > .panel.navigation.debugger .details-section {
     font-size: 11px;
+}
+
+.sidebar > .panel.navigation.debugger .details-section.paused-reason.collapsed > .header > .options {
+    display: block;
 }
 
 .sidebar > .panel.navigation.debugger .details-section > .content {
@@ -93,4 +105,21 @@
 
 .sidebar > .panel.navigation.debugger .details-section.scripts:not(.collapsed) {
     border-bottom: none;
+}
+
+.sidebar > .panel.navigation.debugger .details-section.dom-breakpoints .item.dom-node .titles {
+    top: 3px;
+    font-family: Menlo, monospace;
+}
+
+.sidebar > .panel.navigation.debugger .details-section.dom-breakpoints .item.dom-node .icon {
+    content: url(../Images/DOMElement.svg);
+}
+
+.sidebar > .panel.navigation.debugger .details-section.dom-breakpoints .item.dom-node:not(:hover, .selected) .status .go-to-arrow {
+    display: none;
+}
+
+.sidebar > .panel.navigation.debugger .details-section.xhr-breakpoints .item.breakpoint .subtitle {
+    font-family: Menlo, monospace;
 }

@@ -34,6 +34,7 @@ int main(int argc, char * argv[])
     CFDataRef			statsData;
     vtd_space_stats_t *	stats;
     uint32_t			idx;
+    uint64_t            totalAllocs;
 
     vtd = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleVTD"));
     assert(vtd);
@@ -51,12 +52,17 @@ int main(int argc, char * argv[])
 	printf("largest_32b    0x%x\n", stats->largest_32b);
 	printf("max_binval     0x%x\n", stats->max_inval[0]);
 	printf("max_rinval     0x%x\n", stats->max_inval[1]);
-	printf("largest_32b    0x%x\n", stats->largest_32b);
-	printf("breakups       0x%x\n", stats->breakups);
-	printf("merges         0x%x\n", stats->merges);
 	printf("inserts        0x%x\n", stats->inserts);
 
-	for (idx = 0; idx < arrayCount(stats->allocs); idx++)	printf("allocs[%2d]    0x%x\n", idx, stats->allocs[idx]);
+	for (totalAllocs = 0, idx = 0; idx < arrayCount(stats->allocs); idx++)
+	{
+		printf("allocs[%2d]    0x%x\n", idx, stats->allocs[idx]);
+		totalAllocs += stats->allocs[idx];
+	}
+
+	printf("breakups       0x%x(%.3f)\n", stats->breakups, stats->breakups * 100.0 / totalAllocs);
+	printf("merges         0x%x(%.3f)\n", stats->breakups, stats->breakups * 100.0 / totalAllocs);
+
 	for (idx = 0; idx < arrayCount(stats->bcounts); idx++)	printf("bcounts[%2d]    0x%x\n", idx, stats->bcounts[idx]);
 
 	exit(0);

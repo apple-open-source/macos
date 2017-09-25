@@ -366,7 +366,9 @@ SecCertificateRef P12CertBag::getSecCert()
 	}
 	
 	/* One ref count for us, one for the caller */
-	CFRetain(mCertRef);
+	if (mCertRef) {
+		CFRetain(mCertRef);
+	}
 	return mCertRef;
 }
 

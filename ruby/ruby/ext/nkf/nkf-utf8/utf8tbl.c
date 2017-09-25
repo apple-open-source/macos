@@ -1,7 +1,6 @@
 /*
- * utf8tbl.c - Convertion Table for nkf
+ * utf8tbl.c - Conversion Table for nkf
  *
- * $Id: utf8tbl.c 37889 2012-11-27 04:28:14Z drbrain $
  */
 
 #include "config.h"

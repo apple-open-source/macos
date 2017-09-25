@@ -307,7 +307,7 @@ void AppleRAIDMirrorSet::activeReadMembers(AppleRAIDMember ** activeMembers, UIn
     assert((arActiveCount != arMemberCount) ? (isOffline((uintptr_t)activeMembers[arActiveCount])) : (isOnline((uintptr_t)activeMembers[arMemberCount-1])));
 
     // adjust last seeked to pointers and skipped counts
-    UInt64 balancedBlockCount = arSetBlockSize * arMaxReadRequestFactor;
+    UInt64 balancedBlockCount = arMaxReadRequestFactor ? arSetBlockSize * arMaxReadRequestFactor : arSetBlockSize;
     UInt64 perMemberCount = byteCount / balancedBlockCount / arActiveCount * balancedBlockCount;
     UInt64 count = 0;
 

@@ -85,7 +85,7 @@ new_ike_session (ike_session_id_t *id)
 	ike_session_t *session;
 
 	if (!id) {
-		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "Invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
     
@@ -124,7 +124,7 @@ free_ike_session (ike_session_t *session)
 								   session->term_reason);
 		}
 		// do MessageTracer cleanup here
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			 "Freeing IKE-Session to %s.\n",
 			 saddr2str((struct sockaddr *)&session->session_id.remote));
 		LIST_REMOVE(session, chain);
@@ -169,7 +169,7 @@ ike_session_create_session (ike_session_id_t *session_id)
     if (!session_id)
         return NULL;
     
-    plog(ASL_LEVEL_DEBUG, "New IKE Session to %s.\n", saddr2str((struct sockaddr *)&session_id->remote));
+    plog(ASL_LEVEL_NOTICE, "New IKE Session to %s.\n", saddr2str((struct sockaddr *)&session_id->remote));
     
     return new_ike_session(session_id);
 }
@@ -205,7 +205,7 @@ ike_session_get_session (struct sockaddr_storage *local,
 	int               is_isakmp_remote_port;
 
 	if (!local || !remote) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
 
@@ -322,10 +322,11 @@ ike_session_init_traffic_cop_params (phase1_handle_t *iph1)
     if (!iph1->parent_session->traffic_monitor.interv_idle) {
         iph1->parent_session->traffic_monitor.interv_idle = iph1->rmconf->idle_timeout;
     }
+
     if (!iph1->parent_session->traffic_monitor.dir_idle) {
         iph1->parent_session->traffic_monitor.dir_idle = iph1->rmconf->idle_timeout_dir;
     }
-    
+
     if (!iph1->parent_session->traffic_monitor.interv_mon) {
         int min_period, max_period, sample_period = 0;
 
@@ -415,7 +416,7 @@ ike_session_link_phase1 (ike_session_t *session, phase1_handle_t *iph1)
 {
     
 	if (!session || !iph1) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
     
@@ -450,7 +451,7 @@ int
 ike_session_link_phase2 (ike_session_t *session, phase2_handle_t *iph2)
 {
 	if (!iph2) {
-		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "Invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
     if (iph2->parent_session) {
@@ -485,7 +486,7 @@ ike_session_link_ph2_to_ph1 (phase1_handle_t *iph1, phase2_handle_t *iph2)
     int error = 0;
     
 	if (!iph2) {
-		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "Invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
     if (iph2->ph1) {
@@ -513,7 +514,7 @@ ike_session_unlink_phase1 (phase1_handle_t *iph1)
 	ike_session_t *session;
 	
 	if (!iph1 || !iph1->parent_session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -543,7 +544,7 @@ ike_session_unlink_phase2 (phase2_handle_t *iph2)
 	ike_session_t *session;
 	
 	if (!iph2 || !iph2->parent_session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
     sched_scrub_param(iph2);
@@ -568,7 +569,7 @@ ike_session_update_ph1_ph2tree (phase1_handle_t *iph1)
 	phase1_handle_t *new_iph1 = NULL;
 
 	if (!iph1) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
 
@@ -576,16 +577,16 @@ ike_session_update_ph1_ph2tree (phase1_handle_t *iph1)
 		new_iph1 = ike_session_get_established_ph1(iph1->parent_session);
 
 		if (!new_iph1) {
-			plog(ASL_LEVEL_DEBUG, "no ph1bind replacement found. NULL ph1.\n");
+			plog(ASL_LEVEL_NOTICE, "no ph1bind replacement found. NULL ph1.\n");
 			ike_session_unbind_all_ph2_from_ph1(iph1);
 		} else if (iph1 == new_iph1) {
-			plog(ASL_LEVEL_DEBUG, "no ph1bind replacement found. same ph1.\n");
+			plog(ASL_LEVEL_NOTICE, "no ph1bind replacement found. same ph1.\n");
 			ike_session_unbind_all_ph2_from_ph1(iph1);
 		} else {
 			ike_session_rebind_all_ph12_to_new_ph1(iph1, new_iph1);
 		}
 	} else {
-		plog(ASL_LEVEL_DEBUG, "invalid parent session in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_NOTICE, "invalid parent session in %s.\n", __FUNCTION__);
 	}
 	return new_iph1;
 }
@@ -596,7 +597,7 @@ ike_session_update_ph2_ph1bind (phase2_handle_t *iph2)
 	phase1_handle_t *iph1;
 	
 	if (!iph2 || iph2->phase2_type != PHASE2_TYPE_SA) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
 	
@@ -616,7 +617,7 @@ ike_session_get_established_or_negoing_ph1 (ike_session_t *session)
 	phase1_handle_t *p, *iph1 = NULL;
     
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
     
@@ -640,7 +641,7 @@ ike_session_get_established_ph1 (ike_session_t *session)
 	phase1_handle_t *p;
     
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
     
@@ -680,7 +681,7 @@ ike_session_has_other_negoing_ph1 (ike_session_t *session, phase1_handle_t *iph1
 	phase1_handle_t *p;
 	
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
 	
@@ -701,7 +702,7 @@ ike_session_has_other_established_ph2 (ike_session_t *session, phase2_handle_t *
 	phase2_handle_t *p;
 	
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
 	
@@ -722,7 +723,7 @@ ike_session_has_other_negoing_ph2 (ike_session_t *session, phase2_handle_t *iph2
 	phase2_handle_t *p;
 	
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
 	
@@ -762,7 +763,7 @@ ike_session_ikev1_float_ports (phase1_handle_t *iph1)
             set_port(remote, extract_port(iph1->remote));
 		}
 	} else {
-		plog(ASL_LEVEL_DEBUG, "invalid parent session in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_NOTICE, "invalid parent session in %s.\n", __FUNCTION__);
 	}
 }
 
@@ -777,18 +778,18 @@ ike_session_traffic_cop (void *arg)
         /* get traffic query from kernel */
         if (pk_sendget_inbound_sastats(session) < 0) {
             // log message
-            plog(ASL_LEVEL_DEBUG, "pk_sendget_inbound_sastats failed in %s.\n", __FUNCTION__);
+            plog(ASL_LEVEL_NOTICE, "pk_sendget_inbound_sastats failed in %s.\n", __FUNCTION__);
         }
         if (pk_sendget_outbound_sastats(session) < 0) {
             // log message
-            plog(ASL_LEVEL_DEBUG, "pk_sendget_outbound_sastats failed in %s.\n", __FUNCTION__);
+            plog(ASL_LEVEL_NOTICE, "pk_sendget_outbound_sastats failed in %s.\n", __FUNCTION__);
         }
         session->traffic_monitor.sc_mon = sched_new(session->traffic_monitor.interv_mon,
                                                     ike_session_traffic_cop,
                                                     session);
     } else {
         // log message
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
     }
 }
 
@@ -807,8 +808,8 @@ ike_session_monitor_idle (ike_session_t *session)
     if (session->traffic_monitor.dir_idle == IPSEC_DIR_INBOUND ||
         session->traffic_monitor.dir_idle == IPSEC_DIR_ANY) {
         if (session->peer_sent_data_sc_idle) {
-			plog(ASL_LEVEL_DEBUG, "%s: restart idle-timeout because peer sent data. monitoring dir %d.\n",
-				 __FUNCTION__, session->traffic_monitor.dir_idle);
+			plog(ASL_LEVEL_NOTICE, "%s: restart idle-timeout because peer sent data. monitoring dir %d. idle timer %d s\n",
+				 __FUNCTION__, session->traffic_monitor.dir_idle, session->traffic_monitor.interv_idle);
             SCHED_KILL(session->traffic_monitor.sc_idle);
 			if (session->traffic_monitor.interv_idle) {
 				session->traffic_monitor.sc_idle = sched_new(session->traffic_monitor.interv_idle,
@@ -823,8 +824,8 @@ ike_session_monitor_idle (ike_session_t *session)
     if (session->traffic_monitor.dir_idle == IPSEC_DIR_OUTBOUND ||
         session->traffic_monitor.dir_idle == IPSEC_DIR_ANY) {
         if (session->i_sent_data_sc_idle) {
-			plog(ASL_LEVEL_DEBUG, "%s: restart idle-timeout because i sent data. monitoring dir %d.\n",
-				 __FUNCTION__, session->traffic_monitor.dir_idle);
+			plog(ASL_LEVEL_NOTICE, "%s: restart idle-timeout because i sent data. monitoring dir %d. idle times %d s\n",
+				 __FUNCTION__, session->traffic_monitor.dir_idle, session->traffic_monitor.interv_idle);
             SCHED_KILL(session->traffic_monitor.sc_idle);
 			if (session->traffic_monitor.interv_idle) {
 				session->traffic_monitor.sc_idle = sched_new(session->traffic_monitor.interv_idle,
@@ -857,7 +858,7 @@ void
 ike_session_ph2_established (phase2_handle_t *iph2)
 {
 	if (!iph2->parent_session || iph2->phase2_type != PHASE2_TYPE_SA) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 	SCHED_KILL(iph2->parent_session->sc_xauth);
@@ -880,7 +881,7 @@ ike_session_ph2_established (phase2_handle_t *iph2)
 #ifdef ENABLE_VPNCONTROL_PORT
 	vpncontrol_notify_peer_resp_ph2(1, iph2);
 #endif /* ENABLE_VPNCONTROL_PORT */
-	plog(ASL_LEVEL_DEBUG, "%s: ph2 established, spid %d\n", __FUNCTION__, iph2->spid);
+	plog(ASL_LEVEL_NOTICE, "%s: ph2 established, spid %d\n", __FUNCTION__, iph2->spid);
 }
 
 void
@@ -918,7 +919,7 @@ ike_session_replace_other_ph1 (phase1_handle_t *new_iph1,
         session = new_iph1->parent_session;
     
 	if (!session || !new_iph1 || !old_iph1 || session != old_iph1->parent_session || new_iph1 == old_iph1) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
     
@@ -941,7 +942,7 @@ ike_session_replace_other_ph1 (phase1_handle_t *new_iph1,
     STRDUP_FATAL(local);
     STRDUP_FATAL(remote);
     STRDUP_FATAL(index);
-    plog(ASL_LEVEL_DEBUG, "ISAKMP-SA %s-%s (spi:%s) needs to be deleted, replaced by (spi:%s)\n", local, remote, index, isakmp_pindex(&new_iph1->index, 0));
+    plog(ASL_LEVEL_NOTICE, "ISAKMP-SA %s-%s (spi:%s) needs to be deleted, replaced by (spi:%s)\n", local, remote, index, isakmp_pindex(&new_iph1->index, 0));
     racoon_free(local);
     racoon_free(remote);
     racoon_free(index);
@@ -966,7 +967,7 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 	char             *local, *remote;
 
 	if (!session || !new_iph1 || session != new_iph1->parent_session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
@@ -993,7 +994,7 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 			remote = racoon_strdup(saddr2str((struct sockaddr *)p->remote));
 			STRDUP_FATAL(local);
 			STRDUP_FATAL(remote);
-			plog(ASL_LEVEL_DEBUG,
+			plog(ASL_LEVEL_NOTICE,
 				 "ISAKMP-SA needs to be deleted %s-%s spi:%s\n",
 				 local, remote, isakmp_pindex(&p->index, 0));
 			racoon_free(local);
@@ -1065,7 +1066,7 @@ ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
 	phase2_handle_t *p, *next;
 
 	if (!session || !new_iph2 || session != new_iph2->parent_session || new_iph2->phase2_type != PHASE2_TYPE_SA) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
@@ -1086,7 +1087,7 @@ ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
 			p->is_dying = 1;
 			
 			//log deletion
-			plog(ASL_LEVEL_DEBUG,
+			plog(ASL_LEVEL_NOTICE,
 				 "IPsec-SA needs to be deleted: %s\n",
 				 sadbsecas2str(p->src, p->dst,
 							   p->satype, p->spid, 0));
@@ -1107,12 +1108,12 @@ ike_session_stopped_by_controller (ike_session_t *session,
 								   const char    *reason)
 {	
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 	if (session->stop_timestamp.tv_sec ||
 		session->stop_timestamp.tv_usec) {
-		plog(ASL_LEVEL_DEBUG, "already stopped %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_NOTICE, "already stopped %s.\n", __FUNCTION__);
 		return;
 	}
 	session->stopped_by_vpn_controller = 1;
@@ -1131,7 +1132,7 @@ ike_sessions_stopped_by_controller (struct sockaddr_storage *remote,
 	ike_session_t *next_session = NULL;
 
 	if (!remote) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
@@ -1150,7 +1151,7 @@ ike_session_purge_ph1s_by_session (ike_session_t *session)
 	phase1_handle_t *next_iph1 = NULL;
 
 	LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
-		plog(ASL_LEVEL_DEBUG, "deleteallph1 of given session: got a ph1 handler...\n");
+		plog(ASL_LEVEL_NOTICE, "deleteallph1 of given session: got a ph1 handler...\n");
 
 		vpncontrol_notify_ike_failed(VPNCTL_NTYPE_NO_PROPOSAL_CHOSEN, FROM_REMOTE,
 					    iph1_get_remote_v4_address(iph1), 0, NULL);
@@ -1165,7 +1166,7 @@ ike_session_purge_ph2s_by_ph1 (phase1_handle_t *iph1)
 	phase2_handle_t *p, *next;
 
 	if (!iph1 || !iph1->parent_session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
@@ -1177,7 +1178,7 @@ ike_session_purge_ph2s_by_ph1 (phase1_handle_t *iph1)
         p->is_dying = 1;
 			
         //log deletion
-        plog(ASL_LEVEL_DEBUG,
+        plog(ASL_LEVEL_NOTICE,
              "IPsec-SA needs to be purged: %s\n",
              sadbsecas2str(p->src, p->dst,
                            p->satype, p->spid, 0));
@@ -1199,7 +1200,7 @@ ike_session_update_ph2_ports (phase2_handle_t *iph2)
         set_port(iph2->src, extract_port(local));
         set_port(iph2->dst, extract_port(remote));
 	} else {
-		plog(ASL_LEVEL_DEBUG, "invalid parent session in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_NOTICE, "invalid parent session in %s.\n", __FUNCTION__);
 	}
 }
 
@@ -1214,7 +1215,7 @@ ike_session_get_sas_for_stats (ike_session_t *session,
 	phase2_handle_t *iph2;
 
     if (!session || !seq || !stats || !max_stats || (dir != IPSEC_DIR_INBOUND && dir != IPSEC_DIR_OUTBOUND)) {
-		plog(ASL_LEVEL_DEBUG, "invalid args in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid args in %s.\n", __FUNCTION__);
         return found;
     }
 
@@ -1252,12 +1253,12 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
     int i, j, found = 0, idle = 1;
 
     if (!session || !new_stats || (dir != IPSEC_DIR_INBOUND && dir != IPSEC_DIR_OUTBOUND)) {
-		plog(ASL_LEVEL_DEBUG, "invalid args in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid args in %s.\n", __FUNCTION__);
         return;
     }
 
     if (!session->established || session->stopped_by_vpn_controller || session->stop_timestamp.tv_sec || session->stop_timestamp.tv_usec) {
-        plog(ASL_LEVEL_DEBUG, "dropping update on invalid session in %s.\n", __FUNCTION__);
+        plog(ASL_LEVEL_NOTICE, "dropping update on invalid session in %s.\n", __FUNCTION__);
         return;
     }
 
@@ -1286,7 +1287,7 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
         // new SA.... check for any activity
         if (!found) {
             if (new_stats[i].lft_c.sadb_lifetime_bytes) {
-                plog(ASL_LEVEL_DEBUG, "new SA: dir %d....\n", dir);           
+                plog(ASL_LEVEL_NOTICE, "new SA: dir %d....\n", dir);
                 idle = 0;
             }
         }
@@ -1326,10 +1327,12 @@ ike_session_cleanup (ike_session_t *session,
     phase2_handle_t *next_iph2 = NULL;
     phase1_handle_t *iph1 = NULL;
     phase1_handle_t *next_iph1 = NULL;
+    nw_nat64_prefix_t nat64_prefix;
 
     if (!session)
         return;
 
+    memset(&nat64_prefix, 0, sizeof(nat64_prefix));
     session->is_dying = 1;
 	ike_session_stopped_by_controller(session, reason);
 
@@ -1344,6 +1347,11 @@ ike_session_cleanup (ike_session_t *session,
 
     // do the ph1s last.
     LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
+
+        if (iph1->nat64_prefix.length > 0) {
+            memcpy(&nat64_prefix, &iph1->nat64_prefix, sizeof(nat64_prefix));
+        }
+
         if (FSM_STATE_IS_ESTABLISHED(iph1->status)) {
             isakmp_info_send_d1(iph1);
         }
@@ -1353,11 +1361,17 @@ ike_session_cleanup (ike_session_t *session,
     // send ipsecManager a notification
     if (session->is_cisco_ipsec && reason && reason != ike_session_stopped_by_vpn_disconnect
             && reason != ike_session_stopped_by_controller_comm_lost) {
-        u_int32_t address;
+        u_int32_t address = 0;
         if ((&session->session_id.remote)->ss_family == AF_INET) {
             address = ((struct sockaddr_in *)&session->session_id.remote)->sin_addr.s_addr;
         } else {
-            address = 0;
+            if (nat64_prefix.length > 0) {
+                struct in_addr inaddr;
+                nw_nat64_extract_v4(&nat64_prefix,
+                                    &((struct sockaddr_in6 *)&session->session_id.remote)->sin6_addr,
+                                    &inaddr);
+                address = inaddr.s_addr;
+            }
         }
         // TODO: log
         if (reason == ike_session_stopped_by_idle) {
@@ -1374,7 +1388,7 @@ ike_session_has_negoing_ph1 (ike_session_t *session)
 	phase1_handle_t *p;
     
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
     
@@ -1393,7 +1407,7 @@ ike_session_has_established_ph1 (ike_session_t *session)
 	phase1_handle_t *p;
     
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
     
@@ -1412,7 +1426,7 @@ ike_session_has_negoing_ph2 (ike_session_t *session)
 	phase2_handle_t *p;
 
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
 
@@ -1431,7 +1445,7 @@ ike_session_has_established_ph2 (ike_session_t *session)
 	phase2_handle_t *p;
     
 	if (!session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
     
@@ -1451,7 +1465,7 @@ ike_session_cleanup_ph1s_by_ph2 (phase2_handle_t *iph2)
 	phase1_handle_t *next_iph1 = NULL;
 	
 	if (!iph2 || !iph2->parent_session) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
@@ -1832,7 +1846,7 @@ ike_session_drop_rekey (ike_session_t *session, ike_session_rekey_type_t rekey_t
 			time_t now = time(NULL);
 
 			if ((now - session->last_time_data_sc_detected) > (session->traffic_monitor.interv_mon << 1)) {
-				plog(ASL_LEVEL_DEBUG, "btmm session is idle: drop ph%drekey.\n",
+				plog(ASL_LEVEL_NOTICE, "btmm session is idle: drop ph%drekey.\n",
 					 rekey_type);
 				return 1;
 			}
@@ -1840,7 +1854,7 @@ ike_session_drop_rekey (ike_session_t *session, ike_session_rekey_type_t rekey_t
 			if (rekey_type == IKE_SESSION_REKEY_TYPE_PH1 &&
 				!ike_session_has_negoing_ph2(session) && !ike_session_has_established_ph2(session)) {
 				// for vpn: only drop ph1 if there are no more ph2s.
-				plog(ASL_LEVEL_DEBUG, "vpn session is idle: drop ph1 rekey.\n");
+				plog(ASL_LEVEL_NOTICE, "vpn session is idle: drop ph1 rekey.\n");
 				return 1;
 			}
 		}
@@ -1862,7 +1876,7 @@ ike_session_sweep_sleepwake (void)
 	// flag session as dying if all ph1/ph2 are dead/dying
 	LIST_FOREACH_SAFE(p, &ike_session_tree, chain, next_session) {
 		if (p->is_dying) {
-			plog(ASL_LEVEL_DEBUG, "skipping sweep of dying session.\n");
+			plog(ASL_LEVEL_NOTICE, "skipping sweep of dying session.\n");
 			continue;
 		}
 		SCHED_KILL(p->sc_xauth);
@@ -1870,19 +1884,19 @@ ike_session_sweep_sleepwake (void)
 			// for asserted session, traffic monitors will be restared after phase2 becomes established.
 			SCHED_KILL(p->traffic_monitor.sc_mon);
 			SCHED_KILL(p->traffic_monitor.sc_idle);
-			plog(ASL_LEVEL_DEBUG, "skipping sweep of asserted session.\n");
+			plog(ASL_LEVEL_NOTICE, "skipping sweep of asserted session.\n");
 			continue;
 		}
 
 		// cleanup any stopped sessions as they will go down                                                                                                                               
                 if (p->stopped_by_vpn_controller || p->stop_timestamp.tv_sec || p->stop_timestamp.tv_usec) {
-			plog(ASL_LEVEL_DEBUG, "sweeping stopped session.\n");
+			plog(ASL_LEVEL_NOTICE, "sweeping stopped session.\n");
 			ike_session_cleanup(p, ike_session_stopped_by_sleepwake);
 			continue;
                 }
 
 		if (!ike_session_has_established_ph1(p) && !ike_session_has_established_ph2(p)) {
-			plog(ASL_LEVEL_DEBUG, "session died while sleeping.\n");
+			plog(ASL_LEVEL_NOTICE, "session died while sleeping.\n");
 			ike_session_cleanup(p, ike_session_stopped_by_sleepwake);
 			continue;
 		}
@@ -1929,7 +1943,7 @@ ike_session_assert_session (ike_session_t *session)
 	phase1_handle_t *iph1_next = NULL;
 
 	if (!session || session->is_dying) {
-		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -1946,7 +1960,7 @@ ike_session_assert_session (ike_session_t *session)
 				for (pr = iph2->approval->head; pr != NULL; pr = pr->next) {
 					if (pr->ok) {
 						//log deletion
-						plog(ASL_LEVEL_DEBUG,
+						plog(ASL_LEVEL_NOTICE,
 							 "Assert: Phase 2 %s deleted\n",
 							 sadbsecas2str(iph2->src, iph2->dst, iph2->satype, iph2->spid, ipsecdoi2pfkey_mode(pr->encmode)));
 						
@@ -1971,7 +1985,7 @@ ike_session_assert_session (ike_session_t *session)
 			iph1->is_dying = 1;
 
 			//log deletion
-			plog(ASL_LEVEL_DEBUG,
+			plog(ASL_LEVEL_NOTICE,
 				 "Assert: Phase 1 %s deleted\n",
 				 isakmp_pindex(&iph1->index, 0));
 			
@@ -1994,7 +2008,7 @@ ike_session_assert (struct sockaddr_storage *local,
 	ike_session_t *sess;
 
 	if (!local || !remote) {
-		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -2032,7 +2046,7 @@ ike_session_ph2_retransmits (phase2_handle_t *iph2)
 			 *
 			 * in all these cases, one sure way to know is to trigger a phase1 rekey early.
 			 */
-			plog(ASL_LEVEL_DEBUG, "Many Phase 2 retransmits: try Phase 1 rekey and this Phase 2 to quit earlier.\n");
+			plog(ASL_LEVEL_NOTICE, "Many Phase 2 retransmits: try Phase 1 rekey and this Phase 2 to quit earlier.\n");
 			isakmp_ph1rekeyexpire(iph2->ph1, TRUE);
 			iph2->retry_counter = 0;
 		}
@@ -2054,7 +2068,7 @@ ike_session_ph1_retransmits (phase1_handle_t *iph1)
 		!ike_session_has_other_negoing_ph1(iph1->parent_session, iph1)) {
 		num_retransmits = iph1->rmconf->retry_counter - iph1->retry_counter;
 		if (num_retransmits == 3) {
-			plog(ASL_LEVEL_DEBUG, "Many Phase 1 retransmits: try quit earlier.\n");
+			plog(ASL_LEVEL_NOTICE, "Many Phase 1 retransmits: try quit earlier.\n");
 			iph1->retry_counter = 0;
 		}
 	}
@@ -2094,7 +2108,7 @@ ike_session_rebindph12(phase1_handle_t *new_ph1, phase2_handle_t *iph2)
 		oakley_delivm(iph2->ivm);
 		if (FSM_STATE_IS_ESTABLISHED(new_ph1->status)) {
 			iph2->ivm = oakley_newiv2(new_ph1, iph2->msgid);
-			plog(ASL_LEVEL_DEBUG, "Phase 1-2 binding changed... recalculated ivm.\n");
+			plog(ASL_LEVEL_NOTICE, "Phase 1-2 binding changed... recalculated ivm.\n");
 		} else {
 			iph2->ivm = NULL;
 		}
@@ -2120,12 +2134,12 @@ ike_session_rebind_all_ph12_to_new_ph1 (phase1_handle_t *old_iph1,
 	phase2_handle_t *next = NULL;
 	
 	if (old_iph1 == new_iph1 || !old_iph1 || !new_iph1) {
-		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 	
 	if (old_iph1->parent_session != new_iph1->parent_session) {
-		plog(ASL_LEVEL_DEBUG, "Invalid parent sessions in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_ERR, "Invalid parent sessions in %s.\n", __FUNCTION__);
 		return;
 	}
 	

@@ -1,11 +1,8 @@
-﻿# ***************************************************************************
-# *
-# *  Copyright (C) 2004-2016, International Business Machines
-# *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
-# *
-# ***************************************************************************
+﻿# © 2016 and later: Unicode, Inc. and others.
+# License & terms of use: http://www.unicode.org/copyright.html#License
+#
 # File: Han_Latin_Names.txt
-# Generated from CLDR 
+# Generated from CLDR
 #
 
 # This transform is primarily intended to produce readings for Chinese surnames, or for full
@@ -41,7 +38,9 @@ $startOfHanMarker{ 过→guō;
 $startOfHanMarker{ 华→huà;
 $startOfHanMarker{ 纪→jǐ;
 筠→jūn;
+靓→liàng;
 $startOfHanMarker{ 牟→mù;
+$startOfHanMarker{ 粘→nián;
 $startOfHanMarker{ 区→ōu;
 $startOfHanMarker{ 繁→pó;
 仇→qiú;

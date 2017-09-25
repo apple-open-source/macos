@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require "forwardable"
 require "open-uri"
 
@@ -545,6 +546,7 @@ module RSS
   end
 
   unless const_defined? :AVAILABLE_PARSER_LIBRARIES
+    # The list of all available libraries for parsing.
     AVAILABLE_PARSER_LIBRARIES = [
       ["rss/xmlparser", :XMLParserParser],
       ["rss/xmlscanner", :XMLScanParser],
@@ -552,6 +554,7 @@ module RSS
     ]
   end
 
+  # The list of all available parsers, in constant form.
   AVAILABLE_PARSERS = []
 
   AVAILABLE_PARSER_LIBRARIES.each do |lib, parser|

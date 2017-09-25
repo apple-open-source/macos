@@ -59,7 +59,7 @@ __BEGIN_DECLS
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 posix_spawnattr_set_qos_class_np(posix_spawnattr_t * __restrict __attr,
                                  qos_class_t __qos_class);
@@ -82,7 +82,7 @@ posix_spawnattr_set_qos_class_np(posix_spawnattr_t * __restrict __attr,
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 posix_spawnattr_get_qos_class_np(const posix_spawnattr_t *__restrict __attr,
                                  qos_class_t * __restrict __qos_class);

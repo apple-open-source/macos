@@ -68,22 +68,22 @@ if [ $? -ne 0 ]; then
 fi
 
 if [ -n "$RC_BRIDGE" ]; then
-    ACTUAL_PLATFORM_NAME="bridge${PLATFORM_NAME#watch}"
+    ACTUAL_PLATFORM_NAME="bridgeos"
 else
     ACTUAL_PLATFORM_NAME="${PLATFORM_NAME}"
 fi
 
 case "$ACTUAL_PLATFORM_NAME" in
-iphone*|appletv*|watch*)
+iphone*|appletv*|watch*|bridge*)
     mkdir -p "${PRIVATEDIR}/var/db"
     mkdir -p -m a+rx "${PRIVATEDIR}/var/db/timezone"
 
     # This link must precisely start with TZDIR followed by a slash. radar:13532660
     ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"
     ;;
-macosx|bridge*)
+macosx)
     mkdir -p "${PRIVATEDIR}/etc"
-    ln -hfs "/usr/share/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/etc/localtime"
+    ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/etc/localtime"
     ;;
 *)
     echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"

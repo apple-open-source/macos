@@ -1,4 +1,4 @@
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 
 DISABLED_ONE_TEST(ssl_39_echo)
 

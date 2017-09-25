@@ -87,7 +87,7 @@ interface ID2D1RenderTarget;
 
 class WebView 
     : public IWebView
-    , public IWebViewPrivate4
+    , public IWebViewPrivate5
     , public IWebIBActions
     , public IWebViewCSS
     , public IWebViewEditing
@@ -402,6 +402,9 @@ public:
     // IWebViewPrivate4
     HRESULT STDMETHODCALLTYPE setVisibilityState(WebPageVisibilityState);
 
+    // IWebViewPrivate5
+    HRESULT STDMETHODCALLTYPE exitFullscreenIfNeeded();
+
     // WebView
     bool shouldUseEmbeddedView(const WTF::String& mimeType) const;
 
@@ -519,7 +522,7 @@ public:
     bool supportsFullScreenForElement(const WebCore::Element*, bool withKeyboard) const;
     bool isFullScreen() const;
     WebCore::FullScreenController* fullScreenController();
-    void setFullScreenElement(PassRefPtr<WebCore::Element>);
+    void setFullScreenElement(RefPtr<WebCore::Element>&&);
     WebCore::Element* fullScreenElement() const { return m_fullScreenElement.get(); }
 #endif
 

@@ -57,7 +57,7 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
         this._timelineContentBrowser.navigationBar.addNavigationItem(this._filterBarNavigationItem);
         this.addSubview(this._timelineContentBrowser);
 
-        this._clearTimelineNavigationItem = new WebInspector.ButtonNavigationItem("clear-timeline", WebInspector.UIString("Clear Timeline"), "Images/NavigationItemTrash.svg", 15, 15);
+        this._clearTimelineNavigationItem = new WebInspector.ButtonNavigationItem("clear-timeline", WebInspector.UIString("Clear Timeline (%s)").format(WebInspector.clearKeyboardShortcut.displayName), "Images/NavigationItemClear.svg", 16, 16);
         this._clearTimelineNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._clearTimeline, this);
 
         this._overviewTimelineView = new WebInspector.OverviewTimelineView(recording);
@@ -228,6 +228,11 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
     goForward()
     {
         this._timelineContentBrowser.goForward();
+    }
+
+    handleClearShortcut(event)
+    {
+        this._clearTimeline();
     }
 
     // ContentBrowser delegate
@@ -514,18 +519,12 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
     _debuggerPaused(event)
     {
-        if (WebInspector.replayManager.sessionState === WebInspector.ReplayManager.SessionState.Replaying)
-            return;
-
         if (this._updating)
             this._stopUpdatingCurrentTime();
     }
 
     _debuggerResumed(event)
     {
-        if (WebInspector.replayManager.sessionState === WebInspector.ReplayManager.SessionState.Replaying)
-            return;
-
         if (!this._updating)
             this._startUpdatingCurrentTime();
     }

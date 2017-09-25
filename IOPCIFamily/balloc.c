@@ -20,9 +20,112 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#ifndef KERNEL
+
+// hacks for testing in user space
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <strings.h>
+#include <assert.h>
+
+typedef unsigned int uint;
+typedef uint32_t     vtd_vaddr_t;
+typedef uint32_t     ppnum_t;
+typedef void         upl_page_info_t;
+
+union vtd_table_entry
+{
+	struct
+	{
+		uint     read:1 	__attribute__ ((packed));
+		uint     write:1 	__attribute__ ((packed));
+		uint     resv:10 	__attribute__ ((packed));
+		uint64_t addr:51 	__attribute__ ((packed));
+		uint     used:1 	__attribute__ ((packed));
+	} used;
+	struct
+	{
+		uint access:2 		__attribute__ ((packed));
+		uint next:28 		__attribute__ ((packed));
+		uint prev:28 		__attribute__ ((packed));
+		uint size:5 		__attribute__ ((packed));
+		uint free:1 		__attribute__ ((packed));
+	} free;
+	uint64_t bits;
+};
+typedef union vtd_table_entry vtd_table_entry_t;
+
+struct vtd_space_stats
+{
+    ppnum_t vsize;
+    ppnum_t tables;
+    ppnum_t bused;
+    ppnum_t rused;
+    ppnum_t largest_paging;
+    ppnum_t largest_32b;
+    ppnum_t inserts;
+    ppnum_t max_inval[2];
+    ppnum_t breakups;
+    ppnum_t merges;
+    ppnum_t allocs[64];
+	ppnum_t bcounts[20];
+};
+typedef struct vtd_space_stats vtd_space_stats_t;
+
+
+struct vtd_space
+{
+	uint32_t            domain;
+	uint8_t     	    bheads_count;
+	vtd_table_entry_t * bheads;
+	vtd_table_entry_t *	tables[6];
+
+	vtd_space_stats_t   stats;
+
+};
+typedef struct vtd_space vtd_space_t;
+
+
+#define arrayCount(x)	(sizeof(x) / sizeof(x[0]))
+
+#define vtd_space_fault(a, b, c)
+#define vtd_space_nfault(a, b, c)
+#define vtd_space_present(a, b)    true
+
+#define VTLOG(fmt, args...)                   \
+            printf(fmt, ## args);                          						\
+
+#define vtassert  assert
+
+#define STAT_ADD(space, name, value) do { space->stats.name += value; } while (false);
+
+static vtd_vaddr_t
+vtd_log2up(vtd_vaddr_t size)
+{
+	if (1 == size) size = 0;
+	else size = 32 - __builtin_clz((unsigned int)size - 1);
+	return (size);
+}
+
+static vtd_vaddr_t
+vtd_log2down(vtd_vaddr_t size)
+{
+	size = 31 - __builtin_clz((unsigned int)size);
+	return (size);
+}
+
+
+#endif /* !KERNEL */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 typedef uint32_t vtd_baddr_t;
 
-static void
+static void __unused
 vtd_blog(vtd_space_t * bf)
 {
 	uint32_t idx;
@@ -83,7 +186,7 @@ vtd_bfree(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 	do
 	{
 		// merge less aggressively
-//		if ((list <= 10) && (bf->stats.bcounts[list] < 3)) break;
+		if ((list <= 10) && (bf->stats.bcounts[list] < 20)) break;
 
 		buddy = (addr ^ (1 << list));
 		if (!vtd_space_present(bf, buddy)) break;
@@ -109,7 +212,7 @@ vtd_bfree(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 }
 
 static vtd_baddr_t
-vtd_balloc(vtd_space_t * bf, vtd_baddr_t size, 
+vtd_balloc(vtd_space_t * bf, vtd_baddr_t size,
 		   uint32_t mapOptions, const upl_page_info_t * pageList)
 {
 	uint32_t          list, idx;
@@ -153,11 +256,14 @@ vtd_balloc(vtd_space_t * bf, vtd_baddr_t size,
 
 	// init or clear allocation
 	next = addr;
+#ifdef KERNEL
 	if (pageList)
 	{	
 		vtd_space_set(bf, addr, size, mapOptions, pageList);
 		next += size;
 	}
+#endif
+
 	// clear roundup size
 	clear = ((addr + (1 << list)) - next);
 	if (clear) bzero(&bf->tables[0][next], clear * sizeof(vtd_table_entry_t));
@@ -240,7 +346,7 @@ vtd_balloc_fixed(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 }
 
 
-static void
+static void __unused
 vtd_bfree_fixed(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 {
 	vtd_baddr_t end;
@@ -314,40 +420,48 @@ cc balloc.c -o /tmp/balloc -Wall -framework IOKit  -framework CoreFoundation -g
 
 int main(int argc, char **argv)
 {
-	vtd_space_t * bf;
+	vtd_space_t _bf;
+	vtd_space_t * bf = &_bf;
 	int       idx;
 	uint32_t  bits = 20;
 	vtd_baddr_t    allocs[256];
 	vtd_baddr_t    sizes [256] = { 1, atop(1024*1024), atop(4*1024*1024), 1, 3, 6, 1, 10, 99, 100, 50, 30, 0 };
-	vtd_baddr_t    aligns[256] = { 1, atop(1024*1024), atop(2*1024*1024), 1, 4, 8, 1, 0 };
 
-	bf = vtd_ballocator_alloc(bits);
-	vtd_blog(bf);
+	bzero(bf, sizeof(*bf));
+
+    bf->tables[0] = calloc(sizeof(vtd_table_entry_t), (1 << bits));
+	vtd_ballocator_init(bf, bits);
+L	vtd_blog(bf);
 
 	for (idx = 0; idx < 1*999; idx++)
 	{
-
-VTLOG("fixed 0x%x, 0x%x\n", 0x40 + idx, (idx << 1) ^ (idx >> 3));
+L		VTLOG("fixed 0x%x, 0x%x\n", 0x40 + idx, (idx << 1) ^ (idx >> 3));
 		vtd_balloc_fixed(bf, 0x40 + idx, (idx << 1) ^ (idx >> 3));
-VTLOG("unfix 0x%x, 0x%x\n", 0x40 + idx, (idx << 1) ^ (idx >> 3));
+L		VTLOG("unfix 0x%x, 0x%x\n", 0x40 + idx, (idx << 1) ^ (idx >> 3));
 		vtd_bfree_fixed(bf, 0x40 + idx, (idx << 1) ^ (idx >> 3));
 	}
-	vtd_blog(bf);
+L	vtd_blog(bf);
 
 
 	vtd_balloc_fixed(bf, 0x43, 0x4);
-	vtd_blog(bf);
+L	vtd_blog(bf);
+
+	srandomdev();
+
+	long seed = random();
+	long iter, count = random() / 100;
+
+	uint32_t breakups = bf->stats.breakups;
+	uint32_t merges   = bf->stats.merges;
 
 	if (1)
 	{
-		srandomdev();
-		long seed = random();
-		long count = random();
 		VTLOG("seed %ld, count %ld\n", seed, count);
 
 		srandom(seed);
 		bzero(&allocs[0], sizeof(allocs));
-		while (count--)
+
+		for (iter = 0; iter < count; iter++)
 		{
 			long r = random();
 			idx = (r & 255);
@@ -360,7 +474,7 @@ L				vtd_blog(bf);
 			}
 			sizes[idx] = (r >> 20);
 			if (!sizes[idx]) sizes[idx] = 1;
-			allocs[idx] = vtd_balloc(bf, sizes[idx], aligns[idx]);
+			allocs[idx] = vtd_balloc(bf, sizes[idx], 0, 0);
 L			VTLOG("alloc(0x%x) 0x%x\n", sizes[idx], allocs[idx]);
 L			vtd_blog(bf);
 		}
@@ -379,15 +493,18 @@ L				vtd_blog(bf);
 
 	vtd_bfree_fixed(bf, 0x43, 0x4);
 
-	for (idx = 0; idx < bits; idx++)
+	if (0) for (idx = 0; idx < bits; idx++)
 	{
 		vtd_baddr_t check;
 		check = (idx < vtd_log2up(bits)) ? 0 : (1 << idx);
 		vtassert(check == bf->bheads[idx].free.next);
 	}
 
-	vtd_blog(bf);
-	VTLOG("OK\n");
+L	vtd_blog(bf);
+	breakups = bf->stats.breakups - breakups;
+	merges   = bf->stats.merges - merges;
+	VTLOG("OK breakups %.2f, merges %.2f\n",
+			breakups * 100.0 / count, merges * 100.0 / count );
 
     exit(0);    
 }

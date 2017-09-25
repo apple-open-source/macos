@@ -26,6 +26,7 @@ my @macosx_versions = (
     "10.12.1",
     "10.12.2",
     "10.12.4",
+    "10.13",
 );
 
 my @ios_versions = (
@@ -58,6 +59,7 @@ my @ios_versions = (
     "10.1",
     "10.2",
     "10.3",
+    "11.0",
 );
 
 my @appletvos_versions = (
@@ -68,6 +70,7 @@ my @appletvos_versions = (
     "10.0.1",
     "10.1",
     "10.2",
+    "11.0",
 );
 
 my @watchos_versions = (
@@ -79,13 +82,19 @@ my @watchos_versions = (
     "3.1",
     "3.1.1",
     "3.2",
+    "4.0",
+);
+
+my @bridgeos_versions = (
+    "2.0",
 );
 
 my $m;
 my $i;
 my $a;
 my $w;
-GetOptions('macosx' => \$m, 'osx' => \$m, 'ios' => \$i, 'appletvos' => \$a, 'watchos' => \$w);
+my $b;
+GetOptions('macosx' => \$m, 'osx' => \$m, 'ios' => \$i, 'appletvos' => \$a, 'watchos' => \$w, 'bridgeos' => \$b);
 
 if ($m) {
   print join(" ", @macosx_versions) . "\n";
@@ -95,7 +104,9 @@ if ($m) {
   print join(" ", @appletvos_versions) . "\n";
 } elsif ($w) {
   print join(" ", @watchos_versions) . "\n";
+} elsif ($b) {
+  print join(" ", @bridgeos_versions) . "\n";
 } else {
-  print "usage: $0 --macosx|--osx|--ios|--appletvos|--watchos\n";
+  print "usage: $0 --macosx|--osx|--ios|--appletvos|--watchos|--bridgeos\n";
 }
 

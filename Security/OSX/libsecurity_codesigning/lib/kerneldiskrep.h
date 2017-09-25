@@ -51,6 +51,7 @@ public:
 	std::string mainExecutablePath();
 	CFURLRef copyCanonicalPath();
 	size_t signingLimit();
+	size_t execSegLimit(const Architecture *arch);
 	std::string format();
 	UnixPlusPlus::FileDesc &fd();
 	

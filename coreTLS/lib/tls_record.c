@@ -803,7 +803,7 @@ tls_record_parse_ssl2_header(tls_record_t ctx, tls_buffer input, size_t *len, ui
     if(input.length<2)
         return -1;
 
-    if(!input.data[0]&0x80)
+    if(!(input.data[0] & 0x80))
         return -1;
 
     *len = SSLDecodeInt(input.data, 2) & 0x7fff;

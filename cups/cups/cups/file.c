@@ -4,16 +4,16 @@
  * Since stdio files max out at 256 files on many systems, we have to
  * write similar functions without this limit.  At the same time, using
  * our own file functions allows us to provide transparent support of
- * gzip'd print files, PPD files, etc.
+ * different line endings, gzip'd print files, PPD files, etc.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -321,7 +321,6 @@ cupsFileClose(cups_file_t *fp)		/* I - CUPS file */
   int	fd;				/* File descriptor */
   char	mode;				/* Open mode */
   int	status;				/* Return status */
-  int	is_stdio;			/* Is a stdio file? */
 
 
   DEBUG_printf(("cupsFileClose(fp=%p)", (void *)fp));
@@ -410,12 +409,19 @@ cupsFileClose(cups_file_t *fp)		/* I - CUPS file */
 #endif /* HAVE_LIBZ */
 
  /*
+  * If this is one of the cupsFileStdin/out/err files, return now and don't
+  * actually free memory or close (these last the life of the process...)
+  */
+
+  if (fp->is_stdio)
+    return (status);
+
+/*
   * Save the file descriptor we used and free memory...
   */
 
-  fd       = fp->fd;
-  mode     = fp->mode;
-  is_stdio = fp->is_stdio;
+  fd   = fp->fd;
+  mode = fp->mode;
 
   if (fp->printf_buffer)
     free(fp->printf_buffer);
@@ -431,11 +437,8 @@ cupsFileClose(cups_file_t *fp)		/* I - CUPS file */
     if (httpAddrClose(NULL, fd) < 0)
       status = -1;
   }
-  else if (!is_stdio)
-  {
-    if (close(fd) < 0)
-      status = -1;
-  }
+  else if (close(fd) < 0)
+    status = -1;
 
   return (status);
 }
@@ -1384,7 +1387,11 @@ cupsFilePrintf(cups_file_t *fp,		/* I - CUPS file */
   {
     memcpy(fp->ptr, fp->printf_buffer, (size_t)bytes);
     fp->ptr += bytes;
-    return ((int)bytes);
+
+    if (fp->is_stdio && cupsFileFlush(fp))
+      return (-1);
+    else
+      return ((int)bytes);
   }
 }
 
@@ -1563,7 +1570,11 @@ cupsFilePuts(cups_file_t *fp,		/* I - CUPS file */
   {
     memcpy(fp->ptr, s, (size_t)bytes);
     fp->ptr += bytes;
-    return ((int)bytes);
+
+    if (fp->is_stdio && cupsFileFlush(fp))
+      return (-1);
+    else
+      return ((int)bytes);
   }
 }
 

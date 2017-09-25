@@ -1,552 +1,455 @@
-.ig \" -*-mode:nroff-*-
-Copyright (c) 2002-2004, 2009, Apple Computer, Inc.  All rights reserved.
-
-@APPLE_LICENSE_HEADER_START@
-
-The contents of this file constitute Original Code as defined in and
-are subject to the Apple Public Source License Version 1.1 (the
-"License").  You may not use this file except in compliance with the
-License.  Please obtain a copy of the License at
-http://www.apple.com/publicsource and read it before using this file.
-
-This Original Code and all software distributed under the License are
-distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
-EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
-License for the specific language governing rights and limitations
-under the License.
-
-@APPLE_LICENSE_HEADER_END@
-..
-.TH top 1 "top"
-.hy 1
-.SH NAME
-top - display and update sorted information about processes
-.SH SYNOPSIS
-.TP
-.BR top
-.RB [ \-a
-|
-.B \-d
-|
-.B \-e
-|
-.B \-c
-.IR <mode> ]
-.br
-.RB [ \-F
-| 
-.BR \-f ]
-.br
-.RB [ \-h ]
-.br
-.RB [ \-i
-.IR <interval> ]
-.br
-.RB [ \-l
-.IR <samples> ]
-.br
-.RB [ \-ncols
-.IR <columns> ]
-.br
-.RB [ \-o
-.IR <key> ]
-.RB [ \-O
-.IR <skey> ]
-.br
-.RB [ \-R
-|
-.BR \-r ]
-.br
-.RB [ \-S ]
-.br
-.RB [ \-s
-.IR <delay> ]
-.br
-.RB [ \-n 
-.IR <nprocs> ]
-.br
-.RB [ \-stats 
-.IR <keys> ]
-.br
-.RB [ \-pid
-.IR <processid> ]
-.br
-.RB [ \-user
-.IR <username> ]
-.br
-.RB [ \-U
-.IR <username> ]
-.br
-.RB [ \-u ]
-.SH DESCRIPTION
+.\" Copyright (c) 2002-2004, 2009, 2017 Apple Computer, Inc.  All rights reserved.
+.\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\"
+.\" The contents of this file constitute Original Code as defined in and
+.\" are subject to the Apple Public Source License Version 1.1 (the
+.\" "License").  You may not use this file except in compliance with the
+.\" License.  Please obtain a copy of the License at
+.\" http://www.apple.com/publicsource and read it before using this file.
+.\"
+.\" This Original Code and all software distributed under the License are
+.\" distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+.\" License for the specific language governing rights and limitations
+.\" under the License.
+.\"
+.\" @APPLE_LICENSE_HEADER_END@
+.Dd 13 March 2017
+.Dt TOP 1
+.Os Darwin
+.\"
+.Sh NAME
+.Nm top
+.Nd display and update sorted information about processes
+.\"
+.Sh SYNOPSIS
+.Bl -tag -width "top " -compact
+.It Nm Op Fl a | Fl d | Fl e | Fl c Ar mode
+.El
+.Bl -item -offset "top " -compact
+.It
+.Op Fl F | Fl f
+.It
+.Op Fl h
+.It
+.Op Fl i Ar interval
+.It
+.Op Fl l Ar samples
+.It
+.Op Fl ncols Ar columns
+.It
+.Op Fl o Ar key | Fl O Ar skey
+.It
+.Op Fl R | Fl r
+.It
+.Op Fl S
+.It
+.Op Fl s Ar delay-secs
+.It
+.Op Fl n Ar nprocs
+.It
+.Op Fl stats Ar keys
+.It
+.Op Fl pid Ar processid
+.It
+.Op Fl user Ar username
+.It
+.Op Fl U Ar username
+.It
+.Op Fl u
+.El
+.\"
+.Sh DESCRIPTION
 The
-.B top
-program periodically displays a sorted list of system processes.
-The default sorting key is pid, but other keys can be used instead.
-Various output options are available.
-.SH OPTIONS
-Command line option specifications are processed from left to right.
-Options can be specified more than once.
-If conflicting options are specified, later specifications override earlier
-ones.
-This makes it viable to create a shell alias for
-.B top
+.Nm
+program periodically displays a sorted list of system processes.  The default
+sorting key is pid, but other keys can be used instead.  Various output options
+are available.
+.\"
+.Sh OPTIONS
+Command line option specifications are processed from left to right.  Options
+can be specified more than once.  If conflicting options are specified, later
+specifications override earlier ones.  This makes it viable to create a shell
+alias for
+.Nm
 with preferred defaults specified, then override those preferred defaults as
 desired on the command line.
-.TP
-.B \-a
-Equivalent to -c a.
-.TP
-.BI \-c " " "" <mode>
+.Bl -tag -width indent
+.It Fl a
+Equivalent to
+Fl c Ar a .
+.It Fl c Ar mode
 Set event counting mode to
-.IR <mode> .
-The supported modes are:
-.RS
-.TP
-.B a
-Accumulative mode.
-Count events cumulatively, starting at the launch of
-.BR top .
+.Ar mode .
+The supported modes are
+.Bl -tag -width indent
+.It a
+Accumulative mode.  Count events cumulatively, starting at the launch of
+.Nm .
 Calculate CPU usage and CPU time since the launch of
-.BR top .
-.TP
-.B d
-Delta mode.
-Count events relative to the previous sample.
+.Nm .
+.It d
+Delta mode.  Count events relative to the previous sample.  Calculate CPU usage
+since the previous sample.  This mode by default disables the memory object map
+reporting.  The memory object map reporting may be re-enabled with the
+.Fl r
+option or the interactive
+.Cm r
+command.
+.It e
+Absolute mode.  Count events using absolute counters.
+.It n
+Non-event mode
+.Pq default .
 Calculate CPU usage since the previous sample.
-This mode by default disables the memory object map reporting.
-The memory object map reporting may be re-enabled with the -r option or the interactive r command.
-.TP
-.B e
-Absolute mode.
-Count events using absolute counters.
-.TP
-.B n
-Non-event mode (default).
-Calculate CPU usage since the previous sample.
-.RE
-.TP
-.B \-d
-Equivalent to -c d.
-.TP
-.B \-e
-Equivalent to -c e.
-.TP
-.B \-F
+.El
+.It Fl d
+Equivalent to
+.Fl c Ar d .
+.It Fl e
+Equivalent to
+.Fl c Ar e .
+.It Fl F
 Do not calculate statistics on shared libraries, also known as frameworks.
-.TP
-.B \-f 
-Calculate statistics on shared libraries, also known as frameworks (default).
-.TP
-.B \-h
+.It Fl f
+Calculate statistics on shared libraries, also known as frameworks
+.Pq default .
+.It Fl h
 Print command line usage information and exit.
-.TP
-.BI \-i " " "" <interval>
-Update framework (-f) info every 
-.I <interval> 
-samples; see the 
-.B PERFORMANCE vs. ACCURACY
-section below for more details.
-.TP
-.BI \-l " " "" <samples>
+.It Fl i Ar interval
+Update framework
+.Pq Fl f
+info every
+.Ar interval
+samples; see the
+.Sx PERFORMANCE/ACCURACY TRADEOFF
+section for more details.
+.It Fl l Ar samples
 Use logging mode and display
-.I <samples>
-samples, even if standard output is a terminal.
-0 is treated as infinity.
-Rather than redisplaying, output is periodically printed in raw form.
-Note that the first sample displayed will have an invalid %CPU displayed
-for each process, as it is calculated using the delta between samples.
-.TP
-.BI \-ncols " " " " <columns>
-Display 
-.I <columns>
-when using logging mode.
-The default is infinite.  The number must be > 0 or an error will occur.
-.TP
-.BI \-n " " "" <nprocs>
+.Ar samples
+samples, even if standard output is a terminal.  0 is treated as infinity.
+Rather than redisplaying, output is periodically printed in raw form.  Note that
+the first sample displayed will have an invalid %CPU displayed for each process,
+as it is calculated using the delta between samples.
+.It Fl ncols Ar columns
+Display
+.Ar columns
+when using logging mode.  The default is infinite.  The number must be
+.Gt
+0 or an error will occur.
+.It Fl n Ar nprocs
 Only display up to
-.I <nprocs>
+.Ar nprocs
 processes.
-.TP
-.BI \-O " " "" <skey>
+.It Fl O Ar skey
 Use
-.I <skey>
-as a secondary key when ordering the process display.
-See
-.B -o
+.Ar skey
+as a secondary key when ordering the process display.  See
+.Fl o
 for key names
-.RB ( pid
-is the default).
-.TP
-.BI \-o " " "" <key>
-.RS
+.Pq Li pid is the default .
+.It Fl o Ar key
 Order the process display by sorting on
-.I <key>
-in descending order.
-A
-.B +
-or
-.B -
-can be prefixed to the key name to specify ascending or descending order,
-respectively.
-The supported keys are:
-.TP
-.B pid
-Process ID (default).
-.TP
-.B command
+.Ar key
+in descending order.  A + or - can be prefixed to the key name to specify
+ascending or descending order, respectively.  The supported keys are:
+.Bl -tag -width indent
+.It pid
+Process ID
+.Pq default .
+.It command
 Command name.
-.TP
-.B cpu
+.It cpu
 CPU usage.
-.TP
-.B cpu_me
+.It cpu_me
 CPU time charged to me by other processes.
-.TP
-.B cpu_others
+.It cpu_others
 CPU time charged to other processes by me.
-.TP
-.B csw
-Number of context switches.
-.TP
-.B time
+.It csw
+The number of context switches.
+.It time
 Execution time.
-.TP
-.B threads
-alias:
-.B th
+.It threads
+alias: th
 .br
-Number of threads (total/running).
-.TP
-.B ports
-alias:
-.B prt
+Number of threads
+.Pq total/running .
+.It ports
+alias: prt
 .br
 Number of Mach ports.
-.TP
-.B mregion
-alias:
-.B mreg, reg
+.It mregion
+alias: mreg, reg
 .br
 Number of memory regions.
-.TP
-.B mem
+.It mem
 Internal memory size.
-.TP
-.B rprvt
+.It rprvt
 Resident private address space size.
-.TP
-.B purg
+.It purg
 Purgeable memory size.
-.TP
-.B vsize
+.It vsize
 Total memory size.
-.TP
-.B vprvt
+.It vprvt
 Private address space size.
-.TP
-.B kprvt
+.It kprvt
 Private kernel memory size.
-.TP
-.B kshrd
+.It kshrd
 Shared kernel memory size.
-.TP
-.B pgrp
-Process group id.
-.TP
-.B ppid
-Parent process id.
-.TP
-.B state 
-alias:
-.B pstate
+.It pgrp
+Process group ID.
+.It ppid
+Parent process ID.
+.It state
+alias: pstate
 .br
 Process state.
-.TP
-.B uid
+.It uid
 User ID.
-.TP 
-.B wq 
-alias:
-.B #wq, workqueue
+.It wq
+alias: #wq, workqueue
 .br
 The workqueue total/running.
-.TP 
-.B faults 
-alias:
-.B fault
+.It faults
+alias: fault
 .br
 The number of page faults.
-.TP
-.B cow
-alias:
-.B cow_faults
+.It cow
+alias: cow_faults
 .br
 The copy-on-write faults.
-.TP
-.B user
-alias:
-.B username
+.It user
+alias: username
+.br
 Username.
-.TP
-.B msgsent
-.br
-Total number of mach messages sent.
-.TP 
-.B msgrecv
-.br
-Total number of mach messages received.
-.TP
-.B sysbsd
+.It msgsent
+Total number of Mach messages sent.
+.It msgrecv
+Total number of Mach messages received.
+.It sysbsd
 Total BSD syscalls.
-.TP
-.B sysmach
+.It sysmach
 Total Mach syscalls.
-.TP
-.B pageins
+.It pageins
 Total pageins.
-.TP
-.B boosts
-The number of boosts held by the process.
-This is followed by the number of times the process has transitioned from unboosted to boosted in brackets.
-An asterisk before the value indicates that the process was able to send boosts at some point since the previous update.
-For more information about boosts, see xpc_transaction_begin(3).
-.RE
-.TP
-.BI \-R " " ""
-Do not traverse and report the memory object map for each process.
-.TP
-.BI \-r " " ""
-Traverse and report the memory object map for each process (default).
-.TP
-.BI \-S " " ""
+.It boosts
+The number of boosts help by the process.  This is followed by the number of
+times the process has transitioned from unboosted to boosted in brackets.  An
+asterisk before the value indicates that the process was able to send boosts at
+some point since the previous update.  For more information about boosts, see
+xpc_transaction_begin(3).
+.It instrs
+The number of instructions retired by the process in both user space and the
+kernel.
+.It cycles
+The number of cycles spent executing instructions in the process in both user
+space and the kernel.
+.El
+.It Fl R
+Do not traverse and report the memory object map for each process
+.Pq default .
+.It Fl r
+Traverse and report the memory object map for each process.
+.It Fl S
 Display the global statistics for swap and purgeable memory.
-.TP
-.BI \-s " " "" <delay>
+.It Fl s Ar delay-secs
 Set the delay between updates to
-.I <delay>
-seconds.
-The default delay between updates is 1 second.
-.TP
-.BI \-stats " " "" <keys>
-Only display the comma separated statistics.  See the -o flag for the valid
-.IR <keys> .
-.TP
-.BI \-pid " " "" <processid>
-Only display 
-.IR <processid>
-in top.
+.Ar delay-secs
+seconds.  The default delay between updates is 1 second.
+.It Fl stats Ar keys
+Only display the comma separated statistics.  See the
+.Fl o
+flag for the valid
+.Ar keys .
+.It Fl pid Ar processid
+Only display
+.Ar processid
+in
+.Nm .
 This option may be specified multiple times.
-.TP
-.BI \-user " " "" <user>
+.It Fl user Ar user
 Only display processes owned by
-.IR <user> .
-.TP
-.BI \-U " " "" <user>
-This is an alias for -user.
-.TP
-.BI \-u
-This is an alias equivalent to: -o cpu -O time.
-
-.SH DISPLAY
+.Ar user
+.It Fl U Ar user
+This is an alias for
+.Fl user .
+.It Fl u
+This is an alas equivalent to:
+.Fl o Ar cpu Fl O Ar time
+.El
+.\"
+.Sh DISPLAY
 The first several lines of the
-.B top
-display show various global state.
-All of the information is labeled.
+.Nm
+display show various global state.  All of the information is labeled.
 Following is an alphabetical list of global state fields and their descriptions.
-.TP 12
-.B CPU
+.Bl -tag -width "MemRegions"
+.It CPU
 Percentage of processor usage, broken into user, system, and idle components.
 The time period for which these percentages are calculated depends on the event
 counting mode.
-.TP 12
-.B Disks
+.It Disks
 Number and total size of disk reads and writes.
-.TP 12
-.B LoadAvg
-Load average over 1, 5, and 15 minutes.
-The load average is the average number of jobs in the run queue.
-.TP 12
-.B MemRegions
+.It LoadAvg
+Load average over 1, 5, and 15 minutes.  The load average is the average number
+of jobs in the run queue.
+.It MemRegions
 Number and total size of memory regions, and total size of memory regions broken
-into private (broken into non-library and library) and shared components.
-.TP 12
-.B Networks
+into private
+.Pq broken into non-library and library
+and shared components.
+.It Networks
 Number and total size of input and output network packets.
-.TP 12
-.B PhysMem
+.It PhysMem
 Physical memory usage, broken into wired, active, inactive, used, and free
 components.
-.TP 12
-.B Procs
+.It Procs
 Total number of processes and number of processes in each process state.
-.TP 12
-.B SharedLibs
+.It SharedLibs
 Resident sizes of code and data segments, and link editor memory usage.
-.TP 12
-.B Threads
+.It Threads
 Number of threads.
-.TP 12
-.B Time
-Time, in H:MM:SS format.
-When running in logging mode Time is in YYYY/MM/DD HH:MM:SS format by default, but may be overridden with accumulative mode.
-When running in accumulative event counting mode, the Time is in HH:MM:SS since the beginning of the top process.
-.TP 12
-.B VirtMem
+.It Time
+Time, in H:MM:SS format.  When running in logging mode, Time is in YYYY/MM/DD
+HH:MM:SS format by default, but may be overridden with accumulative mode.  When
+running in accumulative event counting mode, the Time is in HH:MM:SS since the
+beginning of the
+.Nm
+process.
+.It VirtMem
 Total virtual memory, virtual memory consumed by shared libraries, and number of
 pageins and pageouts.
-.TP 12
-.B Swap
-Swap usage: total size of swap areas, amount of swap space in use and amount
-of swap space available.
-.TP 12
-.B Purgeable
+.It Swap
+Swap usage: total size of swap areas, amount of swap space in use and amount of
+swap space available.
+.It Purgeable
 Number of pages purged and number of pages currently purgeable.
-.PP
-Below the global state fields, a list of processes is displayed.
-The fields that are displayed depend on the options that are set.
-The pid field displays the following for the architecture:
-.TP 14
-.B +
-for 64-bit native architecture, or
-.B -
-for 32-bit native architecture, or
-.B *
-for a non-native architecture.
-.TP 14
-.SH INTERACTION
+.El
+.Pp
+Below the global state fields, a list of processes is displayed.  The fields
+that are displayed depend on the options that are set.  The pid field displays
+the following for the architecture:
+.Pp
++ for 64-bit native architecture, or - for 32-bit native architecture, or * for
+a non-native architecture.
+.Sh INTERACTION
 When
-.B top
-is run in interactive (non-logging) mode, it is possible to control the output of
-.BR top ,
-as well as interactively send signals to processes.
-The interactive command syntax is terse.
-Each command is one character, followed by 0 to 2 arguments.
+.Nm
+is run in interactive
+.Pq non-logging
+mode, it is possible to control the output of
+.Nm ,
+as well as interactively send signals to processes.  The interactive command
+syntax is terse.  Each command is one character, followed by 0 to 2 arguments.
 Commands that take arguments prompt interactively for the arguments, and where
-applicable, the default value is shown in square brackets.
-The default value can be selected by leaving the input field blank and pressing
-enter.
-.B ^G
-escapes the interactive argument prompt, and has the same effect as leaving
-the input field blank and pressing enter.
-.PP
+applicable, the default value is shown in square brackets.  The default value
+can be selected by leaving the input field blank and pressing enter.
+.Li ^G
+escapes the interactive argument prompt, and has the same effect as leaving the
+input field blank and pressing enter.
+.Pp
 The following commands are supported:
-.TP
-.BR ?
-Display the help screen.
-Any character exits help screen mode.
-This command always works, even in the middle of a command.
-.TP
-.B ^L
+.Bl -tag -width indent
+.It ?
+Display the help screen.  Any character exits help screen mode.  This command
+always works, even in the middle of a command.
+.It ^L
 Redraw the screen.
-.TP
-.BI c <mode>
+.It c Ns Ar mode
 Set output mode to
-.IR <mode> .
-The supported modes are:
-.RS
-.TP
-.B a
-Accumulative mode.
-.TP
-.B d
-Delta mode.
-.TP
-.B e
-Event mode.
-.TP
-.B n
-Non-event mode.
-.RE
-.TP
-.BI O <skey>
-Use
-.I <skey>
-as a secondary key when ordering the process display.
+.Ar mode .
 See the
-.B -o
+.Fl c
+option for descriptions of the allowed modes.
+.It O Ns Ar skey
+Use
+.Ar skey
+as a secondary key when ordering the process display.  See the
+.Fl o
 option for key names.
-.TP
-.BI o <key>
-.RS
+.It o Ns Ar key
 Order the process display by sorting on
-.I <key>
-in descending order.
-A
-.B +
-or
-.B -
-can be prefixed to the key name to specify ascending or descending order,
-respectively.
-The supported keys and alises are listed with the -o option above.
-
-.RE
-.TP
-.B q
+.Ar key
+in descending order.  A + or - can be prefixed to the key name to specify
+ascending or descending order, respectively.  The supported keys and alises are
+listed with the
+.Fl o
+option above.
+.It q
 Quit.
-.TP
-.B r
+.It r
 Toggle traversal and reporting of the memory object map for each process.
-.TP
-.BI S <signal> "" <pid>
-Send
-.I <sig>
+.It S Ns Ar signal Ns Ar pid
+Send signal
+.Ar signal
 to
-.IR <pid>.
-.I <sig>
-can be specified either as a number or as a name (for example,
-.BR HUP ).
+.Ar pid .
+.Ar signal
+can be specified either as a number or as a name
+.Pq for example, Li HUP .
 The default signal starts out as
-.BR TERM .
+.Li TERM .
 Each time a signal is successfully sent, the default signal is updated to be
 that signal.
-.I <pid>
+.Ar pid
 is a process id.
-.TP
-.BI s <delay>
+.It s Ar delay-secs
 Set the delay between updates to
-.I <delay>
+.Ar delay-secs
 seconds.
-.TP
-.BI U <user>
+.It U Ar user
 Only display processes owned by
-.IR <user> .
-Either the username or uid number can be specified.
-To display all processes, press enter without entering a username or uid number.
-.SH PERFORMANCE vs. ACCURACY
-Calculating detailed memory statistics is fundamentally resource-intensive.
-To reduce the cpu usage in top, the
-.I \-i
-parameter has been introduced to allow the user to tune this tradeoff.  With the 
+.Ar user.
+Either the username or uid number can be specified.  To display all processes,
+press enter without entering a username or uid number.
+.El
+.\"
+.Sh PERFORMANCE/ACCURACY TRADEOFF
+Calculating detailed memory statistics is fundamentally resource-intensive.  To
+reduce the CPU usage in
+.Nm ,
+the
+.Fl i
+option has been introduced to allow the user to tune this tradeoff.  With the
 default value of 10, framework stats will be updated once every 10 samples.
 Specifying
-.I \-i
-1 will result in the most accurate display, at the expense of system resources.
-.SH N/A - Not Available
-When this occurs in a stat it's caused by the memory object map reporting being 
-disabled.  Memory object map reporting is disabled by default in delta mode, but 
-may be optionally enabled via -r or the interactive
-.B r 
-command.  To enable the -r option use it after any -c mode options.
-.SH EXAMPLES
-.TP
-top -o cpu -O +rsize -s 5 -n 20
+.Fl i Ar 1
+will result in the most accurate display, at the expense of system resources.
+.Sh NOT AVAILABLE
+When
+.Li N/A
+occurs in a stat, it's caused by the memory object map reporting being disabled.
+Memory object map reporting is disabled by default in delta mode, but may be
+optionally enabled via
+.Fl r
+or the interactive
+.Cm r
+command.  To enable the
+.Fl r
+option, use it after any
+.Fl c
+mode options.
+.\"
+.Sh EXAMPLES
+.Bl -tag -width indent
+.It top -o cpu -O +rsize -s 5 -n 20
 Sort the processes according to CPU usage (descending) and resident memory size
 (ascending), sample and update the display at 5 second intervals, and limit the
 display to 20 processes.
-.TP
-top -c d
-Run top in delta mode.
-
-.TP
-top -stats pid,command,cpu,th,pstate,time
+.It top -c d
+Run
+.Nm
+in delta mode.
+.It top -stats pid,command,cpu,th,pstate,time
 Display only the specified statistics, regardless of any growth of the terminal.
 If the terminal is too small, only the statistics that fit will be displayed.
-
-.SH SEE ALSO
-kill(2),
-vm_stat(1),
-signal(3),
-vmmap(1)
+.El
+.\"
+.Sh SEE ALSO
+.Xr kill 2 ,
+.Xr vm_stat 1 ,
+.Xr signal 3 ,
+.Xr vmmap 1

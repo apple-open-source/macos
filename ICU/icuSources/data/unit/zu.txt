@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/zu.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 zu{
-    Version{"2.1.22.93"}
+    Version{"2.1.31.74"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -43,8 +37,8 @@ zu{
                 other{"{0}°"}
             }
             radian{
-                dnam{"rad"}
-                one{"{0} i-radian"}
+                dnam{"radians"}
+                one{"{0} radians"}
                 other{"{0} radians"}
             }
             revolution{
@@ -85,6 +79,7 @@ zu{
                 dnam{"km²"}
                 one{"{0} km²"}
                 other{"{0} km²"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"m²"}
@@ -96,6 +91,7 @@ zu{
                 dnam{"mi²"}
                 one{"{0} mi²"}
                 other{"{0} mi²"}
+                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yd²"}
@@ -108,9 +104,24 @@ zu{
         }
         concentr{
             karat{
-                dnam{"karats"}
+                dnam{"ama-karats"}
                 one{"{0} i-karat"}
                 other{"{0} ama-karats"}
+            }
+            milligram-per-deciliter{
+                dnam{"mg/dL"}
+                one{"{0} mg/dL"}
+                other{"{0} mg/dL"}
+            }
+            millimole-per-liter{
+                dnam{"mmol/L"}
+                one{"{0} mmol/L"}
+                other{"{0} mmol/L"}
+            }
+            part-per-million{
+                dnam{"ppm"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
             }
         }
         consumption{
@@ -128,6 +139,11 @@ zu{
                 dnam{"mpg"}
                 one{"{0} mpg"}
                 other{"{0} mpg"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"mpg Imp."}
+                one{"{0} mpg Imp."}
+                other{"{0} mpg Imp."}
             }
         }
         coordinate{
@@ -208,7 +224,7 @@ zu{
             }
             microsecond{
                 dnam{"microseconds"}
-                one{"{0} ama-microsecond"}
+                one{"{0} microsecond"}
                 other{"{0} microseconds"}
             }
             millisecond{
@@ -226,7 +242,7 @@ zu{
                 dnam{"izinyanga"}
                 one{"{0} inyanga"}
                 other{"{0} izinyanga"}
-                per{"{0}/m"}
+                per{"{0} ngenyanga"}
             }
             nanosecond{
                 dnam{"ns"}
@@ -288,7 +304,7 @@ zu{
             joule{
                 dnam{"joule"}
                 one{"{0} i-joule"}
-                other{"{0} ama-joules"}
+                other{"{0} J"}
             }
             kilocalorie{
                 dnam{"kcal"}
@@ -660,6 +676,12 @@ zu{
                 other{"{0} gal"}
                 per{"{0}/gal"}
             }
+            gallon-imperial{
+                dnam{"Imp. gal"}
+                one{"{0} gal Imp."}
+                other{"{0} gal Imp."}
+                per{"{0}/gal Imp."}
+            }
             hectoliter{
                 dnam{"hL"}
                 one{"{0} hL"}
@@ -919,6 +941,7 @@ zu{
                 dnam{"km²"}
                 one{"{0} km²"}
                 other{"{0} km²"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"m²"}
@@ -930,6 +953,7 @@ zu{
                 dnam{"mi²"}
                 one{"{0} mi²"}
                 other{"{0} mi²"}
+                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yd²"}
@@ -945,6 +969,21 @@ zu{
                 dnam{"karats"}
                 one{"{0} kt"}
                 other{"{0} kt"}
+            }
+            milligram-per-deciliter{
+                dnam{"mg/dL"}
+                one{"{0} mg/dL"}
+                other{"{0} mg/dL"}
+            }
+            millimole-per-liter{
+                dnam{"mmol/L"}
+                one{"{0} mmol/L"}
+                other{"{0} mmol/L"}
+            }
+            part-per-million{
+                dnam{"izingxenye/izigidi"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
             }
         }
         consumption{
@@ -962,6 +1001,11 @@ zu{
                 dnam{"miles/gal"}
                 one{"{0} mpg"}
                 other{"{0} mpg"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"mpg Imp."}
+                one{"{0} mpg Imp."}
+                other{"{0} mpg Imp."}
             }
         }
         coordinate{
@@ -1037,7 +1081,7 @@ zu{
             hour{
                 dnam{"amahora"}
                 one{"{0} hora"}
-                other{"{0} amahora"}
+                other{"{0} hr"}
                 per{"{0}/h"}
             }
             microsecond{
@@ -1070,8 +1114,8 @@ zu{
             second{
                 dnam{"amasekhondi"}
                 one{"{0} sekhondi"}
-                other{"{0} s"}
-                per{"{0}ps"}
+                other{"{0} sec"}
+                per{"{0}/s"}
             }
             week{
                 dnam{"amaviki"}
@@ -1493,6 +1537,12 @@ zu{
                 one{"{0} gal"}
                 other{"{0} gal"}
                 per{"{0}/gal"}
+            }
+            gallon-imperial{
+                dnam{"Imp. gal"}
+                one{"{0} gal Imp."}
+                other{"{0} gal Imp."}
+                per{"{0}/gal Imp."}
             }
             hectoliter{
                 dnam{"hL"}

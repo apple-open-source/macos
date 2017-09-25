@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require_relative 'base'
 
 class TestMkmf
@@ -20,13 +21,15 @@ class TestMkmf
       end
     end
 
-    def test_core_foundation_framework
-      assert(have_framework("CoreFoundation"), mkmflog("try as Objective-C"))
+    def test_single_framework
+      assert(have_framework("Ruby"), mkmflog("try as Objective-C"))
     end
 
     def test_multi_frameworks
-      assert(have_framework("CoreFoundation"), mkmflog("try as Objective-C"))
-      assert(have_framework("Cocoa"), mkmflog("try as Objective-C"))
+      assert(have_framework("Ruby"), mkmflog("try as Objective-C"))
+      create_framework("MkmfTest") do |fw|
+        assert(have_framework(fw), MKMFLOG)
+      end
     end
 
     def test_empty_framework
@@ -36,7 +39,7 @@ class TestMkmf
     end
 
     def test_different_name_header
-      bug8593 = '[ruby-core:55745] [Bug #8593]'
+      _bug8593 = '[ruby-core:55745] [Bug #8593]'
       create_framework("MkmfTest", "test_mkmf.h") do |fw, hdrname|
         assert(!have_framework(fw), MKMFLOG)
         assert(have_framework([fw, hdrname]), MKMFLOG)

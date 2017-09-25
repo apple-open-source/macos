@@ -40,13 +40,13 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static const std::chrono::seconds swipeSnapshotRemovalWatchdogAfterFirstVisuallyNonEmptyLayoutDuration = 3s;
-static const std::chrono::milliseconds swipeSnapshotRemovalActiveLoadMonitoringInterval = 250ms;
+static const Seconds swipeSnapshotRemovalWatchdogAfterFirstVisuallyNonEmptyLayoutDuration { 3_s };
+static const Seconds swipeSnapshotRemovalActiveLoadMonitoringInterval { 250_ms };
 
 #if PLATFORM(MAC)
-static const std::chrono::seconds swipeSnapshotRemovalWatchdogDuration = 5s;
+static const Seconds swipeSnapshotRemovalWatchdogDuration = 5_s;
 #else
-static const std::chrono::seconds swipeSnapshotRemovalWatchdogDuration = 3s;
+static const Seconds swipeSnapshotRemovalWatchdogDuration = 3_s;
 #endif
 
 static HashMap<uint64_t, ViewGestureController*>& viewGestureControllersForAllPages()
@@ -77,12 +77,32 @@ ViewGestureController::~ViewGestureController()
     m_webPageProxy.process().removeMessageReceiver(Messages::ViewGestureController::messageReceiverName(), m_webPageProxy.pageID());
 }
 
-ViewGestureController* ViewGestureController::gestureControllerForPage(uint64_t pageID)
+ViewGestureController* ViewGestureController::controllerForGesture(uint64_t pageID, ViewGestureController::GestureID gestureID)
 {
     auto gestureControllerIter = viewGestureControllersForAllPages().find(pageID);
     if (gestureControllerIter == viewGestureControllersForAllPages().end())
         return nullptr;
+    if (gestureControllerIter->value->m_currentGestureID != gestureID)
+        return nullptr;
     return gestureControllerIter->value;
+}
+
+ViewGestureController::GestureID ViewGestureController::takeNextGestureID()
+{
+    static GestureID nextGestureID;
+    return ++nextGestureID;
+}
+
+void ViewGestureController::willBeginGesture(ViewGestureType type)
+{
+    m_activeGestureType = type;
+    m_currentGestureID = takeNextGestureID();
+}
+
+void ViewGestureController::didEndGesture()
+{
+    m_activeGestureType = ViewGestureType::None;
+    m_currentGestureID = 0;
 }
     
 void ViewGestureController::setAlternateBackForwardListSourcePage(WebPageProxy* page)
@@ -221,7 +241,7 @@ void ViewGestureController::SnapshotRemovalTracker::log(const String& log) const
     LOG(ViewGestures, "Swipe Snapshot Removal (%0.2f ms) - %s", millisecondsSinceStart, log.utf8().data());
 }
 
-void ViewGestureController::SnapshotRemovalTracker::start(Events desiredEvents, std::function<void()> removalCallback)
+void ViewGestureController::SnapshotRemovalTracker::start(Events desiredEvents, WTF::Function<void()>&& removalCallback)
 {
     m_outstandingEvents = desiredEvents;
     m_removalCallback = WTFMove(removalCallback);
@@ -297,10 +317,10 @@ void ViewGestureController::SnapshotRemovalTracker::watchdogTimerFired()
     fireRemovalCallbackImmediately();
 }
 
-void ViewGestureController::SnapshotRemovalTracker::startWatchdog(std::chrono::seconds duration)
+void ViewGestureController::SnapshotRemovalTracker::startWatchdog(Seconds duration)
 {
-    log(String::format("(re)started watchdog timer for %lld seconds", duration.count()));
-    m_watchdogTimer.startOneShot(duration.count());
+    log(String::format("(re)started watchdog timer for %.1f seconds", duration.seconds()));
+    m_watchdogTimer.startOneShot(duration);
 }
 
 } // namespace WebKit

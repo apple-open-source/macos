@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010, 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -131,7 +131,7 @@ createParentDirectory(const char *path)
 			static	gid_t	group	= -1;
 
 			// set group
-			if (group == -1) {
+			if (group == (gid_t)-1) {
 				char		buf[256];
 				struct group	grp;
 				struct group	*grpP	= NULL;

@@ -17,5 +17,12 @@
 	<string>Interactive</string>
 	<key>Program</key>
 	<string>/usr/libexec/diskarbitrationd</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>__CFPREFERENCES_AVOID_DAEMON</key>
+		<string>1</string>
+		<key>__CF_USER_TEXT_ENCODING</key>
+		<string>0x0:0:0</string>
+	</dict>
 </dict>
 </plist>

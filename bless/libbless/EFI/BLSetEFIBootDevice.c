@@ -119,7 +119,10 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
         int         uefiDiscBootEntry = 0;
         int         uefiDiscPartitionStart = 0;
         int         uefiDiscPartitionSize = 0;
-        
+		CFStringRef firstVolume = NULL;
+		char        prebootBSD[MAXPATHLEN];
+		char        partialPath[MAXPATHLEN];
+
         strlcpy(newBSDName, bsdname, sizeof newBSDName);
         
         // first check to see if we are dealing with a disk that has the following properties:
@@ -137,22 +140,75 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
                 return 1;
             }
             
-            // check to see if there's a booter partition. If so, use it
-            array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
-            if(array) {
-                if(CFArrayGetCount(array) > 0) {
-                    firstBooter = CFArrayGetValueAtIndex(array, 0);
-                    if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
-                                           kCFStringEncodingUTF8)) {
-                        return 1;
-                    }
-                    contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
-                }
-            }
+			// Check for APFS preboot volume
+			array = CFDictionaryGetValue(dict, kBLAPFSPrebootVolumesKey);
+			if (array && CFArrayGetCount(array) > 0) {
+				io_registry_entry_t rootMedia;
+				CFStringRef         rootUUID;
+				uint16_t            role;
+				void                *frameworkHandle;
+				OSStatus            (*volumeRoleFn)(const char *disk, UInt16 *getrole, const UInt16 *setrole);
+				bool                substitute = true;
+				
+				// First check if we need to substitute or not. If installer or someone blesses
+				// a folder inside the preboot or recovery volume, we don't want to substitute
+				frameworkHandle = dlopen(kAPFS_FRAMEWORK_PATH, RTLD_LAZY | RTLD_LOCAL);
+				if (frameworkHandle) {
+					volumeRoleFn = dlsym(frameworkHandle, "APFSVolumeRole");
+					if (volumeRoleFn) {
+						if (volumeRoleFn(newBSDName, &role, NULL)) {
+							CFRelease(dict);
+							dlclose(frameworkHandle);
+							return 2;
+						}
+						if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+							substitute = false;
+						}
+					}
+					dlclose(frameworkHandle);
+				}
+				
+				if (substitute) {
+					firstVolume = CFArrayGetValueAtIndex(array, 0);
+					CFStringGetCString(firstVolume, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
+					
+					rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
+					if (!rootMedia) {
+						CFRelease(dict);
+						return 2;
+					}
+					rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+					IOObjectRelease(rootMedia);
+					if (!rootUUID) {
+						CFRelease(dict);
+						return 2;
+					}
+					contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
+					strlcpy(partialPath, "/", sizeof partialPath);
+					CFStringGetCString(rootUUID, partialPath + strlen(partialPath), sizeof partialPath - strlen(partialPath), kCFStringEncodingUTF8);
+					strlcat(partialPath, "/System/Library/CoreServices/boot.efi", sizeof partialPath);
+				}
+			}
+
+			
+			// check to see if there's a booter partition. If so, use it
+			if (!firstVolume) {
+				array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
+				if(array) {
+					if(CFArrayGetCount(array) > 0) {
+						firstBooter = CFArrayGetValueAtIndex(array, 0);
+						if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
+											   kCFStringEncodingUTF8)) {
+							return 1;
+						}
+						contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+					}
+				}
+			}
 
             // check to see if there's a data partition (without auxiliary) that
             // we should boot from
-            if (!firstBooter) {
+            if (!firstVolume && !firstBooter) {
                 array = CFDictionaryGetValue(dict, kBLDataPartitionsKey);
                 if(array) {
                     if(CFArrayGetCount(array) > 0) {
@@ -175,19 +231,26 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
         // we have the real entity we want to boot from: whether the "direct" disk, an actual underlying
         // boot helper disk, or ElTorito offset information. create EFI boot settings depending on case.
         
-        if (false == isUEFIDisc) {
-            ret = BLCreateEFIXMLRepresentationForDevice(context,
-                                                        newBSDName,
-                                                        optionalData,
-                                                        &xmlString,
-                                                        shortForm);
+		if (firstVolume) {
+			ret = BLCreateEFIXMLRepresentationForPartialPath(context,
+															 prebootBSD,
+															 partialPath,
+															 optionalData,
+															 &xmlString,
+															 shortForm);
+		} else if (isUEFIDisc) {
+			ret = BLCreateEFIXMLRepresentationForElToritoEntry(context,
+															   newBSDName,
+															   uefiDiscBootEntry,
+															   uefiDiscPartitionStart,
+															   uefiDiscPartitionSize,
+															   &xmlString);
         } else {
-            ret = BLCreateEFIXMLRepresentationForElToritoEntry(context,
-                                                               newBSDName,
-                                                               uefiDiscBootEntry,
-                                                               uefiDiscPartitionStart,
-                                                               uefiDiscPartitionSize,
-                                                               &xmlString);
+			ret = BLCreateEFIXMLRepresentationForDevice(context,
+														newBSDName,
+														optionalData,
+														&xmlString,
+														shortForm);
         }
         
         if (dict)
@@ -565,6 +628,7 @@ static int setefibootargs(BLContextPtr context, mach_port_t masterPort)
     
     int             ret;
     char        cStr[1024], newArgs[1024];
+    bool            didChange = false;
     CFStringRef     newString;
     
     ret = BLCopyEFINVRAMVariableAsString(context,
@@ -585,13 +649,23 @@ static int setefibootargs(BLContextPtr context, mach_port_t masterPort)
     if(!CFStringGetCString(newString, cStr, sizeof(cStr), kCFStringEncodingUTF8)) {
         contextprintf(context, kBLLogLevelError,  "Could not interpret boot-args as string. Ignoring...\n");
         cStr[0] = '\0';
+        // since we truncate boot-args, act like everything was filtered
+        newArgs[0] = '\0';
+        didChange = true;
+        ret = 0;
+    } else {
+        // apply boot-args filtering to the result, track changed status
+        ret = BLPreserveBootArgsIfChanged(context, cStr, newArgs, sizeof newArgs, &didChange);
     }
     
     CFRelease(newString);
     
-    ret = BLPreserveBootArgs(context, cStr, newArgs, sizeof newArgs);
     if(ret) {
         return ret;
+    }
+    if(!didChange) {
+        contextprintf(context, kBLLogLevelVerbose, "New boot-args unchanged, skipping update.\n");
+        return 0; // nothing changed, return success
     }
         
     newString = CFStringCreateWithCString(kCFAllocatorDefault, newArgs, kCFStringEncodingUTF8);

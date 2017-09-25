@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/ext'
 
@@ -56,9 +57,7 @@ class TestGemExtRakeBuilder < Gem::TestCase
         end
       end
 
-      assert_match %r%^rake failed:%, error.message
-      assert_match %r%^#{Regexp.escape @@ruby} mkrf_conf\.rb%, error.message
-      assert_match %r%^#{Regexp.escape rake} RUBYARCHDIR=#{Regexp.escape @dest_path} RUBYLIBDIR=#{Regexp.escape @dest_path}%, error.message
+      assert_match %r%^rake failed%, error.message
     end
   end
 

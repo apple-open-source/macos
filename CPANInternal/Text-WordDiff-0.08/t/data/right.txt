@@ -1,8 +1,0 @@
-This is a test.
-It is only a
-test. Had this been an
-actual diff, the results would
-have been output to the terminal.
-
-Some string with funny @
-chars in the end?

@@ -66,9 +66,6 @@ bsock_shutdown(int argc, VALUE *argv, VALUE sock)
     int how;
     rb_io_t *fptr;
 
-    if (rb_safe_level() >= 4 && !OBJ_TAINTED(sock)) {
-	rb_raise(rb_eSecurityError, "Insecure: can't shutdown socket");
-    }
     rb_scan_args(argc, argv, "01", &howto);
     if (howto == Qnil)
 	how = SHUT_RDWR;
@@ -80,7 +77,7 @@ bsock_shutdown(int argc, VALUE *argv, VALUE sock)
     }
     GetOpenFile(sock, fptr);
     if (shutdown(fptr->fd, how) == -1)
-	rb_sys_fail(0);
+	rb_sys_fail("shutdown(2)");
 
     return INT2FIX(0);
 }
@@ -100,9 +97,6 @@ bsock_close_read(VALUE sock)
 {
     rb_io_t *fptr;
 
-    if (rb_safe_level() >= 4 && !OBJ_TAINTED(sock)) {
-	rb_raise(rb_eSecurityError, "Insecure: can't close socket");
-    }
     GetOpenFile(sock, fptr);
     shutdown(fptr->fd, 0);
     if (!(fptr->mode & FMODE_WRITABLE)) {
@@ -133,9 +127,6 @@ bsock_close_write(VALUE sock)
 {
     rb_io_t *fptr;
 
-    if (rb_safe_level() >= 4 && !OBJ_TAINTED(sock)) {
-	rb_raise(rb_eSecurityError, "Insecure: can't close socket");
-    }
     GetOpenFile(sock, fptr);
     if (!(fptr->mode & FMODE_READABLE)) {
 	return rb_io_close(sock);
@@ -222,9 +213,8 @@ bsock_setsockopt(int argc, VALUE *argv, VALUE sock)
         rb_scan_args(argc, argv, "30", &lev, &optname, &val);
     }
 
-    rb_secure(2);
     GetOpenFile(sock, fptr);
-    family = rsock_getfamily(fptr->fd);
+    family = rsock_getfamily(fptr);
     level = rsock_level_arg(family, lev);
     option = rsock_optname_arg(family, level, optname);
 
@@ -243,20 +233,17 @@ bsock_setsockopt(int argc, VALUE *argv, VALUE sock)
       default:
 	StringValue(val);
 	v = RSTRING_PTR(val);
-	vlen = RSTRING_LENINT(val);
+	vlen = RSTRING_SOCKLEN(val);
 	break;
     }
 
-#define rb_sys_fail_path(path) rb_sys_fail_str(path)
-
     rb_io_check_closed(fptr);
     if (setsockopt(fptr->fd, level, option, v, vlen) < 0)
-	rb_sys_fail_path(fptr->pathv);
+        rsock_sys_fail_path("setsockopt(2)", fptr->pathv);
 
     return INT2FIX(0);
 }
 
-#if !defined(__BEOS__)
 /*
  * Document-method: getsockopt
  * call-seq:
@@ -323,7 +310,7 @@ bsock_getsockopt(VALUE sock, VALUE lev, VALUE optname)
     int family;
 
     GetOpenFile(sock, fptr);
-    family = rsock_getfamily(fptr->fd);
+    family = rsock_getfamily(fptr);
     level = rsock_level_arg(family, lev);
     option = rsock_optname_arg(family, level, optname);
     len = 256;
@@ -332,13 +319,10 @@ bsock_getsockopt(VALUE sock, VALUE lev, VALUE optname)
     rb_io_check_closed(fptr);
 
     if (getsockopt(fptr->fd, level, option, buf, &len) < 0)
-	rb_sys_fail_path(fptr->pathv);
+	rsock_sys_fail_path("getsockopt(2)", fptr->pathv);
 
     return rsock_sockopt_new(family, level, option, rb_str_new(buf, len));
 }
-#else
-#define bsock_getsockopt rb_f_notimplement
-#endif
 
 /*
  * call-seq:
@@ -356,13 +340,13 @@ bsock_getsockopt(VALUE sock, VALUE lev, VALUE optname)
 static VALUE
 bsock_getsockname(VALUE sock)
 {
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
     socklen_t len = (socklen_t)sizeof buf;
     socklen_t len0 = len;
     rb_io_t *fptr;
 
     GetOpenFile(sock, fptr);
-    if (getsockname(fptr->fd, (struct sockaddr*)&buf, &len) < 0)
+    if (getsockname(fptr->fd, &buf.addr, &len) < 0)
 	rb_sys_fail("getsockname(2)");
     if (len0 < len) len = len0;
     return rb_str_new((char*)&buf, len);
@@ -387,13 +371,13 @@ bsock_getsockname(VALUE sock)
 static VALUE
 bsock_getpeername(VALUE sock)
 {
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
     socklen_t len = (socklen_t)sizeof buf;
     socklen_t len0 = len;
     rb_io_t *fptr;
 
     GetOpenFile(sock, fptr);
-    if (getpeername(fptr->fd, (struct sockaddr*)&buf, &len) < 0)
+    if (getpeername(fptr->fd, &buf.addr, &len) < 0)
 	rb_sys_fail("getpeername(2)");
     if (len0 < len) len = len0;
     return rb_str_new((char*)&buf, len);
@@ -431,7 +415,7 @@ bsock_getpeereid(VALUE self)
     gid_t egid;
     GetOpenFile(self, fptr);
     if (getpeereid(fptr->fd, &euid, &egid) == -1)
-	rb_sys_fail("getpeereid");
+	rb_sys_fail("getpeereid(3)");
     return rb_assoc_new(UIDT2NUM(euid), GIDT2NUM(egid));
 #elif defined(SO_PEERCRED) /* GNU/Linux */
     rb_io_t *fptr;
@@ -447,7 +431,7 @@ bsock_getpeereid(VALUE self)
     VALUE ret;
     GetOpenFile(self, fptr);
     if (getpeerucred(fptr->fd, &uc) == -1)
-	rb_sys_fail("getpeerucred");
+	rb_sys_fail("getpeerucred(3C)");
     ret = rb_assoc_new(UIDT2NUM(ucred_geteuid(uc)), GIDT2NUM(ucred_getegid(uc)));
     ucred_free(uc);
     return ret;
@@ -477,16 +461,16 @@ bsock_getpeereid(VALUE self)
 static VALUE
 bsock_local_address(VALUE sock)
 {
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
     socklen_t len = (socklen_t)sizeof buf;
     socklen_t len0 = len;
     rb_io_t *fptr;
 
     GetOpenFile(sock, fptr);
-    if (getsockname(fptr->fd, (struct sockaddr*)&buf, &len) < 0)
+    if (getsockname(fptr->fd, &buf.addr, &len) < 0)
 	rb_sys_fail("getsockname(2)");
     if (len0 < len) len = len0;
-    return rsock_fd_socket_addrinfo(fptr->fd, (struct sockaddr *)&buf, len);
+    return rsock_fd_socket_addrinfo(fptr->fd, &buf.addr, len);
 }
 
 /*
@@ -511,16 +495,16 @@ bsock_local_address(VALUE sock)
 static VALUE
 bsock_remote_address(VALUE sock)
 {
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
     socklen_t len = (socklen_t)sizeof buf;
     socklen_t len0 = len;
     rb_io_t *fptr;
 
     GetOpenFile(sock, fptr);
-    if (getpeername(fptr->fd, (struct sockaddr*)&buf, &len) < 0)
+    if (getpeername(fptr->fd, &buf.addr, &len) < 0)
 	rb_sys_fail("getpeername(2)");
     if (len0 < len) len = len0;
-    return rsock_fd_socket_addrinfo(fptr->fd, (struct sockaddr *)&buf, len);
+    return rsock_fd_socket_addrinfo(fptr->fd, &buf.addr, len);
 }
 
 /*
@@ -549,7 +533,6 @@ rsock_bsock_send(int argc, VALUE *argv, VALUE sock)
     int n;
     rb_blocking_function_t *func;
 
-    rb_secure(4);
     rb_scan_args(argc, argv, "21", &arg.mesg, &flags, &to);
 
     StringValue(arg.mesg);
@@ -557,7 +540,7 @@ rsock_bsock_send(int argc, VALUE *argv, VALUE sock)
 	SockAddrStringValue(to);
 	to = rb_str_new4(to);
 	arg.to = (struct sockaddr *)RSTRING_PTR(to);
-	arg.tolen = (socklen_t)RSTRING_LENINT(to);
+	arg.tolen = RSTRING_SOCKLEN(to);
 	func = rsock_sendto_blocking;
     }
     else {
@@ -566,7 +549,7 @@ rsock_bsock_send(int argc, VALUE *argv, VALUE sock)
     GetOpenFile(sock, fptr);
     arg.fd = fptr->fd;
     arg.flags = NUM2INT(flags);
-    while (rb_thread_fd_writable(arg.fd),
+    while (rsock_maybe_fd_writable(arg.fd),
 	   (n = (int)BLOCKING_REGION_FD(func, &arg)) < 0) {
 	if (rb_io_wait_writable(arg.fd)) {
 	    continue;
@@ -582,11 +565,13 @@ rsock_bsock_send(int argc, VALUE *argv, VALUE sock)
  *
  * Gets the do_not_reverse_lookup flag of _basicsocket_.
  *
+ *   BasicSocket.do_not_reverse_lookup = false
  *   TCPSocket.open("www.ruby-lang.org", 80) {|sock|
  *     p sock.do_not_reverse_lookup      #=> false
- *     p sock.peeraddr                   #=> ["AF_INET", 80, "carbon.ruby-lang.org", "221.186.184.68"]
- *     sock.do_not_reverse_lookup = true
- *     p sock.peeraddr                   #=> ["AF_INET", 80, "221.186.184.68", "221.186.184.68"]
+ *   }
+ *   BasicSocket.do_not_reverse_lookup = true
+ *   TCPSocket.open("www.ruby-lang.org", 80) {|sock|
+ *     p sock.do_not_reverse_lookup      #=> true
  *   }
  */
 static VALUE
@@ -604,10 +589,12 @@ bsock_do_not_reverse_lookup(VALUE sock)
  *
  * Sets the do_not_reverse_lookup flag of _basicsocket_.
  *
- *   BasicSocket.do_not_reverse_lookup = false
- *   p TCPSocket.new("127.0.0.1", 80).do_not_reverse_lookup #=> false
- *   BasicSocket.do_not_reverse_lookup = true
- *   p TCPSocket.new("127.0.0.1", 80).do_not_reverse_lookup #=> true
+ *   TCPSocket.open("www.ruby-lang.org", 80) {|sock|
+ *     p sock.do_not_reverse_lookup       #=> true
+ *     p sock.peeraddr                    #=> ["AF_INET", 80, "221.186.184.68", "221.186.184.68"]
+ *     sock.do_not_reverse_lookup = false
+ *     p sock.peeraddr                    #=> ["AF_INET", 80, "carbon.ruby-lang.org", "54.163.249.195"]
+ *   }
  *
  */
 static VALUE
@@ -615,7 +602,6 @@ bsock_do_not_reverse_lookup_set(VALUE sock, VALUE state)
 {
     rb_io_t *fptr;
 
-    rb_secure(4);
     GetOpenFile(sock, fptr);
     if (RTEST(state)) {
 	fptr->mode |= FMODE_NOREVLOOKUP;
@@ -628,14 +614,16 @@ bsock_do_not_reverse_lookup_set(VALUE sock, VALUE state)
 
 /*
  * call-seq:
- *   basicsocket.recv(maxlen) => mesg
- *   basicsocket.recv(maxlen, flags) => mesg
+ *   basicsocket.recv(maxlen[, flags[, outbuf]]) => mesg
  *
  * Receives a message.
  *
  * _maxlen_ is the maximum number of bytes to receive.
  *
  * _flags_ should be a bitwise OR of Socket::MSG_* constants.
+ *
+ * _outbuf_ will contain only the received data after the method call
+ * even if it is not empty at the beginning.
  *
  *   UNIXSocket.pair {|s1, s2|
  *     s1.puts "Hello World"
@@ -651,55 +639,11 @@ bsock_recv(int argc, VALUE *argv, VALUE sock)
     return rsock_s_recvfrom(sock, argc, argv, RECV_RECV);
 }
 
-/*
- * call-seq:
- * 	basicsocket.recv_nonblock(maxlen) => mesg
- * 	basicsocket.recv_nonblock(maxlen, flags) => mesg
- *
- * Receives up to _maxlen_ bytes from +socket+ using recvfrom(2) after
- * O_NONBLOCK is set for the underlying file descriptor.
- * _flags_ is zero or more of the +MSG_+ options.
- * The result, _mesg_, is the data received.
- *
- * When recvfrom(2) returns 0, Socket#recv_nonblock returns
- * an empty string as data.
- * The meaning depends on the socket: EOF on TCP, empty packet on UDP, etc.
- *
- * === Parameters
- * * +maxlen+ - the number of bytes to receive from the socket
- * * +flags+ - zero or more of the +MSG_+ options
- *
- * === Example
- * 	serv = TCPServer.new("127.0.0.1", 0)
- * 	af, port, host, addr = serv.addr
- * 	c = TCPSocket.new(addr, port)
- * 	s = serv.accept
- * 	c.send "aaa", 0
- * 	begin # emulate blocking recv.
- * 	  p s.recv_nonblock(10) #=> "aaa"
- * 	rescue IO::WaitReadable
- * 	  IO.select([s])
- * 	  retry
- * 	end
- *
- * Refer to Socket#recvfrom for the exceptions that may be thrown if the call
- * to _recv_nonblock_ fails.
- *
- * BasicSocket#recv_nonblock may raise any error corresponding to recvfrom(2) failure,
- * including Errno::EWOULDBLOCK.
- *
- * If the exception is Errno::EWOULDBLOCK or Errno::AGAIN,
- * it is extended by IO::WaitReadable.
- * So IO::WaitReadable can be used to rescue the exceptions for retrying recv_nonblock.
- *
- * === See
- * * Socket#recvfrom
- */
-
+/* :nodoc: */
 static VALUE
-bsock_recv_nonblock(int argc, VALUE *argv, VALUE sock)
+bsock_recv_nonblock(VALUE sock, VALUE len, VALUE flg, VALUE str, VALUE ex)
 {
-    return rsock_s_recvfrom_nonblock(sock, argc, argv, RECV_RECV);
+    return rsock_s_recvfrom_nonblock(sock, len, flg, str, ex, RECV_RECV);
 }
 
 /*
@@ -735,7 +679,6 @@ bsock_do_not_rev_lookup(void)
 static VALUE
 bsock_do_not_rev_lookup_set(VALUE self, VALUE val)
 {
-    rb_secure(4);
     rsock_do_not_reverse_lookup = RTEST(val);
     return val;
 }
@@ -769,13 +712,22 @@ rsock_init_basicsocket(void)
     rb_define_method(rb_cBasicSocket, "remote_address", bsock_remote_address, 0);
     rb_define_method(rb_cBasicSocket, "send", rsock_bsock_send, -1);
     rb_define_method(rb_cBasicSocket, "recv", bsock_recv, -1);
-    rb_define_method(rb_cBasicSocket, "recv_nonblock", bsock_recv_nonblock, -1);
+
     rb_define_method(rb_cBasicSocket, "do_not_reverse_lookup", bsock_do_not_reverse_lookup, 0);
     rb_define_method(rb_cBasicSocket, "do_not_reverse_lookup=", bsock_do_not_reverse_lookup_set, 1);
 
-    rb_define_method(rb_cBasicSocket, "sendmsg", rsock_bsock_sendmsg, -1); /* in ancdata.c */
-    rb_define_method(rb_cBasicSocket, "sendmsg_nonblock", rsock_bsock_sendmsg_nonblock, -1); /* in ancdata.c */
-    rb_define_method(rb_cBasicSocket, "recvmsg", rsock_bsock_recvmsg, -1); /* in ancdata.c */
-    rb_define_method(rb_cBasicSocket, "recvmsg_nonblock", rsock_bsock_recvmsg_nonblock, -1); /* in ancdata.c */
+    /* for ext/socket/lib/socket.rb use only: */
+    rb_define_private_method(rb_cBasicSocket,
+			     "__recv_nonblock", bsock_recv_nonblock, 4);
+
+    /* in ancdata.c */
+    rb_define_private_method(rb_cBasicSocket, "__sendmsg",
+			     rsock_bsock_sendmsg, 4);
+    rb_define_private_method(rb_cBasicSocket, "__sendmsg_nonblock",
+			     rsock_bsock_sendmsg_nonblock, 5);
+    rb_define_private_method(rb_cBasicSocket, "__recvmsg",
+			     rsock_bsock_recvmsg, 4);
+    rb_define_private_method(rb_cBasicSocket, "__recvmsg_nonblock",
+			    rsock_bsock_recvmsg_nonblock, 5);
 
 }

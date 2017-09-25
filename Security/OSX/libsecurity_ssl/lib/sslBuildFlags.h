@@ -33,6 +33,14 @@ extern "C" {
 #endif
 
 /*
+ * Implementation-specific functionality.
+ */
+#if 1
+#undef USE_CDSA_CRYPTO				/* use corecrypto, instead of CDSA */
+#undef USE_SSLCERTIFICATE			/* use CF-based certs, not structs */
+#endif
+
+/*
  * Work around the Netscape Server Key Exchange bug. When this is
  * true, only do server key exchange if both of the following are
  * true:
@@ -75,16 +83,16 @@ extern "C" {
 /* Experimental */
 #define ENABLE_DTLS                 1
 
-#define ENABLE_3DES			1		/* normally enabled */
-#define ENABLE_RC4			1		/* normally enabled */
-#define ENABLE_DES			0		/* normally disabled */
-#define ENABLE_RC2			0		/* normally disabled */
-#define ENABLE_AES			1		/* normally enabled, our first preference */
-#define ENABLE_AES256		1		/* normally enabled */
-#define ENABLE_ECDHE		1
-#define ENABLE_ECDHE_RSA	1
-#define ENABLE_ECDH			1
-#define ENABLE_ECDH_RSA		1
+#define ENABLE_3DES                 1		/* normally enabled */
+#define ENABLE_RC4                  1		/* normally enabled */
+#define ENABLE_DES                  0		/* normally disabled */
+#define ENABLE_RC2                  0		/* normally disabled */
+#define ENABLE_AES                  1		/* normally enabled, our first preference */    
+#define ENABLE_AES256               1		/* normally enabled */
+#define ENABLE_ECDHE                1
+#define ENABLE_ECDHE_RSA            1
+#define ENABLE_ECDH                 1
+#define ENABLE_ECDH_RSA             1
 
 #if defined(__cplusplus)
 }

@@ -2,7 +2,9 @@ Project               = ccid
 UserType              = Administrator
 ToolType              = Commands
 GnuAfterInstall       = post-install
-Extra_Configure_Flags = --enable-usbdropdir=/usr/libexec/SmartCardServices/drivers \
+CCIDDriversPath		  = /usr/libexec/SmartCardServices/drivers
+CCIDdylib			  = /ifd-ccid.bundle/Contents/MacOS/libccid.dylib
+Extra_Configure_Flags = --enable-usbdropdir=$(CCIDDriversPath) \
 	PCSC_CFLAGS="-I$(SRCROOT)/ccid/MacOSX -DRESPONSECODE_DEFINED_IN_WINTYPES_H -DUSE_COMPOSITE_AS_MULTISLOT" \
 	PCSC_LIBS="-framework PCSC" \
 	LIBUSB_CFLAGS="-I$(DSTROOT)/usr/include/libusb-1.0" \
@@ -21,11 +23,12 @@ post-install:
 	find $(DSTROOT)/ -name 'libusb*' -exec rm \{\} \;
 	find $(DSTROOT)/ -name 'usb*.h' -exec rm \{\} \;
 	rm -r $(DSTROOT)/usr/include
-	rm -r $(DSTROOT)/usr/lib 
+	rm -r $(DSTROOT)/usr/lib
+	install_name_tool -id $(CCIDDriversPath)$(CCIDdylib) $(DSTROOT)$(CCIDDriversPath)$(CCIDdylib) 
 
 # Automatic Extract & Patch
 AEP_Project    = ccid
-AEP_Version    = 1.4.25
+AEP_Version    = 1.4.27
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

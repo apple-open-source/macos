@@ -111,10 +111,10 @@ const SecAsn1Template kSecAsn1TBSCertificateTemplate[] = {
     { SEC_ASN1_INLINE,
 	  offsetof(NSS_TBSCertificate,subjectPublicKeyInfo),
 	  kSecAsn1SubjectPublicKeyInfoTemplate },
-    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 1,
+    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC | 1,
 	  offsetof(NSS_TBSCertificate,issuerID),
 	  kSecAsn1BitStringTemplate },
-    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 2,
+    { SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC | 2,
 	  offsetof(NSS_TBSCertificate,subjectID),
 	  kSecAsn1BitStringTemplate },
     { SEC_ASN1_OPTIONAL | SEC_ASN1_CONSTRUCTED | SEC_ASN1_CONTEXT_SPECIFIC | 

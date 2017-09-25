@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ***************************************************************************
 *   Copyright (C) 1999-2016 International Business Machines Corporation
@@ -74,6 +76,7 @@ RuleBasedBreakIterator::RuleBasedBreakIterator(RBBIDataHeader* data, UErrorCode 
 
 /**
  * Same as above but does not adopt memory
+ * Open-source ICU eliminated this method in #12071, but Apple code needs it, so restore it.
  */
 RuleBasedBreakIterator::RuleBasedBreakIterator(const RBBIDataHeader* data, enum EDontAdopt, UErrorCode &status)
 {
@@ -1157,7 +1160,7 @@ int32_t RuleBasedBreakIterator::handleNext(const RBBIStateTable *statetable) {
 
        #ifdef RBBI_DEBUG
             if (fTrace) {
-                RBBIDebugPrintf("             %4ld   ", utext_getNativeIndex(fText));
+                RBBIDebugPrintf("             %4lld   ", utext_getNativeIndex(fText));
                 if (0x20<=c && c<0x7f) {
                     RBBIDebugPrintf("\"%c\"  ", c);
                 } else {

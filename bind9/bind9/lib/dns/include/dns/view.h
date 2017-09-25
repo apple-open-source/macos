@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -73,9 +73,11 @@
 
 #include <dns/acl.h>
 #include <dns/fixedname.h>
+#include <dns/rrl.h>
 #include <dns/rdatastruct.h>
 #include <dns/rpz.h>
 #include <dns/types.h>
+#include <dns/zt.h>
 
 ISC_LANG_BEGINDECLS
 
@@ -138,10 +140,11 @@ struct dns_view {
 	dns_acl_t *			updateacl;
 	dns_acl_t *			upfwdacl;
 	dns_acl_t *			denyansweracl;
+	dns_acl_t *			nocasecompress;
 	dns_rbt_t *			answeracl_exclude;
 	dns_rbt_t *			denyanswernames;
 	dns_rbt_t *			answernames_exclude;
-	isc_boolean_t			requestixfr;
+	dns_rrl_t *			rrl;
 	isc_boolean_t			provideixfr;
 	isc_boolean_t			requestnsid;
 	dns_ttl_t			maxcachettl;
@@ -157,11 +160,15 @@ struct dns_view {
 	dns_name_t *			dlv;
 	dns_fixedname_t			dlv_fixed;
 	isc_uint16_t			maxudp;
+	unsigned int			maxbits;
 	dns_v4_aaaa_t			v4_aaaa;
 	dns_acl_t *			v4_aaaa_acl;
 	dns_dns64list_t 		dns64;
 	unsigned int 			dns64cnt;
 	ISC_LIST(dns_rpz_zone_t)	rpz_zones;
+	isc_boolean_t			rpz_recursive_only;
+	isc_boolean_t			rpz_break_dnssec;
+	unsigned int			rpz_min_ns_labels;
 
 	/*
 	 * Configurable data for server use only,
@@ -182,6 +189,7 @@ struct dns_view {
 	dns_viewlist_t *		viewlist;
 
 	dns_zone_t *			managed_keys;
+	dns_zone_t *			redirect;
 
 #ifdef BIND9
 	/* File in which to store configuration for newly added zones */
@@ -309,7 +317,8 @@ dns_view_weakdetach(dns_view_t **targetp);
 
 isc_result_t
 dns_view_createresolver(dns_view_t *view,
-			isc_taskmgr_t *taskmgr, unsigned int ntasks,
+			isc_taskmgr_t *taskmgr,
+			unsigned int ntasks, unsigned int ndisp,
 			isc_socketmgr_t *socketmgr,
 			isc_timermgr_t *timermgr,
 			unsigned int options,
@@ -703,6 +712,7 @@ dns_viewlist_findzone(dns_viewlist_t *list, dns_name_t *name, isc_boolean_t allc
  * Returns:
  *\li	#ISC_R_SUCCESS          A matching zone was found.
  *\li	#ISC_R_NOTFOUND         No matching zone was found.
+ *\li	#ISC_R_MULTIPLE         Multiple zones with the same name were found.
  */
 
 isc_result_t
@@ -727,14 +737,21 @@ dns_view_load(dns_view_t *view, isc_boolean_t stop);
 
 isc_result_t
 dns_view_loadnew(dns_view_t *view, isc_boolean_t stop);
+
+isc_result_t
+dns_view_asyncload(dns_view_t *view, dns_zt_allloaded_t callback, void *arg);
 /*%<
  * Load zones attached to this view.  dns_view_load() loads
  * all zones whose master file has changed since the last
  * load; dns_view_loadnew() loads only zones that have never
  * been loaded.
  *
+ * dns_view_asyncload() loads zones asynchronously.  When all zones
+ * in the view have finished loading, 'callback' is called with argument
+ * 'arg' to inform the caller.
+ *
  * If 'stop' is ISC_TRUE, stop on the first error and return it.
- * If 'stop' is ISC_FALSE, ignore errors.
+ * If 'stop' is ISC_FALSE (or we are loading asynchronously), ignore errors.
  *
  * Requires:
  *
@@ -838,9 +855,31 @@ dns_view_flushcache2(dns_view_t *view, isc_boolean_t fixuponly);
  */
 
 isc_result_t
-dns_view_flushname(dns_view_t *view, dns_name_t *);
+dns_view_flushnode(dns_view_t *view, dns_name_t *name, isc_boolean_t tree);
 /*%<
- * Flush the given name from the view's cache (and ADB).
+ * Flush the given name from the view's cache (and optionally ADB/badcache).
+ *
+ * If 'tree' is true, flush 'name' and all names below it
+ * from the cache, but do not flush ADB.
+ *
+ * If 'tree' is false, flush 'name' frmo both the cache and ADB,
+ * but do not touch any other nodes.
+ *
+ * Requires:
+ *\li	'view' is valid.
+ *\li	'name' is valid.
+ *
+ * Returns:
+ *\li	#ISC_R_SUCCESS
+ *	other returns are failures.
+ */
+
+isc_result_t
+dns_view_flushname(dns_view_t *view, dns_name_t *name);
+/*%<
+ * Flush the given name from the view's cache, ADB and badcache.
+ * Equivalent to dns_view_flushnode(view, name, ISC_FALSE).
+ *
  *
  * Requires:
  *\li	'view' is valid.
@@ -855,7 +894,6 @@ isc_result_t
 dns_view_adddelegationonly(dns_view_t *view, dns_name_t *name);
 /*%<
  * Add the given name to the delegation only table.
- *
  *
  * Requires:
  *\li	'view' is valid.

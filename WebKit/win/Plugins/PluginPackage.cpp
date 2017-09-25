@@ -31,7 +31,9 @@
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginView.h"
+#include <JavaScriptCore/CatchScope.h>
 #include <JavaScriptCore/Completion.h>
+#include <JavaScriptCore/HeapInlines.h>
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <WebCore/IdentifierRep.h>
 #include <WebCore/MIMETypeRegistry.h>
@@ -67,7 +69,7 @@ void PluginPackage::freeLibrarySoon()
     ASSERT(m_module);
     ASSERT(!m_loadCount);
 
-    m_freeLibraryTimer.startOneShot(0);
+    m_freeLibraryTimer.startOneShot(0_s);
 }
 
 void PluginPackage::freeLibraryTimerFired()
@@ -75,7 +77,7 @@ void PluginPackage::freeLibraryTimerFired()
     ASSERT(m_module);
     // Do nothing if the module got loaded again meanwhile
     if (!m_loadCount) {
-        unloadModule(m_module);
+        ::FreeLibrary(m_module);
         m_module = 0;
     }
 }
@@ -162,26 +164,26 @@ void PluginPackage::setEnabled(bool enabled)
     m_isEnabled = enabled;
 }
 
-PassRefPtr<PluginPackage> PluginPackage::createPackage(const String& path, const time_t& lastModified)
+RefPtr<PluginPackage> PluginPackage::createPackage(const String& path, const time_t& lastModified)
 {
     RefPtr<PluginPackage> package = adoptRef(new PluginPackage(path, lastModified));
 
     if (!package->fetchInfo())
-        return 0;
+        return nullptr;
 
-    return package.release();
+    return package;
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
-PassRefPtr<PluginPackage> PluginPackage::createPackageFromCache(const String& path, const time_t& lastModified, const String& name, const String& description, const String& mimeDescription)
+Ref<PluginPackage> PluginPackage::createPackageFromCache(const String& path, const time_t& lastModified, const String& name, const String& description, const String& mimeDescription)
 {
-    RefPtr<PluginPackage> package = adoptRef(new PluginPackage(path, lastModified));
+    Ref<PluginPackage> package = adoptRef(*new PluginPackage(path, lastModified));
     package->m_name = name;
     package->m_description = description;
     package->determineModuleVersionFromDescription();
     package->setMIMEDescription(mimeDescription);
     package->m_infoIsFromCache = true;
-    return package.release();
+    return package;
 }
 #endif
 
@@ -190,11 +192,6 @@ static void getListFromVariantArgs(JSC::ExecState* exec, const NPVariant* args, 
 {
     for (unsigned i = 0; i < argCount; ++i)
         aList.append(JSC::Bindings::convertNPVariantToValue(exec, &args[i], rootObject));
-}
-
-static inline JSC::SourceCode makeSource(const String& source, const String& url = String(), const TextPosition& startPosition = TextPosition())
-{
-    return JSC::SourceCode(JSC::StringSourceProvider::create(source, url, startPosition), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt());
 }
 
 static bool NPN_Evaluate(NPP instance, NPObject* o, NPString* s, NPVariant* variant)
@@ -218,7 +215,7 @@ static bool NPN_Evaluate(NPP instance, NPObject* o, NPString* s, NPVariant* vari
         JSC::ExecState* exec = globalObject->globalExec();
         String scriptString = JSC::Bindings::convertNPStringToUTF16(s);
 
-        JSC::JSValue returnValue = JSC::evaluate(exec, makeSource(scriptString), JSC::JSValue());
+        JSC::JSValue returnValue = JSC::evaluate(exec, JSC::makeSource(scriptString, { }), JSC::JSValue());
 
         JSC::Bindings::convertValueToNPVariant(exec, returnValue, variant);
         scope.clearException();

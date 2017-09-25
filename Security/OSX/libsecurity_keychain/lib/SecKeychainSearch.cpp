@@ -29,6 +29,7 @@
 #include <security_keychain/Item.h>
 #include <security_cdsa_utilities/Schema.h>
 #include <syslog.h>
+#include <os/activity.h>
 
 #include "SecBridge.h"
 
@@ -47,6 +48,9 @@ OSStatus
 SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainSearchCreateFromAttributes", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Required(searchRef);
 
@@ -63,6 +67,9 @@ OSStatus
 SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, CSSM_DB_CONJUNCTIVE dbConjunctive, CSSM_DB_OPERATOR dbOperator, SecKeychainSearchRef *searchRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainSearchCreateFromAttributesExtended", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Required(searchRef); // Make sure that searchRef is an invalid SearchRef
 
@@ -81,6 +88,9 @@ OSStatus
 SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *itemRef)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainSearchCopyNext", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	RequiredParam(itemRef);
 	Item item;

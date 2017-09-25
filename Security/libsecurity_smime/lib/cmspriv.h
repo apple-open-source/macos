@@ -95,7 +95,12 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
 extern int
 SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, SECOidTag algtag);
 
-extern void *SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
+#if USE_CDSA_CRYPTO
+extern CSSM_CC_HANDLE
+#else
+extern void *
+#endif
+SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
 
 /*
  * XXX I would *really* like to not have to do this, but the current

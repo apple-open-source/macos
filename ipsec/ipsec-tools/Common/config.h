@@ -80,6 +80,9 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
+/* Define to 1 to enable DNSSEC - not currently functional */
+#define ENABLE_DNSSEC_CERTS 0
+
 /* Define to 1 if keychain is used */
 #if TARGET_OS_EMBEDDED
 #undef HAVE_KEYCHAIN
@@ -106,7 +109,7 @@
 
 #define HAVE_GETIFADDRS 1
 
-#if TARGET_OS_EMBEDDED
+#if 1
 #undef HAVE_OPENSSL
 #else
 #define HAVE_OPENSSL 1

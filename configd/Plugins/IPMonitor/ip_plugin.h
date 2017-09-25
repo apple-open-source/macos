@@ -48,15 +48,13 @@
 
 #define kIsNULL				CFSTR("IsNULL")	/* CFBoolean */
 
-#ifdef TEST_ROUTELIST
-
-#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
-
-#else /* TEST_ROUTELIST */
-
-#define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
-
-#endif /* TEST_ROUTELIST */
+#ifndef	my_log
+  #ifdef TEST_ROUTELIST
+    #define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
+  #else /* TEST_ROUTELIST */
+    #define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
+  #endif /* TEST_ROUTELIST */
+#endif	// !my_log
 
 os_log_t
 __log_IPMonitor();

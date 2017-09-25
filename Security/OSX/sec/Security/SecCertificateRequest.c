@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2009,2012-2017 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -418,16 +418,6 @@ static const uint8_t encoded_asn1_true = 0xFF;
 static const SecAsn1Item asn1_true =
     { sizeof(encoded_asn1_true), (uint8_t*)&encoded_asn1_true };
 
-__unused static inline uint32_t highest_bit(uint32_t n)
-{
-    return ((n) >> 16 ? ((n)>>=16, 16) : 0) + \
-            ((n) >> 8 ? ((n)>>=8, 8) : 0) + \
-            ((n) >> 4 ? ((n)>>=4, 4) : 0) + \
-            ((n) >> 2 ? ((n)>>=2, 2) : 0) + \
-            ((n) >> 1 ? ((n)>>=1, 1) : 0) + \
-            (n);
-}
-
 struct add_custom_extension_args {
     PLArenaPool *poolp;
     NSS_CertExtension *csr_extension;
@@ -678,6 +668,10 @@ static const SecAsn1Item asn1_null = { sizeof(encoded_null), (uint8_t*)encoded_n
 CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject, 
     CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
 {
+    if (subject == NULL || *subject == NULL) {
+        return NULL;
+    }
+
     CFDataRef csr = NULL;
     CFDataRef publicKeyData= NULL;
     uint8_t *signature = NULL, *spki_params = NULL;
@@ -719,7 +713,7 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
         for (one_atv = *one_rdn; one_atv->oid; one_atv++) {
             if (!make_nss_atv(poolp, one_atv->oid, one_atv->value, 
                     one_atv->type, &atvs[atv_num]))
-                return NULL;
+                goto out;
             atvps[atv_num] = &atvs[atv_num];
             atv_num++;
         }
@@ -838,7 +832,7 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
 {
     CFDataRef csr = NULL;
     PRArenaPool *poolp = PORT_NewArena(1024);
-    CFDictionaryRef pubkey_attrs = NULL;
+    CFDataRef publicKeyData = NULL;
     uint8_t *signature = NULL;
     
     if (!poolp)
@@ -860,11 +854,9 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     certReq.reqInfo.subjectPublicKeyInfo.algorithm.algorithm.Data = oidRsa.data;
     certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters = asn1_null;
     
-    pubkey_attrs = SecKeyCopyAttributeDictionary(publicKey);
-    CFDataRef pkcs1_pubkey = (CFDataRef)CFDictionaryGetValue(pubkey_attrs, kSecValueData);
-
-    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(pkcs1_pubkey);
-    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(pkcs1_pubkey);
+    publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
+    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(publicKeyData);
+    certReq.reqInfo.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(publicKeyData);
     
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
@@ -902,7 +894,7 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
 out:
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
-    CFReleaseSafe(pubkey_attrs);
+    CFReleaseSafe(publicKeyData);
     if (signature) { free(signature); }
     return csr;
 }
@@ -1176,7 +1168,7 @@ SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
     uint8_t *signature = NULL;
 
     PRArenaPool *poolp = PORT_NewArena(1024);
-    CFDictionaryRef pubkey_attrs = NULL;
+    CFDataRef publicKeyData = NULL;
     if (!poolp)
         return NULL;
 
@@ -1227,16 +1219,14 @@ SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
     }
 
     /* @@@ we only handle rsa keys */
-    pubkey_attrs = SecKeyCopyAttributeDictionary(publicKey);
-    CFTypeRef key_type = CFDictionaryGetValue(pubkey_attrs, kSecAttrKeyType);
-    if (key_type && CFEqual(key_type, kSecAttrKeyTypeRSA)) {
+    if (SecKeyGetAlgorithmId(publicKey) == kSecRSAAlgorithmID) {
         /* public key data and algorithm */
         cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.algorithm = CSSMOID_RSA;
         cert_tmpl.tbs.subjectPublicKeyInfo.algorithm.parameters = asn1_null;
 
-        CFDataRef pkcs1_pubkey = (CFDataRef)CFDictionaryGetValue(pubkey_attrs, kSecValueData);
-        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(pkcs1_pubkey);
-        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(pkcs1_pubkey);
+        publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
+        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Length = 8 * CFDataGetLength(publicKeyData);
+        cert_tmpl.tbs.subjectPublicKeyInfo.subjectPublicKey.Data = (uint8_t*)CFDataGetBytePtr(publicKeyData);
 
         /* signature algorithm */
         cert_tmpl.tbs.signature.algorithm = CSSMOID_SHA1WithRSA;
@@ -1278,7 +1268,7 @@ out:
         CFReleaseSafe(privateKey);
     if (poolp)
         PORT_FreeArena(poolp, PR_TRUE);
-    CFReleaseSafe(pubkey_attrs);
+    CFReleaseSafe(publicKeyData);
     if (signature) { free(signature); }
     return cert;
 }

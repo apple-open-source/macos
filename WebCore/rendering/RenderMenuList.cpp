@@ -84,11 +84,18 @@ RenderMenuList::RenderMenuList(HTMLSelectElement& element, RenderStyle&& style)
 
 RenderMenuList::~RenderMenuList()
 {
+    // Do not add any code here. Add it to willBeDestroyed() instead.
+}
+
+void RenderMenuList::willBeDestroyed()
+{
 #if !PLATFORM(IOS)
     if (m_popup)
         m_popup->disconnectClient();
     m_popup = nullptr;
 #endif
+
+    RenderFlexibleBox::willBeDestroyed();
 }
 
 void RenderMenuList::createInnerBlock()
@@ -116,7 +123,7 @@ void RenderMenuList::adjustInnerStyle()
     // Use margin:auto instead of align-items:center to get safe centering, i.e.
     // when the content overflows, treat it the same as align-items: flex-start.
     // But we only do that for the cases where html.css would otherwise use center.
-    if (style().alignItemsPosition() == ItemPositionCenter) {
+    if (style().alignItems().position() == ItemPositionCenter) {
         innerStyle.setMarginTop(Length());
         innerStyle.setMarginBottom(Length());
         innerStyle.setAlignSelfPosition(ItemPositionFlexStart);
@@ -371,7 +378,7 @@ void RenderMenuList::showPopup()
     // inside the showPopup call and it would fail.
     createInnerBlock();
     if (!m_popup)
-        m_popup = document().page()->chrome().createPopupMenu(this);
+        m_popup = document().page()->chrome().createPopupMenu(*this);
     m_popupIsVisible = true;
 
     // Compute the top left taking transforms into account, but use

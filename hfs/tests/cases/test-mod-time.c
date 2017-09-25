@@ -58,7 +58,9 @@ static void run_test(void)
 
 	assert_no_err(close(fd));
 	assert_no_err(close(fd2));
+
 	assert_no_err(unlink(file));
+	assert_no_err(munmap(p, NBPG));
 }
 
 int run_mod_time(__unused test_ctx_t *ctx)

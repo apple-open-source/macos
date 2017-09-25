@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -478,7 +478,6 @@ public:
         [NSNumber numberWithBool:NO],   WebKitDOMPasteAllowedPreferenceKey,
 #endif
         [NSNumber numberWithBool:YES],  WebKitUsesPageCachePreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitAllowsPageCacheWithWindowOpenerKey,
         [NSNumber numberWithInt:cacheModelForMainBundle()], WebKitCacheModelPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitPageCacheSupportsPluginsPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitDeveloperExtrasEnabledPreferenceKey,
@@ -492,6 +491,14 @@ public:
         [NSNumber numberWithBool:NO],   WebKitJavaScriptCanAccessClipboardPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#define DEFAULT_SUBPIXEL_ANTIALIASED_LAYER_TEXT_ENABLED YES
+#else
+#define DEFAULT_SUBPIXEL_ANTIALIASED_LAYER_TEXT_ENABLED NO
+#endif
+        [NSNumber numberWithBool:DEFAULT_SUBPIXEL_ANTIALIASED_LAYER_TEXT_ENABLED], WebKitSubpixelAntialiasedLayerTextEnabledPreferenceKey,
+
         [NSNumber numberWithBool:NO],   WebKitDisplayListDrawingEnabledPreferenceKey,
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
         [NSNumber numberWithBool:YES],  WebKitAcceleratedDrawingEnabledPreferenceKey,
@@ -501,6 +508,7 @@ public:
         [NSNumber numberWithBool:NO],  WebKitCanvasUsesAcceleratedDrawingPreferenceKey,
 #endif
         [NSNumber numberWithBool:NO],   WebKitShowDebugBordersPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitSimpleLineLayoutEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitSimpleLineLayoutDebugBordersEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowRepaintCounterPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitWebGLEnabledPreferenceKey,
@@ -512,10 +520,11 @@ public:
         [NSNumber numberWithBool:YES],  WebKitLargeImageAsyncDecodingEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAnimatedImageAsyncDecodingEnabledPreferenceKey,
 #if PLATFORM(IOS)
-        [NSNumber numberWithBool:YES],  WebKitFrameFlatteningEnabledPreferenceKey,
+        [NSNumber numberWithUnsignedInt:FrameFlatteningFullyEnabled], WebKitFrameFlatteningPreferenceKey,
 #else
-        [NSNumber numberWithBool:NO],   WebKitFrameFlatteningEnabledPreferenceKey,
+        [NSNumber numberWithUnsignedInt:FrameFlatteningDisabled], WebKitFrameFlatteningPreferenceKey,
 #endif
+        [NSNumber numberWithBool:NO], WebKitAsyncFrameScrollingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitSpatialNavigationEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],  WebKitDNSPrefetchingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitFullScreenEnabledPreferenceKey,
@@ -610,12 +619,17 @@ public:
 #endif
 #if ENABLE(MEDIA_STREAM)
         [NSNumber numberWithBool:NO], WebKitMockCaptureDevicesEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES], WebKitMockCaptureDevicesPromptEnabledPreferenceKey,
         [NSNumber numberWithBool:YES], WebKitMediaCaptureRequiresSecureConnectionPreferenceKey,
 #endif
         [NSNumber numberWithBool:YES], WebKitShadowDOMEnabledPreferenceKey,
         [NSNumber numberWithBool:YES], WebKitCustomElementsEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES], WebKitModernMediaControlsEnabledPreferenceKey,
 #if ENABLE(WEBGL2)
         [NSNumber numberWithBool:NO], WebKitWebGL2EnabledPreferenceKey,
+#endif
+#if ENABLE(WEBGPU)
+        [NSNumber numberWithBool:NO], WebKitWebGPUEnabledPreferenceKey,
 #endif
 #if ENABLE(FETCH_API)
         [NSNumber numberWithBool:YES], WebKitFetchAPIEnabledPreferenceKey,
@@ -627,10 +641,7 @@ public:
 #if ENABLE(DOWNLOAD_ATTRIBUTE)
         [NSNumber numberWithBool:NO], WebKitDownloadAttributeEnabledPreferenceKey,
 #endif
-        [NSNumber numberWithBool:NO], WebKitES6ModulesEnabledPreferenceKey,
-#if ENABLE(CSS_GRID_LAYOUT)
         [NSNumber numberWithBool:YES], WebKitCSSGridLayoutEnabledPreferenceKey,
-#endif
 #if ENABLE(WEB_ANIMATIONS)
         [NSNumber numberWithBool:NO], WebKitWebAnimationsEnabledPreferenceKey,
 #endif
@@ -642,18 +653,32 @@ public:
 #endif
 
         [NSNumber numberWithBool:YES], WebKitNeedsStorageAccessFromFileURLsQuirkKey,
-#if ENABLE(SUBTLE_CRYPTO)
-        [NSNumber numberWithBool:YES], WebKitSubtleCryptoEnabledPreferenceKey,
-#endif
-
 #if ENABLE(MEDIA_STREAM)
-        [NSNumber numberWithBool:NO], WebKitMediaStreamEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO], WebKitMediaDevicesEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES], WebKitMediaStreamEnabledPreferenceKey,
 #endif
-
 #if ENABLE(WEB_RTC)
-        [NSNumber numberWithBool:NO], WebKitPeerConnectionEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES], WebKitPeerConnectionEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES], WebKitWebRTCLegacyAPIEnabledPreferenceKey,
 #endif
-
+#if ENABLE(INTERSECTION_OBSERVER)
+        @NO, WebKitIntersectionObserverEnabledPreferenceKey,
+#endif
+        @NO, WebKitDisplayContentsEnabledPreferenceKey,
+        @NO, WebKitUserTimingEnabledPreferenceKey,
+        @NO, WebKitResourceTimingEnabledPreferenceKey,
+        @NO, WebKitCredentialManagementEnabledPreferenceKey,
+        @NO, WebKitMediaUserGestureInheritsFromDocument,
+        @NO, WebKitIsSecureContextAttributeEnabledPreferenceKey,
+#if PLATFORM(IOS)
+        @NO, WebKitLegacyEncryptedMediaAPIEnabledKey,
+#else
+        @YES, WebKitLegacyEncryptedMediaAPIEnabledKey,
+#endif
+        @YES, WebKitViewportFitEnabledPreferenceKey,
+        @YES, WebKitConstantPropertiesEnabledPreferenceKey,
+        @YES, WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallbackKey,
+        (NSString *)Settings::defaultMediaContentTypesRequiringHardwareSupport(), WebKitMediaContentTypesRequiringHardwareSupportPreferenceKey,
         nil];
 
 #if !PLATFORM(IOS)
@@ -1827,6 +1852,9 @@ static NSString *classIBCreatorID = nil;
 
 + (void)_switchNetworkLoaderToNewTestingSession
 {
+#if PLATFORM(IOS)
+    WebThreadLock();
+#endif
     NetworkStorageSession::switchToNewTestingSession();
 }
 
@@ -1962,6 +1990,26 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitShowDebugBordersPreferenceKey];
 }
 
+- (BOOL)subpixelAntialiasedLayerTextEnabled
+{
+    return [self _boolValueForKey:WebKitSubpixelAntialiasedLayerTextEnabledPreferenceKey];
+}
+
+- (void)setSubpixelAntialiasedLayerTextEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitSubpixelAntialiasedLayerTextEnabledPreferenceKey];
+}
+
+- (BOOL)simpleLineLayoutEnabled
+{
+    return [self _boolValueForKey:WebKitSimpleLineLayoutEnabledPreferenceKey];
+}
+
+- (void)setSimpleLineLayoutEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitSimpleLineLayoutEnabledPreferenceKey];
+}
+
 - (BOOL)simpleLineLayoutDebugBordersEnabled
 {
     return [self _boolValueForKey:WebKitSimpleLineLayoutDebugBordersEnabledPreferenceKey];
@@ -2042,6 +2090,16 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:forceLowPower forKey:WebKitForceWebGLUsesLowPowerPreferenceKey];
 }
 
+- (BOOL)webGPUEnabled
+{
+    return [self _boolValueForKey:WebKitWebGPUEnabledPreferenceKey];
+}
+
+- (void)setWebGPUEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitWebGPUEnabledPreferenceKey];
+}
+
 - (BOOL)accelerated2dCanvasEnabled
 {
     return [self _boolValueForKey:WebKitAccelerated2dCanvasEnabledPreferenceKey];
@@ -2059,12 +2117,33 @@ static NSString *classIBCreatorID = nil;
 
 - (BOOL)isFrameFlatteningEnabled
 {
-    return [self _boolValueForKey:WebKitFrameFlatteningEnabledPreferenceKey];
+    return [self _unsignedIntValueForKey:WebKitFrameFlatteningPreferenceKey] != WebKitFrameFlatteningDisabled;
 }
 
-- (void)setFrameFlatteningEnabled:(BOOL)flag
+- (void)setFrameFlatteningEnabled:(BOOL)flattening
 {
-    [self _setBoolValue:flag forKey:WebKitFrameFlatteningEnabledPreferenceKey];
+    WebKitFrameFlattening value = flattening ? WebKitFrameFlatteningFullyEnabled : WebKitFrameFlatteningDisabled;
+    [self _setUnsignedIntValue:value forKey:WebKitFrameFlatteningPreferenceKey];
+}
+
+- (WebKitFrameFlattening)frameFlattening
+{
+    return static_cast<WebKitFrameFlattening>([self _unsignedIntValueForKey:WebKitFrameFlatteningPreferenceKey]);
+}
+
+- (void)setFrameFlattening:(WebKitFrameFlattening)flattening
+{
+    [self _setUnsignedIntValue:flattening forKey:WebKitFrameFlatteningPreferenceKey];
+}
+
+- (BOOL)asyncFrameScrollingEnabled
+{
+    return [self _boolValueForKey:WebKitAsyncFrameScrollingEnabledPreferenceKey];
+}
+
+- (void)setAsyncFrameScrollingEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitAsyncFrameScrollingEnabledPreferenceKey];
 }
 
 - (BOOL)isSpatialNavigationEnabled
@@ -2436,16 +2515,6 @@ static NSString *classIBCreatorID = nil;
 
 }
 
-- (BOOL)allowsPageCacheWithWindowOpener
-{
-    return [self _boolValueForKey:WebKitAllowsPageCacheWithWindowOpenerKey];
-}
-
-- (void)setAllowsPageCacheWithWindowOpener:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAllowsPageCacheWithWindowOpenerKey];
-}
-
 #if PLATFORM(IOS)
 - (void)_invalidateCachedPreferences
 {
@@ -2714,14 +2783,14 @@ static NSString *classIBCreatorID = nil;
     [self _setStringValue:directory forKey:WebKitMediaKeysStorageDirectoryKey];
 }
 
-- (BOOL)subtleCryptoEnabled
+- (BOOL)mediaDevicesEnabled
 {
-    return [self _boolValueForKey:WebKitSubtleCryptoEnabledPreferenceKey];
+    return [self _boolValueForKey:WebKitMediaDevicesEnabledPreferenceKey];
 }
 
-- (void)setSubtleCryptoEnabled:(BOOL)flag
+- (void)setMediaDevicesEnabled:(BOOL)flag
 {
-    [self _setBoolValue:flag forKey:WebKitSubtleCryptoEnabledPreferenceKey];
+    [self _setBoolValue:flag forKey:WebKitMediaDevicesEnabledPreferenceKey];
 }
 
 - (BOOL)mediaStreamEnabled
@@ -2742,6 +2811,36 @@ static NSString *classIBCreatorID = nil;
 - (void)setPeerConnectionEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitPeerConnectionEnabledPreferenceKey];
+}
+
+- (BOOL)webRTCLegacyAPIEnabled
+{
+    return [self _boolValueForKey:WebKitWebRTCLegacyAPIEnabledPreferenceKey];
+}
+
+- (void)setWebRTCLegacyAPIEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitWebRTCLegacyAPIEnabledPreferenceKey];
+}
+
+- (BOOL)linkPreloadEnabled
+{
+    return [self _boolValueForKey:WebKitLinkPreloadEnabledPreferenceKey];
+}
+
+- (void)setLinkPreloadEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitLinkPreloadEnabledPreferenceKey];
+}
+
+- (BOOL)mediaPreloadingEnabled
+{
+    return [self _boolValueForKey:WebKitMediaPreloadingEnabledPreferenceKey];
+}
+
+- (void)setMediaPreloadingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitMediaPreloadingEnabledPreferenceKey];
 }
 
 - (void)setMetaRefreshEnabled:(BOOL)enabled
@@ -2814,6 +2913,36 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:flag forKey:WebKitMockCaptureDevicesEnabledPreferenceKey];
 }
 
+- (BOOL)mockCaptureDevicesPromptEnabled
+{
+    return [self _boolValueForKey:WebKitMockCaptureDevicesPromptEnabledPreferenceKey];
+}
+
+- (void)setMockCaptureDevicesPromptEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitMockCaptureDevicesPromptEnabledPreferenceKey];
+}
+
+- (BOOL)enumeratingAllNetworkInterfacesEnabled
+{
+    return [self _boolValueForKey:WebKitEnumeratingAllNetworkInterfacesEnabledPreferenceKey];
+}
+
+- (void)setEnumeratingAllNetworkInterfacesEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitEnumeratingAllNetworkInterfacesEnabledPreferenceKey];
+}
+
+- (BOOL)iceCandidateFilteringEnabled
+{
+    return [self _boolValueForKey:WebKitICECandidateFilteringEnabledPreferenceKey];
+}
+
+- (void)setIceCandidateFilteringEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitICECandidateFilteringEnabledPreferenceKey];
+}
+
 - (BOOL)mediaCaptureRequiresSecureConnection
 {
     return [self _boolValueForKey:WebKitMediaCaptureRequiresSecureConnectionPreferenceKey];
@@ -2884,16 +3013,6 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:flag forKey:WebKitDownloadAttributeEnabledPreferenceKey];
 }
 
-- (BOOL)es6ModulesEnabled
-{
-    return [self _boolValueForKey:WebKitES6ModulesEnabledPreferenceKey];
-}
-
-- (void)setES6ModulesEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitES6ModulesEnabledPreferenceKey];
-}
-
 - (BOOL)isCSSGridLayoutEnabled
 {
     return [self _boolValueForKey:WebKitCSSGridLayoutEnabledPreferenceKey];
@@ -2942,6 +3061,128 @@ static NSString *classIBCreatorID = nil;
 - (void)setIntersectionObserverEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitIntersectionObserverEnabledPreferenceKey];
+}
+
+- (BOOL)displayContentsEnabled
+{
+    return [self _boolValueForKey:WebKitDisplayContentsEnabledPreferenceKey];
+}
+
+- (void)setDisplayContentsEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitDisplayContentsEnabledPreferenceKey];
+}
+
+- (BOOL)userTimingEnabled
+{
+    return [self _boolValueForKey:WebKitUserTimingEnabledPreferenceKey];
+}
+
+- (void)setUserTimingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitUserTimingEnabledPreferenceKey];
+}
+
+- (BOOL)resourceTimingEnabled
+{
+    return [self _boolValueForKey:WebKitResourceTimingEnabledPreferenceKey];
+}
+
+- (void)setResourceTimingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitResourceTimingEnabledPreferenceKey];
+}
+
+- (BOOL)credentialManagementEnabled
+{
+    return [self _boolValueForKey:WebKitCredentialManagementEnabledPreferenceKey];
+}
+
+- (void)setCredentialManagementEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitCredentialManagementEnabledPreferenceKey];
+}
+
+- (BOOL)mediaUserGestureInheritsFromDocument
+{
+    return [self _boolValueForKey:WebKitMediaUserGestureInheritsFromDocument];
+}
+
+- (void)setMediaUserGestureInheritsFromDocument:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitMediaUserGestureInheritsFromDocument];
+}
+
+#if PLATFORM(IOS)
+- (BOOL)quickLookDocumentSavingEnabled
+{
+    return [self _boolValueForKey:WebKitQuickLookDocumentSavingPreferenceKey];
+}
+
+- (void)setQuickLookDocumentSavingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitQuickLookDocumentSavingPreferenceKey];
+}
+#endif
+
+- (NSString *)mediaContentTypesRequiringHardwareSupport
+{
+    return [self _stringValueForKey:WebKitMediaContentTypesRequiringHardwareSupportPreferenceKey];
+}
+
+- (void)setMediaContentTypesRequiringHardwareSupport:(NSString *)value
+{
+    [self _setStringValue:value forKey:WebKitMediaContentTypesRequiringHardwareSupportPreferenceKey];
+}
+
+- (BOOL)isSecureContextAttributeEnabled
+{
+    return [self _boolValueForKey:WebKitIsSecureContextAttributeEnabledPreferenceKey];
+}
+
+- (void)setIsSecureContextAttributeEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitIsSecureContextAttributeEnabledPreferenceKey];
+}
+
+- (BOOL)legacyEncryptedMediaAPIEnabled
+{
+    return [self _boolValueForKey:WebKitLegacyEncryptedMediaAPIEnabledKey];
+}
+
+- (void)setLegacyEncryptedMediaAPIEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitLegacyEncryptedMediaAPIEnabledKey];
+}
+
+- (BOOL)viewportFitEnabled
+{
+    return [self _boolValueForKey:WebKitViewportFitEnabledPreferenceKey];
+}
+
+- (void)setViewportFitEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitViewportFitEnabledPreferenceKey];
+}
+
+- (BOOL)constantPropertiesEnabled
+{
+    return [self _boolValueForKey:WebKitConstantPropertiesEnabledPreferenceKey];
+}
+
+- (void)setConstantPropertiesEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitConstantPropertiesEnabledPreferenceKey];
+}
+
+- (BOOL)allowMediaContentTypesRequiringHardwareSupportAsFallback
+{
+    return [self _boolValueForKey:WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallbackKey];
+}
+
+- (void)setAllowMediaContentTypesRequiringHardwareSupportAsFallback:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallbackKey];
 }
 
 @end

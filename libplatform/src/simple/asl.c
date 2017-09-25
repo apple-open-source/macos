@@ -207,7 +207,7 @@ _simple_asl_msg_new(void)
 
 	if (b == NULL) return NULL;
 
-	if (_simple_sprintf(b, "         0", 0))
+	if (_simple_sprintf(b, "         0"))
 	{
 		_simple_sfree(b);
 		return NULL;
@@ -224,7 +224,7 @@ _simple_asl_msg_set(_SIMPLE_STRING __b, const char *__key, const char *__val)
 
 	do
 	{
-		if (_simple_sprintf(__b, " [", 0)) break;
+		if (_simple_sprintf(__b, " [")) break;
 		if (_simple_esprintf(__b, _simple_asl_escape_key, "%s", __key)) break;
 		if (__val != NULL)
 		{
@@ -265,13 +265,13 @@ _simple_asl_send(_SIMPLE_STRING __b)
 	{
 		char *cp;
 
-		if (_simple_sprintf(__b, " [PID ", 0)) break;
+		if (_simple_sprintf(__b, " [PID ")) break;
 		if (_simple_esprintf(__b, _simple_asl_escape_val, "%u", getpid())) break;
-		if (_simple_sprintf(__b, "] [UID ", 0)) break;
+		if (_simple_sprintf(__b, "] [UID ")) break;
 		if (_simple_esprintf(__b, _simple_asl_escape_val, "%u", getuid())) break;
-		if (_simple_sprintf(__b, "] [GID ", 0)) break;
+		if (_simple_sprintf(__b, "] [GID ")) break;
 		if (_simple_esprintf(__b, _simple_asl_escape_val, "%u", getgid())) break;
-		if (_simple_sprintf(__b, "] [Time ", 0)) break;
+		if (_simple_sprintf(__b, "] [Time ")) break;
 		if (_simple_esprintf(__b, _simple_asl_escape_val, "%lu", tv.tv_sec)) break;
 		if (_simple_sappend(__b, "] [TimeNanoSec ")) break;
 		if (_simple_esprintf(__b, _simple_asl_escape_val, "%d", tv.tv_usec * 1000)) break;

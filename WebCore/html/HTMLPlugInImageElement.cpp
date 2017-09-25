@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,12 +28,16 @@
 #include "EventNames.h"
 #include "FrameLoaderClient.h"
 #include "HTMLImageLoader.h"
+#include "JSDOMConvertBoolean.h"
+#include "JSDOMConvertInterface.h"
+#include "JSDOMConvertStrings.h"
 #include "JSShadowRoot.h"
 #include "LocalizedStrings.h"
 #include "Logging.h"
 #include "MainFrame.h"
 #include "MouseEvent.h"
 #include "Page.h"
+#include "PlatformMouseEvent.h"
 #include "PlugInClient.h"
 #include "PluginViewBase.h"
 #include "RenderImage.h"
@@ -47,18 +51,19 @@
 #include "StyleTreeResolver.h"
 #include "SubframeLoader.h"
 #include "TypedElementDescendantIterator.h"
+#include <runtime/CatchScope.h>
 
 namespace WebCore {
 
 static const int sizingTinyDimensionThreshold = 40;
 static const float sizingFullPageAreaRatioThreshold = 0.96;
-static const float autostartSoonAfterUserGestureThreshold = 5.0;
+static const Seconds autostartSoonAfterUserGestureThreshold = 5_s;
 
 // This delay should not exceed the snapshot delay in PluginView.cpp
-static const auto simulatedMouseClickTimerDelay = std::chrono::milliseconds { 750 };
+static const Seconds simulatedMouseClickTimerDelay { 750_ms };
 
 #if PLATFORM(COCOA)
-static const auto removeSnapshotTimerDelay = std::chrono::milliseconds { 1500 };
+static const Seconds removeSnapshotTimerDelay { 1500_ms };
 #endif
 
 static const String titleText(Page& page, const String& mimeType)
@@ -139,7 +144,7 @@ bool HTMLPlugInImageElement::isImageType()
 bool HTMLPlugInImageElement::allowedToLoadFrameURL(const String& url)
 {
     URL completeURL = document().completeURL(url);
-    if (contentFrame() && protocolIsJavaScript(completeURL) && !document().securityOrigin()->canAccess(contentDocument()->securityOrigin()))
+    if (contentFrame() && protocolIsJavaScript(completeURL) && !document().securityOrigin().canAccess(contentDocument()->securityOrigin()))
         return false;
     return document().frame()->isURLAllowed(completeURL);
 }
@@ -171,7 +176,7 @@ RenderPtr<RenderElement> HTMLPlugInImageElement::createElementRenderer(RenderSty
 
     if (displayState() == DisplayingSnapshot) {
         auto renderSnapshottedPlugIn = createRenderer<RenderSnapshottedPlugIn>(*this, WTFMove(style));
-        renderSnapshottedPlugIn->updateSnapshot(m_snapshotImage);
+        renderSnapshottedPlugIn->updateSnapshot(m_snapshotImage.get());
         return WTFMove(renderSnapshottedPlugIn);
     }
 
@@ -262,21 +267,22 @@ void HTMLPlugInImageElement::finishParsingChildren()
     // HTMLObjectElement needs to delay widget updates until after all children are parsed,
     // For HTMLEmbedElement this delay is unnecessary, but there is no harm in doing the same.
     setNeedsWidgetUpdate(true);
-    if (inDocument())
+    if (isConnected())
         invalidateStyleForSubtree();
 }
 
-void HTMLPlugInImageElement::didMoveToNewDocument(Document& oldDocument)
+void HTMLPlugInImageElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
 {
+    ASSERT_WITH_SECURITY_IMPLICATION(&document() == &newDocument);
     if (m_needsDocumentActivationCallbacks) {
         oldDocument.unregisterForDocumentSuspensionCallbacks(this);
-        document().registerForDocumentSuspensionCallbacks(this);
+        newDocument.registerForDocumentSuspensionCallbacks(this);
     }
 
     if (m_imageLoader)
         m_imageLoader->elementDidMoveToNewDocument();
 
-    HTMLPlugInElement::didMoveToNewDocument(oldDocument);
+    HTMLPlugInElement::didMoveToNewDocument(oldDocument, newDocument);
 }
 
 void HTMLPlugInImageElement::prepareForDocumentSuspension()
@@ -301,7 +307,7 @@ void HTMLPlugInImageElement::startLoadingImage()
     m_imageLoader->updateFromElement();
 }
 
-void HTMLPlugInImageElement::updateSnapshot(PassRefPtr<Image> image)
+void HTMLPlugInImageElement::updateSnapshot(Image* image)
 {
     if (displayState() > DisplayingSnapshot)
         return;
@@ -356,18 +362,18 @@ void HTMLPlugInImageElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     auto& state = *globalObject.globalExec();
 
     JSC::MarkedArgumentBuffer argList;
-    argList.append(toJS(&state, &globalObject, root));
-    argList.append(jsString(&state, titleText(*page, mimeType)));
-    argList.append(jsString(&state, subtitleText(*page, mimeType)));
+    argList.append(toJS<IDLInterface<ShadowRoot>>(state, globalObject, root));
+    argList.append(toJS<IDLDOMString>(state, titleText(*page, mimeType)));
+    argList.append(toJS<IDLDOMString>(state, subtitleText(*page, mimeType)));
     
     // This parameter determines whether or not the snapshot overlay should always be visible over the plugin snapshot.
     // If no snapshot was found then we want the overlay to be visible.
-    argList.append(JSC::jsBoolean(!m_snapshotImage));
+    argList.append(toJS<IDLBoolean>(!m_snapshotImage));
 
     // It is expected the JS file provides a createOverlay(shadowRoot, title, subtitle) function.
     auto* overlay = globalObject.get(&state, JSC::Identifier::fromString(&state, "createOverlay")).toObject(&state);
+    ASSERT(!overlay == !!scope.exception());
     if (!overlay) {
-        ASSERT(scope.exception());
         scope.clearException();
         return;
     }
@@ -499,11 +505,11 @@ void HTMLPlugInImageElement::simulatedMouseClickTimerFired()
 
 static bool documentHadRecentUserGesture(Document& document)
 {
-    double lastKnownUserGestureTimestamp = document.lastHandledUserGestureTimestamp();
+    MonotonicTime lastKnownUserGestureTimestamp = document.lastHandledUserGestureTimestamp();
     if (document.frame() != &document.page()->mainFrame() && document.page()->mainFrame().document())
         lastKnownUserGestureTimestamp = std::max(lastKnownUserGestureTimestamp, document.page()->mainFrame().document()->lastHandledUserGestureTimestamp());
 
-    return monotonicallyIncreasingTime() - lastKnownUserGestureTimestamp < autostartSoonAfterUserGestureThreshold;
+    return MonotonicTime::now() - lastKnownUserGestureTimestamp < autostartSoonAfterUserGestureThreshold;
 }
 
 void HTMLPlugInImageElement::checkSizeChangeForSnapshotting()

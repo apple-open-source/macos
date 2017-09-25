@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # test Win32OLE avoids cfp consistency error when the exception raised
 # in WIN32OLE_EVENT handler block. [ruby-dev:35450]
@@ -29,7 +30,7 @@ if defined?(WIN32OLE)
 
     def available_adodb?
       begin
-        db = WIN32OLE.new('ADODB.Connection')
+        WIN32OLE.new('ADODB.Connection')
       rescue WIN32OLERuntimeError
         return false
       end
@@ -42,7 +43,7 @@ if defined?(WIN32OLE)
         Dir.mktmpdir do |tmpdir|
           logfile = File.join(tmpdir, "test_err_in_callback.log")
           cmd = "#{@ruby} -v #{@iopt} #{@script} > #{logfile.gsub(%r(/), '\\')} 2>&1"
-          result = system(cmd)
+          system(cmd)
           str = ""
           open(logfile) {|ifs|
             str = ifs.read

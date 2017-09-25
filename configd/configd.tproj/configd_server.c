@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -98,10 +98,13 @@ __private_extern__
 void
 configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+#pragma unused(port)
+#pragma unused(size)
+#pragma unused(info)
 	mig_reply_error_t *	bufRequest	= msg;
 	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
 	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
-	static CFIndex		bufSize		= 0;
+	static size_t		bufSize		= 0;
 	mach_msg_return_t	mr;
 	int			options;
 
@@ -189,6 +192,7 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 static CFStringRef
 serverMPCopyDescription(const void *info)
 {
+#pragma unused(info)
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<main DynamicStore MP>"));
 }
 

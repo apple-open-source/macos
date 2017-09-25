@@ -1,14 +1,14 @@
 #
 # Man page makefile for CUPS.
 #
-# Copyright 2007-2015 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1993-2006 by Easy Software Products.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 
 include ../Makedefs
@@ -71,7 +71,7 @@ MAN8	=	cupsaccept.$(MAN8EXT) \
 # Make everything...
 #
 
-all:	$(MAN1) $(MAN5) $(MAN7) $(MAN8) html
+all:	$(MAN1) $(MAN5) $(MAN7) $(MAN8)
 
 
 #
@@ -197,6 +197,13 @@ uninstall:
 
 
 #
+# Local programs (not built when cross-compiling...)
+#
+
+local:	html
+
+
+#
 # Make html versions of man pages...
 #
 
@@ -220,6 +227,6 @@ html:	$(MAN1) $(MAN5) $(MAN7) $(MAN8) mantohtml
 	done
 
 mantohtml:	mantohtml.o ../cups/$(LIBCUPSSTATIC)
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ mantohtml.o \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ mantohtml.o \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) \
 		$(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)

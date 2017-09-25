@@ -60,6 +60,32 @@ static const char rcsid[] =
 
 extern int wait_status;
 
+#ifdef __APPLE__
+
+char *removebs(char *input) {
+	char *ret;
+	size_t i, n;
+	size_t len;
+
+	if (!input) return NULL;
+	len = strlen(input);
+	ret = calloc(len+1, 1);
+	for (i = 0, n = 0; i < len; i++) {
+		ret[n] = input[i];
+		if (input[i] == '\\') {
+			if ((i+1) < len && input[i+1] == '\\') {
+				n++;
+				i++;
+			}
+		} else {
+			n++;
+		}
+	}
+
+	return ret;
+}
+#endif
+
 /*
  * Set up the input pointers while copying the mail file into /tmp.
  */
@@ -395,9 +421,14 @@ expand(name)
 	/* XXX - does not expand enviroment variables. */
 	switch (glob(name, flags, NULL, &names)) {
 	case 0:
-		if (names.gl_pathc == 1)
-			match = savestr(names.gl_pathv[0]);
-		else
+		if (names.gl_pathc == 1) {
+#ifdef __APPLE__
+			if (names.gl_matchc == 0) {
+				match = removebs(names.gl_pathv[0]);
+			} else
+#endif
+				match = savestr(names.gl_pathv[0]);
+		} else
 			fprintf(stderr, "\"%s\": Ambiguous.\n", name);
 		break;
 	case GLOB_NOSPACE:

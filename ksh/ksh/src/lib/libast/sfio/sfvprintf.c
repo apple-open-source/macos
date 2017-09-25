@@ -714,9 +714,11 @@ loop_fmt :
 #ifdef mbwidth
 						if(wc)
 						{	n_w = mbwidth(*wsp);
+							if (n_w > 0) {
 							if(precis >= 0 && (w+n_w) > precis )
 								break;
 							w += n_w;
+							}
 						}
 						else
 #endif
@@ -740,10 +742,14 @@ loop_fmt :
 							break;
 						osp = ssp;
 						n = mbchar(osp);
+						if (!n) 
+							break;
 						n_w = mbwidth(n);
+						if (n_w > 0) {
 						if(precis >= 0 && (w+n_w) > precis )
 							break;
 						w += n_w;
+						}
 						ssp = osp;
 					}
 					v = ssp - sp;

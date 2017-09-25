@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -170,7 +170,7 @@ _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 				size_t	n;
 
 				n = strlen(buf);
-				if ((n+IF_NAMESIZE+1) <= (int)bufLen) {
+				if ((n+IF_NAMESIZE+1) <= bufLen) {
 					buf[n++] = '%';
 					if_indextoname(addr.sin6->sin6_scope_id, &buf[n]);
 				}
@@ -295,16 +295,17 @@ _SC_trimDomain(CFStringRef domain)
 				     CFSTR("."),
 				     CFRangeMake(0, length),
 				     kCFCompareAnchored|kCFCompareBackwards,
-				     NULL))) {
-		     CFMutableStringRef	trimmed;
+				     NULL))
+	    ) {
+	     CFMutableStringRef	trimmed;
 
-		     trimmed = CFStringCreateMutableCopy(NULL, 0, domain);
-		     CFStringTrim(trimmed, CFSTR("."));
-		     domain = (CFStringRef)trimmed;
-		     length = CFStringGetLength(domain);
-	     } else {
-		     CFRetain(domain);
-	     }
+	     trimmed = CFStringCreateMutableCopy(NULL, 0, domain);
+	     CFStringTrim(trimmed, CFSTR("."));
+	     domain = (CFStringRef)trimmed;
+	     length = CFStringGetLength(domain);
+	} else {
+	     CFRetain(domain);
+	}
 
 	if (length == 0) {
 		CFRelease(domain);
@@ -1007,10 +1008,93 @@ done:
 }
 
 
+/*
+ * cachedInfo
+ *   <dict>
+ *      <key>bundleID-tableName</key>
+ *      <dict>
+ *        ... property list from non-localized bundle URL
+ *      </dict>
+ *   </dict>
+ */
+static CFMutableDictionaryRef	cachedInfo	= NULL;
+
+
+static dispatch_queue_t
+_SC_CFBundleCachedInfoQueue()
+{
+	static dispatch_once_t	once;
+	static dispatch_queue_t	q;
+
+	dispatch_once(&once, ^{
+		q = dispatch_queue_create("_SC_CFBundleCachedInfo", NULL);
+	});
+
+	return q;
+}
+
+
+static CFStringRef
+_SC_CFBundleCachedInfoCopyTableKey(CFBundleRef bundle, CFStringRef tableName)
+{
+	CFStringRef	bundleID;
+	CFStringRef	tableKey;
+
+	bundleID = CFBundleGetIdentifier(bundle);
+	tableKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@: %@"), bundleID, tableName);
+	return tableKey;
+}
+
+
+static CFDictionaryRef
+_SC_CFBundleCachedInfoCopyTable(CFBundleRef bundle, CFStringRef tableName)
+{
+	__block CFDictionaryRef		dict	= NULL;
+
+	dispatch_sync(_SC_CFBundleCachedInfoQueue(), ^{
+		if (cachedInfo != NULL) {
+			CFStringRef	tableKey;
+
+			tableKey = _SC_CFBundleCachedInfoCopyTableKey(bundle, tableName);
+			dict = CFDictionaryGetValue(cachedInfo, tableKey);
+			if (dict != NULL) {
+				CFRetain(dict);
+			}
+			CFRelease(tableKey);
+		}
+	});
+
+	return dict;
+}
+
+
+static void
+_SC_CFBundleCachedInfoSaveTable(CFBundleRef bundle, CFStringRef tableName, CFDictionaryRef table)
+{
+
+	dispatch_sync(_SC_CFBundleCachedInfoQueue(), ^{
+		CFStringRef	tableKey;
+
+		tableKey = _SC_CFBundleCachedInfoCopyTableKey(bundle, tableName);
+		SC_log(LOG_DEBUG, "Caching %@", tableKey);
+
+		if (cachedInfo == NULL) {
+			cachedInfo = CFDictionaryCreateMutable(NULL,
+							       0,
+							       &kCFTypeDictionaryKeyCallBacks,
+							       &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(cachedInfo, tableKey, table);
+		CFRelease(tableKey);
+	});
+
+	return;
+}
+
+
 CFStringRef
 _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFStringRef value, CFStringRef tableName)
 {
-	CFURLRef	resourcesURL;
 	CFStringRef	str	= NULL;
 	CFDictionaryRef	table	= NULL;
 	CFURLRef	url;
@@ -1019,36 +1103,7 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 		tableName = CFSTR("Localizable");
 	}
 
-	/*
-	 * First, try getting the requested string using a manually constructed
-	 * URL to <bundle>/Resources/English.lproj/<tableName>.strings. Do this
-	 * because CFBundleCopyResourceURLForLocalization() uses CFPreferences
-	 * to get the preferred localizations, CFPreferences talks to
-	 * OpenDirectory, and OpenDirectory tries to obtain the platform UUID.
-	 * On machines where the platform UUID is set by InterfaceNamer, a
-	 * deadlock can occur if InterfaceNamer calls
-	 * CFBundleCopyResourceURLForLocalization() before setting the
-	 * platform UUID in the kernel.
-	 */
-	resourcesURL = CFBundleCopyResourcesDirectoryURL(bundle);
-	if (resourcesURL != NULL) {
-		CFURLRef	en_lproj;
-		CFStringRef	fileName;
-
-		en_lproj = CFURLCreateCopyAppendingPathComponent(NULL,
-								 resourcesURL,
-								 CFSTR("English.lproj"),
-								 TRUE);
-		fileName = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.strings"), tableName);
-		url = CFURLCreateCopyAppendingPathComponent(NULL, en_lproj, fileName, FALSE);
-		CFRelease(en_lproj);
-		CFRelease(fileName);
-		CFRelease(resourcesURL);
-
-		table = _SCCreatePropertyListFromResource(url);
-		CFRelease(url);
-	}
-
+	table = _SC_CFBundleCachedInfoCopyTable(bundle, tableName);
 	if (table == NULL) {
 		url = CFBundleCopyResourceURLForLocalization(bundle,
 							     tableName,
@@ -1058,6 +1113,9 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 		if (url != NULL) {
 			table = _SCCreatePropertyListFromResource(url);
 			CFRelease(url);
+			if (table != NULL) {
+				_SC_CFBundleCachedInfoSaveTable(bundle, tableName, table);
+			}
 		} else {
 			SC_log(LOG_ERR, "failed to get resource url: {bundle:%@, table: %@}", bundle, tableName);
 		}
@@ -1274,13 +1332,111 @@ _SC_logMachPortStatus(void)
 }
 
 
+__private_extern__
+kern_return_t
+_SC_getMachPortReferences(mach_port_t		port,
+			  mach_port_type_t	*pt,
+			  mach_port_urefs_t	*refs_send,
+			  mach_port_urefs_t	*refs_recv,
+			  mach_port_status_t	*recv_status,
+			  mach_port_urefs_t	*refs_once,
+			  mach_port_urefs_t	*refs_pset,
+			  mach_port_urefs_t	*refs_dead,
+			  const char		*err_prefix)
+{
+	kern_return_t		status;
+
+	status = mach_port_type(mach_task_self(), port, pt);
+	if (status != KERN_SUCCESS) {
+		SC_log(LOG_DEBUG, "%smach_port_type(..., 0x%x): %s",
+		       err_prefix,
+		       port,
+		       mach_error_string(status));
+		return status;
+	}
+
+	if ((refs_send != NULL) && ((*pt & MACH_PORT_TYPE_SEND) != 0)) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, refs_send);
+		if (status != KERN_SUCCESS) {
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s",
+			       err_prefix,
+			       port,
+			       mach_error_string(status));
+			return status;
+		}
+	}
+
+	if ((refs_recv != NULL) && (recv_status != NULL) && ((*pt & MACH_PORT_TYPE_RECEIVE) != 0)) {
+		mach_msg_type_number_t	count;
+
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, refs_recv);
+		if (status != KERN_SUCCESS) {
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_RECEIVE): %s",
+			       err_prefix,
+			       port,
+			       mach_error_string(status));
+			return status;
+		}
+
+		count = MACH_PORT_RECEIVE_STATUS_COUNT;
+		status = mach_port_get_attributes(mach_task_self(),
+						  port,
+						  MACH_PORT_RECEIVE_STATUS,
+						  (mach_port_info_t)recv_status,
+						  &count);
+		if (status != KERN_SUCCESS) {
+			SC_log(LOG_DEBUG, "%smach_port_get_attributes(..., 0x%x, MACH_PORT_RECEIVE_STATUS): %s",
+			       err_prefix,
+			       port,
+			       mach_error_string(status));
+			return status;
+		}
+	}
+
+	if ((refs_once != NULL) && ((*pt & MACH_PORT_TYPE_SEND_ONCE) != 0)) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, refs_once);
+		if (status != KERN_SUCCESS) {
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND_ONCE): %s",
+			       err_prefix,
+			       port,
+			       mach_error_string(status));
+			return status;
+		}
+	}
+
+	if ((refs_pset != NULL) && ((*pt & MACH_PORT_TYPE_PORT_SET) != 0)) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET, refs_pset);
+		if (status != KERN_SUCCESS) {
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_PORT_SET): %s",
+			       err_prefix,
+			       port,
+			       mach_error_string(status));
+			return status;
+		}
+	}
+
+	if ((refs_dead != NULL) && ((*pt & MACH_PORT_TYPE_DEAD_NAME) != 0)) {
+		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, refs_dead);
+		if (status != KERN_SUCCESS) {
+			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_DEAD_NAME): %s",
+			       err_prefix,
+			       port,
+			       mach_error_string(status));
+			return status;
+		}
+	}
+
+	return KERN_SUCCESS;
+}
+
+
 void
 _SC_logMachPortReferences(const char *str, mach_port_t port)
 {
 	const char		*blanks		= "                                                            ";
 	char			buf[60];
 	mach_port_type_t	pt;
-	mach_port_status_t	recv_status	= { 0 };
+	mach_port_status_t	recv_status	= { .mps_nsrequest = 0, };
 	mach_port_urefs_t	refs_send	= 0;
 	mach_port_urefs_t	refs_recv	= 0;
 	mach_port_urefs_t	refs_once	= 0;
@@ -1312,84 +1468,17 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		}
 	}
 
-	status = mach_port_type(mach_task_self(), port, &pt);
+	status = _SC_getMachPortReferences(port,
+					   &pt,
+					   &refs_send,
+					   &refs_recv,
+					   &recv_status,
+					   &refs_once,
+					   &refs_pset,
+					   &refs_dead,
+					   buf);
 	if (status != KERN_SUCCESS) {
-		SC_log(LOG_DEBUG, "%smach_port_type(..., 0x%x): %s",
-		       buf,
-		       port,
-		       mach_error_string(status));
 		return;
-	}
-
-	if ((pt & MACH_PORT_TYPE_SEND) != 0) {
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, &refs_send);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s",
-			       buf,
-			       port,
-			       mach_error_string(status));
-			return;
-		}
-	}
-
-	if ((pt & MACH_PORT_TYPE_RECEIVE) != 0) {
-		mach_msg_type_number_t	count;
-
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, &refs_recv);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_RECEIVE): %s",
-			       buf,
-			       port,
-			       mach_error_string(status));
-			return;
-		}
-
-		count = MACH_PORT_RECEIVE_STATUS_COUNT;
-		status = mach_port_get_attributes(mach_task_self(),
-						  port,
-						  MACH_PORT_RECEIVE_STATUS,
-						  (mach_port_info_t)&recv_status,
-						  &count);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_DEBUG, "%smach_port_get_attributes(..., 0x%x, MACH_PORT_RECEIVE_STATUS): %s",
-			       buf,
-			       port,
-			       mach_error_string(status));
-			return;
-		}
-	}
-
-	if ((pt & MACH_PORT_TYPE_SEND_ONCE) != 0) {
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND_ONCE): %s",
-			       buf,
-			       port,
-			       mach_error_string(status));
-			return;
-		}
-	}
-
-	if ((pt & MACH_PORT_TYPE_PORT_SET) != 0) {
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET, &refs_pset);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_PORT_SET): %s",
-			       buf,
-			       port,
-			       mach_error_string(status));
-			return;
-		}
-	}
-
-	if ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) {
-		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
-		if (status != KERN_SUCCESS) {
-			SC_log(LOG_DEBUG, "%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_DEAD_NAME): %s",
-			       buf,
-			       port,
-			       mach_error_string(status));
-			return;
-		}
 	}
 
 	SC_log(LOG_DEBUG, "%smach port 0x%x (%d): send=%d, receive=%d, send once=%d, port set=%d, dead name=%d%s%s",
@@ -1451,6 +1540,13 @@ asm(".desc ___crashreporter_info__, 0x10");
 static Boolean
 _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
+#if	!TARGET_OS_EMBEDDED || defined(DO_NOT_INFORM)
+#pragma unused(notifyHeader)
+#pragma unused(notifyMessage)
+#endif	// !TARGET_OS_EMBEDDED || defined(DO_NOT_INFORM)
+#if	TARGET_OS_SIMULATOR
+#pragma unused(crash_info)
+#endif	// TARGET_OS_SIMULATOR
 	Boolean	ok	= FALSE;
 
 #if	!TARGET_OS_SIMULATOR

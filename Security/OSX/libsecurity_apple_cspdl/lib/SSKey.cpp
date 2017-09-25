@@ -236,11 +236,17 @@ mClientSession(session.clientSession())
 }
 
 SSKey::~SSKey()
-{
+try {
     StLock<Mutex> _(mMutex); // In the destructor too??? Yes. See SSCSPSession.cpp:354 for an explanation of this code's policy on threads.
 	if (mKeyHandle != noKey)
 		clientSession().releaseKey(mKeyHandle);
+} catch (...) {
+    /*
+     * If the key handle have been invalidated, releaseKey will throw an exception
+     */
+    return;
 }
+
 
 void
 SSKey::free(const AccessCredentials *accessCred, CssmKey &ioKey,

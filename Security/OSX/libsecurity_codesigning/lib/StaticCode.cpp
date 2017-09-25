@@ -27,25 +27,35 @@
 #include "StaticCode.h"
 #include "Code.h"
 #include "reqmaker.h"
+#if TARGET_OS_OSX
 #include "drmaker.h"
+#endif
 #include "reqdumper.h"
 #include "reqparser.h"
 #include "sigblob.h"
 #include "resources.h"
 #include "detachedrep.h"
+#if TARGET_OS_OSX
 #include "csdatabase.h"
+#endif
 #include "dirscanner.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecCertificatePriv.h>
+#if TARGET_OS_OSX
 #include <Security/CMSPrivate.h>
+#endif
+#import <Security/SecCMS.h>
 #include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsSignerInfo.h>
 #include <Security/SecCmsSignedData.h>
+#if TARGET_OS_OSX
 #include <Security/cssmapplePriv.h>
+#endif
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfmunge.h>
+#include <security_utilities/casts.h>
 #include <Security/CMSDecoder.h>
 #include <security_utilities/logging.h>
 #include <dirent.h>
@@ -53,6 +63,8 @@
 #include <sstream>
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 #include <dispatch/private.h>
+#include <os/assumes.h>
+#include <regex.h>
 
 
 namespace Security {
@@ -88,14 +100,23 @@ static inline OSStatus errorForSlot(CodeDirectory::SpecialSlot slot)
 // Construct a SecStaticCode object given a disk representation object
 //
 SecStaticCode::SecStaticCode(DiskRep *rep)
-	: mRep(rep),
+	: mCheckfix30814861builder1(NULL),
+	  mRep(rep),
 	  mValidated(false), mExecutableValidated(false), mResourcesValidated(false), mResourcesValidContext(NULL),
-	  mProgressQueue("com.apple.security.validation-progress", false, QOS_CLASS_DEFAULT),
+	  mProgressQueue("com.apple.security.validation-progress", false, QOS_CLASS_UNSPECIFIED),
 	  mOuterScope(NULL), mResourceScope(NULL),
-	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL), mEvalDetails(NULL)
+	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL)
+#if TARGET_OS_OSX
+    , mEvalDetails(NULL)
+#else
+    , mTrustedSigningCertChain(false)
+#endif
+
 {
 	CODESIGN_STATIC_CREATE(this, rep);
+#if TARGET_OS_OSX
 	checkForSystemSignature();
+#endif
 }
 
 
@@ -107,6 +128,7 @@ try {
 	::free(const_cast<Requirement *>(mDesignatedReq));
 	delete mResourcesValidContext;
 	delete mLimitedAsync;
+	delete mCheckfix30814861builder1;
 } catch (...) {
 	return;
 }
@@ -159,7 +181,7 @@ CFTypeRef SecStaticCode::reportEvent(CFStringRef stage, CFDictionaryRef info)
 void SecStaticCode::prepareProgress(unsigned int workload)
 {
 	dispatch_sync(mProgressQueue, ^{
-		mCancelPending = false;			// not cancelled
+		mCancelPending = false;			// not canceled
 	});
 	if (mValidationFlags & kSecCSReportProgress) {
 		mCurrentWork = 0;				// nothing done yet
@@ -246,6 +268,7 @@ void SecStaticCode::detachedSignature(CFDataRef sigData)
 //
 void SecStaticCode::checkForSystemSignature()
 {
+#if TARGET_OS_OSX
 	if (!this->isSigned()) {
 		SignatureDatabase db;
 		if (db.isOpen())
@@ -257,6 +280,9 @@ void SecStaticCode::checkForSystemSignature()
 			} catch (...) {
 			}
 	}
+#else
+    MacOSError::throwMe(errSecUnimplemented);
+#endif
 }
 
 
@@ -328,11 +354,15 @@ void SecStaticCode::resetValidity()
 	mGotResourceBase = false;
 	mTrust = NULL;
 	mCertChain = NULL;
+#if TARGET_OS_OSX
 	mEvalDetails = NULL;
+#endif
 	mRep->flush();
 
+#if TARGET_OS_OSX
 	// we may just have updated the system database, so check again
 	checkForSystemSignature();
+#endif
 }
 
 
@@ -529,6 +559,10 @@ void SecStaticCode::validateDirectory()
 			throw;
 		}
 	assert(validated());
+    // XXX: Embedded doesn't have CSSMERR_TP_CERT_EXPIRED so we can't throw it
+    // XXX: This should be implemented for embedded once we implement
+    // XXX: verifySignature and see how we're going to handle expired certs
+#if TARGET_OS_OSX
 	if (mValidationResult == errSecSuccess) {
 		if (mValidationExpired)
 			if ((mValidationFlags & kSecCSConsiderExpiration)
@@ -536,6 +570,7 @@ void SecStaticCode::validateDirectory()
 				MacOSError::throwMe(CSSMERR_TP_CERT_EXPIRED);
 	} else
 		MacOSError::throwMe(mValidationResult);
+#endif
 }
 
 
@@ -574,7 +609,7 @@ void SecStaticCode::validateTopDirectory()
 			if (component(slot))
 				foundVector.push_back(slot);
 		int alternateCount = int(mCodeDirectories.size() - 1);		// one will go into cdCodeDirectorySlot
-		for (unsigned n = 0; n < alternateCount; n++)
+		for (int n = 0; n < alternateCount; n++)
 			foundVector.push_back(cdAlternateCodeDirectorySlots + n);
 		foundVector.push_back(cdSignatureSlot);		// mandatory (may be empty)
 		
@@ -622,7 +657,7 @@ bool SecStaticCode::verifySignature()
 	}
 
 	DTRACK(CODESIGN_EVAL_STATIC_SIGNATURE, this, (char*)this->mainExecutablePath().c_str());
-
+#if TARGET_OS_OSX
 	// decode CMS and extract SecTrust for verification
 	CFRef<CMSDecoderRef> cms;
 	MacOSError::check(CMSDecoderCreate(&cms.aref())); // create decoder
@@ -632,8 +667,8 @@ bool SecStaticCode::verifySignature()
 	MacOSError::check(CMSDecoderSetDetachedContent(cms, mBaseDir));
 	MacOSError::check(CMSDecoderFinalizeMessage(cms));
 	MacOSError::check(CMSDecoderSetSearchKeychain(cms, cfEmptyArray()));
-	CFRef<CFArrayRef> vf_policies(verificationPolicies());
-	CFRef<CFArrayRef> ts_policies(SecPolicyCreateAppleTimeStampingAndRevocationPolicies(vf_policies));
+	CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
+	CFRef<CFArrayRef> ts_policies(createTimeStampingAndRevocationPolicies());
 
 	CMSSignerStatus status;
 	MacOSError::check(CMSDecoderCopySignerStatus(cms, 0, vf_policies,
@@ -797,9 +832,64 @@ bool SecStaticCode::verifySignature()
 
 		return actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED;
 	}
+#else
+    // Do some pre-verification initialization
+    CFDataRef sig = this->signature();
+    this->codeDirectory();	// load CodeDirectory (sets mDir)
+    mSigningTime = 0;	// "not present" marker (nobody could code sign on Jan 1, 2001 :-)
+
+    CFRef<CFDictionaryRef> attrs;
+	CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
+
+    // Verify the CMS signature against mBaseDir (SHA1)
+    MacOSError::check(SecCMSVerifyCopyDataAndAttributes(sig, mBaseDir, vf_policies, &mTrust.aref(), NULL, &attrs.aref()));
+
+    // Copy the signing time
+    mSigningTime = SecTrustGetVerifyTime(mTrust);
+
+    // Validate the cert chain
+    SecTrustResultType trustResult;
+    MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
+
+    // retrieve auxiliary data bag and verify against current state
+    CFRef<CFDataRef> hashBag;
+    hashBag = CFDataRef(CFDictionaryGetValue(attrs, kSecCMSHashAgility));
+    if (hashBag) {
+        CFRef<CFDictionaryRef> hashDict = makeCFDictionaryFrom(hashBag);
+        CFArrayRef cdList = CFArrayRef(CFDictionaryGetValue(hashDict, CFSTR("cdhashes")));
+        CFArrayRef myCdList = this->cdHashes();
+        if (cdList == NULL || !CFEqual(cdList, myCdList))
+            MacOSError::throwMe(errSecCSSignatureFailed);
+    }
+
+    /*
+     * Populate mCertChain with the certs.  If we failed validation, the
+     * signer's cert will be checked installed provisioning profiles as an
+     * alternative to verification against the policy for store-signed binaries
+     */
+    SecCertificateRef leafCert = SecTrustGetCertificateAtIndex(mTrust, 0);
+    if (leafCert != NULL) {
+        CFIndex count = SecTrustGetCertificateCount(mTrust);
+
+        CFMutableArrayRef certs = CFArrayCreateMutable(kCFAllocatorDefault, count,
+                                                       &kCFTypeArrayCallBacks);
+
+        CFArrayAppendValue(certs, leafCert);
+        for (CFIndex i = 1; i < count; ++i) {
+            CFArrayAppendValue(certs, SecTrustGetCertificateAtIndex(mTrust, i));
+        }
+        
+        mCertChain.take((CFArrayRef)certs);
+    }
+    
+    // Did we implicitly trust the signer?
+    mTrustedSigningCertChain = (trustResult == kSecTrustResultUnspecified);
+
+    return false; // XXX: Not checking for expired certs
+#endif
 }
 
-
+#if TARGET_OS_OSX
 //
 // Return the TP policy used for signature verification.
 // This may be a simple SecPolicyRef or a CFArray of policies.
@@ -810,12 +900,18 @@ static SecPolicyRef makeRevocationPolicy(CFOptionFlags flags)
 	CFRef<SecPolicyRef> policy(SecPolicyCreateRevocation(flags));
 	return policy.yield();
 }
+#endif
 
-CFArrayRef SecStaticCode::verificationPolicies()
+CFArrayRef SecStaticCode::createVerificationPolicies()
 {
+	if (mValidationFlags & kSecCSUseSoftwareSigningCert) {
+		CFRef<SecPolicyRef> ssRef = SecPolicyCreateAppleSoftwareSigning();
+		return makeCFArray(1, ssRef.get());
+	}
+#if TARGET_OS_OSX
 	CFRef<SecPolicyRef> core;
 	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3,
-			&CSSMOID_APPLE_TP_CODE_SIGNING, &core.aref()));
+									&CSSMOID_APPLE_TP_CODE_SIGNING, &core.aref()));
 	if (mValidationFlags & kSecCSNoNetworkAccess) {
 		// Skips all revocation since they require network connectivity
 		// therefore annihilates kSecCSEnforceRevocationChecks if present
@@ -823,12 +919,44 @@ CFArrayRef SecStaticCode::verificationPolicies()
 		return makeCFArray(2, core.get(), no_revoc.get());
 	}
 	else if (mValidationFlags & kSecCSEnforceRevocationChecks) {
-        // Add CRL and OCSP policies
+		// Add CRL and OCSP policies
 		CFRef<SecPolicyRef> revoc = makeRevocationPolicy(kSecRevocationUseAnyAvailableMethod);
 		return makeCFArray(2, core.get(), revoc.get());
 	} else {
 		return makeCFArray(1, core.get());
 	}
+#elif TARGET_OS_TV
+	CFRef<SecPolicyRef> tvOSRef = SecPolicyCreateAppleTVOSApplicationSigning();
+	return makeCFArray(1, tvOSRef.get());
+#else
+	CFRef<SecPolicyRef> iOSRef = SecPolicyCreateiPhoneApplicationSigning();
+	return makeCFArray(1, iOSRef.get());
+#endif
+
+}
+
+CFArrayRef SecStaticCode::createTimeStampingAndRevocationPolicies()
+{
+	CFRef<SecPolicyRef> tsPolicy = SecPolicyCreateAppleTimeStamping();
+#if TARGET_OS_OSX
+	if (mValidationFlags & kSecCSNoNetworkAccess) {
+		// Skips all revocation since they require network connectivity
+		// therefore annihilates kSecCSEnforceRevocationChecks if present
+		CFRef<SecPolicyRef> no_revoc = makeRevocationPolicy(kSecRevocationNetworkAccessDisabled);
+		return makeCFArray(2, tsPolicy.get(), no_revoc.get());
+	}
+	else if (mValidationFlags & kSecCSEnforceRevocationChecks) {
+		// Add CRL and OCSP policies
+		CFRef<SecPolicyRef> revoc = makeRevocationPolicy(kSecRevocationUseAnyAvailableMethod);
+		return makeCFArray(2, tsPolicy.get(), revoc.get());
+	}
+	else {
+		return makeCFArray(1, tsPolicy.get());
+	}
+#else
+	return makeCFArray(1, tsPolicy.get());
+#endif
+
 }
 
 
@@ -1220,6 +1348,77 @@ CFDictionaryRef SecStaticCode::diskRepInformation()
 	return mRep->diskRepInformation();
 }
 
+bool SecStaticCode::checkfix30814861(string path, bool addition) {
+	// <rdar://problem/30814861> v2 resource rules don't match v1 resource rules
+
+	//// Condition 1: Is the app an iOS app that was built with an SDK lower than 9.0?
+
+	// We started signing correctly in 2014, 9.0 was first seeded mid-2016.
+
+	CFRef<CFDictionaryRef> inf = diskRepInformation();
+	try {
+		CFDictionary info(diskRepInformation(), errSecCSNotSupported);
+		uint32_t platformCmd =
+			cfNumber(info.get<CFNumberRef>(kSecCodeInfoDiskRepOSPlatform, errSecCSNotSupported), 0);
+		uint32_t sdkVersion =
+			cfNumber(info.get<CFNumberRef>(kSecCodeInfoDiskRepOSSDKVersion, errSecCSNotSupported), 0);
+
+		if (platformCmd != LC_VERSION_MIN_IPHONEOS || sdkVersion >= 0x00090000) {
+			return false;
+		}
+	} catch (const MacOSError &error) {
+		return false;
+	}
+
+	//// Condition 2: Is it a .sinf/.supf/.supp file at the right location?
+
+	static regex_t pathre_sinf;
+	static regex_t pathre_supp_supf;
+	static dispatch_once_t once;
+
+	dispatch_once(&once, ^{
+		os_assert_zero(regcomp(&pathre_sinf,
+							   "^(Frameworks/[^/]+\\.framework/|PlugIns/[^/]+\\.appex/|())SC_Info/[^/]+\\.sinf$",
+							   REG_EXTENDED | REG_NOSUB));
+		os_assert_zero(regcomp(&pathre_supp_supf,
+							   "^(Frameworks/[^/]+\\.framework/|PlugIns/[^/]+\\.appex/|())SC_Info/[^/]+\\.(supf|supp)$",
+							   REG_EXTENDED | REG_NOSUB));
+	});
+
+	// .sinf is added, .supf/.supp are modified.
+	const regex_t &pathre = addition ? pathre_sinf : pathre_supp_supf;
+
+	const int result = regexec(&pathre, path.c_str(), 0, NULL, 0);
+
+	if (result == REG_NOMATCH) {
+		return false;
+	} else if (result != 0) {
+		// Huh?
+		secerror("unexpected regexec result %d for path '%s'", result, path.c_str());
+		return false;
+	}
+
+	//// Condition 3: Do the v1 rules actually exclude the file?
+
+	dispatch_once(&mCheckfix30814861builder1_once, ^{
+		// Create the v1 resource builder lazily.
+		CFDictionaryRef rules1 = cfget<CFDictionaryRef>(resourceDictionary(), "rules");
+		const string base = cfString(resourceBase());
+
+		mCheckfix30814861builder1 = new ResourceBuilder(base, base, rules1, false, mTolerateErrors);
+	});
+
+	ResourceBuilder::Rule const * const matchingRule = mCheckfix30814861builder1->findRule(path);
+
+	if (matchingRule == NULL || !(matchingRule->flags & ResourceBuilder::omitted)) {
+		return false;
+	}
+
+	//// All matched, this file is a check-fixed sinf/supf/supp.
+
+	return true;
+
+}
 
 void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool isSymlink, ValidationContext &ctx, SecCSFlags flags, uint32_t version)
 {
@@ -1255,8 +1454,13 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 					if (!hasher->verify(rseal.hash(type)))
 						good = false;
 				});
-				if (!good)
-					ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // altered
+				if (!good) {
+					if (version == 2 && checkfix30814861(path, false)) {
+						secinfo("validateResource", "%s check-fixed (altered).", path.c_str());
+					} else {
+						ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // altered
+					}
+				}
 			} else {
 				if (!seal.optional())
 					ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceMissing, fullpath); // was sealed but is now missing
@@ -1272,7 +1476,11 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 		if (::readlink(cfString(fullpath).c_str(), target, sizeof(target)) > 0)
 			return;
 	}
-	ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAdded, CFTempURL(path, false, resourceBase()));
+	if (version == 2 && checkfix30814861(path, true)) {
+		secinfo("validateResource", "%s check-fixed (added).", path.c_str());
+	} else {
+		ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAdded, CFTempURL(path, false, resourceBase()));
+	}
 }
 
 void SecStaticCode::validatePlainMemoryResource(string path, CFDataRef fileData, SecCSFlags flags)
@@ -1357,11 +1565,11 @@ void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, 
 			flags |= kSecCSBasicValidateOnly | kSecCSQuickCheck;
 		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(cfString(path)));
 		code->initializeFromParent(*this);
-		code->staticValidate(flags & ~kSecCSRestrictToAppLike, SecRequirement::required(req));
+		code->staticValidate(flags & (~kSecCSRestrictToAppLike), SecRequirement::required(req));
 
 		if (isFramework && (flags & kSecCSStrictValidate))
 			try {
-				validateOtherVersions(path, flags, req, code);
+				validateOtherVersions(path, flags & (~kSecCSRestrictToAppLike), req, code);
 			} catch (const CSError &err) {
 				MacOSError::throwMe(errSecCSBadFrameworkVersion);
 			} catch (const MacOSError &err) {
@@ -1511,6 +1719,7 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 		}
 		return maker.make();
 	} else {
+#if TARGET_OS_OSX
 		// full signature: Gin up full context and let DRMaker do its thing
 		validateDirectory();		// need the cert chain
 		Requirement::Context context(this->certificates(),
@@ -1520,6 +1729,9 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 			this->codeDirectory()
 		);
 		return DRMaker(context).make();
+#else
+        MacOSError::throwMe(errSecCSUnimplemented);
+#endif
 	}
 }
 
@@ -1656,7 +1868,10 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	// kSecCSRequirementInformation adds information on requirements
 	//
 	if (flags & kSecCSRequirementInformation)
-		try {
+
+//DR not currently supported on iOS
+#if TARGET_OS_OSX
+        try {
 			if (const Requirements *reqs = this->internalRequirements()) {
 				CFDictionaryAddValue(dict, kSecCodeInfoRequirements,
 					CFTempString(Dumper::dump(reqs)));
@@ -1673,14 +1888,15 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 				CFDictionaryAddValue(dict, kSecCodeInfoImplicitDesignatedRequirement, dreqRef);
 			}
 		} catch (...) { }
+#endif
 
-		try {
-		   if (CFDataRef ent = this->component(cdEntitlementSlot)) {
-			   CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
-			   if (CFDictionaryRef entdict = this->entitlements())
-					CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
-			}
-		} catch (...) { }
+	try {
+	   if (CFDataRef ent = this->component(cdEntitlementSlot)) {
+		   CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
+		   if (CFDictionaryRef entdict = this->entitlements())
+				CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
+		}
+	} catch (...) { }
 
 	//
 	// kSecCSInternalInformation adds internal information meant to be for Apple internal
@@ -1693,8 +1909,10 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			if (mDir)
 				CFDictionaryAddValue(dict, kSecCodeInfoCodeDirectory, mDir);
 			CFDictionaryAddValue(dict, kSecCodeInfoCodeOffset, CFTempNumber(mRep->signingBase()));
-		if (CFRef<CFDictionaryRef> rdict = getDictionary(cdResourceDirSlot, false))	// suppress validation
-			CFDictionaryAddValue(dict, kSecCodeInfoResourceDirectory, rdict);
+        if (!(flags & kSecCSSkipResourceDirectory)) {
+            if (CFRef<CFDictionaryRef> rdict = getDictionary(cdResourceDirSlot, false))	// suppress validation
+                CFDictionaryAddValue(dict, kSecCodeInfoResourceDirectory, rdict);
+        }
 		if (CFRef<CFDictionaryRef> ddict = diskRepInformation())
 			CFDictionaryAddValue(dict, kSecCodeInfoDiskRepInfo, ddict);
 		} catch (...) { }
@@ -1706,7 +1924,7 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	// of the signed code. This is (only) useful for packaging or patching-oriented
 	// applications.
 	//
-	if (flags & kSecCSContentInformation)
+	if (flags & kSecCSContentInformation && !(flags & kSecCSSkipResourceDirectory))
 		if (CFRef<CFArrayRef> files = mRep->modifiedFiles())
 			CFDictionaryAddValue(dict, kSecCodeInfoChangedFiles, files);
 
@@ -1773,7 +1991,8 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 	if (flags & kSecCSReportProgress)
 		prepareProgress(estimateResourceWorkload() + 2);	// +1 head, +1 tail
 
-	// core components: once per architecture (if any)
+
+  	// core components: once per architecture (if any)
 	this->staticValidateCore(flags, req);
 	if (flags & kSecCSCheckAllArchitectures)
 		handleOtherArchitectures(^(SecStaticCode* subcode) {
@@ -1852,21 +2071,24 @@ void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other
 		fat->architectures(architectures);
 		if (architectures.size() > 1) {
 			DiskRep::Context ctx;
-			size_t activeOffset = fat->archOffset();
+			off_t activeOffset = fat->archOffset();
 			for (Universal::Architectures::const_iterator arch = architectures.begin(); arch != architectures.end(); ++arch) {
-				ctx.offset = fat->archOffset(*arch);
-				if (ctx.offset > SIZE_MAX)
-					MacOSError::throwMe(errSecCSBadObjectFormat);
-				ctx.size = fat->lengthOfSlice((size_t)ctx.offset);
-				if (ctx.offset != activeOffset) {	// inactive architecture; check it
-					SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(this->mainExecutablePath(), &ctx));
-					subcode->detachedSignature(this->mDetachedSig); // carry over explicit (but not implicit) detached signature
-					if (this->teamID() == NULL || subcode->teamID() == NULL) {
-						if (this->teamID() != subcode->teamID())
+				try {
+					ctx.offset = int_cast<size_t, off_t>(fat->archOffset(*arch));
+					ctx.size = fat->lengthOfSlice(int_cast<off_t,size_t>(ctx.offset));
+					if (ctx.offset != activeOffset) {	// inactive architecture; check it
+						SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(this->mainExecutablePath(), &ctx));
+						subcode->detachedSignature(this->mDetachedSig); // carry over explicit (but not implicit) detached signature
+						if (this->teamID() == NULL || subcode->teamID() == NULL) {
+							if (this->teamID() != subcode->teamID())
+								MacOSError::throwMe(errSecCSSignatureInvalid);
+						} else if (strcmp(this->teamID(), subcode->teamID()) != 0)
 							MacOSError::throwMe(errSecCSSignatureInvalid);
-					} else if (strcmp(this->teamID(), subcode->teamID()) != 0)
-						MacOSError::throwMe(errSecCSSignatureInvalid);
-					handle(subcode);
+						handle(subcode);
+					}
+				} catch(std::out_of_range e) {
+					// some of our int_casts fell over.
+					MacOSError::throwMe(errSecCSBadObjectFormat);
 				}
 			}
 		}

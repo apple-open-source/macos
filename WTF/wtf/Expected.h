@@ -29,12 +29,10 @@
 #pragma once
 
 #include <cstdlib>
-#include <functional>
 #include <initializer_list>
 #include <type_traits>
 #include <utility>
 #include <wtf/Assertions.h>
-#include <wtf/Compiler.h>
 #include <wtf/Optional.h>
 #include <wtf/StdLibExtras.h>
 
@@ -46,8 +44,9 @@ public:
     UnexpectedType() = delete;
     constexpr explicit UnexpectedType(const E& e) : val(e) { }
     constexpr explicit UnexpectedType(E&& e) : val(std::forward<E>(e)) { }
-    constexpr const E& value() const { return val; }
-    RELAXED_CONSTEXPR E& value() { return val; }
+    constexpr const E& value() const& { return val; }
+    RELAXED_CONSTEXPR E& value() & { return val; }
+    RELAXED_CONSTEXPR E&& value() && { return WTFMove(val); }
 
 private:
     E val;
@@ -199,6 +198,7 @@ struct ConstexprBase<void, E> {
     constexpr ConstexprBase(ValueTagType tag) : s(tag), has(true) { }
     constexpr ConstexprBase(ErrorTagType tag) : s(tag), has(false) { }
     constexpr ConstexprBase(ErrorTagType tag, const ErrorType& err) : s(tag, err), has(false) { }
+    constexpr ConstexprBase(ErrorTagType tag, ErrorType&& err) : s(tag, std::forward<ErrorType>(err)), has(false) { }
     ~ConstexprBase() = default;
 };
 
@@ -212,6 +212,7 @@ struct Base<void, E> {
     constexpr Base(ValueTagType tag) : s(tag), has(true) { }
     constexpr Base(ErrorTagType tag) : s(tag), has(false) { }
     constexpr Base(ErrorTagType tag, const ErrorType& err) : s(tag, err), has(false) { }
+    constexpr Base(ErrorTagType tag, ErrorType&& err) : s(tag, std::forward<ErrorType>(err)), has(false) { }
     Base(const Base& o)
         : has(o.has)
     {
@@ -263,6 +264,7 @@ public:
     // template <class... Args> constexpr explicit Expected(in_place_t, Args&&...);
     // template <class U, class... Args> constexpr explicit Expected(in_place_t, std::initializer_list<U>, Args&&...);
     constexpr Expected(UnexpectedType<ErrorType> const& u) : base(ExpectedDetail::ErrorTag, u.value()) { }
+    constexpr Expected(UnexpectedType<ErrorType>&& u) : base(ExpectedDetail::ErrorTag, std::forward<UnexpectedType<E>>(u).value()) { }
     template <class Err> constexpr Expected(UnexpectedType<Err> const& u) : base(ExpectedDetail::ErrorTag, u.value()) { }
     // template <class... Args> constexpr explicit Expected(UnexpectTag, Args&&...);
     // template <class U, class... Args> constexpr explicit Expected(UnexpectTag, std::initializer_list<U>, Args&&...);
@@ -284,13 +286,17 @@ public:
             swap(base::s.val, o.s.val);
         else if (base::has && !o.has) {
             ErrorType e(WTFMove(o.s.err));
+            ExpectedDetail::destroy(o.s.err);
             ::new (&o.s.val) ValueType(WTFMove(base::s.val));
-            ::new (&base::s.err) ErrorType(e);
+            ExpectedDetail::destroy(base::s.val);
+            ::new (&base::s.err) ErrorType(WTFMove(e));
             swap(base::has, o.has);
         } else if (!base::has && o.has) {
             ValueType v(WTFMove(o.s.val));
+            ExpectedDetail::destroy(o.s.val);
             ::new (&o.s.err) ErrorType(WTFMove(base::s.err));
-            ::new (&base::s.val) ValueType(v);
+            ExpectedDetail::destroy(base::s.err);
+            ::new (&base::s.val) ValueType(WTFMove(v));
             swap(base::has, o.has);
         } else
             swap(base::s.err, o.s.err);
@@ -307,7 +313,7 @@ public:
     constexpr const ValueType& value() const & { return base::has ? base::s.val : (ExpectedDetail::Throw(), base::s.val); }
     RELAXED_CONSTEXPR ValueType& value() & { return base::has ? base::s.val : (ExpectedDetail::Throw(), base::s.val); }
     constexpr const ValueType&& value() const && { return base::has ? base::s.val : (ExpectedDetail::Throw(), base::s.val); }
-    RELAXED_CONSTEXPR ValueType&& value() && { return base::has ? base::s.val : (ExpectedDetail::Throw(), base::s.val); }
+    RELAXED_CONSTEXPR ValueType&& value() && { return WTFMove(base::has ? base::s.val : (ExpectedDetail::Throw(), base::s.val)); }
     constexpr const ErrorType& error() const & { return !base::has ? base::s.err : (ExpectedDetail::Throw(), base::s.err); }
     ErrorType& error() & { return !base::has ? base::s.err : (ExpectedDetail::Throw(), base::s.err); }
     RELAXED_CONSTEXPR ErrorType&& error() && { return !base::has ? base::s.err : (ExpectedDetail::Throw(), base::s.err); }
@@ -336,6 +342,7 @@ public:
     Expected(Expected&&) = default;
     // constexpr explicit Expected(in_place_t);
     constexpr Expected(UnexpectedType<E> const& u) : base(ExpectedDetail::ErrorTag, u.value()) { }
+    constexpr Expected(UnexpectedType<E>&& u) : base(ExpectedDetail::ErrorTag, std::forward<UnexpectedType<E>>(u).value()) { }
     template <class Err> constexpr Expected(UnexpectedType<Err> const& u) : base(ExpectedDetail::ErrorTag, u.value()) { }
 
     ~Expected() = default;

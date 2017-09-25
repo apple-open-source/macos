@@ -3,7 +3,7 @@
 #include <pthread/introspection_private.h>
 #include <dispatch/dispatch.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 static pthread_introspection_hook_t prev_pthread_introspection_hook;
 
@@ -34,24 +34,29 @@ static void my_pthread_introspection_hook(unsigned int event, pthread_t thread,
 	}
 }
 
-T_DECL(PR_25679871, "PR-25679871",
-		T_META_TIMEOUT(30), T_META_ALL_VALID_ARCHS(YES))
+T_DECL(pthread_introspection, "PR-25679871",
+       T_META_TIMEOUT(30), T_META_ALL_VALID_ARCHS(YES))
 {
 	prev_pthread_introspection_hook = pthread_introspection_hook_install(&my_pthread_introspection_hook);
 
-	// minus two that come up in dispatch internally, one that comes after this block
-	for (int i = 0; i < THREAD_COUNT - 3; i++) {
+	// minus one that comes after this block
+	for (int i = 0; i < THREAD_COUNT - 1; i++) {
+		T_LOG("Creating dispatch_async thread %d.", i);
 		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+			T_LOG("Started dispatch_async thread %d.", i);
 			sleep(3);
 		});
 	}
 	dispatch_queue_t serial_queue = dispatch_queue_create("test queue", NULL);
 	__block dispatch_block_t looping_block = ^{
 		static int count;
-		if (count < 20) {
+		if (count++ < 20) {
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), serial_queue, looping_block);
+		} else {
+			T_LOG("Looping block complete");
 		}
 	};
+	T_LOG("Starting looping block");
 	dispatch_async(serial_queue, looping_block);
 
 	sleep(30);

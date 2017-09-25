@@ -51,7 +51,6 @@
 #include <sys/socket.h>
 
 #include <netinet/in.h>
-#include <resolv.h>
 
 #include "vmbuf.h"
 #include "misc.h"

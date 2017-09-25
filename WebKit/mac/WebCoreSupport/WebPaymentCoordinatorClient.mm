@@ -48,16 +48,16 @@ bool WebPaymentCoordinatorClient::canMakePayments()
     return false;
 }
 
-void WebPaymentCoordinatorClient::canMakePaymentsWithActiveCard(const String&, const String&, std::function<void (bool)> completionHandler)
+void WebPaymentCoordinatorClient::canMakePaymentsWithActiveCard(const String&, const String&, WTF::Function<void (bool)>&& completionHandler)
 {
-    callOnMainThread([completionHandler] {
+    callOnMainThread([completionHandler = WTFMove(completionHandler)] {
         completionHandler(false);
     });
 }
 
-void WebPaymentCoordinatorClient::openPaymentSetup(const String&, const String&, std::function<void (bool)> completionHandler)
+void WebPaymentCoordinatorClient::openPaymentSetup(const String&, const String&, WTF::Function<void (bool)>&& completionHandler)
 {
-    callOnMainThread([completionHandler] {
+    callOnMainThread([completionHandler = WTFMove(completionHandler)] {
         completionHandler(false);
     });
 }
@@ -71,23 +71,27 @@ void WebPaymentCoordinatorClient::completeMerchantValidation(const WebCore::Paym
 {
 }
 
-void WebPaymentCoordinatorClient::completeShippingMethodSelection(WebCore::PaymentAuthorizationStatus, std::optional<WebCore::PaymentRequest::TotalAndLineItems>)
+void WebPaymentCoordinatorClient::completeShippingMethodSelection(std::optional<WebCore::ShippingMethodUpdate>&&)
 {
 }
 
-void WebPaymentCoordinatorClient::completeShippingContactSelection(WebCore::PaymentAuthorizationStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>&, std::optional<WebCore::PaymentRequest::TotalAndLineItems>)
+void WebPaymentCoordinatorClient::completeShippingContactSelection(std::optional<WebCore::ShippingContactUpdate>&&)
 {
 }
 
-void WebPaymentCoordinatorClient::completePaymentMethodSelection(std::optional<WebCore::PaymentRequest::TotalAndLineItems>)
+void WebPaymentCoordinatorClient::completePaymentMethodSelection(std::optional<WebCore::PaymentMethodUpdate>&&)
 {
 }
 
-void WebPaymentCoordinatorClient::completePaymentSession(WebCore::PaymentAuthorizationStatus)
+void WebPaymentCoordinatorClient::completePaymentSession(std::optional<WebCore::PaymentAuthorizationResult>&&)
 {
 }
 
 void WebPaymentCoordinatorClient::abortPaymentSession()
+{
+}
+
+void WebPaymentCoordinatorClient::cancelPaymentSession()
 {
 }
 

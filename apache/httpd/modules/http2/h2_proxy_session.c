@@ -40,7 +40,7 @@ typedef struct h2_proxy_stream {
     const char *p_server_uri;
     int standalone;
 
-    h2_stream_state_t state;
+    h2_proxy_stream_state_t state;
     unsigned int suspended : 1;
     unsigned int waiting_on_100 : 1;
     unsigned int waiting_on_ping : 1;
@@ -242,7 +242,6 @@ static int add_header(void *table, const char *n, const char *v)
 
 static void process_proxy_header(h2_proxy_stream *stream, const char *n, const char *v)
 {
-    request_rec *r = stream->r;
     static const struct {
         const char *name;
         ap_proxy_header_reverse_map_fn func;
@@ -254,23 +253,26 @@ static void process_proxy_header(h2_proxy_stream *stream, const char *n, const c
         { "Set-Cookie", ap_proxy_cookie_reverse_map },
         { NULL, NULL }
     };
+    request_rec *r = stream->r;
     proxy_dir_conf *dconf;
     int i;
     
-    for (i = 0; transform_hdrs[i].name; ++i) {
-        if (!ap_cstr_casecmp(transform_hdrs[i].name, n)) {
+    dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
+    if (!dconf->preserve_host) {
+        for (i = 0; transform_hdrs[i].name; ++i) {
+            if (!ap_cstr_casecmp(transform_hdrs[i].name, n)) {
+                apr_table_add(r->headers_out, n,
+                              (*transform_hdrs[i].func)(r, dconf, v));
+                return;
+            }
+        }
+        if (!ap_cstr_casecmp("Link", n)) {
             dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
             apr_table_add(r->headers_out, n,
-                          (*transform_hdrs[i].func)(r, dconf, v));
+                          h2_proxy_link_reverse_map(r, dconf, 
+                                                    stream->real_server_uri, stream->p_server_uri, v));
             return;
-       }
-    }
-    if (!ap_cstr_casecmp("Link", n)) {
-        dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
-        apr_table_add(r->headers_out, n,
-                      h2_proxy_link_reverse_map(r, dconf, 
-                      stream->real_server_uri, stream->p_server_uri, v));
-        return;
+        }
     }
     apr_table_add(r->headers_out, n, v);
 }
@@ -344,7 +346,7 @@ static void h2_proxy_stream_end_headers_out(h2_proxy_stream *stream)
         
         /* If USE_CANONICAL_NAME_OFF was configured for the proxy virtual host,
          * then the server name returned by ap_get_server_name() is the
-         * origin server name (which does make too much sense with Via: headers)
+         * origin server name (which doesn't make sense with Via: headers)
          * so we use the proxy vhost's name instead.
          */
         if (server_name == stream->r->hostname) {
@@ -697,6 +699,7 @@ static apr_status_t open_stream(h2_proxy_session *session, const char *url,
     apr_uri_t puri;
     const char *authority, *scheme, *path;
     apr_status_t status;
+    proxy_dir_conf *dconf;
 
     stream = apr_pcalloc(r->pool, sizeof(*stream));
 
@@ -715,14 +718,22 @@ static apr_status_t open_stream(h2_proxy_session *session, const char *url,
     status = apr_uri_parse(stream->pool, url, &puri);
     if (status != APR_SUCCESS)
         return status;
-
+    
     scheme = (strcmp(puri.scheme, "h2")? "http" : "https");
-    authority = puri.hostname;
-    if (!ap_strchr_c(authority, ':') && puri.port
-        && apr_uri_port_of_scheme(scheme) != puri.port) {
-        /* port info missing and port is not default for scheme: append */
-        authority = apr_psprintf(stream->pool, "%s:%d", authority, puri.port);
+    
+    dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
+    if (dconf->preserve_host) {
+        authority = r->hostname;
     }
+    else {
+        authority = puri.hostname;
+        if (!ap_strchr_c(authority, ':') && puri.port
+            && apr_uri_port_of_scheme(scheme) != puri.port) {
+            /* port info missing and port is not default for scheme: append */
+            authority = apr_psprintf(stream->pool, "%s:%d", authority, puri.port);
+        }
+    }
+    
     /* we need this for mapping relative uris in headers ("Link") back
      * to local uris */
     stream->real_server_uri = apr_psprintf(stream->pool, "%s://%s", scheme, authority); 
@@ -731,6 +742,32 @@ static apr_status_t open_stream(h2_proxy_session *session, const char *url,
     h2_proxy_req_make(stream->req, stream->pool, r->method, scheme,
                 authority, path, r->headers_in);
 
+    if (dconf->add_forwarded_headers) {
+        if (PROXYREQ_REVERSE == r->proxyreq) {
+            const char *buf;
+
+            /* Add X-Forwarded-For: so that the upstream has a chance to
+             * determine, where the original request came from.
+             */
+            apr_table_mergen(stream->req->headers, "X-Forwarded-For",
+                             r->useragent_ip);
+
+            /* Add X-Forwarded-Host: so that upstream knows what the
+             * original request hostname was.
+             */
+            if ((buf = apr_table_get(r->headers_in, "Host"))) {
+                apr_table_mergen(stream->req->headers, "X-Forwarded-Host", buf);
+            }
+
+            /* Add X-Forwarded-Server: so that upstream knows what the
+             * name of this proxy server is (if there are more than one)
+             * XXX: This duplicates Via: - do we strictly need it?
+             */
+            apr_table_mergen(stream->req->headers, "X-Forwarded-Server",
+                             r->server->server_hostname);
+        }
+    }
+    
     /* Tuck away all already existing cookies */
     stream->saves = apr_table_make(r->pool, 2);
     apr_table_do(add_header, stream->saves, r->headers_out, "Set-Cookie", NULL);
@@ -1470,7 +1507,7 @@ void h2_proxy_session_cleanup(h2_proxy_session *session,
         cleanup_iter_ctx ctx;
         ctx.session = session;
         ctx.done = done;
-        ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, session->c, APLOGNO(03366)
+        ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, session->c, APLOGNO(03519)
                       "h2_proxy_session(%s): terminated, %d streams unfinished",
                       session->id, (int)h2_proxy_ihash_count(session->streams));
         h2_proxy_ihash_iter(session->streams, done_iter, &ctx);

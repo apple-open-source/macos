@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/fi.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 fi{
     Countries{
         001{"maailma"}
@@ -137,7 +131,7 @@ fi{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong – Kiinan e.h.a."}
+        HK{"Hongkong (Kiina)"}
         HM{"Heard ja McDonaldinsaaret"}
         HN{"Honduras"}
         HR{"Kroatia"}
@@ -191,7 +185,7 @@ fi{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Macao – Kiinan e.h.a."}
+        MO{"Macao (Kiina)"}
         MP{"Pohjois-Mariaanit"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -251,7 +245,7 @@ fi{
         SM{"San Marino"}
         SN{"Senegal"}
         SO{"Somalia"}
-        SR{"Surinam"}
+        SR{"Suriname"}
         SS{"Etelä-Sudan"}
         ST{"São Tomé ja Príncipe"}
         SV{"El Salvador"}
@@ -278,6 +272,7 @@ fi{
         UA{"Ukraina"}
         UG{"Uganda"}
         UM{"Yhdysvaltain erillissaaret"}
+        UN{"Yhdistyneet kansakunnat"}
         US{"Yhdysvallat"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
@@ -303,15 +298,17 @@ fi{
         HK{"Hongkong"}
         MO{"Macao"}
         PS{"Palestiina"}
+        UN{"YK"}
         US{"USA"}
     }
     Countries%variant{
         CD{"Kongo-Kinshasa"}
         CG{"Kongo-Brazzaville"}
         CI{"Côte d’Ivoire"}
+        CZ{"Tšekinmaa"}
         FK{"Falklandinsaaret (Malvinassaaret)"}
         MK{"EJT Makedonia"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
 }

@@ -64,7 +64,7 @@ class RubyVM
     def sp_increase_c_expr
       if(pops.any?{|t, v| v == '...'} ||
          rets.any?{|t, v| v == '...'})
-        # user definision
+        # user definition
         raise "no sp increase definition" if @sp_inc.nil?
         ret = "int inc = 0;\n"
 
@@ -309,7 +309,7 @@ class RubyVM
       opes = insn.opes
 
       if opes.size != opts.size
-        raise "operand size mismatcvh for #{insn.name} (opes: #{opes.size}, opts: #{opts.size})"
+        raise "operand size mismatch for #{insn.name} (opes: #{opes.size}, opts: #{opts.size})"
       end
 
       ninsn = insn.name + '_OP_' + opts.map{|e| label_escape(e)}.join('_')
@@ -692,7 +692,7 @@ class RubyVM
 
       n = 0
       push_ba.each {|pushs| n += pushs.length}
-      commit "  CHECK_VM_STACK_OVERFLOW(REG_CFP, #{n});" if n > 0
+      commit "  CHECK_VM_STACK_OVERFLOW_FOR_INSN(REG_CFP, #{n});" if n > 0
       push_ba.each{|pushs|
         pushs.each{|r|
           commit "  PUSH(SCREG(#{r}));"
@@ -715,7 +715,7 @@ class RubyVM
         # skip make operands when body has no reference to this operand
         # TODO: really needed?
         re = /\b#{var}\b/n
-        if re =~ insn.body or re =~ insn.sp_inc or insn.rets.any?{|t, v| re =~ v} or re =~ 'ic' or re =~ 'ci'
+        if re =~ insn.body or re =~ insn.sp_inc or insn.rets.any?{|t, v| re =~ v} or re =~ 'ic' or re =~ 'ci' or re =~ 'cc'
           ops << "  #{type} #{var} = (#{type})GET_OPERAND(#{i+1});"
         end
 
@@ -816,7 +816,7 @@ class RubyVM
       commit  "  POPN(#{@popn});" if @popn > 0
     end
 
-    def make_hader_debug insn
+    def make_header_debug insn
       comment "  /* for debug */"
       commit  "  DEBUG_ENTER_INSN(\"#{insn.name}\");"
     end
@@ -842,7 +842,7 @@ class RubyVM
       each_footer_stack_val(insn){|v|
         n += 1 unless v[2]
       }
-      commit "  CHECK_VM_STACK_OVERFLOW(REG_CFP, #{n});" if n > 0
+      commit "  CHECK_VM_STACK_OVERFLOW_FOR_INSN(REG_CFP, #{n});" if n > 0
       each_footer_stack_val(insn){|v|
         if v[2]
           commit "  SCREG(#{v[2]}) = #{v[1]};"
@@ -869,7 +869,7 @@ class RubyVM
       make_header_stack_pops insn
       make_header_temporary_vars insn
       #
-      make_hader_debug insn
+      make_header_debug insn
       make_header_pc insn
       make_header_popn insn
       make_header_defines insn
@@ -949,6 +949,8 @@ class RubyVM
         "TS_IC"
       when /^CALL_INFO/
         "TS_CALLINFO"
+      when /^CALL_CACHE/
+        "TS_CALLCACHE"
       when /^\.\.\./
         "TS_VARIABLE"
       when /^CDHASH/
@@ -971,6 +973,7 @@ class RubyVM
       'TS_GENTRY'    => 'G',
       'TS_IC'        => 'K',
       'TS_CALLINFO'  => 'C',
+      'TS_CALLCACHE' => 'E',
       'TS_CDHASH'    => 'H',
       'TS_ISEQ'      => 'S',
       'TS_VARIABLE'  => '.',
@@ -1000,7 +1003,7 @@ class RubyVM
         ot = opes.map{|type, var|
           TYPE_CHARS.fetch(op2typesig(type))
         }
-        operands_info << "\"#{ot.join}\"" << ", \n"
+        operands_info << "\"#{ot.join}\"" << ",\n"
 
         num = opes.size + 1
         operands_num_info << "  #{num},\n"
@@ -1033,7 +1036,7 @@ class RubyVM
       i=0
       insns = build_string do
         @insns.each{|insn|
-          commit "  %-30s = %d,\n" % ["BIN(#{insn.name})", i]
+          commit "  %-30s = %d," % ["BIN(#{insn.name})", i]
           i+=1
         }
       end
@@ -1049,7 +1052,7 @@ class RubyVM
       i=0
       defs = build_string do
         @insns.each{|insn|
-          commit "  rb_define_const(mYarvInsns, %-30s, INT2FIX(%d));\n" %
+          commit "  rb_define_const(mYarvInsns, %-30s, INT2FIX(%d));" %
                  ["\"I#{insn.name}\"", i]
           i+=1
         }
@@ -1161,14 +1164,14 @@ class RubyVM
           uni_insn, uni_insns = *unif
           uni_insns = uni_insns[1..-1]
           unif_insns_each << "static const int UNIFIED_#{insn.name}_#{i}[] = {" +
-                             "  BIN(#{uni_insn.name}), #{uni_insns.size + 2}, \n  " +
+                             "  BIN(#{uni_insn.name}), #{uni_insns.size + 2},\n  " +
                              uni_insns.map{|e| "BIN(#{e.name})"}.join(", ") + "};\n"
           }
         else
 
         end
         if size > 0
-          unif_insns << "static const int *const UNIFIED_#{insn.name}[] = {(int *)#{size+1}, \n"
+          unif_insns << "static const int *const UNIFIED_#{insn.name}[] = {(int *)#{size+1},\n"
           unif_insns << (0...size).map{|e| "  UNIFIED_#{insn.name}_#{e}"}.join(",\n") + "};\n"
           unif_insns_data << "  UNIFIED_#{insn.name}"
         else

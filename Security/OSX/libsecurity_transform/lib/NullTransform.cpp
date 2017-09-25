@@ -6,7 +6,7 @@ NullTransform::NullTransform() : Transform(CFSTR("NullTransform"))
 
 
 
-CFTypeRef NullTransform::Make()
+CFTypeRef NullTransform::Make() CF_RETURNS_RETAINED
 {
 	return CoreFoundationHolder::MakeHolder(gInternalCFObjectName, new NullTransform());
 }

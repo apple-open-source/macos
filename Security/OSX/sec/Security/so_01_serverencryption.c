@@ -86,7 +86,7 @@ unsigned char public_cert_der[] = {
 const char *testbytes = "funky";
 CFIndex testbytes_size = 5;
 
-static int kTestTestCount = 8;
+static int kTestTestCount = 9;
 static void tests(void)
 {
     CFErrorRef error = NULL;
@@ -104,6 +104,9 @@ static void tests(void)
     CFReleaseNull(basic);
     status = SecTrustSetAnchorCertificates(trust, certInArray);
     ok_status(status, "Anchors");
+    CFDateRef verifyDate = CFDateCreate(NULL, 500000000.0); // November 4, 2016 at 5:53:20 PM PDT
+    status = SecTrustSetVerifyDate(trust, verifyDate);
+    ok_status(status, "verifyDate");
 
     SecTrustResultType result;
     status = SecTrustEvaluate(trust, &result);
@@ -124,6 +127,7 @@ static void tests(void)
     CFReleaseNull(cert);
     CFReleaseNull(certInArray);
     CFReleaseNull(trust);
+    CFReleaseNull(verifyDate);
     CFReleaseNull(testData);
     CFReleaseNull(encrypted);
     CFReleaseNull(decrypted);

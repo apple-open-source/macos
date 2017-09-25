@@ -40,7 +40,6 @@ extern "C" {
  algorithms may only support certain sizes. You may
  pass 0 for this parameter, in which case an
  appropriate length will be chosen for you.
- @param maskLength	The desired mask length.
  @param error		A pointer to a CFErrorRef.  This pointer will be set
  if an error occurred.  This value may be NULL if you
  do not want an error returned.

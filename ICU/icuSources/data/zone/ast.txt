@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ast.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ast{
-    Version{"2.1.24.11"}
+    Version{"2.1.31.86"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abidjan"}
@@ -308,6 +302,9 @@ ast{
         }
         "America:El_Salvador"{
             ec{"El Salvador"}
+        }
+        "America:Fort_Nelson"{
+            ec{"Fort Nelson"}
         }
         "America:Fortaleza"{
             ec{"Fortaleza"}
@@ -672,6 +669,9 @@ ast{
         "Asia:Bangkok"{
             ec{"Bangkok"}
         }
+        "Asia:Barnaul"{
+            ec{"Barnaul"}
+        }
         "Asia:Beirut"{
             ec{"Beirut"}
         }
@@ -849,6 +849,9 @@ ast{
         "Asia:Tokyo"{
             ec{"Tokiu"}
         }
+        "Asia:Tomsk"{
+            ec{"Tomsk"}
+        }
         "Asia:Ulaanbaatar"{
             ec{"Ulán Bátor"}
         }
@@ -948,6 +951,9 @@ ast{
         "Europe:Andorra"{
             ec{"Andorra"}
         }
+        "Europe:Astrakhan"{
+            ec{"Astracán"}
+        }
         "Europe:Athens"{
             ec{"Atenes"}
         }
@@ -1005,6 +1011,9 @@ ast{
         }
         "Europe:Kiev"{
             ec{"Kiev"}
+        }
+        "Europe:Kirov"{
+            ec{"Kirov"}
         }
         "Europe:Lisbon"{
             ec{"Lisboa"}
@@ -1081,6 +1090,9 @@ ast{
         }
         "Europe:Tirane"{
             ec{"Tirana"}
+        }
+        "Europe:Ulyanovsk"{
+            ec{"Ulyanovsk"}
         }
         "Europe:Uzhgorod"{
             ec{"Uzhgorod"}
@@ -1808,6 +1820,9 @@ ast{
         }
         "meta:Ponape"{
             ls{"Hora de Ponape"}
+        }
+        "meta:Pyongyang"{
+            ls{"hora de Pyongyang"}
         }
         "meta:Qyzylorda"{
             ld{"Hora braniega de Qyzylorda"}

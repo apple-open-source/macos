@@ -312,6 +312,10 @@ get_my_host_names(void)
 			break;
 		}
 	}
+	if (!num_hostinfo) {
+		pr_msg(LOG_ERR, "Could not get hostinfo\n");
+		return;
+	}
 
 	/*
 	 * Allocate the array of hostinfo structures.
@@ -364,6 +368,10 @@ get_my_host_names(void)
 		}
 	}
 	freeifaddrs(ifaddrs);
+	if (!num_host_names) {
+		pr_msg(LOG_ERR, "Could not get hostname.\n");
+		return;
+	}
 
 	/*
 	 * Allocate the array of host name pointers.

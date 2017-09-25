@@ -41,6 +41,7 @@ extern int fflag, iflag, nflag, pflag, vflag;
 #ifdef __APPLE__
 extern int Xflag;
 #endif /* __APPLE__ */
+extern int cflag;
 extern volatile sig_atomic_t info;
 
 __BEGIN_DECLS

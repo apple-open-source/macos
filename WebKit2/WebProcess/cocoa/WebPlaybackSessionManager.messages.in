@@ -36,5 +36,8 @@ messages -> WebPlaybackSessionManager {
     SelectAudioMediaOption(uint64_t contextId, uint64_t index)
     SelectLegibleMediaOption(uint64_t contextId, uint64_t index)
     HandleControlledElementIDRequest(uint64_t contextId)
+    TogglePictureInPicture(uint64_t contextId)
+    ToggleMuted(uint64_t contextId)
+    SetMuted(uint64_t contextId, bool muted)
 }
 #endif

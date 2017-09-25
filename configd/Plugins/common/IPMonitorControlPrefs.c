@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,8 +67,9 @@ IPMonitorControlPrefsGet(void)
 }
 
 static void
-prefs_changed(__unused void * arg)
+prefs_changed(void * arg)
 {
+#pragma unused(arg)
     os_activity_t	activity;
 
     activity = os_activity_create("processing IPMonitor [rank] preference change",
@@ -139,6 +140,7 @@ enable_prefs_observer(CFRunLoopRef runloop)
 static void
 enable_prefs_observer(CFRunLoopRef runloop)
 {
+#pragma unused(runloop)
     return;
 }
 
@@ -149,6 +151,9 @@ IPMonitorControlPrefsChanged(SCPreferencesRef prefs,
 			     SCPreferencesNotification type,
 			     void * info)
 {
+#pragma unused(prefs)
+#pragma unused(type)
+#pragma unused(info)
     prefs_changed(NULL);
     return;
 }

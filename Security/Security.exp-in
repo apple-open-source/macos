@@ -2,7 +2,7 @@
 
 #include "Security/SecExports.exp-in"
 #include "Security/SecAccessControlExports.exp-in"
-#include "SecureObjectSync/SOSExports.exp-in"
+#include "Security/SecureObjectSync/SOSExports.exp-in"
 
 #if TARGET_OS_OSX
 #include "CSSMOID.exp-in"
@@ -84,6 +84,8 @@ _SSLGetNPNData
 _SSLSetALPNData
 _SSLSetALPNFunc
 _SSLGetALPNData
+_SSLSetALPNProtocols
+_SSLCopyALPNProtocols
 _SSLCopyRequestedPeerName
 _SSLCopyRequestedPeerNameLength
 _SSLSetAllowAnonymousCiphers
@@ -111,6 +113,9 @@ _SSLWrite
 _SSLSetDHEEnabled
 _SSLGetDHEEnabled
 _SSLSetSessionConfig
+_SSLSetSessionTicketsEnabled
+_SSLSetError
+_SSLSetOCSPResponse
 
 _kSSLSessionConfig_default
 _kSSLSessionConfig_ATSv1
@@ -262,6 +267,9 @@ _SSLGetMinimumDHGroupSize
 _SSLSetDHEEnabled
 _SSLGetDHEEnabled
 _SSLSetSessionConfig
+_SSLSetSessionTicketsEnabled
+_SSLSetError
+_SSLSetOCSPResponse
 
 _kSSLSessionConfig_default
 _kSSLSessionConfig_ATSv1
@@ -289,8 +297,17 @@ _kSSLSessionConfig_anonymous
 
 _SecAbsoluteTimeFromDateContent
 
-#if TARGET_OS_IPHONE
+/* Internal securityd RPC stuff for tests */
+_OBJC_CLASS_$_SecuritydXPCClient
 _SecAccessGroupsGetCurrent
+_SecAccessGroupsSetCurrent
+_SecSecurityClientGet
+_securityd_create_message
+_securityd_message_with_reply_sync
+_securityd_message_no_error
+_securityd_send_sync_and_do
+#if TARGET_OS_IOS
+_SecSecuritySetMusrMode
 #endif
 
 _SecDERItemCopyOIDDecimalRepresentation
@@ -414,6 +431,7 @@ _AuthorizationExecuteWithPrivilegesExternalForm
 _AuthorizationFree
 _AuthorizationFreeItemSet
 _AuthorizationMakeExternalForm
+_AuthorizationPreauthorizeCredentials
 _AuthorizationRightGet
 _AuthorizationRightRemove
 _AuthorizationRightSet
@@ -780,7 +798,6 @@ _SecAccessGetTypeID
 _SecCopyErrorMessageString
 _SecCreateRecoveryPassword
 _SecDigestGetData
-_SecDistinguishedNameCopyNormalizedContent
 _SecFDERecoveryUnwrapCRSKWithPrivKey
 _SecFDERecoveryWrapCRSKWithPubKey
 _SecGenericPasswordCreate
@@ -804,7 +821,7 @@ _SecIdentityUpdatePreferenceItem
 _SecInferLabelFromX509Name
 _SecItemAdd_ios
 _SecItemCopyMatching_ios
-_SecItemCopyParentCertificates
+_SecItemCopyParentCertificates_osx
 _SecItemCopyStoredCertificate
 #if TARGET_OS_OSX
 _SecItemCreateFromAttributeDictionary_osx
@@ -957,6 +974,8 @@ _kSecACLAuthorizationKeychainItemModify
 _kSecACLAuthorizationKeychainItemRead
 _kSecACLAuthorizationLogin
 _kSecACLAuthorizationMAC
+_kSecACLAuthorizationChangeACL
+_kSecACLAuthorizationChangeOwner
 _kSecACLAuthorizationPartitionID
 _kSecACLAuthorizationSign
 
@@ -1641,15 +1660,33 @@ _secLogDisable
 #endif
 
 _secLogObjForScope
-_logObjForScope
+_secLogObjForCFScope
 
 //
 // Recovery Key
 //
 
+_kSecRVSalt
+_kSecRVIterations
+_kSecRVProtocol
+_kSecRVVerifier
+_kSecRVMasterID
+
 _SecRKCreateRecoveryKey
+_SecRKCreateRecoveryKeyWithError
 _SecRKCopyAccountRecoveryPassword
+_SecRKCopyAccountRecoveryVerifier
 _SecRKCopyBackupPublicKey
 _SecRKCopyBackupFullKey
 _SecRKRegisterBackupPublicKey
 _SecRKCreateRecoveryKeyString
+
+//
+// Analytics
+//
+
+.objc_class_name_SFSQLite
+.objc_class_name_SFAnalyticsLogger
+
+// Padding
+_SecPaddingCompute

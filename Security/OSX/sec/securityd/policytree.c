@@ -138,12 +138,14 @@ bool policy_tree_walk_depth(policy_tree_t root, int depth,
                required depth yet, we go depth first and proccess it. */
             stack[++stack_ix] = child;
         } else {
+            /* Get the sibling now in case we delete the node in the callback */
+            policy_tree_t sibling = node->siblings;
             if (stack_ix == depth) {
                 /* Proccess node. */
                 match |= callback(node, ctx);
             }
+
             /* Move on to sibling of node. */
-            policy_tree_t sibling = node->siblings;
             if (sibling) {
                 /* Replace current node with it's sibling. */
                 stack[stack_ix] = sibling;

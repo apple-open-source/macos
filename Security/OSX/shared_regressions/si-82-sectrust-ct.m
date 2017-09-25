@@ -81,6 +81,7 @@ static void test_ct_trust(CFArrayRef certs, CFArrayRef scts, CFTypeRef ocsprespo
     ok((isCFTrue(ct) == ct_expected), "unexpected CT result (%s)", test_name);
     ok((isCFTrue(ev) == ev_expected), "unexpected EV result (%s)", test_name);
     ok((isCFTrue(ct_whitelist) == ct_whitelist_expected), "unexpected CT WhiteList result (%s)", test_name);
+    /* Note that the CT whitelist has been removed due to the expiration of all contents. */
 
 #ifdef PRINT_SECTRUST_EVALUATE_TIME
     printf("%s: %lu\n", test_name, t1);
@@ -207,12 +208,12 @@ static void tests()
     CFReleaseNull(certs);
     CFReleaseNull(scts);
 
-    /* case 3: digicert : 2 embedded SCTs, but lifetime of cert is 24 month, so not CT qualified, but is whitelisted */
+    /* case 3: digicert : 2 embedded SCTs, but lifetime of cert is 24 month, so not CT qualified */
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, www_digicert_com_2015_cert);
     CFArrayAppendValue(certs, digicert_sha2_ev_server_ca);
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.digicert.com"), date_20150307,
-                  false, true, true, "digicert 2015");
+                  false, false, false, "digicert 2015");
     CFReleaseNull(certs);
 
     /* case 4: paypal.com cert - not CT, but EV */
@@ -220,7 +221,7 @@ static void tests()
     CFArrayAppendValue(certs, www_paypal_com_cert);
     CFArrayAppendValue(certs, www_paypal_com_issuer_cert);
     test_ct_trust(certs, NULL, NULL, NULL, trustedLogs, CFSTR("www.paypal.com"), date_20150307,
-                  false, true, false, "paypal");
+                  false, false, false, "paypal");
     CFReleaseNull(certs);
 
     /* Case 5: coreos-ct-test standalone SCT -  2 SCTs - CT qualified  */
@@ -270,7 +271,7 @@ static void tests()
     CFArrayAppendValue(certs, pilot_cert_3055998);
     CFArrayAppendValue(certs, pilot_cert_3055998_issuer);
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.ssbwingate.com"), date_20150307,
-                  false, true, false, "previously whitelisted cert");
+                  false, false, false, "previously whitelisted cert");
     CFReleaseNull(certs);
 
     /* Case 10-13: WhiteListed EV cert */
@@ -278,28 +279,28 @@ static void tests()
     CFArrayAppendValue(certs, whitelist_00008013);
     CFArrayAppendValue(certs, whitelist_00008013_issuer);
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("clava.com"), date_20150307,
-                  false, true, true, "whitelisted cert 00008013");
+                  false, false, false, "whitelisted cert 00008013");
     CFReleaseNull(certs);
 
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, whitelist_5555bc4f);
     CFArrayAppendValue(certs, whitelist_5555bc4f_issuer);
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("lanai.dartmouth.edu"),
-                  date_20150307, false, true, true, "whitelisted cert 5555bc4f");
+                  date_20150307, false, false, false, "whitelisted cert 5555bc4f");
     CFReleaseNull(certs);
 
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, whitelist_aaaae152);
     CFArrayAppendValue(certs, whitelist_5555bc4f_issuer); // Same issuer (Go Daddy) as above
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.falymusic.com"),
-                  date_20150307, false, true, true, "whitelisted cert aaaae152");
+                  date_20150307, false, false, false, "whitelisted cert aaaae152");
     CFReleaseNull(certs);
 
     isnt(certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks), NULL, "create cert array");
     CFArrayAppendValue(certs, whitelist_fff9b5f6);
     CFArrayAppendValue(certs, whitelist_fff9b5f6_issuer);
     test_ct_trust(certs, NULL, NULL, NULL, NULL, CFSTR("www.defencehealth.com.au"),
-                  date_20150307, false, true, true, "whitelisted cert fff9b5f6");
+                  date_20150307, false, false, false, "whitelisted cert fff9b5f6");
     CFReleaseNull(certs);
 
 

@@ -89,8 +89,10 @@ try_generic_setup(crcInfoPtr crc)
 static inline uint64_t
 try_generic_update(crcInfoPtr crc, size_t len, const void *in, uint64_t current)
 {
-    if(crc->descriptor->def.parms.reflect_reverse) return crc_reverse_update(crc, (uint8_t *) in, len, current);
-    else return crc_normal_update(crc, (uint8_t *) in, len, current);
+    if(crc->descriptor->def.parms.reflect_reverse)
+        return crc_reverse_update(crc, (uint8_t *) in, len, current);
+    else
+        return crc_normal_update(crc, (uint8_t *) in, len, current);
 }
 
 static inline uint64_t

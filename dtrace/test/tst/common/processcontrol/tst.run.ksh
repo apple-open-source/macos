@@ -5,16 +5,11 @@ dtrace=/usr/sbin/dtrace
 # ASSERTION:
 #	To verify that a binary launched with dtrace -c with the default options
 #	is controlled and can start tracing correctly.
-#
-#	This relies on the /usr/bin/true being on the file system and the binary
-#	calling some form of "exit" function.
-
-
 
 script()
 {
-	$dtrace -xnolibs -c /usr/bin/true -qs /dev/stdin <<EOF
-	pid\$target::*exit*:entry
+	$dtrace -xnolibs -c ./tst.has_initializers.exe -qs /dev/stdin <<EOF
+	pid\$target::main_binary_function:entry
 	{
 		trace("Called");
 		exit(0);

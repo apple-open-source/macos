@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #--
 # Copyright 2006 by Chad Fowler, Rich Kilmer, Jim Weirich and others.
 # All rights reserved.
@@ -25,6 +26,9 @@ module Gem::InstallUpdateOptions
     # TODO: use @parser.accept
     OptionParser.accept Gem::Security::Policy do |value|
       require 'rubygems/security'
+
+      raise OptionParser::InvalidArgument, 'OpenSSL not installed' unless
+        defined?(Gem::Security::HighSecurity)
 
       value = Gem::Security::Policies[value]
       valid = Gem::Security::Policies.keys.sort
@@ -54,6 +58,23 @@ module Gem::InstallUpdateOptions
                            when false then []
                            else            value
                            end
+    end
+
+    add_option(:"Install/Update", '--build-root DIR',
+               'Temporary installation root. Useful for building',
+               'packages. Do not use this when installing remote gems.') do |value, options|
+      options[:build_root] = File.expand_path(value)
+    end
+
+    add_option(:"Install/Update", '--vendor',
+               'Install gem into the vendor directory.',
+               'Only for use by gem repackagers.') do |value, options|
+      unless Gem.vendor_dir then
+        raise OptionParser::InvalidOption.new 'your platform is not supported'
+      end
+
+      options[:vendor] = true
+      options[:install_dir] = Gem.vendor_dir
     end
 
     add_option(:"Install/Update", '-N', '--no-document',
@@ -152,6 +173,11 @@ module Gem::InstallUpdateOptions
                 "Don't upgrade any dependencies that already",
                 "meet version requirements") do |value, options|
       options[:minimal_deps] = true
+    end
+
+    add_option(:"Install/Update", "--[no-]post-install-message",
+                "Print post install message") do |value, options|
+      options[:post_install_message] = value
     end
   end
 

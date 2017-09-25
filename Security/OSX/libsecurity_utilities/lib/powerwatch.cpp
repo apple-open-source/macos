@@ -28,6 +28,7 @@
 #include "powerwatch.h"
 #include <IOKit/IOMessage.h>
 
+#if TARGET_OS_OSX
 
 namespace Security {
 namespace MachPlusPlus {
@@ -252,3 +253,5 @@ boolean_t PortPowerWatcher::handle(mach_msg_header_t *in)
 } // end namespace MachPlusPlus
 
 } // end namespace Security
+
+#endif //TARGET_OS_OSX

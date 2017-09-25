@@ -4,6 +4,52 @@ CHANGES FROM PREVIOUS VERSIONS OF ZSH
 
 Note also the list of incompatibilities in the README file.
 
+Changes from 5.2 to 5.3
+-----------------------
+
+It is possible to enable character width support for Unicode 9 by
+configuring with `--enable-unicode9'; this compiles in some additional
+tables.  At some point this support may move into a module, in which
+case the configure option will be changed to cause the module to be
+permanently loaded.  This option is not useful unless your terminal also
+supports Unicode 9.
+
+The new word modifier ':P' computes the physical path of the argument.
+It is different from the existing ':a' modifier which always resolves
+'/before/here/../after' to '/before/after', and differs from the
+existing ':A' modifier which resolves symlinks only after 'here/..' is
+removed, even when /before/here is itself a symbolic link.  It is
+recommended to review uses of ':A' and, if appropriate, convert them
+to ':P' as soon as compatibility with 5.2 is no longer a requirement.
+
+The output of "typeset -p" uses "export" commands or the "-g" option
+for parameters that are not local to the current scope.  Previously,
+all output was in the form of "typeset" commands, never using "-g".
+
+vi-repeat-change can repeat user-defined widgets if the widget calls
+zle -f vichange.
+
+The parameter $registers now makes the contents of vi register buffers
+available to user-defined widgets.
+
+New vi-up-case and vi-down-case builtin widgets bound to gU/gu (or U/u
+in visual mode) for doing case conversion.
+
+A new select-word-match function provides vim-style text objects with
+configurable word boundaries using the existing match-words-by-style
+mechanism.
+
+Support for the conditional expression [[ -v var ]] to test if a
+variable is set for compatibility with other shells.
+
+The print and printf builtins have a new option -v to assign the output
+to a variable. This is for bash compatibility but with the additional
+feature that, for an array, a separate element is used each time the
+format is reused.
+
+New x: syntax in completion match specifications make it possible to
+disable match specifications hardcoded in completion functions.
+
 Changes from 5.1.1 to 5.2
 -------------------------
 
@@ -33,6 +79,13 @@ name has the suffix ".c".
 The effect of the WARN_CREATE_GLOBAL option has been significantly
 extended, so expect it to cause additional warning messages about
 parameters created globally within function scope.
+
+Paste highlighting (added in 5.1) is now enabled by default to signal
+that accept-line hasn't occurred.  Paste highlighting may be disabled
+via
+  zle_highlight+=(paste:none)
+.  Disabling paste highlighting will retain the "bracketed paste"
+behaviour, unless that is separately disabled via zle_bracketed_paste.
 
 Changes from 5.1 to 5.1.1
 -------------------------

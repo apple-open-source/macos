@@ -99,11 +99,11 @@ public:
     virtual bool initWithTask(	task_t			owningTask,
                                 void *			securityID,
                                 UInt32			type,
-                                OSDictionary *	properties );
-    virtual bool start( IOService * provider );
-    virtual IOReturn clientClose( void );
-    virtual IOReturn clientDied( void );
-    virtual IOReturn setProperties( OSObject * properties );
+                                OSDictionary *	properties ) APPLE_KEXT_OVERRIDE;
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn clientDied( void ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 };
 
 //------------------------------------------------------------------------------

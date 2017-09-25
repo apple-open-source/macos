@@ -801,53 +801,62 @@ readDosDirSection(f, boot, dir)
 				}
 				lidx = *p & LRNOMASK;
                 
-                /*
-                 * Gather the characters from this long name entry
-                 */
-				t = longName + --lidx * 13;
-				for (k = 1; k < 11 && t < longName + sizeof(longName); k += 2) {
-					if (!p[k] && !p[k + 1])
-						break;
-					*t++ = p[k];
-					/*
-					 * Warn about those unusable chars in msdosfs here?	XXX
-					 */
-					if (p[k + 1])
-						t[-1] = '?';
-				}
-				if (k >= 11)
-					for (k = 14; k < 26 && t < longName + sizeof(longName); k += 2) {
-						if (!p[k] && !p[k + 1])
-							break;
-						*t++ = p[k];
-						if (p[k + 1])
-							t[-1] = '?';
-					}
-				if (k >= 26)
-					for (k = 28; k < 32 && t < longName + sizeof(longName); k += 2) {
-						if (!p[k] && !p[k + 1])
-							break;
-						*t++ = p[k];
-						if (p[k + 1])
-							t[-1] = '?';
-					}
-                
-				if (t >= longName + sizeof(longName)) {
-					pwarn("long filename too long\n");
-					if (!invlfn) {
-						invlfn = vallfn;
-						invcl = valcl;
-					}
-					vallfn = NULL;
-				}
-				if (p[26] | (p[27] << 8)) {
-					pwarn("long filename record cluster start != 0\n");
-					if (!invlfn) {
-						invlfn = vallfn;
-						invcl = cl;
-					}
-					vallfn = NULL;
-				}
+                if (lidx < 1) {
+                    pwarn("long file name is not available\n");
+                    if (!invlfn) {
+                        invlfn = vallfn;
+                        invcl = valcl;
+                    }
+                    vallfn = NULL;
+                } else {
+                    /*
+                     * Gather the characters from this long name entry
+                     */
+                    t = longName + --lidx * 13;
+                    for (k = 1; k < 11 && t < longName + sizeof(longName); k += 2) {
+                        if (!p[k] && !p[k + 1])
+                            break;
+                        *t++ = p[k];
+                        /*
+                         * Warn about those unusable chars in msdosfs here?    XXX
+                         */
+                        if (p[k + 1])
+                            t[-1] = '?';
+                    }
+                    if (k >= 11)
+                        for (k = 14; k < 26 && t < longName + sizeof(longName); k += 2) {
+                            if (!p[k] && !p[k + 1])
+                                break;
+                            *t++ = p[k];
+                            if (p[k + 1])
+                                t[-1] = '?';
+                        }
+                    if (k >= 26)
+                        for (k = 28; k < 32 && t < longName + sizeof(longName); k += 2) {
+                            if (!p[k] && !p[k + 1])
+                                break;
+                            *t++ = p[k];
+                            if (p[k + 1])
+                                t[-1] = '?';
+                        }
+                    
+                    if (t >= longName + sizeof(longName)) {
+                        pwarn("long filename too long\n");
+                        if (!invlfn) {
+                            invlfn = vallfn;
+                            invcl = valcl;
+                        }
+                        vallfn = NULL;
+                    }
+                    if (p[26] | (p[27] << 8)) {
+                        pwarn("long filename record cluster start != 0\n");
+                        if (!invlfn) {
+                            invlfn = vallfn;
+                            invcl = cl;
+                        }
+                        vallfn = NULL;
+                    }
+                }
 				continue;	/* long records don't carry further
 						 * information */
 			}
@@ -870,10 +879,8 @@ readDosDirSection(f, boot, dir)
 			for (j = 0; j < 8; j++)
 				dirent.name[j] = p[j];
 			dirent.name[8] = '\0';
-			for (k = 7; k >= 0 && dirent.name[k] == ' '; k--)
-				dirent.name[k] = '\0';
-			if (dirent.name[k] != '\0')
-				k++;
+			for (k = 8; k > 0 && dirent.name[k - 1] == ' '; k--)
+				dirent.name[k - 1] = '\0';
 			if (dirent.name[0] == SLOT_E5)
 				dirent.name[0] = 0xe5;
 

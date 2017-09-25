@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'win32ole'
 
 application = WIN32OLE.new('Excel.Application')
@@ -27,7 +28,10 @@ range.Select
 chart = workbook.Charts.Add;
 
 workbook.saved = TRUE;
-sleep 0.5
+
+print "Now quit Excel... Please enter."
+gets
+
 application.ActiveWorkbook.Close(0);
 application.Quit();
 

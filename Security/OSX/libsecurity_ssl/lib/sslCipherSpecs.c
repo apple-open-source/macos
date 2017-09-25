@@ -45,9 +45,12 @@
 /* SecureTransport needs it's own copy of KnownCipherSuites for now, there is a copy in coreTLS,
    that is exported, but it actually should only included the "default" not the supported */
 
-#define ENABLE_ECDH      		1
-#define ENABLE_AES_GCM          1
-#define ENABLE_PSK              1
+#define ENABLE_ECDH                 1
+#define ENABLE_AES_GCM              1
+#define ENABLE_PSK                  1
+#define ENABLE_CHACHA20_POLY1305    1
+#define ENABLE_AES_CCM              0
+
 
 static const uint16_t STKnownCipherSuites[] = {
 #if ENABLE_AES_GCM
@@ -118,6 +121,18 @@ static const uint16_t STKnownCipherSuites[] = {
     SSL_RSA_WITH_RC4_128_MD5,
 #endif
 
+    /* TLS 1.3 ciphersuites */
+#if ENABLE_AES_GCM
+    TLS_AES_128_GCM_SHA256,
+    TLS_AES_256_GCM_SHA384,
+#endif
+#if ENABLE_CHACHA20_POLY1305
+    TLS_CHACHA20_POLY1305_SHA256,
+#endif
+#if ENABLE_AES_CCM
+    TLS_AES_128_CCM_SHA256,
+    TLS_AES_128_CCM_8_SHA256,
+#endif
 
     /* Unsafe ciphersuites */
 
@@ -236,26 +251,48 @@ SSLSetEnabledCiphers		(SSLContextRef			ctx,
 	if((ctx == NULL) || (ciphers == NULL) || (numCiphers == 0)) {
 		return errSecParam;
 	}
+
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
 		return errSecBadReq;
 	}
 
-    cs = (uint16_t *)sslMalloc(numCiphers * sizeof(uint16_t));
+    int matchCount = 0;
+    for(int i=0; i<numCiphers; i++) {
+        for (int j=0; j < STCipherSuiteCount; j++) {
+            if (STKnownCipherSuites[j] == ciphers[i]) {
+                matchCount++;
+                break;
+            }
+        }
+    }
+
+    // If the caller specified no ciphersuites that we actually support, return an error code.
+    if (matchCount == 0) {
+        return errSecParam;
+    }
+
+    cs = (uint16_t *)sslMalloc(matchCount * sizeof(uint16_t));
     if(cs == NULL) {
 		return errSecAllocate;
 	}
 
-    for(int i=0; i<numCiphers; i++)
-    {
-        cs[i] = ciphers[i];
-	}
+    matchCount = 0;
+    for(int i=0; i<numCiphers; i++) {
+        for (int j=0; j < STCipherSuiteCount; j++) {
+            if (STKnownCipherSuites[j] == ciphers[i]) {
+                cs[matchCount++] = ciphers[i];
+                break;
+            }
+        }
+    }
 
-    tls_handshake_set_ciphersuites(ctx->hdsk, cs, (unsigned) numCiphers);
+
+    OSStatus result = tls_handshake_set_ciphersuites(ctx->hdsk, cs, (unsigned) matchCount);
 
     sslFree(cs);
 
-    return errSecSuccess;
+    return result;
 }
 
 /*
@@ -309,4 +346,15 @@ SSLGetEnabledCiphers		(SSLContextRef			ctx,
                                           ciphers,
                                           numCiphers);
     }
+}
+
+OSStatus
+SSLSetSessionTicketsEnabled     (SSLContextRef          context,
+                                 Boolean                enabled)
+{
+    if (context == NULL) {
+        return errSecParam;
+    }
+
+    return tls_handshake_set_session_ticket_enabled(context->hdsk, enabled);
 }

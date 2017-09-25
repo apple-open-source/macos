@@ -61,13 +61,15 @@ private:
     dispatch_queue_t    _queue;
     Event *             _headEvent;
     
+    void                timeoutHandler();
+    
 public:
     Timer();
     void                init(dispatch_queue_t q);
     void               	cancel(dispatch_queue_t q); 
     void                setQueue(dispatch_queue_t q) { _queue = q; };
     void                registerEventTimeout(Event * event, UInt64 deadline);
-    void                callTimeoutHandlers();
+    void                checkEventTimeouts();
     void                removeEvent(Event * event);
     void                insertEvent(Event * event);
     void                updateTimeout();
@@ -116,10 +118,8 @@ public:
     void                setThirdEventTimeout(UInt64 timeout) { _thirdEventTimeout = timeout; };
     void                setLongPressTimeout(UInt64 timeout) { _longPressTimeout = timeout; };
     
-    void                dispatchEvent(IOHIDEventRef event);
+    void                dispatchEvent(IOHIDEventRef event, bool async);
     void                completed();
-    
-    bool                assignTerminalEventOnTimeout(UInt64 timeout, IOHIDEventRef &terminalEvent);
     
     void                setNextTimeout(UInt64 timeout) { _nextTimeout = timeout; };
     
@@ -198,7 +198,7 @@ public:
     void open(IOHIDServiceRef service, IOOptionBits options);
     CFTypeRef copyPropertyForClient(CFStringRef key, CFTypeRef client);
     void setPropertyForClient(CFStringRef key, CFTypeRef property, CFTypeRef client);
-    void dispatchEvent(IOHIDEventRef event);
+    void dispatchEvent(IOHIDEventRef event, bool async);
     void returnToFreePool(Event * event);
 
 private:
@@ -206,6 +206,7 @@ private:
     IOHIDServiceFilterPlugInInterface *_serviceInterface;
     CFUUIDRef                   _factoryID;
     UInt32                      _refCount;
+    SInt32                      _matchScore;
 
     dispatch_queue_t            _queue;
     IOHIDServiceRef             _service;

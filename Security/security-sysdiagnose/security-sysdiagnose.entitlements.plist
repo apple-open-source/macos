@@ -2,7 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.hap.pairing</string>
+		<string>com.apple.hap.metadata</string>
+		<string>com.apple.continuity.unlock</string>
+	</array>
 	<key>keychain-cloud-circle</key>
+	<true/>
+	<key>com.apple.private.ckks</key>
 	<true/>
 </dict>
 </plist>

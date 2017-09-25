@@ -9,27 +9,28 @@
 #define _SPARSE_H
 
 struct subregion {
-    mach_vm_offset_t s_address;
-    mach_vm_offset_t s_size;
+	struct vm_range s_range;
     native_segment_command_t s_segcmd;
     const struct libent *s_libent;
-    bool s_isfileref;
+    bool s_isuuidref;
 };
 
+#define S_RANGE(s)	(&(s)->s_range)
+
 static __inline void S_SETADDR(struct subregion *s, mach_vm_offset_t a) {
-    s->s_address = a;
+    V_SETADDR(S_RANGE(s), a);
 }
 
 static __inline void S_SETSIZE(struct subregion *s, mach_vm_offset_t sz) {
-    s->s_size = sz;
+    V_SETSIZE(S_RANGE(s), sz);
 }
 
 static __inline const mach_vm_offset_t S_ADDR(const struct subregion *s) {
-    return s->s_address;
+    return V_ADDR(S_RANGE(s));
 }
 
 static __inline const mach_vm_offset_t S_SIZE(const struct subregion *s) {
-    return s->s_size;
+    return V_SIZE(S_RANGE(s));
 }
 
 static __inline const mach_vm_offset_t S_ENDADDR(const struct subregion *s) {

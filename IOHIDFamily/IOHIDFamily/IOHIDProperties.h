@@ -121,4 +121,11 @@
  */
 #define kIOHIDServiceKeyRepeatDelayKey              "HIDKeyRepeat"
 
+/*!
+ * @define      kIOHIDIdleTimeMicrosecondsKey
+ *
+ * @abstract    CFNumber containing the HID idle time in microseconds.
+ */
+#define kIOHIDIdleTimeMicrosecondsKey               "HIDIdleTimeMicroseconds"
+
 #endif /* IOHIDProperties_h */

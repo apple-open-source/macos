@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include "ArgList.h"
 #include "ArrayConventions.h"
 #include "ArrayStorage.h"
 #include "AuxiliaryBarrier.h"
@@ -30,17 +29,15 @@
 #include "CPU.h"
 #include "CallFrame.h"
 #include "ClassInfo.h"
-#include "CommonIdentifiers.h"
 #include "CustomGetterSetter.h"
-#include "DeferGC.h"
 #include "Heap.h"
 #include "IndexingHeaderInlines.h"
 #include "JSCell.h"
+#include "ObjectInitializationScope.h"
 #include "PropertySlot.h"
 #include "PropertyStorage.h"
 #include "PutDirectIndexMode.h"
 #include "PutPropertySlot.h"
-#include "RuntimeType.h"
 #include "Structure.h"
 #include "VM.h"
 #include "JSString.h"
@@ -189,7 +186,7 @@ public:
         return m_butterfly.get()->vectorLength();
     }
     
-    static bool putInline(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    static bool putInlineForJSObject(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     
     JS_EXPORT_PRIVATE static bool put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     // putByIndex assumes that the receiver is this JSCell object.
@@ -427,15 +424,16 @@ public:
         }
     }
 
-    void initializeIndex(VM& vm, unsigned i, JSValue v)
+    void initializeIndex(ObjectInitializationScope& scope, unsigned i, JSValue v)
     {
-        initializeIndex(vm, i, v, indexingType());
+        initializeIndex(scope, i, v, indexingType());
     }
 
     // NOTE: Clients of this method may call it more than once for any index, and this is supposed
     // to work.
-    ALWAYS_INLINE void initializeIndex(VM& vm, unsigned i, JSValue v, IndexingType indexingType)
+    ALWAYS_INLINE void initializeIndex(ObjectInitializationScope& scope, unsigned i, JSValue v, IndexingType indexingType)
     {
+        VM& vm = scope.vm();
         Butterfly* butterfly = m_butterfly.get();
         switch (indexingType) {
         case ALL_UNDECIDED_INDEXING_TYPES: {
@@ -484,14 +482,14 @@ public:
         }
     }
         
-    void initializeIndexWithoutBarrier(unsigned i, JSValue v)
+    void initializeIndexWithoutBarrier(ObjectInitializationScope& scope, unsigned i, JSValue v)
     {
-        initializeIndexWithoutBarrier(i, v, indexingType());
+        initializeIndexWithoutBarrier(scope, i, v, indexingType());
     }
 
     // This version of initializeIndex is for cases where you know that you will not need any
     // barriers. This implies not having any data format conversions.
-    ALWAYS_INLINE void initializeIndexWithoutBarrier(unsigned i, JSValue v, IndexingType indexingType)
+    ALWAYS_INLINE void initializeIndexWithoutBarrier(ObjectInitializationScope&, unsigned i, JSValue v, IndexingType indexingType)
     {
         Butterfly* butterfly = m_butterfly.get();
         switch (indexingType) {
@@ -671,7 +669,7 @@ public:
         
     const Butterfly* butterfly() const { return m_butterfly.get(); }
     Butterfly* butterfly() { return m_butterfly.get(); }
-        
+    
     ConstPropertyStorage outOfLineStorage() const { return m_butterfly.get()->propertyStorage(); }
     PropertyStorage outOfLineStorage() { return m_butterfly.get()->propertyStorage(); }
 
@@ -712,9 +710,10 @@ public:
     JS_EXPORT_PRIVATE bool putDirectNativeIntrinsicGetter(VM&, JSGlobalObject*, Identifier, NativeFunction, Intrinsic, unsigned attributes);
     JS_EXPORT_PRIVATE bool putDirectNativeFunction(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, unsigned attributes);
     JS_EXPORT_PRIVATE bool putDirectNativeFunction(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, const DOMJIT::Signature*, unsigned attributes);
+    JS_EXPORT_PRIVATE void putDirectNativeFunctionWithoutTransition(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, unsigned attributes);
+
     JS_EXPORT_PRIVATE JSFunction* putDirectBuiltinFunction(VM&, JSGlobalObject*, const PropertyName&, FunctionExecutable*, unsigned attributes);
     JSFunction* putDirectBuiltinFunctionWithoutTransition(VM&, JSGlobalObject*, const PropertyName&, FunctionExecutable*, unsigned attributes);
-    JS_EXPORT_PRIVATE void putDirectNativeFunctionWithoutTransition(VM&, JSGlobalObject*, const PropertyName&, unsigned functionLength, NativeFunction, Intrinsic, unsigned attributes);
 
     JS_EXPORT_PRIVATE static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
 
@@ -865,10 +864,10 @@ protected:
     void finishCreation(VM& vm)
     {
         Base::finishCreation(vm);
-        ASSERT(inherits(info()));
+        ASSERT(inherits(vm, info()));
         ASSERT(getPrototypeDirect().isNull() || Heap::heap(this) == Heap::heap(getPrototypeDirect()));
         ASSERT(structure()->isObject());
-        ASSERT(classInfo());
+        ASSERT(classInfo(vm));
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -964,7 +963,7 @@ protected:
     // the array is contiguous.
     bool WARN_UNUSED_RETURN ensureLength(VM& vm, unsigned length)
     {
-        ASSERT(length < MAX_ARRAY_INDEX);
+        ASSERT(length <= MAX_STORAGE_VECTOR_LENGTH);
         ASSERT(hasContiguous(indexingType()) || hasInt32(indexingType()) || hasDouble(indexingType()) || hasUndecided(indexingType()));
 
         if (m_butterfly.get()->vectorLength() < length) {
@@ -1014,7 +1013,7 @@ private:
     void fillCustomGetterPropertySlot(PropertySlot&, JSValue, unsigned, Structure*);
 
     JS_EXPORT_PRIVATE bool getOwnStaticPropertySlot(VM&, PropertyName, PropertySlot&);
-    JS_EXPORT_PRIVATE const HashTableValue* findPropertyHashEntry(PropertyName) const;
+    JS_EXPORT_PRIVATE const HashTableValue* findPropertyHashEntry(VM&, PropertyName) const;
         
     bool putIndexedDescriptor(ExecState*, SparseArrayEntry*, const PropertyDescriptor&, PropertyDescriptor& old);
         
@@ -1072,7 +1071,7 @@ protected:
     {
         Base::finishCreation(vm);
         ASSERT(!this->structure()->hasInlineStorage());
-        ASSERT(classInfo());
+        ASSERT(classInfo(vm));
     }
 };
 
@@ -1125,7 +1124,7 @@ protected:
     {
         Base::finishCreation(vm);
         ASSERT(structure()->totalStorageCapacity() == structure()->inlineCapacity());
-        ASSERT(classInfo());
+        ASSERT(classInfo(vm));
     }
 
 private:
@@ -1587,6 +1586,5 @@ JS_EXPORT_PRIVATE NEVER_INLINE bool ordinarySetSlow(ExecState*, JSObject*, Prope
 
 #define JSC_NATIVE_GETTER(jsName, cppName, attributes) \
     JSC_NATIVE_INTRINSIC_GETTER((jsName), (cppName), (attributes), NoIntrinsic)
-
 
 } // namespace JSC

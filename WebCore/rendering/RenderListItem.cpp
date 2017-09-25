@@ -38,6 +38,9 @@
 #include "RenderTable.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
+#if !ASSERT_DISABLED
+#include <wtf/SetForScope.h>
+#endif
 #include <wtf/StackStats.h>
 #include <wtf/StdLibExtras.h>
 
@@ -57,11 +60,16 @@ RenderListItem::RenderListItem(Element& element, RenderStyle&& style)
 
 RenderListItem::~RenderListItem()
 {
-    ASSERT(!m_marker || !m_marker->parent());
+    // Do not add any code here. Add it to willBeDestroyed() instead.
+}
+
+void RenderListItem::willBeDestroyed()
+{
     if (m_marker) {
         m_marker->destroy();
         ASSERT(!m_marker);
     }
+    RenderBlockFlow::willBeDestroyed();
 }
 
 void RenderListItem::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -317,6 +325,9 @@ void RenderListItem::layout()
     ASSERT(needsLayout()); 
 
     insertOrMoveMarkerRendererIfNeeded();
+#if !ASSERT_DISABLED
+    SetForScope<bool> inListItemLayout(m_inLayout, true);
+#endif
     RenderBlockFlow::layout();
 }
 
@@ -341,95 +352,97 @@ void RenderListItem::computePreferredLogicalWidths()
 
 void RenderListItem::positionListMarker()
 {
-    if (m_marker && m_marker->parent()->isBox() && !m_marker->isInside() && m_marker->inlineBoxWrapper()) {
-        LayoutUnit markerOldLogicalLeft = m_marker->logicalLeft();
-        LayoutUnit blockOffset = 0;
-        LayoutUnit lineOffset = 0;
-        for (RenderBox* o = m_marker->parentBox(); o != this; o = o->parentBox()) {
-            blockOffset += o->logicalTop();
-            lineOffset += o->logicalLeft();
-        }
+    if (!m_marker || !m_marker->parent() || !m_marker->parent()->isBox())
+        return;
 
-        bool adjustOverflow = false;
-        LayoutUnit markerLogicalLeft;
-        bool hitSelfPaintingLayer = false;
-        
-        const RootInlineBox& rootBox = m_marker->inlineBoxWrapper()->root();
-        LayoutUnit lineTop = rootBox.lineTop();
-        LayoutUnit lineBottom = rootBox.lineBottom();
+    if (m_marker->isInside() || !m_marker->inlineBoxWrapper())
+        return;
 
-        // FIXME: Need to account for relative positioning in the layout overflow.
-        if (style().isLeftToRightDirection()) {
-            LayoutUnit leftLineOffset = logicalLeftOffsetForLine(blockOffset, logicalLeftOffsetForLine(blockOffset, DoNotIndentText), false);
-            markerLogicalLeft = leftLineOffset - lineOffset - paddingStart() - borderStart() + m_marker->marginStart();
-            m_marker->inlineBoxWrapper()->adjustLineDirectionPosition(markerLogicalLeft - markerOldLogicalLeft);
-            for (InlineFlowBox* box = m_marker->inlineBoxWrapper()->parent(); box; box = box->parent()) {
-                LayoutRect newLogicalVisualOverflowRect = box->logicalVisualOverflowRect(lineTop, lineBottom);
-                LayoutRect newLogicalLayoutOverflowRect = box->logicalLayoutOverflowRect(lineTop, lineBottom);
-                if (markerLogicalLeft < newLogicalVisualOverflowRect.x() && !hitSelfPaintingLayer) {
-                    newLogicalVisualOverflowRect.setWidth(newLogicalVisualOverflowRect.maxX() - markerLogicalLeft);
-                    newLogicalVisualOverflowRect.setX(markerLogicalLeft);
-                    if (box == &rootBox)
-                        adjustOverflow = true;
-                }
-                if (markerLogicalLeft < newLogicalLayoutOverflowRect.x()) {
-                    newLogicalLayoutOverflowRect.setWidth(newLogicalLayoutOverflowRect.maxX() - markerLogicalLeft);
-                    newLogicalLayoutOverflowRect.setX(markerLogicalLeft);
-                    if (box == &rootBox)
-                        adjustOverflow = true;
-                }
-                box->setOverflowFromLogicalRects(newLogicalLayoutOverflowRect, newLogicalVisualOverflowRect, lineTop, lineBottom);
-                if (box->renderer().hasSelfPaintingLayer())
-                    hitSelfPaintingLayer = true;
+    LayoutUnit markerOldLogicalLeft = m_marker->logicalLeft();
+    LayoutUnit blockOffset = 0;
+    LayoutUnit lineOffset = 0;
+    for (RenderBox* o = m_marker->parentBox(); o != this; o = o->parentBox()) {
+        blockOffset += o->logicalTop();
+        lineOffset += o->logicalLeft();
+    }
+
+    bool adjustOverflow = false;
+    LayoutUnit markerLogicalLeft;
+    bool hitSelfPaintingLayer = false;
+
+    const RootInlineBox& rootBox = m_marker->inlineBoxWrapper()->root();
+    LayoutUnit lineTop = rootBox.lineTop();
+    LayoutUnit lineBottom = rootBox.lineBottom();
+
+    // FIXME: Need to account for relative positioning in the layout overflow.
+    if (style().isLeftToRightDirection()) {
+        markerLogicalLeft = m_marker->lineOffsetForListItem() - lineOffset - paddingStart() - borderStart() + m_marker->marginStart();
+        m_marker->inlineBoxWrapper()->adjustLineDirectionPosition(markerLogicalLeft - markerOldLogicalLeft);
+        for (InlineFlowBox* box = m_marker->inlineBoxWrapper()->parent(); box; box = box->parent()) {
+            LayoutRect newLogicalVisualOverflowRect = box->logicalVisualOverflowRect(lineTop, lineBottom);
+            LayoutRect newLogicalLayoutOverflowRect = box->logicalLayoutOverflowRect(lineTop, lineBottom);
+            if (markerLogicalLeft < newLogicalVisualOverflowRect.x() && !hitSelfPaintingLayer) {
+                newLogicalVisualOverflowRect.setWidth(newLogicalVisualOverflowRect.maxX() - markerLogicalLeft);
+                newLogicalVisualOverflowRect.setX(markerLogicalLeft);
+                if (box == &rootBox)
+                    adjustOverflow = true;
             }
-        } else {
-            LayoutUnit rightLineOffset = logicalRightOffsetForLine(blockOffset, logicalRightOffsetForLine(blockOffset, DoNotIndentText), false);
-            markerLogicalLeft = rightLineOffset - lineOffset + paddingStart() + borderStart() + m_marker->marginEnd();
-            m_marker->inlineBoxWrapper()->adjustLineDirectionPosition(markerLogicalLeft - markerOldLogicalLeft);
-            for (InlineFlowBox* box = m_marker->inlineBoxWrapper()->parent(); box; box = box->parent()) {
-                LayoutRect newLogicalVisualOverflowRect = box->logicalVisualOverflowRect(lineTop, lineBottom);
-                LayoutRect newLogicalLayoutOverflowRect = box->logicalLayoutOverflowRect(lineTop, lineBottom);
-                if (markerLogicalLeft + m_marker->logicalWidth() > newLogicalVisualOverflowRect.maxX() && !hitSelfPaintingLayer) {
-                    newLogicalVisualOverflowRect.setWidth(markerLogicalLeft + m_marker->logicalWidth() - newLogicalVisualOverflowRect.x());
-                    if (box == &rootBox)
-                        adjustOverflow = true;
-                }
-                if (markerLogicalLeft + m_marker->logicalWidth() > newLogicalLayoutOverflowRect.maxX()) {
-                    newLogicalLayoutOverflowRect.setWidth(markerLogicalLeft + m_marker->logicalWidth() - newLogicalLayoutOverflowRect.x());
-                    if (box == &rootBox)
-                        adjustOverflow = true;
-                }
-                box->setOverflowFromLogicalRects(newLogicalLayoutOverflowRect, newLogicalVisualOverflowRect, lineTop, lineBottom);
+            if (markerLogicalLeft < newLogicalLayoutOverflowRect.x()) {
+                newLogicalLayoutOverflowRect.setWidth(newLogicalLayoutOverflowRect.maxX() - markerLogicalLeft);
+                newLogicalLayoutOverflowRect.setX(markerLogicalLeft);
+                if (box == &rootBox)
+                    adjustOverflow = true;
+            }
+            box->setOverflowFromLogicalRects(newLogicalLayoutOverflowRect, newLogicalVisualOverflowRect, lineTop, lineBottom);
+            if (box->renderer().hasSelfPaintingLayer())
+                hitSelfPaintingLayer = true;
+        }
+    } else {
+        markerLogicalLeft = m_marker->lineOffsetForListItem() - lineOffset + paddingStart() + borderStart() + m_marker->marginEnd();
+        m_marker->inlineBoxWrapper()->adjustLineDirectionPosition(markerLogicalLeft - markerOldLogicalLeft);
+        for (InlineFlowBox* box = m_marker->inlineBoxWrapper()->parent(); box; box = box->parent()) {
+            LayoutRect newLogicalVisualOverflowRect = box->logicalVisualOverflowRect(lineTop, lineBottom);
+            LayoutRect newLogicalLayoutOverflowRect = box->logicalLayoutOverflowRect(lineTop, lineBottom);
+            if (markerLogicalLeft + m_marker->logicalWidth() > newLogicalVisualOverflowRect.maxX() && !hitSelfPaintingLayer) {
+                newLogicalVisualOverflowRect.setWidth(markerLogicalLeft + m_marker->logicalWidth() - newLogicalVisualOverflowRect.x());
+                if (box == &rootBox)
+                    adjustOverflow = true;
+            }
+            if (markerLogicalLeft + m_marker->logicalWidth() > newLogicalLayoutOverflowRect.maxX()) {
+                newLogicalLayoutOverflowRect.setWidth(markerLogicalLeft + m_marker->logicalWidth() - newLogicalLayoutOverflowRect.x());
+                if (box == &rootBox)
+                    adjustOverflow = true;
+            }
+            box->setOverflowFromLogicalRects(newLogicalLayoutOverflowRect, newLogicalVisualOverflowRect, lineTop, lineBottom);
                 
-                if (box->renderer().hasSelfPaintingLayer())
-                    hitSelfPaintingLayer = true;
-            }
+            if (box->renderer().hasSelfPaintingLayer())
+                hitSelfPaintingLayer = true;
         }
+    }
 
-        if (adjustOverflow) {
-            LayoutRect markerRect(markerLogicalLeft + lineOffset, blockOffset, m_marker->width(), m_marker->height());
-            if (!style().isHorizontalWritingMode())
-                markerRect = markerRect.transposedRect();
-            RenderBox* o = m_marker;
-            bool propagateVisualOverflow = true;
-            bool propagateLayoutOverflow = true;
-            do {
-                o = o->parentBox();
-                if (o->hasOverflowClip())
-                    propagateVisualOverflow = false;
-                if (is<RenderBlock>(*o)) {
-                    if (propagateVisualOverflow)
-                        downcast<RenderBlock>(*o).addVisualOverflow(markerRect);
-                    if (propagateLayoutOverflow)
-                        downcast<RenderBlock>(*o).addLayoutOverflow(markerRect);
-                }
-                if (o->hasOverflowClip())
-                    propagateLayoutOverflow = false;
-                if (o->hasSelfPaintingLayer())
-                    propagateVisualOverflow = false;
-                markerRect.moveBy(-o->location());
-            } while (o != this && propagateVisualOverflow && propagateLayoutOverflow);
-        }
+    if (adjustOverflow) {
+        LayoutRect markerRect(markerLogicalLeft + lineOffset, blockOffset, m_marker->width(), m_marker->height());
+        if (!style().isHorizontalWritingMode())
+            markerRect = markerRect.transposedRect();
+        RenderBox* o = m_marker;
+        bool propagateVisualOverflow = true;
+        bool propagateLayoutOverflow = true;
+        do {
+            o = o->parentBox();
+            if (o->hasOverflowClip())
+                propagateVisualOverflow = false;
+            if (is<RenderBlock>(*o)) {
+                if (propagateVisualOverflow)
+                    downcast<RenderBlock>(*o).addVisualOverflow(markerRect);
+                if (propagateLayoutOverflow)
+                    downcast<RenderBlock>(*o).addLayoutOverflow(markerRect);
+            }
+            if (o->hasOverflowClip())
+                propagateLayoutOverflow = false;
+            if (o->hasSelfPaintingLayer())
+                propagateVisualOverflow = false;
+            markerRect.moveBy(-o->location());
+        } while (o != this && propagateVisualOverflow && propagateLayoutOverflow);
     }
 }
 
@@ -445,7 +458,7 @@ const String& RenderListItem::markerText() const
 {
     if (m_marker)
         return m_marker->text();
-    return nullAtom.string();
+    return nullAtom().string();
 }
 
 String RenderListItem::markerTextWithSuffix() const

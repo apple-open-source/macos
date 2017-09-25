@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -80,9 +80,7 @@ static const struct {
 static CFIndex
 findCapability(CFStringRef capability)
 {
-	CFIndex		i;
-
-	for (i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
+	for (size_t i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
 		if (CFEqual(capability, *capabilityMappings[i].name)) {
 			return i;
 		}
@@ -152,7 +150,6 @@ __SCNetworkInterfaceCreateCapabilities(SCNetworkInterfaceRef	interface,
 {
 	int		cap_available	= 0;
 	int		cap_current	= capability_base;
-	CFIndex		i;
 	CFStringRef	interfaceName;
 
 	if (!isA_SCNetworkInterface(interface)) {
@@ -180,7 +177,7 @@ __SCNetworkInterfaceCreateCapabilities(SCNetworkInterfaceRef	interface,
 		goto done;
 	}
 
-	for (i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
+	for (size_t i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
 		int		cap_val;
 		CFTypeRef	val;
 
@@ -216,7 +213,6 @@ SCNetworkInterfaceCopyCapability(SCNetworkInterfaceRef	interface,
 	int		cap_current	= 0;
 	int		cap_available	= 0;
 	int		cap_val;
-	CFIndex		i;
 	CFStringRef	interfaceName;
 	CFTypeRef	val		= NULL;
 
@@ -239,7 +235,7 @@ SCNetworkInterfaceCopyCapability(SCNetworkInterfaceRef	interface,
 		CFMutableDictionaryRef	all	= NULL;
 
 		// if ALL capabilities requested
-		for (i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
+		for (size_t i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
 			if ((cap_available & capabilityMappings[i].val) == capabilityMappings[i].val) {
 				if (all == NULL) {
 					all = CFDictionaryCreateMutable(NULL,
@@ -257,6 +253,8 @@ SCNetworkInterfaceCopyCapability(SCNetworkInterfaceRef	interface,
 
 		val = all;
 	} else {
+		CFIndex		i;
+
 		i = findCapability(capability);
 		if (i == kCFNotFound) {
 			// if unknown capability

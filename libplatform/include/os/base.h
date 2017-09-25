@@ -122,6 +122,12 @@
 #define OS_NOESCAPE
 #endif
 
+#if defined(__cplusplus) && defined(__clang__)
+#define OS_FALLTHROUGH [[clang::fallthrough]]
+#else
+#define OS_FALLTHROUGH
+#endif
+
 #if __has_feature(assume_nonnull)
 #define OS_ASSUME_NONNULL_BEGIN _Pragma("clang assume_nonnull begin")
 #define OS_ASSUME_NONNULL_END   _Pragma("clang assume_nonnull end")

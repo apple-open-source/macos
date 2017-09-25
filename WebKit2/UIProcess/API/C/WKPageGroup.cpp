@@ -26,7 +26,8 @@
 #include "config.h"
 #include "WKPageGroup.h"
 
-#include "APIUserContentExtension.h"
+#include "APIArray.h"
+#include "APIContentRuleList.h"
 #include "APIUserContentWorld.h"
 #include "APIUserScript.h"
 #include "APIUserStyleSheet.h"
@@ -45,7 +46,7 @@ WKTypeID WKPageGroupGetTypeID()
 WKPageGroupRef WKPageGroupCreateWithIdentifier(WKStringRef identifier)
 {
     auto pageGroup = WebPageGroup::create(toWTFString(identifier));
-    return toAPI(pageGroup.leakRef());
+    return toAPI(&pageGroup.leakRef());
 }
 
 void WKPageGroupSetPreferences(WKPageGroupRef pageGroupRef, WKPreferencesRef preferencesRef)
@@ -94,8 +95,9 @@ void WKPageGroupAddUserScript(WKPageGroupRef pageGroupRef, WKStringRef sourceRef
     auto baseURLString = toWTFString(baseURLRef);
     auto whitelist = toImpl(whitelistedURLPatterns);
     auto blacklist = toImpl(blacklistedURLPatterns);
-
-    Ref<API::UserScript> userScript = API::UserScript::create(WebCore::UserScript { source, (baseURLString.isEmpty() ? WebCore::blankURL() : WebCore::URL(WebCore::URL(), baseURLString)), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), toUserScriptInjectionTime(injectionTime), toUserContentInjectedFrames(injectedFrames) }, API::UserContentWorld::normalWorld());
+    
+    auto url = baseURLString.isEmpty() ? WebCore::blankURL() : WebCore::URL(WebCore::URL(), baseURLString);
+    Ref<API::UserScript> userScript = API::UserScript::create(WebCore::UserScript { WTFMove(source), WTFMove(url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), toUserScriptInjectionTime(injectionTime), toUserContentInjectedFrames(injectedFrames) }, API::UserContentWorld::normalWorld());
     toImpl(pageGroupRef)->userContentController().addUserScript(userScript.get());
 }
 

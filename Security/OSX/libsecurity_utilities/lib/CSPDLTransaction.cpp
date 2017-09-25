@@ -25,6 +25,8 @@
 #include <Security/SecBasePriv.h>
 #include <syslog.h>
 
+#if TARGET_OS_OSX
+
 DLTransaction::DLTransaction(CSSM_DL_DB_HANDLE dldbh)
     : mDldbh(dldbh), mSuccess(false), mFinalized(false), mAutoCommit(CSSM_TRUE) {
     initialize();
@@ -105,3 +107,4 @@ CSPDLTransaction::CSPDLTransaction(Security::CssmClient::Db& db)
 CSPDLTransaction::~CSPDLTransaction() {
 }
 
+#endif //TARGET_OS_OSX

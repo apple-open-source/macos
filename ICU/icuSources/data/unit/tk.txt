@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/tk.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 tk{
-    Version{"2.1.19.77"}
+    Version{"2.1.31.86"}
     durationUnits{
         hm{"hh:mm"}
         hms{"hh:mm:ss"}
@@ -105,6 +99,13 @@ tk{
         }
         compound{
             per{"{1} başyna {0}"}
+        }
+        concentr{
+            karat{
+                dnam{"karat"}
+                one{"{0} karat"}
+                other{"{0} karat"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -535,13 +536,6 @@ tk{
                 other{"inedörül dýuým başyna {0} funt"}
             }
         }
-        proportion{
-            karat{
-                dnam{"karat"}
-                one{"{0} karat"}
-                other{"{0} karat"}
-            }
-        }
         speed{
             kilometer-per-hour{
                 dnam{"sagatda kilometr"}
@@ -915,6 +909,13 @@ tk{
         }
         compound{
             per{"{0}/{1}"}
+        }
+        concentr{
+            karat{
+                dnam{"kar"}
+                one{"{0} kar"}
+                other{"{0} kar"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -1343,13 +1344,6 @@ tk{
                 dnam{"f./dý²"}
                 one{"{0} f./dý²"}
                 other{"{0} f./dý²"}
-            }
-        }
-        proportion{
-            karat{
-                dnam{"kar"}
-                one{"{0} kar"}
-                other{"{0} kar"}
             }
         }
         speed{

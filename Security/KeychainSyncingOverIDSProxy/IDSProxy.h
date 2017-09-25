@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,16 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-//
-//  IDSProxy.h
-//  ids-xpc
-
 #import <Foundation/Foundation.h>
 #import <dispatch/queue.h>
 #import <xpc/xpc.h>
 #import <IDS/IDS.h>
 #import "SOSCloudKeychainClient.h"
 #import <utilities/debugging.h>
+#import <Security/SecureObjectSync/SOSInternal.h>
 
 typedef enum {
     kIDSStartPingTestMessage = 1,
@@ -42,17 +39,6 @@ typedef enum {
     kIDSKeychainSyncIDSFragmentation = 8,
 } idsOperation;
 
-typedef enum {
-    kSecIDSErrorNoDeviceID = -1, //default case
-    kSecIDSErrorNotRegistered = -2,
-    kSecIDSErrorFailedToSend=-3,
-    kSecIDSErrorCouldNotFindMatchingAuthToken = -4,
-    kSecIDSErrorDeviceIsLocked = -5,
-    kSecIDSErrorNoPeersAvailable = -6
-    
-} idsError;
-
-
 @interface KeychainSyncingOverIDSProxy  :  NSObject <IDSServiceDelegate>
 {
     IDSService      *_service;
@@ -61,26 +47,36 @@ typedef enum {
 }
 
 @property (retain, nonatomic) NSMutableDictionary *deviceIDFromAuthToken;
-@property (retain, nonatomic) NSString *deviceID;
-@property (retain, nonatomic) NSMutableDictionary *unhandledMessageBuffer;
+@property (retain, nonatomic) NSString            *deviceID;
 @property (retain, nonatomic) NSMutableDictionary *shadowPendingMessages;
 @property (retain, nonatomic) NSMutableDictionary *allFragmentedMessages;
-@property (retain, nonatomic) NSMutableDictionary *pingTimers;
+@property (retain, atomic)    NSMutableDictionary *pingTimers;
+@property (retain, nonatomic) NSMutableDictionary *peerNextSendCache; //dictionary of device ID -> time stamp of when to send next
+
+// Only touch these three dictionaries from the dataQueue or you will crash, eventually.
 @property (retain, nonatomic) NSMutableDictionary *messagesInFlight;
-@property (retain, nonatomic) NSMutableDictionary *peerNextSendCache; //dictioanry of device ID -> time stamp of when to send next
+@property (retain, nonatomic) NSMutableDictionary *unhandledMessageBuffer;
+@property (retain, nonatomic) NSMutableDictionary *monitor;
 
-@property (retain, nonatomic) NSArray* listOfDevices;
+@property (retain, nonatomic) NSArray*          listOfDevices;
 
-@property (atomic) dispatch_source_t penaltyTimer;
-@property (atomic) bool penaltyTimerScheduled;
-@property (retain, atomic) NSMutableDictionary *monitor;
-@property (retain, atomic) NSDictionary *queuedMessages;
+@property (atomic) dispatch_source_t            penaltyTimer;
+@property (atomic) bool                         penaltyTimerScheduled;
+@property (retain, atomic) NSDictionary         *queuedMessages;
+
+@property (retain, atomic) NSMutableDictionary  *counterValues;
+@property (atomic) NSInteger                     outgoingMessages;
+@property (atomic) NSInteger                     incomingMessages;
 
 @property (atomic) bool isIDSInitDone;
 @property (atomic) bool shadowDoInitializeIDSService;
 @property (atomic) bool isSecDRunningAsRoot;
 @property (atomic) bool doesSecDHavePeer;
+
 @property (atomic) dispatch_queue_t calloutQueue;
+@property (atomic) dispatch_queue_t pingQueue;
+@property dispatch_queue_t dataQueue;
+
 @property (atomic) bool isLocked;
 @property (atomic) bool unlockedSinceBoot;
 @property (atomic) dispatch_source_t retryTimer;
@@ -97,17 +93,23 @@ typedef enum {
 
 - (id)init;
 
-- (void) importIDSState: (NSMutableDictionary*) state;
-
 - (void) doSetIDSDeviceID;
 - (void) doIDSInitialization;
-- (void) calloutWith: (void(^)(NSMutableDictionary *pending, bool handlePendingMesssages, bool doSetDeviceID, dispatch_queue_t queue, void(^done)(NSMutableDictionary *handledMessages, bool handledPendingMessage, bool handledSettingDeviceID))) callout;
+- (void) calloutWith: (void(^)(NSMutableDictionary *pending,
+                               bool handlePendingMesssages,
+                               bool doSetDeviceID,
+                               dispatch_queue_t queue,
+                               void(^done)(NSMutableDictionary *handledMessages,
+                                           bool handledPendingMessage,
+                                           bool handledSettingDeviceID))) callout;
 - (void) sendKeysCallout: (NSMutableDictionary *(^)(NSMutableDictionary* pending, NSError** error)) handleMessages;
-- (void)persistState;
+- (void) persistState;
 - (void) sendPersistedMessagesAgain;
 - (NSDictionary*) retrievePendingMessages;
-
-- (void)scheduleRetryRequestTimer;
+- (NSDictionary*) collectStats;
+- (void) scheduleRetryRequestTimer;
+- (BOOL) haveMessagesInFlight;
 @end
 
-NSString* createErrorString(NSString* format, ...);
+NSString* createErrorString(NSString* format, ...)
+    NS_FORMAT_FUNCTION(1, 2);

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require "mkmf"
 
 readline = Struct.new(:headers, :extra_check).new(["stdio.h"])
@@ -37,6 +38,7 @@ have_library("ncurses", "tgetnum") ||
 case enable_libedit
 when true
   # --enable-libedit
+  dir_config("libedit")
   unless (readline.have_header("editline/readline.h") ||
           readline.have_header("readline/readline.h")) &&
           have_library("edit", "readline")
@@ -97,8 +99,13 @@ readline.have_func("remove_history")
 readline.have_func("clear_history")
 readline.have_func("rl_redisplay")
 readline.have_func("rl_insert_text")
+readline.have_func("rl_delete_text")
 unless readline.have_type("rl_hook_func_t*")
+  # rl_hook_func_t is available since readline-4.2 (2001).
+  # Function is removed at readline-6.3 (2014).
+  # However, editline (NetBSD 6.1.3, 2014) doesn't have rl_hook_func_t.
   $defs << "-Drl_hook_func_t=Function"
 end
 
+$INCFLAGS << " -I$(top_srcdir)"
 create_makefile("readline")

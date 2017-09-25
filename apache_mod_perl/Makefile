@@ -5,7 +5,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Perl multi-version support
 
-VERSIONERDIR = /usr/local/versioner
+VERSIONERDIR = $(SDKROOT)/usr/local/versioner
 PERLVERSIONS = $(VERSIONERDIR)/perl/versions
 DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
 KNOWNVERSIONS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
@@ -18,6 +18,7 @@ PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')
 PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
 CFLAGS += -std=c89
+SDKROOTADJUSTED = $(shell echo $(SDKROOT) | sed -e 's,/BuildRoot,,g')
 
 install::
 	@echo "--> Extracting..."
@@ -32,7 +33,7 @@ install::
 	    installarchlib=`perl -MConfig -e 'print $$Config::Config{installarchlib}' | sed 's,Perl,Perl/Extras,'` && \
 	    installprivlib=`perl -MConfig -e 'print $$Config::Config{installprivlib}' | sed 's,Perl,Perl/Extras,'` && \
 		ARCHFLAGS="$(RC_CFLAGS)" perl Makefile.PL \
-		MP_APXS="/usr/sbin/apxs" \
+		MP_APXS="$(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs" \
 		MP_CCOPTS="$(CFLAGS)" \
 		INSTALLARCHLIB=$${installarchlib} \
 		INSTALLDIRS=perl \
@@ -54,6 +55,8 @@ install::
 		$(CP) $${bundle} $${bundledir} && \
 		$(STRIP) -x $${bundle}; \
 	done
+	$(MV) $(DSTROOT)$(SDKROOTADJUSTED)/usr/include $(DSTROOT)/usr/include
+	$(RM) -rf $(DSTROOT)/Applications
 
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/OpenSourceVersions
 	$(INSTALL_FILE) $(SRCROOT)/mod_perl.plist $(DSTROOT)/usr/local/OpenSourceVersions/apache_mod_perl.plist

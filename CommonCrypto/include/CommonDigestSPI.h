@@ -39,8 +39,8 @@ extern "C" {
     @abstract   Algorithms implemented in this module.
 
     @constant 	kCCDigestNone		Digest Selector for "no digest"
-    @constant 	kCCDigestMD2		MD2 digest
-    @constant 	kCCDigestMD4		MD4 digest
+    @constant 	kCCDigestMD2		MD2 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
+    @constant 	kCCDigestMD4		MD4 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
     @constant 	kCCDigestMD5		MD5 digest
     @constant 	kCCDigestRMD128		RMD 128 bit digest
     @constant 	kCCDigestRMD160		RMD 160 bit digest
@@ -51,19 +51,19 @@ extern "C" {
     @constant 	kCCDigestSHA256		SHA-2 256 bit digest
     @constant 	kCCDigestSHA384		SHA-2 384 bit digest
     @constant 	kCCDigestSHA512		SHA-2 512 bit digest
-    @constant 	kCCDigestSkein128	Skein 128 bit digest
-    @constant 	kCCDigestSkein160	Skein 160 bit digest
-    @constant 	kCCDigestSkein224	Skein 224 bit digest
-    @constant 	kCCDigestSkein256	Skein 256 bit digest
-    @constant 	kCCDigestSkein384	Skein 384 bit digest
-    @constant 	kCCDigestSkein512	Skein 512 bit digest
+    @constant 	kCCDigestSkein128	Skein 128 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
+    @constant 	kCCDigestSkein160	Skein 160 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
+    @constant 	kCCDigestSkein224	Skein 224 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
+    @constant 	kCCDigestSkein256	Skein 256 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
+    @constant 	kCCDigestSkein384	Skein 384 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
+    @constant 	kCCDigestSkein512	Skein 512 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
  */
 
 enum {
-    kCCDigestNone               = 0,
-	kCCDigestMD2				= 1,
-	kCCDigestMD4				= 2,
-	kCCDigestMD5				= 3,
+    kCCDigestNone = 0,
+	kCCDigestMD2 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_13, __IPHONE_5_0, __IPHONE_11_0)      = 1,
+	kCCDigestMD4 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_13, __IPHONE_5_0, __IPHONE_11_0)      = 2,
+	kCCDigestMD5 				= 3, 
 	kCCDigestRMD128				= 4,
 	kCCDigestRMD160				= 5,
 	kCCDigestRMD256				= 6,
@@ -73,12 +73,12 @@ enum {
 	kCCDigestSHA256				= 10,
 	kCCDigestSHA384				= 11,
 	kCCDigestSHA512				= 12,
-	kCCDigestSkein128			= 13, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
-	kCCDigestSkein160			= 14, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
-	kCCDigestSkein224			= 16, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
-	kCCDigestSkein256			= 17, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
-	kCCDigestSkein384			= 18, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
-	kCCDigestSkein512			= 19, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
+	kCCDigestSkein128 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_9, __IPHONE_5_0, __IPHONE_6_0)  = 13,
+	kCCDigestSkein160 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_9, __IPHONE_5_0, __IPHONE_6_0)  = 14,
+	kCCDigestSkein224 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_9, __IPHONE_5_0, __IPHONE_6_0)  = 16,
+	kCCDigestSkein256 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_9, __IPHONE_5_0, __IPHONE_6_0)  = 17,
+	kCCDigestSkein384 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_9, __IPHONE_5_0, __IPHONE_6_0)  = 18,
+	kCCDigestSkein512 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_9, __IPHONE_5_0, __IPHONE_6_0)  = 19,
 };
 typedef uint32_t CCDigestAlgorithm;
 
@@ -169,7 +169,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
     @function   CCDigestCreate
     @abstract   Allocate and initialize a CCDigestCtx for a digest.
     
-    @param      algorithm   Digest algorithm to setup. 
+    @param      alg   Digest algorithm to setup. 
     
     returns a pointer to a digestRef on success.
  */

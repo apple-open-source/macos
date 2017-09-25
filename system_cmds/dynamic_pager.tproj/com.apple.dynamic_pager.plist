@@ -16,8 +16,6 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/sbin/dynamic_pager</string>
-		<string>-F</string>
-		<string>/private/var/vm/swapfile</string>
 	</array>
 </dict>
 </plist>

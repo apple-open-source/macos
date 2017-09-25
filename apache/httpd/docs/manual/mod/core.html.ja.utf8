@@ -40,7 +40,7 @@
 <table class="module"><tr><th><a href="module-dict.html#Description">説明:</a></th><td>常に使用可能な Apache HTTP サーバのコア機能</td></tr>
 <tr><th><a href="module-dict.html#Status">ステータス:</a></th><td>Core</td></tr></table>
 </div>
-<div id="quickview"><h3 class="directives">ディレクティブ</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3 class="directives">ディレクティブ</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#acceptfilter">AcceptFilter</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#acceptpathinfo">AcceptPathInfo</a></li>
@@ -879,6 +879,7 @@ satisfied by a request at runtime</td></tr>
 <tr><th><a href="directive-dict.html#Override">上書き:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
             </p><h3>参照</h3>
@@ -906,6 +907,7 @@ satisfied</td></tr>
 <tr><th><a href="directive-dict.html#Override">上書き:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
             </p><h3>参照</h3>
@@ -3402,7 +3404,12 @@ of a request or the last 63, assuming the request itself is greater than
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>core</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
-            </p></div>
+            </p><h3>参照</h3>
+<ul>
+<li><code class="directive"><a href="#define">Define</a></code></li>
+<li><code class="directive"><a href="#ifdefine">IfDefine</a></code></li>
+</ul>
+</div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="UseCanonicalName" id="UseCanonicalName">UseCanonicalName</a> <a name="usecanonicalname" id="usecanonicalname">ディレクティブ</a></h2>
 <table class="directive">
@@ -3657,7 +3664,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -44,7 +44,7 @@
     cette page.</p>
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#configparsing">Fichier de configuration</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#configparsing">Fichier de configuration</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#hostmatching">Choix du serveur virtuel</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#tips">Trucs et astuces</a></li>
 </ul><h3>Voir aussi</h3><ul class="seealso"><li><a href="ip-based.html">Support des serveurs virtuels à base
@@ -360,7 +360,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/details.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

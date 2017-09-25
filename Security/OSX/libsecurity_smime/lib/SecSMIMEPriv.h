@@ -160,7 +160,8 @@ extern OSStatus SecSMIMECreateMSSMIMEEncKeyPrefs(SecArenaPoolRef pool, CSSM_DATA
  * SecSMIMEGetCertFromEncryptionKeyPreference - find cert marked by EncryptionKeyPreference
  *          attribute
  */
-extern SecCertificateRef SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_DATA_PTR DERekp);
+extern SecCertificateRef SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_DATA_PTR *rawCerts, CSSM_DATA_PTR DERekp);
+
 
 
 #ifdef __cplusplus

@@ -155,8 +155,8 @@ _krb5_auth_con_setup_pfs(krb5_context context,
 	return 0;
     }
 
-    pfs->p256._full = (ccec_full_ctx *)calloc(1, ccec_full_ctx_size(ccec_ccn_size(cp)));
-    if (pfs->p256._full == NULL) {
+    pfs->p256 = (ccec_full_ctx_t)calloc(1, ccec_full_ctx_size(ccec_ccn_size(cp)));
+    if (pfs->p256 == NULL) {
 	free(pfs);
 	return krb5_enomem(context);
     }
@@ -165,7 +165,7 @@ _krb5_auth_con_setup_pfs(krb5_context context,
 
     if (ccec_generate_key_fips(cp, rng, pfs->p256)) {
 	krb5_free_keyblock_contents(context, &pfs->keyblock);
-	free(pfs->p256._full);
+	free(pfs->p256);
 	free(pfs);
 	return krb5_enomem(context);
     }
@@ -183,7 +183,7 @@ void
 _krb5_auth_con_free_pfs(krb5_context context, krb5_auth_context auth_context)
 {
     if (auth_context->pfs) {
-	free(auth_context->pfs->p256._full);
+	free(auth_context->pfs->p256);
 	krb5_free_keyblock_contents(context, &auth_context->pfs->keyblock);
 	krb5_free_principal(context, auth_context->pfs->client);
 
@@ -366,14 +366,14 @@ fill_nist_proposal(krb5_context context,
     krb5_error_code ret;
 
     sel->group = group;
-    sel->public_key.length = ccec_export_pub_size(fullkey);
+    sel->public_key.length = ccec_export_pub_size(ccec_ctx_pub(fullkey));
     sel->public_key.data = malloc(sel->public_key.length);
     if (sel->public_key.data == NULL) {
 	ret = krb5_enomem(context);
 	goto out;
     }
 
-    ccec_export_pub(fullkey, sel->public_key.data);
+    ccec_export_pub(ccec_ctx_pub(fullkey), sel->public_key.data);
     ret = 0;
 
  out:

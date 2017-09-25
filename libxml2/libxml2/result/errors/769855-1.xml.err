@@ -1,10 +1,10 @@
-./test/errors/769855-1.xml:1: parser warning : PEReference: %z; not found
-<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
-                                                   ^
-Entity: line 1: 
+Entity: line 1: parser error : PEReference: expecting ';'
  %x; 
     ^
-./test/errors/769855-1.xml:1: parser error : PEReference: no name
+Entity: line 1: 
+%Ĭ000%z;
+      ^
+./test/errors/769855-1.xml:1: parser warning : PEReference: %z; not found
 <!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
                                                    ^
 Entity: line 1: 

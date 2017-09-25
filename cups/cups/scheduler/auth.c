@@ -11,7 +11,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -1179,14 +1179,22 @@ cupsdCheckGroup(
 #ifdef HAVE_GETGROUPLIST
     if (user)
     {
-      int	ngroups,		/* Number of groups */
-		groups[2048];		/* Groups that user belongs to */
+      int	ngroups;		/* Number of groups */
+#  ifdef __APPLE__
+      int	groups[2048];		/* Groups that user belongs to */
+#  else
+      gid_t	groups[2048];		/* Groups that user belongs to */
+#  endif /* __APPLE__ */
 
       ngroups = (int)(sizeof(groups) / sizeof(groups[0]));
+#  ifdef __APPLE__
       getgrouplist(username, (int)user->pw_gid, groups, &ngroups);
+#  else
+      getgrouplist(username, user->pw_gid, groups, &ngroups);
+#endif /* __APPLE__ */
 
       for (i = 0; i < ngroups; i ++)
-        if ((int)group->gr_gid == groups[i])
+        if ((int)group->gr_gid == (int)groups[i])
 	  return (1);
     }
 #endif /* HAVE_GETGROUPLIST */

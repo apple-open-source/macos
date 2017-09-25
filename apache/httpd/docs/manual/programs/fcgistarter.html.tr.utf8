@@ -30,7 +30,7 @@
 
     <p />
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#note">Bilginize</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#note">Bilginize</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#synopsis">Kullanım</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#options">Seçenekler</a></li>
 </ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><code class="module"><a href="../mod/mod_proxy_fcgi.html">mod_proxy_fcgi</a></code></li><li><a href="#comments_section">Yorum</a></li></ul></div>
@@ -86,7 +86,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/fcgistarter
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

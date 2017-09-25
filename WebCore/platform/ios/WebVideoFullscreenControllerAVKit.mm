@@ -30,8 +30,8 @@
 #import "WebVideoFullscreenControllerAVKit.h"
 
 #import "Logging.h"
+#import "MediaSelectionOption.h"
 #import "QuartzCoreSPI.h"
-#import "SoftLinking.h"
 #import "TimeRanges.h"
 #import "WebPlaybackSessionInterfaceAVKit.h"
 #import "WebPlaybackSessionModelMediaElement.h"
@@ -39,10 +39,12 @@
 #import "WebVideoFullscreenInterfaceAVKit.h"
 #import "WebVideoFullscreenModelVideoElement.h"
 #import <QuartzCore/CoreAnimation.h>
+#import <UIKit/UIView.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HTMLVideoElement.h>
 #import <WebCore/RenderVideo.h>
 #import <WebCore/WebCoreThreadRun.h>
+#import <wtf/SoftLinking.h>
 
 SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIView)
@@ -97,8 +99,7 @@ class WebVideoFullscreenControllerContext;
 @end
 
 class WebVideoFullscreenControllerContext final
-    : private WebVideoFullscreenInterface
-    , private WebVideoFullscreenModel
+    : private WebVideoFullscreenModel
     , private WebVideoFullscreenModelClient
     , private WebVideoFullscreenChangeObserver
     , private WebPlaybackSessionModel
@@ -154,27 +155,33 @@ private:
     bool isScrubbing() const override { return false; }
     float playbackRate() const override;
     Ref<TimeRanges> seekableRanges() const override;
+    double seekableTimeRangesLastModifiedTime() const override;
+    double liveUpdateInterval() const override;
     bool canPlayFastReverse() const override;
-    Vector<String> audioMediaSelectionOptions() const override;
+    Vector<MediaSelectionOption> audioMediaSelectionOptions() const override;
     uint64_t audioMediaSelectedIndex() const override;
-    Vector<String> legibleMediaSelectionOptions() const override;
+    Vector<MediaSelectionOption> legibleMediaSelectionOptions() const override;
     uint64_t legibleMediaSelectedIndex() const override;
     bool externalPlaybackEnabled() const override;
     ExternalPlaybackTargetType externalPlaybackTargetType() const override;
     String externalPlaybackLocalizedDeviceName() const override;
     bool wirelessVideoPlaybackDisabled() const override;
+    void togglePictureInPicture() override { }
+    void toggleMuted() override;
+    void setMuted(bool) final;
 
     // WebPlaybackSessionModelClient
     void durationChanged(double) override;
     void currentTimeChanged(double currentTime, double anchorTime) override;
     void bufferedTimeChanged(double) override;
     void rateChanged(bool isPlaying, float playbackRate) override;
-    void seekableRangesChanged(const TimeRanges&) override;
+    void seekableRangesChanged(const TimeRanges&, double lastModifiedTime, double liveUpdateInterval) override;
     void canPlayFastReverseChanged(bool) override;
-    void audioMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex) override;
-    void legibleMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex) override;
+    void audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex) override;
+    void legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex) override;
     void externalPlaybackChanged(bool enabled, WebPlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
     void wirelessVideoPlaybackDisabledChanged(bool) override;
+    void mutedChanged(bool) override;
 
     // WebVideoFullscreenModel
     void addClient(WebVideoFullscreenModelClient&) override;
@@ -186,6 +193,7 @@ private:
     bool isVisible() const override;
     bool hasVideo() const override;
     FloatSize videoDimensions() const override;
+    bool isMuted() const override;
 
     HashSet<WebPlaybackSessionModelClient*> m_playbackClients;
     HashSet<WebVideoFullscreenModelClient*> m_fullscreenClients;
@@ -346,18 +354,18 @@ void WebVideoFullscreenControllerContext::videoDimensionsChanged(const FloatSize
         client->videoDimensionsChanged(videoDimensions);
 }
 
-void WebVideoFullscreenControllerContext::seekableRangesChanged(const TimeRanges& timeRanges)
+void WebVideoFullscreenControllerContext::seekableRangesChanged(const TimeRanges& timeRanges, double lastModifiedTime, double liveUpdateInterval)
 {
     if (WebThreadIsCurrent()) {
         RefPtr<WebVideoFullscreenControllerContext> protectedThis(this);
-        dispatch_async(dispatch_get_main_queue(), [protectedThis, platformTimeRanges = timeRanges.ranges()] {
-            protectedThis->seekableRangesChanged(TimeRanges::create(platformTimeRanges));
+        dispatch_async(dispatch_get_main_queue(), [protectedThis, platformTimeRanges = timeRanges.ranges(), lastModifiedTime, liveUpdateInterval] {
+            protectedThis->seekableRangesChanged(TimeRanges::create(platformTimeRanges), lastModifiedTime, liveUpdateInterval);
         });
         return;
     }
 
     for (auto &client : m_playbackClients)
-        client->seekableRangesChanged(timeRanges);
+        client->seekableRangesChanged(timeRanges, lastModifiedTime, liveUpdateInterval);
 }
 
 void WebVideoFullscreenControllerContext::canPlayFastReverseChanged(bool canPlayFastReverse)
@@ -374,11 +382,20 @@ void WebVideoFullscreenControllerContext::canPlayFastReverseChanged(bool canPlay
         client->canPlayFastReverseChanged(canPlayFastReverse);
 }
 
-void WebVideoFullscreenControllerContext::audioMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex)
+static Vector<MediaSelectionOption> isolatedCopy(const Vector<MediaSelectionOption>& options)
+{
+    Vector<MediaSelectionOption> optionsCopy;
+    optionsCopy.reserveInitialCapacity(options.size());
+    for (auto& option : options)
+        optionsCopy.uncheckedAppend({ option.displayName.isolatedCopy(), option.type });
+    return optionsCopy;
+}
+
+void WebVideoFullscreenControllerContext::audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
     if (WebThreadIsCurrent()) {
         RefPtr<WebVideoFullscreenControllerContext> protectedThis(this);
-        dispatch_async(dispatch_get_main_queue(), [protectedThis, options = options, selectedIndex] {
+        dispatch_async(dispatch_get_main_queue(), [protectedThis, options = isolatedCopy(options), selectedIndex] {
             protectedThis->audioMediaSelectionOptionsChanged(options, selectedIndex);
         });
         return;
@@ -388,11 +405,11 @@ void WebVideoFullscreenControllerContext::audioMediaSelectionOptionsChanged(cons
         client->audioMediaSelectionOptionsChanged(options, selectedIndex);
 }
 
-void WebVideoFullscreenControllerContext::legibleMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex)
+void WebVideoFullscreenControllerContext::legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
     if (WebThreadIsCurrent()) {
         RefPtr<WebVideoFullscreenControllerContext> protectedThis(this);
-        dispatch_async(dispatch_get_main_queue(), [protectedThis, options = options, selectedIndex] {
+        dispatch_async(dispatch_get_main_queue(), [protectedThis, options = isolatedCopy(options), selectedIndex] {
             protectedThis->legibleMediaSelectionOptionsChanged(options, selectedIndex);
         });
         return;
@@ -430,6 +447,20 @@ void WebVideoFullscreenControllerContext::wirelessVideoPlaybackDisabledChanged(b
         client->wirelessVideoPlaybackDisabledChanged(disabled);
 }
 
+void WebVideoFullscreenControllerContext::mutedChanged(bool muted)
+{
+    if (WebThreadIsCurrent()) {
+        RefPtr<WebVideoFullscreenControllerContext> protectedThis(this);
+        dispatch_async(dispatch_get_main_queue(), [protectedThis, muted] {
+            protectedThis->mutedChanged(muted);
+        });
+        return;
+    }
+
+    for (auto& client : m_playbackClients)
+        client->mutedChanged(muted);
+}
+
 #pragma mark WebVideoFullscreenModel
 
 void WebVideoFullscreenControllerContext::addClient(WebVideoFullscreenModelClient& client)
@@ -462,7 +493,7 @@ void WebVideoFullscreenControllerContext::setVideoLayerFrame(FloatRect frame)
     
     [videoFullscreenLayer setSublayerTransform:[videoFullscreenLayer transform]];
 
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(dispatch_get_main_queue(), ^ {
         WebThreadRun([protectedThis, this, frame, videoFullscreenLayer] {
             [CATransaction begin];
             [CATransaction setDisableActions:YES];
@@ -507,6 +538,12 @@ bool WebVideoFullscreenControllerContext::hasVideo() const
 {
     ASSERT(isUIThread());
     return m_fullscreenModel ? m_fullscreenModel->hasVideo() : false;
+}
+
+bool WebVideoFullscreenControllerContext::isMuted() const
+{
+    ASSERT(isUIThread());
+    return m_playbackModel ? m_playbackModel->isMuted() : false;
 }
 
 FloatSize WebVideoFullscreenControllerContext::videoDimensions() const
@@ -556,6 +593,25 @@ void WebVideoFullscreenControllerContext::togglePlayState()
     WebThreadRun([protectedThis, this] {
         if (m_playbackModel)
             m_playbackModel->togglePlayState();
+    });
+}
+
+void WebVideoFullscreenControllerContext::toggleMuted()
+{
+    ASSERT(isUIThread());
+    RefPtr<WebVideoFullscreenControllerContext> protectedThis(this);
+    WebThreadRun([protectedThis, this] {
+        if (m_playbackModel)
+            m_playbackModel->toggleMuted();
+    });
+}
+
+void WebVideoFullscreenControllerContext::setMuted(bool muted)
+{
+    ASSERT(isUIThread());
+    WebThreadRun([protectedThis = makeRefPtr(this), this, muted] {
+        if (m_playbackModel)
+            m_playbackModel->setMuted(muted);
     });
 }
 
@@ -685,16 +741,30 @@ Ref<TimeRanges> WebVideoFullscreenControllerContext::seekableRanges() const
     return m_playbackModel ? m_playbackModel->seekableRanges() : TimeRanges::create();
 }
 
+double WebVideoFullscreenControllerContext::seekableTimeRangesLastModifiedTime() const
+{
+    ASSERT(isUIThread());
+    return m_playbackModel ? m_playbackModel->seekableTimeRangesLastModifiedTime() : 0;
+}
+
+double WebVideoFullscreenControllerContext::liveUpdateInterval() const
+{
+    ASSERT(isUIThread());
+    return m_playbackModel ? m_playbackModel->liveUpdateInterval() : 0;
+}
+
 bool WebVideoFullscreenControllerContext::canPlayFastReverse() const
 {
     ASSERT(isUIThread());
     return m_playbackModel ? m_playbackModel->canPlayFastReverse() : false;
 }
 
-Vector<String> WebVideoFullscreenControllerContext::audioMediaSelectionOptions() const
+Vector<MediaSelectionOption> WebVideoFullscreenControllerContext::audioMediaSelectionOptions() const
 {
     ASSERT(isUIThread());
-    return m_playbackModel ? m_playbackModel->audioMediaSelectionOptions() : Vector<String>();
+    if (m_playbackModel)
+        return m_playbackModel->audioMediaSelectionOptions();
+    return { };
 }
 
 uint64_t WebVideoFullscreenControllerContext::audioMediaSelectedIndex() const
@@ -703,10 +773,12 @@ uint64_t WebVideoFullscreenControllerContext::audioMediaSelectedIndex() const
     return m_playbackModel ? m_playbackModel->audioMediaSelectedIndex() : -1;
 }
 
-Vector<String> WebVideoFullscreenControllerContext::legibleMediaSelectionOptions() const
+Vector<MediaSelectionOption> WebVideoFullscreenControllerContext::legibleMediaSelectionOptions() const
 {
     ASSERT(isUIThread());
-    return m_playbackModel ? m_playbackModel->legibleMediaSelectionOptions() : Vector<String>();
+    if (m_playbackModel)
+        return m_playbackModel->legibleMediaSelectionOptions();
+    return { };
 }
 
 uint64_t WebVideoFullscreenControllerContext::legibleMediaSelectedIndex() const
@@ -754,7 +826,7 @@ void WebVideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& vide
     m_fullscreenModel->addClient(*this);
     m_fullscreenModel->setVideoElement(m_videoElement.get());
 
-    bool allowsPictureInPicture = m_videoElement->mediaSession().allowsPictureInPicture(*m_videoElement.get());
+    bool allowsPictureInPicture = m_videoElement->webkitSupportsPresentationMode(HTMLVideoElement::VideoPresentationMode::PictureInPicture);
 
     IntRect videoElementClientRect = elementRectInWindow(m_videoElement.get());
     FloatRect videoLayerFrame = FloatRect(FloatPoint(), videoElementClientRect.size());
@@ -770,7 +842,7 @@ void WebVideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& vide
         m_interface->setWebVideoFullscreenModel(this);
         m_interface->setWebVideoFullscreenChangeObserver(this);
 
-        m_videoFullscreenView = adoptNS([[getUIViewClass() alloc] init]);
+        m_videoFullscreenView = adoptNS([allocUIViewInstance() init]);
         
         m_interface->setupFullscreen(*m_videoFullscreenView.get(), videoElementClientRect, viewRef.get(), mode, allowsPictureInPicture);
     });

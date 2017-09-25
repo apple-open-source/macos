@@ -503,7 +503,7 @@ static JSObjectRef objCCallbackFunctionCallAsConstructor(JSContextRef callerCont
     return (JSObjectRef)result;
 }
 
-const JSC::ClassInfo ObjCCallbackFunction::s_info = { "CallbackFunction", &Base::s_info, 0, CREATE_METHOD_TABLE(ObjCCallbackFunction) };
+const JSC::ClassInfo ObjCCallbackFunction::s_info = { "CallbackFunction", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(ObjCCallbackFunction) };
 
 ObjCCallbackFunction::ObjCCallbackFunction(JSC::VM& vm, JSC::Structure* structure, JSObjectCallAsFunctionCallback functionCallback, JSObjectCallAsConstructorCallback constructCallback, std::unique_ptr<ObjCCallbackFunctionImpl> impl)
     : Base(vm, structure)
@@ -715,9 +715,9 @@ JSObjectRef objCCallbackFunctionForBlock(JSContext *context, id target)
     return objCCallbackFunctionForInvocation(context, invocation, CallbackBlock, nil, signature);
 }
 
-id tryUnwrapConstructor(JSObjectRef object)
+id tryUnwrapConstructor(JSC::VM* vm, JSObjectRef object)
 {
-    if (!toJS(object)->inherits(JSC::ObjCCallbackFunction::info()))
+    if (!toJS(object)->inherits(*vm, JSC::ObjCCallbackFunction::info()))
         return nil;
     JSC::ObjCCallbackFunctionImpl* impl = static_cast<JSC::ObjCCallbackFunction*>(toJS(object))->impl();
     if (!impl->isConstructible())

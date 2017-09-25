@@ -20,6 +20,8 @@
 #include "kext_tools_util.h"
 #include "kernelcache.h"
 #include "bootroot_internal.h"
+#include "security.h"
+
 
 #pragma mark Basic Types & Constants
 /*******************************************************************************
@@ -262,7 +264,7 @@ typedef struct {
     Boolean     compress;
     Boolean     uncompress;
 
-    Boolean            enforceKextSigningPolicy;
+    AuthOptions_t      authenticationOptions;
 } KextcacheArgs;
 
 #pragma mark Function Prototypes

@@ -32,6 +32,8 @@ rm -rf Zend/zend_ini_parser.h
 rm -rf sapi/phpdbg/phpdbg_parser.c
 rm -rf sapi/phpdbg/phpdbg_parser.h
 rm -rf pear/install-pear-nozlib.phar
+rm -rf ext/json/json_parser.tab.c
+rm -rf ext/json/json_parser.tab.h
 rm -rf ext/phar/tests
 popd
 mv $ARCHIVE ${ARCHIVE}-old

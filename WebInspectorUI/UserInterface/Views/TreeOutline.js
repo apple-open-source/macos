@@ -34,6 +34,7 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
 
         this.element = element || document.createElement("ol");
         this.element.classList.add(WebInspector.TreeOutline.ElementStyleClassName);
+        this.element.addEventListener("contextmenu", this._handleContextmenu.bind(this));
 
         this.children = [];
         this.selectedTreeElement = null;
@@ -345,6 +346,23 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
         this.children = [];
     }
 
+    reattachIfIndexChanged(treeElement, insertionIndex)
+    {
+        if (this.children[insertionIndex] === treeElement)
+            return;
+
+        let wasSelected = treeElement.selected;
+
+        console.assert(!treeElement.parent || treeElement.parent === this);
+        if (treeElement.parent === this)
+            this.removeChild(treeElement);
+
+        this.insertChild(treeElement, insertionIndex);
+
+        if (wasSelected)
+            treeElement.select();
+    }
+
     _rememberTreeElement(element)
     {
         if (!this._knownTreeElements[element.identifier])
@@ -394,6 +412,20 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
             }
         }
         return null;
+    }
+
+    selfOrDescendant(predicate)
+    {
+        let treeElements = [this];
+        while (treeElements.length) {
+            let treeElement = treeElements.shift();
+            if (predicate(treeElement))
+                return treeElement;
+
+            treeElements = treeElements.concat(treeElement.children);
+        }
+
+        return false;
     }
 
     findTreeElement(representedObject, isAncestor, getParent)
@@ -481,6 +513,8 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
         if (!this.selectedTreeElement || event.shiftKey || event.metaKey || event.ctrlKey)
             return;
 
+        let isRTL = WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL;
+
         var handled = false;
         var nextSelectedElement;
         if (event.keyIdentifier === "Up" && !event.altKey) {
@@ -493,7 +527,7 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
             while (nextSelectedElement && !nextSelectedElement.selectable)
                 nextSelectedElement = nextSelectedElement.traverseNextTreeElement(true);
             handled = nextSelectedElement ? true : false;
-        } else if (event.keyIdentifier === "Left") {
+        } else if ((!isRTL && event.keyIdentifier === "Left") || (isRTL && event.keyIdentifier === "Right")) {
             if (this.selectedTreeElement.expanded) {
                 if (event.altKey)
                     this.selectedTreeElement.collapseRecursively();
@@ -510,7 +544,7 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
                 } else if (this.selectedTreeElement.parent)
                     this.selectedTreeElement.parent.collapse();
             }
-        } else if (event.keyIdentifier === "Right") {
+        } else if ((!isRTL && event.keyIdentifier === "Right") || (isRTL && event.keyIdentifier === "Left")) {
             if (!this.selectedTreeElement.revealed()) {
                 this.selectedTreeElement.reveal();
                 handled = true;
@@ -599,6 +633,38 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
         return false;
     }
 
+    // Protected
+
+    treeElementFromEvent(event)
+    {
+        let scrollContainer = this.element.parentElement;
+
+        // We choose this X coordinate based on the knowledge that our list
+        // items extend at least to the right edge of the outer <ol> container.
+        // In the no-word-wrap mode the outer <ol> may be wider than the tree container
+        // (and partially hidden), in which case we are left to use only its right boundary.
+        let x = scrollContainer.totalOffsetLeft + scrollContainer.offsetWidth - 36;
+        let y = event.pageY;
+
+        // Our list items have 1-pixel cracks between them vertically. We avoid
+        // the cracks by checking slightly above and slightly below the mouse
+        // and seeing if we hit the same element each time.
+        let elementUnderMouse = this.treeElementFromPoint(x, y);
+        let elementAboveMouse = this.treeElementFromPoint(x, y - 2);
+        let element = null;
+        if (elementUnderMouse === elementAboveMouse)
+            element = elementUnderMouse;
+        else
+            element = this.treeElementFromPoint(x, y + 2);
+
+        return element;
+    }
+
+    populateContextMenu(contextMenu, event, treeElement)
+    {
+        treeElement.populateContextMenu(contextMenu, event);
+    }
+
     // Private
 
     static _generateStyleRulesIfNeeded()
@@ -618,12 +684,28 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
             // Keep all the elements at the same depth once the maximum is reached.
             childrenSubstring += i === maximumTreeDepth ? " .children" : " > .children";
             styleText += `.${WebInspector.TreeOutline.ElementStyleClassName}:not(.${WebInspector.TreeOutline.CustomIndentStyleClassName})${childrenSubstring} > .item { `;
-            styleText += "padding-left: " + (baseLeftPadding + (depthPadding * i)) + "px; }\n";
+
+            if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL)
+                styleText += "padding-right: ";
+            else
+                styleText += "padding-left: ";
+
+            styleText += (baseLeftPadding + (depthPadding * i)) + "px; }\n";
         }
 
         WebInspector.TreeOutline._styleElement.textContent = styleText;
 
         document.head.appendChild(WebInspector.TreeOutline._styleElement);
+    }
+
+    _handleContextmenu(event)
+    {
+        let treeElement = this.treeElementFromEvent(event);
+        if (!treeElement)
+            return;
+
+        let contextMenu = WebInspector.ContextMenu.createFromEvent(event);
+        this.populateContextMenu(contextMenu, event, treeElement);
     }
 };
 

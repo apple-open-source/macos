@@ -30,6 +30,7 @@
 
 #import "APISerializedScriptValue.h"
 #import "APIUserContentWorld.h"
+#import "WKContentRuleListInternal.h"
 #import "WKFrameInfoInternal.h"
 #import "WKNSArray.h"
 #import "WKScriptMessageHandler.h"
@@ -91,6 +92,27 @@
     _userContentControllerProxy->removeAllUserScripts();
 }
 
+- (void)addContentRuleList:(WKContentRuleList *)contentRuleList
+{
+#if ENABLE(CONTENT_EXTENSIONS)
+    _userContentControllerProxy->addContentRuleList(*contentRuleList->_contentRuleList);
+#endif
+}
+
+- (void)removeContentRuleList:(WKContentRuleList *)contentRuleList
+{
+#if ENABLE(CONTENT_EXTENSIONS)
+    _userContentControllerProxy->removeContentRuleList(contentRuleList->_contentRuleList->name());
+#endif
+}
+
+- (void)removeAllContentRuleLists
+{
+#if ENABLE(CONTENT_EXTENSIONS)
+    _userContentControllerProxy->removeAllContentRuleLists();
+#endif
+}
+
 class ScriptMessageHandlerDelegate final : public WebKit::WebScriptMessageHandler::Client {
 public:
     ScriptMessageHandlerDelegate(WKUserContentController *controller, id <WKScriptMessageHandler> handler, NSString *name)
@@ -103,7 +125,7 @@ public:
     void didPostMessage(WebKit::WebPageProxy& page, const WebKit::FrameInfoData& frameInfoData, WebCore::SerializedScriptValue& serializedScriptValue) override
     {
         @autoreleasepool {
-            RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(frameInfoData));
+            RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(frameInfoData, &page));
             id body = API::SerializedScriptValue::deserialize(serializedScriptValue, 0);
             auto message = adoptNS([[WKScriptMessage alloc] _initWithBody:body webView:fromWebPageProxy(page) frameInfo:frameInfo.get() name:m_name.get()]);
         
@@ -153,21 +175,21 @@ private:
 - (void)_addUserContentFilter:(_WKUserContentFilter *)userContentFilter
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    _userContentControllerProxy->addUserContentExtension(*userContentFilter->_userContentExtension);
+    _userContentControllerProxy->addContentRuleList(*userContentFilter->_contentRuleList->_contentRuleList);
 #endif
 }
 
 - (void)_removeUserContentFilter:(NSString *)userContentFilterName
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    _userContentControllerProxy->removeUserContentExtension(userContentFilterName);
+    _userContentControllerProxy->removeContentRuleList(userContentFilterName);
 #endif
 }
 
 - (void)_removeAllUserContentFilters
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    _userContentControllerProxy->removeAllUserContentExtensions();
+    _userContentControllerProxy->removeAllContentRuleLists();
 #endif
 }
 

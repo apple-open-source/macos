@@ -22,7 +22,8 @@
 typedef struct KDFVector_t {
     char *password;
     char *salt;
-    int rounds;
+    int saltLen; //negative means get the salt from the string
+    unsigned rounds;
     CCDigestAlgorithm alg;
     int dklen;
     char *expectedstr;
@@ -31,14 +32,20 @@ typedef struct KDFVector_t {
 
 static KDFVector kdfv[] = {
     // Test Case PBKDF2 - HMACSHA1 http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-00
-    { "password", "salt", 1, kCCDigestSHA1, 20, "0c60c80f961f0e71f3a9b524af6012062fe037a6", 0 },
-    { "password", "salt", 2, kCCDigestSHA1, 20, "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957", 0 },
-    { "password", "salt", 4096, kCCDigestSHA1, 20, "4b007901b765489abead49d926f721d065a429c1", 0 },
-    { "password", "salt", 1, 0, 20, NULL, -1} // This crashed
+    { "password", "salt", -1, 1   , kCCDigestSHA1, 20, "0c60c80f961f0e71f3a9b524af6012062fe037a6", 0 },
+    { "password", "salt", -1, 2   , kCCDigestSHA1, 20, "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957", 0 },
+    { "password", "salt", -1, 4096, kCCDigestSHA1, 20, "4b007901b765489abead49d926f721d065a429c1", 0 },
+    { "password", "salt", -1, 1   , 0            , 20, NULL, kCCParamError},
+    {.password=NULL},
 };
 
-static size_t kdfvLen = sizeof(kdfv) / sizeof(KDFVector);
-
+static KDFVector kdfv_for_OriginalKDF[] = {
+    // some extra
+    { "password", "salt",  0, 4096, kCCDigestSHA1, 20, "546878f250c3baf85d44fbf77435a03828811dfb", 0 },
+    { "password", NULL  ,  0, 4096, kCCDigestSHA1, 20, "546878f250c3baf85d44fbf77435a03828811dfb", 0 },
+    { "password", NULL  ,999, 4096, kCCDigestSHA1, 20, "", kCCParamError },
+    {.password=NULL},
+};
 
 static char * testString(char *format, CCDigestAlgorithm alg) {
     static char thestring[80];
@@ -46,73 +53,79 @@ static char * testString(char *format, CCDigestAlgorithm alg) {
     return thestring;
 }
 
-
-static int testOriginalKDF(char *password, char *salt, int rounds, CCDigestAlgorithm alg, int dklen, byteBuffer expected, int expected_failure) {
-    CCPseudoRandomAlgorithm prf = digestID2PRF(alg);
-    byteBuffer derivedKey = mallocByteBuffer(dklen);
-    int status = 0;
+static int testOriginalKDF(KDFVector *v) {
+    CCPseudoRandomAlgorithm prf = digestID2PRF(v->alg);
+    byteBuffer derivedKey = mallocByteBuffer(v->dklen);
+    byteBuffer expected = hexStringToBytesIfNotNULL(v->expectedstr);
     
-    int retval = CCKeyDerivationPBKDF(kCCPBKDF2, password, strlen(password), (uint8_t *) salt, strlen(salt), prf, rounds, derivedKey->bytes, derivedKey->len);
-    if(expected_failure) {
-        ok(retval == -1, "CCPBKDF2 Expected failure");
+    int status = 0;
+    size_t saltLen;
+    
+    if (v->saltLen<0&& v->salt!=NULL)
+        saltLen = strlen(v->salt);
+    else
+        saltLen = v->saltLen;
+    
+    int retval = CCKeyDerivationPBKDF(kCCPBKDF2, v->password, strlen(v->password), (uint8_t *) v->salt, saltLen, prf, v->rounds, derivedKey->bytes, derivedKey->len);
+    if(v->expected_failure) {
+        is(retval, v->expected_failure, "CCPBKDF2 should have failed");
     } else {
-        ok(status = expectedEqualsComputed(testString("Original PBKDF2-HMac-%s", alg), expected, derivedKey), "Derived key is as expected");
+        status = expectedEqualsComputed(testString("Original PBKDF2-HMac-%s", v->alg), expected, derivedKey);
+        ok(status==1, "Derived key failure");
     }
+    
     free(derivedKey);
+    free(expected);
     return 1;
 }
 
-static int testNewKDF(char *password, char *salt, int rounds, CCDigestAlgorithm alg, int dklen, byteBuffer expected, int expected_failure) {
-    byteBuffer derivedKey = mallocByteBuffer(dklen);
+static int testNewKDF(KDFVector *v) {
+    byteBuffer derivedKey = mallocByteBuffer(v->dklen);
+    byteBuffer expected = hexStringToBytesIfNotNULL(v->expectedstr);
+
     int status = 0;
     
-    CCStatus retval = CCKeyDerivationHMac(kCCKDFAlgorithmPBKDF2_HMAC, alg, rounds, password, strlen(password), NULL, 0, NULL, 0, NULL, 0, salt, strlen(salt), derivedKey->bytes, derivedKey->len);
-    if(expected_failure) {
+    CCStatus retval = CCKeyDerivationHMac(kCCKDFAlgorithmPBKDF2_HMAC, v->alg, v->rounds, v->password, strlen(v->password), NULL, 0, NULL, 0, NULL, 0, v->salt, strlen(v->salt), derivedKey->bytes, derivedKey->len);
+    if(v->expected_failure) {
         ok(retval != kCCSuccess, "PBKDF2_HMAC Expected failure");
     } else {
-        ok(status = expectedEqualsComputed(testString("New PBKDF2-HMac-%s", alg), expected, derivedKey), "Derived key is as expected");
+        ok(status = expectedEqualsComputed(testString("New PBKDF2-HMac-%s", v->alg), expected, derivedKey), "Derived key is as expected");
     }
     free(derivedKey);
+    free(expected);
     return 1;
 }
 
-
-static int
-PBKDF2Test(KDFVector *kdfvec)
-{
-    byteBuffer expectedBytes = hexStringToBytesIfNotNULL(kdfvec->expectedstr);
-    int status = 0;
-    
-    ok(status = testOriginalKDF(kdfvec->password, kdfvec->salt, kdfvec->rounds, kdfvec->alg, kdfvec->dklen, expectedBytes, kdfvec->expected_failure), "Test Original version of PBKDF2");
-    ok(status &= testNewKDF(kdfvec->password, kdfvec->salt, kdfvec->rounds, kdfvec->alg, kdfvec->dklen, expectedBytes, kdfvec->expected_failure), "Test Original Discreet version of PBKDF2");
-
-    free(expectedBytes);
-    return status;
-}
-
-static int testsPerVector = 5;
-
 int CommonKeyDerivation(int __unused argc, char *const * __unused argv) {
-	plan_tests((int) (kdfvLen*testsPerVector));
+	plan_tests(11);
     
-    for(size_t testcase = 0; testcase < kdfvLen; testcase++) {
-        diag("Test %lu", testcase + 1);
-        ok(PBKDF2Test(&kdfv[testcase]), "Successful full test of KDF Vector");
+    int i;
+    for(i=0; kdfv[i].password!=NULL; i++) {
+        diag("Test %lu", i + 1);
+        testOriginalKDF(&kdfv[i]);
+        testNewKDF(&kdfv[i]);
+    }
+    
+    for(int k=0; kdfv_for_OriginalKDF[k].password!=NULL; k++, i++) {
+        diag("Test %lu", i + 1);
+        testOriginalKDF(&kdfv_for_OriginalKDF[k]);
     }
 
-    {   unsigned iter;
-        // Password of length 10byte, salt 16bytes, output 32bytes, 100msec
-        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA1, 32, 100);
-        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA1:   %7lu", iter);
-        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA224, 32, 100);
-        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA224: %7lu", iter);
-        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA256, 32, 100);
-        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA256: %7lu", iter);
-        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA384, 32, 100);
-        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA384: %7lu", iter);
-        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA512, 32, 100);
-        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA512: %7lu", iter);
-    }
+
+    unsigned iter;
+    // Password of length 10byte, salt 16bytes, output 32bytes, 100msec
+    iter=CCCalibratePBKDF(kCCPBKDF2, 10, 0, kCCPRFHmacAlgSHA1, 32, 100);
+    diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA1 no salt:   %7lu", iter);
+    iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA1, 32, 100);
+    diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA1:   %7lu", iter);
+    iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA224, 32, 100);
+    diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA224: %7lu", iter);
+    iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA256, 32, 100);
+    diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA256: %7lu", iter);
+    iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA384, 32, 100);
+    diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA384: %7lu", iter);
+    iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA512, 32, 100);
+    diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA512: %7lu", iter);
 
     return 0;
 }

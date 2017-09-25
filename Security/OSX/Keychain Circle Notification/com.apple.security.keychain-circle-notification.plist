@@ -4,10 +4,6 @@
 <dict>
 	<key>Label</key>
 	<string>com.apple.security.keychain-circle-notification</string>
-	<key>RunAtLoad</key>
-	<false/>
-	<key>KeepAlive</key>
-	<false/>
 	<key>EnablePressuredExit</key>
 	<true/>
 	<key>LimitLoadToSessionType</key>
@@ -16,6 +12,11 @@
 	<dict>
 		<key>com.apple.notifyd.matching</key>
 		<dict>
+			<key>kPublicKeyAvailable</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.security.publickeyavailable</string>
+			</dict>
 			<key>kPublicKeyNotAvailable</key>
 			<dict>
 				<key>Notification</key>

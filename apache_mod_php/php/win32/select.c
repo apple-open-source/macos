@@ -1,8 +1,8 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 5                                                        |
+  | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2016 The PHP Group                                |
+  | Copyright (c) 1997-2017 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -47,7 +47,7 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 	int retcode;
 
 #define SAFE_FD_ISSET(fd, set)	(set != NULL && FD_ISSET(fd, set))
-	
+
 	/* calculate how long we need to wait in milliseconds */
 	if (tv == NULL) {
 		ms_total = INFINITE;
@@ -59,7 +59,7 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 	FD_ZERO(&sock_read);
 	FD_ZERO(&sock_write);
 	FD_ZERO(&sock_except);
-	
+
 	/* build an array of handles for non-sockets */
 	for (i = 0; i < max_fd; i++) {
 		if (SAFE_FD_ISSET(i, rfds) || SAFE_FD_ISSET(i, wfds) || SAFE_FD_ISSET(i, efds)) {
@@ -67,13 +67,13 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 			if (handles[n_handles] == INVALID_HANDLE_VALUE) {
 				/* socket */
 				if (SAFE_FD_ISSET(i, rfds)) {
-					FD_SET((uint)i, &sock_read);
+					FD_SET((uint32_t)i, &sock_read);
 				}
 				if (SAFE_FD_ISSET(i, wfds)) {
-					FD_SET((uint)i, &sock_write);
+					FD_SET((uint32_t)i, &sock_write);
 				}
 				if (SAFE_FD_ISSET(i, efds)) {
-					FD_SET((uint)i, &sock_except);
+					FD_SET((uint32_t)i, &sock_except);
 				}
 				if (i > sock_max_fd) {
 					sock_max_fd = i;
@@ -89,18 +89,18 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 		/* plain sockets only - let winsock handle the whole thing */
 		return select(max_fd, rfds, wfds, efds, tv);
 	}
-	
+
 	/* mixture of handles and sockets; lets multiplex between
 	 * winsock and waiting on the handles */
 
 	FD_ZERO(&aread);
 	FD_ZERO(&awrite);
 	FD_ZERO(&aexcept);
-	
+
 	limit = GetTickCount64() + ms_total;
 	do {
 		retcode = 0;
-	
+
 		if (sock_max_fd >= 0) {
 			/* overwrite the zero'd sets here; the select call
 			 * will clear those that are not active */
@@ -117,7 +117,7 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 			/* check handles */
 			DWORD wret;
 
-			wret = MsgWaitForMultipleObjects(n_handles, handles, FALSE, retcode > 0 ? 0 : 100, QS_ALLEVENTS);
+			wret = WaitForMultipleObjects(n_handles, handles, FALSE, retcode > 0 ? 0 : 100);
 
 			if (wret == WAIT_TIMEOUT) {
 				/* set retcode to 0; this is the default.
@@ -136,13 +136,13 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 				for (i = 0; i < n_handles; i++) {
 					if (WAIT_OBJECT_0 == WaitForSingleObject(handles[i], 0)) {
 						if (SAFE_FD_ISSET(handle_slot_to_fd[i], rfds)) {
-							FD_SET((uint)handle_slot_to_fd[i], &aread);
+							FD_SET((uint32_t)handle_slot_to_fd[i], &aread);
 						}
 						if (SAFE_FD_ISSET(handle_slot_to_fd[i], wfds)) {
-							FD_SET((uint)handle_slot_to_fd[i], &awrite);
+							FD_SET((uint32_t)handle_slot_to_fd[i], &awrite);
 						}
 						if (SAFE_FD_ISSET(handle_slot_to_fd[i], efds)) {
-							FD_SET((uint)handle_slot_to_fd[i], &aexcept);
+							FD_SET((uint32_t)handle_slot_to_fd[i], &aexcept);
 						}
 						retcode++;
 					}
@@ -159,8 +159,8 @@ PHPAPI int php_select(int max_fd, fd_set *rfds, fd_set *wfds, fd_set *efds, stru
 	}
 	if (efds) {
 		*efds = aexcept;
-	}	
-	
+	}
+
 	return retcode;
 }
 

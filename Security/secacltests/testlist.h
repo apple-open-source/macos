@@ -1,4 +1,4 @@
 /* Don't preent multiple inclusions of this file */
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 
 ONE_TEST(sec_acl_stress)

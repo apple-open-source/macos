@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   change-ws.rb -
 #   	$Release Version: 0.9.6$
-#   	$Revision: 38358 $
+#   	$Revision: 53141 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -18,14 +19,14 @@ module IRB
 
     class CurrentWorkingWorkspace<Nop
       def execute(*obj)
-	irb_context.main
+        irb_context.main
       end
     end
 
     class ChangeWorkspace<Nop
       def execute(*obj)
-	irb_context.change_workspace(*obj)
-	irb_context.main
+        irb_context.change_workspace(*obj)
+        irb_context.main
       end
     end
   end

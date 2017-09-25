@@ -27,6 +27,7 @@
 //
 #include <security_utilities/devrandom.h>
 #include <security_utilities/logging.h>
+#include <CommonCrypto/CommonRandomSPI.h>
 
 using namespace UnixPlusPlus;
 
@@ -37,7 +38,6 @@ namespace Security {
 //
 // The common (shared) open file descriptor to /dev/random
 //
-ModuleNexus<DevRandomGenerator::Readonly> DevRandomGenerator::mReader;
 ModuleNexus<DevRandomGenerator::Writable> DevRandomGenerator::mWriter;
 
 
@@ -54,18 +54,10 @@ DevRandomGenerator::DevRandomGenerator(bool writable)
 //
 void DevRandomGenerator::random(void *data, size_t length)
 {
-    try {
-		size_t bytesRead = mReader().read(data, length);
-		if (bytesRead != length) {	// short read (shouldn't happen)
-			Syslog::error("DevRandomGenerator: wanted %ld got %ld bytes",
-				length, bytesRead);
-			UnixError::throwMe(EIO);
-		}
-	} catch(const UnixError &uerr) {
-		Syslog::error("DevRandomGenerator: error %d reading /dev/random",
-			uerr.error);
-		throw;
-	}
+    if (CCRandomCopyBytes(kCCRandomDefault, data, length)) {
+        Syslog::error("DevRandomGenerator: failed to generate random");
+        UnixError::throwMe(EIO);
+    }
 }
 
 

@@ -202,6 +202,15 @@ enum
     TLS_RSA_PSK_WITH_NULL_SHA256              = 0x00B8,
     TLS_RSA_PSK_WITH_NULL_SHA384              = 0x00B9,
 
+    /* TLS 1.3 standard cipher suites for ChaCha20+Poly1305.
+     Note: TLS 1.3 ciphersuites do not specify the key exchange
+     algorithm -- they only specify the symmetric ciphers. */
+    TLS_AES_128_GCM_SHA256                    = 0x1301,
+    TLS_AES_256_GCM_SHA384                    = 0x1302,
+    TLS_CHACHA20_POLY1305_SHA256              = 0x1303,
+    TLS_AES_128_CCM_SHA256                    = 0x1304,
+    TLS_AES_128_CCM_8_SHA256                  = 0x1305,
+
     /* Addenda from rfc 5289  Elliptic Curve Cipher Suites with
        HMAC SHA-256/384. */
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256   = 0xC023,

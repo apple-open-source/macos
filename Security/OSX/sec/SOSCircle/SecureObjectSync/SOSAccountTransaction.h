@@ -8,39 +8,43 @@
 #ifndef SOSAccountTransaction_h
 #define SOSAccountTransaction_h
 
-typedef struct __OpaqueSOSAccountTransaction *SOSAccountTransactionRef;
-
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecureObjectSync/SOSAccount.h>
+#import <Security/SecureObjectSync/SOSAccountPriv.h>
 #include <CoreFoundation/CFRuntime.h>
 
-CF_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
-struct __OpaqueSOSAccountTransaction {
-              CFRuntimeBase _base;
+@class SOSAccountTransaction;
 
-  _Nonnull    SOSAccountRef account;
+@interface SOSAccount (Transaction)
 
-              bool          initialInCircle;
-  _Nullable   CFSetRef      initialViews;
++ (void)performOnAccountQueue:(void (^)(void))action;
++ (void)performWhileHoldingAccountQueue:(void (^)(void))action;
 
-  _Nullable   CFSetRef      initialUnsyncedViews;
-  _Nullable   CFStringRef   initialID;
+- (void) performTransaction: (void (^)(SOSAccountTransaction* txn)) action;
+- (void) performTransaction_Locked: (void (^)(SOSAccountTransaction* txn)) action;
 
-              bool          initialTrusted;
-  _Nullable   CFDataRef     initialKeyParameters;
+@end
 
-  _Nullable   CFMutableSetRef  peersToRequestSync;
-};
+@interface SOSAccountTransaction : NSObject
 
++ (instancetype) transactionWithAccount: (SOSAccount*) account;
 
-SOSAccountTransactionRef SOSAccountTransactionCreate(SOSAccountRef account);
-void SOSAccountTransactionFinish(SOSAccountTransactionRef txn);
-void SOSAccountTransactionFinishAndRestart(SOSAccountTransactionRef txn);
+- (instancetype) init NS_UNAVAILABLE;
+- (instancetype) initWithAccount: (SOSAccount*) account NS_DESIGNATED_INITIALIZER;
 
-void SOSAccountTransactionAddSyncRequestForPeerID(SOSAccountTransactionRef txn, CFStringRef peerID);
-void SOSAccountTransactionAddSyncRequestForAllPeerIDs(SOSAccountTransactionRef txn, CFSetRef /* CFStringRef */ peerIDs);
+- (void) finish;
+- (void) restart;
 
-CF_ASSUME_NONNULL_END
+- (void) requestSyncWith: (NSString*) peerID;
+- (void) requestSyncWithPeers: (NSSet<NSString*>*) peerList;
+
+@property SOSAccount *account;
+
+@property (readonly) NSString* description;
+
+@end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* SOSAccountTransaction_h */

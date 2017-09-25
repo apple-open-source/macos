@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -218,10 +218,13 @@ link_update_quality_metric(const char *if_name)
 		quality = ifr.ifr_link_quality_metric;
 	}
 
-done:
+    done:
+
 	interface_update_quality_metric(if_name, quality);
-	if (sock != -1)
+
+	if (sock != -1) {
 		close(sock);
+	}
 	return;
 
 }
@@ -341,7 +344,7 @@ void
 link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_different)
 {
 	CFBooleanRef		active		= NULL;
-	CFBooleanRef		expensive;
+	CFBooleanRef		expensive	= NULL;
 	struct ifmediareq	ifm;
 	int			sock;
 
@@ -377,8 +380,13 @@ link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_diff
 
  update:
 
-	/* get "Expensive" */
-	expensive = interface_update_expensive(if_name);
+	if ((active == NULL) || CFBooleanGetValue(active)) {
+		/*
+		 * if link status not available or active (link UP),
+		 * set "Expensive"
+		 */
+		expensive = interface_update_expensive(if_name);
+	}
 
 	/* update status */
 	interface_update_status(if_name, active, attach, expensive, only_if_different);

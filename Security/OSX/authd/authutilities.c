@@ -6,7 +6,6 @@
 
 #include <AssertMacros.h>
 #include <assert.h>
-#include <syslog.h>
 
 xpc_object_t
 SerializeItemSet(const AuthorizationItemSet * itemSet)

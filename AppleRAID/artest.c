@@ -973,10 +973,16 @@ static void
 callBack(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
 {
     char setName[128];
-    if (!CFStringGetCString(object, setName, 128, kCFStringEncodingUTF8)) bcopy("bogus set name?", setName, 128);
+    const char nameCString[] = "bogus set name?";
+    if (!CFStringGetCString(object, setName, 128, kCFStringEncodingUTF8)) {
+        bcopy(nameCString, setName, sizeof(nameCString));
+    }
     
     char event[128];
-    if (!CFStringGetCString(name, event, 128, kCFStringEncodingUTF8)) bcopy("bogus event string?", event, 128);
+    const char eventCString[] = "bogus event string?";
+    if (!CFStringGetCString(name, event, 128, kCFStringEncodingUTF8)) {
+        bcopy(eventCString, event, sizeof(eventCString));
+    }
     
     printf("Notification for %s, event = %s.\n", setName, event); fflush(stdout);
 }

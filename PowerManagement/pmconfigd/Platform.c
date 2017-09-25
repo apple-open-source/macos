@@ -240,7 +240,7 @@ __private_extern__ void evalTcpkaForPSChange()
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
         return;
 
-    if (getSessionUserActivity() == true) {
+    if (getSessionUserActivity(NULL) == true) {
         // If user is active in this wake session, there's nothing to be done here
         // This case is handled when system is going to sleep
         return;

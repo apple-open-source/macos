@@ -170,27 +170,27 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
     secdebug(PROXYXPCSCOPE, "Handling %s operation", operation);
 
 
-    if (operation && !strcmp(operation, kOperationPUTDictionary))
+    if (!strcmp(operation, kOperationPUTDictionary))
     {
         operation_put_dictionary(event);
         sendAckResponse(peer, event);
     }
-    else if (operation && !strcmp(operation, kOperationGETv2))
+    else if (!strcmp(operation, kOperationGETv2))
     {
         operation_get_v2(peer, event);
         // operationg_get_v2 sends the response
     }
-    else if (operation && !strcmp(operation, kOperationClearStore))
+    else if (!strcmp(operation, kOperationClearStore))
     {
         [SharedProxy() clearStore];
         sendAckResponse(peer, event);
     }
-    else if (operation && !strcmp(operation, kOperationSynchronize))
+    else if (!strcmp(operation, kOperationSynchronize))
     {
         [SharedProxy() synchronizeStore];
         sendAckResponse(peer, event);
     }
-    else if (operation && !strcmp(operation, kOperationSynchronizeAndWait))
+    else if (!strcmp(operation, kOperationSynchronizeAndWait))
     {
         xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
         secnotice(XPROXYSCOPE, "%s XPC request: %s", kWAIT2MINID, kOperationSynchronizeAndWait);
@@ -212,7 +212,7 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
              }
          }];
     }
-    else if (operation && !strcmp(operation, kOperationRegisterKeys))
+    else if (!strcmp(operation, kOperationRegisterKeys))
     {
         xpc_object_t xkeysToRegisterDict = xpc_dictionary_get_value(event, kMessageKeyValue);
 
@@ -231,7 +231,24 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
 
         secdebug(PROXYXPCSCOPE, "RegisterKeys message sent");
     }
-    else if (operation && !strcmp(operation, kOperationRequestSyncWithPeers))
+    else if (!strcmp(operation, kOperationRemoveKeys))
+    {
+        xpc_object_t xkeysToRemoveDict = xpc_dictionary_get_value(event, kMessageKeyValue);
+        
+        NSString* accountUUID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyAccountUUID);
+        
+        if (![accountUUID isKindOfClass:[NSString class]]) {
+            accountUUID = nil;
+        }
+        
+        NSArray *KTRallkeys = (__bridge_transfer NSArray *)(_CFXPCCreateCFObjectFromXPCObject(xkeysToRemoveDict));
+        
+        [SharedProxy() removeKeys:KTRallkeys forAccount:accountUUID];
+        sendAckResponse(peer, event);
+        
+        secdebug(PROXYXPCSCOPE, "RemoveKeys message sent");
+    }
+    else if (!strcmp(operation, kOperationRequestSyncWithPeers))
     {
 
         NSArray<NSString*> * peerIDs = CreateArrayOfStringsForCFXPCObjectFromKey(event, kMessageKeyPeerIDList);
@@ -244,7 +261,7 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
 
         secdebug(PROXYXPCSCOPE, "RequestSyncWithAllPeers reply sent");
     }
-    else if (operation && !strcmp(operation, kOperationHasPendingSyncWithPeer)) {
+    else if (!strcmp(operation, kOperationHasPendingSyncWithPeer)) {
         NSString *peerID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyPeerID);
 
         BOOL hasPending = [SharedProxy() hasSyncPendingFor: peerID];
@@ -257,7 +274,7 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
             secdebug(PROXYXPCSCOPE, "HasPendingSyncWithPeer reply sent");
         }
     }
-    else if (operation && !strcmp(operation, kOperationHasPendingKey)) {
+    else if (!strcmp(operation, kOperationHasPendingKey)) {
         NSString *peerID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyPeerID);
 
         BOOL hasPending = [SharedProxy() hasPendingKey: peerID];
@@ -270,17 +287,25 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
             secdebug(PROXYXPCSCOPE, "HasIncomingMessageFromPeer reply sent");
         }
     }
-    else if (operation && !strcmp(operation, kOperationRequestEnsurePeerRegistration))
+    else if (!strcmp(operation, kOperationRequestEnsurePeerRegistration))
     {
         [SharedProxy() requestEnsurePeerRegistration];
         sendAckResponse(peer, event);
         secdebug(PROXYXPCSCOPE, "RequestEnsurePeerRegistration reply sent");
     }
-    else if (operation && !strcmp(operation, kOperationFlush))
+    else if (!strcmp(operation, kOperationFlush))
     {
         [SharedProxy() doAfterFlush:^{
             sendAckResponse(peer, event);
             secdebug(PROXYXPCSCOPE, "flush reply sent");
+        }];
+    }
+    else if (!strcmp(operation, kOperationPerfCounters)) {
+        [SharedProxy() perfCounters:^(NSDictionary *counters){
+            xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
+            xpc_object_t object = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)counters);
+            xpc_dictionary_set_value(replyMessage, kMessageKeyValue, object);
+            xpc_connection_send_message(peer, replyMessage);
         }];
     }
     else
@@ -331,14 +356,14 @@ static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
     if (!replyMessage)
     {
         secdebug(PROXYXPCSCOPE, "can't create replyMessage");
-        assert(true);   //must have a reply handler
+        assert(false);   //must have a reply handler
         return false;
     }
     xpc_object_t returnedValues = xpc_dictionary_create(NULL, NULL, 0);
     if (!returnedValues)
     {
         secdebug(PROXYXPCSCOPE, "can't create returnedValues");
-        assert(true);   // must have a spot for the returned values
+        assert(false);   // must have a spot for the returned values
         return false;
     }
 

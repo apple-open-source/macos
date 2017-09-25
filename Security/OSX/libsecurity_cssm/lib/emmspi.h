@@ -27,6 +27,8 @@
 #define _EMMSPI_H_  1
 
 #include <Security/cssmtype.h>
+#include <Security/emmtype.h> /* CSSM_MANAGER_EVENT_NOTIFICATION */
+#include <Security/cssmspi.h> /* CSSM_UPCALLS_PTR */
 
 #ifdef __cplusplus
 extern "C" {

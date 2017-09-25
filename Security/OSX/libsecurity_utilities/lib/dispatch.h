@@ -57,7 +57,7 @@ private:
 class Queue {
 	NOCOPY(Queue)
 public:
-	Queue(const char *label, bool concurrent, dispatch_qos_class_t qos_class = QOS_CLASS_DEFAULT);
+	Queue(const char *label, bool concurrent, dispatch_qos_class_t qos_class = QOS_CLASS_UNSPECIFIED);
 	virtual ~Queue();
 
 	operator dispatch_queue_t () const { return mQueue; }

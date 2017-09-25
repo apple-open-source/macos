@@ -21,6 +21,9 @@
  */
 
 
+#include <sys/kdebug.h>
+#include <sys/proc.h>
+
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOKitKeys.h>
@@ -34,6 +37,8 @@
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
 #include "IODisplayWrangler.h"
+
+#include "IOGraphicsKTrace.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -59,10 +64,14 @@ OSDefineMetaClassAndStructors(IODisplayConnect, IOService)
 
 bool IODisplayConnect::initWithConnection( IOIndex _connection )
 {
+    IODC_START(initWithConnection,0,0,0);
     char        name[ 12 ];
 
     if (!super::init())
+    {
+        IODC_END(initWithConnection,false,0,0);
         return (false);
+    }
 
     connection = _connection;
 
@@ -70,31 +79,54 @@ bool IODisplayConnect::initWithConnection( IOIndex _connection )
 
     setName( name);
 
+    IODC_END(initWithConnection,true,0,0);
     return (true);
 }
 
 IOFramebuffer * IODisplayConnect::getFramebuffer( void )
 {
-    return ((IOFramebuffer *) getProvider());
+    IODC_START(initWithConnection,0,0,0);
+    IOFramebuffer * fb = (IOFramebuffer *) getProvider();
+    IODC_END(initWithConnection,0,0,0);
+    return (fb);
 }
 
 IOIndex IODisplayConnect::getConnection( void )
 {
+    IODC_START(initWithConnection,0,0,0);
+    IODC_END(initWithConnection,0,0,0);
     return (connection);
 }
 
-IOReturn  IODisplayConnect::getAttributeForConnection( IOSelect selector, uintptr_t * value )
+IOReturn IODisplayConnect::getAttributeForConnection( IOSelect selector, uintptr_t * value )
 {
+    IODC_START(initWithConnection,selector,0,0);
     if (!getProvider())
+    {
+        IODC_END(initWithConnection,kIOReturnNotReady,0,0);
         return (kIOReturnNotReady);
-    return ((IOFramebuffer *) getProvider())->getAttributeForConnection(connection, selector, value);
+    }
+
+    FB_START(getAttributeForConnection,selector,__LINE__,0);
+    IOReturn err = ((IOFramebuffer *) getProvider())->getAttributeForConnection(connection, selector, value);
+    FB_END(getAttributeForConnection,err,__LINE__,0);
+    IODC_END(initWithConnection,err,0,0);
+    return (err);
 }
 
 IOReturn  IODisplayConnect::setAttributeForConnection( IOSelect selector, uintptr_t value )
 {
+    IODC_START(initWithConnection,selector,value,0);
     if (!getProvider())
+    {
+        IODC_END(initWithConnection,kIOReturnNotReady,0,0);
         return (kIOReturnNotReady);
-    return ((IOFramebuffer *) getProvider())->setAttributeForConnection(connection,  selector, value);
+    }
+    FB_START(setAttributeForConnection,selector,__LINE__,value);
+    IOReturn err = ((IOFramebuffer *) getProvider())->setAttributeForConnection(connection,  selector, value);
+    FB_END(setAttributeForConnection,err,__LINE__,0);
+    IODC_END(initWithConnection,err,0,0);
+    return (err);
 }
 
 // joinPMtree
@@ -105,7 +137,9 @@ IOReturn  IODisplayConnect::setAttributeForConnection( IOSelect selector, uintpt
 
 void IODisplayConnect::joinPMtree ( IOService * driver )
 {
+    IODC_START(initWithConnection,0,0,0);
     getProvider()->addPowerChild(driver);
+    IODC_END(initWithConnection,0,0,0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -119,6 +153,7 @@ IODisplayWrangler *     gIODisplayWrangler;
 
 bool IODisplayWrangler::serverStart(void)
 {
+    IODW_START(serverStart,0,0,0);
     mach_timespec_t timeout = { 120, 0 };
 
     if (!gIODisplayWrangler)
@@ -132,37 +167,25 @@ bool IODisplayWrangler::serverStart(void)
         gIODisplayWrangler->activityTickle(0, 0);
     }
 
+    IODW_END(serverStart,gIODisplayWrangler != 0,0,0);
     return (gIODisplayWrangler != 0);
 }
 
 bool IODisplayWrangler::start( IOService * provider )
 {
-    OSObject *  notify;
+    IODW_START(start,0,0,0);
 
     if (!super::start(provider))
+    {
+        IODW_END(start,false,0,0);
         return (false);
+    }
 
     assert( gIODisplayWrangler == 0 );
 
     setProperty(kIOUserClientClassKey, "IOAccelerationUserClient");
 
-    fMatchingLock = IOLockAlloc();
-    fFramebuffers = OSSet::withCapacity( 1 );
-    fDisplays = OSSet::withCapacity( 1 );
-
 	clock_interval_to_absolutetime_interval(kDimInterval, kSecondScale, &fDimInterval);
-
-    assert( fMatchingLock && fFramebuffers && fDisplays );
-
-    notify = addMatchingNotification( gIOPublishNotification,
-                                      serviceMatching("IODisplay"), _displayHandler,
-                                      this, fDisplays );
-    assert( notify );
-
-    notify = addMatchingNotification( gIOPublishNotification,
-                                      serviceMatching("IODisplayConnect"), _displayConnectHandler,
-                                      this, 0, 50000 );
-    assert( notify );
 
     gIODisplayWrangler = this;
 
@@ -170,78 +193,13 @@ bool IODisplayWrangler::start( IOService * provider )
     gIODisplayWrangler->initForPM();
     getPMRootDomain()->publishFeature("AdaptiveDimming");
 
-    return (true);
-}
-
-bool IODisplayWrangler::_displayHandler( void * target, void * ref,
-        IOService * newService, IONotifier * notifier )
-{
-    return (((IODisplayWrangler *)target)->displayHandler((OSSet *) ref,
-            (IODisplay *) newService));
-}
-
-bool IODisplayWrangler::_displayConnectHandler( void * target, void * ref,
-        IOService * newService, IONotifier * notifier )
-{
-    return (((IODisplayWrangler *)target)->displayConnectHandler(ref,
-            (IODisplayConnect *) newService));
-}
-
-bool IODisplayWrangler::displayHandler( OSSet * set,
-                                            IODisplay * newDisplay )
-{
-    assert( OSDynamicCast( IODisplay, newDisplay ));
-
-    IOTakeLock( fMatchingLock );
-
-    set->setObject( newDisplay );
-
-    IOUnlock( fMatchingLock );
-
-    return (true);
-}
-
-bool IODisplayWrangler::displayConnectHandler( void * /* ref */,
-        IODisplayConnect * connect )
-{
-    SInt32              score = 50000;
-    OSIterator *        iter;
-    IODisplay *         display;
-    bool                found = false;
-
-    assert( OSDynamicCast( IODisplayConnect, connect ));
-
-    IOTakeLock( fMatchingLock );
-
-    iter = OSCollectionIterator::withCollection( fDisplays );
-    if (iter)
-    {
-        while (!found && (display = (IODisplay *) iter->getNextObject()))
-        {
-            if (display->getConnection())
-                continue;
-
-            do
-            {
-                if (!display->attach(connect))
-                    continue;
-                found = ((display->probe( connect, &score ))
-                         && (display->start( connect )));
-                if (!found)
-                    display->detach( connect );
-            }
-            while (false);
-        }
-        iter->release();
-    }
-
-    IOUnlock( fMatchingLock );
-
+    IODW_END(start,true,0,0);
     return (true);
 }
 
 bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
 {
+    IODW_START(makeDisplayConnects,0,0,0);
     IODisplayConnect *  connect;
     IOItemCount         i;
 
@@ -259,11 +217,13 @@ bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
         connect->release();
     }
 
+    IODW_END(makeDisplayConnects,true,0,0);
     return (true);
 }
 
 void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
 {
+    IODW_START(destroyDisplayConnects,0,0,0);
     OSIterator *        iter;
     OSObject *          next;
     IODisplayConnect *  connect;
@@ -283,7 +243,6 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
                 display = OSDynamicCast( IODisplay, connect->getClient());
                 if (display)
                 {
-                    gIODisplayWrangler->fDisplays->removeObject( display );
                     display->PMstop();
                 }
                 connect->terminate( kIOServiceSynchronous );
@@ -291,17 +250,21 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
         }
         iter->release();
     }
+    IODW_END(destroyDisplayConnects,0,0,0);
 }
 
 void IODisplayWrangler::activityChange( IOFramebuffer * fb )
 {
+    IODW_START(activityChange,0,0,0);
     DEBG1("W", " activityChange\n");
     gIODisplayWrangler->activityTickle(0,0);
+    IODW_END(activityChange,0,0,0);
 }
 
 IODisplayConnect * IODisplayWrangler::getDisplayConnect(
     IOFramebuffer * fb, IOIndex connect )
 {
+    IODW_START(getDisplayConnect,connect,0,0);
     OSIterator  *       iter;
     OSObject    *       next;
     IODisplayConnect *  connection = 0;
@@ -322,6 +285,7 @@ IODisplayConnect * IODisplayWrangler::getDisplayConnect(
         }
         iter->release();
     }
+    IODW_END(getDisplayConnect,0,0,0);
     return (connection);
 }
 
@@ -329,6 +293,7 @@ IOReturn IODisplayWrangler::getConnectFlagsForDisplayMode(
     IODisplayConnect * connect,
     IODisplayModeID mode, UInt32 * flags )
 {
+    IODW_START(getConnectFlagsForDisplayMode,mode,0,0);
     IOReturn            err = kIOReturnUnsupported;
     IODisplay *         display;
 
@@ -337,10 +302,13 @@ IOReturn IODisplayWrangler::getConnectFlagsForDisplayMode(
         err = display->getConnectFlagsForDisplayMode( mode, flags );
     else
     {
+        FB_START(connectFlags,mode,__LINE__,0);
         err = connect->getFramebuffer()->connectFlags(
                   connect->getConnection(), mode, flags );
+        FB_END(connectFlags,err,__LINE__,*flags);
     }
 
+    IODW_END(getConnectFlagsForDisplayMode,err,0,0);
     return (err);
 }
 
@@ -348,15 +316,27 @@ IOReturn IODisplayWrangler::getFlagsForDisplayMode(
     IOFramebuffer * fb,
     IODisplayModeID mode, UInt32 * flags )
 {
-    IODisplayConnect *          connect;
+    IODW_START(getFlagsForDisplayMode,mode,0,0);
+    IOReturn            err;
+    IODisplayConnect    * connect;
 
+    do {
     // should look at all connections
     connect = gIODisplayWrangler->getDisplayConnect( fb, 0 );
     if (!connect)
-        return (fb->connectFlags(0, mode, flags));
+    {
+        FB_START(connectFlags,mode,__LINE__,0);
+        err = (fb->connectFlags(0, mode, flags));
+        FB_END(connectFlags,err,__LINE__,*flags);
+        break;
+    }
 
-    return (gIODisplayWrangler->
+    err = (gIODisplayWrangler->
             getConnectFlagsForDisplayMode(connect, mode, flags));
+    } while(0);
+
+    IODW_END(getFlagsForDisplayMode,err,0,0);
+    return (err);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -419,6 +399,7 @@ static IOPMPowerState ourPowerStates[kIODisplayWranglerNumPowerStates] = {
 
 void IODisplayWrangler::initForPM(void )
 {
+    IODW_START(initForPM,0,0,0);
     // initialize superclass variables
     PMinit();
 
@@ -431,14 +412,19 @@ void IODisplayWrangler::initForPM(void )
 
     // HID system is waiting for this
     registerService();
+    IODW_END(initForPM,0,0,0);
 }
 
 unsigned long IODisplayWrangler::initialPowerStateForDomainState( IOPMPowerFlags domainState )
 {
+    IODW_START(initialPowerStateForDomainState,domainState,0,0);
+    unsigned long   ret = 0;
+
     if (domainState & IOPMPowerOn)
-        return (kIODisplayWranglerMaxPowerState);
-    else
-        return (0);
+        ret = (kIODisplayWranglerMaxPowerState);
+
+    IODW_END(initialPowerStateForDomainState,ret,0,0);
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -451,6 +437,7 @@ unsigned long IODisplayWrangler::initialPowerStateForDomainState( IOPMPowerFlags
 
 IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long newLevel )
 {
+    IODW_START(setAggressiveness,type,newLevel,0);
     switch (type)
     {
 
@@ -470,7 +457,7 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         {
             // Display will always dim at least kMinDimTime seconds before
             // display sleep kicks in.
-            fMinutesToDim = newLevel;
+            fMinutesToDim = static_cast<UInt32>(newLevel);
 			clock_interval_to_absolutetime_interval(fMinutesToDim * 60, kSecondScale, &fOffInterval[0]);
 
 			uint32_t annoyedInterval = fMinutesToDim * 60 * 2;
@@ -483,13 +470,23 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         }
 
         newLevel = fDimCaptured ? 0 : fMinutesToDim;
-        setIdleTimerPeriod(newLevel * 30);
+
+            IOG_KTRACE(DBG_IOG_SET_TIMER_PERIOD,
+                       DBG_FUNC_NONE,
+                       0, DBG_IOG_SOURCE_SET_AGGRESSIVENESS,
+                       0, newLevel * 30,
+                       0, 0,
+                       0, 0);
+
+            setIdleTimerPeriod(newLevel * 30);
         break;
 
       default:
         break;
     }
     super::setAggressiveness(type, newLevel);
+
+    IODW_END(setAggressiveness,IOPMNoErr,0,0);
     return (IOPMNoErr);
 }
 
@@ -503,6 +500,14 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 
 IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOService * whatDevice )
 {
+    IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
+               DBG_FUNC_NONE,
+               0, powerStateOrdinal,
+               0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+               0, 0,
+               0, 0);
+    IODW_START(setPowerState,powerStateOrdinal,0,0);
+
     fPendingPowerState = powerStateOrdinal;
 
 	fPowerStateChangeTime = mach_absolute_time();
@@ -514,12 +519,24 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
     {
         // system is going to sleep
         // keep displays off on wake till UI brings them up
+
+        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                   DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                   0, 0,
+                   0, 0,
+                   0, 0);
+
         changePowerStateToPriv(0);
+        IODW_END(setPowerState,IOPMNoErr,0,0);
         return (IOPMNoErr);
     }
 
     if (!gIOGraphicsSystemPower || !fOpen)
+    {
+        IODW_END(setPowerState,IOPMNoErr,0,0);
         return (IOPMNoErr);
+    }
     else if (powerStateOrdinal < getPowerState())
     {
         // HI is idle, drop power
@@ -539,14 +556,18 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
 
 		start_PM_idle_timer();
     }
+
+    IODW_END(setPowerState,IOPMNoErr,0,0);
     return (IOPMNoErr);
 }
 
 unsigned long IODisplayWrangler::getDisplaysPowerState(void)
 {
-    unsigned long state = gIODisplayWrangler 
+    IODW_START(getDisplaysPowerState,0,0,0);
+    unsigned long state = gIODisplayWrangler
                                 ? gIODisplayWrangler->fPendingPowerState
                                 : kIODisplayWranglerMaxPowerState;
+    IODW_END(getDisplaysPowerState,state,0,0);
     return (state);
 }
 
@@ -565,6 +586,7 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
     AbsoluteTime lastActivity, 
     unsigned int powerState)
 {
+    IODW_START(nextIdleTimeout,currentTime,lastActivity,powerState);
 	AbsoluteTime deadline;
 	uint64_t delayNS = 0;
 	SInt32   delaySecs = 0;
@@ -572,6 +594,7 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
     if (!fOpen)
     {
         enum { kWindowServerStartTime = 24 * 60 * 60 };
+        IODW_END(nextIdleTimeout,kWindowServerStartTime,0,0);
         return (kWindowServerStartTime);
     }
 
@@ -591,7 +614,7 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 			{
 				SUB_ABSOLUTETIME(&deadline, &currentTime);
 				absolutetime_to_nanoseconds(deadline, &delayNS);
-				delaySecs = delayNS / kSecondScale;
+				delaySecs = static_cast<SInt32>(delayNS / kSecondScale);
 			}
             break;
 
@@ -603,9 +626,16 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 			{
 				SUB_ABSOLUTETIME(&deadline, &currentTime);
 				absolutetime_to_nanoseconds(deadline, &delayNS);
-				delaySecs = delayNS / kSecondScale;
-			}
-			else changePowerStateToPriv(2);
+				delaySecs = static_cast<SInt32>(delayNS / kSecondScale);
+            } else {
+                IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                           DBG_FUNC_NONE,
+                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                           0, 2,
+                           0, 0,
+                           0, 0);
+                changePowerStateToPriv(2);
+            }
             break;
 
         case 2:
@@ -626,6 +656,7 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 
     if (!delaySecs) delaySecs = 1;
 	
+    IODW_END(nextIdleTimeout,delaySecs,0,0);
     return (delaySecs);
 }
 
@@ -636,16 +667,23 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 
 bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
 {
+    IODW_START(activityTickle,x,y,0);
     AbsoluteTime now;
 
     if (!fOpen)
+    {
+        IODW_END(activityTickle,true,0,0);
         return (true);
+    }
 
     AbsoluteTime_to_scalar(&now) = mach_absolute_time();
     if (AbsoluteTime_to_scalar(&fIdleUntil))
     {
         if (CMP_ABSOLUTETIME(&now, &fIdleUntil) < 0)
+        {
+            IODW_END(activityTickle,true,0,0);
             return (true);
+        }
         AbsoluteTime_to_scalar(&fIdleUntil) = 0;
     }
 
@@ -664,23 +702,47 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
     if (super::activityTickle(kIOPMSuperclassPolicy1,
                 kIODisplayWranglerMaxPowerState) )
     {
+        IODW_END(activityTickle,true,0,0);
         return (true);
     }
 
+    IOG_KTRACE(DBG_IOG_WAKE_FROM_DOZE,
+               DBG_FUNC_NONE,
+               0, x,
+               0, y,
+               0, 0,
+               0, 0);
+
     getPMRootDomain()->wakeFromDoze();
-    
+
+    IODW_END(activityTickle,false,0,0);
     return (false);
 }
 
 OSObject * IODisplayWrangler::copyProperty( const char * aKey ) const
 {
-    if (!strcmp(aKey, kIOGraphicsPrefsKey))
-        return (IOFramebuffer::copyPreferences());
-    return (super::copyProperty(aKey));
+    IODW_START(copyProperty,0,0,0);
+
+    OSObject * obj = NULL;
+    const bool userPrefs = !strcmp(aKey, kIOGraphicsPrefsKey);
+
+    if (userPrefs)
+    {
+        obj = IOFramebuffer::copyPreferences();
+    }
+    else
+    {
+        obj = super::copyProperty(aKey);
+    }
+
+    IODW_END(copyProperty,userPrefs,0,0);
+    return (obj);
 }
 
 IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 {
+    IODW_START(setProperties,0,0,0);
+    IOReturn        err;
     OSDictionary * dict;
     OSDictionary * prefs;
     OSObject *     obj;
@@ -690,12 +752,17 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
             kIODisplayRequestMaxIdleFor    = 15000 };
 
     if (!(dict = OSDynamicCast(OSDictionary, properties)))
+    {
+        IODW_END(setProperties,kIOReturnBadArgument,0,0);
         return (kIOReturnBadArgument);
+    }
 
     if ((prefs = OSDynamicCast(OSDictionary,
                               dict->getObject(kIOGraphicsPrefsKey))))
     {
-        return (IOFramebuffer::setPreferences(this, prefs));
+        err = IOFramebuffer::setPreferences(this, prefs);
+        IODW_END(setProperties,err,0,0);
+        return (err);
     }
 
     obj = dict->getObject(kIORequestIdleKey);
@@ -717,22 +784,52 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 
     if (idleFor)
     {
-		DEBG1("W", " idleFor(%d)\n", idleFor);
+        const auto currentPower = getPowerState();
+        char procName[32]; proc_selfname(procName, sizeof(procName));
 
+        DEBG1("W", " requested idleFor %s%dms by process '%s' from %d\n",
+              (2 == gIODisplayFadeStyle)? "with fade " : "",
+              idleFor, procName, currentPower);
+        IOLog("DW forced idle %sfor %dms by process '%s' from %d\n",
+              (2 == gIODisplayFadeStyle)? "with fade " : "",
+              idleFor, procName, currentPower);
         clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
-
 		if (2 == gIODisplayFadeStyle)
 		{
-			if (getPowerState() > 3) 
+			if (currentPower > 3)
 			{
-				changePowerStateToPriv(3);
+                IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                           DBG_FUNC_NONE,
+                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                           0, 3,
+                           0, 0,
+                           0, 0);
+
+                changePowerStateToPriv(3);
+
+                IOG_KTRACE(DBG_IOG_SET_TIMER_PERIOD,
+                           DBG_FUNC_NONE,
+                           0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                           0, 60,
+                           0, 0,
+                           0, 0);
+
 				setIdleTimerPeriod(60);
 			}
 		}
-		else if (getPowerState() > 1) changePowerStateToPriv(1);
+		else if (currentPower > 1)
+        {
+            IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                       DBG_FUNC_NONE,
+                       0, DBG_IOG_SOURCE_IODISPLAYWRANGLER,
+                       0, 1,
+                       0, 0,
+                       0, 0);
 
-        return (kIOReturnSuccess);
+            changePowerStateToPriv(1);
+        }
     }
 
+    IODW_END(setProperties,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }

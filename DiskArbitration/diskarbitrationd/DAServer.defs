@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,6 @@ import "DAServer.defs.h";
 
 type ___caddr_t                   = c_string [*:1024]   ctype : caddr_t;
 type ___path_t                    = c_string [*:4096]   ctype : ___path_t;
-type ___pid_t                     = int32_t             ctype : pid_t;
 type ___uid_t                     = int32_t             ctype : uid_t;
 type ___vm_address_t              = array [] of char    ctype : vm_address_t;
 type ___AuthorizationExternalForm = struct [32] of char ctype : AuthorizationExternalForm;
@@ -58,12 +57,12 @@ routine _DAServerDiskIsClaimed( _session : mach_port_t;
 routine _DAServerDiskSetAdoption( _session  : mach_port_t;
                                   _disk     : ___caddr_t;
                                   _adoption : boolean_t;
-                   ServerSecToken _token    : security_token_t );
+                 ServerAuditToken _token    : audit_token_t );
 
 routine _DAServerDiskSetEncoding( _session  : mach_port_t;
                                   _disk     : ___caddr_t;
                                   _encoding : int32_t;
-                   ServerSecToken _token    : security_token_t );
+                 ServerAuditToken _token    : audit_token_t );
 
 routine _DAServerDiskSetOptions( _session : mach_port_t;
                                  _disk    : ___caddr_t;
@@ -78,7 +77,7 @@ routine _DAServerSessionCopyCallbackQueue( _session : mach_port_t;
 
 routine _DAServerSessionCreate( _session : mach_port_t;
                                 _name    : ___caddr_t;
-                                _pid     : ___pid_t;
+               ServerAuditToken _token   : audit_token_t;
                             out _server  : mach_port_make_send_t );
 
 routine _DAServerSessionQueueRequest( _session   : mach_port_t;
@@ -89,7 +88,7 @@ routine _DAServerSessionQueueRequest( _session   : mach_port_t;
                                       _argument3 : ___vm_address_t;
                                       _address   : mach_vm_offset_t;
                                       _context   : mach_vm_offset_t;
-                       ServerSecToken _token     : security_token_t );
+                     ServerAuditToken _token     : audit_token_t );
 
 simpleroutine _DAServerSessionQueueResponse( _session    : mach_port_t;
                                              _address    : mach_vm_offset_t;
@@ -121,4 +120,8 @@ simpleroutine _DAServerSessionUnregisterCallback( _session : mach_port_t;
 
 routine _DAServermkdir( _session : mach_port_t;
                         _path    : ___path_t;
-         ServerSecToken _token   : security_token_t );
+       ServerAuditToken _token   : audit_token_t );
+
+routine _DAServerrmdir( _session : mach_port_t;
+                        _path    : ___path_t;
+       ServerAuditToken _token   : audit_token_t );

@@ -68,10 +68,9 @@ static CFIndex SecECKeyGetAlgorithmID(SecKeyRef key) {
 /* Public key static functions. */
 static void SecECPublicKeyDestroy(SecKeyRef key) {
     /* Zero out the public key */
-    ccec_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
-    if (ccec_ctx_cp(pubkey).zp)
-        cc_clear(ccec_pub_ctx_size(ccn_sizeof_n(ccec_ctx_n(pubkey))), pubkey.pub);
+    ccec_pub_ctx_t pubkey = key->key;
+    if (ccec_ctx_cp(pubkey))
+        cc_clear(ccec_pub_ctx_size(ccn_sizeof_n(ccec_ctx_n(pubkey))), pubkey);
 }
 
 static ccec_const_cp_t getCPForPublicSize(CFIndex encoded_length)
@@ -80,8 +79,7 @@ static ccec_const_cp_t getCPForPublicSize(CFIndex encoded_length)
     if(ccec_keysize_is_supported(keysize)) {
         return ccec_get_cp(keysize);
     }
-    ccec_const_cp_t nullCP = { .zp = NULL };
-    return nullCP;
+    return NULL;
 }
 
 static ccec_const_cp_t getCPForPrivateSize(CFIndex encoded_length)
@@ -90,8 +88,7 @@ static ccec_const_cp_t getCPForPrivateSize(CFIndex encoded_length)
     if(ccec_keysize_is_supported(keysize)) {
         return ccec_get_cp(keysize);
     }
-    ccec_const_cp_t nullCP = { .zp = NULL };
-    return nullCP;
+    return NULL;
 }
 
 static ccoid_t ccoid_secp192r1 = CC_EC_OID_SECP192R1;
@@ -120,8 +117,7 @@ static ccec_const_cp_t ccec_cp_for_oid(const unsigned char *oid)
 
 static OSStatus SecECPublicKeyInit(SecKeyRef key,
     const uint8_t *keyData, CFIndex keyDataLength, SecKeyEncoding encoding) {
-    ccec_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccec_pub_ctx_t pubkey = key->key;
     OSStatus err = errSecParam;
 
     switch (encoding) {
@@ -134,7 +130,7 @@ static OSStatus SecECPublicKeyInit(SecKeyRef key,
         }
 
         ccec_const_cp_t cp = getCPForPublicSize(derKey->keyLength);
-        require_action_quiet(cp.zp, errOut, err = errSecDecode);
+        require_action_quiet(cp, errOut, err = errSecDecode);
 
         /* TODO: Parse and use real params from passed in derKey->algId.params */
         err = (ccec_import_pub(cp, derKey->keyLength, derKey->key, pubkey)
@@ -144,19 +140,18 @@ static OSStatus SecECPublicKeyInit(SecKeyRef key,
     case kSecKeyEncodingBytes:
     {
         ccec_const_cp_t cp = getCPForPublicSize(keyDataLength);
-        require_action_quiet(cp.zp, errOut, err = errSecDecode);
+        require_action_quiet(cp, errOut, err = errSecDecode);
         err = (ccec_import_pub(cp, keyDataLength, keyData, pubkey)
                ? errSecDecode : errSecSuccess);
         break;
     }
     case kSecExtractPublicFromPrivate:
     {
-        ccec_full_ctx_t fullKey;
-        fullKey._full = (ccec_full_ctx *) keyData;
+        ccec_full_ctx_t fullKey = (ccec_full_ctx_t)keyData;
 
         cc_size fullKeyN = ccec_ctx_n(fullKey);
         require_quiet(fullKeyN <= ccn_nof(kMaximumECKeySize), errOut);
-        memcpy(pubkey._pub, fullKey.pub, ccec_pub_ctx_size(ccn_sizeof_n(fullKeyN)));
+        memcpy(pubkey, fullKey, ccec_pub_ctx_size(ccn_sizeof_n(fullKeyN)));
         err = errSecSuccess;
         break;
     }
@@ -184,14 +179,14 @@ static CFTypeRef SecECPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperatio
             int err = -1;
             size_t sigLen = CFDataGetLength(in2);
             uint8_t *sig = (uint8_t *)CFDataGetBytePtr(in2);
-            ccec_pub_ctx_t pubkey = { .pub = key->key };
+            ccec_pub_ctx_t pubkey = key->key;
 
             if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
                 err = ccec_verify(pubkey, CFDataGetLength(in1), CFDataGetBytePtr(in1), sigLen, sig, &valid);
             } else {
-                if (ccec_signature_r_s_size(pubkey.fullt) * 2 != sigLen) {
+                if (ccec_signature_r_s_size(pubkey) * 2 != sigLen) {
                     SecError(errSecParam, error, CFSTR("bad signature size, got %d, expecting %d bytes"),
-                             (int)sigLen, (int)ccec_signature_r_s_size(pubkey.fullt) * 2);
+                             (int)sigLen, (int)ccec_signature_r_s_size(pubkey) * 2);
                     return NULL;
                 }
                 err = ccec_verify_composite(pubkey, CFDataGetLength(in1), CFDataGetBytePtr(in1),
@@ -219,9 +214,7 @@ static CFTypeRef SecECPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperatio
 
 static size_t SecECPublicKeyBlockSize(SecKeyRef key) {
     /* Get key size in octets */
-    ccec_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
-    return ccec_ctx_size(pubkey);
+    return ccec_ctx_size(ccec_ctx_pub(key->key));
 }
 
 /* Encode the public key and return it in a newly allocated CFDataRef. */
@@ -234,15 +227,13 @@ static CFDataRef SecECPublicKeyExport(CFAllocatorRef allocator,
 }
 
 static CFDataRef SecECPublicKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
-    ccec_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccec_pub_ctx_t pubkey = key->key;
     return SecECPublicKeyExport(NULL, pubkey);
 }
 
 static OSStatus SecECPublicKeyCopyPublicOctets(SecKeyRef key, CFDataRef *serailziation)
 {
-    ccec_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccec_pub_ctx_t pubkey = key->key;
 
 	CFAllocatorRef allocator = CFGetAllocator(key);
     *serailziation = SecECPublicKeyExport(allocator, pubkey);
@@ -287,7 +278,7 @@ static CFStringRef SecECPublicKeyCopyKeyDescription(SecKeyRef key)
     CFMutableStringRef strings[2] = { NULL, };
     const char* curve = getCurveName(key);
 
-    ccec_pub_ctx_t ecPubkey = { .pub = key->key };
+    ccec_pub_ctx_t ecPubkey = key->key;
     size_t len = ccec_ctx_size(ecPubkey);
     uint8_t buffer[len];
     for (int i = 0; i < 2; ++i) {
@@ -329,14 +320,12 @@ static const struct ccec_rfc6637_curve * get_rfc6637_curve(SecKeyRef key)
 
 static CFDataRef SecECKeyCopyWrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef unwrappedKey, CFDictionaryRef parameters, CFDictionaryRef *outParam, CFErrorRef *error)
 {
-    ccec_pub_ctx_t pubkey;
+    ccec_pub_ctx_t pubkey = key->key;
     int err = errSecUnimplemented;
     const struct ccec_rfc6637_curve *curve;
     const struct ccec_rfc6637_wrap *wrap = NULL;
     uint8_t sym_alg = 0;
     int32_t flags = 0;
-
-    pubkey.pub = key->key;
 
     if (type != kSecKeyWrapPublicKeyPGP) {
         SecError(errSecUnsupportedOperation, error, CFSTR("unsupported key wrapping algorithm"));
@@ -444,17 +433,16 @@ SecKeyRef SecKeyCreateECPublicKey(CFAllocatorRef allocator,
 /* Private key static functions. */
 static void SecECPrivateKeyDestroy(SecKeyRef key) {
     /* Zero out the public key */
-    ccec_full_ctx_t fullkey;
-    fullkey.hdr = key->key;
-    if (ccec_ctx_cp(fullkey).zp)
-        cc_clear(ccec_full_ctx_size(ccn_sizeof_n(ccec_ctx_n(fullkey))), fullkey.hdr);
+    ccec_full_ctx_t fullkey = key->key;
+
+    if (ccec_ctx_cp(fullkey))
+        cc_clear(ccec_full_ctx_size(ccn_sizeof_n(ccec_ctx_n(fullkey))), fullkey);
 }
 
 
 static OSStatus SecECPrivateKeyInit(SecKeyRef key,
     const uint8_t *keyData, CFIndex keyDataLength, SecKeyEncoding encoding) {
-    ccec_full_ctx_t fullkey;
-    fullkey.hdr = key->key;
+    ccec_full_ctx_t fullkey = key->key;
     OSStatus err = errSecParam;
 
     switch (encoding) {
@@ -470,11 +458,11 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
 
         require_noerr_quiet(ccec_der_import_priv_keytype(keyDataLength, keyData, (ccoid_t*)&oid, &n), abort);
         cp = ccec_cp_for_oid(oid);
-        if (cp.zp == NULL) {
+        if (cp == NULL) {
             cp = ccec_curve_for_length_lookup(n * 8 /* bytes -> bits */,
                 ccec_cp_192(), ccec_cp_224(), ccec_cp_256(), ccec_cp_384(), ccec_cp_521(), NULL);
         }
-        require_action_quiet(cp.zp != NULL, abort, err = errSecDecode);
+        require_action_quiet(cp != NULL, abort, err = errSecDecode);
         ccec_ctx_init(cp, fullkey);
 
         require_noerr_quiet(ccec_der_import_priv(cp, keyDataLength, keyData, fullkey), abort);
@@ -484,15 +472,15 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
     case kSecKeyEncodingBytes:
     {
         ccec_const_cp_t cp = getCPForPrivateSize(keyDataLength);
-        require_quiet(cp.zp != NULL, abort);
+        require_quiet(cp != NULL, abort);
 
         ccec_ctx_init(cp, fullkey);
-        size_t pubSize = ccec_export_pub_size(fullkey);
+        size_t pubSize = ccec_export_pub_size(ccec_ctx_pub(fullkey));
 
-        require_quiet(pubSize < (size_t) keyDataLength, abort);
-        require_noerr_action_quiet(ccec_import_pub(cp, pubSize, keyData, fullkey),
-                                   abort,
-                                   err = errSecDecode);
+        require(pubSize < (size_t) keyDataLength, abort);
+        require_noerr_action_quiet(ccec_import_pub(cp, pubSize, keyData, ccec_ctx_pub(fullkey)),
+                             abort,
+                             err = errSecDecode);
 
 
         keyData += pubSize;
@@ -516,7 +504,7 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
 
         ccec_const_cp_t cp = ccec_get_cp(keyLengthInBits);
 
-        if (!cp.zp) {
+        if (!cp) {
             secwarning("Invalid or missing key size in: %@", parameters);
             return errSecKeySizeNotAllowed;
         }
@@ -539,13 +527,13 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
     // Default answer is 'unsupported', unless we find out that we can support it.
     CFTypeRef result = kCFNull;
 
-    ccec_full_ctx_t fullkey = { .hdr = key->key };
+    ccec_full_ctx_t fullkey = key->key;
     switch (operation) {
         case kSecKeyOperationTypeSign: {
             if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754)) {
                 if (mode == kSecKeyOperationModePerform) {
                     // Perform r/s mode of signature.
-                    cc_size r_s_size = ccec_signature_r_s_size(fullkey);
+                    cc_size r_s_size = ccec_signature_r_s_size(ccec_ctx_public(fullkey));
                     result = CFDataCreateMutableWithScratch(NULL, r_s_size << 1);
                     uint8_t *signatureBuffer = CFDataGetMutableBytePtr((CFMutableDataRef)result);
                     int err = ccec_sign_composite(fullkey, CFDataGetLength(in1), CFDataGetBytePtr(in1),
@@ -581,10 +569,9 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                 if (mode == kSecKeyOperationModePerform) {
                     int err;
                     ccec_const_cp_t cp = getCPForPublicSize(CFDataGetLength(in1));
-                    require_action_quiet(cp.zp != NULL, out,
+                    require_action_quiet(cp != NULL, out,
                                          SecError(errSecParam, error, CFSTR("ECpriv sharedsecret: bad public key")));
-                    uint8_t pubkeyBuffer[ccec_pub_ctx_size(ccn_sizeof(kMaximumECKeySize))];
-                    ccec_pub_ctx_t pubkey = { .pub = (struct ccec_ctx_public *)pubkeyBuffer };
+                    ccec_pub_ctx_decl_cp(cp, pubkey);
                     err = ccec_import_pub(cp, CFDataGetLength(in1), CFDataGetBytePtr(in1), pubkey);
                     require_noerr_action_quiet(err, out, SecError(errSecParam, error,
                                                                   CFSTR("ECpriv sharedsecret: bad public key (err %d)"), err));
@@ -611,19 +598,17 @@ out:
 }
 
 static size_t SecECPrivateKeyBlockSize(SecKeyRef key) {
-    ccec_full_ctx_t fullkey;
-    fullkey.hdr = key->key;
+    ccec_full_ctx_t fullkey = key->key;
     /* Get key size in octets */
     return ccec_ctx_size(fullkey);
 }
 
 static OSStatus SecECPrivateKeyCopyPublicOctets(SecKeyRef key, CFDataRef *serailziation)
 {
-    ccec_full_ctx_t fullkey;
-    fullkey.hdr = key->key;
+    ccec_full_ctx_t fullkey = key->key;
 
 	CFAllocatorRef allocator = CFGetAllocator(key);
-    *serailziation = SecECPublicKeyExport(allocator, fullkey);
+    *serailziation = SecECPublicKeyExport(allocator, ccec_ctx_pub(fullkey));
 
     if (NULL == *serailziation)
         return errSecDecode;
@@ -632,13 +617,12 @@ static OSStatus SecECPrivateKeyCopyPublicOctets(SecKeyRef key, CFDataRef *serail
 }
 
 static CFDataRef SecECPrivateKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
-    ccec_full_ctx_t fullkey;
-    fullkey.hdr = key->key;
+    ccec_full_ctx_t fullkey = key->key;
     size_t prime_size = ccec_cp_prime_size(ccec_ctx_cp(fullkey));
-    size_t key_size = ccec_export_pub_size(fullkey) + prime_size;
+    size_t key_size = ccec_export_pub_size(ccec_ctx_pub(fullkey)) + prime_size;
     CFMutableDataRef blob = CFDataCreateMutableWithScratch(NULL, key_size);
-    ccec_export_pub(fullkey, CFDataGetMutableBytePtr(blob));
-    UInt8 *dest = CFDataGetMutableBytePtr(blob) + ccec_export_pub_size(fullkey);
+    ccec_export_pub(ccec_ctx_pub(fullkey), CFDataGetMutableBytePtr(blob));
+    UInt8 *dest = CFDataGetMutableBytePtr(blob) + ccec_export_pub_size(ccec_ctx_pub(fullkey));
     const cc_unit *k = ccec_ctx_k(fullkey);
     ccn_write_uint_padded(ccec_ctx_n(fullkey), k, prime_size, dest);
     return blob;
@@ -646,8 +630,6 @@ static CFDataRef SecECPrivateKeyCopyExternalRepresentation(SecKeyRef key, CFErro
 
 static CFDictionaryRef SecECPrivateKeyCopyAttributeDictionary(SecKeyRef key) {
     /* Export the full ec key pair. */
-    ccec_full_ctx_t fullkey;
-    fullkey.hdr = key->key;
     CFDataRef fullKeyBlob = SecECPrivateKeyCopyExternalRepresentation(key, NULL);
 
     CFDictionaryRef dict = SecKeyGeneratePrivateAttributeDictionary(key, kSecAttrKeyTypeEC, fullKeyBlob);
@@ -666,13 +648,11 @@ static CFDataRef SecECKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDat
 {
     const struct ccec_rfc6637_curve *curve;
     const struct ccec_rfc6637_unwrap *unwrap;
-    ccec_full_ctx_t fullkey;
+    ccec_full_ctx_t fullkey = key->key;
     CFMutableDataRef data;
     int res;
     uint8_t sym_alg = 0;
     int32_t flags = 0;
-
-    fullkey.hdr = key->key;
 
     curve = get_rfc6637_curve(key);
     if (curve == NULL) {

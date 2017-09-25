@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2003-2005, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2003-2005, 2011, 2013, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -101,7 +101,7 @@ S_application_path(CFStringRef applicationID)
 
 Boolean
 DHCPClientPreferencesSetApplicationOptions(CFStringRef applicationID,
-					   UInt8 * options,
+					   const UInt8 * options,
 					   CFIndex count)
 {
     CFMutableDictionaryRef	dict = NULL;

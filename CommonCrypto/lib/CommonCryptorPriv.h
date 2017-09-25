@@ -98,16 +98,16 @@ getRealCryptor(CCCryptorRef p, int checkactive) {
     return p;
 }
     
-    
-
-    
 #define CCCRYPTOR_SIZE  sizeof(struct _CCCryptor)
 #define kCCContextSizeGENERIC (sizeof(struct _CCCryptor))
 #define CC_COMPAT_SIZE (sizeof(void *)*2)
-
-
+    
+#define AESGCM_MIN_TAG_LEN 8
+#define AESGCM_MIN_IV_LEN  12
+#define AESGCM_BLOCK_LEN  16
+    
 const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction);
-
+    
 #ifdef __cplusplus
 }
 #endif

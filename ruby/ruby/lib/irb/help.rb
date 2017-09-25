@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   irb/help.rb - print usage module
 #   	$Release Version: 0.9.6$
-#   	$Revision: 38515 $
+#   	$Revision: 53141 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -19,16 +20,16 @@ module IRB
     space_line = false
     IRB::MagicFile.open(path){|f|
       f.each_line do |l|
-	if /^\s*$/ =~ l
-	  lc.puts l unless space_line
-	  space_line = true
-	  next
-	end
-	space_line = false
+        if /^\s*$/ =~ l
+          lc.puts l unless space_line
+          space_line = true
+          next
+        end
+        space_line = false
 
-	l.sub!(/#.*$/, "")
-	  next if /^\s*$/ =~ l
-	lc.puts l
+        l.sub!(/#.*$/, "")
+        next if /^\s*$/ =~ l
+        lc.puts l
       end
     }
   end

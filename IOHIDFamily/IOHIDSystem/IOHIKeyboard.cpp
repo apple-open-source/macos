@@ -263,7 +263,8 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
     IOHIKeyboardMapper * oldMap	= NULL;
     bool		updated = false;
     UInt64		nano;
-
+    
+    require_action(dict, exit, err = kIOReturnBadArgument);
     if( dict->getObject(kIOHIDResetKeyboardKey))
 		resetKeyboard();
 
@@ -344,7 +345,8 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
 	// we can only return one error
 	if (err == kIOReturnSuccess)
 		err = err2;
-	
+    
+exit:
     return( err == kIOReturnSuccess ) ? super::setParamProperties(dict) : err;
 }
 
@@ -440,8 +442,10 @@ void IOHIKeyboard::_autoRepeat(thread_call_param_t arg,
                                thread_call_param_t)         /* thread_call_func_t */
 {
     IOHIKeyboard *self = (IOHIKeyboard *) arg;
-    IOHID_DEBUG(kIOHIDDebugCode_KeyboardCapsThreadActive, self, self ? self->_codeToRepeat : 0, 0, 0);
-    self->autoRepeat();
+    if (self) {
+        IOHID_DEBUG(kIOHIDDebugCode_KeyboardCapsThreadActive, self, self ? self->_codeToRepeat : 0, 0, 0);
+        self->autoRepeat();
+    }   
 }
 
 void IOHIKeyboard::autoRepeat()
@@ -742,8 +746,6 @@ void IOHIKeyboard::setNumLock(bool val)
     _numLock = val;
 
     setNumLockFeedback(val);
-
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
 	
 //    if (tempReservedStruct && tempReservedStruct->keyboardNub )
 //        tempReservedStruct->keyboardNub->setNumLockLEDElement(val);

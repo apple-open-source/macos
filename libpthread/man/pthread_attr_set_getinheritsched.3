@@ -4,7 +4,7 @@
 .Os
 .Sh NAME
 .Nm pthread_attr_getinheritsched ,
-.Nm pthread_attr_setinheritsched 
+.Nm pthread_attr_setinheritsched
 .Nd thread attribute operations
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
@@ -30,7 +30,7 @@ controls the scheduling policy and related attributes of the newly created threa
 "inheritsched" attribute can be either PTHREAD_INHERIT_SCHED or PTHREAD_EXPLICIT_SCHED.
 .Pp
 PTHREAD_INHERIT_SCHED
-.Pp	
+.Pp
 	Indicates that the newly created thread should inherit all it's scheduling related attributes from it's creating
 thread. It ignores the values of the relevant attributes within the
 .Fa attr
@@ -73,6 +73,9 @@ will fail if:
 Invalid value for
 .Fa attr .
 .El
+.Sh BUGS
+.Pp
+The "inheritsched" attribute has no effect on Darwin.  It is provided for compatibility only.
 .Sh SEE ALSO
 .Xr pthread_create 3 ,
 .Xr pthread_attr_init 3 ,

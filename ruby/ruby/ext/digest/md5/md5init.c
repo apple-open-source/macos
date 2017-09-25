@@ -1,11 +1,14 @@
 /* $RoughId: md5init.c,v 1.2 2001/07/13 19:49:10 knu Exp $ */
-/* $Id: md5init.c 34816 2012-02-25 20:37:12Z naruse $ */
+/* $Id: md5init.c 52694 2015-11-21 04:35:57Z naruse $ */
 
-#include "digest.h"
-#if defined(HAVE_OPENSSL_MD5_H)
+#include <ruby/ruby.h>
+#include "../digest.h"
+#if defined(MD5_USE_OPENSSL)
 #include "md5ossl.h"
-#else
+#elif defined(MD5_USE_COMMONDIGEST)
 #include "md5cc.h"
+#else
+#include "md5.h"
 #endif
 
 static const rb_digest_metadata_t md5 = {
@@ -24,7 +27,7 @@ static const rb_digest_metadata_t md5 = {
  * RFC1321.
  */
 void
-Init_md5()
+Init_md5(void)
 {
     VALUE mDigest, cDigest_Base, cDigest_MD5;
 
@@ -38,6 +41,8 @@ Init_md5()
 
     cDigest_MD5 = rb_define_class_under(mDigest, "MD5", cDigest_Base);
 
-    rb_ivar_set(cDigest_MD5, rb_intern("metadata"),
-      Data_Wrap_Struct(rb_cObject, 0, 0, (void *)&md5));
+#undef RUBY_UNTYPED_DATA_WARNING
+#define RUBY_UNTYPED_DATA_WARNING 0
+    rb_iv_set(cDigest_MD5, "metadata",
+	      Data_Wrap_Struct(0, 0, 0, (void *)&md5));
 }

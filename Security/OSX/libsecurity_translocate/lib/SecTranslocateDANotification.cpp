@@ -39,11 +39,19 @@
 namespace Security {
 namespace SecTranslocate {
 
+typedef enum {
+	SCT_DA_DISK_DISAPPEARED,
+	SCT_DA_DISK_UNMOUNT_APPROVAL,
+	SCT_DA_DISK_DESCRIPTION_CHANGE
+} SecTranslocateDACallbackType_t;
+
 typedef CFDictionaryRef (*DiskCopyDescription_t)(DADiskRef);
 typedef DASessionRef (*SessionCreate_t) (CFAllocatorRef);
 typedef void (*SessionSetDispatchQueue_t)(DASessionRef,dispatch_queue_t);
 typedef void (*RegisterDiskDisappearedCallback_t) (DASessionRef, CFDictionaryRef, DADiskDisappearedCallback, void*);
 typedef void (*RegisterDiskUnmountApprovalCallback_t) (DASessionRef, CFDictionaryRef, DADiskUnmountApprovalCallback, void*);
+typedef void (*RegisterDiskDescriptionChangedCallback_t) (DASessionRef, CFDictionaryRef, CFArrayRef,
+	DADiskDescriptionChangedCallback, void*);
 typedef void (*UnregisterCallback_t)(DASessionRef, void*, void*);
 
 class DiskArbitrationProxy
@@ -61,6 +69,8 @@ public:
         { if(pRegisterDiskDisappearedCallback) pRegisterDiskDisappearedCallback(s,d,c,x); };
     inline void registerDiskUnmountApprovalCallback (DASessionRef s, CFDictionaryRef d, DADiskUnmountApprovalCallback c, void* x) const
         { if(pRegisterDiskUnmountApprovalCallback) pRegisterDiskUnmountApprovalCallback(s,d,c,x); };
+	inline void registerDiskDescriptionChangedCallback (DASessionRef s, CFDictionaryRef d, CFArrayRef a, DADiskDescriptionChangedCallback c, void* x) const
+		{ if(pRegisterDiskDescriptionChangedCallback) pRegisterDiskDescriptionChangedCallback(s,d,a,c,x); };
     inline void unregisterCallback (DASessionRef s, void* c, void* x) const
         { if(pUnregisterCallback) pUnregisterCallback(s,c,x); };
     inline CFDictionaryRef diskDescriptionMatchVolumeMountable() const
@@ -77,6 +87,7 @@ private:
     SessionSetDispatchQueue_t pSessionSetDispatchQueue;
     RegisterDiskDisappearedCallback_t pRegisterDiskDisappearedCallback;
     RegisterDiskUnmountApprovalCallback_t pRegisterDiskUnmountApprovalCallback;
+	RegisterDiskDescriptionChangedCallback_t pRegisterDiskDescriptionChangedCallback;
     UnregisterCallback_t pUnregisterCallback;
     CFDictionaryRef* pDiskDescriptionMatchVolumeMountable;
     CFStringRef* pDiskDescriptionVolumePathKey;
@@ -92,6 +103,7 @@ DiskArbitrationProxy::DiskArbitrationProxy()
     pSessionSetDispatchQueue = (SessionSetDispatchQueue_t) checkedDlsym(handle, "DASessionSetDispatchQueue");
     pRegisterDiskDisappearedCallback = (RegisterDiskDisappearedCallback_t) checkedDlsym(handle, "DARegisterDiskDisappearedCallback");
     pRegisterDiskUnmountApprovalCallback = (RegisterDiskUnmountApprovalCallback_t) checkedDlsym(handle, "DARegisterDiskUnmountApprovalCallback");
+	pRegisterDiskDescriptionChangedCallback = (RegisterDiskDescriptionChangedCallback_t) checkedDlsym(handle,"DARegisterDiskDescriptionChangedCallback");
     pUnregisterCallback = (UnregisterCallback_t) checkedDlsym(handle, "DAUnregisterCallback");
     pDiskDescriptionMatchVolumeMountable = (CFDictionaryRef*) checkedDlsym(handle, "kDADiskDescriptionMatchVolumeMountable");
     pDiskDescriptionVolumePathKey = (CFStringRef*) checkedDlsym(handle, "kDADiskDescriptionVolumePathKey");
@@ -134,13 +146,13 @@ DiskArbitrationProxy* DiskArbitrationProxy::get()
  For Disk Arbitration need to
  1. create a session and hold on to it.
  2. associate it with a queue
- 3. register for call backs  (DADiskDisappearedCallback and DADiskUnmountApprovalCallback)
+ 3. register for call backs  (DADiskDisappearedCallback, DADiskDescriptionChangedCallback and DADiskUnmountApprovalCallback)
  4. provide a function to get the mounton path from DADiskref
  5. Return a dissenter if unmount is gonna fail because something is in use (i.e. if my unmount fails)
  */
 
 /* Returns false if we failed an unmount call. anything else returns true */
-static bool cleanupDisksOnVolume(DADiskRef disk)
+static bool cleanupDisksOnVolume(DADiskRef disk, SecTranslocateDACallbackType_t type)
 {
     bool result = true;
     string fspathString;
@@ -159,8 +171,14 @@ static bool cleanupDisksOnVolume(DADiskRef disk)
 
         if(fspath)
         {
-            //For the disk disappeared call back, it looks like we won't get a volume path so we'll keep the empty string
-            fspathString = cfString(fspath);
+			if (type != SCT_DA_DISK_DESCRIPTION_CHANGE) {
+				//For the disk disappeared call back, it looks like we won't get a volume path so we'll keep the empty string
+				fspathString = cfString(fspath);
+			} else {
+				// For disk description changed, volume path key will be populated on mount and null on unmount
+				// we only care about unmount, so bail if there is a volume path key
+				return result;
+			}
         }
 
         result = destroyTranslocatedPathsForUserOnVolume(fspathString);
@@ -176,15 +194,20 @@ static bool cleanupDisksOnVolume(DADiskRef disk)
     return result;
 }
 
-static void diskDisappearedCallback(DADiskRef disk, void* context)
+static void diskDisappearedCallback(DADiskRef disk, void* __unused context)
 {
-    (void)cleanupDisksOnVolume(disk);
+    (void)cleanupDisksOnVolume(disk, SCT_DA_DISK_DISAPPEARED);
 }
 
-static DADissenterRef unmountApprovalCallback(DADiskRef disk, void *context)
+static DADissenterRef unmountApprovalCallback(DADiskRef disk, void* __unused context)
 {
-    (void)cleanupDisksOnVolume(disk);
+    (void)cleanupDisksOnVolume(disk, SCT_DA_DISK_UNMOUNT_APPROVAL);
     return NULL; //For now, we won't raise a dissent, just let the unmount fail. The dissent text would get used by UI.
+}
+
+static void diskDescriptionChangedCallback(DADiskRef disk, CFArrayRef __unused daKeys, void* __unused context)
+{
+	(void)cleanupDisksOnVolume(disk, SCT_DA_DISK_DESCRIPTION_CHANGE);
 }
 
 DANotificationMonitor::DANotificationMonitor(dispatch_queue_t q)
@@ -206,6 +229,7 @@ DANotificationMonitor::DANotificationMonitor(dispatch_queue_t q)
     dap->sessionSetDispatchQueue(diskArbitrationSession, q);
     /* register so we can cleanup from force unmounts */
     dap->registerDiskDisappearedCallback( diskArbitrationSession, dap->diskDescriptionMatchVolumeMountable(), diskDisappearedCallback, NULL );
+	dap->registerDiskDescriptionChangedCallback(diskArbitrationSession, dap->diskDescriptionMatchVolumeMountable(), NULL, diskDescriptionChangedCallback, NULL);
     /* register so we can clean up pre-unmount */
     dap->registerDiskUnmountApprovalCallback( diskArbitrationSession, dap->diskDescriptionMatchVolumeMountable(), unmountApprovalCallback, NULL );
 }

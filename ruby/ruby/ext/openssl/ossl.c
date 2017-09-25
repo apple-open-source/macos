@@ -1,11 +1,10 @@
 /*
- * $Id: ossl.c 47627 2014-09-18 15:26:17Z usa $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
@@ -18,11 +17,12 @@ int
 string2hex(const unsigned char *buf, int buf_len, char **hexbuf, int *hexbuf_len)
 {
     static const char hex[]="0123456789abcdef";
-    int i, len = 2 * buf_len;
+    int i, len;
 
-    if (buf_len < 0 || len < buf_len) { /* PARANOIA? */
+    if (buf_len < 0 || buf_len > INT_MAX / 2) { /* PARANOIA? */
 	return -1;
     }
+    len = 2 * buf_len;
     if (!hexbuf) { /* if no buf, return calculated len */
 	if (hexbuf_len) {
 	    *hexbuf_len = len;
@@ -198,7 +198,8 @@ ossl_pem_passwd_cb(char *buf, int max_len, int flag, void *pwd)
 /*
  * Verify callback
  */
-int ossl_verify_cb_idx;
+int ossl_store_ctx_ex_verify_cb_idx;
+int ossl_store_ex_verify_cb_idx;
 
 VALUE
 ossl_call_verify_cb_proc(struct ossl_verify_cb_args *args)
@@ -214,10 +215,10 @@ ossl_verify_cb(int ok, X509_STORE_CTX *ctx)
     struct ossl_verify_cb_args args;
     int state = 0;
 
-    proc = (VALUE)X509_STORE_CTX_get_ex_data(ctx, ossl_verify_cb_idx);
-    if ((void*)proc == 0)
-	proc = (VALUE)X509_STORE_get_ex_data(ctx->ctx, ossl_verify_cb_idx);
-    if ((void*)proc == 0)
+    proc = (VALUE)X509_STORE_CTX_get_ex_data(ctx, ossl_store_ctx_ex_verify_cb_idx);
+    if (!proc)
+	proc = (VALUE)X509_STORE_get_ex_data(ctx->ctx, ossl_store_ex_verify_cb_idx);
+    if (!proc)
 	return ok;
     if (!NIL_P(proc)) {
 	ret = Qfalse;
@@ -360,7 +361,7 @@ ossl_exc_new(VALUE exc, const char *fmt, ...)
  * Any errors you see here are probably due to a bug in ruby's OpenSSL implementation.
  */
 VALUE
-ossl_get_errors()
+ossl_get_errors(void)
 {
     VALUE ary;
     long e;
@@ -463,9 +464,111 @@ ossl_fips_mode_set(VALUE self, VALUE enabled)
 #endif
 }
 
+/**
+ * Stores locks needed for OpenSSL thread safety
+ */
+#include "ruby/thread_native.h"
+static rb_nativethread_lock_t *ossl_locks;
+
+static void
+ossl_lock_unlock(int mode, rb_nativethread_lock_t *lock)
+{
+    if (mode & CRYPTO_LOCK) {
+	rb_nativethread_lock_lock(lock);
+    } else {
+	rb_nativethread_lock_unlock(lock);
+    }
+}
+
+static void
+ossl_lock_callback(int mode, int type, const char *file, int line)
+{
+    ossl_lock_unlock(mode, &ossl_locks[type]);
+}
+
+struct CRYPTO_dynlock_value {
+    rb_nativethread_lock_t lock;
+};
+
+static struct CRYPTO_dynlock_value *
+ossl_dyn_create_callback(const char *file, int line)
+{
+    struct CRYPTO_dynlock_value *dynlock = (struct CRYPTO_dynlock_value *)OPENSSL_malloc((int)sizeof(struct CRYPTO_dynlock_value));
+    rb_nativethread_lock_initialize(&dynlock->lock);
+    return dynlock;
+}
+
+static void
+ossl_dyn_lock_callback(int mode, struct CRYPTO_dynlock_value *l, const char *file, int line)
+{
+    ossl_lock_unlock(mode, &l->lock);
+}
+
+static void
+ossl_dyn_destroy_callback(struct CRYPTO_dynlock_value *l, const char *file, int line)
+{
+    rb_nativethread_lock_destroy(&l->lock);
+    OPENSSL_free(l);
+}
+
+#ifdef HAVE_CRYPTO_THREADID_PTR
+static void ossl_threadid_func(CRYPTO_THREADID *id)
+{
+    /* register native thread id */
+    CRYPTO_THREADID_set_pointer(id, (void *)rb_nativethread_self());
+}
+#else
+static unsigned long ossl_thread_id(void)
+{
+    /* before OpenSSL 1.0, this is 'unsigned long' */
+    return (unsigned long)rb_nativethread_self();
+}
+#endif
+
+static void Init_ossl_locks(void)
+{
+    int i;
+    int num_locks = CRYPTO_num_locks();
+
+    if ((unsigned)num_locks >= INT_MAX / (int)sizeof(VALUE)) {
+	rb_raise(rb_eRuntimeError, "CRYPTO_num_locks() is too big: %d", num_locks);
+    }
+    ossl_locks = (rb_nativethread_lock_t *) OPENSSL_malloc(num_locks * (int)sizeof(rb_nativethread_lock_t));
+    if (!ossl_locks) {
+	rb_raise(rb_eNoMemError, "CRYPTO_num_locks() is too big: %d", num_locks);
+    }
+    for (i = 0; i < num_locks; i++) {
+	rb_nativethread_lock_initialize(&ossl_locks[i]);
+    }
+
+#ifdef HAVE_CRYPTO_THREADID_PTR
+    CRYPTO_THREADID_set_callback(ossl_threadid_func);
+#else
+    CRYPTO_set_id_callback(ossl_thread_id);
+#endif
+    CRYPTO_set_locking_callback(ossl_lock_callback);
+    CRYPTO_set_dynlock_create_callback(ossl_dyn_create_callback);
+    CRYPTO_set_dynlock_lock_callback(ossl_dyn_lock_callback);
+    CRYPTO_set_dynlock_destroy_callback(ossl_dyn_destroy_callback);
+}
+
 /*
  * OpenSSL provides SSL, TLS and general purpose cryptography.  It wraps the
  * OpenSSL[http://www.openssl.org/] library.
+ *
+ * = Install
+ *
+ * OpenSSL comes bundled with the Standard Library of Ruby.
+ *
+ * This means the OpenSSL extension is compiled with Ruby and packaged on
+ * build. During compile time, Ruby will need to link against the OpenSSL
+ * library on your system. However, you cannot use openssl provided by Apple to
+ * build standard library openssl.
+ *
+ * If you use OSX, you should install another openssl and run ```./configure
+ * --with-openssl-dir=/path/to/another-openssl```. For Homebrew user, run `brew
+ * install openssl` and then ```./configure --with-openssl-dir=`brew --prefix
+ * openssl` ```.
  *
  * = Examples
  *
@@ -659,27 +762,27 @@ ossl_fips_mode_set(VALUE self, VALUE enabled)
  *
  * First set up the cipher for encryption
  *
- *   encrypter = OpenSSL::Cipher.new 'AES-128-CBC'
- *   encrypter.encrypt
- *   encrypter.pkcs5_keyivgen pass_phrase, salt
+ *   encryptor = OpenSSL::Cipher.new 'AES-128-CBC'
+ *   encryptor.encrypt
+ *   encryptor.pkcs5_keyivgen pass_phrase, salt
  *
  * Then pass the data you want to encrypt through
  *
- *   encrypted = encrypter.update 'top secret document'
- *   encrypted << encrypter.final
+ *   encrypted = encryptor.update 'top secret document'
+ *   encrypted << encryptor.final
  *
  * === Decryption
  *
  * Use a new Cipher instance set up for decryption
  *
- *   decrypter = OpenSSL::Cipher.new 'AES-128-CBC'
- *   decrypter.decrypt
- *   decrypter.pkcs5_keyivgen pass_phrase, salt
+ *   decryptor = OpenSSL::Cipher.new 'AES-128-CBC'
+ *   decryptor.decrypt
+ *   decryptor.pkcs5_keyivgen pass_phrase, salt
  *
  * Then pass the data you want to decrypt through
  *
- *   plain = decrypter.update encrypted
- *   plain << decrypter.final
+ *   plain = decryptor.update encrypted
+ *   plain << decryptor.final
  *
  * == X509 Certificates
  *
@@ -761,7 +864,7 @@ ossl_fips_mode_set(VALUE self, VALUE enabled)
  *   cipher = OpenSSL::Cipher::Cipher.new 'AES-128-CBC'
  *
  *   open 'ca_key.pem', 'w', 0400 do |io|
- *     io.write key.export(cipher, pass_phrase)
+ *     io.write ca_key.export(cipher, pass_phrase)
  *   end
  *
  * === CA Certificate
@@ -945,7 +1048,7 @@ ossl_fips_mode_set(VALUE self, VALUE enabled)
  *
  */
 void
-Init_openssl()
+Init_openssl(void)
 {
     /*
      * Init timezone info
@@ -982,6 +1085,7 @@ Init_openssl()
      * Init main module
      */
     mOSSL = rb_define_module("OpenSSL");
+    rb_global_variable(&mOSSL);
 
     /*
      * OpenSSL ruby extension version
@@ -1019,17 +1123,22 @@ Init_openssl()
      * common for all classes under OpenSSL module
      */
     eOSSLError = rb_define_class_under(mOSSL,"OpenSSLError",rb_eStandardError);
+    rb_global_variable(&eOSSLError);
 
     /*
      * Verify callback Proc index for ext-data
      */
-    if ((ossl_verify_cb_idx = X509_STORE_CTX_get_ex_new_index(0, (void *)"ossl_verify_cb_idx", 0, 0, 0)) < 0)
+    if ((ossl_store_ctx_ex_verify_cb_idx = X509_STORE_CTX_get_ex_new_index(0, (void *)"ossl_store_ctx_ex_verify_cb_idx", 0, 0, 0)) < 0)
         ossl_raise(eOSSLError, "X509_STORE_CTX_get_ex_new_index");
+    if ((ossl_store_ex_verify_cb_idx = X509_STORE_get_ex_new_index(0, (void *)"ossl_store_ex_verify_cb_idx", 0, 0, 0)) < 0)
+        ossl_raise(eOSSLError, "X509_STORE_get_ex_new_index");
 
     /*
      * Init debug core
      */
     dOSSL = Qfalse;
+    rb_global_variable(&dOSSL);
+
     rb_define_module_function(mOSSL, "debug", ossl_debug_get, 0);
     rb_define_module_function(mOSSL, "debug=", ossl_debug_set, 1);
     rb_define_module_function(mOSSL, "errors", ossl_get_errors, 0);
@@ -1038,6 +1147,8 @@ Init_openssl()
      * Get ID of to_der
      */
     ossl_s_to_der = rb_intern("to_der");
+
+    Init_ossl_locks();
 
     /*
      * Init components
@@ -1070,4 +1181,3 @@ main(int argc, char *argv[])
     return 0;
 }
 #endif /* OSSL_DEBUG */
-

@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   irb.rb - irb main module
 #       $Release Version: 0.9.6 $
-#       $Revision: 39075 $
+#       $Revision: 54370 $
 #       by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -13,24 +14,21 @@ require "e2mmap"
 require "irb/init"
 require "irb/context"
 require "irb/extend-command"
-#require "irb/workspace"
 
 require "irb/ruby-lex"
 require "irb/input-method"
 require "irb/locale"
 
-STDOUT.sync = true
-
-# IRB stands for "interactive ruby" and is a tool to interactively execute ruby
+# IRB stands for "interactive Ruby" and is a tool to interactively execute Ruby
 # expressions read from the standard input.
 #
 # The +irb+ command from your shell will start the interpreter.
 #
 # == Usage
 #
-# Use of irb is easy if you know ruby.
+# Use of irb is easy if you know Ruby.
 #
-# When executing irb, prompts are displayed as follows. Then, enter the ruby
+# When executing irb, prompts are displayed as follows. Then, enter the Ruby
 # expression. An input is executed when it is syntactically complete.
 #
 #     $ irb
@@ -101,7 +99,7 @@ STDOUT.sync = true
 #     IRB.conf[:USE_TRACER] = false
 #     IRB.conf[:IGNORE_SIGINT] = true
 #     IRB.conf[:IGNORE_EOF] = false
-#     IRB.conf[:PROMPT_MODE] = :DEFALUT
+#     IRB.conf[:PROMPT_MODE] = :DEFAULT
 #     IRB.conf[:PROMPT] = {...}
 #     IRB.conf[:DEBUG_LEVEL]=0
 #
@@ -138,8 +136,8 @@ STDOUT.sync = true
 # This example can be used in your +.irbrc+
 #
 #     IRB.conf[:PROMPT][:MY_PROMPT] = { # name of prompt mode
-#       :AUTO_INDENT => true            # enables auto-indent mode
-#       :PROMPT_I => nil,		# normal prompt
+#       :AUTO_INDENT => true,           # enables auto-indent mode
+#       :PROMPT_I =>  ">> ",		# simple prompt
 #       :PROMPT_S => nil,		# prompt for continuated strings
 #       :PROMPT_C => nil,		# prompt for continuated statement
 #       :RETURN => "    ==>%s\n"	# format to return value
@@ -158,8 +156,8 @@ STDOUT.sync = true
 #     %m    # to_s of main object (self)
 #     %M    # inspect of main object (self)
 #     %l    # type of string(", ', /, ]), `]' is inner %w[...]
-#     %NNi  # indent level. NN is degits and means as same as printf("%NNd").
-#           # It can be ommited
+#     %NNi  # indent level. NN is digits and means as same as printf("%NNd").
+#           # It can be omitted
 #     %NNn  # line number.
 #     %%    # %
 #
@@ -221,7 +219,7 @@ STDOUT.sync = true
 # == Restrictions
 #
 # Because irb evaluates input immediately after it is syntactically complete,
-# the results may be slightly different than directly using ruby.
+# the results may be slightly different than directly using Ruby.
 #
 # == IRB Sessions
 #
@@ -331,13 +329,12 @@ STDOUT.sync = true
 #   irb.3(<Foo:0x4010af3c>):003:0> bar #=> bar => nil
 #   # kill jobs 1, 2, and 3
 #   irb.3(<Foo:0x4010af3c>):004:0> kill 1, 2, 3
-#   # list open sesssions, should only include main session
+#   # list open sessions, should only include main session
 #   irb(main):009:0> jobs
 #     #0->irb on main (#<Thread:0x400fb7e4> : running)
 #   # quit irb
 #   irb(main):010:0> exit
 module IRB
-  @RCS_ID='-$Id: irb.rb 39075 2013-02-05 15:57:19Z zzak $-'
 
   # An exception raised by IRB.irb_abort
   class Abort < Exception;end
@@ -347,7 +344,7 @@ module IRB
 
   # Displays current configuration.
   #
-  # Modifing the configuration is achieved by sending a message to IRB.conf.
+  # Modifying the configuration is achieved by sending a message to IRB.conf.
   #
   # See IRB@Configuration for more information.
   def IRB.conf
@@ -375,6 +372,7 @@ module IRB
 
   # Initializes IRB and creates a new Irb.irb object at the +TOPLEVEL_BINDING+
   def IRB.start(ap_path = nil)
+    STDOUT.sync = true
     $0 = File::basename(ap_path, ".rb") if ap_path
 
     IRB.setup(ap_path)
@@ -399,7 +397,6 @@ module IRB
     ensure
       irb_at_exit
     end
-#    print "\n"
   end
 
   # Calls each event hook of IRB.conf[:AT_EXIT] when the current session quits.
@@ -499,7 +496,7 @@ module IRB
           end
           if exc
             print exc.class, ": ", exc, "\n"
-            if exc.backtrace[0] =~ /irb(2)?(\/.*|-.*|\.rb)?:/ && exc.class.to_s !~ /^IRB/ &&
+            if exc.backtrace && exc.backtrace[0] =~ /irb(2)?(\/.*|-.*|\.rb)?:/ && exc.class.to_s !~ /^IRB/ &&
                 !(SyntaxError === exc)
               irb_bug = true
             else
@@ -509,16 +506,18 @@ module IRB
             messages = []
             lasts = []
             levels = 0
-            for m in exc.backtrace
-              m = @context.workspace.filter_backtrace(m) unless irb_bug
-              if m
-                if messages.size < @context.back_trace_limit
-                  messages.push "\tfrom "+m
-                else
-                  lasts.push "\tfrom "+m
-                  if lasts.size > @context.back_trace_limit
-                    lasts.shift
-                    levels += 1
+            if exc.backtrace
+              for m in exc.backtrace
+                m = @context.workspace.filter_backtrace(m) unless irb_bug
+                if m
+                  if messages.size < @context.back_trace_limit
+                    messages.push "\tfrom "+m
+                  else
+                    lasts.push "\tfrom "+m
+                    if lasts.size > @context.back_trace_limit
+                      lasts.shift
+                      levels += 1
+                    end
                   end
                 end
               end
@@ -526,7 +525,7 @@ module IRB
             print messages.join("\n"), "\n"
             unless lasts.empty?
               printf "... %d levels...\n", levels if levels > 0
-              print lasts.join("\n")
+              print lasts.join("\n"), "\n"
             end
             print "Maybe IRB bug!\n" if irb_bug
           end

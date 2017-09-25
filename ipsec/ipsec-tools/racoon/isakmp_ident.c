@@ -79,7 +79,6 @@
 #include "nattraversal.h"
 #endif
 #ifdef ENABLE_HYBRID
-#include <resolv.h>
 #include "isakmp_xauth.h"
 #include "isakmp_cfg.h"
 #endif
@@ -374,7 +373,7 @@ ident_i2recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
 		ike_session_update_natt_version(iph1);
@@ -623,7 +622,7 @@ ident_i4recv(iph1, msg)
 				natd_verified = natt_compare_addr_hash (iph1,
 					natd_received, natd_seq++);
                         
-				plog (ASL_LEVEL_INFO, "NAT-D payload #%d %s\n",
+				plog (ASL_LEVEL_NOTICE, "NAT-D payload #%d %s\n",
 					natd_seq - 1,
 					natd_verified ? "verified" : "doesn't match");
                         
@@ -647,7 +646,7 @@ ident_i4recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog (ASL_LEVEL_INFO, "NAT %s %s%s\n",
+		plog (ASL_LEVEL_NOTICE, "NAT %s %s%s\n",
 		      iph1->natt_flags & NAT_DETECTED ? 
 		      		"detected:" : "not detected",
 		      iph1->natt_flags & NAT_DETECTED_ME ? "ME " : "",
@@ -1146,7 +1145,7 @@ ident_r1recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
 		ike_session_update_natt_version(iph1);
@@ -1231,7 +1230,7 @@ ident_r2send(iph1, msg)
 
 #ifdef ENABLE_HYBRID
 	if (iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) {
-		plog (ASL_LEVEL_INFO, "Adding xauth VID payload.\n");
+		plog (ASL_LEVEL_NOTICE, "Adding xauth VID payload.\n");
 		if ((vid_xauth = set_vendorid(VENDORID_XAUTH)) == NULL) {
 			plog(ASL_LEVEL_ERR, 
 			    "Cannot create Xauth vendor ID\n");
@@ -1431,7 +1430,7 @@ ident_r3recv(iph1, msg)
 				natd_verified = natt_compare_addr_hash (iph1,
 					natd_received, natd_seq++);
 				
-				plog (ASL_LEVEL_INFO, "NAT-D payload #%d %s\n",
+				plog (ASL_LEVEL_NOTICE, "NAT-D payload #%d %s\n",
 					natd_seq - 1,
 					natd_verified ? "verified" : "doesn't match");
 				
@@ -1455,7 +1454,7 @@ ident_r3recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1))
-		plog (ASL_LEVEL_INFO, "NAT %s %s%s\n",
+		plog (ASL_LEVEL_NOTICE, "NAT %s %s%s\n",
 		      iph1->natt_flags & NAT_DETECTED ? 
 		      		"detected:" : "not detected",
 		      iph1->natt_flags & NAT_DETECTED_ME ? "ME " : "",
@@ -2015,7 +2014,7 @@ ident_ir2mx(iph1)
 			goto end;
 		}
 
-		plog (ASL_LEVEL_INFO, "Adding remote and local NAT-D payloads.\n");
+		plog (ASL_LEVEL_NOTICE, "Adding remote and local NAT-D payloads.\n");
 		/* old Apple version sends natd payloads in the wrong order */
 		if (iph1->natt_options->version == VENDORID_NATT_APPLE) {
 			plist = isakmp_plist_append(plist, natd[1], iph1->natt_options->payload_nat_d);

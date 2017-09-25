@@ -44,6 +44,9 @@ typedef uint32_t RuleFlags;
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
 rule_t rule_create_default(void);
 
+AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
+rule_t rule_create_preauthorization(void);
+
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL1 AUTH_RETURNS_RETAINED
 rule_t rule_create_with_string(const char *,authdb_connection_t);
         

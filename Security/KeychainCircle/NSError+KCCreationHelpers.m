@@ -11,6 +11,9 @@
 static NSString* coreCryptoDomain = @"kSecCoreCryptoDomain";
 static NSString* srpDomain = @"com.apple.security.srp";
 
+static NSDictionary* UserInfoFromVA(NSString*description, va_list va)
+    NS_FORMAT_FUNCTION(1, 0);
+
 static NSDictionary* UserInfoFromVA(NSString*description, va_list va) {
     return @{NSLocalizedDescriptionKey:[[NSString alloc] initWithFormat:description
                                                               arguments:va]};

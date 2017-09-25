@@ -169,7 +169,10 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 	// But now the non-retained window class is a Carbon secret that's not even in
 	// WindowsPriv.h; maybe we'll have to revisit this if someone needs to use WebKit
 	// in a non-retained window.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     backingStoreType = NSBackingStoreRetained;
+#pragma clang diagnostic pop
 
     // Figure out the window's style mask.
     styleMask = WKCarbonWindowMask();
@@ -658,13 +661,12 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 	}
 }
 
-- (void)makeKeyWindow {
-	[NSApp _setMouseActivationInProgress:NO];
-	[NSApp setIsActive:YES];
-	[super makeKeyWindow];
-	WKShowKeyAndMain();
+- (void)makeKeyWindow
+{
+    [NSApp _setMouseActivationInProgress:NO];
+    [NSApp setIsActive:YES];
+    [super makeKeyWindow];
 }
-
 
 // Do the right thing for a Carbon window.
 - (BOOL)canBecomeKeyWindow {

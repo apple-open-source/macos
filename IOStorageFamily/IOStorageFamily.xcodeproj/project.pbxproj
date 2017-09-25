@@ -379,6 +379,7 @@
 		60DDA51B07382C6A00FAB8B3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60DDA51C07382C6A00FAB8B3 /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		60DDA54307382D0000FAB8B3 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		722F152A1F16D2F4005ADD98 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		C1E55B250D32D158002875AA /* IOStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -397,6 +398,7 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				722F152A1F16D2F4005ADD98 /* kext.xcconfig */,
 				60DDA51B07382C6A00FAB8B3 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
 			);
@@ -869,6 +871,7 @@
 		};
 		60CD8A3408A7E7F300DC31BD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
@@ -881,6 +884,7 @@
 		};
 		60CD8A3508A7E7F300DC31BD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
@@ -923,6 +927,7 @@
 		};
 		C1E55B220D32D158002875AA /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";
@@ -935,6 +940,7 @@
 		};
 		C1E55B230D32D158002875AA /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 722F152A1F16D2F4005ADD98 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREFIX_HEADER = "$(SDKROOT)/usr/include/TargetConditionals.h";

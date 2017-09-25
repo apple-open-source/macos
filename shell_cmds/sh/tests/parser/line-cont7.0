@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/parser/line-cont7.0 273276 2014-10-19 11:59:15Z jilles $
 
 [ "$(\
 (

@@ -143,7 +143,7 @@ fi
 INC_PROTO_INSTHDRS=( routed.h rwhod.h talkd.h timed.h )
 PROTO_INSTHDRS=( "${INC_PROTO_INSTHDRS[@]/#/${SRCROOT}/include/protocols/}" )
 
-INC_SECURE_INSTHDRS=( _common.h _string.h _stdio.h )
+INC_SECURE_INSTHDRS=( _common.h _string.h _strings.h _stdio.h )
 SECURE_INSTHDRS=( "${INC_SECURE_INSTHDRS[@]/#/${SRCROOT}/include/secure/}" )
 
 SYS_INSTHDRS=( ${SRCROOT}/include/sys/acl.h ${SRCROOT}/include/sys/statvfs.h )
@@ -180,6 +180,7 @@ LOCALHDRS=(
 	${SRCROOT}/darwin/libc_private.h
 	${SRCROOT}/gen/utmpx_thread.h
 	${SRCROOT}/nls/FreeBSD/msgcat.h
+	${SRCROOT}/libdarwin/dirstat.h
 )
 
 OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/debug_private.h )

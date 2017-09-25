@@ -129,16 +129,6 @@ struct liblist {
 };
 static STAILQ_HEAD(, liblist) libhead = STAILQ_HEAD_INITIALIZER(libhead);
 
-static unsigned long
-namehash(const char *nm)
-{
-    unsigned long result = 5381;
-    int c;
-    while (0 != (c = *nm++))
-        result = (result * 33) ^ c;
-    return result;  /* modified djb2 */
-}
-
 static const struct libent *
 libent_lookup_bypathname_withhash(const char *nm, const unsigned long hash)
 {
@@ -178,25 +168,33 @@ libent_lookup_first_bytype(uint32_t mhtype)
 }
 
 const struct libent *
-libent_insert(const char *nm, const uuid_t uuid, uint64_t mhaddr, const native_mach_header_t *mh)
+libent_insert(const char *rawnm, const uuid_t uuid, uint64_t mhaddr, const native_mach_header_t *mh, const struct vm_range *vr, mach_vm_offset_t objoff)
 {
     const struct libent *le = libent_lookup_byuuid(uuid);
     if (NULL != le)
         return le;  // disallow multiple names for the same uuid
 
-    unsigned long nmhash = namehash(nm);
+	char *nm = realpath(rawnm, NULL);
+	if (NULL == nm)
+		nm = strdup(rawnm);
+    const unsigned long nmhash = simple_namehash(nm);
     le = libent_lookup_bypathname_withhash(nm, nmhash);
-    if (NULL != le)
+	if (NULL != le) {
+		free(nm);
         return le;
+	}
 
-    if (opt->debug > 3) {
+    if (OPTIONS_DEBUG(opt, 3)) {
         uuid_string_t uustr;
         uuid_unparse_lower(uuid, uustr);
-        printf("[adding <'%s', %s, 0x%llx, %p>]\n", nm, uustr, mhaddr, mh);
+        printf("[adding <'%s', %s, 0x%llx, %p", nm, uustr, mhaddr, mh);
+		if (vr)
+			printf(" (%llx-%llx)", V_ADDR(vr), V_ENDADDR(vr));
+		printf(">]\n");
     }
     struct liblist *ll = malloc(sizeof (*ll));
     ll->ll_namehash = nmhash;
-    ll->ll_entry.le_pathname = strdup(nm);
+    ll->ll_entry.le_pathname = nm;
     ll->ll_entry.le_filename = strrchr(ll->ll_entry.le_pathname, '/');
     if (NULL == ll->ll_entry.le_filename)
         ll->ll_entry.le_filename = ll->ll_entry.le_pathname;
@@ -205,7 +203,13 @@ libent_insert(const char *nm, const uuid_t uuid, uint64_t mhaddr, const native_m
     uuid_copy(ll->ll_entry.le_uuid, uuid);
     ll->ll_entry.le_mhaddr = mhaddr;
     ll->ll_entry.le_mh = mh;
-
+	if (vr)
+		ll->ll_entry.le_vr = *vr;
+	else {
+		V_SETADDR(&ll->ll_entry.le_vr, MACH_VM_MAX_ADDRESS);
+		V_SETSIZE(&ll->ll_entry.le_vr, 0);
+	}
+	ll->ll_entry.le_objoff = objoff;
     STAILQ_INSERT_HEAD(&libhead, ll, ll_linkage);
 
     return &ll->ll_entry;
@@ -216,7 +220,7 @@ libent_build_nametable(task_t task, dyld_process_info dpi)
 {
     __block bool valid = true;
 
-    _dyld_process_info_for_each_image(dpi, ^(uint64_t mhaddr, const uuid_t uuid, const char *path) {
+	_dyld_process_info_for_each_image(dpi, ^(uint64_t mhaddr, const uuid_t uuid, const char *path) {
         if (valid) {
             native_mach_header_t *mh = copy_dyld_image_mh(task, mhaddr, path);
             if (mh) {
@@ -225,6 +229,11 @@ libent_build_nametable(task_t task, dyld_process_info dpi)
                  */
                 const size_t mhlen = sizeof (*mh) + mh->sizeofcmds;
                 const struct load_command *lc = (const void *)(mh + 1);
+		struct vm_range vr = {
+			.addr = MACH_VM_MAX_ADDRESS,
+			.size = 0
+		};
+		mach_vm_offset_t objoff = MACH_VM_MAX_ADDRESS;
 
                 for (unsigned n = 0; n < mh->ncmds; n++) {
                     if (((uintptr_t)lc & 0x3) != 0 ||
@@ -233,17 +242,73 @@ libent_build_nametable(task_t task, dyld_process_info dpi)
                         valid = false;
                         break;
                     }
-                    if (lc->cmdsize)
-                        lc = (const void *)((caddr_t)lc + lc->cmdsize);
-                    else
+					switch (lc->cmd) {
+						case NATIVE_LC_SEGMENT: {
+							const native_segment_command_t *sc = (const void *)lc;
+
+							char scsegname[17];
+							strlcpy(scsegname, sc->segname, sizeof (scsegname));
+
+							if (0 == sc->vmaddr &&
+								strcmp(scsegname, SEG_PAGEZERO) == 0)
+								break;
+
+							/*
+							 * -Depends- on finding a __TEXT segment first
+							 * which implicitly maps the mach header too
+							 */
+
+							if (MACH_VM_MAX_ADDRESS == objoff) {
+								if (strcmp(scsegname, SEG_TEXT) == 0) {
+									objoff = mhaddr - sc->vmaddr;
+									V_SETADDR(&vr, mhaddr);
+									V_SETSIZE(&vr, sc->vmsize);
+								} else {
+									printf("%s: expected %s segment, found %s\n", path, SEG_TEXT, scsegname);
+									valid = false;
+									break;
+								}
+							}
+
+							mach_vm_offset_t lo = sc->vmaddr + objoff;
+							mach_vm_offset_t hi = lo + sc->vmsize;
+
+							if (V_SIZE(&vr)) {
+								if (lo < V_ADDR(&vr)) {
+									mach_vm_offset_t newsize = V_SIZE(&vr) + (V_ADDR(&vr) - lo);
+									V_SETSIZE(&vr, newsize);
+									V_SETADDR(&vr, lo);
+								}
+								if (hi > V_ENDADDR(&vr)) {
+									V_SETSIZE(&vr, (hi - V_ADDR(&vr)));
+								}
+							} else {
+								V_SETADDR(&vr, lo);
+								V_SETSIZE(&vr, hi - lo);
+							}
+							assert(lo >= V_ADDR(&vr) && hi <= V_ENDADDR(&vr));
+						}	break;
+#if defined(RDAR_28040018)
+						case LC_ID_DYLINKER:
+							if (MH_DYLINKER == mh->filetype) {
+								/* workaround: the API doesn't always return the right name */
+								const struct dylinker_command *dc = (const void *)lc;
+								path = dc->name.offset + (const char *)dc;
+							}
+							break;
+#endif
+						default:
+							break;
+					}
+                    if (NULL == (lc = next_lc(lc)))
                         break;
                 }
-                if (valid)
-                    (void) libent_insert(path, uuid, mhaddr, mh);
+				if (valid)
+                    (void) libent_insert(path, uuid, mhaddr, mh, &vr, objoff);
             }
         }
     });
-    if (opt->debug)
+    if (OPTIONS_DEBUG(opt, 3))
         printf("nametable %sconstructed\n", valid ? "" : "NOT ");
     return valid;
 }

@@ -56,6 +56,9 @@ int run_renamex_test (__unused test_ctx_t *ctx) {
 	error = unlink(dst_file);
 	assert (error == 0);
 
+	assert_no_err(close(src_file_fd));
+	assert_no_err(close(dst_file_fd));
+
 	return 0;
 }	
 

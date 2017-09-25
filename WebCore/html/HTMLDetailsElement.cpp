@@ -21,8 +21,6 @@
 #include "config.h"
 #include "HTMLDetailsElement.h"
 
-#if ENABLE(DETAILS_ELEMENT)
-
 #include "AXObjectCache.h"
 #include "ElementIterator.h"
 #include "EventNames.h"
@@ -167,7 +165,7 @@ void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicS
 
 void HTMLDetailsElement::toggleOpen()
 {
-    setAttributeWithoutSynchronization(openAttr, m_isOpen ? nullAtom : emptyAtom);
+    setAttributeWithoutSynchronization(openAttr, m_isOpen ? nullAtom() : emptyAtom());
 
     // We need to post to the document because toggling this element will delete it.
     if (AXObjectCache* cache = document().existingAXObjectCache())
@@ -175,5 +173,3 @@ void HTMLDetailsElement::toggleOpen()
 }
 
 }
-
-#endif

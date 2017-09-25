@@ -196,6 +196,9 @@ public:
 	CFDictionaryRef signingInformation(SecCSFlags flags); // omnibus information-gathering API (creates new dictionary)
 
 	static bool isAppleDeveloperCert(CFArrayRef certs); // determines if this is an apple developer certificate for library validation
+#if !TARGET_OS_OSX
+    bool trustedSigningCertChain() { return mTrustedSigningCertChain; }
+#endif
 
 public:
 	void staticValidate(SecCSFlags flags, const SecRequirement *req);
@@ -208,7 +211,8 @@ protected:
 protected:
 	CFDictionaryRef getDictionary(CodeDirectory::SpecialSlot slot, bool check = true); // component value as a dictionary
 	bool verifySignature();
-	CFArrayRef verificationPolicies();
+	CFArrayRef createVerificationPolicies();
+	CFArrayRef createTimeStampingAndRevocationPolicies();
 	
 	// load preferred rules/files dictionaries (cached therein)
 	bool loadResources(CFDictionaryRef& rules, CFDictionaryRef& files, uint32_t& version);
@@ -220,7 +224,11 @@ protected:
 
 private:
 	void validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRequirementRef req, SecStaticCode *code);
+	bool checkfix30814861(string path, bool addition);
 
+	ResourceBuilder *mCheckfix30814861builder1;
+	dispatch_once_t mCheckfix30814861builder1_once;
+	
 private:
 	RefPointer<DiskRep> mRep;			// on-disk representation
 	mutable CodeDirectoryMap mCodeDirectories; // available CodeDirectory blobs by digest type
@@ -284,7 +292,12 @@ private:
 	// signature verification outcome (mTrust == NULL => not done yet)
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)
 	CFRef<CFArrayRef> mCertChain;
-	CSSM_TP_APPLE_EVIDENCE_INFO *mEvalDetails;
+#if TARGET_OS_OSX
+    CSSM_TP_APPLE_EVIDENCE_INFO *mEvalDetails;
+#else
+    bool mTrustedSigningCertChain;
+#endif
+
 };
 
 

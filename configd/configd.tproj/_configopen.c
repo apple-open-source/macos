@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -82,6 +82,7 @@ __SCDynamicStoreOpen(SCDynamicStoreRef *store, CFStringRef name)
 static CFStringRef
 openMPCopyDescription(const void *info)
 {
+#pragma unused(info)
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SCDynamicStore MP>"));
 }
 

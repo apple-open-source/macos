@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # HTTP response class.
 #
 # This class wraps together the response header and the response body (the
@@ -250,7 +251,8 @@ class Net::HTTPResponse
     return yield @socket unless @decode_content
     return yield @socket if self['content-range']
 
-    case self['content-encoding']
+    v = self['content-encoding']
+    case v&.downcase
     when 'deflate', 'gzip', 'x-gzip' then
       self.delete 'content-encoding'
 
@@ -259,7 +261,12 @@ class Net::HTTPResponse
       begin
         yield inflate_body_io
       ensure
-        inflate_body_io.finish
+        orig_err = $!
+        begin
+          inflate_body_io.finish
+        rescue => err
+          raise orig_err || err
+        end
       end
     when 'none', 'identity' then
       self.delete 'content-encoding'
@@ -301,7 +308,6 @@ class Net::HTTPResponse
   # See RFC 2616 section 3.6.1 for definitions
 
   def read_chunked(dest, chunk_data_io) # :nodoc:
-    len = nil
     total = 0
     while true
       line = @socket.readline
@@ -354,6 +360,7 @@ class Net::HTTPResponse
     # Finishes the inflate stream.
 
     def finish
+      return if @inflate.total_in == 0
       @inflate.finish
     end
 
@@ -364,6 +371,11 @@ class Net::HTTPResponse
     # entire body in memory.
 
     def inflate_adapter(dest)
+      if dest.respond_to?(:set_encoding)
+        dest.set_encoding(Encoding::ASCII_8BIT)
+      elsif dest.respond_to?(:force_encoding)
+        dest.force_encoding(Encoding::ASCII_8BIT)
+      end
       block = proc do |compressed_chunk|
         @inflate.inflate(compressed_chunk) do |chunk|
           dest << chunk

@@ -27,7 +27,6 @@
 #import "ProcessLauncher.h"
 
 #import <WebCore/ServersSPI.h>
-#import <WebCore/SoftLinking.h>
 #import <WebCore/WebCoreNSStringExtras.h>
 #import <crt_externs.h>
 #import <mach-o/dyld.h>
@@ -36,9 +35,10 @@
 #import <sys/param.h>
 #import <sys/stat.h>
 #import <wtf/RunLoop.h>
+#import <wtf/SoftLinking.h>
 #import <wtf/Threading.h>
-#import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/spi/cf/CFBundleSPI.h>
+#import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -132,6 +132,9 @@ void ProcessLauncher::launchProcess()
         xpc_dictionary_set_value(initializationMessage.get(), "OverrideLanguages", languages.get());
     }
 
+#if PLATFORM(MAC)
+    xpc_dictionary_set_string(initializationMessage.get(), "WebKitBundleVersion", [[NSBundle bundleWithIdentifier:@"com.apple.WebKit"].infoDictionary[(__bridge NSString *)kCFBundleVersionKey] UTF8String]);
+#endif
     xpc_connection_set_bootstrap(m_xpcConnection.get(), initializationMessage.get());
 
     if (shouldLeakBoost(m_launchOptions)) {
@@ -198,6 +201,8 @@ void ProcessLauncher::launchProcess()
         // And the receive right.
         mach_port_mod_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_RECEIVE, -1);
 
+        if (processLauncher->m_xpcConnection)
+            xpc_connection_cancel(processLauncher->m_xpcConnection.get());
         processLauncher->m_xpcConnection = nullptr;
 
         processLauncher->didFinishLaunchingProcess(0, IPC::Connection::Identifier());

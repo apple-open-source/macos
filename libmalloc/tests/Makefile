@@ -5,9 +5,16 @@ DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer/
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 
-OTHER_CFLAGS += -DDARWINTEST
 MALLOCBENCH_SOURCE := $(wildcard MallocBench/*.cpp)
+EXCLUDED_SOURCES := MallocBench.cpp
 CXX := $(shell $(XCRUN) -sdk "$(TARGETSDK)" -find clang++)
+
+OTHER_CFLAGS += \
+	-DDARWINTEST \
+	-DOS_UNFAIR_LOCK_INLINE=1 \
+	-lCrashReporterClient \
+	-I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	-I$(SRCROOT)/../include/malloc
 
 $(OBJROOT)/MallocBench/%.o: MallocBench/%.cpp
 	@mkdir -p $(OBJROOT)/MallocBench
@@ -58,13 +65,12 @@ OTHER_TEST_TARGETS = \
 #	parallel-medium \
 #	parallel-big
 
-ifeq ($(Embedded),YES)
-EXCLUDED_SOURCES += asan
-else
-CLANG_LIB_DIR := $(dir $(shell xcrun -f clang --sdk $(SDKROOT)))../lib
-ASAN_DYLIB_PATH := $(dir $(subst /BuildRoot,,$(shell find $(CLANG_LIB_DIR) -name libclang_rt.asan_osx_dynamic.dylib -perm -0111 | head -n 1)))
+ASAN_DYLIB_PATH := /usr/local/lib/sanitizers/
 asan: OTHER_CFLAGS += -fsanitize=address
 asan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(ASAN_DYLIB_PATH)
-endif
+
+madvise: OTHER_CFLAGS += -I../src
+stack_logging_test: OTHER_CFLAGS += -I../private
+radix_tree_test: OTHER_CFLAGS += -I../src -framework Foundation
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets

@@ -559,14 +559,20 @@ _asl_evaluate_send(asl_object_t client, asl_object_t m, int slevel)
 	val = NULL;
 	if ((asl_msg_lookup(msg, ASL_KEY_OPTION, &val, NULL) == 0) && (val != NULL)) eval &= ~EVAL_SEND_TRACE;
 
-	/* don't send lastlog/utmp messages to Activity Tracing */
-	val = NULL;
-	if ((asl_msg_lookup(msg, ASL_KEY_FACILITY, &val, NULL) == 0) && (val != NULL) &&
-		(!strcmp(val, FACILITY_LASTLOG) || !strcmp(val, FACILITY_UTMPX))) eval &= ~EVAL_SEND_TRACE;
-
 	/* don't send CFLog messages to Activity Tracing */
 	val = NULL;
 	if ((asl_msg_lookup(msg, ASL_KEY_CFLOG_LOCAL_TIME, &val, NULL) == 0) && (val != NULL)) eval &= ~EVAL_SEND_TRACE;
+
+	val = NULL;
+	if (((asl_msg_lookup(msg, ASL_KEY_FACILITY, &val, NULL) == 0) && (val != NULL)) ||
+		((asl_msg_lookup(asl->kvdict, ASL_KEY_FACILITY, &val, NULL) == 0) && (val != NULL)))
+	{
+		/* don't send lastlog/utmp messages to Activity Tracing */
+		if (!strcmp(val, FACILITY_LASTLOG) || !strcmp(val, FACILITY_UTMPX)) eval &= ~EVAL_SEND_TRACE;
+
+		/* don't send LOG_INSTALL messages to Activity Tracing */
+		if (!strcmp(val, asl_syslog_faciliy_num_to_name(LOG_INSTALL))) eval &= ~EVAL_SEND_TRACE;
+	}
 
 	return eval;
 }

@@ -4,7 +4,7 @@ local -a type expl_type_arr rsrc rdst paths_allowed
 local -a typearg datasetlist expl mlist
 local expl_type
 
-# -e takes an argument which is passed as as the "descr" argument to _wanted
+# -e takes an argument which is passed as the "descr" argument to _wanted
 # -p indicates that filesystem paths, not just dataset names, are allowed
 # -r1 indicates that we're completing the source of a rename
 # -r2 indicates that we're completing the destination of a rename
@@ -58,14 +58,14 @@ if [[ ${#rdst} -gt 0 ]]; then
 fi
 
 if [[ -n $type[(r)clone] ]]; then
-	datasetlist=( ${="$(zfs list -H -o name,origin -t filesystem | awk "\$2 != \"-\" {print \$1}")":#no cloned filesystems available} )
+	datasetlist=( ${="$(zfs list -H -o name,origin -t filesystem 2>/dev/null | awk "\$2 != \"-\" {print \$1}")":#no cloned filesystems available} )
 else
-	datasetlist=( ${="$(zfs list -H -o name $typearg)":#no datasets available} )
+	datasetlist=( ${="$(zfs list -H -o name $typearg 2>/dev/null)":#no datasets available} )
 fi
 
 expl_type=${typearg[2,-1]//,/\/}
 if [[ -n $type[(r)mtpt] ]]; then
-	mlist=( ${="$(zfs list -H -o mountpoint $typearg)":#no mountpoints available} )
+	mlist=( ${="$(zfs list -H -o mountpoint $typearg 2>/dev/null)":#no mountpoints available} )
 	datasetlist=( $datasetlist $mlist )
 	expl_type="$expl_type/mountpoint"
 fi

@@ -129,7 +129,7 @@ addrdata(dns_name_t *name, dns_ttl_t ttl, dns_rdata_t *rdata)
     dataarray[isc_buffer_usedlength(&b)] = 0;
     
     sql = sqlite3_mprintf(
-	"INSERT INTO %q (NAME, TTL, RDTYPE, RDATA)"
+	"INSERT INTO %Q (NAME, TTL, RDTYPE, RDATA)"
 	" VALUES ('%q', %d, '%q', '%q') ",
 	dbi.table,
 	namearray, ttl, typearray, dataarray);
@@ -137,7 +137,7 @@ addrdata(dns_name_t *name, dns_ttl_t ttl, dns_rdata_t *rdata)
     res = sqlite3_exec(dbi.db, sql, add_rdata_cb, NULL, &errmsg);
     sqlite3_free(sql);
 
-    if (result != SQLITE_OK) {
+    if (res != SQLITE_OK) {
 	fprintf(stderr, "INSERT failed: %s\n", errmsg);
 	closeandexit(1);
     }
@@ -208,7 +208,7 @@ main(int argc, char *argv[])
 	closeandexit(1);
     }
     
-    sql = sqlite3_mprintf("DROP TABLE %q ", dbi.table);
+    sql = sqlite3_mprintf("DROP TABLE %Q ", dbi.table);
     printf("%s\n", sql);
     res = sqlite3_exec(dbi.db, sql, NULL, NULL, &errmsg);
     sqlite3_free(sql);
@@ -231,7 +231,7 @@ main(int argc, char *argv[])
 #endif
     
     sql = sqlite3_mprintf(
-	"CREATE TABLE %q "
+	"CREATE TABLE %Q "
 	"(NAME TEXT, TTL INTEGER, RDTYPE TEXT, RDATA TEXT) ",
 	dbi.table);
     printf("%s\n", sql);

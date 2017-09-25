@@ -145,6 +145,8 @@ int run_msync_16k(__unused test_ctx_t *ctx)
 
 	assert_no_err(unlink(file));
 	
+	free(cmp_buf);
+	free(buf);
 	free(file);
 
 	return 0;

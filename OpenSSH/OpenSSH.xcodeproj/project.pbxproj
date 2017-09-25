@@ -96,6 +96,7 @@
 			buildConfigurationList = 1C7D817E10FFC2F700F0889F /* Build configuration list for PBXAggregateTarget "regression-tests" */;
 			buildPhases = (
 				1C1825B910FFE2D600C8B173 /* CopyFiles */,
+				FE9821461E9D9001008AA856 /* Install BATS Test Driver */,
 			);
 			comments = "Test ssh/sshd currently installed on the system.";
 			dependencies = (
@@ -569,9 +570,10 @@
 		EEA0F6DF14741E06009DF2FB /* keytype.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = EEA0F6DE14741E05009DF2FB /* keytype.sh */; };
 		FE222BE61CB86B430054CBE3 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FEF086501CB6DC40008C4B6D /* Security.framework */; };
 		FE23D9021C747152002E7923 /* umac128.c in Sources */ = {isa = PBXBuildFile; fileRef = FE23D9011C747142002E7923 /* umac128.c */; };
+		FE445FB51EC91BFF00DCAFFF /* ssh-keygen.c in Sources */ = {isa = PBXBuildFile; fileRef = FE71DD071CA5EA9400B2C19F /* ssh-keygen.c */; };
+		FE445FB61EC91C5500DCAFFF /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		FE54EE041CB3746C00A61CCB /* cipher-3des1.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54EE031CB3745D00A61CCB /* cipher-3des1.c */; };
 		FE54EE061CB3749100A61CCB /* cipher-bf1.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54EE051CB3748C00A61CCB /* cipher-bf1.c */; };
-		FE71DD0E1CA5F19300B2C19F /* ssh-keygen.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F2E0FEC5E18004F1935 /* ssh-keygen.c */; };
 		FE71DD101CA5F19300B2C19F /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C76A5A80FF004A500D35824 /* libresolv.dylib */; };
 		FE71DD1F1CA5F32D00B2C19F /* krl.c in Sources */ = {isa = PBXBuildFile; fileRef = FE71DD1D1CA5F32D00B2C19F /* krl.c */; };
 		FE71DD221CA5F34300B2C19F /* key.c in Sources */ = {isa = PBXBuildFile; fileRef = FE71DD201CA5F34300B2C19F /* key.c */; };
@@ -1617,7 +1619,10 @@
 		EEA0F6DA14741D7D009DF2FB /* host-expand.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "host-expand.sh"; path = "openssh/regress/host-expand.sh"; sourceTree = "<group>"; };
 		EEA0F6DC14741DB2009DF2FB /* kextype.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = kextype.sh; path = openssh/regress/kextype.sh; sourceTree = "<group>"; };
 		EEA0F6DE14741E05009DF2FB /* keytype.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = keytype.sh; path = openssh/regress/keytype.sh; sourceTree = "<group>"; };
+		FE0474DE1EA18B5900BFDC79 /* sshd-keygen-wrapper.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "sshd-keygen-wrapper.8"; sourceTree = "<group>"; };
 		FE23D9011C747142002E7923 /* umac128.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = umac128.c; path = openssh/umac128.c; sourceTree = "<group>"; };
+		FE445FB31EC916BA00DCAFFF /* ssh_config */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ssh_config; path = openssh/ssh_config; sourceTree = "<group>"; };
+		FE445FB41EC916BA00DCAFFF /* sshd_config */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sshd_config; path = openssh/sshd_config; sourceTree = "<group>"; };
 		FE4CF7441CB6CE8F0018C72F /* ssh.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ssh.entitlements; sourceTree = "<group>"; };
 		FE54EE031CB3745D00A61CCB /* cipher-3des1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "cipher-3des1.c"; path = "openssh-legacy/cipher-3des1.c"; sourceTree = "<group>"; };
 		FE54EE051CB3748C00A61CCB /* cipher-bf1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "cipher-bf1.c"; path = "openssh-legacy/cipher-bf1.c"; sourceTree = "<group>"; };
@@ -1725,6 +1730,7 @@
 		FE71DDAF1CA6054F00B2C19F /* ssherr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ssherr.c; path = "openssh-legacy/ssherr.c"; sourceTree = "<group>"; };
 		FE71DDB01CA6054F00B2C19F /* ssherr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ssherr.h; path = "openssh-legacy/ssherr.h"; sourceTree = "<group>"; };
 		FE71DDB51CA6066D00B2C19F /* cleanup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cleanup.c; path = "openssh-legacy/cleanup.c"; sourceTree = "<group>"; };
+		FE9821451E9D8FEC008AA856 /* BATS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BATS.plist; sourceTree = "<group>"; };
 		FE996A381C7D0AF2006637D5 /* runtests.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = runtests.sh; sourceTree = "<group>"; };
 		FE996A4E1C7D8880006637D5 /* ssh-copy-id */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "ssh-copy-id"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FEAAFCC51E2588C800BB4AA2 /* allow-deny-users.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "allow-deny-users.sh"; path = "openssh/regress/allow-deny-users.sh"; sourceTree = "<group>"; };
@@ -1952,6 +1958,7 @@
 		08FB7794FE84155DC02AAC07 /* openssh */ = {
 			isa = PBXGroup;
 			children = (
+				FE9821451E9D8FEC008AA856 /* BATS.plist */,
 				1C59FB2F0FF15533008CBF3D /* OpenSSH.plist */,
 				1C59FB350FF15533008CBF3D /* com.openssh.sshd.sb */,
 				FE4CF7441CB6CE8F0018C72F /* ssh.entitlements */,
@@ -2104,6 +2111,7 @@
 		1C76A75F0FF01A8600D35824 /* Other Installed Items */ = {
 			isa = PBXGroup;
 			children = (
+				FE0474DE1EA18B5900BFDC79 /* sshd-keygen-wrapper.8 */,
 				FE996A381C7D0AF2006637D5 /* runtests.sh */,
 				735961E617CE828100CFE215 /* ssh-util.rb */,
 				730F2F3E1836FEF5006E4D51 /* remote-login-status.c */,
@@ -2223,6 +2231,15 @@
 				730F2F4518370038006E4D51 /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FE445FB21EC9169700DCAFFF /* Config Files */ = {
+			isa = PBXGroup;
+			children = (
+				FE445FB31EC916BA00DCAFFF /* ssh_config */,
+				FE445FB41EC916BA00DCAFFF /* sshd_config */,
+			);
+			name = "Config Files";
 			sourceTree = "<group>";
 		};
 		FE71DD061CA5E9EA00B2C19F /* Legacy Keygen */ = {
@@ -2348,6 +2365,8 @@
 		FE996A811C7D90BA006637D5 /* OpenSSH */ = {
 			isa = PBXGroup;
 			children = (
+				FE445FB21EC9169700DCAFFF /* Config Files */,
+				FEC3D3F91C9BEA6600B698D9 /* Manpages */,
 				1C6B2FB10FEFF95B004F1935 /* addrmatch.c */,
 				1C6B2FBF0FEFF9FF004F1935 /* atomicio.c */,
 				1C6B2FC00FEFF9FF004F1935 /* atomicio.h */,
@@ -2479,7 +2498,6 @@
 				1C76A8630FF0291000D35824 /* loginrec.h */,
 				1C6B2FC20FEFF9FF004F1935 /* mac.c */,
 				1C6B2FC30FEFF9FF004F1935 /* mac.h */,
-				FEC3D3F91C9BEA6600B698D9 /* Manpages */,
 				1C6B2DD50FEC5780004F1935 /* match.c */,
 				1C6B2DD60FEC5780004F1935 /* match.h */,
 				1C6B2DD70FEC5780004F1935 /* md-sha256.c */,
@@ -3110,7 +3128,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0820;
+				LastUpgradeCheck = 0830;
 				ORGANIZATIONNAME = "Apple Inc.";
 				TargetAttributes = {
 					735140321A9FE29400A40ED8 = {
@@ -3243,6 +3261,20 @@
 			shellPath = /bin/sh;
 			shellScript = "set -x\n\nLOCALBIN=\"${DSTROOT}/usr/local/bin\"\n\ninstall -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0755 -d \"${LOCALBIN}\"\n\ninstall -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0755 \"${SRCROOT}/ssh-util.rb\" \"${LOCALBIN}/ssh-util\"\n";
 		};
+		FE9821461E9D9001008AA856 /* Install BATS Test Driver */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Install BATS Test Driver";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "\ntests=\"${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/\"\n\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0755 -d \"${tests}\"\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0644 \"${SRCROOT}/BATS.plist\" \"${tests}/OpenSSH.plist\"\n";
+		};
 		FE996A471C7D8711006637D5 /* Install Sandbox Profile */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -3284,7 +3316,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "\nlibexec=\"${DSTROOT}/usr/libexec\"\n\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0755 -d \"${libexec}\"\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0555 \"${SRCROOT}/sshd-keygen-wrapper\" \"${libexec}/sshd-keygen-wrapper\"\n";
+			shellScript = "\nlibexec=\"${DSTROOT}/usr/libexec\"\nmanpage=\"${DSTROOT}/usr/local/share/man/man8\"\n\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0755 -d \"${libexec}\"\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0555 \"${SRCROOT}/sshd-keygen-wrapper\" \"${libexec}/sshd-keygen-wrapper\"\n\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0755 -d \"${manpage}\"\n/usr/bin/install -g \"${INSTALL_GROUP}\" -o \"${INSTALL_OWNER}\" -m 0644 \"${SRCROOT}/sshd-keygen-wrapper.8\" \"${manpage}/sshd-keygen-wrapper.8\"\n";
 			showEnvVarsInLog = 0;
 		};
 		FE996A551C7D889C006637D5 /* Install Script */ = {
@@ -3830,6 +3862,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FE445FB61EC91C5500DCAFFF /* utf8.c in Sources */,
 				1C6B2F2F0FEC5E18004F1935 /* ssh-keygen.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3953,6 +3986,7 @@
 				FE71DD741CA5FA0300B2C19F /* xmalloc.c in Sources */,
 				FE71DD391CA5F63C00B2C19F /* cipher.c in Sources */,
 				FE71DD711CA5F9C300B2C19F /* poly1305.c in Sources */,
+				FE445FB51EC91BFF00DCAFFF /* ssh-keygen.c in Sources */,
 				FE71DD221CA5F34300B2C19F /* key.c in Sources */,
 				FE71DD681CA5F91C00B2C19F /* sc25519.c in Sources */,
 				FE71DD701CA5F9C300B2C19F /* match.c in Sources */,
@@ -3974,7 +4008,6 @@
 				FE71DD3F1CA5F68900B2C19F /* ssh-pkcs11.c in Sources */,
 				FE71DD811CA5FB8400B2C19F /* buffer.c in Sources */,
 				FE71DD8F1CA5FC4F00B2C19F /* moduli.c in Sources */,
-				FE71DD0E1CA5F19300B2C19F /* ssh-keygen.c in Sources */,
 				FE71DD301CA5F48600B2C19F /* sshbuf.c in Sources */,
 				FE71DDA61CA5FD6600B2C19F /* port-tun.c in Sources */,
 				FE71DD461CA5F6CB00B2C19F /* ssh-ed25519.c in Sources */,
@@ -4461,6 +4494,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -4580,6 +4614,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;

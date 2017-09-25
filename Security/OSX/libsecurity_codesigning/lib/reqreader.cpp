@@ -27,7 +27,11 @@
 #include "reqreader.h"
 #include <Security/SecTrustSettingsPriv.h>
 #include <security_utilities/memutils.h>
+
+#if TARGET_OS_OSX
 #include <security_cdsa_utilities/cssmdata.h>	// for hex encoding
+#endif
+
 #include "csutilities.h"
 
 namespace Security {

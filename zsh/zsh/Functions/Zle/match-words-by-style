@@ -5,8 +5,16 @@
 #    <whitespace-after-cursor> <word-after-cursor> <whitespace-after-word>
 #    <stuff-at-end>
 # where the cursor position is always after the third item and `after'
-# is to be interpreted as `after or on'.  Some
-# of the array elements will be empty; this depends on the style.
+# is to be interpreted as `after or on'.
+#
+# matched_words may be an associative array, in which case the
+# values above are now given by the elements named start, word-before-cursor,
+# ws-before-cursor, ws-after-cursor, word-after-cursor, ws-after-word,
+# end.  In addition, the element is-word-start is 1 if the cursor
+# is on the start of a word; this is non-trivial in the case of subword
+# (camel case) matching as there may be no white space to test.
+#
+# Some of the array elements will be empty; this depends on the style.
 # For example
 #    foo bar  rod stick
 #            ^
@@ -111,20 +119,20 @@ done
 case $wordstyle in
   (*shell*) local bufwords
 	  # This splits the line into words as the shell understands them.
-	  bufwords=(${(z)LBUFFER})
+	  bufwords=(${(Z:n:)LBUFFER})
 	  nwords=${#bufwords}
 	  wordpat1="${(q)bufwords[-1]}"
 
 	  # Take substring of RBUFFER to skip over $skip characters
 	  # from the cursor position.
-	  bufwords=(${(z)RBUFFER[1+$skip,-1]})
+	  bufwords=(${(Z:n:)RBUFFER[1+$skip,-1]})
 	  wordpat2="${(q)bufwords[1]}"
 	  spacepat='[[:space:]]#'
 
 	  # Assume the words are at the top level, i.e. if we are inside
 	  # 'something with spaces' then we need to ignore the embedded
 	  # spaces and consider the whole word.
-	  bufwords=(${(z)BUFFER})
+	  bufwords=(${(Z:n:)BUFFER})
 	  if (( ${#bufwords[$nwords]} > ${#wordpat1} )); then
 	    # Yes, we're in the middle of a shell word.
 	    # Find out what's in front.
@@ -202,7 +210,7 @@ if [[ $wordstyle = *subword* ]]; then
   # followed by a lower case letter, or an upper case letter at
   # the start of a group of upper case letters.  To make
   # it easier to be consistent, we just use anything that
-  # isn't an upper case characer instead of a lower case
+  # isn't an upper case character instead of a lower case
   # character.
   # Here the initial "*" will match greedily, so we get the
   # last such match, as we want.
@@ -224,11 +232,18 @@ charskip=${(l:skip::?:)}
 
 eval pat2='${RBUFFER##(#b)('${charskip}${spacepat}')('\
 ${wordpat2}')('${spacepat}')}'
+if [[ -n $match[2] ]]; then
+  ws2=$match[1]
+  word2=$match[2]
+  ws3=$match[3]
+else
+  # No more words, so anything left is white space after cursor.
+  ws2=$RBUFFER
+  pat2=
+fi
 
-ws2=$match[1]
-word2=$match[2]
-ws3=$match[3]
-
+integer wordstart
+[[ ( -n $ws1 || -n $ws2 ) && -n $word2 ]] && wordstart=1
 if [[ $wordstyle = *subword* ]]; then
   # Do we have a group of upper case characters at the start
   # of word2 (that don't form the entire word)?
@@ -237,12 +252,19 @@ if [[ $wordstyle = *subword* ]]; then
 	  -n $match[2] ]]; then
     # Yes, so the last one is new word boundary.
     (( epos = ${#match[1]} - 1 ))
+    # Otherwise, are we in the middle of a word?
+    # In other, er, words, we've got something on the left with no
+    # white space following and something that doesn't start a word here.
+  elif [[ -n $word1 && -z $ws1 && -z $ws2 && \
+    $word2 = (#b)([^${~subwordrange}]##)* ]]; then
+    (( epos = ${#match[1]} ))
     # Otherwise, do we have upper followed by non-upper not
     # at the start?  Ignore the initial character, we already
     # know it's a word boundary so it can be an upper case character
     # if it wants.
   elif [[ $word2 = (#b)(?[^${~subwordrange}]##)[${~subwordrange}]* ]]; then
     (( epos = ${#match[1]} ))
+    (( wordstart = 1 ))
   else
     (( epos = 0 ))
   fi
@@ -256,4 +278,19 @@ if [[ $wordstyle = *subword* ]]; then
   fi
 fi
 
-matched_words=("$pat1" "$word1" "$ws1" "$ws2" "$word2" "$ws3" "$pat2")
+# matched_words should be local to caller.
+# Just fix type here.
+if [[ ${(t)matched_words} = *association* ]]; then
+  matched_words=(
+    start              "$pat1"
+    word-before-cursor "$word1"
+    ws-before-cursor   "$ws1"
+    ws-after-cursor    "$ws2"
+    word-after-cursor  "$word2"
+    ws-after-word      "$ws3"
+    end                "$pat2"
+    is-word-start      $wordstart
+  )
+else
+  matched_words=("$pat1" "$word1" "$ws1" "$ws2" "$word2" "$ws3" "$pat2")
+fi

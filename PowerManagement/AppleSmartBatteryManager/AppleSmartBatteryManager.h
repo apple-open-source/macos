@@ -25,101 +25,71 @@
 #define __AppleSmartBatteryManager__
 
 #include <IOKit/IOService.h>
+
+#include <IOKit/smc/AppleSMCFamily.h>
 #include <IOKit/smbus/IOSMBusController.h>
+#include "SmbusHandler.h"
+#include <os/log.h>
+
 #include "AppleSmartBattery.h"
 #include "AppleSmartBatteryManagerUserClient.h"
 
 class AppleSmartBattery;
 class AppleSmartBatteryManagerUserClient;
+class SmbusHandler;
+class AppleSMC;
 
-/*
- * Support for external transactions (from user space)
- */
-enum {
-    kEXDefaultBatterySelector = 0,
-    kEXManagerSelector = 1
-};
 
-enum {
-    kEXReadWord     = 0,
-    kEXWriteWord    = 1,
-    kEXReadBlock    = 2,
-    kEXWriteBlock   = 3,
-    kEXReadByte     = 4,
-    kEXWriteByte    = 5,
-    kEXSendByte     = 6
-};    
-
-enum {
-    kEXFlagRetry  = 1,
-    kEXFlagUsePEC = 2
-};
-
-#define MAX_SMBUS_DATA_SIZE     32
 
 extern uint32_t gBMDebugFlags;
+extern bool gDebugAllowed;
 enum {
-    BM_LOG_LEVEL0 = 0x00000001,     // errors
-    BM_LOG_LEVEL1 = 0x00000002,     // basic logging for completions
-    BM_LOG_LEVEL2 = 0x00000004,     // log individual transactions
+    BM_LOG_LEVEL0 = 0x00000001,     // basic logging for completions and errors
+    BM_LOG_LEVEL1 = 0x00000002,     // log individual transactions
+    BM_LOG_LEVEL2 = 0x00000004,     // verbose logging
 };
 
 #define BM_LOG1(fmt, args...)           \
 {                                       \
-    if (gBMDebugFlags & BM_LOG_LEVEL1)  \
-        IOLog(fmt, ## args);            \
+    if (gDebugAllowed && (gBMDebugFlags & BM_LOG_LEVEL1))  \
+        os_log(OS_LOG_DEFAULT, fmt, ## args); \
 }
 
 #define BM_LOG2(fmt, args...)           \
 {                                       \
-    if (gBMDebugFlags & BM_LOG_LEVEL2)  \
-        IOLog(fmt, ## args);            \
+    if (gDebugAllowed && (gBMDebugFlags & BM_LOG_LEVEL2))  \
+        os_log(OS_LOG_DEFAULT, fmt, ## args); \
 }
 
 #define BM_ERRLOG(fmt, args...)         \
 {                                       \
     if (gBMDebugFlags & BM_LOG_LEVEL0)  \
-        IOLog(fmt, ## args);            \
+        os_log(OS_LOG_DEFAULT, fmt, ## args); \
 }
 
-// * WriteBlock note
-// rdar://5433060
-// For block writes, clients always increment inByteCount +1 
-// greater than the actual byte count. (e.g. 32 bytes to write becomes a 33 byte count.)
-// Other types of transactions are not affected by this workaround.
-typedef struct {
-    uint8_t         flags;
-    uint8_t         type;
-    uint8_t         batterySelector;
-    uint8_t         address;
-    uint8_t         inByteCount;
-    uint8_t         inBuf[MAX_SMBUS_DATA_SIZE];
-} EXSMBUSInputStruct;
-
-typedef struct {
-    uint32_t        status;
-    uint32_t        outByteCount;
-    uint8_t        outBuf[MAX_SMBUS_DATA_SIZE];
-} EXSMBUSOutputStruct;
+enum {
+    kRetryAttempts = 5,
+    kInitialPollCountdown = 5,
+    kIncompleteReadRetryMax = 10
+};
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 class AppleSmartBatteryManager : public IOService {    
     friend class AppleSmartBatteryManagerUserClient;
+    friend class SmbusHandler;
     
     OSDeclareDefaultStructors(AppleSmartBatteryManager)
     
 public:
-    bool start(IOService *provider);
+    bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
     
-    IOReturn performTransaction(IOSMBusTransaction * transaction,
-				    IOSMBusTransactionCompletion completion = 0,
-				    OSObject * target = 0,
-				    void * reference = 0);
 
-    IOReturn setPowerState(unsigned long which, IOService *whom);
+    IOReturn setPowerState(unsigned long which, IOService *whom) APPLE_KEXT_OVERRIDE;
 
-    IOReturn message(UInt32 type, IOService *provider, void * argument);
+    IOReturn message(UInt32 type, IOService *provider, void * argument) APPLE_KEXT_OVERRIDE;
+    virtual IOWorkLoop *getWorkLoop() const APPLE_KEXT_OVERRIDE;
+    void messageSMC(const OSSymbol *event, OSObject *val, uintptr_t refcon);
 
     // Called by AppleSmartBattery
     // Re-enables AC inflow if appropriate
@@ -127,12 +97,24 @@ public:
     
     // bool argument true means "set", false means "clear" exclusive acces
     // return: false means "exclusive access already granted", "true" means success
+    //
+    // TODO: do we have clients on iOS that need exclusive access? Need a wrapper for this?
     bool requestExclusiveSMBusAccess(bool request);
     
     // Returns true if an exclusive AppleSmartBatteryUserClient is attached. False otherwise.
     bool hasExclusiveClient(void);
     
     bool requestPoll(int type);
+    bool isSystemSleeping();
+    bool exclusiveClientExists();
+    bool isBatteryInaccessible();
+    
+    IOReturn performTransaction(ASBMgrRequest *req, OSObject * target, void * reference);
+
+    // transactionCompletion is the guts of the state machine
+    bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+    IOReturn inhibitChargingGated(int level);
+    IOReturn disableInflowGated(int level);
     
 private:
     // Called by AppleSmartBatteryManagerUserClient
@@ -149,24 +131,36 @@ private:
                         IOByteCount     inSize,
                         IOByteCount     *outSize);
 
-    IOReturn performExternalTransactionGated(void *arg0, void *arg1,
-                                             void *arg2, void *arg3);
-
     void    gatedSendCommand(int cmd, int level, IOReturn *ret_code);
 
-    // transactionCompletion is the guts of the state machine
-    bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+
     
     IOReturn setOverrideCapacity(uint16_t level);
     IOReturn switchToTrueCapacity(void);
+    void    handleBatteryInserted(void);
+    void    handleBatteryRemoved(void);
 
+    IOReturn performSmbusTransactionGated(ASBMgrRequest *req, OSObject *target, void *ref);
+    IOReturn smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *data);
+    IOReturn smbusCompletionHandlerGated(ASBMgrTransactionCompletion *completion, OSObject **target, void **ref);
+
+    IOReturn performExternalTransactionGated(void *in,  void *out, IOByteCount inSize, IOByteCount *outSize);
+
+
+    
 private:
-    IOSMBusTransaction          fTransaction;
-    IOCommandGate               * fBatteryGate;
-    IOCommandGate               * fManagerGate;
     IOSMBusController           * fProvider;
+    SmbusHandler                * fSmbus;
+    bool                        fSmbusCommandInProgress;
+    ASBMgrTransactionCompletion fAsbmCompletion;
+    OSObject                    *fAsbmTarget;
+    void                        *fAsbmReference;
+    IOCommandGate               * fManagerGate;
     AppleSmartBattery           * fBattery;
     bool                        fExclusiveUserClient;
+    bool                        fSystemSleeping;
+    bool                        fInacessible;
+    IOWorkLoop                  *fWorkLoop;
 };
 
 #endif

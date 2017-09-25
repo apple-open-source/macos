@@ -479,6 +479,13 @@ tt(kill) for indicating that text has been killed into the cutbuffer.
 When repeatedly invoking a kill widget, text is appended to the cutbuffer
 instead of replacing it, but when wrapping such widgets, it is necessary
 to call `tt(zle -f kill)' to retain this effect.
+
+tt(vichange) for indicating that the widget represents a vi change that
+can be repeated as a whole with `tt(vi-repeat-change)'. The flag should be set
+early in the function before inspecting the value of tt(NUMERIC) or invoking
+other widgets. This has no effect for a widget invoked from insert mode. If
+insert mode is active when the widget finishes, the change extends until next
+returning to command mode.
 )
 cindex(completion widgets, creating)
 item(tt(-C) var(widget) var(completion-widget) var(function))(
@@ -802,7 +809,7 @@ item(tt(cont))(
 A continuation to a command line (at prompt tt(PS2)).
 )
 item(tt(select))(
-In a tt(select) loop.
+In a tt(select) loop (at prompt tt(PS3)).
 )
 item(tt(vared))(
 Editing a variable in tt(vared).
@@ -834,6 +841,20 @@ history.  Note this is not the same as the parameter tt(HISTCMD),
 which always gives the number of the history line being added to the main
 shell's history.  tt(HISTNO) refers to the line being retrieved within
 zle.
+)
+vindex(ISEARCHMATCH_ACTIVE)
+vindex(ISEARCHMATCH_START)
+vindex(ISEARCHMATCH_END)
+xitem(tt(ISEARCHMATCH_ACTIVE) (integer))
+xitem(tt(ISEARCHMATCH_START) (integer))
+item(tt(ISEARCHMATCH_END) (integer))(
+tt(ISEARCHMATCH_ACTIVE) indicates whether a part of the tt(BUFFER) is
+currently matched by an incremental search pattern. tt(ISEARCHMATCH_START)
+and tt(ISEARCHMATCH_END) give the location of the matched part and are
+in the same units as tt(CURSOR). They are only valid for reading
+when tt(ISEARCHMATCH_ACTIVE) is non-zero.
+
+All parameters are read-only.
 )
 vindex(KEYMAP)
 item(tt(KEYMAP) (scalar))(
@@ -882,7 +903,7 @@ vindex(MARK)
 item(tt(MARK) (integer))(
 Like tt(CURSOR), but for the mark. With vi-mode operators that wait for
 a movement command to select a region of text, setting tt(MARK) allows
-the selection to extend in both directions from the the initial cursor
+the selection to extend in both directions from the initial cursor
 position.
 )
 vindex(NUMERIC)
@@ -976,6 +997,25 @@ The final highlighting on the command line depends on both tt(region_highlight)
 and tt(zle_highlight); see
 ifzman(the section CHARACTER HIGHLIGHTING below)\
 ifnzman(noderef(Character Highlighting)) for details.
+)
+vindex(registers)
+item(tt(registers) (associative array))(
+The contents of each of the vi register buffers. These are
+typically set using tt(vi-set-buffer) followed by a delete, change or
+yank command.
+)
+vindex(SUFFIX_ACTIVE)
+vindex(SUFFIX_START)
+vindex(SUFFIX_END)
+xitem(tt(SUFFIX_ACTIVE) (integer))
+xitem(tt(SUFFIX_START) (integer))
+item(tt(SUFFIX_END) (integer))(
+tt(SUFFIX_ACTIVE) indicates whether an auto-removable completion suffix
+is currently active. tt(SUFFIX_START) and tt(SUFFIX_END) give the
+location of the suffix and are in the same units as tt(CURSOR). They are
+only valid for reading when tt(SUFFIX_ACTIVE) is non-zero.
+
+All parameters are read-only.
 )
 vindex(UNDO_CHANGE_NO)
 item(tt(UNDO_CHANGE_NO) (integer))(
@@ -1086,6 +1126,11 @@ widget:
 
 example(zle-isearch-exit+LPAR()RPAR() { zle -M ""; }
 zle -N zle-isearch-exit)
+)
+tindex(zle-line-pre-redraw)
+item(tt(zle-line-pre-redraw))(
+Executed whenever the input line is about to be redrawn, providing an
+opportunity to update the region_highlight array.
 )
 tindex(zle-line-init)
 item(tt(zle-line-init))(
@@ -1749,6 +1794,13 @@ tindex(down-case-word)
 item(tt(down-case-word) (tt(ESC-L ESC-l)) (unbound) (unbound))(
 Convert the current word to all lowercase and move past it.
 )
+tindex(vi-down-case)
+item(tt(vi-down-case) (unbound) (tt(gu)) (unbound))(
+Read a movement command from the keyboard, and convert all characters
+from the cursor position to the endpoint of the movement to lowercase.
+If the movement command is tt(vi-down-case), swap the case of all
+characters on the current line.
+)
 tindex(kill-word)
 item(tt(kill-word) (tt(ESC-D ESC-d)) (unbound) (unbound))(
 Kill the current word.
@@ -1909,10 +1961,26 @@ to the left.
 tindex(transpose-words)
 item(tt(transpose-words) (tt(ESC-T ESC-t)) (unbound) (unbound))(
 Exchange the current word with the one before it.
+
+With a positive numeric argument em(N), the word around the cursor, or
+following it if the cursor is between words, is transposed with the
+preceding em(N) words.  The cursor is put at the end of the resulting
+group of words.
+
+With a negative numeric argument em(-N), the effect is the same as using
+a positive argument em(N) except that the original cursor position is
+retained, regardless of how the words are rearranged.
 )
 tindex(vi-unindent)
 item(tt(vi-unindent) (unbound) (tt(<)) (unbound))(
 Unindent a number of lines.
+)
+tindex(vi-up-case)
+item(tt(vi-up-case) (unbound) (tt(gU)) (unbound))(
+Read a movement command from the keyboard, and convert all characters
+from the cursor position to the endpoint of the movement to lowercase.
+If the movement command is tt(vi-up-case), swap the case of all
+characters on the current line.
 )
 tindex(up-case-word)
 item(tt(up-case-word) (tt(ESC-U ESC-u)) (unbound) (unbound))(
@@ -2120,10 +2188,18 @@ item(tt(bracketed-paste))(
 This widget is invoked when text is pasted to the terminal emulator. It
 is not intended to be bound to actual keys but instead to the special
 sequence generated by the terminal emulator when text is pasted.
+
+When invoked interactively, the pasted text is inserted to the buffer
+and placed in the cutbuffer.
 If a numeric argument is given, shell quoting will be applied to the
-pasted text before it is inserted. When called from a widget function,
-an argument can be given to specify a variable to which pasted text is
-assigned.
+pasted text before it is inserted.
+
+When a named buffer is specified with tt(vi-set-buffer) (tt("x)),
+the pasted text is stored in that named buffer but not inserted.
+
+When called from a widget function as `tt(bracketed-paste) var(name)`, the
+pasted text is assigned to the variable var(name) and no other processing is
+done.
 
 See also the tt(zle_bracketed_paste) parameter.
 )
@@ -2161,8 +2237,12 @@ point and mark are not swapped.
 )
 tindex(execute-named-cmd)
 item(tt(execute-named-cmd) (tt(ESC-x)) (tt(:)) (unbound))(
-Read the name of an editor command and
-execute it.  A restricted set of editing functions is available in the
+Read the name of an editor command and execute it.  Aliasing this
+widget with `tt(zle -A)' or replacing it with `tt(zle -N)' has no
+effect when interpreting key bindings, but `tt(zle execute-named-cmd)'
+will invoke such an alias or replacement.
+
+A restricted set of editing functions is available in the
 mini-buffer.  Keys are looked up in the special
 tt(command) keymap, and if not found there in the main keymap.
 An interrupt signal, as defined by the stty setting, will
@@ -2203,7 +2283,8 @@ tindex(execute-last-named-cmd)
 item(tt(execute-last-named-cmd) (tt(ESC-z)) (unbound) (unbound))(
 Redo the last function executed with tt(execute-named-cmd).
 
-Currently this command may not be redefined or called by name.
+Like tt(execute-named-cmd), this command may not be redefined,
+but it may be called by name.
 )
 tindex(get-line)
 item(tt(get-line) (tt(ESC-G ESC-g)) (unbound) (unbound))(
@@ -2349,7 +2430,7 @@ concerned replaces the previous contents of the specified buffer. If
 a named buffer is specified using a capital, the newly cut text is
 appended to the buffer instead of overwriting it. When using the tt("_)
 buffer, nothing happens. This can be useful for deleting text without
-affecting the normal registers.
+affecting any buffers.
 
 If no buffer is specified for a cut or change command, tt("1) is used, and
 the contents of tt("1) to tt("8) are each shifted along one buffer;
@@ -2525,15 +2606,14 @@ When one of the incremental history search widgets is active, the
 area of the command line matched by the search string or pattern.
 )
 item(tt(region))(
-The region between the cursor (point) and the mark as set with
-tt(set-mark-command).  The region is only highlighted if it is active,
-which is the case if tt(set-mark-command) or tt(exchange-point-and-mark)
-has been called and the line has not been subsequently modified.  The
-region can be deactivated by calling tt(set-mark-command) with a
-negative numeric argument, or reactivated by calling
-tt(exchange-point-and-mark) with a zero numeric argument.  Note
-that whether or not the region is active has no effect on its
-use within widgets, it simply determines whether it is highlighted.
+The currently selected text. In emacs terminology, this is referred to as
+the region and is bounded by the cursor (point) and the mark. The region
+is only highlighted if it is active, which is the case after the mark
+is modified with tt(set-mark-command) or tt(exchange-point-and-mark).
+Note that whether or not the region is active has no effect on its
+use within emacs style widgets, it simply determines whether it is
+highlighted. In vi mode, the region corresponds to selected text in
+visual mode.
 )
 cindex(special characters, highlighting)
 cindex(highlighting, special characters)

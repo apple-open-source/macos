@@ -32,6 +32,7 @@
 #include "WebProcessProxyMessages.h"
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/SecurityOrigin.h>
@@ -39,7 +40,9 @@
 #include <wtf/text/StringHash.h>
 
 #if PLATFORM(MAC)
-#include "StringUtilities.h"
+#include <WebCore/StringUtilities.h>
+
+using namespace WebCore;
 #endif
 
 namespace WebKit {
@@ -119,10 +122,8 @@ void WebPluginInfoProvider::getWebVisiblePluginInfo(WebCore::Page& page, Vector<
 
 #if PLATFORM(MAC)
     if (auto* document = page.mainFrame().document()) {
-        if (auto* securityOrigin = document->securityOrigin()) {
-            if (securityOrigin->isLocal())
-                return;
-        }
+        if (document->securityOrigin().isLocal())
+            return;
     }
 
     for (int32_t i = plugins.size() - 1; i >= 0; --i) {

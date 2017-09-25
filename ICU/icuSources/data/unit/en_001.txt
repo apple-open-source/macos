@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/en_001.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_001{
-    Version{"2.1.22.91"}
+    Version{"2.1.31.33"}
     units{
         acceleration{
             meter-per-second-squared{
@@ -27,6 +21,7 @@ en_001{
                 dnam{"square kilometres"}
                 one{"{0} square kilometre"}
                 other{"{0} square kilometres"}
+                per{"{0} per square kilometre"}
             }
             square-meter{
                 dnam{"square metres"}
@@ -36,6 +31,11 @@ en_001{
             }
         }
         concentr{
+            karat{
+                dnam{"carat"}
+                one{"{0} carat"}
+                other{"{0} carats"}
+            }
             milligram-per-deciliter{
                 dnam{"milligrams per decilitre"}
                 one{"{0} milligram per decilitre"}
@@ -114,6 +114,18 @@ en_001{
                 other{"{0} picometres"}
             }
         }
+        mass{
+            metric-ton{
+                dnam{"tonne"}
+                one{"{0} tonne"}
+                other{"{0} tonnes"}
+            }
+            stone{
+                dnam{"stone"}
+                one{"{0} stone"}
+                other{"{0} stone"}
+            }
+        }
         pressure{
             millimeter-of-mercury{
                 dnam{"millimetres of mercury"}
@@ -131,6 +143,13 @@ en_001{
                 dnam{"metres per second"}
                 one{"{0} metre per second"}
                 other{"{0} metres per second"}
+            }
+        }
+        temperature{
+            kelvin{
+                dnam{"kelvin"}
+                one{"{0} kelvin"}
+                other{"{0} kelvin"}
             }
         }
         volume{
@@ -197,6 +216,14 @@ en_001{
         }
     }
     unitsNarrow{
+        area{
+            square-meter{
+                dnam{"metres²"}
+                one{"{0} m²"}
+                other{"{0} m²"}
+                per{"{0}/m²"}
+            }
+        }
         concentr{
             milligram-per-deciliter{
                 dnam{"mg/dl"}
@@ -318,7 +345,20 @@ en_001{
                 other{"{0} m/s²"}
             }
         }
+        area{
+            square-meter{
+                dnam{"metres²"}
+                one{"{0} m²"}
+                other{"{0} m²"}
+                per{"{0}/m²"}
+            }
+        }
         concentr{
+            karat{
+                dnam{"carats"}
+                one{"{0} ct"}
+                other{"{0} ct"}
+            }
             milligram-per-deciliter{
                 dnam{"mg/dl"}
                 one{"{0} mg/dl"}
@@ -357,6 +397,7 @@ en_001{
                 dnam{"hours"}
                 one{"{0} hr"}
                 other{"{0} hrs"}
+                per{"{0}ph"}
             }
             minute{
                 dnam{"min"}
@@ -367,6 +408,7 @@ en_001{
                 dnam{"secs"}
                 one{"{0} sec"}
                 other{"{0} secs"}
+                per{"{0}ps"}
             }
         }
         length{
@@ -379,6 +421,20 @@ en_001{
                 dnam{"µmetres"}
                 one{"{0} µm"}
                 other{"{0} µm"}
+            }
+        }
+        mass{
+            stone{
+                dnam{"stone"}
+                one{"{0} st"}
+                other{"{0} st"}
+            }
+        }
+        pressure{
+            millimeter-of-mercury{
+                dnam{"mm Hg"}
+                one{"{0} mm Hg"}
+                other{"{0} mm Hg"}
             }
         }
         speed{
@@ -413,6 +469,7 @@ en_001{
                 dnam{"gal"}
                 one{"{0} gal"}
                 other{"{0} gal"}
+                per{"{0}/gal"}
             }
             hectoliter{
                 dnam{"hl"}
@@ -423,6 +480,7 @@ en_001{
                 dnam{"litres"}
                 one{"{0} l"}
                 other{"{0} l"}
+                per{"{0}/l"}
             }
             megaliter{
                 dnam{"Ml"}

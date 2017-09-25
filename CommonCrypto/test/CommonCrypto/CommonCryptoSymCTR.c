@@ -30,7 +30,7 @@
 #if (CCSYMCTR == 0)
 entryPoint(CommonCryptoSymCTR,"CommonCrypto Symmetric CTR Testing")
 #else
-static int kTestTestCount = 20;
+static int kTestTestCount = 44;
 
 static CCCryptorStatus doCrypt(char *in, char *out, CCCryptorRef cryptor) {
     byteBuffer inbb = hexStringToBytes(in);
@@ -38,7 +38,8 @@ static CCCryptorStatus doCrypt(char *in, char *out, CCCryptorRef cryptor) {
     byteBuffer buf = mallocByteBuffer(inbb->len);
     CCCryptorStatus retval = CCCryptorUpdate(cryptor, inbb->bytes, inbb->len, buf->bytes, buf->len, &buf->len);
     if(!retval) {
-        ok(bytesAreEqual(outbb, buf), "crypt results are equal");
+        is(outbb->len, buf->len, "crypt results same length");
+        ok_memcmp(outbb->bytes, buf->bytes,buf->len, "crypt results are equal");
     }
     free(inbb);
     free(outbb);
@@ -47,14 +48,19 @@ static CCCryptorStatus doCrypt(char *in, char *out, CCCryptorRef cryptor) {
 }
 
 #define keystr128    "000102030405060708090a0b0c0d0e0f"
+#define keystr256    "000102030405060708090a0b0c0d0e0ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
 #define keystr128_2  "2b7e151628aed2a6abf7158809cf4f3c"
 #define ivstr128     "0f0e0d0c0b0a09080706050403020100"
 #define ivstr128_2   "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+#define ivstrff64    "0000000000000000ffffffffffffffff"
 #define ivstrff128   "ffffffffffffffffffffffffffffffff"
+#define ivstrff128_1 "fffffffffffffffeffffffffffffffff"
+#define ivstrff128_2 "fffffffffffffffdffffffffffffffff"
 #define zeroX1       "00"
 #define zeroX16      "00000000000000000000000000000000"
 #define zeroX32      "0000000000000000000000000000000000000000000000000000000000000000"
 #define zeroX33      "000000000000000000000000000000000000000000000000000000000000000000"
+#define aX21         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 typedef struct ccsymmetric_test_t {
     char *keyStr;
@@ -64,6 +70,9 @@ typedef struct ccsymmetric_test_t {
 } ccsymmetric_test_vector;
 
 ccsymmetric_test_vector aes_ctr_vectors[] = {
+    { keystr256, ivstrff128, aX21, "b52a889d57fff0809d8dce586b8b1e3b7b0e69b14c"},
+    { keystr256, ivstrff128_1, aX21, "79cf2b330d78a0937a94fcc7210778ec287335330b"},
+    { keystr256, ivstrff128_2, aX21, "440a237cab106f75ae7544a9a8223242da63cb68ad"},
     { keystr128, ivstr128, zeroX1, "20"},
     { keystr128, ivstr128, zeroX16, "20a9f992b44c5be8041ffcdc6cae996a"},
     { keystr128, ivstr128, zeroX33, "20a9f992b44c5be8041ffcdc6cae996a47a6a4a5755e60446eb291ec4939015fbb"},
@@ -77,6 +86,8 @@ ccsymmetric_test_vector aes_ctr_vectors[] = {
     /* corecrypto implementation: counter rolls over 64bit */
     { keystr128, ivstrff128, zeroX32, "3c441f32ce07822364d7a2990e50bb1325d4e948bd5e1296afc0bf87095a7248"},
 #endif
+    { keystr128, zeroX16,zeroX16, "c6a13b37878f5b826f4f8162a1c8d879"}, // IV is 00
+    { keystr128, ivstrff64,zeroX32, "39a7ef0a0a5852a8bfd2032344bf9412c6a13b37878f5b826f4f8162a1c8d879"}, // Second block matches one block encrypted with IV 0
     { keystr128_2, ivstr128_2, "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710", "874d6191b620e3261bef6864990db6ce9806f66b7970fdff8617187bb9fffdff5ae4df3edbd5d35e5b4f09020db03eab1e031dda2fbe03d1792170a0f3009cee"},
 };
 

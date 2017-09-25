@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# Copyright (C) 2004, 2006-2011  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2006-2012, 2014  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000-2003  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -15,12 +15,8 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: sign.sh,v 1.41.40.8 2011/11/04 05:35:58 each Exp $
-
 SYSTEMTESTTOP=../..
 . $SYSTEMTESTTOP/conf.sh
-
-RANDFILE=../random.data
 
 zone=example.
 infile=example.db.in
@@ -28,11 +24,14 @@ zonefile=example.db
 
 # Have the child generate a zone key and pass it to us.
 
-( cd ../ns3 && sh sign.sh )
+( cd ../ns3 && $SHELL sign.sh )
 
-for subdomain in secure bogus dynamic keyless nsec3 optout nsec3-unknown \
-    optout-unknown multiple rsasha256 rsasha512 kskonly update-nsec3 \
-    auto-nsec auto-nsec3 secure.below-cname ttlpatch expired
+for subdomain in secure bogus dnskey-unknown dnskey-nsec3-unknown \
+	dynamic keyless nsec3 optout nsec3-unknown optout-unknown \
+	multiple rsasha256 rsasha512 kskonly update-nsec3 auto-nsec \
+	auto-nsec3 secure.below-cname ttlpatch split-dnssec split-smart \
+	expired expiring upper lower
+
 do
 	cp ../ns3/dsset-$subdomain.example. .
 done
@@ -90,6 +89,18 @@ tolower($1) == "bad-dname.example." && $4 == "RRSIG" && $5 == "DNAME" {
 
 { print; }' > $zonefile.signed++ && mv $zonefile.signed++ $zonefile.signed
 
+#
+# signed in-addr.arpa w/ a delegation for 10.in-addr.arpa which is unsigned.
+#
+zone=in-addr.arpa.
+infile=in-addr.arpa.db.in
+zonefile=in-addr.arpa.db
+
+keyname1=`$KEYGEN -q -r $RANDFILE -a DSA -b 768 -n zone $zone`
+keyname2=`$KEYGEN -q -r $RANDFILE -a DSA -b 768 -n zone $zone`
+
+cat $infile $keyname1.key $keyname2.key >$zonefile
+$SIGNER -P -g -r $RANDFILE -o $zone -k $keyname1 $zonefile $keyname2 > /dev/null
 
 # Sign the privately secure file
 

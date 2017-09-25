@@ -38,6 +38,7 @@
 #import "InteractionInformationAtPosition.h"
 #import "Logging.h"
 #import "PluginView.h"
+#import "PrintInfo.h"
 #import "RemoteLayerTreeDrawingArea.h"
 #import "UserData.h"
 #import "VisibleContentRectUpdateInfo.h"
@@ -48,6 +49,7 @@
 #import "WebImage.h"
 #import "WebKitSystemInterface.h"
 #import "WebPageProxyMessages.h"
+#import "WebPreviewLoaderClient.h"
 #import "WebProcess.h"
 #import <CoreText/CTFont.h>
 #import <WebCore/Autofill.h>
@@ -55,6 +57,8 @@
 #import <WebCore/DataDetection.h>
 #import <WebCore/DiagnosticLoggingClient.h>
 #import <WebCore/DiagnosticLoggingKeys.h>
+#import <WebCore/Editing.h>
+#import <WebCore/Editor.h>
 #import <WebCore/Element.h>
 #import <WebCore/ElementAncestorIterator.h>
 #import <WebCore/EventHandler.h>
@@ -67,6 +71,7 @@
 #import <WebCore/GeometryUtilities.h>
 #import <WebCore/HTMLAreaElement.h>
 #import <WebCore/HTMLAttachmentElement.h>
+#import <WebCore/HTMLBodyElement.h>
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLElementTypeHelpers.h>
 #import <WebCore/HTMLFormElement.h>
@@ -83,7 +88,6 @@
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MainFrame.h>
 #import <WebCore/MediaSessionManagerIOS.h>
-#import <WebCore/MemoryPressureHandler.h>
 #import <WebCore/Node.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/Page.h>
@@ -94,6 +98,7 @@
 #import <WebCore/RenderImage.h>
 #import <WebCore/RenderThemeIOS.h>
 #import <WebCore/RenderView.h>
+#import <WebCore/Settings.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/StyleProperties.h>
 #import <WebCore/TextIndicator.h>
@@ -103,6 +108,7 @@
 #import <WebCore/WKContentObservation.h>
 #import <WebCore/WebEvent.h>
 #import <wtf/MathExtras.h>
+#import <wtf/MemoryPressureHandler.h>
 #import <wtf/SetForScope.h>
 
 using namespace WebCore;
@@ -290,9 +296,12 @@ void WebPage::restorePageState(const HistoryItem& historyItem)
         float boundedScale = std::min<float>(m_viewportConfiguration.maximumScale(), std::max<float>(m_viewportConfiguration.minimumScale(), historyItem.pageScaleFactor()));
         scalePage(boundedScale, IntPoint());
 
-        m_drawingArea->setExposedContentRect(historyItem.exposedContentRect());
-
-        send(Messages::WebPageProxy::RestorePageState(historyItem.scrollPosition(), frameView.scrollOrigin(), historyItem.obscuredInset(), boundedScale));
+        std::optional<FloatPoint> scrollPosition;
+        if (historyItem.shouldRestoreScrollPosition()) {
+            m_drawingArea->setExposedContentRect(historyItem.exposedContentRect());
+            scrollPosition = FloatPoint(historyItem.scrollPosition());
+        }
+        send(Messages::WebPageProxy::RestorePageState(scrollPosition, frameView.scrollOrigin(), historyItem.obscuredInsets(), boundedScale));
     } else {
         IntSize oldContentSize = historyItem.contentSize();
         IntSize newContentSize = frameView.contentsSize();
@@ -300,23 +309,15 @@ void WebPage::restorePageState(const HistoryItem& historyItem)
 
         double newScale = scaleAfterViewportWidthChange(historyItem.pageScaleFactor(), !historyItem.scaleIsInitial(), m_viewportConfiguration, currentMinimumLayoutSizeInScrollViewCoordinates.width(), newContentSize, oldContentSize, visibleHorizontalFraction);
 
-        FloatPoint newCenter;
-        if (!oldContentSize.isEmpty() && !newContentSize.isEmpty() && newContentSize != oldContentSize)
-            newCenter = relativeCenterAfterContentSizeChange(historyItem.unobscuredContentRect(), oldContentSize, newContentSize);
-        else
-            newCenter = FloatRect(historyItem.unobscuredContentRect()).center();
-
-        FloatSize unobscuredRectAtNewScale = frameView.customSizeForResizeEvent();
-        unobscuredRectAtNewScale.scale(1 / newScale);
-
-        FloatRect oldExposedRect = frameView.exposedContentRect();
-        FloatRect adjustedExposedRect = adjustExposedRectForNewScale(oldExposedRect, m_page->pageScaleFactor(), newScale);
-
-        FloatPoint oldCenter = adjustedExposedRect.center();
-        adjustedExposedRect.move(newCenter - oldCenter);
+        std::optional<FloatPoint> newCenter;
+        if (historyItem.shouldRestoreScrollPosition()) {
+            if (!oldContentSize.isEmpty() && !newContentSize.isEmpty() && newContentSize != oldContentSize)
+                newCenter = relativeCenterAfterContentSizeChange(historyItem.unobscuredContentRect(), oldContentSize, newContentSize);
+            else
+                newCenter = FloatRect(historyItem.unobscuredContentRect()).center();
+        }
 
         scalePage(newScale, IntPoint());
-
         send(Messages::WebPageProxy::RestorePageCenterAndScale(newCenter, newScale));
     }
 }
@@ -395,7 +396,7 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent&)
     return false;
 }
 
-void WebPage::getSelectionContext(uint64_t callbackID)
+void WebPage::getSelectionContext(CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     if (!frame.selection().isRange()) {
@@ -467,10 +468,10 @@ String WebPage::cachedResponseMIMETypeForURL(const URL&)
     return String();
 }
 
-PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL&)
+RefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL&)
 {
     notImplemented();
-    return 0;
+    return nullptr;
 }
 
 bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest&)
@@ -516,7 +517,7 @@ IntRect WebPage::rectForElementAtInteractionLocation()
 void WebPage::updateSelectionAppearance()
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
-    if (!frame.editor().ignoreCompositionSelectionChange() && (frame.editor().hasComposition() || !frame.selection().selection().isNone()))
+    if (!frame.editor().ignoreSelectionChanges() && (frame.editor().hasComposition() || !frame.selection().selection().isNone()))
         didChangeSelection();
 }
 
@@ -599,6 +600,8 @@ void WebPage::completeSyntheticClick(Node* nodeRespondingToClick, const WebCore:
 
     if (!tapWasHandled || !nodeRespondingToClick || !nodeRespondingToClick->isElementNode())
         send(Messages::WebPageProxy::DidNotHandleTapAsClick(roundedIntPoint(location)));
+    
+    send(Messages::WebPageProxy::DidCompleteSyntheticClick());
 }
 
 void WebPage::handleTap(const IntPoint& point, uint64_t lastLayerTreeTransactionId)
@@ -610,18 +613,46 @@ void WebPage::handleTap(const IntPoint& point, uint64_t lastLayerTreeTransaction
 
     if (!frameRespondingToClick || lastLayerTreeTransactionId < WebFrame::fromCoreFrame(*frameRespondingToClick)->firstLayerTreeTransactionIDAfterDidCommitLoad())
         send(Messages::WebPageProxy::DidNotHandleTapAsClick(adjustedIntPoint));
+#if ENABLE(DATA_DETECTION)
     else if (is<Element>(*nodeRespondingToClick) && DataDetection::shouldCancelDefaultAction(downcast<Element>(*nodeRespondingToClick))) {
         InteractionInformationRequest request(adjustedIntPoint);
         requestPositionInformation(request);
         send(Messages::WebPageProxy::DidNotHandleTapAsClick(adjustedIntPoint));
-    } else
+    }
+#endif
+    else
         handleSyntheticClick(nodeRespondingToClick, adjustedPoint);
 }
+
+#if ENABLE(DATA_INTERACTION)
+void WebPage::requestStartDataInteraction(const IntPoint& clientPosition, const IntPoint& globalPosition)
+{
+    bool didStart = m_page->mainFrame().eventHandler().tryToBeginDataInteractionAtPoint(clientPosition, globalPosition);
+    send(Messages::WebPageProxy::DidHandleStartDataInteractionRequest(didStart));
+}
+
+void WebPage::didConcludeEditDataInteraction()
+{
+    std::optional<TextIndicatorData> textIndicatorData;
+
+    static auto defaultEditDataInteractionTextIndicatorOptions = TextIndicatorOptionIncludeSnapshotOfAllVisibleContentWithoutSelection | TextIndicatorOptionExpandClipBeyondVisibleRect | TextIndicatorOptionPaintAllContent | TextIndicatorOptionIncludeMarginIfRangeMatchesSelection | TextIndicatorOptionPaintBackgrounds | TextIndicatorOptionComputeEstimatedBackgroundColor| TextIndicatorOptionUseSelectionRectForSizing | TextIndicatorOptionIncludeSnapshotWithSelectionHighlight;
+    auto& frame = m_page->focusController().focusedOrMainFrame();
+    if (auto range = frame.selection().selection().toNormalizedRange()) {
+        if (auto textIndicator = TextIndicator::createWithRange(*range, defaultEditDataInteractionTextIndicatorOptions, TextIndicatorPresentationTransition::None, FloatSize()))
+            textIndicatorData = textIndicator->data();
+    }
+
+    send(Messages::WebPageProxy::DidConcludeEditDataInteraction(textIndicatorData));
+}
+#endif
 
 void WebPage::sendTapHighlightForNodeIfNecessary(uint64_t requestID, Node* node)
 {
 #if ENABLE(TOUCH_EVENTS)
     if (!node)
+        return;
+
+    if (m_page->isEditable() && node == m_page->mainFrame().document()->body())
         return;
 
     if (is<Element>(*node)) {
@@ -671,11 +702,13 @@ void WebPage::handleTwoFingerTapAtPoint(const WebCore::IntPoint& point, uint64_t
         return;
     }
     sendTapHighlightForNodeIfNecessary(requestID, nodeRespondingToClick);
+#if ENABLE(DATA_DETECTION)
     if (is<Element>(*nodeRespondingToClick) && DataDetection::shouldCancelDefaultAction(downcast<Element>(*nodeRespondingToClick))) {
         InteractionInformationRequest request(roundedIntPoint(adjustedPoint));
         requestPositionInformation(request);
         send(Messages::WebPageProxy::DidNotHandleTapAsClick(roundedIntPoint(adjustedPoint)));
     } else
+#endif
         completeSyntheticClick(nodeRespondingToClick, adjustedPoint, WebCore::TwoFingerTap);
 }
 
@@ -706,11 +739,13 @@ void WebPage::commitPotentialTap(uint64_t lastLayerTreeTransactionId)
     }
 
     if (m_potentialTapNode == nodeRespondingToClick) {
+#if ENABLE(DATA_DETECTION)
         if (is<Element>(*nodeRespondingToClick) && DataDetection::shouldCancelDefaultAction(downcast<Element>(*nodeRespondingToClick))) {
             InteractionInformationRequest request(roundedIntPoint(m_potentialTapLocation));
             requestPositionInformation(request);
             commitPotentialTapFailed();
         } else
+#endif
             handleSyntheticClick(nodeRespondingToClick, adjustedPoint);
     } else
         commitPotentialTapFailed();
@@ -914,7 +949,7 @@ static bool hasCustomLineHeight(Node& node)
     return renderer && renderer->style().lineHeight().isSpecified();
 }
     
-PassRefPtr<Range> WebPage::rangeForWebSelectionAtPosition(const IntPoint& point, const VisiblePosition& position, SelectionFlags& flags)
+RefPtr<Range> WebPage::rangeForWebSelectionAtPosition(const IntPoint& point, const VisiblePosition& position, SelectionFlags& flags)
 {
     HitTestResult result = m_page->mainFrame().eventHandler().hitTestResultAtPoint((point), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
 
@@ -987,7 +1022,7 @@ PassRefPtr<Range> WebPage::rangeForWebSelectionAtPosition(const IntPoint& point,
     return range->collapsed() ? nullptr : range;
 }
 
-PassRefPtr<Range> WebPage::rangeForBlockAtPoint(const IntPoint& point)
+RefPtr<Range> WebPage::rangeForBlockAtPoint(const IntPoint& point)
 {
     HitTestResult result = m_page->mainFrame().eventHandler().hitTestResultAtPoint((point), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::IgnoreClipping);
 
@@ -1011,9 +1046,9 @@ PassRefPtr<Range> WebPage::rangeForBlockAtPoint(const IntPoint& point)
     return range;
 }
 
-void WebPage::selectWithGesture(const IntPoint& point, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, bool isInteractingWithAssistedNode, uint64_t callbackID)
+void WebPage::selectWithGesture(const IntPoint& point, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, bool isInteractingWithAssistedNode, CallbackID callbackID)
 {
-    const Frame& frame = m_page->focusController().focusedOrMainFrame();
+    auto& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition position = visiblePositionInFocusedNodeForPoint(frame, point, isInteractingWithAssistedNode);
 
     if (position.isNull()) {
@@ -1145,12 +1180,12 @@ void WebPage::selectWithGesture(const IntPoint& point, uint32_t granularity, uin
         break;
     }
     if (range)
-        frame.selection().setSelectedRange(range.get(), position.affinity(), true);
+        frame.selection().setSelectedRange(range.get(), position.affinity(), true, UserTriggered);
 
     send(Messages::WebPageProxy::GestureCallback(point, gestureType, gestureState, static_cast<uint32_t>(flags), callbackID));
 }
 
-static PassRefPtr<Range> rangeForPosition(Frame* frame, const VisiblePosition& position, bool baseIsStart)
+static RefPtr<Range> rangeForPosition(Frame* frame, const VisiblePosition& position, bool baseIsStart)
 {
     RefPtr<Range> range;
     VisiblePosition result = position;
@@ -1175,10 +1210,10 @@ static PassRefPtr<Range> rangeForPosition(Frame* frame, const VisiblePosition& p
             range = Range::create(*frame->document(), result, selectionEnd);
     }
 
-    return range.release();
+    return range;
 }
 
-static PassRefPtr<Range> rangeAtWordBoundaryForPosition(Frame* frame, const VisiblePosition& position, bool baseIsStart, SelectionDirection direction)
+static RefPtr<Range> rangeAtWordBoundaryForPosition(Frame* frame, const VisiblePosition& position, bool baseIsStart, SelectionDirection direction)
 {
     SelectionDirection sameDirection = baseIsStart ? DirectionForward : DirectionBackward;
     SelectionDirection oppositeDirection = baseIsStart ? DirectionBackward : DirectionForward;
@@ -1188,7 +1223,7 @@ static PassRefPtr<Range> rangeAtWordBoundaryForPosition(Frame* frame, const Visi
 
     if (atBoundaryOfGranularity(extent, WordGranularity, sameDirection)) {
         // This is a word boundary. Leave selection where it is.
-        return 0;
+        return nullptr;
     }
 
     if (atBoundaryOfGranularity(extent, WordGranularity, oppositeDirection)) {
@@ -1223,7 +1258,7 @@ static PassRefPtr<Range> rangeAtWordBoundaryForPosition(Frame* frame, const Visi
     if (extent.isNull() || extent == base)
         extent = wordBoundary;
     if (extent.isNull())
-        return 0;
+        return nullptr;
 
     return (base < extent) ? Range::create(*frame->document(), base, extent) : Range::create(*frame->document(), extent, base);
 }
@@ -1293,9 +1328,9 @@ static inline IntPoint computeEdgeCenter(const IntRect& box, SelectionHandlePosi
     }
 }
 
-PassRefPtr<Range> WebPage::expandedRangeFromHandle(Range* currentRange, SelectionHandlePosition handlePosition)
+Ref<Range> WebPage::expandedRangeFromHandle(Range& currentRange, SelectionHandlePosition handlePosition)
 {
-    IntRect currentBox = selectionBoxForRange(currentRange);
+    IntRect currentBox = selectionBoxForRange(&currentRange);
     IntPoint edgeCenter = computeEdgeCenter(currentBox, handlePosition);
     static const float maxDistance = 1000;
     const float multiple = powf(maxDistance, 1.0/(maxHitTests - 1));
@@ -1332,15 +1367,15 @@ PassRefPtr<Range> WebPage::expandedRangeFromHandle(Range* currentRange, Selectio
 
         RefPtr<Range> newRange;
         RefPtr<Range> rangeAtPosition = rangeForBlockAtPoint(testPoint);
-        if (!rangeAtPosition || &currentRange->ownerDocument() != &rangeAtPosition->ownerDocument())
+        if (!rangeAtPosition || &currentRange.ownerDocument() != &rangeAtPosition->ownerDocument())
             continue;
 
-        if (rangeAtPosition->contains(*currentRange))
+        if (rangeAtPosition->contains(currentRange))
             newRange = rangeAtPosition;
-        else if (currentRange->contains(*rangeAtPosition.get()))
-            newRange = currentRange;
+        else if (currentRange.contains(*rangeAtPosition.get()))
+            newRange = &currentRange;
         else
-            newRange = unionDOMRanges(currentRange, rangeAtPosition.get());
+            newRange = unionDOMRanges(&currentRange, rangeAtPosition.get());
 
         IntRect copyRect = selectionBoxForRange(newRange.get());
 
@@ -1381,18 +1416,18 @@ PassRefPtr<Range> WebPage::expandedRangeFromHandle(Range* currentRange, Selectio
     }
 
     if (bestRange)
-        return bestRange;
+        return bestRange.releaseNonNull();
 
     return currentRange;
 }
 
-PassRefPtr<Range> WebPage::contractedRangeFromHandle(Range* currentRange, SelectionHandlePosition handlePosition, SelectionFlags& flags)
+Ref<Range> WebPage::contractedRangeFromHandle(Range& currentRange, SelectionHandlePosition handlePosition, SelectionFlags& flags)
 {
     // Shrinking with a base and extent will always give better results. If we only have a single element,
     // see if we can break that down to a base and extent. Shrinking base and extent is comparatively straightforward.
     // Shrinking down to another element is unlikely to move just one edge, but we can try that as a fallback.
 
-    IntRect currentBox = selectionBoxForRange(currentRange);
+    IntRect currentBox = selectionBoxForRange(&currentRange);
     IntPoint edgeCenter = computeEdgeCenter(currentBox, handlePosition);
     flags = IsBlockSelection;
 
@@ -1452,13 +1487,13 @@ PassRefPtr<Range> WebPage::contractedRangeFromHandle(Range* currentRange, Select
         distance *= multiple;
 
         RefPtr<Range> newRange = rangeForBlockAtPoint(testPoint);
-        if (!newRange || &newRange->ownerDocument() != &currentRange->ownerDocument())
+        if (!newRange || &newRange->ownerDocument() != &currentRange.ownerDocument())
             continue;
 
         if (handlePosition == SelectionHandlePosition::Top || handlePosition == SelectionHandlePosition::Left)
-            newRange = Range::create(newRange->startContainer().document(), newRange->endPosition(), currentRange->endPosition());
+            newRange = Range::create(newRange->startContainer().document(), newRange->endPosition(), currentRange.endPosition());
         else
-            newRange = Range::create(newRange->startContainer().document(), currentRange->startPosition(), newRange->startPosition());
+            newRange = Range::create(newRange->startContainer().document(), currentRange.startPosition(), newRange->startPosition());
 
         IntRect copyRect = selectionBoxForRange(newRange.get());
         if (copyRect.isEmpty()) {
@@ -1481,7 +1516,7 @@ PassRefPtr<Range> WebPage::contractedRangeFromHandle(Range* currentRange, Select
             break;
         }
 
-        isBetterChoice = isBetterChoice && !areRangesEqual(newRange.get(), currentRange);
+        isBetterChoice = isBetterChoice && !areRangesEqual(newRange.get(), &currentRange);
         if (bestRange && isBetterChoice) {
             switch (handlePosition) {
             case SelectionHandlePosition::Top:
@@ -1502,7 +1537,7 @@ PassRefPtr<Range> WebPage::contractedRangeFromHandle(Range* currentRange, Select
     }
 
     if (!bestRange)
-        bestRange = currentRange;
+        bestRange = &currentRange;
     
     // If we can shrink down to text only, the only reason we wouldn't is that
     // there are multiple sub-element blocks beneath us.  If we didn't find
@@ -1511,7 +1546,7 @@ PassRefPtr<Range> WebPage::contractedRangeFromHandle(Range* currentRange, Select
     if (canShrinkToTextSelection(*bestRange.get()))
         flags = None;
 
-    return bestRange;
+    return bestRange.releaseNonNull();
 }
 
 void WebPage::computeExpandAndShrinkThresholdsForHandle(const IntPoint& point, SelectionHandlePosition handlePosition, float& growThreshold, float& shrinkThreshold)
@@ -1522,12 +1557,12 @@ void WebPage::computeExpandAndShrinkThresholdsForHandle(const IntPoint& point, S
     if (!currentRange)
         return;
 
-    RefPtr<Range> expandedRange = expandedRangeFromHandle(currentRange.get(), handlePosition);
+    Ref<Range> expandedRange = expandedRangeFromHandle(*currentRange, handlePosition);
     SelectionFlags flags;
-    RefPtr<Range> contractedRange = contractedRangeFromHandle(currentRange.get(), handlePosition, flags);
+    RefPtr<Range> contractedRange = contractedRangeFromHandle(*currentRange, handlePosition, flags);
 
     IntRect currentBounds = selectionBoxForRange(currentRange.get());
-    IntRect expandedBounds = selectionBoxForRange(expandedRange.get());
+    IntRect expandedBounds = selectionBoxForRange(expandedRange.ptr());
     IntRect contractedBounds = selectionBoxForRange(contractedRange.get());
 
     float current;
@@ -1575,7 +1610,7 @@ void WebPage::computeExpandAndShrinkThresholdsForHandle(const IntPoint& point, S
 
     growThreshold = current + (expanded - current) * fractionToGrow;
     shrinkThreshold = current + (contracted - current) * (1 - fractionToGrow);
-    if (areRangesEqual(expandedRange.get(), currentRange.get()))
+    if (areRangesEqual(expandedRange.ptr(), currentRange.get()))
         growThreshold = maxThreshold;
 
     if (flags & IsBlockSelection && areRangesEqual(contractedRange.get(), currentRange.get()))
@@ -1596,17 +1631,17 @@ static inline bool shouldExpand(SelectionHandlePosition handlePosition, const In
     }
 }
 
-PassRefPtr<WebCore::Range> WebPage::changeBlockSelection(const IntPoint& point, SelectionHandlePosition handlePosition, float& growThreshold, float& shrinkThreshold, SelectionFlags& flags)
+RefPtr<WebCore::Range> WebPage::changeBlockSelection(const IntPoint& point, SelectionHandlePosition handlePosition, float& growThreshold, float& shrinkThreshold, SelectionFlags& flags)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     RefPtr<Range> currentRange = m_currentBlockSelection ? m_currentBlockSelection.get() : frame.selection().selection().toNormalizedRange();
     if (!currentRange)
         return nullptr;
-    RefPtr<Range> newRange = shouldExpand(handlePosition, selectionBoxForRange(currentRange.get()), point) ? expandedRangeFromHandle(currentRange.get(), handlePosition) : contractedRangeFromHandle(currentRange.get(), handlePosition, flags);
+    RefPtr<Range> newRange = shouldExpand(handlePosition, selectionBoxForRange(currentRange.get()), point) ? expandedRangeFromHandle(*currentRange, handlePosition) : contractedRangeFromHandle(*currentRange, handlePosition, flags);
 
     if (newRange) {
         m_currentBlockSelection = newRange;
-        frame.selection().setSelectedRange(newRange.get(), VP_DEFAULT_AFFINITY, true);
+        frame.selection().setSelectedRange(newRange.get(), VP_DEFAULT_AFFINITY, true, UserTriggered);
     }
 
     computeExpandAndShrinkThresholdsForHandle(point, handlePosition, growThreshold, shrinkThreshold);
@@ -1670,6 +1705,9 @@ RefPtr<Range> WebPage::switchToBlockSelectionAtPoint(const IntPoint& point, Sele
 
 bool WebPage::shouldSwitchToBlockModeForHandle(const IntPoint& handlePoint, SelectionHandlePosition handlePosition)
 {
+    if (!m_allowsBlockSelection)
+        return false;
+
     if (!m_blockRectForTextSelection.height())
         return false;
     switch (handlePosition) {
@@ -1684,7 +1722,7 @@ bool WebPage::shouldSwitchToBlockModeForHandle(const IntPoint& handlePoint, Sele
     }
 }
 
-void WebPage::updateSelectionWithTouches(const IntPoint& point, uint32_t touches, bool baseIsStart, uint64_t callbackID)
+void WebPage::updateSelectionWithTouches(const IntPoint& point, uint32_t touches, bool baseIsStart, CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     IntPoint pointInDocument = frame.view()->rootViewToContents(point);
@@ -1730,13 +1768,13 @@ void WebPage::updateSelectionWithTouches(const IntPoint& point, uint32_t touches
         break;
     }
     if (range && flags != IsBlockSelection)
-        frame.selection().setSelectedRange(range.get(), position.affinity(), true);
+        frame.selection().setSelectedRange(range.get(), position.affinity(), true, UserTriggered);
 
     send(Messages::WebPageProxy::TouchesCallback(point, touches, flags, callbackID));
     if (range && flags == IsBlockSelection) {
         // We just switched to block selection therefore we need to compute the thresholds.
         m_currentBlockSelection = range;
-        frame.selection().setSelectedRange(range.get(), position.affinity(), true);
+        frame.selection().setSelectedRange(range.get(), position.affinity(), true, UserTriggered);
         
         float growThreshold = 0;
         float shrinkThreshold = 0;
@@ -1745,7 +1783,7 @@ void WebPage::updateSelectionWithTouches(const IntPoint& point, uint32_t touches
     }
 }
 
-void WebPage::selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore::IntPoint& to, uint32_t gestureType, uint32_t gestureState, uint64_t callbackID)
+void WebPage::selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore::IntPoint& to, uint32_t gestureType, uint32_t gestureState, CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition fromPosition = frame.visiblePositionForPoint(frame.view()->rootViewToContents(from));
@@ -1756,7 +1794,7 @@ void WebPage::selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore:
             range = Range::create(*frame.document(), fromPosition, toPosition);
         else
             range = Range::create(*frame.document(), toPosition, fromPosition);
-        frame.selection().setSelectedRange(range.get(), fromPosition.affinity(), true);
+        frame.selection().setSelectedRange(range.get(), fromPosition.affinity(), true, UserTriggered);
     }
 
     // We can use the same callback for the gestures with one point.
@@ -1771,7 +1809,7 @@ void WebPage::extendSelection(uint32_t granularity)
         return;
 
     VisiblePosition position = frame.selection().selection().start();
-    frame.selection().setSelectedRange(wordRangeFromPosition(position).get(), position.affinity(), true);
+    frame.selection().setSelectedRange(wordRangeFromPosition(position).get(), position.affinity(), true, UserTriggered);
 }
 
 void WebPage::selectWordBackward()
@@ -1783,10 +1821,10 @@ void WebPage::selectWordBackward()
     VisiblePosition position = frame.selection().selection().start();
     VisiblePosition startPosition = positionOfNextBoundaryOfGranularity(position, WordGranularity, DirectionBackward);
     if (startPosition.isNotNull() && startPosition != position)
-        frame.selection().setSelectedRange(Range::create(*frame.document(), startPosition, position).ptr(), position.affinity(), true);
+        frame.selection().setSelectedRange(Range::create(*frame.document(), startPosition, position).ptr(), position.affinity(), true, UserTriggered);
 }
 
-void WebPage::moveSelectionByOffset(int32_t offset, uint64_t callbackID)
+void WebPage::moveSelectionByOffset(int32_t offset, CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     
@@ -1801,8 +1839,86 @@ void WebPage::moveSelectionByOffset(int32_t offset, uint64_t callbackID)
             break;
     }
     if (position.isNotNull() && startPosition != position)
-        frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), position.affinity(), true);
+        frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), position.affinity(), true, UserTriggered);
     send(Messages::WebPageProxy::VoidCallback(callbackID));
+}
+
+static VisiblePosition visiblePositionForPositionWithOffset(const VisiblePosition& position, int32_t offset)
+{
+    RefPtr<ContainerNode> root;
+    unsigned startIndex = indexForVisiblePosition(position, root);
+    return visiblePositionForIndex(startIndex + offset, root.get());
+}
+
+void WebPage::getRectsForGranularityWithSelectionOffset(uint32_t granularity, int32_t offset, CallbackID callbackID)
+{
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
+    VisibleSelection selection = frame.selection().selection();
+    VisiblePosition selectionStart = selection.visibleStart();
+
+    if (selectionStart.isNull()) {
+        send(Messages::WebPageProxy::SelectionRectsCallback({ }, callbackID));
+        return;
+    }
+
+    auto position = visiblePositionForPositionWithOffset(selectionStart, offset);
+    SelectionDirection direction = offset < 0 ? DirectionBackward : DirectionForward;
+
+    auto range = enclosingTextUnitOfGranularity(position, static_cast<WebCore::TextGranularity>(granularity), direction);
+    if (!range || range->collapsed()) {
+        send(Messages::WebPageProxy::SelectionRectsCallback({ }, callbackID));
+        return;
+    }
+
+    Vector<WebCore::SelectionRect> selectionRects;
+    range->collectSelectionRectsWithoutUnionInteriorLines(selectionRects);
+    convertSelectionRectsToRootView(frame.view(), selectionRects);
+    send(Messages::WebPageProxy::SelectionRectsCallback(selectionRects, callbackID));
+}
+
+static RefPtr<Range> rangeNearPositionMatchesText(const VisiblePosition& position, RefPtr<Range> originalRange, const String& matchText, RefPtr<Range> selectionRange)
+{
+    auto range = Range::create(selectionRange->ownerDocument(), selectionRange->startPosition(), position.deepEquivalent().parentAnchoredEquivalent());
+    unsigned targetOffset = TextIterator::rangeLength(range.ptr(), true);
+    return findClosestPlainText(*selectionRange.get(), matchText, 0, targetOffset);
+}
+
+void WebPage::getRectsAtSelectionOffsetWithText(int32_t offset, const String& text, CallbackID callbackID)
+{
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
+    uint32_t length = text.length();
+    VisibleSelection selection = frame.selection().selection();
+    VisiblePosition selectionStart = selection.visibleStart();
+    VisiblePosition selectionEnd = selection.visibleEnd();
+
+    if (selectionStart.isNull() || selectionEnd.isNull()) {
+        send(Messages::WebPageProxy::SelectionRectsCallback({ }, callbackID));
+        return;
+    }
+
+    auto startPosition = visiblePositionForPositionWithOffset(selectionStart, offset);
+    auto endPosition = visiblePositionForPositionWithOffset(startPosition, length);
+    auto range = Range::create(*frame.document(), startPosition, endPosition);
+
+    if (range->collapsed()) {
+        send(Messages::WebPageProxy::SelectionRectsCallback({ }, callbackID));
+        return;
+    }
+
+    String rangeText = plainTextReplacingNoBreakSpace(range.ptr(), TextIteratorDefaultBehavior, true);
+    if (rangeText != text) {
+        auto selectionRange = selection.toNormalizedRange();
+        // Try to search for a range which is the closest to the position within the selection range that matches the passed in text.
+        if (auto wordRange = rangeNearPositionMatchesText(startPosition, range.ptr(), text, selectionRange)) {
+            if (!wordRange->collapsed())
+                range = *wordRange;
+        }
+    }
+
+    Vector<WebCore::SelectionRect> selectionRects;
+    range->collectSelectionRectsWithoutUnionInteriorLines(selectionRects);
+    convertSelectionRectsToRootView(frame.view(), selectionRects);
+    send(Messages::WebPageProxy::SelectionRectsCallback(selectionRects, callbackID));
 }
 
 VisiblePosition WebPage::visiblePositionInFocusedNodeForPoint(const Frame& frame, const IntPoint& point, bool isInteractingWithAssistedNode)
@@ -1812,30 +1928,30 @@ VisiblePosition WebPage::visiblePositionInFocusedNodeForPoint(const Frame& frame
     return frame.visiblePositionForPoint(constrainedPoint);
 }
 
-void WebPage::selectPositionAtPoint(const WebCore::IntPoint& point, bool isInteractingWithAssistedNode, uint64_t callbackID)
+void WebPage::selectPositionAtPoint(const WebCore::IntPoint& point, bool isInteractingWithAssistedNode, CallbackID callbackID)
 {
-    const Frame& frame = m_page->focusController().focusedOrMainFrame();
+    auto& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition position = visiblePositionInFocusedNodeForPoint(frame, point, isInteractingWithAssistedNode);
     
     if (position.isNotNull())
-        frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), position.affinity(), true);
+        frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), position.affinity(), true, UserTriggered);
     send(Messages::WebPageProxy::VoidCallback(callbackID));
 }
 
-void WebPage::selectPositionAtBoundaryWithDirection(const WebCore::IntPoint& point, uint32_t granularity, uint32_t direction, bool isInteractingWithAssistedNode, uint64_t callbackID)
+void WebPage::selectPositionAtBoundaryWithDirection(const WebCore::IntPoint& point, uint32_t granularity, uint32_t direction, bool isInteractingWithAssistedNode, CallbackID callbackID)
 {
-    const Frame& frame = m_page->focusController().focusedOrMainFrame();
+    auto& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition position = visiblePositionInFocusedNodeForPoint(frame, point, isInteractingWithAssistedNode);
 
     if (position.isNotNull()) {
         position = positionOfNextBoundaryOfGranularity(position, static_cast<WebCore::TextGranularity>(granularity), static_cast<SelectionDirection>(direction));
         if (position.isNotNull())
-            frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), UPSTREAM, true);
+            frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), UPSTREAM, true, UserTriggered);
     }
     send(Messages::WebPageProxy::VoidCallback(callbackID));
 }
 
-void WebPage::moveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, uint64_t callbackID)
+void WebPage::moveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     
@@ -1844,12 +1960,12 @@ void WebPage::moveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_
         VisiblePosition position = (isForward) ? frame.selection().selection().visibleEnd() : frame.selection().selection().visibleStart();
         position = positionOfNextBoundaryOfGranularity(position, static_cast<WebCore::TextGranularity>(granularity), static_cast<SelectionDirection>(direction));
         if (position.isNotNull())
-            frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), isForward? UPSTREAM : DOWNSTREAM, true);
+            frame.selection().setSelectedRange(Range::create(*frame.document(), position, position).ptr(), isForward? UPSTREAM : DOWNSTREAM, true, UserTriggered);
     }
     send(Messages::WebPageProxy::VoidCallback(callbackID));
 }
 
-PassRefPtr<Range> WebPage::rangeForGranularityAtPoint(const Frame& frame, const WebCore::IntPoint& point, uint32_t granularity, bool isInteractingWithAssistedNode)
+RefPtr<Range> WebPage::rangeForGranularityAtPoint(Frame& frame, const WebCore::IntPoint& point, uint32_t granularity, bool isInteractingWithAssistedNode)
 {
     VisiblePosition position = visiblePositionInFocusedNodeForPoint(frame, point, isInteractingWithAssistedNode);
 
@@ -1879,9 +1995,9 @@ static inline bool rectIsTooBigForSelection(const IntRect& blockRect, const Fram
     return blockRect.height() > frame.view()->unobscuredContentRect().height() * factor;
 }
 
-void WebPage::selectTextWithGranularityAtPoint(const WebCore::IntPoint& point, uint32_t granularity, bool isInteractingWithAssistedNode, uint64_t callbackID)
+void WebPage::selectTextWithGranularityAtPoint(const WebCore::IntPoint& point, uint32_t granularity, bool isInteractingWithAssistedNode, CallbackID callbackID)
 {
-    const Frame& frame = m_page->focusController().focusedOrMainFrame();
+    auto& frame = m_page->focusController().focusedOrMainFrame();
     RefPtr<Range> range = rangeForGranularityAtPoint(frame, point, granularity, isInteractingWithAssistedNode);
     if (!isInteractingWithAssistedNode) {
         m_blockSelectionDesiredSize.setWidth(blockSelectionStartWidth);
@@ -1901,20 +2017,20 @@ void WebPage::selectTextWithGranularityAtPoint(const WebCore::IntPoint& point, u
     }
 
     if (range)
-        frame.selection().setSelectedRange(range.get(), UPSTREAM, true);
+        frame.selection().setSelectedRange(range.get(), UPSTREAM, true, UserTriggered);
     m_initialSelection = range;
     send(Messages::WebPageProxy::VoidCallback(callbackID));
 }
 
-void WebPage::beginSelectionInDirection(uint32_t direction, uint64_t callbackID)
+void WebPage::beginSelectionInDirection(uint32_t direction, CallbackID callbackID)
 {
     m_selectionAnchor = (static_cast<SelectionDirection>(direction) == DirectionLeft) ? Start : End;
     send(Messages::WebPageProxy::UnsignedCallback(m_selectionAnchor == Start, callbackID));
 }
 
-void WebPage::updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint& point, uint32_t granularity, bool isInteractingWithAssistedNode, uint64_t callbackID)
+void WebPage::updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint& point, uint32_t granularity, bool isInteractingWithAssistedNode, CallbackID callbackID)
 {
-    const Frame& frame = m_page->focusController().focusedOrMainFrame();
+    auto& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition position = visiblePositionInFocusedNodeForPoint(frame, point, isInteractingWithAssistedNode);
     RefPtr<Range> newRange = rangeForGranularityAtPoint(frame, point, granularity, isInteractingWithAssistedNode);
     
@@ -1936,14 +2052,14 @@ void WebPage::updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint&
         range = Range::create(*frame.document(), selectionStart, selectionEnd);
     
     if (range)
-        frame.selection().setSelectedRange(range.get(), UPSTREAM, true);
+        frame.selection().setSelectedRange(range.get(), UPSTREAM, true, UserTriggered);
     
     send(Messages::WebPageProxy::UnsignedCallback(selectionStart == m_initialSelection->startPosition(), callbackID));
 }
 
-void WebPage::updateSelectionWithExtentPoint(const WebCore::IntPoint& point, bool isInteractingWithAssistedNode, uint64_t callbackID)
+void WebPage::updateSelectionWithExtentPoint(const WebCore::IntPoint& point, bool isInteractingWithAssistedNode, CallbackID callbackID)
 {
-    const Frame& frame = m_page->focusController().focusedOrMainFrame();
+    auto& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition position = visiblePositionInFocusedNodeForPoint(frame, point, isInteractingWithAssistedNode);
 
     if (position.isNull()) {
@@ -1979,7 +2095,7 @@ void WebPage::updateSelectionWithExtentPoint(const WebCore::IntPoint& point, boo
         range = Range::create(*frame.document(), selectionStart, selectionEnd);
 
     if (range)
-        frame.selection().setSelectedRange(range.get(), UPSTREAM, true);
+        frame.selection().setSelectedRange(range.get(), UPSTREAM, true, UserTriggered);
 
     send(Messages::WebPageProxy::UnsignedCallback(m_selectionAnchor == Start, callbackID));
 }
@@ -1992,7 +2108,7 @@ void WebPage::convertSelectionRectsToRootView(FrameView* view, Vector<SelectionR
     }
 }
 
-void WebPage::requestDictationContext(uint64_t callbackID)
+void WebPage::requestDictationContext(CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     VisiblePosition startPosition = frame.selection().selection().start();
@@ -2041,10 +2157,10 @@ void WebPage::replaceSelectedText(const String& oldText, const String& newText)
     if (plainTextReplacingNoBreakSpace(wordRange.get()) != oldText)
         return;
     
-    frame.editor().setIgnoreCompositionSelectionChange(true);
+    frame.editor().setIgnoreSelectionChanges(true);
     frame.selection().setSelectedRange(wordRange.get(), UPSTREAM, true);
     frame.editor().insertText(newText, 0);
-    frame.editor().setIgnoreCompositionSelectionChange(false);
+    frame.editor().setIgnoreSelectionChanges(false);
 }
 
 void WebPage::replaceDictatedText(const String& oldText, const String& newText)
@@ -2068,13 +2184,13 @@ void WebPage::replaceDictatedText(const String& oldText, const String& newText)
         return;
 
     // We don't want to notify the client that the selection has changed until we are done inserting the new text.
-    frame.editor().setIgnoreCompositionSelectionChange(true);
+    frame.editor().setIgnoreSelectionChanges(true);
     frame.selection().setSelectedRange(range.get(), UPSTREAM, true);
     frame.editor().insertText(newText, 0);
-    frame.editor().setIgnoreCompositionSelectionChange(false);
+    frame.editor().setIgnoreSelectionChanges(false);
 }
 
-void WebPage::requestAutocorrectionData(const String& textForAutocorrection, uint64_t callbackID)
+void WebPage::requestAutocorrectionData(const String& textForAutocorrection, CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     if (!frame.selection().isCaret()) {
@@ -2122,14 +2238,14 @@ void WebPage::requestAutocorrectionData(const String& textForAutocorrection, uin
     send(Messages::WebPageProxy::AutocorrectionDataCallback(rectsForText, fontName.get(), fontSize, fontTraits, callbackID));
 }
 
-void WebPage::applyAutocorrection(const String& correction, const String& originalText, uint64_t callbackID)
+void WebPage::applyAutocorrection(const String& correction, const String& originalText, CallbackID callbackID)
 {
     bool correctionApplied;
     syncApplyAutocorrection(correction, originalText, correctionApplied);
     send(Messages::WebPageProxy::StringCallback(correctionApplied ? correction : String(), callbackID));
 }
 
-void WebPage::executeEditCommandWithCallback(const String& commandName, uint64_t callbackID)
+void WebPage::executeEditCommandWithCallback(const String& commandName, CallbackID callbackID)
 {
     executeEditCommand(commandName, String());
     if (commandName == "toggleBold" || commandName == "toggleItalic" || commandName == "toggleUnderline")
@@ -2157,35 +2273,50 @@ Seconds WebPage::eventThrottlingDelay() const
 
 void WebPage::syncApplyAutocorrection(const String& correction, const String& originalText, bool& correctionApplied)
 {
-    RefPtr<Range> range;
     correctionApplied = false;
+
     Frame& frame = m_page->focusController().focusedOrMainFrame();
-    if (!frame.selection().isCaret())
+    if (!frame.selection().isCaretOrRange())
         return;
-    VisiblePosition position = frame.selection().selection().start();
-    
-    range = wordRangeFromPosition(position);
-    String textForRange = plainTextReplacingNoBreakSpace(range.get());
-    if (textForRange != originalText) {
-        for (size_t i = 0; i < originalText.length(); ++i)
-            position = position.previous();
-        if (position.isNull())
-            position = startOfDocument(static_cast<Node*>(frame.document()->documentElement()));
-        range = Range::create(*frame.document(), position, frame.selection().selection().start());
-        if (range)
-            textForRange = (range) ? plainTextReplacingNoBreakSpace(range.get()) : emptyString();
-        unsigned loopCount = 0;
-        const unsigned maxPositionsAttempts = 10;
-        while (textForRange.length() && textForRange.length() > originalText.length() && loopCount < maxPositionsAttempts) {
-            position = position.next();
-            if (position.isNotNull() && position >= frame.selection().selection().start())
-                range = nullptr;
-            else
-                range = Range::create(*frame.document(), position, frame.selection().selection().start());
-            textForRange = (range) ? plainTextReplacingNoBreakSpace(range.get()) : emptyString();
-            loopCount++;
+
+    RefPtr<Range> range;
+    String textForRange;
+
+    if (frame.selection().isCaret()) {
+        VisiblePosition position = frame.selection().selection().start();
+        range = wordRangeFromPosition(position);
+        textForRange = plainTextReplacingNoBreakSpace(range.get());
+        if (textForRange != originalText) {
+            // Search for the original text before the selection caret.
+            for (size_t i = 0; i < originalText.length(); ++i)
+                position = position.previous();
+            if (position.isNull())
+                position = startOfDocument(static_cast<Node*>(frame.document()->documentElement()));
+            range = Range::create(*frame.document(), position, frame.selection().selection().start());
+            if (range)
+                textForRange = (range) ? plainTextReplacingNoBreakSpace(range.get()) : emptyString();
+            unsigned loopCount = 0;
+            const unsigned maxPositionsAttempts = 10;
+            while (textForRange.length() && textForRange.length() > originalText.length() && loopCount < maxPositionsAttempts) {
+                position = position.next();
+                if (position.isNotNull() && position >= frame.selection().selection().start())
+                    range = nullptr;
+                else
+                    range = Range::create(*frame.document(), position, frame.selection().selection().start());
+                textForRange = (range) ? plainTextReplacingNoBreakSpace(range.get()) : emptyString();
+                loopCount++;
+            }
         }
+    } else {
+        // Range selection.
+        range = frame.selection().toNormalizedRange();
+        if (!range) {
+            correctionApplied = false;
+            return;
+        }
+        textForRange = plainTextReplacingNoBreakSpace(range.get());
     }
+
     if (textForRange != originalText) {
         correctionApplied = false;
         return;
@@ -2261,7 +2392,7 @@ static void computeAutocorrectionContext(Frame& frame, String& contextBefore, St
     }
 }
 
-void WebPage::requestAutocorrectionContext(uint64_t callbackID)
+void WebPage::requestAutocorrectionContext(CallbackID callbackID)
 {
     String contextBefore;
     String contextAfter;
@@ -2356,7 +2487,7 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
                     if (request.includeSnapshot) {
                         // Ensure that the image contains at most 600K pixels, so that it is not too big.
                         if (RefPtr<WebImage> snapshot = snapshotNode(*element, SnapshotOptionsShareable, 600 * 1024))
-                            info.image = snapshot->bitmap();
+                            info.image = &snapshot->bitmap();
                     }
 
                     if (request.includeLinkIndicator) {
@@ -2394,7 +2525,7 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
                     if (renderImage.cachedImage() && !renderImage.cachedImage()->errorOccurred()) {
                         if (Image* image = renderImage.cachedImage()->imageForRenderer(&renderImage)) {
                             if (image->width() > 1 && image->height() > 1) {
-                                info.imageURL = [(NSURL *)element->document().completeURL(renderImage.cachedImage()->url()) absoluteString];
+                                info.imageURL = element->document().completeURL(renderImage.cachedImage()->url());
                                 info.isAnimatedImage = image->isAnimated();
 
                                 if (request.includeSnapshot) {
@@ -2404,9 +2535,7 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
                                     FloatSize bitmapSize = scaledSize.width() < image->size().width() ? scaledSize : image->size();
                                     // FIXME: Only select ExtendedColor on images known to need wide gamut
                                     ShareableBitmap::Flags flags = ShareableBitmap::SupportsAlpha;
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000
                                     flags |= screenSupportsExtendedColor() ? ShareableBitmap::SupportsExtendedColor : 0;
-#endif
                                     if (RefPtr<ShareableBitmap> sharedBitmap = ShareableBitmap::createShareable(IntSize(bitmapSize), flags)) {
                                         auto graphicsContext = sharedBitmap->createGraphicsContext();
                                         graphicsContext->drawImage(*image, FloatRect(0, 0, bitmapSize.width(), bitmapSize.height()));
@@ -2419,7 +2548,7 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
                 }
             }
             if (linkElement)
-                info.url = [(NSURL *)linkElement->document().completeURL(stripLeadingAndTrailingHTMLSpaces(linkElement->getAttribute(HTMLNames::hrefAttr))) absoluteString];
+                info.url = linkElement->document().completeURL(stripLeadingAndTrailingHTMLSpaces(linkElement->getAttribute(HTMLNames::hrefAttr)));
             info.title = element->attributeWithoutSynchronization(HTMLNames::titleAttr).string();
             if (linkElement && info.title.isEmpty())
                 info.title = element->innerText();
@@ -2454,7 +2583,7 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
                 const HTMLAttachmentElement& attachment = downcast<HTMLAttachmentElement>(*hitNode);
                 info.title = attachment.attachmentTitle();
                 if (attachment.file())
-                    info.url = downcast<HTMLAttachmentElement>(*hitNode).file()->path();
+                    info.url = URL::fileURLWithFileSystemPath(downcast<HTMLAttachmentElement>(*hitNode).file()->path());
             } else {
                 info.isSelectable = renderer->style().userSelect() != SELECT_NONE;
                 if (info.isSelectable && !hitNode->isTextNode())
@@ -2462,6 +2591,11 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
             }
         }
     }
+
+#if ENABLE(DATA_INTERACTION)
+    info.hasSelectionAtPosition = m_page->hasSelectionAtPosition(adjustedPoint);
+#endif
+    info.adjustedPointForNodeRespondingToClickEvents = adjustedPoint;
 }
 
 void WebPage::requestPositionInformation(const InteractionInformationRequest& request)
@@ -2540,7 +2674,7 @@ static inline bool hasAssistableElement(Node* startNode, Page& page, bool isForw
     return nextAssistableElement(startNode, page, isForward);
 }
 
-void WebPage::focusNextAssistedNode(bool isForward, uint64_t callbackID)
+void WebPage::focusNextAssistedNode(bool isForward, CallbackID callbackID)
 {
     Element* nextElement = nextAssistableElement(m_assistedNode.get(), *m_page, isForward);
     m_userIsInteracting = true;
@@ -2722,7 +2856,7 @@ void WebPage::resetTextAutosizing()
     }
 }
 
-void WebPage::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const FloatRect& targetExposedContentRect, const FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, double targetScale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
+void WebPage::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const FloatRect& targetExposedContentRect, const FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& targetUnobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
 {
     SetForScope<bool> dynamicSizeUpdateGuard(m_inDynamicSizeUpdate, true);
     // FIXME: this does not handle the cases where the content would change the content size or scroll position from JavaScript.
@@ -2766,6 +2900,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize, cons
         resetTextAutosizing();
 
     setMaximumUnobscuredSize(maximumUnobscuredSize);
+    m_page->setUnobscuredSafeAreaInsets(targetUnobscuredSafeAreaInsets);
 
     frameView.updateLayoutAndStyleIfNeededRecursive();
 
@@ -3027,31 +3162,45 @@ static inline FloatRect adjustExposedRectForBoundedScale(const FloatRect& expose
     return adjustExposedRectForNewScale(exposedRect, exposedRectScale, newScale);
 }
 
+std::optional<float> WebPage::scaleFromUIProcess(const VisibleContentRectUpdateInfo& visibleContentRectUpdateInfo) const
+{
+    auto transactionIDForLastScaleSentToUIProcess = downcast<RemoteLayerTreeDrawingArea>(*m_drawingArea).lastCommittedTransactionID();
+    auto transactionIDForLastScaleFromUIProcess = visibleContentRectUpdateInfo.lastLayerTreeTransactionID();
+    if (transactionIDForLastScaleSentToUIProcess != transactionIDForLastScaleFromUIProcess)
+        return std::nullopt;
+
+    float scaleFromUIProcess = visibleContentRectUpdateInfo.scale();
+    float currentScale = m_page->pageScaleFactor();
+
+    double scaleNoiseThreshold = 0.005;
+    if (!m_isInStableState && fabs(scaleFromUIProcess - currentScale) < scaleNoiseThreshold) {
+        // Tiny changes of scale during interactive zoom cause content to jump by one pixel, creating
+        // visual noise. We filter those useless updates.
+        scaleFromUIProcess = currentScale;
+    }
+    
+    scaleFromUIProcess = std::min<float>(m_viewportConfiguration.maximumScale(), std::max<float>(m_viewportConfiguration.minimumScale(), scaleFromUIProcess));
+    if (areEssentiallyEqualAsFloat(currentScale, scaleFromUIProcess))
+        return std::nullopt;
+
+    return scaleFromUIProcess;
+}
+
 void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visibleContentRectUpdateInfo, MonotonicTime oldestTimestamp)
 {
-    // Skip any VisibleContentRectUpdate that have been queued before DidCommitLoad suppresses the updates in the UIProcess.
-    if (visibleContentRectUpdateInfo.lastLayerTreeTransactionID() < m_mainFrame->firstLayerTreeTransactionIDAfterDidCommitLoad())
-        return;
-
     LOG_WITH_STREAM(VisibleRects, stream << "\nWebPage::updateVisibleContentRects " << visibleContentRectUpdateInfo);
+
+    // Skip any VisibleContentRectUpdate that have been queued before DidCommitLoad suppresses the updates in the UIProcess.
+    if (visibleContentRectUpdateInfo.lastLayerTreeTransactionID() < m_mainFrame->firstLayerTreeTransactionIDAfterDidCommitLoad() && !visibleContentRectUpdateInfo.isFirstUpdateForNewViewSize())
+        return;
 
     m_hasReceivedVisibleContentRectsAfterDidCommitLoad = true;
     m_isInStableState = visibleContentRectUpdateInfo.inStableState();
 
-    double scaleNoiseThreshold = 0.005;
-    float filteredScale = visibleContentRectUpdateInfo.scale();
-    float currentScale = m_page->pageScaleFactor();
-
-    if (!m_isInStableState && fabs(filteredScale - currentScale) < scaleNoiseThreshold) {
-        // Tiny changes of scale during interactive zoom cause content to jump by one pixel, creating
-        // visual noise. We filter those useless updates.
-        filteredScale = currentScale;
-    }
-
-    float boundedScale = std::min<float>(m_viewportConfiguration.maximumScale(), std::max<float>(m_viewportConfiguration.minimumScale(), filteredScale));
+    auto scaleFromUIProcess = this->scaleFromUIProcess(visibleContentRectUpdateInfo);
 
     // Skip progressively redrawing tiles if pinch-zooming while the system is under memory pressure.
-    if (boundedScale != currentScale && !m_isInStableState && MemoryPressureHandler::singleton().isUnderMemoryPressure())
+    if (scaleFromUIProcess && !m_isInStableState && MemoryPressureHandler::singleton().isUnderMemoryPressure())
         return;
 
     if (m_isInStableState)
@@ -3061,26 +3210,27 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
             m_oldestNonStableUpdateVisibleContentRectsTimestamp = oldestTimestamp;
     }
 
+    float scaleToUse = scaleFromUIProcess.value_or(m_page->pageScaleFactor());
     FloatRect exposedContentRect = visibleContentRectUpdateInfo.exposedContentRect();
-    FloatRect adjustedExposedContentRect = adjustExposedRectForBoundedScale(exposedContentRect, visibleContentRectUpdateInfo.scale(), boundedScale);
+    FloatRect adjustedExposedContentRect = adjustExposedRectForBoundedScale(exposedContentRect, visibleContentRectUpdateInfo.scale(), scaleToUse);
     m_drawingArea->setExposedContentRect(adjustedExposedContentRect);
 
     IntPoint scrollPosition = roundedIntPoint(visibleContentRectUpdateInfo.unobscuredContentRect().location());
 
     bool hasSetPageScale = false;
-    if (boundedScale != currentScale) {
+    if (scaleFromUIProcess) {
         m_scaleWasSetByUIProcess = true;
         m_hasStablePageScaleFactor = m_isInStableState;
 
         m_dynamicSizeUpdateHistory.clear();
 
-        m_page->setPageScaleFactor(boundedScale, scrollPosition, m_isInStableState);
+        m_page->setPageScaleFactor(scaleFromUIProcess.value(), scrollPosition, m_isInStableState);
         hasSetPageScale = true;
-        send(Messages::WebPageProxy::PageScaleFactorDidChange(boundedScale));
+        send(Messages::WebPageProxy::PageScaleFactorDidChange(scaleFromUIProcess.value()));
     }
-
+    
     if (!hasSetPageScale && m_isInStableState) {
-        m_page->setPageScaleFactor(boundedScale, scrollPosition, true);
+        m_page->setPageScaleFactor(scaleToUse, scrollPosition, true);
         hasSetPageScale = true;
     }
 
@@ -3092,7 +3242,8 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
         viewportConfigurationChanged();
 
     frameView.setUnobscuredContentSize(visibleContentRectUpdateInfo.unobscuredContentRect().size());
-    m_page->setObscuredInset(visibleContentRectUpdateInfo.obscuredInset());
+    m_page->setObscuredInsets(visibleContentRectUpdateInfo.obscuredInsets());
+    m_page->setUnobscuredSafeAreaInsets(visibleContentRectUpdateInfo.unobscuredSafeAreaInsets());
     m_page->setEnclosedInScrollableAncestorView(visibleContentRectUpdateInfo.enclosedInScrollableAncestorView());
 
     double horizontalVelocity = visibleContentRectUpdateInfo.horizontalVelocity();
@@ -3117,13 +3268,24 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
     if (!visibleContentRectUpdateInfo.isChangingObscuredInsetsInteractively())
         frameView.setCustomSizeForResizeEvent(expandedIntSize(visibleContentRectUpdateInfo.unobscuredRectInScrollViewCoordinates().size()));
 
-    if (ScrollingCoordinator* scrollingCoordinator = this->scrollingCoordinator())
-        scrollingCoordinator->reconcileScrollingState(frameView, scrollPosition, visibleContentRectUpdateInfo.customFixedPositionRect(), false, m_isInStableState, m_isInStableState ? ScrollingLayerPositionAction::Sync : ScrollingLayerPositionAction::SetApproximate);
+    if (ScrollingCoordinator* scrollingCoordinator = this->scrollingCoordinator()) {
+        ViewportRectStability viewportStability = ViewportRectStability::Stable;
+        ScrollingLayerPositionAction layerAction = ScrollingLayerPositionAction::Sync;
+        
+        if (visibleContentRectUpdateInfo.isChangingObscuredInsetsInteractively()) {
+            viewportStability = ViewportRectStability::ChangingObscuredInsetsInteractively;
+            layerAction = ScrollingLayerPositionAction::SetApproximate;
+        } else if (!m_isInStableState) {
+            viewportStability = ViewportRectStability::Unstable;
+            layerAction = ScrollingLayerPositionAction::SetApproximate;
+        }
+        scrollingCoordinator->reconcileScrollingState(frameView, scrollPosition, visibleContentRectUpdateInfo.customFixedPositionRect(), false, viewportStability, layerAction);
+    }
 }
 
 void WebPage::willStartUserTriggeredZooming()
 {
-    m_page->diagnosticLoggingClient().logDiagnosticMessageWithValue(DiagnosticLoggingKeys::webViewKey(), DiagnosticLoggingKeys::userKey(), DiagnosticLoggingKeys::zoomedKey(), ShouldSample::No);
+    m_page->diagnosticLoggingClient().logDiagnosticMessage(DiagnosticLoggingKeys::webViewKey(), DiagnosticLoggingKeys::userZoomActionKey(), ShouldSample::No);
     m_userHasChangedPageScaleFactor = true;
 }
 
@@ -3139,11 +3301,6 @@ WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame*, const Stri
 }
 #endif
 
-void WebPage::zoomToRect(FloatRect rect, double minimumScale, double maximumScale)
-{
-    send(Messages::WebPageProxy::ZoomToRect(rect, minimumScale, maximumScale));
-}
-
 #if ENABLE(IOS_TOUCH_EVENTS)
 void WebPage::dispatchAsynchronousTouchEvents(const Vector<WebTouchEvent, 1>& queue)
 {
@@ -3153,12 +3310,22 @@ void WebPage::dispatchAsynchronousTouchEvents(const Vector<WebTouchEvent, 1>& qu
 }
 #endif
 
-void WebPage::computePagesForPrintingAndDrawToPDF(uint64_t frameID, const PrintInfo& printInfo, uint64_t callbackID, PassRefPtr<Messages::WebPage::ComputePagesForPrintingAndDrawToPDF::DelayedReply> reply)
+void WebPage::computePagesForPrintingAndDrawToPDF(uint64_t frameID, const PrintInfo& printInfo, CallbackID callbackID, Ref<Messages::WebPage::ComputePagesForPrintingAndDrawToPDF::DelayedReply>&& reply)
 {
+    if (printInfo.snapshotFirstPage) {
+        reply->send(1);
+        IntSize snapshotSize { FloatSize { printInfo.availablePaperWidth, printInfo.availablePaperHeight } };
+        IntRect snapshotRect { {0, 0}, snapshotSize };
+        auto pdfData = pdfSnapshotAtSize(snapshotRect, snapshotSize, 0);
+        send(Messages::WebPageProxy::DrawToPDFCallback(IPC::DataReference(CFDataGetBytePtr(pdfData.get()), CFDataGetLength(pdfData.get())), callbackID));
+        return;
+    }
+
     Vector<WebCore::IntRect> pageRects;
     double totalScaleFactor;
     computePagesForPrintingImpl(frameID, printInfo, pageRects, totalScaleFactor);
 
+    ASSERT(pageRects.size() >= 1);
     std::size_t pageCount = pageRects.size();
     ASSERT(pageCount <= std::numeric_limits<uint32_t>::max());
     reply->send(pageCount);
@@ -3180,6 +3347,13 @@ String WebPage::platformUserAgent(const URL&) const
 {
     return String();
 }
+
+#if USE(QUICK_LOOK)
+void WebPage::didReceivePasswordForQuickLookDocument(const String& password)
+{
+    WebPreviewLoaderClient::didReceivePassword(password, m_pageID);
+}
+#endif
 
 } // namespace WebKit
 

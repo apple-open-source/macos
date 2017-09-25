@@ -114,15 +114,25 @@ using namespace WebKit;
 @implementation WKScrollView {
     WeakObjCPtr<id <UIScrollViewDelegate>> _externalDelegate;
     WKScrollViewDelegateForwarder *_delegateForwarder;
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+    BOOL _contentInsetAdjustmentBehaviorWasExternallyOverridden;
+#endif
 }
 
 - (id)initWithFrame:(CGRect)frame
 {
-    if (self = [super initWithFrame:frame]) {
-        ASSERT([self verticalScrollDecelerationFactor] == [self horizontalScrollDecelerationFactor]);
-        // FIXME: use UIWebPreferredScrollDecelerationFactor() from UIKit: rdar://problem/18931007.
-        _preferredScrollDecelerationFactor = [self verticalScrollDecelerationFactor];
-    }
+    self = [super initWithFrame:frame];
+
+    if (!self)
+        return nil;
+
+    self.alwaysBounceVertical = YES;
+    self.directionalLockEnabled = YES;
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+    _contentInsetAdjustmentBehaviorWasExternallyOverridden = (self.contentInsetAdjustmentBehavior != UIScrollViewContentInsetAdjustmentAutomatic);
+#endif
     
     return self;
 }
@@ -222,8 +232,36 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 {
     [super setContentInset:contentInset];
 
-    [_internalDelegate _updateVisibleContentRects];
+    [_internalDelegate _scheduleVisibleContentRectUpdate];
 }
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+
+- (BOOL)_contentInsetAdjustmentBehaviorWasExternallyOverridden
+{
+    return _contentInsetAdjustmentBehaviorWasExternallyOverridden;
+}
+
+- (void)setContentInsetAdjustmentBehavior:(UIScrollViewContentInsetAdjustmentBehavior)insetAdjustmentBehavior
+{
+    _contentInsetAdjustmentBehaviorWasExternallyOverridden = YES;
+
+    if ([self contentInsetAdjustmentBehavior] == insetAdjustmentBehavior)
+        return;
+
+    [super setContentInsetAdjustmentBehavior:insetAdjustmentBehavior];
+    [_internalDelegate _scheduleVisibleContentRectUpdate];
+}
+
+- (void)_setContentInsetAdjustmentBehaviorInternal:(UIScrollViewContentInsetAdjustmentBehavior)insetAdjustmentBehavior
+{
+    if ([self contentInsetAdjustmentBehavior] == insetAdjustmentBehavior)
+        return;
+
+    [super setContentInsetAdjustmentBehavior:insetAdjustmentBehavior];
+}
+
+#endif
 
 // Fetch top/left rubberband amounts (as negative values).
 - (CGSize)_currentTopLeftRubberbandAmount
@@ -271,12 +309,6 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 
     if (!CGSizeEqualToSize(rubberbandAmount, CGSizeZero))
         [self _restoreContentOffsetWithRubberbandAmount:rubberbandAmount];
-}
-
-- (void)setDecelerationRate:(CGFloat)decelerationRate
-{
-    [super setDecelerationRate:decelerationRate];
-    _preferredScrollDecelerationFactor = decelerationRate;
 }
 
 @end

@@ -49,14 +49,12 @@ public:
     static void releaseFastMallocFreeMemoryInAllThreads();
 
 private:
-    // Called on background thread.
-    static void threadEntryPointCallback(void*);
     void threadEntryPoint();
 
     // Background thread part of the terminate procedure.
     void performTerminate();
 
-    ThreadIdentifier m_threadID;
+    RefPtr<Thread> m_thread;
     MessageQueue<Function<void ()>> m_queue;
 };
 

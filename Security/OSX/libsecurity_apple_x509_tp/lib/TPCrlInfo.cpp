@@ -32,6 +32,7 @@
 #include <Security/oidscert.h>
 #include <Security/oidscrl.h>
 #include <security_cdsa_utilities/cssmerrors.h>
+#include <utilities/SecCFRelease.h>
 #include <string.h>						/* for memcmp */
 #include <Security/cssmapple.h>
 
@@ -693,14 +694,12 @@ CSSM_RETURN TPCrlInfo::isCertRevoked(
 	}
 
 	subjectCert.freeField(&CSSMOID_X509V1SerialNumber, subjSerial);
+
+    CFReleaseNull(cfRevokedTime);
+    CFReleaseNull(cfVerifyTime);
+
 	if(crtn && !subjectCert.addStatusCode(crtn)) {
 		return CSSM_OK;
-	}
-	if(cfRevokedTime) {
-		CFRelease(cfRevokedTime);
-	}
-	if(cfVerifyTime) {
-		CFRelease(cfVerifyTime);
 	}
 	return crtn;
 }

@@ -37,51 +37,50 @@
 #include "FetchResponseSource.h"
 #include "HTTPHeaderValues.h"
 #include "HTTPParsers.h"
-#include "JSBlob.h"
-#include "JSDOMFormData.h"
-#include "JSReadableStream.h"
-#include "JSURLSearchParams.h"
 #include "ReadableStreamSource.h"
 #include <runtime/ArrayBufferView.h>
 
 namespace WebCore {
 
-std::optional<FetchBody> FetchBody::extract(ScriptExecutionContext& context, JSC::ExecState& state, JSC::JSValue value, String& contentType)
+FetchBody FetchBody::extract(ScriptExecutionContext& context, BindingDataType&& value, String& contentType)
 {
-    if (value.inherits(JSBlob::info())) {
-        auto& blob = *JSBlob::toWrapped(value);
-        contentType = blob.type();
-        return FetchBody(blob);
+    if (WTF::holds_alternative<RefPtr<Blob>>(value)) {
+        Ref<const Blob> blob = WTF::get<RefPtr<Blob>>(value).releaseNonNull();
+        contentType = blob->type();
+        return FetchBody(WTFMove(blob));
     }
-    if (value.inherits(JSDOMFormData::info())) {
-        ASSERT(!context.isWorkerGlobalScope());
-        auto& domFormData = *JSDOMFormData::toWrapped(value);
-        auto formData = FormData::createMultiPart(domFormData, domFormData.encoding(), &static_cast<Document&>(context));
-        contentType = makeString("multipart/form-data;boundary=", formData->boundary().data());
+    if (WTF::holds_alternative<RefPtr<DOMFormData>>(value)) {
+        Ref<DOMFormData> domFormData = WTF::get<RefPtr<DOMFormData>>(value).releaseNonNull();
+        auto formData = FormData::createMultiPart(domFormData.get(), domFormData->encoding(), &static_cast<Document&>(context));
+        contentType = makeString("multipart/form-data; boundary=", formData->boundary().data());
         return FetchBody(WTFMove(formData));
     }
-    if (value.isString()) {
-        contentType = HTTPHeaderValues::textPlainContentType();
-        return FetchBody(String { asString(value)->value(&state) });
-    }
-    if (value.inherits(JSURLSearchParams::info())) {
-        contentType = HTTPHeaderValues::formURLEncodedContentType();
-        return FetchBody(*JSURLSearchParams::toWrapped(value));
-    }
-    if (value.inherits(JSReadableStream::info())) {
-        FetchBody body;
-        body.m_isReadableStream = true;
-        return WTFMove(body);
-    }
-    if (value.inherits(JSC::JSArrayBuffer::info())) {
-        ArrayBuffer* data = toUnsharedArrayBuffer(value);
-        ASSERT(data);
-        return FetchBody(*data);
-    }
-    if (value.inherits(JSC::JSArrayBufferView::info()))
-        return FetchBody(toUnsharedArrayBufferView(value).releaseConstNonNull());
 
-    return std::nullopt;
+    if (WTF::holds_alternative<RefPtr<URLSearchParams>>(value)) {
+        Ref<const URLSearchParams> params = WTF::get<RefPtr<URLSearchParams>>(value).releaseNonNull();
+        contentType = HTTPHeaderValues::formURLEncodedContentType();
+        return FetchBody(WTFMove(params));
+    }
+
+    if (WTF::holds_alternative<RefPtr<ArrayBuffer>>(value)) {
+        Ref<const ArrayBuffer> buffer = WTF::get<RefPtr<ArrayBuffer>>(value).releaseNonNull();
+        return FetchBody(WTFMove(buffer));
+    }
+    if (WTF::holds_alternative<RefPtr<ArrayBufferView>>(value)) {
+        Ref<const ArrayBufferView> buffer = WTF::get<RefPtr<ArrayBufferView>>(value).releaseNonNull();
+        return FetchBody(WTFMove(buffer));
+    }
+
+    ASSERT(WTF::holds_alternative<String>(value));
+    contentType = HTTPHeaderValues::textPlainContentType();
+    return FetchBody(WTFMove(WTF::get<String>(value)));
+}
+
+FetchBody FetchBody::readableStreamBody()
+{
+    FetchBody body;
+    body.m_isReadableStream = true;
+    return body;
 }
 
 void FetchBody::arrayBuffer(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise)
@@ -117,10 +116,12 @@ void FetchBody::text(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise)
     consume(owner, WTFMove(promise));
 }
 
-void FetchBody::consumeOnceLoadingFinished(FetchBodyConsumer::Type type, Ref<DeferredPromise>&& promise)
+void FetchBody::consumeOnceLoadingFinished(FetchBodyConsumer::Type type, Ref<DeferredPromise>&& promise, const String& contentType)
 {
     m_consumer.setType(type);
     m_consumePromise = WTFMove(promise);
+    if (type == FetchBodyConsumer::Type::Blob)
+        m_consumer.setContentType(Blob::normalizedContentType(extractMIMETypeFromMediaType(contentType)));
 }
 
 void FetchBody::consume(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise)

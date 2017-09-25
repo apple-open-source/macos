@@ -22,6 +22,10 @@
 #ifdef HAVE_PTY_H
 #include	<pty.h>
 #endif
+#if defined(HAVE_SYS_PARAM_H)
+  /* for __FreeBSD_version */
+# include <sys/param.h>
+#endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #else
@@ -29,10 +33,9 @@
 #endif
 #include <ctype.h>
 
-#include "ruby/ruby.h"
+#include "internal.h"
 #include "ruby/io.h"
 #include "ruby/util.h"
-#include "internal.h"
 
 #include <signal.h>
 #ifdef HAVE_SYS_STROPTS_H
@@ -140,7 +143,7 @@ chfunc(void *data, char *errbuf, size_t errbuf_len)
     dup2(slave,2);
     close(slave);
 #if defined(HAVE_SETEUID) || defined(HAVE_SETREUID) || defined(HAVE_SETRESUID)
-    seteuid(getuid());
+    if (seteuid(getuid())) ERROR_EXIT("seteuid()");
 #endif
 
     return rb_exec_async_signal_safe(carg->eargp, errbuf, sizeof(errbuf_len));
@@ -179,7 +182,7 @@ establishShell(int argc, VALUE *argv, struct pty_info *info,
 
     carg.execarg_obj = rb_execarg_new(argc, argv, 1);
     carg.eargp = rb_execarg_get(carg.execarg_obj);
-    rb_execarg_fixup(carg.execarg_obj);
+    rb_execarg_parent_start(carg.execarg_obj);
 
     getDevice(&master, &slave, SlaveName, 0);
 
@@ -193,12 +196,14 @@ establishShell(int argc, VALUE *argv, struct pty_info *info,
 	int e = errno;
 	close(master);
 	close(slave);
+        rb_execarg_parent_end(carg.execarg_obj);
 	errno = e;
 	if (status) rb_jump_tag(status);
 	rb_sys_fail(errbuf[0] ? errbuf : "fork failed");
     }
 
     close(slave);
+    rb_execarg_parent_end(carg.execarg_obj);
 
     info->child_pid = pid;
     info->fd = master;
@@ -228,9 +233,9 @@ get_device_once(int *master, int *slave, char SlaveName[DEVICELEN], int nomesg, 
     dfl.sa_flags = 0;
     sigemptyset(&dfl.sa_mask);
 
-#if defined(__sun) || defined(__FreeBSD__)
+#if defined(__sun) || (defined(__FreeBSD__) && __FreeBSD_version < 902000)
     /* workaround for Solaris 10: grantpt() doesn't work if FD_CLOEXEC is set.  [ruby-dev:44688] */
-    /* FreeBSD 8 supported O_CLOEXEC for posix_openpt, but FreeBSD 9 removed it.
+    /* FreeBSD 9.2 or later supports O_CLOEXEC
      * http://www.freebsd.org/cgi/query-pr.cgi?pr=162374 */
     if ((masterfd = posix_openpt(O_RDWR|O_NOCTTY)) == -1) goto error;
     if (sigaction(SIGCHLD, &dfl, &old) == -1) goto error;
@@ -258,7 +263,7 @@ get_device_once(int *master, int *slave, char SlaveName[DEVICELEN], int nomesg, 
     if ((slavefd = rb_cloexec_open(slavedevice, O_RDWR|O_NOCTTY, 0)) == -1) goto error;
     rb_update_max_fd(slavefd);
 
-#if defined(I_PUSH) && !defined(__linux__)
+#if defined(I_PUSH) && !defined(__linux__) && !defined(_AIX)
     if (ioctl(slavefd, I_PUSH, "ptem") == -1) goto error;
     if (ioctl(slavefd, I_PUSH, "ldterm") == -1) goto error;
     if (ioctl(slavefd, I_PUSH, "ttcompat") == -1) goto error;
@@ -342,7 +347,7 @@ get_device_once(int *master, int *slave, char SlaveName[DEVICELEN], int nomesg, 
     if (no_mesg(slavedevice, nomesg) == -1) goto error;
     if((slavefd = rb_cloexec_open(slavedevice, O_RDWR, 0)) == -1) goto error;
     rb_update_max_fd(slavefd);
-#if defined(I_PUSH) && !defined(__linux__)
+#if defined(I_PUSH) && !defined(__linux__) && !defined(_AIX)
     if(ioctl(slavefd, I_PUSH, "ptem") == -1) goto error;
     if(ioctl(slavefd, I_PUSH, "ldterm") == -1) goto error;
     ioctl(slavefd, I_PUSH, "ttcompat");
@@ -500,6 +505,14 @@ pty_close_pty(VALUE assoc)
  * +slave_file+::   the slave of the pty, as a File.  The path to the
  *		    terminal device is available via +slave_file.path+
  *
+ * IO#raw! is usable to disable newline conversions:
+ *
+ *   require 'io/console'
+ *   PTY.open {|m, s|
+ *     s.raw!
+ *     ...
+ *   }
+ *
  */
 static VALUE
 pty_open(VALUE klass)
@@ -534,6 +547,11 @@ pty_open(VALUE klass)
 static VALUE
 pty_detach_process(struct pty_info *info)
 {
+#ifdef WNOHANG
+    int st;
+    if (rb_waitpid(info->child_pid, &st, WNOHANG) <= 0)
+	return Qnil;
+#endif
     rb_detach_process(info->child_pid);
     return Qnil;
 }
@@ -561,7 +579,7 @@ pty_detach_process(struct pty_info *info)
  *
  * In the block form these same values will be yielded to the block:
  *
- * +r+:: A readable IO that that contains the command's
+ * +r+:: A readable IO that contains the command's
  *       standard output and standard error
  * +w+:: A writable IO that is the command's standard input
  * +pid+:: The process identifier for the command.
@@ -581,11 +599,11 @@ pty_getpty(int argc, VALUE *argv, VALUE self)
 
     establishShell(argc, argv, &info, SlaveName);
 
-    rfptr->mode = rb_io_mode_flags("r");
+    rfptr->mode = rb_io_modestr_fmode("r");
     rfptr->fd = info.fd;
     rfptr->pathv = rb_obj_freeze(rb_str_new_cstr(SlaveName));
 
-    wfptr->mode = rb_io_mode_flags("w") | FMODE_SYNC;
+    wfptr->mode = rb_io_modestr_fmode("w") | FMODE_SYNC;
     wfptr->fd = rb_cloexec_dup(info.fd);
     if (wfptr->fd == -1)
         rb_sys_fail("dup()");
@@ -604,9 +622,9 @@ pty_getpty(int argc, VALUE *argv, VALUE self)
     return res;
 }
 
-NORETURN(static void raise_from_check(pid_t pid, int status));
+NORETURN(static void raise_from_check(rb_pid_t pid, int status));
 static void
-raise_from_check(pid_t pid, int status)
+raise_from_check(rb_pid_t pid, int status)
 {
     const char *state;
     VALUE msg;
@@ -628,7 +646,7 @@ raise_from_check(pid_t pid, int status)
 	state = "exited";
     }
     msg = rb_sprintf("pty - %s: %ld", state, (long)pid);
-    exc = rb_exc_new3(eChildExited, msg);
+    exc = rb_exc_new_str(eChildExited, msg);
     rb_iv_set(exc, "status", rb_last_status_get());
     rb_exc_raise(exc);
 }
@@ -654,7 +672,7 @@ static VALUE
 pty_check(int argc, VALUE *argv, VALUE self)
 {
     VALUE pid, exc;
-    pid_t cpid;
+    rb_pid_t cpid;
     int status;
 
     rb_scan_args(argc, argv, "11", &pid, &exc);
@@ -715,7 +733,7 @@ static VALUE cPTY;
  *   # The result of read operation when pty slave is closed is platform
  *   # dependent.
  *   ret = begin
- *           m.gets          # FreeBSD returns nil.
+ *           master.gets     # FreeBSD returns nil.
  *         rescue Errno::EIO # GNU/Linux raises EIO.
  *           nil
  *         end
@@ -736,10 +754,10 @@ static VALUE cPTY;
  */
 
 void
-Init_pty()
+Init_pty(void)
 {
     cPTY = rb_define_module("PTY");
-    /* :nodoc */
+    /* :nodoc: */
     rb_define_module_function(cPTY,"getpty",pty_getpty,-1);
     rb_define_module_function(cPTY,"spawn",pty_getpty,-1);
     rb_define_singleton_method(cPTY,"check",pty_check,-1);

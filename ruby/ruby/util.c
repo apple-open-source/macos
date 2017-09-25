@@ -2,14 +2,13 @@
 
   util.c -
 
-  $Author: nagachika $
+  $Author: nobu $
   created at: Fri Mar 10 17:22:34 JST 1995
 
   Copyright (C) 1993-2008 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include "ruby/ruby.h"
 #include "internal.h"
 
 #include <ctype.h>
@@ -23,6 +22,9 @@
 #endif
 
 #include "ruby/util.h"
+
+const char ruby_hexdigits[] = "0123456789abcdef0123456789ABCDEF";
+#define hexdigit ruby_hexdigits
 
 unsigned long
 ruby_scan_oct(const char *start, size_t len, size_t *retlen)
@@ -41,7 +43,6 @@ ruby_scan_oct(const char *start, size_t len, size_t *retlen)
 unsigned long
 ruby_scan_hex(const char *start, size_t len, size_t *retlen)
 {
-    static const char hexdigit[] = "0123456789abcdef0123456789ABCDEF";
     register const char *s = start;
     register unsigned long retval = 0;
     const char *tmp;
@@ -55,40 +56,46 @@ ruby_scan_hex(const char *start, size_t len, size_t *retlen)
     return retval;
 }
 
-static unsigned long
-scan_digits(const char *str, int base, size_t *retlen, int *overflow)
+const signed char ruby_digit36_to_number_table[] = {
+    /*     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f */
+    /*0*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*1*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*2*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*3*/  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,
+    /*4*/ -1,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,
+    /*5*/ 25,26,27,28,29,30,31,32,33,34,35,-1,-1,-1,-1,-1,
+    /*6*/ -1,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,
+    /*7*/ 25,26,27,28,29,30,31,32,33,34,35,-1,-1,-1,-1,-1,
+    /*8*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*9*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*a*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*b*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*c*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*d*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*e*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+    /*f*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+};
+
+unsigned long
+ruby_scan_digits(const char *str, ssize_t len, int base, size_t *retlen, int *overflow)
 {
-    static signed char table[] = {
-        /*     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f */
-        /*0*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*1*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*2*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*3*/  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,
-        /*4*/ -1,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,
-        /*5*/ 25,26,27,28,29,30,31,32,33,34,35,-1,-1,-1,-1,-1,
-        /*6*/ -1,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,
-        /*7*/ 25,26,27,28,29,30,31,32,33,34,35,-1,-1,-1,-1,-1,
-        /*8*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*9*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*a*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*b*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*c*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*d*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*e*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-        /*f*/ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    };
 
     const char *start = str;
     unsigned long ret = 0, x;
     unsigned long mul_overflow = (~(unsigned long)0) / base;
-    int c;
+
     *overflow = 0;
 
-    while ((c = (unsigned char)*str++) != '\0') {
-        int d = table[c];
+    if (!len) {
+	*retlen = 0;
+	return 0;
+    }
+
+    do {
+	int d = ruby_digit36_to_number_table[(unsigned char)*str++];
         if (d == -1 || base <= d) {
-            *retlen = (str-1) - start;
-            return ret;
+	    --str;
+	    break;
         }
         if (mul_overflow < ret)
             *overflow = 1;
@@ -97,8 +104,8 @@ scan_digits(const char *str, int base, size_t *retlen, int *overflow)
         ret += d;
         if (ret < x)
             *overflow = 1;
-    }
-    *retlen = (str-1) - start;
+    } while (len < 0 || --len);
+    *retlen = str - start;
     return ret;
 }
 
@@ -149,7 +156,7 @@ ruby_strtoul(const char *str, char **endptr, int base)
         b = base == 0 ? 10 : base;
     }
 
-    ret = scan_digits(str, b, &len, &overflow);
+    ret = ruby_scan_digits(str, -1, b, &len, &overflow);
 
     if (0 < len)
         subject_found = str+len;
@@ -184,7 +191,30 @@ ruby_strtoul(const char *str, char **endptr, int base)
 #   define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #endif
 
+#if defined HAVE_BSD_QSORT_R
+typedef int (cmpfunc_t)(const void*, const void*, void*);
 
+struct bsd_qsort_r_args {
+    cmpfunc_t *cmp;
+    void *arg;
+};
+
+static int
+cmp_bsd_qsort(void *d, const void *a, const void *b)
+{
+    const struct bsd_qsort_r_args *args = d;
+    return (*args->cmp)(a, b, args->arg);
+}
+
+void
+ruby_qsort(void* base, const size_t nel, const size_t size, cmpfunc_t *cmp, void *d)
+{
+    struct bsd_qsort_r_args args;
+    args.cmp = cmp;
+    args.arg = d;
+    qsort_r(base, nel, size, &args, cmp_bsd_qsort);
+}
+#elif !defined HAVE_GNU_QSORT_R
 /* mm.c */
 
 #define mmtype long
@@ -451,6 +481,7 @@ ruby_qsort(void* base, const size_t nel, const size_t size, cmpfunc_t *cmp, void
     else goto nxt;                         /* need not to sort both sides */
   }
 }
+#endif /* HAVE_GNU_QSORT_R */
 
 char *
 ruby_strdup(const char *str)
@@ -464,30 +495,32 @@ ruby_strdup(const char *str)
     return tmp;
 }
 
-#ifdef __native_client__
 char *
 ruby_getcwd(void)
 {
+#if defined __native_client__
     char *buf = xmalloc(2);
     strcpy(buf, ".");
-    return buf;
-}
-#else
-char *
-ruby_getcwd(void)
-{
-#ifdef HAVE_GETCWD
+#elif defined HAVE_GETCWD
+# if defined NO_GETCWD_MALLOC
     int size = 200;
     char *buf = xmalloc(size);
 
     while (!getcwd(buf, size)) {
-	if (errno != ERANGE) {
+	int e = errno;
+	if (e != ERANGE) {
 	    xfree(buf);
-	    rb_sys_fail("getcwd");
+	    rb_syserr_fail(e, "getcwd");
 	}
 	size *= 2;
 	buf = xrealloc(buf, size);
     }
+# else
+    char *buf, *cwd = getcwd(NULL, 0);
+    if (!cwd) rb_sys_fail("getcwd");
+    buf = ruby_strdup(cwd);	/* allocate by xmalloc */
+    free(cwd);
+# endif
 #else
 # ifndef PATH_MAX
 #  define PATH_MAX 8192
@@ -495,13 +528,13 @@ ruby_getcwd(void)
     char *buf = xmalloc(PATH_MAX+1);
 
     if (!getwd(buf)) {
+	int e = errno;
 	xfree(buf);
-	rb_sys_fail("getwd");
+	rb_syserr_fail(e, "getwd");
     }
 #endif
     return buf;
 }
-#endif
 
 /****************************************************************
  *
@@ -1991,7 +2024,6 @@ ruby_strtod(const char *s00, char **se)
 break2:
     if (*s == '0') {
 	if (s[1] == 'x' || s[1] == 'X') {
-	    static const char hexdigit[] = "0123456789abcdef0123456789ABCDEF";
 	    s0 = ++s;
 	    adj = 0;
 	    aadj = 1.0;
@@ -3890,13 +3922,10 @@ ruby_hdtoa(double d, const char *xdigs, int ndigits, int *decpt, int *sign,
 	/* Round to the desired number of digits. */
 	if (SIGFIGS > ndigits && ndigits > 0) {
 		float redux = 1.0f;
-		volatile double d;
 		int offset = 4 * ndigits + DBL_MAX_EXP - 4 - DBL_MANT_DIG;
 		dexp_set(u, offset);
-		d = u.d;
-		d += redux;
-		d -= redux;
-		u.d = d;
+		u.d += redux;
+		u.d -= redux;
 		*decpt += dexp_get(u) - offset;
 	}
 

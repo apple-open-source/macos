@@ -15,7 +15,7 @@ protected:
 	NullTransform();
 
 public:
-	static CFTypeRef Make();
+	static CFTypeRef Make() CF_RETURNS_RETAINED;
 	static TransformFactory* MakeTransformFactory();
 	
 	virtual void AttributeChanged(CFStringRef name, CFTypeRef value);

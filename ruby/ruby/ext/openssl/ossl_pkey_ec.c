@@ -20,6 +20,8 @@ typedef struct {
 #define EXPORT_PEM 0
 #define EXPORT_DER 1
 
+static const rb_data_type_t ossl_ec_group_type;
+static const rb_data_type_t ossl_ec_point_type;
 
 #define GetPKeyEC(obj, pkey) do { \
     GetPKey((obj), (pkey)); \
@@ -30,7 +32,7 @@ typedef struct {
 
 #define SafeGet_ec_group(obj, group) do { \
     OSSL_Check_Kind((obj), cEC_GROUP); \
-    Data_Get_Struct((obj), ossl_ec_group, (group)); \
+    TypedData_Get_Struct((obj), ossl_ec_group, &ossl_ec_group_type, (group)); \
 } while(0)
 
 #define Get_EC_KEY(obj, key) do { \
@@ -52,7 +54,7 @@ typedef struct {
 
 #define Get_EC_GROUP(obj, g) do { \
     ossl_ec_group *ec_group; \
-    Data_Get_Struct((obj), ossl_ec_group, ec_group); \
+    TypedData_Get_Struct((obj), ossl_ec_group, &ossl_ec_group_type, ec_group); \
     if (ec_group == NULL) \
         ossl_raise(eEC_GROUP, "missing ossl_ec_group structure"); \
     (g) = ec_group->group; \
@@ -71,7 +73,7 @@ typedef struct {
 
 #define Get_EC_POINT(obj, p) do { \
     ossl_ec_point *ec_point; \
-    Data_Get_Struct((obj), ossl_ec_point, ec_point); \
+    TypedData_Get_Struct((obj), ossl_ec_point, &ossl_ec_point_type, ec_point); \
     if (ec_point == NULL) \
         ossl_raise(eEC_POINT, "missing ossl_ec_point structure"); \
     (p) = ec_point->point; \
@@ -114,6 +116,7 @@ static VALUE ec_instance(VALUE klass, EC_KEY *ec)
     if (!ec) {
 	return Qfalse;
     }
+    obj = NewPKey(klass);
     if (!(pkey = EVP_PKEY_new())) {
 	return Qfalse;
     }
@@ -121,7 +124,7 @@ static VALUE ec_instance(VALUE klass, EC_KEY *ec)
 	EVP_PKEY_free(pkey);
 	return Qfalse;
     }
-    WrapPKey(klass, obj, pkey);
+    SetPKey(obj, pkey);
 
     return obj;
 }
@@ -133,10 +136,11 @@ VALUE ossl_ec_new(EVP_PKEY *pkey)
     if (!pkey) {
 	obj = ec_instance(cEC, EC_KEY_new());
     } else {
+	obj = NewPKey(cEC);
 	if (EVP_PKEY_type(pkey->type) != EVP_PKEY_EC) {
 	    ossl_raise(rb_eTypeError, "Not a EC key!");
 	}
-	WrapPKey(cEC, obj, pkey);
+	SetPKey(obj, pkey);
     }
     if (obj == Qfalse) {
 	ossl_raise(eECError, NULL);
@@ -369,7 +373,7 @@ static VALUE ossl_ec_point_dup(const EC_POINT *point, VALUE group_v)
     ossl_ec_point *new_point;
 
     obj = rb_obj_alloc(cEC_POINT);
-    Data_Get_Struct(obj, ossl_ec_point, new_point);
+    TypedData_Get_Struct(obj, ossl_ec_point, &ossl_ec_point_type, new_point);
 
     SafeRequire_EC_GROUP(group_v, group);
 
@@ -471,6 +475,7 @@ static VALUE ossl_ec_key_to_string(VALUE self, VALUE ciph, VALUE pass, int forma
     int private = 0;
     char *password = NULL;
     VALUE str;
+    const EVP_CIPHER *cipher = NULL;
 
     Require_EC_KEY(self, ec);
 
@@ -483,25 +488,22 @@ static VALUE ossl_ec_key_to_string(VALUE self, VALUE ciph, VALUE pass, int forma
     if (EC_KEY_get0_private_key(ec))
         private = 1;
 
+    if (!NIL_P(ciph)) {
+	cipher = GetCipherPtr(ciph);
+	if (!NIL_P(pass)) {
+	    StringValue(pass);
+	    if (RSTRING_LENINT(pass) < OSSL_MIN_PWD_LEN)
+		ossl_raise(eOSSLError, "OpenSSL requires passwords to be at least four characters long");
+	    password = RSTRING_PTR(pass);
+	}
+    }
+
     if (!(out = BIO_new(BIO_s_mem())))
         ossl_raise(eECError, "BIO_new(BIO_s_mem())");
 
     switch(format) {
     case EXPORT_PEM:
     	if (private) {
-	    const EVP_CIPHER *cipher;
-	    if (!NIL_P(ciph)) {
-		cipher = GetCipherPtr(ciph);
-		if (!NIL_P(pass)) {
-		    StringValue(pass);
-		    if (RSTRING_LENINT(pass) < OSSL_MIN_PWD_LEN)
-			ossl_raise(eOSSLError, "OpenSSL requires passwords to be at least four characters long");
-		    password = RSTRING_PTR(pass);
-		}
-	    }
-	    else {
-		cipher = NULL;
-	    }
             i = PEM_write_bio_ECPrivateKey(out, ec, cipher, NULL, 0, NULL, password);
     	} else {
             i = PEM_write_bio_EC_PUBKEY(out, ec);
@@ -533,8 +535,8 @@ static VALUE ossl_ec_key_to_string(VALUE self, VALUE ciph, VALUE pass, int forma
 
 /*
  *  call-seq:
- *     key.export   => String
- *     key.export(cipher, pass_phrase) => String
+ *     key.export([cipher, pass_phrase]) => String
+ *     key.to_pem([cipher, pass_phrase]) => String
  *
  * Outputs the EC key in PEM encoding.  If +cipher+ and +pass_phrase+ are
  * given they will be used to encrypt the key.  +cipher+ must be an
@@ -707,19 +709,28 @@ static VALUE ossl_ec_key_dsa_verify_asn1(VALUE self, VALUE data, VALUE sig)
     UNREACHABLE;
 }
 
-static void ossl_ec_group_free(ossl_ec_group *ec_group)
+static void ossl_ec_group_free(void *ptr)
 {
+    ossl_ec_group *ec_group = ptr;
     if (!ec_group->dont_free && ec_group->group)
         EC_GROUP_clear_free(ec_group->group);
     ruby_xfree(ec_group);
 }
+
+static const rb_data_type_t ossl_ec_group_type = {
+    "OpenSSL/ec_group",
+    {
+	0, ossl_ec_group_free,
+    },
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
 
 static VALUE ossl_ec_group_alloc(VALUE klass)
 {
     ossl_ec_group *ec_group;
     VALUE obj;
 
-    obj = Data_Make_Struct(klass, ossl_ec_group, 0, ossl_ec_group_free, ec_group);
+    obj = TypedData_Make_Struct(klass, ossl_ec_group, &ossl_ec_group_type, ec_group);
 
     return obj;
 }
@@ -746,7 +757,7 @@ static VALUE ossl_ec_group_initialize(int argc, VALUE *argv, VALUE self)
     ossl_ec_group *ec_group;
     EC_GROUP *group = NULL;
 
-    Data_Get_Struct(self, ossl_ec_group, ec_group);
+    TypedData_Get_Struct(self, ossl_ec_group, &ossl_ec_group_type, ec_group);
     if (ec_group->group != NULL)
         ossl_raise(rb_eRuntimeError, "EC_GROUP is already initialized");
 
@@ -847,6 +858,7 @@ static VALUE ossl_ec_group_initialize(int argc, VALUE *argv, VALUE self)
 }
 
 /*  call-seq:
+ *     group1.eql?(group2)   => true | false
  *     group1 == group2   => true | false
  *
  */
@@ -1218,19 +1230,28 @@ static VALUE ossl_ec_group_to_text(VALUE self)
 }
 
 
-static void ossl_ec_point_free(ossl_ec_point *ec_point)
+static void ossl_ec_point_free(void *ptr)
 {
+    ossl_ec_point *ec_point = ptr;
     if (!ec_point->dont_free && ec_point->point)
         EC_POINT_clear_free(ec_point->point);
     ruby_xfree(ec_point);
 }
+
+static const rb_data_type_t ossl_ec_point_type = {
+    "OpenSSL/ec_point",
+    {
+	0, ossl_ec_point_free,
+    },
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
 
 static VALUE ossl_ec_point_alloc(VALUE klass)
 {
     ossl_ec_point *ec_point;
     VALUE obj;
 
-    obj = Data_Make_Struct(klass, ossl_ec_point, 0, ossl_ec_point_free, ec_point);
+    obj = TypedData_Make_Struct(klass, ossl_ec_point, &ossl_ec_point_type, ec_point);
 
     return obj;
 }
@@ -1251,7 +1272,7 @@ static VALUE ossl_ec_point_initialize(int argc, VALUE *argv, VALUE self)
     VALUE group_v = Qnil;
     const EC_GROUP *group = NULL;
 
-    Data_Get_Struct(self, ossl_ec_point, ec_point);
+    TypedData_Get_Struct(self, ossl_ec_point, &ossl_ec_point_type, ec_point);
     if (ec_point->point)
         ossl_raise(eEC_POINT, "EC_POINT already initialized");
 
@@ -1316,6 +1337,7 @@ static VALUE ossl_ec_point_initialize(int argc, VALUE *argv, VALUE self)
 
 /*
  *  call-seq:
+ *     point1.eql?(point2) => true | false
  *     point1 == point2 => true | false
  *
  */
@@ -1554,7 +1576,7 @@ static void no_copy(VALUE klass)
     rb_undef_method(klass, "initialize_copy");
 }
 
-void Init_ossl_ec()
+void Init_ossl_ec(void)
 {
 #ifdef DONT_NEED_RDOC_WORKAROUND
     mOSSL = rb_define_module("OpenSSL");
@@ -1675,7 +1697,7 @@ void Init_ossl_ec()
 }
 
 #else /* defined NO_EC */
-void Init_ossl_ec()
+void Init_ossl_ec(void)
 {
 }
 #endif /* NO_EC */

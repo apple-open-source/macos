@@ -28,6 +28,16 @@
 #include <CoreFoundation/CFBase.h>
 #include <AvailabilityMacros.h>
 
+// Truth table for following declarations:
+//
+//                            TARGET_OS_OSX  TARGET_OS_OSX    TARGET_OS_IPHONE    TARGET_OS_IPHONE
+//                                           SEC_IOS_ON_OSX                       SEC_IOS_ON_OSX
+// ===================================================================================================
+// SEC_OS_IPHONE                0             1                1                   1
+// SEC_OS_IPHONE_INCLUDES       0             0                1                   1
+// SEC_OS_OSX                   1             0                0                   0
+// SEC_OS_OSX_INCLUDES          1             1                0                   0
+
 #if TARGET_OS_OSX
   #ifdef SEC_IOS_ON_OSX
     #define SEC_OS_IPHONE 1
@@ -142,7 +152,7 @@ struct SecKeychainAttribute
 {
     SecKeychainAttrType tag;
     UInt32 length;
-    void *data;
+    void * __nullable data;
 };
 typedef struct SecKeychainAttribute SecKeychainAttribute;
 
@@ -161,7 +171,7 @@ typedef SecKeychainAttribute *SecKeychainAttributePtr;
 struct SecKeychainAttributeList
 {
     UInt32 count;
-    SecKeychainAttribute *attr;
+    SecKeychainAttribute * __nullable attr;
 };
 typedef struct SecKeychainAttributeList  SecKeychainAttributeList;
 
@@ -207,7 +217,7 @@ struct SecKeychainAttributeInfo
 {
     UInt32 count;
     UInt32 *tag;
-    UInt32 *format;
+    UInt32 * __nullable format;
 };
 typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 
@@ -302,7 +312,7 @@ CF_ENUM(OSStatus)
     errSecUnimplemented                      = -4,      /* Function or operation not implemented. */
     errSecDskFull                            = -34,
     errSecIO                                 = -36,     /*I/O error (bummers)*/
-    errSecOpWr                               = -49,     /*file already open with with write permission*/
+    errSecOpWr                               = -49,     /*file already open with write permission*/
     errSecParam                              = -50,     /* One or more parameters passed to a function were not valid. */
     errSecWrPerm                             = -61,     /* write permissions error*/
     errSecAllocate                           = -108,    /* Failed to allocate memory. */
@@ -311,6 +321,8 @@ CF_ENUM(OSStatus)
 
     errSecInternalComponent                  = -2070,
     errSecCoreFoundationUnknown              = -4960,
+
+    errSecMissingEntitlement                 = -34018,    /* A required entitlement isn't present. */
 
     errSecNotAvailable                       = -25291,    /* No keychain is available. You may need to restart your computer. */
     errSecReadOnly                           = -25292,    /* This keychain cannot be modified. */

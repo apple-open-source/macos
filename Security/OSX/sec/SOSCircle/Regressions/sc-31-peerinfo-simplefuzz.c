@@ -39,7 +39,8 @@ static unsigned long kTestFuzzerCount = 20000;
 static void tests(void)
 {
     SecKeyRef signingKey = NULL;
-    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, NULL);
+    SecKeyRef octagonSigningKey = NULL;
+    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, &octagonSigningKey, NULL);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
     unsigned long count;
     
@@ -73,6 +74,7 @@ static void tests(void)
     
 errOut:
     CFReleaseNull(signingKey);
+    CFReleaseNull(octagonSigningKey);
     CFReleaseNull(fpi);
 }
 

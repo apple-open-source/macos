@@ -1,11 +1,10 @@
 /*
- * $Id: ossl_config.c 29359 2010-09-29 03:37:44Z nobu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
@@ -15,6 +14,11 @@
  * Classes
  */
 VALUE cConfig;
+/* Document-class: OpenSSL::ConfigError
+ *
+ * General error for openssl library configuration files. Including formatting,
+ * parsing errors, etc.
+ */
 VALUE eConfigError;
 
 /*
@@ -22,13 +26,13 @@ VALUE eConfigError;
  */
 
 /*
- * GetConfigPtr is a public C-level function for getting OpenSSL CONF struct
+ * DupConfigPtr is a public C-level function for getting OpenSSL CONF struct
  * from an OpenSSL::Config(eConfig) instance.  We decided to implement
  * OpenSSL::Config in Ruby level but we need to pass native CONF struct for
  * some OpenSSL features such as X509V3_EXT_*.
  */
 CONF *
-GetConfigPtr(VALUE obj)
+DupConfigPtr(VALUE obj)
 {
     CONF *conf;
     VALUE str;
@@ -46,21 +50,26 @@ GetConfigPtr(VALUE obj)
     if(!NCONF_load_bio(conf, bio, &eline)){
 	BIO_free(bio);
 	NCONF_free(conf);
-	if (eline <= 0) ossl_raise(eConfigError, "wrong config format");
-	else ossl_raise(eConfigError, "error in line %d", eline);
-	ossl_raise(eConfigError, NULL);
+	if (eline <= 0)
+	    ossl_raise(eConfigError, "wrong config format");
+	else
+	    ossl_raise(eConfigError, "error in line %d", eline);
     }
     BIO_free(bio);
 
     return conf;
 }
 
+/* Document-const: DEFAULT_CONFIG_FILE
+ *
+ * The default system configuration file for openssl
+ */
 
 /*
  * INIT
  */
 void
-Init_ossl_config()
+Init_ossl_config(void)
 {
     char *default_config_file;
     eConfigError = rb_define_class_under(mOSSL, "ConfigError", eOSSLError);

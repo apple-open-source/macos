@@ -24,6 +24,7 @@
 #define _IOKIT_IODISPLAYWRANGLER_H
 
 #include <IOKit/IOService.h>
+
 #define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/graphics/IOFramebuffer.h>
 #include <IOKit/graphics/IODisplay.h>
@@ -34,9 +35,6 @@ class IODisplayWrangler : public IOService
 
 private:
     bool        fOpen;
-    IOLock *    fMatchingLock;
-    OSSet *     fFramebuffers;
-    OSSet *     fDisplays;
 
     // from control panel: number of idle minutes before going off
     UInt32      fMinutesToDim;
@@ -57,22 +55,28 @@ private:
 
     AbsoluteTime  fPowerStateChangeTime;
 
+    
+    // IOService overrides
 private:
+    virtual IOReturn setAggressiveness( unsigned long, unsigned long ) APPLE_KEXT_OVERRIDE;
+    virtual bool activityTickle( unsigned long, unsigned long ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
 
+public:
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
+    // Adaptive Dimming method
+    virtual SInt32 nextIdleTimeout(AbsoluteTime currentTime,
+                                   AbsoluteTime lastActivity, unsigned int powerState) APPLE_KEXT_OVERRIDE;
+
+    // IORegistryEntry overrides
+public:
+    virtual OSObject * copyProperty( const char * aKey) const APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
+
+
+private:
     virtual void initForPM( void );
-    virtual IOReturn setAggressiveness( unsigned long, unsigned long );
-    virtual bool activityTickle( unsigned long, unsigned long );
-    virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice );
-
-    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags domainState );
-      
-    static bool _displayHandler( void * target, void * ref,
-                            IOService * newService, IONotifier * notifier );
-    static bool _displayConnectHandler( void * target, void * ref,
-                            IOService * newService, IONotifier * notifier );
-
-    virtual bool displayHandler( OSSet * set, IODisplay * newDisplay);
-    virtual bool displayConnectHandler( void * ref, IODisplayConnect * connect);
 
     virtual IODisplayConnect * getDisplayConnect(
                 IOFramebuffer * fb, IOIndex connect );
@@ -84,26 +88,15 @@ private:
 public:
     
     static bool serverStart(void);
-    virtual bool start(IOService * provider);
 
     static bool makeDisplayConnects( IOFramebuffer * fb );
     static void destroyDisplayConnects( IOFramebuffer * fb );
     static void activityChange( IOFramebuffer * fb );
     static unsigned long getDisplaysPowerState(void);
 
-    virtual OSObject * copyProperty( const char * aKey) const;
-
     static IOReturn getFlagsForDisplayMode(
                 IOFramebuffer * fb,
                 IODisplayModeID mode, UInt32 * flags );
-   
-    // Adaptive Dimming methods
-    virtual SInt32 nextIdleTimeout(AbsoluteTime currentTime, 
-        AbsoluteTime lastActivity, unsigned int powerState);
-
-public:
-    virtual IOReturn setProperties( OSObject * properties );
-    
 };
 
 void IODisplayUpdateNVRAM( IOService * entry, OSData * property );

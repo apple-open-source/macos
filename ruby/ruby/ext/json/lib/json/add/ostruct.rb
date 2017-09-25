@@ -1,9 +1,9 @@
+# frozen_string_literal: false
 unless defined?(::JSON::JSON_LOADED) and ::JSON::JSON_LOADED
   require 'json'
 end
 require 'ostruct'
 
-# OpenStruct serialization/deserialization
 class OpenStruct
 
   # Deserializes JSON string by constructing new Struct object with values

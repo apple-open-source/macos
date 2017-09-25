@@ -246,7 +246,14 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 		if (dt_pid_create_probes_module(dtp, dpr) != 0)
 			dt_proc_notify(dtp, dtp->dt_procs, dpr,
 			    dpr->dpr_errmsg);
-
+		/*
+		 * Take note of the symbol owners (modules) that
+		 * have already been processed.
+		 * We know we can do this at that point because the controlled
+		 * process is blocked, so no new symbol can be loaded at this
+		 * point.
+		 */
+		Pcheckpoint_syms(dpr->dpr_proc);
 		break;
 	case RD_PREINIT:
 		Pupdate_syms(dpr->dpr_proc);
@@ -258,9 +265,6 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 		break;
 	}
 	
-	// Take note of symbol owners (i.e. modules) already processed. */
-	if (!(dpr->dpr_stop & ~DT_PROC_STOP_IDLE))
-		Pcheckpoint_syms(dpr->dpr_proc);
 }
 
 void

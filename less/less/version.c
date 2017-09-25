@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -762,6 +762,49 @@ v455  11/5/12   Fix typo.
 v456  11/8/12   Fix option string incompatibility.
 v457  12/8/12   Use new option string syntax only after --use-backslash.
 v458  4/4/13    Fix display bug in using up/down in cmd buffer.
+-----------------------------------------------------------------
+v459  5/6/13    Fix ++ bug.
+v460  6/19/13   Automate construction of Unicode tables.
+v461  6/21/13   Collapse multiple CRs before LF.
+v462  11/26/13  Don't overwrite history file, just append to it.
+v463  7/13/14   Misc. fixes.
+v464  7/19/14   Fix bugs & improve performance in & filtering
+                (thanks to John Sullivan).
+v465  8/9/14    More fixes from John Sullivan.
+v466  8/23/14   Add colon to LESSANSIMIDCHARS.
+v467  9/18/14   Misc. fixes.
+v468  9/18/14   Fix typo
+v469  10/2/14   Allow extra string in command to append to a multichar
+                cmd without executing it; fix bug using GNU regex.
+v470  10/5/14   Fix some compiler warnings.
+v471  12/14/14  Fix unget issues with prompt. Allow disabling history
+                when compiled value of LESSHISTFILE = "-".
+v473  12/19/14  Fix prompt bug with stdin and -^P in lesskey extra string.
+v474  1/30/15   Fix bug in backwards search with match on bottom line.
+                Make follow mode reopen file if file shrinks.
+v475  3/2/15    Fix possible buffer overrun with invalid UTF-8; 
+                fix bug when compiled with no regex; fix non-match search.
+v476  5/3/15    Update man pages.
+v477  5/19/15   Fix off-by-one in jump_forw_buffered;
+                don't add FAKE_* files to cmd history.
+v478  5/21/15   Fix nonportable pointer usage in hilite tree.
+v479  7/6/15    Allow %% escapes in LESSOPEN variable.
+v480  7/24/15   Fix bug in no-regex searches; support MSVC v1900.
+v481  8/20/15   Fix broken -g option.
+-----------------------------------------------------------------
+v482  2/25/16   Update Unicode database to "2015-06-16, 20:24:00 GMT [KW]".
+v483  2/27/16   Regenerate hilite when change search caselessness.
+                (Thanks to Jason Hood)
+                Fix bug when terminal has no "cm". (Thanks to Noel Cragg)
+v484  9/20/16   Update to Unicode 9.0.0 database.
+v485  10/21/16  Fix "nothing to search" bug when top/bottom line is empty;
+                Display line numbers in bold. (thanks to Jason Hood);
+                Fix incorrect display when entering double-width chars in 
+		search string.
+v486  10/22/16  New commands ESC-{ and ESC-} to shift to start/end of 
+                displayed lines; new option -Da in Windows version to 
+		enable SGR mode (thanks to Jason Hood).
+v487  10/23/16  configure --help formatting.
 */
 
-char version[] = "458";
+char version[] = "487";

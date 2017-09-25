@@ -18,6 +18,10 @@
 	<array>
 		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000050</string>
 	</array>
+        <key>groupmembers</key>
+        <array>
+                <string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000021</string>
+        </array>
 	<key>name</key>
 	<array>
 		<string>_appstore</string>
@@ -30,5 +34,9 @@
 	<array>
 		<string>App Store users</string>
 	</array>
+        <key>users</key>
+        <array>
+                <string>_appstore</string>
+        </array>
 </dict>
 </plist>

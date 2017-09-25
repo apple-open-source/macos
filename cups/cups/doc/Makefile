@@ -8,7 +8,7 @@
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 
 include ../Makedefs
@@ -45,15 +45,12 @@ HELPIMAGES	=	\
 HELPFILES	=	\
 			help/accounting.html \
 			help/api-admin.html \
-			help/api-array.html \
-			help/api-cups.html \
-			help/api-filedir.html \
 			help/api-filter.html \
-			help/api-httpipp.html \
-			help/api-overview.html \
 			help/api-ppd.html \
 			help/api-raster.html \
 			help/cgi.html \
+			help/cupspm.html \
+			help/encryption.html \
 			help/glossary.html \
 			help/kerberos.html \
 			help/license.html \

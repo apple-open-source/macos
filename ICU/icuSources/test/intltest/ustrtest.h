@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT: 
  * Copyright (c) 1997-2015, International Business Machines Corporation and
@@ -7,6 +9,7 @@
 #ifndef UNICODESTRINGTEST_H
 #define UNICODESTRINGTEST_H
 
+#include "unicode/locid.h"
 #include "unicode/unistr.h"
 #include "intltest.h"
 
@@ -89,24 +92,10 @@ public:
     void TestUnicodeStringImplementsAppendable();
     void TestSizeofUnicodeString();
     void TestMoveSwap();
-};
 
-class StringCaseTest: public IntlTest {
-public:
-    StringCaseTest() {}
-    virtual ~StringCaseTest();
-
-    void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par=0);
-
-    void TestCaseConversion();
-
-    void TestCasingImpl(const UnicodeString &input,
-                        const UnicodeString &output,
-                        int32_t whichCase,
-                        void *iter, const char *localeID, uint32_t options);
-    void TestCasing();
-    void TestFullCaseFoldingIterator();
-    void TestLongUpper();
+    void TestUInt16Pointers();
+    void TestWCharPointers();
+    void TestNullPointers();
 };
 
 #endif

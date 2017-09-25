@@ -43,16 +43,14 @@ clean_swap_directory(const char *path)
 int
 main(int argc, char **argv)
 {
-	char default_filename[] = "/private/var/vm/swapfile";
 	int ch;
-	int err=0;
 	static char tmp[1024];
 	struct statfs sfs;
 	char *q;
 	char fileroot[512];
 
 	seteuid(getuid());
-	strcpy(fileroot, default_filename);
+	fileroot[0] = '\0';
 
 	while ((ch = getopt(argc, argv, "F:")) != EOF) {
 		switch((char)ch) {
@@ -65,6 +63,25 @@ main(int argc, char **argv)
 			(void)fprintf(stderr,
 			    "usage: dynamic_pager [-F filename]\n");
 			exit(0);
+		}
+	}
+
+	/*
+	 * set vm.swapfileprefix if a fileroot was passed from the command
+	 * line, otherwise get the value from the kernel
+	 */
+	if (fileroot[0] != '\0') {
+		if (sysctlbyname("vm.swapfileprefix", NULL, 0, fileroot, sizeof(fileroot)) == -1) {
+			perror("Failed to set swapfile name prefix");
+		}
+	} else {
+		size_t fileroot_len = sizeof(fileroot);
+		if (sysctlbyname("vm.swapfileprefix", fileroot, &fileroot_len, NULL, 0) == -1) {
+			perror("Failed to get swapfile name prefix");
+			/*
+			 * can't continue without a fileroot
+			 */
+			return (0);
 		}
 	}
 
@@ -92,11 +109,6 @@ main(int argc, char **argv)
 	}
 
 	chown(tmp, 0, 0);
-
-	err = sysctlbyname("vm.swapfileprefix", NULL, 0, fileroot, sizeof(fileroot));
-	if (err) {
-		(void)fprintf(stderr, "Failed to set swapfile name prefix with error: %d\n", err);
-	}
 
 	return (0);
 }

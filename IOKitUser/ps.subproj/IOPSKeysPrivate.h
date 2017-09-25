@@ -148,12 +148,16 @@
 /*
  * Possible Categories of accessories(kIOPSAccessoryCategoryKey)
  */
+#define kIOPSAccessoryCategoryAudioBatteryCase   "Audio Battery Case"
 #define kIOPSAccessoryCategorySpeaker       "Speaker"
 #define kIOPSAccessoryCategoryHeadphone     "Headphone"
 #define kIOPSAccessoryCategoryWatch         "Watch"
 #define kIOPSAccessoryCategoryBatteryCase   "Battery Case"
 #define kIOPSAccessoryCategoryKeyboard      "Keyboard"
+#define kIOPSAccessoryCategoryTrackpad      "Trackpad"
+#define kIOPSAccessoryCategoryPencil        "Pencil"
 #define kIOPSAccessoryCategoryUnknown       "Unknown"
+
 
 #endif
 
@@ -221,6 +225,30 @@
  *              This key might not be defined in the adapter details dictionary.
  */
 #define kIOPSPowerAdapterFirmwareVersionKey       "FwVersion"
+
+/*!
+ * @define      kIOPSPowerAdapterVoltageKey
+ *
+ * @abstract    This key refers to the voltage of the external AC power adapter attached to a portable.
+ *              The value associated with this key is a CFNumberRef kCFNumberIntType integer value, in units of mVolts.
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterVoltageKey                 "Voltage"
+
+/*!
+ * @define      kIOPSPowerAdapterDescriptionKey
+ *
+ * @abstract    This key refers to provides a description of the external AC power adapter attached to a portable.
+ *              The value associated with this key is a CFString value.
+ *
+ * @discussion  This key may be present in the dictionary returned from
+ *              @link //apple_ref/c/func/IOPSCopyExternalPowerAdapterDetails IOPSCopyExternalPowerAdapterDetails @/link
+ *              This key might not be defined in the adapter details dictionary.
+ */
+#define kIOPSPowerAdapterDescriptionKey             "Description"
 
 
 /*

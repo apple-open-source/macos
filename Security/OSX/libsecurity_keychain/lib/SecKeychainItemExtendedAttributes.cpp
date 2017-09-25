@@ -28,6 +28,7 @@
 #include "SecBridge.h"
 #include "StorageManager.h"
 #include "KCCursor.h"
+#include <os/activity.h>
 
 /* I'm not sure we need this */
 #if 0
@@ -147,6 +148,9 @@ OSStatus SecKeychainItemSetExtendedAttribute(
     //%%% This needs to detect SecCertificateRef items, and when it does, SecKeychainItemDelete must be updated
 
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemSetExtendedAttribute", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	
 	if((itemRef == NULL) || (attrName == NULL)) {
 		return errSecParam;
@@ -197,6 +201,9 @@ OSStatus SecKeychainItemCopyExtendedAttribute(
     //%%% This needs to detect SecCertificateRef items
 
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyExtendedAttribute", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	
 	if((itemRef == NULL) || (attrName == NULL) || (attrValue == NULL)) {
 		return errSecParam;
@@ -238,6 +245,9 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
     //%%% This needs to detect SecCertificateRef items, and when it does, SecKeychainItemDelete must be updated
 
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyAllExtendedAttributes", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	
 	if((itemRef == NULL) || (attrNames == NULL)) {
 		return errSecParam;

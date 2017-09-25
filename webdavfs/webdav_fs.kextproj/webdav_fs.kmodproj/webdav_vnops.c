@@ -4368,7 +4368,7 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 	
 	switch (ap->a_command)
 	{
-	case WEBDAV_INVALIDATECACHES:	/* invalidate all mount_webdav caches */
+	case WEBDAVIOC_INVALIDATECACHES: /* invalidate all mount_webdav caches */
 		{
 			struct webdavmount *fmp;
 			struct webdav_request_invalcaches request_invalcaches;
@@ -4392,7 +4392,8 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 			}
 		}
 		break;
-		case WEBDAV_WRITE_SEQUENTIAL:
+
+		case WEBDAVIOC_WRITE_SEQUENTIAL:
 			wrseq_ptr = (struct WebdavWriteSequential *)ap->a_data;
 			pt = VTOWEBDAV(vp);
 			
@@ -4419,7 +4420,7 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 			webdav_unlock(pt);
 		break;
 			
-		case WEBDAV_SHOW_COOKIES:	/* dump cookie list */
+		case WEBDAVIOC_SHOW_COOKIES:	/* dump cookie list */
 		{
 			struct webdavmount *fmp;
 			struct webdav_request_cookies request_cookies;
@@ -4444,7 +4445,7 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 		}
 		break;
 			
-		case WEBDAV_RESET_COOKIES:	/* reset cookie list */
+		case WEBDAVIOC_RESET_COOKIES:	/* reset cookie list */
 		{
 			struct webdavmount *fmp;
 			struct webdav_request_cookies request_cookies;

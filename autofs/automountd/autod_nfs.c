@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2013 Apple Inc.
+ * Portions Copyright 2007-2017 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_nfs.c	1.126	05/06/08 SMI"
@@ -85,11 +85,21 @@ struct cache_entry {
 	struct	cache_entry *cache_next;
 	char	*cache_host;
 	time_t	cache_time;
+	time_t	cache_max_time;
+	int	cache_level;
 	int	cache_state;
 	rpcvers_t cache_reqvers;
 	rpcvers_t cache_outvers;
 	char	*cache_proto;
 };
+
+#define AUTOD_CACHE_TIME 2
+#define AUTOD_MAX_CACHE_TIME 30
+
+#define PINGNFS_DEBUG_LEVEL 4
+
+static time_t entry_cache_time = AUTOD_CACHE_TIME;
+static time_t entry_cache_max_time = AUTOD_MAX_CACHE_TIME;
 
 static struct cache_entry *cache_head = NULL;
 pthread_rwlock_t cache_lock;	/* protect the cache chain */
@@ -109,7 +119,7 @@ void free_mfs(struct mapfs *);
 static void dump_mfs(struct mapfs *, char *, int);
 static char *dump_distance(struct mapfs *);
 static void cache_free(struct cache_entry *);
-static int cache_check(const char *, rpcvers_t *, const char *);
+static int cache_check(const char *, rpcvers_t *, const char *, struct timeval *tv);
 static void cache_enter(const char *, rpcvers_t, rpcvers_t, const char *, int);
 
 #ifdef CACHE_DEBUG
@@ -372,7 +382,6 @@ add_mfs(struct mapfs *mfs, int distance, struct mapfs **mfs_head,
 	struct mapfs **mfs_tail)
 {
 	struct mapfs *tmp, *new;
-	void bcopy();
 
 	for (tmp = *mfs_head; tmp; tmp = tmp->mfs_next)
 		if ((strcmp(tmp->mfs_host, mfs->mfs_host) == 0 &&
@@ -590,7 +599,6 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	int v2near = 0, v3near = 0, v4near = 0;
 	char *mount_resource = NULL;
 	int mrlen = 0;
-	ushort_t thisport;
 
 	dump_mfs(mfs_in, "  nfsmount: input: ", 2);
 	replicated = (mfs_in->mfs_next != NULL);
@@ -705,8 +713,8 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 		 */
 		i = pingnfs(host, &vers, versmin, 0, NULL, nfs_proto);
 		if (i != RPC_SUCCESS) {
-			if (prevmsg < time((time_t) NULL)) {
-				prevmsg = time((time_t) NULL) + 5; // throttle these msgs
+			if (prevmsg < time((time_t *) NULL)) {
+				prevmsg = time((time_t *) NULL) + 5; // throttle these msgs
 				if (i == RPC_PROGVERSMISMATCH) {
 					syslog(LOG_ERR, "NFS server %s protocol version mismatch", host);
 				} else {
@@ -755,10 +763,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 						"option\n", mfs->mfs_port, nfs_port);
 					last_error = EIO;
 					goto out;
-				} else if (nfs_port != 0)
-					thisport = nfs_port;
-				else
-					thisport = mfs->mfs_port;
+				}
 
 				dir = mfs->mfs_dir;
 
@@ -991,17 +996,18 @@ clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
 	struct rpc_err rpcerr;
 	rpcvers_t v_low, v_high;
 
-	clnt = clnt_create_timeout(hostname, prog, vers_high, proto, tp);
-	if (clnt == NULL)
-		return (NULL);
 	if (tp == NULL) {
 		to.tv_sec = 10;
 		to.tv_usec = 0;
-	} else
-		to = *tp;
+		tp = &to;
+	}
 
+	clnt = clnt_create_timeout(hostname, prog, vers_high, proto, tp);
+	if (clnt == NULL)
+		return (NULL);
+	clnt_control(clnt, CLSET_TIMEOUT, (void *)tp);
 	rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
-			NULL, (xdrproc_t)xdr_void, NULL, to);
+			     NULL, (xdrproc_t)xdr_void, NULL, *tp);
 	if (rpc_stat == RPC_SUCCESS) {
 		*vers_out = vers_high;
 		return (clnt);
@@ -1027,9 +1033,10 @@ clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
 		clnt = clnt_create_timeout(hostname, prog, v_high, proto, tp);
 		if (clnt == NULL)
 			return (NULL);
+		clnt_control(clnt, CLSET_TIMEOUT, tp);
 		rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
 				NULL, (xdrproc_t)xdr_void,
-				NULL, to);
+				NULL, *tp);
 		if (rpc_stat == RPC_SUCCESS) {
 			*vers_out = v_high;
 			return (clnt);
@@ -1059,91 +1066,97 @@ static CLIENT *
 clnt_create_service_timed(const char *host, const char *service,
 			const rpcprog_t prog, const rpcvers_t vers,
 			const ushort_t port, const char *proto,
-			const struct timeval *tmout)
+			struct timeval *tmout)
 {
 	CLIENT *clnt = NULL;
 	struct timeval to;
-	struct hostent *h;
-	struct servent *se;
-	struct protoent *p;
-	struct sockaddr_in sin;
+	struct addrinfo hint, *res;
+	char portstr[6];
 	int sock;
+	int gerror;
 
 	if (tmout == NULL) {
 		to.tv_sec = 10;
 		to.tv_usec = 0;
-	} else
-		to = *tmout;
+		tmout = &to;
+	}
 
-	if (host == NULL) {
+	if (host == NULL || proto == NULL ||
+	    (service == NULL && port == 0)) {
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = EINVAL;
 		return (NULL);
 	}
-
 	rpc_createerr.cf_stat = RPC_SUCCESS;
-	h = gethostbyname(host);
-	if (h == NULL) {
-		rpc_createerr.cf_stat = RPC_UNKNOWNHOST;
-		return (NULL);
-	}
-
-	if (h->h_addrtype != AF_INET) {
-		/*
-		 * Only support INET for now.
-		 * XXX - need IPv6 as well.
-		 */
+	memset(&hint, 0, sizeof (struct addrinfo));
+	if (netid2socparms(proto, &hint.ai_family, &hint.ai_socktype, &hint.ai_protocol, 1)) {
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = EAFNOSUPPORT;
 		return (NULL);
 	}
-
-	bzero((char *)&sin, sizeof sin);
-	sin.sin_family = h->h_addrtype;
-	if (port == 0) {
-		/*
-		 * We were not given an explicit port number;
-		 * attempt to get the port number for the
-		 * service.
-		 */
-		if (service == NULL) {
-			rpc_createerr.cf_stat = RPC_SYSTEMERROR;
-			rpc_createerr.cf_error.re_errno = EINVAL;
-			return (NULL);
-		}
-		se = getservbyname(service, proto);
-		if (se == NULL) {
-			rpc_createerr.cf_stat = RPC_PROGNOTREGISTERED;
-			return (NULL);
-		}
-		sin.sin_port = se->s_port;
-	} else
-		sin.sin_port = port;
-	bcopy(h->h_addr, (char*)&sin.sin_addr, h->h_length);
-	p = getprotobyname(proto);
-	if (p == NULL) {
-		rpc_createerr.cf_stat = RPC_UNKNOWNPROTO;
-		rpc_createerr.cf_error.re_errno = EPFNOSUPPORT;
+	hint.ai_flags = AI_DEFAULT;
+	if (port) {
+		snprintf(portstr, sizeof(portstr), "%u", port);
+		portstr[sizeof(portstr) - 1] = '\0';
+		service = portstr;
+		hint.ai_flags |= AI_NUMERICSERV;
+	}
+	gerror = getaddrinfo(host, service, &hint, &res);
+	if (gerror) {
+		if (trace > PINGNFS_DEBUG_LEVEL)
+			trace_prt(1, "  clnt_create_service_timed: getadderinfo returned %d:%s\n",
+				  gerror, gai_strerror(gerror));
+		rpc_createerr.cf_stat = RPC_UNKNOWNHOST;
 		return (NULL);
 	}
 	sock = RPC_ANYSOCK;
-	switch (p->p_proto) {
+	switch (res->ai_protocol) {
 	case IPPROTO_UDP:
-		clnt = clntudp_create(&sin, prog, vers, to, &sock);
-		if (clnt == NULL)
-			return (NULL);
+		{
+			struct timeval retry_timeout;
+			uint64_t rto = (tmout->tv_sec * 1000000 + tmout->tv_usec)/5;
+			retry_timeout.tv_sec = rto / 10000000;
+			if (retry_timeout.tv_sec > 1) {
+				retry_timeout.tv_sec = 1;
+				retry_timeout.tv_usec = 0;
+			} else {
+				retry_timeout.tv_usec = rto > 2000 ? rto % 10000000 : 2000;
+			}
+			if (trace > PINGNFS_DEBUG_LEVEL)
+				trace_prt(1, "  clntudp_bufcreate_timeout service = %s, timeout = %ld.%d, retry_timeout = %ld.%d\n",
+					  service, tmout->tv_sec, tmout->tv_usec, retry_timeout.tv_sec, retry_timeout.tv_usec);
+			clnt = clntudp_bufcreate_timeout(res->ai_addr, prog, vers, &sock, UDPMSGSIZE, UDPMSGSIZE, &retry_timeout, tmout);
+			freeaddrinfo(res);
+			if (clnt == NULL) {
+				if (trace > PINGNFS_DEBUG_LEVEL)
+					trace_prt(1, "  clnt_create_service: %s", clnt_spcreateerror("UDP failed"));
+				return (NULL);
+			}
+		}
 		break;
 	case IPPROTO_TCP:
-		clnt = clnttcp_create(&sin, prog, vers, &sock, 0, 0);
-		if (clnt == NULL)
+		if (trace > PINGNFS_DEBUG_LEVEL)
+			trace_prt(1, "  clnttcp_create_timeout service = %s, timeout = %ld.%d\n",
+				  service, tmout->tv_sec, tmout->tv_usec);
+		clnt = clnttcp_create_timeout(res->ai_addr, prog, vers, &sock, 0, 0, NULL, tmout);
+		freeaddrinfo(res);
+		if (clnt == NULL) {
+			if (trace > PINGNFS_DEBUG_LEVEL)
+				trace_prt(1, "  clnt_create_service: %s", clnt_spcreateerror("TCP failed"));
 			return (NULL);
+		}
 		break;
 	default:
+		freeaddrinfo(res);
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = EPFNOSUPPORT;
 		return (NULL);
 	}
 
+	/*
+	 * timeout should now reflect the time remaining after setting up the client handle.
+	 */
+	clnt_control(clnt, CLSET_TIMEOUT, tmout);
 	/*
 	 * Check if we can reach the server with this clnt handle
 	 * Other clnt_create calls do a ping by contacting the
@@ -1153,14 +1166,19 @@ clnt_create_service_timed(const char *host, const char *service,
 
 	rpc_createerr.cf_stat = clnt_call(clnt, NULLPROC,
 					(xdrproc_t)xdr_void, 0,
-					(xdrproc_t)xdr_void, 0, to);
+					(xdrproc_t)xdr_void, 0, *tmout);
 
 	if (rpc_createerr.cf_stat != RPC_SUCCESS) {
+		if (trace > PINGNFS_DEBUG_LEVEL)
+			trace_prt(1, "  clnt_create_service_timed: %s", clnt_sperror(clnt, "ping failed"));
 		clnt_geterr(clnt, &rpc_createerr.cf_error);
 		clnt_destroy(clnt);
 		return (NULL);
 	}
 
+	if (trace > PINGNFS_DEBUG_LEVEL)
+		trace_prt(1, "  clnt_create_service_timed: Succeeded for %s %s\n",
+			  host, service);
 	return (clnt);
 }
 
@@ -1186,8 +1204,12 @@ pingnfs(
 	const char *hostname = hostpart;
 	char *hostcopy = NULL;
 	char *pathcopy = NULL;
-	struct timeval tv = {10, 0};
+	struct timeval tv;
 
+	if (trace > PINGNFS_DEBUG_LEVEL-1)
+		trace_prt(1, " pingnfs: enter %s vers = %d versmin = %d port = %d proto = %s, path = %s\n",
+			  hostpart, versp ? *versp : -1, versmin, port,
+			  proto ? proto : "NULL", path ? path : "NULL");
 	if (path != NULL && strcmp(hostname, "nfs") == 0 &&
 	    strncmp(path, "//", 2) == 0) {
 		char *sport;
@@ -1270,7 +1292,7 @@ pingnfs(
 	if (versp)
 		*versp = versmax;
 
-	switch (cache_check(hostname, versp, proto)) {
+	switch (cache_check(hostname, versp, proto, &tv)) {
 	case GOODHOST:
 		if (hostcopy != NULL)
 			free(hostcopy);
@@ -1293,8 +1315,8 @@ pingnfs(
 	/*
 	 * check the host's version within the timeout
 	 */
-	if (trace > 1)
-		trace_prt(1, "	ping: %s request vers=%d min=%d\n",
+	if (trace > PINGNFS_DEBUG_LEVEL)
+		trace_prt(1, "  ping: %s request vers=%d min=%d\n",
 				hostname, versmax, versmin);
 
 	do {
@@ -1304,7 +1326,7 @@ pingnfs(
 		 * avoid talking to the portmapper.
 		 */
 		if (vers_to_try == NFS_VER4) {
-			if (trace > 4) {
+			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1, "  pingnfs: Trying ping via TCP\n");
 			}
 
@@ -1317,46 +1339,48 @@ pingnfs(
 				outvers = vers_to_try;
 				break;
 			}
-			if (trace > 4) {
+			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1, "  pingnfs: Can't ping via TCP"
 					" %s: RPC error=%d\n",
 					hostname, rpc_createerr.cf_stat);
 			}
 
 		} else {
+			const char *proto_to_try;
+
+			proto_to_try =  (proto == NULL) ? "tcp" : proto;
 			if ((cl = clnt_create_vers_timed(hostname, NFS_PROG,
 				&outvers, versmin, vers_to_try,
-				"udp", &tv))
+				proto_to_try, &tv))
 				!= NULL)
 				break;
-			if (trace > 4) {
-				trace_prt(1, "  pingnfs: Can't ping via UDP"
+			if (trace > PINGNFS_DEBUG_LEVEL) {
+				trace_prt(1, "  pingnfs: Can't ping via %s"
 					" %s: RPC error=%d\n",
-					hostname, rpc_createerr.cf_stat);
+					  proto_to_try, hostname, rpc_createerr.cf_stat);
 			}
 			if (rpc_createerr.cf_stat == RPC_UNKNOWNHOST ||
 				rpc_createerr.cf_stat == RPC_TIMEDOUT)
 				break;
-			if (rpc_createerr.cf_stat == RPC_PROGNOTREGISTERED) {
-				if (trace > 4) {
+			if (proto == NULL && rpc_createerr.cf_stat == RPC_PROGNOTREGISTERED) {
+				if (trace > PINGNFS_DEBUG_LEVEL) {
 					trace_prt(1, "  pingnfs: Trying ping "
-						"via TCP\n");
+						"via UDP\n");
 				}
 				if ((cl = clnt_create_vers_timed(hostname,
 					NFS_PROG, &outvers,
 					versmin, vers_to_try,
-					"tcp", &tv)) != NULL)
+					"udp", &tv)) != NULL)
 					break;
-				if (trace > 4) {
+				if (trace > PINGNFS_DEBUG_LEVEL) {
 					trace_prt(1, "  pingnfs: Can't ping "
-						"via TCP %s: "
+						"via  %s: "
 						"RPC error=%d\n",
 						hostname,
 						rpc_createerr.cf_stat);
 				}
 			}
 		}
-
 		/*
 		 * backoff and return lower version to retry the ping.
 		 * XXX we should be more careful and handle
@@ -1369,12 +1393,12 @@ pingnfs(
 			break;
 		if (versp != NULL) {	/* recheck the cache */
 			*versp = vers_to_try;
-			if (trace > 4) {
+			if (trace > PINGNFS_DEBUG_LEVEL) {
 				trace_prt(1,
 				    "  pingnfs: check cache: vers=%d\n",
 				    *versp);
 			}
-			switch (cache_check(hostname, versp, proto)) {
+			switch (cache_check(hostname, versp, proto, &tv)) {
 			case GOODHOST:
 				if (hostcopy != NULL)
 					free(hostcopy);
@@ -1392,7 +1416,7 @@ pingnfs(
 				break;
 			}
 		}
-		if (trace > 4) {
+		if (trace > PINGNFS_DEBUG_LEVEL) {
 			trace_prt(1, "  pingnfs: Try version=%d\n",
 				vers_to_try);
 		}
@@ -1409,7 +1433,7 @@ pingnfs(
 		clnt_stat = RPC_SUCCESS;
 	}
 
-	if (trace > 1)
+	if (trace > PINGNFS_DEBUG_LEVEL)
 		clnt_stat == RPC_SUCCESS ?
 			trace_prt(1, "	pingnfs OK: nfs version=%d\n", outvers):
 			trace_prt(1, "	pingnfs FAIL: can't get nfs version\n");
@@ -1441,10 +1465,9 @@ pingnfs(
 #define	MNTTYPE_LOFS	"lofs"
 
 int
-loopbackmount(fsname, dir, mntopts)
-	char *fsname;		/* Directory being mounted */
-	char *dir;		/* Directory being mounted on */
-	char *mntopts;
+loopbackmount(char *fsname;		/* Directory being mounted */
+	      char *dir;		/* Directory being mounted on */
+	      char *mntopts)
 {
 	struct mnttab mnt;
 	int flags = 0;
@@ -1500,22 +1523,85 @@ loopbackmount(fsname, dir, mntopts)
 #endif
 
 /*
+ * Find cache entry matching host, vers, and proto.
+ *
+ * Assumes cache_lock is held for reading.
+ */
+static struct cache_entry *
+cache_find(const char *host, rpcvers_t vers, const char *proto)
+{
+	struct cache_entry *ce, *prev;
+	timenow = time(NULL);
+
+	for (ce = cache_head; ce; ce = ce->cache_next) {
+		if (timenow > ce->cache_max_time) {
+			(void) pthread_rwlock_unlock(&cache_lock);
+			(void) pthread_rwlock_wrlock(&cache_lock);
+			for (prev = NULL, ce = cache_head; ce;
+				prev = ce, ce = ce->cache_next) {
+				if (timenow > ce->cache_max_time) {
+					if (trace > PINGNFS_DEBUG_LEVEL)
+						trace_prt(1, "  cache_find: removing entry for %s remaining = %ld (%ld)\n",
+							  ce->cache_host, ce->cache_time - timenow, ce->cache_max_time - timenow);
+					cache_free(ce);
+					if (prev)
+						prev->cache_next = NULL;
+					else
+						cache_head = NULL;
+					break;
+				}
+			}
+			(void) pthread_rwlock_unlock(&cache_lock);
+			(void) pthread_rwlock_rdlock(&cache_lock);
+			return (NULL);
+		}
+		if (strcmp(host, ce->cache_host) != 0)
+			continue;
+		if ((proto == NULL && ce->cache_proto != NULL) ||
+		    (proto != NULL && ce->cache_proto == NULL))
+			continue;
+		if (proto != NULL &&
+		    strcmp(proto, ce->cache_proto) != 0)
+			continue;
+
+		if (vers == (rpcvers_t)-1 ||
+			(vers == ce->cache_reqvers) ||
+			(vers == ce->cache_outvers)) {
+			break;
+		}
+	}
+	return (ce);
+}
+
+/*
  * Put a new entry in the cache chain by prepending it to the front.
  * If there isn't enough memory then just give up.
  */
 static void
-cache_enter(host, reqvers, outvers, proto, state)
-	const char *host;
-	rpcvers_t reqvers;
-	rpcvers_t outvers;
-	const char *proto;
-	int state;
+cache_enter(const char *host, rpcvers_t reqvers, rpcvers_t outvers, const char *proto, int state)
 {
 	struct cache_entry *entry;
-	int cache_time = 30;	/* sec */
 
 	timenow = time(NULL);
 
+	(void) pthread_rwlock_rdlock(&cache_lock);
+	entry = cache_find(host, reqvers, proto);
+	if (entry) {
+		if (trace > PINGNFS_DEBUG_LEVEL)
+			trace_prt(1, "  cache_enter: FOUND entry state = %d, level = %d time = %ld remain = %ld\n",
+				  entry->cache_state, entry->cache_level, entry->cache_time,
+				  entry->cache_time - timenow);
+		entry->cache_state = state;
+		entry->cache_level++;
+		entry->cache_time = timenow + (entry_cache_time << entry->cache_level);
+		if (trace > PINGNFS_DEBUG_LEVEL)
+			trace_prt(1, "  cache_enter: UPDATED entry state = %d, level = %d time = %ld remain = %ld\n",
+				  entry->cache_state, entry->cache_level, entry->cache_time,
+				  entry->cache_time - timenow);
+		(void) pthread_rwlock_unlock(&cache_lock);
+		return;
+	}
+	(void) pthread_rwlock_unlock(&cache_lock);
 	entry = (struct cache_entry *)malloc(sizeof (struct cache_entry));
 	if (entry == NULL)
 		return;
@@ -1529,7 +1615,12 @@ cache_enter(host, reqvers, outvers, proto, state)
 	entry->cache_outvers = outvers;
 	entry->cache_proto = (proto == NULL ? NULL : strdup(proto));
 	entry->cache_state = state;
-	entry->cache_time = timenow + cache_time;
+	entry->cache_time = timenow + entry_cache_time;
+	entry->cache_max_time = timenow + entry_cache_max_time;
+	if (trace > PINGNFS_DEBUG_LEVEL)
+		trace_prt(1, "  cache_enter: NEW entry state = %d, level = %d time = %ld remain = %ld\n",
+			  entry->cache_state, entry->cache_level, entry->cache_time,
+			  entry->cache_time - timenow);
 	(void) pthread_rwlock_wrlock(&cache_lock);
 #ifdef CACHE_DEBUG
 	host_cache_accesses++;		/* up host cache access counter */
@@ -1540,18 +1631,19 @@ cache_enter(host, reqvers, outvers, proto, state)
 }
 
 static int
-cache_check(host, versp, proto)
-	const char *host;
-	rpcvers_t *versp;
-	const char *proto;
+cache_check(const char *host, rpcvers_t *versp, const char *proto, struct timeval *tv)
 {
 	int state = NOHOST;
-	struct cache_entry *ce, *prev;
+	struct cache_entry *ce;
+	rpcvers_t ver = versp ? *versp : -1;
 
 	timenow = time(NULL);
 
+	if (tv) {
+		tv->tv_sec = entry_cache_time;
+		tv->tv_usec = 0;
+	}
 	(void) pthread_rwlock_rdlock(&cache_lock);
-
 #ifdef CACHE_DEBUG
 	/* Increment the lookup and access counters for the host cache */
 	host_cache_accesses++;
@@ -1560,61 +1652,39 @@ cache_check(host, versp, proto)
 		trace_host_cache();
 #endif /* CACHE DEBUG */
 
-	for (ce = cache_head; ce; ce = ce->cache_next) {
-		if (timenow > ce->cache_time) {
-			(void) pthread_rwlock_unlock(&cache_lock);
-			(void) pthread_rwlock_wrlock(&cache_lock);
-			for (prev = NULL, ce = cache_head; ce;
-				prev = ce, ce = ce->cache_next) {
-				if (timenow > ce->cache_time) {
-					cache_free(ce);
-					if (prev)
-						prev->cache_next = NULL;
-					else
-						cache_head = NULL;
-					break;
-				}
-			}
-			(void) pthread_rwlock_unlock(&cache_lock);
-			return (state);
+	ce = cache_find(host, versp ? *versp : -1, proto);
+	if (ce) {
+		if (tv)
+			tv->tv_sec = (entry_cache_time << ce->cache_level);
+		state = ce->cache_state;
+		if (state != GOODHOST && timenow > ce->cache_time)
+			state = NOHOST;
+		else if (versp != NULL)
+			*versp = ce->cache_outvers;
+		if (trace > PINGNFS_DEBUG_LEVEL) {
+			trace_prt(1,
+				  "  cache_check: found cache entry tv = %ld, state = %d level = %d vers = %d\n",
+				  tv->tv_sec, state, ce->cache_level, ver);
 		}
-		if (strcmp(host, ce->cache_host) != 0)
-			continue;
-		if ((proto == NULL && ce->cache_proto != NULL) ||
-		    (proto != NULL && ce->cache_proto == NULL))
-			continue;
-		if (proto != NULL &&
-		    strcmp(proto, ce->cache_proto) != 0)
-			continue;
 
-		if (versp == NULL ||
-			(versp != NULL && *versp == ce->cache_reqvers) ||
-			(versp != NULL && *versp == ce->cache_outvers)) {
-				if (versp != NULL)
-					*versp = ce->cache_outvers;
-				state = ce->cache_state;
-
-				/* increment the host cache hit counters */
+		/* increment the host cache hit counters */
 #ifdef CACHE_DEBUG
-				switch (state) {
-
-				case GOODHOST:
-					goodhost_cache_hits++;
-					break;
-
-				case DEADHOST:
-					deadhost_cache_hits++;
-					break;
-
-				case NXHOST:
-					nxhost_cache_hits++;
-					break;
-#endif /* CACHE_DEBUG */
-				(void) pthread_rwlock_unlock(&cache_lock);
-				return (state);
+		switch (state) {
+		case GOODHOST:
+			goodhost_cache_hits++;
+			break;
+		case DEADHOST:
+			deadhost_cache_hits++;
+			break;
+		case NXHOST:
+			nxhost_cache_hits++;
+			break;
 		}
-	}
+#endif /* CACHE_DEBUG */
+	} else 	if (trace > PINGNFS_DEBUG_LEVEL)
+		trace_prt(1, "  cache_check: Cache miss\n");
 	(void) pthread_rwlock_unlock(&cache_lock);
+
 	return (state);
 }
 

@@ -69,10 +69,11 @@ static void testdigestandsignalg(SecKeyRef privKey, SecKeyRef pubKey, const SecA
         ok_status(SecKeyDigestAndVerify(pubKey, algId, dataToDigest, dataToDigestLen,
             sig, sigLen), "digest and verify");
         /* Invalidate the signature. */
-        sig[0] ^= 0xff;
+        /* Tweak the least-significant bit to avoid putting the signature out of range. */
+        sig[sigLen-1] ^= 1;
         is_status(SecKeyDigestAndVerify(pubKey, algId, dataToDigest, dataToDigestLen,
             sig, sigLen), errSSLCrypto, "digest and verify bad sig");
-        sig[0] ^= 0xff;
+        sig[sigLen-1] ^= 1;
         dataToDigest[0] ^= 0xff;
         is_status(SecKeyDigestAndVerify(pubKey, algId, dataToDigest, dataToDigestLen,
             sig, sigLen), errSSLCrypto, "digest and verify bad digest");
@@ -637,9 +638,14 @@ static void testsupportedalgos(size_t keySizeInBits)
         ok(SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeEncrypt, algorithm),
            "pubKey supports encrypt algorithm %@", algorithm);
         ok(!SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeEncrypt, algorithm),
-           "privKey doesn't supports encrypt algorithm %@", algorithm);
-        ok(!SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeDecrypt, algorithm),
-           "pubKey doesn't support decrypt algorithm %@", algorithm);
+           "privKey doesn't support encrypt algorithm %@", algorithm);
+        if (i >= 6 /* >= kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM */) {
+            ok(!SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeDecrypt, algorithm),
+               "pubKey doesn't support algorithm %@", algorithm);
+        } else {
+            ok(SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeDecrypt, algorithm),
+               "pubKey supports decrypt algorithm %@", algorithm);
+        }
         CFReleaseNull(algorithm);
     }
     ok(!SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeDecrypt, kSecKeyAlgorithmRSAEncryptionOAEPSHA512),

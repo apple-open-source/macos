@@ -38,10 +38,12 @@ void IOHIDEventSystemLoadDefaultParameters (IOHIDEventSystemRef eventSystem) {
         return;
     }
     CFTypeRef hidParams = IORegistryEntryCreateCFProperty (service, CFSTR(kIOHIDParametersKey), kCFAllocatorDefault, 0);
-    if (hidParams) {
+    if (hidParams && CFDictionaryGetTypeID() == CFGetTypeID(hidParams)) {
     //CFLog(kCFLogLevelError, CFSTR("IOHIDEventSystemLoadDefaultParameters: %@\n"), hidParams);
-        CFDictionaryRemoveValue(hidParams, CFSTR(kIOHIDKeyboardModifierMappingPairsKey));
+        CFDictionaryRemoveValue((CFMutableDictionaryRef)hidParams, CFSTR(kIOHIDKeyboardModifierMappingPairsKey));
         IOHIDEventSystemSetProperty(eventSystem, CFSTR(kIOHIDParametersKey), hidParams);
+    }
+    if (hidParams) {
         CFRelease(hidParams);
     }
     IOObjectRelease (service);

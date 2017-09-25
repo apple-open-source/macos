@@ -87,7 +87,12 @@ bool RemoteLayerTreeHost::updateLayerTree(const RemoteLayerTreeTransaction& tran
     typedef std::pair<GraphicsLayer::PlatformLayerID, GraphicsLayer::PlatformLayerID> LayerIDPair;
     Vector<LayerIDPair> clonesToUpdate;
 
+#if PLATFORM(MAC)
+    // Can't use the iOS code on macOS yet: rdar://problem/31247730
+    auto layerContentsType = RemoteLayerBackingStore::LayerContentsType::IOSurface;
+#else
     auto layerContentsType = m_drawingArea.hasDebugIndicator() ? RemoteLayerBackingStore::LayerContentsType::IOSurface : RemoteLayerBackingStore::LayerContentsType::CAMachPort;
+#endif
     
     for (auto& changedLayer : transaction.changedLayerProperties()) {
         auto layerID = changedLayer.key;
@@ -204,6 +209,11 @@ void RemoteLayerTreeHost::clearLayers()
     m_rootLayer = nullptr;
 }
 
+LayerOrView* RemoteLayerTreeHost::layerWithIDForTesting(uint64_t layerID) const
+{
+    return getLayer(layerID);
+}
+
 static NSString* const WKLayerIDPropertyKey = @"WKLayerID";
 
 void RemoteLayerTreeHost::setLayerID(CALayer *layer, WebCore::GraphicsLayer::PlatformLayerID layerID)
@@ -249,7 +259,7 @@ LayerOrView *RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::
         break;
     case PlatformCALayer::LayerTypeCustom:
     case PlatformCALayer::LayerTypeAVPlayerLayer:
-    case PlatformCALayer::LayerTypeWebGLLayer:
+    case PlatformCALayer::LayerTypeContentsProvidedLayer:
         if (!m_isDebugLayerTreeHost)
             layer = WKMakeRenderLayer(properties.hostingContextID);
         else

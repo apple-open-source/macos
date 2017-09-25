@@ -123,6 +123,7 @@ dispatch_queue_t  getPMQueue()
                 pmQueue = dispatch_queue_create("PM Notifications", NULL);
                 });
         if (!pmQueue) {
+            os_log_error(OS_LOG_DEFAULT, "Failed to create PM queue\n");
             return NULL;
         }
     }
@@ -1930,33 +1931,29 @@ IOReturn IOPMSetBTWakeInterval(uint32_t newInterval, uint32_t *oldInterval)
 }
 
 #if TARGET_OS_IPHONE
-IOReturn IOPMSetDWLingerInterval(uint32_t newInterval __unused, 
-      uint32_t *oldInterval __unused)
+IOReturn IOPMSetDWLingerInterval(uint32_t newInterval __unused)
 {
 #else
-IOReturn IOPMSetDWLingerInterval(uint32_t newInterval, uint32_t *oldInterval)
+IOReturn IOPMSetDWLingerInterval(uint32_t newInterval)
 {
 
     mach_port_t             pm_server = MACH_PORT_NULL;
     kern_return_t           kern_result;
-    uint32_t                interval = 0;
     IOReturn                return_code = kIOReturnError;
 
     return_code = _pm_connect(&pm_server);
 
     if(pm_server == MACH_PORT_NULL)
-      return kIOReturnNotReady; 
+      return kIOReturnNotReady;
 
-    kern_result = io_pm_set_dw_linger_interval(pm_server, newInterval, &interval, &return_code);
+    kern_result = io_pm_set_dw_linger_interval(pm_server, newInterval, &return_code);
 
     _pm_disconnect(pm_server);
 
     if ( kern_result == KERN_SUCCESS && return_code == kIOReturnSuccess) {
-        if (oldInterval) 
-            *oldInterval = interval;
         return kIOReturnSuccess;
     }
-    else 
+    else
         return return_code;
 
 #endif
@@ -2132,26 +2129,4 @@ IOReturn  IOPMCopySleepPreventersList(int preventerType, CFArrayRef *outArray)
 }
 /*****************************************************************************/
 
-#if 0
-bool IOPMSystemPowerStateSupportsAcknowledgementOption(
-    IOPMCapabilityBits stateDescriptor,
-    CFStringRef acknowledgementOption)
-{
-    if (!acknowledgementOption)
-        return false;
 
-    if ( 0 != (stateDescriptor & kIOPMSytemPowerStateCapabilitiesMask) )
-    {
-        // The flags date & requiredcapabilities are only valid on going to sleep transitions
-        return false;    
-    }
-
-    if (CFEqual(acknowledgementOption, kIOPMAcknowledgmentOptionSystemCapabilityRequirements)
-        || CFEqual(acknowledgementOption, kIOPMAcknowledgmentOptionWakeDate))
-    {
-        return true;
-    }
-
-    return false;
-}
-#endif

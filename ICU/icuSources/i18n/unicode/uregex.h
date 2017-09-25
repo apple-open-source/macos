@@ -1,10 +1,12 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 *   Copyright (C) 2004-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  uregex.h
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   indentation:4
 *
 *   created on: 2004mar09
@@ -225,7 +227,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalURegularExpressionPointer, URegularExpression, 
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
  * Make a copy of a compiled regular expression.  Cloning a regular

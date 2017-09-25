@@ -94,7 +94,7 @@ enum cfInternalFlags {
 /*
  * The state structure keeps track of
  * the source filename, the destination filename, their
- * associated file-descriptors, the stat infomration for the
+ * associated file-descriptors, the stat information for the
  * source file, the security information for the source file,
  * the flags passed in for the copy, a pointer to place statistics
  * (not currently implemented), debug flags, and a pointer to callbacks
@@ -310,21 +310,35 @@ static int copyfile_quarantine(copyfile_state_t);
 #define COPYFILE_DEBUG (1<<31)
 #define COPYFILE_DEBUG_VAR "COPYFILE_DEBUG"
 
+// These macros preserve the value of errno.
 #ifndef _COPYFILE_TEST
-# define copyfile_warn(str, ...) syslog(LOG_WARNING, str ": %m", ## __VA_ARGS__)
+# define copyfile_warn(str, ...) \
+	do { \
+		errno_t _errsv = errno; \
+		syslog(LOG_WARNING, str ": %m", ## __VA_ARGS__); \
+		errno = _errsv; \
+	} while (0)
 # define copyfile_debug(d, str, ...) \
 	do { \
 		if (s && (d <= s->debug)) {\
+			errno_t _errsv = errno; \
 			syslog(LOG_DEBUG, "%s:%d:%s() " str "\n", __FILE__, __LINE__ , __FUNCTION__, ## __VA_ARGS__); \
+			errno = _errsv; \
 		} \
 	} while (0)
 #else
 #define copyfile_warn(str, ...) \
-	fprintf(stderr, "%s:%d:%s() " str ": %s\n", __FILE__, __LINE__ , __FUNCTION__, ## __VA_ARGS__, (errno) ? strerror(errno) : "")
+	do { \
+		errno_t _errsv = errno; \
+		fprintf(stderr, "%s:%d:%s() " str ": %s\n", __FILE__, __LINE__ , __FUNCTION__, ## __VA_ARGS__, (errno) ? strerror(errno) : ""); \
+		errno = _errsv; \
+	} while (0)
 # define copyfile_debug(d, str, ...) \
 	do { \
 		if (s && (d <= s->debug)) {\
+			errno_t _errsv = errno; \
 			fprintf(stderr, "%s:%d:%s() " str "\n", __FILE__, __LINE__ , __FUNCTION__, ## __VA_ARGS__); \
+			errno = _errsv; \
 		} \
 	} while(0)
 #endif
@@ -723,10 +737,12 @@ copytree(copyfile_state_t s)
 		offset = strlen(src);
 	}
 
-	if (s->flags | COPYFILE_NOFOLLOW_SRC)
-		fts_flags |= FTS_PHYSICAL;
-	else
-		fts_flags |= FTS_LOGICAL;
+	// COPYFILE_RECURSIVE is always done physically: see 11717978.
+	fts_flags |= FTS_PHYSICAL;
+	if (!(s->flags & COPYFILE_NOFOLLOW_SRC)) {
+		// Follow 'src', even if it's a symlink.
+		fts_flags |= FTS_COMFOLLOW;
+	}
 
 	fts = fts_open((char * const *)paths, fts_flags, NULL);
 
@@ -891,6 +907,7 @@ done:
 	if (fts)
 		fts_close(fts);
 
+	copyfile_debug(1, "returning: %d errno %d\n", retval, errno);
 	return retval;
 }
 
@@ -968,9 +985,11 @@ int fcopyfile(int src_fd, int dst_fd, copyfile_state_t state, copyfile_flags_t f
 		copyfile_state_free(s);
 		errno = t;
 	}
+	if (ret >= 0) {
+		errno = 0;
+	}
 
 	return ret;
-
 }
 
 /*
@@ -1034,6 +1053,15 @@ static int copyfile_clone(const char *src, const char *dst, copyfile_state_t sta
 			 */
 			if (state != NULL)
 				state->was_cloned = true;
+
+			/*
+			 * COPYFILE_MOVE tells us to attempt removing
+			 * the source file after the copy, and to
+			 * ignore any errors returned by remove(3).
+			 */
+			if (flags & COPYFILE_MOVE) {
+				(void)remove(src);
+			}
 		}
 	}
 	else
@@ -1066,9 +1094,10 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	if (flags & (COPYFILE_CLONE_FORCE | COPYFILE_CLONE))
 	{
 		ret = copyfile_clone(src, dst, state, flags);
-		if ((ret == 0) || (flags & COPYFILE_CLONE_FORCE))
-		{
-			return ret;
+		if (ret == 0) {
+			goto exit;
+		} else if (flags & COPYFILE_CLONE_FORCE) {
+			goto error_exit;
 		}
 		// cloning failed. Inherit clonefile flags required for
 		// falling back to copyfile.
@@ -1200,17 +1229,21 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 		(void)remove(s->src);
 
 exit:
+	if (ret >= 0) {
+		errno = 0;
+	}
+	copyfile_debug(5, "returning %d errno %d\n", ret, errno);
+
 	if (state == NULL) {
 		int t = errno;
 		copyfile_state_free(s);
 		errno = t;
 	}
-
 	return ret;
 
 error_exit:
 	ret = -1;
-	if (s->err) {
+	if (s && s->err) {
 		errno = s->err;
 		s->err = 0;
 	}
@@ -1379,7 +1412,7 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
 	}
 
 	/*
-	 * Simialr to above, this tells us whether or not to copy
+	 * Similar to above, this tells us whether or not to copy
 	 * the non-meta data portion of the file.  We attempt to
 	 * remove (via unlink) the destination file if we fail.
 	 */
@@ -2315,9 +2348,14 @@ error_exit:
  */
 static int copyfile_stat(copyfile_state_t s)
 {
-	struct timeval tval[2];
 	unsigned int added_flags = 0, dst_flags = 0;
+	struct attrlist attrlist;
 	struct stat dst_sb;
+	struct {
+		/* Order of these structs matters for setattrlist. */
+		struct timespec mod_time;
+		struct timespec acc_time;
+	} ma_times;
 
 	/*
 	 * NFS doesn't support chflags; ignore errors as a result, since
@@ -2345,10 +2383,13 @@ static int copyfile_stat(copyfile_state_t s)
 	/* This may have already been done in copyfile_security() */
 	(void)fchmod(s->dst_fd, s->sb.st_mode & ~S_IFMT);
 
-	tval[0].tv_sec = s->sb.st_atime;
-	tval[1].tv_sec = s->sb.st_mtime;
-	tval[0].tv_usec = tval[1].tv_usec = 0;
-	(void)futimes(s->dst_fd, tval);
+	/* Try to set m/atimes using setattrlist(), for nanosecond precision. */
+	memset(&attrlist, 0, sizeof(attrlist));
+	attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrlist.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
+	ma_times.mod_time = s->sb.st_mtimespec;
+	ma_times.acc_time = s->sb.st_atimespec;
+	(void)fsetattrlist(s->dst_fd, &attrlist, &ma_times, sizeof(ma_times), 0);
 
 	return 0;
 }
@@ -2794,15 +2835,19 @@ struct {char *s; int v;} opts[] = {
 	COPYFILE_OPTION(PACK)
 	COPYFILE_OPTION(UNPACK)
 	COPYFILE_OPTION(CHECK)
+	COPYFILE_OPTION(CLONE)
+	COPYFILE_OPTION(CLONE_FORCE)
 	COPYFILE_OPTION(VERBOSE)
+	COPYFILE_OPTION(RECURSIVE)
 	COPYFILE_OPTION(DEBUG)
 	{NULL, 0}
 };
 
 int main(int c, char *v[])
 {
-	int i;
+	int i, ret;
 	int flags = 0;
+	copyfile_state_t state = NULL;
 
 	if (c < 3)
 		errx(1, "insufficient arguments");
@@ -2820,7 +2865,16 @@ int main(int c, char *v[])
 		}
 	}
 
-	return copyfile(v[1], v[2], NULL, flags);
+	if (flags & COPYFILE_DEBUG) {
+		state = copyfile_state_alloc();
+		state->debug = 10; // Turn on all debug statements
+	}
+	ret = copyfile(v[1], v[2], state, flags);
+	if (state) {
+		(void)copyfile_state_free(state);
+	}
+
+	return ret;
 }
 #endif
 /*
@@ -3463,7 +3517,9 @@ static int copyfile_unpack(copyfile_state_t s)
 						error = -1;
 						goto exit;
 					}
-					strlcpy(tmpstr, tcp, entry->length + 1);
+					// Can't use strlcpy here: tcp is not NUL-terminated!
+					memcpy(tmpstr, tcp, entry->length);
+					tmpstr[entry->length] = 0;
 					acl = acl_from_text(tmpstr);
 					free(tmpstr);
 				} else {
@@ -3639,7 +3695,12 @@ skip_fi:
 		size_t length;
 		off_t offset;
 		struct stat sb;
-		struct timeval tval[2];
+		struct attrlist attrlist;
+		struct {
+			/* Order of these structs matters for setattrlist. */
+			struct timespec mod_time;
+			struct timespec acc_time;
+		} ma_times;
 
 		length = adhdr->entries[1].length;
 		offset = adhdr->entries[1].offset;
@@ -3739,12 +3800,15 @@ skip_fi:
 
 		if (!(s->flags & COPYFILE_STAT))
 		{
-			tval[0].tv_sec = sb.st_atime;
-			tval[1].tv_sec = sb.st_mtime;
-			tval[0].tv_usec = tval[1].tv_usec = 0;
-
-			if (futimes(s->dst_fd, tval))
+			/* Try to set m/atimes using setattrlist(), for nanosecond precision. */
+			memset(&attrlist, 0, sizeof(attrlist));
+			attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
+			attrlist.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
+			ma_times.mod_time = sb.st_mtimespec;
+			ma_times.acc_time = sb.st_atimespec;
+			if (fsetattrlist(s->dst_fd, &attrlist, &ma_times, sizeof(ma_times), 0) != 0) {
 				copyfile_warn("%s: set times", s->dst ? s->dst : "(null dst)");
+			}
 		}
 	bad:
 		if (rsrcforkdata)

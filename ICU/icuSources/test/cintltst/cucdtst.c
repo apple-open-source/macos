@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT:
  * Copyright (c) 1997-2016, International Business Machines Corporation and
@@ -32,7 +34,7 @@
 #include "uprops.h"
 #include "uset_imp.h"
 #include "usc_impl.h"
-#include "udatamem.h" /* for testing ucase_openBinary() */
+#include "udatamem.h"
 #include "cucdapi.h"
 #include "cmemory.h"
 
@@ -57,7 +59,6 @@ static void TestNumericProperties(void);
 static void TestPropertyNames(void);
 static void TestPropertyValues(void);
 static void TestConsistency(void);
-static void TestUCase(void);
 static void TestUBiDiProps(void);
 static void TestCaseFolding(void);
 
@@ -194,7 +195,6 @@ void addUnicodeTest(TestNode** root)
     addTest(root, &TestPropertyNames, "tsutil/cucdtst/TestPropertyNames");
     addTest(root, &TestPropertyValues, "tsutil/cucdtst/TestPropertyValues");
     addTest(root, &TestConsistency, "tsutil/cucdtst/TestConsistency");
-    addTest(root, &TestUCase, "tsutil/cucdtst/TestUCase");
     addTest(root, &TestUBiDiProps, "tsutil/cucdtst/TestUBiDiProps");
     addTest(root, &TestCaseFolding, "tsutil/cucdtst/TestCaseFolding");
 }
@@ -1017,9 +1017,12 @@ unicodeDataLineFn(void *context,
     /* get BiDi category, field 4 */
     *fields[4][1]=0;
     i=MakeDir(fields[4][0]);
+#if U_ICU_VERSION_MAJOR_NUM!=59
+    // TODO: Remove this version check, see ticket #13061.
     if(i!=u_charDirection(c) || i!=u_getIntPropertyValue(c, UCHAR_BIDI_CLASS)) {
         log_err("error: u_charDirection(U+%04lx)==%u instead of %u (%s)\n", c, u_charDirection(c), MakeDir(fields[4][0]), fields[4][0]);
     }
+#endif
 
     /* get Decomposition_Type & Decomposition_Mapping, field 5 */
     d=NULL;
@@ -1260,20 +1263,7 @@ enumDefaultsRange(const void *context, UChar32 start, UChar32 limit, UCharCatego
 
     /*
      * Verify default Bidi classes.
-     * For recent Unicode versions, see UCD.html.
-     *
-     * For older Unicode versions:
-     * See table 3-7 "Bidirectional Character Types" in UAX #9.
-     * http://www.unicode.org/reports/tr9/
-     *
-     * See also DerivedBidiClass.txt for Cn code points!
-     *
-     * Unicode 4.0.1/Public Review Issue #28 (http://www.unicode.org/review/resolved-pri.html)
-     * changed some default values.
-     * In particular, non-characters and unassigned Default Ignorable Code Points
-     * change from L to BN.
-     *
-     * UCD.html version 4.0.1 does not yet reflect these changes.
+     * See DerivedBidiClass.txt, especially for unassigned code points.
      */
     if(type==U_UNASSIGNED || type==U_PRIVATE_USE_CHAR) {
         /* enumerate the intersections of defaultBidi ranges with [start..limit[ */
@@ -1287,12 +1277,15 @@ enumDefaultsRange(const void *context, UChar32 start, UChar32 limit, UCharCatego
                         shouldBeDir=(UCharDirection)defaultBidi[i][1];
                     }
 
+#if U_ICU_VERSION_MAJOR_NUM!=59
+// TODO: Remove this version check, see ticket #13061.
                     if( u_charDirection(c)!=shouldBeDir ||
                         u_getIntPropertyValue(c, UCHAR_BIDI_CLASS)!=shouldBeDir
                     ) {
                         log_err("error: u_charDirection(unassigned/PUA U+%04lx)=%s should be %s\n",
                             c, dirStrings[u_charDirection(c)], dirStrings[shouldBeDir]);
                     }
+#endif
                     ++c;
                 }
             }
@@ -3253,47 +3246,6 @@ TestConsistency() {
  * See Jitterbug 4497.
  */
 #define HARDCODED_DATA_4497 1
-
-/* API coverage for ucase.c */
-static void TestUCase() {
-#if !HARDCODED_DATA_4497
-    UDataMemory *pData;
-    UCaseProps *csp;
-    const UCaseProps *ccsp;
-    UErrorCode errorCode;
-
-    /* coverage for ucase_openBinary() */
-    errorCode=U_ZERO_ERROR;
-    pData=udata_open(NULL, UCASE_DATA_TYPE, UCASE_DATA_NAME, &errorCode);
-    if(U_FAILURE(errorCode)) {
-        log_data_err("unable to open " UCASE_DATA_NAME "." UCASE_DATA_TYPE ": %s\n",
-                    u_errorName(errorCode));
-        return;
-    }
-
-    csp=ucase_openBinary((const uint8_t *)pData->pHeader, -1, &errorCode);
-    if(U_FAILURE(errorCode)) {
-        log_err("ucase_openBinary() fails for the contents of " UCASE_DATA_NAME "." UCASE_DATA_TYPE ": %s\n",
-                u_errorName(errorCode));
-        udata_close(pData);
-        return;
-    }
-
-    if(UCASE_LOWER!=ucase_getType(csp, 0xdf)) { /* verify islower(sharp s) */
-        log_err("ucase_openBinary() does not seem to return working UCaseProps\n");
-    }
-
-    ucase_close(csp);
-    udata_close(pData);
-
-    /* coverage for ucase_getDummy() */
-    errorCode=U_ZERO_ERROR;
-    ccsp=ucase_getDummy(&errorCode);
-    if(ucase_tolower(ccsp, 0x41)!=0x41) {
-        log_err("ucase_tolower(dummy, A)!=A\n");
-    }
-#endif
-}
 
 /* API coverage for ubidi_props.c */
 static void TestUBiDiProps() {

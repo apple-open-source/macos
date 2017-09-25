@@ -500,18 +500,6 @@
 # aren't quite double width, but the arithmetic is correct.
 # It appears just to be an effect of the font.
 
-  if zmodload zsh/regex 2>/dev/null; then
-    [[ $'\ua0' =~ '^.$' ]] && print OK
-    [[ $'\ua0' =~ $'^\ua0$' ]] && print OK
-    [[ $'\ua0'X =~ '^X$' ]] || print OK
-  else
-    ZTST_skip="regexp library not found."
-  fi
-0:Ensure no confusion on metafied input to regex module
->OK
->OK
->OK
-
   () {
      emulate -L zsh
      setopt errreturn
@@ -546,3 +534,56 @@
   [[ $'\xe3\x83\x9b' != [[:INCOMPLETE:][:INVALID:]] ]] || print fail 3
   [[ $'\xe3\x83\x9b' = ? ]] || print fail 4
 0:Testing incomplete and invalid multibyte character components
+
+  print -r -- ${(q+):-ホ}
+  foo='She said "ホ".  I said "You can'\''t '\''ホ'\'' me!'
+  print -r -- ${(q+)foo}
+0:${(q+)...} with printable multibyte characters
+>ホ
+>'She said "ホ".  I said "You can'\''t '\''ホ'\'' me!'
+
+#  This will silently succeed if zsh/parameter isn't available
+  (zmodload zsh/parameter >/dev/null 2>&1
+  f() {
+    : $(:)
+    "↓"
+  }
+  : $functions)
+0:Multibtye handling of functions parameter
+
+  if [[ -n ${$(locale -a 2>/dev/null)[(R)pl_PL.utf8]} ]]; then
+  (
+    export LC_ALL=pl_PL.UTF-8
+    local -a names=(a b c d e f $'\u0105' $'\u0107' $'\u0119')
+    print -o $names
+    mkdir -p plchars
+    cd plchars
+    touch $names
+    print ?
+  )
+  else
+    ZTST_skip="No Polish UTF-8 locale found, skipping sort test"
+  fi
+0:Sorting of metafied Polish characters
+>a ą b c ć d e ę f
+>a ą b c ć d e ę f
+
+  printf '%q%q\n' 你你
+0:printf %q and quotestring and general metafy / token madness
+>你你
+
+# This test is kept last as it introduces an additional
+# dependency on the system regex library.
+  if zmodload zsh/regex 2>/dev/null; then
+    [[ $'\ua0' =~ '^.$' ]] && print OK
+    [[ $'\ua0' =~ $'^\ua0$' ]] && print OK
+    [[ $'\ua0'X =~ '^X$' ]] || print OK
+  else
+    ZTST_skip="regexp library not found."
+  fi
+0:Ensure no confusion on metafied input to regex module
+>OK
+>OK
+>OK
+F:A failure here may indicate the system regex library does not
+F:support character sets outside the portable 7-bit range.

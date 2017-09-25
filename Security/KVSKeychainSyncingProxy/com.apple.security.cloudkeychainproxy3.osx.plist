@@ -41,6 +41,16 @@
 				<key>Notification</key>
 				<string>com.apple.keystore.lockstatus</string>
 			</dict>
+			<key>com.apple.mobile.keybagd.lock_status</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.mobile.keybagd.lock_status</string>
+			</dict>
+			<key>com.apple.mobile.keybagd.first_unlock</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.mobile.keybagd.first_unlock</string>
+			</dict>
 			<key>com.apple.security.cloudkeychainproxy.kvstorechange3</key>
 			<dict>
 				<key>Notification</key>

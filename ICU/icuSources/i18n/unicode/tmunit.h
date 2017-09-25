@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2009-2016, International Business Machines Corporation,       *
@@ -19,6 +21,7 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -41,7 +44,13 @@ public:
         UTIMEUNIT_HOUR,
         UTIMEUNIT_MINUTE,
         UTIMEUNIT_SECOND,
+#ifndef U_HIDE_DEPRECATED_API
+        /**
+         * One more than the highest normal UTimeUnitFields value.
+         * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+         */
         UTIMEUNIT_FIELD_COUNT
+#endif  // U_HIDE_DEPRECATED_API
     };
 
     /**
@@ -121,6 +130,7 @@ private:
 
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

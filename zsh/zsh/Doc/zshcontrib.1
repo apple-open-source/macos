@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHCONTRIB" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -41,7 +41,7 @@ distribution in your home directory, you would use the commands:
 .RS
 .nf
 \fBmkdir ~/zsh_help
-perl ~/zsh\-5\&.2/Util/helpfiles ~/zsh_help\fP
+perl ~/zsh\-5\&.3/Util/helpfiles ~/zsh_help\fP
 .fi
 .RE
 .PP
@@ -181,7 +181,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-5\&.2/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-5\&.3/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -237,7 +237,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-5\&.2/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-5\&.3/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -317,10 +317,10 @@ any prefix, even a single letter; thus \fBa\fP is the same as \fBaliases\fP,
 .PD 0
 .TP
 .PD
-\fBadd\-zsh\-hook\fP [ \fB\-dD\fP ] [ \fB\-Uzk\fP ] \fIhook\fP \fIfunction\fP
+\fBadd\-zsh\-hook\fP [ \fB\-L\fP | \fB\-dD\fP ] [ \fB\-Uzk\fP ] \fIhook\fP \fIfunction\fP
 Several functions are special to the shell, as described in the section
 SPECIAL FUNCTIONS, see \fIzshmisc\fP(1),
-in that they are automatic called at a specific point during shell execution\&.
+in that they are automatically called at specific points during shell execution\&.
 Each has an associated array consisting of names of functions to be
 called at the same point; these are so\-called `hook functions\&'\&.
 The shell function \fBadd\-zsh\-hook\fP provides a simple way of adding or
@@ -336,6 +336,10 @@ still be manipulated as a hook\&.
 \fIfunction\fP is name of an ordinary shell function\&.  If no options
 are given this will be added to the array of functions to be executed
 in the given context\&.
+Functions are invoked in the order they were added\&.
+.PP
+If the option \fB\-L\fP is given, the current values for the hook arrays
+are listed with \fBtypeset\fP\&.
 .PP
 If the option \fB\-d\fP is given, the \fIfunction\fP is removed from
 the array of functions to be executed\&.
@@ -347,6 +351,58 @@ functions to be executed\&.
 The options \fB\-U\fP, \fB\-z\fP and \fB\-k\fP are passed as arguments to
 \fBautoload\fP for \fIfunction\fP\&.  For functions contributed with zsh, the
 options \fB\-Uz\fP are appropriate\&.
+.RE
+.TP
+\fBadd\-zle\-hook\-widget\fP [ \fB\-L\fP | \fB\-dD\fP ] [ \fB\-Uzk\fP ] \fIhook\fP \fIwidgetname\fP
+Several widget names are special to the line editor, as described in the section
+Special Widgets, see \fIzshzle\fP(1),
+in that they are automatically called at specific points during editing\&.
+Unlike function hooks, these do not use a predefined array of other names
+to call at the same point; the shell function \fBadd\-zle\-hook\-widget\fP
+maintains a similar array and arranges for the special widget to invoke
+those additional widgets\&.
+.RS
+.PP
+\fIhook\fP is one of \fBisearch\-exit\fP, \fBisearch\-update\fP,
+\fBline\-pre\-redraw\fP, \fBline\-init\fP, \fBline\-finish\fP, \fBhistory\-line\-set\fP,
+or \fBkeymap\-select\fP, corresponding to each of the special widgets
+\fBzle\-isearch\-exit\fP, etc\&.  The special widget names are also accepted
+as the \fIhook\fP argument\&.
+.PP
+\fIwidgetname\fP is the name of a ZLE widget\&.  If no options are given this
+is added to the array of widgets to be invoked in the given hook context\&.
+Widgets are invoked in the order they were added, with
+.RS
+.nf
+\fB\fBzle \fP\fIwidgetname\fP\fB \-Nw \-\- "$@"\fP\fP
+.fi
+.RE
+.PP
+Note that this means that the `\fBWIDGET\fP\&' special parameter tracks the
+\fIwidgetname\fP when the widget function is called, rather than tracking
+the name of the corresponding special hook widget\&.
+.PP
+If the option \fB\-d\fP is given, the \fIwidgetname\fP is removed from
+the array of widgets to be executed\&.
+.PP
+If the option \fB\-D\fP is given, the \fIwidgetname\fP is treated as a pattern
+and any matching names of widgets are removed from the array\&.
+.PP
+If \fIwidgetname\fP does not name an existing widget when added to the
+array, it is assumed that a shell function also named \fIwidgetname\fP is
+meant to provide the implementation of the widget\&.  This name is therefore
+marked for autoloading, and the options \fB\-U\fP, \fB\-z\fP and \fB\-k\fP are
+passed as arguments to \fBautoload\fP as with \fBadd\-zsh\-hook\fP\&.  The
+widget is also created with `\fBzle \-N \fP\fIwidgetname\fP\&' to cause the
+corresponding function to be loaded the first time the hook is called\&.
+.PP
+The arrays of \fIwidgetname\fP are currently maintained in \fBzstyle\fP
+contexts, one for each \fIhook\fP context, with a style of `\fBwidgets\fP\&'\&.
+If the \fB\-L\fP option is given, this set of styles is listed with
+`\fBzstyle \-L\fP\&'\&.  This implementation may change, and the special widgets
+that refer to the styles are created only if \fBadd\-zle\-hook\-widget\fP is
+called to add at least one widget, so if this function is used for any
+hooks, then all hooks should be managed only via this function\&.
 .RE
 .PP
 .SH "REMEMBERING RECENT DIRECTORIES"
@@ -1112,7 +1168,7 @@ Say, \fB~/\&.zsh\fP is a directory under version control, in which you do
 not want \fBvcs_info\fP to be active, do:
 .RS
 .nf
-\fBzstyle \&':vcs_info:*' disable\-patterns "$HOME/\&.zsh(|/*)"\fP
+\fBzstyle \&':vcs_info:*' disable\-patterns "${(b)HOME}/\&.zsh(|/*)"\fP
 .fi
 .RE
 .RE
@@ -1130,7 +1186,7 @@ Overwrite the value of the \fB$QUILT_PATCHES\fP environment variable\&. See
 \fBQuilt Support\fP for details\&.
 .TP
 \fBquiltcommand\fP
-When \fBquilt\fP itself is called in quilt support the value of this style
+When \fBquilt\fP itself is called in quilt support, the value of this style
 is used as the command name\&.
 .TP
 \fBcheck\-for\-changes\fP
@@ -2220,13 +2276,17 @@ select\-word\-style bash\fP
 .PD 0
 \fBup\-case\-word\-match\fP, \fBdown\-case\-word\-match\fP
 .TP
+.PD 0
+\fBdelete\-whole\-word\-match\fP, \fBselect\-word\-match\fP
+.TP
 .PD
 \fBselect\-word\-style\fP, \fBmatch\-word\-context\fP, \fBmatch\-words\-by\-style\fP
-The eight `\fB\-match\fP\&' functions are drop\-in replacements for the
+The first eight `\fB\-match\fP\&' functions are drop\-in replacements for the
 builtin widgets without the suffix\&.  By default they behave in a similar
 way\&.  However, by the use of styles and the function \fBselect\-word\-style\fP,
-the way words are matched can be altered\&.  For comparison, the widgets
-described in \fIzshzle\fP(1) under Text Objects use fixed definitions of words, compatible
+the way words are matched can be altered\&. \fBselect\-word\-match\fP is intended
+to be used as a text object in vi mode but with custom word styles\&. For
+comparison, the widgets described in \fIzshzle\fP(1) under Text Objects use fixed definitions of words, compatible
 with the \fBvim\fP editor\&.
 .RS
 .PP
@@ -2234,7 +2294,7 @@ The simplest way of configuring the functions is to use
 \fBselect\-word\-style\fP, which can either be called as a normal function with
 the appropriate argument, or invoked as a user\-defined widget that will
 prompt for the first character of the word style to be used\&.  The first
-time it is invoked, the eight \fB\-match\fP functions will automatically
+time it is invoked, the first eight \fB\-match\fP functions will automatically
 replace the builtin versions, so they do not need to be loaded explicitly\&.
 .PP
 The word styles available are as follows\&.  Only the first character
@@ -2388,7 +2448,7 @@ the context\&.
 .RS
 .nf
 \fBzstyle \&':zle:*' word\-context \e 
-       "*/*" file "[[:space:]]" whitespace
+       "*/*" filename "[[:space:]]" whitespace
 zstyle \&':zle:transpose\-words:whitespace' word\-style shell
 zstyle \&':zle:transpose\-words:filename' word\-style normal
 zstyle \&':zle:transpose\-words:filename' word\-chars ''\fP
@@ -2416,6 +2476,17 @@ before the next word, including all characters specified by the
 non\-word characters following that word (7) the remainder of the line\&.  Any
 of the elements may be an empty string; the calling function should test
 for this to decide whether it can perform its function\&.
+.PP
+If the variable \fBmatched_words\fP is defined by the caller to
+\fBmatch\-words\-by\-style\fP as an associative array (\fBlocal \-A
+matched_words\fP), then the seven values given above should be retrieved
+from it as elements named \fBstart\fP, \fBword\-before\-cursor\fP,
+\fBws\-before\-cursor\fP, \fBws\-after\-cursor\fP, \fBword\-after\-cursor\fP,
+\fBws\-after\-word\fP, and \fBend\fP\&.  In addition the element
+\fBis\-word\-start\fP is 1 if the cursor is on the start of a word or
+subword, or on white space before it (the cases can be distinguished by
+testing the \fBws\-after\-cursor\fP element) and 0 otherwise\&.  This form is
+recommended for future compatibility\&.
 .PP
 It is possible to pass options with arguments to \fBmatch\-words\-by\-style\fP
 to override the use of styles\&.  The options are:
@@ -2445,7 +2516,7 @@ The \fBword\-context\fP style is implemented by the function
 directly\&.
 .RE
 .TP
-bracketed\-paste\-magic
+\fBbracketed\-paste\-magic\fP
 The \fBbracketed\-paste\fP widget (see subsection Miscellaneous in
 \fIzshzle\fP(1))
 inserts pasted text literally into the editor buffer rather than interpret
@@ -3561,6 +3632,18 @@ a local URL apart, attempts to pattern\-match the local file portion of the
 URL path, and then puts the results back into URL format again\&.
 .RE
 .TP
+\fBvi\-pipe\fP
+This function reads a movement command from the keyboard and then
+prompts for an external command\&. The part of the buffer covered by
+the movement is piped to the external command and then replaced by
+the command\&'s output\&. If the movement command is bound to vi\-pipe,
+the current line is used\&.
+.RS
+.PP
+The function serves as an example for reading a vi movement command
+from within a user\-defined widget\&.
+.RE
+.TP
 \fBwhich\-command\fP
 This function is a drop\-in replacement for the builtin widget
 \fBwhich\-command\fP\&.  It has enhanced behaviour, in that it correctly
@@ -3589,6 +3672,9 @@ the variable \fBZCALC_AUTO_INSERT_PREFIX\fP\&.
 .PP
 Hence, for example, typing `\fB+12\fP\&' followed by return adds 12
 to the previous result\&.
+.PP
+If zcalc is in RPN mode (\fB\-r\fP option) the effect of this binding is
+automatically suppressed as operators alone on a line are meaningful\&.
 .PP
 When not in zcalc, the key simply inserts the symbol itself\&.
 .RE
@@ -4091,7 +4177,7 @@ will ensure that any files found in that area will be executed as MIME
 types even if they are executable\&.  As this example shows, the complete
 file name is matched against the pattern, regardless of how the file
 was passed to the handler\&.  The file is resolved to a full path using
-the \fB:A\fP modifier described in
+the \fB:P\fP modifier described in
 the subsection Modifiers in \fIzshexpn\fP(1);
 this means that symbolic links are resolved where possible, so that
 links into other file systems behave in the correct fashion\&.
@@ -4358,7 +4444,7 @@ for Opera, and \fB%b \-remote "openUrl(%u)"\fP for all others\&.
 .PD 0
 .TP
 .PD
-\fBzcalc\fP [ \fB\-ef\fP ] [ \fIexpression\fP \&.\&.\&. ]
+\fBzcalc\fP [ \fB\-erf\fP ] [ \fIexpression\fP \&.\&.\&. ]
 A reasonably powerful calculator based on zsh\&'s arithmetic evaluation
 facility\&.  The syntax is similar to that of formulae in most programming
 languages; see
@@ -4408,8 +4494,14 @@ first few positional parameters\&.  A visual indication of this is given when
 the calculator starts\&.
 .PP
 The constants \fBPI\fP (3\&.14159\&.\&.\&.) and \fBE\fP (2\&.71828\&.\&.\&.) are provided\&.
-Parameter assignment is possible, but note that all parameters will be put
-into the global namespace\&.
+Parameter assignment is possible, but note that all parameters will be
+put into the global namespace unless the \fB:local\fP special command is
+used\&.  The function creates local variables whose names start with
+\fB_\fP, so users should avoid doing so\&.  The variables \fBans\fP (the last
+answer) and \fBstack\fP (the stack in RPN mode) may be referred to
+directly; \fBstack\fP is an array but elements of it are numeric\&.  Various
+other special variables are used locally with their standard meaning,
+for example \fBcompcontext\fP, \fBmatch\fP, \fBmbegin\fP, \fBmend\fP, \fBpsvar\fP\&.
 .PP
 The output base can be initialised by passing the option `\fB\-#\fP\fIbase\fP\&',
 for example `\fBzcalc \-#16\fP\&' (the `\fB#\fP' may have to be quoted, depending
@@ -4423,11 +4515,69 @@ If the option `\fB\-f\fP\&' is set, all numbers are treated as floating
 point, hence for example the expression `\fB3/4\fP\&' evaluates to 0\&.75
 rather than 0\&.  Options must appear in separate words\&.
 .PP
+If the option `\fB\-r\fP\&' is set, RPN (Reverse Polish Notation) mode is
+entered\&.  This has various additional properties:
+.PD 0
+.TP
+.PD
+Stack
+Evaluated values are maintained in a stack; this is contained in
+an array named \fBstack\fP with the most recent value in \fB${stack[1]}\fP\&.
+.TP
+Operators and functions
+If the line entered matches an operator (\fB+\fP, \fB\-\fP, \fB*\fP,
+\fB/\fP, \fB**\fP, \fB^\fP, \fB|\fP or \fB&\fP) or a function supplied by the
+\fBzsh/mathfunc\fP library, the bottom element or elements of the stack
+are popped to use as the argument or arguments\&.  The higher elements
+of stack (least recent) are used as earlier arguments\&.  The result is
+then pushed into \fB${stack[1]}\fP\&.
+.TP
+Expressions
+Other expressions are evaluated normally, printed, and added to the
+stack as numeric values\&.  The syntax within expressions on a single line
+is normal shell arithmetic (not RPN)\&.
+.TP
+Stack listing
+If an integer follows the option \fB\-r\fP with no space, then
+on every evaluation that many elements of the stack, where available,
+are printed instead of just the most recent result\&.  Hence, for example,
+\fBzcalc \-r4\fP shows \fB$stack[4]\fP to \fB$stack[1]\fP each time results
+are printed\&.
+.TP
+Duplication: \fB=\fP
+The pseudo\-operator \fB=\fP causes the most recent element of
+the stack to be duplicated onto the stack\&.
+.TP
+\fBpop\fP
+The pseudo\-function \fBpop\fP causes the most recent element of
+the stack to be popped\&.  A `\fB>\fP\&' on its own has the same effect\&.
+.TP
+\fB>\fP\fIident\fP
+The expression \fB>\fP followed (with no space) by a shell identifier
+causes the most recent element of the stack to be popped and
+assigned to the variable with that name\&.  The variable is
+local to the \fBzcalc\fP function\&.
+.TP
+\fB<\fP\fIident\fP
+The expression \fB<\fP followed (with no space) by a shell identifier
+causes the value of the variable with that name to be pushed
+onto the stack\&.  \fIident\fP may be an integer, in which
+case the previous result with that number (as shown before
+the \fB>\fP in the standard \fBzcalc\fP prompt) is put on the stack\&.
+.TP
+Exchange: \fBxy\fP
+The pseudo\-function \fBxy\fP causes the most recent two elements of
+the stack to be exchanged\&.  `\fB<>\fP\&' has the same effect\&.
+.PP
 The prompt is configurable via the parameter \fBZCALCPROMPT\fP, which
 undergoes standard prompt expansion\&.  The index of the current entry is
 stored locally in the first element of the array \fBpsvar\fP, which can be
 referred to in \fBZCALCPROMPT\fP as `\fB%1v\fP\&'\&.  The default prompt is
 `\fB%1v> \fP\&'\&.
+.PP
+The variable \fBZCALC_ACTIVE\fP is set within the function and can
+be tested by nested functions; it has the value \fBrpn\fP if RPN mode is
+active, else 1\&.
 .PP
 A few special commands are available; these are introduced by a colon\&.
 For backward compatibility, the colon may be omitted for certain
@@ -4470,8 +4620,7 @@ is executed in the context of the function, i\&.e\&. with local variables\&.
 Space is optional after \fB:!\fP\&.
 .TP
 \fB:local\fP \fIarg\fP \&.\&.\&.
-Declare variables local to the function\&.  Note that certain variables
-are used by the function for its own purposes\&.  Other variables
+Declare variables local to the function\&.  Other variables
 may be used, too, but they will be taken from or put into the global
 scope\&.
 .TP
@@ -4490,7 +4639,13 @@ Note that \fBzcalc\fP takes care of all quoting\&.  Hence for example:
 .fi
 .RE
 .PP
-defines a function to cube the sole argument\&.
+defines a function to cube the sole argument\&.  Functions so defined, or
+indeed any functions defined directly or indirectly using \fBfunctions
+\-M\fP, are available to execute by typing only the name on the line in RPN
+mode; this pops the appropriate number of arguments off the stack
+to pass to the function, i\&.e\&. 1 in the case of the example \fBcube\fP
+function\&.  If there are optional arguments only the mandatory
+arguments are supplied by this means\&.
 .RE
 .TP
 \fB[#\fP\fIbase\fP\fB]\fP
@@ -4502,8 +4657,33 @@ just to display the raw number in the given base\&.  Bases themselves are
 always specified in decimal\&. `\fB[#]\fP\&' restores the normal output format\&.
 Note that setting an output base suppresses floating point output; use
 `\fB[#]\fP\&' to return to normal operation\&.
+.TP
+\fB$\fP\fIvar\fP
+Print out the value of var literally; does not affect the calculation\&.
+To use the value of var, omit the leading `\fB$\fP\&'\&.
 .PP
 See the comments in the function for a few extra tips\&.
+.RE
+.TP
+.PD 0
+\fBmin(\fP\fIarg\fP\fB, \&.\&.\&.)\fP
+.TP
+.PD 0
+\fBmax(\fP\fIarg\fP\fB, \&.\&.\&.)\fP
+.TP
+.PD 0
+\fBsum(\fP\fIarg\fP\fB, \&.\&.\&.)\fP
+.TP
+.PD
+\fBzmathfunc\fP
+The function \fBzmathfunc\fP defines the three mathematical functions
+\fBmin\fP, \fBmax\fP, and \fBsum\fP\&.  The functions \fBmin\fP and \fBmax\fP take
+one or more arguments\&.  The function \fBsum\fP takes zero or more arguments\&.
+Arguments can be of different types (ints and floats)\&.
+.RS
+.PP
+Not to be confused with the \fBzsh/mathfunc\fP module, described in
+the section `The zsh/mathfunc Module\&' in \fIzshmodules\fP(1)\&.
 .RE
 .TP
 \fBzmathfuncdef\fP [ \fImathfunc\fP [ \fIbody\fP ] ]
@@ -4763,14 +4943,35 @@ your search path, in order to be found and used by \fBrun\-help\fP\&.
 .PD 0
 .TP
 .PD 0
-\fBrun\-help\-git\fP
+run\-help\-git
 .TP
 .PD 0
-\fBrun\-help\-svk\fP
+run\-help\-ip
+.TP
+.PD 0
+run\-help\-openssl
+.TP
+.PD 0
+run\-help\-p4
+.TP
+.PD 0
+run\-help\-sudo
+.TP
+.PD 0
+run\-help\-svk
 .TP
 .PD
 \fBrun\-help\-svn\fP
-Assistant functions for the \fBgit\fP, \fBsvk\fP, and \fBsvn\fP commands\&.
+Assistant functions for the
+\fBgit\fP,
+\fBip\fP,
+\fBopenssl\fP,
+\fBp4\fP,
+\fBsudo\fP,
+\fBsvk\fP,
+and 
+\fBsvn\fP,
+commands\&.
 .RE
 .TP
 \fBtetris\fP

@@ -58,7 +58,7 @@
     erwarten, aber klein genug, um sicherzustellen, dass genug physischer
     Arbeitsspeicher für alle Prozesse vorhanden ist.</p>
 </div>
-<div id="quickview"><h3>Themen</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Themen</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#how-it-works">Arbeitsweise</a></li>
 </ul><h3 class="directives">Direktiven</h3>
@@ -213,7 +213,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/prefork.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Module</a> | <a href="../mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossar</a> | <a href="../sitemap.html">Seitenindex</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

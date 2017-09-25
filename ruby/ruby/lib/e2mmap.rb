@@ -1,13 +1,18 @@
+# frozen_string_literal: false
 #
-#   e2mmap.rb - for ruby 1.1
+#--
+#   e2mmap.rb - for Ruby 1.1
 #       $Release Version: 2.0$
 #       $Revision: 1.10 $
 #       by Keiju ISHITSUKA
 #
-# --
-#   Usage:
+#++
 #
-# U1)
+# Helper module for easily defining exceptions with predefined messages.
+#
+# == Usage
+#
+# 1.
 #   class Foo
 #     extend Exception2MessageMapper
 #     def_e2message ExistingExceptionClass, "message..."
@@ -15,10 +20,10 @@
 #     ...
 #   end
 #
-# U2)
+# 2.
 #   module Error
 #     extend Exception2MessageMapper
-#     def_e2meggage ExistingExceptionClass, "message..."
+#     def_e2message ExistingExceptionClass, "message..."
 #     def_exception :NewExceptionClass, "message..."[, superclass]
 #     ...
 #   end
@@ -30,7 +35,7 @@
 #   foo = Foo.new
 #   foo.Fail ....
 #
-# U3)
+# 3.
 #   module Error
 #     extend Exception2MessageMapper
 #     def_e2message ExistingExceptionClass, "message..."
@@ -48,9 +53,8 @@
 #
 #
 module Exception2MessageMapper
-  @RCS_ID='-$Id: e2mmap.rb,v 1.10 1999/02/17 12:33:17 keiju Exp keiju $-'
 
-  E2MM = Exception2MessageMapper
+  E2MM = Exception2MessageMapper # :nodoc:
 
   def E2MM.extend_object(cl)
     super
@@ -138,8 +142,6 @@ module Exception2MessageMapper
   def E2MM.Raise(klass = E2MM, err = nil, *rest)
     if form = e2mm_message(klass, err)
       b = $@.nil? ? caller(1) : $@
-      #p $@
-      #p __FILE__
       b.shift if b[0] =~ /^#{Regexp.quote(__FILE__)}:/
       raise err, sprintf(form, *rest), b
     else
@@ -153,7 +155,6 @@ module Exception2MessageMapper
   def E2MM.e2mm_message(klass, exp)
     for c in klass.ancestors
       if mes = @MessageMap[[c,exp]]
-        #p mes
         m = klass.instance_eval('"' + mes + '"')
         return m
       end
@@ -166,7 +167,7 @@ module Exception2MessageMapper
 
   E2MM.def_exception(E2MM,
                      :ErrNotRegisteredException,
-                     "not registerd exception(%s)")
+                     "not registered exception(%s)")
 end
 
 

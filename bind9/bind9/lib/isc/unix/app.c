@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009, 2013-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -107,6 +107,11 @@ ISC_APPFUNC_SCOPE void isc__appctx_setsocketmgr(isc_appctx_t *ctx,
 						isc_socketmgr_t *socketmgr);
 ISC_APPFUNC_SCOPE void isc__appctx_settimermgr(isc_appctx_t *ctx,
 					       isc_timermgr_t *timermgr);
+ISC_APPFUNC_SCOPE isc_result_t isc__app_ctxonrun(isc_appctx_t *ctx,
+						 isc_mem_t *mctx,
+						 isc_task_t *task,
+						 isc_taskaction_t action,
+						 void *arg);
 
 /*
  * The application context of this module.  This implementation actually
@@ -148,8 +153,8 @@ static struct {
 	 * The following are defined just for avoiding unused static functions.
 	 */
 #ifndef BIND9
-	void *run, *shutdown, *start, *onrun, *reload, *finish,
-		*block, *unblock;
+	void *run, *shutdown, *start, *onrun,
+	     *reload, *finish, *block, *unblock;
 #endif
 } appmethods = {
 	{
@@ -161,7 +166,8 @@ static struct {
 		isc__app_ctxfinish,
 		isc__appctx_settaskmgr,
 		isc__appctx_setsocketmgr,
-		isc__appctx_settimermgr
+		isc__appctx_settimermgr,
+		isc__app_ctxonrun
 	}
 #ifndef BIND9
 	,
@@ -373,7 +379,7 @@ isc__app_start(void) {
 	}
 	presult = sigprocmask(SIG_UNBLOCK, &sset, NULL);
 	if (presult != 0) {
-		isc__strerror(presult, strbuf, sizeof(strbuf));
+		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 				 "isc_app_start() sigprocmask: %s", strbuf);
 		return (ISC_R_UNEXPECTED);
@@ -387,13 +393,22 @@ ISC_APPFUNC_SCOPE isc_result_t
 isc__app_onrun(isc_mem_t *mctx, isc_task_t *task, isc_taskaction_t action,
 	      void *arg)
 {
+	return (isc__app_ctxonrun((isc_appctx_t *)&isc_g_appctx, mctx,
+				  task, action, arg));
+}
+
+isc_result_t
+isc__app_ctxonrun(isc_appctx_t *ctx0, isc_mem_t *mctx, isc_task_t *task,
+		  isc_taskaction_t action, void *arg)
+{
+	isc__appctx_t *ctx = (isc__appctx_t *)ctx0;
 	isc_event_t *event;
 	isc_task_t *cloned_task = NULL;
 	isc_result_t result;
 
-	LOCK(&isc_g_appctx.lock);
+	LOCK(&ctx->lock);
 
-	if (isc_g_appctx.running) {
+	if (ctx->running) {
 		result = ISC_R_ALREADYRUNNING;
 		goto unlock;
 	}
@@ -410,12 +425,12 @@ isc__app_onrun(isc_mem_t *mctx, isc_task_t *task, isc_taskaction_t action,
 		goto unlock;
 	}
 
-	ISC_LIST_APPEND(isc_g_appctx.on_run, event, ev_link);
+	ISC_LIST_APPEND(ctx->on_run, event, ev_link);
 
 	result = ISC_R_SUCCESS;
 
  unlock:
-	UNLOCK(&isc_g_appctx.lock);
+	UNLOCK(&ctx->lock);
 
 	return (result);
 }
@@ -677,6 +692,15 @@ isc__app_ctxrun(isc_appctx_t *ctx0) {
 					 strbuf);
 			return (ISC_R_UNEXPECTED);
 		}
+#ifdef HAVE_GPERFTOOLS_PROFILER
+		if (sigaddset(&sset, SIGALRM) != 0) {
+			isc__strerror(errno, strbuf, sizeof(strbuf));
+			UNEXPECTED_ERROR(__FILE__, __LINE__,
+					 "isc_app_run() sigsetops: %s",
+					 strbuf);
+			return (ISC_R_UNEXPECTED);
+		}
+#endif
 		result = sigsuspend(&sset);
 #endif /* HAVE_SIGWAIT */
 
@@ -703,7 +727,7 @@ isc__app_ctxrun(isc_appctx_t *ctx0) {
 }
 
 ISC_APPFUNC_SCOPE isc_result_t
-isc__app_run() {
+isc__app_run(void) {
 	return (isc__app_ctxrun((isc_appctx_t *)&isc_g_appctx));
 }
 
@@ -758,7 +782,7 @@ isc__app_ctxshutdown(isc_appctx_t *ctx0) {
 }
 
 ISC_APPFUNC_SCOPE isc_result_t
-isc__app_shutdown() {
+isc__app_shutdown(void) {
 	return (isc__app_ctxshutdown((isc_appctx_t *)&isc_g_appctx));
 }
 
@@ -940,7 +964,7 @@ isc__appctx_settimermgr(isc_appctx_t *ctx0, isc_timermgr_t *timermgr) {
 
 #ifdef USE_APPIMPREGISTER
 isc_result_t
-isc__app_register() {
+isc__app_register(void) {
 	return (isc_app_register(isc__appctx_create));
 }
 #endif

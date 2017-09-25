@@ -597,7 +597,7 @@ static void pastebuf(Cutbuffer buf, int mult, int position)
 	    zlecs += cc;
 	}
 	yanke = zlecs;
-	if (zlecs)
+	if (zlecs && invicmdmode())
 	    DECCS();
     }
 }
@@ -609,8 +609,10 @@ viputbefore(UNUSED(char **args))
     int n = zmult;
 
     startvichange(-1);
-    if (n < 0 || zmod.flags & MOD_NULL)
+    if (n < 0)
 	return 1;
+    if (zmod.flags & MOD_NULL)
+	return 0;
     if (zmod.flags & MOD_VIBUF)
 	kctbuf = &vibuf[zmod.vibuf];
     else
@@ -630,8 +632,10 @@ viputafter(UNUSED(char **args))
     int n = zmult;
 
     startvichange(-1);
-    if (n < 0 || zmod.flags & MOD_NULL)
+    if (n < 0)
 	return 1;
+    if (zmod.flags & MOD_NULL)
+	return 0;
     if (zmod.flags & MOD_VIBUF)
 	kctbuf = &vibuf[zmod.vibuf];
     else
@@ -780,7 +784,7 @@ bracketedpaste(char **args)
 	int n;
 	ZLE_STRING_T wpaste;
 	wpaste = stringaszleline((zmult == 1) ? pbuf :
-	    quotestring(pbuf, NULL, QT_SINGLE_OPTIONAL), 0, &n, NULL, NULL);
+	    quotestring(pbuf, QT_SINGLE_OPTIONAL), 0, &n, NULL, NULL);
 	cuttext(wpaste, n, CUT_REPLACE);
 	if (!(zmod.flags & MOD_VIBUF)) {
 	    kct = -1;
@@ -1497,7 +1501,7 @@ struct suffixset {
 };
 
 /* The list of suffix structures */
-struct suffixset *suffixlist;
+static struct suffixset *suffixlist;
 
 /* Shell function to call to remove the suffix. */
 

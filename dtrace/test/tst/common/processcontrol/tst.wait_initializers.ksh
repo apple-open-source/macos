@@ -15,7 +15,7 @@ dtrace=/usr/sbin/dtrace
 (
 	while [ 1 -eq 1 ]
 	do
-		/usr/bin/true
+		./tst.has_initializers.exe
 		sleep 0.01
 	done
 ) &
@@ -24,12 +24,18 @@ SUBPID=$!
 
 script()
 {
-	$dtrace -xnolibs -W true -qs /dev/stdin <<EOF
-	pid\$target::libSystem_initializer:entry
+	$dtrace -xnolibs -W tst.has_initializers.exe -qs /dev/stdin <<EOF
+	pid\$target::function_called_by_initializer:entry
 	{
 		trace("Called");
 		exit(0);
 	}
+	pid\$target::main_binary_function:entry
+	{
+		trace("Library initializer not called or called after main");
+		exit(1);
+	}
+
 EOF
 }
 

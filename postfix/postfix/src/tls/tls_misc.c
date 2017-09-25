@@ -12,6 +12,7 @@
 /*	char	*var_tls_low_clist;
 /*	char	*var_tls_export_clist;
 /*	char	*var_tls_null_clist;
+/*	char	*var_tls_eecdh_auto;
 /*	char	*var_tls_eecdh_strong;
 /*	char	*var_tls_eecdh_ultra;
 /*	char	*var_tls_dane_agility;
@@ -243,6 +244,7 @@ char   *var_tls_low_clist;
 char   *var_tls_export_clist;
 char   *var_tls_null_clist;
 int     var_tls_daemon_rand_bytes;
+char   *var_tls_eecdh_auto;
 char   *var_tls_eecdh_strong;
 char   *var_tls_eecdh_ultra;
 char   *var_tls_dane_agility;
@@ -380,6 +382,18 @@ static const LONG_NAME_MASK ssl_op_tweaks[] = {
     NAME_SSL_OP(NO_COMPRESSION),
     0, 0,
 };
+
+ /*
+  * Once these have been a NOOP long enough, they might some day be removed
+  * from OpenSSL.  The defines below will avoid bitrot issues if/when that
+  * happens.
+  */
+#ifndef SSL_OP_SINGLE_DH_USE
+#define SSL_OP_SINGLE_DH_USE 0
+#endif
+#ifndef SSL_OP_SINGLE_ECDH_USE
+#define SSL_OP_SINGLE_ECDH_USE 0
+#endif
 
  /*
   * Ciphersuite name <=> code conversion.
@@ -632,6 +646,7 @@ void    tls_param_init(void)
 	VAR_TLS_LOW_CLIST, DEF_TLS_LOW_CLIST, &var_tls_low_clist, 1, 0,
 	VAR_TLS_EXPORT_CLIST, DEF_TLS_EXPORT_CLIST, &var_tls_export_clist, 1, 0,
 	VAR_TLS_NULL_CLIST, DEF_TLS_NULL_CLIST, &var_tls_null_clist, 1, 0,
+	VAR_TLS_EECDH_AUTO, DEF_TLS_EECDH_AUTO, &var_tls_eecdh_auto, 1, 0,
 	VAR_TLS_EECDH_STRONG, DEF_TLS_EECDH_STRONG, &var_tls_eecdh_strong, 1, 0,
 	VAR_TLS_EECDH_ULTRA, DEF_TLS_EECDH_ULTRA, &var_tls_eecdh_ultra, 1, 0,
 	VAR_TLS_BUG_TWEAKS, DEF_TLS_BUG_TWEAKS, &var_tls_bug_tweaks, 0, 0,
@@ -1059,6 +1074,14 @@ long    tls_bug_bits(void)
 	enable &= ~(SSL_OP_ALL | TLS_SSL_OP_MANAGED_BITS);
 	bits |= enable;
     }
+
+    /*
+     * We unconditionally avoid re-use of ephemeral keys, note that we set DH
+     * keys via a callback, so reuse was never possible, but the ECDH key is
+     * set statically, so that is potentially subject to reuse.  Set both
+     * options just in case.
+     */
+    bits |= SSL_OP_SINGLE_ECDH_USE | SSL_OP_SINGLE_DH_USE;
     return (bits);
 }
 

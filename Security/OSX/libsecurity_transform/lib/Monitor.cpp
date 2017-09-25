@@ -45,11 +45,8 @@ void BlockMonitor::AttributeChanged(CFStringRef name, CFTypeRef value)
 	}
 	
 	mSeenFinal = isFinal;
-	
-	if (realValue)
-	{
-		CFRetain(realValue);
-	}	
+
+    CFRetainSafe(realValue);
 	
 	if (mDispatchQueue == NULL)
 	{
@@ -74,7 +71,7 @@ BlockMonitor::BlockMonitor(dispatch_queue_t queue, SecMessageBlock block) : Moni
 		block(value, error, isFinal);
 		if (value)
 		{
-			CFRelease(value);
+			CFReleaseNull(value);
 		}
 		if (isFinal && mGroup) {
             LastValueSent();
@@ -98,7 +95,7 @@ void BlockMonitor::LastValueSent()
     Transform *rootGroup = this->GetRootGroup();
     CFTypeRef rootGroupRef = rootGroup->GetCFObject();
     dispatch_async(rootGroup->mDispatchQueue, ^{
-        CFRelease(rootGroupRef);
+        CFReleaseSafe(rootGroupRef);
     });
 }
 

@@ -67,6 +67,7 @@
 #import <WebCore/SecurityOriginData.h>
 #import <WebCore/SerializedCryptoKeyWrap.h>
 #import <WebCore/URL.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
 
 #if HAVE(APP_LINKS)
@@ -149,6 +150,7 @@ void NavigationState::setNavigationDelegate(id <WKNavigationDelegate> delegate)
     m_navigationDelegateMethods.webViewDidFailNavigationWithError = [delegate respondsToSelector:@selector(webView:didFailNavigation:withError:)];
 
     m_navigationDelegateMethods.webViewNavigationDidFailProvisionalLoadInSubframeWithError = [delegate respondsToSelector:@selector(_webView:navigation:didFailProvisionalLoadInSubframe:withError:)];
+    m_navigationDelegateMethods.webViewDidPerformClientRedirectForNavigation = [delegate respondsToSelector:@selector(_webView:didPerformClientRedirectForNavigation:)];
     m_navigationDelegateMethods.webViewNavigationDidFinishDocumentLoad = [delegate respondsToSelector:@selector(_webView:navigationDidFinishDocumentLoad:)];
     m_navigationDelegateMethods.webViewNavigationDidSameDocumentNavigation = [delegate respondsToSelector:@selector(_webView:navigation:didSameDocumentNavigation:)];
     m_navigationDelegateMethods.webViewRenderingProgressDidChange = [delegate respondsToSelector:@selector(_webView:renderingProgressDidChange:)];
@@ -168,6 +170,7 @@ void NavigationState::setNavigationDelegate(id <WKNavigationDelegate> delegate)
 #if USE(QUICK_LOOK)
     m_navigationDelegateMethods.webViewDidStartLoadForQuickLookDocumentInMainFrame = [delegate respondsToSelector:@selector(_webView:didStartLoadForQuickLookDocumentInMainFrameWithFileName:uti:)];
     m_navigationDelegateMethods.webViewDidFinishLoadForQuickLookDocumentInMainFrame = [delegate respondsToSelector:@selector(_webView:didFinishLoadForQuickLookDocumentInMainFrame:)];
+    m_navigationDelegateMethods.webViewDidRequestPasswordForQuickLookDocument = [delegate respondsToSelector:@selector(_webViewDidRequestPasswordForQuickLookDocument:)];
 #endif
 }
 
@@ -246,6 +249,20 @@ void NavigationState::navigationGestureSnapshotWasRemoved()
     [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate) _webViewDidRemoveNavigationGestureSnapshot:m_webView];
 }
 
+#if USE(QUICK_LOOK)
+void NavigationState::didRequestPasswordForQuickLookDocument()
+{
+    if (!m_navigationDelegateMethods.webViewDidRequestPasswordForQuickLookDocument)
+        return;
+
+    auto navigationDelegate = m_navigationDelegate.get();
+    if (!navigationDelegate)
+        return;
+
+    [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate) _webViewDidRequestPasswordForQuickLookDocument:m_webView];
+}
+#endif
+
 void NavigationState::didFirstPaint()
 {
     if (!m_navigationDelegateMethods.webViewRenderingProgressDidChange)
@@ -267,7 +284,7 @@ NavigationState::NavigationClient::~NavigationClient()
 {
 }
 
-static void tryAppLink(RefPtr<API::NavigationAction>&& navigationAction, const String& currentMainFrameURL, std::function<void(bool)> completionHandler)
+static void tryAppLink(RefPtr<API::NavigationAction>&& navigationAction, const String& currentMainFrameURL, WTF::Function<void(bool)>&& completionHandler)
 {
 #if HAVE(APP_LINKS)
     if (!navigationAction->shouldOpenAppLinks()) {
@@ -275,7 +292,7 @@ static void tryAppLink(RefPtr<API::NavigationAction>&& navigationAction, const S
         return;
     }
 
-    auto* localCompletionHandler = new std::function<void (bool)>(WTFMove(completionHandler));
+    auto* localCompletionHandler = new WTF::Function<void (bool)>(WTFMove(completionHandler));
     [LSAppLink openWithURL:navigationAction->request().url() completionHandler:[localCompletionHandler](BOOL success, NSError *) {
         dispatch_async(dispatch_get_main_queue(), [localCompletionHandler, success] {
             (*localCompletionHandler)(success);
@@ -296,7 +313,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationAction(WebPageP
         RefPtr<API::NavigationAction> localNavigationAction = &navigationAction;
         RefPtr<WebFramePolicyListenerProxy> localListener = WTFMove(listener);
 
-        tryAppLink(WTFMove(localNavigationAction), mainFrameURLString, [localListener, localNavigationAction = RefPtr<API::NavigationAction>(&navigationAction)] (bool followedLinkToApp) {
+        tryAppLink(WTFMove(localNavigationAction), mainFrameURLString, [webPage = RefPtr<WebPageProxy>(&webPageProxy), localListener, localNavigationAction = RefPtr<API::NavigationAction>(&navigationAction)] (bool followedLinkToApp) {
             if (followedLinkToApp) {
                 localListener->ignore();
                 return;
@@ -308,7 +325,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationAction(WebPageP
             }
 
             RetainPtr<NSURLRequest> nsURLRequest = adoptNS(wrapper(API::URLRequest::create(localNavigationAction->request()).leakRef()));
-            if ([NSURLConnection canHandleRequest:nsURLRequest.get()]) {
+            if ([NSURLConnection canHandleRequest:nsURLRequest.get()] || webPage->urlSchemeHandlerForScheme([nsURLRequest URL].scheme)) {
                 if (localNavigationAction->shouldPerformDownload())
                     localListener->download();
                 else
@@ -470,6 +487,23 @@ void NavigationState::NavigationClient::didReceiveServerRedirectForProvisionalNa
         wkNavigation = wrapper(*navigation);
 
     [navigationDelegate webView:m_navigationState.m_webView didReceiveServerRedirectForProvisionalNavigation:wkNavigation];
+}
+
+void NavigationState::NavigationClient::didPerformClientRedirectForNavigation(WebPageProxy& page, API::Navigation* navigation)
+{
+    if (!m_navigationState.m_navigationDelegateMethods.webViewDidPerformClientRedirectForNavigation)
+        return;
+
+    auto navigationDelegate = m_navigationState.m_navigationDelegate.get();
+    if (!navigationDelegate)
+        return;
+
+    // FIXME: We should assert that navigation is not null here, but it's currently null for some navigations through the page cache.
+    WKNavigation *wkNavigation = nil;
+    if (navigation)
+        wkNavigation = wrapper(*navigation);
+
+    [(id <WKNavigationDelegatePrivate>)navigationDelegate _webView:m_navigationState.m_webView didPerformClientRedirectForNavigation:wkNavigation];
 }
 
 static RetainPtr<NSError> createErrorWithRecoveryAttempter(WKWebView *webView, WebFrameProxy& webFrameProxy, NSError *originalError)
@@ -695,7 +729,7 @@ void NavigationState::NavigationClient::didReceiveAuthenticationChallenge(WebPag
     [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate.get()) _webView:m_navigationState.m_webView didReceiveAuthenticationChallenge:wrapper(*authenticationChallenge)];
 }
 
-void NavigationState::NavigationClient::processDidCrash(WebKit::WebPageProxy& page)
+void NavigationState::NavigationClient::processDidTerminate(WebKit::WebPageProxy& page, WebKit::ProcessTerminationReason)
 {
     if (!m_navigationState.m_navigationDelegateMethods.webViewWebContentProcessDidTerminate && !m_navigationState.m_navigationDelegateMethods.webViewWebProcessDidCrash)
         return;
@@ -872,7 +906,7 @@ void NavigationState::didChangeIsLoading()
     } else {
         // Delay releasing the background activity for 3 seconds to give the application a chance to start another navigation
         // before suspending the WebContent process <rdar://problem/27910964>.
-        m_releaseActivityTimer.startOneShot(3s);
+        m_releaseActivityTimer.startOneShot(3_s);
     }
 #endif
 

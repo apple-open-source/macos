@@ -175,6 +175,8 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
 
     secdebug("caissuer", "response: %@ not parent, trying next caissuer",
         http->response);
+    /* We're re-using this http object, so we need to free all the old memory. */
+    asynchttp_free(&request->http);
     SecCAIssuerRequestIssue(request);
 }
 

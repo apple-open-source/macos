@@ -28,7 +28,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <utilities/SecAppleAnchorPriv.h>
 #include <utilities/SecInternalReleasePriv.h>
-#include <security_codesigning/requirement.h>
+#include "requirement.h"
 #include <security_utilities/hashing.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/errors.h>
@@ -67,9 +67,13 @@ void hashOfCertificate(const void *certData, size_t certLength, SHA1::Digest dig
 void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest)
 {
 	assert(cert);
+#if TARGET_OS_OSX
 	CSSM_DATA certData;
 	MacOSError::check(SecCertificateGetData(cert, &certData));
 	hashOfCertificate(certData.Data, certData.Length, digest);
+#else
+    hashOfCertificate(SecCertificateGetBytePtr(cert), SecCertificateGetLength(cert), digest);
+#endif
 }
 
 
@@ -83,7 +87,7 @@ bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest)
 	return !memcmp(dig, digest, SHA1::digestLength);
 }
 
-
+#if TARGET_OS_OSX
 //
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,
 // even ones not recognized by the local CL. It does not return any value, only presence.
@@ -147,7 +151,7 @@ bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid)
 	SecCertificateReleaseFirstFieldValue(cert, &CSSMOID_PolicyConstraints, data);
 	return matched;
 }
-
+#endif
 
 //
 // Copyfile

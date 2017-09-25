@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/package/tar_test_case'
 require 'rubygems/package'
 
@@ -31,6 +32,8 @@ class TestGemPackageTarHeader < Gem::Package::TarTestCase
     new_header = Gem::Package::TarHeader.from io
 
     assert_headers_equal @tar_header, new_header
+  ensure
+    io.close!
   end
 
   def test_initialize
@@ -70,6 +73,20 @@ class TestGemPackageTarHeader < Gem::Package::TarTestCase
     assert_raises ArgumentError do
       Gem::Package::TarHeader.new :prefix => '', :size => '', :mode => ''
     end
+  end
+
+  def test_initialize_typeflag
+    header = {
+      :mode     => '',
+      :name     => '',
+      :prefix   => '',
+      :size     => '',
+      :typeflag => '',
+    }
+
+    tar_header = Gem::Package::TarHeader.new header
+
+    assert_equal '0', tar_header.typeflag
   end
 
   def test_empty_eh

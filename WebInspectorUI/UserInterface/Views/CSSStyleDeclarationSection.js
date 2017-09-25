@@ -47,11 +47,24 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
         this._headerElement = document.createElement("div");
         this._headerElement.classList.add("header");
 
+        if (!style.editable) {
+            let lockedIconElement = this._headerElement.createChild("img", "locked-icon");
+
+            let styleLabel;
+            if (style.ownerRule && style.ownerRule.type === WebInspector.CSSStyleSheet.Type.UserAgent)
+                styleLabel = WebInspector.UIString("User Agent Stylesheet");
+            else
+                styleLabel = WebInspector.UIString("Style rule");
+
+            lockedIconElement.title = WebInspector.UIString("%s cannot be modified").format(styleLabel);
+        }
+
         this._iconElement = this._headerElement.createChild("img", "icon");
 
         if (this.selectorEditable) {
             this._selectorInput = this._headerElement.createChild("textarea");
             this._selectorInput.spellcheck = false;
+            this._selectorInput.dir = "ltr";
             this._selectorInput.tabIndex = -1;
             this._selectorInput.addEventListener("mouseover", this._handleMouseOver.bind(this));
             this._selectorInput.addEventListener("mousemove", this._handleMouseMove.bind(this));
@@ -235,7 +248,17 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
                 appendSelectorTextKnownToMatch.call(this, this._style.ownerRule.selectorText);
 
             if (this._style.ownerRule.sourceCodeLocation) {
-                let sourceCodeLink = WebInspector.createSourceCodeLocationLink(this._style.ownerRule.sourceCodeLocation, true);
+                let options = {
+                    dontFloat: true,
+                    ignoreNetworkTab: true,
+                    ignoreSearchTab: true,
+                };
+                if (this._style.ownerStyleSheet.isInspectorStyleSheet()) {
+                    options.nameStyle = WebInspector.SourceCodeLocation.NameStyle.None;
+                    options.prefix = WebInspector.UIString("Inspector Style Sheet") + ":";
+                }
+
+                let sourceCodeLink = WebInspector.createSourceCodeLocationLink(this._style.ownerRule.sourceCodeLocation, options);
                 this._originElement.appendChild(sourceCodeLink);
             } else {
                 let originString;
@@ -278,6 +301,11 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
         this._updateSelectorIcon();
         if (this._selectorInput)
             this._selectorInput.value = this._selectorElement.textContent;
+    }
+
+    refreshEditor()
+    {
+        this._propertiesTextEditor.refresh();
     }
 
     highlightProperty(property)
@@ -626,7 +654,8 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
     _handleKeyDown(event)
     {
         if (event.keyCode === WebInspector.KeyboardShortcut.Key.Enter.keyCode) {
-            this._selectorInput.blur();
+            event.preventDefault();
+            this.focus();
             return;
         }
 
@@ -667,7 +696,7 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
         this._highlightNodesWithSelector();
     }
 
-    _handleBlur()
+    _handleBlur(event)
     {
         this._hideDOMNodeHighlight();
 
@@ -676,6 +705,11 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
             // Revert to the current selector (by doing a refresh) since the new selector is empty.
             this.refresh();
             return;
+        }
+
+        if (event.relatedTarget && event.relatedTarget.isDescendant(this.element)) {
+            this._editorActive = true;
+            this.focus();
         }
 
         this._style.ownerRule.selectorText = newSelectorText;
@@ -690,7 +724,7 @@ WebInspector.CSSStyleDeclarationSection = class CSSStyleDeclarationSection exten
         this._element.classList.toggle("invalid-selector", !!this._hasInvalidSelector);
         if (this._hasInvalidSelector) {
             this._iconElement.title = WebInspector.UIString("The selector “%s” is invalid.\nClick to revert to the previous selector.").format(this._selectorElement.textContent.trim());
-            this._selectorInput.title = WebInspector.UIString("Using the previous selector “%s”.").format(this._style.ownerRule.selectorText);
+            this._selectorInput.title = WebInspector.UIString("Using previous selector “%s”").format(this._style.ownerRule.selectorText);
             return;
         }
 

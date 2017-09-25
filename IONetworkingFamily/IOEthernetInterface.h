@@ -153,7 +153,7 @@ public:
     @result Returns true on success, false otherwise. 
 */
 
-    virtual bool init( IONetworkController * controller );
+    virtual bool init( IONetworkController * controller ) APPLE_KEXT_OVERRIDE;
 
 /*! @function getNamePrefix
     @abstract Returns a string containing the prefix to use when
@@ -165,7 +165,7 @@ public:
     interfaces will be registered with BSD as en0, en1, etc. 
 */
 
-    virtual const char * getNamePrefix() const;
+    virtual const char * getNamePrefix() const APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -175,7 +175,7 @@ protected:
     followed by a call to super::free(). 
 */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 /*! @function performCommand
     @abstract Handles an ioctl command sent to the Ethernet interface.
@@ -194,7 +194,7 @@ protected:
     virtual SInt32 performCommand(IONetworkController * controller,
                                   unsigned long         cmd,
                                   void *                arg0,
-                                  void *                arg1);
+                                  void *                arg1) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerDidOpen
     @abstract A notification that the interface has opened the network
@@ -210,7 +210,7 @@ protected:
     rejected. 
 */
 
-    virtual bool controllerDidOpen(IONetworkController * controller);
+    virtual bool controllerDidOpen(IONetworkController * controller) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerWillClose
     @abstract A notification that the interface will close the network
@@ -220,7 +220,7 @@ protected:
     @param controller The controller that is about to be closed. 
 */
 
-    virtual void controllerWillClose(IONetworkController * controller);
+    virtual void controllerWillClose(IONetworkController * controller) APPLE_KEXT_OVERRIDE;
 
 
 /*! @function controllerWillChangePowerState
@@ -243,7 +243,7 @@ protected:
                                IONetworkController * controller,
                                IOPMPowerFlags        flags,
                                UInt32                stateNumber,
-                               IOService *           policyMaker);
+                               IOService *           policyMaker) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerDidChangePowerState
     @abstract Handles a notification that the network controller servicing
@@ -264,27 +264,27 @@ protected:
                                IONetworkController * controller,
                                IOPMPowerFlags        flags,
                                UInt32                stateNumber,
-                               IOService *           policyMaker);
+                               IOService *           policyMaker) APPLE_KEXT_OVERRIDE;
 
 public:
     /* Override IONetworkInterface::willTerminate() */
 
     virtual bool willTerminate( IOService *  provider,
-                                IOOptionBits options );
+                                IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     /* Override IONetworkInterface::attachToDataLinkLayer() */
 
     virtual IOReturn attachToDataLinkLayer( IOOptionBits options,
-                                            void *       parameter );
+                                            void *       parameter) APPLE_KEXT_OVERRIDE;
 
     /* Override IONetworkInterface::inputEvent() */
 
-    virtual bool inputEvent( UInt32 type, void * data );
+    virtual bool inputEvent( UInt32 type, void * data) APPLE_KEXT_OVERRIDE;
 
 protected:
-	virtual void feedPacketInputTap(mbuf_t);
-	virtual void feedPacketOutputTap(mbuf_t);
-	virtual bool initIfnetParams(struct ifnet_init_params *params);
+	virtual void feedPacketInputTap(mbuf_t) APPLE_KEXT_OVERRIDE;
+	virtual void feedPacketOutputTap(mbuf_t) APPLE_KEXT_OVERRIDE;
+	virtual bool initIfnetParams(struct ifnet_init_params *params) APPLE_KEXT_OVERRIDE;
 
 public:
     // Virtual function padding

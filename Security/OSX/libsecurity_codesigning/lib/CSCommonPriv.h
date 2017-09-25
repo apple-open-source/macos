@@ -86,7 +86,21 @@ enum {
 	
 	kSecCodeMagicByte = 0xfa					/* shared first byte */
 };
-	
+
+/*!
+ @typedef SecCodeExecSegFlags
+ */
+typedef CF_OPTIONS(uint32_t, SecCodeExecSegFlags) {
+	kSecCodeExecSegMainBinary = 0x0001,		/* exec seg belongs to main binary */
+
+	// Entitlements
+	kSecCodeExecSegAllowUnsigned = 0x0010,	/* allow unsigned pages (for debugging) */
+	kSecCodeExecSegDebugger = 0x0020,		/* main binary is debugger */
+	kSecCodeExecSegJit = 0x0040,			/* JIT enabled */
+	kSecCodeExecSegSkipLibraryVal = 0x0080,	/* skip library validation */
+	kSecCodeExecSegCanLoadCdHash = 0x0100,	/* can bless cdhash for execution */
+	kSecCodeExecSegCanExecCdHash = 0x0200,	/* can execute blessed cdhash */
+};
 	
 /*
 	The current (fixed) size of a cdhash in the system.

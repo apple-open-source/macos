@@ -40,11 +40,9 @@
 #include "NativeWebWheelEvent.h"
 #include "PageClientImpl.h"
 #include "WebEventFactory.h"
-#include "WebFullScreenClientGtk.h"
 #include "WebInspectorProxy.h"
 #include "WebKit2Initialize.h"
 #include "WebKitAuthenticationDialog.h"
-#include "WebKitPrivate.h"
 #include "WebKitWebViewBaseAccessible.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebPageGroup.h"
@@ -67,6 +65,7 @@
 #include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 
 #if ENABLE(FULLSCREEN_API)
@@ -161,42 +160,39 @@ struct _WebKitWebViewBasePrivate {
     WebKitWebViewChildrenMap children;
     std::unique_ptr<PageClientImpl> pageClient;
     RefPtr<WebPageProxy> pageProxy;
-    bool shouldForwardNextKeyEvent;
-    bool shouldForwardNextWheelEvent;
+    bool shouldForwardNextKeyEvent { false };
+    bool shouldForwardNextWheelEvent { false };
     ClickCounter clickCounter;
     CString tooltipText;
     IntRect tooltipArea;
     GRefPtr<AtkObject> accessible;
-    GtkWidget* authenticationDialog;
-    GtkWidget* inspectorView;
-    AttachmentSide inspectorAttachmentSide;
-    unsigned inspectorViewSize;
+    GtkWidget* authenticationDialog { nullptr };
+    GtkWidget* inspectorView { nullptr };
+    AttachmentSide inspectorAttachmentSide { AttachmentSide::Bottom };
+    unsigned inspectorViewSize { 0 };
     GUniquePtr<GdkEvent> contextMenuEvent;
-    WebContextMenuProxyGtk* activeContextMenuProxy;
+    WebContextMenuProxyGtk* activeContextMenuProxy { nullptr };
     InputMethodFilter inputMethodFilter;
     KeyBindingTranslator keyBindingTranslator;
     TouchEventsMap touchEvents;
     IntSize contentsSize;
 
-    GtkWindow* toplevelOnScreenWindow;
-    unsigned long toplevelFocusInEventID;
-    unsigned long toplevelFocusOutEventID;
-    unsigned long toplevelWindowStateEventID;
-    unsigned long toplevelWindowRealizedID;
+    GtkWindow* toplevelOnScreenWindow { nullptr };
+    unsigned long toplevelFocusInEventID { 0 };
+    unsigned long toplevelFocusOutEventID { 0 };
+    unsigned long toplevelWindowStateEventID { 0 };
+    unsigned long toplevelWindowRealizedID { 0 };
 
     // View State.
-    ActivityState::Flags activityState;
-    ActivityState::Flags activityStateFlagsToUpdate;
+    ActivityState::Flags activityState { 0 };
+    ActivityState::Flags activityStateFlagsToUpdate { 0 };
     RunLoop::Timer<WebKitWebViewBasePrivate> updateActivityStateTimer;
 
-    WebKitWebViewBaseDownloadRequestHandler downloadHandler;
-
 #if ENABLE(FULLSCREEN_API)
-    bool fullScreenModeActive;
-    WebFullScreenClientGtk fullScreenClient;
+    bool fullScreenModeActive { false };
     GRefPtr<GDBusProxy> screenSaverProxy;
     GRefPtr<GCancellable> screenSaverInhibitCancellable;
-    unsigned screenSaverCookie;
+    unsigned screenSaverCookie { 0 };
 #endif
 
     std::unique_ptr<AcceleratedBackingStore> acceleratedBackingStore;
@@ -219,7 +215,7 @@ static void webkitWebViewBaseScheduleUpdateActivityState(WebKitWebViewBase* webV
     if (priv->updateActivityStateTimer.isActive())
         return;
 
-    priv->updateActivityStateTimer.startOneShot(0);
+    priv->updateActivityStateTimer.startOneShot(0_s);
 }
 
 static gboolean toplevelWindowFocusInEvent(GtkWidget* widget, GdkEventFocus*, WebKitWebViewBase* webViewBase)
@@ -683,6 +679,15 @@ static gboolean webkitWebViewBaseKeyPressEvent(GtkWidget* widget, GdkEventKey* k
     WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(widget);
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
 
+#if ENABLE(DEVELOPER_MODE) && OS(LINUX)
+    if ((keyEvent->state & GDK_CONTROL_MASK) && (keyEvent->state & GDK_SHIFT_MASK) && keyEvent->keyval == GDK_KEY_G) {
+        auto& preferences = priv->pageProxy->preferences();
+        preferences.setResourceUsageOverlayVisible(!preferences.resourceUsageOverlayVisible());
+        priv->shouldForwardNextKeyEvent = FALSE;
+        return TRUE;
+    }
+#endif
+
     if (priv->authenticationDialog)
         return GTK_WIDGET_CLASS(webkit_web_view_base_parent_class)->key_press_event(widget, keyEvent);
 
@@ -794,6 +799,20 @@ static gboolean webkitWebViewBaseScrollEvent(GtkWidget* widget, GdkEventScroll* 
         return FALSE;
 
     priv->pageProxy->handleWheelEvent(NativeWebWheelEvent(reinterpret_cast<GdkEvent*>(event)));
+
+    return TRUE;
+}
+
+static gboolean webkitWebViewBasePopupMenu(GtkWidget* widget)
+{
+    WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(widget);
+    WebKitWebViewBasePrivate* priv = webViewBase->priv;
+
+    GdkEvent* currentEvent = gtk_get_current_event();
+    if (!currentEvent)
+        currentEvent = gdk_event_new(GDK_NOTHING);
+    priv->contextMenuEvent.reset(currentEvent);
+    priv->pageProxy->handleContextMenuKeyEvent();
 
     return TRUE;
 }
@@ -1112,6 +1131,7 @@ static void webkit_web_view_base_class_init(WebKitWebViewBaseClass* webkitWebVie
     widgetClass->button_press_event = webkitWebViewBaseButtonPressEvent;
     widgetClass->button_release_event = webkitWebViewBaseButtonReleaseEvent;
     widgetClass->scroll_event = webkitWebViewBaseScrollEvent;
+    widgetClass->popup_menu = webkitWebViewBasePopupMenu;
     widgetClass->motion_notify_event = webkitWebViewBaseMotionNotifyEvent;
     widgetClass->enter_notify_event = webkitWebViewBaseCrossingNotifyEvent;
     widgetClass->leave_notify_event = webkitWebViewBaseCrossingNotifyEvent;
@@ -1300,11 +1320,7 @@ void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase* webkitWebViewBase)
 {
 #if ENABLE(FULLSCREEN_API)
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
-    if (priv->fullScreenModeActive)
-        return;
-
-    if (!priv->fullScreenClient.willEnterFullScreen())
-        return;
+    ASSERT(priv->fullScreenModeActive);
 
     WebFullScreenManagerProxy* fullScreenManagerProxy = priv->pageProxy->fullScreenManager();
     fullScreenManagerProxy->willEnterFullScreen();
@@ -1322,11 +1338,7 @@ void webkitWebViewBaseExitFullScreen(WebKitWebViewBase* webkitWebViewBase)
 {
 #if ENABLE(FULLSCREEN_API)
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
-    if (!priv->fullScreenModeActive)
-        return;
-
-    if (!priv->fullScreenClient.willExitFullScreen())
-        return;
+    ASSERT(!priv->fullScreenModeActive);
 
     WebFullScreenManagerProxy* fullScreenManagerProxy = priv->pageProxy->fullScreenManager();
     fullScreenManagerProxy->willExitFullScreen();
@@ -1340,9 +1352,13 @@ void webkitWebViewBaseExitFullScreen(WebKitWebViewBase* webkitWebViewBase)
 #endif
 }
 
-void webkitWebViewBaseInitializeFullScreenClient(WebKitWebViewBase* webkitWebViewBase, const WKFullScreenClientGtkBase* wkClient)
+bool webkitWebViewBaseIsFullScreen(WebKitWebViewBase* webkitWebViewBase)
 {
-    webkitWebViewBase->priv->fullScreenClient.initialize(wkClient);
+#if ENABLE(FULLSCREEN_API)
+    return webkitWebViewBase->priv->fullScreenModeActive;
+#else
+    return false;
+#endif
 }
 
 void webkitWebViewBaseSetInspectorViewSize(WebKitWebViewBase* webkitWebViewBase, unsigned size)
@@ -1419,17 +1435,6 @@ bool webkitWebViewBaseIsVisible(WebKitWebViewBase* webViewBase)
 bool webkitWebViewBaseIsInWindow(WebKitWebViewBase* webViewBase)
 {
     return webViewBase->priv->activityState & ActivityState::IsInWindow;
-}
-
-void webkitWebViewBaseSetDownloadRequestHandler(WebKitWebViewBase* webViewBase, WebKitWebViewBaseDownloadRequestHandler downloadHandler)
-{
-    webViewBase->priv->downloadHandler = downloadHandler;
-}
-
-void webkitWebViewBaseHandleDownloadRequest(WebKitWebViewBase* webViewBase, DownloadProxy* download)
-{
-    if (webViewBase->priv->downloadHandler)
-        webViewBase->priv->downloadHandler(webViewBase, download);
 }
 
 void webkitWebViewBaseSetInputMethodState(WebKitWebViewBase* webkitWebViewBase, bool enabled)

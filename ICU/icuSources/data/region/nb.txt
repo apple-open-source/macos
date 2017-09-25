@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/nb.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 nb{
     Countries{
         001{"verden"}
@@ -137,7 +131,7 @@ nb{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong S.A.R. Kina"}
+        HK{"Hongkong (Kina)"}
         HM{"Heard- og McDonaldøyene"}
         HN{"Honduras"}
         HR{"Kroatia"}
@@ -191,7 +185,7 @@ nb{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Macao S.A.R. Kina"}
+        MO{"Macao (Kina)"}
         MP{"Nord-Marianene"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -231,7 +225,7 @@ nb{
         PW{"Palau"}
         PY{"Paraguay"}
         QA{"Qatar"}
-        QO{"ytre Oseania"}
+        QO{"Ytre Oseania"}
         RE{"Réunion"}
         RO{"Romania"}
         RS{"Serbia"}
@@ -278,6 +272,7 @@ nb{
         UA{"Ukraina"}
         UG{"Uganda"}
         UM{"USAs ytre øyer"}
+        UN{"FN"}
         US{"USA"}
         UY{"Uruguay"}
         UZ{"Usbekistan"}
@@ -303,13 +298,15 @@ nb{
         HK{"Hongkong"}
         MO{"Macao"}
         PS{"Palestina"}
+        UN{"FN"}
         US{"USA"}
     }
     Countries%variant{
         CD{"Den demokratiske republikken Kongo"}
         CG{"Republikken Kongo"}
+        CZ{"Den tsjekkiske republikk"}
         FK{"Falklandsøyene (Islas Malvinas)"}
-        MK{"Makedonia (FYROM)"}
+        MK{"Den tidligere jugoslaviske republikk Makedonia"}
     }
-    Version{"2.1.23.79"}
+    Version{"2.1.32.59"}
 }

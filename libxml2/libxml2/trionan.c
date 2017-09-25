@@ -178,7 +178,7 @@ trio_make_double
 TRIO_ARGS1((values),
 	   TRIO_CONST unsigned char *values)
 {
-  TRIO_VOLATILE double result;
+  TRIO_VOLATILE double result = 0.0;
   int i;
 
   for (i = 0; i < (int)sizeof(double); i++) {

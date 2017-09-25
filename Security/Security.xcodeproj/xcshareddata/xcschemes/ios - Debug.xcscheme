@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0810"
+   LastUpgradeVersion = "0900"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -40,6 +40,7 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      language = ""
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
          <TestableReference
@@ -49,6 +50,16 @@
                BlueprintIdentifier = "E7D847CD1C6BE9720025BB44"
                BuildableName = "KeychainCircleTests.xctest"
                BlueprintName = "KeychainCircleTests"
+               ReferencedContainer = "container:Security.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6C9808681E788AFD00E70590"
+               BuildableName = "CKKSCloudKitTests.xctest"
+               BlueprintName = "CKKSCloudKitTests_ios"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -69,6 +80,7 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      language = ""
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
@@ -217,6 +229,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_18_certificate_parse"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_20_sectrust"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -234,10 +250,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_23_sectrust_ocsp"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si-23-sectrust-ocsp-wwdr"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -293,7 +305,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_32_keychain_migrate"
+            argument = "si_32_sectrust_pinning_required"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -333,6 +345,14 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_44_seckey_aks"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_44_seckey_fv"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_50_secrandom"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -365,7 +385,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_67_sectrust_blacklist"
+            argument = "si_67_sectrust_blocklist"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -735,6 +755,11 @@
             key = "MallocStackLogging"
             value = "1"
             isEnabled = "NO">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ASAN_OPTIONS"
+            value = "detect_odr_violation=0"
+            isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
       <AdditionalOptions>

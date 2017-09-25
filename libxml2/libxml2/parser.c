@@ -56,6 +56,7 @@
 #include <libxml/encoding.h>
 #include <libxml/xmlIO.h>
 #include <libxml/uri.h>
+#include <libxml/xmlversion.h>
 #ifdef LIBXML_CATALOG_ENABLED
 #include <libxml/catalog.h>
 #endif
@@ -87,6 +88,9 @@
 
 #include "buf.h"
 #include "enc.h"
+
+LIBXML_INTERNAL const int xmlEntityDecodingDepthMax = 40;
+LIBXML_INTERNAL const int xmlEntityDecodingDepthHugeMax = 1024;
 
 static void
 xmlFatalErr(xmlParserCtxtPtr ctxt, xmlParserErrors error, const char *info);
@@ -2147,7 +2151,6 @@ static void xmlGROW (xmlParserCtxtPtr ctxt) {
 	    ctxt->input->line++; ctxt->input->col = 1;			\
         } else ctxt->input->col++;					\
         ctxt->input->cur += l;				                \
-        if (*ctxt->input->cur == '%') xmlParserHandlePEReference(ctxt);	\
     }                                                                   \
   } while (0)
 
@@ -2789,15 +2792,15 @@ xmlStringLenDecodeEntities(xmlParserCtxtPtr ctxt, const xmlChar *str, int len,
     xmlChar *rep = NULL;
     const xmlChar *last;
     xmlEntityPtr ent;
-    int c,l;
+    int c, l = 0;
 
     if ((ctxt == NULL) || (str == NULL) || (len < 0))
 	return(NULL);
     last = str + len;
 
-    if (((ctxt->depth > 40) &&
+    if (((ctxt->depth > xmlEntityDecodingDepthMax) &&
          ((ctxt->options & XML_PARSE_HUGE) == 0)) ||
-	(ctxt->depth > 1024)) {
+	(ctxt->depth > xmlEntityDecodingDepthHugeMax)) {
 	xmlFatalErr(ctxt, XML_ERR_ENTITY_LOOP, NULL);
 	return(NULL);
     }
@@ -3413,6 +3416,8 @@ xmlParseNameComplex(xmlParserCtxtPtr ctxt) {
 	    len += l;
 	    NEXTL(l);
 	    c = CUR_CHAR(l);
+            if (c == 0 && ctxt->instate == XML_PARSER_EOF)
+                return(NULL);
 	}
     } else {
 	if ((c == ' ') || (c == '>') || (c == '/') || /* accelerators */
@@ -3439,13 +3444,6 @@ xmlParseNameComplex(xmlParserCtxtPtr ctxt) {
 	    len += l;
 	    NEXTL(l);
 	    c = CUR_CHAR(l);
-	    if (c == 0) {
-		count = 0;
-		GROW;
-                if (ctxt->instate == XML_PARSER_EOF)
-                    return(NULL);
-		c = CUR_CHAR(l);
-	    }
 	}
     }
 
@@ -3454,15 +3452,18 @@ xmlParseNameComplex(xmlParserCtxtPtr ctxt) {
         xmlFatalErr(ctxt, XML_ERR_NAME_TOO_LONG, "Name");
         return(NULL);
     }
-    if ((*ctxt->input->cur == '\n') && (ctxt->input->cur[-1] == '\r')) {
-        if (BASE_PTR > CUR_PTR - (len + 1))
-            return(NULL);
-        return(xmlDictLookup(ctxt->dict, ctxt->input->cur - (len + 1), len));
+    if (ctxt->input->cur - ctxt->input->base < len) {
+        /*
+         * There were a couple of bugs where PERefs lead to to a change
+         * of the buffer. Check the buffer size to avoid passing an invalid
+         * pointer to xmlDictLookup.
+         */
+        xmlFatalErr(ctxt, XML_ERR_INTERNAL_ERROR,
+                    "unexpected change of input buffer");
+        return (NULL);
     }
-
-    if (BASE_PTR > CUR_PTR - len)
-        return(NULL);
-
+    if ((*ctxt->input->cur == '\n') && (ctxt->input->cur[-1] == '\r'))
+        return(xmlDictLookup(ctxt->dict, ctxt->input->cur - (len + 1), len));
     return(xmlDictLookup(ctxt->dict, ctxt->input->cur - len, len));
 }
 
@@ -5185,7 +5186,8 @@ get_more:
 	}
     } while (((*in >= 0x20) && (*in <= 0x7F)) || (*in == 0x09));
     xmlParseCommentComplex(ctxt, buf, len, size);
-    ctxt->instate = state;
+    if (ctxt->instate != XML_PARSER_EOF)
+        ctxt->instate = state;
     return;
 }
 
@@ -5754,7 +5756,7 @@ xmlParseEntityDecl(xmlParserCtxtPtr ctxt) {
 	    }
 	}
 	if (ctxt->instate == XML_PARSER_EOF)
-	    return;
+	    goto done;
 	SKIP_BLANKS;
 	if (RAW != '>') {
 	    xmlFatalErrMsgStr(ctxt, XML_ERR_ENTITY_NOT_FINISHED,
@@ -5785,17 +5787,17 @@ xmlParseEntityDecl(xmlParserCtxtPtr ctxt) {
 		    cur = xmlSAX2GetEntity(ctxt, name);
 		}
 	    }
-            if (cur != NULL) {
-	        if (cur->orig != NULL)
-		    xmlFree(orig);
-		else
-		    cur->orig = orig;
-	    } else
-		xmlFree(orig);
+            if ((cur != NULL) && (cur->orig == NULL)) {
+		cur->orig = orig;
+                orig = NULL;
+	    }
 	}
+
+done:
 	if (value != NULL) xmlFree(value);
 	if (URI != NULL) xmlFree(URI);
 	if (literal != NULL) xmlFree(literal);
+        if (orig != NULL) xmlFree(orig);
     }
 }
 
@@ -6321,7 +6323,7 @@ xmlParseElementMixedContentDecl(xmlParserCtxtPtr ctxt, int inputchk) {
 	    if (elem == NULL) {
 		xmlFatalErrMsg(ctxt, XML_ERR_NAME_REQUIRED,
 			"xmlParseElementMixedContentDecl : Name expected\n");
-		xmlFreeDocElementContent(ctxt->myDoc, cur);
+		xmlFreeDocElementContent(ctxt->myDoc, ret);
 		return(NULL);
 	    }
 	    SKIP_BLANKS;
@@ -7469,11 +7471,9 @@ xmlParseReference(xmlParserCtxtPtr ctxt) {
 	}
 	if (ent->checked == 0)
 	    ent->checked = 2;
-#if defined(__APPLE__) || defined(WIN32)
-        /* Bug 760367: Entity is parsed and expanded twice under certain conditions */
-        /* <https://bugzilla.gnome.org/show_bug.cgi?id=760367> */
+
+        /* Prevent entity from being parsed and expanded twice (Bug 760367). */
         was_checked = 0;
-#endif
     } else if (ent->checked != 1) {
 	ctxt->nbentities += ent->checked / 2;
     }
@@ -8177,6 +8177,15 @@ xmlParsePEReference(xmlParserCtxtPtr ctxt)
 	    if (xmlPushInput(ctxt, input) < 0)
 		return;
 	} else {
+	    if ((entity->etype == XML_EXTERNAL_PARAMETER_ENTITY) &&
+	        ((ctxt->options & XML_PARSE_NOENT) == 0) &&
+		((ctxt->options & XML_PARSE_DTDVALID) == 0) &&
+		((ctxt->options & XML_PARSE_DTDLOAD) == 0) &&
+		((ctxt->options & XML_PARSE_DTDATTR) == 0) &&
+		(ctxt->replaceEntities == 0) &&
+		(ctxt->validate == 0))
+		return;
+
 	    /*
 	     * TODO !!!
 	     * handle the extra spaces added before and after
@@ -8374,6 +8383,7 @@ xmlParseStringPEReference(xmlParserCtxtPtr ctxt, const xmlChar **str) {
 	entity = ctxt->sax->getParameterEntity(ctxt->userData, name);
     if (ctxt->instate == XML_PARSER_EOF) {
 	xmlFree(name);
+	*str = ptr;
 	return(NULL);
     }
     if (entity == NULL) {
@@ -8614,7 +8624,7 @@ xmlParseAttribute(xmlParserCtxtPtr ctxt, xmlChar **value) {
 	ctxt->instate = XML_PARSER_CONTENT;
     } else {
 	xmlFatalErrMsgStr(ctxt, XML_ERR_ATTRIBUTE_WITHOUT_VALUE,
-	       "Specification mandate value for attribute %s\n", name);
+	       "Specification mandates value for attribute %s\n", name);
 	return(NULL);
     }
 
@@ -9347,7 +9357,7 @@ xmlParseAttribute2(xmlParserCtxtPtr ctxt,
         ctxt->instate = XML_PARSER_CONTENT;
     } else {
         xmlFatalErrMsgStr(ctxt, XML_ERR_ATTRIBUTE_WITHOUT_VALUE,
-                          "Specification mandate value for attribute %s\n",
+                          "Specification mandates value for attribute %s\n",
                           name);
         return (NULL);
     }
@@ -10127,7 +10137,8 @@ xmlParseContent(xmlParserCtxtPtr ctxt) {
 	else if ((*cur == '<') && (NXT(1) == '!') &&
 		 (NXT(2) == '-') && (NXT(3) == '-')) {
 	    xmlParseComment(ctxt);
-	    ctxt->instate = XML_PARSER_CONTENT;
+            if (ctxt->instate != XML_PARSER_EOF)
+                ctxt->instate = XML_PARSER_CONTENT;
 	}
 
 	/*
@@ -11311,7 +11322,7 @@ xmlParseGetLasts(xmlParserCtxtPtr ctxt, const xmlChar **lastlt,
  * Check that the block of characters is okay as SCdata content [20]
  *
  * Returns the number of bytes to pass if okay, a negative index where an
- *         UTF-8 error occured otherwise
+ *         UTF-8 error occurred otherwise
  */
 static int
 xmlCheckCdataPush(const xmlChar *utf, int len, int complete) {
@@ -13176,8 +13187,8 @@ xmlParseCtxtExternalEntity(xmlParserCtxtPtr ctx, const xmlChar *URL,
 
     if (ctx == NULL) return(-1);
 
-    if (((ctx->depth > 40) && ((ctx->options & XML_PARSE_HUGE) == 0)) ||
-        (ctx->depth > 1024)) {
+    if (((ctx->depth > xmlEntityDecodingDepthMax) && ((ctx->options & XML_PARSE_HUGE) == 0)) ||
+        (ctx->depth > xmlEntityDecodingDepthHugeMax)) {
 	return(XML_ERR_ENTITY_LOOP);
     }
 
@@ -13381,9 +13392,9 @@ xmlParseExternalEntityPrivate(xmlDocPtr doc, xmlParserCtxtPtr oldctxt,
     xmlChar start[4];
     xmlCharEncoding enc;
 
-    if (((depth > 40) &&
+    if (((depth > xmlEntityDecodingDepthMax) &&
 	((oldctxt == NULL) || (oldctxt->options & XML_PARSE_HUGE) == 0)) ||
-	(depth > 1024)) {
+	(depth > xmlEntityDecodingDepthHugeMax)) {
 	return(XML_ERR_ENTITY_LOOP);
     }
 
@@ -13538,7 +13549,7 @@ xmlParseExternalEntityPrivate(xmlDocPtr doc, xmlParserCtxtPtr oldctxt,
     /*
      * And record the last error if any
      */
-    if (ctxt->lastError.code != XML_ERR_OK)
+    if ((oldctxt != NULL) && (ctxt->lastError.code != XML_ERR_OK))
         xmlCopyError(&ctxt->lastError, &oldctxt->lastError);
 
     if (sax != NULL)
@@ -13651,8 +13662,8 @@ xmlParseBalancedChunkMemoryInternal(xmlParserCtxtPtr oldctxt,
     int i;
 #endif
 
-    if (((oldctxt->depth > 40) && ((oldctxt->options & XML_PARSE_HUGE) == 0)) ||
-        (oldctxt->depth >  1024)) {
+    if (((oldctxt->depth > xmlEntityDecodingDepthMax) && ((oldctxt->options & XML_PARSE_HUGE) == 0)) ||
+        (oldctxt->depth >  xmlEntityDecodingDepthHugeMax)) {
 	return(XML_ERR_ENTITY_LOOP);
     }
 
@@ -14073,7 +14084,7 @@ xmlParseBalancedChunkMemoryRecover(xmlDocPtr doc, xmlSAXHandlerPtr sax,
     int size;
     int ret = 0;
 
-    if (depth > 40) {
+    if (depth > xmlEntityDecodingDepthMax) {
 	return(XML_ERR_ENTITY_LOOP);
     }
 

@@ -26,7 +26,6 @@
  */
 
 #if defined(_WIN32)
-//remove this file after rdar://problem/28144944
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
 #include <corecrypto/cc_priv.h>

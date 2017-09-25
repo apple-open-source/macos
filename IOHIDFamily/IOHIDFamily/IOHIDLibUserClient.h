@@ -75,10 +75,10 @@ __BEGIN_DECLS
 typedef struct _IOHIDElementValue
 {
 	IOHIDElementCookie	cookie;
-	UInt32				totalSize;
-	AbsoluteTime		timestamp;
-	UInt32				generation;
-	UInt32				value[1];
+	UInt32              totalSize;
+	AbsoluteTime        timestamp;
+	UInt32              generation;
+	UInt32              value[1];
 }IOHIDElementValue;
 
 typedef struct _IOHIDReportReq
@@ -155,6 +155,7 @@ class IOHIDLibUserClient : public IOUserClient
 	void setValid(bool state);
 	
 	IOReturn dispatchMessage(void* message);
+	bool serializeDebugState(void *ref, OSSerialize *serializer);
 
 public:
 	bool attach(IOService * provider);
@@ -188,6 +189,7 @@ protected:
 	
 	bool	fValid;
 	uint64_t fGeneration;
+    
 	// Methods
 	virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type);
 	

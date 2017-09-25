@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2008-2017 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -19,6 +19,10 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef __GSSD_H__
+#define __GSSD_H__ 1
+#include <os/log.h>
 
 #ifndef TRUE
 #define TRUE (1)
@@ -43,7 +47,7 @@
 	} while (0)
 
 #define Fatal(fmt, ...) fatal("%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__)
-#define Debug(fmt, ...) gssd_log(ASL_LEVEL_DEBUG, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__)
+#define Debug(fmt, ...) gssd_log(OS_LOG_TYPE_DEBUG, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__)
 #define DEBUG(level, ...) do {\
 	if (get_debug_level() >= level) {\
 		Debug(__VA_ARGS__); \
@@ -51,35 +55,37 @@
 } while (0)
 
 #define HEXDUMP(level, ...) do {\
-	if (get_debug_level() >= level) {\
+	if (get_debug_level() >= level-2) {\
 		HexDump(__VA_ARGS__); \
 	}\
 } while (0)
 
 #define Info(fmt, ...) do {\
 	if (get_debug_level() > 1) {\
-		gssd_log(ASL_LEVEL_INFO, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
+		gssd_log(OS_LOG_TYPE_INFO, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
 	} else { \
-		gssd_log(ASL_LEVEL_INFO, "%s: " fmt, __func__,## __VA_ARGS__); \
+		gssd_log(OS_LOG_TYPE_INFO, "%s: " fmt, __func__,## __VA_ARGS__); \
 	}\
 } while (0)
 
 #define Notice(fmt, ...) do {\
 	if (get_debug_level() > 1) {\
-		gssd_log(ASL_LEVEL_NOTICE, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
+		gssd_log(OS_LOG_TYPE_DEFAULT, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
 	} else { \
-		gssd_log(ASL_LEVEL_NOTICE, fmt,## __VA_ARGS__); \
+		gssd_log(OS_LOG_TYPE_DEFAULT, fmt,## __VA_ARGS__); \
 	}\
 } while (0)
 
 #define Log(fmt, ...) do {\
 	if (get_debug_level()) {\
-		gssd_log(ASL_LEVEL_ERR, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
+		gssd_log(OS_LOG_TYPE_ERROR, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
 	} else { \
-		gssd_log(ASL_LEVEL_ERR, fmt,## __VA_ARGS__); \
+		gssd_log(OS_LOG_TYPE_ERROR, fmt,## __VA_ARGS__); \
 	}\
 } while (0)
 
+
+__BEGIN_DECLS
 
 extern char *buf_to_str(gss_buffer_t);
 extern void gssd_enter(void *);
@@ -88,11 +94,13 @@ extern int gssd_check(void *);
 extern char *oid_name(gss_OID);
 extern char *gss_strerror(gss_OID, uint32_t, uint32_t);
 extern void __attribute__((noreturn)) fatal(const char *, ...);
-extern void gssd_log(int, const char *, ...);
+extern void gssd_log(os_log_type_t, const char *, ...);
 extern void HexDump(const char *, size_t);
 extern int traced(void);
 int in_foreground(int);
 extern void set_debug_level(int);
-extern void set_debug_level_init(void (*)(int));
 extern int get_debug_level(void);
 extern int make_lucid_stream(gss_krb5_lucid_context_v1_t *, size_t *, void **);
+__END_DECLS
+
+#endif

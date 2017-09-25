@@ -30,7 +30,7 @@ entryPoint(CommonCRCTest,"CRC")
 #else
 #include <CommonNumerics/CommonCRC.h>
 
-static const int kTestTestCount = 39;
+static const int kTestTestCount = 40;
 
 static int
 doCRC(CNcrc alg, char *data, uint64_t expected)
@@ -43,9 +43,32 @@ doCRC(CNcrc alg, char *data, uint64_t expected)
     return 0;
 }
 
+static void test_CNCRC_consistency()
+{
+    const char *str = "123456789";
+    CNStatus status;
+    CNCRCRef crcref;
+    uint64_t crc, crc2;
+    
+    status = CNCRC(kCN_CRC_32, str, strlen(str), &crc2);
+    ok(status==0, "CNCRC returned error");
+    
+    status = CNCRCInit(kCN_CRC_32, &crcref);
+    ok(status==0, "CNCRCInit returned error");
+    status = CNCRCUpdate(crcref, str, strlen(str));
+    ok(status==0, "CNCRCUpdate returned error");
+    status = CNCRCFinal(crcref, &crc);
+    ok(status==0, "CNCRCFinal returned error");
+
+    is(crc2, crc, "CNCRC and  incremental mismatch");
+}
+
+
 int CommonCRCTest(int __unused argc, char *const * __unused argv)
 {
 	plan_tests(kTestTestCount);
+    test_CNCRC_consistency();
+    
     doCRC(kCN_CRC_32_Adler, "Mark Adler", 0x13070394);
     doCRC(kCN_CRC_32_Adler, "resume", 0x09150292);
     doCRC(kCN_CRC_32_Adler, "foofoofoofoo", 0x20D00511);
@@ -81,13 +104,13 @@ int CommonCRCTest(int __unused argc, char *const * __unused argv)
     ok(CNCRCWeakTest(kCN_CRC_32_POSIX) == kCNSuccess, "Self Test");
     ok(CNCRCWeakTest(kCN_CRC_32_XFER) == kCNSuccess, "Self Test");
     ok(CNCRCWeakTest(kCN_CRC_64_ECMA_182) == kCNSuccess, "Self Test");
-
+#if 0
     diag("Dumping 4 CRC tables - if all is well");
     ok(CNCRCDumpTable(kCN_CRC_8) == kCNSuccess, "Dump 8 bit CRC Table");
     ok(CNCRCDumpTable(kCN_CRC_16) == kCNSuccess, "Dump 16 bit CRC Table");
     ok(CNCRCDumpTable(kCN_CRC_32) == kCNSuccess, "Dump 32 bit CRC Table");
     ok(CNCRCDumpTable(kCN_CRC_64_ECMA_182) == kCNSuccess, "Dump 64 bit CRC Table");
-
+#endif
     return 0;
 }
 #endif

@@ -35,16 +35,17 @@
 #include "MarkedSpaceInlines.h"
 #include "StackVisitor.h"
 #include <wtf/DataLog.h>
+#include <wtf/ProcessID.h>
 #include <wtf/StringPrintStream.h>
 
 namespace JSC {
 
-const ClassInfo JSDollarVMPrototype::s_info = { "DollarVMPrototype", &Base::s_info, 0, CREATE_METHOD_TABLE(JSDollarVMPrototype) };
+const ClassInfo JSDollarVMPrototype::s_info = { "DollarVMPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSDollarVMPrototype) };
     
     
 bool JSDollarVMPrototype::currentThreadOwnsJSLock(ExecState* exec)
 {
-    return exec->vm().apiLock().currentThreadIsHoldingLock();
+    return exec->vm().currentThreadIsHoldingAPILock();
 }
 
 static bool ensureCurrentThreadOwnsJSLock(ExecState* exec)
@@ -118,7 +119,7 @@ void JSDollarVMPrototype::gc(ExecState* exec)
 {
     if (!ensureCurrentThreadOwnsJSLock(exec))
         return;
-    exec->heap()->collectAllGarbage();
+    exec->heap()->collectNow(Sync, CollectionScope::Full);
 }
     
 static EncodedJSValue JSC_HOST_CALL functionGC(ExecState* exec)
@@ -276,13 +277,14 @@ static EncodedJSValue JSC_HOST_CALL functionCodeBlockForFrame(ExecState* exec)
 
 static CodeBlock* codeBlockFromArg(ExecState* exec)
 {
+    VM& vm = exec->vm();
     if (exec->argumentCount() < 1)
         return nullptr;
 
     JSValue value = exec->uncheckedArgument(0);
     CodeBlock* candidateCodeBlock = nullptr;
     if (value.isCell()) {
-        JSFunction* func = jsDynamicCast<JSFunction*>(value.asCell());
+        JSFunction* func = jsDynamicCast<JSFunction*>(vm, value.asCell());
         if (func) {
             if (func->isHostFunction())
                 candidateCodeBlock = nullptr;
@@ -437,12 +439,10 @@ static EncodedJSValue JSC_HOST_CALL functionValue(ExecState* exec)
     return JSValue::encode(jsString(exec, stream.toString()));
 }
 
-#if !PLATFORM(WIN)
 static EncodedJSValue JSC_HOST_CALL functionGetPID(ExecState*)
 {
-    return JSValue::encode(jsNumber(getpid()));
+    return JSValue::encode(jsNumber(getCurrentProcessID()));
 }
-#endif
 
 void JSDollarVMPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
 {
@@ -468,9 +468,7 @@ void JSDollarVMPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     addFunction(vm, globalObject, "printStack", functionPrintStack, 0);
 
     addFunction(vm, globalObject, "value", functionValue, 1);
-#if !PLATFORM(WIN)
     addFunction(vm, globalObject, "getpid", functionGetPID, 0);
-#endif
 }
 
 } // namespace JSC

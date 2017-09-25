@@ -100,8 +100,7 @@ mod_export int usemenu, useglob;
 /**/
 mod_export int wouldinstab;
 
-/* != 0 if we are in the middle of a menu completion. May be == 2 to force *
- * menu completion even if using different widgets.                        */
+/* != 0 if we are in the middle of a menu completion. */
 
 /**/
 mod_export int menucmp;
@@ -425,8 +424,8 @@ mod_export int instring, inbackt;
  * This uses the instring variable above.
  */
 
-#define quotename(s, e) \
-quotestring(s, e, instring == QT_NONE ? QT_BACKSLASH : instring)
+#define quotename(s) \
+quotestring(s, instring == QT_NONE ? QT_BACKSLASH : instring)
 
 /* Check if the given string is the name of a parameter and if this *
  * parameter is one worth expanding.                                */
@@ -710,7 +709,8 @@ docomplete(int lst)
 			for (t0 = cmdnamtab->hsize - 1; t0 >= 0; t0--)
 			    for (hn = cmdnamtab->nodes[t0]; hn;
 				 hn = hn->next) {
-				if (strpfx(q, hn->nam) && findcmd(hn->nam, 0))
+				if (strpfx(q, hn->nam) &&
+				    findcmd(hn->nam, 0, 0))
 				    n++;
 				if (n == 2)
 				    break;
@@ -1162,6 +1162,7 @@ get_comp_string(void)
     inpush(dupstrspace(linptr), 0, NULL);
     strinbeg(0);
     wordpos = cp = rd = ins = oins = linarr = parct = ia = redirpos = 0;
+    we = wb = zlemetacs;
     tt0 = NULLTOK;
 
     /* This loop is possibly the wrong way to do this.  It goes through *
@@ -1239,6 +1240,20 @@ get_comp_string(void)
 	    /* Record if we haven't had the command word yet */
 	    if (wordpos == redirpos)
 		redirpos++;
+	    if (zlemetacs < (zlemetall - inbufct) &&
+		zlemetacs >= wordbeg && wb == we) {
+		/* Cursor is in the middle of a redirection, treat as a word */
+		we = zlemetall - (inbufct + addedx);
+		if (addedx && we > wb) {
+		    /* Assume we are in {param}> form, wb points at "{" */
+		    wb++;
+		    /* Should complete parameter names here */
+		} else {
+		    /* In "2>" form, zlemetacs points at "2" */
+		    wb = zlemetacs;
+		    /* Should insert a space under cursor here */
+		}
+	    }
         }
 	if (tok == DINPAR)
 	    tokstr = NULL;
@@ -1290,8 +1305,12 @@ get_comp_string(void)
 	    zsfree(cmdstr);
 	    cmdstr = ztrdup(tokstr);
 	    cmdtok = tok;
-	    /* If everything before is a redirection, don't reset the index */
-	    if (wordpos != redirpos)
+	    /*
+	     * If everything before is a redirection, or anything
+	     * complicated enough that we've seen the word the
+	     * cursor is on, don't reset the index.
+	     */
+	    if (wordpos != redirpos && clwpos == -1)
 		wordpos = redirpos = 0;
 	} else if (tok == SEPER) {
 	    /*
@@ -1399,9 +1418,17 @@ get_comp_string(void)
 	/* If this is the word the cursor is in and we added a `x', *
 	 * remove it.                                               */
 	if (clwpos == wordpos++ && addedx) {
+	    int chuck_at, word_diff;
 	    zlemetacs_qsub = zlemetacs - qsub;
-	    chuck(&clwords[wordpos - 1][((zlemetacs_qsub - wb) >= sl) ?
-				 (sl - 1) : (zlemetacs_qsub - wb)]);
+	    word_diff = zlemetacs_qsub - wb;
+	    /* Ensure we chuck within the word... */
+	    if (word_diff >= sl)
+		chuck_at = sl -1;
+	    else if (word_diff < 0)
+		chuck_at = 0;
+	    else
+		chuck_at = word_diff;
+	    chuck(&clwords[wordpos - 1][chuck_at]);
 	}
     } while (tok != LEXERR && tok != ENDINPUT &&
 	     (tok != SEPER || (lexflags && tt0 == NULLTOK)));
@@ -1449,7 +1476,9 @@ get_comp_string(void)
 	t0 = STRING;
     } else if (t0 == STRING || t0 == TYPESET) {
 	/* We found a simple string. */
-	s = ztrdup(clwords[clwpos]);
+	s = clwords[clwpos];
+	DPUTS(!s, "Completion word has disappeared!");
+	s = ztrdup(s ? s : "");
     } else if (t0 == ENVSTRING) {
 	char sav;
 	/* The cursor was inside a parameter assignment. */
@@ -1850,8 +1879,12 @@ get_comp_string(void)
 		    ocs = zlemetacs;
 		    zlemetacs = i;
 		    foredel(skipchars, CUT_RAW);
-		    if ((zlemetacs = ocs) > --i)
+		    if ((zlemetacs = ocs) > --i) {
 			zlemetacs -= skipchars;
+			/* do not skip past the beginning of the word */
+			if (wb > zlemetacs)
+			    zlemetacs = wb;
+		    }
 		    we -= skipchars;
 		}
 	    } else {
@@ -1862,6 +1895,9 @@ get_comp_string(void)
 		    zlemetacs = we - skipchars;
 		else
 		    zlemetacs = ocs;
+		/* do not skip past the beginning of the word */
+		if (wb > zlemetacs)
+		    zlemetacs = wb;
 		we -= skipchars;
 	    }
 	    /* we need to get rid of all the quotation bits... */
@@ -1983,11 +2019,11 @@ get_comp_string(void)
 
 			new->next = NULL;
 			new->str = dupstrpfx(bbeg, len);
-			new->str = ztrdup(quotename(new->str, NULL));
+			new->str = ztrdup(quotename(new->str));
 			untokenize(new->str);
 			new->pos = begi;
 			*dbeg = '\0';
-			new->qpos = strlen(quotename(predup, NULL));
+			new->qpos = strlen(quotename(predup));
 			*dbeg = '{';
 			i -= len;
 			boffs -= len;
@@ -2046,11 +2082,11 @@ get_comp_string(void)
 			lastbrbeg = new;
 
 			new->str = dupstrpfx(bbeg, len);
-			new->str = ztrdup(quotename(new->str, NULL));
+			new->str = ztrdup(quotename(new->str));
 			untokenize(new->str);
 			new->pos = begi;
 			*dbeg = '\0';
-			new->qpos = strlen(quotename(predup, NULL));
+			new->qpos = strlen(quotename(predup));
 			*dbeg = '{';
 			i -= len;
 			boffs -= len;
@@ -2096,7 +2132,7 @@ get_comp_string(void)
 		    brend = new;
 
 		    new->str = dupstrpfx(bbeg, len);
-		    new->str = ztrdup(quotename(new->str, NULL));
+		    new->str = ztrdup(quotename(new->str));
 		    untokenize(new->str);
 		    new->pos = dp - predup - len + 1;
 		    new->qpos = len;
@@ -2125,11 +2161,11 @@ get_comp_string(void)
 		lastbrbeg = new;
 
 		new->str = dupstrpfx(bbeg, len);
-		new->str = ztrdup(quotename(new->str, NULL));
+		new->str = ztrdup(quotename(new->str));
 		untokenize(new->str);
 		new->pos = begi;
 		*dbeg = '\0';
-		new->qpos = strlen(quotename(predup, NULL));
+		new->qpos = strlen(quotename(predup));
 		*dbeg = '{';
 		boffs -= len;
 		memmove(dbeg, dbeg + len, 1+strlen(dbeg+len));
@@ -2144,7 +2180,7 @@ get_comp_string(void)
 		    p = bp->pos;
 		    l = bp->qpos;
 		    bp->pos = strlen(predup + p + l);
-		    bp->qpos = strlen(quotename(predup + p + l, NULL));
+		    bp->qpos = strlen(quotename(predup + p + l));
 		    memmove(predup + p, predup + p + l, 1+bp->pos);
 		}
 	    }
@@ -2267,7 +2303,7 @@ doexpansion(char *s, int lst, int olst, int explincmd)
     foredel(we - wb, CUT_RAW);
     while ((ss = (char *)ugetnode(vl))) {
 	ret = 0;
-	ss = quotename(ss, NULL);
+	ss = quotename(ss);
 	untokenize(ss);
 	inststr(ss);
 	if (nonempty(vl) || !first) {
@@ -2976,7 +3012,7 @@ processcmd(UNUSED(char **args))
     inststr(" ");
     untokenize(s);
 
-    inststr(quotename(s, NULL));
+    inststr(quotename(s));
 
     zsfree(s);
     done = 1;
@@ -3006,7 +3042,7 @@ expandcmdpath(UNUSED(char **args))
 	return 1;
     }
 
-    str = findcmd(s, 1);
+    str = findcmd(s, 1, 0);
     zsfree(s);
     if (!str)
 	return 1;

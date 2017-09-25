@@ -44,16 +44,21 @@
 #include <Security/SecAccessControlPriv.h>
 #include <securityd/SecItemSchema.h>
 
+#include <keychain/ckks/CKKS.h>
+
 // MARK: type converters
 
 CFStringRef copyString(CFTypeRef obj) {
     CFTypeID tid = CFGetTypeID(obj);
-    if (tid == CFStringGetTypeID())
+    if (tid == CFStringGetTypeID()) {
         return CFStringCreateCopy(0, obj);
-    else if (tid == CFDataGetTypeID())
+    }else if (tid == CFDataGetTypeID()) {
         return CFStringCreateFromExternalRepresentation(0, obj, kCFStringEncodingUTF8);
-    else
+    } else if (tid == CFUUIDGetTypeID()) {
+        return CFUUIDCreateString(NULL, obj);
+    } else {
         return NULL;
+    }
 }
 
 CFDataRef copyData(CFTypeRef obj) {
@@ -78,8 +83,12 @@ CFTypeRef copyUUID(CFTypeRef obj) {
         if (length != 0 && length != 16)
             return NULL;
         return CFDataCreateCopy(NULL, obj);
-    } if (tid == CFNullGetTypeID()) {
+    } else if (tid == CFNullGetTypeID()) {
         return CFDataCreate(NULL, NULL, 0);
+    } else if (tid == CFUUIDGetTypeID()) {
+        CFUUIDBytes uuidbytes = CFUUIDGetUUIDBytes(obj);
+        CFDataRef uuiddata = CFDataCreate(NULL, (void*) &uuidbytes, sizeof(uuidbytes));
+        return uuiddata;
     } else {
         return NULL;
     }
@@ -218,7 +227,8 @@ static bool SecDbIsTombstoneDbInsertAttr(const SecDbAttr *attr) {
 #endif
 
 static bool SecDbIsTombstoneDbUpdateAttr(const SecDbAttr *attr) {
-    return SecDbIsTombstoneDbSelectAttr(attr) || attr->kind == kSecDbAccessAttr || attr->kind == kSecDbCreationDateAttr || attr->kind == kSecDbRowIdAttr;
+    // We add AuthenticatedData to include UUIDs, which can't be primary keys
+    return SecDbIsTombstoneDbSelectAttr(attr) || attr->kind == kSecDbAccessAttr || attr->kind == kSecDbCreationDateAttr || attr->kind == kSecDbRowIdAttr || (attr->flags & kSecDbInAuthenticatedDataFlag);
 }
 
 CFTypeRef SecDbAttrCopyDefaultValue(const SecDbAttr *attr, CFErrorRef *error) {
@@ -731,6 +741,7 @@ static SecDbItemRef SecDbItemCreate(CFAllocatorRef allocator, const SecDbClass *
     item->keybag = keybag;
     item->_edataState = kSecDbItemDirty;
     item->cryptoOp = kAKSKeyOpDecrypt;
+
     return item;
 }
 
@@ -981,12 +992,12 @@ SecDbItemRef SecDbItemCreateWithEncryptedData(CFAllocatorRef allocator, const Se
 bool SecDbItemInV2(SecDbItemRef item) {
     const SecDbClass *iclass = SecDbItemGetClass(item);
     return  (SecDbItemGetCachedValueWithName(item, kSecAttrSyncViewHint) == NULL &&
-             (iclass == &genp_class || iclass == &inet_class || iclass == &keys_class || iclass == &cert_class));
+             (iclass == genp_class() || iclass == inet_class() || iclass == keys_class() || iclass == cert_class()));
 }
 
 // Return true iff an item for which SecDbItemIsSyncable() and SecDbItemInV2() already return true should be part of the v0 view.
 bool SecDbItemInV2AlsoInV0(SecDbItemRef item) {
-    return  (SecDbItemGetCachedValueWithName(item, kSecAttrTokenID) == NULL && SecDbItemGetClass(item) != &cert_class);
+    return  (SecDbItemGetCachedValueWithName(item, kSecAttrTokenID) == NULL && SecDbItemGetClass(item) != cert_class());
 }
 
 SecDbItemRef SecDbItemCopyWithUpdates(SecDbItemRef item, CFDictionaryRef updates, CFErrorRef *error) {
@@ -1066,6 +1077,18 @@ static SecDbItemRef SecDbItemCopyTombstone(SecDbItemRef item, CFBooleanRef makeT
 
     return new_item;
 }
+
+bool SecDbItemIsEngineInternalState(SecDbItemRef itemObject) {
+    // Only used for controlling logging
+    // Use agrp=com.apple.security.sos, since it is not encrypted
+    if (!itemObject) {
+        return false;
+    }
+    const SecDbAttr *agrp = SecDbAttrWithKey(SecDbItemGetClass(itemObject), kSecAttrAccessGroup, NULL);
+    CFTypeRef cfval = SecDbItemGetValue(itemObject, agrp, NULL);
+    return cfval && CFStringCompareSafe(cfval, kSOSInternalAccessGroup, NULL) == kCFCompareEqualTo;
+}
+
 
 // MARK: -
 // MARK: SQL Construction helpers -- These should become private in the future
@@ -1371,10 +1394,18 @@ static bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
         secnotice("item", "inserted %@", item);
         SecDbItemRecordUpdate(dbconn, NULL, item);
     } else {
-        secnotice("item", "insert failed for item %@ with %@", item, error ? *error : NULL);
+        if (SecDbItemIsEngineInternalState(item)) {
+            secdebug ("item", "insert failed for item %@ with %@", item, error ? *error : NULL);
+        } else {
+            secnotice("item", "insert failed for item %@ with %@", item, error ? *error : NULL);
+        }
     }
 
     return ok;
+}
+
+bool SecErrorIsSqliteDuplicateItemError(CFErrorRef error) {
+    return error && CFErrorGetCode(error) == SQLITE_CONSTRAINT && CFEqual(kSecDbErrorDomain, CFErrorGetDomain(error));
 }
 
 bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error, void(^duplicate)(SecDbItemRef item, SecDbItemRef *replace)) {
@@ -1490,7 +1521,13 @@ bool SecDbItemDoUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnec
         CFRelease(sql);
     }
     if (ok) {
-        secnotice("item", "replaced %@ with %@ in %@", old_item, new_item, dbconn);
+        if (SecDbItemIsEngineInternalState(old_item)) {
+            secdebug ("item", "replaced %@ in %@", old_item, dbconn);
+            secdebug ("item", "    with %@ in %@", new_item, dbconn);
+        } else {
+            secnotice("item", "replaced %@ in %@", old_item, dbconn);
+            secnotice("item", "    with %@ in %@", new_item, dbconn);
+        }
         SecDbItemRecordUpdate(dbconn, old_item, new_item);
     }
     return ok;
@@ -1572,7 +1609,7 @@ static bool SecDbItemDeleteTombstone(SecDbItemRef item, SecDbConnectionRef dbcon
 #endif
 
 // Replace old_item with new_item.  If primary keys are the same this does an update otherwise it does a delete + add
-bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, CFErrorRef *error) {
+bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool uuid_from_primary_key, CFErrorRef *error) {
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
 
@@ -1584,6 +1621,11 @@ bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnecti
     bool pk_equal = ok && CFEqual(old_pk, new_pk);
     if (pk_equal) {
         ok = SecDbItemMakeYounger(new_item, old_item, error);
+    } else if(!CFEqualSafe(makeTombstone, kCFBooleanFalse) && SecCKKSIsEnabled()) {
+        // The primary keys aren't equal, and we're going to make a tombstone.
+        // Help CKKS out: the tombstone should have the existing item's UUID, and the newly updated item should have a new UUID.
+
+        s3dl_item_make_new_uuid(new_item, uuid_from_primary_key, error);
     }
     ok = ok && SecDbItemDoUpdate(old_item, new_item, dbconn, &localError, ^bool(const SecDbAttr *attr) {
         return attr->kind == kSecDbRowIdAttr;

@@ -47,6 +47,9 @@ AUTH_NONNULL_ALL
 OSStatus authorization_free(connection_t,xpc_object_t,xpc_object_t);
     
 AUTH_NONNULL_ALL
+OSStatus authorization_preauthorize_credentials(connection_t, xpc_object_t, xpc_object_t);
+
+AUTH_NONNULL_ALL
 OSStatus authorization_copy_rights(connection_t,xpc_object_t,xpc_object_t);
     
 AUTH_NONNULL_ALL

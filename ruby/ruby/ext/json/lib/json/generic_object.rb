@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'ostruct'
 
 module JSON
@@ -31,19 +32,20 @@ module JSON
           object
         end
       end
+
+      def load(source, proc = nil, opts = {})
+        result = ::JSON.load(source, proc, opts.merge(:object_class => self))
+        result.nil? ? new : result
+      end
+
+      def dump(obj, *args)
+        ::JSON.dump(obj, *args)
+      end
     end
     self.json_creatable = false
 
     def to_hash
       table
-    end
-
-    def [](name)
-      table[name.to_sym]
-    end
-
-    def []=(name, value)
-      __send__ "#{name}=", value
     end
 
     def |(other)

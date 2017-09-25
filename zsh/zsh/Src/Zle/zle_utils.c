@@ -587,7 +587,7 @@ struct zle_position {
 };
 
 /* LIFO stack of positions */
-struct zle_position *zle_positions;
+static struct zle_position *zle_positions;
 
 /*
  * Save positions including cursor, end-of-line and
@@ -1412,7 +1412,7 @@ zlong undo_changeno;
 
 /* If positive, don't undo beyond this point */
 
-zlong undo_limitno;
+static zlong undo_limitno;
 
 /**/
 void
@@ -1589,9 +1589,14 @@ undo(char **args)
 	    break;
 	if (prev->changeno <= undo_limitno && !*args)
 	    return 1;
-	if (!unapplychange(prev) && last_change >= 0)
-	    unapplychange(prev);
-	curchange = prev;
+	if (!unapplychange(prev)) {
+	    if (last_change >= 0) {
+		unapplychange(prev);
+		curchange = prev;
+	    }
+	} else {
+	    curchange = prev;
+	}
     } while (last_change >= (zlong)0 || (curchange->flags & CH_PREV));
     setlastline();
     return 0;
@@ -1678,7 +1683,7 @@ viundochange(char **args)
 
 /**/
 int
-splitundo(char **args)
+splitundo(UNUSED(char **args))
 {
     if (vistartchange >= 0) {
 	mergeundo();
@@ -1699,6 +1704,7 @@ mergeundo(void)
 	current->flags |= CH_PREV;
 	current->prev->flags |= CH_NEXT;
     }
+    vistartchange = -1;
 }
 
 /*
@@ -1719,6 +1725,8 @@ zlecallhook(char *name, char *arg)
 
     if (!thingy)
 	return;
+
+    /* If anything here needs changing, see also redrawhook() */
 
     saverrflag = errflag;
     savretflag = retflag;

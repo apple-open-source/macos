@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,10 +43,8 @@ enum class WebsiteDataType {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     PlugInData = 1 << 11,
 #endif
-#if ENABLE(MEDIA_STREAM)
-    MediaDeviceIdentifier = 1 << 12,
-#endif
-    WebsiteDataTypeResourceLoadStatistics = 1 << 13,
+    ResourceLoadStatistics = 1 << 12,
+    Credentials = 1 << 13,
 };
 
 };

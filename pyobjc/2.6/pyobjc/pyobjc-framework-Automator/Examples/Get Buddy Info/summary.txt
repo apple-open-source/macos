@@ -1,1 +1,0 @@
-An automator action that returns the current status for an Messages buddy.

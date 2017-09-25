@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #  autoload
 #
@@ -93,6 +94,8 @@ module Tk
   autoload :X_Scrollable,     'tk/scrollable'
   autoload :Y_Scrollable,     'tk/scrollable'
   autoload :Scrollable,       'tk/scrollable'
+
+  autoload :Fontchooser,      'tk/fontchooser'
 
   autoload :Wm,               'tk/wm'
   autoload :Wm_for_General,   'tk/wm'

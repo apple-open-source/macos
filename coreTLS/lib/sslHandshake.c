@@ -866,7 +866,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
 						break;
 #if ALLOW_RSA_SERVER_KEY_EXCHANGE
                     case SSL_RSA:
-                        if(ctx->rsaEncryptPubKey.rsa.pub) {
+                        if(ctx->rsaEncryptPubKey.rsa!=NULL) {
                             doServerKeyExch = true;
                         }
                         break;

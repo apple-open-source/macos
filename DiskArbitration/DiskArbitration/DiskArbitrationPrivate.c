@@ -2539,6 +2539,53 @@ int _DAmkdir( const char * path, mode_t mode )
     return status;
 }
 
+int _DArmdir( const char * path )
+{
+    int status;
+
+    status = rmdir( path );
+
+    if ( status )
+    {
+        status = errno;
+
+        if ( status == EACCES )
+        {
+            DASessionRef session;
+
+            session = DASessionCreate( kCFAllocatorDefault );
+
+            if ( session )
+            {
+                status = _DAServerrmdir( _DASessionGetID( session ), path );
+
+                if ( status )
+                {
+                    if ( unix_err( err_get_code( status ) ) == status )
+                    {
+                        status = err_get_code( status );
+                    }
+                    else
+                    {
+                        status = EACCES;
+                    }
+                }
+
+                CFRelease( session );
+            }
+        }
+
+        if ( status )
+        {
+            errno = status;
+
+            status = -1;
+        }
+    }
+
+    return status;
+}
+
 DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
 {
     DAReturn status;

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 //
 //  file:  rbbirb.cpp
 //
@@ -68,7 +70,6 @@ RBBIRuleBuilder::RBBIRuleBuilder(const UnicodeString   &rules,
     fChainRules         = FALSE;
     fLBCMNoChain        = FALSE;
     fLookAheadHardBreak = FALSE;
-    fRINoChain          = FALSE;
     fUSetNodes          = NULL;
     fRuleStatusVals     = NULL;
     fScanner            = NULL;

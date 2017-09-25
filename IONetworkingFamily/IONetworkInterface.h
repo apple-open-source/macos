@@ -227,6 +227,11 @@ enum {
     kIONetworkWorkLoopSynchronous   = 0x00000001
 };
 
+enum {
+    kIONetworkClientBehaviorLinkStateActiveRegister = 0x00000001,
+    kIONetworkClientBehaviorLinkStateChangeMessage  = 0x00000002
+};
+
 /*! @enum IOMbufServiceClass
     @discussion Service class of a mbuf packet.
     @constant kIOMbufServiceClassBKSYS Background System-Initiated.
@@ -399,6 +404,8 @@ private:
 #endif
         uint16_t                    txStartDelayQueueLength;	/* optional */
         uint16_t                    txStartDelayTimeout;        /* optional */
+        IOOptionBits                clientBehavior;
+        thread_call_t               inputEventThreadCall; // inputEvent() thread call
     };
 
     ExpansionData *         _reserved;
@@ -441,6 +448,7 @@ private:
                                   u_int32_t arglen, void *arg);
 #endif
     void            notifyDriver( uint32_t type, void * data );
+    static void     handleNetworkInputEvent(thread_call_param_t param0, thread_call_param_t param1);
 
 public:
 
@@ -697,7 +705,7 @@ public:
 	bool setExtendedFlags(UInt32 flags, UInt32 clear = 0);
 
     /* Override IOService::message() */
-    virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+    virtual IOReturn message( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
 
 /*! @function debuggerRegistered
     @abstract Tells the <code>IONetworkData</code> that this interface will be
@@ -784,18 +792,18 @@ protected:
     clearInputQueue() is called to ensure that the input queue is empty.
     The interface should have already detached from the network stack.
 */
-    virtual void     free( void );
+    virtual void     free( void ) APPLE_KEXT_OVERRIDE;
 
     /* Override IOService::handleOpen() */
     virtual bool     handleOpen( IOService *  client,
                                  IOOptionBits options,
-                                 void *       argument );
+                                 void *       argument ) APPLE_KEXT_OVERRIDE;
 
     /* Override IOService::handleClose() */
-    virtual void     handleClose( IOService * client, IOOptionBits options );
+    virtual void     handleClose( IOService * client, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     /* Override IOService::handleIsOpen() */
-    virtual bool     handleIsOpen( const IOService * client ) const;
+    virtual bool     handleIsOpen( const IOService * client ) const APPLE_KEXT_OVERRIDE;
 
 /*! @function lock
     @abstract Acquires a recursive lock owned by the interface.
@@ -917,7 +925,7 @@ protected:
     virtual IOReturn newUserClient( task_t           owningTask,
                                     void *           security_id,
                                     UInt32           type,
-                                    IOUserClient **  handler );
+                                    IOUserClient **  handler ) APPLE_KEXT_OVERRIDE;
 
 /*! @function setInterfaceState
     @abstract Updates the interface object state flags.
@@ -945,7 +953,7 @@ protected:
     virtual IOReturn powerStateWillChangeTo(
                                 IOPMPowerFlags  flags,
                                 unsigned long   stateNumber,
-                                IOService *     policyMaker );
+                                IOService *     policyMaker ) APPLE_KEXT_OVERRIDE;
 
 /*! @function powerStateDidChangeTo
     @abstract Handles a post-change power interest notification from the
@@ -963,7 +971,7 @@ protected:
     virtual IOReturn powerStateDidChangeTo(
                                 IOPMPowerFlags  flags,
                                 unsigned long   stateNumber,
-                                IOService *     policyMaker );
+                                IOService *     policyMaker ) APPLE_KEXT_OVERRIDE;
 
 /*! @function controllerWillChangePowerState
     @abstract Handles a notification that the network controller servicing
@@ -1005,14 +1013,14 @@ public:
     /* Override IOService::willTerminate() */
     virtual bool     willTerminate(
                                 IOService *  provider,
-                                IOOptionBits options );
+                                IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     /* Override IOService::requestTerminate() */
     virtual bool     requestTerminate(
-                                IOService * provider, IOOptionBits options );
+                                IOService * provider, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     /* Override IOService::serializeProperties() */
-    virtual bool     serializeProperties( OSSerialize * s ) const;
+    virtual bool     serializeProperties( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 
 /*! @function attachToDataLinkLayer
     @abstract Attach the network interface to the BSD data link layer.
@@ -1490,6 +1498,19 @@ public:
     IOReturn setPacketPollingParameters(
                             const IONetworkPacketPollingParameters * params,
                             IOOptionBits options = 0 );
+
+    /*! @function configureClientBehavior
+     @abstract Configure client behavior.
+     @discussion Invoked by drivers that wish to alter IONetworkInterface's behavior.
+     @param options set <code>kIONetworkClientBehaviorLinkStateActiveRegister</code>
+     to have IONetworkInterface trigger matching when link state goes to active.
+     set <code>kIONetworkClientBehaviorLinkStateChangeMessage</code> to have
+     IONetworkInterface deliver an IOKit message when link state changes.
+     @result Returns <code>kIOReturnSuccess</code> if successful,
+     otherwise an appropriate error code.
+     */
+    IOReturn configureClientBehavior( IOOptionBits options = 0 );
+
 #else   /* !__PRIVATE_SPI__ */
     OSMetaClassDeclareReservedUnused( IONetworkInterface,  5);
     OSMetaClassDeclareReservedUnused( IONetworkInterface,  6);

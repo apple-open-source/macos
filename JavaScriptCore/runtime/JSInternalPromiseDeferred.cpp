@@ -35,7 +35,7 @@
 
 namespace JSC {
 
-const ClassInfo JSInternalPromiseDeferred::s_info = { "JSInternalPromiseDeferred", &Base::s_info, nullptr, CREATE_METHOD_TABLE(JSInternalPromiseDeferred) };
+const ClassInfo JSInternalPromiseDeferred::s_info = { "JSInternalPromiseDeferred", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSInternalPromiseDeferred) };
 
 JSInternalPromiseDeferred* JSInternalPromiseDeferred::create(ExecState* exec, JSGlobalObject* globalObject)
 {
@@ -44,7 +44,7 @@ JSInternalPromiseDeferred* JSInternalPromiseDeferred::create(ExecState* exec, JS
     JSValue deferred = newPromiseCapability(exec, globalObject, globalObject->internalPromiseConstructor());
 
     JSValue promise = deferred.get(exec, vm.propertyNames->builtinNames().promisePrivateName());
-    ASSERT(promise.inherits(JSInternalPromise::info()));
+    ASSERT(promise.inherits(vm, JSInternalPromise::info()));
     JSValue resolve = deferred.get(exec, vm.propertyNames->builtinNames().resolvePrivateName());
     JSValue reject = deferred.get(exec, vm.propertyNames->builtinNames().rejectPrivateName());
 
@@ -73,6 +73,11 @@ JSInternalPromise* JSInternalPromiseDeferred::reject(ExecState* exec, JSValue re
 {
     Base::reject(exec, reason);
     return promise();
+}
+
+JSInternalPromise* JSInternalPromiseDeferred::reject(ExecState* exec, Exception* reason)
+{
+    return reject(exec, reason->value());
 }
 
 } // namespace JSC

@@ -32,16 +32,17 @@
 /*	mail queue(s) (default: \fBhold\fR, \fBincoming\fR, \fBactive\fR and
 /*	\fBdeferred\fR).
 /*
-/*	If a \fIqueue_id\fR of \fB-\fR is specified, the program reads
-/*	queue IDs from standard input. For example, to delete all mail
+/*	To delete multiple files, specify the \fB-d\fR option multiple
+/*	times, or specify a \fIqueue_id\fR of \fB-\fR to read queue IDs
+/*	from standard input. For example, to delete all mail
 /*	with exactly one recipient \fBuser@example.com\fR:
 /* .sp
 /* .nf
-/*	mailq | tail +2 | grep -v '^ *(' | awk  \'BEGIN { RS = "" }
+/*	mailq | tail -n +2 | grep -v '^ *(' | awk  'BEGIN { RS = "" }
 /*	    # $7=sender, $8=recipient1, $9=recipient2
 /*	    { if ($8 == "user@example.com" && $9 == "")
 /*	          print $1 }
-/*	\' | tr -d '*!' | postsuper -d -
+/*	 ' | tr -d '*!' | postsuper -d -
 /* .fi
 /* .sp
 /*	Specify "\fB-d ALL\fR" to remove all messages; for example, specify
@@ -77,8 +78,9 @@
 /*	mail queue(s) (default: \fBincoming\fR, \fBactive\fR and
 /*	\fBdeferred\fR) to the \fBhold\fR queue.
 /*
-/*	If a \fIqueue_id\fR of \fB-\fR is specified, the program reads
-/*	queue IDs from standard input.
+/*	To hold multiple files, specify the \fB-h\fR option multiple
+/*	times, or specify a \fIqueue_id\fR of \fB-\fR to read queue IDs
+/*	from standard input.
 /* .sp
 /*	Specify "\fB-h ALL\fR" to hold all messages; for example, specify
 /*	"\fB-h ALL deferred\fR" to hold all mail in the \fBdeferred\fR queue.
@@ -96,8 +98,9 @@
 /*	Move one message with the named queue ID from the named
 /*	mail queue(s) (default: \fBhold\fR) to the \fBdeferred\fR queue.
 /*
-/*	If a \fIqueue_id\fR of \fB-\fR is specified, the program reads
-/*	queue IDs from standard input.
+/*	To release multiple files, specify the \fB-H\fR option multiple
+/*	times, or specify a \fIqueue_id\fR of \fB-\fR to read queue IDs
+/*	from standard input.
 /* .sp
 /*	Note: specify "\fBpostsuper -r\fR" to release mail that was kept on
 /*	hold for a significant fraction of \fB$maximal_queue_lifetime\fR
@@ -115,11 +118,10 @@
 /*	Requeue the message with the named queue ID from the named
 /*	mail queue(s) (default: \fBhold\fR, \fBincoming\fR, \fBactive\fR and
 /*	\fBdeferred\fR).
-/*	To requeue multiple messages, specify multiple \fB-r\fR
-/*	command-line options.
 /*
-/*	Alternatively, if a \fIqueue_id\fR of \fB-\fR is specified,
-/*	the program reads queue IDs from standard input.
+/*	To requeue multiple files, specify the \fB-r\fR option multiple
+/*	times, or specify a \fIqueue_id\fR of \fB-\fR to read queue IDs
+/*	from standard input.
 /* .sp
 /*	Specify "\fB-r ALL\fR" to requeue all messages. As a safety
 /*	measure, the word \fBALL\fR must be specified in upper case.
@@ -228,13 +230,17 @@
 /* .IP "\fBhash_queue_names (deferred, defer)\fR"
 /*	The names of queue directories that are split across multiple
 /*	subdirectory levels.
+/* .IP "\fBimport_environment (see 'postconf -d' output)\fR"
+/*	The list of environment parameters that a privileged Postfix
+/*	process will import from a non-Postfix parent process, or name=value
+/*	environment overrides.
 /* .IP "\fBqueue_directory (see 'postconf -d' output)\fR"
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-/*	The mail system name that is prepended to the process name in syslog
-/*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/*	A prefix that is prepended to the process name in syslog
+/*	records, so that, for example, "smtpd" becomes "prefix/smtpd".
 /* .PP
 /*	Available in Postfix version 2.9 and later:
 /* .IP "\fBenable_long_queue_ids (no)\fR"
@@ -286,6 +292,7 @@
 #include <sane_fsops.h>
 #include <myrand.h>
 #include <warn_stat.h>
+#include <clean_env.h>
 
 /* Global library. */
 
@@ -297,6 +304,7 @@
 #include <mail_queue.h>
 #include <mail_open_ok.h>
 #include <file_id.h>
+#include <mail_parm_split.h>
 
 /* Application-specific. */
 
@@ -435,7 +443,7 @@ static int postrename(const char *old, const char *new)
     if ((ret = sane_rename(old, new)) < 0) {
 	if (errno != ENOENT
 	    || mail_queue_mkdirs(new) < 0
-	    || sane_rename(old, new) < 0)
+	    || (ret = sane_rename(old, new)) < 0)
 	    if (errno != ENOENT)
 		msg_fatal("rename file %s as %s: %m", old, new);
     } else {
@@ -1078,6 +1086,7 @@ int     main(int argc, char **argv)
     ARGV   *hold_names = 0;
     ARGV   *release_names = 0;
     char  **cpp;
+    ARGV   *import_env;
 
     /*
      * Defaults. The structural checks must fix the directory levels of "log
@@ -1228,6 +1237,10 @@ int     main(int argc, char **argv)
      * configuration directory location.
      */
     mail_conf_read();
+    /* Enforce consistent operation of different Postfix parts. */
+    import_env = mail_parm_split(VAR_IMPORT_ENVIRON, var_import_environ);
+    update_env(import_env->argv);
+    argv_free(import_env);
     /* Re-evaluate mail_task() after reading main.cf. */
     msg_syslog_init(mail_task(argv[0]), LOG_PID, LOG_FACILITY);
     if (chdir(var_queue_dir))

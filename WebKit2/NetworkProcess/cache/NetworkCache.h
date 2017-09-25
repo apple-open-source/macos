@@ -33,9 +33,11 @@
 #include "ShareableResource.h"
 #include <WebCore/ResourceResponse.h>
 #include <wtf/Function.h>
+#include <wtf/OptionSet.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+class LowPowerModeNotifier;
 class ResourceRequest;
 class SharedBuffer;
 class URL;
@@ -93,19 +95,21 @@ class Cache {
     WTF_MAKE_NONCOPYABLE(Cache);
     friend class WTF::NeverDestroyed<Cache>;
 public:
-    struct Parameters {
-        bool enableEfficacyLogging;
+    enum class Option {
+        EfficacyLogging = 1 << 0,
+        // In testing mode we try to eliminate sources of randomness. Cache does not shrink and there are no read timeouts.
+        TestingMode = 1 << 1,
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-        bool enableNetworkCacheSpeculativeRevalidation;
+        SpeculativeRevalidation = 1 << 2,
 #endif
     };
-    bool initialize(const String& cachePath, const Parameters&);
+    bool initialize(const String& cachePath, OptionSet<Option>);
     void setCapacity(size_t);
 
     bool isEnabled() const { return !!m_storage; }
 
     // Completion handler may get called back synchronously on failure.
-    void retrieve(const WebCore::ResourceRequest&, const GlobalFrameID&, std::function<void (std::unique_ptr<Entry>)>&&);
+    void retrieve(const WebCore::ResourceRequest&, const GlobalFrameID&, Function<void (std::unique_ptr<Entry>)>&&);
     std::unique_ptr<Entry> store(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, RefPtr<WebCore::SharedBuffer>&&, Function<void (MappedBody&)>&&);
     std::unique_ptr<Entry> storeRedirect(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, const WebCore::ResourceRequest& redirectRequest);
     std::unique_ptr<Entry> update(const WebCore::ResourceRequest&, const GlobalFrameID&, const Entry&, const WebCore::ResourceResponse& validatingResponse);
@@ -117,14 +121,25 @@ public:
     void traverse(Function<void (const TraversalEntry*)>&&);
     void remove(const Key&);
     void remove(const WebCore::ResourceRequest&);
+    void remove(const Vector<Key>&, Function<void ()>&&);
 
     void clear();
-    void clear(std::chrono::system_clock::time_point modifiedSince, std::function<void ()>&& completionHandler);
+    void clear(std::chrono::system_clock::time_point modifiedSince, Function<void ()>&& completionHandler);
+
+    void retrieveData(const DataKey&, Function<void (const uint8_t* data, size_t size)>);
+    void storeData(const DataKey&,  const uint8_t* data, size_t);
+    
+    std::unique_ptr<Entry> makeEntry(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, RefPtr<WebCore::SharedBuffer>&&);
+    std::unique_ptr<Entry> makeRedirectEntry(const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, const WebCore::ResourceRequest& redirectRequest);
 
     void dumpContentsToFile();
 
     String recordsPath() const;
     bool canUseSharedMemoryForBodyData() const { return m_storage && m_storage->canUseSharedMemoryForBodyData(); }
+
+#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
+    SpeculativeLoadManager* speculativeLoadManager() { return m_speculativeLoadManager.get(); }
+#endif
 
 private:
     Cache() = default;
@@ -137,6 +152,7 @@ private:
 
     std::unique_ptr<Storage> m_storage;
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
+    std::unique_ptr<WebCore::LowPowerModeNotifier> m_lowPowerModeNotifier;
     std::unique_ptr<SpeculativeLoadManager> m_speculativeLoadManager;
 #endif
     std::unique_ptr<Statistics> m_statistics;

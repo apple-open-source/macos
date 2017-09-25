@@ -2603,16 +2603,13 @@ inline void DKR_SET_BYTE_COUNT(dkr_t dkr, dkrtype_t dkrtype, UInt64 bcount)
         uio_setresid(((dio_t)dkr)->uio, uio_resid(((dio_t)dkr)->uio) - bcount);
 }
 
-inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, IOReturn status)
+inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, int error)
 {
     if (dkrtype == DKRTYPE_BUF)
     {
         buf_t       bp = (buf_t)dkr;
-        MinorSlot * minor;
 
-        minor = gIOMediaBSDClientGlobals.getMinor(getminor(buf_device(bp)));
-
-        buf_seterror(bp, minor->media->errnoFromReturn(status));     // (error?)
+        buf_seterror(bp, error);                           // (error?)
         buf_biodone(bp);                                   // (complete request)
     }
 }
@@ -2743,8 +2740,8 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
     if ( ( minor == NULL ) || ( minor->isOrphaned ) )                             // (is minor in flux?)
     {
-        status = kIOReturnNoMedia;
-        goto dkreadwriteErr;
+        DKR_RUN_COMPLETION(dkr, dkrtype, ENXIO);      // DKR_RUN_COMPLETION is a NO-OP on synchronous IO
+        return ENXIO;
     }
 
     if ( minor->media->isFormatted() == false )       // (is media unformatted?)
@@ -2977,7 +2974,7 @@ void dkreadwritecompletion( void *   target,
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)
     {
         DKR_SET_BYTE_COUNT(dkr, dkrtype, actualByteCount);   // (set byte count)
-        DKR_RUN_COMPLETION(dkr, dkrtype, status);            // (run completion)
+        DKR_RUN_COMPLETION(dkr, dkrtype, minor->media->errnoFromReturn(status)); // (run completion)
     }
     else
     {
@@ -3378,20 +3375,30 @@ UInt32 MinorTable::insert( IOMedia *          media,
 
     // Create a block and character device node in BSD for this media.
 
+    const char *owner_keys[3] = {"owner-uid", "owner-gid", "owner-mode"};
+    int owner_id_mode[3] = {UID_ROOT, GID_OPERATOR, 0640};
+    int i;
+
+    for (i=0; i<3; i++)
+    {
+        OSNumber *_num = OSDynamicCast(OSNumber, media->getProperty(owner_keys[i], gIOServicePlane));
+        if (_num) owner_id_mode[i]  = _num->unsigned32BitValue();
+    }
+
     bdevNode = devfs_make_node( /* dev        */ makedev(majorID, minorID),
                                 /* type       */ DEVFS_BLOCK, 
-                                /* owner      */ UID_ROOT,
-                                /* group      */ GID_OPERATOR,
-                                /* permission */ 0640,
+                                /* owner      */ owner_id_mode[0],
+                                /* group      */ owner_id_mode[1],
+                                /* permission */ owner_id_mode[2],
                                 /* name (fmt) */ "disk%d%s",
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );
 
     cdevNode = devfs_make_node( /* dev        */ makedev(majorID, minorID),
                                 /* type       */ DEVFS_CHAR, 
-                                /* owner      */ UID_ROOT,
-                                /* group      */ GID_OPERATOR,
-                                /* permission */ 0640,
+                                /* owner      */ owner_id_mode[0],
+                                /* group      */ owner_id_mode[1],
+                                /* permission */ owner_id_mode[2],
                                 /* name (fmt) */ "rdisk%d%s",
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );

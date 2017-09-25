@@ -724,7 +724,6 @@
 		EB131685181F21580060DB0B /* hx509-protos.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBCD58F21141D94A00B964AB /* hx509-protos.h */; };
 		EB131686181F21580060DB0B /* hx509.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBBFAF1F100D26E200BF3DAE /* hx509.h */; };
 		EB13168B181F23C80060DB0B /* config_plugin.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB3CCA1614DE3002008E9787 /* config_plugin.h */; };
-		EB1316971820218A0060DB0B /* gssapi_rewrite.h in Copy private generated header files */ = {isa = PBXBuildFile; fileRef = EBAE7AC012B045D9002DA026 /* gssapi_rewrite.h */; };
 		EB13F5911280B26200E610D1 /* check-apple-ad in Install Apple tests */ = {isa = PBXBuildFile; fileRef = EB13F5901280B24300E610D1 /* check-apple-ad */; };
 		EB13F6051280D44B00E610D1 /* mit_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = EB13F6041280D44B00E610D1 /* mit_dump.c */; };
 		EB163F1B11FE35A9006101A1 /* cms_asn1.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5F3C8A0F2567EA0056E301 /* cms_asn1.h */; };
@@ -1605,8 +1604,7 @@
 		EB4A373E1B570691008C97DF /* stat-kerberos.m in Sources */ = {isa = PBXBuildFile; fileRef = EB4A373D1B570691008C97DF /* stat-kerberos.m */; };
 		EB4A37401B5713F8008C97DF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBD090AE1330353B001D0938 /* Foundation.framework */; };
 		EB4C0AA8182B289500122104 /* gssapi_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6B1FD113AC218B001CB8AD /* gssapi_plugin.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		EB4C0AA9182B2A4100122104 /* gssapi_rewrite.h in Headers */ = {isa = PBXBuildFile; fileRef = EBAE7AC012B045D9002DA026 /* gssapi_rewrite.h */; };
-		EB4C0AAA182B2AAA00122104 /* gssapi_spi.h in Copy private generated header files */ = {isa = PBXBuildFile; fileRef = EBBB6BAA10599A1700B84263 /* gssapi_spi.h */; };
+		EB4C0AA9182B2A4100122104 /* gssapi_rewrite.h in Headers */ = {isa = PBXBuildFile; fileRef = EBAE7AC012B045D9002DA026 /* gssapi_rewrite.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB4CF5ED10FCF014003FF75A /* parse_time.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB575F0F21822D0009D37C /* parse_time.h */; };
 		EB4D3E5F1766358E00B52C6B /* check-common.c in Sources */ = {isa = PBXBuildFile; fileRef = EBFB56820F2181960009D37C /* check-common.c */; };
 		EB4D3E61176635E600B52C6B /* check-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56830F2181960009D37C /* check-common.h */; };
@@ -1710,6 +1708,7 @@
 		EB5C105010AF71F2005EDEB4 /* com_right.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56EE0F2181E90009D37C /* com_right.h */; };
 		EB5C98FC1953863D00BEF54B /* hex.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB573D0F21822D0009D37C /* hex.h */; };
 		EB5D145D16F7C6850029D630 /* krb5-types.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B38E0F22BF54006BD106 /* krb5-types.h */; };
+		EB5E1B051E84CCEB00B6EDDD /* GSSCred.8 in Install man8 pages */ = {isa = PBXBuildFile; fileRef = EB5E1B031E84CC8500B6EDDD /* GSSCred.8 */; };
 		EB5E225F14346A7200485BCE /* gssapi_oid.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5E224C1434698B00485BCE /* gssapi_oid.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EB5E92DF1223506100C9965C /* libheimbase.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB42F4F0116BCE2500FCDD8F /* libheimbase.a */; };
 		EB5F00BF1728835900022051 /* krb5-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBC6F26D0F22CD3500D1AB35 /* krb5-protos.h */; };
@@ -2063,6 +2062,8 @@
 		EB7632231155C9B3007FD544 /* check-common.c in Sources */ = {isa = PBXBuildFile; fileRef = EBFB56820F2181960009D37C /* check-common.c */; };
 		EB7632241155C9CB007FD544 /* check-der.c in Sources */ = {isa = PBXBuildFile; fileRef = EBFB56840F2181960009D37C /* check-der.c */; };
 		EB76B99214434699001B33ED /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB04E8570F3476B2009A5B13 /* Security.framework */; };
+		EB78267D1D4D445700C8A9B7 /* gssapi_ntlm.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBB6BA910599A1700B84263 /* gssapi_ntlm.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB78267E1D4D445D00C8A9B7 /* gssapi_netlogon.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F9C17111E3DF700744852 /* gssapi_netlogon.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB78980814804A9300627F36 /* check-export.c in Sources */ = {isa = PBXBuildFile; fileRef = EB78980714804A9300627F36 /* check-export.c */; };
 		EB789815148064B900627F36 /* heim_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7B4152114F09C100D6EA17 /* heim_threads.h */; };
 		EB7898161480665A00627F36 /* heim_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7B4152114F09C100D6EA17 /* heim_threads.h */; };
@@ -2724,7 +2725,6 @@
 		EB96637E0F285F2000E3B9E0 /* parse_bytes.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB575A0F21822D0009D37C /* parse_bytes.h */; };
 		EB99558916D437F60056C1E9 /* GSS.h in Headers */ = {isa = PBXBuildFile; fileRef = EB99558716D437F00056C1E9 /* GSS.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EB99558A16D438160056C1E9 /* GSSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = EB99558816D437F00056C1E9 /* GSSPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		EB9BEE391821FDFC001433A0 /* spnego_asn1.h in Copy private generated header files */ = {isa = PBXBuildFile; fileRef = EBCD591B1141DAD600B964AB /* spnego_asn1.h */; };
 		EB9BEE3B1821FE42001433A0 /* com_err.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBBFAF1D100D26E200BF3DAE /* com_err.h */; };
 		EB9BEE3C1821FE49001433A0 /* com_right.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EBBFAF1E100D26E200BF3DAE /* com_right.h */; };
 		EB9BEE3F1821FF7A001433A0 /* windc_plugin.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB9BEE3E1821FF57001433A0 /* windc_plugin.h */; };
@@ -3126,7 +3126,7 @@
 		EBBB6B8E1059994500B84263 /* libasn1-digest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB95375A0FFC73820013822C /* libasn1-digest.a */; };
 		EBBB6BA3105999D900B84263 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
 		EBBB6BAF10599A5400B84263 /* gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBB6BA810599A1700B84263 /* gssapi_krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EBBB6BB110599A5400B84263 /* gssapi_spi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBB6BAA10599A1700B84263 /* gssapi_spi.h */; };
+		EBBB6BB110599A5400B84263 /* gssapi_spi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBB6BAA10599A1700B84263 /* gssapi_spi.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EBBB6BB210599A5400B84263 /* gssapi_spnego.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBB6BAB10599A1700B84263 /* gssapi_spnego.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EBBB6BB310599A5400B84263 /* gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBB6BAC10599A1700B84263 /* gssapi.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EBBB6C181059A99100B84263 /* kswitch.1 in Install man1 pages */ = {isa = PBXBuildFile; fileRef = EBBB6C171059A98200B84263 /* kswitch.1 */; };
@@ -7157,19 +7157,6 @@
 			name = "Copy public generated files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		EB131695182021250060DB0B /* Copy private generated header files */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/$(SYSTEM_LIBRARY_DIR)/Frameworks/$(PRIVATE_HEADERS_FOLDER_PATH)";
-			dstSubfolderSpec = 0;
-			files = (
-				EB4C0AAA182B2AAA00122104 /* gssapi_spi.h in Copy private generated header files */,
-				EB9BEE391821FDFC001433A0 /* spnego_asn1.h in Copy private generated header files */,
-				EB1316971820218A0060DB0B /* gssapi_rewrite.h in Copy private generated header files */,
-			);
-			name = "Copy private generated header files";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		EB18A9AB11779D9B001985AB /* man8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -7334,6 +7321,17 @@
 				EB805BBD1492EE7D00F1E44F /* check-apple-ac in Install Apple tests */,
 			);
 			name = "Install Apple tests";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB5E1B041E84CCA400B6EDDD /* Install man8 pages */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				EB5E1B051E84CCEB00B6EDDD /* GSSCred.8 in Install man8 pages */,
+			);
+			name = "Install man8 pages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		EB670F871C5EDBDE003D49CA /* Install bats files */ = {
@@ -8062,7 +8060,7 @@
 		EB2C3E0816CC1A4400D75FA0 /* common.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = common.c; path = lib/heimcred/common.c; sourceTree = "<group>"; };
 		EB2C3E0916CC1A4400D75FA0 /* common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = common.h; path = lib/heimcred/common.h; sourceTree = "<group>"; };
 		EB2C3E0A16CC1A4400D75FA0 /* server.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = server.m; path = lib/heimcred/server.m; sourceTree = "<group>"; };
-		EB2C3E1116CC42D300D75FA0 /* com.apple.GSSCred */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.apple.GSSCred; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB2C3E1116CC42D300D75FA0 /* com.apple.GSSCred */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; name = com.apple.GSSCred; path = GSSCred; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB2EB1C8111CD4BE004C6570 /* heimdal_debug.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = heimdal_debug.5; path = packages/mac/heimdal_debug.5; sourceTree = "<group>"; };
 		EB2F0FD016D8020200CB0933 /* tkt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tkt.c; path = lib/krb5/tkt.c; sourceTree = "<group>"; };
 		EB312C5D10B499B800B0732B /* oncrpc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oncrpc.c; path = lib/kadm5/oncrpc.c; sourceTree = "<group>"; };
@@ -8211,6 +8209,7 @@
 		EB567547110909CC00CE2FA9 /* spnego_asn1-priv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "spnego_asn1-priv.h"; sourceTree = "<group>"; };
 		EB57281715DD966200BFC9E9 /* libasn1-defs.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libasn1-defs.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB5B50CA16D5C2DC000BD9FB /* cf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cf.c; path = base/cf.c; sourceTree = "<group>"; };
+		EB5E1B031E84CC8500B6EDDD /* GSSCred.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = GSSCred.8; path = lib/heimcred/GSSCred.8; sourceTree = "<group>"; };
 		EB5E224C1434698B00485BCE /* gssapi_oid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_oid.h; path = GSS/gssapi_oid.h; sourceTree = "<group>"; };
 		EB5E92B4121F5B1600C9965C /* GSSKit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSSKit.h; path = lib/gssapi/ns/GSSKit.h; sourceTree = "<group>"; };
 		EB5F3C6511A38EAD0061142C /* CommonAuth.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CommonAuth.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -8314,6 +8313,10 @@
 		EB76317D11557BA8007FD544 /* test.opt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = test.opt; path = lib/asn1/test.opt; sourceTree = "<group>"; };
 		EB7631941155AB46007FD544 /* check-fuzzer */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "check-fuzzer"; path = "tests/kdc/check-fuzzer"; sourceTree = "<group>"; };
 		EB7631F61155C916007FD544 /* check-der */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "check-der"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB7826CA1D4D584600C8A9B7 /* gss-apple.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = "gss-apple.json"; path = "packages/mac/framework/gss-apple.json"; sourceTree = "<group>"; };
+		EB7826CB1D4D584600C8A9B7 /* gss-oid.sym */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "gss-oid.sym"; path = "packages/mac/framework/gss-oid.sym"; sourceTree = "<group>"; };
+		EB7826CC1D4D584600C8A9B7 /* gss.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = gss.json; path = packages/mac/framework/gss.json; sourceTree = "<group>"; };
+		EB7826CD1D4D584600C8A9B7 /* heimdal-asn1.sym */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "heimdal-asn1.sym"; path = "packages/mac/framework/heimdal-asn1.sym"; sourceTree = "<group>"; };
 		EB7897FA1480499000627F36 /* test_export */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_export; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB78980714804A9300627F36 /* check-export.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "check-export.c"; path = "tests/apple/check-export.c"; sourceTree = "<group>"; };
 		EB792865122609FC004407A7 /* accept_sec_context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = accept_sec_context.c; path = lib/gssapi/digest/accept_sec_context.c; sourceTree = "<group>"; };
@@ -11071,6 +11074,7 @@
 				EB2C3E0816CC1A4400D75FA0 /* common.c */,
 				EB2C3E0916CC1A4400D75FA0 /* common.h */,
 				EBE5864B16CC4F18000D7E07 /* GSSCred-Info.plist */,
+				EB5E1B031E84CC8500B6EDDD /* GSSCred.8 */,
 				EBE5864C16CC4F18000D7E77 /* hc_err.et */,
 				EBE5864C16CC4F18000D7E07 /* heimcred-const.h */,
 				EB2C3E0516CC08E400D75FA0 /* heimcred.h */,
@@ -11184,6 +11188,10 @@
 		EB5D93640F266CF000807D31 /* framework */ = {
 			isa = PBXGroup;
 			children = (
+				EB7826CA1D4D584600C8A9B7 /* gss-apple.json */,
+				EB7826CB1D4D584600C8A9B7 /* gss-oid.sym */,
+				EB7826CC1D4D584600C8A9B7 /* gss.json */,
+				EB7826CD1D4D584600C8A9B7 /* heimdal-asn1.sym */,
 				EB42F545116C19BA00FCDD8F /* asn1.sym */,
 				EB42F546116C19BA00FCDD8F /* base.sym */,
 				EBBB6B741059961000B84263 /* hcrypto.sym */,
@@ -15553,8 +15561,10 @@
 				EBBE485E146E133C00A166D3 /* gssapi_private.h in Headers */,
 				EB792B1512271ABB004407A7 /* gssapi_scram.h in Headers */,
 				EB45EC5D14CF2FCE009773A4 /* kcm.h in Headers */,
-				EBBB6BB110599A5400B84263 /* gssapi_spi.h in Headers */,
 				EB4C0AA9182B2A4100122104 /* gssapi_rewrite.h in Headers */,
+				EBBB6BB110599A5400B84263 /* gssapi_spi.h in Headers */,
+				EB78267D1D4D445700C8A9B7 /* gssapi_ntlm.h in Headers */,
+				EB78267E1D4D445D00C8A9B7 /* gssapi_netlogon.h in Headers */,
 				EB4C0AA8182B289500122104 /* gssapi_plugin.h in Headers */,
 				EBA96A1F145B095F0079169E /* gssapi_mech.h in Headers */,
 				EBDA3365105990BC0042FFAE /* krb5_ccapi.h in Headers */,
@@ -16402,6 +16412,7 @@
 				EB2C3E0D16CC42D300D75FA0 /* Sources */,
 				EB2C3E0E16CC42D300D75FA0 /* Frameworks */,
 				EB8E475417B3BE0B00FB52C2 /* Install LaunchDaemons plist */,
+				EB5E1B041E84CCA400B6EDDD /* Install man8 pages */,
 			);
 			buildRules = (
 			);
@@ -17705,11 +17716,7 @@
 				EBDA3355105990230042FFAE /* Sources */,
 				EBDA3356105990230042FFAE /* Frameworks */,
 				EBBA0597122F3A47006F876A /* Install man5 */,
-				EB88E7A31384A76100E80D1C /* Install Desktop only Headers */,
-				EB131695182021250060DB0B /* Copy private generated header files */,
 				EB1517B718A38D3A006215FF /* Install OSX specific debug files */,
-				EBC793DF1820C5DA00C62981 /* Add framework symlinks */,
-				EB7EA42C14748E4F00022A81 /* Postprocess headers */,
 			);
 			buildRules = (
 			);
@@ -18565,38 +18572,6 @@
 			shellScript = "cd \"${DSTROOT}/${HEIMDAL_BIN_DIR}\" && ln -fs kcc klist && ln -fs kcc kswitch";
 			showEnvVarsInLog = 0;
 		};
-		EB7EA42C14748E4F00022A81 /* Postprocess headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Postprocess headers";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "sh ${SRCROOT}/packages/mac/postprocess-headers.sh";
-			showEnvVarsInLog = 0;
-		};
-		EB88E7A31384A76100E80D1C /* Install Desktop only Headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/Derived/GSS/gssapi_netlogon.h",
-				"$(BUILT_PRODUCTS_DIR)/Derived/GSS/gssapi_ntlm.h",
-			);
-			name = "Install Desktop only Headers";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "set -x\n\n# If building for embedded, just punt\nexpr \"${CONFIGURATION}\" : \".*Embedded.*\" > /dev/null && exit 0\n\nmkdir -p \"${DSTROOT}/${SYSTEM_LIBRARY_DIR}/Frameworks/${PUBLIC_HEADERS_FOLDER_PATH}\"\n\ncp \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_INPUT_FILE_1}\" \\\n   \"${DSTROOT}/${SYSTEM_LIBRARY_DIR}/Frameworks/${PUBLIC_HEADERS_FOLDER_PATH}\" || exit 1\n\nexit 0\n";
-			showEnvVarsInLog = 0;
-		};
 		EB969C4C18206BC200CA225A /* Heimdalify headers */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -18625,21 +18600,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\nmkdir -p ${HEIMDAL_TMPDIR}/CommonAuth\n\nfor a in \\\n\t${SRCROOT}/lib/ntlm/heimntlm.h \\\n\t${SRCROOT}/lib/ntlm/heimscram.h \\\n     ;\ndo\n     perl ${SRCROOT}/packages/mac/Heimdal-ify.pl CommonAuth \"$a\" ${HEIMDAL_TMPDIR}/CommonAuth || exit 1\ndone\n\n";
-		};
-		EBC793DF1820C5DA00C62981 /* Add framework symlinks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Add framework symlinks";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "sh packages/mac/framework-links.sh ${INSTALL_DIR}/${FULL_PRODUCT_NAME}";
-			showEnvVarsInLog = 0;
 		};
 		EBC793E11820C73F00C62981 /* Add framework symlinks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -22925,7 +22885,7 @@
 					"-DHEIMCRED_SERVER=1",
 				);
 				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
-				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
+				PRODUCT_NAME = GSSCred;
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				WRAPPER_EXTENSION = xpc;
@@ -22966,7 +22926,7 @@
 				);
 				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
 				PLIST_FILE_OUTPUT_FORMAT = binary;
-				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
+				PRODUCT_NAME = GSSCred;
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				WRAPPER_EXTENSION = xpc;
@@ -23629,7 +23589,10 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = "BUILD_KRB5_LIB=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"BUILD_KRB5_LIB=1",
+					"$(inherited)",
+				);
 				INSTALL_PATH = /usr/local/lib;
 				MACH_O_TYPE = staticlib;
 				PRODUCT_NAME = krb5;
@@ -25113,7 +25076,10 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = "BUILD_KRB5_LIB=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"BUILD_KRB5_LIB=1",
+					"$(inherited)",
+				);
 				INSTALL_PATH = /usr/local/lib;
 				MACH_O_TYPE = staticlib;
 				PRODUCT_NAME = krb5;
@@ -25167,7 +25133,7 @@
 					"-DHEIMCRED_SERVER=1",
 				);
 				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
-				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
+				PRODUCT_NAME = GSSCred;
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				WRAPPER_EXTENSION = xpc;
@@ -27806,7 +27772,10 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = "BUILD_KRB5_LIB=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"BUILD_KRB5_LIB=1",
+					"$(inherited)",
+				);
 				INSTALL_PATH = /usr/local/lib;
 				MACH_O_TYPE = staticlib;
 				PRODUCT_NAME = krb5;

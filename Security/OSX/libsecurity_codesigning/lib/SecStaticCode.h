@@ -117,6 +117,8 @@ extern const CFStringRef kSecCodeAttributeBundleVersion;
 	This key is ignored if no main architecture is specified; if it is specified by name; or
 	if the code is not in Mach-O form.
 	@constant kSecCodeAttributeUniversalFileOffset The offset of a Mach-O specific slice of a universal Mach-O file.
+	@constant kSecCodeAttributeBundleVersion If the code sought is a deep framework bundle (Something.framework/Versions/...),
+    then select the specified framework version. This key is otherwise ignored.
 */
 OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flags, CFDictionaryRef attributes,
 	SecStaticCodeRef * __nonnull CF_RETURNS_RETAINED staticCode);
@@ -141,9 +143,9 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 	@constant kSecCSCheckAllArchitectures
 	For multi-architecture (universal) Mach-O programs, validate all architectures
 	included. By default, only the native architecture is validated.
-	@constant kSecCSNoDnotValidateExecutable
+	@constant kSecCSDoNotValidateExecutable
 	Do not validate the contents of the main executable. This is normally done.
-	@constant kSecCSNoNotValidateResources
+	@constant kSecCSDoNotValidateResources
 	Do not validate the presence and contents of all bundle resources (if any).
 	By default, a mismatch in any bundle resource causes validation to fail.
 	@constant kSecCSCheckNestedCode
@@ -176,6 +178,7 @@ CF_ENUM(uint32_t) {
 	kSecCSRestrictSymlinks = 1 << 7,
 	kSecCSRestrictToAppLike = 1 << 8,
 	kSecCSRestrictSidebandData = 1 << 9,
+    kSecCSUseSoftwareSigningCert = 1 << 10,
 };
 
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags,

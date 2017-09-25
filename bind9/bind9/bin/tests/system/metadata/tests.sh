@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2009, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,12 +14,11 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id$
+# $Id: tests.sh,v 1.9 2011/07/08 01:43:26 each Exp $
 
 SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
 
-RANDFILE=./random.data
 pzone=parent.nil pfile=parent.db
 czone=child.parent.nil cfile=child.db
 status=0
@@ -46,8 +45,8 @@ $SIGNER -Sg -o $pzone $pfile > /dev/null 2>&1
 awk '$2 ~ /RRSIG/ {
         type = $3;
         getline;
-	id = $2;
-	if ($3 ~ /'${czone}'/) {
+	id = $3;
+	if ($4 ~ /'${czone}'/) {
 		print type, id
 	}
 }' < ${cfile}.signed > sigs
@@ -56,7 +55,7 @@ awk '$2 ~ /DNSKEY/ {
 	flags = $3;
 	while ($0 !~ /key id =/)
 		getline;
-	id = $6;
+	id = $NF;
 	print flags, id;
 }' < ${cfile}.signed > keys
 
@@ -134,13 +133,60 @@ n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 
-echo "I:checking update of an old-style key"
+echo "I:checking update of an old-style key ($n)"
 ret=0
 # printing metadata should not work with an old-style key
 $SETTIME -pall `cat oldstyle.key` > /dev/null 2>&1 && ret=1
 $SETTIME -f `cat oldstyle.key` > /dev/null 2>&1 || ret=1
 # but now it should
 $SETTIME -pall `cat oldstyle.key` > /dev/null 2>&1 || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking warning about permissions change on key with dnssec-settime ($n)"
+ret=0
+# settime should print a warning about changing the permissions
+chmod 644 `cat oldstyle.key`.private
+$SETTIME -P none `cat oldstyle.key` > tmp.out 2>&1 || ret=1
+grep "warning" tmp.out > /dev/null 2>&1 || ret=1
+$SETTIME -P none `cat oldstyle.key` > tmp.out 2>&1 || ret=1
+grep "warning" tmp.out > /dev/null 2>&1 && ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking warning about delete date < inactive date with dnssec-settime ($n)"
+ret=0
+# settime should print a warning about delete < inactive
+$SETTIME -I now+15s -D now `cat oldstyle.key` > tmp.out 2>&1 || ret=1
+grep "warning" tmp.out > /dev/null 2>&1 || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking warning about delete date < inactive date with dnssec-keygen ($n)"
+ret=0
+# keygen should print a warning about delete < inactive
+$KEYGEN -q -r $RANDFILE -I now+15s -D now $czone > tmp.out 2>&1 || ret=1
+grep "warning" tmp.out > /dev/null 2>&1 || ret=1
+n=`expr $n + 1`
+if [ $ret != 0 ]; then echo "I:failed"; fi
+status=`expr $status + $ret`
+
+echo "I:checking correct behavior setting activation without publication date ($n)"
+ret=0
+key=`$KEYGEN -q -r $RANDFILE -A +1w $czone`
+pub=`$SETTIME -upP $key | awk '{print $2}'`
+act=`$SETTIME -upA $key | awk '{print $2}'`
+[ $pub -eq $act ] || ret=1
+key=`$KEYGEN -q -r $RANDFILE -A +1w -i 1d $czone`
+pub=`$SETTIME -upP $key | awk '{print $2}'`
+act=`$SETTIME -upA $key | awk '{print $2}'`
+[ $pub -lt $act ] || ret=1
+key=`$KEYGEN -q -r $RANDFILE -A +1w -P never $czone`
+pub=`$SETTIME -upP $key | awk '{print $2}'`
+[ $pub = "UNSET" ] || ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`

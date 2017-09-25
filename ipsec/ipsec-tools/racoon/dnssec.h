@@ -32,6 +32,12 @@
 #ifndef _DNSSEC_H
 #define _DNSSEC_H
 
+#include "config.h"
+
+#if ENABLE_DNSSEC_CERTS
+
 extern cert_t *dnssec_getcert (vchar_t *);
+
+#endif /* ENABLE_DNSSEC_CERTS */
 
 #endif /* _DNSSEC_H */

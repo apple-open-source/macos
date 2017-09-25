@@ -24,13 +24,24 @@
 #ifndef _SystemLoad_h_
 #define _SystemLoad_h_
 
+
+#ifdef XCTEST
+#define XCT_UNSAFE_UNRETAINED __unsafe_unretained
+#else
+#define XCT_UNSAFE_UNRETAINED
+#endif
+
+#include <xpc/xpc.h>
 #include <IOKit/hid/IOHIDEventSystemClient.h>
+
+#include "BatteryTimeRemaining.h"
+
 #define kMinIdleTimeout     10
 
 typedef struct clientInfo {
     LIST_ENTRY(clientInfo) link;
 
-    xpc_object_t    connection;
+    XCT_UNSAFE_UNRETAINED xpc_object_t    connection;
     uint32_t        idleTimeout;
     uint64_t        postedLevels;
 } clientInfo_t;
@@ -70,9 +81,16 @@ typedef struct {
     bool    rootDomain;
 
     /*! sessionUserActivity tracks if user was ever active since last full wake.
-     * This is reset when system enters dark wake state.
+     * This is reset when system enters sleep state.
      */
     bool    sessionUserActivity;
+
+
+    /*! sessionActivityLevels tracks all activity level bits set since last full wake.
+     * This is reset when system enters sleep state.
+     */
+    uint64_t sessionActivityLevels;
+
 
     /*! sleepFromUserWakeTime is a timestamp tracking the last time the system
      *  was in full S0 user wake, and it went to sleep.
@@ -151,10 +169,11 @@ __private_extern__ void userActiveHandleRootDomainActivity(void);
 __private_extern__ void userActiveHandleSleep(void);
 __private_extern__ void userActiveHandlePowerAssertionsChanged(void);
 __private_extern__ void resetSessionUserActivity();
-__private_extern__ bool getSessionUserActivity();
+__private_extern__ bool getSessionUserActivity(uint64_t *sessionLevels);
 __private_extern__ uint32_t getSystemThermalState();
 
 __private_extern__ CFAbsoluteTime get_SleepFromUserWakeTime(void);
+__private_extern__ uint32_t getTimeSinceLastTickle( );
 
 __private_extern__ void registerUserActivityClient(xpc_object_t peer, xpc_object_t msg);
 __private_extern__ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg);

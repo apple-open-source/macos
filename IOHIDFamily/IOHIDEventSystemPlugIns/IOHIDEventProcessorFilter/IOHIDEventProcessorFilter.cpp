@@ -25,7 +25,7 @@
 #include "IOHIDEventProcessorFilter.hpp"
 #include <IOKit/hid/IOHIDEventTypes.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
-#include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
 #include <IOKit/hid/IOHIDEventData.h>
 #include "IOHIDDebug.h"
@@ -36,13 +36,15 @@
 
 #include <new>
 
-#define MAX_EVENTS                      11
+#define MAX_BUTTON_EVENTS               11
+#define MAX_TAP_EVENTS                  1
 #define KEY_CREATE(usagePage, usage)    (((UInt64)(usagePage)<<32) | (usage))
 #define KEY_GETUSAGEPAGE(key)           (UInt32)((key) >> 32)
 #define KEY_GETUSAGE(key)               (UInt32)(key & 0xFFFFFFFF)
 #define STATE_IS_DOWN(state)            ((state == kKPStateFirstDown) || \
                                             (state == kKPStateSecondDown) || \
-                                            (state ==kKPStateThirdDown))
+                                            (state == kKPStateThirdDown) || \
+                                            (state == kKPStateLongPress))
 
 
 //7DCF18B5-07BE-4FF5-87CF-44B3C17C9216
@@ -109,6 +111,7 @@ IOHIDEventProcessor::IOHIDEventProcessor(CFUUIDRef factoryID)
 _serviceInterface(&sIOHIDEventProcessorFtbl),
 _factoryID( static_cast<CFUUIDRef>( CFRetain(factoryID) ) ),
 _refCount(1),
+_matchScore(0),
 _queue(0),
 _service(0),
 _eventCallback(0),
@@ -126,33 +129,9 @@ _eventHead(0),
 _freeButtonHead(0),
 _freeTapHead(0)
 {
-    Event * e = 0;
-    Event * p = 0;
+    _timer = new Timer;
     
     CFPlugInAddInstanceForFactory( factoryID );
-    
-    int max = MAX_EVENTS;
-    
-    for (int i = 0; i < max; i++) {
-        e = new ButtonEvent;
-        
-        if (e)
-            e->setNextEvent(p);
-        p = e;
-    }
-    _freeButtonHead = e;
-    
-    p = 0;
-    for (int i = 0; i < max; i++) {
-        e = new TapEvent;
-        
-        if (e)
-            e->setNextEvent(p);
-        p = e;
-    }
-    _freeTapHead = e;
-    
-    _timer = new Timer;
     
     if (sEventProcessorTimebaseInfo.denom == 0) {
         (void) mach_timebase_info(&sEventProcessorTimebaseInfo);
@@ -297,7 +276,9 @@ void IOHIDEventProcessor::setPropertyForClient(void * self,CFStringRef key,CFTyp
 
 void IOHIDEventProcessor::setPropertyForClient(CFStringRef key,CFTypeRef property, CFTypeRef client __unused)
 {
-    UInt64          number  = 0;
+    UInt64  number  = 0;
+    Event * e       = NULL;
+    Event * p       = NULL;
     
     if (!key || !property)
         return;
@@ -308,6 +289,18 @@ void IOHIDEventProcessor::setPropertyForClient(CFStringRef key,CFTypeRef propert
     if (CFStringCompare(key, CFSTR(kIOHIDKeyboardPressCountTrackingEnabledKey), 0) == kCFCompareEqualTo) {
         _multiPressTrackingEnabled = (property == kCFBooleanTrue);
         HIDLogDebug("Press Count %s", _multiPressTrackingEnabled ? "enabled" : "false");
+        
+        // Instantiate ButtonEvent pool if multi press is enabled.
+        if ( _multiPressTrackingEnabled && !_freeButtonHead ) {
+            for (int i = 0; i < MAX_BUTTON_EVENTS; i++) {
+                e = new ButtonEvent;
+                
+                if (e)
+                    e->setNextEvent(p);
+                p = e;
+            }
+            _freeButtonHead = e;
+        }
     }
     
     if (CFStringCompare(key, CFSTR(kIOHIDKeyboardPressCountUsagePairsKey), 0) == kCFCompareEqualTo) {
@@ -320,19 +313,19 @@ void IOHIDEventProcessor::setPropertyForClient(CFStringRef key,CFTypeRef propert
     }
     
     if (CFStringCompare(key, CFSTR(kIOHIDKeyboardPressCountDoublePressTimeoutKey),0) == kCFCompareEqualTo) {
-        CFNumberGetValue((CFNumberRef)property, kCFNumberLongType, &number);
+        CFNumberGetValue((CFNumberRef)property, kCFNumberLongLongType, &number);
         _multiPressDoublePressTimeout = number;
         HIDLogDebug("doublePressTimeout now %llu", _multiPressDoublePressTimeout);
     }
 
     if (CFStringCompare(key, CFSTR(kIOHIDKeyboardPressCountTriplePressTimeoutKey),0) == kCFCompareEqualTo) {
-        CFNumberGetValue((CFNumberRef)property, kCFNumberLongType, &number);
+        CFNumberGetValue((CFNumberRef)property, kCFNumberLongLongType, &number);
         _multiPressTriplePressTimeout = number;
         HIDLogDebug("triplePressTimeout now %llu", _multiPressTriplePressTimeout);
     }
     
     if (CFStringCompare(key, CFSTR(kIOHIDKeyboardLongPressTimeoutKey),0) == kCFCompareEqualTo) {
-        CFNumberGetValue((CFNumberRef)property, kCFNumberLongType, &number);
+        CFNumberGetValue((CFNumberRef)property, kCFNumberLongLongType, &number);
         _longPressTimeout = number;
         HIDLogDebug("LongPress now %llu", _longPressTimeout);
     }
@@ -340,16 +333,28 @@ void IOHIDEventProcessor::setPropertyForClient(CFStringRef key,CFTypeRef propert
     if (CFStringCompare(key, CFSTR(kIOHIDBiometricTapTrackingEnabledKey), 0) == kCFCompareEqualTo) {
         _multiTapTrackingEnabled = (property == kCFBooleanTrue);
         HIDLogDebug("Tap Count %s",  _multiTapTrackingEnabled? "enabled" : "false");
+        
+        // Instantiate TapEvent pool if multi tap is enabled.
+        if ( _multiTapTrackingEnabled && !_freeTapHead ) {
+            for (int i = 0; i < MAX_TAP_EVENTS; i++) {
+                e = new TapEvent;
+                
+                if (e)
+                    e->setNextEvent(p);
+                p = e;
+            }
+            _freeTapHead = e;
+        }
     }
     
     if (CFStringCompare(key, CFSTR(kIOHIDBiometricDoubleTapTimeoutKey),0) == kCFCompareEqualTo) {
-        CFNumberGetValue((CFNumberRef)property, kCFNumberLongType, &number);
+        CFNumberGetValue((CFNumberRef)property, kCFNumberLongLongType, &number);
         _multiTapDoubleTapTimeout = number;
         HIDLogDebug("double tap timeout now %llu", _multiTapDoubleTapTimeout);
     }
     
     if (CFStringCompare(key, CFSTR(kIOHIDBiometricTripleTapTimeoutKey),0) == kCFCompareEqualTo) {
-        CFNumberGetValue((CFNumberRef)property, kCFNumberLongType, &number);
+        CFNumberGetValue((CFNumberRef)property, kCFNumberLongLongType, &number);
         _multiTapTripleTapTimeout = number;
         HIDLogDebug("triple tap timeout now %llu",  _multiTapTripleTapTimeout);
     }
@@ -394,28 +399,30 @@ SInt32 IOHIDEventProcessor::match(void * self, IOHIDServiceRef service, IOOption
 
 SInt32 IOHIDEventProcessor::match(IOHIDServiceRef service, IOOptionBits options __unused)
 {
-    SInt32 score = 0;
-    
 #if TARGET_OS_EMBEDDED
     CFNumberRef queueSize = (CFNumberRef)IOHIDServiceCopyProperty(service, CFSTR(kIOHIDEventServiceQueueSize));
     if (queueSize) {
         uint32_t value = 0;
         CFNumberGetValue (queueSize, kCFNumberSInt32Type, &value);
         if (value != 0) {
-            score = 1;
+            _matchScore = 200;
             _service = service;
         }
         CFRelease(queueSize);
     } else {
-        score = 1;
+        _matchScore = 200;
         _service = service;
     }
 #else
-    score = 1;
+    // Event processor filter should load before NX translator filter.
+    // see 31636239.
+    _matchScore = 200;
     _service = service;
 #endif
     
-    return score;
+    HIDLogDebug("(%p) for ServiceID %@ with score %d", this, IOHIDServiceGetRegistryID(service), (int)_matchScore);
+    
+    return _matchScore;
 }
 
 
@@ -448,7 +455,7 @@ IOHIDEventRef IOHIDEventProcessor::filter(IOHIDEventRef event)
     if (!_queue) {
         return event;
     }
-
+    
     eventType = IOHIDEventGetType(event);
     
     if (eventType == kIOHIDEventTypeKeyboard) {
@@ -654,16 +661,23 @@ void IOHIDEventProcessor::open(IOHIDServiceRef service, IOOptionBits options __u
 // IOHIDEventProcessor::dispatchEvent
 //------------------------------------------------------------------------------
 
-void IOHIDEventProcessor::dispatchEvent(IOHIDEventRef event)
+void IOHIDEventProcessor::dispatchEvent(IOHIDEventRef event, bool async)
 {
     if (!_queue)
         return;
     
-    dispatch_async(_queue, ^{
-        HIDLogDebug("dispatching event = %p", event);
+    if ( async ) {
+        dispatch_async(_queue, ^{
+            HIDLogDebug("asynchronously dispatching event = %p", event);
+            _eventCallback(_eventTarget, _eventContext, _service, event, 0);
+            CFRelease(event);
+        });
+    }
+    else {
+        HIDLogDebug("synchronously dispatching event = %p", event);
         _eventCallback(_eventTarget, _eventContext, _service, event, 0);
         CFRelease(event);
-    });
+    }
 }
 
 
@@ -723,6 +737,7 @@ void IOHIDEventProcessor::serialize (CFMutableDictionaryRef dict) const {
     serializer.SetValueForKey(CFSTR(kIOHIDBiometricTapTrackingEnabledKey), _multiPressTriplePressTimeout);
     serializer.SetValueForKey(CFSTR(kIOHIDBiometricDoubleTapTimeoutKey), _multiTapDoubleTapTimeout);
     serializer.SetValueForKey(CFSTR(kIOHIDBiometricTripleTapTimeoutKey), _multiTapTripleTapTimeout);
+    serializer.SetValueForKey(CFSTR("MatchScore"), (uint64_t)_matchScore);
 }
 
 
@@ -865,40 +880,12 @@ static bool isDownEvent(IOHIDEventRef event)
 
 
 //------------------------------------------------------------------------------
-// Event::assignTerminalEventOnTimeout
-//------------------------------------------------------------------------------
-
-bool Event::assignTerminalEventOnTimeout(UInt64 timeout, IOHIDEventRef &terminalEvent)
-{
-    UInt64  current     = mach_absolute_time();
-    bool    ret         = false;
-    
-    HIDLogDebug("checking for timeout %llu TE dispatched = %d delta = %llu",
-                timeout,
-                (int)_terminalEventDispatched,
-                DeltaInUS(current, _lastActionTimestamp));
-    
-    if (timeout &&
-        !_terminalEventDispatched &&
-        PastDeadline(current, _lastActionTimestamp, timeout)) {
-        terminalEvent = createSyntheticEvent(true);
-        
-        ret = true;
-    }
-    
-    HIDLogDebug("TE = %p", terminalEvent);
-    
-    return ret;
-}
-
-
-//------------------------------------------------------------------------------
 // Event::dispatchEvent
 //------------------------------------------------------------------------------
 
-void Event::dispatchEvent(IOHIDEventRef event)
+void Event::dispatchEvent(IOHIDEventRef event, bool async)
 {
-    _owner->dispatchEvent(event);
+    _owner->dispatchEvent(event, async);
 }
 
 
@@ -954,6 +941,10 @@ bool Event::stateHandler(KPTransition transition, IOHIDEventRef event)
 {
     bool ret = false;
     transition_handler_t handler = NULL;
+    
+    // Handle and dispatch any overdue events on the timer. This could modify _state.
+    // This will catch up the state machine before _stateMap is indexed.
+    _timer->checkEventTimeouts();
     
     handler = _stateMap[_state][transition];
     
@@ -1116,28 +1107,27 @@ void ButtonEvent::NoneEnter(IOHIDEventRef event __unused)
 
 void ButtonEvent::FDEnter(IOHIDEventRef event)
 {
-    uint64_t    nextTimeout     = 0;
-    
-    // trigger next timeout immediately to dispatch terminal event
-    // if there is no SD or LP timeout
-    if ( _longPressTimeout > _secondEventTimeout || _longPressTimeout == 0 ) {
-        nextTimeout = (_secondEventTimeout == 0) ? 1 : _secondEventTimeout;
-        _timeoutState = kKPStateTerminalEvent;
-    }
-    else {
-        nextTimeout = _longPressTimeout;
-        _timeoutState = kKPStateLongPress;
-    }
-    
     _lastActionTimestamp = IOHIDEventGetTimeStamp(event);
-    
-    _timer->registerEventTimeout(this, nextTimeout);
     
     IOHIDEventSetPhase(event, IOHIDEventGetPhase(event) | kIOHIDEventPhaseBegan);
     
     setMultiEventCount(event, 1);
     
     _state = kKPStateFirstDown;
+    
+    // trigger next timeout immediately to dispatch terminal event
+    // if there is no SD or LP timeout
+    if ( _secondEventTimeout == 0 ) {
+        TEEnter(event);
+    }
+    if ( _longPressTimeout > _secondEventTimeout || _longPressTimeout == 0 ) {
+        _timeoutState = kKPStateTerminalEvent;
+        _timer->registerEventTimeout(this, _secondEventTimeout);
+    }
+    else {
+        _timeoutState = kKPStateLongPress;
+        _timer->registerEventTimeout(this, _longPressTimeout);
+    }
 }
 
 
@@ -1159,26 +1149,25 @@ void ButtonEvent::FUEnter(IOHIDEventRef event)
 
 void ButtonEvent::SDEnter(IOHIDEventRef event)
 {
-    uint64_t    nextTimeout     = 0;
-    
-    // trigger next timeout immediately to dispatch terminal event
-    // if there is no TD or LP timeout
-    if ( _longPressTimeout > _thirdEventTimeout || _longPressTimeout == 0 ) {
-        nextTimeout = (_thirdEventTimeout == 0) ? 1 : _thirdEventTimeout;
-        _timeoutState = kKPStateTerminalEvent;
-    }
-    else {
-        nextTimeout = _longPressTimeout;
-        _timeoutState = kKPStateLongPress;
-    }
-    
     _lastActionTimestamp = IOHIDEventGetTimeStamp(event);
-    
-    _timer->registerEventTimeout(this, nextTimeout);
     
     setMultiEventCount(event, 2);
     
     _state = kKPStateSecondDown;
+    
+    // trigger next timeout immediately to dispatch terminal event
+    // if there is no TD or LP timeout
+    if ( _thirdEventTimeout == 0 ) {
+        TEEnter(event);
+    }
+    else if ( _longPressTimeout > _thirdEventTimeout || _longPressTimeout == 0 ) {
+        _timeoutState = kKPStateTerminalEvent;
+        _timer->registerEventTimeout(this, _thirdEventTimeout);
+    }
+    else {
+        _timeoutState = kKPStateLongPress;
+        _timer->registerEventTimeout(this, _longPressTimeout);
+    }
 }
 
 
@@ -1202,13 +1191,12 @@ void ButtonEvent::TDEnter(IOHIDEventRef event)
 {
     _lastActionTimestamp = IOHIDEventGetTimeStamp(event);
     
-    // trigger next timeout immediately
-    _timeoutState = kKPStateTerminalEvent;
-    _timer->registerEventTimeout(this, 1);
-    
     setMultiEventCount(event, 3);
     
     _state = kKPStateThirdDown;
+    
+    // trigger next timeout immediately
+    TEEnter(event);
 }
 
 
@@ -1228,7 +1216,7 @@ void ButtonEvent::TUEnter(IOHIDEventRef event)
 // ButtonEvent::TOEnter
 //------------------------------------------------------------------------------
 
-void ButtonEvent::TOEnter(IOHIDEventRef event __unused)
+void ButtonEvent::TOEnter(IOHIDEventRef event)
 {
     if (_timeoutState == kKPStateTerminalEvent) {
         TEEnter(event);
@@ -1243,14 +1231,15 @@ void ButtonEvent::TOEnter(IOHIDEventRef event __unused)
 // ButtonEvent::TEEnter
 //------------------------------------------------------------------------------
 
-void ButtonEvent::TEEnter(IOHIDEventRef event __unused)
+void ButtonEvent::TEEnter(IOHIDEventRef event)
 {
     uint64_t    nextTimeout = 0;
     bool        isDown      = false;
     
     isDown = ((_state == kKPStateFirstDown) ||
               (_state == kKPStateSecondDown) ||
-              (_state == kKPStateThirdDown));
+              (_state == kKPStateThirdDown) ||
+              (_state == kKPStateLongPress));
     
     // There is only a single timer, so we entered here it is due to
     // one of second or third event timeout, set the next timeout
@@ -1273,7 +1262,10 @@ void ButtonEvent::TEEnter(IOHIDEventRef event __unused)
     }
     
     IOHIDEventRef terminalEvent = createSyntheticEvent(true);
-    dispatchEvent(terminalEvent);
+    
+    // If there is an event being processed, asynchronously dispatch the synthetic event afterward.
+    // Otherwise, synchronously dispatch the synthetic event.
+    dispatchEvent(terminalEvent, (event ? true : false));
     
     _lastActionTimestamp = IOHIDEventGetTimeStamp(terminalEvent);
     
@@ -1293,7 +1285,7 @@ void ButtonEvent::TEEnter(IOHIDEventRef event __unused)
 // ButtonEvent::LPEnter
 //------------------------------------------------------------------------------
 
-void ButtonEvent::LPEnter(IOHIDEventRef event __unused)
+void ButtonEvent::LPEnter(IOHIDEventRef event)
 {
     bool isDown = false;
     bool isUp = false;
@@ -1338,17 +1330,18 @@ void ButtonEvent::LPEnter(IOHIDEventRef event __unused)
         IOHIDEventSetIntegerValue(lpEvent, kIOHIDEventFieldKeyboardDown, true);
         
         setMultiEventCount(lpEvent, _multiEventCount);
-        dispatchEvent(lpEvent);
         
-        if (isDown) {
-            _timeoutState = kKPStateTerminalEvent;
-            
-            _lastActionTimestamp = IOHIDEventGetTimeStamp(lpEvent);
-            
-            _timer->registerEventTimeout(this, 1);
-        }
+        // If there is an event being processed, asynchronously dispatch the synthetic event afterward.
+        // Otherwise, synchronously dispatch the synthetic event.
+        dispatchEvent(lpEvent, (event ? true : false));
         
         _state = kKPStateLongPress;
+        
+        if (isDown) {
+            _lastActionTimestamp = IOHIDEventGetTimeStamp(lpEvent);
+            
+            TEEnter(event);
+        }
     }
 }
 
@@ -1385,7 +1378,7 @@ IOHIDEventRef TapEvent::createSyntheticEvent(bool isTerminalEvent)
                                            timestamp,
                                            kIOHIDBiometricEventTypeHumanTouch,
                                            (STATE_IS_DOWN(_state) ?
-                                            IOHIDEventValueFixed(1.0, false) : 0.0),
+                                            1.0  : 0),
                                            0);
     
     
@@ -1452,21 +1445,22 @@ void TapEvent::FDEnter(IOHIDEventRef event)
 
 void TapEvent::FUEnter(IOHIDEventRef event)
 {
-    uint64_t    nextTimeout     = 0;
-    
-    // trigger next timeout immediately to dispatch terminal event
-    // if there is no SU timeout
-    nextTimeout = (_secondEventTimeout == 0) ? 1 : _secondEventTimeout;
-    
     _lastActionTimestamp = IOHIDEventGetTimeStamp(event);
-    
-    _timer->registerEventTimeout(this, nextTimeout);
     
     IOHIDEventSetPhase(event, IOHIDEventGetPhase(event) | kIOHIDEventPhaseBegan);
     
     setMultiEventCount(event, 1);
     
     _state = kKPStateFirstUp;
+    
+    // trigger next timeout immediately to dispatch terminal event
+    // if there is no SU timeout
+    if ( _secondEventTimeout == 0) {
+        TEEnter(event);
+    }
+    else {
+        _timer->registerEventTimeout(this, _secondEventTimeout);
+    }
 }
 
 
@@ -1488,19 +1482,20 @@ void TapEvent::SDEnter(IOHIDEventRef event)
 
 void TapEvent::SUEnter(IOHIDEventRef event)
 {
-    uint64_t    nextTimeout     = 0;
-    
-    // trigger next timeout immediately to dispatch terminal event
-    // if there is no TU timeout
-    nextTimeout = (_thirdEventTimeout == 0) ? 1 : _thirdEventTimeout;
-    
     _lastActionTimestamp = IOHIDEventGetTimeStamp(event);
-    
-    _timer->registerEventTimeout(this, nextTimeout);
     
     setMultiEventCount(event, 2);
     
     _state = kKPStateSecondUp;
+    
+    // trigger next timeout immediately to dispatch terminal event
+    // if there is no TU timeout
+    if ( _thirdEventTimeout == 0 ) {
+        TEEnter(event);
+    }
+    else {
+        _timer->registerEventTimeout(this, _thirdEventTimeout);
+    }
 }
 
 
@@ -1524,12 +1519,12 @@ void TapEvent::TUEnter(IOHIDEventRef event)
 {
     _lastActionTimestamp = IOHIDEventGetTimeStamp(event);
     
-    // trigger next timeout immediately
-    _timer->registerEventTimeout(this, 1);
-    
     setMultiEventCount(event, 3);
 
     _state = kKPStateThirdUp;
+    
+    // trigger next timeout immediately
+    TEEnter(event);
 }
 
 
@@ -1548,7 +1543,7 @@ void TapEvent::TOEnter(IOHIDEventRef event __unused)
 // TapEvent::TEEnter
 //------------------------------------------------------------------------------
 
-void TapEvent::TEEnter(IOHIDEventRef event __unused)
+void TapEvent::TEEnter(IOHIDEventRef event)
 {
     bool        isDown      = false;
     
@@ -1561,7 +1556,10 @@ void TapEvent::TEEnter(IOHIDEventRef event __unused)
     // to the dfference between them
     
     IOHIDEventRef terminalEvent = createSyntheticEvent(true);
-    dispatchEvent(terminalEvent);
+    
+    // If there is an event being processed, asynchronously dispatch the synthetic event afterward.
+    // Otherwise, synchronously dispatch the synthetic event.
+    dispatchEvent(terminalEvent, (event ? true : false));
     
     // There is no tap longpress (for now). Stop event timer.
     _timer->registerEventTimeout(this, 0);
@@ -1618,7 +1616,7 @@ void Timer::init(dispatch_queue_t q)
         tempTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT, _queue);
         
         dispatch_source_set_event_handler(tempTimer, ^{
-            callTimeoutHandlers();
+            timeoutHandler();
         });
         
         dispatch_source_set_cancel_handler(tempTimer, ^(void) {
@@ -1689,39 +1687,51 @@ void Timer::insertEvent(Event * event)
 
 
 //------------------------------------------------------------------------------
-// Timer::callTimeoutHandlers
+// Timer::timeoutHandlers
 //------------------------------------------------------------------------------
 
-void Timer::callTimeoutHandlers()
+void Timer::timeoutHandler()
+{
+    HIDLogDebug("%p timeout occurred", this);
+    
+    checkEventTimeouts();
+}
+
+
+//------------------------------------------------------------------------------
+// Timer::checkEventTimeouts
+//------------------------------------------------------------------------------
+
+void Timer::checkEventTimeouts()
 {
     Event *         event           = _headEvent;
     UInt64          currentTime     = mach_absolute_time();
     Event *         nextEvent       = NULL;
     
     while (event) {
-        nextEvent = event->getNextEvent();
-
+        nextEvent = event->getNextTimerEvent();
+        
         if ((event->getNextTimeout() == 0) ||
             (event->isComplete())) {
             removeEvent(event);
             event = nextEvent;
             continue;
         }
-
+        
         if (PastDeadline(currentTime, event->epoch(), event->getNextTimeout())) {
             // remove the event first as timeout handler may
             // put the event back in
-            HIDLogDebug("%p timeout occurred", this);
+            HIDLogDebug("%p past deadline %lld us", event, DeltaInUS(currentTime, event->epoch()) - event->getNextTimeout());
             
             removeEvent(event);
-           
+            
             event->stateHandler(kKPTransitionTimeout, NULL);
         }
         
         //use cached next event, as the event may have gone back in free queue
         event = nextEvent;
     }
-
+    
     updateTimeout();
 }
 

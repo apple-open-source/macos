@@ -28,59 +28,47 @@
 #include "APIInjectedBundleEditorClient.h"
 #include "APIInjectedBundleFormClient.h"
 #include "APIInjectedBundlePageContextMenuClient.h"
+#include "APIInjectedBundlePageLoaderClient.h"
+#include "APIInjectedBundlePageResourceLoadClient.h"
 #include "APIInjectedBundlePageUIClient.h"
 #include "APIObject.h"
-#include "Download.h"
+#include "CallbackID.h"
 #include "EditingRange.h"
-#include "FindController.h"
-#include "GeolocationPermissionRequestManager.h"
-#include "ImageOptions.h"
-#include "InjectedBundlePageDiagnosticLoggingClient.h"
+#include "InjectedBundlePageContextMenuClient.h"
 #include "InjectedBundlePageFullScreenClient.h"
-#include "InjectedBundlePageLoaderClient.h"
 #include "InjectedBundlePagePolicyClient.h"
-#include "InjectedBundlePageResourceLoadClient.h"
 #include "LayerTreeContext.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include "OptionalCallbackID.h"
 #include "Plugin.h"
 #include "SandboxExtension.h"
-#include "ShareableBitmap.h"
+#include "SharedMemory.h"
 #include "UserData.h"
-#include "UserMediaPermissionRequestManager.h"
+#include "WebURLSchemeHandler.h"
 #include <WebCore/ActivityState.h>
-#include <WebCore/DictationAlternative.h>
 #include <WebCore/DictionaryPopupInfo.h>
-#include <WebCore/DragData.h>
-#include <WebCore/Editor.h>
 #include <WebCore/FrameLoaderTypes.h>
-#include <WebCore/HitTestResult.h>
 #include <WebCore/HysteresisActivity.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/IntSizeHash.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageVisibilityState.h>
-#include <WebCore/PlatformMouseEvent.h>
-#include <WebCore/ScrollTypes.h>
-#include <WebCore/TextChecking.h>
-#include <WebCore/TextIndicator.h>
 #include <WebCore/UserActivity.h>
 #include <WebCore/UserContentTypes.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/UserScriptTypes.h>
-#include <WebCore/ViewportConfiguration.h>
 #include <WebCore/WebCoreKeyboardUIMode.h>
 #include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/MonotonicTime.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
 #include <wtf/text/WTFString.h>
 
-#if HAVE(ACCESSIBILITY) && (PLATFORM(GTK) || PLATFORM(EFL))
+#if HAVE(ACCESSIBILITY) && PLATFORM(GTK)
 #include "WebPageAccessibilityObject.h"
 #include <wtf/glib/GRefPtr.h>
 #endif
@@ -92,7 +80,8 @@
 
 #if PLATFORM(IOS)
 #include "GestureTypes.h"
-#import "WebPageMessages.h"
+#include "WebPageMessages.h"
+#include <WebCore/ViewportConfiguration.h>
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -105,12 +94,7 @@
 #include <WebKitAdditions/PlatformGestureEventMac.h>
 #endif
 
-#if ENABLE(CONTEXT_MENUS)
-#include "InjectedBundlePageContextMenuClient.h"
-#endif
-
 #if PLATFORM(COCOA)
-#include "ViewGestureGeometryCollector.h"
 #include <wtf/RetainPtr.h>
 OBJC_CLASS CALayer;
 OBJC_CLASS NSArray;
@@ -129,9 +113,12 @@ class Connection;
 }
 
 namespace WebCore {
+class CaptureDevice;
 class DocumentLoader;
+class DragData;
 class GraphicsContext;
 class Frame;
+class FrameSelection;
 class FrameView;
 class HTMLPlugInElement;
 class HTMLPlugInImageElement;
@@ -143,14 +130,21 @@ class PrintContext;
 class Range;
 class ResourceResponse;
 class ResourceRequest;
+class SelectionRect;
 class SharedBuffer;
 class SubstituteData;
 class TextCheckingRequest;
 class URL;
+class VisiblePosition;
 class VisibleSelection;
+enum class TextIndicatorPresentationTransition : uint8_t;
+enum SyntheticClickType : int8_t;
+struct CompositionUnderline;
+struct DictationAlternative;
 struct Highlight;
 struct KeypressCommand;
 struct TextCheckingResult;
+struct ViewportArguments;
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 class MediaPlayerRequestInstallMissingPluginsCallback;
@@ -159,12 +153,19 @@ class MediaPlayerRequestInstallMissingPluginsCallback;
 
 namespace WebKit {
 class DrawingArea;
+class DownloadID;
+class FindController;
+class GamepadData;
+class GeolocationPermissionRequestManager;
 class InjectedBundleBackForwardList;
+class MediaDeviceSandboxExtensions;
 class NotificationPermissionRequestManager;
 class PDFPlugin;
 class PageBanner;
 class PluginView;
 class RemoteWebInspectorUI;
+class UserMediaPermissionRequestManager;
+class ViewGestureGeometryCollector;
 class VisibleContentRectUpdateInfo;
 class WebColorChooser;
 class WebContextMenu;
@@ -179,6 +180,7 @@ class WebInspectorClient;
 class WebInspectorUI;
 class WebGestureEvent;
 class WebKeyboardEvent;
+class WebURLSchemeHandlerProxy;
 class WebMouseEvent;
 class WebNotificationClient;
 class WebOpenPanelResultListener;
@@ -190,19 +192,22 @@ class WebUndoStep;
 class WebUserContentController;
 class WebVideoFullscreenManager;
 class WebWheelEvent;
+enum FindOptions : uint16_t;
 struct AssistedNodeInformation;
 struct AttributedString;
 struct BackForwardListItemState;
-struct EditingRange;
 struct EditorState;
-class GamepadData;
 struct InteractionInformationAtPosition;
 struct InteractionInformationRequest;
 struct LoadParameters;
 struct PrintInfo;
+struct WebsitePolicies;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
 struct WebSelectionData;
+
+typedef uint32_t SnapshotOptions;
+typedef uint32_t WKEventModifiers;
 
 #if PLATFORM(COCOA)
 class RemoteLayerTreeTransaction;
@@ -214,10 +219,10 @@ class WebTouchEvent;
 
 class WebPage : public API::ObjectImpl<API::Object::Type::BundlePage>, public IPC::MessageReceiver, public IPC::MessageSender {
 public:
-    static Ref<WebPage> create(uint64_t pageID, const WebPageCreationParameters&);
+    static Ref<WebPage> create(uint64_t pageID, WebPageCreationParameters&&);
     virtual ~WebPage();
 
-    void reinitializeWebPage(const WebPageCreationParameters&);
+    void reinitializeWebPage(WebPageCreationParameters&&);
 
     void close();
 
@@ -303,9 +308,9 @@ public:
     bool isAlwaysOnLoggingAllowed() const;
     void setActivePopupMenu(WebPopupMenu*);
 
-    void setHiddenPageTimerThrottlingIncreaseLimit(std::chrono::milliseconds limit)
+    void setHiddenPageDOMTimerThrottlingIncreaseLimit(Seconds limit)
     {
-        m_page->setTimerAlignmentIntervalIncreaseLimit(limit);
+        m_page->setDOMTimerAlignmentIntervalIncreaseLimit(limit);
     }
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -316,36 +321,34 @@ public:
 #endif
 
     WebOpenPanelResultListener* activeOpenPanelResultListener() const { return m_activeOpenPanelResultListener.get(); }
-    void setActiveOpenPanelResultListener(PassRefPtr<WebOpenPanelResultListener>);
+    void setActiveOpenPanelResultListener(Ref<WebOpenPanelResultListener>&&);
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&) override;
 
     // -- InjectedBundle methods
 #if ENABLE(CONTEXT_MENUS)
-    void setInjectedBundleContextMenuClient(std::unique_ptr<API::InjectedBundle::PageContextMenuClient>);
+    void setInjectedBundleContextMenuClient(std::unique_ptr<API::InjectedBundle::PageContextMenuClient>&&);
 #endif
-    void setInjectedBundleEditorClient(std::unique_ptr<API::InjectedBundle::EditorClient>);
-    void setInjectedBundleFormClient(std::unique_ptr<API::InjectedBundle::FormClient>);
-    void initializeInjectedBundleLoaderClient(WKBundlePageLoaderClientBase*);
+    void setInjectedBundleEditorClient(std::unique_ptr<API::InjectedBundle::EditorClient>&&);
+    void setInjectedBundleFormClient(std::unique_ptr<API::InjectedBundle::FormClient>&&);
+    void setInjectedBundlePageLoaderClient(std::unique_ptr<API::InjectedBundle::PageLoaderClient>&&);
     void initializeInjectedBundlePolicyClient(WKBundlePagePolicyClientBase*);
-    void initializeInjectedBundleResourceLoadClient(WKBundlePageResourceLoadClientBase*);
-    void setInjectedBundleUIClient(std::unique_ptr<API::InjectedBundle::PageUIClient>);
+    void setInjectedBundleResourceLoadClient(std::unique_ptr<API::InjectedBundle::ResourceLoadClient>&&);
+    void setInjectedBundleUIClient(std::unique_ptr<API::InjectedBundle::PageUIClient>&&);
 #if ENABLE(FULLSCREEN_API)
     void initializeInjectedBundleFullScreenClient(WKBundlePageFullScreenClientBase*);
 #endif
-    void initializeInjectedBundleDiagnosticLoggingClient(WKBundlePageDiagnosticLoggingClientBase*);
 
 #if ENABLE(CONTEXT_MENUS)
     API::InjectedBundle::PageContextMenuClient& injectedBundleContextMenuClient() { return *m_contextMenuClient.get(); }
 #endif
     API::InjectedBundle::EditorClient& injectedBundleEditorClient() { return *m_editorClient.get(); }
     API::InjectedBundle::FormClient& injectedBundleFormClient() { return *m_formClient.get(); }
-    InjectedBundlePageLoaderClient& injectedBundleLoaderClient() { return m_loaderClient; }
+    API::InjectedBundle::PageLoaderClient& injectedBundleLoaderClient() { return *m_loaderClient; }
     InjectedBundlePagePolicyClient& injectedBundlePolicyClient() { return m_policyClient; }
-    InjectedBundlePageResourceLoadClient& injectedBundleResourceLoadClient() { return m_resourceLoadClient; }
+    API::InjectedBundle::ResourceLoadClient& injectedBundleResourceLoadClient() { return *m_resourceLoadClient; }
     API::InjectedBundle::PageUIClient& injectedBundleUIClient() { return *m_uiClient.get(); }
-    InjectedBundlePageDiagnosticLoggingClient& injectedBundleDiagnosticLoggingClient() { return m_logDiagnosticMessageClient; }
 #if ENABLE(FULLSCREEN_API)
     InjectedBundlePageFullScreenClient& injectedBundleFullScreenClient() { return m_fullScreenClient; }
 #endif
@@ -357,16 +360,16 @@ public:
     WebCore::MainFrame* mainFrame() const; // May return 0.
     WebCore::FrameView* mainFrameView() const; // May return 0.
 
-    PassRefPtr<WebCore::Range> currentSelectionAsRange();
+    RefPtr<WebCore::Range> currentSelectionAsRange();
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    PassRefPtr<Plugin> createPlugin(WebFrame*, WebCore::HTMLPlugInElement*, const Plugin::Parameters&, String& newMIMEType);
+    RefPtr<Plugin> createPlugin(WebFrame*, WebCore::HTMLPlugInElement*, const Plugin::Parameters&, String& newMIMEType);
 #endif
 
 #if ENABLE(WEBGL)
     WebCore::WebGLLoadPolicy webGLPolicyForURL(WebFrame*, const String&);
     WebCore::WebGLLoadPolicy resolveWebGLPolicyForURL(WebFrame*, const String&);
-#endif // ENABLE(WEBGL)
+#endif
     
     enum class IncludePostLayoutDataHint { No, Yes };
     EditorState editorState(IncludePostLayoutDataHint = IncludePostLayoutDataHint::Yes) const;
@@ -457,21 +460,21 @@ public:
 
     bool hasCachedWindowFrame() const { return m_hasCachedWindowFrame; }
 
-#if !PLATFORM(IOS)
-    void setTopOverhangImage(PassRefPtr<WebImage>);
-    void setBottomOverhangImage(PassRefPtr<WebImage>);
-#endif // !PLATFORM(IOS)
-
     void updateHeaderAndFooterLayersForDeviceScaleChange(float scaleFactor);
-#endif // PLATFORM(COCOA)
+#endif
+
+#if PLATFORM(MAC)
+    void setTopOverhangImage(WebImage*);
+    void setBottomOverhangImage(WebImage*);
+#endif
 
     bool windowIsFocused() const;
     bool windowAndWebPageAreFocused() const;
 
 #if !PLATFORM(IOS)
-    void setHeaderPageBanner(PassRefPtr<PageBanner>);
+    void setHeaderPageBanner(PageBanner*);
     PageBanner* headerPageBanner();
-    void setFooterPageBanner(PassRefPtr<PageBanner>);
+    void setFooterPageBanner(PageBanner*);
     PageBanner* footerPageBanner();
 
     void hidePageBanners();
@@ -479,7 +482,7 @@ public:
     
     void setHeaderBannerHeightForTesting(int);
     void setFooterBannerHeightForTesting(int);
-#endif // !PLATFORM(IOS)
+#endif
 
     WebCore::IntPoint screenToRootView(const WebCore::IntPoint&);
     WebCore::IntRect rootViewToScreen(const WebCore::IntRect&);
@@ -489,25 +492,23 @@ public:
     WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&);
 #endif
     
-    PassRefPtr<WebImage> scaledSnapshotWithOptions(const WebCore::IntRect&, double additionalScaleFactor, SnapshotOptions);
-    PassRefPtr<WebImage> snapshotAtSize(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions);
-    PassRefPtr<WebImage> snapshotNode(WebCore::Node&, SnapshotOptions, unsigned maximumPixelCount = std::numeric_limits<unsigned>::max());
+    RefPtr<WebImage> scaledSnapshotWithOptions(const WebCore::IntRect&, double additionalScaleFactor, SnapshotOptions);
 
     static const WebEvent* currentEvent();
 
-    FindController& findController() { return m_findController; }
+    FindController& findController() { return m_findController.get(); }
 
 #if ENABLE(GEOLOCATION)
-    GeolocationPermissionRequestManager& geolocationPermissionRequestManager() { return m_geolocationPermissionRequestManager; }
+    GeolocationPermissionRequestManager& geolocationPermissionRequestManager() { return m_geolocationPermissionRequestManager.get(); }
 #endif
 
-#if PLATFORM(IOS) || PLATFORM(EFL)
+#if PLATFORM(IOS)
     void savePageState(WebCore::HistoryItem&);
     void restorePageState(const WebCore::HistoryItem&);
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-    UserMediaPermissionRequestManager& userMediaPermissionRequestManager() { return m_userMediaPermissionRequestManager; }
+    UserMediaPermissionRequestManager& userMediaPermissionRequestManager() { return *m_userMediaPermissionRequestManager; }
 #endif
 
     void elementDidFocus(WebCore::Node*);
@@ -543,48 +544,50 @@ public:
     void inspectorNodeSearchEndedAtPosition(const WebCore::FloatPoint&);
 
     void blurAssistedNode();
-    void selectWithGesture(const WebCore::IntPoint&, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, bool isInteractingWithAssistedNode, uint64_t callbackID);
-    void updateSelectionWithTouches(const WebCore::IntPoint& point, uint32_t touches, bool baseIsStart, uint64_t callbackID);
+    void selectWithGesture(const WebCore::IntPoint&, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, bool isInteractingWithAssistedNode, CallbackID);
+    void updateSelectionWithTouches(const WebCore::IntPoint&, uint32_t touches, bool baseIsStart, CallbackID);
     void updateBlockSelectionWithTouch(const WebCore::IntPoint&, uint32_t touch, uint32_t handlePosition);
-    void selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore::IntPoint& to, uint32_t gestureType, uint32_t gestureState, uint64_t callbackID);
+    void selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore::IntPoint& to, uint32_t gestureType, uint32_t gestureState, CallbackID);
     void extendSelection(uint32_t granularity);
     void selectWordBackward();
-    void moveSelectionByOffset(int32_t offset, uint64_t callbackID);
-    void selectTextWithGranularityAtPoint(const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode, uint64_t callbackID);
-    void selectPositionAtBoundaryWithDirection(const WebCore::IntPoint&, uint32_t granularity, uint32_t direction, bool isInteractingWithAssistedNode, uint64_t callbackID);
-    void moveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, uint64_t callbackID);
-    void selectPositionAtPoint(const WebCore::IntPoint&, bool isInteractingWithAssistedNode, uint64_t callbackID);
-    void beginSelectionInDirection(uint32_t direction, uint64_t callbackID);
-    void updateSelectionWithExtentPoint(const WebCore::IntPoint&, bool isInteractingWithAssistedNode, uint64_t callbackID);
-    void updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode, uint64_t callbackID);
+    void moveSelectionByOffset(int32_t offset, CallbackID);
+    void selectTextWithGranularityAtPoint(const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode, CallbackID);
+    void selectPositionAtBoundaryWithDirection(const WebCore::IntPoint&, uint32_t granularity, uint32_t direction, bool isInteractingWithAssistedNode, CallbackID);
+    void moveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, CallbackID);
+    void selectPositionAtPoint(const WebCore::IntPoint&, bool isInteractingWithAssistedNode, CallbackID);
+    void beginSelectionInDirection(uint32_t direction, CallbackID);
+    void updateSelectionWithExtentPoint(const WebCore::IntPoint&, bool isInteractingWithAssistedNode, CallbackID);
+    void updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode, CallbackID);
 
-    void requestDictationContext(uint64_t callbackID);
+    void requestDictationContext(CallbackID);
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
-    void requestAutocorrectionData(const String& textForAutocorrection, uint64_t callbackID);
-    void applyAutocorrection(const String& correction, const String& originalText, uint64_t callbackID);
+    void requestAutocorrectionData(const String& textForAutocorrection, CallbackID);
+    void applyAutocorrection(const String& correction, const String& originalText, CallbackID);
     void syncApplyAutocorrection(const String& correction, const String& originalText, bool& correctionApplied);
-    void requestAutocorrectionContext(uint64_t callbackID);
+    void requestAutocorrectionContext(CallbackID);
     void getAutocorrectionContext(String& beforeText, String& markedText, String& selectedText, String& afterText, uint64_t& location, uint64_t& length);
     void getPositionInformation(const InteractionInformationRequest&, InteractionInformationAtPosition&);
     void requestPositionInformation(const InteractionInformationRequest&);
     void startInteractionWithElementAtPosition(const WebCore::IntPoint&);
     void stopInteraction();
     void performActionOnElement(uint32_t action);
-    void focusNextAssistedNode(bool isForward, uint64_t callbackID);
+    void focusNextAssistedNode(bool isForward, CallbackID);
     void setAssistedNodeValue(const String&);
     void setAssistedNodeValueAsNumber(double);
     void setAssistedNodeSelectedIndex(uint32_t index, bool allowMultipleSelection);
     WebCore::IntRect rectForElementAtInteractionLocation();
     void updateSelectionAppearance();
-    void getSelectionContext(uint64_t callbackID);
+    void getSelectionContext(CallbackID);
     void handleTwoFingerTapAtPoint(const WebCore::IntPoint&, uint64_t requestID);
+    void getRectsForGranularityWithSelectionOffset(uint32_t, int32_t, CallbackID);
+    void getRectsAtSelectionOffsetWithText(int32_t, const String&, CallbackID);
 #if ENABLE(IOS_TOUCH_EVENTS)
     void dispatchAsynchronousTouchEvents(const Vector<WebTouchEvent, 1>& queue);
 #endif
 
     void contentSizeCategoryDidChange(const String&);
-    void executeEditCommandWithCallback(const String&, uint64_t callbackID);
+    void executeEditCommandWithCallback(const String&, CallbackID);
 
     Seconds eventThrottlingDelay() const;
 
@@ -599,9 +602,10 @@ public:
     
     void setForceAlwaysUserScalable(bool);
 #endif
+    bool hasRichlyEditableSelection() const;
 
     void setLayerTreeStateIsFrozen(bool);
-    void markLayersVolatile(std::function<void ()> completionHandler = { });
+    void markLayersVolatile(WTF::Function<void ()>&& completionHandler = { });
     void cancelMarkLayersVolatile();
 
     NotificationPermissionRequestManager* notificationPermissionRequestManager();
@@ -609,10 +613,6 @@ public:
     void pageDidScroll();
 #if USE(COORDINATED_GRAPHICS)
     void pageDidRequestScroll(const WebCore::IntPoint&);
-#endif
-
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    void commitPageTransitionViewport();
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
@@ -623,7 +623,7 @@ public:
     bool hasLocalDataForURL(const WebCore::URL&);
     String cachedResponseMIMETypeForURL(const WebCore::URL&);
     String cachedSuggestedFilenameForURL(const WebCore::URL&);
-    PassRefPtr<WebCore::SharedBuffer> cachedResponseDataForURL(const WebCore::URL&);
+    RefPtr<WebCore::SharedBuffer> cachedResponseDataForURL(const WebCore::URL&);
 
     static bool canHandleRequest(const WebCore::ResourceRequest&);
 
@@ -634,13 +634,13 @@ public:
         void invalidate();
 
         void beginLoad(WebFrame*, const SandboxExtension::Handle& handle);
-        void willPerformLoadDragDestinationAction(PassRefPtr<SandboxExtension> pendingDropSandboxExtension);
+        void willPerformLoadDragDestinationAction(RefPtr<SandboxExtension>&& pendingDropSandboxExtension);
         void didStartProvisionalLoad(WebFrame*);
         void didCommitProvisionalLoad(WebFrame*);
         void didFailProvisionalLoad(WebFrame*);
 
     private:
-        void setPendingProvisionalSandboxExtension(PassRefPtr<SandboxExtension>);
+        void setPendingProvisionalSandboxExtension(RefPtr<SandboxExtension>&&);
 
         RefPtr<SandboxExtension> m_pendingProvisionalSandboxExtension;
         RefPtr<SandboxExtension> m_provisionalSandboxExtension;
@@ -648,10 +648,6 @@ public:
     };
 
     SandboxExtensionTracker& sandboxExtensionTracker() { return m_sandboxExtensionTracker; }
-
-#if PLATFORM(EFL)
-    void setThemePath(const String&);
-#endif
 
 #if PLATFORM(GTK)
     void setComposition(const String& text, const Vector<WebCore::CompositionUnderline>& underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeLength);
@@ -679,17 +675,17 @@ public:
     void sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
 
     void insertTextAsync(const String& text, const EditingRange& replacementRange, bool registerUndoGroup = false, uint32_t editingRangeIsRelativeTo = (uint32_t)EditingRangeIsRelativeTo::EditableRoot, bool suppressSelectionUpdate = false);
-    void getMarkedRangeAsync(uint64_t callbackID);
-    void getSelectedRangeAsync(uint64_t callbackID);
-    void characterIndexForPointAsync(const WebCore::IntPoint&, uint64_t callbackID);
-    void firstRectForCharacterRangeAsync(const EditingRange&, uint64_t callbackID);
-    void setCompositionAsync(const String& text, Vector<WebCore::CompositionUnderline> underlines, const EditingRange& selectionRange, const EditingRange& replacementRange);
+    void getMarkedRangeAsync(CallbackID);
+    void getSelectedRangeAsync(CallbackID);
+    void characterIndexForPointAsync(const WebCore::IntPoint&, CallbackID);
+    void firstRectForCharacterRangeAsync(const EditingRange&, CallbackID);
+    void setCompositionAsync(const String& text, const Vector<WebCore::CompositionUnderline>& underlines, const EditingRange& selectionRange, const EditingRange& replacementRange);
     void confirmCompositionAsync();
 
 #if PLATFORM(MAC)
     void insertDictatedTextAsync(const String& text, const EditingRange& replacementRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, bool registerUndoGroup = false);
-    void attributedSubstringForCharacterRangeAsync(const EditingRange&, uint64_t callbackID);
-    void fontAtSelection(uint64_t callbackID);
+    void attributedSubstringForCharacterRangeAsync(const EditingRange&, CallbackID);
+    void fontAtSelection(CallbackID);
 #endif
 
     void readSelectionFromPasteboard(const WTF::String& pasteboardName, bool& result);
@@ -702,14 +698,9 @@ public:
 #if ENABLE(SERVICE_CONTROLS)
     void replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference&);
 #endif
-
-#elif PLATFORM(EFL)
-    void confirmComposition(const String& compositionString);
-    void setComposition(const WTF::String& compositionString, const WTF::Vector<WebCore::CompositionUnderline>& underlines, uint64_t cursorPosition);
-    void cancelComposition();
 #endif
 
-#if HAVE(ACCESSIBILITY) && (PLATFORM(GTK) || PLATFORM(EFL))
+#if HAVE(ACCESSIBILITY) && PLATFORM(GTK)
     void updateAccessibilityTree();
 #endif
 
@@ -732,7 +723,7 @@ public:
     bool isSmartInsertDeleteEnabled();
     void setSmartInsertDeleteEnabled(bool);
 
-    bool isSelectTrailingWhitespaceEnabled();
+    bool isSelectTrailingWhitespaceEnabled() const;
     void setSelectTrailingWhitespaceEnabled(bool);
 
     void replaceSelectionWithText(WebCore::Frame*, const String&);
@@ -751,23 +742,24 @@ public:
     void mayPerformUploadDragDestinationAction();
 
     void willStartDrag() { ASSERT(!m_isStartingDrag); m_isStartingDrag = true; }
-    void didStartDrag() { ASSERT(m_isStartingDrag); m_isStartingDrag = false; }
+    void didStartDrag();
+    void dragCancelled();
 #endif // ENABLE(DRAG_SUPPORT)
 
     void beginPrinting(uint64_t frameID, const PrintInfo&);
     void endPrinting();
-    void computePagesForPrinting(uint64_t frameID, const PrintInfo&, uint64_t callbackID);
+    void computePagesForPrinting(uint64_t frameID, const PrintInfo&, CallbackID);
     void computePagesForPrintingImpl(uint64_t frameID, const PrintInfo&, Vector<WebCore::IntRect>& pageRects, double& totalScaleFactor);
 #if PLATFORM(COCOA)
-    void drawRectToImage(uint64_t frameID, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, uint64_t callbackID);
-    void drawPagesToPDF(uint64_t frameID, const PrintInfo&, uint32_t first, uint32_t count, uint64_t callbackID);
+    void drawRectToImage(uint64_t frameID, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, CallbackID);
+    void drawPagesToPDF(uint64_t frameID, const PrintInfo&, uint32_t first, uint32_t count, CallbackID);
     void drawPagesToPDFImpl(uint64_t frameID, const PrintInfo&, uint32_t first, uint32_t count, RetainPtr<CFMutableDataRef>& pdfPageData);
 #if PLATFORM(IOS)
-    void computePagesForPrintingAndDrawToPDF(uint64_t frameID, const PrintInfo&, uint64_t callbackID, PassRefPtr<Messages::WebPage::ComputePagesForPrintingAndDrawToPDF::DelayedReply>);
+    void computePagesForPrintingAndDrawToPDF(uint64_t frameID, const PrintInfo&, CallbackID, Ref<Messages::WebPage::ComputePagesForPrintingAndDrawToPDF::DelayedReply>&&);
 #endif
 #elif PLATFORM(GTK)
-    void drawPagesForPrinting(uint64_t frameID, const PrintInfo&, uint64_t callbackID);
-    void didFinishPrintOperation(const WebCore::ResourceError&, uint64_t callbackID);
+    void drawPagesForPrinting(uint64_t frameID, const PrintInfo&, CallbackID);
+    void didFinishPrintOperation(const WebCore::ResourceError&, CallbackID);
 #endif
 
     void addResourceRequest(unsigned long, const WebCore::ResourceRequest&);
@@ -776,6 +768,7 @@ public:
     void setMediaVolume(float);
     void setMuted(WebCore::MediaProducer::MutedStateFlags);
     void setMayStartMediaWhenInWindow(bool);
+    void stopMediaCapture();
 
 #if ENABLE(MEDIA_SESSION)
     void handleMediaEvent(uint32_t /* WebCore::MediaEventType */);
@@ -832,8 +825,9 @@ public:
     void setViewportConfigurationMinimumLayoutSize(const WebCore::FloatSize&);
     void setMaximumUnobscuredSize(const WebCore::FloatSize&);
     void setDeviceOrientation(int32_t);
-    void dynamicViewportSizeUpdate(const WebCore::FloatSize& minimumLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID);
+    void dynamicViewportSizeUpdate(const WebCore::FloatSize& minimumLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID);
     void synchronizeDynamicViewportUpdate(double& newTargetScale, WebCore::FloatPoint& newScrollPosition, uint64_t& nextValidLayerTreeTransactionID);
+    std::optional<float> scaleFromUIProcess(const VisibleContentRectUpdateInfo&) const;
     void updateVisibleContentRects(const VisibleContentRectUpdateInfo&, MonotonicTime oldestTimestamp);
     bool scaleWasSetByUIProcess() const { return m_scaleWasSetByUIProcess; }
     void willStartUserTriggeredZooming();
@@ -842,7 +836,6 @@ public:
     void applicationDidFinishSnapshottingAfterEnteringBackground();
     void applicationWillEnterForeground(bool isSuspendedUnderLock);
     void applicationDidBecomeActive();
-    void zoomToRect(WebCore::FloatRect, double minimumScale, double maximumScale);
     void completePendingSyntheticClickForContentChangeObserver();
 #endif
 
@@ -889,9 +882,12 @@ public:
     void setAutoSizingShouldExpandToViewHeight(bool shouldExpand);
     bool autoSizingShouldExpandToViewHeight() { return m_autoSizingShouldExpandToViewHeight; }
 
+    void setViewportSizeForCSSViewportUnits(std::optional<WebCore::IntSize>);
+    std::optional<WebCore::IntSize> viewportSizeForCSSViewportUnits() const { return m_viewportSizeForCSSViewportUnits; }
+
     bool canShowMIMEType(const String& MIMEType) const;
 
-    void addTextCheckingRequest(uint64_t requestID, PassRefPtr<WebCore::TextCheckingRequest>);
+    void addTextCheckingRequest(uint64_t requestID, Ref<WebCore::TextCheckingRequest>&&);
     void didFinishCheckingText(uint64_t requestID, const Vector<WebCore::TextCheckingResult>&);
     void didCancelCheckingText(uint64_t requestID);
 
@@ -921,8 +917,8 @@ public:
     Ref<WebCore::DocumentLoader> createDocumentLoader(WebCore::Frame&, const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
     void updateCachedDocumentLoader(WebDocumentLoader&, WebCore::Frame&);
 
-    void getBytecodeProfile(uint64_t callbackID);
-    void getSamplingProfilerOutput(uint64_t callbackID);
+    void getBytecodeProfile(CallbackID);
+    void getSamplingProfilerOutput(CallbackID);
     
 #if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
     void handleTelephoneNumberClick(const String& number, const WebCore::IntPoint&);
@@ -948,7 +944,7 @@ public:
 #endif
 #endif
 
-    void addUserScript(const String& source, WebCore::UserContentInjectedFrames, WebCore::UserScriptInjectionTime);
+    void addUserScript(String&& source, WebCore::UserContentInjectedFrames, WebCore::UserScriptInjectionTime);
     void addUserStyleSheet(const String& source, WebCore::UserContentInjectedFrames);
     void removeAllUserContent();
 
@@ -975,11 +971,22 @@ public:
     void didLosePointerLock();
 #endif
 
-    void didGetLoadDecisionForIcon(bool decision, uint64_t loadIdentifier, uint64_t newCallbackID);
+    void didGetLoadDecisionForIcon(bool decision, CallbackID loadIdentifier, OptionalCallbackID);
     void setUseIconLoadingClient(bool);
 
+#if ENABLE(DATA_INTERACTION)
+    void didConcludeEditDataInteraction();
+#endif
+
+    WebURLSchemeHandlerProxy* urlSchemeHandlerForScheme(const String&);
+    void stopAllURLSchemeTasks();
+
+    std::optional<double> cpuLimit() const { return m_cpuLimit; }
+
+    static PluginView* pluginViewForFrame(WebCore::Frame*);
+
 private:
-    WebPage(uint64_t pageID, const WebPageCreationParameters&);
+    WebPage(uint64_t pageID, WebPageCreationParameters&&);
 
     void updateThrottleState();
     void updateUserActivity();
@@ -1001,12 +1008,12 @@ private:
     void updateViewportSizeForCSSViewportUnits();
 
     static void convertSelectionRectsToRootView(WebCore::FrameView*, Vector<WebCore::SelectionRect>&);
-    PassRefPtr<WebCore::Range> rangeForWebSelectionAtPosition(const WebCore::IntPoint&, const WebCore::VisiblePosition&, SelectionFlags&);
-    PassRefPtr<WebCore::Range> rangeForBlockAtPoint(const WebCore::IntPoint&);
+    RefPtr<WebCore::Range> rangeForWebSelectionAtPosition(const WebCore::IntPoint&, const WebCore::VisiblePosition&, SelectionFlags&);
+    RefPtr<WebCore::Range> rangeForBlockAtPoint(const WebCore::IntPoint&);
     void computeExpandAndShrinkThresholdsForHandle(const WebCore::IntPoint&, SelectionHandlePosition, float& growThreshold, float& shrinkThreshold);
-    PassRefPtr<WebCore::Range> changeBlockSelection(const WebCore::IntPoint&, SelectionHandlePosition, float& growThreshold, float& shrinkThreshold, SelectionFlags&);
-    PassRefPtr<WebCore::Range> expandedRangeFromHandle(WebCore::Range*, SelectionHandlePosition);
-    PassRefPtr<WebCore::Range> contractedRangeFromHandle(WebCore::Range* currentRange, SelectionHandlePosition, SelectionFlags&);
+    RefPtr<WebCore::Range> changeBlockSelection(const WebCore::IntPoint&, SelectionHandlePosition, float& growThreshold, float& shrinkThreshold, SelectionFlags&);
+    Ref<WebCore::Range> expandedRangeFromHandle(WebCore::Range&, SelectionHandlePosition);
+    Ref<WebCore::Range> contractedRangeFromHandle(WebCore::Range& currentRange, SelectionHandlePosition, SelectionFlags&);
     void getAssistedNodeInformation(AssistedNodeInformation&);
     void platformInitializeAccessibility();
     void handleSyntheticClick(WebCore::Node* nodeRespondingToClick, const WebCore::FloatPoint& location);
@@ -1014,13 +1021,18 @@ private:
     void sendTapHighlightForNodeIfNecessary(uint64_t requestID, WebCore::Node*);
     void resetTextAutosizing();
     WebCore::VisiblePosition visiblePositionInFocusedNodeForPoint(const WebCore::Frame&, const WebCore::IntPoint&, bool isInteractingWithAssistedNode);
-    PassRefPtr<WebCore::Range> rangeForGranularityAtPoint(const WebCore::Frame&, const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode);
+    RefPtr<WebCore::Range> rangeForGranularityAtPoint(WebCore::Frame&, const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode);
     bool shouldSwitchToBlockModeForHandle(const WebCore::IntPoint& handlePoint, SelectionHandlePosition);
     RefPtr<WebCore::Range> switchToBlockSelectionAtPoint(const WebCore::IntPoint&, SelectionHandlePosition);
+#if ENABLE(DATA_INTERACTION)
+    void requestStartDataInteraction(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition);
 #endif
-#if !PLATFORM(COCOA)
+#endif
+
+#if !PLATFORM(COCOA) && !PLATFORM(WPE)
     static const char* interpretKeyEvent(const WebCore::KeyboardEvent*);
 #endif
+
     bool performDefaultBehaviorForKeyEvent(const WebKeyboardEvent&);
 
 #if PLATFORM(MAC)
@@ -1033,7 +1045,7 @@ private:
 
     String sourceForFrame(WebFrame*);
 
-    void loadDataImpl(uint64_t navigationID, PassRefPtr<WebCore::SharedBuffer>, const String& MIMEType, const String& encodingName, const WebCore::URL& baseURL, const WebCore::URL& failingURL, const UserData&);
+    void loadDataImpl(uint64_t navigationID, Ref<WebCore::SharedBuffer>&&, const String& MIMEType, const String& encodingName, const WebCore::URL& baseURL, const WebCore::URL& failingURL, const UserData&);
     void loadStringImpl(uint64_t navigationID, const String&, const String& MIMEType, const WebCore::URL& baseURL, const WebCore::URL& failingURL, const UserData&);
 
     bool platformHasLocalDataForURL(const WebCore::URL&);
@@ -1046,15 +1058,16 @@ private:
     void loadString(const LoadParameters&);
     void loadAlternateHTMLString(const LoadParameters&);
     void navigateToPDFLinkWithSimulatedClick(const String& url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint);
-    void reload(uint64_t navigationID, bool reloadFromOrigin, bool contentBlockersEnabled, const SandboxExtension::Handle&);
+    void reload(uint64_t navigationID, uint32_t reloadOptions, const SandboxExtension::Handle&);
     void goForward(uint64_t navigationID, uint64_t);
     void goBack(uint64_t navigationID, uint64_t);
     void goToBackForwardItem(uint64_t navigationID, uint64_t);
     void tryRestoreScrollPosition();
-    void setInitialFocus(bool forward, bool isKeyboardEventValid, const WebKeyboardEvent&, uint64_t callbackID);
+    void setInitialFocus(bool forward, bool isKeyboardEventValid, const WebKeyboardEvent&, CallbackID);
     void updateIsInWindow(bool isInitialState = false);
-    void setActivityState(WebCore::ActivityState::Flags, bool wantsDidUpdateActivityState, const Vector<uint64_t>& callbackIDs);
-    void validateCommand(const String&, uint64_t);
+    void visibilityDidChange();
+    void setActivityState(WebCore::ActivityState::Flags, bool wantsDidUpdateActivityState, const Vector<CallbackID>& callbackIDs);
+    void validateCommand(const String&, CallbackID);
     void executeEditCommand(const String&, const String&);
     void setEditable(bool);
 
@@ -1067,6 +1080,7 @@ private:
 #endif
 #if ENABLE(CONTEXT_MENUS)
     void contextMenuHidden() { m_isShowingContextMenu = false; }
+    void contextMenuForKeyEvent();
 #endif
 
     static bool scroll(WebCore::Page*, WebCore::ScrollDirection, WebCore::ScrollGranularity);
@@ -1086,7 +1100,7 @@ private:
 
     void setDrawsBackground(bool);
 
-#if HAVE(COREANIMATION_FENCES)
+#if PLATFORM(COCOA)
     void setTopContentInsetFenced(float, IPC::Attachment);
 #endif
     void setTopContentInset(float);
@@ -1094,26 +1108,26 @@ private:
     void viewWillStartLiveResize();
     void viewWillEndLiveResize();
 
-    void getContentsAsString(uint64_t callbackID);
+    void getContentsAsString(CallbackID);
 #if ENABLE(MHTML)
-    void getContentsAsMHTMLData(uint64_t callbackID);
+    void getContentsAsMHTMLData(CallbackID);
 #endif
-    void getMainResourceDataOfFrame(uint64_t frameID, uint64_t callbackID);
-    void getResourceDataFromFrame(uint64_t frameID, const String& resourceURL, uint64_t callbackID);
-    void getRenderTreeExternalRepresentation(uint64_t callbackID);
-    void getSelectionOrContentsAsString(uint64_t callbackID);
-    void getSelectionAsWebArchiveData(uint64_t callbackID);
-    void getSourceForFrame(uint64_t frameID, uint64_t callbackID);
-    void getWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID);
-    void runJavaScriptInMainFrame(const String&, uint64_t callbackID);
-    void forceRepaint(uint64_t callbackID);
-    void takeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options, uint64_t callbackID);
+    void getMainResourceDataOfFrame(uint64_t frameID, CallbackID);
+    void getResourceDataFromFrame(uint64_t frameID, const String& resourceURL, CallbackID);
+    void getRenderTreeExternalRepresentation(CallbackID);
+    void getSelectionOrContentsAsString(CallbackID);
+    void getSelectionAsWebArchiveData(CallbackID);
+    void getSourceForFrame(uint64_t frameID, CallbackID);
+    void getWebArchiveOfFrame(uint64_t frameID, CallbackID);
+    void runJavaScriptInMainFrame(const String&, bool forceUserGesture, CallbackID);
+    void forceRepaint(CallbackID);
+    void takeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options, CallbackID);
 
     void preferencesDidChange(const WebPreferencesStore&);
     void platformPreferencesDidChange(const WebPreferencesStore&);
     void updatePreferences(const WebPreferencesStore&);
 
-    void didReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, uint32_t policyAction, uint64_t navigationID, DownloadID);
+    void didReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, uint32_t policyAction, uint64_t navigationID, const DownloadID&);
     void setUserAgent(const String&);
     void setCustomTextEncodingName(const String&);
     void suspendActiveDOMObjectsAndAnimations();
@@ -1153,10 +1167,6 @@ private:
     void sendViewportAttributesChanged(const WebCore::ViewportArguments&);
 #endif
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    void findZoomableAreaForPoint(const WebCore::IntPoint&, const WebCore::IntSize& area);
-#endif
-
     void didChangeSelectedIndexForActivePopupMenu(int32_t newIndex);
     void setTextForActivePopupMenu(int32_t index);
 
@@ -1178,12 +1188,23 @@ private:
     void didReceiveNotificationPermissionDecision(uint64_t notificationID, bool allowed);
 
 #if ENABLE(MEDIA_STREAM)
-    void userMediaAccessWasGranted(uint64_t userMediaID, const String& audioDeviceUID, const String& videoDeviceUID);
-    void userMediaAccessWasDenied(uint64_t userMediaID, uint64_t reason, String invalidConstraint);
+    void userMediaAccessWasGranted(uint64_t userMediaID, String&& audioDeviceUID, String&& videoDeviceUID, String&& mediaDeviceIdentifierHashSalt);
+    void userMediaAccessWasDenied(uint64_t userMediaID, uint64_t reason, String&& invalidConstraint);
 
-    void didCompleteMediaDeviceEnumeration(uint64_t userMediaID, const Vector<WebCore::CaptureDevice>& devices, const String& deviceIdentifierHashSalt, bool originHasPersistentAccess);
+    void didCompleteMediaDeviceEnumeration(uint64_t userMediaID, const Vector<WebCore::CaptureDevice>& devices, String&& deviceIdentifierHashSalt, bool originHasPersistentAccess);
+#if ENABLE(SANDBOX_EXTENSIONS)
     void grantUserMediaDeviceSandboxExtensions(const MediaDeviceSandboxExtensions&);
     void revokeUserMediaDeviceSandboxExtensions(const Vector<String>&);
+#endif
+#endif
+
+#if ENABLE(WEB_RTC)
+    void disableICECandidateFiltering();
+    void enableICECandidateFiltering();
+#if USE(LIBWEBRTC)
+    void disableEnumeratingAllNetworkInterfaces();
+    void enableEnumeratingAllNetworkInterfaces();
+#endif
 #endif
 
     void advanceToNextMisspelling(bool startBeforeSelection);
@@ -1204,11 +1225,12 @@ private:
     static bool platformCanHandleRequest(const WebCore::ResourceRequest&);
 
     static PluginView* focusedPluginViewForFrame(WebCore::Frame&);
-    static PluginView* pluginViewForFrame(WebCore::Frame*);
 
-    static PassRefPtr<WebCore::Range> rangeFromEditingRange(WebCore::Frame&, const EditingRange&, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
+    static RefPtr<WebCore::Range> rangeFromEditingRange(WebCore::Frame&, const EditingRange&, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
 
     void reportUsedFeatures();
+
+    void updateWebsitePolicies(const WebsitePolicies&);
 
 #if PLATFORM(MAC)
     void performImmediateActionHitTestAtLocation(WebCore::FloatPoint);
@@ -1251,6 +1273,23 @@ private:
     void setUserInterfaceLayoutDirection(uint32_t);
 
     bool canPluginHandleResponse(const WebCore::ResourceResponse&);
+
+#if USE(QUICK_LOOK)
+    void didReceivePasswordForQuickLookDocument(const String&);
+#endif
+
+    void registerURLSchemeHandler(uint64_t identifier, const String& scheme);
+
+    void urlSchemeTaskDidPerformRedirection(uint64_t handlerIdentifier, uint64_t taskIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&);
+    void urlSchemeTaskDidReceiveResponse(uint64_t handlerIdentifier, uint64_t taskIdentifier, const WebCore::ResourceResponse&);
+    void urlSchemeTaskDidReceiveData(uint64_t handlerIdentifier, uint64_t taskIdentifier, const IPC::DataReference&);
+    void urlSchemeTaskDidComplete(uint64_t handlerIdentifier, uint64_t taskIdentifier, const WebCore::ResourceError&);
+
+    RefPtr<WebImage> snapshotAtSize(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions);
+    RefPtr<WebImage> snapshotNode(WebCore::Node&, SnapshotOptions, unsigned maximumPixelCount = std::numeric_limits<unsigned>::max());
+#if USE(CF)
+    RetainPtr<CFDataRef> pdfSnapshotAtSize(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions);
+#endif
 
     uint64_t m_pageID;
 
@@ -1320,11 +1359,11 @@ private:
     
     RetainPtr<WKAccessibilityWebPageObject> m_mockAccessibilityElement;
 
-    ViewGestureGeometryCollector m_viewGestureGeometryCollector;
+    UniqueRef<ViewGestureGeometryCollector> m_viewGestureGeometryCollector;
 
     RetainPtr<NSDictionary> m_dataDetectionContext;
 
-#elif HAVE(ACCESSIBILITY) && (PLATFORM(GTK) || PLATFORM(EFL))
+#elif HAVE(ACCESSIBILITY) && PLATFORM(GTK)
     GRefPtr<WebPageAccessibilityObject> m_accessibilityObject;
 #endif
 
@@ -1348,16 +1387,15 @@ private:
 #endif
     std::unique_ptr<API::InjectedBundle::EditorClient> m_editorClient;
     std::unique_ptr<API::InjectedBundle::FormClient> m_formClient;
-    InjectedBundlePageLoaderClient m_loaderClient;
+    std::unique_ptr<API::InjectedBundle::PageLoaderClient> m_loaderClient;
     InjectedBundlePagePolicyClient m_policyClient;
-    InjectedBundlePageResourceLoadClient m_resourceLoadClient;
+    std::unique_ptr<API::InjectedBundle::ResourceLoadClient> m_resourceLoadClient;
     std::unique_ptr<API::InjectedBundle::PageUIClient> m_uiClient;
 #if ENABLE(FULLSCREEN_API)
     InjectedBundlePageFullScreenClient m_fullScreenClient;
 #endif
-    InjectedBundlePageDiagnosticLoggingClient m_logDiagnosticMessageClient;
 
-    FindController m_findController;
+    UniqueRef<FindController> m_findController;
 
     RefPtr<WebInspector> m_inspector;
     RefPtr<WebInspectorUI> m_inspectorUI;
@@ -1386,11 +1424,11 @@ private:
     Ref<WebUserContentController> m_userContentController;
 
 #if ENABLE(GEOLOCATION)
-    GeolocationPermissionRequestManager m_geolocationPermissionRequestManager;
+    UniqueRef<GeolocationPermissionRequestManager> m_geolocationPermissionRequestManager;
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-    UserMediaPermissionRequestManager m_userMediaPermissionRequestManager;
+    std::unique_ptr<UserMediaPermissionRequestManager> m_userMediaPermissionRequestManager;
 #endif
 
     std::unique_ptr<WebCore::PrintContext> m_printContext;
@@ -1427,6 +1465,7 @@ private:
 
     WebCore::IntSize m_minimumLayoutSize;
     bool m_autoSizingShouldExpandToViewHeight { false };
+    std::optional<WebCore::IntSize> m_viewportSizeForCSSViewportUnits;
 
     bool m_userIsInteracting { false };
     bool m_isAssistingNodeDueToUserInteraction { false };
@@ -1469,6 +1508,7 @@ private:
     WebCore::FloatSize m_availableScreenSize;
     RefPtr<WebCore::Range> m_currentBlockSelection;
     WebCore::IntRect m_blockRectForTextSelection;
+    bool m_allowsBlockSelection { false };
 
     RefPtr<WebCore::Range> m_initialSelection;
     WebCore::IntSize m_blockSelectionDesiredSize;
@@ -1482,7 +1522,7 @@ private:
 #endif
 
     WebCore::Timer m_layerVolatilityTimer;
-    Vector<std::function<void ()>> m_markLayersAsVolatileCompletionHandlers;
+    Vector<WTF::Function<void ()>> m_markLayersAsVolatileCompletionHandlers;
     bool m_isSuspendedUnderLock { false };
 
     HashSet<String, ASCIICaseInsensitiveHash> m_mimeTypesWithCustomContentProviders;
@@ -1531,6 +1571,10 @@ private:
     WebCore::UserInterfaceLayoutDirection m_userInterfaceLayoutDirection { WebCore::UserInterfaceLayoutDirection::LTR };
 
     const String m_overrideContentSecurityPolicy;
+    const std::optional<double> m_cpuLimit;
+
+    HashMap<String, RefPtr<WebURLSchemeHandlerProxy>> m_schemeToURLSchemeHandlerProxyMap;
+    HashMap<uint64_t, WebURLSchemeHandlerProxy*> m_identifierToURLSchemeHandlerProxyMap;
 };
 
 } // namespace WebKit

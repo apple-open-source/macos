@@ -16,6 +16,9 @@
  * One 'shared' disk image is created for any test to use, if it wants.
  * To use this disk image, call disk_image_get(). To create a 'not-shared'
  * disk image for use just within your test, call disk_image_create().
+ *
+ * Callers of disk_image_create() and disk_image_get() should not free the pointer they receive,
+ * as it is freed automatically.
  */
 
 __BEGIN_DECLS

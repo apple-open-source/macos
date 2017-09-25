@@ -71,7 +71,7 @@ ShadowRoot::ShadowRoot(Document& document, std::unique_ptr<SlotAssignment>&& slo
 
 ShadowRoot::~ShadowRoot()
 {
-    if (inDocument())
+    if (isConnected())
         document().didRemoveInDocumentShadowRoot(*this);
 
     // We cannot let ContainerNode destructor call willBeDeletedFrom()
@@ -81,16 +81,16 @@ ShadowRoot::~ShadowRoot()
     willBeDeletedFrom(document());
 
     // We must remove all of our children first before the TreeScope destructor
-    // runs so we don't go through TreeScopeAdopter for each child with a
+    // runs so we don't go through Node::setTreeScopeRecursively for each child with a
     // destructed tree scope in each descendant.
     removeDetachedChildren();
 }
 
 Node::InsertionNotificationRequest ShadowRoot::insertedInto(ContainerNode& insertionPoint)
 {
-    bool wasInDocument = inDocument();
+    bool wasInDocument = isConnected();
     DocumentFragment::insertedInto(insertionPoint);
-    if (insertionPoint.inDocument() && !wasInDocument)
+    if (insertionPoint.isConnected() && !wasInDocument)
         document().didInsertInDocumentShadowRoot(*this);
     return InsertionDone;
 }
@@ -98,19 +98,21 @@ Node::InsertionNotificationRequest ShadowRoot::insertedInto(ContainerNode& inser
 void ShadowRoot::removedFrom(ContainerNode& insertionPoint)
 {
     DocumentFragment::removedFrom(insertionPoint);
-    if (insertionPoint.inDocument() && !inDocument())
+    if (insertionPoint.isConnected() && !isConnected())
         document().didRemoveInDocumentShadowRoot(*this);
 }
 
-void ShadowRoot::didMoveToNewDocument(Document& oldDocument)
+void ShadowRoot::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
 {
-    ASSERT(&document() != &oldDocument);
-    ASSERT(&m_styleScope->document() == &oldDocument);
+    ASSERT_WITH_SECURITY_IMPLICATION(&document() == &oldDocument || &document() == &newDocument);
+    setDocumentScope(newDocument);
+    ASSERT_WITH_SECURITY_IMPLICATION(&document() == &newDocument);
+    ASSERT_WITH_SECURITY_IMPLICATION(&m_styleScope->document() == &oldDocument);
 
     // Style scopes are document specific.
     m_styleScope = std::make_unique<Style::Scope>(*this);
 
-    DocumentFragment::didMoveToNewDocument(oldDocument);
+    DocumentFragment::didMoveToNewDocument(oldDocument, newDocument);
 }
 
 Style::Scope& ShadowRoot::styleScope()

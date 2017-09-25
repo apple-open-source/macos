@@ -55,7 +55,7 @@ struct IOPCIDeviceExpansionData
     uint16_t expressCapability;
     uint16_t expressCapabilities;
     uint16_t expressASPMDefault;
-	uint8_t  aspmCaps;
+	uint16_t aspmCaps;
     uint16_t l1pmCapability;
     uint32_t l1pmCaps;
 
@@ -176,6 +176,7 @@ struct IOPCIConfigShadow
     IOPCIDeviceConfigHandler handler;
     void *                   handlerRef;
     uint64_t                 restoreCount;
+    IOOptionBits             sharedRootASPMState;
 };
 
 #define configShadow(device)    ((IOPCIConfigShadow *) &device->savedConfig[0])
@@ -273,8 +274,10 @@ enum
 
 enum
 {
-	kIOPCIExpressASPML0s = 0x00000001,
-	kIOPCIExpressASPML1  = 0x00000002
+	kIOPCIExpressASPML0s   = 0x00000001,
+	kIOPCIExpressASPML1    = 0x00000002,
+	kIOPCIExpressCommonClk = 0x00000040,
+	kIOPCIExpressClkReq    = 0x00000100
 };
 
 enum

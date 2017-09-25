@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/simple_gem'
 
@@ -21,6 +22,8 @@ class TestGemPackageOld < Gem::TestCase
   end
 
   def test_contents_security_policy
+    skip 'openssl is missing' unless defined?(OpenSSL::SSL)
+
     @package.security_policy = Gem::Security::AlmostNoSecurity
 
     assert_raises Gem::Security::Exception do
@@ -40,6 +43,8 @@ class TestGemPackageOld < Gem::TestCase
   end
 
   def test_extract_files_security_policy
+    skip 'openssl is missing' unless defined?(OpenSSL::SSL)
+
     @package.security_policy = Gem::Security::AlmostNoSecurity
 
     assert_raises Gem::Security::Exception do
@@ -52,6 +57,8 @@ class TestGemPackageOld < Gem::TestCase
   end
 
   def test_spec_security_policy
+    skip 'openssl is missing' unless defined?(OpenSSL::SSL)
+
     @package.security_policy = Gem::Security::AlmostNoSecurity
 
     assert_raises Gem::Security::Exception do
@@ -60,6 +67,8 @@ class TestGemPackageOld < Gem::TestCase
   end
 
   def test_verify
+    skip 'openssl is missing' unless defined?(OpenSSL::SSL)
+
     assert @package.verify
 
     @package.security_policy = Gem::Security::NoSecurity

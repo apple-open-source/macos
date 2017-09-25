@@ -85,7 +85,6 @@ enum
 	errSecMatchLimitUnsupported  = errSecParam, // -34015,  /* The caller passed in a kSecMatchLimit key to a call which does not support limits. */
 	errSecItemIllegalQuery       = errSecParam, // -34016,  /* The caller passed in a query which contained too many keys. */
 	errSecWaitForCallback        = -34017,  /* This operation is incomplete, until the callback is invoked (not an error). */
-    errSecMissingEntitlement     = -34018,  /* Internal error when a required entitlement isn't present. */
     errSecUpgradePending         = -34019,  /* Error returned if keychain database needs a schema migration but the device is locked, clients should wait for a device unlock notification and retry the command. */
 
     errSecMPSignatureInvalid     = -25327,  /* Signature invalid on MP message */

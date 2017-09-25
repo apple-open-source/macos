@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -58,9 +58,9 @@ httpAddrAny(const http_addr_t *addr)	/* I - Address to check */
  * 'httpAddrClose()' - Close a socket created by @link httpAddrConnect@ or
  *                     @link httpAddrListen@.
  *
- * Pass @code NULL@ for sockets created with @link httpAddrConnect@ and the
- * listen address for sockets created with @link httpAddrListen@. This will
- * ensure that domain sockets are removed when closed.
+ * Pass @code NULL@ for sockets created with @link httpAddrConnect2@ and the
+ * listen address for sockets created with @link httpAddrListen@.  This function
+ * ensures that domain sockets are removed when closed.
  *
  * @since CUPS 2.0/OS 10.10@
  */
@@ -648,6 +648,10 @@ httpAddrString(const http_addr_t *addr,	/* I - Address to convert */
 /*
  * 'httpGetAddress()' - Get the address of the connected peer of a connection.
  *
+ * For connections created with @link httpConnect2@, the address is for the
+ * server.  For connections created with @link httpAccept@, the address is for
+ * the client.
+ *
  * Returns @code NULL@ if the socket is currently unconnected.
  *
  * @since CUPS 2.0/OS 10.10@
@@ -667,7 +671,7 @@ httpGetAddress(http_t *http)		/* I - HTTP connection */
  * 'httpGetHostByName()' - Lookup a hostname or IPv4 address, and return
  *                         address records for the specified name.
  *
- * @deprecated@
+ * @deprecated@ @exclude all@
  */
 
 struct hostent *			/* O - Host entry */
@@ -869,6 +873,18 @@ httpGetHostname(http_t *http,		/* I - HTTP connection or NULL */
 
     if (strlen(s) > 6 && !strcmp(s + strlen(s) - 6, ".local"))
       strlcat(s, ".", (size_t)slen);
+  }
+
+ /*
+  * Convert the hostname to lowercase as needed...
+  */
+
+  if (s[0] != '/')
+  {
+    char	*ptr;			/* Pointer into string */
+
+    for (ptr = s; *ptr; ptr ++)
+      *ptr = (char)_cups_tolower((int)*ptr);
   }
 
  /*

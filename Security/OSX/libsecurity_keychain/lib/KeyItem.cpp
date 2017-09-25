@@ -351,7 +351,17 @@ KeyItem::importTo(const Keychain &keychain, Access *newAccess, SecKeychainAttrib
 
 	/* Unwrap the new key into the new Keychain. */
 	CssmClient::UnwrapKey unwrap(keychain->csp(), CSSM_ALGID_3DES_3KEY_EDE);
-	unwrap.key(wrappingKey);
+    if (csp()->guid() != keychain->csp()->guid()) {
+        // Prepare wrapping key to be usable in target keychain's CSP.
+        CssmClient::WrapKey exportWrapKey(csp(), CSSM_ALGID_NONE);
+        CssmClient::Key exportedWrappingKey(exportWrapKey(wrappingKey));
+        CssmClient::UnwrapKey importUnwrapKey(keychain->csp(), CSSM_ALGID_NONE);
+        CssmClient::Key importedWrappingKey(importUnwrapKey(exportedWrappingKey, KeySpec(CSSM_KEYUSE_UNWRAP, 0)));
+        unwrap.key(importedWrappingKey);
+    } else {
+        // Wrapping key can be used directly, because source and target CSPs are the same.
+        unwrap.key(wrappingKey);
+    }
 	unwrap.mode(CSSM_ALGMODE_ECBPad);
 	unwrap.padding(CSSM_PADDING_PKCS7);
 	unwrap.initVector(iv);
@@ -634,7 +644,7 @@ KeyItem::createPair(
             CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
 
         ssDb = SSDb(impl);
-        csp = CssmClient::CSP(keychain->csp());
+        csp = keychain->csp();
 
         // Generate a random label to use initially
         CssmClient::Random random(appleCsp, CSSM_ALGID_APPLE_YARROW);
@@ -698,14 +708,14 @@ KeyItem::createPair(
         CssmClient::Key publicKey;
         DbAttributes pubDbAttributes;
         DbUniqueRecord pubUniqueId;
-        if (permanentPubKey) {
+        if (permanentPubKey && ssDb) {
             SSDbCursor dbPubCursor(ssDb, 1);
             dbPubCursor->recordType(CSSM_DL_DB_RECORD_PUBLIC_KEY);
             dbPubCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, label);
             if (!dbPubCursor->nextKey(&pubDbAttributes, publicKey, pubUniqueId))
                 MacOSError::throwMe(errSecItemNotFound);
         } else {
-            publicKey = CssmClient::Key(appleCsp, publicCssmKey);
+            publicKey = CssmClient::Key(csp, publicCssmKey);
             outPublicKey = new KeyItem(publicKey);
             freePublicKey = false;
         }
@@ -714,14 +724,14 @@ KeyItem::createPair(
         CssmClient::Key privateKey;
         DbAttributes privDbAttributes;
         DbUniqueRecord privUniqueId;
-        if (permanentPrivKey) {
+        if (permanentPrivKey && ssDb) {
             SSDbCursor dbPrivCursor(ssDb, 1);
             dbPrivCursor->recordType(CSSM_DL_DB_RECORD_PRIVATE_KEY);
             dbPrivCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, label);
             if (!dbPrivCursor->nextKey(&privDbAttributes, privateKey, privUniqueId))
                 MacOSError::throwMe(errSecItemNotFound);
         } else {
-            privateKey = CssmClient::Key(appleCsp, privateCssmKey);
+            privateKey = CssmClient::Key(csp, privateCssmKey);
             outPrivateKey = new KeyItem(privateKey);
             freePrivateKey = false;
         }
@@ -747,8 +757,8 @@ KeyItem::createPair(
             pubKeyHash.set(*pubKeyHashData);
             passThrough.allocator().free(pubKeyHashData);
 
-            auto_ptr<string>privDescription;
-            auto_ptr<string>pubDescription;
+            auto_ptr<string> privDescription;
+            auto_ptr<string> pubDescription;
             try {
                 privDescription.reset(new string(initialAccess->promptDescription()));
                 pubDescription.reset(new string(initialAccess->promptDescription()));
@@ -1121,7 +1131,7 @@ KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
 
         if (!initialAccess) {
             // We don't have an access, but we need to set integrity. Make an Access.
-            initialAccess = new Access(string(label));
+            initialAccess = new Access(label.toString());
         }
     }
 
@@ -1398,9 +1408,9 @@ void KeyItem::modifyUniqueId(Keychain keychain, SSDb ssDb, DbUniqueRecord& uniqu
     }
 
     try {
-        secnotice("integrity", "modifying unique id");
+        secinfo("integrity", "modifying unique id");
         uniqueId->modify(recordType, &newDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
-        secnotice("integrity", "done modifying unique id");
+        secinfo("integrity", "done modifying unique id");
     } catch(CssmError e) {
         // Just in case something went wrong, clean up after this add
         uniqueId->deleteRecord();

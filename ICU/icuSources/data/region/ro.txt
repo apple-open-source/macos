@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ro.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ro{
     Countries{
         001{"Lume"}
@@ -95,7 +89,7 @@ ro{
         CW{"Curaçao"}
         CX{"Insula Christmas"}
         CY{"Cipru"}
-        CZ{"Republica Cehă"}
+        CZ{"Cehia"}
         DE{"Germania"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -137,7 +131,7 @@ ro{
         GU{"Guam"}
         GW{"Guineea-Bissau"}
         GY{"Guyana"}
-        HK{"R.A.S. Hong Kong a Chinei"}
+        HK{"Hong Kong (China)"}
         HM{"Insula Heard și Insulele McDonald"}
         HN{"Honduras"}
         HR{"Croația"}
@@ -187,11 +181,11 @@ ro{
         MF{"Sfântul Martin"}
         MG{"Madagascar"}
         MH{"Insulele Marshall"}
-        MK{"Macedonia"}
+        MK{"Republica Macedonia"}
         ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
-        MO{"R.A.S. Macao a Chinei"}
+        MO{"Macao (China)"}
         MP{"Insulele Mariane de Nord"}
         MQ{"Martinica"}
         MR{"Mauritania"}
@@ -253,7 +247,7 @@ ro{
         SO{"Somalia"}
         SR{"Suriname"}
         SS{"Sudanul de Sud"}
-        ST{"Sao Tome și Principe"}
+        ST{"Sao Tomé și Príncipe"}
         SV{"El Salvador"}
         SX{"Sint-Maarten"}
         SY{"Siria"}
@@ -278,6 +272,7 @@ ro{
         UA{"Ucraina"}
         UG{"Uganda"}
         UM{"Insulele Îndepărtate ale S.U.A."}
+        UN{"Națiunile Unite"}
         US{"Statele Unite ale Americii"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
@@ -285,7 +280,7 @@ ro{
         VC{"Saint Vincent și Grenadinele"}
         VE{"Venezuela"}
         VG{"Insulele Virgine Britanice"}
-        VI{"Insulele Virgine S.U.A."}
+        VI{"Insulele Virgine Americane"}
         VN{"Vietnam"}
         VU{"Vanuatu"}
         WF{"Wallis și Futuna"}
@@ -303,14 +298,16 @@ ro{
         HK{"Hong Kong"}
         MO{"Macao"}
         PS{"Palestina"}
+        UN{"NU"}
         US{"S.U.A."}
     }
     Countries%variant{
         CD{"Congo (Republica Democrată Congo)"}
         CG{"Congo (Republica)"}
         CI{"Coasta de Fildeș"}
+        CZ{"Republica Cehă"}
         FK{"Insulele Falkland (Insulele Malvine)"}
-        MK{"Macedonia (FRIM)"}
+        MK{"Republica Macedonia (FRIM)"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.60"}
 }

@@ -63,6 +63,7 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
     removeChildAtIndex() { return WebInspector.TreeOutline.prototype.removeChildAtIndex.apply(this, arguments); }
     removeChildren() { return WebInspector.TreeOutline.prototype.removeChildren.apply(this, arguments); }
     removeChildrenRecursive() { return WebInspector.TreeOutline.prototype.removeChildrenRecursive.apply(this, arguments); }
+    selfOrDescendant() { return WebInspector.TreeOutline.prototype.selfOrDescendant.apply(this, arguments); }
 
     get arrowToggleWidth()
     {
@@ -310,6 +311,9 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
         if (element.treeElement.isEventWithinDisclosureTriangle(event))
             return;
 
+        if (element.treeElement.dispatchEventToListeners(WebInspector.TreeElement.Event.DoubleClick))
+            return;
+
         if (element.treeElement.ondblclick)
             element.treeElement.ondblclick.call(element.treeElement, event);
         else if (element.treeElement.hasChildren && !element.treeElement.expanded)
@@ -371,6 +375,10 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
             this._childrenListNode.hidden = this.hidden;
 
             this.onpopulate();
+
+            // It is necessary to set expanded to true again here because some subclasses will call
+            // collapse in onpopulate (via removeChildren), which sets it back to false.
+            this.expanded = true;
 
             for (var i = 0; i < this.children.length; ++i)
                 this.children[i]._attach();
@@ -508,6 +516,12 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
         }
 
         treeOutline.processingSelectionChange = false;
+
+        let treeOutlineGroup = WebInspector.TreeOutlineGroup.groupForTreeOutline(treeOutline);
+        if (!treeOutlineGroup)
+            return;
+
+        treeOutlineGroup.didSelectTreeElement(this);
     }
 
     revealAndSelect(omitFocus, selectedByUser, suppressOnSelect, suppressOnDeselect)
@@ -605,8 +619,27 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
             return false;
 
         // FIXME: We should not use getComputedStyle(). For that we need to get rid of using ::before for disclosure triangle. (http://webk.it/74446)
-        var computedLeftPadding = window.getComputedStyle(this._listItemNode).getPropertyCSSValue("padding-left").getFloatValue(CSSPrimitiveValue.CSS_PX);
-        var left = this._listItemNode.totalOffsetLeft + computedLeftPadding;
-        return event.pageX >= left && event.pageX <= left + this.arrowToggleWidth && this.hasChildren;
+        let computedStyle = window.getComputedStyle(this._listItemNode);
+        let start = 0;
+        if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL)
+            start += this._listItemNode.totalOffsetRight - computedStyle.getPropertyCSSValue("padding-right").getFloatValue(CSSPrimitiveValue.CSS_PX) - this.arrowToggleWidth;
+        else
+            start += this._listItemNode.totalOffsetLeft + computedStyle.getPropertyCSSValue("padding-left").getFloatValue(CSSPrimitiveValue.CSS_PX);
+
+        return event.pageX >= start && event.pageX <= start + this.arrowToggleWidth && this.hasChildren;
     }
+
+    populateContextMenu(contextMenu, event)
+    {
+        if (this.children.some((child) => child.hasChildren) || (this.hasChildren && !this.children.length)) {
+            contextMenu.appendSeparator();
+
+            contextMenu.appendItem(WebInspector.UIString("Expand All"), this.expandRecursively.bind(this));
+            contextMenu.appendItem(WebInspector.UIString("Collapse All"), this.collapseRecursively.bind(this));
+        }
+    }
+};
+
+WebInspector.TreeElement.Event = {
+    DoubleClick: "tree-element-double-click",
 };

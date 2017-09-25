@@ -344,7 +344,7 @@ static unsigned int dn_len = 96;
 static SSLContextRef make_ssl_ref(bool server, bool client_side_auth, bool dh_anonymous,
                                   bool dtls, int sock, CFArrayRef certs, SSLProtocol proto, bool kernel)
 {
-    SSLContextRef ctx;
+    SSLContextRef ctx = NULL;
 
     if(kernel) {
         require(dtls, out);
@@ -648,7 +648,6 @@ static void createsockets(int sp[2])
 
 }
 
-int st_test(void);
 int st_test(void)
 {
     pthread_t client_thread, server_thread;
@@ -661,7 +660,7 @@ int st_test(void)
 #if 0
     int d=0, i=0, l=0, c=0, k=0; { {
 #else
-    int d,i,c,k,l,p;
+    int d,i,c,k,l,p = 0;
 
         p=0;
         //for (p=0; p<nprotos; p++)
@@ -735,7 +734,7 @@ int st_test(void)
                 } /* all ciphers */
             } /* all configs */
 
-    CFRelease(server_certs);
+    CFReleaseSafe(server_certs);
 
     return 0;
 }

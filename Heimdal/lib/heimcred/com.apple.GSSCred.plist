@@ -10,14 +10,14 @@
 	<string>com.apple.GSSCred</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/System/Library/Frameworks/GSS.framework/Helpers/com.apple.GSSCred</string>
+		<string>/System/Library/Frameworks/GSS.framework/Helpers/GSSCred</string>
 	</array>
 	<key>MachServices</key>
 	<dict>
 		<key>com.apple.GSSCred</key>
 		<true/>
 	</dict>
-        <key>MultipleInstances</key>
-        <true/>
+	<key>MultipleInstances</key>
+	<true/>
 </dict>
 </plist>

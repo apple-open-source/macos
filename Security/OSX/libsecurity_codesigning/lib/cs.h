@@ -75,6 +75,11 @@ extern ModuleNexus<CFObjects> gCFObjects;
 
 OSStatus dbError(const SQLite3::Error &err);
 
+// Embedded platform does not have this function so skip the conversion
+#if TARGET_OS_IPHONE
+#define SecKeychainErrFromOSStatus(status) (status)
+#endif
+
 
 //
 // Code Signing API brackets

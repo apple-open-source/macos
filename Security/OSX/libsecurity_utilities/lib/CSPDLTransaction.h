@@ -24,6 +24,10 @@
 #ifndef _H_CSPDLTRANSACTION
 #define _H_CSPDLTRANSACTION
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+
 #include <security_cdsa_client/dlclient.h>
 
 //
@@ -72,5 +76,7 @@ public:
 private:
     Security::CssmClient::Db& mDb;
 };
+
+#endif //TARGET_OS_OSX
 
 #endif // _H_CSPDLTRANSACTION

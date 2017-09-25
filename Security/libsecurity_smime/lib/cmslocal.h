@@ -48,7 +48,9 @@
 #include <Security/secasn1t.h>
 
 extern const SecAsn1Template SecCmsIssuerAndSNTemplate[];
+#if 0
 extern const SecAsn1Template SecCmsContentInfoTemplate[];
+#endif
 extern const SecAsn1Template *nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate);
 
 /************************************************************************/

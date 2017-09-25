@@ -43,10 +43,6 @@
 #include <WebCore/RuntimeApplicationChecks.h>
 #endif
 
-#if USE(QUICK_LOOK)
-#include <WebCore/QuickLook.h>
-#endif
-
 // Match the parallel connection count used by the networking layer.
 static unsigned maxRequestsInFlightPerHost;
 #if !PLATFORM(IOS)
@@ -286,7 +282,7 @@ void WebResourceLoadScheduler::resumePendingRequests()
 void WebResourceLoadScheduler::scheduleServePendingRequests()
 {
     if (!m_requestTimer.isActive())
-        m_requestTimer.startOneShot(0);
+        m_requestTimer.startOneShot(0_s);
 }
 
 void WebResourceLoadScheduler::requestTimerFired()

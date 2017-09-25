@@ -1,14 +1,14 @@
 /*
  * Private definitions for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -105,7 +105,7 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   int			need_res_init;	/* Need to reinitialize resolver? */
 
   /* ipp.c */
-  ipp_uchar_t		ipp_date[11];	/* RFC-1903 date/time data */
+  ipp_uchar_t		ipp_date[11];	/* RFC-2579 date/time data */
   _cups_buffer_t	*cups_buffers;	/* Buffer list */
 
   /* ipp-support.c */
@@ -124,7 +124,8 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
 			*ppd_size_lut,	/* Lookup table for PPD names */
 			*pwg_size_lut;	/* Lookup table for PWG names */
   pwg_media_t		pwg_media;	/* PWG media data for custom size */
-  char			pwg_name[65];	/* PWG media name for custom size */
+  char			pwg_name[65],	/* PWG media name for custom size */
+			ppd_name[41];	/* PPD media name for custom size */
 
   /* request.c */
   http_t		*http;		/* Current server connection */

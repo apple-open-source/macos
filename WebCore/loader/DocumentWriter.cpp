@@ -56,7 +56,7 @@ namespace WebCore {
 
 static inline bool canReferToParentFrameEncoding(const Frame* frame, const Frame* parentFrame) 
 {
-    return parentFrame && parentFrame->document()->securityOrigin()->canAccess(frame->document()->securityOrigin());
+    return parentFrame && parentFrame->document()->securityOrigin().canAccess(frame->document()->securityOrigin());
 }
     
 DocumentWriter::DocumentWriter(Frame* frame)
@@ -75,7 +75,7 @@ void DocumentWriter::replaceDocument(const String& source, Document* ownerDocume
     m_frame->loader().stopAllLoaders();
 
     // If we are in the midst of changing the frame's document, don't execute script
-    // that modifes the document further:
+    // that modifies the document further:
     if (m_frame->documentIsBeingReplaced())
         return;
 
@@ -236,7 +236,7 @@ void DocumentWriter::reportDataReceived()
     m_hasReceivedSomeData = true;
     if (m_decoder->encoding().usesVisualOrdering())
         m_frame->document()->setVisuallyOrdered();
-    m_frame->document()->recalcStyle(Style::Force);
+    m_frame->document()->resolveStyle(Document::ResolveStyleType::Rebuild);
 }
 
 void DocumentWriter::addData(const char* bytes, size_t length)

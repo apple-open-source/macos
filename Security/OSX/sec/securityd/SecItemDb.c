@@ -41,8 +41,11 @@
 #include <securityd/SOSCloudCircleServer.h>
 #include <utilities/array_size.h>
 #include <utilities/SecIOFormat.h>
+#include <utilities/SecCFCCWrappers.h>
 #include <SecAccessControlPriv.h>
 #include <uuid/uuid.h>
+
+#include "keychain/ckks/CKKS.h"
 
 #define kSecBackupKeybagUUIDKey CFSTR("keybag-uuid")
 
@@ -51,10 +54,10 @@ const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c,
                                   CFErrorRef *error) {
     /* Special case: identites can have all attributes of either cert
      or keys. */
-    if (c == &identity_class) {
+    if (c == identity_class()) {
         const SecDbAttr *desc;
-        if (!(desc = SecDbAttrWithKey(&cert_class, key, 0)))
-            desc = SecDbAttrWithKey(&keys_class, key, error);
+        if (!(desc = SecDbAttrWithKey(cert_class(), key, 0)))
+            desc = SecDbAttrWithKey(keys_class(), key, error);
         return desc;
     }
 
@@ -74,8 +77,12 @@ const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c,
 }
 
 bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)()) {
+    return kc_transaction_type(dbt, kSecDbExclusiveTransactionType, error, perform);
+}
+
+bool kc_transaction_type(SecDbConnectionRef dbt, SecDbTransactionType type, CFErrorRef *error, bool(^perform)()) {
     __block bool ok = true;
-    return ok && SecDbTransaction(dbt, kSecDbExclusiveTransactionType, error, ^(bool *commit) {
+    return ok && SecDbTransaction(dbt, type, error, ^(bool *commit) {
         ok = *commit = perform();
     });
 }
@@ -152,17 +159,27 @@ static void SecDbAppendDropTableWithClass(CFMutableStringRef sql, const SecDbCla
 static CFDataRef SecPersistentRefCreateWithItem(SecDbItemRef item, CFErrorRef *error) {
     sqlite3_int64 row_id = SecDbItemGetRowId(item, error);
     if (row_id)
-        return _SecItemMakePersistentRef(SecDbItemGetClass(item)->name, row_id);
+        return _SecItemCreatePersistentRef(SecDbItemGetClass(item)->name, row_id, item->attributes);
     return NULL;
 }
 
-bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, bool includeVersion, CFErrorRef *error)
+bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFArrayRef classIndexesForNewTables, bool includeVersion, CFErrorRef *error)
 {
     __block bool ok = true;
     CFMutableStringRef sql = CFStringCreateMutable(kCFAllocatorDefault, 0);
-    for (const SecDbClass * const *pclass = schema->classes; *pclass; ++pclass) {
-        SecDbAppendCreateTableWithClass(sql, *pclass);
+    
+    if (classIndexesForNewTables) {
+        CFArrayForEach(classIndexesForNewTables, ^(const void* index) {
+            const SecDbClass* class = schema->classes[(int)index];
+            SecDbAppendCreateTableWithClass(sql, class);
+        });
     }
+    else {
+        for (const SecDbClass * const *pclass = schema->classes; *pclass; ++pclass) {
+            SecDbAppendCreateTableWithClass(sql, *pclass);
+        }
+    }
+    
     if (includeVersion) {
         CFStringAppendFormat(sql, NULL, CFSTR("INSERT INTO tversion(version,minor) VALUES(%d, %d);"),
                              schema->majorVersion, schema->minorVersion);
@@ -224,6 +241,8 @@ CFTypeRef SecDbItemCopyResult(SecDbItemRef item, ReturnTypeMask return_type, CFE
                 }
             }
         }
+        CFDictionaryRemoveValue(dict, kSecAttrUUID);
+
 		if (return_type & kSecReturnPersistentRefMask) {
             CFDataRef pref = SecPersistentRefCreateWithItem(item, error);
 			CFDictionarySetValue(dict, kSecValuePersistentRef, pref);
@@ -266,6 +285,21 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
         ok = SecDbItemSetValueWithName(item, CFSTR("musr"), q->q_musrView, error);
     SecDbItemSetCredHandle(item, q->q_use_cred_handle);
 
+#if OCTAGON
+    if(SecCKKSIsEnabled() && !SecCKKSTestDisableAutomaticUUID()) {
+        s3dl_item_make_new_uuid(item, q->q_uuid_from_primary_key, error);
+
+        if(q->q_add_sync_callback) {
+            CFTypeRef uuid = SecDbItemGetValue(item, &v10itemuuid, error);
+            if(uuid) {
+                CKKSRegisterSyncStatusCallback(uuid, q->q_add_sync_callback);
+            } else {
+                secerror("Couldn't fetch UUID from item; can't call callback");
+            }
+        }
+    }
+#endif
+
     if (ok)
         ok = SecDbItemInsert(item, dbt, error);
 
@@ -298,6 +332,51 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
     CFRelease(item);
 
 	return ok;
+}
+
+bool s3dl_item_make_new_uuid(SecDbItemRef item, bool uuid_from_primary_key, CFErrorRef* error) {
+    if(!item) {
+        return false;
+    }
+
+    // Set the item UUID.
+    CFUUIDRef uuid = NULL;
+    // Were we asked to make the UUID static?
+    if (uuid_from_primary_key) {
+        // This UUID isn't used in any security mechanism, so we can
+        // just use the first bits of the SHA256 hash.
+        CFDataRef pkhash = SecDbKeychainItemCopySHA256PrimaryKey(item, error);
+        if(CFDataGetLength(pkhash) >= 16) {
+            UInt8 uuidBytes[16];
+            CFRange range = CFRangeMake(0, 16);
+            CFDataGetBytes(pkhash, range, uuidBytes);
+
+            uuid = CFUUIDCreateWithBytes(NULL,
+                                         uuidBytes[ 0],
+                                         uuidBytes[ 1],
+                                         uuidBytes[ 2],
+                                         uuidBytes[ 3],
+                                         uuidBytes[ 4],
+                                         uuidBytes[ 5],
+                                         uuidBytes[ 6],
+                                         uuidBytes[ 7],
+                                         uuidBytes[ 8],
+                                         uuidBytes[ 9],
+                                         uuidBytes[10],
+                                         uuidBytes[11],
+                                         uuidBytes[12],
+                                         uuidBytes[13],
+                                         uuidBytes[14],
+                                         uuidBytes[15]);
+        }
+        CFReleaseNull(pkhash);
+    }
+    if(uuid == NULL) {
+        uuid = CFUUIDCreate(NULL);
+    }
+    SecDbItemSetValueWithName(item, kSecAttrUUID, uuid, error);
+    CFReleaseNull(uuid);
+    return true;
 }
 
 typedef void (*s3dl_handle_row)(sqlite3_stmt *stmt, void *context);
@@ -354,7 +433,7 @@ handle_result(Query *q,
             a_result = CFDataCreate(kCFAllocatorDefault, NULL, 0);
         }
 	} else if (q->q_return_type == kSecReturnPersistentRefMask) {
-		a_result = _SecItemMakePersistentRef(q->q_class->name, rowid);
+		a_result = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
 	} else {
 		/* We need to return more than one value. */
         if (q->q_return_type & kSecReturnRefMask) {
@@ -363,6 +442,29 @@ handle_result(Query *q,
             if (!(q->q_return_type & kSecReturnDataMask)) {
                 CFDictionaryRemoveValue(item, kSecValueData);
             }
+
+            // Add any attributes which are supposed to be returned, are not present in the decrypted blob,
+            // and have a way to generate themselves.
+            SecDbItemRef itemRef = NULL;
+            SecDbForEachAttrWithMask(q->q_class, attr, kSecDbReturnAttrFlag) {
+                if(!CFDictionaryGetValue(item, attr->name) && attr->copyValue) {
+                    CFErrorRef cferror = NULL;
+                    if(!itemRef) {
+                        itemRef = SecDbItemCreateWithAttributes(NULL, q->q_class, item, KEYBAG_DEVICE, &cferror);
+                    }
+                    if(!cferror && itemRef) {
+                        CFTypeRef attrValue = attr->copyValue(itemRef, attr, &cferror);
+                        if(!cferror && attrValue) {
+                            CFDictionarySetValue(item, attr->name, attrValue);
+                        }
+                        CFReleaseNull(attrValue);
+                    }
+                    CFReleaseNull(cferror);
+                }
+            }
+            CFReleaseNull(itemRef);
+
+            CFDictionaryRemoveValue(item, kSecAttrUUID);
         } else {
             CFRetainSafe(data);
             CFDictionaryRemoveAllValues(item);
@@ -372,7 +474,7 @@ handle_result(Query *q,
             CFReleaseSafe(data);
         }
 		if (q->q_return_type & kSecReturnPersistentRefMask) {
-            CFDataRef pref = _SecItemMakePersistentRef(q->q_class->name, rowid);
+            CFDataRef pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
 			CFDictionarySetValue(item, kSecValuePersistentRef, pref);
             CFRelease(pref);
 		}
@@ -386,6 +488,17 @@ handle_result(Query *q,
 
 static void s3dl_merge_into_dict(const void *key, const void *value, void *context) {
     CFDictionarySetValue(context, key, value);
+}
+
+static bool checkTokenObjectID(CFDataRef token_object_id, CFDataRef value_data) {
+    bool equalOID = false;
+    CFDictionaryRef itemValue = SecTokenItemValueCopy(value_data, NULL);
+    require_quiet(itemValue, out);
+    CFDataRef oID = CFDictionaryGetValue(itemValue, kSecTokenValueObjectIDKey);
+    equalOID = CFEqualSafe(token_object_id, oID);
+    CFRelease(itemValue);
+out:
+    return equalOID;
 }
 
 static void s3dl_query_row(sqlite3_stmt *stmt, void *context) {
@@ -423,7 +536,10 @@ static void s3dl_query_row(sqlite3_stmt *stmt, void *context) {
     if (!item)
         goto out;
 
-    if (q->q_class == &identity_class) {
+    if (q->q_token_object_id != NULL && !checkTokenObjectID(q->q_token_object_id, CFDictionaryGetValue(item, kSecValueData)))
+        goto out;
+    
+    if (q->q_class == identity_class()) {
         // TODO: Use col 2 for key rowid and use both rowids in persistent ref.
 
         CFMutableDictionaryRef key;
@@ -561,9 +677,9 @@ static void SecDbAppendLimit(CFMutableStringRef sql, CFIndex limit) {
         CFStringAppendFormat(sql, NULL, CFSTR(" LIMIT %" PRIdCFIndex), limit);
 }
 
-static CF_RETURNS_RETAINED CFStringRef s3dl_select_sql(Query *q, CFArrayRef accessGroups) {
+static CFStringRef s3dl_create_select_sql(Query *q, CFArrayRef accessGroups) {
     CFMutableStringRef sql = CFStringCreateMutable(NULL, 0);
-	if (q->q_class == &identity_class) {
+	if (q->q_class == identity_class()) {
         CFStringAppendFormat(sql, NULL, CFSTR("SELECT crowid, %@"
                                               ", rowid,data FROM "
                                               "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
@@ -588,7 +704,7 @@ static CF_RETURNS_RETAINED CFStringRef s3dl_select_sql(Query *q, CFArrayRef acce
         SecDbAppendWhereClause(sql, q, accessGroups);
     }
     //do not append limit for all queries which needs filtering
-    if (q->q_match_issuer == NULL && q->q_match_policy == NULL && q->q_match_valid_on_date == NULL && q->q_match_trusted_only == NULL) {
+    if (q->q_match_issuer == NULL && q->q_match_policy == NULL && q->q_match_valid_on_date == NULL && q->q_match_trusted_only == NULL && q->q_token_object_id == NULL) {
         SecDbAppendLimit(sql, q->q_limit);
     }
 
@@ -679,13 +795,13 @@ bool SecDbItemQuery(SecDbQueryRef query, CFArrayRef accessGroups, SecDbConnectio
         return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr;
     };
 
-    CFStringRef sql = s3dl_select_sql(query, accessGroups);
+    CFStringRef sql = s3dl_create_select_sql(query, accessGroups);
     ok = sql;
     if (sql) {
         ok &= SecDbPrepare(dbconn, sql, error, ^(sqlite3_stmt *stmt) {
             /* Bind the values being searched for to the SELECT statement. */
             int param = 1;
-            if (query->q_class == &identity_class) {
+            if (query->q_class == identity_class()) {
                 /* Bind the access groups to cert.agrp. */
                 ok &= sqlBindAccessGroups(stmt, accessGroups, &param, error);
             }
@@ -735,12 +851,12 @@ s3dl_query(s3dl_handle_row handle_row,
     } else {
         c->result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     }
-    CFStringRef sql = s3dl_select_sql(q, accessGroups);
+    CFStringRef sql = s3dl_create_select_sql(q, accessGroups);
     bool ok = SecDbWithSQL(dbt, sql, error, ^(sqlite3_stmt *stmt) {
         bool sql_ok = true;
         /* Bind the values being searched for to the SELECT statement. */
         int param = 1;
-        if (q->q_class == &identity_class) {
+        if (q->q_class == identity_class()) {
             /* Bind the access groups to cert.agrp. */
             sql_ok = sqlBindAccessGroups(stmt, accessGroups, &param, error);
         }
@@ -789,6 +905,9 @@ s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
     if (q->q_row_id && query_attr_count(q))
         return SecError(errSecItemIllegalQuery, error,
                         CFSTR("attributes to query illegal; both row_id and other attributes can't be searched at the same time"));
+    if (q->q_token_object_id && query_attr_count(q) != 1)
+        return SecError(errSecItemIllegalQuery, error,
+                        CFSTR("attributes to query illegal; both token persitent ref and other attributes can't be searched at the same time"));
 
     // Only copy things that aren't tombstones unless the client explicitly asks otherwise.
     if (!CFDictionaryContainsKey(q->q_item, kSecAttrTombstone))
@@ -796,6 +915,64 @@ s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
     bool ok = s3dl_query(s3dl_query_row, &ctx, error);
     if (ok && result)
         *result = ctx.result;
+    else
+        CFReleaseSafe(ctx.result);
+
+    return ok;
+}
+
+typedef void (^s3dl_item_digest_callback)(CFDataRef persistantReference, CFDataRef encryptedData);
+
+struct s3dl_digest_ctx {
+    Query *q;
+    SecDbConnectionRef dbt;
+    s3dl_item_digest_callback item_callback;
+};
+
+static void s3dl_query_row_digest(sqlite3_stmt *stmt, void *context) {
+    struct s3dl_query_ctx *c = context;
+    Query *q = c->q;
+
+    sqlite_int64 rowid = sqlite3_column_int64(stmt, 0);
+    CFDataRef edata = s3dl_copy_data_from_col(stmt, 1, NULL);
+    CFDataRef persistant_reference = _SecItemCreatePersistentRef(q->q_class->name, rowid, NULL);
+    CFDataRef digest = NULL;
+
+    if (edata) {
+        digest = CFDataCopySHA256Digest(edata, NULL);
+    }
+
+    if (digest && persistant_reference) {
+        CFDictionaryRef item = CFDictionaryCreateForCFTypes(NULL,
+                                                            kSecValuePersistentRef, persistant_reference,
+                                                            kSecValueData, digest,
+                                                            NULL);
+        if (item)
+            CFArrayAppendValue((CFMutableArrayRef)c->result, item);
+        CFReleaseNull(item);
+        c->found++;
+    } else {
+        secinfo("item", "rowid %lu in %@ failed to create pref/digest", (unsigned long)rowid, q->q_class->name);
+    }
+    CFReleaseNull(digest);
+    CFReleaseNull(edata);
+    CFReleaseNull(persistant_reference);
+}
+
+
+bool
+s3dl_copy_digest(SecDbConnectionRef dbt, Query *q, CFArrayRef *result, CFArrayRef accessGroups, CFErrorRef *error)
+{
+    struct s3dl_query_ctx ctx = {
+        .q = q, .dbt = dbt, .accessGroups = accessGroups,
+    };
+    // Force to always return an array
+    q->q_limit = kSecMatchUnlimited;
+    // This interface only queries live data
+    query_add_attribute(kSecAttrTombstone, kCFBooleanFalse, q);
+    bool ok = s3dl_query(s3dl_query_row_digest, &ctx, error);
+    if (ok && result)
+        *result = (CFArrayRef)ctx.result;
     else
         CFReleaseSafe(ctx.result);
 
@@ -898,6 +1075,8 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
         return SecError(errSecValueRefUnsupported, error, CFSTR("value ref not supported in attributes to update"));
     if (q->q_row_id && query_attr_count(q))
         return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both row_id and other attributes can't be updated at the same time"));
+    if (q->q_token_object_id && query_attr_count(q) != 1)
+        return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both token persistent ref and other attributes can't be updated at the same time"));
 
     __block bool result = true;
     Query *u = query_create(q->q_class, NULL, attributesToUpdate, error);
@@ -911,6 +1090,12 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
         result &= SecDbItemQuery(q, accessGroups, dbt, error, ^(SecDbItemRef item, bool *stop) {
             // We always need to know the error here.
             CFErrorRef localError = NULL;
+            if (q->q_token_object_id) {
+                const SecDbAttr *valueDataAttr = SecDbClassAttrWithKind(item->class, kSecDbDataAttr, NULL);
+                CFDataRef valueData = SecDbItemGetValue(item, valueDataAttr, NULL);
+                if (q->q_token_object_id != NULL && !checkTokenObjectID(q->q_token_object_id, valueData))
+                    return;
+            }
             // Cache the storedSHA1 digest so we use the one from the db not the recomputed one for notifications.
             const SecDbAttr *sha1attr = SecDbClassAttrWithKind(item->class, kSecDbSHA1Attr, NULL);
             CFDataRef storedSHA1 = CFRetainSafe(SecDbItemGetValue(item, sha1attr, NULL));
@@ -932,7 +1117,7 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
             result = SecErrorPropagate(localError, error) && new_item;
             if (new_item) {
                 bool item_is_sync = SecDbItemIsSyncable(item);
-                result = SecDbItemUpdate(item, new_item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), error);
+                result = SecDbItemUpdate(item, new_item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), q->q_uuid_from_primary_key, error);
                 if (result) {
                     q->q_changed = true;
                     if (item_is_sync || SecDbItemIsSyncable(new_item))
@@ -981,6 +1166,13 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
     },^bool(sqlite3_stmt * stmt, int col) {
         return sqlBindWhereClause(stmt, q, accessGroups, &col, error);
     }, ^(SecDbItemRef item, bool *stop) {
+        // Check if item for token persitence ref
+        if (q->q_token_object_id) {
+            const SecDbAttr *valueDataAttr = SecDbClassAttrWithKind(item->class, kSecDbDataAttr, NULL);
+            CFDataRef valueData = SecDbItemGetValue(item, valueDataAttr, NULL);
+            if (q->q_token_object_id != NULL && !checkTokenObjectID(q->q_token_object_id, valueData))
+                return;
+        }
         // Check if item need to be authenticated by LocalAuthentication
         item->cryptoOp = kAKSKeyOpDelete;
         if (SecDbItemNeedAuth(item, error)) {
@@ -1021,6 +1213,19 @@ matchAnyString(CFStringRef needle, CFStringRef *haystack)
  but when restoring a backup the original version of the item should be
  added back to the keychain again after the restore completes. */
 static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool multiUser) {
+    CFNumberRef sysb =  CFDictionaryGetValue(item, kSecAttrSysBound);
+    if (isNumber(sysb)) {
+        int32_t num = 0;
+        if (!CFNumberGetValue(sysb, kCFNumberSInt32Type, &num))
+            return false;
+        if (num == kSecSecAttrSysBoundNot) {
+            return false;
+        } else if (num == kSecSecAttrSysBoundPreserveDuringRestore) {
+            return true;
+        }
+        return true;
+    }
+
     CFStringRef agrp = CFDictionaryGetValue(item, kSecAttrAccessGroup);
     if (!isString(agrp))
         return false;
@@ -1035,7 +1240,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         return true;
     }
 
-    if (CFEqual(agrp, CFSTR("apple")) && cls == &genp_class) {
+    if (CFEqual(agrp, CFSTR("apple")) && cls == genp_class()) {
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
         CFStringRef account = CFDictionaryGetValue(item, kSecAttrAccount);
 
@@ -1055,7 +1260,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("com.apple.apsd")) && cls == &genp_class) {
+    if (multiUser && CFEqual(agrp, CFSTR("com.apple.apsd")) && cls == genp_class()) {
         static CFStringRef pushServices[] = {
             CFSTR("push.apple.com"),
             CFSTR("push.apple.com,PerAppToken.v0"),
@@ -1069,7 +1274,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("appleaccount")) && cls == &genp_class) {
+    if (multiUser && CFEqual(agrp, CFSTR("appleaccount")) && cls == genp_class()) {
         static CFStringRef accountServices[] = {
             CFSTR("com.apple.appleaccount.fmf.token"), /* temporary tokens while accout is being setup */
             CFSTR("com.apple.appleaccount.fmf.apptoken"),
@@ -1085,7 +1290,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("apple")) && cls == &genp_class) {
+    if (multiUser && CFEqual(agrp, CFSTR("apple")) && cls == genp_class()) {
         static CFStringRef accountServices[] = {
             CFSTR("com.apple.account.AppleAccount.token"),
             CFSTR("com.apple.account.AppleAccount.password"),
@@ -1118,7 +1323,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == &genp_class) {
+    if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == genp_class()) {
         static CFStringRef accountServices[] = {
             CFSTR("ids"),
             NULL
@@ -1131,7 +1336,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         }
     }
 
-    if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == &keys_class) {
+    if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == keys_class()) {
         static CFStringRef exactMatchingLabel[] = {
             CFSTR("iMessage Encryption Key"),
             CFSTR("iMessage Signing Key"),
@@ -1256,7 +1461,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
             /* Re-encode the item. */
             secdebug("item", "export rowid %llu item: %@", rowid, item);
             /* The code below could be moved into handle_row. */
-            CFDataRef pref = _SecItemMakePersistentRef(q->q_class->name, rowid);
+            CFDataRef pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
             if (pref) {
                 if (c->dest_keybag != KEYBAG_NONE) {
                     CFMutableDictionaryRef auth_attribs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -1376,10 +1581,10 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
 
     /* Get rid of this duplicate. */
     const SecDbClass *SecDbClasses[] = {
-        &genp_class,
-        &inet_class,
-        &cert_class,
-        &keys_class
+        genp_class(),
+        inet_class(),
+        cert_class(),
+        keys_class()
     };
 
     for (class_ix = 0; class_ix < array_size(SecDbClasses);
@@ -1604,7 +1809,7 @@ static void SecServerImportClass(const void *key, const void *value,
         secwarning("Ignoring unknown key class '%@'", key);
         return;
     }
-    if (class == &identity_class) {
+    if (class == identity_class()) {
         SecError(errSecParam, &state->error, CFSTR("attempt to import an identity"));
         return;
     }
@@ -1702,11 +1907,13 @@ errOut:
 }
 
 CFStringRef
-SecServerBackupGetKeybagUUID(CFDictionaryRef keychain)
+SecServerBackupGetKeybagUUID(CFDictionaryRef keychain, CFErrorRef *error)
 {
     CFStringRef uuid = CFDictionaryGetValue(keychain, kSecBackupKeybagUUIDKey);
-    if (!isString(uuid))
+    if (!isString(uuid)) {
+        SecError(errSecDecode, error, CFSTR("Missing or invalid %@ in backup dictionary"), kSecBackupKeybagUUIDKey);
         return NULL;
+    }
     return uuid;
 }
 
@@ -1762,10 +1969,10 @@ bool s3dl_dbt_keys_current(SecDbConnectionRef dbt, uint32_t current_generation, 
     struct check_generation_ctx ctx = { .query_ctx = { .dbt = dbt }, .current_generation = current_generation };
 
     const SecDbClass *classes[] = {
-        &genp_class,
-        &inet_class,
-        &keys_class,
-        &cert_class,
+        genp_class(),
+        inet_class(),
+        keys_class(),
+        cert_class(),
     };
 
     for (size_t class_ix = 0; class_ix < array_size(classes); ++class_ix) {

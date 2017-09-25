@@ -11,7 +11,7 @@
 #include "debugging.h"
 #include "engine.h"
 
-#import <xpc/private.h>
+#include <xpc/private.h>
 #include <Security/AuthorizationPlugin.h>
 
 #include <mach/mach.h>
@@ -21,6 +21,8 @@
 #define SECURITYAGENT_BOOTSTRAP_NAME_BASE              "com.apple.security.agent"
 #define SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE  "com.apple.security.agent.login"
 #define AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE          "com.apple.security.authhost"
+
+AUTHD_DEFINE_LOG
 
 #define UUID_INITIALIZER_FROM_SESSIONID(sessionid) \
 { 0,0,0,0, 0,0,0,0, 0,0,0,0, (unsigned char)((0xff000000 & (sessionid))>>24), (unsigned char)((0x00ff0000 & (sessionid))>>16), (unsigned char)((0x0000ff00 & (sessionid))>>8),  (unsigned char)((0x000000ff & (sessionid))) }
@@ -66,16 +68,16 @@ _agent_finalize(CFTypeRef value)
     
     // If this ever becomes a concurrent queue, then this would need to be a barrier sync
     dispatch_sync(agent->eventQueue, ^{
-        CFReleaseSafe(agent->hints);
-        CFReleaseSafe(agent->context);
-        CFReleaseSafe(agent->mech);
-        CFReleaseSafe(agent->engine);
+        CFReleaseNull(agent->hints);
+        CFReleaseNull(agent->context);
+        CFReleaseNull(agent->mech);
+        CFReleaseNull(agent->engine);
         dispatch_release(agent->actionQueue);
     });
     
     dispatch_release(agent->eventQueue);
 
-    LOGD("agent[%i]: _agent_finalize called", agent->agentPid);
+    os_log_debug(AUTHD_LOG, "agent: finalizing");
 }
 
 AUTH_TYPE_INSTANCE(agent,
@@ -122,7 +124,7 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
     tempAddr.ai_asid = audit_info->asid;
     auditon(A_GETSINFO_ADDR, &tempAddr, sizeof(tempAddr));
     
-    LOGV("agent[%i]: Stored auid %d fetched auid %d", agent->agentPid, audit_info->auid, tempAddr.ai_auid);
+    os_log_debug(AUTHD_LOG, "agent: stored auid %d fetched auid %d", audit_info->auid, tempAddr.ai_auid);
     uid_t  auid        = tempAddr.ai_auid;
 	uuid_t sessionUUID = UUID_INITIALIZER_FROM_SESSIONID((uint32_t)audit_info->asid);
 
@@ -134,19 +136,19 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
 			// User => regular user-level SecurityAgent
 			agent->agentConnection = xpc_connection_create_mach_service(SECURITYAGENT_BOOTSTRAP_NAME_BASE, NULL, 0);
 			xpc_connection_set_target_uid(agent->agentConnection, auid);
-			LOGV("agent[%i]: Creating a standard security agent", agent->agentPid);
+			os_log_debug(AUTHD_LOG, "agent: creating a standard security agent");
 		} else {
 			// Root session => loginwindow SecurityAgent
 			agent->agentConnection = xpc_connection_create_mach_service(SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE, NULL, 0);
 			xpc_connection_set_instance(agent->agentConnection, sessionUUID);
-			LOGV("agent[%i]: Creating a loginwindow security agent", agent->agentPid);
+			os_log_debug(AUTHD_LOG, "agent: creating a loginwindow security agent");
 			doSwitchAudit     = true;
 			doSwitchBootstrap = true;
 		}
     } else {
         agent->agentConnection = xpc_connection_create_mach_service(AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE, NULL, 0);
         xpc_connection_set_instance(agent->agentConnection, sessionUUID);
-        LOGV("agent[%i]: Creating a standard authhost", agent->agentPid);
+        os_log_debug(AUTHD_LOG, "agent: creating a standard authhost");
         doSwitchAudit     = true;
         doSwitchBootstrap = true;
     }
@@ -155,7 +157,6 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
     xpc_connection_set_target_queue(agent->agentConnection, agent->eventQueue);
     xpc_connection_set_event_handler(agent->agentConnection, ^(xpc_object_t object) {
         char* objectDesc = xpc_copy_description(object);
-        LOGV("agent[%i]: global xpc message received %s", agent->agentPid, objectDesc);
         free(objectDesc);
         
         if (agent->pluginState == dead) {
@@ -182,18 +183,18 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
         mach_port_name_t jobPort;
         if (audit_info != NULL) {
             if (0 == audit_session_port(audit_info->asid, &jobPort)) {
-                LOGV("agent[%i]: attaching an audit session port", agent->agentPid);
+                os_log_debug(AUTHD_LOG, "agent: attaching an audit session port");
                 xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_AUDIT_SESSION_PORT, jobPort);
                 
                 if (mach_port_mod_refs(mach_task_self(), jobPort, MACH_PORT_RIGHT_SEND, -1) != KERN_SUCCESS) {
-                    LOGE("unable to release send right for audit session, leaking");
+                    os_log_error(AUTHD_LOG, "agent: unable to release send right for audit session, leaking");
                 }
             }
         }
     }
 
 	if (doSwitchBootstrap) {
-        LOGV("agent[%i]: attaching a bootstrap port", agent->agentPid);
+        os_log_debug(AUTHD_LOG, "agent: attaching a bootstrap port");
         xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_BOOTSTRAP_PORT, process_get_bootstrap(proc));
     }
     
@@ -283,7 +284,7 @@ agent_run(agent_t agent, auth_items_t hints, auth_items_t context, auth_items_t 
     }
     dispatch_release(replyWaiter);
     
-    LOGV("agent[%i]: Finished call to SecurityAgent", agent->agentPid);
+    os_log_debug(AUTHD_LOG, "agent: Finished call to SecurityAgent");
     
     xpc_release(hintsArray);
     xpc_release(contextArray);

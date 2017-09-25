@@ -40,7 +40,7 @@
 #import "WebPageProxy.h"
 #import <WebCore/InspectorFrontendClientLocal.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/SoftLinking.h>
+#import <wtf/SoftLinking.h>
 #import <wtf/text/Base64.h>
 
 SOFT_LINK_STAGED_FRAMEWORK(WebInspectorUI, PrivateFrameworks, A)
@@ -52,7 +52,7 @@ static const NSUInteger windowStyleMask = NSWindowStyleMaskTitled | NSWindowStyl
 
 // The time we keep our WebView alive before closing it and its process.
 // Reusing the WebView improves start up time for people that jump in and out of the Inspector.
-static const unsigned webViewCloseTimeout = 60;
+static const Seconds webViewCloseTimeout { 1_min };
 
 // WKWebInspectorProxyObjCAdapter is a helper ObjC object used as a delegate or notification observer
 // for the sole purpose of getting back into the C++ code from an ObjC caller.
@@ -229,12 +229,10 @@ RetainPtr<NSWindow> WebInspectorProxy::createFrontendWindow(NSRect savedWindowFr
     [window setReleasedWhenClosed:NO];
     [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenPrimary)];
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
     CGFloat approximatelyHalfScreenSize = ([window screen].frame.size.width / 2) - 4;
     CGFloat minimumFullScreenWidth = std::max<CGFloat>(636, approximatelyHalfScreenSize);
     [window setMinFullScreenContentSize:NSMakeSize(minimumFullScreenWidth, minimumWindowHeight)];
     [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenAllowsTiling)];
-#endif
 
     [window setTitlebarAppearsTransparent:YES];
 
@@ -286,6 +284,9 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
             break;
         case AttachmentSide::Right:
             initialRect = NSMakeRect(0, 0, inspectorPagePreferences().inspectorAttachedWidth(), NSHeight(inspectedViewFrame));
+            break;
+        case AttachmentSide::Left:
+            initialRect = NSMakeRect(0, 0, NSWidth(inspectedViewFrame) - inspectorPagePreferences().inspectorAttachedWidth(), NSHeight(inspectedViewFrame));
             break;
         }
     } else {
@@ -457,12 +458,17 @@ void WebInspectorProxy::platformSave(const String& suggestedURL, const String& c
 
     NSSavePanel *panel = [NSSavePanel savePanel];
     panel.nameFieldStringValue = platformURL.lastPathComponent;
-    panel.directoryURL = [platformURL URLByDeletingLastPathComponent];
+
+    // If we have a file URL we've already saved this file to a path and
+    // can provide a good directory to show. Otherwise, use the system's
+    // default behavior for the initial directory to show in the dialog.
+    if (platformURL.isFileURL)
+        panel.directoryURL = [platformURL URLByDeletingLastPathComponent];
 
     auto completionHandler = ^(NSInteger result) {
-        if (result == NSFileHandlingPanelCancelButton)
+        if (result == NSModalResponseCancel)
             return;
-        ASSERT(result == NSFileHandlingPanelOKButton);
+        ASSERT(result == NSModalResponseOK);
         saveToURL(panel.URL);
     };
 
@@ -562,6 +568,23 @@ void WebInspectorProxy::inspectedViewFrameDidChange(CGFloat currentDimension)
         inspectorFrame = NSMakeRect(parentWidth - inspectorWidth, 0, inspectorWidth, NSHeight(parentBounds) - insetExcludingBanners);
         break;
     }
+
+    case AttachmentSide::Left: {
+        if (!currentDimension)
+            currentDimension = NSWidth([m_inspectorView frame]);
+
+        CGFloat parentWidth = NSWidth(parentBounds);
+        CGFloat inspectorWidth = InspectorFrontendClientLocal::constrainedAttachedWindowWidth(currentDimension, parentWidth);
+
+        // Preserve the top position of the inspected view so banners in Safari still work. But don't use that
+        // top position for the inspector view since the banners only stretch as wide as the the inspected view.
+        inspectedViewFrame = NSMakeRect(inspectorWidth, 0, parentWidth - inspectorWidth, inspectedViewTop);
+        CGFloat insetExcludingBanners = 0;
+        if ([inspectedView isKindOfClass:[WKView class]])
+            insetExcludingBanners = ((WKView *)inspectedView)._topContentInset - ((WKView *)inspectedView)._totalHeightOfBanners;
+        inspectorFrame = NSMakeRect(0, 0, inspectorWidth, NSHeight(parentBounds) - insetExcludingBanners);
+        break;
+    }
     }
 
     if (NSEqualRects([m_inspectorView frame], inspectorFrame) && NSEqualRects([inspectedView frame], inspectedViewFrame))
@@ -611,6 +634,10 @@ void WebInspectorProxy::platformAttach()
         [m_inspectorView setAutoresizingMask:NSViewHeightSizable | NSViewMinXMargin];
         currentDimension = inspectorPagePreferences().inspectorAttachedWidth();
         break;
+    case AttachmentSide::Left:
+        [m_inspectorView setAutoresizingMask:NSViewHeightSizable | NSViewMaxXMargin];
+        currentDimension = inspectorPagePreferences().inspectorAttachedWidth();
+        break;
     }
 
     inspectedViewFrameDidChange(currentDimension);
@@ -658,9 +685,7 @@ void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
 
 void WebInspectorProxy::platformStartWindowDrag()
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
     m_inspectorView->_page->startWindowDrag();
-#endif
 }
 
 String WebInspectorProxy::inspectorPageURL()

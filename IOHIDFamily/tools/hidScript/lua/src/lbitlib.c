@@ -188,7 +188,7 @@ static int b_replace (lua_State *L) {
   lua_Unsigned r = trim(luaL_checkunsigned(L, 1));
   lua_Unsigned v = luaL_checkunsigned(L, 2);
   int f = fieldargs(L, 3, &w);
-  int m = mask(w);
+  int m = (int)mask(w);
   v &= m;  /* erase bits outside given width */
   r = (r & ~(m << f)) | (v << f);
   lua_pushunsigned(L, r);

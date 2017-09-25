@@ -28,6 +28,10 @@
 #ifndef _H_POWERWATCH
 #define _H_POWERWATCH
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+
 #include <security_utilities/machserver.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
@@ -110,5 +114,7 @@ public:
 } // end namespace MachPlusPlus
 
 } // end namespace Security
+
+#endif //TARGET_OS_OSX
 
 #endif //_H_POWERWATCH

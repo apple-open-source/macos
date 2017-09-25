@@ -202,7 +202,7 @@ static const struct zcurses_mouse_event zcurses_mouse_map[] = {
     { 0, 0, 0 }
 };
 
-mmask_t zcurses_mouse_mask = ALL_MOUSE_EVENTS;
+static mmask_t zcurses_mouse_mask = ALL_MOUSE_EVENTS;
 
 #endif
 
@@ -299,7 +299,7 @@ zcurses_free_window(ZCWin w)
 }
 
 static struct zcurses_namenumberpair *
-zcurses_attrget(WINDOW *w, char *attr)
+zcurses_attrget(UNUSED(WINDOW *w), char *attr)
 {
     struct zcurses_namenumberpair *zca;
 
@@ -324,7 +324,7 @@ zcurses_color(const char *color)
 	    return (short)zc->number;
 	}
 
-    return (short)-1;
+    return (short)-2;
 }
 
 static Colorpairnode
@@ -350,13 +350,25 @@ zcurses_colorget(const char *nam, char *colorpair)
 	}
 
 	*bg = '\0';        
-	f = zcurses_color(cp);
-	b = zcurses_color(bg+1);
 
-	if (f==-1 || b==-1) {
-	    if (f == -1)
+        // cp/bg can be {number}/{number} or {name}/{name}
+
+        if( cp[0] >= '0' && cp[0] <= '9' ) {
+            f = atoi(cp);
+        } else {
+            f = zcurses_color(cp);
+        }
+
+        if( (bg+1)[0] >= '0' && (bg+1)[0] <= '9' ) {
+            b = atoi(bg+1);
+        } else {
+            b = zcurses_color(bg+1);
+        }
+
+	if (f==-2 || b==-2) {
+	    if (f == -2)
 		zwarnnam(nam, "foreground color `%s' not known", cp);
-	    if (b == -1)
+	    if (b == -2)
 		zwarnnam(nam, "background color `%s' not known", bg+1);
 	    *bg = '/';
 	    zsfree(cp);
@@ -419,7 +431,7 @@ freecolorpairnode(HashNode hn)
  *************/
 
 static int
-zccmd_init(const char *nam, char **args)
+zccmd_init(UNUSED(const char *nam), UNUSED(char **args))
 {
     LinkNode stdscr_win = zcurses_getwindowbyname("stdscr");
 
@@ -808,7 +820,7 @@ zccmd_border(const char *nam, char **args)
 
 
 static int
-zccmd_endwin(const char *nam, char **args)
+zccmd_endwin(UNUSED(const char *nam), UNUSED(char **args))
 {
     LinkNode stdscr_win = zcurses_getwindowbyname("stdscr");
 
@@ -1496,7 +1508,7 @@ zccmd_touch(const char *nam, char **args)
 
 /**/
 static int
-bin_zcurses(char *nam, char **args, Options ops, UNUSED(int func))
+bin_zcurses(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     char **saargs;
     struct zcurses_subcommand *zcsc;
@@ -1693,7 +1705,7 @@ enables_(Module m, int **enables)
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     zcurses_windows = znewlinklist();
 

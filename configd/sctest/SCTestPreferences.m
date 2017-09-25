@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,72 +107,125 @@
 - (BOOL)unitTestNetworkServicesSanity
 {
 	// We verify that every service has a unique name, an interface, an IPv4 config method and and IPv6 config method.
+	NSArray *sets;
 	NSDictionary *services;
-	NSMutableArray *serviceNameArray;
 	SCTestPreferences *test;
 
 	test = [[SCTestPreferences alloc] initWithOptions:self.options];
+
+	sets = (__bridge_transfer NSArray *)SCNetworkSetCopyAll(test.prefs);
+	if (sets == nil || [sets count] == 0) {
+		SCTestLog("No sets present!");
+		return NO;
+	}
+
 	services = (__bridge NSDictionary *)SCPreferencesGetValue(test.prefs, kSCPrefNetworkServices);
-	if (services == NULL) {
+	if (services == nil || [services count] == 0) {
 		SCTestLog("No services present!");
 		return NO;
 	}
 
-	serviceNameArray = [[NSMutableArray alloc] init];
-	for (NSString *serviceID in services) {
-		NSDictionary *serviceDict;
-		NSString *serviceName;
-		NSDictionary *interfaceDict;
-		NSString *interfaceType;
-		NSDictionary *ipv4Dict;
-		NSDictionary *ipv6Dict;
+	for (id setPtr in sets) {
+		SCNetworkSetRef set = (__bridge SCNetworkSetRef)setPtr;
+		NSArray *serviceArray = nil;
+		NSMutableArray *serviceNameArray = nil;
+		NSString *setID;
 
-		serviceDict = [services objectForKey:serviceID];
-		if (![serviceDict isKindOfClass:[NSDictionary class]]) {
-			SCTestLog("Service is not a dictionary");
-			return NO;
-		}
+		setID = (__bridge NSString *)SCNetworkSetGetSetID(set);
 
-		serviceName = [serviceDict objectForKey:(__bridge NSString *)kSCPropNetServiceUserDefinedName];
-		if (serviceName != nil) {
-			// Check if the name is unique
-			BOOL namePresent = [serviceNameArray containsObject:serviceName];
-			if (!namePresent) {
-				[serviceNameArray addObject:serviceName];
-			} else {
-				SCTestLog("Duplicate services with name %@ exist", serviceName);
-				return NO;
-			}
-		} else {
-			SCTestLog("Service ID %@ does not have a name", serviceID);
-			return NO;
-		}
-
-		interfaceDict = [serviceDict objectForKey:(__bridge NSString *)kSCCompInterface];
-		if (interfaceDict == nil) {
-			SCTestLog("Service %@ does not have an interface", serviceName);
-			return NO;
-		}
-
-		interfaceType = [interfaceDict objectForKey:(__bridge NSString *)kSCPropNetInterfaceType];
-		if (interfaceType != nil && [interfaceType containsString:@"CommCenter"]) {
-			// CommCenter services typically do not have an ipv4/v6 data OR config method. Skip such services.
+		serviceArray = (__bridge_transfer NSArray *)SCNetworkSetCopyServices(set);
+		if (serviceArray == nil) {
+			SCTestLog("No services in set %@!", setID);
 			continue;
 		}
 
-		ipv4Dict = [serviceDict objectForKey:(__bridge NSString *)kSCEntNetIPv4];
-		ipv6Dict = [serviceDict objectForKey:(__bridge NSString *)kSCEntNetIPv6];
+		serviceNameArray = [[NSMutableArray alloc] init];
+		for (id servicePTR in serviceArray) {
+			NSDictionary *serviceDict;
+			NSDictionary *ipv4Dict;
+			NSDictionary *ipv6Dict;
+			NSDictionary *ipv4ProtocolConfig;
+			NSDictionary *ipv6ProtocolConfig;
+			NSString *serviceName;
+			NSString *serviceID;
+			NSString *interfaceType;
+			SCNetworkServiceRef service;
+			SCNetworkInterfaceRef interface;
+			SCNetworkProtocolRef ipv4Protocol;
+			SCNetworkProtocolRef ipv6Protocol;
 
-		// Check that we have at least one IP config method
-		if (ipv4Dict == nil && ipv6Dict == nil) {
-			SCTestLog("Service %@ does not have an IP dictionary", serviceName);
-			return NO;
-		}
 
-		if ([ipv4Dict objectForKey:(__bridge NSString *)kSCPropNetIPv4ConfigMethod] == nil &&
-			[ipv6Dict objectForKey:(__bridge NSString *)kSCPropNetIPv6ConfigMethod] == nil) {
-			SCTestLog("Service %@ does not have an IP Config Method", serviceName);
-			return NO;
+			service = (__bridge SCNetworkServiceRef)servicePTR;
+			serviceID = (__bridge NSString *)SCNetworkServiceGetServiceID(service);
+
+			serviceDict = [services objectForKey:serviceID];
+			if (![serviceDict isKindOfClass:[NSDictionary class]]) {
+				SCTestLog("Service is not a dictionary");
+				return NO;
+			}
+
+			serviceName = (__bridge NSString *)SCNetworkServiceGetName(service);
+			if (serviceName != nil) {
+				// Check if the name is unique
+				BOOL namePresent = [serviceNameArray containsObject:serviceName];
+				if (!namePresent) {
+					[serviceNameArray addObject:serviceName];
+				} else {
+					SCTestLog("Duplicate services with name %@ exist", serviceName);
+					return NO;
+				}
+			} else {
+				SCTestLog("Service ID %@ does not have a name", serviceID);
+				return NO;
+			}
+
+			interface = SCNetworkServiceGetInterface(service);
+			if (interface == nil) {
+				SCTestLog("Service %@ does not have an interface", serviceName);
+				return NO;
+			}
+
+			interfaceType = (__bridge NSString *)SCNetworkInterfaceGetInterfaceType(interface);
+			if (interfaceType == nil || [interfaceType length] == 0) {
+				SCTestLog("Service %@ does not have an interface type", serviceName);
+				return NO;
+			}
+#if TARGET_OS_IPHONE
+			if ([interfaceType containsString:@"CommCenter"]) {
+				// CommCenter services typically do not have an ipv4/v6 data OR config method. Skip such services.
+				continue;
+			}
+#endif // TARGET_OS_IPHONE
+			ipv4Protocol = SCNetworkServiceCopyProtocol(service, kSCNetworkProtocolTypeIPv4);
+			ipv6Protocol = SCNetworkServiceCopyProtocol(service, kSCNetworkProtocolTypeIPv6);
+
+			if (ipv4Protocol != NULL) {
+				ipv4ProtocolConfig = (__bridge NSDictionary *)SCNetworkProtocolGetConfiguration(ipv4Protocol);
+				if (ipv4ProtocolConfig != nil) {
+					ipv4Dict = [ipv4ProtocolConfig copy];
+				}
+				CFRelease(ipv4Protocol);
+			}
+
+			if (ipv6Protocol != NULL) {
+				ipv6ProtocolConfig = (__bridge NSDictionary *)SCNetworkProtocolGetConfiguration(ipv6Protocol);
+				if (ipv6ProtocolConfig != nil) {
+					ipv6Dict = [ipv6ProtocolConfig copy];
+				}
+				CFRelease(ipv6Protocol);
+			}
+
+			// Check that we have at least one IP config method
+			if (ipv4Dict == nil && ipv6Dict == nil) {
+				SCTestLog("Service %@ does not have an IP dictionary", serviceName);
+				return NO;
+			}
+
+			if ([ipv4Dict objectForKey:(__bridge NSString *)kSCPropNetIPv4ConfigMethod] == nil &&
+			    [ipv6Dict objectForKey:(__bridge NSString *)kSCPropNetIPv6ConfigMethod] == nil) {
+				SCTestLog("Service %@ does not have an IP Config Method", serviceName);
+				return NO;
+			}
 		}
 	}
 
@@ -215,7 +268,7 @@
 - (BOOL)unitTestPreferencesAPI
 {
 	BOOL ok = NO;
-	int iterations = 1000;
+	int iterations = 100;
 	NSDictionary *prefsOptions;
 	NSMutableArray *keys;
 	NSMutableArray *values;

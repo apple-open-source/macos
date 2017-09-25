@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -183,13 +183,21 @@ cfg_print(const cfg_obj_t *obj,
 	  void (*f)(void *closure, const char *text, int textlen),
 	  void *closure)
 {
+	cfg_printx(obj, 0, f, closure);
+}
+
+void
+cfg_printx(const cfg_obj_t *obj, unsigned int flags,
+	     void (*f)(void *closure, const char *text, int textlen),
+	     void *closure)
+{
 	cfg_printer_t pctx;
 	pctx.f = f;
 	pctx.closure = closure;
 	pctx.indent = 0;
+	pctx.flags = flags;
 	obj->type->print(&pctx, obj);
 }
-
 
 /* Tuples. */
 
@@ -405,13 +413,15 @@ cfg_parser_create(isc_mem_t *mctx, isc_log_t *lctx, cfg_parser_t **ret) {
 	if (pctx == NULL)
 		return (ISC_R_NOMEMORY);
 
+	pctx->mctx = NULL;
+	isc_mem_attach(mctx, &pctx->mctx);
+
 	result = isc_refcount_init(&pctx->references, 1);
 	if (result != ISC_R_SUCCESS) {
-		isc_mem_put(mctx, pctx, sizeof(*pctx));
+		isc_mem_putanddetach(&pctx->mctx, pctx, sizeof(*pctx));
 		return (result);
 	}
 
-	pctx->mctx = mctx;
 	pctx->lctx = lctx;
 	pctx->lexer = NULL;
 	pctx->seen_eof = ISC_FALSE;
@@ -452,7 +462,7 @@ cfg_parser_create(isc_mem_t *mctx, isc_log_t *lctx, cfg_parser_t **ret) {
 		isc_lex_destroy(&pctx->lexer);
 	CLEANUP_OBJ(pctx->open_files);
 	CLEANUP_OBJ(pctx->closed_files);
-	isc_mem_put(mctx, pctx, sizeof(*pctx));
+	isc_mem_putanddetach(&pctx->mctx, pctx, sizeof(*pctx));
 	return (result);
 }
 
@@ -573,7 +583,7 @@ cfg_parser_destroy(cfg_parser_t **pctxp) {
 		 */
 		CLEANUP_OBJ(pctx->open_files);
 		CLEANUP_OBJ(pctx->closed_files);
-		isc_mem_put(pctx->mctx, pctx, sizeof(*pctx));
+		isc_mem_putanddetach(&pctx->mctx, pctx, sizeof(*pctx));
 	}
 	*pctxp = NULL;
 }
@@ -718,7 +728,7 @@ create_string(cfg_parser_t *pctx, const char *contents, const cfg_type_t *type,
 		isc_mem_put(pctx->mctx, obj, sizeof(*obj));
 		return (ISC_R_NOMEMORY);
 	}
-	memcpy(obj->value.string.base, contents, len);
+	memmove(obj->value.string.base, contents, len);
 	obj->value.string.base[len] = '\0';
 
 	*ret = obj;
@@ -785,6 +795,22 @@ cfg_parse_astring(cfg_parser_t *pctx, const cfg_type_t *type,
 	return (result);
 }
 
+isc_result_t
+cfg_parse_sstring(cfg_parser_t *pctx, const cfg_type_t *type,
+		  cfg_obj_t **ret)
+{
+	isc_result_t result;
+	UNUSED(type);
+
+	CHECK(cfg_getstringtoken(pctx));
+	return (create_string(pctx,
+			      TOKEN_STRING(pctx),
+			      &cfg_type_sstring,
+			      ret));
+ cleanup:
+	return (result);
+}
+
 isc_boolean_t
 cfg_is_enum(const char *s, const char *const *enums) {
 	const char * const *p;
@@ -842,6 +868,18 @@ print_qstring(cfg_printer_t *pctx, const cfg_obj_t *obj) {
 }
 
 static void
+print_sstring(cfg_printer_t *pctx, const cfg_obj_t *obj) {
+	cfg_print_chars(pctx, "\"", 1);
+	if ((pctx->flags & CFG_PRINTER_XKEY) != 0) {
+		unsigned int len = obj->value.string.length;
+		while (len-- > 0)
+			cfg_print_chars(pctx, "?", 1);
+	} else
+		cfg_print_ustring(pctx, obj);
+	cfg_print_chars(pctx, "\"", 1);
+}
+
+static void
 free_string(cfg_parser_t *pctx, cfg_obj_t *obj) {
 	isc_mem_put(pctx->mctx, obj->value.string.base,
 		    obj->value.string.length + 1);
@@ -874,6 +912,15 @@ cfg_type_t cfg_type_ustring = {
 /* Any string (quoted or unquoted); printed with quotes */
 cfg_type_t cfg_type_astring = {
 	"string", cfg_parse_astring, print_qstring, cfg_doc_terminal,
+	&cfg_rep_string, NULL
+};
+
+/*
+ * Any string (quoted or unquoted); printed with quotes.
+ * If CFG_PRINTER_XKEY is set when printing the string will be '?' out.
+ */
+cfg_type_t cfg_type_sstring = {
+	"string", cfg_parse_sstring, print_sstring, cfg_doc_terminal,
 	&cfg_rep_string, NULL
 };
 
@@ -1430,8 +1477,9 @@ cfg_parse_mapbody(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret)
 				       "not implemented", clause->name);
 
 		if ((clause->flags & CFG_CLAUSEFLAG_NOTCONFIGURED) != 0) {
-			cfg_parser_warning(pctx, 0, "option '%s' is not "
-					   "configured", clause->name);
+			cfg_parser_warning(pctx, 0, "option '%s' was not "
+					   "enabled at compile time",
+					   clause->name);
 			result = ISC_R_FAILURE;
 			goto cleanup;
 		}
@@ -1618,10 +1666,10 @@ cfg_print_mapbody(cfg_printer_t *pctx, const cfg_obj_t *obj) {
 			result = isc_symtab_lookup(obj->value.map.symtab,
 						   clause->name, 0, &symval);
 			if (result == ISC_R_SUCCESS) {
-				cfg_obj_t *obj = symval.as_pointer;
-				if (obj->type == &cfg_type_implicitlist) {
+				cfg_obj_t *symobj = symval.as_pointer;
+				if (symobj->type == &cfg_type_implicitlist) {
 					/* Multivalued. */
-					cfg_list_t *list = &obj->value.list;
+					cfg_list_t *list = &symobj->value.list;
 					cfg_listelt_t *elt;
 					for (elt = ISC_LIST_HEAD(*list);
 					     elt != NULL;
@@ -1637,7 +1685,7 @@ cfg_print_mapbody(cfg_printer_t *pctx, const cfg_obj_t *obj) {
 					print_indent(pctx);
 					cfg_print_cstr(pctx, clause->name);
 					cfg_print_chars(pctx, " ", 1);
-					cfg_print_obj(pctx, obj);
+					cfg_print_obj(pctx, symobj);
 					cfg_print_chars(pctx, ";\n", 2);
 				}
 			} else if (result == ISC_R_NOTFOUND) {
@@ -1800,7 +1848,7 @@ parse_token(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret) {
 		goto cleanup;
 	}
 	obj->value.string.length = r.length;
-	memcpy(obj->value.string.base, r.base, r.length);
+	memmove(obj->value.string.base, r.base, r.length);
 	obj->value.string.base[r.length] = '\0';
 	*ret = obj;
 	return (result);
@@ -2597,8 +2645,13 @@ cfg_obj_istype(const cfg_obj_t *obj, const cfg_type_t *type) {
  */
 void
 cfg_obj_destroy(cfg_parser_t *pctx, cfg_obj_t **objp) {
-	cfg_obj_t *obj = *objp;
+	cfg_obj_t *obj;
 	unsigned int refs;
+
+	REQUIRE(objp != NULL && *objp != NULL);
+	REQUIRE(pctx != NULL);
+
+	obj = *objp;
 
 	isc_refcount_decrement(&obj->references, &refs);
 	if (refs == 0) {
@@ -2644,5 +2697,6 @@ cfg_print_grammar(const cfg_type_t *type,
 	pctx.f = f;
 	pctx.closure = closure;
 	pctx.indent = 0;
+	pctx.flags = 0;
 	cfg_doc_obj(&pctx, type);
 }

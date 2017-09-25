@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 2007-2016, International Business Machines Corporation and
@@ -356,7 +358,7 @@ static void millisToOffset(int32_t millis, UnicodeString& str) {
 /*
  * Create a default TZNAME from TZID
  */
-static void getDefaultTZName(const UnicodeString tzid, UBool isDST, UnicodeString& zonename) {
+static void getDefaultTZName(const UnicodeString &tzid, UBool isDST, UnicodeString& zonename) {
     zonename = tzid;
     if (isDST) {
         zonename += UNICODE_STRING_SIMPLE("(DST)");

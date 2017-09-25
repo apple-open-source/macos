@@ -34,7 +34,6 @@
 		52558DCB0B27812300CD7E39 /* create_fv_user.m in Sources */ = {isa = PBXBuildFile; fileRef = 52558DC90B27812300CD7E39 /* create_fv_user.m */; };
 		52558DDE0B27821D00CD7E39 /* DiskImages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558DDD0B27821D00CD7E39 /* DiskImages.framework */; };
 		52558DE10B27827A00CD7E39 /* TokenIDHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52558DDF0B27827A00CD7E39 /* TokenIDHelper.cpp */; };
-		52558E330B28B4A900CD7E39 /* readline.c in Sources */ = {isa = PBXBuildFile; fileRef = 52558E310B28B4A900CD7E39 /* readline.c */; };
 		52558EA90B28D5AE00CD7E39 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
 		52558EAE0B28D61C00CD7E39 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		52558EFA0B28D66F00CD7E39 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558EF90B28D66F00CD7E39 /* Foundation.framework */; };
@@ -140,8 +139,6 @@
 		52558DDD0B27821D00CD7E39 /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = /System/Library/PrivateFrameworks/DiskImages.framework; sourceTree = "<absolute>"; };
 		52558DDF0B27827A00CD7E39 /* TokenIDHelper.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TokenIDHelper.cpp; path = src/TokenIDHelper.cpp; sourceTree = "<group>"; };
 		52558DE00B27827A00CD7E39 /* TokenIDHelper.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TokenIDHelper.h; path = src/TokenIDHelper.h; sourceTree = "<group>"; };
-		52558E310B28B4A900CD7E39 /* readline.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = readline.c; path = src/readline.c; sourceTree = "<group>"; };
-		52558E320B28B4A900CD7E39 /* readline.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = readline.h; path = src/readline.h; sourceTree = "<group>"; };
 		52558EF90B28D66F00CD7E39 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = /System/Library/Frameworks/SecurityFoundation.framework; sourceTree = "<absolute>"; };
 		BE6C629F15DDD03F0027BB12 /* SystemAdministration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemAdministration.framework; path = ../PrivateFrameworks/SystemAdministration.framework; sourceTree = "<group>"; };
@@ -174,6 +171,7 @@
 		EB149AA6151C27AE0042E8ED /* Authority.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Authority.h; sourceTree = "<group>"; };
 		EB149AA7151C27AE0042E8ED /* Authority.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Authority.m; sourceTree = "<group>"; };
 		EB1EC7A9151D6199007B8618 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = ../../../../../../System/Library/Frameworks/CoreServices.framework; sourceTree = "<group>"; };
+		EB7E5B251EBCDE7300565CA3 /* security-checksystem.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = "security-checksystem.8"; sourceTree = "<group>"; };
 		EBE88F57151C373B0050180C /* AuthorityTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuthorityTableView.h; sourceTree = "<group>"; };
 		EBE88F58151C373B0050180C /* AuthorityTableView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AuthorityTableView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -258,8 +256,6 @@
 		52558D3B0B274CB900CD7E39 /* tokenadmin */ = {
 			isa = PBXGroup;
 			children = (
-				52558E310B28B4A900CD7E39 /* readline.c */,
-				52558E320B28B4A900CD7E39 /* readline.h */,
 				52558DDF0B27827A00CD7E39 /* TokenIDHelper.cpp */,
 				52558DE00B27827A00CD7E39 /* TokenIDHelper.h */,
 				52558DC90B27812300CD7E39 /* create_fv_user.m */,
@@ -328,6 +324,7 @@
 				C2B3635B05894DAF00DA394D /* systemkeychain.cpp */,
 				C2DAEF1F0CA1BF6E00420945 /* com.apple.systemkeychain.plist */,
 				C2DAEF200CA1BF6E00420945 /* security-checksystem */,
+				EB7E5B251EBCDE7300565CA3 /* security-checksystem.8 */,
 			);
 			name = systemkeychain;
 			path = src;
@@ -446,7 +443,7 @@
 		4CA1FEB0052A3C5800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0460;
+				LastUpgradeCheck = 0900;
 			};
 			buildConfigurationList = C27AD4930987FCEF001272E0 /* Build configuration list for PBXProject "security_systemkeychain" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -502,7 +499,6 @@
 				52558D440B2753D300CD7E39 /* tokenadmin.m in Sources */,
 				52558DCB0B27812300CD7E39 /* create_fv_user.m in Sources */,
 				52558DE10B27827A00CD7E39 /* TokenIDHelper.cpp in Sources */,
-				52558E330B28B4A900CD7E39 /* readline.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -630,11 +626,24 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5714753D14004F59F8 /* project.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Debug;
@@ -643,11 +652,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5714753D14004F59F8 /* project.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Release;
@@ -656,7 +676,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -680,6 +699,7 @@
 				INFOPLIST_FILE = "Gatekeeper/Gatekeeper-Info.plist";
 				INSTALL_PATH = /AppleInternal/Applications;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.ossecurity.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = app;
@@ -690,7 +710,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -707,6 +726,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "Gatekeeper/Gatekeeper-Info.plist";
 				INSTALL_PATH = /AppleInternal/Applications;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.ossecurity.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = app;

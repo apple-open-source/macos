@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -100,6 +100,12 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@constant kSecPolicyAppleWarsaw
 	@constant kSecPolicyAppleiCloudSetupServerAuth
 	@constant kSecPolicyAppleiCloudSetupCompatibilityServerAuth
+	@constant kSecPolicyAppleAppTransportSecurity
+	@constant kSecPolicyAppleMobileSoftwareUpdate
+	@constant kSecPolicyAppleMobileAssetDevelopment
+	@constant kSecPolicyAppleBasicAttestationSystem
+	@constant kSecPolicyAppleBasicAttestationUser
+	@constant kSecPolicyAppleiPhoneVPNApplicationSigning
  */
 extern const CFStringRef kSecPolicyAppleMobileStore
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
@@ -213,8 +219,59 @@ extern const CFStringRef kSecPolicyAppleiCloudSetupServerAuth
     __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.3) __TVOS_AVAILABLE(10.2) __WATCHOS_AVAILABLE(3.2);
 extern const CFStringRef kSecPolicyAppleiCloudSetupCompatibilityServerAuth
     __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.3) __TVOS_AVAILABLE(10.2) __WATCHOS_AVAILABLE(3.2);
+extern const CFStringRef kSecPolicyAppleAppTransportSecurity
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleMobileSoftwareUpdate
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleMobileAssetDevelopment
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleMacOSProfileApplicationSigning
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleBasicAttestationSystem
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleBasicAttestationUser
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyAppleiPhoneVPNApplicationSigning
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
-
+/*!
+	@enum Policy Name Constants (Private)
+	@discussion Predefined constants used to specify a SSL Pinning policy.
+    To be used with SecTrustSetPolicyName.
+    @constant kSecPolicyNameAppleAST2Service
+    @constant kSecPolicyNameAppleEscrowProxyService
+    @constant kSecPolicyNameAppleFMiPService
+    @constant kSecPolicyNameAppleGSService
+    @constant kSecPolicyNameAppleHomeKitService
+    @constant kSecPolicyNameAppleiCloudSetupService
+    @constant kSecPolicyNameAppleIDSService
+    @constant kSecPolicyNameAppleMMCSService
+    @constant kSecPolicyNameApplePPQService
+    @constant kSecPolicyNameApplePushService
+    @constant kSecPolicyNameAppleGalaxyProviderService
+ */
+extern const CFStringRef kSecPolicyNameAppleAST2Service
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleEscrowProxyService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleFMiPService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleGSService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleHomeKitService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleiCloudSetupService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleIDSService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleMMCSService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameApplePPQService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameApplePushService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecPolicyNameAppleGalaxyProviderService
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 /*!
  @enum Policy Value Constants
@@ -271,7 +328,9 @@ extern const CFStringRef kSecPolicyRootDigest
  checks are only applicable to OCSP; this constant will not force a fresh
  CRL download.
  */
-extern const CFOptionFlags kSecRevocationOnlineCheck;
+CF_ENUM(CFOptionFlags) {
+    kSecRevocationOnlineCheck = (1 << 5)
+};
 
 /*!
  @function SecPolicyCreateApplePinned
@@ -484,7 +543,7 @@ SecPolicyRef SecPolicyCreateApplePackageSigning(void);
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
      * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
-     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     the chain to be anchored to Test Apple Root CAs.
      * There are exactly 3 certs in the chain.
      * The intermediate has Common Name "Apple iPhone Certification Authority".
      * The leaf has Common Name "Apple iPhone OS Application Signing".
@@ -499,17 +558,73 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneApplicationSigning(void);
 
 /*!
+ @function SecPolicyCreateiPhoneVPNApplicationSigning
+ @abstract Returns a policy object for evaluating signed VPN application
+ signatures.  This is for VPN plugins signed directly by the VPN team.
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has Common Name "Apple iPhone Certification Authority".
+     * The leaf has Common Name "Apple iPhone OS Application Signing".
+     * The leaf has a marker extension with 1.2.840.113635.100.6.1.6.
+     * The leaf has ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID
+     or the CodeSigning OID.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateiPhoneVPNApplicationSigning(void)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
  @function SecPolicyCreateiPhoneProfileApplicationSigning
  @abstract Returns a policy object for evaluating signed application
  signatures. This policy is for certificates inside a UPP or regular
  profile.
- @discussion  This policy only verifies that the leaf is temporally valid
- and not revoked via any available method.
+ @discussion This policy uses the Basic X.509 policy with validity check and
+ pinning options:
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID matching 1.2.840.113635.100.6.2.1 (WWDR CA).
+    * The leaf has a marker extension with OID matching one of the following:
+            * 1.2.840.113635.100.6.1.2  ("iPhone Developer" leaf)
+            * 1.2.840.113635.100.6.1.4  ("iPhone Distribution" leaf)
+            * 1.2.840.113635.100.6.1.25.1 ("TestFlight" leaf)
+            * On internal releases, 1.2.840.113635.100.6.1.25.2
+    * The leaf has an ExtendedKeyUsage OID matching 1.3.6.1.5.5.7.3.3 (CodeSigning EKU).
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
 */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneProfileApplicationSigning(void);
+
+/*!
+ @function SecPolicyCreateMacOSProfileApplicationSigning
+ @abstract Returns a policy object for evaluating signed application
+ signatures. This policy is for certificates inside a UPP or regular
+ profile.
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The leaf has a marker extension with OID matching one of the following:
+        * 1.2.840.113635.100.6.1.7  ("3rd Party Mac Developer Application" leaf)
+        * 1.2.840.113635.100.6.1.12 ("Mac Developer" leaf)
+        * 1.2.840.113635.100.6.1.13 ("Developer ID Application" leaf)
+        * 1.2.840.113635.100.6.22   ("Software Signing" leaf
+    * The leaf has an ExtendedKeyUsage OID matching 1.3.6.1.5.5.7.3.3 (CodeSigning EKU).
+    * Revocation is checked via any available method.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMacOSProfileApplicationSigning(void)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 /*!
  @function SecPolicyCreateiPhoneProvisioningProfileSigning
@@ -571,7 +686,8 @@ enum {
     kSecKeyExchangeEncryptSMIMEUsage = (1 << 4),
     kSecKeyExchangeBothSMIMEUsage = (1 << 5),
     kSecAnyEncryptSMIME = kSecKeyEncryptSMIMEUsage | kSecDataEncryptSMIMEUsage |
-        kSecKeyExchangeDecryptSMIMEUsage | kSecKeyExchangeEncryptSMIMEUsage
+        kSecKeyExchangeDecryptSMIMEUsage | kSecKeyExchangeEncryptSMIMEUsage,
+    kSecIgnoreExpirationSMIMEUsage = (1 << 6)
 };
 
 /*!
@@ -589,6 +705,7 @@ enum {
      * if the email param is specified, the email address in the RFC822Name in the
        SubjectAlternativeName extension or in the Email Address field of the
        Subject Name.
+ Note that temporal validity checking can be disabled with kSecIgnoreExpirationSMIMEUsage
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
 */
@@ -663,6 +780,24 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateMobileAsset(void);
 
 /*!
+ @function SecPolicyCreateMobileAssetDevelopment
+ @abstract  Returns a policy object for evaluating certificate chains for signing development
+ Mobile Assets.
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.18.
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.55.1.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMobileAssetDevelopment(void)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
  @function SecPolicyCreateAppleIDAuthorityPolicy
  @abstract Returns a policy object for evaluating certificate chains for Apple ID Authority.
  @discussion This policy uses the Basic X.509 policy with validity check
@@ -672,6 +807,7 @@ SecPolicyRef SecPolicyCreateMobileAsset(void);
     * The intermediate(s) has(have) a marker extension with OID 1.2.840.113635.100.6.2.3
       or OID 1.2.840.113635.100.6.2.7.
     * The leaf has a marker extension with OID 1.2.840.113635.100.4.7.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
      on this when it is no longer needed.
  */
@@ -1490,6 +1626,67 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleCompatibilityiCloudSetupService(CFStringRef hostname)
     __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.3) __TVOS_AVAILABLE(10.2) __WATCHOS_AVAILABLE(3.2);
 
+/*!
+ @function SecPolicyCreateAppleAppTransportSecurity
+ @abstract Ensure all certs in the evaluation meet ATS minimums
+ @discussion This policy is meant to be used alongside an SSL policy in order to enforce App Transport Security certificate rules:
+    * All certificates use either RSA key sizes of 2048-bits or larger or EC key sizes of 256-bits or larger.
+    * All certificates use SHA-256 or better for signature hash algorithms.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleAppTransportSecurity(void)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
+ @function SecPolicyCreateMobileSoftwareUpdate
+ @abstract  Returns a policy object for evaluating certificate chains for signing Mobile Software Updates.
+ @discussion This policy uses the Basic X.509 policy with no validity check
+ and pinning options:
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.18.
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.57.2, or on internal releases,
+    1.2.840.113635.100.6.57.1.
+    * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMobileSoftwareUpdate(void)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
+ @function SecPolicyCreateAppleBasicAttestationSystem
+ @abstract Returns a policy object for verifying Basic Attestation Authority SCRT-attested certs
+ @param testRootHash Optional; The SHA-256 fingerprint of a test root for pinning.
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+     * The chain is anchored to the Basic Attestation System Root CA.
+     * There are exactly 3 certs in the chain.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleBasicAttestationSystem(CFDataRef __nullable testRootHash)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
+ @function SecPolicyCreateAppleBasicAttestationUser
+ @abstract Returns a policy object for verifying Basic Attestation Authority UCRT-attested certs
+ @param testRootHash Optional; The SHA-256 fingerprint of a test root for pinning.
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+     * The chain is anchored to the Basic Attestation User Root CA.
+     * There are exactly 3 certs in the chain.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleBasicAttestationUser(CFDataRef __nullable testRootHash)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
@@ -1546,11 +1743,13 @@ CFStringRef SecPolicyGetStringForOID(CSSM_OID* oid);
  @function SecPolicyCreateAppleTimeStampingAndRevocationPolicies
  @abstract Create timeStamping policy array from a given set of policies by applying identical revocation behavior
  @param policyOrArray can be a SecPolicyRef or a CFArray of SecPolicyRef
- @discussion This function is soon to be deprecated. Callers should create an array of the non-deprecated timestamping
- and revocation policies.
+ @discussion This function is deprecated in macOS 10.13 and later. Your code should call SecPolicyCreateAppleTimeStamping
+ and SecPolicyCreateRevocation instead to obtain these policies, then insert them into an array as needed.
  */
 __nullable CF_RETURNS_RETAINED
-CFArrayRef SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray);
+CFArrayRef SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_10, __MAC_10_13, __IPHONE_NA, __IPHONE_NA);
+
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

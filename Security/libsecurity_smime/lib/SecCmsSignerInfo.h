@@ -207,6 +207,15 @@ SecCmsSignerInfoIncludeCerts(SecCmsSignerInfoRef signerinfo, SecCmsCertChainMode
 extern const char *
 SecCmsUtilVerificationStatusToString(SecCmsVerificationStatus vs);
 
+/*!
+ @function SecCmsSignerInfoCopyCertFromEncryptionKeyPreference
+ @abstract Copy the certificate specified in the encryption key preference.
+ @param signerinfo The SecCmsSignerInfo object for which we verified the signature.
+ @result The preferred encryption certificate of the user who signed this message, if found.
+ @discussion This function should be called after the signer info has been verified.
+ */
+SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSignerInfoRef signerinfo);
+
 
 #if defined(__cplusplus)
 }

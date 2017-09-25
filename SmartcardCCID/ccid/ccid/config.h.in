@@ -3,6 +3,9 @@
 /* bundle directory name */
 #undef BUNDLE
 
+/* Enable Zero Length Packet patch */
+#undef ENABLE_ZLP
+
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 

@@ -23,10 +23,6 @@
 #ifndef _IOPCICONFIGURATOR_H
 #define _IOPCICONFIGURATOR_H
 
-#if ACPI_SUPPORT
-#define PLX8680		0
-#endif
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 typedef uint64_t IOPCIScalar;
@@ -141,7 +137,7 @@ enum {
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
     kIOPCIConfiguratorMapInterrupts  = 0x00000080,
 	kIOPCIConfiguratorPanicOnFault   = 0x00000100, 
-    kIOPCIConfiguratorNoSplay        = 0x00000200,
+    kIOPCIConfiguratorNoL1           = 0x00000200,           // disable L1 on thunderbolt
 
     kIOPCIConfiguratorDeepIdle       = 0x00000400,
     kIOPCIConfiguratorNoTB           = 0x00000800,
@@ -309,13 +305,7 @@ struct IOPCIConfigEntry
 #endif
     IORegistryEntry *   dtNub;
 
-
 	uint8_t *			configShadow;
-
-#if PLX8680
-    volatile uint32_t * plx;
-    IOPCIScalar         plxAperture;
-#endif
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -342,6 +332,9 @@ class IOPCIConfigurator : public IOService
     uint32_t                fBridgeCount;
     uint32_t                fDeviceCount;
     uint32_t				fNextID;
+#if ACPI_SUPPORT
+	uint8_t				 	fAddedHost64;
+#endif /* ACPI_SUPPORT */
 
 protected:
 
@@ -351,7 +344,7 @@ protected:
     static void matchDTEntry( IORegistryEntry * dtEntry, void * _context );
 #if ACPI_SUPPORT
     static void matchACPIEntry( IORegistryEntry * dtEntry, void * _context );
-	void        removeFixedRanges(IORegistryEntry * root);
+	void        removeFixedRanges(IOPCIConfigEntry * bridge);
 #endif
 
     typedef int32_t (IOPCIConfigurator::*IterateProc)(void * ref, IOPCIConfigEntry * bridge);

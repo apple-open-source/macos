@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -239,7 +239,9 @@ adjust_lru(dns_tsigkey_t *tkey) {
 		 * We may have been removed from the LRU list between
 		 * removing the read lock and aquiring the write lock.
 		 */
-		if (ISC_LINK_LINKED(tkey, link)) {
+		if (ISC_LINK_LINKED(tkey, link) &&
+		    tkey->ring->lru.tail != tkey)
+		{
 			ISC_LIST_UNLINK(tkey->ring->lru, tkey, link);
 			ISC_LIST_APPEND(tkey->ring->lru, tkey, link);
 		}
@@ -273,12 +275,12 @@ keyring_add(dns_tsig_keyring_t *ring, dns_name_t *name,
 	}
 
 	result = dns_rbt_addname(ring->keys, name, tkey);
-	if (tkey->generated) {
+	if (result == ISC_R_SUCCESS && tkey->generated) {
 		/*
 		 * Add the new key to the LRU list and remove the least
 		 * recently used key if there are too many keys on the list.
 		 */
-		ISC_LIST_INITANDAPPEND(ring->lru, tkey, link);
+		ISC_LIST_APPEND(ring->lru, tkey, link);
 		if (ring->generated++ > ring->maxgenerated)
 			remove_fromring(ISC_LIST_HEAD(ring->lru));
 	}
@@ -417,6 +419,7 @@ dns_tsigkey_createfromkey(dns_name_t *name, dns_name_t *algorithm,
 	tkey->expire = expire;
 	tkey->mctx = NULL;
 	isc_mem_attach(mctx, &tkey->mctx);
+	ISC_LINK_INIT(tkey, link);
 
 	tkey->magic = TSIG_MAGIC;
 
@@ -625,14 +628,16 @@ restore_key(dns_tsig_keyring_t *ring, isc_stdtime_t now, FILE *fp) {
 }
 
 static void
-dump_key(dns_tsigkey_t *tkey, FILE *fp)
-{
+dump_key(dns_tsigkey_t *tkey, FILE *fp) {
 	char *buffer = NULL;
 	int length = 0;
 	char namestr[DNS_NAME_FORMATSIZE];
 	char creatorstr[DNS_NAME_FORMATSIZE];
 	char algorithmstr[DNS_NAME_FORMATSIZE];
 	isc_result_t result;
+
+	REQUIRE(tkey != NULL);
+	REQUIRE(fp != NULL);
 
 	dns_name_format(&tkey->name, namestr, sizeof(namestr));
 	dns_name_format(tkey->creator, creatorstr, sizeof(creatorstr));
@@ -942,7 +947,8 @@ dns_tsig_sign(dns_message_t *msg) {
 		isc_buffer_t headerbuf;
 		isc_uint16_t digestbits;
 
-		ret = dst_context_create(key->key, mctx, &ctx);
+		ret = dst_context_create2(key->key, mctx,
+					  DNS_LOGCATEGORY_DNSSEC, &ctx);
 		if (ret != ISC_R_SUCCESS)
 			return (ret);
 
@@ -973,6 +979,13 @@ dns_tsig_sign(dns_message_t *msg) {
 			if (ret != ISC_R_SUCCESS)
 				goto cleanup_context;
 		}
+#if defined(__clang__)  && \
+       ( __clang_major__ < 3 || \
+	(__clang_major__ == 3 && __clang_minor__ < 2) || \
+	(__clang_major__ == 4 && __clang_minor__ < 2))
+	/* false positive: http://llvm.org/bugs/show_bug.cgi?id=14461 */
+		else memset(&querytsig, 0, sizeof(querytsig));
+#endif
 
 		/*
 		 * Digest the header.
@@ -1228,6 +1241,13 @@ dns_tsig_verify(isc_buffer_t *source, dns_message_t *msg,
 		if (ret != ISC_R_SUCCESS)
 			return (ret);
 	}
+#if defined(__clang__) && \
+       ( __clang_major__ < 3 || \
+	(__clang_major__ == 3 && __clang_minor__ < 2) || \
+	(__clang_major__ == 4 && __clang_minor__ < 2))
+	/* false positive: http://llvm.org/bugs/show_bug.cgi?id=14461 */
+		else memset(&querytsig, 0, sizeof(querytsig));
+#endif
 
 	/*
 	 * Do the key name and algorithm match that of the query?
@@ -1298,7 +1318,7 @@ dns_tsig_verify(isc_buffer_t *source, dns_message_t *msg,
 	    alg == DST_ALG_HMACSHA384 || alg == DST_ALG_HMACSHA512) {
 		isc_uint16_t digestbits = dst_key_getbits(key);
 		if (tsig.siglen > siglen) {
-			tsig_log(msg->tsigkey, 2, "signature length to big");
+			tsig_log(msg->tsigkey, 2, "signature length too big");
 			return (DNS_R_FORMERR);
 		}
 		if (tsig.siglen > 0 &&
@@ -1326,7 +1346,8 @@ dns_tsig_verify(isc_buffer_t *source, dns_message_t *msg,
 		sig_r.base = tsig.signature;
 		sig_r.length = tsig.siglen;
 
-		ret = dst_context_create(key, mctx, &ctx);
+		ret = dst_context_create2(key, mctx,
+					  DNS_LOGCATEGORY_DNSSEC, &ctx);
 		if (ret != ISC_R_SUCCESS)
 			return (ret);
 
@@ -1350,21 +1371,21 @@ dns_tsig_verify(isc_buffer_t *source, dns_message_t *msg,
 		 * Extract the header.
 		 */
 		isc_buffer_usedregion(source, &r);
-		memcpy(header, r.base, DNS_MESSAGE_HEADERLEN);
+		memmove(header, r.base, DNS_MESSAGE_HEADERLEN);
 		isc_region_consume(&r, DNS_MESSAGE_HEADERLEN);
 
 		/*
 		 * Decrement the additional field counter.
 		 */
-		memcpy(&addcount, &header[DNS_MESSAGE_HEADERLEN - 2], 2);
+		memmove(&addcount, &header[DNS_MESSAGE_HEADERLEN - 2], 2);
 		addcount = htons((isc_uint16_t)(ntohs(addcount) - 1));
-		memcpy(&header[DNS_MESSAGE_HEADERLEN - 2], &addcount, 2);
+		memmove(&header[DNS_MESSAGE_HEADERLEN - 2], &addcount, 2);
 
 		/*
 		 * Put in the original id.
 		 */
 		id = htons(tsig.originalid);
-		memcpy(&header[0], &id, 2);
+		memmove(&header[0], &id, 2);
 
 		/*
 		 * Digest the modified header.
@@ -1557,7 +1578,9 @@ tsig_verify_tcp(isc_buffer_t *source, dns_message_t *msg) {
 	key = tsigkey->key;
 
 	if (msg->tsigctx == NULL) {
-		ret = dst_context_create(key, mctx, &msg->tsigctx);
+		ret = dst_context_create2(key, mctx,
+					  DNS_LOGCATEGORY_DNSSEC,
+					  &msg->tsigctx);
 		if (ret != ISC_R_SUCCESS)
 			goto cleanup_querystruct;
 
@@ -1587,16 +1610,16 @@ tsig_verify_tcp(isc_buffer_t *source, dns_message_t *msg) {
 	 * Extract the header.
 	 */
 	isc_buffer_usedregion(source, &r);
-	memcpy(header, r.base, DNS_MESSAGE_HEADERLEN);
+	memmove(header, r.base, DNS_MESSAGE_HEADERLEN);
 	isc_region_consume(&r, DNS_MESSAGE_HEADERLEN);
 
 	/*
 	 * Decrement the additional field counter if necessary.
 	 */
 	if (has_tsig) {
-		memcpy(&addcount, &header[DNS_MESSAGE_HEADERLEN - 2], 2);
+		memmove(&addcount, &header[DNS_MESSAGE_HEADERLEN - 2], 2);
 		addcount = htons((isc_uint16_t)(ntohs(addcount) - 1));
-		memcpy(&header[DNS_MESSAGE_HEADERLEN - 2], &addcount, 2);
+		memmove(&header[DNS_MESSAGE_HEADERLEN - 2], &addcount, 2);
 	}
 
 	/*
@@ -1605,7 +1628,7 @@ tsig_verify_tcp(isc_buffer_t *source, dns_message_t *msg) {
 	/* XXX Can TCP transfers be forwarded?  How would that work? */
 	if (has_tsig) {
 		id = htons(tsig.originalid);
-		memcpy(&header[0], &id, 2);
+		memmove(&header[0], &id, 2);
 	}
 
 	/*
@@ -1746,11 +1769,15 @@ static void
 free_tsignode(void *node, void *_unused) {
 	dns_tsigkey_t *key;
 
-	UNUSED(_unused);
-
 	REQUIRE(node != NULL);
 
+	UNUSED(_unused);
+
 	key = node;
+	if (key->generated) {
+		if (ISC_LINK_LINKED(key, link))
+			ISC_LIST_UNLINK(key->ring->lru, key, link);
+	}
 	dns_tsigkey_detach(&key);
 }
 

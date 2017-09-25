@@ -27,6 +27,8 @@
 #include "config.h"
 #include "JSMutationCallback.h"
 
+#include "JSDOMConvertInterface.h"
+#include "JSDOMConvertSequences.h"
 #include "JSDOMGlobalObject.h"
 #include "JSMainThreadExecState.h"
 #include "JSMainThreadExecStateInstrumentation.h"
@@ -43,7 +45,7 @@ namespace WebCore {
 JSMutationCallback::JSMutationCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
     : ActiveDOMCallback(globalObject->scriptExecutionContext())
     , m_callback(callback)
-    , m_isolatedWorld(&globalObject->world())
+    , m_isolatedWorld(globalObject->world())
 {
 }
 
@@ -76,7 +78,7 @@ void JSMutationCallback::call(const Vector<Ref<MutationRecord>>& mutations, Muta
         return;
     ASSERT(context->isDocument());
 
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(context, *m_isolatedWorld);
+    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(context, m_isolatedWorld);
     ExecState* exec = globalObject->globalExec();
 
     JSValue jsObserver = toJS(exec, globalObject, observer);

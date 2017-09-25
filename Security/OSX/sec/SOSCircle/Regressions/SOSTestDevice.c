@@ -26,7 +26,7 @@
 
 #include "SOSTestDevice.h"
 #include "SOSTestDataSource.h"
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSEngine.h>
@@ -141,7 +141,7 @@ SOSTestDeviceRef SOSTestDeviceCreateWithDb(CFAllocatorRef allocator, CFStringRef
 SOSTestDeviceRef SOSTestDeviceCreateWithDbNamed(CFAllocatorRef allocator, CFStringRef engineID, CFStringRef dbName) {
     CFURLRef url = SecCopyURLForFileInKeychainDirectory(dbName);
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
-    SecDbRef db = SecKeychainDbCreate(path);
+    SecDbRef db = SecKeychainDbCreate(path, NULL);
     SOSTestDeviceRef td = SOSTestDeviceCreateWithDb(allocator, engineID, db);
     CFReleaseSafe(db);
     CFReleaseSafe(path);
@@ -257,8 +257,8 @@ CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID) {
     CFErrorRef error = NULL;
     SOSEnginePeerMessageSentBlock sent = NULL;
     CFDataRef msgData;
-    
-    ok(msgData = SOSEngineCreateMessageToSyncToPeer(td->ds->engine, peerID, &sent, &error),
+    CFMutableArrayRef attributeList = NULL;
+    ok(msgData = SOSEngineCreateMessageToSyncToPeer(td->ds->engine, peerID, &attributeList, &sent, &error),
        "create message to %@: %@", peerID, error);
     if (sent)
         sent(true);

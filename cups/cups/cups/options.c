@@ -1,14 +1,14 @@
 /*
  * Option routines for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -27,6 +27,31 @@
 static int	cups_compare_options(cups_option_t *a, cups_option_t *b);
 static int	cups_find_option(const char *name, int num_options,
 	                         cups_option_t *option, int prev, int *rdiff);
+
+
+/*
+ * 'cupsAddIntegerOption()' - Add an integer option to an option array.
+ *
+ * New option arrays can be initialized simply by passing 0 for the
+ * "num_options" parameter.
+ *
+ * @since CUPS 2.2.4/macOS 10.13@
+ */
+
+int					/* O  - Number of options */
+cupsAddIntegerOption(
+    const char    *name,		/* I  - Name of option */
+    int           value,		/* I  - Value of option */
+    int           num_options,		/* I  - Number of options */
+    cups_option_t **options)		/* IO - Pointer to options */
+{
+  char	strvalue[32];			/* String value */
+
+
+  snprintf(strvalue, sizeof(strvalue), "%d", value);
+
+  return (cupsAddOption(name, strvalue, num_options, options));
+}
 
 
 /*
@@ -151,6 +176,38 @@ cupsFreeOptions(
   }
 
   free(options);
+}
+
+
+/*
+ * 'cupsGetIntegerOption()' - Get an integer option value.
+ *
+ * INT_MIN is returned when the option does not exist, is not an integer, or
+ * exceeds the range of values for the "int" type.
+ *
+ * @since CUPS 2.2.4/macOS 10.13@
+ */
+
+int					/* O - Option value or @code INT_MIN@ */
+cupsGetIntegerOption(
+    const char    *name,		/* I - Name of option */
+    int           num_options,		/* I - Number of options */
+    cups_option_t *options)		/* I - Options */
+{
+  const char	*value = cupsGetOption(name, num_options, options);
+					/* String value of option */
+  char		*ptr;			/* Pointer into string value */
+  long		intvalue;		/* Integer value */
+
+
+  if (!value || !*value)
+    return (INT_MIN);
+
+  intvalue = strtol(value, &ptr, 10);
+  if (intvalue < INT_MIN || intvalue > INT_MAX || *ptr)
+    return (INT_MIN);
+
+  return ((int)intvalue);
 }
 
 

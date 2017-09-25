@@ -32,6 +32,7 @@
 #include <mach-o/getsect.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <sys/reason.h>
 #include <execinfo.h>
 #include <stdio.h>
 #include <dlfcn.h>
@@ -41,6 +42,12 @@
 #include <string.h>
 #include "os/assumes.h"
 #include <os/debug_private.h>
+#include <os/log.h>
+#include <os/log_private.h>
+#include <os/reason_private.h>
+
+#include <CrashReporterClient.h>
+#define os_set_crash_message(arg) CRSetCrashLogMessage(arg)
 
 #define OSX_ASSUMES_LOG_REDIRECT_SECT_NAME "__osx_log_func"
 #define os_atomic_cmpxchg(p, o, n) __sync_bool_compare_and_swap((p), (o), (n))
@@ -240,6 +247,32 @@ _os_crash_impl(const char *message) {
 }
 
 __attribute__((always_inline))
+static inline bool
+_os_crash_fmt_impl(os_log_pack_t pack, size_t pack_size)
+{
+	/*
+	 * We put just the format string into the CrashReporter buffer so that we
+	 * can get at least that on customer builds.
+	 */
+	const char *message = pack->olp_format;
+	_os_crash_impl(message);
+
+	char *(*_os_log_pack_send_and_compose)(os_log_pack_t, os_log_t,
+			os_log_type_t, char *, size_t) = NULL;
+	_os_log_pack_send_and_compose = dlsym(RTLD_DEFAULT, "os_log_pack_send_and_compose");
+	if (!_os_log_pack_send_and_compose) return false;
+
+	os_log_t __os_log_default = NULL;
+	__os_log_default = dlsym(RTLD_DEFAULT, "_os_log_default");
+	if (!__os_log_default) return false;
+
+	char *composed = _os_log_pack_send_and_compose(pack, __os_log_default,
+			OS_LOG_TYPE_FAULT, NULL, 0);
+
+	abort_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, pack, pack_size, composed, 0);
+}
+
+__attribute__((always_inline))
 static inline void
 _os_assumes_log_impl(uint64_t code)
 {
@@ -285,25 +318,6 @@ _os_assert_log_impl(uint64_t code)
 		_simple_sfree(asl_message);
 		result = strdup(message);
 	}
-
-#if LIBC_NO_LIBCRASHREPORTERCLIENT
-	/* There is no crash report information facility on embedded, which is
-	 * really regrettable. Fortunately, all we need to capture is the value
-	 * which tripped up the assertion. We can just stuff that into the thread's 
-	 * name.
-	 */
-	char name[64];
-	(void)pthread_getname_np(pthread_self(), name, sizeof(name));
-
-	char newname[64];
-	if (strlen(name) == 0) {
-		(void)snprintf(newname, sizeof(newname), "[Fatal bug: 0x%llx]", code);
-	} else {
-		(void)snprintf(newname, sizeof(newname), "%s [Fatal bug: 0x%llx]", name, code);
-	}
-
-	(void)pthread_setname_np(newname);
-#endif
 
 	return result;
 }
@@ -351,6 +365,11 @@ _os_assert_log_ctx_impl(os_log_callout_t callout, void *ctx, uint64_t code)
 void _os_crash(const char *message)
 {
 	_os_crash_impl(message);
+}
+
+void _os_crash_fmt(os_log_pack_t pack, size_t pack_size)
+{
+	_os_crash_fmt_impl(pack, pack_size);
 }
 
 void

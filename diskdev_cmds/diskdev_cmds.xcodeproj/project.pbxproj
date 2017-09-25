@@ -18,7 +18,6 @@
 				4D5593B4153CEB16009F2584 /* PBXTargetDependency */,
 				4D559359153CE4EC009F2584 /* PBXTargetDependency */,
 				4D55935B153CE4ED009F2584 /* PBXTargetDependency */,
-				4D559485153DC970009F2584 /* PBXTargetDependency */,
 				4D559498153DC9E8009F2584 /* PBXTargetDependency */,
 				4D5594A7153DCA04009F2584 /* PBXTargetDependency */,
 				4D5594B9153DCA5E009F2584 /* PBXTargetDependency */,
@@ -43,6 +42,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				07747AA21DA8511D00ACE020 /* PBXTargetDependency */,
 				4D559447153DC597009F2584 /* PBXTargetDependency */,
 				4D55945C153DC665009F2584 /* PBXTargetDependency */,
 			);
@@ -141,6 +141,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		07747AA11DA8511D00ACE020 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D559476153DC8FC009F2584;
+			remoteInfo = fstyp;
+		};
 		4D559356153CE4EA009F2584 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
@@ -273,13 +280,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4D559463153DC808009F2584;
 			remoteInfo = dev_mkdb;
-		};
-		4D559484153DC970009F2584 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4D07DD2B153CA616002B57CB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4D559476153DC8FC009F2584;
-			remoteInfo = fstyp;
 		};
 		4D559497153DC9E8009F2584 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1760,6 +1760,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		07747AA21DA8511D00ACE020 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D559476153DC8FC009F2584 /* fstyp */;
+			targetProxy = 07747AA11DA8511D00ACE020 /* PBXContainerItemProxy */;
+		};
 		4D559357153CE4EA009F2584 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D07DD48153CA9A0002B57CB /* libdisk */;
@@ -1854,11 +1859,6 @@
 			isa = PBXTargetDependency;
 			target = 4D559463153DC808009F2584 /* dev_mkdb */;
 			targetProxy = 4D559471153DC87B009F2584 /* PBXContainerItemProxy */;
-		};
-		4D559485153DC970009F2584 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4D559476153DC8FC009F2584 /* fstyp */;
-			targetProxy = 4D559484153DC970009F2584 /* PBXContainerItemProxy */;
 		};
 		4D559498153DC9E8009F2584 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

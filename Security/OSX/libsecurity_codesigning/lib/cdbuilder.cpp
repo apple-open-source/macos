@@ -47,6 +47,9 @@ CodeDirectory::Builder::Builder(HashAlgorithm digestAlgorithm)
 	  mCodeSlots(0),
 	  mScatter(NULL),
 	  mScatterSize(0),
+	  mExecSegOffset(0),
+	  mExecSegLimit(0),
+	  mExecSegFlags(0),
 	  mDir(NULL)
 {
 	mDigestLength = (uint32_t)MakeHash<Builder>(this)->digestLength();
@@ -118,6 +121,8 @@ CodeDirectory::Scatter *CodeDirectory::Builder::scatter(unsigned count)
 size_t CodeDirectory::Builder::fixedSize(const uint32_t version)
 {
 	size_t cdSize = sizeof(CodeDirectory);
+	if (version < supportsExecSegment)
+		cdSize -= sizeof(mDir->execSegBase) + sizeof(mDir->execSegLimit) + sizeof(mDir->execSegFlags);
 	if (version < supportsCodeLimit64)
 		cdSize -= sizeof(mDir->spare3) + sizeof(mDir->codeLimit64);
 	if (version < supportsTeamID)
@@ -182,8 +187,10 @@ CodeDirectory *CodeDirectory::Builder::build()
 	size_t teamIDLength = mTeamID.size() + 1;
 	
 	// Determine the version
-	if (mExecLength > UINT32_MAX) {
+	if (mExecSegLimit > 0) {
 		version = currentVersion;
+	} else if (mExecLength > UINT32_MAX) {
+		version = supportsCodeLimit64;
 	} else if (mTeamID.size()) {
 		version = supportsTeamID;
 	} else {
@@ -221,6 +228,10 @@ CodeDirectory *CodeDirectory::Builder::build()
 	} else
 		mDir->pageSize = 0;	// means infinite page size
 
+	mDir->execSegBase = mExecSegOffset;
+	mDir->execSegLimit = mExecSegLimit;
+	mDir->execSegFlags = mExecSegFlags;
+
 	// locate and fill flex fields
 	size_t offset = fixedSize(mDir->version);
 	
@@ -244,6 +255,8 @@ CodeDirectory *CodeDirectory::Builder::build()
 	mDir->hashOffset = (uint32_t)(offset + mSpecialSlots * mDigestLength);
 	offset += (mSpecialSlots + mCodeSlots) * mDigestLength;
 	assert(offset == total);	// matches allocated size
+
+	(void)offset;
 	
 	// fill special slots
 	memset((*mDir)[(int)-mSpecialSlots], 0, mDigestLength * mSpecialSlots);

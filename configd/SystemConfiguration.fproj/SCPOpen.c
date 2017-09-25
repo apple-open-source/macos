@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,6 +107,8 @@ static void
 __SCPreferencesDeallocate(CFTypeRef cf)
 {
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)cf;
+
+	SC_log(LOG_DEBUG, "release %@", prefsPrivate);
 
 	/* release resources */
 
@@ -606,6 +608,10 @@ SCPreferencesCreate(CFAllocatorRef		allocator,
 	SCPreferencesPrivateRef	prefsPrivate;
 
 	prefsPrivate = __SCPreferencesCreate(allocator, name, prefsID, NULL, NULL);
+	if (prefsPrivate != NULL) {
+		SC_log(LOG_DEBUG, "create %@", prefsPrivate);
+	}
+
 	return (SCPreferencesRef)prefsPrivate;
 }
 
@@ -720,6 +726,29 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 	}
 
 	prefsPrivate = __SCPreferencesCreate(allocator, name, prefsID, authorizationData, options);
+	if (prefsPrivate != NULL) {
+		const char	*astr	= "";
+		const char	*ostr	= "";
+
+		if (options != NULL) {
+			ostr = "options";
+		}
+
+		if (authorization != NULL) {
+			if (authorization == kSCPreferencesUseEntitlementAuthorization) {
+				astr = "entitlement";
+			} else {
+				astr = "authorization";
+			}
+		}
+
+		SC_log(LOG_DEBUG, "create w/%s%s%s %@",
+		       ostr,
+		       ((ostr != "") && (astr != "")) ? " + " : "",
+		       astr,
+		       prefsPrivate);
+	}
+
 	if (authorizationData != NULL) CFRelease(authorizationData);
 
 	return (SCPreferencesRef)prefsPrivate;
@@ -736,6 +765,7 @@ SCPreferencesGetTypeID(void) {
 static void
 prefsNotify(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
+#pragma unused(store)
 	void				*context_info;
 	void				(*context_release)(const void *);
 	CFIndex				i;
@@ -782,7 +812,8 @@ prefsNotify(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	if (rlsFunction != NULL) {
 		SC_log(LOG_DEBUG, "exec SCPreferences callout: %s%s%s",
 		       ((notify & kSCPreferencesNotificationCommit) != 0) ? "commit" : "",
-		       ((notify & kSCPreferencesNotificationCommit|kSCPreferencesNotificationApply) != 0) ? ", " : "",
+		       (((notify & kSCPreferencesNotificationCommit) != 0) &&
+		        ((notify & kSCPreferencesNotificationApply ) != 0)) ? ", " : "",
 		       ((notify & kSCPreferencesNotificationApply)  != 0) ? "apply"  : "");
 		(*rlsFunction)(prefs, notify, context_info);
 	}
@@ -840,6 +871,8 @@ __SCPreferencesAddSession(SCPreferencesRef prefs)
 			SC_log(LOG_INFO, "SCDynamicStoreCreate() failed");
 			return FALSE;
 		}
+
+		SC_log(LOG_DEBUG, "added SCDynamicStore session (for prefs)");
 	}
 
 	prefsPrivate->sessionRefcnt++;
@@ -856,6 +889,8 @@ __SCPreferencesRemoveSession(SCPreferencesRef prefs)
 		if (--prefsPrivate->sessionRefcnt == 0) {
 			CFRelease(prefsPrivate->session);
 			prefsPrivate->session = NULL;
+
+			SC_log(LOG_DEBUG, "removed SCDynamicStore session (for prefs)");
 		}
 	}
 
@@ -943,6 +978,8 @@ __SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
 			prefsPrivate->rls = SCDynamicStoreCreateRunLoopSource(NULL, prefsPrivate->session, 0);
 			prefsPrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		}
+
+		SC_log(LOG_DEBUG, "scheduled");
 
 		prefsPrivate->scheduled = TRUE;
 	}
@@ -1033,6 +1070,8 @@ __SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef	prefs,
 
 	if (n == 0) {
 		CFArrayRef      changedKeys;
+
+		SC_log(LOG_DEBUG, "unscheduled");
 
 		// if *all* notifications have been unscheduled
 		prefsPrivate->scheduled = FALSE;

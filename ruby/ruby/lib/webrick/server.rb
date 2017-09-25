@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # server.rb -- GenericServer Class
 #
@@ -48,9 +49,9 @@ module WEBrick
       exit!(0) if fork
       Dir::chdir("/")
       File::umask(0)
-      STDIN.reopen("/dev/null")
-      STDOUT.reopen("/dev/null", "w")
-      STDERR.reopen("/dev/null", "w")
+      STDIN.reopen(IO::NULL)
+      STDOUT.reopen(IO::NULL, "w")
+      STDERR.reopen(IO::NULL, "w")
       yield if block_given?
     end
   end
@@ -106,6 +107,7 @@ module WEBrick
       @logger.info("ruby #{rubyv}")
 
       @listeners = []
+      @shutdown_pipe = nil
       unless @config[:DoNotListen]
         if @config[:Listen]
           warn(":Listen option is deprecated; use GenericServer#listen")
@@ -129,7 +131,7 @@ module WEBrick
     # WEBrick::Utils::create_listeners for details.
 
     def listen(address, port)
-      @listeners += Utils::create_listeners(address, port, @logger)
+      @listeners += Utils::create_listeners(address, port)
     end
 
     ##
@@ -157,21 +159,35 @@ module WEBrick
       raise ServerError, "already started." if @status != :Stop
       server_type = @config[:ServerType] || SimpleServer
 
+      setup_shutdown_pipe
+
       server_type.start{
         @logger.info \
           "#{self.class}#start: pid=#{$$} port=#{@config[:Port]}"
         call_callback(:StartCallback)
+
+        shutdown_pipe = @shutdown_pipe
 
         thgroup = ThreadGroup.new
         @status = :Running
         begin
           while @status == :Running
             begin
-              if svrs = IO.select(@listeners, nil, nil, 2.0)
+              sp = shutdown_pipe[0]
+              if svrs = IO.select([sp, *@listeners], nil, nil, 2.0)
+                if svrs[0].include? sp
+                  # swallow shutdown pipe
+                  buf = String.new
+                  nil while String ===
+                            sp.read_nonblock([sp.nread, 8].max, buf, exception: false)
+                  break
+                end
                 svrs[0].each{|svr|
                   @tokens.pop          # blocks while no token is there.
                   if sock = accept_client(svr)
-                    sock.do_not_reverse_lookup = config[:DoNotReverseLookup]
+                    unless config[:DoNotReverseLookup].nil?
+                      sock.do_not_reverse_lookup = !!config[:DoNotReverseLookup]
+                    end
                     th = start_thread(sock, &block)
                     th[:WEBrickThread] = true
                     thgroup.add(th)
@@ -180,7 +196,7 @@ module WEBrick
                   end
                 }
               end
-            rescue Errno::EBADF, IOError => ex
+            rescue Errno::EBADF, Errno::ENOTSOCK, IOError => ex
               # if the listening socket was closed in GenericServer#shutdown,
               # IO::select raise it.
             rescue StandardError => ex
@@ -191,8 +207,9 @@ module WEBrick
               raise
             end
           end
-
         ensure
+          cleanup_shutdown_pipe(shutdown_pipe)
+          cleanup_listener
           @status = :Shutdown
           @logger.info "going to shutdown ..."
           thgroup.list.each{|th| th.join if th[:WEBrickThread] }
@@ -210,6 +227,8 @@ module WEBrick
       if @status == :Running
         @status = :Shutdown
       end
+
+      alarm_shutdown_pipe {|f| f.write_nonblock("\0")}
     end
 
     ##
@@ -218,25 +237,8 @@ module WEBrick
 
     def shutdown
       stop
-      @listeners.each{|s|
-        if @logger.debug?
-          addr = s.addr
-          @logger.debug("close TCPSocket(#{addr[2]}, #{addr[1]})")
-        end
-        begin
-          s.shutdown
-        rescue Errno::ENOTCONN
-          # when `Errno::ENOTCONN: Socket is not connected' on some platforms,
-          # call #close instead of #shutdown.
-          # (ignore @config[:ShutdownSocketWithoutClose])
-          s.close
-        else
-          unless @config[:ShutdownSocketWithoutClose]
-            s.close
-          end
-        end
-      }
-      @listeners.clear
+
+      alarm_shutdown_pipe {|f| f.close}
     end
 
     ##
@@ -261,9 +263,8 @@ module WEBrick
         sock = svr.accept
         sock.sync = true
         Utils::set_non_blocking(sock)
-        Utils::set_close_on_exec(sock)
       rescue Errno::ECONNRESET, Errno::ECONNABORTED,
-             Errno::EPROTO, Errno::EINVAL => ex
+             Errno::EPROTO, Errno::EINVAL
       rescue StandardError => ex
         msg = "#{ex.class}: #{ex.message}\n\t#{ex.backtrace[0]}"
         @logger.error msg
@@ -320,6 +321,60 @@ module WEBrick
       if cb = @config[callback_name]
         cb.call(*args)
       end
+    end
+
+    def setup_shutdown_pipe
+      if !@shutdown_pipe
+        @shutdown_pipe = IO.pipe
+      end
+      @shutdown_pipe
+    end
+
+    def cleanup_shutdown_pipe(shutdown_pipe)
+      @shutdown_pipe = nil
+      return if !shutdown_pipe
+      shutdown_pipe.each {|io|
+        if !io.closed?
+          begin
+            io.close
+          rescue IOError # another thread closed io.
+          end
+        end
+      }
+    end
+
+    def alarm_shutdown_pipe
+      _, pipe = @shutdown_pipe # another thread may modify @shutdown_pipe.
+      if pipe
+        if !pipe.closed?
+          begin
+            yield pipe
+          rescue IOError # closed by another thread.
+          end
+        end
+      end
+    end
+
+    def cleanup_listener
+      @listeners.each{|s|
+        if @logger.debug?
+          addr = s.addr
+          @logger.debug("close TCPSocket(#{addr[2]}, #{addr[1]})")
+        end
+        begin
+          s.shutdown
+        rescue Errno::ENOTCONN
+          # when `Errno::ENOTCONN: Socket is not connected' on some platforms,
+          # call #close instead of #shutdown.
+          # (ignore @config[:ShutdownSocketWithoutClose])
+          s.close
+        else
+          unless @config[:ShutdownSocketWithoutClose]
+            s.close
+          end
+        end
+      }
+      @listeners.clear
     end
   end    # end of GenericServer
 end

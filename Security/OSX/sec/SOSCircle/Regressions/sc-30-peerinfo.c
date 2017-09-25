@@ -92,7 +92,8 @@ static int kTestTestCount = 24;
 static void tests(void)
 {
     SecKeyRef signingKey = NULL;
-    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, NULL);
+    SecKeyRef octagonSigningKey = NULL;
+    SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, &octagonSigningKey, NULL);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
 
     ok(NULL != pi, "info creation");
@@ -146,6 +147,7 @@ static void tests(void)
     CFReleaseNull(user_pubkey);
 
     CFReleaseNull(signingKey);
+    CFReleaseNull(octagonSigningKey);
     CFReleaseNull(fpi);
 }
 

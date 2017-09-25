@@ -44,10 +44,10 @@ OSDictionary * AppleLVMVolume::propsFromHeader(AppleLVMVolumeOnDisk * lve)
 
 AppleLVMVolume * AppleLVMVolume::withHeader(AppleLVMVolumeOnDisk * lve, OSDictionary * lvProps)
 {
-    if (!lve) return false;
+    if (!lve) return NULL;
 
     if (!lvProps) lvProps = AppleLVMVolume::propsFromHeader(lve);
-    if (!lvProps) return false;
+    if (!lvProps) return NULL;
 
     AppleLVMVolume *me = new AppleLVMVolume;
     if (!me) return NULL;

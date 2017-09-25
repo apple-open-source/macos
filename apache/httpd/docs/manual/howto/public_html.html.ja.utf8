@@ -24,6 +24,7 @@
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.4</a> &gt; <a href="./">How-To / チュートリアル</a></div><div id="page-content"><div id="preamble"><h1>ユーザ毎のウェブディレクトリ</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="../en/howto/public_html.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/public_html.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/public_html.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/public_html.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -55,7 +56,7 @@
     <p>あるいは、メインの設定ファイル中の <code>Directory</code> 
     ブロックの中に適切にディレクティブを記述しておきます。</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">ユーザ毎のウェブディレクトリ</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">ユーザ毎のウェブディレクトリ</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#userdir">UserDir を使ってファイルのパスを設定する</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#redirect">外部 URL にリダイレクトする</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#enable">この機能を使用できるユーザを制限する</a></li>
@@ -195,6 +196,7 @@
   </div></div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="../en/howto/public_html.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/public_html.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/public_html.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/public_html.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -217,7 +219,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/public_html.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

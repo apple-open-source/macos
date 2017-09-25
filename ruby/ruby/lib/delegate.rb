@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # = delegate -- Support for the Delegation Pattern
 #
 # Documentation by James Edward Gray II and Gavin Sinclair
@@ -17,15 +18,10 @@
 # yourself needing this control, have a look at Forwardable which is also in
 # the standard library.  It may suit your needs better.)
 #
-# SimpleDelegator's implementation serves as a nice example if the use of
+# SimpleDelegator's implementation serves as a nice example of the use of
 # Delegator:
 #
 #   class SimpleDelegator < Delegator
-#     def initialize(obj)
-#       super                  # pass obj to Delegator constructor, required
-#       @delegate_sd_obj = obj # store obj for future use
-#     end
-#
 #     def __getobj__
 #       @delegate_sd_obj # return object we are delegating to, required
 #     end
@@ -43,7 +39,14 @@
 class Delegator < BasicObject
   kernel = ::Kernel.dup
   kernel.class_eval do
+    alias __raise__ raise
     [:to_s,:inspect,:=~,:!~,:===,:<=>,:eql?,:hash].each do |m|
+      undef_method m
+    end
+    private_instance_methods.each do |m|
+      if /\Ablock_given\?\z|iterator\?\z|\A__.*__\z/ =~ m
+        next
+      end
       undef_method m
     end
   end
@@ -54,6 +57,12 @@ class Delegator < BasicObject
     ::Object.const_get(n)
   end
   # :startdoc:
+
+  ##
+  # :method: raise
+  # Use __raise__ if your Delegator does not have a object to delegate the
+  # raise method call.
+  #
 
   #
   # Pass in the _obj_ to delegate method calls to.  All methods supported by
@@ -67,11 +76,15 @@ class Delegator < BasicObject
   # Handles the magic of delegation through \_\_getobj\_\_.
   #
   def method_missing(m, *args, &block)
-    target = self.__getobj__
-    begin
-      target.respond_to?(m) ? target.__send__(m, *args, &block) : super(m, *args, &block)
-    ensure
-      $@.delete_if {|t| %r"\A#{Regexp.quote(__FILE__)}:#{__LINE__-2}:"o =~ t} if $@
+    r = true
+    target = self.__getobj__ {r = false}
+
+    if r && target.respond_to?(m)
+      target.__send__(m, *args, &block)
+    elsif ::Kernel.respond_to?(m, true)
+      ::Kernel.instance_method(m).bind(self).(*args, &block)
+    else
+      super(m, *args, &block)
     end
   end
 
@@ -80,8 +93,10 @@ class Delegator < BasicObject
   # call through \_\_getobj\_\_.
   #
   def respond_to_missing?(m, include_private)
-    r = self.__getobj__.respond_to?(m, include_private)
-    if r && include_private && !self.__getobj__.respond_to?(m, false)
+    r = true
+    target = self.__getobj__ {r = false}
+    r &&= target.respond_to?(m, include_private)
+    if r && include_private && !target.respond_to?(m, false)
       warn "#{caller(3)[0]}: delegator does not forward private method \##{m}"
       return false
     end
@@ -142,7 +157,7 @@ class Delegator < BasicObject
   # method calls are being delegated to.
   #
   def __getobj__
-    raise NotImplementedError, "need to define `__getobj__'"
+    __raise__ ::NotImplementedError, "need to define `__getobj__'"
   end
 
   #
@@ -150,7 +165,7 @@ class Delegator < BasicObject
   # to _obj_.
   #
   def __setobj__(obj)
-    raise NotImplementedError, "need to define `__setobj__'"
+    __raise__ ::NotImplementedError, "need to define `__setobj__'"
   end
 
   #
@@ -230,6 +245,34 @@ end
 # and even to change the object being delegated to at a later time with
 # #__setobj__.
 #
+#   class User
+#     def born_on
+#       Date.new(1989, 9, 10)
+#     end
+#   end
+#
+#   class UserDecorator < SimpleDelegator
+#     def birth_year
+#       born_on.year
+#     end
+#   end
+#
+#   decorated_user = UserDecorator.new(User.new)
+#   decorated_user.birth_year  #=> 1989
+#   decorated_user.__getobj__  #=> #<User: ...>
+#
+# A SimpleDelegator instance can take advantage of the fact that SimpleDelegator
+# is a subclass of +Delegator+ to call <tt>super</tt> to have methods called on
+# the object being delegated to.
+#
+#   class SuperArray < SimpleDelegator
+#     def [](*args)
+#       super + 1
+#     end
+#   end
+#
+#   SuperArray.new([1])[0]  #=> 2
+#
 # Here's a simple example that takes advantage of the fact that
 # SimpleDelegator's delegation object can be changed at any time.
 #
@@ -265,6 +308,10 @@ end
 class SimpleDelegator<Delegator
   # Returns the current object method calls are being delegated to.
   def __getobj__
+    unless defined?(@delegate_sd_obj)
+      return yield if block_given?
+      __raise__ ::ArgumentError, "not delegated"
+    end
     @delegate_sd_obj
   end
 
@@ -283,7 +330,7 @@ class SimpleDelegator<Delegator
   #   puts names[1]    # => Sinclair
   #
   def __setobj__(obj)
-    raise ArgumentError, "cannot delegate to self" if self.equal?(obj)
+    __raise__ ::ArgumentError, "cannot delegate to self" if self.equal?(obj)
     @delegate_sd_obj = obj
   end
 end
@@ -291,11 +338,7 @@ end
 def Delegator.delegating_block(mid) # :nodoc:
   lambda do |*args, &block|
     target = self.__getobj__
-    begin
-      target.__send__(mid, *args, &block)
-    ensure
-      $@.delete_if {|t| /\A#{Regexp.quote(__FILE__)}:#{__LINE__-2}:/o =~ t} if $@
-    end
+    target.__send__(mid, *args, &block)
   end
 end
 
@@ -339,10 +382,14 @@ def DelegateClass(superclass)
   methods -= [:to_s,:inspect,:=~,:!~,:===]
   klass.module_eval do
     def __getobj__  # :nodoc:
+      unless defined?(@delegate_dc_obj)
+        return yield if block_given?
+        __raise__ ::ArgumentError, "not delegated"
+      end
       @delegate_dc_obj
     end
     def __setobj__(obj)  # :nodoc:
-      raise ArgumentError, "cannot delegate to self" if self.equal?(obj)
+      __raise__ ::ArgumentError, "cannot delegate to self" if self.equal?(obj)
       @delegate_dc_obj = obj
     end
     methods.each do |method|
@@ -356,38 +403,4 @@ def DelegateClass(superclass)
     super(all) | superclass.protected_instance_methods
   end
   return klass
-end
-
-# :enddoc:
-
-if __FILE__ == $0
-  class ExtArray<DelegateClass(Array)
-    def initialize()
-      super([])
-    end
-  end
-
-  ary = ExtArray.new
-  p ary.class
-  ary.push 25
-  p ary
-  ary.push 42
-  ary.each {|x| p x}
-
-  foo = Object.new
-  def foo.test
-    25
-  end
-  def foo.iter
-    yield self
-  end
-  def foo.error
-    raise 'this is OK'
-  end
-  foo2 = SimpleDelegator.new(foo)
-  p foo2
-  foo2.instance_eval{print "foo\n"}
-  p foo.test == foo2.test       # => true
-  p foo2.iter{[55,true]}        # => true
-  foo2.error                    # raise error!
 end

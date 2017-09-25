@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004,2006-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2004,2006-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -373,6 +373,20 @@ typedef CF_ENUM(uint32_t, SeciAuthVersion) {
  * SecTrustEvaluate to guarantee that the certificate was properly issued */
 SeciAuthVersion SecCertificateGetiAuthVersion(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+
+/* Return the normalized name or NULL if it fails to parse */
+CFDataRef SecDistinguishedNameCopyNormalizedSequence(CFDataRef distinguished_name)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+
+/* Returns the Subject Key ID extension from the certificate or NULL if none */
+CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+
+/* Returns an array of SecCertificateRefs containing the iPhone Device CA and
+ * its parent certificates. This interface is meant as a workaround and should
+ * not be used without consulting the Security team. */
+CFArrayRef SecCertificateCopyiPhoneDeviceCAChain(void)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
 
 
 /*

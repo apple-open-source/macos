@@ -53,9 +53,9 @@ static double computeRecordWorth(FileTimes);
 struct Storage::ReadOperation {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ReadOperation(const Key& key, const RetrieveCompletionHandler& completionHandler)
+    ReadOperation(const Key& key, RetrieveCompletionHandler&& completionHandler)
         : key(key)
-        , completionHandler(completionHandler)
+        , completionHandler(WTFMove(completionHandler))
     { }
 
     void cancel();
@@ -149,7 +149,7 @@ static String makeSaltFilePath(const String& baseDirectoryPath)
     return WebCore::pathByAppendingComponent(makeVersionedDirectoryPath(baseDirectoryPath), saltFileName);
 }
 
-std::unique_ptr<Storage> Storage::open(const String& cachePath)
+std::unique_ptr<Storage> Storage::open(const String& cachePath, Mode mode)
 {
     ASSERT(RunLoop::isMain());
 
@@ -158,7 +158,7 @@ std::unique_ptr<Storage> Storage::open(const String& cachePath)
     auto salt = readOrMakeSalt(makeSaltFilePath(cachePath));
     if (!salt)
         return nullptr;
-    return std::unique_ptr<Storage>(new Storage(cachePath, *salt));
+    return std::unique_ptr<Storage>(new Storage(cachePath, mode, *salt));
 }
 
 void traverseRecordsFiles(const String& recordsPath, const String& expectedType, const RecordFileTraverseFunction& function)
@@ -207,9 +207,10 @@ static void deleteEmptyRecordsDirectories(const String& recordsPath)
     });
 }
 
-Storage::Storage(const String& baseDirectoryPath, Salt salt)
+Storage::Storage(const String& baseDirectoryPath, Mode mode, Salt salt)
     : m_basePath(baseDirectoryPath)
     , m_recordsPath(makeRecordsDirectoryPath(baseDirectoryPath))
+    , m_mode(mode)
     , m_salt(salt)
     , m_canUseSharedMemoryForBodyData(canUseSharedMemoryForPath(baseDirectoryPath))
     , m_readOperationTimeoutTimer(*this, &Storage::cancelAllReadOperations)
@@ -365,28 +366,27 @@ struct RecordMetaData {
 
     unsigned cacheStorageVersion;
     Key key;
-    // FIXME: Add encoder/decoder for time_point.
-    std::chrono::milliseconds epochRelativeTimeStamp;
+    std::chrono::system_clock::time_point timeStamp;
     SHA1::Digest headerHash;
-    uint64_t headerSize;
+    uint64_t headerSize { 0 };
     SHA1::Digest bodyHash;
-    uint64_t bodySize;
-    bool isBodyInline;
+    uint64_t bodySize { 0 };
+    bool isBodyInline { false };
 
     // Not encoded as a field. Header starts immediately after meta data.
-    uint64_t headerOffset;
+    uint64_t headerOffset { 0 };
 };
 
 static bool decodeRecordMetaData(RecordMetaData& metaData, const Data& fileData)
 {
     bool success = false;
     fileData.apply([&metaData, &success](const uint8_t* data, size_t size) {
-        Decoder decoder(data, size);
+        WTF::Persistence::Decoder decoder(data, size);
         if (!decoder.decode(metaData.cacheStorageVersion))
             return false;
         if (!decoder.decode(metaData.key))
             return false;
-        if (!decoder.decode(metaData.epochRelativeTimeStamp))
+        if (!decoder.decode(metaData.timeStamp))
             return false;
         if (!decoder.decode(metaData.headerHash))
             return false;
@@ -440,8 +440,7 @@ void Storage::readRecord(ReadOperation& readOperation, const Data& recordData)
         return;
 
     // Sanity check against time stamps in future.
-    auto timeStamp = std::chrono::system_clock::time_point(metaData.epochRelativeTimeStamp);
-    if (timeStamp > std::chrono::system_clock::now())
+    if (metaData.timeStamp > std::chrono::system_clock::now())
         return;
 
     Data bodyData;
@@ -457,19 +456,20 @@ void Storage::readRecord(ReadOperation& readOperation, const Data& recordData)
     readOperation.expectedBodyHash = metaData.bodyHash;
     readOperation.resultRecord = std::make_unique<Storage::Record>(Storage::Record {
         metaData.key,
-        timeStamp,
+        metaData.timeStamp,
         headerData,
-        bodyData
+        bodyData,
+        metaData.bodyHash
     });
 }
 
 static Data encodeRecordMetaData(const RecordMetaData& metaData)
 {
-    Encoder encoder;
+    WTF::Persistence::Encoder encoder;
 
     encoder << metaData.cacheStorageVersion;
     encoder << metaData.key;
-    encoder << metaData.epochRelativeTimeStamp;
+    encoder << metaData.timeStamp;
     encoder << metaData.headerHash;
     encoder << metaData.headerSize;
     encoder << metaData.bodyHash;
@@ -511,7 +511,7 @@ Data Storage::encodeRecord(const Record& record, std::optional<BlobStorage::Blob
     ASSERT(!blob || bytesEqual(blob.value().data, record.body));
 
     RecordMetaData metaData(record.key);
-    metaData.epochRelativeTimeStamp = std::chrono::duration_cast<std::chrono::milliseconds>(record.timeStamp.time_since_epoch());
+    metaData.timeStamp = record.timeStamp;
     metaData.headerHash = computeSHA1(record.header, m_salt);
     metaData.headerSize = record.header.size();
     metaData.bodyHash = blob ? blob.value().hash : computeSHA1(record.body, m_salt);
@@ -555,9 +555,39 @@ void Storage::remove(const Key& key)
     removeFromPendingWriteOperations(key);
 
     serialBackgroundIOQueue().dispatch([this, key] {
-        WebCore::deleteFile(recordPathForKey(key));
-        m_blobStorage.remove(blobPathForKey(key));
+        deleteFiles(key);
     });
+}
+
+void Storage::remove(const Vector<Key>& keys, Function<void ()>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+
+    Vector<Key> keysToRemove;
+    keysToRemove.reserveInitialCapacity(keys.size());
+
+    for (auto& key : keys) {
+        if (!mayContain(key))
+            continue;
+        removeFromPendingWriteOperations(key);
+        keysToRemove.uncheckedAppend(key);
+    }
+
+    serialBackgroundIOQueue().dispatch([this, keysToRemove = WTFMove(keysToRemove), completionHandler = WTFMove(completionHandler)] () mutable {
+        for (auto& key : keysToRemove)
+            deleteFiles(key);
+
+        if (completionHandler)
+            RunLoop::main().dispatch(WTFMove(completionHandler));
+    });
+}
+
+void Storage::deleteFiles(const Key& key)
+{
+    ASSERT(!RunLoop::isMain());
+
+    WebCore::deleteFile(recordPathForKey(key));
+    m_blobStorage.remove(blobPathForKey(key));
 }
 
 void Storage::updateFileModificationTime(const String& path)
@@ -574,9 +604,12 @@ void Storage::dispatchReadOperation(std::unique_ptr<ReadOperation> readOperation
     auto& readOperation = *readOperationPtr;
     m_activeReadOperations.add(WTFMove(readOperationPtr));
 
-    // I/O pressure may make disk operations slow. If they start taking very long time we rather go to network.
-    const auto readTimeout = 1500ms;
-    m_readOperationTimeoutTimer.startOneShot(readTimeout);
+    // Avoid randomness during testing.
+    if (m_mode != Mode::Testing) {
+        // I/O pressure may make disk operations slow. If they start taking very long time we rather go to network.
+        const Seconds readTimeout = 1500_ms;
+        m_readOperationTimeoutTimer.startOneShot(readTimeout);
+    }
 
     bool shouldGetBodyBlob = mayContainBlob(readOperation.key);
 
@@ -797,7 +830,7 @@ void Storage::store(const Record& record, MappedBodyHandler&& mappedBodyHandler)
 
     // Delay the start of writes a bit to avoid affecting early page load.
     // Completing writes will dispatch more writes without delay.
-    static const auto initialWriteDelay = 1s;
+    static const Seconds initialWriteDelay = 1_s;
     m_writeOperationDispatchTimer.startOneShot(initialWriteDelay);
 }
 
@@ -805,7 +838,7 @@ void Storage::traverse(const String& type, TraverseFlags flags, TraverseHandler&
 {
     ASSERT(RunLoop::isMain());
     ASSERT(traverseHandler);
-    // Avoid non-thread safe std::function copies.
+    // Avoid non-thread safe Function copies.
 
     auto traverseOperationPtr = std::make_unique<TraverseOperation>(type, flags, WTFMove(traverseHandler));
     auto& traverseOperation = *traverseOperationPtr;
@@ -836,9 +869,10 @@ void Storage::traverse(const String& type, TraverseFlags flags, TraverseHandler&
                 if (decodeRecordHeader(fileData, metaData, headerData, m_salt)) {
                     Record record {
                         metaData.key,
-                        std::chrono::system_clock::time_point(metaData.epochRelativeTimeStamp),
+                        metaData.timeStamp,
                         headerData,
-                        { }
+                        { },
+                        metaData.bodyHash
                     };
                     RecordInfo info {
                         static_cast<size_t>(metaData.bodySize),
@@ -859,11 +893,13 @@ void Storage::traverse(const String& type, TraverseFlags flags, TraverseHandler&
                 return traverseOperation.activeCount <= maximumParallelReadCount;
             });
         });
-        // Wait for all reads to finish.
-        std::unique_lock<Lock> lock(traverseOperation.activeMutex);
-        traverseOperation.activeCondition.wait(lock, [&traverseOperation] {
-            return !traverseOperation.activeCount;
-        });
+        {
+            // Wait for all reads to finish.
+            std::unique_lock<Lock> lock(traverseOperation.activeMutex);
+            traverseOperation.activeCondition.wait(lock, [&traverseOperation] {
+                return !traverseOperation.activeCount;
+            });
+        }
         RunLoop::main().dispatch([this, &traverseOperation] {
             traverseOperation.handler(nullptr, { });
             m_activeTraverseOperations.remove(&traverseOperation);
@@ -889,7 +925,7 @@ void Storage::setCapacity(size_t capacity)
     shrinkIfNeeded();
 }
 
-void Storage::clear(const String& type, std::chrono::system_clock::time_point modifiedSinceTime, std::function<void ()>&& completionHandler)
+void Storage::clear(const String& type, std::chrono::system_clock::time_point modifiedSinceTime, Function<void ()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
     LOG(NetworkCacheStorage, "(NetworkProcess) clearing cache");
@@ -928,6 +964,8 @@ void Storage::clear(const String& type, std::chrono::system_clock::time_point mo
 static double computeRecordWorth(FileTimes times)
 {
     using namespace std::chrono;
+    using namespace std::literals::chrono_literals;
+
     auto age = system_clock::now() - times.creation;
     // File modification time is updated manually on cache read. We don't use access time since OS may update it automatically.
     auto accessAge = times.modification - times.creation;
@@ -962,6 +1000,10 @@ static double deletionProbability(FileTimes times, unsigned bodyShareCount)
 void Storage::shrinkIfNeeded()
 {
     ASSERT(RunLoop::isMain());
+
+    // Avoid randomness caused by cache shrinks.
+    if (m_mode == Mode::Testing)
+        return;
 
     if (approximateSize() > m_capacity)
         shrink();

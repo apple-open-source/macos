@@ -34,7 +34,9 @@
 #include "FrameLoaderClient.h"
 #include "HistoryController.h"
 #include "HistoryItem.h"
+#include "Logging.h"
 #include "MainFrame.h"
+#include "NavigationScheduler.h"
 #include "Page.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
@@ -56,6 +58,30 @@ unsigned History::length() const
     if (!page)
         return 0;
     return page->backForward().count();
+}
+
+ExceptionOr<History::ScrollRestoration> History::scrollRestoration() const
+{
+    if (!m_frame)
+        return Exception { SECURITY_ERR };
+
+    auto* historyItem = m_frame->loader().history().currentItem();
+    if (!historyItem)
+        return ScrollRestoration::Auto;
+    
+    return historyItem->shouldRestoreScrollPosition() ? ScrollRestoration::Auto : ScrollRestoration::Manual;
+}
+
+ExceptionOr<void> History::setScrollRestoration(ScrollRestoration scrollRestoration)
+{
+    if (!m_frame)
+        return Exception { SECURITY_ERR };
+
+    auto* historyItem = m_frame->loader().history().currentItem();
+    if (historyItem)
+        historyItem->setShouldRestoreScrollPosition(scrollRestoration == ScrollRestoration::Auto);
+
+    return { };
 }
 
 SerializedScriptValue* History::state()
@@ -106,6 +132,8 @@ void History::forward(Document& document)
 
 void History::go(int distance)
 {
+    LOG(History, "History %p go(%d) frame %p (main frame %d)", this, distance, m_frame, m_frame ? m_frame->isMainFrame() : false);
+
     if (!m_frame)
         return;
 
@@ -114,6 +142,8 @@ void History::go(int distance)
 
 void History::go(Document& document, int distance)
 {
+    LOG(History, "History %p go(%d) in document %p frame %p (main frame %d)", this, distance, &document, m_frame, m_frame ? m_frame->isMainFrame() : false);
+
     if (!m_frame)
         return;
 
@@ -145,7 +175,7 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
         return { };
 
     URL fullURL = urlForState(urlString);
-    if (!fullURL.isValid() || !m_frame->document()->securityOrigin()->canRequest(fullURL))
+    if (!fullURL.isValid() || !m_frame->document()->securityOrigin().canRequest(fullURL))
         return Exception { SECURITY_ERR };
 
     if (fullURL.hasUsername() || fullURL.hasPassword()) {
@@ -207,10 +237,10 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
         m_frame->document()->updateURLForPushOrReplaceState(fullURL);
 
     if (stateObjectType == StateObjectType::Push) {
-        m_frame->loader().history().pushState(data, title, fullURL.string());
+        m_frame->loader().history().pushState(WTFMove(data), title, fullURL.string());
         m_frame->loader().client().dispatchDidPushStateWithinPage();
     } else if (stateObjectType == StateObjectType::Replace) {
-        m_frame->loader().history().replaceState(data, title, fullURL.string());
+        m_frame->loader().history().replaceState(WTFMove(data), title, fullURL.string());
         m_frame->loader().client().dispatchDidReplaceStateWithinPage();
     }
 

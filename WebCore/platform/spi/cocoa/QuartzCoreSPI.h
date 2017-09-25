@@ -34,18 +34,13 @@
 
 #ifdef __OBJC__
 
+#import <QuartzCore/CAContext.h>
 #import <QuartzCore/CALayerHost.h>
 #import <QuartzCore/CALayerPrivate.h>
 #import <QuartzCore/QuartzCorePrivate.h>
 
 #if PLATFORM(IOS)
 #import <QuartzCore/CADisplay.h>
-#endif
-
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
-@interface CAContext ()
-- (void)setCommitPriority:(uint32_t)commitPriority;
-@end
 #endif
 
 #endif // __OBJC__
@@ -63,6 +58,7 @@
 - (uint32_t)createImageSlot:(CGSize)size hasAlpha:(BOOL)flag;
 - (void)deleteSlot:(uint32_t)name;
 - (void)invalidate;
+- (void)invalidateFences;
 - (mach_port_t)createFencePort;
 - (void)setFencePort:(mach_port_t)port;
 - (void)setFencePort:(mach_port_t)port commitHandler:(void(^)(void))block;
@@ -82,21 +78,12 @@
 - (CGSize)size;
 - (void *)regionBeingDrawn;
 - (void)setContentsChanged;
-@property BOOL acceleratesDrawing;
 @property BOOL allowsGroupBlending;
 @property BOOL canDrawConcurrently;
 @property BOOL contentsOpaque;
 @property BOOL hitTestsAsOpaque;
 @property BOOL needsLayoutOnGeometryChange;
 @property BOOL shadowPathIsBounds;
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90300 && __IPHONE_OS_VERSION_MAX_ALLOWED < 100000
-@property (copy) NSString *contentsFormat;
-#endif
-@end
-
-@interface CATiledLayer ()
-- (void)displayInRect:(CGRect)rect levelOfDetail:(int)levelOfDetail options:(NSDictionary *)dictionary;
-- (void)setNeedsDisplayInRect:(CGRect)rect levelOfDetail:(int)levelOfDetail options:(NSDictionary *)dictionary;
 @end
 
 #if PLATFORM(IOS)
@@ -134,36 +121,30 @@ typedef struct CAColorMatrix CAColorMatrix;
 @property (copy) NSString *name;
 @end
 
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
 typedef enum {
     kCATransactionPhasePreLayout,
     kCATransactionPhasePreCommit,
     kCATransactionPhasePostCommit,
+    kCATransactionPhaseNull = ~0u
 } CATransactionPhase;
 
 @interface CATransaction ()
 + (void)addCommitHandler:(void(^)(void))block forPhase:(CATransactionPhase)phase;
-@end
+
+#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
++ (CATransactionPhase)currentPhase;
 #endif
+
+@end
 
 @interface CALayerHost : CALayer
 @property uint32_t contextId;
 @property BOOL inheritsSecurity;
 @end
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101100
-@interface CASpringAnimation : CABasicAnimation 
-@property CGFloat mass;
-@property CGFloat stiffness;
-@property CGFloat damping;
-@property CGFloat velocity;
-@property CGFloat initialVelocity;
-@end
-#else
 @interface CASpringAnimation (Private)
 @property CGFloat velocity;
 @end
-#endif
 
 #endif // __OBJC__
 
@@ -201,15 +182,6 @@ void CABackingStoreCollectBlocking(void);
 
 WTF_EXTERN_C_END
 
-// FIXME: Move this into the APPLE_INTERNAL_SDK block once it's in an SDK.
-@interface CAContext (AdditionalDetails)
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
-- (void)invalidateFences;
-#endif
-@end
-
-extern NSString * const kCATiledLayerRemoveImmediately;
-
 extern NSString * const kCAFilterColorInvert;
 extern NSString * const kCAFilterColorMatrix;
 extern NSString * const kCAFilterColorMonochrome;
@@ -236,14 +208,15 @@ extern NSString * const kCAContextDisplayName;
 extern NSString * const kCAContextDisplayId;
 extern NSString * const kCAContextIgnoresHitTest;
 
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90300
+#if PLATFORM(IOS)
 extern NSString * const kCAContentsFormatRGBA10XR;
 #endif
 
-#if (PLATFORM(APPLETV) && __TV_OS_VERSION_MAX_ALLOWED < 100000) \
-    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MAX_ALLOWED < 30000) \
-    || (PLATFORM(IOS) && TARGET_OS_IOS && __IPHONE_OS_VERSION_MAX_ALLOWED < 100000) \
-    || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101200)
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+extern NSString * const kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask;
+#endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101200
 @protocol CALayerDelegate <NSObject>
 @end
 

@@ -6,7 +6,7 @@ FW_DIR		= $(NSFRAMEWORKDIR)/Ruby.framework
 FW_VERSION_DIR	= $(FW_DIR)/Versions/$(VERSION)
 LOCAL_FW_RES_DIR = $(EXTRAS_DIR)/framework_resources
 SITEDIR		= /Library/Ruby/Site
-USRGEMDIR	= /Library/Ruby/Gems/$(VERSION3)
+USRGEMDIR	= /Library/Ruby/Gems/$(VERSION0)
 
 Project		= ruby
 UserType	= Developer
@@ -14,10 +14,11 @@ ToolType	= Commands
 GnuAfterInstall = post-install install-plist install-irbrc install-rails-placeholder
 GnuNoBuild	= YES
 
-# ruby_atomic.h
-Extra_CC_Flags = -DHAVE_GCC_SYNC_BUILTINS
-# don't expand CC -- keep it like this for rbconfig.rb
-Extra_Configure_Environment = CC="xcrun clang" CXX="xcrun clang++"
+# ruby_atomic.h + LibreSSL
+Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS -iwithsysroot /usr/local/libressl/include
+Extra_LD_Flags = -L $(SDKROOT)/usr/local/libressl/lib
+# don't use xcrun as xcrun_log will break configure -- keep it like this for rbconfig.rb
+Extra_Configure_Environment =
 comma := ,
 space :=
 space +=
@@ -30,6 +31,7 @@ Extra_Configure_Flags  = \
 	--with-out-ext=tk \
 	ac_cv_func_getcontext=no \
 	ac_cv_func_setcontext=no \
+	ac_cv_func_utimensat=no \
 	ac_cv_c_compiler_gnu=no \
 	ac_cv_header_net_if_h=yes \
 	av_cv_header_ifaddrs_h=yes \
@@ -37,6 +39,9 @@ Extra_Configure_Flags  = \
 	ac_cv_sizeof_struct_stat_st_size=SIZEOF_OFF_T \
 	ac_cv_sizeof_struct_stat_st_blocks=SIZEOF_INT64_T \
 	ac_cv_sizeof_struct_stat_st_ino=SIZEOF_UINT64_T
+
+# Stupid xcrun_log!
+Configure=$(SRCROOT)/_Configure
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -53,24 +58,22 @@ AEP_URL        = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceURL' $(AEP
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(shell basename $(AEP_URL))
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = ext_digest_md5_commoncrypto.diff \
-	ext_digest_sha1_commoncrypto.diff \
+AEP_Patches    = \
 	ext_openssl_extconf.rb.diff \
 	configure.diff \
 	tool_config.guess.diff \
 	tool_mkconfig.rb.diff \
-	ext_etc_etc.c.diff \
 	common.mk.diff \
 	message_tracing_main.c.diff \
-	ext_psych_yaml_scanner.c.diff \
 	lib_rubygems_defaults.rb.diff \
 	getaddrinfo-test.diff
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)
-TEENY     = $(shell echo $(AEP_Version) | $(SED) -e 's:-p.*::' | cut -d. -f3)
+#TEENY     = $(shell echo $(AEP_Version) | $(SED) -e 's:-p.*::' | cut -d. -f3)
 VERSION   = $(MAJOR).$(MINOR)
-VERSION3  = $(MAJOR).$(MINOR).$(TEENY)
+VERSION0  = $(MAJOR).$(MINOR).0
+#VERSION3  = $(MAJOR).$(MINOR).$(TEENY)
 
 ConfigStamp2 = $(ConfigStamp)2
 
@@ -83,7 +86,7 @@ $(ConfigStamp2): $(ConfigStamp)
 
 build:: configure
 	$(INSTALL_DIRECTORY) $(SYMROOT)
-	$(_v) $(MAKE) -C $(BuildDirectory) CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" XLDFLAGS='' RUBY_CODESIGN="-"
+	$(_v) $(MAKE) -C $(BuildDirectory) CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" RUBY_CODESIGN="-"
 
 post-install:
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(FW_VERSION_DIR)/Resources
@@ -100,15 +103,15 @@ post-install:
 	$(LN) -vfsh $(VERSION) $(DSTROOT)/$(FW_DIR)/Versions/Current
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(FW_VERSION_DIR)/Headers
 	$(LN) -vfsh Versions/Current/Headers $(DSTROOT)/$(FW_DIR)/Headers
-	$(LN) -vfh $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION3)/ruby.h $(DSTROOT)/$(FW_DIR)/Headers/
+	$(LN) -vfh $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION0)/ruby.h $(DSTROOT)/$(FW_DIR)/Headers/
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby
 	# fix #include <ruby.h> for BridgeSupport
-	for h in $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION3)/*/*.h; do \
+	for h in $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION0)/*/*.h; do \
 		$(SED) -i '' -e 's:#include <ruby\.h>:#include "ruby\.h":' \
 			-e 's:const rb_data_type_t \*parent:const struct rb_data_type_struct \*parent:' $$h; \
 		$(LN) -vfh $$h $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby; \
 	done
-	$(LN) -vfh $(shell find $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION3) -name config.h) $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby
+	$(LN) -vfh $(shell find $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION0) -name config.h) $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby
 	$(LN) -vfsh . $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby/ruby # support include "ruby/foo.h" from inside Headers/ruby
 	$(LN) -vfsh Versions/Current/Ruby $(DSTROOT)$(FW_DIR)/Ruby
 	find $(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR) -name '*.a' -delete
@@ -133,6 +136,7 @@ post-install:
 		$(MV) $$i $(DSTROOT)/$(FW_VERSION_DIR)/Ruby || exit 1; \
 	done
 	(cd $(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR); $(LN) -vsh ../../Ruby $$(readlink libruby.dylib))
+	sh -x $(SRCROOT)/reexport.sh "$(DSTROOT)$(USRLIBDIR)/libruby.$(VERSION0).dylib" "$(DSTROOT)$(FW_VERSION_DIR)/Ruby" "${VERSION0}" "${VERSION}"
 	# rdar://problem/8937160
 	find $(DSTROOT) -type l -print0 | xargs -0 -t chmod -h go-w
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(MANDIR)/man1
@@ -146,7 +150,7 @@ post-install:
 	@echo '^^^ Case Insensitive Duplicates ^^^'
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(USRGEMDIR)
 	find "$(OBJROOT)" -name "*.log" -print0 | while IFS= read -r -d $$'\0' mkmflog; do echo "Printing $$mkmflog"; cat "$$mkmflog"; done
-	darwinvers=`$(SRCROOT)/ruby/tool/config.guess | sed -e 's/.*-//' | sed -e 's/\..*//'`; if [ ! -e "$(DSTROOT)/$(FW_VERSION_DIR)/$(USRLIBDIR)/ruby/$(VERSION3)/universal-$${darwinvers}/socket.bundle" ]; then exit 1; fi
+	darwinvers=`$(SRCROOT)/ruby/tool/config.guess | sed -e 's/.*-//' | sed -e 's/\..*//'`; if [ ! -e "$(DSTROOT)/$(FW_VERSION_DIR)/$(USRLIBDIR)/ruby/$(VERSION0)/universal-$${darwinvers}/socket.bundle" ]; then exit 1; fi
 
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions

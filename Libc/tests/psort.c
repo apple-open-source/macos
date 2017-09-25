@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <mach/clock_types.h>
+#include <TargetConditionals.h>
 
 #include <darwintest.h>
 
@@ -17,10 +18,14 @@ T_DECL(psort, "psort(3)")
 {
 	struct timeval tv_start, tv_stop;
 	struct rusage ru_start, ru_stop;
-	unsigned long pwt, put, qwt, qut;
+	uint64_t pwt, put, qwt, qut;
 
 	T *buf, *sorted;
+#if TARGET_OS_BRIDGE
+	const size_t nel = 2048000;
+#else
 	const size_t nel = 20480000;
+#endif
 	const size_t width = sizeof(T), bufsiz = nel * width;
 
 	buf = malloc(bufsiz);
@@ -38,6 +43,7 @@ T_DECL(psort, "psort(3)")
 			((uint64_t)tv_start.tv_sec * USEC_PER_SEC + tv_start.tv_usec);
 	put = ((uint64_t)ru_stop.ru_utime.tv_sec * USEC_PER_SEC + ru_stop.ru_utime.tv_usec) -
 			((uint64_t)ru_start.ru_utime.tv_sec * USEC_PER_SEC + ru_start.ru_utime.tv_usec);
+	T_LOG("psort: wall-time=%llu us; user-time=%llu us", pwt, put);
 
 	getrusage(RUSAGE_SELF, &ru_start);
 	gettimeofday(&tv_start, NULL);
@@ -49,16 +55,17 @@ T_DECL(psort, "psort(3)")
 			((uint64_t)tv_start.tv_sec * USEC_PER_SEC + tv_start.tv_usec);
 	qut = ((uint64_t)ru_stop.ru_utime.tv_sec * USEC_PER_SEC + ru_stop.ru_utime.tv_usec) -
 			((uint64_t)ru_start.ru_utime.tv_sec * USEC_PER_SEC + ru_start.ru_utime.tv_usec);
+	T_LOG("qsort: wall-time=%llu us; user-time=%llu us", qwt, qut);
 
-	bool match = true;
 	for (size_t i = 0; i < nel; i++) {
-		if (!(match = (buf[i] == sorted[i]))) break;
+		if (buf[i] != sorted[i]) {
+			T_ASSERT_EQ(buf[i], sorted[i], NULL);
+		}
 	}
 
 	free(sorted);
 	free(buf);
 
-	T_MAYFAIL; T_EXPECT_LE((double)pwt/qwt, 1.0, "psort/qsort wall time");
-	T_MAYFAIL; T_EXPECT_LE((double)qut/put, 1.0, "qsort/psort user time");
-	T_EXPECT_TRUE(match, "psort matches qsort");
+	T_EXPECT_LE((double)pwt/qwt, 1.2, "psort/qsort wall time");
+	T_EXPECT_LE((double)qut/put, 1.2, "qsort/psort user time");
 }

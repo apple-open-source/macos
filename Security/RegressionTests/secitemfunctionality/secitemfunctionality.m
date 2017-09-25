@@ -18,13 +18,8 @@
 #include <err.h>
 #include <strings.h>
 
-#if !TARGET_OS_IPHONE
-/*
- * Becuase this file uses the iOS headers and we have no unified the headers
- * yet, its not possible to include <Security/SecKeychain.h> here because
- * of missing type. Pull in prototype needed.
- */
-extern OSStatus SecKeychainUnlock(CFTypeRef keychain, UInt32 passwordLength, const void *password, Boolean usePassword);
+#if SEC_OS_OSX_INCLUDES
+#include <Security/SecKeychain.h>
 #endif
 
 static void
@@ -35,8 +30,10 @@ static void
 fail(const char *fmt, ...)
 {
     va_list ap;
+    printf("[FAIL]\n");
+    fflush(stdout);
+
     va_start(ap, fmt);
-    printf("[FAIL] ");
     verrx(1, fmt, ap);
     va_end(ap);
 }
@@ -50,7 +47,7 @@ CheckItemAddDeleteMaybeLegacyKeychainNoData(void)
 {
     OSStatus status;
 
-    printf("[TEST] %s\n", __FUNCTION__);
+    printf("[BEGIN] %s\n", __FUNCTION__);
 
     NSDictionary *query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -87,7 +84,7 @@ CheckItemAddDeleteNoData(void)
 {
     OSStatus status;
 
-    printf("[TEST] %s\n", __FUNCTION__);
+    printf("[BEGIN] %s\n", __FUNCTION__);
 
     NSDictionary *query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -123,7 +120,7 @@ CheckItemUpdateAccessGroupGENP(void)
 {
     OSStatus status;
 
-    printf("[TEST] %s\n", __FUNCTION__);
+    printf("[BEGIN] %s\n", __FUNCTION__);
 
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -296,7 +293,7 @@ CheckItemUpdateAccessGroupIdentity(void)
     OSStatus status;
     CFTypeRef ref = NULL;
 
-    printf("[TEST] %s\n", __FUNCTION__);
+    printf("[BEGIN] %s\n", __FUNCTION__);
 
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassIdentity,
@@ -423,7 +420,7 @@ CheckFindIdentityByReference(void)
     OSStatus status;
     CFDataRef pref = NULL, pref2 = NULL;
 
-    printf("[TEST] %s\n", __FUNCTION__);
+    printf("[BEGIN] %s\n", __FUNCTION__);
 
     /*
      * Clean identities
@@ -559,10 +556,13 @@ RunCopyPerfTest(NSString *name, NSDictionary *query)
     CFTypeRef result = NULL;
 
     status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-    if (status != 0)
-        abort();
-
     uint64_t stop = mach_absolute_time();
+
+    if (status != 0) {
+        printf("SecItemCopyMatching failed with: %d\n", (int)status);
+        fflush(stdout);
+        abort();
+    }
 
     if (result)
         CFRelease(result);
@@ -574,11 +574,43 @@ RunCopyPerfTest(NSString *name, NSDictionary *query)
 }
 
 static void
+RunDigestPerfTest(NSString *name, NSString *itemClass, NSString *accessGroup, NSUInteger expectedCount)
+{
+    uint64_t start = mach_absolute_time();
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    __block uint64_t stop;
+
+    _SecItemFetchDigests(itemClass, accessGroup, ^(NSArray *items, NSError *error) {
+        stop = mach_absolute_time();
+        if (error) {
+            printf("_SecItemFetchDigests failed with: %ld\n", (long)error.code);
+            fflush(stdout);
+            abort();
+        }
+        dispatch_semaphore_signal(sema);
+
+        if (expectedCount != [items count]) {
+            printf("_SecItemFetchDigests didn't return expected items: %ld\n", (long)[items count]);
+            fflush(stdout);
+            abort();
+        }
+    });
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+
+
+    uint64_t us = timeDiff(start, stop);
+
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemCopyDigest-%@\n[RESULT_VALUE] %lu\n",
+           name, (unsigned long)us] UTF8String]);
+}
+
+
+static void
 CheckItemPerformance(void)
 {
     unsigned n;
 
-    printf("[TEST] %s\n", __FUNCTION__);
+    printf("[BEGIN] %s\n", __FUNCTION__);
 
     /*
      * Clean identities
@@ -623,6 +655,7 @@ CheckItemPerformance(void)
         (id)kSecAttrService : @"service",
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
     });
+    RunDigestPerfTest(@"Digest1000Items", (id)kSecClassGenericPassword, @"keychain-test1", 1000);
     RunCopyPerfTest(@"GetAttrOneItemUnique", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccount : @"account-0",
@@ -676,6 +709,8 @@ CheckItemPerformance(void)
 int
 main(int argc, const char ** argv)
 {
+    printf("[TEST] secitemfunctionality\n");
+
 #if TARGET_OS_OSX
     char *user = getenv("USER");
     if (user && strcmp("bats", user) == 0) {
@@ -691,6 +726,8 @@ main(int argc, const char ** argv)
     CheckItemUpdateAccessGroupGENP();
     CheckItemUpdateAccessGroupIdentity();
 
+    printf("[SUMMARY]\n");
+    printf("test completed\n");
 
     return 0;
 }

@@ -33,7 +33,6 @@
 #include <libDER/libDER.h>
 #include <sys/queue.h>
 #include <stdbool.h>
-#include <Security/certextensions.h>
 
 __BEGIN_DECLS
 

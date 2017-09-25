@@ -616,6 +616,8 @@ static int fat12_set(cl_t cluster, cl_t value)
 	
 	/* Point to the @cluster'th entry in the FAT. */
 	p = block->buffer + (cluster + cluster/2) % FAT_CHUNK_SIZE;
+
+	value &= 0xFFF;
 	
 	/* Mix the new value with other nibble. */
 	if (cluster & 1)

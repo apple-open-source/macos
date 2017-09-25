@@ -2,7 +2,7 @@
 #include <pthread/private.h>
 #include <dispatch/dispatch.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 extern __uint64_t __thread_selfid( void );
 

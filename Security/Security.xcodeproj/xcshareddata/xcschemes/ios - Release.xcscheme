@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0810"
+   LastUpgradeVersion = "0900"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -211,6 +211,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_18_certificate_parse"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_20_sectrust"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -275,7 +279,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_32_keychain_migrate"
+            argument = "si_32_sectrust_pinning_required"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -335,7 +339,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_67_sectrust_blacklist"
+            argument = "si_67_sectrust_blocklist"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

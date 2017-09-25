@@ -62,9 +62,9 @@ static void fprint_string(FILE *file, CFStringRef string) {
     }
 }
 
-static void cffprint(FILE *file, CFStringRef fmt, ...) CF_FORMAT_FUNCTION(2,0);
+static void cffprint(FILE *file, CFStringRef fmt, ...) CF_FORMAT_FUNCTION(2,3);
 
-static void cffprint_v(FILE *file, CFStringRef fmt, va_list args);
+static void cffprint_v(FILE *file, CFStringRef fmt, va_list args) CF_FORMAT_FUNCTION(2,0);
 static void cffprint_c_v(FILE *file, const char *fmt, va_list args);
 
 static void cffprint_v(FILE *file, CFStringRef fmt, va_list args) {
@@ -73,11 +73,17 @@ static void cffprint_v(FILE *file, CFStringRef fmt, va_list args) {
     CFRelease(line);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+
 static void cffprint_c_v(FILE *file, const char *fmt, va_list args) {
     CFStringRef cffmt = CFStringCreateWithCString(kCFAllocatorDefault, fmt, kCFStringEncodingUTF8);
     cffprint_v(file, cffmt, args);
     CFRelease(cffmt);
 }
+
+#pragma clang diagnostic pop
+
 
 static void cffprint(FILE *file, CFStringRef fmt, ...) {
     va_list args;
@@ -132,6 +138,8 @@ static int test_plan_pass(void) {
     }
     return 0;
 }
+
+static int test_plan_fail(CFStringRef reason, ...) CF_FORMAT_FUNCTION(1, 2);
 
 static int test_plan_fail(CFStringRef reason, ...) {
     const char *name = test_plan_name();

@@ -221,12 +221,17 @@ static void communicateWithTimeStampingServer(xpc_object_t event, const char *re
         }
         
         size_t length = (errStr || !data) ? 0 : [data length];
-        xpc_object_t tsaReply = xpc_data_create([data bytes], length);
+        xpc_object_t tsaReply = data ? xpc_data_create([data bytes], length) : NULL;
         xpc_connection_t peer = xpc_dictionary_get_remote_connection(event);
-        xpc_object_t reply = (tsaError)?
-            xpc_create_reply_with_format(event, 
-                "{TimeStampReply: %value, TimeStampError: %value, TimeStampStatus: %value}", tsaReply, tsaError, tsaStatusCode) :
-            xpc_create_reply_with_format(event, "{TimeStampReply: %value}", tsaReply);
+        xpc_object_t reply = NULL;
+        if (tsaError && tsaReply && tsaStatusCode) {
+            reply = xpc_create_reply_with_format(event, "{TimeStampReply: %value, TimeStampError: %value, TimeStampStatus: %value}",
+                                                 tsaReply, tsaError, tsaStatusCode);
+        } else if (tsaReply) {
+            reply = xpc_create_reply_with_format(event, "{TimeStampReply: %value}", tsaReply);
+        } else {
+            reply = xpc_create_reply_with_format(event, "No TimeStampReply or TimeStampError");
+        }
         xpc_connection_send_message(peer, reply);
         xpc_release(reply);
 

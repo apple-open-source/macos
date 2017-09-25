@@ -26,9 +26,8 @@
 
 #pragma once
 
-#include "JSDOMBinding.h"
+#include "JSDOMConvert.h"
 #include <runtime/IteratorPrototype.h>
-#include <runtime/JSDestructibleObject.h>
 #include <type_traits>
 
 namespace WebCore {
@@ -99,9 +98,9 @@ public:
         return instance;
     }
 
-    static Prototype* createPrototype(JSC::VM& vm, JSC::JSGlobalObject* globalObject)
+    static Prototype* createPrototype(JSC::VM& vm, JSC::JSGlobalObject& globalObject)
     {
-        return Prototype::create(vm, globalObject, Prototype::createStructure(vm, globalObject, globalObject->iteratorPrototype()));
+        return Prototype::create(vm, &globalObject, Prototype::createStructure(vm, &globalObject, globalObject.iteratorPrototype()));
     }
 
     JSC::JSValue next(JSC::ExecState&);
@@ -247,7 +246,7 @@ JSC::EncodedJSValue JSC_HOST_CALL JSDOMIteratorPrototype<JSWrapper, IteratorTrai
     JSC::VM& vm = state->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto iterator = jsDynamicDowncast<JSDOMIterator<JSWrapper, IteratorTraits>*>(state->thisValue());
+    auto iterator = jsDynamicDowncast<JSDOMIterator<JSWrapper, IteratorTraits>*>(vm, state->thisValue());
     if (!iterator)
         return JSC::JSValue::encode(throwTypeError(state, scope, ASCIILiteral("Cannot call next() on a non-Iterator object")));
 
@@ -258,7 +257,7 @@ template<typename JSWrapper, typename IteratorTraits>
 void JSDOMIteratorPrototype<JSWrapper, IteratorTraits>::finishCreation(JSC::VM& vm, JSC::JSGlobalObject* globalObject)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
 
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->next, next, 0, 0, JSC::NoIntrinsic);
 }

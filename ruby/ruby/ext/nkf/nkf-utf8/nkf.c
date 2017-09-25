@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 1987, Fujitsu LTD. (Itaru ICHIKAWA).
- * Copyright (c) 1996-2010, The nkf Project.
+ * Copyright (c) 1996-2013, The nkf Project.
  *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
@@ -20,11 +20,11 @@
  *
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#define NKF_VERSION "2.1.3"
-#define NKF_RELEASE_DATE "2012-11-22"
+#define NKF_VERSION "2.1.4"
+#define NKF_RELEASE_DATE "2015-12-12"
 #define COPY_RIGHT \
     "Copyright (C) 1987, FUJITSU LTD. (I.Ichikawa).\n" \
-    "Copyright (C) 1996-2012, The nkf Project."
+    "Copyright (C) 1996-2015, The nkf Project."
 
 #include "config.h"
 #include "nkf.h"
@@ -774,7 +774,7 @@ nkf_enc_find(const char *name)
 
 #ifdef DEFAULT_CODE_LOCALE
 static const char*
-nkf_locale_charmap()
+nkf_locale_charmap(void)
 {
 #ifdef HAVE_LANGINFO_H
     return nl_langinfo(CODESET);
@@ -802,7 +802,7 @@ nkf_locale_charmap()
 }
 
 static nkf_encoding*
-nkf_locale_encoding()
+nkf_locale_encoding(void)
 {
     nkf_encoding *enc = 0;
     const char *encname = nkf_locale_charmap();
@@ -813,13 +813,13 @@ nkf_locale_encoding()
 #endif /* DEFAULT_CODE_LOCALE */
 
 static nkf_encoding*
-nkf_utf8_encoding()
+nkf_utf8_encoding(void)
 {
     return &nkf_encoding_table[UTF_8];
 }
 
 static nkf_encoding*
-nkf_default_encoding()
+nkf_default_encoding(void)
 {
     nkf_encoding *enc = 0;
 #ifdef DEFAULT_CODE_LOCALE
@@ -3575,6 +3575,7 @@ static void
 check_bom(FILE *f)
 {
     int c2;
+    input_bom_f = FALSE;
     switch(c2 = (*i_getc)(f)){
     case 0x00:
 	if((c2 = (*i_getc)(f)) == 0x00){
@@ -3833,8 +3834,8 @@ fold_conv(nkf_char c2, nkf_char c1)
 	    f_prev = c1;
 	    f_line = 0;
 	    fold_state =  CR;
-	} else if ((f_prev == c1 && !fold_preserve_f)
-		   || (f_prev == LF && fold_preserve_f)
+	} else if ((f_prev == c1)
+		   || (f_prev == LF)
 		  ) {        /* duplicate newline */
 	    if (f_line) {
 		f_line = 0;
@@ -4340,7 +4341,7 @@ mime_ungetc_buf(nkf_char c, FILE *f)
 static nkf_char
 mime_getc_buf(FILE *f)
 {
-    /* we don't keep eof of mime_input_buf, becase it contains ?= as
+    /* we don't keep eof of mime_input_buf, because it contains ?= as
        a terminator. It was checked in mime_integrity. */
     return ((mimebuf_f)?
 	    (*i_mgetc_buf)(f):mime_input_buf(mime_input_state.input++));
@@ -5435,8 +5436,8 @@ mime_putc(nkf_char c)
 		mimeout_state.buf[mimeout_state.count++] = (char)c;
 		if (mimeout_state.count>MIMEOUT_BUF_LENGTH) {
 		    eof_mime();
-		    for (i=0;i<mimeout_state.count;i++) {
-			(*o_mputc)(mimeout_state.buf[i]);
+		    for (j=0;j<mimeout_state.count;j++) {
+			(*o_mputc)(mimeout_state.buf[j]);
 			base64_count++;
 		    }
 		    mimeout_state.count = 0;
@@ -5490,7 +5491,7 @@ typedef struct nkf_iconv_t {
     size_t input_buffer_size;
     char *output_buffer;
     size_t output_buffer_size;
-}
+};
 
 static nkf_iconv_t
 nkf_iconv_new(char *tocode, char *fromcode)
@@ -5713,9 +5714,9 @@ module_connection(void)
 		x0201_f = X0201_DEFAULT;
 	}
 
-    /* replace continucation module, from output side */
+    /* replace continuation module, from output side */
 
-    /* output redicrection */
+    /* output redirection */
 #ifdef CHECK_OPTION
     if (noout_f || guess_f){
 	o_putc = no_putc;
@@ -5752,7 +5753,7 @@ module_connection(void)
 
     i_getc = std_getc;
     i_ungetc = std_ungetc;
-    /* input redicrection */
+    /* input redirection */
 #ifdef INPUT_OPTION
     if (cap_f){
 	i_cgetc = i_getc; i_getc = cap_getc;
@@ -5914,7 +5915,7 @@ kanji_convert(FILE *f)
 		/* in case of 8th bit is on */
 		if (!estab_f&&!mime_decode_mode) {
 		    /* in case of not established yet */
-		    /* It is still ambiguious */
+		    /* It is still ambiguous */
 		    if (h_conv(f, c2, c1)==EOF) {
 			LAST;
 		    }
@@ -6150,9 +6151,10 @@ kanji_convert(FILE *f)
 		    }
 		}
 		else {
+		    i_ungetc(c1,f);
 		    /* lonely ESC  */
 		    (*oconv)(0, ESC);
-		    SEND;
+		    SKIP;
 		}
 	    } else if (c1 == ESC && iconv == s_iconv) {
 		/* ESC in Shift_JIS */
@@ -6189,9 +6191,10 @@ kanji_convert(FILE *f)
 		    }
 		}
 		else {
+		    i_ungetc(c1,f);
 		    /* lonely ESC  */
 		    (*oconv)(0, ESC);
-		    SEND;
+		    SKIP;
 		}
 	    } else if (c1 == LF || c1 == CR) {
 		if (broken_f&4) {
@@ -6896,7 +6899,7 @@ options(unsigned char *cp)
 	    continue;
 #endif
 	case SP:
-	    /* module muliple options in a string are allowed for Perl moudle  */
+	    /* module multiple options in a string are allowed for Perl module  */
 	    while(*cp && *cp++!='-');
 	    continue;
 	default:

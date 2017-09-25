@@ -3,24 +3,8 @@
 <plist version="1.0">
 <dict>
 	<key>application-identifier</key>
-	<string>com.apple.securityd</string>
-	<key>com.apple.keystore.access-keychain-keys</key>
-	<true/>
-	<key>com.apple.keystore.lockassertion</key>
-	<true/>
+	<string>com.apple.swcagent</string>
 	<key>com.apple.private.associated-domains</key>
 	<true/>
-	<key>com.apple.private.necp.match</key>
-	<true/>
-	<key>com.apple.private.network.socket-delegate</key>
-	<true/>
-	<key>com.apple.mkb.usersession.info</key>
-	<true/>
-	<key>com.apple.private.applecredentialmanager.allow</key>
-	<true/>
-	<key>com.apple.private.MobileGestalt.AllowedProtectedKeys</key>
-	<array>
-		<string>SerialNumber</string>
-	</array>
 </dict>
 </plist>

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/command'
 require 'rubygems/local_remote_options'
 require 'rubygems/version_option'
@@ -9,7 +10,21 @@ class Gem::Commands::YankCommand < Gem::Command
   include Gem::GemcutterUtilities
 
   def description # :nodoc:
-    'Remove a specific gem version release from RubyGems.org'
+    <<-EOF
+The yank command removes a gem you pushed to a server from the server's
+index.
+
+Note that if you push a gem to rubygems.org the yank command does not
+prevent other people from downloading the gem via the download link.
+
+Once you have pushed a gem several downloads will happen automatically
+via the webhooks.  If you accidentally pushed passwords or other sensitive
+data you will need to change them immediately and yank your gem.
+
+If you are yanking a gem due to intellectual property reasons contact
+http://help.rubygems.org for permanent removal.  Be sure to mention this
+as the reason for the removal request.
+    EOF
   end
 
   def arguments # :nodoc:
@@ -17,60 +32,50 @@ class Gem::Commands::YankCommand < Gem::Command
   end
 
   def usage # :nodoc:
-    "#{program_name} GEM -v VERSION [-p PLATFORM] [--undo] [--key KEY_NAME]"
+    "#{program_name} GEM -v VERSION [-p PLATFORM] [--key KEY_NAME] [--host HOST]"
   end
 
   def initialize
-    super 'yank', description
+    super 'yank', 'Remove a pushed gem from the index'
 
     add_version_option("remove")
     add_platform_option("remove")
 
-    add_option('--undo') do |value, options|
-      options[:undo] = true
+    add_option('--host HOST',
+               'Yank from another gemcutter-compatible host') do |value, options|
+      options[:host] = value
     end
 
-    add_option('-k', '--key KEY_NAME',
-               'Use API key from your gem credentials file') do |value, options|
-      options[:key] = value
-    end
+    add_key_option
+    @host = nil
   end
 
   def execute
-    sign_in
+    @host = options[:host]
+
+    sign_in @host
 
     version   = get_version_from_requirements(options[:version])
     platform  = get_platform_from_requirements(options)
-    api_key   = Gem.configuration.rubygems_api_key
-    api_key   = Gem.configuration.api_keys[options[:key].to_sym] if options[:key]
 
     if version then
-      if options[:undo] then
-        unyank_gem(version, platform, api_key)
-      else
-        yank_gem(version, platform, api_key)
-      end
+      yank_gem(version, platform)
     else
       say "A version argument is required: #{usage}"
       terminate_interaction
     end
   end
 
-  def yank_gem(version, platform, api_key)
+  def yank_gem(version, platform)
     say "Yanking gem from #{self.host}..."
-    yank_api_request(:delete, version, platform, "api/v1/gems/yank", api_key)
-  end
-
-  def unyank_gem(version, platform, api_key)
-    say "Unyanking gem from #{host}..."
-    yank_api_request(:put, version, platform, "api/v1/gems/unyank", api_key)
+    yank_api_request(:delete, version, platform, "api/v1/gems/yank")
   end
 
   private
 
-  def yank_api_request(method, version, platform, api, api_key)
+  def yank_api_request(method, version, platform, api)
     name = get_one_gem_name
-    response = rubygems_api_request(method, api) do |request|
+    response = rubygems_api_request(method, api, host) do |request|
       request.add_field("Authorization", api_key)
 
       data = {

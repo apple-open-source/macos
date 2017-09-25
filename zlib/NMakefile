@@ -7,7 +7,7 @@ bits=32
 !endif
 
 name=zlib
-project=$(name)-1.2.8
+project=$(name)-1.2.11
 bin_dir=bin$(bits)
 lib_dir=lib$(bits)
 sym_dir=public$(bits)\sym

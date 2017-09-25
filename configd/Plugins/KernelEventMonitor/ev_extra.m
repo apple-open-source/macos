@@ -75,11 +75,17 @@ ifexpensive_set(int s, const char * name, uint32_t expensive)
 {
 #if	defined(SIOCSIFEXPENSIVE) && !defined(MAIN)
 	struct ifreq	ifr;
+	int		ret;
 
 	bzero(&ifr, sizeof(ifr));
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_expensive = expensive;
-	return (ioctl(s, SIOCSIFEXPENSIVE, &ifr));
+	ret = ioctl(s, SIOCSIFEXPENSIVE, &ifr);
+	if (ret == -1) {
+		SC_log(LOG_ERR, "%s: ioctl(SIOCSIFEXPENSIVE) failed: %s", name, strerror(errno));
+	}
+
+	return ret;
 #else	// defined(SIOCSIFEXPENSIVE) && !defined(MAIN)
 	return 0;
 #endif	// defined(SIOCSIFEXPENSIVE) && !defined(MAIN)

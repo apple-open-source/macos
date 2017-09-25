@@ -399,7 +399,62 @@
 >}
 >No, really exited
 
-   (set -e
+   (cd ..; $ZTST_exe -fc 'unsetopt posixtraps;
+   echo start program
+   emulate sh -c '\''testfn() {
+     echo start function
+     set -o | grep posixtraps
+     trap "echo EXIT TRAP TRIGGERED" EXIT
+     echo end function
+   }'\''
+   testfn
+   echo program continuing
+   echo end of program')
+0:POSIX_TRAPS effect on EXIT trap is sticky
+>start program
+>start function
+>noposixtraps          off
+>end function
+>program continuing
+>end of program
+>EXIT TRAP TRIGGERED
+
+   (cd ..; $ZTST_exe -fc '
+     echo entering program
+     emulate sh -c '\''trap "echo POSIX exit trap triggered" EXIT'\''
+     fn() {
+        trap "echo native zsh function-local exit trap triggered" EXIT
+        echo entering native zsh function
+     }
+     fn
+     echo exiting program
+   ')
+0:POSIX EXIT trap can have nested native mode EXIT trap
+>entering program
+>entering native zsh function
+>native zsh function-local exit trap triggered
+>exiting program
+>POSIX exit trap triggered
+
+   (cd ..; $ZTST_exe -fc '
+     echo entering program
+     emulate sh -c '\''spt() { trap "echo POSIX exit trap triggered" EXIT; }'\''
+     fn() {
+	trap "echo native zsh function-local exit trap triggered" EXIT
+	echo entering native zsh function
+     }
+     spt
+     fn
+     echo exiting program
+   ')
+0:POSIX EXIT trap not replaced if defined within function
+>entering program
+>entering native zsh function
+>native zsh function-local exit trap triggered
+>exiting program
+>POSIX exit trap triggered
+
+    (set -e
     printf "a\nb\n" | while read line
     do
        [[ $line = a* ]] || continue
@@ -421,7 +476,7 @@
     fi
   }
   fn
-0:ERRRETURN not triggered in if condition
+0:ERR_RETURN not triggered in if condition
 >Oh, yes
 
   fn() {
@@ -435,7 +490,7 @@
     fi
   }
   fn
-1:ERRRETURN in "if"
+1:ERR_RETURN in "if"
 
   fn() {
     emulate -L zsh
@@ -448,7 +503,7 @@
     fi
   }
   fn
-1:ERRRETURN in "else" branch (regression test)
+1:ERR_RETURN in "else" branch (regression test)
 
   $ZTST_testdir/../Src/zsh -f =(<<<"
   if false; then
@@ -460,9 +515,246 @@
     print Yes
   fi
   ")
-0:ERRRETURN when false "if" is the first statement in an "else" (regression)
+0:ERR_RETURN when false "if" is the first statement in an "else" (regression)
 >Yes
 F:Must be tested with a top-level script rather than source or function
+
+  fn() {
+      emulate -L zsh
+      setopt errreturn
+      print before
+      false
+      print after
+  }
+  fn
+1:ERR_RETURN, basic case
+>before
+
+  fn() {
+      emulate -L zsh
+      setopt errreturn
+      print before
+      ! true
+      ! false
+      print after
+  }
+  fn
+0:ERR_RETURN with "!"
+>before
+>after
+
+  fn() {
+      emulate -L zsh
+      setopt errreturn
+      print before
+      ! true
+      ! false
+      false
+      print after
+  }
+  fn
+1:ERR_RETURN with "!" and a following false
+>before
+
+  fn() {
+      emulate -L zsh
+      setopt errreturn
+      print before
+      ! if true; then
+        false
+      fi
+      print after
+  }
+  fn
+0:ERR_RETURN with "!" suppressed inside complex structure
+>before
+>after
+
+  fn() {
+      emulate -L zsh
+      setopt errreturn
+      print before
+      if true; then
+        false
+      fi
+      print after
+  }
+  fn
+1:ERR_RETURN with no "!" suppression (control case)
+>before
+
+  (setopt err_return
+    fn() {
+      print before-in
+      false && false
+    }
+    print before-out
+    fn
+    print after-out
+  )
+1:ERR_RETURN with "&&" in function (regression test)
+>before-out
+>before-in
+
+  (setopt err_return
+    fn() {
+      print before-in
+      false && false
+      print after-in
+    }
+    print before-out
+    fn
+    print after-out
+  )
+0:ERR_RETURN not triggered on LHS of "&&" in function
+>before-out
+>before-in
+>after-in
+>after-out
+
+  (setopt err_return
+    fn() {
+      print before-in
+      true && false
+      print after-in
+    }
+    print before-out
+    fn
+    print after-out
+  )
+1:ERR_RETURN triggered on RHS of "&&" in function
+>before-out
+>before-in
+
+  (setopt err_exit
+  for x in y; do
+    false && true
+  done
+  print OK
+  )
+0:ERR_EXIT not triggered by status 1 at end of for
+>OK
+
+  (setopt err_exit
+  integer x=0
+  while (( ! x++ )); do
+    false && true
+  done
+  print OK
+  )
+0:ERR_EXIT not triggered by status 1 at end of while
+>OK
+
+  (setopt err_exit
+  repeat 1; do
+    false && true
+  done
+  print OK
+  )
+0:ERR_EXIT not triggered by status 1 at end of repeat
+>OK
+
+  (setopt err_exit
+  if true; then
+    false && true
+  fi
+  print OK
+  )
+0:ERR_EXIT not triggered by status 1 at end of if
+>OK
+
+  (setopt err_exit
+  {
+    false && true
+  }
+  print OK
+  )
+0:ERR_EXIT not triggered by status 1 at end of { }
+>OK
+
+  (setopt err_exit
+  for x in y; do
+    false
+  done
+  print OK
+  )
+1:ERR_EXIT triggered by status 1 within for
+
+  (setopt err_exit
+  integer x=0
+  while (( ! x++ )); do
+    false
+  done
+  print OK
+  )
+1:ERR_EXIT triggered by status 1 within while
+
+  (setopt err_exit
+  repeat 1; do
+    false
+  done
+  print OK
+  )
+1:ERR_EXIT triggered by status 1 within repeat
+
+  (setopt err_exit
+  if true; then
+    false
+  fi
+  print OK
+  )
+1:ERR_EXIT triggered by status 1 within if
+
+  (setopt err_exit
+  {
+    false
+  }
+  print OK
+  )
+1:ERR_EXIT triggered by status 1 within { }
+
+  (setopt err_exit
+  () {
+     false && true
+     print Still functioning
+     false && true
+  }
+  print OK
+  )
+1:ERR_EXIT triggered by status 1 at end of anon func
+>Still functioning
+
+  if zmodload zsh/system 2>/dev/null; then
+  (
+    trap 'echo TERM; exit 2' TERM
+    trap 'echo EXIT' EXIT
+    kill -s TERM "$sysparams[pid]"
+    echo 'FATAL: we should never get here!' 1>&2
+    exit 1
+  )
+  else
+    ZTST_skip="zsh/system library not found."
+  fi
+2:EXIT trap from TERM trap
+>TERM
+>EXIT
+
+  # Should not get "hello" in the single quotes.
+  (
+    trap "echo hello" EXIT;
+    { :; } | { read line; print "'$line'"; }
+  )
+0:EXIT trap not called in LHS of pipeline: Shell construct on LHS
+>''
+>hello
+
+  (
+    trap "echo hello" EXIT;
+    cat </dev/null | { read line; print "'$line'"; }
+  )
+0:EXIT trap not called in LHS of pipeline: External command on LHS
+>''
+>hello
 
 %clean
 

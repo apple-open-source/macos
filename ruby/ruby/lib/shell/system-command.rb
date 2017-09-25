@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   shell/system-command.rb -
 #       $Release Version: 0.7 $
-#       $Revision: 33638 $
+#       $Revision: 53141 $
 #       by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -82,7 +83,6 @@ class Shell
 
     def start_import
       notify "Job(%id) start imp-pipe.", @shell.debug?
-      rs = @shell.record_separator unless rs
       _eop = true
       Thread.start {
         begin

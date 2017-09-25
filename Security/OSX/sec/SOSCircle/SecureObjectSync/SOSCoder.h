@@ -41,6 +41,7 @@ enum {
     kSOSCoderTooNew = 5,
     kSOSCoderForceMessage = 6,
 };
+
 typedef uint32_t SOSCoderStatus;
 
 CFTypeID SOSCoderGetTypeID(void);
@@ -73,6 +74,6 @@ void SOSCoderReset(SOSCoderRef coder);
 
 CFDataRef SOSCoderCopyPendingResponse(SOSCoderRef coder);
 void SOSCoderConsumeResponse(SOSCoderRef coder);
-
-
+bool SOSCoderIsCoderInAwaitingState(SOSCoderRef coder);
+    
 #endif // _SEC_SOSCODER_H_

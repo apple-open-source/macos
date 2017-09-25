@@ -1,9 +1,0 @@
- $Id: MANIFEST,v 1.2 1997-05-15 23:23:49-04 roderick Exp $
-
-Changes
-MANIFEST
-MANIFEST.SKIP
-Makefile.PL
-README
-Signal.pm
-t/signal.t

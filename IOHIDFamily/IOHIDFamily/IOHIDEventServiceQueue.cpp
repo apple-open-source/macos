@@ -82,7 +82,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     UInt32              head;
     UInt32              tail;
     UInt32              newTail;
-    const UInt32        entrySize = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
+    const UInt32        entrySize = (UInt32)(dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE);
     IODataQueueEntry *  entry;
     bool                queueFull = false;
     bool                result    = true;
@@ -103,7 +103,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
-            entry->size = dataSize;
+            entry->size = (UInt32)dataSize;
             event->readBytes(&entry->data, eventSize);
 
             // The tail can be out of bound when the size of the new entry
@@ -117,7 +117,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
             // Wrap around to the beginning, but do not allow the tail to catch
             // up to the head.
 
-            dataQueue->queue->size = dataSize;
+            dataQueue->queue->size = (UInt32)dataSize;
 
             // We need to make sure that there is enough room to set the size before
             // doing this. The user client checks for this and will look for the size
@@ -125,7 +125,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
 
             if ( ( getQueueSize() - tail ) >= DATA_QUEUE_ENTRY_HEADER_SIZE )
             {
-                ((IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail))->size = dataSize;
+                ((IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail))->size = (UInt32)dataSize;
             }
 
             event->readBytes(&dataQueue->queue->data, eventSize);
@@ -147,7 +147,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
-            entry->size = dataSize;
+            entry->size = (UInt32)dataSize;
             event->readBytes(&entry->data, eventSize);
 
             newTail = tail + entrySize;
@@ -202,3 +202,31 @@ IOMemoryDescriptor * IOHIDEventServiceQueue::getMemoryDescriptor()
 }
 
 //---------------------------------------------------------------------------
+
+bool IOHIDEventServiceQueue::serialize(OSSerialize * serializer) const {
+    
+    bool ret;
+    
+    if (serializer->previouslySerialized(this)) {
+        return true;
+    }
+    
+    OSDictionary *dict = OSDictionary::withCapacity(2);
+    if ( dict ) {
+        OSNumber * num = OSNumber::withNumber(dataQueue->head, 32);
+        if (num) {
+            dict->setObject("head", num);
+            num->release();
+        }
+        num = OSNumber::withNumber(dataQueue->tail, 32);
+        if (num) {
+            dict->setObject("tail", num);
+            num->release();
+        }
+        ret = dict->serialize(serializer);
+        dict->release();
+    } else {
+        ret = false;
+    }
+    return ret;
+}

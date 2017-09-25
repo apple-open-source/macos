@@ -33,7 +33,8 @@
 #include <unistd.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#define	SC_LOG_HANDLE	__log_SCMonitor()
+#define	SC_LOG_HANDLE		__log_SCMonitor()
+#define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -204,6 +205,7 @@ freeAuthorization(MyType *myInstance)
 static void
 open_NetworkPrefPane(MyType *myInstance)
 {
+#pragma unused(myInstance)
 	AEDesc		aeDesc	= { typeNull, NULL };
 	CFArrayRef	prefArray;
 	CFURLRef	prefURL;
@@ -393,7 +395,7 @@ notify_add(MyType *myInstance)
 		CFStringRef		message;
 		CFStringRef		name;
 
-#define MESSAGE_1 "The \"%@\" network interface has not been set up. To set up this interface, use Network Preferences."
+#define MESSAGE_1 "The “%@” network interface has not been set up. To set up this interface, use Network Preferences."
 
 		format = CFBundleCopyLocalizedString(bundle,
 						     CFSTR("MESSAGE_1"),
@@ -779,6 +781,8 @@ updateInterfaceList(MyType *myInstance)
 static void
 update_lan(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
+#pragma unused(store)
+#pragma unused(changes)
 	MyType	*myInstance	= (MyType *)arg;
 
 	updateInterfaceList(myInstance);
@@ -806,7 +810,7 @@ watcher_add_lan(MyType *myInstance)
 
 	// watch for changes to the list of network interfaces
 	keys = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
-	SCDynamicStoreSetNotificationKeys(store, NULL, keys);
+	SCDynamicStoreSetNotificationKeys(store, keys, NULL);
 	CFRelease(keys);
 	myInstance->monitorRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(),
@@ -889,6 +893,7 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 static void
 update_node(void *refCon, io_service_t service, natural_t messageType, void *messageArgument)
 {
+#pragma unused(messageArgument)
 	CFIndex		i;
 	CFDataRef	myData		= (CFDataRef)refCon;
 	MyType		*myInstance;
@@ -909,7 +914,7 @@ update_node(void *refCon, io_service_t service, natural_t messageType, void *mes
 				return;
 			}
 
-			val = IORegistryEntryCreateCFProperty(service, CFSTR("Initializing"), NULL, 0);
+			val = IORegistryEntryCreateCFProperty(service, kSCNetworkInterfaceInitializingKey, NULL, 0);
 			if (val != NULL) {
 				initializing = (isA_CFBoolean(val) && CFBooleanGetValue(val));
 				CFRelease(val);
@@ -1362,6 +1367,7 @@ static UserEventAgentInterfaceStruct UserEventAgentInterfaceFtbl = {
 void *
 UserEventAgentFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 {
+#pragma unused(allocator)
 	MyType	*newOne	= NULL;
 
 	if (CFEqual(typeID, kUserEventAgentTypeID)) {

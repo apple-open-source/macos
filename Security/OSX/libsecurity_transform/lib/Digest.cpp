@@ -39,7 +39,7 @@ CFDictionaryRef Digest::CopyState()
 	CFIndex size = mDigestLength;
 	CFNumberRef nr = CFNumberCreate(NULL, kCFNumberCFIndexType, &size);
 	CFDictionaryAddValue(dr, kSecDigestLengthAttribute, nr);
-	CFRelease(nr);
+	CFReleaseNull(nr);
 	
 	return dr;
 }
@@ -339,6 +339,7 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 			default:
 			{
 				CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "%d is an invalid digest size (use 224, 256, 384, 512, or 0).", length);
+                CFAutorelease(result);
 				return result;
 			}
 		}
@@ -385,21 +386,23 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 				default:
 				{
 					CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "%d is an invalid digest size (use 224, 256, 384, 512, or 0).", length);
-					return result;
+                    CFAutorelease(result);
+                    return result;
 				}
 			}
 		}
 		else
 		{
 			CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidAlgorithm, "%@ is not a supported digest algorithm (use kSecDigestSHA2, kSecDigestMD2, kSecDigestMD5, kSecDigestSHA or kSecDigestSHA2", digestType);
-			return result;
+            CFAutorelease(result);
+            return result;
 		}
 	}
     
     long lengthInt = mDigest->DigestLength();
     CFNumberRef lengthNumber = CFNumberCreate(NULL, kCFNumberLongType, &lengthInt);
     SendAttribute(kSecDigestLengthAttribute, lengthNumber);
-    CFRelease(lengthNumber);
+    CFReleaseNull(lengthNumber);
 	return NULL;
 }
 
@@ -407,7 +410,7 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 
 static CFStringRef gDigestTransformName = CFSTR("SecDigestTransform");
 
-CFTypeRef DigestTransform::Make()
+CFTypeRef DigestTransform::Make() CF_RETURNS_RETAINED
 {
 	DigestTransform* dt = new DigestTransform();
 	return CoreFoundationHolder::MakeHolder(gDigestTransformName, dt);
@@ -437,7 +440,7 @@ void DigestTransform::AttributeChanged(CFStringRef name, CFTypeRef value)
 			// send the result
 			CFDataRef resultRef = CFDataCreate(NULL, (UInt8*) result, mDigest->DigestLength());
 			SendAttribute(kSecTransformOutputAttributeName, resultRef);
-			CFRelease(resultRef);
+			CFReleaseNull(resultRef);
 			
 			// send the EOS
 			SendAttribute(kSecTransformOutputAttributeName, NULL);
@@ -454,7 +457,7 @@ void DigestTransform::AttributeChanged(CFStringRef name, CFTypeRef value)
 			{
 				CFStringRef idType = CFCopyTypeIDDescription(valueType);
 				CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "value is not a CFDataRef -- it's a %@ instead", idType);
-				CFRelease(idType);
+				CFReleaseNull(idType);
 				SetAttributeNoCallback(kSecTransformOutputAttributeName, result);
 			}
 			else

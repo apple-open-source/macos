@@ -107,7 +107,6 @@ read_string(const char *preprompt, const char *prompt,
 #endif
 
 #define FLAG_ECHO	1
-#define FLAG_USE_STDIO	2
 
 struct {
     int signo;
@@ -174,17 +173,7 @@ read_string(const char *preprompt, const char *prompt,
     }
 
 
-    /*
-     * Don't use /dev/tty for now since server tools want to to
-     * read/write from stdio when setting up and interacting with the
-     * Kerberos subsystem.
-     *
-     * When <rdar://problem/7308846> is in we can remove this, this is
-     * to make transiation easier for server folks.
-     */
-    if((flags & FLAG_USE_STDIO) != 0)
-	tty = stdin;
-    else if ((tty = fopen("/dev/tty", "r")) != NULL)
+    if ((tty = fopen("/dev/tty", "r")) != NULL)
 	rk_cloexec_file(tty);
     else
 	tty = stdin;
@@ -256,33 +245,6 @@ UI_UTIL_read_pw_string(char *buf, int length, const char *prompt, int verify)
 	    return 1;
 
 	ret = read_string("Verify password - ", prompt, buf2, length, 0);
-	if (ret) {
-	    free(buf2);
-	    return ret;
-	}
-	if (strcmp(buf2, buf) != 0)
-	    ret = 1;
-	free(buf2);
-    }
-    return ret;
-}
-
-int
-UI_UTIL_read_pw_string_stdio(char *buf, int length, const char *prompt, int verify)
-{
-    int ret;
-
-    ret = read_string("", prompt, buf, length, FLAG_USE_STDIO);
-    if (ret)
-	return ret;
-
-    if (verify) {
-	char *buf2;
-	buf2 = malloc(length);
-	if (buf2 == NULL)
-	    return 1;
-
-	ret = read_string("Verify password - ", prompt, buf2, length, FLAG_USE_STDIO);
 	if (ret) {
 	    free(buf2);
 	    return ret;

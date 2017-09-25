@@ -143,7 +143,7 @@ char *SHA256_Path_XATTRs(char *path, char *buf)
 			bzero(xattrBuf, xattrBufLen);
 			result = getxattr(path, name, xattrBuf, xattrBufLen, 0, options);
 			if (result < 0)
-				err(1, "SHA256_Path_XATTRs: getxattr");
+				err(1, "SHA256_Path_XATTRs getxattr of \"%s\" at path \"%s\" failed with error", name, path );
 			
 			digest = SHA256_Data(xattrBuf, xattrBufLen, buf);
 			if (!digest)

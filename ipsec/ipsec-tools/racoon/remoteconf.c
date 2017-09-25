@@ -646,7 +646,7 @@ dump_peers_identifiers (void *entry, void *arg)
 			 s_idtype (id->idtype));
 	if (id->id)
 		pbuf += snprintf (pbuf, sizeof(buf) - (pbuf - buf), " \"%s\"", id->id->v);
-	plog(ASL_LEVEL_INFO, "%s;\n", buf);
+	plog(ASL_LEVEL_NOTICE, "%s;\n", buf);
 	return NULL;
 }
 
@@ -666,7 +666,7 @@ dump_rmconf_single (struct remoteconf *p, void *data)
 	if (p->inherited_from)
 		pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), " inherit %s",
 				saddr2str((struct sockaddr *)p->inherited_from->remote));
-	plog(ASL_LEVEL_INFO, "%s {\n", buf);
+	plog(ASL_LEVEL_NOTICE, "%s {\n", buf);
 	pbuf = buf;
 	pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), "\texchange_type ");
 	while (etype) {
@@ -674,83 +674,83 @@ dump_rmconf_single (struct remoteconf *p, void *data)
 				 etype->next != NULL ? ", " : ";\n");
 		etype = etype->next;
 	}
-	plog(ASL_LEVEL_INFO, "%s", buf);
-	plog(ASL_LEVEL_INFO, "\tdoi %s;\n", s_doi(p->doitype));
+	plog(ASL_LEVEL_NOTICE, "%s", buf);
+	plog(ASL_LEVEL_NOTICE, "\tdoi %s;\n", s_doi(p->doitype));
 	pbuf = buf;
 	pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), "\tmy_identifier %s", s_idtype (p->idvtype));
 	if (p->idvtype == IDTYPE_ASN1DN) {
-		plog(ASL_LEVEL_INFO, "%s;\n", buf);
+		plog(ASL_LEVEL_NOTICE, "%s;\n", buf);
 		switch (p->getcert_method) {
 		  case 0:
 		  	break;
 		  case ISAKMP_GETCERT_PAYLOAD:
-			plog(ASL_LEVEL_INFO, "\t/* peers certificate from payload */\n");
+			plog(ASL_LEVEL_NOTICE, "\t/* peers certificate from payload */\n");
 			break;
 		  default:
-			plog(ASL_LEVEL_INFO, "\tpeers_certfile *UNKNOWN* (%d)\n", p->getcert_method);
+			plog(ASL_LEVEL_NOTICE, "\tpeers_certfile *UNKNOWN* (%d)\n", p->getcert_method);
 		}
 	}
 	else {
 		if (p->idv)
 			pbuf += snprintf (pbuf, sizeof(buf) - (pbuf - buf), " \"%s\"", p->idv->v);
-		plog(ASL_LEVEL_INFO, "%s;\n", buf);
+		plog(ASL_LEVEL_NOTICE, "%s;\n", buf);
 		genlist_foreach(p->idvl_p, &dump_peers_identifiers, NULL);
 	}
 
-	plog(ASL_LEVEL_INFO, "\tsend_cert %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tsend_cert %s;\n",
 		s_switch (p->send_cert));
-	plog(ASL_LEVEL_INFO, "\tsend_cr %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tsend_cr %s;\n",
 		s_switch (p->send_cr));
-	plog(ASL_LEVEL_INFO, "\tverify_cert %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tverify_cert %s;\n",
 		s_switch (p->verify_cert));
-	plog(ASL_LEVEL_INFO, "\tverify_identifier %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tverify_identifier %s;\n",
 		s_switch (p->verify_identifier));
-	plog(ASL_LEVEL_INFO, "\tnat_traversal %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tnat_traversal %s;\n",
 		p->nat_traversal == NATT_FORCE ?
 			"force" : s_switch (p->nat_traversal));
-	plog(ASL_LEVEL_INFO, "\tnatt_multiple_user %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tnatt_multiple_user %s;\n",
 		s_switch (p->natt_multiple_user));
-	plog(ASL_LEVEL_INFO, "\tnonce_size %d;\n",
+	plog(ASL_LEVEL_NOTICE, "\tnonce_size %d;\n",
 		p->nonce_size);
-	plog(ASL_LEVEL_INFO, "\tpassive %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tpassive %s;\n",
 		s_switch (p->passive));
-	plog(ASL_LEVEL_INFO, "\tike_frag %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tike_frag %s;\n",
 		p->ike_frag == ISAKMP_FRAG_FORCE ?
 			"force" : s_switch (p->ike_frag));
-	plog(ASL_LEVEL_INFO, "\tesp_frag %d;\n", p->esp_frag);
-	plog(ASL_LEVEL_INFO, "\tinitial_contact %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tesp_frag %d;\n", p->esp_frag);
+	plog(ASL_LEVEL_NOTICE, "\tinitial_contact %s;\n",
 		s_switch (p->ini_contact));
-	plog(ASL_LEVEL_INFO, "\tgenerate_policy %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tgenerate_policy %s;\n",
 		s_switch (p->gen_policy));
-	plog(ASL_LEVEL_INFO, "\tsupport_proxy %s;\n",
+	plog(ASL_LEVEL_NOTICE, "\tsupport_proxy %s;\n",
 		s_switch (p->support_proxy));
 
 	while (prop) {
-		plog(ASL_LEVEL_INFO, "\n");
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE, "\n");
+		plog(ASL_LEVEL_NOTICE, 
 			"\t/* prop_no=%d, trns_no=%d, rmconf=%s */\n",
 			prop->prop_no, prop->trns_no,
 			saddr2str((struct sockaddr *)prop->rmconf->remote));
-		plog(ASL_LEVEL_INFO, "\tproposal {\n");
-		plog(ASL_LEVEL_INFO, "\t\tlifetime time %lu sec;\n",
+		plog(ASL_LEVEL_NOTICE, "\tproposal {\n");
+		plog(ASL_LEVEL_NOTICE, "\t\tlifetime time %lu sec;\n",
 			(long)prop->lifetime);
-		plog(ASL_LEVEL_INFO, "\t\tlifetime bytes %zd;\n",
+		plog(ASL_LEVEL_NOTICE, "\t\tlifetime bytes %zd;\n",
 			prop->lifebyte);
-		plog(ASL_LEVEL_INFO, "\t\tdh_group %s;\n",
+		plog(ASL_LEVEL_NOTICE, "\t\tdh_group %s;\n",
 			alg_oakley_dhdef_name(prop->dh_group));
-		plog(ASL_LEVEL_INFO, "\t\tencryption_algorithm %s;\n", 
+		plog(ASL_LEVEL_NOTICE, "\t\tencryption_algorithm %s;\n", 
 			alg_oakley_encdef_name(prop->enctype));
-		plog(ASL_LEVEL_INFO, "\t\thash_algorithm %s;\n",
+		plog(ASL_LEVEL_NOTICE, "\t\thash_algorithm %s;\n",
 			alg_oakley_hashdef_name(prop->hashtype));
-		plog(ASL_LEVEL_INFO, "\t\tprf_algorithm %s;\n",
+		plog(ASL_LEVEL_NOTICE, "\t\tprf_algorithm %s;\n",
 			 alg_oakley_hashdef_name(prop->prf));
-		plog(ASL_LEVEL_INFO, "\t\tauthentication_method %s;\n",
+		plog(ASL_LEVEL_NOTICE, "\t\tauthentication_method %s;\n",
 			alg_oakley_authdef_name(prop->authmethod));
-		plog(ASL_LEVEL_INFO, "\t}\n");
+		plog(ASL_LEVEL_NOTICE, "\t}\n");
 		prop = prop->next;
 	}
-	plog(ASL_LEVEL_INFO, "}\n");
-	plog(ASL_LEVEL_INFO, "\n");
+	plog(ASL_LEVEL_NOTICE, "}\n");
+	plog(ASL_LEVEL_NOTICE, "\n");
 
 	return NULL;
 }

@@ -29,30 +29,6 @@ enum {
 };
 
 int
-cfboolean_get_value(CFTypeRef p)
-{
-	int value = 0;
-	int retval = 0;
-	
-	if (NULL == p) {
-		goto cleanup;
-	}
-	
-	if (CFBooleanGetTypeID() == CFGetTypeID(p))
-		retval = CFBooleanGetValue(p);
-	else if (CFNumberGetTypeID() == CFGetTypeID(p) && CFNumberGetValue(p, kCFNumberIntType, &value))
-		retval = value;
-	else
-		retval = 0;
-	
-cleanup:
-	if (PAM_SUCCESS != retval)
-		openpam_log(PAM_LOG_ERROR, "failed: %d", retval);
-	
-	return retval;
-}
-
-int
 cstring_to_cfstring(const char *val, CFStringRef *buffer)
 {
 	int retval = PAM_BUF_ERR;

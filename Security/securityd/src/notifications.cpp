@@ -206,11 +206,6 @@ SharedMemoryListener::SharedMemoryListener(const char* segmentName, SegmentOffse
 	SharedMemoryServer (segmentName, segmentSize, uid, gid),
 	mActive (false)
 {
-	if (segmentName == NULL)
-	{
-		secerror("Attempted to start securityd with a NULL segmentName");
-        abort();
-	}
 }
 
 SharedMemoryListener::~SharedMemoryListener ()

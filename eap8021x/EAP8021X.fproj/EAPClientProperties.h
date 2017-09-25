@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -189,7 +189,16 @@
 #define kEAPClientPropOuterIdentity		CFSTR("OuterIdentity")
 
 /* for TLS: */
-#define kEAPClientPropTLSIdentityHandle		CFSTR("TLSIdentityHandle") /* EAPSecIdentityHandle */
+#define kEAPClientPropTLSIdentityHandle		    CFSTR("TLSIdentityHandle") /* EAPSecIdentityHandle */
+#define kEAPClientPropTLSClientIdentityData	    CFSTR("TLSClientIdentityData") /* persistent reference */
+#define kEAPClientPropTLSClientIdentityTrustChain   CFSTR("TLSClientIdentityTrustChain") /* array */
+#define kEAPClientPropTLSMinimumVersion		    CFSTR("TLSMinimumVersion") /* string (kEAPTLSVersion*) */
+#define kEAPClientPropTLSMaximumVersion		    CFSTR("TLSMaximumVersion") /* string (kEAPTLSVersion*) */
+
+/* acceptable values for TLs version */
+#define kEAPTLSVersion1_0			CFSTR("1.0")
+#define kEAPTLSVersion1_1			CFSTR("1.1")
+#define kEAPTLSVersion1_2			CFSTR("1.2")
 
 /* for EAP-FAST */
 #define kEAPClientPropEAPFASTUsePAC		CFSTR("EAPFASTUsePAC") /* boolean (false) */

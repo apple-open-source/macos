@@ -27,9 +27,11 @@
 //
 #include "vproc++.h"
 #include <assert.h>
+#include <typeinfo>
+#include <TargetConditionals.h>
 #include <security_utilities/debugging.h>
+#include <security_utilities/errors.h>
 #include <vproc_priv.h>
-
 
 namespace Security {
 namespace VProc {
@@ -48,7 +50,11 @@ void Transaction::activate()
 //
 size_t Transaction::debugCount()
 {
+#if TARGET_OS_OSX
 	return ::_vproc_transaction_count();
+#else
+    MacOSError::throwMe(errSecUnimplemented);
+#endif
 }
 
 

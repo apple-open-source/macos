@@ -7,8 +7,12 @@
 #include "authutilities.h"
 #include <Security/AuthorizationTags.h>
 #include <dispatch/private.h>
+#include <CommonCrypto/CommonCrypto.h>
+
+AUTHD_DEFINE_LOG
 
 typedef struct _auth_item_s * auth_item_t;
+void auth_items_crypt_worker(auth_items_t items, CFDataRef encryption_key, bool(*function)(auth_item_t, CFDataRef));
 
 #pragma mark -
 #pragma mark auth_item_t
@@ -31,7 +35,7 @@ auth_item_get_string(auth_item_t item)
         item->data.value = realloc(item->data.value, item->bufLen);
         if (item->data.value == NULL) {
             // this is added to prevent running off into random memory if a string buffer doesn't have a null char
-            LOGE("realloc failed");
+            os_log_error(AUTHD_LOG, "items: realloc failed");
             abort();
         }
         ((uint8_t*)item->data.value)[item->bufLen-1] = '\0';
@@ -87,15 +91,21 @@ _auth_item_finalize(CFTypeRef value)
 {
     auth_item_t item = (auth_item_t)value;
     
-    CFReleaseSafe(item->cfKey);
+    CFReleaseNull(item->cfKey);
     
     if (item->data.name) {
         free((void*)item->data.name);
+        /* cannot set item->data.name to NULL because item->data.name is non-nullable public API (rdar://problem/32235322)
+         * cannot leave item->data.name pointing to original data (rdar://problem/31006596)
+         * => suppress the warning */
+        #ifndef __clang_analyzer__
+        item->data.name = NULL;
+        #endif
     }
 
     if (item->data.value) {
         memset(item->data.value, 0, item->data.valueLength);
-        free(item->data.value);
+        free_safe(item->data.value);
     }
 }
 
@@ -279,6 +289,49 @@ auth_item_create_with_xpc(xpc_object_t data)
     
 done:
     return item;
+}
+
+static bool auth_item_crypt_worker(auth_item_t item, CFDataRef key, int operation)
+{
+	bool result = false;
+
+	if (!key)
+		return result;
+
+	if (item->data.value && item->data.valueLength) {
+		size_t required_length = 0;
+		CCCryptorStatus status = CCCrypt(operation, kCCAlgorithmAES, kCCOptionPKCS7Padding,
+			CFDataGetBytePtr(key), CFDataGetLength(key), NULL,
+			item->data.value, item->data.valueLength, NULL, 0, &required_length);
+		require(status == kCCBufferTooSmall, done);
+
+		void *buffer = calloc(1u, required_length);
+		status = CCCrypt(operation, kCCAlgorithmAES, kCCOptionPKCS7Padding,
+										 CFDataGetBytePtr(key), CFDataGetLength(key), NULL,
+										 item->data.value, item->data.valueLength, buffer, required_length, &required_length);
+		if (status == kCCSuccess) {
+			memset(item->data.value, 0, item->data.valueLength);
+			free(item->data.value);
+			item->data.value = buffer;
+			item->data.valueLength = required_length;
+			result = true;
+		} else {
+			free(buffer);
+		}
+	}
+
+done:
+	return result;
+}
+
+static bool auth_item_decrypt(auth_item_t item, CFDataRef key)
+{
+	return auth_item_crypt_worker(item, key, kCCDecrypt);
+}
+
+static bool auth_item_encrypt(auth_item_t item, CFDataRef key)
+{
+	return auth_item_crypt_worker(item, key, kCCEncrypt);
 }
 
 #pragma mark -
@@ -569,6 +622,30 @@ auth_items_clear(auth_items_t items)
 }
 
 void
+auth_items_crypt_worker(auth_items_t items, CFDataRef encryption_key, bool(*function)(auth_item_t, CFDataRef))
+{
+	auth_items_iterate(items, ^bool(const char *key) {
+		CFStringRef lookup = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, key, kCFStringEncodingUTF8, kCFAllocatorNull);
+		auth_item_t item = (auth_item_t)CFDictionaryGetValue(items->dictionary, lookup);
+		function(item, encryption_key);
+		CFReleaseSafe(lookup);
+		return true;
+	});
+}
+
+void
+auth_items_encrypt(auth_items_t items, CFDataRef encryption_key)
+{
+	auth_items_crypt_worker(items, encryption_key, auth_item_encrypt);
+}
+
+void
+auth_items_decrypt(auth_items_t items, CFDataRef encryption_key)
+{
+	auth_items_crypt_worker(items, encryption_key, auth_item_decrypt);
+}
+
+void
 auth_items_copy(auth_items_t items, auth_items_t src)
 {
     auth_items_iterate(src, ^bool(const char *key) {
@@ -578,6 +655,21 @@ auth_items_copy(auth_items_t items, auth_items_t src)
         CFReleaseSafe(lookup);
         return true;
     });
+}
+
+void
+auth_items_content_copy(auth_items_t items, auth_items_t src)
+{
+	auth_items_iterate(src, ^bool(const char *key) {
+		CFStringRef lookup = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, key, kCFStringEncodingUTF8, kCFAllocatorNull);
+		auth_item_t item = (auth_item_t)CFDictionaryGetValue(src->dictionary, lookup);
+		auth_item_t new_item = auth_item_create(item->type, item->data.name, item->data.value, item->data.valueLength, item->data.flags);
+		if (new_item)
+			CFDictionarySetValue(items->dictionary, auth_item_get_cf_key(new_item), new_item);
+		CFReleaseSafe(lookup);
+		CFReleaseSafe(new_item);
+		return true;
+	});
 }
 
 void
@@ -598,6 +690,24 @@ auth_items_copy_with_flags(auth_items_t items, auth_items_t src, uint32_t flags)
         }
         return true;
     });
+}
+
+// unlike previous method, this one creates true new copy including their content
+void
+auth_items_content_copy_with_flags(auth_items_t items, auth_items_t src, uint32_t flags)
+{
+	auth_items_iterate(src, ^bool(const char *key) {
+		if (auth_items_check_flags(src, key, flags)) {
+			CFStringRef lookup = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, key, kCFStringEncodingUTF8, kCFAllocatorNull);
+			auth_item_t item = (auth_item_t)CFDictionaryGetValue(src->dictionary, lookup);
+			auth_item_t new_item = auth_item_create(item->type, item->data.name, item->data.value, item->data.valueLength, item->data.flags);
+			if (new_item)
+				CFDictionarySetValue(items->dictionary, auth_item_get_cf_key(new_item), new_item);
+			CFReleaseSafe(lookup);
+			CFReleaseSafe(new_item);
+		}
+		return true;
+	});
 }
 
 bool
@@ -655,7 +765,7 @@ auth_items_get_string(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type == AI_TYPE_STRING || item->type == AI_TYPE_UNKNOWN)) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i",
                  item->data.name, item->type, AI_TYPE_STRING);
         }
 #endif
@@ -694,7 +804,7 @@ auth_items_get_data(auth_items_t items, const char *key, size_t *len)
     if (item) {
 #if DEBUG
         if (!(item->type == AI_TYPE_DATA || item->type == AI_TYPE_UNKNOWN)) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i",
                  item->data.name, item->type, AI_TYPE_DATA);
         }
 #endif
@@ -714,7 +824,7 @@ auth_items_get_data_with_flags(auth_items_t items, const char *key, size_t *len,
 	if (item && (item->data.flags & flags) == flags) {
 #if DEBUG
 		if (!(item->type == AI_TYPE_DATA || item->type == AI_TYPE_UNKNOWN)) {
-			LOGV("auth_items: key = %s, invalid type=%i expected=%i",
+			os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i",
 				 item->data.name, item->type, AI_TYPE_DATA);
 		}
 #endif
@@ -748,7 +858,7 @@ auth_items_get_bool(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type == AI_TYPE_BOOL || item->type == AI_TYPE_UNKNOWN) || (item->data.valueLength != sizeof(bool))) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i or size=%li expected=%li",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i or size=%li expected=%li",
                  item->data.name, item->type, AI_TYPE_BOOL, item->data.valueLength, sizeof(bool));
         }
 #endif
@@ -788,7 +898,7 @@ auth_items_get_int(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type ==AI_TYPE_INT || item->type == AI_TYPE_UNKNOWN) || (item->data.valueLength != sizeof(int32_t))) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i or size=%li expected=%li",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i or size=%li expected=%li",
                  item->data.name, item->type, AI_TYPE_INT, item->data.valueLength, sizeof(int32_t));
         }
 #endif
@@ -828,7 +938,7 @@ auth_items_get_uint(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type ==AI_TYPE_UINT || item->type == AI_TYPE_UNKNOWN) || (item->data.valueLength != sizeof(uint32_t))) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i or size=%li expected=%li",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i or size=%li expected=%li",
                  item->data.name, item->type, AI_TYPE_UINT, item->data.valueLength, sizeof(uint32_t));
         }
 #endif
@@ -868,7 +978,7 @@ auth_items_get_int64(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type ==AI_TYPE_INT64 || item->type == AI_TYPE_UNKNOWN) || (item->data.valueLength != sizeof(int64_t))) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i or size=%li expected=%li",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i or size=%li expected=%li",
                  item->data.name, item->type, AI_TYPE_INT64, item->data.valueLength, sizeof(int64_t));
         }
 #endif
@@ -908,7 +1018,7 @@ auth_items_get_uint64(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type ==AI_TYPE_UINT64 || item->type == AI_TYPE_UNKNOWN) || (item->data.valueLength != sizeof(uint64_t))) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i or size=%li expected=%li",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i or size=%li expected=%li",
                  item->data.name, item->type, AI_TYPE_UINT64, item->data.valueLength, sizeof(uint64_t));
         }
 #endif
@@ -946,7 +1056,7 @@ double auth_items_get_double(auth_items_t items, const char *key)
     if (item) {
 #if DEBUG
         if (!(item->type ==AI_TYPE_DOUBLE || item->type == AI_TYPE_UNKNOWN) || (item->data.valueLength != sizeof(double))) {
-            LOGV("auth_items: key = %s, invalid type=%i expected=%i or size=%li expected=%li",
+            os_log_debug(AUTHD_LOG, "items: key = %{public}s, invalid type=%i expected=%i or size=%li expected=%li",
                  item->data.name, item->type, AI_TYPE_DOUBLE, item->data.valueLength, sizeof(double));
         }
 #endif

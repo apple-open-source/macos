@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -68,7 +68,6 @@ static char consoleTitle[256];
 extern int	less_is_more;
 extern int	missing_cap;
 extern int	know_dumb;
-extern int	quit_if_one_screen;
 extern int	pr_type;
 
 
@@ -177,9 +176,6 @@ main(argc, argv)
 		nopendopt();
 		quit(QUIT_OK);
 	}
-
-	if (less_is_more && get_quit_at_eof())
-		quit_if_one_screen = TRUE;
 
 #if EDITOR
 	editor = lgetenv("VISUAL");

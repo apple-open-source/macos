@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,23 +134,24 @@ typedef struct {
  *   Holds the EAP-SIM module's context private data.
  */
 typedef struct {
-    EAPClientPluginDataRef 	plugin;
-    EAPClientState		plugin_state;
-    EAPSIMClientState		state;
-    int				previous_identifier;
-    int				start_count;
-    int				n_required_rands;
-    EAPSIMAKAAttributeType	last_identity_type;
-    CFDataRef			last_identity;
-    SIMStatic			sim_static;
-    EAPSIMAKAKeyInfo		key_info;
-    bool			key_info_valid;
-    uint8_t			nonce_mt[NONCE_MT_SIZE];
-    EAPSIMAKAPersistentStateRef	persist;
-    bool			reauth_success;
-    uint16_t *			version_list;
-    int				version_list_count;
-    uint8_t			pkt[1500];
+    EAPClientPluginDataRef		plugin;
+    EAPClientState			plugin_state;
+    EAPSIMClientState			state;
+    int					previous_identifier;
+    int					start_count;
+    int					n_required_rands;
+    EAPSIMAKAAttributeType		last_identity_type;
+    CFDataRef				last_identity;
+    SIMStatic				sim_static;
+    EAPSIMAKAKeyInfo			key_info;
+    bool				key_info_valid;
+    uint8_t				nonce_mt[NONCE_MT_SIZE];
+    EAPSIMAKAPersistentStateRef		persist;
+    bool				reauth_success;
+    EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info;
+    uint16_t *				version_list;
+    int					version_list_count;
+    uint8_t				pkt[1500];
 } EAPSIMContext, *EAPSIMContextRef;
 
 /**
@@ -208,24 +209,6 @@ copy_static_imsi(CFDictionaryRef properties)
 	}
     }
     return (CFRetain(imsi));
-}
-
-STATIC CFStringRef
-copy_static_identity(CFDictionaryRef properties)
-{
-    CFStringRef		imsi;
-    CFStringRef		realm;
-    CFStringRef		ret_identity;
-
-    imsi = copy_static_imsi(properties);
-    if (imsi == NULL) {
-	return (NULL);
-    }
-    realm = copy_static_realm(properties);
-    ret_identity = copy_imsi_identity(imsi, realm);
-    my_CFRelease(&imsi);
-    my_CFRelease(&realm);
-    return (ret_identity);
 }
 
 /**
@@ -462,13 +445,27 @@ S_get_identity_type(CFDictionaryRef dict)
 STATIC void
 EAPSIMContextSetLastIdentity(EAPSIMContextRef context, CFDataRef identity_data)
 {
-    if (identity_data != NULL) {
-	CFRetain(identity_data);
-    }
     if (context->last_identity != NULL) {
 	CFRelease(context->last_identity);
     }
-    context->last_identity = identity_data;
+    context->last_identity = NULL;
+    if (identity_data != NULL ) {
+	if (context->encrypted_identity_info != NULL &&
+	    (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
+	    context->last_identity_type == kAT_PERMANENT_ID_REQ)) {
+	    /* Carrier Hotspot case, for MK computation we need "1<IMSI>@<NAI realm>"
+	     * that eapolclient will get from CT Server.
+	     */
+	    CFStringRef real_identity = sim_identity_create(context->persist,
+							    context->plugin->properties,
+							    kAT_PERMANENT_ID_REQ, NULL, NULL);
+	    context->last_identity = CFStringCreateExternalRepresentation(NULL, real_identity,
+									  kCFStringEncodingUTF8, 0);
+	    my_CFRelease(&real_identity);
+	} else {
+	    context->last_identity = CFRetain(identity_data);
+	}
+    }
     return;
 }
 
@@ -745,6 +742,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     EAPSIMAKAAttributeType 	identity_type;
     CFStringRef			imsi = NULL;
     SIMStatic			sim_static;
+    bool			static_config = false;
 
     /* for testing, allow static triplets to override a real SIM */
     bzero(&sim_static, sizeof(sim_static));
@@ -757,6 +755,7 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	    SIMStaticInitFromProperties(&sim_static, NULL);
 	    return (kEAPClientStatusConfigurationInvalid);
 	}
+	static_config = true;
     }
     else {
 	/* check for a real SIM module */
@@ -799,6 +798,10 @@ eapsim_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	fips186_2prf(EAPSIMAKAPersistentStateGetMasterKey(context->persist),
 		     context->key_info.key);
 	context->key_info_valid = TRUE;
+    }
+    if (plugin->encryptedEAPIdentity == NULL) {
+	context->encrypted_identity_info
+	= EAPSIMAKAInitEncryptedIdentityInfo(plugin->properties, static_config);
     }
     context->plugin = plugin;
     plugin->private = context;
@@ -1003,30 +1006,46 @@ eapsim_start(EAPSIMContextRef context,
     if (!skip_identity) {
 	CFDataRef	identity_data = NULL;
 	Boolean		reauth_id_used = FALSE;
-	
-	identity = sim_identity_create(context->persist,
+
+	if (isA_CFData(context->plugin->encryptedEAPIdentity) != NULL &&
+	    CFDataGetLength(context->plugin->encryptedEAPIdentity) > 0) {
+	    /* Wi-Fi calling case */
+	    identity_data = CFRetain(context->plugin->encryptedEAPIdentity);
+	} else if (context->encrypted_identity_info != NULL &&
+		   (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
+		    identity_req_type == kAT_PERMANENT_ID_REQ)) {
+	    /* Carrier Wi-Fi hotspot case */
+	    identity_data = CFRetain(context->encrypted_identity_info->encrypted_identity);
+	    EAPSIMContextSetLastIdentity(context, identity_data);
+	} else {
+	    /* legacy */
+	    identity = sim_identity_create(context->persist,
 				       context->plugin->properties,
 				       identity_req_type,
 				       &reauth_id_used,
 				       client_status);
-	if (identity == NULL) {
-	    if (*client_status == kEAPClientStatusResourceUnavailable) {
-		EAPLOG(LOG_NOTICE, "eapsim: can't find SIM identity");
-	    } else if (*client_status == kEAPClientStatusProtocolError) {
-		EAPLOG(LOG_NOTICE, "eapsim: protocol error.");
+	    if (identity == NULL) {
+		if (*client_status == kEAPClientStatusResourceUnavailable) {
+		    EAPLOG(LOG_NOTICE, "eapsim: can't find SIM identity");
+		} else if (*client_status == kEAPClientStatusProtocolError) {
+		    EAPLOG(LOG_NOTICE, "eapsim: protocol error.");
+		}
+		pkt = NULL;
+		goto done;
 	    }
-	    pkt = NULL;
-	    goto done;
+	    identity_data = CFStringCreateExternalRepresentation(NULL, identity,
+						 kCFStringEncodingUTF8, 0);
+	    EAPSIMContextSetLastIdentity(context, identity_data);
+	    my_CFRelease(&identity);
 	}
 
-	if (!TLVBufferAddIdentityString(tb_p, identity, &identity_data)) {
+	if (!TLVBufferAddIdentity(tb_p, CFDataGetBytePtr(identity_data), (int) CFDataGetLength(identity_data))) {
 	    EAPLOG(LOG_NOTICE, "eapsim: can't add AT_IDENTITY, %s",
 		   TLVBufferErrorString(tb_p));
 	    *client_status = kEAPClientStatusInternalError;
 	    pkt = NULL;
 	    goto done;
 	}
-	EAPSIMContextSetLastIdentity(context, identity_data);
 	my_CFRelease(&identity_data);
 
 	if (reauth_id_used) {
@@ -1070,7 +1089,6 @@ eapsim_start(EAPSIMContextRef context,
 		       offsetof(EAPSIMPacket, attrs) + TLVBufferUsed(tb_p));
 
  done:
-    my_CFRelease(&identity);
     return (pkt);
 }
 
@@ -1275,7 +1293,6 @@ eapsim_challenge(EAPSIMContextRef context,
     /* as far as we're concerned, we're successful */
     context->state = kEAPSIMClientStateSuccess;
     context->key_info_valid = TRUE;
-    save_persistent_state(context);
 
  done:
     return (pkt);
@@ -1495,7 +1512,6 @@ eapsim_reauthentication(EAPSIMContextRef context,
     else {
 	context->key_info_valid = FALSE;
     }
-    save_persistent_state(context);
 
  done:
     if (decrypted_buffer != NULL) {
@@ -1699,6 +1715,12 @@ eapsim_notification(EAPSIMContextRef context,
 	else {
 	    EAPLOG(LOG_NOTICE, "eapsim: Notification: %s", str);
 	}
+	if (*error == kEAPClientStatusIdentityDecryptionError &&
+	    context->encrypted_identity_info != NULL &&
+	    context->encrypted_identity_info->encrypted_identity != NULL) {
+	    /* notify CT that it may need to refresh the encryption key */
+	    SIMReportDecryptionError(context->encrypted_identity_info->encrypted_identity);
+	}
     }
 
  done:
@@ -1798,6 +1820,7 @@ eapsim_process(EAPClientPluginDataRef plugin,
 	context->previous_identifier = -1;
 	if (context->state == kEAPSIMClientStateSuccess) {
 	    context->plugin_state = kEAPClientStateSuccess;
+	    save_persistent_state(context);
 	}
 	break;
     case kEAPCodeFailure:
@@ -1869,30 +1892,41 @@ eapsim_publish_props(EAPClientPluginDataRef plugin)
 STATIC CFStringRef
 eapsim_user_name_copy(CFDictionaryRef properties)
 {
-    EAPSIMAKAAttributeType      identity_type;
-    CFStringRef                 imsi;
-    EAPSIMAKAPersistentStateRef persist;
-    CFStringRef                 ret_identity = NULL;
-	
+    EAPSIMAKAAttributeType		identity_type;
+    CFStringRef				imsi;
+    EAPSIMAKAPersistentStateRef		persist;
+    CFStringRef				ret_identity = NULL;
+    bool				static_config = true;
+    EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
+
     imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
 	imsi = SIMCopyIMSI();
 	if (imsi == NULL) {
 	    goto done;
 	}
+	static_config = false;
     }
+    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(properties, static_config);
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPSIM,
 					     CC_SHA1_DIGEST_LENGTH,
 					     imsi, identity_type);
-    CFRelease(imsi);
+    my_CFRelease(&imsi);
     if (persist != NULL) {
-	ret_identity = sim_identity_create(persist,
-					   properties,
-					   identity_type, NULL, NULL);
+	if (encrypted_identity_info != NULL &&
+	    EAPSIMAKAPersistentStateTemporaryUsernameAvailable(persist) == FALSE) {
+	    /* we should send anonymous username in EAP-Response/Identity packet */
+	    ret_identity = CFRetain(encrypted_identity_info->anonymous_identity);
+	} else {
+	    ret_identity = sim_identity_create(persist,
+					       properties,
+					       identity_type, NULL, NULL);
+	}
 	EAPSIMAKAPersistentStateRelease(persist);
     }
 done:
+    EAPSIMAKAClearEncryptedIdentityInfo(encrypted_identity_info);
     return (ret_identity);
 }
 
@@ -1910,8 +1944,16 @@ eapsim_copy_identity(EAPClientPluginDataRef plugin)
     EAPSIMContextSetLastIdentity(context, NULL);
     context->state = kEAPSIMClientStateNone;
     context->previous_identifier = -1;
-    if (context->sim_static.rand != NULL) {
-	return (copy_static_identity(plugin->properties));
+
+    /* If encrypted identity is enabled and pseudonym/fast reauth-id are not available
+     * then send identity with anonymous username.
+     */
+    if (context->encrypted_identity_info != NULL &&
+	EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE) {
+	if (context->encrypted_identity_info->anonymous_identity != NULL) {
+	    return CFRetain(context->encrypted_identity_info->anonymous_identity);
+	}
+	return NULL;
     }
     return (sim_identity_create(context->persist,
 				plugin->properties,

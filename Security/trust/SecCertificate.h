@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -169,29 +169,40 @@ OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef * 
     __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
 #endif
 
+/*!
+ @function SecCertificateCopySerialNumberData
+ @abstract Return the certificate's serial number.
+ @param certificate The certificate from which to get values.
+ @param error An optional pointer to a CFErrorRef which will be set on return from the function if an error occurred. If not NULL, the caller is responsible for releasing the CFErrorRef.
+ @discussion Return the content of a DER-encoded integer (without the tag and length fields) for this certificate's serial number. The caller must CFRelease the value returned.
+ */
+__nullable
+CFDataRef SecCertificateCopySerialNumberData(SecCertificateRef certificate, CFErrorRef *error)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+
 #if TARGET_OS_IPHONE
 /*!
  @function SecCertificateCopySerialNumber
  @abstract Return the certificate's serial number.
- @param certificate The certificate from which to get values
- @discussion Return the content of a DER-encoded integer (without the tag and length fields) for this certificate's serial number. The caller must CFRelease the value returned.
+ @param certificate The certificate from which to get values.
+ @discussion Return the content of a DER-encoded integer (without the tag and length fields) for this certificate's serial number. The caller must CFRelease the value returned. NOTE: Deprecated in iOS 11.0; use SecCertificateCopySerialNumberData instead for cross-platform availability.
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_10_3);
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA, __IPHONE_10_3, __IPHONE_11_0, "SecCertificateCopySerialNumber is deprecated. Use SecCertificateCopySerialNumberData instead.");
 #endif
 
 #if TARGET_OS_OSX
 /*!
  @function SecCertificateCopySerialNumber
  @abstract Return the certificate's serial number.
- @param certificate The certificate from which to get values
- @param error An optional pointer to a CFErrorRef. This value is set if an error occurred.  If not NULL the caller is responsible for releasing the CFErrorRef.
- @discussion Return the content of a DER-encoded integer (without the tag and length fields) for this certificate's serial number. The caller must CFRelease the value returned.
+ @param certificate The certificate from which to get values.
+ @param error An optional pointer to a CFErrorRef which will be set on return from the function if an error occurred. If not NULL, the caller is responsible for releasing the CFErrorRef.
+ @discussion Return the content of a DER-encoded integer (without the tag and length fields) for this certificate's serial number. The caller must CFRelease the value returned. NOTE: Deprecated in macOS 10.13; use SecCertificateCopySerialNumberData instead for cross-platform availability.
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorRef *error)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_7, __MAC_10_13, __IPHONE_NA, __IPHONE_NA, "SecCertificateCopySerialNumber is deprecated. Use SecCertificateCopySerialNumberData instead.");
 #endif
 
 /*

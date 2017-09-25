@@ -37,21 +37,10 @@
     left: calc((100% - var(--controls-bar-width)) / 2);
     bottom: 25px;
     width: var(--controls-bar-width);
-    height: 75px;
-    overflow: hidden;
-    border-radius: 8px;
-
-    /* FIXME: we want to use the real System Dark treatment here, see <rdar://problem/19993961> */
-    background-color: rgba(30, 30, 30, 0.45);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    height: var(--fullscreen-controls-bar-height);
 }
 
 /* Volume slider */
-
-.media-controls.mac.fullscreen .volume.slider {
-    left: 31px;
-    top: 23px;
-}
 
 .media-controls.mac.fullscreen:not(.uses-ltr-user-interface-layout-direction) .volume.slider {
     transform: scaleX(-1);
@@ -63,30 +52,15 @@
     height: 44px;
 }
 
+.media-controls.mac.fullscreen .buttons-container.left {
+    top: 16px;
+    height: 16px;
+}
+
 .media-controls.mac.fullscreen .buttons-container.center {
     left: 50%;
-    top: 0;
+    top: 3px;
     transform: translateX(-50%);
-}
-
-/* Buttons */
-
-.media-controls.mac.fullscreen > .controls-bar button {
-    height: 100% !important;
-}
-
-/* Buttons placement for center container */
-
-.media-controls.mac.fullscreen button.rewind {
-    -webkit-mask-position-y: 16px;
-}
-
-.media-controls.mac.fullscreen button.play-pause {
-    -webkit-mask-position-y: 12px;
-}
-
-.media-controls.mac.fullscreen button.forward {
-    -webkit-mask-position-y: 16px;
 }
 
 /* Make right container flush to the right */
@@ -97,24 +71,8 @@
 
 /* Buttons placement for right container */
 
-.media-controls.mac.fullscreen button.airplay {
-    -webkit-mask-position-y: 13px;
-}
-
-.media-controls.mac.fullscreen button.aspect-ratio {
-    -webkit-mask-position-y: 13px;
-}
-
-.media-controls.mac.fullscreen button.pip {
-    -webkit-mask-position-y: 13px;
-}
-
-.media-controls.mac.fullscreen button.tracks {
-    -webkit-mask-position-y: 15px;
-}
-
-.media-controls.mac.fullscreen button.fullscreen {
-    -webkit-mask-position-y: 13px;
+.media-controls.mac.fullscreen .buttons-container.right button {
+    top: 18px;
 }
 
 /* Scrubber */
@@ -122,13 +80,19 @@
 .media-controls.mac.fullscreen .time-control {
     position: absolute;
     left: 10px;
-    top: 48px;
+    top: 49px;
+    height: 16px;
+    display: flex;
+    align-items: center;
 }
 
-.media-controls.mac.fullscreen .time-label {
-    font-size: 12px;
-}
+/* Status Label */
 
-.media-controls.mac.fullscreen .scrubber {
-    top: 7px;
+.media-controls.mac.fullscreen > .controls-bar .status-label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 13px;
+    font-size: 14px;
+    text-align: center;
 }

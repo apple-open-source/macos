@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,7 +70,7 @@ typedef enum {
     IFEventID_ipv6_address_changed_e,	/* IPv6 address changed on interface */
     IFEventID_bssid_changed_e, 		/* BSSID has changed */
     IFEventID_active_during_sleep_e,	/* (active_during_sleep_t) */
-    IFEventID_last_e,
+    IFEventID_ipv6_router_expired_e,	/* (ipv6_router_prefix_counts_t) */
 } IFEventID_t;
 
 typedef struct ServiceInfo * ServiceRef;
@@ -199,6 +199,9 @@ ServiceSetActiveDuringSleepNeedsAttention(ServiceRef service_p);
 CFStringRef
 ServiceCopyWakeID(ServiceRef service_p);
 
+CFStringRef
+ServiceGetAPNName(ServiceRef service_p);
+
 void
 service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
 
@@ -270,6 +273,9 @@ void
 ServiceRemoveIPv6Address(ServiceRef service_p,
 			 const struct in6_addr * addr_p, int prefix_length);
 
+
+boolean_t
+ServiceDADIsEnabled(ServiceRef service_p);
 
 #if TARGET_OS_EMBEDDED
 static __inline__ void

@@ -12,9 +12,7 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
-#include <Security/SecureObjectSync/SOSPeerInfoPriv.h>
 #include <Security/SecureObjectSync/SOSViews.h>
-#include <Security/SecureObjectSync/SOSPeerInfoSecurityProperties.h>
 
 // Description Dictionary Entries Added for V2
 extern CFStringRef sV2DictionaryKey;            // CFData wrapper for V2 extensions
@@ -60,6 +58,5 @@ void SOSPeerInfoV2DictionaryWithSet(SOSPeerInfoRef pi, const void *key, void(^op
 bool SOSPeerInfoSerialNumberIsSet(SOSPeerInfoRef pi);
 void SOSPeerInfoSetSerialNumber(SOSPeerInfoRef pi);
 void SOSPeerInfoSetTestSerialNumber(SOSPeerInfoRef pi, CFStringRef serialNumber);
-CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 
 #endif /* defined(_sec_SOSPeerInfoV2_) */

@@ -107,8 +107,8 @@ public:
 	// port allocation and management
 	void allocate(mach_port_right_t right = MACH_PORT_RIGHT_RECEIVE)
 	{ check(mach_port_allocate(self(), right, &mPort)); }
-	void deallocate()	{ check(mach_port_deallocate(self(), mPort)); }
-	void destroy()		{ check(mach_port_destroy(self(), mPort)); }
+    void deallocate()	{ check(mach_port_deallocate(self(), mPort)); mPort = MACH_PORT_NULL;}
+	void destroy()		{ check(mach_port_destroy(self(), mPort)); mPort = MACH_PORT_NULL; }
 	
 	void insertRight(mach_msg_type_name_t type)
 	{ check(mach_port_insert_right(self(), mPort, mPort, type)); }

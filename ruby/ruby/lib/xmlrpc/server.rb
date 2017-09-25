@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # xmlrpc/server.rb
 # Copyright (C) 2001, 2002, 2003, 2005 by Michael Neumann (mneumann@ntecs.de)
 #
@@ -50,7 +51,7 @@ class BasicServer
   # method should be called from a subclass indirectly by a +super+ call
   # in the initialize method.
   #
-  # The paramter +class_delim+ is used by add_handler, see
+  # The parameter +class_delim+ is used by add_handler, see
   # XMLRPC::BasicServer#add_handler, when an object is added as a handler, to
   # delimit the object-prefix and the method-name.
   def initialize(class_delim=".")
@@ -702,6 +703,6 @@ end # module XMLRPC
 
 =begin
 = History
-    $Id: server.rb 44391 2013-12-24 15:46:01Z nagachika $
+    $Id: server.rb 53141 2015-12-16 05:07:31Z naruse $
 =end
 

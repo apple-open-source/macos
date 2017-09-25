@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 struct ctx {
 	volatile int last_holder;

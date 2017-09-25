@@ -249,7 +249,7 @@ static void setup_testvolume()
 {
 	char            *path;
 	int				fd;
-	void            *buf = malloc(1 KB);
+	void            *buf;
 	
 	// Create a test folder with MAX_FILES files
 	assert_no_err(systemx("/bin/rm", "-rf", srcdir, NULL));
@@ -261,10 +261,12 @@ static void setup_testvolume()
 		assert_with_errno((fd = open(path, O_RDWR | O_TRUNC | O_CREAT, 0666)) >= 0);
 		free(path);
 		
-		unsigned buf_size = (1 KB) * i;
+		unsigned buf_size = (1 KB) * (i + 1);
 		buf = malloc(buf_size);
 		memset(buf, 0x25, buf_size);
 		check_io(write(fd, buf, buf_size), buf_size);
+		free(buf);
+		close(fd);
 	}
 }
 

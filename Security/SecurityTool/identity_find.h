@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 	
-extern SecIdentityRef find_identity(CFTypeRef keychainOrArray,
+extern SecIdentityRef CopyMatchingIdentity(CFTypeRef keychainOrArray,
 									const char *identity,
 									const char *hash,
 									CSSM_KEYUSE keyUsage);

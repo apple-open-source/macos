@@ -103,7 +103,7 @@ static void SafeCFRelease(void * CF_CONSUMED cfTypeRefPtr)
 // utility function to create a CFDataRef from the contents of the specified file;
 // caller must release
 //
-static CFDataRef dataWithContentsOfFile(const char *fileName)
+static CFDataRef CF_RETURNS_RETAINED dataWithContentsOfFile(const char *fileName)
 {
 	int rtn;
 	int fd;
@@ -194,7 +194,7 @@ static SecKeychainRef systemRootStore()
 
 // returns a CFDictionaryRef created from the specified XML plist file; caller must release
 //
-static CFDictionaryRef dictionaryWithContentsOfPlistFile(const char *fileName)
+static CFDictionaryRef CF_RETURNS_RETAINED dictionaryWithContentsOfPlistFile(const char *fileName)
 {
 	CFDictionaryRef resultDict = NULL;
 	CFDataRef fileData = dataWithContentsOfFile(fileName);
@@ -824,37 +824,6 @@ bool isRevocationStatusCode(CSSM_RETURN statusCode)
         return true;
     else
         return false;
-}
-
-// returns true if the given revocation status code can be ignored.
-//
-bool ignorableRevocationStatusCode(CSSM_RETURN statusCode)
-{
-    if (!isRevocationStatusCode(statusCode))
-		return false;
-
-	// if OCSP and/or CRL revocation info was unavailable for this certificate,
-	// and revocation checking is not required, we can ignore this status code.
-
-	CFStringRef ocsp_val = (CFStringRef) CFPreferencesCopyValue(kSecRevocationOcspStyle, CFSTR(kSecRevocationDomain), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-	CFStringRef crl_val = (CFStringRef) CFPreferencesCopyValue(kSecRevocationCrlStyle, CFSTR(kSecRevocationDomain), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-	bool ocspRequired = (ocsp_val && CFEqual(ocsp_val, kSecRevocationRequireForAll));
-	bool crlRequired = (crl_val && CFEqual(crl_val, kSecRevocationRequireForAll));
-	if (!ocspRequired && ocsp_val && CFEqual(ocsp_val, kSecRevocationRequireIfPresent))
-		ocspRequired = (statusCode != CSSMERR_APPLETP_OCSP_UNAVAILABLE);
-	if (!crlRequired && crl_val && CFEqual(crl_val, kSecRevocationRequireIfPresent))
-		crlRequired = (statusCode != CSSMERR_APPLETP_CRL_NOT_FOUND);
-	if (ocsp_val)
-		CFRelease(ocsp_val);
-	if (crl_val)
-		CFRelease(crl_val);
-
-	if (isOCSPStatusCode(statusCode))
-		return (ocspRequired) ? false : true;
-	if (isCRLStatusCode(statusCode))
-		return (crlRequired) ? false : true;
-
-	return false;
 }
 
 // returns a CFArrayRef of allowed root certificates for the provided leaf certificate

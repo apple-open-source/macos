@@ -97,10 +97,7 @@ T_DECL(link_ntoa_overflow, "link_ntoa try to overflow")
 T_DECL(inet_ntop, "inet_ntop")
 {
 	char *addresses4[] = { "1.2.3.4", "10.0.0.1", "2.2.2.2" };
-	char *addresses6[] = {
-		"2001:db8:85a3::8a2e:370:7334",
-		"::1", "::"
-	};
+	char *addresses6[] = { "2001:db8:85a3::8a2e:370:7334", "::1", "::" };
 	for (int i = 0; i < sizeof(addresses4)/sizeof(addresses4[0]); i++){
 		struct in_addr addr4;
 		char buf[64];
@@ -114,7 +111,70 @@ T_DECL(inet_ntop, "inet_ntop")
 		char buf[64];
 		T_EXPECT_EQ(inet_pton(AF_INET6, addresses6[i], &addr6), 1, "inet_pton(AF_INET6, %s)", addresses6[i]);
 		char *str = inet_ntop(AF_INET6, &addr6, buf, sizeof(buf));
-		T_EXPECT_NOTNULL(str, "inet_ntop(AF_INET) of %s", addresses6[i]);
+		T_EXPECT_NOTNULL(str, "inet_ntop(AF_INET6) of %s", addresses6[i]);
 		T_EXPECT_EQ_STR(str, addresses6[i], "round-trip of %s", addresses6[i]);
 	}
+}
+
+struct testcase {
+	const char *in_addr;
+	const char *expected_out_addr;
+};
+
+static const struct testcase test_addrs[] = {
+	{ "1:2:3:4:5::1.2.3.4", "1:2:3:4:5:0:102:304" },
+	{ "1:0:3:0:5:0:7:8", "1:0:3:0:5:0:7:8" },
+	{ "0:0:3:0:0:0:7:8", "0:0:3::7:8" },
+	{ "0:0:3:0:5:0:7:8", "::3:0:5:0:7:8" },
+	{ "0:0:0:0:0:0:0:0", "::" },
+	{ "0:0:0:0:0:1:0:0", "::1:0:0" },
+	{ "1:0:0:0:0:0:0:0", "1::" },
+	{ "0:0:0:1:0:0:0:0", "0:0:0:1::" },
+	{ "1:0:0:0:0:0:0:1", "1::1" },
+	{ "1:2:3:4:5:6:0:0", "1:2:3:4:5:6::" },
+	{ "1:2:3:4:5:0:0:0", "1:2:3:4:5::" },
+};
+
+T_DECL(inet_ntop_resolve_zeroes, "Check for proper behavior when shortening zeroes w/ inet_ntop")
+{
+	// Take ip addrs as text, convert to binary and back.
+	// Upon converting back, they should adhere to the IPv6 guidelines.
+	for (int i = 0; i < sizeof(test_addrs)/sizeof(struct testcase); ++i) {
+		struct in6_addr addr6;
+		char buf[64];
+		char *in_addr = test_addrs[i].in_addr;
+		char *expected_out_addr = test_addrs[i].expected_out_addr;
+		T_EXPECT_EQ(inet_pton(AF_INET6, in_addr, &addr6), 1, "inet_pton(AF_INET6, %s)", in_addr);
+		char *str = inet_ntop(AF_INET6, &addr6, buf, sizeof(buf));
+		T_EXPECT_NOTNULL(str, "inet_ntop(AF_INET6) of %s", in_addr);
+		// <rdar://problem/32825795> Single-zero tests will fail until change
+		// implemented.
+		if (i < 2) {
+			T_EXPECTFAIL;
+		}
+		T_EXPECT_EQ_STR(str, expected_out_addr, NULL);
+	}
+
+	// Same test, but step through the possible range of ipv6 values.
+	for (int i = 0x0; i < 0x10000; ++i) {
+		struct in6_addr addr6;
+		char buf[64];
+		char in_addr[64];
+		sprintf(in_addr, "1:1:1:1:1:1:1:%x", i);
+		char *expected_out_addr = in_addr;
+		T_QUIET;
+		T_EXPECT_EQ(inet_pton(AF_INET6, in_addr, &addr6), 1, "inet_pton(AF_INET6, %s)", in_addr);
+		char *str = inet_ntop(AF_INET6, &addr6, buf, sizeof(buf));
+		T_QUIET;
+		T_EXPECT_NOTNULL(str, "inet_ntop(AF_INET6) of %s", in_addr);
+		T_QUIET;
+		// <rdar://problem/32825795>
+		if (i == 0) {
+			T_PASS("Never displayed"); // Cancel out the T_QUIET
+			T_EXPECTFAIL;
+		}
+		T_EXPECT_EQ_STR(str, expected_out_addr, NULL);
+	}
+	T_PASS("Passed ipv6 value testing");
+
 }

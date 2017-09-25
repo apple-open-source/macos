@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # -*- mode: ruby; ruby-indent-level: 2; tab-width: 2 -*-
 
 require 'erb'
@@ -56,6 +57,21 @@ class RDoc::Generator::Darkfish
   RDoc::RDoc.add_generator self
 
   include ERB::Util
+
+  ##
+  # Stylesheets, fonts, etc. that are included in RDoc.
+
+  BUILTIN_STYLE_ITEMS = # :nodoc:
+    %w[
+      css/fonts.css
+      fonts/Lato-Light.ttf
+      fonts/Lato-LightItalic.ttf
+      fonts/Lato-Regular.ttf
+      fonts/Lato-RegularItalic.ttf
+      fonts/SourceCodePro-Bold.ttf
+      fonts/SourceCodePro-Regular.ttf
+      css/rdoc.css
+  ]
 
   ##
   # Path to this file's parent directory. Used to find templates and other
@@ -128,6 +144,11 @@ class RDoc::Generator::Darkfish
   attr_reader :store
 
   ##
+  # The directory where the template files live
+
+  attr_reader :template_dir # :nodoc:
+
+  ##
   # The output directory
 
   attr_reader :outputdir
@@ -195,7 +216,13 @@ class RDoc::Generator::Darkfish
     debug_msg "Copying static files"
     options = { :verbose => $DEBUG_RDOC, :noop => @dry_run }
 
-    FileUtils.cp @template_dir + 'rdoc.css', '.', options
+    BUILTIN_STYLE_ITEMS.each do |item|
+      install_rdoc_static_file @template_dir + item, "./#{item}", options
+    end
+
+    @options.template_stylesheets.each do |stylesheet|
+      FileUtils.cp stylesheet, '.', options
+    end
 
     Dir[(@template_dir + "{js,images}/**/*").to_s].each do |path|
       next if File.directory? path
@@ -203,11 +230,7 @@ class RDoc::Generator::Darkfish
 
       dst = Pathname.new(path).relative_path_from @template_dir
 
-      # I suck at glob
-      dst_dir = dst.dirname
-      FileUtils.mkdir_p dst_dir, options unless File.exist? dst_dir
-
-      FileUtils.cp @template_dir + path, dst, options
+      install_rdoc_static_file @template_dir + path, dst, options
     end
   end
 
@@ -224,6 +247,7 @@ class RDoc::Generator::Darkfish
     generate_file_files
     generate_table_of_contents
     @json_index.generate
+    @json_index.generate_gzipped
 
     copy_static
 
@@ -447,7 +471,7 @@ class RDoc::Generator::Darkfish
   ##
   # Generates the 404 page for the RDoc servlet
 
-  def generate_servlet_not_found path
+  def generate_servlet_not_found message
     setup
 
     template_file = @template_dir + 'servlet_not_found.rhtml'
@@ -528,6 +552,23 @@ class RDoc::Generator::Darkfish
     error.set_backtrace e.backtrace
 
     raise error
+  end
+
+  def install_rdoc_static_file source, destination, options # :nodoc:
+    return unless source.exist?
+
+    begin
+      FileUtils.mkdir_p File.dirname(destination), options
+
+      begin
+        FileUtils.ln source, destination, options
+      rescue Errno::EEXIST
+        FileUtils.rm destination
+        retry
+      end
+    rescue
+      FileUtils.cp source, destination, options
+    end
   end
 
   ##

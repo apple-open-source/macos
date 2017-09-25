@@ -79,28 +79,28 @@ CopyWrappedKey(CFDataRef wrappingKey, CFDataRef unwrappedKey)
     return wrappedKey;
 }
 
-static CFDataRef
+static NSData *
 CopyUnwrappedKey(CFDataRef wrappingKey, CFDataRef wrappedKey)
 {
     const struct ccmode_ecb *ecb_mode = ccaes_ecb_decrypt_mode();
     ccecb_ctx_decl(ccecb_context_size(ecb_mode), key);
-    CFMutableDataRef unwrappedKey = NULL;
+    NSMutableData *unwrappedKey = NULL;
 
     require(CFDataGetLength(wrappedKey) >= CCWRAP_SEMIBLOCK, out);
     require(CFDataGetLength(wrappingKey) == KEY_LENGTH, out);
 
     ccecb_init(ecb_mode, key, CFDataGetLength(wrappingKey), CFDataGetBytePtr(wrappingKey));
 
-    unwrappedKey = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), ccwrap_unwrapped_size(CFDataGetLength(wrappedKey)));
+    unwrappedKey = CFBridgingRelease(CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), ccwrap_unwrapped_size(CFDataGetLength(wrappedKey))));
     require(unwrappedKey, out);
 
     size_t obytes = 0;
     int unwrap_status = ccwrap_auth_decrypt(ecb_mode, key, CFDataGetLength(wrappedKey), CFDataGetBytePtr(wrappedKey),
-                                            &obytes, CFDataGetMutableBytePtr(unwrappedKey));
+                                            &obytes, [unwrappedKey mutableBytes]);
     if (unwrap_status == 0) {
-        assert(obytes == (size_t)CFDataGetLength(unwrappedKey));
+        assert(obytes == (size_t)[unwrappedKey length]);
     } else {
-        CFReleaseNull(unwrappedKey);
+        unwrappedKey = NULL;
         goto out;
     }
 
@@ -161,10 +161,10 @@ CreateDerivedKey(CFDataRef salt, long iterations, NSString *managedCredential)
 NSData *
 SecEMCSCreateDerivedEMCSKey(NSDictionary *iDMSData, NSString *managedCredential, NSError **error)
 {
-    CFDataRef key = NULL, emcsKey = NULL;
-    CFDataRef userDerivedKey = NULL;
+    CFDataRef userDerivedKey = NULL, emcsKey = NULL;
     CFNumberRef number = NULL;
     CFDataRef salt = NULL;
+    NSData *key = NULL;
     long iterations;
 
     salt = CFDictionaryGetValue((__bridge CFDictionaryRef)iDMSData, kiDMSSalt);
@@ -185,7 +185,7 @@ SecEMCSCreateDerivedEMCSKey(NSDictionary *iDMSData, NSString *managedCredential,
     key = CopyUnwrappedKey(userDerivedKey, emcsKey);
     CFRelease(userDerivedKey);
 
-    return (__bridge NSData *)key;
+    return key;
 }
 
 /*

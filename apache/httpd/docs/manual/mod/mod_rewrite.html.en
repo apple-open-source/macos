@@ -56,7 +56,7 @@ URLs on the fly</td></tr>
       <p>Further details, discussion, and examples, are provided in the
       <a href="../rewrite/">detailed mod_rewrite documentation</a>.</p>
 </div>
-<div id="quickview"><h3>Topics</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#logging">Logging</a></li>
 </ul><h3 class="directives">Directives</h3>
@@ -1013,6 +1013,24 @@ RewriteRule  "^/$"                 "/homepage.std.html"     [L]</pre>
          supply this extended context info.  Available in 2.4.16 and later.</p>
       </dd>
 
+
+      <dt><code>LegacyPrefixDocRoot</code></dt>
+      <dd>
+
+      <p>Prior to 2.4.26, if a substitution was an absolute URL that matched
+         the current virtual host, the URL might first be reduced to a URL-path
+         and then later reduced to a local path. Since the URL can be reduced 
+         to a local path, the path should be prefixed with the document root. 
+         This prevents a file such as /tmp/myfile from being accessed when a 
+         request is made to http://host/file/myfile with the following 
+         <code class="directive"><a href="#rewriterule">RewriteRule</a></code>.</p>
+      <pre class="prettyprint lang-config">RewriteRule /file/(.*) http://localhost/tmp/$1</pre>
+
+      <p>This option allows the old behavior to be used where the document
+         root is not prefixed to a local path that was reduced from a 
+         URL.  Available in 2.4.26 and later.</p>
+      </dd>
+
       </dl>
 
 </div>
@@ -1346,7 +1364,7 @@ cannot use <code>$N</code> in the substitution string!
 <tr class="odd">
         <td>qslast|QSL</td>
         <td>Interpret the last (right-most) question mark as the query string
-            delimeter, instead of the first (left-most) as normally used.  
+            delimiter, instead of the first (left-most) as normally used.  
             Available in 2.4.19 and later.
         <em><a href="../rewrite/flags.html#flag_qsl">details
         ...</a></em></td>
@@ -1531,7 +1549,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_rewrite.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

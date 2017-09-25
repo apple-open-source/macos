@@ -35,6 +35,7 @@
 #include <WebCore/Chrome.h>
 #include <WebCore/Document.h>
 #include <WebCore/FrameLoadRequest.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/InspectorFrontendClient.h>
@@ -78,8 +79,11 @@ void WebInspector::openFrontendConnection(bool underTest)
     IPC::Attachment connectionClientPort(socketPair.client);
 #elif OS(DARWIN)
     mach_port_t listeningPort;
-    mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
-    mach_port_insert_right(mach_task_self(), listeningPort, listeningPort, MACH_MSG_TYPE_MAKE_SEND);
+    if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort) != KERN_SUCCESS)
+        CRASH();
+
+    if (mach_port_insert_right(mach_task_self(), listeningPort, listeningPort, MACH_MSG_TYPE_MAKE_SEND) != KERN_SUCCESS)
+        CRASH();
 
     IPC::Connection::Identifier connectionIdentifier(listeningPort);
     IPC::Attachment connectionClientPort(listeningPort, MACH_MSG_TYPE_MOVE_SEND);
@@ -143,13 +147,14 @@ void WebInspector::openInNewTab(const String& urlString)
         return;
 
     Frame& inspectedMainFrame = inspectedPage->mainFrame();
-    FrameLoadRequest request(inspectedMainFrame.document()->securityOrigin(), ResourceRequest(urlString), "_blank", LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, ReplaceDocumentIfJavaScriptURL, ShouldOpenExternalURLsPolicy::ShouldNotAllow);
+    FrameLoadRequest frameLoadRequest { *inspectedMainFrame.document(), inspectedMainFrame.document()->securityOrigin(), { urlString }, ASCIILiteral("_blank"), LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, ShouldOpenExternalURLsPolicy::ShouldNotAllow, InitiatedByMainFrame::Unknown };
 
-    Page* newPage = inspectedPage->chrome().createWindow(&inspectedMainFrame, request, WindowFeatures(), NavigationAction(request.resourceRequest(), NavigationType::LinkClicked));
+    NavigationAction action { *inspectedMainFrame.document(), frameLoadRequest.resourceRequest(), frameLoadRequest.initiatedByMainFrame(), NavigationType::LinkClicked };
+    Page* newPage = inspectedPage->chrome().createWindow(inspectedMainFrame, frameLoadRequest, { }, action);
     if (!newPage)
         return;
 
-    newPage->mainFrame().loader().load(request);
+    newPage->mainFrame().loader().load(WTFMove(frameLoadRequest));
 }
 
 void WebInspector::evaluateScriptForTest(const String& script)
@@ -283,30 +288,7 @@ void WebInspector::sendMessageToBackend(const String& message)
 
 void WebInspector::sendMessageToFrontend(const String& message)
 {
-#if ENABLE(INSPECTOR_SERVER)
-    if (m_remoteFrontendConnected)
-        WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SendMessageToRemoteFrontend(message), m_page->pageID());
-    else
-#endif
-        m_frontendConnection->send(Messages::WebInspectorUI::SendMessageToFrontend(message), 0);
+    m_frontendConnection->send(Messages::WebInspectorUI::SendMessageToFrontend(message), 0);
 }
-
-#if ENABLE(INSPECTOR_SERVER)
-void WebInspector::remoteFrontendConnected()
-{
-    if (m_page->corePage()) {
-        m_remoteFrontendConnected = true;
-        m_page->corePage()->inspectorController().connectFrontend(this);
-    }
-}
-
-void WebInspector::remoteFrontendDisconnected()
-{
-    m_remoteFrontendConnected = false;
-
-    if (m_page->corePage())
-        m_page->corePage()->inspectorController().disconnectFrontend(this);
-}
-#endif
 
 } // namespace WebKit

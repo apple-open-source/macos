@@ -189,10 +189,10 @@
 #define SIZEOF_INT 4
 
 /* The number of bytes in a long.  */
-#define SIZEOF_LONG 0
+/* #undef SIZEOF_LONG */
 
 /* The number of bytes in a pointer to char.  */
-#define SIZEOF_CHAR_P 0
+/* #undef SIZEOF_CHAR_P */
 
 /* The number of bytes in a double (hopefully 8). */
 #define SIZEOF_DOUBLE 8

@@ -493,6 +493,9 @@ testskipped(size_t i)
 {
 
 	printf("ok %zu # skip - not turned on\n", i);
+#ifdef __APPLE__
+	printf("[PASS] test %zu\n", i);
+#endif /* __APPLE__ */
 }
 
 int
@@ -523,7 +526,13 @@ main(int argc, char * const argv[])
 		printf("Warning: buffer size %zu != 4, expect some results to differ.\n", buflen);
 
 	printf("1..%zu\n", nitems(test_args));
+#ifdef __APPLE__
+	printf("[TEST] humanize_number_test\n");
+#endif /* __APPLE__ */
 	for (i = 0; i < nitems(test_args); i++) {
+#ifdef __APPLE__
+		printf("[BEGIN] test %zu\n", i + 1);
+#endif /* __APPLE__ */
 		/* KLUDGE */
 		if (test_args[i].num == INT64_MAX && buflen == 4) {
 		        /* Start final tests which require buffer of 6 */
@@ -565,6 +574,9 @@ main(int argc, char * const argv[])
 				printf("not ok %zu # return %d != %d\n",
 				    i + 1, r, test_args[i].retval);
 			errcnt++;
+#ifdef __APPLE__
+			printf("[FAIL] test %zu\n", i + 1);
+#endif /* __APPLE__ */
 		} else if (strcmp(buf, test_args[i].res) != 0) {
 			if (verbose)
 				printf("result mismatch on index %zu, got: "
@@ -577,6 +589,9 @@ main(int argc, char * const argv[])
 				printf("not ok %zu # buf \"%s\" != \"%s\"\n",
 				    i + 1, buf, test_args[i].res);
 			errcnt++;
+#ifdef __APPLE__
+			printf("[FAIL] test %zu\n", i + 1);
+#endif /* __APPLE__ */
 		} else {
 			if (verbose)
 				printf("successful result on index %zu, "
@@ -587,10 +602,14 @@ main(int argc, char * const argv[])
 				    scale_str, flag_str);
 			else
 				printf("ok %zu\n", i + 1);
+#ifdef __APPLE__
+			printf("[PASS] test %zu\n", i + 1);
+#endif /* __APPLE__ */
 		}
 		tested++;
 	}
 
+	printf("[SUMMARY]\n");
 	if (verbose)
 		printf("total errors: %zu/%zu tests, %zu skipped\n", errcnt,
 		    tested, skipped);

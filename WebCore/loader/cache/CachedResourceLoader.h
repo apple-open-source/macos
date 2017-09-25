@@ -30,10 +30,8 @@
 #include "CachedResourceHandle.h"
 #include "CachedResourceRequest.h"
 #include "ContentSecurityPolicy.h"
-#include "ResourceLoadPriority.h"
 #include "ResourceTimingInformation.h"
 #include "Timer.h"
-#include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -53,6 +51,7 @@ class Document;
 class DocumentLoader;
 class Frame;
 class ImageLoader;
+class Settings;
 class URL;
 
 // The CachedResourceLoader provides a per-context interface to the MemoryCache
@@ -78,6 +77,7 @@ public:
     CachedResourceHandle<CachedScript> requestScript(CachedResourceRequest&&);
     CachedResourceHandle<CachedFont> requestFont(CachedResourceRequest&&, bool isSVG);
     CachedResourceHandle<CachedRawResource> requestMedia(CachedResourceRequest&&);
+    CachedResourceHandle<CachedRawResource> requestIcon(CachedResourceRequest&&);
     CachedResourceHandle<CachedRawResource> requestRawResource(CachedResourceRequest&&);
     CachedResourceHandle<CachedRawResource> requestMainResource(CachedResourceRequest&&);
     CachedResourceHandle<CachedSVGDocument> requestSVGDocument(CachedResourceRequest&&);
@@ -109,7 +109,7 @@ public:
     bool shouldDeferImageLoad(const URL&) const;
     bool shouldPerformImageLoad(const URL&) const;
     
-    CachePolicy cachePolicy(CachedResource::Type) const;
+    CachePolicy cachePolicy(CachedResource::Type, const URL&) const;
     
     Frame* frame() const; // Can be null
     Document* document() const { return m_document; } // Can be null
@@ -119,7 +119,7 @@ public:
 
     void removeCachedResource(CachedResource&);
 
-    void loadDone(CachedResource*, bool shouldPerformPostLoadActions = true);
+    void loadDone(bool shouldPerformPostLoadActions = true);
 
     WEBCORE_EXPORT void garbageCollectDocumentResources();
 
@@ -128,9 +128,12 @@ public:
     int requestCount() const { return m_requestCount; }
 
     WEBCORE_EXPORT bool isPreloaded(const String& urlString) const;
-    void clearPreloads();
+    enum class ClearPreloadsMode { ClearSpeculativePreloads, ClearAllPreloads };
+    void clearPreloads(ClearPreloadsMode);
     CachedResourceHandle<CachedResource> preload(CachedResource::Type, CachedResourceRequest&&);
     void printPreloadStats();
+    void warnUnusedPreloads();
+    void stopUnusedPreloadsTimer();
 
     bool updateRequestAfterRedirection(CachedResource::Type, ResourceRequest&, const ResourceLoaderOptions&);
 
@@ -186,6 +189,7 @@ private:
     int m_requestCount;
     
     std::unique_ptr<ListHashSet<CachedResource*>> m_preloads;
+    Timer m_unusedPreloadsTimer;
 
     Timer m_garbageCollectDocumentResourcesTimer;
 

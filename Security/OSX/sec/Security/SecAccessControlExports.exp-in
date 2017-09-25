@@ -34,3 +34,4 @@ _kSecUseAuthenticationUIFail
 _kSecUseAuthenticationUISkip
 _kSecUseAuthenticationContext
 _kSecUseCallerName
+_kSecUseTokenRawItems

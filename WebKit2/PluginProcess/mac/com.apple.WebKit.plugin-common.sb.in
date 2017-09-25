@@ -1,4 +1,4 @@
-; Copyright (C) 2013-2016 Apple Inc. All rights reserved.
+; Copyright (C) 2013-2017 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -26,6 +26,105 @@
 (allow system-audit file-read-metadata)
 
 (import "system.sb")
+
+;;; process-info* defaults to allow; deny it and then allow operations we actually need.
+(deny process-info*)
+(allow process-info-pidinfo)
+(allow process-info-setcontrol (target self))
+
+(deny sysctl*)
+(allow sysctl-read
+    (sysctl-name
+        "hw.availcpu"
+        "hw.ncpu"
+        "hw.model"
+        "kern.memorystatus_level"
+        "vm.footprint_suspend"))
+
+(deny iokit-get-properties)
+(allow iokit-get-properties
+    (iokit-property-regex #"^AAPL,(DisplayPipe|boot-display|mux-switch-state)")
+    (iokit-property-regex #"^ATY,fb_(linebytes|offset|size)")
+    (iokit-property "ActuationSupported")
+    (iokit-property "AllowDisplaySleep")
+    (iokit-property "AlwaysNeedsVelocityCalculated")
+    (iokit-property "Apple(DisplayType|IntelMEVABundleName|Sense)")
+    (iokit-property "CFBundleIdentifier")
+    (iokit-property-regex #"^Display(ParameterHandlerUsesCharPtr|ProductID|Routing|SerialNumber|VendorID)")
+    (iokit-property "DeviceEqID")
+    (iokit-property "Driver is Ready")
+    (iokit-property "EnableLPVP")
+    (iokit-property "Endianness")
+    (iokit-property "Family ID")
+    (iokit-property "ForceSupported")
+    (iokit-property "HIDPointerAccelerationType")
+    (iokit-property-regex #"^IOAccel(Index|Revision|Types)")
+    (iokit-property-regex #"^IOAudioControl(ChannelID|ID|SubType|Usage)")
+    (iokit-property-regex #"^IOAudioDevice(CanBeDefaults|TransportType)")
+    (iokit-property-regex #"^IOAudioEngine(ChannelNames|ClientDescription|CoreAudioPlugIn|(|Device)Description|Flavor|GlobalUniqueID|OutputChannelLayout|SampleOffset|State)")
+    (iokit-property-regex #"^IOAudioEngineClock(Domain|IsStable)")
+    (iokit-property "IOAudioEngineDisableClockBoundsCheck")
+    (iokit-property-regex #"^IOAudioEngine(Input|Output)Sample(Latency|Offset)")
+    (iokit-property-regex #"^IOAudioEngineNum(ActiveUserClients|SampleFramesPerBuffer)")
+    (iokit-property "IOAudioSampleRate")
+    (iokit-property "IOAudioStreamSampleFormatByteOrder")
+    (iokit-property "IOClassNameOverride")
+    (iokit-property "IOCFPlugInTypes")
+    (iokit-property "IOClass")
+    (iokit-property "IOConsoleUsers")
+    (iokit-property-regex #"^IODisplay(Attributes|CapabilityString|ConnectFlags|ControllerID|EDID|FirmwareLevel|MCCSVersion|Parameters|PrefsKey|TechnologyType|UsageTime)")
+    (iokit-property-regex #"^IOFB(CLUTDefer|Config|CurrentPixelClock|CurrentPixelCount|CursorInfo|DependentID|DependentIndex|DetailedTimings|GammaCount|GammaHeaderSize|GammaWidth|I2CInterfaceIDs|I2CInterfaceInfo|Integrated|MemorySize|NeedsRefresh|ProbeOptions|ScalerInfo|TimingRange|Transform|UIScale|WaitCursorFrames|WaitCursorPeriod)")
+    (iokit-property-regex #"^IOFBCurrentPixelCount(Real)")
+    (iokit-property "IOFramebufferOpenGLIndex")
+    (iokit-property "IOGeneralInterest")
+    (iokit-property "IOGLBundleName")
+    (iokit-property "IOGVACodec")
+    (iokit-property "IOI2CTransactionTypes")
+    (iokit-property-regex "^IOGVA[A-Z]+Decode")
+    (iokit-property "IOMACAddress") ;; For some Flash players
+    (iokit-property "IOMatchCategory")
+    (iokit-property-regex #"^IOName(Match|Matched)")
+    (iokit-property "IOPMStrictTreeOrder")
+    (iokit-property-regex #"^IOPlatform(SerialNumber|UUID)") ;; Ditto
+    (iokit-property "IOPowerManagement")
+    (iokit-property "IOProbeScore")
+    (iokit-property "IOProviderClass")
+    (iokit-property "IOScreenRestoreState")
+    (iokit-property "IOVARendererID")
+    (iokit-property-regex #"^MT( Built-In|HIDDevice)")
+    (iokit-property "MaintainPowerInUILock")
+    (iokit-property "Max Packet Size")
+    (iokit-property-regex #"^MetalPlugin(Name|ClassName)")
+    (iokit-property-regex #"^Multitouch (ID|Serial Number|Subdevice ID)")
+    (iokit-property "NXSystemInfo")
+    (iokit-property "NoAutoRoute")
+    (iokit-property "Protocol Characteristics")
+    (iokit-property-regex #"^Sensor (Columns|Region (Descriptor|Param)|Rows|Surface (Descriptor|Height|Width))")
+    (iokit-property "SupportAudioAUUC")
+    (iokit-property "TimeStampFiltering")
+    (iokit-property "Transport")
+    (iokit-property "WANTS_FRAMES_IGNORED")
+    (iokit-property "board-id")
+    (iokit-property-regex #"^audio-(codec-info|device-(mvalue|nvalue))")
+    (iokit-property "av-signal-type")
+    (iokit-property "bcdVersion")
+    (iokit-property "boot-gamma-restored")
+    (iokit-property "built-in")
+    (iokit-property "connector-type")
+    (iokit-property "device-colors")
+    (iokit-property "graphic-options")
+    (iokit-property "idProduct")
+    (iokit-property "idVendor")
+    (iokit-property "iofb_version")
+    (iokit-property-regex #"^parser-(options|type)")
+    (iokit-property "port-number")
+    (iokit-property "startup-timing")
+    (iokit-property "touch-size-id")
+)
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+(deny mach-lookup (xpc-service-name-prefix ""))
+#endif
 
 ;; Utility functions
 (define (home-literal home-relative-literal)
@@ -98,6 +197,13 @@
     (if (zero? (string-length *uuid-pattern*))
         (set! *uuid-pattern* (uuid-HEX-pattern-match-string)))
     *uuid-pattern*)
+
+(define (allow-read-write-directory-and-issue-read-write-extensions path)
+    (if path
+        (begin
+            (allow file-read* file-write* (subpath path))
+            (allow file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read") (subpath path)))
+            (allow file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read-write") (subpath path))))))
 
 ;; WebKit2 sandbox launcher needs to define an _OS_VERSION parameter
 ;; This parameter is the major OS Version number.
@@ -226,6 +332,7 @@
 
 ;; Various services required by AppKit and other frameworks
 (allow mach-lookup
+    (global-name "com.apple.audio.AudioComponentRegistrar")
     (global-name "com.apple.CoreServices.coreservicesd")
     (global-name "com.apple.DiskArbitration.diskarbitrationd")
     (global-name "com.apple.FileCoordination")
@@ -239,7 +346,9 @@
     (global-name "com.apple.SystemConfiguration.PPPController")
     (global-name "com.apple.SystemConfiguration.configd")
     (global-name "com.apple.UNCUserNotification")
-    (global-name "com.apple.audio.VDCAssistant")
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    (global-name "com.apple.analyticsd")
+#endif
     (global-name "com.apple.audio.audiohald")
     (global-name "com.apple.audio.coreaudiod")
     (global-name "com.apple.cfnetwork.AuthBrokerAgent")
@@ -247,6 +356,7 @@
     (global-name "com.apple.cookied") ;; FIXME: <rdar://problem/10790768> Limit access to cookies.
     (global-name "com.apple.coreservices.launchservicesd")
     (global-name "com.apple.fonts")
+    (global-name "com.apple.lsd.mapdb")
     (global-name "com.apple.ocspd")
     (global-name "com.apple.pasteboard.1")
     (global-name "com.apple.pbs.fetch_services")
@@ -260,9 +370,12 @@
 ;; Configuration directories
 (allow file-read* (subpath (param "PLUGIN_PATH")))
 (allow file-read* (subpath (param "WEBKIT2_FRAMEWORK_DIR")))
-(allow file* (subpath (param "DARWIN_USER_TEMP_DIR")))
-(allow file* (subpath (param "DARWIN_USER_CACHE_DIR")))
-(allow file* (subpath (param "NSURL_CACHE_DIR")))
+(if (positive? (string-length (param "DARWIN_USER_CACHE_DIR")))
+    (allow-read-write-directory-and-issue-read-write-extensions (param "DARWIN_USER_CACHE_DIR")))
+(if (positive? (string-length (param "DARWIN_USER_TEMP_DIR")))
+    (allow-read-write-directory-and-issue-read-write-extensions (param "DARWIN_USER_TEMP_DIR")))
+(if (positive? (string-length (param "NSURL_CACHE_DIR")))
+    (allow-read-write-directory-and-issue-read-write-extensions (param "NSURL_CACHE_DIR")))
 
 ;; Allow the OpenGL Profiler to attach.
 (if (defined? 'mach-register)
@@ -277,7 +390,6 @@
     (remote udp))
 (allow network-inbound
     (local udp))
-
 
 ;; Open and Save panels
 (define (webkit-powerbox)

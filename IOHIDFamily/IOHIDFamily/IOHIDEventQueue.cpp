@@ -59,7 +59,7 @@ exit:
 }
 
 IOHIDEventQueue * IOHIDEventQueue::withEntries( UInt32 numEntries,
-                                                UInt32 entrySize )
+                                                UInt32 entrySize)
 {
     IOHIDEventQueue * queue = NULL;
     UInt32 size = numEntries*entrySize;
@@ -70,10 +70,13 @@ IOHIDEventQueue * IOHIDEventQueue::withEntries( UInt32 numEntries,
     if ( size < MIN_HID_QUEUE_CAPACITY )
         size = MIN_HID_QUEUE_CAPACITY;
     
+    if ( size > MAX_HID_QUEUE_CAPACITY )
+        size = MAX_HID_QUEUE_CAPACITY;
     
     queue = IOHIDEventQueue::withCapacity(size);
-    if (queue )
+    if (queue) {
         queue->_numEntries = numEntries;
+    }
     
     return queue;
 }
@@ -89,12 +92,9 @@ void IOHIDEventQueue::free()
         IOLockFree(tempLock);
     }
     
-    if ( _descriptor )
-    {
-        _descriptor->release();
-        _descriptor = 0;
-    }
-
+    OSSafeReleaseNULL(_descriptor);
+    OSSafeReleaseNULL(_elementSet);
+    
     super::free();
 }
 
@@ -107,6 +107,9 @@ Boolean IOHIDEventQueue::initWithEntries(UInt32 numEntries, UInt32 entrySize)
 
     if ( size < MIN_HID_QUEUE_CAPACITY )
         size = MIN_HID_QUEUE_CAPACITY;
+    
+    if ( size > MAX_HID_QUEUE_CAPACITY )
+        size = MAX_HID_QUEUE_CAPACITY;
         
     return super::initWithCapacity(size);
 }
@@ -123,8 +126,14 @@ Boolean IOHIDEventQueue::enqueue( void * data, UInt32 dataSize )
 
     // if we are not started, then dont enqueue
     // for now, return true, since we dont wish to push an error back
-    if ((_state & (kHIDQueueStarted | kHIDQueueDisabled)) == kHIDQueueStarted)
+    if ((_state & (kHIDQueueStarted | kHIDQueueDisabled)) == kHIDQueueStarted) {
         ret = super::enqueue(data, dataSize);
+        if (!ret) {
+            _enqueueErrorCount++;
+            //Send notification for queue full
+            sendDataAvailableNotification();
+        }
+    }
 
     if ( _lock )
         IOLockUnlock(_lock);
@@ -150,14 +159,19 @@ void IOHIDEventQueue::start()
         
         // Free the existing queue data
         if (dataQueue) {
-            IOFreeAligned(dataQueue, round_page_32(getQueueSize() + DATA_QUEUE_MEMORY_HEADER_SIZE));
+            IOFreeAligned(dataQueue, round_page(getQueueSize() + DATA_QUEUE_MEMORY_HEADER_SIZE + DATA_QUEUE_MEMORY_APPENDIX_SIZE));
             dataQueue = NULL;
+            if (notifyMsg) {
+                IOFree(notifyMsg, sizeof(mach_msg_header_t));
+                notifyMsg = NULL;
+            }
+        }
+        if (_reserved) {
+            IOFree(_reserved, sizeof(struct ExpansionData));
+            _reserved = NULL;
         }
         
-        if (_descriptor) {
-            _descriptor->release();
-            _descriptor = 0;
-        }
+        OSSafeReleaseNULL(_descriptor);
         
         // init the queue again.  This will allocate the appropriate data.
         if ( !initWithEntries(_numEntries, _maxEntrySize) ) {
@@ -324,7 +338,43 @@ IOMemoryDescriptor * IOHIDEventQueue::getMemoryDescriptor()
 }
 
 //---------------------------------------------------------------------------
-// 
+//
+bool IOHIDEventQueue::serialize(OSSerialize * serializer) const
+{
+    bool ret = false;
+    
+    if (serializer->previouslySerialized(this)) {
+        return true;
+    }
+    
+    OSDictionary *dict = OSDictionary::withCapacity(2);
+    if (dict) {
+        OSNumber *num = OSNumber::withNumber(dataQueue->head, 32);
+        if (num) {
+            dict->setObject("head", num);
+            num->release();
+        }
+        num = OSNumber::withNumber(dataQueue->tail, 32);
+        if (num) {
+            dict->setObject("tail", num);
+            num->release();
+        }
+        num = OSNumber::withNumber(_enqueueErrorCount, 64);
+        if (num) {
+            dict->setObject("EnqueueErrorCount", num);
+            num->release();
+        }
+        num = OSNumber::withNumber(_reserved->queueSize, 64);
+        if (num) {
+            dict->setObject("QueueSize", num);
+            num->release();
+        }
+        ret = dict->serialize(serializer);
+        dict->release();
+    }
+    
+    return ret;
+}
 
 OSMetaClassDefineReservedUnused(IOHIDEventQueue,  0);
 OSMetaClassDefineReservedUnused(IOHIDEventQueue,  1);

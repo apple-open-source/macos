@@ -39,7 +39,7 @@ est donc important de bien comprendre leur fonctionnement, plutôt que de
 simplement les copier/coller dans votre configuration.</div>
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#sharding">Distribution de la charge entre plusieurs serveurs
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#sharding">Distribution de la charge entre plusieurs serveurs
   d'arrière-plan en fonction de l'adresse IP</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#on-the-fly-content">Régéneration de contenu à la volée</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#load-balancing">Répartition de charge</a></li>
@@ -346,7 +346,7 @@ RewriteRule   "^/cheval/(.*)"   "/poney/$1" [E=<strong>rewritten:1</strong>]</pr
     contenu de cette variable d'environnement via une directive
     RewriteCond :</p>
 
-<pre class="prettyprint lang-config">RewriteCond "%{ENV:rewritten}" =1</pre>
+<pre class="prettyprint lang-config">RewriteCond "%{ENV:rewritten}" "=1"</pre>
 
 
     </dd>
@@ -374,7 +374,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/advanced.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

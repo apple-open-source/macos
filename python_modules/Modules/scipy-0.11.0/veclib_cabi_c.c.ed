@@ -1,2 +1,0 @@
-/^#define WRAP_F77/s/_$/__/
-w

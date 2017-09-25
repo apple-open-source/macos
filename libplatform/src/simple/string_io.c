@@ -37,8 +37,12 @@
 #endif
 
 #define BUF_SIZE(s)	(((BUF *)(s))->end - ((BUF *)(s))->buf + 1)
+#if DEBUG
+#define MYBUFSIZE	256
+#else
 /* we use a small buffer to minimize stack usage constraints */
 #define MYBUFSIZE	32
+#endif
 
 typedef struct _BUF {
 	char *buf;
@@ -439,13 +443,10 @@ _simple_dprintf(int fd, const char *fmt, ...)
 _SIMPLE_STRING
 _simple_salloc(void)
 {
-	kern_return_t kr;
 	BUF *b;
 
-	kr = vm_allocate(mach_task_self(), (vm_address_t *)&b, VM_PAGE_SIZE, 1);
-	if (kr) {
-		__LIBPLATFORM_CLIENT_CRASH__(kr, "Failed to allocate memory for string");
-	}
+	if(vm_allocate(mach_task_self(), (vm_address_t *)&b, VM_PAGE_SIZE, 1))
+		return NULL;
 	b->ptr = b->buf = (char *)b + sizeof(BUF);
 	b->end = (char *)b + VM_PAGE_SIZE - 1;
 	b->full = _enlarge;
@@ -455,7 +456,8 @@ _simple_salloc(void)
 /*
  * The format string is interpreted with arguments from the va_list, and the
  * results are appended to the string maintained by the opaque structure, as
- * returned by a previous call to _simple_salloc(). Always returns 0.
+ * returned by a previous call to _simple_salloc().  Non-zero is returned on
+ * out-of-memory error.
  */
 int
 _simple_vsprintf(_SIMPLE_STRING b, const char *fmt, va_list ap)
@@ -466,8 +468,8 @@ _simple_vsprintf(_SIMPLE_STRING b, const char *fmt, va_list ap)
 /*
  * The format string is interpreted with arguments from the variable argument
  * list, and the results are appended to the string maintained by the opaque
- * structure, as returned by a previous call to _simple_salloc().
- * Always returns 0.
+ * structure, as returned by a previous call to _simple_salloc().  Non-zero is
+ * returned on out-of-memory error.
  */
 int
 _simple_sprintf(_SIMPLE_STRING b, const char *fmt, ...)
@@ -532,7 +534,7 @@ _simple_sresize(_SIMPLE_STRING b)
 
 /*
  * Append the null-terminated string to the string associated with the opaque
- * structure.  Always returns 0.
+ * structure.  Non-zero is returned on out-of-memory error.
  */
 int
 _simple_sappend(_SIMPLE_STRING b, const char *str)

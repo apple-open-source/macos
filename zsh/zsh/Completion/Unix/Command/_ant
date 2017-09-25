@@ -41,6 +41,7 @@ _arguments -C \
   '(- *)-version[display version information]' \
   '(- *)-diagnostics[print information helpful to diagnosis or report problems]' \
   '(-q -quiet)'{-q,-quiet}'[be extra quiet]' \
+  '(-s -silent)'{-s,-silent}'[print nothing but task outputs and build failures]' \
   '(-v -verbose)'{-v,-verbose}'[be extra verbose]' \
   '(-d -debug)'{-d,-debug}'[print debugging information]' \
   '(-e -emacs)'{-e,-emacs}'[produce logging information without adornments]' \
@@ -82,7 +83,7 @@ case $state in
       "classpath:$state:_path_files -r': ' -/" && ret=0
   ;;
   property)
-    if compset -P '*='; then
+    if compset -P 1 '*='; then
       _default && ret=0
     else
       _message -e properties 'property name'

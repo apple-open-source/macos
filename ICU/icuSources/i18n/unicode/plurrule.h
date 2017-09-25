@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 2008-2015, International Business Machines Corporation and
@@ -27,6 +29,9 @@
 
 #include "unicode/format.h"
 #include "unicode/upluralrules.h"
+#ifndef U_HIDE_INTERNAL_API
+#include "unicode/numfmt.h"
+#endif  /* U_HIDE_INTERNAL_API */
 
 /**
  * Value returned by PluralRules::getUniqueKeywordValue() when there is no
@@ -35,6 +40,7 @@
  */
 #define UPLRULES_NO_UNIQUE_VALUE ((double)-0.00123456777)
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class Hashtable;
@@ -344,6 +350,22 @@ public:
 
 #ifndef U_HIDE_INTERNAL_API
     /**
+     * Given a number and a format, returns the keyword of the first applicable
+     * rule for this PluralRules object.
+     * Note: This internal preview interface may be removed in the future if
+     * an architecturally cleaner solution reaches stable status.
+     * @param obj The numeric object for which the rule should be determined.
+     * @param fmt The NumberFormat specifying how the number will be formatted
+     *        (this can affect the plural form, e.g. "1 dollar" vs "1.0 dollars").
+     * @param status  Input/output parameter. If at entry this indicates a
+     *                failure status, the method returns immediately; otherwise
+     *                this is set to indicate the outcome of the call.
+     * @return The keyword of the selected rule. Undefined in the case of an error.
+     * @internal ICU 59 technology preview, may be removed in the future
+     */
+    UnicodeString select(const Formattable& obj, const NumberFormat& fmt, UErrorCode& status) const;
+
+    /**
       * @internal
       */
     UnicodeString select(const FixedDecimal &number) const;
@@ -503,6 +525,7 @@ private:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

@@ -61,7 +61,7 @@ static struct {
     /* These are initialized in top_prefs_init() below. */
     struct {
 	int total;
-	int array[STATISTIC_TOTAL];
+	int array[NUM_STATISTICS];
     } display_stats;
 
     const char *signal_string;
@@ -87,6 +87,9 @@ static struct {
     .delta_forced_mmr = false
 };
 
+/*
+ * Map from stats name (passed in on the command line) to statistic.
+ */
 static struct {
     const char *string;
     int e;
@@ -127,6 +130,8 @@ static struct {
 #endif
     {"vsize", STATISTIC_VSIZE},
     {"vprvt", STATISTIC_VPRVT},
+    {"instrs", STATISTIC_INSTRS},
+    {"cycles", STATISTIC_CYCLES},
     {"pgrp", STATISTIC_PGRP},
     {"ppid", STATISTIC_PPID},
     {"state", STATISTIC_PSTATE},
@@ -203,7 +208,7 @@ void top_prefs_init(void) {
     prefs.display_stats.total = 0;
 
 #define SPREF(e) do { \
-	assert(prefs.display_stats.total < STATISTIC_TOTAL); \
+	assert(prefs.display_stats.total < NUM_STATISTICS); \
 	prefs.display_stats.array[prefs.display_stats.total] = e; \
 	prefs.display_stats.total++;				  \
     } while(0)
@@ -242,6 +247,8 @@ void top_prefs_init(void) {
     SPREF(STATISTIC_PAGEINS);
     SPREF(STATISTIC_IDLEWAKE);
     SPREF(STATISTIC_POWERSCORE);
+    SPREF(STATISTIC_INSTRS);
+    SPREF(STATISTIC_CYCLES);
     SPREF(STATISTIC_USER);
 
     /* mmr columns - we hates them */
@@ -501,7 +508,7 @@ bool top_prefs_set_stats(const char *names) {
     char key[20];
     int key_offset = 0;
     const char *np;
-    int stat_enum_array[STATISTIC_TOTAL];
+    int stat_enum_array[NUM_STATISTICS];
     int stat_enum_array_offset = 0;
     int e, i;
 
@@ -518,7 +525,7 @@ bool top_prefs_set_stats(const char *names) {
 		return true;
 	    } 
 
-	    if(stat_enum_array_offset >= STATISTIC_TOTAL) {
+	    if(stat_enum_array_offset >= NUM_STATISTICS) {
 		fprintf(stderr, "too many stats specified.\n");
 		return true;
 	    }	   
@@ -546,7 +553,7 @@ bool top_prefs_set_stats(const char *names) {
 	    return true;
 	}
 
-	if(stat_enum_array_offset >= STATISTIC_TOTAL) {
+	if(stat_enum_array_offset >= NUM_STATISTICS) {
 	    fprintf(stderr, "too many stats specified.\n");
 	    return true;
 	}

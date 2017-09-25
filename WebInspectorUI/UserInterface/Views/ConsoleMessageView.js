@@ -146,7 +146,7 @@ WebInspector.ConsoleMessageView = class ConsoleMessageView extends WebInspector.
             this._element.insertBefore(this._repeatCountElement, this._element.firstChild);
         }
 
-        this._repeatCountElement.textContent = count;
+        this._repeatCountElement.textContent = Number.abbreviate(count);
     }
 
     get expandable()
@@ -343,7 +343,7 @@ WebInspector.ConsoleMessageView = class ConsoleMessageView extends WebInspector.
             });
         }
 
-        if (callFrame) {
+        if (callFrame && (!callFrame.isConsoleEvaluation || WebInspector.isDebugUIEnabled())) {
             const showFunctionName = !!callFrame.functionName;
             var locationElement = new WebInspector.CallFrameView(callFrame, showFunctionName);
             locationElement.classList.add("console-message-location");
@@ -702,7 +702,12 @@ WebInspector.ConsoleMessageView = class ConsoleMessageView extends WebInspector.
 
     _linkifyLocation(url, lineNumber, columnNumber)
     {
-        return WebInspector.linkifyLocation(url, lineNumber, columnNumber, "console-message-url");
+        const options = {
+            className: "console-message-url",
+            ignoreNetworkTab: true,
+            ignoreSearchTab: true,
+        };
+        return WebInspector.linkifyLocation(url, new WebInspector.SourceCodePosition(lineNumber, columnNumber), options);
     }
 
     _userProvidedColumnNames(columnNamesArgument)
@@ -759,7 +764,7 @@ WebInspector.ConsoleMessageView = class ConsoleMessageView extends WebInspector.
                     continue;
 
                 var rowValue = {};
-                var maxColumnsToRender = 10;
+                var maxColumnsToRender = 15;
                 for (var j = 0; j < rowPreview.propertyPreviews.length; ++j) {
                     var cellProperty = rowPreview.propertyPreviews[j];
                     var columnRendered = columnNames.includes(cellProperty.name);

@@ -1,11 +1,8 @@
-﻿# ***************************************************************************
-# *
-# *  Copyright (C) 2004-2016, International Business Machines
-# *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
-# *
-# ***************************************************************************
+﻿# © 2016 and later: Unicode, Inc. and others.
+# License & terms of use: http://www.unicode.org/copyright.html#License
+#
 # File: ru_ru_Latn_BGN.txt
-# Generated from CLDR 
+# Generated from CLDR
 #
 
 # BGN/PCGN 1947 System
@@ -35,14 +32,14 @@
 $prime = ʹ ;
 $doublePrime = ʺ ;
 $wordBoundary = [^[:L:][:M:][:N:]] ;
-$upperConsonants = [БВГДЖЙКЛМНПРСТФХЦЧШЩЭ] ;
-$lowerConsonants = [бвгджйклмнпрстфхцчшщэ] ;
-$consonants = [$upperConsonants $lowerConsonants] ;
 $upperVowels = [АЕЁЭИОУЫЮЯ] ;
 $lowerVowels = [аеёэиоуыюя] ;
 $vowels = [$upperVowels $lowerVowels] ;
-$lower = [$lowerConsonants $lowerVowels] ;
-$upper = [$upperConsonants $upperVowels] ;
+$upperConsonants = [[:Uppercase:]-$vowels] ;
+$lowerConsonants = [[:Lowercase:]-$vowels] ;
+$consonants = [$upperConsonants $lowerConsonants] ;
+$upper = [:Uppercase:];
+$lower = [:Lowercase:];
 ########################################################################
 # Rules moved to front to avoid masking
 ########################################################################

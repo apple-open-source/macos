@@ -1,6 +1,6 @@
---- ./common/unicode/udata.h	2016-03-29 15:23:07.000000000 -0700
-+++ ./common/unicode/udata.h	2016-03-29 16:23:07.000000000 -0700
-@@ -399,10 +399,10 @@
+--- ./common/unicode/udata.h	2017-04-30 10:43:56.000000000 -0700
++++ ./common/unicode/udata.h	2017-04-30 11:43:56.000000000 -0700
+@@ -401,10 +401,10 @@
  typedef enum UDataFileAccess {
      /** ICU looks for data in single files first, then in packages. (default) @stable ICU 3.4 */
      UDATA_FILES_FIRST,

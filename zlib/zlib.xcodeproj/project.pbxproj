@@ -205,7 +205,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -x\nDSTROOT=\"$DSTROOT$INSTALL_PATH_PREFIX\"\nmkdir -p \"$DSTROOT\"/usr/share/man/man3 \"$DSTROOT\"/usr/local/{OpenSourceLicenses,OpenSourceVersions} \"$DSTROOT\"/usr/include\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib/zlib.3 \"$DSTROOT\"/usr/share/man/man3\n\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ngrep -A 1073741824 Copyright zlib/README >\"$DSTROOT\"/usr/local/OpenSourceLicenses/zlib.txt\nchmod -R -w \"$DSTROOT\"/usr/local/Open*/zlib.*\n\nfor l in libz.1.1.3.dylib libz.1.2.5.dylib libz.1.2.8.dylib libz.dylib; do\n    echo l: $l\n    ln -s ${EXECUTABLE_NAME} \"$DSTROOT\"/usr/lib/$l\ndone\n";
+			shellScript = "set -x\nDSTROOT=\"$DSTROOT$INSTALL_PATH_PREFIX\"\nmkdir -p \"$DSTROOT\"/usr/share/man/man3 \"$DSTROOT\"/usr/local/{OpenSourceLicenses,OpenSourceVersions} \"$DSTROOT\"/usr/include\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib/zlib.3 \"$DSTROOT\"/usr/share/man/man3\n\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ngrep -A 1073741824 Copyright zlib/README >\"$DSTROOT\"/usr/local/OpenSourceLicenses/zlib.txt\nchmod -R -w \"$DSTROOT\"/usr/local/Open*/zlib.*\n\nfor l in libz.1.1.3.dylib libz.1.2.5.dylib libz.1.2.8.dylib libz.1.2.11.dylib libz.dylib; do\n    echo l: $l\n    ln -s ${EXECUTABLE_NAME} \"$DSTROOT\"/usr/lib/$l\ndone\n\nTBD_UPPER=`echo ${GENERATE_TEXT_BASED_STUBS} | tr a-z A-Z`\nif [ ${TBD_UPPER} = \"YES\" ] || [ ${TBD_UPPER} = \"TRUE\" ] || [ ${TBD_UPPER} = \"1\" ]; then\n  GENERATE_TBD=1\nfi\n\nif [ ${GENERATE_TBD} ]; then\n  for l in libz.1.1.3.tbd libz.1.2.5.tbd libz.1.2.8.tbd libz.1.2.11.tbd libz.tbd; do\n    echo l: $l\n    ln -s $EXECUTABLE_PREFIX$PRODUCT_NAME.tbd \"$DSTROOT\"/usr/lib/$l\n  done\nfi";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -239,7 +239,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 814E93D1185D7A3A009656FB /* zlib.xcconfig */;
 			buildSettings = {
-				DYLIB_CURRENT_VERSION = 1.2.8;
+				DYLIB_CURRENT_VERSION = 1.2.11;
 				STRIP_STYLE = "non-global";
 				WARNING_CFLAGS = "-Werror=declaration-after-statement";
 			};

@@ -1,14 +1,14 @@
 /*
  * API definitions for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -24,8 +24,8 @@
 #  if defined(WIN32) && !defined(__CUPS_SSIZE_T_DEFINED)
 #    define __CUPS_SSIZE_T_DEFINED
 #    include <stddef.h>
-/* Windows does not support the ssize_t type, so map it to off_t... */
-typedef off_t ssize_t;			/* @private@ */
+/* Windows does not support the ssize_t type, so map it to long... */
+typedef long ssize_t;			/* @private@ */
 #  endif /* WIN32 && !__CUPS_SSIZE_T_DEFINED */
 
 #  include "file.h"
@@ -47,10 +47,10 @@ extern "C" {
  * Constants...
  */
 
-#  define CUPS_VERSION			2.0200
+#  define CUPS_VERSION			2.0205
 #  define CUPS_VERSION_MAJOR		2
 #  define CUPS_VERSION_MINOR		2
-#  define CUPS_VERSION_PATCH		0
+#  define CUPS_VERSION_PATCH		5
 
 #  define CUPS_BC_FD			3
 					/* Back-channel file descriptor for
@@ -78,7 +78,7 @@ extern "C" {
 #  define CUPS_DEST_FLAGS_NONE		0x00
 					/* No flags are set */
 #  define CUPS_DEST_FLAGS_UNCONNECTED	0x01
-					/* There is not connection */
+					/* There is no connection */
 #  define CUPS_DEST_FLAGS_MORE		0x02
 					/* There are more destinations */
 #  define CUPS_DEST_FLAGS_REMOVED	0x04
@@ -92,6 +92,8 @@ extern "C" {
 					/* A connection is being established */
 #  define CUPS_DEST_FLAGS_CANCELED	0x40
 					/* Operation was canceled */
+#  define CUPS_DEST_FLAGS_DEVICE        0x80
+                                        /* For @link cupsConnectDest@: Connect to device */
 
 /* Flags for cupsGetDestMediaByName/Size */
 #  define CUPS_MEDIA_FLAGS_DEFAULT 	0x00
@@ -207,39 +209,37 @@ enum cups_ptype_e			/* Printer type/capability bit
   CUPS_PRINTER_REMOTE = 0x0002,		/* Remote printer or class */
   CUPS_PRINTER_BW = 0x0004,		/* Can do B&W printing */
   CUPS_PRINTER_COLOR = 0x0008,		/* Can do color printing */
-  CUPS_PRINTER_DUPLEX = 0x0010,		/* Can do duplexing */
+  CUPS_PRINTER_DUPLEX = 0x0010,		/* Can do two-sided printing */
   CUPS_PRINTER_STAPLE = 0x0020,		/* Can staple output */
-  CUPS_PRINTER_COPIES = 0x0040,		/* Can do copies */
-  CUPS_PRINTER_COLLATE = 0x0080,	/* Can collage copies */
+  CUPS_PRINTER_COPIES = 0x0040,		/* Can do copies in hardware */
+  CUPS_PRINTER_COLLATE = 0x0080,	/* Can quickly collate copies */
   CUPS_PRINTER_PUNCH = 0x0100,		/* Can punch output */
   CUPS_PRINTER_COVER = 0x0200,		/* Can cover output */
   CUPS_PRINTER_BIND = 0x0400,		/* Can bind output */
   CUPS_PRINTER_SORT = 0x0800,		/* Can sort output */
-  CUPS_PRINTER_SMALL = 0x1000,		/* Can do Letter/Legal/A4 */
-  CUPS_PRINTER_MEDIUM = 0x2000,		/* Can do Tabloid/B/C/A3/A2 */
-  CUPS_PRINTER_LARGE = 0x4000,		/* Can do D/E/A1/A0 */
-  CUPS_PRINTER_VARIABLE = 0x8000,	/* Can do variable sizes */
+  CUPS_PRINTER_SMALL = 0x1000,		/* Can print on Letter/Legal/A4-size media */
+  CUPS_PRINTER_MEDIUM = 0x2000,		/* Can print on Tabloid/B/C/A3/A2-size media */
+  CUPS_PRINTER_LARGE = 0x4000,		/* Can print on D/E/A1/A0-size media */
+  CUPS_PRINTER_VARIABLE = 0x8000,	/* Can print on rolls and custom-size media */
   CUPS_PRINTER_IMPLICIT = 0x10000,	/* Implicit class @private@
 					 * @since Deprecated@ */
   CUPS_PRINTER_DEFAULT = 0x20000,	/* Default printer on network */
   CUPS_PRINTER_FAX = 0x40000,		/* Fax queue */
   CUPS_PRINTER_REJECTING = 0x80000,	/* Printer is rejecting jobs */
   CUPS_PRINTER_DELETE = 0x100000,	/* Delete printer
-					 * @since CUPS 1.2/macOS 10.5@ */
+					 * @deprecated@ @exclude all@ */
   CUPS_PRINTER_NOT_SHARED = 0x200000,	/* Printer is not shared
 					 * @since CUPS 1.2/macOS 10.5@ */
   CUPS_PRINTER_AUTHENTICATED = 0x400000,/* Printer requires authentication
 					 * @since CUPS 1.2/macOS 10.5@ */
   CUPS_PRINTER_COMMANDS = 0x800000,	/* Printer supports maintenance commands
 					 * @since CUPS 1.2/macOS 10.5@ */
-  CUPS_PRINTER_DISCOVERED = 0x1000000,	/* Printer was automatically discovered
-					 * and added @private@
-					 * @since Deprecated@ */
+  CUPS_PRINTER_DISCOVERED = 0x1000000,	/* Printer was discovered @since CUPS 1.2/macOS 10.5@ */
   CUPS_PRINTER_SCANNER = 0x2000000,	/* Scanner-only device
-					 * @since CUPS 1.4/macOS 10.6@ */
+					 * @since CUPS 1.4/macOS 10.6@ @private@ */
   CUPS_PRINTER_MFP = 0x4000000,		/* Printer with scanning capabilities
-					 * @since CUPS 1.4/macOS 10.6@ */
-  CUPS_PRINTER_3D = 0x8000000,		/* Printer with 3D capabilities @since CUPS 2.1@ */
+					 * @since CUPS 1.4/macOS 10.6@ @private@ */
+  CUPS_PRINTER_3D = 0x8000000,		/* Printer with 3D capabilities @exclude all@ @private@ */
   CUPS_PRINTER_OPTIONS = 0x6fffc	/* ~(CLASS | REMOTE | IMPLICIT |
 					 * DEFAULT | FAX | REJECTING | DELETE |
 					 * NOT_SHARED | AUTHENTICATED |
@@ -270,7 +270,7 @@ typedef struct cups_job_s		/**** Job ****/
   int		id;			/* The job ID */
   char		*dest;			/* Printer or class name */
   char		*title;			/* Title/job name */
-  char		*user;			/* User the submitted the job */
+  char		*user;			/* User that submitted the job */
   char		*format;		/* Document format */
   ipp_jstate_t	state;			/* Job state */
   int		size;			/* Size in kilobytes */
@@ -310,11 +310,12 @@ typedef int (*cups_dest_cb_t)(void *user_data, unsigned flags,
 #  ifdef __BLOCKS__
 typedef int (^cups_dest_block_t)(unsigned flags, cups_dest_t *dest);
 			      		/* Destination enumeration block
-					 * @since CUPS 1.6/macOS 10.8@ */
+					 * @since CUPS 1.6/macOS 10.8@
+                                         * @exclude all@ */
 #  endif /* __BLOCKS__ */
 
 typedef const char *(*cups_password_cb_t)(const char *prompt);
-					/* Password callback */
+					/* Password callback @exclude all@ */
 
 typedef const char *(*cups_password_cb2_t)(const char *prompt, http_t *http,
 					   const char *method,
@@ -341,11 +342,11 @@ extern ipp_t		*cupsDoRequest(http_t *http, ipp_t *request,
 			               const char *resource);
 extern http_encryption_t cupsEncryption(void);
 extern void		cupsFreeJobs(int num_jobs, cups_job_t *jobs);
-extern int		cupsGetClasses(char ***classes) _CUPS_DEPRECATED_MSG("Use cupsGetDests instead.");
+extern int		cupsGetClasses(char ***classes) _CUPS_DEPRECATED_MSG("Use cupsEnumDests instead.");
 extern const char	*cupsGetDefault(void);
 extern int		cupsGetJobs(cups_job_t **jobs, const char *name,
 			            int myjobs, int whichjobs);
-extern int		cupsGetPrinters(char ***printers) _CUPS_DEPRECATED_MSG("Use cupsGetDests instead.");
+extern int		cupsGetPrinters(char ***printers) _CUPS_DEPRECATED_MSG("Use cupsEnumDests instead.");
 extern ipp_status_t	cupsLastError(void);
 extern int		cupsPrintFile(const char *name, const char *filename,
 			              const char *title, int num_options,
@@ -600,6 +601,10 @@ extern int		cupsSetServerCredentials(const char *path, const char *common_name, 
 
 /* New in CUPS 2.2/macOS 10.12 */
 extern ssize_t		cupsHashData(const char *algorithm, const void *data, size_t datalen, unsigned char *hash, size_t hashsize) _CUPS_API_2_2;
+
+/* New in CUPS 2.2.4 */
+extern int		cupsAddIntegerOption(const char *name, int value, int num_options, cups_option_t **options) _CUPS_API_2_2_4;
+extern int		cupsGetIntegerOption(const char *name, int num_options, cups_option_t *options) _CUPS_API_2_2_4;
 
 #  ifdef __cplusplus
 }

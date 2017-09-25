@@ -1,9 +1,9 @@
---- common.mk~	2013-11-12 06:31:59.000000000 -0800
-+++ common.mk	2014-02-18 14:54:17.000000000 -0800
-@@ -120,7 +120,7 @@ SCRIPT_ARGS   =	--dest-dir="$(DESTDIR)" 
- 		--make-flags="$(MAKEFLAGS)"
- EXTMK_ARGS    =	$(SCRIPT_ARGS) --extension $(EXTS) --extstatic $(EXTSTATIC) \
- 		--make-flags="V=$(V) MINIRUBY='$(MINIRUBY)'" --
+--- common.mk.orig	2016-04-17 21:57:25.000000000 -0700
++++ common.mk	2016-09-07 11:20:44.000000000 -0700
+@@ -140,7 +140,7 @@ EXTMK_ARGS    =	$(SCRIPT_ARGS) --extensi
+ 		--make-flags="V=$(V) MINIRUBY='$(MINIRUBY)'" \
+ 		--gnumake=$(gnumake) --extflags="$(EXTLDFLAGS)" \
+ 		--
 -INSTRUBY      =	$(SUDO) $(RUNRUBY) -r./$(arch)-fake $(srcdir)/tool/rbinstall.rb
 +INSTRUBY      =	$(SUDO) SDKROOT=/ $(RUNRUBY) -r./$(arch)-fake $(srcdir)/tool/rbinstall.rb
  INSTRUBY_ARGS =	$(SCRIPT_ARGS) \

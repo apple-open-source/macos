@@ -43,13 +43,13 @@
 #endif
 
 #if PLATFORM(IOS)
-#include "MemoryPressureHandler.h"
 #include "TileControllerMemoryHandlerIOS.h"
+#include <wtf/MemoryPressureHandler.h>
 #endif
 
 namespace WebCore {
 
-static const auto tileSizeUpdateDelay = std::chrono::milliseconds { 500 };
+static const Seconds tileSizeUpdateDelay { 500_ms };
 
 String TileController::tileGridContainerLayerName()
 {
@@ -157,6 +157,7 @@ void TileController::setZoomedOutContentsScale(float scale)
 
     if (m_zoomedOutContentsScale == scale)
         return;
+
     m_zoomedOutContentsScale = scale;
 
     if (m_zoomedOutTileGrid && m_zoomedOutTileGrid->scale() != m_zoomedOutContentsScale)
@@ -167,8 +168,26 @@ void TileController::setAcceleratesDrawing(bool acceleratesDrawing)
 {
     if (m_acceleratesDrawing == acceleratesDrawing)
         return;
-    m_acceleratesDrawing = acceleratesDrawing;
 
+    m_acceleratesDrawing = acceleratesDrawing;
+    tileGrid().updateTileLayerProperties();
+}
+
+void TileController::setWantsDeepColorBackingStore(bool wantsDeepColorBackingStore)
+{
+    if (m_wantsDeepColorBackingStore == wantsDeepColorBackingStore)
+        return;
+
+    m_wantsDeepColorBackingStore = wantsDeepColorBackingStore;
+    tileGrid().updateTileLayerProperties();
+}
+
+void TileController::setSupportsSubpixelAntialiasedText(bool supportsSubpixelAntialiasedText)
+{
+    if (m_supportsSubpixelAntialiasedText == supportsSubpixelAntialiasedText)
+        return;
+
+    m_supportsSubpixelAntialiasedText = supportsSubpixelAntialiasedText;
     tileGrid().updateTileLayerProperties();
 }
 
@@ -176,8 +195,8 @@ void TileController::setTilesOpaque(bool opaque)
 {
     if (opaque == m_tilesAreOpaque)
         return;
-    m_tilesAreOpaque = opaque;
 
+    m_tilesAreOpaque = opaque;
     tileGrid().updateTileLayerProperties();
 }
 
@@ -266,7 +285,7 @@ void TileController::setIsInWindow(bool isInWindow)
     if (m_isInWindow)
         setNeedsRevalidateTiles();
     else {
-        const double tileRevalidationTimeout = 4;
+        const Seconds tileRevalidationTimeout = 4_s;
         scheduleTileRevalidation(tileRevalidationTimeout);
     }
 }
@@ -461,7 +480,7 @@ void TileController::adjustTileCoverageRect(FloatRect& coverageRect, const Float
 #endif
 }
 
-void TileController::scheduleTileRevalidation(double interval)
+void TileController::scheduleTileRevalidation(Seconds interval)
 {
     if (m_tileRevalidationTimer.isActive() && m_tileRevalidationTimer.nextFireInterval() < interval)
         return;
@@ -723,6 +742,7 @@ RefPtr<PlatformCALayer> TileController::createTileLayer(const IntRect& tileRect,
 
     layer->setContentsScale(m_deviceScaleFactor * temporaryScaleFactor);
     layer->setAcceleratesDrawing(m_acceleratesDrawing);
+    layer->setWantsDeepColorBackingStore(m_wantsDeepColorBackingStore);
 
     layer->setNeedsDisplay();
 
@@ -756,6 +776,11 @@ void TileController::removeUnparentedTilesNow()
     updateTileCoverageMap();
 }
 #endif
+
+void TileController::logFilledVisibleFreshTile(unsigned blankPixelCount)
+{
+    owningGraphicsLayer()->platformCALayerLogFilledVisibleFreshTile(blankPixelCount);
+}
 
 } // namespace WebCore
 

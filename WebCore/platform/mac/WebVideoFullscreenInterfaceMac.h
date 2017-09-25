@@ -23,15 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebVideoFullscreenInterfaceMac_h
-#define WebVideoFullscreenInterfaceMac_h
+#pragma once
 
 #if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
 
 #include "HTMLMediaElementEnums.h"
 #include "WebPlaybackSessionInterfaceMac.h"
 #include "WebPlaybackSessionModel.h"
-#include "WebVideoFullscreenInterface.h"
 #include "WebVideoFullscreenModel.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
@@ -47,8 +45,7 @@ class WebPlaybackSessionInterfaceMac;
 class WebVideoFullscreenChangeObserver;
 
 class WEBCORE_EXPORT WebVideoFullscreenInterfaceMac
-    : public WebVideoFullscreenInterface
-    , public WebVideoFullscreenModelClient
+    : public WebVideoFullscreenModelClient
     , private WebPlaybackSessionModelClient
     , public RefCounted<WebVideoFullscreenInterfaceMac> {
 
@@ -108,4 +105,3 @@ private:
 
 #endif
 
-#endif /* WebVideoFullscreenInterfaceMac_h */

@@ -19,11 +19,12 @@
  */
 
 #include "lock_internal.h"
+#include "os/internal.h"
+#include "resolver.h"
 #include "libkern/OSAtomic.h"
 #include "os/lock.h"
 #include "os/lock_private.h"
 #include "os/once_private.h"
-#include "resolver.h"
 
 #include <mach/mach_init.h>
 #include <mach/mach_traps.h>
@@ -34,7 +35,9 @@
 #pragma mark -
 #pragma mark _os_lock_base_t
 
-#if !OS_VARIANT_ONLY
+OS_NOINLINE OS_NORETURN OS_COLD
+void _os_lock_corruption_abort(void *lock_ptr OS_UNUSED, uintptr_t lock_value);
+
 
 OS_LOCK_STRUCT_DECL_INTERNAL(base);
 OS_USED static OS_LOCK_TYPE_STRUCT_DECL(base);
@@ -57,40 +60,33 @@ os_lock_unlock(os_lock_t l)
 	return l._osl_base->osl_type->osl_unlock(l);
 }
 
-#endif //!OS_VARIANT_ONLY
-
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void
 _os_lock_corruption_abort(void *lock_ptr OS_UNUSED, uintptr_t lock_value)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(lock_value, "os_lock is corrupt");
 }
 
+
 #pragma mark -
 #pragma mark OSSpinLock
 
-#ifdef OS_LOCK_VARIANT_SELECTOR
-void _OSSpinLockLockSlow(volatile OSSpinLock *l);
-#else
-OS_NOINLINE OS_USED static void _OSSpinLockLockSlow(volatile OSSpinLock *l);
-#endif // OS_LOCK_VARIANT_SELECTOR
+OS_NOEXPORT OS_NOINLINE void _OSSpinLockLockSlow(volatile OSSpinLock *l);
 
 OS_ATOMIC_EXPORT void OSSpinLockLock(volatile OSSpinLock *l);
 OS_ATOMIC_EXPORT bool OSSpinLockTry(volatile OSSpinLock *l);
 OS_ATOMIC_EXPORT int spin_lock_try(volatile OSSpinLock *l);
 OS_ATOMIC_EXPORT void OSSpinLockUnlock(volatile OSSpinLock *l);
 
+static const OSSpinLock _OSSpinLockLocked = TARGET_OS_EMBEDDED ? 1 : -1;
+
+
 #if OS_ATOMIC_UP
 // Don't spin on UP
-#elif OS_ATOMIC_WFE
-#define OS_LOCK_SPIN_SPIN_TRIES 100
-#define OS_LOCK_SPIN_PAUSE() os_hardware_wfe()
 #else
 #define OS_LOCK_SPIN_SPIN_TRIES 1000
 #define OS_LOCK_SPIN_PAUSE() os_hardware_pause()
 #endif
-
-static const OSSpinLock _OSSpinLockLocked = TARGET_OS_EMBEDDED ? 1 : -1;
 
 OS_ALWAYS_INLINE
 static uint64_t
@@ -145,7 +141,7 @@ _OSSpinLockLockSlow(volatile OSSpinLock *l)
 {
 	return _OSSpinLockLockYield(l); // Don't spin on UP
 }
-#else
+#else // !OS_ATOMIC_UP
 void
 _OSSpinLockLockSlow(volatile OSSpinLock *l)
 {
@@ -163,21 +159,17 @@ _spin:
 	if (likely(r)) return;
 	goto _spin;
 }
-#endif
+#endif // !OS_ATOMIC_UP
 
-#ifdef OS_LOCK_VARIANT_SELECTOR
-#undef _OSSpinLockLockSlow
-extern void _OSSpinLockLockSlow(volatile OSSpinLock *l);
-#endif
 
-#if !OS_LOCK_VARIANT_ONLY
 
 #if OS_LOCK_OSSPINLOCK_IS_NOSPINLOCK && !TARGET_OS_SIMULATOR
 
 typedef struct _os_nospin_lock_s *_os_nospin_lock_t;
-void _os_nospin_lock_lock(_os_nospin_lock_t lock);
-bool _os_nospin_lock_trylock(_os_nospin_lock_t lock);
-void _os_nospin_lock_unlock(_os_nospin_lock_t lock);
+
+OS_ATOMIC_EXPORT void _os_nospin_lock_lock(_os_nospin_lock_t lock);
+OS_ATOMIC_EXPORT bool _os_nospin_lock_trylock(_os_nospin_lock_t lock);
+OS_ATOMIC_EXPORT void _os_nospin_lock_unlock(_os_nospin_lock_t lock);
 
 void
 OSSpinLockLock(volatile OSSpinLock *l)
@@ -257,26 +249,15 @@ OSSpinLockUnlock(volatile OSSpinLock *l)
 	os_atomic_store(l, 0, release);
 }
 
+
 #pragma mark -
 #pragma mark os_lock_spin_t
 
 OS_LOCK_STRUCT_DECL_INTERNAL(spin,
 	OSSpinLock volatile osl_spinlock;
 );
-#if !OS_VARIANT_ONLY
 OS_LOCK_METHODS_DECL(spin);
 OS_LOCK_TYPE_INSTANCE(spin);
-#endif // !OS_VARIANT_ONLY
-
-#ifdef OS_VARIANT_SELECTOR
-#define _os_lock_spin_lock \
-		OS_VARIANT(_os_lock_spin_lock, OS_VARIANT_SELECTOR)
-#define _os_lock_spin_trylock \
-		OS_VARIANT(_os_lock_spin_trylock, OS_VARIANT_SELECTOR)
-#define _os_lock_spin_unlock \
-		OS_VARIANT(_os_lock_spin_unlock, OS_VARIANT_SELECTOR)
-OS_LOCK_METHODS_DECL(spin);
-#endif // OS_VARIANT_SELECTOR
 
 void
 _os_lock_spin_lock(_os_lock_spin_t l)
@@ -296,6 +277,7 @@ _os_lock_spin_unlock(_os_lock_spin_t l)
 	return OSSpinLockUnlock(&l->osl_spinlock);
 }
 
+
 #pragma mark -
 #pragma mark os_lock_owner_t
 
@@ -304,6 +286,8 @@ _os_lock_spin_unlock(_os_lock_spin_t l)
 #endif
 
 typedef mach_port_name_t os_lock_owner_t;
+#define OS_LOCK_NO_OWNER MACH_PORT_NULL
+
 
 OS_ALWAYS_INLINE
 static inline os_lock_owner_t
@@ -314,9 +298,6 @@ _os_lock_owner_get_self(void)
 	return self;
 }
 
-#define OS_LOCK_NO_OWNER MACH_PORT_NULL
-
-#if !OS_LOCK_VARIANT_ONLY
 
 OS_NOINLINE OS_NORETURN OS_COLD
 static void
@@ -326,7 +307,6 @@ _os_lock_recursive_abort(os_lock_owner_t owner)
 			"os_lock");
 }
 
-#endif //!OS_LOCK_VARIANT_ONLY
 
 #pragma mark -
 #pragma mark os_lock_handoff_t
@@ -334,20 +314,8 @@ _os_lock_recursive_abort(os_lock_owner_t owner)
 OS_LOCK_STRUCT_DECL_INTERNAL(handoff,
 	os_lock_owner_t volatile osl_owner;
 );
-#if !OS_VARIANT_ONLY
 OS_LOCK_METHODS_DECL(handoff);
 OS_LOCK_TYPE_INSTANCE(handoff);
-#endif // !OS_VARIANT_ONLY
-
-#ifdef OS_VARIANT_SELECTOR
-#define _os_lock_handoff_lock \
-		OS_VARIANT(_os_lock_handoff_lock, OS_VARIANT_SELECTOR)
-#define _os_lock_handoff_trylock \
-		OS_VARIANT(_os_lock_handoff_trylock, OS_VARIANT_SELECTOR)
-#define _os_lock_handoff_unlock \
-		OS_VARIANT(_os_lock_handoff_unlock, OS_VARIANT_SELECTOR)
-OS_LOCK_METHODS_DECL(handoff);
-#endif // OS_VARIANT_SELECTOR
 
 #define OS_LOCK_HANDOFF_YIELD_TRIES 100
 
@@ -397,6 +365,7 @@ _os_lock_handoff_unlock(_os_lock_handoff_t l)
 	os_atomic_store2o(l, osl_owner, MACH_PORT_NULL, release);
 }
 
+
 #pragma mark -
 #pragma mark os_ulock_value_t
 
@@ -411,13 +380,12 @@ typedef os_lock_owner_t os_ulock_value_t;
 #define OS_ULOCK_OWNER(value) ((value) | OS_ULOCK_NOWAITERS_BIT)
 
 #define OS_ULOCK_ANONYMOUS_OWNER MACH_PORT_DEAD
-#define OS_ULOCK_IS_OWNER(value, self) ({ \
-		os_lock_owner_t _owner = OS_ULOCK_OWNER(value); \
-		(_owner == (self) && _owner != OS_ULOCK_ANONYMOUS_OWNER); })
-#define OS_ULOCK_IS_NOT_OWNER(value, self) ({ \
-		os_lock_owner_t _owner = OS_ULOCK_OWNER(value); \
-		(_owner != (self) && _owner != OS_ULOCK_ANONYMOUS_OWNER); })
-
+#define OS_ULOCK_IS_OWNER(value, self, allow_anonymous_owner) ({ \
+		os_lock_owner_t _owner = OS_ULOCK_OWNER(value); (_owner == (self)) && \
+		(!(allow_anonymous_owner) || _owner != OS_ULOCK_ANONYMOUS_OWNER); })
+#define OS_ULOCK_IS_NOT_OWNER(value, self, allow_anonymous_owner) ({ \
+		os_lock_owner_t _owner = OS_ULOCK_OWNER(value); (_owner != (self)) && \
+		(!(allow_anonymous_owner) || _owner != OS_ULOCK_ANONYMOUS_OWNER); })
 
 #pragma mark -
 #pragma mark os_unfair_lock
@@ -439,15 +407,27 @@ OS_ATOMIC_EXPORT void os_unfair_lock_lock_no_tsd_4libpthread(
 		os_unfair_lock_t lock);
 OS_ATOMIC_EXPORT void os_unfair_lock_unlock_no_tsd_4libpthread(
 		os_unfair_lock_t lock);
+OS_ATOMIC_EXPORT void os_unfair_lock_lock_with_options_4Libc(
+		os_unfair_lock_t lock, os_unfair_lock_options_t options);
+OS_ATOMIC_EXPORT void os_unfair_lock_unlock_4Libc(os_unfair_lock_t lock);
+
+OS_NOINLINE OS_NORETURN OS_COLD
+void _os_unfair_lock_recursive_abort(os_lock_owner_t owner);
+OS_NOINLINE OS_NORETURN OS_COLD
+void _os_unfair_lock_unowned_abort(os_lock_owner_t owner);
+OS_NOINLINE OS_NORETURN OS_COLD
+void _os_unfair_lock_corruption_abort(os_ulock_value_t current);
 
 _Static_assert(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION ==
 		ULF_WAIT_WORKQ_DATA_CONTENTION,
 		"check value for OS_UNFAIR_LOCK_OPTIONS_MASK");
 #define OS_UNFAIR_LOCK_OPTIONS_MASK \
 		(os_unfair_lock_options_t)(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION)
+#define OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER 0x01000000u
+
 
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void
 _os_unfair_lock_recursive_abort(os_lock_owner_t owner)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(owner, "Trying to recursively lock an "
@@ -455,7 +435,7 @@ _os_unfair_lock_recursive_abort(os_lock_owner_t owner)
 }
 
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void
 _os_unfair_lock_unowned_abort(os_lock_owner_t owner)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(owner, "Unlock of an os_unfair_lock not "
@@ -463,25 +443,29 @@ _os_unfair_lock_unowned_abort(os_lock_owner_t owner)
 }
 
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void
 _os_unfair_lock_corruption_abort(os_ulock_value_t current)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(current, "os_unfair_lock is corrupt");
 }
+
 
 OS_NOINLINE
 static void
 _os_unfair_lock_lock_slow(_os_unfair_lock_t l, os_lock_owner_t self,
 		os_unfair_lock_options_t options)
 {
-	os_ulock_value_t current, new, waiters_mask = 0;
+	os_unfair_lock_options_t allow_anonymous_owner =
+			options & OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER;
+	options &= ~OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER;
 	if (unlikely(options & ~OS_UNFAIR_LOCK_OPTIONS_MASK)) {
 		__LIBPLATFORM_CLIENT_CRASH__(options, "Invalid options");
 	}
+	os_ulock_value_t current, new, waiters_mask = 0;
 	while (unlikely((current = os_atomic_load2o(l, oul_value, relaxed)) !=
 			OS_LOCK_NO_OWNER)) {
 _retry:
-		if (unlikely(OS_ULOCK_IS_OWNER(current, self))) {
+		if (unlikely(OS_ULOCK_IS_OWNER(current, self, allow_anonymous_owner))) {
 			return _os_unfair_lock_recursive_abort(self);
 		}
 		new = current & ~OS_ULOCK_NOWAITERS_BIT;
@@ -519,9 +503,12 @@ _retry:
 OS_NOINLINE
 static void
 _os_unfair_lock_unlock_slow(_os_unfair_lock_t l, os_ulock_value_t current,
-		os_lock_owner_t self)
+		os_lock_owner_t self, os_unfair_lock_options_t options)
 {
-	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self))) {
+	os_unfair_lock_options_t allow_anonymous_owner =
+			options & OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER;
+	options &= ~OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER;
+	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self, allow_anonymous_owner))) {
 		return _os_unfair_lock_unowned_abort(OS_ULOCK_OWNER(current));
 	}
 	if (current & OS_ULOCK_NOWAITERS_BIT) {
@@ -581,7 +568,7 @@ os_unfair_lock_unlock(os_unfair_lock_t lock)
 	os_ulock_value_t current;
 	current = os_atomic_xchg2o(l, oul_value, OS_LOCK_NO_OWNER, release);
 	if (likely(current == self)) return;
-	return _os_unfair_lock_unlock_slow(l, current, self);
+	return _os_unfair_lock_unlock_slow(l, current, self, 0);
 }
 
 void
@@ -592,7 +579,8 @@ os_unfair_lock_lock_no_tsd_4libpthread(os_unfair_lock_t lock)
 	bool r = os_atomic_cmpxchg2o(l, oul_value, OS_LOCK_NO_OWNER, self, acquire);
 	if (likely(r)) return;
 	return _os_unfair_lock_lock_slow(l, self,
-			OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
+			OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION|
+			OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER);
 }
 
 void
@@ -603,120 +591,18 @@ os_unfair_lock_unlock_no_tsd_4libpthread(os_unfair_lock_t lock)
 	os_ulock_value_t current;
 	current = os_atomic_xchg2o(l, oul_value, OS_LOCK_NO_OWNER, release);
 	if (likely(current == self)) return;
-	return _os_unfair_lock_unlock_slow(l, current, self);
+	return _os_unfair_lock_unlock_slow(l, current, self,
+			OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER);
 }
 
-#pragma mark -
-#pragma mark _os_lock_unfair_t 4Libc // <rdar://problem/27138264>
 
-OS_ATOMIC_EXPORT void os_unfair_lock_lock_with_options_4Libc(
-		os_unfair_lock_t lock, os_unfair_lock_options_t options);
-OS_ATOMIC_EXPORT void os_unfair_lock_unlock_4Libc(os_unfair_lock_t lock);
-
-OS_NOINLINE
-static void
-_os_unfair_lock_lock_slow_4Libc(_os_unfair_lock_t l, os_lock_owner_t self,
-		os_unfair_lock_options_t options)
-{
-	os_ulock_value_t current, new, waiters_mask = 0;
-	if (unlikely(options & ~OS_UNFAIR_LOCK_OPTIONS_MASK)) {
-		__LIBPLATFORM_CLIENT_CRASH__(options, "Invalid options");
-	}
-	while (unlikely((current = os_atomic_load2o(l, oul_value, relaxed)) !=
-			OS_LOCK_NO_OWNER)) {
-_retry:
-		if (unlikely(OS_ULOCK_IS_OWNER(current, self))) {
-			return _os_unfair_lock_recursive_abort(self);
-		}
-		new = current & ~OS_ULOCK_NOWAITERS_BIT;
-		if (current != new) {
-			// Clear nowaiters bit in lock value before waiting
-			if (!os_atomic_cmpxchgv2o(l, oul_value, current, new, &current,
-					relaxed)){
-				continue;
-			}
-			current = new;
-		}
-		int ret = __ulock_wait(UL_UNFAIR_LOCK | ULF_NO_ERRNO | options,
-				l, current, 0);
-		if (unlikely(ret < 0)) {
-			switch (-ret) {
-			case EINTR:
-			case EFAULT:
-				continue;
-			case EOWNERDEAD:
-				// if we get an `EOWNERDEAD` it could be corruption of the lock
-				// so for the Libc locks, if we can steal the lock, assume
-				// it is corruption and pretend we got the lock with contention
-				new = self & ~OS_ULOCK_NOWAITERS_BIT;
-				if (os_atomic_cmpxchgv2o(l, oul_value, current, new, &current,
-								acquire)) {
-					return;
-				}
-				break;
-			default:
-				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wait failure");
-			}
-		}
-		// If there are more waiters, unset nowaiters bit when acquiring lock
-		waiters_mask = (ret > 0) ? OS_ULOCK_NOWAITERS_BIT : 0;
-	}
-	new = self & ~waiters_mask;
-	bool r = os_atomic_cmpxchgv2o(l, oul_value, OS_LOCK_NO_OWNER, new,
-			&current, acquire);
-	if (unlikely(!r)) goto _retry;
-}
-
-OS_NOINLINE
-static void
-_os_unfair_lock_unlock_slow_4Libc(_os_unfair_lock_t l)
-{
-	for (;;) {
-		int ret = __ulock_wake(UL_UNFAIR_LOCK | ULF_NO_ERRNO, l, 0);
-		if (unlikely(ret < 0)) {
-			switch (-ret) {
-			case EINTR:
-				continue;
-			case ENOENT:
-				break;
-			default:
-				__LIBPLATFORM_INTERNAL_CRASH__(-ret, "ulock_wake failure");
-			}
-		}
-		break;
-	}
-}
-
-void
-os_unfair_lock_lock_with_options_4Libc(os_unfair_lock_t lock,
-		os_unfair_lock_options_t options)
-{
-	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
-	os_lock_owner_t self = _os_lock_owner_get_self();
-	bool r = os_atomic_cmpxchg2o(l, oul_value, OS_LOCK_NO_OWNER, self, acquire);
-	if (likely(r)) return;
-	return _os_unfair_lock_lock_slow_4Libc(l, self, options);
-}
-
-void
-os_unfair_lock_unlock_4Libc(os_unfair_lock_t lock)
-{
-	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
-	os_lock_owner_t self = _os_lock_owner_get_self();
-	os_ulock_value_t current;
-	current = os_atomic_xchg2o(l, oul_value, OS_LOCK_NO_OWNER, release);
-	if (likely(current == self)) return;
-	return _os_unfair_lock_unlock_slow_4Libc(l);
-}
-
-#if !OS_VARIANT_ONLY
 void
 os_unfair_lock_assert_owner(os_unfair_lock_t lock)
 {
 	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	os_ulock_value_t current = os_atomic_load2o(l, oul_value, relaxed);
-	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self))) {
+	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self, 0))) {
 		__LIBPLATFORM_CLIENT_CRASH__(current, "Assertion failed: "
 				"Lock unexpectedly not owned by current thread");
 	}
@@ -728,12 +614,12 @@ os_unfair_lock_assert_not_owner(os_unfair_lock_t lock)
 	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
 	os_lock_owner_t self = _os_lock_owner_get_self();
 	os_ulock_value_t current = os_atomic_load2o(l, oul_value, relaxed);
-	if (unlikely(OS_ULOCK_IS_OWNER(current, self))) {
+	if (unlikely(OS_ULOCK_IS_OWNER(current, self, 0))) {
 		__LIBPLATFORM_CLIENT_CRASH__(current, "Assertion failed: "
 				"Lock unexpectedly owned by current thread");
 	}
 }
-#endif
+
 
 #pragma mark -
 #pragma mark _os_lock_unfair_t
@@ -741,20 +627,8 @@ os_unfair_lock_assert_not_owner(os_unfair_lock_t lock)
 OS_LOCK_STRUCT_DECL_INTERNAL(unfair,
 	os_unfair_lock osl_unfair_lock;
 );
-#if !OS_VARIANT_ONLY
 OS_LOCK_METHODS_DECL(unfair);
 OS_LOCK_TYPE_INSTANCE(unfair);
-#endif // !OS_VARIANT_ONLY
-
-#ifdef OS_VARIANT_SELECTOR
-#define _os_lock_unfair_lock \
-		OS_VARIANT(_os_lock_unfair_lock, OS_VARIANT_SELECTOR)
-#define _os_lock_unfair_trylock \
-		OS_VARIANT(_os_lock_unfair_trylock, OS_VARIANT_SELECTOR)
-#define _os_lock_unfair_unlock \
-		OS_VARIANT(_os_lock_unfair_unlock, OS_VARIANT_SELECTOR)
-OS_LOCK_METHODS_DECL(unfair);
-#endif // OS_VARIANT_SELECTOR
 
 void
 _os_lock_unfair_lock(_os_lock_unfair_t l)
@@ -774,6 +648,7 @@ _os_lock_unfair_unlock(_os_lock_unfair_t l)
 	return os_unfair_lock_unlock(&l->osl_unfair_lock);
 }
 
+
 #pragma mark -
 #pragma mark _os_nospin_lock
 
@@ -787,6 +662,7 @@ _Static_assert(sizeof(OSSpinLock) ==
 OS_ATOMIC_EXPORT void _os_nospin_lock_lock(_os_nospin_lock_t lock);
 OS_ATOMIC_EXPORT bool _os_nospin_lock_trylock(_os_nospin_lock_t lock);
 OS_ATOMIC_EXPORT void _os_nospin_lock_unlock(_os_nospin_lock_t lock);
+
 
 OS_NOINLINE
 static void
@@ -886,26 +762,15 @@ _os_nospin_lock_unlock(_os_nospin_lock_t l)
 	return _os_nospin_lock_unlock_slow(l, current);
 }
 
+
 #pragma mark -
 #pragma mark _os_lock_nospin_t
 
 OS_LOCK_STRUCT_DECL_INTERNAL(nospin,
 	_os_nospin_lock osl_nospin_lock;
 );
-#if !OS_VARIANT_ONLY
 OS_LOCK_METHODS_DECL(nospin);
 OS_LOCK_TYPE_INSTANCE(nospin);
-#endif // !OS_VARIANT_ONLY
-
-#ifdef OS_VARIANT_SELECTOR
-#define _os_lock_nospin_lock \
-		OS_VARIANT(_os_lock_nospin_lock, OS_VARIANT_SELECTOR)
-#define _os_lock_nospin_trylock \
-		OS_VARIANT(_os_lock_nospin_trylock, OS_VARIANT_SELECTOR)
-#define _os_lock_nospin_unlock \
-		OS_VARIANT(_os_lock_nospin_unlock, OS_VARIANT_SELECTOR)
-OS_LOCK_METHODS_DECL(nospin);
-#endif // OS_VARIANT_SELECTOR
 
 void
 _os_lock_nospin_lock(_os_lock_nospin_t l)
@@ -925,6 +790,7 @@ _os_lock_nospin_unlock(_os_lock_nospin_t l)
 	return _os_nospin_lock_unlock(&l->osl_nospin_lock);
 }
 
+
 #pragma mark -
 #pragma mark os_once_t
 
@@ -942,7 +808,15 @@ OS_ATOMIC_EXPORT void _os_once(os_once_t *val, void *ctxt, os_function_t func);
 OS_ATOMIC_EXPORT void __os_once_reset(os_once_t *val);
 
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void _os_once_gate_recursive_abort(os_lock_owner_t owner);
+OS_NOINLINE OS_NORETURN OS_COLD
+void _os_once_gate_unowned_abort(os_lock_owner_t owner);
+OS_NOINLINE OS_NORETURN OS_COLD
+void _os_once_gate_corruption_abort(os_ulock_value_t current);
+
+
+OS_NOINLINE OS_NORETURN OS_COLD
+void
 _os_once_gate_recursive_abort(os_lock_owner_t owner)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(owner, "Trying to recursively lock an "
@@ -950,7 +824,7 @@ _os_once_gate_recursive_abort(os_lock_owner_t owner)
 }
 
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void
 _os_once_gate_unowned_abort(os_lock_owner_t owner)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(owner, "Unlock of an os_once_t not "
@@ -958,11 +832,12 @@ _os_once_gate_unowned_abort(os_lock_owner_t owner)
 }
 
 OS_NOINLINE OS_NORETURN OS_COLD
-static void
+void
 _os_once_gate_corruption_abort(os_ulock_value_t current)
 {
 	__LIBPLATFORM_CLIENT_CRASH__(current, "os_once_t is corrupt");
 }
+
 
 OS_NOINLINE
 static void
@@ -980,7 +855,7 @@ _os_once_gate_wait_slow(os_ulock_value_t *gate, os_lock_owner_t self)
 			tid_new = tid_old & ~OS_ULOCK_NOWAITERS_BIT;
 			if (tid_new == tid_old) os_atomic_rmw_loop_give_up(break);
 		});
-		if (unlikely(OS_ULOCK_IS_OWNER(tid_old, self))) {
+		if (unlikely(OS_ULOCK_IS_OWNER(tid_old, self, 0))) {
 			return _os_once_gate_recursive_abort(self);
 		}
 		int ret = __ulock_wait(UL_UNFAIR_LOCK | ULF_NO_ERRNO,
@@ -1005,7 +880,7 @@ static void
 _os_once_gate_broadcast_slow(os_ulock_value_t *gate, os_ulock_value_t current,
 		os_lock_owner_t self)
 {
-	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self))) {
+	if (unlikely(OS_ULOCK_IS_NOT_OWNER(current, self, 0))) {
 		return _os_once_gate_unowned_abort(OS_ULOCK_OWNER(current));
 	}
 	if (current & OS_ULOCK_NOWAITERS_BIT) {
@@ -1033,60 +908,13 @@ static void
 _os_once_gate_set_value_and_broadcast(os_once_gate_t og, os_lock_owner_t self,
 		os_once_t value)
 {
-	// The next barrier must be long and strong.
-	//
-	// The scenario: SMP systems with weakly ordered memory models
-	// and aggressive out-of-order instruction execution.
-	//
-	// The problem:
-	//
-	// The os_once*() wrapper macro causes the callee's
-	// instruction stream to look like this (pseudo-RISC):
-	//
-	//      load r5, pred-addr
-	//      cmpi r5, -1
-	//      beq  1f
-	//      call os_once*()
-	//      1f:
-	//      load r6, data-addr
-	//
-	// May be re-ordered like so:
-	//
-	//      load r6, data-addr
-	//      load r5, pred-addr
-	//      cmpi r5, -1
-	//      beq  1f
-	//      call os_once*()
-	//      1f:
-	//
-	// Normally, a barrier on the read side is used to workaround
-	// the weakly ordered memory model. But barriers are expensive
-	// and we only need to synchronize once! After func(ctxt)
-	// completes, the predicate will be marked as "done" and the
-	// branch predictor will correctly skip the call to
-	// os_once*().
-	//
-	// A far faster alternative solution: Defeat the speculative
-	// read-ahead of peer CPUs.
-	//
-	// Modern architectures will throw away speculative results
-	// once a branch mis-prediction occurs. Therefore, if we can
-	// ensure that the predicate is not marked as being complete
-	// until long after the last store by func(ctxt), then we have
-	// defeated the read-ahead of peer CPUs.
-	//
-	// In other words, the last "store" by func(ctxt) must complete
-	// and then N cycles must elapse before ~0l is stored to *val.
-	// The value of N is whatever is sufficient to defeat the
-	// read-ahead mechanism of peer CPUs.
-	//
-	// On some CPUs, the most fully synchronizing instruction might
-	// need to be issued.
-	os_atomic_maximally_synchronizing_barrier();
-
-	// above assumed to contain release barrier
-	os_ulock_value_t current =
-			(os_ulock_value_t)os_atomic_xchg(&og->ogo_once, value, relaxed);
+	os_ulock_value_t current;
+#if defined(__i386__) || defined(__x86_64__)
+	// On Intel, any load is a load-acquire, so we don't need to be fancy
+	current = (os_ulock_value_t)os_atomic_xchg(&og->ogo_once, value, release);
+#else
+#  error os_once algorithm not available for this architecture
+#endif
 	if (likely(current == self)) return;
 	_os_once_gate_broadcast_slow(&og->ogo_lock, current, self);
 }
@@ -1116,7 +944,6 @@ _os_once(os_once_t *val, void *ctxt, os_function_t func)
 	}
 }
 
-#if !OS_VARIANT_ONLY
 
 #pragma mark -
 #pragma mark os_lock_eliding_t
@@ -1145,5 +972,3 @@ OS_LOCK_METHODS_DECL(transactional);
 OS_LOCK_TYPE_INSTANCE(transactional);
 
 #endif // !TARGET_OS_IPHONE
-#endif // !OS_VARIANT_ONLY
-#endif // !OS_LOCK_VARIANT_ONLY

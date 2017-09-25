@@ -31,7 +31,7 @@
 errno_t
 tzlink(const char *tz)
 {
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_IPHONE || TARGET_OS_OSX && !TARGET_IPHONE_SIMULATOR
 	xpc_connection_t connection;
 	xpc_object_t request, reply;
 	errno_t e;

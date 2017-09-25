@@ -46,6 +46,7 @@ bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRe
 bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error);
 
 CFTypeRef SecDbKeychainItemCopyPrimaryKey(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
+CFTypeRef SecDbKeychainItemCopySHA256PrimaryKey(SecDbItemRef item, CFErrorRef *error);
 CFTypeRef SecDbKeychainItemCopySHA1(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
 CFTypeRef SecDbKeychainItemCopyCurrentDate(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
 CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);

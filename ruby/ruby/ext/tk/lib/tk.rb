@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #               tk.rb - Tk interface module using tcltklib
 #                       by Yukihiro Matsumoto <matz@netlab.jp>
@@ -1309,8 +1310,12 @@ EOS
           end
 
           unless interp.deleted?
-            #Thread.current[:status].value = TclTkLib.mainloop(false)
-            Thread.current[:status].value = interp.mainloop(false)
+            begin
+              #Thread.current[:status].value = TclTkLib.mainloop(false)
+              Thread.current[:status].value = interp.mainloop(false)
+            rescue Exception=>e
+              puts "ignore exception on interp: #{e.inspect}\n" if $DEBUG
+            end
           end
 
         ensure
@@ -1569,7 +1574,15 @@ EOS
   EOL
 =end
 
-  at_exit{ INTERP.remove_tk_procs(TclTkLib::FINALIZE_PROC_NAME) }
+  if !WITH_RUBY_VM || RUN_EVENTLOOP_ON_MAIN_THREAD ### check Ruby 1.9 !!!!!!!
+    at_exit{ INTERP.remove_tk_procs(TclTkLib::FINALIZE_PROC_NAME) }
+  else
+    at_exit{
+      Tk.root.destroy
+      INTERP.remove_tk_procs(TclTkLib::FINALIZE_PROC_NAME)
+      INTERP_THREAD.kill.join
+    }
+  end
 
   EventFlag = TclTkLib::EventFlag
 
@@ -1773,9 +1786,7 @@ EOS
   end
 
   def appsend(interp, async, *args)
-    if $SAFE >= 4
-      fail SecurityError, "cannot send Tk commands at level 4"
-    elsif $SAFE >= 1 && args.find{|obj| obj.tainted?}
+    if $SAFE >= 1 && args.find{|obj| obj.tainted?}
       fail SecurityError, "cannot send tainted Tk commands at level #{$SAFE}"
     end
     if async != true && async != false && async != nil
@@ -1790,9 +1801,7 @@ EOS
   end
 
   def rb_appsend(interp, async, *args)
-    if $SAFE >= 4
-      fail SecurityError, "cannot send Ruby commands at level 4"
-    elsif $SAFE >= 1 && args.find{|obj| obj.tainted?}
+    if $SAFE >= 1 && args.find{|obj| obj.tainted?}
       fail SecurityError, "cannot send tainted Ruby commands at level #{$SAFE}"
     end
     if async != true && async != false && async != nil
@@ -1808,9 +1817,7 @@ EOS
   end
 
   def appsend_displayof(interp, win, async, *args)
-    if $SAFE >= 4
-      fail SecurityError, "cannot send Tk commands at level 4"
-    elsif $SAFE >= 1 && args.find{|obj| obj.tainted?}
+    if $SAFE >= 1 && args.find{|obj| obj.tainted?}
       fail SecurityError, "cannot send tainted Tk commands at level #{$SAFE}"
     end
     win = '.' if win == nil
@@ -1826,9 +1833,7 @@ EOS
   end
 
   def rb_appsend_displayof(interp, win, async, *args)
-    if $SAFE >= 4
-      fail SecurityError, "cannot send Ruby commands at level 4"
-    elsif $SAFE >= 1 && args.find{|obj| obj.tainted?}
+    if $SAFE >= 1 && args.find{|obj| obj.tainted?}
       fail SecurityError, "cannot send tainted Ruby commands at level #{$SAFE}"
     end
     win = '.' if win == nil
@@ -1887,7 +1892,7 @@ EOS
             INTERP_ROOT_CHECK.wait(INTERP_MUTEX)
             status = INTERP_THREAD_STATUS.value
             if status && TkCore::INTERP.default_master?
-              INTERP_THREAD_STATUS.value = nil if $SAFE < 4
+              INTERP_THREAD_STATUS.value = nil
               raise status if status.kind_of?(Exception)
             end
           }
@@ -2197,9 +2202,6 @@ module Tk
     #  tk_split_simplelist(INTERP._invoke('set', 'tcl_libPath'))
 
     when :PLATFORM, :TCL_PLATFORM
-      if $SAFE >= 4
-        fail SecurityError, "can't get #{sym} when $SAFE >= 4"
-      end
       INTERP._invoke_without_enc('global', 'tcl_platform')
       Hash[*tk_split_simplelist(INTERP._invoke_without_enc('array', 'get',
                                                            'tcl_platform'))]
@@ -3734,7 +3736,6 @@ module TkConfigMethod
     @mode || false
   end
   def TkConfigMethod.__set_IGNORE_UNKNOWN_CONFIGURE_OPTION__!(mode)
-    fail SecurityError, "can't change the mode" if $SAFE>=4
     @mode = (mode)? true: false
   end
 
@@ -5197,6 +5198,8 @@ class TkWindow<TkObject
     TkWinfo.exist?(self)
   end
 
+  alias subcommand tk_send
+
   def bind_class
     @db_class || self.class()
   end
@@ -5636,9 +5639,6 @@ class TkWindow<TkObject
   end
 
   def wait_visibility(on_thread = true)
-    if $SAFE >= 4
-      fail SecurityError, "can't wait visibility at $SAFE >= 4"
-    end
     on_thread &= (Thread.list.size != 1)
     if on_thread
       INTERP._thread_tkwait('visibility', path)
@@ -5662,9 +5662,6 @@ class TkWindow<TkObject
   alias thread_tkwait_visibility thread_wait_visibility
 
   def wait_destroy(on_thread = true)
-    if $SAFE >= 4
-      fail SecurityError, "can't wait destroy at $SAFE >= 4"
-    end
     on_thread &= (Thread.list.size != 1)
     if on_thread
       INTERP._thread_tkwait('window', epath)
@@ -5742,7 +5739,7 @@ TkWidget = TkWindow
 #Tk.freeze
 
 module Tk
-  RELEASE_DATE = '2010-06-03'.freeze
+  RELEASE_DATE = '2014-10-19'.freeze
 
   autoload :AUTO_PATH,        'tk/variable'
   autoload :TCL_PACKAGE_PATH, 'tk/variable'

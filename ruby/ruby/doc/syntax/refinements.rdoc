@@ -9,11 +9,6 @@ Refinements are designed to reduce the impact of monkey patching on other
 users of the monkey-patched class.  Refinements provide a way to extend a
 class locally.
 
-Refinements are an experimental feature in Ruby 2.0.  At the time of writing,
-refinements are expected to exist in future versions of Ruby but the
-specification of refinements may change.  You will receive a warning the first
-time you define or activate a refinement.
-
 Here is a basic refinement:
 
   class C
@@ -42,20 +37,27 @@ Activate the refinement with #using:
 
   using M
 
-  x = C.new
+  c = C.new
 
   c.foo # prints "C#foo in M"
 
 == Scope
 
-You may only activate refinements at top-level to the end of the file or in a
-string passed to Kernel#eval, Kernel#instance_eval or Kernel#module_eval until
-the end of the string.
+You may activate refinements at top-level, and inside classes and modules.
+You may not activate refinements in method scope.  Refinements are activated
+until the end of the current class or module definition, or until the end of
+the current file if used at the top-level.
 
-Refinements are lexical in scope.  When control is transferred outside the
-scope the refinement is deactivated.  This means that if you require or load a
-file or call a method that is defined outside the current scope the refinement
-will be deactivated:
+You may activate refinements in a string passed to Kernel#eval. Refinements
+are active the end of the eval string.
+
+Refinements are lexical in scope.  Refinements are only active within a scope
+after the call to using. Any code before the using statement will not have the
+refinement activated.
+
+When control is transferred outside the scope the refinement is deactivated.
+This means that if you require or load a file or call a method that is defined
+outside the current scope the refinement will be deactivated:
 
   class C
   end
@@ -140,6 +142,26 @@ In a file:
   end
   # activated here
 
+In a class:
+
+  # not activated here
+  class Foo
+    # not activated here
+    def foo
+      # not activated here
+    end
+    using M
+    # activated here
+    def bar
+      # activated here
+    end
+    # activated here
+  end
+  # not activated here
+
+Note that the refinements in M are not activated automatically if the class
+Foo is reopened later.
+
 In eval:
 
   # not activated here
@@ -185,6 +207,7 @@ called:
   using ToJSON
 
   p [{1=>2}, {3=>4}].to_json # prints "[{\"1\":2},{\"3\":4}]"
+
 
 == Method Lookup
 
@@ -237,4 +260,3 @@ This behavior may be changed in the future.
 See http://bugs.ruby-lang.org/projects/ruby-trunk/wiki/RefinementsSpec for the
 current specification for implementing refinements.  The specification also
 contains more details.
-

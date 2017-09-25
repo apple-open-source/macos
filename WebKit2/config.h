@@ -28,12 +28,10 @@
 #include "cmakeconfig.h"
 #endif
 
-#include <wtf/Platform.h>
-
 #include <WebCore/PlatformExportMacros.h>
+#include <pal/ExportMacros.h>
 #include <runtime/JSExportMacros.h>
 #include <wtf/DisallowCType.h>
-#include <wtf/ExportMacros.h>
 
 #ifdef __cplusplus
 
@@ -48,7 +46,7 @@
 #ifndef PLUGIN_ARCHITECTURE_UNSUPPORTED
 #if PLATFORM(MAC)
 #define PLUGIN_ARCHITECTURE_MAC 1
-#elif (PLATFORM(GTK) || PLATFORM(EFL)) && (OS(UNIX) && !OS(MAC_OS_X)) && PLATFORM(X11)
+#elif PLATFORM(GTK) && PLATFORM(X11) && OS(UNIX) && !OS(MAC_OS_X)
 #define PLUGIN_ARCHITECTURE_X11 1
 #else
 #define PLUGIN_ARCHITECTURE_UNSUPPORTED 1
@@ -56,12 +54,6 @@
 #endif
 
 #define PLUGIN_ARCHITECTURE(ARCH) (defined PLUGIN_ARCHITECTURE_##ARCH && PLUGIN_ARCHITECTURE_##ARCH)
-
-#ifndef ENABLE_INSPECTOR_SERVER
-#if ENABLE(WEB_SOCKETS) && (PLATFORM(GTK) || PLATFORM(EFL))
-#define ENABLE_INSPECTOR_SERVER 1
-#endif
-#endif
 
 #ifndef ENABLE_SEC_ITEM_SHIM
 #if PLATFORM(MAC) || PLATFORM(IOS)
@@ -75,11 +67,13 @@
 #endif
 #endif
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) \
-    || (PLATFORM(IOS) && TARGET_OS_IOS && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000) \
-    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED >= 100000) \
-    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 30000) \
-    || USE(SOUP)
+#if USE(CFURLCONNECTION)
+#ifndef USE_NETWORK_SESSION
+#define USE_NETWORK_SESSION 0
+#endif
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || PLATFORM(IOS) || PLATFORM(APPLETV) || PLATFORM(WATCHOS) || USE(SOUP)
 #ifndef USE_NETWORK_SESSION
 #define USE_NETWORK_SESSION 1
 #endif

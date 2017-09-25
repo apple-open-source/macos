@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # = net/http.rb
 #
@@ -266,7 +267,7 @@ module Net   #:nodoc:
   #     response = http.request request # Net::HTTPResponse object
   #   end
   #
-  # In previous versions of ruby you would need to require 'net/https' to use
+  # In previous versions of Ruby you would need to require 'net/https' to use
   # HTTPS.  This is no longer true.
   #
   # === Proxies
@@ -334,6 +335,7 @@ module Net   #:nodoc:
   #   HTTPResetContent::                    205
   #   HTTPPartialContent::                  206
   #   HTTPMultiStatus::                     207
+  #   HTTPIMUsed::                          226
   # HTTPRedirection::                    3xx
   #   HTTPMultipleChoices::                 300
   #   HTTPMovedPermanently::                301
@@ -384,7 +386,7 @@ module Net   #:nodoc:
   class HTTP < Protocol
 
     # :stopdoc:
-    Revision = %q$Revision: 49378 $.split[1]
+    Revision = %q$Revision: 56782 $.split[1]
     HTTPVersion = '1.1'
     begin
       require 'zlib'
@@ -395,8 +397,8 @@ module Net   #:nodoc:
     end
     # :startdoc:
 
-    # Turns on net/http 1.2 (ruby 1.8) features.
-    # Defaults to ON in ruby 1.8 or later.
+    # Turns on net/http 1.2 (Ruby 1.8) features.
+    # Defaults to ON in Ruby 1.8 or later.
     def HTTP.version_1_2
       true
     end
@@ -640,7 +642,7 @@ module Net   #:nodoc:
       @close_on_empty_response = false
       @socket  = nil
       @started = false
-      @open_timeout = nil
+      @open_timeout = 60
       @read_timeout = 60
       @continue_timeout = nil
       @debug_output = nil
@@ -655,7 +657,6 @@ module Net   #:nodoc:
       @use_ssl = false
       @ssl_context = nil
       @ssl_session = nil
-      @enable_post_connection_check = true
       @sspi_enabled = false
       SSL_IVNAMES.each do |ivname|
         instance_variable_set ivname, nil
@@ -671,7 +672,7 @@ module Net   #:nodoc:
     #
     # Sets an output stream for debugging.
     #
-    #   http = Net::HTTP.new
+    #   http = Net::HTTP.new(hostname)
     #   http.set_debug_output $stderr
     #   http.start { .... }
     #
@@ -686,10 +687,10 @@ module Net   #:nodoc:
     # The port number to connect to.
     attr_reader :port
 
-    # The local host used to estabilish the connection.
+    # The local host used to establish the connection.
     attr_accessor :local_host
 
-    # The local port used to estabilish the connection.
+    # The local port used to establish the connection.
     attr_accessor :local_port
 
     attr_writer :proxy_from_env
@@ -701,7 +702,7 @@ module Net   #:nodoc:
     # Number of seconds to wait for the connection to open. Any number
     # may be used, including Floats for fractional seconds. If the HTTP
     # object cannot open a connection in this many seconds, it raises a
-    # Net::OpenTimeout exception. The default value is +nil+.
+    # Net::OpenTimeout exception. The default value is 60 seconds.
     attr_accessor :open_timeout
 
     # Number of seconds to wait for one block to be read (via one read(2)
@@ -875,8 +876,14 @@ module Net   #:nodoc:
 
       D "opening connection to #{conn_address}:#{conn_port}..."
       s = Timeout.timeout(@open_timeout, Net::OpenTimeout) {
-        TCPSocket.open(conn_address, conn_port, @local_host, @local_port)
+        begin
+          TCPSocket.open(conn_address, conn_port, @local_host, @local_port)
+        rescue => e
+          raise e, "Failed to open TCP connection to " +
+            "#{conn_address}:#{conn_port} (#{e.message})"
+        end
       }
+      s.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
       D "opened"
       if use_ssl?
         ssl_parameters = Hash.new
@@ -912,13 +919,27 @@ module Net   #:nodoc:
             @socket.write(buf)
             HTTPResponse.read_new(@socket).value
           end
-          if @ssl_session and
-             Time.now < @ssl_session.time + @ssl_session.timeout
-            s.session = @ssl_session if @ssl_session
-          end
           # Server Name Indication (SNI) RFC 3546
           s.hostname = @address if s.respond_to? :hostname=
-          Timeout.timeout(@open_timeout, Net::OpenTimeout) { s.connect }
+          if @ssl_session and
+             Process.clock_gettime(Process::CLOCK_REALTIME) < @ssl_session.time.to_f + @ssl_session.timeout
+            s.session = @ssl_session if @ssl_session
+          end
+          if timeout = @open_timeout
+            while true
+              raise Net::OpenTimeout if timeout <= 0
+              start = Process.clock_gettime Process::CLOCK_MONOTONIC
+              # to_io is required because SSLSocket doesn't have wait_readable yet
+              case s.connect_nonblock(exception: false)
+              when :wait_readable; s.to_io.wait_readable(timeout)
+              when :wait_writable; s.to_io.wait_writable(timeout)
+              else; break
+              end
+              timeout -= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+            end
+          else
+            s.connect
+          end
           if @ssl_context.verify_mode != OpenSSL::SSL::VERIFY_NONE
             s.post_connection_check(@address)
           end
@@ -1035,7 +1056,7 @@ module Net   #:nodoc:
     # The address of the proxy server, if one is configured.
     def proxy_address
       if @proxy_from_env then
-        proxy_uri && proxy_uri.hostname
+        proxy_uri&.hostname
       else
         @proxy_address
       end
@@ -1044,7 +1065,7 @@ module Net   #:nodoc:
     # The port of the proxy server, if one is configured.
     def proxy_port
       if @proxy_from_env then
-        proxy_uri && proxy_uri.port
+        proxy_uri&.port
       else
         @proxy_port
       end
@@ -1076,8 +1097,12 @@ module Net   #:nodoc:
     end
 
     def edit_path(path)
-      if proxy? and not use_ssl? then
-        "http://#{addr_port}#{path}"
+      if proxy?
+        if path.start_with?("ftp://") || use_ssl?
+          path
+        else
+          "http://#{addr_port}#{path}"
+        end
       else
         path
       end
@@ -1126,7 +1151,7 @@ module Net   #:nodoc:
     #       end
     #     }
     #
-    def get(path, initheader = {}, dest = nil, &block) # :yield: +body_segment+
+    def get(path, initheader = nil, dest = nil, &block) # :yield: +body_segment+
       res = nil
       request(Get.new(path, initheader)) {|r|
         r.read_body dest, &block
@@ -1411,14 +1436,14 @@ module Net   #:nodoc:
           begin
             res = HTTPResponse.read_new(@socket)
             res.decode_content = req.decode_content
-          end while res.kind_of?(HTTPContinue)
+          end while res.kind_of?(HTTPInformation)
 
           res.uri = req.uri
 
-          res.reading_body(@socket, req.response_body_permitted?) {
-            yield res if block_given?
-          }
           res
+        }
+        res.reading_body(@socket, req.response_body_permitted?) {
+          yield res if block_given?
         }
       rescue Net::OpenTimeout
         raise
@@ -1449,20 +1474,23 @@ module Net   #:nodoc:
     def begin_transport(req)
       if @socket.closed?
         connect
-      elsif @last_communicated && @last_communicated + @keep_alive_timeout < Time.now
-        D 'Conn close because of keep_alive_timeout'
-        @socket.close
-        connect
+      elsif @last_communicated
+        if @last_communicated + @keep_alive_timeout < Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          D 'Conn close because of keep_alive_timeout'
+          @socket.close
+          connect
+        elsif @socket.io.to_io.wait_readable(0) && @socket.eof?
+          D "Conn close because of EOF"
+          @socket.close
+          connect
+        end
       end
 
       if not req.response_body_permitted? and @close_on_empty_response
         req['connection'] ||= 'close'
       end
 
-      host = req['host'] || address
-      host = $1 if host =~ /(.*):\d+$/
-      req.update_uri host, port, use_ssl?
-
+      req.update_uri address, port, use_ssl?
       req['host'] ||= addr_port()
     end
 
@@ -1476,7 +1504,7 @@ module Net   #:nodoc:
         @socket.close
       elsif keep_alive?(req, res)
         D 'Conn keep-alive'
-        @last_communicated = Time.now
+        @last_communicated = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       else
         D 'Conn close'
         @socket.close
@@ -1557,4 +1585,3 @@ require 'net/http/responses'
 require 'net/http/proxy_delta'
 
 require 'net/http/backward'
-

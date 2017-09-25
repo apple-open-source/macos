@@ -1,6 +1,6 @@
 #include <pthread.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 static void *
 run(void * __unused arg)

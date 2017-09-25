@@ -31,6 +31,7 @@
 
 #include <CoreFoundation/CFError.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFURL.h>
 
 __BEGIN_DECLS
 
@@ -104,6 +105,26 @@ CFDictionaryRef SecItemBackupCopyMatching(CFDataRef keybag, CFDataRef secret, CF
 
 // Utility function to compute a confirmed manifest from a v0 backup dictionary.
 CFDataRef SecItemBackupCreateManifest(CFDictionaryRef backup, CFErrorRef *error);
+
+/*!
+ @function SecBackupKeybagAdd
+ @abstract Add a new asymmetric keybag to the backup table.
+ @param passcode User entropy to protect the keybag.
+ @param identifier Unique identifier for the keybag.
+ @param pathinfo The directory or file containing the keychain.
+ @param error Returned if there is a failure.
+ @result bool standard CFError contract.
+ @discussion The keybag is created and stored in the backup keybag table */
+bool SecBackupKeybagAdd(CFDataRef passcode, CFDataRef *identifier, CFURLRef *pathinfo, CFErrorRef *error);
+
+/*!
+ @function SecBackupKeybagDelete
+ @abstract Remove an asymmetric keybag from the backup table.
+ @param query Specify which keybag(s) to delete
+ @param error Returned if there is a failure.
+ @result bool standard CFError contract.
+ @discussion The keychain must be unlocked */
+bool SecBackupKeybagDelete(CFDictionaryRef query, CFErrorRef *error);
 
 __END_DECLS
 

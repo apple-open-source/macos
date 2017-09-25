@@ -1,0 +1,3 @@
+./test/recover/xml/758422-3.xml:2: parser error : xmlParseElementChildrenContentDecl : '|' expected
+<!ELEMENT doc (a, (b | c*, d*)? >
+                         ^

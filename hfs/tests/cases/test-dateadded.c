@@ -85,6 +85,7 @@ int run_dateadded(__unused test_ctx_t *ctx)
 
 	assert_no_err(unlink(file3));
 	assert_no_err(rmdir(dir));
+	assert_no_err(close(fd));
 
 	return 0;
 }

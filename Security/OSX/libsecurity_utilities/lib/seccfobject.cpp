@@ -25,6 +25,7 @@
 #include <security_utilities/cfclass.h>
 #include <security_utilities/errors.h>
 #include <security_utilities/debugging.h>
+#include <os/lock.h>
 
 #include <list>
 #include <security_utilities/globalizer.h>
@@ -156,12 +157,12 @@ SecCFObject::operator delete(void *object) throw()
 SecCFObject::SecCFObject()
 {
     mRetainCount = 1;
-    mRetainSpinLock = OS_SPINLOCK_INIT;
+    mRetainLock = OS_UNFAIR_LOCK_INIT;
 }
 
 uint32_t SecCFObject::updateRetainCount(intptr_t direction, uint32_t *oldCount)
 {
-    OSSpinLockLock(&mRetainSpinLock);
+    os_unfair_lock_lock(&mRetainLock);
 
     if (oldCount != NULL)
     {
@@ -179,7 +180,7 @@ uint32_t SecCFObject::updateRetainCount(intptr_t direction, uint32_t *oldCount)
     
     uint32_t result = mRetainCount;
 
-    OSSpinLockUnlock(&mRetainSpinLock);
+    os_unfair_lock_unlock(&mRetainLock);
     
     return result;
 }

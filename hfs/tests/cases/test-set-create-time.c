@@ -41,6 +41,7 @@ int run_set_create_time(__unused test_ctx_t *ctx)
 
 	assert(attrs.cr_time.tv_sec == 2000 && attrs.mod_time.tv_sec == 1000);
 
+	assert_no_err (close(fd));
 	unlink(file);
 	free(file);
 

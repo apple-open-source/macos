@@ -25,13 +25,15 @@
 //
 // csproxy - Code Signing Hosting Proxy
 //
+#include <set>
+
 #include "csproxy.h"
 #include "server.h"
 #include <Security/SecStaticCode.h>
 #include <securityd_client/cshosting.h>
 #include <security_utilities/cfmunge.h>
 #include <security_utilities/casts.h>
-
+#include <utilities/SecCFRelease.h>
 
 //
 // Construct a CodeSigningHost
@@ -64,7 +66,7 @@ void CodeSigningHost::reset()
 	case dynamicHosting:
 		mHostingPort.destroy();
 		mHostingPort = MACH_PORT_NULL;
-        secnotice("SS", "%p host unregister", this);
+        secnotice("SS", "%d host unregister", mHostingPort.port());
 		break;
 	case proxyHosting:
 		Server::active().remove(*this);	// unhook service handler
@@ -72,7 +74,7 @@ void CodeSigningHost::reset()
 		mHostingState = noHosting;
 		mHostingPort = MACH_PORT_NULL;
 		mGuests.erase(mGuests.begin(), mGuests.end());
-        secnotice("SS", "%p host unregister", this);
+        secnotice("SS", "%d host unregister", mHostingPort.port());
 		break;
 	}
 }
@@ -194,7 +196,7 @@ void CodeSigningHost::registerCodeSigning(mach_port_t hostingPort, SecCSFlags fl
 	case noHosting:
 		mHostingPort = hostingPort;
 		mHostingState = dynamicHosting;
-        secnotice("SS", "%p host register: %d", this, mHostingPort.port());
+        secnotice("SS", "%d host register: %d", mHostingPort.port(), mHostingPort.port());
 		break;
 	default:
 		MacOSError::throwMe(errSecCSHostProtocolContradiction);
@@ -225,7 +227,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 		MachServer::Handler::port(mHostingPort);		// put into Handler
 		MachServer::active().add(*this);				// start listening
 		mHostingState = proxyHosting;					// now proxying for this host
-        secnotice("SS", "%p host proxy: %d", this, mHostingPort.port());
+        secnotice("SS", "%d host proxy: %d", mHostingPort.port(), mHostingPort.port());
 		break;
 	case proxyHosting:									// already proxying
 		break;
@@ -253,7 +255,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 	guest->setHash(cdhash, flags & kSecCSGenerateGuestHash);
 	guest->dedicated = (flags & kSecCSDedicatedHost);
 	mGuests[guest->guestRef()] = guest;
-    secnotice("SS", "%p guest create %d %d status:%d %d %s", this, hostRef, guest->guestRef(), guest->status, flags, guest->path.c_str());
+    secnotice("SS", "%d guest create %d %d status:%d %d %s", mHostingPort.port(), hostRef, guest->guestRef(), guest->status, flags, guest->path.c_str());
 	return guest->guestRef();
 }
 
@@ -271,7 +273,7 @@ void CodeSigningHost::setGuestStatus(SecGuestRef guestRef, uint32_t status, cons
 	if ((~status & guest->status) & (kSecCodeStatusHard | kSecCodeStatusKill))
 		MacOSError::throwMe(errSecCSHostProtocolStateError); // can't clear
 	guest->status = status;
-    secnotice("SS", "%p guest change %d %d", this, guestRef, status);
+    secnotice("SS", "%d guest change %d %d", mHostingPort.port(), guestRef, status);
 
 	// replace attributes if requested
 	if (attributes)
@@ -293,11 +295,19 @@ void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
 		MacOSError::throwMe(errSecCSHostProtocolDedicationError);
 	if (!guest->isGuestOf(host, strict))
 		MacOSError::throwMe(errSecCSHostProtocolUnrelated);
-	for (GuestMap::iterator it = mGuests.begin(); it != mGuests.end(); ++it)
-		if (it->second->isGuestOf(guest, loose)) {
-            secnotice("SS", "%p guest destroy %d", this, it->first);
-			mGuests.erase(it);
+
+    set<SecGuestRef> matchingGuests;
+
+    for (auto &it : mGuests) {
+		if (it.second->isGuestOf(guest, loose)) {
+            matchingGuests.insert(it.first);
 		}
+    }
+
+    for (auto &it : matchingGuests) {
+        secnotice("SS", "%d guest destroy %d", mHostingPort.port(), it);
+        mGuests.erase(it);
+    }
 }
 
 
@@ -311,8 +321,10 @@ void CodeSigningHost::Guest::setAttributes(const CssmData &attrData)
 {
 	CFRef<CFNumberRef> guest = makeCFNumber(guestRef());
 	if (attrData) {
+        CFDictionaryRef attrs = makeCFDictionaryFrom(attrData.data(), attrData.length());
 		attributes.take(cfmake<CFDictionaryRef>("{+%O,%O=%O}",
-			makeCFDictionaryFrom(attrData.data(), attrData.length()), kSecGuestAttributeCanonical, guest.get()));
+			attrs, kSecGuestAttributeCanonical, guest.get()));
+        CFReleaseNull(attrs);
 	} else {
 		attributes.take(makeCFDictionary(1, kSecGuestAttributeCanonical, guest.get()));
 	}
@@ -532,7 +544,7 @@ void CodeSigningHost::Guest::dump() const
 		Debug::dump("0x%x", *it);
 	}
 	Debug::dump("; status=0x%x attrs=%s]",
-		status, cfString(CFCopyDescription(attributes), true).c_str());
+		status, cfStringRelease(CFCopyDescription(attributes)).c_str());
 }
 
 #endif //DEBUGDUMP

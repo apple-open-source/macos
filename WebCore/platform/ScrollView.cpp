@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,14 +48,14 @@ ScrollView::~ScrollView()
 {
 }
 
-void ScrollView::addChild(PassRefPtr<Widget> prpChild) 
+void ScrollView::addChild(Widget& child)
 {
-    Widget* child = prpChild.get();
-    ASSERT(child != this && !child->parent());
-    child->setParent(this);
-    m_children.add(prpChild);
-    if (child->platformWidget())
-        platformAddChild(child);
+    ASSERT(&child != this);
+    ASSERT(!child.parent());
+    child.setParent(this);
+    m_children.add(child);
+    if (child.platformWidget())
+        platformAddChild(&child);
 }
 
 void ScrollView::removeChild(Widget& child)
@@ -83,7 +83,7 @@ bool ScrollView::setHasScrollbarInternal(RefPtr<Scrollbar>& scrollbar, Scrollbar
 
     if (hasBar && !scrollbar) {
         scrollbar = createScrollbar(orientation);
-        addChild(scrollbar.get());
+        addChild(*scrollbar);
         didAddScrollbar(scrollbar.get(), orientation);
         scrollbar->styleChanged();
         if (contentSizeAffected)
@@ -815,12 +815,6 @@ void ScrollView::scrollContents(const IntSize& scrollDelta)
     window->invalidateRootView(IntRect());
 }
 
-bool ScrollView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
-{
-    hostWindow()->scroll(scrollDelta, rectToScroll, clipRect);
-    return true;
-}
-
 void ScrollView::scrollContentsSlowPath(const IntRect& updateRect)
 {
     hostWindow()->invalidateContentsForSlowScroll(updateRect);
@@ -1024,17 +1018,14 @@ void ScrollView::frameRectsChanged()
 {
     if (platformWidget())
         return;
-
-    HashSet<RefPtr<Widget>>::const_iterator end = m_children.end();
-    for (HashSet<RefPtr<Widget>>::const_iterator current = m_children.begin(); current != end; ++current)
-        (*current)->frameRectsChanged();
+    for (auto& child : m_children)
+        child->frameRectsChanged();
 }
 
 void ScrollView::clipRectChanged()
 {
-    HashSet<RefPtr<Widget>>::const_iterator end = m_children.end();
-    for (HashSet<RefPtr<Widget>>::const_iterator current = m_children.begin(); current != end; ++current)
-        (*current)->clipRectChanged();
+    for (auto& child : m_children)
+        child->clipRectChanged();
 }
 
 static void positionScrollbarLayer(GraphicsLayer* graphicsLayer, Scrollbar* scrollbar)
@@ -1136,10 +1127,6 @@ void ScrollView::scrollbarStyleChanged(ScrollbarStyle newStyle, bool forceUpdate
     positionScrollbarLayers();
 }
 
-void ScrollView::updateScrollCorner()
-{
-}
-
 void ScrollView::paintScrollCorner(GraphicsContext& context, const IntRect& cornerRect)
 {
     ScrollbarTheme::theme().paintScrollCorner(this, context, cornerRect);
@@ -1170,13 +1157,11 @@ void ScrollView::paintScrollbars(GraphicsContext& context, const IntRect& rect)
 
 void ScrollView::paintPanScrollIcon(GraphicsContext& context)
 {
-    static Image* panScrollIcon = Image::loadPlatformResource("panIcon").leakRef();
-    if (!panScrollIcon)
-        return;
+    static Image& panScrollIcon = Image::loadPlatformResource("panIcon").leakRef();
     IntPoint iconGCPoint = m_panScrollIconPoint;
     if (parent())
         iconGCPoint = parent()->windowToContents(iconGCPoint);
-    context.drawImage(*panScrollIcon, iconGCPoint);
+    context.drawImage(panScrollIcon, iconGCPoint);
 }
 
 void ScrollView::paint(GraphicsContext& context, const IntRect& rect, SecurityOriginPaintPolicy securityOriginPaintPolicy)
@@ -1378,9 +1363,8 @@ void ScrollView::setParentVisible(bool visible)
     if (!isSelfVisible())
         return;
         
-    HashSet<RefPtr<Widget>>::iterator end = m_children.end();
-    for (HashSet<RefPtr<Widget>>::iterator it = m_children.begin(); it != end; ++it)
-        (*it)->setParentVisible(visible);
+    for (auto& child : m_children)
+        child->setParentVisible(visible);
 }
 
 void ScrollView::show()
@@ -1388,9 +1372,8 @@ void ScrollView::show()
     if (!isSelfVisible()) {
         setSelfVisible(true);
         if (isParentVisible()) {
-            HashSet<RefPtr<Widget>>::iterator end = m_children.end();
-            for (HashSet<RefPtr<Widget>>::iterator it = m_children.begin(); it != end; ++it)
-                (*it)->setParentVisible(true);
+            for (auto& child : m_children)
+                child->setParentVisible(true);
         }
     }
 
@@ -1401,9 +1384,8 @@ void ScrollView::hide()
 {
     if (isSelfVisible()) {
         if (isParentVisible()) {
-            HashSet<RefPtr<Widget>>::iterator end = m_children.end();
-            for (HashSet<RefPtr<Widget>>::iterator it = m_children.begin(); it != end; ++it)
-                (*it)->setParentVisible(false);
+            for (auto& child : m_children)
+                child->setParentVisible(false);
         }
         setSelfVisible(false);
     }

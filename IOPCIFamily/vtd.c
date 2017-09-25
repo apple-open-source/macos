@@ -22,6 +22,7 @@
 
 #if ACPI_SUPPORT
 
+
 #include <IOKit/IOMapper.h>
 #include <IOKit/IOKitKeysPrivate.h>
 #include <libkern/tree.h>
@@ -43,7 +44,7 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define kLargeThresh	(128)
 #define kLargeThresh2	(32)
-#define kVPages  		(1<<22)
+#define kVPages  		(1<<24)
 #define kBPagesLog2 	(18)
 #define kBPagesSafe		((1<<kBPagesLog2)-(1<<(kBPagesLog2 - 2)))      /* 3/4 */
 #define kBPagesReserve	((1<<kBPagesLog2)-(1<<(kBPagesLog2 - 3)))      /* 7/8 */
@@ -56,6 +57,8 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define kTlbDrainReads  (0ULL)
 #define kTlbDrainWrites (0ULL)
+
+#define kMaxRounding    (10)
 
 #define VTLOG(fmt, args...)                   \
     do {                                                    						\
@@ -250,10 +253,12 @@ struct vtd_unit_t
 
 	uint32_t msi_data;
     uint32_t num_fault;
+    uint32_t hwrounding;
     uint32_t rounding;
     uint32_t domains;
 
     uint8_t  global:1,
+             ig:1,
              caching:1,
              translating:1,
              selective:1,
@@ -290,7 +295,11 @@ static void unit_quiesce(vtd_unit_t * unit);
 static
 vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 {
-	vtd_unit_t * unit;
+	vtd_unit_t             * unit;
+    ACPI_DMAR_DEVICE_SCOPE * scope;
+    ACPI_DMAR_PCI_PATH     * path;
+	uintptr_t                enddmar, endscope;
+    uint32_t                 paths, bus0ep;
 
 	unit = IONew(vtd_unit_t, 1);
 	if (!unit) return (NULL);
@@ -298,7 +307,7 @@ vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 
 	unit->dmar = dmar;
 
-	VTLOG("unit %p Address %llx, Flags %x\n",
+	VTLOG("dmar %p Address %llx, Flags %x\n",
 			dmar, dmar->Address, dmar->Flags);
 
 	unit->regs = (typeof unit->regs) ml_io_map(dmar->Address, 0x1000);
@@ -312,7 +321,8 @@ vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 	unit->num_fault = (1 + ((unit->regs->capability >> 40) & ((1 << 8) - 1)));
 
 	unit->selective = (1 & (unit->regs->capability >> 39));
-	unit->rounding = (0x3f & (unit->regs->capability >> 48));
+	unit->rounding = unit->hwrounding = (0x3f & (unit->regs->capability >> 48));
+	if (unit->rounding > kMaxRounding) unit->rounding = kMaxRounding;
 	unit->caching = (1 & (unit->regs->capability >> 7));
 	unit->global = (ACPI_DMAR_INCLUDE_ALL & dmar->Flags);
 	unit->domains = (1 << (4 + (14 & (unit->regs->capability << 1))));
@@ -320,16 +330,38 @@ vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 	unit->intmapper = (1 & (unit->regs->extended_capability >> 3));
 	unit->qi = (1 & (unit->regs->extended_capability >> 1));
 
-	VTLOG("cap 0x%llx extcap 0x%llx glob %d cache sel %d mode %d iotlb %p nfault[%d] %p\n", 
+	VTLOG(" cap 0x%llx extcap 0x%llx glob %d round %d cache sel %d mode %d iotlb %p nfault[%d] %p\n",
 			unit->regs->capability, unit->regs->extended_capability,
-			unit->global, unit->selective, unit->caching, 
+			unit->global, unit->hwrounding, unit->selective, unit->caching,
 			unit->iotlb, unit->num_fault, unit->faults);
 
+	if (os_add_overflow(((uintptr_t)dmar), dmar->Header.Length, &enddmar)) enddmar = 0;
+	scope = (typeof(scope)) (dmar + 1);
+	bus0ep = paths = 0;
+    while (scope && (((uintptr_t) &scope[1]) <= enddmar))
+    {
+		VTLOG(" scope type %d, bus %d", scope->EntryType, scope->Bus);
+		bus0ep += ((ACPI_DMAR_SCOPE_TYPE_ENDPOINT == scope->EntryType) && (!scope->Bus));
+		if (os_add_overflow(((uintptr_t)scope), scope->Length, &endscope)) endscope = 0;
+		if (endscope > enddmar)                                            endscope = 0;
+	    path = (typeof(path)) (scope + 1);
+	    while (((uintptr_t) &path[1]) <= endscope)
+	    {
+			VTLOG(", path %d,%d", path->Device, path->Function);
+			paths++;
+			path++;
+	    }
+	    VTLOG("\n");
+	    scope = (typeof(scope)) endscope;
+    }
+    unit->ig = (!unit->global && (1 == paths) && (1 == bus0ep));
+
 	// enable translation on non-IG unit
-	if (unit->global || (kIOPCIConfiguratorIGIsMapped & gIOPCIFlags))
+	if (unit->global || !unit->ig || (kIOPCIConfiguratorIGIsMapped & gIOPCIFlags))
 	{
 		unit->translating = 1;
 	}
+	VTLOG(" ig %d translating %d\n", unit->ig, unit->translating);
 
 	// caching is only allowed for VMs
 	if (unit->caching || !unit->qi)
@@ -381,6 +413,28 @@ unit_quiesce(vtd_unit_t * unit)
 	unit->regs->global_command = 0;
 	__mfence();
 	while (((1UL<<26)|(1<<31)|(1<<25)) & unit->regs->global_status) {}
+}
+
+static void
+unit_interrupts_enable(vtd_unit_t * unit)
+{
+	if (unit->msi_address)
+	{
+		unit->regs->invalidation_completion_event_data          = unit->msi_data;
+		unit->regs->invalidation_completion_event_address       = unit->msi_address;
+		unit->regs->invalidation_completion_event_upper_address = (unit->msi_address >> 32);
+
+		unit->regs->fault_event_data          = unit->msi_data + 1;
+		unit->regs->fault_event_address       = unit->msi_address;
+		unit->regs->fault_event_upper_address = (unit->msi_address >> 32);
+
+		__mfence();
+		unit_faults(unit, false);
+
+		unit->regs->fault_event_control = 0;					// ints ena
+		unit->regs->invalidation_completion_event_control = 0;	// ints ena
+		unit->regs->invalidation_completion_status = 1;
+	}
 }
 
 static void
@@ -454,24 +508,6 @@ unit_enable(vtd_unit_t * unit, uint32_t qi_stamp)
 		 __mfence();
 		 while (!((1UL<<31) & unit->regs->global_status)) {}
 		 VTLOG("did ena trans\n");
-	}
-
-	if (unit->msi_address)
-	{
-		unit->regs->invalidation_completion_event_data          = unit->msi_data;
-		unit->regs->invalidation_completion_event_address       = unit->msi_address;
-		unit->regs->invalidation_completion_event_upper_address = (unit->msi_address >> 32);
-
-		unit->regs->fault_event_data          = unit->msi_data + 1;
-		unit->regs->fault_event_address       = unit->msi_address;
-		unit->regs->fault_event_upper_address = (unit->msi_address >> 32);
-
-		__mfence();
-		unit_faults(unit, false);
-
-		unit->regs->fault_event_control = 0;					// ints ena
-		unit->regs->invalidation_completion_event_control = 0;	// ints ena
-		unit->regs->invalidation_completion_status = 1;
 	}
 }
 
@@ -707,7 +743,7 @@ vtd_space_present(vtd_space_t * bf, vtd_vaddr_t start)
     return (vtd_bitmap_bittst(bf->table_bitmap, (start >> 9)));
 }
 
-static void
+static void __unused
 _vtd_space_nfault(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size)
 {
 	vtd_vaddr_t count;
@@ -841,6 +877,7 @@ public:
 
 	static void install(IOWorkLoop * wl, uint32_t flags, 
 						IOService * provider, const OSData * data);
+	static void installInterrupts(void);
 
 	static void adjustDevice(IOService * device);
 	static void removeDevice(IOService * device);
@@ -1009,6 +1046,17 @@ AppleVTD::install(IOWorkLoop * wl, uint32_t flags,
 		IOService::getPlatform()->removeProperty(kIOPlatformMapperPresentKey);
 		IOMapper::setMapperRequired(false);
 	}
+}
+
+void
+AppleVTD::installInterrupts(void)
+{
+	AppleVTD   * vtd;
+	vtd_unit_t * unit;
+	uint32_t     idx;
+
+	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem))) return;
+	for (idx = 0; (unit = vtd->units[idx]); idx++) unit_interrupts_enable(unit);
 }
 
 void
@@ -1294,7 +1342,12 @@ AppleVTD::space_create(ppnum_t vsize, uint32_t buddybits, ppnum_t rsize)
 		}
 		table_flush(&bf->tables[1][0], alloc - offset, bf->cachelinesize);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 		IOSetProcessorCacheMode(kernel_task, (IOVirtualAddress) &bf->tables[0][0], page_size, kIOCopybackCache);
+
+#pragma clang diagnostic pop
 
 		VTLOG("tables %p, %p, %p, %p, %p, %p\n", bf->tables[0], bf->tables[1], bf->tables[2], 
 													bf->tables[3], bf->tables[4], bf->tables[5]);
@@ -1392,19 +1445,37 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size,
 	{
 		if (uselarge)
 		{
+			vtd_rbaddr_t hwalign, hwalignsize;
+
 			IOLockLock(bf->rlock);
 			if (kIODMAMapFixedAddress & mapOptions)
 			{
-				addr = vtd_rballoc_fixed(bf, addr, size);
+				hwalignsize = size;
+				addr = vtd_rballoc_fixed(bf, addr, hwalignsize);
 			}
 			else
 			{
-				addr = vtd_rballoc(bf, size, align, fMaxRoundSize, mapOptions, pageList);
+				hwalign = vtd_log2up(size);
+				if (hwalign > fMaxRoundSize) hwalign = fMaxRoundSize;
+				hwalign = (1 << hwalign);
+				if (align < hwalign) align = hwalign;
+				hwalign--;
+				hwalignsize = (size + hwalign) & ~hwalign;
+
+				addr = vtd_rballoc(bf, hwalignsize, align, mapOptions, pageList);
 			}
 			STAT_ADD(bf, allocs[list], 1);
 			if (addr)
 			{
-				STAT_ADD(bf, rused, size);
+				STAT_ADD(bf, rused, hwalignsize);
+#if RBCHECK
+				vtd_rbaddr_t checksize = vtd_rbtotal(bf);
+				if (checksize != (bf->stats.vsize - bf->rsize - bf->stats.rused))
+				{
+				    panic("checksize 0x%x, vsize 0x%x, rsize 0x%x, rused 0x%x",
+			                checksize, bf->stats.vsize, bf->rsize, bf->stats.rused);
+				}
+#endif /* RBCHECK */
 				vtd_space_fault(bf, addr, size);
 			}
 			IOLockUnlock(bf->rlock);
@@ -1446,9 +1517,27 @@ AppleVTD::space_free(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size)
 
 	if (addr >= bf->rsize)
 	{
+		vtd_rbaddr_t hwalign, hwalignsize;
+
+		hwalign = vtd_log2up(size);
+		if (hwalign > fMaxRoundSize) hwalign = fMaxRoundSize;
+		hwalign = (1 << hwalign);
+		hwalign--;
+		hwalignsize = (size + hwalign) & ~hwalign;
+
 		IOLockLock(bf->rlock);
-		vtd_rbfree(bf, addr, size, fMaxRoundSize);
-		STAT_ADD(bf, rused, -size);
+
+		vtd_rbfree(bf, addr, hwalignsize);
+		STAT_ADD(bf, rused, -hwalignsize);
+
+#if RBCHECK
+		vtd_rbaddr_t checksize = vtd_rbtotal(bf);
+		if (checksize != (bf->stats.vsize - bf->rsize - bf->stats.rused))
+		{
+		    panic("checksize 0x%x, vsize 0x%x, rsize 0x%x, rused 0x%x",
+	                checksize, bf->stats.vsize, bf->rsize, bf->stats.rused);
+		}
+#endif /* RBCHECK */
 		IOLockUnlock(bf->rlock);
 	}
 	else
@@ -1477,7 +1566,7 @@ AppleVTD::space_alloc_fixed(vtd_space_t * bf, vtd_baddr_t addr, vtd_baddr_t size
 	vtd_space_fault(bf, addr, size);
 }
 
-static page_entry_t
+static page_entry_t __unused
 vtd_tree_read(page_entry_t root, uint32_t width, addr64_t addr)
 {
 	page_entry_t entry = root;
@@ -1556,8 +1645,8 @@ AppleVTD::initHardware(IOService *provider)
 			fDomainSize, fContextWidth, fTreeBits, fMaxRoundSize);
 
     // need better legacy checks
-	if (!fMaxRoundSize)                              return (false);
-	if ((48 == fTreeBits) && (9 == fMaxRoundSize))   return (false);
+	if (!fMaxRoundSize)                                                   return (false);
+	if (!(CPUID_LEAF7_FEATURE_SMEP & cpuid_info()->cpuid_leaf7_features)) return (false);
 	//
 
 	fHWLock = IOSimpleLockAlloc();
@@ -1851,7 +1940,7 @@ IOPCISetAPICInterrupt(uint64_t entry)
 		 | (1 << 0);	      // present
 
     prior = vtd->fIRTable[vector].data;
-	VTLOG("ir[0x%x] 0x%qx -> 0x%qx\n", vector, prior, irte);
+	VTLOG("ir[0x%qx] 0x%qx -> 0x%qx\n", vector, prior, irte);
 	if (irte != prior)
 	{
 		vtd->fIRTable[vector].data = irte;
@@ -1890,6 +1979,7 @@ IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData)
 		levelTrigger = 0;
 		destID       = 0;
 		present      = (msiData != 0);
+		if (present) destID = (0xFF & (msiData[0] >> 12));
 		irte = (destID << 40)      // destID
 			 | (idx << 16)	       // vector
 			 | (0 << 5)            // fixed delivery mode
@@ -1987,6 +2077,7 @@ AppleVTD::callPlatformFunction(const OSSymbol * functionName,
 			for (idx = 0; (unit = units[idx]); idx++) 
 			{
 				unit_enable(unit, fQIStamp);
+				unit_interrupts_enable(unit);
 			}
 			contextInvalidate(0);
 			interruptInvalidate(0, 256);
@@ -2312,7 +2403,7 @@ AppleVTD::checkFree(vtd_space_t * space, uint32_t isLarge)
 			count++;
 		}
 	}
-	while (ok);
+	while (ok && (count < 8));
 
 	if (count > space->stats.max_inval[isLarge]) space->stats.max_inval[isLarge] = count;
 }

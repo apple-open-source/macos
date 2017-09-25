@@ -29,6 +29,7 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecOTR.h>
 #include <Security/SecOTRSession.h>
+#include <Security/SecOTRSessionPriv.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSFullPeerInfo.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
@@ -104,23 +105,6 @@ static const char *SOSCoderString(SOSCoderStatus coderStatus) {
     }
 }
 
-/*
- static void logRawCoderMessage(const uint8_t* der, uint8_t* der_end, bool encoding)
-{
-#ifndef NDEBUG
-    CFStringRef hexMessage = NULL;
-    if (der && der_end) {
-        CFIndex length = der_end - der;
-        CFDataRef message = CFDataCreate(kCFAllocatorDefault, der, length);
-        hexMessage = CFDataCopyHexString(message);
-        secnoticeq("coder", "%s RAW [%ld] %@", encoding ? "encode" : "decode", length, hexMessage);
-        CFReleaseSafe(message);
-    }
-    CFReleaseSafe(hexMessage);
-#endif
-}
-*/
-
 static CFMutableDataRef sessSerializedCreate(SOSCoderRef coder, CFErrorRef *error) {
     CFMutableDataRef otr_state = NULL;
         
@@ -188,6 +172,9 @@ static uint8_t* SOSCoderEncodeToDER(SOSCoderRef coder, CFErrorRef* error, const 
     return result;
 }
 
+bool SOSCoderIsCoderInAwaitingState(SOSCoderRef coder){
+    return SecOTRSessionIsSessionInAwaitingState(coder->sessRef);
+}
 
 CFDataRef SOSCoderCopyDER(SOSCoderRef coder, CFErrorRef* error) {
     CFMutableDataRef encoded = NULL;

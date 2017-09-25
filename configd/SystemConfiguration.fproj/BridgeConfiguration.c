@@ -136,7 +136,7 @@ add_interface(CFMutableArrayRef *interfaces, CFStringRef if_name, SCPreferencesR
 	}
 	if (interface == NULL) {
 		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, if_name,
-							 kIncludeNoVirtualInterfaces);
+								 kIncludeNoVirtualInterfaces);
 	}
 
 	if (interface != NULL) {
@@ -454,10 +454,8 @@ _SCBridgeInterfaceCopyActive(void)
 
 		// add member interfaces
 		if (ibc_p->ifbic_len > 0) {
-			int 		i;
-
 			// iterate over each member interface
-			for (i = 0; i < ibc_p->ifbic_len / sizeof(struct ifbreq); i++) {
+			for (size_t i = 0; i < ibc_p->ifbic_len / sizeof(struct ifbreq); i++) {
 				struct ifbreq	*ibr_p;
 				CFStringRef	member;
 
@@ -705,15 +703,36 @@ SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef mem
 		return FALSE;
 	}
 
-	if ((members != NULL) && !isA_CFArray(members)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
+	if (members != NULL) {
+		CFIndex		n_members;
+
+		if (!isA_CFArray(members)) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return FALSE;
+		}
+
+		n_members = CFArrayGetCount(members);
+		for (CFIndex i = 0; i < n_members; i++) {
+			SCNetworkInterfaceRef	member;
+			CFStringRef		memberName;
+
+			member = CFArrayGetValueAtIndex(members, i);
+			if (!isA_SCNetworkInterface(member)) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				return FALSE;
+			}
+
+			memberName = SCNetworkInterfaceGetBSDName(member);
+			if (memberName == NULL) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				return FALSE;
+			}
+		}
 	}
 
 	if (interfacePrivate->prefs != NULL) {
 		CFArrayRef	available;
 		CFArrayRef	current;
-		CFIndex		i;
 		CFIndex		n_available;
 		CFIndex		n_current;
 		CFIndex		n_members;
@@ -726,7 +745,7 @@ SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef mem
 		n_available = (available != NULL) ? CFArrayGetCount(available) : 0;
 
 		n_members = (members != NULL) ? CFArrayGetCount(members) : 0;
-		for (i = 0; i < n_members; i++) {
+		for (CFIndex i = 0; i < n_members; i++) {
 			SCNetworkInterfaceRef	member;
 
 			member = CFArrayGetValueAtIndex(members, i);

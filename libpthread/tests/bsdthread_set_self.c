@@ -17,7 +17,7 @@
 
 #include <dispatch/dispatch.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 T_DECL(bsdthread_set_self_constrained_transition, "bsdthread_ctl(SET_SELF) with overcommit change",
 		T_META_ALL_VALID_ARCHS(YES))
@@ -70,18 +70,6 @@ T_DECL(bsdthread_set_self_constrained_threads, "bsdthread_ctl(SET_SELF) with ove
 			}
 		});
 	}
-
-	dispatch_main();
-}
-
-T_DECL(bsdthread_set_self_unbind, "bsdthread_ctl(SET_SELF) with kevent unbind",
-		T_META_ALL_VALID_ARCHS(YES))
-{
-	dispatch_async(dispatch_get_global_queue(0, 0), ^{
-		T_ASSERT_POSIX_ZERO(_pthread_set_properties_self(_PTHREAD_SET_SELF_WQ_KEVENT_UNBIND, 0, 0), NULL);
-
-		T_END;
-	});
 
 	dispatch_main();
 }

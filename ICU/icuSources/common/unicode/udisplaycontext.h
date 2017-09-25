@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *****************************************************************************************
 * Copyright (C) 2014-2016, International Business Machines
@@ -41,7 +43,15 @@ enum UDisplayContextType {
      * UDISPCTX_LENGTH_FULL, UDISPCTX_LENGTH_SHORT.
      * @stable ICU 54
      */
-    UDISPCTX_TYPE_DISPLAY_LENGTH = 2
+    UDISPCTX_TYPE_DISPLAY_LENGTH = 2,
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Type to retrieve the substitute handling setting, e.g.
+     * UDISPCTX_SUBSTITUTE, UDISPCTX_NO_SUBSTITUTE.
+     * @draft ICU 58
+     */
+    UDISPCTX_TYPE_SUBSTITUTE_HANDLING = 3
+#endif /* U_HIDE_DRAFT_API */
 #ifndef U_HIDE_INTERNAL_API
     ,
     /**
@@ -141,7 +151,28 @@ enum UDisplayContext {
      * e.g. "U.S." for US.
      * @stable ICU 54
      */
-    UDISPCTX_LENGTH_SHORT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 1
+    UDISPCTX_LENGTH_SHORT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 1,
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * ================================
+     * SUBSTITUTE_HANDLING can be set to one of UDISPCTX_SUBSTITUTE or
+     * UDISPCTX_NO_SUBSTITUTE. Use UDisplayContextType UDISPCTX_TYPE_SUBSTITUTE_HANDLING
+     * to get the value.
+     */
+    /**
+     * A possible setting for SUBSTITUTE_HANDLING:
+     * Returns a fallback value (e.g., the input code) when no data is available.
+     * This is the default value.
+     * @draft ICU 58
+     */
+    UDISPCTX_SUBSTITUTE = (UDISPCTX_TYPE_SUBSTITUTE_HANDLING<<8) + 0,
+    /**
+     * A possible setting for SUBSTITUTE_HANDLING:
+     * Returns a null value when no data is available.
+     * @draft ICU 58
+     */
+    UDISPCTX_NO_SUBSTITUTE = (UDISPCTX_TYPE_SUBSTITUTE_HANDLING<<8) + 1
+#endif /* U_HIDE_DRAFT_API */
 #ifndef U_HIDE_INTERNAL_API
     ,
     /**
@@ -165,6 +196,7 @@ enum UDisplayContext {
      */
     UADISPCTX_LENGTH_SHORT = (UADISPCTX_TYPE_LENGTH<<8) + 1,
 #endif /* U_HIDE_INTERNAL_API */
+
 };
 /**
 *  @stable ICU 51

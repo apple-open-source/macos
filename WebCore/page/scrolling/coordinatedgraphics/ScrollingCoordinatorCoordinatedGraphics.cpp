@@ -40,7 +40,6 @@
 #include "ScrollingStateScrollingNode.h"
 #include "ScrollingStateStickyNode.h"
 #include "ScrollingStateTree.h"
-#include "Settings.h"
 
 namespace WebCore {
 
@@ -73,10 +72,17 @@ void ScrollingCoordinatorCoordinatedGraphics::clearStateTree()
     m_scrollingStateTree->clear();
 }
 
-void ScrollingCoordinatorCoordinatedGraphics::updateViewportConstrainedNode(ScrollingNodeID nodeID, const ViewportConstraints& constraints, GraphicsLayer* graphicsLayer)
+void ScrollingCoordinatorCoordinatedGraphics::updateNodeLayer(ScrollingNodeID nodeID, GraphicsLayer* graphicsLayer)
 {
-    ASSERT(supportsFixedPositionLayers());
+    ScrollingStateNode* node = m_scrollingStateTree->stateNodeForID(nodeID);
+    if (!node)
+        return;
 
+    node->setLayer(graphicsLayer);
+}
+
+void AsyncScrollingCoordinator::updateNodeViewportConstraints(ScrollingNodeID nodeID, const ViewportConstraints& constraints)
+{
     ScrollingStateNode* node = m_scrollingStateTree->stateNodeForID(nodeID);
     if (!node)
         return;
@@ -84,7 +90,6 @@ void ScrollingCoordinatorCoordinatedGraphics::updateViewportConstrainedNode(Scro
     switch (constraints.constraintType()) {
     case ViewportConstraints::FixedPositionConstraint: {
         downcast<CoordinatedGraphicsLayer>(*graphicsLayer).setFixedToViewport(true);
-        downcast<ScrollingStateFixedNode>(*node).setLayer(graphicsLayer);
         break;
     }
     case ViewportConstraints::StickyPositionConstraint:

@@ -26,6 +26,8 @@
 #include <security_keychain/Access.h>
 #include <security_keychain/SecAccessPriv.h>
 
+#include <os/activity.h>
+
 #include "SecBridge.h"
 
 // Forward reference
@@ -48,6 +50,9 @@ CFTypeID
 SecACLGetTypeID(void)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecACLGetTypeID", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	return gTypes().ACL.typeID;
 
@@ -63,6 +68,9 @@ OSStatus SecACLCreateFromSimpleContents(SecAccessRef accessRef,
 	SecACLRef *newAcl)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecACLCreateFromSimpleContents", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	SecPointer<Access> access = Access::required(accessRef);
 	SecPointer<ACL> acl = new ACL(cfString(description), *promptSelector);
 	if (applicationList) {
@@ -96,6 +104,9 @@ OSStatus SecACLCreateWithSimpleContents(SecAccessRef access,
 OSStatus SecACLRemove(SecACLRef aclRef)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecACLRemove", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	ACL::required(aclRef)->remove();
 	END_SECAPI
 }
@@ -162,6 +173,9 @@ OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
 	CFStringRef description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR *promptSelector)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecACLSetSimpleContents", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	SecPointer<ACL> acl = ACL::required(aclRef);
     if(acl->form() == ACL::integrityForm) {
         // If this is an integrity ACL, route the (unhexified) promptDescription into the right place
@@ -284,6 +298,9 @@ OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
 	CSSM_ACL_AUTHORIZATION_TAG *tags, uint32 tagCount)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecACLSetAuthorizations", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	SecPointer<ACL> acl = ACL::required(aclRef);
 	if (acl->isOwner())		// can't change rights of the owner ACL
 		MacOSError::throwMe(errSecInvalidOwnerEdit);

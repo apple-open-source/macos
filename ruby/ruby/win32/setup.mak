@@ -19,7 +19,6 @@ MAKE = $(MAKE) -f $(MAKEFILE)
 !else
 MAKEFILE = Makefile
 !endif
-ARCH = PROCESSOR_ARCHITECTURE
 CPU = PROCESSOR_LEVEL
 CC = cl -nologo
 CPP = $(CC) -EP
@@ -45,6 +44,9 @@ ia64-mswin64: -prologue64- -ia64- -epilogue-
 MAKE = nmake
 srcdir = $(srcdir:\=/)
 prefix = $(prefix:\=/)
+!if defined(libdir_basename)
+libdir_basename = $(libdir_basename)
+!endif
 EXTSTATIC = $(EXTSTATIC)
 !if defined(RDOCTARGET)
 RDOCTARGET = $(RDOCTARGET)
@@ -67,14 +69,21 @@ USE_RUBYGEMS = $(USE_RUBYGEMS)
 	@for %I in (ruby.exe) do @echo BASERUBY = %~s$$PATH:I>> $(MAKEFILE)
 	@echo !if "$$(BASERUBY)" == "">> $(MAKEFILE)
 	@echo BASERUBY = echo executable host ruby is required.  use --with-baseruby option.^& exit 1 >> $(MAKEFILE)
+	@echo HAVE_BASERUBY = no>> $(MAKEFILE)
+	@echo !else>> $(MAKEFILE)
+	@echo HAVE_BASERUBY = yes>> $(MAKEFILE)
 	@echo !endif>> $(MAKEFILE)
+!elseif [$(BASERUBY) -eexit 2> nul] == 0
+	@echo HAVE_BASERUBY = yes>> $(MAKEFILE)
+!else
+	@echo HAVE_BASERUBY = no>> $(MAKEFILE)
 !endif
 
--system-vars-: -osname- -runtime-
+-system-vars-: -osname- -runtime- -headers-
 
--system-vars32-: -osname32- -runtime-
+-system-vars32-: -osname32- -runtime- -headers-
 
--system-vars64-: -osname64- -runtime-
+-system-vars64-: -osname64- -runtime- -headers-
 
 -osname32-: nul
 	@echo TARGET_OS = mswin32>>$(MAKEFILE)
@@ -100,7 +109,16 @@ int main(void) {FILE *volatile f = stdin; return 0;}
 	@$(WIN32DIR:/=\)\rtname conftest.exe >>$(MAKEFILE)
 	@$(WIN32DIR:/=\)\rm.bat conftest.*
 
--version-: nul
+-headers-: nul
+
+check-psapi.h: nul
+	($(CC) -MD <<conftest.c psapi.lib -link && echo>>$(MAKEFILE) HAVE_PSAPI_H=1) & $(WIN32DIR:/=\)\rm.bat conftest.*
+#include <windows.h>
+#include <psapi.h>
+int main(void) {return (EnumProcesses(NULL,0,NULL) ? 0 : 1);}
+<<
+
+-version-: nul verconf.mk
 	@$(APPEND)
 	@$(CPP) -I$(srcdir) -I$(srcdir)/include <<"Creating $(MAKEFILE)" | findstr "=" >>$(MAKEFILE)
 #define RUBY_REVISION 0
@@ -108,7 +126,16 @@ int main(void) {FILE *volatile f = stdin; return 0;}
 MAJOR = RUBY_API_VERSION_MAJOR
 MINOR = RUBY_API_VERSION_MINOR
 TEENY = RUBY_API_VERSION_TEENY
+RUBY_PROGRAM_VERSION = RUBY_VERSION
 MSC_VER = _MSC_VER
+<<
+
+verconf.mk: nul
+	@echo RUBY_RELEASE_DATE \>$(@)
+	@$(CPP) -I$(srcdir) -I$(srcdir)/include <<"Creating $(@)" | findstr "=" >>$(@)
+#define RUBY_REVISION 0
+#include "version.h"
+ = RUBY_RELEASE_DATE
 <<
 
 -program-name-:
@@ -128,42 +155,28 @@ RUBY_SO_NAME = $(RUBY_SO_NAME)
 <<
 
 -generic-: nul
-!if defined($(ARCH)) || defined($(CPU))
-	@type << >>$(MAKEFILE)
-!if defined($(ARCH))
-!if "$(PROCESSOR_ARCHITECTURE)" == "AMD64"
-$(ARCH) = x64
-!elseif "$(PROCESSOR_ARCHITECTURE)" == "IA64"
-$(ARCH) = ia64
-!elseif defined(PROCESSOR_ARCHITEW6432)
-$(BANG)if "$$(TARGET_OS)" == "mswin64"
-!if "$(PROCESSOR_ARCHITECTURE)" == "IA64"
-$(ARCH) = ia64
-!else
-$(ARCH) = x64
-!endif
-$(BANG)else
-$(ARCH) = $(PROCESSOR_ARCHITECTURE)
-$(BANG)endif
-!else
-$(ARCH) = $(PROCESSOR_ARCHITECTURE)
-!endif
-!endif
-!if defined($(CPU))
-$(CPU) = $(PROCESSOR_LEVEL)
-!endif
-
+	@$(CPP) <<conftest.c 2>nul | findstr = >>$(MAKEFILE)
+#if defined _M_X64
+MACHINE = x64
+#elif defined _M_IA64
+MACHINE = ia64
+#else
+MACHINE = x86
+#endif
 <<
+!if defined($(CPU))
+	@echo>>$(MAKEFILE) $(CPU) = $(PROCESSOR_LEVEL)
 !endif
+	@$(APPEND)
 
 -alpha-: nul
-	@echo $(ARCH) = alpha>>$(MAKEFILE)
+	@echo MACHINE = alpha>>$(MAKEFILE)
 -x64-: nul
-	@echo $(ARCH) = x64>>$(MAKEFILE)
+	@echo MACHINE = x64>>$(MAKEFILE)
 -ia64-: nul
-	@echo $(ARCH) = ia64>>$(MAKEFILE)
+	@echo MACHINE = ia64>>$(MAKEFILE)
 -ix86-: nul
-	@echo $(ARCH) = x86>>$(MAKEFILE)
+	@echo MACHINE = x86>>$(MAKEFILE)
 
 -i386-: -ix86-
 	@echo $(CPU) = 3>>$(MAKEFILE)
@@ -193,7 +206,7 @@ $(CPU) = $(PROCESSOR_LEVEL)
 # CPPFLAGS = -I. -I$$(srcdir) -I$$(srcdir)/missing -DLIBRUBY_SO=\"$$(LIBRUBY_SO)\"
 # STACK = 0x2000000
 # LDFLAGS = $$(CFLAGS) -Fm
-# XLDFLAGS = 
+# XLDFLAGS =
 # RFLAGS = -r
 # EXTLIBS =
 

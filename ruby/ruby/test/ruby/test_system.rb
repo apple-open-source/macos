@@ -1,6 +1,6 @@
+# frozen_string_literal: false
 require 'test/unit'
 require 'tmpdir'
-require_relative 'envutil'
 
 class TestSystem < Test::Unit::TestCase
   def test_system
@@ -86,7 +86,7 @@ class TestSystem < Test::Unit::TestCase
         File.unlink tmpfilename
 
         testname = '[ruby-core:44505]'
-        assert_match /Windows/, `ver`, testname
+        assert_match(/Windows/, `ver`, testname)
         assert_equal 0, $?.to_i, testname
       end
     }

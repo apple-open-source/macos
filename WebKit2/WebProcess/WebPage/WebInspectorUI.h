@@ -66,6 +66,7 @@ public:
 
     void attachedBottom() { setDockSide(DockSide::Bottom); }
     void attachedRight() { setDockSide(DockSide::Right); }
+    void attachedLeft() { setDockSide(DockSide::Left); }
     void detached() { setDockSide(DockSide::Undocked); }
 
     void setDockSide(DockSide);
@@ -89,6 +90,8 @@ public:
 
     void bringToFront() override;
     void closeWindow() override;
+
+    WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() const override;
 
     void requestSetDockSide(DockSide) override;
     void changeAttachedWindowHeight(unsigned) override;

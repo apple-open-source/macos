@@ -27,5 +27,6 @@
  */
 #ifndef _PTHREAD_COND_T
 #define _PTHREAD_COND_T
+#include <sys/_pthread/_pthread_types.h> /* __darwin_pthread_cond_t */
 typedef __darwin_pthread_cond_t pthread_cond_t;
 #endif /* _PTHREAD_COND_T */

@@ -138,14 +138,14 @@ large_entries_rehash_after_entry_no_lock(szone_t *szone, large_entry_t *entry)
 // FIXME: num should probably be a size_t, since you can theoretically allocate
 // more than 2^32-1 large_threshold objects in 64 bit.
 static MALLOC_INLINE large_entry_t *
-large_entries_alloc_no_lock(szone_t *szone, unsigned num)
+large_entries_alloc_no_lock(unsigned num)
 {
 	size_t size = num * sizeof(large_entry_t);
 
 	// Note that we allocate memory (via a system call) under a spin lock
 	// That is certainly evil, however it's very rare in the lifetime of a process
 	// The alternative would slow down the normal case
-	return allocate_pages(szone, round_page_quanta(size), 0, 0, VM_MEMORY_MALLOC_LARGE);
+	return mvm_allocate_pages(round_page_quanta(size), 0, 0, VM_MEMORY_MALLOC_LARGE);
 }
 
 void
@@ -166,7 +166,7 @@ large_entries_grow_no_lock(szone_t *szone, vm_range_t *range_to_deallocate)
 	// always an odd number for good hashing
 	unsigned new_num_entries =
 	(old_num_entries) ? old_num_entries * 2 + 1 : (unsigned)((vm_page_quanta_size / sizeof(large_entry_t)) - 1);
-	large_entry_t *new_entries = large_entries_alloc_no_lock(szone, new_num_entries);
+	large_entry_t *new_entries = large_entries_alloc_no_lock(new_num_entries);
 	unsigned index = old_num_entries;
 	large_entry_t oldRange;
 
@@ -209,7 +209,7 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
 	range.size = entry->size;
 
 	if (szone->debug_flags & MALLOC_ADD_GUARD_PAGES) {
-		protect((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
+		mvm_protect((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
 		range.address -= vm_page_quanta_size;
 		range.size += 2 * vm_page_quanta_size;
 	}
@@ -409,7 +409,7 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 
 			if (range_to_deallocate.size) {
 				// we deallocate outside the lock
-				deallocate_pages(szone, (void *)range_to_deallocate.address, range_to_deallocate.size, 0);
+				mvm_deallocate_pages((void *)range_to_deallocate.address, range_to_deallocate.size, 0);
 			}
 
 			// Perform the madvise() outside the lock.
@@ -422,7 +422,7 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 			if (was_madvised_reusable && -1 == madvise(addr, size, MADV_FREE_REUSE)) {
 				/* -1 return: VM map entry change makes this unfit for reuse. */
 #if DEBUG_MADVISE
-				szone_error(szone, 0, "large_malloc madvise(..., MADV_FREE_REUSE) failed", addr, "length=%d\n", size);
+				szone_error(szone->debug_flags, 0, "large_malloc madvise(..., MADV_FREE_REUSE) failed", addr, "length=%d\n", size);
 #endif
 
 				SZONE_LOCK(szone);
@@ -432,7 +432,7 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 				// Re-acquire "entry" after interval just above where we let go the lock.
 				large_entry_t *entry = large_entry_for_pointer_no_lock(szone, addr);
 				if (NULL == entry) {
-					szone_error(szone, 1, "entry for pointer being discarded from death-row vanished", addr, NULL);
+					szone_error(szone->debug_flags, 1, "entry for pointer being discarded from death-row vanished", addr, NULL);
 					SZONE_UNLOCK(szone);
 				} else {
 					range_to_deallocate = large_entry_free_no_lock(szone, entry);
@@ -440,7 +440,7 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 
 					if (range_to_deallocate.size) {
 						// we deallocate outside the lock
-						deallocate_pages(szone, (void *)range_to_deallocate.address, range_to_deallocate.size, 0);
+						mvm_deallocate_pages((void *)range_to_deallocate.address, range_to_deallocate.size, 0);
 					}
 				}
 				/* Fall through to allocate_pages() afresh. */
@@ -460,7 +460,7 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 	range_to_deallocate.address = 0;
 #endif /* CONFIG_LARGE_CACHE */
 
-	addr = allocate_pages(szone, size, alignment, szone->debug_flags, VM_MEMORY_MALLOC_LARGE);
+	addr = mvm_allocate_pages(size, alignment, szone->debug_flags, VM_MEMORY_MALLOC_LARGE);
 	if (addr == NULL) {
 		return NULL;
 	}
@@ -487,7 +487,7 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 
 	if (range_to_deallocate.size) {
 		// we deallocate outside the lock
-		deallocate_pages(szone, (void *)range_to_deallocate.address, range_to_deallocate.size, 0);
+		mvm_deallocate_pages((void *)range_to_deallocate.address, range_to_deallocate.size, 0);
 	}
 	return addr;
 }
@@ -518,7 +518,7 @@ free_large(szone_t *szone, void *ptr)
 				// is accommodated, matching the behavior of the previous implementation.]
 				while (1) { // Scan large_entry_cache starting with most recent entry
 					if (szone->large_entry_cache[idx].address == entry->address) {
-						szone_error(szone, 1, "pointer being freed already on death-row", ptr, NULL);
+						szone_error(szone->debug_flags, 1, "pointer being freed already on death-row", ptr, NULL);
 						SZONE_UNLOCK(szone);
 						return;
 					}
@@ -559,7 +559,7 @@ free_large(szone_t *szone, void *ptr)
 				if (should_madvise) {
 					// Issue madvise to avoid paging out the dirtied free()'d pages in "entry"
 					MAGMALLOC_MADVFREEREGION(
-											 (void *)szone, (void *)0, (void *)(this_entry.address), this_entry.size); // DTrace USDT Probe
+											 (void *)szone, (void *)0, (void *)(this_entry.address), (int)this_entry.size); // DTrace USDT Probe
 
 #if TARGET_OS_EMBEDDED
 					// Ok to do this madvise on embedded because we won't call MADV_FREE_REUSABLE on a large
@@ -568,7 +568,9 @@ free_large(szone_t *szone, void *ptr)
 					if (-1 == madvise((void *)(this_entry.address), this_entry.size, MADV_FREE_REUSABLE)) {
 						/* -1 return: VM map entry change makes this unfit for reuse. */
 #if DEBUG_MADVISE
-						szone_error(szone, 0, "free_large madvise(..., MADV_FREE_REUSABLE) failed", (void *)this_entry.address,
+						szone_error(szone->debug_flags, 0,
+									"free_large madvise(..., MADV_FREE_REUSABLE) failed",
+									(void *)this_entry.address,
 									"length=%d\n", this_entry.size);
 #endif
 						reusable = FALSE;
@@ -580,7 +582,7 @@ free_large(szone_t *szone, void *ptr)
 				// Re-acquire "entry" after interval just above where we let go the lock.
 				entry = large_entry_for_pointer_no_lock(szone, ptr);
 				if (NULL == entry) {
-					szone_error(szone, 1, "entry for pointer being freed from death-row vanished", ptr, NULL);
+					szone_error(szone->debug_flags, 1, "entry for pointer being freed from death-row vanished", ptr, NULL);
 					SZONE_UNLOCK(szone);
 					return;
 				}
@@ -658,7 +660,7 @@ free_large(szone_t *szone, void *ptr)
 
 					// we deallocate_pages, including guard pages, outside the lock
 					SZONE_UNLOCK(szone);
-					deallocate_pages(szone, (void *)addr, (size_t)adjsize, 0);
+					mvm_deallocate_pages((void *)addr, (size_t)adjsize, 0);
 					return;
 				} else {
 					/* fall through to discard an allocation that is not reusable */
@@ -674,7 +676,7 @@ free_large(szone_t *szone, void *ptr)
 #if DEBUG_MALLOC
 		large_debug_print(szone);
 #endif
-		szone_error(szone, 1, "pointer being freed was not allocated", ptr, NULL);
+		szone_error(szone->debug_flags, 1, "pointer being freed was not allocated", ptr, NULL);
 		SZONE_UNLOCK(szone);
 		return;
 	}
@@ -692,7 +694,7 @@ free_large(szone_t *szone, void *ptr)
 			szone_sleep();
 		}
 #endif
-		deallocate_pages(szone, (void *)vm_range_to_deallocate.address, (size_t)vm_range_to_deallocate.size, 0);
+		mvm_deallocate_pages((void *)vm_range_to_deallocate.address, (size_t)vm_range_to_deallocate.size, 0);
 	}
 }
 
@@ -706,7 +708,7 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 		/* contract existing large entry */
 		large_entry_t *large_entry = large_entry_for_pointer_no_lock(szone, ptr);
 		if (!large_entry) {
-			szone_error(szone, 1, "large entry reallocated is not properly in table", ptr, NULL);
+			szone_error(szone->debug_flags, 1, "large entry reallocated is not properly in table", ptr, NULL);
 			SZONE_UNLOCK(szone);
 			return ptr;
 		}
@@ -716,7 +718,7 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 		szone->num_bytes_in_large_objects -= shrinkage;
 		SZONE_UNLOCK(szone); // we release the lock asap
 
-		deallocate_pages(szone, (void *)((uintptr_t)ptr + new_good_size), shrinkage, 0);
+		mvm_deallocate_pages((void *)((uintptr_t)ptr + new_good_size), shrinkage, 0);
 	}
 	return ptr;
 }
@@ -750,7 +752,7 @@ large_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t ne
 	/* extend existing large entry */
 	large_entry = large_entry_for_pointer_no_lock(szone, ptr);
 	if (!large_entry) {
-		szone_error(szone, 1, "large entry reallocated is not properly in table", ptr, NULL);
+		szone_error(szone->debug_flags, 1, "large entry reallocated is not properly in table", ptr, NULL);
 		SZONE_UNLOCK(szone);
 		return 0; // Bail, leaking "addr"
 	}

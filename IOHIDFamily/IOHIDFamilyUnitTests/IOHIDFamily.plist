@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>IOHIDFamily</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestDigitizerCollection&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestDigitizerCollection</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestKeyboardServicePlugin&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestKeyboardServicePlugin</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestVendorMessageAndVendorPayload&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestVendorMessageAndVendorPayload</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestEventSystemClient&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestEventSystemClient</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestServiceTerminationEvents&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestServiceTerminationEvents</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestPerfEvents&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestPerfEvents</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDDevice&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDDevice</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestFastPath&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestFastPath</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestVirtualService&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestVirtualService</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDEventDriver&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDEventDriver</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestProperty&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestProperty</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDEvents&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDEvents</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDManager&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDManager</string>
+		</dict>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDActivity&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDActivity</string>
+		</dict>
+	</array>
+</dict>
+</plist>

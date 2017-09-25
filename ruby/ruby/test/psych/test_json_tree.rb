@@ -1,4 +1,5 @@
-require 'psych/helper'
+# frozen_string_literal: false
+require_relative 'helper'
 
 module Psych
   class TestJSONTree < TestCase
@@ -45,7 +46,7 @@ module Psych
     def test_list_to_json
       list = %w{ one two }
       json = Psych.to_json(list)
-      assert_match(/]$/, json)
+      assert_match(/\]$/, json)
       assert_match(/^\[/, json)
       assert_match(/"one"/, json)
       assert_match(/"two"/, json)

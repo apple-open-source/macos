@@ -268,7 +268,7 @@ IOReturn IOHIDTransactionClass::addElement (IOHIDElementRef element, IOOptionBit
 
     if (transactionElement) CFRelease(transactionElement);
     
-    return kIOReturnSuccess;
+    return ret;
 }
 
 IOReturn IOHIDTransactionClass::removeElement (IOHIDElementRef element, IOOptionBits options __unused)
@@ -411,11 +411,13 @@ IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS __unused, IOHIDCallbac
             break;
         case kIOHIDTransactionDirectionTypeInput:
             // put together an ioconnect here
-            ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientUpdateElementValues, cookies, numValidElements, 0, &outputCount); 
-            for (int i=0;i<numElements && elementRefs[i]; i++)
-            {        
-                fOwningDevice->getElementValue(IOHIDTransactionElementGetElement(elementRefs[i]), &event, 0, NULL, NULL, kHIDGetElementValuePreventPoll);
-                IOHIDTransactionElementSetValue(elementRefs[i], event);
+            ret = IOConnectCallScalarMethod(fOwningDevice->fConnection, kIOHIDLibUserClientUpdateElementValues, cookies, numValidElements, 0, &outputCount);
+            if (ret == kIOReturnSuccess) {
+                for (int i=0;i<numElements && elementRefs[i]; i++)
+                {
+                    fOwningDevice->getElementValue(IOHIDTransactionElementGetElement(elementRefs[i]), &event, 0, NULL, NULL, kHIDGetElementValuePreventPoll);
+                    IOHIDTransactionElementSetValue(elementRefs[i], event);
+                }
             }
             break;
         default:
@@ -725,7 +727,7 @@ IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie cookie,
 
     if ((ret==kIOReturnSuccess) && event)
     {
-        uint32_t length = _IOHIDElementGetLength(IOHIDValueGetElement(event));;
+        uint32_t length = (uint32_t)_IOHIDElementGetLength(IOHIDValueGetElement(event));;
         
         pEvent->type            = IOHIDElementGetType(IOHIDValueGetElement(event));
         pEvent->elementCookie   = cookie;
@@ -740,7 +742,7 @@ IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie cookie,
         {
             pEvent->longValueSize = 0;
             pEvent->longValue     = NULL;
-            pEvent->value         = IOHIDValueGetIntegerValue(event);
+            pEvent->value         = (int32_t)IOHIDValueGetIntegerValue(event);
         }        
     }
     

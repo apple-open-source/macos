@@ -40,7 +40,9 @@
 #include <Security/SecAsn1Types.h>
 
 #if !SEC_OS_OSX_INCLUDES
+#if !USE_CDSA_CRYPTO
 typedef CFTypeRef SecKeychainRef;
+#endif
 #endif // ! SEC_OS_OSX_INCLUDES
 
 #if defined(__cplusplus)

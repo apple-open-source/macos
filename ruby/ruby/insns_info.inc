@@ -6,7 +6,7 @@
   DO NOT TOUCH!
 
   If you want to fix something, you must edit 'template/insns_info.inc.tmpl'
-  or insns2vm.rb
+  or tool/insns2vm.rb
  */
 
 #define TS_OFFSET 'O'
@@ -17,6 +17,7 @@
 #define TS_GENTRY 'G'
 #define TS_IC 'K'
 #define TS_CALLINFO 'C'
+#define TS_CALLCACHE 'E'
 #define TS_CDHASH 'H'
 #define TS_ISEQ 'S'
 #define TS_VARIABLE '.'
@@ -44,6 +45,7 @@ static const char *const insn_name_info[] = {
   "putstring",
   "concatstrings",
   "tostring",
+  "freezestring",
   "toregexp",
   "newarray",
   "duparray",
@@ -56,16 +58,19 @@ static const char *const insn_name_info[] = {
   "dup",
   "dupn",
   "swap",
+  "reverse",
   "reput",
   "topn",
   "setn",
   "adjuststack",
   "defined",
   "checkmatch",
+  "checkkeyword",
   "trace",
   "defineclass",
   "send",
-  "opt_send_simple",
+  "opt_str_freeze",
+  "opt_send_without_block",
   "invokesuper",
   "invokeblock",
   "leave",
@@ -73,9 +78,10 @@ static const char *const insn_name_info[] = {
   "jump",
   "branchif",
   "branchunless",
+  "branchnil",
   "getinlinecache",
-  "onceinlinecache",
   "setinlinecache",
+  "once",
   "opt_case_dispatch",
   "opt_plus",
   "opt_minus",
@@ -91,6 +97,8 @@ static const char *const insn_name_info[] = {
   "opt_ltlt",
   "opt_aref",
   "opt_aset",
+  "opt_aset_with",
+  "opt_aref_with",
   "opt_length",
   "opt_size",
   "opt_empty_p",
@@ -111,90 +119,97 @@ static const char *const insn_name_info[] = {
 };
 
 static const char *const insn_operand_info[] = {
-  "", 
-  "LN", 
-  "LN", 
-  "NN", 
-  "N", 
-  "IK", 
-  "IK", 
-  "I", 
-  "I", 
-  "I", 
-  "I", 
-  "G", 
-  "G", 
-  "", 
-  "", 
-  "V", 
-  "N", 
-  "S", 
-  "V", 
-  "N", 
-  "", 
-  "NN", 
-  "N", 
-  "V", 
-  "NN", 
-  "", 
-  "V", 
-  "N", 
-  "N", 
-  "", 
-  "", 
-  "N", 
-  "", 
-  "", 
-  "N", 
-  "N", 
-  "N", 
-  "NVV", 
-  "N", 
-  "N", 
-  "ISN", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "", 
-  "N", 
-  "O", 
-  "O", 
-  "O", 
-  "OK", 
-  "OK", 
-  "K", 
-  "HO", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "CC", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "C", 
-  "V", 
-  "", 
-  "F", 
-  "", 
-  "", 
-  "L", 
-  "L", 
-  "L", 
-  "L", 
-  "", 
-  "", 
+  "",
+  "LN",
+  "LN",
+  "NN",
+  "N",
+  "IK",
+  "IK",
+  "I",
+  "I",
+  "I",
+  "I",
+  "G",
+  "G",
+  "",
+  "",
+  "V",
+  "N",
+  "S",
+  "V",
+  "N",
+  "",
+  "V",
+  "NN",
+  "N",
+  "V",
+  "NN",
+  "",
+  "V",
+  "N",
+  "N",
+  "",
+  "",
+  "N",
+  "",
+  "N",
+  "",
+  "N",
+  "N",
+  "N",
+  "NVV",
+  "N",
+  "LN",
+  "N",
+  "ISN",
+  "CES",
+  "V",
+  "CE",
+  "CES",
+  "C",
+  "",
+  "N",
+  "O",
+  "O",
+  "O",
+  "O",
+  "OK",
+  "K",
+  "SK",
+  "HO",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CECE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CEV",
+  "CEV",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "CE",
+  "V",
+  "CE",
+  "F",
+  "",
+  "",
+  "L",
+  "L",
+  "L",
+  "L",
+  "",
+  "",
 
 };
 
@@ -220,10 +235,11 @@ static const int insn_len_info[] = {
   2,
   2,
   1,
-  3,
-  2,
   2,
   3,
+  2,
+  2,
+  3,
   1,
   2,
   2,
@@ -232,48 +248,54 @@ static const int insn_len_info[] = {
   1,
   2,
   1,
+  2,
   1,
   2,
   2,
   2,
   4,
   2,
+  3,
   2,
   4,
+  4,
   2,
-  2,
-  2,
+  3,
+  4,
   2,
   1,
   2,
   2,
   2,
   2,
-  3,
-  3,
   2,
   3,
   2,
-  2,
-  2,
-  2,
-  2,
-  2,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  5,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  4,
+  4,
+  3,
+  3,
+  3,
+  3,
   3,
   2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  1,
+  3,
   2,
   1,
   1,
@@ -317,6 +339,7 @@ static const int insn_stack_push_num_info[] = {
   1,
   1,
   1,
+  1,
   0,
   2,
   1,
@@ -327,21 +350,27 @@ static const int insn_stack_push_num_info[] = {
   1,
   1,
   1,
-  0,
-  1,
-  1,
-  1,
-  1,
-  1,
   1,
   1,
   0,
-  0,
-  0,
+  1,
+  1,
+  1,
+  1,
+  1,
   1,
   1,
   1,
   0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  0,
+  1,
+  1,
   1,
   1,
   1,
@@ -447,6 +476,9 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
         case BIN(tostring):{
           return depth + 0;
         }
+        case BIN(freezestring):{
+          return depth + 0;
+        }
         case BIN(toregexp):{
           int inc = 0;
         int cnt = FIX2INT(opes[1]);
@@ -499,6 +531,11 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
         case BIN(swap):{
           return depth + 0;
         }
+        case BIN(reverse):{
+          int inc = 0;
+        inc += 0;;
+        return depth + inc;
+        }
         case BIN(reput):{
           int inc = 0;
         inc += 0;;
@@ -526,6 +563,9 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
         case BIN(checkmatch):{
           return depth + -1;
         }
+        case BIN(checkkeyword):{
+          return depth + 1;
+        }
         case BIN(trace):{
           return depth + 0;
         }
@@ -538,7 +578,10 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
         inc += - (int)(ci->orig_argc + ((ci->flag & VM_CALL_ARGS_BLOCKARG) ? 1 : 0));;
         return depth + inc;
         }
-        case BIN(opt_send_simple):{
+        case BIN(opt_str_freeze):{
+          return depth + 1;
+        }
+        case BIN(opt_send_without_block):{
           int inc = 0;
         CALL_INFO ci = (CALL_INFO)(opes[0]);
         inc += -ci->orig_argc;;
@@ -571,14 +614,17 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
         case BIN(branchunless):{
           return depth + -1;
         }
-        case BIN(getinlinecache):{
-          return depth + 1;
+        case BIN(branchnil):{
+          return depth + -1;
         }
-        case BIN(onceinlinecache):{
+        case BIN(getinlinecache):{
           return depth + 1;
         }
         case BIN(setinlinecache):{
           return depth + 0;
+        }
+        case BIN(once):{
+          return depth + 1;
         }
         case BIN(opt_case_dispatch):{
           int inc = 0;
@@ -626,6 +672,12 @@ insn_stack_increase(int depth, int insn, VALUE *opes)
         }
         case BIN(opt_aset):{
           return depth + -2;
+        }
+        case BIN(opt_aset_with):{
+          return depth + -1;
+        }
+        case BIN(opt_aref_with):{
+          return depth + 0;
         }
         case BIN(opt_length):{
           return depth + 0;

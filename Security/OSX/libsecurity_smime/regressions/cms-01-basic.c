@@ -46,6 +46,8 @@
 #include <security_asn1/secerr.h>
 #include <security_asn1/seccomon.h>
 
+#include <unistd.h>
+
 #define TMP_KEYCHAIN_PATH "/tmp/cms_01_test.keychain"
 
 #pragma clang diagnostic push

@@ -371,9 +371,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
  
  @param      ecKey              The EC Key to deconstruct
  @param      keySize            The EC Keysize.
- @param      qX, qXLength       The pointer and length(return) for the X Parameter.
- @param      qY, qYLength       The pointer and length(return) for the Y Parameter.
- @param      d, dLength         The pointer and length(return) for the D (Private Key Only)
+ @param      qX and qXLength       The pointer and length(return) for the X Parameter.
+ @param      qY and qYLength       The pointer and length(return) for the Y Parameter.
+ @param      d and dLength         The pointer and length(return) for the D (Private Key Only)
                                 Parameter.
  
  @result    If the function is successful (kCCSuccess) the X and Y parameters contain the
@@ -396,8 +396,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
              key from an X and Y parameter set.
  
  @param      keySize            The EC Keysize.
- @param      qX, qXLength       The pointer and length for the X Parameter.
- @param      qY, qYLength       The pointer and length for the Y Parameter.
+ @param      qX and qXLength    The pointer and length for the X Parameter.
+ @param      qY and qYLength       The pointer and length for the Y Parameter.
  @param      ref                A pointer to the CCECCryptorRef to contain the result.
  @result    If the function is successful (kCCSuccess) a CCECCryptorRef is 
             returned in the ref parameter.  All other errors result in
@@ -415,9 +415,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
  @function   CCECSignatureDecode
  @abstract   For FIPS CAVS testing we need the ability to get the binary S and R values
              from the DER signature blob.
- @param      SignedData, signedDataLen  The pointer and length of the DER formatted signature
- @param      r, rLength         The pointer and length for the R component (return value).
- @param      s, sLength         The pointer and length for the S component (return value).
+ @param      signedData and signedDataLen  The pointer and length of the DER formatted signature
+ @param      r and rLength         The pointer and length for the R component (return value).
+ @param      s and sLength         The pointer and length for the S component (return value).
  @result        If the function is successful (kCCSuccess) the r and s parameters have the
                 individual values from the signature.
  */
@@ -432,9 +432,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
  @function   CCECSignatureEncode
  @abstract   For FIPS CAVS testing we need the ability to produce a DER formatted signature from
              discreet R and S components.
- @param      r, rLength         The pointer and length for the R component.
- @param      s, sLength         The pointer and length for the S component.
- @param      signedData, signedDataLen  The pointer and length of the DER formatted 
+ @param      r and rLength         The pointer and length for the R component.
+ @param      s and sLength         The pointer and length for the S component.
+ @param      signedData and signedDataLen  The pointer and length of the DER formatted 
              signature ( return value)
  @result     If the function is successful (kCCSuccess) the signature is returned as a 
             DER-formatted blob. */

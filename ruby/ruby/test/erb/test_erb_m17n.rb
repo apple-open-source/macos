@@ -1,4 +1,5 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
+# frozen_string_literal: false
 require 'test/unit'
 require 'erb'
 

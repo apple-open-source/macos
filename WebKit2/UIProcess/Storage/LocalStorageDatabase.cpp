@@ -33,14 +33,14 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/StorageMap.h>
 #include <WebCore/SuddenTermination.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
-static const auto databaseUpdateInterval = std::chrono::seconds(1);
+static const auto databaseUpdateInterval = 1_s;
 
 static const int maximumItemsToUpdate = 100;
 

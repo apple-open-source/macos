@@ -1,4 +1,8 @@
+# frozen_string_literal: false
 require 'rbconfig'
+
+$LOAD_PATH.unshift "#{File.dirname(__FILE__)}/../../lib"
+
 require 'test/unit'
 
 src_testdir = File.dirname(File.expand_path(__FILE__))

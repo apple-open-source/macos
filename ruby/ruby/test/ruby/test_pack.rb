@@ -1,4 +1,5 @@
 # coding: US-ASCII
+# frozen_string_literal: false
 require 'test/unit'
 
 class TestPack < Test::Unit::TestCase
@@ -78,6 +79,14 @@ class TestPack < Test::Unit::TestCase
     assert_equal("\x01\x02\x03\x04", [0x01020304].pack("L"+mod))
     assert_equal("\x01\x02\x03\x04\x05\x06\x07\x08", [0x0102030405060708].pack("q"+mod))
     assert_equal("\x01\x02\x03\x04\x05\x06\x07\x08", [0x0102030405060708].pack("Q"+mod))
+    psize = [nil].pack('p').bytesize
+    if psize == 4
+      assert_equal("\x01\x02\x03\x04", [0x01020304].pack("j"+mod))
+      assert_equal("\x01\x02\x03\x04", [0x01020304].pack("J"+mod))
+    elsif psize == 8
+      assert_equal("\x01\x02\x03\x04\x05\x06\x07\x08", [0x0102030405060708].pack("j"+mod))
+      assert_equal("\x01\x02\x03\x04\x05\x06\x07\x08", [0x0102030405060708].pack("J"+mod))
+    end
     assert_match(/\A\x00*\x01\x02\z/, [0x0102].pack("s!"+mod))
     assert_match(/\A\x00*\x01\x02\z/, [0x0102].pack("S!"+mod))
     assert_match(/\A\x00*\x01\x02\x03\x04\z/, [0x01020304].pack("i"+mod))
@@ -86,7 +95,14 @@ class TestPack < Test::Unit::TestCase
     assert_match(/\A\x00*\x01\x02\x03\x04\z/, [0x01020304].pack("I!"+mod))
     assert_match(/\A\x00*\x01\x02\x03\x04\z/, [0x01020304].pack("l!"+mod))
     assert_match(/\A\x00*\x01\x02\x03\x04\z/, [0x01020304].pack("L!"+mod))
-    %w[s S l L q Q s! S! i I i! I! l! L!].each {|fmt|
+    if psize == 4
+      assert_match(/\A\x00*\x01\x02\x03\x04\z/, [0x01020304].pack("j!"+mod))
+      assert_match(/\A\x00*\x01\x02\x03\x04\z/, [0x01020304].pack("J!"+mod))
+    elsif psize == 8
+      assert_match(/\A\x00*\x01\x02\x03\x04\x05\x06\x07\x08\z/, [0x0102030405060708].pack("j!"+mod))
+      assert_match(/\A\x00*\x01\x02\x03\x04\x05\x06\x07\x08\z/, [0x0102030405060708].pack("J!"+mod))
+    end
+    %w[s S l L q Q j J s! S! i I i! I! l! L! j! J!].each {|fmt|
       fmt += mod
       nuls = [0].pack(fmt)
       v = 0
@@ -111,6 +127,14 @@ class TestPack < Test::Unit::TestCase
     assert_equal("\x04\x03\x02\x01", [0x01020304].pack("L"+mod))
     assert_equal("\x08\x07\x06\x05\x04\x03\x02\x01", [0x0102030405060708].pack("q"+mod))
     assert_equal("\x08\x07\x06\x05\x04\x03\x02\x01", [0x0102030405060708].pack("Q"+mod))
+    psize = [nil].pack('p').bytesize
+    if psize == 4
+      assert_equal("\x04\x03\x02\x01", [0x01020304].pack("j"+mod))
+      assert_equal("\x04\x03\x02\x01", [0x01020304].pack("J"+mod))
+    elsif psize == 8
+      assert_equal("\x08\x07\x06\x05\x04\x03\x02\x01", [0x0102030405060708].pack("j"+mod))
+      assert_equal("\x08\x07\x06\x05\x04\x03\x02\x01", [0x0102030405060708].pack("J"+mod))
+    end
     assert_match(/\A\x02\x01\x00*\z/, [0x0102].pack("s!"+mod))
     assert_match(/\A\x02\x01\x00*\z/, [0x0102].pack("S!"+mod))
     assert_match(/\A\x04\x03\x02\x01\x00*\z/, [0x01020304].pack("i"+mod))
@@ -119,7 +143,14 @@ class TestPack < Test::Unit::TestCase
     assert_match(/\A\x04\x03\x02\x01\x00*\z/, [0x01020304].pack("I!"+mod))
     assert_match(/\A\x04\x03\x02\x01\x00*\z/, [0x01020304].pack("l!"+mod))
     assert_match(/\A\x04\x03\x02\x01\x00*\z/, [0x01020304].pack("L!"+mod))
-    %w[s S l L q Q s! S! i I i! I! l! L!].each {|fmt|
+    if psize == 4
+      assert_match(/\A\x04\x03\x02\x01\x00*\z/, [0x01020304].pack("j!"+mod))
+      assert_match(/\A\x04\x03\x02\x01\x00*\z/, [0x01020304].pack("J!"+mod))
+    elsif psize == 8
+      assert_match(/\A\x08\x07\x06\x05\x04\x03\x02\x01\x00*\z/, [0x0102030405060708].pack("j!"+mod))
+      assert_match(/\A\x08\x07\x06\x05\x04\x03\x02\x01\x00*\z/, [0x0102030405060708].pack("J!"+mod))
+    end
+    %w[s S l L q Q j J s! S! i I i! I! l! L! j! J!].each {|fmt|
       fmt += mod
       nuls = [0].pack(fmt)
       v = 0
@@ -404,8 +435,54 @@ class TestPack < Test::Unit::TestCase
     assert_equal([578437695752307201, -506097522914230529], s2.unpack("q*"))
     assert_equal([578437695752307201, 17940646550795321087], s1.unpack("Q*"))
 
+    # Note: q! and Q! should not work on platform which has no long long type.
+    # Is there a such platform now?
+    s1 = [578437695752307201, -506097522914230529].pack("q!*")
+    s2 = [578437695752307201, 17940646550795321087].pack("Q!*")
+    assert_equal([578437695752307201, -506097522914230529], s2.unpack("q!*"))
+    assert_equal([578437695752307201, 17940646550795321087], s1.unpack("Q!*"))
+
     assert_equal(8, [1].pack("q").bytesize)
     assert_equal(8, [1].pack("Q").bytesize)
+    assert_operator(8, :<=, [1].pack("q!").bytesize)
+    assert_operator(8, :<=, [1].pack("Q!").bytesize)
+  end
+
+  def test_pack_unpack_jJ
+    # Note: we assume that the size of intptr_t and uintptr_t equals to the size
+    # of real pointer.
+    psize = [nil].pack("p").bytesize
+    if psize == 4
+      s1 = [67305985, -50462977].pack("j*")
+      s2 = [67305985, 4244504319].pack("J*")
+      assert_equal(s1, s2)
+      assert_equal([67305985, -50462977], s2.unpack("j*"))
+      assert_equal([67305985, 4244504319], s1.unpack("J*"))
+
+      s1 = [67305985, -50462977].pack("j!*")
+      s2 = [67305985, 4244504319].pack("J!*")
+      assert_equal([67305985, -50462977], s1.unpack("j!*"))
+      assert_equal([67305985, 4244504319], s2.unpack("J!*"))
+
+      assert_equal(4, [1].pack("j").bytesize)
+      assert_equal(4, [1].pack("J").bytesize)
+    elsif psize == 8
+      s1 = [578437695752307201, -506097522914230529].pack("j*")
+      s2 = [578437695752307201, 17940646550795321087].pack("J*")
+      assert_equal(s1, s2)
+      assert_equal([578437695752307201, -506097522914230529], s2.unpack("j*"))
+      assert_equal([578437695752307201, 17940646550795321087], s1.unpack("J*"))
+
+      s1 = [578437695752307201, -506097522914230529].pack("j!*")
+      s2 = [578437695752307201, 17940646550795321087].pack("J!*")
+      assert_equal([578437695752307201, -506097522914230529], s2.unpack("j!*"))
+      assert_equal([578437695752307201, 17940646550795321087], s1.unpack("J!*"))
+
+      assert_equal(8, [1].pack("j").bytesize)
+      assert_equal(8, [1].pack("J").bytesize)
+    else
+      assert false, "we don't know such platform now."
+    end
   end
 
   def test_pack_unpack_nN
@@ -437,7 +514,7 @@ class TestPack < Test::Unit::TestCase
       %w(f d e E g G).each do |f|
         v = [x].pack(f).unpack(f)
         if x.nan?
-          assert(v.first.nan?)
+          assert_predicate(v.first, :nan?)
         else
           assert_equal([x], v)
         end
@@ -517,6 +594,11 @@ EXPECTED
     assert_equal(["a"*46], "M86%A86%A86%A86%A86%A86%A86%A86%A86%A86%A86%A86%A86%A86%A86%A\n!80``\n".unpack("u"))
     assert_equal(["abcdefghi"], "&86)C9&5F\n#9VAI\n".unpack("u"))
 
+    assert_equal(["abcdef"], "#86)C\n#9&5F\n".unpack("u"))
+    assert_equal(["abcdef"], "#86)CX\n#9&5FX\n".unpack("u")) # X is a (dummy) checksum.
+    assert_equal(["abcdef"], "#86)C\r\n#9&5F\r\n".unpack("u"))
+    assert_equal(["abcdef"], "#86)CX\r\n#9&5FX\r\n".unpack("u")) # X is a (dummy) checksum.
+
     assert_equal(["\x00"], "\"\n".unpack("u"))
     assert_equal(["\x00"], "! \r \n".unpack("u"))
   end
@@ -537,6 +619,18 @@ EXPECTED
     assert_equal(["\377"], "/w==\n".unpack("m"))
     assert_equal(["\377\377"], "//8=\n".unpack("m"))
     assert_equal(["\377\377\377"], "////\n".unpack("m"))
+    assert_equal([""], "A\n".unpack("m"))
+    assert_equal(["\0"], "AA\n".unpack("m"))
+    assert_equal(["\0"], "AA=\n".unpack("m"))
+    assert_equal(["\0\0"], "AAA\n".unpack("m"))
+
+    bug10019 = '[ruby-core:63604] [Bug #10019]'
+    size = ((4096-4)/4*3+1)
+    assert_separately(%W[- #{size} #{bug10019}], <<-'end;')
+      size = ARGV.shift.to_i
+      bug = ARGV.shift
+      assert_equal(size, ["a"*size].pack("m#{size+2}").unpack("m")[0].size, bug)
+    end;
   end
 
   def test_pack_unpack_m0
@@ -632,16 +726,6 @@ EXPECTED
     assert_equal([0x100000000], "\220\200\200\200\000".unpack("w"), [0x100000000])
   end
 
-  def test_modify_under_safe4
-    s = "foo"
-    assert_raise(SecurityError) do
-      Thread.new do
-        $SAFE = 4
-        s.clear
-      end.join
-    end
-  end
-
   def test_length_too_big
     assert_raise(RangeError) { [].pack("C100000000000000000000") }
   end
@@ -698,4 +782,36 @@ EXPECTED
     $VERBOSE = verbose
   end
 
+  def test_invalid_warning
+    assert_warning(/unknown pack directive ',' in ','/) {
+      [].pack(",")
+    }
+    assert_warning(/\A[ -~]+\Z/) {
+      [].pack("\x7f")
+    }
+    assert_warning(/\A(.* in '\u{3042}'\n)+\z/) {
+      EnvUtil.with_default_external(Encoding::UTF_8) {
+        [].pack("\u{3042}")
+      }
+    }
+  end
+
+  def test_pack_resize
+    assert_separately([], <<-'end;')
+      ary = []
+      obj = Class.new {
+        define_method(:to_str) {
+          ary.clear()
+          ary = nil
+          GC.start
+          "TALOS"
+        }
+      }.new
+
+      ary.push(obj)
+      ary.push(".")
+
+      assert_raise_with_message(ArgumentError, /too few/) {ary.pack("AA")}
+    end;
+  end
 end

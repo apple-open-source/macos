@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -57,16 +57,18 @@
 #include "ip_plugin.h"
 #endif	// MAIN
 
-#define	HW_MODEL_LEN		64			// Note: must be >= NETBIOS_NAME_LEN (below)
+#define	HW_MODEL_LEN			64			// Note: must be >= NETBIOS_NAME_LEN (below)
 
-#define	NETBIOS_NAME_LEN	16
+#define	NETBIOS_NAME_LEN		16
 
-#define	SMB_STARTUP_DELAY	60.0
-#define	SMB_DEBOUNCE_DELAY	5.0
+#define	SMB_STARTUP_DELAY		60.0
+#define	SMB_DEBOUNCE_DELAY		5.0
+#define SMB_CONFIGURATION_QUEUE		"com.apple.config.smb-configuration"
 
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopRef		rl		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
+static dispatch_queue_t		queue		= NULL;
 
 static int			notify_token	= -1;
 
@@ -104,7 +106,7 @@ static CFStringRef
 copy_default_name(void)
 {
 	CFStringRef		model;
-	size_t			n;
+	CFIndex			n;
 	CFMutableStringRef	str;
 
 	// get HW model name
@@ -465,6 +467,7 @@ ptr_query_stop()
 static void
 ptr_query_callback(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags, void *info)
 {
+#pragma unused(info)
 	CFDictionaryRef		dict;
 	CFStringRef		name;
 	CFMutableDictionaryRef	newDict;
@@ -618,8 +621,9 @@ ptr_query_start(CFStringRef address)
 
 
 static void
-smb_update_configuration(__unused CFRunLoopTimerRef _timer, void *info)
+smb_update_configuration(CFRunLoopTimerRef _timer, void *info)
 {
+#pragma unused(_timer)
 	CFStringRef		address		= NULL;
 	CFDictionaryRef		dict;
 	CFStringRef		name;
@@ -713,6 +717,8 @@ smb_update_configuration(__unused CFRunLoopTimerRef _timer, void *info)
 static void
 configuration_changed(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
+#pragma unused(changedKeys)
+#pragma unused(info)
 	CFRunLoopTimerContext	context	= { 0, (void *)store, CFRetain, CFRelease, NULL };
 	CFAbsoluteTime		time_boot;
 	CFAbsoluteTime		time_now ;
@@ -751,6 +757,7 @@ __private_extern__
 void
 load_smb_configuration(Boolean verbose)
 {
+#pragma unused(verbose)
 	CFStringRef		key;
 	CFMutableArrayRef	keys		= NULL;
 	dispatch_block_t	notify_block;
@@ -759,6 +766,12 @@ load_smb_configuration(Boolean verbose)
 	uint32_t		status;
 
 	/* initialize a few globals */
+	queue = dispatch_queue_create(SMB_CONFIGURATION_QUEUE, NULL);
+	if (queue == NULL) {
+		my_log(LOG_ERR,
+		       "dispatch_queue_create() failed");
+		goto error;
+	}
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("smb-configuration"), configuration_changed, NULL);
 	if (store == NULL) {
@@ -828,8 +841,9 @@ load_smb_configuration(Boolean verbose)
 	};
 	status = notify_register_dispatch(_SC_NOTIFY_NETWORK_CHANGE,
 					  &notify_token,
-					  dispatch_get_main_queue(),
+					  queue,
 					  ^(int token){
+#pragma unused(token)
 						  CFRunLoopPerformBlock(rl,
 									kCFRunLoopDefaultMode,
 									notify_block);
@@ -852,6 +866,10 @@ load_smb_configuration(Boolean verbose)
 	if (store != NULL) {
 		CFRelease(store);
 		store = NULL;
+	}
+	if (queue != NULL) {
+		dispatch_release(queue);
+		queue = NULL;
 	}
 
 	return;

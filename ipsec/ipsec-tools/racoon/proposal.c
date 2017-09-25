@@ -227,7 +227,7 @@ saprop_adjust_encmode (struct saproto *pr2, struct saproto *pr1)
 	if (natt_udp_encap(pr2->encmode)) {
 		prev = pr2->encmode;
 		saprop_udp_encap(pr2);
-		plog(ASL_LEVEL_INFO, "Adjusting my encmode %s(%d)->%s(%d)\n",
+		plog(ASL_LEVEL_NOTICE, "Adjusting my encmode %s(%d)->%s(%d)\n",
 			 s_ipsecdoi_encmode(prev),
 			 prev,
 			 s_ipsecdoi_encmode(pr2->encmode),
@@ -236,7 +236,7 @@ saprop_adjust_encmode (struct saproto *pr2, struct saproto *pr1)
 	if (natt_udp_encap(pr1->encmode)) {
 		prev = pr1->encmode;
 		saprop_udp_encap(pr1);
-		plog(ASL_LEVEL_INFO, "Adjusting peer's encmode %s(%d)->%s(%d)\n",
+		plog(ASL_LEVEL_NOTICE, "Adjusting peer's encmode %s(%d)->%s(%d)\n",
 			 s_ipsecdoi_encmode(prev),
 			 prev,
 			 s_ipsecdoi_encmode(pr1->encmode),

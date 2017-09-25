@@ -1,5 +1,6 @@
+# frozen_string_literal: false
 ##
-# The YAML module is an alias of Psych, the YAML engine for ruby.
+# The YAML module is an alias of Psych, the YAML engine for Ruby.
 
 begin
   require 'psych'
@@ -10,41 +11,7 @@ rescue LoadError
   raise
 end
 
-YAML = Psych
-
-module Psych # :nodoc:
-  # For compatibility, deprecated
-  class EngineManager # :nodoc:
-    attr_reader :yamler # :nodoc:
-
-    def initialize # :nodoc:
-      @yamler = 'psych'
-    end
-
-    def syck? # :nodoc:
-      false
-    end
-
-    # Psych is always used and this method has no effect.
-    #
-    # This method is still present for compatibility.
-    #
-    # You may still use the Syck engine by installing
-    # the 'syck' gem and using the Syck constant.
-    def yamler= engine # :nodoc:
-      case engine
-      when 'syck' then warn "syck has been removed, psych is used instead"
-      when 'psych' then @yamler = 'psych'
-      else
-        raise(ArgumentError, "bad engine")
-      end
-
-      engine
-    end
-  end
-
-  ENGINE = EngineManager.new # :nodoc:
-end
+YAML = Psych # :nodoc:
 
 # YAML Ain't Markup Language
 #
@@ -56,7 +23,7 @@ end
 #
 # Working with YAML can be very simple, for example:
 #
-#     require 'yaml' # STEP ONE, REQUIRE YAML!
+#     require 'yaml'
 #     # Parse a YAML string
 #     YAML.load("--- foo") #=> "foo"
 #
@@ -85,5 +52,9 @@ end
 #
 # For more advanced details on the implementation see Psych, and also check out
 # http://yaml.org for spec details and other helpful information.
+#
+# Psych is maintained by Aaron Patterson on github: https://github.com/tenderlove/psych
+#
+# Syck can also be found on github: https://github.com/tenderlove/syck
 module YAML
 end

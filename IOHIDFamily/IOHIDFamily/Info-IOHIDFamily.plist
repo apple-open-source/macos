@@ -7,7 +7,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOHIDFamily</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -90,10 +90,33 @@
 		</dict>
 		<key>IOHIDSystem</key>
 		<dict>
-			<key>HIDServiceSupport</key>
-			<true/>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>HIDPowerOnDelayNS</key>
+			<integer>500000000</integer>
+			<key>HIDScrollCountBootDefault</key>
+			<dict>
+				<key>HIDScrollCountAccelerationFactor</key>
+				<integer>163840</integer>
+				<key>HIDScrollCountIgnoreMomentumScrolls</key>
+				<true/>
+				<key>HIDScrollCountMax</key>
+				<integer>2000</integer>
+				<key>HIDScrollCountMaxTimeDeltaBetween</key>
+				<integer>600</integer>
+				<key>HIDScrollCountMaxTimeDeltaToSustain</key>
+				<integer>250</integer>
+				<key>HIDScrollCountMinDeltaToStart</key>
+				<integer>30</integer>
+				<key>HIDScrollCountMinDeltaToSustain</key>
+				<integer>20</integer>
+				<key>HIDScrollCountMouseCanReset</key>
+				<true/>
+			</dict>
+			<key>HIDServiceGlobalModifiersUsage</key>
+			<integer>1</integer>
+			<key>HIDServiceSupport</key>
+			<true/>
 			<key>IOCFPlugInTypes</key>
 			<dict>
 				<key>0516B563-B15B-11DA-96EB-0014519758EF</key>
@@ -103,39 +126,18 @@
 			<string>IOHIDSystem</string>
 			<key>IOMatchCategory</key>
 			<string>IOHID</string>
-			<key>HIDPowerOnDelayNS</key>
-			<integer>500000000</integer>
 			<key>IOProviderClass</key>
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>
 			<string>IOBSD</string>
-			<key>PrimaryUsagePage</key>
-			<integer>65280</integer>
 			<key>PrimaryUsage</key>
 			<integer>23</integer>
-			<key>HIDServiceGlobalModifiersUsage</key>
-			<integer>1</integer>
-			<key>HIDScrollCountBootDefault</key>
-			<dict>
-				<key>HIDScrollCountMaxTimeDeltaBetween</key>
-				<integer>600</integer>
-				<key>HIDScrollCountMaxTimeDeltaToSustain</key>
-				<integer>250</integer>
-				<key>HIDScrollCountMinDeltaToStart</key>
-				<integer>30</integer>
-				<key>HIDScrollCountMinDeltaToSustain</key>
-				<integer>20</integer>
-				<key>HIDScrollCountIgnoreMomentumScrolls</key>
-				<true/>
-				<key>HIDScrollCountMouseCanReset</key>
-				<true/>
-				<key>HIDScrollCountMax</key>
-				<integer>2000</integer>
-				<key>HIDScrollCountAccelerationFactor</key>
-				<integer>163840</integer>
-			</dict>
+			<key>PrimaryUsagePage</key>
+			<integer>65280</integer>
 		</dict>
 	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -159,7 +161,5 @@
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
-	<key>NSHumanReadableCopyright</key>
-	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
 </dict>
 </plist>

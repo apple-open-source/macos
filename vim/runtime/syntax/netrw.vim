@@ -5,9 +5,8 @@
 " ---------------------------------------------------------------------
 
 " Syntax Clearing: {{{1
-if version < 600
- syntax clear
-elseif exists("b:current_syntax")
+" quit when a syntax file was already loaded
+if exists("b:current_syntax")
  finish
 endif
 
@@ -19,7 +18,6 @@ syn cluster NetrwTreeGroup	contains=netrwDir,netrwSymLink,netrwExe
 syn match  netrwPlain		"\(\S\+ \)*\S\+"					contains=netrwLink,@NoSpell
 syn match  netrwSpecial		"\%(\S\+ \)*\S\+[*|=]\ze\%(\s\{2,}\|$\)"		contains=netrwClassify,@NoSpell
 syn match  netrwDir		"\.\{1,2}/"						contains=netrwClassify,@NoSpell
-"syn match  netrwDir		"\%(\S\+ \)*\S\+/"					contains=netrwClassify,@NoSpell
 syn match  netrwDir		"\%(\S\+ \)*\S\+/\ze\%(\s\{2,}\|$\)"			contains=netrwClassify,@NoSpell
 syn match  netrwSizeDate	"\<\d\+\s\d\{1,2}/\d\{1,2}/\d\{4}\s"	skipwhite	contains=netrwDateSep,@NoSpell	nextgroup=netrwTime
 syn match  netrwSymLink		"\%(\S\+ \)*\S\+@\ze\%(\s\{2,}\|$\)"  			contains=netrwClassify,@NoSpell

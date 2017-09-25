@@ -32,6 +32,7 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemInternal.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecPolicyInternal.h>
 
@@ -210,9 +211,10 @@ struct SecItemCertificateSource {
 };
 typedef struct SecItemCertificateSource *SecItemCertificateSourceRef;
 
-static CF_RETURNS_RETAINED CFTypeRef SecItemCertificateSourceResultsPost(CFTypeRef raw_results) {
+static CF_RETURNS_RETAINED CFArrayRef _Nullable SecItemCertificateSourceResultsPost(CFTypeRef raw_results) {
+    CFMutableArrayRef result = NULL;
     if (isArray(raw_results)) {
-        CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, CFArrayGetCount(raw_results), &kCFTypeArrayCallBacks);
+        result = CFArrayCreateMutable(kCFAllocatorDefault, CFArrayGetCount(raw_results), &kCFTypeArrayCallBacks);
         CFArrayForEach(raw_results, ^(const void *value) {
             SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, value);
             if (cert) {
@@ -220,54 +222,32 @@ static CF_RETURNS_RETAINED CFTypeRef SecItemCertificateSourceResultsPost(CFTypeR
                 CFRelease(cert);
             }
         });
-        return result;
     } else if (isData(raw_results)) {
-        return SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)raw_results);
+        result = CFArrayCreateMutable(kCFAllocatorDefault, CFArrayGetCount(raw_results), &kCFTypeArrayCallBacks);
+        SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)raw_results);
+        if (cert) {
+            CFArrayAppendValue(result, cert);
+            CFRelease(cert);
+        }
     }
-    return NULL;
+    return result;
 }
 
 static bool SecItemCertificateSourceCopyParents(
                                                 SecCertificateSourceRef source, SecCertificateRef certificate,
                                                 void *context, SecCertificateSourceParents callback) {
     SecItemCertificateSourceRef msource = (SecItemCertificateSourceRef)source;
-    /* FIXME: Search for things other than just subject of our issuer if we
-     have a subjectID or authorityKeyIdentifier. */
-    CFDataRef normalizedIssuer =
-    SecCertificateGetNormalizedIssuerContent(certificate);
-    const void *keys[] = {
-        kSecClass,
-        kSecReturnData,
-        kSecMatchLimit,
-        kSecAttrSubject
-    },
-    *values[] = {
-        kSecClassCertificate,
-        kCFBooleanTrue,
-        kSecMatchLimitAll,
-        normalizedIssuer
-    };
-    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4,
-                                               NULL, NULL);
-    CFTypeRef results = NULL;
-    SecurityClient client = {
-        .task = NULL,
-        .accessGroups = msource->accessGroups,
-        .allowSystemKeychain = true,
-        .allowSyncBubbleKeychain = false,
-        .isNetworkExtension = false,
-    };
+    CFDataRef normalizedIssuer = SecCertificateGetNormalizedIssuerContent(certificate);
 
-    /* We can make this async or run this on a queue now easily. */
     CFErrorRef localError = NULL;
-    if (!_SecItemCopyMatching(query, &client, &results, &localError)) {
+    CFArrayRef results = SecItemCopyParentCertificates_ios(normalizedIssuer, msource->accessGroups, &localError);
+    if (!results) {
         if (localError && (CFErrorGetCode(localError) != errSecItemNotFound)) {
-            secdebug("trust", "_SecItemCopyMatching: %@", localError);
+            secdebug("trust", "SecItemCopyParentCertificates_ios: %@", localError);
         }
         CFReleaseSafe(localError);
     }
-    CFRelease(query);
-    CFTypeRef certs = SecItemCertificateSourceResultsPost(results);
+    CFArrayRef certs = SecItemCertificateSourceResultsPost(results);
     CFReleaseSafe(results);
     callback(context, certs);
     CFReleaseSafe(certs);
@@ -286,41 +266,17 @@ static bool SecItemCertificateSourceContains(SecCertificateSourceRef source,
 #else
     SecCertificateCopySerialNumber(certificate);
 #endif
-    const void *keys[] = {
-        kSecClass,
-        kSecMatchLimit,
-        kSecAttrIssuer,
-        kSecAttrSerialNumber
-    },
-    *values[] = {
-        kSecClassCertificate,
-        kSecMatchLimitOne,
-        normalizedIssuer,
-        serialNumber
-    };
-    SecurityClient client = {
-        .task = NULL,
-        .accessGroups = msource->accessGroups,
-        .allowSystemKeychain = true,
-        .allowSyncBubbleKeychain = false,
-        .isNetworkExtension = false,
-    };
-    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4, NULL, NULL);
     CFErrorRef localError = NULL;
-    CFTypeRef results = NULL;
-    bool ok = _SecItemCopyMatching(query, &client, &results, &localError);
-    CFReleaseSafe(query);
-    CFReleaseSafe(serialNumber);
-    CFReleaseSafe(normalizedIssuer);
-    CFReleaseSafe(results);
-    if (!ok) {
+    bool result = SecItemCertificateExists(normalizedIssuer, serialNumber, msource->accessGroups, &localError);
+    if (localError) {
         if (CFErrorGetCode(localError) != errSecItemNotFound) {
-            secdebug("trust", "_SecItemCopyMatching: %@", localError);
+            secdebug("trust", "SecItemCertificateExists_ios: %@", localError);
         }
         CFReleaseSafe(localError);
-        return false;
     }
-    return true;
+    CFReleaseSafe(serialNumber);
+    CFReleaseSafe(normalizedIssuer);
+    return result;
 }
 
 SecCertificateSourceRef SecItemCertificateSourceCreate(CFArrayRef accessGroups) {
@@ -376,14 +332,14 @@ static CFArrayRef SecSystemAnchorSourceCopyUsageConstraints(SecCertificateSource
                                                             SecCertificateRef __unused certificate)
 {
     CFMutableArrayRef result = NULL;
-    CFMutableDictionaryRef options = NULL, hashConstraint = NULL, trustRoot = NULL;
+    CFMutableDictionaryRef options = NULL, strengthConstraints = NULL, trustRoot = NULL;
     CFNumberRef trustResult = NULL;
 
     require_quiet(options = CFDictionaryCreateMutable(NULL, 1,
                                                       &kCFTypeDictionaryKeyCallBacks,
                                                       &kCFTypeDictionaryValueCallBacks),
                   out);
-    require_quiet(hashConstraint = CFDictionaryCreateMutable(NULL, 1,
+    require_quiet(strengthConstraints = CFDictionaryCreateMutable(NULL, 1,
                                                              &kCFTypeDictionaryKeyCallBacks,
                                                              &kCFTypeDictionaryValueCallBacks),
                   out);
@@ -397,17 +353,18 @@ static CFArrayRef SecSystemAnchorSourceCopyUsageConstraints(SecCertificateSource
     CFDictionaryAddValue(trustRoot, kSecTrustSettingsResult, trustResult);
 
     CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakHash, kCFBooleanTrue);
-    CFDictionaryAddValue(hashConstraint, kSecTrustSettingsPolicyOptions, options);
+    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedWeakKey, kCFBooleanTrue);
+    CFDictionaryAddValue(strengthConstraints, kSecTrustSettingsPolicyOptions, options);
 
     require_quiet(result = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks), out);
-    CFArrayAppendValue(result, hashConstraint);
+    CFArrayAppendValue(result, strengthConstraints);
     CFArrayAppendValue(result, trustRoot);
 
 out:
     CFReleaseNull(options);
     CFReleaseNull(trustResult);
     CFReleaseNull(trustRoot);
-    CFReleaseNull(hashConstraint);
+    CFReleaseNull(strengthConstraints);
     return result;
 }
 
@@ -495,7 +452,12 @@ static CFArrayRef SecUserAnchorSourceCopyUsageConstraints(SecCertificateSourceRe
     CFArrayRef usageConstraints = NULL;
     bool ok = _SecTrustStoreCopyUsageConstraints(SecTrustStoreForDomain(kSecTrustStoreDomainUser),
                                                  digest, &usageConstraints, NULL);
-    return (ok) ? usageConstraints : NULL;
+    if (ok) {
+        return usageConstraints;
+    } else {
+        CFReleaseNull(usageConstraints);
+        return NULL;
+    }
 }
 
 static bool SecUserAnchorSourceContains(SecCertificateSourceRef source,
@@ -643,7 +605,7 @@ const SecCertificateSourceRef kSecCAIssuerSource = &_kSecCAIssuerSource;
 static bool SecLegacyCertificateSourceCopyParents(
                                                   SecCertificateSourceRef source, SecCertificateRef certificate,
                                                   void *context, SecCertificateSourceParents callback) {
-    CFArrayRef parents = SecItemCopyParentCertificates(certificate, NULL);
+    CFArrayRef parents = SecItemCopyParentCertificates_osx(certificate, NULL);
     callback(context, parents);
     CFReleaseSafe(parents);
     return true;
@@ -677,7 +639,7 @@ const SecCertificateSourceRef kSecLegacyCertificateSource = &_kSecLegacyCertific
 static bool SecLegacyAnchorSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                              void *context, SecCertificateSourceParents callback) {
     CFMutableArrayRef anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    CFArrayRef parents = SecItemCopyParentCertificates(certificate, NULL);
+    CFArrayRef parents = SecItemCopyParentCertificates_osx(certificate, NULL);
     CFArrayRef trusted = NULL;
     if (parents == NULL) {
         goto finish;

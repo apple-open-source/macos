@@ -252,26 +252,20 @@ enum {
 /* HFS FS CONTROL COMMANDS */
 
 #define HFSIOC_RESIZE_PROGRESS  _IOR('h', 1, u_int32_t)
-#define HFS_RESIZE_PROGRESS  IOCBASECMD(HFSIOC_RESIZE_PROGRESS)
 
 #define HFSIOC_RESIZE_VOLUME  _IOW('h', 2, u_int64_t)
-#define HFS_RESIZE_VOLUME  IOCBASECMD(HFSIOC_RESIZE_VOLUME)
 
 #define HFSIOC_CHANGE_NEXT_ALLOCATION  _IOWR('h', 3, u_int32_t)
-#define HFS_CHANGE_NEXT_ALLOCATION  IOCBASECMD(HFSIOC_CHANGE_NEXT_ALLOCATION)
 /* Magic value for next allocation to use with fcntl to set next allocation
  * to zero and never update it again on new block allocation.
  */
 #define HFS_NO_UPDATE_NEXT_ALLOCATION 	0xffffFFFF
 
 #define HFSIOC_GETCREATETIME  _IOR('h', 4, time_t)
-#define HFS_GETCREATETIME  IOCBASECMD(HFSIOC_GETCREATETIME)
 
 #define HFSIOC_SETBACKINGSTOREINFO  _IOW('h', 7, struct hfs_backingstoreinfo)
-#define HFS_SETBACKINGSTOREINFO  IOCBASECMD(HFSIOC_SETBACKINGSTOREINFO)
 
 #define HFSIOC_CLRBACKINGSTOREINFO  _IO('h', 8)
-#define HFS_CLRBACKINGSTOREINFO  IOCBASECMD(HFSIOC_CLRBACKINGSTOREINFO)
 
 // 'h', 9 used to be HFSIOC_BULKACCESS which is now deprecated
 
@@ -279,13 +273,10 @@ enum {
 #define HFSIOC_UNSUPPORTED  _IOW('h', 10, int32_t)
 
 #define HFSIOC_PREV_LINK  _IOWR('h', 11, u_int32_t)
-#define HFS_PREV_LINK  IOCBASECMD(HFSIOC_PREV_LINK)
 
 #define HFSIOC_NEXT_LINK  _IOWR('h', 12, u_int32_t)
-#define HFS_NEXT_LINK  IOCBASECMD(HFSIOC_NEXT_LINK)
 
 #define HFSIOC_GETPATH  _IOWR('h', 13, pathname_t)
-#define HFS_GETPATH  IOCBASECMD(HFSIOC_GETPATH)
 /* By default, the path returned by HFS_GETPATH is an absolute path, 
  * i.e. it also contains the mount point of the volume on which the 
  * fileID exists.  If the following bit is set, the path returned is
@@ -295,49 +286,44 @@ enum {
 
 /* Enable/disable extent-based extended attributes */
 #define HFSIOC_SET_XATTREXTENTS_STATE  _IOW('h', 14, u_int32_t)
-#define HFS_SET_XATTREXTENTS_STATE  IOCBASECMD(HFSIOC_SET_XATTREXTENTS_STATE)
 
-#define HFSIOC_EXT_BULKACCESS _IOW('h', 15, struct user32_ext_access_t)
-#define HFS_EXT_BULKACCESS_FSCTL IOCBASECMD(HFSIOC_EXT_BULKACCESS)
+#if defined(KERNEL)
+#define HFSIOC_EXT_BULKACCESS32 _IOW('h', 15, struct user32_ext_access_t)
+#define HFSIOC_EXT_BULKACCESS64 _IOW('h', 15, struct user64_ext_access_t)
+#else
+#define HFSIOC_EXT_BULKACCESS _IOW('h', 15, struct ext_access_t)
+#endif /* KERNEL */
 
 #define HFSIOC_MARK_BOOT_CORRUPT _IO('h', 16)
-#define HFS_MARK_BOOT_CORRUPT IOCBASECMD(HFSIOC_MARK_BOOT_CORRUPT)
 
 #define HFSIOC_GET_JOURNAL_INFO	_IOR('h', 17, struct hfs_journal_info)
-#define	HFS_FSCTL_GET_JOURNAL_INFO	IOCBASECMD(HFSIOC_GET_JOURNAL_INFO)
 
 #define HFSIOC_SET_VERY_LOW_DISK _IOW('h', 20, u_int32_t)
-#define HFS_FSCTL_SET_VERY_LOW_DISK IOCBASECMD(HFSIOC_SET_VERY_LOW_DISK)
 
 #define HFSIOC_SET_LOW_DISK _IOW('h', 21, u_int32_t)
-#define HFS_FSCTL_SET_LOW_DISK IOCBASECMD(HFSIOC_SET_LOW_DISK)
 
 #define HFSIOC_SET_DESIRED_DISK _IOW('h', 22, u_int32_t)
-#define HFS_FSCTL_SET_DESIRED_DISK IOCBASECMD(HFSIOC_SET_DESIRED_DISK)
 
 #define HFSIOC_SET_ALWAYS_ZEROFILL _IOW('h', 23, int32_t)
+	/* XXXJRT Keep until 31866920 is resolved. */
 #define HFS_SET_ALWAYS_ZEROFILL IOCBASECMD(HFSIOC_SET_ALWAYS_ZEROFILL)
 
 #define HFSIOC_VOLUME_STATUS  _IOR('h', 24, u_int32_t)
-#define HFS_VOLUME_STATUS  IOCBASECMD(HFSIOC_VOLUME_STATUS)
 
 /* Disable metadata zone for given volume */
 #define HFSIOC_DISABLE_METAZONE	_IO('h', 25)
-#define HFS_DISABLE_METAZONE	IOCBASECMD(HFSIOC_DISABLE_METAZONE)
 
 /* Change the next CNID value */
 #define HFSIOC_CHANGE_NEXTCNID	_IOWR('h', 26, u_int32_t)
+	/* XXXJRT Keep until 31866920 is resolved. */
 #define HFS_CHANGE_NEXTCNID		IOCBASECMD(HFSIOC_CHANGE_NEXTCNID)
 	
 /* Get the low disk space values */
 #define	HFSIOC_GET_VERY_LOW_DISK	_IOR('h', 27, u_int32_t)
-#define	HFS_FSCTL_GET_VERY_LOW_DISK	IOCBASECMD(HFSIOC_GET_VERY_LOW_DISK)
 
 #define	HFSIOC_GET_LOW_DISK	_IOR('h', 28, u_int32_t)
-#define	HFS_FSCTL_GET_LOW_DISK	IOCBASECMD(HFSIOC_GET_LOW_DISK)
 
 #define	HFSIOC_GET_DESIRED_DISK	_IOR('h', 29, u_int32_t)
-#define	HFS_FSCTL_GET_DESIRED_DISK	IOCBASECMD(HFSIOC_GET_DESIRED_DISK)
 
 /* 30 was HFSIOC_GET_WRITE_GEN_COUNTER and is now deprecated */
 
@@ -345,7 +331,6 @@ enum {
 
 /* revisiond only uses this when something transforms in a way the kernel can't track such as "foo.rtf" -> "foo.rtfd" */
 #define HFSIOC_TRANSFER_DOCUMENT_ID  _IOW('h', 32, u_int32_t)
-#define HFS_TRANSFER_DOCUMENT_ID  IOCBASECMD(HFSIOC_TRANSFER_DOCUMENT_ID)
 
 
 /* 
@@ -357,27 +342,22 @@ enum {
  * f_bsize by statfs(2).
  */
 #define HFSIOC_FSINFO_METADATA_BLOCKS  _IOWR('h', 38, struct hfsinfo_metadata)
-#define HFS_FSINFO_METADATA_BLOCKS     IOCBASECMD(HFSIOC_FSINFO_METADATA_BLOCKS)
 
 /* Send TRIMs for all free blocks to the underlying device */
 #define HFSIOC_CS_FREESPACE_TRIM _IOWR('h', 39, u_int32_t)
-#define HFS_CS_FREESPACE_TRIM    IOCBASECMD(HFSIOC_CS_FREESPACE_TRIM)
 
 
 /* Get file system information for the given volume */
 #define HFSIOC_GET_FSINFO        _IOWR('h', 45, hfs_fsinfo)
-#define HFS_GET_FSINFO           IOCBASECMD(HFSIOC_GET_FSINFO)
 
 /* Re-pin hotfile data; argument controls what state gets repinned */
 #define HFSIOC_REPIN_HOTFILE_STATE _IOWR('h', 46, u_int32_t)
-#define HFS_REPIN_HOTFILE_STATE    IOCBASECMD(HFSIOC_REPIN_HOTFILE_STATE)
 
 #define HFS_REPIN_METADATA      0x0001
 #define HFS_REPIN_USERDATA      0x0002
 
 /* Mark a directory or file as worth caching on any underlying "fast" device */
 #define HFSIOC_SET_HOTFILE_STATE _IOWR('h', 47, u_int32_t)
-#define HFS_SET_HOTFILE_STATE    IOCBASECMD(HFSIOC_SET_HOTFILE_STATE)
 
 /* flags to pass to SET_HOTFILE_STATE */
 #define HFS_MARK_FASTDEVCANDIDATE   0x0001
@@ -385,11 +365,17 @@ enum {
 #define HFS_NEVER_FASTDEVCANDIDATE  0x0004
 
 #define HFSIOC_SET_MAX_DEFRAG_SIZE _IOWR('h', 48, u_int32_t)
-#define HFS_SET_MAX_DEFRAG_SIZE	IOCBASECMD(HFSIOC_SET_MAX_DEFRAG_SIZE)
 
 #define HFSIOC_FORCE_ENABLE_DEFRAG _IOWR('h', 49, u_int32_t)
-#define HFS_FORCE_ENABLE_DEFRAG	IOCBASECMD(HFSIOC_FORCE_ENABLE_DEFRAG)
 
+/* These fsctls are ported from apfs. */
+#ifndef APFSIOC_SET_NEAR_LOW_DISK
+#define APFSIOC_SET_NEAR_LOW_DISK _IOW('J', 17, u_int32_t)
+#endif /* APFSIOC_SET_NEAR_LOW_DISK */
+
+#ifndef APFSIOC_GET_NEAR_LOW_DISK
+#define APFSIOC_GET_NEAR_LOW_DISK _IOR('J', 18, u_int32_t)
+#endif /* APFSIOC_GET_NEAR_LOW_DISK */
 
 #endif /* __APPLE_API_UNSTABLE */
 

@@ -24,6 +24,7 @@
  */
 
 #include "IOBootFramebuffer.h"
+#include "IOGraphicsKTrace.h"
 
 enum { kTheDisplayMode  = 10 };
 
@@ -39,6 +40,7 @@ OSDefineMetaClassAndStructors(IOBootFramebuffer, IOFramebuffer)
 IOService * IOBootFramebuffer::probe(   IOService *     provider,
                                       SInt32 *  score )
 {
+    IOBFB_START(probe,0,0,0);
     PE_Video            bootDisplay;
     IOService *         ret = 0;
     IOReturn            err;
@@ -52,7 +54,7 @@ IOService * IOBootFramebuffer::probe(   IOService *     provider,
         if (err || (bootDisplay.v_baseAddr == 0))
             continue;
 
-        if (false == super::probe(provider, score))
+        if (!super::probe(provider, score))
             continue;
 
         *score          = 0;
@@ -60,12 +62,14 @@ IOService * IOBootFramebuffer::probe(   IOService *     provider,
     }
     while (false);
 
+    IOBFB_END(probe,0,0,0);
     return (ret);
 }
 
 
 const char * IOBootFramebuffer::getPixelFormats( void )
 {
+    IOBFB_START(getPixelFormats,0,0,0);
     const char *        ret;
     PE_Video            bootDisplay;
 
@@ -87,18 +91,23 @@ const char * IOBootFramebuffer::getPixelFormats( void )
             break;
     }
 
+    IOBFB_END(getPixelFormats,0,0,0);
     return (ret);
 }
 
 IOItemCount IOBootFramebuffer::getDisplayModeCount( void )
 {
+    IOBFB_START(getDisplayModeCount,0,0,0);
+    IOBFB_END(getDisplayModeCount,1,0,0);
     return (1);
 }
 
 IOReturn IOBootFramebuffer::getDisplayModes(
     IODisplayModeID * allDisplayModes )
 {
+    IOBFB_START(getDisplayModes,0,0,0);
     *allDisplayModes = kTheDisplayMode;
+    IOBFB_END(getDisplayModes,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
@@ -106,6 +115,7 @@ IOReturn IOBootFramebuffer::getInformationForDisplayMode(
     IODisplayModeID /* displayMode */,
     IODisplayModeInformation * info )
 {
+    IOBFB_START(getInformationForDisplayMode,0,0,0);
     PE_Video    bootDisplay;
 
     getPlatform()->getConsoleInfo( &bootDisplay);
@@ -113,16 +123,19 @@ IOReturn IOBootFramebuffer::getInformationForDisplayMode(
     bzero( info, sizeof( *info));
 
     info->maxDepthIndex = 0;
-    info->nominalWidth  = bootDisplay.v_width;
-    info->nominalHeight = bootDisplay.v_height;
+    info->nominalWidth  = static_cast<UInt32>(bootDisplay.v_width);
+    info->nominalHeight = static_cast<UInt32>(bootDisplay.v_height);
     info->refreshRate   = 75 << 16;
 
+    IOBFB_END(getInformationForDisplayMode,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
 UInt64 IOBootFramebuffer::getPixelFormatsForDisplayMode(
     IODisplayModeID /* displayMode */, IOIndex /* depth */ )
 {
+    IOBFB_START(getPixelFormatsForDisplayMode,0,0,0);
+    IOBFB_END(getPixelFormatsForDisplayMode,1,0,0);
     return (1);
 }
 
@@ -130,17 +143,21 @@ IOReturn IOBootFramebuffer::getPixelInformation(
     IODisplayModeID displayMode, IOIndex depth,
     IOPixelAperture aperture, IOPixelInformation * info )
 {
+    IOBFB_START(getPixelInformation,displayMode,depth,aperture);
     PE_Video    bootDisplay;
 
     if (aperture || depth || (displayMode != kTheDisplayMode))
+    {
+        IOBFB_END(getPixelInformation,kIOReturnUnsupportedMode,0,0);
         return (kIOReturnUnsupportedMode);
+    }
 
     getPlatform()->getConsoleInfo( &bootDisplay);
 
     bzero( info, sizeof( *info));
 
-    info->activeWidth           = bootDisplay.v_width;
-    info->activeHeight          = bootDisplay.v_height;
+    info->activeWidth           = static_cast<UInt32>(bootDisplay.v_width);
+    info->activeHeight          = static_cast<UInt32>(bootDisplay.v_height);
     info->bytesPerRow           = bootDisplay.v_rowBytes & 0x7fff;
     info->bytesPerPlane         = 0;
 
@@ -179,22 +196,26 @@ IOReturn IOBootFramebuffer::getPixelInformation(
             break;
     }
 
+    IOBFB_END(getPixelInformation,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
 IOReturn IOBootFramebuffer::getCurrentDisplayMode(
     IODisplayModeID * displayMode, IOIndex * depth )
 {
+    IOBFB_START(getCurrentDisplayMode,0,0,0);
     if (displayMode)
         *displayMode = kTheDisplayMode;
     if (depth)
         *depth = 0;
 
+    IOBFB_END(getCurrentDisplayMode,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
 IODeviceMemory * IOBootFramebuffer::getApertureRange( IOPixelAperture aper )
 {
+    IOBFB_START(getApertureRange,aper,0,0);
     IOReturn                    err;
     IOPixelInformation          info;
     IOByteCount                 bytes;
@@ -205,21 +226,31 @@ IODeviceMemory * IOBootFramebuffer::getApertureRange( IOPixelAperture aper )
     err = getPixelInformation( kTheDisplayMode, 0, aper,
                                &info );
     if (err)
-        return (0);
+    {
+        IOBFB_END(getApertureRange,-1,0,0);
+        return (NULL);
+    }
 
     bytes = (info.bytesPerRow * info.activeHeight) + 128;
 
-    return (IODeviceMemory::withRange(bootDisplay.v_baseAddr, bytes));
+    IODeviceMemory * iomd = IODeviceMemory::withRange(bootDisplay.v_baseAddr, bytes);
+    IOBFB_END(getApertureRange,0,0,0);
+    return (iomd);
 }
 
 bool IOBootFramebuffer::isConsoleDevice( void )
 {
-    return ((0 != getProvider()->getProperty("AAPL,boot-display")));
+    IOBFB_START(isConsoleDevice,0,0,0);
+    bool b = (0 != getProvider()->getProperty("AAPL,boot-display"));
+    IOBFB_END(isConsoleDevice,b,0,0);
+    return (b);
 }
 
 IOReturn IOBootFramebuffer::setGammaTable( UInt32 channelCount,
         UInt32 dataCount, UInt32 dataWidth, void * data )
 {
+    IOBFB_START(setGammaTable,channelCount,dataCount,dataWidth);
+    IOBFB_END(setGammaTable,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
@@ -227,5 +258,7 @@ IOReturn IOBootFramebuffer::setCLUTWithEntries(
     IOColorEntry * colors, UInt32 index, UInt32 numEntries,
     IOOptionBits options )
 {
+    IOBFB_START(setCLUTWithEntries,index,numEntries,options);
+    IOBFB_END(setCLUTWithEntries,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }

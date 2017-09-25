@@ -31,6 +31,7 @@
 #import "APIPageConfiguration.h"
 #import "AccessibilityIOS.h"
 #import "ApplicationStateTracker.h"
+#import "InputViewUpdateDeferrer.h"
 #import "Logging.h"
 #import "PageClientImplIOS.h"
 #import "PrintInfo.h"
@@ -203,15 +204,14 @@ private:
     WebProcessPool::statistics().wkViewCount++;
 
     _rootContentView = adoptNS([[UIView alloc] init]);
+    [_rootContentView layer].name = @"RootContent";
     [_rootContentView layer].masksToBounds = NO;
     [_rootContentView setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 
     _fixedClippingView = adoptNS([[UIView alloc] init]);
+    [_fixedClippingView layer].name = @"FixedClipping";
     [_fixedClippingView layer].masksToBounds = YES;
     [_fixedClippingView layer].anchorPoint = CGPointZero;
-#ifndef NDEBUG
-    [[_fixedClippingView layer] setName:@"Fixed clipping"];
-#endif
 
     [self addSubview:_fixedClippingView.get()];
     [_fixedClippingView addSubview:_rootContentView.get()];
@@ -372,17 +372,20 @@ private:
     [[_webSelectionAssistant selectionView] setHidden:YES];
 }
 
-- (CGRect)_computeUnobscuredContentRectRespectingInputViewBounds:(CGRect)visibleContentRect unobscuredContentRect:(CGRect)unobscuredContentRect inputViewBounds:(CGRect)inputViewBounds scale:(CGFloat)scale
+- (CGRect)_computeUnobscuredContentRectRespectingInputViewBounds:(CGRect)unobscuredContentRect inputViewBounds:(CGRect)inputViewBounds
 {
-    if (inputViewBounds.size.height)
-        unobscuredContentRect.size.height = std::min<float>(unobscuredContentRect.size.height, visibleContentRect.origin.y + (inputViewBounds.origin.y / scale) - unobscuredContentRect.origin.y);
+    // The input view bounds are in window coordinates, but the unobscured rect is in content coordinates. Account for this by converting input view bounds to content coordinates.
+    CGRect inputViewBoundsInContentCoordinates = [self.window convertRect:inputViewBounds toView:self];
+    if (CGRectGetHeight(inputViewBoundsInContentCoordinates))
+        unobscuredContentRect.size.height = std::min<float>(CGRectGetHeight(unobscuredContentRect), CGRectGetMinY(inputViewBoundsInContentCoordinates) - CGRectGetMinY(unobscuredContentRect));
     return unobscuredContentRect;
 }
 
 - (void)didUpdateVisibleRect:(CGRect)visibleContentRect
     unobscuredRect:(CGRect)unobscuredContentRect
     unobscuredRectInScrollViewCoordinates:(CGRect)unobscuredRectInScrollViewCoordinates
-    obscuredInset:(CGSize)obscuredInset
+    obscuredInsets:(UIEdgeInsets)obscuredInsets
+    unobscuredSafeAreaInsets:(UIEdgeInsets)unobscuredSafeAreaInsets
     inputViewBounds:(CGRect)inputViewBounds
     scale:(CGFloat)zoomScale minimumScale:(CGFloat)minimumScale
     inStableState:(BOOL)isStableState
@@ -402,7 +405,7 @@ private:
 
     RemoteScrollingCoordinatorProxy* scrollingCoordinator = _page->scrollingCoordinatorProxy();
 
-    CGRect unobscuredContentRectRespectingInputViewBounds = [self _computeUnobscuredContentRectRespectingInputViewBounds:visibleContentRect unobscuredContentRect:unobscuredContentRect inputViewBounds:inputViewBounds scale:zoomScale];
+    CGRect unobscuredContentRectRespectingInputViewBounds = [self _computeUnobscuredContentRectRespectingInputViewBounds:unobscuredContentRect inputViewBounds:inputViewBounds];
     FloatRect fixedPositionRectForLayout = _page->computeCustomFixedPositionRect(unobscuredContentRect, unobscuredContentRectRespectingInputViewBounds, _page->customFixedPositionRect(), zoomScale, FrameView::LayoutViewportConstraint::ConstrainedToDocumentRect, scrollingCoordinator->visualViewportEnabled());
 
     VisibleContentRectUpdateInfo visibleContentRectUpdateInfo(
@@ -411,9 +414,11 @@ private:
         unobscuredRectInScrollViewCoordinates,
         unobscuredContentRectRespectingInputViewBounds,
         fixedPositionRectForLayout,
-        WebCore::FloatSize(obscuredInset),
+        WebCore::FloatBoxExtent(obscuredInsets.top, obscuredInsets.right, obscuredInsets.bottom, obscuredInsets.left),
+        WebCore::FloatBoxExtent(unobscuredSafeAreaInsets.top, unobscuredSafeAreaInsets.right, unobscuredSafeAreaInsets.bottom, unobscuredSafeAreaInsets.left),
         zoomScale,
         isStableState,
+        _sizeChangedSinceLastVisibleContentRectUpdate,
         isChangingObscuredInsetsInteractively,
         _webView._allowsViewportShrinkToFit,
         enclosedInScrollableAncestorView,
@@ -428,6 +433,7 @@ private:
     bool wasStableState = _page->inStableState();
     _page->updateVisibleContentRects(visibleContentRectUpdateInfo);
 
+    _sizeChangedSinceLastVisibleContentRectUpdate = NO;
 
     FloatRect fixedPositionRect = _page->computeCustomFixedPositionRect(_page->unobscuredContentRect(), _page->unobscuredContentRectRespectingInputViewBounds(), _page->customFixedPositionRect(), zoomScale, FrameView::LayoutViewportConstraint::Unconstrained, scrollingCoordinator->visualViewportEnabled());
     scrollingCoordinator->viewportChangedViaDelegatedScrolling(scrollingCoordinator->rootScrollingNodeID(), fixedPositionRect, zoomScale);
@@ -553,6 +559,8 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     CGPoint scrollOrigin = -layerTreeTransaction.scrollOrigin();
     CGRect contentBounds = { scrollOrigin, contentsSize };
 
+    LOG_WITH_STREAM(VisibleRects, stream << "-[WKContentView _didCommitLayerTree:] transactionID " <<  layerTreeTransaction.transactionID() << " contentBounds " << FloatRect(contentBounds));
+
     BOOL boundsChanged = !CGRectEqualToRect([self bounds], contentBounds);
     if (boundsChanged)
         [self setBounds:contentBounds];
@@ -572,7 +580,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
         [self updateFixedClippingView:fixedPositionRect];
 
         // We need to push the new content bounds to the webview to update fixed position rects.
-        [_webView _updateVisibleContentRects];
+        [_webView _scheduleVisibleContentRectUpdate];
     }
     
     // Updating the selection requires a full editor state. If the editor state is missing post layout
@@ -692,6 +700,13 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
     PrintInfo printInfo;
     printInfo.pageSetupScaleFactor = 1;
+    printInfo.snapshotFirstPage = printFormatter.snapshotFirstPage;
+    if (printInfo.snapshotFirstPage) {
+        static const CGFloat maximumPDFHeight = 200 * 72; // maximum PDF height for a single page is 200 inches
+        CGSize contentSize = self.bounds.size;
+        printingRect = (CGRect) { CGPointZero, { contentSize.width, std::min(contentSize.height, maximumPDFHeight) } };
+        [printFormatter _setSnapshotPaperRect:printingRect];
+    }
     printInfo.availablePaperWidth = CGRectGetWidth(printingRect);
     printInfo.availablePaperHeight = CGRectGetHeight(printingRect);
 

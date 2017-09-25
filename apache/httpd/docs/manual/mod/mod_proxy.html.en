@@ -86,7 +86,7 @@
     <code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code>.  These additional modules will need
     to be loaded and configured to take advantage of these features.</p>
 </div>
-<div id="quickview"><h3>Topics</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#forwardreverse">Forward Proxies and Reverse
        Proxies/Gateways</a></li>
@@ -425,6 +425,11 @@ ProxyPass "/examples" "http://backend.example.com/examples" timeout=10</pre>
   SetEnv proxy-nokeepalive 1
 &lt;/Location&gt;</pre>
 
+
+      <p> In 2.4.26 and later, the "no-proxy" environment variable can be set to disable 
+      <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code> processing the current request.
+      This variable should be set with <code class="directive"><a href="../mod/mod_setenvif.html#setenvif">SetEnvIf</a></code>, as <code class="directive"><a href="../mod/mod_env.html#setenv">SetEnv</a></code>
+      is not evaluated early enough.</p>
 
     </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -1072,7 +1077,13 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
       specific location will take precedence.</p>
 
       <p>For the same reasons, exclusions must come <em>before</em> the
-      general <code class="directive">ProxyPass</code> directives.</p>
+      general <code class="directive">ProxyPass</code> directives. In 2.4.26 and later, the "no-proxy"
+      environment variable is an alternative to exclusions, and is the only
+      way to configure an exclusion of a <code class="directive">ProxyPass</code>
+      directive in <code class="directive"><a href="../mod/core.html#location">Location</a></code> context. 
+      This variable should be set with <code class="directive"><a href="../mod/mod_setenvif.html#setenvif">SetEnvIf</a></code>, as <code class="directive"><a href="../mod/mod_env.html#setenv">SetEnv</a></code>
+      is not evaluated early enough.
+      </p>
 
     </div> 
 
@@ -1284,6 +1295,16 @@ ProxyPass "/mirror/foo" "http://backend.example.com"</pre>
     <tr><td>flusher</td>
         <td>flush</td>
         <td><p>Name of the provider used by <code class="module"><a href="../mod/mod_proxy_fdpass.html">mod_proxy_fdpass</a></code>.
+        See the documentation of this module for more details.</p>
+    </td></tr>
+    <tr><td>secret</td>
+        <td>-</td>
+        <td><p>Value of secret used by <code class="module"><a href="../mod/mod_proxy_ajp.html">mod_proxy_ajp</a></code>.
+        See the documentation of this module for more details.</p>
+    </td></tr>
+    <tr><td>upgrade</td>
+        <td>WebSocket</td>
+        <td><p>Protocol accepted in the Upgrade header by <code class="module"><a href="../mod/mod_proxy_wstunnel.html">mod_proxy_wstunnel</a></code>.
         See the documentation of this module for more details.</p>
     </td></tr>
 
@@ -1977,7 +1998,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_proxy.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

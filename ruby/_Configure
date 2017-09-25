@@ -1,0 +1,8 @@
+#!/bin/sh
+unset xcrun_log ## This breaks programs that check stderr as evidence that compile failed
+
+if ! ${SRCROOT}/ruby/configure "$@"; then
+   status=$?
+   cat config.log
+   exit $status
+fi

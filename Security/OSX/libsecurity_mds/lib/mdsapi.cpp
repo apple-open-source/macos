@@ -271,12 +271,15 @@ MDS_Initialize (const CSSM_GUID *inCallerGuid,
                 MDS_FUNCS_PTR outDlFunctions,
                 MDS_HANDLE *outMDSHandle)
 {
+// The clang analyzer is not a fan of handing handles to your caller and trusting them to release later.
+#ifndef __clang_analyzer__
     BEGIN_API
     Required (outDlFunctions);
     Required (outMDSHandle) = (new MDSSession (Guid::optional(inCallerGuid),
                                                Required(inMemoryFunctions)))->handle ();
     *outDlFunctions = gMDSFunctionTable;
     END_API(MDS)
+#endif
 }
 
 CSSM_RETURN CSSMAPI

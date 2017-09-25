@@ -1,8 +1,7 @@
 /*
  *
  * nkf.h - Header file for nkf
- * 
- * $Id: nkf.h 38204 2012-12-05 04:08:17Z nobu $
+ *
  */
 
 #ifndef NKF_H
@@ -153,6 +152,7 @@ void  setbinmode(FILE *fp)
 # ifndef HAVE_LOCALE_H
 #  define HAVE_LOCALE_H
 # endif
+#elif defined(__BIONIC__) /* bionic doesn't have locale */
 #else
 # ifndef HAVE_LANGINFO_H
 #  define HAVE_LANGINFO_H

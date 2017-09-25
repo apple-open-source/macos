@@ -47,7 +47,7 @@ void
 fsm_set_state(int *var, int state)
 {   
     *var = state;
-    plog(ASL_LEVEL_DEBUG, "****** state changed to: %s\n", s_isakmp_state(0, 0, state));                                                                                    
+    plog(ASL_LEVEL_NOTICE, "state changed to: %s\n", s_isakmp_state(0, 0, state));
 }
 
 

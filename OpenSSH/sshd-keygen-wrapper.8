@@ -1,0 +1,19 @@
+.\"
+.\" Copyright (c) 2017 Apple Inc. All rights reserved.
+.\"
+.Dd April 14, 2017
+.Dt SSHD-KEYGEN-WRAPPER 1
+.Os macOS
+.Sh NAME
+.Nm sshd-keygen-wrapper
+.Nd Simple wrapper for sshd ensuring host keys are properly created
+.Sh SYNOPSIS
+.Nm
+.Op Ar arguments ...
+.Sh DESCRIPTION
+.Nm
+is a simple wrapper for
+.Nm sshd,
+which ensures host keys for all the supported algorithms have been created before the
+.Nm sshd
+service gets started.

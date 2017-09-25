@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/pl.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 pl{
     AuxExemplarCharacters{"[à â å ä æ ç é è ê ë î ï ô ö œ q ß ù û ü v x ÿ]"}
     Ellipsis{
@@ -278,10 +272,21 @@ pl{
                 timeSeparator{":"}
             }
         }
+        minimalPairs{
+            ordinal{
+                other{"Skręć w {0} w prawo."}
+            }
+            plural{
+                few{"{0} miesiące"}
+                many{"{0} miesięcy"}
+                one{"{0} miesiąc"}
+                other{"{0} miesiąca"}
+            }
+        }
         minimumGroupingDigits{"2"}
         native{"latn"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
     calendar{
         buddhist{
             eras{
@@ -708,6 +713,12 @@ pl{
                 MMM{"LLL"}
                 MMMEd{"E, d.MM"}
                 MMMMEd{"E, d MMMM"}
+                MMMMW{
+                    few{"MMM, 'tydz'. W"}
+                    many{"MMM, 'tydz'. W"}
+                    one{"MMM, 'tydz'. W"}
+                    other{"MMM, 'tydz'. W"}
+                }
                 MMMMd{"d MMMM"}
                 MMMd{"d.MM"}
                 Md{"d.MM"}
@@ -730,6 +741,12 @@ pl{
                 yMd{"d.MM.y"}
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
+                yw{
+                    few{"y, 'tydz'. w"}
+                    many{"y, 'tydz'. w"}
+                    one{"y, 'tydz'. w"}
+                    other{"y, 'tydz'. w"}
+                }
             }
             dayNames{
                 format{
@@ -743,13 +760,13 @@ pl{
                         "sob.",
                     }
                     narrow{
-                        "N",
-                        "P",
-                        "W",
-                        "Ś",
-                        "C",
-                        "P",
-                        "S",
+                        "n",
+                        "p",
+                        "w",
+                        "ś",
+                        "c",
+                        "p",
+                        "s",
                     }
                     short{
                         "nie",
@@ -821,13 +838,13 @@ pl{
                         noon{"w południe"}
                     }
                     narrow{
-                        afternoon1{"po południu"}
-                        evening1{"wieczorem"}
+                        afternoon1{"po poł."}
+                        evening1{"wiecz."}
                         midnight{"o półn."}
                         morning1{"rano"}
-                        morning2{"przed południem"}
+                        morning2{"przed poł."}
                         night1{"w nocy"}
-                        noon{"n"}
+                        noon{"w poł."}
                     }
                     wide{
                         afternoon1{"po południu"}
@@ -841,11 +858,25 @@ pl{
                 }
                 stand-alone{
                     abbreviated{
+                        afternoon1{"popołudnie"}
                         am{"AM"}
+                        evening1{"wieczór"}
+                        midnight{"północ"}
+                        morning1{"rano"}
+                        morning2{"przedpołudnie"}
+                        night1{"noc"}
+                        noon{"południe"}
                         pm{"PM"}
                     }
                     narrow{
+                        afternoon1{"popoł."}
                         am{"a"}
+                        evening1{"wiecz."}
+                        midnight{"półn."}
+                        morning1{"rano"}
+                        morning2{"przedpoł."}
+                        night1{"noc"}
+                        noon{"poł."}
                         pm{"p"}
                     }
                     wide{
@@ -1085,10 +1116,10 @@ pl{
             quarters{
                 format{
                     abbreviated{
-                        "K1",
-                        "K2",
-                        "K3",
-                        "K4",
+                        "I kw.",
+                        "II kw.",
+                        "III kw.",
+                        "IV kw.",
                     }
                     narrow{
                         "1",
@@ -1105,10 +1136,10 @@ pl{
                 }
                 stand-alone{
                     abbreviated{
-                        "1 kw.",
-                        "2 kw.",
-                        "3 kw.",
-                        "4 kw.",
+                        "I kw.",
+                        "II kw.",
+                        "III kw.",
+                        "IV kw.",
                     }
                     narrow{
                         "1",
@@ -1443,6 +1474,94 @@ pl{
             }
         }
     }
+    characterLabel{
+        activities{"czynności"}
+        african_scripts{"afrykańskie systemy pisma"}
+        american_scripts{"amerykańskie systemy pisma"}
+        animal{"zwierzę"}
+        animals_nature{"zwierzęta i natura"}
+        arrows{"strzałki"}
+        body{"ciało"}
+        box_drawing{"rysowanie prostokątne"}
+        braille{"Braille’a"}
+        building{"budynek"}
+        bullets_stars{"punktory/gwiazdki"}
+        consonantal_jamo{"jamo spółgłoskowe"}
+        currency_symbols{"symbole walut"}
+        dash_connector{"pauza/łącznik"}
+        digits{"cyfry"}
+        dingbats{"dingbaty"}
+        divination_symbols{"symbole wróżbiarskie"}
+        downwards_arrows{"strzałki w dół"}
+        downwards_upwards_arrows{"strzałki w dół i w górę"}
+        east_asian_scripts{"wschodnioazjatyckie systemy pisma"}
+        emoji{"emoji"}
+        european_scripts{"europejskie systemy pisma"}
+        female{"kobieta"}
+        flag{"flaga"}
+        flags{"flagi"}
+        food_drink{"żywność i napoje"}
+        format{"format"}
+        format_whitespace{"format i białe znaki"}
+        full_width_form_variant{"wariant formy o pełnej szerokości"}
+        geometric_shapes{"kształty geometryczne"}
+        half_width_form_variant{"warianty form o połowie szerokości"}
+        han_characters{"znaki han"}
+        han_radicals{"radykały han"}
+        hanja{"hancha"}
+        hanzi_simplified{"hanzi (uproszczone)"}
+        hanzi_traditional{"hanzi (tradycyjne)"}
+        heart{"serce"}
+        historic_scripts{"historyczne systemy pisma"}
+        ideographic_desc_characters{"ideograficzne znaki opisu"}
+        japanese_kana{"kana japońska"}
+        kanbun{"kanbun"}
+        kanji{"kanji"}
+        keycap{"klawisz"}
+        leftwards_arrows{"strzałki w lewo"}
+        leftwards_rightwards_arrows{"strzałki w lewo i w prawo"}
+        letterlike_symbols{"symbole literopodobne"}
+        limited_use{"ograniczone użycie"}
+        male{"mężczyzna"}
+        math_symbols{"symbole matematyczne"}
+        middle_eastern_scripts{"bliskowschodnie systemy pisma"}
+        miscellaneous{"różne"}
+        modern_scripts{"współczesne systemy pisma"}
+        modifier{"modyfikator"}
+        musical_symbols{"symbole muzyczne"}
+        nature{"natura"}
+        nonspacing{"nierozdzielające"}
+        numbers{"liczbowe"}
+        objects{"obiekty"}
+        other{"inne"}
+        paired{"pary"}
+        person{"osoba"}
+        phonetic_alphabet{"alfabet fonetyczny"}
+        pictographs{"piktogramy"}
+        place{"miejsce"}
+        plant{"roślina"}
+        punctuation{"interpunkcja"}
+        rightwards_arrows{"strzałki w prawo"}
+        sign_standard_symbols{"symbole znaków/standardowe"}
+        small_form_variant{"warianty form małych"}
+        smiley{"buźka"}
+        smileys_people{"emotikony i osoby"}
+        south_asian_scripts{"południowoazjatyckie systemy pisma"}
+        southeast_asian_scripts{"południowo-wschodnioazjatyckie systemy pisma"}
+        spacing{"odstępy"}
+        sport{"sport"}
+        symbols{"symbole"}
+        technical_symbols{"symbole techniczne"}
+        tone_marks{"znaczniki tonów"}
+        travel{"podróż"}
+        travel_places{"podróże i miejsca"}
+        upwards_arrows{"strzałki w górę"}
+        variant_forms{"warianty form"}
+        vocalic_jamo{"jamo samogłoskowe"}
+        weather{"pogoda"}
+        western_asian_scripts{"zachodnioazjatyckie systemy pisma"}
+        whitespace{"białe znaki"}
+    }
     contextTransforms{
         day-format-except-narrow:intvector{
             0,
@@ -1546,12 +1665,40 @@ pl{
                 "0"{"w ten piątek"}
                 "1"{"w przyszły piątek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} piątki"}
+                    many{"za {0} piątków"}
+                    one{"za {0} piątek"}
+                    other{"za {0} piątku"}
+                }
+                past{
+                    few{"{0} piątki temu"}
+                    many{"{0} piątków temu"}
+                    one{"{0} piątek temu"}
+                    other{"{0} piątku temu"}
+                }
+            }
         }
         fri-narrow{
             relative{
                 "-1"{"w zeszły piątek"}
                 "0"{"w ten piątek"}
                 "1"{"w przyszły piątek"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} piątki"}
+                    many{"za {0} piątków"}
+                    one{"za {0} piątek"}
+                    other{"za {0} piątku"}
+                }
+                past{
+                    few{"{0} piątki temu"}
+                    many{"{0} piątków temu"}
+                    one{"{0} piątek temu"}
+                    other{"{0} piątku temu"}
+                }
             }
         }
         fri-short{
@@ -1560,9 +1707,26 @@ pl{
                 "0"{"w ten piątek"}
                 "1"{"w przyszły piątek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} piątki"}
+                    many{"za {0} piątków"}
+                    one{"za {0} piątek"}
+                    other{"za {0} piątku"}
+                }
+                past{
+                    few{"{0} piątki temu"}
+                    many{"{0} piątków temu"}
+                    one{"{0} piątek temu"}
+                    other{"{0} piątku temu"}
+                }
+            }
         }
         hour{
             dn{"godzina"}
+            relative{
+                "0"{"ta godzina"}
+            }
             relativeTime{
                 future{
                     few{"za {0} godziny"}
@@ -1614,6 +1778,9 @@ pl{
         }
         minute{
             dn{"minuta"}
+            relative{
+                "0"{"ta minuta"}
+            }
             relativeTime{
                 future{
                     few{"za {0} minuty"}
@@ -1669,6 +1836,20 @@ pl{
                 "0"{"w ten poniedziałek"}
                 "1"{"w przyszły poniedziałek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} poniedziałki"}
+                    many{"za {0} poniedziałków"}
+                    one{"za {0} poniedziałek"}
+                    other{"za {0} poniedziałku"}
+                }
+                past{
+                    few{"{0} poniedziałki temu"}
+                    many{"{0} poniedziałków temu"}
+                    one{"{0} poniedziałek temu"}
+                    other{"{0} poniedziałku temu"}
+                }
+            }
         }
         mon-narrow{
             relative{
@@ -1676,12 +1857,40 @@ pl{
                 "0"{"w ten poniedziałek"}
                 "1"{"w przyszły poniedziałek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} poniedziałki"}
+                    many{"za {0} poniedziałków"}
+                    one{"za {0} poniedziałek"}
+                    other{"za {0} poniedziałku"}
+                }
+                past{
+                    few{"{0} poniedziałki temu"}
+                    many{"{0} poniedziałków temu"}
+                    one{"{0} poniedziałek temu"}
+                    other{"{0} poniedziałku temu"}
+                }
+            }
         }
         mon-short{
             relative{
                 "-1"{"w zeszły poniedziałek"}
                 "0"{"w ten poniedziałek"}
                 "1"{"w przyszły poniedziałek"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} poniedziałki"}
+                    many{"za {0} poniedziałków"}
+                    one{"za {0} poniedziałek"}
+                    other{"za {0} poniedziałku"}
+                }
+                past{
+                    few{"{0} poniedziałki temu"}
+                    many{"{0} poniedziałków temu"}
+                    one{"{0} poniedziałek temu"}
+                    other{"{0} poniedziałku temu"}
+                }
             }
         }
         month{
@@ -1812,6 +2021,20 @@ pl{
                 "0"{"w tę sobotę"}
                 "1"{"w przyszłą sobotę"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} soboty"}
+                    many{"za {0} sobót"}
+                    one{"za {0} sobotę"}
+                    other{"za {0} soboty"}
+                }
+                past{
+                    few{"{0} soboty temu"}
+                    many{"{0} sobót temu"}
+                    one{"{0} sobotę temu"}
+                    other{"{0} soboty temu"}
+                }
+            }
         }
         sat-narrow{
             relative{
@@ -1819,12 +2042,40 @@ pl{
                 "0"{"w tę sobotę"}
                 "1"{"w przyszłą sobotę"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} soboty"}
+                    many{"za {0} sobót"}
+                    one{"za {0} sobotę"}
+                    other{"za {0} soboty"}
+                }
+                past{
+                    few{"{0} soboty temu"}
+                    many{"{0} sobót temu"}
+                    one{"{0} sobotę temu"}
+                    other{"{0} soboty temu"}
+                }
+            }
         }
         sat-short{
             relative{
                 "-1"{"w zeszłą sobotę"}
                 "0"{"w tę sobotę"}
                 "1"{"w przyszłą sobotę"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} soboty"}
+                    many{"za {0} sobót"}
+                    one{"za {0} sobotę"}
+                    other{"za {0} soboty"}
+                }
+                past{
+                    few{"{0} soboty temu"}
+                    many{"{0} sobót temu"}
+                    one{"{0} sobotę temu"}
+                    other{"{0} soboty temu"}
+                }
             }
         }
         second{
@@ -1887,12 +2138,40 @@ pl{
                 "0"{"w tę niedzielę"}
                 "1"{"w przyszłą niedzielę"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} niedziele"}
+                    many{"za {0} niedziel"}
+                    one{"za {0} niedzielę"}
+                    other{"za {0} niedzieli"}
+                }
+                past{
+                    few{"{0} niedziele temu"}
+                    many{"{0} niedziel temu"}
+                    one{"{0} niedzielę temu"}
+                    other{"{0} niedzieli temu"}
+                }
+            }
         }
         sun-narrow{
             relative{
                 "-1"{"w zeszłą niedzielę"}
                 "0"{"w tę niedzielę"}
                 "1"{"w przyszłą niedzielę"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} niedziele"}
+                    many{"za {0} niedziel"}
+                    one{"za {0} niedzielę"}
+                    other{"za {0} niedzieli"}
+                }
+                past{
+                    few{"{0} niedziele temu"}
+                    many{"{0} niedziel temu"}
+                    one{"{0} niedzielę temu"}
+                    other{"{0} niedzieli temu"}
+                }
             }
         }
         sun-short{
@@ -1901,12 +2180,40 @@ pl{
                 "0"{"w tę niedzielę"}
                 "1"{"w przyszłą niedzielę"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} niedziele"}
+                    many{"za {0} niedziel"}
+                    one{"za {0} niedzielę"}
+                    other{"za {0} niedzieli"}
+                }
+                past{
+                    few{"{0} niedziele temu"}
+                    many{"{0} niedziel temu"}
+                    one{"{0} niedzielę temu"}
+                    other{"{0} niedzieli temu"}
+                }
+            }
         }
         thu{
             relative{
                 "-1"{"w zeszły czwartek"}
                 "0"{"w ten czwartek"}
                 "1"{"w przyszły czwartek"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} czwartki"}
+                    many{"za {0} czwartków"}
+                    one{"za {0} czwartek"}
+                    other{"za {0} czwartku"}
+                }
+                past{
+                    few{"{0} czwartki temu"}
+                    many{"{0} czwartków temu"}
+                    one{"{0} czwartek temu"}
+                    other{"{0} czwartku temu"}
+                }
             }
         }
         thu-narrow{
@@ -1915,12 +2222,40 @@ pl{
                 "0"{"w ten czwartek"}
                 "1"{"w przyszły czwartek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} czwartki"}
+                    many{"za {0} czwartków"}
+                    one{"za {0} czwartek"}
+                    other{"za {0} czwartku"}
+                }
+                past{
+                    few{"{0} czwartki temu"}
+                    many{"{0} czwartków temu"}
+                    one{"{0} czwartek temu"}
+                    other{"{0} czwartku temu"}
+                }
+            }
         }
         thu-short{
             relative{
                 "-1"{"w zeszły czwartek"}
                 "0"{"w ten czwartek"}
                 "1"{"w przyszły czwartek"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} czwartki"}
+                    many{"za {0} czwartków"}
+                    one{"za {0} czwartek"}
+                    other{"za {0} czwartku"}
+                }
+                past{
+                    few{"{0} czwartki temu"}
+                    many{"{0} czwartków temu"}
+                    one{"{0} czwartek temu"}
+                    other{"{0} czwartku temu"}
+                }
             }
         }
         tue{
@@ -1929,12 +2264,40 @@ pl{
                 "0"{"w ten wtorek"}
                 "1"{"w przyszły wtorek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} wtorki"}
+                    many{"za {0} wtorków"}
+                    one{"za {0} wtorek"}
+                    other{"za {0} wtorku"}
+                }
+                past{
+                    few{"{0} wtorki temu"}
+                    many{"{0} wtorków temu"}
+                    one{"{0} wtorek temu"}
+                    other{"{0} wtorku temu"}
+                }
+            }
         }
         tue-narrow{
             relative{
                 "-1"{"w zeszły wtorek"}
                 "0"{"w ten wtorek"}
                 "1"{"w przyszły wtorek"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} wtorki"}
+                    many{"za {0} wtorków"}
+                    one{"za {0} wtorek"}
+                    other{"za {0} wtorku"}
+                }
+                past{
+                    few{"{0} wtorki temu"}
+                    many{"{0} wtorków temu"}
+                    one{"{0} wtorek temu"}
+                    other{"{0} wtorku temu"}
+                }
             }
         }
         tue-short{
@@ -1943,12 +2306,40 @@ pl{
                 "0"{"w ten wtorek"}
                 "1"{"w przyszły wtorek"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} wtorki"}
+                    many{"za {0} wtorków"}
+                    one{"za {0} wtorek"}
+                    other{"za {0} wtorku"}
+                }
+                past{
+                    few{"{0} wtorki temu"}
+                    many{"{0} wtorków temu"}
+                    one{"{0} wtorek temu"}
+                    other{"{0} wtorku temu"}
+                }
+            }
         }
         wed{
             relative{
                 "-1"{"w zeszłą środę"}
                 "0"{"w tę środę"}
                 "1"{"w przyszłą środę"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} środy"}
+                    many{"za {0} śród"}
+                    one{"za {0} środę"}
+                    other{"za {0} środy"}
+                }
+                past{
+                    few{"{0} środy temu"}
+                    many{"{0} śród temu"}
+                    one{"{0} środę temu"}
+                    other{"{0} środy temu"}
+                }
             }
         }
         wed-narrow{
@@ -1957,12 +2348,40 @@ pl{
                 "0"{"w tę środę"}
                 "1"{"w przyszłą środę"}
             }
+            relativeTime{
+                future{
+                    few{"za {0} środy"}
+                    many{"za {0} śród"}
+                    one{"za {0} środę"}
+                    other{"za {0} środy"}
+                }
+                past{
+                    few{"{0} środy temu"}
+                    many{"{0} śród temu"}
+                    one{"{0} środę temu"}
+                    other{"{0} środy temu"}
+                }
+            }
         }
         wed-short{
             relative{
                 "-1"{"w zeszłą środę"}
                 "0"{"w tę środę"}
                 "1"{"w przyszłą środę"}
+            }
+            relativeTime{
+                future{
+                    few{"za {0} środy"}
+                    many{"za {0} śród"}
+                    one{"za {0} środę"}
+                    other{"za {0} środy"}
+                }
+                past{
+                    few{"{0} środy temu"}
+                    many{"{0} śród temu"}
+                    one{"{0} środę temu"}
+                    other{"{0} środy temu"}
+                }
             }
         }
         week{
@@ -1972,6 +2391,7 @@ pl{
                 "0"{"w tym tygodniu"}
                 "1"{"w przyszłym tygodniu"}
             }
+            relativePeriod{"tydzień {0}"}
             relativeTime{
                 future{
                     few{"za {0} tygodnie"}
@@ -1989,6 +2409,7 @@ pl{
         }
         week-narrow{
             dn{"tydz."}
+            relativePeriod{"tydzień {0}"}
             relativeTime{
                 future{
                     few{"za {0} tyg."}
@@ -2006,6 +2427,7 @@ pl{
         }
         week-short{
             dn{"tydz."}
+            relativePeriod{"tydzień {0}"}
             relativeTime{
                 future{
                     few{"za {0} tyg."}
@@ -2091,6 +2513,12 @@ pl{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-short{
+            2{"{0} i {1}"}
+            end{"{0} i {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         unit{
             2{"{0} i {1}"}
             end{"{0} i {1}"}
@@ -2112,19 +2540,7 @@ pl{
     }
     measurementSystemNames{
         UK{"brytyjski"}
-        US{"anglosaski"}
+        US{"amerykański"}
         metric{"metryczny"}
-    }
-    transformNames{
-        BGN{"BGN"}
-        Numeric{"Liczbowe"}
-        Tone{"Ton"}
-        UNGEGN{"UNGEGN"}
-        x-Accents{"Akcenty"}
-        x-Fullwidth{"Pełna szerokość"}
-        x-Halfwidth{"Połowa szerokości"}
-        x-Jamo{"Jamo"}
-        x-Pinyin{"Pinyin"}
-        x-Publishing{"Druk"}
     }
 }

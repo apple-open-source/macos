@@ -30,6 +30,8 @@
 #
 # $FreeBSD$
 
+enable -n test
+
 # force a specified test program, e.g. `env test=/bin/test sh regress.sh'
 : ${test=test}		
 
@@ -39,20 +41,25 @@ t ()
 	# $2 -> $test expression
 
 	count=$((count+1))
+	printf "[BEGIN] test $count\n"
 	# check for syntax errors
 	syntax="`eval $test $2 2>&1`"
 	ret=$?
 	if test -n "$syntax"; then
 		printf "not ok %s - (syntax error)\n" "$count $2"
+		printf "[FAIL] test $count\n"
 	elif [ "$ret" != "$1" ]; then
 		printf "not ok %s - (got $ret, expected $1)\n" "$count $2"
+		printf "[FAIL] test $count\n"
 	else
 		printf "ok %s\n" "$count $2"
+		printf "[PASS] test $count\n"
 	fi
 }
 
 count=0
 echo "1..130"
+printf "[TEST] shell_cmds: test\n"
 
 t 0 'b = b' 
 t 0 'b == b' 

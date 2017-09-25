@@ -82,7 +82,7 @@
     before a 1011-byte file (if in ascending order) even though
     they both are shown as "1K".</p>
 </div>
-<div id="quickview"><h3>Topics</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#query">Autoindex Request Query Arguments</a></li>
 </ul><h3 class="directives">Directives</h3>
@@ -856,6 +856,14 @@ indexing</td></tr>
 
       </dd>
 
+      <dt><a name="indexoptions.useolddateformat" id="indexoptions.useolddateformat">UseOldDateFormat</a>
+      (<em>Apache HTTP Server 2.4.26 and later</em>)</dt>
+
+      <dd>The date format used for the <code>Last Modified</code> field was 
+      inadvertently changed to <code>"%Y-%m-%d %H:%M"</code> from 
+      <code>"%d-%b-%Y %H:%M"</code> in 2.4.0. Setting this option 
+      restores the date format from 2.2 and earlier.</dd>
+
       <dt><a name="indexoptions.versionsort" id="indexoptions.versionsort">VersionSort</a>
       (<em>Apache HTTP Server 2.0a3 and later</em>)</dt>
 
@@ -1070,7 +1078,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_autoindex.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

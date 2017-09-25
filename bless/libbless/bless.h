@@ -191,6 +191,13 @@ typedef struct {
 
 
 /*!
+ * @define kBL_PATH_BRIDGE_VERSION
+ * @discussion SecureBoot-related file
+ */
+#define kBL_PATH_BRIDGE_VERSION "/System/Library/CoreServices/BridgeVersion.bin"
+
+
+/*!
  * @define kBL_OSTYPE_PPC_TYPE_BOOTX
  * @discussion HFS+ type for Secondary loader for New World
  */
@@ -581,6 +588,29 @@ int BLCreateFile(BLContextPtr context,
 				 int setImmutable,
                  uint32_t type,
                  uint32_t creator);
+
+/*!
+ * @function BLCreateFileWithOptions
+ * @abstract Create a new file with contents of old one
+ * @discussion Copy <b>source</b> to <b>dest</b>/<b>file</b>,
+ *    with the new file being contiguously allocated.
+ *    Optionally, write the data into the resource fork
+ *    of the destination
+ * @param context Bless Library context
+ * @param data source data
+ * @param file destination file
+ * @param setImmutable mark new file with "uchg" flag
+ * @param type an OSType representing the type of the new file
+ * @param creator an OSType representing the creator of the new file
+ * @param shouldPreallocate 1 if the file being created needs to be contiguous on disk
+ */
+int BLCreateFileWithOptions(BLContextPtr context,
+                            const CFDataRef data,
+                            const char * file,
+                            int setImmutable,
+                            uint32_t type,
+                            uint32_t creator,
+                            int shouldPreallocate);
 
 /*!
  * @function BLGetCommonMountPoint
@@ -989,6 +1019,12 @@ int BLPreserveBootArgs(BLContextPtr context,
                        const char *input,
                        char *output,
                        int outputLen);
+
+int BLPreserveBootArgsIfChanged(BLContextPtr context,
+                                const char *input,
+                                char *output,
+                                size_t outputLen,
+                                bool *changed);
 
 #define kBLDataPartitionsKey        CFSTR("Data Partitions")
 #define kBLAuxiliaryPartitionsKey   CFSTR("Auxiliary Partitions")

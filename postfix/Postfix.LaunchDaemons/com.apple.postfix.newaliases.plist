@@ -4,13 +4,21 @@
 <dict>
 	<key>Label</key>
 	<string>com.apple.postfix.newaliases</string>
-	<key>Program</key>
-	<string>/usr/libexec/postfix/check-aliases.sh</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/libexec/postfix/check-aliases.sh</string>
+		<string>/usr/bin/newaliases</string>
 	</array>
-	<key>RunAtLoad</key>
-	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/etc/aliases.db</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>WatchPaths</key>
+	<array>
+		<string>/etc/postfix/aliases</string>
+	</array>
 </dict>
 </plist>

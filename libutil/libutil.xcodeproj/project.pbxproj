@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDA49910199D69B800A32E83 /* Build configuration list for PBXAggregateTarget "tests" */;
 			buildPhases = (
+				FDA46DEB1D6D10DE00C63528 /* CopyFiles */,
 			);
 			dependencies = (
 				FDA49918199D69C800A32E83 /* PBXTargetDependency */,
@@ -26,6 +27,7 @@
 			dependencies = (
 				FDBC27001741B1B300CA4B2B /* PBXTargetDependency */,
 				FDA49916199D69C600A32E83 /* PBXTargetDependency */,
+				3EB98B671E37CEFE0059EC72 /* PBXTargetDependency */,
 			);
 			name = osx;
 			productName = OSX;
@@ -68,6 +70,7 @@
 		BA79F9E613BB76B0006A292D /* wipefs.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9BC13BB70FF006A292D /* wipefs.3 */; };
 		BA79F9E913BB77FA006A292D /* libutil.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AB13BB70FF006A292D /* libutil.plist */; };
 		BA79F9EA13BB77FF006A292D /* libutil.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AC13BB70FF006A292D /* libutil.txt */; };
+		FDA46DED1D6D110000C63528 /* libutil.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FDA46DEC1D6D110000C63528 /* libutil.plist */; };
 		FDA4991B199D6A0400A32E83 /* humanize_number_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FDA4991A199D6A0400A32E83 /* humanize_number_test.c */; };
 		FDA4991C199D6B9300A32E83 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA79F9C513BB718B006A292D /* libutil.dylib */; };
 		FDBC27051741B1C300CA4B2B /* com.apple.tzlinkd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FDBC26FA1741B19000CA4B2B /* com.apple.tzlinkd.plist */; };
@@ -77,6 +80,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3EB98B661E37CEFE0059EC72 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDBC26EF1741B13400CA4B2B;
+			remoteInfo = tzlinkd;
+		};
 		FDA49913199D69C100A32E83 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
@@ -159,6 +169,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		FDA46DEB1D6D10DE00C63528 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				FDA46DED1D6D110000C63528 /* libutil.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDBC26EE1741B13400CA4B2B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -197,6 +217,7 @@
 		BA79F9BD13BB70FF006A292D /* wipefs.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = wipefs.cpp; sourceTree = "<group>"; };
 		BA79F9BE13BB70FF006A292D /* wipefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wipefs.h; sourceTree = "<group>"; };
 		BA79F9C513BB718B006A292D /* libutil.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libutil.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDA46DEC1D6D110000C63528 /* libutil.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = libutil.plist; sourceTree = "<group>"; };
 		FDA49903199D69B000A32E83 /* humanize_number_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = humanize_number_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDA4991A199D6A0400A32E83 /* humanize_number_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = humanize_number_test.c; sourceTree = "<group>"; };
 		FDA4991D199D6CB800A32E83 /* test.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = test.xcconfig; sourceTree = "<group>"; };
@@ -294,6 +315,7 @@
 		FDA49919199D6A0400A32E83 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				FDA46DEC1D6D110000C63528 /* libutil.plist */,
 				FDA4991A199D6A0400A32E83 /* humanize_number_test.c */,
 			);
 			path = tests;
@@ -488,6 +510,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		3EB98B671E37CEFE0059EC72 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDBC26EF1741B13400CA4B2B /* tzlinkd */;
+			targetProxy = 3EB98B661E37CEFE0059EC72 /* PBXContainerItemProxy */;
+		};
 		FDA49914199D69C100A32E83 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FDA4990F199D69B800A32E83 /* tests */;

@@ -64,6 +64,7 @@ enum {
 	ccOAEPPadding		= 1002,
 	ccX931Padding		= 1003, // Work in Progress - don't use.
     ccPKCS1PaddingRaw   = 1004,
+    ccRSAPSSPadding     = 1005,
 };
 typedef uint32_t CCAsymmetricPadding;
     
@@ -89,7 +90,7 @@ enum {
     @function   CCRSACryptorGeneratePair
     @abstract   Generate an RSA public and private key. 
     
-	@param      keysize     Example sizes for RSA keys are: 512, 768, 1024, 2048.
+	@param      keysize     The Key size in bits. RSA keys smaller than 2048 bits are insecure and should not be used.
 
 	@param      e           The "e" value (public key). Must be odd; 65537 or larger
     
@@ -113,12 +114,12 @@ CCCryptorStatus CCRSACryptorGeneratePair(
     @function   CCRSACryptorGetPublicKeyFromPrivateKey
     @abstract   Create an RSA public key from a full private key. 
     
-    @param      privateKey		A pointer to a private CCRSACryptorRef.
+    @param      privkey A pointer to a private CCRSACryptorRef.
     @result     returns either a valid public key CCRSACryptorRef or NULL.
  */
     
 CCRSACryptorRef CCRSACryptorGetPublicKeyFromPrivateKey(CCRSACryptorRef privkey)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
 
 
 /*!
@@ -147,9 +148,9 @@ CCCryptorStatus CCRSACryptorImport( const void *keyPackage,
  
  	@param      key				The CCRSACryptorRef of the key to encode. 
 
-    @param      keyPackage		The data package in which to put the encoded key. 
+    @param      out		The data package in which to put the encoded key.
  
- 	@param      keyPackageLen   A pointer to the length of the encoded key 
+ 	@param      outLen   A pointer to the length of the encoded key
     							package.  This is an in/out parameter.
  
  
@@ -215,9 +216,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 	
  	@param      saltLen			Length of salt to use for the signature. 
     
-    @param      sig				The signature bytes. 
+    @param      signedData		The signature bytes.
 
-	@param      sigLen			A pointer to the length of signature material.
+	@param      signedDataLen	A pointer to the length of signature material.
     							This is an in/out parameter value.     
                                 
     @result     Possible error returns are kCCParamError and kCCMemoryFailure.
@@ -258,8 +259,7 @@ CCRSACryptorSign(	CCRSACryptorRef privateKey,
 	@param      signedDataLen	Length of data associated with the signature. 
 	
                                 
-    @result     Possible error returns are kCCParamError, kCCMemoryFailure 
-				or kCCNotVerified.
+    @result     returns kCCSuccess if successful, kCCDecodeError if verification fails and kCCParamError if input parameters are incorrect.
 */
 
 CCCryptorStatus 
@@ -278,7 +278,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 /*!
     @function   CCRSACryptorEncrypt
 
-	@abstract   Encrypt data with an RSA public key. 
+	@abstract   Encrypt data with an RSA public key. It currently supports RSA-OAEP and PKCS1.5
     
     @param      publicKey		A pointer to a public CCRSACryptorRef.
 
@@ -298,7 +298,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
  
  	@param      digestType		The digest algorithm to use (See CommonDigestSPI.h). 
     
-    @result     Possible error returns are kCCParamError.
+    @result     returns kCCSuccess if successful, kCCDecodeError if encryption fails and kCCParamError if input parameters are incorrect.
 */
 
 CCCryptorStatus CCRSACryptorEncrypt( 
@@ -370,8 +370,6 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
  @param      plainTextLen	A pointer to the length of data decrypted.
  This is an in/out parameter. 	
  
- @param      digestType		The digest algorithm to use (See CommonDigestSPI.h). 
- 
  @result     Possible error returns are kCCParamError.
  */
 
@@ -417,7 +415,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*!
     @function   CCRSAGetKeyComponents
-	@abstract   En/Decrypt data with an RSA key. 
+	@abstract   Extracts the modulus, p, q, and private exponent if rsaKey is a private key, and modulus and public exponent if rsaKey is a public key.
     @param      rsaKey		A pointer to a CCRSACryptorRef.
 	@param      modulus     		The modulus in MSB format.
 	@param      modulusLength     	The modulus data length. 	(in/out parameter)
@@ -443,7 +441,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
     @function   CCRSACryptorCreateFromData
 	@abstract   For FIPS CAVS testing we need the ability to create an RSA 
     			key from an exponent and Modulus.
-
+    @discussion If the keyType is ccRSAKeyPublic, the inputs are modulus, modulusLength, publicExponent and publicExponentLength.
+                If the keyType is ccRSAKeyPrivate, the inputs are publicExponent, publicExponentLength, p, pLength, q and qLength. 
+                Unused inputs are ignored, in either case.
 	@param      keyType                 The type of key to create - ccRSAKeyPublic
                                         or ccRSAKeyPrivate.
 	@param      modulus                 The modulus in MSB format.
@@ -463,8 +463,10 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 */
 
 CCCryptorStatus
-CCRSACryptorCreateFromData( CCRSAKeyType keyType, uint8_t *modulus, size_t modulusLength, uint8_t *publicExponent, size_t publicExponentLength,
- 							uint8_t *p, size_t pLength, uint8_t *q, size_t qLength, CCRSACryptorRef *ref)
+CCRSACryptorCreateFromData( CCRSAKeyType keyType,
+                            const uint8_t *modulus, size_t modulusLength,
+                            const uint8_t *publicExponent, size_t publicExponentLength,
+ 							const uint8_t *p, size_t pLength, const uint8_t *q, size_t qLength, CCRSACryptorRef *ref)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 

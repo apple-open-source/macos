@@ -3,7 +3,7 @@
 
   thread_win32.c -
 
-  $Author: usa $
+  $Author: kosaki $
 
   Copyright (C) 2004-2007 Koichi Sasada
 
@@ -19,13 +19,13 @@
 #undef Sleep
 
 #define native_thread_yield() Sleep(0)
-#define remove_signal_thread_list(th)
+#define unregister_ubf_list(th)
 
 static volatile DWORD ruby_native_thread_key = TLS_OUT_OF_INDEXES;
 
 static int w32_wait_events(HANDLE *events, int count, DWORD timeout, rb_thread_t *th);
-static int native_mutex_lock(rb_thread_lock_t *lock);
-static int native_mutex_unlock(rb_thread_lock_t *lock);
+static int native_mutex_lock(rb_nativethread_lock_t *lock);
+static int native_mutex_unlock(rb_nativethread_lock_t *lock);
 
 static void
 w32_error(const char *func)
@@ -269,7 +269,7 @@ w32_resume_thread(HANDLE handle)
 #ifdef HAVE__BEGINTHREADEX
 #define start_thread (HANDLE)_beginthreadex
 #define thread_errno errno
-typedef unsigned long (_stdcall *w32_thread_start_func)(void*);
+typedef unsigned long (__stdcall *w32_thread_start_func)(void*);
 #else
 #define start_thread CreateThread
 #define thread_errno rb_w32_map_errno(GetLastError())
@@ -301,14 +301,8 @@ rb_w32_Sleep(unsigned long msec)
 static void
 native_sleep(rb_thread_t *th, struct timeval *tv)
 {
-    DWORD msec;
-
-    if (tv) {
-	msec = tv->tv_sec * 1000 + tv->tv_usec / 1000;
-    }
-    else {
-	msec = INFINITE;
-    }
+    const volatile DWORD msec = (tv) ?
+	(DWORD)(tv->tv_sec * 1000 + tv->tv_usec / 1000) : INFINITE;
 
     GVL_UNLOCK_BEGIN();
     {
@@ -337,7 +331,7 @@ native_sleep(rb_thread_t *th, struct timeval *tv)
 }
 
 static int
-native_mutex_lock(rb_thread_lock_t *lock)
+native_mutex_lock(rb_nativethread_lock_t *lock)
 {
 #if USE_WIN32_MUTEX
     w32_mutex_lock(lock->mutex);
@@ -348,7 +342,7 @@ native_mutex_lock(rb_thread_lock_t *lock)
 }
 
 static int
-native_mutex_unlock(rb_thread_lock_t *lock)
+native_mutex_unlock(rb_nativethread_lock_t *lock)
 {
 #if USE_WIN32_MUTEX
     thread_debug("release mutex: %p\n", lock->mutex);
@@ -360,7 +354,7 @@ native_mutex_unlock(rb_thread_lock_t *lock)
 }
 
 static int
-native_mutex_trylock(rb_thread_lock_t *lock)
+native_mutex_trylock(rb_nativethread_lock_t *lock)
 {
 #if USE_WIN32_MUTEX
     int result;
@@ -380,7 +374,7 @@ native_mutex_trylock(rb_thread_lock_t *lock)
 }
 
 static void
-native_mutex_initialize(rb_thread_lock_t *lock)
+native_mutex_initialize(rb_nativethread_lock_t *lock)
 {
 #if USE_WIN32_MUTEX
     lock->mutex = w32_mutex_create();
@@ -391,7 +385,7 @@ native_mutex_initialize(rb_thread_lock_t *lock)
 }
 
 static void
-native_mutex_destroy(rb_thread_lock_t *lock)
+native_mutex_destroy(rb_nativethread_lock_t *lock)
 {
 #if USE_WIN32_MUTEX
     w32_close_handle(lock->mutex);
@@ -407,7 +401,7 @@ struct cond_event_entry {
 };
 
 static void
-native_cond_signal(rb_thread_cond_t *cond)
+native_cond_signal(rb_nativethread_cond_t *cond)
 {
     /* cond is guarded by mutex */
     struct cond_event_entry *e = cond->next;
@@ -426,7 +420,7 @@ native_cond_signal(rb_thread_cond_t *cond)
 }
 
 static void
-native_cond_broadcast(rb_thread_cond_t *cond)
+native_cond_broadcast(rb_nativethread_cond_t *cond)
 {
     /* cond is guarded by mutex */
     struct cond_event_entry *e = cond->next;
@@ -448,7 +442,7 @@ native_cond_broadcast(rb_thread_cond_t *cond)
 
 
 static int
-native_cond_timedwait_ms(rb_thread_cond_t *cond, rb_thread_lock_t *mutex, unsigned long msec)
+native_cond_timedwait_ms(rb_nativethread_cond_t *cond, rb_nativethread_lock_t *mutex, unsigned long msec)
 {
     DWORD r;
     struct cond_event_entry entry;
@@ -479,13 +473,13 @@ native_cond_timedwait_ms(rb_thread_cond_t *cond, rb_thread_lock_t *mutex, unsign
 }
 
 static int
-native_cond_wait(rb_thread_cond_t *cond, rb_thread_lock_t *mutex)
+native_cond_wait(rb_nativethread_cond_t *cond, rb_nativethread_lock_t *mutex)
 {
     return native_cond_timedwait_ms(cond, mutex, INFINITE);
 }
 
 static unsigned long
-abs_timespec_to_timeout_ms(struct timespec *ts)
+abs_timespec_to_timeout_ms(const struct timespec *ts)
 {
     struct timeval tv;
     struct timeval now;
@@ -501,7 +495,7 @@ abs_timespec_to_timeout_ms(struct timespec *ts)
 }
 
 static int
-native_cond_timedwait(rb_thread_cond_t *cond, rb_thread_lock_t *mutex, struct timespec *ts)
+native_cond_timedwait(rb_nativethread_cond_t *cond, rb_nativethread_lock_t *mutex, const struct timespec *ts)
 {
     unsigned long timeout_ms;
 
@@ -512,20 +506,8 @@ native_cond_timedwait(rb_thread_cond_t *cond, rb_thread_lock_t *mutex, struct ti
     return native_cond_timedwait_ms(cond, mutex, timeout_ms);
 }
 
-#if SIZEOF_TIME_T == SIZEOF_LONG
-typedef unsigned long unsigned_time_t;
-#elif SIZEOF_TIME_T == SIZEOF_INT
-typedef unsigned int unsigned_time_t;
-#elif SIZEOF_TIME_T == SIZEOF_LONG_LONG
-typedef unsigned LONG_LONG unsigned_time_t;
-#else
-# error cannot find integer type which size is same as time_t.
-#endif
-
-#define TIMET_MAX (~(time_t)0 <= 0 ? (time_t)((~(unsigned_time_t)0) >> 1) : (time_t)(~(unsigned_time_t)0))
-
 static struct timespec
-native_cond_timeout(rb_thread_cond_t *cond, struct timespec timeout_rel)
+native_cond_timeout(rb_nativethread_cond_t *cond, struct timespec timeout_rel)
 {
     int ret;
     struct timeval tv;
@@ -555,14 +537,14 @@ native_cond_timeout(rb_thread_cond_t *cond, struct timespec timeout_rel)
 }
 
 static void
-native_cond_initialize(rb_thread_cond_t *cond, int flags)
+native_cond_initialize(rb_nativethread_cond_t *cond, int flags)
 {
     cond->next = (struct cond_event_entry *)cond;
     cond->prev = (struct cond_event_entry *)cond;
 }
 
 static void
-native_cond_destroy(rb_thread_cond_t *cond)
+native_cond_destroy(rb_nativethread_cond_t *cond)
 {
     /* */
 }
@@ -589,8 +571,8 @@ native_thread_init_stack(rb_thread_t *th)
     size = end - base;
     space = size / 5;
     if (space > 1024*1024) space = 1024*1024;
-    th->machine_stack_start = (VALUE *)end - 1;
-    th->machine_stack_maxsize = size - space;
+    th->machine.stack_start = (VALUE *)end - 1;
+    th->machine.stack_maxsize = size - space;
 }
 
 #ifndef InterlockedExchangePointer
@@ -605,7 +587,7 @@ native_thread_destroy(rb_thread_t *th)
     w32_close_handle(intr);
 }
 
-static unsigned long _stdcall
+static unsigned long __stdcall
 thread_start_func_1(void *th_ptr)
 {
     rb_thread_t *th = th_ptr;
@@ -618,7 +600,7 @@ thread_start_func_1(void *th_ptr)
     thread_debug("thread created (th: %p, thid: %p, event: %p)\n", th,
 		 th->thread_id, th->native_thread_data.interrupt_event);
 
-    thread_start_func_2(th, th->machine_stack_start, rb_ia64_bsp());
+    thread_start_func_2(th, th->machine.stack_start, rb_ia64_bsp());
 
     w32_close_handle(thread_id);
     thread_debug("thread deleted (th: %p)\n", th);
@@ -710,14 +692,17 @@ ubf_handle(void *ptr)
     w32_set_event(th->native_thread_data.interrupt_event);
 }
 
-static HANDLE timer_thread_id = 0;
-static HANDLE timer_thread_lock;
+static struct {
+    HANDLE id;
+    HANDLE lock;
+} timer_thread;
+#define TIMER_THREAD_CREATED_P() (timer_thread.id != 0)
 
-static unsigned long _stdcall
+static unsigned long __stdcall
 timer_thread_func(void *dummy)
 {
     thread_debug("timer_thread\n");
-    while (WaitForSingleObject(timer_thread_lock, TIME_QUANTUM_USEC/1000) ==
+    while (WaitForSingleObject(timer_thread.lock, TIME_QUANTUM_USEC/1000) ==
 	   WAIT_TIMEOUT) {
 	timer_thread_function(dummy);
     }
@@ -734,25 +719,25 @@ rb_thread_wakeup_timer_thread(void)
 static void
 rb_thread_create_timer_thread(void)
 {
-    if (timer_thread_id == 0) {
-	if (!timer_thread_lock) {
-	    timer_thread_lock = CreateEvent(0, TRUE, FALSE, 0);
+    if (timer_thread.id == 0) {
+	if (!timer_thread.lock) {
+	    timer_thread.lock = CreateEvent(0, TRUE, FALSE, 0);
 	}
-	timer_thread_id = w32_create_thread(1024 + (THREAD_DEBUG ? BUFSIZ : 0),
+	timer_thread.id = w32_create_thread(1024 + (THREAD_DEBUG ? BUFSIZ : 0),
 					    timer_thread_func, 0);
-	w32_resume_thread(timer_thread_id);
+	w32_resume_thread(timer_thread.id);
     }
 }
 
 static int
-native_stop_timer_thread(int close_anyway)
+native_stop_timer_thread(void)
 {
     int stopped = --system_working <= 0;
     if (stopped) {
-	SetEvent(timer_thread_lock);
-	native_thread_join(timer_thread_id);
-	CloseHandle(timer_thread_lock);
-	timer_thread_lock = 0;
+	SetEvent(timer_thread.lock);
+	native_thread_join(timer_thread.id);
+	CloseHandle(timer_thread.lock);
+	timer_thread.lock = 0;
     }
     return stopped;
 }
@@ -760,9 +745,9 @@ native_stop_timer_thread(int close_anyway)
 static void
 native_reset_timer_thread(void)
 {
-    if (timer_thread_id) {
-	CloseHandle(timer_thread_id);
-	timer_thread_id = 0;
+    if (timer_thread.id) {
+	CloseHandle(timer_thread.id);
+	timer_thread.id = 0;
     }
 }
 
@@ -802,4 +787,16 @@ rb_reserved_fd_p(int fd)
 {
     return 0;
 }
+
+rb_nativethread_id_t
+rb_nativethread_self(void)
+{
+    return GetCurrentThread();
+}
+
+static void
+native_set_thread_name(rb_thread_t *th)
+{
+}
+
 #endif /* THREAD_SYSTEM_DEPENDENT_IMPLEMENTATION */

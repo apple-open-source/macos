@@ -1,9 +1,5 @@
-
-#ifndef _S_BOOTPD_H
-#define _S_BOOTPD_H
-
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,11 +21,30 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_BOOTPD_H
+#define _S_BOOTPD_H
+
 #include "dhcp_options.h"
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include "netinfo.h"
 #include "mylog.h"
+
+#if TARGET_OS_EMBEDDED
+#define NETBOOT_SERVER_SUPPORT	0
+#define USE_OPEN_DIRECTORY	0
+#else /* TARGET_OS_EMBEDDED */
+
+#if MINIMAL_DHCP_SERVER
+#define NETBOOT_SERVER_SUPPORT	0
+#define USE_OPEN_DIRECTORY	0
+#else /* MINIMAL_DHCP_SERVER */
+#define NETBOOT_SERVER_SUPPORT	1
+#define USE_OPEN_DIRECTORY	1
+#endif /* MINIMAL_DHCP_SERVER*/
+
+#endif /* TARGET_OS_EMBEDDED */
+
 
 typedef struct {
     interface_t *	if_p;

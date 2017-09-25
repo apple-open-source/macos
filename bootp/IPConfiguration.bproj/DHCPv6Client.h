@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,5 +89,11 @@ void
 DHCPv6ClientSetNotificationCallBack(DHCPv6ClientRef client, 
 				    DHCPv6ClientNotificationCallBack callback,
 				    void * callback_arg);
+
+bool
+DHCPv6ClientIsActive(DHCPv6ClientRef client);
+
+bool
+DHCPv6ClientHasDNS(DHCPv6ClientRef client, bool * search_available);
 
 #endif /* _S_DHCPV6CLIENT_H */

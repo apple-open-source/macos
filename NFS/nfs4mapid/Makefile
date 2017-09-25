@@ -30,21 +30,23 @@ endif
 
 DST_DIR = $(DSTROOT)/usr/sbin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8
+LOCAL_DST_DIR = $(DSTROOT)/usr/local/bin
 DSYM = $(Project).dSYM
 
 #
 # Standard B&I targets
 #
-all: $(SYMROOT)/$(DSYM)
+all: $(SYMROOT)/$(DSYM) $(OBJROOT)/nfs4mapid-tester
 
 install:: all
 	install -d -o root -g wheel -m 755 $(DST_DIR)
 	install -c -o root -g wheel -m 555 -s $(SYMROOT)/nfs4mapid $(DST_DIR)
 	install -d -o root -g wheel -m 755 $(MAN_DIR)
 	install -c -o root -g wheel -m 444 $(SRCROOT)/nfs4mapid.8 $(MAN_DIR)
-
+	install -d -o root -g wheel -m 755 $(LOCAL_DST_DIR)
+	install -c -o root -g wheel -m 555 $(OBJROOT)/nfs4mapid-tester $(LOCAL_DST_DIR)
 clean::
-	-rm -rf *.o nfs4mapid $(DSYM)
+	-rm -rf *.o nfs4mapid $(DSYM) nfs4mapid-tester
 
 #
 # Build
@@ -53,6 +55,10 @@ CFILES = nfs4mapid.c
 OFILES = $(CFILES:.c=.o)
 
 $(OFILES): $(HFILES)
+
+$(OBJROOT)/nfs4mapid-tester: $(SRCROOT)/nfs4mapid-tester.sh
+		 cat $< > $@
+		 chmod a+x $@
 
 $(OBJROOT)/%.o: $(SRCROOT)/%.c
 	$(CC) -c $(CFLAGS) -o $@ $<

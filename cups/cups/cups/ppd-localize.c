@@ -1,14 +1,14 @@
 /*
  * PPD localization routines for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * PostScript is a trademark of Adobe Systems, Inc.
  *
@@ -665,7 +665,7 @@ _ppdLocalizedAttr(ppd_file_t *ppd,	/* I - PPD file */
    /*
     * <rdar://problem/22130168>
     *
-    * Hong Kong locale needs special handling...  Sigh...
+    * Multiple locales need special handling...  Sigh...
     */
 
     if (!strcmp(ll_CC, "zh_HK"))

@@ -278,7 +278,7 @@ static NSString* KCDSContext = @"context";
     }
 
     if (der - received_tag != kKCAESGCMTagSize) {
-        KCJoiningErrorCreate(kDERUnknownEncoding, error, @"Unexpected tag size: %d", der - received_tag);
+        KCJoiningErrorCreate(kDERUnknownEncoding, error, @"Unexpected tag size: %ld", (long)(der - received_tag));
         return nil;
     }
 

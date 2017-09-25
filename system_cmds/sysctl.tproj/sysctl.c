@@ -680,6 +680,9 @@ oidfmt(int *oid, int len, char *fmt, u_int *kind)
 					}
 				} else if (buf[sizeof(u_int)] == 'L') {
 					*kind = (*kind & ~CTLTYPE) | CTLTYPE_LONG;
+                    if (buf[sizeof(u_int)+1] == 'U') {
+                        *kind = (*kind & ~CTLTYPE) | CTLTYPE_ULONG;
+                    }
 				}
 				break;
 			case CTLTYPE_QUAD:

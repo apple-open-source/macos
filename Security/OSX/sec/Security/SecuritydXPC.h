@@ -54,7 +54,11 @@ bool SecXPCDictionaryCopyArrayOptional(xpc_object_t message, const char *key, CF
 CFDataRef SecXPCDictionaryCopyData(xpc_object_t message, const char *key, CFErrorRef *error);
 bool SecXPCDictionaryCopyDataOptional(xpc_object_t message, const char *key, CFDataRef *pdata, CFErrorRef *error);
 
+bool SecXPCDictionaryCopyURLOptional(xpc_object_t message, const char *key, CFURLRef *purl, CFErrorRef *error);
+
 bool SecXPCDictionaryGetBool(xpc_object_t message, const char *key, CFErrorRef *error);
+
+bool SecXPCDictionaryGetDouble(xpc_object_t message, const char *key, double *pvalue, CFErrorRef *error) ;
 
 CFDictionaryRef SecXPCDictionaryCopyDictionary(xpc_object_t message, const char *key, CFErrorRef *error);
 
@@ -65,5 +69,8 @@ CFStringRef SecXPCDictionaryCopyString(xpc_object_t message, const char *key, CF
 bool SecXPCDictionaryCopyStringOptional(xpc_object_t message, const char *key, CFStringRef *pstring, CFErrorRef *error);
 
 CFSetRef SecXPCDictionaryCopySet(xpc_object_t message, const char *key, CFErrorRef *error);
+
+/* For an xpc_array of datas */
+bool SecXPCDictionaryCopyCFDataArrayOptional(xpc_object_t message, const char *key, CFArrayRef *data_array, CFErrorRef *error);
 
 #endif

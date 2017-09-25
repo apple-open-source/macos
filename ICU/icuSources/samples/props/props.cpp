@@ -1,12 +1,18 @@
 /*
 *******************************************************************************
 *
+*   © 2016 and later: Unicode, Inc. and others.
+*   License & terms of use: http://www.unicode.org/copyright.html#License
+*
+*******************************************************************************
+*******************************************************************************
+*
 *   Copyright (C) 2000, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
 *   file name:  props.cpp
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *

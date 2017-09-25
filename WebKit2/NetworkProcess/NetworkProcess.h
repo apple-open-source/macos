@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,11 +30,11 @@
 #include "DownloadManager.h"
 #include "MessageReceiverMap.h"
 #include <WebCore/DiagnosticLoggingClient.h>
-#include <WebCore/MemoryPressureHandler.h>
 #include <WebCore/SessionID.h>
 #include <memory>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
+#include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
 
@@ -50,6 +50,7 @@ class ProtectionSpace;
 class SecurityOrigin;
 class SessionID;
 struct SecurityOriginData;
+struct SoupNetworkProxySettings;
 }
 
 namespace WebKit {
@@ -60,6 +61,7 @@ class NetworkResourceLoader;
 enum class WebsiteDataFetchOption;
 enum class WebsiteDataType;
 struct NetworkProcessCreationParameters;
+struct WebsiteDataStoreParameters;
 
 class NetworkProcess : public ChildProcess, private DownloadManager::Client {
     WTF_MAKE_NONCOPYABLE(NetworkProcess);
@@ -94,7 +96,7 @@ public:
     // Diagnostic messages logging.
     void logDiagnosticMessage(uint64_t webPageID, const String& message, const String& description, WebCore::ShouldSample);
     void logDiagnosticMessageWithResult(uint64_t webPageID, const String& message, const String& description, WebCore::DiagnosticLoggingResultType, WebCore::ShouldSample);
-    void logDiagnosticMessageWithValue(uint64_t webPageID, const String& message, const String& description, const String& value, WebCore::ShouldSample);
+    void logDiagnosticMessageWithValue(uint64_t webPageID, const String& message, const String& description, double value, unsigned significantFigures, WebCore::ShouldSample);
 
 #if PLATFORM(COCOA)
     RetainPtr<CFDataRef> sourceApplicationAuditData() const;
@@ -111,11 +113,15 @@ public:
 
     void prefetchDNS(const String&);
 
-    void ensurePrivateBrowsingSession(WebCore::SessionID);
+    void ensurePrivateBrowsingSession(WebsiteDataStoreParameters&&);
 
     void grantSandboxExtensionsToDatabaseProcessForBlobs(const Vector<String>& filenames, Function<void ()>&& completionHandler);
 
-    std::chrono::milliseconds loadThrottleLatency() const { return m_loadThrottleLatency; }
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    void updateCookiePartitioningForTopPrivatelyOwnedDomains(const Vector<String>& domainsToRemove, const Vector<String>& domainsToAdd, bool shouldClearFirst);
+#endif
+
+    Seconds loadThrottleLatency() const { return m_loadThrottleLatency; }
 
 private:
     NetworkProcess();
@@ -126,7 +132,10 @@ private:
     void terminate() override;
     void platformTerminate();
 
-    void lowMemoryHandler(WebCore::Critical);
+    void lowMemoryHandler(Critical);
+
+    enum class ShouldAcknowledgeWhenReadyToSuspend { No, Yes };
+    void actualPrepareToSuspend(ShouldAcknowledgeWhenReadyToSuspend);
 
     // ChildProcess
     void initializeProcess(const ChildProcessInitializationParameters&) override;
@@ -154,7 +163,8 @@ private:
     void didReceiveSyncNetworkProcessMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
     void initializeNetworkProcess(NetworkProcessCreationParameters&&);
     void createNetworkConnectionToWebProcess();
-    void destroyPrivateBrowsingSession(WebCore::SessionID);
+    void addWebsiteDataStore(WebsiteDataStoreParameters&&);
+    void destroySession(WebCore::SessionID);
 
     void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, uint64_t callbackID);
     void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
@@ -163,7 +173,7 @@ private:
     void clearCachedCredentials();
 
     // FIXME: This should take a session ID so we can identify which disk cache to delete.
-    void clearDiskCache(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
+    void clearDiskCache(std::chrono::system_clock::time_point modifiedSince, Function<void ()>&& completionHandler);
 
     void downloadRequest(WebCore::SessionID, DownloadID, const WebCore::ResourceRequest&, const String& suggestedFilename);
     void resumeDownload(WebCore::SessionID, DownloadID, const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
@@ -184,12 +194,15 @@ private:
     void setCanHandleHTTPSServerTrustEvaluation(bool);
     void getNetworkProcessStatistics(uint64_t callbackID);
     void clearCacheForAllOrigins(uint32_t cachesToClear);
+    void setAllowsAnySSLCertificateForWebSocket(bool);
+    void syncAllCookies();
 
     void didGrantSandboxExtensionsToDatabaseProcessForBlobs(uint64_t requestID);
 
 #if USE(SOUP)
     void setIgnoreTLSErrors(bool);
     void userPreferredLanguagesChanged(const Vector<String>&);
+    void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
 #endif
 
     // Platform Helpers
@@ -205,7 +218,7 @@ private:
     bool m_suppressMemoryPressureHandler { false };
     bool m_diskCacheIsDisabledForTesting;
     bool m_canHandleHTTPSServerTrustEvaluation;
-    std::chrono::milliseconds m_loadThrottleLatency;
+    Seconds m_loadThrottleLatency;
 
     typedef HashMap<const char*, std::unique_ptr<NetworkProcessSupplement>, PtrHash<const char*>> NetworkProcessSupplementMap;
     NetworkProcessSupplementMap m_supplements;

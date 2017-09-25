@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,11 +72,17 @@
 #include "symbol_scope.h"
 #include "DHCPv6Client.h"
 #include "RTADVSocket.h"
+#include "DNSNameList.h"
+#include "IPv6AWDReport.h"
 
 typedef struct {
     timer_callout_t *		timer;
     int				try;
-    Boolean			data_received;
+    CFAbsoluteTime		start;
+    CFAbsoluteTime		complete;
+    CFAbsoluteTime		dhcpv6_complete;
+    boolean_t			success_report_submitted;
+    boolean_t			data_received;
     struct in6_addr		our_router;
     uint8_t			our_router_hwaddr[MAX_LINK_ADDR_LEN];
     int				our_router_hwaddr_len;
@@ -85,27 +91,72 @@ typedef struct {
     DHCPv6ClientRef		dhcp_client;
     struct in6_addr *		dns_servers;
     int				dns_servers_count;
+    CFArrayRef			dns_search_domains;
     boolean_t			renew;
+    uint32_t			restart_count;
+    boolean_t			has_autoconf_address;
 } Service_rtadv_t;
 
 
 STATIC void
-rtadv_set_dns_servers(Service_rtadv_t * rtadv,
-		      const struct in6_addr * dns_servers,
-		      int dns_servers_count)
+rtadv_clear_dns_servers(Service_rtadv_t * rtadv)
 {
     if (rtadv->dns_servers != NULL) {
 	free(rtadv->dns_servers);
 	rtadv->dns_servers = NULL;
     }
+}
+
+STATIC void
+rtadv_set_dns_servers(Service_rtadv_t * rtadv,
+		      const char * ifname,
+		      const struct in6_addr * dns_servers,
+		      int dns_servers_count)
+{
+    rtadv_clear_dns_servers(rtadv);
     if (dns_servers != NULL) {
+	int		i;
+
 	rtadv->dns_servers = (struct in6_addr *)
 	    malloc(sizeof(*dns_servers) * dns_servers_count);
 	bcopy(dns_servers, rtadv->dns_servers,
 	      sizeof(*dns_servers) * dns_servers_count);
 	rtadv->dns_servers_count = dns_servers_count;
+
+	for (i = 0; i < rtadv->dns_servers_count; i++) {
+	    char 	ntopbuf[INET6_ADDRSTRLEN];
+
+	    inet_ntop(AF_INET6, rtadv->dns_servers + i,
+		      ntopbuf, sizeof(ntopbuf));
+	    my_log(LOG_INFO, "RTADV %s: Recursive DNS Server %s",
+		   ifname, ntopbuf);
+	}
     }
     return;
+}
+
+STATIC void
+rtadv_clear_dns_search_domains(Service_rtadv_t * rtadv)
+{
+    my_CFRelease(&rtadv->dns_search_domains);
+}
+
+STATIC void
+rtadv_set_dns_search_domains(Service_rtadv_t * rtadv,
+			     const char * ifname,
+                             const uint8_t * dnssl_encoded,
+                             int dnssl_encoded_len)
+{
+    rtadv_clear_dns_search_domains(rtadv);
+    if (dnssl_encoded != NULL && dnssl_encoded_len > 0) {
+	rtadv->dns_search_domains
+	    = DNSNameListCreateArray(dnssl_encoded, dnssl_encoded_len);
+	if (rtadv->dns_search_domains != NULL) {
+	    my_log(LOG_INFO,
+		   "RTADV %s: DNS Search List %@",
+		   ifname, rtadv->dns_search_domains);
+	}
+    }
 }
 
 STATIC void
@@ -119,14 +170,219 @@ rtadv_cancel_pending_events(ServiceRef service_p)
 }
 
 STATIC void
+rtadv_submit_awd_report(ServiceRef service_p, boolean_t success)
+{
+    inet6_addrlist_t	addrs;
+    CFStringRef		apn_name = NULL;
+    boolean_t		autoconf_active = FALSE;
+    boolean_t		dns_complete = FALSE;
+    bool		has_search = FALSE;
+    int			i;
+    interface_t *	if_p = service_interface(service_p);
+    int			prefix_count = 0;
+    IPv6AWDReportRef	report;
+    int			router_count = 0;
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+    struct in6_ifstat	stats;
+    inet6_addrinfo_t *	scan;
+    InterfaceType	type;
+
+    if (success && rtadv->success_report_submitted) {
+	return;
+    }
+    switch (if_ift_type(if_p)) {
+    case IFT_CELLULAR:
+	type = kInterfaceTypeCellular;
+	apn_name = ServiceGetAPNName(service_p);
+	break;
+    case IFT_ETHER:
+	type = if_is_wireless(if_p) ? kInterfaceTypeWiFi : kInterfaceTypeWired;
+	break;
+    default:
+	type = kInterfaceTypeOther;
+	break;
+    }
+
+    switch (G_awd_interface_types) {
+    case kIPConfigurationInterfaceTypesCellular:
+	if (type != kInterfaceTypeCellular) {
+	    /* ignore non-cellular interface */
+	    return;
+	}
+	break;
+    case kIPConfigurationInterfaceTypesAll:
+	break;
+    default:
+	/* don't generate awd reports */
+	return;
+    }
+
+    report = IPv6AWDReportCreate(type);
+    if (report == NULL) {
+	return;
+    }
+
+    /* get the addresses and set whether flags are set or not */
+    inet6_addrlist_copy(&addrs, if_link_index(if_p));
+    for (i = 0, scan = addrs.list; i < addrs.count; i++, scan++) {
+	if (IN6_IS_ADDR_LINKLOCAL(&scan->addr)) {
+	    if ((scan->addr_flags & IN6_IFF_DUPLICATED) != 0) {
+		IPv6AWDReportSetLinkLocalAddressDuplicated(report);
+	    }
+	}
+	else if ((scan->addr_flags & IN6_IFF_AUTOCONF) != 0) {
+	    IPv6AWDReportSetAutoconfAddressAcquired(report);
+	    autoconf_active = TRUE;
+	    if ((scan->addr_flags & IN6_IFF_DUPLICATED) != 0) {
+		IPv6AWDReportSetAutoconfAddressDuplicated(report);
+	    }
+	    if ((scan->addr_flags & IN6_IFF_DEPRECATED) != 0) {
+		IPv6AWDReportSetAutoconfAddressDeprecated(report);
+	    }
+	    if ((scan->addr_flags & IN6_IFF_DETACHED) != 0) {
+		IPv6AWDReportSetAutoconfAddressDetached(report);
+	    }
+	}
+    }
+    inet6_addrlist_free(&addrs);
+
+    /* set cellular-specific properties */
+    if (type == kInterfaceTypeCellular) {
+	if (apn_name != NULL) {
+	    IPv6AWDReportSetAPNName(report, apn_name);
+	}
+	if (autoconf_active) {
+	    if (!RTADVSocketRouterLifetimeIsMaximum(rtadv->sock)) {
+		IPv6AWDReportSetRouterLifetimeNotMaximum(report);
+	    }
+	    if (!RTADVSocketPrefixLifetimeIsInfinite(rtadv->sock)) {
+		IPv6AWDReportSetPrefixLifetimeNotInfinite(report);
+	    }
+	}
+    }
+
+    /* DNS options from RA */
+    if (rtadv->dns_servers != NULL) {
+	IPv6AWDReportSetAutoconfRDNSS(report);
+	dns_complete = TRUE;
+	if (rtadv->dns_search_domains != NULL) {
+	    IPv6AWDReportSetAutoconfDNSSL(report);
+	}
+    }
+
+    /* DNS options from DHCPv6 */
+    if (rtadv->dhcp_client != NULL
+	&& DHCPv6ClientHasDNS(rtadv->dhcp_client, &has_search)) {
+	dns_complete = TRUE;
+	IPv6AWDReportSetDHCPv6DNSServers(report);
+	if (has_search) {
+	    IPv6AWDReportSetDHCPv6DNSDomainList(report);
+	}
+    }
+
+    if (success) {
+	/* success report */
+	CFTimeInterval	delta;
+
+	if (rtadv->complete != 0
+	    && rtadv->complete > rtadv->start) {
+	    delta = rtadv->complete - rtadv->start;
+	    IPv6AWDReportSetAutoconfAddressAcquisitionSeconds(report, delta);
+	}
+	if (rtadv->dhcpv6_complete != 0
+	    && rtadv->dhcpv6_complete > rtadv->start) {
+	    delta = rtadv->dhcpv6_complete - rtadv->start;
+	    IPv6AWDReportSetDHCPv6AddressAcquisitionSeconds(report, delta);
+	}
+	if (dns_complete) {
+	    CFAbsoluteTime	now = timer_get_current_time();
+
+	    if (now > rtadv->start) {
+		delta = now - rtadv->start;
+		IPv6AWDReportSetDNSConfigurationAcquisitionSeconds(report,
+								   delta);
+	    }
+	}
+	rtadv->success_report_submitted = TRUE;
+    }
+    else {
+	/* failure report */
+	if (RTADVSocketRouterLifetimeIsZero(rtadv->sock)) {
+	    IPv6AWDReportSetRouterLifetimeZero(report);
+	}
+#if 0
+	/* TBD metric to handle */
+	IPv6AWDReportSetControlQueueUnsentCount(report, count);
+#endif
+	rtadv->success_report_submitted = FALSE;
+    }
+
+    if (RTADVSocketRouterSourceAddressCollision(rtadv->sock)) {
+	IPv6AWDReportSetRouterSourceAddressCollision(report);
+    }
+
+    if (rtadv->try >= MAX_RTR_SOLICITATIONS) {
+	IPv6AWDReportSetRouterSolicitationCount(report, MAX_RTR_SOLICITATIONS);
+    }
+    else {
+	IPv6AWDReportSetRouterSolicitationCount(report, rtadv->try);
+    }
+    if (inet6_ifstat(if_name(if_p), &stats) == 0) {
+	if (stats.ifs6_pfx_expiry_cnt != 0) {
+	    IPv6AWDReportSetExpiredPrefixCount(report,
+					       stats.ifs6_pfx_expiry_cnt);
+	}
+	if (stats.ifs6_defrtr_expiry_cnt != 0) {
+	    IPv6AWDReportSetExpiredDefaultRouterCount(report,
+						      stats.ifs6_defrtr_expiry_cnt);
+	}
+    }
+    router_count = inet6_router_and_prefix_count(if_link_index(if_p),
+						 &prefix_count);
+    if (router_count > 0) {
+	IPv6AWDReportSetDefaultRouterCount(report, router_count);
+	IPv6AWDReportSetPrefixCount(report, prefix_count);
+    }
+    if (rtadv->restart_count != 0) {
+	IPv6AWDReportSetAutoconfRestarted(report);
+    }
+#if 0
+    /* TBD metric to handle */
+    IPv6AWDReportSetManualAddressConfigured(report); /* need in manual_v6.c */
+#endif
+
+    IPv6AWDReportSubmit(report);
+    my_log(LOG_NOTICE, "%s: submitted AWD %s report %@", if_name(if_p),
+	   success ? "success" : "failure", report);
+
+    CFRelease(report);
+    return;
+}
+
+STATIC void
+rtadv_submit_awd_success_report(ServiceRef service_p)
+{
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+
+    if (rtadv->dhcp_client != NULL
+	&& DHCPv6ClientIsActive(rtadv->dhcp_client)) {
+	/* waiting for DHCPv6 to complete */
+	return;
+    }
+    rtadv_submit_awd_report(service_p, TRUE);
+}
+
+STATIC void
 rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
 {
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
 
     rtadv->try = 0;
+    rtadv->restart_count = 0;
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
-    rtadv_set_dns_servers(rtadv, NULL, 0);
+    rtadv_clear_dns_servers(rtadv);
+    rtadv_clear_dns_search_domains(rtadv);
     service_publish_failure(service_p, status);
     return;
 }
@@ -156,6 +412,10 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     switch (event_id) {
     case IFEventID_start_e:
 	my_log(LOG_INFO, "RTADV: start %s", if_name(if_p));
+	rtadv->start = timer_get_current_time();
+	rtadv->complete = 0;
+	rtadv->dhcpv6_complete = 0;
+	rtadv->success_report_submitted = FALSE;
 	rtadv_cancel_pending_events(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,
 				 (RTADVSocketReceiveFuncPtr)rtadv_start,
@@ -165,9 +425,11 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    return;
 	}
 	bzero(&rtadv->our_router, sizeof(rtadv->our_router));
-	rtadv_set_dns_servers(rtadv, NULL, 0);
+	rtadv_clear_dns_servers(rtadv);
+	rtadv_clear_dns_search_domains(rtadv);
 	rtadv->our_router_hwaddr_len = 0;
 	rtadv->try = 0;
+	rtadv->has_autoconf_address = FALSE;
 	rtadv->data_received = FALSE;
 
 	/* FALL THROUGH */
@@ -220,7 +482,11 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	
 	/* set timer values and wait for responses */
 	tv.tv_sec = RTR_SOLICITATION_INTERVAL;
-	tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
+
+	/* don't add random fuzz for cellular rdar://problem/31542146 */
+	tv.tv_usec = (if_ift_type(if_p) == IFT_CELLULAR)
+	    ? 0
+	    : (suseconds_t)random_range(0, USECS_PER_SEC - 1);
 	timer_set_relative(rtadv->timer, tv,
 			   (timer_func_t *)rtadv_start,
 			   service_p, (void *)IFEventID_timeout_e, NULL);
@@ -254,17 +520,6 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		   link_addr_buf,
 		   data->managed_bit ? " [Managed]" : "",
 		   data->other_bit ? " [OtherConfig]" : "");
-	    if (data->dns_servers != NULL) {
-		int		i;
-		
-		for (i = 0; i < data->dns_servers_count; i++) {
-		    my_log(LOG_INFO, 
-			   "RTADV %s: DNS Server %s",
-			   if_name(if_p),
-			   inet_ntop(AF_INET6, data->dns_servers + i,
-				     ntopbuf, sizeof(ntopbuf)));
-		}
-	    }
 	}
 	rtadv->data_received = TRUE;
 	rtadv_cancel_pending_events(service_p);
@@ -279,8 +534,12 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    bcopy(data->router_hwaddr, rtadv->our_router_hwaddr, len);
 	    rtadv->our_router_hwaddr_len = len;
 	}
-	rtadv_set_dns_servers(rtadv, data->dns_servers, 
+	rtadv_set_dns_servers(rtadv, if_name(if_p),
+			      data->dns_servers,
 			      data->dns_servers_count);
+	rtadv_set_dns_search_domains(rtadv, if_name(if_p),
+				     data->dns_search_domains,
+	                             data->dns_search_domains_len);
 	if (rtadv->dhcp_client != NULL) {
 	    if (data->managed_bit || data->other_bit) {
 		DHCPv6ClientStart(rtadv->dhcp_client,
@@ -294,6 +553,60 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	break;
     default:
 	break;
+    }
+    return;
+}
+
+STATIC void
+rtadv_flush(ServiceRef service_p)
+{
+    interface_t *	if_p = service_interface(service_p);
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+
+    /* flush IPv6 configuration from the interface and unpublish */
+    inet6_flush_prefixes(if_name(if_p));
+    inet6_flush_routes(if_name(if_p));
+    inet6_rtadv_disable(if_name(if_p));
+    if (rtadv->dhcp_client != NULL) {
+	DHCPv6ClientStop(rtadv->dhcp_client, TRUE);
+    }
+    service_publish_failure(service_p,
+			    ipconfig_status_network_changed_e);
+    return;
+}
+
+STATIC void
+rtadv_flush_and_restart(ServiceRef service_p)
+{
+    interface_t *	if_p = service_interface(service_p);
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
+
+    rtadv->restart_count++;
+    my_log(LOG_NOTICE, "RTADV %s: flushing and restarting (count %u)",
+	   if_name(if_p), rtadv->restart_count);
+    rtadv_flush(service_p);
+    rtadv_start(service_p, IFEventID_start_e, NULL);
+    return;
+}
+
+STATIC void
+rtadv_router_expired(ServiceRef service_p,
+		     ipv6_router_prefix_counts_t * event)
+{
+    interface_t *	if_p = service_interface(service_p);
+
+    my_log(LOG_NOTICE, "RTADV %s: router expired", if_name(if_p));
+
+    /* generate metric when the router expires */
+    rtadv_submit_awd_report(service_p, FALSE);
+
+    if (event->router_count == 0) {
+	/* no more default routers, flush and start over */
+	rtadv_flush_and_restart(service_p);
+    }
+    else {
+	/* the router expired but we still have a router */
+	rtadv_start(service_p, IFEventID_start_e, NULL);
     }
     return;
 }
@@ -417,6 +730,10 @@ rtadv_address_changed(ServiceRef service_p,
     if (rtadv->renew || !try_was_zero) {
 	int			count;
 	inet6_addrlist_t	dhcp_addr_list;
+	boolean_t		dhcp_has_address = FALSE;
+	uint32_t		autoconf_count = 0;
+	uint32_t		deprecated_count = 0;
+	uint32_t		detached_count = 0;
 	int			i;
 	dhcpv6_info_t		info;
 	dhcpv6_info_t *		info_p = NULL;
@@ -425,38 +742,79 @@ rtadv_address_changed(ServiceRef service_p,
 	struct in6_addr *	router = NULL;
 	int			router_count = 0;
 
+	bzero(&info, sizeof(info));
 	inet6_addrlist_init(&dhcp_addr_list);
 	if (rtadv->dhcp_client != NULL) {
 	    DHCPv6ClientCopyAddresses(rtadv->dhcp_client, &dhcp_addr_list);
+	    dhcp_has_address = (dhcp_addr_list.count != 0);
 	}
 
 	/* only copy autoconf and DHCP addresses */
 	for (i = 0, count = 0, scan = addr_list_p->list; 
-	     i < addr_list_p->count; i++, scan++) {
+	     i < addr_list_p->count;
+	     i++, scan++) {
+	    boolean_t	autoconf_address = FALSE;
+
+	    if ((scan->addr_flags & IN6_IFF_AUTOCONF) != 0) {
+		autoconf_count++;
+		autoconf_address = TRUE;
+	    }
 	    if ((scan->addr_flags & IN6_IFF_NOTREADY) != 0) {
 		continue;
 	    }
-	    if ((scan->addr_flags & IN6_IFF_AUTOCONF) != 0
+	    if (autoconf_address) {
+		if ((scan->addr_flags & IN6_IFF_DEPRECATED) != 0) {
+		    deprecated_count++;
+		}
+		if ((scan->addr_flags & IN6_IFF_DETACHED) != 0) {
+		    detached_count++;
+		}
+	    }
+	    if (autoconf_address
 		|| inet6_addrlist_contains_address(&dhcp_addr_list, scan)) {
 		list[count++] = *scan;
 	    }
 	}
 	inet6_addrlist_free(&dhcp_addr_list);
+	if (autoconf_count == 0 && rtadv->has_autoconf_address) {
+	    my_log(LOG_NOTICE, "RTADV %s: autoconf addresses expired",
+		   if_name(if_p));
+	    rtadv_submit_awd_report(service_p, FALSE);
+	    rtadv_flush_and_restart(service_p);
+	    return;
+	}
 	if (count == 0) {
 	    return;
 	}
+	if (autoconf_count != 0
+	    && (detached_count + deprecated_count) == autoconf_count) {
+	    my_log(LOG_INFO,
+		   "RTADV %s: all autoconf addresses detached/deprecated",
+		   if_name(if_p));
+	}
+	rtadv->has_autoconf_address = (autoconf_count != 0);
 	if (IN6_IS_ADDR_UNSPECIFIED(&rtadv->our_router) == FALSE) {
 	    router = &rtadv->our_router;
 	    router_count = 1;
+	    if (rtadv->has_autoconf_address
+		&& rtadv->complete == 0) {
+		rtadv->complete = timer_get_current_time();
+	    }
 	}
 	if (rtadv->dhcp_client != NULL
 	    && DHCPv6ClientGetInfo(rtadv->dhcp_client, &info)) {
+	    if (dhcp_has_address && rtadv->dhcpv6_complete == 0) {
+		rtadv->dhcpv6_complete = timer_get_current_time();
+	    }
 	    info_p = &info;
 	}
 	if (rtadv->dns_servers != NULL) {
+	    info_p = &info;
 	    info.dns_servers = rtadv->dns_servers;
 	    info.dns_servers_count = rtadv->dns_servers_count;
-	    info_p = &info;
+	    if (rtadv->dns_search_domains != NULL) {
+		info.dns_search_domains = rtadv->dns_search_domains;
+	    }
 	}
 	if (router_count != 0) {
 	    CFStringRef		signature;
@@ -465,6 +823,7 @@ rtadv_address_changed(ServiceRef service_p,
 	    ServicePublishSuccessIPv6(service_p, list, count,
 				      router, router_count,
 				      info_p, signature);
+	    rtadv_submit_awd_success_report(service_p);
 	    my_CFRelease(&signature);
 	}
 	if (rtadv->renew) {
@@ -573,6 +932,11 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	my_log(LOG_INFO, "RTADV %s: stop", if_name(if_p));
 
+	/* generate/submit AWD report */
+	if (!ServiceIsPublished(service_p)) {
+	    rtadv_submit_awd_report(service_p, FALSE);
+	}
+
 	/* close/release the RTADV socket */
 	RTADVSocketRelease(&rtadv->sock);
 
@@ -586,7 +950,8 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv->timer) {
 	    timer_callout_free(&rtadv->timer);
 	}
-	rtadv_set_dns_servers(rtadv, NULL, 0);
+	rtadv_clear_dns_servers(rtadv);
+	rtadv_clear_dns_search_domains(rtadv);
 	inet6_flush_prefixes(if_name(if_p));
 	inet6_flush_routes(if_name(if_p));
 	ServiceSetPrivate(service_p, NULL);
@@ -605,6 +970,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	rtadv_address_changed(service_p, event_data);
 	break;
+
     case IFEventID_wake_e:
     case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
@@ -619,14 +985,8 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	    link_event_data_t	link_event = (link_event_data_t)event_data;
 
 	    if ((link_event->flags & kLinkFlagsSSIDChanged) != 0) {
-		inet6_flush_prefixes(if_name(if_p));
-		inet6_flush_routes(if_name(if_p));
-		inet6_rtadv_disable(if_name(if_p));
-		if (rtadv->dhcp_client != NULL) {
-		    DHCPv6ClientStop(rtadv->dhcp_client, TRUE);
-		}
-		service_publish_failure(service_p,
-					ipconfig_status_network_changed_e);
+		rtadv->restart_count = 0;
+		rtadv_flush(service_p);
 	    }
 	    else if (evid != IFEventID_renew_e
 		     && rtadv->try == 1
@@ -664,9 +1024,17 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv->dns_servers != NULL) {
 	    info_p->dns_servers = rtadv->dns_servers;
 	    info_p->dns_servers_count = rtadv->dns_servers_count;
+	    if (rtadv->dns_search_domains != NULL) {
+		info_p->dns_search_domains = rtadv->dns_search_domains;
+	    }
 	}
 	break;
     }
+    case IFEventID_ipv6_router_expired_e:
+	rtadv_router_expired(service_p,
+			     (ipv6_router_prefix_counts_t *)event_data);
+	break;
+
     default:
 	break;
     } /* switch */

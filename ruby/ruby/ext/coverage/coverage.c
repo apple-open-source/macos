@@ -25,24 +25,51 @@ rb_coverage_start(VALUE klass)
     if (!RTEST(rb_get_coverages())) {
 	if (rb_coverages == Qundef) {
 	    rb_coverages = rb_hash_new();
-	    RBASIC(rb_coverages)->klass = 0;
+	    rb_obj_hide(rb_coverages);
 	}
 	rb_set_coverages(rb_coverages);
     }
     return Qnil;
 }
 
+/* Make coverage arrays empty so old covered files are no longer tracked. */
 static int
-coverage_result_i(st_data_t key, st_data_t val, st_data_t h)
+coverage_clear_result_i(st_data_t key, st_data_t val, st_data_t h)
+{
+    VALUE coverage = (VALUE)val;
+    rb_ary_clear(coverage);
+    return ST_CONTINUE;
+}
+
+static int
+coverage_peek_result_i(st_data_t key, st_data_t val, st_data_t h)
 {
     VALUE path = (VALUE)key;
     VALUE coverage = (VALUE)val;
     VALUE coverages = (VALUE)h;
     coverage = rb_ary_dup(coverage);
-    rb_ary_clear((VALUE)val);
     rb_ary_freeze(coverage);
     rb_hash_aset(coverages, path, coverage);
     return ST_CONTINUE;
+}
+
+/*
+ *  call-seq:
+ *     Coverage.peek_result  => hash
+ *
+ * Returns a hash that contains filename as key and coverage array as value.
+ */
+static VALUE
+rb_coverage_peek_result(VALUE klass)
+{
+    VALUE coverages = rb_get_coverages();
+    VALUE ncoverages = rb_hash_new();
+    if (!RTEST(coverages)) {
+	rb_raise(rb_eRuntimeError, "coverage measurement is not enabled");
+    }
+    st_foreach(RHASH_TBL(coverages), coverage_peek_result_i, ncoverages);
+    rb_hash_freeze(ncoverages);
+    return ncoverages;
 }
 
 /*
@@ -55,13 +82,9 @@ coverage_result_i(st_data_t key, st_data_t val, st_data_t h)
 static VALUE
 rb_coverage_result(VALUE klass)
 {
+    VALUE ncoverages = rb_coverage_peek_result(klass);
     VALUE coverages = rb_get_coverages();
-    VALUE ncoverages = rb_hash_new();
-    if (!RTEST(coverages)) {
-	rb_raise(rb_eRuntimeError, "coverage measurement is not enabled");
-    }
-    st_foreach(RHASH_TBL(coverages), coverage_result_i, ncoverages);
-    rb_hash_freeze(ncoverages);
+    st_foreach(RHASH_TBL(coverages), coverage_clear_result_i, ncoverages);
     rb_reset_coverages();
     return ncoverages;
 }
@@ -71,7 +94,7 @@ rb_coverage_result(VALUE klass)
  *
  * = Usage
  *
- * 1. require "coverage.so"
+ * 1. require "coverage"
  * 2. do Coverage.start
  * 3. require or load Ruby source file
  * 4. Coverage.result will return a hash that contains filename as key and
@@ -94,7 +117,7 @@ rb_coverage_result(VALUE klass)
  *   end
  *   [EOF]
  *
- *   require "coverage.so"
+ *   require "coverage"
  *   Coverage.start
  *   require "foo.rb"
  *   p Coverage.result  #=> {"foo.rb"=>[1, 1, 10, nil, nil, 1, 1, nil, 0, nil]}
@@ -105,5 +128,6 @@ Init_coverage(void)
     VALUE rb_mCoverage = rb_define_module("Coverage");
     rb_define_module_function(rb_mCoverage, "start", rb_coverage_start, 0);
     rb_define_module_function(rb_mCoverage, "result", rb_coverage_result, 0);
+    rb_define_module_function(rb_mCoverage, "peek_result", rb_coverage_peek_result, 0);
     rb_gc_register_address(&rb_coverages);
 }

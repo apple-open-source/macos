@@ -90,17 +90,6 @@ get_channel_flags_string(uint32_t flags, char * buf, int buf_size)
 		}
 		need_space = 1;
 	}
-#ifdef PROC_CHANNEL_FLAGS_AUTO_SYNC
-	if ((flags & PROC_CHANNEL_FLAGS_AUTO_SYNC) != 0) {
-		if (need_space) {
-			strlcat(buf, " ", buf_size);
-		}
-		else {
-			need_space = 1;
-		}
-		strlcat(buf, "auto-sync", buf_size);
-	}
-#endif /* PROC_CHANNEL_FLAGS_AUTO_SYNC */
 	if ((flags & PROC_CHANNEL_FLAGS_EXCLUSIVE) != 0) {
 		if (need_space) {
 			strlcat(buf, " ", buf_size);
@@ -109,6 +98,15 @@ get_channel_flags_string(uint32_t flags, char * buf, int buf_size)
 			need_space = 1;
 		}
 		strlcat(buf, "exclusive", buf_size);
+	}
+	if ((flags & PROC_CHANNEL_FLAGS_USER_PACKET_POOL) != 0) {
+		if (need_space) {
+			strlcat(buf, " ", buf_size);
+		}
+		else {
+			need_space = 1;
+		}
+		strlcat(buf, "user-packet-pool", buf_size);
 	}
 	return (buf);
 }

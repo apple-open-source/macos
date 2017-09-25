@@ -208,6 +208,7 @@ execfor(Estate state, int do_exec)
     loops--;
     simple_pline = old_simple_pline;
     state->pc = end;
+    this_noerrexit = 1;
     return lastval;
 }
 
@@ -289,6 +290,8 @@ execselect(Estate state, UNUSED(int do_exec))
 	    	}
 	    } else
 		str = (char *)getlinknode(bufstack);
+            if (!str && !errflag)
+                setsparam("REPLY", ztrdup("")); /* EOF (user pressed Ctrl+D) */
 	    if (!str || errflag) {
 		if (breaks)
 		    breaks--;
@@ -333,6 +336,7 @@ execselect(Estate state, UNUSED(int do_exec))
     loops--;
     simple_pline = old_simple_pline;
     state->pc = end;
+    this_noerrexit = 1;
     return lastval;
 }
 
@@ -437,13 +441,12 @@ execwhile(Estate state, UNUSED(int do_exec))
             if (!((lastval == 0) ^ isuntil)) {
                 if (breaks)
                     breaks--;
-                lastval = oldval;
+		if (!retflag)
+		    lastval = oldval;
                 break;
             }
-            if (retflag) {
-                lastval = oldval;
+            if (retflag)
                 break;
-            }
 
 	    /* In case the loop body is also a functional no-op,
 	     * make sure signal handlers recognize ^C as above. */
@@ -471,6 +474,7 @@ execwhile(Estate state, UNUSED(int do_exec))
     popheap();
     loops--;
     state->pc = end;
+    this_noerrexit = 1;
     return lastval;
 }
 
@@ -493,7 +497,9 @@ execrepeat(Estate state, UNUSED(int do_exec))
     tmp = ecgetstr(state, EC_DUPTOK, &htok);
     if (htok)
 	singsub(&tmp);
-    count = atoi(tmp);
+    count = mathevali(tmp);
+    if (errflag)
+	return 1;
     pushheap();
     cmdpush(CS_REPEAT);
     loops++;
@@ -520,6 +526,7 @@ execrepeat(Estate state, UNUSED(int do_exec))
     loops--;
     simple_pline = old_simple_pline;
     state->pc = end;
+    this_noerrexit = 1;
     return lastval;
 }
 
@@ -566,9 +573,11 @@ execif(Estate state, int do_exec)
 	cmdpop();
     } else {
 	noerrexit = olderrexit;
-	lastval = 0;
+	if (!retflag)
+	    lastval = 0;
     }
     state->pc = end;
+    this_noerrexit = 1;
 
     return lastval;
 }
@@ -580,7 +589,7 @@ execcase(Estate state, int do_exec)
     Wordcode end, next;
     wordcode code = state->pc[-1];
     char *word, *pat;
-    int npat, save, nalts, ialt, patok;
+    int npat, save, nalts, ialt, patok, anypatok;
     Patprog *spprog, pprog;
 
     end = state->pc + WC_CASE_SKIP(code);
@@ -588,7 +597,7 @@ execcase(Estate state, int do_exec)
     word = ecgetstr(state, EC_DUP, NULL);
     singsub(&word);
     untokenize(word);
-    lastval = 0;
+    anypatok = 0;
 
     cmdpush(CS_CASE);
     while (state->pc < end) {
@@ -645,7 +654,7 @@ execcase(Estate state, int do_exec)
 		    *spprog = pprog;
 	    }
 	    if (pprog && pattry(pprog, word))
-		patok = 1;
+		patok = anypatok = 1;
 	    state->pc += 2;
 	    nalts--;
 	}
@@ -658,7 +667,7 @@ execcase(Estate state, int do_exec)
 	    execlist(state, 1, ((WC_CASE_TYPE(code) == WC_CASE_OR) &&
 				do_exec));
 	    while (!retflag && wc_code(code) == WC_CASE &&
-		   WC_CASE_TYPE(code) == WC_CASE_AND) {
+		   WC_CASE_TYPE(code) == WC_CASE_AND && state->pc < end) {
 		state->pc = next;
 		code = *state->pc++;
 		next = state->pc + WC_CASE_SKIP(code);
@@ -675,6 +684,10 @@ execcase(Estate state, int do_exec)
     cmdpop();
 
     state->pc = end;
+
+    if (!anypatok)
+	lastval = 0;
+    this_noerrexit = 1;
 
     return lastval;
 }

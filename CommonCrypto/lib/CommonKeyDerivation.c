@@ -39,19 +39,20 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
     const struct ccdigest_info *di;
 
     CC_DEBUG_LOG("PasswordLen %lu SaltLen %lU PRF %d Rounds %u DKLen %lu\n", passwordLen, saltLen, prf, rounds, derivedKeyLen);
-    if(algorithm != kCCPBKDF2) return -1;
+    if(algorithm != kCCPBKDF2) return kCCParamError;
     switch(prf) {
         case kCCPRFHmacAlgSHA1: di = CCDigestGetDigestInfo(kCCDigestSHA1); break;
         case kCCPRFHmacAlgSHA224: di = CCDigestGetDigestInfo(kCCDigestSHA224); break;
         case kCCPRFHmacAlgSHA256: di = CCDigestGetDigestInfo(kCCDigestSHA256); break;
         case kCCPRFHmacAlgSHA384: di = CCDigestGetDigestInfo(kCCDigestSHA384); break;
         case kCCPRFHmacAlgSHA512: di = CCDigestGetDigestInfo(kCCDigestSHA512); break;
-        default: return -1;
+        default: return kCCParamError;
     }
-    if(!password || !salt || !derivedKey || (derivedKeyLen == 0) || (rounds == 0)) return -1;
+    if(!password || !derivedKey || (derivedKeyLen == 0) || (rounds == 0)) return kCCParamError;
+    if(salt==NULL && saltLen!=0) return kCCParamError;
     
-    ccpbkdf2_hmac(di, passwordLen, password, saltLen, salt, rounds, derivedKeyLen, derivedKey);
-    return 0;
+    int rc = ccpbkdf2_hmac(di, passwordLen, password, saltLen, salt, rounds, derivedKeyLen, derivedKey);
+    return rc==0?kCCSuccess:kCCParamError ;
 }
 
 //time functions are from corecrypto
@@ -97,14 +98,18 @@ unsigned CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t
     
     CC_DEBUG_LOG("Entering\n");
 	if (derivedKeyLen == 0) return -1; // bad parameters
-	if (saltLen == 0 || saltLen > CC_MAX_PRF_WORKSPACE) return -1; // out of bounds parameters
+	if (saltLen > CC_MAX_PRF_WORKSPACE) return -1; // out of bounds parameters
 	if (passwordLen == 0 ) passwordLen = 1;
 	if(algorithm != kCCPBKDF2) return -1;
     
 	if((password = malloc(passwordLen)) == NULL) goto error;
 	for(i=0; i<passwordLen; i++) password[i] = 'a';
-	if((salt = malloc(saltLen)) == NULL) goto error;
-	for(i=0; i<saltLen; i++) salt[i] = (uint8_t)(i%256);
+    
+    size_t saltLen2 = saltLen==0? 1: saltLen;
+    
+    if((salt=malloc(saltLen2)) == NULL ) goto error;
+    for(i=0; i<saltLen2; i++) salt[i] = (uint8_t)(i%256);
+    
 	if((derivedKey = malloc(derivedKeyLen)) == NULL) goto error;
     
     for(elapsedTime=i=0; i < 5 && elapsedTime == 0; i++) {

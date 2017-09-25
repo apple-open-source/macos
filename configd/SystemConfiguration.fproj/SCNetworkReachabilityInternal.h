@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -125,79 +125,6 @@ __BEGIN_DECLS
 CFStringRef
 _SCNetworkReachabilityCopyTargetDescription	(SCNetworkReachabilityRef	target);
 
-
-static __inline__ CFStringRef
-__SCNetworkReachabilityCopyFlags(SCNetworkReachabilityFlags flags, CFStringRef prefix, Boolean debug)
-{
-	CFMutableStringRef	str	= CFStringCreateMutable(NULL, 0);
-
-	if (prefix != NULL) {
-		CFStringAppend(str, prefix);
-	}
-
-	if (debug) {
-		CFStringAppendFormat(str, NULL, CFSTR("0x%08x ("), flags);
-	}
-
-	if (flags == 0) {
-		CFStringAppend(str, CFSTR("Not Reachable"));
-	}
-	if (flags & kSCNetworkReachabilityFlagsReachable) {
-		flags &= ~kSCNetworkReachabilityFlagsReachable;
-		CFStringAppendFormat(str, NULL, CFSTR("Reachable%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsTransientConnection) {
-		flags &= ~kSCNetworkReachabilityFlagsTransientConnection;
-		CFStringAppendFormat(str, NULL, CFSTR("Transient Connection%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsConnectionRequired) {
-		flags &= ~kSCNetworkReachabilityFlagsConnectionRequired;
-		CFStringAppendFormat(str, NULL, CFSTR("Connection Required%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) {
-		flags &= ~kSCNetworkReachabilityFlagsConnectionOnTraffic;
-		CFStringAppendFormat(str, NULL, CFSTR("Automatic Connection On Traffic%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) {
-		flags &= ~kSCNetworkReachabilityFlagsConnectionOnDemand;
-		CFStringAppendFormat(str, NULL, CFSTR("Automatic Connection On Demand%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsInterventionRequired) {
-		flags &= ~kSCNetworkReachabilityFlagsInterventionRequired;
-		CFStringAppendFormat(str, NULL, CFSTR("Intervention Required%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsIsLocalAddress) {
-		flags &= ~kSCNetworkReachabilityFlagsIsLocalAddress;
-		CFStringAppendFormat(str, NULL, CFSTR("Local Address%s"),
-				     flags != 0 ? ", " : "");
-	}
-	if (flags & kSCNetworkReachabilityFlagsIsDirect) {
-		flags &= ~kSCNetworkReachabilityFlagsIsDirect;
-		CFStringAppendFormat(str, NULL, CFSTR("Directly Reachable Address%s"),
-				     flags != 0 ? ", " : "");
-	}
-#if	TARGET_OS_IPHONE
-	if (flags & kSCNetworkReachabilityFlagsIsWWAN) {
-		flags &= ~kSCNetworkReachabilityFlagsIsWWAN;
-		CFStringAppendFormat(str, NULL, CFSTR("WWAN%s"), flags != 0 ? ", " : "");
-	}
-#endif	// TARGET_OS_IPHONE
-	if (flags != 0) {
-		CFStringAppendFormat(str, NULL, CFSTR("0x%08x"), flags);
-	}
-
-	if (debug) {
-		CFStringAppend(str, CFSTR(")"));
-	}
-
-	return str;
-}
 
 static __inline__ ReachabilityRankType
 __SCNetworkReachabilityRank(SCNetworkReachabilityFlags flags)

@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -142,9 +142,9 @@ OSStatus HIDSetButton  (HIDReportType 			reportType,
 				{
 					for (iX=0; iX<ptReportItem->globals.reportCount; iX++)
 					{
-						iStart = ptReportItem->startBit + (ptReportItem->globals.reportSize * iX);
+						iStart = (int)(ptReportItem->startBit + (ptReportItem->globals.reportSize * iX));
 						iStatus = HIDGetData(report, reportLength, iStart,
-											   ptReportItem->globals.reportSize, &data, true);
+											   (UInt32)ptReportItem->globals.reportSize, &data, true);
 						if (!iStatus)
 							iStatus = HIDPostProcessRIValue (ptReportItem, &data);
 						if (iStatus != kHIDSuccess)
@@ -152,7 +152,7 @@ OSStatus HIDSetButton  (HIDReportType 			reportType,
 						// if not already in the list, add it (is this code right??)
 						if (data == 0)
 							return HIDPutData(report, reportLength, iStart,
-												ptReportItem->globals.reportSize,
+												(UInt32)ptReportItem->globals.reportSize,
 												iUsageIndex + ptReportItem->globals.logicalMinimum);
 					}
 					return kHIDBufferTooSmallErr;
@@ -162,10 +162,10 @@ OSStatus HIDSetButton  (HIDReportType 			reportType,
 */
 				else if (ptReportItem->globals.reportSize == 1)
 				{
-					iStart = ptReportItem->startBit + (ptReportItem->globals.reportSize * iUsageIndex);
+					iStart = (int)(ptReportItem->startBit + (ptReportItem->globals.reportSize * iUsageIndex));
 					// should we call HIDPreProcessRIValue here?
 					// we are passing '-1' as trhe value, is this right? Some hack to set the right bit to 1?
-					iStatus = HIDPutData(report, reportLength, iStart, ptReportItem->globals.reportSize, -1);
+					iStatus = HIDPutData(report, reportLength, iStart, (UInt32)ptReportItem->globals.reportSize, -1);
 					if (iStatus != kHIDSuccess)
 						return iStatus;
 					return kHIDSuccess;

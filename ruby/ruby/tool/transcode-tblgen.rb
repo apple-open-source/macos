@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'optparse'
 require 'erb'
 require 'fileutils'
@@ -53,7 +55,7 @@ class ArrayCode
     @type = type
     @name = name
     @len = 0;
-    @content = ''
+    @content = ''.dup
   end
 
   def length
@@ -517,7 +519,7 @@ class ActionMap
     infos = infos.map {|info| generate_info(info) }
     maxlen = infos.map {|info| info.length }.max
     columns = maxlen <= 16 ? 4 : 2
-    code = ""
+    code = "".dup
     0.step(infos.length-1, columns) {|i|
       code << "    "
       is = infos[i,columns]
@@ -723,7 +725,7 @@ def citrus_decode_mapsrc(ces, csid, mapsrcs)
     path << ".src"
     path[path.rindex('/')] = '%'
     STDERR.puts 'load mapsrc %s' % path if VERBOSE_MODE
-    open(path) do |f|
+    open(path, 'rb') do |f|
       f.each_line do |l|
         break if /^BEGIN_MAP/ =~ l
       end
@@ -817,7 +819,7 @@ def transcode_compile_tree(name, from, map, valid_encoding)
 end
 
 TRANSCODERS = []
-TRANSCODE_GENERATED_TRANSCODER_CODE = ''
+TRANSCODE_GENERATED_TRANSCODER_CODE = ''.dup
 
 def transcode_tbl_only(from, to, map, valid_encoding=UnspecifiedValidEncoding)
   if VERBOSE_MODE
@@ -840,7 +842,45 @@ def transcode_tbl_only(from, to, map, valid_encoding=UnspecifiedValidEncoding)
   return map, tree_name, real_tree_name, max_input
 end
 
-def transcode_tblgen(from, to, map, valid_encoding=UnspecifiedValidEncoding)
+#
+# call-seq:
+#   transcode_tblgen(from_name, to_name, map [, valid_encoding_check [, ascii_compatibility]]) -> ''
+#
+# Returns an empty string just in case the result is used somewhere.
+# Stores the actual product for later output with transcode_generated_code and
+# transcode_register_code.
+#
+# The first argument is a string that will be used for the source (from) encoding.
+# The second argument is a string that will be used for the target (to) encoding.
+#
+# The third argument is the actual data, a map represented as an array of two-element
+# arrays. Each element of the array stands for one character being converted. The
+# first element of each subarray is the code of the character in the source encoding,
+# the second element of each subarray is the code of the character in the target encoding.
+#
+# Each code (i.e. byte sequence) is represented as a string of hexadecimal characters
+# of even length. Codes can also be represented as integers (usually in the form Ox...),
+# in which case they are interpreted as Unicode codepoints encoded in UTF-8. So as
+# an example, 0x677E is the same as "E69DBE" (but somewhat easier to produce and check).
+#
+# In addition, the following symbols can also be used instead of actual codes in the
+# second element of a subarray:
+# :nomap (no mapping, just copy input to output), :nomap0 (same as :nomap, but low priority),
+# :undef (input code undefined in the destination encoding),
+# :invalid (input code is an invalid byte sequence in the source encoding),
+# :func_ii, :func_si, :func_io, :func_so (conversion by function with specific call
+# convention).
+#
+# The forth argument specifies the overall structure of the encoding. For examples,
+# see ValidEncoding below. This is used to cross-check the data in the third argument
+# and to automatically add :undef and :invalid mappings where necessary.
+#
+# The fifth argument gives the ascii-compatibility of the transcoding. See
+# rb_transcoder_asciicompat_type_t in transcode_data.h for details. In most
+# cases, this argument can be left out.
+#
+def transcode_tblgen(from, to, map, valid_encoding=UnspecifiedValidEncoding,
+                     ascii_compatibility='asciicompat_converter')
   map, tree_name, real_tree_name, max_input = transcode_tbl_only(from, to, map, valid_encoding)
   transcoder_name = "rb_#{tree_name}"
   TRANSCODERS << transcoder_name
@@ -854,7 +894,7 @@ static const rb_transcoder
     #{input_unit_length}, /* input_unit_length */
     #{max_input}, /* max_input */
     #{max_output}, /* max_output */
-    asciicompat_converter, /* asciicompat_type */
+    #{ascii_compatibility}, /* asciicompat_type */
     0, NULL, NULL, /* state_size, state_init, state_fini */
     NULL, NULL, NULL, NULL,
     NULL, NULL, NULL
@@ -881,7 +921,7 @@ def transcode_generated_code
 end
 
 def transcode_register_code
-  code = ''
+  code = ''.dup
   TRANSCODERS.each {|transcoder_name|
     code << "    rb_register_transcoder(&#{transcoder_name});\n"
   }
@@ -897,55 +937,55 @@ UnitLength = {
 UnitLength.default = 1
 
 ValidEncoding = {
-  '1byte'       => '{00-ff}',
-  '2byte'       => '{00-ff}{00-ff}',
-  '4byte'       => '{00-ff}{00-ff}{00-ff}{00-ff}',
-  'US-ASCII'    => '{00-7f}',
-  'UTF-8'       => '{00-7f}
-                    {c2-df}{80-bf}
-                         e0{a0-bf}{80-bf}
-                    {e1-ec}{80-bf}{80-bf}
-                         ed{80-9f}{80-bf}
-                    {ee-ef}{80-bf}{80-bf}
-                         f0{90-bf}{80-bf}{80-bf}
-                    {f1-f3}{80-bf}{80-bf}{80-bf}
-                         f4{80-8f}{80-bf}{80-bf}',
-  'UTF-16BE'    => '{00-d7,e0-ff}{00-ff}
-                    {d8-db}{00-ff}{dc-df}{00-ff}',
-  'UTF-16LE'    => '{00-ff}{00-d7,e0-ff}
-                    {00-ff}{d8-db}{00-ff}{dc-df}',
-  'UTF-32BE'    => '0000{00-d7,e0-ff}{00-ff}
-                    00{01-10}{00-ff}{00-ff}',
-  'UTF-32LE'    => '{00-ff}{00-d7,e0-ff}0000
-                    {00-ff}{00-ff}{01-10}00',
-  'EUC-JP'      => '{00-7f}
-                    {a1-fe}{a1-fe}
-                    8e{a1-fe}
-                    8f{a1-fe}{a1-fe}',
-  'CP51932'     => '{00-7f}
-                    {a1-fe}{a1-fe}
-                    8e{a1-fe}',
-  'EUC-JP-2004' => '{00-7f}
-                    {a1-fe}{a1-fe}
-                    8e{a1-fe}
-                    8f{a1-fe}{a1-fe}',
-  'Shift_JIS'   => '{00-7f}
-                    {81-9f,e0-fc}{40-7e,80-fc}
-                    {a1-df}',
-  'EUC-KR'      => '{00-7f}
-                    {a1-fe}{a1-fe}',
-  'CP949'       => '{00-7f}
-                    {81-fe}{41-5a,61-7a,81-fe}',
-  'Big5'        => '{00-7f}
-                    {81-fe}{40-7e,a1-fe}',
-  'EUC-TW'      => '{00-7f}
-                    {a1-fe}{a1-fe}
-                    8e{a1-b0}{a1-fe}{a1-fe}',
-  'GBK'         => '{00-80}
-                    {81-fe}{40-7e,80-fe}',
-  'GB18030'     => '{00-7f}
-                    {81-fe}{40-7e,80-fe}
-                    {81-fe}{30-39}{81-fe}{30-39}',
+  '1byte'        => '{00-ff}',
+  '2byte'        => '{00-ff}{00-ff}',
+  '4byte'        => '{00-ff}{00-ff}{00-ff}{00-ff}',
+  'US-ASCII'     => '{00-7f}',
+  'UTF-8'        => '{00-7f}
+                     {c2-df}{80-bf}
+                          e0{a0-bf}{80-bf}
+                     {e1-ec}{80-bf}{80-bf}
+                          ed{80-9f}{80-bf}
+                     {ee-ef}{80-bf}{80-bf}
+                          f0{90-bf}{80-bf}{80-bf}
+                     {f1-f3}{80-bf}{80-bf}{80-bf}
+                          f4{80-8f}{80-bf}{80-bf}',
+  'UTF-16BE'     => '{00-d7,e0-ff}{00-ff}
+                     {d8-db}{00-ff}{dc-df}{00-ff}',
+  'UTF-16LE'     => '{00-ff}{00-d7,e0-ff}
+                     {00-ff}{d8-db}{00-ff}{dc-df}',
+  'UTF-32BE'     => '0000{00-d7,e0-ff}{00-ff}
+                     00{01-10}{00-ff}{00-ff}',
+  'UTF-32LE'     => '{00-ff}{00-d7,e0-ff}0000
+                     {00-ff}{00-ff}{01-10}00',
+  'EUC-JP'       => '{00-7f}
+                     {a1-fe}{a1-fe}
+                     8e{a1-fe}
+                     8f{a1-fe}{a1-fe}',
+  'CP51932'      => '{00-7f}
+                     {a1-fe}{a1-fe}
+                     8e{a1-fe}',
+  'EUC-JIS-2004' => '{00-7f}
+                     {a1-fe}{a1-fe}
+                     8e{a1-fe}
+                     8f{a1-fe}{a1-fe}',
+  'Shift_JIS'    => '{00-7f}
+                     {81-9f,e0-fc}{40-7e,80-fc}
+                     {a1-df}',
+  'EUC-KR'       => '{00-7f}
+                     {a1-fe}{a1-fe}',
+  'CP949'        => '{00-7f}
+                     {81-fe}{41-5a,61-7a,81-fe}',
+  'Big5'         => '{00-7f}
+                     {81-fe}{40-7e,a1-fe}',
+  'EUC-TW'       => '{00-7f}
+                     {a1-fe}{a1-fe}
+                     8e{a1-b0}{a1-fe}{a1-fe}',
+  'GBK'          => '{00-80}
+                     {81-fe}{40-7e,80-fe}',
+  'GB18030'      => '{00-7f}
+                     {81-fe}{40-7e,80-fe}
+                     {81-fe}{30-39}{81-fe}{30-39}',
 }
 
 def ValidEncoding(enc)
@@ -1006,7 +1046,7 @@ if __FILE__ == $0
   this_script = File.read(__FILE__)
   this_script.force_encoding("ascii-8bit") if this_script.respond_to? :force_encoding
 
-  base_signature = "/* autogenerated. */\n"
+  base_signature = "/* autogenerated. */\n".dup
   base_signature << "/* #{make_signature(File.basename(__FILE__), this_script)} */\n"
   base_signature << "/* #{make_signature(File.basename(arg), src)} */\n"
 
@@ -1044,7 +1084,7 @@ if __FILE__ == $0
   libs2 = $".dup
 
   libs = libs2 - libs1
-  lib_sigs = ''
+  lib_sigs = ''.dup
   libs.each {|lib|
     lib = File.basename(lib)
     path = File.join($srcdir, lib)
@@ -1053,7 +1093,7 @@ if __FILE__ == $0
     end
   }
 
-  result = ''
+  result = ''.dup
   result << base_signature
   result << lib_sigs
   result << "\n"

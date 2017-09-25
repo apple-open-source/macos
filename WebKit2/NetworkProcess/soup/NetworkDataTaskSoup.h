@@ -26,6 +26,7 @@
 #pragma once
 
 #include "NetworkDataTask.h"
+#include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/ResourceResponse.h>
 #include <wtf/RunLoop.h>
@@ -58,11 +59,12 @@ private:
     void startTimeout();
     void stopTimeout();
 
-    void createRequest(const WebCore::ResourceRequest&);
+    void createRequest(WebCore::ResourceRequest&&);
     void clearRequest();
     static void sendRequestCallback(SoupRequest*, GAsyncResult*, NetworkDataTaskSoup*);
     void didSendRequest(GRefPtr<GInputStream>&&);
     void dispatchDidReceiveResponse();
+    void dispatchDidCompleteWithError(const WebCore::ResourceError&);
 
     static void tlsErrorsChangedCallback(SoupMessage*, GParamSpec*, NetworkDataTaskSoup*);
     void tlsErrorsChanged();
@@ -127,6 +129,7 @@ private:
     GRefPtr<GAsyncResult> m_pendingResult;
     WebCore::ProtectionSpace m_protectionSpaceForPersistentStorage;
     WebCore::Credential m_credentialForPersistentStorage;
+    WebCore::ResourceRequest m_currentRequest;
     WebCore::ResourceResponse m_response;
     Vector<char> m_readBuffer;
     unsigned m_redirectCount { 0 };
@@ -136,7 +139,8 @@ private:
     GRefPtr<GOutputStream> m_downloadOutputStream;
     bool m_allowOverwriteDownload { false };
 #if ENABLE(WEB_TIMING)
-    double m_startTime { 0 };
+    WebCore::NetworkLoadMetrics m_networkLoadMetrics;
+    MonotonicTime m_startTime;
 #endif
     RunLoop::Timer<NetworkDataTaskSoup> m_timeoutSource;
 };

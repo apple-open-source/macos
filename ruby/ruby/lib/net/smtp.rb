@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # = net/smtp.rb
 #
 # Copyright (c) 1999-2007 Yukihiro Matsumoto.
@@ -14,7 +15,7 @@
 # NOTE: You can find Japanese version of this document at:
 # http://www.ruby-lang.org/ja/man/html/net_smtp.html
 #
-# $Id: smtp.rb 44980 2014-02-15 15:45:14Z nagachika $
+# $Id: smtp.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 # See Net::SMTP for documentation.
 #
@@ -171,7 +172,7 @@ module Net
   #
   class SMTP
 
-    Revision = %q$Revision: 44980 $.split[1]
+    Revision = %q$Revision: 53141 $.split[1]
 
     # The default SMTP port number, 25.
     def SMTP.default_port
@@ -816,6 +817,12 @@ module Net
 
     public
 
+    # Aborts the current mail transaction
+
+    def rset
+      getok('RSET')
+    end
+
     def starttls
       getok('STARTTLS')
     end
@@ -895,10 +902,17 @@ module Net
       end
       res = critical {
         check_continue get_response('DATA')
-        if msgstr
-          @socket.write_message msgstr
-        else
-          @socket.write_message_by_block(&block)
+        socket_sync_bak = @socket.io.sync
+        begin
+          @socket.io.sync = false
+          if msgstr
+            @socket.write_message msgstr
+          else
+            @socket.write_message_by_block(&block)
+          end
+        ensure
+          @socket.io.flush
+          @socket.io.sync = socket_sync_bak
         end
         recv_response()
       }
@@ -1036,7 +1050,7 @@ module Net
         h
       end
 
-      # Determines whether there was an error and raies the appropriate error
+      # Determines whether there was an error and raises the appropriate error
       # based on the reply code of the response
       def exception_class
         case @status

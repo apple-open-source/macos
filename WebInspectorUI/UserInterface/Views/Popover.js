@@ -43,8 +43,6 @@ WebInspector.Popover = class Popover extends WebInspector.Object
 
         this._element = document.createElement("div");
         this._element.className = "popover";
-        this._canvasId = "popover-" + (WebInspector.Popover.canvasId++);
-        this._element.style.backgroundImage = "-webkit-canvas(" + this._canvasId + ")";
         this._element.addEventListener("transitionend", this, true);
 
         this._container = this._element.appendChild(document.createElement("div"));
@@ -147,9 +145,13 @@ WebInspector.Popover = class Popover extends WebInspector.Object
 
         console.assert(this._isListeningForPopoverEvents);
         this._isListeningForPopoverEvents = false;
+
         window.removeEventListener("mousedown", this, true);
         window.removeEventListener("scroll", this, true);
         window.removeEventListener("resize", this, true);
+        window.removeEventListener("keypress", this, true);
+
+        WebInspector.quickConsole.keyboardShortcutDisabled = false;
 
         this._element.classList.add(WebInspector.Popover.FadeOutClassName);
 
@@ -162,12 +164,18 @@ WebInspector.Popover = class Popover extends WebInspector.Object
         switch (event.type) {
         case "mousedown":
         case "scroll":
-            if (!this._element.contains(event.target) && !event.target.enclosingNodeOrSelfWithClass(WebInspector.Popover.IgnoreAutoDismissClassName))
+            if (!this._element.contains(event.target) && !event.target.enclosingNodeOrSelfWithClass(WebInspector.Popover.IgnoreAutoDismissClassName)
+                && !event[WebInspector.Popover.EventPreventDismissSymbol]) {
                 this.dismiss();
+            }
             break;
         case "resize":
             if (this._resizeHandler)
                 this._resizeHandler();
+            break;
+        case "keypress":
+            if (event.keyCode === WebInspector.KeyboardShortcut.Key.Escape.keyCode)
+                this.dismiss();
             break;
         case "transitionend":
             if (event.target === this._element) {
@@ -428,15 +436,12 @@ WebInspector.Popover = class Popover extends WebInspector.Object
         ctx.stroke();
 
         // Draw the popover into the final context with a drop shadow.
-        var finalContext = document.getCSSCanvasContext("2d", this._canvasId, scaledWidth, scaledHeight);
-
+        let finalContext = document.getCSSCanvasContext("2d", "popover", scaledWidth, scaledHeight);
         finalContext.clearRect(0, 0, scaledWidth, scaledHeight);
-
         finalContext.shadowOffsetX = 1;
         finalContext.shadowOffsetY = 1;
         finalContext.shadowBlur = 5;
         finalContext.shadowColor = "rgba(0, 0, 0, 0.5)";
-
         finalContext.drawImage(scratchCanvas, 0, 0, scaledWidth, scaledHeight);
     }
 
@@ -568,15 +573,18 @@ WebInspector.Popover = class Popover extends WebInspector.Object
     {
         if (!this._isListeningForPopoverEvents) {
             this._isListeningForPopoverEvents = true;
+
             window.addEventListener("mousedown", this, true);
             window.addEventListener("scroll", this, true);
             window.addEventListener("resize", this, true);
+            window.addEventListener("keypress", this, true);
+
+            WebInspector.quickConsole.keyboardShortcutDisabled = true;
         }
     }
 };
 
 WebInspector.Popover.FadeOutClassName = "fade-out";
-WebInspector.Popover.canvasId = 0;
 WebInspector.Popover.CornerRadius = 5;
 WebInspector.Popover.MinWidth = 40;
 WebInspector.Popover.MinHeight = 40;
@@ -585,3 +593,4 @@ WebInspector.Popover.ContentPadding = 5;
 WebInspector.Popover.AnchorSize = new WebInspector.Size(22, 11);
 WebInspector.Popover.ShadowEdgeInsets = new WebInspector.EdgeInsets(WebInspector.Popover.ShadowPadding);
 WebInspector.Popover.IgnoreAutoDismissClassName = "popover-ignore-auto-dismiss";
+WebInspector.Popover.EventPreventDismissSymbol = Symbol("popover-event-prevent-dismiss");

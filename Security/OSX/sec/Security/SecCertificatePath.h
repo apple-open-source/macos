@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2009,2012-2017 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,10 +43,6 @@ typedef struct SecCertificatePath *SecCertificatePathRef;
 /* SecCertificatePath API functions. */
 CFTypeID SecCertificatePathGetTypeID(void);
 
-/* Create a new certificate path from an old one. */
-SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
-	SecCertificateRef certificate, CFArrayRef usageConstraints);
-
 /* Create a new certificate path from an xpc_array of datas. */
 SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path, CFErrorRef *error);
 
@@ -59,36 +55,11 @@ xpc_object_t SecCertificatePathCopyXPCArray(SecCertificatePathRef path, CFErrorR
 /* Create an array of SecCertificateRefs from a certificate path. */
 CFArrayRef SecCertificatePathCopyCertificates(SecCertificatePathRef path, CFErrorRef *error);
 
+/* Create a new certificate path from an array of SecCertificateRefs. */
+SecCertificatePathRef SecCertificatePathCreateWithCertificates(CFArrayRef certificates, CFErrorRef *error);
+
 /* Create a serialized Certificate Array from a certificate path. */
 CFArrayRef SecCertificatePathCreateSerialized(SecCertificatePathRef path, CFErrorRef *error);
-
-SecCertificatePathRef SecCertificatePathCopyAddingLeaf(SecCertificatePathRef path,
-SecCertificateRef leaf);
-
-/* Return a new certificate path without the first skipCount certificates. */
-SecCertificatePathRef SecCertificatePathCopyFromParent(SecCertificatePathRef path, CFIndex skipCount);
-
-/* Record the fact that we found our own root cert as our parent
-   certificate. */
-void SecCertificatePathSetSelfIssued(
-	SecCertificatePathRef certificatePath);
-
-void SecCertificatePathSetIsAnchored(
-	SecCertificatePathRef certificatePath);
-
-/* Return the index of the first non anchor certificate in the chain that is
-   self signed counting from the leaf up.  Return -1 if there is none. */
-CFIndex SecCertificatePathSelfSignedIndex(
-	SecCertificatePathRef certificatePath);
-
-Boolean SecCertificatePathIsAnchored(
-	SecCertificatePathRef certificatePath);
-
-void SecCertificatePathSetNextSourceIndex(
-	SecCertificatePathRef certificatePath, CFIndex sourceIndex);
-
-CFIndex SecCertificatePathGetNextSourceIndex(
-	SecCertificatePathRef certificatePath);
 
 CFIndex SecCertificatePathGetCount(
 	SecCertificatePathRef certificatePath);
@@ -101,41 +72,8 @@ SecCertificateRef SecCertificatePathGetCertificateAtIndex(
 CFIndex SecCertificatePathGetIndexOfCertificate(SecCertificatePathRef path,
     SecCertificateRef certificate);
 
-/* Return the root certificate for certificatePath.  Note that root is just
-   the top of the path as far as it is constructed.  It may or may not be
-   trusted or self signed.  */
-SecCertificateRef SecCertificatePathGetRoot(
-	SecCertificatePathRef certificatePath);
-
-CFArrayRef SecCertificatePathGetUsageConstraintsAtIndex(
-	SecCertificatePathRef certificatePath, CFIndex ix);
-
 SecKeyRef SecCertificatePathCopyPublicKeyAtIndex(
 	SecCertificatePathRef certificatePath, CFIndex ix);
-
-typedef CFIndex SecPathVerifyStatus;
-enum {
-	kSecPathVerifiesUnknown = -1,
-	kSecPathVerifySuccess = 0,
-	kSecPathVerifyFailed = 1
-};
-
-SecPathVerifyStatus SecCertificatePathVerify(
-	SecCertificatePathRef certificatePath);
-
-bool SecCertificatePathIsValid(SecCertificatePathRef certificatePath, CFAbsoluteTime verifyTime);
-
-bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath);
-
-bool SecCertificatePathHasWeakKeySize(SecCertificatePathRef certificatePath);
-
-CFIndex SecCertificatePathScore(SecCertificatePathRef certificatePath,
-	CFAbsoluteTime verifyTime);
-
-
-/*
-Node based version is possible.  We need to make sure we extract algorithm oid and parameters in the chain.  When constructing a new path (with a new parent from a path with the child at it's head), we duplicate each child node for which we could not previously establish a public key because the parameters were missing and there was no cert with the same algorithm in the chain which does have parameters.  This is because, when extended with a different parent certificate that has different parameters for the childs algorithm, the signatures in the child chain must be reverified using the new parameters and therefore might yeild a different result.
-We could allow more sharing if we stored the parameters found in the search up the chain in each node, and only duplicate the nodes if the parameters differ and then reset the isSigned status of each node with changed parameters. */
 
 __END_DECLS
 

@@ -46,9 +46,11 @@
  *   kSCEntNetEAPOL                                     "EAPOL"                        CFDictionary
  *   kSCEntNetIPv4RouterARPFailure                      "IPv4RouterARPFailure"
  *   kSCEntNetIPv4RouterARPAlive                        "IPv4RouterARPAlive"
+ *   kSCEntNetIPv6RouterExpired                         "IPv6RouterExpired"
  *   kSCEntNetLinkIssues                                "LinkIssues"                   CFDictionary
  *   kSCEntNetLinkQuality                               "LinkQuality"                  CFDictionary
  *   kSCEntNetLoopback                                  "Loopback"                     CFDictionary
+ *   kSCEntNetNAT64PrefixRequest                        "NAT64PrefixRequest"
  *   kSCEntNetOnDemand                                  "OnDemand"                     CFDictionary
  *   kSCEntNetQoSMarkingPolicy                          "QoSMarkingPolicy"             CFDictionary
  *   kSCEntNetService                                   "__SERVICE__"                  CFDictionary
@@ -397,6 +399,12 @@ extern const CFStringRef kSCEntNetIPv4RouterARPAlive                        __OS
 #define kSCEntNetIPv4RouterARPAlive kSCEntNetIPv4RouterARPAlive
 
 /*!
+  @const kSCEntNetIPv6RouterExpired
+ */
+extern const CFStringRef kSCEntNetIPv6RouterExpired                         __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0/*SPI*/);
+#define kSCEntNetIPv6RouterExpired kSCEntNetIPv6RouterExpired
+
+/*!
   @const kSCEntNetLinkIssues
   @discussion Value is a CFDictionary
  */
@@ -418,6 +426,12 @@ extern const CFStringRef kSCEntNetLoopback                                  __OS
 #define kSCEntNetLoopback kSCEntNetLoopback
 
 /*!
+  @const kSCEntNetNAT64PrefixRequest
+ */
+extern const CFStringRef kSCEntNetNAT64PrefixRequest                        __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0/*SPI*/);
+#define kSCEntNetNAT64PrefixRequest kSCEntNetNAT64PrefixRequest
+
+/*!
   @const kSCEntNetOnDemand
   @discussion Value is a CFDictionary
  */
@@ -428,7 +442,7 @@ extern const CFStringRef kSCEntNetOnDemand                                  __OS
   @const kSCEntNetQoSMarkingPolicy
   @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetQoSMarkingPolicy                          __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+extern const CFStringRef kSCEntNetQoSMarkingPolicy                          __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0/*SPI*/);
 #define kSCEntNetQoSMarkingPolicy kSCEntNetQoSMarkingPolicy
 
 /*!
@@ -1002,21 +1016,21 @@ extern const CFStringRef kSCPropNetProxiesSupplementalMatchDomain           __OS
   @const kSCPropNetQoSMarkingAppleAudioVideoCalls
   @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetQoSMarkingAppleAudioVideoCalls           __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+extern const CFStringRef kSCPropNetQoSMarkingAppleAudioVideoCalls           __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0/*SPI*/);
 #define kSCPropNetQoSMarkingAppleAudioVideoCalls kSCPropNetQoSMarkingAppleAudioVideoCalls
 
 /*!
   @const kSCPropNetQoSMarkingEnabled
   @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetQoSMarkingEnabled                        __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+extern const CFStringRef kSCPropNetQoSMarkingEnabled                        __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0/*SPI*/);
 #define kSCPropNetQoSMarkingEnabled kSCPropNetQoSMarkingEnabled
 
 /*!
   @const kSCPropNetQoSMarkingWhitelistedAppIdentifiers
   @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0/*SPI*/);
 #define kSCPropNetQoSMarkingWhitelistedAppIdentifiers kSCPropNetQoSMarkingWhitelistedAppIdentifiers
 
 /*!

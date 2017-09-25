@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,7 +36,6 @@
 #include <string.h>
 #include "dhcplib.h"
 #include "cfutil.h"
-#include <SystemConfiguration/SCPrivate.h>
 
 void
 dhcp_packet_print_cfstr(CFMutableStringRef str, struct dhcp * dp, int pkt_len)
@@ -120,7 +119,7 @@ dhcp_packet_fprint(FILE * f, struct dhcp * dp, int pkt_len)
 
     str = CFStringCreateMutable(NULL, 0);
     dhcp_packet_print_cfstr(str, dp, pkt_len);
-    SCPrint(TRUE, f, CFSTR("%@"), str);
+    my_CFStringPrint(f, str);
     CFRelease(str);
     fflush(f);
     return;

@@ -45,7 +45,7 @@ class CachedResourceClient;
 class CachedResourceHandleBase;
 class CachedResourceLoader;
 class CachedResourceRequest;
-class InspectorResource;
+class LoadTiming;
 class MemoryCache;
 class SecurityOrigin;
 class SharedBuffer;
@@ -58,7 +58,6 @@ class TextResourceDecoder;
 class CachedResource {
     WTF_MAKE_NONCOPYABLE(CachedResource); WTF_MAKE_FAST_ALLOCATED;
     friend class MemoryCache;
-    friend class InspectorResource;
 
 public:
     enum Type {
@@ -72,6 +71,7 @@ public:
 #endif
         MediaResource,
         RawResource,
+        Icon,
         SVGDocumentResource
 #if ENABLE(XSLT)
         , XSLStyleSheet
@@ -114,9 +114,7 @@ public:
     const ResourceRequest& resourceRequest() const { return m_resourceRequest; }
     ResourceRequest& resourceRequest() { return m_resourceRequest; }
     const URL& url() const { return m_resourceRequest.url();}
-#if ENABLE(CACHE_PARTITIONING)
     const String& cachePartition() const { return m_resourceRequest.cachePartition(); }
-#endif
     SessionID sessionID() const { return m_sessionID; }
     Type type() const { return m_type; }
 
@@ -164,7 +162,7 @@ public:
 
     bool isImage() const { return type() == ImageResource; }
     // FIXME: CachedRawResource could be a main resource, an audio/video resource, or a raw XHR/icon resource.
-    bool isMainOrMediaOrRawResource() const { return type() == MainResource || type() == MediaResource || type() == RawResource; }
+    bool isMainOrMediaOrIconOrRawResource() const { return type() == MainResource || type() == MediaResource || type() == Icon || type() == RawResource; }
     bool ignoreForRequestCount() const
     {
         return m_resourceRequest.ignoreForRequestCount()
@@ -173,6 +171,7 @@ public:
             || type() == LinkPrefetch
             || type() == LinkSubresource
 #endif
+            || type() == Icon
             || type() == RawResource;
     }
 
@@ -208,6 +207,7 @@ public:
     void loadFrom(const CachedResource&);
 
     SecurityOrigin* origin() const { return m_origin.get(); }
+    AtomicString initiatorName() const { return m_initiatorName; }
 
     bool canDelete() const { return !hasClients() && !m_loader && !m_preloadCount && !m_handleCount && !m_resourceToRevalidate && !m_proxyResource; }
     bool hasOneHandle() const { return m_handleCount == 1; }
@@ -232,6 +232,10 @@ public:
     bool isPreloaded() const { return m_preloadCount; }
     void increasePreloadCount() { ++m_preloadCount; }
     void decreasePreloadCount() { ASSERT(m_preloadCount); --m_preloadCount; }
+    bool isLinkPreload() { return m_isLinkPreload; }
+    void setLinkPreload() { m_isLinkPreload = true; }
+    bool hasUnknownEncoding() { return m_hasUnknownEncoding; }
+    void setHasUnknownEncoding(bool hasUnknownEncoding) { m_hasUnknownEncoding = hasUnknownEncoding; }
 
     void registerHandle(CachedResourceHandleBase*);
     WEBCORE_EXPORT void unregisterHandle(CachedResourceHandleBase*);
@@ -258,8 +262,7 @@ public:
 
     virtual void didSendData(unsigned long long /* bytesSent */, unsigned long long /* totalBytesToBeSent */) { }
 
-    void setLoadFinishTime(double finishTime) { m_loadFinishTime = finishTime; }
-    double loadFinishTime() const { return m_loadFinishTime; }
+    virtual void didRetrieveDerivedDataFromCache(const String& /* type */, SharedBuffer&) { }
 
 #if USE(FOUNDATION) || USE(SOUP)
     WEBCORE_EXPORT void tryReplaceEncodedData(SharedBuffer&);
@@ -318,9 +321,9 @@ private:
 
     ResourceError m_error;
     RefPtr<SecurityOrigin> m_origin;
+    AtomicString m_initiatorName;
 
     double m_lastDecodedAccessTime { 0 }; // Used as a "thrash guard" in the cache
-    double m_loadFinishTime { 0 };
 
     unsigned m_encodedSize { 0 };
     unsigned m_decodedSize { 0 };
@@ -334,6 +337,8 @@ private:
 
     bool m_inCache { false };
     bool m_loading { false };
+    bool m_isLinkPreload { false };
+    bool m_hasUnknownEncoding { false };
 
     bool m_switchingClientsToRevalidatedResource { false };
 

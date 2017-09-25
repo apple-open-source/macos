@@ -49,7 +49,7 @@ new_subregion(
     S_SETSIZE(s, vmsize);
 
     s->s_libent = le;
-    s->s_isfileref = false;
+    s->s_isuuidref = false;
     return s;
 }
 
@@ -63,11 +63,17 @@ del_subregion(struct subregion *s)
 static walk_return_t
 clean_subregions(struct region *r)
 {
-    for (unsigned i = 0; i < r->r_nsubregions; i++)
-        del_subregion(r->r_subregions[i]);
-    poison(r->r_subregions, 0xfac1fac1, sizeof (r->r_subregions[0]) * r->r_nsubregions);
-    free(r->r_subregions);
-    r->r_nsubregions = 0;
+	if (r->r_nsubregions) {
+		assert(r->r_subregions);
+		for (unsigned i = 0; i < r->r_nsubregions; i++)
+			del_subregion(r->r_subregions[i]);
+		poison(r->r_subregions, 0xfac1fac1, sizeof (r->r_subregions[0]) * r->r_nsubregions);
+		free(r->r_subregions);
+		r->r_nsubregions = 0;
+		r->r_subregions = NULL;
+	} else {
+		assert(NULL == r->r_subregions);
+	}
     return WALK_CONTINUE;
 }
 
@@ -112,12 +118,11 @@ add_subregions_for_libent(
     subregionlisthead_t *srlh,
     const struct region *r,
     const native_mach_header_t *mh,
-    const mach_vm_offset_t mh_taddr,
+    const mach_vm_offset_t __unused mh_taddr,	// address in target
     const struct libent *le)
 {
     const struct load_command *lc = (const void *)(mh + 1);
-    mach_vm_offset_t scoffset = MACH_VM_MAX_ADDRESS;
-
+	mach_vm_offset_t objoff = le->le_objoff;
     for (unsigned n = 0; n < mh->ncmds; n++) {
 
         const native_segment_command_t *sc;
@@ -126,59 +131,41 @@ add_subregions_for_libent(
             case NATIVE_LC_SEGMENT:
                 sc = (const void *)lc;
 
-                char scsegname[17];
-                strlcpy(scsegname, sc->segname, sizeof (scsegname));
-
-                if (0 == sc->vmaddr &&
-                    strcmp(scsegname, SEG_PAGEZERO) == 0)
+                if (0 == sc->vmaddr && strcmp(sc->segname, SEG_PAGEZERO) == 0)
                     break;
-
-                /* -Depends- on finding a __TEXT segment first! */
-
-                if (MACH_VM_MAX_ADDRESS == scoffset) {
-                    if (strcmp(scsegname, SEG_TEXT) == 0)
-                        scoffset = mh_taddr - sc->vmaddr;
-                    else {
-                        /*
-                         * Treat as error - don't want a partial description
-                         * to cause something to be omitted from the dump.
-                         */
-                        printr(r, "expected %s segment, found %s segment\n", SEG_TEXT, scsegname);
-                        return WALK_ERROR;
-                    }
-                }
+				mach_vm_offset_t lo = sc->vmaddr + objoff;
+				mach_vm_offset_t hi = lo + sc->vmsize;
 
                 /* Eliminate non-overlapping sections first */
 
-                if (R_ENDADDR(r) - 1 < sc->vmaddr + scoffset)
+                if (R_ENDADDR(r) - 1 < lo)
                     break;
-                if (sc->vmaddr + scoffset + sc->vmsize - 1 < R_ADDR(r))
+                if (hi - 1 < R_ADDR(r))
                     break;
+
                 /*
                  * Some part of this segment is in the region.
                  * Trim the edges in the case where we span regions.
                  */
-                mach_vm_offset_t loaddr = sc->vmaddr + scoffset;
-                mach_vm_offset_t hiaddr = loaddr + sc->vmsize;
-                if (loaddr < R_ADDR(r))
-                    loaddr = R_ADDR(r);
-                if (hiaddr > R_ENDADDR(r))
-                    hiaddr = R_ENDADDR(r);
+                if (lo < R_ADDR(r))
+                    lo = R_ADDR(r);
+                if (hi > R_ENDADDR(r))
+                    hi = R_ENDADDR(r);
 
                 struct subregionlist *srl = calloc(1, sizeof (*srl));
-                struct subregion *s = new_subregion(loaddr, hiaddr - loaddr, sc, le);
+                struct subregion *s = new_subregion(lo, hi - lo, sc, le);
                 assert(sc->fileoff >= 0);
                 srl->srl_s = s;
                 STAILQ_INSERT_HEAD(srlh, srl, srl_linkage);
 
-                if (opt->debug > 3) {
+                if (OPTIONS_DEBUG(opt, 2)) {
                     hsize_str_t hstr;
-                    printr(r, "subregion %llx-%llx %7s %12s\t%s [%x/%x off %zd for %zd nsects %u flags %x]\n",
+                    printr(r, "subregion %llx-%llx %7s %12s\t%s [%s off %zd for %zd nsects %u flags %x]\n",
                            S_ADDR(s), S_ENDADDR(s),
                            str_hsize(hstr, S_SIZE(s)),
-                           scsegname,
+                           sc->segname,
                            S_FILENAME(s),
-                           sc->initprot, sc->maxprot,
+                           str_prot(sc->initprot),
                            sc->fileoff, sc->filesize,
                            sc->nsects, sc->flags);
                 }
@@ -220,7 +207,7 @@ eliminate_duplicate_subregions(struct region *r)
             i++;
             continue;
         }
-        if (opt->debug)
+        if (OPTIONS_DEBUG(opt, 3))
             printr(r, "eliding duplicate %s subregion (%llx-%llx) file %s\n",
                    S_MACHO_TYPE(s1), S_ADDR(s1), S_ENDADDR(s1), S_FILENAME(s1));
         /* If the duplicate subregions aren't mapping the same file (?), forget the name */
@@ -237,24 +224,24 @@ eliminate_duplicate_subregions(struct region *r)
 walk_return_t
 decorate_memory_region(struct region *r, void *arg)
 {
+	if (r->r_inzfodregion || r->r_incommregion)
+		return WALK_CONTINUE;
+
     const dyld_process_info dpi = arg;
 
     __block walk_return_t retval = WALK_CONTINUE;
     __block subregionlisthead_t srlhead = STAILQ_HEAD_INITIALIZER(srlhead);
 
-    _dyld_process_info_for_each_image(dpi, ^(uint64_t mhaddr, const uuid_t uuid, __unused const char *path) {
+    _dyld_process_info_for_each_image(dpi, ^(uint64_t __unused mhaddr, const uuid_t uuid, __unused const char *path) {
         if (WALK_CONTINUE == retval) {
             const struct libent *le = libent_lookup_byuuid(uuid);
             assert(le->le_mhaddr == mhaddr);
-            /*
-             * Core dumps conventionally contain the whole executable, but we're trying
-             * to elide everything that can't be found in a file elsewhere.
-             */
-#if 0
-            if (MH_EXECUTE == le->le_mh->filetype)
-                return; // cause the whole a.out to be emitted
-#endif
-            retval = add_subregions_for_libent(&srlhead, r, le->le_mh, le->le_mhaddr, le);
+			bool shouldskip = false;
+			if (V_SIZE(&le->le_vr))
+				shouldskip = (R_ENDADDR(r) < V_ADDR(&le->le_vr) ||
+							  R_ADDR(r) > V_ENDADDR(&le->le_vr));
+			if (!shouldskip)
+                retval = add_subregions_for_libent(&srlhead, r, le->le_mh, le->le_mhaddr, le);
         }
     });
     if (WALK_CONTINUE != retval)
@@ -289,48 +276,67 @@ decorate_memory_region(struct region *r, void *arg)
 
         eliminate_duplicate_subregions(r);
 
-        const struct libent *lesc = NULL;   /* libent ref for shared cache */
-        if (r->r_insharedregion) {
-            uuid_t uusc;
-            if (get_sc_uuid(dpi, uusc)) {
-                lesc = libent_lookup_byuuid(uusc);
-                assert(NULL == lesc->le_mh && 0 == lesc->le_mhaddr);
-            }
-        }
+		if (r->r_info.external_pager) {
+			/*
+			 * Only very specific segment types get to be filerefs
+			 */
+			for (i = 0; i < r->r_nsubregions; i++) {
+				struct subregion *s = r->r_subregions[i];
+				/*
+				 * Anything marked writable is trivially disqualified; we're
+				 * going to copy it anyway.
+				 */
+				if (s->s_segcmd.initprot & VM_PROT_WRITE)
+					continue;
 
-        /*
-         * Only very specific segment types get to be filerefs
-         */
-        for (i = 0; i < r->r_nsubregions; i++) {
-            struct subregion *s = r->r_subregions[i];
-            /*
-             * Anything writable is trivially disqualified
-             */
-            if (s->s_segcmd.initprot & VM_PROT_WRITE)
-                continue;
-            /*
-             * As long as there's a filename, __TEXT and __LINKEDIT
-             * end up as a file reference.
-             *
-             * __LINKEDIT is more complicated: the segment commands point
-             * at a unified segment in the shared cache mapping.
-             * Ditto for __UNICODE(?)
-             */
-            if (issubregiontype(s, SEG_TEXT)) {
-                /* fall through */;
-            } else if (issubregiontype(s, SEG_LINKEDIT)) {
-                if (r->r_insharedregion)
-                    s->s_libent = lesc;
-             } else if (issubregiontype(s, "__UNICODE")) {
-                if (r->r_insharedregion)
-                    s->s_libent = lesc;
-            } else
-                continue;
-
-            if (s->s_libent)
-                s->s_isfileref = true;
-        }
-    }
+				/* __TEXT and __LINKEDIT are our real targets */
+				if (!issubregiontype(s, SEG_TEXT) && !issubregiontype(s, SEG_LINKEDIT) && !issubregiontype(s, "__UNICODE")) {
+					if (OPTIONS_DEBUG(opt, 3)) {
+						hsize_str_t hstr;
+						printvr(S_RANGE(s), "skipping read-only %s segment %s\n", S_MACHO_TYPE(s), str_hsize(hstr, S_SIZE(s)));
+					}
+					continue;
+				}
+				if (r->r_insharedregion) {
+					/*
+					 * Part of the shared region: things get more complicated.
+					 */
+					if (r->r_fileref) {
+						/*
+						 * There's a file reference here for the whole region.
+						 * For __TEXT subregions, we could, in principle (though
+						 * see below) generate references to the individual
+						 * dylibs that dyld reports in the region. If the
+						 * debugger could then use the __LINKEDIT info in the
+						 * file, then we'd be done.  But as long as the dump
+						 * includes __LINKEDIT sections, we're going to
+						 * end up generating a file reference to the combined
+						 * __LINKEDIT section in the shared cache anyway, so
+						 * we might as well do that for the __TEXT regions as
+						 * well.
+						 */
+						s->s_libent = r->r_fileref->fr_libent;
+						s->s_isuuidref = true;
+					} else {
+						/*
+						 * If we get here, it's likely that the shared cache
+						 * name can't be found e.g. update_dyld_shared_cache(1).
+						 * For __TEXT subregions, we could generate refs to
+						 * the individual dylibs, but note that the mach header
+						 * and segment commands in memory are still pointing
+						 * into the shared cache so any act of reconstruction
+						 * is fiendishly complex.  So copy it.
+						 */
+						assert(!s->s_isuuidref);
+					}
+				} else {
+					/* Just a regular dylib? */
+					if (s->s_libent)
+						s->s_isuuidref = true;
+				}
+			}
+		}
+	}
     assert(WALK_CONTINUE == retval);
 
 done:
@@ -347,8 +353,7 @@ done:
  * Strip region of all decoration
  *
  * Invoked (on every region!) after an error during the initial
- * 'decoration' phase to discard to discard potentially incomplete
- * information.
+ * 'decoration' phase to discard potentially incomplete information.
  */
 walk_return_t
 undecorate_memory_region(struct region *r, __unused void *arg)
@@ -371,36 +376,44 @@ sparse_region_optimization(struct region *r, __unused void *arg)
          * Pure zfod region: almost certainly a more compact
          * representation - keep it that way.
          */
+		if (OPTIONS_DEBUG(opt, 3))
+			printr(r, "retaining zfod region\n");
         assert(&zfod_ops == r->r_op);
         return clean_subregions(r);
     }
 
-#ifdef CONFIG_REFSC
-    if (r->r_fileref) {
-        /*
-         * Already have a fileref for the whole region: almost
-         * certainly a more compact representation - keep
-         * it that way.
-         */
-        assert(&fileref_ops == r->r_op);
-        return clean_subregions(r);
-    }
-#endif
+	if (r->r_insharedregion && 0 == r->r_nsubregions) {
+		/*
+		 * A segment in the shared region needs to be
+		 * identified with an LC_SEGMENT that dyld claims,
+		 * otherwise (we assert) it's not useful to the dump.
+		 */
+		if (OPTIONS_DEBUG(opt, 2)) {
+			hsize_str_t hstr;
+			printr(r, "not referenced in dyld info => "
+				   "eliding %s range in shared region\n",
+				   str_hsize(hstr, R_SIZE(r)));
+		}
+		if (0 == r->r_info.pages_dirtied && 0 == r->r_info.pages_swapped_out)
+			return WALK_DELETE_REGION;
+		if (OPTIONS_DEBUG(opt, 2)) {
+			hsize_str_t hstr;
+			printr(r, "dirty pages, but not referenced in dyld info => "
+				   "NOT eliding %s range in shared region\n",
+				   str_hsize(hstr, R_SIZE(r)));
+		}
+	}
 
-    if (r->r_insharedregion && 0 == r->r_nsubregions) {
-        /*
-         * A segment in the shared region needs to be
-         * identified with an LC_SEGMENT that dyld claims,
-         * otherwise (we assert) it's not useful to the dump.
-         */
-        if (opt->debug) {
-            hsize_str_t hstr;
-            printr(r, "not referenced in dyld info => "
-                   "eliding %s range in shared region\n",
-                   str_hsize(hstr, R_SIZE(r)));
-        }
-        return WALK_DELETE_REGION;
-    }
+	if (r->r_fileref) {
+		/*
+		 * Already have a fileref for the whole region: already
+		 * a more compact representation - keep it that way.
+		 */
+		if (OPTIONS_DEBUG(opt, 3))
+			printr(r, "retaining fileref region\n");
+		assert(&fileref_ops == r->r_op);
+		return clean_subregions(r);
+	}
 
     if (r->r_nsubregions > 1) {
         /*
@@ -413,7 +426,7 @@ sparse_region_optimization(struct region *r, __unused void *arg)
             struct subregion *s0 = r->r_subregions[i-1];
             struct subregion *s1 = r->r_subregions[i];
 
-            if (s0->s_isfileref) {
+            if (s0->s_isuuidref) {
                 i++;
                 continue; /* => destined to be a fileref */
             }
@@ -424,11 +437,9 @@ sparse_region_optimization(struct region *r, __unused void *arg)
 
             if (S_ENDADDR(s0) == S_ADDR(s1)) {
                 /* directly adjacent subregions */
-#if 1
-                if (opt->debug)
+                if (OPTIONS_DEBUG(opt, 2))
                     printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- adjacent\n",
                            S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-#endif
                 S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
                 elide_subregion(r, i);
                 continue;
@@ -445,11 +456,9 @@ sparse_region_optimization(struct region *r, __unused void *arg)
 
             if (pfn[0] == pfn[1] && pfn[0] == endpfn[0] && pfn[0] == endpfn[1]) {
                 /* two small subregions share a host page */
-#if 1
-                if (opt->debug)
+                if (OPTIONS_DEBUG(opt, 2))
                     printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- same page\n",
                            S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-#endif
                 S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
                 elide_subregion(r, i);
                 continue;
@@ -457,11 +466,9 @@ sparse_region_optimization(struct region *r, __unused void *arg)
 
             if (pfn[1] == 1 + endpfn[0]) {
                 /* subregions are pagewise-adjacent: bigger chunks to compress */
-#if 1
-                if (opt->debug)
+                if (OPTIONS_DEBUG(opt, 2))
                     printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- adjacent pages\n",
                            S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-#endif
                 S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
                 elide_subregion(r, i);
                 continue;
@@ -470,6 +477,17 @@ sparse_region_optimization(struct region *r, __unused void *arg)
             i++;    /* this isn't the subregion we're looking for */
         }
     }
+
+	if (1 == r->r_nsubregions) {
+		struct subregion *s = r->r_subregions[0];
+		if (!s->s_isuuidref &&
+			R_ADDR(r) == S_ADDR(s) && R_ENDADDR(r) == S_ENDADDR(s)) {
+			if (OPTIONS_DEBUG(opt, 3))
+				printr(r, "subregion (%llx-%llx) reverts to region\n",
+					   S_ADDR(s), S_ENDADDR(s));
+			return clean_subregions(r);
+		}
+	}
 
     if (r->r_nsubregions)
         r->r_op = &sparse_ops;

@@ -661,23 +661,36 @@ test_threaded(krb5_context context)
 
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number, q, ^(size_t num) {
-				krb5_context c;
-				krb5_init_context(&c);
+			        krb5_error_code ret;
+			        krb5_context c;
+				ret = krb5_init_context(&c);
+				if (ret)
+				   err(1, "krb5_init_context failed with: %d", ret);
+
 				test_move(c, "API");
 				krb5_free_context(c);
 			    });
 		    });
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number, q, ^(size_t num) {
-				krb5_context c;
-				krb5_init_context(&c);
+			        krb5_error_code ret;
+			        krb5_context c;
+				ret = krb5_init_context(&c);
+				if (ret)
+				    err(1, "krb5_init_context failed with: %d", ret);
+
 				test_move(c, "API");
 				krb5_free_context(c);
 			    });
 		    });
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number / 10, q, ^(size_t num) {
-				krb5_context c;
+			        krb5_error_code ret;
+			        krb5_context c;
+				ret = krb5_init_context(&c);
+				if (ret)
+				    err(1, "krb5_init_context failed with: %d", ret);
+
 				krb5_init_context(&c);
 				test_cache_iter(c, type, 0);
 				krb5_free_context(c);
@@ -685,8 +698,12 @@ test_threaded(krb5_context context)
 		    });
 		dispatch_group_async(inner, q, ^{
 			dispatch_apply(number / 10, q, ^(size_t num) {
-				krb5_context c;
-				krb5_init_context(&c);
+			        krb5_error_code ret;
+			        krb5_context c;
+				ret = krb5_init_context(&c);
+				if (ret)
+				    err(1, "krb5_init_context failed with: %d", ret);
+
 				test_cache_iter_all(c);
 				krb5_free_context(c);
 			    });

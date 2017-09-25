@@ -61,7 +61,8 @@ public:
     inline bool shouldTranslocate() const { return should; };
     inline const string & getOriginalRealPath() const { return realOriginalPath; };
     inline const string & getPathToTranslocate() const { return pathToTranslocate; };
-    inline const string & getPathInsideTranslocation() const { return pathInsideTranslocationPoint; } ;
+    inline const string & getPathInsideTranslocation() const { return pathInsideTranslocationPoint; };
+    inline const string & getComponentNameToTranslocate() const { return componentNameToTranslocate; };
     string getTranslocatedPathToOriginalPath(const string &translocationPoint) const;
 private:
     TranslocationPath() = delete;
@@ -69,6 +70,7 @@ private:
     bool should;
     string realOriginalPath;
     string pathToTranslocate;
+    string componentNameToTranslocate; //the final component of pathToTranslocate
     string pathInsideTranslocationPoint;
 
     ExtendedAutoFileDesc findOuterMostCodeBundleForFD(ExtendedAutoFileDesc &fd);

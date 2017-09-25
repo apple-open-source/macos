@@ -23,19 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NetworkCacheFileSystem_h
-#define NetworkCacheFileSystem_h
+#pragma once
 
 #if ENABLE(NETWORK_CACHE)
 
 #include <WebCore/FileSystem.h>
-#include <functional>
+#include <chrono>
 
 namespace WebKit {
 namespace NetworkCache {
 
 enum class DirectoryEntryType { Directory, File };
-void traverseDirectory(const String& path, const std::function<void (const String& fileName, DirectoryEntryType)>&);
+void traverseDirectory(const String& path, const Function<void (const String& fileName, DirectoryEntryType)>&);
 
 void deleteDirectoryRecursively(const String& path);
 
@@ -52,6 +51,3 @@ bool canUseSharedMemoryForPath(const String& path);
 }
 
 #endif 
-
-#endif
-

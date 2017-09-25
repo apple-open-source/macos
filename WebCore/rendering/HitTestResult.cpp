@@ -48,7 +48,6 @@
 #include "RenderInline.h"
 #include "SVGAElement.h"
 #include "SVGImageElement.h"
-#include "SVGNames.h"
 #include "Scrollbar.h"
 #include "ShadowRoot.h"
 #include "TextIterator.h"
@@ -668,8 +667,7 @@ bool HitTestResult::addNodeToRectBasedTestResult(Node* node, const HitTestReques
     if (!node)
         return true;
 
-    // FIXME: This moves out of a author shadow tree.
-    if (request.disallowsUserAgentShadowContent())
+    if (request.disallowsUserAgentShadowContent() && node->isInUserAgentShadowTree())
         node = node->document().ancestorNodeInThisScope(node);
 
     mutableRectBasedTestResult().add(node);
@@ -689,8 +687,7 @@ bool HitTestResult::addNodeToRectBasedTestResult(Node* node, const HitTestReques
     if (!node)
         return true;
 
-    // FIXME: This moves out of a author shadow tree.
-    if (request.disallowsUserAgentShadowContent())
+    if (request.disallowsUserAgentShadowContent() && node->isInUserAgentShadowTree())
         node = node->document().ancestorNodeInThisScope(node);
 
     mutableRectBasedTestResult().add(node);
@@ -748,7 +745,7 @@ Vector<String> HitTestResult::dictationAlternatives() const
     if (!frame)
         return Vector<String>();
 
-    return frame->editor().dictationAlternativesForMarker(marker);
+    return frame->editor().dictationAlternativesForMarker(*marker);
 }
 
 Node* HitTestResult::targetNode() const
@@ -756,11 +753,11 @@ Node* HitTestResult::targetNode() const
     Node* node = innerNode();
     if (!node)
         return 0;
-    if (node->inDocument())
+    if (node->isConnected())
         return node;
 
     Element* element = node->parentElement();
-    if (element && element->inDocument())
+    if (element && element->isConnected())
         return element;
 
     return node;
@@ -789,7 +786,7 @@ String HitTestResult::linkSuggestedFilename() const
 {
     auto* urlElement = URLElement();
     if (!is<HTMLAnchorElement>(urlElement))
-        return nullAtom;
+        return nullAtom();
     return ResourceResponse::sanitizeSuggestedFilename(urlElement->attributeWithoutSynchronization(HTMLNames::downloadAttr));
 }
 

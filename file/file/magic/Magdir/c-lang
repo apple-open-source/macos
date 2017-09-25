@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# $File: c-lang,v 1.20 2015/07/27 14:33:10 christos Exp $
+# $File: c-lang,v 1.24 2016/07/01 23:31:13 christos Exp $
 # c-lang:  file(1) magic for C and related languages programs
 #
 
@@ -44,6 +44,11 @@
 0	regex	\^private:		C++ source text
 !:strength + 5
 !:mime	text/x-c++
+
+# Objective-C
+0	regex	\^#import	Objective-C source text
+!:strength +25
+!:mime	text/x-objective-c
 
 # From: Mikhail Teterin <mi@aldan.algebra.com> 
 0	string		cscope		cscope reference data

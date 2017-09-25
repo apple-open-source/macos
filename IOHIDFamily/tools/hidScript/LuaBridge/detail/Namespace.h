@@ -244,7 +244,7 @@ private:
         if (lua_isnil (L, -1))
         {
           // Either the property or __parent must exist.
-          result = luaL_error (L,
+          luaL_error (L,
             "no member named '%s'", lua_tostring (L, 2));
         }
         lua_remove (L, -2);

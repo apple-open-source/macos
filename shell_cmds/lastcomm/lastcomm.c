@@ -134,6 +134,7 @@ main(int argc, char *argv[])
 					*p = '?';
 		if (!*argv || requested(argv, &ab)) {
 
+			time_t timelong = ab.ac_btime;
 			t = expand(ab.ac_utime) + expand(ab.ac_stime);
 			(void)printf(
 			    "%-*.*s %-7s %-*.*s %-*.*s %6.2f secs %.16s",
@@ -143,7 +144,7 @@ main(int argc, char *argv[])
 			     UT_NAMESIZE, UT_NAMESIZE,
 			     user_from_uid(ab.ac_uid, 0), UT_LINESIZE,
 			     UT_LINESIZE, getdev(ab.ac_tty),
-			     t / (double)AHZ, ctime(&ab.ac_btime));
+			     t / (double)AHZ, ctime(&timelong));
 			delta = expand(ab.ac_etime) / (double)AHZ;
 			printf(" (%1.0f:%02.0f:%05.2f)\n",
 			       floor(delta / SECSPERHOUR),

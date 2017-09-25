@@ -1,19 +1,13 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/yue.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 yue{
     Keys{
         calendar{"曆法"}
+        cf{"貨幣格式"}
         colAlternate{"略過符號排序"}
         colBackwards{"反向重音排序"}
         colCaseFirst{"大寫/小寫排列"}
         colCaseLevel{"區分大小寫排序"}
-        colHiraganaQuaternary{"假名排序"}
         colNormalization{"正規化排序"}
         colNumeric{"數字排序"}
         colStrength{"排序強度"}
@@ -25,7 +19,6 @@ yue{
         numbers{"數字"}
         timezone{"時區"}
         va{"區域變異"}
-        variableTop{"以符號排序"}
         x{"專用區"}
     }
     Languages{
@@ -134,6 +127,7 @@ yue{
         cps{"卡皮茲文"}
         cr{"克裡文"}
         crh{"克里米亞半島的土耳其文；克里米亞半島的塔塔爾文"}
+        crs{"法語克里奧爾混合語"}
         cs{"捷克文"}
         csb{"卡舒布文"}
         cu{"宗教斯拉夫文"}
@@ -439,6 +433,7 @@ yue{
         pap{"帕皮阿門托文"}
         pau{"帛琉文"}
         pcd{"庇卡底文"}
+        pcm{"尼日利亞皮欽語"}
         pdc{"賓夕法尼亞德文"}
         pdt{"門諾低地德文"}
         peo{"古波斯文"}
@@ -677,6 +672,7 @@ yue{
         Grek{"希臘文"}
         Gujr{"古吉拉特文"}
         Guru{"古魯穆奇文"}
+        Hanb{"漢語注音"}
         Hang{"韓文字"}
         Hani{"漢語"}
         Hano{"哈努諾文"}
@@ -690,6 +686,7 @@ yue{
         Hung{"古匈牙利文"}
         Inds{"印度河流域（哈拉帕文）"}
         Ital{"古意大利文"}
+        Jamo{"韓文字母"}
         Java{"爪哇文"}
         Jpan{"日文"}
         Jurc{"女真文字"}
@@ -791,6 +788,7 @@ yue{
         Yiii{"彞文"}
         Zinh{"繼承文字（Unicode）"}
         Zmth{"數學符號"}
+        Zsye{"表情符號"}
         Zsym{"符號"}
         Zxxx{"非書寫語言"}
         Zyyy{"一般文字"}
@@ -824,6 +822,10 @@ yue{
             persian{"波斯曆"}
             roc{"民國曆"}
         }
+        cf{
+            account{"會計貨幣格式"}
+            standard{"標準貨幣格式"}
+        }
         colAlternate{
             non-ignorable{"排序符號"}
             shifted{"略過符號排序"}
@@ -840,10 +842,6 @@ yue{
         colCaseLevel{
             no{"不分大小寫排序"}
             yes{"依大小寫排序"}
-        }
-        colHiraganaQuaternary{
-            no{"個別排序假名"}
-            yes{"分別排序假名"}
         }
         colNormalization{
             no{"非正規化排序"}
@@ -878,6 +876,11 @@ yue{
             unihan{"部首筆畫排序"}
             zhuyin{"注音排序"}
         }
+        d0{
+            fwidth{"全形"}
+            hwidth{"半形"}
+            npinyin{"數值"}
+        }
         hc{
             h11{"12 小時制 (0–11)"}
             h12{"12 小時制 (1–12)"}
@@ -888,6 +891,10 @@ yue{
             loose{"寬鬆換行樣式"}
             normal{"一般換行樣式"}
             strict{"強制換行樣式"}
+        }
+        m0{
+            bgn{"美國地名委員會"}
+            ungegn{"聯合國地名專家組"}
         }
         ms{
             metric{"公制"}
@@ -1017,7 +1024,20 @@ yue{
         VALLADER{"瑞士瓦勒德方言"}
         WADEGILE{"威妥瑪式拼音"}
     }
-    Version{"2.1.23.47"}
+    Version{"2.1.34.23"}
+    characterLabelPattern{
+        all{"{0} — 全部"}
+        compatibility{"{0} — 相容性"}
+        enclosed{"{0} — 包圍"}
+        extended{"{0} — 擴充"}
+        historic{"{0} - 古代"}
+        miscellaneous{"{0} — 其他"}
+        other{"{0} — 其他"}
+        scripts{"字體 — {0}"}
+        strokes{
+            other{"{0}斜線"}
+        }
+    }
     codePatterns{
         language{"語言：{0}"}
         script{"文字：{0}"}

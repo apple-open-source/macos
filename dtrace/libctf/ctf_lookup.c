@@ -285,12 +285,19 @@ ctf_func_info(ctf_file_t *fp, ulong_t symidx, ctf_funcinfo_t *fip)
 
 	if (sp->cts_entsize == sizeof (Elf32_Sym)) {
 		const Elf32_Sym *symp = (Elf32_Sym *)sp->cts_data + symidx;
+		/*
+		 * On Darwin, we do not have symbol type information
+		 */
+#if !defined(__APPLE__)
 		if (ELF32_ST_TYPE(symp->st_info) != STT_FUNC)
 			return (ctf_set_errno(fp, ECTF_NOTFUNC));
+#endif
 	} else {
 		const Elf64_Sym *symp = (Elf64_Sym *)sp->cts_data + symidx;
+#if !defined(__APPLE__)
 		if (ELF64_ST_TYPE(symp->st_info) != STT_FUNC)
 			return (ctf_set_errno(fp, ECTF_NOTFUNC));
+#endif
 	}
 
 	if (fp->ctf_sxlate[symidx] == -1u)

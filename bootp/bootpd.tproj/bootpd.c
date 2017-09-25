@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,7 +95,7 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDictionary.h>
-#include <SystemConfiguration/SCValidation.h>
+#include "cfutil.h"
 
 #include "arp.h"
 #include "netinfo.h"
@@ -123,11 +123,11 @@
 #define CFGPROP_DETECT_OTHER_DHCP_SERVER	"detect_other_dhcp_server"
 #define CFGPROP_BOOTP_ENABLED		"bootp_enabled"
 #define CFGPROP_DHCP_ENABLED		"dhcp_enabled"
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 #define CFGPROP_OLD_NETBOOT_ENABLED	"old_netboot_enabled"
 #define CFGPROP_NETBOOT_ENABLED		"netboot_enabled"
 #define CFGPROP_USE_OPEN_DIRECTORY	"use_open_directory"
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 #define CFGPROP_RELAY_ENABLED		"relay_enabled"
 #define CFGPROP_ALLOW			"allow"
 #define CFGPROP_DENY			"deny"
@@ -185,9 +185,9 @@ bool		verbose;
 static int	transmit_buffer_aligned[512];
 char *		transmit_buffer = (char *)transmit_buffer_aligned;
 
-#if ! TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
 bool		use_open_directory = TRUE;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
 
 /* local types */
 
@@ -249,6 +249,7 @@ static void		on_sighup(int sigraised);
 static void		bootp_request(request_t * request);
 static void		S_server_loop();
 static void		S_publish_disabled_interfaces(boolean_t publish);
+static void		S_add_ip_change_notifications();
 
 #define PID_FILE "/var/run/bootpd.pid"
 static void
@@ -535,7 +536,8 @@ S_service_enable(CFTypeRef prop, u_int32_t which)
     return;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
+
 static void
 S_service_disable(u_int32_t service)
 {
@@ -573,7 +575,7 @@ S_disable_netboot()
     S_service_disable(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT);
     return;
 }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 
 typedef int (*qsort_compare_func_t)(const void *, const void *);
 
@@ -864,7 +866,7 @@ S_update_services()
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_DHCP_ENABLED)),
 			 SERVICE_DHCP);
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 	/* NetBoot (2.0) */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_NETBOOT_ENABLED)),
@@ -874,7 +876,7 @@ S_update_services()
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_OLD_NETBOOT_ENABLED)),
 			 SERVICE_OLD_NETBOOT);
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	/* Relay */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_RELAY_ENABLED)),
@@ -911,7 +913,7 @@ S_update_services()
     if (num != 0) {
 	dhcp_ignore_client_identifier = TRUE;
     }
-#if !TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
     /* use open directory [for bootpent queries] */
     use_open_directory = TRUE;
     num = 1;
@@ -921,7 +923,7 @@ S_update_services()
     if (num == 0) {
 	use_open_directory = FALSE;
     }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
 
     /* check whether to supply our own configuration for missing dhcp options */
     S_use_server_config_for_dhcp_options
@@ -945,14 +947,14 @@ S_update_services()
     }
 
     dhcp_init();
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
     if (S_service_is_enabled(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT)) {
 	if (bsdp_init(plist) == FALSE) {
 	    my_log(LOG_INFO, "bootpd: NetBoot service turned off");
 	    S_disable_netboot();
 	}
     }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
     if (plist != NULL) {
 	CFRelease(plist);
     }
@@ -984,7 +986,7 @@ dhcp_enabled(interface_t * if_p)
     return (is_service_enabled(if_p, SERVICE_DHCP, SERVICE_DHCP_DISABLED));
 }
 
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 static __inline__ boolean_t
 netboot_enabled(interface_t * if_p)
 {
@@ -996,7 +998,7 @@ old_netboot_enabled(interface_t * if_p)
 {
     return (is_service_enabled(if_p, SERVICE_OLD_NETBOOT, 0));
 }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 
 static __inline__ boolean_t
 relay_enabled(interface_t * if_p)
@@ -1016,13 +1018,13 @@ usage()
 	    "[ -d ]	debug mode, stay in foreground, extra printf's\n"
 	    "[ -I ]	disable re-initialization on IP address changes\n"
 	    "[ -i <interface> [ -i <interface> ... ] ]\n"
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 	    "[ -m ] 	be an old NetBoot (1.0) server\n"
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	    "[ -n <domain> [ -n <domain> [...] ] ]\n"
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVERS_SUPPORT
 	    "[ -N ]	be a NetBoot 2.0 server\n"
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	    "[ -q ]	be quiet as possible\n"
 	    "[ -r <server ip> [ -o <max hops> ] ] relay packets to server, "
 	    "optionally set the hop count (default is 4 hops)\n"
@@ -1030,9 +1032,6 @@ usage()
 	    );
     exit(1);
 }
-
-static void
-S_add_ip_change_notifications();
 
 int
 main(int argc, char * argv[])
@@ -1050,9 +1049,9 @@ main(int argc, char * argv[])
     S_get_interfaces();
 
     while ((ch =  getopt(argc, argv, "aBbc:DdhHi:I"
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
         "mN"
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	"o:Pp:qr:St:v")) != EOF) {
 	switch ((char)ch) {
 	case 'a':
@@ -1091,14 +1090,14 @@ main(int argc, char * argv[])
 		       optarg);
 	    }
 	    break;
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 	case 'm':
 	    S_do_services |= SERVICE_OLD_NETBOOT;
 	    break;
 	case 'N':
 	    S_do_services |= SERVICE_NETBOOT;
 	    break;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	case 'o': {
 	    int h;
 	    h = atoi(optarg);
@@ -1190,22 +1189,16 @@ main(int argc, char * argv[])
     { 
 	int opt = 1;
 
-#if defined(IP_RECVIF)
 	if (setsockopt(bootp_socket, IPPROTO_IP, IP_RECVIF, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
 	    my_log(LOG_NOTICE, "setsockopt(IP_RECVIF) failed: %s", 
 		   strerror(errno));
 	    exit(1);
 	}
-#endif
-
-#if defined(SO_RECV_ANYIF)
 	if (setsockopt(bootp_socket, SOL_SOCKET, SO_RECV_ANYIF, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
 	    my_log(LOG_NOTICE, "setsockopt(SO_RECV_ANYIF) failed");
 	}
-#endif /* SO_RECV_ANYIF */
-	
 	if (setsockopt(bootp_socket, SOL_SOCKET, SO_BROADCAST, (caddr_t)&opt,
 		       sizeof(opt)) < 0) {
 	    my_log(LOG_NOTICE, "setsockopt(SO_BROADCAST) failed");
@@ -1518,30 +1511,30 @@ bootp_request(request_t * request)
 	if (bootp_getbyhw_file(rq->bp_htype, rq->bp_chaddr, rq->bp_hlen,
 			       subnet_match, &match, &iaddr,
 			       &hostname, &bootfile) == FALSE) {
-#if !TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
 	    if (use_open_directory == FALSE
 	        || bootp_getbyhw_ds(rq->bp_htype, rq->bp_chaddr, rq->bp_hlen,
 				    subnet_match, &match, &iaddr,
 				    &hostname, &bootfile) == FALSE) {
 		return;
 	    }
-#else /* TARGET_OS_EMBEDDED */
+#else /* USE_OPEN_DIRECTORY */
 	    return;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
 	}
 	rp.bp_yiaddr = iaddr;
     }
     else { /* client specified ip address */
 	iaddr = rq->bp_ciaddr;
 	if (bootp_getbyip_file(iaddr, &hostname, &bootfile) == FALSE) {
-#if !TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
 	    if (use_open_directory == FALSE
 	        || bootp_getbyip_ds(iaddr, &hostname, &bootfile) == FALSE) {
 		return;
 	    }
-#else /* TARGET_OS_EMBEDDED */
+#else /* USE_OPEN_DIRECTORY */
 	    return;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
 	}
     }
     rq->bp_file[sizeof(rq->bp_file) - 1] = '\0';
@@ -1949,9 +1942,9 @@ static void
 S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 		  struct in_addr * dstaddr_p)
 {
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
     boolean_t		bsdp_pkt = FALSE;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
     boolean_t		dhcp_pkt = FALSE;
     dhcp_msgtype_t	dhcp_msgtype = dhcp_msgtype_none_e;
 
@@ -1990,7 +1983,7 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 	    goto request_done;
 
 	if (dhcp_pkt) { /* this is a DHCP packet */
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 	    if (netboot_enabled(if_p) || old_netboot_enabled(if_p)) {
 		char		arch[256];
 		bsdp_version_t	client_version;
@@ -2017,21 +2010,21 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 		}
 		dhcpol_free(&rq_vsopt);
 	    }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	    if (dhcp_enabled(if_p)
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 	        || old_netboot_enabled(if_p)
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	        ) {
 		handled = TRUE;
 		dhcp_request(&request, dhcp_msgtype, dhcp_enabled(if_p));
 	    }
 	}
-#if !TARGET_OS_EMBEDDED
+#if NETBOOT_SERVER_SUPPORT
 	if (handled == FALSE && old_netboot_enabled(if_p)) {
 	    handled = old_netboot_request(&request);
 	}
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* NETBOOT_SERVER_SUPPORT */
 	if (handled == FALSE && bootp_enabled(if_p)) {
 	    bootp_request(&request);
 	}
@@ -2082,7 +2075,6 @@ S_parse_control(int level, int type, int * len)
     return (NULL);
 }
 
-#if defined(IP_RECVIF)
 static interface_t *
 S_which_interface()
 {
@@ -2127,7 +2119,6 @@ S_which_interface()
     }
     return (if_p);
 }
-#endif
 
 static struct in_addr *
 S_which_dstaddr()
@@ -2203,11 +2194,7 @@ S_server_loop()
 		printf("destination address %s\n", inet_ntoa(*dstaddr_p));
 	}
 
-#if defined(IP_RECVIF)
 	if_p = S_which_interface();
-#else
-	if_p = if_first_broadcast_inet(S_interfaces);
-#endif
 	if (if_p == NULL) {
 	    continue;
 	}
@@ -2224,6 +2211,18 @@ S_server_loop()
 	sigsetmask(mask);
     }
 }
+
+#if NO_SYSTEMCONFIGURATION
+static void
+S_publish_disabled_interfaces(boolean_t publish)
+{
+}
+
+static void
+S_add_ip_change_notifications()
+{
+}
+#else /* NO_SYSTEMCONFIGURATION */
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
@@ -2331,3 +2330,4 @@ S_publish_disabled_interfaces(boolean_t publish)
     last_publish = publish;
     return;
 }
+#endif /* !NO_SYSTEMCONFIGURATION */

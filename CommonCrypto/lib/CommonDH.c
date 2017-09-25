@@ -76,10 +76,10 @@ CCDHCreate(CCDHParameters dhParameter)
     if(retval == NULL) goto error;
     
     retSize = ccdh_full_ctx_size(ccdh_ccn_size(CCDHParm->gp));
-    retval->ctx._full = CC_XMALLOC(retSize);
+    retval->ctx = CC_XMALLOC(retSize);
 
-    if(retval->ctx._full == NULL) goto error;
-    ccdh_ctx_init(CCDHParm->gp, retval->ctx);
+    if(retval->ctx == NULL) goto error;
+    ccdh_ctx_init(CCDHParm->gp, ccdh_ctx_public(retval->ctx));
     retval->parms = CCDHParm;
         
     return (CCDHRef) retval;
@@ -96,9 +96,9 @@ CCDHRelease(CCDHRef ref)
     CC_DEBUG_LOG("Entering\n");
     if(ref == NULL) return;
     CCDH keyref = (CCDH) ref;
-    if(keyref->ctx._full) 
-        CC_XFREE(keyref->ctx._full, ccdh_full_ctx_size(ccdh_ccn_size(keyref->parms->gp)));
-    keyref->ctx._full = NULL;
+    if(keyref->ctx)
+        CC_XFREE(keyref->ctx, ccdh_full_ctx_size(ccdh_ccn_size(keyref->parms->gp)));
+    keyref->ctx = NULL;
     CC_XFREE(keyref->parms, sizeof(CCDHParmSetstruct));
     keyref->parms = NULL;
     CC_XFREE(keyref, sizeof(CCDHstruct));
@@ -114,17 +114,17 @@ CCDHGenerateKey(CCDHRef ref, void *output, size_t *outputLength)
     
     CCDH keyref = (CCDH) ref;
     
-    if(ccdh_generate_key(keyref->parms->gp, ccDRBGGetRngState(), keyref->ctx.pub))
+    if(ccdh_generate_key(keyref->parms->gp, ccDRBGGetRngState(), keyref->ctx))
         return -1;
     
-    size_t size_needed = ccdh_export_pub_size(keyref->ctx);
+    size_t size_needed = ccdh_export_pub_size(ccdh_ctx_public(keyref->ctx));
     if(size_needed > *outputLength) {
         *outputLength = size_needed;
         return -1;
     }
     
     *outputLength = size_needed;
-    ccdh_export_pub(keyref->ctx, output);
+    ccdh_export_pub(ccdh_ctx_public(keyref->ctx), output);
     return 0;
 }
 
@@ -178,13 +178,13 @@ CCDHParametersCreateFromData(const void *p, size_t pLen, const void *g, size_t g
     if(!retval) goto error;
     
     retval->malloced = ccdh_gp_size(n);
-    retval->gp.gp = (ccdh_gp *) CC_XMALLOC(retval->malloced);
-    if(!retval->gp.gp) goto error;
-    if(ccdh_init_gp(retval->gp._ncgp, n, pval, gval, (cc_size) l))
+    retval->gp = CC_XMALLOC(retval->malloced);
+    if(retval->gp==NULL) goto error;
+    if(ccdh_init_gp((ccdh_gp_t)retval->gp, n, pval, gval, (cc_size) l)) //const is discarded in retval->gp
         goto error;
     return retval;
 error:
-    if(retval && retval->gp.gp) CC_XFREE((ccdh_gp *) retval->gp.gp, retval->malloced);
+    if(retval && retval->gp) CC_XFREE((ccdh_gp_t)retval->gp, retval->malloced); //const is discarded in retval->gp
     if(retval) CC_XFREE(retval, sizeof(CCDHParmSetstruct));
     return NULL;
 }
@@ -199,10 +199,10 @@ CCDHParametersRelease(CCDHParameters parameters)
 
     CCDHParmSet CCDHParm = (CCDHParmSet) parameters;
     if(CCDHParm->malloced) {
-        CC_XFREE((void *) parameters->gp.gp, retval->malloced);
+        CC_XFREE((ccdh_gp_t)parameters->gp, retval->malloced); //const is discarded in retval->gp
     }
     CCDHParm->malloced = 0;
-    CCDHParm->gp.gp = NULL;
+    CCDHParm->gp = NULL;
     CC_XFREE(CCDHParm, sizeof(CCDHParmSetstruct));
 }
 

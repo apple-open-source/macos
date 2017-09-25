@@ -110,7 +110,7 @@ extern void dns_set_debug(dns_handle_t dns, uint32_t flag);
 /*
  * Returns the number of names in the search list.
  */
-extern uint32_t dns_search_list_domain_count(dns_handle_t dns);
+extern uint32_t dns_search_list_count(dns_handle_t dns);
 
 /* 
  * Returns the domain name at index i in the search list.

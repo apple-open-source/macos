@@ -36,8 +36,19 @@ CFDataRef CFDataCreateSHA1DigestWithBytes(CFAllocatorRef allocator, size_t len, 
     return CFDataCreateDigestWithBytes(allocator, ccsha1_di(), len, data, error);
 }
 
+CFDataRef CFDataCreateSHA256DigestWithBytes(CFAllocatorRef allocator, size_t len, const void *data, CFErrorRef *error) {
+    return CFDataCreateDigestWithBytes(allocator, ccsha256_di(), len, data, error);
+}
+
+
 CFDataRef CFDataCopySHA1Digest(CFDataRef dataToDigest, CFErrorRef *error) {
     CFIndex length = CFDataGetLength(dataToDigest);
     assert((unsigned long)length < UINT32_MAX); /* Debug check. Correct as long as CFIndex is long */
     return CFDataCreateSHA1DigestWithBytes(CFGetAllocator(dataToDigest), length, CFDataGetBytePtr(dataToDigest), error);
+}
+
+CFDataRef CFDataCopySHA256Digest(CFDataRef dataToDigest, CFErrorRef *error) {
+    CFIndex length = CFDataGetLength(dataToDigest);
+    assert((unsigned long)length < UINT32_MAX); /* Debug check. Correct as long as CFIndex is long */
+    return CFDataCreateSHA256DigestWithBytes(CFGetAllocator(dataToDigest), length, CFDataGetBytePtr(dataToDigest), error);
 }

@@ -11,8 +11,8 @@
 
 #include "SOSAccount.h"
 
-bool SOSAccountTrustedCircleHasNoGhostOfMe(SOSAccountRef account);
-bool SOSAccountGhostResultsInReset(SOSAccountRef account);
-SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccountRef account, SOSCircleRef startCircle);
+bool SOSAccountTrustedCircleHasNoGhostOfMe(SOSAccount* account);
+bool SOSAccountGhostResultsInReset(SOSAccount* account);
+SOSCircleRef SOSAccountCloneCircleWithoutMyGhosts(SOSAccount* account, SOSCircleRef startCircle);
 
 #endif /* SOSAccountGhost_h */

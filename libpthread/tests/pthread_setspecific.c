@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 static pthread_key_t key;
 
@@ -54,7 +54,7 @@ grim_reaper(void * param)
 }
 
 T_DECL(pthread_setspecific, "pthread_setspecific",
-        T_META_ALL_VALID_ARCHS(YES))
+       T_META_ALL_VALID_ARCHS(YES))
 {
 	void * thread_res;
 	pthread_t t1, t2;

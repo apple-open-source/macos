@@ -37,10 +37,10 @@
 #include "WebContextMenuProxyGtk.h"
 #include "WebEventFactory.h"
 #include "WebKitColorChooser.h"
+#include "WebKitPopupMenu.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include "WebPageProxy.h"
-#include "WebPopupMenuProxyGtk.h"
 #include "WebProcessPool.h"
 #include <WebCore/CairoUtilities.h>
 #include <WebCore/Cursor.h>
@@ -73,6 +73,11 @@ void PageClientImpl::setViewNeedsDisplay(const WebCore::Region& region)
 void PageClientImpl::requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, bool)
 {
     notImplemented();
+}
+
+WebCore::FloatPoint PageClientImpl::viewScrollPosition()
+{
+    return { };
 }
 
 WebCore::IntSize PageClientImpl::viewSize()
@@ -142,9 +147,9 @@ void PageClientImpl::didChangeViewportProperties(const WebCore::ViewportAttribut
     notImplemented();
 }
 
-void PageClientImpl::registerEditCommand(PassRefPtr<WebEditCommandProxy> command, WebPageProxy::UndoOrRedo undoOrRedo)
+void PageClientImpl::registerEditCommand(Ref<WebEditCommandProxy>&& command, WebPageProxy::UndoOrRedo undoOrRedo)
 {
-    m_undoController.registerEditCommand(command, undoOrRedo);
+    m_undoController.registerEditCommand(WTFMove(command), undoOrRedo);
 }
 
 void PageClientImpl::clearAllEditCommands()
@@ -201,12 +206,14 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)
 {
+    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        return WebKitPopupMenu::create(m_viewWidget, page);
     return WebPopupMenuProxyGtk::create(m_viewWidget, page);
 }
 
-std::unique_ptr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, const ContextMenuContextData& context, const UserData& userData)
+RefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, const ContextMenuContextData& context, const UserData& userData)
 {
-    return std::make_unique<WebContextMenuProxyGtk>(m_viewWidget, page, context, userData);
+    return WebContextMenuProxyGtk::create(m_viewWidget, page, context, userData);
 }
 
 RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, const WebCore::Color& color, const WebCore::IntRect& rect)
@@ -267,7 +274,8 @@ void PageClientImpl::startDrag(Ref<SelectionData>&& selection, DragOperation dra
 
 void PageClientImpl::handleDownloadRequest(DownloadProxy* download)
 {
-    webkitWebViewBaseHandleDownloadRequest(WEBKIT_WEB_VIEW_BASE(m_viewWidget), download);
+    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        webkitWebViewHandleDownloadRequest(WEBKIT_WEB_VIEW(m_viewWidget), download);
 }
 
 void PageClientImpl::didCommitLoadForMainFrame(const String& /* mimeType */, bool /* useCustomContentProvider */ )
@@ -288,8 +296,7 @@ void PageClientImpl::closeFullScreenManager()
 
 bool PageClientImpl::isFullScreen()
 {
-    notImplemented();
-    return false;
+    return webkitWebViewBaseIsFullScreen(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
 void PageClientImpl::enterFullScreen()
@@ -297,7 +304,13 @@ void PageClientImpl::enterFullScreen()
     if (!m_viewWidget)
         return;
 
-    webkitWebViewBaseEnterFullScreen(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
+    if (isFullScreen())
+        return;
+
+    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        webkitWebViewEnterFullScreen(WEBKIT_WEB_VIEW(m_viewWidget));
+    else
+        webkitWebViewBaseEnterFullScreen(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
 void PageClientImpl::exitFullScreen()
@@ -305,7 +318,13 @@ void PageClientImpl::exitFullScreen()
     if (!m_viewWidget)
         return;
 
-    webkitWebViewBaseExitFullScreen(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
+    if (!isFullScreen())
+        return;
+
+    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        webkitWebViewExitFullScreen(WEBKIT_WEB_VIEW(m_viewWidget));
+    else
+        webkitWebViewBaseExitFullScreen(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 
 void PageClientImpl::beganEnterFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */)
@@ -448,5 +467,13 @@ bool PageClientImpl::decidePolicyForInstallMissingMediaPluginsPermissionRequest(
     return true;
 }
 #endif
+
+JSGlobalContextRef PageClientImpl::javascriptGlobalContext()
+{
+    if (!WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        return nullptr;
+
+    return webkit_web_view_get_javascript_global_context(WEBKIT_WEB_VIEW(m_viewWidget));
+}
 
 } // namespace WebKit

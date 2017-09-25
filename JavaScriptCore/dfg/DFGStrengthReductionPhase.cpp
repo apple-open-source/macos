@@ -215,11 +215,8 @@ private:
             break;
 
         case ValueRep:
-        case Int52Rep:
-        case DoubleRep: {
-            // This short-circuits circuitous conversions, like ValueRep(DoubleRep(value)) or
-            // even more complicated things. Like, it can handle a beast like
-            // ValueRep(DoubleRep(Int52Rep(value))).
+        case Int52Rep: {
+            // This short-circuits circuitous conversions, like ValueRep(Int52Rep(value)).
             
             // The only speculation that we would do beyond validating that we have a type that
             // can be represented a certain way is an Int32 check that would appear on Int52Rep
@@ -258,7 +255,6 @@ private:
                     hadInt32Check = true;
                     continue;
                     
-                case DoubleRep:
                 case ValueRep:
                     continue;
                     
@@ -390,6 +386,37 @@ private:
             break;
         }
 
+        case ToString:
+        case CallStringConstructor: {
+            Edge& child1 = m_node->child1();
+            switch (child1.useKind()) {
+            case Int32Use:
+            case Int52RepUse:
+            case DoubleRepUse: {
+                if (child1->hasConstant()) {
+                    JSValue value = child1->constant()->value();
+                    if (value) {
+                        String result;
+                        if (value.isInt32())
+                            result = String::number(value.asInt32());
+                        else if (value.isNumber())
+                            result = String::numberToStringECMAScript(value.asNumber());
+
+                        if (!result.isNull()) {
+                            m_node->convertToLazyJSConstant(m_graph, LazyJSValue::newString(m_graph, result));
+                            m_changed = true;
+                        }
+                    }
+                }
+                break;
+            }
+
+            default:
+                break;
+            }
+            break;
+        }
+
         case GetArrayLength: {
             if (m_node->arrayMode().type() == Array::Generic
                 || m_node->arrayMode().type() == Array::String) {
@@ -404,7 +431,7 @@ private:
         }
 
         case GetGlobalObject: {
-            if (JSObject* object = m_node->child1()->dynamicCastConstant<JSObject*>()) {
+            if (JSObject* object = m_node->child1()->dynamicCastConstant<JSObject*>(vm())) {
                 m_graph.convertToConstant(m_node, object->globalObject());
                 m_changed = true;
                 break;
@@ -414,7 +441,7 @@ private:
 
         case RegExpExec:
         case RegExpTest: {
-            JSGlobalObject* globalObject = m_node->child1()->dynamicCastConstant<JSGlobalObject*>();
+            JSGlobalObject* globalObject = m_node->child1()->dynamicCastConstant<JSGlobalObject*>(vm());
             if (!globalObject) {
                 if (verbose)
                     dataLog("Giving up because no global object.\n");
@@ -429,7 +456,7 @@ private:
 
             Node* regExpObjectNode = m_node->child2().node();
             RegExp* regExp;
-            if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>())
+            if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>(vm()))
                 regExp = regExpObject->regExp();
             else if (regExpObjectNode->op() == NewRegexp)
                 regExp = regExpObjectNode->castOperand<RegExp*>();
@@ -670,7 +697,7 @@ private:
             
             Node* regExpObjectNode = m_node->child2().node();
             RegExp* regExp;
-            if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>())
+            if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>(vm()))
                 regExp = regExpObject->regExp();
             else if (regExpObjectNode->op() == NewRegexp)
                 regExp = regExpObjectNode->castOperand<RegExp*>();
@@ -767,7 +794,7 @@ private:
         case TailCall: {
             ExecutableBase* executable = nullptr;
             Edge callee = m_graph.varArgChild(m_node, 0);
-            if (JSFunction* function = callee->dynamicCastConstant<JSFunction*>())
+            if (JSFunction* function = callee->dynamicCastConstant<JSFunction*>(vm()))
                 executable = function->executable();
             else if (callee->isFunctionAllocation())
                 executable = callee->castOperand<FunctionExecutable*>();
@@ -775,7 +802,7 @@ private:
             if (!executable)
                 break;
             
-            if (FunctionExecutable* functionExecutable = jsDynamicCast<FunctionExecutable*>(executable)) {
+            if (FunctionExecutable* functionExecutable = jsDynamicCast<FunctionExecutable*>(vm(), executable)) {
                 // We need to update m_parameterSlots before we get to the backend, but we don't
                 // want to do too much of this.
                 unsigned numAllocatedArgs =

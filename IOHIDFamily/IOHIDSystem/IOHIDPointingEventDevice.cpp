@@ -146,7 +146,7 @@ bool IOHIDPointingEventDevice::handleStart( IOService * provider )
 
 
 bool IOHIDPointingEventDevice::start( IOService * provider ) {
-  bool success;
+  bool success = false;
   if ( !super::start(provider) ) {
     HIDLogError ("failed");
     return false;
@@ -160,7 +160,7 @@ bool IOHIDPointingEventDevice::start( IOService * provider ) {
                                             (ScrollWheelEventCallback)     _scrollWheelEvent
                                             );
   provider->setProperty(kIOHIDResetPointerKey, kOSBooleanTrue);
-  return true;
+  return success;
 }
 
 
@@ -209,23 +209,23 @@ void IOHIDPointingEventDevice::_relativePointerEvent(
                                                       int        buttons,
                                                       int        dx,
                                                       int        dy,
-                                                      AbsoluteTime ts,
-                                                      OSObject * sender,
+                                                      AbsoluteTime ts __unused,
+                                                      OSObject * sender __unused,
                                                       void *     refcon __unused)
 {
   self->postMouseEvent(CONVERT_EV_TO_HW_BUTTONS(buttons), dx, dy, 0, 0);
 }
 
 void IOHIDPointingEventDevice::_absolutePointerEvent(
-                                                      IOHIDPointingEventDevice *   self,
-                                                      int             buttons,
-                                                      IOGPoint *      newLoc,
-                                                      IOGBounds *     bounds,
-                                                      bool            proximity,
-                                                      int             pressure,
-                                                      int             stylusAngle,
-                                                      AbsoluteTime    ts,
-                                                      OSObject *      sender,
+                                                      IOHIDPointingEventDevice *   self __unused,
+                                                      int             buttons __unused,
+                                                      IOGPoint *      newLoc __unused,
+                                                      IOGBounds *     bounds __unused,
+                                                      bool            proximity __unused,
+                                                      int             pressure __unused,
+                                                      int             stylusAngle __unused,
+                                                      AbsoluteTime    ts __unused,
+                                                      OSObject *      sender __unused,
                                                       void *          refcon __unused)
 {
   
@@ -233,18 +233,18 @@ void IOHIDPointingEventDevice::_absolutePointerEvent(
 
 void IOHIDPointingEventDevice::_scrollWheelEvent(
                                                       IOHIDPointingEventDevice * self,
-                                                      short   deltaAxis1,
-                                                      short   deltaAxis2,
-                                                      short   deltaAxis3,
-                                                      IOFixed fixedDelta1,
-                                                      IOFixed fixedDelta2,
-                                                      IOFixed fixedDelta3,
+                                                      short   deltaAxis1 __unused,
+                                                      short   deltaAxis2 __unused,
+                                                      short   deltaAxis3 __unused,
+                                                      IOFixed fixedDelta1 __unused,
+                                                      IOFixed fixedDelta2 __unused,
+                                                      IOFixed fixedDelta3 __unused,
                                                       SInt32  pointDeltaAxis1,
                                                       SInt32  pointDeltaAxis2,
-                                                      SInt32  pointDeltaAxis3,
-                                                      UInt32  options,
-                                                      AbsoluteTime ts,
-                                                      OSObject * sender,
+                                                      SInt32  pointDeltaAxis3 __unused,
+                                                      UInt32  options __unused,
+                                                      AbsoluteTime ts __unused,
+                                                      OSObject * sender __unused,
                                                       void *     refcon __unused)
 {
   self->postMouseEvent(0, 0, 0, pointDeltaAxis1, pointDeltaAxis2);
@@ -291,7 +291,7 @@ OSString * IOHIDPointingEventDevice::newManufacturerString() const
     return OSString::withCString("Apple");
 }
 
-IOReturn IOHIDPointingEventDevice::message(UInt32 type, IOService * provider, void * argument)
+IOReturn IOHIDPointingEventDevice::message(UInt32 type, IOService * provider, void * argument __unused)
 {
   IOReturn     status = kIOReturnSuccess;
   

@@ -56,9 +56,10 @@ extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 #include "dns-configuration.h"
 
 #include <dnsinfo.h>
-#include "dnsinfo_private.h"
-#include "dnsinfo_internal.h"
 #include "dnsinfo_create.h"
+#include "dnsinfo_internal.h"
+#include "dnsinfo_logging.h"
+#include "dnsinfo_private.h"
 #include "dnsinfo_server.h"
 
 #include <network_information.h>
@@ -113,6 +114,7 @@ dns_resolver_flags_service(CFDictionaryRef service, uint32_t resolver_flags)
 static void
 add_dns_resolver_flags(const void *key, const void *value, void *context)
 {
+#pragma unused(key)
 	CFDictionaryRef	service		= (CFDictionaryRef)value;
 //	CFStringRef	serviceID	= (CFStringRef)key;
 	uint32_t	*resolver_flags	= (uint32_t *)context;
@@ -616,6 +618,7 @@ add_private_resolvers(CFMutableArrayRef resolvers, CFArrayRef privateResolvers)
 static CFComparisonResult
 compareBySearchOrder(const void *val1, const void *val2, void *context)
 {
+#pragma unused(context)
 	CFDictionaryRef	dns1	= (CFDictionaryRef)val1;
 	CFDictionaryRef	dns2	= (CFDictionaryRef)val2;
 	CFNumberRef	num1;
@@ -664,10 +667,10 @@ extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef suppleme
 	uint32_t		defaultOrder		= DEFAULT_SEARCH_ORDER;
 	CFArrayRef		defaultSearchDomains	= NULL;
 	CFIndex			defaultSearchIndex	= 0;
-	CFIndex			i;
 	CFMutableArrayRef	mySearchDomains;
 	CFMutableArrayRef	mySupplemental		= NULL;
 	CFIndex			n_supplemental;
+	CFStringRef		trimmedDomainName;
 
 	mySearchDomains = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
@@ -689,7 +692,7 @@ extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef suppleme
 		CFIndex	n_search;
 
 		n_search = CFArrayGetCount(defaultSearchDomains);
-		for (i = 0; i < n_search; i++) {
+		for (int i = 0; i < n_search; i++) {
 			CFStringRef	search;
 
 			search = CFArrayGetValueAtIndex(defaultSearchDomains, i);
@@ -700,18 +703,28 @@ extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef suppleme
 			}
 		}
 	} else {
-		defaultDomainName = _SC_trimDomain(defaultDomainName);
-		if (defaultDomainName != NULL) {
+		trimmedDomainName = _SC_trimDomain(defaultDomainName);
+#ifdef	PERFORM_DOMAIN_EXPANSION
+		/*
+		 * With BIND 4.8.3 (and earlier) resolvers, the default search list included
+		 * the default domain and each of its parent domains with two or more labels.
+		 */
+		if ((trimmedDomainName != NULL) &&
+		    CFStringHasSuffix(defaultDomainName, CFSTR("."))) {
+			// if "domain" name is fully qualified
+			CFArrayAppendValue(mySearchDomains, trimmedDomainName);
+			CFRelease(trimmedDomainName);
+		} else if (trimmedDomainName != NULL) {
 			char		*domain;
 			int		domain_parts	= 1;
 			char		*dp;
 			const int	ndots		= 1;
 
-			domain = _SC_cfstring_to_cstring(defaultDomainName,
+			domain = _SC_cfstring_to_cstring(trimmedDomainName,
 							 NULL,
 							 0,
 							 kCFStringEncodingUTF8);
-			CFRelease(defaultDomainName);
+			CFRelease(trimmedDomainName);
 
 			// count domain parts
 			for (dp = domain; *dp != '\0'; dp++) {
@@ -721,7 +734,6 @@ extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef suppleme
 			}
 
 			// move "domain" to "search" list (and expand as needed)
-			i = LOCALDOMAINPARTS;
 			dp = domain;
 			do {
 				CFStringRef	search;
@@ -738,9 +750,19 @@ extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef suppleme
 				}
 
 				dp = strchr(dp, '.') + 1;
-			} while (++i <= (domain_parts - ndots));
+			} while (domain_parts-- > 2);
 			CFAllocatorDeallocate(NULL, domain);
 		}
+#else	// PERFORM_DOMAIN_EXPANSION
+		/*
+		 * With BIND 4.9.3 (and later) resolvers, the default search list included
+		 * just the default domain.
+		 */
+		if (trimmedDomainName != NULL) {
+			CFArrayAppendValue(mySearchDomains, trimmedDomainName);
+			CFRelease(trimmedDomainName);
+		}
+#endif	// PERFORM_DOMAIN_EXPANSION
 	}
 
 	// add any supplemental "domain" names to the search list
@@ -753,7 +775,7 @@ extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef suppleme
 				  NULL);
 		supplemental = mySupplemental;
 	}
-	for (i = 0; i < n_supplemental; i++) {
+	for (int i = 0; i < n_supplemental; i++) {
 		CFDictionaryRef dns;
 		CFIndex		domainIndex;
 		int		noSearch;
@@ -1025,6 +1047,7 @@ add_service_specific_resolvers(CFMutableArrayRef resolvers, CFDictionaryRef serv
 		uint32_t		newFlags		= 0;
 		CFDictionaryRef		service			= vals[i];
 		CFStringRef		serviceID		= keys[i];
+		CFArrayRef		searchDomains;
 
 		dns = CFDictionaryGetValue(service, kSCEntNetDNS);
 		if (!isA_CFDictionary(dns)) {
@@ -1046,33 +1069,45 @@ add_service_specific_resolvers(CFMutableArrayRef resolvers, CFDictionaryRef serv
 
 		newDNS = CFDictionaryCreateMutableCopy(NULL, 0, dns);
 
-		if (CFDictionaryContainsKey(newDNS, kSCPropInterfaceName)) {
-			CFArrayRef	searchDomains;
-
-			// set "scoped" configuration flag
-			newFlags |= DNS_RESOLVER_FLAGS_SCOPED;
-
-			CFDictionarySetValue(newDNS, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
-			CFDictionaryRemoveValue(newDNS, kSCPropNetDNSServiceIdentifier);
-
-			// set search list
-			searchDomains = extract_search_domains(newDNS, NULL);
-			if (searchDomains != NULL) {
-				CFDictionarySetValue(newDNS, kSCPropNetDNSSearchDomains, searchDomains);
-				CFRelease(searchDomains);
-			}
-		} else {
-			// set "service specific" configuration flag
-			newFlags |= DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
-		}
-
 		// add "Request A/AAAA query" flag(s)
 		newFlags |= DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS;
 
-		merge_configuration_flags(newDNS, newFlags);
+		// set search list
+		searchDomains = extract_search_domains(newDNS, NULL);
+		if (searchDomains != NULL) {
+			CFDictionarySetValue(newDNS, kSCPropNetDNSSearchDomains, searchDomains);
+			CFRelease(searchDomains);
+			searchDomains = NULL;
+		}
 
 		CFDictionaryRemoveValue(newDNS, kSCPropNetDNSSupplementalMatchDomains);
 		CFDictionaryRemoveValue(newDNS, kSCPropNetDNSSupplementalMatchOrders);
+
+		if (CFDictionaryContainsKey(newDNS, kSCPropInterfaceName)) {
+			CFMutableDictionaryRef	interfaceScopedDNS;
+			uint32_t		interfaceScopedFlags;
+
+			// The dictionary has an interface, so add a interface-scoped resolver
+
+			CFDictionarySetValue(newDNS, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
+
+			interfaceScopedDNS = CFDictionaryCreateMutableCopy(NULL, 0, newDNS);
+			interfaceScopedFlags = newFlags;
+
+			// set "scoped" configuration flag
+			interfaceScopedFlags |= DNS_RESOLVER_FLAGS_SCOPED;
+			merge_configuration_flags(interfaceScopedDNS, interfaceScopedFlags);
+
+			CFDictionaryRemoveValue(interfaceScopedDNS, kSCPropNetDNSServiceIdentifier);
+
+			add_resolver_signature(interfaceScopedDNS, "Service", serviceID, 0);
+			add_resolver(resolvers, interfaceScopedDNS);
+			CFRelease(interfaceScopedDNS);
+		}
+
+		// set "service specific" configuration flag
+		newFlags |= DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
+		merge_configuration_flags(newDNS, newFlags);
 
 		add_resolver_signature(newDNS, "Service", serviceID, 0);
 		add_resolver(resolvers, newDNS);
@@ -1182,17 +1217,20 @@ create_resolver(CFDictionaryRef dns)
 		int	if_index;
 
 		if (CFNumberGetValue(num, kCFNumberIntType, &if_index)) {
-			char	if_name[IFNAMSIZ];
+			char		buf[IFNAMSIZ];
+			const char	*if_name	= NULL;
 
-			_dns_resolver_set_if_index(&_resolver, if_index);
-
-			if ((if_index != 0) &&
-			    (my_if_indextoname(if_index, if_name) != NULL)) {
-				targetInterface = CFStringCreateWithCString(NULL,
-									    if_name,
-									    kCFStringEncodingASCII);
-				targetInterfaceIndex = if_index;
+			if (if_index != 0) {
+				if_name = my_if_indextoname(if_index, buf);
+				if (if_name != NULL) {
+					targetInterface = CFStringCreateWithCString(NULL,
+										    if_name,
+										    kCFStringEncodingASCII);
+					targetInterfaceIndex = if_index;
+				}
 			}
+
+			_dns_resolver_set_if_index(&_resolver, if_index, if_name);
 		}
 	}
 
@@ -1518,7 +1556,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		      CFArrayRef	multicastResolvers,
 		      CFArrayRef	privateResolvers)
 {
-	dns_create_config_t	_config;
+	dns_create_config_t	dns_create_config;
 	Boolean			changed			= FALSE;
 	CFIndex			i;
 	CFMutableDictionaryRef	myDefault;
@@ -1620,7 +1658,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		/*
 		 * if no default and no supplemental/scoped resolvers
 		 */
-		_config = NULL;
+		dns_create_config = NULL;
 	} else {
 		uint32_t	default_resolver_flags	= 0;
 		Boolean		have_default_flags	= FALSE;
@@ -1628,7 +1666,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		/*
 		 * if default and/or supplemental/scoped resolvers are defined
 		 */
-		_config = _dns_configuration_create();
+		dns_create_config = _dns_configuration_create();
 
 		for (i = 0; i < n_resolvers; i++) {
 			Boolean			merge_default_flags;
@@ -1654,7 +1692,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 			}
 
 			_resolver = create_resolver(resolver);
-			_dns_configuration_add_resolver(&_config, _resolver);
+			_dns_configuration_add_resolver(&dns_create_config, _resolver);
 			_dns_resolver_free(&_resolver);
 
 			if (merge_default_flags) {
@@ -1666,40 +1704,43 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		// add flatfile resolvers
 
 		_dnsinfo_flatfile_set_flags(default_resolver_flags);
-		_dnsinfo_flatfile_add_resolvers(&_config);
+		_dnsinfo_flatfile_add_resolvers(&dns_create_config);
 #endif	// !TARGET_OS_IPHONE
 	}
 
 	// check if the configuration changed
-	_dns_configuration_signature(&_config, signature, sizeof(signature));
+	_dns_configuration_signature(&dns_create_config, signature, sizeof(signature));
 	if (bcmp(signature, signature_last, sizeof(signature)) != 0) {
 		// save [new] signature
 		bcopy(signature, signature_last, sizeof(signature));
 
 		my_log(LOG_INFO, "Updating DNS configuration");
-		if (_config != NULL) {
-			uint8_t			*buf;
-			dns_config_t		*config;
-			_dns_config_buf_t	*config_buf;
-			uint32_t		n_config;
-			uint32_t		n_padding;
+		if (dns_create_config != NULL) {
+			dns_config_t		*dns_config	= NULL;
+			_dns_config_buf_t	*dns_config_buf;
+			size_t			n;
 
-			config_buf = (_dns_config_buf_t *)_config;
-			n_config  = sizeof(_dns_config_buf_t) + ntohl(config_buf->n_attribute);
-			n_padding = ntohl(config_buf->n_padding);
-			buf = malloc(n_config + n_padding);
-			bcopy((void *)config_buf, buf, n_config);
-			bzero(&buf[n_config], n_padding);
-			/* ALIGN: cast okay since _dns_config_buf_t is int aligned */
-			config = _dns_configuration_expand_config((_dns_config_buf_t *)(void *)buf);
-			_dns_configuration_log(config, TRUE);
-			free(buf);
+			n = sizeof(_dns_config_buf_t);
+			n += ntohl(((_dns_config_buf_t *)dns_create_config)->n_attribute);
+			dns_config_buf = _dns_configuration_buffer_create((void *)dns_create_config, n);
+			if (dns_config_buf != NULL) {
+				dns_config = _dns_configuration_buffer_expand(dns_config_buf);
+				if (dns_config == NULL) {
+					// if we were unable to expand the configuration
+					_dns_configuration_buffer_free(&dns_config_buf);
+				}
+			}
+
+			if (dns_config != NULL) {
+				_dns_configuration_log(dns_config, TRUE, NULL);
+				free(dns_config);
+			}
 		} else {
 			my_log(LOG_INFO, "*** No DNS configuration");
 		}
 #ifndef	MAIN
 		// save [new] configuration
-		if (!_dns_configuration_store(&_config)) {
+		if (!_dns_configuration_store(&dns_create_config)) {
 			my_log(LOG_ERR, "could not store configuration");
 		}
 #endif	// MAIN
@@ -1707,7 +1748,9 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		changed = TRUE;
 	}
 
-	if (_config != NULL) _dns_configuration_free(&_config);
+	if (dns_create_config != NULL) {
+		_dns_configuration_free(&dns_create_config);
+	}
 
 	CFRelease(resolvers);
 	return changed;
@@ -1721,6 +1764,10 @@ static SCDynamicStoreCallBack	dns_configuration_callout;
 static void
 dns_configuration_changed(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+#pragma unused(port)
+#pragma unused(msg)
+#pragma unused(size)
+#pragma unused(info)
 	os_activity_t			activity;
 	static const CFStringRef	key	= CFSTR(_PATH_RESOLVER_DIR);
 	CFArrayRef			keys;

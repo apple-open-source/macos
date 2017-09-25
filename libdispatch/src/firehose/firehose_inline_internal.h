@@ -55,17 +55,11 @@ firehose_mach_port_allocate(uint32_t flags, void *ctx)
 	mach_port_options_t opts = {
 		.flags = flags,
 	};
-	kern_return_t kr;
-
-	for (;;) {
-		kr = mach_port_construct(mach_task_self(), &opts,
-				(mach_port_context_t)ctx, &port);
-		if (fastpath(kr == KERN_SUCCESS)) {
-			break;
-		}
+	kern_return_t kr = mach_port_construct(mach_task_self(), &opts,
+			(mach_port_context_t)ctx, &port);
+	if (unlikely(kr)) {
 		DISPATCH_VERIFY_MIG(kr);
-		dispatch_assume_zero(kr);
-		_dispatch_temporary_resource_shortage();
+		DISPATCH_CLIENT_CRASH(kr, "Unable to allocate mach port");
 	}
 	return port;
 }
@@ -325,9 +319,9 @@ firehose_buffer_tracepoint_reserve(firehose_buffer_t fb, uint64_t stamp,
 #if KERNEL
 		new_state.fss_allocator = (uint32_t)cpu_number();
 #else
-		new_state.fss_allocator = _dispatch_tid_self();
+		new_state.fss_allocator = _dispatch_lock_value_for_self();
 #endif
-		success = os_atomic_cmpxchgvw2o(fbs, fbs_state.fss_atomic_state,
+		success = os_atomic_cmpxchgv2o(fbs, fbs_state.fss_atomic_state,
 				old_state.fss_atomic_state, new_state.fss_atomic_state,
 				&old_state.fss_atomic_state, relaxed);
 		if (likely(success)) {
@@ -341,6 +335,9 @@ firehose_buffer_tracepoint_reserve(firehose_buffer_t fb, uint64_t stamp,
 		.privsize = privsize,
 		.stream = stream,
 		.for_io = (firehose_stream_uses_io_bank & (1UL << stream)) != 0,
+#ifndef KERNEL
+		.quarantined = fb->fb_header.fbh_quarantined,
+#endif
 		.stamp = stamp,
 	};
 	return firehose_buffer_tracepoint_reserve_slow(fb, &ask, privptr);

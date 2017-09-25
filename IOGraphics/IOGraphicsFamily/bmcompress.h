@@ -508,8 +508,8 @@ static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
         return 0;
     }
 
-    hdr = (typeof(hdr)) dstbase;
-	dst = (typeof(dst)) (hdr + 1);
+    hdr = (IOGRAPHICS_TYPEOF(hdr)) dstbase;
+	dst = (IOGRAPHICS_TYPEOF(dst)) (hdr + 1);
 
     lineLen = width * pixelBytes;
     dlen -= lineLen;
@@ -579,12 +579,12 @@ static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
 				pSize  = cSize;
 			}
 	
-			dst[image * height + y] = (uint8_t *)pScan - dstbase;
+			dst[image * height + y] = static_cast<uint32_t>(reinterpret_cast<uint8_t *>(pScan) - dstbase);
 		}
 		DEBG1("", " image %d ends 0x%lx\n", image, (uintptr_t)(((uint8_t *)cScan) - dstbase));
 	}
 
-    return (uint8_t *)cScan - dstbase;
+    return (static_cast<int>(reinterpret_cast<uint8_t *>(cScan) - dstbase));
 }
 
 static void DecompressData(uint8_t *srcbase, uint32_t image, UInt8 *dstbase, uint32_t dx, uint32_t dy,
@@ -596,8 +596,8 @@ static void DecompressData(uint8_t *srcbase, uint32_t image, UInt8 *dstbase, uin
     uint32_t   xMin,xMax;
     uint32_t   y, depth;
 
-    hdr = (typeof(hdr)) srcbase;
-    dst = (typeof(dst)) dstbase;
+    hdr = (IOGRAPHICS_TYPEOF(hdr)) srcbase;
+    dst = (IOGRAPHICS_TYPEOF(dst)) dstbase;
 
     if ((dw != hdr->width)
 #if !IOHIB_PREVIEW_V0
@@ -610,7 +610,7 @@ static void DecompressData(uint8_t *srcbase, uint32_t image, UInt8 *dstbase, uin
     }
 
     depth = ((7 + hdr->depth) / 8);
-    src   = (typeof(src)) (hdr + 1); 
+    src   = (IOGRAPHICS_TYPEOF(src)) (hdr + 1); 
     src   += dy + image * dh;
 
     xMin    = dx;
@@ -661,7 +661,7 @@ PreviewDecompress16(const hibernate_preview_t * src, uint32_t image,
     uint32_t tmp1, tmp2, out;
     for (j = 0; j < (height + 2); j++)
     {
-    	input = (typeof(input)) (src + 1);
+    	input = (IOGRAPHICS_TYPEOF(input)) (src + 1);
     	input += image * height;
         if (j < height)
             input += j;
@@ -763,7 +763,7 @@ PreviewDecompress32(const hibernate_preview_t * src, uint32_t image,
     uint32_t tmp1, tmp2, out;
     for (j = 0; j < (height + 2); j++)
     {
-    	input = (typeof(input)) (src + 1);
+    	input = (IOGRAPHICS_TYPEOF(input)) (src + 1);
     	input += image * height;
         if (j < height)
             input += j;
@@ -843,11 +843,12 @@ PreviewDecompress32(const hibernate_preview_t * src, uint32_t image,
     IODelete(sc0, uint16_t, (width+2));
 }
 
-bool
-PreviewDecompressData(void *srcbase, uint32_t image, void *dstbase, 
+bool PreviewDecompressData(void *srcbase, uint32_t image, void *dstbase,
+                           uint32_t dw, uint32_t dh, uint32_t bytesPerPixel, uint32_t rowbytes);
+bool PreviewDecompressData(void *srcbase, uint32_t image, void *dstbase,
                       uint32_t dw, uint32_t dh, uint32_t bytesPerPixel, uint32_t rowbytes)
 {
-	const hibernate_preview_t * src = (typeof(src)) srcbase;
+	const hibernate_preview_t * src = (IOGRAPHICS_TYPEOF(src)) srcbase;
 
     if ((bytesPerPixel != ((7 + src->depth) / 8))
 #if !IOHIB_PREVIEW_V0

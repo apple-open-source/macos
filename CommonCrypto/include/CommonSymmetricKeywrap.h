@@ -28,12 +28,8 @@
 #include <stdint.h>
 
 #include <string.h>
-#ifdef KERNEL
-#include <machine/limits.h>
-#else
 #include <limits.h>
 #include <stdlib.h>
-#endif /* KERNEL */
 #include <Availability.h>
 
 

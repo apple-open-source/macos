@@ -216,11 +216,11 @@ check_vendorid(struct isakmp_gen *gen)
 		goto unknown;
 	
 	if (current->hash->l < vidlen)
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE, 
 		     "received broken Microsoft ID: %s\n",
 		     current->string);
 	else
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE, 
 		     "received Vendor ID: %s\n",
 		     current->string);
 

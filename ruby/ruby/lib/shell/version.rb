@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   version.rb - shell version definition file
 #       $Release Version: 0.7$
-#       $Revision: 38201 $
+#       $Revision: 53141 $
 #       by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (c) 2004-2016, International Business Machines
@@ -38,20 +40,20 @@ static const int32_t gOffsets[] = {
     16,
     20,
     24,
-    284,
-    294,
-    305,
-    309,
-    315,
-    319,
-    338,
-    339,
-    350,
-    356,
-    361,
-    365,
-    369,
-    394
+    285,
+    295,
+    306,
+    310,
+    316,
+    320,
+    340,
+    341,
+    352,
+    358,
+    363,
+    367,
+    371,
+    396
 };
 
 static const int32_t gIndexes[] = {
@@ -67,14 +69,14 @@ static const int32_t gIndexes[] = {
     49,
     55,
     59,
-    78,
     79,
-    90,
-    96,
-    101,
-    105,
-    109,
-    134
+    80,
+    91,
+    97,
+    102,
+    106,
+    110,
+    135
 };
 
 // Must be sorted alphabetically.
@@ -169,6 +171,7 @@ static const char * const gSubTypes[] = {
     "BTN",
     "BWP",
     "BYB",
+    "BYN",
     "BYR",
     "BZD",
     "CAD",
@@ -439,6 +442,7 @@ static const char * const gSubTypes[] = {
     "nautical-mile",
     "parsec",
     "picometer",
+    "point",
     "yard",
     "lux",
     "carat",
@@ -500,14 +504,14 @@ static const char * const gSubTypes[] = {
 
 // Must be sorted by first value and then second value.
 static int32_t unitPerUnitToSingleUnit[][4] = {
-        {326, 296, 16, 0},
-        {328, 302, 16, 2},
-        {330, 296, 16, 3},
-        {330, 383, 4, 2},
-        {330, 384, 4, 3},
-        {344, 381, 3, 1},
-        {347, 11, 15, 4},
-        {386, 326, 4, 1}
+        {327, 297, 16, 0},
+        {329, 303, 16, 2},
+        {331, 297, 16, 3},
+        {331, 385, 4, 2},
+        {331, 386, 4, 3},
+        {346, 383, 3, 1},
+        {349, 11, 15, 4},
+        {388, 327, 4, 1}
 };
 
 MeasureUnit *MeasureUnit::createGForce(UErrorCode &status) {
@@ -605,6 +609,14 @@ MeasureUnit *MeasureUnit::createMilePerGallon(UErrorCode &status) {
 MeasureUnit *MeasureUnit::createMilePerGallonImperial(UErrorCode &status) {
     return MeasureUnit::create(4, 3, status);
 }
+
+// MeasureUnit *MeasureUnit::createEast(UErrorCode &status) {...}
+
+// MeasureUnit *MeasureUnit::createNorth(UErrorCode &status) {...}
+
+// MeasureUnit *MeasureUnit::createSouth(UErrorCode &status) {...}
+
+// MeasureUnit *MeasureUnit::createWest(UErrorCode &status) {...}
 
 MeasureUnit *MeasureUnit::createBit(UErrorCode &status) {
     return MeasureUnit::create(6, 0, status);
@@ -818,8 +830,12 @@ MeasureUnit *MeasureUnit::createPicometer(UErrorCode &status) {
     return MeasureUnit::create(11, 17, status);
 }
 
-MeasureUnit *MeasureUnit::createYard(UErrorCode &status) {
+MeasureUnit *MeasureUnit::createPoint(UErrorCode &status) {
     return MeasureUnit::create(11, 18, status);
+}
+
+MeasureUnit *MeasureUnit::createYard(UErrorCode &status) {
+    return MeasureUnit::create(11, 19, status);
 }
 
 MeasureUnit *MeasureUnit::createLux(UErrorCode &status) {

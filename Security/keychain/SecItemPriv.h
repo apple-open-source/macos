@@ -35,6 +35,7 @@
 #include <CoreFoundation/CFError.h>
 #include <TargetConditionals.h>
 #include <Security/SecBase.h>
+#include <xpc/xpc.h>
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 #include <Security/SecTask.h>
@@ -283,9 +284,45 @@ extern const CFStringRef kSecAttrSyncViewHint
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecAttrMultiUser
     __OSX_AVAILABLE(10.11.5) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
+
+/* This will force the syncing system to derive an item's plaintext synchronization id from its primary key.
+ * This might leak primary key information, but will cause syncing devices to discover sync conflicts sooner.
+ * Protected by the kSecEntitlementPrivateCKKSPlaintextFields entitlement.
+ *
+ * Will only be respected during a SecItemAdd.
+ */
+extern const CFStringRef kSecAttrDeriveSyncIDFromItemAttributes
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrPCSPlaintextServiceIdentifier
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrPCSPlaintextPublicKey
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrPCSPlaintextPublicIdentity
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+// ObjectID of item stored on the token.  Token-type specific BLOB.
+// For kSecAttrTokenIDSecureEnclave and kSecAttrTokenIDAppleKeyStore, ObjectID is libaks's blob representation of encoded key.
 extern const CFStringRef kSecAttrTokenOID
      __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+extern const CFStringRef kSecAttrUUID
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrSysBound
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrSHA1
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
+#define kSecSecAttrSysBoundNot                    0
+#define kSecSecAttrSysBoundPreserveDuringRestore  1
+
+
+extern const CFStringRef kSecAttrKeyTypeECSECPrimeRandomPKA
+     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrKeyTypeSecureEnclaveAttestation
+     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+// Should not be used, use kSecAttrTokenOID instead.
+extern const CFStringRef kSecAttrSecureEnclaveKeyBlob
+     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 /*!
     @enum kSecAttrAccessible Value Constants (Private)
@@ -312,7 +349,7 @@ extern const CFStringRef kSecAttrViewHintPCSiCloudBackup;
 extern const CFStringRef kSecAttrViewHintPCSNotes;
 extern const CFStringRef kSecAttrViewHintPCSiMessage;
 #if SEC_OS_IPHONE
-extern const CFStringRef kSecAttrViewHintFeldspar;
+extern const CFStringRef kSecAttrViewHintPCSFeldspar;
 #endif /* SEC_OS_IPHONE */
 extern const CFStringRef kSecAttrViewHintPCSSharing;
 
@@ -321,6 +358,13 @@ extern const CFStringRef kSecAttrViewHintHomeKit;
 extern const CFStringRef kSecAttrViewHintThumper;
 extern const CFStringRef kSecAttrViewHintContinuityUnlock;
 extern const CFStringRef kSecAttrViewHintAccessoryPairing;
+extern const CFStringRef kSecAttrViewHintNanoRegistry;
+extern const CFStringRef kSecAttrViewHintWatchMigration;
+extern const CFStringRef kSecAttrViewHintEngram;
+extern const CFStringRef kSecAttrViewHintManatee;
+extern const CFStringRef kSecAttrViewHintAutoUnlock;
+extern const CFStringRef kSecAttrViewHintHealth;
+
 
 #if SEC_OS_IPHONE
 extern const CFStringRef kSecUseSystemKeychain
@@ -365,6 +409,10 @@ extern const CFStringRef kSecUseSyncBubbleKeychain
         the caller name for which the application is attempting to authenticate.
         The caller must have 'com.apple.private.LocalAuthentication.CallerName'
         entitlement set to YES to use this feature, otherwise it is ignored.
+	@constant kSecUseTokenRawItems If set to true, token-based items (i.e. those
+        which have non-empty kSecAttrTokenID are not going through client-side
+        postprocessing, only raw form stored in the database is listed.  This
+        flag is ignored in other operations than SecItemCopyMatching().
 */
 extern const CFStringRef kSecUseTombstones
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
@@ -372,6 +420,28 @@ extern const CFStringRef kSecUseCredentialReference
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 extern const CFStringRef kSecUseCallerName
     __OSX_AVAILABLE(10.11.4) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
+extern const CFStringRef kSecUseTokenRawItems
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+extern const CFStringRef kSOSInternalAccessGroup
+    __OSX_AVAILABLE(10.9) __IOS_AVAILABLE(7.0) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
+
+/*!
+ @enum kSecAttrTokenID Value Constants
+ @discussion Predefined item attribute constant used to get or set values
+ in a dictionary. The kSecAttrTokenID constant is the key and its value
+ can be kSecAttrTokenIDSecureEnclave.
+ @constant kSecAttrTokenIDKeyAppleStore Specifies well-known identifier of
+ the token implemented using libaks (AppleKeyStore).  This token is identical to
+ kSecAttrTokenIDSecureEnclave for devices which support Secure Enclave and
+ silently falls back to in-kernel emulation for those devices which do not
+ have Secure Enclave support.
+ */
+extern const CFStringRef kSecAttrTokenIDAppleKeyStore
+	__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(3.0);
+
+
+extern const CFStringRef kSecNetworkExtensionAccessGroupSuffix;
 
 /*!
     @function SecItemCopyDisplayNames
@@ -393,11 +463,56 @@ OSStatus SecItemCopyDisplayNames(CFArrayRef items, CFArrayRef *displayNames);
 
 /*!
     @function SecItemDeleteAll
-    @abstract Removes all items from the keychain and added root certificates
-        from the trust store.
+    @abstract Removes all items from the keychain.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecItemDeleteAll(void);
+
+/*!
+    @function _SecItemAddAndNotifyOnSync
+    @abstract Adds an item to the keychain, and calls syncCallback when the item has synced
+    @param attributes Attributes dictionary to be passed to SecItemAdd
+    @param result Result reference to be passed to SecItemAdd
+    @param syncCallback Block to be executed after the item has synced or failed to sync
+    @result The result code returned from SecItemAdd
+ */
+OSStatus _SecItemAddAndNotifyOnSync(CFDictionaryRef attributes, CFTypeRef * CF_RETURNS_RETAINED result, void (^syncCallback)(bool didSync, CFErrorRef error));
+
+/*!
+     @function SecItemSetCurrentItemAcrossAllDevices
+     @abstract Sets 'new current item' to be the 'current' item in CloudKit for the given identifier.
+ */
+void SecItemSetCurrentItemAcrossAllDevices(CFStringRef accessGroup,
+                                           CFStringRef identifier,
+                                           CFStringRef viewHint,
+                                           CFDataRef newCurrentItemReference,
+                                           CFDataRef newCurrentItemHash,
+                                           CFDataRef oldCurrentItemReference,
+                                           CFDataRef oldCurrentItemHash,
+                                           void (^complete)(CFErrorRef error));
+
+/*!
+     @function SecItemFetchCurrentItemAcrossAllDevices
+     @abstract Fetches the locally cached idea of which keychain item is 'current' across this iCloud account
+               for the given access group and identifier.
+ @param accessGroup The accessGroup of your process and the expected current item
+ @param identifier Which 'current' item you're interested in. Freeform, but should match the ID given to
+ SecItemSetCurrentItemAcrossAllDevices.
+ @param viewHint The keychain view hint for your items.
+ @param fetchCloudValue If false, will return the local machine's cached idea of which item is current. If true,
+ performs a CloudKit operation to determine the most up-to-date version.
+ @param complete Called to return values: a persistent ref to the current item, if such an item exists. Otherwise, error.
+ */
+void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
+                                             CFStringRef identifier,
+                                             CFStringRef viewHint,
+                                             bool fetchCloudValue,
+                                             void (^complete)(CFDataRef persistentRef, CFErrorRef error));
+
+
+#if __OBJC__
+void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^complete)(NSArray *, NSError *));
+#endif
 
 #if SEC_OS_IPHONE
 /*!
@@ -452,6 +567,8 @@ OSStatus SecErrorGetOSStatus(CFErrorRef error);
 bool _SecKeychainRollKeys(bool force, CFErrorRef *error);
 
 CFDictionaryRef _SecSecuritydCopyWhoAmI(CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyCKKSEndpoint(CFErrorRef *error);
+XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopySOSStatusEndpoint(CFErrorRef *error);
 
 #if SEC_OS_IPHONE
 bool _SecSyncBubbleTransfer(CFArrayRef services, uid_t uid, CFErrorRef *error);
@@ -463,6 +580,8 @@ bool _SecSystemKeychainTransfer(CFErrorRef *error);
 #if SEC_OS_IPHONE
 bool _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error);
 #endif /* SEC_OS_IPHONE */
+
+
 
 OSStatus SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
 
@@ -506,7 +625,7 @@ SecItemUpdateWithError(CFDictionaryRef inQuery,
 #if SEC_OS_OSX
 /*!
  @function SecItemParentCachePurge
- @abstract Clear the cache of parent certificates used in SecItemCopyParentCertificates.
+ @abstract Clear the cache of parent certificates used in SecItemCopyParentCertificates_osx.
  */
 void SecItemParentCachePurge();
 #endif
@@ -514,7 +633,7 @@ void SecItemParentCachePurge();
 
 #if SEC_OS_OSX_INCLUDES
 /*!
- @function SecItemCopyParentCertificates
+ @function SecItemCopyParentCertificates_osx
  @abstract Retrieve an array of possible issuing certificates for a given certificate.
  @param certificate A reference to a certificate whose issuers are being sought.
  @param context Pass NULL in this parameter to indicate that the default certificate
@@ -525,7 +644,7 @@ void SecItemParentCachePurge();
  of the signature is performed by this function; its purpose is only to provide a list
  of candidate certificates.
  */
-CFArrayRef SecItemCopyParentCertificates(SecCertificateRef certificate, void *context)
+CFArrayRef SecItemCopyParentCertificates_osx(SecCertificateRef certificate, void *context)
 __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 
 /*!

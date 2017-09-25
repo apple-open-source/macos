@@ -239,7 +239,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 						if (!d) {
 							SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 								kSecTransformMetaAttributeValue, ret);
-                            CFRelease(ret);
+                            CFReleaseNull(ret);
 							ret = NULL;
 						}
 						return (CFTypeRef)ret;
@@ -331,7 +331,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 							if (!d) {
 								SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 									kSecTransformMetaAttributeValue, ret);
-                                CFRelease(ret);
+                                CFReleaseNull(ret);
 								ret = NULL;
 							}
 							return (CFTypeRef)ret;
@@ -401,7 +401,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 									}
 									SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 											kSecTransformMetaAttributeValue, d);
-									CFRelease(d);
+									CFReleaseNull(d);
 								} else if (rc == Z_BUF_ERROR) {
 									free(buf);
 									if ((int)buf_sz > (1 << Z_BEST_COMPRESSION) && 0 == zs.avail_in) {
@@ -419,7 +419,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 									free(buf);
 									CFStringRef emsg = CFStringCreateWithFormat(NULL, NULL, CFSTR("Zlib error#%d"), rc);
 									CFErrorRef err = fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidInput, emsg);
-									CFRelease(emsg);
+									CFReleaseNull(emsg);
 									return (CFTypeRef)err;
 								}
 							}
@@ -429,7 +429,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 								CFNumberRef ratio = CFNumberCreate(NULL, kCFNumberFloatType, &r);
 								SecTransformCustomSetAttribute(ref, kSecCompressionRatio, 
 									kSecTransformMetaAttributeValue, ratio);
-								CFRelease(ratio);
+								CFReleaseNull(ratio);
 							}
 
 							if (rc == Z_OK) {
@@ -441,7 +441,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 							}
 							CFStringRef emsg = CFStringCreateWithFormat(NULL, NULL, CFSTR("Zlib error#%d"), rc);
 							CFErrorRef err = fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidInput, emsg);
-							CFRelease(emsg);
+							CFReleaseNull(emsg);
 							return (CFTypeRef)err;
 						});					
 				}
@@ -494,13 +494,14 @@ SecTransformRef SecDecodeTransformCreate(CFTypeRef DecodeType, CFErrorRef* error
 		{
 			*error = localError;
 		}
+        CFSafeRelease(tr); // protect against leaking tr
 		return NULL;
 	}
 	
 	SecTransformSetAttribute(tr, kSecDecodeTypeAttribute, DecodeType, &localError);
 	if (NULL != localError)
 	{
-		CFRelease(tr);
+		CFReleaseNull(tr);
 		tr = NULL;
 		if (NULL != error)
 		{
@@ -583,14 +584,18 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 			} else if (CFGetTypeID(value) == CFStringGetTypeID()) {
 				int requested_length = CFStringGetIntValue(value);
 				if (requested_length == 0 && CFStringCompare(CFSTR("0"), value, kCFCompareAnchored)) {
-					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Could not convert '%@' to a number, please set %@ to a numeric value", kSecEncodeLineLengthAttribute, value));
+                    CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "Could not convert '%@' to a number, please set %@ to a numeric value", kSecEncodeLineLengthAttribute, value);
+					SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
+                    CFReleaseNull(error);
 				} else {
 					target_line_length = requested_length;
 				}
 			} else {
 				CFStringRef valueType = CFCopyTypeIDDescription(CFGetTypeID(value));
-				SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "%@ requires a CFNumber, but was set to a %@ (%@)", kSecEncodeLineLengthAttribute, valueType, value));
-				CFRelease(valueType);
+                CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "%@ requires a CFNumber, but was set to a %@ (%@)", kSecEncodeLineLengthAttribute, valueType, value);
+				SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
+				CFReleaseNull(valueType);
+                CFReleaseNull(error);
 			}
 			target_line_length -= target_line_length % out_chunk_size;
 
@@ -722,7 +727,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 							if (!d) 
 							{
 								SecTransformCustomSetAttribute(ref,kSecTransformOutputAttributeName, kSecTransformMetaAttributeValue, ret);
-                              CFRelease(ret);
+                              CFReleaseNull(ret);
 								ret = NULL;
 							}
 							return ret;
@@ -759,7 +764,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 						});					
 
 					SecTransformSetDataAction(ref, kSecTransformActionProcessData, 
-						^(CFTypeRef value) 
+						^(CFTypeRef value)
 						{
 							CFDataRef d = value;
 							CFIndex in_len = d ? CFDataGetLength(d) : 0;
@@ -842,20 +847,20 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 							if (out - out_base) {
 								ret = CFDataCreateWithBytesNoCopy(NULL, out_base, out - out_base, kCFAllocatorMalloc);
 							} else {
-								ret = SecTransformNoData();
+                                ret = CFRetainSafe(SecTransformNoData());
 							}
 							if (!d) {
 								if (ret != SecTransformNoData()) {
 									SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 										kSecTransformMetaAttributeValue, ret);
-                                    CFRelease(ret);
 								}
+                                CFSafeRelease(ret);
 								ret = NULL;
 							}
-							return ret;						
+							return ret;
 						});
 				} 
-				else if (kCFCompareEqualTo == CFStringCompare(value, kSecZLibEncoding, 0)) 
+				else if (kCFCompareEqualTo == CFStringCompare(value, kSecZLibEncoding, 0))
 				{
 					__block z_stream zs;
 					bzero(&zs, sizeof(zs));
@@ -918,7 +923,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 									}
 									SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 										kSecTransformMetaAttributeValue, d);
-									CFRelease(d);
+									CFReleaseNull(d);
 								} else if (rc == Z_BUF_ERROR) {
 									free(buf);
 									buf_sz = malloc_good_size(buf_sz * 2);
@@ -926,7 +931,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 									free(buf);
 									CFStringRef emsg = CFStringCreateWithFormat(NULL, NULL, CFSTR("Zlib error#%d"), rc);
 									CFErrorRef err = fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidInput, emsg);
-									CFRelease(emsg);
+									CFReleaseNull(emsg);
 									return (CFTypeRef)err;
 								}
 							}
@@ -935,7 +940,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 								CFNumberRef ratio = CFNumberCreate(NULL, kCFNumberFloatType, &r);
 								SecTransformCustomSetAttribute(ref, kSecCompressionRatio, 
 									kSecTransformMetaAttributeValue, ratio);
-								CFRelease(ratio);
+								CFReleaseNull(ratio);
 							}
 							if (d) {
 								return (CFTypeRef)SecTransformNoData();
@@ -997,19 +1002,18 @@ SecTransformRef SecEncodeTransformCreate(CFTypeRef EncodeType, CFErrorRef* error
 	SecTransformRef tr = SecTransformCreate(EncodeName, &localError);
 	if (!tr || NULL != localError) 
 	{
-		// There might be a leak if tr is returned but localError is 
-		// not NULL, but that should not happen
 		if (NULL != error)
 		{
 			*error = localError;
 		}
+        CFSafeRelease(tr);
 		return NULL;
 	}
 	
 	SecTransformSetAttribute(tr, kSecEncodeTypeAttribute, EncodeType, &localError);
 	if (NULL != localError)
 	{
-		CFRelease(tr);
+		CFReleaseNull(tr);
 		tr = NULL;
 		if (NULL != error)
 		{

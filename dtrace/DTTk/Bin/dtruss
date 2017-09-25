@@ -72,14 +72,15 @@ opt_elapsed=0; opt_cpu=0; opt_counts=0;
 opt_relative=0; opt_printid=0; opt_follow=0
 opt_command=0; command=""; opt_buf=0; buf="4m"
 opt_trace=0; trace="."; opt_stack=0;
-
+opt_wait=0; wname="."; opt_has_target=0
 ### Process options
-while getopts ab:cdefhln:op:st:L name
+while getopts ab:cdefhln:op:st:LW: name
 do
         case $name in
 	b)	opt_buf=1; buf=$OPTARG ;;
         p)      opt_pid=1; pid=$OPTARG ;;
         n)      opt_name=1; pname=$OPTARG ;;
+        W)      opt_wait=1; wname=$OPTARG ;;
         t)      opt_trace=1; trace=$OPTARG ;;
 	a)	opt_counts=1; opt_relative=1; opt_elapsed=1; opt_follow=1
 		opt_printid=1; opt_cpu=1 ;;
@@ -92,11 +93,12 @@ do
 	L)	opt_printid=-1 ;;
 	s)	opt_stack=-1 ;;
         h|?)    cat <<-END >&2
-		USAGE: dtruss [-acdefholLs] [-t syscall] { -p PID | -n name | command }
+		USAGE: dtruss [-acdefholLs] [-t syscall] { -p PID | -n name | command | -W name }
 
 		          -p PID          # examine this PID
 		          -n name         # examine this process name
 		          -t syscall      # examine this syscall only
+		          -W name         # wait for a process matching this name
 		          -a              # print all details
 		          -c              # print syscall counts
 		          -d              # print relative times (us)
@@ -119,13 +121,17 @@ done
 shift `expr $OPTIND - 1`
 
 ### Option logic
-if [ $opt_pid -eq 0 -a $opt_name -eq 0 ]; then
+if [ $opt_pid -eq 0 -a $opt_name -eq 0 -a $opt_wait -eq 0 ]; then
+	opt_has_target=1
 	opt_command=1
 	if [ "$*" = "" ]; then
 		$0 -h
 		exit
 	fi
 	command="$*"	# yes, I meant $*!
+fi
+if [ $opt_wait -eq 1 ]; then
+	opt_has_target=1
 fi
 if [ $opt_follow -eq 1 -o $opt_name -eq 1 ]; then
 	if [ $opt_printid -ne -1 ]; then
@@ -151,7 +157,7 @@ dtrace='
  /*
   * Command line arguments
   */
- inline int OPT_command   = '$opt_command';
+ inline int OPT_has_target   = '$opt_has_target';
  inline int OPT_follow    = '$opt_follow';
  inline int OPT_printid   = '$opt_printid';
  inline int OPT_relative  = '$opt_relative';
@@ -236,7 +242,7 @@ dtrace='
  }
  
  syscall:::entry
- /(OPT_command && pid == $target) || 
+ /(OPT_has_target && pid == $target) ||
   (OPT_pid && pid == PID) ||
   (OPT_name && NAME == strstr(NAME, execname)) ||
   (OPT_name && execname == strstr(execname, NAME)) ||
@@ -269,7 +275,7 @@ dtrace='
  syscall::sysctlbyname:entry,
  syscall::faccessat:entry,
  syscall::kdebug_trace64:entry
- /(OPT_command && pid == $target) || 
+ /(OPT_has_target && pid == $target) ||
   (OPT_pid && pid == PID) ||
   (OPT_name && NAME == strstr(NAME, execname)) ||
   (OPT_name && execname == strstr(execname, NAME)) ||
@@ -922,6 +928,33 @@ dtrace='
 	self->arg5 = 0;
  }
 
+ /* kill has 2 args that should be shown as decimal*/
+ syscall::kill:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(%d, %d)\t\t = %d %s%d\n",probefunc,self->arg0,
+	    self->arg1,(int)arg0,self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+ }
+
  /* mmap has 6 arguments */
  syscall::mmap:return
  /self->start/
@@ -1000,9 +1033,13 @@ dtrace='
 ### Run DTrace (Mac OS X)
 # Redirect the output to stderr so that it doesn't mingle with
 # data going to the target's stdout
-if [ $opt_command -eq 1 ]; then
+if [ $opt_wait -eq 1 ]; then
+	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" \
+	    -W "$wname" >&2
+elif [ $opt_command -eq 1 ]; then
 	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=preinit -Z -n "$dtrace" \
 	    -c "$command" >&2
+
 else
 	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" >&2
 fi

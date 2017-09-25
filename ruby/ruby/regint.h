@@ -4,8 +4,8 @@
   regint.h -  Onigmo (Oniguruma-mod) (regular expression library)
 **********************************************************************/
 /*-
- * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
- * Copyright (c) 2011-2012  K.Takata  <kentkt AT csc DOT jp>
+ * Copyright (c) 2002-2013  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
+ * Copyright (c) 2011-2014  K.Takata  <kentkt AT csc DOT jp>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,8 @@
 #endif
 
 #if defined(__i386) || defined(__i386__) || defined(_M_IX86) || \
-    defined(__x86_64) || defined(__x86_64__) || defined(_M_AMD86) || \
+    defined(__x86_64) || defined(__x86_64__) || defined(_M_AMD64) || \
+    defined(__powerpc64__) || \
     defined(__mc68020__)
 #define PLATFORM_UNALIGNED_WORD_ACCESS
 #endif
@@ -92,8 +93,6 @@
 #  define ARG_UNUSED
 #endif
 
-/* */
-/* escape other system UChar definition */
 #ifndef RUBY_DEFINES_H
 #include "ruby/ruby.h"
 #undef xmalloc
@@ -101,23 +100,67 @@
 #undef xcalloc
 #undef xfree
 #endif
+
+/* */
+/* escape other system UChar definition */
 #ifdef ONIG_ESCAPE_UCHAR_COLLISION
 #undef ONIG_ESCAPE_UCHAR_COLLISION
 #endif
+
 #define USE_WORD_BEGIN_END          /* "\<": word-begin, "\>": word-end */
-#undef USE_MATCH_RANGE_IS_COMPLETE_RANGE
 #undef USE_CAPTURE_HISTORY
 #define USE_VARIABLE_META_CHARS
 #define USE_POSIX_API_REGION_OPTION     /* needed for POSIX API support */
 #define USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
 /* #define USE_COMBINATION_EXPLOSION_CHECK */     /* (X*)* */
 
+/* multithread config */
 /* #define USE_MULTI_THREAD_SYSTEM */
+/* #define USE_DEFAULT_MULTI_THREAD_SYSTEM */
+
+#if defined(USE_MULTI_THREAD_SYSTEM) \
+  && defined(USE_DEFAULT_MULTI_THREAD_SYSTEM)
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+extern CRITICAL_SECTION gOnigMutex;
+#define THREAD_SYSTEM_INIT      InitializeCriticalSection(&gOnigMutex)
+#define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
+#define THREAD_PASS             Sleep(0)
+#else /* _WIN32 */
+#include <pthread.h>
+#include <sched.h>
+extern pthread_mutex_t gOnigMutex;
+#define THREAD_SYSTEM_INIT      pthread_mutex_init(&gOnigMutex, NULL)
+#define THREAD_SYSTEM_END       pthread_mutex_destroy(&gOnigMutex)
+#define THREAD_ATOMIC_START     pthread_mutex_lock(&gOnigMutex)
+#define THREAD_ATOMIC_END       pthread_mutex_unlock(&gOnigMutex)
+#define THREAD_PASS             sched_yield()
+#endif /* _WIN32 */
+
+#else /* USE_DEFAULT_MULTI_THREAD_SYSTEM */
+
+#ifndef THREAD_SYSTEM_INIT
 #define THREAD_SYSTEM_INIT      /* depend on thread system */
+#endif
+#ifndef THREAD_SYSTEM_END
 #define THREAD_SYSTEM_END       /* depend on thread system */
+#endif
+#ifndef THREAD_ATOMIC_START
 #define THREAD_ATOMIC_START     /* depend on thread system */
+#endif
+#ifndef THREAD_ATOMIC_END
 #define THREAD_ATOMIC_END       /* depend on thread system */
+#endif
+#ifndef THREAD_PASS
 #define THREAD_PASS             /* depend on thread system */
+#endif
+
+#endif /* USE_DEFAULT_MULTI_THREAD_SYSTEM */
+
 #ifndef xmalloc
 #define xmalloc     malloc
 #define xrealloc    realloc
@@ -150,6 +193,8 @@
 #define USE_UPPER_CASE_TABLE
 #else
 
+#define CHECK_INTERRUPT_IN_MATCH_AT
+
 #define st_init_table                  onig_st_init_table
 #define st_init_table_with_size        onig_st_init_table_with_size
 #define st_init_numtable               onig_st_init_numtable
@@ -169,8 +214,6 @@
 #define st_nothing_key_free            onig_st_nothing_key_free
 /* */
 #define onig_st_is_member              st_is_member
-
-#define CHECK_INTERRUPT_IN_MATCH_AT
 
 #endif
 
@@ -235,6 +278,10 @@
 # include <stdint.h>
 #endif
 
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#endif
+
 #ifdef STDC_HEADERS
 # include <stddef.h>
 #endif
@@ -260,11 +307,21 @@ typedef unsigned int uintptr_t;
 #endif
 #endif /* _WIN32 */
 
+#ifndef PRIdPTR
+#ifdef _WIN64
+#define PRIdPTR	"I64d"
+#define PRIuPTR	"I64u"
+#define PRIxPTR	"I64x"
+#else
+#define PRIdPTR	"ld"
+#define PRIuPTR	"lu"
+#define PRIxPTR	"lx"
+#endif
+#endif
+
 #include "regenc.h"
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility push(default)
-#endif
+RUBY_SYMBOL_EXPORT_BEGIN
 
 #ifdef MIN
 #undef MIN
@@ -335,17 +392,17 @@ typedef unsigned int  BitStatusType;
 #define BIT_STATUS_CLEAR(stats)      (stats) = 0
 #define BIT_STATUS_ON_ALL(stats)     (stats) = ~((BitStatusType )0)
 #define BIT_STATUS_AT(stats,n) \
-  ((n) < (int )BIT_STATUS_BITS_NUM  ?  ((stats) & (1 << n)) : ((stats) & 1))
+  ((n) < (int )BIT_STATUS_BITS_NUM  ?  ((stats) & ((BitStatusType )1 << n)) : ((stats) & 1))
 
 #define BIT_STATUS_ON_AT(stats,n) do {\
-    if ((n) < (int )BIT_STATUS_BITS_NUM)	\
+  if ((n) < (int )BIT_STATUS_BITS_NUM)\
     (stats) |= (1 << (n));\
   else\
     (stats) |= 1;\
 } while (0)
 
 #define BIT_STATUS_ON_AT_SIMPLE(stats,n) do {\
-    if ((n) < (int )BIT_STATUS_BITS_NUM)\
+  if ((n) < (int )BIT_STATUS_BITS_NUM)\
     (stats) |= (1 << (n));\
 } while (0)
 
@@ -368,6 +425,8 @@ typedef unsigned int  BitStatusType;
           (ONIG_OPTION_FIND_LONGEST | ONIG_OPTION_FIND_NOT_EMPTY))
 #define IS_NOTBOL(option)         ((option) & ONIG_OPTION_NOTBOL)
 #define IS_NOTEOL(option)         ((option) & ONIG_OPTION_NOTEOL)
+#define IS_NOTBOS(option)         ((option) & ONIG_OPTION_NOTBOS)
+#define IS_NOTEOS(option)         ((option) & ONIG_OPTION_NOTEOS)
 #define IS_POSIX_REGION(option)   ((option) & ONIG_OPTION_POSIX_REGION)
 #define IS_ASCII_RANGE(option)    ((option) & ONIG_OPTION_ASCII_RANGE)
 #define IS_POSIX_BRACKET_ALL_RANGE(option)  ((option) & ONIG_OPTION_POSIX_BRACKET_ALL_RANGE)
@@ -409,7 +468,7 @@ typedef Bits*          BitSetRef;
 } while (0)
 
 #define BS_ROOM(bs,pos)            (bs)[(int )(pos) / BITS_IN_ROOM]
-#define BS_BIT(pos)                (1 << ((int )(pos) % BITS_IN_ROOM))
+#define BS_BIT(pos)                (1U << ((int )(pos) % BITS_IN_ROOM))
 
 #define BITSET_AT(bs, pos)         (BS_ROOM(bs,pos) & BS_BIT(pos))
 #define BITSET_SET_BIT(bs, pos)     BS_ROOM(bs,pos) |= BS_BIT(pos)
@@ -426,23 +485,29 @@ typedef struct _BBuf {
 #define BBUF_INIT(buf,size)    onig_bbuf_init((BBuf* )(buf), (size))
 
 #define BBUF_SIZE_INC(buf,inc) do{\
+  UChar *tmp;\
   (buf)->alloc += (inc);\
-  (buf)->p = (UChar* )xrealloc((buf)->p, (buf)->alloc);\
-  if (IS_NULL((buf)->p)) return(ONIGERR_MEMORY);\
+  tmp = (UChar* )xrealloc((buf)->p, (buf)->alloc);\
+  if (IS_NULL(tmp)) return(ONIGERR_MEMORY);\
+  (buf)->p = tmp;\
 } while (0)
 
 #define BBUF_EXPAND(buf,low) do{\
+  UChar *tmp;\
   do { (buf)->alloc *= 2; } while ((buf)->alloc < (unsigned int )low);\
-  (buf)->p = (UChar* )xrealloc((buf)->p, (buf)->alloc);\
-  if (IS_NULL((buf)->p)) return(ONIGERR_MEMORY);\
+  tmp = (UChar* )xrealloc((buf)->p, (buf)->alloc);\
+  if (IS_NULL(tmp)) return(ONIGERR_MEMORY);\
+  (buf)->p = tmp;\
 } while (0)
 
 #define BBUF_ENSURE_SIZE(buf,size) do{\
   unsigned int new_alloc = (buf)->alloc;\
   while (new_alloc < (unsigned int )(size)) { new_alloc *= 2; }\
   if ((buf)->alloc != new_alloc) {\
-    (buf)->p = (UChar* )xrealloc((buf)->p, new_alloc);\
-    if (IS_NULL((buf)->p)) return(ONIGERR_MEMORY);\
+    UChar *tmp;\
+    tmp = (UChar* )xrealloc((buf)->p, new_alloc);\
+    if (IS_NULL(tmp)) return(ONIGERR_MEMORY);\
+    (buf)->p = tmp;\
     (buf)->alloc = new_alloc;\
   }\
 } while (0)
@@ -844,6 +909,14 @@ typedef struct {
 #define IS_CODE_SB_WORD(enc,code) \
   (ONIGENC_IS_CODE_ASCII(code) && ONIGENC_IS_CODE_WORD(enc,code))
 
+typedef struct OnigEndCallListItem {
+  struct OnigEndCallListItem* next;
+  void (*func)(void);
+} OnigEndCallListItemType;
+
+extern void onig_add_end_call(void (*func)(void));
+
+
 #ifdef ONIG_DEBUG
 
 typedef struct {
@@ -854,7 +927,8 @@ typedef struct {
 
 extern OnigOpInfoType OnigOpInfo[];
 
-/* extern void onig_print_compiled_byte_code P_((FILE* f, UChar* bp, UChar* bpend, UChar** nextp, OnigEncoding enc)); */
+
+extern void onig_print_compiled_byte_code P_((FILE* f, UChar* bp, UChar* bpend, UChar** nextp, OnigEncoding enc));
 
 #ifdef ONIG_DEBUG_STATISTICS
 extern void onig_statistics_init P_((void));
@@ -908,8 +982,6 @@ extern int onigenc_property_list_init P_((ONIGENC_INIT_PROPERTY_LIST_FUNC_TYPE))
 extern size_t onig_memsize P_((const regex_t *reg));
 extern size_t onig_region_memsize P_((const struct re_registers *regs));
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility pop
-#endif
+RUBY_SYMBOL_EXPORT_END
 
 #endif /* ONIGURUMA_REGINT_H */

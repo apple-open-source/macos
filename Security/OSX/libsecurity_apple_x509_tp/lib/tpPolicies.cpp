@@ -965,7 +965,7 @@ static CSSM_BOOL tpIsNumeric(
  * CFStringRef. Caller owns and must release the result. NULL return means
  * unconvertible input "string".
  */
-static CFStringRef tpTvpToCfString(
+static CFStringRef CF_RETURNS_RETAINED tpTvpToCfString(
 	const CSSM_X509_TYPE_VALUE_PAIR	*tvp)
 {
 	CFStringBuiltInEncodings encoding;

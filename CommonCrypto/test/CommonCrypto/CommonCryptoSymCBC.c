@@ -200,8 +200,8 @@ int CommonCryptoSymCBC(int __unused argc, char *const * __unused argv) {
 
     // 34 case test 1 repeated with wrong key size - negative test - don't let CCCryptTestCase() to print error messages on the console
     char keyStr_incorrect[strlen(keyStr)+1+2];
-    strcpy(keyStr_incorrect,keyStr);
-    strcat(keyStr_incorrect, "01");
+    strlcpy(keyStr_incorrect, keyStr, sizeof(keyStr_incorrect));
+    strlcat(keyStr_incorrect, "01", sizeof(keyStr_incorrect));
     plainText  = "0a";
     cipherText = "a385b047a4108a8748bf96b435738213";
     retval = CCCryptTestCase(keyStr_incorrect, iv, alg, options, cipherText, plainText, false);

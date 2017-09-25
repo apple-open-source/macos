@@ -31,6 +31,7 @@
 #import <Security/SecFrameworkStrings.h>
 #import "notify.h"
 #import <utilities/debugging.h>
+#import <os/variant_private.h>
 
 #import <Accounts/Accounts.h>
 #import <AOSAccounts/MobileMePrefsCoreAEPrivate.h>
@@ -44,6 +45,7 @@
 #import <ProtectedCloudStorage/CloudIdentity.h>
 #import "CoreCDP/CDPFollowUpController.h"
 #import "CoreCDP/CDPFollowUpContext.h"
+#import <CoreCDP/CDPAccount.h>
 
 static const char     * const kLaunchLaterXPCName      = "com.apple.security.Keychain-Circle-Notification-TICK";
 static const NSString * const kKickedOutKey            = @"KickedOut";
@@ -51,7 +53,11 @@ static const NSString * const kValidOnlyOutOfCircleKey = @"ValidOnlyOutOfCircle"
 static const NSString * const kPasswordChangedOrTrustedDeviceChanged = @"TDorPasswordChanged";
 static NSString *prefpane = @"/System/Library/PreferencePanes/iCloudPref.prefPane";
 #define kPublicKeyNotAvailable "com.apple.security.publickeynotavailable"
+#define kPublicKeyAvailable "com.apple.security.publickeyavailable"
 static NSString *KeychainPCDetailsAEAction            = @"AKPCDetailsAEAction";
+bool _hasPostedAndStillInError = false;
+bool _haveCheckedForICDPStatusOnceInCircle = false;
+bool _isAccountICDP = false;
 
 @implementation KNAppDelegate
 
@@ -61,6 +67,26 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
 													 type: _NSUserNotificationCenterTypeSystem];
 }
 
+static void PSKeychainSyncIsUsingICDP(void)
+{
+    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccount *primaryiCloudAccount = nil;
+    
+    if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
+        primaryiCloudAccount = [accountStore icaPrimaryAppleAccount];
+    }
+    
+    NSString *dsid = primaryiCloudAccount.icaPersonID;
+    BOOL isICDPEnabled = NO;
+    if (dsid) {
+        isICDPEnabled = [CDPAccount isICDPEnabledForDSID:dsid];
+        NSLog(@"iCDP: PSKeychainSyncIsUsingICDP returning %@", isICDPEnabled ? @"TRUE" : @"FALSE");
+    } else {
+        NSLog(@"iCDP: no primary account");
+    }
+    
+    _isAccountICDP = isICDPEnabled;
+}
 
 -(void) startFollowupKitRepair
 {
@@ -71,46 +97,27 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
     if(localError){
         secnotice("kcn", "request to CoreCDP to follow up failed: %@", localError);
     }
-    else
+    else{
         secnotice("kcn", "CoreCDP handling follow up");
+        _hasPostedAndStillInError = false;
+    }
 }
 
 - (void) handleDismissedNotification
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
-    ACAccount *primaryiCloudAccount = nil;
-
-    if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
-        primaryiCloudAccount = [accountStore icaPrimaryAppleAccount];
-    }
-
-    if(primaryiCloudAccount){
-        bool			  localICDP = false;
-        NSString *dsid = primaryiCloudAccount.icaPersonID;
-        if (dsid) {
-            NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
-            PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
-
-            if (identity) {
-                localICDP = PCSIdentitySetIsICDP(identity, NULL);
-                CFRelease(identity);
-            }
-        }
-        if(localICDP){
-            secnotice("kcn", "handling dismissed notification, would start a follow up");
-            [self startFollowupKitRepair];
-        }
+    if(_isAccountICDP){
+        secnotice("kcn", "handling dismissed notification, would start a follow up");
+        [self startFollowupKitRepair];
     }
     else
         secerror("unable to find primary account");
-
 }
 
 - (void) notifyiCloudPreferencesAbout: (NSString *) eventName
 {
     if (eventName == nil)
         return;
-    
+
     secnotice("kcn", "notifyiCloudPreferencesAbout %@", eventName);
     
     NSString *accountID = (__bridge_transfer NSString*)(MMCopyLoggedInAccountFromAccounts());
@@ -125,7 +132,6 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
         AEDesc	aeDesc;
         BOOL	createdAEDesc = createAEDescWithAEActionAndAccountID((__bridge NSString *) kMMServiceIDKeychainSync, eventName, accountID, &aeDesc);
         if (createdAEDesc) {
-            
             NSArray *prefPaneURL = [NSArray arrayWithObject: [NSURL fileURLWithPath: prefpane ]];
             
             LSLaunchURLSpec	lsSpec = {
@@ -145,8 +151,7 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
             secerror("unable to create and send aedesc for account: '%@' and action: '%@'\n", primaryiCloudAccount, eventName);
         }
     }
-    else
-        secerror("unable to find primary account");
+    secerror("unable to find primary account");
 }
 
 - (void) timerCheck
@@ -211,22 +216,6 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
 }
 
 
-// Copied from sysdiagnose/src/utils.m
-static bool isAppleInternal(void)
-{
-	static bool ret = false;
-	static dispatch_once_t onceToken;
-	dispatch_once(&onceToken, ^{
-#if TARGET_OS_IPHONE
-		ret = CRIsAppleInternal();
-#else
-		ret = CRHasBeenAppleInternalRecently();
-#endif
-	});
-	return ret;
-}
-
-
 #define ICKC_EVENT_DISABLED          "com.apple.security.secureobjectsync.disabled"
 #define ICKC_EVENT_DEPARTURE_REASON  "com.apple.security.secureobjectsync.departurereason"
 #define ICKC_EVENT_NUM_PEERS         "com.apple.security.secureobjectsync.numcircledevices"
@@ -235,7 +224,21 @@ static bool isAppleInternal(void)
 {
 	appropriateNotificationCenter().delegate = self;
     int out_taken;
+    int available;
 	secnotice("kcn", "Posted at launch: %@", appropriateNotificationCenter().deliveredNotifications);
+
+    notify_register_dispatch(kPublicKeyAvailable, &available, dispatch_get_main_queue(), ^(int token) {
+        CFErrorRef err = NULL;
+        KNAppDelegate *me = self;
+        SOSCCStatus currentCircleStatus     = SOSCCThisDeviceIsInCircle(&err);
+        me.state                          = [KNPersistentState loadFromStorage];
+
+        secnotice("kcn", "got public key available notification");
+
+        me.state.lastCircleStatus = currentCircleStatus;
+
+        [me.state writeToStorage];
+    });
 
     //register for public key not available notification, if occurs KCN can react
     notify_register_dispatch(kPublicKeyNotAvailable, &out_taken, dispatch_get_main_queue(), ^(int token) {
@@ -244,11 +247,24 @@ static bool isAppleInternal(void)
         enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&err);
         SOSCCStatus currentCircleStatus     = SOSCCThisDeviceIsInCircle(&err);
         me.state 						 = [KNPersistentState loadFromStorage];
-
+        
         secnotice("kcn", "got public key not available notification, but won't send notification unless circle transition matches");
         secnotice("kcn", "current circle status: %d, current departure reason: %d, last circle status: %d", currentCircleStatus, departureReason, me.state.lastCircleStatus);
-
-        if(currentCircleStatus == kSOSCCError && me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
+        
+        PSKeychainSyncIsUsingICDP();
+        
+        if(_isAccountICDP){
+            if((currentCircleStatus == kSOSCCError || currentCircleStatus == kSOSCCCircleAbsent || currentCircleStatus == kSOSCCNotInCircle) && _hasPostedAndStillInError == false) {
+                secnotice("kcn", "iCDP: device not in circle, posting follow up");
+                [self postRequirePassword];
+                _hasPostedAndStillInError = true;
+            }
+            else if(currentCircleStatus == kSOSCCInCircle){
+                secnotice("kcn", "iCDP: device is in circle!");
+                _hasPostedAndStillInError = false;
+            }
+        }
+        else if(!_isAccountICDP && currentCircleStatus == kSOSCCError && me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
             secnotice("kcn", "circle status went from in circle to not in circle");
             [self postRequirePassword];
         }
@@ -266,26 +282,32 @@ static bool isAppleInternal(void)
 
         CFErrorRef err = NULL;
 
-        enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&err);
-
 		NSDate				*nowish			 = [NSDate date];
+        enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&err);
 		SOSCCStatus	circleStatus 			 = SOSCCThisDeviceIsInCircle(&err);
 		me.state 							 = [KNPersistentState loadFromStorage];
         secnotice("kcn", "applicationDidFinishLaunching");
+        
+        PSKeychainSyncIsUsingICDP();
+        
+        if(_isAccountICDP){
+            if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedAndStillInError == false) {
 
-        if(circleStatus == kSOSCCError && me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
-            CFErrorRef error = NULL;
-            SOSCCStatus			currentCircleStatus	 = SOSCCThisDeviceIsInCircle(&error);
-            CFIndex errorCode = CFErrorGetCode(error);
-
-            if(errorCode == kSOSErrorPublicKeyAbsent){
-                secnotice("kcn", "We need the password to re-validate ourselves - it's changed on another device");
-                me.state.lastCircleStatus = currentCircleStatus;
+                secnotice("kcn", "ICDP: We need the password to re-validate ourselves - it's changed on another device");
+                me.state.lastCircleStatus = circleStatus;
                 [me.state writeToStorage];
                 [me postRequirePassword];
+                _hasPostedAndStillInError = true;
+            }
+            else if(circleStatus == kSOSCCInCircle){
+                secnotice("kcn", "iCDP: device is in circle!");
+                _hasPostedAndStillInError = false;
             }
         }
-
+        else if(!_isAccountICDP && circleStatus == kSOSCCError && me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
+            secnotice("kcn", "SA: circle status went from in circle to not in circle");
+            [me postRequirePassword];
+        }
         // Pending application reminder
 		secnotice("kcn", "{ChangeCallback} scheduleActivity %@", me.state.pendingApplicationReminder);
 		if (circleStatus == kSOSCCRequestPending)
@@ -511,19 +533,14 @@ static bool isAppleInternal(void)
 		}
 	}
 
-	// <rdar://problem/21988060> Improve wording of the iCloud keychain drop/reset error messages
-	// Contrary to HI spec (and I think it makes more sense)
-	// 1. otherButton  == top   : Not Now
-	// 2. actionButton == bottom: Continue
-	// 3. If we followed HI spec, replace "Activate" => "Dismiss" in note.userInfo below
 	NSUserNotification *note = [NSUserNotification new];
-	note.title				 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE_OSX);
-	note.informativeText	 = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_BODY_OSX), applicant.name];
+    note.title               = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE), applicant.name];
+    note.informativeText	 = [KNAppDelegate localisedApprovalBodyWithDeviceTypeFromPeerInfo:applicant.peerObject];
 	note._displayStyle		 = _NSUserNotificationDisplayStyleAlert;
     note._identityImage		 = [NSImage bundleImage];
 	note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
-	note.otherButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
-	note.actionButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
+	note.otherButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_DECLINE);
+	note.actionButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVE);
 	note.identifier			 = [[NSUUID new] UUIDString];
     note.userInfo = @{
 		@"applicantName": applicant.name,
@@ -536,154 +553,130 @@ static bool isAppleInternal(void)
 	postCount++;
 }
 
++ (NSString *)localisedApprovalBodyWithDeviceTypeFromPeerInfo:(id)peerInfo {
+    NSString *type = (__bridge NSString *)SOSPeerInfoGetPeerDeviceType((__bridge SOSPeerInfoRef)(peerInfo));
+    CFStringRef localisedType = NULL;
+    if ([type isEqualToString:@"iPad"]) {
+        localisedType = SecCopyCKString(SEC_CK_APPROVAL_BODY_OSX_IPAD);
+    } else if ([type isEqualToString:@"iPhone"]) {
+        localisedType = SecCopyCKString(SEC_CK_APPROVAL_BODY_OSX_IPHONE);
+    } else if ([type isEqualToString:@"iPod"]) {
+        localisedType = SecCopyCKString(SEC_CK_APPROVAL_BODY_OSX_IPOD);
+    } else if ([type isEqualToString:@"Mac"]) {
+        localisedType = SecCopyCKString(SEC_CK_APPROVAL_BODY_OSX_MAC);
+    } else {
+        localisedType = SecCopyCKString(SEC_CK_APPROVAL_BODY_OSX_GENERIC);
+    }
+    return (__bridge_transfer NSString *)localisedType;
+}
+
 - (void) postRequirePassword
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
-    ACAccount *primaryiCloudAccount = nil;
-    bool			  localICDP = false;
-    
-    if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
-        primaryiCloudAccount = [accountStore icaPrimaryAppleAccount];
-    }
-    
-    if(primaryiCloudAccount){
-        NSString *dsid = primaryiCloudAccount.icaPersonID;
-        
-        if (dsid) {
-            NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
-            PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
-            
-            if (identity) {
-                localICDP = PCSIdentitySetIsICDP(identity, NULL);
-                CFRelease(identity);
-            }
-        }
-        if(!localICDP){
-            NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
-            for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-                if (note.userInfo[(NSString*) kPasswordChangedOrTrustedDeviceChanged]) {
-                    if (note.isPresented) {
-                        secnotice("kcn", "Already posted & presented: %@", note);
-                        [appropriateNotificationCenter() removeDeliveredNotification: note];
-                    } else {
-                        secnotice("kcn", "Already posted, but not presented: %@", note);
-                    }
+    if(!_isAccountICDP){
+        NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
+        for (NSUserNotification *note in noteCenter.deliveredNotifications) {
+            if (note.userInfo[(NSString*) kPasswordChangedOrTrustedDeviceChanged]) {
+                if (note.isPresented) {
+                    secnotice("kcn", "Already posted & presented: %@", note);
+                    [appropriateNotificationCenter() removeDeliveredNotification: note];
+                } else {
+                    secnotice("kcn", "Already posted, but not presented: %@", note);
                 }
             }
-            
-            NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
-            if (isAppleInternal()) {
-                NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), @"Device became untrusted or password changed"];
-                message = [message stringByAppendingString: reason_str];
-            }
-            
-            NSUserNotification *note = [NSUserNotification new];
-            note.title				 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
-            note.informativeText	 = message;
-            note._identityImage		 = [NSImage bundleImage];
-            note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
-            note.otherButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
-            note.actionButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
-            note.identifier			 = [[NSUUID new] UUIDString];
-            
-            note.userInfo = @{
-                              kPasswordChangedOrTrustedDeviceChanged			: @1,
-                              @"Activate"				: (__bridge NSString *) kMMPropertyKeychainPCDetailsAEAction,
-                              };
-            
-            secnotice("kcn", "body=%@", note.informativeText);
-            secnotice("kcn", "About to post #-/%lu (PASSWORD/TRUSTED DEVICE): %@", noteCenter.deliveredNotifications.count, note);
-            [appropriateNotificationCenter() deliverNotification:note];
         }
-        else{
-            secnotice("kcn","would have posted needs password and then followed up");
-            [self startFollowupKitRepair];
+
+        NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
+        if (os_variant_has_internal_ui("iCloudKeychain")) {
+            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), @"Device became untrusted or password changed"];
+            message = [message stringByAppendingString: reason_str];
         }
+
+        NSUserNotification *note = [NSUserNotification new];
+        note.title                 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
+        note.informativeText     = message;
+        note._identityImage         = [NSImage bundleImage];
+        note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
+        note.otherButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
+        note.actionButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
+        note.identifier             = [[NSUUID new] UUIDString];
+
+        note.userInfo = @{
+                          kPasswordChangedOrTrustedDeviceChanged            : @1,
+                          @"Activate"                : (__bridge NSString *) kMMPropertyKeychainPCDetailsAEAction,
+                          };
+
+        secnotice("kcn", "body=%@", note.informativeText);
+        secnotice("kcn", "About to post #-/%lu (PASSWORD/TRUSTED DEVICE): %@", noteCenter.deliveredNotifications.count, note);
+        [appropriateNotificationCenter() deliverNotification:note];
+    }
+    else{
+        secnotice("kcn","would have posted needs password and then followed up");
+        [self startFollowupKitRepair];
     }
 }
 
 - (void) postKickedOutAlert: (int) reason
 {
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
-    ACAccount *primaryiCloudAccount = nil;
-    bool			  localICDP = false;
-    
-    if ([accountStore respondsToSelector:@selector(icaPrimaryAppleAccount)]){
-        primaryiCloudAccount = [accountStore icaPrimaryAppleAccount];
-    }
-    
-    if(primaryiCloudAccount){
-        NSString *dsid = primaryiCloudAccount.icaPersonID;
-        
-        if (dsid) {
-            NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
-            PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
-            
-            if (identity) {
-                localICDP = PCSIdentitySetIsICDP(identity, NULL);
-                CFRelease(identity);
-            }
-        }
-        if(!localICDP){
-            NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
-            for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-                if (note.userInfo[(NSString*) kKickedOutKey]) {
-                    if (note.isPresented) {
-                        secnotice("kcn", "Already posted&presented (removing): %@", note);
-                        [appropriateNotificationCenter() removeDeliveredNotification: note];
-                    } else {
-                        secnotice("kcn", "Already posted, but not presented: %@", note);
-                    }
+
+    if(!_isAccountICDP){
+        NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
+        for (NSUserNotification *note in noteCenter.deliveredNotifications) {
+            if (note.userInfo[(NSString*) kKickedOutKey]) {
+                if (note.isPresented) {
+                    secnotice("kcn", "Already posted&presented (removing): %@", note);
+                    [appropriateNotificationCenter() removeDeliveredNotification: note];
+                } else {
+                    secnotice("kcn", "Already posted, but not presented: %@", note);
                 }
             }
-            
-            NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
-            if (isAppleInternal()) {
-                static const char *departureReasonStrings[] = {
-                    "kSOSDepartureReasonError",
-                    "kSOSNeverLeftCircle",
-                    "kSOSWithdrewMembership",
-                    "kSOSMembershipRevoked",
-                    "kSOSLeftUntrustedCircle",
-                    "kSOSNeverAppliedToCircle",
-                    "kSOSDiscoveredRetirement",
-                    "kSOSLostPrivateKey",
-                    "unknown reason"
-                };
-                int idx = (kSOSDepartureReasonError <= reason && reason <= kSOSLostPrivateKey) ? reason : (kSOSLostPrivateKey + 1);
-                NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), departureReasonStrings[idx]];
-                message = [message stringByAppendingString: reason_str];
-            }
-            
-            // <rdar://problem/21988060> Improve wording of the iCloud keychain drop/reset error messages
-            // Contrary to HI spec (and I think it makes more sense)
-            // 1. otherButton  == top   : Not Now
-            // 2. actionButton == bottom: Continue
-            // 3. If we followed HI spec, replace "Activate" => "Dismiss" in note.userInfo below
-            NSUserNotification *note = [NSUserNotification new];
-            note.title				 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
-            note.informativeText	 = message;
-            note._identityImage		 = [NSImage bundleImage];
-            note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
-            note.otherButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
-            note.actionButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
-            note.identifier			 = [[NSUUID new] UUIDString];
-            
-            note.userInfo = @{
-                              kKickedOutKey			: @1,
-                              kValidOnlyOutOfCircleKey: @1,
-                              @"Activate"				: (__bridge NSString *) kMMPropertyKeychainMRDetailsAEAction,
-                              };
-            
-            secnotice("kcn", "body=%@", note.informativeText);
-            secnotice("kcn", "About to post #-/%lu (KICKOUT): %@", noteCenter.deliveredNotifications.count, note);
-            [appropriateNotificationCenter() deliverNotification:note];
         }
-        
-        else{
-            secnotice("kcn","postKickedOutAlert starting followup repair");
-            [self startFollowupKitRepair];
+
+        NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
+        if (os_variant_has_internal_ui("iCloudKeychain")) {
+            static const char *departureReasonStrings[] = {
+                "kSOSDepartureReasonError",
+                "kSOSNeverLeftCircle",
+                "kSOSWithdrewMembership",
+                "kSOSMembershipRevoked",
+                "kSOSLeftUntrustedCircle",
+                "kSOSNeverAppliedToCircle",
+                "kSOSDiscoveredRetirement",
+                "kSOSLostPrivateKey",
+                "unknown reason"
+            };
+            int idx = (kSOSDepartureReasonError <= reason && reason <= kSOSLostPrivateKey) ? reason : (kSOSLostPrivateKey + 1);
+            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), departureReasonStrings[idx]];
+            message = [message stringByAppendingString: reason_str];
         }
+
+        // <rdar://problem/21988060> Improve wording of the iCloud keychain drop/reset error messages
+        // Contrary to HI spec (and I think it makes more sense)
+        // 1. otherButton  == top   : Not Now
+        // 2. actionButton == bottom: Continue
+        // 3. If we followed HI spec, replace "Activate" => "Dismiss" in note.userInfo below
+        NSUserNotification *note = [NSUserNotification new];
+        note.title                 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
+        note.informativeText     = message;
+        note._identityImage         = [NSImage bundleImage];
+        note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
+        note.otherButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
+        note.actionButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
+        note.identifier             = [[NSUUID new] UUIDString];
+
+        note.userInfo = @{
+                          kKickedOutKey            : @1,
+                          kValidOnlyOutOfCircleKey: @1,
+                          @"Activate"                : (__bridge NSString *) kMMPropertyKeychainMRDetailsAEAction,
+                          };
+
+        secnotice("kcn", "body=%@", note.informativeText);
+        secnotice("kcn", "About to post #-/%lu (KICKOUT): %@", noteCenter.deliveredNotifications.count, note);
+        [appropriateNotificationCenter() deliverNotification:note];
+    }
+
+    else{
+        secnotice("kcn","postKickedOutAlert starting followup repair");
+        [self startFollowupKitRepair];
     }
 }
 

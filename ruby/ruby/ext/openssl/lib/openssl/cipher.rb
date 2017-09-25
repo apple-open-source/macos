@@ -1,7 +1,5 @@
+# frozen_string_literal: false
 #--
-#
-# $RCSfile$
-#
 # = Ruby-space predefined Cipher subclasses
 #
 # = Info
@@ -10,12 +8,8 @@
 # All rights reserved.
 #
 # = Licence
-# This program is licenced under the same licence as Ruby.
+# This program is licensed under the same licence as Ruby.
 # (See the file 'LICENCE'.)
-#
-# = Version
-# $Id: cipher.rb 36895 2012-09-04 00:57:31Z nobu $
-#
 #++
 
 module OpenSSL

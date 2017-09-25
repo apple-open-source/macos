@@ -24,8 +24,7 @@
  */
 
 
-#ifndef WebVideoFullscreenModel_h
-#define WebVideoFullscreenModel_h
+#pragma once
 
 #if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
@@ -61,8 +60,9 @@ public:
     virtual void videoDimensionsChanged(const FloatSize&) = 0;
 };
 
+WEBCORE_EXPORT bool supportsPictureInPicture();
+    
 }
 
 #endif
 
-#endif

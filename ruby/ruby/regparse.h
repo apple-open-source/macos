@@ -32,9 +32,7 @@
 
 #include "regint.h"
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility push(default)
-#endif
+RUBY_SYMBOL_EXPORT_BEGIN
 
 /* node type */
 #define NT_STR         0
@@ -69,7 +67,11 @@
                        BIT_NT_CANY | BIT_NT_BREF)) != 0)
 
 #define NTYPE(node)             ((node)->u.base.type)
-#define SET_NTYPE(node, ntype)   (node)->u.base.type = (ntype)
+#define SET_NTYPE(node, ntype) \
+    do { \
+	int value = ntype; \
+	memcpy(&((node)->u.base.type), &value, sizeof(int)); \
+    } while (0)
 
 #define NSTR(node)         (&((node)->u.str))
 #define NCCLASS(node)      (&((node)->u.cclass))
@@ -195,8 +197,8 @@ typedef struct {
   int type;
   int regnum;
   OnigOptionType option;
-  struct _Node*  target;
   AbsAddrType    call_addr;
+  struct _Node*  target;
   /* for multiple call reference */
   OnigDistance min_len; /* min length (byte) */
   OnigDistance max_len; /* max length (byte) */
@@ -298,10 +300,10 @@ typedef struct {
   UChar*           error;
   UChar*           error_end;
   regex_t*         reg;       /* for reg->names only */
-  int              num_call;
 #ifdef USE_SUBEXP_CALL
   UnsetAddrList*   unset_addr_list;
 #endif
+  int              num_call;
   int              num_mem;
 #ifdef USE_NAMED_GROUP
   int              num_named;
@@ -360,8 +362,6 @@ extern int onig_print_names(FILE*, regex_t*);
 #endif
 #endif
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility pop
-#endif
+RUBY_SYMBOL_EXPORT_END
 
 #endif /* ONIGURUMA_REGPARSE_H */

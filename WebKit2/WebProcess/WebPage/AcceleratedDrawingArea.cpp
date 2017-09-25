@@ -38,24 +38,29 @@
 #include <WebCore/PageOverlayController.h>
 #include <WebCore/Settings.h>
 
+#if USE(GLIB_EVENT_LOOP)
+#include <wtf/glib/RunLoopSourcePriority.h>
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
 
 AcceleratedDrawingArea::~AcceleratedDrawingArea()
 {
+    discardPreviousLayerTreeHost();
     if (m_layerTreeHost)
         m_layerTreeHost->invalidate();
 }
 
 AcceleratedDrawingArea::AcceleratedDrawingArea(WebPage& webPage, const WebPageCreationParameters& parameters)
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    : DrawingArea(DrawingAreaTypeCoordinated, webPage)
-#else
     : DrawingArea(DrawingAreaTypeImpl, webPage)
-#endif
     , m_exitCompositingTimer(RunLoop::main(), this, &AcceleratedDrawingArea::exitAcceleratedCompositingMode)
+    , m_discardPreviousLayerTreeHostTimer(RunLoop::main(), this, &AcceleratedDrawingArea::discardPreviousLayerTreeHost)
 {
+#if USE(GLIB_EVENT_LOOP)
+    m_discardPreviousLayerTreeHostTimer.setPriority(RunLoopSourcePriority::ReleaseUnusedResourcesTimer);
+#endif
     if (!m_webPage.isVisible())
         suspendPainting();
 }
@@ -91,6 +96,8 @@ void AcceleratedDrawingArea::pageBackgroundTransparencyChanged()
 {
     if (m_layerTreeHost)
         m_layerTreeHost->pageBackgroundTransparencyChanged();
+    else if (m_previousLayerTreeHost)
+        m_previousLayerTreeHost->pageBackgroundTransparencyChanged();
 }
 
 void AcceleratedDrawingArea::setLayerTreeStateIsFrozen(bool isFrozen)
@@ -131,7 +138,7 @@ void AcceleratedDrawingArea::forceRepaint()
     }
 }
 
-bool AcceleratedDrawingArea::forceRepaintAsync(uint64_t callbackID)
+bool AcceleratedDrawingArea::forceRepaintAsync(CallbackID callbackID)
 {
     return m_layerTreeHost && m_layerTreeHost->forceRepaintAsync(callbackID);
 }
@@ -150,9 +157,14 @@ void AcceleratedDrawingArea::updatePreferences(const WebPreferencesStore& store)
 
 void AcceleratedDrawingArea::mainFrameContentSizeChanged(const IntSize& size)
 {
-    if (m_webPage.useFixedLayout() && m_layerTreeHost)
-        m_layerTreeHost->sizeDidChange(size);
-    m_webPage.mainFrame()->pageOverlayController().didChangeDocumentSize();
+#if USE(COORDINATED_GRAPHICS_THREADED)
+    if (m_layerTreeHost)
+        m_layerTreeHost->contentsSizeChanged(size);
+    else if (m_previousLayerTreeHost)
+        m_previousLayerTreeHost->contentsSizeChanged(size);
+#else
+    UNUSED_PARAM(size);
+#endif
 }
 
 void AcceleratedDrawingArea::layerHostDidFlushLayers()
@@ -174,6 +186,8 @@ void AcceleratedDrawingArea::layerHostDidFlushLayers()
 
 GraphicsLayerFactory* AcceleratedDrawingArea::graphicsLayerFactory()
 {
+    if (!m_layerTreeHost)
+        enterAcceleratedCompositingMode(nullptr);
     return m_layerTreeHost ? m_layerTreeHost->graphicsLayerFactory() : nullptr;
 }
 
@@ -210,6 +224,15 @@ void AcceleratedDrawingArea::scheduleCompositingLayerFlushImmediately()
     scheduleCompositingLayerFlush();
 }
 
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+RefPtr<WebCore::DisplayRefreshMonitor> AcceleratedDrawingArea::createDisplayRefreshMonitor(WebCore::PlatformDisplayID displayID)
+{
+    if (!m_layerTreeHost || m_wantsToExitAcceleratedCompositingMode || exitAcceleratedCompositingModePending())
+        return nullptr;
+    return m_layerTreeHost->createDisplayRefreshMonitor(displayID);
+}
+#endif
+
 void AcceleratedDrawingArea::updateBackingStoreState(uint64_t stateID, bool respondImmediately, float deviceScaleFactor, const IntSize& size, const IntSize& scrollOffset)
 {
     ASSERT(!m_inUpdateBackingStoreState);
@@ -225,14 +248,10 @@ void AcceleratedDrawingArea::updateBackingStoreState(uint64_t stateID, bool resp
         m_webPage.layoutIfNeeded();
         m_webPage.scrollMainFrameIfNotAtMaxScrollPosition(scrollOffset);
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-        // Coordinated Graphics sets the size of the root layer to contents size.
-        if (!m_webPage.useFixedLayout())
-            m_layerTreeHost->sizeDidChange(m_webPage.size());
-#else
         if (m_layerTreeHost)
             m_layerTreeHost->sizeDidChange(m_webPage.size());
-#endif
+        else if (m_previousLayerTreeHost)
+            m_previousLayerTreeHost->sizeDidChange(m_webPage.size());
     } else {
         ASSERT(size == m_webPage.size());
         if (!m_shouldSendDidUpdateBackingStoreState) {
@@ -315,19 +334,36 @@ void AcceleratedDrawingArea::resumePainting()
 
 void AcceleratedDrawingArea::enterAcceleratedCompositingMode(GraphicsLayer* graphicsLayer)
 {
+    m_discardPreviousLayerTreeHostTimer.stop();
+
     m_exitCompositingTimer.stop();
     m_wantsToExitAcceleratedCompositingMode = false;
 
     ASSERT(!m_layerTreeHost);
-    m_layerTreeHost = LayerTreeHost::create(m_webPage);
+    if (m_previousLayerTreeHost) {
+#if USE(COORDINATED_GRAPHICS)
+        m_layerTreeHost = WTFMove(m_previousLayerTreeHost);
+        m_layerTreeHost->setIsDiscardable(false);
+        if (!m_isPaintingSuspended)
+            m_layerTreeHost->resumeRendering();
+        if (!m_layerTreeStateIsFrozen)
+            m_layerTreeHost->setLayerFlushSchedulingEnabled(true);
+#else
+        ASSERT_NOT_REACHED();
+#endif
+    } else {
+        m_layerTreeHost = LayerTreeHost::create(m_webPage);
+
+        if (m_isPaintingSuspended)
+            m_layerTreeHost->pauseRendering();
+    }
+
 #if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)
     if (m_nativeSurfaceHandleForCompositing)
         m_layerTreeHost->setNativeSurfaceHandleForCompositing(m_nativeSurfaceHandleForCompositing);
 #endif
     if (!m_inUpdateBackingStoreState)
         m_layerTreeHost->setShouldNotifyAfterNextScheduledLayerFlush(true);
-    if (m_isPaintingSuspended)
-        m_layerTreeHost->pauseRendering();
 
     m_layerTreeHost->setRootCompositingLayer(graphicsLayer);
 }
@@ -342,15 +378,47 @@ void AcceleratedDrawingArea::exitAcceleratedCompositingModeSoon()
     if (exitAcceleratedCompositingModePending())
         return;
 
-    m_exitCompositingTimer.startOneShot(0);
+    m_exitCompositingTimer.startOneShot(0_s);
 }
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-void AcceleratedDrawingArea::didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection& connection, IPC::Decoder& decoder)
+#if USE(COORDINATED_GRAPHICS)
+void AcceleratedDrawingArea::resetUpdateAtlasForTesting()
 {
-    m_layerTreeHost->didReceiveCoordinatedLayerTreeHostMessage(connection, decoder);
+    if (!m_layerTreeHost || exitAcceleratedCompositingModePending())
+        return;
+
+    m_layerTreeHost->clearUpdateAtlases();
 }
 #endif
+
+void AcceleratedDrawingArea::exitAcceleratedCompositingModeNow()
+{
+    ASSERT(!m_layerTreeStateIsFrozen);
+
+    m_exitCompositingTimer.stop();
+    m_wantsToExitAcceleratedCompositingMode = false;
+
+#if USE(COORDINATED_GRAPHICS)
+    ASSERT(m_layerTreeHost);
+    m_previousLayerTreeHost = WTFMove(m_layerTreeHost);
+    m_previousLayerTreeHost->setIsDiscardable(true);
+    m_previousLayerTreeHost->pauseRendering();
+    m_previousLayerTreeHost->setLayerFlushSchedulingEnabled(false);
+    m_discardPreviousLayerTreeHostTimer.startOneShot(5_s);
+#else
+    m_layerTreeHost = nullptr;
+#endif
+}
+
+void AcceleratedDrawingArea::discardPreviousLayerTreeHost()
+{
+    m_discardPreviousLayerTreeHostTimer.stop();
+    if (!m_previousLayerTreeHost)
+        return;
+
+    m_previousLayerTreeHost->invalidate();
+    m_previousLayerTreeHost = nullptr;
+}
 
 #if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)
 void AcceleratedDrawingArea::setNativeSurfaceHandleForCompositing(uint64_t handle)
@@ -369,7 +437,27 @@ void AcceleratedDrawingArea::destroyNativeSurfaceHandleForCompositing(bool& hand
 }
 #endif
 
-void AcceleratedDrawingArea::activityStateDidChange(ActivityState::Flags changed, bool, const Vector<uint64_t>&)
+#if USE(COORDINATED_GRAPHICS_THREADED)
+void AcceleratedDrawingArea::didChangeViewportAttributes(ViewportAttributes&& attrs)
+{
+    if (m_layerTreeHost)
+        m_layerTreeHost->didChangeViewportAttributes(WTFMove(attrs));
+    else if (m_previousLayerTreeHost)
+        m_previousLayerTreeHost->didChangeViewportAttributes(WTFMove(attrs));
+}
+#endif
+
+#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
+void AcceleratedDrawingArea::deviceOrPageScaleFactorChanged()
+{
+    if (m_layerTreeHost)
+        m_layerTreeHost->deviceOrPageScaleFactorChanged();
+    else if (m_previousLayerTreeHost)
+        m_previousLayerTreeHost->deviceOrPageScaleFactorChanged();
+}
+#endif
+
+void AcceleratedDrawingArea::activityStateDidChange(ActivityState::Flags changed, bool, const Vector<CallbackID>&)
 {
     if (changed & ActivityState::IsVisible) {
         if (m_webPage.isVisible())

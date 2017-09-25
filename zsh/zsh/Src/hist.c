@@ -468,7 +468,7 @@ herrflush(void)
 
 /**/
 static int
-getsubsargs(char *subline, int *gbalp, int *cflagp)
+getsubsargs(UNUSED(char *subline), int *gbalp, int *cflagp)
 {
     int del, follow;
     char *ptr1, *ptr2;
@@ -653,6 +653,7 @@ histsubchar(int c)
 		(c == '}' ||  c == ';' || c == '\'' || c == '"' || c == '`')) {
 	      /* Neither event nor word designator, no expansion */
 	      safeinungetc(c);
+	      unqueue_signals();
 	      return bangchar;
 	    }
 	    *ptr = 0;
@@ -1037,7 +1038,7 @@ hbegin(int dohist)
     /*
      * pws: We used to test for "|| (inbufflags & INP_ALIAS)"
      * in this test, but at this point we don't have input
-     * set up up so this can trigger unnecessarily.
+     * set up so this can trigger unnecessarily.
      * I don't see how the test at this point could ever be
      * useful, since we only get here when we're initialising
      * the history mechanism, before we've done any input.
@@ -1378,7 +1379,6 @@ should_ignore_line(Eprog prog)
 mod_export int
 hend(Eprog prog)
 {
-    LinkList hookargs = newlinklist();
     int flag, hookret, stack_pos = histsave_stack_pos;
     /*
      * save:
@@ -1418,9 +1418,17 @@ hend(Eprog prog)
 	DPUTS(hptr < chline, "History end pointer off start of line");
 	*hptr = '\0';
     }
-    addlinknode(hookargs, "zshaddhistory");
-    addlinknode(hookargs, chline);
-    callhookfunc("zshaddhistory", hookargs, 1, &hookret);
+    {
+	LinkList hookargs = newlinklist();
+	int save_errflag = errflag;
+	errflag = 0;
+
+	addlinknode(hookargs, "zshaddhistory");
+	addlinknode(hookargs, chline);
+	callhookfunc("zshaddhistory", hookargs, 1, &hookret);
+
+	errflag |= save_errflag;
+    }
     /* For history sharing, lock history file once for both read and write */
     hf = getsparam("HISTFILE");
     if (isset(SHAREHISTORY) && !lockhistfile(hf, 0)) {
@@ -1835,7 +1843,7 @@ chrealpath(char **junkptr)
 # ifdef REALPATH_ACCEPTS_NULL
     char *lastpos, *nonreal, *real;
 # else
-    char *lastpos, *nonreal, pathbuf[PATH_MAX];
+    char *lastpos, *nonreal, pathbuf[PATH_MAX+1];
     char *real = pathbuf;
 # endif
 #endif

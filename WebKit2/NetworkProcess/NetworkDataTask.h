@@ -31,6 +31,7 @@
 #include "SandboxExtension.h"
 #include <WebCore/Credential.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/ResourceHandleTypes.h>
 #include <WebCore/ResourceLoaderOptions.h>
 #include <WebCore/ResourceRequest.h>
@@ -63,11 +64,19 @@ public:
     virtual void didReceiveChallenge(const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&) = 0;
     virtual void didReceiveResponseNetworkSession(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) = 0;
     virtual void didReceiveData(Ref<WebCore::SharedBuffer>&&) = 0;
-    virtual void didCompleteWithError(const WebCore::ResourceError&) = 0;
+    virtual void didCompleteWithError(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&) = 0;
     virtual void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) = 0;
     virtual void wasBlocked() = 0;
     virtual void cannotShowURL() = 0;
-    
+
+    virtual bool shouldCaptureExtraNetworkLoadMetrics() const { return false; }
+
+    void didCompleteWithError(const WebCore::ResourceError& error)
+    {
+        WebCore::NetworkLoadMetrics emptyMetrics;
+        didCompleteWithError(error, emptyMetrics);
+    }
+
     virtual ~NetworkDataTaskClient() { }
 };
 
@@ -83,6 +92,7 @@ public:
     virtual void invalidateAndCancel() = 0;
 
     void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&);
+    bool shouldCaptureExtraNetworkLoadMetrics() const;
 
     enum class State {
         Running,
@@ -117,6 +127,7 @@ public:
     virtual String suggestedFilename() const { return String(); }
     void setSuggestedFilename(const String& suggestedName) { m_suggestedFilename = suggestedName; }
     virtual bool allowsSpecificHTTPSCertificateForHost(const WebCore::AuthenticationChallenge&) { return false; }
+    const String& partition() { return m_partition; }
 
 protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentials, bool shouldClearReferrerOnHTTPSToHTTPRedirect);
@@ -137,6 +148,7 @@ protected:
     DownloadID m_pendingDownloadID;
     String m_user;
     String m_password;
+    String m_partition;
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
     WebCore::Credential m_initialCredential;
 #endif

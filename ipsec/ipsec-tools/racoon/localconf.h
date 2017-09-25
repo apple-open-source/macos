@@ -78,6 +78,9 @@ struct vpnctl_socket_elem {
 	LIST_ENTRY(vpnctl_socket_elem) chain;
 	int                 sock;
     dispatch_source_t   source;
+	uint32_t			read_bytes_len;
+	uint32_t			pending_bytes_len;
+	uint8_t				*buffer;
 	LIST_HEAD(_bound_addrs, bound_addr) bound_addresses;
 };
 

@@ -36,9 +36,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#if !TARGET_OS_EMBEDDED
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
-#endif
 #include <IOKit/IOHibernatePrivate.h>
 #include <pthread.h>
 
@@ -47,11 +45,25 @@
 #include "PrivateLib.h"
 #include "PMStore.h"
 #include "PMAssertions.h"
+#include "PMConnection.h"
+#include "StandbyTimer.h"
 
 
 #define kIOPMSCPrefsPath    CFSTR("com.apple.PowerManagement.xml")
 #define kIOPMAppName        CFSTR("PowerManagement configd")
 #define kIOPMSCPrefsFile    "/Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist"
+
+os_log_t pmSettings_log = NULL;
+#undef   LOG_STREAM
+#define  LOG_STREAM   pmSettings_log
+
+enum
+{
+    // 2GB
+    kStandbyDesktopHibernateFileSize = 2ULL*1024*1024*1024,
+    // 1GB
+    kStandbyPortableHibernateFileSize = 1ULL*1024*1024*1024
+};
 
 
 /* Arguments to CopyPMSettings functions */
@@ -93,17 +105,19 @@ static io_connect_t                     gPowerManager;
 static unsigned long                    deferredPSChangeNotify = 0;
 static unsigned long                    _pmcfgd_impendingSleep = 0;
 
+static uint32_t gDisplaySleepFactor = 1;
 
 /* Forward Declarations */
 static IOReturn activate_profiles(
         CFDictionaryRef                 d, 
         CFStringRef                     s, 
         bool                            removeUnsupported);
-#if !TARGET_OS_EMBEDDED
+static IOReturn PMActivateSystemPowerSettings( void );
+
 static CFMutableDictionaryRef  copyBootTimePrefs();
 static void mergeBootTimePrefs(void);
 static void updatePowerNapSetting(CFMutableDictionaryRef prefs);
-#endif
+
 
 
 /* overrideSetting
@@ -230,6 +244,46 @@ getIdleSleepTimer(unsigned long *idleSleepTimer)
     return kIOReturnError;
 }
 
+
+__private_extern__  void
+setDisplayToDimTimer(io_connect_t connection, unsigned int minutesToDim)
+{
+    io_connect_t tmpConnection = MACH_PORT_NULL;
+
+    if (connection == MACH_PORT_NULL) {
+        tmpConnection = IOPMFindPowerManagement(0);
+        if (!tmpConnection) {
+            ERROR_LOG("Failed to open connection to rootDomain\n");
+            return;
+        }
+        connection = tmpConnection;
+    }
+
+    IOPMSetAggressiveness(connection, kPMMinutesToDim, minutesToDim * gDisplaySleepFactor);
+    if (tmpConnection) {
+        IOServiceClose(tmpConnection);
+    }
+
+}
+
+__private_extern__ void
+setDisplaySleepFactor(unsigned int factor)
+{
+    uint32_t displaySleepTimer;
+    IOReturn rc;
+
+    rc = getDisplaySleepTimer(&displaySleepTimer);
+    if (rc != kIOReturnSuccess) {
+        ERROR_LOG("Failed to get display sleep timer. rc:0x%x\n", rc);
+        return;
+    }
+
+    gDisplaySleepFactor = factor;
+
+    setDisplayToDimTimer(IO_OBJECT_NULL, displaySleepTimer);
+}
+
+
 // Providing activateSettingsOverrides to PMAssertions.c
 // So that it may set multiple assertions without triggering a prefs
 // re-evaluate each time. PMAssertions.c can call overrideSetting() n times
@@ -344,29 +398,607 @@ __private_extern__ bool _DWBT_enabled(void)
 __private_extern__ bool
 _DWBT_allowed(void)
 {
-#if TARGET_OS_EMBEDDED
-    return false;
-#else
     return ( (GetPMSettingBool(CFSTR(kIOPMDarkWakeBackgroundTaskKey))) &&
              (kACPowered == _getPowerSource()) );
-#endif
 
 }
 
 /* Is Sleep Services allowed */
 __private_extern__ bool _SS_allowed(void)
 {
-#if TARGET_OS_EMBEDDED
-    return false;
-#else
     if (_DWBT_allowed())
         return true;
 
     return ( (GetPMSettingBool(CFSTR(kIOPMDarkWakeBackgroundTaskKey))) &&
              (kBatteryPowered == _getPowerSource()) );
-#endif
 
 }
+
+/* getAggressivenessValue
+ *
+ * returns true if the setting existed in the dictionary
+ */
+__private_extern__ bool getAggressivenessValue(
+                                               CFDictionaryRef     dict,
+                                               CFStringRef         key,
+                                               CFNumberType        type,
+                                               uint32_t           *ret)
+{
+    CFTypeRef           obj = CFDictionaryGetValue(dict, key);
+
+    *ret = 0;
+    if (isA_CFNumber(obj))
+    {
+        CFNumberGetValue(obj, type, ret);
+        return true;
+    }
+    else if (isA_CFBoolean(obj))
+    {
+        *ret = CFBooleanGetValue(obj);
+        return true;
+    }
+    return false;
+}
+
+static int getAggressivenessFactorsFromProfile(
+                                               CFDictionaryRef p,
+                                               IOPMAggressivenessFactors *agg)
+{
+    if( !agg || !p ) {
+        return -1;
+    }
+
+    getAggressivenessValue(p, CFSTR(kIOPMDisplaySleepKey), kCFNumberSInt32Type, &agg->fMinutesToDim);
+    getAggressivenessValue(p, CFSTR(kIOPMDiskSleepKey), kCFNumberSInt32Type, &agg->fMinutesToSpin);
+    getAggressivenessValue(p, CFSTR(kIOPMSystemSleepKey), kCFNumberSInt32Type, &agg->fMinutesToSleep);
+    getAggressivenessValue(p, CFSTR(kIOPMWakeOnLANKey), kCFNumberSInt32Type, &agg->fWakeOnLAN);
+    getAggressivenessValue(p, CFSTR(kIOPMWakeOnRingKey), kCFNumberSInt32Type, &agg->fWakeOnRing);
+    getAggressivenessValue(p, CFSTR(kIOPMRestartOnPowerLossKey), kCFNumberSInt32Type, &agg->fAutomaticRestart);
+    getAggressivenessValue(p, CFSTR(kIOPMSleepOnPowerButtonKey), kCFNumberSInt32Type, &agg->fSleepOnPowerButton);
+    getAggressivenessValue(p, CFSTR(kIOPMWakeOnClamshellKey), kCFNumberSInt32Type, &agg->fWakeOnClamshell);
+    getAggressivenessValue(p, CFSTR(kIOPMWakeOnACChangeKey), kCFNumberSInt32Type, &agg->fWakeOnACChange);
+    getAggressivenessValue(p, CFSTR(kIOPMDisplaySleepUsesDimKey), kCFNumberSInt32Type, &agg->fDisplaySleepUsesDimming);
+    getAggressivenessValue(p, CFSTR(kIOPMMobileMotionModuleKey), kCFNumberSInt32Type, &agg->fMobileMotionModule);
+    getAggressivenessValue(p, CFSTR(kIOPMGPUSwitchKey), kCFNumberSInt32Type, &agg->fGPU);
+    getAggressivenessValue(p, CFSTR(kIOPMDeepSleepEnabledKey), kCFNumberSInt32Type, &agg->fDeepSleepEnable);
+    getAggressivenessValue(p, CFSTR(kIOPMDeepSleepDelayKey), kCFNumberSInt32Type, &agg->fDeepSleepDelay);
+    getAggressivenessValue(p, CFSTR(kIOPMAutoPowerOffEnabledKey), kCFNumberSInt32Type, &agg->fAutoPowerOffEnable);
+    getAggressivenessValue(p, CFSTR(kIOPMAutoPowerOffDelayKey), kCFNumberSInt32Type, &agg->fAutoPowerOffDelay);
+
+    return 0;
+}
+
+#define kIOPMSystemDefaultOverrideKey    "SystemPowerProfileOverrideDict"
+
+__private_extern__ bool platformPluginLoaded(void)
+{
+    static bool         gPlatformPluginLoaded = false;
+    io_registry_entry_t rootDomain;
+    CFTypeRef           prop;
+
+    if (gPlatformPluginLoaded) return (true);
+
+    rootDomain = getRootDomain();
+    if (MACH_PORT_NULL == rootDomain) return (false);
+    prop = IORegistryEntryCreateCFProperty(rootDomain, CFSTR(kIOPMSystemDefaultOverrideKey),
+                                           kCFAllocatorDefault, kNilOptions);
+    if (prop)
+    {
+        gPlatformPluginLoaded = true;
+        CFRelease(prop);
+    }
+    return (gPlatformPluginLoaded);
+}
+
+
+
+/* extern symbol defined in IOKit.framework
+ * IOCFURLAccess.c
+ */
+extern Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes, CFIndex *length, CFIndex maxLength);
+
+
+static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isDesktop, io_registry_entry_t rootDomain)
+{
+    IOReturn    ret;
+    CFTypeRef   obj = NULL;
+    CFNumberRef modeNum;
+    CFNumberRef num;
+    SInt32      modeValue = 0;
+    CFURLRef    url = NULL;
+    Boolean createFile = false;
+    Boolean haveFile = false;
+    struct stat statBuf;
+    char    path[MAXPATHLEN];
+    int        fd;
+    long long    size;
+    size_t    len;
+    fstore_t    prealloc;
+    off_t    filesize;
+    off_t    minFileSize = 0;
+    off_t    maxFileSize = 0;
+    bool     apo_available = false;
+    SInt32   apo_enabled = 0;
+    CFNumberRef apo_enabled_cf = NULL;
+
+    if (!platformPluginLoaded()) return (0);
+
+    if ( !IOPMFeatureIsAvailable( CFSTR(kIOHibernateFeatureKey), NULL ) )
+    {
+        // Hibernation is not supported; return before we touch anything.
+        return 0;
+    }
+
+    if ((modeNum = CFDictionaryGetValue(dict, CFSTR(kIOHibernateModeKey)))
+        && isA_CFNumber(modeNum))
+        CFNumberGetValue(modeNum, kCFNumberSInt32Type, &modeValue);
+    else
+        modeNum = NULL;
+
+    apo_available = IOPMFeatureIsAvailable(CFSTR(kIOPMAutoPowerOffEnabledKey), NULL);
+    if (apo_available &&
+        (apo_enabled_cf = CFDictionaryGetValue(dict, CFSTR(kIOPMAutoPowerOffEnabledKey ))) &&
+        isA_CFNumber(apo_enabled_cf))
+    {
+        CFNumberGetValue(apo_enabled_cf, kCFNumberSInt32Type, &apo_enabled);
+    }
+
+    if ((modeValue || (apo_available && apo_enabled))
+        && (obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey)))
+        && isA_CFString(obj))
+        do
+        {
+            url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, obj, kCFURLPOSIXPathStyle, true);
+
+            if (!url || !CFURLGetFileSystemRepresentation(url, TRUE, (UInt8 *) path, MAXPATHLEN))
+                break;
+
+            len = sizeof(size);
+            if (sysctlbyname("hw.memsize", &size, &len, NULL, 0))
+                break;
+
+            filesize = (size >> 1);
+            if (isDesktop)
+            {
+                if (standby && (filesize > kStandbyDesktopHibernateFileSize)) filesize = kStandbyDesktopHibernateFileSize;
+            }
+            else
+            {
+                if (standby && (filesize > kStandbyPortableHibernateFileSize)) filesize = kStandbyPortableHibernateFileSize;
+            }
+            minFileSize = filesize;
+            maxFileSize = 0;
+
+            if (0 != stat(path, &statBuf)) createFile = true;
+            else
+            {
+                if ((S_IFBLK == (S_IFMT & statBuf.st_mode))
+                    || (S_IFCHR == (S_IFMT & statBuf.st_mode)))
+                {
+                    haveFile = true;
+                }
+                else if (S_IFREG == (S_IFMT & statBuf.st_mode))
+                {
+                    if ((statBuf.st_size == filesize) || (kIOHibernateModeFileResize & modeValue))
+                        haveFile = true;
+                    else
+                        createFile = true;
+                }
+                else
+                    break;
+            }
+
+            if (createFile)
+            {
+                do
+                {
+                    char *    patchpath, save = 0;
+                    struct    statfs sfs;
+                    u_int64_t fsfree;
+
+                    fd = -1;
+
+                    /*
+                     * get rid of the filename at the end of the file specification
+                     * we only want the portion of the pathname that should already exist
+                     */
+                    if ((patchpath = strrchr(path, '/')))
+                    {
+                        save = *patchpath;
+                        *patchpath = 0;
+                    }
+
+                    if (-1 == statfs(path, &sfs))
+                        break;
+
+                    fsfree = ((u_int64_t)sfs.f_bfree * (u_int64_t)sfs.f_bsize);
+                    if ((fsfree - filesize) < kIOHibernateMinFreeSpace)
+                        break;
+
+                    if (patchpath)
+                        *patchpath = save;
+                    fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 01600);
+                    if (-1 == fd)
+                        break;
+                    if (-1 == fchmod(fd, 01600))
+                        break;
+
+                    prealloc.fst_flags = F_ALLOCATEALL; // F_ALLOCATECONTIG
+                    prealloc.fst_posmode = F_PEOFPOSMODE;
+                    prealloc.fst_offset = 0;
+                    prealloc.fst_length = filesize;
+                    if (((-1 == fcntl(fd, F_PREALLOCATE, &prealloc))
+                         || (-1 == fcntl(fd, F_SETSIZE, &prealloc.fst_length)))
+                        && (-1 == ftruncate(fd, prealloc.fst_length)))
+                        break;
+
+                    haveFile = true;
+                }
+                while (false);
+                if (-1 != fd)
+                {
+                    close(fd);
+                    if (!haveFile)
+                        unlink(path);
+                }
+            }
+
+            if (!haveFile)
+                break;
+
+#if defined (__i386__) || defined(__x86_64__)
+#define kBootXPath        "/System/Library/CoreServices/boot.efi"
+#define kBootXSignaturePath    "/System/Library/Caches/com.apple.bootefisignature"
+#else
+#define kBootXPath        "/System/Library/CoreServices/BootX"
+#define kBootXSignaturePath    "/System/Library/Caches/com.apple.bootxsignature"
+#endif
+#define kCachesPath        "/System/Library/Caches"
+#define kGenSignatureCommand    "/bin/cat " kBootXPath " | /usr/bin/openssl dgst -sha1 -hex -out " kBootXSignaturePath
+
+
+            struct stat bootx_stat_buf;
+            struct stat bootsignature_stat_buf;
+
+            if (0 != stat(kBootXPath, &bootx_stat_buf))
+                break;
+
+            if ((0 != stat(kBootXSignaturePath, &bootsignature_stat_buf))
+                || (bootsignature_stat_buf.st_mtime != bootx_stat_buf.st_mtime))
+            {
+                if (-1 == stat(kCachesPath, &bootsignature_stat_buf))
+                {
+                    mkdir(kCachesPath, 0777);
+                    chmod(kCachesPath, 0777);
+                }
+
+                // generate signature file
+                if (0 != system(kGenSignatureCommand))
+                    break;
+
+                // set mod time to that of source
+                struct timeval fileTimes[2];
+                TIMESPEC_TO_TIMEVAL(&fileTimes[0], &bootx_stat_buf.st_atimespec);
+                TIMESPEC_TO_TIMEVAL(&fileTimes[1], &bootx_stat_buf.st_mtimespec);
+                if ((0 != utimes(kBootXSignaturePath, fileTimes)))
+                    break;
+            }
+
+
+            // send signature to kernel
+            CFAllocatorRef alloc;
+            void *         sigBytes;
+            CFIndex        sigLen;
+
+            alloc = CFRetain(CFAllocatorGetDefault());
+            if (_IOReadBytesFromFile(alloc, kBootXSignaturePath, &sigBytes, &sigLen, 0))
+                ret = sysctlbyname("kern.bootsignature", NULL, NULL, sigBytes, sigLen);
+            else
+                ret = -1;
+            if (sigBytes)
+                CFAllocatorDeallocate(alloc, sigBytes);
+            CFRelease(alloc);
+            if (0 != ret)
+                break;
+
+            IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
+        }
+    while (false);
+
+    if (modeNum)
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateModeKey), modeNum);
+
+
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFreeRatioKey)))
+        && isA_CFNumber(obj))
+    {
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFreeRatioKey), obj);
+    }
+    if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFreeTimeKey)))
+        && isA_CFNumber(obj))
+    {
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFreeTimeKey), obj);
+    }
+    if (minFileSize && (num = CFNumberCreate(NULL, kCFNumberLongLongType, &minFileSize)))
+    {
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileMinSizeKey), num);
+        CFRelease(num);
+    }
+    if (maxFileSize && (num = CFNumberCreate(NULL, kCFNumberLongLongType, &maxFileSize)))
+    {
+        IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileMaxSizeKey), num);
+        CFRelease(num);
+    }
+
+    if (url)
+        CFRelease(url);
+
+    return (0);
+}
+
+
+
+static void sendEnergySettingsToKernel(
+                                       CFDictionaryRef                 useSettings,
+                                       bool                            removeUnsupportedSettings,
+                                       IOPMAggressivenessFactors       *p)
+{
+    io_registry_entry_t             PMRootDomain = getRootDomain();
+    io_connect_t                    PM_connection = MACH_PORT_NULL;
+    CFDictionaryRef                 _supportedCached = NULL;
+    CFStringRef                     providing_power = NULL;
+    CFNumberRef                     number1 = NULL;
+    CFNumberRef                     number0 = NULL;
+    CFNumberRef                     num = NULL;
+    uint32_t                        i;
+
+    i = 1;
+    number1 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+    i = 0;
+    number0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+
+    if (!number0 || !number1)
+        goto exit;
+
+    PM_connection = IOPMFindPowerManagement(0);
+
+    if (!PM_connection)
+        goto exit;
+
+
+    // Determine type of power source
+    int powersource = getActivePSType();
+    if (kIOPSProvidedByExternalBattery == powersource) {
+        providing_power = CFSTR(kIOPMUPSPowerKey);
+    } else if (kIOPSProvidedByBattery == powersource) {
+        providing_power = CFSTR(kIOPMBatteryPowerKey);
+    } else {
+        providing_power = CFSTR(kIOPMACPowerKey);
+    }
+
+    // Grab a copy of RootDomain's supported energy saver settings
+    _supportedCached = IORegistryEntryCreateCFProperty(PMRootDomain, CFSTR("Supported Features"), kCFAllocatorDefault, kNilOptions);
+
+    IOPMSetAggressiveness(PM_connection, kPMMinutesToSleep, p->fMinutesToSleep);
+    IOPMSetAggressiveness(PM_connection, kPMMinutesToSpinDown, p->fMinutesToSpin);
+    setDisplayToDimTimer(PM_connection, p->fMinutesToDim);
+
+
+    // Wake on LAN
+    if(true == IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMWakeOnLANKey), providing_power, _supportedCached))
+    {
+        IOPMSetAggressiveness(PM_connection, kPMEthernetWakeOnLANSettings, p->fWakeOnLAN);
+    } else {
+        // Even if WakeOnLAN is reported as not supported, broadcast 0 as
+        // value. We may be on a supported machine, just on battery power.
+        // Wake on LAN is not supported on battery power on PPC hardware.
+        IOPMSetAggressiveness(PM_connection, kPMEthernetWakeOnLANSettings, 0);
+    }
+
+    // Display Sleep Uses Dim
+    if ( !removeUnsupportedSettings
+        || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMDisplaySleepUsesDimKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingDisplaySleepUsesDimKey),
+                                     (p->fDisplaySleepUsesDimming?number1:number0));
+    }
+
+    // Wake On Ring
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMWakeOnRingKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingWakeOnRingKey),
+                                     (p->fWakeOnRing?number1:number0));
+    }
+
+    // Automatic Restart On Power Loss, aka FileServer mode
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMRestartOnPowerLossKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingRestartOnPowerLossKey),
+                                     (p->fAutomaticRestart?number1:number0));
+    }
+
+    // Wake on change of AC state -- battery to AC or vice versa
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMWakeOnACChangeKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingWakeOnACChangeKey),
+                                     (p->fWakeOnACChange?number1:number0));
+    }
+
+    // Disable power button sleep on PowerMacs, Cubes, and iMacs
+    // Default is false == power button causes sleep
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMSleepOnPowerButtonKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingSleepOnPowerButtonKey),
+                                     (p->fSleepOnPowerButton?kCFBooleanFalse:kCFBooleanTrue));
+    }
+
+    // Wakeup on clamshell open
+    // Default is true == wakeup when the clamshell opens
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMWakeOnClamshellKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingWakeOnClamshellKey),
+                                     (p->fWakeOnClamshell?number1:number0));
+    }
+
+    // Mobile Motion Module
+    // Defaults to on
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMMobileMotionModuleKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMSettingMobileMotionModuleKey),
+                                     (p->fMobileMotionModule?number1:number0));
+    }
+
+    /*
+     * GPU
+     */
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMGPUSwitchKey), providing_power, _supportedCached))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fGPU);
+        if (num) {
+            IORegistryEntrySetCFProperty(PMRootDomain,
+                                         CFSTR(kIOPMGPUSwitchKey),
+                                         num);
+            CFRelease(num);
+        }
+    }
+
+    // DeepSleepEnable
+    // Defaults to on
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMDeepSleepEnabledKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMDeepSleepEnabledKey),
+                                     (p->fDeepSleepEnable?kCFBooleanTrue:kCFBooleanFalse));
+    }
+
+    // DeepSleepDelay
+    // In seconds
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMDeepSleepDelayKey), providing_power, _supportedCached))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fDeepSleepDelay);
+        if (num) {
+            IORegistryEntrySetCFProperty(PMRootDomain,
+                                         CFSTR(kIOPMDeepSleepDelayKey),
+                                         num);
+            CFRelease(num);
+        }
+    }
+
+    // AutoPowerOffEnable
+    // Defaults to on
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMAutoPowerOffEnabledKey), providing_power, _supportedCached))
+    {
+        IORegistryEntrySetCFProperty(PMRootDomain,
+                                     CFSTR(kIOPMAutoPowerOffEnabledKey),
+                                     (p->fAutoPowerOffEnable?kCFBooleanTrue:kCFBooleanFalse));
+    }
+
+    // AutoPowerOffDelay
+    // In seconds
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMAutoPowerOffDelayKey), providing_power, _supportedCached))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fAutoPowerOffDelay);
+        if (num) {
+            IORegistryEntrySetCFProperty(PMRootDomain,
+                                         CFSTR(kIOPMAutoPowerOffDelayKey),
+                                         num);
+            CFRelease(num);
+        }
+    }
+
+    if ( !_platformSleepServiceSupport && !_platformBackgroundTaskSupport)
+    {
+        bool ssupdate, btupdate, pnupdate;
+
+        // On legacy systems, IOPPF publishes PowerNap support using
+        // the kIOPMDarkWakeBackgroundTaskKey  and/or
+        // kIOPMSleepServicesKey
+        btupdate = IOPMFeatureIsAvailableWithSupportedTable(
+                                                            CFSTR(kIOPMDarkWakeBackgroundTaskKey),
+                                                            providing_power, _supportedCached);
+        ssupdate = IOPMFeatureIsAvailableWithSupportedTable(
+                                                            CFSTR(kIOPMSleepServicesKey),
+                                                            providing_power, _supportedCached);
+
+        // But going forward (late 2012 machines and beyond), IOPPF will publish
+        // PowerNap support as a PM feature using the kIOPMPowerNapSupportedKey
+        pnupdate = IOPMFeatureIsAvailableWithSupportedTable(
+                                                            CFSTR(kIOPMPowerNapSupportedKey),
+                                                            providing_power, _supportedCached);
+
+        // We have to check for one of either 'legacy' or 'modern' PowerNap
+        // support and configure BT assertion and other powerd-internal PowerNap
+        // settings accordingly
+        if (ssupdate || btupdate || pnupdate) {
+            _platformSleepServiceSupport = ssupdate;
+            _platformBackgroundTaskSupport = btupdate;
+            configAssertionType(kBackgroundTaskType, false);
+            mt2EvaluateSystemSupport();
+        }
+    }
+
+    if (useSettings)
+    {
+        bool isDesktop = (0 == _batteryCount());
+        ProcessHibernateSettings(useSettings, p->fDeepSleepEnable, isDesktop, PMRootDomain);
+    }
+
+exit:
+    if (number0) {
+        CFRelease(number0);
+    }
+    if (number1) {
+        CFRelease(number1);
+    }
+    if (IO_OBJECT_NULL != PM_connection) {
+        IOServiceClose(PM_connection);
+    }
+    if (_supportedCached) {
+        CFRelease(_supportedCached);
+    }
+    return;
+}
+
+__private_extern__ IOReturn ActivatePMSettings(
+    CFDictionaryRef                 useSettings,
+    bool                            removeUnsupportedSettings)
+{
+    IOPMAggressivenessFactors       theFactors;
+
+    if(!isA_CFDictionary(useSettings))
+    {
+        return kIOReturnBadArgument;
+    }
+
+    // Activate settings by sending them to the multiple owning drivers kernel
+    getAggressivenessFactorsFromProfile(useSettings, &theFactors);
+
+    sendEnergySettingsToKernel(useSettings, removeUnsupportedSettings, &theFactors);
+
+    evalAllUserActivityAssertions(theFactors.fMinutesToDim);
+    evalAllNetworkAccessAssertions();
+
+    return kIOReturnSuccess;
+}
+
 
 /**************************************************/
 
@@ -482,10 +1114,9 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
 __private_extern__ void PMSettings_prime(void)
 {
 
-#if !TARGET_OS_EMBEDDED
+    pmSettings_log = os_log_create(PM_LOG_SYSTEM, PMSETTINGS_LOG);
     bootTimePrefs = copyBootTimePrefs();
     updatePowerNapSetting(bootTimePrefs);
-#endif
 
     // Open a connection to the Power Manager.
     gPowerManager = IOPMFindPowerManagement(MACH_PORT_NULL);
@@ -493,7 +1124,7 @@ __private_extern__ void PMSettings_prime(void)
 
     // Activate non-power source specific, PM settings
     // namely disable sleep, where appropriate
-    IOPMActivateSystemPowerSettings();
+    PMActivateSystemPowerSettings();
 
     /*
      * determine current power source for separate Battery/AC settings
@@ -507,10 +1138,8 @@ __private_extern__ void PMSettings_prime(void)
         currentPowerSource = CFSTR(kIOPMACPowerKey);
     }
 
-#if !TARGET_OS_EMBEDDED
     // Merge bootTimePrefs to any current settings
     mergeBootTimePrefs();
-#endif
 
     // load the initial configuration from the database
     energySettings = IOPMCopyActivePMPreferences();
@@ -536,13 +1165,10 @@ PMSettingsSupportedPrefsListHasChanged(void)
     // and removing support. Let's re-evaluate our known settings.
     // First check if cached settings can be applied to newly discovered features
 
-#if !TARGET_OS_EMBEDDED
     mergeBootTimePrefs();
-#endif
     PMSettingsPrefsHaveChanged();    
 }
 
-#if !TARGET_OS_EMBEDDED
 static void updatePowerNapSetting(CFMutableDictionaryRef prefs)
 {
     char     *model = NULL;
@@ -689,7 +1315,6 @@ void mergeBootTimePrefs(void)
         cachedForSrc = (CFMutableDictionaryRef)CFDictionaryGetValue(bootTimePrefs, pwrSrc[i]);
 
         if (isA_CFDictionary(currentForSrc) && isA_CFDictionary(cachedForSrc)) {
-            modified = false;
             modified = mergePrefsForSrc(currentForSrc, cachedForSrc);
 
             INFO_LOG("Merging cached prefs for src %@ to: %@\n", pwrSrc[i], currentForSrc);
@@ -718,7 +1343,46 @@ void mergeBootTimePrefs(void)
     CFRelease(currentPrefs);
     return;
 }
-#endif
+
+static IOReturn PMActivateSystemPowerSettings( void )
+{
+    io_registry_entry_t         rootdomain = MACH_PORT_NULL;
+    CFDictionaryRef             settings = NULL;
+    bool                        disable_sleep = false;
+
+    settings = IOPMCopySystemPowerSettings();
+    if(!settings) {
+        goto exit;
+    }
+
+    // Disable Sleep?
+    disable_sleep = (kCFBooleanTrue ==
+                        CFDictionaryGetValue( settings, kIOPMSleepDisabledKey ));
+
+    rootdomain = getRootDomain();
+    IORegistryEntrySetCFProperty( rootdomain, kIOPMSleepDisabledKey,
+                                       (disable_sleep ? kCFBooleanTrue : kCFBooleanFalse));
+
+    bool    avoid_keyStore = false;
+    CFNumberRef numRef;
+    uint32_t value = 0xffff;
+
+    // Disable FDE Key Store on SMC
+    avoid_keyStore = (kCFBooleanTrue ==
+                        CFDictionaryGetValue( settings, CFSTR(kIOPMDestroyFVKeyOnStandbyKey) ));
+    IORegistryEntrySetCFProperty( rootdomain, CFSTR(kIOPMDestroyFVKeyOnStandbyKey),
+                        (avoid_keyStore ? kCFBooleanTrue : kCFBooleanFalse));
+
+    if (CFDictionaryGetValueIfPresent(settings, CFSTR(kIOPMDarkWakeLingerDurationKey), (const void **)&numRef)) {
+        CFNumberGetValue(numRef, kCFNumberIntType, &value);
+        setDwlInterval(value);
+    }
+
+exit:
+    if(settings) CFRelease( settings );
+    return kIOReturnSuccess;
+}
+
 
 /* ESPrefsHaveChanged
  *
@@ -730,7 +1394,7 @@ __private_extern__ void
 PMSettingsPrefsHaveChanged(void) 
 {
     // re-blast system-wide settings
-    IOPMActivateSystemPowerSettings();
+    PMActivateSystemPowerSettings();
 
     // re-read preferences into memory
     if(energySettings) CFRelease(energySettings);
@@ -815,7 +1479,6 @@ _activateForcedSettings(CFDictionaryRef forceSettings)
                         kIOPMRemoveUnsupportedSettings);
 }
 
-#if !TARGET_OS_EMBEDDED
 
 /****************** SCPrefs to CFPrefs conversion **********************/
 /*
@@ -1082,4 +1745,3 @@ exit:
 
 /***********************************************************************/
 
-#endif

@@ -59,7 +59,7 @@
     2616 section 14.9</a> 参照) の <code>Cache-Control</code> のディレクティブを
     操作するには <code class="directive"><a href="../mod/mod_headers.html#header">Header</a></code> ディレクティブを
     使うことができます。</p></div>
-<div id="quickview"><h3>トピック</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>トピック</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#AltSyn">代替期間指定構文</a></li>
 </ul><h3 class="directives">ディレクティブ</h3>
@@ -258,7 +258,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_expires.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -21,14 +21,9 @@
 #define TextureMapperBackingStore_h
 
 #include "FloatRect.h"
-#include "Image.h"
 #include "TextureMapper.h"
 #include "TextureMapperPlatformLayer.h"
 #include <wtf/RefPtr.h>
-
-#if USE(GRAPHICS_SURFACE)
-#include "GraphicsSurface.h"
-#endif
 
 namespace WebCore {
 

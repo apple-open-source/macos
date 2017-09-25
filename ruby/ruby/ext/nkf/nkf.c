@@ -3,11 +3,11 @@
  *
  *  original nkf2.x is maintained at http://sourceforge.jp/projects/nkf/
  *
- *  $Id: nkf.c 36966 2012-09-14 16:07:49Z naruse $
+ *  $Id: nkf.c 47744 2014-09-30 05:25:32Z nobu $
  *
  */
 
-#define RUBY_NKF_REVISION "$Revision: 36966 $"
+#define RUBY_NKF_REVISION "$Revision: 47744 $"
 #define RUBY_NKF_VERSION NKF_VERSION " (" NKF_RELEASE_DATE ")"
 
 #include "ruby/ruby.h"
@@ -478,7 +478,7 @@ rb_nkf_guess(VALUE obj, VALUE src)
  */
 
 void
-Init_nkf()
+Init_nkf(void)
 {
     VALUE mNKF = rb_define_module("NKF");
 

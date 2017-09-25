@@ -177,13 +177,12 @@ sub processInput
 			
 #			print "identifier: ", $identifier,"\n" if ($identifier ne '');
 			
-			#Drop everything before the comma
-			$enum =~ s/[^,]*,//;
+			#Drop everything before the comma, end of line or trailing comment
+            $enum =~ s/[^,]*(,|\n|(\/\*))//;
 	
 			# Now look for trailing comment. We only consider them
 			# trailing if they come before the end of the line
 			($trailingcomment) = ($enum =~ /^[ \t]*\/\*((.)*)?\*\//);
-		#	($trailingcomment) = ($enum =~ m%^(/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/)|(//.*)%);
 			$trailingcomment = cleanupComment($trailingcomment);
 			
 			#Drop everything before the end of line

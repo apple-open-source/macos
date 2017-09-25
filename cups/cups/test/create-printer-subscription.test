@@ -1,5 +1,5 @@
 #
-# "$Id: create-printer-subscription.test 11934 2014-06-17 18:58:29Z msweet $"
+# "$Id$"
 #
 # Create a printer subscription.
 #
@@ -71,5 +71,5 @@
 
 
 #
-# End of "$Id: create-printer-subscription.test 11934 2014-06-17 18:58:29Z msweet $"
+# End of "$Id$"
 #

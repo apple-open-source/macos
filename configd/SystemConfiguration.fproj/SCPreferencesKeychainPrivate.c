@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007, 2010, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010, 2014, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -325,6 +325,8 @@ _SCSecKeychainPasswordItemCopy(SecKeychainRef	keychain,
 
 	return keychain_password;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(keychain)
+#pragma unused(unique_id)
 	_SCErrorSet(kSCStatusAccessError);
 	return NULL;
 #endif	// !TARGET_OS_IPHONE
@@ -347,6 +349,8 @@ _SCSecKeychainPasswordItemExists(SecKeychainRef keychain, CFStringRef unique_id)
 	CFRelease(item);
 	return TRUE;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(keychain)
+#pragma unused(unique_id)
 	_SCErrorSet(kSCStatusAccessError);
 	return FALSE;
 #endif	// !TARGET_OS_IPHONE
@@ -375,6 +379,8 @@ _SCSecKeychainPasswordItemRemove(SecKeychainRef keychain, CFStringRef unique_id)
 
 	return TRUE;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(keychain)
+#pragma unused(unique_id)
 	_SCErrorSet(kSCStatusAccessError);
 	return FALSE;
 #endif	// !TARGET_OS_IPHONE
@@ -545,6 +551,13 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 
 	return TRUE;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(keychain)
+#pragma unused(unique_id)
+#pragma unused(label)
+#pragma unused(description)
+#pragma unused(account)
+#pragma unused(password)
+#pragma unused(options)
 	_SCErrorSet(kSCStatusAccessError);
 	return FALSE;
 #endif	// !TARGET_OS_IPHONE
@@ -658,6 +671,8 @@ _SCPreferencesSystemKeychainPasswordItemCopy(SCPreferencesRef	prefs,
 	if (keychain != NULL)	CFRelease(keychain);
 	return password;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(prefs)
+#pragma unused(unique_id)
 	_SCErrorSet(kSCStatusAccessError);
 	return NULL;
 #endif	// !TARGET_OS_IPHONE
@@ -701,6 +716,8 @@ _SCPreferencesSystemKeychainPasswordItemExists(SCPreferencesRef	prefs,
 	if (keychain != NULL)	CFRelease(keychain);
 	return ok;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(prefs)
+#pragma unused(unique_id)
 	_SCErrorSet(kSCStatusAccessError);
 	return FALSE;
 #endif	// !TARGET_OS_IPHONE
@@ -803,6 +820,8 @@ _SCPreferencesSystemKeychainPasswordItemRemove(SCPreferencesRef	prefs,
 	if (keychain != NULL)	CFRelease(keychain);
 	return ok;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(prefs)
+#pragma unused(unique_id)
 	_SCErrorSet(kSCStatusAccessError);
 	return FALSE;
 #endif	// !TARGET_OS_IPHONE
@@ -1006,6 +1025,13 @@ _SCPreferencesSystemKeychainPasswordItemSet(SCPreferencesRef	prefs,
 	if (keychain != NULL)	CFRelease(keychain);
 	return ok;
 #else	// !TARGET_OS_IPHONE
+#pragma unused(prefs)
+#pragma unused(unique_id)
+#pragma unused(label)
+#pragma unused(description)
+#pragma unused(account)
+#pragma unused(password)
+#pragma unused(options)
 	_SCErrorSet(kSCStatusAccessError);
 	return FALSE;
 #endif	// !TARGET_OS_IPHONE

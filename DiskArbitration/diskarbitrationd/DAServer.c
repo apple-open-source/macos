@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,8 @@
 #include "DASupport.h"
 
 #include <paths.h>
+#include <bsm/libbsm.h>
+#include <sandbox/private.h>
 #include <servers/bootstrap.h>
 #include <sys/stat.h>
 #include <IOKit/IOMessage.h>
@@ -1039,7 +1041,7 @@ void _DAServerCallback( CFMachPortRef port, void * parameter, CFIndex messageSiz
     }
 }
 
-kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, security_token_t _token )
+kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, audit_token_t _token )
 {
     kern_return_t status;
 
@@ -1069,11 +1071,64 @@ kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, security_to
 
                     if ( status == 0 )
                     {
-                        chown( _path, _token.val[0], -1 );
+                        chown( _path, audit_token_to_euid( _token ), -1 );
                     }
                     else
                     {
                         status = unix_err( errno );
+                    }
+                }
+            }
+        }
+    }
+
+    return status;
+}
+
+kern_return_t _DAServerrmdir( mach_port_t _session, ___path_t _path, audit_token_t _token )
+{
+    kern_return_t status;
+    struct stat path_info = {0};
+
+    status = kDAReturnBadArgument;
+
+    if ( _session )
+    {
+        DASessionRef session;
+
+        session = __DASessionListGetSession( _session );
+
+        if ( session )
+        {
+            /*
+             * Determine whether the mount point path is within the mount point folder.
+             */
+
+            if ( strncmp( _path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            {
+                if ( strrchr( _path + strlen( kDAMainMountPointFolder ), '/' ) == _path + strlen( kDAMainMountPointFolder ) )
+                {
+                    /*
+                     * Remove the mount point.
+                     */
+                    status = stat( _path, &path_info);
+
+                    if ( status != 0 )
+                    {
+                        status = unix_err( errno );
+                    } else {
+
+                        if ( audit_token_to_euid( _token ) == 0 || audit_token_to_euid( _token ) == path_info.st_uid ) // only allow root or owner to delete directory
+                        {
+                            status = rmdir( _path );
+
+                            if ( status != 0 )
+                            {
+                                status = unix_err( errno );
+                            }
+                        } else {
+                            status = kDAReturnNotPrivileged;
+                        }
                     }
                 }
             }
@@ -1246,7 +1301,7 @@ kern_return_t _DAServerDiskIsClaimed( mach_port_t _session, caddr_t _disk, boole
     return status;
 }
 
-kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boolean_t _adoption, security_token_t _token )
+kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boolean_t _adoption, audit_token_t _token )
 {
     kern_return_t status;
 
@@ -1270,7 +1325,7 @@ kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boo
 
             if ( disk )
             {
-                status = DAAuthorize( session, _kDAAuthorizeOptionDefault, disk, _token.val[0], _token.val[1], _kDAAuthorizeRightAdopt );
+                status = DAAuthorize( session, _kDAAuthorizeOptionDefault, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightAdopt );
 
                 if ( status == kDAReturnSuccess )
                 {
@@ -1290,7 +1345,7 @@ kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boo
     return status;
 }
 
-kern_return_t _DAServerDiskSetEncoding( mach_port_t _session, caddr_t _disk, int32_t encoding, security_token_t _token )
+kern_return_t _DAServerDiskSetEncoding( mach_port_t _session, caddr_t _disk, int32_t encoding, audit_token_t _token )
 {
     kern_return_t status;
 
@@ -1314,7 +1369,7 @@ kern_return_t _DAServerDiskSetEncoding( mach_port_t _session, caddr_t _disk, int
 
             if ( disk )
             {
-                status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, _token.val[0], _token.val[1], _kDAAuthorizeRightEncode );
+                status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightEncode );
 
                 if ( status == kDAReturnSuccess )
                 {
@@ -1502,14 +1557,14 @@ kern_return_t _DAServerSessionCopyCallbackQueue( mach_port_t _session, vm_addres
 
 kern_return_t _DAServerSessionCreate( mach_port_t   _session,
                                       caddr_t       _name,
-                                      pid_t         _pid,
+                                      audit_token_t _token,
                                       mach_port_t * _server )
 {
     kern_return_t status;
 
     status = kDAReturnBadArgument;
 
-    DALogDebugHeader( "%s [%d] -> %s", _name, _pid, gDAProcessNameID );
+    DALogDebugHeader( "%s [%d] -> %s", _name, audit_token_to_pid( _token ), gDAProcessNameID );
 
     if ( _session )
     {
@@ -1519,7 +1574,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
          * Create the session.
          */
 
-        session = DASessionCreate( kCFAllocatorDefault, _name, _pid );
+        session = DASessionCreate( kCFAllocatorDefault, _name, audit_token_to_pid( _token ) );
 
         if ( session )
         {
@@ -1551,7 +1606,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
 
     if ( status )
     {
-        DALogDebug( "unable to create session, id = %s [%d].", _name, _pid );
+        DALogDebug( "unable to create session, id = %s [%d].", _name, audit_token_to_pid( _token ) );
     }
 
     return status;
@@ -1567,7 +1622,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                             mach_msg_type_number_t _argument3Size,
                                             mach_vm_offset_t       _address,
                                             mach_vm_offset_t       _context,
-                                            security_token_t       _token )
+                                            audit_token_t          _token )
 {
     kern_return_t status;
 
@@ -1610,7 +1665,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                 callback = DACallbackCreate( kCFAllocatorDefault, session, _address, _context, _kind, 0, NULL, NULL );
                 
-                request = DARequestCreate( kCFAllocatorDefault, _kind, disk, _argument1, argument2, argument3, _token.val[0], _token.val[1], callback );
+                request = DARequestCreate( kCFAllocatorDefault, _kind, disk, _argument1, argument2, argument3, audit_token_to_euid( _token ), audit_token_to_egid( _token ), callback );
 
                 if ( request )
                 {
@@ -1618,25 +1673,66 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                     {
                         case _kDADiskEject:
                         {
-                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, _token.val[0], _token.val[1], _kDAAuthorizeRightUnmount );
+                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightUnmount );
 
                             break;
                         }
                         case _kDADiskMount:
                         {
-                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, _token.val[0], _token.val[1], _kDAAuthorizeRightMount );
+                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightMount );
+
+                            if ( status == 0 )
+                            {
+                                CFTypeRef mountpoint;
+
+                                mountpoint = argument2;
+
+                                if ( mountpoint )
+                                {
+                                    mountpoint = CFURLCreateWithString( kCFAllocatorDefault, mountpoint, NULL );
+                                }
+
+                                if ( mountpoint )
+                                {
+                                    char * path;
+
+                                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+
+                                    if ( path )
+                                    {
+                                        status = sandbox_check( audit_token_to_pid( _token ), "file-mount", SANDBOX_FILTER_PATH, path );
+
+                                        if ( status )
+                                        {
+                                            status = kDAReturnNotPermitted;
+                                        }
+
+                                        free( path );
+                                    }
+
+                                    if ( audit_token_to_euid( _token ) )
+                                    {
+                                        if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ))
+                                        {
+                                            status = kDAReturnNotPermitted;
+                                        }
+                                    }
+
+                                    CFRelease( mountpoint );
+                                }
+                            }
 
                             break;
                         }
                         case _kDADiskRename:
                         {
-                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, _token.val[0], _token.val[1], _kDAAuthorizeRightRename );
+                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightRename );
 
                             break;
                         }
                         case _kDADiskUnmount:
                         {
-                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, _token.val[0], _token.val[1], _kDAAuthorizeRightUnmount );
+                            status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightUnmount );
 
                             break;
                         }

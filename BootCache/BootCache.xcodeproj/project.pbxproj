@@ -42,6 +42,7 @@
 		89F255830DAABEAD00CA7984 /* kext_glue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */; };
 		89F255930DAABEAD00CA7984 /* BootCache_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; };
 		89F255950DAABEAD00CA7984 /* control.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F67ED4101B842340ECA2C3D /* control.c */; };
+		D3C0387F1E899E4F007533A8 /* bc_apfs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -125,6 +126,8 @@
 		9F47C34001F78EE30ECA2C3D /* library.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = library.c; sourceTree = "<group>"; };
 		9F67ED4101B842340ECA2C3D /* control.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = control.c; sourceTree = "<group>"; };
 		9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kext_glue.cpp; sourceTree = "<group>"; };
+		D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bc_apfs_utils.cpp; sourceTree = "<group>"; };
+		D3C038801E89A0D1007533A8 /* bc_apfs_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bc_apfs_utils.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +173,7 @@
 			);
 			name = SmartReadahead;
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
@@ -200,6 +204,8 @@
 			children = (
 				9F30F63B01B745E90ECA2C3D /* BootCache_private.h */,
 				9F30F63A01B745E90ECA2C3D /* kext.c */,
+				D3C038801E89A0D1007533A8 /* bc_apfs_utils.h */,
+				D3C0387E1E899E4F007533A8 /* bc_apfs_utils.cpp */,
 				9F67ED4101B842340ECA2C3D /* control.c */,
 				9F47C34001F78EE30ECA2C3D /* library.c */,
 			);
@@ -326,7 +332,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0900;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -440,6 +446,7 @@
 			files = (
 				89F255820DAABEAD00CA7984 /* kext.c in Sources */,
 				89F255830DAABEAD00CA7984 /* kext_glue.cpp in Sources */,
+				D3C0387F1E899E4F007533A8 /* bc_apfs_utils.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -475,19 +482,42 @@
 		42F550350A77D4BD00672F71 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 128;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_MODEL_TUNING = "";
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_SHADOW = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				OTHER_CFLAGS = "-DBC_DEBUG";
 				SDKROOT = macosx.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-error=#warnings",
 				);
 			};
 			name = Development;
@@ -495,16 +525,36 @@
 		42F5503A0A77D4BD00672F71 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 128;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_MODEL_TUNING = "";
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_SHADOW = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-error=#warnings",
 				);
 			};
 			name = Default;
@@ -513,6 +563,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -523,6 +577,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
@@ -556,12 +614,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 23;
+				MODULE_VERSION = 128;
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
 				WRAPPER_EXTENSION = kext;
 			};
@@ -571,12 +634,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 23;
+				MODULE_VERSION = 128;
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
 				WRAPPER_EXTENSION = kext;
 			};
@@ -585,7 +653,10 @@
 		89F2559A0DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;
@@ -596,7 +667,10 @@
 		89F2559F0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;

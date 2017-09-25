@@ -399,18 +399,32 @@ _apt-cmd () {
     -o,--option:arbitem \
     -t,--target-release:release \
     -- \
-    /$'list\0'/ \| \
+    /$'list\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
     /$'search\0'/ /$'[^\0]#\0'/ ':strings:pattern:' \| \
-    /$'show\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
+    /$'showsrc\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
+    /$'show\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
+    /$'depends\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
+    /$'rdepends\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
+    /$'policy\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
     /$'update\0'/ \| \
     \( \
-    /$'install\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
-    /$'[^\0/]#/'/ /$'[^\0/]#\0'/ ':release name::_apt_releases' \) \| \
+    /$'install\0'\|$'download\0'\|$'source\0'\|$'build-dep\0'/ \
+      /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
+       \( \
+       /$'[^\0/]#/'/ /$'[^\0/]#\0'/ ':release name::_apt_releases' \| \
+       /$'[^\0=]#='/ /$'[^\0=]#\0'/ ':package version::_apt_versions_of_binary_package' \
+       \)  \
+    \) \| \
     /$'remove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'purge\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'upgrade\0'/ \| \
+    /$'autoclean\0'/ \| \
+    /$'changelog\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
+    /$'autoremove\0'/ \| \
     /$'full-upgrade\0'/ \| \
+    /$'dist-upgrade\0'/ \| \
     /$'edit-sources\0'/ \| \
-    /"[]"/	':argument-1::compadd "$expl_action[@]" list search show update install remove upgrade full-upgrade edit-sources'
+    /"[]"/	':argument-1::compadd "$expl_action[@]" list search showsrc show depends rdepends policy update install download source build-dep remove upgrade full-upgrade dist-upgrade edit-sources autoclean changelog autoremove purge'
 
   _apt-cmd () {
     local expl_action expl_packages
@@ -460,8 +474,13 @@ _apt-get () {
     /$'update\0'/ \| \
     /$'upgrade\0'/ \| \
     \( \
-    /$'install\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
-    /$'[^\0/]#/'/ /$'[^\0/]#\0'/ ':release name::_apt_releases' \) \| \
+    /$'install\0'\|$'download\0'\|$'source\0'\|$'build-dep\0'/ \
+      /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
+       \( \
+       /$'[^\0/]#/'/ /$'[^\0/]#\0'/ ':release name::_apt_releases' \| \
+       /$'[^\0=]#='/ /$'[^\0=]#\0'/ ':package version::_apt_versions_of_binary_package' \
+       \)  \
+    \) \| \
     /$'remove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'purge\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'dist-upgrade\0'/ \| \
@@ -470,13 +489,11 @@ _apt-get () {
     /$'autoclean\0'/ \| \
     /$'changelog\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
     /$'check\0'/ \| \
-    /$'source\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
-    /$'build-dep\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
     /$'autoremove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'help\0/' \| \
     /$'markauto\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'unmarkauto\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
-    /"[]"/	':argument-1::compadd "$expl_action[@]" update upgrade install remove purge dist-upgrade dselect-upgrade clean autoclean changelog check source build-dep autoremove help markauto unmarkauto'
+    /"[]"/	':argument-1::compadd "$expl_action[@]" update upgrade install remove purge dist-upgrade dselect-upgrade clean autoclean changelog check source build-dep autoremove help markauto unmarkauto download'
 
   _apt-get () {
     local expl_action expl_packages
@@ -590,8 +607,10 @@ _apt_releases_update () {
   if ( [[ ${+_apt_releases} -eq 0 ]] ||
       _cache_invalid APT_releases ) && ! _retrieve_cache APT_releases;
   then
+    local -a tmp=("${(f)$(apt-cache policy)}")
     _apt_releases=(
-${${${${(M)${(f)"$(apt-cache policy)"}:#*release*}#*a=}%%,*}:#now}
+${${${${(M)tmp:#*release*}#*a=}%%,*}:#now}
+${${${${(M)tmp:#*release*n=*}#*n=}%%,*}:#now}
     )
     typeset -U _apt_releases
     _store_cache APT_releases _apt_releases
@@ -609,6 +628,41 @@ _apt_releases () {
   _apt_releases_update
 
   _tags apt-releases && compadd -a _apt_releases
+}
+
+# Complete versions of the package named in $match[1].
+#
+# Interpret the package name as a binary package (even if there is
+# a source package by that name, too).
+_apt_versions_of_binary_package() {
+  local package_name=${match[1]%=} # $match was set by _regex_arguments
+  local line
+  local name version source
+  local -a kv
+
+  for line in ${(f)"$(_call_program versions-of-package "apt-cache madison $package_name")"}; do
+    # If $package_name is a source package name, we'll have lines of the form
+    #   $package_name | $version | ...Sources
+    #
+    # If $package_name is a binary package name, we'll have lines of the form
+    #   $package_name | $version | ...Packages
+    #   $src_package_name | $version | ...Sources
+    for name version source in "${(@s. | .)line}"; do
+      # Remove leading/trailing whitespace
+      name=${name// }
+      version=${version// }
+      source=${${source# ##}% ##}
+
+      # Skip source packages
+      if [[ $name != $package_name ]] || [[ $source != *Packages* ]]; then
+        continue
+      fi
+
+      kv+=( "${version//:/\\:}:$source" )
+    done
+  done
+
+  _describe -t apt-package-versions "package versions" kv "$@"
 }
 
 _apt_caching_policy () {

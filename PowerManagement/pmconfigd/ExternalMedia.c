@@ -30,7 +30,6 @@
 #include "PMAssertions.h"
 #include "PrivateLib.h"
 
-#if !TARGET_OS_EMBEDDED
 
 #define _kExternalMediaAssertionName 	"com.apple.powermanagement.externalmediamounted"
 
@@ -187,5 +186,4 @@ static void adjustExternalDiskAssertion()
     return;
 }
 
-#endif
 

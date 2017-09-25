@@ -924,7 +924,21 @@ int main (int argc, const char * argv[])
         }
         // data
         else if ( !dataString && data && dataIndex < dataSize ) {
-            data[dataIndex++] = strtoul(argv[argi], NULL, 16);
+            if (strlen(argv[argi]) > 2 && strlen(argv[argi]) % 2 == 0) {
+                free(data);
+                
+                dataSize    = (unsigned int)strlen(argv[argi])/2;
+                data        = malloc(dataSize);
+                dataIndex   = dataSize;
+                
+                for (uint32_t i = 0; i < dataSize*2; i+=2) {
+                    char byte[2];
+                    strncpy(byte, &argv[argi][i], sizeof(byte));
+                    data[i/2] = strtoul(byte, NULL, 16);
+                }
+            } else {
+                data[dataIndex++] = strtoul(argv[argi], NULL, 16);
+            }
         }
         else if ( dataString && !data) {
             printf("parsing data string\n");

@@ -1,5 +1,5 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestEval < Test::Unit::TestCase
 
@@ -127,10 +127,14 @@ class TestEval < Test::Unit::TestCase
     }
   end
 
+  def test_module_eval_block_symbol
+    assert_equal "Math", Math.module_eval(&:to_s)
+  end
+
   def forall_TYPE
-    objects = [Object.new, [], nil, true, false, :sym] # TODO: check
+    objects = [Object.new, [], nil, true, false] # TODO: check
     objects.each do |obj|
-      obj.instance_variable_set :@ivar, 12
+      obj.instance_variable_set :@ivar, 12 unless obj.frozen?
       yield obj
     end
   end
@@ -145,7 +149,7 @@ class TestEval < Test::Unit::TestCase
       assert_equal :sym,  o.instance_eval(":sym")
 
       assert_equal 11,    o.instance_eval("11")
-      assert_equal 12,    o.instance_eval("@ivar")
+      assert_equal 12,    o.instance_eval("@ivar") unless o.frozen?
       assert_equal 13,    o.instance_eval("@@cvar")
       assert_equal 14,    o.instance_eval("$gvar__eval")
       assert_equal 15,    o.instance_eval("Const")
@@ -155,7 +159,7 @@ class TestEval < Test::Unit::TestCase
       assert_equal "19",  o.instance_eval(%q("1#{9}"))
 
       1.times {
-        assert_equal 12,  o.instance_eval("@ivar")
+        assert_equal 12,  o.instance_eval("@ivar") unless o.frozen?
         assert_equal 13,  o.instance_eval("@@cvar")
         assert_equal 14,  o.instance_eval("$gvar__eval")
         assert_equal 15,  o.instance_eval("Const")
@@ -173,7 +177,7 @@ class TestEval < Test::Unit::TestCase
       assert_equal :sym,  o.instance_eval { :sym }
 
       assert_equal 11,    o.instance_eval { 11 }
-      assert_equal 12,    o.instance_eval { @ivar }
+      assert_equal 12,    o.instance_eval { @ivar } unless o.frozen?
       assert_equal 13,    o.instance_eval { @@cvar }
       assert_equal 14,    o.instance_eval { $gvar__eval }
       assert_equal 15,    o.instance_eval { Const }
@@ -183,11 +187,26 @@ class TestEval < Test::Unit::TestCase
       assert_equal "19",  o.instance_eval { "1#{9}" }
 
       1.times {
-        assert_equal 12,  o.instance_eval { @ivar }
+        assert_equal 12,  o.instance_eval { @ivar } unless o.frozen?
         assert_equal 13,  o.instance_eval { @@cvar }
         assert_equal 14,  o.instance_eval { $gvar__eval }
         assert_equal 15,  o.instance_eval { Const }
       }
+    end
+  end
+
+  def test_instance_eval_block_self
+    # instance_eval(&block)'s self must not be sticky (jruby/jruby#2060)
+    pr = proc { self }
+    assert_equal self, pr.call
+    o = Object.new
+    assert_equal o, o.instance_eval(&pr)
+    assert_equal self, pr.call
+  end
+
+  def test_instance_eval_block_symbol
+    forall_TYPE do |o|
+      assert_equal o.to_s, o.instance_eval(&:to_s)
     end
   end
 
@@ -238,7 +257,7 @@ class TestEval < Test::Unit::TestCase
   # From ruby/test/ruby/test_eval.rb
   #
 
-  def test_ev
+  def make_test_binding
     local1 = "local1"
     lambda {
       local2 = "local2"
@@ -273,7 +292,7 @@ class TestEval < Test::Unit::TestCase
     assert_equal(5, eval("i"))
     assert(eval("defined? i"))
 
-    x = test_ev
+    x = make_test_binding
     assert_equal("local1", eval("local1", x)) # normal local var
     assert_equal("local2", eval("local2", x)) # nested local var
     bad = true
@@ -440,16 +459,6 @@ class TestEval < Test::Unit::TestCase
     assert_raise(RuntimeError) { eval("raise ''") }
   end
 
-  def test_eval_using_untainted_binding_under_safe4
-    assert_raise(SecurityError) do
-      Thread.new do
-        b = binding
-        $SAFE = 4
-        eval("", b)
-      end.join
-    end
-  end
-
   def test_eval_with_toplevel_binding # [ruby-dev:37142]
     ruby("-e", "x = 0; eval('p x', TOPLEVEL_BINDING)") do |f|
       f.close_write
@@ -482,6 +491,17 @@ class TestEval < Test::Unit::TestCase
   def test_file_encoding
     fname = "\u{3042}".encode("euc-jp")
     assert_equal(fname, eval("__FILE__", nil, fname, 1))
+  end
+
+  def test_eval_location_fstring
+    o = Object.new
+    o.instance_eval "def foo() end", "generated code"
+    o.instance_eval "def bar() end", "generated code"
+
+    a, b = o.method(:foo).source_location[0],
+           o.method(:bar).source_location[0]
+
+    assert_same a, b
   end
 
   def test_gced_binding_block

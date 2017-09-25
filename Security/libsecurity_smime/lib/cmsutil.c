@@ -48,8 +48,17 @@
 #include <security_asn1/secerr.h>
 #include <security_asn1/secport.h>
 
+#if USE_CDSA_CRYPTO
+#include <Security/cssmapi.h>
+#include <Security/cssmapple.h>
+#include <Security/SecBase.h>
+
+#else
 #include <CommonCrypto/CommonDigest.h>
 #include <Security/SecBase.h>
+
+#endif
+
 
 /*
  * SecCmsArraySortByDER - sort array of objects by objects' DER encoding
@@ -218,12 +227,27 @@ SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray,
     return i;
 }
 
+#if USE_CDSA_CRYPTO
+CSSM_CC_HANDLE
+#else
 void *
+#endif
 SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
 {
     SECOidData *oidData = SECOID_FindOID(&(algid->algorithm));
     if (oidData)
     {
+#if USE_CDSA_CRYPTO
+	CSSM_ALGORITHMS alg = oidData->cssmAlgorithm;
+	if (alg)
+	{
+	    CSSM_CC_HANDLE digobj;
+	    CSSM_CSP_HANDLE cspHandle = SecCspHandleForAlgorithm(alg);
+
+	    if (!CSSM_CSP_CreateDigestContext(cspHandle, alg, &digobj))
+		return digobj;
+	}
+#else
         void *digobj = NULL;
         switch (oidData->offset) {
         case SEC_OID_SHA1:
@@ -254,6 +278,7 @@ SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
             break;
         }
         return digobj;
+#endif
     }
 
     return 0;

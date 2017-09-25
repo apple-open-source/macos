@@ -120,8 +120,9 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp);
 #define	DT_VERS_1_12	DT_VERSION_NUMBER(1, 12, 0)
 #define	DT_VERS_1_12_1	DT_VERSION_NUMBER(1, 12, 1)
 #define	DT_VERS_1_13	DT_VERSION_NUMBER(1, 13, 0)
-#define	DT_VERS_LATEST	DT_VERS_1_13
-#define	DT_VERS_STRING	"Sun D 1.13"
+#define	DT_VERS_1_14	DT_VERSION_NUMBER(1, 14, 0)
+#define	DT_VERS_LATEST	DT_VERS_1_14
+#define	DT_VERS_STRING	"Sun D 1.14"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -275,7 +276,7 @@ static const dt_ident_t _dtrace_globals[] = {
 { "jstack", DT_IDENT_ACTFUNC, 0, DT_ACT_JSTACK, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "stack(...)" },
 { "lltostr", DT_IDENT_FUNC, 0, DIF_SUBR_LLTOSTR, DT_ATTR_STABCMN, DT_VERS_1_0,
-	&dt_idops_func, "string(int64_t)" },
+	&dt_idops_func, "string(int64_t, [int])" },
 { "llquantize", DT_IDENT_AGGFUNC, 0, DTRACEAGG_LLQUANTIZE,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@, int32_t, int32_t, int32_t, int32_t, ...)" },
@@ -436,6 +437,14 @@ static const dt_ident_t _dtrace_globals[] = {
 { "vm_kernel_addrperm", DT_IDENT_FUNC, 0, DIF_SUBR_VM_KERNEL_ADDRPERM,
 	DT_ATTR_STABCMN, DT_VERS_1_8,
 	&dt_idops_func, "void* (void*)" },
+{ "cpuinstrs", DT_IDENT_SCALAR, 0, DIF_VAR_CPUINSTRS,
+	DT_ATTR_STABCMN, DT_VERS_1_14, &dt_idops_type, "uint64_t" },
+{ "cpucycles", DT_IDENT_SCALAR, 0, DIF_VAR_CPUCYCLES,
+	DT_ATTR_STABCMN, DT_VERS_1_14, &dt_idops_type, "uint64_t" },
+{ "vinstrs", DT_IDENT_SCALAR, 0, DIF_VAR_VINSTRS,
+	DT_ATTR_STABCMN, DT_VERS_1_14, &dt_idops_type, "uint64_t" },
+{ "vcycles", DT_IDENT_SCALAR, 0, DIF_VAR_VCYCLES,
+	DT_ATTR_STABCMN, DT_VERS_1_14, &dt_idops_type, "uint64_t" },
 { "apple_define", DT_IDENT_ACTFUNC, 0, DT_ACT_APPLEDEFINE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
     &dt_idops_func, "void(uint8_t, string)"},
 { "apple_flag", DT_IDENT_ACTFUNC, 0, DT_ACT_APPLEFLAG, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
@@ -690,7 +699,17 @@ const dtrace_pattr_t _dtrace_prvdesc = {
 const char *_dtrace_defcpp = "/usr/bin/clang"; /* default cpp(1) to invoke. We use clang -E instead of cpp */
 const char *_dtrace_defld = "/usr/bin/ld";   /* default ld(1) to invoke. */
 
-const char *_dtrace_libdir = "/usr/lib/dtrace"; /* default library directory */
+#define _dtrace_libdir "/usr/lib/dtrace" /* default library directory */
+#if defined(__x86_64__) || defined(__i386__)
+const char *_dtrace_arch_libdir = _dtrace_libdir "/x86_64";
+#elif defined(__arm64__)
+const char *_dtrace_arch_libdir = _dtrace_libdir "/arm64";
+#elif defined(__arm__)
+const char *_dtrace_arch_libdir = _dtrace_libdir "/arm";
+#else
+#error Unknown ISA
+#endif
+
 const char *_dtrace_provdir = "/dev/dtrace/provider"; /* provider directory */
 
 int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
@@ -1303,6 +1322,13 @@ alloc:
 	 */
 	if (dtrace_setopt(dtp, "libdir", _dtrace_libdir) != 0)
 		return (set_open_errno(dtp, errp, dtp->dt_errno));
+
+	/*
+	 * Set up the per-arch library path.
+	 */
+	if (dtrace_setopt(dtp, "archlibdir", _dtrace_arch_libdir) != 0) {
+		return (set_open_errno(dtp, errp, dtp->dt_errno));
+	}
 
 	return (dtp);
 }

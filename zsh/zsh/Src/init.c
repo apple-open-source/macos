@@ -240,13 +240,11 @@ loop(int toplevel, int justonce)
     return LOOP_OK;
 }
 
-/* Shared among parseargs(), parseopts(), init_io(), and init_misc() */
-static char *cmd;
 static int restricted;
 
 /**/
 static void
-parseargs(char **argv, char **runscript)
+parseargs(char **argv, char **runscript, char **cmdptr)
 {
     char **x;
     LinkList paramlist;
@@ -272,7 +270,7 @@ parseargs(char **argv, char **runscript)
     opts[SHINSTDIN] = 0;
     opts[SINGLECOMMAND] = 0;
 
-    if (parseopts(NULL, &argv, opts, &cmd, NULL))
+    if (parseopts(NULL, &argv, opts, cmdptr, NULL))
 	exit(1);
 
     /*
@@ -290,7 +288,7 @@ parseargs(char **argv, char **runscript)
     if (*argv) {
 	if (unset(SHINSTDIN)) {
 	    posixzero = *argv;
-	    if (cmd)
+	    if (*cmdptr)
 		argzero = *argv;
 	    else
 		*runscript = *argv;
@@ -299,7 +297,7 @@ parseargs(char **argv, char **runscript)
 	}
 	while (*argv)
 	    zaddlinknode(paramlist, ztrdup(*argv++));
-    } else if (!cmd)
+    } else if (!*cmdptr)
 	opts[SHINSTDIN] = 1;
     if(isset(SINGLECOMMAND))
 	opts[INTERACTIVE] &= 1;
@@ -497,7 +495,7 @@ printhelp(void)
 
 /**/
 mod_export void
-init_io(void)
+init_io(char *cmd)
 {
     static char outbuf[BUFSIZ], errbuf[BUFSIZ];
 
@@ -521,6 +519,8 @@ init_io(void)
 	for (i = 3; i < 10; i++)
 	    close(i);
     }
+#else
+    (void)cmd;
 #endif
 
     if (shout) {
@@ -712,7 +712,7 @@ init_term(void)
     if (tgetent(termbuf, term) != TGETENT_SUCCESS)
 #endif
     {
-	if (isset(INTERACTIVE))
+	if (interact)
 	    zerr("can't find terminal definition for %s", term);
 	errflag &= ~ERRFLAG_ERROR;
 	termflags |= TERM_BAD;
@@ -802,7 +802,7 @@ init_term(void)
 
 /**/
 void
-setupvals(void)
+setupvals(char *cmd, char *runscript, char *zsh_name)
 {
 #ifdef USE_GETPWUID
     struct passwd *pswd;
@@ -1086,6 +1086,12 @@ setupvals(void)
 
     /* Colour sequences for outputting colours in prompts and zle */
     set_default_colour_sequences();
+
+    if (cmd)
+	setsparam("ZSH_EXECUTION_STRING", ztrdup(cmd));
+    if (runscript)
+        setsparam("ZSH_SCRIPT", ztrdup(runscript));
+    setsparam("ZSH_NAME", ztrdup(zsh_name)); /* NOTE: already metafied early in zsh_main() */
 }
 
 /*
@@ -1199,19 +1205,22 @@ run_init_scripts(void)
 	if (islogin)
 	    source("/etc/profile");
 	if (unset(PRIVILEGED)) {
-	    char *s = getsparam("ENV");
 	    if (islogin)
 		sourcehome(".profile");
-	    noerrs = 2;
-	    if (s) {
-		s = dupstring(s);
-		if (!parsestr(&s)) {
-		    singsub(&s);
-		    noerrs = 0;
-		    source(s);
+
+	    if (interact) {
+		noerrs = 2;
+		char *s = getsparam("ENV");
+		if (s) {
+		    s = dupstring(s);
+		    if (!parsestr(&s)) {
+			singsub(&s);
+			noerrs = 0;
+			source(s);
+		    }
 		}
+		noerrs = 0;
 	    }
-	    noerrs = 0;
 	} else
 	    source("/etc/suid_profile");
     } else {
@@ -1221,7 +1230,7 @@ run_init_scripts(void)
 
 	if (isset(RCS) && unset(PRIVILEGED))
 	{
-	    if (isset(INTERACTIVE)) {
+	    if (interact) {
 		/*
 		 * Always attempt to load the newuser module to perform
 		 * checks for new zsh users.  Don't care if we can't load it.
@@ -1267,7 +1276,7 @@ run_init_scripts(void)
 
 /**/
 void
-init_misc(void)
+init_misc(char *cmd, char *zsh_name)
 {
 #ifndef RESTRICTED_R
     if ( restricted )
@@ -1433,8 +1442,10 @@ sourcehome(char *s)
     queue_signals();
     if (EMULATION(EMULATE_SH|EMULATE_KSH) || !(h = getsparam_u("ZDOTDIR"))) {
 	h = home;
-	if (!h)
+	if (!h) {
+	    unqueue_signals();
 	    return;
+	}
     }
 
     {
@@ -1603,7 +1614,8 @@ mod_export int use_exit_printed;
 mod_export int
 zsh_main(int argc, char **argv)
 {
-    char **t, *runscript = NULL;
+    char **t, *runscript = NULL, *zsh_name;
+    char *cmd;			/* argument to -c */
     int t0;
 #ifdef USE_LOCALE
     setlocale(LC_ALL, "");
@@ -1658,18 +1670,18 @@ zsh_main(int argc, char **argv)
     opts[LOGINSHELL] = (**argv == '-');
     opts[PRIVILEGED] = (getuid() != geteuid() || getgid() != getegid());
     /* sets ZLE, INTERACTIVE, SHINSTDIN and SINGLECOMMAND */
-    parseargs(argv, &runscript);
+    parseargs(argv, &runscript, &cmd);
 
     SHTTY = -1;
-    init_io();
-    setupvals();
+    init_io(cmd);
+    setupvals(cmd, runscript, zsh_name);
 
     init_signals();
     init_bltinmods();
     init_builtins();
     run_init_scripts();
     setupshin(runscript);
-    init_misc();
+    init_misc(cmd, zsh_name);
 
     for (;;) {
 	/*

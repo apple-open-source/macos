@@ -49,19 +49,19 @@ reflect_byte(uint8_t b) {
     return reflector[b];
 }
 
-
+#define cc_byte(x, n) (((x) >> (8 * (n))) & 255)
 uint64_t
 reflect(uint64_t w, size_t bits)
 {
-    uint64_t retval = 0;
-    uint8_t *in = (uint8_t *) &w;
-    uint8_t *out = (uint8_t *) &retval;
-
     size_t len = bits/8;
-    if (len>sizeof(w)) {len=sizeof(w);}
+    if (len>sizeof(w))
+        len=sizeof(w);
+
+    uint64_t b, r=0;
 
     for(size_t i=0; i < len; i++) {
-        out[len-i-1] = reflector[in[i]];
+        b  = reflector[cc_byte(w, i)];
+        r|= b<< (len-i-1)*8 ;
     }
-    return retval;
+    return r;
 }

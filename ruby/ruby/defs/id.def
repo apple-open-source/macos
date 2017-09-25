@@ -1,7 +1,17 @@
 # -*- mode: ruby; coding: us-ascii -*-
 firstline, predefined = __LINE__+1, %[\
+  freeze
+  inspect
   intern
+  object_id
+  const_missing
   method_missing                                        MethodMissing
+  method_added
+  singleton_method_added
+  method_removed
+  singleton_method_removed
+  method_undefined
+  singleton_method_undefined
   length
   size
   gets
@@ -11,13 +21,31 @@ firstline, predefined = __LINE__+1, %[\
   lambda
   send
   __send__
+  __attached__
   initialize
   initialize_copy
   initialize_clone
   initialize_dup
+  to_int
+  to_ary
+  to_str
+  to_sym
+  to_hash
+  to_proc
+  to_io
+  to_a
+  to_s
+  to_i
+  bt
+  bt_locations
+  call
+  mesg
+  exception
+
   _                                                     UScore
   "/*NULL*/"                                            NULL
   empty?
+  eql?
   respond_to?                                           Respond_to
   respond_to_missing?                                   Respond_to_missing
   <IFUNC>
@@ -32,6 +60,44 @@ firstline, predefined = __LINE__+1, %[\
   core#hash_merge_ary
   core#hash_merge_ptr
   core#hash_merge_kwd
+
+  -                                                     debug#created_info
+]
+
+# VM ID         OP      Parser Token
+token_ops = %[\
+  Dot2          ..      DOT2
+  Dot3          ...     DOT3
+  UPlus         +@      UPLUS
+  UMinus        -@      UMINUS
+  Pow           **      POW
+  DSTAR         **
+  Cmp           <=>     CMP
+  PLUS          +
+  MINUS         -
+  MULT          *
+  DIV           /
+  MOD           %
+  LTLT          <<      LSHFT
+  GTGT          >>      RSHFT
+  LT            <
+  LE            <=      LEQ
+  GT            >
+  GE            >=      GEQ
+  Eq            ==      EQ
+  Eqq           ===     EQQ
+  Neq           !=      NEQ
+  Not           !
+  Backquote     `
+  EqTilde       =~      MATCH
+  NeqTilde      !~      NMATCH
+  AREF          []
+  ASET          []=
+  COLON2        ::
+  COLON3        ::
+  ANDOP         &&
+  OROP          ||
+  ANDDOT        &.
 ]
 
 class KeywordError < RuntimeError
@@ -47,6 +113,8 @@ instance_ids = []
 global_ids = []
 const_ids = []
 class_ids = []
+attrset_ids = []
+token_op_ids = []
 names = {}
 predefined.split(/^/).each_with_index do |line, num|
   next if /^#/ =~ line
@@ -63,6 +131,10 @@ predefined.split(/^/).each_with_index do |line, num|
     token.sub!(/\A@/, "_I_")
     token.gsub!(/\W+/, "")
   end
+  if name == '-'
+    preserved_ids << token
+    next
+  end
   if prev = names[name]
     KeywordError.raise("#{name} is already registered at line #{prev+firstline}", firstline+num)
   end
@@ -76,11 +148,18 @@ predefined.split(/^/).each_with_index do |line, num|
   when /\A\$(?:\d+|(?!\d)\w+)\z/; global_ids
   when /\A@@(?!\d)\w+\z/; class_ids
   when /\A@(?!\d)\w+\z/; instance_ids
-  when /\A((?!\d)\w+)=\z/
-    KeywordError.raise("use ID2ATTRSET(#{$1}) instead of ATTRSET #{name}", firstline+num)
+  when /\A((?!\d)\w+)=\z/; attrset_ids
   else preserved_ids
   end << token
   predefined_ids[token] = name
+end
+token_ops.split(/^/).each do |line|
+  next if /^#/ =~ line
+  line.sub!(/\s+#.*/, '')
+  id, op, token = line.split
+  next unless id and op
+  token ||= (id unless /\A\W\z/ =~ op)
+  token_op_ids << [id, op, token]
 end
 {
   "LOCAL" => local_ids,
@@ -88,6 +167,8 @@ end
   "GLOBAL" => global_ids,
   "CONST" => const_ids,
   "CLASS" => class_ids,
+  "ATTRSET" => attrset_ids,
   :preserved => preserved_ids,
   :predefined => predefined_ids,
+  :token_op => token_op_ids,
 }

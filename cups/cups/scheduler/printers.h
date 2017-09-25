@@ -1,14 +1,14 @@
 /*
  * Printer definitions for the CUPS scheduler.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 #ifdef HAVE_DNSSD
@@ -156,6 +156,7 @@ extern cupsd_printer_t	*cupsdAddPrinter(const char *name);
 extern void		cupsdCreateCommonData(void);
 extern void		cupsdDeleteAllPrinters(void);
 extern int		cupsdDeletePrinter(cupsd_printer_t *p, int update);
+extern void             cupsdDeleteTemporaryPrinters(int force);
 extern cupsd_printer_t	*cupsdFindDest(const char *name);
 extern cupsd_printer_t	*cupsdFindPrinter(const char *name);
 extern cupsd_quota_t	*cupsdFindQuota(cupsd_printer_t *p,

@@ -33,7 +33,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: magic.c,v 1.95 2015/09/11 17:24:09 christos Exp $")
+FILE_RCSID("@(#)$File: magic.c,v 1.100 2016/07/18 11:43:05 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -359,7 +359,7 @@ file_or_fd(struct magic_set *ms, const char *inname, int fd)
 	 * some overlapping space for matches near EOF
 	 */
 #define SLOP (1 + sizeof(union VALUETYPE))
-	if ((buf = CAST(unsigned char *, malloc(HOWMANY + SLOP))) == NULL)
+	if ((buf = CAST(unsigned char *, malloc(ms->bytes_max + SLOP))) == NULL)
 		return NULL;
 
 	switch (file_fsmagic(ms, inname, &sb)) {
@@ -423,18 +423,18 @@ file_or_fd(struct magic_set *ms, const char *inname, int fd)
 	}
 
 	/*
-	 * try looking at the first HOWMANY bytes
+	 * try looking at the first ms->bytes_max bytes
 	 */
 	if (ispipe) {
 		ssize_t r = 0;
 
 		while ((r = sread(fd, (void *)&buf[nbytes],
-		    (size_t)(HOWMANY - nbytes), 1)) > 0) {
+		    (size_t)(ms->bytes_max - nbytes), 1)) > 0) {
 			nbytes += r;
 			if (r < PIPE_BUF) break;
 		}
 
-		if (nbytes == 0) {
+		if (nbytes == 0 && inname) {
 			/* We can not read it, but we were able to stat it. */
 			if (unreadable_info(ms, sb.st_mode, inname) == -1)
 				goto done;
@@ -445,10 +445,10 @@ file_or_fd(struct magic_set *ms, const char *inname, int fd)
 	} else {
 		/* Windows refuses to read from a big console buffer. */
 		size_t howmany =
-#if defined(WIN32) && HOWMANY > 8 * 1024
+#if defined(WIN32)
 				_isatty(fd) ? 8 * 1024 :
 #endif
-				HOWMANY;
+				ms->bytes_max;
 		if ((nbytes = read(fd, (char *)buf, howmany)) == -1) {
 			if (inname == NULL && fd != STDIN_FILENO)
 				file_error(ms, errno, "cannot read fd %d", fd);
@@ -465,9 +465,11 @@ file_or_fd(struct magic_set *ms, const char *inname, int fd)
 	rv = 0;
 done:
 	free(buf);
-	if (pos != (off_t)-1)
-		(void)lseek(fd, pos, SEEK_SET);
-	close_and_restore(ms, inname, fd, &sb);
+	if (fd != -1) {
+		if (pos != (off_t)-1)
+			(void)lseek(fd, pos, SEEK_SET);
+		close_and_restore(ms, inname, fd, &sb);
+	}
 out:
 	return rv == 0 ? file_getbuffer(ms) : NULL;
 }
@@ -548,6 +550,9 @@ magic_setparam(struct magic_set *ms, int param, const void *val)
 	case MAGIC_PARAM_REGEX_MAX:
 		ms->elf_notes_max = (uint16_t)*(const size_t *)val;
 		return 0;
+	case MAGIC_PARAM_BYTES_MAX:
+		ms->bytes_max = *(const size_t *)val;
+		return 0;
 	default:
 		errno = EINVAL;
 		return -1;
@@ -575,6 +580,9 @@ magic_getparam(struct magic_set *ms, int param, void *val)
 		return 0;
 	case MAGIC_PARAM_REGEX_MAX:
 		*(size_t *)val = ms->regex_max;
+		return 0;
+	case MAGIC_PARAM_BYTES_MAX:
+		*(size_t *)val = ms->bytes_max;
 		return 0;
 	default:
 		errno = EINVAL;

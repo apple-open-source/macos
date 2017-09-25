@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: acl.c,v 1.55 2011/06/17 23:47:49 tbox Exp $ */
 
 /*! \file */
 
@@ -48,7 +48,10 @@ dns_acl_create(isc_mem_t *mctx, int n, dns_acl_t **target) {
 	acl = isc_mem_get(mctx, sizeof(*acl));
 	if (acl == NULL)
 		return (ISC_R_NOMEMORY);
-	acl->mctx = mctx;
+
+	acl->mctx = NULL;
+	isc_mem_attach(mctx, &acl->mctx);
+
 	acl->name = NULL;
 
 	result = isc_refcount_init(&acl->refcount, 1);
@@ -287,9 +290,12 @@ dns_acl_merge(dns_acl_t *dest, dns_acl_t *source, isc_boolean_t pos)
 		if (newmem == NULL)
 			return (ISC_R_NOMEMORY);
 
+		/* Zero. */
+		memset(newmem, 0, newalloc * sizeof(dns_aclelement_t));
+
 		/* Copy in the original elements */
-		memcpy(newmem, dest->elements,
-		       dest->length * sizeof(dns_aclelement_t));
+		memmove(newmem, dest->elements,
+			dest->length * sizeof(dns_aclelement_t));
 
 		/* Release the memory for the old elements array */
 		isc_mem_put(dest->mctx, dest->elements,
@@ -467,7 +473,7 @@ destroy(dns_acl_t *dacl) {
 		dns_iptable_detach(&dacl->iptable);
 	isc_refcount_destroy(&dacl->refcount);
 	dacl->magic = 0;
-	isc_mem_put(dacl->mctx, dacl, sizeof(*dacl));
+	isc_mem_putanddetach(&dacl->mctx, dacl, sizeof(*dacl));
 }
 
 void

@@ -1,7 +1,7 @@
 # -*- coding: us-ascii -*-
+# frozen_string_literal: false
 require 'test/unit'
 require 'timeout'
-require_relative 'envutil'
 
 module TestStruct
   def test_struct
@@ -74,17 +74,6 @@ module TestStruct
     assert_raise(NameError) { o[:b] }
   end
 
-  def test_modify
-    klass = Struct.new(:a)
-    o = klass.new(1)
-    assert_raise(SecurityError) do
-      Thread.new do
-        $SAFE = 4
-        o.a = 2
-      end.value
-    end
-  end
-
   def test_set
     klass = @Struct.new(:a)
     o = klass.new(1)
@@ -106,6 +95,12 @@ module TestStruct
   def test_initialize
     klass = @Struct.new(:a)
     assert_raise(ArgumentError) { klass.new(1, 2) }
+    klass = @Struct.new(:total) do
+      def initialize(a, b)
+        super(a+b)
+      end
+    end
+    assert_equal 3, klass.new(1,2).total
   end
 
   def test_each
@@ -167,8 +162,10 @@ module TestStruct
     klass = @Struct.new(:a)
     o = klass.new(1)
     assert_equal(1, o[0])
-    assert_raise(IndexError) { o[-2] }
-    assert_raise(IndexError) { o[1] }
+    assert_raise_with_message(IndexError, /offset -2\b/) {o[-2]}
+    assert_raise_with_message(IndexError, /offset 1\b/) {o[1]}
+    assert_raise_with_message(NameError, /foo/) {o["foo"]}
+    assert_raise_with_message(NameError, /foo/) {o[:foo]}
   end
 
   def test_aset
@@ -176,8 +173,10 @@ module TestStruct
     o = klass.new(1)
     o[0] = 2
     assert_equal(2, o[:a])
-    assert_raise(IndexError) { o[-2] = 3 }
-    assert_raise(IndexError) { o[1] = 3 }
+    assert_raise_with_message(IndexError, /offset -2\b/) {o[-2] = 3}
+    assert_raise_with_message(IndexError, /offset 1\b/) {o[1] = 3}
+    assert_raise_with_message(NameError, /foo/) {o["foo"] = 3}
+    assert_raise_with_message(NameError, /foo/) {o[:foo] = 3}
   end
 
   def test_values_at
@@ -194,20 +193,62 @@ module TestStruct
     assert_raise(ArgumentError) { o.select(1) }
   end
 
+  def test_big_struct
+    klass1 = @Struct.new(*('a'..'z').map(&:to_sym))
+    o = klass1.new
+    assert_nil o.z
+    assert_equal(:foo, o.z = :foo)
+    assert_equal(:foo, o.z)
+    assert_equal(:foo, o[25])
+  end
+
+  def test_overridden_aset
+    bug10601 = '[ruby-core:66846] [Bug #10601]: should not be affected by []= method'
+
+    struct = Class.new(Struct.new(*(:a..:z), :result)) do
+      def []=(*args)
+        raise args.inspect
+      end
+    end
+
+    obj = struct.new
+    assert_nothing_raised(RuntimeError, bug10601) do
+      obj.result = 42
+    end
+    assert_equal(42, obj.result, bug10601)
+  end
+
+  def test_overridden_aref
+    bug10601 = '[ruby-core:66846] [Bug #10601]: should not be affected by [] method'
+
+    struct = Class.new(Struct.new(*(:a..:z), :result)) do
+      def [](*args)
+        raise args.inspect
+      end
+    end
+
+    obj = struct.new
+    obj.result = 42
+    result = assert_nothing_raised(RuntimeError, bug10601) do
+      break obj.result
+    end
+    assert_equal(42, result, bug10601)
+  end
+
   def test_equal
     klass1 = @Struct.new(:a)
     klass2 = @Struct.new(:a, :b)
     o1 = klass1.new(1)
     o2 = klass1.new(1)
     o3 = klass2.new(1)
-    assert(o1.==(o2))
-    assert(o1 != o3)
+    assert_equal(o1, o2)
+    assert_not_equal(o1, o3)
   end
 
   def test_hash
     klass = @Struct.new(:a)
     o = klass.new(1)
-    assert(o.hash.is_a?(Fixnum))
+    assert_kind_of(Fixnum, o.hash)
   end
 
   def test_eql
@@ -216,8 +257,8 @@ module TestStruct
     o1 = klass1.new(1)
     o2 = klass1.new(1)
     o3 = klass2.new(1)
-    assert(o1.eql?(o2))
-    assert(!(o1.eql?(o3)))
+    assert_operator(o1, :eql?, o2)
+    assert_not_operator(o1, :eql?, o3)
   end
 
   def test_size
@@ -266,52 +307,33 @@ module TestStruct
     x = klass1.new(1, 2, nil); x.c = x
     y = klass1.new(1, 2, nil); y.c = y
     Timeout.timeout(1) {
-      assert x == y
-      assert x.eql? y
+      assert_equal x, y
+      assert_operator x, :eql?, y
     }
 
     z = klass1.new(:something, :other, nil); z.c = z
     Timeout.timeout(1) {
-      assert x != z
-      assert !x.eql?(z)
+      assert_not_equal x, z
+      assert_not_operator x, :eql?, z
     }
 
     x.c = y; y.c = x
     Timeout.timeout(1) {
-      assert x == y
-      assert x.eql?(y)
+      assert_equal x, y
+      assert_operator x, :eql?, y
     }
 
     x.c = z; z.c = x
     Timeout.timeout(1) {
-      assert x != z
-      assert !x.eql?(z)
+      assert_not_equal x, z
+      assert_not_operator x, :eql?, z
     }
-  end
-
-  def test_struct_subclass
-    bug5036 = '[ruby-dev:44122]'
-    st = Class.new(Struct)
-    s = st.new("S", :m).new
-    error = assert_raise(SecurityError) do
-      proc do
-        $SAFE = 4
-        s.m = 1
-      end.call
-    end
-    assert_equal("Insecure: can't modify #{st}::S", error.message, bug5036)
   end
 
   def test_to_h
     klass = @Struct.new(:a, :b, :c, :d, :e, :f)
     o = klass.new(1, 2, 3, 4, 5, 6)
     assert_equal({a:1, b:2, c:3, d:4, e:5, f:6}, o.to_h)
-  end
-
-  def test_struct_question_mark
-    bug9248 = '[ruby-core:59095]'
-    klass = @Struct.new(:a?)
-    assert_include(klass.new.methods.inspect, ':a?', bug9248)
   end
 
   def test_question_mark_in_member
@@ -330,6 +352,26 @@ module TestStruct
     assert_same(x, o.b!)
     o.send("b!=", 42)
     assert_equal(42, o.b!)
+  end
+
+  def test_setter_method_returns_value
+    klass = @Struct.new(:a)
+    x = klass.new
+    assert_equal "[Bug #9353]", x.send(:a=, "[Bug #9353]")
+  end
+
+  def test_dig
+    klass = @Struct.new(:a)
+    o = klass.new(klass.new({b: [1, 2, 3]}))
+    assert_equal(1, o.dig(:a, :a, :b, 0))
+    assert_nil(o.dig(:b, 0))
+  end
+
+  def test_new_dupilicate
+    bug12291 = '[ruby-core:74971] [Bug #12291]'
+    assert_raise_with_message(ArgumentError, /duplicate member/, bug12291) {
+      @Struct.new(:a, :a)
+    }
   end
 
   class TopStruct < Test::Unit::TestCase

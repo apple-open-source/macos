@@ -1,7 +1,7 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 static void *ptr = NULL;
 
@@ -23,7 +23,7 @@ static void *thread(void *param)
 }
 
 T_DECL(tsd, "tsd",
-		T_META_ALL_VALID_ARCHS(YES))
+       T_META_ALL_VALID_ARCHS(YES))
 {
 	pthread_key_t key;
 

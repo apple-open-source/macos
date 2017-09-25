@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ********************************************************************************
 *   Copyright (C) 2005-2011, International Business Machines
@@ -14,7 +16,7 @@
 
 #include "unicode/utypes.h"
 
-#if U_PLATFORM_HAS_WIN32_API
+#if U_PLATFORM_USES_ONLY_WIN32_API
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -23,12 +25,12 @@
  * \brief C++ API: Format dates using Windows API.
  */
 
-class TestLog;
+class DateFormatTest;
 
 class Win32DateTimeTest
 {
 public:
-    static void testLocales(TestLog *log);
+    static void testLocales(DateFormatTest *log);
 
 private:
     Win32DateTimeTest();
@@ -36,6 +38,6 @@ private:
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 
-#endif // U_PLATFORM_HAS_WIN32_API
+#endif // U_PLATFORM_USES_ONLY_WIN32_API
 
 #endif // __WINDTTST

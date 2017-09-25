@@ -34,6 +34,7 @@
 #include <pwd.h>
 #include <os/log.h>
 #include <libproc.h>
+#include "Logging.h"
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT
@@ -41,12 +42,16 @@
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
 
+
+PAM_DEFINE_LOG(AKS)
+#define AKS_LOG PAM_LOG_AKS()
+
 extern char **environ;
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-    os_log_debug(OS_LOG_DEBUG, "pam_aks: pam_sm_authenticate");
+    os_log_debug(AKS_LOG, "pam_sm_authenticate");
 
     int retval = PAM_AUTH_ERR;
 
@@ -58,7 +63,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     /* get information about user to authenticate for */
     if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS || !user ||
         getpwnam_r(user, &pwdbuf, buffer, sizeof(buffer), &pwd) != 0 || !pwd) {
-        os_log_error(OS_LOG_DEBUG, "pam_aks: unable to obtain the username.");
+        os_log_error(AKS_LOG, "unable to obtain the username.");
         retval = PAM_AUTHINFO_UNAVAIL;
         goto cleanup;
     }
@@ -66,7 +71,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
 	int status = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
 	if (status <= 0) {
-		os_log_error(OS_LOG_DEBUG, "pam_aks: unable to get the path.");
+		os_log_error(AKS_LOG, "unable to get the path.");
 		goto cleanup;
 	}
 
@@ -75,20 +80,20 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	char *args[] = {pathbuf, buffer, NULL};
 	status = posix_spawn(&spawn_pid, "/System/Library/Frameworks/LocalAuthentication.framework/Support/lastatus", NULL, NULL, args, environ);
 	if (status == 0) {
-		os_log_debug(OS_LOG_DEBUG, "pam_aks: helper pid %d", spawn_pid);
+		os_log_debug(AKS_LOG, "helper pid %d", spawn_pid);
 		if (waitpid(spawn_pid, &status, 0) != -1) {
-			os_log_debug(OS_LOG_DEBUG, "pam_aks: helper return value %d", status);
+			os_log_debug(AKS_LOG, "helper return value %d", status);
 			if (status == 0)
 				retval = PAM_SUCCESS;
 		} else {
-			os_log_debug(OS_LOG_DEBUG, "pam_aks: wait failed %d", status);
+			os_log_debug(AKS_LOG, "wait failed %d", status);
 		}
 	} else {
-		os_log_debug(OS_LOG_DEBUG, "pam_aks: launch failed %d", status);
+		os_log_debug(AKS_LOG, "launch failed %d", status);
 	}
 
 cleanup:
-    os_log_debug(OS_LOG_DEBUG, "pam_aks: pam_sm_authenticate returned %d", retval);
+    os_log_debug(AKS_LOG, "pam_sm_authenticate returned %d", retval);
     return retval;
 }
 

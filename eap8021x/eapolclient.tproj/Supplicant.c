@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -3646,7 +3646,6 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
 
     supp->auth_attempts_count = 0;
     if (active) {
-
 	t.tv_sec = S_link_active_period_secs;
 	switch (supp->state) {
 	case kSupplicantStateInactive:
@@ -3664,6 +3663,10 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
 	    t.tv_usec = 500 * 1000; /* 1/2 second */
 	    /* FALL THROUGH */
 	default:
+	    if (supp->state == kSupplicantStateAuthenticated
+		&& EAPOLSocketHasPMK(supp->sock)) {
+		break;
+	    }
 	    /*
 	     * wait awhile before entering connecting state to avoid
 	     * disrupting an existing conversation

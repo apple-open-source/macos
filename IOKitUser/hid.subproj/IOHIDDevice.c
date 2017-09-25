@@ -913,10 +913,9 @@ void __IOHIDDeviceRegisterMatchingInputElements(
     for (i=0; i<count; i++) {
         element = (IOHIDElementRef)CFArrayGetValueAtIndex(elements, i);
         
-        if ( !element || 
-            (IOHIDElementGetReportSize(element) > (sizeof(CFIndex) << 3)))
+        if ( !element  ) {
             continue;
-                     
+        }
         IOHIDQueueAddElement(queue, element);
     }
     

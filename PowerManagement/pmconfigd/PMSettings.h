@@ -69,6 +69,8 @@ __private_extern__ void activateSettingOverrides(void);
 
 __private_extern__ IOReturn getDisplaySleepTimer(uint32_t *displaySleepTimer);
 __private_extern__ IOReturn getIdleSleepTimer(unsigned long *idleSleepTimer);
+__private_extern__ void setDisplaySleepFactor(unsigned int factor);
+__private_extern__ void setDisplayToDimTimer(io_connect_t connection, unsigned int minutesToDim);
 
 __private_extern__ bool _DWBT_allowed(void);
 __private_extern__ bool _DWBT_enabled(void);

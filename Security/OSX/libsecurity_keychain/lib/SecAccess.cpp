@@ -321,7 +321,9 @@ SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAcce
 	CFRelease(debugStr);
 #endif
 
-	CSSM_ACL_AUTHORIZATION_TAG rights[numAcls];
+    CFIndex rightsSize = numAcls > 0 ? numAcls : 1;
+
+	CSSM_ACL_AUTHORIZATION_TAG rights[rightsSize];
 	memset(rights, 0, sizeof(rights));
 
 	for (CFIndex iCnt = 0; iCnt < numAcls; iCnt++)
@@ -382,7 +384,7 @@ SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAcce
 				{ CSSM_LIST_TYPE_UNKNOWN, &subject1, &subject2 },
 				false,	// Delegate
 				// rights for this entry
-				{ (uint32)(sizeof(rights) / sizeof(rights[0])), rights },
+				{ (uint32)numAcls, rights },
 				// rest is defaulted
 			}
 		}
@@ -579,9 +581,6 @@ CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trus
     if (!trustedAppsURL)
         goto xit;
 
-    if ( trustedAppListFileNameWithoutExtension )
-		CFRelease(trustedAppListFileNameWithoutExtension);
-
 	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,trustedAppsURL,&xmlDataRef,NULL,NULL,&errorCode))
         goto xit;
 
@@ -589,6 +588,7 @@ CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trus
     trustedAppList = (CFArrayRef)trustedAppsPlist;
 
 xit:
+    CFReleaseNull(trustedAppListFileNameWithoutExtension);
     if (bundleURL)
         CFRelease(bundleURL);
     if (secBundle)

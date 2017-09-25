@@ -4,9 +4,8 @@ exit [ n ]
        last command executed.  An EOF condition  will  also  cause  the
        shell to exit, unless the IGNORE_EOF option is set.
 
-       See  notes  at  the end of the section JOBS in in zshmisc(1) for
-       some possibly unexpected interactions of the exit  command  with
-       jobs.
+       See  notes at the end of the section JOBS in zshmisc(1) for some
+       possibly unexpected interactions of the exit command with jobs.
 
 bye    Same as exit.
 

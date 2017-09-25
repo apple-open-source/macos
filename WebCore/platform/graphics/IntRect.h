@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef IntRect_h
-#define IntRect_h
+#pragma once
 
 #include "IntPoint.h"
 #include "LayoutUnit.h"
@@ -181,9 +180,6 @@ public:
     IntRect(const D2D1_RECT_U&);
     operator D2D1_RECT_F() const;
     operator D2D1_RECT_U() const;
-#elif PLATFORM(EFL)
-    explicit IntRect(const Eina_Rectangle&);
-    operator Eina_Rectangle() const;
 #endif
 
 #if USE(CAIRO)
@@ -252,4 +248,3 @@ WEBCORE_EXPORT TextStream& operator<<(TextStream&, const IntRect&);
 
 } // namespace WebCore
 
-#endif // IntRect_h

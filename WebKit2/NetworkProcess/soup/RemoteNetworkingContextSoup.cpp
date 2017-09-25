@@ -30,6 +30,7 @@
 
 #include "NetworkSession.h"
 #include "SessionTracker.h"
+#include "WebsiteDataStoreParameters.h"
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/ResourceHandle.h>
@@ -47,15 +48,20 @@ bool RemoteNetworkingContext::isValid() const
     return true;
 }
 
-void RemoteNetworkingContext::ensurePrivateBrowsingSession(SessionID sessionID)
+void RemoteNetworkingContext::ensurePrivateBrowsingSession(WebsiteDataStoreParameters&& parameters)
 {
-    ASSERT(sessionID.isEphemeral());
+    ASSERT(parameters.sessionID.isEphemeral());
 
-    if (NetworkStorageSession::storageSession(sessionID))
+    if (NetworkStorageSession::storageSession(parameters.sessionID))
         return;
 
-    NetworkStorageSession::ensurePrivateBrowsingSession(sessionID, String::number(sessionID.sessionID()));
-    SessionTracker::setSession(sessionID, NetworkSession::create(sessionID));
+    NetworkStorageSession::ensurePrivateBrowsingSession(parameters.sessionID, String::number(parameters.sessionID.sessionID()));
+    SessionTracker::setSession(parameters.sessionID, NetworkSession::create(parameters.sessionID));
+}
+
+void RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&&)
+{
+    // FIXME: Implement.
 }
 
 NetworkStorageSession& RemoteNetworkingContext::storageSession() const

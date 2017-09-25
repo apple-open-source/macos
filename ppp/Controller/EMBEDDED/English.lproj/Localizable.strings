@@ -67,7 +67,7 @@
 "PPP Error 19" = "Authentication failed.";
 "PPP Error 20" = "The terminal script failed. Verify your settings and try reconnecting.";
 "PPP Error 21" = "The communication device selected for your connection does not exist. Verify your settings and try reconnecting.";
-"PPP Error 22" = "You were disconnected because you transfered the maximum amount of data.";
+"PPP Error 22" = "You were disconnected because you transferred the maximum amount of data.";
 "PPP Error 23" = "The user is not authorized to access.";
 "PPP Error 24" = "The remote number is not permitted to connect. Verify your settings and try again.";
 "PPP Error 25" = "The server is unreachable. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";

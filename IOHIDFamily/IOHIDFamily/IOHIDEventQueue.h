@@ -29,9 +29,11 @@
 #include <IOKit/IOLocks.h>
 #include "IOHIDKeys.h"
 #include "IOHIDElementPrivate.h"
+#include "IOHIDLibUserClient.h"
 
 #define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue)+ sizeof(void *)
 #define MIN_HID_QUEUE_CAPACITY  16384
+#define MAX_HID_QUEUE_CAPACITY  131072
 
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
@@ -58,18 +60,13 @@ protected:
     IOMemoryDescriptor *    _descriptor;
     
     IOHIDQueueOptionsType   _options;
-
-    struct ExpansionData { };
-    /*! @var reserved
-        Reserved for future use.  (Internal use only)  */
-    ExpansionData * _reserved;
-    
+    UInt64                  _enqueueErrorCount;
 
 public:
     static IOHIDEventQueue * withCapacity( UInt32 size );
     
     static IOHIDEventQueue * withEntries( UInt32 numEntries,
-                                          UInt32 entrySize );
+                                          UInt32 entrySize);
     
     virtual Boolean initWithEntries(UInt32 numEntries, UInt32 entrySize);
     
@@ -93,6 +90,7 @@ public:
     virtual UInt32 getEntrySize ();
 
     virtual IOMemoryDescriptor *getMemoryDescriptor();
+    virtual bool serialize(OSSerialize * serializer) const;
 
     OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  0);
     OSMetaClassDeclareReservedUnused(IOHIDEventQueue,  1);

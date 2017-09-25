@@ -810,11 +810,6 @@ nmea_receive(
 	ZERO(tofs);
 	ZERO(date);
 	ZERO(gpsw);
-#ifndef __clang_analyzer__
-	sentence = 0;	// Should never be needed.
-	rc_date = 0;	// Should never be needed.
-	rc_time = 0;	// Should never be needed.
-#endif
 
 	/* 
 	 * Read the timecode and timestamp, then initialise field

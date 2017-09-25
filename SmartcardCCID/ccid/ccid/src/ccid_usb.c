@@ -270,6 +270,21 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 				DEBUG_COMM3("usb bus/device: %d/%d", device_bus, device_addr);
 			}
 		}
+		else
+		{
+			/* format usb:%04x/%04x:libusb-1.0:%d:%d:%d */
+			if ((dirname = strstr(device, "libusb-1.0:")) != NULL)
+			{
+				/* convert the interface number, bus and device ids */
+				if (sscanf(dirname + 11, "%d:%d:%d",
+					&device_bus, &device_addr, &interface_number) == 3)
+				{
+					DEBUG_COMM2("interface_number: %d", interface_number);
+					DEBUG_COMM3("usb bus/device: %d/%d", device_bus,
+						device_addr);
+				}
+			}
+		}
 	}
 #endif
 
@@ -410,11 +425,14 @@ again_libusb:
 				int readerID = (vendorID << 16) + productID;
 
 #ifdef USE_COMPOSITE_AS_MULTISLOT
-				static int static_interface = 1;
+				/* use the first CCID interface on first call */
+				static int static_interface = -1;
+				int max_interface_number = 2;
 
 				/* simulate a composite device as when libudev is used */
 				if ((GEMALTOPROXDU == readerID)
 					|| (GEMALTOPROXSU == readerID)
+					|| (HID_OMNIKEY_5422 == readerID)
 					|| (FEITIANR502DUAL == readerID))
 				{
 						/*
@@ -437,8 +455,25 @@ again_libusb:
 	* 1: Gemalto Prox-DU [Prox-DU Contactless_09A00795] (09A00795) 01 00
 						 */
 
-					/* the CCID interfaces are 1 and 2 */
+					/* for the Gemalto Prox-DU/SU the interfaces are:
+					 * 0: Prox-DU HID (not used)
+					 * 1: Prox-DU Contactless (CCID)
+					 * 2: Prox-DU Contact (CCID)
+					 *
+					 * For the Feitian R502 the interfaces are:
+					 * 0: R502 Contactless Reader (CCID)
+					 * 1: R502 Contact Reader (CCID)
+					 * 2: R502 SAM1 Reader (CCID)
+					 *
+					 * For the HID Omnikey 5422 the interfaces are:
+					 * 0: OMNIKEY 5422CL Smartcard Reader
+					 * 1: OMNIKEY 5422 Smartcard Reader
+					 */
 					interface_number = static_interface;
+
+					if (HID_OMNIKEY_5422 == readerID)
+						/* only 2 interfaces for this device */
+						max_interface_number = 1;
 				}
 #endif
 				/* is it already opened? */
@@ -633,14 +668,16 @@ again:
 #ifdef USE_COMPOSITE_AS_MULTISLOT
 				if ((GEMALTOPROXDU == readerID)
 					|| (GEMALTOPROXSU == readerID)
+					|| (HID_OMNIKEY_5422 == readerID)
 					|| (FEITIANR502DUAL == readerID))
 				{
 					/* use the next interface for the next "slot" */
-					static_interface++;
+					static_interface = interface + 1;
 
 					/* reset for a next reader */
-					if (static_interface > 2)
-						static_interface = (FEITIANR502DUAL == readerID) ? 0: 1;
+					/* max interface number for all 3 readers is 2 */
+					if (static_interface > max_interface_number)
+						static_interface = -1;
 				}
 #endif
 
@@ -685,6 +722,9 @@ again:
 				usbDevice[reader_index].ccid.bVoltageSupport = device_descriptor[5];
 				usbDevice[reader_index].ccid.sIFD_serial_number = NULL;
 				usbDevice[reader_index].ccid.gemalto_firmware_features = NULL;
+#ifdef ENABLE_ZLP
+				usbDevice[reader_index].ccid.zlp = FALSE;
+#endif
 				if (desc.iSerialNumber)
 				{
 					unsigned char serial[128];
@@ -783,6 +823,18 @@ status_t WriteUSB(unsigned int reader_index, unsigned int length,
 
 	(void)snprintf(debug_header, sizeof(debug_header), "-> %06X ",
 		(int)reader_index);
+
+#ifdef ENABLE_ZLP
+	if (usbDevice[reader_index].ccid.zlp)
+	{ /* Zero Length Packet */
+		int dummy_length;
+
+		/* try to read a ZLP so transfer length = 0
+		 * timeout of 10 ms */
+		(void)libusb_bulk_transfer(usbDevice[reader_index].dev_handle,
+			usbDevice[reader_index].bulk_in, NULL, 0, &dummy_length, 10);
+	}
+#endif
 
 	DEBUG_XXD(debug_header, buffer, length);
 
@@ -1258,7 +1310,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 		libusb_free_transfer(transfer);
 		DEBUG_CRITICAL2("libusb_submit_transfer failed: %s",
 			libusb_error_name(ret));
-		return ret;
+		return IFD_COMMUNICATION_ERROR;
 	}
 
 	usbDevice[reader_index].polling_transfer = transfer;
@@ -1277,7 +1329,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 			libusb_free_transfer(transfer);
 			DEBUG_CRITICAL2("libusb_handle_events failed: %s",
 				libusb_error_name(ret));
-			return ret;
+			return IFD_COMMUNICATION_ERROR;
 		}
 	}
 

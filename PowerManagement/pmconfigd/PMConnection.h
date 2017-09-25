@@ -54,6 +54,7 @@ __private_extern__ io_connect_t getRootDomainConnect();
 __private_extern__ bool isA_BTMtnceWake();
 __private_extern__ bool isA_SleepSrvcWake();
 __private_extern__ void set_SleepSrvcWake();
+__private_extern__ bool isA_FullWake();
 __private_extern__ void cancelPowerNapStates( );
 
 __private_extern__ bool isA_SleepState();
@@ -63,9 +64,9 @@ __private_extern__ void set_NotificationDisplayWake();
 __private_extern__ void cancel_NotificationDisplayWake();
 
 __private_extern__ void InternalEvalConnections(void);
+__private_extern__ kern_return_t getPlatformSleepType(uint32_t *sleepType, uint32_t *standbyTimer);
+__private_extern__ void setDwlInterval(uint32_t newInterval);
 
-#if !TARGET_OS_EMBEDDED
 __private_extern__ int getCurrentSleepServiceCapTimeout();
-#endif
 #endif
 

@@ -57,7 +57,7 @@ __END_DECLS
 static bool ShouldReplaceElement(UPSHIDElement * oldValue, UPSHIDElement * newValue)
 {
     // Don't replace command items
-    if ( newValue->isCommand )
+    if (!newValue || newValue->isCommand )
         return false;
         
     if ( oldValue && newValue &&
@@ -485,7 +485,13 @@ IOReturn IOHIDUPSClass::stop()
     if ( _hidQueueInterface )
     {
         ret = (*_hidQueueInterface)->stop(_hidQueueInterface);
+        if (ret) {
+            UPSLog ("IOHIDQueueInterface::stop: %x", ret);
+        }
         ret = (*_hidQueueInterface)->dispose(_hidQueueInterface);
+        if (ret) {
+            UPSLog ("IOHIDQueueInterface::dispose: %x", ret);
+        }
     }
         
     ret = (*_hidDeviceInterface)->close(_hidDeviceInterface);
@@ -571,11 +577,33 @@ IOReturn IOHIDUPSClass::getProperties(CFDictionaryRef * properties)
         }
         
 #if TARGET_OS_IPHONE
-        CFStringRef serial = (CFStringRef) CFDictionaryGetValue( _hidProperties, CFSTR( kIOHIDSerialNumberKey ) );
+        UInt32  usagePageVal = 0;
+        UInt32  usageVal     = 0;
         
+        CFStringRef serial = (CFStringRef) CFDictionaryGetValue( _hidProperties, CFSTR( kIOHIDSerialNumberKey ) );
         if (serial)
         {
             CFDictionarySetValue(_upsProperties, CFSTR(kIOPSAccessoryIdentifierKey), serial);
+        }
+        
+        CFNumberRef usagePage = (CFNumberRef)CFDictionaryGetValue(_hidProperties, CFSTR(kIOHIDPrimaryUsagePageKey));
+        if (usagePage) {
+            CFNumberGetValue(usagePage, kCFNumberSInt32Type, &usagePageVal);
+        }
+        
+        CFNumberRef usage = (CFNumberRef)CFDictionaryGetValue(_hidProperties, CFSTR(kIOHIDPrimaryUsageKey));
+        if (usage) {
+            CFNumberGetValue(usage, kCFNumberSInt32Type, &usageVal);
+        }
+        
+        switch (usagePageVal) {
+            case kHIDPage_GenericDesktop:
+                switch (usageVal) {
+                    case kHIDUsage_GD_Keyboard:
+                        CFDictionarySetValue(_upsProperties, CFSTR(kIOPSAccessoryCategoryKey), CFSTR(kIOPSAccessoryCategoryKeyboard));
+                        break;
+                }
+                break;
         }
 #endif
     }
@@ -1278,9 +1306,6 @@ void IOHIDUPSClass::_queueCallbackFunction(
 {
     IOHIDUPSClass * 	self 		= (IOHIDUPSClass *)target;
     AbsoluteTime 	zeroTime 	= {0,0};
-    CFNumberRef		number		= NULL;
-    CFMutableDataRef	element		= NULL;
-    UPSHIDElement *	tempHIDElement;	
     IOHIDEventStruct 	event;
     
     if ( !self || ( sender != self->_hidQueueInterface))

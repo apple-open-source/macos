@@ -32,7 +32,6 @@ SECURITY_COMMAND(
 	"    -e     enable (join/create circle)\n"
 	"    -i     info (current status)\n"
 	"    -m     dump my peer\n"
-	"    -s     schedule sync with all peers\n"
 	"\n"
 	"Account/Circle Management\n"
 	"    -a     accept all applicants\n"
@@ -56,6 +55,8 @@ SECURITY_COMMAND(
     "    -2     delete account state from the keychain\n"
     "    -3     grab engine state from the keychain\n"
     "    -4     delete engine state from the keychain\n"
+    "    -5     cleanup old KVS keys in KVS\n"
+    "    -6     [test]populate KVS with garbage KVS keys\n"
 
 	"\n"
 	"IDS\n"

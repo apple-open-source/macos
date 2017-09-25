@@ -521,7 +521,7 @@ AP_CORE_DECLARE(void) ap_parse_uri(request_rec *r, const char *uri)
      *
      * This is not in fact a URI, it's a path.  That matters in the
      * case of a leading double-slash.  We need to resolve the issue
-     * by normalising that out before treating it as a URI.
+     * by normalizing that out before treating it as a URI.
      */
     while ((uri[0] == '/') && (uri[1] == '/')) {
         ++uri ;
@@ -751,7 +751,7 @@ static int read_request_line(request_rec *r, apr_bucket_brigade *bb)
     *((char *)r->protocol + len) = '\0';
 
 rrl_done:
-    /* For internal integrety and palloc efficiency, reconstruct the_request
+    /* For internal integrity and palloc efficiency, reconstruct the_request
      * in one palloc, using only single SP characters, per spec.
      */
     r->the_request = apr_pstrcat(r->pool, r->method, *uri ? " " : NULL, uri,
@@ -794,7 +794,7 @@ rrl_done:
     }
 
     /* Determine the method_number and parse the uri prior to invoking error
-     * handling, such that these fields are available for subsitution
+     * handling, such that these fields are available for substitution
      */
     r->method_number = ap_method_number_of(r->method);
     if (r->method_number == M_GET && r->method[0] == 'H')
@@ -1059,7 +1059,7 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
         else if (last_field != NULL) {
 
             /* Process the previous last_field header line with all obs-folded
-             * segments already concatinated (this is not operating on the
+             * segments already concatenated (this is not operating on the
              * most recently read input line).
              */
 
@@ -1088,8 +1088,12 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
                     return;
                 }
 
-                /* last character of field-name */
-                tmp_field = value - (value > last_field ? 1 : 0);
+                if (value == last_field) {
+                    r->status = HTTP_BAD_REQUEST;
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03453)
+                                  "Request header field name was empty");
+                    return;
+                }
 
                 *value++ = '\0'; /* NUL-terminate at colon */
 
@@ -1110,13 +1114,6 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
                     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03451)
                                   "Request header field value presented"
                                   " bad whitespace");
-                    return;
-                }
-
-                if (tmp_field == last_field) {
-                    r->status = HTTP_BAD_REQUEST;
-                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03453)
-                                  "Request header field name was empty");
                     return;
                 }
             }
@@ -1593,11 +1590,59 @@ AP_DECLARE(int) ap_get_basic_auth_pw(request_rec *r, const char **pw)
 
     t = ap_pbase64decode(r->pool, auth_line);
     r->user = ap_getword_nulls (r->pool, &t, ':');
+    apr_table_setn(r->notes, AP_GET_BASIC_AUTH_PW_NOTE, "1");
     r->ap_auth_type = "Basic";
 
     *pw = t;
 
     return OK;
+}
+
+AP_DECLARE(apr_status_t) ap_get_basic_auth_components(const request_rec *r,
+                                                      const char **username,
+                                                      const char **password)
+{
+    const char *auth_header;
+    const char *credentials;
+    const char *decoded;
+    const char *user;
+
+    auth_header = (PROXYREQ_PROXY == r->proxyreq) ? "Proxy-Authorization"
+                                                  : "Authorization";
+    credentials = apr_table_get(r->headers_in, auth_header);
+
+    if (!credentials) {
+        /* No auth header. */
+        return APR_EINVAL;
+    }
+
+    if (ap_cstr_casecmp(ap_getword(r->pool, &credentials, ' '), "Basic")) {
+        /* These aren't Basic credentials. */
+        return APR_EINVAL;
+    }
+
+    while (*credentials == ' ' || *credentials == '\t') {
+        credentials++;
+    }
+
+    /* XXX Our base64 decoding functions don't actually error out if the string
+     * we give it isn't base64; they'll just silently stop and hand us whatever
+     * they've parsed up to that point.
+     *
+     * Since this function is supposed to be a drop-in replacement for the
+     * deprecated ap_get_basic_auth_pw(), don't fix this for 2.4.x.
+     */
+    decoded = ap_pbase64decode(r->pool, credentials);
+    user = ap_getword_nulls(r->pool, &decoded, ':');
+
+    if (username) {
+        *username = user;
+    }
+    if (password) {
+        *password = decoded;
+    }
+
+    return APR_SUCCESS;
 }
 
 struct content_length_ctx {
@@ -2016,12 +2061,27 @@ typedef struct hdr_ptr {
     ap_filter_t *f;
     apr_bucket_brigade *bb;
 } hdr_ptr;
+ 
+#if APR_CHARSET_EBCDIC
 static int send_header(void *data, const char *key, const char *val)
 {
-    ap_fputstrs(((hdr_ptr*)data)->f, ((hdr_ptr*)data)->bb,
-                key, ": ", val, CRLF, NULL);
+    char *header_line = NULL;
+    hdr_ptr *hdr = (hdr_ptr*)data;
+
+    header_line = apr_pstrcat(hdr->bb->p, key, ": ", val, CRLF, NULL);
+    ap_xlate_proto_to_ascii(header_line, strlen(header_line));
+    ap_fputs(hdr->f, hdr->bb, header_line);
     return 1;
 }
+#else
+static int send_header(void *data, const char *key, const char *val)
+{
+     ap_fputstrs(((hdr_ptr*)data)->f, ((hdr_ptr*)data)->bb,
+                 key, ": ", val, CRLF, NULL);
+     return 1;
+ }
+#endif
+
 AP_DECLARE(void) ap_send_interim_response(request_rec *r, int send_headers)
 {
     hdr_ptr x;

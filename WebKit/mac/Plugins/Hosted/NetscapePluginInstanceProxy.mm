@@ -41,6 +41,7 @@
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
+#import <JavaScriptCore/CatchScope.h>
 #import <JavaScriptCore/Completion.h>
 #import <JavaScriptCore/Error.h>
 #import <JavaScriptCore/JSLock.h>
@@ -81,9 +82,9 @@ namespace WebKit {
 
 class NetscapePluginInstanceProxy::PluginRequest : public RefCounted<NetscapePluginInstanceProxy::PluginRequest> {
 public:
-    static PassRefPtr<PluginRequest> create(uint32_t requestID, NSURLRequest* request, NSString* frameName, bool allowPopups)
+    static Ref<PluginRequest> create(uint32_t requestID, NSURLRequest* request, NSString* frameName, bool allowPopups)
     {
-        return adoptRef(new PluginRequest(requestID, request, frameName, allowPopups));
+        return adoptRef(*new PluginRequest(requestID, request, frameName, allowPopups));
     }
 
     uint32_t requestID() const { return m_requestID; }
@@ -246,11 +247,11 @@ NetscapePluginInstanceProxy::NetscapePluginInstanceProxy(NetscapePluginHostProxy
 #endif
 }
 
-PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginInstanceProxy::create(NetscapePluginHostProxy* pluginHostProxy, WebHostedNetscapePluginView *pluginView, bool fullFramePlugin)
+Ref<NetscapePluginInstanceProxy> NetscapePluginInstanceProxy::create(NetscapePluginHostProxy* pluginHostProxy, WebHostedNetscapePluginView *pluginView, bool fullFramePlugin)
 {
     auto proxy = adoptRef(*new NetscapePluginInstanceProxy(pluginHostProxy, pluginView, fullFramePlugin));
     pluginHostProxy->addPluginInstance(proxy.ptr());
-    return WTFMove(proxy);
+    return proxy;
 }
 
 NetscapePluginInstanceProxy::~NetscapePluginInstanceProxy()
@@ -359,11 +360,11 @@ void NetscapePluginInstanceProxy::destroy()
     invalidate();
 }
 
-void NetscapePluginInstanceProxy::setManualStream(PassRefPtr<HostedNetscapePluginStream> manualStream) 
+void NetscapePluginInstanceProxy::setManualStream(Ref<HostedNetscapePluginStream>&& manualStream)
 {
     ASSERT(!m_manualStream);
     
-    m_manualStream = manualStream;
+    m_manualStream = WTFMove(manualStream);
 }
 
 bool NetscapePluginInstanceProxy::cancelStreamLoad(uint32_t streamID, NPReason reason) 
@@ -744,7 +745,7 @@ void NetscapePluginInstanceProxy::requestTimerFired()
     m_pluginRequests.removeFirst();
     
     if (!m_pluginRequests.isEmpty())
-        m_requestTimer.startOneShot(0);
+        m_requestTimer.startOneShot(0_s);
     
     performRequest(request.get());
 }
@@ -782,7 +783,7 @@ NPError NetscapePluginInstanceProxy::loadRequest(NSURLRequest *request, const ch
             return NPERR_GENERIC_ERROR;
         }
     } else {
-        if (!core([m_pluginView webFrame])->document()->securityOrigin()->canDisplay(URL))
+        if (!core([m_pluginView webFrame])->document()->securityOrigin().canDisplay(URL))
             return NPERR_GENERIC_ERROR;
     }
     
@@ -800,7 +801,7 @@ NPError NetscapePluginInstanceProxy::loadRequest(NSURLRequest *request, const ch
 
         auto pluginRequest = PluginRequest::create(requestID, request, target, allowPopups);
         m_pluginRequests.append(WTFMove(pluginRequest));
-        m_requestTimer.startOneShot(0);
+        m_requestTimer.startOneShot(0_s);
     } else {
         RefPtr<HostedNetscapePluginStream> stream = HostedNetscapePluginStream::create(this, requestID, request);
 
@@ -841,7 +842,7 @@ bool NetscapePluginInstanceProxy::getWindowNPObject(uint32_t& objectID)
     if (!frame->script().canExecuteScripts(NotAboutToExecuteScript))
         objectID = 0;
     else
-        objectID = m_localObjects.idForObject(pluginWorld().vm(), frame->script().windowShell(pluginWorld())->window());
+        objectID = m_localObjects.idForObject(pluginWorld().vm(), frame->script().windowProxy(pluginWorld())->window());
         
     return true;
 }
@@ -891,7 +892,7 @@ bool NetscapePluginInstanceProxy::evaluate(uint32_t objectID, const String& scri
 
     UserGestureIndicator gestureIndicator(allowPopups ? std::optional<ProcessingUserGestureState>(ProcessingUserGesture) : std::nullopt);
     
-    JSValue result = JSC::evaluate(exec, makeSource(script));
+    JSValue result = JSC::evaluate(exec, JSC::makeSource(script, { }));
     
     marshalValue(exec, result, resultData, resultLength);
     scope.clearException();
@@ -1299,7 +1300,8 @@ bool NetscapePluginInstanceProxy::enumerate(uint32_t objectID, data_t& resultDat
 
 static bool getObjectID(NetscapePluginInstanceProxy* pluginInstanceProxy, JSObject* object, uint64_t& objectID)
 {
-    if (object->classInfo() != ProxyRuntimeObject::info())
+    JSC::VM& vm = *object->vm();
+    if (object->classInfo(vm) != ProxyRuntimeObject::info())
         return false;
 
     ProxyRuntimeObject* runtimeObject = static_cast<ProxyRuntimeObject*>(object);
@@ -1414,9 +1416,6 @@ bool NetscapePluginInstanceProxy::demarshalValueFromArray(ExecState* exec, NSArr
                 return false;
 
             auto rootObject = frame->script().createRootObject(m_pluginView);
-            if (!rootObject)
-                return false;
-            
             result = ProxyInstance::create(WTFMove(rootObject), this, objectID)->createRuntimeObject(exec);
             return true;
         }
@@ -1454,7 +1453,7 @@ void NetscapePluginInstanceProxy::demarshalValues(ExecState* exec, data_t values
 
 void NetscapePluginInstanceProxy::retainLocalObject(JSC::JSValue value)
 {
-    if (!value.isObject() || value.inherits(ProxyRuntimeObject::info()))
+    if (!value.isObject() || value.inherits(*value.getObject()->vm(), ProxyRuntimeObject::info()))
         return;
 
     m_localObjects.retain(asObject(value));
@@ -1462,13 +1461,13 @@ void NetscapePluginInstanceProxy::retainLocalObject(JSC::JSValue value)
 
 void NetscapePluginInstanceProxy::releaseLocalObject(JSC::JSValue value)
 {
-    if (!value.isObject() || value.inherits(ProxyRuntimeObject::info()))
+    if (!value.isObject() || value.inherits(*value.getObject()->vm(), ProxyRuntimeObject::info()))
         return;
 
     m_localObjects.release(asObject(value));
 }
 
-PassRefPtr<Instance> NetscapePluginInstanceProxy::createBindingsInstance(PassRefPtr<RootObject> rootObject)
+RefPtr<Instance> NetscapePluginInstanceProxy::createBindingsInstance(Ref<RootObject>&& rootObject)
 {
     uint32_t requestID = nextRequestID();
     
@@ -1483,7 +1482,7 @@ PassRefPtr<Instance> NetscapePluginInstanceProxy::createBindingsInstance(PassRef
         return nullptr;
 
     // Since the reply was non-null, "this" is still a valid pointer.
-    return ProxyInstance::create(rootObject, this, reply->m_objectID);
+    return ProxyInstance::create(WTFMove(rootObject), this, reply->m_objectID);
 }
 
 void NetscapePluginInstanceProxy::addInstance(ProxyInstance* instance)

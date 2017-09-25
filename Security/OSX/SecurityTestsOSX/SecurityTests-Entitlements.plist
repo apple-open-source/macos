@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.private.keychain.sysbound</key>
+	<true/>
+	<key>com.apple.security.attestation.access</key>
+	<true/>
 	<key>keychain-cloud-circle</key>
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>
@@ -30,6 +34,7 @@
 		<string>com.apple.security.sos</string>
 		<string>123456.test.group</string>
 		<string>123456.test.group2</string>
+		<string>com.apple.bluetooth</string>
 	</array>
 	<key>com.apple.private.ubiquity-kvstore-access</key>
 	<array>

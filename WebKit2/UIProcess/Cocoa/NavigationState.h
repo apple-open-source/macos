@@ -32,6 +32,7 @@
 #import "APIHistoryClient.h"
 #import "APINavigationClient.h"
 #import "PageLoadState.h"
+#import "ProcessTerminationReason.h"
 #import "ProcessThrottler.h"
 #import "WeakObjCPtr.h"
 #import <wtf/RetainPtr.h>
@@ -75,6 +76,9 @@ public:
     void navigationGestureDidEnd(bool willNavigate, WebBackForwardListItem&);
     void willRecordNavigationSnapshot(WebBackForwardListItem&);
     void navigationGestureSnapshotWasRemoved();
+#if USE(QUICK_LOOK)
+    void didRequestPasswordForQuickLookDocument();
+#endif
 
     void didFirstPaint();
 
@@ -87,6 +91,7 @@ private:
     private:
         void didStartProvisionalNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
         void didReceiveServerRedirectForProvisionalNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
+        void didPerformClientRedirectForNavigation(WebPageProxy&, API::Navigation*) override;
         void didFailProvisionalNavigationWithError(WebPageProxy&, WebFrameProxy&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
         void didFailProvisionalLoadInSubframeWithError(WebPageProxy&, WebFrameProxy&, const WebCore::SecurityOriginData&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
         void didCommitNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
@@ -99,7 +104,7 @@ private:
 
         bool canAuthenticateAgainstProtectionSpace(WebPageProxy&, WebProtectionSpace*) override;
         void didReceiveAuthenticationChallenge(WebPageProxy&, AuthenticationChallengeProxy*) override;
-        void processDidCrash(WebPageProxy&) override;
+        void processDidTerminate(WebPageProxy&, ProcessTerminationReason) override;
         void processDidBecomeResponsive(WebPageProxy&) override;
         void processDidBecomeUnresponsive(WebPageProxy&) override;
 
@@ -168,6 +173,7 @@ private:
         bool webViewDidReceiveServerRedirectForProvisionalNavigation : 1;
         bool webViewDidFailProvisionalNavigationWithError : 1;
         bool webViewNavigationDidFailProvisionalLoadInSubframeWithError : 1;
+        bool webViewDidPerformClientRedirectForNavigation : 1;
         bool webViewDidCommitNavigation : 1;
         bool webViewNavigationDidFinishDocumentLoad : 1;
         bool webViewDidFinishNavigation : 1;
@@ -191,6 +197,7 @@ private:
 #if USE(QUICK_LOOK)
         bool webViewDidStartLoadForQuickLookDocumentInMainFrame : 1;
         bool webViewDidFinishLoadForQuickLookDocumentInMainFrame : 1;
+        bool webViewDidRequestPasswordForQuickLookDocument : 1;
 #endif
     } m_navigationDelegateMethods;
 

@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <sys/param.h>
 #include <libkern/OSByteOrder.h>
+#include <utilities/SecCFRelease.h>
 
 #include "readline_cssm.h"
 
@@ -72,7 +73,7 @@ void check_obsolete_keychain(const char *kcName)
 	}
 }
 
-SecKeychainRef
+SecKeychainRef CF_RETURNS_RETAINED
 keychain_open(const char *name)
 {
 	SecKeychainRef keychain = NULL;
@@ -115,11 +116,15 @@ keychain_open(const char *name)
 					return keychain;
 				}
 			}
-			CFRelease(dynamic);
+			CFReleaseNull(dynamic);
 		}
 	}
 
-	result = SecKeychainOpen(name, &keychain);
+    if(name) {
+        result = SecKeychainOpen(name, &keychain);
+    } else {
+        result = errSecParam;
+    }
 	if (result)
 	{
 		sec_error("SecKeychainOpen %s: %s", name, sec_errstr(result));
@@ -788,34 +793,34 @@ print_buffer_ascii(FILE *stream, size_t length, const void *data)
 void
 print_buffer(FILE *stream, size_t length, const void *data)
 {
-	uint8 *p = (uint8 *) data;
-	Boolean hex = FALSE;
-	Boolean ascii = FALSE;
-	UInt32 ix;
-	for (ix = 0; ix < length; ++ix)
-	{
-		int ch = *p++;
-		if (ch >= ' ' && ch <= '~' && ch != '\\')
-			ascii = TRUE;
-		else
-			hex = TRUE;
-	}
+    uint8 *p = (uint8 *) data;
+    Boolean hex = FALSE;
+    Boolean ascii = FALSE;
+    UInt32 ix;
+    for (ix = 0; ix < length; ++ix)
+    {
+        int ch = *p++;
+        if (ch >= ' ' && ch <= '~' && ch != '\\')
+            ascii = TRUE;
+        else
+            hex = TRUE;
+    }
 
-	if (hex)
-	{
-		fputc('0', stream);
-		fputc('x', stream);
-		print_buffer_hex(stream, length, data);
-		if (ascii)
-			fputc(' ', stream);
-			fputc(' ', stream);
-	}
-	if (ascii)
-	{
-		fputc('"', stream);
-		print_buffer_ascii(stream, length, data);
-		fputc('"', stream);
-	}
+    if (hex)
+    {
+        fputc('0', stream);
+        fputc('x', stream);
+        print_buffer_hex(stream, length, data);
+        if (ascii)
+            fputc(' ', stream);
+        fputc(' ', stream);
+    }
+    if (ascii)
+    {
+        fputc('"', stream);
+        print_buffer_ascii(stream, length, data);
+        fputc('"', stream);
+    }
 }
 
 void
@@ -849,7 +854,7 @@ fromHex(const char *hexDigits, CSSM_DATA *data)
 	}
 }
 
-CFDataRef
+CFDataRef CF_RETURNS_RETAINED
 cfFromHex(CFStringRef hex) {
     // behavior is undefined if you pass in a non-hex string. Don't do that.
     char* chex;
@@ -865,7 +870,7 @@ cfFromHex(CFStringRef hex) {
     CFDataIncreaseLength(bin, bytes);
 
     if(!bin || (size_t) CFDataGetLength(bin) != bytes) {
-        safe_CFRelease(bin);
+        CFReleaseNull(bin);
         return NULL;
     }
 
@@ -877,7 +882,7 @@ cfFromHex(CFStringRef hex) {
     return bin;
 }
 
-CFStringRef cfToHex(CFDataRef bin) {
+CFStringRef CF_RETURNS_RETAINED cfToHex(CFDataRef bin) {
     size_t len = CFDataGetLength(bin) * 2;
     CFMutableStringRef str = CFStringCreateMutable(NULL, len);
 
@@ -914,7 +919,7 @@ GetCStringFromCFString(CFStringRef cfstring, char** cstr, size_t* len) {
     *len = strnlen(*cstr, strLen);
 }
 
-CFDictionaryRef makeCFDictionaryFromData(CFDataRef data)
+CFDictionaryRef CF_RETURNS_RETAINED makeCFDictionaryFromData(CFDataRef data)
 {
     if (data) {
         CFPropertyListRef plist = CFPropertyListCreateFromXMLData(NULL, data, kCFPropertyListImmutable, NULL);

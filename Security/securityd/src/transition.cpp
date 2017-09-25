@@ -327,7 +327,10 @@ kern_return_t ucsp_server_openToken(UCSP_ARGS, uint32 ssid, FilePath name,
 {
 	BEGIN_IPC(openToken)
 	CopyOutAccessCredentials creds(accessCredentials, accessCredentialsLength);
+// The static analyzer is not a fan of this "create object, send handle to foreign process" model. Tell it not to worry.
+#ifndef __clang_analyzer__
 	*db = (new TokenDatabase(ssid, connection.process(), name, creds))->handle();
+#endif
 	END_IPC(DL)
 }
 
@@ -538,7 +541,9 @@ kern_return_t ucsp_server_createDb(UCSP_ARGS, DbHandle *db,
 	CopyOutAccessCredentials creds(cred, credLength);
 	CopyOutEntryAcl owneracl(owner, ownerLength);
 	CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
+#ifndef __clang_analyzer__
 	*db = (new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), params, connection.process(), creds, owneracl))->handle();
+#endif
 	END_IPC(DL)
 }
 
@@ -552,9 +557,11 @@ kern_return_t ucsp_server_cloneDb(UCSP_ARGS, DbHandle srcDb, DATA_IN(ident), DbH
     RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
     secnotice("integrity", "cloning db %d", srcKC->handle());
 
+#ifndef __clang_analyzer__
     KeychainDatabase* newKC = new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), *srcKC, connection.process());
     secnotice("integrity", "returning db %d", newKC->handle());
     *newDb = newKC->handle();
+#endif
 
     END_IPC(DL)
 }
@@ -564,7 +571,9 @@ kern_return_t ucsp_server_recodeDbForSync(UCSP_ARGS, DbHandle dbToClone,
 {
 	BEGIN_IPC(recodeDbForSync)
 	RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
+#ifndef __clang_analyzer__
 	*newDb = (new KeychainDatabase(*srcKC, connection.process(), dbToClone))->handle();
+#endif
 	END_IPC(DL)
 }
 
@@ -650,8 +659,10 @@ kern_return_t ucsp_server_decodeDb(UCSP_ARGS, DbHandle *db,
 	DLDbFlatIdentifier* flatID = (DLDbFlatIdentifier*) flatident.data();
 	DLDbIdentifier id = *flatID; // invokes a casting operator
 
+#ifndef __clang_analyzer__
 	*db = (new KeychainDatabase(id, SSBLOB(DbBlob, blob),
         connection.process(), creds))->handle();
+#endif
 	END_IPC(DL)
 }
 

@@ -1,14 +1,24 @@
-require 'minitest/autorun'
+# frozen_string_literal: false
+require 'test/unit'
 require 'xmlrpc/client'
 require 'net/http'
+begin
+  require 'openssl'
+rescue LoadError
+end
 
 module XMLRPC
-  class ClientTest < MiniTest::Unit::TestCase
+  class ClientTest < Test::Unit::TestCase
     module Fake
-      class HTTP
-        attr_accessor :read_timeout, :open_timeout, :use_ssl
+      class HTTP < Net::HTTP
+        class << self
+          def new(*args, &block)
+            Class.method(:new).unbind.bind(self).call(*args, &block)
+          end
+        end
 
         def initialize responses = {}
+          super("127.0.0.1")
           @started = false
           @responses = responses
         end
@@ -16,6 +26,7 @@ module XMLRPC
         def started?
           @started
         end
+
         def start
           @started = true
           if block_given?
@@ -111,6 +122,7 @@ module XMLRPC
       assert_equal 'example.org', host
       assert_equal '/foo', path
       assert_equal 1234, port
+      assert use_ssl
 
       refute proxy_host
       refute proxy_port
@@ -176,13 +188,13 @@ module XMLRPC
     end
 
     def test_new2_bad_protocol
-      assert_raises(ArgumentError) do
+      assert_raise(ArgumentError) do
         XMLRPC::Client.new2 'ftp://example.org'
       end
     end
 
     def test_new2_bad_uri
-      assert_raises(ArgumentError) do
+      assert_raise(ArgumentError) do
         XMLRPC::Client.new2 ':::::'
       end
     end
@@ -277,6 +289,24 @@ module XMLRPC
       resp = client.call('wp.getUsersBlogs', 'tlo', 'omg')
 
       assert_equal 1, resp.first['blogid']
+    end
+
+    def test_cookie_simple
+      client = Fake::Client.new2('http://example.org/cookie')
+      assert_nil(client.cookie)
+      client.send(:parse_set_cookies, ["param1=value1", "param2=value2"])
+      assert_equal("param1=value1; param2=value2", client.cookie)
+    end
+
+    def test_cookie_override
+      client = Fake::Client.new2('http://example.org/cookie')
+      client.send(:parse_set_cookies,
+                  [
+                    "param1=value1",
+                    "param2=value2",
+                    "param1=value3",
+                  ])
+      assert_equal("param2=value2; param1=value3", client.cookie)
     end
 
     private

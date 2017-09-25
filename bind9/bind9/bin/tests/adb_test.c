@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: adb_test.c,v 1.70.346.2 2011/08/30 23:45:51 tbox Exp $ */
+/* $Id: adb_test.c,v 1.73 2011/08/30 23:46:51 tbox Exp $ */
 
 /*! \file */
 
@@ -216,7 +216,7 @@ create_view(void) {
 			      == ISC_R_SUCCESS);
 		INSIST(disp6 != NULL);
 
-		RUNTIME_CHECK(dns_view_createresolver(view, taskmgr, 10,
+		RUNTIME_CHECK(dns_view_createresolver(view, taskmgr, 10, 1,
 						      socketmgr,
 						      timermgr, 0,
 						      dispatchmgr,
@@ -245,7 +245,7 @@ lookup(const char *target) {
 	INSIST(target != NULL);
 
 	client = new_client();
-	isc_buffer_init(&t, target, strlen(target));
+	isc_buffer_constinit(&t, target, strlen(target));
 	isc_buffer_add(&t, strlen(target));
 	isc_buffer_init(&namebuf, namedata, sizeof(namedata));
 	dns_name_init(&name, NULL);

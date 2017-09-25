@@ -55,7 +55,11 @@
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
 #   define __APPLE_API_PRIVATE
 #   include <machine/cpu_capabilities.h>
-#   define _COMM_PAGE_VERSION_REQD 9
+#   if defined(__i386__) || defined(__x86_64__)
+#      define _COMM_PAGE_VERSION_REQD 9
+#   else
+#      define _COMM_PAGE_VERSION_REQD 3
+#   endif
 #   undef __APPLE_API_PRIVATE
 #else
 #   include <sys/sysctl.h>
@@ -110,6 +114,8 @@
 #define MALLOC_PURGEABLE (1 << 5)
 // call abort() on malloc errors, but not on out of memory.
 #define MALLOC_ABORT_ON_CORRUPTION (1 << 6)
+// expanded small-zone free list size (256 slots)
+#define MALLOC_EXTENDED_SMALL_SLOTS (1 << 7)
 
 /*
  * msize - a type to refer to the number of quanta of a tiny or small
@@ -121,6 +127,7 @@ typedef unsigned short msize_t;
 typedef unsigned int grain_t; // N.B. wide enough to index all free slots
 typedef struct large_entry_s large_entry_t;
 typedef struct szone_s szone_t;
+typedef struct rack_s rack_t;
 typedef struct magazine_s magazine_t;
 typedef int mag_index_t;
 typedef void *region_t;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,32 +29,27 @@
 #include <sys/cdefs.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
-#include "SCNetworkReachabilityInternal.h"
 #include <arpa/inet.h>
 
 #include <dnsinfo.h>
 #include "dnsinfo_private.h"
 
+#define	DNS_CONFIG_BUF_MAX	1024*1024
 
 __BEGIN_DECLS
 
-
 #ifndef	my_log
-#define	MY_LOG_DEFINED_LOCALLY
 #define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
+#define	MY_LOG_DEFINED_LOCALLY
 #endif	// !my_log
-
-
-#define	DNS_CONFIG_BUF_MAX	1024*1024
-
 
 /*
  * claim space for a list [of pointers] from the expanded DNS configuration padding
  */
 static __inline__ boolean_t
-__dns_configuration_expand_add_list(void **padding, uint32_t *n_padding, int32_t count, int32_t size, void **list)
+__dns_configuration_expand_add_list(void **padding, uint32_t *n_padding, uint32_t count, uint32_t size, void **list)
 {
-	int32_t	need;
+	uint32_t	need;
 
 	need = count * size;
 	if (need > *n_padding) {
@@ -79,6 +74,7 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 	int32_t			n_nameserver    = 0;
 	int32_t			n_search	= 0;
 	int32_t			n_sortaddr      = 0;
+	void			*ptr;
 	dns_resolver_t		*resolver	= (dns_resolver_t *)&buf->resolver;
 
 	if (n_buf < sizeof(_dns_resolver_buf_t)) {
@@ -96,9 +92,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 						 n_padding,
 						 resolver->n_nameserver,
 						 sizeof(DNS_PTR(struct sockaddr *, x)),
-						 (void **)&resolver->nameserver)) {
+						 &ptr)) {
 		goto error;
 	}
+	resolver->nameserver = ptr;
 
 	// initialize port
 
@@ -111,9 +108,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 						 n_padding,
 						 resolver->n_search,
 						 sizeof(DNS_PTR(char *, x)),
-						 (void **)&resolver->search)) {
+						 &ptr)) {
 		goto error;
 	}
+	resolver->search = ptr;
 
 	// initialize sortaddr list
 
@@ -122,9 +120,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 						 n_padding,
 						 resolver->n_sortaddr,
 						 sizeof(DNS_PTR(dns_sortaddr_t *, x)),
-						 (void **)&resolver->sortaddr)) {
+						 &ptr)) {
 		goto error;
 	}
+	resolver->sortaddr = ptr;
 
 	// initialize options
 
@@ -200,6 +199,10 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 				resolver->cid = (char *)&attribute->attribute[0];
 				break;
 
+			case RESOLVER_ATTRIBUTE_INTERFACE_NAME :
+				resolver->if_name = (char *)&attribute->attribute[0];
+				break;
+
 			default :
 				break;
 		}
@@ -223,10 +226,100 @@ _dns_configuration_expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, voi
 
 
 /*
+ * initialize a DNS "configuration" buffer
+ */
+static __inline__ _dns_config_buf_t *
+_dns_configuration_buffer_create(const void *dataRef, size_t dataLen)
+{
+	uint8_t			*buf = NULL;
+	size_t			bufLen;
+	_dns_config_buf_t       *config         = (_dns_config_buf_t *)dataRef;
+	size_t			configLen;
+	uint32_t                n_attribute	= ntohl(config->n_attribute);
+	uint32_t		n_padding       = ntohl(config->n_padding);
+
+	/*
+	 * Check that the size of the configuration header plus the size of the
+	 * attribute data matches the size of the configuration buffer.
+	 *
+	 * If the sizes are different, something that should NEVER happen, CRASH!
+	 */
+	configLen = sizeof(_dns_config_buf_t) + n_attribute;
+#ifdef	DEBUG
+	assert(configLen == dataLen);
+#else	// DEBUG
+	if (configLen != dataLen) {
+		my_log(LOG_ERR, "DNS configuration: size error (%zu != %zu)", configLen, dataLen);
+		return NULL;
+	}
+#endif	// DEBUG
+
+	/*
+	 * Check that the size of the requested padding would not result in our
+	 * allocating a configuration + padding buffer larger than our maximum size.
+	 *
+	 * If the requested padding size is too large, something that should NEVER
+	 * happen, CRASH!
+	 */
+#ifdef	DEBUG
+	assert(n_padding <= (DNS_CONFIG_BUF_MAX - dataLen));
+#else	// DEBUG
+	if (n_padding > (DNS_CONFIG_BUF_MAX - dataLen)) {
+		my_log(LOG_ERR, "DNS configuration: padding error (%u > %zu)",
+		       n_padding,
+		       (DNS_CONFIG_BUF_MAX - dataLen));
+		return NULL;
+	}
+#endif	// DEBUG
+
+	/*
+	 * Check that the actual size of the configuration data and any requested
+	 * padding will be less than the maximum possible size of the in-memory
+	 * configuration buffer.
+	 *
+	 * If the length needed is too large, something that should NEVER happen, CRASH!
+	 */
+	bufLen = dataLen + n_padding;
+#ifdef	DEBUG
+	assert(bufLen <= DNS_CONFIG_BUF_MAX);
+#else	// DEBUG
+	if (bufLen > DNS_CONFIG_BUF_MAX) {
+		my_log(LOG_ERR, "DNS configuration: length error (%zu > %u)",
+		       bufLen,
+		       DNS_CONFIG_BUF_MAX);
+		return NULL;
+	}
+#endif	// DEBUG
+
+	// allocate a buffer large enough to hold both the configuration
+	// data and the padding.
+	buf = malloc(bufLen);
+	bcopy((void *)dataRef, buf, dataLen);
+	bzero(&buf[dataLen], n_padding);
+
+	return (_dns_config_buf_t *)(void *)buf;
+}
+
+
+/*
+ * expand a DNS "configuration" from the provided buffer
+ */
+static __inline__ void
+_dns_configuration_buffer_free(_dns_config_buf_t **buf)
+{
+	_dns_config_buf_t	*config	= (_dns_config_buf_t *)*buf;
+
+	free(config);
+	*buf = NULL;
+	return;
+}
+
+
+/*
  * expand a DNS "configuration" from the provided buffer
  */
 static __inline__ dns_config_t *
-_dns_configuration_expand_config(_dns_config_buf_t *buf)
+_dns_configuration_buffer_expand(_dns_config_buf_t *buf)
 {
 	dns_attribute_t		*attribute;
 	dns_config_t		*config			= (dns_config_t *)buf;
@@ -236,6 +329,7 @@ _dns_configuration_expand_config(_dns_config_buf_t *buf)
 	int32_t			n_scoped_resolver	= 0;
 	int32_t			n_service_specific_resolver	= 0;
 	void			*padding;
+	void			*ptr;
 
 	n_attribute = ntohl(buf->n_attribute);	// pre-validated (or known OK) at entry
 	n_padding   = ntohl(buf->n_padding);	// pre-validated (or known OK) at entry
@@ -251,27 +345,30 @@ _dns_configuration_expand_config(_dns_config_buf_t *buf)
 						 &n_padding,
 						 config->n_resolver,
 						 sizeof(DNS_PTR(dns_resolver_t *, x)),
-						 (void **)&config->resolver)) {
+						 &ptr)) {
 		goto error;
 	}
+	config->resolver = ptr;
 
 	config->n_scoped_resolver = ntohl(config->n_scoped_resolver);
 	if (!__dns_configuration_expand_add_list(&padding,
 						 &n_padding,
 						 config->n_scoped_resolver,
 						 sizeof(DNS_PTR(dns_resolver_t *, x)),
-						 (void **)&config->scoped_resolver)) {
+						 &ptr)) {
 		goto error;
 	}
+	config->scoped_resolver = ptr;
 
 	config->n_service_specific_resolver = ntohl(config->n_service_specific_resolver);
 	if (!__dns_configuration_expand_add_list(&padding,
 						 &n_padding,
 						 config->n_service_specific_resolver,
 						 sizeof(DNS_PTR(dns_resolver_t *, x)),
-						 (void **)&config->service_specific_resolver)) {
+						 &ptr)) {
 		goto error;
 	}
+	config->service_specific_resolver = ptr;
 
 	// process configuration buffer "attribute" data
 
@@ -346,165 +443,10 @@ _dns_configuration_expand_config(_dns_config_buf_t *buf)
 	return NULL;
 }
 
-
-static __inline__ void
-_dns_resolver_log(dns_resolver_t *resolver, int index, Boolean debug)
-{
-	int			i;
-	uint32_t		flags;
-	CFMutableStringRef	str;
-
-	my_log(LOG_INFO, " ");
-	my_log(LOG_INFO, "resolver #%d", index);
-
-	if (resolver->domain != NULL) {
-		my_log(LOG_INFO, "  domain   : %s", resolver->domain);
-	}
-
-	for (i = 0; i < resolver->n_search; i++) {
-		my_log(LOG_INFO, "  search domain[%d] : %s", i, resolver->search[i]);
-	}
-
-	for (i = 0; i < resolver->n_nameserver; i++) {
-		char	buf[128];
-
-		_SC_sockaddr_to_string(resolver->nameserver[i], buf, sizeof(buf));
-		my_log(LOG_INFO, "  nameserver[%d] : %s", i, buf);
-	}
-
-	for (i = 0; i < resolver->n_sortaddr; i++) {
-		char	abuf[32];
-		char	mbuf[32];
-
-		(void)inet_ntop(AF_INET, &resolver->sortaddr[i]->address, abuf, sizeof(abuf));
-		(void)inet_ntop(AF_INET, &resolver->sortaddr[i]->mask,    mbuf, sizeof(mbuf));
-		my_log(LOG_INFO, "  sortaddr[%d] : %s/%s", i, abuf, mbuf);
-	}
-
-	if (resolver->options != NULL) {
-		my_log(LOG_INFO, "  options  : %s", resolver->options);
-	}
-
-	if (resolver->port != 0) {
-		my_log(LOG_INFO, "  port     : %hd", resolver->port);
-	}
-
-	if (resolver->timeout != 0) {
-		my_log(LOG_INFO, "  timeout  : %d", resolver->timeout);
-	}
-
-	if (resolver->if_index != 0) {
-		char	buf[IFNAMSIZ];
-		char	*if_name;
-
-		if_name = if_indextoname(resolver->if_index, buf);
-		my_log(LOG_INFO, "  if_index : %d (%s)",
-			resolver->if_index,
-			(if_name != NULL) ? if_name : "?");
-	}
-
-	if (resolver->service_identifier != 0) {
-		my_log(LOG_INFO, "  service_identifier : %d",
-			resolver->service_identifier);
-	}
-
-	flags = resolver->flags;
-	str = CFStringCreateMutable(NULL, 0);
-	CFStringAppend(str, CFSTR("  flags    : "));
-	if (debug) {
-		CFStringAppendFormat(str, NULL, CFSTR("0x%08x ("), flags);
-	}
-	if (flags & DNS_RESOLVER_FLAGS_SCOPED) {
-		flags &= ~DNS_RESOLVER_FLAGS_SCOPED;
-		CFStringAppendFormat(str, NULL, CFSTR("Scoped%s"), flags != 0 ? ", " : "");
-	}
-	if (flags & DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC) {
-		flags &= ~DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
-		CFStringAppendFormat(str, NULL, CFSTR("Service-specific%s"), flags != 0 ? ", " : "");
-	}
-	if (flags & DNS_RESOLVER_FLAGS_SUPPLEMENTAL) {
-		flags &= ~DNS_RESOLVER_FLAGS_SUPPLEMENTAL;
-		CFStringAppendFormat(str, NULL, CFSTR("Supplemental%s"), flags != 0 ? ", " : "");
-	}
-	if (flags & DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS) {
-		flags &= ~DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS;
-		CFStringAppendFormat(str, NULL, CFSTR("Request A records%s"), flags != 0 ? ", " : "");
-	}
-	if (flags & DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS) {
-		flags &= ~DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS;
-		CFStringAppendFormat(str, NULL, CFSTR("Request AAAA records%s"), flags != 0 ? ", " : "");
-	}
-	if (flags != 0) {
-		CFStringAppendFormat(str, NULL, CFSTR("0x%08x"), flags);
-	}
-	if (debug) {
-		CFStringAppend(str, CFSTR(")"));
-	}
-	my_log(LOG_INFO, "%@", str);
-	CFRelease(str);
-
-	str = (CFMutableStringRef)__SCNetworkReachabilityCopyFlags(resolver->reach_flags,
-								   CFSTR("  reach    : "),
-								   debug);
-	my_log(LOG_INFO, "%@", str);
-	CFRelease(str);
-
-	if (resolver->search_order != 0) {
-		my_log(LOG_INFO, "  order    : %d", resolver->search_order);
-	}
-
-	if (debug && (resolver->cid != NULL)) {
-		my_log(LOG_INFO, "  config id: %s", resolver->cid);
-	}
-
-	return;
-}
-
-
-static __inline__ void
-_dns_configuration_log(dns_config_t *dns_config, Boolean debug)
-{
-	int	i;
-
-	my_log(LOG_INFO, "DNS configuration");
-
-	for (i = 0; i < dns_config->n_resolver; i++) {
-		dns_resolver_t	*resolver	= dns_config->resolver[i];
-
-		_dns_resolver_log(resolver, i + 1, debug);
-	}
-
-	if ((dns_config->n_scoped_resolver > 0) && (dns_config->scoped_resolver != NULL)) {
-		my_log(LOG_INFO, " ");
-		my_log(LOG_INFO, "DNS configuration (for scoped queries)");
-
-		for (i = 0; i < dns_config->n_scoped_resolver; i++) {
-			dns_resolver_t	*resolver	= dns_config->scoped_resolver[i];
-
-			_dns_resolver_log(resolver, i + 1, debug);
-		}
-	}
-
-	if ((dns_config->n_service_specific_resolver > 0) && (dns_config->service_specific_resolver != NULL)) {
-		my_log(LOG_INFO, " ");
-		my_log(LOG_INFO, "DNS configuration (for service-specific queries)");
-
-		for (i = 0; i < dns_config->n_service_specific_resolver; i++) {
-			dns_resolver_t	*resolver	= dns_config->service_specific_resolver[i];
-
-			_dns_resolver_log(resolver, i + 1, debug);
-		}
-	}
-
-	return;
-}
-
-
 #ifdef	MY_LOG_DEFINED_LOCALLY
 #undef	my_log
 #undef	MY_LOG_DEFINED_LOCALLY
 #endif	// MY_LOG_DEFINED_LOCALLY
-
 
 __END_DECLS
 

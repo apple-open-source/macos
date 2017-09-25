@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2009-2011, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2009-2011, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,7 +67,9 @@ SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 		return FALSE;
 	}
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_activity_scope(storePrivate->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 

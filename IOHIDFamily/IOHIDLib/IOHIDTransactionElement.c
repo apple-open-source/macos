@@ -53,7 +53,8 @@ static const CFRuntimeClass __IOHIDTransactionElementClass = {
     NULL,                   // refcount
 };
 
-static CFTypeID __kIOHIDTransactionElementTypeID = _kCFRuntimeNotATypeID;
+static dispatch_once_t  __transactionElementTypeInit        = 0;
+static CFTypeID         __kIOHIDTransactionElementTypeID    = _kCFRuntimeNotATypeID;
 
 IOHIDTransactionElementRef __IOHIDTransactionElementCreatePrivate(CFAllocatorRef allocator, CFAllocatorContext * context __unused)
 {
@@ -85,8 +86,12 @@ void __IOHIDTransactionElementRelease( CFTypeRef object )
 
 CFTypeID IOHIDTransactionElementGetTypeID(void)
 {
-    if ( __kIOHIDTransactionElementTypeID == _kCFRuntimeNotATypeID )
-        __kIOHIDTransactionElementTypeID = _CFRuntimeRegisterClass(&__IOHIDTransactionElementClass);
+    if ( __kIOHIDTransactionElementTypeID == _kCFRuntimeNotATypeID ) {
+        dispatch_once(&__transactionElementTypeInit, ^{
+            __kIOHIDTransactionElementTypeID = _CFRuntimeRegisterClass(&__IOHIDTransactionElementClass);
+        });
+    }
+        
 
     return __kIOHIDTransactionElementTypeID;
 }

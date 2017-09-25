@@ -571,7 +571,6 @@ union webdav_reply
  * result = fsctl(path, WEBDAVIOC_INVALIDATECACHES, NULL, 0);
  */
 #define	WEBDAVIOC_INVALIDATECACHES	_IO('w', 1)
-#define	WEBDAV_INVALIDATECACHES		IOCBASECMD(WEBDAVIOC_INVALIDATECACHES)
 
 /*
  * The WEBDAVIOC_WRITE_SEQUENTIAL command passed to fsctl(2) causes WebDAV FS to
@@ -600,13 +599,10 @@ struct WebdavWriteSequential {
 #pragma options align=reset
 
 #define WEBDAVIOC_WRITE_SEQUENTIAL	_IOW('z', 19, struct WebdavWriteSequential)
-#define WEBDAV_WRITE_SEQUENTIAL		IOCBASECMD(WEBDAVIOC_WRITE_SEQUENTIAL)
 
 #define WEBDAVIOC_SHOW_COOKIES		_IOW('x', 29, int)
-#define WEBDAV_SHOW_COOKIES			IOCBASECMD(WEBDAVIOC_SHOW_COOKIES)
 
 #define WEBDAVIOC_RESET_COOKIES		_IOW('x', 28, int)
-#define WEBDAV_RESET_COOKIES		IOCBASECMD(WEBDAVIOC_RESET_COOKIES)
 
 /*
  * Sysctl values for WebDAV FS

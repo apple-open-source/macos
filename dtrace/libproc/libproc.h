@@ -72,15 +72,6 @@ struct ps_prochandle;
 #define PGRAB_RDONLY    0x04    /* Open the process or core w/ O_RDONLY */
 #define PGRAB_NOSTOP    0x08    /* Open the process but do not stop it */
 
-/* Error codes from Pcreate() */
-#define C_STRANGE       -1      /* Unanticipated error, errno is meaningful */
-#define C_FORK          1       /* Unable to fork */
-#define C_PERM          2       /* No permission (file set-id or unreadable) */
-#define C_NOEXEC        3       /* Cannot execute file */
-#define C_INTR          4       /* Interrupt received while creating */
-#define C_LP64          5       /* Program is _LP64, self is _ILP32 */
-#define C_NOENT         6       /* Cannot find executable file */
-
 /* Flags accepted by Prelease */
 #define PRELEASE_CLEAR  0x10    /* Clear all tracing flags */
 #define PRELEASE_RETAIN 0x20    /* Retain final tracing flags */
@@ -144,7 +135,8 @@ extern  int     pr_ioctl(struct ps_prochandle *, int, int, void *, size_t);
  * iteration over the process's address space mappings (Pmapping_iter),
  * or an iteration over the process's mapped objects (Pobject_iter),
  * or else it is one of the special PR_OBJ_* values above.
- */
+*/
+
 extern int Plookup_by_name(struct ps_prochandle *, const char *, const char *, GElf_Sym *);
 
 extern int Plookup_by_addr(struct ps_prochandle *, mach_vm_address_t, char *, size_t, GElf_Sym *);
@@ -157,15 +149,22 @@ typedef struct prsyminfo {
 //        uint_t          prs_table;              /* symbol table id */
 } prsyminfo_t;
 
+#define PLOOKUP_NOT_FOUND	-1
+#define PLOOKUP_WRONG_GEN	1
+
 extern int Pxlookup_by_name(struct ps_prochandle *,
     Lmid_t, const char *, const char *, GElf_Sym *, prsyminfo_t *);
-  
+extern int Pxlookup_by_name_new_syms(struct ps_prochandle *,
+    Lmid_t, const char *, const char *, GElf_Sym *, prsyminfo_t *);
+
+
 extern int Pxlookup_by_addr(struct ps_prochandle *,
     mach_vm_address_t, char *, size_t, GElf_Sym *, prsyminfo_t *);
-  
+
 typedef int proc_map_f(void *, const prmap_t *, const char *);
 
 extern int Pobject_iter(struct ps_prochandle *, proc_map_f *, void *);
+extern int Pobject_iter_new_syms(struct ps_prochandle *, proc_map_f *, void *);
 
 /*
  * Apple NOTE: These differ from their solaris counterparts by taking a prmap_t pointer argument.
@@ -178,17 +177,17 @@ extern const prmap_t *Plmid_to_map(struct ps_prochandle *, Lmid_t, const char *,
 extern char *Pobjname(struct ps_prochandle *, mach_vm_address_t, char *, size_t);
 extern int Plmid(struct ps_prochandle *, mach_vm_address_t, Lmid_t *);
 
-        
+
 /*
- * Apple only objc iteration interface.  
+ * Apple only objc iteration interface
  */
-	
+
 typedef int proc_objc_f(void *, const GElf_Sym *, const char *, const char *);
 extern int Pobjc_method_iter(struct ps_prochandle *, proc_objc_f* , void *);
+extern int Pobjc_method_iter_new_syms(struct ps_prochandle *, proc_objc_f* , void *);
 
 typedef void Phandler_func_t(void *);
-extern void Pactivityserver(struct ps_prochandle *, Phandler_func_t, void *);        
-        
+
 /*
  * Symbol table iteration interface.  The special lmid constants LM_ID_BASE,
  * LM_ID_LDSO, and PR_LMID_EVERY may be used with Psymbol_iter_by_lmid.
@@ -196,6 +195,7 @@ extern void Pactivityserver(struct ps_prochandle *, Phandler_func_t, void *);
 typedef int proc_sym_f(void *, const GElf_Sym *, const char *);
 
 extern int Psymbol_iter_by_addr(struct ps_prochandle *, const char *, int, int, proc_sym_f *, void *);
+extern int Psymbol_iter_by_addr_new_syms(struct ps_prochandle *, const char *, int, int, proc_sym_f *, void *);
 
 /*
  * 'which' selects which symbol table and can be one of the following.

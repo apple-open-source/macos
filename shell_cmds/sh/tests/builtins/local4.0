@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/builtins/local4.0 254339 2013-08-14 21:59:48Z jilles $
 
 f() {
 	local -- x

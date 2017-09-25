@@ -68,10 +68,9 @@
 #import <WebCore/AudioSession.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsLayer.h>
-#import <WebCore/Page.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/SoftLinking.h>
 #import <WebCore/WebCoreThreadRun.h>
+#import <wtf/SoftLinking.h>
 #endif
 
 using namespace WebCore;
@@ -499,10 +498,10 @@ static void cancelOutstandingCheck(const void *item, void *context)
             LOG_ERROR("could not load URL %@", [request URL]);
             return;
         }
-        FrameLoadRequest frameRequest(core(frame), request, ShouldOpenExternalURLsPolicy::ShouldNotAllow);
-        frameRequest.setFrameName(target);
-        frameRequest.setShouldCheckNewWindowPolicy(true);
-        core(frame)->loader().load(frameRequest);
+        FrameLoadRequest frameLoadRequest { *core(frame), request, ShouldOpenExternalURLsPolicy::ShouldNotAllow };
+        frameLoadRequest.setFrameName(target);
+        frameLoadRequest.setShouldCheckNewWindowPolicy(true);
+        core(frame)->loader().load(WTFMove(frameLoadRequest));
     }
 }
 

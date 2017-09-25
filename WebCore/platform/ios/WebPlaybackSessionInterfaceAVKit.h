@@ -24,8 +24,7 @@
  */
 
 
-#ifndef WebPlaybackSessionInterfaceAVKit_h
-#define WebPlaybackSessionInterfaceAVKit_h
+#pragma once
 
 #if PLATFORM(IOS)
 
@@ -76,12 +75,13 @@ public:
     WEBCORE_EXPORT void currentTimeChanged(double currentTime, double anchorTime) override;
     WEBCORE_EXPORT void bufferedTimeChanged(double) override;
     WEBCORE_EXPORT void rateChanged(bool isPlaying, float playbackRate) override;
-    WEBCORE_EXPORT void seekableRangesChanged(const TimeRanges&) override;
+    WEBCORE_EXPORT void seekableRangesChanged(const TimeRanges&, double lastModifiedTime, double liveUpdateInterval) override;
     WEBCORE_EXPORT void canPlayFastReverseChanged(bool) override;
-    WEBCORE_EXPORT void audioMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex) override;
-    WEBCORE_EXPORT void legibleMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex) override;
+    WEBCORE_EXPORT void audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex) override;
+    WEBCORE_EXPORT void legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex) override;
     WEBCORE_EXPORT void externalPlaybackChanged(bool enabled, WebPlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
     WEBCORE_EXPORT void wirelessVideoPlaybackDisabledChanged(bool) override;
+    WEBCORE_EXPORT void mutedChanged(bool) override;
 
     WEBCORE_EXPORT virtual void invalidate();
 
@@ -98,4 +98,3 @@ protected:
 
 #endif
 
-#endif

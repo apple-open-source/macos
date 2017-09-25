@@ -63,7 +63,7 @@ si_list_t *
 si_list_concat(si_list_t *l, si_list_t *x)
 {
 	si_item_t *item;
-	uint32_t newcount;
+	size_t newcount;
 	size_t size;
 	int i;
 
@@ -77,7 +77,7 @@ si_list_concat(si_list_t *l, si_list_t *x)
 
 	if (l != NULL)
 	{
-		newcount = l->count + x->count;
+		newcount = (size_t)l->count + (size_t)x->count;
 		size = newcount * sizeof(si_item_t *);
 
 		l->entry = (si_item_t **)reallocf(l->entry, size);

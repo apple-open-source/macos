@@ -532,7 +532,7 @@ cleanup:
 
 static bool promptForPasswordData(char **returnedPasswordData) {
     // Caller must zero memory and free returned value.
-    // Returns true if we have data; false means the user cancelled
+    // Returns true if we have data; false means the user canceled
     if (!returnedPasswordData)
         return false;
 

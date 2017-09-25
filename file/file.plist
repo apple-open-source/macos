@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>file</string>
 	<key>OpenSourceVersion</key>
-	<string>5.25</string>
+	<string>5.31</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/file/file-5.25.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>fea78106dd0b7a09a61714cdbe545135563e84bd</string>
+	<string>ftp://ftp.astron.com/pub/file/file-5.31.tar.gz</string>
+	<key>OpenSourceSHA512256</key>
+	<string>13609cd5e1de0d515db6a8b1ea0c56fa3579898a37945cc7312eeb7d545acd99</string>
 	<key>OpenSourceImportDate</key>
-	<string>2015-10-14</string>
+	<string>2017-06-01</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Correct error in sun magic file (2504403).</string>

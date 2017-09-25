@@ -245,12 +245,12 @@ static int encodeOid(
 		for(digit=0; digit<numsToProcess; digit++) {
 			free(digits[digit]);
 		}
-		free(digits);
-		free(numDigits);
 	}
 	result = 0;
 
 cleanExit:
+    if (digits) free(digits);
+    if (numDigits) free(numDigits);
 	if (oidStr) CFRelease(oidStr);
 	if (argvRef) CFRelease(argvRef);
 

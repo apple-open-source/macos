@@ -55,7 +55,7 @@ void ChildProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchO
     if (m_alwaysRunsAtBackgroundPriority)
         launchOptions.extraInitializationData.add(ASCIILiteral("always-runs-at-background-priority"), "true");
 
-#if ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(EFL))
+#if ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
     const char* varname;
     switch (launchOptions.processType) {
     case ProcessLauncher::ProcessType::Web:
@@ -79,7 +79,7 @@ void ChildProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchO
     const char* processCmdPrefix = getenv(varname);
     if (processCmdPrefix && *processCmdPrefix)
         launchOptions.processCmdPrefix = String::fromUTF8(processCmdPrefix);
-#endif // !defined(NDEBUG) && (PLATFORM(GTK) || PLATFORM(EFL)
+#endif // ENABLE(DEVELOPER_MODE) && (PLATFORM(GTK) || PLATFORM(WPE))
 }
 
 void ChildProcessProxy::connect()
@@ -169,9 +169,6 @@ void ChildProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection::Id
         return;
 
     m_connection = IPC::Connection::createServerConnection(connectionIdentifier, *this);
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
-    m_connection->setShouldCloseConnectionOnMachExceptions();
-#endif
 
     connectionWillOpen(*m_connection);
     m_connection->open();
@@ -197,7 +194,7 @@ void ChildProcessProxy::shutDownProcess()
         // On iOS deploy a watchdog in the UI process, since the child process may be suspended.
         // If 30s is insufficient for any outstanding activity to complete cleanly, then it will be killed.
         ASSERT(m_connection);
-        m_connection->terminateSoon(30);
+        m_connection->terminateSoon(30_s);
 #endif
         break;
     case State::Terminated:

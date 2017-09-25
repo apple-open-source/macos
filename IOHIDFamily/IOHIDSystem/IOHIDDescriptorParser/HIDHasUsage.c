@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -112,8 +112,8 @@ Boolean HIDHasUsage (HIDPreparsedDataRef preparsedDataRef,
  *				then return the usage
  *			  Otherwise adjust the index by the size of the range
 */
-			if ((usage >= ptUsageItem->usageMinimum)
-			 && (usage <= ptUsageItem->usageMaximum))
+			if ((usage >= (HIDUsage)ptUsageItem->usageMinimum)
+			 && (usage <= (HIDUsage)ptUsageItem->usageMaximum))
 			{
 				if (piIndex != NULL)
 					*piIndex = iUsageIndex + (ptUsageItem->usageMinimum - usage);
@@ -126,7 +126,7 @@ Boolean HIDHasUsage (HIDPreparsedDataRef preparsedDataRef,
 					// piCount is going to be used to find which element in a button array is
 					// the one that returns the value for that usage.
 					if (((i+1) == ptReportItem->usageItemCount)
-					 && (usage == ptUsageItem->usageMaximum))
+					 && (usage == (HIDUsage)ptUsageItem->usageMaximum))
 					{
 						// Hmm, the same logic in the non-range case below was wrong. But things
 						// seem to be working for finding buttons, so i am not changing it here.

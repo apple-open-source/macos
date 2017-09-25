@@ -36,10 +36,14 @@
 		<string>NSRunLoop</string>
 		<key>_MultipleInstances</key>
 		<true/>
+		<key>_HighBitsASLR</key>
+		<true/>
 	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
 	</array>
+	<key>CanInheritApplicationStateFromOtherProcesses</key>
+	<true/>
 </dict>
 </plist>

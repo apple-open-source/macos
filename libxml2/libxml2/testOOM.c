@@ -137,7 +137,7 @@ static void buffer_add_string (struct buffer *b, const char *s)
 	    printf ("binary data [0x%02x]?\n", (unsigned char)s[ix]);
     }
     buffer_expand (b, size);
-    strcpy (b->str + b->len, s);
+    strncpy(b->str + b->len, s, size);
     b->str[b->len+size-1] = '\n';	/* replace string term with newline */
     b->len += size;
 }

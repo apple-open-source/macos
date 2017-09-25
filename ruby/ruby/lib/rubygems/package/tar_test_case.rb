@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/package'
 
@@ -71,7 +72,7 @@ class Gem::Package::TarTestCase < Gem::TestCase
     SP(Z(to_oct(sum, 6)))
   end
 
-  def header(type, fname, dname, length, mode, checksum = nil)
+  def header(type, fname, dname, length, mode, mtime, checksum = nil, linkname = "")
     checksum ||= " " * 8
 
     arr = [                  # struct tarfile_entry_posix
@@ -80,10 +81,10 @@ class Gem::Package::TarTestCase < Gem::TestCase
       Z(to_oct(0, 7)),       # char uid[8];        ditto
       Z(to_oct(0, 7)),       # char gid[8];        ditto
       Z(to_oct(length, 11)), # char size[12];      0 padded, octal, null
-      Z(to_oct(0, 11)),      # char mtime[12];     0 padded, octal, null
+      Z(to_oct(mtime, 11)),  # char mtime[12];     0 padded, octal, null
       checksum,              # char checksum[8];   0 padded, octal, null, space
       type,                  # char typeflag[1];   file: "0"  dir: "5"
-      "\0" * 100,            # char linkname[100]; ASCII + (Z unless filled)
+      ASCIIZ(linkname, 100), # char linkname[100]; ASCII + (Z unless filled)
       "ustar\0",             # char magic[6];      "ustar\0"
       "00",                  # char version[2];    "00"
       ASCIIZ("wheel", 32),   # char uname[32];     ASCIIZ
@@ -105,16 +106,22 @@ class Gem::Package::TarTestCase < Gem::TestCase
     ret
   end
 
-  def tar_dir_header(name, prefix, mode)
-    h = header("5", name, prefix, 0, mode)
+  def tar_dir_header(name, prefix, mode, mtime)
+    h = header("5", name, prefix, 0, mode, mtime)
     checksum = calc_checksum(h)
-    header("5", name, prefix, 0, mode, checksum)
+    header("5", name, prefix, 0, mode, mtime, checksum)
   end
 
-  def tar_file_header(fname, dname, mode, length)
-    h = header("0", fname, dname, length, mode)
+  def tar_file_header(fname, dname, mode, length, mtime)
+    h = header("0", fname, dname, length, mode, mtime)
     checksum = calc_checksum(h)
-    header("0", fname, dname, length, mode, checksum)
+    header("0", fname, dname, length, mode, mtime, checksum)
+  end
+
+  def tar_symlink_header(fname, prefix, mode, mtime, linkname)
+    h = header("2", fname, prefix, 0, mode, mtime, nil, linkname)
+    checksum = calc_checksum(h)
+    header("2", fname, prefix, 0, mode, mtime, checksum, linkname)
   end
 
   def to_oct(n, pad_size)
@@ -130,8 +137,11 @@ class Gem::Package::TarTestCase < Gem::TestCase
   end
 
   def util_dir_entry
-    util_entry tar_dir_header("foo", "bar", 0)
+    util_entry tar_dir_header("foo", "bar", 0, Time.now)
+  end
+
+  def util_symlink_entry
+    util_entry tar_symlink_header("foo", "bar", 0, Time.now, "link")
   end
 
 end
-

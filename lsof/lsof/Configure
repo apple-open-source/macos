@@ -901,13 +901,16 @@ case $LSOF_TGT in	# {
       15.*)			# Mac OS X 10.11 (El Capitan)
  	LSOF_VERS=1500
  	;;
-      16.*)			# Next? Mac OS X
+      16.*)			# macOS 10.12 (Sierra)
  	LSOF_VERS=1600
+ 	;;
+      17.*)			# Next? macOS
+ 	LSOF_VERS=1700
  	;;
       *)
 	echo Unknown Darwin release: `uname -r`
-	echo Assuming Darwin 15.0
-	LSOF_VERS=1500
+	echo Assuming Darwin 16.0
+	LSOF_VERS=1600
 	;;
       esac	# }
     fi	# }
@@ -936,7 +939,7 @@ case $LSOF_TGT in	# {
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1="net/ndrv_var.h net/raw_cb.h netinet/ip_var.h netinet/tcp_var.h sys/eventvar.h sys/file_internal.h sys/mount_internal.h sys/proc_internal.h sys/vnode_internal.h"
       ;;
-    900|1000|1100|1200|1300|1400|1500)
+    900|1000|1100|1200|1300|1400|1500|1600)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       LSOF_UNSUP=""
@@ -946,7 +949,7 @@ case $LSOF_TGT in	# {
 	LSOF_CFGF="$LSOF_CFGF -DNEEDS_MACH_PORT_T"
       fi	# }
       ;;
-    1600)
+    1700)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6 -fno-common"
       LSOF_TMP1=""
       ;;

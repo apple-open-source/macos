@@ -25,7 +25,10 @@
 #define __IONDRV__
 
 #include <IOKit/IORegistryEntry.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
 #include <IOKit/IOInterruptEventSource.h>
+#pragma clang diagnostic pop
 
 #include <IOKit/ndrvsupport/IOMacOSTypes.h>
 #include <IOKit/ndrvsupport/IONDRVSupport.h>

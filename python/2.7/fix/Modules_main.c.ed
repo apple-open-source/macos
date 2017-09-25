@@ -1,0 +1,21 @@
+/pygetopt.h/i
+#ifndef OPEN_SOURCE
+#ifdef __APPLE__
+#include <rootless.h>
+#endif
+#endif
+
+.
+1
+/Hash randomization needed early/i
+#ifndef OPEN_SOURCE
+#ifdef __APPLE__
+    if (rootless_restricted_environment()) {
+        Py_IgnoreEnvironmentFlag++;
+        Py_NoSiteFlag++;
+        Py_NoUserSiteDirectory++;
+    }
+#endif
+#endif
+.
+w

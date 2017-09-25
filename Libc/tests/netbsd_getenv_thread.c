@@ -147,7 +147,8 @@ T_DECL(setenv_thread, "Test concurrent access by setenv(3)")
 	T_PASS("setenv_thread() completed successfully");
 }
 
-T_DECL(unsetenv_thread, "Test unsetenv(3) with threads")
+T_DECL(unsetenv_thread, "Test unsetenv(3) with threads",
+		T_META_ENVVAR("MallocStackLogging=lite"))
 {
 	pthread_t threads[THREADED_NUM_THREADS];
 	time_t endtime = time(NULL) + THREADED_RUN_TIME;

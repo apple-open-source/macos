@@ -6,7 +6,7 @@
 CC = cl
 
 # Normal flags
-CFLAGS = /nologo /ML /W3 /GX /O2 /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /c
+CFLAGS = /nologo /MD /W3 /EHsc /O2 /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /c 
 LDFLAGS = /nologo /subsystem:console /incremental:no /machine:I386
 
 # Debugging flags
@@ -20,7 +20,7 @@ LIBS = user32.lib
 
 # This rule allows us to supply the necessary -D options
 # in addition to whatever the user asks for.
-.c.obj:
+.c.obj::
 	$(CC) $(CFLAGS) $<
 
 OBJ = \
@@ -33,11 +33,8 @@ OBJ = \
 
 all: less.exe lesskey.exe
 
-# This is really horrible, but the command line is too long for 
-# MS-DOS if we try to link ${OBJ}.
 less.exe: $(OBJ)
-	-del lesskey.obj
-	$(LD) $(LDFLAGS) *.obj $(LIBS) /out:$@
+	$(LD) $(LDFLAGS) $** $(LIBS) /out:$@
 
 lesskey.exe: lesskey.obj version.obj
 	$(LD) $(LDFLAGS) lesskey.obj version.obj $(LIBS) /out:$@

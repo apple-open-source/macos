@@ -407,18 +407,18 @@ WebInspector.TimelineOverview = class TimelineOverview extends WebInspector.View
             this._delegate.timelineOverviewUserSelectedRecord(this, record);
     }
 
-    updateLayoutIfNeeded()
+    updateLayoutIfNeeded(layoutReason)
     {
         if (this.layoutPending) {
-            super.updateLayoutIfNeeded();
+            super.updateLayoutIfNeeded(layoutReason);
             return;
         }
 
-        this._timelineRuler.updateLayoutIfNeeded();
+        this._timelineRuler.updateLayoutIfNeeded(layoutReason);
 
         for (let overviewGraph of this._overviewGraphsByTypeMap.values()) {
             if (overviewGraph.visible)
-                overviewGraph.updateLayoutIfNeeded();
+                overviewGraph.updateLayoutIfNeeded(layoutReason);
         }
     }
 
@@ -514,7 +514,10 @@ WebInspector.TimelineOverview = class TimelineOverview extends WebInspector.View
         this._dontUpdateScrollLeft = true;
 
         let scrollOffset = this._scrollContainerElement.scrollLeft;
-        this.scrollStartTime = this._startTime + (scrollOffset * this.secondsPerPixel);
+        if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL)
+            this.scrollStartTime = this._startTime - (scrollOffset * this.secondsPerPixel);
+        else
+            this.scrollStartTime = this._startTime + (scrollOffset * this.secondsPerPixel);
 
         // Force layout so we can update with the scroll position synchronously.
         this.updateLayoutIfNeeded();
@@ -748,7 +751,7 @@ WebInspector.TimelineOverview = class TimelineOverview extends WebInspector.View
         if (isRenderingFramesMode) {
             this._timelineRuler.minimumSelectionDuration = 1;
             this._timelineRuler.snapInterval = 1;
-            this._timelineRuler.formatLabelCallback = (value) => value.toFixed(0);
+            this._timelineRuler.formatLabelCallback = (value) => value.maxDecimals(0).toLocaleString();
         } else {
             this._timelineRuler.minimumSelectionDuration = 0.01;
             this._timelineRuler.snapInterval = NaN;

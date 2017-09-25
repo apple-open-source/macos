@@ -1,5 +1,0 @@
-/^INCLUDE/s/^/#/
-/\/usr\/include$/s/^#//
-/^LIB/s/^/#/
-/\/usr\/lib$/s/^#//
-w

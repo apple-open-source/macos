@@ -632,13 +632,23 @@ if test "x$ac_cv_prog_YODL" = xyodl; then
 fi
 AC_SUBST(YODL_OPTIONS)
 
-AC_CHECK_PROGS([PDFETEX], [pdfetex], [: pdfetex])
-AC_CHECK_PROGS([TEXI2PDF], [texi2pdf], [])
+AC_CHECK_PROGS([TEXI2DVI], [texi2dvi], [: texi2dvi])
+AC_CHECK_PROGS([TEXI2PDF], [texi2pdf], [: texi2pdf])
 AC_CHECK_PROGS([TEXI2HTML], [texi2any texi2html], [: texi2html])
+
+if test x"$TEXI2PDF" != xtexi2pdf && test x"$TEXI2DVI" = xtexi2dvi; then
+  TEXI2PDF='texi2dvi --pdf'
+fi
 
 if test x"$TEXI2HTML" = xtexi2any; then
   TEXI2HTML='texi2any -c TEXI2HTML=1'
 fi
+
+case "$LC_PAPER" in
+  ??_US*) PAPERSIZE=us ;;
+  *)      PAPERSIZE=a4 ;;
+esac
+AC_SUBST(PAPERSIZE)
 
 AC_CHECK_PROGS([ANSI2KNR], [ansi2knr], [: ansi2knr])
 
@@ -925,7 +935,7 @@ fi
 if test x$enable_pcre = xyes; then
 dnl pcre-config should probably be employed here
 dnl AC_SEARCH_LIBS(pcre_compile, pcre)
-  LIBS="`pcre-config --libs` $LIBS"
+  LIBS="`$ac_cv_prog_PCRECONF --libs` $LIBS"
 fi
 
 dnl ---------------------
@@ -1295,6 +1305,7 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       setlocale \
 	       uname \
 	       signgam tgamma \
+	       scalbn \
 	       putenv getenv setenv unsetenv xw\
 	       brk sbrk \
 	       pathconf sysconf \
@@ -1312,7 +1323,8 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       realpath canonicalize_file_name \
 	       symlink getcwd \
 	       cygwin_conv_path \
-	       nanosleep)
+	       nanosleep \
+	       srand_deterministic)
 AC_FUNC_STRCOLL
 
 AH_TEMPLATE([REALPATH_ACCEPTS_NULL],
@@ -2023,6 +2035,8 @@ AC_CACHE_VAL(zsh_cv_cs_path,
   zsh_cv_cs_path=`getconf _CS_PATH`
 elif getconf CS_PATH >/dev/null 2>&1; then
   zsh_cv_cs_path=`getconf CS_PATH`
+elif getconf PATH >/dev/null 2>&1; then
+  zsh_cv_cs_path=`getconf PATH`
 else
   zsh_cv_cs_path="/bin:/usr/bin"
 fi])
@@ -2577,6 +2591,18 @@ wmemcpy wmemmove wmemset; do
 ])
 AH_TEMPLATE([MULTIBYTE_SUPPORT],
 [Define to 1 if you want support for multibyte character sets.])
+
+dnl
+dnl unicode9 support
+dnl
+AH_TEMPLATE([ENABLE_UNICODE9],
+[Define to 1 if you want use unicode9 character widths.])
+AC_ARG_ENABLE(unicode9,
+AC_HELP_STRING([--enable-unicode9], [compile with unicode9 character widths]),
+[if test x$enableval = xyes; then
+  AC_DEFINE(ENABLE_UNICODE9)
+fi])
+
 AH_TEMPLATE([BROKEN_WCWIDTH],
 [Define to 1 if the wcwidth() function is present but broken.])
 AH_TEMPLATE([BROKEN_ISPRINT],

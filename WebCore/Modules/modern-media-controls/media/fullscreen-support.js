@@ -26,29 +26,6 @@
 class FullscreenSupport extends MediaControllerSupport
 {
 
-    constructor(mediaController)
-    {
-        super(mediaController);
-
-        if (mediaController.controls instanceof IOSInlineMediaControls)
-            mediaController.controls.delegate = this;
-
-        const videoTracks = mediaController.media.videoTracks;
-        for (let eventType of ["change", "addtrack", "removetrack"])
-            videoTracks.addEventListener(eventType, this);
-    }
-
-    // Public
-
-    destroy()
-    {
-        super.destroy();
-
-        const videoTracks = this.mediaController.media.videoTracks;
-        for (let eventType of ["change", "addtrack", "removetrack"])
-            videoTracks.removeEventListener(eventType, this);
-    }
-
     // Protected
 
     get control()
@@ -58,29 +35,29 @@ class FullscreenSupport extends MediaControllerSupport
 
     get mediaEvents()
     {
-        return ["loadedmetadata", "error"];
+        return ["loadedmetadata"];
+    }
+
+    get tracksToMonitor()
+    {
+        return [this.mediaController.media.videoTracks];
     }
 
     buttonWasPressed(control)
     {
         const media = this.mediaController.media;
-        if (media.webkitDisplayingFullscreen)
+        if (this.mediaController.isFullscreen)
             media.webkitExitFullscreen();
         else
             media.webkitEnterFullscreen();
     }
 
-    iOSInlineMediaControlsRecognizedPinchInGesture()
-    {
-        this.mediaController.media.webkitEnterFullscreen();
-    }
-    
     syncControl()
     {
         const control = this.control;
         const media = this.mediaController.media;
-        control.enabled = media.webkitSupportsFullscreen;
-        control.isFullScreen = media.webkitDisplayingFullscreen;
+        control.enabled = !this.mediaController.isAudio && (media.readyState < HTMLMediaElement.HAVE_METADATA || media.webkitSupportsFullscreen);
+        control.isFullScreen = this.mediaController.isFullscreen;
     }
 
 }

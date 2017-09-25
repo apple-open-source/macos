@@ -5,7 +5,7 @@
  * Documented by mathew <meta@pobox.com>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c 44659 2014-01-19 16:28:53Z nagachika $
+ * $Id: syslog.c 52275 2015-10-25 00:43:06Z nobu $
  */
 
 #include "ruby/ruby.h"
@@ -37,7 +37,6 @@ static void syslog_write(int pri, int argc, VALUE *argv)
 {
     VALUE str;
 
-    rb_secure(4);
     if (argc < 1) {
         rb_raise(rb_eArgError, "no log message supplied");
     }
@@ -56,7 +55,6 @@ static void syslog_write(int pri, int argc, VALUE *argv)
  */
 static VALUE mSyslog_close(VALUE self)
 {
-    rb_secure(4);
     if (!syslog_opened) {
         rb_raise(rb_eRuntimeError, "syslog not opened");
     }
@@ -263,7 +261,6 @@ static VALUE mSyslog_get_mask(VALUE self)
  */
 static VALUE mSyslog_set_mask(VALUE self, VALUE mask)
 {
-    rb_secure(4);
     if (!syslog_opened) {
         rb_raise(rb_eRuntimeError, "must open syslog before setting log mask");
     }
@@ -307,9 +304,7 @@ static VALUE mSyslog_log(int argc, VALUE *argv, VALUE self)
 {
     VALUE pri;
 
-    if (argc < 2) {
-        rb_raise(rb_eArgError, "wrong number of arguments (%d for 2+)", argc);
-    }
+    rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
 
     argc--;
     pri = *argv++;
@@ -421,7 +416,7 @@ static VALUE mSyslogMacros_included(VALUE mod, VALUE target)
  *
  * The syslog protocol is standardized in RFC 5424.
  */
-void Init_syslog()
+void Init_syslog(void)
 {
     mSyslog = rb_define_module("Syslog");
 
@@ -446,7 +441,7 @@ void Init_syslog()
     rb_define_module_function(mSyslog, "mask", mSyslog_get_mask, 0);
     rb_define_module_function(mSyslog, "mask=", mSyslog_set_mask, 1);
 
-    rb_define_module_function(mSyslog, "inspect", mSyslog_inspect, 0);
+    rb_define_singleton_method(mSyslog, "inspect", mSyslog_inspect, 0);
     rb_define_module_function(mSyslog, "instance", mSyslog_instance, 0);
 
     /* Syslog options */

@@ -7,7 +7,7 @@ VERSIONERDIR = /usr/local/versioner
 SDKVERSIONERDIR := $(or $(wildcard $(SDKROOT)$(VERSIONERDIR)),$(VERSIONERDIR))
 FIX = $(SRCROOT)/fix
 DEFAULT = 2.7
-KNOWNVERSIONS = 2.6 2.7
+KNOWNVERSIONS = 2.7
 BOOTSTRAPPYTHON =
 VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPYTHON))
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
@@ -112,6 +112,9 @@ build::
 	wait && \
 	install -d $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix && \
 	(cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix) && \
+	for a in $(VERSIONERFIX); do \
+		chmod g-w "$(DSTROOT)$(VERSIONERDIR)/$(Project)/fix/$${a}"; \
+	done && \
 	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS) && \
 	for vers in $(KNOWNVERSIONS); do \
 	    mkdir -p $(DSTROOT)/Library/Python/$$vers/site-packages; \
@@ -128,6 +131,8 @@ build::
 	    echo '#### error detected, not merging'; \
 	    exit 1; \
 	fi
+	mkdir -p $(DSTROOT)$(PYFRAMEWORK)/Modules
+	install $(SRCROOT)/module.map $(DSTROOT)$(PYFRAMEWORK)/Modules/module.map
 
 merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd legacySymLinks
 
@@ -196,7 +201,7 @@ mergedefault:
 	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
 
 MERGEMAN = /usr/share/man
-mergeman: domergeman customman listman
+mergeman: domergeman listman
 
 # When merging man pages from the multiple versions, allow the man pages
 # to be compressed (.gz suffix) or not.
@@ -284,12 +289,13 @@ fixsmptd:
 	    ed - $$i < $(FIX)/smtpd.py.ed || exit 1; \
 	done
 
-# We're symlinking 2.3 and 2.5 to 2.6 so apps that link against them don't crash on launch.
+# We're symlinking 2.3, 2.5, and 2.6 to 2.7 so apps that link against them don't crash on launch.
 # Yes this is a bad idea, but it's the least bad from the customer's perspective.
 legacySymLinks:
 	set -x && \
 	fwdst=$(DSTROOT)/$(PYFRAMEWORKVERSIONS) && \
 	cd $$fwdst && \
-	ln -s 2.6 2.3 && \
-	ln -s 2.6 2.5 && \
+	ln -s 2.7 2.3 && \
+	ln -s 2.7 2.5 && \
+	ln -s 2.7 2.6 && \
 	set +x

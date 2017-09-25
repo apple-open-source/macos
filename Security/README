@@ -1,3 +1,7 @@
+Update Dec 1, 2016
+
+This project wont build without internal headers that are not public.
+
 Update June 17, 2014
 
 Here lie the iOS and OS X versions of Security, including securityd and SecurityTool for OS X.

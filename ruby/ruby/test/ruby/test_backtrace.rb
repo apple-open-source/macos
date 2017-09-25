@@ -1,5 +1,7 @@
+# frozen_string_literal: false
 require 'test/unit'
 require 'thread'
+require 'tempfile'
 
 class TestBacktrace < Test::Unit::TestCase
   def test_exception
@@ -14,6 +16,58 @@ class TestBacktrace < Test::Unit::TestCase
     assert_match(/.+:\d+:.+/, bt[0])
   end
 
+  def helper_test_exception_backtrace_locations
+    raise
+  end
+
+  def test_exception_backtrace_locations
+    backtrace, backtrace_locations = Fiber.new{
+      begin
+        raise
+      rescue => e
+        [e.backtrace, e.backtrace_locations]
+      end
+    }.resume
+    assert_equal(backtrace, backtrace_locations.map{|e| e.to_s})
+
+    backtrace, backtrace_locations = Fiber.new{
+      begin
+        begin
+          helper_test_exception_backtrace_locations
+        rescue
+          raise
+        end
+      rescue => e
+        [e.backtrace, e.backtrace_locations]
+      end
+    }.resume
+    assert_equal(backtrace, backtrace_locations.map{|e| e.to_s})
+  end
+
+  def call_helper_test_exception_backtrace_locations
+    helper_test_exception_backtrace_locations(:bad_argument)
+  end
+
+  def test_argument_error_backtrace_locations
+    backtrace, backtrace_locations = Fiber.new{
+      begin
+        helper_test_exception_backtrace_locations(1)
+      rescue ArgumentError => e
+        [e.backtrace, e.backtrace_locations]
+      end
+    }.resume
+    assert_equal(backtrace, backtrace_locations.map{|e| e.to_s})
+
+    backtrace, backtrace_locations = Fiber.new{
+      begin
+        call_helper_test_exception_backtrace_locations
+      rescue ArgumentError => e
+        [e.backtrace, e.backtrace_locations]
+      end
+    }.resume
+    assert_equal(backtrace, backtrace_locations.map{|e| e.to_s})
+  end
+
   def test_caller_lev
     cs = []
     Fiber.new{
@@ -26,10 +80,10 @@ class TestBacktrace < Test::Unit::TestCase
         cs << caller(5)
       }.call
     }.resume
-    assert_equal(3, cs[0].size)
-    assert_equal(2, cs[1].size)
-    assert_equal(1, cs[2].size)
-    assert_equal(0, cs[3].size)
+    assert_equal(2, cs[0].size)
+    assert_equal(1, cs[1].size)
+    assert_equal(0, cs[2].size)
+    assert_equal(nil, cs[3])
     assert_equal(nil, cs[4])
 
     #
@@ -49,7 +103,7 @@ class TestBacktrace < Test::Unit::TestCase
         }
       end
     }
-    bt = Fiber.new{
+    Fiber.new{
       rec[max]
     }.resume
   end
@@ -59,21 +113,21 @@ class TestBacktrace < Test::Unit::TestCase
     rec = lambda{|n|
       if n < 0
         (m*6).times{|lev|
-          (m*6).times{|n|
+          (m*6).times{|i|
             t = caller(0).size
-            r = caller(lev, n)
+            r = caller(lev, i)
             r = r.size if r.respond_to? :size
 
-            # STDERR.puts [t, lev, n, r].inspect
-            if n == 0
-              assert_equal(0, r, [t, lev, n, r].inspect)
+            # STDERR.puts [t, lev, i, r].inspect
+            if i == 0
+              assert_equal(0, r, [t, lev, i, r].inspect)
             elsif t < lev
-              assert_equal(nil, r, [t, lev, n, r].inspect)
+              assert_equal(nil, r, [t, lev, i, r].inspect)
             else
-              if t - lev > n
-                assert_equal(n, r, [t, lev, n, r].inspect)
+              if t - lev > i
+                assert_equal(i, r, [t, lev, i, r].inspect)
               else
-                assert_equal(t - lev, r, [t, lev, n, r].inspect)
+                assert_equal(t - lev, r, [t, lev, i, r].inspect)
               end
             end
           }
@@ -111,6 +165,59 @@ class TestBacktrace < Test::Unit::TestCase
     }
   end
 
+  def test_caller_locations_path
+    loc, = caller_locations(0, 1)
+    assert_equal(__FILE__, loc.path)
+    Tempfile.create(%w"caller_locations .rb") do |f|
+      f.puts "caller_locations(0, 1)[0].tap {|loc| puts loc.path}"
+      f.close
+      dir, base = File.split(f.path)
+      assert_in_out_err(["-C", dir, base], "", [base])
+    end
+  end
+
+  def test_caller_locations_absolute_path
+    loc, = caller_locations(0, 1)
+    assert_equal(__FILE__, loc.absolute_path)
+    Tempfile.create(%w"caller_locations .rb") do |f|
+      f.puts "caller_locations(0, 1)[0].tap {|loc| puts loc.absolute_path}"
+      f.close
+      assert_in_out_err(["-C", *File.split(f.path)], "", [File.realpath(f.path)])
+    end
+  end
+
+  def test_caller_locations_lineno
+    loc, = caller_locations(0, 1)
+    assert_equal(__LINE__-1, loc.lineno)
+    Tempfile.create(%w"caller_locations .rb") do |f|
+      f.puts "caller_locations(0, 1)[0].tap {|loc| puts loc.lineno}"
+      f.close
+      assert_in_out_err(["-C", *File.split(f.path)], "", ["1"])
+    end
+  end
+
+  def test_caller_locations_base_label
+    assert_equal("#{__method__}", caller_locations(0, 1)[0].base_label)
+    loc, = tap {|loc| break caller_locations(0, 1)}
+    assert_equal("#{__method__}", loc.base_label)
+    begin
+      raise
+    rescue
+      assert_equal("#{__method__}", caller_locations(0, 1)[0].base_label)
+    end
+  end
+
+  def test_caller_locations_label
+    assert_equal("#{__method__}", caller_locations(0, 1)[0].label)
+    loc, = tap {|loc| break caller_locations(0, 1)}
+    assert_equal("block in #{__method__}", loc.label)
+    begin
+      raise
+    rescue
+      assert_equal("rescue in #{__method__}", caller_locations(0, 1)[0].label)
+    end
+  end
+
   def th_rec q, n=10
     if n > 1
       th_rec q, n-1
@@ -143,6 +250,7 @@ class TestBacktrace < Test::Unit::TestCase
       assert_equal(n, th.backtrace_locations(0, n + 1).size)
     ensure
       q << true
+      th.join
     end
   end
 
@@ -160,6 +268,7 @@ class TestBacktrace < Test::Unit::TestCase
       assert_equal(bt, locs)
     ensure
       q << true
+      th.join
     end
   end
 
@@ -170,8 +279,7 @@ class TestBacktrace < Test::Unit::TestCase
         alias foo bar
       end
     end
-    /`(.*)'\z/.match e.backtrace[0]
-    assert_not_match(/\Acore#/, $1)
+    assert_not_match(/\Acore#/, e.backtrace_locations[0].base_label)
   end
 
   def test_core_backtrace_undef
@@ -181,7 +289,13 @@ class TestBacktrace < Test::Unit::TestCase
         undef foo
       end
     end
-    /`(.*)'\z/.match e.backtrace[0]
-    assert_not_match(/\Acore#/, $1)
+    assert_not_match(/\Acore#/, e.backtrace_locations[0].base_label)
+  end
+
+  def test_core_backtrace_hash_merge
+    e = assert_raise(TypeError) do
+      {**nil}
+    end
+    assert_not_match(/\Acore#/, e.backtrace_locations[0].base_label)
   end
 end

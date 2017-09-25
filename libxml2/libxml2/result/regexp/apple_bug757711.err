@@ -1,2 +1,2 @@
-regexp error : failed to compile: End of range is before start of range
+regexp error : failed to compile: Expecting the end of a char range
 regexp error : failed to compile: xmlFAParseCharClass: ']' expected

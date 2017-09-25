@@ -39,8 +39,8 @@
 #include <OpenDirectory/OpenDirectory.h>
 #include <DirectoryService/DirectoryService.h>
 
-#define PAM_SM_AUTH 
-#define PAM_SM_ACCOUNT 
+#define PAM_SM_AUTH
+#define PAM_SM_ACCOUNT
 
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
@@ -87,7 +87,7 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	char pwbuffer[2 * PATH_MAX];
 	const char *ttl_str = NULL;
 	int ttl = 30 * 60;
-	
+
 	/* get the username */
 	retval = pam_get_user(pamh, &user, NULL);
 	if (PAM_SUCCESS != retval) {
@@ -97,7 +97,7 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		retval = PAM_PERM_DENIED;
 		goto cleanup;
 	}
-	
+
 	/* refresh the membership */
 	if (0 != getpwnam_r(user, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) || NULL == pwd) {
 		openpam_log(PAM_LOG_ERROR, "%s - Unable to get pwd record.", PM_DISPLAY_NAME);
@@ -175,6 +175,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	CFErrorRef odErr = NULL;
 	ODRecordRef cfRecord = NULL;
 	uint64_t mach_start_time = mach_absolute_time();
+	bool should_sleep = 0;
 
 	if (PAM_SUCCESS != (retval = pam_get_user(pamh, &user, NULL))) {
 		openpam_log(PAM_LOG_DEBUG, "%s - Unable to obtain the username.", PM_DISPLAY_NAME);
@@ -191,6 +192,9 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		goto cleanup;
 	}
 
+	/* From this point, all error paths should be constant time */
+	should_sleep = 1;
+
 	/* Get user record from OD */
 	retval = od_record_create_cstring(pamh, &cfRecord, (const char*)user);
 	if (PAM_SUCCESS != retval) {
@@ -200,7 +204,8 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 
 	if (NULL == cfRecord) {
 		openpam_log(PAM_LOG_ERROR, "%s - User record NULL.", PM_DISPLAY_NAME);
-		return PAM_USER_UNKNOWN;
+		retval = PAM_USER_UNKNOWN;
+		goto cleanup;
 	}
 
 	/* verify the user's password */
@@ -233,12 +238,18 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 				retval = PAM_AUTH_ERR;
 				break;
 		}
+	} else {
+		retval = PAM_SUCCESS;
+		should_sleep = 0;
+	}
 
+cleanup:
+	if (should_sleep) {
 		// <rdar://problem/12503092> OD password verification API always leads to user existence timing attacks
 		uint64_t elapsed      = mach_absolute_time() - mach_start_time;
 		uint64_t microseconds = AbsoluteToMicroseconds(elapsed);
 
-		const uint64_t response_delay = 200000;    // 200000 us == 200 ms
+		const uint64_t response_delay = 2000000;    // 2000000 us == 2s
 		openpam_log(PAM_LOG_DEBUG, "%s - auth %lld µs", PM_DISPLAY_NAME, microseconds);
 		if (microseconds < response_delay)
 			usleep(response_delay - microseconds);
@@ -246,11 +257,8 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		elapsed      = mach_absolute_time() - mach_start_time;
 		microseconds = AbsoluteToMicroseconds(elapsed);
 		openpam_log(PAM_LOG_DEBUG, "%s - auth %lld µs (blinding)", PM_DISPLAY_NAME, microseconds);
-	} else {
-		retval = PAM_SUCCESS;
 	}
 
-cleanup:
 	if (NULL != cfRecord) {
 		CFRelease(cfRecord);
 	}
@@ -267,14 +275,14 @@ cleanup:
 }
 
 
-PAM_EXTERN int 
+PAM_EXTERN int
 pam_sm_setcred(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
 	return PAM_SUCCESS;
 }
 
 
-PAM_EXTERN int 
+PAM_EXTERN int
 pam_sm_chauthtok(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
 	static const char old_password_prompt[] = "Old Password:";
@@ -287,7 +295,7 @@ pam_sm_chauthtok(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	ODRecordRef cfRecord = NULL;
 	CFStringRef cfOldPassword = NULL;
 	CFStringRef cfNewPassword = NULL;
-	
+
 	if (flags & PAM_PRELIM_CHECK) {
 		retval = PAM_SUCCESS;
 		goto cleanup;

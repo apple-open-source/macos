@@ -37,24 +37,39 @@ _man() {
 
   mrd=(${^_manpath/\%L/${LANG:-En_US.ASCII}}/mandb(N))
 
-  local sect
+  # $sect is from the command line, the "3p" in "man 3p memcpy".
+  #   It may also be a |-joined (and later in the code "()"-enclosed) list of
+  #   section names.
+  #   TODO: disentangle this to always be an array.
+  # $sect_dirname is from the filesystem, the "3" in "/usr/share/man/man3"
+  # These are used by _man_pages
+  local sect sect_dirname
   if [[ $OSTYPE = solaris* ]]; then
     sect=${${words[(R)-s*]#-s}:-$words[$words[(i)-s]+1]}
+    sect="${sect//,/|}"
   elif [[ -n ${sect:=$words[$words[(i)-S]+1]} || -n ${sect:=$MANSECT} ]]; then
-    if [[ $sect != ${sect::="${sect//:/|}"} ]]; then
-      sect="($sect)"
-    fi
+    sect="${sect//:/|}"
+    sect="${sect//,/|}"
   elif (( CURRENT > 2 )); then
     sect=$words[2]
   fi
 
-  if [[ $sect = (<->*|1M|l|n) || $sect = \(*\|*\) ]]; then
-    dirs=( $^_manpath/(sman|man|cat)${~sect}/ )
+  if [[ $sect = (<->*|1M|l|n) || $sect = *\|* ]]; then
+    () {
+      local -a sects=( ${(s.|.)sect} )
+      if [[ $sect != (l|n) ]]; then
+        sects=( ${sects%%[^0-9]#} )
+      fi
+      dirs=( $^_manpath/(sman|man|cat)${^sects}*/ )
+    }
+    if [[ $sect == *\|* ]]; then sect="($sect)"; fi
     awk="\$2 == \"$sect\" {print \$1}"
   else
     dirs=( $^_manpath/(sman|man|cat)*/ )
     awk='{print $1}'
   fi
+  # Solaris 11 and on have a man-index directory that doesn't contain manpages
+  dirs=( ${dirs:#*/man-index/} )
   if [[ $OSTYPE = solaris* && ( $words[CURRENT] = -s* || $words[CURRENT-1] == -s ) ]]; then
     [[ $words[CURRENT] = -s* ]] && compset -P '-s'
     sects=( ${(o)${dirs##*(man|cat)}%/} )
@@ -69,22 +84,29 @@ _man() {
 
     _tags manuals.${^sects}
     while _tags; do
-      for sect in $sects; do
-        _requested manuals.$sect expl "manual page, section $sect" _man_pages &&
+      for sect_dirname in $sects; do
+        _requested manuals.$sect_dirname expl "manual page, section $sect_dirname" _man_pages &&
             ret=0
       done
       (( ret )) || return 0
     done
+    ## To fall back to other sections' manpages when completing filenames, like
+    ## the 'else' codepath does:
+    #
+    # if (( ret )) && [[ $PREFIX$SUFFIX == */* ]]; then
+    #   sect_dirname=
+    #   _wanted manuals expl 'manual page' _man_pages && return
+    # fi
 
     return 1
   else
-    sect=
+    sect_dirname=
     _wanted manuals expl 'manual page' _man_pages
   fi
 }
 
 _man_pages() {
-  local matcher pages dummy sopt
+  local pages sopt
 
   # What files corresponding to manual pages can end in.
   local suf='.((?|<->*)(|.gz|.bz2|.Z|.lzma))'
@@ -93,22 +115,17 @@ _man_pages() {
     # Easy way to test for versions of man that allow file names.
     # This can't be a normal man page reference.
     # Try to complete by glob first.
-    _path_files -g "*$suf" && return
-    _path_files
-    return
+    if [[ -n $sect_dirname ]]; then
+      _path_files -g "*.*$sect_dirname*(|.gz|.bz2|.Z|.lzma)" "$expl[@]"
+    else
+      _path_files -g "*$suf" "$expl[@]" && return
+      _path_files "$expl[@]"
+    fi
+    return $?
   fi
 
-  zparseopts -E M+:=matcher
-
-  if (( $#matcher )); then
-    matcher=( ${matcher:#-M} )
-    matcher="$matcher"
-  else
-    matcher=
-  fi
-
-  pages=( ${(M)dirs:#*$sect/} )
-  compfiles -p pages '' '' "$matcher" '' dummy '*'
+  pages=( ${(M)dirs:#*$sect_dirname/} )
+  pages=( ${^pages}/"*$sect${sect:+"*"}" );
   pages=( ${^~pages}(N:t) )
 
   (($#mrd)) && pages[$#pages+1]=($(awk $awk $mrd))
@@ -119,11 +136,11 @@ _man_pages() {
 
   [[ $OSTYPE = solaris* ]] && sopt='-s '
   if ((CURRENT > 2)) ||
-      ! zstyle -t ":completion:${curcontext}:manuals.$sect" insert-sections
+      ! zstyle -t ":completion:${curcontext}:manuals.$sect_dirname" insert-sections
   then
     compadd "$@" - ${pages%$~suf}
   else
-    compadd "$@" -P "$sopt$sect " - ${pages%$~suf}
+    compadd "$@" -P "$sopt$sect_dirname " - ${pages%$~suf}
   fi
 }
 

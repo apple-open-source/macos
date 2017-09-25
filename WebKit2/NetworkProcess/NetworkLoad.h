@@ -76,15 +76,13 @@ public:
     void setSuggestedFilename(const String&);
     void setPendingDownload(PendingDownload&);
     DownloadID pendingDownloadID() { return m_task->pendingDownloadID(); }
+
+    bool shouldCaptureExtraNetworkLoadMetrics() const final;
 #else
     WebCore::ResourceHandle* handle() const { return m_handle.get(); }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     void canAuthenticateAgainstProtectionSpaceAsync(WebCore::ResourceHandle*, const WebCore::ProtectionSpace&) override;
-#endif
-#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-    bool supportsDataArray() override;
-    void didReceiveDataArray(WebCore::ResourceHandle*, CFArrayRef) override;
 #endif
 #if PLATFORM(COCOA)
 #if USE(CFURLCONNECTION)
@@ -118,7 +116,7 @@ private:
     void didReceiveResponseAsync(WebCore::ResourceHandle*, WebCore::ResourceResponse&&) final;
     void didReceiveData(WebCore::ResourceHandle*, const char*, unsigned, int encodedDataLength) final;
     void didReceiveBuffer(WebCore::ResourceHandle*, Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) final;
-    void didFinishLoading(WebCore::ResourceHandle*, double finishTime) final;
+    void didFinishLoading(WebCore::ResourceHandle*) final;
     void didFail(WebCore::ResourceHandle*, const WebCore::ResourceError&) final;
     void wasBlocked(WebCore::ResourceHandle*) final;
     void cannotShowURL(WebCore::ResourceHandle*) final;
@@ -133,7 +131,7 @@ private:
     void didReceiveChallenge(const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&) final;
     void didReceiveResponseNetworkSession(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
     void didReceiveData(Ref<WebCore::SharedBuffer>&&) final;
-    void didCompleteWithError(const WebCore::ResourceError&) final;
+    void didCompleteWithError(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&) final;
     void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) final;
     void wasBlocked() final;
     void cannotShowURL() final;

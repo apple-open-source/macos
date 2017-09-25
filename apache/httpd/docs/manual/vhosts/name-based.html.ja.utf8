@@ -38,7 +38,7 @@
     <p>この文書では名前ベースのバーチャルホストをどんなとき、
     どうやって使うかを説明します。</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#namevip">名前ベースと IP ベースのバーチャルホストの比較</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#namevip">名前ベースと IP ベースのバーチャルホストの比較</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#using">名前ベースのバーチャルホストを利用する</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#compat">古いブラウザとの互換性</a></li>
 </ul><h3>参照</h3><ul class="seealso"><li><a href="ip-based.html">ネームベースのバーチャルホスト</a></li><li><a href="details.html">バーチャルホストのマッチングについての詳細</a></li><li><a href="mass.html">大量のバーチャルホストの動的な設定</a></li><li><a href="examples.html">バーチャルホストの一般的な設定例</a></li><li><a href="examples.html#serverpath">ServerPath 設定例</a></li><li><a href="#comments_section">コメント</a></li></ul></div>
@@ -294,7 +294,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/name-based.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

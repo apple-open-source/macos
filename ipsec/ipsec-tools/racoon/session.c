@@ -68,7 +68,6 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
-#include <resolv.h>
 #include <TargetConditionals.h>
 #include <vproc_priv.h>
 #include <dispatch/dispatch.h>
@@ -350,7 +349,7 @@ close_session(int error)
 	(void)launchd_update_racoon_keepalive(false);
 #endif // !TARGET_OS_EMBEDDED
 
-	plog(ASL_LEVEL_INFO, "racoon shutdown\n");
+	plog(ASL_LEVEL_NOTICE, "racoon shutdown\n");
 	exit(0);
 }
 
@@ -436,7 +435,7 @@ check_flushsa()
 void
 auto_exit_do(void *p)
 {
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 				"performing auto exit\n");
 #if ENABLE_NO_SA_FLUSH
 	close_session(0);
@@ -556,7 +555,7 @@ check_sigreq()
                 
             case SIGINT:
             case SIGTERM:			
-                plog(ASL_LEVEL_INFO, 
+                plog(ASL_LEVEL_NOTICE, 
                      "caught signal %d\n", sig);
 #if ENABLE_NO_SA_FLUSH
                 close_session(0);
@@ -575,7 +574,7 @@ check_sigreq()
                 break;
                 
             default:
-                plog(ASL_LEVEL_INFO, 
+                plog(ASL_LEVEL_NOTICE, 
                      "caught signal %d\n", sig);
                 break;
 		}
@@ -591,7 +590,7 @@ RETSIGTYPE
 signal_handler(int sig, siginfo_t *sigi, void *ctx)
 {
 #if 0
-    plog(ASL_LEVEL_DEBUG, 
+    plog(ASL_LEVEL_NOTICE,
          "%s received signal %d from pid %d uid %d\n\n",
          __FUNCTION__, sig, sigi->si_pid, sigi->si_uid);
 #endif

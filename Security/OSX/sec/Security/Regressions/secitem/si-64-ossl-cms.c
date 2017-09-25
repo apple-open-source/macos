@@ -33,12 +33,13 @@
 #include <Security/SecRSAKey.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecIdentityPriv.h>
+#include <Security/SecItem.h>
 #include <utilities/SecCFWrappers.h>
 
 #include <unistd.h>
 #include <AssertMacros.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 /*
 openssl req -new -newkey rsa:512 -x509 -nodes -subj "/O=foo/CN=bar" -out signer.pem
@@ -150,13 +151,19 @@ static void tests(void)
 	SecTrustRef trust = NULL;
 
 	ok_status(SecCMSVerifyCopyDataAndAttributes(attached_signed_data, NULL, policy, &trust, NULL, NULL), "verify attached data");
-	CFRelease(trust);
+	CFReleaseNull(trust);
 	ok_status(SecCMSVerifyCopyDataAndAttributes(detached_signed_data, detached_data, policy, &trust, NULL, NULL), "verify detached data");
-	CFRelease(trust);
-	ok_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, NULL, policy, &trust, NULL, NULL), "verify attached no data");
-	CFRelease(trust);
+	CFReleaseNull(trust);
+#if TARGET_OS_IPHONE
+    /* iOS supports empty data */
+    ok_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, NULL, policy, &trust, NULL, NULL), "verify attached no data");
+#else
+    /* macOS does not */
+    is_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, NULL, policy, &trust, NULL, NULL), errSecAuthFailed, "verify attached no data");
+#endif
+	CFReleaseNull(trust);
 	ok_status(SecCMSVerifyCopyDataAndAttributes(attached_no_data_signed_data, no_data, policy, &trust, NULL, NULL), "verify attached no data");
-	CFRelease(trust);
+	CFReleaseNull(trust);
 
 
     SecCertificateRef cert = NULL;
@@ -164,9 +171,15 @@ static void tests(void)
     SecIdentityRef identity = NULL;
 
     isnt(cert = SecCertificateCreateWithBytes(NULL, signer_der, signer_der_len), NULL, "create certificate");
-    isnt(privKey = SecKeyCreateRSAPrivateKey(NULL, privkey_der, privkey_der_len, kSecKeyEncodingPkcs1), NULL, "create private key");
+    CFDataRef keyData = CFDataCreate(NULL, privkey_der, privkey_der_len);
+    CFMutableDictionaryRef keyAttrs = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryAddValue(keyAttrs, kSecAttrKeyType, kSecAttrKeyTypeRSA);
+    CFDictionaryAddValue(keyAttrs, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+    isnt(privKey = SecKeyCreateWithData(keyData, keyAttrs, NULL), NULL, "Create private key");
     isnt(identity = SecIdentityCreate(NULL, cert, privKey), NULL, "create identity");
     CFReleaseSafe(privKey);
+    CFReleaseNull(keyData);
+    CFReleaseNull(keyAttrs);
 
 	CFMutableDataRef cms_data = CFDataCreateMutable(kCFAllocatorDefault, 0);
 	ok_status(SecCMSCreateSignedData(identity, detached_data, NULL, NULL, cms_data), "create attached data");
@@ -174,21 +187,28 @@ static void tests(void)
 	CFDataSetLength(cms_data, 0);
 	CFDictionaryRef detached_cms_dict = CFDictionaryCreate(kCFAllocatorDefault, (const void **)&kSecCMSSignDetached, (const void **)&kCFBooleanTrue, 1, NULL, NULL);
 	ok_status(SecCMSCreateSignedData(identity, detached_data, detached_cms_dict, NULL, cms_data), "create attached data");
-	CFRelease(detached_cms_dict);
+	CFReleaseNull(detached_cms_dict);
 	//write_data("/var/tmp/detached", cms_data);
 	CFDataSetLength(cms_data, 0);
-	ok_status(SecCMSCreateSignedData(identity, NULL, NULL, NULL, cms_data), "create attached data");
+#if TARGET_OS_IPHONE
+    /* iOS supports empty data */
+    ok_status(SecCMSCreateSignedData(identity, NULL, NULL, NULL, cms_data), "create attached data");
+#else
+    /* macOS does not */
+    is_status(SecCMSCreateSignedData(identity, NULL, NULL, NULL, cms_data), errSecParam, "create attached data");
+#endif
+
 	//write_data("/var/tmp/empty_attached", cms_data);
 
 	CFReleaseSafe(cms_data);
 	CFReleaseSafe(cert);
 	CFReleaseNull(identity);
-	CFRelease(attached_signed_data);
-	CFRelease(detached_signed_data);
-	CFRelease(attached_no_data_signed_data);
-	CFRelease(detached_data);
-	CFRelease(no_data);
-	CFRelease(policy);
+	CFReleaseSafe(attached_signed_data);
+	CFReleaseSafe(detached_signed_data);
+	CFReleaseSafe(attached_no_data_signed_data);
+	CFReleaseSafe(detached_data);
+	CFReleaseSafe(no_data);
+	CFReleaseSafe(policy);
 }
 
 int si_64_ossl_cms(int argc, char *const *argv)

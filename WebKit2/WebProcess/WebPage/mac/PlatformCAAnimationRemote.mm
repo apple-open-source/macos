@@ -306,9 +306,9 @@ Ref<PlatformCAAnimation> PlatformCAAnimationRemote::create(PlatformCAAnimation::
     return adoptRef(*new PlatformCAAnimationRemote(type, keyPath));
 }
 
-PassRefPtr<PlatformCAAnimation> PlatformCAAnimationRemote::copy() const
+Ref<PlatformCAAnimation> PlatformCAAnimationRemote::copy() const
 {
-    RefPtr<PlatformCAAnimation> animation = create(animationType(), keyPath());
+    auto animation = create(animationType(), keyPath());
     
     animation->setBeginTime(beginTime());
     animation->setDuration(duration());
@@ -322,7 +322,7 @@ PassRefPtr<PlatformCAAnimation> PlatformCAAnimationRemote::copy() const
     animation->copyTimingFunctionFrom(*this);
     animation->setValueFunction(valueFunction());
 
-    downcast<PlatformCAAnimationRemote>(*animation).setHasExplicitBeginTime(hasExplicitBeginTime());
+    downcast<PlatformCAAnimationRemote>(animation.get()).setHasExplicitBeginTime(hasExplicitBeginTime());
     
     // Copy the specific Basic or Keyframe values.
     if (animationType() == Keyframe) {
@@ -650,8 +650,8 @@ void PlatformCAAnimationRemote::setValues(const Vector<RefPtr<FilterOperation>>&
     Vector<KeyframeValue> keyframes;
     keyframes.reserveInitialCapacity(values.size());
     
-    for (size_t i = 0; i < values.size(); ++i)
-        keyframes.uncheckedAppend(KeyframeValue(values[i]));
+    for (auto& value : values)
+        keyframes.uncheckedAppend(KeyframeValue { value.copyRef() });
     
     m_properties.keyValues = WTFMove(keyframes);
 }
@@ -780,11 +780,7 @@ static void addAnimationToLayer(CALayer *layer, RemoteLayerTreeHost* layerTreeHo
                 [springAnimation setMass:function.mass()];
                 [springAnimation setStiffness:function.stiffness()];
                 [springAnimation setDamping:function.damping()];
-#if PLATFORM(IOS) || PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
                 [springAnimation setInitialVelocity:function.initialVelocity()];
-#else
-                [springAnimation setVelocity:function.initialVelocity()];
-#endif
             }
         }
         caAnimation = springAnimation;

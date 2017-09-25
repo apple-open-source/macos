@@ -1,4 +1,4 @@
-# Copyright (C) 2009  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -95,11 +95,8 @@ installdirs:
 	$(SHELL) ${top_srcdir}/mkinstalldirs ${DESTDIR}${sbindir}
 	$(SHELL) ${top_srcdir}/mkinstalldirs ${DESTDIR}${mandir}/man8
 
-#install:: rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@ installdirs
 install:: ddns-confgen@EXEEXT@ installdirs
-#	${LIBTOOL_MODE_INSTALL} ${INSTALL_PROGRAM} rndc-confgen@EXEEXT@ ${DESTDIR}${sbindir}
 	${LIBTOOL_MODE_INSTALL} ${INSTALL_PROGRAM} ddns-confgen@EXEEXT@ ${DESTDIR}${sbindir}
-#	${INSTALL_DATA} ${srcdir}/rndc-confgen.8 ${DESTDIR}${mandir}/man8
 	${INSTALL_DATA} ${srcdir}/ddns-confgen.8 ${DESTDIR}${mandir}/man8
 
 clean distclean maintainer-clean::

@@ -163,13 +163,10 @@ static void _query_string_apply(CFMutableStringRef query_string, const void *key
         CFURLCreateStringByAddingPercentEscapes(kCFAllocatorDefault, 
             (CFStringRef)value, NULL, CFSTR("+/="), kCFStringEncodingUTF8);
     
-    CFStringRef format;
     if (CFStringGetLength(query_string) > 1)
-        format = CFSTR("&%@=%@");
-    else
-        format = CFSTR("%@=%@");
+        CFStringAppend(query_string, CFSTR("&"));
 
-    CFStringAppendFormat(query_string, NULL, format, escaped_key, escaped_value);
+    CFStringAppendFormat(query_string, NULL, CFSTR("%@=%@"), escaped_key, escaped_value);
     CFRelease(escaped_key);
     CFRelease(escaped_value);
 }

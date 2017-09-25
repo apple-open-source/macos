@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2011, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: dirdb.c,v 1.14 2011/10/11 23:46:45 tbox Exp $ */
 
 /*
  * A simple database driver that returns basic information about
@@ -60,9 +60,16 @@ static dns_sdbimplementation_t *dirdb = NULL;
  * Any name will be interpreted as a pathname offset from the directory
  * specified in the configuration file.
  */
+#ifdef DNS_CLIENTINFO_VERSION
+static isc_result_t
+dirdb_lookup(const char *zone, const char *name, void *dbdata,
+	      dns_sdblookup_t *lookup, dns_clientinfomethods_t *methods,
+	      dns_clientinfo_t *clientinfo)
+#else
 static isc_result_t
 dirdb_lookup(const char *zone, const char *name, void *dbdata,
 	      dns_sdblookup_t *lookup)
+#endif /* DNS_CLIENTINFO_VERSION */
 {
 	char filename[255];
 	char filename2[255];
@@ -73,6 +80,10 @@ dirdb_lookup(const char *zone, const char *name, void *dbdata,
 
 	UNUSED(zone);
 	UNUSED(dbdata);
+#ifdef DNS_CLIENTINFO_VERSION
+	UNUSED(methods);
+	UNUSED(clientinfo);
+#endif /* DNS_CLIENTINFO_VERSION */
 
 	if (strcmp(name, "@") == 0)
 		snprintf(filename, sizeof(filename), "%s", (char *)dbdata);
@@ -168,7 +179,8 @@ static dns_sdbmethods_t dirdb_methods = {
 	dirdb_authority,
 	NULL, /* allnodes */
 	dirdb_create,
-	dirdb_destroy
+	dirdb_destroy,
+	NULL /* lookup2 */
 };
 
 /*

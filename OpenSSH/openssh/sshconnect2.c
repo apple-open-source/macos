@@ -1,4 +1,4 @@
-/* $OpenBSD: sshconnect2.c,v 1.251 2016/12/04 23:54:02 djm Exp $ */
+/* $OpenBSD: sshconnect2.c,v 1.255 2017/03/11 23:40:26 djm Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  * Copyright (c) 2008 Damien Miller.  All rights reserved.
@@ -197,8 +197,8 @@ ssh_kex2(char *host, struct sockaddr *hostaddr, u_short port)
 	}
 
 	if (options.rekey_limit || options.rekey_interval)
-		packet_set_rekey_limits((u_int32_t)options.rekey_limit,
-		    (time_t)options.rekey_interval);
+		packet_set_rekey_limits(options.rekey_limit,
+		    options.rekey_interval);
 
 	/* start key exchange */
 	if ((r = kex_setup(active_state, myproposal)) != 0)
@@ -667,7 +667,7 @@ userauth_gssapi(Authctxt *authctxt)
 	while (mech < gss_supported->count && !ok) {
 		/* My DER encoding requires length<128 */
 		if (gss_supported->elements[mech].length < 128 &&
-		    ssh_gssapi_check_mechanism(&gssctxt, 
+		    ssh_gssapi_check_mechanism(&gssctxt,
 		    &gss_supported->elements[mech], authctxt->host)) {
 			ok = 1; /* Mechanism works */
 		} else {
@@ -938,14 +938,14 @@ input_userauth_passwd_changereq(int type, u_int32_t seqnr, void *ctxt)
 	Authctxt *authctxt = ctxt;
 	char *info, *lang, *password = NULL, *retype = NULL;
 	char prompt[150];
-	const char *host = options.host_key_alias ? options.host_key_alias :
-	    authctxt->host;
+	const char *host;
 
 	debug2("input_userauth_passwd_changereq");
 
 	if (authctxt == NULL)
 		fatal("input_userauth_passwd_changereq: "
 		    "no authentication context");
+	host = options.host_key_alias ? options.host_key_alias : authctxt->host;
 
 	info = packet_get_string(NULL);
 	lang = packet_get_string(NULL);
@@ -1000,11 +1000,11 @@ input_userauth_passwd_changereq(int type, u_int32_t seqnr, void *ctxt)
 }
 
 static const char *
-identity_sign_encode(struct identity *id)
+key_sign_encode(const struct sshkey *key)
 {
 	struct ssh *ssh = active_state;
 
-	if (id->key->type == KEY_RSA) {
+	if (key->type == KEY_RSA) {
 		switch (ssh->kex->rsa_sha2) {
 		case 256:
 			return "rsa-sha2-256";
@@ -1012,7 +1012,7 @@ identity_sign_encode(struct identity *id)
 			return "rsa-sha2-512";
 		}
 	}
-	return key_ssh_name(id->key);
+	return key_ssh_name(key);
 }
 
 static int
@@ -1021,28 +1021,47 @@ identity_sign(struct identity *id, u_char **sigp, size_t *lenp,
 {
 	Key *prv;
 	int ret;
-	const char *alg;
-
-	alg = identity_sign_encode(id);
 
 	/* the agent supports this key */
-	if (id->agent_fd != -1)
+	if (id->key != NULL && id->agent_fd != -1)
 		return ssh_agent_sign(id->agent_fd, id->key, sigp, lenp,
-		    data, datalen, alg, compat);
+		    data, datalen, key_sign_encode(id->key), compat);
 
 	/*
 	 * we have already loaded the private key or
 	 * the private key is stored in external hardware
 	 */
-	if (id->isprivate || (id->key->flags & SSHKEY_FLAG_EXT))
-		return (sshkey_sign(id->key, sigp, lenp, data, datalen, alg,
-		    compat));
+	if (id->key != NULL &&
+	    (id->isprivate || (id->key->flags & SSHKEY_FLAG_EXT)))
+		return (sshkey_sign(id->key, sigp, lenp, data, datalen,
+		    key_sign_encode(id->key), compat));
+
 	/* load the private key from the file */
 	if ((prv = load_identity_file(id)) == NULL)
 		return SSH_ERR_KEY_NOT_FOUND;
-	ret = sshkey_sign(prv, sigp, lenp, data, datalen, alg, compat);
+	ret = sshkey_sign(prv, sigp, lenp, data, datalen,
+	    key_sign_encode(prv), compat);
 	sshkey_free(prv);
 	return (ret);
+}
+
+static int
+id_filename_matches(Identity *id, Identity *private_id)
+{
+	const char *suffixes[] = { ".pub", "-cert.pub", NULL };
+	size_t len = strlen(id->filename), plen = strlen(private_id->filename);
+	size_t i, slen;
+
+	if (strcmp(id->filename, private_id->filename) == 0)
+		return 1;
+	for (i = 0; suffixes[i]; i++) {
+		slen = strlen(suffixes[i]);
+		if (len > slen && plen == len - slen &&
+		    strcmp(id->filename + (len - slen), suffixes[i]) == 0 &&
+		    memcmp(id->filename, private_id->filename, plen) == 0)
+			return 1;
+	}
+	return 0;
 }
 
 static int
@@ -1087,7 +1106,7 @@ sign_and_send_pubkey(Authctxt *authctxt, Identity *id)
 	} else {
 		buffer_put_cstring(&b, authctxt->method->name);
 		buffer_put_char(&b, have_sig);
-		buffer_put_cstring(&b, identity_sign_encode(id));
+		buffer_put_cstring(&b, key_sign_encode(id->key));
 	}
 	buffer_put_string(&b, blob, bloblen);
 
@@ -1105,6 +1124,24 @@ sign_and_send_pubkey(Authctxt *authctxt, Identity *id)
 				id = private_id;
 				matched = 1;
 				break;
+			}
+		}
+		/*
+		 * Exact key matches are preferred, but also allow
+		 * filename matches for non-PKCS#11/agent keys that
+		 * didn't load public keys. This supports the case
+		 * of keeping just a private key file and public
+		 * certificate on disk.
+		 */
+		if (!matched && !id->isprivate && id->agent_fd == -1 &&
+		    (id->key->flags & SSHKEY_FLAG_EXT) == 0) {
+			TAILQ_FOREACH(private_id, &authctxt->keys, next) {
+				if (private_id->key == NULL &&
+				    id_filename_matches(id, private_id)) {
+					id = private_id;
+					matched = 1;
+					break;
+				}
 			}
 		}
 		if (matched) {
@@ -1185,7 +1222,7 @@ send_pubkey_test(Authctxt *authctxt, Identity *id)
 	packet_put_cstring(authctxt->method->name);
 	packet_put_char(have_sig);
 	if (!(datafellows & SSH_BUG_PKAUTH))
-		packet_put_cstring(identity_sign_encode(id));
+		packet_put_cstring(key_sign_encode(id->key));
 	packet_put_string(blob, bloblen);
 	free(blob);
 	packet_send();
@@ -1208,14 +1245,14 @@ load_identity_file(Identity *id)
 	snprintf(prompt, sizeof prompt,
 	    "Enter passphrase for key '%.100s': ", id->filename);
 	for (i = 0; i <= options.number_of_password_prompts; i++) {
-		if (i == 0)
-			passphrase = "";
 #ifdef __APPLE_KEYCHAIN__
-		else if (options.use_keychain && (passphrase = keychain_read_passphrase(id->filename)) != NULL) {
+		if (i == 0 && options.use_keychain && (passphrase = keychain_read_passphrase(id->filename)) != NULL) {
 			found_in_keychain = 1;
 			debug2("using passphrase from keychain");
-		}
+		} else
 #endif
+		if (i == 0)
+			passphrase = "";
 		else {
 			passphrase = read_passphrase(prompt, 0);
 			if (*passphrase == '\0') {
@@ -1650,7 +1687,7 @@ ssh_keysign(struct sshkey *key, u_char **sigp, size_t *lenp,
 	if ((b = sshbuf_new()) == NULL)
 		fatal("%s: sshbuf_new failed", __func__);
 	/* send # of sock, data to be signed */
-	if ((r = sshbuf_put_u32(b, sock) != 0) ||
+	if ((r = sshbuf_put_u32(b, sock)) != 0 ||
 	    (r = sshbuf_put_string(b, data, datalen)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 	if (ssh_msg_send(to[1], version, b) == -1)
@@ -1951,4 +1988,3 @@ authmethods_get(void)
 	buffer_free(&b);
 	return list;
 }
-

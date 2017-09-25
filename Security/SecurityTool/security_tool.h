@@ -23,8 +23,8 @@
  * security.h
  */
 
-#ifndef _SECURITY_H_
-#define _SECURITY_H_ 1
+#ifndef _SECURITY_TOOL_H_
+#define _SECURITY_TOOL_H_ 1
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,4 +46,4 @@ void sec_perror(const char *msg, int err);
 }
 #endif
 
-#endif /*  _SECURITY_H_ */
+#endif /*  _SECURITY_TOOL_H_ */

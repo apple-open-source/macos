@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.25
+Version    = 2.4.27
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \
@@ -19,12 +19,11 @@ Patch_List = PR-18640257-SDK.diff \
              patch-docs__conf__extra__httpd-mpm.conf.in \
              patch-docs__conf__mime.types \
              patch-docs__conf__extra__httpd-userdir.conf.in \
-             patch-docs__conf__extra__http-ssl.conf.in \
              PR-15976165-ulimit.diff \
              PR-17754441-sbin.diff \
              PR-16019357-apxs.diff \
              PR-13708279.diff \
-             PR-30247257.diff \
+             PR-32889915.diff \
              mod_proxy_balancer-partialfix.diff
 
 Configure_Flags = --prefix=/usr \
@@ -63,13 +62,12 @@ install_source::
 build::
 	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
-	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L/usr/lib -lcrypto.35 -lssl.35" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
+	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L/usr/lib -lcrypto -lssl" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
 
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)
 	$(_v) $(MAKE) $(Post_Install_Targets)
 
-APXS = perl $(OBJROOT)/support/apxs
 SYSCONFDIR = /private/etc/apache2
 SYSCONFDIR_OTHER = $(SYSCONFDIR)/other
 
@@ -96,10 +94,10 @@ post-install:
 	$(MKDIR) $(DSTROOT)$(SYSCONFDIR)/users
 	$(RMDIR) $(DSTROOT)/private/var/run
 	$(RMDIR) $(DSTROOT)/usr/bin
-	$(RM) $(DSTROOT)/Library/WebServer/CGI-Executables/printenv
-	$(RM) $(DSTROOT)/Library/WebServer/CGI-Executables/test-cgi
+	$(RM) $(DSTROOT)/Library/WebServer/CGI-Executables/*
 	$(INSTALL_FILE) $(SRCROOT)/checkgid.8 $(DSTROOT)/usr/share/man/man8
 	$(INSTALL_FILE) $(SRCROOT)/httxt2dbm.8 $(DSTROOT)/usr/share/man/man8
+	$(INSTALL_FILE) $(SRCROOT)/httpd-wrapper.8 $(DSTROOT)/usr/share/man/man8
 	$(CHOWN) -R $(Install_User):$(Install_Group) \
 		$(DSTROOT)/usr/share/httpd \
 		$(DSTROOT)/usr/share/man
@@ -111,7 +109,15 @@ post-install:
 	$(MKDIR) $(DSTROOT)/usr/local/OpenSourceVersions $(DSTROOT)/usr/local/OpenSourceLicenses
 	$(INSTALL_FILE) $(SRCROOT)/apache.plist $(DSTROOT)/usr/local/OpenSourceVersions/apache.plist
 	$(INSTALL_FILE) $(Sources)/LICENSE $(DSTROOT)/usr/local/OpenSourceLicenses/apache.txt
-
+	$(MKDIR) $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin
+	$(MKDIR) $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build
+	$(MKDIR) $(DSTROOT)/usr/local/bin
+	$(MV) $(DSTROOT)/usr/sbin/apxs $(DSTROOT)/usr/local/bin/apxs
+	sed -e "29s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
+	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
+	sed -e "54s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
+	$(SILENT) $(RM) -Rf $(DSTROOT)/BuildRoot
+	
 strip-modules:
 	$(CP) $(DSTROOT)/usr/libexec/apache2/*.so $(SYMROOT)
 	$(STRIP) -S $(DSTROOT)/usr/libexec/apache2/*.so

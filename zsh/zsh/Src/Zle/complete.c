@@ -52,7 +52,7 @@ char **compwords,
      *compqiprefix,
      *compqisuffix,
      *compquote,
-     *compqstack,
+     *compqstack,      /* compstate[all_quotes] */
      *comppatmatch,
      *complastprompt;
 /**/
@@ -67,13 +67,31 @@ char *compiprefix,
      *compexact,
      *compexactstr,
      *comppatinsert,
-     *comptoend,
+     *comptoend,      /* compstate[to_end]; populates 'movetoend' */
      *compoldlist,
      *compoldins,
      *compvared;
 
+/*
+ * An array of Param structures for compsys special parameters;
+ * see 'comprparams' below.  An entry for $compstate is added
+ * by makecompparams().
+ *
+ * See CP_REALPARAMS.
+ */
+
 /**/
-Param *comprpms, *compkpms;
+Param *comprpms;
+
+/* 
+ * An array of Param structures for elemens of $compstate; see
+ * 'compkparams' below.
+ *
+ * See CP_KEYPARAMS.
+ */
+
+/**/
+Param *compkpms;
 
 /**/
 mod_export void
@@ -209,7 +227,15 @@ cpcpattern(Cpattern o)
     return r;
 }
 
-/* Parse a string for matcher control, containing multiple matchers. */
+/* 
+ * Parse a string for matcher control, containing multiple matchers.
+ *
+ * 's' is the string to be parsed.
+ *
+ * 'name' is the name of the builtin from which this is called, for errors.
+ *
+ * Return 'pcm_err' on error; a NULL return value means ...
+ */
 
 /**/
 mod_export Cmatcher
@@ -231,16 +257,17 @@ parse_cmatcher(char *name, char *s)
 	if (!*s) break;
 
 	switch (*s) {
-	case 'b': fl2 = CMF_INTER;
+	case 'b': fl2 = CMF_INTER; /* FALLTHROUGH */
 	case 'l': fl = CMF_LEFT; break;
-	case 'e': fl2 = CMF_INTER;
+	case 'e': fl2 = CMF_INTER; /* FALLTHROUGH */
 	case 'r': fl = CMF_RIGHT; break;
 	case 'm': fl = 0; break;
-	case 'B': fl2 = CMF_INTER;
+	case 'B': fl2 = CMF_INTER; /* FALLTHROUGH */
 	case 'L': fl = CMF_LEFT | CMF_LINE; break;
-	case 'E': fl2 = CMF_INTER;
+	case 'E': fl2 = CMF_INTER; /* FALLTHROUGH */
 	case 'R': fl = CMF_RIGHT | CMF_LINE; break;
 	case 'M': fl = CMF_LINE; break;
+	case 'x': break;
 	default:
 	    if (name)
 		zwarnnam(name, "unknown match specification character `%c'",
@@ -251,6 +278,15 @@ parse_cmatcher(char *name, char *s)
 	    if (name)
 		zwarnnam(name, "missing `:'");
 	    return pcm_err;
+	}
+	if (*s == 'x') {
+	    if (s[2] && !inblank(s[2])) {
+		if (name)
+		    zwarnnam(name,
+			"unexpected pattern following x: specification");
+		return pcm_err;
+	    }
+	    return ret;
 	}
 	s += 2;
 	if (!*s) {
@@ -527,8 +563,8 @@ static int
 bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     struct cadata dat;
-    char *p, **sp, *e, *m = NULL, *mstr = NULL;
-    int dm;
+    char *mstr = NULL; /* argument of -M options, accumulated */
+    int added; /* return value */
     Cmatcher match = NULL;
 
     if (incompfunc != 1) {
@@ -544,14 +580,16 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     dat.dummies = -1;
 
     for (; *argv && **argv ==  '-'; argv++) {
+	char *p; /* loop variable, points into argv */
 	if (!(*argv)[1]) {
 	    argv++;
 	    break;
 	}
 	for (p = *argv + 1; *p; p++) {
-	    sp = NULL;
-	    e = NULL;
-	    dm = 0;
+	    char *m = NULL; /* argument of -M option (this one only) */
+	    char **sp = NULL; /* the argument to an option should be copied
+				 to *sp. */
+	    const char *e; /* error message */
 	    switch (*p) {
 	    case 'q':
 		dat.flags |= CMF_REMOVE;
@@ -633,7 +671,6 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    case 'M':
 		sp = &m;
 		e = "matching specification expected after -%c";
-		dm = 1;
 		break;
 	    case 'X':
 		sp = &(dat.exp);
@@ -704,27 +741,29 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    }
 	    if (sp) {
 		if (p[1]) {
+		    /* Pasted argument: -Xfoo. */
 		    if (!*sp)
 			*sp = p + 1;
 		    p = "" - 1;
 		} else if (argv[1]) {
+		    /* Argument in a separate word: -X foo. */
 		    argv++;
 		    if (!*sp)
 			*sp = *argv;
 		    p = "" - 1;
 		} else {
+		    /* Missing argument: argv[N] == "-X", argv[N+1] == NULL. */
 		    zwarnnam(name, e, *p);
 		    zsfree(mstr);
 		    return 1;
 		}
-		if (dm) {
+		if (m) {
 		    if (mstr) {
 			char *tmp = tricat(mstr, " ", m);
 			zsfree(mstr);
 			mstr = tmp;
 		    } else
 			mstr = ztrdup(m);
-		    m = NULL;
 		}
 	    }
 	}
@@ -743,10 +782,10 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	return 1;
 
     dat.match = match = cpcmatcher(match);
-    dm = addmatches(&dat, argv);
+    added = addmatches(&dat, argv);
     freecmatcher(match);
 
-    return dm;
+    return added;
 }
 
 #define CVT_RANGENUM 0
@@ -1207,8 +1246,9 @@ makecompparams(void)
 
     addcompparams(comprparams, comprpms);
 
-    if (!(cpm = createparam(COMPSTATENAME,
-			    PM_SPECIAL|PM_REMOVABLE|PM_LOCAL|PM_HASHED)))
+    if (!(cpm = createparam(
+	      COMPSTATENAME,
+	      PM_SPECIAL|PM_REMOVABLE|PM_SINGLE|PM_LOCAL|PM_HASHED)))
 	cpm = (Param) paramtab->getnode(paramtab, COMPSTATENAME);
     DPUTS(!cpm, "param not set in makecompparams");
 

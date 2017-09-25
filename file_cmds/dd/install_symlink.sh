@@ -3,7 +3,7 @@ set -e
 set -x
 
 case "$PLATFORM_NAME" in
-iphoneos|appletvos|watchos)
+iphoneos|appletvos|watchos|bridgeos)
     ln -hfs /usr/local/bin/dd "$DSTROOT"/bin/dd
     ;;
 macosx)

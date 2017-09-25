@@ -92,5 +92,6 @@
 ;;
 
 (deny file*
+      (subpath "/Users")
       (subpath "/private/var/root")
       (with no-log))

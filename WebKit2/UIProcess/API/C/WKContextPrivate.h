@@ -29,6 +29,8 @@
 #include <WebKit/WKBase.h>
 #include <WebKit/WKContext.h>
 
+#include <unistd.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -81,6 +83,10 @@ WK_EXPORT void WKContextWarmInitialProcess(WKContextRef context);
 // At some point it should be removed.
 WK_EXPORT void WKContextSetUsesNetworkProcess(WKContextRef, bool);
 
+WK_EXPORT void WKContextTerminateNetworkProcess(WKContextRef);
+
+WK_EXPORT void WKContextSetAllowsAnySSLCertificateForWebSocketTesting(WKContextRef, bool);
+    
 // Test only. Should be called before any secondary processes are started.
 WK_EXPORT void WKContextUseTestingNetworkSession(WKContextRef context);
 

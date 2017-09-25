@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -305,6 +305,12 @@ EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist, CFDate
 	*start_time = persist->pseudonym_start_time;
     }
     return (persist->pseudonym);
+}
+
+PRIVATE_EXTERN Boolean
+EAPSIMAKAPersistentStateTemporaryUsernameAvailable(EAPSIMAKAPersistentStateRef persist)
+{
+    return (persist->pseudonym || persist->reauth_id);
 }
 
 PRIVATE_EXTERN void

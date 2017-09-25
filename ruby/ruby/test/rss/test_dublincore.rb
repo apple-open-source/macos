@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 require "cgi"
 require "rexml/document"
 
-require "rss-testcase"
+require_relative "rss-testcase"
 
 require "rss/1.0"
 require "rss/dublincore"

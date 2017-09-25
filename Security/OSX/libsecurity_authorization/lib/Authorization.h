@@ -35,6 +35,7 @@
 #include <Availability.h>
 #include <CoreFoundation/CFAvailability.h>
 #include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CFArray.h>
 
 #include <stdio.h>
 
@@ -90,7 +91,7 @@ CF_ENUM(OSStatus) {
 	errAuthorizationInvalidTag              = -60003, /* The authorization tag is invalid. */
 	errAuthorizationInvalidPointer          = -60004, /* The returned authorization is invalid. */
 	errAuthorizationDenied                  = -60005, /* The authorization was denied. */
-	errAuthorizationCanceled                = -60006, /* The authorization was cancelled by the user. */
+	errAuthorizationCanceled                = -60006, /* The authorization was canceled by the user. */
 	errAuthorizationInteractionNotAllowed   = -60007, /* The authorization was denied since no user interaction was possible. */
 	errAuthorizationInternal                = -60008, /* Unable to obtain authorization for this operation. */
 	errAuthorizationExternalizeNotAllowed	= -60009, /* The authorization is not allowed to be converted to an external format. */
@@ -236,7 +237,7 @@ typedef AuthorizationItemSet AuthorizationEnvironment;
 
 	errAuthorizationDenied -60005 The authorization for one or more of the requested rights was denied.
 
-	errAuthorizationCanceled -60006 The authorization was cancelled by the user.
+	errAuthorizationCanceled -60006 The authorization was canceled by the user.
 
 	errAuthorizationInteractionNotAllowed -60007 The authorization was denied since no interaction with the user was allowed.
 */

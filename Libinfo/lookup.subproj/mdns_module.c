@@ -113,7 +113,7 @@
 #include <net/if.h>
 #include <time.h>
 #include <unistd.h>
-#include <asl.h>
+#include <os/log.h>
 #include <dns.h>
 #include <dns_util.h>
 #include <TargetConditionals.h>
@@ -222,7 +222,7 @@ _mdns_debug_message(const char *str, ...)
 
 	if (_mdns_debug & MDNS_DEBUG_STDOUT) fprintf(stdout, "%s", out);
 	if (_mdns_debug & MDNS_DEBUG_STDERR) fprintf(stderr, "%s", out);
-	if (_mdns_debug & MDNS_DEBUG_ASL) asl_log_message(ASL_LEVEL_NOTICE, "%s", out);
+	if (_mdns_debug & MDNS_DEBUG_ASL) os_log(OS_LOG_DEFAULT, "%s", out);
 	free(out);
 
 	va_end(v);
@@ -1665,7 +1665,7 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 
 #if TARGET_OS_EMBEDDED
 	/* log a warning for queries from the main thread */
-	if (pthread_is_threaded_np() && pthread_main_np()) asl_log(NULL, NULL, ASL_LEVEL_WARNING, "Warning: Libinfo call to mDNSResponder on main thread");
+	if (pthread_is_threaded_np() && pthread_main_np()) os_log(OS_LOG_DEFAULT, "Warning: Libinfo call to mDNSResponder on main thread");
 #endif /* TARGET_OS_EMBEDDED */
 
 	/*

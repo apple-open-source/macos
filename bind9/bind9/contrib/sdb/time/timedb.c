@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2011, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: timedb.c,v 1.12 2011/10/11 23:46:45 tbox Exp $ */
 
 /*
  * A simple database driver that enables the server to return the
@@ -47,14 +47,25 @@ static dns_sdbimplementation_t *timedb = NULL;
  * "clock" is a CNAME to "time"
  * "current" is a DNAME to "@" (try time.current.time)
  */
+#ifdef DNS_CLIENTINFO_VERSION
+static isc_result_t
+timedb_lookup(const char *zone, const char *name, void *dbdata,
+	      dns_sdblookup_t *lookup, dns_clientinfomethods_t *methods,
+	      dns_clientinfo_t *clientinfo)
+#else
 static isc_result_t
 timedb_lookup(const char *zone, const char *name, void *dbdata,
 	      dns_sdblookup_t *lookup)
+#endif /* DNS_CLIENTINFO_VERSION */
 {
 	isc_result_t result;
 
 	UNUSED(zone);
 	UNUSED(dbdata);
+#ifdef DNS_CLIENTINFO_VERSION
+	UNUSED(methods);
+	UNUSED(clientinfo);
+#endif /* DNS_CLIENTINFO_VERSION */
 
 	if (strcmp(name, "@") == 0 || strcmp(name, "time") == 0) {
 		time_t now = time(NULL);
@@ -119,7 +130,8 @@ static dns_sdbmethods_t timedb_methods = {
 	timedb_authority,
 	NULL,	/* allnodes */
 	NULL,	/* create */
-	NULL	/* destroy */
+	NULL,	/* destroy */
+	NULL	/* lookup2 */
 };
 
 /*

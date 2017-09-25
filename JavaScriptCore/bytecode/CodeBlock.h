@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,15 +33,14 @@
 #include "ByValInfo.h"
 #include "BytecodeConventions.h"
 #include "CallLinkInfo.h"
-#include "CallReturnOffsetToBytecodeOffset.h"
 #include "CodeBlockHash.h"
 #include "CodeOrigin.h"
 #include "CodeType.h"
 #include "CompactJITCodeMap.h"
+#include "CompilationResult.h"
 #include "ConcurrentJSLock.h"
 #include "DFGCommon.h"
 #include "DFGExitProfile.h"
-#include "DeferredCompilationCallback.h"
 #include "DirectEvalCodeCache.h"
 #include "EvalExecutable.h"
 #include "ExecutionCounter.h"
@@ -60,6 +59,7 @@
 #include "ModuleProgramExecutable.h"
 #include "ObjectAllocationProfile.h"
 #include "Options.h"
+#include "Printer.h"
 #include "ProfilerJettisonReason.h"
 #include "ProgramExecutable.h"
 #include "PutPropertySlot.h"
@@ -68,7 +68,6 @@
 #include "VirtualRegister.h"
 #include "Watchpoint.h"
 #include <wtf/Bag.h>
-#include <wtf/FastBitVector.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/RefCountedArray.h>
 #include <wtf/RefPtr.h>
@@ -118,10 +117,10 @@ public:
 
 protected:
     CodeBlock(VM*, Structure*, CopyParsedBlockTag, CodeBlock& other);
-    CodeBlock(VM*, Structure*, ScriptExecutable* ownerExecutable, UnlinkedCodeBlock*, JSScope*, PassRefPtr<SourceProvider>, unsigned sourceOffset, unsigned firstLineColumnOffset);
+    CodeBlock(VM*, Structure*, ScriptExecutable* ownerExecutable, UnlinkedCodeBlock*, JSScope*, RefPtr<SourceProvider>&&, unsigned sourceOffset, unsigned firstLineColumnOffset);
 
     void finishCreation(VM&, CopyParsedBlockTag, CodeBlock& other);
-    void finishCreation(VM&, ScriptExecutable* ownerExecutable, UnlinkedCodeBlock*, JSScope*);
+    bool finishCreation(VM&, ScriptExecutable* ownerExecutable, UnlinkedCodeBlock*, JSScope*);
 
     WriteBarrier<JSGlobalObject> m_globalObject;
 
@@ -142,6 +141,8 @@ public:
 
     int numParameters() const { return m_numParameters; }
     void setNumParameters(int newValue);
+
+    int numberOfArgumentsToSkip() const { return m_numberOfArgumentsToSkip; }
 
     int numCalleeLocals() const { return m_numCalleeLocals; }
 
@@ -191,9 +192,9 @@ public:
 
     void dumpBytecode();
     void dumpBytecode(PrintStream&);
-    void dumpBytecode(
-        PrintStream&, unsigned bytecodeOffset,
-        const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
+    void dumpBytecode(PrintStream& out, const Instruction* begin, const Instruction*& it, const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
+    void dumpBytecode(PrintStream& out, unsigned bytecodeOffset, const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
+
     void dumpExceptionHandlers(PrintStream&);
     void printStructures(PrintStream&, const Instruction*);
     void printStructure(PrintStream&, const char* name, const Instruction*, int operand);
@@ -202,6 +203,9 @@ public:
 
     bool isStrictMode() const { return m_isStrictMode; }
     ECMAMode ecmaMode() const { return isStrictMode() ? StrictMode : NotStrictMode; }
+
+    bool hasInstalledVMTrapBreakpoints() const;
+    bool installVMTrapBreakpoints();
 
     inline bool isKnownNotImmediate(int index)
     {
@@ -312,15 +316,15 @@ public:
     // Exactly equivalent to codeBlock->ownerExecutable()->newReplacementCodeBlockFor(codeBlock->specializationKind())
     CodeBlock* newReplacement();
     
-    void setJITCode(PassRefPtr<JITCode> code)
+    void setJITCode(Ref<JITCode>&& code)
     {
         ASSERT(heap()->isDeferred());
         heap()->reportExtraMemoryAllocated(code->size());
         ConcurrentJSLocker locker(m_lock);
         WTF::storeStoreFence(); // This is probably not needed because the lock will also do something similar, but it's good to be paranoid.
-        m_jitCode = code;
+        m_jitCode = WTFMove(code);
     }
-    PassRefPtr<JITCode> jitCode() { return m_jitCode; }
+    RefPtr<JITCode> jitCode() { return m_jitCode; }
     static ptrdiff_t jitCodeOffset() { return OBJECT_OFFSETOF(CodeBlock, m_jitCode); }
     JITCode::JITType jitType() const
     {
@@ -542,6 +546,7 @@ public:
         return result;
     }
 
+    const Vector<WriteBarrier<Unknown>>& constantRegisters() { return m_constantRegisters; }
     WriteBarrier<Unknown>& constantRegister(int index) { return m_constantRegisters[index - FirstConstantRegisterIndex]; }
     static ALWAYS_INLINE bool isConstantRegisterIndex(int index) { return index >= FirstConstantRegisterIndex; }
     ALWAYS_INLINE JSValue getConstant(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex].get(); }
@@ -552,6 +557,10 @@ public:
     FunctionExecutable* functionExpr(int index) { return m_functionExprs[index].get(); }
     
     RegExp* regexp(int index) const { return m_unlinkedCode->regexp(index); }
+    unsigned numberOfRegExps() const { return m_unlinkedCode->numberOfRegExps(); }
+
+    const Vector<BitVector>& bitVectors() const { return m_unlinkedCode->bitVectors(); }
+    const BitVector& bitVector(size_t i) { return m_unlinkedCode->bitVector(i); }
 
     unsigned numberOfConstantBuffers() const
     {
@@ -909,37 +918,15 @@ private:
 
     void updateAllPredictionsAndCountLiveness(unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
 
-    void setConstantRegisters(const Vector<WriteBarrier<Unknown>>& constants, const Vector<SourceCodeRepresentation>& constantsSourceCodeRepresentation);
+    bool setConstantIdentifierSetRegisters(VM&, const Vector<ConstantIndentifierSetEntry>& constants);
+
+    bool setConstantRegisters(const Vector<WriteBarrier<Unknown>>& constants, const Vector<SourceCodeRepresentation>& constantsSourceCodeRepresentation);
 
     void replaceConstant(int index, JSValue value)
     {
         ASSERT(isConstantRegisterIndex(index) && static_cast<size_t>(index - FirstConstantRegisterIndex) < m_constantRegisters.size());
         m_constantRegisters[index - FirstConstantRegisterIndex].set(m_globalObject->vm(), this, value);
     }
-
-    void dumpBytecode(
-        PrintStream&, ExecState*, const Instruction* begin, const Instruction*&,
-        const StubInfoMap& = StubInfoMap(), const CallLinkInfoMap& = CallLinkInfoMap());
-
-    CString registerName(int r) const;
-    CString constantName(int index) const;
-    void printUnaryOp(PrintStream&, ExecState*, int location, const Instruction*&, const char* op);
-    void printBinaryOp(PrintStream&, ExecState*, int location, const Instruction*&, const char* op);
-    void printConditionalJump(PrintStream&, ExecState*, const Instruction*, const Instruction*&, int location, const char* op);
-    void printGetByIdOp(PrintStream&, ExecState*, int location, const Instruction*&);
-    void printGetByIdCacheStatus(PrintStream&, ExecState*, int location, const StubInfoMap&);
-    enum CacheDumpMode { DumpCaches, DontDumpCaches };
-    void printCallOp(PrintStream&, ExecState*, int location, const Instruction*&, const char* op, CacheDumpMode, bool& hasPrintedProfiling, const CallLinkInfoMap&);
-    void printPutByIdOp(PrintStream&, ExecState*, int location, const Instruction*&, const char* op);
-    void printPutByIdCacheStatus(PrintStream&, int location, const StubInfoMap&);
-    void printLocationAndOp(PrintStream&, ExecState*, int location, const Instruction*&, const char* op);
-    void printLocationOpAndRegisterOperand(PrintStream&, ExecState*, int location, const Instruction*& it, const char* op, int operand);
-
-    void beginDumpProfiling(PrintStream&, bool& hasPrintedProfiling);
-    void dumpValueProfiling(PrintStream&, const Instruction*&, bool& hasPrintedProfiling);
-    void dumpArrayProfiling(PrintStream&, const Instruction*&, bool& hasPrintedProfiling);
-    void dumpRareCaseProfile(PrintStream&, const char* name, RareCaseProfile*, bool& hasPrintedProfiling);
-    void dumpArithProfile(PrintStream&, ArithProfile*, bool& hasPrintedProfiling);
 
     bool shouldVisitStrongly(const ConcurrentJSLocker&);
     bool shouldJettisonDueToWeakReference();
@@ -968,6 +955,7 @@ private:
 
     WriteBarrier<UnlinkedCodeBlock> m_unlinkedCode;
     int m_numParameters;
+    int m_numberOfArgumentsToSkip { 0 };
     union {
         unsigned m_debuggerRequests;
         struct {
@@ -1098,4 +1086,13 @@ JSObject* ScriptExecutable::prepareForExecution(VM& vm, JSFunction* function, JS
 #define CODEBLOCK_LOG_EVENT(codeBlock, summary, details) \
     (codeBlock->vm()->logEvent(codeBlock, summary, [&] () { return toCString details; }))
 
+
+void setPrinter(Printer::PrintRecord&, CodeBlock*);
+
 } // namespace JSC
+
+namespace WTF {
+    
+JS_EXPORT_PRIVATE void printInternal(PrintStream&, JSC::CodeBlock*);
+
+} // namespace WTF

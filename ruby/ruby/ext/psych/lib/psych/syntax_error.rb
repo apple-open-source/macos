@@ -1,8 +1,8 @@
-module Psych
-  class Error < RuntimeError
-  end
+# frozen_string_literal: false
+require 'psych/exception'
 
-  class SyntaxError < Error
+module Psych
+  class SyntaxError < Psych::Exception
     attr_reader :file, :line, :column, :offset, :problem, :context
 
     def initialize file, line, col, offset, problem, context

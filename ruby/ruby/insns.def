@@ -60,6 +60,7 @@ getlocal
     int i, lev = (int)level;
     VALUE *ep = GET_EP();
 
+    /* optimized insns generated for level == (0|1) in defs/opt_operand.def */
     for (i = 0; i < lev; i++) {
 	ep = GET_PREV_EP(ep);
     }
@@ -82,6 +83,7 @@ setlocal
     int i, lev = (int)level;
     VALUE *ep = GET_EP();
 
+    /* optimized insns generated for level == (0|1) in defs/opt_operand.def */
     for (i = 0; i < lev; i++) {
 	ep = GET_PREV_EP(ep);
     }
@@ -157,8 +159,7 @@ getclassvariable
 ()
 (VALUE val)
 {
-    NODE *cref = rb_vm_get_cref(GET_ISEQ(), GET_EP());
-    val = rb_cvar_get(vm_get_cvar_base(cref, GET_CFP()), id);
+    val = rb_cvar_get(vm_get_cvar_base(rb_vm_get_cref(GET_EP()), GET_CFP()), id);
 }
 
 /**
@@ -172,8 +173,7 @@ setclassvariable
 (VALUE val)
 ()
 {
-    NODE *cref = rb_vm_get_cref(GET_ISEQ(), GET_EP());
-    rb_cvar_set(vm_get_cvar_base(cref, GET_CFP()), id, val);
+    rb_cvar_set(vm_get_cvar_base(rb_vm_get_cref(GET_EP()), GET_CFP()), id, val);
 }
 
 /**
@@ -194,7 +194,7 @@ getconstant
 (VALUE klass)
 (VALUE val)
 {
-    val = vm_get_ev_const(th, GET_ISEQ(), klass, id, 0);
+    val = vm_get_ev_const(th, klass, id, 0);
 }
 
 /**
@@ -218,7 +218,6 @@ setconstant
 {
     vm_check_if_namespace(cbase);
     rb_const_set(cbase, id, val);
-    INC_VM_STATE_VERSION();
 }
 
 /**
@@ -317,10 +316,10 @@ putspecialobject
 	val = rb_mRubyVMFrozenCore;
 	break;
       case VM_SPECIAL_OBJECT_CBASE:
-	val = vm_get_cbase(GET_ISEQ(), GET_EP());
+	val = vm_get_cbase(GET_EP());
 	break;
       case VM_SPECIAL_OBJECT_CONST_BASE:
-	val = vm_get_const_base(GET_ISEQ(), GET_EP());
+	val = vm_get_const_base(GET_EP());
 	break;
       default:
 	rb_bug("putspecialobject insn: unknown value_type");
@@ -338,7 +337,7 @@ putiseq
 ()
 (VALUE ret)
 {
-    ret = iseq->self;
+    ret = (VALUE)iseq;
 }
 
 /**
@@ -371,7 +370,7 @@ concatstrings
     val = rb_str_resurrect(TOPN(i));
     while (i-- > 0) {
 	const VALUE v = TOPN(i);
-	rb_str_append(val, v);
+	rb_str_append_literal(val, v);
     }
     POPN(num);
 }
@@ -388,6 +387,23 @@ tostring
 (VALUE val)
 {
     val = rb_obj_as_string(val);
+}
+
+/**
+  @c put
+  @e Freeze (dynamically) created strings.
+  @j （埋め込み）文字列を freeze する。もし、debug_info が与えられていれば、それを設定する。
+ */
+DEFINE_INSN
+freezestring
+(VALUE debug_info)
+(VALUE str)
+(VALUE str)
+{
+    if (!NIL_P(debug_info)) {
+	rb_ivar_set(str, id_debug_created_info, debug_info);
+    }
+    rb_str_freeze(str);
 }
 
 /**
@@ -527,9 +543,7 @@ newhash
 {
     rb_num_t i;
 
-    if(RUBY_DTRACE_HASH_CREATE_ENABLED()) {
-	RUBY_DTRACE_HASH_CREATE(num, rb_sourcefile(), rb_sourceline());
-    }
+    RUBY_DTRACE_CREATE_HOOK(HASH, num);
 
     val = rb_hash_new();
 
@@ -624,6 +638,28 @@ swap
 
 /**
   @c stack
+  @e reverse stack top N order.
+  @j スタックトップの n 個の値を逆転する。
+ */
+DEFINE_INSN
+reverse
+(rb_num_t n)
+(...)
+(...) // inc += 0;
+{
+    rb_num_t i;
+    VALUE *sp = STACK_ADDR_FROM_TOP(n);
+
+    for (i=0; i<n/2; i++) {
+	VALUE v0 = sp[i];
+	VALUE v1 = TOPN(i);
+	sp[i] = v1;
+	TOPN(i) = v0;
+    }
+}
+
+/**
+  @c stack
   @e for stack caching.
   @j スタックキャッシングの状態を調整するために必要な命令。
  */
@@ -666,7 +702,7 @@ setn
 
 /**
   @c stack
-  @e empt current stack
+  @e empty current stack
   @j current stack を空にする。
  */
 DEFINE_INSN
@@ -694,105 +730,7 @@ defined
 (VALUE v)
 (VALUE val)
 {
-    VALUE klass;
-    enum defined_type expr_type = 0;
-    enum defined_type type = (enum defined_type)op_type;
-
-    val = Qnil;
-
-    switch (type) {
-      case DEFINED_IVAR:
-	if (rb_ivar_defined(GET_SELF(), SYM2ID(obj))) {
-	    expr_type = DEFINED_IVAR;
-	}
-	break;
-      case DEFINED_IVAR2:
-	klass = vm_get_cbase(GET_ISEQ(), GET_EP());
-	break;
-      case DEFINED_GVAR:
-	if (rb_gvar_defined(rb_global_entry(SYM2ID(obj)))) {
-	    expr_type = DEFINED_GVAR;
-	}
-	break;
-      case DEFINED_CVAR: {
-	NODE *cref = rb_vm_get_cref(GET_ISEQ(), GET_EP());
-	klass = vm_get_cvar_base(cref, GET_CFP());
-	if (rb_cvar_defined(klass, SYM2ID(obj))) {
-	    expr_type = DEFINED_CVAR;
-	}
-	break;
-      }
-      case DEFINED_CONST:
-	klass = v;
-	if (vm_get_ev_const(th, GET_ISEQ(), klass, SYM2ID(obj), 1)) {
-	    expr_type = DEFINED_CONST;
-	}
-	break;
-      case DEFINED_FUNC:
-	klass = CLASS_OF(v);
-	if (rb_method_boundp(klass, SYM2ID(obj), 0)) {
-	    expr_type = DEFINED_METHOD;
-	}
-	break;
-      case DEFINED_METHOD:{
-	VALUE klass = CLASS_OF(v);
-	const rb_method_entry_t *me = rb_method_entry(klass, SYM2ID(obj), 0);
-
-	if (me) {
-	    if (!(me->flag & NOEX_PRIVATE)) {
-		if (!((me->flag & NOEX_PROTECTED) &&
-		      !rb_obj_is_kind_of(GET_SELF(),
-					 rb_class_real(klass)))) {
-		    expr_type = DEFINED_METHOD;
-		}
-	    }
-	}
-	{
-	    VALUE args[2];
-	    VALUE r;
-
-	    args[0] = obj; args[1] = Qfalse;
-	    r = rb_check_funcall(v, idRespond_to_missing, 2, args);
-	    if (r != Qundef && RTEST(r))
-		expr_type = DEFINED_METHOD;
-	}
-	break;
-      }
-      case DEFINED_YIELD:
-	if (GET_BLOCK_PTR()) {
-	    expr_type = DEFINED_YIELD;
-	}
-	break;
-      case DEFINED_ZSUPER:{
-	rb_call_info_t cit;
-	if (vm_search_superclass(GET_CFP(), GET_ISEQ(), Qnil, &cit) == 0) {
-	    VALUE klass = cit.klass;
-	    ID id = cit.mid;
-	    if (rb_method_boundp(klass, id, 0)) {
-		expr_type = DEFINED_ZSUPER;
-	    }
-	}
-	break;
-      }
-      case DEFINED_REF:{
-	val = vm_getspecial(th, GET_LEP(), Qfalse, FIX2INT(obj));
-	if (val != Qnil) {
-	    expr_type = DEFINED_GVAR;
-	}
-	break;
-      }
-      default:
-	rb_bug("unimplemented defined? type (VM)");
-	break;
-    }
-    if (expr_type != 0) {
-	if (needstr != Qfalse) {
-	    val = rb_iseq_defined_string(expr_type);
-	}
-	else {
-	    val = Qtrue;
-	}
-    }
+    val = vm_defined(th, GET_CFP(), op_type, obj, needstr, v);
 }
 
 /**
@@ -818,7 +756,7 @@ checkmatch
     if (flag & VM_CHECKMATCH_ARRAY) {
 	int i;
 	for (i = 0; i < RARRAY_LEN(pattern); i++) {
-	    if (RTEST(check_match(RARRAY_PTR(pattern)[i], target, checkmatch_type))) {
+	    if (RTEST(check_match(RARRAY_AREF(pattern, i), target, checkmatch_type))) {
 		result = Qtrue;
 		break;
 	    }
@@ -828,6 +766,30 @@ checkmatch
 	if (RTEST(check_match(pattern, target, checkmatch_type))) {
 	    result = Qtrue;
 	}
+    }
+}
+
+/**
+  @c setting
+  @e check keywords are specified or not.
+  @j キーワードが指定されているかどうかチェックする
+ */
+DEFINE_INSN
+checkkeyword
+(lindex_t kw_bits_index, rb_num_t keyword_index)
+()
+(VALUE ret)
+{
+    const VALUE *ep = GET_EP();
+    const VALUE kw_bits = *(ep - kw_bits_index);
+
+    if (FIXNUM_P(kw_bits)) {
+	int bits = FIX2INT(kw_bits);
+	ret = (bits & (0x01 << keyword_index)) ? Qfalse : Qtrue;
+    }
+    else {
+	assert(RB_TYPE_P(kw_bits, T_HASH));
+	ret = rb_hash_has_key(kw_bits, INT2FIX(keyword_index)) ? Qfalse : Qtrue;
     }
 }
 
@@ -849,7 +811,7 @@ trace
         RUBY_DTRACE_CMETHOD_ENTRY_ENABLED() ||
         RUBY_DTRACE_CMETHOD_RETURN_ENABLED()) {
 
-        switch(flag) {
+        switch (flag) {
           case RUBY_EVENT_CALL:
             RUBY_DTRACE_METHOD_ENTRY_HOOK(th, 0, 0);
             break;
@@ -876,7 +838,7 @@ trace
 /**
   @c class/module
   @e
-   enter class definition scope. if super is Qfalse, and clsas
+   enter class definition scope. if super is Qfalse, and class
    "klass" is defined, it's redefine. otherwise, define "klass" class.
   @j クラス定義スコープへ移行する。
    もし super が Qfalse で klassクラスが定義されていれば再定義である。
@@ -897,12 +859,8 @@ defineclass
 
 	if (VM_DEFINECLASS_HAS_SUPERCLASS_P(flags) &&
 	    !RB_TYPE_P(super, T_CLASS)) {
-	    rb_raise(rb_eTypeError, "superclass must be a Class (%s given)",
-		     rb_obj_classname(super));
-	}
-
-	if (super == Qnil) {
-	    super = rb_cObject;
+	    rb_raise(rb_eTypeError, "superclass must be a Class (%"PRIsVALUE" given)",
+		     rb_obj_class(super));
 	}
 
 	vm_check_if_namespace(cbase);
@@ -914,20 +872,23 @@ defineclass
 	    klass = VM_DEFINECLASS_SCOPED_P(flags) ?
 		rb_public_const_get_at(klass, id) : rb_const_get_at(klass, id);
 	    if (!RB_TYPE_P(klass, T_CLASS)) {
-		rb_raise(rb_eTypeError, "%s is not a class", rb_id2name(id));
+		rb_raise(rb_eTypeError, "%"PRIsVALUE" is not a class", rb_id2str(id));
 	    }
 
-	    if (super != rb_cObject) {
+	    if (VM_DEFINECLASS_HAS_SUPERCLASS_P(flags)) {
 		VALUE tmp;
 		tmp = rb_class_real(RCLASS_SUPER(klass));
 
 		if (tmp != super) {
-		    rb_raise(rb_eTypeError, "superclass mismatch for class %s",
-			     rb_id2name(id));
+		    rb_raise(rb_eTypeError, "superclass mismatch for class %"PRIsVALUE"",
+			     rb_id2str(id));
 		}
 	    }
 	}
 	else {
+	    if (!VM_DEFINECLASS_HAS_SUPERCLASS_P(flags)) {
+		super = rb_cObject;
+	    }
 	    /* new class declaration */
 	    klass = rb_define_class_id(id, super);
 	    rb_set_class_path_string(klass, cbase, rb_id2str(id));
@@ -952,7 +913,7 @@ defineclass
 		rb_public_const_get_at(klass, id) : rb_const_get_at(klass, id);
 	    /* already exist */
 	    if (!RB_TYPE_P(klass, T_MODULE)) {
-		rb_raise(rb_eTypeError, "%s is not a module", rb_id2name(id));
+		rb_raise(rb_eTypeError, "%"PRIsVALUE" is not a module", rb_id2str(id));
 	    }
 	}
 	else {
@@ -966,16 +927,16 @@ defineclass
 	rb_bug("unknown defineclass type: %d", (int)type);
     }
 
-    COPY_CREF(class_iseq->cref_stack, vm_cref_push(th, klass, NOEX_PUBLIC, NULL));
+    rb_iseq_check(class_iseq);
 
     /* enter scope */
-    vm_push_frame(th, class_iseq, VM_FRAME_MAGIC_CLASS,
-		  klass, 0, VM_ENVVAL_BLOCK_PTR(GET_BLOCK_PTR()),
-		  class_iseq->iseq_encoded, GET_SP(),
-		  class_iseq->local_size, 0);
+    vm_push_frame(th, class_iseq, VM_FRAME_MAGIC_CLASS, klass,
+		  VM_ENVVAL_BLOCK_PTR(GET_BLOCK_PTR()),
+		  (VALUE)vm_cref_push(th, klass, NULL, FALSE),
+		  class_iseq->body->iseq_encoded, GET_SP(),
+		  class_iseq->body->local_size,
+		  class_iseq->body->stack_max);
     RESTORE_REGS();
-
-    INC_VM_STATE_VERSION();
     NEXT_INSN();
 }
 
@@ -991,30 +952,46 @@ defineclass
  */
 DEFINE_INSN
 send
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc, ISEQ blockiseq)
 (...)
 (VALUE val) // inc += - (int)(ci->orig_argc + ((ci->flag & VM_CALL_ARGS_BLOCKARG) ? 1 : 0));
 {
-    ci->argc = ci->orig_argc;
-    ci->blockptr = 0;
-    vm_caller_setup_args(th, reg_cfp, ci);
-    vm_search_method(ci, ci->recv = TOPN(ci->argc));
-    CALL_METHOD(ci);
+    struct rb_calling_info calling;
+
+    vm_caller_setup_arg_block(th, reg_cfp, &calling, ci, blockiseq, FALSE);
+    vm_search_method(ci, cc, calling.recv = TOPN(calling.argc = ci->orig_argc));
+    CALL_METHOD(&calling, ci, cc);
+}
+
+DEFINE_INSN
+opt_str_freeze
+(VALUE str)
+()
+(VALUE val)
+{
+    if (BASIC_OP_UNREDEFINED_P(BOP_FREEZE, STRING_REDEFINED_OP_FLAG)) {
+	val = str;
+    }
+    else {
+	val = rb_funcall(rb_str_resurrect(str), idFreeze, 0);
+    }
 }
 
 /**
   @c optimize
-  @e Invoke method without block, splat
-  @j Invoke method without block, splat
+  @e Invoke method without block
+  @j Invoke method without block
  */
 DEFINE_INSN
-opt_send_simple
-(CALL_INFO ci)
+opt_send_without_block
+(CALL_INFO ci, CALL_CACHE cc)
 (...)
 (VALUE val) // inc += -ci->orig_argc;
 {
-    vm_search_method(ci, ci->recv = TOPN(ci->argc));
-    CALL_METHOD(ci);
+    struct rb_calling_info calling;
+    calling.blockptr = NULL;
+    vm_search_method(ci, cc, calling.recv = TOPN(calling.argc = ci->orig_argc));
+    CALL_METHOD(&calling, ci, cc);
 }
 
 /**
@@ -1024,19 +1001,17 @@ opt_send_simple
  */
 DEFINE_INSN
 invokesuper
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc, ISEQ blockiseq)
 (...)
 (VALUE val) // inc += - (int)(ci->orig_argc + ((ci->flag & VM_CALL_ARGS_BLOCKARG) ? 1 : 0));
 {
-    ci->argc = ci->orig_argc;
-    ci->blockptr = !(ci->flag & VM_CALL_ARGS_BLOCKARG) ? GET_BLOCK_PTR() : 0;
+    struct rb_calling_info calling;
+    calling.argc = ci->orig_argc;
 
-    if (UNLIKELY(!(ci->flag & VM_CALL_ARGS_SKIP_SETUP))) {
-	vm_caller_setup_args(th, reg_cfp, ci);
-    }
-    ci->recv = GET_SELF();
-    vm_search_super_method(th, GET_CFP(), ci);
-    CALL_METHOD(ci);
+    vm_caller_setup_arg_block(th, reg_cfp, &calling, ci, blockiseq, TRUE);
+    calling.recv = GET_SELF();
+    vm_search_super_method(th, GET_CFP(), &calling, ci, cc);
+    CALL_METHOD(&calling, ci, cc);
 }
 
 /**
@@ -1050,10 +1025,12 @@ invokeblock
 (...)
 (VALUE val)  // inc += 1 - ci->orig_argc;
 {
-    ci->argc = ci->orig_argc;
-    ci->blockptr = 0;
-    ci->recv = GET_SELF();
-    val = vm_invoke_block(th, GET_CFP(), ci);
+    struct rb_calling_info calling;
+    calling.argc = ci->orig_argc;
+    calling.blockptr = NULL;
+    calling.recv = GET_SELF();
+
+    val = vm_invoke_block(th, GET_CFP(), &calling, ci);
     if (val == Qundef) {
 	RESTORE_REGS();
 	NEXT_INSN();
@@ -1072,9 +1049,10 @@ leave
 (VALUE val)
 {
     if (OPT_CHECKED_RUN) {
-	if (reg_cfp->sp != vm_base_ptr(reg_cfp)) {
+	const VALUE *const bp = vm_base_ptr(reg_cfp);
+	if (reg_cfp->sp != bp) {
 	    rb_bug("Stack consistency error (sp: %"PRIdPTRDIFF", bp: %"PRIdPTRDIFF")",
-		   VM_SP_CNT(th, reg_cfp->sp), VM_SP_CNT(th, vm_base_ptr(reg_cfp)));
+		   VM_SP_CNT(th, reg_cfp->sp), VM_SP_CNT(th, bp));
 	}
     }
 
@@ -1170,6 +1148,23 @@ branchunless
     }
 }
 
+/**
+  @c jump
+  @e if val is nil, set PC to (PC + dst).
+  @j もし val が nil ならば、PC を (PC + dst) にする。
+ */
+DEFINE_INSN
+branchnil
+(OFFSET dst)
+(VALUE val)
+()
+{
+    if (NIL_P(val)) {
+	RUBY_VM_CHECK_INTS(th);
+	JUMP(dst);
+    }
+}
+
 
 /**********************************************************/
 /* for optimize                                           */
@@ -1177,7 +1172,7 @@ branchunless
 
 /**
   @c optimize
-  @e inline cache
+  @e push inline-cached value and go to dst if it is valid
   @j インラインキャッシュが有効なら、値をスタックにプッシュして dst へジャンプする。
  */
 DEFINE_INSN
@@ -1186,41 +1181,13 @@ getinlinecache
 ()
 (VALUE val)
 {
-    if (ic->ic_vmstat == GET_VM_STATE_VERSION()) {
+    if (ic->ic_serial == GET_GLOBAL_CONSTANT_STATE() &&
+	(ic->ic_cref == NULL || ic->ic_cref == rb_vm_get_cref(GET_EP()))) {
 	val = ic->ic_value.value;
 	JUMP(dst);
     }
     else {
 	/* none */
-	val = Qnil;
-    }
-}
-
-/**
-  @c optimize
-  @e inline cache (once)
-  @j once を実現する。
- */
-DEFINE_INSN
-onceinlinecache
-(OFFSET dst, IC ic)
-()
-(VALUE val)
-{
-  retry:
-    if (ic->ic_vmstat) {
-	val = ic->ic_value.value;
-	JUMP(dst);
-    }
-    else if (ic->ic_value.value == Qundef)
-    {
-	RUBY_VM_CHECK_INTS(th);
-	rb_thread_schedule();
-	goto retry;
-    }
-    else {
-	/* none */
-	ic->ic_value.value = Qundef;
 	val = Qnil;
     }
 }
@@ -1236,17 +1203,53 @@ setinlinecache
 (VALUE val)
 (VALUE val)
 {
-    if (ic->ic_value.value == Qundef) {
-	rb_iseq_add_mark_object(GET_ISEQ(), val);
-    }
+    VM_ASSERT(ic->ic_value.value != Qundef);
     ic->ic_value.value = val;
-    ic->ic_vmstat = GET_VM_STATE_VERSION() - ruby_vm_const_missing_count;
+    ic->ic_serial = GET_GLOBAL_CONSTANT_STATE() - ruby_vm_const_missing_count;
+    ic->ic_cref = vm_get_const_key_cref(GET_EP());
     ruby_vm_const_missing_count = 0;
 }
 
 /**
   @c optimize
-  @e case dispatcher
+  @e run iseq only once
+  @j once を実現する。
+ */
+DEFINE_INSN
+once
+(ISEQ iseq, IC ic)
+()
+(VALUE val)
+{
+    union iseq_inline_storage_entry *is = (union iseq_inline_storage_entry *)ic;
+
+#define RUNNING_THREAD_ONCE_DONE ((rb_thread_t *)(0x1))
+  retry:
+    if (is->once.running_thread == RUNNING_THREAD_ONCE_DONE) {
+	val = is->once.value;
+    }
+    else if (is->once.running_thread == NULL) {
+	is->once.running_thread = th;
+	val = is->once.value = rb_ensure(vm_once_exec, (VALUE)iseq, vm_once_clear, (VALUE)is);
+	/* is->once.running_thread is cleared by vm_once_clear() */
+	is->once.running_thread = RUNNING_THREAD_ONCE_DONE; /* success */
+	rb_iseq_add_mark_object(GET_ISEQ(), val);
+    }
+    else if (is->once.running_thread == th) {
+	/* recursive once */
+	val = vm_once_exec((VALUE)iseq);
+    }
+    else {
+	/* waiting for finish */
+	RUBY_VM_CHECK_INTS(th);
+	rb_thread_schedule();
+	goto retry;
+    }
+}
+
+/**
+  @c optimize
+  @e case dispatcher, jump by table if possible
   @j case 文で、可能なら表引きでジャンプする。
  */
 DEFINE_INSN
@@ -1258,10 +1261,13 @@ opt_case_dispatch
     switch(TYPE(key)) {
       case T_FLOAT: {
 	double ival;
-	if (modf(RFLOAT_VALUE(key), &ival) == 0.0) {
+	if (modf(RFLOAT_VALUE(key), &ival) == 0.0 && !isinf(ival)) {
 	    key = FIXABLE(ival) ? LONG2FIX((long)ival) : rb_dbl2big(ival);
 	}
       }
+      case T_TRUE:
+      case T_FALSE:
+      case T_NIL:
       case T_SYMBOL: /* fall through */
       case T_FIXNUM:
       case T_BIGNUM:
@@ -1269,10 +1275,14 @@ opt_case_dispatch
 	if (BASIC_OP_UNREDEFINED_P(BOP_EQQ,
 				   SYMBOL_REDEFINED_OP_FLAG |
 				   FIXNUM_REDEFINED_OP_FLAG |
+				   FLOAT_REDEFINED_OP_FLAG |
 				   BIGNUM_REDEFINED_OP_FLAG |
+				   NIL_REDEFINED_OP_FLAG    |
+				   TRUE_REDEFINED_OP_FLAG   |
+				   FALSE_REDEFINED_OP_FLAG  |
 				   STRING_REDEFINED_OP_FLAG)) {
 	    st_data_t val;
-	    if (st_lookup(RHASH_TBL(hash), key, &val)) {
+	    if (st_lookup(RHASH_TBL_RAW(hash), key, &val)) {
 		JUMP(FIX2INT((VALUE)val));
 	    }
 	    else {
@@ -1294,7 +1304,7 @@ opt_case_dispatch
  */
 DEFINE_INSN
 opt_plus
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1326,15 +1336,15 @@ opt_plus
 	val = DBL2NUM(RFLOAT_VALUE(recv) + RFLOAT_VALUE(obj));
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat &&
 	    BASIC_OP_UNREDEFINED_P(BOP_PLUS, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = DBL2NUM(RFLOAT_VALUE(recv) + RFLOAT_VALUE(obj));
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cString && HEAP_CLASS_OF(obj) == rb_cString &&
+	else if (RBASIC_CLASS(recv) == rb_cString && RBASIC_CLASS(obj) == rb_cString &&
 		 BASIC_OP_UNREDEFINED_P(BOP_PLUS, STRING_REDEFINED_OP_FLAG)) {
 	    val = rb_str_plus(recv, obj);
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cArray &&
+	else if (RBASIC_CLASS(recv) == rb_cArray &&
 		 BASIC_OP_UNREDEFINED_P(BOP_PLUS, ARRAY_REDEFINED_OP_FLAG)) {
 	    val = rb_ary_plus(recv, obj);
 	}
@@ -1357,7 +1367,7 @@ opt_plus
  */
 DEFINE_INSN
 opt_minus
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1381,7 +1391,7 @@ opt_minus
 	val = DBL2NUM(RFLOAT_VALUE(recv) - RFLOAT_VALUE(obj));
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat  &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat  &&
 	    BASIC_OP_UNREDEFINED_P(BOP_MINUS, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = DBL2NUM(RFLOAT_VALUE(recv) - RFLOAT_VALUE(obj));
 	}
@@ -1405,7 +1415,7 @@ opt_minus
  */
 DEFINE_INSN
 opt_mult
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1432,7 +1442,7 @@ opt_mult
 	val = DBL2NUM(RFLOAT_VALUE(recv) * RFLOAT_VALUE(obj));
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat  &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat  &&
 	    BASIC_OP_UNREDEFINED_P(BOP_MULT, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = DBL2NUM(RFLOAT_VALUE(recv) * RFLOAT_VALUE(obj));
 	}
@@ -1455,7 +1465,7 @@ opt_mult
  */
 DEFINE_INSN
 opt_div
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1495,7 +1505,7 @@ opt_div
 	val = DBL2NUM(RFLOAT_VALUE(recv) / RFLOAT_VALUE(obj));
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat  &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat  &&
 	    BASIC_OP_UNREDEFINED_P(BOP_DIV, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = DBL2NUM(RFLOAT_VALUE(recv) / RFLOAT_VALUE(obj));
 	}
@@ -1518,22 +1528,25 @@ opt_div
  */
 DEFINE_INSN
 opt_mod
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
     if (FIXNUM_2_P(recv, obj) &&
 	BASIC_OP_UNREDEFINED_P(BOP_MOD, FIXNUM_REDEFINED_OP_FLAG )) {
-	long x, y, mod;
+	long x, y;
 
 	x = FIX2LONG(recv);
 	y = FIX2LONG(obj);
-	{
+	if (x > 0 && y > 0) {
+	    val = LONG2FIX(x % y);
+	}
+	else {
 	    /* copied from numeric.c#fixdivmod */
-	    long div;
+	    long div, mod;
 
 	    if (y == 0)
-		rb_num_zerodiv();
+		goto INSN_LABEL(normal_dispatch);
 	    if (y < 0) {
 		if (x < 0)
 		    div = -x / -y;
@@ -1551,15 +1564,15 @@ opt_mod
 		mod += y;
 		div -= 1;
 	    }
+	    val = LONG2FIX(mod);
 	}
-	val = LONG2FIX(mod);
     }
     else if (FLONUM_2_P(recv, obj) &&
 	     BASIC_OP_UNREDEFINED_P(BOP_MOD, FLOAT_REDEFINED_OP_FLAG)) {
 	val = DBL2NUM(ruby_float_mod(RFLOAT_VALUE(recv), RFLOAT_VALUE(obj)));
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat &&
 	    BASIC_OP_UNREDEFINED_P(BOP_MOD, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = DBL2NUM(ruby_float_mod(RFLOAT_VALUE(recv), RFLOAT_VALUE(obj)));
 	}
@@ -1582,11 +1595,11 @@ opt_mod
  */
 DEFINE_INSN
 opt_eq
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
-    val = opt_eq_func(recv, obj, ci);
+    val = opt_eq_func(recv, obj, ci, cc);
 
     if (val == Qundef) {
 	/* other */
@@ -1603,16 +1616,17 @@ opt_eq
  */
 DEFINE_INSN
 opt_neq
-(CALL_INFO ci, CALL_INFO ci_eq)
+(CALL_INFO ci, CALL_CACHE cc, CALL_INFO ci_eq, CALL_CACHE cc_eq)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
     extern VALUE rb_obj_not_equal(VALUE obj1, VALUE obj2);
-    vm_search_method(ci, recv);
+    vm_search_method(ci, cc, recv);
+
     val = Qundef;
 
-    if (check_cfunc(ci->me, rb_obj_not_equal)) {
-	val = opt_eq_func(recv, obj, ci_eq);
+    if (check_cfunc(cc->me, rb_obj_not_equal)) {
+	val = opt_eq_func(recv, obj, ci_eq, cc_eq);
 
 	if (val != Qundef) {
 	    val = RTEST(val) ? Qfalse : Qtrue;
@@ -1634,7 +1648,7 @@ opt_neq
  */
 DEFINE_INSN
 opt_lt
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1655,7 +1669,7 @@ opt_lt
 	val = RFLOAT_VALUE(recv) < RFLOAT_VALUE(obj) ? Qtrue : Qfalse;
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat  &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat  &&
 	    BASIC_OP_UNREDEFINED_P(BOP_LT, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = double_cmp_lt(RFLOAT_VALUE(recv), RFLOAT_VALUE(obj));
 	}
@@ -1678,7 +1692,7 @@ opt_lt
  */
 DEFINE_INSN
 opt_le
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1713,7 +1727,7 @@ opt_le
  */
 DEFINE_INSN
 opt_gt
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1734,7 +1748,7 @@ opt_gt
 	val = RFLOAT_VALUE(recv) > RFLOAT_VALUE(obj) ? Qtrue : Qfalse;
     }
     else if (!SPECIAL_CONST_P(recv) && !SPECIAL_CONST_P(obj)) {
-	if (HEAP_CLASS_OF(recv) == rb_cFloat && HEAP_CLASS_OF(obj) == rb_cFloat  &&
+	if (RBASIC_CLASS(recv) == rb_cFloat && RBASIC_CLASS(obj) == rb_cFloat  &&
 	    BASIC_OP_UNREDEFINED_P(BOP_GT, FLOAT_REDEFINED_OP_FLAG)) {
 	    val = double_cmp_gt(RFLOAT_VALUE(recv), RFLOAT_VALUE(obj));
 	}
@@ -1757,7 +1771,7 @@ opt_gt
  */
 DEFINE_INSN
 opt_ge
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
@@ -1791,16 +1805,16 @@ opt_ge
  */
 DEFINE_INSN
 opt_ltlt
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
     if (!SPECIAL_CONST_P(recv)) {
-	if (HEAP_CLASS_OF(recv) == rb_cString &&
+	if (RBASIC_CLASS(recv) == rb_cString &&
 	    BASIC_OP_UNREDEFINED_P(BOP_LTLT, STRING_REDEFINED_OP_FLAG)) {
 	    val = rb_str_concat(recv, obj);
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cArray &&
+	else if (RBASIC_CLASS(recv) == rb_cArray &&
 		 BASIC_OP_UNREDEFINED_P(BOP_LTLT, ARRAY_REDEFINED_OP_FLAG)) {
 	    val = rb_ary_push(recv, obj);
 	}
@@ -1823,15 +1837,15 @@ opt_ltlt
  */
 DEFINE_INSN
 opt_aref
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj)
 (VALUE val)
 {
     if (!SPECIAL_CONST_P(recv)) {
-	if (HEAP_CLASS_OF(recv) == rb_cArray && BASIC_OP_UNREDEFINED_P(BOP_AREF, ARRAY_REDEFINED_OP_FLAG) && FIXNUM_P(obj)) {
+	if (RBASIC_CLASS(recv) == rb_cArray && BASIC_OP_UNREDEFINED_P(BOP_AREF, ARRAY_REDEFINED_OP_FLAG) && FIXNUM_P(obj)) {
 	    val = rb_ary_entry(recv, FIX2LONG(obj));
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_AREF, HASH_REDEFINED_OP_FLAG)) {
+	else if (RBASIC_CLASS(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_AREF, HASH_REDEFINED_OP_FLAG)) {
 	    val = rb_hash_aref(recv, obj);
 	}
 	else {
@@ -1853,16 +1867,16 @@ opt_aref
  */
 DEFINE_INSN
 opt_aset
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv, VALUE obj, VALUE set)
 (VALUE val)
 {
     if (!SPECIAL_CONST_P(recv)) {
-	if (HEAP_CLASS_OF(recv) == rb_cArray && BASIC_OP_UNREDEFINED_P(BOP_ASET, ARRAY_REDEFINED_OP_FLAG) && FIXNUM_P(obj)) {
+	if (RBASIC_CLASS(recv) == rb_cArray && BASIC_OP_UNREDEFINED_P(BOP_ASET, ARRAY_REDEFINED_OP_FLAG) && FIXNUM_P(obj)) {
 	    rb_ary_store(recv, FIX2LONG(obj), set);
 	    val = set;
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_ASET, HASH_REDEFINED_OP_FLAG)) {
+	else if (RBASIC_CLASS(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_ASET, HASH_REDEFINED_OP_FLAG)) {
 	    rb_hash_aset(recv, obj, set);
 	    val = set;
 	}
@@ -1881,25 +1895,68 @@ opt_aset
 
 /**
   @c optimize
+  @e recv[str] = set
+  @j 最適化された recv[str] = set。
+ */
+DEFINE_INSN
+opt_aset_with
+(CALL_INFO ci, CALL_CACHE cc, VALUE key)
+(VALUE recv, VALUE val)
+(VALUE val)
+{
+    if (!SPECIAL_CONST_P(recv) && RBASIC_CLASS(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_ASET, HASH_REDEFINED_OP_FLAG)) {
+	rb_hash_aset(recv, key, val);
+    }
+    else {
+	PUSH(recv);
+	PUSH(rb_str_resurrect(key));
+	PUSH(val);
+	CALL_SIMPLE_METHOD(recv);
+    }
+}
+
+/**
+  @c optimize
+  @e recv[str]
+  @j 最適化された recv[str]。
+ */
+DEFINE_INSN
+opt_aref_with
+(CALL_INFO ci, CALL_CACHE cc, VALUE key)
+(VALUE recv)
+(VALUE val)
+{
+    if (!SPECIAL_CONST_P(recv) && RBASIC_CLASS(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_AREF, HASH_REDEFINED_OP_FLAG)) {
+	val = rb_hash_aref(recv, key);
+    }
+    else {
+	PUSH(recv);
+	PUSH(rb_str_resurrect(key));
+	CALL_SIMPLE_METHOD(recv);
+    }
+}
+
+/**
+  @c optimize
   @e optimized length
   @j 最適化された recv.length()。
  */
 DEFINE_INSN
 opt_length
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv)
 (VALUE val)
 {
     if (!SPECIAL_CONST_P(recv)) {
-	if (HEAP_CLASS_OF(recv) == rb_cString &&
+	if (RBASIC_CLASS(recv) == rb_cString &&
 	    BASIC_OP_UNREDEFINED_P(BOP_LENGTH, STRING_REDEFINED_OP_FLAG)) {
 	    val = rb_str_length(recv);
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cArray &&
+	else if (RBASIC_CLASS(recv) == rb_cArray &&
 		 BASIC_OP_UNREDEFINED_P(BOP_LENGTH, ARRAY_REDEFINED_OP_FLAG)) {
 	    val = LONG2NUM(RARRAY_LEN(recv));
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cHash &&
+	else if (RBASIC_CLASS(recv) == rb_cHash &&
 		 BASIC_OP_UNREDEFINED_P(BOP_LENGTH, HASH_REDEFINED_OP_FLAG)) {
 	    val = INT2FIX(RHASH_SIZE(recv));
 	}
@@ -1921,20 +1978,20 @@ opt_length
  */
 DEFINE_INSN
 opt_size
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv)
 (VALUE val)
 {
     if (!SPECIAL_CONST_P(recv)) {
-	if (HEAP_CLASS_OF(recv) == rb_cString &&
+	if (RBASIC_CLASS(recv) == rb_cString &&
 	    BASIC_OP_UNREDEFINED_P(BOP_SIZE, STRING_REDEFINED_OP_FLAG)) {
 	    val = rb_str_length(recv);
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cArray &&
+	else if (RBASIC_CLASS(recv) == rb_cArray &&
 		 BASIC_OP_UNREDEFINED_P(BOP_SIZE, ARRAY_REDEFINED_OP_FLAG)) {
 	    val = LONG2NUM(RARRAY_LEN(recv));
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cHash &&
+	else if (RBASIC_CLASS(recv) == rb_cHash &&
 		 BASIC_OP_UNREDEFINED_P(BOP_SIZE, HASH_REDEFINED_OP_FLAG)) {
 	    val = INT2FIX(RHASH_SIZE(recv));
 	}
@@ -1956,22 +2013,22 @@ opt_size
  */
 DEFINE_INSN
 opt_empty_p
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv)
 (VALUE val)
 {
     if (!SPECIAL_CONST_P(recv)) {
-	if (HEAP_CLASS_OF(recv) == rb_cString &&
+	if (RBASIC_CLASS(recv) == rb_cString &&
 	    BASIC_OP_UNREDEFINED_P(BOP_EMPTY_P, STRING_REDEFINED_OP_FLAG)) {
 	    if (RSTRING_LEN(recv) == 0) val = Qtrue;
 	    else val = Qfalse;
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cArray &&
+	else if (RBASIC_CLASS(recv) == rb_cArray &&
 		 BASIC_OP_UNREDEFINED_P(BOP_EMPTY_P, ARRAY_REDEFINED_OP_FLAG)) {
 	    if (RARRAY_LEN(recv) == 0) val = Qtrue;
 	    else val = Qfalse;
 	}
-	else if (HEAP_CLASS_OF(recv) == rb_cHash &&
+	else if (RBASIC_CLASS(recv) == rb_cHash &&
 		 BASIC_OP_UNREDEFINED_P(BOP_EMPTY_P, HASH_REDEFINED_OP_FLAG)) {
 	    if (RHASH_EMPTY_P(recv)) val = Qtrue;
 	    else val = Qfalse;
@@ -1994,7 +2051,7 @@ opt_empty_p
  */
 DEFINE_INSN
 opt_succ
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv)
 (VALUE val)
 {
@@ -2014,13 +2071,9 @@ opt_succ
 	}
     }
     else {
-	if (HEAP_CLASS_OF(recv) == rb_cString &&
+	if (RBASIC_CLASS(recv) == rb_cString &&
 	    BASIC_OP_UNREDEFINED_P(BOP_SUCC, STRING_REDEFINED_OP_FLAG)) {
 	    val = rb_str_succ(recv);
-	}
-	else if (HEAP_CLASS_OF(recv) == rb_cTime &&
-		 BASIC_OP_UNREDEFINED_P(BOP_SUCC, TIME_REDEFINED_OP_FLAG)) {
-	    val = rb_time_succ(recv);
 	}
 	else
 	  {
@@ -2041,14 +2094,15 @@ opt_succ
  */
 DEFINE_INSN
 opt_not
-(CALL_INFO ci)
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE recv)
 (VALUE val)
 {
     extern VALUE rb_obj_not(VALUE obj);
-    vm_search_method(ci, recv);
 
-    if (check_cfunc(ci->me, rb_obj_not)) {
+    vm_search_method(ci, cc, recv);
+
+    if (check_cfunc(cc->me, rb_obj_not)) {
 	val = RTEST(recv) ? Qfalse : Qtrue;
     }
     else {
@@ -2069,7 +2123,12 @@ opt_regexpmatch1
 (VALUE obj)
 (VALUE val)
 {
-    val = rb_reg_match(r, obj);
+    if (BASIC_OP_UNREDEFINED_P(BOP_MATCH, REGEXP_REDEFINED_OP_FLAG)) {
+	val = rb_reg_match(r, obj);
+    }
+    else {
+	val = rb_funcall(r, idEqTilde, 1, obj);
+    }
 }
 
 /**
@@ -2079,15 +2138,18 @@ opt_regexpmatch1
  */
 DEFINE_INSN
 opt_regexpmatch2
-()
+(CALL_INFO ci, CALL_CACHE cc)
 (VALUE obj2, VALUE obj1)
 (VALUE val)
 {
-    if (RB_TYPE_P(obj2, T_STRING)) {
+    if (CLASS_OF(obj2) == rb_cString &&
+	BASIC_OP_UNREDEFINED_P(BOP_MATCH, STRING_REDEFINED_OP_FLAG)) {
 	val = rb_reg_match(obj1, obj2);
     }
     else {
-	val = rb_funcall(obj2, idEqTilde, 1, obj1);
+	PUSH(obj2);
+	PUSH(obj1);
+	CALL_SIMPLE_METHOD(obj2);
     }
 }
 

@@ -1,0 +1,102 @@
+/*
+ * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+#import "CloudKitMockXCTest.h"
+#import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CKKSCurrentKeyPointer.h"
+
+@class CKKSKey;
+@class CKKSCurrentKeyPointer;
+
+@interface ZoneKeys : CKKSCurrentKeySet
+@property CKKSKey* rolledTLK;
+@end
+
+/*
+ * Builds on the CloudKit mock infrastructure and adds keychain helper methods.
+ */
+
+@interface CloudKitKeychainSyncingMockXCTest : CloudKitMockXCTest
+
+@property id mockCKKSKey;
+
+@property NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
+
+// Pass in an oldTLK to wrap it to the new TLK; otherwise, pass nil
+- (ZoneKeys*)createFakeKeyHierarchy: (CKRecordZoneID*)zoneID oldTLK:(CKKSKey*) oldTLK;
+- (void)saveFakeKeyHierarchyToLocalDatabase: (CKRecordZoneID*)zoneID;
+- (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID;
+- (void)saveTLKMaterialToKeychain: (CKRecordZoneID*)zoneID;
+- (void)deleteTLKMaterialFromKeychain: (CKRecordZoneID*)zoneID;
+- (void)saveTLKMaterialToKeychainSimulatingSOS: (CKRecordZoneID*)zoneID;
+- (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata;
+- (NSMutableDictionary*)SOSPiggyBackCopyFromKeychain;
+- (NSMutableArray<NSData *>*) SOSPiggyICloudIdentities;
+
+- (void)saveClassKeyMaterialToKeychain: (CKRecordZoneID*)zoneID;
+
+// Call this to fake out your test: all keys are created, saved in cloudkit, and saved locally (as if the key state machine had processed them)
+- (void)createAndSaveFakeKeyHierarchy: (CKRecordZoneID*)zoneID;
+
+- (void)rollFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID;
+
+- (NSDictionary*)fakeRecordDictionary:(NSString*) account zoneID:(CKRecordZoneID*)zoneID;
+- (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName ;
+- (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account;
+- (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account key:(CKKSKey*)key;
+
+- (CKRecord*)newRecord: (CKRecordID*) recordID withNewItemData:(NSDictionary*) dictionary;
+- (CKRecord*)newRecord: (CKRecordID*) recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key;
+- (NSDictionary*)decryptRecord: (CKRecord*) record;
+
+// Do keychain things:
+- (void)addGenericPassword: (NSString*) password account: (NSString*) account;
+- (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint:(NSString*)viewHint;
+- (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint: (NSString*) viewHint access:(NSString*)access expecting: (OSStatus) status message: (NSString*) message;
+- (void)addGenericPassword: (NSString*) password account: (NSString*) account expecting: (OSStatus) status message: (NSString*) message;
+
+- (void)updateGenericPassword: (NSString*) newPassword account: (NSString*)account;
+- (void)updateAccountOfGenericPassword:(NSString*)newAccount account:(NSString*)account;
+
+- (void)checkNoCKKSData: (CKKSKeychainView*) view;
+
+- (void)deleteGenericPassword: (NSString*) account;
+
+- (void)findGenericPassword: (NSString*) account expecting: (OSStatus) status;
+- (void)checkGenericPassword: (NSString*) password account: (NSString*) account;
+
+- (void)createClassCItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;
+- (void)createClassAItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;
+
+// Pass the blocks created with these to expectCKModifyItemRecords to check if all items were encrypted with a particular class key
+- (BOOL (^) (CKRecord*)) checkClassABlock: (CKRecordZoneID*) zoneID message:(NSString*) message;
+- (BOOL (^) (CKRecord*)) checkClassCBlock: (CKRecordZoneID*) zoneID message:(NSString*) message;
+
+- (BOOL (^) (CKRecord*)) checkPasswordBlock:(CKRecordZoneID*)zoneID
+                                    account:(NSString*)account
+                                   password:(NSString*)password;
+
+- (void)checkNSyncableTLKsInKeychain:(size_t)n;
+
+// Returns an expectation that someone will send an NSNotification that this view changed
+-(XCTestExpectation*)expectChangeForView:(NSString*)view;
+@end

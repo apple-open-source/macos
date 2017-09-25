@@ -112,14 +112,15 @@ getsainfo(const vchar_t *src, const vchar_t *dst, const vchar_t *peer, int use_n
 		}
 
         // TODO: handle wildcard port numbers in the id		
-        if (memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0) {
+		if ((src->l == s->idsrc->l) && memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0) {
 			if (use_nat_addr) {
 				if (memcmp(lcconf->ext_nat_id->v, s->iddst->v, s->iddst->l) == 0) {
 					plogdump(ASL_LEVEL_DEBUG, lcconf->ext_nat_id->v, lcconf->ext_nat_id->l, "matched external nat address.\n");
 					return s;
 				}
-			} else if (memcmp(dst->v, s->iddst->v, s->iddst->l) == 0)
+			} else if ((dst->l == s->iddst->l) && memcmp(dst->v, s->iddst->v, s->iddst->l) == 0) {
 				return s;
+			}
 		}
 	}
 

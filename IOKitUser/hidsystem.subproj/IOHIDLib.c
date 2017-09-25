@@ -293,10 +293,10 @@ IOHIDGetModifierLockState( io_connect_t handle __unused, int selector, bool *sta
             CFBooleanRef modifierStateProp = (CFBooleanRef)IOHIDServiceClientCopyProperty(service, key);
             if (modifierStateProp) {
                 modifierState = CFBooleanGetValue(modifierStateProp);
+                CFRelease(modifierStateProp);
                 if (modifierState) {
                     break;
                 }
-                CFRelease(modifierStateProp);
             }
         }
     }

@@ -87,9 +87,12 @@ struct SOSCloudTransport
     bool (*hasPeerSyncPending)(SOSCloudTransportRef transport, CFStringRef peerID, CFErrorRef* error);
 
     void (*requestEnsurePeerRegistration)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+    void (*requestPerfCounters)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     void (*flush)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
     const void *itemsChangedBlock;
     void (*getIDSDeviceAvailability)(SOSCloudTransportRef transport, CFArrayRef ids, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+    void (*removeKeys)(SOSCloudTransportRef transport, CFArrayRef keys, CFStringRef accountUUID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+    void (*counters)(SOSCloudTransportRef transport, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
 };
 
@@ -123,10 +126,14 @@ void SOSCloudKeychainRequestSyncWithPeers(CFArrayRef /* CFStringRef */ peers, CF
 bool SOSCloudKeychainHasPendingSyncWithPeer(CFStringRef peerID, CFErrorRef* error);
 
 void SOSCloudKeychainRequestEnsurePeerRegistration(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+void SOSCloudKeychainRequestPerfCounters(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 
 void SOSCloudKeychainFlush(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
 CFDictionaryRef SOSCloudCopyKVSState(void);
 void SOSCloudKeychainGetIDSDeviceAvailability(CFArrayRef ids, CFStringRef peerID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+void SOSCloudKeychainRemoveKeys(CFArrayRef keys, CFStringRef accountUUID, dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+void SOSCloudKeychainRetrieveCountersFromIDSProxy(dispatch_queue_t processQueue, CloudKeychainReplyBlock replyBlock);
+
 
 __END_DECLS
 

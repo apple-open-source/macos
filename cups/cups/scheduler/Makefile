@@ -1,14 +1,14 @@
 #
 # Scheduler Makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 
 include ../Makedefs
@@ -59,7 +59,7 @@ CXXOBJS	=	\
 		cups-driverd.o
 OBJS	=	\
 		$(COBJS) \
-		$(CXXOBJS)
+		$(LD_CXXOBJS)
 LIBTARGETS =	\
 		$(LIBCUPSMIME) \
 		libcupsmime.a
@@ -120,7 +120,7 @@ clean:
 
 depend:
 	$(CC) -MM $(ALL_CFLAGS) $(COBJS:.o=.c) >Dependencies
-	$(CXX) -MM $(ALL_CXXFLAGS) $(CXXOBJS:.o=.cxx) >>Dependencies
+	$(CXX) -MM $(ALL_CXXFLAGS) $(LD_CXXOBJS:.o=.cxx) >>Dependencies
 
 
 #
@@ -356,14 +356,14 @@ uninstall:
 
 cupsd:	$(CUPSDOBJS) $(LIBCUPSMIME) ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cupsd $(CUPSDOBJS) -L. -lcupsmime \
+	$(LD_CC) $(LDFLAGS) -o cupsd $(CUPSDOBJS) -L. -lcupsmime \
 		$(LIBZ) $(SSLLIBS) $(LIBSLP) $(LIBLDAP) $(PAMLIBS) \
 		$(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) $(ONDEMANDLIBS) \
                 $(DNSSDLIBS) $(LIBS) $(LIBGSSAPI) $(LIBWRAP)
 
 cupsd-static:	$(CUPSDOBJS) libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cupsd-static $(CUPSDOBJS) libcupsmime.a \
+	$(LD_CC) $(LDFLAGS) -o cupsd-static $(CUPSDOBJS) libcupsmime.a \
 		$(LIBZ) $(SSLLIBS) $(LIBSLP) $(LIBLDAP) $(PAMLIBS) \
 		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(LIBZ) $(LIBPAPER) \
 		$(LIBMALLOC) $(SERVERLIBS) $(ONDEMANDLIBS) $(DNSSDLIBS) \
@@ -376,13 +376,13 @@ cupsd-static:	$(CUPSDOBJS) libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 
 cupsfilter:	cupsfilter.o $(LIBCUPSMIME) ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cupsfilter cupsfilter.o -L. -lcupsmime $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o cupsfilter cupsfilter.o -L. -lcupsmime $(LIBS)
 	$(RM) convert
 	$(LN) cupsfilter convert
 
 cupsfilter-static:	cupsfilter.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cupsfilter-static cupsfilter.o libcupsmime.a \
+	$(LD_CC) $(LDFLAGS) -o cupsfilter-static cupsfilter.o libcupsmime.a \
 		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(LIBZ) $(SSLLIBS) \
 		$(DNSSDLIBS) $(LIBGSSAPI)
 
@@ -393,7 +393,7 @@ cupsfilter-static:	cupsfilter.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 
 cups-deviced:	cups-deviced.o util.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cups-deviced cups-deviced.o util.o $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o cups-deviced cups-deviced.o util.o $(LIBS)
 
 
 #
@@ -402,7 +402,7 @@ cups-deviced:	cups-deviced.o util.o ../cups/$(LIBCUPS)
 
 cups-driverd:	cups-driverd.o util.o ../cups/$(LIBCUPS) ../ppdc/$(LIBCUPSPPDC)
 	echo Linking $@...
-	$(CXX) $(LDFLAGS) -o cups-driverd cups-driverd.o util.o \
+	$(LD_CXX) $(LDFLAGS) -o cups-driverd cups-driverd.o util.o \
 		-L../ppdc -lcupsppdc $(LIBS)
 
 
@@ -412,7 +412,7 @@ cups-driverd:	cups-driverd.o util.o ../cups/$(LIBCUPS) ../ppdc/$(LIBCUPSPPDC)
 
 cups-exec:	cups-exec.o
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cups-exec cups-exec.o $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o cups-exec cups-exec.o $(LIBS)
 
 
 #
@@ -421,7 +421,7 @@ cups-exec:	cups-exec.o
 
 cups-lpd:	cups-lpd.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o cups-lpd cups-lpd.o $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o cups-lpd cups-lpd.o $(LIBS)
 
 
 #
@@ -457,7 +457,7 @@ libcupsmime.1.dylib:	$(LIBOBJS) libcupsmime.exp
 
 libcupsmime.la:    $(LIBOBJS)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
+	$(LD_CC) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
 		-version-info 1:0 $(LIBS)
 
 
@@ -478,7 +478,7 @@ libcupsmime.a:	$(LIBOBJS)
 
 testlpd:	testlpd.o ../cups/$(LIBCUPSSTATIC) cups-lpd
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o testlpd testlpd.o ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o testlpd testlpd.o ../cups/$(LIBCUPSSTATIC) \
 		$(COMMONLIBS) $(LIBZ) $(SSLLIBS) $(DNSSDLIBS) $(LIBGSSAPI)
 
 
@@ -488,7 +488,7 @@ testlpd:	testlpd.o ../cups/$(LIBCUPSSTATIC) cups-lpd
 
 testmime:	testmime.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testmime.o libcupsmime.a \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testmime.o libcupsmime.a \
 		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(LIBZ) $(SSLLIBS) \
 		$(DNSSDLIBS) $(LIBGSSAPI)
 	echo Running MIME tests...
@@ -501,7 +501,7 @@ testmime:	testmime.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 
 testspeed:	testspeed.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o testspeed testspeed.o ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o testspeed testspeed.o ../cups/$(LIBCUPSSTATIC) \
 		$(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ) $(LIBGSSAPI)
 
 
@@ -511,7 +511,7 @@ testspeed:	testspeed.o ../cups/$(LIBCUPSSTATIC)
 
 testsub:	testsub.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o testsub testsub.o ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o testsub testsub.o ../cups/$(LIBCUPSSTATIC) \
 		$(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ) $(LIBGSSAPI)
 
 

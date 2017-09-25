@@ -43,6 +43,8 @@ extern "C" {
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
+#if SEC_OS_OSX
+
 	typedef CF_OPTIONS(uint16, SecKeychainPromptSelector)
 	{
 		kSecKeychainPromptRequirePassphase = 0x0001, /* require re-entering of passphrase */
@@ -169,6 +171,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 							   CFStringRef description, 
 							   SecKeychainPromptSelector promptSelector)
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
+#endif // SEC_OS_OSX
 	
 	/*!
 	 @function SecACLGetAuthorizations

@@ -24,6 +24,9 @@
 #include <sys/time.h>
 #include <notify.h>
 #include <notify_keys.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "_simple.h"
 
 #ifndef kNotifyClockSet
 #define kNotifyClockSet "com.apple.system.clock_set"
@@ -39,6 +42,11 @@ settimeofday(const struct timeval *tp, const struct timezone *tzp)
 {
 	int ret = __settimeofday(tp, tzp);
 	if (ret == 0) notify_post(kNotifyClockSet);
+
+	char *msg = NULL;
+	asprintf(&msg, "settimeofday({%#lx,%#x}) == %d", tp->tv_sec, tp->tv_usec, ret);
+	_simple_asl_log(ASL_LEVEL_NOTICE, "com.apple.settimeofday", msg);
+	free(msg);
 
 	return ret;
 }

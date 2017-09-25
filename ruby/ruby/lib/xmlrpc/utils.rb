@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: utils.rb 36958 2012-09-13 02:22:10Z zzak $
+# $Id: utils.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 module XMLRPC # :nodoc:
 

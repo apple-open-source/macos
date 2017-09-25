@@ -2,7 +2,7 @@
 
   ruby/version.h -
 
-  $Author: ayumin $
+  $Author: naruse $
   created at: Wed May 13 12:56:56 JST 2009
 
   Copyright (C) 1993-2009 Yukihiro Matsumoto
@@ -13,7 +13,7 @@
 
 /*
  * This file contains only
- * - never-changable informations, and
+ * - never-changeable informations, and
  * - interfaces accessible from extension libraries.
  *
  * Never try to check RUBY_VERSION_CODE etc in extension libraries,
@@ -31,7 +31,7 @@
 
 /* API version */
 #define RUBY_API_VERSION_MAJOR 2
-#define RUBY_API_VERSION_MINOR 0
+#define RUBY_API_VERSION_MINOR 3
 #define RUBY_API_VERSION_TEENY 0
 #define RUBY_API_VERSION_CODE (RUBY_API_VERSION_MAJOR*10000+RUBY_API_VERSION_MINOR*100+RUBY_API_VERSION_TEENY)
 
@@ -43,9 +43,7 @@ extern "C" {
 #endif
 #endif
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility push(default)
-#endif
+RUBY_SYMBOL_EXPORT_BEGIN
 
 /*
  * Interfaces from extension libraries.
@@ -63,9 +61,7 @@ RUBY_EXTERN const char ruby_description[];
 RUBY_EXTERN const char ruby_copyright[];
 RUBY_EXTERN const char ruby_engine[];
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility pop
-#endif
+RUBY_SYMBOL_EXPORT_END
 
 #if defined(__cplusplus)
 #if 0

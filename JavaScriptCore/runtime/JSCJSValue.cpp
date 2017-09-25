@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2007-2008, 2012, 2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -62,8 +62,8 @@ double JSValue::toLength(ExecState* exec) const
     if (d <= 0)
         return 0.0;
     if (std::isinf(d))
-        return 9007199254740991.0; // 2 ** 53 - 1
-    return std::min(d, 9007199254740991.0);
+        return maxSafeInteger();
+    return std::min(d, maxSafeInteger());
 }
 
 double JSValue::toNumberSlowCase(ExecState* exec) const
@@ -207,10 +207,9 @@ bool JSValue::putToPrimitiveByIndex(ExecState* exec, unsigned propertyName, JSVa
     }
     
     JSObject* prototype = synthesizePrototype(exec);
-    if (UNLIKELY(!prototype)) {
-        ASSERT(scope.exception());
+    ASSERT(!prototype == !!scope.exception());
+    if (UNLIKELY(!prototype))
         return false;
-    }
     bool putResult = false;
     if (prototype->attemptToInterceptPutByIndexOnHoleForPrototype(exec, *this, propertyName, value, shouldThrow, putResult))
         return putResult;
@@ -300,14 +299,14 @@ void JSValue::dumpForBacktrace(PrintStream& out) const
     else if (isDouble())
         out.printf("%lf", asDouble());
     else if (isCell()) {
-        if (asCell()->inherits(JSString::info())) {
+        if (asCell()->inherits(*asCell()->vm(), JSString::info())) {
             JSString* string = asString(asCell());
             const StringImpl* impl = string->tryGetValueImpl();
             if (impl)
                 out.print("\"", impl, "\"");
             else
                 out.print("(unresolved string)");
-        } else if (asCell()->inherits(Structure::info())) {
+        } else if (asCell()->inherits(*asCell()->vm(), Structure::info())) {
             out.print("Structure[ ", asCell()->structure()->classInfo()->className);
 #if USE(JSVALUE64)
             out.print(" ID: ", asCell()->structureID());

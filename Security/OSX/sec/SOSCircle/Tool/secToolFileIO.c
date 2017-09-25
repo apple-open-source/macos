@@ -14,13 +14,15 @@
 FILE *outFile = NULL;
 FILE *errFile = NULL;
 
+void _printcfmsg(FILE *ff, CFDictionaryRef formatOptions, CFStringRef format, ...) CF_FORMAT_FUNCTION(3, 4);
+
 void _printcfmsg(FILE *ff, CFDictionaryRef formatOptions, CFStringRef format, ...)
 {
     va_list args;
     va_start(args, format);
     CFStringRef message = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, formatOptions, format, args);
     va_end(args);
-    CFStringPerformWithCString(message, ^(const char *utf8String) { fprintf(ff, utf8String, ""); });
+    CFStringPerformWithCString(message, ^(const char *utf8String) { fprintf(ff, "%s", utf8String); });
     CFRelease(message);
 }
 

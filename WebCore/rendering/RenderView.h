@@ -132,6 +132,7 @@ public:
 
     // Subtree push/pop
     void pushLayoutState(RenderObject&);
+    bool pushLayoutStateForPaginationIfNeeded(RenderBlockFlow&);
     void popLayoutState(RenderObject&) { return popLayoutState(); } // Just doing this to keep popLayoutState() private and to make the subtree calls symmetrical.
 
     // Returns true if layoutState should be used for its cached offset and clip.
@@ -140,14 +141,7 @@ public:
 
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) override;
 
-    LayoutUnit pageLogicalHeight() const { return m_pageLogicalHeight; }
-    void setPageLogicalHeight(LayoutUnit height)
-    {
-        if (m_pageLogicalHeight != height) {
-            m_pageLogicalHeight = height;
-            m_pageLogicalHeightChanged = true;
-        }
-    }
+    void setPageLogicalSize(LayoutSize);
     LayoutUnit pageOrViewLogicalHeight() const;
 
     // This method is used to assign a page number only when pagination modes have
@@ -228,8 +222,9 @@ public:
     void registerForVisibleInViewportCallback(RenderElement&);
     void unregisterForVisibleInViewportCallback(RenderElement&);
     void resumePausedImageAnimationsIfNeeded(IntRect visibleRect);
-    void addRendererWithPausedImageAnimations(RenderElement&);
+    void addRendererWithPausedImageAnimations(RenderElement&, CachedImage&);
     void removeRendererWithPausedImageAnimations(RenderElement&);
+    void removeRendererWithPausedImageAnimations(RenderElement&, CachedImage&);
 
     class RepaintRegionAccumulator {
         WTF_MAKE_NONCOPYABLE(RepaintRegionAccumulator);
@@ -251,9 +246,9 @@ public:
     void releaseProtectedRenderWidgets() { m_protectedRenderWidgets.clear(); }
 
 #if ENABLE(CSS_SCROLL_SNAP)
-    void registerBoxWithScrollSnapCoordinates(const RenderBox&);
-    void unregisterBoxWithScrollSnapCoordinates(const RenderBox&);
-    const HashSet<const RenderBox*>& boxesWithScrollSnapCoordinates() { return m_boxesWithScrollSnapCoordinates; }
+    void registerBoxWithScrollSnapPositions(const RenderBox&);
+    void unregisterBoxWithScrollSnapPositions(const RenderBox&);
+    const HashSet<const RenderBox*>& boxesWithScrollSnapPositions() { return m_boxesWithScrollSnapPositions; }
 #endif
 
 #if !ASSERT_DISABLED
@@ -369,7 +364,7 @@ private:
     HashSet<RenderBox*> m_renderersNeedingLazyRepaint;
 
     std::unique_ptr<ImageQualityController> m_imageQualityController;
-    LayoutUnit m_pageLogicalHeight;
+    std::optional<LayoutSize> m_pageLogicalSize;
     bool m_pageLogicalHeightChanged { false };
     std::unique_ptr<LayoutState> m_layoutState;
     unsigned m_layoutStateDisableCount { 0 };
@@ -388,7 +383,7 @@ private:
     bool m_inHitTesting { false };
 #endif
 
-    HashSet<RenderElement*> m_renderersWithPausedImageAnimation;
+    HashMap<RenderElement*, Vector<CachedImage*>> m_renderersWithPausedImageAnimation;
     HashSet<RenderElement*> m_visibleInViewportRenderers;
     Vector<RefPtr<RenderWidget>> m_protectedRenderWidgets;
 
@@ -396,7 +391,7 @@ private:
     SelectionRectGatherer m_selectionRectGatherer;
 #endif
 #if ENABLE(CSS_SCROLL_SNAP)
-    HashSet<const RenderBox*> m_boxesWithScrollSnapCoordinates;
+    HashSet<const RenderBox*> m_boxesWithScrollSnapPositions;
 #endif
 };
 

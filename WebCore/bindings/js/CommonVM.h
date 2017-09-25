@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,15 +25,25 @@
 
 #pragma once
 
+#include <wtf/Forward.h>
+
 namespace JSC {
 class VM;
 }
 
 namespace WebCore {
 
+class Frame;
+Frame* lexicalFrameFromCommonVM();
+
 WEBCORE_EXPORT extern JSC::VM* g_commonVMOrNull;
 
 WEBCORE_EXPORT JSC::VM& commonVMSlow();
+
+inline JSC::VM* commonVMOrNull()
+{
+    return g_commonVMOrNull;
+}
 
 inline JSC::VM& commonVM()
 {
@@ -41,6 +51,8 @@ inline JSC::VM& commonVM()
         return *result;
     return commonVMSlow();
 }
+
+void addImpureProperty(const AtomicString&);
 
 } // namespace WebCore
 

@@ -1,8 +1,10 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/available_set'
 require 'rubygems/security'
 
 class TestGemAvailableSet < Gem::TestCase
+
   def setup
     super
 
@@ -20,6 +22,27 @@ class TestGemAvailableSet < Gem::TestCase
     refute set.empty?
 
     assert_equal [a1], set.all_specs
+  end
+
+  def test_find_all
+    a1,  a1_gem  = util_gem 'a', 1
+    a1a, a1a_gem = util_gem 'a', '1.a'
+
+    a1_source  = Gem::Source::SpecificFile.new a1_gem
+    a1a_source = Gem::Source::SpecificFile.new a1a_gem
+
+    set = Gem::AvailableSet.new
+    set.add a1,  a1_source
+    set.add a1a, a1a_source
+
+    dep = Gem::Resolver::DependencyRequest.new dep('a'), nil
+
+    assert_equal %w[a-1], set.find_all(dep).map { |spec| spec.full_name }
+
+    dep = Gem::Resolver::DependencyRequest.new dep('a', '>= 0.a'), nil
+
+    assert_equal %w[a-1 a-1.a],
+                 set.find_all(dep).map { |spec| spec.full_name }.sort
   end
 
   def test_match_platform
@@ -57,7 +80,8 @@ class TestGemAvailableSet < Gem::TestCase
   end
 
   def test_remove_installed_bang
-    a1, _ = util_gem 'a', '1'
+    a1, _ = util_spec 'a', '1'
+    install_specs a1
 
     a1.activate
 

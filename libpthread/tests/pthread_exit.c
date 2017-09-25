@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 #define STACK_SIZE      32768
 #define THREAD_DEPTH    2000
@@ -33,7 +33,7 @@ thread_exit(__unused void *arg)
 	return NULL;
 }
 
-T_DECL(pthread_exit, "pthread_exit")
+T_DECL(pthread_exit, "pthread_exit", T_META_LTEPHASE(LTE_INSTALLEDUSEROS))
 {
 	int j;
 	pthread_t th[THREAD_DEPTH];
@@ -57,7 +57,8 @@ thread_stub(__unused void *arg)
 	return NULL;
 }
 
-T_DECL(pthread_exit_private_stacks, "pthread_exit with private stacks", T_META_CHECK_LEAKS(NO))
+T_DECL(pthread_exit_private_stacks, "pthread_exit with private stacks",
+       T_META_CHECK_LEAKS(NO))
 {
 	int j;
 	pthread_t th[THREAD_DEPTH];

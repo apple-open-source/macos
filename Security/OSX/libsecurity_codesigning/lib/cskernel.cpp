@@ -76,6 +76,7 @@ KernelStaticCode::KernelStaticCode()
 //
 SecCode *KernelCode::locateGuest(CFDictionaryRef attributes)
 {
+#if TARGET_OS_OSX
 	CFNumberRef pidNumber = NULL;
 	CFDataRef auditData = NULL;
 	cfscan(attributes, "{%O=%NO}", kSecGuestAttributePid, &pidNumber);
@@ -110,6 +111,9 @@ SecCode *KernelCode::locateGuest(CFDictionaryRef attributes)
 	}
 	
 	return (new ProcessCode(pid, audit, diskRep))->retain();
+#else
+    MacOSError::throwMe(errSecCSUnimplemented);
+#endif
 }
 
 

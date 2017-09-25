@@ -77,6 +77,7 @@ int run_mmap_mod_time(__unused test_ctx_t *ctx)
 
 	assert_no_err(unlink(file));
 
+	assert_no_err(close(fd));
 	free(file);
 	
 	return 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2006, 2007, 2013  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: netdb.h,v 1.7 2007/06/19 23:47:23 tbox Exp $ */
 
 #ifndef LWRES_NETDB_H
 #define LWRES_NETDB_H 1
@@ -31,7 +31,9 @@
 /*
  * Define if <netdb.h> does not declare struct addrinfo.
  */
+#if _MSC_VER < 1600
 #define ISC_LWRES_NEEDADDRINFO 1
+#endif
 
 #ifdef ISC_LWRES_NEEDADDRINFO
 struct addrinfo {
@@ -67,7 +69,7 @@ struct addrinfo {
 #define	NETDB_INTERNAL	-1	/* see errno */
 #define	NETDB_SUCCESS	0	/* no problem */
 #define	HOST_NOT_FOUND	1 /* Authoritative Answer Host not found */
-#define	TRY_AGAIN	2 /* Non-Authoritive Host not found, or SERVERFAIL */
+#define	TRY_AGAIN	2 /* Non-Authoritative Host not found, or SERVERFAIL */
 #define	NO_RECOVERY	3 /* Non recoverable errors, FORMERR, REFUSED, NOTIMP */
 #define	NO_DATA		4 /* Valid name, no data record of requested type */
 #define	NO_ADDRESS	NO_DATA		/* no address, look for MX record */

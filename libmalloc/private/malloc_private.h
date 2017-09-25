@@ -45,10 +45,10 @@ void malloc_memory_event_handler(unsigned long);
 
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0)
 __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0)
-void * reallocarray(void * in_ptr, size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarray);
+void * reallocarray(void * in_ptr, size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarray) __result_use_check;
 
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0)
 __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0)
-void * reallocarrayf(void * in_ptr, size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarrayf);
+void * reallocarrayf(void * in_ptr, size_t nmemb, size_t size) __DARWIN_EXTSN(reallocarrayf) __result_use_check;
 
 #endif /* _MALLOC_PRIVATE_H_ */

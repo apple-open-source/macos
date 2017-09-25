@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: log.c,v 1.49 2011/10/13 22:48:24 tbox Exp $ */
 
 /*! \file */
 
@@ -45,6 +45,8 @@ LIBDNS_EXTERNAL_DATA isc_logcategory_t dns_categories[] = {
 	{ "delegation-only", 0 },
 	{ "edns-disabled", 0 },
 	{ "rpz",	0 },
+	{ "rate-limit",	0 },
+	{ "cname",	0 },
 	{ NULL, 	0 }
 };
 
@@ -81,6 +83,7 @@ LIBDNS_EXTERNAL_DATA isc_logmodule_t dns_modules[] = {
 	{ "dns/acache",		0 },
 	{ "dns/dlz",		0 },
 	{ "dns/dnssec",		0 },
+	{ "dns/crypto",		0 },
 	{ NULL, 		0 }
 };
 

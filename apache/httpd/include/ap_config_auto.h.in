@@ -123,6 +123,10 @@
    function. */
 #undef HAVE_NGHTTP2_SESSION_CHANGE_STREAM_PRIORITY
 
+/* Define to 1 if you have the `nghttp2_session_get_stream_local_window_size'
+   function. */
+#undef HAVE_NGHTTP2_SESSION_GET_STREAM_LOCAL_WINDOW_SIZE
+
 /* Define to 1 if you have the `nghttp2_session_server_new2' function. */
 #undef HAVE_NGHTTP2_SESSION_SERVER_NEW2
 
@@ -155,9 +159,6 @@
 
 /* Define to 1 if you have the `setsid' function. */
 #undef HAVE_SETSID
-
-/* Define to 1 if you have the `SSLeay_version' function. */
-#undef HAVE_SSLEAY_VERSION
 
 /* Define to 1 if you have the `SSL_CTX_new' function. */
 #undef HAVE_SSL_CTX_NEW

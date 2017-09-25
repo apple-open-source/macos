@@ -75,7 +75,11 @@ CFDictionaryRef SOSPeerCopyState(SOSPeerRef peer, CFErrorRef *error);
 
 // (Re)initialize from a peerState dictionary
 bool SOSPeerSetState(SOSPeerRef peer, SOSEngineRef engine, CFDictionaryRef state, CFErrorRef *error);
-
+void SOSPeerSetOTRTimer(SOSPeerRef peer, dispatch_source_t timer);
+dispatch_source_t SOSPeerGetOTRTimer(SOSPeerRef peer);
+void SOSPeerRemoveOTRTimerEntry(SOSPeerRef peer);
+bool SOSPeerTimerForPeerExist(SOSPeerRef peer);
+    
 //
 //
 //
@@ -133,6 +137,13 @@ bool SOSPeerAppendToJournal(SOSPeerRef peer, CFErrorRef *error, void(^with)(FILE
 int SOSPeerHandoffFD(SOSPeerRef peer, CFErrorRef *error);
 
 void SOSBackupPeerPostNotification(const char *reason);
+
+//
+// MARK: RateLimiting
+//
+void SOSPeerSetRateLimiter(SOSPeerRef peer, CFTypeRef limiter);
+CFTypeRef SOSPeerGetRateLimiter(SOSPeerRef peer);
+bool SOSPeerShouldRateLimit(CFArrayRef attributes, SOSPeerRef peer);
 
 __END_DECLS
 

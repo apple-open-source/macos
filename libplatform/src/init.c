@@ -21,21 +21,21 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <stdlib.h>
 #include <TargetConditionals.h>
+#include <stdlib.h>
 
 struct ProgramVars; /* forward reference */
 
 extern void _simple_asl_init(const char *envp[], const struct ProgramVars *vars);
 extern void __pfz_setup(const char *apple[]);
 
-
-void __libplatform_init(void *future_use __unused, const char *envp[], const char *apple[], const struct ProgramVars *vars) {
-
+void
+__libplatform_init(void *future_use __unused, const char *envp[],
+		const char *apple[], const struct ProgramVars *vars)
+{
     /* In the Simulator, we just provide _simple for dyld */
 #if !TARGET_IPHONE_SIMULATOR
     __pfz_setup(apple);
 #endif
     _simple_asl_init(envp, vars);
-
 }

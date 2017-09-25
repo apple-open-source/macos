@@ -36,7 +36,6 @@
 #include <bsm/libbsm.h>
 #include <servers/bootstrap.h>  // bootstrap mach ports
 #include <sandbox.h>
-#include <esp.h>
 
 #include <IOKit/kext/kextmanager_types.h>
 #include <IOKit/kext/OSKext.h>
@@ -57,6 +56,8 @@
 
 #include "bootcaches.h"
 #include "security.h"
+#include "staging.h"
+#include "syspolicy.h"
 
 #include "pgo.h"
 
@@ -462,12 +463,15 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
 {
     CFDictionaryRef requestArgs     = NULL; // do not release
     OSKextRef       osKext          = NULL; // do not release
+    OSKextRef       ownedKext       = NULL; // must release
     OSReturn        osLoadResult    = kOSKextReturnNotFound;
+    bool            allowed         = FALSE;
 
     CFArrayRef      loadList        = NULL;  // must release
     CFStringRef     kextIdentifier  = NULL;  // do not release
     char          * kext_id         = NULL;  // must free
     char            crashInfo[sizeof(CRASH_INFO_KERNEL_KEXT_LOAD) + KMOD_MAX_NAME + PATH_MAX];
+    CFArrayRef      pluginKexts     = NULL;  // must release
 
     requestArgs = request ? CFDictionaryGetValue(request,
         CFSTR(kKextRequestArgumentsKey)) : NULL;
@@ -514,46 +518,6 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
         goto finish;
     }
-    
-   /* xxx - under what circumstances should we remove personalities?
-    * xxx - if the request gets into the kernel and fails, OSKext.cpp
-    * xxx - removes them, but there can be other failures on the way....
-    */
-    OSStatus  sigResult = checkKextSignature(osKext, true, false);
-    if ( sigResult != 0 ) {
-        if ( isInvalidSignatureAllowed() ) {
-            CFStringRef     myKextPath = NULL; // must release
-            
-            myKextPath = copyKextPath(osKext);
-            OSKextLogCFString(NULL,
-                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                              CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext \"%@\""),
-                              (long)sigResult, (long)sigResult,
-                              myKextPath ? myKextPath : CFSTR("Unknown"));
-            SAFE_RELEASE(myKextPath);
-        }
-        else {
-            CFStringRef     myBundleID = NULL;         // do not release
-            
-            myBundleID = OSKextGetIdentifier(osKext);
-            OSKextLogCFString(NULL,
-                              kOSKextLogErrorLevel |
-                              kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                              CFSTR("ERROR: invalid signature for %@, will not load"),
-                              myBundleID ? myBundleID : CFSTR("Unknown"));
-            OSKextRemoveKextPersonalitiesFromKernel(osKext);
-            goto finish;
-        }
-    }
-    
-    if (checkSignaturesOfDependents(osKext, true, false) != 0) {
-        OSKextLog(/* kext */ NULL,
-                  kOSKextLogErrorLevel | kOSKextLogLoadFlag |
-                  kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
-                  "Signature failure in dependencies for kext load request.");
-        OSKextRemoveKextPersonalitiesFromKernel(osKext);
-        goto finish;
-    }
 
     CFBooleanRef pgoref = (CFBooleanRef)
         OSKextGetValueForInfoDictionaryKey(osKext, CFSTR("PGO"));
@@ -564,13 +528,62 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         pgo = CFBooleanGetValue(pgoref);
     }
 
-#if HAVE_DANGERZONE
-    dzRecordKextLoadKernel(osKext);
-    if ( ! dzAllowKextLoad(osKext) ) {
-        OSKextRemoveKextPersonalitiesFromKernel(osKext);
+    /*
+     * Perform staging to ensure the kext is in a SIP protected location.
+     */
+    ownedKext = createStagedKext(osKext);
+    if (!ownedKext) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s could not be staged properly; failing.",
+                  kext_id);
+        OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
         goto finish;
     }
-#endif // HAVE_DANGERZONE
+
+    if (ownedKext != osKext) {
+        // If staging was performed, reload the array of plug-ins that need to be updated
+        // to match the staged location and swap the staged kext into the osKext reference.
+        CFURLRef stagedURL = OSKextGetURL(ownedKext);
+        pluginKexts = OSKextCreateKextsFromURL(kCFAllocatorDefault, stagedURL);
+        osKext = ownedKext;
+    }
+
+    /*
+     * Force authentication checks now so they can be reported gracefully.
+     */
+    if (!OSKextIsAuthentic(osKext)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s failed security checks; failing.", kext_id);
+        OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
+        goto finish;
+    }
+
+    if (!OSKextAuthenticateDependencies(osKext)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s's dependencies failed security checks; failing.", kext_id);
+        OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
+        goto finish;
+    }
+
+    allowed = TRUE;
+
+    /*
+     * Now that the kext has passed all security checks, see if it has any GPU bundles
+     * that require special staging before it loads.
+     */
+    if (needsGPUBundlesStaged(osKext)) {
+        if (!stageGPUBundles(osKext)) {
+            OSKextLog(NULL,
+                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                      "GPU bundle staging failed for %s.", kext_id);
+        }
+    }
 
     /*
      * The extension is definitely being loaded, so log it then perform the load.
@@ -613,8 +626,17 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     }
 
 finish:
+
+#if HAVE_DANGERZONE
+    if (osKext) {
+        dzRecordKextLoadKernel(osKext, allowed);
+    }
+#endif // HAVE_DANGERZONE
+
+    SAFE_RELEASE(pluginKexts);
     SAFE_RELEASE(loadList);
     SAFE_FREE(kext_id);
+    SAFE_RELEASE(ownedKext);
     setCrashLogMessage(NULL);
 
     return;
@@ -1077,7 +1099,7 @@ kextdProcessUserLoadRequest(
     CFURLRef          dependencyURL            = NULL;  // must release
     CFURLRef          dependencyAbsURL         = NULL;  // must release
     CFArrayRef        dependencyKexts          = NULL;  // must release
-    CFArrayRef        loadList                 = NULL;  // must release
+    bool              allowed                  = FALSE;
 
     char              kextPathString[PATH_MAX] = "unknown";
     char              crashInfo[sizeof(CRASH_INFO_USER_KEXT_LOAD) +
@@ -1205,13 +1227,30 @@ kextdProcessUserLoadRequest(
             result = kOSReturnError;
             goto finish;
         }
+
+        // Ensure all passed dependency paths get staged and swapped out so they can be
+        // referred to in all future dependency resolution.
+        CFIndex dependencyCount = CFArrayGetCount(dependencyKexts);
+        CFMutableArrayRef stagedDeps = CFArrayCreateMutable(kCFAllocatorDefault,
+                                                            dependencyCount,
+                                                            &kCFTypeArrayCallBacks);
+        for (CFIndex i = 0; i < dependencyCount; i++) {
+            OSKextRef unstagedDependency = (OSKextRef)CFArrayGetValueAtIndex(dependencyKexts, i);
+            OSKextRef stagedDependency = createStagedKext(unstagedDependency);
+            if (stagedDependency) {
+                CFArrayAppendValue(stagedDeps, stagedDependency);
+            }
+            SAFE_RELEASE(stagedDependency);
+        }
+
+        SAFE_RELEASE(dependencyKexts);
+        dependencyKexts = stagedDeps;
     }
 
     snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_USER_KEXT_LOAD,
             kextIDString ? kextIDString : kextPathString);
 
     setCrashLogMessage(crashInfo);
-
 
     if (kextID) {
         theKext = OSKextGetKextWithIdentifier(kextID);
@@ -1249,6 +1288,20 @@ kextdProcessUserLoadRequest(
             goto finish;
         }
     }
+  
+    /* consult sandboxing system to make sure this is OK
+     * <rdar://problem/11015459
+     */
+    if (sandbox_check(remote_pid, "system-kext-load",
+                      SANDBOX_FILTER_KEXT_BUNDLE_ID,
+                      kextIDString) != 0 )  {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s failed sandbox check; omitting.", kextIDString);
+        result = kOSKextReturnNotLoadable;
+        goto finish;
+    }
 
     /* Get dictionary of all our excluded kexts */
     if (OSKextIsInExcludeList(theKext, false)) {
@@ -1271,56 +1324,7 @@ kextdProcessUserLoadRequest(
         result = kOSKextReturnNotLoadable;
         goto finish;
     }
-  
-    /* consult sandboxing system to make sure this is OK
-     * <rdar://problem/11015459
-     */
-    if (sandbox_check(remote_pid, "system-kext-load",
-                      SANDBOX_FILTER_KEXT_BUNDLE_ID,
-                      kextIDString) != 0 )  {
-        OSKextLog(NULL,
-                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
-                  "%s failed sandbox check; omitting.", kextIDString);
-        result = kOSKextReturnNotLoadable;
-        goto finish;
-    }
 
-    OSStatus    sigResult = checkKextSignature(theKext, true, false);
-    if ( sigResult != 0 ) {
-        if ( isInvalidSignatureAllowed() ) {
-            CFStringRef     myKextPath = NULL; // must release
-            myKextPath = copyKextPath(theKext);
-            OSKextLogCFString(NULL,
-                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                              CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext \"%@\""),
-                              (long)sigResult, (long)sigResult,
-                              myKextPath ? myKextPath : CFSTR("Unknown"));
-            SAFE_RELEASE(myKextPath);
-        }
-        else {
-            CFStringRef         myBundleID;          // do not release
-            
-            myBundleID = OSKextGetIdentifier(theKext);
-            OSKextLogCFString(NULL,
-                              kOSKextLogErrorLevel |
-                              kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                              CFSTR("ERROR: invalid signature for %@, will not load"),
-                              myBundleID ? myBundleID : CFSTR("Unknown"));
-            result = kOSKextReturnNotLoadable;
-            goto finish;
-        }
-    }
-
-    if (checkSignaturesOfDependents(theKext, true, false) != 0) {
-        OSKextLog(/* kext */ NULL,
-                  kOSKextLogErrorLevel | kOSKextLogLoadFlag |
-                  kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
-                  "Signature failure in dependencies for kext load request.");
-        result = kOSKextReturnNotLoadable;
-        goto finish;
-    }
-    
     CFBooleanRef pgoref = (CFBooleanRef)
         OSKextGetValueForInfoDictionaryKey(theKext, CFSTR("PGO"));
     bool pgo = false;
@@ -1330,13 +1334,73 @@ kextdProcessUserLoadRequest(
         pgo = CFBooleanGetValue(pgoref);
     }
 
-#if HAVE_DANGERZONE
-    dzRecordKextLoadUser(theKext);
-    if ( ! dzAllowKextLoad(theKext) ) {
+    /*
+     * Perform staging to ensure the kext is in a SIP protected location.
+     */
+    OSKextRef stagedKext = createStagedKext(theKext);
+    if (!stagedKext) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s was unable to stage properly; failing.",
+                  kextIDString ? kextIDString : kextPathString);
         result = kOSKextReturnNotLoadable;
         goto finish;
     }
-#endif // HAVE_DANGERZONE
+
+    if (theKext != stagedKext) {
+        // If staging was performed, reload the array of plug-ins that need to be updated
+        // to match the staged location.
+        CFURLRef stagedURL = OSKextGetURL(stagedKext);
+        SAFE_RELEASE(kexts);
+        kexts = OSKextCreateKextsFromURL(kCFAllocatorDefault, stagedURL);
+    }
+
+    // Release our original reference to theKext and swap in the staged kext.
+    SAFE_RELEASE(theKext);
+    theKext = stagedKext;
+
+    /*
+     * Force authentication checks now so they can be reported gracefully.
+     */
+    if (!OSKextIsAuthentic(theKext)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s failed security checks; failing.", kextIDString);
+        // To allow applications and installers to load a kext and determine if system policy
+        // is preventing the kext from loading, repeat the policy check on this failure case
+        // to give a more specific error code.
+        if (!SPAllowKextLoad(theKext)) {
+            result = kOSKextReturnSystemPolicy;
+        } else {
+            result = kOSKextReturnAuthentication;
+        }
+        goto finish;
+    }
+
+    if (!OSKextAuthenticateDependencies(theKext)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s's dependencies failed security checks; failing.", kextIDString);
+        result = kOSKextReturnDependencyLoadError;
+        goto finish;
+    }
+
+    allowed = TRUE;
+
+    /*
+     * Now that the kext has passed all security checks, see if it has any GPU bundles
+     * that require special staging before it loads.
+     */
+    if (needsGPUBundlesStaged(theKext)) {
+        if (!stageGPUBundles(theKext)) {
+            OSKextLog(NULL,
+                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                      "GPU bundle staging failed for %s", kextIDString);
+        }
+    }
 
     /*
      * The extension is definitely being loaded, so log it then perform the load.
@@ -1357,7 +1421,13 @@ kextdProcessUserLoadRequest(
         pgo_start_thread(theKext);
     }
     
-finish:            
+finish:
+#if HAVE_DANGERZONE
+    if (theKext) {
+        dzRecordKextLoadUser(theKext, allowed);
+    }
+#endif // HAVE_DANGERZONE
+
     SAFE_RELEASE(kextURL);
     SAFE_RELEASE(kextAbsURL);
     SAFE_RELEASE(kexts);
@@ -1366,7 +1436,6 @@ finish:
     SAFE_RELEASE(dependencyURL);
     SAFE_RELEASE(dependencyAbsURL);
     SAFE_RELEASE(dependencyKexts);
-    SAFE_RELEASE(loadList);
     SAFE_FREE(kextIDString);
 
     setCrashLogMessage(NULL);

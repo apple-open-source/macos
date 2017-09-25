@@ -51,7 +51,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/param.h>
-#include "test/testenv.h"
+#include "regressions/test/testenv.h"
 #include "utilities/SecCFRelease.h"
 
 #include "keychain_regressions.h"
@@ -1052,6 +1052,12 @@ static void PrintStringToMatch(CFStringRef nameStr)
 	}
 }
 
+static void PrintStringToMatchRelease(CFStringRef CF_CONSUMED nameStr)
+{
+    PrintStringToMatch(nameStr);
+    CFReleaseNull(nameStr);
+}
+
 
 static void PrintSecCertificate(SecCertificateRef certificate)
 {
@@ -1671,7 +1677,7 @@ static int FindCertificateByNameAndValidDate(SecKeychainRef keychain,
 	CFTypeRef results = NULL;
 	if (debug) {
 		PrintStringToMatch(nameStr);
-		PrintStringToMatch(CFCopyDescription(validOnDate));
+		PrintStringToMatchRelease(CFCopyDescription(validOnDate));
 	}
 
 	OSStatus status = SecItemCopyMatching(query, &results);
@@ -1732,8 +1738,8 @@ static int FindCertificateForSMIMEEncryption(SecKeychainRef keychain,
 	CFTypeRef results = NULL;
 	if (debug) {
 		PrintStringToMatch(emailAddr);
-		PrintStringToMatch(CFCopyDescription(kSecPolicyAppleSMIME));
-		PrintStringToMatch(CFCopyDescription(validOnDate));
+		PrintStringToMatchRelease(CFCopyDescription(kSecPolicyAppleSMIME));
+		PrintStringToMatchRelease(CFCopyDescription(validOnDate));
 	}
 
 	OSStatus status = SecItemCopyMatching(query, &results);
@@ -1806,7 +1812,7 @@ static int FindPreferredCertificateForSMIMEEncryption(SecKeychainRef keychain,
 
 		if (debug) {
 			PrintStringToMatch(emailAddr);
-			PrintStringToMatch(CFCopyDescription(validOnDate));
+			PrintStringToMatchRelease(CFCopyDescription(validOnDate));
 		}
 
 		status = SecItemCopyMatching(query, (CFTypeRef*)&validatedCertificate);
@@ -2031,7 +2037,7 @@ static int FindIdentityByPolicyAndValidDate(SecKeychainRef keychain,
 		&kCFTypeDictionaryKeyCallBacks,
 		&kCFTypeDictionaryValueCallBacks);
 
-	if (debug) PrintStringToMatch(CFCopyDescription(policyIdentifier));
+	if (debug) PrintStringToMatchRelease(CFCopyDescription(policyIdentifier));
 
 	status = SecItemCopyMatching(query, &results);
 
@@ -2100,7 +2106,7 @@ static int FindIdentityByNameAndValidDate(SecKeychainRef keychain,
 	CFTypeRef results = NULL;
 	if (debug) {
 		PrintStringToMatch(nameStr);
-		PrintStringToMatch(CFCopyDescription(validOnDate));
+		PrintStringToMatchRelease(CFCopyDescription(validOnDate));
 	}
 
 	OSStatus status = SecItemCopyMatching(query, &results);
@@ -2170,7 +2176,7 @@ static int FindPreferredIdentityForSMIMESigning(SecKeychainRef keychain, CFStrin
 
 		if (debug) {
 			PrintStringToMatch(emailAddr);
-			PrintStringToMatch(CFCopyDescription(validOnDate));
+			PrintStringToMatchRelease(CFCopyDescription(validOnDate));
 		}
 
 		status = SecItemCopyMatching(query, (CFTypeRef*)&validatedIdentity);
@@ -2767,9 +2773,11 @@ static int TestIdentityLookup(SecKeychainRef keychain)
 
 	// look up identity by policy, want first result as a CFDictionary of attributes (should find "Test SSL User" identity)
 	result += FindIdentityByPolicy(keychain, sslPolicy, kSecReturnAttributes, kSecMatchLimitOne, 1, noErr);
+    CFReleaseNull(sslPolicy);
 
 	// look up identity by policy, expect errSecItemNotFound error (this assumes no code signing identity is present!)
 	result += FindIdentityByPolicy(keychain, codeSigningPolicy, kSecReturnRef, kSecMatchLimitOne, 0, errSecItemNotFound);
+    CFReleaseNull(codeSigningPolicy);
 
 	// -------------------------
 	// test kSecMatchValidOnDate

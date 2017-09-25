@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2008-2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008-2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,8 +33,15 @@
 #include <pthread.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 #include <os/activity.h>
+#endif	// VERBOSE_ACTIVITY_LOGGING
 #include <xpc/xpc.h>
+
+#ifndef	SC_LOG_HANDLE
+#include <os/log.h>
+#define	my_log(__level, __format, ...)	os_log(OS_LOG_DEFAULT, __format, ## __VA_ARGS__)
+#endif	// SC_LOG_HANDLE
 
 #include "libSystemConfiguration_client.h"
 #include "dnsinfo.h"
@@ -61,6 +68,7 @@ static int			dnsinfo_active		= 0;
 static libSC_info_client_t	*dnsinfo_client		= NULL;
 
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 static os_activity_t
 __dns_configuration_activity()
 {
@@ -75,6 +83,7 @@ __dns_configuration_activity()
 
 	return activity;
 }
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 
 static dispatch_queue_t
@@ -94,9 +103,8 @@ __dns_configuration_queue()
 dns_config_t *
 dns_configuration_copy()
 {
-	uint8_t			*buf		= NULL;
-	size_t			bufLen;
-	dns_config_t		*config		= NULL;
+	dns_config_t		*dns_config	= NULL;
+	_dns_config_buf_t	*dns_config_buf	= NULL;
 	static const char	*proc_name	= NULL;
 	xpc_object_t		reqdict;
 	xpc_object_t		reply;
@@ -141,8 +149,10 @@ dns_configuration_copy()
 		return NULL;
 	}
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	// scope DNS configuration activity
 	os_activity_scope(__dns_configuration_activity());
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	// create message
 	reqdict = xpc_dictionary_create(NULL, NULL, 0);
@@ -166,58 +176,21 @@ dns_configuration_copy()
 		dataRef = xpc_dictionary_get_data(reply, DNSINFO_CONFIGURATION, &dataLen);
 		if ((dataRef != NULL) &&
 		    ((dataLen >= sizeof(_dns_config_buf_t)) && (dataLen <= DNS_CONFIG_BUF_MAX))) {
-			_dns_config_buf_t       *config         = (_dns_config_buf_t *)(void *)dataRef;
-			size_t			configLen;
-			uint32_t                n_attribute	= ntohl(config->n_attribute);
-			uint32_t		n_padding       = ntohl(config->n_padding);
-
-			/*
-			 * Check that the size of the configuration header plus the size of the
-			 * attribute data matches the size of the configuration buffer.
-			 *
-			 * If the sizes are different, something that should NEVER happen, CRASH!
-			 */
-			configLen = sizeof(_dns_config_buf_t) + n_attribute;
-			assert(configLen == dataLen);
-
-			/*
-			 * Check that the size of the requested padding would not result in our
-			 * allocating a configuration + padding buffer larger than our maximum size.
-			 *
-			 * If the requested padding size is too large, something that should NEVER
-			 * happen, CRASH!
-			 */
-			assert(n_padding <= (DNS_CONFIG_BUF_MAX - dataLen));
-
-			/*
-			 * Check that the actual size of the configuration data and any requested
-			 * padding will be less than the maximum possible size of the in-memory
-			 * configuration buffer.
-			 *
-			 * If the length needed is too large, something that should NEVER happen, CRASH!
-			 */
-			bufLen = dataLen + n_padding;
-			assert(bufLen <= DNS_CONFIG_BUF_MAX);
-
-			// allocate a buffer large enough to hold both the configuration
-			// data and the padding.
-			buf = malloc(bufLen);
-			bcopy((void *)dataRef, buf, dataLen);
-			bzero(&buf[dataLen], n_padding);
+			dns_config_buf = _dns_configuration_buffer_create(dataRef, dataLen);
 		}
 
 		xpc_release(reply);
 	}
 
-	if (buf != NULL) {
-		/* ALIGN: cast okay since _dns_config_buf_t is int aligned */
-		config = _dns_configuration_expand_config((_dns_config_buf_t *)(void *)buf);
-		if (config == NULL) {
-			free(buf);
+	if (dns_config_buf != NULL) {
+		dns_config = _dns_configuration_buffer_expand(dns_config_buf);
+		if (dns_config == NULL) {
+			// if we were unable to expand the configuration
+			_dns_configuration_buffer_free(&dns_config_buf);
 		}
 	}
 
-	return config;
+	return dns_config;
 }
 
 
@@ -244,6 +217,7 @@ dns_configuration_free(dns_config_t *config)
 void
 _dns_configuration_ack(dns_config_t *config, const char *bundle_id)
 {
+#pragma unused(bundle_id)
 	xpc_object_t	reqdict;
 
 	if (config == NULL) {

@@ -64,6 +64,25 @@ static void SecOTRInitMyDHKeys(SecOTRSessionRef session)
     secnotice("otr", "%@ Reinitializing DH Keys, first: %@", session, session->_myKey);
 }
 
+bool SecOTRSessionIsSessionInAwaitingState(SecOTRSessionRef session)
+{
+    bool isInAwaitingState = false;
+    SecOTRAuthState currentCoderState = session->_state;
+    switch (currentCoderState){
+        case kIdle:
+        case kAwaitingDHKey:
+        case kAwaitingSignature:
+        case kAwaitingRevealSignature:
+            isInAwaitingState = true;
+            break;
+        case kDone:
+            break;
+        default:
+            secnotice("otrtimer", "unknown otr auth state");
+    }
+    return isInAwaitingState;
+}
+
 OSStatus SecOTRSAppendStartPacket(SecOTRSessionRef session, CFMutableDataRef appendPacket)
 {
     __block OSStatus result = errSecSuccess;
@@ -204,7 +223,7 @@ static OSStatus SecOTRSProcessDHMessage(SecOTRSessionRef session,
                 result = errSecSuccess;
                 break;
             } // Else intentionally fall through to idle
-            messageMessage = CFSTR("Our GX is bigger, resending DH");
+            messageMessage = CFSTR("Our GX is smaller, sending DHKey");
         case kAwaitingSignature:
         case kIdle:
         case kDone:

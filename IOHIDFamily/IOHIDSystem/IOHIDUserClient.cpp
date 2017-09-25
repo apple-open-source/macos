@@ -33,6 +33,9 @@
 #include <libkern/c++/OSContainers.h>
 #include <sys/proc.h>
 #include <AssertMacros.h>
+#include <IOKit/graphics/IOGraphicsDevice.h>
+#include <IOKit/hidsystem/IOHIDevice.h>
+#include <IOKit/hidsystem/ev_private.h>
 
 #include "IOHIDUserClient.h"
 #include "IOHIDParameter.h"
@@ -79,6 +82,13 @@ IOReturn IOHIDUserClient::clientClose( void )
 IOReturn IOHIDUserClient::close( void )
 {
     if (owner) {
+        for (unsigned int i = 0; i < MAX_SCREENS; i++) {
+            int token = _screenTokens[i];
+            if (token) {
+                owner->unregisterScreen(token);
+                _screenTokens[i] = 0;
+            }
+        }
         owner->evClose();
         owner->serverConnect = 0;
         owner = NULL;
@@ -100,7 +110,7 @@ IOService * IOHIDUserClient::getService( void )
 }
 
 IOReturn IOHIDUserClient::registerNotificationPort(
-		mach_port_t 	port,
+		mach_port_t 	port __unused,
 		UInt32		type,
 		UInt32		refCon __unused )
 {
@@ -128,8 +138,14 @@ IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
     graphicsDevice = (IOGraphicsDevice *) provider;
     graphicsDevice->getBoundingRect(&bounds);
 
-    if (owner)
-    owner->registerScreen(graphicsDevice, bounds, bounds+1);
+    if (owner) {
+        int token = owner->registerScreen(graphicsDevice, bounds, bounds+1);
+        // HIDSystem returns a token which is just index + SCREENTOKEN
+        if (token >= SCREENTOKEN) {
+            _screenTokens[token - SCREENTOKEN] = token;
+        }
+    }
+    
 
     return( kIOReturnSuccess);
 }
@@ -308,7 +324,7 @@ IOHIDEventSystemUserClient::initialize(void)
 }
 
 UInt32
-IOHIDEventSystemUserClient::createIDForDataQueue(IODataQueue * eventQueue)
+IOHIDEventSystemUserClient::createIDForDataQueue(IOSharedDataQueue * eventQueue)
 {
 	UInt32 queueIdx;
 
@@ -317,7 +333,7 @@ IOHIDEventSystemUserClient::createIDForDataQueue(IODataQueue * eventQueue)
 
 	IOLockLock(gAllUserQueuesLock);
 	for (queueIdx = 0;
-		  OSDynamicCast(IODataQueue, gAllUserQueues->getObject(queueIdx));
+		  OSDynamicCast(IOSharedDataQueue, gAllUserQueues->getObject(queueIdx));
 		  queueIdx++) {}
 	gAllUserQueues->setObject(queueIdx, eventQueue);
 	IOLockUnlock(gAllUserQueuesLock);
@@ -326,7 +342,7 @@ IOHIDEventSystemUserClient::createIDForDataQueue(IODataQueue * eventQueue)
 }
 
 void
-IOHIDEventSystemUserClient::removeIDForDataQueue(IODataQueue * eventQueue)
+IOHIDEventSystemUserClient::removeIDForDataQueue(IOSharedDataQueue * eventQueue)
 {
 	UInt32     queueIdx;
 	OSObject * obj;
@@ -344,13 +360,13 @@ IOHIDEventSystemUserClient::removeIDForDataQueue(IODataQueue * eventQueue)
 	IOLockUnlock(gAllUserQueuesLock);
 }
 
-IODataQueue *
+IOSharedDataQueue *
 IOHIDEventSystemUserClient::copyDataQueueWithID(UInt32 queueID)
 {
-	IODataQueue * eventQueue;
+	IOSharedDataQueue * eventQueue;
 
 	IOLockLock(gAllUserQueuesLock);
-	eventQueue = OSDynamicCast(IODataQueue, gAllUserQueues->getObject(queueID - kIOHIDEventSystemUserQueueID));
+	eventQueue = OSDynamicCast(IOSharedDataQueue, gAllUserQueues->getObject(queueID - kIOHIDEventSystemUserQueueID));
 	if (eventQueue)
 		eventQueue->retain();
 	IOLockUnlock(gAllUserQueuesLock);
@@ -417,13 +433,14 @@ bool IOHIDEventSystemUserClient::start( IOService * provider )
 }
 
 
-void IOHIDEventSystemUserClient::stop( IOService * provider )
+void IOHIDEventSystemUserClient::stop( IOService * provider)
 {
     IOWorkLoop * workLoop = getWorkLoop();
     if (workLoop && commandGate)
     {
         workLoop->removeEventSource(commandGate);
     }
+    super::stop(provider);
 }
 
 IOReturn IOHIDEventSystemUserClient::clientClose( void )
@@ -458,7 +475,7 @@ exit:
 IOReturn IOHIDEventSystemUserClient::clientMemoryForTypeGated( UInt32 type,
         UInt32 * flags, IOMemoryDescriptor ** memory )
 {
-    IODataQueue *   eventQueue = NULL;
+    IOSharedDataQueue *   eventQueue = NULL;
     IOReturn        ret = kIOReturnNoMemory;
     
     if (type == kIOHIDEventSystemKernelQueueID)
@@ -518,11 +535,11 @@ IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,vo
 
 IOReturn IOHIDEventSystemUserClient::createEventQueueGated(void*p1,void*p2,void*p3, void*)
 {
-    UInt32          type        = (uintptr_t)p1;
+    UInt32          type        = (UInt32)(uintptr_t)p1;
     IOByteCount     size        = (uintptr_t)p2;
     UInt32 *        pToken      = (UInt32 *)p3;
     UInt32          token       = 0;
-    IODataQueue *   eventQueue  = NULL;
+    IOSharedDataQueue *   eventQueue  = NULL;
 
     if( !size )
         return kIOReturnBadArgument;
@@ -532,7 +549,7 @@ IOReturn IOHIDEventSystemUserClient::createEventQueueGated(void*p1,void*p2,void*
             if (!owner)
                 return kIOReturnOffline;
             if ( !kernelQueue ) {
-                kernelQueue = IOHIDEventServiceQueue::withCapacity(size);
+                kernelQueue = IOHIDEventServiceQueue::withCapacity((UInt32)size);
                 if ( kernelQueue ) {
                     kernelQueue->setState(true);
                     owner->registerEventQueue(kernelQueue);
@@ -548,7 +565,7 @@ IOReturn IOHIDEventSystemUserClient::createEventQueueGated(void*p1,void*p2,void*
             if (!userQueues)
                 userQueues = OSSet::withCapacity(4);
 
-            eventQueue = IOHIDEventSystemQueue::withCapacity(size);
+            eventQueue = IOHIDEventSystemQueue::withCapacity((UInt32)size);
 			token = createIDForDataQueue(eventQueue);
 			if (eventQueue && userQueues) {
 				userQueues->setObject(eventQueue);
@@ -577,9 +594,9 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,voi
 
 IOReturn IOHIDEventSystemUserClient::destroyEventQueueGated(void*p1,void*p2,void*,void*)
 {
-    UInt32          type       = (uintptr_t) p1;
-    UInt32          queueID    = (uintptr_t) p2;
-    IODataQueue *   eventQueue = NULL;
+    UInt32          type       = (UInt32)(uintptr_t) p1;
+    UInt32          queueID    = (UInt32)(uintptr_t) p2;
+    IOSharedDataQueue *   eventQueue = NULL;
 
 	if (queueID == kIOHIDEventSystemKernelQueueID) {
 		eventQueue = kernelQueue;
@@ -612,7 +629,7 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueueGated(void*p1,void*p2,void
 
 IOReturn IOHIDEventSystemUserClient::tickle(void*p1,void*,void*,void*,void*,void*)
 {
-    IOHIDEventType eventType = (uintptr_t) p1;
+    IOHIDEventType eventType = (UInt32)(uintptr_t) p1;
 
     /* Tickles coming from userspace must follow the same policy as IOHIDSystem.cpp:
      *   If the display is on, send tickles as usual
@@ -630,7 +647,7 @@ IOReturn IOHIDEventSystemUserClient::tickle(void*p1,void*,void*,void*,void*,void
     }
     if (otherType)
     {
-        IOHIDSystemActivityTickle(otherType, this);
+        IOHIDSystemActivityTickle((SInt32)otherType, this);
     }
 
     return kIOReturnSuccess;
@@ -650,7 +667,7 @@ void IOHIDEventSystemUserClient::free()
         OSObject * obj;
         while ((obj = userQueues->getAnyObject()))
         {
-            removeIDForDataQueue(OSDynamicCast(IODataQueue, obj));
+            removeIDForDataQueue(OSDynamicCast(IOSharedDataQueue, obj));
             userQueues->removeObject(obj);
         }
         userQueues->release();
@@ -667,7 +684,7 @@ IOReturn IOHIDEventSystemUserClient::registerNotificationPort(
 		UInt32		type,
 		UInt32		refCon __unused )
 {
-    IODataQueue * eventQueue = NULL;
+    IOSharedDataQueue * eventQueue = NULL;
 
 	if (type == kIOHIDEventSystemKernelQueueID)
 		eventQueue = kernelQueue;

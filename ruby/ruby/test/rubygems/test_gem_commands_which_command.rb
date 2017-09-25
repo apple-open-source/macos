@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/commands/which_command'
 
@@ -44,7 +45,9 @@ class TestGemCommandsWhichCommand < Gem::TestCase
     @cmd.handle_options %w[foo_bar missinglib]
 
     use_ui @ui do
-      @cmd.execute
+      assert_raises Gem::MockGemUi::TermError do
+        @cmd.execute
+      end
     end
 
     assert_equal "#{@foo_bar.full_gem_path}/lib/foo_bar.rb\n", @ui.output
@@ -68,9 +71,10 @@ class TestGemCommandsWhichCommand < Gem::TestCase
 
   def util_foo_bar
     files = %w[lib/foo_bar.rb lib/directory/baz.rb Rakefile]
-    @foo_bar = quick_spec 'foo_bar' do |gem|
+    @foo_bar = util_spec 'foo_bar' do |gem|
       gem.files = files
     end
+    install_specs @foo_bar
 
     files.each do |file|
       filename = File.join(@foo_bar.full_gem_path, file)

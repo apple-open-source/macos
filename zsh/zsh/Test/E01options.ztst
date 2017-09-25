@@ -776,13 +776,17 @@
   unsetopt pathdirs
   pathtestdir/findme
   path=($oldpath)
-  unset $oldpath
+  unset oldpath
   rm -rf pdt_topdir pathtestdir
 0:PATH_DIRS option
 >File in upper dir
 >File in lower dir
 >unsetting option...
 ?(eval):14: no such file or directory: pathtestdir/findme
+
+  (setopt pathdirs; path+=( /usr/bin ); type ./env)
+1:whence honours PATH_DIRS option
+>./env not found
 
   setopt posixbuiltins
   PATH= command -v print
@@ -1119,6 +1123,15 @@
 ?fn:3: scalar parameter foo1 created globally in function fn
 ?fn:5: scalar parameter foo1 created globally in function fn
 ?fn:15: numeric parameter foo5 created globally in function fn
+
+  fn() {
+    emulate -L zsh
+    setopt warncreateglobal
+    TZ=UTC date >&/dev/null
+    local um=$(TZ=UTC date 2>/dev/null)
+  }
+  fn
+0:WARN_CREATE_GLOBAL negative cases
 
 # This really just tests if XTRACE is egregiously broken.
 # To test it properly would need a full set of its own.

@@ -22,7 +22,7 @@
  */
 
 
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 #include <Security/SecCMS.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>

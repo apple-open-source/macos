@@ -28,7 +28,6 @@
 
 #pragma once
 
-#include "CodeBlock.h"
 #include "Instruction.h"
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
@@ -39,6 +38,7 @@ namespace JSC {
     class BytecodeGenerator;
 
     class Label {
+    WTF_MAKE_NONCOPYABLE(Label);
     public:
         explicit Label(BytecodeGenerator& generator)
             : m_refCount(0)

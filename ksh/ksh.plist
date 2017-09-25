@@ -14,6 +14,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Change va_arg order for x86_64</string>
+			<string>http://rhn.redhat.com/errata/RHBA-2017-1378.html</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>ksh</string>

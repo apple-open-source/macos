@@ -62,7 +62,7 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 				{
 					if (NULL != allValues)
 					{
-						CFRelease(allValues);
+						CFReleaseNull(allValues);
 					}
 					
 					return (CFTypeRef) NULL;
@@ -107,7 +107,7 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 						CFDataRef copy = CFDataCreateCopy(NULL, (CFDataRef)value);
 						
 						CFArrayAppendValue(allValues, copy);
-						CFRelease(copy);
+						CFReleaseNull(copy);
 					} 
 					else 
 					{
@@ -162,6 +162,7 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 							if (CFDataGetLength(result) != total_len) 
 							{
 								oom();
+                                CFReleaseNull(result);
 								return value;
 							}
 
@@ -170,13 +171,13 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 							SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 									kSecTransformMetaAttributeValue, (CFTypeRef)resultData);
 									
-							CFRelease(resultData);
+							CFReleaseNull(resultData);
 							
 							SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 									kSecTransformMetaAttributeValue, (CFTypeRef)value);
 							no_more_output();
 
-							CFRelease(result);
+							CFReleaseNull(result);
 							return value;
 						} 
 						else if (CFStringGetTypeID() == type) 
@@ -189,6 +190,7 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 							SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 									kSecTransformMetaAttributeValue, (CFTypeRef)value);
 							no_more_output();
+                            CFReleaseNull(resultStr);
 		
 							return value;
 						} 
@@ -197,13 +199,14 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 							// special case the singleton
 							if (1 == CFArrayGetCount(allValues))
 							{
-								CFTypeRef result =  (CFTypeRef)CFRetain(CFArrayGetValueAtIndex(allValues, 0));
+								CFTypeRef result =  (CFTypeRef)CFRetainSafe(CFArrayGetValueAtIndex(allValues, 0));
 								
 								SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 										kSecTransformMetaAttributeValue, (CFTypeRef)result);
 								SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 										kSecTransformMetaAttributeValue, (CFTypeRef)value);
 								no_more_output();
+                                CFReleaseNull(result);
 
 								return value;
 							}
@@ -216,6 +219,7 @@ static SecTransformInstanceBlock CollectTransform(CFStringRef name,
 					SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, 
 							kSecTransformMetaAttributeValue, (CFTypeRef)value);
 					no_more_output();
+                    CFReleaseNull(resultArray);
 
 					return value;
 				}

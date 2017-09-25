@@ -2189,7 +2189,7 @@ IOFBUpdateConnectState( IOFBConnectRef connectRef )
 }
 
 IOReturn
-IOAccelReadFramebuffer(io_service_t framebuffer, uint32_t width __unused, uint32_t height, size_t rowBytes,
+IOAccelReadFramebuffer(__unused io_service_t framebuffer, uint32_t width __unused, uint32_t height, size_t rowBytes,
                         mach_vm_address_t * result, mach_vm_size_t * bytecount)
 {
     IOReturn          err;

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # acltest.rb - ACL unit test
 # Copyright (c) 2000 Masatoshi SEKI
 #
@@ -6,6 +7,8 @@
 
 require 'test/unit'
 require 'drb/acl'
+
+module DRbTests
 
 class SampleHosts
   def initialize
@@ -192,4 +195,4 @@ class ACLTest < Test::Unit::TestCase
   end
 end
 
-
+end

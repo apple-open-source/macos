@@ -101,7 +101,7 @@ enum {
  * Previously installed hook function or NULL.
  */
 
-__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0)
+__API_AVAILABLE(macos(10.9), ios(7.0))
 __attribute__((__nonnull__, __warn_unused_result__))
 extern pthread_introspection_hook_t
 pthread_introspection_hook_install(pthread_introspection_hook_t hook);

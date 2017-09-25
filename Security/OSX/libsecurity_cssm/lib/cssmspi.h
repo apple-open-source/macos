@@ -27,6 +27,7 @@
 #define _CSSMSPI_H_  1
 
 #include <Security/cssmtype.h>
+#include <Security/cssmspi.h> /* CSSM_UPCALLS_PTR */
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT: 
  * Copyright (c) 1997-2016, International Business Machines Corporation and
@@ -2125,7 +2127,7 @@ static void TestFallback()
         UResourceBundle* tResB;
         UResourceBundle* zoneResource;
         const UChar* version = NULL;
-        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0031, 0x0039, 0x002E, 0x0031, 0x0034, 0x0000}; // 2.1.19.14
+        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0033, 0x0031, 0x002E, 0x0033, 0x0033, 0x0000}; // 2.1.31.33 in nn_NO
 
         if(err != U_ZERO_ERROR){
             log_data_err("Expected U_ZERO_ERROR when trying to test no_NO_NY aliased to nn_NO for Version err=%s\n",u_errorName(err));
@@ -2606,10 +2608,10 @@ static void TestGetFunctionalEquivalentOf(const char *path, const char *resName,
             log_verbose("got:  %c   %s\n", expectAvail?'t':'f',equivLocale);
 
             if((gotAvail != expectAvail) || strcmp(equivLocale, expectLocale)) {
-                log_err("FAIL: got avail=%c, loc=%s but  expected #%d: %c\t%s\t-> loc=%s\n",  
-                    gotAvail?'t':'f', equivLocale,
-                    i/3,
-                    expectAvail?'t':'f', inLocale, expectLocale);
+                log_err("FAIL: #%d: %s -> expect avail=%c, loc=%s but get %c, loc=%s\n",
+                    i/3, inLocale,
+                    expectAvail?'t':'f', expectLocale,
+                    gotAvail?'t':'f',    equivLocale);
 
             }
         }
@@ -2619,7 +2621,7 @@ static void TestGetFunctionalEquivalentOf(const char *path, const char *resName,
 static void TestGetFunctionalEquivalent(void) {
 #if !UCONFIG_NO_COLLATION
     static const char * const collCases[] = {
-        /*   avail   locale          equiv   */
+        /* avail  locale                          equiv */
         "f",    "sv_US_CALIFORNIA",               "sv",
         "f",    "zh_TW@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_TW */
         "f",    "zh_Hant_TW@collation=stroke",    "zh@collation=stroke",
@@ -2654,12 +2656,35 @@ static void TestGetFunctionalEquivalent(void) {
         "t",    "nl@collation=stroke",            "root",
         "f",    "nl_NL@collation=stroke",         "root",
         "f",    "nl_NL_EEXT@collation=stroke",    "root",
+        /* Additions to test aliased locales */
+        "f",    "yue_HK",                         "zh@collation=stroke",
+        "f",    "yue_Hant",                       "zh@collation=stroke",
+        "f",    "yue_Hant_HK",                    "zh@collation=stroke",
+        "f",    "yue@collation=stroke",           "zh@collation=stroke",
+        "f",    "yue@collation=pinyin",           "zh",
+        "f",    "yue_CN",                         "zh",
+        "f",    "yue_Hans",                       "zh",
+        "f",    "yue_Hans_CN",                    "zh",
+        "f",    "yue_Hans@collation=pinyin",      "zh",
+        "f",    "yue_Hans@collation=stroke",      "zh@collation=stroke",
+        "f",    "mo",                             "ro",
+        "f",    "no",                             "no", /* ? */
+        "f",    "ars",                            "ars", /* ? */
+        /* Additions to test locales without resources */
+        "f",    "en_CN",                          "root",
+        "f",    "zh_Hant_CN",                     "zh@collation=stroke",
+        "f",    "zh_Hant_US",                     "zh@collation=stroke",
+        "f",    "zh_Hans_US",                     "zh",
+        "f",    "yue_TW",                         "zh@collation=stroke",
+        "f",    "yue_US",                         "zh@collation=stroke",
+        "f",    "ja_CN",                          "ja",
+        "f",    "ja_US",                          "ja",
         NULL
     };
 #endif  /* !UCONFIG_NO_COLLATION */
 
     static const char *calCases[] = {
-        /*   avail   locale                       equiv   */
+        /* avail  locale                        equiv */
         "t",    "en_US_POSIX",                   "en@calendar=gregorian",
         "f",    "ja_JP_TOKYO",                   "ja@calendar=gregorian",
         "f",    "ja_JP_TOKYO@calendar=japanese", "ja@calendar=japanese",

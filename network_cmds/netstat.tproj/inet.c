@@ -728,6 +728,16 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_mss_to_medium,"\t%u time%s maximum segment size was changed to medium\n");
 	p(tcps_mss_to_low,"\t%u time%s maximum segment size was changed to low\n");
 
+	p(tcps_timer_drift_le_1_ms,"\t%u timer drift%s less or equal to 1 ms\n");
+	p(tcps_timer_drift_le_10_ms,"\t%u timer drift%s less or equal to 10 ms\n");
+	p(tcps_timer_drift_le_20_ms,"\t%u timer drift%s less or equal to 20 ms\n");
+	p(tcps_timer_drift_le_50_ms,"\t%u timer drift%s less or equal to 50 ms\n");
+	p(tcps_timer_drift_le_100_ms,"\t%u timer drift%s less or equal to 100 ms\n");
+	p(tcps_timer_drift_le_200_ms,"\t%u timer drift%s less or equal to 200 ms\n");
+	p(tcps_timer_drift_le_500_ms,"\t%u timer drift%s less or equal to 500 ms\n");
+	p(tcps_timer_drift_le_1000_ms,"\t%u timer drift%s less or equal to 1000 ms\n");
+	p(tcps_timer_drift_gt_1000_ms,"\t%u timer drift%s greater than to 1000 ms\n");
+
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 		pr_swcsum = r_swcsum;
@@ -1021,6 +1031,7 @@ ip_stats(uint32_t off , char *name, int af )
 	p(ips_badaddr, "\t\t%u datagram%s with bad address in header\n");
 	p(ips_pktdropcntrl,
 	    "\t\t%u packet%s dropped due to no bufs for control data\n");
+	p(ips_necp_policy_drop, "\t\t%u packet%s dropped due to NECP policy\n");
 	p2(ips_snd_swcsum, ips_snd_swcsum_bytes,
 	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
 

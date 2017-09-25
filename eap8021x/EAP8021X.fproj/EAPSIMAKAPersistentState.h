@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,6 +49,9 @@ EAPSIMAKAPersistentStateGetIMSI(EAPSIMAKAPersistentStateRef persist);
 CFStringRef
 EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist, 
 				     CFDateRef * start_time);
+
+Boolean
+EAPSIMAKAPersistentStateTemporaryUsernameAvailable(EAPSIMAKAPersistentStateRef persist);
 
 void
 EAPSIMAKAPersistentStateSetPseudonym(EAPSIMAKAPersistentStateRef persist,

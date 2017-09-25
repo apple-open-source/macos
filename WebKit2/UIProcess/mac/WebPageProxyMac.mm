@@ -48,6 +48,7 @@
 #import "WebProcessProxy.h"
 #import <WebCore/DictationAlternative.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/DragItem.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/NSApplicationSPI.h>
 #import <WebCore/RuntimeApplicationChecks.h>
@@ -174,19 +175,19 @@ void WebPageProxy::insertDictatedTextAsync(const String& text, const EditingRang
 #endif
 }
 
-void WebPageProxy::attributedSubstringForCharacterRangeAsync(const EditingRange& range, std::function<void (const AttributedString&, const EditingRange&, CallbackBase::Error)> callbackFunction)
+void WebPageProxy::attributedSubstringForCharacterRangeAsync(const EditingRange& range, WTF::Function<void (const AttributedString&, const EditingRange&, CallbackBase::Error)>&& callbackFunction)
 {
     if (!isValid()) {
         callbackFunction(AttributedString(), EditingRange(), CallbackBase::Error::Unknown);
         return;
     }
 
-    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
+    auto callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
 
     process().send(Messages::WebPage::AttributedSubstringForCharacterRangeAsync(range, callbackID), m_pageID);
 }
 
-void WebPageProxy::attributedStringForCharacterRangeCallback(const AttributedString& string, const EditingRange& actualRange, uint64_t callbackID)
+void WebPageProxy::attributedStringForCharacterRangeCallback(const AttributedString& string, const EditingRange& actualRange, CallbackID callbackID)
 {
     MESSAGE_CHECK(actualRange.isValid());
 
@@ -200,19 +201,19 @@ void WebPageProxy::attributedStringForCharacterRangeCallback(const AttributedStr
     callback->performCallbackWithReturnValue(string, actualRange);
 }
 
-void WebPageProxy::fontAtSelection(std::function<void (const String&, double, bool, CallbackBase::Error)>callbackFunction)
+void WebPageProxy::fontAtSelection(WTF::Function<void (const String&, double, bool, CallbackBase::Error)>&& callbackFunction)
 {
     if (!isValid()) {
         callbackFunction(String(), 0, false, CallbackBase::Error::Unknown);
         return;
     }
     
-    uint64_t callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
+    auto callbackID = m_callbacks.put(WTFMove(callbackFunction), m_process->throttler().backgroundActivityToken());
     
     process().send(Messages::WebPage::FontAtSelection(callbackID), m_pageID);
 }
 
-void WebPageProxy::fontAtSelectionCallback(const String& fontName, double fontSize, bool selectionHasMultipleFonts, uint64_t callbackID)
+void WebPageProxy::fontAtSelectionCallback(const String& fontName, double fontSize, bool selectionHasMultipleFonts, CallbackID callbackID)
 {
     auto callback = m_callbacks.take<FontAtSelectionCallback>(callbackID);
     if (!callback) {
@@ -269,12 +270,12 @@ void WebPageProxy::replaceSelectionWithPasteboardData(const Vector<String>& type
 #endif
 
 #if ENABLE(DRAG_SUPPORT)
-void WebPageProxy::setDragImage(const WebCore::IntPoint& clientPosition, const ShareableBitmap::Handle& dragImageHandle, bool isLinkDrag)
+void WebPageProxy::startDrag(const DragItem& dragItem, const ShareableBitmap::Handle& dragImageHandle)
 {
     if (auto dragImage = ShareableBitmap::create(dragImageHandle))
-        m_pageClient.setDragImage(clientPosition, WTFMove(dragImage), isLinkDrag);
+        m_pageClient.setDragImage(dragItem.dragLocationInWindowCoordinates, dragImage.releaseNonNull(), static_cast<DragSourceAction>(dragItem.sourceAction));
 
-    process().send(Messages::WebPage::DidStartDrag(), m_pageID);
+    didStartDrag();
 }
 
 void WebPageProxy::setPromisedDataForImage(const String& pasteboardName, const SharedMemory::Handle& imageHandle, uint64_t imageSize, const String& filename, const String& extension,
@@ -283,14 +284,14 @@ void WebPageProxy::setPromisedDataForImage(const String& pasteboardName, const S
     MESSAGE_CHECK_URL(url);
     MESSAGE_CHECK_URL(visibleURL);
     RefPtr<SharedMemory> sharedMemoryImage = SharedMemory::map(imageHandle, SharedMemory::Protection::ReadOnly);
-    RefPtr<SharedBuffer> imageBuffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryImage->data()), imageSize);
+    auto imageBuffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryImage->data()), imageSize);
     RefPtr<SharedBuffer> archiveBuffer;
     
     if (!archiveHandle.isNull()) {
         RefPtr<SharedMemory> sharedMemoryArchive = SharedMemory::map(archiveHandle, SharedMemory::Protection::ReadOnly);
         archiveBuffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryArchive->data()), archiveSize);
     }
-    m_pageClient.setPromisedDataForImage(pasteboardName, imageBuffer, filename, extension, title, url, visibleURL, archiveBuffer);
+    m_pageClient.setPromisedDataForImage(pasteboardName, WTFMove(imageBuffer), filename, extension, title, url, visibleURL, WTFMove(archiveBuffer));
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -574,7 +575,7 @@ void WebPageProxy::editorStateChanged(const EditorState& editorState)
     if (couldChangeSecureInputState && !editorState.selectionIsNone)
         m_pageClient.updateSecureInputState();
     
-    if (editorState.shouldIgnoreCompositionSelectionChange)
+    if (editorState.shouldIgnoreSelectionChanges)
         return;
     
     m_pageClient.selectionDidChange();
@@ -597,7 +598,7 @@ void WebPageProxy::rootViewToWindow(const WebCore::IntRect& viewRect, WebCore::I
 
 void WebPageProxy::showValidationMessage(const IntRect& anchorClientRect, const String& message)
 {
-    m_validationBubble = m_pageClient.createValidationBubble(message);
+    m_validationBubble = m_pageClient.createValidationBubble(message, { m_preferences->minimumFontSize() });
     m_validationBubble->showRelativeTo(anchorClientRect);
 }
 

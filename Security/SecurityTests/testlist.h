@@ -1,5 +1,5 @@
 /* Don't prevent multiple inclusion of this file. */
-#include <test/test_regressions.h>
+#include <regressions/test/test_regressions.h>
 #include <Regressions/utilities_regressions.h>
 #include <Security/Regressions/Security_regressions.h>
 #include <securityd/Regressions/securityd_regressions.h>

@@ -41,7 +41,6 @@
 #include <JavaScriptCore/StrongInlines.h>
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/Frame.h>
-#include <WebCore/Page.h>
 #include <WebCore/ScriptController.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -71,7 +70,7 @@ NPRuntimeObjectMap::PluginProtector::~PluginProtector()
 NPObject* NPRuntimeObjectMap::getOrCreateNPObject(VM& vm, JSObject* jsObject)
 {
     // If this is a JSNPObject, we can just get its underlying NPObject.
-    if (jsObject->classInfo() == JSNPObject::info()) {
+    if (jsObject->classInfo(vm) == JSNPObject::info()) {
         JSNPObject* jsNPObject = jsCast<JSNPObject*>(jsObject);
         NPObject* npObject = jsNPObject->npObject();
         
@@ -193,7 +192,7 @@ bool NPRuntimeObjectMap::evaluate(NPObject* npObject, const String& scriptString
     JSLockHolder lock(exec);
     JSValue thisValue = getOrCreateJSObject(globalObject.get(), npObject);
 
-    JSValue resultValue = JSC::evaluate(exec, makeSource(scriptString), thisValue);
+    JSValue resultValue = JSC::evaluate(exec, makeSource(scriptString, { }), thisValue);
 
     convertJSValueToNPVariant(exec, resultValue, *result);
     return true;
@@ -293,7 +292,7 @@ void NPRuntimeObjectMap::addToInvalidationQueue(NPObject* npObject)
     if (trySafeReleaseNPObject(npObject))
         return;
     if (m_npObjectsToFinalize.isEmpty())
-        m_finalizationTimer.startOneShot(0);
+        m_finalizationTimer.startOneShot(0_s);
     ASSERT(m_finalizationTimer.isActive());
     m_npObjectsToFinalize.append(npObject);
 }

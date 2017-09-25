@@ -856,7 +856,7 @@ fsopt)
 devordir)
   local dev_tmp mp_tmp mline
 
-  if compset -P '*:'; then
+  if compset -P 1 '*:'; then
     _wanted exports expl 'exported path' compadd \
 	${${(f)"$(path+=( {/usr,}/sbin(N) ) _call_program exports \
 	showmount -e ${IPREFIX%:} 2>/dev/null)"}[2,-1]%% *} && ret=0
@@ -959,14 +959,14 @@ udevordir)
   esac
 
   local MATCH MBEGIN MEND
-  mp_tmp=("${(@qg::)mp_tmp}")
-  dpath_tmp=( "${(@Mqg::)dev_tmp:#/*}" )
-  dev_tmp=( "${(@qg::)dev_tmp:#/*}" )
+  mp_tmp=("${(@g::)mp_tmp}")
+  dpath_tmp=( "${(@Mg::)dev_tmp:#/*}" )
+  dev_tmp=( "${(@g::)dev_tmp:#/*}" )
 
   _alternative \
     'device-labels:device label:compadd -a dev_tmp' \
-    'device-paths: device path:_canonical_paths -A dpath_tmp -N device-paths device\ path' \
-    'directories:mount point:_canonical_paths -A mp_tmp -N directories mount\ point' && ret=0
+    'device-paths: device path:_canonical_paths -A dpath_tmp -N -M "r:|/=* r:|=*" device-paths device\ path' \
+    'directories:mount point:_canonical_paths -A mp_tmp -N -M "r:|/=* r:|=*" directories mount\ point' && ret=0
   ;;
 labels)
   _wanted labels expl 'disk label' compadd /dev/disk/by-label/*(:t) && ret=0

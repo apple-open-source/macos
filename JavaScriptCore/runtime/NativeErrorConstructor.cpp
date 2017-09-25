@@ -32,7 +32,7 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(NativeErrorConstructor);
 
-const ClassInfo NativeErrorConstructor::s_info = { "Function", &InternalFunction::s_info, 0, CREATE_METHOD_TABLE(NativeErrorConstructor) };
+const ClassInfo NativeErrorConstructor::s_info = { "Function", &InternalFunction::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(NativeErrorConstructor) };
 
 NativeErrorConstructor::NativeErrorConstructor(VM& vm, Structure* structure)
     : InternalFunction(vm, structure)
@@ -42,7 +42,7 @@ NativeErrorConstructor::NativeErrorConstructor(VM& vm, Structure* structure)
 void NativeErrorConstructor::finishCreation(VM& vm, JSGlobalObject* globalObject, Structure* prototypeStructure, const String& name)
 {
     Base::finishCreation(vm, name);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     
     NativeErrorPrototype* prototype = NativeErrorPrototype::create(vm, prototypeStructure, name, this);
     

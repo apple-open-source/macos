@@ -71,10 +71,8 @@ static int max_penalty_timeout = 32;
 static int seconds_per_minute = 60;
 static int queue_depth = 1;
 
-#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
 CFStringRef const IDSPAggdIncreaseThrottlingKey = CFSTR("com.apple.security.idsproxy.increasethrottle");
 CFStringRef const IDSPAggdDecreaseThrottlingKey = CFSTR("com.apple.security.idsproxy.decreasethrottle");
-#endif
 
 static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms leeway for handling unhandled messages.
 
@@ -94,9 +92,7 @@ static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms le
 
 -(void) increasePenalty:(NSNumber*)currentPenalty key:(NSString*)key keyEntry:(NSMutableDictionary**)keyEntry deviceName:(NSString*)deviceName peerID:(NSString*)peerID
 {
-#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
     SecADAddValueForScalarKey((IDSPAggdIncreaseThrottlingKey), 1);
-#endif
 
     secnotice("backoff", "increasing penalty!");
     int newPenalty = 0;
@@ -129,9 +125,8 @@ static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms le
 
 -(void) decreasePenalty:(NSNumber*)currentPenalty key:(NSString*)key keyEntry:(NSMutableDictionary**)keyEntry deviceName:(NSString*)deviceName peerID:(NSString*)peerID
 {
-#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
     SecADAddValueForScalarKey((IDSPAggdDecreaseThrottlingKey), 1);
-#endif
+
     int newPenalty = 0;
     secnotice("backoff","decreasing penalty!");
     if([currentPenalty intValue] == 0 || [currentPenalty intValue] == 1)
@@ -260,6 +255,8 @@ static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms le
     __block NSMutableDictionary *previousTable = nil;
     
     NSArray *sortedTimestampKeys = [[*timeTable allKeys] sortedArrayUsingSelector:@selector(compare:)];
+    NSMutableDictionary* timeTableStrong = *timeTable;
+
     [sortedTimestampKeys enumerateObjectsUsingBlock:^(id arrayObject, NSUInteger idx, BOOL *stop)
      {
          if(foundTimeSlot == YES)
@@ -269,7 +266,7 @@ static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms le
          
          //grab the dictionary containing write information
          //(date, boolean to check if a write occured in the timeslice,
-         NSMutableDictionary *minutesTable = [*timeTable objectForKey: sortedKey];
+         NSMutableDictionary *minutesTable = [timeTableStrong objectForKey: sortedKey];
          if(minutesTable == nil)
              minutesTable = [[KeychainSyncingOverIDSProxy idsProxy] initializeTimeTable:key];
          

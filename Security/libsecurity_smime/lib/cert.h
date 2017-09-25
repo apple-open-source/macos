@@ -21,7 +21,9 @@
 /************************************************************************/
 SEC_BEGIN_PROTOS
 
+#if !USE_CDSA_CRYPTO
 bool CERT_CheckIssuerAndSerial(SecCertificateRef cert, SecAsn1Item *issuer, SecAsn1Item *serial);
+#endif
 
 typedef void CERTVerifyLog;
 
@@ -86,6 +88,7 @@ SecIdentityRef CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const 
 SecCertificateRef CERT_FindCertificateByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN);
 
 SecIdentityRef CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID);
+SecCertificateRef CERT_FindCertificateBySubjectKeyID(CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID);
 
 // find the smime symmetric capabilities profile for a given cert
 SecAsn1Item *CERT_FindSMimeProfile(SecCertificateRef cert);
@@ -107,8 +110,13 @@ SECStatus CERT_SaveSMimeProfile(SecCertificateRef cert, SecAsn1Item *emailProfil
 // is given in the common name of the certificate.
 SECStatus CERT_VerifyCertName(SecCertificateRef cert, const char *hostname);
 
+#if USE_CDSA_CRYPTO
+SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert,
+			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
+#else
 SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, CFArrayRef cert,
 			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
+#endif
 
 CFTypeRef CERT_PolicyForCertUsage(SECCertUsage certUsage);
 

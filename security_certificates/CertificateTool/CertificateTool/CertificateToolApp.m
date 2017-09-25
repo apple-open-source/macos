@@ -246,8 +246,9 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 			_allowlist_directory = [self checkPath:@"certificates/allowlist" basePath:_top_level_directory isDirectory:YES];
 			if (nil == _allowlist_directory)
 			{
-				[self usage];
-				return nil;
+				// allowlist is no longer required: rdar://29338872
+				//[self usage];
+				//return nil;
 			}
 		}
 		if (nil == _certs_directory)
@@ -493,7 +494,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 	PSCerts* pscerts_alissuers = [[PSCerts alloc] initWithCertFilePath:issuersDir withFlags:issuersFlags recurse:NO];
 	if (nil == pscerts_alissuers || nil == pscerts_alissuers.certs)
 	{
-		return result;
+		return YES; // this is no longer an error, since issuers may be empty: rdar://29338872
 	}
 
 	certFlags = isAllowListed;

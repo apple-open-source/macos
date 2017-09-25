@@ -31,13 +31,12 @@
 #include "ImplicitAnimation.h"
 #include "KeyframeAnimation.h"
 #include <wtf/HashMap.h>
-#include <wtf/Noncopyable.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-class AnimationControllerPrivate;
-class AnimationController;
+class CSSAnimationControllerPrivate;
+class CSSAnimationController;
 class RenderElement;
 class RenderStyle;
 
@@ -46,7 +45,7 @@ class RenderStyle;
 class CompositeAnimation : public RefCounted<CompositeAnimation> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<CompositeAnimation> create(AnimationControllerPrivate& animationController)
+    static Ref<CompositeAnimation> create(CSSAnimationControllerPrivate& animationController)
     {
         return adoptRef(*new CompositeAnimation(animationController));
     };
@@ -59,9 +58,9 @@ public:
     std::unique_ptr<RenderStyle> getAnimatedStyle() const;
     bool computeExtentOfTransformAnimation(LayoutRect&) const;
 
-    double timeToNextService() const;
+    std::optional<Seconds> timeToNextService() const;
     
-    AnimationControllerPrivate& animationController() const { return m_animationController; }
+    CSSAnimationControllerPrivate& animationController() const { return m_animationController; }
 
     void suspendAnimations();
     void resumeAnimations();
@@ -71,7 +70,7 @@ public:
 
     bool isAnimatingProperty(CSSPropertyID, bool acceleratedOnly, AnimationBase::RunningState) const;
 
-    PassRefPtr<KeyframeAnimation> getAnimationForProperty(CSSPropertyID) const;
+    KeyframeAnimation* animationForProperty(CSSPropertyID) const;
 
     void overrideImplicitAnimations(CSSPropertyID);
     void resumeOverriddenImplicitAnimations(CSSPropertyID);
@@ -84,8 +83,10 @@ public:
     bool hasScrollTriggeredAnimation() const { return m_hasScrollTriggeredAnimation; }
 #endif
 
+    bool hasAnimationThatDependsOnLayout() const { return m_hasAnimationThatDependsOnLayout; }
+
 private:
-    CompositeAnimation(AnimationControllerPrivate&);
+    CompositeAnimation(CSSAnimationControllerPrivate&);
 
     void updateTransitions(RenderElement*, const RenderStyle* currentStyle, const RenderStyle* targetStyle);
     void updateKeyframeAnimations(RenderElement*, const RenderStyle* currentStyle, const RenderStyle* targetStyle);
@@ -93,11 +94,12 @@ private:
     typedef HashMap<int, RefPtr<ImplicitAnimation>> CSSPropertyTransitionsMap;
     typedef HashMap<AtomicStringImpl*, RefPtr<KeyframeAnimation>> AnimationNameMap;
 
-    AnimationControllerPrivate& m_animationController;
+    CSSAnimationControllerPrivate& m_animationController;
     CSSPropertyTransitionsMap m_transitions;
     AnimationNameMap m_keyframeAnimations;
     Vector<AtomicStringImpl*> m_keyframeAnimationOrderMap;
     bool m_suspended;
+    bool m_hasAnimationThatDependsOnLayout { false };
 #if ENABLE(CSS_ANIMATIONS_LEVEL_2)
     bool m_hasScrollTriggeredAnimation { false };
 #endif

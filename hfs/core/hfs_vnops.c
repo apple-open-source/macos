@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -55,7 +55,6 @@
 #include <miscfs/specfs/specdev.h>
 #include <miscfs/fifofs/fifo.h>
 #include <vfs/vfs_support.h>
-#include <machine/spl.h>
 
 #include <sys/kdebug.h>
 #include <sys/sysctl.h>
@@ -113,6 +112,22 @@ static int hfs_move_data(cnode_t *from_cp, cnode_t *to_cp,
 						 hfs_move_data_options_t options);
 static int hfs_move_fork(filefork_t *srcfork, cnode_t *src, 
  						 filefork_t *dstfork, cnode_t *dst);
+
+
+static int hfs_exchangedata_getxattr (struct vnode *vp, uint32_t name_selector, void **buffer, size_t *xattr_size);
+static int hfs_exchangedata_setxattr (struct hfsmount *hfsmp, uint32_t fileid, 
+										uint32_t name_selector, void *buffer, size_t xattr_size);
+
+enum XATTR_NAME_ENTRIES {
+	quarantine = 0,
+	MAX_NUM_XATTR_NAMES	//must be last
+};
+
+
+/* These are special EAs that follow the content in exchangedata(2). */
+const char *XATTR_NAMES [MAX_NUM_XATTR_NAMES] = { "com.apple.quarantine" };
+
+#define MAX_EXCHANGE_EA_SIZE 4096
 
 #if HFS_COMPRESSION
 static int hfs_move_compressed(cnode_t *from_vp, cnode_t *to_vp);
@@ -1876,6 +1891,156 @@ static int hfs_flush_rsrc(vnode_t vp, vfs_context_t ctx)
 }
 #endif // HFS_COMPRESSION
 
+
+/* Helper Functions for exchangedata(2) */
+
+/*
+ * hfs_exchangedata_getxattr
+ * arguments: 
+ *	vp: vnode to extract the EA for
+ *	name_selector: the index into the array of EA name entries. 	
+ *  buffer: address for output buffer to store the output EA
+ * 	NOTE: This function will allocate the buffer, it is the caller's responsibility to free it.
+ * xattr_size: output argument; will return the size of the EA, to correspond with the buffer. 
+ * 
+ * Return: 0 on success.
+ * errno on error.  If we return any error, the buffer is guaranteed to be NULL. 
+ * 
+ * Assumes CNODE lock held on cnode for 'vp'
+ */
+static 
+int hfs_exchangedata_getxattr (struct vnode *vp, uint32_t name_selector,  void **buffer, size_t *xattr_size) {
+	void *xattr_rawdata = NULL;
+	void *extracted_xattr = NULL;
+	uio_t uio;
+	size_t memsize = MAX_EXCHANGE_EA_SIZE;
+	size_t attrsize;
+	int error = 0;
+	struct hfsmount *hfsmp = NULL;
+
+	/* Sanity check inputs */
+	if (name_selector > MAX_NUM_XATTR_NAMES) {
+		return EINVAL;
+	}
+
+	if (buffer == NULL || xattr_size == NULL) {
+		return EINVAL;
+	}
+
+	hfsmp = VTOHFS(vp);
+
+	//allocate 4k memory to hold the EA.  We don't use this for "large" EAs, and the default
+	//EA B-tree size should produce inline attributes of size < 4K
+	xattr_rawdata = hfs_malloc (MAX_EXCHANGE_EA_SIZE);	
+	if (!xattr_rawdata) {
+		return ENOMEM;
+	}	
+
+	//now create the UIO
+	uio = uio_create (1, 0, UIO_SYSSPACE, UIO_READ);
+	if (!uio) {
+		hfs_free (xattr_rawdata, memsize);
+		return ENOMEM;
+	}
+	uio_addiov(uio, CAST_USER_ADDR_T(xattr_rawdata), memsize);
+	attrsize = memsize;
+	
+	struct vnop_getxattr_args vga = {
+		.a_uio = uio,
+		.a_name = XATTR_NAMES[name_selector],
+		.a_size = &attrsize
+	};
+
+	// this takes care of grabbing the systemfile locks for us. 
+	error = hfs_getxattr_internal (VTOC(vp), &vga, hfsmp, 0); 
+
+	if (error) {
+		/* 
+		 * We could have gotten a variety of errors back from the XATTR tree:
+		 * is it too big? (bigger than 4k?) == ERANGE
+		 * was the EA not found? == ENOATTR
+		 */
+		uio_free(uio);
+		hfs_free (xattr_rawdata, memsize);
+		return error;
+	}
+
+	//free the UIO
+	uio_free(uio);
+
+	//upon success, a_size/attrsize now contains the actua/exported EA size
+	extracted_xattr = hfs_malloc (attrsize);
+	memcpy (extracted_xattr, xattr_rawdata, attrsize);
+	hfs_free (xattr_rawdata, memsize);
+
+	*xattr_size = attrsize;
+	*buffer = extracted_xattr;
+
+	return error;		
+}
+	
+
+/*
+ * hfs_exchangedata_setxattr
+ * 
+ * Note: This function takes fileIDs in as inputs, because exchangedata does
+ * swizzly things with the two cnodes (See big block comment in hfs_vnop_exchange)
+ * so we operate with FileIDs more or less directly on the XATTR b-tree.
+ * 
+ * arguments: 
+ * 	hfsmp: the mount we're working on
+ * 	fileid: the fileID of the EA to store into the tree.
+ * 	name_selector: selector into the EA name array. 
+ *	buffer: pointer to the memory of the EA to write. 
+ * 	xattr_size: size of the EA to write.
+ * 
+ * Returns 0 on success
+ * errno on failure
+ *
+ * Assumes that a transaction has already begun when this is called
+ */
+
+static 
+int hfs_exchangedata_setxattr (struct hfsmount *hfsmp, uint32_t fileid, 
+		uint32_t name_selector, void *buffer, size_t xattr_size) {
+
+	int error = 0;
+
+
+	/* Sanity check arguments */
+	if (name_selector > MAX_NUM_XATTR_NAMES) {
+		return EINVAL;
+	}
+
+	if (buffer == NULL  || xattr_size == 0 || fileid < kHFSFirstUserCatalogNodeID ) {
+		return EINVAL;
+	}
+
+	// is the size too big?
+	if (xattr_size > hfsmp->hfs_max_inline_attrsize) {
+		return EINVAL;
+	}
+
+	/* setup the arguments to setxattr*/
+	struct vnop_setxattr_args vsa = {
+		.a_desc = NULL,
+		.a_vp = NULL,
+		.a_name = XATTR_NAMES[name_selector], 
+		.a_uio = NULL, // we use the data_ptr argument to setxattr_internal instead 
+		.a_options = 0,
+		.a_context = NULL // no context needed, only done from within exchangedata
+	};	
+
+	/*
+	 * Since we must be in a transaction to guard the exchangedata operation, this will start
+	 * a nested transaction within the exchangedata one.
+	 */
+	error = hfs_setxattr_internal (NULL, (caddr_t) buffer, xattr_size, &vsa, hfsmp, fileid);
+
+	return error;
+
+}
+
 /*
  * hfs_vnop_exchange:
  * 
@@ -1912,6 +2077,10 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	char to_iname[32];
 	uint32_t to_flag_special;
 	uint32_t from_flag_special;
+
+	uint16_t to_recflags_special;
+	uint16_t from_recflags_special;
+	
 	cnid_t  from_parid;
 	cnid_t  to_parid;
 	int lockflags;
@@ -1919,6 +2088,13 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	cat_cookie_t cookie;
 	time_t orig_from_ctime, orig_to_ctime;
 	bool have_cnode_locks = false, have_from_trunc_lock = false, have_to_trunc_lock = false;
+	
+	/* For the quarantine EA */
+	void *from_xattr = NULL;
+	void *to_xattr = NULL;
+	size_t from_attrsize = 0;
+	size_t to_attrsize = 0;
+
 
 	/*
 	 * VFS does the following checks:
@@ -2053,8 +2229,7 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	}
 
 	/* 
-	 * Ok, now that all of the pre-flighting is done, call the underlying
-	 * function if needed.
+	 * If doing a data move, then call the underlying function. 
 	 */
 	if (ISSET(ap->a_options, FSOPT_EXCHANGE_DATA_ONLY)) {
 #if HFS_COMPRESSION
@@ -2068,6 +2243,38 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 		goto exit;
 	}
 
+	/* 
+	 * If we're doing a normal exchangedata, then get the source/dst quarantine
+	 * EAs as needed. We do it here before we start the transaction. 
+	 */
+
+	//get the EA for the 'from' vnode if it exists.
+	error = hfs_exchangedata_getxattr (from_vp, quarantine, &from_xattr, &from_attrsize);
+	if (error) {
+		if (error == ENOATTR) {	
+			//it's OK for the quarantine EA to not exist
+			error = 0;
+		}
+		else {
+			goto exit;
+		}
+	}
+
+
+	//get the EA from the 'to' vnode if it exists
+	error = hfs_exchangedata_getxattr (to_vp, quarantine, &to_xattr, &to_attrsize);
+	if (error) {
+		if (error == ENOATTR) {	
+			//it's OK for the quarantine EA to not exist
+			error = 0;
+		}
+		else {
+			goto exit;
+		}
+	}
+	
+
+	/* Start a transaction; we have to do all of this atomically */
 	if ((error = hfs_start_transaction(hfsmp)) != 0) {
 	    goto exit;
 	}
@@ -2138,17 +2345,88 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	 */
 	error = ExchangeFileIDs(hfsmp, from_nameptr, to_nameptr, from_parid,
 	                        to_parid, from_cp->c_hint, to_cp->c_hint);
-	hfs_systemfile_unlock(hfsmp, lockflags);
-
-	/*
-	 * Note that we don't need to exchange any extended attributes
-	 * since the attributes are keyed by file ID.
-	 */
+	hfs_systemfile_unlock(hfsmp, lockflags);	
 
 	if (error != E_NONE) {
 		error = MacToVFSError(error);
 		goto exit;
 	}
+
+	/* 
+	 * Now, we have to swap the quarantine EA. 
+	 * 
+	 * Ordinarily, we would not have to swap/exchange any extended attributes, 
+	 * since they are keyed by the file ID, and this function is supposed
+     * to manipulate the main data stream/fork only. 
+	 * 
+	 * However, we want the quarantine EA to follow the file content.
+	 */
+
+	int from_xattr_status = 0;
+	if (from_xattr) {
+		/* 
+		 * Caution! 
+		 * We've crossed a point of no return here, because if we
+		 * have successfully swapped the file content above, we need to continue here
+		 * to swap the rest of the cnode content, which is not subject to failure.
+		 * Failing the whole function because the xattr swap will result in perceived
+		 * data loss to the caller, so we swallow the error case here. 
+		 */ 
+		from_xattr_status = hfs_removexattr_by_id (hfsmp, from_cp->c_fileid, XATTR_NAMES[quarantine]);	
+		if (from_xattr_status == 0) {
+			int xattr_lockflags;
+			int remaining_eas;
+			/* 
+			 * Check to see if we need to remove the xattr bit from the catalog record flags while
+			 * 'from_cp' still tracks with its original file ID. Once the cnodes' contents are swapped
+			 * and they are ready to be re-hashed, we will OR in the bit if we know that we moved the
+			 * EA to the counterpart. 
+			 */ 
+			xattr_lockflags = hfs_systemfile_lock (hfsmp, SFL_ATTRIBUTE, HFS_SHARED_LOCK);
+			remaining_eas = file_attribute_exist (hfsmp, from_cp->c_fileid);
+			if (remaining_eas == 0) {
+				from_cp->c_attr.ca_recflags &= ~kHFSHasAttributesMask;
+				//the cnode will be pushed out to disk LATER on.
+			}
+			hfs_systemfile_unlock (hfsmp, xattr_lockflags);
+
+		}	
+	}
+
+	//and the same for to_xattr
+	if (to_xattr) {
+		int xattr_status = hfs_removexattr_by_id (hfsmp, to_cp->c_fileid, XATTR_NAMES[quarantine]);	
+		
+		if (xattr_status == 0) {
+			int xattr_lockflags;
+			int remaining_eas;
+			/* 
+			 * Check to see if we need to remove the xattr bit from the catalog record flags while
+			 * 'to_cp' still tracks with its original file ID. Once the cnodes' contents are swapped
+			 * and they are ready to be re-hashed, we will OR in the bit if we know that we moved the
+			 * EA to the counterpart. 
+			 */
+			xattr_lockflags = hfs_systemfile_lock (hfsmp, SFL_ATTRIBUTE, HFS_SHARED_LOCK);
+			remaining_eas = file_attribute_exist (hfsmp, from_cp->c_fileid);
+			if (remaining_eas == 0) {
+				to_cp->c_attr.ca_recflags &= ~kHFSHasAttributesMask;
+				//the cnode will be pushed out to disk LATER on.
+			}
+			hfs_systemfile_unlock (hfsmp, xattr_lockflags);
+
+			/* Now move the EA to the counterparty fileID. We piggyback on the larger transaction here */
+			hfs_exchangedata_setxattr (hfsmp, from_cp->c_fileid, quarantine, to_xattr, to_attrsize);
+		}
+	}
+
+	if (from_xattr && from_xattr_status == 0) {
+		/* 
+		 * if the from EA got removed properly, then attach it to the 'to' file.  We do it at this point
+		 * to ensure that it got removed properly above before re-setting it again.
+	 	 */ 
+		hfs_exchangedata_setxattr (hfsmp, to_cp->c_fileid, quarantine, from_xattr, from_attrsize);
+	}
+
 
 	/* Purge the vnodes from the name cache */
  	if (from_vp)
@@ -2168,11 +2446,16 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	
 	/* Save whether or not each cnode is a hardlink or has EAs */
 	from_flag_special = from_cp->c_flag & (C_HARDLINK | C_HASXATTRS);
+	from_recflags_special = (from_cp->c_attr.ca_recflags & kHFSHasAttributesMask);
+
 	to_flag_special = to_cp->c_flag & (C_HARDLINK | C_HASXATTRS);
+	to_recflags_special = (to_cp->c_attr.ca_recflags & kHFSHasAttributesMask);
 
 	/* Drop the special bits from each cnode */
 	from_cp->c_flag &= ~(C_HARDLINK | C_HASXATTRS);
 	to_cp->c_flag &= ~(C_HARDLINK | C_HASXATTRS);
+	from_cp->c_attr.ca_recflags &= ~(kHFSHasAttributesMask);
+	to_cp->c_attr.ca_recflags &= ~(kHFSHasAttributesMask);
 
 	/*
 	 * Now complete the in-memory portion of the copy.
@@ -2240,6 +2523,9 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	 * The flags that are special are:
 	 * C_HARDLINK, C_HASXATTRS
 	 * 
+	 * and the c_attr recflag:
+	 *  kHFSHasAttributesMask
+	 * 
 	 * These flags move with the item and file ID in the namespace since their
 	 * state is tied to that of the file ID.
 	 * 
@@ -2250,6 +2536,20 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	 */	 
 	from_cp->c_flag |= to_flag_special | C_MODIFIED;
 	from_cp->c_attr.ca_recflags = to_cp->c_attr.ca_recflags;
+	from_cp->c_attr.ca_recflags |= to_recflags_special;
+	if (from_xattr) {
+		/* 
+		 * NOTE:
+		 * This is counter-intuitive and part of the complexity of exchangedata.
+		 * if 'from_cp' originally had a quarantine EA, then ensure that the cnode
+		 * pointed to by 'from_cp' CONTINUES to keep the "has EAs" bit. This is because
+		 * the cnode is about to be re-hashed with a new ID, but the file CONTENT 
+		 * (i.e. the file fork) stayed put.  And we want the quarantine EA to follow
+		 * the content.  The check above is correct. 
+		 */
+		from_cp->c_attr.ca_recflags |= kHFSHasAttributesMask;
+	}
+
 	bcopy(to_cp->c_finderinfo, from_cp->c_finderinfo, 32);
 
 
@@ -2278,8 +2578,22 @@ hfs_vnop_exchange(struct vnop_exchange_args *ap)
 	 * Leave the rest of the flags alone.
 	 */
 	to_cp->c_flag |= from_flag_special | C_MODIFIED;
-
 	to_cp->c_attr.ca_recflags = tempattr.ca_recflags;
+	to_cp->c_attr.ca_recflags |= from_recflags_special;
+
+	if (to_xattr) {
+		/* 
+		 * NOTE:
+		 * This is counter-intuitive and part of the complexity of exchangedata.
+		 * if 'to_cp' originally had a quarantine EA, then ensure that the cnode
+		 * pointed to by 'to_cp' CONTINUES to keep the "has EAs" bit. This is because
+		 * the cnode is about to be re-hashed with a new ID, but the file CONTENT 
+		 * (i.e. the file fork) stayed put.  And we want the quarantine EA to follow
+		 * the content.  The check above is correct. 
+		 */
+		to_cp->c_attr.ca_recflags |= kHFSHasAttributesMask;
+	}
+
 	bcopy(tempattr.ca_finderinfo, to_cp->c_finderinfo, 32);
 
 
@@ -2317,6 +2631,17 @@ exit:
 
 	if (have_to_trunc_lock)
 		hfs_unlock_truncate(to_cp, 0);
+
+	/* Free the memory used by the EAs */
+	if (from_xattr) {
+		hfs_free (from_xattr, from_attrsize);
+		from_xattr = NULL;
+	}
+
+	if (to_xattr) {
+		hfs_free (to_xattr, to_attrsize);
+		to_xattr = NULL;
+	}
 
  	return (error);
 }
@@ -5355,6 +5680,7 @@ hfs_vnop_readdir(struct vnop_readdir_args *ap)
 	int eofflag = 0;
 	user_addr_t user_start = 0;
 	user_size_t user_len = 0;
+	user_size_t user_original_resid = 0;
 	int index;
 	unsigned int tag;
 	int items;
@@ -5409,10 +5735,15 @@ hfs_vnop_readdir(struct vnop_readdir_args *ap)
 		if (user_len > (256 * 1024)) {
 			/* only allow the user to wire down at most 256k */
 			user_len = (256 * 1024);
+			user_original_resid = uio_resid(uio);
 			uio_setresid (uio, (user_ssize_t)(256 * 1024));
 		}
 
 		if ((error = vslock(user_start, user_len)) != 0) {
+			if (user_original_resid > 0) {
+				uio_setresid(uio, user_original_resid);
+				user_original_resid = 0;
+			}
 			return error;
 		}
 	}
@@ -5420,6 +5751,10 @@ hfs_vnop_readdir(struct vnop_readdir_args *ap)
 	/* Note that the dirhint calls require an exclusive lock. */
 	if ((error = hfs_lock(VTOC(vp), HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
 		if (user_start) {
+			if (user_original_resid > 0) {
+				uio_setresid(uio, user_original_resid);
+				user_original_resid = 0;
+			}
 			vsunlock(user_start, user_len, TRUE);
 		}
 		return error;
@@ -5569,6 +5904,10 @@ hfs_vnop_readdir(struct vnop_readdir_args *ap)
 			error = 0;
 			eofflag = 1;
 			uio_setoffset(uio, startoffset);
+			if (user_original_resid > 0) {
+				uio_setresid(uio, user_original_resid);
+				user_original_resid = 0;
+			}
 			hfs_systemfile_unlock (hfsmp, lockflags);
 
 			goto seekoffcalc;
@@ -5577,6 +5916,12 @@ hfs_vnop_readdir(struct vnop_readdir_args *ap)
 
 	/* Pack the buffer with dirent entries. */
 	error = cat_getdirentries(hfsmp, cp->c_entries, dirhint, uio, ap->a_flags, &items, &eofflag);
+
+	if (user_original_resid > 0) {
+		user_original_resid = user_original_resid - ((user_ssize_t)256*1024 - uio_resid(uio));
+		uio_setresid(uio, user_original_resid);
+		user_original_resid = 0;
+	}
 
 	if (index == 0 && error == 0) {
 		cp->c_dirthreadhint = dirhint->dh_threadhint;
@@ -5637,6 +5982,10 @@ seekoffcalc:
 
 out:
 	if (user_start) {
+		if (user_original_resid > 0) {
+			uio_setresid(uio, user_original_resid);
+			user_original_resid = 0;
+		}
 		vsunlock(user_start, user_len, TRUE);
 	}
 	/* If we didn't do anything then go ahead and dump the hint. */

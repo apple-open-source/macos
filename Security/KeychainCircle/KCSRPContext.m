@@ -20,7 +20,7 @@
 static const NSStringEncoding srpStringEncoding = NSUTF8StringEncoding;
 
 @interface KCSRPContext ()
-@property (readwrite) ccsrp_ctx* context;
+@property (readwrite) struct ccsrp_ctx* context;
 @property (readwrite) struct ccrng_state *rng;
 @property (readwrite) NSString* user;
 @end

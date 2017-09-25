@@ -1,6 +1,8 @@
 PROJECT := libpthread
 TEST_DIR := tests/
 
+ENABLE_LTE_TESTS=YES
+
 ifeq ($(DEVELOPER_DIR),)
 	DEVELOPER_DIR := $(shell xcode-select -p)
 endif
@@ -19,6 +21,7 @@ TARGETS += stack_aslr
 TARGETS += join
 TARGETS += main_stack
 TARGETS += main_stack_custom
+TARGETS += detach
 #TARGETS += maxwidth
 TARGETS += mutex
 TARGETS += mutex_try
@@ -31,7 +34,9 @@ TARGETS += pthread_exit
 TARGETS += pthread_introspection
 TARGETS += pthread_setspecific
 TARGETS += pthread_threadid_np
+TARGETS += pthread_get_qos_class_np
 #TARGETS += qos
+TARGETS += rdar_32848402
 #TARGETS += rwlock-22244050
 #TARGETS += rwlock-signal
 #TARGETS += rwlock
@@ -40,9 +45,11 @@ TARGETS += tsd
 #TARGETS += wq_event_manager
 #TARGETS += wq_kevent
 #TARGETS += wq_kevent_stress
+TARGETS += wq_limits
 TARGETS += add_timer_termination
 
-OTHER_TARGETS :=
+OTHER_LTE_INCLUDE_FILES += \
+	/usr/local/lib/libdarwintest_utils.dylib
 
 OTHER_CFLAGS := -DDARWINTEST -Weverything \
 		-Wno-vla -Wno-bad-function-cast -Wno-missing-noreturn \

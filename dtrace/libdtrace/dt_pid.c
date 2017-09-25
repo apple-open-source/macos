@@ -60,9 +60,25 @@ typedef struct dt_pid_probe {
 	uint_t dpp_last_taken;
 } dt_pid_probe_t;
 
+struct dt_libproc_fn dt_libproc_funcs[DT_PR_MAX] = {
+	[DT_PR_CREATE] = {
+		.lookup_by_name = Pxlookup_by_name,
+		.object_iter = Pobject_iter,
+		.objc_method_iter = Pobjc_method_iter,
+		.symbol_iter_by_addr = Psymbol_iter_by_addr
+
+	},
+	[DT_PR_LINK] = {
+		.lookup_by_name = Pxlookup_by_name_new_syms,
+		.object_iter = Pobject_iter_new_syms,
+		.objc_method_iter = Pobjc_method_iter_new_syms,
+		.symbol_iter_by_addr = Psymbol_iter_by_addr_new_syms
+	}
+};
+
 void dt_proc_bpenable(dt_proc_t *dpr);
 void dt_proc_bpdisable(dt_proc_t *dpr);
-int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr);
+int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr, dt_pr_t reason);
 
 /*
  * Compose the lmid and object name into the canonical representation. We
@@ -284,17 +300,19 @@ dt_pid_sym_filt(void *arg, const GElf_Sym *symp, const char *func)
 }
 
 static int
-dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
+dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj,
+     dt_pr_t reason)
 {
 	dt_pid_probe_t *pp = arg;
 	dtrace_hdl_t *dtp = pp->dpp_dtp;
 	dt_pcb_t *pcb = pp->dpp_pcb;
 	dt_proc_t *dpr = pp->dpp_dpr;
 	GElf_Sym sym;
+	int err;
 
-	if (obj == NULL)
+	if (obj == NULL) {
 		return (0);
-
+	}
 	(void) Plmid(pp->dpp_pr, pmp->pr_vaddr, &pp->dpp_lmid);
 
 	if ((pp->dpp_obj = strrchr(obj, '/')) == NULL)
@@ -325,8 +343,9 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 		 * just fail silently in the hopes that some other object will
 		 * contain the desired symbol.
 		 */
-		if (Pxlookup_by_name(pp->dpp_pr, pp->dpp_lmid, obj,
-		    pp->dpp_func, &sym, NULL) != 0) {
+		err = dt_libproc_funcs[reason].lookup_by_name(pp->dpp_pr,
+			pp->dpp_lmid, obj, pp->dpp_func, &sym, NULL);
+		if (err != 0) {
 			if (strcmp("-", pp->dpp_func) == 0) {
 				sym.st_name = 0;
 				sym.st_info =
@@ -340,7 +359,7 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 				// one entry to sym, which is almost always !SHN_UNDEF. This means the test below does not fail,
 				// most of the time.
 				sym.st_shndx = SHN_MACHO;
-			} else if (!strisglob(pp->dpp_mod)) {
+			} else if (!strisglob(pp->dpp_mod) && err == PLOOKUP_NOT_FOUND) {
 				return (dt_pid_error(dtp, pcb, dpr, NULL,
 				    D_PROC_FUNC,
 				    "failed to lookup '%s' in module '%s'",
@@ -371,19 +390,21 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 	} else {
 		uint_t nmatches = pp->dpp_nmatches;
 
-		// fix me! by path?
-		if (Psymbol_iter_by_addr(pp->dpp_pr, obj, PR_SYMTAB,
-		    BIND_ANY | TYPE_FUNC, dt_pid_sym_filt, pp) == 1)
+		if (dt_libproc_funcs[reason].symbol_iter_by_addr(pp->dpp_pr, 
+		    obj, PR_SYMTAB, BIND_ANY | TYPE_FUNC, dt_pid_sym_filt, pp)) {
 			return (1);
+		}
 
 		if (nmatches == pp->dpp_nmatches) {
 			/*
 			 * If we didn't match anything in the PR_SYMTAB, try
 			 * the PR_DYNSYM.
 			 */
-			if (Psymbol_iter_by_addr(pp->dpp_pr, obj, PR_DYNSYM,
-			    BIND_ANY | TYPE_FUNC, dt_pid_sym_filt, pp) == 1)
+			if (dt_libproc_funcs[reason].symbol_iter_by_addr(
+			    pp->dpp_pr, obj, PR_DYNSYM,
+			    BIND_ANY | TYPE_FUNC, dt_pid_sym_filt, pp)) {
 				return (1);
+			}
 		}
 	}
 
@@ -391,13 +412,14 @@ dt_pid_per_mod(void *arg, const prmap_t *pmp, const char *obj)
 }
 
 static int
-dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
+dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj,
+    dt_pr_t reason)
 {
 	char name[DTRACE_MODNAMELEN];
 	dt_pid_probe_t *pp = arg;
 
 	if (gmatch(obj, pp->dpp_mod))
-		return (dt_pid_per_mod(pp, pmp, obj));
+		return (dt_pid_per_mod(pp, pmp, obj, reason));
 
 	(void) Plmid(pp->dpp_pr, pmp->pr_vaddr, &pp->dpp_lmid);
 
@@ -409,10 +431,27 @@ dt_pid_mod_filt(void *arg, const prmap_t *pmp, const char *obj)
 	dt_pid_objname(name, sizeof (name), pp->dpp_lmid, obj);
 
 	if (gmatch(name, pp->dpp_mod))
-		return (dt_pid_per_mod(pp, pmp, obj));
+		return (dt_pid_per_mod(pp, pmp, obj, reason));
 
 	return (0);
 }
+
+static int
+dt_pid_mod_filt_link(void *arg, const prmap_t *pmp, const char *obj)
+{
+	return dt_pid_mod_filt(arg, pmp, obj, DT_PR_LINK);
+}
+
+static int
+dt_pid_mod_filt_create(void *arg, const prmap_t *pmp, const char *obj)
+{
+	return dt_pid_mod_filt(arg, pmp, obj, DT_PR_CREATE);
+}
+
+static int (*dt_pid_mod_filt_fns[])(void *arg, const prmap_t *pmp, const char *obj) = {
+	dt_pid_mod_filt_create,	/* DT_PR_CREATE */
+	dt_pid_mod_filt_link	/* DT_PR_LINK */
+};
 
 static const prmap_t *
 dt_pid_fix_mod(dtrace_probedesc_t *pdp, struct ps_prochandle *P, prmap_t* thread_local_map)
@@ -460,8 +499,9 @@ dt_pid_fix_mod(dtrace_probedesc_t *pdp, struct ps_prochandle *P, prmap_t* thread
 
 
 static int
-dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
-    dt_pcb_t *pcb, dt_proc_t *dpr)
+dt_pid_create_provider_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
+    dt_pcb_t *pcb, dt_proc_t *dpr, fasttrap_provider_type_t provider,
+    dt_pr_t reason)
 {
 	dt_pid_probe_t pp;
 	int ret = 0;
@@ -473,7 +513,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	/*
 	 * We can only trace dynamically-linked executables (since we've
-	 * hidden some magic in ld.so.1 as well as libc.so.1).
+	 * hidden some magic in dyld)
 	 */
 	prmap_t thread_local_map;
 	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
@@ -482,7 +522,7 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 				     &pdp->dtpd_provider[3]));
 	}
 
-	pp.dpp_provider_type = DTFTP_PROVIDER_PID;
+	pp.dpp_provider_type = provider;
 	pp.dpp_mod = pdp->dtpd_mod[0] != '\0' ? pdp->dtpd_mod : "*";
 	pp.dpp_func = pdp->dtpd_func[0] != '\0' ? pdp->dtpd_func : "*";
 	pp.dpp_name = pdp->dtpd_name[0] != '\0' ? pdp->dtpd_name : "*";
@@ -518,7 +558,8 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	 * pattern. An empty module name is treated as '*'.
 	 */
 	if (strisglob(pp.dpp_mod)) {
-		ret = Pobject_iter(pp.dpp_pr, dt_pid_mod_filt, &pp);
+		ret = dt_libproc_funcs[reason].object_iter(pp.dpp_pr,
+			dt_pid_mod_filt_fns[reason], &pp);
 	} else {
 		const prmap_t *pmp;
 		char *obj;
@@ -535,13 +576,30 @@ dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 			else
 				obj++;
 
-			ret = dt_pid_per_mod(&pp, pmp, obj);
+			ret = dt_pid_per_mod(&pp, pmp, obj, reason);
 		}
 	}
 
 	return (ret);
 }
 
+static int
+dt_pid_create_pid_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
+    dt_pcb_t *pcb, dt_proc_t *dpr, dt_pr_t reason)
+{
+	return dt_pid_create_provider_probes(pdp, dtp, pcb, dpr,
+		DTFTP_PROVIDER_PID, reason);
+}
+
+static int
+dt_pid_create_oneshot_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
+    dt_pcb_t *pcb, dt_proc_t *dpr, dt_pr_t reason)
+{
+	return dt_pid_create_provider_probes(pdp, dtp, pcb, dpr,
+		DTFTP_PROVIDER_ONESHOT, reason);
+}
+
+#if !defined(__APPLE__)
 static int
 dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
 {
@@ -627,6 +685,7 @@ dt_pid_create_usdt_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 
 	return (ret);
 }
+#endif
 
 static pid_t
 dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
@@ -641,8 +700,6 @@ dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	}
 
 	if (last == NULL || (*(++last) == '\0')) {
-		(void) dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_BADPROV,
-		    "'%s' is not a valid provider", pdp->dtpd_provider);
 		return (-1);
 	}
 
@@ -658,104 +715,9 @@ dt_pid_get_pid(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 	return (pid);
 }
 
-/*
- * ONESHOT provider methods
- */
-
 int
-dt_pid_create_oneshot_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
-			     dt_pcb_t *pcb, dt_proc_t *dpr)
-{
-	dt_pid_probe_t pp;
-	int ret = 0;
-	
-	/*
-	 * Disable breakpoints so they don't interfere with our disassembly.
-	 */
-	dt_proc_bpdisable(dpr);
-	
-	pp.dpp_dtp = dtp;
-	pp.dpp_dpr = dpr;
-	pp.dpp_pr = dpr->dpr_proc;
-	pp.dpp_pcb = pcb;
-	
-	/*
-	 * We can only trace dynamically-linked executables (since we've
-	 * hidden some magic in ld.so.1 as well as libc.so.1).
-	 */
-	prmap_t thread_local_map;
-	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
-		return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_DYN,
-				     "process %s has no dyld, and cannot be instrumented",
-				     &pdp->dtpd_provider[3]));
-	}
-
-
-	pp.dpp_provider_type = DTFTP_PROVIDER_ONESHOT;
-	pp.dpp_mod = pdp->dtpd_mod[0] != '\0' ? pdp->dtpd_mod : "*";
-	pp.dpp_func = pdp->dtpd_func[0] != '\0' ? pdp->dtpd_func : "*";
-	pp.dpp_name = pdp->dtpd_name[0] != '\0' ? pdp->dtpd_name : "*";
-	pp.dpp_last_taken = 0;
-	
-	if (strcmp(pp.dpp_func, "-") == 0) {
-		const prmap_t *aout, *pmp;
-		prmap_t aout_thread_local_map;
-		prmap_t pmp_thread_local_map;
-		
-		if (pdp->dtpd_mod[0] == '\0') {
-			pp.dpp_mod = pdp->dtpd_mod;
-			(void) strcpy(pdp->dtpd_mod, "a.out");
-		} else if (strisglob(pp.dpp_mod) ||
-			   (aout = Pname_to_map(pp.dpp_pr, "a.out", &aout_thread_local_map)) == NULL ||
-			   (pmp = Pname_to_map(pp.dpp_pr, pp.dpp_mod, &pmp_thread_local_map)) == NULL ||
-			   aout->pr_vaddr != pmp->pr_vaddr) {
-			dt_proc_bpenable(dpr);
-			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_LIB,
-					     "only the a.out module is valid with the "
-					     "'-' function"));
-		}
-		
-		if (strisglob(pp.dpp_name)) {
-			dt_proc_bpenable(dpr);
-			return (dt_pid_error(dtp, pcb, dpr, NULL, D_PROC_NAME,
-					     "only individual addresses may be specified "
-					     "with the '-' function"));
-		}
-	}
-	
-	/*
-	 * If pp.dpp_mod contains any globbing meta-characters, we need
-	 * to iterate over each module and compare its name against the
-	 * pattern. An empty module name is treated as '*'.
-	 */
-	if (strisglob(pp.dpp_mod)) {
-		ret = Pobject_iter(pp.dpp_pr, dt_pid_mod_filt, &pp);
-	} else {
-		const prmap_t *pmp;
-		char *obj;
-		prmap_t thread_local_map;
-		/*
-		 * If we can't find a matching module, don't sweat it -- either
-		 * we'll fail the enabling because the probes don't exist or
-		 * we'll wait for that module to come along.
-		 */
-		if ((pmp = dt_pid_fix_mod(pdp, pp.dpp_pr, &thread_local_map)) != NULL) {
-			if ((obj = strchr(pdp->dtpd_mod, '`')) == NULL)
-				obj = pdp->dtpd_mod;
-			else
-				obj++;
-			
-			ret = dt_pid_per_mod(&pp, pmp, obj);
-		}
-	}
-	
-	dt_proc_bpenable(dpr);
-	
-	return (ret);
-}
-
-int
-dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
+dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
+    dt_pr_t reason)
 {
 	char provname[DTRACE_PROVNAMELEN];
 	struct ps_prochandle *P;
@@ -813,13 +775,13 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb)
 		
 		switch (provider_type) {
 		        case DTFTP_PROVIDER_PID:
-			        err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr);
+			        err = dt_pid_create_pid_probes(pdp, dtp, pcb, dpr, reason);
 			        break;
 		        case DTFTP_PROVIDER_OBJC:
-			        err = dt_pid_create_objc_probes(pdp, dtp, pcb, dpr);
+			        err = dt_pid_create_objc_probes(pdp, dtp, pcb, dpr, reason);
 			        break;
 		        case DTFTP_PROVIDER_ONESHOT:
-			        err = dt_pid_create_oneshot_probes(pdp, dtp, pcb, dpr);
+			        err = dt_pid_create_oneshot_probes(pdp, dtp, pcb, dpr, reason);
 			        break;
 		        default:
 			        err = -1; 
@@ -871,18 +833,18 @@ dt_pid_create_probes_module(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 			found = B_TRUE;
 			
 			pd = *pdp;
-			
+
 			if (snprintf(provname, sizeof (provname), FASTTRAP_PID_NAME "%d", (int)dpr->dpr_pid) &&
 			    gmatch(pdp->dtpd_provider, provname) != 0) {
-				if (dt_pid_create_pid_probes(&pd, dtp, NULL, dpr) != 0)
+				if (dt_pid_create_pid_probes(&pd, dtp, NULL, dpr, DT_PR_LINK) != 0)
 					ret = 1;
 			} else if (snprintf(provname, sizeof (provname), FASTTRAP_OBJC_NAME "%d", (int)dpr->dpr_pid) &&
 				   gmatch(pdp->dtpd_provider, provname) != 0) {
-				if (dt_pid_create_objc_probes(&pd, dtp, NULL, dpr) != 0)
+				if (dt_pid_create_objc_probes(&pd, dtp, NULL, dpr, DT_PR_LINK) != 0)
 					ret = 1;
 			} else if (snprintf(provname, sizeof (provname), FASTTRAP_ONESHOT_NAME "%d", (int)dpr->dpr_pid) &&
 				   gmatch(pdp->dtpd_provider, provname) != 0) {
-				if (dt_pid_create_oneshot_probes(&pd, dtp, NULL, dpr) != 0)
+				if (dt_pid_create_oneshot_probes(&pd, dtp, NULL, dpr, DT_PR_LINK) != 0)
 					ret = 1;
 			}  else {
 				// APPLE NOTE!

@@ -32,7 +32,7 @@
 <p>Server-side includes provide a means to add dynamic content to
 existing HTML documents.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Introduction</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Introduction</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#what">What are SSI?</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#configuring">Configuring your server to permit SSI</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#basic">Basic SSI directives</a></li>
@@ -332,9 +332,7 @@ modified?</a></h3>
 <h2><a name="exec" id="exec">Executing commands</a></h2>
     
 
-    <p>I expect that I'll have an article some time in the coming
-    months about using SSI with small CGI programs. For now, here's
-    something else that you can do with the <code>exec</code>
+    <p>Here's something else that you can do with the <code>exec</code>
     function. You can actually have SSI execute a command using the
     shell (<code>/bin/sh</code>, to be precise - or the DOS shell,
     if you're on Win32). The following, for example, will give you
@@ -494,7 +492,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/ssi.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

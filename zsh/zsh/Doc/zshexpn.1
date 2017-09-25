@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHEXPN" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -205,15 +205,32 @@ noted\&.
 .PD
 \fBa\fP
 Turn a file name into an absolute path:  prepends the current directory,
-if necessary, and resolves any use of `\fB\&.\&.\fP\&' and `\fB\&.\fP' in the path\&.
-Note that the transformation takes place even if the file or any
-intervening directories do not exist\&.
+if necessary; remove `\fB\&.\fP\&' path segments; and remove `\fB\&.\&.\fP' path segments
+and the segments that immediately precede them\&.
+.RS
+.PP
+This transformation is agnostic about what is in the filesystem, i\&.e\&. is
+on the logical, not the physical directory\&.  It takes place in the same
+manner as when changing directories when neither of the options
+\fBCHASE_DOTS\fP or \fBCHASE_LINKS\fP is set\&.  For example,
+`\fB/before/here/\&.\&./after\fP\&' is always transformed to
+`\fB/before/after\fP\&', regardless of whether `\fB/before/here\fP' exists or what
+kind of object (dir, file, symlink, etc\&.) it is\&.
+.RE
 .TP
 \fBA\fP
-As `\fBa\fP\&', but also resolve use of symbolic links where possible\&.
-Note that resolution of `\fB\&.\&.\fP\&' occurs \fIbefore\fP resolution of symbolic
-links\&.  This call is equivalent to \fBa\fP unless your system has the
-\fBrealpath\fP system call (modern systems do)\&.
+Turn a file name into an absolute path as the `\fBa\fP\&' modifier does, and
+\fIthen\fP pass the result through the \fBrealpath(3)\fP library
+function to resolve symbolic links\&.
+.RS
+.PP
+Note: on systems that do not have a \fBrealpath(3)\fP library
+function, symbolic links are not resolved, so on those systems `\fBa\fP\&' and
+`\fBA\fP\&' are equivalent\&.
+.PP
+Note: \fBfoo:A\fP and \fBrealpath(foo)\fP are different on some inputs\&.
+For \fBrealpath(foo)\fP semantics, see the `\fBP\fP` modifier\&.
+.RE
 .TP
 \fBc\fP
 Resolve a command name into an absolute path by searching the command
@@ -238,6 +255,16 @@ Convert the words to all lowercase\&.
 \fBp\fP
 Print the new command but do not execute it\&.  Only works with history
 expansion\&.
+.TP
+\fBP\fP
+Turn a file name into an absolute path, like \fBrealpath(3)\fP\&.
+The resulting path will be absolute, have neither `\fB\&.\fP\&' nor `\fB\&.\&.\fP' components,
+and refer to the same directory entry as the input filename\&.
+.RS
+.PP
+Unlike \fBrealpath(3)\fP, non\-existent trailing components are
+permitted and preserved\&.
+.RE
 .TP
 \fBq\fP
 Quote the substituted words, escaping further substitutions\&.  Works
@@ -556,6 +583,22 @@ the section `Modifiers\&' in the section `History Expansion' can be
 applied:  for example, \fB${i:s/foo/bar/}\fP performs string
 substitution on the expansion of parameter \fB$i\fP\&.
 .PP
+In the following descriptions, `word\&' refers to a single word
+substituted on the command line, not necessarily a space delimited word\&.
+With default options, after the assignments:
+.PP
+.RS
+.nf
+\fBarray=("first word" "second word")
+scalar="only word"\fP
+.fi
+.RE
+.PP
+then \fB$array\fP substitutes two words, `\fBfirst word\fP\&' and `\fBsecond
+word\fP\&', and \fB$scalar\fP substitutes a single word `\fBonly word\fP'\&.  This
+may be modified by explicit or implicit word\-splitting, however\&.  The
+full rules are complicated and are noted at the end\&.
+.PP
 .PD 0
 .TP
 .PD
@@ -773,7 +816,7 @@ character of \fB$foo\fP if the substitution would otherwise return a scalar,
 or the array starting at the fourth element if \fB$foo\fP would return an
 array\&.  Note that with the option \fBKSH_ARRAYS\fP \fB$foo\fP always returns
 a scalar (regardless of the use of the offset syntax) and a form
-such as \fB$foo[*]:3\fP is required to extract elements of an array named
+such as \fB${foo[*]:3}\fP is required to extract elements of an array named
 \fBfoo\fP\&.
 .PP
 If \fIoffset\fP is negative, the \fB\-\fP may not appear immediately
@@ -789,8 +832,8 @@ expression \fB${var: offs}\fP does work, retrieving the offset from
 \fB$offs\fP\&.
 .PP
 For further compatibility with other shells there is a special case
-for array offset 0\&.  This usually accesses to the
-first element of the array\&.  However, if the substitution refers the
+for array offset 0\&.  This usually accesses the
+first element of the array\&.  However, if the substitution refers to the
 positional parameter array, e\&.g\&. \fB$@\fP or \fB$*\fP, then offset 0
 instead refers to \fB$0\fP, offset 1 refers to \fB$1\fP, and so on\&.  In
 other words, the positional parameter array is effectively extended by
@@ -801,13 +844,17 @@ prepending \fB$0\fP\&.  Hence \fB${*:0:1}\fP substitutes \fB$0\fP and
 .PD 0
 \fB${\fP\fIname\fP\fB/\fP\fIpattern\fP\fB/\fP\fIrepl\fP\fB}\fP
 .TP
-.PD
+.PD 0
 \fB${\fP\fIname\fP\fB//\fP\fIpattern\fP\fB/\fP\fIrepl\fP\fB}\fP
+.TP
+.PD
+\fB${\fP\fIname\fP\fB:/\fP\fIpattern\fP\fB/\fP\fIrepl\fP\fB}\fP
 Replace the longest possible match of \fIpattern\fP in the expansion of
 parameter \fIname\fP by string \fIrepl\fP\&.  The first form
-replaces just the first occurrence, the second form all occurrences\&.
+replaces just the first occurrence, the second form all occurrences,
+and the third form replaces only if \fIpattern\fP matches the entire string\&.
 Both \fIpattern\fP and \fIrepl\fP are subject to double\-quoted substitution,
-so that expressions like \fB${name/$opat/$npat}\fP will work, but note the
+so that expressions like \fB${name/$opat/$npat}\fP will work, but obey the
 usual rule that pattern characters in \fB$opat\fP are not treated specially
 unless either the option \fBGLOB_SUBST\fP is set, or \fB$opat\fP is instead
 substituted as \fB${~opat}\fP\&.
@@ -824,8 +871,8 @@ single backslash; this is not necessary if the
 `\fB%\fP\&' and `\fB#%\fP are not active if they occur inside a substituted
 parameter, even at the start\&.
 .PP
-The first `\fB/\fP\&' may be preceded by a `\fB:\fP', in which case the match
-will only succeed if it matches the entire word\&.  Note also the
+If, after quoting rules apply, \fB${\fP\fIname\fP\fB}\fP expands to an array,
+the replacements act on each element individually\&.  Note also the
 effect of the \fBI\fP and \fBS\fP parameter expansion flags below; however,
 the flags \fBM\fP, \fBR\fP, \fBB\fP, \fBE\fP and \fBN\fP are not useful\&.
 .PP
@@ -1135,6 +1182,11 @@ If a \fBq\-\fP is given (only a single \fBq\fP may appear), a minimal
 form of single quoting is used that only quotes the string if needed to
 protect special characters\&.  Typically this form gives the most readable
 output\&.
+.PP
+If a \fBq+\fP is given, an extended form of minmal quoting is used that
+causes unprintable characters to be rendered using \fB$\&'\fP\fI\&.\&.\&.\fP\fB'\fP\&.
+This quoting is similar to that used by the output of values by the
+\fBtypeset\fP family of commands\&.
 .RE
 .TP
 \fBQ\fP
@@ -1456,7 +1508,8 @@ order\&.
 Include the index of the beginning of the match in the result\&.
 .TP
 \fBE\fP
-Include the index of the end of the match in the result\&.
+Include the index one character past the end of the match in the result
+(note this is inconsistent with other uses of parameter index)\&.
 .TP
 \fBM\fP
 Include the matched portion in the result\&.

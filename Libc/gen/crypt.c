@@ -346,7 +346,7 @@ STATIC void permute(cp, out, p, chars_in)
 #ifndef BUILDING_VARIANT
 __private_extern__ int __crypt_des_setkey_called = 0;
 #else /* BUILDING_VARIANT */
-__private_extern__ int __crypt_des_setkey_called;
+extern int __crypt_des_setkey_called;
 #endif /* BUILDING_VARIANT */
 
 /* =====  (mostly) Standard DES Tables ==================== */

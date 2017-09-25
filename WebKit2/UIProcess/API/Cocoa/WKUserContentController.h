@@ -31,6 +31,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class WKContentRuleList;
 @class WKUserScript;
 @protocol WKScriptMessageHandler;
 
@@ -69,6 +70,20 @@ WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
  @param name The name of the message handler to remove.
  */
 - (void)removeScriptMessageHandlerForName:(NSString *)name;
+
+/*! @abstract Adds a content rule list.
+ @param contentRuleList The content rule list to add.
+ */
+- (void)addContentRuleList:(WKContentRuleList *)contentRuleList WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Removes a content rule list.
+ @param contentRuleList The content rule list to remove.
+ */
+- (void)removeContentRuleList:(WKContentRuleList *)contentRuleList WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+/*! @abstract Removes all associated content rule lists.
+ */
+- (void)removeAllContentRuleLists WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end
 

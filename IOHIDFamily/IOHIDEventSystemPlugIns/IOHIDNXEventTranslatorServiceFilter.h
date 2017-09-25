@@ -48,6 +48,7 @@ private:
     IOHIDServiceFilterPlugInInterface         *_serviceInterface;
     CFUUIDRef                                 _factoryID;
     UInt32                                    _refCount;
+    SInt32                                    _matchScore;
  
     static IOHIDServiceFilterPlugInInterface sIOHIDNXEventTranslatorServiceFilterFtbl;
     static HRESULT QueryInterface( void *self, REFIID iid, LPVOID *ppv );

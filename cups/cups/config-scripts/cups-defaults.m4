@@ -1,14 +1,14 @@
 dnl
 dnl Default cupsd configuration settings for CUPS.
 dnl
-dnl Copyright 2007-2015 by Apple Inc.
+dnl Copyright 2007-2017 by Apple Inc.
 dnl Copyright 2006-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl These coded instructions, statements, and computer programs are the
 dnl property of Apple Inc. and are protected by Federal copyright
 dnl law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 dnl which should have been included with this file.  If this file is
-dnl file is missing or damaged, see the license at "http://www.cups.org/".
+dnl missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
 dnl Default languages...
@@ -25,7 +25,7 @@ AC_SUBST(LANGUAGES)
 dnl macOS bundle-based localization support
 AC_ARG_WITH(bundledir, [  --with-bundledir        set macOS localization bundle directory ],
 	CUPS_BUNDLEDIR="$withval",
-	if test "x$uname" = xDarwin -a $uversion -ge 100; then
+	if test "x$host_os_name" = xdarwin -a $host_os_version -ge 100; then
 		CUPS_BUNDLEDIR="/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A"
 		LANGUAGES=""
 	else
@@ -37,21 +37,41 @@ if test "x$CUPS_BUNDLEDIR" != x; then
 	AC_DEFINE_UNQUOTED(CUPS_BUNDLEDIR, "$CUPS_BUNDLEDIR")
 fi
 
+dnl Default executable file permissions
+AC_ARG_WITH(exe_file_perm, [  --with-exe-file-perm    set default executable permissions value, default=0555],
+	CUPS_EXE_FILE_PERM="$withval",
+	[case "$host_os_name" in
+		linux* | gnu*)
+			CUPS_EXE_FILE_PERM="755"
+			;;
+		*)
+			CUPS_EXE_FILE_PERM="555"
+			;;
+	esac])
+AC_SUBST(CUPS_EXE_FILE_PERM)
+
 dnl Default ConfigFilePerm
 AC_ARG_WITH(config_file_perm, [  --with-config-file-perm set default ConfigFilePerm value, default=0640],
 	CUPS_CONFIG_FILE_PERM="$withval",
-	if test "x$uname" = xDarwin; then
+	[if test "x$host_os_name" = xdarwin; then
 		CUPS_CONFIG_FILE_PERM="644"
 	else
 		CUPS_CONFIG_FILE_PERM="640"
-	fi)
+	fi])
 AC_SUBST(CUPS_CONFIG_FILE_PERM)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_CONFIG_FILE_PERM, 0$CUPS_CONFIG_FILE_PERM)
 
 dnl Default permissions for cupsd
 AC_ARG_WITH(cupsd_file_perm, [  --with-cupsd-file-perm  set default cupsd permissions, default=0500],
 	CUPS_CUPSD_FILE_PERM="$withval",
-	CUPS_CUPSD_FILE_PERM="500")
+	[case "$host_os_name" in
+		linux* | gnu*)
+			CUPS_CUPSD_FILE_PERM="700"
+			;;
+		*)
+			CUPS_CUPSD_FILE_PERM="500"
+			;;
+	esac])
 AC_SUBST(CUPS_CUPSD_FILE_PERM)
 
 dnl Default LogFilePerm
@@ -141,7 +161,7 @@ dnl Determine the correct username and group for this OS...
 AC_ARG_WITH(cups_user, [  --with-cups-user        set default user for CUPS],
 	CUPS_USER="$withval",
 	AC_MSG_CHECKING(for default print user)
-	if test x$uname = xDarwin; then
+	if test x$host_os_name = xdarwin; then
 		if test x`id -u _lp 2>/dev/null` = x; then
 			CUPS_USER="lp";
 		else
@@ -174,7 +194,7 @@ fi
 AC_ARG_WITH(cups_group, [  --with-cups-group       set default group for CUPS],
 	CUPS_GROUP="$withval",
 	AC_MSG_CHECKING(for default print group)
-	if test x$uname = xDarwin; then
+	if test x$host_os_name = xdarwin; then
 		if test x`id -g _lp 2>/dev/null` = x; then
 			CUPS_GROUP="lp";
 		else
@@ -207,7 +227,7 @@ fi
 
 AC_ARG_WITH(system_groups, [  --with-system-groups    set default system groups for CUPS],
 	CUPS_SYSTEM_GROUPS="$withval",
-	if test x$uname = xDarwin; then
+	if test x$host_os_name = xdarwin; then
 		CUPS_SYSTEM_GROUPS="admin"
 	else
 		AC_MSG_CHECKING(for default system groups)
@@ -260,15 +280,15 @@ AC_ARG_WITH(printcap, [  --with-printcap         set default printcap file],
 
 if test x$default_printcap != xno; then
 	if test "x$default_printcap" = "xdefault"; then
-		case $uname in
-			Darwin*)
-				if test $uversion -ge 90; then
+		case $host_os_name in
+			darwin*)
+				if test $host_os_version -ge 90; then
 					CUPS_DEFAULT_PRINTCAP="/Library/Preferences/org.cups.printers.plist"
 				else
 					CUPS_DEFAULT_PRINTCAP="/etc/printcap"
 				fi
 				;;
-			SunOS*)
+			sunos*)
 				CUPS_DEFAULT_PRINTCAP="/etc/printers.conf"
 				;;
 			*)
@@ -292,8 +312,8 @@ AC_ARG_WITH(lpdconfigfile, [  --with-lpdconfigfile    set default LPDConfigFile 
 
 if test x$default_lpdconfigfile != xno; then
 	if test "x$default_lpdconfigfile" = "xdefault"; then
-		case $uname in
-			Darwin*)
+		case $host_os_name in
+			darwin*)
 				CUPS_DEFAULT_LPD_CONFIG_FILE="launchd:///System/Library/LaunchDaemons/org.cups.cups-lpd.plist"
 				;;
 			*)
@@ -360,7 +380,7 @@ AC_ARG_WITH(snmp-address, [  --with-snmp-address     set SNMP query address, def
 	else
 		CUPS_SNMP_ADDRESS="Address $withval"
 	fi,
-	if test "x$uname" = xDarwin; then
+	if test "x$host_os_name" = xdarwin; then
 		CUPS_SNMP_ADDRESS=""
 	else
 		CUPS_SNMP_ADDRESS="Address @LOCAL"
@@ -393,7 +413,7 @@ case "x$enable_webif" in
 		CUPS_DEFAULT_WEBIF=1
 		;;
 	*)
-		if test $uname = Darwin; then
+		if test $host_os_name = darwin; then
 			CUPS_WEBIF=No
 			CUPS_DEFAULT_WEBIF=0
 		else

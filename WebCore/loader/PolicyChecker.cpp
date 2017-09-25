@@ -35,6 +35,7 @@
 #include "ContentSecurityPolicy.h"
 #include "DOMWindow.h"
 #include "DocumentLoader.h"
+#include "Event.h"
 #include "EventNames.h"
 #include "FormState.h"
 #include "Frame.h"
@@ -43,7 +44,6 @@
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLPlugInElement.h"
-#include "SecurityOrigin.h"
 
 #if USE(QUICK_LOOK)
 #include "QuickLook.h"
@@ -80,11 +80,11 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& newRequest, boo
     checkNavigationPolicy(newRequest, didReceiveRedirectResponse, m_frame.loader().activeDocumentLoader(), nullptr, WTFMove(function));
 }
 
-void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, bool didReceiveRedirectResponse, DocumentLoader* loader, PassRefPtr<FormState> formState, NavigationPolicyDecisionFunction function)
+void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, bool didReceiveRedirectResponse, DocumentLoader* loader, FormState* formState, NavigationPolicyDecisionFunction function)
 {
     NavigationAction action = loader->triggeringAction();
     if (action.isEmpty()) {
-        action = NavigationAction(request, NavigationType::Other, loader->shouldOpenExternalURLsPolicyToPropagate());
+        action = NavigationAction { *m_frame.document(), request, InitiatedByMainFrame::Unknown, NavigationType::Other, loader->shouldOpenExternalURLsPolicyToPropagate() };
         loader->setTriggeringAction(action);
     }
 
@@ -122,11 +122,11 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, bool d
 
     loader->setLastCheckedRequest(request);
 
-    m_callback.set(request, formState.get(), WTFMove(function));
+    m_callback.set(request, formState, WTFMove(function));
 
 #if USE(QUICK_LOOK)
     // Always allow QuickLook-generated URLs based on the protocol scheme.
-    if (!request.isNull() && request.url().protocolIs(QLPreviewProtocol())) {
+    if (!request.isNull() && isQuickLookPreviewURL(request.url())) {
         continueAfterNavigationPolicy(PolicyUse);
         return;
     }
@@ -146,19 +146,19 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, bool d
 #endif
 
     m_delegateIsDecidingNavigationPolicy = true;
-    m_suggestedFilename = action.downloadAttribute().isEmpty() ? nullAtom : action.downloadAttribute();
-    m_frame.loader().client().dispatchDecidePolicyForNavigationAction(action, request, formState, [this](PolicyAction action) {
+    m_suggestedFilename = action.downloadAttribute().isEmpty() ? nullAtom() : action.downloadAttribute();
+    m_frame.loader().client().dispatchDecidePolicyForNavigationAction(action, request, didReceiveRedirectResponse, formState, [this](PolicyAction action) {
         continueAfterNavigationPolicy(action);
     });
     m_delegateIsDecidingNavigationPolicy = false;
 }
 
-void PolicyChecker::checkNewWindowPolicy(const NavigationAction& action, const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName, NewWindowPolicyDecisionFunction function)
+void PolicyChecker::checkNewWindowPolicy(const NavigationAction& action, const ResourceRequest& request, FormState* formState, const String& frameName, NewWindowPolicyDecisionFunction function)
 {
     if (m_frame.document() && m_frame.document()->isSandboxed(SandboxPopups))
         return continueAfterNavigationPolicy(PolicyIgnore);
 
-    if (!DOMWindow::allowPopUp(&m_frame))
+    if (!DOMWindow::allowPopUp(m_frame))
         return continueAfterNavigationPolicy(PolicyIgnore);
 
     m_callback.set(request, formState, frameName, action, WTFMove(function));
@@ -178,14 +178,13 @@ void PolicyChecker::checkContentPolicy(const ResourceResponse& response, Content
 void PolicyChecker::cancelCheck()
 {
     m_frame.loader().client().cancelPolicyCheck();
-    m_callback.clear();
+    m_callback = { };
 }
 
 void PolicyChecker::stopCheck()
 {
     m_frame.loader().client().cancelPolicyCheck();
-    PolicyCallback callback = m_callback;
-    m_callback.clear();
+    PolicyCallback callback = WTFMove(m_callback);
     callback.cancel();
 }
 
@@ -203,8 +202,7 @@ void PolicyChecker::continueLoadAfterWillSubmitForm(PolicyAction)
 
 void PolicyChecker::continueAfterNavigationPolicy(PolicyAction policy)
 {
-    PolicyCallback callback = m_callback;
-    m_callback.clear();
+    PolicyCallback callback = WTFMove(m_callback);
 
     bool shouldContinue = policy == PolicyUse;
 
@@ -236,8 +234,7 @@ void PolicyChecker::continueAfterNavigationPolicy(PolicyAction policy)
 
 void PolicyChecker::continueAfterNewWindowPolicy(PolicyAction policy)
 {
-    PolicyCallback callback = m_callback;
-    m_callback.clear();
+    PolicyCallback callback = WTFMove(m_callback);
 
     switch (policy) {
         case PolicyIgnore:
@@ -256,8 +253,7 @@ void PolicyChecker::continueAfterNewWindowPolicy(PolicyAction policy)
 
 void PolicyChecker::continueAfterContentPolicy(PolicyAction policy)
 {
-    PolicyCallback callback = m_callback;
-    m_callback.clear();
+    PolicyCallback callback = WTFMove(m_callback);
     callback.call(policy);
 }
 

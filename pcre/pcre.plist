@@ -5,22 +5,21 @@
 	<key>OpenSourceProject</key>
 	<string>pcre</string>
 	<key>OpenSourceVersion</key>
-	<string>8.02</string>
+	<string>8.40</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://pcre.org/</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.02.tar.bz2</string>
+	<string>ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.40.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>2cf2f7f04988813c7ce45c43eb934f3b8b1c3b34</string>
+	<string>12f338719b8b028a2eecbf9192fcc00a13fc04f6</string>
 	<key>OpenSourceImportDate</key>
-	<string>2010-05-13</string>
+	<string>2017-05-19</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>pcre.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-	    <string>CVE-2015-5073</string>
 	</array>
 </dict>
 </plist>

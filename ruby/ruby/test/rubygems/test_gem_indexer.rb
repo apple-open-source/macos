@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/indexer'
 
@@ -13,16 +14,19 @@ class TestGemIndexer < Gem::TestCase
     util_clear_gems
     util_make_gems
 
-    @d2_0 = quick_spec 'd', '2.0' do |s|
+    @d2_0 = util_spec 'd', '2.0' do |s|
       s.date = Gem::Specification::TODAY - 86400 * 3
     end
     util_build_gem @d2_0
 
-    @d2_0_a = quick_spec 'd', '2.0.a'
+    @d2_0_a = util_spec 'd', '2.0.a'
     util_build_gem @d2_0_a
 
-    @d2_0_b = quick_spec 'd', '2.0.b'
+    @d2_0_b = util_spec 'd', '2.0.b'
     util_build_gem @d2_0_b
+
+    @default = new_default_spec 'default', 2
+    install_default_gems @default
 
     @tempdir = File.join(@tempdir, 'indexer')
 
@@ -45,11 +49,11 @@ class TestGemIndexer < Gem::TestCase
     assert indexer.build_modern
   end
 
-  def test_build_indicies
+  def test_build_indices
     @indexer.make_temp_directories
 
     use_ui @ui do
-      @indexer.build_indicies
+      @indexer.build_indices
     end
 
     specs_path = File.join @indexer.directory, "specs.#{@marshal_version}"
@@ -195,7 +199,7 @@ class TestGemIndexer < Gem::TestCase
     assert_match %r%^Generating latest specs index$%, @ui.output
     assert_match %r%^Generating prerelease specs index$%, @ui.output
     assert_match %r%^Complete$%, @ui.output
-    assert_match %r%^Compressing indicies$%, @ui.output
+    assert_match %r%^Compressing indices$%, @ui.output
 
     assert_equal '', @ui.error
   end
@@ -289,9 +293,9 @@ class TestGemIndexer < Gem::TestCase
   def with_system_gems
     Gem::Specification.reset
 
-    sys_gem = quick_spec 'systemgem', '1.0'
+    sys_gem = util_spec 'systemgem', '1.0'
     util_build_gem sys_gem
-    Gem::Specification.add_spec sys_gem
+    install_default_gems sys_gem
     yield
     util_remove_gem sys_gem
   end
@@ -308,11 +312,11 @@ class TestGemIndexer < Gem::TestCase
     assert File.directory?(quickdir)
     assert File.directory?(marshal_quickdir)
 
-    @d2_1 = quick_spec 'd', '2.1'
+    @d2_1 = util_spec 'd', '2.1'
     util_build_gem @d2_1
     @d2_1_tuple = [@d2_1.name, @d2_1.version, @d2_1.original_platform]
 
-    @d2_1_a = quick_spec 'd', '2.2.a'
+    @d2_1_a = util_spec 'd', '2.2.a'
     util_build_gem @d2_1_a
     @d2_1_a_tuple = [@d2_1_a.name, @d2_1_a.version, @d2_1_a.original_platform]
 

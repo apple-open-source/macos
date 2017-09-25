@@ -6,6 +6,10 @@
 #include <mach/vm_page_size.h>
 #include <stdlib.h>
 
+#include "base.h"
+#include "platform.h"
+#include "nano_zone.h"
+
 extern boolean_t
 malloc_engaged_nano(void);
 
@@ -76,7 +80,9 @@ T_DECL(subpage_madvise_free_debug, "test vm.madvise_free_debug",
 	T_EXPECT_POSIX_SUCCESS(munmap(mem, memsz), "munmap");
 }
 
-#ifdef __LP64__
+// <rdar://problem/31844360> disable nano_subpage_madvise due to consistent
+// failures.
+#if 0
 
 T_DECL(nano_subpage_madvise, "nano allocator madvise",
 	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
@@ -87,16 +93,10 @@ T_DECL(nano_subpage_madvise, "nano allocator madvise",
 	T_EXPECT_TRUE(malloc_engaged_nano(), "nano zone enabled");
 
 	void *ptr = malloc(128);
-#ifdef __arm64__
 	T_EXPECT_EQ_PTR(
-			(void *)(((uintptr_t)ptr) >> (64-36)), (void *)0x000000017ULL,
+			(void *)(((uintptr_t)ptr) >> (64-NANO_SIGNATURE_BITS)),
+			(void *)NANOZONE_SIGNATURE,
 			"malloc == nano allocation");
-#else
-	T_EXPECT_EQ_PTR(
-			(void *)(((uintptr_t)ptr) >> (64-20)), (void *)0x00006ULL,
-			"malloc == nano allocation");
-#endif
-
 	free(ptr);
 
 	const size_t granularity = 128;

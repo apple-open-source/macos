@@ -160,6 +160,7 @@ OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *cont
 bool SecCertificateIsWeakKey(SecCertificateRef certificate);
 bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
                                        CFDictionaryRef keySizes);
+bool SecCertificateIsStrongKey(SecCertificateRef certificate);
 
 extern const CFStringRef kSecSignatureDigestAlgorithmUnknown;
 extern const CFStringRef kSecSignatureDigestAlgorithmMD2;

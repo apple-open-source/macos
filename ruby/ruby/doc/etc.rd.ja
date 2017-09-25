@@ -1,4 +1,4 @@
-# etc.rd.ja -  -*- mode: rd; coding: euc-jp; -*- created at: Fri Jul 14 00:47:15 JST 1995
+# etc.rd.ja -  -*- mode: rd; coding: utf-8; -*- created at: Fri Jul 14 00:47:15 JST 1995
 =begin
 
 = Etc(モジュール)
@@ -33,7 +33,7 @@
 	    age		# エージ(整数)
 	    class	# ユーザアクセスクラス(文字列)
 	    comment	# コメント(文字列)
-	    expire	# アカウント有効期限(整数)	    
+	    expire	# アカウント有効期限(整数)
 	  end
 
 	詳細はgetpwnam(3)を参照のこと．

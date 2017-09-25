@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009-2011, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2011, 2014, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -163,9 +163,14 @@ _process_options(optionsRef options, int nOptions, int argc, char **argv, CFMuta
 							return FALSE;
 					}
 
-					CFDictionarySetValue(newConfiguration,
-							     *(options[optionIndex].key),
-							     *(choices[i].key));
+					if (choices[i].key != NULL) {
+						CFDictionarySetValue(newConfiguration,
+								     *(options[optionIndex].key),
+								     *(choices[i].key));
+					} else {
+						CFDictionaryRemoveValue(newConfiguration,
+									*(options[optionIndex].key));
+					}
 				} else {
 					SCPrint(TRUE, stdout,
 						CFSTR("invalid %s\n"),
@@ -583,6 +588,8 @@ __private_extern__
 void
 do_net_commit(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (!SCPreferencesCommitChanges(prefs)) {
 		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 		return;
@@ -597,6 +604,8 @@ __private_extern__
 void
 do_net_apply(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (!SCPreferencesApplyChanges(prefs)) {
 		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 	}
@@ -849,6 +858,7 @@ do_net_migrate_perform(int argc, char **argv)
 static void
 do_net_migrate_validate(int argc, char **argv)
 {
+#pragma unused(argc)
 	char *configuration = NULL;
 	CFURLRef configurationURL = NULL;
 	char *expectedConfiguration = NULL;
@@ -890,13 +900,11 @@ do_net_migrate(int argc, char **argv)
 	argv++;
 	argc--;
 
-	if (strncmp(key, "perform", strlen(key)) == 0) {
+	if (strcmp(key, "perform") == 0) {
 		do_net_migrate_perform(argc, argv);
-	}
-	else if (strncmp(key, "validate", strlen(key)) == 0) {
+	} else if (strcmp(key, "validate") == 0) {
 		do_net_migrate_validate(argc, argv);
-	}
-	else {
+	} else {
 		SCPrint(TRUE, stderr, CFSTR("migrate what?\n"));
 		return;
 	}
@@ -1006,6 +1014,8 @@ __private_extern__
 void
 do_net_update(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	SCNetworkSetRef	set;
 	Boolean		setCreated	= FALSE;
 	Boolean		setUpdated	= FALSE;
@@ -1075,6 +1085,8 @@ __private_extern__
 void
 do_net_snapshot(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (prefs == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("network configuration not open\n"));
 		return;

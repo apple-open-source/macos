@@ -156,7 +156,6 @@ typedef struct {
 	CFStringRef		path;
 	uint64_t		entryID;
 	CFMutableDictionaryRef	overrides;
-	Boolean			modemIsV92;
 	CFStringRef		prefix;
 	CFNumberRef		type;
 	CFNumberRef		unit;
@@ -208,7 +207,8 @@ __BEGIN_DECLS
 #pragma mark SCNetworkInterface configuration (internal)
 
 Boolean
-__SCNetworkInterfaceMatchesName	(CFStringRef name, CFStringRef key);
+__SCNetworkInterfaceMatchesName			(CFStringRef		name,
+						 CFStringRef		key);
 
 CFArrayRef
 __SCNetworkInterfaceCopyAll_IONetworkInterface	(Boolean		keep_pre_configured);
@@ -222,7 +222,7 @@ __SCNetworkInterfaceCopyAll_IONetworkInterface	(Boolean		keep_pre_configured);
  You must release the returned value.
  */
 CFDictionaryRef
-__SCNetworkInterfaceCopyStorageEntity	(SCNetworkInterfaceRef		interface);
+__SCNetworkInterfaceCopyStorageEntity		(SCNetworkInterfaceRef	interface);
 
 /*!
  @function __SCNetworkInterfaceCopyStoredWithPreferences
@@ -234,7 +234,7 @@ __SCNetworkInterfaceCopyStorageEntity	(SCNetworkInterfaceRef		interface);
  */
 
 CFArrayRef  // SCNetworkInterfaceRef
-__SCNetworkInterfaceCopyStoredWithPreferences (SCPreferencesRef ni_prefs);
+__SCNetworkInterfaceCopyStoredWithPreferences	(SCPreferencesRef	ni_prefs);
 
 SCNetworkInterfacePrivateRef
 __SCNetworkInterfaceCreateCopy			(CFAllocatorRef		allocator,
@@ -246,12 +246,12 @@ __SCNetworkInterfaceCreateCopy			(CFAllocatorRef		allocator,
  @function __SCNetworkInterfaceCreateMappingUsingBSDName
  @discussion This function creates mapping of BSD name and network interface using
  preferences which point to the NetworkInterfaces.plist file.
- @param ni_prefs Preferences pointing to NetworkInterfaces.plist
+ @param interfaces An array of network interfaces to use for the mapping.
  @result BSD Mapping in a dictionary.
  You must release the returned value.
  */
 CFDictionaryRef
-__SCNetworkInterfaceCreateMappingUsingBSDName(CFArrayRef interfaces);
+__SCNetworkInterfaceCreateMappingUsingBSDName	(CFArrayRef		interfaces);
 
 SCNetworkInterfaceRef
 __SCNetworkInterfaceCreateWithNIPreferencesUsingBSDName(CFAllocatorRef		allocator,
@@ -411,6 +411,12 @@ __SCBridgeInterfaceListCollectMembers		(CFArrayRef 		interfaces,
 Boolean
 __SCBridgeInterfaceSetMemberInterfaces		(SCBridgeInterfaceRef	bridge,
 						 CFArrayRef		members);
+
+void
+_SCNetworkInterfaceCacheOpen();
+
+void
+_SCNetworkInterfaceCacheClose();
 
 #pragma mark -
 #pragma mark SCNetworkProtocol configuration (internal)

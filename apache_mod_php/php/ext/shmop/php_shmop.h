@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 5                                                        |
+   | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -24,6 +24,9 @@
 extern zend_module_entry shmop_module_entry;
 #define phpext_shmop_ptr &shmop_module_entry
 
+#include "php_version.h"
+#define PHP_SHMOP_VERSION PHP_VERSION
+
 PHP_MINIT_FUNCTION(shmop);
 PHP_MINFO_FUNCTION(shmop);
 
@@ -35,7 +38,7 @@ PHP_FUNCTION(shmop_write);
 PHP_FUNCTION(shmop_delete);
 
 #ifdef PHP_WIN32
-typedef int key_t;
+# include "win32/ipc.h"
 #endif
 
 struct php_shmop
@@ -45,7 +48,7 @@ struct php_shmop
 	int shmflg;
 	int shmatflg;
 	char *addr;
-	int size;
+	zend_long size;
 };
 
 typedef struct {

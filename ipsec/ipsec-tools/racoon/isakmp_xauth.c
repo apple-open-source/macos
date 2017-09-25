@@ -61,7 +61,6 @@
 #include <unistd.h>
 #endif
 #include <ctype.h>
-#include <resolv.h>
 
 #ifdef HAVE_SHADOW_H
 #include <shadow.h>
@@ -121,7 +120,7 @@ xauth_sendreq(iph1)
 		return;
 	}
 
-	plog(ASL_LEVEL_INFO, "Sending Xauth request\n");
+	plog(ASL_LEVEL_NOTICE, "Sending Xauth request\n");
 
 	tlen = sizeof(*attr) +
 	       + sizeof(*typeattr) +
@@ -344,7 +343,7 @@ xauth_reply(iph1, port, id, res)
 	char *usr = xst->authdata.generic.usr;
 
 	if (iph1->is_dying) {
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE, 
 			 "dropped login for user \"%s\"\n", usr);
 		return -1;
 	}
@@ -353,7 +352,7 @@ xauth_reply(iph1, port, id, res)
 		if (port != -1)
 			isakmp_cfg_putport(iph1, port);
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE, 
 		    "login failed for user \"%s\"\n", usr);
 		
 		xauth_sendstatus(iph1, XAUTH_STATUS_FAIL, id);
@@ -368,7 +367,7 @@ xauth_reply(iph1, port, id, res)
 	}
 
 	xst->status = XAUTHST_OK;
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE, 
 	    "login succeeded for user \"%s\"\n", usr);
 
 	xauth_sendstatus(iph1, XAUTH_STATUS_OK, id);
@@ -471,7 +470,7 @@ xauth_group_system(usr, grp)
 
 	while ((member = gr->gr_mem[index++])!=NULL) {
 		if (!strcmp(member,usr)) {
-			plog(ASL_LEVEL_INFO, 
+			plog(ASL_LEVEL_NOTICE, 
 		                "membership validated\n");
 			return 0;
 		}
@@ -572,13 +571,13 @@ group_check(iph1, grp_list, grp_count)
 		}
 
 		if( !res ) {
-			plog(ASL_LEVEL_INFO, 
+			plog(ASL_LEVEL_NOTICE, 
 				"user \"%s\" is a member of group \"%s\"\n",
 				usr,
 				grp_list[grp_index]);
 			break;
 		} else {
-			plog(ASL_LEVEL_INFO, 
+			plog(ASL_LEVEL_NOTICE, 
 				"user \"%s\" is not a member of group \"%s\"\n",
 				usr,
 				grp_list[grp_index]);

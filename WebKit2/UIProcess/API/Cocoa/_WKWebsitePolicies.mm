@@ -57,6 +57,65 @@
     return _websitePolicies->contentBlockersEnabled();
 }
 
+- (void)setAllowedAutoplayQuirks:(_WKWebsiteAutoplayQuirk)allowedQuirks
+{
+    OptionSet<WebKit::WebsiteAutoplayQuirk> quirks;
+
+    if (allowedQuirks & _WKWebsiteAutoplayQuirkInheritedUserGestures)
+        quirks |= WebKit::WebsiteAutoplayQuirk::InheritedUserGestures;
+
+    if (allowedQuirks & _WKWebsiteAutoplayQuirkSynthesizedPauseEvents)
+        quirks |= WebKit::WebsiteAutoplayQuirk::SynthesizedPauseEvents;
+
+    _websitePolicies->setAllowedAutoplayQuirks(quirks);
+}
+
+- (_WKWebsiteAutoplayQuirk)allowedAutoplayQuirks
+{
+    _WKWebsiteAutoplayQuirk quirks = 0;
+    auto allowedQuirks = _websitePolicies->allowedAutoplayQuirks();
+
+    if (allowedQuirks.contains(WebKit::WebsiteAutoplayQuirk::InheritedUserGestures))
+        quirks |= _WKWebsiteAutoplayQuirkInheritedUserGestures;
+
+    if (allowedQuirks.contains(WebKit::WebsiteAutoplayQuirk::SynthesizedPauseEvents))
+        quirks |= _WKWebsiteAutoplayQuirkSynthesizedPauseEvents;
+
+    return quirks;
+}
+
+- (void)setAutoplayPolicy:(_WKWebsiteAutoplayPolicy)policy
+{
+    switch (policy) {
+    case _WKWebsiteAutoplayPolicyDefault:
+        _websitePolicies->setAutoplayPolicy(WebKit::WebsiteAutoplayPolicy::Default);
+        break;
+    case _WKWebsiteAutoplayPolicyAllow:
+        _websitePolicies->setAutoplayPolicy(WebKit::WebsiteAutoplayPolicy::Allow);
+        break;
+    case _WKWebsiteAutoplayPolicyAllowWithoutSound:
+        _websitePolicies->setAutoplayPolicy(WebKit::WebsiteAutoplayPolicy::AllowWithoutSound);
+        break;
+    case _WKWebsiteAutoplayPolicyDeny:
+        _websitePolicies->setAutoplayPolicy(WebKit::WebsiteAutoplayPolicy::Deny);
+        break;
+    }
+}
+
+- (_WKWebsiteAutoplayPolicy)autoplayPolicy
+{
+    switch (_websitePolicies->autoplayPolicy()) {
+    case WebKit::WebsiteAutoplayPolicy::Default:
+        return _WKWebsiteAutoplayPolicyDefault;
+    case WebKit::WebsiteAutoplayPolicy::Allow:
+        return _WKWebsiteAutoplayPolicyAllow;
+    case WebKit::WebsiteAutoplayPolicy::AllowWithoutSound:
+        return _WKWebsiteAutoplayPolicyAllowWithoutSound;
+    case WebKit::WebsiteAutoplayPolicy::Deny:
+        return _WKWebsiteAutoplayPolicyDeny;
+    }
+}
+
 - (NSString *)description
 {
     return [NSString stringWithFormat:@"<%@: %p; contentBlockersEnabled = %d>", NSStringFromClass(self.class), self, self.contentBlockersEnabled];

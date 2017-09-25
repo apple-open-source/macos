@@ -576,26 +576,50 @@ die_mem_offset(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name,
 	Dwarf_Attribute attr;
 	Dwarf_Locdesc *loc;
 	Dwarf_Signed locnum;
+	Dwarf_Half form;
 
 	if ((attr = die_attr(dw, die, name, req)) == NULL)
 		return (0); /* die_attr will terminate for us if necessary */
 
-	if (dwarf_loclist(attr, &loc, &locnum, &dw->dw_err) != DW_DLV_OK) {
-		terminate("die %llu: failed to get mem offset location list\n",
-		    die_off(dw, die));
+	if (dwarf_whatform(attr, &form, &dw->dw_err) != DW_DLV_OK)
+		return (0);
+
+	switch (form) {
+	case DW_FORM_sec_offset:
+	case DW_FORM_block:
+	case DW_FORM_block1:
+	case DW_FORM_block2:
+	case DW_FORM_block4:
+		if (dwarf_loclist(attr, &loc, &locnum, &dw->dw_err) != DW_DLV_OK) {
+			terminate("die %llu: failed to get mem offset location list\n",
+			    die_off(dw, die));
+		}
+
+		dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
+
+		if (locnum != 1 || loc->ld_s->lr_atom != DW_OP_plus_uconst) {
+			terminate("die %llu: cannot parse member offset\n",
+			    die_off(dw, die));
+		}
+
+		*valp = loc->ld_s->lr_number;
+
+		dwarf_dealloc(dw->dw_dw, loc->ld_s, DW_DLA_LOC_BLOCK);
+		dwarf_dealloc(dw->dw_dw, loc, DW_DLA_LOCDESC);
+		break;
+	case DW_FORM_data1:
+	case DW_FORM_data2:
+	case DW_FORM_data4:
+	case DW_FORM_data8:
+	case DW_FORM_udata:
+		if (!die_unsigned(dw, die, name, valp, req))
+			return 0;
+		break;
+	default:
+		terminate("die %llu: cannot parse member offset with form "
+			"%u\n", die_off(dw, die), form);
 	}
 
-	dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
-
-	if (locnum != 1 || loc->ld_s->lr_atom != DW_OP_plus_uconst) {
-		terminate("die %llu: cannot parse member offset\n",
-		    die_off(dw, die));
-	}
-
-	*valp = loc->ld_s->lr_number;
-
-	dwarf_dealloc(dw->dw_dw, loc->ld_s, DW_DLA_LOC_BLOCK);
-	dwarf_dealloc(dw->dw_dw, loc, DW_DLA_LOCDESC);
 
 	return (1);
 }
@@ -1063,7 +1087,15 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 			}
 #endif
 		}
+		/*
+		 * Clang generates a DW_AT_data_bit_offset attribute for bitfields
+		 * that stores the number of bits from the beginning of the containing
+		 * struct to the beginning of the data member
+		 */
+		else if (die_unsigned(dw, mem, DW_AT_data_bit_offset, &bitoff, 0)) {
 
+			ml->ml_offset += bitoff;
+		}
 		debug(3, "die %llu: mem %llu: created \"%s\" (off %u sz %u)\n",
 		    off, memoff, ml->ml_name, ml->ml_offset, ml->ml_size);
 

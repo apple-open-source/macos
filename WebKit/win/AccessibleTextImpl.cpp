@@ -29,17 +29,16 @@
 #include "WebView.h"
 
 #include <WebCore/Document.h>
+#include <WebCore/Editing.h>
 #include <WebCore/Editor.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameSelection.h>
 #include <WebCore/HTMLTextFormControlElement.h>
 #include <WebCore/Node.h>
-#include <WebCore/Page.h>
 #include <WebCore/Position.h>
 #include <WebCore/RenderTextControl.h>
 #include <WebCore/VisibleSelection.h>
 #include <WebCore/VisibleUnits.h>
-#include <WebCore/htmlediting.h>
 
 using namespace WebCore;
 

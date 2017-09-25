@@ -745,9 +745,9 @@ build_subdir_entry_list(struct dir_entry *list, ino_t start_inonum)
 	}
 }
 
-pthread_mutex_t cleanup_lock;
-pthread_cond_t cleanup_start_cv;
-pthread_cond_t cleanup_done_cv;
+pthread_mutex_t cleanup_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cleanup_start_cv = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cleanup_done_cv = PTHREAD_COND_INITIALIZER;
 
 /*
  * cache cleanup thread starting point
@@ -760,9 +760,6 @@ cache_cleanup(__unused void *unused)
 	int error;
 
 	pthread_setname_np("cache cleanup");
-	pthread_mutex_init(&cleanup_lock, NULL);
-	pthread_cond_init(&cleanup_start_cv, NULL);
-	pthread_cond_init(&cleanup_done_cv, NULL);
 
 	pthread_mutex_lock(&cleanup_lock);
 	for (;;) {

@@ -1,5 +1,0 @@
-/if( $version lt $minimum_groff_version ) {/a
-.
-.,/^[	]*}$/s/^/#/
-/-Tlatin1/s//-Tascii/
-w

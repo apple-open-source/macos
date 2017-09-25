@@ -624,13 +624,13 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
                     {
                         if (!modeListRef->refreshList && modeArray[j].notReco)
                             printf("*");
-                        printf(CFStringGetCStringPtr(name, kCFStringEncodingMacRoman));
+                        printf("%s", CFStringGetCStringPtr(name, kCFStringEncodingMacRoman));
                         if (!modeListRef->refreshList)
                             printf("\n");
                     }
                     if (modeListRef->refreshList)
                     {
-                        printf(" %c[%d]", modeArray[j].notReco ? '*' : ' ', idx);
+                        printf(" %c[%ld]", modeArray[j].notReco ? '*' : ' ', idx);
                         mask |= (1 << idx);
                     }
     
@@ -699,7 +699,7 @@ if (!modeListRef->bundle) exit(1);
 
         kr = IORegistryEntryGetPath(modeListRef->framebuffer, kIOServicePlane, path);
         assert( KERN_SUCCESS == kr );
-        printf("\nDisplay %p: %s\n", displayIDs[i], path);
+        printf("\nDisplay %#x: %s\n", displayIDs[i], path);
 
         ModeList(modeListRef, true || true);
     }

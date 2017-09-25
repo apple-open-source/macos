@@ -1,14 +1,14 @@
 /*
  * Option encoding routines for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -329,7 +329,7 @@ static int	compare_ipp_options(_ipp_option_t *a, _ipp_option_t *b);
  * 'cupsEncodeOptions()' - Encode printer options into IPP attributes.
  *
  * This function adds operation, job, and then subscription attributes,
- * in that order. Use the cupsEncodeOptions2() function to add attributes
+ * in that order. Use the @link cupsEncodeOptions2@ function to add attributes
  * for a single group.
  */
 
@@ -354,7 +354,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
  * 'cupsEncodeOptions2()' - Encode printer options into IPP attributes for a group.
  *
  * This function only adds attributes for a single group. Call this
- * function multiple times for each group, or use cupsEncodeOptions()
+ * function multiple times for each group, or use @link cupsEncodeOptions@
  * to add the standard groups.
  *
  * @since CUPS 1.2/macOS 10.5@

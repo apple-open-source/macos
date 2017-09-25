@@ -19,5 +19,5 @@ all:
 install::
 	install -d -o root -g wheel -m 755 $(MAN_DIR)
 	install -c -o root -g wheel -m 444 $(SRCROOT)/nfs.conf.5 $(MAN_DIR)
-
+	install -c -o root -g wheel -m 444 $(SRCROOT)/nfs.5 $(MAN_DIR)
 clean::

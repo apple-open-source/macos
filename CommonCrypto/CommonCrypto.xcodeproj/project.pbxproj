@@ -237,7 +237,6 @@
 		48BEE71115800C2600A6A1E7 /* CommonSymmetricKeywrap.c in Sources */ = {isa = PBXBuildFile; fileRef = 48BEE6F815800C2600A6A1E7 /* CommonSymmetricKeywrap.c */; };
 		48BEE71215800C2600A6A1E7 /* corecryptoSymmetricBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 48BEE6F915800C2600A6A1E7 /* corecryptoSymmetricBridge.c */; };
 		48BEE71315800C2600A6A1E7 /* corecryptoSymmetricBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6FA15800C2600A6A1E7 /* corecryptoSymmetricBridge.h */; };
-		48C489B515DAF0E500B301EC /* ccMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C4899315DAF0E500B301EC /* ccMemory.h */; };
 		48C489B615DAF0E500B301EC /* cn_globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C4899415DAF0E500B301EC /* cn_globals.h */; };
 		48C489B715DAF0E500B301EC /* CommonCRC.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C4899515DAF0E500B301EC /* CommonCRC.c */; };
 		48C489B815DAF0E500B301EC /* crc.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C4899615DAF0E500B301EC /* crc.h */; };
@@ -284,6 +283,10 @@
 		F40146DD1D5BE2F00003AE85 /* ccDispatch.c in Sources */ = {isa = PBXBuildFile; fileRef = F40146DB1D5BE2F00003AE85 /* ccDispatch.c */; };
 		F40146DE1D5BE2F00003AE85 /* ccDispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = F40146DC1D5BE2F00003AE85 /* ccDispatch.h */; };
 		F40146E01D5D4E240003AE85 /* ccGlobals.c in Sources */ = {isa = PBXBuildFile; fileRef = F40146DF1D5D4E240003AE85 /* ccGlobals.c */; };
+		F41149EC1E00EAD200DD9218 /* CommonRSACryptorSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = F41149EB1E00E9E200DD9218 /* CommonRSACryptorSPI.h */; };
+		F41149ED1E00EAD300DD9218 /* CommonRSACryptorSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = F41149EB1E00E9E200DD9218 /* CommonRSACryptorSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F43108411EA56B8F00336DCD /* CommonCPP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F43108401EA56B8F00336DCD /* CommonCPP.cpp */; };
+		F4607B901F0AC37F00FC87B3 /* CCCryptorReset_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F4607B8F1F0AC1BE00FC87B3 /* CCCryptorReset_internal.h */; };
 		F471D2A81DA70B76001699FD /* cc_macros_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = F471D2A71DA709E5001699FD /* cc_macros_priv.h */; };
 		F48F29991D470E81001891BE /* aes.h in Headers */ = {isa = PBXBuildFile; fileRef = F48F29981D470E81001891BE /* aes.h */; };
 /* End PBXBuildFile section */
@@ -599,7 +602,6 @@
 		48BEE6F915800C2600A6A1E7 /* corecryptoSymmetricBridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = corecryptoSymmetricBridge.c; sourceTree = "<group>"; };
 		48BEE6FA15800C2600A6A1E7 /* corecryptoSymmetricBridge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = corecryptoSymmetricBridge.h; sourceTree = "<group>"; };
 		48C4899115DAF0E500B301EC /* adler32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = adler32.c; sourceTree = "<group>"; };
-		48C4899315DAF0E500B301EC /* ccMemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccMemory.h; sourceTree = "<group>"; };
 		48C4899415DAF0E500B301EC /* cn_globals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cn_globals.h; sourceTree = "<group>"; };
 		48C4899515DAF0E500B301EC /* CommonCRC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCRC.c; sourceTree = "<group>"; };
 		48C4899615DAF0E500B301EC /* crc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crc.h; sourceTree = "<group>"; };
@@ -644,9 +646,14 @@
 		F40146DB1D5BE2F00003AE85 /* ccDispatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccDispatch.c; sourceTree = "<group>"; };
 		F40146DC1D5BE2F00003AE85 /* ccDispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccDispatch.h; sourceTree = "<group>"; };
 		F40146DF1D5D4E240003AE85 /* ccGlobals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ccGlobals.c; path = lib/ccGlobals.c; sourceTree = SOURCE_ROOT; };
+		F41149EB1E00E9E200DD9218 /* CommonRSACryptorSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CommonRSACryptorSPI.h; sourceTree = "<group>"; };
+		F43108401EA56B8F00336DCD /* CommonCPP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommonCPP.cpp; sourceTree = "<group>"; };
 		F436D9631D39C97100ACE018 /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		F4607B8F1F0AC1BE00FC87B3 /* CCCryptorReset_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CCCryptorReset_internal.h; sourceTree = "<group>"; };
 		F471D2A71DA709E5001699FD /* cc_macros_priv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cc_macros_priv.h; sourceTree = "<group>"; };
 		F48F29981D470E81001891BE /* aes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aes.h; sourceTree = "<group>"; };
+		F4A27D901E2EAF4900883982 /* CommonRSA_keygen_vects.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = CommonRSA_keygen_vects.inc; sourceTree = "<group>"; };
+		F4B977DB1E7B5B480032EF34 /* CommonRSA_key_vects.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = CommonRSA_key_vects.inc; sourceTree = "<group>"; };
 		F4D1073D1D88ADD400DFF209 /* timingsafe_bcmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timingsafe_bcmp.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -778,12 +785,15 @@
 				482B9DF51586B50F00F49463 /* CommonEC.c */,
 				482B9DF61586B50F00F49463 /* CommonHMacClone.c */,
 				482B9DF71586B50F00F49463 /* CommonRandom.c */,
+				F4A27D901E2EAF4900883982 /* CommonRSA_keygen_vects.inc */,
+				F4B977DB1E7B5B480032EF34 /* CommonRSA_key_vects.inc */,
 				482B9DF81586B50F00F49463 /* CommonRSA.c */,
 				482B9DF91586B50F00F49463 /* CryptorPadFailure.c */,
 				48ED815C15D308A900E40487 /* CommonCryptorWithData.c */,
 				485029B915D5C2710053166A /* CommonCryptoBlowfish.c */,
 				1CC9AFCC18F65AD100DF8C58 /* CommonHKDF.c */,
 				4839BB83186381E400F3A410 /* CommonNISTKDF.c */,
+				F43108401EA56B8F00336DCD /* CommonCPP.cpp */,
 			);
 			name = CommonCrypto;
 			path = test/CommonCrypto;
@@ -900,6 +910,7 @@
 				48BEE6CB15800C1800A6A1E7 /* CommonRandomSPI.h */,
 				489ED55918FDAAC1001327C5 /* CommonRandom.h */,
 				48BEE6CC15800C1800A6A1E7 /* CommonRSACryptor.h */,
+				F41149EB1E00E9E200DD9218 /* CommonRSACryptorSPI.h */,
 				48BEE6CD15800C1800A6A1E7 /* CommonSymmetricKeywrap.h */,
 				48BEE6CE15800C1800A6A1E7 /* lionCompat.h */,
 				4872EA4B185EDED600639C0B /* CommonKeyDerivationSPI.h */,
@@ -922,6 +933,7 @@
 				48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */,
 				48BEE6EA15800C2600A6A1E7 /* CommonCMAC.c */,
 				48BEE6ED15800C2600A6A1E7 /* CommonCryptor.c */,
+				F4607B8F1F0AC1BE00FC87B3 /* CCCryptorReset_internal.h */,
 				4836297715893DE20064232C /* CommonCryptorDES.c */,
 				4836297415893D0C0064232C /* CommonCryptorRC4.c */,
 				48BEE6F315800C2600A6A1E7 /* CommonCryptorGCM.c */,
@@ -954,7 +966,6 @@
 				48E5034F15DDAC0900045A4B /* CommonBuffering.c */,
 				48E5035015DDAC0900045A4B /* CommonBufferingPriv.h */,
 				48C4899115DAF0E500B301EC /* adler32.c */,
-				48C4899315DAF0E500B301EC /* ccMemory.h */,
 				48C4899415DAF0E500B301EC /* cn_globals.h */,
 				48C4899515DAF0E500B301EC /* CommonCRC.c */,
 				48C4899615DAF0E500B301EC /* crc.h */,
@@ -1014,6 +1025,7 @@
 				485CB95515E835B900EC6390 /* CommonRandomSPI.h in Headers */,
 				4872EA4D185EDED600639C0B /* CommonKeyDerivationSPI.h in Headers */,
 				489ED55A18FDAAC1001327C5 /* CommonRandom.h in Headers */,
+				F41149ED1E00EAD300DD9218 /* CommonRSACryptorSPI.h in Headers */,
 				485CB95615E835B900EC6390 /* CommonRSACryptor.h in Headers */,
 				48BDB99218FDAFE50055E601 /* CommonCryptoError.h in Headers */,
 			);
@@ -1040,6 +1052,7 @@
 				48BEE6D615800C1800A6A1E7 /* CommonDH.h in Headers */,
 				48BDB99318FDB04C0055E601 /* CommonCryptoError.h in Headers */,
 				48BEE6D915800C1800A6A1E7 /* CommonECCryptor.h in Headers */,
+				F4607B901F0AC37F00FC87B3 /* CCCryptorReset_internal.h in Headers */,
 				48BEE6DE15800C1800A6A1E7 /* CommonRSACryptor.h in Headers */,
 				48BEE6D515800C1800A6A1E7 /* CommonCryptorSPI.h in Headers */,
 				F471D2A81DA70B76001699FD /* cc_macros_priv.h in Headers */,
@@ -1050,6 +1063,7 @@
 				48BEE6DA15800C1800A6A1E7 /* CommonHMAC.h in Headers */,
 				F40146DE1D5BE2F00003AE85 /* ccDispatch.h in Headers */,
 				48BEE6D715800C1800A6A1E7 /* CommonDigest.h in Headers */,
+				F41149EC1E00EAD200DD9218 /* CommonRSACryptorSPI.h in Headers */,
 				48BEE6DF15800C1800A6A1E7 /* CommonSymmetricKeywrap.h in Headers */,
 				48BEE6DC15800C1800A6A1E7 /* CommonKeyDerivation.h in Headers */,
 				48BEE6D415800C1800A6A1E7 /* CommonCryptor.h in Headers */,
@@ -1065,7 +1079,6 @@
 				48BEE71315800C2600A6A1E7 /* corecryptoSymmetricBridge.h in Headers */,
 				482B9DB515869BF500F49463 /* ccGlobals.h in Headers */,
 				482B9DB81586A8E700F49463 /* CommonRandomPriv.h in Headers */,
-				48C489B515DAF0E500B301EC /* ccMemory.h in Headers */,
 				48C489B615DAF0E500B301EC /* cn_globals.h in Headers */,
 				48C489B815DAF0E500B301EC /* crc.h in Headers */,
 				48E5035115DDAC0900045A4B /* basexx.h in Headers */,
@@ -1171,7 +1184,7 @@
 		48BEE6AC1580085A00A6A1E7 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0800;
+				LastUpgradeCheck = 0900;
 				ORGANIZATIONNAME = "Platform Security";
 			};
 			buildConfigurationList = 48BEE6AF1580085A00A6A1E7 /* Build configuration list for PBXProject "CommonCrypto" */;
@@ -1261,6 +1274,7 @@
 				482B9E171586B50F00F49463 /* CryptorPadFailure.c in Sources */,
 				482B9E181586B50F00F49463 /* main.c in Sources */,
 				482B9E291586B52200F49463 /* testenv.c in Sources */,
+				F43108411EA56B8F00336DCD /* CommonCPP.cpp in Sources */,
 				482B9E2A1586B52200F49463 /* testlist.c in Sources */,
 				4839BB84186381E400F3A410 /* CommonNISTKDF.c in Sources */,
 				482B9E2B1586B52200F49463 /* testmore.c in Sources */,
@@ -1537,6 +1551,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -1547,6 +1563,8 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -1577,15 +1595,23 @@
 				);
 				"ARCHS[sdk=iphonesimulator*]" = "$(ARCHS_STANDARD_32_64_BIT)";
 				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD_32_64_BIT)";
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = NO;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -1603,17 +1629,23 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
+					"CORECRYPTO_DONOT_USE_TRANSPARENT_UNION=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PEDANTIC = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -1621,10 +1653,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 				PROVISIONING_PROFILE = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
@@ -1648,14 +1683,19 @@
 				"ARCHS[sdk=iphonesimulator*]" = "$(ARCHS_STANDARD_32_64_BIT)";
 				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD_32_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = NO;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -1667,9 +1707,14 @@
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					NDEBUG,
+					"$(inherited)",
+					"CORECRYPTO_DONOT_USE_TRANSPARENT_UNION=1",
+				);
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
@@ -1677,6 +1722,7 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_PEDANTIC = NO;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -1687,6 +1733,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 				PROVISIONING_PROFILE = "";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";

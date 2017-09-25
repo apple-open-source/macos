@@ -31,6 +31,7 @@
 #include "VM.h"
 #include "WasmFormat.h"
 #include <wtf/Bag.h>
+#include <wtf/Expected.h>
 
 namespace JSC {
 
@@ -38,7 +39,12 @@ class CallLinkInfo;
 
 namespace Wasm {
 
-WasmToJSStub importStubGenerator(VM*, Bag<CallLinkInfo>&, Signature*, unsigned);
+enum class BindingFailure {
+    OutOfMemory,
+};
+
+Expected<MacroAssemblerCodeRef, BindingFailure> wasmToWasm(unsigned importIndex);
+Expected<MacroAssemblerCodeRef, BindingFailure> wasmToJs(VM*, Bag<CallLinkInfo>& callLinkInfos, SignatureIndex, unsigned importIndex);
 
 } } // namespace JSC::Wasm
 

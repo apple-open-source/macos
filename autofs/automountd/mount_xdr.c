@@ -222,7 +222,7 @@ xdr_mountlist(xdrs, objp)
 			if (!xdr_bool(xdrs, &more_data))
 				return (FALSE);
 
-			if (!more_data)
+			if (mb == NULL)
 				break;
 
 			if (!xdr_name(xdrs, &mb->ml_hostname))
@@ -326,7 +326,7 @@ xdr_groups(xdrs, objp)
 			if (!xdr_bool(xdrs, &more_data))
 				return (FALSE);
 
-			if (!more_data)
+			if (gn == NULL)
 				break;
 
 			if (!xdr_name(xdrs, &gn->gr_name))
@@ -443,7 +443,7 @@ xdr_exports(xdrs, objp)
 			if (!xdr_bool(xdrs, &more_data))
 				return (FALSE);
 
-			if (!more_data)
+			if (en == NULL)
 				break;
 
 			if (!xdr_dirpath(xdrs, &en->ex_dir))

@@ -124,6 +124,10 @@ tls_handshake_set_ciphersuites_internal(tls_handshake_t filter, tls_handshake_co
         }
     }
 
+    if(count == 0) {
+        return errSSLParam;
+    }
+
     sslFree(filter->enabledCipherSuites);
     filter->numEnabledCipherSuites=0;
 
@@ -145,7 +149,8 @@ tls_handshake_set_ciphersuites_internal(tls_handshake_t filter, tls_handshake_co
     }
 
     sslAnalyzeCipherSpecs(filter);
-    return 0;
+
+    return errSSLSuccess;
 }
 
 
@@ -259,9 +264,9 @@ tls_handshake_destroy(tls_handshake_t filter)
     sslFree(filter->peerSigAlgs);
     sslFree(filter->localSigAlgs);
     sslFree(filter->clientAuthTypes);
-    sslFree(filter->ecdhContext._full);
-    sslFree(filter->dhParams.gp);
-    sslFree(filter->dhContext._full);
+    sslFree(filter->ecdhContext);
+    sslFree(filter->dhParams);
+    sslFree(filter->dhContext);
     sslFree(filter->requested_ecdh_curves);
 
     if(filter->signingPrivKeyRef)
@@ -434,11 +439,13 @@ tls_protocol_version tls_handshake_min_allowed_version(tls_handshake_t filter, t
         return tls_protocol_version_DTLS_1_0;
 
     switch(config) {
+        case tls_handshake_config_ATSv2:
         case tls_handshake_config_ATSv1:
         case tls_handshake_config_ATSv1_noPFS:
         case tls_handshake_config_anonymous:
             return tls_protocol_version_TLS_1_2;
         case tls_handshake_config_standard:
+        case tls_handshake_config_standard_TLSv3:
         case tls_handshake_config_RC4_fallback:
         case tls_handshake_config_TLSv1_fallback:
         case tls_handshake_config_TLSv1_RC4_fallback:
@@ -478,6 +485,9 @@ tls_protocol_version tls_handshake_max_allowed_version(tls_handshake_t filter, t
         case tls_handshake_config_anonymous:
         case tls_handshake_config_3DES_fallback:
             return tls_protocol_version_TLS_1_2;
+        case tls_handshake_config_standard_TLSv3:
+        case tls_handshake_config_ATSv2:
+            return tls_protocol_version_TLS_1_3;
     }
 
     /* Note: we do this here instead of a 'default:' case, so that the compiler will warn us when
@@ -567,9 +577,9 @@ tls_handshake_set_dh_parameters(tls_handshake_t filter, tls_buffer *params)
     der_end = params->data + params->length;
     n = ccder_decode_dhparam_n(der, der_end);
 
-    sslFree(filter->dhParams.gp);
-    filter->dhParams.gp = sslMalloc(ccdh_gp_size(ccn_sizeof_n(n)));
-    if(!filter->dhParams.gp) {
+    sslFree(filter->dhParams);
+    filter->dhParams = sslMalloc(ccdh_gp_size(ccn_sizeof_n(n)));
+    if(!filter->dhParams) {
         return errSSLAllocate;
     }
 
@@ -1055,6 +1065,106 @@ tls_handshake_retransmit_timer_expired(tls_handshake_t filter)
     assert(filter->isDTLS);
 
     return DTLSRetransmit(filter);
+}
+
+int
+tls_handshake_send_alert(tls_handshake_t filter, tls_alert_level_t level, tls_alert_t description)
+{
+    int err = errSSLSuccess;
+    assert(filter != NULL);
+
+    AlertLevel alertLevel = level == tls_handshake_alert_level_fatal ? SSL_AlertLevelFatal : SSL_AlertLevelWarning;
+    AlertDescription desc = SSL_AlertCloseNotify;
+
+    switch (description) {
+        case tls_handshake_alert_CloseNotify:
+            desc = SSL_AlertCloseNotify;
+            break;
+        case tls_handshake_alert_UnexpectedMsg:
+            desc = SSL_AlertUnexpectedMsg;
+            break;
+        case tls_handshake_alert_BadRecordMac:
+            desc = SSL_AlertBadRecordMac;
+            break;
+        case tls_handshake_alert_DecryptionFail_RESERVED:
+            desc = SSL_AlertDecryptionFail_RESERVED;
+            break;
+        case tls_handshake_alert_RecordOverflow:
+            desc = SSL_AlertRecordOverflow;
+            break;
+        case tls_handshake_alert_DecompressFail:
+            desc = SSL_AlertDecompressFail;
+            break;
+        case tls_handshake_alert_HandshakeFail:
+            desc = SSL_AlertHandshakeFail;
+            break;
+        case tls_handshake_alert_NoCert_RESERVED:
+            desc = SSL_AlertNoCert_RESERVED;
+            break;
+        case tls_handshake_alert_BadCert:
+            desc = SSL_AlertBadCert;
+            break;
+        case tls_handshake_alert_UnsupportedCert:
+            desc = SSL_AlertUnsupportedCert;
+            break;
+        case tls_handshake_alert_CertRevoked:
+            desc = SSL_AlertCertRevoked;
+            break;
+        case tls_handshake_alert_CertExpired:
+            desc = SSL_AlertCertExpired;
+            break;
+        case tls_handshake_alert_CertUnknown:
+            desc = SSL_AlertCertUnknown;
+            break;
+        case tls_handshake_alert_IllegalParam:
+            desc = SSL_AlertIllegalParam;
+            break;
+        case tls_handshake_alert_UnknownCA:
+            desc = SSL_AlertUnknownCA;
+            break;
+        case tls_handshake_alert_AccessDenied:
+            desc = SSL_AlertAccessDenied;
+            break;
+        case tls_handshake_alert_DecodeError:
+            desc = SSL_AlertDecodeError;
+            break;
+        case tls_handshake_alert_DecryptError:
+            desc = SSL_AlertDecryptError;
+            break;
+        case tls_handshake_alert_ExportRestriction_RESERVED:
+            desc = SSL_AlertExportRestriction_RESERVED;
+            break;
+        case tls_handshake_alert_ProtocolVersion:
+            desc = SSL_AlertProtocolVersion;
+            break;
+        case tls_handshake_alert_InsufficientSecurity:
+            desc = SSL_AlertInsufficientSecurity;
+            break;
+        case tls_handshake_alert_InternalError:
+            desc = SSL_AlertInternalError;
+            break;
+        case tls_handshake_alert_InappropriateFallback:
+            desc = SSL_AlertInappropriateFallback;
+            break;
+        case tls_handshake_alert_UserCancelled:
+            desc = SSL_AlertUserCancelled;
+            break;
+        case tls_handshake_alert_NoRenegotiation:
+            desc = SSL_AlertNoRenegotiation;
+            break;
+        case tls_handshake_alert_UnsupportedExtension:
+            desc = SSL_AlertUnsupportedExtension;
+            break;
+        default:
+            err = errSSLParam;
+            break;
+    }
+
+    if (err == errSSLSuccess) {
+        err = SSLSendAlert(alertLevel, desc, filter);
+    }
+
+    return err;
 }
 
 tls_protocol_version

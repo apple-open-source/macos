@@ -99,7 +99,11 @@ public:
     typedef typename TypedHandle<_Handle>::Handle Handle;
     virtual ~MappingHandle()
     {
+// <rdar://problem/28898053> security_filedb build error: instantiation of variable 'Security::MappingHandle<long>::state' required here, but no definition is available
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-var-template"
         State &st = state();
+#pragma clang diagnostic pop
         StLock<Mutex> _(st);
         st.erase(this);
     }
@@ -173,8 +177,12 @@ template <class Subclass>
 inline Subclass &MappingHandle<_Handle>::find(_Handle handle, CSSM_RETURN error)
 {
     Subclass *sub;
+// <rdar://problem/28898053> security_filedb build error: instantiation of variable 'Security::MappingHandle<long>::state' required here, but no definition is available
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-var-template"
     if (!(sub = dynamic_cast<Subclass *>(state().find(handle, error))))
         CssmError::throwMe(error);
+#pragma clang diagnostic pop
     return *sub;
 }
 
@@ -201,7 +209,11 @@ inline Subclass &MappingHandle<_Handle>::findAndKill(_Handle handle,
                                              CSSM_RETURN error)
 {
     for (;;) {
+// <rdar://problem/28898053> security_filedb build error: instantiation of variable 'Security::MappingHandle<long>::state' required here, but no definition is available
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-var-template"
         typename HandleMap::iterator it = state().locate(handle, error);
+#pragma clang diagnostic pop
         StLock<Mutex> _(state(), true);	// locate() locked it
         Subclass *sub;
         if (!(sub = dynamic_cast<Subclass *>(it->second)))

@@ -80,7 +80,7 @@ NameValuePair::NameValuePair (const CssmData &data)
 
 NameValuePair::~NameValuePair ()
 {
-	delete (unsigned char*) mValue.data ();
+	delete[] (unsigned char*) mValue.data ();
 }
 
 

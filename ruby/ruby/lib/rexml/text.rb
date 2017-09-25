@@ -1,4 +1,5 @@
-require 'rexml/rexml'
+# frozen_string_literal: false
+require 'rexml/security'
 require 'rexml/entity'
 require 'rexml/doctype'
 require 'rexml/child'
@@ -103,7 +104,7 @@ module REXML
 
       @raw = raw unless raw.nil?
       @entity_filter = entity_filter
-      @normalized = @unnormalized = nil
+      clear_cache
 
       if arg.kind_of? String
         @string = arg.dup
@@ -186,8 +187,13 @@ module REXML
 
     # Appends text to this text node.  The text is appended in the +raw+ mode
     # of this text node.
+    #
+    # +returns+ the text itself to enable method chain like
+    # 'text << "XXX" << "YYY"'.
     def <<( to_append )
       @string << to_append.gsub( /\r\n?/, "\n" )
+      clear_cache
+      self
     end
 
 
@@ -256,8 +262,7 @@ module REXML
     #   e[0].value = "<a>"    # <a>&lt;a&gt;</a>
     def value=( val )
       @string = val.gsub( /\r\n?/, "\n" )
-      @unnormalized = nil
-      @normalized = nil
+      clear_cache
       @raw = false
     end
 
@@ -331,6 +336,12 @@ module REXML
       out << copy
     end
 
+    private
+    def clear_cache
+      @normalized = nil
+      @unnormalized = nil
+    end
+
     # Reads text, substituting entities
     def Text::read_with_substitution( input, illegal=nil )
       copy = input.clone
@@ -368,7 +379,7 @@ module REXML
         doctype.entities.each_value do |entity|
           copy = copy.gsub( entity.value,
             "&#{entity.name};" ) if entity.value and
-              not( entity_filter and entity_filter.include?(entity) )
+              not( entity_filter and entity_filter.include?(entity.name) )
         end
       else
         # Replace all ampersands that aren't part of an entity
@@ -384,7 +395,7 @@ module REXML
       sum = 0
       string.gsub( /\r\n?/, "\n" ).gsub( REFERENCE ) {
         s = Text.expand($&, doctype, filter)
-        if sum + s.bytesize > REXML.entity_expansion_text_limit
+        if sum + s.bytesize > Security.entity_expansion_text_limit
           raise "entity expansion has grown too large"
         else
           sum += s.bytesize

@@ -690,10 +690,11 @@ struct check_header_ctx {
 };
 
 /* check a single header, to be used with apr_table_do() */
-static int check_header(void *arg, const char *name, const char *val)
+static int check_header(struct check_header_ctx *ctx,
+                        const char *name, const char **val)
 {
-    struct check_header_ctx *ctx = arg;
-    const char *test;
+    const char *pos, *end;
+    char *dst = NULL;
 
     if (name[0] == '\0') {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, ctx->r, APLOGNO(02428)
@@ -702,12 +703,12 @@ static int check_header(void *arg, const char *name, const char *val)
     }
 
     if (ctx->strict) { 
-        test = ap_scan_http_token(name);
+        end = ap_scan_http_token(name);
     }
     else {
-        test = ap_scan_vchar_obstext(name);
+        end = ap_scan_vchar_obstext(name);
     }
-    if (*test) {
+    if (*end) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, ctx->r, APLOGNO(02429)
                       "Response header name '%s' contains invalid "
                       "characters, aborting request",
@@ -715,13 +716,51 @@ static int check_header(void *arg, const char *name, const char *val)
         return 0;
     }
 
-    test = ap_scan_http_field_content(val);
-    if (*test) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, ctx->r, APLOGNO(02430)
-                      "Response header '%s' value of '%s' contains invalid "
-                      "characters, aborting request",
-                      name, val);
-        return 0;
+    for (pos = *val; *pos; pos = end) {
+        end = ap_scan_http_field_content(pos);
+        if (*end) {
+            if (end[0] != CR || end[1] != LF || (end[2] != ' ' &&
+                                                 end[2] != '\t')) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, ctx->r, APLOGNO(02430)
+                              "Response header '%s' value of '%s' contains "
+                              "invalid characters, aborting request",
+                              name, pos);
+                return 0;
+            }
+            if (!dst) {
+                *val = dst = apr_palloc(ctx->r->pool, strlen(*val) + 1);
+            }
+        }
+        if (dst) {
+            memcpy(dst, pos, end - pos);
+            dst += end - pos;
+            if (*end) {
+                /* skip folding and replace with a single space */
+                end += 3 + strspn(end + 3, "\t ");
+                *dst++ = ' ';
+            }
+        }
+    }
+    if (dst) {
+        *dst = '\0';
+    }
+    return 1;
+}
+
+static int check_headers_table(apr_table_t *t, struct check_header_ctx *ctx)
+{
+    const apr_array_header_t *headers = apr_table_elts(t);
+    apr_table_entry_t *header;
+    int i;
+
+    for (i = 0; i < headers->nelts; ++i) {
+        header = &APR_ARRAY_IDX(headers, i, apr_table_entry_t);
+        if (!header->key) {
+            continue;
+        }
+        if (!check_header(ctx, header->key, (const char **)&header->val)) {
+            return 0;
+        }
     }
     return 1;
 }
@@ -738,8 +777,8 @@ static APR_INLINE int check_headers(request_rec *r)
 
     ctx.r = r;
     ctx.strict = (conf->http_conformance != AP_HTTP_CONFORMANCE_UNSAFE);
-    return apr_table_do(check_header, &ctx, r->headers_out, NULL) &&
-           apr_table_do(check_header, &ctx, r->err_headers_out, NULL);
+    return check_headers_table(r->headers_out, &ctx) &&
+           check_headers_table(r->err_headers_out, &ctx);
 }
 
 static int check_headers_recursion(request_rec *r)
@@ -1243,7 +1282,6 @@ AP_DECLARE_NONSTD(int) ap_send_http_trace(request_rec *r)
 
 typedef struct header_filter_ctx {
     int headers_sent;
-    int headers_error;
 } header_filter_ctx;
 
 AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
@@ -1259,23 +1297,22 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
     header_filter_ctx *ctx = f->ctx;
     const char *ctype;
     ap_bucket_error *eb = NULL;
-    apr_bucket *eos = NULL;
+    apr_status_t rv = APR_SUCCESS;
+    int recursive_error = 0;
 
     AP_DEBUG_ASSERT(!r->main);
 
     if (!ctx) {
         ctx = f->ctx = apr_pcalloc(r->pool, sizeof(header_filter_ctx));
     }
-    if (ctx->headers_sent) {
+    else if (ctx->headers_sent) {
         /* Eat body if response must not have one. */
         if (r->header_only || r->status == HTTP_NO_CONTENT) {
             apr_brigade_cleanup(b);
             return APR_SUCCESS;
         }
     }
-    else if (!ctx->headers_error && !check_headers(r)) {
-        ctx->headers_error = 1;
-    }
+
     for (e = APR_BRIGADE_FIRST(b);
          e != APR_BRIGADE_SENTINEL(b);
          e = APR_BUCKET_NEXT(e))
@@ -1292,23 +1329,15 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
             ap_remove_output_filter(f);
             return ap_pass_brigade(f->next, b);
         }
-        if (ctx->headers_error && APR_BUCKET_IS_EOS(e)) {
-            eos = e;
-        }
     }
-    if (ctx->headers_error) {
-        if (!eos) {
-            /* Eat body until EOS */
-            apr_brigade_cleanup(b);
-            return APR_SUCCESS;
-        }
 
+    if (!ctx->headers_sent && !check_headers(r)) {
         /* We may come back here from ap_die() below,
          * so clear anything from this response.
          */
-        ctx->headers_error = 0;
         apr_table_clear(r->headers_out);
         apr_table_clear(r->err_headers_out);
+        apr_brigade_cleanup(b);
 
         /* Don't recall ap_die() if we come back here (from its own internal
          * redirect or error response), otherwise we can end up in infinite
@@ -1316,17 +1345,18 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
          * empty body (EOS only).
          */
         if (!check_headers_recursion(r)) {
-            apr_brigade_cleanup(b);
             ap_die(HTTP_INTERNAL_SERVER_ERROR, r);
             return AP_FILTER_ERROR;
         }
-        APR_BUCKET_REMOVE(eos);
-        apr_brigade_cleanup(b);
-        APR_BRIGADE_INSERT_TAIL(b, eos);
         r->status = HTTP_INTERNAL_SERVER_ERROR;
+        e = ap_bucket_eoc_create(c->bucket_alloc);
+        APR_BRIGADE_INSERT_TAIL(b, e);
+        e = apr_bucket_eos_create(c->bucket_alloc);
+        APR_BRIGADE_INSERT_TAIL(b, e);
         r->content_type = r->content_encoding = NULL;
         r->content_languages = NULL;
         ap_set_content_length(r, 0);
+        recursive_error = 1;
     }
     else if (eb) {
         int status;
@@ -1339,7 +1369,8 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
     if (r->assbackwards) {
         r->sent_bodyct = 1;
         ap_remove_output_filter(f);
-        return ap_pass_brigade(f->next, b);
+        rv = ap_pass_brigade(f->next, b);
+        goto out;
     }
 
     /*
@@ -1477,12 +1508,15 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
 
     terminate_header(b2);
 
-    ap_pass_brigade(f->next, b2);
+    rv = ap_pass_brigade(f->next, b2);
+    if (rv != APR_SUCCESS) {
+        goto out;
+    }
     ctx->headers_sent = 1;
 
     if (r->header_only || r->status == HTTP_NO_CONTENT) {
         apr_brigade_cleanup(b);
-        return APR_SUCCESS;
+        goto out;
     }
 
     r->sent_bodyct = 1;         /* Whatever follows is real body stuff... */
@@ -1500,7 +1534,12 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
      * brigade won't be chunked properly.
      */
     ap_remove_output_filter(f);
-    return ap_pass_brigade(f->next, b);
+    rv = ap_pass_brigade(f->next, b);
+out:
+    if (recursive_error) {
+        return AP_FILTER_ERROR;
+    }
+    return rv;
 }
 
 /*

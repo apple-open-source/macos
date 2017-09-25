@@ -234,13 +234,13 @@ void RenderSVGShape::fillShape(const RenderStyle& style, GraphicsContext& origin
     GraphicsContext* context = &originalContext;
     Color fallbackColor;
     if (RenderSVGResource* fillPaintingResource = RenderSVGResource::fillPaintingResource(*this, style, fallbackColor)) {
-        if (fillPaintingResource->applyResource(*this, style, context, ApplyToFillMode))
-            fillPaintingResource->postApplyResource(*this, context, ApplyToFillMode, 0, this);
+        if (fillPaintingResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToFill))
+            fillPaintingResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToFill, 0, this);
         else if (fallbackColor.isValid()) {
             RenderSVGResourceSolidColor* fallbackResource = RenderSVGResource::sharedSolidPaintingResource();
             fallbackResource->setColor(fallbackColor);
-            if (fallbackResource->applyResource(*this, style, context, ApplyToFillMode))
-                fallbackResource->postApplyResource(*this, context, ApplyToFillMode, 0, this);
+            if (fallbackResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToFill))
+                fallbackResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToFill, 0, this);
         }
     }
 }
@@ -250,20 +250,20 @@ void RenderSVGShape::strokeShape(const RenderStyle& style, GraphicsContext& orig
     GraphicsContext* context = &originalContext;
     Color fallbackColor;
     if (RenderSVGResource* strokePaintingResource = RenderSVGResource::strokePaintingResource(*this, style, fallbackColor)) {
-        if (strokePaintingResource->applyResource(*this, style, context, ApplyToStrokeMode))
-            strokePaintingResource->postApplyResource(*this, context, ApplyToStrokeMode, 0, this);
+        if (strokePaintingResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToStroke))
+            strokePaintingResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToStroke, 0, this);
         else if (fallbackColor.isValid()) {
             RenderSVGResourceSolidColor* fallbackResource = RenderSVGResource::sharedSolidPaintingResource();
             fallbackResource->setColor(fallbackColor);
-            if (fallbackResource->applyResource(*this, style, context, ApplyToStrokeMode))
-                fallbackResource->postApplyResource(*this, context, ApplyToStrokeMode, 0, this);
+            if (fallbackResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToStroke))
+                fallbackResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToStroke, 0, this);
         }
     }
 }
 
 void RenderSVGShape::strokeShape(GraphicsContext& context)
 {
-    if (!style().svgStyle().hasVisibleStroke())
+    if (!style().hasVisibleStroke())
         return;
 
     GraphicsContextStateSaver stateSaver(context, false);
@@ -277,16 +277,16 @@ void RenderSVGShape::strokeShape(GraphicsContext& context)
 
 void RenderSVGShape::fillStrokeMarkers(PaintInfo& childPaintInfo)
 {
-    auto paintOrder = style().svgStyle().paintTypesForPaintOrder();
+    auto paintOrder = RenderStyle::paintTypesForPaintOrder(style().paintOrder());
     for (unsigned i = 0; i < paintOrder.size(); ++i) {
         switch (paintOrder.at(i)) {
-        case PaintTypeFill:
+        case PaintType::Fill:
             fillShape(style(), childPaintInfo.context());
             break;
-        case PaintTypeStroke:
+        case PaintType::Stroke:
             strokeShape(childPaintInfo.context());
             break;
-        case PaintTypeMarkers:
+        case PaintType::Markers:
             if (!m_markerPositions.isEmpty())
                 drawMarkers(childPaintInfo);
             break;
@@ -397,7 +397,7 @@ FloatRect RenderSVGShape::markerRect(float strokeWidth) const
 
 FloatRect RenderSVGShape::calculateObjectBoundingBox() const
 {
-    return path().fastBoundingRect();
+    return path().boundingRect();
 }
 
 FloatRect RenderSVGShape::calculateStrokeBoundingBox() const
@@ -438,16 +438,16 @@ void RenderSVGShape::updateRepaintBoundingBox()
 float RenderSVGShape::strokeWidth() const
 {
     SVGLengthContext lengthContext(&graphicsElement());
-    return lengthContext.valueForLength(style().svgStyle().strokeWidth());
+    return lengthContext.valueForLength(style().strokeWidth());
 }
 
 bool RenderSVGShape::hasSmoothStroke() const
 {
     const SVGRenderStyle& svgStyle = style().svgStyle();
     return svgStyle.strokeDashArray().isEmpty()
-        && svgStyle.strokeMiterLimit() == svgStyle.initialStrokeMiterLimit()
-        && svgStyle.joinStyle() == svgStyle.initialJoinStyle()
-        && svgStyle.capStyle() == svgStyle.initialCapStyle();
+        && style().strokeMiterLimit() == style().initialStrokeMiterLimit()
+        && style().joinStyle() == style().initialJoinStyle()
+        && style().capStyle() == style().initialCapStyle();
 }
 
 void RenderSVGShape::drawMarkers(PaintInfo& paintInfo)

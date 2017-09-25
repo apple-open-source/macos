@@ -23,6 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+
+typedef (
+#if defined(ENABLE_MEDIA_STREAM) && ENABLE_MEDIA_STREAM
+    MediaStream or
+#endif
+#if defined(ENABLE_MEDIA_SOURCE) && ENABLE_MEDIA_SOURCE
+    MediaSource or
+#endif
+    Blob) MediaProvider;
+
 [
     ActiveDOMObject,
     Conditional=VIDEO,
@@ -35,6 +45,7 @@
 
     // network state
     [Reflect, URL] attribute USVString src;
+    attribute MediaProvider? srcObject;
     [URL] readonly attribute USVString currentSrc;
     attribute DOMString? crossOrigin;
 
@@ -91,8 +102,8 @@
     [Conditional=MEDIA_STATISTICS] readonly attribute unsigned long webkitAudioDecodedByteCount;
     [Conditional=MEDIA_STATISTICS] readonly attribute unsigned long webkitVideoDecodedByteCount;
 
-    [Conditional=LEGACY_ENCRYPTED_MEDIA] readonly attribute WebKitMediaKeys webkitKeys;
-    [Conditional=LEGACY_ENCRYPTED_MEDIA] void webkitSetMediaKeys(WebKitMediaKeys? mediaKeys);
+    [Conditional=LEGACY_ENCRYPTED_MEDIA, EnabledAtRuntime=LegacyEncryptedMediaAPI] readonly attribute WebKitMediaKeys webkitKeys;
+    [Conditional=LEGACY_ENCRYPTED_MEDIA, EnabledAtRuntime=LegacyEncryptedMediaAPI] void webkitSetMediaKeys(WebKitMediaKeys? mediaKeys);
     [Conditional=ENCRYPTED_MEDIA, EnabledAtRuntime=EncryptedMediaAPI] readonly attribute MediaKeys mediaKeys;
     [Conditional=ENCRYPTED_MEDIA, EnabledAtRuntime=EncryptedMediaAPI] attribute EventHandler onencrypted;
     [Conditional=ENCRYPTED_MEDIA, EnabledAtRuntime=EncryptedMediaAPI] attribute EventHandler onwaitingforkey;
@@ -105,7 +116,7 @@
 
     [Reflect] attribute DOMString mediaGroup;
 
-    [CustomSetter] attribute MediaController controller;
+    [ImplementedAs=controllerForBindings] attribute MediaController? controller;
 
     [Conditional=MEDIA_SOURCE] VideoPlaybackQuality getVideoPlaybackQuality();
 

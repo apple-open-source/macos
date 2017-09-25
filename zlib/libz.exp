@@ -68,4 +68,11 @@ _deflateResetKeep
 _gzgetc_
 _inflateResetKeep
 _inflateGetDictionary
+_deflateGetDictionary
 _gzvprintf
+_adler32_z
+_crc32_z
+_gzfread
+_gzfwrite
+_uncompress2
+_inflateValidate

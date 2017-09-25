@@ -280,7 +280,6 @@ int run_doc_tombstone(__unused test_ctx_t *ctx)
 	assert_equal(orig_doc_id, attrs.doc_id, "%u");
 	
 	assert_no_err(rmdir(file));
-	
+
 	return 0;
-	
 }

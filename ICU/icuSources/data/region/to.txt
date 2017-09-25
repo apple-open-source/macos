@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/to.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 to{
     Countries{
         001{"Māmani"}
@@ -95,7 +89,7 @@ to{
         CW{"Kulasao"}
         CX{"Motu Kilisimasi"}
         CY{"Saipalesi"}
-        CZ{"Lipapilika Seki"}
+        CZ{"Sēkia"}
         DE{"Siamane"}
         DG{"Tieko Kāsia"}
         DJ{"Siputi"}
@@ -225,7 +219,7 @@ to{
         PL{"Polani"}
         PM{"Sā Piea mo Mikeloni"}
         PN{"ʻOtumotu Pitikeni"}
-        PR{"Pueto Liko"}
+        PR{"Puēto Liko"}
         PS{"Potu Palesitaine"}
         PT{"Potukali"}
         PW{"Palau"}
@@ -258,7 +252,7 @@ to{
         SX{"Sā Mātini (fakahōlani)"}
         SY{"Sīlia"}
         SZ{"Suasilani"}
-        TA{"Tulisiteni ta Kunuha"}
+        TA{"Tulisitani ta Kunuha"}
         TC{"ʻOtumotu Tuki mo Kaikosi"}
         TD{"Sāti"}
         TF{"Potu fonua tonga fakafalanisē"}
@@ -308,7 +302,8 @@ to{
     Countries%variant{
         CD{"Kongo (LTK)"}
         CG{"Kongo (Lipapilika)"}
+        CZ{"Lipapilika Seki"}
         MK{"Masetōnia (FYROM)"}
     }
-    Version{"2.1.23.79"}
+    Version{"2.1.31.74"}
 }

@@ -33,7 +33,7 @@
 #import "QuickDrawCompatibility.h"
 #import "WebDataSourceInternal.h"
 #import "WebDefaultUIDelegate.h"
-#import "WebFrameInternal.h" 
+#import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
@@ -57,8 +57,8 @@
 #import <WebCore/CookieJar.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Element.h>
-#import <WebCore/Frame.h> 
-#import <WebCore/FrameLoader.h> 
+#import <WebCore/Frame.h>
+#import <WebCore/FrameLoader.h>
 #import <WebCore/FrameTree.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HTMLPlugInElement.h>
@@ -67,7 +67,6 @@
 #import <WebCore/ProxyServer.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
-#import <WebCore/SoftLinking.h> 
 #import <WebCore/UserGestureIndicator.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
@@ -81,6 +80,7 @@
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
+#import <wtf/SoftLinking.h>
 #import <wtf/text/CString.h>
 
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
@@ -111,7 +111,7 @@ static WebNetscapePluginView *currentPluginView = nil;
 
 typedef struct OpaquePortState* PortState;
 
-static const double ThrottledTimerInterval = 0.25;
+static const Seconds throttledTimerInterval { 250_ms };
 
 class PluginTimer : public TimerBase {
 public:
@@ -130,13 +130,13 @@ public:
     {
         ASSERT(!isActive());
 
-        double timeInterval = m_interval / 1000.0;
+        Seconds timeInterval = 1_ms * m_interval;
         
         if (throttle)
-            timeInterval = std::max(timeInterval, ThrottledTimerInterval);
+            timeInterval = std::max(timeInterval, throttledTimerInterval);
         
         if (m_repeat)
-            startRepeating(timeInterval);
+            startRepeating(Seconds { timeInterval });
         else
             startOneShot(timeInterval);
     }
@@ -1256,9 +1256,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
       attributeKeys:(NSArray *)keys
     attributeValues:(NSArray *)values
        loadManually:(BOOL)loadManually
-            element:(PassRefPtr<WebCore::HTMLPlugInElement>)element
+            element:(RefPtr<WebCore::HTMLPlugInElement>&&)element
 {
-    self = [super initWithFrame:frame pluginPackage:pluginPackage URL:URL baseURL:baseURL MIMEType:MIME attributeKeys:keys attributeValues:values loadManually:loadManually element:element];
+    self = [super initWithFrame:frame pluginPackage:pluginPackage URL:URL baseURL:baseURL MIMEType:MIME attributeKeys:keys attributeValues:values loadManually:loadManually element:WTFMove(element)];
     if (!self)
         return nil;
 
@@ -1648,7 +1648,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             return NPERR_INVALID_PARAM;
         }
     } else {
-        if (!core([self webFrame])->document()->securityOrigin()->canDisplay(URL))
+        if (!core([self webFrame])->document()->securityOrigin().canDisplay(URL))
             return NPERR_GENERIC_ERROR;
     }
         

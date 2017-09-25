@@ -76,12 +76,9 @@ int readFileExtra(
 		rtn = ENOMEM;
 		goto errOut;
 	}
-	rtn = (int)lseek(fd, 0, SEEK_SET);
-	if(rtn < 0) {
-		goto errOut;
-	}
 	rtn = (int)read(fd, buf, (size_t)size);
 	if(rtn != (int)size) {
+        free(buf);
 		if(rtn >= 0) {
 			printf("readFile: short read\n");
 		}
@@ -92,10 +89,7 @@ int readFileExtra(
 		*bytes = buf;
 		*numBytes = size;
 	}
-    goto finish;
 errOut:
-    if(buf) { free(buf); buf = NULL; }
-finish:
 	close(fd);
 	return rtn;
 }

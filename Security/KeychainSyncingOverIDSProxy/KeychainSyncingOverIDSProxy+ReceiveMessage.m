@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -51,10 +51,7 @@
 
 static NSString *const kIDSNumberOfFragments = @"NumberOfIDSMessageFragments";
 static NSString *const kIDSFragmentIndex = @"kFragmentIndex";
-static NSString *const kIDSOperationType = @"IDSMessageOperation";
-static NSString *const kIDSMessageToSendKey = @"MessageToSendKey";
-static NSString *const kIDSMessageUniqueID = @"MessageID";
-static NSString *const kIDSMessageRecipientPeerID = @"RecipientPeerID";
+static NSString *const kIDSMessageRecipientID = @"RecipientPeerID";
 static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
 
 @implementation KeychainSyncingOverIDSProxy (ReceiveMessage)
@@ -78,7 +75,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     if([message valueForKey:kIDSNumberOfFragments] != nil){
         NSNumber *idsNumberOfFragments = [message objectForKey:kIDSNumberOfFragments];
         NSNumber *index = [message objectForKey:kIDSFragmentIndex];
-        NSString *uuidString = [message objectForKey:kIDSMessageUniqueID];
+        NSString *uuidString = [message objectForKey:(__bridge NSString*)kIDSMessageUniqueID];
         
         if([KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages == nil)
             [KeychainSyncingOverIDSProxy idsProxy].allFragmentedMessages = [NSMutableDictionary dictionary];
@@ -168,11 +165,11 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
             
             NSString *operationString = [[NSString alloc] initWithUTF8String:messageCharS];
             NSString* messageString = @"peer availability check finished";
-            NSDictionary* messsageDictionary = @{kIDSOperationType:operationString, kIDSMessageToSendKey:messageString};
-
+            NSDictionary* messsageDictionary = @{(__bridge NSString*)kIDSOperationType:operationString, (__bridge NSString*)kIDSMessageToSendKey:messageString};
+            
             // We can always hold on to a message and our remote peers would bother everyone
             [self sendIDSMessage:messsageDictionary name:ID peer:@"me"];
-
+            
             free(messageCharS);
             
             break;
@@ -184,13 +181,18 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
             
             //cancel timer!
             secnotice("IDS Transport", "received ack for: %@", uniqueID);
-            dispatch_source_t timer = [[KeychainSyncingOverIDSProxy idsProxy].pingTimers objectForKey:uniqueID];
-            if(timer != nil){
-                dispatch_cancel(timer);
-                [[KeychainSyncingOverIDSProxy idsProxy].pingTimers removeObjectForKey:uniqueID];
-                [[KeychainSyncingOverIDSProxy idsProxy].messagesInFlight removeObjectForKey:uniqueID];
-                [[KeychainSyncingOverIDSProxy idsProxy] persistState];
-            }
+            dispatch_async(self.pingQueue, ^{
+                //remove timer for message id
+                dispatch_source_t timer = [[KeychainSyncingOverIDSProxy idsProxy].pingTimers objectForKey:uniqueID];
+                if(timer != nil){
+                    dispatch_cancel(timer);
+                    [[KeychainSyncingOverIDSProxy idsProxy].pingTimers removeObjectForKey:uniqueID];
+                    dispatch_sync(self.dataQueue, ^{
+                        [[KeychainSyncingOverIDSProxy idsProxy].messagesInFlight removeObjectForKey:uniqueID];
+                    });
+                    [[KeychainSyncingOverIDSProxy idsProxy] persistState];
+                }
+            });
             //call out to securityd to set a NULL
             [self sendKeysCallout:^NSMutableDictionary *(NSMutableDictionary *pending, NSError** error) {
 
@@ -213,23 +215,32 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     asprintf(&messageCharS, "%d",kIDSPeerReceivedACK);
     NSString *operationString = [[NSString alloc] initWithUTF8String:messageCharS];
 
-    NSDictionary* messageDictionary = @{kIDSOperationType:operationString, kIDSMessageToSendKey:messageString, kIDSMessageUniqueID:uniqueID};
+    NSDictionary* messageDictionary = @{(__bridge NSString*)kIDSOperationType:operationString, (__bridge NSString*)kIDSMessageToSendKey:messageString, (__bridge NSString*)kIDSMessageUniqueID:uniqueID};
 
     [self sendIDSMessage:messageDictionary name:ID peer:sendersPeerID];
+
     free(messageCharS);
 
 }
 
+- (void)updateDeviceList
+{
+    self.deviceIDFromAuthToken = nil;
+    self.deviceIDFromAuthToken = [NSMutableDictionary dictionary];
+    [self calloutWith:^(NSMutableDictionary *pending, bool handlePendingMesssages, bool doSetDeviceID, dispatch_queue_t queue, void(^done)(NSMutableDictionary *, bool, bool)) {
+           }];
+}
 - (void)service:(IDSService *)service account:(IDSAccount *)account incomingMessage:(NSDictionary *)message fromID:(NSString *)fromID context:(IDSMessageContext *)context
 {
     NSString *dataKey = [ NSString stringWithUTF8String: kMessageKeyIDSDataMessage ];
     NSString *deviceIDKey = [ NSString stringWithUTF8String: kMessageKeyDeviceID ];
     NSString *peerIDKey = [ NSString stringWithUTF8String: kMessageKeyPeerID ];
     NSString *sendersPeerIDKey = [NSString stringWithUTF8String: kMessageKeySendersPeerID];
+    
+    [KeychainSyncingOverIDSProxy idsProxy].incomingMessages++;
 
     dispatch_async(self.calloutQueue, ^{
         NSString* messageID = nil;
-        NSString *ID = nil;
         uint32_t operationType;
         bool hadError = false;
         CFStringRef errorMessage = NULL;
@@ -238,8 +249,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
         NSString* operationTypeAsString = nil;
         NSMutableDictionary *messageDictionary = nil;
         NSString *useAck = nil;
-        
-        
+        NSString *ID = nil;
         NSArray *devices = [self->_service devices];
         for(NSUInteger i = 0; i < [ devices count ]; i++){
             IDSDevice *device = devices[i];
@@ -257,10 +267,10 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
         
         require_action_quiet(ID, fail, hadError = true; errorMessage = CFSTR("require the sender's device ID"));
         
-        operationTypeAsString = [message objectForKey: kIDSOperationType];
-        messageDictionary = [message objectForKey: kIDSMessageToSendKey];
+        operationTypeAsString = [message objectForKey: (__bridge NSString*)kIDSOperationType];
+        messageDictionary = [message objectForKey: (__bridge NSString*)kIDSMessageToSendKey];
         
-        messageID = [message objectForKey:kIDSMessageUniqueID];
+        messageID = [message objectForKey:(__bridge NSString*)kIDSMessageUniqueID];
         useAck = [message objectForKey:kIDSMessageUseACKModel];
         
         if(useAck != nil && [useAck compare:@"YES"] == NSOrderedSame)
@@ -288,7 +298,7 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
             NSMutableDictionary *messageAndFromID = nil;
             
             if(readyToHandOffToSecD && ([message objectForKey:kIDSFragmentIndex])!= nil){
-                NSString* uuid = [message objectForKey:kIDSMessageUniqueID];
+                NSString* uuid = [message objectForKey:(__bridge NSString*)kIDSMessageUniqueID];
                 messageAndFromID = [self combineMessage:ID peerID:myPeerID uuid:uuid];
             }
             else if(readyToHandOffToSecD){
@@ -302,7 +312,9 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
             
             if([KeychainSyncingOverIDSProxy idsProxy].isLocked){
                 //hang on to the message and set the retry deadline
-                [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                dispatch_sync(self.dataQueue, ^{
+                    [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                });
             }
             else
                 [self sendMessageToSecurity:messageAndFromID fromID:fromID];
@@ -311,7 +323,6 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
     fail:
         if(hadError)
             secerror("error:%@", errorMessage);
-        
     });
 }
 
@@ -319,24 +330,34 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
 - (void) handleAllPendingMessage
 {
     secnotice("IDS Transport", "Attempting to handle pending messsages");
-    if([self.unhandledMessageBuffer count] > 0){
-        secnotice("IDS Transport", "handling Message: %@", self.unhandledMessageBuffer);
-        NSMutableDictionary *copyOfUnhanlded = [NSMutableDictionary dictionaryWithDictionary:self.unhandledMessageBuffer];
-        [copyOfUnhanlded enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop)
-         {
-             NSMutableDictionary *messageAndFromID = (NSMutableDictionary*)obj;
-             NSString *fromID = (NSString*)key;
-             //remove the message from the official message buffer (if it fails to get handled it'll be reset again in sendMessageToSecurity)
+    
+    NSMutableDictionary * __block copyOfUnhandled = nil;
+    dispatch_sync(self.dataQueue, ^{
+        if ([self.unhandledMessageBuffer count] > 0) {
+            secnotice("IDS Transport", "handling messages: %@", self.unhandledMessageBuffer);
+            copyOfUnhandled = [NSMutableDictionary dictionaryWithDictionary:self.unhandledMessageBuffer];
+        }
+    });
+    
+    [copyOfUnhandled enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop)
+     {
+         NSMutableDictionary *messageAndFromID = (NSMutableDictionary*)obj;
+         NSString *fromID = (NSString*)key;
+         //remove the message from the official message buffer (if it fails to get handled it'll be reset again in sendMessageToSecurity)
+         dispatch_sync(self.dataQueue, ^{
              [self.unhandledMessageBuffer removeObjectForKey: fromID];
-             [self sendMessageToSecurity:messageAndFromID fromID:fromID];
-         }];
-    }
+         });
+         [self sendMessageToSecurity:messageAndFromID fromID:fromID];
+     }];
 }
 
 - (bool) shouldPersistMessage:(NSDictionary*) newMessageAndFromID id:(NSString*)fromID
 {
     //get the dictionary of messages for a particular device id
-    NSDictionary* messagesFromBuffer = [self.unhandledMessageBuffer valueForKey:fromID];
+    NSDictionary* __block messagesFromBuffer;
+    dispatch_sync(self.dataQueue, ^{
+        messagesFromBuffer = [self.unhandledMessageBuffer valueForKey:fromID];
+    });
 
     if([messagesFromBuffer isEqual:newMessageAndFromID])
         return false;
@@ -362,31 +383,39 @@ static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
         
         if(success == kHandleIDSMessageLocked){
             secnotice("IDS Transport","cannot handle messages from: %@ when locked, error:%@", fromID, cf_error);
-            if(!self.unhandledMessageBuffer)
-                self.unhandledMessageBuffer = [NSMutableDictionary dictionary];
+            // I don't think this is ever nil but it was like this when I got here
+            dispatch_sync(self.dataQueue, ^{
+                if(!self.unhandledMessageBuffer) {
+                    self.unhandledMessageBuffer = [NSMutableDictionary dictionary];
+                }
+            });
             
             //write message to disk if message is new to the unhandled queue
-            if([self shouldPersistMessage:messageAndFromID id:fromID])
+            if([self shouldPersistMessage:messageAndFromID id:fromID]) {
                 [self persistState];
+            }
             
-            [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-            secnotice("IDS Transport", "unhandledMessageBuffer: %@", self.unhandledMessageBuffer);
+            dispatch_sync(self.dataQueue, ^{
+                [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                secnotice("IDS Transport", "unhandledMessageBuffer: %@", self.unhandledMessageBuffer);
+            });
             
             return NULL;
         }
         else if(success == kHandleIDSMessageNotReady){
             secnotice("IDS Transport","not ready to handle message from: %@, error:%@", fromID, cf_error);
-            if(!self.unhandledMessageBuffer)
-                self.unhandledMessageBuffer = [NSMutableDictionary dictionary];
-            [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
-            secnotice("IDS Transport","unhandledMessageBuffer: %@", self.unhandledMessageBuffer);
-            //set timer
-            [[KeychainSyncingOverIDSProxy idsProxy] scheduleRetryRequestTimer];
-           
+            dispatch_sync(self.dataQueue, ^{
+                if(!self.unhandledMessageBuffer) {
+                    self.unhandledMessageBuffer = [NSMutableDictionary dictionary];
+                }
+                [self.unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
+                secnotice("IDS Transport","unhandledMessageBuffer: %@", self.unhandledMessageBuffer);
+            });
             //write message to disk if message is new to the unhandled queue
             if([self shouldPersistMessage:messageAndFromID id:fromID])
                 [self persistState];
-            
+                
+            [[KeychainSyncingOverIDSProxy idsProxy] scheduleRetryRequestTimer];
             return NULL;
         }
         else if(success == kHandleIDSmessageDeviceIDMismatch){

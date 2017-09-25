@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stddef.h>
 
 typedef struct {
     int flavor;
@@ -73,6 +74,8 @@ dump_thread_state(native_mach_header_t *mh, struct thread_command *tc, mach_port
 
         wbuf += thread_flavor[f].count;
     }
+    assert((ptrdiff_t)tc->cmdsize == ((caddr_t)wbuf - (caddr_t)tc));
+
     mach_header_inc_ncmds(mh, 1);
     mach_header_inc_sizeofcmds(mh, tc->cmdsize);
 }

@@ -31,6 +31,7 @@
 #include "CachedResourceRequest.h"
 #include "CachedResourceRequestInitiators.h"
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -76,18 +77,23 @@ void IconLoader::startLoading()
 
     ResourceRequest resourceRequest = m_documentLoader ? m_url :  m_frame->loader().icon().url();
     resourceRequest.setPriority(ResourceLoadPriority::Low);
+#if !ERROR_DISABLED
+    // Copy this because we may want to access it after transferring the
+    // `resourceRequest` to the `request`. If we don't, then the LOG_ERROR
+    // below won't print a URL.
+    auto resourceRequestURL = resourceRequest.url();
+#endif
 
-    // ContentSecurityPolicyImposition::DoPolicyCheck is a placeholder value. It does not affect the request since Content Security Policy does not apply to raw resources.
     CachedResourceRequest request(WTFMove(resourceRequest), ResourceLoaderOptions(SendCallbacks, SniffContent, BufferData, DoNotAllowStoredCredentials, ClientCredentialPolicy::CannotAskClientForCredentials, FetchOptions::Credentials::Omit, DoSecurityCheck, FetchOptions::Mode::NoCors, DoNotIncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck, DefersLoadingPolicy::AllowDefersLoading, CachingPolicy::AllowCaching));
 
     request.setInitiator(cachedResourceRequestInitiators().icon);
 
     auto* frame = m_frame ? m_frame : m_documentLoader->frame();
-    m_resource = frame->document()->cachedResourceLoader().requestRawResource(WTFMove(request));
+    m_resource = frame->document()->cachedResourceLoader().requestIcon(WTFMove(request));
     if (m_resource)
         m_resource->addClient(*this);
     else
-        LOG_ERROR("Failed to start load for icon at url %s", resourceRequest.url().string().ascii().data());
+        LOG_ERROR("Failed to start load for icon at url %s", resourceRequestURL.string().ascii().data());
 }
 
 void IconLoader::stopLoading()
@@ -118,17 +124,20 @@ void IconLoader::notifyFinished(CachedResource& resource)
 
     LOG(IconDatabase, "IconLoader::finishLoading() - Committing iconURL %s to database", m_resource->url().string().ascii().data());
 
-    if (m_frame) {
-        m_frame->loader().icon().commitToDatabase(m_resource->url());
-
-        // Setting the icon data only after committing to the database ensures that the data is
-        // kept in memory (so it does not have to be read from the database asynchronously), since
-        // there is a page URL referencing it.
-        iconDatabase().setIconDataForIconURL(data, m_resource->url().string());
-        m_frame->loader().client().dispatchDidReceiveIcon();
-
-    } else
+    if (!m_frame) {
+        // DocumentLoader::finishedLoadingIcon destroys this IconLoader as it finishes. This will automatically
+        // trigger IconLoader::stopLoading() during destruction, so we should just return here.
         m_documentLoader->finishedLoadingIcon(*this, data);
+        return;
+    }
+
+    m_frame->loader().icon().commitToDatabase(m_resource->url());
+
+    // Setting the icon data only after committing to the database ensures that the data is
+    // kept in memory (so it does not have to be read from the database asynchronously), since
+    // there is a page URL referencing it.
+    iconDatabase().setIconDataForIconURL(data, m_resource->url().string());
+    m_frame->loader().client().dispatchDidReceiveIcon();
 
     stopLoading();
 }

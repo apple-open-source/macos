@@ -94,7 +94,7 @@ void WebPaymentCoordinatorProxy::showPaymentUI(const String& originatingURLStrin
 
     if (activePaymentCoordinatorProxy) {
         activePaymentCoordinatorProxy->hidePaymentUI();
-        activePaymentCoordinatorProxy->didCancelPayment();
+        activePaymentCoordinatorProxy->didCancelPaymentSession();
     }
 
     activePaymentCoordinatorProxy = this;
@@ -110,7 +110,7 @@ void WebPaymentCoordinatorProxy::showPaymentUI(const String& originatingURLStrin
     platformShowPaymentUI(originatingURL, linkIconURLs, paymentRequest, [this](bool result) {
         ASSERT(m_state == State::Activating);
         if (!result) {
-            didCancelPayment();
+            didCancelPaymentSession();
             return;
         }
 
@@ -120,23 +120,7 @@ void WebPaymentCoordinatorProxy::showPaymentUI(const String& originatingURLStrin
     result = true;
 }
 
-static bool isValidEnum(WebCore::PaymentAuthorizationStatus status)
-{
-    switch (status) {
-    case WebCore::PaymentAuthorizationStatus::Success:
-    case WebCore::PaymentAuthorizationStatus::Failure:
-    case WebCore::PaymentAuthorizationStatus::InvalidBillingPostalAddress:
-    case WebCore::PaymentAuthorizationStatus::InvalidShippingPostalAddress:
-    case WebCore::PaymentAuthorizationStatus::InvalidShippingContact:
-    case WebCore::PaymentAuthorizationStatus::PINRequired:
-    case WebCore::PaymentAuthorizationStatus::PINIncorrect:
-    case WebCore::PaymentAuthorizationStatus::PINLockout:
-        return true;
-    }
-
-    return false;
-}
-
+    
 void WebPaymentCoordinatorProxy::completeMerchantValidation(const WebCore::PaymentMerchantSession& paymentMerchantSession)
 {
     // It's possible that the payment has been canceled already.
@@ -150,7 +134,7 @@ void WebPaymentCoordinatorProxy::completeMerchantValidation(const WebCore::Payme
     m_merchantValidationState = MerchantValidationState::ValidationComplete;
 }
 
-void WebPaymentCoordinatorProxy::completeShippingMethodSelection(uint32_t opaqueStatus, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
+void WebPaymentCoordinatorProxy::completeShippingMethodSelection(const std::optional<WebCore::ShippingMethodUpdate>& update)
 {
     // It's possible that the payment has been canceled already.
     if (m_state == State::Idle)
@@ -159,16 +143,11 @@ void WebPaymentCoordinatorProxy::completeShippingMethodSelection(uint32_t opaque
     // FIXME: This should be a MESSAGE_CHECK.
     ASSERT(m_state == State::ShippingMethodSelected);
 
-    auto status = static_cast<WebCore::PaymentAuthorizationStatus>(opaqueStatus);
-
-    // FIXME: Make this a message check.
-    RELEASE_ASSERT(isValidEnum(status));
-
-    platformCompleteShippingMethodSelection(status, newTotalAndLineItems);
+    platformCompleteShippingMethodSelection(update);
     m_state = State::Active;
 }
 
-void WebPaymentCoordinatorProxy::completeShippingContactSelection(uint32_t opaqueStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>& newShippingMethods, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
+void WebPaymentCoordinatorProxy::completeShippingContactSelection(const std::optional<WebCore::ShippingContactUpdate>& update)
 {
     // It's possible that the payment has been canceled already.
     if (m_state == State::Idle)
@@ -177,16 +156,11 @@ void WebPaymentCoordinatorProxy::completeShippingContactSelection(uint32_t opaqu
     // FIXME: This should be a MESSAGE_CHECK.
     ASSERT(m_state == State::ShippingContactSelected);
 
-    auto status = static_cast<WebCore::PaymentAuthorizationStatus>(opaqueStatus);
-
-    // FIXME: Make this a message check.
-    RELEASE_ASSERT(isValidEnum(status));
-
-    platformCompleteShippingContactSelection(status, newShippingMethods, newTotalAndLineItems);
+    platformCompleteShippingContactSelection(update);
     m_state = State::Active;
 }
 
-void WebPaymentCoordinatorProxy::completePaymentMethodSelection(const std::optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
+void WebPaymentCoordinatorProxy::completePaymentMethodSelection(const std::optional<WebCore::PaymentMethodUpdate>& update)
 {
     // It's possible that the payment has been canceled already.
     if (m_state == State::Idle)
@@ -195,24 +169,21 @@ void WebPaymentCoordinatorProxy::completePaymentMethodSelection(const std::optio
     // FIXME: This should be a MESSAGE_CHECK.
     ASSERT(m_state == State::PaymentMethodSelected);
 
-    platformCompletePaymentMethodSelection(newTotalAndLineItems);
+    platformCompletePaymentMethodSelection(update);
     m_state = State::Active;
 }
 
-void WebPaymentCoordinatorProxy::completePaymentSession(uint32_t opaqueStatus)
+void WebPaymentCoordinatorProxy::completePaymentSession(const std::optional<WebCore::PaymentAuthorizationResult>& result)
 {
     // It's possible that the payment has been canceled already.
     if (!canCompletePayment())
         return;
 
-    auto status = static_cast<WebCore::PaymentAuthorizationStatus>(opaqueStatus);
+    bool isFinalStateResult = WebCore::isFinalStateResult(result);
 
-    // FIXME: Make this a message check.
-    RELEASE_ASSERT(isValidEnum(status));
+    platformCompletePaymentSession(result);
 
-    platformCompletePaymentSession(status);
-
-    if (!WebCore::isFinalStateStatus(status)) {
+    if (!isFinalStateResult) {
         m_state = State::Active;
         return;
     }
@@ -231,11 +202,20 @@ void WebPaymentCoordinatorProxy::abortPaymentSession()
     didReachFinalState();
 }
 
-void WebPaymentCoordinatorProxy::didCancelPayment()
+void WebPaymentCoordinatorProxy::cancelPaymentSession()
+{
+    if (!canCancel())
+        return;
+
+    hidePaymentUI();
+    didCancelPaymentSession();
+}
+
+void WebPaymentCoordinatorProxy::didCancelPaymentSession()
 {
     ASSERT(canCancel());
 
-    m_webPageProxy.send(Messages::WebPaymentCoordinator::DidCancelPayment());
+    m_webPageProxy.send(Messages::WebPaymentCoordinator::DidCancelPaymentSession());
 
     didReachFinalState();
 }

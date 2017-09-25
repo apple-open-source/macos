@@ -5083,12 +5083,11 @@ static NSString *CopyLeakLine()
     CFErrorRef err = NULL;
     
     // Derived from Matt Wright's 10242560 test.c
-    int fd = open("/dev/random", O_RDONLY);
     SecTransformRef b64encode = SecEncodeTransformCreate(kSecBase64Encoding, NULL);
     const int buffer_size = 1024;
     void *buffer = malloc(buffer_size);
-    // For this test, ignore short reads
-    read(fd, buffer, buffer_size);
+    STAssert(SecRandomCopyBytes(kSecRandomDefault, buffer_size, buffer) == noErr), @"Random failed");
+
     CFDataRef data = CFDataCreateWithBytesNoCopy(NULL, (UInt8*)buffer, buffer_size, kCFAllocatorMalloc);
     SecTransformSetAttribute(b64encode, kSecTransformInputAttributeName, data, &err);
     STAssertNil((id)err, @"Expected no SecTransformSetAttribute error, got: %@", err);

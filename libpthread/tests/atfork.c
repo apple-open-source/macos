@@ -5,7 +5,7 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 static const char ATFORK_PREPARE[] = "prepare";
 static const char ATFORK_PARENT[] = "parent";

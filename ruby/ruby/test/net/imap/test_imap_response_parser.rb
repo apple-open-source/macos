@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "net/imap"
 require "test/unit"
 
@@ -111,16 +113,12 @@ EOF
 * 1 FETCH (UID 92285 )
 EOF
     assert_equal 92285, response.data.attr["UID"]
-
-    response = parser.parse(<<EOF.gsub(/\n/, "\r\n").taint)
-* 1 FETCH (UID 92285  )
-EOF
   end
 
   def test_msg_att_parse_error
     parser = Net::IMAP::ResponseParser.new
     e = assert_raise(Net::IMAP::ResponseParseError) {
-      response = parser.parse(<<EOF.gsub(/\n/, "\r\n").taint)
+      parser.parse(<<EOF.gsub(/\n/, "\r\n").taint)
 * 123 FETCH (UNKNOWN 92285)
 EOF
     }
@@ -181,31 +179,6 @@ EOF
 EOF
   end
 
-  # [Bug #8281]
-  def test_acl
-    parser = Net::IMAP::ResponseParser.new
-    response = parser.parse(<<EOF.gsub(/\n/, "\r\n").taint)
-* ACL "INBOX/share" "imshare2copy1366146467@xxxxxxxxxxxxxxxxxx.com" lrswickxteda
-EOF
-    assert_equal("ACL", response.name)
-    assert_equal(1, response.data.length)
-    assert_equal("INBOX/share", response.data[0].mailbox)
-    assert_equal("imshare2copy1366146467@xxxxxxxxxxxxxxxxxx.com",
-                 response.data[0].user)
-    assert_equal("lrswickxteda", response.data[0].rights)
-  end
-
-  # [Bug #8415]
-  def test_capability
-    parser = Net::IMAP::ResponseParser.new
-    response = parser.parse("* CAPABILITY st11p00mm-iscream009 1Q49 XAPPLEPUSHSERVICE IMAP4 IMAP4rev1 SASL-IR AUTH=ATOKEN AUTH=PLAIN\r\n")
-    assert_equal("CAPABILITY", response.name)
-    assert_equal("AUTH=PLAIN", response.data.last)
-    response = parser.parse("* CAPABILITY st11p00mm-iscream009 1Q49 XAPPLEPUSHSERVICE IMAP4 IMAP4rev1 SASL-IR AUTH=ATOKEN AUTH=PLAIN \r\n")
-    assert_equal("CAPABILITY", response.name)
-    assert_equal("AUTH=PLAIN", response.data.last)
-  end
-
   # [Bug #8167]
   def test_msg_delivery_status_with_extra_data
     parser = Net::IMAP::ResponseParser.new
@@ -249,13 +222,73 @@ EOF
     assert_equal(410, delivery_status.size)
   end
 
+  # [Bug #8281]
+  def test_acl
+    parser = Net::IMAP::ResponseParser.new
+    response = parser.parse(<<EOF.gsub(/\n/, "\r\n").taint)
+* ACL "INBOX/share" "imshare2copy1366146467@xxxxxxxxxxxxxxxxxx.com" lrswickxteda
+EOF
+    assert_equal("ACL", response.name)
+    assert_equal(1, response.data.length)
+    assert_equal("INBOX/share", response.data[0].mailbox)
+    assert_equal("imshare2copy1366146467@xxxxxxxxxxxxxxxxxx.com",
+                 response.data[0].user)
+    assert_equal("lrswickxteda", response.data[0].rights)
+  end
+
+  # [Bug #8415]
+  def test_capability
+    parser = Net::IMAP::ResponseParser.new
+    response = parser.parse("* CAPABILITY st11p00mm-iscream009 1Q49 XAPPLEPUSHSERVICE IMAP4 IMAP4rev1 SASL-IR AUTH=ATOKEN AUTH=PLAIN\r\n")
+    assert_equal("CAPABILITY", response.name)
+    assert_equal("AUTH=PLAIN", response.data.last)
+    response = parser.parse("* CAPABILITY st11p00mm-iscream009 1Q49 XAPPLEPUSHSERVICE IMAP4 IMAP4rev1 SASL-IR AUTH=ATOKEN AUTH=PLAIN \r\n")
+    assert_equal("CAPABILITY", response.name)
+    assert_equal("AUTH=PLAIN", response.data.last)
+  end
+
   def test_mixed_boundry
     parser = Net::IMAP::ResponseParser.new
-    response = parser.parse("* 2688 FETCH (UID 179161 BODYSTRUCTURE ((\"TEXT\" \"PLAIN\" (\"CHARSET\" \"iso-8859-1\") NIL NIL \"QUOTED-PRINTABLE\" 200 4 NIL NIL NIL)(\"MESSAGE\" \"DELIVERY-STATUS\" NIL NIL NIL \"7BIT\" 318 NIL NIL NIL)(\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 2177 (\"Tue, 11 May 2010 18:28:16 -0400\" \"Re: Welcome letter\" ((\"David\" NIL \"info\" \"xxxxxxxx.si\")) ((\"David\" NIL \"info\" \"xxxxxxxx.si\")) ((\"David\" NIL \"info\" \"xxxxxxxx.si\")) ((\"Doretha\" NIL \"doretha.info\" \"xxxxxxxx.si\")) NIL NIL \"<AC1D15E06EA82F47BDE18E851CC32F330717704E@localdomain>\" \"<AANLkTikKMev1I73L2E7XLjRs67IHrEkb23f7ZPmD4S_9@localdomain>\") (\"MIXED\" (\"BOUNDARY\" \"000e0cd29212e3e06a0486590ae2\") NIL NIL) 37 NIL NIL NIL) \"REPORT\" (\"BOUNDARY\" \"16DuG.4XbaNOvCi.9ggvq.8Ipnyp3\" \"REPORT-TYPE\" \"delivery-status\") NIL NIL))\r\n")
+    response = parser.parse("* 2688 FETCH (UID 179161 BODYSTRUCTURE (" \
+                            "(\"TEXT\" \"PLAIN\" (\"CHARSET\" \"iso-8859-1\") NIL NIL \"QUOTED-PRINTABLE\" 200 4 NIL NIL NIL)" \
+                            "(\"MESSAGE\" \"DELIVERY-STATUS\" NIL NIL NIL \"7BIT\" 318 NIL NIL NIL)" \
+                            "(\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 2177" \
+                            " (\"Tue, 11 May 2010 18:28:16 -0400\" \"Re: Welcome letter\" (" \
+                              "(\"David\" NIL \"info\" \"xxxxxxxx.si\")) " \
+                              "((\"David\" NIL \"info\" \"xxxxxxxx.si\")) " \
+                              "((\"David\" NIL \"info\" \"xxxxxxxx.si\")) " \
+                              "((\"Doretha\" NIL \"doretha.info\" \"xxxxxxxx.si\")) " \
+                              "NIL NIL " \
+                              "\"<AC1D15E06EA82F47BDE18E851CC32F330717704E@localdomain>\" " \
+                              "\"<AANLkTikKMev1I73L2E7XLjRs67IHrEkb23f7ZPmD4S_9@localdomain>\")" \
+                            " (\"MIXED\" (\"BOUNDARY\" \"000e0cd29212e3e06a0486590ae2\") NIL NIL)" \
+                            " 37 NIL NIL NIL)" \
+                            " \"REPORT\" (\"BOUNDARY\" \"16DuG.4XbaNOvCi.9ggvq.8Ipnyp3\" \"REPORT-TYPE\" \"delivery-status\") NIL NIL))\r\n")
     empty_part = response.data.attr['BODYSTRUCTURE'].parts[2]
     assert_equal(empty_part.lines, 37)
     assert_equal(empty_part.body.media_type, 'MULTIPART')
     assert_equal(empty_part.body.subtype, 'MIXED')
     assert_equal(empty_part.body.param['BOUNDARY'], '000e0cd29212e3e06a0486590ae2')
+  end
+
+  # [Bug #10112]
+  def test_search_modseq
+    parser = Net::IMAP::ResponseParser.new
+    response = parser.parse("* SEARCH 87216 87221 (MODSEQ 7667567)\r\n")
+    assert_equal("SEARCH", response.name)
+    assert_equal([87216, 87221], response.data)
+  end
+
+  # [Bug #11128]
+  def test_body_ext_mpart_without_lang
+    parser = Net::IMAP::ResponseParser.new
+    response = parser.parse("* 4 FETCH (BODY (((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 257 9 NIL NIL NIL NIL)(\"text\" \"html\" (\"charset\" \"utf-8\") NIL NIL \"quoted-printable\" 655 9 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"001a1137a5047848dd05157ddaa1\") NIL)(\"application\" \"pdf\" (\"name\" \"test.xml\" \"x-apple-part-url\" \"9D00D9A2-98AB-4EFB-85BA-FB255F8BF3D7\") NIL NIL \"base64\" 4383638 NIL (\"attachment\" (\"filename\" \"test.xml\")) NIL NIL) \"mixed\" (\"boundary\" \"001a1137a5047848e405157ddaa3\") NIL))\r\n")
+    assert_equal("FETCH", response.name)
+    body = response.data.attr["BODY"]
+    assert_equal(nil, body.parts[0].disposition)
+    assert_equal(nil, body.parts[0].language)
+    assert_equal("ATTACHMENT", body.parts[1].disposition.dsp_type)
+    assert_equal("test.xml", body.parts[1].disposition.param["FILENAME"])
+    assert_equal(nil, body.parts[1].language)
   end
 end

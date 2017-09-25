@@ -93,7 +93,8 @@ static void tests(void)
     CFDataRef entropy2 = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, sEntropy2, sizeof(sEntropy2), kCFAllocatorNull);
 
     SecKeyRef peer1SigningKey = NULL;
-    SOSFullPeerInfoRef fullPeer1WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer1WithBackupID"), &peer1SigningKey, &localError);
+    SecKeyRef peer1OctagonSigningKey = NULL;
+    SOSFullPeerInfoRef fullPeer1WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer1WithBackupID"), &peer1SigningKey, &peer1OctagonSigningKey, &localError);
     ok(fullPeer1WithBackup, "Allocate peer 1 (%@)", localError);
     CFReleaseNull(localError);
 
@@ -106,7 +107,8 @@ static void tests(void)
     SOSPeerInfoRef peer1WithBackup = SOSFullPeerInfoGetPeerInfo(fullPeer1WithBackup);
 
     SecKeyRef peer2SigningKey = NULL;
-    SOSFullPeerInfoRef fullPeer2WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer2WithBackupID"), &peer2SigningKey, &localError);
+    SecKeyRef peer2OctagonSigningKey = NULL;
+    SOSFullPeerInfoRef fullPeer2WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer2WithBackupID"), &peer2SigningKey, &peer2OctagonSigningKey, &localError);
     ok(fullPeer2WithBackup, "Allocate peer 2 (%@)", localError);
     CFReleaseNull(localError);
 
@@ -156,10 +158,12 @@ TODO:{
     CFReleaseNull(piSet);
 
     CFReleaseNull(peer1SigningKey);
+    CFReleaseNull(peer2OctagonSigningKey);
     CFReleaseNull(peer1BackupPublic);
     CFReleaseNull(fullPeer1WithBackup);
 
     CFReleaseNull(peer2SigningKey);
+    CFReleaseNull(peer2OctagonSigningKey);
     CFReleaseNull(peer2BackupPublic);
     CFReleaseNull(fullPeer2WithBackup);
 

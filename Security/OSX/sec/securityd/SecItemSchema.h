@@ -32,30 +32,34 @@
 
 __BEGIN_DECLS
 
-// Current schema is always kc_schemas[0]
-extern const SecDbSchema *kc_schemas[];
+const SecDbSchema* current_schema(void);
+const SecDbSchema * const * all_schemas(void);
 
-// Direct class accesors for current schema
-extern const SecDbClass genp_class;
-extern const SecDbClass inet_class;
-extern const SecDbClass cert_class;
-extern const SecDbClass keys_class;
+// class accessors for current schema
+const SecDbClass* genp_class(void);
+const SecDbClass* inet_class(void);
+const SecDbClass* cert_class(void);
+const SecDbClass* keys_class(void);
 
 // Not really a class per-se
-extern const SecDbClass identity_class;
+const SecDbClass* identity_class(void);
 
 // Class with 1 element in it which is the database version.
-extern const SecDbClass tversion_class;
+const SecDbClass* tversion_class(void);
 
-// Direct attribute accesors for current schema
+// Direct attribute accessors
+// If you change one of these, update it here
 extern const SecDbAttr v6v_Data;
 
 extern const SecDbAttr v6agrp;
+extern const SecDbAttr v6desc;
 extern const SecDbAttr v6svce;
 extern const SecDbAttr v7vwht;
 extern const SecDbAttr v7tkid;
 extern const SecDbAttr v7utomb;
 extern const SecDbAttr v8musr;
+extern const SecDbAttr v10itemuuid;
+extern const SecDbAttr v10itempersistentref;
 
 // TODO: Directly expose other important attributes like
 // kSecItemSyncAttr, kSecItemTombAttr, kSecItemCdatAttr, kSecItemMdatAttr, kSecItemDataAttr

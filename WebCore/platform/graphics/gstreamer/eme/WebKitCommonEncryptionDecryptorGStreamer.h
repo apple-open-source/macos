@@ -22,7 +22,7 @@
 
 #pragma once
 
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA) && USE(GSTREAMER)
+#if ENABLE(ENCRYPTED_MEDIA) && USE(GSTREAMER)
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
@@ -53,7 +53,6 @@ struct _WebKitMediaCommonEncryptionDecryptClass {
     GstBaseTransformClass parentClass;
 
     const char* protectionSystemId;
-    void (*requestDecryptionKey)(WebKitMediaCommonEncryptionDecrypt*, GstBuffer* initData);
     gboolean (*handleKeyResponse)(WebKitMediaCommonEncryptionDecrypt*, GstEvent* event);
     gboolean (*setupCipher)(WebKitMediaCommonEncryptionDecrypt*);
     gboolean (*decrypt)(WebKitMediaCommonEncryptionDecrypt*, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSamplesCount, GstBuffer* subSamplesBuffer);
@@ -62,4 +61,4 @@ struct _WebKitMediaCommonEncryptionDecryptClass {
 
 G_END_DECLS
 
-#endif
+#endif // ENABLE(ENCRYPTED_MEDIA) && USE(GSTREAMER)

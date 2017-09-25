@@ -1,14 +1,14 @@
 #
 # Locale file makefile for CUPS.
 #
-# Copyright 2007-2014 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1993-2007 by Easy Software Products.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 
 include ../Makedefs
@@ -131,8 +131,8 @@ pot:	checkpo po2strings
 	cd ..; xgettext -o locale/cups.pot -cTRANSLATORS -s \
 		--keyword=_ --no-wrap \
 		--copyright-holder="Apple Inc." \
-		--package-name="CUPS" --package-version="1.6" \
-		--msgid-bugs-address="http://www.cups.org/str.php" \
+		--package-name="CUPS" --package-version="$(CUPS_VERSION)" \
+		--msgid-bugs-address="https://github.com/apple/cups/issues" \
 		*/*.c */*.cxx
 	(cat cups.header; tail +6 cups.pot; cat cups.footer) > cups.pot.N
 	mv cups.pot.N cups.pot
@@ -158,14 +158,12 @@ pot:	checkpo po2strings
 
 checkpo:	checkpo.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o checkpo checkpo.o \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o checkpo checkpo.o \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
 
 checkall:	checkpo
-	for file in *.po; do \
-		./checkpo $$file; \
-	done
+	./checkpo *.po *.strings
 
 
 #
@@ -177,7 +175,7 @@ checkall:	checkpo
 
 po2strings:	po2strings.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o po2strings po2strings.o \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o po2strings po2strings.o \
 		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
 		$(COMMONLIBS) $(LIBZ)
 
@@ -191,7 +189,7 @@ po2strings:	po2strings.o ../cups/$(LIBCUPSSTATIC)
 
 strings2po:	strings2po.o
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o strings2po strings2po.o
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o strings2po strings2po.o
 
 
 #

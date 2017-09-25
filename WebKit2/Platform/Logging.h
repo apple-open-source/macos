@@ -27,7 +27,6 @@
 #define WebKitLogging_h
 
 #include <WebCore/LogMacros.h>
-#include <functional>
 #include <wtf/Assertions.h>
 #include <wtf/text/WTFString.h>
 
@@ -43,11 +42,11 @@ extern "C" {
 
 #define WEBKIT2_LOG_CHANNELS(M) \
     M(ContextMenu) \
+    M(DragAndDrop) \
     M(Gamepad) \
     M(IconDatabase) \
     M(IDB) \
     M(IndexedDB) \
-    M(InspectorServer) \
     M(IPC) \
     M(KeyHandling) \
     M(Layers) \
@@ -63,6 +62,7 @@ extern "C" {
     M(ProcessSuspension) \
     M(RemoteLayerTree) \
     M(Resize) \
+    M(ResourceLoadStatistics) \
     M(Selection) \
     M(SessionState) \
     M(StorageAPI) \
@@ -71,6 +71,7 @@ extern "C" {
     M(ViewState) \
     M(VirtualMemory) \
     M(VisibleRects) \
+    M(WebRTC) \
 
 WEBKIT2_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 

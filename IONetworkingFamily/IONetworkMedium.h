@@ -212,7 +212,7 @@ protected:
     @abstract Frees the IONetworkMedium object. 
 */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -393,7 +393,7 @@ public:
     @result Returns true if equal, false otherwise. 
 */
 
-    virtual bool isEqualTo(const OSMetaClassBase * obj) const;
+    virtual bool isEqualTo(const OSMetaClassBase * obj) const APPLE_KEXT_OVERRIDE;
 
 /*! @function serialize
     @abstract Serializes the IONetworkMedium object.
@@ -404,7 +404,7 @@ public:
     @result Returns true on success, false otherwise. 
 */
 
-    virtual bool serialize(OSSerialize * s) const;
+    virtual bool serialize(OSSerialize * s) const APPLE_KEXT_OVERRIDE;
 
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IONetworkMedium,  0);

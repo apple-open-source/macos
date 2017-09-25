@@ -37,6 +37,7 @@ typedef NS_ENUM(NSInteger, _WKActivatedElementType) {
     _WKActivatedElementTypeLink,
     _WKActivatedElementTypeImage,
     _WKActivatedElementTypeAttachment WK_API_AVAILABLE(macosx(10.12), ios(10.0)),
+    _WKActivatedElementTypeUnspecified WK_API_AVAILABLE(macosx(10.13), ios(11.0)),
 } WK_API_AVAILABLE(macosx(10.10), ios(8.0));
 
 WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
@@ -48,6 +49,7 @@ WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 @property (nonatomic, readonly) CGRect boundingRect;
 @property (nonatomic, readonly) NSString *ID WK_API_AVAILABLE(macosx(10.12), ios(10.0));
 #if TARGET_OS_IPHONE
+@property (nonatomic, readonly) NSDictionary *userInfo WK_API_AVAILABLE(ios(WK_IOS_TBA));
 @property (nonatomic, readonly, copy) UIImage *image;
 #else
 @property (nonatomic, readonly, copy) NSImage *image;

@@ -34,6 +34,7 @@
 #include "CryptoKeyDataOctetSequence.h"
 #include "CryptoKeyHMAC.h"
 #include "ExceptionCode.h"
+#include <wtf/Variant.h>
 
 namespace WebCore {
 
@@ -69,12 +70,12 @@ bool CryptoAlgorithmHMAC::keyAlgorithmMatches(const CryptoAlgorithmHmacParamsDep
     return true;
 }
 
-void CryptoAlgorithmHMAC::sign(Ref<CryptoKey>&& key, Vector<uint8_t>&& data, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmHMAC::sign(std::unique_ptr<CryptoAlgorithmParameters>&&, Ref<CryptoKey>&& key, Vector<uint8_t>&& data, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
     platformSign(WTFMove(key), WTFMove(data), WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
 
-void CryptoAlgorithmHMAC::verify(Ref<CryptoKey>&& key, Vector<uint8_t>&& signature, Vector<uint8_t>&& data, BoolCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmHMAC::verify(std::unique_ptr<CryptoAlgorithmParameters>&&, Ref<CryptoKey>&& key, Vector<uint8_t>&& signature, Vector<uint8_t>&& data, BoolCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
     platformVerify(WTFMove(key), WTFMove(signature), WTFMove(data), WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
@@ -118,18 +119,18 @@ void CryptoAlgorithmHMAC::importKey(SubtleCrypto::KeyFormat format, KeyData&& da
         result = CryptoKeyHMAC::importRaw(hmacParameters.length.value_or(0), hmacParameters.hashIdentifier, WTFMove(WTF::get<Vector<uint8_t>>(data)), extractable, usages);
         break;
     case SubtleCrypto::KeyFormat::Jwk: {
-        auto checkAlgCallback = [](CryptoAlgorithmIdentifier hash, const std::optional<String>& alg) -> bool {
+        auto checkAlgCallback = [](CryptoAlgorithmIdentifier hash, const String& alg) -> bool {
             switch (hash) {
             case CryptoAlgorithmIdentifier::SHA_1:
-                return !alg || alg.value() == ALG1;
+                return alg.isNull() || alg == ALG1;
             case CryptoAlgorithmIdentifier::SHA_224:
-                return !alg || alg.value() == ALG224;
+                return alg.isNull() || alg == ALG224;
             case CryptoAlgorithmIdentifier::SHA_256:
-                return !alg || alg.value() == ALG256;
+                return alg.isNull() || alg == ALG256;
             case CryptoAlgorithmIdentifier::SHA_384:
-                return !alg || alg.value() == ALG384;
+                return alg.isNull() || alg == ALG384;
             case CryptoAlgorithmIdentifier::SHA_512:
-                return !alg || alg.value() == ALG512;
+                return alg.isNull() || alg == ALG512;
             default:
                 return false;
             }
@@ -194,6 +195,11 @@ void CryptoAlgorithmHMAC::exportKey(SubtleCrypto::KeyFormat format, Ref<CryptoKe
     }
 
     callback(format, WTFMove(result));
+}
+
+ExceptionOr<size_t> CryptoAlgorithmHMAC::getKeyLength(const CryptoAlgorithmParameters& parameters)
+{
+    return CryptoKeyHMAC::getKeyLength(parameters);
 }
 
 ExceptionOr<void> CryptoAlgorithmHMAC::sign(const CryptoAlgorithmParametersDeprecated& parameters, const CryptoKey& key, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback)

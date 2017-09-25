@@ -40,7 +40,6 @@
 #include <WebCore/EventNames.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
-#include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameTree.h>
 #include <WebCore/FrameView.h>
@@ -72,6 +71,7 @@
 #include <runtime/JSLock.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/text/WTFString.h>
+#include <wtf/text/win/WCharStringExtras.h>
 #include <wtf/win/GDIObject.h>
 
 #if USE(CAIRO)
@@ -335,7 +335,7 @@ PluginView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         pushPopupsEnabledState(true);
 
-        m_popPopupsStateTimer.startOneShot(0);
+        m_popPopupsStateTimer.startOneShot(0_s);
     }
 
     if (message == WM_PRINTCLIENT) {
@@ -761,13 +761,13 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const
 
     // Get file info
     WIN32_FILE_ATTRIBUTE_DATA attrs;
-    if (GetFileAttributesExW(filename.charactersWithNullTermination().data(), GetFileExInfoStandard, &attrs) == 0)
+    if (!GetFileAttributesExW(stringToNullTerminatedWChar(filename).data(), GetFileExInfoStandard, &attrs))
         return NPERR_FILE_NOT_FOUND;
 
     if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         return NPERR_FILE_NOT_FOUND;
 
-    HANDLE fileHandle = CreateFileW(filename.charactersWithNullTermination().data(), FILE_READ_DATA, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE fileHandle = CreateFileW(stringToNullTerminatedWChar(filename).data(), FILE_READ_DATA, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     
     if (fileHandle == INVALID_HANDLE_VALUE)
         return NPERR_FILE_NOT_FOUND;
@@ -839,7 +839,7 @@ void PluginView::invalidateRect(NPRect* rect)
         if (m_plugin->quirks().contains(PluginQuirkThrottleInvalidate)) {
             m_invalidRects.append(r);
             if (!m_invalidateTimer.isActive())
-                m_invalidateTimer.startOneShot(0.001);
+                m_invalidateTimer.startOneShot(1_ms);
         } else
             invalidateRect(r);
     }

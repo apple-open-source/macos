@@ -30,6 +30,8 @@
 #include <Security/Authorization.h>
 #include <Security/AuthorizationTagsPriv.h>
 
+#include <os/activity.h>
+
 #if 0
 static CFTypeID
 SecPasswordGetTypeID(void)
@@ -46,6 +48,9 @@ OSStatus
 SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecGenericPasswordCreate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
     KCThrowParamErrIf_( (itemRef == NULL) );
     KCThrowParamErrIf_( (searchAttrList == NULL) ^ (itemAttrList == NULL) ); // Both or neither
     
@@ -60,6 +65,9 @@ OSStatus
 SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecPasswordSetInitialAccess", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 	PasswordImpl::required(itemRef)->setAccess(Access::required(accessRef));
 	END_SECAPI
 }
@@ -68,6 +76,9 @@ OSStatus
 SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecPasswordAction", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
     Password passwordRef = PasswordImpl::required(itemRef);
     
@@ -235,8 +246,10 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                 }
             }
         }
-        
-        AuthorizationFreeItemSet(returnedInfo);
+
+        if(returnedInfo) {
+            AuthorizationFreeItemSet(returnedInfo);
+        }
         AuthorizationFree(authRef, 0);
         
     }

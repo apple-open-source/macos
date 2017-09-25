@@ -143,15 +143,19 @@ extern struct timezone gTimeZone;
 #define HFS_ROOTVERYLOWDISKTRIGGERLEVEL ((u_int64_t)(512*1024*1024))
 #define HFS_ROOTLOWDISKTRIGGERFRACTION 10
 #define HFS_ROOTLOWDISKTRIGGERLEVEL ((u_int64_t)(1024*1024*1024))
+#define HFS_ROOTNEARLOWDISKTRIGGERFRACTION 10.5
+#define HFS_ROOTNEARLOWDISKTRIGGERLEVEL ((u_int64_t)(1024*1024*1024 + 100*1024*1024))
 #define HFS_ROOTLOWDISKSHUTOFFFRACTION 11
 #define HFS_ROOTLOWDISKSHUTOFFLEVEL ((u_int64_t)(1024*1024*1024 + 250*1024*1024))
 
 #define HFS_VERYLOWDISKTRIGGERFRACTION 1
-#define HFS_VERYLOWDISKTRIGGERLEVEL ((u_int64_t)(100*1024*1024))
+#define HFS_VERYLOWDISKTRIGGERLEVEL ((u_int64_t)(150*1024*1024))
 #define HFS_LOWDISKTRIGGERFRACTION 2
-#define HFS_LOWDISKTRIGGERLEVEL ((u_int64_t)(150*1024*1024))
-#define HFS_LOWDISKSHUTOFFFRACTION 3
-#define HFS_LOWDISKSHUTOFFLEVEL ((u_int64_t)(200*1024*1024))
+#define HFS_LOWDISKTRIGGERLEVEL ((u_int64_t)(500*1024*1024))
+#define HFS_NEARLOWDISKTRIGGERFRACTION 10
+#define HFS_NEARLOWDISKTRIGGERLEVEL ((uint64_t)(1024*1024*1024))
+#define HFS_LOWDISKSHUTOFFFRACTION 12
+#define HFS_LOWDISKSHUTOFFLEVEL ((u_int64_t)(1024*1024*1024 + 200*1024*1024))
 
 /* Internal Data structures*/
 
@@ -305,6 +309,7 @@ typedef struct hfsmount {
 	u_int32_t		hfs_notification_conditions;
 	u_int32_t		hfs_freespace_notify_dangerlimit;
 	u_int32_t		hfs_freespace_notify_warninglimit;
+	u_int32_t		hfs_freespace_notify_nearwarninglimit;
 	u_int32_t		hfs_freespace_notify_desiredlevel;
 
 	/* time mounted and last mounted mod time "snapshot" */
@@ -320,7 +325,7 @@ typedef struct hfsmount {
 	u_int32_t       hfs_freed_block_count;
 	u_int64_t       hfs_cs_hotfile_size;     // in bytes
 	int		hfs_hotfile_freeblks;
-	int             hfs_hotfile_blk_adjust;
+	int             hfs_hotfile_blk_adjust; // since we pass this to OSAddAtomic, this needs to be 4-byte aligned
 	int		hfs_hotfile_maxblks;
 	int		hfs_overflow_maxblks;
 	int		hfs_catalog_maxblks;
@@ -418,7 +423,8 @@ typedef struct hfsmount {
        queing more syncs. */
     thread_t		hfs_syncer_thread;
 
-    // Not currently used except for debugging purposes
+	// Not currently used except for debugging purposes
+	// Since we pass this to OSAddAtomic, this needs to be 4-byte aligned.
 	uint32_t        hfs_active_threads;
 
 	enum {
@@ -1091,6 +1097,9 @@ int hfs_setxattr_internal(struct cnode *, const void *, size_t,
                           struct vnop_setxattr_args *, struct hfsmount *, u_int32_t);
 extern int hfs_removeallattr(struct hfsmount *hfsmp, u_int32_t fileid, 
 							 bool *open_transaction);
+
+int hfs_removexattr_by_id (struct hfsmount *hfsmp, uint32_t fileid, const char *xattr_name );
+	
 extern int hfs_set_volxattr(struct hfsmount *hfsmp, unsigned int xattrtype, int state);
 
 

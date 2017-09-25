@@ -2,19 +2,18 @@
 
   re.c -
 
-  $Author: usa $
+  $Author: nagachika $
   created at: Mon Aug  9 18:24:49 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include "ruby/ruby.h"
-#include "ruby/re.h"
-#include "ruby/encoding.h"
-#include "ruby/util.h"
 #include "internal.h"
+#include "ruby/re.h"
+#include "ruby/util.h"
 #include "regint.h"
+#include "encindex.h"
 #include <ctype.h>
 
 VALUE rb_eRegexpError;
@@ -223,6 +222,32 @@ rb_memsearch_qs_utf8(const unsigned char *xs, long m, const unsigned char *ys, l
     return -1;
 }
 
+static inline long
+rb_memsearch_wchar(const unsigned char *xs, long m, const unsigned char *ys, long n)
+{
+    const unsigned char *x = xs, x0 = *xs, *y = ys;
+    enum {char_size = 2};
+
+    for (n -= m; n >= 0; n -= char_size, y += char_size) {
+	if (x0 == *y && memcmp(x+1, y+1, m-1) == 0)
+	    return y - ys;
+    }
+    return -1;
+}
+
+static inline long
+rb_memsearch_qchar(const unsigned char *xs, long m, const unsigned char *ys, long n)
+{
+    const unsigned char *x = xs, x0 = *xs, *y = ys;
+    enum {char_size = 4};
+
+    for (n -= m; n >= 0; n -= char_size, y += char_size) {
+	if (x0 == *y && memcmp(x+1, y+1, m-1) == 0)
+	    return y - ys;
+    }
+    return -1;
+}
+
 long
 rb_memsearch(const void *x0, long m, const void *y0, long n, rb_encoding *enc)
 {
@@ -236,22 +261,28 @@ rb_memsearch(const void *x0, long m, const void *y0, long n, rb_encoding *enc)
 	return 0;
     }
     else if (m == 1) {
-	const unsigned char *ys;
+	const unsigned char *ys = memchr(y, *x, n);
 
-	if (ys = memchr(y, *x, n))
+	if (ys)
 	    return ys - y;
 	else
 	    return -1;
     }
-    else if (m <= SIZEOF_VALUE) {
-	return rb_memsearch_ss(x0, m, y0, n);
+    else if (LIKELY(rb_enc_mbminlen(enc) == 1)) {
+	if (m <= SIZEOF_VALUE) {
+	    return rb_memsearch_ss(x0, m, y0, n);
+	}
+	else if (enc == rb_utf8_encoding()){
+	    return rb_memsearch_qs_utf8(x0, m, y0, n);
+	}
     }
-    else if (enc == rb_utf8_encoding()){
-	return rb_memsearch_qs_utf8(x0, m, y0, n);
+    else if (LIKELY(rb_enc_mbminlen(enc) == 2)) {
+	return rb_memsearch_wchar(x0, m, y0, n);
     }
-    else {
-	return rb_memsearch_qs(x0, m, y0, n);
+    else if (LIKELY(rb_enc_mbminlen(enc) == 4)) {
+	return rb_memsearch_qchar(x0, m, y0, n);
     }
+    return rb_memsearch_qs(x0, m, y0, n);
 }
 
 #define REG_LITERAL FL_USER5
@@ -307,10 +338,10 @@ rb_char_to_option_kcode(int c, int *option, int *kcode)
         *kcode = rb_ascii8bit_encindex();
         return (*option = ARG_ENCODING_NONE);
       case 'e':
-	*kcode = rb_enc_find_index("EUC-JP");
+	*kcode = ENCINDEX_EUC_JP;
 	break;
       case 's':
-	*kcode = rb_enc_find_index("Windows-31J");
+	*kcode = ENCINDEX_Windows_31J;
 	break;
       case 'u':
 	*kcode = rb_utf8_encindex();
@@ -342,8 +373,7 @@ rb_reg_expr_str(VALUE str, const char *s, long len,
 
     p = s; pend = p + len;
     rb_str_coderange_scan_restartable(p, pend, enc, &cr);
-    if (rb_enc_asciicompat(enc) &&
-	(cr == ENC_CODERANGE_VALID || cr == ENC_CODERANGE_7BIT)) {
+    if (rb_enc_asciicompat(enc) && ENC_CODERANGE_CLEAN_P(cr)) {
 	while (p < pend) {
 	    c = rb_enc_ascget(p, pend, &clen, enc);
 	    if (c == -1) {
@@ -571,12 +601,15 @@ rb_reg_to_s(VALUE re)
 	}
 	if (*ptr == ':' && ptr[len-1] == ')') {
 	    Regexp *rp;
+	    VALUE verbose = ruby_verbose;
+	    ruby_verbose = Qfalse;
 
 	    ++ptr;
 	    len -= 2;
             err = onig_new(&rp, ptr, ptr + len, ONIG_OPTION_DEFAULT,
 			   enc, OnigDefaultSyntax, NULL);
 	    onig_free(rp);
+	    ruby_verbose = verbose;
 	}
 	if (err) {
 	    options = RREGEXP(re)->ptr->options;
@@ -594,8 +627,30 @@ rb_reg_to_s(VALUE re)
     }
 
     rb_str_buf_cat2(str, ":");
-    rb_reg_expr_str(str, (char*)ptr, len, enc, NULL);
-    rb_str_buf_cat2(str, ")");
+    if (rb_enc_asciicompat(enc)) {
+	rb_reg_expr_str(str, (char*)ptr, len, enc, NULL);
+	rb_str_buf_cat2(str, ")");
+    }
+    else {
+	const char *s, *e;
+	char *paren;
+	ptrdiff_t n;
+	rb_str_buf_cat2(str, ")");
+	rb_enc_associate(str, rb_usascii_encoding());
+	str = rb_str_encode(str, rb_enc_from_encoding(enc), 0, Qnil);
+
+	/* backup encoded ")" to paren */
+	s = RSTRING_PTR(str);
+	e = RSTRING_END(str);
+	s = rb_enc_left_char_head(s, e-1, e, enc);
+	n = e - s;
+	paren = ALLOCA_N(char, n);
+	memcpy(paren, s, n);
+	rb_str_resize(str, RSTRING_LEN(str) - n);
+
+	rb_reg_expr_str(str, (char*)ptr, len, enc, NULL);
+	rb_str_buf_cat(str, paren, n);
+    }
     rb_enc_copy(str, re);
 
     OBJ_INFECT(str, re);
@@ -605,9 +660,9 @@ rb_reg_to_s(VALUE re)
 static void
 rb_reg_raise(const char *s, long len, const char *err, VALUE re)
 {
-    volatile VALUE desc = rb_reg_desc(s, len, re);
+    VALUE desc = rb_reg_desc(s, len, re);
 
-    rb_raise(rb_eRegexpError, "%s: %s", err, RSTRING_PTR(desc));
+    rb_raise(rb_eRegexpError, "%s: %"PRIsVALUE, err, desc);
 }
 
 static VALUE
@@ -702,7 +757,7 @@ reg_names_iter(const OnigUChar *name, const OnigUChar *name_end,
           int back_num, int *back_refs, OnigRegex regex, void *arg)
 {
     VALUE ary = (VALUE)arg;
-    rb_ary_push(ary, rb_str_new((const char *)name, name_end-name));
+    rb_ary_push(ary, rb_enc_str_new((const char *)name, name_end-name, regex->enc));
     return 0;
 }
 
@@ -780,24 +835,24 @@ rb_reg_named_captures(VALUE re)
 
 static int
 onig_new_with_source(regex_t** reg, const UChar* pattern, const UChar* pattern_end,
-	  OnigOptionType option, OnigEncoding enc, const OnigSyntaxType* syntax,
-	  OnigErrorInfo* einfo, const char *sourcefile, int sourceline)
+		     OnigOptionType option, OnigEncoding enc, const OnigSyntaxType* syntax,
+		     OnigErrorInfo* einfo, const char *sourcefile, int sourceline)
 {
-  int r;
+    int r;
 
-  *reg = (regex_t* )malloc(sizeof(regex_t));
-  if (IS_NULL(*reg)) return ONIGERR_MEMORY;
+    *reg = (regex_t* )malloc(sizeof(regex_t));
+    if (IS_NULL(*reg)) return ONIGERR_MEMORY;
 
-  r = onig_reg_init(*reg, option, ONIGENC_CASE_FOLD_DEFAULT, enc, syntax);
-  if (r) goto err;
+    r = onig_reg_init(*reg, option, ONIGENC_CASE_FOLD_DEFAULT, enc, syntax);
+    if (r) goto err;
 
-  r = onig_compile(*reg, pattern, pattern_end, einfo, sourcefile, sourceline);
-  if (r) {
-  err:
-    onig_free(*reg);
-    *reg = NULL;
-  }
-  return r;
+    r = onig_compile(*reg, pattern, pattern_end, einfo, sourcefile, sourceline);
+    if (r) {
+      err:
+	onig_free(*reg);
+	*reg = NULL;
+    }
+    return r;
 }
 
 static Regexp*
@@ -847,10 +902,20 @@ match_alloc(VALUE klass)
     match->str = 0;
     match->rmatch = 0;
     match->regexp = 0;
-    match->rmatch = ALLOC(struct rmatch);
-    MEMZERO(match->rmatch, struct rmatch, 1);
+    match->rmatch = ZALLOC(struct rmatch);
 
     return (VALUE)match;
+}
+
+int
+rb_reg_region_copy(struct re_registers *to, const struct re_registers *from)
+{
+    onig_region_copy(to, (OnigRegion *)from);
+    if (to->allocated) return 0;
+    rb_gc();
+    onig_region_copy(to, (OnigRegion *)from);
+    if (to->allocated) return 0;
+    return ONIGERR_MEMORY;
 }
 
 typedef struct {
@@ -960,7 +1025,8 @@ match_init_copy(VALUE obj, VALUE orig)
     RMATCH(obj)->regexp = RMATCH(orig)->regexp;
 
     rm = RMATCH(obj)->rmatch;
-    onig_region_copy(&rm->regs, RMATCH_REGS(orig));
+    if (rb_reg_region_copy(&rm->regs, RMATCH_REGS(orig)))
+	rb_memerror();
 
     if (!RMATCH(orig)->rmatch->char_offset_updated) {
         rm->char_offset_updated = 0;
@@ -973,6 +1039,7 @@ match_init_copy(VALUE obj, VALUE orig)
         MEMCPY(rm->char_offset, RMATCH(orig)->rmatch->char_offset,
                struct rmatch_offset, rm->regs.num_regs);
         rm->char_offset_updated = 1;
+	RB_GC_GUARD(orig);
     }
 
     return obj;
@@ -992,8 +1059,15 @@ match_init_copy(VALUE obj, VALUE orig)
 static VALUE
 match_regexp(VALUE match)
 {
+    VALUE regexp;
     match_check(match);
-    return RMATCH(match)->regexp;
+    regexp = RMATCH(match)->regexp;
+    if (NIL_P(regexp)) {
+	VALUE str = rb_reg_nth_match(0, match);
+	regexp = rb_reg_regcomp(rb_reg_quote(str));
+	RMATCH(match)->regexp = regexp;
+    }
+    return regexp;
 }
 
 /*
@@ -1051,8 +1125,8 @@ match_backref_number(VALUE match, VALUE backref)
         return NUM2INT(backref);
 
       case T_SYMBOL:
-        name = rb_id2name(SYM2ID(backref));
-        break;
+	backref = rb_sym2str(backref);
+	/* fall through */
 
       case T_STRING:
         name = StringValueCStr(backref);
@@ -1189,6 +1263,32 @@ void
 rb_match_busy(VALUE match)
 {
     FL_SET(match, MATCH_BUSY);
+}
+
+static void
+match_set_string(VALUE m, VALUE string, long pos, long len)
+{
+    struct RMatch *match = (struct RMatch *)m;
+    struct rmatch *rmatch = match->rmatch;
+
+    match->str = string;
+    match->regexp = Qnil;
+    onig_region_resize(&rmatch->regs, 1);
+    rmatch->regs.beg[0] = pos;
+    rmatch->regs.end[0] = pos + len;
+    rmatch->char_offset_updated = 0;
+    OBJ_INFECT(match, string);
+}
+
+void
+rb_backref_set_string(VALUE string, long pos, long len)
+{
+    VALUE match = rb_backref_get();
+    if (NIL_P(match) || FL_TEST(match, MATCH_BUSY)) {
+	match = match_alloc(rb_cMatch);
+    }
+    match_set_string(match, string, pos, len);
+    rb_backref_set(match);
 }
 
 /*
@@ -1348,8 +1448,9 @@ rb_reg_adjust_startpos(VALUE re, VALUE str, long pos, int reverse)
     return pos;
 }
 
+/* returns byte offset */
 long
-rb_reg_search(VALUE re, VALUE str, long pos, int reverse)
+rb_reg_search0(VALUE re, VALUE str, long pos, int reverse, int set_backref_str)
 {
     long result;
     VALUE match;
@@ -1413,26 +1514,34 @@ rb_reg_search(VALUE re, VALUE str, long pos, int reverse)
     }
 
     if (NIL_P(match)) {
+	int err;
 	match = match_alloc(rb_cMatch);
-	onig_region_copy(RMATCH_REGS(match), regs);
+	err = rb_reg_region_copy(RMATCH_REGS(match), regs);
 	onig_region_free(regs, 0);
+	if (err) rb_memerror();
     }
     else {
-	if (rb_safe_level() >= 3)
-	    OBJ_TAINT(match);
-	else
-	    FL_UNSET(match, FL_TAINT);
+	FL_UNSET(match, FL_TAINT);
     }
 
-    RMATCH(match)->str = rb_str_new4(str);
+    if (set_backref_str) {
+	RMATCH(match)->str = rb_str_new4(str);
+	OBJ_INFECT(match, str);
+    }
+
     RMATCH(match)->regexp = re;
     RMATCH(match)->rmatch->char_offset_updated = 0;
     rb_backref_set(match);
 
     OBJ_INFECT(match, re);
-    OBJ_INFECT(match, str);
 
     return result;
+}
+
+long
+rb_reg_search(VALUE re, VALUE str, long pos, int reverse)
+{
+    return rb_reg_search0(re, str, pos, reverse, 1);
 }
 
 VALUE
@@ -1611,10 +1720,6 @@ match_array(VALUE match, int start)
 }
 
 
-/* [MG]:FIXME: I put parens around the /.../.match() in the first line of the
-   second example to prevent the '*' followed by a '/' from ending the
-   comment. */
-
 /*
  *  call-seq:
  *     mtch.to_a   -> anArray
@@ -1630,7 +1735,7 @@ match_array(VALUE match, int start)
  *  accessing the fields directly (as an intermediate array is
  *  generated).
  *
- *     all,f1,f2,f3 = *(/(.)(.)(\d+)(\d)/.match("THX1138."))
+ *     all,f1,f2,f3 = * /(.)(.)(\d+)(\d)/.match("THX1138.")
  *     all   #=> "HX1138"
  *     f1    #=> "H"
  *     f2    #=> "X"
@@ -1707,7 +1812,7 @@ name_to_backref_error(VALUE name)
 static VALUE
 match_aref(int argc, VALUE *argv, VALUE match)
 {
-    VALUE idx, rest;
+    VALUE idx, rest, re;
 
     match_check(match);
     rb_scan_args(argc, argv, "11", &idx, &rest);
@@ -1724,11 +1829,12 @@ match_aref(int argc, VALUE *argv, VALUE match)
 
 	    switch (TYPE(idx)) {
 	      case T_SYMBOL:
-		idx = rb_id2str(SYM2ID(idx));
+		idx = rb_sym2str(idx);
 		/* fall through */
 	      case T_STRING:
 		p = StringValuePtr(idx);
-		if (!rb_enc_compatible(RREGEXP(RMATCH(match)->regexp)->src, idx) ||
+		re = RMATCH(match)->regexp;
+		if (NIL_P(re) || !rb_enc_compatible(RREGEXP(re)->src, idx) ||
 		    (num = name_to_backref_number(RMATCH_REGS(match), RMATCH(match)->regexp,
 						  p, p + RSTRING_LEN(idx))) < 1) {
 		    name_to_backref_error(idx);
@@ -1858,7 +1964,7 @@ match_inspect_name_iter(const OnigUChar *name, const OnigUChar *name_end,
 static VALUE
 match_inspect(VALUE match)
 {
-    const char *cname = rb_obj_classname(match);
+    VALUE cname = rb_class_path(rb_obj_class(match));
     VALUE str;
     int i;
     struct re_registers *regs = RMATCH_REGS(match);
@@ -1867,7 +1973,11 @@ match_inspect(VALUE match)
     VALUE regexp = RMATCH(match)->regexp;
 
     if (regexp == 0) {
-        return rb_sprintf("#<%s:%p>", cname, (void*)match);
+        return rb_sprintf("#<%"PRIsVALUE":%p>", cname, (void*)match);
+    }
+    else if (NIL_P(regexp)) {
+        return rb_sprintf("#<%"PRIsVALUE": %"PRIsVALUE">",
+			  cname, rb_reg_nth_match(0, match));
     }
 
     names = ALLOCA_N(struct backref_name_tag, num_regs);
@@ -1877,7 +1987,7 @@ match_inspect(VALUE match)
             match_inspect_name_iter, names);
 
     str = rb_str_buf_new2("#<");
-    rb_str_buf_cat2(str, cname);
+    rb_str_append(str, cname);
 
     for (i = 0; i < num_regs; i++) {
         VALUE v;
@@ -2196,8 +2306,8 @@ unescape_nonascii(const char *p, const char *end, rb_encoding *enc,
               case '1': case '2': case '3':
               case '4': case '5': case '6': case '7': /* \O, \OO, \OOO or backref */
                 {
-                    size_t octlen;
-                    if (ruby_scan_oct(p-1, end-(p-1), &octlen) <= 0177) {
+                    size_t len = end-(p-1), octlen;
+                    if (ruby_scan_oct(p-1, len < 3 ? len : 3, &octlen) <= 0177) {
                         /* backref or 7bit octal.
                            no need to unescape anyway.
                            re-escaping may break backref */
@@ -2213,8 +2323,16 @@ unescape_nonascii(const char *p, const char *end, rb_encoding *enc,
               case 'C': /* \C-X, \C-\M-X */
               case 'M': /* \M-X, \M-\C-X, \M-\cX */
                 p = p-2;
-                if (unescape_escaped_nonascii(&p, end, enc, buf, encp, err) != 0)
-                    return -1;
+		if (enc == rb_usascii_encoding()) {
+		    const char *pbeg = p;
+		    c = read_escaped_byte(&p, end, err);
+		    if (c == (char)-1) return -1;
+		    rb_str_buf_cat(buf, pbeg, p-pbeg);
+		}
+		else {
+		    if (unescape_escaped_nonascii(&p, end, enc, buf, encp, err) != 0)
+			return -1;
+		}
                 break;
 
               case 'u':
@@ -2333,7 +2451,7 @@ rb_reg_preprocess_dregexp(VALUE ary, int options)
     }
 
     for (i = 0; i < RARRAY_LEN(ary); i++) {
-        VALUE str = RARRAY_PTR(ary)[i];
+        VALUE str = RARRAY_AREF(ary, i);
         VALUE buf;
         char *p, *end;
         rb_encoding *src_enc;
@@ -2386,8 +2504,6 @@ rb_reg_initialize(VALUE obj, const char *s, long len, rb_encoding *enc,
     rb_encoding *fixed_enc = 0;
     rb_encoding *a_enc = rb_ascii8bit_encoding();
 
-    if (!OBJ_UNTRUSTED(obj) && rb_safe_level() >= 4)
-	rb_raise(rb_eSecurityError, "Insecure: can't modify regexp");
     rb_check_frozen(obj);
     if (FL_TEST(obj, REG_LITERAL))
 	rb_raise(rb_eSecurityError, "can't modify literal regexp");
@@ -2431,8 +2547,7 @@ rb_reg_initialize(VALUE obj, const char *s, long len, rb_encoding *enc,
 			  options & ARG_REG_OPTION_MASK, err,
 			  sourcefile, sourceline);
     if (!re->ptr) return -1;
-    re->src = rb_enc_str_new(s, len, enc);
-    OBJ_FREEZE(re->src);
+    RB_OBJ_WRITE(obj, &re->src, rb_fstring(rb_enc_str_new(s, len, enc)));
     RB_GC_GUARD(unescaped);
     return 0;
 }
@@ -2463,10 +2578,10 @@ rb_reg_initialize_str(VALUE obj, VALUE str, int options, onig_errmsg_buffer err,
 static VALUE
 rb_reg_s_alloc(VALUE klass)
 {
-    NEWOBJ_OF(re, struct RRegexp, klass, T_REGEXP);
+    NEWOBJ_OF(re, struct RRegexp, klass, T_REGEXP | (RGENGC_WB_PROTECTED_REGEXP ? FL_WB_PROTECTED : 0));
 
     re->ptr = 0;
-    re->src = 0;
+    RB_OBJ_WRITE(re, &re->src, 0);
     re->usecnt = 0;
 
     return (VALUE)re;
@@ -2541,13 +2656,12 @@ static VALUE reg_cache;
 VALUE
 rb_reg_regcomp(VALUE str)
 {
-    volatile VALUE save_str = str;
     if (reg_cache && RREGEXP_SRC_LEN(reg_cache) == RSTRING_LEN(str)
 	&& ENCODING_GET(reg_cache) == ENCODING_GET(str)
 	&& memcmp(RREGEXP_SRC_PTR(reg_cache), RSTRING_PTR(str), RSTRING_LEN(str)) == 0)
 	return reg_cache;
 
-    return reg_cache = rb_reg_new_str(save_str, 0);
+    return reg_cache = rb_reg_new_str(str, 0);
 }
 
 static st_index_t reg_hash(VALUE re);
@@ -2556,6 +2670,8 @@ static st_index_t reg_hash(VALUE re);
  *   rxp.hash   -> fixnum
  *
  * Produce a hash based on the text and options of this regular expression.
+ *
+ * See also Object#hash.
  */
 
 static VALUE
@@ -2614,6 +2730,8 @@ rb_reg_equal(VALUE re1, VALUE re2)
  *
  * Produce a hash based on the target string, regexp and matched
  * positions of this matchdata.
+ *
+ * See also Object#hash.
  */
 
 static VALUE
@@ -2634,6 +2752,7 @@ match_hash(VALUE match)
 /*
  * call-seq:
  *    mtch == mtch2   -> true or false
+ *    mtch.eql?(mtch2)   -> true or false
  *
  *  Equality---Two matchdata are equal if their target strings,
  *  patterns, and matched positions are identical.
@@ -2659,7 +2778,7 @@ static VALUE
 reg_operand(VALUE s, int check)
 {
     if (SYMBOL_P(s)) {
-	return rb_sym_to_s(s);
+	return rb_sym2str(s);
     }
     else {
 	return (check ? rb_str_to_str : rb_check_string_type)(s);
@@ -2833,12 +2952,16 @@ rb_reg_match2(VALUE re)
  *  If a block is given, invoke the block with MatchData if match succeed, so
  *  that you can write
  *
- *     pat.match(str) {|m| ...}
+ *     /M(.*)/.match("Matz") do |m|
+ *       puts m[0]
+ *       puts m[1]
+ *     end
  *
  *  instead of
  *
- *     if m = pat.match(str)
- *       ...
+ *     if m = /M(.*)/.match("Matz")
+ *       puts m[0]
+ *       puts m[1]
  *     end
  *
  *  The return value is a value from block execution in this case.
@@ -2873,16 +2996,15 @@ rb_reg_match_m(int argc, VALUE *argv, VALUE re)
 /*
  * Document-method: compile
  *
- * Synonym for <code>Regexp.new</code>
+ * Alias for <code>Regexp.new</code>
  */
-
 
 /*
  *  call-seq:
- *     Regexp.new(string, [options [, kcode]])        -> regexp
- *     Regexp.new(regexp)                            -> regexp
- *     Regexp.compile(string, [options [, kcode]])    -> regexp
- *     Regexp.compile(regexp)                        -> regexp
+ *     Regexp.new(string, [options])       -> regexp
+ *     Regexp.new(regexp)                  -> regexp
+ *     Regexp.compile(string, [options)    -> regexp
+ *     Regexp.compile(regexp)              -> regexp
  *
  *  Constructs a new regular expression from +pattern+, which can be either a
  *  String or a Regexp (in which case that regexp's options are propagated),
@@ -2892,9 +3014,6 @@ rb_reg_match_m(int argc, VALUE *argv, VALUE re)
  *  Regexp::EXTENDED, Regexp::IGNORECASE, and Regexp::MULTILINE,
  *  <em>or</em>-ed together.  Otherwise, if +options+ is not
  *  +nil+ or +false+, the regexp will be case insensitive.
- *
- *  When the +kcode+ parameter is `n' or `N' sets the regexp no encoding.
- *  It means that the regexp is for binary strings.
  *
  *    r1 = Regexp.new('^a-z+:\\s+\w+') #=> /^a-z+:\s+\w+/
  *    r2 = Regexp.new('cat', true)     #=> /cat/i
@@ -3246,6 +3365,9 @@ rb_reg_s_union(VALUE self, VALUE args0)
  *     Regexp.union("skiing", "sledding")   #=> /skiing|sledding/
  *     Regexp.union(["skiing", "sledding"]) #=> /skiing|sledding/
  *     Regexp.union(/dogs/, /cats/i)        #=> /(?-mix:dogs)|(?i-mx:cats)/
+ *
+ *  Note: the arguments for ::union will try to be converted into a regular
+ *  expression literal via #to_regexp.
  */
 static VALUE
 rb_reg_s_union_m(VALUE self, VALUE args)
@@ -3322,7 +3444,7 @@ rb_reg_regsub(VALUE str, VALUE src, struct re_registers *regs, VALUE regexp)
 	switch (c) {
 	  case '1': case '2': case '3': case '4':
 	  case '5': case '6': case '7': case '8': case '9':
-            if (onig_noname_group_capture_is_active(RREGEXP(regexp)->ptr)) {
+            if (!NIL_P(regexp) && onig_noname_group_capture_is_active(RREGEXP(regexp)->ptr)) {
                 no = c - '0';
             }
             else {
@@ -3515,7 +3637,7 @@ re_warn(const char *s)
  *  <code>%r{...}</code> literals, and by the <code>Regexp::new</code>
  *  constructor.
  *
- *  :include: doc/re.rdoc
+ *  :include: doc/regexp.rdoc
  */
 
 void

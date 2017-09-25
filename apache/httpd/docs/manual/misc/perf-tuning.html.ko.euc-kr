@@ -45,7 +45,7 @@
     하는 반면, 어떤 옵션은 속도를 위해 기능을 희생한다.</p>
 
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#hardware">하드웨어와 운영체제에 대해서</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#hardware">하드웨어와 운영체제에 대해서</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#runtime">실행시 설정에 대해서</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#compiletime">컴파일시 설정에 대해서</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#trace">부록: 시스템호출 기록을 자세히 분석하기</a></li>
@@ -997,7 +997,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/perf-tuning.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

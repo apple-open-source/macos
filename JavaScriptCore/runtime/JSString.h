@@ -28,6 +28,7 @@
 #include "PropertyDescriptor.h"
 #include "PropertySlot.h"
 #include "Structure.h"
+#include "ThrowScope.h"
 #include <array>
 #include <wtf/text/StringView.h>
 
@@ -97,10 +98,10 @@ public:
     static const unsigned MaxLength = std::numeric_limits<int32_t>::max();
     
 private:
-    JSString(VM& vm, PassRefPtr<StringImpl> value)
+    JSString(VM& vm, Ref<StringImpl>&& value)
         : JSCell(vm, vm.stringStructure.get())
         , m_flags(0)
-        , m_value(RefPtr<StringImpl>(value))
+        , m_value(WTFMove(value))
     {
     }
 
@@ -136,20 +137,18 @@ protected:
     }
 
 public:
-    static JSString* create(VM& vm, PassRefPtr<StringImpl> value)
+    static JSString* create(VM& vm, Ref<StringImpl>&& value)
     {
-        ASSERT(value);
         unsigned length = value->length();
         size_t cost = value->cost();
-        JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, value);
+        JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, WTFMove(value));
         newString->finishCreation(vm, length, cost);
         return newString;
     }
-    static JSString* createHasOtherOwner(VM& vm, PassRefPtr<StringImpl> value)
+    static JSString* createHasOtherOwner(VM& vm, Ref<StringImpl>&& value)
     {
-        ASSERT(value);
         size_t length = value->length();
-        JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, value);
+        JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, WTFMove(value));
         newString->finishCreation(vm, length);
         return newString;
     }
@@ -158,7 +157,7 @@ public:
     AtomicString toAtomicString(ExecState*) const;
     RefPtr<AtomicStringImpl> toExistingAtomicString(ExecState*) const;
 
-    StringViewWithUnderlyingString viewWithUnderlyingString(ExecState&) const;
+    StringViewWithUnderlyingString viewWithUnderlyingString(ExecState*) const;
 
     inline bool equal(ExecState*, JSString* other) const;
     const String& value(ExecState*) const;
@@ -236,7 +235,7 @@ private:
     static JSValue toThis(JSCell*, ExecState*, ECMAMode);
 
     String& string() { ASSERT(!isRope()); return m_value; }
-    StringView unsafeView(ExecState&) const;
+    StringView unsafeView(ExecState*) const;
 
     friend JSString* jsString(ExecState*, JSString*, JSString*);
     friend JSString* jsSubstring(ExecState*, JSString*, unsigned offset, unsigned length);
@@ -432,8 +431,8 @@ private:
     void resolveRopeInternal16(UChar*) const;
     void resolveRopeInternal16NoSubstring(UChar*) const;
     void clearFibers() const;
-    StringView unsafeView(ExecState&) const;
-    StringViewWithUnderlyingString viewWithUnderlyingString(ExecState&) const;
+    StringView unsafeView(ExecState*) const;
+    StringViewWithUnderlyingString viewWithUnderlyingString(ExecState*) const;
 
     WriteBarrierBase<JSString>& fiber(unsigned i) const
     {
@@ -506,19 +505,19 @@ ALWAYS_INLINE JSString* jsSingleCharacterString(VM* vm, UChar c)
 {
     if (c <= maxSingleCharacterString)
         return vm->smallStrings.singleCharacterString(c);
-    return JSString::create(*vm, String(&c, 1).impl());
+    return JSString::create(*vm, StringImpl::create(&c, 1));
 }
 
 inline JSString* jsNontrivialString(VM* vm, const String& s)
 {
     ASSERT(s.length() > 1);
-    return JSString::create(*vm, s.impl());
+    return JSString::create(*vm, *s.impl());
 }
 
 inline JSString* jsNontrivialString(VM* vm, String&& s)
 {
     ASSERT(s.length() > 1);
-    return JSString::create(*vm, s.releaseImpl());
+    return JSString::create(*vm, s.releaseImpl().releaseNonNull());
 }
 
 ALWAYS_INLINE Identifier JSString::toIdentifier(ExecState* exec) const
@@ -558,8 +557,12 @@ inline const String& JSString::tryGetValue() const
 
 inline JSString* JSString::getIndex(ExecState* exec, unsigned i)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     ASSERT(canGetIndex(i));
-    return jsSingleCharacterString(exec, unsafeView(*exec)[i]);
+    StringView view = unsafeView(exec);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+    return jsSingleCharacterString(exec, view[i]);
 }
 
 inline JSString* jsString(VM* vm, const String& s)
@@ -572,7 +575,7 @@ inline JSString* jsString(VM* vm, const String& s)
         if (c <= maxSingleCharacterString)
             return vm->smallStrings.singleCharacterString(c);
     }
-    return JSString::create(*vm, s.impl());
+    return JSString::create(*vm, *s.impl());
 }
 
 inline JSString* jsSubstring(VM& vm, ExecState* exec, JSString* s, unsigned offset, unsigned length)
@@ -634,7 +637,7 @@ inline JSString* jsOwnedString(VM* vm, const String& s)
         if (c <= maxSingleCharacterString)
             return vm->smallStrings.singleCharacterString(c);
     }
-    return JSString::createHasOtherOwner(*vm, s.impl());
+    return JSString::createHasOtherOwner(*vm, *s.impl());
 }
 
 inline JSRopeString* jsStringBuilder(VM* vm)
@@ -707,18 +710,18 @@ inline bool isJSString(JSValue v)
     return v.isCell() && isJSString(v.asCell());
 }
 
-ALWAYS_INLINE StringView JSRopeString::unsafeView(ExecState& state) const
+ALWAYS_INLINE StringView JSRopeString::unsafeView(ExecState* exec) const
 {
     if (isSubstring()) {
         if (is8Bit())
             return StringView(substringBase()->m_value.characters8() + substringOffset(), length());
         return StringView(substringBase()->m_value.characters16() + substringOffset(), length());
     }
-    resolveRope(&state);
+    resolveRope(exec);
     return m_value;
 }
 
-ALWAYS_INLINE StringViewWithUnderlyingString JSRopeString::viewWithUnderlyingString(ExecState& state) const
+ALWAYS_INLINE StringViewWithUnderlyingString JSRopeString::viewWithUnderlyingString(ExecState* exec) const
 {
     if (isSubstring()) {
         auto& base = substringBase()->m_value;
@@ -726,21 +729,21 @@ ALWAYS_INLINE StringViewWithUnderlyingString JSRopeString::viewWithUnderlyingStr
             return { { base.characters8() + substringOffset(), length() }, base };
         return { { base.characters16() + substringOffset(), length() }, base };
     }
-    resolveRope(&state);
+    resolveRope(exec);
     return { m_value, m_value };
 }
 
-ALWAYS_INLINE StringView JSString::unsafeView(ExecState& state) const
+ALWAYS_INLINE StringView JSString::unsafeView(ExecState* exec) const
 {
     if (isRope())
-        return static_cast<const JSRopeString*>(this)->unsafeView(state);
+        return static_cast<const JSRopeString*>(this)->unsafeView(exec);
     return m_value;
 }
 
-ALWAYS_INLINE StringViewWithUnderlyingString JSString::viewWithUnderlyingString(ExecState& state) const
+ALWAYS_INLINE StringViewWithUnderlyingString JSString::viewWithUnderlyingString(ExecState* exec) const
 {
     if (isRope())
-        return static_cast<const JSRopeString&>(*this).viewWithUnderlyingString(state);
+        return static_cast<const JSRopeString&>(*this).viewWithUnderlyingString(exec);
     return { m_value, m_value };
 }
 

@@ -1,13 +1,13 @@
 /*
  * CUPS raster to PWG raster format filter for CUPS.
  *
- * Copyright 2011, 2014-2016 Apple Inc.
+ * Copyright 2011, 2014-2017 Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright law.
  * Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -31,6 +31,8 @@ int					/* O - Exit status */
 main(int  argc,				/* I - Number of command-line args */
      char *argv[])			/* I - Command-line arguments */
 {
+  const char		*final_content_type;
+					/* FINAL_CONTENT_TYPE env var */
   int			fd;		/* Raster file */
   cups_raster_t		*inras,		/* Input raster stream */
 			*outras;	/* Output raster stream */
@@ -48,7 +50,7 @@ main(int  argc,				/* I - Number of command-line args */
 			lineoffset;	/* Offset into line */
   unsigned char		white;		/* White pixel */
   ppd_file_t		*ppd;		/* PPD file */
-  ppd_attr_t		*back;		/* cupsBackSize attribute */
+  ppd_attr_t		*back;		/* cupsBackSide attribute */
   _ppd_cache_t		*cache;		/* PPD cache */
   pwg_size_t		*pwg_size;	/* PWG media size */
   pwg_media_t		*pwg_media;	/* PWG media name */
@@ -73,8 +75,11 @@ main(int  argc,				/* I - Number of command-line args */
   else
     fd = 0;
 
+  if ((final_content_type = getenv("FINAL_CONTENT_TYPE")) == NULL)
+    final_content_type = "image/pwg-raster";
+
   inras  = cupsRasterOpen(fd, CUPS_RASTER_READ);
-  outras = cupsRasterOpen(1, CUPS_RASTER_WRITE_PWG);
+  outras = cupsRasterOpen(1, !strcmp(final_content_type, "image/pwg-raster") ? CUPS_RASTER_WRITE_PWG : CUPS_RASTER_WRITE_APPLE);
 
   ppd   = ppdOpenFile(getenv("PPD"));
   back  = ppdFindAttr(ppd, "cupsBackSide", NULL);
@@ -429,6 +434,9 @@ main(int  argc,				/* I - Number of command-line args */
 
     if (linesize < inheader.cupsBytesPerLine)
       linesize = inheader.cupsBytesPerLine;
+
+    if ((lineoffset + inheader.cupsBytesPerLine) > linesize)
+      lineoffset = linesize - inheader.cupsBytesPerLine;
 
     line = malloc(linesize);
 

@@ -31,6 +31,7 @@
 #include "JSNPObject.h"
 #include "NPRuntimeObjectMap.h"
 #include "NPRuntimeUtilities.h"
+#include <JavaScriptCore/CatchScope.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSCellInlines.h>
 #include <JavaScriptCore/JSLock.h>
@@ -48,7 +49,7 @@ namespace WebKit {
 NPJSObject* NPJSObject::create(VM& vm, NPRuntimeObjectMap* objectMap, JSObject* jsObject)
 {
     // We should never have a JSNPObject inside an NPJSObject.
-    ASSERT(!jsObject->inherits(JSNPObject::info()));
+    ASSERT(!jsObject->inherits(vm, JSNPObject::info()));
 
     NPJSObject* npJSObject = toNPJSObject(createNPObject(0, npClass()));
     npJSObject->initialize(vm, objectMap, jsObject);
@@ -311,9 +312,18 @@ bool NPJSObject::invoke(ExecState* exec, JSGlobalObject* globalObject, JSValue f
 
     JSValue value = JSC::call(exec, function, callType, callData, m_jsObject.get(), argumentList);
 
+    if (UNLIKELY(scope.exception())) {
+        scope.clearException();
+        return false;
+    }
+
     // Convert and return the result of the function call.
     m_objectMap->convertJSValueToNPVariant(exec, value, *result);
-    scope.clearException();
+
+    if (UNLIKELY(scope.exception())) {
+        scope.clearException();
+        return false;
+    }
     
     return true;
 }

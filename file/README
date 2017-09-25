@@ -1,6 +1,8 @@
-The 'file' subdirectory is based on the vendor branch @ svn+ssh://src.apple.com/svn/BSD/file/vendor/file-5.04
+When updating:
+- Merge the file/ subdirectory.
+	- file/magic/Magdir/c-lang needs to say "c program text" for conformance
+	- Beware updating file/magic/Magdir/mach since many internal systems rely on the current output of file.
+	- file/magic/Magdir/msdos is also sensitive for internal processes, since this defines EFI file types as well.
 
-For now, the version needs to be manually updated in the "Other Files" target, "Man Pages" phase.
-
-Also, until Xcode provides an easy way to build host targets, the compilation of
-magic.mgc relies on the builder's version of file. <rdar://problem/7140945>
+- Run configure & make in the upstream sources
+	- Merge config.h and file/src/magic.h changes.  In particular, version numbers and any new options or api introduced in the new version.

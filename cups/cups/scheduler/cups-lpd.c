@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -29,7 +29,7 @@
 #  include <inttypes.h>
 #endif /* HAVE_INTTYPES_H */
 #ifdef __APPLE__
-#  include <vproc.h>
+#  include <xpc/xpc.h>
 #endif /* __APPLE__ */
 
 
@@ -97,8 +97,10 @@ main(int  argc,				/* I - Number of command-line arguments */
 		hostip[256],		/* IP address */
 		*hostfamily;		/* Address family */
   int		hostlookups;		/* Do hostname lookups? */
+
+
 #ifdef __APPLE__
-  vproc_transaction_t vtran = vproc_transaction_begin(NULL);
+  xpc_transaction_begin();
 #endif /* __APPLE__ */
 
 
@@ -217,7 +219,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     putchar(1);
 
 #ifdef __APPLE__
-    vproc_transaction_end(NULL, vtran);
+    xpc_transaction_end();
 #endif /* __APPLE__ */
 
     return (1);
@@ -313,7 +315,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   closelog();
 
 #ifdef __APPLE__
-  vproc_transaction_end(NULL, vtran);
+  xpc_transaction_end();
 #endif /* __APPLE__ */
 
   return (status);
@@ -1650,16 +1652,24 @@ smart_strlcpy(char       *dst,		/* I - Output buffer */
       *dstptr++ = 0xc0 | (*srcptr >> 6);
       *dstptr++ = 0x80 | (*srcptr++ & 0x3f);
     }
-    else if ((*srcptr & 0xe0) == 0xc0)
+    else if ((*srcptr & 0xe0) == 0xc0 && (srcptr[1] & 0xc0) == 0x80)
     {
+     /*
+      * 2-byte UTF-8 sequence...
+      */
+
       if (dstptr > (dstend - 2))
         break;
 
       *dstptr++ = *srcptr++;
       *dstptr++ = *srcptr++;
     }
-    else if ((*srcptr & 0xf0) == 0xe0)
+    else if ((*srcptr & 0xf0) == 0xe0 && (srcptr[1] & 0xc0) == 0x80 && (srcptr[2] & 0xc0) == 0x80)
     {
+     /*
+      * 3-byte UTF-8 sequence...
+      */
+
       if (dstptr > (dstend - 3))
         break;
 
@@ -1667,8 +1677,12 @@ smart_strlcpy(char       *dst,		/* I - Output buffer */
       *dstptr++ = *srcptr++;
       *dstptr++ = *srcptr++;
     }
-    else if ((*srcptr & 0xf8) == 0xf0)
+    else if ((*srcptr & 0xf8) == 0xf0 && (srcptr[1] & 0xc0) == 0x80 && (srcptr[2] & 0xc0) == 0x80 && (srcptr[3] & 0xc0) == 0x80)
     {
+     /*
+      * 4-byte UTF-8 sequence...
+      */
+
       if (dstptr > (dstend - 4))
         break;
 
@@ -1680,7 +1694,7 @@ smart_strlcpy(char       *dst,		/* I - Output buffer */
     else
     {
      /*
-      * Orphan UTF-8 sequence, this must be an ISO-8859-1 string...
+      * Bad UTF-8 sequence, this must be an ISO-8859-1 string...
       */
 
       saw_8859 = 1;

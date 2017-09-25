@@ -223,7 +223,7 @@ AppleSmartBatteryManagerUserClient::externalMethod(
 
         case kSBRequestPoll:
             // 1 scalar in; 0 scalar out
-            return fOwner->requestPoll(arguments->scalarInput[0]);
+            return fOwner->requestPoll((int)arguments->scalarInput[0]);
             
         case kSBSetOverrideCapacity:
             return fOwner->setOverrideCapacity(arguments->scalarInput[0]);

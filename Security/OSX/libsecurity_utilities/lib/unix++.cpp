@@ -71,6 +71,29 @@ void FileDesc::close()
     }
 }
 
+void FileDesc::closeAndLog()
+{
+	int result = 0;
+	int retryCount = 2;
+	int error = 0;
+	if (mFd >= 0) {
+		while((result = ::close(mFd)) == -1 && retryCount) {
+			error = errno;
+			switch (error) {
+			case EINTR:
+			case EIO:
+				retryCount --;
+				break;
+			default:
+				secinfo("unixio", "close(%d) error %d", mFd, error);
+				retryCount = 0;
+				break;
+			}
+		}
+		secinfo("unixio", "close(%d) err: %d", mFd, error);
+		mFd = invalidFd;
+	}
+}
 
 //
 // Filedescoid operations
@@ -449,11 +472,19 @@ FILE *FileDesc::fdopen(const char *form)
     return ::fdopen(mFd, form);
 }
 
+AutoFileDesc::AutoFileDesc(const AutoFileDesc& rhs)
+{
+	if (rhs.fd() != invalidFd) {
+		checkSetFd(::dup(rhs.fd()));
+	}
+	mAtEnd = rhs.mAtEnd;
+}
+
 
 //
 // Device characteristics
 //
-static CFDictionaryRef deviceCharacteristics(FileDesc &fd)
+static CFDictionaryRef CF_RETURNS_RETAINED deviceCharacteristics(FileDesc &fd)
 {
 	// get device name
 	FileDesc::UnixStat st;

@@ -28,7 +28,6 @@
 #include "BasicShapes.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "Page.h"
 #include "RenderLayer.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGResourceClipper.h"
@@ -57,7 +56,7 @@ SVGRenderingContext::~SVGRenderingContext()
     if (m_renderingFlags & EndFilterLayer) {
         ASSERT(m_filter);
         GraphicsContext* contextPtr = &m_paintInfo->context();
-        m_filter->postApplyResource(*m_renderer, contextPtr, ApplyToDefaultMode, 0, 0);
+        m_filter->postApplyResource(*m_renderer, contextPtr, RenderSVGResourceMode::ApplyToDefault, 0, 0);
         m_paintInfo->setContext(*m_savedContext);
         m_paintInfo->rect = m_savedPaintRect;
     }
@@ -163,7 +162,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
     if (!isRenderingMask) {
         if (RenderSVGResourceMasker* masker = resources->masker()) {
             GraphicsContext* contextPtr = &m_paintInfo->context();
-            bool result = masker->applyResource(*m_renderer, style, contextPtr, ApplyToDefaultMode);
+            bool result = masker->applyResource(*m_renderer, style, contextPtr, RenderSVGResourceMode::ApplyToDefault);
             m_paintInfo->setContext(*contextPtr);
             if (!result)
                 return;
@@ -173,7 +172,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
     RenderSVGResourceClipper* clipper = resources->clipper();
     if (!clipPathOperation && clipper) {
         GraphicsContext* contextPtr = &m_paintInfo->context();
-        bool result = clipper->applyResource(*m_renderer, style, contextPtr, ApplyToDefaultMode);
+        bool result = clipper->applyResource(*m_renderer, style, contextPtr, RenderSVGResourceMode::ApplyToDefault);
         m_paintInfo->setContext(*contextPtr);
         if (!result)
             return;
@@ -188,7 +187,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
             // (because it was either drawn before or empty) but we still need to apply the filter.
             m_renderingFlags |= EndFilterLayer;
             GraphicsContext* contextPtr = &m_paintInfo->context();
-            bool result = m_filter->applyResource(*m_renderer, style, contextPtr, ApplyToDefaultMode);
+            bool result = m_filter->applyResource(*m_renderer, style, contextPtr, RenderSVGResourceMode::ApplyToDefault);
             m_paintInfo->setContext(*contextPtr);
             if (!result)
                 return;
@@ -304,7 +303,7 @@ void SVGRenderingContext::renderSubtreeToImageBuffer(ImageBuffer* image, RenderE
     contentTransformation = subtreeContentTransformation * contentTransformation;
 
     ASSERT(!item.needsLayout());
-    item.paint(info, IntPoint());
+    item.paint(info, { });
 
     contentTransformation = savedContentTransformation;
 }

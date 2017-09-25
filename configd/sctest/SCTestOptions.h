@@ -91,7 +91,7 @@ extern const NSString * const kSCTestUnitTestTestMethodList;
 		"-gopher_proxy        : Add a proxy agent with Gopher proxy. Format of the argument is 'server:port'\n"\
 		"-http_proxy          : Add a proxy agent with HTTP proxy. Format of the argument is 'server:port'\n"\
 		"-https_proxy         : Add a proxy agent with HTTPS proxy. Format of the argument is 'server:port'\n"\
-		"-proxy_match_domain  : Add a proxy agent for a match domain. If this option is not specified, 'apple.com' will be used\n"\
+		"-proxy_match_domain  : Configures the Proxy server for certain domains. A comma-separated list of domains can be specified. Default is 'apple.com'\n"\
 		"-remove_proxy        : Remove a proxy configuration, previously configured via 'sctest'\n"\
 		"-socks_proxy         : Add a proxy agent with SOCKS proxy. Format of the argument is 'server:port'\n"\
 		"\n============== reachability options =============\n"\

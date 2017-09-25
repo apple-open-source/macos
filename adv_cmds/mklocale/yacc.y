@@ -151,7 +151,11 @@ entry	:	ENCODING STRING
 	|	MAPUPPER map
 		{ set_map(&mapupper, $2, 0); }
 	|	DIGITMAP map
-		{ set_digitmap(&types, $2); }
+		{
+			if (($2->map >= 0) && ($2->map <= 255)) { /* Data corruption otherwise */
+				set_digitmap(&types, $2);
+			}
+		}
 	|	CHARCLASS STRING list
 		{
 		  int i;

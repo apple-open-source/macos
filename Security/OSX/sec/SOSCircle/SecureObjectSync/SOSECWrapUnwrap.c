@@ -27,7 +27,7 @@ const char fingerprint[20] = "fingerprint";
 const uint8_t kAlgorithmID = 1;
 
 CFMutableDataRef
-SOSCopyECWrappedData(ccec_pub_ctx *ec_ctx, CFDataRef data, CFErrorRef *error)
+SOSCopyECWrappedData(ccec_pub_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error)
 {
     CFMutableDataRef result = NULL;
     CFMutableDataRef output = NULL;

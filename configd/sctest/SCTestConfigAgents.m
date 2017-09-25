@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -187,8 +187,16 @@
 	SET_PROXY_CONFIG(SOCKS);
 
 	if ([proxyConfig count] > 0) {
-		NSString *matchDomain = self.options[kSCTestConfigAgentProxyMatchDomain] ? self.options[kSCTestConfigAgentProxyMatchDomain] : @TEST_DOMAIN;
-		[proxyConfig setObject:@[matchDomain] forKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
+
+		NSArray<NSString *> *domains = nil;
+		NSString *matchDomains = self.options[kSCTestConfigAgentProxyMatchDomain];
+		if (matchDomains == nil) {
+			domains = @[@TEST_DOMAIN];
+		} else {
+			domains = [matchDomains componentsSeparatedByString:@","];
+		}
+
+		[proxyConfig setObject:domains forKey:(__bridge NSString *)kSCPropNetProxiesSupplementalMatchDomains];
 	} else {
 		proxyConfig = nil;
 	}
@@ -644,6 +652,8 @@
 			change:(NSDictionary *)change
 		context:(void *)context
 {
+#pragma unused(change)
+#pragma unused(context)
 	NWPathEvaluator *pathEvaluator = (NWPathEvaluator *)object;
 	if ([keyPath isEqualToString:@"path"]) {
 		self.pathProxy = pathEvaluator.path.proxySettings;

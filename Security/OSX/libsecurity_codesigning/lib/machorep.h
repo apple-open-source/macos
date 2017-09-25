@@ -56,6 +56,8 @@ public:
 	void prepareForSigning(SigningContext &context);
 	size_t signingBase();
 	size_t signingLimit();
+	size_t execSegBase(const Architecture *arch);
+	size_t execSegLimit(const Architecture *arch);
 	std::string format();
     CFDictionaryRef diskRepInformation();
 
@@ -83,6 +85,8 @@ protected:
 	Requirement *libraryRequirements(const Architecture *arch, const SigningContext &ctx);
 
 private:
+	static bool needsExecSeg(const MachO& macho);
+
 	Universal *mExecutable;	// cached Mach-O/Universal reference to mainExecutablePath()
 	EmbeddedSignatureBlob *mSigningData; // cached signing data from current architecture
 };

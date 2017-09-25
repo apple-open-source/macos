@@ -200,6 +200,89 @@ done:
 }
 
 int
+service_client_kb_wrap_key(service_context_t *context, const void *key, int key_size, keyclass_t key_class, void **wrapped_key, int *wrapped_key_size, keyclass_t *wrapped_key_class)
+{
+    int rc = KB_GeneralError;
+    xpc_object_t message = NULL;
+    xpc_object_t reply = NULL;
+    const void *data;
+    size_t data_len;
+
+    if (wrapped_key) *wrapped_key = NULL;
+    if (wrapped_key_size) *wrapped_key_size = 0;
+    if (wrapped_key_class) *wrapped_key_class = key_class_none;
+
+    message = xpc_dictionary_create(NULL, NULL, 0);
+    require_quiet(message, done);
+
+    xpc_dictionary_set_uint64(message, SERVICE_XPC_REQUEST, SERVICE_KB_WRAP_KEY);
+    xpc_dictionary_set_data(message, SERVICE_XPC_KEY, key, (size_t)key_size);
+    xpc_dictionary_set_int64(message, SERVICE_XPC_KEYCLASS, key_class);
+
+    rc = _service_send_msg(context, message, &reply);
+    if (rc == KB_Success) {
+        data = xpc_dictionary_get_data(reply, SERVICE_XPC_WRAPPED_KEY, &data_len);
+        if (data) {
+            if (wrapped_key) {
+                *wrapped_key = malloc(data_len);
+                memcpy(*wrapped_key, data, data_len);
+            }
+            if (wrapped_key_size) {
+                *wrapped_key_size = (int)data_len;
+            }
+        }
+
+        if (wrapped_key_class) {
+            *wrapped_key_class = (keyclass_t)xpc_dictionary_get_int64(reply, SERVICE_XPC_KEYCLASS);
+        }
+    }
+
+done:
+    if (message) xpc_release(message);
+    if (reply) xpc_release(reply);
+    return rc;
+}
+
+int
+service_client_kb_unwrap_key(service_context_t *context, const void *wrapped_key, int wrapped_key_size, keyclass_t wrapped_key_class, void **key, int *key_size)
+{
+    int rc = KB_GeneralError;
+    xpc_object_t message = NULL;
+    xpc_object_t reply = NULL;
+    const void *data;
+    size_t data_len;
+
+    if (key) *key = NULL;
+    if (key_size) *key_size = 0;
+
+    message = xpc_dictionary_create(NULL, NULL, 0);
+    require_quiet(message, done);
+
+    xpc_dictionary_set_uint64(message, SERVICE_XPC_REQUEST, SERVICE_KB_UNWRAP_KEY);
+    xpc_dictionary_set_data(message, SERVICE_XPC_WRAPPED_KEY, wrapped_key, (size_t)wrapped_key_size);
+    xpc_dictionary_set_int64(message, SERVICE_XPC_KEYCLASS, wrapped_key_class);
+
+    rc = _service_send_msg(context, message, &reply);
+    if (rc == KB_Success) {
+        data = xpc_dictionary_get_data(reply, SERVICE_XPC_KEY, &data_len);
+        if (data) {
+            if (key) {
+                *key = malloc(data_len);
+                memcpy(*key, data, data_len);
+            }
+            if (key_size) {
+                *key_size = (int)data_len;
+            }
+        }
+    }
+
+done:
+    if (message) xpc_release(message);
+    if (reply) xpc_release(reply);
+    return rc;
+}
+
+int
 service_client_stash_set_key(service_context_t *context, const void * key, int key_len)
 {
     int rc = KB_GeneralError;

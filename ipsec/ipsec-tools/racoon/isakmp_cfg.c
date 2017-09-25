@@ -74,7 +74,6 @@
 #include <stdint.h>
 #endif
 #include <ctype.h>
-#include <resolv.h>
 
 #include "var.h"
 #include "misc.h"
@@ -187,7 +186,7 @@ isakmp_cfg_r(iph1, msg)
 		return;
 	}
 
-	plog(ASL_LEVEL_DEBUG, "MODE_CFG packet\n");
+	plog(ASL_LEVEL_NOTICE, "MODE_CFG packet\n");
 
 	/* Now work with the decrypted packet */
 	packet = (struct isakmp *)dmsg->v;
@@ -310,7 +309,7 @@ isakmp_cfg_attr_r(iph1, msgid, attrpl, msg)
 {
 	int type = attrpl->type;
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 	     "Configuration exchange type %s\n", s_isakmp_cfg_ptype(type));
 	switch (type) {
 	case ISAKMP_CFG_ACK:
@@ -684,7 +683,7 @@ isakmp_cfg_request(iph1, attrpl, msg)
 	reply->type = ISAKMP_CFG_REPLY;
 	reply->id = attrpl->id;
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		    "Sending MODE_CFG REPLY\n");
 
 	error = isakmp_cfg_send(iph1, payload, 
@@ -771,7 +770,7 @@ isakmp_cfg_set(iph1, attrpl, msg)
 	reply->type = ISAKMP_CFG_ACK;
 	reply->id = attrpl->id;
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		     "Sending MODE_CFG ACK\n");
 
 	error = isakmp_cfg_send(iph1, payload, 
@@ -1261,7 +1260,7 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
 	isakmp_printpacket(iph2->sendbuf, iph1->local, iph1->remote, 1);
 #endif
 	
-	plog(ASL_LEVEL_DEBUG, "MODE_CFG packet to send\n");
+	plog(ASL_LEVEL_NOTICE, "MODE_CFG packet to send\n");
 
 	/* encoding */
 	if (ISSET(isakmp->flags, ISAKMP_FLAG_E)) {
@@ -1311,7 +1310,7 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
                }
        }
     
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		"sendto mode config %s.\n", s_isakmp_nptype(np));
 
 	/*
@@ -1421,7 +1420,7 @@ isakmp_cfg_getport(iph1)
 
 	isakmp_cfg_config.port_pool[i].used = 1;
 
-	plog(ASL_LEVEL_INFO, "Using port %d\n", i);
+	plog(ASL_LEVEL_NOTICE, "Using port %d\n", i);
 
 	iph1->mode_cfg->flags |= ISAKMP_CFG_PORT_ALLOCATED;
 	iph1->mode_cfg->port = i;
@@ -1450,7 +1449,7 @@ isakmp_cfg_putport(iph1, index)
 	isakmp_cfg_config.port_pool[index].used = 0;
 	iph1->mode_cfg->flags &= ISAKMP_CFG_PORT_ALLOCATED;
 
-	plog(ASL_LEVEL_INFO, "Released port %d\n", index);
+	plog(ASL_LEVEL_NOTICE, "Released port %d\n", index);
 
 	return 0;
 }
@@ -1534,7 +1533,7 @@ isakmp_cfg_getconfig(iph1)
 		}
 	}
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		    "Sending MODE_CFG REQUEST\n");
 
 	error = isakmp_cfg_send(iph1, buffer,
@@ -1657,7 +1656,7 @@ isakmp_cfg_resize_pool(size)
 	if (size == isakmp_cfg_config.pool_size)
 		return 0;
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 	    "Resize address pool from %zu to %d\n",
 	    isakmp_cfg_config.pool_size, size);
 

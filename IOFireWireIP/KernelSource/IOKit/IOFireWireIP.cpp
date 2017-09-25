@@ -125,17 +125,27 @@ bool IOFireWireIP::start(IOService *provider)
 		if(ioStat == kIOReturnSuccess) 
 		{
 			// Add unit notification for units disappearing
-			fIPUnitNotifier = IOService::addMatchingNotification(gIOPublishNotification, 
-														serviceMatching("IOFireWireIPUnit"), 
-														&fwIPUnitAttach, this, (void*)IP1394_VERSION, 0);
+            OSDictionary * match_dict = serviceMatching("IOFireWireIPUnit");
+            if( match_dict )
+            {
+                fIPUnitNotifier = IOService::addMatchingNotification(gIOPublishNotification,
+                                                            match_dict,
+                                                            &fwIPUnitAttach, this, (void*)IP1394_VERSION, 0);
+                match_dict->release();
+            }
 		}
 
 		if(ioStat == kIOReturnSuccess) 
 		{
 			// Add unit notification for units disappearing
-			fIPv6UnitNotifier = IOService::addMatchingNotification(gIOPublishNotification, 
-														serviceMatching("IOFireWireIPUnit"), 
-														&fwIPUnitAttach, this, (void*)IP1394v6_VERSION, 0);
+            OSDictionary * match_dict = serviceMatching("IOFireWireIPUnit");
+            if( match_dict )
+            {
+                fIPv6UnitNotifier = IOService::addMatchingNotification(gIOPublishNotification,
+                                                            match_dict,
+                                                            &fwIPUnitAttach, this, (void*)IP1394v6_VERSION, 0);
+                match_dict->release();
+            }
 		}
 
 		// Create config rom entry
@@ -232,7 +242,8 @@ bool IOFireWireIP::start(IOService *provider)
 							if ( matchDict && uidSym && tbtUIDNumber )
 							{
 								matchDict = propertyMatching( uidSym, tbtUIDNumber, matchDict );
-								
+                                tbtUIDNumber->release();
+                                
 								mach_timespec_t timeout = { 10, 0 };
 								IOService * tbtSwitch = waitForService( matchDict, &timeout );
 								

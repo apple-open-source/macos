@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHBUILTINS" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -59,6 +59,10 @@ then commands are read from that file instead of \fIfile\fP\&.
 If any arguments \fIarg\fP are given,
 they become the positional parameters; the old positional
 parameters are restored when the \fIfile\fP is done executing\&.
+However, if no arguments are given,
+the positional parameters remain those of the calling context,
+and no restoring is done\&.
+.PP
 If \fIfile\fP was not found the return status is 127; if \fIfile\fP was found
 but contained a syntax error the return status is 126; else the return
 status is the exit status of the last command executed\&.
@@ -604,7 +608,7 @@ with emulations to be set to their values in \fBsh\fP\&.  \fBfno\fP then
 calls \fBfni\fP; because \fBfni\fP is also marked for sticky \fBsh\fP
 emulation, no option changes take place on entry to or exit from it\&.
 Hence the option \fBcshnullglob\fP, turned off by \fBsh\fP emulation, will
-be turned on within \fBfni\fP and remain on on return to \fBfno\fP\&.  On exit
+be turned on within \fBfni\fP and remain on return to \fBfno\fP\&.  On exit
 from \fBfno\fP, the emulation mode and all options will be restored to the
 state they were in before entry to the temporary emulation\&.
 .PP
@@ -697,7 +701,7 @@ the \fBIGNORE_EOF\fP option is set\&.
 .RS
 .PP
 See notes at the end of
-the section JOBS in in \fIzshmisc\fP(1) for some possibly unexpected interactions
+the section JOBS in \fIzshmisc\fP(1) for some possibly unexpected interactions
 of the \fBexit\fP command with jobs\&.
 .RE
 .TP
@@ -744,7 +748,7 @@ specifies the most recent event beginning with the given string\&.  All
 substitutions \fIold\fP\fB=\fP\fInew\fP, if any, are then performed on the
 text of the events\&.
 .PP
-In addition to the the number range,
+In addition to the number range,
 .PD 0
 .TP
 \fB\-I\fP
@@ -1203,6 +1207,9 @@ kilobytes (default)
 \fIn\fP\fBm\fP
 megabytes or minutes
 .TP
+\fIn\fP\fBg\fP
+gigabytes
+.TP
 [\fImm\fP\fB:\fP]\fIss\fP
 minutes and seconds
 .PD
@@ -1247,7 +1254,7 @@ and the new directory stack is not printed\&.  This is useful for calls to
 \fBprint \fP[ \fB\-abcDilmnNoOpPrsSz\fP ] [ \fB\-u\fP \fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
 .TP
 .PD
-\fB      \fP[ \fB\-xX\fP \fItab\-stop\fP ] [ \fB\-R\fP [ \fB\-en\fP ]] [ \fIarg\fP \&.\&.\&. ]
+\fB      \fP[ \fB\-v\fP \fIname\fP ] [ \fB\-xX\fP \fItabstop\fP ] [ \fB\-R\fP [ \fB\-en\fP ]] [ \fIarg\fP \&.\&.\&. ]
 With the `\fB\-f\fP\&' option the arguments are printed as described by \fBprintf\fP\&.
 With no flags or with the flag `\fB\-\fP\&', the arguments are printed on
 the standard output as described by \fBecho\fP, with the following differences:
@@ -1341,6 +1348,9 @@ similar to reading the line from a history file with the
 \fB\-u\fP \fIn\fP
 Print the arguments to file descriptor \fIn\fP\&.
 .TP
+\fB\-v\fP \fIname\fP
+Store the printed arguments as the value of the parameter \fIname\fP\&.
+.TP
 \fB\-x\fP \fItab\-stop\fP
 Expand leading tabs on each line of output in the printed string
 assuming a tab stop every \fItab\-stop\fP characters\&.  This is appropriate
@@ -1372,7 +1382,7 @@ If any of `\fB\-m\fP\&', `\fB\-o\fP' or `\fB\-O\fP' are used in combination with
 case of `\fB\-m\fP\&') then nothing is printed\&.
 .RE
 .TP
-\fBprintf\fP \fIformat\fP [ \fIarg\fP \&.\&.\&. ]
+\fBprintf\fP [ \-v \fIname\fP ] \fIformat\fP [ \fIarg\fP \&.\&.\&. ]
 Print the arguments according to the format specification\&. Formatting
 rules are the same as used in C\&. The same escape sequences as for \fBecho\fP
 are recognised in the format\&. All C conversion specifications ending in
@@ -1401,6 +1411,11 @@ until all arguments have been consumed\&. With the \fBprint\fP builtin, this
 can be suppressed by using the \fB\-r\fP option\&. If more arguments are
 required by the format than have been specified, the behaviour is as if
 zero or an empty string had been specified as the argument\&.
+.PP
+The \fB\-v\fP option causes the output to be stored as the value of the
+parameter \fIname\fP, instead of printed\&. If \fIname\fP is an array and
+the format string is reused when consuming arguments then one
+array element will be used for each use of the format string\&.
 .RE
 .TP
 .PD 0
@@ -1590,7 +1605,8 @@ The \fB\-c\fP or \fB\-l\fP flags cancel any and all of \fB\-kpquz\fP\&.
 .RE
 .TP
 \fBreadonly\fP
-Same as \fBtypeset \-r\fP\&.
+Same as \fBtypeset \-r\fP\&.  With the \fBPOSIX_BUILTINS\fP option set, same
+as \fBtypeset \-gr\fP\&.
 .TP
 \fBrehash\fP
 Same as \fBhash \-r\fP\&.
@@ -1888,7 +1904,8 @@ Equivalent to \fBwhence \-v\fP\&.
 Set or display attributes and values for shell parameters\&.
 .RS
 .PP
-A parameter is created for each \fIname\fP that does not already refer
+Except as noted below for control flags that change the behavior,
+a parameter is created for each \fIname\fP that does not already refer
 to one\&.  When inside a function, a new parameter is created for every
 \fIname\fP (even those that already exist), and is unset again when the
 function completes\&.  See
@@ -1896,18 +1913,31 @@ function completes\&.  See
 retain their special attributes when made local\&.
 .PP
 For each \fIname\fP\fB=\fP\fIvalue\fP assignment, the parameter
-\fIname\fP is set to \fIvalue\fP\&.  All forms of the command
-handle scalar assignment\&.
+\fIname\fP is set to \fIvalue\fP\&.
 .PP
-If any of the reserved words \fBdeclare\fP, \fBexport\fP, \fBfloat\fP,
+If the shell option \fBTYPESET_SILENT\fP is not set, for each remaining
+\fIname\fP that refers to a parameter that is already set, the name and
+value of the parameter are printed in the form of an assignment\&.
+Nothing is printed for newly\-created parameters, or when any attribute
+flags listed below are given along with the \fIname\fP\&.  Using
+`\fB+\fP\&' instead of minus to introduce an attribute turns it off\&.
+.PP
+If no \fIname\fP is present, the names and values of all parameters are
+printed\&.  In this case the attribute flags restrict the display to only
+those parameters that have the specified attributes, and using `\fB+\fP\&'
+rather than `\fB\-\fP\&' to introduce the flag suppresses printing of the values
+of parameters when there is no parameter name\&.
+.PP
+All forms of the command handle scalar assignment\&.  Array assignment is
+possible if any of the reserved words \fBdeclare\fP, \fBexport\fP, \fBfloat\fP,
 \fBinteger\fP, \fBlocal\fP, \fBreadonly\fP or \fBtypeset\fP is matched when the
-line is parsed (N\&.B\&. not when it is executed) the shell will try to parse
-arguments as assignments, except that the `\fB+=\fP\&' syntax and the
-\fBGLOB_ASSIGN\fP option are not supported\&.  This has two major differences
-from normal command line argument parsing: array assignment is possible,
-and scalar values after \fB=\fP are not split further into words even if
-expanded (regardless of the setting of the \fBKSH_TYPESET\fP option; this
-option is obsolete)\&.  Here is an example:
+line is parsed (N\&.B\&. not when it is executed)\&.  In this case the arguments
+are parsed as assignments, except that the `\fB+=\fP\&' syntax and the
+\fBGLOB_ASSIGN\fP option are not supported, and scalar values after \fB=\fP
+are \fInot\fP split further into words, even if expanded (regardless of the
+setting of the \fBKSH_TYPESET\fP option; this option is obsolete)\&.
+.PP
+Examples of the differences between command and reserved word parsing:
 .PP
 .RS
 .nf
@@ -1936,7 +1966,7 @@ builtin typeset svar=$(echo two words)\fP
 .RE
 .PP
 The \fBbuiltin\fP keyword causes the above to use the standard builtin
-interface to \fBtypeset\fP in which argument parsing is perfomed in the same
+interface to \fBtypeset\fP in which argument parsing is performed in the same
 way as for other commands\&.  This example creates a scalar \fBsvar\fP
 containing the value \fBtwo\fP and another scalar parameter \fBwords\fP with
 no value\&.  An array value in this case would either cause an error or be
@@ -1974,20 +2004,31 @@ this means\&.
 Note that each interface to any of the commands my be disabled
 separately\&.  For example, `\fBdisable \-r typeset\fP\&' disables the reserved
 word interface to \fBtypeset\fP, exposing the builtin interface, while
-`\fBdisable typeset\fP\&' disables the builtin\&.
+`\fBdisable typeset\fP\&' disables the builtin\&.  Note that disabling the
+reserved word interface for \fBtypeset\fP may cause problems with the
+output of `\fBtypeset \-p\fP\&', which assumes the reserved word interface is
+available in order to restore array and associative array values\&.
 .PP
-If the shell option \fBTYPESET_SILENT\fP is not set, for each remaining
-\fIname\fP that refers to a parameter that is already set, the name and
-value of the parameter are printed in the form of an assignment\&.
-Nothing is printed for newly\-created parameters, or when any attribute
-flags listed below are given along with the \fIname\fP\&.  Using
-`\fB+\fP\&' instead of minus to introduce an attribute turns it off\&.
+Unlike parameter assignment statements, \fBtypeset\fP\&'s exit status on an
+assignment that involves a command substitution does not reflect the exit
+status of the command substitution\&.  Therefore, to test for an error in
+a command substitution, separate the declaration of the parameter from its
+initialization:
 .PP
-If no \fIname\fP is present, the names and values of all parameters are
-printed\&.  In this case the attribute flags restrict the display to only
-those parameters that have the specified attributes, and using `\fB+\fP\&'
-rather than `\fB\-\fP\&' to introduce the flag suppresses printing of the values
-of parameters when there is no parameter name\&.
+.RS
+.nf
+\fB# WRONG
+typeset var1=$(exit 1) || echo "Trouble with var1"
+
+# RIGHT
+typeset var1 && var1=$(exit 1) || echo "Trouble with var1"
+\fP
+.fi
+.RE
+.PP
+To initialize a parameter \fIparam\fP to a command output and mark it readonly,
+use \fBtypeset \-r \fP\fIparam\fP or \fBreadonly \fP\fIparam\fP after the parameter
+assignment statement\&.
 .PP
 If no attribute flags are given, and either no \fIname\fP arguments are
 present or the flag \fB+m\fP is used, then each parameter name printed is
@@ -2046,17 +2087,9 @@ does not\&.
 .TP
 \fB\-p\fP
 If the \fB\-p\fP option is given, parameters and values are printed in the
-form of a typeset command and an assignment (which will be printed
-separately for arrays and associative arrays), regardless of other flags
+form of a typeset command with an assignment, regardless of other flags
 and options\&.  Note that the \fB\-H\fP flag on parameters is respected; no
 value will be shown for these parameters\&.
-.RS
-.PP
-As the intention of this option is to produce output that can restore
-the current state, readonly specials (whose values cannot be
-changed) are not shown and assignments to arrays are shown before
-the \fBtypeset\fP rendering the array readonly\&.
-.RE
 .TP
 \fB\-T\fP [ \fIscalar\fP[\fB=\fP\fIvalue\fP] \fIarray\fP[\fB=(\fP\fIvalue\fP \&.\&.\&.\fB)\fP] [ \fIsep\fP ] ]
 This flag has a different meaning when used with \fB\-f\fP; see below\&.
@@ -2138,7 +2171,14 @@ flag\&.
 For arrays (but not for associative arrays), keep only the first
 occurrence of each duplicated value\&.  This may also be set for
 colon\-separated special parameters like \fBPATH\fP or \fBFIGNORE\fP, etc\&.
+Note the flag takes effect on assignment, and the type of the
+variable being assigned to is determinative; for variables with
+shared values it is therefore recommended to set the flag for
+all interfaces, e\&.g\&. `\fBtypeset \-U PATH path\fP\&'\&.
+.RS
+.PP
 This flag has a different meaning when used with \fB\-f\fP; see below\&.
+.RE
 .TP
 \fB\-Z\fP [ \fIn\fP ]
 Specially handled if set along with the \fB\-L\fP flag\&.
@@ -2150,16 +2190,18 @@ place in the output\&.
 .TP
 \fB\-a\fP
 The names refer to array parameters\&.  An array parameter may be
-created this way, but it may not be assigned to in the \fBtypeset\fP
-statement\&.  When displaying, both normal and associative arrays are
-shown\&.
+created this way, but it may be assigned to in the \fBtypeset\fP
+statement only if the reserved word form of \fBtypeset\fP is enabled
+(as it is by default)\&.  When displaying, both normal and associative
+arrays are shown\&.
 .TP
 \fB\-f\fP
 The names refer to functions rather than parameters\&.  No assignments
 can be made, and the only other valid flags are \fB\-t\fP, \fB\-T\fP, \fB\-k\fP,
 \fB\-u\fP, \fB\-U\fP and \fB\-z\fP\&.  The flag \fB\-t\fP turns on execution tracing
 for this function; the flag \fB\-T\fP does the same, but turns off tracing
-on any function called from the present one, unless that function also
+for any named (not anonymous) function called from the present one,
+unless that function also
 has the \fB\-t\fP or \fB\-T\fP flag\&.  The \fB\-u\fP and \fB\-U\fP flags cause the
 function to be marked for autoloading; \fB\-U\fP also causes alias
 expansion to be suppressed when the function is loaded\&.  See the

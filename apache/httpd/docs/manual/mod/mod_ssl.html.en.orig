@@ -45,7 +45,7 @@ to provide the cryptography engine.</p>
 <p>Further details, discussion, and examples are provided in the
 <a href="../ssl/">SSL documentation</a>.</p>
 </div>
-<div id="quickview"><h3>Topics</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#envvars">Environment Variables</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#logformats">Custom Log Formats</a></li>
@@ -73,8 +73,10 @@ to provide the cryptography engine.</p>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslinsecurerenegotiation">SSLInsecureRenegotiation</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocspdefaultresponder">SSLOCSPDefaultResponder</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocspenable">SSLOCSPEnable</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sslocspnoverify">SSLOCSPNoverify</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocspoverrideresponder">SSLOCSPOverrideResponder</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocspproxyurl">SSLOCSPProxyURL</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#sslocsprespondercertificatefile">SSLOCSPResponderCertificateFile</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocsprespondertimeout">SSLOCSPResponderTimeout</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocspresponsemaxage">SSLOCSPResponseMaxAge</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslocspresponsetimeskew">SSLOCSPResponseTimeSkew</a></li>
@@ -469,7 +471,7 @@ this directory contains the appropriate symbolic links.</p>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Optional <em>flag</em>s available in httpd 2.5-dev or
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Optional <em>flag</em>s available in httpd 2.4.21 or
 later</td></tr>
 </table>
 <p>
@@ -1094,6 +1096,21 @@ SSLOCSPOverrideResponder on</pre>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="SSLOCSPNoverify" id="SSLOCSPNoverify">SSLOCSPNoverify</a> <a name="sslocspnoverify" id="sslocspnoverify">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>skip the OCSP responder certificates verification</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLOCSPNoverify <em>On/Off</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>SSLOCSPNoverify Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in httpd 2.4.26 and later, if using OpenSSL 0.9.7 or later</td></tr>
+</table>
+<p>Skip the OCSP responder certificates verification, mostly useful when
+testing an OCSP server.</p>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="SSLOCSPOverrideResponder" id="SSLOCSPOverrideResponder">SSLOCSPOverrideResponder</a> <a name="sslocspoverrideresponder" id="sslocspoverrideresponder">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Force use of the default responder URI for OCSP validation</td></tr>
@@ -1120,6 +1137,23 @@ certificate being validated references an OCSP responder.</p>
 </table>
 <p>This option allows to set the URL of a HTTP proxy that should be used for
 all queries to OCSP responders.</p>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="SSLOCSPResponderCertificateFile" id="SSLOCSPResponderCertificateFile">SSLOCSPResponderCertificateFile</a> <a name="sslocsprespondercertificatefile" id="sslocsprespondercertificatefile">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Set of trusted PEM encoded OCSP responder certificates</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLOCSPResponderCertificateFile <em>file</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in httpd 2.4.26 and later, if using OpenSSL 0.9.7 or later</td></tr>
+</table>
+<p>This supplies a list of trusted OCSP responder certificates to be used
+during OCSP responder certificate validation. The supplied certificates are
+implicitly trusted without any further validation. This is typically used
+where the OCSP responder certificate is self signed or omitted from the OCSP
+response.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1623,7 +1657,7 @@ As of release 2.4.21, all configurations which enable either one of the
 will use the new <code class="directive"><a href="#sslproxycheckpeername">SSLProxyCheckPeerName</a></code>
 behavior, and all configurations which disable either one of the 
 <code>SSLProxyCheckPeerName</code> or <code>SSLProxyCheckPeerCN</code> options
-will supress all remote server certificate name validation. Only the following
+will suppress all remote server certificate name validation. Only the following
 configuration will trigger the legacy certificate CN comparison in 2.4.21 and
 later releases;
 </p>
@@ -2719,7 +2753,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_ssl.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

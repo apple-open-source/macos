@@ -66,7 +66,7 @@ public:
     virtual OSData *                        getDataValue()         = 0;
     virtual void                            setValue(UInt32 value)  = 0;
     virtual void                            setDataValue(OSData * value) = 0;
-    
+  
     OSMetaClassDeclareReservedUsed(IOHIDElement,  0);
     virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0) = 0;
     
@@ -85,7 +85,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDElement,  5);
     virtual OSData *                        getDataValue(IOOptionBits options) = 0;
     
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  6);
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  6);
+    virtual boolean_t                       isVariableSize()        = 0;
+
     OSMetaClassDeclareReservedUnused(IOHIDElement,  7);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  8);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  9);

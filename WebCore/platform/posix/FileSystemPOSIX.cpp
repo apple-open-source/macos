@@ -83,6 +83,11 @@ PlatformFileHandle openFile(const String& path, FileOpenMode mode)
         platformFlag |= O_RDONLY;
     else if (mode == OpenForWrite)
         platformFlag |= (O_WRONLY | O_CREAT | O_TRUNC);
+#if OS(DARWIN)
+    else if (mode == OpenForEventsOnly)
+        platformFlag |= O_EVTONLY;
+#endif
+
     return open(fsRep.data(), platformFlag, 0666);
 }
 
@@ -328,7 +333,7 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
-#if !OS(DARWIN) || PLATFORM(EFL) || PLATFORM(GTK)
+#if !OS(DARWIN) || PLATFORM(GTK)
 String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
 {
     char buffer[PATH_MAX];

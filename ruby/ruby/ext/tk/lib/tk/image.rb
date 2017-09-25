@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # tk/image.rb : treat Tk image objects
 #
@@ -132,7 +133,7 @@ end
 # exists to allow additional image file formats to be added easily.
 #
 # This class documentation is a copy from the original Tcl/Tk at
-# http://www.tcl.tk/man/tcl8.5/TkCmd/photo.htm with some rewrited parts.
+# http://www.tcl.tk/man/tcl8.5/TkCmd/photo.htm with some rewritten parts.
 class TkPhotoImage<TkImage
   NullArgOptionKeys = [ "shrink", "grayscale" ]
 

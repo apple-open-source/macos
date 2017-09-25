@@ -47,8 +47,7 @@ WebInspector.loaded = function()
     InspectorBackend.registerCSSDispatcher(new WebInspector.CSSObserver);
     InspectorBackend.registerRuntimeDispatcher(new WebInspector.RuntimeObserver);
     InspectorBackend.registerWorkerDispatcher(new WebInspector.WorkerObserver);
-    if (InspectorBackend.registerReplayDispatcher)
-        InspectorBackend.registerReplayDispatcher(new WebInspector.ReplayObserver);
+    InspectorBackend.registerCanvasDispatcher(new WebInspector.CanvasObserver);
 
     WebInspector.mainTarget = new WebInspector.MainTarget;
 
@@ -67,7 +66,8 @@ WebInspector.loaded = function()
     this.debuggerManager = new WebInspector.DebuggerManager;
     this.probeManager = new WebInspector.ProbeManager;
     this.workerManager = new WebInspector.WorkerManager;
-    this.replayManager = new WebInspector.ReplayManager;
+    this.domDebuggerManager = new WebInspector.DOMDebuggerManager;
+    this.canvasManager = new WebInspector.CanvasManager;
 
     document.addEventListener("DOMContentLoaded", this.contentLoaded);
 
@@ -101,6 +101,7 @@ WebInspector.assumingMainTarget = () => WebInspector.mainTarget;
 
 WebInspector.isDebugUIEnabled = () => false;
 
+WebInspector.unlocalizedString = (string) => string;
 WebInspector.UIString = (string) => string;
 
 WebInspector.indentString = () => "    ";
@@ -114,4 +115,7 @@ window.InspectorTest = new FrontendTestHarness();
 
 InspectorTest.redirectConsoleToTestOutput();
 
-WebInspector.reportInternalError = (e) => { console.error(e); }
+WebInspector.reportInternalError = (e) => { console.error(e); };
+
+window.reportUnhandledRejection = InspectorTest.reportUnhandledRejection.bind(InspectorTest);
+window.onerror = InspectorTest.reportUncaughtExceptionFromEvent.bind(InspectorTest);

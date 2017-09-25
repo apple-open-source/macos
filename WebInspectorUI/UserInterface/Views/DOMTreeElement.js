@@ -41,6 +41,11 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
             this._canAddAttributes = true;
         this._searchQuery = null;
         this._expandedChildrenLimit = WebInspector.DOMTreeElement.InitialChildrenLimit;
+        this._breakpointStatus = WebInspector.DOMTreeElement.BreakpointStatus.None;
+        this._animatingHighlight = false;
+        this._shouldHighlightAfterReveal = false;
+        this._boundHighlightAnimationEnd = this._highlightAnimationEnd.bind(this);
+        this._subtreeBreakpointCount = 0;
 
         this._recentlyModifiedAttributes = [];
         this._boundNodeChangedAnimationEnd = this._nodeChangedAnimationEnd.bind(this);
@@ -63,6 +68,50 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
     }
 
     // Public
+
+    get breakpointStatus()
+    {
+        return this._breakpointStatus;
+    }
+
+    set breakpointStatus(status)
+    {
+        if (this._breakpointStatus === status)
+            return;
+
+        let increment;
+        if (this._breakpointStatus === WebInspector.DOMTreeElement.BreakpointStatus.None)
+            increment = 1;
+        else if (status === WebInspector.DOMTreeElement.BreakpointStatus.None)
+            increment = -1;
+
+        this._breakpointStatus = status;
+        this._updateBreakpointStatus();
+
+        if (!increment)
+            return;
+
+        let parentElement = this.parent;
+        while (parentElement && !parentElement.root) {
+            parentElement.subtreeBreakpointCountDidChange(increment);
+            parentElement = parentElement.parent;
+        }
+    }
+
+    revealAndHighlight()
+    {
+        if (this._animatingHighlight)
+            return;
+
+        this._shouldHighlightAfterReveal = true;
+        this.reveal();
+    }
+
+    subtreeBreakpointCountDidChange(increment)
+    {
+        this._subtreeBreakpointCount += increment;
+        this._updateBreakpointStatus();
+    }
 
     isCloseTag()
     {
@@ -283,7 +332,7 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
             return;
 
         // If there's no reason to have a selection area, remove the DOM element.
-        let indicatesTreeOutlineState = this.treeOutline && (this.treeOutline.dragOverTreeElement === this || this.treeOutline.selectedTreeElement === this);
+        let indicatesTreeOutlineState = this.treeOutline && (this.treeOutline.dragOverTreeElement === this || this.treeOutline.selectedTreeElement === this || this._animatingHighlight);
         if (!this.hovered && !this.pseudoClassesEnabled && !indicatesTreeOutlineState) {
             if (this._selectionElement) {
                 this._selectionElement.remove();
@@ -519,13 +568,26 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
 
     onreveal()
     {
-        if (this.listItemElement) {
-            var tagSpans = this.listItemElement.getElementsByClassName("html-tag-name");
-            if (tagSpans.length)
-                tagSpans[0].scrollIntoViewIfNeeded(false);
-            else
-                this.listItemElement.scrollIntoViewIfNeeded(false);
-        }
+        let listItemElement = this.listItemElement;
+        if (!listItemElement)
+            return;
+
+        let tagSpans = listItemElement.getElementsByClassName("html-tag-name");
+        if (tagSpans.length)
+            tagSpans[0].scrollIntoViewIfNeeded(false);
+        else
+            listItemElement.scrollIntoViewIfNeeded(false);
+
+        if (!this._shouldHighlightAfterReveal)
+            return;
+
+        this._shouldHighlightAfterReveal = false;
+        this._animatingHighlight = true;
+
+        this.updateSelectionArea();
+
+        listItemElement.addEventListener("animationend", this._boundHighlightAnimationEnd);
+        listItemElement.classList.add(WebInspector.DOMTreeElement.HighlightStyleClassName);
     }
 
     onselect(treeElement, selectedByUser)
@@ -652,14 +714,18 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
 
                 contextMenu.appendItem(WebInspector.UIString("Open in New Tab"), () => {
                     const frame = null;
-                    const alwaysOpenExternally = true;
-                    WebInspector.openURL(url, frame, alwaysOpenExternally);
+                    WebInspector.openURL(url, frame, {alwaysOpenExternally: true});
                 });
 
                 if (WebInspector.frameResourceManager.resourceForURL(url)) {
                     contextMenu.appendItem(WebInspector.UIString("Reveal in Resources Tab"), () => {
                         let frame = WebInspector.frameResourceManager.frameForIdentifier(node.frameIdentifier);
-                        WebInspector.openURL(url, frame);
+
+                        const options = {
+                            ignoreNetworkTab: true,
+                            ignoreSearchTab: true,
+                        };
+                        WebInspector.openURL(url, frame, options);
                     });
                 }
 
@@ -686,7 +752,6 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
         }
 
         this._populateNodeContextMenu(contextMenu);
-        this.treeOutline._populateContextMenu(contextMenu, this.representedObject);
     }
 
     _populateForcedPseudoStateItems(subMenu)
@@ -724,27 +789,6 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
             contextMenu.appendItem(WebInspector.UIString("Delete Node"), this.remove.bind(this));
         if (node.nodeType() === Node.ELEMENT_NODE)
             contextMenu.appendItem(WebInspector.UIString("Scroll Into View"), this._scrollIntoView.bind(this));
-
-        contextMenu.appendSeparator();
-
-        if (node.nodeType() === Node.ELEMENT_NODE) {
-            contextMenu.appendItem(WebInspector.UIString("Copy Selector Path"), () => {
-                let cssPath = WebInspector.cssPath(this.representedObject);
-                InspectorFrontendHost.copyText(cssPath);
-            });
-        }
-
-        if (!node.isPseudoElement()) {
-            contextMenu.appendItem(WebInspector.UIString("Copy XPath"), () => {
-                let xpath = WebInspector.xpath(this.representedObject);
-                InspectorFrontendHost.copyText(xpath);
-            });
-        }
-
-        if (node.isCustomElement()) {
-            contextMenu.appendSeparator();
-            contextMenu.appendItem(WebInspector.UIString("Jump to Definition"), this._showCustomElementDefinition.bind(this));
-        }
     }
 
     _startEditing()
@@ -960,7 +1004,10 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
     {
         this._editing = false;
 
-        if (newText === oldText)
+        if (!newText.trim())
+            element.remove();
+
+        if (!moveDirection && newText === oldText)
             return;
 
         var treeOutline = this.treeOutline;
@@ -1147,6 +1194,7 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
         this._selectionElement = null;
         this.updateSelectionArea();
         this._highlightSearchResults();
+        this._updateBreakpointStatus();
     }
 
     _buildAttributeDOM(parentElement, name, value, node)
@@ -1493,35 +1541,6 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
         WebInspector.RemoteObject.resolveNode(node, "", resolvedNode);
     }
 
-    _showCustomElementDefinition()
-    {
-        const node = this.representedObject;
-        WebInspector.RemoteObject.resolveNode(node, "", (remoteObject) => {
-            if (!remoteObject)
-                return;
-
-            remoteObject.getProperty("constructor", (error, result, wasThrown) => {
-                if (error || result.type !== "function")
-                    return;
-
-                DebuggerAgent.getFunctionDetails(result.objectId, (error, response) => {
-                    if (error)
-                        return;
-
-                    let location = response.location;
-                    let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId, WebInspector.mainTarget);
-                    if (!sourceCode)
-                        return;
-
-                    let sourceCodeLocation = sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber || 0);
-                    WebInspector.showSourceCodeLocation(sourceCodeLocation);
-                });
-                result.release();
-            });
-            remoteObject.release();
-        });
-    }
-
     _editAsHTML()
     {
         var treeOutline = this.treeOutline;
@@ -1643,6 +1662,89 @@ WebInspector.DOMTreeElement = class DOMTreeElement extends WebInspector.TreeElem
         if (event.type === "dragstart" && this._editing)
             event.preventDefault();
     }
+
+    _updateBreakpointStatus()
+    {
+        let listItemElement = this.listItemElement;
+        if (!listItemElement)
+            return;
+
+        let hasBreakpoint = this._breakpointStatus !== WebInspector.DOMTreeElement.BreakpointStatus.None;
+        let hasSubtreeBreakpoints = !!this._subtreeBreakpointCount;
+
+        if (!hasBreakpoint && !hasSubtreeBreakpoints) {
+            if (this._statusImageElement)
+                this._statusImageElement.remove();
+            return;
+        }
+
+        if (!this._statusImageElement) {
+            this._statusImageElement = useSVGSymbol("Images/DOMBreakpoint.svg", "status-image");
+            this._statusImageElement.classList.add("breakpoint");
+            this._statusImageElement.addEventListener("click", this._statusImageClicked.bind(this));
+            this._statusImageElement.addEventListener("contextmenu", this._statusImageContextmenu.bind(this));
+            this._statusImageElement.addEventListener("mousedown", (event) => { event.stopPropagation(); });
+        }
+
+        this._statusImageElement.classList.toggle("subtree", !hasBreakpoint && hasSubtreeBreakpoints);
+
+        this.listItemElement.insertBefore(this._statusImageElement, this.listItemElement.firstChild);
+
+        let disabled = this._breakpointStatus === WebInspector.DOMTreeElement.BreakpointStatus.DisabledBreakpoint;
+        this._statusImageElement.classList.toggle("disabled", disabled);
+    }
+
+    _statusImageClicked(event)
+    {
+        if (this._breakpointStatus === WebInspector.DOMTreeElement.BreakpointStatus.None)
+            return;
+
+        if (event.button !== 0 || event.ctrlKey)
+            return;
+
+        let breakpoints = WebInspector.domDebuggerManager.domBreakpointsForNode(this.representedObject);
+        if (!breakpoints || !breakpoints.length)
+            return;
+
+        let shouldEnable = breakpoints.some((breakpoint) => breakpoint.disabled);
+        breakpoints.forEach((breakpoint) => breakpoint.disabled = !shouldEnable);
+    }
+
+    _statusImageContextmenu(event)
+    {
+        let hasBreakpoint = this._breakpointStatus !== WebInspector.DOMTreeElement.BreakpointStatus.None;
+        let hasSubtreeBreakpoints = !!this._subtreeBreakpointCount;
+        if (!hasBreakpoint && !hasSubtreeBreakpoints)
+            return;
+
+        let contextMenu = WebInspector.ContextMenu.createFromEvent(event);
+        if (hasBreakpoint) {
+            const allowEditing = true;
+            WebInspector.DOMBreakpointTreeController.appendBreakpointContextMenuItems(contextMenu, this.representedObject, allowEditing);
+            return;
+        }
+
+        contextMenu.appendItem(WebInspector.UIString("Reveal Breakpoint"), () => {
+            let breakpointTreeElement = this.selfOrDescendant((treeElement) => treeElement.breakpointStatus && treeElement.breakpointStatus !== WebInspector.DOMTreeElement.BreakpointStatus.None);
+            console.assert(breakpointTreeElement, "Missing breakpoint descendant.", this);
+            if (!breakpointTreeElement)
+                return;
+
+            breakpointTreeElement.revealAndHighlight();
+        });
+    }
+
+    _highlightAnimationEnd()
+    {
+        let listItemElement = this.listItemElement;
+        if (!listItemElement)
+            return;
+
+        listItemElement.removeEventListener("animationend", this._boundHighlightAnimationEnd);
+        listItemElement.classList.remove(WebInspector.DOMTreeElement.HighlightStyleClassName);
+
+        this._animatingHighlight = false;
+    }
 };
 
 WebInspector.DOMTreeElement.InitialChildrenLimit = 500;
@@ -1665,5 +1767,12 @@ WebInspector.DOMTreeElement.ChangeType = {
     Attribute: "dom-tree-element-change-type-attribute"
 };
 
+WebInspector.DOMTreeElement.BreakpointStatus = {
+    None: Symbol("none"),
+    Breakpoint: Symbol("breakpoint"),
+    DisabledBreakpoint: Symbol("disabled-breakpoint"),
+};
+
+WebInspector.DOMTreeElement.HighlightStyleClassName = "highlight";
 WebInspector.DOMTreeElement.SearchHighlightStyleClassName = "search-highlight";
 WebInspector.DOMTreeElement.BouncyHighlightStyleClassName = "bouncy-highlight";

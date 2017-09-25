@@ -53,7 +53,7 @@
 
 #if PLATFORM(IOS)
 #include "RuntimeApplicationChecks.h"
-#include "WebCoreThread.h"
+#include "WebCoreThreadInternal.h"
 #endif
 
 #if PLATFORM(COCOA)
@@ -384,7 +384,7 @@ void InspectorTimelineAgent::didPaint(RenderObject& renderer, const LayoutRect& 
     didCompleteCurrentRecord(TimelineRecordType::Paint);
 }
 
-void InspectorTimelineAgent::didInstallTimer(int timerId, std::chrono::milliseconds timeout, bool singleShot, Frame* frame)
+void InspectorTimelineAgent::didInstallTimer(int timerId, Seconds timeout, bool singleShot, Frame* frame)
 {
     appendRecord(TimelineRecordFactory::createTimerInstallData(timerId, timeout, singleShot), TimelineRecordType::TimerInstall, true, frame);
 }

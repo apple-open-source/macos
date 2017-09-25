@@ -236,7 +236,8 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 				if (trans->tr_addrs == NULL)
 					trans->tr_addrs = a;
 				else
-					prev_addr->addr_next = a;
+					if (prev_addr != NULL)
+						prev_addr->addr_next = a;
 				prev_addr = a;
 				a->addr_if_tstamps = NULL;
 				a->addr_mfs = mfs;

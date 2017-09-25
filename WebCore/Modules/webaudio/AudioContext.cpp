@@ -37,6 +37,7 @@
 #include "AudioListener.h"
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
+#include "AudioSession.h"
 #include "BiquadFilterNode.h"
 #include "ChannelMergerNode.h"
 #include "ChannelSplitterNode.h"
@@ -49,11 +50,13 @@
 #include "ExceptionCode.h"
 #include "FFTFrame.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "GainNode.h"
 #include "GenericEventQueue.h"
 #include "HRTFDatabaseLoader.h"
 #include "HRTFPanner.h"
-#include "JSDOMPromise.h"
+#include "JSDOMPromiseDeferred.h"
+#include "Logging.h"
 #include "NetworkingContext.h"
 #include "OfflineAudioCompletionEvent.h"
 #include "OfflineAudioDestinationNode.h"
@@ -104,6 +107,8 @@ const int UndefinedThreadIdentifier = 0xffffffff;
 const unsigned MaxPeriodicWaveLength = 4096;
 
 namespace WebCore {
+
+#define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(document()->page() && document()->page()->isAlwaysOnLoggingAllowed(), Media, "%p - AudioContext::" fmt, this, ##__VA_ARGS__)
     
 bool AudioContext::isSampleRateRangeGood(float sampleRate)
 {
@@ -172,7 +177,7 @@ void AudioContext::constructCommon()
     m_listener = AudioListener::create();
 
 #if PLATFORM(IOS)
-    if (!document()->settings() || document()->settings()->audioPlaybackRequiresUserGesture())
+    if (document()->settings().audioPlaybackRequiresUserGesture())
         addBehaviorRestriction(RequireUserGestureForAudioStartRestriction);
     else
         m_restrictions = NoRestrictions;
@@ -215,6 +220,7 @@ void AudioContext::lazyInitialize()
 
         if (!isOfflineContext()) {
             document()->addAudioProducer(this);
+            document()->registerForVisibilityStateChangedCallbacks(this);
 
             // This starts the audio thread. The destination node's provideInput() method will now be called repeatedly to render audio.
             // Each time provideInput() is called, a portion of the audio stream is rendered. Let's call this time period a "render quantum".
@@ -259,6 +265,7 @@ void AudioContext::uninitialize()
 
     if (!isOfflineContext()) {
         document()->removeAudioProducer(this);
+        document()->unregisterForVisibilityStateChangedCallbacks(this);
 
         ASSERT(s_hardwareContextCount);
         --s_hardwareContextCount;
@@ -278,7 +285,7 @@ bool AudioContext::isInitialized() const
     return m_isInitialized;
 }
 
-void AudioContext::addReaction(State state, DOMPromise<void>&& promise)
+void AudioContext::addReaction(State state, DOMPromiseDeferred<void>&& promise)
 {
     size_t stateIndex = static_cast<size_t>(state);
     if (stateIndex >= m_stateReactions.size())
@@ -299,7 +306,7 @@ void AudioContext::setState(State state)
     if (stateIndex >= m_stateReactions.size())
         return;
 
-    Vector<DOMPromise<void>> reactions;
+    Vector<DOMPromiseDeferred<void>> reactions;
     m_stateReactions[stateIndex].swap(reactions);
 
     for (auto& promise : reactions)
@@ -361,6 +368,35 @@ String AudioContext::sourceApplicationIdentifier() const
             return networkingContext->sourceApplicationIdentifier();
     }
     return emptyString();
+}
+
+bool AudioContext::processingUserGestureForMedia() const
+{
+    return document() ? document()->processingUserGestureForMedia() : false;
+}
+
+bool AudioContext::isSuspended() const
+{
+    return !document() || document()->activeDOMObjectsAreSuspended() || document()->activeDOMObjectsAreStopped();
+}
+
+void AudioContext::visibilityStateChanged()
+{
+    // Do not suspend if audio is audible.
+    if (mediaState() == MediaProducer::IsPlayingAudio)
+        return;
+
+    if (document()->hidden()) {
+        if (state() == State::Running) {
+            RELEASE_LOG_IF_ALLOWED("visibilityStateChanged() Suspending playback after going to the background");
+            m_mediaSession->beginInterruption(PlatformMediaSession::EnteringBackground);
+        }
+    } else {
+        if (state() == State::Interrupted) {
+            RELEASE_LOG_IF_ALLOWED("visibilityStateChanged() Resuming playback after entering foreground");
+            m_mediaSession->endInterruption(PlatformMediaSession::MayResumePlaying);
+        }
+    }
 }
 
 ExceptionOr<Ref<AudioBuffer>> AudioContext::createBuffer(unsigned numberOfChannels, size_t numberOfFrames, float sampleRate)
@@ -459,13 +495,58 @@ ExceptionOr<Ref<ScriptProcessorNode>> AudioContext::createScriptProcessor(size_t
 {
     ASSERT(isMainThread());
     lazyInitialize();
+
+    // W3C Editor's Draft 06 June 2017
+    //  https://webaudio.github.io/web-audio-api/#widl-BaseAudioContext-createScriptProcessor-ScriptProcessorNode-unsigned-long-bufferSize-unsigned-long-numberOfInputChannels-unsigned-long-numberOfOutputChannels
+
+    // The bufferSize parameter determines the buffer size in units of sample-frames. If it's not passed in,
+    // or if the value is 0, then the implementation will choose the best buffer size for the given environment,
+    // which will be constant power of 2 throughout the lifetime of the node. ... If the value of this parameter
+    // is not one of the allowed power-of-2 values listed above, an IndexSizeError must be thrown.
+    switch (bufferSize) {
+    case 0:
+#if USE(AUDIO_SESSION)
+        // Pick a value between 256 (2^8) and 16384 (2^14), based on the buffer size of the current AudioSession:
+        bufferSize = 1 << std::max<size_t>(8, std::min<size_t>(14, std::log2(AudioSession::sharedSession().bufferSize())));
+#else
+        bufferSize = 2048;
+#endif
+        break;
+    case 256:
+    case 512:
+    case 1024:
+    case 2048:
+    case 4096:
+    case 8192:
+    case 16384:
+        break;
+    default:
+        return Exception { INDEX_SIZE_ERR };
+    }
+
+    // An IndexSizeError exception must be thrown if bufferSize or numberOfInputChannels or numberOfOutputChannels
+    // are outside the valid range. It is invalid for both numberOfInputChannels and numberOfOutputChannels to be zero.
+    // In this case an IndexSizeError must be thrown.
+
+    if (!numberOfInputChannels && !numberOfOutputChannels)
+        return Exception { NOT_SUPPORTED_ERR };
+
+    // This parameter [numberOfInputChannels] determines the number of channels for this node's input. Values of
+    // up to 32 must be supported. A NotSupportedError must be thrown if the number of channels is not supported.
+
+    if (numberOfInputChannels > maxNumberOfChannels())
+        return Exception { NOT_SUPPORTED_ERR };
+
+    // This parameter [numberOfOutputChannels] determines the number of channels for this node's output. Values of
+    // up to 32 must be supported. A NotSupportedError must be thrown if the number of channels is not supported.
+
+    if (numberOfOutputChannels > maxNumberOfChannels())
+        return Exception { NOT_SUPPORTED_ERR };
+
     auto node = ScriptProcessorNode::create(*this, m_destinationNode->sampleRate(), bufferSize, numberOfInputChannels, numberOfOutputChannels);
 
-    if (!node)
-        return Exception { INDEX_SIZE_ERR };
-
-    refNode(*node); // context keeps reference until we stop making javascript rendering callbacks
-    return node.releaseNonNull();
+    refNode(node); // context keeps reference until we stop making javascript rendering callbacks
+    return WTFMove(node);
 }
 
 Ref<BiquadFilterNode> AudioContext::createBiquadFilter()
@@ -909,7 +990,7 @@ void AudioContext::nodeWillBeginPlayback()
 bool AudioContext::willBeginPlayback()
 {
     if (userGestureRequiredForAudioStart()) {
-        if (!ScriptController::processingUserGestureForMedia())
+        if (!processingUserGestureForMedia())
             return false;
         removeBehaviorRestriction(AudioContext::RequireUserGestureForAudioStartRestriction);
     }
@@ -929,7 +1010,7 @@ bool AudioContext::willBeginPlayback()
 bool AudioContext::willPausePlayback()
 {
     if (userGestureRequiredForAudioStart()) {
-        if (!ScriptController::processingUserGestureForMedia())
+        if (!processingUserGestureForMedia())
             return false;
         removeBehaviorRestriction(AudioContext::RequireUserGestureForAudioStartRestriction);
     }
@@ -1016,7 +1097,7 @@ void AudioContext::decrementActiveSourceCount()
     --m_activeSourceCount;
 }
 
-void AudioContext::suspend(DOMPromise<void>&& promise)
+void AudioContext::suspend(DOMPromiseDeferred<void>&& promise)
 {
     if (isOfflineContext()) {
         promise.reject(INVALID_STATE_ERR);
@@ -1045,7 +1126,7 @@ void AudioContext::suspend(DOMPromise<void>&& promise)
     });
 }
 
-void AudioContext::resume(DOMPromise<void>&& promise)
+void AudioContext::resume(DOMPromiseDeferred<void>&& promise)
 {
     if (isOfflineContext()) {
         promise.reject(INVALID_STATE_ERR);
@@ -1074,7 +1155,7 @@ void AudioContext::resume(DOMPromise<void>&& promise)
     });
 }
 
-void AudioContext::close(DOMPromise<void>&& promise)
+void AudioContext::close(DOMPromiseDeferred<void>&& promise)
 {
     if (isOfflineContext()) {
         promise.reject(INVALID_STATE_ERR);

@@ -1,0 +1,11 @@
+.buildrev
+Makedefs
+autom4te.cache
+clang
+config.h
+config.log
+config.status
+configure
+cups-config
+patches
+pstack.txt

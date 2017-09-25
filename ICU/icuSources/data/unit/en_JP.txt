@@ -1,10 +1,9 @@
 ﻿// ***************************************************************************
 // *
 // * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
+// * Corporation and others. All Rights Reserved. Apple addition.
 // *
 // ***************************************************************************
 en_JP{
-    %%Parent{"en_001"}
     Version{"2.1.19.14"}
 }

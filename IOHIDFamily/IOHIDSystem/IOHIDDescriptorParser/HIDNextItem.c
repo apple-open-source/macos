@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -91,11 +91,11 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 	ptItem = &ptDescriptor->item;
 	psD = ptDescriptor->descriptor;
 	piX = &ptDescriptor->index;
-	iLength = ptDescriptor->descriptorLength;
+	iLength = (int)ptDescriptor->descriptorLength;
 /*
  *	Don't go past the end of the buffer
 */
-	if (*piX >= iLength)
+	if (*piX >= (UInt32)iLength)
 		return kHIDEndOfDescriptorErr;
 /*
  *	Get the header byte
@@ -104,7 +104,7 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 /*
  *	Don't go past the end of the buffer
 */
-	if (*piX > iLength)
+	if (*piX > (UInt32)iLength)
 		return kHIDEndOfDescriptorErr;
 	ptItem->itemType = iHeader;
 	ptItem->itemType &= kHIDItemTypeMask;
@@ -135,7 +135,7 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 /*
  *	Don't go past the end of the buffer
 */
-	if ((*piX + iSize) > iLength)
+	if ((*piX + iSize) > (UInt32)iLength)
 		return kHIDEndOfDescriptorErr;
 /*
  *	Pick up the data
@@ -163,7 +163,7 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 */
 	if ((iByte & 0x80) != 0)
 	{
-		while (i < sizeof(int))
+		while (i < (int)sizeof(int))
 			ptItem->signedValue |= (0xFF << ((i++)*8));
 	}
 	return kHIDSuccess;

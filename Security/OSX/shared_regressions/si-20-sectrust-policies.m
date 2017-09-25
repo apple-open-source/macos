@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,9 @@
 
 /* INSTRUCTIONS FOR ADDING NEW SUBTESTS:
  *   1. Add the certificates, as DER-encoded files with the 'cer' extension, to OSX/shared_regressions/si-20-sectrust-policies-data/
+ *        NOTE: If your cert needs to be named with "(i[Pp]hone|i[Pp]ad|i[Pp]od)", you need to make two copies -- one named properly
+ *        and another named such that it doesn't match that regex. Use the regex trick below for TARGET_OS_TV to make sure your test
+ *        works.
  *   2. Add a new dictionary to the test plist (OSX/shared_regressions/si-20-sectrust-policies-data/PinningPolicyTrustTest.plist).
  *      This dictionary must include: (see constants below)
  *          MajorTestName
@@ -38,7 +41,7 @@
 
 /* INSTRUCTIONS FOR DEBUGGING SUBTESTS:
  *   Add a debugging.plist to OSX/shared_regressions/si-20-sectrust-policies-data/ containing only those subtest dictionaries
- *   you want to debug. Git will ignore this file, so you don't accidentally commit it.
+ *   you want to debug.
  */
 
 #include "shared_regressions.h"
@@ -63,7 +66,7 @@ const NSString *kSecTrustTestAnchors        = @"Anchors";           /* Recommend
 const NSString *kSecTrustTestVerifyDate     = @"VerifyDate";        /* Recommended; value: date */
 const NSString *kSecTrustTestExpectedResult = @"ExpectedResult";    /* Required; value: number */
 const NSString *kSecTrustTestChainLength    = @"ChainLength";       /* Optional; value: number */
-const NSString *kSecTrustTestEnableTestCerts= @"EnableTestCertificates"; /* Optiona; value: string */
+const NSString *kSecTrustTestEnableTestCerts= @"EnableTestCertificates"; /* Optional; value: string */
 
 /* Key Constants for Policies Dictionaries */
 const NSString *kSecTrustTestPolicyOID      = @"PolicyIdentifier";  /* Required; value: string */
@@ -86,6 +89,20 @@ const NSString *kSecTrustTestPinningPolicyResources = @"si-20-sectrust-policies-
 @end
 
 @implementation TestObject
+#if TARGET_OS_TV
+/* Mastering removes all files named i[Pp]hone, so dynamically replace any i[Pp]hone's with
+ * iPh0ne. We have two copies in the resources directory. */
+- (NSString *)replaceiPhoneNamedFiles:(NSString *)filename {
+    NSRegularExpression *regularExpression = [NSRegularExpression regularExpressionWithPattern:@"iphone"
+                                                                                       options:NSRegularExpressionCaseInsensitive
+                                                                                         error:nil];
+    NSString *newfilename = [regularExpression stringByReplacingMatchesInString:filename
+                                                                        options:0
+                                                                          range:NSMakeRange(0, [filename length])
+                                                                   withTemplate:@"iPh0ne"];
+    return newfilename;
+}
+#endif
 
 - (id)init {
     self = [super init];
@@ -101,15 +118,20 @@ const NSString *kSecTrustTestPinningPolicyResources = @"si-20-sectrust-policies-
 
 - (bool)addLeafToCertificates:(NSString *)leafName {
     SecCertificateRef cert;
-    NSString *path = nil;
+    NSString *path = nil, *filename = nil;
     require_action_quiet(leafName, errOut,
                          fail("%@: failed to get leaf for test", _fullTestName));
+#if TARGET_OS_TV
+    filename = [self replaceiPhoneNamedFiles:leafName];
+#else
+    filename = leafName;
+#endif
 
     path = [[NSBundle mainBundle]
-                      pathForResource:leafName
+                      pathForResource:filename
                       ofType:@"cer"
                       inDirectory:(NSString *)kSecTrustTestPinningPolicyResources];
-    require_action_quiet(path, errOut, fail("%@: failed to get path for leaf", _fullTestName));
+    require_action_quiet(path, errOut, fail("%@: failed to get path for leaf %@", _fullTestName, filename));
     cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
     require_action_quiet(cert, errOut,
                          fail("%@: failed to create leaf certificate from path %@",
@@ -127,18 +149,23 @@ errOut:
 
 - (bool)addCertsToArray:(id)pathsObj outputArray:(NSMutableArray *)outArray {
     __block SecCertificateRef cert = NULL;
-    __block NSString* path = nil;
+    __block NSString* path = nil, *filename = nil;
     require_action_quiet(pathsObj, errOut,
                          fail("%@: failed to get certificate paths for test", _fullTestName));
 
     if ([pathsObj isKindOfClass:[NSString class]]) {
         /* Only one cert path */
+#if TARGET_OS_TV
+        filename = [self replaceiPhoneNamedFiles:pathsObj];
+#else
+        filename = pathsObj;
+#endif
         path = [[NSBundle mainBundle]
-                pathForResource:pathsObj
+                pathForResource:filename
                 ofType:@"cer"
                 inDirectory:(NSString *)kSecTrustTestPinningPolicyResources];
-        require_action_quiet(path, errOut, fail("%@: failed to get path for cert",
-                                                _fullTestName));
+        require_action_quiet(path, errOut, fail("%@: failed to get path for cert %@",
+                                                _fullTestName, filename));
         cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
         require_action_quiet(cert, errOut,
                              fail("%@: failed to create certificate from path %@",
@@ -150,13 +177,18 @@ errOut:
     else if ([pathsObj isKindOfClass:[NSArray class]]) {
         /* Test has more than one intermediate */
         [(NSArray *)pathsObj enumerateObjectsUsingBlock:^(NSString *resource, NSUInteger idx, BOOL *stop) {
+#if TARGET_OS_TV
+            filename = [self replaceiPhoneNamedFiles:resource];
+#else
+            filename = resource;
+#endif
             path = [[NSBundle mainBundle]
-                    pathForResource:resource
+                    pathForResource:filename
                     ofType:@"cer"
                     inDirectory:(NSString *)kSecTrustTestPinningPolicyResources];
             require_action_quiet(path, blockOut,
-                                 fail("%@: failed to get path for cert %ld",
-                                      self->_fullTestName, (unsigned long)idx));
+                                 fail("%@: failed to get path for cert %ld, %@",
+                                      self->_fullTestName, (unsigned long)idx, filename));
             cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
             require_action_quiet(cert, blockOut,
                                  fail("%@: failed to create certificate %ld from path %@",
@@ -302,6 +334,8 @@ void (^runTestForObject)(id, NSUInteger, BOOL *) =
     NSDate *verifyDate = nil;
     NSNumber *expectedResult = nil, *chainLen = nil;
 
+    /* Test certificates work by default on internal builds. We still need this to
+     * determine whether to expect failure for production devices. */
     bool enableTestCertificates = (bool)[testDict objectForKey:kSecTrustTestEnableTestCerts];
 
     /* Test name, for documentation purposes */
@@ -315,16 +349,6 @@ void (^runTestForObject)(id, NSUInteger, BOOL *) =
     /* Populate the certificates array */
     require_quiet([test addLeafToCertificates:[testDict objectForKey:kSecTrustTestLeaf]], testOut);
     require_quiet([test addIntermediatesToCertificates:[testDict objectForKey:kSecTrustTestIntermediates]], testOut);
-
-    /* Optionally: enable test certificates for the policy */
-    if (enableTestCertificates) {
-        /* Note: Some of the policies use defaults writes with the "com.apple.Security" domain; 
-         * others use "com.apple.security". Set both since we don't know which one this is. */
-        CFPreferencesSetAppValue((__bridge CFStringRef)[testDict objectForKey:kSecTrustTestEnableTestCerts],
-                                 kCFBooleanTrue, CFSTR("com.apple.Security"));
-        CFPreferencesSetAppValue((__bridge CFStringRef)[testDict objectForKey:kSecTrustTestEnableTestCerts],
-                                 kCFBooleanTrue, CFSTR("com.apple.security"));
-    }
 
     /* Create the policies */
     require_quiet([test addPolicies:[testDict objectForKey:kSecTrustTestPolicies]], testOut);
@@ -378,13 +402,6 @@ void (^runTestForObject)(id, NSUInteger, BOOL *) =
                               test.fullTestName, SecTrustGetCertificateCount(trust), [chainLen longValue]));
 
 testOut:
-    // Unset preferences to prevent contamination
-    if (enableTestCertificates) {
-        CFPreferencesSetAppValue((__bridge CFStringRef)[testDict objectForKey:kSecTrustTestEnableTestCerts],
-                                 kCFBooleanFalse, CFSTR("com.apple.security"));
-        CFPreferencesSetAppValue((__bridge CFStringRef)[testDict objectForKey:kSecTrustTestEnableTestCerts],
-                                 kCFBooleanFalse, CFSTR("com.apple.Security"));
-    }
     CFReleaseNull(trust);
 };
 

@@ -1,4 +1,5 @@
-# $Id: test_scanfio.rb 25426 2009-10-21 03:44:56Z nobu $
+# frozen_string_literal: false
+# $Id: test_scanfio.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 # scanf for Ruby
 #

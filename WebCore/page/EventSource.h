@@ -78,9 +78,10 @@ private:
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
+    // ThreadableLoaderClient
     void didReceiveResponse(unsigned long, const ResourceResponse&) final;
     void didReceiveData(const char*, int) final;
-    void didFinishLoading(unsigned long, double) final;
+    void didFinishLoading(unsigned long) final;
     void didFail(const ResourceError&) final;
 
     void stop() final;

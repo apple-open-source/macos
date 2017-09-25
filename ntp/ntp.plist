@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2016-01-16</string>
+	<string>2017-03-29</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -34,11 +34,11 @@
 	<key>OpenSourceProject</key>
 	<string>ntp</string>
 	<key>OpenSourceSHA1</key>
-	<string>7244b0fb66ceb66283480e8f83a4c4a2099f9cd7</string>
+	<string>503d68cfd3e6a9354e0e28dd38b39d850b1228b2</string>
 	<key>OpenSourceURL</key>
-	<string>http://archive.ntp.org/ntp4/ntp-4.2/ntp-4.2.8p6.tar.gz</string>
+	<string>http://archive.ntp.org/ntp4/ntp-4.2/ntp-4.2.8p10.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>4.2.8p6</string>
+	<string>4.2.8p10</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.ntp.org</string>
 </dict>

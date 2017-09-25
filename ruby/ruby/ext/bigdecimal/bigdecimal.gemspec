@@ -1,21 +1,22 @@
 # -*- ruby -*-
-_VERSION = "1.2.0"
+_VERSION = "1.2.8"
+date = %w$Date:: 2015-12-22 21:20:28 +0900#$[1]
 
 Gem::Specification.new do |s|
   s.name = "bigdecimal"
   s.version = _VERSION
-  s.date = "2012-02-19"
+  s.date = date
+  s.license = 'ruby'
   s.summary = "Arbitrary-precision decimal floating-point number library."
   s.homepage = "http://www.ruby-lang.org"
   s.email = "mrkn@mrkn.jp"
   s.description = "This library provides arbitrary-precision decimal floating-point number class."
-  s.authors = ["Kenta Murata", "Shigeo Kobayashi"]
-  s.require_path = %[.]
+  s.authors = ["Kenta Murata", "Zachary Scott", "Shigeo Kobayashi"]
+  s.require_path = %[lib]
   s.files = %w[
     bigdecimal.gemspec
     bigdecimal.c
     bigdecimal.h
-    README
     depend extconf.rb
     lib/bigdecimal/jacobian.rb
     lib/bigdecimal/ludcmp.rb

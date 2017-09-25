@@ -65,6 +65,8 @@
 #include <sasl.h>
 #include <saslplug.h>
 
+#define CORECRYPTO_DONOT_USE_TRANSPARENT_UNION 1
+
 #include <stdlib.h>
 #include <corecrypto/cc.h>
 #include <corecrypto/ccz.h>
@@ -137,7 +139,7 @@ struct Ng {
     "\x69\xB1\x5D\x49\x82\x55\x9B\x29\x7B\xCF\x18\x85\xC5\x29\xF5\x66\x66\x0E\x57"
     "\xEC\x68\xED\xBC\x3C\x05\x72\x6C\xC0\x2F\xD4\xCB\xF4\x97\x6E\xAA\x9A\xFD\x51"
     "\x38\xFE\x83\x76\x43\x5B\x9F\xC6\x1D\x2F\xC0\xEB\x06\xE3",
-      2, {}
+      2, NULL
     },
     /* [2048 bits] */
     { 2048, "rfc5054_2048", (uint8_t *)
@@ -155,7 +157,7 @@ struct Ng {
     "\x56\x98\xF3\xA8\xD0\xC3\x82\x71\xAE\x35\xF8\xE9\xDB\xFB\xB6\x94\xB5\xC8\x03"
     "\xD8\x9F\x7A\xE4\x35\xDE\x23\x6D\x52\x5F\x54\x75\x9B\x65\xE3\x72\xFC\xD6\x8E"
     "\xF2\x0F\xA7\x11\x1F\x9E\x4A\xFF\x73",
-      2, {}
+      2, NULL
     },
     /* [4096 bits] */
     { 4096, "rfc5054_4096", (uint8_t *)
@@ -186,7 +188,7 @@ struct Ng {
     "\x1F\x61\x29\x70\xCE\xE2\xD7\xAF\xB8\x1B\xDD\x76\x21\x70\x48\x1C\xD0\x06\x91"
     "\x27\xD5\xB0\x5A\xA9\x93\xB4\xEA\x98\x8D\x8F\xDD\xC1\x86\xFF\xB7\xDC\x90\xA6"
     "\xC0\x8F\x4D\xF4\x35\xC9\x34\x06\x31\x99\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
-     5, {}
+     5, NULL
     },
     /* [8192 bits] */
     { 8192, "rfc5054_8192", (uint8_t *)
@@ -244,7 +246,7 @@ struct Ng {
     "\x9A\x00\x2E\xD5\xEE\x38\x2B\xC9\x19\x0D\xA6\xFC\x02\x6E\x47\x95\x58\xE4\x47"
     "\x56\x77\xE9\xAA\x9E\x30\x50\xE2\x76\x56\x94\xDF\xC8\x1F\x56\xE8\x80\xB9\x6E"
     "\x71\x60\xC9\x80\xDD\x98\xED\xD3\xDF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF",
-    19, {}
+    19, NULL
    },
 };
 
@@ -307,7 +309,7 @@ typedef struct srp_options_s {
 typedef struct context {
     int state;
     
-    ccsrp_ctx *srp;
+    struct ccsrp_ctx *srp;
     struct ccrng_system_state rng;
     
     ccz *N;                             /* safe prime modulus */
@@ -1431,9 +1433,11 @@ static void LayerCleanup(context_t *text)
 }
     
 #define ccsrp_ctx_alloc(_di_, _gp_) \
-    params->utils->malloc(cc_ctx_sizeof(ccsrp_ctx, ccsrp_sizeof_srp(_di_,_gp_)))
-#define ccsrp_ctx_free(__p) free(__p)
-
+    params->utils->malloc(cc_ctx_sizeof(struct ccsrp_ctx, ccsrp_sizeof_srp(_di_,_gp_)))
+#define ccsrp_ctx_free(__srp, __md, __gp) do{\
+    if(__srp!=NULL) ccsrp_ctx_clear(__md, __gp, __srp);\
+    free(__srp);\
+    }while(0)
 /*
  * Dispose of a SRP context (could be server or client)
  */ 
@@ -1444,7 +1448,7 @@ static void srp_common_mech_dispose(void *conn_context,
     
     if (!text) return;
 
-    if (text->srp) ccsrp_ctx_free(text->srp);
+    ccsrp_ctx_free(text->srp, text->md, text->gp);
     
     CCBigNumFree((CCBigNumRef)(text->N));
     CCBigNumFree((CCBigNumRef)(text->g));
@@ -1747,14 +1751,14 @@ static CFDictionaryRef srp_generate_authdata_dict(char *password, const char *md
     if (gp_index == -1) return nil;
     ccsrp_const_gp_t gp = Ng_tab[gp_index].gp;
     
-    ccsrp_ctx *srp = malloc(cc_ctx_sizeof(ccsrp_ctx, ccsrp_sizeof_srp(md, gp)));
+    struct ccsrp_ctx *srp = malloc(cc_ctx_sizeof(struct ccsrp_ctx, ccsrp_sizeof_srp(md, gp)));
     ccsrp_ctx_init(srp, md, gp);
     
     size_t v_buf_len = ccsrp_ctx_sizeof_n(srp);
     uint8_t *v_buf = malloc(v_buf_len);
     
     result = ccsrp_generate_verifier(srp, "", sizeof(entropy), (const void *)entropy, sizeof(salt), salt, v_buf);
-    free(srp);
+    ccsrp_ctx_free(srp, md, gp);
     
     if (result) {
         dprintf("ccsrp_generate_verifier failed\n");

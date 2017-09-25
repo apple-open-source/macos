@@ -6,16 +6,12 @@ dtrace=/usr/sbin/dtrace
 #	To verify that a binary launched with dtrace -c with -xevaltime=postinit
 #	(which starts tracing after intiializers are run)
 #	is controlled and can start tracing correctly.
-#
-#	This relies on the /usr/bin/true being on the file system and the binary
-#	calling some form of "exit" function.
-
 
 
 script()
 {
-	$dtrace -xnolibs -c /usr/bin/true -xevaltime=postinit -qs /dev/stdin <<EOF
-	pid\$target::*exit*:entry
+	$dtrace -xnolibs -c ./tst.has_initializers.exe -xevaltime=postinit -qs /dev/stdin <<EOF
+	pid\$target::main_binary_function:entry
 	{
 		trace("Called");
 		exit(0);

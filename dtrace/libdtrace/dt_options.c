@@ -92,6 +92,8 @@ dt_opt_arch(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	switch(arch) {
 	case CPU_TYPE_I386:
 	case CPU_TYPE_X86_64:
+	case CPU_TYPE_ARM:
+	case CPU_TYPE_ARM64:
 	case CPU_TYPE_POWERPC:
 	case CPU_TYPE_POWERPC64:
 		dtp->dt_arch = arch;
@@ -310,15 +312,22 @@ dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_lazyload(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
-	dtp->dt_lazyload = 1;
+#if defined(__APPLE__)
+	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
+#else
+		dtp->dt_lazyload = 1;
 
 	return (0);
+#endif
 }
 
 /*ARGSUSED*/
 static int
 dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#if defined(__APPLE__)
+	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
+#else
 	char *ld;
 
 	if (arg == NULL)
@@ -334,6 +343,7 @@ dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	dtp->dt_ld_path = ld;
 
 	return (0);
+#endif
 }
 
 /*ARGSUSED*/
@@ -359,6 +369,9 @@ dt_opt_libdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#if defined(__APPLE__)
+	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
+#else
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -374,12 +387,16 @@ dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	return (0);
+#endif
 }
 
 /*ARGSUSED*/
 static int
 dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#if defined(__APPLE__)
+	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
+#else
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -391,6 +408,7 @@ dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	return (0);
+#endif
 }
 
 /*ARGSUSED*/
@@ -456,6 +474,9 @@ dt_opt_pgmax(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#if defined(__APPLE__)
+	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
+#else
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -474,6 +495,7 @@ dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	return (0);
+#endif
 }
 
 /*ARGSUSED*/
@@ -576,6 +598,12 @@ dt_opt_invcflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		dtp->dt_cflags &= ~option;
 
 	return (0);
+}
+
+static int
+dt_opt_notsup(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 }
 
 /*ARGSUSED*/
@@ -990,6 +1018,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "aggpercpu", dt_opt_agg, DTRACE_A_PERCPU },
 	{ "amin", dt_opt_amin },
 	{ "arch", dt_opt_arch },
+	{ "archlibdir", dt_opt_libdir },
 	{ "argref", dt_opt_cflags, DTRACE_C_ARGREF },
 	{ "core", dt_opt_core },
 	{ "cpp", dt_opt_cflags, DTRACE_C_CPP },
@@ -1043,6 +1072,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 static const dt_option_t _dtrace_rtoptions[] = {
 	{ "aggsize", dt_opt_size, DTRACEOPT_AGGSIZE },
 	{ "bufsize", dt_opt_size, DTRACEOPT_BUFSIZE },
+	{ "buflimit", dt_opt_buflimit, DTRACEOPT_BUFLIMIT },
 	{ "bufpolicy", dt_opt_bufpolicy, DTRACEOPT_BUFPOLICY },
 	{ "bufresize", dt_opt_bufresize, DTRACEOPT_BUFRESIZE },
 	{ "cleanrate", dt_opt_rate, DTRACEOPT_CLEANRATE },
@@ -1050,8 +1080,13 @@ static const dt_option_t _dtrace_rtoptions[] = {
 	{ "destructive", dt_opt_runtime, DTRACEOPT_DESTRUCTIVE },
 	{ "dynvarsize", dt_opt_size, DTRACEOPT_DYNVARSIZE },
 	{ "grabanon", dt_opt_runtime, DTRACEOPT_GRABANON },
+#if defined(__APPLE__)
+	{ "jstackframes", dt_opt_notsup },
+	{ "jstackstrsize", dt_opt_notsup },
+#else
 	{ "jstackframes", dt_opt_runtime, DTRACEOPT_JSTACKFRAMES },
 	{ "jstackstrsize", dt_opt_size, DTRACEOPT_JSTACKSTRSIZE },
+#endif
 	{ "nspec", dt_opt_runtime, DTRACEOPT_NSPEC },
 	{ "specsize", dt_opt_size, DTRACEOPT_SPECSIZE },
 	{ "stackframes", dt_opt_runtime, DTRACEOPT_STACKFRAMES },
@@ -1074,13 +1109,12 @@ static const dt_option_t _dtrace_drtoptions[] = {
 	{ "aggsortpos", dt_opt_runtime, DTRACEOPT_AGGSORTPOS },
 	{ "aggsortrev", dt_opt_runtime, DTRACEOPT_AGGSORTREV },
 	{ "aggzoom", dt_opt_runtime, DTRACEOPT_AGGZOOM },
-	{ "buflimit", dt_opt_buflimit, DTRACEOPT_BUFLIMIT },
 	{ "flowindent", dt_opt_runtime, DTRACEOPT_FLOWINDENT },
 	{ "quiet", dt_opt_runtime, DTRACEOPT_QUIET },
 	{ "rawbytes", dt_opt_runtime, DTRACEOPT_RAWBYTES },
 	{ "stackindent", dt_opt_runtime, DTRACEOPT_STACKINDENT },
-	{ "switchrate", dt_opt_rate, DTRACEOPT_SWITCHRATE },
 	{ "stacksymbols", dt_opt_runtime, DTRACEOPT_STACKSYMBOLS },
+	{ "switchrate", dt_opt_rate, DTRACEOPT_SWITCHRATE },
 	{ NULL }
 };
 

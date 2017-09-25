@@ -52,16 +52,10 @@ def nsLogPythonException(exception):
 def nsLogObjCException(exception):
     userInfo = exception.userInfo()
     stack = userInfo.get(NSStackTraceKey)
-    if not stack or not os.path.exists('/usr/bin/atos'):
-        return True
-    pipe = os.popen('/usr/bin/atos -p %d %s' % (os.getpid(), stack))
-    stacktrace = pipe.readlines()
-    stacktrace.reverse()
     NSLog("%@", "*** ObjC exception '%s' (reason: '%s') discarded\n" % (
             exception.name(), exception.reason(),
         ) +
-        'Stack trace (most recent call last):\n' +
-        ''.join([('  '+line) for line in stacktrace]).decode('utf8')
+        'Stack trace (most recent call last): %s\n' % stack
     )
     return False
 

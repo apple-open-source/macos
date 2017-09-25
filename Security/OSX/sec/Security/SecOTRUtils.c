@@ -26,6 +26,7 @@
 #include "SecOTRIdentityPriv.h"
 #include "SecOTRSessionPriv.h"
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecBuffer.h>
 #include <stdlib.h>
 
 #include <AssertMacros.h>
@@ -183,7 +184,7 @@ SecKeyRef CreateECPublicKeyFrom(CFAllocatorRef allocator, const uint8_t** data, 
 
 CFDataRef SecOTRCopyIncomingBytes(CFDataRef incomingMessage)
 {
-    CFDataRef result = NULL;
+    __block CFDataRef result = NULL;
 
     CFDataRef header = CFStringCreateExternalRepresentation(kCFAllocatorDefault, CFSTR("?OTR:"), kCFStringEncodingUTF8, '?');
     CFRange headerLoc = CFDataFind(incomingMessage, header, CFRangeMake(0, CFDataGetLength(header)), 0);
@@ -195,10 +196,14 @@ CFDataRef SecOTRCopyIncomingBytes(CFDataRef incomingMessage)
         CFRange footerLoc = CFDataFind(incomingMessage, footer, CFRangeMake(0, CFDataGetLength(incomingMessage)), 0);
 
         CFDataRef bodyData = CFDataCreateReferenceFromRange(kCFAllocatorDefault, incomingMessage, CFRangeMake(headerLoc.length, footerLoc.location - headerLoc.length));
-        size_t size = SecBase64Decode((char*)CFDataGetBytePtr(bodyData), CFDataGetLength(bodyData), NULL, 0);
-        uint8_t decodedByteArray[size];
-        SecBase64Decode((char*)CFDataGetBytePtr(bodyData), CFDataGetLength(bodyData), decodedByteArray, size);
-        result = CFDataCreate(kCFAllocatorDefault, decodedByteArray, size);
+
+        size_t expectedSize = SecBase64Decode((char*)CFDataGetBytePtr(bodyData), CFDataGetLength(bodyData), NULL, 0);
+        PerformWithBuffer(expectedSize, ^(size_t size, uint8_t *decodedByteArray) {
+            size_t usedSize = SecBase64Decode((char*)CFDataGetBytePtr(bodyData), CFDataGetLength(bodyData), decodedByteArray, size);
+            if (usedSize > 0 && usedSize <= size ) {
+                result = CFDataCreate(kCFAllocatorDefault, decodedByteArray, usedSize);
+            }
+        });
 
         CFRelease(bodyData);
         CFRelease(footer);

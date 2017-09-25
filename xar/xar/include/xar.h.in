@@ -38,6 +38,10 @@
 #ifndef _XAR_H_
 #define _XAR_H_
 
+#if __cplusplus
+extern "C" {
+#endif
+
 #define XAR_VERSION "@XAR_VERSION@"
 
 #include <sys/types.h>
@@ -245,5 +249,9 @@ void xar_serialize(xar_t x, const char *file);
 char *xar_get_path(xar_file_t f);
 off_t	xar_get_heap_offset(xar_t x);
 uint64_t xar_ntoh64(uint64_t num);
+
+#if __cplusplus
+}
+#endif
 
 #endif /* _XAR_H_ */

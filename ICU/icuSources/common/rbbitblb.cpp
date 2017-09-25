@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 *   Copyright (c) 2002-2016, International Business Machines
@@ -79,7 +81,7 @@ void  RBBITableBuilder::build() {
 #ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "ftree")) {
         RBBIDebugPuts("\nParse tree after flattening variable references.");
-        fTree->printTree(TRUE);
+        RBBINode::printTree(fTree, TRUE);
     }
 #endif
 
@@ -137,7 +139,7 @@ void  RBBITableBuilder::build() {
 #ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "stree")) {
         RBBIDebugPuts("\nParse tree after flattening Unicode Set references.");
-        fTree->printTree(TRUE);
+        RBBINode::printTree(fTree, TRUE);
     }
 #endif
 
@@ -464,21 +466,13 @@ void RBBITableBuilder::calcChainedFollowPos(RBBINode *tree) {
         //                            don't chain from it.
         // TODO:  Add rule syntax for this behavior, get specifics out of here and
         //        into the rule file.
-        if (fRB->fLBCMNoChain || fRB->fRINoChain) {
+        if (fRB->fLBCMNoChain) {
             UChar32 c = this->fRB->fSetBuilder->getFirstChar(endNode->fVal);
             if (c != -1) {
                 // c == -1 occurs with sets containing only the {eof} marker string.
-                if (fRB->fLBCMNoChain) {
-                    ULineBreak cLBProp = (ULineBreak)u_getIntPropertyValue(c, UCHAR_LINE_BREAK);
-                    if (cLBProp == U_LB_COMBINING_MARK) {
-                        continue;
-                    }
-                }
-                if (fRB->fRINoChain) {
-                    UGraphemeClusterBreak cGBProp = (UGraphemeClusterBreak)u_getIntPropertyValue(c, UCHAR_GRAPHEME_CLUSTER_BREAK);
-                    if (cGBProp == U_GCB_REGIONAL_INDICATOR) {
-                        continue;
-                    }
+                ULineBreak cLBProp = (ULineBreak)u_getIntPropertyValue(c, UCHAR_LINE_BREAK);
+                if (cLBProp == U_LB_COMBINING_MARK) {
+                    continue;
                 }
             }
         }
@@ -1066,7 +1060,7 @@ void RBBITableBuilder::printPosSets(RBBINode *n) {
     }
     printf("\n");
     RBBINode::printNodeHeader();
-    n->printNode();
+    RBBINode::printNode(n);
     RBBIDebugPrintf("         Nullable:  %s\n", n->fNullable?"TRUE":"FALSE");
 
     RBBIDebugPrintf("         firstpos:  ");

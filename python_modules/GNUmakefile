@@ -8,7 +8,7 @@ _VERSIONERDIR := /usr/local/versioner
 # Look for /usr/local/versioner in $(SDKROOT), defaulting to /usr/local/versioner
 VERSIONERDIR := $(or $(wildcard $(SDKROOT)$(_VERSIONERDIR)),$(_VERSIONERDIR))
 PYTHONVERSIONS = $(VERSIONERDIR)/$(PYTHONPROJECT)/versions
-INCOMPATIBLE =
+INCOMPATIBLE = 2.6
 DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PYTHONVERSIONS))
 KNOWNVERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS)))
 BOOTSTRAPPYTHON =

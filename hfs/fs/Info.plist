@@ -237,6 +237,8 @@
 			<string>fsck_hfs</string>
 			<key>FSLiveVerificationArguments</key>
 			<string>-l</string>
+			<key>FSEncryptionName</key>
+			<string>Mac OS Extended (Journaled, Encrypted)</string>
 			<key>FSCoreStorageEncryptionName</key>
 			<string>Mac OS Extended (Journaled, Encrypted)</string>
 			<key>FSfileObjectsAreCasePreserving</key>
@@ -315,6 +317,8 @@
 			<string>fsck_hfs</string>
 			<key>FSLiveVerificationArguments</key>
 			<string>-l</string>
+			<key>FSEncryptionName</key>
+			<string>Mac OS Extended (Case-sensitive, Journaled, Encrypted)</string>
 			<key>FSCoreStorageEncryptionName</key>
 			<string>Mac OS Extended (Case-sensitive, Journaled, Encrypted)</string>
 			<key>FSfileObjectsAreCasePreserving</key>

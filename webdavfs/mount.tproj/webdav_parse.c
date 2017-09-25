@@ -2023,6 +2023,7 @@ int parse_lock(const UInt8 *xmlp, CFIndex xmlp_len, char **locktoken)
 	if (*locktoken == NULL)
 	{
 		debug_string("error parsing lock token");
+		return (1);
 	}
 	
 	return ( 0 );

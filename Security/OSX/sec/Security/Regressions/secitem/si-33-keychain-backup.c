@@ -24,10 +24,10 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
-#define USE_KEYSTORE  1
-#else /* No AppleKeyStore.kext on this OS. */
+#if TARGET_IPHONE_SIMULATOR
 #define USE_KEYSTORE  0
+#else /* No AppleKeyStore.kext on this OS. */
+#define USE_KEYSTORE  1
 #endif
 
 
@@ -39,8 +39,8 @@
 #include <utilities/array_size.h>
 
 #if USE_KEYSTORE
-#include <IOKit/IOKitLib.h>
-#include <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
+#include <AssertMacros.h>
+#include <libaks.h>
 #endif
 
 #include <stdlib.h>
@@ -281,9 +281,46 @@ static void test_remove_lockdown_identity_items(void) {
 static void test_no_find_lockdown_identity_item(void) {
     CFMutableDictionaryRef query = test_create_lockdown_identity_query();
     is_status(SecItemCopyMatching(query, NULL), errSecItemNotFound,
-        "test_no_find_lockdown_identity_item");
+              "test_no_find_lockdown_identity_item");
     CFReleaseSafe(query);
 }
+
+static CFMutableDictionaryRef test_create_sysbound_query(void) {
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+    CFDictionaryAddValue(query, kSecClass, kSecClassGenericPassword);
+    CFDictionaryAddValue(query, kSecAttrAccount, CFSTR("sysbound"));
+    CFDictionaryAddValue(query, kSecAttrAccessGroup, CFSTR("apple"));
+    return query;
+}
+
+static void test_add_sysbound_item(void) {
+    CFMutableDictionaryRef query = test_create_sysbound_query();
+    int32_t val = kSecSecAttrSysBoundPreserveDuringRestore;
+    CFNumberRef num = CFNumberCreate(NULL, kCFNumberSInt32Type, &val);
+    CFDictionaryAddValue(query, kSecAttrSysBound, num);
+    CFReleaseNull(num);
+
+    const char *v_data = "sysbound identity data";
+    CFDataRef pwdata = CFDataCreate(NULL, (UInt8 *)v_data, strlen(v_data));
+    CFDictionaryAddValue(query, kSecValueData, pwdata);
+    ok_status(SecItemAdd(query, NULL), "test_add_sysbound_item");
+    CFReleaseSafe(pwdata);
+    CFReleaseSafe(query);
+}
+
+static void test_remove_sysbound_item(void) {
+    CFMutableDictionaryRef query = test_create_sysbound_query();
+    ok_status(SecItemDelete(query), "test_remove_sysbound_item");
+    CFReleaseSafe(query);
+}
+
+static void test_find_sysbound_item(OSStatus expectedCode) {
+    CFMutableDictionaryRef query = test_create_sysbound_query();
+    is_status(SecItemCopyMatching(query, NULL), expectedCode,
+              "test_find_sysbound_item");
+    CFReleaseSafe(query);
+}
+
 
 static void test_add_managedconfiguration_item(void) {
     CFMutableDictionaryRef query = test_create_managedconfiguration_query();
@@ -303,76 +340,20 @@ static void test_find_managedconfiguration_item(void) {
 }
 
 #if USE_KEYSTORE
-static io_connect_t connect_to_keystore(void)
-{
-    io_registry_entry_t apple_key_bag_service;
-    kern_return_t result;
-    io_connect_t keystore = MACH_PORT_NULL;
-
-    apple_key_bag_service = IOServiceGetMatchingService(kIOMasterPortDefault,
-                                                        IOServiceMatching(kAppleKeyStoreServiceName));
-
-    if (apple_key_bag_service == IO_OBJECT_NULL) {
-        fprintf(stderr, "Failed to get service.\n");
-        return keystore;
-    }
-
-    result = IOServiceOpen(apple_key_bag_service, mach_task_self(), 0, &keystore);
-    if (KERN_SUCCESS != result)
-        fprintf(stderr, "Failed to open keystore\n");
-
-    if (keystore != MACH_PORT_NULL) {
-        IOReturn kernResult = IOConnectCallMethod(keystore,
-                                                  kAppleKeyStoreUserClientOpen, NULL, 0, NULL, 0, NULL, NULL,
-                                                  NULL, NULL);
-        if (kernResult) {
-            fprintf(stderr, "Failed to open AppleKeyStore: %x\n", kernResult);
-        }
-    }
-	return keystore;
-}
 #define DATA_ARG(x) (x) ? CFDataGetBytePtr((x)) : NULL, (x) ? (int)CFDataGetLength((x)) : 0
-
 static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
 {
-    uint64_t inputs[] = { bag_type };
-    uint64_t outputs[] = {0};
-    uint32_t num_inputs = array_size(inputs);
-    uint32_t num_outputs = array_size(outputs);
-    IOReturn kernResult;
+    CFDataRef result = NULL;
+    void *bag = NULL;
+    int bagLen = 0;
 
-    io_connect_t keystore;
+    keybag_handle_t handle = bad_keybag_handle;
+    require_noerr(aks_create_bag(DATA_ARG(password), bag_type, &handle), out);
+    require_noerr(aks_save_bag(handle, &bag, &bagLen), out);
 
-    unsigned char keybagdata[4096]; //Is that big enough?
-	size_t keybagsize=sizeof(keybagdata);
-
-    keystore=connect_to_keystore();
-
-    kernResult = IOConnectCallMethod(keystore,
-                                     kAppleKeyStoreKeyBagCreate,
-                                     inputs, num_inputs, DATA_ARG(password),
-                                     outputs, &num_outputs, NULL, 0);
-
-    if (kernResult) {
-        fprintf(stderr, "kAppleKeyStoreKeyBagCreate: 0x%x\n", kernResult);
-        return NULL;
-    }
-
-    /* Copy out keybag */
-	inputs[0]=outputs[0];
-    num_inputs=1;
-
-    kernResult = IOConnectCallMethod(keystore,
-                                     kAppleKeyStoreKeyBagCopy,
-                                     inputs, num_inputs, NULL, 0,
-                                     NULL, 0, keybagdata, &keybagsize);
-
-    if (kernResult) {
-        fprintf(stderr, "kAppleKeyStoreKeyBagCopy: 0x%x\n", kernResult);
-        return NULL;
-    }
-
-    return CFDataCreate(kCFAllocatorDefault, keybagdata, keybagsize);
+    result = CFDataCreate(kCFAllocatorDefault, bag, bagLen);
+out:
+    return result;
 }
 #endif
 
@@ -412,6 +393,7 @@ static void tests(void)
     CFDataRef backup = NULL, keybag = NULL, password = NULL;
 
     test_add_lockdown_identity_items();
+    test_add_sysbound_item();
 
 #if USE_KEYSTORE
     keybag = create_keybag(kAppleKeyStoreBackupBag, password);
@@ -424,12 +406,14 @@ static void tests(void)
 
     test_add_managedconfiguration_item();
     test_remove_lockdown_identity_items();
+    test_remove_sysbound_item();
 
     ok_status(_SecKeychainRestoreBackup(backup, keybag, password),
         "_SecKeychainRestoreBackup");
     CFReleaseSafe(backup);
 
     test_no_find_lockdown_identity_item();
+    test_find_sysbound_item(errSecItemNotFound);
     test_find_managedconfiguration_item();
 
     ok_status(SecItemCopyMatching(query, NULL),

@@ -23,7 +23,6 @@
 #include <heap/Strong.h>
 #include <heap/StrongInlines.h>
 #include <memory>
-#include <runtime/JSCell.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -54,7 +53,7 @@ namespace WebCore {
         ScheduledAction(const String& code, DOMWrapperWorld& isolatedWorld)
             : m_function(isolatedWorld.vm())
             , m_code(code)
-            , m_isolatedWorld(&isolatedWorld)
+            , m_isolatedWorld(isolatedWorld)
         {
         }
 
@@ -65,7 +64,7 @@ namespace WebCore {
         JSC::Strong<JSC::Unknown> m_function;
         Vector<JSC::Strong<JSC::Unknown>> m_args;
         String m_code;
-        RefPtr<DOMWrapperWorld> m_isolatedWorld;
+        Ref<DOMWrapperWorld> m_isolatedWorld;
     };
 
 } // namespace WebCore

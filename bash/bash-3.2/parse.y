@@ -4060,7 +4060,7 @@ decode_prompt_string (string)
 #if defined (PROMPT_STRING_DECODE)
   int result_size, result_index;
   int c, n, i;
-  char *temp, octal_string[4];
+  char *temp, *t_host, octal_string[4];
   struct tm *tm;  
   time_t the_time;
   char timebuf[128];
@@ -4205,7 +4205,11 @@ decode_prompt_string (string)
 
 	    case 's':
 	      temp = base_pathname (shell_name);
-	      temp = savestring (temp);
+	      /* Try to quote anything the user can set in the file system */
+	      if (promptvars || posixly_correct)
+		temp = sh_backslash_quote_for_double_quotes (temp);
+	      else
+		temp = savestring (temp);
 	      goto add_string;
 
 	    case 'v':
@@ -4285,9 +4289,17 @@ decode_prompt_string (string)
 
 	    case 'h':
 	    case 'H':
-	      temp = savestring (current_host_name);
-	      if (c == 'h' && (t = (char *)strchr (temp, '.')))
+	      t_host = savestring (current_host_name);
+	      if (c == 'h' && (t = (char *)strchr (t_host, '.')))
 		*t = '\0';
+	      if (promptvars || posixly_correct)
+		/* Make sure that expand_prompt_string is called with a
+		   second argument of Q_DOUBLE_QUOTES if we use this
+		   function here. */
+		temp = sh_backslash_quote_for_double_quotes (t_host);
+	      else
+		temp = savestring (t_host);
+	      free (t_host);
 	      goto add_string;
 
 	    case '#':

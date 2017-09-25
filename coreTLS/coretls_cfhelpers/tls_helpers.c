@@ -30,6 +30,7 @@
 #include <Security/Security.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecureTransport.h>
 #include <Security/oidsalg.h>
 #include <AssertMacros.h>
 
@@ -153,11 +154,7 @@ tls_helper_create_peer_trust(tls_handshake_t hdsk, bool server, SecTrustRef *tru
 
         if(sct_list) {
             CFArrayRef sctArray = tls_helper_create_cfarray_from_buffer_list(tls_handshake_get_peer_sct_list(hdsk));
-#if TARGET_OS_IPHONE
             status = SecTrustSetSignedCertificateTimestamps(trust, sctArray);
-#else
-            status = noErr;
-#endif
             CFReleaseSafe(sctArray);
             require_noerr(status, errOut);
         }
@@ -257,7 +254,9 @@ tls_helper_version_from_SSLProtocol(SSLProtocol protocol)
         case kTLSProtocol1:             return tls_protocol_version_TLS_1_0;
         case kTLSProtocol11:            return tls_protocol_version_TLS_1_1;
         case kTLSProtocol12:            return tls_protocol_version_TLS_1_2;
+        case kTLSProtocol13:            return tls_protocol_version_TLS_1_3;
         case kDTLSProtocol1:            return tls_protocol_version_DTLS_1_0;
+        case kTLSProtocolMaxSupported:  return tls_protocol_version_TLS_1_3;
         default:                        return tls_protocol_version_Undertermined;
     }
 }
@@ -271,6 +270,7 @@ tls_helper_SSLProtocol_from_version(tls_protocol_version version)
         case tls_protocol_version_TLS_1_0:   return kTLSProtocol1;
         case tls_protocol_version_TLS_1_1:   return kTLSProtocol11;
         case tls_protocol_version_TLS_1_2:   return kTLSProtocol12;
+        case tls_protocol_version_TLS_1_3:   return kTLSProtocol13;
         case tls_protocol_version_DTLS_1_0:  return kDTLSProtocol1;
         case tls_protocol_version_Undertermined: /* DROPTHROUGH */
         default:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -263,7 +263,7 @@ pushNotifications()
 		storePrivate = (SCDynamicStorePrivateRef)theSession->store;
 
 		/*
-		 * deliver notifications to client sessions
+		 * deliver [CFRunLoop/dispatch] notifications to client sessions
 		 */
 		if ((storePrivate->notifyStatus == Using_NotifierInformViaMachPort) &&
 		    (storePrivate->notifyPort != MACH_PORT_NULL)) {

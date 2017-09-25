@@ -1,8 +1,8 @@
+# frozen_string_literal: false
 require 'monitor'
 require 'thread'
 require 'drb/drb'
 require 'rinda/rinda'
-require 'enumerator'
 require 'forwardable'
 
 module Rinda
@@ -491,7 +491,7 @@ module Rinda
           port.push(entry.value) if port
           @bag.delete(entry)
           notify_event('take', entry.value)
-          return entry.value
+          return port ? nil : entry.value
         end
         raise RequestExpiredError if template.expired?
 
@@ -506,7 +506,7 @@ module Rinda
               port.push(entry.value) if port
               @bag.delete(entry)
               notify_event('take', entry.value)
-              return entry.value
+              return port ? nil : entry.value
             end
             template.wait
           end

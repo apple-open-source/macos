@@ -82,11 +82,16 @@ const char *kOperationSynchronizeAndWait = "SynchronizeAndWait";
 
 const char *kOperationFlush = "Flush";
 
+const char *kOperationPerfCounters = "PerfCounters";
+
 const char *kOperationPUTDictionary = "PUTDictionary";
 const char *kOperationGETv2 = "GETv2";
 
 const char *kOperationRegisterKeys = "RegisterKeys";
+const char *kOperationRemoveKeys = "RemoveKeys";
+
 const char *kOperationGetDeviceID = "DeviceID";
+const char *kOperationGetIDSPerfCounters = "IDSPerf";
 
 const char *kOperationHasPendingKey = "hasPendingKey";
 

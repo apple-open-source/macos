@@ -1,0 +1,28 @@
+--- ../pyOpenSSL-0.13.1.orig/OpenSSL/rand/rand.c	2017-03-13 17:13:59.000000000 -0700
++++ OpenSSL/rand/rand.c	2017-03-13 17:14:59.000000000 -0700
+@@ -111,6 +111,7 @@
+ }
+ #endif
+ 
++#ifndef __APPLE__
+ static char rand_egd_doc[] = "\n\
+ Query an entropy gathering daemon (EGD) for random data and add it to the\n\
+ PRNG. I haven't found any problems when the socket is missing, the function\n\
+@@ -133,6 +134,7 @@
+ 
+     return PyLong_FromLong((long)RAND_egd_bytes(path, bytes));
+ }
++#endif
+ 
+ static char rand_cleanup_doc[] = "\n\
+ Erase the memory used by the PRNG.\n\
+@@ -245,7 +247,9 @@
+ #ifdef MS_WINDOWS
+     { "screen",    (PyCFunction)rand_screen,       METH_VARARGS, rand_screen_doc },
+ #endif
++#ifndef __APPLE__
+     { "egd",       (PyCFunction)rand_egd,          METH_VARARGS, rand_egd_doc },
++#endif
+     { "cleanup",   (PyCFunction)rand_cleanup,      METH_VARARGS, rand_cleanup_doc },
+     { "load_file", (PyCFunction)rand_load_file,    METH_VARARGS, rand_load_file_doc },
+     { "write_file",(PyCFunction)rand_write_file,   METH_VARARGS, rand_write_file_doc },

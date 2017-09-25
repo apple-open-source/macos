@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2014-2016, International Business Machines Corporation and others.
@@ -23,6 +25,7 @@
 #include "unicode/unistr.h"
 #include "unicode/strenum.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -210,11 +213,12 @@ private:
      * anything meaningful.
      */
 
-    static void loadRegionData(UErrorCode &status);
+    static void U_CALLCONV loadRegionData(UErrorCode &status);
 
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 #endif // REGION_H

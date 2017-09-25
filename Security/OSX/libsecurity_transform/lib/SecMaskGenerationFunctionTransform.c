@@ -42,7 +42,7 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
     
     SecTransformInstanceBlock instanceBlock = ^{
         SecTransformSetTransformAction(ref, kSecTransformActionFinalize, ^{
-            CFRelease(accumulator);
+            CFReleaseNull(accumulator);
             
             return (CFTypeRef)NULL;
         });
@@ -52,7 +52,9 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
         SecTransformSetAttributeAction(ref, kSecTransformActionAttributeNotification, kLengthName, ^CFTypeRef(SecTransformAttributeRef attribute, CFTypeRef value) {
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt32Type, &outputLength);
             if (outputLength <= 0) {
-                SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "MaskGenerationFunction Length must be one or more (not %@)", value));
+                CFErrorRef error = CreateSecTransformErrorRef(kSecTransformErrorInvalidLength, "MaskGenerationFunction Length must be one or more (not %@)", value);
+                SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, error);
+                CFSafeRelease(error);
             }
 
             return (CFTypeRef)NULL;
@@ -69,8 +71,11 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
                 SecTransformRef digest0 = transforms_assume(SecDigestTransformCreate(digestType, 0, NULL));
                 int32_t digestLength = 0;
                 {
+                    // we've already asserted that digest0 is non-null, but clang doesn't know that
+#ifndef __clang_analyzer__
                     CFNumberRef digestLengthAsCFNumber = SecTransformGetAttribute(digest0, kSecDigestLengthAttribute);
                     CFNumberGetValue(transforms_assume(digestLengthAsCFNumber), kCFNumberSInt32Type, &digestLength);
+#endif
                 }
                 (void)transforms_assume(digestLength >= 0);
 
@@ -90,10 +95,12 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
                         digest = digest0;
                     } else {
                         digest = SecDigestTransformCreate(digestType, 0, &err);
-                        if (digest == NULL) {
-                            SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, err);
-                            return (CFErrorRef)NULL;
-                        }
+                    }
+                    
+                    if (digest == NULL) {
+                        SecTransformCustomSetAttribute(ref, kSecTransformAbortAttributeName, kSecTransformMetaAttributeValue, err);
+                        free(buffer);
+                        return (CFErrorRef)NULL;
                     }
 
                     // NOTE: we shuld be able to do this without the copy, make a transform that takes an
@@ -102,7 +109,7 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
                     int32_t bigendian_i = htonl(i);
                     CFDataAppendBytes(accumulatorPlusCounter, (UInt8*)&bigendian_i, sizeof(bigendian_i));
                     SecTransformSetAttribute(digest, kSecTransformInputAttributeName, accumulatorPlusCounter, &err);
-                    CFRelease(accumulatorPlusCounter);
+                    CFReleaseNull(accumulatorPlusCounter);
                     
                     UInt8 *buf = buffer + l;
                     SecTransformExecuteAsync(digest, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFTypeRef message, CFErrorRef error, Boolean isFinal) {
@@ -117,14 +124,14 @@ static SecTransformInstanceBlock MaskGenerationFunctionTransform(CFStringRef nam
                             dispatch_group_leave(all_hashed);
                         }
                     });
-                    CFRelease(digest);
+                    CFReleaseNull(digest);
                 }
                 
                 dispatch_group_leave(all_hashed);
                 dispatch_group_wait(all_hashed, DISPATCH_TIME_FOREVER);
                 CFDataRef out = CFDataCreateWithBytesNoCopy(NULL, buffer, outputLength, kCFAllocatorMalloc);
                 SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, kSecTransformMetaAttributeValue, out);
-                CFRelease(out);
+                CFReleaseNull(out);
                 SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, kSecTransformMetaAttributeValue, NULL);
             }
             return (CFErrorRef)NULL;
@@ -162,15 +169,15 @@ SecTransformRef SecCreateMaskGenerationFunctionTransform(CFStringRef hashType, i
     }
     
     if (!SecTransformSetAttribute(ret, kSecDigestTypeAttribute, hashType ? hashType : kSecDigestSHA1, error)) {
-        CFRelease(ret);
+        CFReleaseNull(ret);
         return NULL;
     }
 
     CFNumberRef len = CFNumberCreate(NULL, kCFNumberIntType, &length);
     ok = SecTransformSetAttribute(ret, kLengthName, len, error);
-    CFRelease(len);
+    CFReleaseNull(len);
     if (!ok) {
-        CFRelease(ret);
+        CFReleaseNull(ret);
         return NULL;
     }
 

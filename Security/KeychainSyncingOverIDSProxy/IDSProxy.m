@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,12 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-//
-//  IDSProxy.m
-//  ids-xpc
-//
-
 
 #import <Foundation/NSArray.h>
 #import <Foundation/Foundation.h>
@@ -51,7 +45,6 @@
 #import "IDSProxy.h"
 #import "KeychainSyncingOverIDSProxy+ReceiveMessage.h"
 #import "KeychainSyncingOverIDSProxy+SendMessage.h"
-#import "KeychainSyncingOverIDSProxy+Throttle.h"
 #import "IDSPersistentState.h"
 
 #define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
@@ -62,16 +55,15 @@ static NSString *kMonitorState = @"MonitorState";
 static NSString *kExportUnhandledMessages = @"UnhandledMessages";
 static NSString *kMessagesInFlight = @"MessagesInFlight";
 static const char *kStreamName = "com.apple.notifyd.matching";
-static NSString *const kIDSMessageRecipientPeerID = @"RecipientPeerID";
-static NSString *const kIDSMessageRecipientDeviceID = @"RecipientDeviceID";
 static NSString *const kIDSMessageUseACKModel = @"UsesAckModel";
+
+static NSString *const kOutgoingMessages = @"IDS Outgoing Messages";
+static NSString *const kIncomingMessages = @"IDS Incoming Messages";
 
 NSString *const IDSSendMessageOptionForceEncryptionOffKey = @"IDSSendMessageOptionForceEncryptionOff";
 static const int64_t kRetryTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms leeway for handling unhandled messages.
 static const int64_t kMinMessageRetryDelay = (NSEC_PER_SEC * 8);
 
-
-CFIndex kSOSErrorPeerNotFound = 1032;
 CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
 
 #define IDSPROXYSCOPE "IDSProxy"
@@ -95,44 +87,96 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
 
 -(NSDictionary*) exportState
 {
-    return @{ kMonitorState:_monitor,
-              kExportUnhandledMessages:_unhandledMessageBuffer,
-              kMessagesInFlight:_messagesInFlight
+    return @{ kMonitorState:self.monitor,
+              kExportUnhandledMessages:self.unhandledMessageBuffer,
+              kMessagesInFlight:self.messagesInFlight
               };
 
 }
 
 -(NSDictionary*) retrievePendingMessages
 {
-    return [KeychainSyncingOverIDSProxy idsProxy].messagesInFlight;
+    NSDictionary * __block messages;
+    dispatch_sync(self.dataQueue, ^{
+        messages = [[KeychainSyncingOverIDSProxy idsProxy].messagesInFlight copy];
+    });
+    return messages;
 }
 
-- (void)persistState
+@synthesize unhandledMessageBuffer = _unhandledMessageBuffer;
+
+- (NSMutableDictionary *) unhandledMessageBuffer {
+    dispatch_assert_queue(self.dataQueue);
+    return _unhandledMessageBuffer;
+}
+
+- (void) setUnhandledMessageBuffer:(NSMutableDictionary *)unhandledMessageBuffer {
+    dispatch_assert_queue(self.dataQueue);
+    _unhandledMessageBuffer = unhandledMessageBuffer;
+}
+
+@ synthesize messagesInFlight = _messagesInFlight;
+
+- (NSMutableDictionary *) messagesInFlight {
+    dispatch_assert_queue(self.dataQueue);
+    return _messagesInFlight;
+}
+
+- (void) setMessagesInFlight:(NSMutableDictionary *)messagesInFlight {
+    dispatch_assert_queue(self.dataQueue);
+    _messagesInFlight = messagesInFlight;
+}
+
+@synthesize monitor = _monitor;
+
+- (NSMutableDictionary *) monitor {
+    dispatch_assert_queue(self.dataQueue);
+    return _monitor;
+}
+
+- (void) setMonitor:(NSMutableDictionary *)monitor {
+    dispatch_assert_queue(self.dataQueue);
+    _monitor = monitor;
+}
+
+- (void) persistState
 {
-    [KeychainSyncingOverIDSProxyPersistentState setUnhandledMessages:[self exportState]];
+    dispatch_sync(self.dataQueue, ^{
+        [KeychainSyncingOverIDSProxyPersistentState setUnhandledMessages:[self exportState]];
+    });
+}
+
+- (BOOL) haveMessagesInFlight {
+    BOOL __block inFlight = NO;
+    dispatch_sync(self.dataQueue, ^{
+        inFlight = [self.messagesInFlight count] > 0;
+    });
+    return inFlight;
 }
 
 - (void) sendPersistedMessagesAgain
 {
-    NSMutableDictionary *copy = [NSMutableDictionary dictionaryWithDictionary:_messagesInFlight];
+    NSMutableDictionary * __block copy;
+    
+    dispatch_sync(self.dataQueue, ^{
+        copy = [NSMutableDictionary dictionaryWithDictionary:self.messagesInFlight];
+    });
 
     if(copy && [copy count] > 0){
         [copy enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
             NSDictionary* idsMessage = (NSDictionary*)obj;
             NSString *uniqueMessageID = (NSString*)key;
 
-            NSString *peerID = (NSString*)[idsMessage objectForKey:kIDSMessageRecipientPeerID];
-            if(!peerID){
-                [self->_messagesInFlight removeObjectForKey:key];
+            NSString *peerID = (NSString*)[idsMessage objectForKey:(__bridge NSString*)kIDSMessageRecipientPeerID];
+            NSString *ID = (NSString*)[idsMessage objectForKey:(__bridge NSString*)kIDSMessageRecipientDeviceID];
+            
+            dispatch_sync(self.dataQueue, ^{
+                [self.messagesInFlight removeObjectForKey:key];
+            });
+            
+            if (!peerID || !ID) {
                 return;
             }
-            NSString *ID = (NSString*)[idsMessage objectForKey:kIDSMessageRecipientDeviceID];
-            if(!ID){
-                [self->_messagesInFlight removeObjectForKey:key];
-                return;
-            }
-
-            [self->_messagesInFlight removeObjectForKey:key];
             secnotice("IDS Transport", "sending this message: %@", idsMessage);
             if([self sendIDSMessage:idsMessage name:ID peer:peerID]){
                 NSString *useAckModel = [idsMessage objectForKey:kIDSMessageUseACKModel];
@@ -145,21 +189,6 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
     }
 }
 
-- (void) importIDSState: (NSMutableDictionary*) state
-{
-    _unhandledMessageBuffer = state[kExportUnhandledMessages];
-    if(!_unhandledMessageBuffer)
-        _unhandledMessageBuffer = [NSMutableDictionary dictionary];
-    
-    _monitor = state[kMonitorState];
-    if(_monitor == nil)
-        _monitor = [NSMutableDictionary dictionary];
-
-    _messagesInFlight = state[kMessagesInFlight];
-    if(_messagesInFlight == nil)
-        _messagesInFlight = [NSMutableDictionary dictionary];
-}
-
 - (id)init
 {
     if (self = [super init])
@@ -169,13 +198,15 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
         _isIDSInitDone = false;
         _service = nil;
         _calloutQueue = dispatch_queue_create("IDSCallout", DISPATCH_QUEUE_SERIAL);
-        _unhandledMessageBuffer = [ [NSMutableDictionary alloc] initWithCapacity: 0];
-        _pingTimers = [ [NSMutableDictionary alloc] initWithCapacity: 0];
-        _messagesInFlight = [ [NSMutableDictionary alloc] initWithCapacity: 0];
-        deviceIDFromAuthToken = [ [NSMutableDictionary alloc] initWithCapacity: 0];
-        _peerNextSendCache = [ [NSMutableDictionary alloc] initWithCapacity: 0];
-
-        _listOfDevices = [[NSMutableArray alloc] initWithCapacity:0];
+        _pingQueue = dispatch_queue_create("PingQueue", DISPATCH_QUEUE_SERIAL);
+        _dataQueue = dispatch_queue_create("DataQueue", DISPATCH_QUEUE_SERIAL);
+        _pingTimers = [[NSMutableDictionary alloc] init];
+        deviceIDFromAuthToken = [[NSMutableDictionary alloc] init];
+        _peerNextSendCache = [[NSMutableDictionary alloc] init];
+        _counterValues = [[NSMutableDictionary alloc] init];
+        _listOfDevices = [[NSMutableArray alloc] init];
+        _outgoingMessages = 0;
+        _incomingMessages = 0;
         _isSecDRunningAsRoot = false;
         _doesSecDHavePeer = true;
         secdebug(IDSPROXYSCOPE, "%@ done", self);
@@ -183,8 +214,7 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
         [self doIDSInitialization];
         if(_isIDSInitDone)
             [self doSetIDSDeviceID];
-    
-        
+
         // Register for lock state changes
         xpc_set_event_stream_handler(kStreamName, dispatch_get_main_queue(),
                                      ^(xpc_object_t notification){
@@ -197,24 +227,37 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
             [self timerFired];
         });
         dispatch_resume(_retryTimer);
-        [self importIDSState: [KeychainSyncingOverIDSProxyPersistentState idsState]];
+        NSMutableDictionary *state = [KeychainSyncingOverIDSProxyPersistentState idsState];
 
+        _unhandledMessageBuffer = state[kExportUnhandledMessages];
+        if (!_unhandledMessageBuffer) {
+            _unhandledMessageBuffer = [NSMutableDictionary dictionary];
+        }
+        _messagesInFlight = state[kMessagesInFlight];
+        if(_messagesInFlight == nil) {
+            _messagesInFlight = [NSMutableDictionary dictionary];
+        }
+        _monitor = state[kMonitorState];
+        if(_monitor == nil) {
+            _monitor = [NSMutableDictionary dictionary];
+        }
+        
         if([_messagesInFlight count ] > 0)
             _sendRestoredMessages = true;
         int notificationToken;
-        notify_register_dispatch(kSecServerKeychainChangedNotification, &notificationToken, dispatch_get_main_queue(),
+        notify_register_dispatch(kSecServerKeychainChangedNotification, &notificationToken, self.dataQueue,
                                  ^ (int token __unused)
                                  {
                                      secinfo("backoff", "keychain changed, wiping backoff monitor state");
-                                     self->_monitor = [NSMutableDictionary dictionary];
+                                     self.monitor = [NSMutableDictionary dictionary];
                                  });
         int peerInfo;
         notify_register_dispatch(kSecServerPeerInfoAvailable, &peerInfo, dispatch_get_main_queue(),
                                  ^ (int token __unused)
                                  {
                                      secinfo("IDS Transport", "secd has a peer info");
-                                     if(self->_doesSecDHavePeer == false){
-                                         self->_doesSecDHavePeer = true;
+                                     if(self.doesSecDHavePeer == false){
+                                         self.doesSecDHavePeer = true;
                                          [self doSetIDSDeviceID];
                                      }
                                  });
@@ -300,18 +343,23 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
 
 - (void)timerFired
 {
-    if(_unhandledMessageBuffer)
-        secnotice("IDS Transport", "%@ attempting to hand unhandled messages to securityd, here is our message queue: %@", self, _unhandledMessageBuffer);
-   
-    if(_isLocked)
-        _retryTimerScheduled = NO;
-    else if([_unhandledMessageBuffer count] == 0)
-        _retryTimerScheduled = NO;
-    else if (_retryTimerScheduled && !_isLocked)
+    NSUInteger __block messagecount = 0;
+    dispatch_sync(self.dataQueue, ^{
+        if(self.unhandledMessageBuffer) {
+            secnotice("IDS Transport", "%@ attempting to hand unhandled messages to securityd, here is our message queue: %@", self, self.unhandledMessageBuffer);
+            messagecount = [self.unhandledMessageBuffer count];
+        }
+    });
+        
+    if(self.isLocked) {
+        self.retryTimerScheduled = NO;
+    } else if(messagecount == 0) {
+        self.retryTimerScheduled = NO;
+    } else if (self.retryTimerScheduled && !self.isLocked) {
         [self handleAllPendingMessage];
-    else
+    } else {
         [[KeychainSyncingOverIDSProxy idsProxy] scheduleRetryRequestTimer];
-
+    }
 }
 
 - (void)scheduleRetryRequestTimer
@@ -445,14 +493,16 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
         __block bool myDoSetDeviceID;
         __block bool wasLocked;
         dispatch_sync(idsproxy_queue, ^{
-            myPending = [self->_unhandledMessageBuffer copy];
-            myHandlePendingMessage = self->_handleAllPendingMessages;
-            myDoSetDeviceID = self->_setIDSDeviceID;
-            wasLocked = self->_isLocked;
+            dispatch_sync(self.dataQueue, ^{
+                myPending = [self.unhandledMessageBuffer copy];
+            });
+            myHandlePendingMessage = self.handleAllPendingMessages;
+            myDoSetDeviceID = self.setIDSDeviceID;
+            wasLocked = self.isLocked;
             
-            self->_inCallout = YES;
+            self.inCallout = YES;
 
-            self->_shadowHandleAllPendingMessages = NO;
+            self.shadowHandleAllPendingMessages = NO;
         });
         
         callout(myPending, myHandlePendingMessage, myDoSetDeviceID, idsproxy_queue, ^(NSMutableDictionary *handledMessages, bool handledPendingMessage, bool handledSetDeviceID) {
@@ -496,5 +546,13 @@ NSString* createErrorString(NSString* format, ...)
     return errorString;
     
 }
+
+- (NSDictionary*) collectStats{
+    [_counterValues setObject:[NSNumber numberWithInteger:[KeychainSyncingOverIDSProxy idsProxy].outgoingMessages] forKey:kOutgoingMessages];
+    [_counterValues setObject:[NSNumber numberWithInteger:[KeychainSyncingOverIDSProxy idsProxy].incomingMessages] forKey:kIncomingMessages];
+    
+    return _counterValues;
+}
+
 
 @end

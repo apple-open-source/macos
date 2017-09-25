@@ -40,6 +40,23 @@ SECURITY_COMMAND("whoami", command_whoami,
                  "",
                  "Ask securityd who you are.")
 
+SECURITY_COMMAND("sos-stats", command_sos_stats,
+                 "",
+                 "SOS for performance numbers.")
+
+SECURITY_COMMAND("sos-control", command_sos_control,
+                 "",
+                 "SOS control.")
+
 SECURITY_COMMAND("bubble", command_bubble,
                  "",
                  "Transfer to sync bubble")
+
+SECURITY_COMMAND("watchdog", command_watchdog,
+                     "[parameter ...]\n"
+                     "Where parameter is one of:\n"
+                     "    allowed-runtime <x>\n"
+                     "    reset-period <x>\n"
+                     "    check-period <x>\n"
+                     "    graceful-exit-time <x>\n",
+                     "Show current watchdog parameters or set an individual parameter")

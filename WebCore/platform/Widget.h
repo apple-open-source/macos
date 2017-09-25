@@ -24,8 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef Widget_h
-#define Widget_h
+#pragma once
 
 #if PLATFORM(IOS)
 #ifndef NSView
@@ -61,8 +60,8 @@ typedef struct _GtkContainer GtkContainer;
 typedef GtkWidget* PlatformWidget;
 #endif
 
-#if PLATFORM(EFL)
-typedef Evas_Object* PlatformWidget;
+#if PLATFORM(WPE)
+typedef void* PlatformWidget;
 #endif
 
 typedef PlatformWidget PlatformPageClient;
@@ -261,4 +260,3 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \
     static bool isType(const WebCore::Widget& widget) { return widget.predicate; } \
 SPECIALIZE_TYPE_TRAITS_END()
 
-#endif // Widget_h

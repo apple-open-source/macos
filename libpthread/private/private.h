@@ -42,7 +42,7 @@ _pthread_set_errno_direct(int value)
 	*((int*)_pthread_getspecific_direct(_PTHREAD_TSD_SLOT_ERRNO)) = value;
 }
 
-__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0)
+__API_AVAILABLE(macos(10.9), ios(7.0))
 pthread_t pthread_main_thread_np(void);
 
 struct _libpthread_functions {
@@ -69,10 +69,7 @@ struct _libpthread_functions {
  * @result
  * 0 upon success, -1 upon error and errno is set.
  */
-__OSX_AVAILABLE(10.12)
-__IOS_AVAILABLE(10.0)
-__TVOS_AVAILABLE(10.0)
-__WATCHOS_AVAILABLE(3.0)
+__API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
 int pthread_chdir_np(char *path);
 
 /*!
@@ -93,10 +90,7 @@ int pthread_chdir_np(char *path);
  * @result
  * 0 upon success, -1 upon error and errno is set.
  */
-__OSX_AVAILABLE(10.12)
-__IOS_AVAILABLE(10.0)
-__TVOS_AVAILABLE(10.0)
-__WATCHOS_AVAILABLE(3.0)
+__API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
 int pthread_fchdir_np(int fd);
 
 

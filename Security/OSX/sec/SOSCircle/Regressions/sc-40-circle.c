@@ -77,6 +77,10 @@ static void tests(void)
     SecKeyRef dev_b_key = NULL;
     SecKeyRef dev_c_key = NULL;
     SecKeyRef dev_d_key = NULL;
+    SecKeyRef oct_dev_a_key = NULL;
+    SecKeyRef oct_dev_b_key = NULL;
+    SecKeyRef oct_dev_c_key = NULL;
+    SecKeyRef oct_dev_d_key = NULL;
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     
@@ -90,13 +94,13 @@ static void tests(void)
     SecKeyRef user_privkey = SOSUserKeygen(cfpassword, parameters, &error);
     CFReleaseNull(parameters);
 
-    SOSFullPeerInfoRef peer_a_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer A"), &dev_a_key, NULL);
+    SOSFullPeerInfoRef peer_a_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer A"), &dev_a_key, &oct_dev_a_key, NULL);
     
-    SOSFullPeerInfoRef peer_b_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer B"), &dev_b_key, NULL);
+    SOSFullPeerInfoRef peer_b_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer B"), &dev_b_key, &oct_dev_b_key, NULL);
 
-    SOSFullPeerInfoRef peer_c_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer C"), &dev_c_key, NULL);
+    SOSFullPeerInfoRef peer_c_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer C"), &dev_c_key, &oct_dev_c_key, NULL);
 
-    SOSFullPeerInfoRef peer_d_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer D"), &dev_d_key, NULL);
+    SOSFullPeerInfoRef peer_d_full_info = SOSCreateFullPeerInfoFromName(CFSTR("Peer D"), &dev_d_key, &oct_dev_d_key, NULL);
 
     ok(SOSCircleRequestAdmission(circle, user_privkey, peer_a_full_info, NULL));
     ok(SOSCircleRequestAdmission(circle, user_privkey, peer_a_full_info, NULL));
@@ -155,6 +159,10 @@ static void tests(void)
     CFReleaseNull(dev_b_key);
     CFReleaseNull(dev_c_key);
     CFReleaseNull(dev_d_key);
+    CFReleaseNull(oct_dev_a_key);
+    CFReleaseNull(oct_dev_b_key);
+    CFReleaseNull(oct_dev_c_key);
+    CFReleaseNull(oct_dev_d_key);
 
     CFReleaseNull(cfpassword);
 

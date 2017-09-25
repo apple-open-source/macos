@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2003, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,28 +17,28 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
- *              All Rights Reserved 
- *  
- * Permission to use, copy, modify, and distribute this software and 
+ * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991
+ *              All Rights Reserved
+ *
+ * Permission to use, copy, modify, and distribute this software and
  * its documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appears in all copies and 
- * that both the copyright notice and this permission notice appear in 
- * supporting documentation. 
- *  
- * OSF DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE 
- * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
- * FOR A PARTICULAR PURPOSE. 
- *  
- * IN NO EVENT SHALL OSF BE LIABLE FOR ANY SPECIAL, INDIRECT, OR 
- * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM 
- * LOSS OF USE, DATA OR PROFITS, WHETHER IN ACTION OF CONTRACT, 
- * NEGLIGENCE, OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION 
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. 
+ * provided that the above copyright notice appears in all copies and
+ * that both the copyright notice and this permission notice appear in
+ * supporting documentation.
+ *
+ * OSF DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE.
+ *
+ * IN NO EVENT SHALL OSF BE LIABLE FOR ANY SPECIAL, INDIRECT, OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN ACTION OF CONTRACT,
+ * NEGLIGENCE, OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 /*
  * MkLinux
@@ -48,9 +48,9 @@
  * POSIX Pthread Library
  */
 
+#include "resolver.h"
 #include "internal.h"
 #include <sys/time.h>	      /* For struct timespec and getclock(). */
-#include <stdio.h>
 
 #ifdef PLOCKSTAT
 #include "plockstat.h"
@@ -58,21 +58,20 @@
 #define PLOCKSTAT_MUTEX_RELEASE(x, y)
 #endif /* PLOCKSTAT */
 
-__private_extern__ int _pthread_cond_init(_pthread_cond *, const pthread_condattr_t *, int);
-__private_extern__ int _pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime, int isRelative, int isconforming);
-
 extern int __gettimeofday(struct timeval *, struct timezone *);
+extern void _pthread_testcancel(pthread_t thread, int isconforming);
 
-#ifndef BUILDING_VARIANT
-static void _pthread_cond_cleanup(void *arg);
-static void _pthread_cond_updateval(_pthread_cond * cond, int error, uint32_t updateval);
-#endif
+PTHREAD_NOEXPORT
+int _pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+		const struct timespec *abstime, int isRelative, int isconforming);
 
-static void
+PTHREAD_ALWAYS_INLINE
+static inline void
 COND_GETSEQ_ADDR(_pthread_cond *cond,
-		 volatile uint32_t **c_lseqcnt,
-		 volatile uint32_t **c_useqcnt,
-		 volatile uint32_t **c_sseqcnt)
+		volatile uint64_t **c_lsseqaddr,
+		volatile uint32_t **c_lseqcnt,
+		volatile uint32_t **c_useqcnt,
+		volatile uint32_t **c_sseqcnt)
 {
 	if (cond->misalign) {
 		*c_lseqcnt = &cond->c_seq[1];
@@ -83,9 +82,15 @@ COND_GETSEQ_ADDR(_pthread_cond *cond,
 		*c_sseqcnt = &cond->c_seq[1];
 		*c_useqcnt = &cond->c_seq[2];
 	}
+	*c_lsseqaddr = (volatile uint64_t *)*c_lseqcnt;
 }
 
 #ifndef BUILDING_VARIANT /* [ */
+
+static void _pthread_cond_cleanup(void *arg);
+static void _pthread_cond_updateval(_pthread_cond * cond, int error,
+		uint32_t updateval);
+
 
 int
 pthread_condattr_init(pthread_condattr_t *attr)
@@ -95,7 +100,7 @@ pthread_condattr_init(pthread_condattr_t *attr)
 	return 0;
 }
 
-int       
+int
 pthread_condattr_destroy(pthread_condattr_t *attr)
 {
 	attr->sig = _PTHREAD_NO_SIG;
@@ -131,9 +136,20 @@ pthread_condattr_setpshared(pthread_condattr_t *attr, int pshared)
 	return res;
 }
 
-__private_extern__ int       
+int
+pthread_cond_timedwait_relative_np(pthread_cond_t *cond, pthread_mutex_t *mutex,
+		const struct timespec *abstime)
+{
+	return _pthread_cond_wait(cond, mutex, abstime, 1, 0);
+}
+
+#endif /* !BUILDING_VARIANT ] */
+
+PTHREAD_ALWAYS_INLINE
+static inline int
 _pthread_cond_init(_pthread_cond *cond, const pthread_condattr_t *attr, int conforming)
 {
+	volatile uint64_t *c_lsseqaddr;
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 
 	cond->busy = NULL;
@@ -143,9 +159,9 @@ _pthread_cond_init(_pthread_cond *cond, const pthread_condattr_t *attr, int conf
 	cond->unused = 0;
 
 	cond->misalign = (((uintptr_t)&cond->c_seq[0]) & 0x7) != 0;
-	COND_GETSEQ_ADDR(cond, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
+	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 	*c_sseqcnt = PTH_RWS_CV_CBIT; // set Sword to 0c
-	
+
 	if (conforming) {
 		if (attr) {
 			cond->pshared = attr->pshared;
@@ -155,13 +171,25 @@ _pthread_cond_init(_pthread_cond *cond, const pthread_condattr_t *attr, int conf
 	} else {
 		cond->pshared = _PTHREAD_DEFAULT_PSHARED;
 	}
-	
+
+	long sig = _PTHREAD_COND_SIG;
+
 	// Ensure all contents are properly set before setting signature.
-	OSMemoryBarrier();
-	cond->sig = _PTHREAD_COND_SIG;
-	
+#if defined(__LP64__)
+	// For binary compatibility reasons we cannot require natural alignment of
+	// the 64bit 'sig' long value in the struct. rdar://problem/21610439
+	uint32_t *sig32_ptr = (uint32_t*)&cond->sig;
+	uint32_t *sig32_val = (uint32_t*)&sig;
+	*(sig32_ptr + 1) = *(sig32_val + 1);
+	os_atomic_store(sig32_ptr, *sig32_val, release);
+#else
+	os_atomic_store2o(cond, sig, sig, release);
+#endif
+
 	return 0;
 }
+
+#ifndef BUILDING_VARIANT /* [ */
 
 PTHREAD_NOINLINE
 static int
@@ -185,6 +213,7 @@ _pthread_cond_check_init_slow(_pthread_cond *cond, bool *inited)
 	return res;
 }
 
+PTHREAD_ALWAYS_INLINE
 static inline int
 _pthread_cond_check_init(_pthread_cond *cond, bool *inited)
 {
@@ -195,6 +224,7 @@ _pthread_cond_check_init(_pthread_cond *cond, bool *inited)
 	return res;
 }
 
+PTHREAD_NOEXPORT_VARIANT
 int
 pthread_cond_destroy(pthread_cond_t *ocond)
 {
@@ -205,15 +235,16 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 
 		uint64_t oldval64, newval64;
 		uint32_t lcntval, ucntval, scntval;
+		volatile uint64_t *c_lsseqaddr;
 		volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 
-		COND_GETSEQ_ADDR(cond, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
+		COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 
 		do {
 			lcntval = *c_lseqcnt;
 			ucntval = *c_useqcnt;
 			scntval = *c_sseqcnt;
-			
+
 			// validate it is not busy
 			if ((lcntval & PTHRW_COUNT_MASK) != (scntval & PTHRW_COUNT_MASK)) {
 				//res = EBUSY;
@@ -222,7 +253,7 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 			oldval64 = (((uint64_t)scntval) << 32);
 			oldval64 |= lcntval;
 			newval64 = oldval64;
-		} while (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE);
+		} while (!os_atomic_cmpxchg(c_lsseqaddr, oldval64, newval64, seq_cst));
 
 		// <rdar://problem/13782056> Need to clear preposts.
 		uint32_t flags = 0;
@@ -233,7 +264,7 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 
 		cond->sig = _PTHREAD_NO_SIG;
 		res = 0;
-		
+
 		_PTHREAD_UNLOCK(cond->lock);
 
 		if (needclearpre) {
@@ -248,7 +279,8 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 	return res;
 }
 
-static int
+PTHREAD_ALWAYS_INLINE
+static inline int
 _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 {
 	int res;
@@ -260,6 +292,7 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 
 	uint64_t oldval64, newval64;
 	uint32_t lcntval, ucntval, scntval;
+	volatile uint64_t *c_lsseqaddr;
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 
 	int retry_count = 0, uretry_count = 0;
@@ -271,7 +304,7 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 		return res;
 	}
 
-	COND_GETSEQ_ADDR(cond, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
+	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 
 	bool retry;
 	do {
@@ -280,6 +313,8 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 		lcntval = *c_lseqcnt;
 		ucntval = *c_useqcnt;
 		scntval = *c_sseqcnt;
+		diffgen = 0;
+		ulval = 0;
 
 		if (((lcntval & PTHRW_COUNT_MASK) == (scntval & PTHRW_COUNT_MASK)) ||
 		    (thread == MACH_PORT_NULL && ((lcntval & PTHRW_COUNT_MASK) == (ucntval & PTHRW_COUNT_MASK)))) {
@@ -287,8 +322,8 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 			oldval64 = (((uint64_t)scntval) << 32);
 			oldval64 |= lcntval;
 			newval64 = oldval64;
-			
-			if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE) {
+
+			if (!os_atomic_cmpxchg(c_lsseqaddr, oldval64, newval64, seq_cst)) {
 				retry = true;
 				continue;
 			} else {
@@ -321,7 +356,7 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 				 */
 				if (ucountreset != 0) {
 					return EAGAIN;
-				} else if (OSAtomicCompareAndSwap32Barrier(ucntval, (scntval & PTHRW_COUNT_MASK), (volatile int32_t *)c_useqcnt) == TRUE) {
+				} else if (os_atomic_cmpxchg(c_useqcnt, ucntval, (scntval & PTHRW_COUNT_MASK), seq_cst)) {
 					/* now the U is reset to S value */
 					ucountreset = 1;
 					uretry_count = 0;
@@ -348,8 +383,8 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 			ulval += PTHRW_INC;
 		}
 
-	} while (retry || OSAtomicCompareAndSwap32Barrier(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE);
-	
+	} while (retry || !os_atomic_cmpxchg(c_useqcnt, ucntval, ulval, seq_cst));
+
 	uint32_t flags = 0;
 	if (cond->pshared == PTHREAD_PROCESS_SHARED) {
 		flags |= _PTHREAD_MTX_OPT_PSHARED;
@@ -372,10 +407,10 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 	return 0;
 }
 
-
 /*
  * Signal a condition variable, waking up all threads waiting for it.
  */
+PTHREAD_NOEXPORT_VARIANT
 int
 pthread_cond_broadcast(pthread_cond_t *ocond)
 {
@@ -385,12 +420,13 @@ pthread_cond_broadcast(pthread_cond_t *ocond)
 /*
  * Signal a condition variable, waking a specified thread.
  */
-int       
+PTHREAD_NOEXPORT_VARIANT
+int
 pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
 {
 	mach_port_t mp = MACH_PORT_NULL;
 	if (thread) {
-		mp = pthread_mach_thread_np(thread);
+		mp = pthread_mach_thread_np((_Nonnull pthread_t)thread);
 	}
 	return _pthread_cond_signal(ocond, false, mp);
 }
@@ -398,16 +434,16 @@ pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
 /*
  * Signal a condition variable, waking only one thread.
  */
+PTHREAD_NOEXPORT_VARIANT
 int
-pthread_cond_signal(pthread_cond_t *cond)
+pthread_cond_signal(pthread_cond_t *ocond)
 {
-	return pthread_cond_signal_thread_np(cond, NULL);
+	return _pthread_cond_signal(ocond, false, MACH_PORT_NULL);
 }
 
 /*
  * Manage a list of condition variables associated with a mutex
  */
-
 
 /*
  * Suspend waiting for a condition variable.
@@ -416,8 +452,9 @@ pthread_cond_signal(pthread_cond_t *cond)
  * If isconforming < 0, we skip the _pthread_testcancel(), but keep the
  * remaining conforming behavior..
  */
-__private_extern__ int
-_pthread_cond_wait(pthread_cond_t *ocond, 
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+int
+_pthread_cond_wait(pthread_cond_t *ocond,
 			pthread_mutex_t *omutex,
 			const struct timespec *abstime,
 			int isRelative,
@@ -430,11 +467,10 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 	uint32_t mtxgen, mtxugen, flags=0, updateval;
 	uint32_t lcntval, ucntval, scntval;
 	uint32_t nlval, ulval, savebits;
+	volatile uint64_t *c_lsseqaddr;
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint64_t oldval64, newval64, mugen, cvlsgen;
 	uint32_t *npmtx = NULL;
-
-extern void _pthread_testcancel(pthread_t thread, int isconforming);
 
 	res = _pthread_cond_check_init(cond, NULL);
 	if (res != 0) {
@@ -494,7 +530,7 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 		return EINVAL;
 	}
 
-	COND_GETSEQ_ADDR(cond, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
+	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 
 	do {
 		lcntval = *c_lseqcnt;
@@ -510,11 +546,11 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 		nlval = lcntval + PTHRW_INC;
 		newval64 = (((uint64_t)ulval) << 32);
 		newval64 |= nlval;
-	} while (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE);
+	} while (!os_atomic_cmpxchg(c_lsseqaddr, oldval64, newval64, seq_cst));
 
 	cond->busy = mutex;
 
-	res = __mtx_droplock(mutex, &flags, &npmtx, &mtxgen, &mtxugen);
+	res = _pthread_mutex_droplock(mutex, &flags, &npmtx, &mtxgen, &mtxugen);
 
 	/* TBD: cases are for normal (non owner for recursive mutex; error checking)*/
 	if (res != 0) {
@@ -569,7 +605,7 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 	return res;
 }
 
-static void 
+static void
 _pthread_cond_cleanup(void *arg)
 {
 	_pthread_cond *cond = (_pthread_cond *)arg;
@@ -589,7 +625,7 @@ _pthread_cond_cleanup(void *arg)
 
 // 4597450: end
 	mutex = (pthread_mutex_t *)cond->busy;
-	
+
 	// add unlock ref to show one less waiter
 	_pthread_cond_updateval(cond, thread->cancel_error, 0);
 
@@ -608,10 +644,11 @@ static void
 _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 {
 	int needclearpre;
-	
+
 	uint32_t diffgen, nsval;
 	uint64_t oldval64, newval64;
 	uint32_t lcntval, ucntval, scntval;
+	volatile uint64_t *c_lsseqaddr;
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 
 	if (error != 0) {
@@ -624,12 +661,14 @@ _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 		}
 	}
 
-	COND_GETSEQ_ADDR(cond, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
+	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 
 	do {
 		lcntval = *c_lseqcnt;
 		ucntval = *c_useqcnt;
 		scntval = *c_sseqcnt;
+		nsval = 0;
+		needclearpre = 0;
 
 		diffgen = diff_genseq(lcntval, scntval); // pending waiters
 
@@ -654,14 +693,12 @@ _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 				// reset p bit but retain c bit on the sword
 				nsval &= PTH_RWS_CV_RESET_PBIT;
 				needclearpre = 1;
-			} else {
-				needclearpre = 0;
 			}
 
 			newval64 = (((uint64_t)nsval) << 32);
 			newval64 |= lcntval;
 		}
-	} while (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE);
+	} while (!os_atomic_cmpxchg(c_lsseqaddr, oldval64, newval64, seq_cst));
 
 	if (diffgen > 0) {
 		// if L == S, then reset associated mutex
@@ -679,15 +716,9 @@ _pthread_cond_updateval(_pthread_cond *cond, int error, uint32_t updateval)
 	}
 }
 
-
-int
-pthread_cond_timedwait_relative_np(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime)
-{
-	return _pthread_cond_wait(cond, mutex, abstime, 1, 0);
-}
-
 #endif /* !BUILDING_VARIANT ] */
 
+PTHREAD_NOEXPORT_VARIANT
 int
 pthread_cond_init(pthread_cond_t *ocond, const pthread_condattr_t *attr)
 {
@@ -703,3 +734,4 @@ pthread_cond_init(pthread_cond_t *ocond, const pthread_condattr_t *attr)
 	_PTHREAD_LOCK_INIT(cond->lock);
 	return _pthread_cond_init(cond, attr, conforming);
 }
+

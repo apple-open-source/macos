@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -13,6 +15,7 @@
 #include "unicode/utypes.h"
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
+#include "unicode/unistr.h"
 
 #if !UCONFIG_NO_COLLATION
 
@@ -66,6 +69,7 @@ typedef enum UAlphabeticIndexLabelType {
 struct UHashtable;
 U_CDECL_END
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 // Forward Declarations
@@ -747,6 +751,7 @@ private:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // !UCONFIG_NO_COLLATION
 #endif

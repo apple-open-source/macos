@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,21 +41,27 @@ class JSWebAssemblyMemory : public JSDestructibleObject {
 public:
     typedef JSDestructibleObject Base;
 
-    static JSWebAssemblyMemory* create(VM&, Structure*, std::unique_ptr<Wasm::Memory>&&);
+    static JSWebAssemblyMemory* create(ExecState*, VM&, Structure*, Ref<Wasm::Memory>&&);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
-    DECLARE_INFO;
+    DECLARE_EXPORT_INFO;
 
-    Wasm::Memory* memory() { return m_memory.get(); }
+    Wasm::Memory& memory() { return m_memory.get(); }
     JSArrayBuffer* buffer(VM& vm, JSGlobalObject*);
+    Wasm::PageCount grow(VM&, ExecState*, uint32_t delta, bool shouldThrowExceptionsOnFailure);
 
-protected:
-    JSWebAssemblyMemory(VM&, Structure*, std::unique_ptr<Wasm::Memory>&&);
+    static ptrdiff_t offsetOfMemory() { return OBJECT_OFFSETOF(JSWebAssemblyMemory, m_memoryBase); }
+    static ptrdiff_t offsetOfSize() { return OBJECT_OFFSETOF(JSWebAssemblyMemory, m_memorySize); }
+
+private:
+    JSWebAssemblyMemory(VM&, Structure*, Ref<Wasm::Memory>&&);
     void finishCreation(VM&);
     static void destroy(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
 
-    std::unique_ptr<Wasm::Memory> m_memory;
+    void* m_memoryBase;
+    size_t m_memorySize;
+    Ref<Wasm::Memory> m_memory;
     WriteBarrier<JSArrayBuffer> m_bufferWrapper;
     RefPtr<ArrayBuffer> m_buffer;
 };

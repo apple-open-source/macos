@@ -68,13 +68,13 @@ protected:
     is returned. 
 */
 
-    virtual void output(IOMbufQueue * queue, UInt32 * state);
+    virtual void output(IOMbufQueue * queue, UInt32 * state) APPLE_KEXT_OVERRIDE;
 
 /*! @function free
     @abstract Frees the IOGatedOutputQueue object.
     @discussion Release allocated resources, then call super::free(). */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 /*! @function output
     @abstract Overrides the method inherited from IOOutputQueue.
@@ -82,7 +82,7 @@ protected:
     the queue. 
 */
 
-    virtual bool scheduleServiceThread(void * param);
+    virtual bool scheduleServiceThread(void * param) APPLE_KEXT_OVERRIDE;
 
 public:
 

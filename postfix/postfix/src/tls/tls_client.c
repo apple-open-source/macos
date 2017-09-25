@@ -299,6 +299,8 @@ TLS_APPL_STATE *tls_client_init(const TLS_CLIENT_INIT_PROPS *props)
      */
     tls_check_version();
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+
     /*
      * Initialize the OpenSSL library by the book! To start with, we must
      * initialize the algorithms. We want cleartext error messages instead of
@@ -306,6 +308,7 @@ TLS_APPL_STATE *tls_client_init(const TLS_CLIENT_INIT_PROPS *props)
      */
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
+#endif
 
     /*
      * Create an application data index for SSL objects, so that we can
@@ -347,23 +350,14 @@ TLS_APPL_STATE *tls_client_init(const TLS_CLIENT_INIT_PROPS *props)
      * we want to be as compatible as possible, so we will start off with a
      * SSLv2 greeting allowing the best we can offer: TLSv1. We can restrict
      * this with the options setting later, anyhow.
-     * 
-     * OpenSSL 1.1.0-dev deprecates SSLv23_client_method() in favour of
-     * TLS_client_method(), with the change in question signalled via a new
-     * TLS_ANY_VERSION macro.
      */
     ERR_clear_error();
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L && defined(TLS_ANY_VERSION)
     client_ctx = SSL_CTX_new(TLS_client_method());
-#else
-    client_ctx = SSL_CTX_new(SSLv23_client_method());
-#endif
     if (client_ctx == 0) {
 	msg_warn("cannot allocate client SSL_CTX: disabling TLS support");
 	tls_print_errors();
 	return (0);
     }
-
 #ifdef SSL_SECOP_PEER
     /* Backwards compatible security as a base for opportunistic TLS. */
     SSL_CTX_set_security_level(client_ctx, 0);
@@ -448,6 +442,13 @@ TLS_APPL_STATE *tls_client_init(const TLS_CLIENT_INIT_PROPS *props)
      */
     SSL_CTX_set_tmp_rsa_callback(client_ctx, tls_tmp_rsa_cb);
 #endif
+
+    /*
+     * With OpenSSL 1.0.2 and later the client EECDH curve list becomes
+     * configurable with the preferred curve negotiated via the supported
+     * curves extension.
+     */
+    tls_auto_eecdh_curves(client_ctx);
 
     /*
      * Finally, the setup for the server certificate checking, done "by the

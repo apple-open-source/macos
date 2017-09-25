@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,29 +17,29 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
- *              All Rights Reserved 
- *  
- * Permission to use, copy, modify, and distribute this software and 
- * its documentation for any purpose and without fee is hereby granted, 
- * provided that the above copyright notice appears in all copies and 
- * that both the copyright notice and this permission notice appear in 
- * supporting documentation. 
- *  
- * OSF DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE 
- * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
- * FOR A PARTICULAR PURPOSE. 
- *  
- * IN NO EVENT SHALL OSF BE LIABLE FOR ANY SPECIAL, INDIRECT, OR 
- * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM 
- * LOSS OF USE, DATA OR PROFITS, WHETHER IN ACTION OF CONTRACT, 
- * NEGLIGENCE, OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION 
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. 
- * 
+ * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991
+ *              All Rights Reserved
+ *
+ * Permission to use, copy, modify, and distribute this software and
+ * its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notice appears in all copies and
+ * that both the copyright notice and this permission notice appear in
+ * supporting documentation.
+ *
+ * OSF DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE.
+ *
+ * IN NO EVENT SHALL OSF BE LIABLE FOR ANY SPECIAL, INDIRECT, OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN ACTION OF CONTRACT,
+ * NEGLIGENCE, OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
  */
 /*
  * MkLinux
@@ -67,7 +67,6 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include <limits.h>
 #include <errno.h>
 #include <TargetConditionals.h>
-#include <libkern/OSAtomic.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <sys/queue.h>
@@ -75,6 +74,10 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #define __OS_EXPOSE_INTERNALS__ 1
 #include <os/internal/internal_shared.h>
 #include <os/once_private.h>
+
+#if TARGET_IPHONE_SIMULATOR
+#error Unsupported target
+#endif
 
 #define PTHREAD_INTERNAL_CRASH(c, x) do { \
 		_os_set_crash_log_cause_and_message((c), \
@@ -100,6 +103,18 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include "tsd_private.h"
 #include "spinlock_private.h"
 
+#define PTHREAD_EXPORT extern __attribute__((visibility("default")))
+#define PTHREAD_EXTERN extern
+#define PTHREAD_NOEXPORT __attribute__((visibility("hidden")))
+#define PTHREAD_NOEXPORT_VARIANT
+#define PTHREAD_NORETURN __attribute__((__noreturn__))
+#define PTHREAD_ALWAYS_INLINE __attribute__((always_inline))
+#define PTHREAD_NOINLINE __attribute__((noinline))
+#define PTHREAD_WEAK __attribute__((weak))
+#define PTHREAD_USED __attribute__((used))
+#define PTHREAD_NOT_TAIL_CALLED __attribute__((__not_tail_called__))
+
+
 #define OS_UNFAIR_LOCK_INLINE 1
 #include <os/lock_private.h>
 typedef os_unfair_lock _pthread_lock;
@@ -110,10 +125,6 @@ typedef os_unfair_lock _pthread_lock;
 #define _PTHREAD_UNLOCK(lock) os_unfair_lock_unlock_inline(&(lock))
 #define _PTHREAD_UNLOCK_FROM_MACH_THREAD(lock) os_unfair_lock_unlock_inline_no_tsd_4libpthread(&(lock))
 
-#if TARGET_IPHONE_SIMULATOR
-#error Unsupported target
-#endif
-
 // List of all pthreads in the process.
 TAILQ_HEAD(__pthread_list, _pthread);
 extern struct __pthread_list __pthread_head;
@@ -122,6 +133,12 @@ extern struct __pthread_list __pthread_head;
 extern _pthread_lock _pthread_list_lock;
 
 extern int __is_threaded;
+
+#if PTHREAD_DEBUG_LOG
+#include <mach/mach_time.h>
+extern int _pthread_debuglog;
+extern uint64_t _pthread_debugstart;
+#endif
 
 /*
  * Compiled-in limits
@@ -153,7 +170,7 @@ typedef struct _pthread {
 			parentcheck:1,
 			childexit:1,
 			pad3:29;
-	
+
 	_pthread_lock lock; // protect access to everything below
 	uint32_t detached:8,
 			inherit:8,
@@ -337,21 +354,19 @@ typedef struct {
 	long sig;
 	_pthread_lock lock;
 	uint32_t unused:29,
-		misalign:1,
-		pshared:2;
+			misalign:1,
+			pshared:2;
 	uint32_t rw_flags;
 #if defined(__LP64__)
 	uint32_t _pad;
 #endif
-	volatile uint32_t rw_seq[4];
-	struct _pthread *rw_owner;
-	volatile uint32_t *rw_lcntaddr;
-	volatile uint32_t *rw_seqaddr;
-	volatile uint32_t *rw_ucntaddr;
+	uint32_t rw_tid[2]; // thread id of thread that has exclusive (write) lock
+	uint32_t rw_seq[4]; // rw sequence id (at 128-bit aligned boundary)
+	uint32_t rw_mis[4]; // for misaligned locks rw_seq will span into here
 #if defined(__LP64__)
-	uint32_t _reserved[31];
+	uint32_t _reserved[34];
 #else
-	uint32_t _reserved[19];
+	uint32_t _reserved[18];
 #endif
 } _pthread_rwlock;
 
@@ -361,6 +376,9 @@ typedef struct {
 _Static_assert(sizeof(_pthread_mutex) == sizeof(pthread_mutex_t),
 		"Incorrect _pthread_mutex structure size");
 
+_Static_assert(sizeof(_pthread_rwlock) == sizeof(pthread_rwlock_t),
+		"Incorrect _pthread_rwlock structure size");
+
 // Internal references to pthread_self() use TSD slot 0 directly.
 inline static pthread_t __attribute__((__pure__))
 _pthread_self_direct(void)
@@ -369,7 +387,8 @@ _pthread_self_direct(void)
 }
 #define pthread_self() _pthread_self_direct()
 
-inline static pthread_t __attribute__((__pure__))
+PTHREAD_ALWAYS_INLINE
+inline static uint64_t __attribute__((__pure__))
 _pthread_selfid_direct(void)
 {
 	return (_pthread_self_direct())->thread_id;
@@ -426,17 +445,9 @@ _pthread_selfid_direct(void)
 #define _PTHREAD_CANCEL_STATE_MASK   0x01
 #define _PTHREAD_CANCEL_TYPE_MASK    0x02
 #define _PTHREAD_CANCEL_PENDING	     0x10  /* pthread_cancel() has been called for this thread */
+#define _PTHREAD_CANCEL_INITIALIZED  0x20  /* the thread in the list is properly initialized */
 
 extern boolean_t swtch_pri(int);
-
-#define PTHREAD_EXPORT extern __attribute__((visibility("default")))
-#define PTHREAD_EXTERN extern
-#define PTHREAD_NOEXPORT __attribute__((visibility("hidden")))
-#define PTHREAD_NORETURN __attribute__((__noreturn__))
-#define PTHREAD_ALWAYS_INLINE __attribute__((always_inline))
-#define PTHREAD_NOINLINE __attribute__((noinline))
-#define PTHREAD_WEAK __attribute__((weak))
-#define PTHREAD_USED __attribute__((used))
 
 #include "kern/kern_internal.h"
 
@@ -450,7 +461,7 @@ PTHREAD_NOEXPORT void _pthread_setup(pthread_t th, void (*f)(pthread_t), void *s
 
 PTHREAD_NOEXPORT void _pthread_tsd_cleanup(pthread_t self);
 
-PTHREAD_NOEXPORT int __mtx_droplock(_pthread_mutex *mutex, uint32_t * flagp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp);
+PTHREAD_NOEXPORT int _pthread_mutex_droplock(_pthread_mutex *mutex, uint32_t * flagp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp);
 
 /* internally redirected upcalls. */
 PTHREAD_NOEXPORT void* malloc(size_t);
@@ -478,7 +489,6 @@ PTHREAD_EXTERN
 int
 __proc_info(int callnum, int pid, int flavor, uint64_t arg, void * buffer, int buffersize);
 
-PTHREAD_NOEXPORT int _pthread_lookup_thread(pthread_t thread, mach_port_t * port, int only_joinable);
 PTHREAD_NOEXPORT int _pthread_join_cleanup(pthread_t thread, void ** value_ptr, int conforming);
 
 PTHREAD_NORETURN PTHREAD_NOEXPORT
@@ -487,7 +497,7 @@ __pthread_abort(void);
 
 PTHREAD_NORETURN PTHREAD_NOEXPORT
 void
-__pthread_abort_reason(const char *fmt, ...);
+__pthread_abort_reason(const char *fmt, ...) __printflike(1,2);
 
 PTHREAD_NOEXPORT
 void
@@ -507,19 +517,35 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *keve
 
 PTHREAD_NOEXPORT
 void
-__pthread_fork_child_internal(pthread_t p);
+_pthread_main_thread_init(pthread_t p);
 
-PTHREAD_EXPORT
+PTHREAD_NOEXPORT
+void
+_pthread_bsdthread_init(void);
+
+PTHREAD_NOEXPORT_VARIANT
 void
 _pthread_clear_qos_tsd(mach_port_t thread_port);
 
-PTHREAD_EXPORT
+PTHREAD_NOEXPORT_VARIANT
 void
 _pthread_testcancel(pthread_t thread, int isconforming);
 
 PTHREAD_EXPORT
 void
 _pthread_exit_if_canceled(int error);
+
+PTHREAD_NOEXPORT
+void
+_pthread_markcancel_if_canceled(pthread_t thread, mach_port_t kport);
+
+PTHREAD_NOEXPORT
+void
+_pthread_setcancelstate_exit(pthread_t self, void *value_ptr, int conforming);
+
+PTHREAD_NOEXPORT
+void *
+_pthread_get_exit_value(pthread_t t, int conforming);
 
 PTHREAD_ALWAYS_INLINE
 static inline mach_port_t
@@ -532,15 +558,14 @@ PTHREAD_ALWAYS_INLINE
 static inline void
 _pthread_set_kernel_thread(pthread_t t, mach_port_t p)
 {
-	if (os_slowpath(!MACH_PORT_VALID(p))) {
-		PTHREAD_INTERNAL_CRASH(t, "Invalid thread port");
-	}
 	t->tsd[_PTHREAD_TSD_SLOT_MACH_THREAD_SELF] = p;
 }
 
-#define PTHREAD_ABORT(f,...) __pthread_abort_reason("%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
+#define PTHREAD_ABORT(f,...) __pthread_abort_reason( \
+		"%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
 
-#define PTHREAD_ASSERT(b) do { if (!(b)) PTHREAD_ABORT("failed assertion `%s'", #b); } while (0)
+#define PTHREAD_ASSERT(b) \
+		do { if (!(b)) PTHREAD_ABORT("failed assertion `%s'", #b); } while (0)
 
 #include <os/semaphore_private.h>
 #include <os/alloc_once_private.h>
@@ -563,6 +588,9 @@ struct pthread_globals_s {
 	size_t atfork_count;
 	struct pthread_atfork_entry atfork_storage[PTHREAD_ATFORK_INLINE_MAX];
 	struct pthread_atfork_entry *atfork;
+	uint16_t qmp_logical[THREAD_QOS_LAST];
+	uint16_t qmp_physical[THREAD_QOS_LAST];
+
 };
 typedef struct pthread_globals_s *pthread_globals_t;
 
@@ -581,21 +609,120 @@ PTHREAD_ALWAYS_INLINE
 static inline bool
 _pthread_mutex_check_signature_fast(_pthread_mutex *mutex)
 {
-	return os_fastpath(mutex->sig == _PTHREAD_MUTEX_SIG_fast);
+	return (mutex->sig == _PTHREAD_MUTEX_SIG_fast);
 }
 
 PTHREAD_ALWAYS_INLINE
 static inline bool
 _pthread_mutex_check_signature(_pthread_mutex *mutex)
 {
-	return os_fastpath((mutex->sig & _PTHREAD_MUTEX_SIG_MASK) == _PTHREAD_MUTEX_SIG_CMP);
+	return ((mutex->sig & _PTHREAD_MUTEX_SIG_MASK) == _PTHREAD_MUTEX_SIG_CMP);
 }
 
 PTHREAD_ALWAYS_INLINE
 static inline bool
 _pthread_mutex_check_signature_init(_pthread_mutex *mutex)
 {
-	return os_fastpath((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_init_CMP);
+	return ((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) ==
+			_PTHREAD_MUTEX_SIG_init_CMP);
 }
+
+#pragma mark _pthread_rwlock_check_signature
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_rwlock_check_signature(_pthread_rwlock *rwlock)
+{
+	return (rwlock->sig == _PTHREAD_RWLOCK_SIG);
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_rwlock_check_signature_init(_pthread_rwlock *rwlock)
+{
+	return (rwlock->sig == _PTHREAD_RWLOCK_SIG_init);
+}
+
+/* ALWAYS called with list lock and return with list lock */
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_is_valid_locked(pthread_t thread)
+{
+	pthread_t p;
+loop:
+	TAILQ_FOREACH(p, &__pthread_head, plist) {
+		if (p == thread) {
+			int state = os_atomic_load(&p->cancel_state, relaxed);
+			if (state & _PTHREAD_CANCEL_INITIALIZED) {
+				return true;
+			}
+			_PTHREAD_UNLOCK(_pthread_list_lock);
+			thread_switch(_pthread_kernel_thread(p),
+					SWITCH_OPTION_OSLOCK_DEPRESS, 1);
+			_PTHREAD_LOCK(_pthread_list_lock);
+			goto loop;
+		}
+	}
+
+	return false;
+}
+
+#define PTHREAD_IS_VALID_LOCK_THREAD 0x1
+
+PTHREAD_ALWAYS_INLINE
+static inline bool
+_pthread_is_valid(pthread_t thread, int flags, mach_port_t *portp)
+{
+	mach_port_t kport = MACH_PORT_NULL;
+	bool valid;
+
+	if (thread == NULL) {
+		return false;
+	}
+
+	if (thread == pthread_self()) {
+		valid = true;
+		kport = _pthread_kernel_thread(thread);
+		if (flags & PTHREAD_IS_VALID_LOCK_THREAD) {
+			_PTHREAD_LOCK(thread->lock);
+		}
+	} else {
+		_PTHREAD_LOCK(_pthread_list_lock);
+		if (_pthread_is_valid_locked(thread)) {
+			kport = _pthread_kernel_thread(thread);
+			valid = true;
+			if (flags & PTHREAD_IS_VALID_LOCK_THREAD) {
+				_PTHREAD_LOCK(thread->lock);
+			}
+		} else {
+			valid = false;
+		}
+		_PTHREAD_UNLOCK(_pthread_list_lock);
+	}
+
+	if (portp != NULL) {
+		*portp = kport;
+	}
+	return valid;
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline void*
+_pthread_atomic_xchg_ptr_inline(void **p, void *v)
+{
+	return os_atomic_xchg(p, v, seq_cst);
+}
+
+PTHREAD_ALWAYS_INLINE
+static inline uint32_t
+_pthread_atomic_xchg_uint32_relaxed_inline(uint32_t *p,uint32_t v)
+{
+	return os_atomic_xchg(p, v, relaxed);
+}
+
+#define _pthread_atomic_xchg_ptr(p, v) \
+		_pthread_atomic_xchg_ptr_inline(p, v)
+#define _pthread_atomic_xchg_uint32_relaxed(p, v) \
+		_pthread_atomic_xchg_uint32_relaxed_inline(p, v)
 
 #endif /* _POSIX_PTHREAD_INTERNALS_H */

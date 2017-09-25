@@ -1539,8 +1539,8 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 
 #if CONFIG_PROTECT
 #if HFS_CONFIG_KEY_ROLL
-	// The HFS_KEY_ROLL fsctl does its own access checks
-	if (ap->a_command != HFS_KEY_ROLL)
+	// The HFSIOC_KEY_ROLL fsctl does its own access checks
+	if (ap->a_command != HFSIOC_KEY_ROLL)
 #endif
 	{
 		int error = 0;
@@ -1552,7 +1552,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 
 	switch (ap->a_command) {
 
-	case HFS_GETPATH:
+	case HFSIOC_GETPATH:
 	{
 		struct vnode *file_vp;
 		cnid_t  cnid;
@@ -1592,7 +1592,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		return (error);
 	}
 	
-	case HFS_SET_MAX_DEFRAG_SIZE: 
+	case HFSIOC_SET_MAX_DEFRAG_SIZE:
 	{
 		int error = 0;		/* Assume success */
 		u_int32_t maxsize = 0;
@@ -1619,7 +1619,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		return (error);
 	}
 
-	case HFS_FORCE_ENABLE_DEFRAG:
+	case HFSIOC_FORCE_ENABLE_DEFRAG:
 	{
 		int error = 0;		/* Assume success */
 		u_int32_t do_enable = 0;
@@ -1648,7 +1648,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 	}
 
 
-	case HFS_TRANSFER_DOCUMENT_ID:
+	case HFSIOC_TRANSFER_DOCUMENT_ID:
 	{
 		struct cnode *cp = NULL;
 		int error;
@@ -1770,8 +1770,8 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 
 
 
-	case HFS_PREV_LINK:
-	case HFS_NEXT_LINK:
+	case HFSIOC_PREV_LINK:
+	case HFSIOC_NEXT_LINK:
 	{
 		cnid_t linkfileid;
 		cnid_t nextlinkid;
@@ -1795,7 +1795,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		if ((error = hfs_lookup_siblinglinks(hfsmp, linkfileid, &prevlinkid, &nextlinkid))) {
 			return (error);
 		}
-		if (ap->a_command == HFS_NEXT_LINK) {
+		if (ap->a_command == HFSIOC_NEXT_LINK) {
 			*(cnid_t *)ap->a_data = nextlinkid;
 		} else {
 			*(cnid_t *)ap->a_data = prevlinkid;
@@ -1803,7 +1803,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		return (0);
 	}
 
-	case HFS_RESIZE_PROGRESS: {
+	case HFSIOC_RESIZE_PROGRESS: {
 
 		vfsp = vfs_statfs(HFSTOVFS(hfsmp));
 		if (suser(cred, NULL) &&
@@ -1821,7 +1821,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		return hfs_resize_progress(hfsmp, (u_int32_t *)ap->a_data);
 	}
 
-	case HFS_RESIZE_VOLUME: {
+	case HFSIOC_RESIZE_VOLUME: {
 		u_int64_t newsize;
 		u_int64_t cursize;
 		int ret;
@@ -1854,7 +1854,7 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 		IOBSDMountChange(hfsmp->hfs_mp, kIOMountChangeDidResize);
 		return (ret);
 	}
-	case HFS_CHANGE_NEXT_ALLOCATION: {
+	case HFSIOC_CHANGE_NEXT_ALLOCATION: {
 		int error = 0;		/* Assume success */
 		u_int32_t location;
 
@@ -1898,7 +1898,7 @@ fail_change_next_allocation:
 	}
 
 #if HFS_SPARSE_DEV
-	case HFS_SETBACKINGSTOREINFO: {
+	case HFSIOC_SETBACKINGSTOREINFO: {
 		struct vnode * di_vp;
 		struct hfs_backingstoreinfo *bsdata;
 		int error = 0;
@@ -1975,7 +1975,8 @@ fail_change_next_allocation:
 		file_drop(bsdata->backingfd);
 		return (0);
 	}
-	case HFS_CLRBACKINGSTOREINFO: {
+
+	case HFSIOC_CLRBACKINGSTOREINFO: {
 		struct vnode * tmpvp;
 
 		vfsp = vfs_statfs(HFSTOVFS(hfsmp));
@@ -2004,7 +2005,7 @@ fail_change_next_allocation:
 #endif /* HFS_SPARSE_DEV */
 
 	/* Change the next CNID stored in the VH */
-	case HFS_CHANGE_NEXTCNID: {
+	case HFSIOC_CHANGE_NEXTCNID: {
 		int error = 0;		/* Assume success */
 		u_int32_t fileid;
 		int wraparound = 0;
@@ -2074,7 +2075,8 @@ fail_change_next_allocation:
 		return hfs_thaw(hfsmp, current_proc());
 	}
 
-	case HFS_EXT_BULKACCESS_FSCTL: {
+	case HFSIOC_EXT_BULKACCESS32:
+	case HFSIOC_EXT_BULKACCESS64: {
 	    int size;
 #if CONFIG_HFS_STD
 	    if (hfsmp->hfs_flags & HFS_STANDARD) {
@@ -2091,7 +2093,7 @@ fail_change_next_allocation:
 	    return do_bulk_access_check(hfsmp, vp, ap, size, context);
 	} 
 
-	case HFS_SET_XATTREXTENTS_STATE: {
+	case HFSIOC_SET_XATTREXTENTS_STATE: {
 		int state;
 
 		if (ap->a_data == NULL) {
@@ -2114,7 +2116,7 @@ fail_change_next_allocation:
 			return (EPERM);
 		}
 		if (state == 0 || state == 1)
-			return hfs_set_volxattr(hfsmp, HFS_SET_XATTREXTENTS_STATE, state);
+			return hfs_set_volxattr(hfsmp, HFSIOC_SET_XATTREXTENTS_STATE, state);
 		else
 			return (EINVAL);	
 	}
@@ -2471,19 +2473,19 @@ fail_change_next_allocation:
 		return 0;
 	}
 
-	case SPOTLIGHT_FSCTL_GET_MOUNT_TIME:
+	case SPOTLIGHT_IOC_GET_MOUNT_TIME:
 	    *(uint32_t *)ap->a_data = hfsmp->hfs_mount_time;
 	    break;
 
-	case SPOTLIGHT_FSCTL_GET_LAST_MTIME:
+	case SPOTLIGHT_IOC_GET_LAST_MTIME:
 	    *(uint32_t *)ap->a_data = hfsmp->hfs_last_mounted_mtime;
 	    break;
 
-	case HFS_FSCTL_GET_VERY_LOW_DISK:
+	case HFSIOC_GET_VERY_LOW_DISK:
 	    *(uint32_t*)ap->a_data = hfsmp->hfs_freespace_notify_dangerlimit;
 	    break;
 
-	case HFS_FSCTL_SET_VERY_LOW_DISK:
+	case HFSIOC_SET_VERY_LOW_DISK:
 	    if (*(uint32_t *)ap->a_data >= hfsmp->hfs_freespace_notify_warninglimit) {
 		return EINVAL;
 	    }
@@ -2491,11 +2493,11 @@ fail_change_next_allocation:
 	    hfsmp->hfs_freespace_notify_dangerlimit = *(uint32_t *)ap->a_data;
 	    break;
 
-	case HFS_FSCTL_GET_LOW_DISK:
+	case HFSIOC_GET_LOW_DISK:
 	    *(uint32_t*)ap->a_data = hfsmp->hfs_freespace_notify_warninglimit;
 	    break;
 
-	case HFS_FSCTL_SET_LOW_DISK:
+	case HFSIOC_SET_LOW_DISK:
 	    if (   *(uint32_t *)ap->a_data >= hfsmp->hfs_freespace_notify_desiredlevel
 		|| *(uint32_t *)ap->a_data <= hfsmp->hfs_freespace_notify_dangerlimit) {
 
@@ -2505,11 +2507,25 @@ fail_change_next_allocation:
 	    hfsmp->hfs_freespace_notify_warninglimit = *(uint32_t *)ap->a_data;
 	    break;
 
-	case HFS_FSCTL_GET_DESIRED_DISK:
+	/* The following two fsctls were ported from apfs. */
+	case APFSIOC_GET_NEAR_LOW_DISK:
+		*(uint32_t*)ap->a_data = hfsmp->hfs_freespace_notify_nearwarninglimit;
+		break;
+
+	case APFSIOC_SET_NEAR_LOW_DISK:
+		if (   *(uint32_t *)ap->a_data >= hfsmp->hfs_freespace_notify_desiredlevel
+		|| *(uint32_t *)ap->a_data <= hfsmp->hfs_freespace_notify_warninglimit) {
+			return EINVAL;
+		}
+
+		hfsmp->hfs_freespace_notify_nearwarninglimit = *(uint32_t *)ap->a_data;
+		break;
+
+	case HFSIOC_GET_DESIRED_DISK:
 	    *(uint32_t*)ap->a_data = hfsmp->hfs_freespace_notify_desiredlevel;
 	    break;
 
-	case HFS_FSCTL_SET_DESIRED_DISK:
+	case HFSIOC_SET_DESIRED_DISK:
 	    if (*(uint32_t *)ap->a_data <= hfsmp->hfs_freespace_notify_warninglimit) {
 		return EINVAL;
 	    }
@@ -2517,7 +2533,7 @@ fail_change_next_allocation:
 	    hfsmp->hfs_freespace_notify_desiredlevel = *(uint32_t *)ap->a_data;
 	    break;
 
-	case HFS_VOLUME_STATUS:
+	case HFSIOC_VOLUME_STATUS:
 	    *(uint32_t *)ap->a_data = hfsmp->hfs_notification_conditions;
 	    break;
 
@@ -2545,7 +2561,8 @@ fail_change_next_allocation:
 		hfs_unlock_mount(hfsmp);
 		break;
 
-	case HFS_MARK_BOOT_CORRUPT:
+	/* case HFS_MARK_BOOT_CORRUPT: _IO are the same */
+	case HFSIOC_MARK_BOOT_CORRUPT:
 		/* Mark the boot volume corrupt by setting 
 		 * kHFSVolumeInconsistentBit in the volume header.  This will 
 		 * force fsck_hfs on next mount.
@@ -2566,7 +2583,7 @@ fail_change_next_allocation:
 		hfs_mark_inconsistent(hfsmp, HFS_FSCK_FORCED);
 		break;
 
-	case HFS_FSCTL_GET_JOURNAL_INFO:
+	case HFSIOC_GET_JOURNAL_INFO:
 		jip = (struct hfs_journal_info*)ap->a_data;
 
 		if (vp == NULLVP)
@@ -2584,7 +2601,7 @@ fail_change_next_allocation:
 		jip->jsize = jnl_size;
 		break;
 
-	case HFS_SET_ALWAYS_ZEROFILL: {
+	case HFSIOC_SET_ALWAYS_ZEROFILL: {
 	    struct cnode *cp = VTOC(vp);
 
 	    if (*(int *)ap->a_data) {
@@ -2595,7 +2612,8 @@ fail_change_next_allocation:
 	    break;
 	}    
 
-	case HFS_DISABLE_METAZONE: {
+	/* case HFS_DISABLE_METAZONE: _IO are the same */
+	case HFSIOC_DISABLE_METAZONE: {
 		/* Only root can disable metadata zone */
 		if (!kauth_cred_issuser(kauth_cred_get())) {
 			return EACCES;
@@ -2611,7 +2629,7 @@ fail_change_next_allocation:
 	}
 
 
-	case HFS_FSINFO_METADATA_BLOCKS: {
+	case HFSIOC_FSINFO_METADATA_BLOCKS: {
 		int error;
 		struct hfsinfo_metadata *hinfo;
 
@@ -2626,7 +2644,7 @@ fail_change_next_allocation:
 		break;
 	}
 
-	case HFS_GET_FSINFO: {
+	case HFSIOC_GET_FSINFO: {
 		hfs_fsinfo *fsinfo = (hfs_fsinfo *)ap->a_data;
 
 		/* Only root is allowed to get fsinfo */
@@ -2657,7 +2675,7 @@ fail_change_next_allocation:
 		return hfs_get_fsinfo(hfsmp, ap->a_data);
 	}
 
-	case HFS_CS_FREESPACE_TRIM: {
+	case HFSIOC_CS_FREESPACE_TRIM: {
 		int error = 0;
 		int lockflags = 0;
 
@@ -2747,7 +2765,7 @@ fail_change_next_allocation:
 		break;
 	}
 
-	case HFS_SET_HOTFILE_STATE: {
+	case HFSIOC_SET_HOTFILE_STATE: {
 		int error;
 		struct cnode *cp = VTOC(vp);
 		uint32_t hf_state = *((uint32_t*)ap->a_data);
@@ -2793,7 +2811,7 @@ fail_change_next_allocation:
 		return error;
 	}
 
-	case HFS_REPIN_HOTFILE_STATE: {
+	case HFSIOC_REPIN_HOTFILE_STATE: {
 		int error=0;
 		uint32_t repin_what = *((uint32_t*)ap->a_data);
 
@@ -2831,7 +2849,7 @@ fail_change_next_allocation:
 
 #if HFS_CONFIG_KEY_ROLL
 
-	case HFS_KEY_ROLL: {
+	case HFSIOC_KEY_ROLL: {
 		if (!kauth_cred_issuser(kauth_cred_get()))
 			return EACCES;
 
@@ -2840,7 +2858,7 @@ fail_change_next_allocation:
 		return hfs_key_roll_op(ap->a_context, ap->a_vp, args);
 	}
 
-	case HFS_GET_KEY_AUTO_ROLL: {
+	case HFSIOC_GET_KEY_AUTO_ROLL: {
 		if (!kauth_cred_issuser(kauth_cred_get()))
 			return EACCES;
 
@@ -2854,7 +2872,7 @@ fail_change_next_allocation:
 		break;
 	}
 
-	case HFS_SET_KEY_AUTO_ROLL: {
+	case HFSIOC_SET_KEY_AUTO_ROLL: {
 		if (!kauth_cred_issuser(kauth_cred_get()))
 			return EACCES;
 

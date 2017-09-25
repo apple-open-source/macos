@@ -3,7 +3,7 @@
 #
 
 PROJECT=postfix
-OPEN_SOURCE_VERSION=2.11.0
+OPEN_SOURCE_VERSION=3.1.4
 
 SHELL := /bin/sh
 
@@ -99,11 +99,11 @@ install-postfix :
 		newaliases_path=/usr/bin/newaliases \
 		mailq_path=/usr/bin/mailq \
 		manpage_directory=/usr/share/man \
+		meta_directory=/private/etc/postfix \
 		sample_directory=/usr/share/doc/postfix/examples \
 		html_directory=/usr/share/doc/postfix/html \
 		data_directory=/private/var/lib/postfix \
-		readme_directory=/usr/share/doc/postfix \
-		meta_directory=/private/etc/postfix
+		readme_directory=/usr/share/doc/postfix
 	@echo "****** installing $(PROJECT) complete"
 
 archive-strip-binaries :
@@ -142,16 +142,17 @@ post-install :
 		newaliases_path=$(DSTROOT)/usr/bin/newaliases \
 		mailq_path=$(DSTROOT)/usr/bin/mailq \
 		manpage_directory=$(DSTROOT)/usr/share/man \
+		meta_directory=$(DSTROOT)/private/etc/postfix \
 		sample_directory=$(DSTROOT)/usr/share/doc/postfix/examples \
 		html_directory=$(DSTROOT)/usr/share/doc/postfix/html \
 		data_directory=$(DSTROOT)/private/var/lib/postfix \
-		readme_directory=$(DSTROOT)/usr/share/doc/postfix \
-		meta_directory=$(DSTROOT)/private/etc/postfix
+		readme_directory=$(DSTROOT)/usr/share/doc/postfix
 	@echo "*****  post-install $(PROJECT) complete"
 
 install-extras : 
 	@echo "***** installing extras"
 	@echo "*** installing directories"
+	install -d -m 755 $(DSTROOT)/Library/LaunchDaemons
 	install -d -m 755 $(DSTROOT)/System/Library/LaunchDaemons
 	install -d -m 755 $(DSTROOT)/usr/libexec/postfix/scripts
 	install -d -m 755 $(DSTROOT)/usr/share/man/man1
@@ -173,8 +174,10 @@ install-extras :
 			$(DSTROOT)/System/Library/LaunchDaemons/com.apple.postfix.master.plist
 	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/com.apple.postfix.newaliases.plist \
 			$(DSTROOT)/System/Library/LaunchDaemons/com.apple.postfix.newaliases.plist
-	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/check-aliases.sh $(DSTROOT)/usr/libexec/postfix/check-aliases.sh
 	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/set_credentials.sh $(DSTROOT)/usr/libexec/postfix/set_credentials.sh
+	install -m 0755 -o 0 -g 0 $(SRCROOT)/Postfix.ServerSetup/mk_postfix_spool.sh $(DSTROOT)/usr/libexec/postfix/mk_postfix_spool.sh
+	install -m 0755 -o 0 -g 0 $(SRCROOT)/Postfix.ServerSetup/postfixsetup $(DSTROOT)/usr/libexec/postfix/postfixsetup
+	install -m 0644 -o 0 -g 0 $(SRCROOT)/Postfix.LaunchDaemons/com.apple.postfixsetup.plist $(DSTROOT)/Library/LaunchDaemons/com.apple.postfixsetup.plist
 	@echo "*** Installing smtpstone binaries"
 	install -s -m 0755 $(BuildDirectory)/$(PROJECT)/src/smtpstone/qmqp-sink $(DSTROOT)/usr/libexec/postfix
 	install -s -m 0755 $(BuildDirectory)/$(PROJECT)/src/smtpstone/smtp-sink $(DSTROOT)/usr/libexec/postfix

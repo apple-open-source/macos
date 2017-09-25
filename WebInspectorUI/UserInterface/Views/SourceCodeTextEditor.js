@@ -516,6 +516,8 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
             this.mimeType = this._sourceCode.syntheticMIMEType;
         else if (this._sourceCode instanceof WebInspector.Script)
             this.mimeType = "text/javascript";
+        else if (this._sourceCode instanceof WebInspector.CSSStyleSheet)
+            this.mimeType = "text/css";
 
         // Decide to automatically format the content if it looks minified and it can be formatted.
         console.assert(!this.formatted);
@@ -969,7 +971,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
     {
         if (this._sourceCode instanceof WebInspector.SourceMapResource)
             return sourceCodeLocation.displaySourceCode === this._sourceCode;
-        if (this._sourceCode instanceof WebInspector.Resource || this._sourceCode instanceof WebInspector.Script)
+        if (this._sourceCode instanceof WebInspector.Resource || this._sourceCode instanceof WebInspector.Script || this._sourceCode instanceof WebInspector.CSSStyleSheet)
             return sourceCodeLocation.sourceCode.url === this._sourceCode.url;
         return false;
     }
@@ -978,7 +980,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
     {
         if (this._sourceCode instanceof WebInspector.SourceMapResource)
             return sourceCodeLocation.displaySourceCode === this._sourceCode;
-        if (this._sourceCode instanceof WebInspector.Resource)
+        if (this._sourceCode instanceof WebInspector.Resource || this._sourceCode instanceof WebInspector.CSSStyleSheet)
             return sourceCodeLocation.sourceCode.url === this._sourceCode.url;
         if (this._sourceCode instanceof WebInspector.Script)
             return sourceCodeLocation.sourceCode === this._sourceCode;
@@ -1249,7 +1251,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
             if (!WebInspector.isShowingDebuggerTab()) {
                 contextMenu.appendSeparator();
                 contextMenu.appendItem(WebInspector.UIString("Reveal in Debugger Tab"), () => {
-                    WebInspector.showDebuggerTab(breakpoints[0]);
+                    WebInspector.showDebuggerTab({breakpointToSelect: breakpoints[0]});
                 });
             }
 
@@ -1667,11 +1669,16 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
         if (/\blink\b/.test(this.tokenTrackingController.candidate.hoveredToken.type))
             return;
 
+        const options = {
+            ignoreNetworkTab: true,
+            ignoreSearchTab: true,
+        };
+
         var sourceCodeLocation = this._sourceCodeLocationForEditorPosition(this.tokenTrackingController.candidate.hoveredTokenRange.start);
         if (this.sourceCode instanceof WebInspector.SourceMapResource)
-            WebInspector.showOriginalOrFormattedSourceCodeLocation(sourceCodeLocation);
+            WebInspector.showOriginalOrFormattedSourceCodeLocation(sourceCodeLocation, options);
         else
-            WebInspector.showSourceCodeLocation(sourceCodeLocation);
+            WebInspector.showSourceCodeLocation(sourceCodeLocation, options);
     }
 
     tokenTrackingControllerNewHighlightCandidate(tokenTrackingController, candidate)
@@ -2213,7 +2220,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
             else if (this._basicBlockAnnotator)
                 this._basicBlockAnnotator.pause();
 
-            timeoutIdentifier = setTimeout(()  => {
+            timeoutIdentifier = setTimeout(() => {
                 timeoutIdentifier = null;
                 if (this._basicBlockAnnotator)
                     this._basicBlockAnnotator.resume();

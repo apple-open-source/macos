@@ -294,11 +294,8 @@ void IOAudioControl::free()
         userClients = NULL;
     }
 
-    if (valueChangeTarget) {
-        valueChangeTarget->release();
-        valueChangeTarget = NULL;
-    }
-    
+	OSSafeReleaseNULL(valueChangeTarget);
+	
     if (commandGate) {
         if (workLoop) {
             workLoop->removeEventSource(commandGate);
@@ -314,14 +311,13 @@ void IOAudioControl::free()
     }
 
 	if (reserved) {
-		if (reserved->notificationQueue) {
-			reserved->notificationQueue->release();
-			reserved->notificationQueue = NULL;
-		}
+		OSSafeReleaseNULL(reserved->notificationQueue);
 
 		IOFree (reserved, sizeof (struct ExpansionData));
 		reserved = NULL;
 	}
+	
+	OSSafeReleaseNULL(value);
 
     super::free();
     audioDebugIOLog(4, "- IOAudioControl[%p]::free()\n", this);
@@ -481,9 +477,11 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
     IOReturn result = kIOReturnSuccess;
     
     if (OSDynamicCast(OSNumber, newValue)) {
-        audioDebugIOLog(4, "+ IOAudioControl[%p]::setValue(int = %d)\n", this, ((OSNumber *)newValue)->unsigned32BitValue());
+        audioDebugIOLog(3, "+ IOAudioControl[%p]::setValue(int = %d)\n", this, ((OSNumber *)newValue)->unsigned32BitValue());
+		AudioTrace_Start(kAudioTIOAudioControl, kTPIOAudioControlSetValue, (uintptr_t)this, (uintptr_t)newValue, ((OSNumber *)newValue)->unsigned32BitValue(), 0);
     } else {
-        audioDebugIOLog(4, "+ IOAudioControl[%p]::setValue(%p)\n", this, newValue);
+        audioDebugIOLog(3, "+ IOAudioControl[%p]::setValue(%p)\n", this, newValue);
+		AudioTrace_Start(kAudioTIOAudioControl, kTPIOAudioControlSetValue, (uintptr_t)this, (uintptr_t)newValue, 0, 0);
     }
 
     if (newValue) {
@@ -494,10 +492,10 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
                 if (result == kIOReturnSuccess) {
                     result = updateValue(newValue);
                 } else {
-                    audioDebugIOLog(2, "  Error 0x%x received from driver - value not set!\n", result);
+                    audioErrorIOLog("  Error 0x%x received from driver - value not set!\n", result);
                 }
             } else {
-                audioDebugIOLog(2, "  Error 0x%x - invalid value.\n", result);
+                audioErrorIOLog("  Error 0x%x - invalid value.\n", result);
             }
         }
     } else {
@@ -505,9 +503,11 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
     }
 
     if (OSDynamicCast(OSNumber, newValue)) {
-        audioDebugIOLog(4, "- IOAudioControl[%p]::setValue(int = %d) returns 0x%lX\n", this, ((OSNumber *)newValue)->unsigned32BitValue(), (long unsigned int)result );
+        audioDebugIOLog(3, "- IOAudioControl[%p]::setValue(int = %d) returns 0x%lX\n", this, ((OSNumber *)newValue)->unsigned32BitValue(), (long unsigned int)result );
+		AudioTrace_End(kAudioTIOAudioControl, kTPIOAudioControlSetValue, (uintptr_t)this, (uintptr_t)newValue, ((OSNumber *)newValue)->unsigned32BitValue(), result);
     } else {
-        audioDebugIOLog(4, "- IOAudioControl[%p]::setValue(%p) returns 0x%lX\n", this, newValue, (long unsigned int)result );
+        audioDebugIOLog(3, "- IOAudioControl[%p]::setValue(%p) returns 0x%lX\n", this, newValue, (long unsigned int)result );
+		AudioTrace_End(kAudioTIOAudioControl, kTPIOAudioControlSetValue, (uintptr_t)this, (uintptr_t)newValue, 0, result);
     }
 
     return result;
@@ -515,6 +515,8 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
 
 IOReturn IOAudioControl::setValue(SInt32 intValue)
 {
+	audioDebugIOLog(3, "+ IOAudioControl[%p]::setValue(SInt = %d)\n", this, intValue);
+	AudioTrace_Start(kAudioTIOAudioControl, kTPIOAudioControlSetValue, (uintptr_t)this, (uintptr_t)NULL, intValue, 0);
     IOReturn result = kIOReturnError;
     OSNumber *number;
     
@@ -523,7 +525,9 @@ IOReturn IOAudioControl::setValue(SInt32 intValue)
         result = setValue(number);
         number->release();
     }
-    
+	
+	audioDebugIOLog(3, "- IOAudioControl[%p]::setValue(SInt = %d) returns 0x%lX\n", this, intValue, (long unsigned int)result );
+	AudioTrace_End(kAudioTIOAudioControl, kTPIOAudioControlSetValue, (uintptr_t)this, (uintptr_t)NULL, intValue, result);
     return result;
 }
 

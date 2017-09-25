@@ -668,6 +668,14 @@ SSL_CipherAlgorithm sslCipherSuiteGetSymmetricCipherAlgorithm(uint16_t cipherSui
         case TLS_DHE_PSK_WITH_AES_256_GCM_SHA384:
         case TLS_RSA_PSK_WITH_AES_256_GCM_SHA384:
             return SSL_CipherAlgorithmAES_256_GCM;
+        case TLS_AES_128_GCM_SHA256:
+            return SSL_CipherAlgorithmAES_128_GCM;
+        case TLS_AES_256_GCM_SHA384:
+            return SSL_CipherAlgorithmAES_256_GCM;
+        case TLS_CHACHA20_POLY1305_SHA256:
+            return SSL_CipherAlgorithmChaCha20_Poly1305;
+        case TLS_AES_128_CCM_SHA256:
+        case TLS_AES_128_CCM_8_SHA256:
         default:
             return SSL_CipherAlgorithmNull;
     }
@@ -690,6 +698,7 @@ uint8_t sslCipherSuiteGetSymmetricCipherKeySize(uint16_t cipherSuite) {
             return 24;
         case SSL_CipherAlgorithmAES_256_CBC:
         case SSL_CipherAlgorithmAES_256_GCM:
+        case SSL_CipherAlgorithmChaCha20_Poly1305:
             return 32;
         default:
             return 0;
@@ -714,6 +723,7 @@ uint8_t sslCipherSuiteGetSymmetricCipherBlockIvSize(uint16_t cipherSuite) {
             return 16;
         case SSL_CipherAlgorithmAES_128_GCM:
         case SSL_CipherAlgorithmAES_256_GCM:
+        case SSL_CipherAlgorithmChaCha20_Poly1305:
             return 12;
         default:
             return 0;

@@ -34,8 +34,6 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
-	<key>com.apple.springboard.launchapplications</key>
-	<true/>
 	<key>com.apple.wifi.manager-access</key>
 	<true/>
 	<key>com.apple.wlan.authentication</key>
@@ -45,6 +43,8 @@
 	<key>com.apple.networkd_privileged</key>
 	<true/>
 	<key>com.apple.networkd.modify_settings</key>
+	<true/>
+	<key>com.apple.frontboard.launchapplications</key>
 	<true/>
 </dict>
 </plist>

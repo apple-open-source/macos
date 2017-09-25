@@ -534,7 +534,11 @@ checkdot(argv)
 		char truncated[len];
 
 		if ((p = strrchr(*t, '/')) != NULL) {
-			if (p[1] == '\0') { // trailing / -- treat as if not present
+			if (p[1] == '\0') { // one or more trailing / -- treat as if not present
+				for (; (p > *t) && (p[-1] == '/');) {
+					len--;
+					p--;
+				}
 				strlcpy(truncated, *t, len);
 				p = strrchr(truncated, '/');
 				if (p) {

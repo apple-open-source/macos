@@ -23,6 +23,14 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		3EB3C1191DD4FA2E00E46356 /* channel.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452F9C1DD4F15D001BF7DB /* channel.c */; };
+		3EB3C11B1DD4FFFD00E46356 /* if_python.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EB3C11A1DD4FFF800E46356 /* if_python.c */; };
+		3EB3C11C1DD5006400E46356 /* spellfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452FA31DD4F15D001BF7DB /* spellfile.c */; };
+		3EB3C11D1DD5007700E46356 /* evalfunc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452F9E1DD4F15D001BF7DB /* evalfunc.c */; };
+		3EB3C11E1DD5007F00E46356 /* json.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452FA01DD4F15D001BF7DB /* json.c */; };
+		3EB3C11F1DD5008300E46356 /* userfunc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452FA41DD4F15D001BF7DB /* userfunc.c */; };
+		3EB3C1201DD5008E00E46356 /* list.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452FA11DD4F15D001BF7DB /* list.c */; };
+		3EB3C1211DD5009600E46356 /* dict.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E452F9D1DD4F15D001BF7DB /* dict.c */; };
 		3ECDF48C1BDAA945009B95F1 /* crypt_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */; };
 		3ECDF48D1BDAA945009B95F1 /* crypt.c in Sources */ = {isa = PBXBuildFile; fileRef = 3ECDF48B1BDAA939009B95F1 /* crypt.c */; };
 		4C9BEFC1104C5FB400182AEE /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C9BEFC0104C5FB400182AEE /* libiconv.dylib */; settings = {ATTRIBUTES = (Required, ); }; };
@@ -75,7 +83,6 @@
 		4CD04E491039DE7E001C87D5 /* os_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04C0310361A30001C87D5 /* os_unix.c */; };
 		4CD04E99103A0215001C87D5 /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CD04E98103A0215001C87D5 /* libncurses.dylib */; settings = {ATTRIBUTES = (Required, ); }; };
 		4CD04EBA103CB215001C87D5 /* xxd.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04D5710361A31001C87D5 /* xxd.c */; };
-		C9DF38421489D54D001ADB39 /* if_python.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38411489D54D001ADB39 /* if_python.c */; };
 		C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38431489D5CD001ADB39 /* if_ruby.c */; settings = {COMPILER_FLAGS = "-I$(SDKROOT)/System/Library/Frameworks/Ruby.framework/Headers"; }; };
 		FCEA259912357FDB00430E38 /* blowfish.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA259812357FDB00430E38 /* blowfish.c */; };
 		FCEA25A21235809000430E38 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA25A11235809000430E38 /* sha256.c */; };
@@ -99,6 +106,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3E452F9C1DD4F15D001BF7DB /* channel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = channel.c; path = src/channel.c; sourceTree = "<group>"; };
+		3E452F9D1DD4F15D001BF7DB /* dict.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dict.c; path = src/dict.c; sourceTree = "<group>"; };
+		3E452F9E1DD4F15D001BF7DB /* evalfunc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evalfunc.c; path = src/evalfunc.c; sourceTree = "<group>"; };
+		3E452F9F1DD4F15D001BF7DB /* json_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = json_test.c; path = src/json_test.c; sourceTree = "<group>"; };
+		3E452FA01DD4F15D001BF7DB /* json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = json.c; path = src/json.c; sourceTree = "<group>"; };
+		3E452FA11DD4F15D001BF7DB /* list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = list.c; path = src/list.c; sourceTree = "<group>"; };
+		3E452FA21DD4F15D001BF7DB /* message_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = message_test.c; path = src/message_test.c; sourceTree = "<group>"; };
+		3E452FA31DD4F15D001BF7DB /* spellfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = spellfile.c; path = src/spellfile.c; sourceTree = "<group>"; };
+		3E452FA41DD4F15D001BF7DB /* userfunc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = userfunc.c; path = src/userfunc.c; sourceTree = "<group>"; };
 		3E715E361BDA880400A3AEB9 /* clojurecomplete.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = clojurecomplete.vim; sourceTree = "<group>"; };
 		3E715E371BDA880400A3AEB9 /* netrw_gitignore.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = netrw_gitignore.vim; sourceTree = "<group>"; };
 		3E715E381BDA880F00A3AEB9 /* industry.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = industry.vim; sourceTree = "<group>"; };
@@ -230,6 +246,7 @@
 		3E715EB61BDA8D0000A3AEB9 /* tutor.uk.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.uk.utf-8"; sourceTree = "<group>"; };
 		3E715EB71BDA8D0000A3AEB9 /* tutor.zh_cn.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.zh_cn.utf-8"; sourceTree = "<group>"; };
 		3E715EB81BDA8D0000A3AEB9 /* tutor.zh_tw.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.zh_tw.utf-8"; sourceTree = "<group>"; };
+		3EB3C11A1DD4FFF800E46356 /* if_python.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_python.c; path = src/if_python.c; sourceTree = "<group>"; };
 		3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crypt_zip.c; path = src/crypt_zip.c; sourceTree = "<group>"; };
 		3ECDF48B1BDAA939009B95F1 /* crypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crypt.c; path = src/crypt.c; sourceTree = "<group>"; };
 		4C9BE84F10484C1E00182AEE /* vim.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = vim.plist; sourceTree = "<group>"; };
@@ -2115,7 +2132,6 @@
 		4CD04E98103A0215001C87D5 /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
 		4CD04EB3103CAFC9001C87D5 /* xxd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xxd; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DD76FB20486AB0100D96B5E /* vim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vim; sourceTree = BUILT_PRODUCTS_DIR; };
-		C9DF38411489D54D001ADB39 /* if_python.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_python.c; path = src/if_python.c; sourceTree = "<group>"; };
 		C9DF38431489D5CD001ADB39 /* if_ruby.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_ruby.c; path = src/if_ruby.c; sourceTree = "<group>"; };
 		FCEA259812357FDB00430E38 /* blowfish.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = blowfish.c; path = src/blowfish.c; sourceTree = "<group>"; };
 		FCEA25A11235809000430E38 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sha256.c; path = src/sha256.c; sourceTree = "<group>"; };
@@ -2158,6 +2174,16 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				3EB3C11A1DD4FFF800E46356 /* if_python.c */,
+				3E452F9C1DD4F15D001BF7DB /* channel.c */,
+				3E452F9D1DD4F15D001BF7DB /* dict.c */,
+				3E452F9E1DD4F15D001BF7DB /* evalfunc.c */,
+				3E452F9F1DD4F15D001BF7DB /* json_test.c */,
+				3E452FA01DD4F15D001BF7DB /* json.c */,
+				3E452FA11DD4F15D001BF7DB /* list.c */,
+				3E452FA21DD4F15D001BF7DB /* message_test.c */,
+				3E452FA31DD4F15D001BF7DB /* spellfile.c */,
+				3E452FA41DD4F15D001BF7DB /* userfunc.c */,
 				3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */,
 				3ECDF48B1BDAA939009B95F1 /* crypt.c */,
 				4CD04B3F10361A30001C87D5 /* ascii.h */,
@@ -2184,7 +2210,6 @@
 				4CD04BA010361A30001C87D5 /* hashtab.c */,
 				4CD04BA110361A30001C87D5 /* if_cscope.c */,
 				4CD04BA210361A30001C87D5 /* if_cscope.h */,
-				C9DF38411489D54D001ADB39 /* if_python.c */,
 				C9DF38431489D5CD001ADB39 /* if_ruby.c */,
 				4CD04BAF10361A30001C87D5 /* if_xcmdsrv.c */,
 				4CD04BBA10361A30001C87D5 /* integration.c */,
@@ -4914,6 +4939,7 @@
 				4CD04D6810361A31001C87D5 /* fileio.c in Sources */,
 				4CD04D6910361A31001C87D5 /* fold.c in Sources */,
 				4CD04D6A10361A31001C87D5 /* getchar.c in Sources */,
+				3EB3C1211DD5009600E46356 /* dict.c in Sources */,
 				4CD04D8310361A31001C87D5 /* hardcopy.c in Sources */,
 				4CD04D8410361A31001C87D5 /* hashtab.c in Sources */,
 				4CD04D8510361A31001C87D5 /* if_cscope.c in Sources */,
@@ -4922,6 +4948,8 @@
 				4CD04D9010361A31001C87D5 /* main.c in Sources */,
 				4CD04DA210361A31001C87D5 /* mark.c in Sources */,
 				4CD04DA310361A31001C87D5 /* mbyte.c in Sources */,
+				3EB3C11E1DD5007F00E46356 /* json.c in Sources */,
+				3EB3C11F1DD5008300E46356 /* userfunc.c in Sources */,
 				4CD04DA410361A31001C87D5 /* memfile.c in Sources */,
 				4CD04DA510361A31001C87D5 /* memline.c in Sources */,
 				4CD04DA610361A31001C87D5 /* menu.c in Sources */,
@@ -4935,14 +4963,19 @@
 				4CD04DAF10361A31001C87D5 /* option.c in Sources */,
 				4CD04DBF10361A31001C87D5 /* popupmnu.c in Sources */,
 				4CD04DC110361A31001C87D5 /* quickfix.c in Sources */,
+				3EB3C11B1DD4FFFD00E46356 /* if_python.c in Sources */,
 				4CD04DC210361A31001C87D5 /* regexp.c in Sources */,
+				3EB3C1191DD4FA2E00E46356 /* channel.c in Sources */,
 				3ECDF48C1BDAA945009B95F1 /* crypt_zip.c in Sources */,
 				4CD04DC310361A31001C87D5 /* screen.c in Sources */,
+				3EB3C11C1DD5006400E46356 /* spellfile.c in Sources */,
 				4CD04DC410361A31001C87D5 /* search.c in Sources */,
 				4CD04DC510361A31001C87D5 /* spell.c in Sources */,
 				4CD04DC710361A31001C87D5 /* syntax.c in Sources */,
 				4CD04DC810361A31001C87D5 /* tag.c in Sources */,
+				3EB3C1201DD5008E00E46356 /* list.c in Sources */,
 				4CD04DCB10361A31001C87D5 /* term.c in Sources */,
+				3EB3C11D1DD5007700E46356 /* evalfunc.c in Sources */,
 				4CD04DD110361A31001C87D5 /* ui.c in Sources */,
 				4CD04DD210361A31001C87D5 /* undo.c in Sources */,
 				4CD04DD410361A31001C87D5 /* version.c in Sources */,
@@ -4950,7 +4983,6 @@
 				4CD04E491039DE7E001C87D5 /* os_unix.c in Sources */,
 				FCEA259912357FDB00430E38 /* blowfish.c in Sources */,
 				FCEA25A21235809000430E38 /* sha256.c in Sources */,
-				C9DF38421489D54D001ADB39 /* if_python.c in Sources */,
 				C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4987,7 +5019,7 @@
 					FEAT_RUBY,
 					DYNAMIC_RUBY,
 					"DYNAMIC_RUBY_DLL=\"\\\"/System/Library/Frameworks/Ruby.framework/Ruby\\\"\"",
-					"DYNAMIC_RUBY_VER=20",
+					"DYNAMIC_RUBY_VER=23",
 				);
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = vim;

@@ -37,7 +37,7 @@ int writeFileSizet(
     }
 
 	fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if(fd < 0) {
+    if(fd == -1) {
 		return errno;
 	}
 	wrc = write(fd, bytes, (size_t)numBytes);
@@ -72,7 +72,7 @@ int readFileSizet(
 	*numBytes = 0;
 	*bytes = NULL;
 	fd = open(fileName, O_RDONLY);
-	if(fd < 0) {
+    if(fd == -1) {
 		return errno;
 	}
 	rtn = fstat(fd, &sb);

@@ -38,6 +38,7 @@
 #include <security_cdsa_utilities/Schema.h>
 #include <Security/cssmapplePriv.h>
 #include <syslog.h>
+#include <os/activity.h>
 
 #include "SecBridge.h"
 #include "KCExceptions.h"
@@ -91,6 +92,9 @@ SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeLis
 		SecAccessRef initialAccess, SecKeychainItemRef *itemRef)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCreateFromContent", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	KCThrowParamErrIf_(length!=0 && data==NULL);
 	Item item(itemClass, attrList, length, data);
@@ -124,6 +128,9 @@ OSStatus
 SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemModifyContent", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	item->modifyContent(attrList, length, data);
@@ -136,6 +143,9 @@ OSStatus
 SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyContent", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	item->getContent(itemClass, attrList, length, outData);
@@ -148,6 +158,9 @@ OSStatus
 SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *data)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemFreeContent", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	ItemImpl::freeContent(attrList, data);
 
@@ -159,6 +172,9 @@ OSStatus
 SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemModifyAttributesAndData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	item->modifyAttributesAndData(attrList, length, data);
@@ -194,6 +210,9 @@ OSStatus
 SecKeychainItemDelete(SecKeychainItemRef itemRef)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemDelete", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	Keychain keychain = item->keychain();
@@ -245,6 +264,9 @@ SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef destKeychai
 	SecAccessRef initialAccess, SecKeychainItemRef *itemCopy)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCreateCopy", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item copy = ItemImpl::required(__itemImplRef)->copyTo(Keychain::optional(destKeychainRef), Access::optional(initialAccess));
 	if (itemCopy) {
@@ -259,6 +281,9 @@ OSStatus
 SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQUE_RECORD **uniqueRecordID)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemGetUniqueRecordID", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Required(uniqueRecordID) = ItemImpl::required(__itemImplRef)->dbUniqueRecord();
 
@@ -270,6 +295,9 @@ OSStatus
 SecKeychainItemGetDLDBHandle(SecKeychainItemRef itemRef, CSSM_DL_DB_HANDLE* dldbHandle)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemGetDLDBHandle", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	*dldbHandle = ItemImpl::required(__itemImplRef)->keychain()->database()->handle();
 
@@ -308,6 +336,9 @@ OSStatus
 SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef* accessRef)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyAccess", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Required(accessRef);	// preflight
 	SecPointer<Access> access = new Access(*aclBearer(reinterpret_cast<CFTypeRef>(__itemImplRef)));
@@ -321,6 +352,9 @@ OSStatus
 SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef accessRef)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemSetAccess", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Access::required(accessRef)->setAccess(*aclBearer(reinterpret_cast<CFTypeRef>(__itemImplRef)), true);
 
@@ -332,8 +366,15 @@ SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef accessRef)
 OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password)
 {
     BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemSetAccessWithPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
     OSStatus result;
+
+    if(!__itemImplRef) {
+        return errSecParam;
+    }
 
     // try to unlock the keychain with this password first
     SecKeychainRef kc = NULL;
@@ -363,6 +404,9 @@ OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAcc
 OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const void* data)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemSetData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	ItemImpl::required(__itemImplRef)->setData(length, data);
 
@@ -375,6 +419,9 @@ OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const
 OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, void* data, UInt32* actualLength)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemGetData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	/* The caller either needs to specify data and maxLength or an actualLength,
 	 * so we return either the data itself or the actual length of the data or both.
@@ -404,6 +451,9 @@ OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, vo
 OSStatus SecKeychainItemUpdate(SecKeychainItemRef itemRef)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemUpdate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	ItemImpl::required(__itemImplRef)->update();
 
@@ -415,6 +465,9 @@ OSStatus SecKeychainItemUpdate(SecKeychainItemRef itemRef)
 OSStatus SecKeychainItemAddNoUI(SecKeychainRef keychainRef, SecKeychainItemRef itemRef)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemAddNoUI", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	Keychain::optional(keychainRef)->add(item);
@@ -427,6 +480,9 @@ OSStatus SecKeychainItemAddNoUI(SecKeychainRef keychainRef, SecKeychainItemRef i
 OSStatus SecKeychainItemAdd(SecKeychainItemRef itemRef)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemAdd", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	Keychain defaultKeychain = globals().storageManager.defaultKeychainUI(item);
@@ -440,6 +496,9 @@ OSStatus SecKeychainItemAdd(SecKeychainItemRef itemRef)
 OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, SecKeychainItemRef* itemRef)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCreateNew", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	RequiredParam(itemRef) = Item(itemClass, itemCreator, length, data, false)->handle();
 
@@ -451,6 +510,9 @@ OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UI
 OSStatus SecKeychainItemGetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute, UInt32* actualLength)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemGetAttribute", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	ItemImpl::required(__itemImplRef)->getAttribute(RequiredParam(attribute), actualLength);
 
@@ -462,6 +524,9 @@ OSStatus SecKeychainItemGetAttribute(SecKeychainItemRef itemRef, SecKeychainAttr
 OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemSetAttribute", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	ItemImpl::required(__itemImplRef)->setAttribute(RequiredParam(attribute));
 
@@ -476,6 +541,9 @@ OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttr
 OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef, SecKeychainItemRef *itemRef)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemFindFirst", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	KCCursor cursor;
 	if (keychainRef) {
@@ -619,6 +687,9 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
     // otherwise, not a certificate, so proceed as usual for keychain item
 
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCreatePersistentReference", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
     Item item = ItemImpl::required(itemRef);
     item->copyPersistentReference(*persistentItemRef, false);
     END_SECAPI
@@ -627,6 +698,9 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
 OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef *itemRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyFromPersistentReference", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
     KCThrowParamErrIf_(!persistentItemRef || !itemRef);
     // first, query the iOS keychain
@@ -696,6 +770,9 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
 OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataRef *recordIdentifier)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyRecordIdentifier", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	CSSM_DATA data;
 	RequiredParam (recordIdentifier);
@@ -713,6 +790,9 @@ SecKeychainItemCopyFromRecordIdentifier(SecKeychainRef keychainRef,
 										CFDataRef recordIdentifier)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyFromRecordIdentifier", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	// make a local Keychain reference
 	RequiredParam (keychainRef);
@@ -768,6 +848,9 @@ OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass,
 		SecAccessRef initialAccess, SecKeychainItemRef *itemRef, CFDataRef *localID)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCreateFromEncryptedContent", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	KCThrowParamErrIf_(length!=0 && data==NULL);
 	RequiredParam (localID);
@@ -839,6 +922,9 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 													   UInt32 *length, void **outData)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemCopyAttributesAndEncryptedData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	item->doNotEncrypt ();
@@ -850,6 +936,9 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data)
 {
 	BEGIN_SECKCITEMAPI
+    os_activity_t activity = os_activity_create("SecKeychainItemModifyEncryptedData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Item item = ItemImpl::required(__itemImplRef);
 	item->doNotEncrypt ();

@@ -454,8 +454,7 @@
  fn() { typeset -p array nonexistent; }
  fn
 1:declare -p shouldn't create scoped values
->typeset -a array
->array=( foo bar )
+>typeset -g -a array=( foo bar )
 ?fn:typeset: no such variable: nonexistent
 
  unsetopt typesetsilent
@@ -480,18 +479,18 @@
    setopt POSIXBUILTINS
    readonly pbro
    print ${+pbro} >&2
-   (typeset pbro=3)
+   (typeset -g pbro=3)
    (pbro=4)
-   readonly -p | grep pbro >&2  # shows up as "readonly" although unset
-   typeset -r pbro        # idempotent (no error)...
+   readonly -p pbro >&2   # shows up as "readonly" although unset
+   typeset -gr pbro       # idempotent (no error)...
    print ${+pbro} >&2     # ...so still readonly...
-   typeset +r pbro        # ...can't turn it off
+   typeset -g +r pbro     # ...can't turn it off
  )
 1:readonly with POSIX_BUILTINS
 ?0
 ?(eval):5: read-only variable: pbro
 ?(eval):6: read-only variable: pbro
-?typeset -r pbro
+?typeset -g -r pbro
 ?0
 ?(eval):10: read-only variable: pbro
 
@@ -508,11 +507,8 @@
   typeset -pm 'a[12]'
   typeset -pm 'r[12]'
 0:readonly -p output
->typeset -a a1
->a1=( one two )
->typeset -ar a1
->typeset -a a2
->a2=( three four )
+>typeset -ar a1=( one two )
+>typeset -a a2=( three four )
 >typeset -r r1=yes
 >typeset -r r2=no
 
@@ -707,8 +703,21 @@
   fn
   print $array
 0:setting empty array in typeset
->typeset -a array
->array=( '' two '' four )
->typeset -a array
->array=( one '' three )
+>typeset -a array=( '' two '' four )
+>typeset -a array=( one '' three )
 >no really nothing here
+
+  readonly isreadonly=yes
+  typeset isreadonly=still
+1:typeset returns status 1 if setting readonly variable
+?(eval):2: read-only variable: isreadonly
+
+  if (( UID )); then
+    UID=$((UID+1)) date; echo "Status is printed, $?"
+  else
+    ZTST_skip="cannot test setuid error when tests run as superuser"
+  fi
+0:when cannot change UID, the command isn't run
+# 'date' did not run.
+>Status is printed, 1
+*?*: failed to change user ID: *

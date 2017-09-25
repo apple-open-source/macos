@@ -977,6 +977,8 @@ clock_filter(
 		}
 	}
 
+	INSIST((0 < sys_samples) && (sys_samples <= NTP_SHIFT));
+	
 	/*
 	 * Now compute the dispersion, and assign values to delay and
 	 * offset.	If there are no samples in the register, delay and

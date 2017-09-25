@@ -208,8 +208,9 @@ int tsaWriteFileX(const char *fileName, const unsigned char *bytes, size_t numBy
     int fd;
 
     fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0600);
-    if (fd <= 0)
+    if (fd == -1) {
         return errno;
+    }
 
     rtn = (int)write(fd, bytes, numBytes);
     if(rtn != (int)numBytes)
@@ -1014,7 +1015,6 @@ static const char *trustResultTypeString(SecTrustResultType trustResultType)
     case kSecTrustResultUnspecified:                return "TrustResultUnspecified";
     case kSecTrustResultDeny:                       return "TrustResultDeny";   // user reject
     case kSecTrustResultInvalid:                    return "TrustResultInvalid";
-    case kSecTrustResultConfirm:                    return "TrustResultConfirm";
     case kSecTrustResultRecoverableTrustFailure:    return "TrustResultRecoverableTrustFailure";
     case kSecTrustResultFatalTrustFailure:          return "TrustResultUnspecified";
     case kSecTrustResultOtherError:                 return "TrustResultOtherError";
@@ -1072,7 +1072,6 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
 			assert(false);                          // should never happen
 			result = errSecTimestampNotTrusted;     // SecCmsVSTimestampNotTrusted ?
             break;
-        case kSecTrustResultConfirm:
         case kSecTrustResultRecoverableTrustFailure:
         case kSecTrustResultFatalTrustFailure:
         case kSecTrustResultOtherError:
@@ -1340,12 +1339,12 @@ OSStatus decodeTimeStampTokenWithPolicy(SecCmsSignerInfoRef signerinfo, CFTypeRe
                     dtprintf("inner content length: %ld\n", innerContent->Length);
                     SecAsn1TSAMessageImprint fakeMessageImprint = {{{0}},};
                     OSStatus status = createTSAMessageImprint(signedData, innerContent, &fakeMessageImprint);
-                    if (status)
-                        {    dtprintf("createTSAMessageImprint status: %d\n", (int)status); }
+                    require_noerr_action(status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status); result = status);
                     printDataAsHex("inner content hash",&fakeMessageImprint.hashedMessage, 0);
                     CSSM_DATA_PTR digestdata = &fakeMessageImprint.hashedMessage;
                     CSSM_DATA_PTR digests[2] = {digestdata, NULL};
-                    SecCmsSignedDataSetDigests(signedData, digestAlgorithms, (CSSM_DATA_PTR *)&digests);
+                    status = SecCmsSignedDataSetDigests(signedData, digestAlgorithms, (CSSM_DATA_PTR *)&digests);
+                    require_noerr_action(status, xit, dtprintf("createTSAMessageImprint status: %d\n", (int)status); result = status);
                 }
                 else
                     dtprintf("no inner content\n");

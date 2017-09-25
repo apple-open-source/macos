@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 5                                                        |
+   | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -25,8 +25,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #if HAVE_OCI8
 # ifndef PHP_OCI8_H
 #  define PHP_OCI8_H
@@ -45,11 +43,12 @@
  */
 #undef PHP_OCI8_VERSION
 #endif
-#define PHP_OCI8_VERSION "2.0.12"
+#define PHP_OCI8_VERSION "2.1.5"
 
 extern zend_module_entry oci8_module_entry;
 #define phpext_oci8_ptr &oci8_module_entry
 #define phpext_oci8_11g_ptr &oci8_module_entry
+#define phpext_oci8_12c_ptr &oci8_module_entry
 
 
 PHP_MINIT_FUNCTION(oci);

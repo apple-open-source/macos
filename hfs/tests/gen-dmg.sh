@@ -11,6 +11,6 @@ set -e
 mkdir -p "$DERIVED_FILE_DIR"
 env -i xcrun clang "$SRCROOT"/tests/img-to-c.c -lz -o "$DERIVED_FILE_DIR"/img-to-c
 
-"$DERIVED_FILE_DIR"/img-to-c -size 2g -type SPARSE -fs JHFS+ >"$1"
+"$DERIVED_FILE_DIR"/img-to-c -size 2g -type SPARSE -fs JHFS+ -uid 501 -gid 501 >"$1"
 
 echo "Created $1"

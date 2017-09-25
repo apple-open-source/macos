@@ -36,6 +36,7 @@
 #define	_TELLDIR_H_
 
 #include <sys/queue.h>
+#include <stdbool.h>
 
 /*
  * One of these structures is malloced to describe the current directory
@@ -69,9 +70,13 @@ struct _telldir {
 #if __DARWIN_64_BIT_INO_T
 size_t		__getdirentries64(int fd, void *buf, size_t bufsize, __darwin_off_t *basep);
 #endif /* __DARWIN_64_BIT_INO_T */
+__attribute__ ((visibility ("hidden")))
+bool           _filldir(DIR *, bool) __DARWIN_INODE64(_filldir);
 struct dirent	*_readdir_unlocked(DIR *, int) __DARWIN_INODE64(_readdir_unlocked);
 void 		_reclaim_telldir(DIR *);
 void 		_seekdir(DIR *, long) __DARWIN_ALIAS_I(_seekdir);
+__attribute__ ((visibility ("hidden")))
+void        _fixtelldir(DIR *dirp, long oldseek, long oldloc) __DARWIN_INODE64(_fixtelldir);
 long		telldir(DIR *) __DARWIN_ALIAS_I(telldir);
 
 #endif

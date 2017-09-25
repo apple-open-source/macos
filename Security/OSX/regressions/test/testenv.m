@@ -53,6 +53,7 @@
 
 #include <dispatch/dispatch.h>
 
+#include "keychain/ckks/CKKS.h"
 
 int test_strict_bats = 1;
 int test_verbose = 0;
@@ -126,8 +127,10 @@ static int tests_init(void) {
                                                                  error:&error],
                   "Failed to make %@: %@", preferencesURL, error);
 
-    if (ok > 0)
+    if (ok > 0) {
         securityd_init((__bridge CFURLRef) tmpDirURL);
+        SecCKKSDisable();
+    }
 
 #endif
 

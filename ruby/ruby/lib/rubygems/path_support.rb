@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 ##
 #
 # Gem::PathSupport facilitates the GEM_HOME and GEM_PATH environment settings
@@ -11,6 +12,10 @@ class Gem::PathSupport
   ##
   # Array of paths to search for Gems.
   attr_reader :path
+
+  ##
+  # Directory with spec cache
+  attr_reader :spec_cache_dir # :nodoc:
 
   ##
   #
@@ -28,16 +33,15 @@ class Gem::PathSupport
     end
 
     self.path = env["GEM_PATH"] || ENV["GEM_PATH"]
+
+    @spec_cache_dir =
+      env["GEM_SPEC_CACHE"] || ENV["GEM_SPEC_CACHE"] ||
+        Gem.default_spec_cache_dir
+
+    @spec_cache_dir = @spec_cache_dir.dup.untaint
   end
 
   private
-
-  ##
-  # Set the Gem home directory (as reported by Gem.dir).
-
-  def home=(home)
-    @home = home.to_s
-  end
 
   ##
   # Set the Gem search path (as reported by Gem.path).
@@ -55,6 +59,9 @@ class Gem::PathSupport
         gem_path = gpaths.dup
       else
         gem_path = gpaths.split(Gem.path_separator)
+        if gpaths.end_with?(Gem.path_separator)
+          gem_path += default_path
+        end
       end
 
       if File::ALT_SEPARATOR then
@@ -65,13 +72,19 @@ class Gem::PathSupport
 
       gem_path << @home
     else
-      gem_path = Gem.default_path + [@home]
-
-      if defined?(APPLE_GEM_HOME)
-        gem_path << APPLE_GEM_HOME
-      end
+      gem_path = default_path
     end
 
     @path = gem_path.uniq
+  end
+
+  # Return the default Gem path
+  def default_path
+    gem_path = Gem.default_path + [@home]
+
+    if defined?(APPLE_GEM_HOME)
+      gem_path << APPLE_GEM_HOME
+    end
+    gem_path
   end
 end

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 begin
   require "readline"
 =begin
@@ -37,41 +38,6 @@ class Readline::TestHistory < Test::Unit::TestCase
 
   def setup
     HISTORY.clear
-  end
-
-  def test_safe_level_4
-    method_args =
-      [
-       ["[]", [0]],
-       ["[]=", [0, "s"]],
-       ["\<\<", ["s"]],
-       ["push", ["s"]],
-       ["pop", []],
-       ["shift", []],
-       ["length", []],
-       ["delete_at", [0]],
-       ["clear", []],
-      ]
-    method_args.each do |method_name, args|
-      assert_raise(SecurityError, NotImplementedError,
-                    "method=<#{method_name}>") do
-        Thread.start {
-          $SAFE = 4
-          HISTORY.send(method_name.to_sym, *args)
-          assert(true)
-        }.join
-      end
-    end
-
-    assert_raise(SecurityError, NotImplementedError,
-                  "method=<each>") do
-      Thread.start {
-        $SAFE = 4
-        HISTORY.each { |s|
-          assert(true)
-        }
-      }.join
-    end
   end
 
   def test_to_s

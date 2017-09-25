@@ -29,10 +29,6 @@
 #ifndef CCMEMORY_H
 #define CCMEMORY_H
 
-#ifdef KERNEL
-#define	CC_XMALLOC(s)  OSMalloc((s), CC_OSMallocTag)
-#define	CC_XFREE(p, s) OSFree((p), (s), CC_OSMallocTag)
-#else /* KERNEL */
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,7 +39,7 @@
 #define CC_XMEMCPY(s1, s2, n) memcpy((s1), (s2), (n))
 #define CC_XMEMCMP(s1, s2, n) memcmp((s1), (s2), (n))
 #define CC_XMEMSET(s1, s2, n) memset((s1), (s2), (n))
-#define CC_XZEROMEM(p, n)	memset((p), 0, (n))
+#define CC_XZEROMEM(p, n)	cc_clear((n), (p))
 #define CC_XSTRCMP(s1, s2) strcmp((s1), (s2))
 #define CC_XSTORE32H(x, y) do {						\
 (y)[0] = (unsigned char)(((x)>>24)&255);			\
@@ -64,8 +60,6 @@
 #define CC_XALIGNED(PTR,NBYTE) (!(((size_t)(PTR))%(NBYTE)))
 
 #define CC_XMIN(X,Y) (((X) < (Y)) ? (X): (Y))
-#endif
-
 
 
 

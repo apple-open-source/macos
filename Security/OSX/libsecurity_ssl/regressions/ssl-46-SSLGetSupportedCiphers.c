@@ -278,7 +278,6 @@ static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphe
     size_t size;
     int fail=1;
     SSLCipherSuite *ciphers = NULL;
-    OSStatus err;
 
     require_noerr(SSLSetIOFuncs(ssl, &SocketRead, &SocketWrite), out);
     require_noerr(SSLSetConnection(ssl, NULL), out);
@@ -297,8 +296,7 @@ static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphe
     free(ciphers);
     ciphers = NULL;
 
-    err = SSLHandshake(ssl);
-    require(err == errSSLWouldBlock, out);
+    require(SSLHandshake(ssl) == errSSLWouldBlock, out);
 
     require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
     require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");

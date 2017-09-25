@@ -89,6 +89,7 @@ IOHIDNXEventTranslatorServiceFilter::IOHIDNXEventTranslatorServiceFilter(CFUUIDR
   _serviceInterface(&sIOHIDNXEventTranslatorServiceFilterFtbl),
   _factoryID(NULL),
   _refCount(1),
+  _matchScore(0),
   _eventCallback(NULL),
   _eventTarget(NULL),
   _eventContext(NULL),
@@ -305,7 +306,6 @@ void IOHIDNXEventTranslatorServiceFilter::setPropertyForClient(CFStringRef key,C
       if (_queue && _translator) {
           CFRetain(_service);
           dispatch_async(_queue, ^(){
-          
               CFBooleanRefWrap capsLockState ((CFBooleanRef)IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDServiceCapsLockStateKey)), true);
               uint32_t translationFlags = capsLockState ? kTranslationFlagCapsLockOn : 0;
             
@@ -342,13 +342,13 @@ SInt32 IOHIDNXEventTranslatorServiceFilter::match(void * self, IOHIDServiceRef s
 
 SInt32 IOHIDNXEventTranslatorServiceFilter::match(IOHIDServiceRef service, IOOptionBits options)
 {
-  (void) options;
-  SInt32 score = (IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard) ||
-                  IOHIDServiceConformsTo(service, kHIDPage_Consumer, kHIDUsage_Csmr_ConsumerControl)) ? 0xffff : 0;
-
-  HIDLogDebug("(%p) for ServiceID %@ with score %d", this, IOHIDServiceGetRegistryID(service), score);
-
-  return score;
+    (void) options;
+    _matchScore = (IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard) ||
+                   IOHIDServiceConformsTo(service, kHIDPage_Consumer, kHIDUsage_Csmr_ConsumerControl)) ? 100 : 0;
+    
+    HIDLogDebug("(%p) for ServiceID %@ with score %d", this, IOHIDServiceGetRegistryID(service), (int)_matchScore);
+    
+    return _matchScore;
 }
 
 //------------------------------------------------------------------------------
@@ -389,4 +389,5 @@ IOHIDEventRef IOHIDNXEventTranslatorServiceFilter::filter(IOHIDEventRef event)
 void IOHIDNXEventTranslatorServiceFilter::serialize (CFMutableDictionaryRef dict) const {
     CFMutableDictionaryRefWrap serializer (dict);
     serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDNXEventTranslatorServiceFilter"));
+    serializer.SetValueForKey(CFSTR("MatchScore"), (uint64_t)_matchScore);
 }

@@ -1,6 +1,7 @@
+# frozen_string_literal: false
 require_relative "utils"
 
-if defined?(OpenSSL)
+if defined?(OpenSSL::TestUtils)
 
 class OpenSSL::TestSSLSession < OpenSSL::SSLTestCase
   def test_session_equals
@@ -26,47 +27,51 @@ tddwpBAEDjcwMzA5NTYzMTU1MzAwpQMCARM=
 -----END SSL SESSION PARAMETERS-----
     SESSION
 
-    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true) { |_, port|
+    start_server(OpenSSL::SSL::VERIFY_NONE, true, :ignore_listener_error => true) { |_, port|
       ctx = OpenSSL::SSL::SSLContext.new
       ctx.session_cache_mode = OpenSSL::SSL::SSLContext::SESSION_CACHE_CLIENT
       ctx.session_id_context = self.object_id.to_s
 
       sock = TCPSocket.new '127.0.0.1', port
-      ssl = OpenSSL::SSL::SSLSocket.new sock, ctx
-      ssl.session = session
+      begin
+        ssl = OpenSSL::SSL::SSLSocket.new sock, ctx
+        ssl.session = session
 
-      assert_equal session, ssl.session
-      sock.close
+        assert_equal session, ssl.session
+      ensure
+        sock.close
+      end
     }
   end
 
   def test_session
-    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true) do |server, port|
-      sock = TCPSocket.new("127.0.0.1", port)
-      ctx = OpenSSL::SSL::SSLContext.new("TLSv1")
-      ssl = OpenSSL::SSL::SSLSocket.new(sock, ctx)
-      ssl.sync_close = true
-      ssl.connect
-      session = ssl.session
-      assert(session == OpenSSL::SSL::Session.new(session.to_pem))
-      assert(session == OpenSSL::SSL::Session.new(ssl))
-      assert_equal(300, session.timeout)
-      session.timeout = 5
-      assert_equal(5, session.timeout)
-      assert_not_nil(session.time)
-      # SSL_SESSION_time keeps long value so we can't keep nsec fragment.
-      session.time = t1 = Time.now.to_i
-      assert_equal(Time.at(t1), session.time)
-      if session.respond_to?(:id)
-        assert_not_nil(session.id)
+    Timeout.timeout(5) do
+      start_server(OpenSSL::SSL::VERIFY_NONE, true) do |server, port|
+        sock = TCPSocket.new("127.0.0.1", port)
+        ctx = OpenSSL::SSL::SSLContext.new("TLSv1")
+        ssl = OpenSSL::SSL::SSLSocket.new(sock, ctx)
+        ssl.sync_close = true
+        ssl.connect
+        session = ssl.session
+        assert(session == OpenSSL::SSL::Session.new(session.to_pem))
+        assert(session == OpenSSL::SSL::Session.new(ssl))
+        session.timeout = 5
+        assert_equal(5, session.timeout)
+        assert_not_nil(session.time)
+        # SSL_SESSION_time keeps long value so we can't keep nsec fragment.
+        session.time = t1 = Time.now.to_i
+        assert_equal(Time.at(t1), session.time)
+        if session.respond_to?(:id)
+          assert_not_nil(session.id)
+        end
+        pem = session.to_pem
+        assert_match(/\A-----BEGIN SSL SESSION PARAMETERS-----/, pem)
+        assert_match(/-----END SSL SESSION PARAMETERS-----\Z/, pem)
+        pem.gsub!(/-----(BEGIN|END) SSL SESSION PARAMETERS-----/, '').gsub!(/[\r\n]+/m, '')
+        assert_equal(session.to_der, pem.unpack('m*')[0])
+        assert_not_nil(session.to_text)
+        ssl.close
       end
-      pem = session.to_pem
-      assert_match(/\A-----BEGIN SSL SESSION PARAMETERS-----/, pem)
-      assert_match(/-----END SSL SESSION PARAMETERS-----\Z/, pem)
-      pem.gsub!(/-----(BEGIN|END) SSL SESSION PARAMETERS-----/, '').gsub!(/[\r\n]+/m, '')
-      assert_equal(session.to_der, pem.unpack('m*')[0])
-      assert_not_nil(session.to_text)
-      ssl.close
     end
   end
 
@@ -151,7 +156,7 @@ __EOS__
 
   def test_client_session
     last_session = nil
-    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true) do |server, port|
+    start_server(OpenSSL::SSL::VERIFY_NONE, true) do |server, port|
       2.times do
         sock = TCPSocket.new("127.0.0.1", port)
         # Debian's openssl 0.9.8g-13 failed at assert(ssl.session_reused?),
@@ -237,7 +242,7 @@ __EOS__
     end
 
     first_session = nil
-    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true, :ctx_proc => ctx_proc, :server_proc => server_proc) do |server, port|
+    start_server(OpenSSL::SSL::VERIFY_NONE, true, :ctx_proc => ctx_proc, :server_proc => server_proc) do |server, port|
       10.times do |i|
         sock = TCPSocket.new("127.0.0.1", port)
         ctx = OpenSSL::SSL::SSLContext.new
@@ -273,7 +278,7 @@ __EOS__
 
   def test_ctx_client_session_cb
     called = {}
-    ctx = OpenSSL::SSL::SSLContext.new("SSLv3")
+    ctx = OpenSSL::SSL::SSLContext.new
     ctx.session_cache_mode = OpenSSL::SSL::SSLContext::SESSION_CACHE_CLIENT
 
     ctx.session_new_cb = lambda { |ary|
@@ -287,18 +292,22 @@ __EOS__
       # any resulting value is OK (ignored)
     }
 
-    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true) do |server, port|
+    start_server(OpenSSL::SSL::VERIFY_NONE, true) do |server, port|
       sock = TCPSocket.new("127.0.0.1", port)
-      ssl = OpenSSL::SSL::SSLSocket.new(sock, ctx)
-      ssl.sync_close = true
-      ssl.connect
-      assert_equal(1, ctx.session_cache_stats[:cache_num])
-      assert_equal(1, ctx.session_cache_stats[:connect_good])
-      assert_equal([ssl, ssl.session], called[:new])
-      assert(ctx.session_remove(ssl.session))
-      assert(!ctx.session_remove(ssl.session))
-      assert_equal([ctx, ssl.session], called[:remove])
-      ssl.close
+      begin
+        ssl = OpenSSL::SSL::SSLSocket.new(sock, ctx)
+        ssl.sync_close = true
+        ssl.connect
+        assert_equal(1, ctx.session_cache_stats[:cache_num])
+        assert_equal(1, ctx.session_cache_stats[:connect_good])
+        assert_equal([ssl, ssl.session], called[:new])
+        assert(ctx.session_remove(ssl.session))
+        assert(!ctx.session_remove(ssl.session))
+        assert_equal([ctx, ssl.session], called[:remove])
+        ssl.close
+      ensure
+        sock.close if !sock.closed?
+      end
     end
   end
 
@@ -307,6 +316,7 @@ __EOS__
 
     ctx_proc = Proc.new { |ctx, ssl|
       ctx.session_cache_mode = OpenSSL::SSL::SSLContext::SESSION_CACHE_SERVER
+      ctx.options = OpenSSL::SSL::OP_NO_TICKET
       last_server_session = nil
 
       # get_cb is called whenever a client proposed to resume a session but
@@ -341,21 +351,25 @@ __EOS__
       c.session_cache_stats
       readwrite_loop(c, ssl)
     }
-    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true, :ctx_proc => ctx_proc, :server_proc => server_proc) do |server, port|
+    start_server(OpenSSL::SSL::VERIFY_NONE, true, :ctx_proc => ctx_proc, :server_proc => server_proc) do |server, port|
       last_client_session = nil
       3.times do
         sock = TCPSocket.new("127.0.0.1", port)
-        ssl = OpenSSL::SSL::SSLSocket.new(sock, OpenSSL::SSL::SSLContext.new("SSLv3"))
-        ssl.sync_close = true
-        ssl.session = last_client_session if last_client_session
-        ssl.connect
-        last_client_session = ssl.session
-        ssl.close
-        timeout(5) do
-          Thread.pass until called.key?(:new)
-          assert(called.delete(:new))
-          Thread.pass until called.key?(:remove)
-          assert(called.delete(:remove))
+        begin
+          ssl = OpenSSL::SSL::SSLSocket.new(sock, OpenSSL::SSL::SSLContext.new())
+          ssl.sync_close = true
+          ssl.session = last_client_session if last_client_session
+          ssl.connect
+          last_client_session = ssl.session
+          ssl.close
+          Timeout.timeout(5) do
+            Thread.pass until called.key?(:new)
+            assert(called.delete(:new))
+            Thread.pass until called.key?(:remove)
+            assert(called.delete(:remove))
+          end
+        ensure
+          sock.close if !sock.closed?
         end
       end
     end

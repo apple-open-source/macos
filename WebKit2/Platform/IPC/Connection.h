@@ -47,7 +47,7 @@
 #include <wtf/spi/darwin/XPCSPI.h>
 #endif
 
-#if PLATFORM(GTK)
+#if USE(GLIB)
 #include "GSocketMonitor.h"
 #endif
 
@@ -79,6 +79,7 @@ enum class WaitForOption {
 while (0)
 
 class MachMessage;
+class UnixMessage;
 
 class Connection : public ThreadSafeRefCounted<Connection> {
 public:
@@ -142,10 +143,6 @@ public:
 
     Client& client() const { return m_client; }
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
-    void setShouldCloseConnectionOnMachExceptions();
-#endif
-
     void setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(bool);
     void setShouldExitOnSyncMessageSendFailure(bool shouldExitOnSyncMessageSendFailure);
 
@@ -188,7 +185,7 @@ public:
 
 #if PLATFORM(COCOA)
     bool kill();
-    void terminateSoon(double intervalInSeconds);
+    void terminateSoon(Seconds);
 #endif
 
     bool isValid() const { return m_isValid; }
@@ -197,7 +194,7 @@ public:
     void setShouldBoostMainThreadOnSyncMessage(bool b) { m_shouldBoostMainThreadOnSyncMessage = b; }
 #endif
 
-    uint64_t installIncomingSyncMessageCallback(std::function<void ()>);
+    uint64_t installIncomingSyncMessageCallback(WTF::Function<void ()>&&);
     void uninstallIncomingSyncMessageCallback(uint64_t);
     bool hasIncomingSyncMessage();
 
@@ -295,7 +292,7 @@ private:
     Vector<PendingSyncReply> m_pendingSyncReplies;
 
     Lock m_incomingSyncMessageCallbackMutex;
-    HashMap<uint64_t, std::function<void ()>> m_incomingSyncMessageCallbacks;
+    HashMap<uint64_t, WTF::Function<void ()>> m_incomingSyncMessageCallbacks;
     RefPtr<WorkQueue> m_incomingSyncMessageCallbackQueue;
     uint64_t m_nextIncomingSyncMessageCallbackID { 0 };
 
@@ -308,12 +305,16 @@ private:
     // Called on the connection queue.
     void readyReadHandler();
     bool processMessage();
+    bool sendOutputMessage(UnixMessage&);
 
     Vector<uint8_t> m_readBuffer;
     Vector<int> m_fileDescriptors;
     int m_socketDescriptor;
-#if PLATFORM(GTK)
-    GSocketMonitor m_socketMonitor;
+    std::unique_ptr<UnixMessage> m_pendingOutputMessage;
+#if USE(GLIB)
+    GRefPtr<GSocket> m_socket;
+    GSocketMonitor m_readSocketMonitor;
+    GSocketMonitor m_writeSocketMonitor;
 #endif
 #elif OS(DARWIN)
     // Called on the connection queue.
@@ -327,14 +328,6 @@ private:
     dispatch_source_t m_receiveSource;
 
     std::unique_ptr<MachMessage> m_pendingOutgoingMachMessage;
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
-    void exceptionSourceEventHandler();
-
-    // If setShouldCloseConnectionOnMachExceptions has been called, this has
-    // the exception port that exceptions from the other end will be sent on.
-    mach_port_t m_exceptionPort;
-    dispatch_source_t m_exceptionPortDataAvailableSource;
-#endif
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
 #endif

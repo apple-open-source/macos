@@ -46,10 +46,10 @@ dtrace=/usr/sbin/dtrace
 #
 # That accidentally matched an existing Apple probe
 #
-# We have changed it to $dtrace -n Begin
+# We have changed it to $dtrace -n BeGiN
 #
 ##
-$dtrace -n Begin
+$dtrace -n 'BeGiN'
 
 status=$?
 

@@ -42,7 +42,7 @@ __BEGIN_DECLS
 	You should always initialize a queue head structure with the
 	initialization vector {@link OS_ATOMIC_QUEUE_INIT} before use.
  */
-#if defined(__x86_64__)
+#if defined(__LP64__)
 
 typedef volatile struct {
 	void	*opaque1;

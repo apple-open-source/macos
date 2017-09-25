@@ -24,6 +24,7 @@
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">How-To / Tutorials</a></div><div id="page-content"><div id="preamble"><h1>Per-user web directories</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/howto/public_html.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/public_html.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/public_html.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/public_html.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -44,7 +45,7 @@
     <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> block
     within the main config file.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Per-user web directories</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Per-user web directories</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#userdir">Setting the file path with UserDir</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#redirect">Redirecting to external URLs</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#enable">Restricting what users are permitted to use this
@@ -185,6 +186,7 @@ UserDir enabled rbowen krietz</pre>
   </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/howto/public_html.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/public_html.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/public_html.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/public_html.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/public_html.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -207,7 +209,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/public_html.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

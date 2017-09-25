@@ -6,3 +6,6 @@ build
 *~.m
 *~.c
 *~.h
+cscope.*
+tags
+TAGS

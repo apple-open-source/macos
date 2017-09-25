@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009, 2011, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -76,7 +76,7 @@ fromtext_hip(ARGS_FROMTEXT) {
 	len = (unsigned char *)isc_buffer_used(target) - start;
 	if (len > 0xffU)
 		RETTOK(ISC_R_RANGE);
-	RETERR(uint8_tobuffer(len, &hit_len));
+	RETERR(uint8_tobuffer((isc_uint32_t)len, &hit_len));
 
 	/*
 	 * Public key (base64).
@@ -92,7 +92,7 @@ fromtext_hip(ARGS_FROMTEXT) {
 	len = (unsigned char *)isc_buffer_used(target) - start;
 	if (len > 0xffffU)
 		RETTOK(ISC_R_RANGE);
-	RETERR(uint16_tobuffer(len, &key_len));
+	RETERR(uint16_tobuffer((isc_uint32_t)len, &key_len));
 
 	/*
 	 * Rendezvous Servers.
@@ -122,7 +122,7 @@ static inline isc_result_t
 totext_hip(ARGS_TOTEXT) {
 	isc_region_t region;
 	dns_name_t name;
-	size_t length, key_len, hit_len;
+	unsigned int length, key_len, hit_len;
 	unsigned char algorithm;
 	char buf[sizeof("225 ")];
 
@@ -318,6 +318,8 @@ tostruct_hip(ARGS_TOSTRUCT) {
 		goto cleanup;
 	isc_region_consume(&region, hip->hit_len);
 
+	INSIST(hip->key_len <= region.length);
+
 	hip->key = mem_maybedup(mctx, region.base, hip->key_len);
 	if (hip->key == NULL)
 		goto cleanup;
@@ -466,23 +468,19 @@ casecompare_hip(ARGS_COMPARE) {
 
 	INSIST(r1.length > 4);
 	INSIST(r2.length > 4);
-	r1.length = 4;
-	r2.length = 4;
-	order = isc_region_compare(&r1, &r2);
+	order = memcmp(r1.base, r2.base, 4);
 	if (order != 0)
 		return (order);
 
 	hit_len = uint8_fromregion(&r1);
 	isc_region_consume(&r1, 2);         /* hit length + algorithm */
 	key_len = uint16_fromregion(&r1);
-
-	dns_rdata_toregion(rdata1, &r1);
-	dns_rdata_toregion(rdata2, &r2);
-	isc_region_consume(&r1, 4);
+	isc_region_consume(&r1, 2);         /* key length */
 	isc_region_consume(&r2, 4);
+
 	INSIST(r1.length >= (unsigned) (hit_len + key_len));
 	INSIST(r2.length >= (unsigned) (hit_len + key_len));
-	order = isc_region_compare(&r1, &r2);
+	order = memcmp(r1.base, r2.base, hit_len + key_len);
 	if (order != 0)
 		return (order);
 	isc_region_consume(&r1, hit_len + key_len);

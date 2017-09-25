@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -359,10 +359,10 @@ S_ipinuse(void * arg, struct in_addr ip)
     struct timeval * 	time_in_p = (struct timeval *)arg;
 
     if (bootp_getbyip_file(ip, NULL, NULL)
-#if !TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
 	|| ((use_open_directory == TRUE)
 	    && bootp_getbyip_ds(ip, NULL, NULL))
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
         ) {
 	return (TRUE);
     }
@@ -501,11 +501,11 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 
     if (bootp_getbyhw_file(rq->dp_htype, rq->dp_chaddr, rq->dp_hlen,
 			   subnet_match, &match, &iaddr, NULL, NULL)
-#if !TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
 	|| ((use_open_directory == TRUE)
 	    && bootp_getbyhw_ds(rq->dp_htype, rq->dp_chaddr, rq->dp_hlen,
 				subnet_match, &match, &iaddr, NULL, NULL))
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
 	) {
 
 	/* infinite lease */
@@ -689,12 +689,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	if (bootp_getbyhw_file(cid_type, cid, cid_len,
 			       subnet_match, &match, &iaddr,
 			       &hostname, NULL)
-#if !TARGET_OS_EMBEDDED
+#if USE_OPEN_DIRECTORY
 	    || ((use_open_directory == TRUE)
 		&& bootp_getbyhw_ds(cid_type, cid, cid_len,
 				    subnet_match, &match, &iaddr,
 				    &hostname, NULL))
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* USE_OPEN_DIRECTORY */
 	    ) {
 	    binding = dhcp_binding_permanent_e;
 	    lease_time_expiry = DHCP_INFINITE_TIME;

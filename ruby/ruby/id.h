@@ -13,18 +13,31 @@
 #ifndef RUBY_ID_H
 #define RUBY_ID_H
 
-#define ID_SCOPE_SHIFT 3
-#define ID_SCOPE_MASK 0x07
-#define ID_LOCAL      0x00
-#define ID_INSTANCE   0x01
-#define ID_GLOBAL     0x03
-#define ID_ATTRSET    0x04
-#define ID_CONST      0x05
-#define ID_CLASS      0x06
-#define ID_JUNK       0x07
-#define ID_INTERNAL   ID_JUNK
+enum ruby_id_types {
+    RUBY_ID_STATIC_SYM  = 0x01,
+    RUBY_ID_LOCAL       = 0x00,
+    RUBY_ID_INSTANCE    = (0x01<<1),
+    RUBY_ID_GLOBAL      = (0x03<<1),
+    RUBY_ID_ATTRSET     = (0x04<<1),
+    RUBY_ID_CONST       = (0x05<<1),
+    RUBY_ID_CLASS       = (0x06<<1),
+    RUBY_ID_JUNK        = (0x07<<1),
+    RUBY_ID_INTERNAL    = RUBY_ID_JUNK,
+    RUBY_ID_SCOPE_SHIFT = 4,
+    RUBY_ID_SCOPE_MASK  = (~(~0U<<(RUBY_ID_SCOPE_SHIFT-1))<<1)
+};
 
-#define ID2ATTRSET(id) (((id)&~ID_SCOPE_MASK)|ID_ATTRSET)
+#define ID_STATIC_SYM  RUBY_ID_STATIC_SYM
+#define ID_SCOPE_SHIFT RUBY_ID_SCOPE_SHIFT
+#define ID_SCOPE_MASK  RUBY_ID_SCOPE_MASK
+#define ID_LOCAL       RUBY_ID_LOCAL
+#define ID_INSTANCE    RUBY_ID_INSTANCE
+#define ID_GLOBAL      RUBY_ID_GLOBAL
+#define ID_ATTRSET     RUBY_ID_ATTRSET
+#define ID_CONST       RUBY_ID_CONST
+#define ID_CLASS       RUBY_ID_CLASS
+#define ID_JUNK        RUBY_ID_JUNK
+#define ID_INTERNAL    RUBY_ID_INTERNAL
 
 #define symIFUNC ID2SYM(idIFUNC)
 #define symCFUNC ID2SYM(idCFUNC)
@@ -49,6 +62,9 @@
 #define RUBY_TOKEN_ASET 145
 #define RUBY_TOKEN_COLON2 146
 #define RUBY_TOKEN_COLON3 147
+#define RUBY_TOKEN_ANDOP 148
+#define RUBY_TOKEN_OROP 149
+#define RUBY_TOKEN_ANDDOT 150
 #define RUBY_TOKEN(t) RUBY_TOKEN_##t
 
 enum ruby_method_ids {
@@ -63,8 +79,9 @@ enum ruby_method_ids {
     idMULT = '*',
     idDIV = '/',
     idMOD = '%',
-    idLT = '<',
     idLTLT = RUBY_TOKEN(LSHFT),
+    idGTGT = RUBY_TOKEN(RSHFT),
+    idLT = '<',
     idLE = RUBY_TOKEN(LEQ),
     idGT = '>',
     idGE = RUBY_TOKEN(GEQ),
@@ -77,9 +94,14 @@ enum ruby_method_ids {
     idNeqTilde = RUBY_TOKEN(NMATCH),
     idAREF = RUBY_TOKEN(AREF),
     idASET = RUBY_TOKEN(ASET),
-    tPRESERVED_ID_BEGIN = 147,
+    idCOLON2 = RUBY_TOKEN(COLON2),
+    idANDOP = RUBY_TOKEN(ANDOP),
+    idOROP = RUBY_TOKEN(OROP),
+    idANDDOT = RUBY_TOKEN(ANDDOT),
+    tPRESERVED_ID_BEGIN = 150,
     idNULL,
     idEmptyP,
+    idEqlP,
     idRespond_to,
     idRespond_to_missing,
     idIFUNC,
@@ -94,9 +116,20 @@ enum ruby_method_ids {
     id_core_hash_merge_ary,
     id_core_hash_merge_ptr,
     id_core_hash_merge_kwd,
+    id_debug_created_info,
     tPRESERVED_ID_END,
+    tFreeze,
+    tInspect,
     tIntern,
+    tObject_id,
+    tConst_missing,
     tMethodMissing,
+    tMethod_added,
+    tSingleton_method_added,
+    tMethod_removed,
+    tSingleton_method_removed,
+    tMethod_undefined,
+    tSingleton_method_undefined,
     tLength,
     tSize,
     tGets,
@@ -106,14 +139,41 @@ enum ruby_method_ids {
     tLambda,
     tSend,
     t__send__,
+    t__attached__,
     tInitialize,
     tInitialize_copy,
     tInitialize_clone,
     tInitialize_dup,
+    tTo_int,
+    tTo_ary,
+    tTo_str,
+    tTo_sym,
+    tTo_hash,
+    tTo_proc,
+    tTo_io,
+    tTo_a,
+    tTo_s,
+    tTo_i,
+    tBt,
+    tBt_locations,
+    tCall,
+    tMesg,
+    tException,
     tUScore,
-#define TOKEN2LOCALID(n) id##n = ((t##n<<ID_SCOPE_SHIFT)|ID_LOCAL)
+    tNEXT_ID,
+#define TOKEN2LOCALID(n) id##n = ((t##n<<ID_SCOPE_SHIFT)|ID_LOCAL|ID_STATIC_SYM)
+    TOKEN2LOCALID(Freeze),
+    TOKEN2LOCALID(Inspect),
     TOKEN2LOCALID(Intern),
+    TOKEN2LOCALID(Object_id),
+    TOKEN2LOCALID(Const_missing),
     TOKEN2LOCALID(MethodMissing),
+    TOKEN2LOCALID(Method_added),
+    TOKEN2LOCALID(Singleton_method_added),
+    TOKEN2LOCALID(Method_removed),
+    TOKEN2LOCALID(Singleton_method_removed),
+    TOKEN2LOCALID(Method_undefined),
+    TOKEN2LOCALID(Singleton_method_undefined),
     TOKEN2LOCALID(Length),
     TOKEN2LOCALID(Size),
     TOKEN2LOCALID(Gets),
@@ -123,10 +183,26 @@ enum ruby_method_ids {
     TOKEN2LOCALID(Lambda),
     TOKEN2LOCALID(Send),
     TOKEN2LOCALID(__send__),
+    TOKEN2LOCALID(__attached__),
     TOKEN2LOCALID(Initialize),
     TOKEN2LOCALID(Initialize_copy),
     TOKEN2LOCALID(Initialize_clone),
     TOKEN2LOCALID(Initialize_dup),
+    TOKEN2LOCALID(To_int),
+    TOKEN2LOCALID(To_ary),
+    TOKEN2LOCALID(To_str),
+    TOKEN2LOCALID(To_sym),
+    TOKEN2LOCALID(To_hash),
+    TOKEN2LOCALID(To_proc),
+    TOKEN2LOCALID(To_io),
+    TOKEN2LOCALID(To_a),
+    TOKEN2LOCALID(To_s),
+    TOKEN2LOCALID(To_i),
+    TOKEN2LOCALID(Bt),
+    TOKEN2LOCALID(Bt_locations),
+    TOKEN2LOCALID(Call),
+    TOKEN2LOCALID(Mesg),
+    TOKEN2LOCALID(Exception),
     TOKEN2LOCALID(UScore),
     tLAST_OP_ID = tPRESERVED_ID_END-1,
     idLAST_OP_ID = tLAST_OP_ID >> ID_SCOPE_SHIFT

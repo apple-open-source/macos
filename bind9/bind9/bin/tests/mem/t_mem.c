@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2009, 2013  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -202,7 +202,14 @@ t1(void) {
 }
 
 testspec_t	T_testlist[] = {
-	{	t1,	"basic memory subsystem"	},
-	{	NULL,	NULL				}
+	{	(PFV) t1,	"basic memory subsystem"	},
+	{	(PFV) 0,	NULL				}
 };
 
+#ifdef WIN32
+int
+main(int argc, char **argv) {
+	t_settests(T_testlist);
+	return (t_main(argc, argv));
+}
+#endif

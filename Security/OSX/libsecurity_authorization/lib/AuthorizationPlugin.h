@@ -78,7 +78,7 @@ CF_ASSUME_NONNULL_BEGIN
 typedef struct AuthorizationValue
 {
     size_t length;
-    void *data;
+    void * __nullable data;
 } AuthorizationValue;
 
 /*!
@@ -176,7 +176,7 @@ enum {
     interface.
 */
 enum {
-    kAuthorizationCallbacksVersion = 1
+    kAuthorizationCallbacksVersion = 2
 };
 
 
@@ -194,6 +194,8 @@ enum {
     @field SetHintValue     Write value to hints.  AuthorizationValue and data are copied.
     @field GetArguments     Read arguments passed.  AuthorizationValueVector does not own data.
     @field GetSessionId     Read SessionId.
+    @field GetLAContext     Returns authenticated LAContext which can be used for operations with Tokens which would normally require PIN. Caller owns returned context and is responsible for release.
+    @field GetTokenIdentities Returns array of identities. Caller owns returned array and is reponsible for release.
 */
 typedef struct AuthorizationCallbacks {
 
@@ -245,6 +247,25 @@ typedef struct AuthorizationCallbacks {
     OSStatus (*GetImmutableHintValue)(AuthorizationEngineRef inEngine,
         AuthorizationString inKey,
         const AuthorizationValue * __nullable * __nullable outValue);
+
+    /*
+	 Available only on systems with callback version 2 or higher
+	 Constructs LAContext object based od actual user credentials,
+	 userful for kSecUseAuthenticationContext for SecItem calls.
+     Caller is responsible for outValue release	 */
+    OSStatus (*GetLAContext)(AuthorizationEngineRef inEngine,
+    CFTypeRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
+
+    /*
+	 Available only on systems with callback version 2 or higher
+	 Returns array of available identities available on tokens. Each array item consists of two
+     elements. The first one is SecIdentityRef and the second one is textual description of that identity
+	 context parameter may contain CFTypeRef returned by GetLAContext. Returned identities
+	 will contain PIN in such case so crypto operations won't display PIN prompt.
+     Caller is responsible for outValue release */
+    OSStatus (*GetTokenIdentities)(AuthorizationEngineRef inEngine,
+        CFTypeRef context,
+        CFArrayRef __nullable * __nullable outValue) __OSX_AVAILABLE_STARTING(__MAC_10_13, __PHONE_NA);
 
 } AuthorizationCallbacks;
 

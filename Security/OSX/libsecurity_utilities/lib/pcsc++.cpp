@@ -21,11 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 //
 // pcsc++ - PCSC client interface layer in C++
 //
 #include "pcsc++.h"
+
+#if TARGET_OS_OSX
+
 #include <security_utilities/debugging.h>
 #include <PCSC/pcsclite.h>
 #include <PCSC/wintypes.h>
@@ -418,3 +420,5 @@ void Transaction::commitAction()
 
 }   // namespace PCSC
 }   // namespace Security
+
+#endif // TARGET_OS_OSX

@@ -1,13 +1,13 @@
 /*
  * Destination job support for CUPS.
  *
- * Copyright 2012-2016 by Apple Inc.
+ * Copyright 2012-2017 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -25,13 +25,13 @@
  * The "job_id" is the number returned by cupsCreateDestJob.
  *
  * Returns @code IPP_STATUS_OK@ on success and
- * @code IPP_STATUS_ERRPR_NOT_AUTHORIZED@ or
+ * @code IPP_STATUS_ERROR_NOT_AUTHORIZED@ or
  * @code IPP_STATUS_ERROR_FORBIDDEN@ on failure.
  *
  * @since CUPS 1.6/macOS 10.8@
  */
 
-ipp_status_t
+ipp_status_t                            /* O - Status of cancel operation */
 cupsCancelDestJob(http_t      *http,	/* I - Connection to destination */
                   cups_dest_t *dest,	/* I - Destination */
                   int         job_id)	/* I - Job ID */
@@ -82,6 +82,13 @@ cupsCloseDestJob(
 
 
   DEBUG_printf(("cupsCloseDestJob(http=%p, dest=%p(%s/%s), info=%p, job_id=%d)", (void *)http, (void *)dest, dest ? dest->name : NULL, dest ? dest->instance : NULL, (void *)info, job_id));
+
+ /*
+  * Get the default connection as needed...
+  */
+
+  if (!http)
+    http = _cupsConnect();
 
  /*
   * Range check input...
@@ -172,6 +179,13 @@ cupsCreateDestJob(
                 "job_id=%p, title=\"%s\", num_options=%d, options=%p)", (void *)http, (void *)dest, dest ? dest->name : NULL, dest ? dest->instance : NULL, (void *)info, (void *)job_id, title, num_options, (void *)options));
 
  /*
+  * Get the default connection as needed...
+  */
+
+  if (!http)
+    http = _cupsConnect();
+
+ /*
   * Range check input...
   */
 
@@ -252,6 +266,13 @@ cupsFinishDestDocument(
   DEBUG_printf(("cupsFinishDestDocument(http=%p, dest=%p(%s/%s), info=%p)", (void *)http, (void *)dest, dest ? dest->name : NULL, dest ? dest->instance : NULL, (void *)info));
 
  /*
+  * Get the default connection as needed...
+  */
+
+  if (!http)
+    http = _cupsConnect();
+
+ /*
   * Range check input...
   */
 
@@ -305,6 +326,13 @@ cupsStartDestDocument(
 
 
   DEBUG_printf(("cupsStartDestDocument(http=%p, dest=%p(%s/%s), info=%p, job_id=%d, docname=\"%s\", format=\"%s\", num_options=%d, options=%p, last_document=%d)", (void *)http, (void *)dest, dest ? dest->name : NULL, dest ? dest->instance : NULL, (void *)info, job_id, docname, format, num_options, (void *)options, last_document));
+
+ /*
+  * Get the default connection as needed...
+  */
+
+  if (!http)
+    http = _cupsConnect();
 
  /*
   * Range check input...

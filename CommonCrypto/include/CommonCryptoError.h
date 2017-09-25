@@ -65,6 +65,7 @@ enum {
     kCCRNGFailure       = -4307,
     kCCUnspecifiedError = -4308,
     kCCCallSequenceError= -4309,
+    kCCKeySizeError     = -4310,
 };
 typedef int32_t CCStatus;
 typedef int32_t CCCryptorStatus;

@@ -29,7 +29,8 @@ static void tests(void)
 	UInt32 length = 0;
 	void *data = NULL;
 	ok_status(SecKeychainItemCopyContent(item, &itemClass, &attrList, &length, &data), "SecKeychainItemCopyContent");
-    eq_string(data, "test", "Item data is wrong");
+    is(length, strlen("test"), "item data is right length");
+    eq_stringn(data, length, "test", strlen("test"), "Item data is right");
     ok_status(SecKeychainItemFreeContent(&attrList, data), "SecKeychainItemCopyContent");
 
 	is(CFGetRetainCount(item), 1, "item retaincount is 1");
@@ -43,7 +44,7 @@ static void tests(void)
 int kc_10_item_add_generic(int argc, char *const *argv)
 {
     initializeKeychainTests("kc-10-item-add-generic");
-	plan_tests(13);
+	plan_tests(14);
 
 	tests();
 

@@ -1,4 +1,5 @@
-require 'psych/helper'
+# frozen_string_literal: false
+require_relative 'helper'
 
 class ObjectWithInstanceVariables
   attr_accessor :var1, :var2

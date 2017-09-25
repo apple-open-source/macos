@@ -26,6 +26,15 @@
 
 #if CONFIG_OS_LOCK_UNFAIR
 
+#if OS_UNFAIR_LOCK_INLINE
+#define os_unfair_lock_lock_with_options(lock, options) \
+		os_unfair_lock_lock_with_options_inline(lock, options)
+#define os_unfair_lock_trylock(lock) \
+		os_unfair_lock_trylock_inline(lock)
+#define os_unfair_lock_unlock(lock) \
+		os_unfair_lock_unlock_inline(lock)
+#endif
+
 typedef os_unfair_lock _malloc_lock_s;
 #define _MALLOC_LOCK_INIT OS_UNFAIR_LOCK_INIT
 
@@ -38,20 +47,20 @@ _malloc_lock_init(_malloc_lock_s *lock) {
 MALLOC_ALWAYS_INLINE
 static inline void
 _malloc_lock_lock(_malloc_lock_s *lock) {
-	return os_unfair_lock_lock_with_options_inline(lock,
+	return os_unfair_lock_lock_with_options(lock,
 			OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
 }
 
 MALLOC_ALWAYS_INLINE
 static inline bool
 _malloc_lock_trylock(_malloc_lock_s *lock) {
-    return os_unfair_lock_trylock_inline(lock);
+    return os_unfair_lock_trylock(lock);
 }
 
 MALLOC_ALWAYS_INLINE
 static inline void
 _malloc_lock_unlock(_malloc_lock_s *lock) {
-    return os_unfair_lock_unlock_inline(lock);
+    return os_unfair_lock_unlock(lock);
 }
 
 #else // CONFIG_OS_LOCK_UNFAIR

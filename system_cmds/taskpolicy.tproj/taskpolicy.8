@@ -12,6 +12,7 @@
 .Op Fl b
 .Op Fl t Ar thruput_tier
 .Op Fl l Ar latency_tier
+.Op Fl a
 .Ar program
 .Oo
 .Ar arg1
@@ -65,6 +66,8 @@ Set throughput tier of the process to
 .It Fl l 
 Set latency tier of the process to 
 .Ar latency_tier .
+.It Fl a
+Run the program with the resource management policies given to applications.
 .El
 .Pp
 .Sh SEE ALSO 

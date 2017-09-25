@@ -431,20 +431,17 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     if (!allocated) return (kIOReturnNoSpace);
 
 	firstVector = rangeStart;
-
-	if (!device
-	 || (kIOReturnUnsupported == (ret = IOPCISetMSIInterrupt(firstVector + _vectorBase, numVectors, &message[0]))))
-	{
-		ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
+	ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
 				/* waitForFunction */ false,
 				/* nub             */ entry,
 				/* options         */ (void *) 0,
 				/* vector          */ (void *) (uintptr_t) (firstVector + _vectorBase),
 				/* message         */ (void *) &message[0]);
-    }
 
     if (kIOReturnSuccess == ret)
     {
+        if (device) IOPCISetMSIInterrupt(firstVector + _vectorBase, numVectors, &message[0]);
+
         if (msiAddress) *msiAddress = message[0] | (((uint64_t)message[1]) << 32);
         if (msiData)    *msiData    = message[2];
 

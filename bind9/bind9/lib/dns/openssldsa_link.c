@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004-2009, 2011-2013  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -28,8 +28,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id$ */
 
 #ifdef OPENSSL
 #ifndef USE_EVP
@@ -137,6 +135,7 @@ openssldsa_sign(dst_context_t *dctx, isc_buffer_t *sig) {
 	DSA *dsa = key->keydata.dsa;
 	isc_region_t r;
 	DSA_SIG *dsasig;
+	unsigned int klen;
 #if USE_EVP
 	EVP_MD_CTX *evp_md_ctx = dctx->ctxdata.evp_md_ctx;
 	EVP_PKEY *pkey;
@@ -168,7 +167,9 @@ openssldsa_sign(dst_context_t *dctx, isc_buffer_t *sig) {
 	if (!EVP_SignFinal(evp_md_ctx, sigbuf, &siglen, pkey)) {
 		EVP_PKEY_free(pkey);
 		free(sigbuf);
-		return (ISC_R_FAILURE);
+		return (dst__openssl_toresult3(dctx->category,
+					       "EVP_SignFinal",
+					       ISC_R_FAILURE));
 	}
 	INSIST(EVP_PKEY_size(pkey) >= (int) siglen);
 	EVP_PKEY_free(pkey);
@@ -181,29 +182,44 @@ openssldsa_sign(dst_context_t *dctx, isc_buffer_t *sig) {
 	sb = sigbuf;
 	if (d2i_DSA_SIG(&dsasig, &sb, (long) siglen) == NULL) {
 		free(sigbuf);
-		return (ISC_R_FAILURE);
+		return (dst__openssl_toresult3(dctx->category,
+					       "d2i_DSA_SIG",
+					       ISC_R_FAILURE));
 	}
 	free(sigbuf);
+
 #elif 0
 	/* Only use EVP for the Digest */
 	if (!EVP_DigestFinal_ex(evp_md_ctx, digest, &siglen)) {
-		return (ISC_R_FAILURE);
+		return (dst__openssl_toresult3(dctx->category,
+					       "EVP_DigestFinal_ex",
+					       ISC_R_FAILURE));
 	}
 	dsasig = DSA_do_sign(digest, ISC_SHA1_DIGESTLENGTH, dsa);
 	if (dsasig == NULL)
-		return (dst__openssl_toresult(DST_R_SIGNFAILURE));
+		return (dst__openssl_toresult3(dctx->category,
+					       "DSA_do_sign",
+					       DST_R_SIGNFAILURE));
 #else
 	isc_sha1_final(sha1ctx, digest);
 
 	dsasig = DSA_do_sign(digest, ISC_SHA1_DIGESTLENGTH, dsa);
 	if (dsasig == NULL)
-		return (dst__openssl_toresult(DST_R_SIGNFAILURE));
+		return (dst__openssl_toresult3(dctx->category,
+					       "DSA_do_sign",
+					       DST_R_SIGNFAILURE));
 #endif
-	*r.base++ = (key->key_size - 512)/64;
+
+	klen = (key->key_size - 512)/64;
+	if (klen > 255)
+		return (ISC_R_FAILURE);
+	*r.base = klen;
+	isc_region_consume(&r, 1);
+
 	BN_bn2bin_fixed(dsasig->r, r.base, ISC_SHA1_DIGESTLENGTH);
-	r.base += ISC_SHA1_DIGESTLENGTH;
+	isc_region_consume(&r, ISC_SHA1_DIGESTLENGTH);
 	BN_bn2bin_fixed(dsasig->s, r.base, ISC_SHA1_DIGESTLENGTH);
-	r.base += ISC_SHA1_DIGESTLENGTH;
+	isc_region_consume(&r, ISC_SHA1_DIGESTLENGTH);
 	DSA_SIG_free(dsasig);
 	isc_buffer_add(sig, ISC_SHA1_DIGESTLENGTH * 2 + 1);
 
@@ -276,10 +292,16 @@ openssldsa_verify(dst_context_t *dctx, const isc_region_t *sig) {
 	status = DSA_do_verify(digest, ISC_SHA1_DIGESTLENGTH, dsasig, dsa);
 #endif
 	DSA_SIG_free(dsasig);
-	if (status != 1)
+	switch (status) {
+	case 1:
+		return (ISC_R_SUCCESS);
+	case 0:
 		return (dst__openssl_toresult(DST_R_VERIFYFAILURE));
-
-	return (ISC_R_SUCCESS);
+	default:
+		return (dst__openssl_toresult3(dctx->category,
+					       "DSA_do_verify",
+					       DST_R_VERIFYFAILURE));
+	}
 }
 
 static isc_boolean_t
@@ -370,19 +392,22 @@ openssldsa_generate(dst_key_t *key, int unused, void (*callback)(int)) {
 					&cb))
 	{
 		DSA_free(dsa);
-		return (dst__openssl_toresult(DST_R_OPENSSLFAILURE));
+		return (dst__openssl_toresult2("DSA_generate_parameters_ex",
+					       DST_R_OPENSSLFAILURE));
 	}
 #else
 	dsa = DSA_generate_parameters(key->key_size, rand_array,
 				      ISC_SHA1_DIGESTLENGTH, NULL, NULL,
 				      NULL, NULL);
 	if (dsa == NULL)
-		return (dst__openssl_toresult(DST_R_OPENSSLFAILURE));
+		return (dst__openssl_toresult2("DSA_generate_parameters",
+					       DST_R_OPENSSLFAILURE));
 #endif
 
 	if (DSA_generate_key(dsa) == 0) {
 		DSA_free(dsa);
-		return (dst__openssl_toresult(DST_R_OPENSSLFAILURE));
+		return (dst__openssl_toresult2("DSA_generate_key",
+					       DST_R_OPENSSLFAILURE));
 	}
 	dsa->flags &= ~DSA_FLAG_CACHE_MONT_P;
 
@@ -427,15 +452,16 @@ openssldsa_todns(const dst_key_t *key, isc_buffer_t *data) {
 	if (r.length < (unsigned int) dnslen)
 		return (ISC_R_NOSPACE);
 
-	*r.base++ = t;
+	*r.base = t;
+	isc_region_consume(&r, 1);
 	BN_bn2bin_fixed(dsa->q, r.base, ISC_SHA1_DIGESTLENGTH);
-	r.base += ISC_SHA1_DIGESTLENGTH;
+	isc_region_consume(&r, ISC_SHA1_DIGESTLENGTH);
 	BN_bn2bin_fixed(dsa->p, r.base, key->key_size/8);
-	r.base += p_bytes;
+	isc_region_consume(&r, p_bytes);
 	BN_bn2bin_fixed(dsa->g, r.base, key->key_size/8);
-	r.base += p_bytes;
+	isc_region_consume(&r, p_bytes);
 	BN_bn2bin_fixed(dsa->pub_key, r.base, key->key_size/8);
-	r.base += p_bytes;
+	isc_region_consume(&r, p_bytes);
 
 	isc_buffer_add(data, dnslen);
 
@@ -460,29 +486,30 @@ openssldsa_fromdns(dst_key_t *key, isc_buffer_t *data) {
 		return (ISC_R_NOMEMORY);
 	dsa->flags &= ~DSA_FLAG_CACHE_MONT_P;
 
-	t = (unsigned int) *r.base++;
+	t = (unsigned int) *r.base;
+	isc_region_consume(&r, 1);
 	if (t > 8) {
 		DSA_free(dsa);
 		return (DST_R_INVALIDPUBLICKEY);
 	}
 	p_bytes = 64 + 8 * t;
 
-	if (r.length < 1 + ISC_SHA1_DIGESTLENGTH + 3 * p_bytes) {
+	if (r.length < ISC_SHA1_DIGESTLENGTH + 3 * p_bytes) {
 		DSA_free(dsa);
 		return (DST_R_INVALIDPUBLICKEY);
 	}
 
 	dsa->q = BN_bin2bn(r.base, ISC_SHA1_DIGESTLENGTH, NULL);
-	r.base += ISC_SHA1_DIGESTLENGTH;
+	isc_region_consume(&r, ISC_SHA1_DIGESTLENGTH);
 
 	dsa->p = BN_bin2bn(r.base, p_bytes, NULL);
-	r.base += p_bytes;
+	isc_region_consume(&r, p_bytes);
 
 	dsa->g = BN_bin2bn(r.base, p_bytes, NULL);
-	r.base += p_bytes;
+	isc_region_consume(&r, p_bytes);
 
 	dsa->pub_key = BN_bin2bn(r.base, p_bytes, NULL);
-	r.base += p_bytes;
+	isc_region_consume(&r, p_bytes);
 
 	key->key_size = p_bytes * 8;
 
@@ -503,6 +530,11 @@ openssldsa_tofile(const dst_key_t *key, const char *directory) {
 
 	if (key->keydata.dsa == NULL)
 		return (DST_R_NULLKEY);
+
+	if (key->external) {
+		priv.nelements = 0;
+		return (dst__privstruct_writefile(key, &priv, directory));
+	}
 
 	dsa = key->keydata.dsa;
 
@@ -550,6 +582,7 @@ openssldsa_parse(dst_key_t *key, isc_lex_t *lexer, dst_key_t *pub) {
 #define DST_RET(a) {ret = a; goto err;}
 
 	UNUSED(pub);
+
 	/* read private key file */
 	ret = dst__privstruct_parse(key, DST_ALG_DSA, lexer, mctx, &priv);
 	if (ret != ISC_R_SUCCESS)
@@ -588,6 +621,19 @@ openssldsa_parse(dst_key_t *key, isc_lex_t *lexer, dst_key_t *pub) {
 	}
 	dst__privstruct_free(&priv, mctx);
 
+	if (key->external) {
+		if (pub == NULL)
+			DST_RET(DST_R_INVALIDPRIVATEKEY);
+		dsa->q = pub->keydata.dsa->q;
+		pub->keydata.dsa->q = NULL;
+		dsa->p = pub->keydata.dsa->p;
+		pub->keydata.dsa->p = NULL;
+		dsa->g = pub->keydata.dsa->g;
+		pub->keydata.dsa->g =  NULL;
+		dsa->pub_key = pub->keydata.dsa->pub_key;
+		pub->keydata.dsa->pub_key = NULL;
+	}
+
 	key->key_size = BN_num_bits(dsa->p);
 
 	return (ISC_R_SUCCESS);
@@ -605,6 +651,7 @@ static dst_func_t openssldsa_functions = {
 	openssldsa_adddata,
 	openssldsa_sign,
 	openssldsa_verify,
+	NULL, /*%< verify2 */
 	NULL, /*%< computesecret */
 	openssldsa_compare,
 	NULL, /*%< paramcompare */

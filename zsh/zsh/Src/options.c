@@ -256,7 +256,7 @@ static struct optname optns[] = {
 {{NULL, "unset",	      OPT_EMULATE|OPT_BSHELL},	 UNSET},
 {{NULL, "verbose",	      0},			 VERBOSE},
 {{NULL, "vi",		      0},			 VIMODE},
-{{NULL, "warncreateglobal",   0},			 WARNCREATEGLOBAL},
+{{NULL, "warncreateglobal",   OPT_EMULATE},		 WARNCREATEGLOBAL},
 {{NULL, "xtrace",	      0},			 XTRACE},
 {{NULL, "zle",		      OPT_SPECIAL},		 USEZLE},
 {{NULL, "braceexpand",	      OPT_ALIAS}, /* ksh/bash */ -IGNOREBRACES},
@@ -847,9 +847,10 @@ printoptionnodestate(HashNode hn, int hadplus)
     int optno = on->optno;
 
     if (hadplus) {
-        if (defset(on, emulation) != isset(optno))
-	    printf("set -o %s%s\n", defset(on, emulation) ?
-		   "no" : "", on->node.nam);
+	printf("set %co %s%s\n",
+	       defset(on, emulation) != isset(optno) ? '-' : '+',
+	       defset(on, emulation) ? "no" : "",
+	       on->node.nam);
     } else {
 	if (defset(on, emulation))
 	    printf("no%-19s %s\n", on->node.nam, isset(optno) ? "off" : "on");

@@ -1,5 +1,6 @@
 
 #include "SingleShotSource.h"
+#include "Utilities.h"
 #include <string>
 
 using namespace std;
@@ -15,7 +16,7 @@ SingleShotSource::SingleShotSource(CFTypeRef value, Transform* t, CFStringRef na
 void SingleShotSource::DoActivate()
 {
 	// Make sure our destination doesn't vanish while we are sending it data (or the final NULL)
-	CFRetain(mDestination->GetCFObject());
+	CFRetainSafe(mDestination->GetCFObject());
 	
 	// take our value and send it on its way
 	mDestination->SetAttribute(mDestinationName, GetValue());
@@ -23,7 +24,7 @@ void SingleShotSource::DoActivate()
 	// send an end of stream
 	mDestination->SetAttribute(mDestinationName, NULL);
 
-	CFRelease(mDestination->GetCFObject());
+	CFReleaseSafe(mDestination->GetCFObject());
 }
 
 

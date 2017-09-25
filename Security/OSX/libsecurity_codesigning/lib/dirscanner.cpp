@@ -156,7 +156,7 @@ void DirValidator::validate(const string &root, OSStatus error)
 		else if (rule->flags & required)
 			reqMatched.insert(rule);
 	}
-	if (reqMatched.size() != mRequireCount) {
+	if (reqMatched.size() != (unsigned long) mRequireCount) {
 		secinfo("dirval", "matched %lu of %d required rules", reqMatched.size(), mRequireCount);
 		MacOSError::throwMe(error);		 // not all required rules were matched
 	}

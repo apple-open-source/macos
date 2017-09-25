@@ -70,24 +70,6 @@
                      "%s: ALERT: couldn't restore CWD", __func__); \
     } while(0)
 
-// Seed errno since strlXXX routines do not set it.  This will make
-// downstream error messages more meaningful (since we're often logging the
-// errno value and message).  COMPILE_TIME_ASSERT() break schdirparent().
-#define PATHCPY(dst, src) do { \
-            /* COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); */ \
-            Boolean useErrno = (errno == 0); \
-            if (useErrno)       errno = ENAMETOOLONG; \
-            if (strlcpy(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
-            if (useErrno)       errno = 0; \
-} while(0)
-#define PATHCAT(dst, src) do { \
-            COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); \
-            Boolean useErrno = (errno == 0); \
-            if (useErrno)       errno = ENAMETOOLONG; \
-            if (strlcat(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
-            if (useErrno)       errno = 0; \
-} while(0)
-
 // given that we call this function twice on an error path, it is tempting
 // to use getmntinfo(3) but it's not threadsafe ... :P
 // called on error paths; shouldn't use PATH*()

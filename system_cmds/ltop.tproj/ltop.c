@@ -282,7 +282,7 @@ get_all_info(void)
 static void
 print_num(int64_t num, int64_t delta)
 {
-	char suf = '\0';
+	const char *suf = "";
 	char posneg = ' ';
 	int numwidth;
 
@@ -297,23 +297,22 @@ print_num(int64_t num, int64_t delta)
 
 	if (llabs(num) > 10000000000) {
 		num /= 1000000000;
-		suf = 'G';
+		suf = "G";
 	} else if (llabs(num) > 10000000) {
 		num /= 1000000;
-		suf = 'M';
+		suf = "M";
 	} else if (llabs(num) > 100000) {
 		num /= 1000;
-		suf = 'K';
+		suf = "K";
 	}
 
 	posneg = (delta < 0) ? '-' : ((delta > 0) ? '+' : ' ');
 
 	numwidth = 10;
 
-	if (suf != '\0')
-		numwidth--;
+	numwidth -= strlen(suf);
 
-	printf("%*lld%c%c ", numwidth, num, suf, posneg);
+	printf("%*lld%s%c ", numwidth, num, suf, posneg);
 }
 
 static void

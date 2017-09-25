@@ -84,19 +84,20 @@ typedef const void *		SSLConnectionRef;
 
 /* SSL Protocol version */
 typedef CF_ENUM(int, SSLProtocol) {
-	kSSLProtocolUnknown = 0,                /* no protocol negotiated/specified; use default */
-	kSSLProtocol3       = 2,				/* SSL 3.0 */
-	kTLSProtocol1       = 4,				/* TLS 1.0 */
-    kTLSProtocol11      = 7,				/* TLS 1.1 */
-    kTLSProtocol12      = 8,				/* TLS 1.2 */
-    kDTLSProtocol1      = 9,                /* DTLS 1.0 */
+    kSSLProtocolUnknown = 0, /* no protocol negotiated/specified; use default */
+    kSSLProtocol3 = 2, /* SSL 3.0 */
+    kTLSProtocol1 = 4, /* TLS 1.0 */
+    kTLSProtocol11 = 7, /* TLS 1.1 */
+    kTLSProtocol12 = 8, /* TLS 1.2 */
+    kDTLSProtocol1 = 9, /* DTLS 1.0 */
+    kTLSProtocol13 = 10, /* TLS 1.3 */
 
-    /* DEPRECATED on iOS */
-    kSSLProtocol2       = 1,				/* SSL 2.0 */
-    kSSLProtocol3Only   = 3,                /* SSL 3.0 Only */
-    kTLSProtocol1Only   = 5,                /* TLS 1.0 Only */
-    kSSLProtocolAll     = 6,                /* All TLS supported protocols */
+    kTLSProtocolMaxSupported = 999, /* Max system-supported version */
 
+    kSSLProtocol2 = 1, /* SSL 2.0. DEPRECATED on iOS. */
+    kSSLProtocol3Only = 3, /* SSL 3.0. DEPRECATED on iOS. */
+    kTLSProtocol1Only = 5, /* TLS 1.0 Only. DEPRECATED on iOS. */
+    kSSLProtocolAll = 6, /* All TLS supported protocols. DEPRECATED on iOS. */
 };
 
 /* SSL session options */
@@ -151,7 +152,10 @@ typedef CF_ENUM(int, SSLSessionOption) {
      * Set this option to Allow renegotations. False by default.
      */
     kSSLSessionOptionAllowRenegotiation = 8,
-
+    /*
+     * Set this option to enable session tickets. False by default.
+     */
+    kSSLSessionOptionEnableSessionTickets = 9,
 };
 
 /* State of an SSLSession */
@@ -184,7 +188,7 @@ typedef CF_ENUM(int, SSLClientCertificateState) {
 	 * Server app can inspect the cert via SSLCopyPeerCertificates().
 	 */
 	kSSLClientCertRejected
-} ;
+};
 
 /*
  * R/W functions. The application using this library provides
@@ -312,29 +316,52 @@ typedef CF_ENUM(int, SSLConnectionType)
  */
 
 /* Default configuration (has 3DES, no RC4) */
-extern const CFStringRef kSSLSessionConfig_default;
+extern const CFStringRef kSSLSessionConfig_default
+__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_13,__IPHONE_5_0,__IPHONE_11_0);
+
 /* ATS v1 Config: TLS v1.2, only PFS ciphersuites */
-extern const CFStringRef kSSLSessionConfig_ATSv1;
+extern const CFStringRef kSSLSessionConfig_ATSv1
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* ATS v1 Config without PFS: TLS v1.2, include non PFS ciphersuites */
-extern const CFStringRef kSSLSessionConfig_ATSv1_noPFS;
+extern const CFStringRef kSSLSessionConfig_ATSv1_noPFS
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* TLS v1.2 to TLS v1.0, with default ciphersuites (no 3DES, no RC4) */
-extern const CFStringRef kSSLSessionConfig_standard;
+extern const CFStringRef kSSLSessionConfig_standard
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* TLS v1.2 to TLS v1.0, with default ciphersuites + RC4 + 3DES */
-extern const CFStringRef kSSLSessionConfig_RC4_fallback;
+extern const CFStringRef kSSLSessionConfig_RC4_fallback
+__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_13,__IPHONE_5_0,__IPHONE_11_0);
+
 /* TLS v1.0 only, with default ciphersuites + fallback SCSV */
-extern const CFStringRef kSSLSessionConfig_TLSv1_fallback;
+extern const CFStringRef kSSLSessionConfig_TLSv1_fallback
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* TLS v1.0, with default ciphersuites + RC4 + 3DES + fallback SCSV */
-extern const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback;
+extern const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback
+__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_13,__IPHONE_5_0,__IPHONE_11_0);
+
 /* TLS v1.2 to TLS v1.0, defaults + RC4 + DHE ciphersuites */
-extern const CFStringRef kSSLSessionConfig_legacy;
+extern const CFStringRef kSSLSessionConfig_legacy
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* TLS v1.2 to TLS v1.0, default + RC4 + DHE ciphersuites */
-extern const CFStringRef kSSLSessionConfig_legacy_DHE;
+extern const CFStringRef kSSLSessionConfig_legacy_DHE
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* TLS v1.2, anonymous ciphersuites only */
-extern const CFStringRef kSSLSessionConfig_anonymous;
+extern const CFStringRef kSSLSessionConfig_anonymous
+__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
 /* TLS v1.2 to TLS v1.0, has 3DES, no RC4 */
-extern const CFStringRef kSSLSessionConfig_3DES_fallback;
+extern const CFStringRef kSSLSessionConfig_3DES_fallback
+__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_13,__IPHONE_5_0,__IPHONE_11_0);
+
 /* TLS v1.0, with default ciphersuites + 3DES, no RC4 */
-extern const CFStringRef kSSLSessionConfig_TLSv1_3DES_fallback;
+extern const CFStringRef kSSLSessionConfig_TLSv1_3DES_fallback
+__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_13,__IPHONE_5_0,__IPHONE_11_0);
 
 
 /******************
@@ -783,6 +810,15 @@ SSLGetEnabledCiphers		(SSLContextRef			context,
 							 size_t					*numCiphers)	/* IN/OUT */
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
 
+/*
+ * Forcibly enable or disable session ticket resumption. By default, session tickets
+ * are disabled.
+ */
+OSStatus
+SSLSetSessionTicketsEnabled     (SSLContextRef          context,
+                                 Boolean                enabled)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 /*
@@ -1140,6 +1176,48 @@ SSLGetNegotiatedCipher		(SSLContextRef 		context,
 							 SSLCipherSuite 	*cipherSuite)
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
 
+/*
+ * Set the ALPN protocols to be passed in the ALPN negotiation.
+ * This is the list of supported application-layer protocols supported.
+ *
+ * The protocols parameter must be an array of CFStringRef values
+ * with ASCII-encoded reprensetations of the supported protocols, e.g., "http/1.1".
+ *
+ * See RFC 7301 for more information.
+ */
+OSStatus
+SSLSetALPNProtocols         (SSLContextRef      context,
+                             CFArrayRef         protocols)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+
+/*
+ * Get the ALPN protocols associated with this SSL context.
+ * This is the list of supported application-layer protocols supported.
+ *
+ * The resultant protocols array will contain CFStringRef values containing
+ * ASCII-encoded representations of the supported protocols, e.g., "http/1.1".
+ *
+ * See RFC 7301 for more information.
+ *
+ * Note: The `protocols` pointer must be NULL, otherwise the copy will fail.
+ * This function will allocate memory for the CFArrayRef container
+ * if there is data to provide. Otherwise, the pointer will remain NULL.
+ */
+OSStatus
+SSLCopyALPNProtocols        (SSLContextRef      context,
+                             CFArrayRef         __nullable * __nonnull protocols)           /* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+
+/*
+ * Set the OCSP response for the given SSL session.
+ *
+ * The response parameter must be a non-NULL CFDataRef containing the 
+ * bytes of the OCSP response.
+ */
+OSStatus
+SSLSetOCSPResponse          (SSLContextRef      context,
+                             CFDataRef          __nonnull response)
+__OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
 
 /********************************************************
  *** Session context configuration, server side only. ***
@@ -1412,6 +1490,15 @@ SSLGetDatagramWriteSize		(SSLContextRef dtlsContext,
 OSStatus
 SSLClose					(SSLContextRef		context)
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
+/*
+ * Set the status of a SSLContextRef. This is to be done after handling 
+ * steps of the SSL handshake such as server certificate validation.
+ */
+OSStatus
+SSLSetError                 (SSLContextRef      context,
+                             OSStatus           status)
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

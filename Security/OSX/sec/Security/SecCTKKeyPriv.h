@@ -30,7 +30,6 @@
 __BEGIN_DECLS
 
 extern const CFStringRef kSecUseToken;
-extern const CFStringRef kSecUseTokenObjectID;
 
 OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters,
                                SecKeyRef *rsaPublicKey, SecKeyRef *rsaPrivateKey);

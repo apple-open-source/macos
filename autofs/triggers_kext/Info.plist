@@ -4,12 +4,10 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
-	<key>OSBundleAllowUserLoad</key>
-	<true/>
 	<key>CFBundleExecutable</key>
 	<string>triggers</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.kext.triggers</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -24,6 +22,8 @@
 	<string>1.0</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2006-2011 Apple Inc. All rights reserved.</string>
+	<key>OSBundleAllowUserLoad</key>
+	<true/>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0d1</string>
 	<key>OSBundleLibraries</key>

@@ -34,39 +34,47 @@
 
 // kern_return_t errors
 #define kSecKernDomain  kCFErrorDomainMach
-bool SecKernError(kern_return_t result, CFErrorRef *error, CFStringRef format, ...);
+bool SecKernError(kern_return_t result, CFErrorRef *error, CFStringRef format, ...)
+   CF_FORMAT_FUNCTION(3, 4);
 
 // Unix errno errors
 #define kSecErrnoDomain  kCFErrorDomainPOSIX
-bool SecCheckErrno(int result, CFErrorRef *error, CFStringRef format, ...);
+bool SecCheckErrno(int result, CFErrorRef *error, CFStringRef format, ...)
+    CF_FORMAT_FUNCTION(3, 4);
 
 // OSStatus errors
 #define kSecErrorDomain  kCFErrorDomainOSStatus
-bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format, ...);
+bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format, ...)
+   CF_FORMAT_FUNCTION(3, 4);
 
 // Direct checking of POSIX errors.
-bool SecPOSIXError(int error, CFErrorRef *cferror, CFStringRef format, ...);
+bool SecPOSIXError(int error, CFErrorRef *cferror, CFStringRef format, ...)
+    CF_FORMAT_FUNCTION(3, 4);
 
 // CoreCrypto error
 #define kSecCoreCryptoDomain CFSTR("kSecCoreCryptoDomain")
-bool SecCoreCryptoError(int error, CFErrorRef *cferror, CFStringRef format, ...);
+bool SecCoreCryptoError(int error, CFErrorRef *cferror, CFStringRef format, ...)
+    CF_FORMAT_FUNCTION(3, 4);
 
 // Notification
 #define kSecNotifyDomain CFSTR("kSecNotifyDomain")
-bool SecNotifyError(uint32_t result, CFErrorRef *error, CFStringRef format, ...);
+bool SecNotifyError(uint32_t result, CFErrorRef *error, CFStringRef format, ...)
+    CF_FORMAT_FUNCTION(3, 4);
+
 
 // requirement error, typically parameters
-bool SecRequirementError(bool requirement, CFErrorRef *error, CFStringRef format, ...);
+bool SecRequirementError(bool requirement, CFErrorRef *error, CFStringRef format, ...)
+    CF_FORMAT_FUNCTION(3, 4);
 
 // Allocation failure
-bool SecAllocationError(const void *allocated, CFErrorRef *error, CFStringRef format, ...);
-
+bool SecAllocationError(const void *allocated, CFErrorRef *error, CFStringRef format, ...)
+    CF_FORMAT_FUNCTION(3, 4);
 
 //
 // Create and chain, all return false to make the analyzer happy.
 //
-bool SecCFCreateError(CFIndex errorCode, CFStringRef domain, CFStringRef descriptionString,
-                      CFErrorRef previousError, CFErrorRef *newError);
+#define SecCFCreateError(errorCode, domain, descriptionString, previousError, newError) \
+    SecCFCreateErrorWithFormat(errorCode, domain, previousError, newError, NULL, descriptionString)
 
 bool SecCFCreateErrorWithFormat(CFIndex errorCode, CFStringRef domain, CFErrorRef previousError, CFErrorRef *newError,
                                 CFDictionaryRef formatoptions, CFStringRef descriptionString, ...)

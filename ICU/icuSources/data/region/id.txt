@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/id.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 id{
     Countries{
         001{"Dunia"}
@@ -47,7 +41,7 @@ id{
         AL{"Albania"}
         AM{"Armenia"}
         AO{"Angola"}
-        AQ{"Antarktika"}
+        AQ{"Antartika"}
         AR{"Argentina"}
         AS{"Samoa Amerika"}
         AT{"Austria"}
@@ -64,7 +58,7 @@ id{
         BH{"Bahrain"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Saint Barthelemy"}
+        BL{"Saint Barthélemy"}
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
@@ -77,7 +71,7 @@ id{
         BY{"Belarus"}
         BZ{"Belize"}
         CA{"Kanada"}
-        CC{"Kepulauan Cocos"}
+        CC{"Kepulauan Cocos (Keeling)"}
         CD{"Kongo - Kinshasa"}
         CF{"Republik Afrika Tengah"}
         CG{"Kongo - Brazzaville"}
@@ -95,7 +89,7 @@ id{
         CW{"Curaçao"}
         CX{"Pulau Christmas"}
         CY{"Siprus"}
-        CZ{"Republik Cheska"}
+        CZ{"Cheska"}
         DE{"Jerman"}
         DG{"Diego Garcia"}
         DJ{"Jibuti"}
@@ -119,7 +113,7 @@ id{
         FO{"Kepulauan Faroe"}
         FR{"Prancis"}
         GA{"Gabon"}
-        GB{"Inggris"}
+        GB{"Inggris Raya"}
         GD{"Grenada"}
         GE{"Georgia"}
         GF{"Guyana Prancis"}
@@ -137,7 +131,7 @@ id{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong SAR Tiongkok"}
+        HK{"Hong Kong (Tiongkok)"}
         HM{"Pulau Heard dan Kepulauan McDonald"}
         HN{"Honduras"}
         HR{"Kroasia"}
@@ -191,7 +185,7 @@ id{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Makau SAR Tiongkok"}
+        MO{"Makau (Tiongkok)"}
         MP{"Kepulauan Mariana Utara"}
         MQ{"Martinik"}
         MR{"Mauritania"}
@@ -278,6 +272,7 @@ id{
         UA{"Ukraina"}
         UG{"Uganda"}
         UM{"Kepulauan Terluar A.S."}
+        UN{"Perserikatan Bangsa-Bangsa"}
         US{"Amerika Serikat"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
@@ -299,19 +294,21 @@ id{
         ZZ{"Wilayah Tidak Dikenal"}
     }
     Countries%short{
-        GB{"GB"}
+        GB{"UK"}
         HK{"Hong Kong"}
         MO{"Makau"}
         PS{"Palestina"}
+        UN{"PBB"}
         US{"A.S."}
     }
     Countries%variant{
         CD{"Kongo (RDK)"}
         CG{"Kongo (Republik)"}
         CI{"Ivory Coast"}
+        CZ{"Republik Cheska"}
         FK{"Kepulauan Malvinas (Falkland)"}
         MK{"Makedonia (BRY)"}
         TL{"Timor Timur"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
 }

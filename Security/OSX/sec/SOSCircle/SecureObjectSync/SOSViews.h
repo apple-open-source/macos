@@ -31,6 +31,7 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
+#include <xpc/xpc.h>
 
 __BEGIN_DECLS
 
@@ -52,12 +53,13 @@ typedef struct __OpaqueSOSView {
 
 
 typedef enum {
-    kViewSetAll,
+    kViewSetAll, // Note that this is not All, but is All SOS views.
     kViewSetDefault,
     kViewSetInitial,
     kViewSetAlwaysOn,
     kViewSetV0,
-    kViewSetRequiredForBackup
+    kViewSetRequiredForBackup,
+    kViewSetCKKS,
 } ViewSetKind;
 
 CFMutableSetRef SOSViewCopyViewSet(ViewSetKind setKind);
@@ -70,6 +72,10 @@ CFSetRef SOSViewsGetV0BackupViewSet(void);
 CFSetRef SOSViewsGetV0BackupBagViewSet(void);
 
 bool SOSViewsIsV0Subview(CFStringRef viewName);
+
+bool SOSViewInSOSSystem(CFStringRef view);
+bool SOSViewHintInSOSSystem(CFStringRef viewHint);
+bool SOSViewHintInCKKSSystem(CFStringRef viewHint);
 
 // Basic interfaces to change and query views
 SOSViewResultCode SOSViewsEnable(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error);
@@ -92,6 +98,9 @@ static inline bool SOSPeerInfoIsViewPermitted(SOSPeerInfoRef peerInfo, CFStringR
 }
 
 const char *SOSViewsXlateAction(SOSViewActionCode action);
+/* CFSet <-> XPC functions */
+xpc_object_t CreateXPCObjectWithCFSetRef(CFSetRef setref, CFErrorRef *error);
+
 __END_DECLS
 
 #endif /* defined(_sec_SOSViews_) */

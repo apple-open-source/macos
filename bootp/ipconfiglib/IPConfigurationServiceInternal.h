@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,8 @@
     CFSTR("PerformNUD")		/* boolean */
 #define _kIPConfigurationServiceOptionServiceID		\
     CFSTR("ServiceID")		/* string (UUID) */
+#define _kIPConfigurationServiceOptionAPNName	\
+    CFSTR("APNName")		/* string */
 
 #define _kIPConfigurationServiceOptionIPv6Entity	\
     CFSTR("IPv6Entity")	/* dictionary */

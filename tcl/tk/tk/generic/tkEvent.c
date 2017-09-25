@@ -103,7 +103,7 @@ mt_log_BSDServices_ScriptingLanguageUse(const char *signature)
     pid_t p = getppid();
     char *pstree = NULL;
     size_t oldsize = 0;
-    while(proc_pidinfo(p, PROC_PIDT_SHORTBSDINFO, 0, &pinfo, sizeof(pinfo)) != -1) {
+    while(proc_pidinfo(p, PROC_PIDT_SHORTBSDINFO, 0, &pinfo, sizeof(pinfo)) == sizeof(pinfo)) {
         struct stat sb;
         char found = 0;
         if(stat("/Library/Caches/com.apple.DiagnosticReporting.HasBeenAppleInternal", &sb) == 0) {

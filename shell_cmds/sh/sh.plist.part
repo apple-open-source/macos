@@ -2,17 +2,18 @@
 		<key>OpenSourceProject</key>
 		<string>sh</string>
 		<key>OpenSourceVersion</key>
-		<string>2015-07-11</string>
+		<string>2016-10-08</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://svnweb.freebsd.org/base/head/bin/sh/</string>
 		<key>OpenSourceSCM</key>
 		<string>svn co http://svn.freebsd.org/base/head/bin/sh/</string>
 		<key>OpenSourceImportDate</key>
-		<string>2015-08-13</string>
+		<string>2016-10-27</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		    <string>exec.c: eaccess</string>
 		    <string>input.c: remove multiple definition</string>
+		    <string>input.c: strchrnul</string>
 		    <string>miscbltin.c: warning fix</string>
 		    <string>mknodes.c: __printf0like</string>
 		    <string>trap.c: sys_nsig</string>

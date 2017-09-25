@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 module REXML
   # If you add a method, keep in mind two things:
   # (1) the first argument will always be a list of nodes from which to
@@ -363,7 +364,7 @@ module REXML
 
     def Functions::sum( nodes )
       nodes = [nodes] unless nodes.kind_of? Array
-      nodes.inject(0) { |r,n| r += number(string(n)) }
+      nodes.inject(0) { |r,n| r + number(string(n)) }
     end
 
     def Functions::floor( number )

@@ -2,15 +2,13 @@
 
   transcode.c -
 
-  $Author: drbrain $
+  $Author: nagachika $
   created at: Tue Oct 30 16:10:22 JST 2007
 
   Copyright (C) 2007 Martin Duerst
 
 **********************************************************************/
 
-#include "ruby/ruby.h"
-#include "ruby/encoding.h"
 #include "internal.h"
 #include "transcode_data.h"
 #include <ctype.h>
@@ -110,21 +108,21 @@ typedef struct {
 
 struct rb_econv_t {
     int flags;
+    int started; /* bool */
+
     const char *source_encoding_name;
     const char *destination_encoding_name;
-
-    int started;
 
     const unsigned char *replacement_str;
     size_t replacement_len;
     const char *replacement_enc;
-    int replacement_allocated;
 
     unsigned char *in_buf_start;
     unsigned char *in_data_start;
     unsigned char *in_data_end;
     unsigned char *in_buf_end;
     rb_econv_elem_t *elems;
+    int replacement_allocated; /* bool */
     int num_allocated;
     int num_trans;
     int num_finished;
@@ -156,7 +154,7 @@ struct rb_econv_t {
 typedef struct {
     const char *sname;
     const char *dname;
-    const char *lib; /* null means means no need to load a library */
+    const char *lib; /* null means no need to load a library */
     const rb_transcoder *transcoder;
 } transcoder_entry_t;
 
@@ -372,15 +370,12 @@ load_transcoder_entry(transcoder_entry_t *entry)
         char *const path = RSTRING_PTR(fn);
 	const int safe = rb_safe_level();
 
-        entry->lib = NULL;
-
         memcpy(path, transcoder_lib_prefix, sizeof(transcoder_lib_prefix) - 1);
         memcpy(path + sizeof(transcoder_lib_prefix) - 1, lib, len);
         rb_str_set_len(fn, total_len);
-        FL_UNSET(fn, FL_TAINT|FL_UNTRUSTED);
+        FL_UNSET(fn, FL_TAINT);
         OBJ_FREEZE(fn);
-        if (!rb_require_safe(fn, safe > 3 ? 3 : safe))
-            return NULL;
+        rb_require_safe(fn, safe > 3 ? 3 : safe);
     }
 
     if (entry->transcoder)
@@ -998,6 +993,7 @@ rb_econv_open0(const char *sname, const char *dname, int ecflags)
     if (*sname == '\0' && *dname == '\0') {
         num_trans = 0;
         entries = NULL;
+	sname = dname = "";
     }
     else {
         struct trans_open_t toarg;
@@ -1810,9 +1806,9 @@ rb_econv_asciicompat_encoding(const char *ascii_incompat_name)
 }
 
 VALUE
-rb_econv_substr_append(rb_econv_t *ec, VALUE src, long off, long len, VALUE dst, int flags)
+rb_econv_append(rb_econv_t *ec, const char *ss, long len, VALUE dst, int flags)
 {
-    unsigned const char *ss, *sp, *se;
+    unsigned const char *sp, *se;
     unsigned char *ds, *dp, *de;
     rb_econv_result_t res;
     int max_output;
@@ -1828,8 +1824,7 @@ rb_econv_substr_append(rb_econv_t *ec, VALUE src, long off, long len, VALUE dst,
     else
         max_output = 1;
 
-    res = econv_destination_buffer_full;
-    while (res == econv_destination_buffer_full) {
+    do {
         long dlen = RSTRING_LEN(dst);
         if (rb_str_capacity(dst) - dlen < (size_t)len + max_output) {
             unsigned long new_capa = (unsigned long)dlen + len + max_output;
@@ -1838,18 +1833,28 @@ rb_econv_substr_append(rb_econv_t *ec, VALUE src, long off, long len, VALUE dst,
             rb_str_resize(dst, new_capa);
             rb_str_set_len(dst, dlen);
         }
-        ss = sp = (const unsigned char *)RSTRING_PTR(src) + off;
-        se = ss + len;
+        sp = (const unsigned char *)ss;
+        se = sp + len;
         ds = (unsigned char *)RSTRING_PTR(dst);
         de = ds + rb_str_capacity(dst);
         dp = ds += dlen;
         res = rb_econv_convert(ec, &sp, se, &dp, de, flags);
-        off += sp - ss;
-        len -= sp - ss;
+        len -= (const char *)sp - ss;
+        ss  = (const char *)sp;
         rb_str_set_len(dst, dlen + (dp - ds));
         rb_econv_check_error(ec);
-    }
+    } while (res == econv_destination_buffer_full);
 
+    return dst;
+}
+
+VALUE
+rb_econv_substr_append(rb_econv_t *ec, VALUE src, long off, long len, VALUE dst, int flags)
+{
+    src = rb_str_new_frozen(src);
+    dst = rb_econv_append(ec, RSTRING_PTR(src) + off, len, dst, flags);
+    RB_GC_GUARD(src);
+    OBJ_INFECT_RAW(dst, src);
     return dst;
 }
 
@@ -2196,7 +2201,7 @@ rb_econv_set_replacement(rb_econv_t *ec,
 
     encname2 = rb_econv_encoding_to_insert_output(ec);
 
-    if (encoding_equal(encname, encname2)) {
+    if (!*encname2 || encoding_equal(encname, encname2)) {
         str2 = xmalloc(len);
         MEMCPY(str2, str, unsigned char, len); /* xxx: str may be invalid */
         len2 = len;
@@ -2455,7 +2460,7 @@ econv_opts(VALUE opt, int ecflags)
             ecflags |= ECONV_XML_ATTR_CONTENT_DECORATOR|ECONV_XML_ATTR_QUOTE_DECORATOR|ECONV_UNDEF_HEX_CHARREF;
         }
         else if (RB_TYPE_P(v, T_SYMBOL)) {
-            rb_raise(rb_eArgError, "unexpected value for xml option: %s", rb_id2name(SYM2ID(v)));
+            rb_raise(rb_eArgError, "unexpected value for xml option: %"PRIsVALUE, rb_sym2str(v));
         }
         else {
             rb_raise(rb_eArgError, "unexpected value for xml option");
@@ -2479,8 +2484,8 @@ econv_opts(VALUE opt, int ecflags)
 	    /* ecflags |= ECONV_LF_NEWLINE_DECORATOR; */
 	}
 	else if (SYMBOL_P(v)) {
-	    rb_raise(rb_eArgError, "unexpected value for newline option: %s",
-		     rb_id2name(SYM2ID(v)));
+	    rb_raise(rb_eArgError, "unexpected value for newline option: %"PRIsVALUE,
+		     rb_sym2str(v));
 	}
 	else {
 	    rb_raise(rb_eArgError, "unexpected value for newline option");
@@ -2602,7 +2607,7 @@ rb_econv_open_opts(const char *source_encoding, const char *destination_encoding
 }
 
 static int
-enc_arg(volatile VALUE *arg, const char **name_p, rb_encoding **enc_p)
+enc_arg(VALUE *arg, const char **name_p, rb_encoding **enc_p)
 {
     rb_encoding *enc;
     const char *n;
@@ -2626,7 +2631,7 @@ enc_arg(volatile VALUE *arg, const char **name_p, rb_encoding **enc_p)
 }
 
 static int
-str_transcode_enc_args(VALUE str, volatile VALUE *arg1, volatile VALUE *arg2,
+str_transcode_enc_args(VALUE str, VALUE *arg1, VALUE *arg2,
         const char **sname_p, rb_encoding **senc_p,
         const char **dname_p, rb_encoding **denc_p)
 {
@@ -2657,13 +2662,14 @@ str_transcode0(int argc, VALUE *argv, VALUE *self, int ecflags, VALUE ecopts)
 {
     VALUE dest;
     VALUE str = *self;
-    volatile VALUE arg1, arg2;
+    VALUE arg1, arg2;
     long blen, slen;
     unsigned char *buf, *bp, *sp;
     const unsigned char *fromp;
     rb_encoding *senc, *denc;
     const char *sname, *dname;
     int dencidx;
+    int explicitly_invalid_replace = TRUE;
 
     rb_check_arity(argc, 0, 2);
 
@@ -2672,6 +2678,9 @@ str_transcode0(int argc, VALUE *argv, VALUE *self, int ecflags, VALUE ecopts)
 	if (NIL_P(arg1)) {
 	    if (!ecflags) return -1;
 	    arg1 = rb_obj_encoding(str);
+	}
+	if (!(ecflags & ECONV_INVALID_MASK)) {
+	    explicitly_invalid_replace = FALSE;
 	}
 	ecflags |= ECONV_INVALID_REPLACE | ECONV_UNDEF_REPLACE;
     }
@@ -2686,6 +2695,16 @@ str_transcode0(int argc, VALUE *argv, VALUE *self, int ecflags, VALUE ecopts)
                     ECONV_XML_ATTR_CONTENT_DECORATOR|
                     ECONV_XML_ATTR_QUOTE_DECORATOR)) == 0) {
         if (senc && senc == denc) {
+	    if ((ecflags & ECONV_INVALID_MASK) && explicitly_invalid_replace) {
+		VALUE rep = Qnil;
+		if (!NIL_P(ecopts)) {
+		    rep = rb_hash_aref(ecopts, sym_replace);
+		}
+		dest = rb_enc_str_scrub(senc, str, rep);
+		if (NIL_P(dest)) dest = str;
+		*self = dest;
+		return dencidx;
+	    }
             return NIL_P(arg2) ? -1 : dencidx;
         }
         if (senc && denc && rb_enc_asciicompat(senc) && rb_enc_asciicompat(denc)) {
@@ -2721,6 +2740,8 @@ str_transcode0(int argc, VALUE *argv, VALUE *self, int ecflags, VALUE ecopts)
     /* set encoding */
     if (!denc) {
 	dencidx = rb_define_dummy_encoding(dname);
+	RB_GC_GUARD(arg1);
+	RB_GC_GUARD(arg2);
     }
     *self = dest;
 
@@ -2815,10 +2836,6 @@ static VALUE encoded_dup(VALUE newstr, VALUE str, int encidx);
  *  in the source encoding. The last form by default does not raise
  *  exceptions but uses replacement strings.
  *
- *  Please note that conversion from an encoding +enc+ to the
- *  same encoding +enc+ is a no-op, i.e. the receiver is returned without
- *  any changes, and no exceptions are raised, even if there are invalid bytes.
- *
  *  The +options+ Hash gives details for conversion and can have the following
  *  keys:
  *
@@ -2883,7 +2900,7 @@ encoded_dup(VALUE newstr, VALUE str, int encidx)
 	return newstr;
     }
     else {
-	RBASIC(newstr)->klass = rb_obj_class(str);
+	RBASIC_SET_CLASS(newstr, rb_obj_class(str));
     }
     return str_encode_associate(newstr, encidx);
 }
@@ -2898,12 +2915,13 @@ econv_free(void *ptr)
 static size_t
 econv_memsize(const void *ptr)
 {
-    return ptr ? sizeof(rb_econv_t) : 0;
+    return sizeof(rb_econv_t);
 }
 
 static const rb_data_type_t econv_data_type = {
     "econv",
     {NULL, econv_free, econv_memsize,},
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY
 };
 
 static VALUE
@@ -2976,7 +2994,7 @@ econv_s_asciicompat_encoding(VALUE klass, VALUE arg)
 
 static void
 econv_args(int argc, VALUE *argv,
-    volatile VALUE *snamev_p, volatile VALUE *dnamev_p,
+    VALUE *snamev_p, VALUE *dnamev_p,
     const char **sname_p, const char **dname_p,
     rb_encoding **senc_p, rb_encoding **denc_p,
     int *ecflags_p,
@@ -3048,10 +3066,10 @@ decorate_convpath(VALUE convpath, int ecflags)
 
     len = n = RARRAY_LENINT(convpath);
     if (n != 0) {
-        VALUE pair = RARRAY_PTR(convpath)[n-1];
+        VALUE pair = RARRAY_AREF(convpath, n-1);
 	if (RB_TYPE_P(pair, T_ARRAY)) {
-	    const char *sname = rb_enc_name(rb_to_encoding(RARRAY_PTR(pair)[0]));
-	    const char *dname = rb_enc_name(rb_to_encoding(RARRAY_PTR(pair)[1]));
+	    const char *sname = rb_enc_name(rb_to_encoding(RARRAY_AREF(pair, 0)));
+	    const char *dname = rb_enc_name(rb_to_encoding(RARRAY_AREF(pair, 1)));
 	    transcoder_entry_t *entry = get_transcoder_entry(sname, dname);
 	    const rb_transcoder *tr = load_transcoder_entry(entry);
 	    if (!tr)
@@ -3120,7 +3138,7 @@ search_convpath_i(const char *sname, const char *dname, int depth, void *arg)
 static VALUE
 econv_s_search_convpath(int argc, VALUE *argv, VALUE klass)
 {
-    volatile VALUE snamev, dnamev;
+    VALUE snamev, dnamev;
     const char *sname, *dname;
     rb_encoding *senc, *denc;
     int ecflags;
@@ -3135,8 +3153,12 @@ econv_s_search_convpath(int argc, VALUE *argv, VALUE klass)
     if (NIL_P(convpath))
         rb_exc_raise(rb_econv_open_exc(sname, dname, ecflags));
 
-    if (decorate_convpath(convpath, ecflags) == -1)
-        rb_exc_raise(rb_econv_open_exc(sname, dname, ecflags));
+    if (decorate_convpath(convpath, ecflags) == -1) {
+	VALUE exc = rb_econv_open_exc(sname, dname, ecflags);
+	RB_GC_GUARD(snamev);
+	RB_GC_GUARD(dnamev);
+	rb_exc_raise(exc);
+    }
 
     return convpath;
 }
@@ -3192,7 +3214,7 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
     DATA_PTR(self) = ec;
 
     for (i = 0; i < RARRAY_LEN(convpath); i++) {
-        volatile VALUE snamev, dnamev;
+        VALUE snamev, dnamev;
         VALUE pair;
         elt = rb_ary_entry(convpath, i);
         if (!NIL_P(pair = rb_check_array_type(elt))) {
@@ -3209,8 +3231,12 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
         }
         if (DECORATOR_P(sname, dname)) {
             ret = rb_econv_add_converter(ec, sname, dname, ec->num_trans);
-            if (ret == -1)
-                rb_raise(rb_eArgError, "decoration failed: %s", dname);
+	    if (ret == -1) {
+		VALUE msg = rb_sprintf("decoration failed: %s", dname);
+		RB_GC_GUARD(snamev);
+		RB_GC_GUARD(dnamev);
+		rb_exc_raise(rb_exc_new_str(rb_eArgError, msg));
+	    }
         }
         else {
             int j = ec->num_trans;
@@ -3219,8 +3245,12 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
             arg.index = ec->num_trans;
             arg.ret = 0;
             ret = transcode_search_path(sname, dname, rb_econv_init_by_convpath_i, &arg);
-            if (ret == -1 || arg.ret == -1)
-                rb_raise(rb_eArgError, "adding conversion failed: %s to %s", sname, dname);
+	    if (ret == -1 || arg.ret == -1) {
+		VALUE msg = rb_sprintf("adding conversion failed: %s to %s", sname, dname);
+		RB_GC_GUARD(snamev);
+		RB_GC_GUARD(dnamev);
+                rb_exc_raise(rb_exc_new_str(rb_eArgError, msg));
+	    }
             if (first) {
                 first = 0;
                 *senc_p = senc;
@@ -3232,10 +3262,10 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
     }
 
     if (first) {
-      *senc_p = NULL;
-      *denc_p = NULL;
-      *sname_p = "";
-      *dname_p = "";
+	*senc_p = NULL;
+	*denc_p = NULL;
+	*sname_p = "";
+	*dname_p = "";
     }
 
     ec->source_encoding_name = *sname_p;
@@ -3354,7 +3384,7 @@ static VALUE
 econv_init(int argc, VALUE *argv, VALUE self)
 {
     VALUE ecopts;
-    volatile VALUE snamev, dnamev;
+    VALUE snamev, dnamev;
     const char *sname, *dname;
     rb_encoding *senc, *denc;
     rb_econv_t *ec;
@@ -3376,7 +3406,10 @@ econv_init(int argc, VALUE *argv, VALUE self)
     }
 
     if (!ec) {
-        rb_exc_raise(rb_econv_open_exc(sname, dname, ecflags));
+	VALUE exc = rb_econv_open_exc(sname, dname, ecflags);
+	RB_GC_GUARD(snamev);
+	RB_GC_GUARD(dnamev);
+	rb_exc_raise(exc);
     }
 
     if (!DECORATOR_P(sname, dname)) {
@@ -3384,6 +3417,8 @@ econv_init(int argc, VALUE *argv, VALUE self)
             senc = make_dummy_encoding(sname);
         if (!denc)
             denc = make_dummy_encoding(dname);
+	RB_GC_GUARD(snamev);
+	RB_GC_GUARD(dnamev);
     }
 
     ec->source_encoding = senc;
@@ -3748,8 +3783,10 @@ econv_primitive_convert(int argc, VALUE *argv, VALUE self)
 
     res = rb_econv_convert(ec, &ip, is, &op, os, flags);
     rb_str_set_len(output, op-(unsigned char *)RSTRING_PTR(output));
-    if (!NIL_P(input))
+    if (!NIL_P(input)) {
+        OBJ_INFECT_RAW(output, input);
         rb_str_drop_bytes(input, ip - (unsigned char *)RSTRING_PTR(input));
+    }
 
     if (NIL_P(output_bytesize_v) && res == econv_destination_buffer_full) {
         if (LONG_MAX / 2 < output_bytesize)
@@ -3864,7 +3901,7 @@ econv_finish(VALUE self)
     av[1] = dst;
     av[2] = Qnil;
     av[3] = Qnil;
-    av[4] = INT2NUM(0);
+    av[4] = INT2FIX(0);
     ac = 5;
 
     ret = econv_primitive_convert(ac, av, self);
@@ -4369,13 +4406,10 @@ ecerr_incomplete_input(VALUE self)
  *  correspond with a known converter.
  */
 
+#undef rb_intern
 void
 Init_transcode(void)
 {
-    rb_eUndefinedConversionError = rb_define_class_under(rb_cEncoding, "UndefinedConversionError", rb_eEncodingError);
-    rb_eInvalidByteSequenceError = rb_define_class_under(rb_cEncoding, "InvalidByteSequenceError", rb_eEncodingError);
-    rb_eConverterNotFoundError = rb_define_class_under(rb_cEncoding, "ConverterNotFoundError", rb_eEncodingError);
-
     transcoder_table = st_init_strcasetable();
 
     sym_invalid = ID2SYM(rb_intern("invalid"));
@@ -4406,6 +4440,16 @@ Init_transcode(void)
     sym_cr = ID2SYM(rb_intern("cr"));
     sym_lf = ID2SYM(rb_intern("lf"));
 #endif
+
+    InitVM(transcode);
+}
+
+void
+InitVM_transcode(void)
+{
+    rb_eUndefinedConversionError = rb_define_class_under(rb_cEncoding, "UndefinedConversionError", rb_eEncodingError);
+    rb_eInvalidByteSequenceError = rb_define_class_under(rb_cEncoding, "InvalidByteSequenceError", rb_eEncodingError);
+    rb_eConverterNotFoundError = rb_define_class_under(rb_cEncoding, "ConverterNotFoundError", rb_eEncodingError);
 
     rb_define_method(rb_cString, "encode", str_encode, -1);
     rb_define_method(rb_cString, "encode!", str_encode_bang, -1);

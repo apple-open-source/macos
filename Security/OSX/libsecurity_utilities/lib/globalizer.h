@@ -33,6 +33,7 @@
 #include <set>
 #include <dispatch/dispatch.h>
 #include <libkern/OSAtomic.h>
+#include <os/lock.h>
 
 namespace Security {
 
@@ -60,14 +61,14 @@ private:
 
 protected:
     void *create(void *(*make)());
-    void lock() {OSSpinLockLock(&access);}
-    void unlock() {OSSpinLockUnlock(&access);}
+    void lock() {os_unfair_lock_lock(&access);}
+    void unlock() {os_unfair_lock_unlock(&access);}
 
 protected:
     // all of these will be statically initialized to zero
 	void *pointer;
     dispatch_once_t once;
-    OSSpinLock access;
+    os_unfair_lock access;
 };
 
 template <class Type>

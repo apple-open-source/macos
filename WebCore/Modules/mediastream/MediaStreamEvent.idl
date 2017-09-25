@@ -24,8 +24,8 @@
 
 [
     Conditional=WEB_RTC,
-    Constructor(DOMString type, MediaStreamEventInit eventInitDict),
-    EnabledAtRuntime=mediaStream,
+    Constructor(DOMString type, optional MediaStreamEventInit eventInitDict),
+    EnabledAtRuntime=WebRTCLegacyAPI&MediaStream,
 ] interface MediaStreamEvent : Event {
     readonly attribute MediaStream? stream;
 };

@@ -55,7 +55,7 @@
      오류시 &gt;0을 반환한다. 자세한 내용은 스크립트의 주석을
      참고하라.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#synopsis">개요</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#synopsis">개요</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#options">옵션</a></li>
 </ul><h3>참고</h3><ul class="seealso"><li><a href="../invoking.html">아파치 시작</a></li><li><a href="../stopping.html">아파치 중단</a></li><li><a href="../configuring.html">설정파일</a></li><li><a href="../platform/">플래폼 문서</a></li><li><a href="httpd.html">httpd</a></li><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -165,7 +165,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/apachectl.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

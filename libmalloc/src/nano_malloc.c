@@ -125,7 +125,7 @@ allocate_based_pages(nanozone_t *nanozone,
 
 	if (add_guard_pages) {
 		addr += vm_page_size;
-		protect((void *)addr, size, PROT_NONE, debug_flags);
+		mvm_protect((void *)addr, size, PROT_NONE, debug_flags);
 	}
 	return (void *)addr;
 }
@@ -153,6 +153,44 @@ nano_deallocate_pages(nanozone_t *nanozone, void *addr, size_t size, unsigned de
 		nanozone_error(nanozone, 0, "Can't deallocate_pages at", addr, NULL);
 	}
 }
+
+#if NANO_PREALLOCATE_BAND_VM
+static boolean_t
+nano_preallocate_band_vm(void)
+{
+	nano_blk_addr_t u;
+	uintptr_t s, e;
+
+	u.fields.nano_signature = NANOZONE_SIGNATURE;
+	u.fields.nano_mag_index = 0;
+	u.fields.nano_band = 0;
+	u.fields.nano_slot = 0;
+	u.fields.nano_offset = 0;
+
+	s = u.addr; // start of first possible band
+
+	u.fields.nano_mag_index = (1 << NANO_MAG_BITS) - 1;
+	u.fields.nano_band = (1 << NANO_BAND_BITS) - 1;
+
+	e = u.addr + BAND_SIZE; // end of last possible band
+
+	mach_vm_address_t vm_addr = s;
+	mach_vm_size_t vm_size = (e - s);
+
+	kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, vm_size, 0,
+			VM_MAKE_TAG(VM_MEMORY_MALLOC_NANO), MEMORY_OBJECT_NULL, 0, FALSE,
+			VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+
+	void *q = (void *)vm_addr;
+	if (kr || q != (void*)s) { // Must get exactly what we asked for
+		if (!kr) {
+			mach_vm_deallocate(mach_task_self(), vm_addr, vm_size);
+		}
+		return FALSE;
+	}
+	return TRUE;
+}
+#endif
 
 /*
  * We maintain separate free lists for each (quantized) size. The literature
@@ -190,8 +228,8 @@ segregated_band_grow(nanozone_t *nanozone, nano_meta_admin_t pMeta, size_t slot_
 	pMeta->slot_current_base_addr = p;
 
 	mach_vm_address_t vm_addr = p & ~((uintptr_t)(BAND_SIZE - 1)); // Address of the (2MB) band covering this (128KB) slot
-
 	if (nanozone->band_max_mapped_baseaddr[mag_index] < vm_addr) {
+#if !NANO_PREALLOCATE_BAND_VM
 		// Obtain the next band to cover this slot
 		kern_return_t kr = mach_vm_map(mach_task_self(), &vm_addr, BAND_SIZE, 0, VM_MAKE_TAG(VM_MEMORY_MALLOC_NANO),
 				MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
@@ -203,7 +241,7 @@ segregated_band_grow(nanozone_t *nanozone, nano_meta_admin_t pMeta, size_t slot_
 			}
 			return FALSE;
 		}
-
+#endif
 		nanozone->band_max_mapped_baseaddr[mag_index] = vm_addr;
 	}
 
@@ -1832,19 +1870,24 @@ create_nano_zone(size_t initial_size, malloc_zone_t *helper_zone, unsigned debug
 	nanozone_t *nanozone;
 	int i, j;
 
+	/* Note: It is important that create_nano_zone clears _malloc_engaged_nano
+	 * if it is unable to enable the nanozone (and chooses not to abort). As
+	 * several functions rely on _malloc_engaged_nano to determine if they
+	 * should manipulate the nanozone, and these should not run if we failed
+	 * to create the zone.
+	 */
 	if (!_malloc_engaged_nano) {
 		return NULL;
 	}
 
-#if defined(__x86_64__)
 	if (_COMM_PAGE_VERSION_REQD > (*((uint16_t *)_COMM_PAGE_VERSION))) {
 		MALLOC_PRINTF_FATAL_ERROR((*((uint16_t *)_COMM_PAGE_VERSION)), "comm page version mismatch");
 	}
-#endif
 
 	/* get memory for the zone. */
 	nanozone = nano_allocate_pages(NULL, NANOZONE_PAGED_SIZE, 0, 0, VM_MEMORY_MALLOC);
 	if (!nanozone) {
+		_malloc_engaged_nano = false;
 		return NULL;
 	}
 
@@ -1876,20 +1919,18 @@ create_nano_zone(size_t initial_size, malloc_zone_t *helper_zone, unsigned debug
 	nanozone->our_signature = NANOZONE_SIGNATURE;
 
 /* Query the number of configured processors. */
-#if defined(__x86_64__)
 	nanozone->phys_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_PHYSICAL_CPUS;
 	nanozone->logical_ncpus = *(uint8_t *)(uintptr_t)_COMM_PAGE_LOGICAL_CPUS;
-#else
-#error Unknown architecture
-#endif
 
-	if (nanozone->phys_ncpus > sizeof(nanozone->core_mapped_size) / sizeof(nanozone->core_mapped_size[0])) {
-		_malloc_printf(ASL_LEVEL_NOTICE, "nano zone abandoned because NCPUS mismatch.\n");
-		return NULL;
+	if (nanozone->phys_ncpus > sizeof(nanozone->core_mapped_size) /
+			sizeof(nanozone->core_mapped_size[0])) {
+		MALLOC_PRINTF_FATAL_ERROR(nanozone->phys_ncpus,
+				"nanozone abandoned because NCPUS > max magazines.\n");
 	}
 
 	if (0 != (nanozone->logical_ncpus % nanozone->phys_ncpus)) {
-		MALLOC_PRINTF_FATAL_ERROR(nanozone->logical_ncpus % nanozone->phys_ncpus, "logical_ncpus % phys_ncpus != 0");
+		MALLOC_PRINTF_FATAL_ERROR(nanozone->logical_ncpus % nanozone->phys_ncpus,
+				"logical_ncpus % phys_ncpus != 0");
 	}
 
 	switch (nanozone->logical_ncpus / nanozone->phys_ncpus) {
@@ -1933,6 +1974,33 @@ create_nano_zone(size_t initial_size, malloc_zone_t *helper_zone, unsigned debug
 	nanozone->helper_zone = helper_zone;
 
 	return (malloc_zone_t *)nanozone;
+}
+
+boolean_t _malloc_engaged_nano;
+
+void
+nano_init(const char *envp[], const char *apple[])
+{
+    const char *flag = _simple_getenv(apple, "MallocNanoZone");
+	if (flag && flag[0] == '1') {
+		_malloc_engaged_nano = 1;
+	}
+	/* Explicit overrides from the environment */
+	flag = _simple_getenv(envp, "MallocNanoZone");
+	if (flag && flag[0] == '1') {
+		_malloc_engaged_nano = 1;
+	} else if (flag && flag[0] == '0') {
+		_malloc_engaged_nano = 0;
+	}
+#if NANO_PREALLOCATE_BAND_VM
+	// Unconditionally preallocate the VA space set aside for nano malloc to
+	// reserve it in all configurations. rdar://problem/33392283
+	boolean_t preallocated = nano_preallocate_band_vm();
+	if (!preallocated && _malloc_engaged_nano) {
+		_malloc_printf(ASL_LEVEL_NOTICE, "nano zone abandoned due to inability to preallocate reserved vm space.\n");
+		_malloc_engaged_nano = 0;
+	}
+#endif
 }
 
 #endif // CONFIG_NANOZONE

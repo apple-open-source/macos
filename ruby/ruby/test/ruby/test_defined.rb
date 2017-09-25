@@ -1,5 +1,5 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestDefined < Test::Unit::TestCase
   class Foo
@@ -90,6 +90,13 @@ class TestDefined < Test::Unit::TestCase
     assert_equal("true", defined?(true))
     assert_equal("false", defined?(false))
     assert_equal("expression", defined?(1))
+
+    bug8224 = '[ruby-core:54024] [Bug #8224]'
+    (1..3).each do |level|
+      expr = "("*level+")"*level
+      assert_equal("nil", eval("defined? #{expr}"), "#{bug8224} defined? #{expr}")
+      assert_equal("nil", eval("defined?(#{expr})"), "#{bug8224} defined?(#{expr})")
+    end
   end
 
   def test_defined_impl_specific
@@ -196,10 +203,50 @@ class TestDefined < Test::Unit::TestCase
 
     o = c.new
     o.extend(m)
-    assert_equal("super", o.x)
+    assert_equal("super", o.x, bug8367)
   end
 
   def test_super_toplevel
     assert_separately([], "assert_nil(defined?(super))")
+  end
+
+  class ExampleRespondToMissing
+    attr_reader :called
+
+    def initialize
+      @called = false
+    end
+
+    def respond_to_missing? *args
+      @called = true
+      false
+    end
+
+    def existing_method
+    end
+
+    def func_defined_existing_func
+      defined?(existing_method())
+    end
+
+    def func_defined_non_existing_func
+      defined?(non_existing_method())
+    end
+  end
+
+  def test_method_by_respond_to_missing
+    bug_11211 = '[Bug #11211]'
+    obj = ExampleRespondToMissing.new
+    assert_equal("method", defined?(obj.existing_method), bug_11211)
+    assert_equal(false, obj.called, bug_11211)
+    assert_equal(nil, defined?(obj.non_existing_method), bug_11211)
+    assert_equal(true, obj.called, bug_11211)
+
+    bug_11212 = '[Bug #11212]'
+    obj = ExampleRespondToMissing.new
+    assert_equal("method", obj.func_defined_existing_func, bug_11212)
+    assert_equal(false, obj.called, bug_11212)
+    assert_equal(nil, obj.func_defined_non_existing_func, bug_11212)
+    assert_equal(true, obj.called, bug_11212)
   end
 end

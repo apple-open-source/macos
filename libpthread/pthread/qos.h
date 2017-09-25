@@ -25,6 +25,8 @@
 #define _PTHREAD_QOS_H
 
 #include <sys/cdefs.h>
+#include <sys/_pthread/_pthread_attr_t.h> /* pthread_attr_t */
+#include <sys/_pthread/_pthread_t.h>      /* pthread_t */
 #include <Availability.h>
 
 #if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
@@ -76,7 +78,7 @@ __BEGIN_DECLS
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 pthread_attr_set_qos_class_np(pthread_attr_t *__attr,
 		qos_class_t __qos_class, int __relative_priority);
@@ -107,7 +109,7 @@ pthread_attr_set_qos_class_np(pthread_attr_t *__attr,
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 pthread_attr_get_qos_class_np(pthread_attr_t * __restrict __attr,
 		qos_class_t * _Nullable __restrict __qos_class,
@@ -148,7 +150,7 @@ pthread_attr_get_qos_class_np(pthread_attr_t * __restrict __attr,
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 pthread_set_qos_class_self_np(qos_class_t __qos_class,
 		int __relative_priority);
@@ -179,7 +181,7 @@ pthread_set_qos_class_self_np(qos_class_t __qos_class,
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 pthread_get_qos_class_np(pthread_t __pthread,
 		qos_class_t * _Nullable __restrict __qos_class,
@@ -258,7 +260,7 @@ typedef struct pthread_override_s* pthread_override_t;
  * A newly allocated override object if successful, or NULL if the override
  * could not be started.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 pthread_override_t
 pthread_override_qos_class_start_np(pthread_t __pthread,
 		qos_class_t __qos_class, int __relative_priority);
@@ -286,7 +288,7 @@ pthread_override_qos_class_start_np(pthread_t __pthread,
  * @return
  * Zero if successful, otherwise an errno value.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0)
+__API_AVAILABLE(macos(10.10), ios(8.0))
 int
 pthread_override_qos_class_end_np(pthread_override_t __override);
 

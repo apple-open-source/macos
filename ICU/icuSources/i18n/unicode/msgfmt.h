@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 * Copyright (C) 2007-2013, International Business Machines Corporation and
 * others. All Rights Reserved.
@@ -39,6 +41,7 @@ struct UHashtable;
 typedef struct UHashtable UHashtable; /**< @internal */
 U_CDECL_END
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class AppendableWrapper;
@@ -937,7 +940,7 @@ private:
      * @return the index of the list which matches the keyword s.
      */
     static int32_t findKeyword( const UnicodeString& s,
-                                const UChar * const *list);
+                                const char16_t * const *list);
 
     /**
      * Thin wrapper around the format(... AppendableWrapper ...) variant.
@@ -1086,6 +1089,7 @@ private:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

@@ -28,6 +28,10 @@
 #ifndef _SECURITY_SOSCLOUDCIRCLE_H_
 #define _SECURITY_SOSCLOUDCIRCLE_H_
 
+#if __OBJC__
+#import <Foundation/Foundation.h>
+#endif
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFSet.h>
@@ -54,7 +58,8 @@ enum {
     kSOSErrorNotReady = 4, // System not yet ready (before first unlock)
 
     kSOSErrorIncompatibleCircle = 5, // We saw an incompatible circle out there.
-    kSOSInitialSyncFailed =6,  //we timed out when syncing during approving from another device
+    kSOSInitialSyncFailed = 6,  //we timed out when syncing during approving from another device
+    kSOSEntitlementMissing = 7,
 };
 
 //
@@ -77,6 +82,7 @@ extern const char * kSOSCCInitialSyncChangedNotification;
 extern const char * kSOSCCHoldLockForInitialSync;
 extern const char * kSOSCCPeerAvailable;
 extern const char * kSOSCCRecoveryKeyChanged;
+
 /*!
  @function SOSCCSetUserCredentials
  @abstract Uses the user authentication credential (password) to create an internal EC Key Pair for authenticating Circle changes.
@@ -433,14 +439,6 @@ bool SOSCCRejectApplicants(CFArrayRef applicants, CFErrorRef *error);
 CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error);
 
 /*!
- @function SOSCCSetAutoAcceptInfo
- @abstract Arms auto-acceptance for the HSA2 data given.
- @param error What went wrong.
- @result true if the operation succeeded, otherwise false.
- */
-bool SOSCCSetAutoAcceptInfo(CFDataRef autoaccept, CFErrorRef *error);
-
-/*!
  @function SOSCCCheckPeerAvailability
  @abstract Prompts KeychainSyncingOverIDSProxy to query all devices in the circle with the same view.
  @param error What went wrong.
@@ -553,6 +551,13 @@ extern const CFStringRef kSOSViewAppleTV;
 extern const CFStringRef kSOSViewHomeKit;
 extern const CFStringRef kSOSViewContinuityUnlock;
 extern const CFStringRef kSOSViewAccessoryPairing;
+extern const CFStringRef kSOSViewNanoRegistry;
+extern const CFStringRef kSOSViewWatchMigration;
+extern const CFStringRef kCKKSViewEngram;
+extern const CFStringRef kCKKSViewManatee;
+extern const CFStringRef kCKKSViewAutoUnlock;
+extern const CFStringRef kCKKSViewHealth;
+
 
 /*!
  @function SOSCCView
@@ -708,7 +713,7 @@ CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error
  @result true if this succeeded.
  */
 
-bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, CFErrorRef *error);
+bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
 
 /*!
  @function: bool SOSCCPeersHaveViewsEnabled(CFSetRef viewNames)
@@ -733,7 +738,7 @@ bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error);
  @function: bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error)
  @param peer PeerInfo for the peer to ask about
  @param error failure if we fail
- @reulst true if we have a message pending that we haven't processed, false if we don't have one queued right now or an error occurred.
+ @result true if we have a message pending that we haven't processed, false if we don't have one queued right now or an error occurred.
  */
 bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error);
 
@@ -741,10 +746,28 @@ bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error);
  @function: bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error)
  @param peer PeerInfo for the peer to ask about
  @param error failure if we fail
- @reulst true if we have an attempt to sync pending that we haven't processed, false if we don't have one queued right now or an error occurred.
+ @result true if we have an attempt to sync pending that we haven't processed, false if we don't have one queued right now or an error occurred.
  */
 bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error);
 
+#if __OBJC__
+/*
+ @function: SOSCCAccountGetPublicKey
+ @param reply fetch the current user public key as SubjectPublicKeyInfoi
+ */
+void SOSCCAccountGetPublicKey(void (^reply)(BOOL trusted, NSData *data, NSError *error));
+
+/*
+ @function: SOSCCAccountGetAccountPrivateCredential
+ @param reply fetch the current user public key as SubjectPublicKeyInfoi
+ */
+void SOSCCAccountGetAccountPrivateCredential(void (^complete)(NSData *data, NSError *error));
+
+void SOSCCAccountGetKeyCircleGeneration(void (^reply)(NSData *data, NSError *error));
+
+CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error);
+    
+#endif
 
 __END_DECLS
 

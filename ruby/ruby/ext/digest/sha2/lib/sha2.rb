@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #--
 # sha2.rb - defines Digest::SHA2 class which wraps up the SHA256,
 #           SHA384, and SHA512 classes.
@@ -7,7 +8,7 @@
 # All rights reserved.  You can redistribute and/or modify it under the same
 # terms as Ruby.
 #
-#   $Id: sha2.rb 35293 2012-04-10 22:41:04Z drbrain $
+#   $Id: sha2.rb 53143 2015-12-16 05:31:54Z naruse $
 
 require 'digest'
 require 'digest/sha2.so'

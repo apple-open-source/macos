@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2001 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2001 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -143,10 +143,10 @@ OSStatus HIDGetUsageValue
 /*
  *				Pick up the data
 */
-				iStart = ptReportItem->startBit
-					   + (ptReportItem->globals.reportSize * iUsageIndex);
+				iStart = (int)(ptReportItem->startBit
+					   + (ptReportItem->globals.reportSize * iUsageIndex));
 				iStatus = HIDGetData(psReport, iReportLength, iStart,
-									   ptReportItem->globals.reportSize, &iValue,
+									   (UInt32)ptReportItem->globals.reportSize, &iValue,
 									   ((ptReportItem->globals.logicalMinimum < 0)
 									  ||(ptReportItem->globals.logicalMaximum < 0)));
 				if (!iStatus)
@@ -246,10 +246,10 @@ OSStatus HIDGetScaledUsageValue(HIDReportType reportType,
 /*
  *				Pick up the data
 */
-				iStart = ptReportItem->startBit
-					   + (ptReportItem->globals.reportSize * iUsageIndex);
+				iStart = (int)(ptReportItem->startBit
+					   + (ptReportItem->globals.reportSize * iUsageIndex));
 				iStatus = HIDGetData(psReport, iReportLength, iStart,
-									   ptReportItem->globals.reportSize, &iValue,
+									   (UInt32)ptReportItem->globals.reportSize, &iValue,
 									   ((ptReportItem->globals.logicalMinimum < 0)
 									  ||(ptReportItem->globals.logicalMaximum < 0)));
 				if (!iStatus)

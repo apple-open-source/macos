@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/commands/sources_command'
 
@@ -6,7 +7,7 @@ class TestGemCommandsSourcesCommand < Gem::TestCase
   def setup
     super
 
-    util_setup_fake_fetcher
+    spec_fetcher
 
     @cmd = Gem::Commands::SourcesCommand.new
 
@@ -18,7 +19,6 @@ class TestGemCommandsSourcesCommand < Gem::TestCase
   end
 
   def test_execute
-    util_setup_spec_fetcher
     @cmd.handle_options []
 
     use_ui @ui do
@@ -36,9 +36,9 @@ class TestGemCommandsSourcesCommand < Gem::TestCase
   end
 
   def test_execute_add
-    util_setup_fake_fetcher
-
-    install_specs @a1
+    spec_fetcher do |fetcher|
+      fetcher.spec 'a', 1
+    end
 
     specs = Gem::Specification.map { |spec|
       [spec.name, spec.version, spec.original_platform]
@@ -53,8 +53,6 @@ class TestGemCommandsSourcesCommand < Gem::TestCase
       specs_dump_gz.string
 
     @cmd.handle_options %W[--add #{@new_repo}]
-
-    util_setup_spec_fetcher
 
     use_ui @ui do
       @cmd.execute
@@ -71,18 +69,12 @@ class TestGemCommandsSourcesCommand < Gem::TestCase
   end
 
   def test_execute_add_nonexistent_source
-    util_setup_fake_fetcher
-
     uri = "http://beta-gems.example.com/specs.#{@marshal_version}.gz"
     @fetcher.data[uri] = proc do
       raise Gem::RemoteFetcher::FetchError.new('it died', uri)
     end
 
-    Gem::RemoteFetcher.fetcher = @fetcher
-
     @cmd.handle_options %w[--add http://beta-gems.example.com]
-
-    util_setup_spec_fetcher
 
     use_ui @ui do
       assert_raises Gem::MockGemUi::TermError do
@@ -102,8 +94,6 @@ Error fetching http://beta-gems.example.com:
   def test_execute_add_redundant_source
     @cmd.handle_options %W[--add #{@gem_repo}]
 
-    util_setup_spec_fetcher
-
     use_ui @ui do
       @cmd.execute
     end
@@ -120,9 +110,10 @@ source #{@gem_repo} already present in the cache
 
   def test_execute_add_http_rubygems_org
     http_rubygems_org = 'http://rubygems.org'
-    util_setup_fake_fetcher
 
-    install_specs @a1
+    spec_fetcher do |fetcher|
+      fetcher.spec 'a', 1
+    end
 
     specs = Gem::Specification.map { |spec|
       [spec.name, spec.version, spec.original_platform]
@@ -137,8 +128,6 @@ source #{@gem_repo} already present in the cache
       specs_dump_gz.string
 
     @cmd.handle_options %W[--add #{http_rubygems_org}]
-
-    util_setup_spec_fetcher
 
     ui = Gem::MockGemUi.new "n"
 
@@ -160,8 +149,6 @@ source #{@gem_repo} already present in the cache
   def test_execute_add_bad_uri
     @cmd.handle_options %w[--add beta-gems.example.com]
 
-    util_setup_spec_fetcher
-
     use_ui @ui do
       assert_raises Gem::MockGemUi::TermError do
         @cmd.execute
@@ -181,8 +168,6 @@ beta-gems.example.com is not a URI
   def test_execute_clear_all
     @cmd.handle_options %w[--clear-all]
 
-    util_setup_spec_fetcher
-
     use_ui @ui do
       @cmd.execute
     end
@@ -194,14 +179,29 @@ beta-gems.example.com is not a URI
     assert_equal expected, @ui.output
     assert_equal '', @ui.error
 
-    dir = File.join Gem.user_home, '.gem', 'specs'
+    dir = Gem.spec_cache_dir
     refute File.exist?(dir), 'cache dir removed'
+  end
+
+  def test_execute_list
+    @cmd.handle_options %w[--list]
+
+    use_ui @ui do
+      @cmd.execute
+    end
+
+    expected = <<-EOF
+*** CURRENT SOURCES ***
+
+#{@gem_repo}
+    EOF
+
+    assert_equal expected, @ui.output
+    assert_equal '', @ui.error
   end
 
   def test_execute_remove
     @cmd.handle_options %W[--remove #{@gem_repo}]
-
-    util_setup_spec_fetcher
 
     use_ui @ui do
       @cmd.execute
@@ -215,8 +215,6 @@ beta-gems.example.com is not a URI
 
   def test_execute_remove_no_network
     @cmd.handle_options %W[--remove #{@gem_repo}]
-
-    util_setup_fake_fetcher
 
     @fetcher.data["#{@gem_repo}Marshal.#{Gem.marshal_version}"] = proc do
       raise Gem::RemoteFetcher::FetchError
@@ -235,22 +233,9 @@ beta-gems.example.com is not a URI
   def test_execute_update
     @cmd.handle_options %w[--update]
 
-    util_setup_fake_fetcher
-    util_setup_spec_fetcher @a1
-
-    specs = Gem::Specification.map { |spec|
-      [spec.name, spec.version, spec.original_platform]
-    }
-
-    @fetcher.data["#{@gem_repo}specs.#{Gem.marshal_version}.gz"] =
-      util_gzip Marshal.dump(specs)
-
-    latest_specs = Gem::Specification.latest_specs.map { |spec|
-      [spec.name, spec.version, spec.original_platform]
-    }
-
-    @fetcher.data["#{@gem_repo}latest_specs.#{Gem.marshal_version}.gz"] =
-      util_gzip Marshal.dump(latest_specs)
+    spec_fetcher do |fetcher|
+      fetcher.gem 'a', 1
+    end
 
     use_ui @ui do
       @cmd.execute

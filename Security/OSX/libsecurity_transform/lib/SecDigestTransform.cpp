@@ -1,4 +1,5 @@
 #include "SecDigestTransform.h"
+#include "SecCFRelease.h"
 #include "Digest.h"
 
 
@@ -28,10 +29,11 @@ SecTransformRef SecDigestTransformCreate(CFTypeRef digestType,
 	if (result != NULL)
 	{
 		// an error occurred
-		CFRelease(tr);
+		CFReleaseNull(tr);
 		
 		if (error)
 		{
+            CFRetainSafe(result);
 			*error = result;
 		}
 		

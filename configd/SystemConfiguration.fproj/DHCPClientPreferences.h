@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2004, 2005, 2008, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2004, 2005, 2008, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,7 @@ __BEGIN_DECLS
 
 Boolean
 DHCPClientPreferencesSetApplicationOptions	(CFStringRef			applicationID,
-						 UInt8		* __nullable	options,
+						 const UInt8	* __nullable	options,
 						 CFIndex			count)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
 /*!

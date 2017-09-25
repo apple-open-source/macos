@@ -139,6 +139,9 @@
 /*	length would be exceeded, the program simulates a memory
 /*	allocation problem (i.e. it terminates through msg_fatal()).
 /*	This fuctionality is currently unimplemented.
+/* .IP "CA_VSTRING_CTL_EXACT (no argument)"
+/*	Allocate the requested amounts, instead of rounding up.
+/*	This should be used for tests only.
 /* .IP "CA_VSTRING_CTL_END (no argument)"
 /*	Specifies the end of the argument list. Forgetting to terminate
 /*	the argument list may cause the program to crash.
@@ -263,6 +266,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System libraries. */
@@ -296,13 +304,14 @@ static void vstring_extend(VBUF *bp, ssize_t incr)
      * 
      * The length overflow tests here and in vstring_alloc() should protect us
      * against all length overflow problems within vstring library routines.
-     * (The tests are redundant as long as mymalloc() and myrealloc() reject
-     * negative length parameters).
      */
-    new_len = bp->len + (bp->len > incr ? bp->len : incr);
-    if (new_len <= bp->len)
+    if ((bp->flags & VSTRING_FLAG_EXACT) == 0 && bp->len > incr)
+	incr = bp->len;
+    if (bp->len > SSIZE_T_MAX - incr - 1)
 	msg_fatal("vstring_extend: length overflow");
-    bp->data = (unsigned char *) myrealloc((void *) bp->data, new_len);
+    new_len = bp->len + incr;
+    bp->data = (unsigned char *) myrealloc((void *) bp->data, new_len + 1);
+    bp->data[new_len] = 0;
     bp->len = new_len;
     bp->ptr = bp->data + used;
     bp->cnt = bp->len - used;
@@ -342,12 +351,13 @@ VSTRING *vstring_alloc(ssize_t len)
 {
     VSTRING *vp;
 
-    if (len < 1)
+    if (len < 1 || len > SSIZE_T_MAX - 1)
 	msg_panic("vstring_alloc: bad length %ld", (long) len);
     vp = (VSTRING *) mymalloc(sizeof(*vp));
     vp->vbuf.flags = 0;
     vp->vbuf.len = 0;
-    vp->vbuf.data = (unsigned char *) mymalloc(len);
+    vp->vbuf.data = (unsigned char *) mymalloc(len + 1);
+    vp->vbuf.data[len] = 0;
     vp->vbuf.len = len;
     VSTRING_RESET(vp);
     vp->vbuf.data[0] = 0;
@@ -384,6 +394,9 @@ void    vstring_ctl(VSTRING *vp,...)
 	    vp->maxlen = va_arg(ap, ssize_t);
 	    if (vp->maxlen < 0)
 		msg_panic("vstring_ctl: bad max length %ld", (long) vp->maxlen);
+	    break;
+	case VSTRING_CTL_EXACT:
+	    vp->vbuf.flags |= VSTRING_FLAG_EXACT;
 	    break;
 	}
     }

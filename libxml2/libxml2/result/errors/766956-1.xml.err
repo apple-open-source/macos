@@ -7,13 +7,13 @@
 ./test/errors/766956-1.xml:1: parser error : Entity value required
 <?h?><!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz
                                                                                ^
-./test/errors/766956-1.xml:1: parser warning : PEReference: %z; not found
-<!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
-                                                                               ^
-Entity: line 1: 
+Entity: line 1: parser error : PEReference: expecting ';'
  %xx; 
      ^
-./test/errors/766956-1.xml:1: parser error : PEReference: no name
+Entity: line 1: 
+%ஸ000%z;
+       ^
+./test/errors/766956-1.xml:1: parser warning : PEReference: %z; not found
 <!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
                                                                                ^
 Entity: line 1: 

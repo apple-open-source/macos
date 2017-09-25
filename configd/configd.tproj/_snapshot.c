@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -126,6 +126,7 @@ __private_extern__
 int
 __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 {
+#pragma unused(store)
 	CFDictionaryRef			expandedStoreData;
 	FILE				*f;
 	int				fd;

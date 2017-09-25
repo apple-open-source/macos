@@ -2,7 +2,7 @@
 
   vm.h -
 
-  $Author: nagachika $
+  $Author: ko1 $
   created at: 04/01/01 16:56:59 JST
 
   Copyright (C) 2004-2007 Koichi Sasada
@@ -27,7 +27,7 @@ typedef rb_iseq_t *ISEQ;
 #if VMDEBUG > 0
 #define debugs printf
 #define DEBUG_ENTER_INSN(insn) \
-  rb_vmdebug_debug_print_pre(th, GET_CFP());
+    rb_vmdebug_debug_print_pre(th, GET_CFP(),GET_PC());
 
 #if OPT_STACK_CACHING
 #define SC_REGS() , reg_a, reg_b
@@ -86,7 +86,7 @@ error !
 /* dispatcher */
 #if defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)) && __GNUC__ == 3
 #define DISPATCH_ARCH_DEPEND_WAY(addr) \
-  asm volatile("jmp *%0;\t# -- inseted by vm.h\t[length = 2]" : : "r" (addr))
+  __asm__ __volatile__("jmp *%0;\t# -- inserted by vm.h\t[length = 2]" : : "r" (addr))
 
 #else
 #define DISPATCH_ARCH_DEPEND_WAY(addr) \
@@ -118,7 +118,7 @@ error !
 
 #define END_INSN(insn)      \
   DEBUG_END_INSN();         \
-  TC_DISPATCH(insn);        \
+  TC_DISPATCH(insn);
 
 #define INSN_DISPATCH()     \
   TC_DISPATCH(__START__)    \
@@ -169,5 +169,14 @@ default:                        \
 #endif
 
 #define SCREG(r) (reg_##r)
+
+#define VM_DEBUG_STACKOVERFLOW 0
+
+#if VM_DEBUG_STACKOVERFLOW
+#define CHECK_VM_STACK_OVERFLOW_FOR_INSN(cfp, margin) \
+    WHEN_VM_STACK_OVERFLOWED(cfp, (cfp)->sp, margin) vm_stack_overflow_for_insn()
+#else
+#define CHECK_VM_STACK_OVERFLOW_FOR_INSN(cfp, margin)
+#endif
 
 #endif /* RUBY_VM_EXEC_H */

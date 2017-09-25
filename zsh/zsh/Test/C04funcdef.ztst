@@ -120,14 +120,13 @@
      print "Your command:" >&2
      print "$1" >&2
      print "has gone down the tubes.  Sorry." >&2
-     return 1
+     return 42
   }
   ThisCommandDoesNotExistEither
-127:Command not found handler, failure
+42:Command not found handler, failure
 ?Your command:
 ?ThisCommandDoesNotExistEither
 ?has gone down the tubes.  Sorry.
-?(eval):7: command not found: ThisCommandDoesNotExistEither
 
   local variable=outside
   print "I am $variable"
@@ -307,6 +306,29 @@
 >This is function second
 ?(eval):6: command not found: firstfn1
 ?(eval):7: command not found: secondfn1
+
+  (
+    fpath=(.)
+    print  "print oops was successfully autoloaded" >oops
+    oops() { eval autoload -X }
+    oops
+    which -x2 oops
+  )
+0:autoload containing eval
+>oops was successfully autoloaded
+>oops () {
+>  print oops was successfully autoloaded
+>}
+
+  (
+    fpath=(.)
+    printf '%s\n' 'oops(){}' 'ninjas-earring(){}' 'oops "$@"' >oops
+    autoload oops
+    oops
+    whence -v oops
+  )
+0:whence -v of zsh-style autoload
+>oops is a shell function from ./oops
 
 %clean
 

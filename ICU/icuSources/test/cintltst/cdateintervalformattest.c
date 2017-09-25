@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * Copyright (c) 2011-2016, International Business Machines Corporation
  * and others. All Rights Reserved.
@@ -49,46 +51,48 @@ typedef struct {
 
 /* Just a small set of tests for now, the real functionality is tested in the C++ tests */
 static const DateIntervalFormatTestItem testItems[] = {
-    { "en", "MMMdHHmm", tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30 - 17:30" },
-    { "en", "MMMdHHmm", tzAsiaTokyo, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30 - 10:30" },
+    { "en", "MMMdHHmm", tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30\\u2009\\u2013\\u200917:30" },
+    { "en", "MMMdHHmm", tzAsiaTokyo, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30\\u2009\\u2013\\u200910:30" },
     { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 12.0*_HOUR, "Mon, Sep 27, 2010" },
-    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "Mon, Sep 27 - Thu, Oct 28, 2010" },
-    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010 - Fri, Nov 11, 2011" },
+    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "Mon, Sep 27\\u2009\\u2013\\u2009Thu, Oct 28, 2010" },
+    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010\\u2009\\u2013\\u2009Fri, Nov 11, 2011" },
     { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 12.0*_HOUR, "08:00\\u201320:00 Uhr" },
-    { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00 \\u2013 28.10.2010, 08:00" },
+    { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00\\u2009\\u2013\\u200928.10.2010, 08:00" },
     { "ja", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 1.0*_DAY,   "9\\u670827\\u65E5\\uFF5E28\\u65E5" },
-    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 1.0*_HOUR,  "10:30 AM - 11:30 AM" },
-    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 12.0*_HOUR, "10:30 AM - 10:30 PM" },
+    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 1.0*_HOUR,  "10:30 AM\\u2009\\u2013\\u200911:30 AM" },
+    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 12.0*_HOUR, "10:30 AM\\u2009\\u2013\\u200910:30 PM" },
     { "it", "yMMMMd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 15.0*_DAY,  "2\\u201317 marzo 2011" },
+    { "en_SA", "MMMd",  tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 6.0*_DAY,   "18\\u2009\\u2013\\u200924 Shaw." },
+    { "en@calendar=islamic-umalqura", "MMMd", tzUSPacific, UDTITVFMT_MINIMIZE_NONE, Date201009270800, Date201009270800 + 6.0*_DAY, "Shaw. 18\\u2009\\u2013\\u200924" },
     // Apple-specific
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27 - 3" },
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27 - Oct 29" },
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30 - 5" }, // across year boundary
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017 - Jan 31, 2018" }, // across year boundary but > 1 month
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093" },
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29" },
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30\\u2009\\u2013\\u20095" }, // across year boundary
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
     { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct." },
-    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept. \\u2013 29 oct." },
+    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct." },
     { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30\\u20135 janv." }, // across year boundary
-    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017 \\u2013 31 janv. 2018" }, // across year boundary but > 1 month
+    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
 
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27 - 3, 2010" },
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27 - Oct 29, 2010" },
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30, 2017 - Jan 5, 2018" }, // across year boundary
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017 - Jan 31, 2018" }, // across year boundary but > 1 month
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093, 2010" },
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29, 2010" },
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30, 2017\\u2009\\u2013\\u2009Jan 5, 2018" }, // across year boundary
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
     { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct. 2010" },
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept. \\u2013 29 oct. 2010" },
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30 d\\u00E9c. 2017 \\u2013 5 janv. 2018" }, // across year boundary
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017 \\u2013 31 janv. 2018" }, // across year boundary but > 1 month
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct. 2010" },
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30 d\\u00E9c. 2017\\u2009\\u2013\\u20095 janv. 2018" }, // across year boundary
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
 
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM - 6:00 PM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 AM - Sep 28, 1:00 AM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM - 1:00 AM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "Sep 27, 8:00 PM - Sep 28, 10:00 AM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "Sep 27, 8:00 PM - Sep 28, 7:00 PM" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "27 sept. \\u00E0 08:00 \\u2013 18:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 08:00 \\u2013 28 sept. \\u00E0 01:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 20:00 \\u2013 01:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00 \\u2013 28 sept. \\u00E0 10:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00 \\u2013 28 sept. \\u00E0 19:00" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u20096:00 PM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u2009Sep 28, 1:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u20091:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u2009Sep 28, 10:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u2009Sep 28, 7:00 PM" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200918:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200928 sept. \\u00E0 01:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200901:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 10:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 19:00" },
 
    { NULL, NULL,       NULL,        UDTITVFMT_MINIMIZE_NONE,            0,                0,                             NULL }
 };
@@ -197,24 +201,24 @@ static const ExpectPosAndFormat exp_en_HHmm[kNumDeltas] = {
     {  3,  5, "09:00" },
     {  3,  5, "09:00" },
     {  3,  5, "09:00" },
-    {  3,  5, "09:00 \\u002D 09:20" },
-    {  3,  5, "09:00 \\u002D 11:00" },
-    {  3,  5, "09:00 \\u002D 21:00" },
-    { 15, 17, "11/20/2014, 09:00 \\u002D 11/28/2014, 09:00" },
-    { 15, 17, "11/20/2014, 09:00 \\u002D 12/6/2014, 09:00" },
-    { 15, 17, "11/20/2014, 09:00 \\u002D 2/28/2015, 09:00" }
+    {  3,  5, "09:00\\u2009\\u2013\\u200909:20" },
+    {  3,  5, "09:00\\u2009\\u2013\\u200911:00" },
+    {  3,  5, "09:00\\u2009\\u2013\\u200921:00" },
+    { 15, 17, "11/20/2014, 09:00\\u2009\\u2013\\u200911/28/2014, 09:00" },
+    { 15, 17, "11/20/2014, 09:00\\u2009\\u2013\\u200912/6/2014, 09:00" },
+    { 15, 17, "11/20/2014, 09:00\\u2009\\u2013\\u20092/28/2015, 09:00" }
 };
 
 static const ExpectPosAndFormat exp_en_HHmmss[kNumDeltas] = {
     {  3,  5, "09:00:00" },
     {  3,  5, "09:00:00" },
-    {  3,  5, "09:00:00 \\u002D 09:00:20" },
-    {  3,  5, "09:00:00 \\u002D 09:20:00" },
-    {  3,  5, "09:00:00 \\u002D 11:00:00" },
-    {  3,  5, "09:00:00 \\u002D 21:00:00" },
-    { 15, 17, "11/20/2014, 09:00:00 \\u002D 11/28/2014, 09:00:00" },
-    { 15, 17, "11/20/2014, 09:00:00 \\u002D 12/6/2014, 09:00:00" },
-    { 15, 17, "11/20/2014, 09:00:00 \\u002D 2/28/2015, 09:00:00" }
+    {  3,  5, "09:00:00\\u2009\\u2013\\u200909:00:20" },
+    {  3,  5, "09:00:00\\u2009\\u2013\\u200909:20:00" },
+    {  3,  5, "09:00:00\\u2009\\u2013\\u200911:00:00" },
+    {  3,  5, "09:00:00\\u2009\\u2013\\u200921:00:00" },
+    { 15, 17, "11/20/2014, 09:00:00\\u2009\\u2013\\u200911/28/2014, 09:00:00" },
+    { 15, 17, "11/20/2014, 09:00:00\\u2009\\u2013\\u200912/6/2014, 09:00:00" },
+    { 15, 17, "11/20/2014, 09:00:00\\u2009\\u2013\\u20092/28/2015, 09:00:00" }
 };
 
 static const ExpectPosAndFormat exp_en_yyMMdd[kNumDeltas] = {
@@ -224,45 +228,45 @@ static const ExpectPosAndFormat exp_en_yyMMdd[kNumDeltas] = {
     {  0,  0, "11/20/14" },
     {  0,  0, "11/20/14" },
     {  0,  0, "11/20/14" },
-    {  0,  0, "11/20/14 \\u002D 11/28/14" },
-    {  0,  0, "11/20/14 \\u002D 12/6/14" },
-    {  0,  0, "11/20/14 \\u002D 2/28/15" }
+    {  0,  0, "11/20/14\\u2009\\u2013\\u200911/28/14" },
+    {  0,  0, "11/20/14\\u2009\\u2013\\u200912/6/14" },
+    {  0,  0, "11/20/14\\u2009\\u2013\\u20092/28/15" }
 };
 
 static const ExpectPosAndFormat exp_en_yyMMddHHmm[kNumDeltas] = {
     { 13, 15, "11/20/14, 09:00" },
     { 13, 15, "11/20/14, 09:00" },
     { 13, 15, "11/20/14, 09:00" },
-    { 13, 15, "11/20/14, 09:00 \\u002D 09:20" },
-    { 13, 15, "11/20/14, 09:00 \\u002D 11:00" },
-    { 13, 15, "11/20/14, 09:00 \\u002D 21:00" },
-    { 13, 15, "11/20/14, 09:00 \\u002D 11/28/14, 09:00" },
-    { 13, 15, "11/20/14, 09:00 \\u002D 12/06/14, 09:00" },
-    { 13, 15, "11/20/14, 09:00 \\u002D 02/28/15, 09:00" }
+    { 13, 15, "11/20/14, 09:00\\u2009\\u2013\\u200909:20" },
+    { 13, 15, "11/20/14, 09:00\\u2009\\u2013\\u200911:00" },
+    { 13, 15, "11/20/14, 09:00\\u2009\\u2013\\u200921:00" },
+    { 13, 15, "11/20/14, 09:00\\u2009\\u2013\\u200911/28/14, 09:00" },
+    { 13, 15, "11/20/14, 09:00\\u2009\\u2013\\u200912/06/14, 09:00" },
+    { 13, 15, "11/20/14, 09:00\\u2009\\u2013\\u200902/28/15, 09:00" }
 };
 
 static const ExpectPosAndFormat exp_en_yyMMddHHmmss[kNumDeltas] = {
     { 13, 15, "11/20/14, 09:00:00" },
     { 13, 15, "11/20/14, 09:00:00" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 09:00:20" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 09:20:00" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 11:00:00" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 21:00:00" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 11/28/14, 09:00:00" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 12/06/14, 09:00:00" },
-    { 13, 15, "11/20/14, 09:00:00 \\u002D 02/28/15, 09:00:00" }
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200909:00:20" },
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200909:20:00" },
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200911:00:00" },
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200921:00:00" },
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200911/28/14, 09:00:00" },
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200912/06/14, 09:00:00" },
+    { 13, 15, "11/20/14, 09:00:00\\u2009\\u2013\\u200902/28/15, 09:00:00" }
 };
 
 static const ExpectPosAndFormat exp_en_yMMMdhmmssz[kNumDeltas] = {
     { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT" },
     { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D 9:00:20 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D 9:20:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D 11:00:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D 9:00:00 PM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D Nov 28, 2014, 9:00:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D Dec 6, 2014, 9:00:00 AM GMT" },
-    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT \\u002D Feb 28, 2015, 9:00:00 AM GMT" }
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u20099:00:20 AM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u20099:20:00 AM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u200911:00:00 AM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u20099:00:00 PM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u2009Nov 28, 2014, 9:00:00 AM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u2009Dec 6, 2014, 9:00:00 AM GMT" },
+    { 16, 18, "Nov 20, 2014, 9:00:00 AM GMT\\u2009\\u2013\\u2009Feb 28, 2015, 9:00:00 AM GMT" }
 };
 
 static const ExpectPosAndFormat exp_ja_yyMMddHHmm[kNumDeltas] = {
@@ -331,8 +335,7 @@ static void TestFPos_SkelWithSeconds()
 	    UChar   ubuf[kSizeUBuf];
 	    int32_t ulen, uelen;
 	    UErrorCode status = U_ZERO_ERROR;
-	    
-	    u_strFromUTF8(ubuf, kSizeUBuf, &ulen, locSkelItemPtr->skeleton, -1, &status);
+            ulen = u_unescape(locSkelItemPtr->skeleton, ubuf, kSizeUBuf);
 	    udifmt = udtitvfmt_open(locSkelItemPtr->locale, ubuf, ulen, zoneGMT, -1, &status);
 	    if ( U_FAILURE(status) ) {
            log_data_err("FAIL: udtitvfmt_open for locale %s, skeleton %s: %s\n",

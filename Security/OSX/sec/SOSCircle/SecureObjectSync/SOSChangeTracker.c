@@ -210,7 +210,12 @@ bool SOSChangeTrackerTrackChanges(SOSChangeTrackerRef ct, SOSEngineRef engine, S
     bool ok = true;
     if (changes && CFArrayGetCount(changes)) {
         CFStringRef changesDesc = SOSChangesCopyDescription(changes);
-        secnotice("tracker", "%@ %s %s changes: %@", ct, phase == kSOSDataSourceTransactionWillCommit ? "will-commit" : phase == kSOSDataSourceTransactionDidCommit ? "did-commit" : "did-rollback", source == kSOSDataSourceSOSTransaction ? "sos" : "api", changesDesc);
+        secnotice("tracker", "%@ %s %s changes: %@", ct, phase == kSOSDataSourceTransactionWillCommit ? "will-commit" : phase == kSOSDataSourceTransactionDidCommit ? "did-commit" : "did-rollback",
+                  source == kSOSDataSourceSOSTransaction ? "sos" :
+                  source == kSOSDataSourceCKKSTransaction ? "ckks" :
+                  source == kSOSDataSourceAPITransaction ? "api" :
+                  "unknown",
+                  changesDesc);
         CFReleaseSafe(changesDesc);
         if (ct->manifest || ct->manifestChildren) {
             SOSManifestRef additions = NULL;

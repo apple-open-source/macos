@@ -35,6 +35,7 @@
 #include "AccessibilityListBox.h"
 #include "AccessibilitySpinButton.h"
 #include "AccessibilityTable.h"
+#include "Editing.h"
 #include "ElementIterator.h"
 #include "EventNames.h"
 #include "FloatRect.h"
@@ -61,18 +62,15 @@
 #include "MathMLNames.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
-#include "Page.h"
 #include "ProgressTracker.h"
 #include "RenderImage.h"
 #include "RenderView.h"
 #include "SVGElement.h"
-#include "SVGNames.h"
 #include "Text.h"
 #include "TextControlInnerElements.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
 #include "Widget.h"
-#include "htmlediting.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -86,7 +84,6 @@ static String accessibleNameForNode(Node* node, Node* labelledbyNode = nullptr);
 AccessibilityNodeObject::AccessibilityNodeObject(Node* node)
     : AccessibilityObject()
     , m_ariaRole(UnknownRole)
-    , m_childrenDirty(false)
     , m_roleForMSAA(UnknownRole)
 #ifndef NDEBUG
     , m_initialized(false)
@@ -131,13 +128,19 @@ void AccessibilityNodeObject::childrenChanged()
     if (!cache)
         return;
     cache->postNotification(this, document(), AXObjectCache::AXChildrenChanged);
+    
+    // Should make the sub tree dirty so that everything below will be updated correctly.
+    this->setNeedsToUpdateSubtree();
+    bool shouldStopUpdatingParent = false;
 
     // Go up the accessibility parent chain, but only if the element already exists. This method is
     // called during render layouts, minimal work should be done. 
     // If AX elements are created now, they could interrogate the render tree while it's in a funky state.
     // At the same time, process ARIA live region changes.
     for (AccessibilityObject* parent = this; parent; parent = parent->parentObjectIfExists()) {
-        parent->setNeedsToUpdateChildren();
+        if (!shouldStopUpdatingParent)
+            parent->setNeedsToUpdateChildren();
+        
 
         // These notifications always need to be sent because screenreaders are reliant on them to perform. 
         // In other words, they need to be sent even when the screen reader has not accessed this live region since the last update.
@@ -150,8 +153,13 @@ void AccessibilityNodeObject::childrenChanged()
             cache->postLiveRegionChangeNotification(parent);
         
         // If this element is an ARIA text control, notify the AT of changes.
-        if (parent->isNonNativeTextControl())
+        if (parent->isNonNativeTextControl()) {
             cache->postNotification(parent, parent->document(), AXObjectCache::AXValueChanged);
+            
+            // Do not let the parent that's above the editable ancestor update its children
+            // since we already notify the AT of changes.
+            shouldStopUpdatingParent = true;
+        }
     }
 }
 
@@ -327,32 +335,6 @@ AccessibilityRole AccessibilityNodeObject::determineAccessibilityRole()
     return UnknownRole;
 }
 
-void AccessibilityNodeObject::insertChild(AccessibilityObject* child, unsigned index)
-{
-    if (!child)
-        return;
-    
-    // If the parent is asking for this child's children, then either it's the first time (and clearing is a no-op),
-    // or its visibility has changed. In the latter case, this child may have a stale child cached.
-    // This can prevent aria-hidden changes from working correctly. Hence, whenever a parent is getting children, ensure data is not stale.
-    child->clearChildren();
-    
-    if (child->accessibilityIsIgnored()) {
-        const auto& children = child->children();
-        size_t length = children.size();
-        for (size_t i = 0; i < length; ++i)
-            m_children.insert(index + i, children[i]);
-    } else {
-        ASSERT(child->parentObject() == this);
-        m_children.insert(index, child);
-    }
-}
-
-void AccessibilityNodeObject::addChild(AccessibilityObject* child)
-{
-    insertChild(child, m_children.size());
-}
-
 void AccessibilityNodeObject::addChildren()
 {
     // If the need to add more children in addition to existing children arises, 
@@ -370,6 +352,8 @@ void AccessibilityNodeObject::addChildren()
     
     for (Node* child = m_node->firstChild(); child; child = child->nextSibling())
         addChild(axObjectCache()->getOrCreate(child));
+    
+    m_subtreeDirty = false;
 }
 
 bool AccessibilityNodeObject::canHaveChildren() const
@@ -830,7 +814,7 @@ float AccessibilityNodeObject::valueForRange() const
 
     // In ARIA 1.1, the implicit value for aria-valuenow on a spin button is 0.
     // For other roles, it is half way between aria-valuemin and aria-valuemax.
-    auto value = getAttribute(aria_valuenowAttr);
+    auto& value = getAttribute(aria_valuenowAttr);
     if (!value.isEmpty())
         return value.toFloat();
 
@@ -848,7 +832,7 @@ float AccessibilityNodeObject::maxValueForRange() const
     if (!isRangeControl())
         return 0.0f;
 
-    auto value = getAttribute(aria_valuemaxAttr);
+    auto& value = getAttribute(aria_valuemaxAttr);
     if (!value.isEmpty())
         return value.toFloat();
 
@@ -868,7 +852,7 @@ float AccessibilityNodeObject::minValueForRange() const
     if (!isRangeControl())
         return 0.0f;
 
-    auto value = getAttribute(aria_valueminAttr);
+    auto& value = getAttribute(aria_valueminAttr);
     if (!value.isEmpty())
         return value.toFloat();
 
@@ -912,7 +896,8 @@ bool AccessibilityNodeObject::isFieldset() const
 
 bool AccessibilityNodeObject::isGroup() const
 {
-    return roleValue() == GroupRole;
+    AccessibilityRole role = roleValue();
+    return role == GroupRole || role == TextGroupRole || role == ApplicationGroupRole || role == ApplicationTextGroupRole;
 }
 
 AccessibilityObject* AccessibilityNodeObject::selectedRadioButton()
@@ -1060,6 +1045,9 @@ Element* AccessibilityNodeObject::mouseButtonListener(MouseButtonListenerResultF
 
 bool AccessibilityNodeObject::isDescendantOfBarrenParent() const
 {
+    if (!m_isIgnoredFromParentData.isNull())
+        return m_isIgnoredFromParentData.isDescendantOfBarrenParent;
+    
     for (AccessibilityObject* object = parentObject(); object; object = object->parentObject()) {
         if (!object->canHaveChildren())
             return true;
@@ -1243,7 +1231,7 @@ AccessibilityObject* AccessibilityNodeObject::menuButtonForMenu() const
 
 AccessibilityObject* AccessibilityNodeObject::captionForFigure() const
 {
-    if (!isFigure())
+    if (!isFigureElement())
         return nullptr;
     
     AXObjectCache* cache = axObjectCache();
@@ -1357,11 +1345,15 @@ void AccessibilityNodeObject::alternativeText(Vector<AccessibilityText>& textOrd
     }
     
     // The figure element derives its alternative text from the first associated figcaption element if one is available.
-    if (isFigure()) {
+    if (isFigureElement()) {
         AccessibilityObject* captionForFigure = this->captionForFigure();
         if (captionForFigure && !captionForFigure->isHidden())
             textOrder.append(AccessibilityText(accessibleNameForNode(captionForFigure->node()), AlternativeText));
     }
+    
+    // Tree items missing a label are labeled by all child elements.
+    if (isTreeItem() && ariaLabel.isEmpty() && ariaLabeledByAttribute().isEmpty())
+        textOrder.append(AccessibilityText(accessibleNameForNode(node), AlternativeText));
     
 #if ENABLE(MATHML)
     if (node->isMathMLElement())
@@ -1601,10 +1593,8 @@ String AccessibilityNodeObject::helpText() const
         
         // Only take help text from an ancestor element if its a group or an unknown role. If help was 
         // added to those kinds of elements, it is likely it was meant for a child element.
-        AccessibilityObject* axObj = axObjectCache()->getOrCreate(ancestor);
-        if (axObj) {
-            AccessibilityRole role = axObj->roleValue();
-            if (role != GroupRole && role != UnknownRole)
+        if (AccessibilityObject* axObj = axObjectCache()->getOrCreate(ancestor)) {
+            if (!axObj->isGroup() && axObj->roleValue() != UnknownRole)
                 break;
         }
     }
@@ -1631,7 +1621,7 @@ unsigned AccessibilityNodeObject::hierarchicalLevel() const
     unsigned level = 1;
     for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) {
         AccessibilityRole parentRole = parent->ariaRoleAttribute();
-        if (parentRole == GroupRole)
+        if (parentRole == ApplicationGroupRole)
             level++;
         else if (parentRole == TreeRole)
             break;
@@ -1642,15 +1632,11 @@ unsigned AccessibilityNodeObject::hierarchicalLevel() const
 
 void AccessibilityNodeObject::setIsExpanded(bool expand)
 {
-#if ENABLE(DETAILS_ELEMENT)
     if (is<HTMLDetailsElement>(node())) {
         auto& details = downcast<HTMLDetailsElement>(*node());
         if (expand != details.isOpen())
             details.toggleOpen();
     }
-#else
-    UNUSED_PARAM(expand);
-#endif
 }
     
 // When building the textUnderElement for an object, determine whether or not
@@ -1745,6 +1731,14 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
             continue;
 
         if (is<AccessibilityNodeObject>(*child)) {
+            // We should ignore the child if it's labeled by this node.
+            // This could happen when this node labels multiple child nodes and we didn't
+            // skip in the above ignoredChildNode check.
+            Vector<Element*> labeledByElements;
+            downcast<AccessibilityNodeObject>(*child).ariaLabeledByElements(labeledByElements);
+            if (labeledByElements.contains(node))
+                continue;
+            
             Vector<AccessibilityText> textOrder;
             downcast<AccessibilityNodeObject>(*child).alternativeText(textOrder);
             if (textOrder.size() > 0 && textOrder[0].text.length()) {
@@ -2077,7 +2071,7 @@ bool AccessibilityNodeObject::canSetValueAttribute() const
     if (isProgressIndicator() || isSlider())
         return true;
 
-#if PLATFORM(GTK) || PLATFORM(EFL)
+#if PLATFORM(GTK)
     // In ATK, input types which support aria-readonly are treated as having a
     // settable value if the user can modify the widget's value or its state.
     if (supportsARIAReadOnly() || isRadioButton())
@@ -2124,6 +2118,13 @@ AccessibilityRole AccessibilityNodeObject::determineAriaRoleAttribute() const
     if (role == PresentationalRole && supportsARIAAttributes())
         role = UnknownRole;
     
+    // The ARIA spec states, "Authors must give each element with role region a brief label that
+    // describes the purpose of the content in the region." The Core AAM states, "Special case:
+    // if the region does not have an accessible name, do not expose the element as a landmark.
+    // Use the native host language role of the element instead."
+    if (role == LandmarkRegionRole && !hasAttribute(aria_labelAttr) && !hasAttribute(aria_labelledbyAttr))
+        role = UnknownRole;
+
     if (role)
         return role;
 
@@ -2152,7 +2153,7 @@ AccessibilityRole AccessibilityNodeObject::remapAriaRoleDueToParent(Accessibilit
         if (role == ListBoxOptionRole && parentAriaRole == MenuRole)
             return MenuItemRole;
         // An aria "menuitem" may map to MenuButton or MenuItem depending on its parent.
-        if (role == MenuItemRole && parentAriaRole == GroupRole)
+        if (role == MenuItemRole && parentAriaRole == ApplicationGroupRole)
             return MenuButtonRole;
         
         // If the parent had a different role, then we don't need to continue searching up the chain.

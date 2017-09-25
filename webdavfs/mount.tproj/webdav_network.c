@@ -2232,7 +2232,9 @@ static int send_transaction(
 		/* add other HTTP headers (if any) */
 		for ( i = 0, headerPtr = headers; i < headerCount; ++i, ++headerPtr )
 		{
-			CFHTTPMessageSetHeaderFieldValue(message, headerPtr->headerField, headerPtr->value);
+			if (headerPtr->headerField && headerPtr->value) {
+				CFHTTPMessageSetHeaderFieldValue(message, headerPtr->headerField, headerPtr->value);
+			}
 		}
 		
 		/* apply credentials (if any) */
@@ -5275,10 +5277,11 @@ int network_lock(
 		
 		headerCount = 5;
 		headers5[3].value = CFSTR("text/xml");
-		lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), locktokentofree);
-		require_action(lockTokenRef != NULL, CFStringCreateWithFormat_lockTokenRef, error = EIO);
-		
-		headers5[4].value = lockTokenRef;
+		if (locktokentofree) {
+			lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), locktokentofree);
+			require_action(lockTokenRef != NULL, CFStringCreateWithFormat_lockTokenRef, error = EIO);
+			headers5[4].value = lockTokenRef;
+		}
 	}
 	else
 	{

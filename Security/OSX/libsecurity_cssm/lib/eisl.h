@@ -216,7 +216,7 @@ EISL_RecycleVerifiedSignatureRoot (ISL_VERIFIED_SIGNATURE_ROOT_PTR Root);
 
 /* Certificate Chain Methods */
 
-const ISL_VERIFIED_CERTIFICATE_CHAIN_PTR
+ISL_VERIFIED_CERTIFICATE_CHAIN_PTR
 EISL_CreateCertificateChainWithCredentialData (const ISL_CONST_DATA RootIssuer,
                                                const ISL_CONST_DATA PublicKey,
                                                const ISL_CONST_DATA CredentialsImage,

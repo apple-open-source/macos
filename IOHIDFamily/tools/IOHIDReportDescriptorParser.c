@@ -258,7 +258,7 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                         }
                     }
                     
-                    len = strlen((char *)bufvalue);
+                    len = (int)strlen((char *)bufvalue);
                     if ( strcmp((const char *)&bufvalue[len-2], ", ") == 0 )
                         bufvalue[len-2]=0;
                     strcat((char *)bufvalue, (char *)")");
@@ -295,7 +295,7 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                 {
                     // recalc indentation, since we want this line to start earlier
                     
-                    len = strlen((char *)buf);
+                    len = (int)strlen((char *)buf);
                     
                     if (indentLevel-- && len > 2) {
                         buf[len-2]=0;

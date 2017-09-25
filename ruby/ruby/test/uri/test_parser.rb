@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'test/unit'
 require 'uri'
 
@@ -37,5 +38,11 @@ class URI::TestParser < Test::Unit::TestCase
     u1.path = '/%uDCBA'
     assert_equal(['http', nil, 'a', URI::HTTP.default_port, '/%uDCBA', nil, nil],
 		 uri_to_ary(u1))
+  end
+
+  def test_raise_bad_uri_for_integer
+    assert_raise(URI::InvalidURIError) do
+      URI.parse(1)
+    end
   end
 end

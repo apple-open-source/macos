@@ -335,7 +335,6 @@ IOHIDEventRef IOHIDDFREventFilter::filter(IOHIDServiceRef sender, IOHIDEventRef 
             _cancelledTouchInProgress = (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerRange) == 1);
 
             HIDLogDebug("Event cancelled due to touch in progress.");
-            
             CFRelease(event);
             event = NULL;
         } else {

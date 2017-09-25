@@ -50,3 +50,9 @@ echo ".so man8/locate.updatedb.8" > "$MANDIR"/man8/locate.mklocatedb.8
 
 install -d -o root -g wheel -m 0755 "$PAMDIR"
 install -c -o root -g wheel -m 0644 "$SRCROOT"/su/su.pam "$PAMDIR"/su
+
+install -d -o root -g wheel -m 0755 "$DSTROOT"/AppleInternal/Tests/shell_cmds
+install -o root -g wheel -m 0644 "$SRCROOT"/tests/regress.m4 "$DSTROOT"/AppleInternal/Tests/shell_cmds
+
+install -d -o root -g wheel -m 0755 "$DSTROOT"/AppleInternal/CoreOS/BATS/unit_tests
+install -o root -g wheel -m 0644 "$SRCROOT"/tests/shell_cmds.plist "$DSTROOT"/AppleInternal/CoreOS/BATS/unit_tests

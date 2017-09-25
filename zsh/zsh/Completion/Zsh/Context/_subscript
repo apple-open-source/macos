@@ -62,6 +62,7 @@ elif compset -P '\('; then
       'e[interpret * or @ as a single key]'
     );;
     (|scalar*)) flags=(
+      'f[make subscripting work on lines of scalar]'
       'w[make subscripting work on words of scalar]'
       's[specify word separator]'
       'p[recognise escape sequences in subsequent s flag]'
@@ -81,8 +82,8 @@ elif compset -P '\('; then
 elif [[ ${(Pt)${compstate[parameter]}} = assoc* ]]; then
   local suf MATCH MBEGIN MEND
   local -a keys
-  keys=(${${(kP)compstate[parameter]}//(#m)[\$\\\[\]\(\)\[\{\}]/\\$MATCH})
-  keys=(${keys//#%(#m)[*@]/(e)$MATCH})
+  keys=("${(@)${(@k)${(P)compstate[parameter]}}//(#m)[\$\\\[\]\(\)\{\}]/\\$MATCH}")
+  keys=("${(@)keys//#%(#m)[*@]/(e)$MATCH}")
   [[ "$RBUFFER" != (|\\)\]* ]] && suf="$osuf"
 
   _wanted association-keys expl 'association key' \
@@ -99,10 +100,9 @@ elif [[ ${(Pt)${compstate[parameter]}} = array* ]]; then
         list=()
         for i in "$ind[@]"; do
           if [[ "$i" = ${PREFIX}*${SUFFIX} ]]; then
-              list=( "$list[@]" 
-	             "${i}:$(print -D ${(P)${compstate[parameter]}[$i]})" )
+              list+=( "${i}:$(print -D -- ${(P)${compstate[parameter]}[$i]})" )
 	  else
-	      list=( "$list[@]" '' )
+	      list+=( '' )
 	  fi
         done
         zstyle -s ":completion:${curcontext}:indexes" list-separator sep || sep=--

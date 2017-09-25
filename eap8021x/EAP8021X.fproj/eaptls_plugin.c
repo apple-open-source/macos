@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,7 +163,7 @@ eaptls_start(EAPClientPluginDataRef plugin)
     }
     my_CFRelease(&context->server_certs);
     memoryIOClearBuffers(&context->mem_io);
-    ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
+    ssl_context = EAPTLSMemIOContextCreate(plugin->properties, FALSE, &context->mem_io, NULL,
 					   &status);
     if (ssl_context == NULL) {
 	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s (%ld)",

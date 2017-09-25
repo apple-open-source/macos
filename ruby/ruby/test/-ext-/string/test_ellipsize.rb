@@ -1,5 +1,6 @@
+# frozen_string_literal: false
 require 'test/unit'
-require "-test-/string/string"
+require "-test-/string"
 
 class Test_StringEllipsize < Test::Unit::TestCase
   def setup
@@ -32,7 +33,7 @@ class Test_StringEllipsize < Test::Unit::TestCase
 
   def test_nonascii
     a = "\u3042"
-    encs = Encoding.list.each do |enc|
+    Encoding.list.each do |enc|
       next if enc.dummy?
       begin
         s = a.encode(enc)

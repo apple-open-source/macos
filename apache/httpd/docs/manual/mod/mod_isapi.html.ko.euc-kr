@@ -49,7 +49,7 @@
     직접 연락하길 바란다. <strong>제발 이런 문제를 아파치
     메일링리스트나 버그보고 페이지에 올리지 <em>마라</em>.</strong></p>
 </div>
-<div id="quickview"><h3>주제</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>주제</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#usage">사용법</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#notes">추가 설명</a></li>
@@ -340,7 +340,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_isapi.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

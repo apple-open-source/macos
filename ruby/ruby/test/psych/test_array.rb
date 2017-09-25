@@ -1,4 +1,5 @@
-require 'psych/helper'
+# frozen_string_literal: false
+require_relative 'helper'
 
 module Psych
   class TestArray < TestCase

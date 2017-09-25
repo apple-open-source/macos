@@ -90,6 +90,7 @@ protected:
     void checkSetFd(int fd)				{ checkError(fd); mFd = fd; mAtEnd = false; }
 	
 	FileDesc(int fd, bool atEnd) : mFd(fd), mAtEnd(atEnd) { }
+	void closeAndLog();	// close and clear without throwing
     
 public:
     FileDesc() : mFd(invalidFd), mAtEnd(false) { }
@@ -114,7 +115,7 @@ public:
     
     void clear()				{ mFd = invalidFd; }
     void close();				// close and clear
-    
+
     void open(const char *path, int flag = O_RDONLY, mode_t mode = 0666);
 	void open(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666)
 	{ this->open(path.c_str(), flag, mode); }
@@ -271,8 +272,8 @@ public:
         : FileDesc(path, flag, mode) { }
 	AutoFileDesc(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666)
 		: FileDesc(path, flag, mode) { }
-
-    ~AutoFileDesc()		{ close(); }
+	AutoFileDesc(const AutoFileDesc& rhs);
+	~AutoFileDesc()		{ closeAndLog(); }
 };
 
 
@@ -335,8 +336,8 @@ public:
 //
 void makedir(const char *path, int flags, mode_t mode = 0777);
 
-int ffprintf(const char *path, int flags, mode_t mode, const char *format, ...);
-int ffscanf(const char *path, const char *format, ...);
+int ffprintf(const char *path, int flags, mode_t mode, const char *format, ...) __attribute__((format(printf, 4, 5)));
+int ffscanf(const char *path, const char *format, ...) __attribute__((format(scanf, 2, 3)));
 
 
 }	// end namespace UnixPlusPlus

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Yusuke Suzuki <utatane.tea@gmail.com>.
- * Copyright (C) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,14 +58,19 @@ JSArray* TemplateRegistry::getTemplateObject(ExecState* exec, JSTemplateRegistry
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     for (unsigned index = 0; index < count; ++index) {
-        templateObject->putDirectIndex(exec, index, jsString(exec, templateKey.cookedStrings()[index]), ReadOnly | DontDelete, PutDirectIndexLikePutDirect);
+        auto cooked = templateKey.cookedStrings()[index];
+        if (cooked)
+            templateObject->putDirectIndex(exec, index, jsString(exec, cooked.value()), ReadOnly | DontDelete, PutDirectIndexLikePutDirect);
+        else
+            templateObject->putDirectIndex(exec, index, jsUndefined(), ReadOnly | DontDelete, PutDirectIndexLikePutDirect);
         RETURN_IF_EXCEPTION(scope, nullptr);
+
         rawObject->putDirectIndex(exec, index, jsString(exec, templateKey.rawStrings()[index]), ReadOnly | DontDelete, PutDirectIndexLikePutDirect);
         RETURN_IF_EXCEPTION(scope, nullptr);
     }
 
     objectConstructorFreeze(exec, rawObject);
-    ASSERT(!scope.exception());
+    scope.assertNoException();
 
     templateObject->putDirect(vm, vm.propertyNames->raw, rawObject, ReadOnly | DontEnum | DontDelete);
 
@@ -74,7 +79,7 @@ JSArray* TemplateRegistry::getTemplateObject(ExecState* exec, JSTemplateRegistry
     templateObject->putDirect(vm, vm.propertyNames->builtinNames().templateRegistryKeyPrivateName(), templateKeyObject, ReadOnly | DontEnum | DontDelete);
 
     objectConstructorFreeze(exec, templateObject);
-    ASSERT(!scope.exception());
+    scope.assertNoException();
 
     m_templateMap.set(&templateKey, templateObject);
 

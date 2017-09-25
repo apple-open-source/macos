@@ -30,7 +30,7 @@
 <a href="../tr/vhosts/ip-based.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#explanation">What is IP-based virtual hosting</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#explanation">What is IP-based virtual hosting</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#requirements">System requirements</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#howto">How to set up Apache</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#multiple">Setting up multiple daemons</a></li>
@@ -163,7 +163,7 @@ Virtual Hosts</a> to help you decide.  </p>
     directives that control process creation and a few other
     directives. To find out if a directive can be used in the
     VirtualHost directive, check the <a href="../mod/directive-dict.html#Context">Context</a> using the
-    <a href="../mod/directives.html">directive index</a>.</p>
+    <a href="../mod/quickreference.html">directive index</a>.</p>
 
     <p><code class="directive"><a href="../mod/mod_suexec.html#suexecusergroup">SuexecUserGroup</a></code>
     may be used inside a
@@ -201,7 +201,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/ip-based.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

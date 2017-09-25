@@ -29,34 +29,33 @@
 #include <panel.h>
 #include <stdbool.h>
 
-/* 
- * Extend this if we add another type.  
- * These types are used for sorting, and priority of display. 
+/*
+ * Extend this if we add another type.
+ *
+ * These types are used for sorting, and priority of display.  Make sure to add
+ * a matching entry to statistic_name_map in statistic.c.
  */
 enum {
-    /*Begin same as old top*/
     STATISTIC_PID, STATISTIC_COMMAND, STATISTIC_CPU, STATISTIC_CPU_ME,
     STATISTIC_CPU_OTHERS, STATISTIC_BOOSTS, STATISTIC_TIME,
-    STATISTIC_THREADS, STATISTIC_PORTS, STATISTIC_MREGION, 
+    STATISTIC_THREADS, STATISTIC_PORTS, STATISTIC_MREGION,
 #ifdef TOP_ANONYMOUS_MEMORY
     STATISTIC_RMEM, STATISTIC_RPRVT, STATISTIC_PURG, STATISTIC_COMPRESSED,
-#else
+#else /* defined(TOP_ANONYMOUS_MEMORY) */
     STATISTIC_RPRVT, STATISTIC_RSHRD, STATISTIC_RSIZE,
-#endif
+#endif /* !defined(TOP_ANONYMOUS_MEMORY) */
     STATISTIC_VSIZE,
-    /*End same as old top*/
-    STATISTIC_VPRVT, 
+    /* end of entries in same order as old top */
+    STATISTIC_VPRVT,
+    STATISTIC_INSTRS, STATISTIC_CYCLES,
     STATISTIC_PGRP, STATISTIC_PPID, STATISTIC_PSTATE,
     STATISTIC_UID, STATISTIC_WORKQUEUE, STATISTIC_FAULTS, STATISTIC_COW_FAULTS,
     STATISTIC_MESSAGES_SENT, STATISTIC_MESSAGES_RECEIVED, STATISTIC_SYSBSD,
     STATISTIC_SYSMACH, STATISTIC_CSW, STATISTIC_PAGEINS, STATISTIC_KPRVT, STATISTIC_KSHRD,
     STATISTIC_IDLEWAKE,
     STATISTIC_POWERSCORE,
-    STATISTIC_USER
-};
-
-enum {
-    STATISTIC_TOTAL = STATISTIC_USER + 1
+    STATISTIC_USER,
+    NUM_STATISTICS,
 };
 
 struct statistic;
@@ -80,7 +79,7 @@ struct statistic_state {
 struct statistics_controller {
     void *globalstats;
     WINDOW *parent;
-    struct statistic_state state[STATISTIC_TOTAL];
+    struct statistic_state state[NUM_STATISTICS];
     int total_possible_statistics;
     int total_active_statistics;
 

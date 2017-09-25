@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (c) 2014-2016, International Business Machines
@@ -19,6 +21,7 @@
  * \brief C++ API: Formats in scientific notation.
  */
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class FieldPositionIterator;
@@ -214,6 +217,7 @@ public:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 
 #endif /* !UCONFIG_NO_FORMATTING */

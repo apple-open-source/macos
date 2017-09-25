@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,20 +101,21 @@ typedef struct {
  *   Holds the EAP-AKA module's context private data.
  */
 typedef struct {
-    EAPClientPluginDataRef 	plugin;
-    EAPClientState		plugin_state;
-    EAPAKAClientState		state;
-    int				previous_identifier;
-    int				identity_count;
-    int				n_required_rands;
-    EAPSIMAKAAttributeType	last_identity_type;
-    CFDataRef			last_identity;
-    EAPSIMAKAKeyInfo		key_info;
-    bool			key_info_valid;
-    EAPSIMAKAPersistentStateRef	persist;
-    bool			reauth_success;
-    AKAStaticKeys		static_keys;
-    uint8_t			pkt[1500];
+    EAPClientPluginDataRef		plugin;
+    EAPClientState			plugin_state;
+    EAPAKAClientState			state;
+    int					previous_identifier;
+    int					identity_count;
+    int					n_required_rands;
+    EAPSIMAKAAttributeType		last_identity_type;
+    CFDataRef				last_identity;
+    EAPSIMAKAKeyInfo			key_info;
+    bool				key_info_valid;
+    EAPSIMAKAPersistentStateRef		persist;
+    bool				reauth_success;
+    EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info;
+    AKAStaticKeys			static_keys;
+    uint8_t				pkt[1500];
 } EAPAKAContext, *EAPAKAContextRef;
 
 /**
@@ -163,24 +164,6 @@ copy_static_imsi(CFDictionaryRef properties)
 	return (NULL);
     }
     return (CFRetain(imsi));
-}
-
-STATIC CFStringRef
-copy_static_identity(CFDictionaryRef properties)
-{
-    CFStringRef		imsi;
-    CFStringRef		realm;
-    CFStringRef		ret_identity;
-
-    imsi = copy_static_imsi(properties);
-    if (imsi == NULL) {
-	return (NULL);
-    }
-    realm = copy_static_realm(properties);
-    ret_identity = copy_imsi_identity(imsi, realm);
-    my_CFRelease(&imsi);
-    my_CFRelease(&realm);
-    return (ret_identity);
 }
 
 /**
@@ -436,13 +419,27 @@ AKAStaticKeysInitWithProperties(AKAStaticKeysRef keys,
 STATIC void
 EAPAKAContextSetLastIdentity(EAPAKAContextRef context, CFDataRef identity_data)
 {
-    if (identity_data != NULL) {
-	CFRetain(identity_data);
-    }
     if (context->last_identity != NULL) {
 	CFRelease(context->last_identity);
     }
-    context->last_identity = identity_data;
+    context->last_identity = NULL;
+    if (identity_data != NULL) {
+	if (context->encrypted_identity_info != NULL &&
+	    (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
+	    context->last_identity_type == kAT_PERMANENT_ID_REQ)) {
+	    /* Carrier Hotspot case, for MK computation we need "0<IMSI>@<NAI realm>"
+	     * that eapolclient will get from CT Server.
+	     */
+	    CFStringRef real_identity = sim_identity_create(context->persist,
+							    context->plugin->properties,
+							    kAT_PERMANENT_ID_REQ, NULL, NULL);
+	    context->last_identity = CFStringCreateExternalRepresentation(NULL, real_identity,
+									  kCFStringEncodingUTF8, 0);
+	    my_CFRelease(&real_identity);
+	} else {
+	    context->last_identity = CFRetain(identity_data);
+	}
+    }
     return;
 }
 
@@ -462,6 +459,7 @@ EAPAKAContextFree(EAPAKAContextRef context)
     EAPSIMAKAPersistentStateRelease(context->persist);
     EAPAKAContextSetLastIdentity(context, NULL);
     AKAStaticKeysRelease(&context->static_keys);
+    EAPSIMAKAClearEncryptedIdentityInfo(context->encrypted_identity_info);
     EAPAKAContextClear(context);
     free(context);
     return;
@@ -600,27 +598,44 @@ eapaka_identity(EAPAKAContextRef context,
     context->last_identity_type = identity_req_type;
     pkt = make_response_packet(context, in_pkt,
 			       kEAPSIMAKAPacketSubtypeAKAIdentity, tb_p);
-    identity = sim_identity_create(context->persist,
-				   context->plugin->properties,
-				   identity_req_type, &reauth_id_used,
-				   client_status);
-    if (identity == NULL) {
-	if (*client_status == kEAPClientStatusResourceUnavailable) {
-	    EAPLOG(LOG_NOTICE, "eapaka: can't find SIM identity");
-	} else if (*client_status == kEAPClientStatusProtocolError) {
-	    EAPLOG(LOG_NOTICE, "eapaka: protocol error.");
+    if (isA_CFData(context->plugin->encryptedEAPIdentity) != NULL &&
+	CFDataGetLength(context->plugin->encryptedEAPIdentity) > 0) {
+	/* encrypted IMSI for Wi-Fi calling */
+	identity_data = CFRetain(context->plugin->encryptedEAPIdentity);
+    } else if (context->encrypted_identity_info != NULL &&
+	       (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
+		identity_req_type == kAT_PERMANENT_ID_REQ)) {
+	/* encrypted IMSI for carrier Wi-Fi hotspots */
+	identity_data = CFRetain(context->encrypted_identity_info->encrypted_identity);
+        EAPAKAContextSetLastIdentity(context, identity_data);
+    } else {
+	/* legacy */
+	identity = sim_identity_create(context->persist,
+				       context->plugin->properties,
+				       identity_req_type,
+				       &reauth_id_used,
+				       client_status);
+	if (identity == NULL) {
+	    if (*client_status == kEAPClientStatusResourceUnavailable) {
+		EAPLOG(LOG_NOTICE, "eapaka: can't find SIM identity");
+	    } else if (*client_status == kEAPClientStatusProtocolError) {
+		EAPLOG(LOG_NOTICE, "eapaka: protocol error.");
+	    }
+	    pkt = NULL;
+	    goto done;
 	}
-	pkt = NULL;
-	goto done;
+	identity_data = CFStringCreateExternalRepresentation(NULL, identity,
+							     kCFStringEncodingUTF8, 0);
+	EAPAKAContextSetLastIdentity(context, identity_data);
     }
-    if (!TLVBufferAddIdentityString(tb_p, identity, &identity_data)) {
+
+    if (!TLVBufferAddIdentity(tb_p, CFDataGetBytePtr(identity_data), (int) CFDataGetLength(identity_data))) {
 	EAPLOG(LOG_NOTICE, "eapaka: can't add AT_IDENTITY, %s",
 	       TLVBufferErrorString(tb_p));
 	*client_status = kEAPClientStatusInternalError;
 	pkt = NULL;
 	goto done;
     }
-    EAPAKAContextSetLastIdentity(context, identity_data);
     my_CFRelease(&identity_data);
 
     /* we didn't have a fast re-auth ID */
@@ -816,7 +831,7 @@ eapaka_challenge(EAPAKAContextRef context,
 		       (int)CFDataGetLength(context->last_identity));
     }
     else {
-	CC_SHA1_Update(&sha1_context, context->plugin->username, 
+	CC_SHA1_Update(&sha1_context, context->plugin->username,
 		       context->plugin->username_length);
     }
     ik = aka_results.ik;
@@ -886,7 +901,6 @@ eapaka_challenge(EAPAKAContextRef context,
     /* as far as we're concerned, we're successful */
     context->state = kEAPAKAClientStateSuccess;
     context->key_info_valid = TRUE;
-    save_persistent_state(context);
     
  done:
     AKAAuthResultsRelease(&aka_results);
@@ -1107,7 +1121,6 @@ eapaka_reauthentication(EAPAKAContextRef context,
     else {
 	context->key_info_valid = FALSE;
     }
-    save_persistent_state(context);
 
  done:
     if (decrypted_buffer != NULL) {
@@ -1309,6 +1322,12 @@ eapaka_notification(EAPAKAContextRef context,
 	else {
 	    EAPLOG(LOG_NOTICE, "eapaka: Notification: %s", str);
 	}
+	if (*error == kEAPClientStatusIdentityDecryptionError &&
+	    context->encrypted_identity_info != NULL &&
+	    context->encrypted_identity_info->encrypted_identity != NULL) {
+	    /* notify CT that it may need to refresh the encryption key */
+	    SIMReportDecryptionError(context->encrypted_identity_info->encrypted_identity);
+	}
     }
 
  done:
@@ -1457,11 +1476,15 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 					 CC_SHA1_DIGEST_LENGTH,
 					 imsi, identity_type);
     CFRelease(imsi);
-	if (EAPSIMAKAPersistentStateGetReauthID(context->persist) != NULL) {
+    if (EAPSIMAKAPersistentStateGetReauthID(context->persist) != NULL) {
 	/* now run PRF to generate keying material */
 	fips186_2prf(EAPSIMAKAPersistentStateGetMasterKey(context->persist),
 		     context->key_info.key);
 	context->key_info_valid = TRUE;
+    }
+    if (plugin->encryptedEAPIdentity == NULL) {
+	context->encrypted_identity_info
+	= EAPSIMAKAInitEncryptedIdentityInfo(plugin->properties, (context->static_keys.ck != NULL));
     }
     context->plugin = plugin;
     plugin->private = context;
@@ -1501,6 +1524,7 @@ eapaka_process(EAPClientPluginDataRef plugin,
 	context->previous_identifier = -1;
 	if (context->state == kEAPAKAClientStateSuccess) {
 	    context->plugin_state = kEAPClientStateSuccess;
+	    save_persistent_state(context);
 	}
 	break;
     case kEAPCodeFailure:
@@ -1572,10 +1596,12 @@ eapaka_publish_props(EAPClientPluginDataRef plugin)
 STATIC CFStringRef
 eapaka_user_name_copy(CFDictionaryRef properties)
 {
-    EAPSIMAKAAttributeType 	identity_type;
-    CFStringRef			imsi;
-    EAPSIMAKAPersistentStateRef persist;
-    CFStringRef			ret_identity = NULL;
+    EAPSIMAKAAttributeType		identity_type;
+    CFStringRef				imsi;
+    EAPSIMAKAPersistentStateRef		persist;
+    CFStringRef				ret_identity = NULL;
+    bool				static_config = true;
+    EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
 
     imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
@@ -1583,18 +1609,27 @@ eapaka_user_name_copy(CFDictionaryRef properties)
 	if (imsi == NULL) {
 	    goto done;
 	}
+	static_config = false;
     }
+    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(properties, static_config);
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPAKA,
 					     CC_SHA1_DIGEST_LENGTH,
 					     imsi, identity_type);
     my_CFRelease(&imsi);
     if (persist != NULL) {
-	ret_identity = sim_identity_create(persist, properties,
-					   identity_type, NULL, NULL);
+	if (encrypted_identity_info != NULL &&
+	    EAPSIMAKAPersistentStateTemporaryUsernameAvailable(persist) == FALSE) {
+	    /* we should send anonymous username in EAP-Response/Identity packet */
+	    ret_identity = CFRetain(encrypted_identity_info->anonymous_identity);
+	} else {
+	    ret_identity = sim_identity_create(persist, properties,
+					       identity_type, NULL, NULL);
+	}
 	EAPSIMAKAPersistentStateRelease(persist);
     }
 done:
+    EAPSIMAKAClearEncryptedIdentityInfo(encrypted_identity_info);
     return (ret_identity);
 }
 
@@ -1612,8 +1647,16 @@ eapaka_copy_identity(EAPClientPluginDataRef plugin)
     EAPAKAContextSetLastIdentity(context, NULL);
     context->state = kEAPAKAClientStateNone;
     context->previous_identifier = -1;
-    if (context->static_keys.ck != NULL) {
-	return (copy_static_identity(plugin->properties));
+
+    /* If encrypted identity is enabled and pseudonym/fast reauth-id are not available
+     * then send identity with anonymous username.
+     */
+    if (context->encrypted_identity_info != NULL &&
+	EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE) {
+	if (context->encrypted_identity_info->anonymous_identity != NULL) {
+	    return CFRetain(context->encrypted_identity_info->anonymous_identity);
+	}
+	return NULL;
     }
     return (sim_identity_create(context->persist, plugin->properties,
 				kAT_ANY_ID_REQ, NULL, NULL));

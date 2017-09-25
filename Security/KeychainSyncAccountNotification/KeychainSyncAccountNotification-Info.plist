@@ -24,5 +24,9 @@
 	<string>${CURRENT_PROJECT_VERSION}</string>
 	<key>NSPrincipalClass</key>
 	<string>KeychainSyncAccountNotification</string>
+	<key>ACSupportedAccountTypes</key>
+	<array>
+		<string>com.apple.account.AppleAccount</string>
+	</array>
 </dict>
 </plist>

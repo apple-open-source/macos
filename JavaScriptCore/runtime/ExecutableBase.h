@@ -29,14 +29,8 @@
 #include "CallData.h"
 #include "CodeBlockHash.h"
 #include "CodeSpecializationKind.h"
-#include "CompilationResult.h"
-#include "ExecutableInfo.h"
-#include "HandlerInfo.h"
-#include "InferredValue.h"
 #include "JITCode.h"
 #include "JSGlobalObject.h"
-#include "SourceCode.h"
-#include "TypeSet.h"
 #include "UnlinkedCodeBlock.h"
 #include "UnlinkedFunctionExecutable.h"
 
@@ -125,19 +119,19 @@ protected:
     int m_numParametersForConstruct;
 
 public:
-    PassRefPtr<JITCode> generatedJITCodeForCall()
+    Ref<JITCode> generatedJITCodeForCall()
     {
         ASSERT(m_jitCodeForCall);
-        return m_jitCodeForCall;
+        return *m_jitCodeForCall;
     }
 
-    PassRefPtr<JITCode> generatedJITCodeForConstruct()
+    Ref<JITCode> generatedJITCodeForConstruct()
     {
         ASSERT(m_jitCodeForConstruct);
-        return m_jitCodeForConstruct;
+        return *m_jitCodeForConstruct;
     }
         
-    PassRefPtr<JITCode> generatedJITCodeFor(CodeSpecializationKind kind)
+    Ref<JITCode> generatedJITCodeFor(CodeSpecializationKind kind)
     {
         if (kind == CodeForCall)
             return generatedJITCodeForCall();

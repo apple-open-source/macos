@@ -3011,7 +3011,7 @@ ipsecdoi_setph2proposal(phase2_handle_t *iph2, int return_sa)
             // IKEv1 sends encode mode in SA - uses diferent codes when NATT being used
 #ifdef ENABLE_NATT
             if (iph2->ph1->natt_flags & NAT_DETECTED) {
-                plog (ASL_LEVEL_INFO, "NAT detected -> UDP encapsulation\n");
+                plog (ASL_LEVEL_NOTICE, "NAT detected -> UDP encapsulation\n");
                 b->udp_encap = 1;
                 if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1) {
                     int udp_diff = iph2->ph1->natt_options->mode_udp_diff;

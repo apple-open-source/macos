@@ -34,7 +34,8 @@ void usage(int exval)
             "       brtest copyfiles <src> [options] <bootDev> [<BlessStyle>]\n"
             "           Options:\n"
             "               -anyboot - update <src>'s bootstamps (no UUID)\n"
-            "               -pickerLabel <label> - specific text for opt-boot\n" 
+            "               -pickerLabel <label> - specific text for opt-boot\n"
+            "               -stagingDir - use the staging directory\n"
             "       brtest copyfiles <src> <root> /<dmg> <tgt>[/<dir>] [<BS>]\n"
             "              (/<dmg> is relative to <root>)\n"
 
@@ -120,6 +121,10 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     if (argc > 4 && strcmp(argv[3], "-pickerLabel") == 0) {
         pickerLabel = CFStringCreateWithFileSystemRepresentation(nil, argv[4]);
         argv += 2; argc -= 2;
+    }
+    if (argc > 3 && strcmp(argv[3], "-stagingDir") == 0) {
+        opts |= kBRUseStagingDir;
+        argv++; argc--;
     }
 
     // argv[1-2] processed by main()
@@ -234,6 +239,8 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
             blessSpec = kBRBlessOnce;
         } else if (strcasecmp(blessarg, "fsonce") == 0) {
             blessSpec |= kBRBlessOnce;
+        } else if (strcasecmp(blessarg, "recovery") == 0) {
+            blessSpec = kBRBlessRecovery;
         } else {
             usage(EX_USAGE);
         }

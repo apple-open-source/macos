@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2009, 2011, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -102,7 +102,7 @@ totext_soa(ARGS_TOTEXT) {
 
 	multiline = ISC_TF((tctx->flags & DNS_STYLEFLAG_MULTILINE) != 0);
 	if (multiline)
-		comment = ISC_TF((tctx->flags & DNS_STYLEFLAG_COMMENT) != 0);
+		comment = ISC_TF((tctx->flags & DNS_STYLEFLAG_RRCOMMENT) != 0);
 	else
 		comment = ISC_FALSE;
 
@@ -186,7 +186,7 @@ fromwire_soa(ARGS_FROMWIRE) {
 	if (tregion.length < 20)
 		return (ISC_R_NOSPACE);
 
-	memcpy(tregion.base, sregion.base, 20);
+	memmove(tregion.base, sregion.base, 20);
 	isc_buffer_forward(source, 20);
 	isc_buffer_add(target, 20);
 
@@ -224,7 +224,7 @@ towire_soa(ARGS_TOWIRE) {
 	if (tregion.length < 20)
 		return (ISC_R_NOSPACE);
 
-	memcpy(tregion.base, sregion.base, 20);
+	memmove(tregion.base, sregion.base, 20);
 	isc_buffer_add(target, 20);
 	return (ISC_R_SUCCESS);
 }

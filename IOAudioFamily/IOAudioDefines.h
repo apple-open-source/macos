@@ -138,7 +138,9 @@
 
 #define kIOAudioEngineClockDomainKey				"IOAudioEngineClockDomain"
 
-#define kIOAudioEngineIsHiddenKey               "IOAudioEngineIsHidden"
+#define kIOAudioEngineIsHiddenKey                   "IOAudioEngineIsHidden"
+
+#define kIOAudioEngineOutputAutoRouteKey            "NoAutoRoute"
 /*!
  * @defined kIOAudioEngineFullChannelNamesKey
  * @abstract The key in the IORegistry for the IOAudioEngine's dictionary of fully constructed names for each channel keyed by the device channel

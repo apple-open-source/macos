@@ -75,7 +75,7 @@ extern const u_int32 tstoushi[128];
  */
 #define TVTOTS(tv, ts) \
 	do { \
-		(ts)->l_ui = (u_long)(tv)->tv_sec; \
+		(ts)->l_ui = (u_int32)(tv)->tv_sec; \
 		TVUTOTSF((tv)->tv_usec, (ts)->l_uf); \
 	} while (FALSE)
 

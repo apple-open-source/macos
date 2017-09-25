@@ -98,7 +98,7 @@ AtomicFile::performDelete()
 	if (::unlink(mPath.c_str()) != 0)
 	{
 		int error = errno;
-		secnotice("atomicfile", "unlink %s: %s", mPath.c_str(), strerror(error));
+		secinfo("atomicfile", "unlink %s: %s", mPath.c_str(), strerror(error));
         if (error == ENOENT)
 			CssmError::throwMe(CSSMERR_DL_DATASTORE_DOESNOT_EXIST);
 		else
@@ -121,7 +121,7 @@ AtomicFile::rename(const std::string &inNewPath)
 	if (::rename(path, newPath) != 0)
 	{
 		int error = errno;
-		secnotice("atomicfile", "rename(%s, %s): %s", path, newPath, strerror(error));
+		secinfo("atomicfile", "rename(%s, %s): %s", path, newPath, strerror(error));
 		UnixError::throwMe(error);
 	}
 }
@@ -140,7 +140,7 @@ AtomicFile::create(mode_t mode)
     if (fileRef == -1)
     {
         int error = errno;
-		secnotice("atomicfile", "open %s: %s", path, strerror(error));
+		secinfo("atomicfile", "open %s: %s", path, strerror(error));
 
         // Do the obvious error code translations here.
 		// @@@ Consider moving these up a level.
@@ -338,6 +338,7 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
             int result = sandbox_check(getpid(), "file-read-data", (sandbox_filter_type) (SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), name);
             if (result != 0)
             {
+                secdebug("atomicfile", "sandboxing rejected read access to %s", name);
                 return -1;
             }
         }
@@ -347,6 +348,7 @@ AtomicFile::ropen(const char *const name, int flags, mode_t mode)
             int result = sandbox_check(getpid(), "file-write-data", (sandbox_filter_type) (SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT), name);
             if (result != 0)
             {
+                secdebug("atomicfile", "sandboxing rejected write access to %s", name);
                 return -1;
             }
         }
@@ -411,7 +413,7 @@ AtomicBufferedFile::open()
 	const char *path = mPath.c_str();
 	if (mFileRef >= 0)
 	{
-		secnotice("atomicfile", "open %s: already open, closing and reopening", path);
+		secinfo("atomicfile", "open %s: already open, closing and reopening", path);
 		close();
 	}
 
@@ -446,7 +448,7 @@ AtomicBufferedFile::open()
 		UnixError::throwMe(error);
 	}
 
-	secnotice("atomicfile", "%p opened %s: %qd bytes", this, path, mLength);
+	secinfo("atomicfile", "%p opened %s: %qd bytes", this, path, mLength);
 
 	return mLength;
 }
@@ -544,7 +546,7 @@ AtomicBufferedFile::close()
 {
 	if (mFileRef < 0)
 	{
-		secnotice("atomicfile", "close %s: already closed", mPath.c_str());
+		secinfo("atomicfile", "close %s: already closed", mPath.c_str());
 	}
 	else
 	{
@@ -648,7 +650,7 @@ AtomicTempFile::create(mode_t mode)
 		}
 	}
 
-	secnotice("atomicfile", "%p created %s", this, path);
+	secinfo("atomicfile", "%p created %s", this, path);
 }
 
 void

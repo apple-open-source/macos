@@ -41,7 +41,7 @@ extern "C" {
 
 #define kSecTokenLoginDomain CFSTR("com.apple.security.tokenlogin")
 
-static CFStringRef cfDataToHex(CFDataRef bin)
+static CFStringRef CF_RETURNS_RETAINED cfDataToHex(CFDataRef bin)
 {
     size_t len = CFDataGetLength(bin) * 2;
     CFMutableStringRef str = CFStringCreateMutable(NULL, len);

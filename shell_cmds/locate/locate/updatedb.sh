@@ -56,11 +56,11 @@ PATH=$LIBEXECDIR:/bin:/usr/bin:$PATH; export PATH
 # 6497475
 set -o noglob
 
-: ${mklocatedb:=locate.mklocatedb}	 # make locate database program
-: ${FCODES:=/var/db/locate.database}	 # the database
-: ${SEARCHPATHS:="/"}		# directories to be put in the database
+: ${mklocatedb:=locate.mklocatedb}      # make locate database program
+: ${FCODES:=/var/db/locate.database}    # the database
+: ${SEARCHPATHS:="/"}                   # directories to be put in the database
 : ${PRUNEPATHS:="/private/tmp /private/var/folders /private/var/tmp */Backups.backupdb"} # unwanted directories
-: ${FILESYSTEMS:="hfs ufs"}			 # allowed filesystems 
+: ${FILESYSTEMS:="hfs ufs apfs"}        # allowed filesystems
 : ${find:=find}
 
 case X"$SEARCHPATHS" in 

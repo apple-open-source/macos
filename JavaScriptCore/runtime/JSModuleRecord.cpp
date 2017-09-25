@@ -35,7 +35,7 @@
 
 namespace JSC {
 
-const ClassInfo JSModuleRecord::s_info = { "ModuleRecord", &Base::s_info, 0, CREATE_METHOD_TABLE(JSModuleRecord) };
+const ClassInfo JSModuleRecord::s_info = { "ModuleRecord", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSModuleRecord) };
 
 
 Structure* JSModuleRecord::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -66,7 +66,7 @@ void JSModuleRecord::destroy(JSCell* cell)
 void JSModuleRecord::finishCreation(ExecState* exec, VM& vm)
 {
     Base::finishCreation(exec, vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
 }
 
 void JSModuleRecord::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -86,8 +86,9 @@ void JSModuleRecord::link(ExecState* exec)
         throwSyntaxError(exec, scope);
         return;
     }
-    m_moduleProgramExecutable.set(vm, this, executable);
     instantiateDeclarations(exec, executable);
+    RETURN_IF_EXCEPTION(scope, void());
+    m_moduleProgramExecutable.set(vm, this, executable);
 }
 
 void JSModuleRecord::instantiateDeclarations(ExecState* exec, ModuleProgramExecutable* moduleProgramExecutable)
@@ -204,9 +205,9 @@ JSValue JSModuleRecord::evaluate(ExecState* exec)
 {
     if (!m_moduleProgramExecutable)
         return jsUndefined();
-    JSValue result = exec->interpreter()->execute(m_moduleProgramExecutable.get(), exec, m_moduleEnvironment.get());
+    ModuleProgramExecutable* executable = m_moduleProgramExecutable.get();
     m_moduleProgramExecutable.clear();
-    return result;
+    return exec->interpreter()->executeModuleProgram(executable, exec, m_moduleEnvironment.get());
 }
 
 } // namespace JSC

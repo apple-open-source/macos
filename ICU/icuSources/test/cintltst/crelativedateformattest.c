@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * Copyright (c) 2016, International Business Machines Corporation
  * and others. All Rights Reserved.
@@ -115,6 +117,20 @@ static const char* fr_decDef_long_midSent_day[kNumOffsets*2] = {
     "dans 5 jours",         "dans 5 jours"        /*  5   */
 };
 
+static const char* nb_decDef_long_midSent_day[kNumOffsets*2] = {
+/*  text                    numeric */
+    "for 5 dager siden",    "for 5 dager siden",   /* -5   */
+    "for 2,2 dager siden",  "for 2,2 dager siden", /* -2.2 */
+    "i forg\\u00E5rs",      "for 2 dager siden",   /* -2   */
+    "i g\\u00E5r",          "for 1 dag siden",     /* -1   */
+    "for 0,7 dager siden",  "for 0,7 dager siden", /* -0.7 */
+    "i dag",                "om 0 dager",          /*  0   */
+    "om 0,7 dager",         "om 0,7 dager",        /*  0.7 */
+    "i morgen",             "om 1 dag",            /*  1   */
+    "i overmorgen",         "om 2 dager",          /*  2   */
+    "om 5 dager",           "om 5 dager"           /*  5   */
+};
+
 
 typedef struct {
     const char*                         locale;
@@ -132,6 +148,7 @@ static const RelDateTimeFormatTestItem fmtTestItems[] = {
     { "en", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,  en_decDef_long_midSent_min   },
     { "en", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_TUESDAY, en_dec0_long_midSent_tues    },
     { "fr", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_DAY,     fr_decDef_long_midSent_day   },
+    { "nb", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_DAY,     nb_decDef_long_midSent_day   },
     { NULL,  0, (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, (URelativeDateTimeUnit)0, NULL } /* terminator */
 };
 

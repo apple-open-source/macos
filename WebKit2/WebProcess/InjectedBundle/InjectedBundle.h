@@ -23,25 +23,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InjectedBundle_h
-#define InjectedBundle_h
+#pragma once
 
+#include "APIInjectedBundleBundleClient.h"
 #include "APIObject.h"
-#include "InjectedBundleClient.h"
 #include "SandboxExtension.h"
-#include "WKBundle.h"
+#include <JavaScriptCore/JavaScript.h>
 #include <WebCore/UserContentTypes.h>
 #include <WebCore/UserScriptTypes.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(GTK)
+#if USE(GLIB)
 typedef struct _GModule GModule;
-#endif
-
-#if PLATFORM(EFL)
-#include <Eina.h>
 #endif
 
 #if USE(FOUNDATION)
@@ -65,10 +60,8 @@ namespace WebKit {
 
 #if USE(FOUNDATION)
 typedef NSBundle *PlatformBundle;
-#elif PLATFORM(GTK)
+#elif USE(GLIB)
 typedef ::GModule* PlatformBundle;
-#elif PLATFORM(EFL)
-typedef Eina_Module* PlatformBundle;
 #endif
 
 class InjectedBundleScriptWorld;
@@ -81,7 +74,7 @@ struct WebProcessCreationParameters;
 
 class InjectedBundle : public API::ObjectImpl<API::Object::Type::Bundle> {
 public:
-    static PassRefPtr<InjectedBundle> create(const WebProcessCreationParameters&, API::Object* initializationUserData);
+    static RefPtr<InjectedBundle> create(const WebProcessCreationParameters&, API::Object* initializationUserData);
 
     ~InjectedBundle();
 
@@ -91,7 +84,7 @@ public:
     void setBundleParameters(const IPC::DataReference&);
 
     // API
-    void initializeClient(const WKBundleClientBase*);
+    void setClient(std::unique_ptr<API::InjectedBundle::Client>&&);
     void postMessage(const String&, API::Object*);
     void postSynchronousMessage(const String&, API::Object*, RefPtr<API::Object>& returnData);
 
@@ -104,6 +97,7 @@ public:
     void setNeedsStorageAccessFromFileURLsQuirk(WebPageGroupProxy*, bool);
     void setMinimumLogicalFontSize(WebPageGroupProxy*, int size);
     void setFrameFlatteningEnabled(WebPageGroupProxy*, bool);
+    void setAsyncFrameScrollingEnabled(WebPageGroupProxy*, bool);
     void setPluginsEnabled(WebPageGroupProxy*, bool);
     void setJavaScriptCanAccessClipboard(WebPageGroupProxy*, bool);
     void setPrivateBrowsingEnabled(WebPageGroupProxy*, bool);
@@ -123,10 +117,10 @@ public:
     void setWebNotificationPermission(WebPage*, const String& originString, bool allowed);
     void removeAllWebNotificationPermissions(WebPage*);
     uint64_t webNotificationID(JSContextRef, JSValueRef);
-    PassRefPtr<API::Data> createWebDataFromUint8Array(JSContextRef, JSValueRef);
+    Ref<API::Data> createWebDataFromUint8Array(JSContextRef, JSValueRef);
 
     // UserContent API
-    void addUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime, WebCore::UserContentInjectedFrames);
+    void addUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, String&& source, String&& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime, WebCore::UserContentInjectedFrames);
     void addUserStyleSheet(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserContentInjectedFrames);
     void removeUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& url);
     void removeUserStyleSheet(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& url);
@@ -168,7 +162,7 @@ private:
 
     RefPtr<SandboxExtension> m_sandboxExtension;
 
-    InjectedBundleClient m_client;
+    std::unique_ptr<API::InjectedBundle::Client> m_client;
 
 #if PLATFORM(COCOA) && WK_API_ENABLED
     RetainPtr<WKWebProcessBundleParameters> m_bundleParameters;
@@ -177,4 +171,3 @@ private:
 
 } // namespace WebKit
 
-#endif // InjectedBundle_h

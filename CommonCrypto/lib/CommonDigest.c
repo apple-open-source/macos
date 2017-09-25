@@ -217,7 +217,7 @@ CCDigestOID(CCDigestRef ctx)
 {
     CC_DEBUG_LOG("Entering\n");
     CCDigestCtxPtr p = (CCDigestCtxPtr) ctx;
-	return (uint8_t *)p->di->oid;//need to drop the const qualifier
+	return p->di->oid;//need to drop the const qualifier
 }
 
 size_t

@@ -1,3 +1,9 @@
+GENERATE_TEXT_BASED_STUBS ?= YES
+GENERATE_TEXT_BASED_STUBS_UPPER := $(shell echo $(GENERATE_TEXT_BASED_STUBS) | tr a-z A-Z)
+
+STUBIFY = $(if $(filter 1 TRUE ON YES,$(GENERATE_TEXT_BASED_STUBS_UPPER)),YES,NO)
+$(info GENERATE_TEXT_BASED_STUBS=$(STUBIFY))
+
 
 SRCROOT = .
 SYMROOT = .
@@ -25,6 +31,10 @@ else
 	INSTALL_TARGET = install-iPhoneOS
 endif
 
+ifeq ($(STUBIFY),YES)
+install: stubify
+endif
+
 USRLIBDIR = /usr/lib
 DSTDIRS = $(DSTROOT)$(USRLIBDIR) 
 
@@ -44,7 +54,6 @@ clean:
 	rm -f $(OBJROOT)/libgcc_s.dylib.full  $(OBJROOT)/libgcc_s.dylib
 
 install:  $(INSTALL_TARGET)
-
 
 installhdrs:
 
@@ -67,6 +76,9 @@ install-MacOSX: $(OBJROOT)/libgcc_s.dylib
 install-iPhoneOS : $(SYMROOT)/libgcc_s.1.dylib 
 	mkdir -p $(DSTROOT)/usr/lib
 	$(STRIP) -S $(SYMROOT)/libgcc_s.1.dylib -o $(DSTROOT)/usr/lib/libgcc_s.1.dylib
+
+stubify: $(INSTALL_TARGET)
+	xcrun tapi stubify $(DSTROOT)
 
 $(SYMROOT)/libgcc_s.1.dylib :  $(SRCROOT)/reexports.exp
 	$(CC) $(ARCH_CFLAGS) -dynamiclib -install_name /usr/lib/libgcc_s.1.dylib \

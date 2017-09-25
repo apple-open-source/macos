@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,7 @@ get_agent_uuid_if_OOB_data_required(xpc_object_t info, uuid_t uuid)
 
 	if (xpc_get_type(info) == XPC_TYPE_ARRAY) {
 		xpc_array_apply(info, ^bool(size_t index, xpc_object_t value) {
+#pragma unused(index)
 			if (value && xpc_get_type(value) == XPC_TYPE_DICTIONARY) {
 				agent_uuid = xpc_dictionary_get_value(info,
 								      kConfigAgentOutOfBandDataUUID);

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 ##
 # Provides a single method +deprecate+ to be used to declare when
 # something is going away.
@@ -50,7 +51,7 @@ module Gem::Deprecate
     class_eval {
       old = "_deprecated_#{name}"
       alias_method old, name
-      define_method name do |*args, &block| # TODO: really works on 1.8.7?
+      define_method name do |*args, &block|
         klass = self.kind_of? Module
         target = klass ? "#{self}." : "#{self.class}#"
         msg = [ "NOTE: #{target}#{name} is deprecated",

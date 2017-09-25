@@ -104,7 +104,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_5_0);
     @param      encoding    selects one of the base encodings above.
     @param      direction   Designate the direction (encode or decode) for this
                             CNEncoderRef.
-    @param      coderRef  A (required) pointer to the returned CNEncoderRef. 
+    @param      encoderRef  A (required) pointer to the returned CNEncoderRef.
 */
     
 CNStatus 
@@ -120,20 +120,19 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_5_0);
     @param      baseNum     The base of the encoding (16, 32, 64)
     @param      charMap     A string containing the characters to map an encoded
                             byte to for output.
-    @param      padding     The character to use for padding (usually '=')
+    @param      padChar     The character to use for padding (usually '=')
     @param      direction   Designate the direction (encode or decode) for this
                             CNEncoderRef.
     @param      coderRef  A (required) pointer to the returned CNEncoderRef. 
  */
 
 CNStatus 
-CNEncoderCreateCustom(
-                               const void *name,
-                               const uint8_t baseNum,
-                               const void *charMap,
-                               const char padChar,
-                               CNEncodingDirection direction,
-                         CNEncoderRef *coderRef)  /* RETURNED */
+CNEncoderCreateCustom(const void *name,
+                      const uint8_t baseNum,
+                      const void *charMap,
+                      const char padChar,
+                      CNEncodingDirection direction,
+                      CNEncoderRef *coderRef)  /* RETURNED */
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_5_0);
     
 /*!

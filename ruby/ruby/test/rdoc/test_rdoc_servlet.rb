@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocServlet < RDoc::TestCase
@@ -23,7 +24,9 @@ class TestRDocServlet < RDoc::TestCase
     @stores = {}
     @cache  = Hash.new { |hash, store| hash[store] = {} }
 
-    @s = RDoc::Servlet.new @server, @stores, @cache
+    @extra_dirs = [File.join(@tempdir, 'extra1'), File.join(@tempdir, 'extra2')]
+
+    @s = RDoc::Servlet.new @server, @stores, @cache, nil, @extra_dirs
 
     @req = WEBrick::HTTPRequest.new :Logger => nil
     @res = WEBrick::HTTPResponse.new :HTTPVersion => '1.0'
@@ -145,6 +148,16 @@ class TestRDocServlet < RDoc::TestCase
     end
   end
 
+  def do_GET_not_found
+    touch_system_cache_path
+
+    @req.path = "/#{@spec.full_name}"
+
+    @s.do_GET @req, @res
+
+    assert_equal 404, @res.status
+  end
+
   def test_do_GET_not_modified
     touch_system_cache_path
     @req.header['if-modified-since'] = [(Time.now + 10).httpdate]
@@ -173,7 +186,7 @@ class TestRDocServlet < RDoc::TestCase
 
     @s.do_GET @req, @res
 
-    assert_equal 'application/javascript', @res.content_type
+    assert_equal 'application/javascript', @res.content_type, @res.body
   end
 
   def test_documentation_page_class
@@ -187,8 +200,8 @@ class TestRDocServlet < RDoc::TestCase
 
     @s.documentation_page store, generator, 'Klass::Sub.html', @req, @res
 
-    assert_match %r%<title>class Klass::Sub - </title>%, @res.body
-    assert_match %r%<body id="top" class="class">%,      @res.body
+    assert_match %r%<title>class Klass::Sub - </title>%,            @res.body
+    assert_match %r%<body id="top" role="document" class="class">%, @res.body
   end
 
   def test_documentation_page_not_found
@@ -214,7 +227,7 @@ class TestRDocServlet < RDoc::TestCase
     @s.documentation_page store, generator, 'README_rdoc.html', @req, @res
 
     assert_match %r%<title>README - </title>%, @res.body
-    assert_match %r%<body class="file">%,      @res.body
+    assert_match %r%<body [^>]+ class="file">%,      @res.body
   end
 
   def test_documentation_source
@@ -298,8 +311,13 @@ class TestRDocServlet < RDoc::TestCase
 
   def test_installed_docs
     touch_system_cache_path
+    touch_extra_cache_path
 
     expected = [
+      ['My Extra Documentation', 'extra-1/', true, :extra,
+        @extra_dirs[0]],
+      ['Extra Documentation', 'extra-2/', false, :extra,
+        @extra_dirs[1]],
       ['Ruby Documentation', 'ruby/', true,  :system,
         @system_dir],
       ['Site Documentation', 'site/', false, :site,
@@ -325,10 +343,24 @@ class TestRDocServlet < RDoc::TestCase
     assert_match %r%<kbd>/ruby/Missing\.html</kbd>%, @res.body
   end
 
+  def test_not_found_message
+    generator = @s.generator_for RDoc::Store.new
+
+    @req.path = '/ruby/Missing.html'
+
+    @s.not_found generator, @req, @res, 'woo, this is a message'
+
+    assert_equal 404,                          @res.status
+    assert_match %r%<title>Not Found</title>%, @res.body
+    assert_match %r%woo, this is a message%,   @res.body
+  end
+
   def test_ri_paths
     paths = @s.ri_paths
 
     expected = [
+      [@extra_dirs[0],                 :extra],
+      [@extra_dirs[1],                 :extra],
       [@system_dir,                    :system],
       [File.join(@base, 'site'),       :site],
       [RDoc::RI::Paths::HOMEDIR,       :home],
@@ -347,6 +379,7 @@ class TestRDocServlet < RDoc::TestCase
 
   def test_root_search
     touch_system_cache_path
+    touch_extra_cache_path
 
     @s.root_search @req, @res
 
@@ -359,12 +392,16 @@ class TestRDocServlet < RDoc::TestCase
     expected = {
       'index' => {
         'searchIndex' => %w[
+          My\ Extra\ Documentation
           Ruby\ Documentation
         ],
         'longSearchIndex' => %w[
+          My\ Extra\ Documentation
           Ruby\ Documentation
         ],
         'info' => [
+          ['My Extra Documentation', '', @extra_dirs[0], '',
+            'My Extra Documentation'],
           ['Ruby Documentation', '', 'ruby', '',
             'Documentation for the Ruby standard library'],
         ],
@@ -419,6 +456,10 @@ class TestRDocServlet < RDoc::TestCase
   end
 
   def test_store_for_gem
+    ri_dir = File.join @gem_doc_dir, 'spec-1.0', 'ri'
+    FileUtils.mkdir_p ri_dir
+    FileUtils.touch File.join ri_dir, 'cache.ri'
+
     store = @s.store_for 'spec-1.0'
 
     assert_equal File.join(@gem_doc_dir, 'spec-1.0', 'ri'), store.path
@@ -432,12 +473,24 @@ class TestRDocServlet < RDoc::TestCase
     assert_equal :home, store.type
   end
 
-  def test_store_for_missing
-    e = assert_raises RDoc::Error do
+  def test_store_for_missing_documentation
+    FileUtils.mkdir_p(File.join @gem_doc_dir, 'spec-1.0', 'ri')
+
+    e = assert_raises WEBrick::HTTPStatus::NotFound do
+      @s.store_for 'spec-1.0'
+    end
+
+    assert_equal 'Could not find documentation for "spec-1.0". Please run `gem rdoc --ri gem_name`',
+                 e.message
+  end
+
+  def test_store_for_missing_gem
+    e = assert_raises WEBrick::HTTPStatus::NotFound do
       @s.store_for 'missing'
     end
 
-    assert_equal 'could not find ri documentation for missing', e.message
+    assert_equal 'Could not find gem "missing". Are you sure you installed it?',
+                 e.message
   end
 
   def test_store_for_ruby
@@ -454,6 +507,13 @@ class TestRDocServlet < RDoc::TestCase
     assert_equal :site, store.type
   end
 
+  def test_store_for_extra
+    store = @s.store_for 'extra-1'
+
+    assert_equal @extra_dirs.first, store.path
+    assert_equal :extra, store.type
+  end
+
   def touch_system_cache_path
     store = RDoc::Store.new @system_dir
     store.title = 'Standard Library Documentation'
@@ -463,5 +523,13 @@ class TestRDocServlet < RDoc::TestCase
     store.save
   end
 
-end
+  def touch_extra_cache_path
+    store = RDoc::Store.new @extra_dirs.first
+    store.title = 'My Extra Documentation'
 
+    FileUtils.mkdir_p File.dirname store.cache_path
+
+    store.save
+  end
+
+end

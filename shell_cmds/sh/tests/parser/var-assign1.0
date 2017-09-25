@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/parser/var-assign1.0 257920 2013-11-10 18:46:59Z jilles $
 # In a variable assignment, both the name and the equals sign must be entirely
 # unquoted. Therefore, there is only one assignment below; the other words
 # containing equals signs are command words.

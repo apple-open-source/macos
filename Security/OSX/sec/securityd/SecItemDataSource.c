@@ -30,15 +30,18 @@
 #include <securityd/SecItemDataSource.h>
 
 #include <securityd/SecItemDb.h>
+#include <securityd/SecDbItem.h>
 #include <securityd/SecItemSchema.h>
 #include <securityd/SOSCloudCircleServer.h>
 #include <Security/SecureObjectSync/SOSDigestVector.h>
+#include <Security/SecureObjectSync/SOSEngine.h>
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemBackup.h>
 #include <Security/SecItemPriv.h>
 #include <utilities/array_size.h>
+#include <keychain/ckks/CKKS.h>
 
 /*
  *
@@ -55,22 +58,44 @@ struct SecItemDataSource {
     CFStringRef name;           // The name of the slice of the database we represent.
 };
 
-static const SecDbClass *dsSyncedClassesV0[] = {
-    &genp_class,
-    &inet_class,
-    &keys_class,
-};
 
-static const SecDbClass *dsSyncedClasses[] = {
-    &genp_class,         // genp must be first!
-    &inet_class,
-    &keys_class,
-    &cert_class,
+static const SecDbClass *dsSyncedClassesV0Ptrs[] = {
+    NULL,
+    NULL,
+    NULL,
 };
+static size_t dsSyncedClassesV0Size = (array_size(dsSyncedClassesV0Ptrs));
 
-static bool SecErrorIsSqliteDuplicateItemError(CFErrorRef error) {
-    return error && CFErrorGetCode(error) == SQLITE_CONSTRAINT && CFEqual(kSecDbErrorDomain, CFErrorGetDomain(error));
+static const SecDbClass** dsSyncedClassesV0() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dsSyncedClassesV0Ptrs[0] = genp_class();
+        dsSyncedClassesV0Ptrs[1] = inet_class();
+        dsSyncedClassesV0Ptrs[2] = keys_class();
+    });
+    return dsSyncedClassesV0Ptrs;
 }
+
+
+static const SecDbClass *dsSyncedClassesPtrs[] = {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
+static const size_t dsSyncedClassesSize = array_size(dsSyncedClassesPtrs);
+
+static const SecDbClass** dsSyncedClasses() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dsSyncedClassesPtrs[0] = genp_class();         // genp must be first!
+        dsSyncedClassesPtrs[1] = inet_class();
+        dsSyncedClassesPtrs[2] = keys_class();
+        dsSyncedClassesPtrs[3] = cert_class();
+    });
+    return dsSyncedClassesPtrs;
+}
+
 
 static bool SecDbItemSelectSHA1(SecDbQueryRef query, SecDbConnectionRef dbconn, CFErrorRef *error,
                                 bool (^use_attr_in_where)(const SecDbAttr *attr),
@@ -201,45 +226,51 @@ static bool SecItemDataSourceAppendQueriesForViewName(SecItemDataSourceRef ds, C
         viewName = CFRetain(compositeViewName);
     }
 
+    // short-circuit for CKKS-handled views here
+    if(!SOSViewInSOSSystem(viewName)) {
+        CFReleaseSafe(viewName);
+        return ok;
+    }
+
     const bool noTKID = false;
     const bool allowTKID = true;
     if (CFEqual(viewName, kSOSViewKeychainV0)) {
-        for (size_t class_ix = 0; class_ix < array_size(dsSyncedClassesV0); ++class_ix) {
-            SecItemDataSourceAppendQueryWithClass(queries, dsSyncedClassesV0[class_ix], noTombstones, noTKID, error);
+        for (size_t class_ix = 0; class_ix < dsSyncedClassesV0Size; ++class_ix) {
+            SecItemDataSourceAppendQueryWithClass(queries, dsSyncedClassesV0()[class_ix], noTombstones, noTKID, error);
         }
     } else if (CFEqual(viewName, kSOSViewWiFi)) {
-        Query *q = SecItemDataSourceAppendQueryWithClassAndAgrp(queries, &genp_class, noTombstones, allowTKID, CFSTR("apple"), error);
+        Query *q = SecItemDataSourceAppendQueryWithClassAndAgrp(queries, genp_class(), noTombstones, allowTKID, CFSTR("apple"), error);
         if (q) {
             query_add_attribute(kSecAttrService, CFSTR("AirPort"), q);
         }
     } else if (CFEqual(viewName, kSOSViewAutofillPasswords)) {
-        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, &inet_class, noTombstones, allowTKID, CFSTR("com.apple.cfnetwork"), error);
+        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, inet_class(), noTombstones, allowTKID, CFSTR("com.apple.cfnetwork"), error);
     } else if (CFEqual(viewName, kSOSViewSafariCreditCards)) {
-        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, &genp_class, noTombstones, allowTKID, CFSTR("com.apple.safari.credit-cards"), error);
+        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, genp_class(), noTombstones, allowTKID, CFSTR("com.apple.safari.credit-cards"), error);
     } else if (CFEqual(viewName, kSOSViewiCloudIdentity)) {
-        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, &keys_class, noTombstones, allowTKID, CFSTR("com.apple.security.sos"), error);
+        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, keys_class(), noTombstones, allowTKID, CFSTR("com.apple.security.sos"), error);
     } else if (CFEqual(viewName, kSOSViewBackupBagV0)) {
-        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, &genp_class, noTombstones, allowTKID, CFSTR("com.apple.sbd"), error);
+        SecItemDataSourceAppendQueryWithClassAndAgrp(queries, genp_class(), noTombstones, allowTKID, CFSTR("com.apple.sbd"), error);
     } else if (CFEqual(viewName, kSOSViewOtherSyncable)) {
-        SecItemDataSourceAppendQueryWithClass(queries, &cert_class, noTombstones, allowTKID, error);
+        SecItemDataSourceAppendQueryWithClass(queries, cert_class(), noTombstones, allowTKID, error);
 
-        Query *q1_genp = SecItemDataSourceAppendQueryWithClassAndAgrp(queries, &genp_class, noTombstones, allowTKID, CFSTR("apple"), error);
+        Query *q1_genp = SecItemDataSourceAppendQueryWithClassAndAgrp(queries, genp_class(), noTombstones, allowTKID, CFSTR("apple"), error);
         query_add_not_attribute(kSecAttrService, CFSTR("AirPort"), q1_genp);
 
-        Query *q2_genp = SecItemDataSourceAppendQueryWithClass(queries, &genp_class, noTombstones, allowTKID, error);
+        Query *q2_genp = SecItemDataSourceAppendQueryWithClass(queries, genp_class(), noTombstones, allowTKID, error);
         query_add_not_attribute(kSecAttrAccessGroup, CFSTR("apple"), q2_genp);
         query_add_not_attribute(kSecAttrAccessGroup, CFSTR("com.apple.safari.credit-cards"), q2_genp);
         query_add_not_attribute(kSecAttrAccessGroup, CFSTR("com.apple.sbd"), q2_genp);
 
-        Query *q_inet = SecItemDataSourceAppendQueryWithClass(queries, &inet_class, noTombstones, allowTKID, error);
+        Query *q_inet = SecItemDataSourceAppendQueryWithClass(queries, inet_class(), noTombstones, allowTKID, error);
         query_add_not_attribute(kSecAttrAccessGroup, CFSTR("com.apple.cfnetwork"), q_inet);
 
-        Query *q_keys = SecItemDataSourceAppendQueryWithClass(queries, &keys_class, noTombstones, allowTKID, error);
+        Query *q_keys = SecItemDataSourceAppendQueryWithClass(queries, keys_class(), noTombstones, allowTKID, error);
         query_add_not_attribute(kSecAttrAccessGroup, CFSTR("com.apple.security.sos"), q_keys);
     } else {
         // All other viewNames should match on the ViewHint attribute.
-        for (size_t class_ix = 0; class_ix < array_size(dsSyncedClasses); ++class_ix) {
-            SecItemDataSourceAppendQueryWithClassAndViewHint(queries, dsSyncedClasses[class_ix], noTombstones, allowTKID, viewName, error);
+        for (size_t class_ix = 0; class_ix < dsSyncedClassesSize; ++class_ix) {
+            SecItemDataSourceAppendQueryWithClassAndViewHint(queries, dsSyncedClasses()[class_ix], noTombstones, allowTKID, viewName, error);
         }
     }
 
@@ -345,7 +376,7 @@ static SOSManifestRef dsCopyManifestWithViewNameSet(SOSDataSourceRef data_source
 static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn, SOSManifestRef manifest, CFErrorRef *error, void (^handle_object)(CFDataRef key, SOSObjectRef object, bool *stop)) {
     struct SecItemDataSource *ds = (struct SecItemDataSource *)data_source;
     __block bool result = true;
-    const SecDbAttr *sha1Attr = SecDbClassAttrWithKind(&genp_class, kSecDbSHA1Attr, error);
+    const SecDbAttr *sha1Attr = SecDbClassAttrWithKind(genp_class(), kSecDbSHA1Attr, error);
     if (!sha1Attr) return false;
     bool (^return_attr)(const SecDbAttr *attr) = ^bool (const SecDbAttr * attr) {
         return attr->kind == kSecDbRowIdAttr || attr->kind == kSecDbEncryptedDataAttr;
@@ -353,9 +384,9 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
     bool (^use_attr_in_where)(const SecDbAttr *attr) = ^bool (const SecDbAttr * attr) {
         return attr->kind == kSecDbSHA1Attr;
     };
-    Query *select_queries[array_size(dsSyncedClasses)] = {};
-    CFStringRef select_sql[array_size(dsSyncedClasses)] = {};
-    sqlite3_stmt *select_stmts[array_size(dsSyncedClasses)] = {};
+    Query *select_queries[dsSyncedClassesSize] = {};
+    CFStringRef select_sql[dsSyncedClassesSize] = {};
+    sqlite3_stmt *select_stmts[dsSyncedClassesSize] = {};
 
     __block Query **queries = select_queries;
     __block CFStringRef *sqls = select_sql;
@@ -364,16 +395,16 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
     void (^readBlock)(SecDbConnectionRef dbconn) = ^(SecDbConnectionRef dbconn)
     {
         // Setup
-        for (size_t class_ix = 0; class_ix < array_size(dsSyncedClasses); ++class_ix) {
+        for (size_t class_ix = 0; class_ix < dsSyncedClassesSize; ++class_ix) {
             result = (result
-                      && (queries[class_ix] = query_create(dsSyncedClasses[class_ix], NULL, NULL, error))
+                      && (queries[class_ix] = query_create(dsSyncedClasses()[class_ix], NULL, NULL, error))
                       && (sqls[class_ix] = SecDbItemCopySelectSQL(queries[class_ix], return_attr, use_attr_in_where, NULL))
                       && (stmts[class_ix] = SecDbCopyStmt(dbconn, sqls[class_ix], NULL, error)));
         }
 
         if (result) SOSManifestForEach(manifest, ^(CFDataRef key, bool *stop) {
             __block SecDbItemRef item = NULL;
-            for (size_t class_ix = 0; result && !item && class_ix < array_size(dsSyncedClasses); ++class_ix) {
+            for (size_t class_ix = 0; result && !item && class_ix < dsSyncedClassesSize; ++class_ix) {
                 CFDictionarySetValue(queries[class_ix]->q_item, sha1Attr->name, key);
                 result = SecDbItemSelectBind(queries[class_ix], stmts[class_ix], error, use_attr_in_where, NULL);
                 if (result) {
@@ -389,7 +420,7 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
         });
 
         // Cleanup
-        for (size_t class_ix = 0; class_ix < array_size(dsSyncedClasses); ++class_ix) {
+        for (size_t class_ix = 0; class_ix < dsSyncedClassesSize; ++class_ix) {
             result &= SecDbReleaseCachedStmt(dbconn, sqls[class_ix], stmts[class_ix], error);
             CFReleaseSafe(sqls[class_ix]);
             if (queries[class_ix])
@@ -466,7 +497,7 @@ static bool dsWith(SOSDataSourceRef data_source, CFErrorRef *error, SOSDataSourc
     __block bool ok = true;
     ok &= SecDbPerformWrite(ds->db, error, ^(SecDbConnectionRef dbconn) {
         ok &= SecDbTransaction(dbconn,
-                               source == kSOSDataSourceAPITransaction ? kSecDbExclusiveTransactionType : kSecDbExclusiveRemoteTransactionType,
+                               source == kSOSDataSourceAPITransaction ? kSecDbExclusiveTransactionType : kSecDbExclusiveRemoteSOSTransactionType,
                                error, ^(bool *commit) {
                                    if (onCommitQueue) {
                                        SecDbPerformOnCommitQueue(dbconn, false, ^{
@@ -498,6 +529,7 @@ static SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObj
     __block SecDbItemRef mergedItem = NULL;
     __block SecDbItemRef replacedItem = NULL;
     __block CFErrorRef localError = NULL;
+    __block bool attemptedMerge = false;
 
     if (!peersItem || !dbconn)
         return kSOSMergeFailure;
@@ -507,38 +539,55 @@ static SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObj
         return kSOSMergeFailure;
     }
 
-    if (SecDbItemInsertOrReplace(peersItem, dbconn, &localError, ^(SecDbItemRef myItem, SecDbItemRef *replace) {
+    bool insertedOrReplaced = SecDbItemInsertOrReplace(peersItem, dbconn, &localError, ^(SecDbItemRef myItem, SecDbItemRef *replace) {
         // An item with the same primary key as dbItem already exists in the the database.  That item is old_item.
         // Let the conflict resolver choose which item to keep.
+        attemptedMerge = true;
         mergedItem = SecItemDataSourceCopyMergedItem(peersItem, myItem, &localError);
-        if (!mergedItem)
+        if (!mergedItem) {
+            mr = kSOSMergeFailure;
             return;     // from block
+        }
         if (mergedObject)
             *mergedObject = (SOSObjectRef)CFRetain(mergedItem);
         if (CFEqual(mergedItem, myItem)) {
             // Conflict resolver choose my (local) item
-            secnotice("ds", "Conflict resolver chose my (local) item: %@", myItem);
+            if (SecDbItemIsEngineInternalState(myItem))
+                secdebug ("ds", "Conflict resolver chose my (local) item: %@", myItem);
+            else
+                secnotice("ds", "Conflict resolver chose my (local) item: %@", myItem);
             mr = kSOSMergeLocalObject;
         } else {
             CFRetainAssign(replacedItem, myItem);
             *replace = CFRetainSafe(mergedItem);
             if (CFEqual(mergedItem, peersItem)) {
                 // Conflict resolver chose peer's item
-                secnotice("ds", "Conflict resolver chose peers item: %@", peersItem);
+                if (SecDbItemIsEngineInternalState(peersItem))
+                    secdebug ("ds", "Conflict resolver chose peers item: %@", peersItem);
+                else
+                    secnotice("ds", "Conflict resolver chose peers item: %@", peersItem);
                 mr = kSOSMergePeersObject;
             } else {
                 // Conflict resolver created a new item; return it to our caller
-                secnotice("ds", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
+                if (SecDbItemIsEngineInternalState(mergedItem))
+                    secdebug ("ds", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
+                else
+                    secnotice("ds", "Conflict resolver created a new item; return it to our caller: %@", mergedItem);
                 mr = kSOSMergeCreatedObject;
             }
         }
-    })) {
-        // either SecDbItemInsertOrReplace or SecItemDataSourceCopyMergedItem failed
-        if (mr == kSOSMergeFailure)
-        {
+    });
+
+    if (insertedOrReplaced && !attemptedMerge) {
+        // SecDbItemInsertOrReplace succeeded and conflict block was never called -> insert succeeded.
+        // We have peersItem in the database so we need to report that
+        secnotice("ds", "Insert succeeded for: %@", peersItem);
+        mr = kSOSMergePeersObject;
+
+        // Report only if we had an error, too. Shouldn't happen in practice.
+        if (localError) {
             secnotice("ds", "kSOSMergeFailure => kSOSMergePeersObject, %@", localError);
             CFReleaseSafe(localError);
-            mr = kSOSMergePeersObject;
         }
     }
 
@@ -604,7 +653,7 @@ static CFDataRef dsCopyStateWithKey(SOSDataSourceRef data_source, CFStringRef ke
                                                                           NULL);
     CFReleaseSafe(dataSourceID);
     __block CFDataRef data = NULL;
-    SecDbQueryRef query = query_create(&genp_class, NULL, dict, error);
+    SecDbQueryRef query = query_create(genp_class(), NULL, dict, error);
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
@@ -649,7 +698,7 @@ static CFDataRef dsCopyItemDataWithKeys(SOSDataSourceRef data_source, CFDictiona
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     CFMutableDictionaryRef dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, keys);
     __block CFDataRef data = NULL;
-    SecDbQueryRef query = query_create(&genp_class, NULL, dict, error);
+    SecDbQueryRef query = query_create(genp_class(), NULL, dict, error);
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
@@ -681,7 +730,7 @@ static bool dsSetStateWithKey(SOSDataSourceRef data_source, SOSTransactionRef tx
                                                                           kSecValueData, state,
                                                                           NULL);
     CFReleaseSafe(dataSourceID);
-    SecDbItemRef item = SecDbItemCreateWithAttributes(kCFAllocatorDefault, &genp_class, dict, KEYBAG_DEVICE, error);
+    SecDbItemRef item = SecDbItemCreateWithAttributes(kCFAllocatorDefault, genp_class(), dict, KEYBAG_DEVICE, error);
     SOSMergeResult mr = dsMergeObject(txn, (SOSObjectRef)item, NULL, error);
     if (mr == kSOSMergeFailure) secerror("failed to save %@@%@ state: %@", key, pdmn, error ? *error : NULL);
     CFReleaseSafe(item);
@@ -700,7 +749,7 @@ static bool dsDeleteStateWithKey(SOSDataSourceRef data_source, CFStringRef key, 
                                                                           kSecAttrSynchronizable, kCFBooleanFalse,
                                                                           NULL);
     CFReleaseSafe(dataSourceID);
-    SecDbItemRef item = SecDbItemCreateWithAttributes(kCFAllocatorDefault, &genp_class, dict, KEYBAG_DEVICE, error);
+    SecDbItemRef item = SecDbItemCreateWithAttributes(kCFAllocatorDefault, genp_class(), dict, KEYBAG_DEVICE, error);
     bool ok = SecDbItemDoDeleteSilently(item, (SecDbConnectionRef)txn, error);
     CFReleaseNull(dict);
     CFReleaseSafe(item);
@@ -806,17 +855,25 @@ static void SecItemDataSourceFactoryCircleChanged(SOSDataSourceFactoryRef factor
 
 // Fire up the SOSEngines so they can
 static bool SOSDataSourceFactoryStartYourEngines(SOSDataSourceFactoryRef factory) {
-    bool ok = true;
-    CFStringRef dsName = SOSDataSourceFactoryCopyName(factory);
-    CFErrorRef localError = NULL;
-    SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(factory, dsName, &localError);
-    if (!ds)
-        secerror("create_datasource %@ failed %@", dsName, localError);
-    CFReleaseNull(localError);
-    SOSDataSourceRelease(ds, &localError);
-    CFReleaseNull(localError);
-    CFReleaseNull(dsName);
-    return ok;
+#if OCTAGON
+    if(!SecCKKSTestDisableSOS() && !SecCKKSTestsEnabled()) {
+#endif // OCTAGON
+        bool ok = true;
+        CFStringRef dsName = SOSDataSourceFactoryCopyName(factory);
+        CFErrorRef localError = NULL;
+        SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(factory, dsName, &localError);
+        if (!ds)
+            secerror("create_datasource %@ failed %@", dsName, localError);
+        CFReleaseNull(localError);
+        SOSDataSourceRelease(ds, &localError);
+        CFReleaseNull(localError);
+        CFReleaseNull(dsName);
+         return ok;
+#if OCTAGON
+    } else {
+        return false;
+    }
+#endif // OCTAGON
 }
 
 static SOSDataSourceFactoryRef SecItemDataSourceFactoryCreate(SecDbRef db) {

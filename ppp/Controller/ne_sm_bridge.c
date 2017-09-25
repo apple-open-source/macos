@@ -433,7 +433,7 @@ bridge_handle_sleep_time(ne_sm_bridge_t bridge, double sleep_time)
 static void
 bridge_handle_wakeup(ne_sm_bridge_t bridge)
 {
-	ne_sm_bridge_log(LOG_INFO, CFSTR("Handling wake up for bridge type %d"), bridge->type);
+	ne_sm_bridge_log(LOG_NOTICE, CFSTR("Handling wake up for bridge type %d"), bridge->type);
 	if (bridge->type == NESMBridgeTypeIPSec) {
 		ipsec_wake_up(&bridge->serv);
 	} else if (bridge->type == NESMBridgeTypeL2TP || bridge->type == NESMBridgeTypePPTP) {
@@ -455,7 +455,7 @@ bridge_handle_start(ne_sm_bridge_t bridge, CFDictionaryRef options, uid_t uid, g
 static bool
 bridge_handle_stop(ne_sm_bridge_t bridge)
 {
-	ne_sm_bridge_log(LOG_INFO, CFSTR("Handling stop for bridge type %d"), bridge->type);
+	ne_sm_bridge_log(LOG_NOTICE, CFSTR("Handling stop for bridge type %d"), bridge->type);
 	if (bridge->type == NESMBridgeTypeIPSec) {
 		return (ipsec_stop(&bridge->serv, 0) == 0);
 	} else if (bridge->type == NESMBridgeTypeL2TP || bridge->type == NESMBridgeTypePPTP) {

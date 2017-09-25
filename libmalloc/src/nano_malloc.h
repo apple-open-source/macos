@@ -41,4 +41,8 @@ MALLOC_NOEXPORT
 void
 nano_forked_zone(nanozone_t *nanozone);
 
+MALLOC_NOEXPORT
+void
+nano_init(const char *envp[], const char *apple[]);
+
 #endif // __NANO_MALLOC_H

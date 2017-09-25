@@ -1,8 +1,0 @@
-Changes
-LevenshteinXS.pm
-LevenshteinXS.xs
-Makefile.PL
-MANIFEST
-README
-test.pl
-META.yml                                 Module meta-data (added by MakeMaker)

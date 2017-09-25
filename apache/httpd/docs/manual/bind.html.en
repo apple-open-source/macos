@@ -33,7 +33,7 @@
 
     <p>Configuring Apache HTTP Server to listen on specific addresses and ports.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Overview</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Overview</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#ipv6">Special IPv6 Considerations</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#protocol">Specifying the protocol with Listen</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#virtualhost">How This Works With Virtual Hosts</a></li>
@@ -208,7 +208,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/bind.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

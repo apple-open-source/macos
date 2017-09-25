@@ -54,7 +54,6 @@
 #include <Security/oidsalg.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecPolicySearch.h>
-#include <Security/SecTrustSettingsPriv.h>
 #endif /* TARGET_OS_EMBEDDED */
 #include <Security/SecTrustPriv.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -422,11 +421,60 @@ EAPSSLContextCreate(SSLProtocol protocol_min, SSLProtocol protocol_max, bool is_
     return (NULL);
 }
 
+static void
+get_preferred_tls_versions(CFDictionaryRef properties, SSLProtocol *min, SSLProtocol *max)
+{
+    if (properties == NULL) {
+	*min = kTLSProtocol1;
+	*max = kTLSProtocol12;
+	return;
+    }
+    CFStringRef tls_min_ver = CFDictionaryGetValue(properties, kEAPClientPropTLSMinimumVersion);
+    CFStringRef tls_max_ver = CFDictionaryGetValue(properties, kEAPClientPropTLSMaximumVersion);
+
+    if (isA_CFString(tls_min_ver) != NULL) {
+	if (CFEqual(tls_min_ver, kEAPTLSVersion1_0)) {
+	    *min = kTLSProtocol1;
+	} else if (CFEqual(tls_min_ver, kEAPTLSVersion1_1)) {
+	    *min = kTLSProtocol11;
+	} else if (CFEqual(tls_min_ver, kEAPTLSVersion1_2)) {
+	    *min = kTLSProtocol12;
+	} else {
+	    *min = kTLSProtocol1;
+	    EAPLOG_FL(LOG_ERR, "invalid minimum TLS version");
+	}
+    } else {
+	*min = kTLSProtocol1;
+    }
+
+    if (isA_CFString(tls_max_ver) != NULL) {
+	if (CFEqual(tls_max_ver, kEAPTLSVersion1_0)) {
+	    *max = kTLSProtocol1;
+	} else if (CFEqual(tls_max_ver, kEAPTLSVersion1_1)) {
+	    *max = kTLSProtocol11;
+	}  else if (CFEqual(tls_max_ver, kEAPTLSVersion1_2)) {
+	    *max = kTLSProtocol12;
+	} else {
+	    *max = kTLSProtocol12;
+	    EAPLOG_FL(LOG_ERR, "invalid maximum TLS version");
+	}
+    } else {
+	*max = kTLSProtocol12;
+    }
+    if (*min > *max) {
+	EAPLOG_FL(LOG_ERR, "minimum TLS version cannot be higher than maximum TLS version");
+	*min = *max;
+    }
+    return;
+}
+
 SSLContextRef
-EAPTLSMemIOContextCreate(bool is_server, memoryIORef mem_io, 
+EAPTLSMemIOContextCreate(CFDictionaryRef properties, bool is_server, memoryIORef mem_io,
 			 char * peername, OSStatus * ret_status)
 {
-    return(EAPSSLContextCreate(kTLSProtocol1, kTLSProtocol1, is_server,
+    SSLProtocol min_tls_ver, max_tls_ver;
+    get_preferred_tls_versions(properties, &min_tls_ver, &max_tls_ver);
+    return(EAPSSLContextCreate(min_tls_ver, max_tls_ver, is_server,
 			       EAPSSLMemoryIORead, EAPSSLMemoryIOWrite, 
 			       mem_io, peername, ret_status));
 }
@@ -1423,103 +1471,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 
 #else /* TARGET_OS_EMBEDDED */
 
-static CFStringRef
-create_certhash_str_from_data(const void *cert, size_t certLen)
-{
-    char hexChars[16] = {
-	'0', '1', '2', '3', '4', '5', '6', '7',
-	'8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-    };
-    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
-    char asciiDigest[(2 * CC_SHA1_DIGEST_LENGTH) + 1];
-    unsigned dex;
-    char *outp = asciiDigest;
-    unsigned char *inp = digest;
-    if(cert == NULL) {
-	return NULL;
-    }
-    CC_SHA1(cert, (CC_LONG)certLen, digest);
-    for(dex = 0; dex < CC_SHA1_DIGEST_LENGTH; dex++) {
-	unsigned c = *inp++;
-	outp[1] = hexChars[c & 0xf];
-	c >>= 4;
-	outp[0] = hexChars[c];
-	outp += 2;
-    }
-    *outp = 0;
-    return CFStringCreateWithCString(NULL, asciiDigest, kCFStringEncodingASCII);
-}
-
-static Boolean
-has_trust_settings(SecCertificateRef certificate) {
-    OSStatus 			status = errSecParam;
-    CFDataRef 			cert_data = NULL;
-    CFStringRef 		hash_str = NULL;
-    Boolean 			ret = FALSE;
-    bool 			foundMatch = false;
-    bool 			foundAny = false;
-    CSSM_RETURN 		*errors = NULL;
-    uint32 			errorCount = 0;
-    SecTrustSettingsResult 	result;
-    SecTrustSettingsDomain 	domain;
-    Boolean			isSelfSigned = FALSE;
-    bool			isRootCert = false;
-
-
-    cert_data = SecCertificateCopyData(certificate);
-    if (cert_data == NULL) {
-	return FALSE;
-    }
-    hash_str = create_certhash_str_from_data(CFDataGetBytePtr(cert_data), CFDataGetLength(cert_data));
-    if (hash_str == NULL) {
-	goto done;
-    }
-    status = SecCertificateIsSelfSigned(certificate, &isSelfSigned);
-    if (status != errSecSuccess) {
-	EAPLOG_FL(LOG_ERR, "SecCertificateIsSelfSigned failed");
-	goto done;
-    }
-    isRootCert = (isSelfSigned == TRUE) ? true : false;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-    status = SecTrustSettingsEvaluateCert(hash_str, &CSSMOID_APPLE_TP_EAP, NULL, 0, 0, isRootCert,
-					  &domain, &errors, &errorCount, &result, &foundMatch, &foundAny);
-#pragma GCC diagnostic pop
-    if (status != errSecSuccess) {
-	EAPLOG_FL(LOG_ERR, "SecTrustSettingsEvaluateCert failed");
-	goto done;
-    }
-    if (domain == kSecTrustSettingsDomainSystem) {
-	goto done;
-    }
-    if (isSelfSigned == TRUE) {
-	ret = (result == kSecTrustSettingsResultTrustRoot);
-    } else {
-	ret = (result == kSecTrustSettingsResultTrustAsRoot);
-    }
-done:
-    my_CFRelease(&cert_data);
-    my_CFRelease(&hash_str);
-    if (errors != NULL) {
-	free(errors);
-    }
-    return ret;
-}
-
-static Boolean
-evaluate_trust_settings(CFArrayRef server_certs) {
-    CFIndex	count = CFArrayGetCount(server_certs);
-    Boolean	ret = FALSE;
-
-    for (int i = 0; i < count; i++) {
-	ret = has_trust_settings((SecCertificateRef)CFArrayGetValueAtIndex(server_certs, i));
-	if (ret == TRUE) {
-	    break;
-	}
-    }
-    return ret;
-}
-
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
 				   CFArrayRef server_certs, 
@@ -1636,14 +1587,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	if (allow_trust_decisions == FALSE) {
 	    client_status = kEAPClientStatusOK;
 	    break;
-	} else {
-	    /* rdar://problem/31547046 */
-	    Boolean found_trust_setttings = evaluate_trust_settings(server_certs);
-	    if (found_trust_setttings == TRUE) {
-		/* found trust settings for the certificate */
-		client_status = kEAPClientStatusOK;
-		break;
-	    }
 	}
 	/* FALL THROUGH */
     case kSecTrustResultRecoverableTrustFailure:
@@ -1681,6 +1624,18 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 			     CFArrayRef * ret_array)
 {
     if (sec_identity != NULL) {
+#if TARGET_OS_EMBEDDED
+	if (properties != NULL) {
+	    CFDictionaryRef identityHandle = CFDictionaryGetValue(properties, kEAPClientPropTLSIdentityHandle);
+	    if (isA_CFDictionary(identityHandle) != NULL) {
+		CFArrayRef persistent_refs = CFDictionaryGetValue(identityHandle, kEAPClientPropTLSClientIdentityTrustChain);
+		if (isA_CFArray(persistent_refs) != NULL) {
+		    return EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(sec_identity, persistent_refs, ret_array);
+		}
+		goto done;
+	    }
+	}
+#endif
 	return (EAPSecIdentityCreateTrustChain(sec_identity, ret_array));
     }
     if (properties != NULL) {
@@ -1693,6 +1648,8 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 								    ret_array));
 	}
     }
+
+done:
     *ret_array = NULL;
     return (errSecParam);
 }

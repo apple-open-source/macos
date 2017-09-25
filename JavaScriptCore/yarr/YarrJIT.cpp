@@ -29,6 +29,7 @@
 #include <wtf/ASCIICType.h>
 #include "LinkBuffer.h"
 #include "Options.h"
+#include "VM.h"
 #include "Yarr.h"
 #include "YarrCanonicalize.h"
 
@@ -51,6 +52,9 @@ class YarrGenerator : private MacroAssembler {
     static const RegisterID regT0 = ARMRegisters::r4;
     static const RegisterID regT1 = ARMRegisters::r5;
 
+    static const RegisterID initialStart = ARMRegisters::r6;
+#define HAVE_INITIAL_START_REG
+
     static const RegisterID returnRegister = ARMRegisters::r0;
     static const RegisterID returnRegister2 = ARMRegisters::r1;
 #elif CPU(ARM64)
@@ -61,6 +65,9 @@ class YarrGenerator : private MacroAssembler {
 
     static const RegisterID regT0 = ARM64Registers::x4;
     static const RegisterID regT1 = ARM64Registers::x5;
+
+    static const RegisterID initialStart = ARM64Registers::x6;
+#define HAVE_INITIAL_START_REG
 
     static const RegisterID returnRegister = ARM64Registers::x0;
     static const RegisterID returnRegister2 = ARM64Registers::x1;
@@ -73,19 +80,11 @@ class YarrGenerator : private MacroAssembler {
     static const RegisterID regT0 = MIPSRegisters::t4;
     static const RegisterID regT1 = MIPSRegisters::t5;
 
+    static const RegisterID initialStart = MIPSRegisters::t6;
+#define HAVE_INITIAL_START_REG
+
     static const RegisterID returnRegister = MIPSRegisters::v0;
     static const RegisterID returnRegister2 = MIPSRegisters::v1;
-#elif CPU(SH4)
-    static const RegisterID input = SH4Registers::r4;
-    static const RegisterID index = SH4Registers::r5;
-    static const RegisterID length = SH4Registers::r6;
-    static const RegisterID output = SH4Registers::r7;
-
-    static const RegisterID regT0 = SH4Registers::r0;
-    static const RegisterID regT1 = SH4Registers::r1;
-
-    static const RegisterID returnRegister = SH4Registers::r0;
-    static const RegisterID returnRegister2 = SH4Registers::r1;
 #elif CPU(X86)
     static const RegisterID input = X86Registers::eax;
     static const RegisterID index = X86Registers::edx;
@@ -115,6 +114,13 @@ class YarrGenerator : private MacroAssembler {
 
     static const RegisterID regT0 = X86Registers::eax;
     static const RegisterID regT1 = X86Registers::ebx;
+
+#if !OS(WINDOWS)
+    static const RegisterID initialStart = X86Registers::r8;
+#else
+    static const RegisterID initialStart = X86Registers::ecx;
+#endif
+#define HAVE_INITIAL_START_REG
 
     static const RegisterID returnRegister = X86Registers::eax;
     static const RegisterID returnRegister2 = X86Registers::edx;
@@ -1199,6 +1205,9 @@ class YarrGenerator : private MacroAssembler {
 
         const RegisterID character = regT0;
         const RegisterID matchPos = regT1;
+#ifndef HAVE_INITIAL_START_REG
+        const RegisterID initialStart = character;
+#endif
 
         JumpList foundBeginningNewLine;
         JumpList saveStartIndex;
@@ -1207,7 +1216,10 @@ class YarrGenerator : private MacroAssembler {
         ASSERT(!m_pattern.m_body->m_hasFixedSize);
         getMatchStart(matchPos);
 
-        saveStartIndex.append(branchTest32(Zero, matchPos));
+#ifndef HAVE_INITIAL_START_REG
+        loadFromFrame(m_pattern.m_initialStartValueFrameLocation, initialStart);
+#endif
+        saveStartIndex.append(branch32(BelowOrEqual, matchPos, initialStart));
         Label findBOLLoop(this);
         sub32(TrustedImm32(1), matchPos);
         if (m_charSize == Char8)
@@ -1215,7 +1227,11 @@ class YarrGenerator : private MacroAssembler {
         else
             load16(BaseIndex(input, matchPos, TimesTwo, 0), character);
         matchCharacterClass(character, foundBeginningNewLine, m_pattern.newlineCharacterClass());
-        branchTest32(NonZero, matchPos).linkTo(findBOLLoop, this);
+
+#ifndef HAVE_INITIAL_START_REG
+        loadFromFrame(m_pattern.m_initialStartValueFrameLocation, initialStart);
+#endif
+        branch32(Above, matchPos, initialStart).linkTo(findBOLLoop, this);
         saveStartIndex.append(jump());
 
         foundBeginningNewLine.link(this);
@@ -2613,9 +2629,6 @@ class YarrGenerator : private MacroAssembler {
         push(ARMRegisters::r4);
         push(ARMRegisters::r5);
         push(ARMRegisters::r6);
-#elif CPU(SH4)
-        push(SH4Registers::r11);
-        push(SH4Registers::r13);
 #elif CPU(MIPS)
         // Do nothing.
 #endif
@@ -2645,9 +2658,6 @@ class YarrGenerator : private MacroAssembler {
         pop(ARMRegisters::r6);
         pop(ARMRegisters::r5);
         pop(ARMRegisters::r4);
-#elif CPU(SH4)
-        pop(SH4Registers::r13);
-        pop(SH4Registers::r11);
 #elif CPU(MIPS)
         // Do nothing
 #endif
@@ -2663,7 +2673,7 @@ public:
     {
     }
 
-    void compile(VM* vm, YarrCodeBlock& jitObject)
+    void compile(YarrCodeBlock& jitObject)
     {
         generateEnter();
 
@@ -2681,6 +2691,14 @@ public:
 
         initCallFrame();
 
+        if (m_pattern.m_saveInitialStartValue) {
+#ifdef HAVE_INITIAL_START_REG
+            move(index, initialStart);
+#else
+            storeToFrame(index, m_pattern.m_initialStartValueFrameLocation);
+#endif
+        }
+
         opCompileBody(m_pattern.m_body);
 
         if (m_shouldFallBack) {
@@ -2691,7 +2709,7 @@ public:
         generate();
         backtrack();
 
-        LinkBuffer linkBuffer(*vm, *this, REGEXP_CODE_ID, JITCompilationCanFail);
+        LinkBuffer linkBuffer(*this, REGEXP_CODE_ID, JITCompilationCanFail);
         if (linkBuffer.didFailToAllocate()) {
             jitObject.setFallBack(true);
             return;
@@ -2746,9 +2764,9 @@ private:
 void jitCompile(YarrPattern& pattern, YarrCharSize charSize, VM* vm, YarrCodeBlock& jitObject, YarrJITCompileMode mode)
 {
     if (mode == MatchOnly)
-        YarrGenerator<MatchOnly>(vm, pattern, charSize).compile(vm, jitObject);
+        YarrGenerator<MatchOnly>(vm, pattern, charSize).compile(jitObject);
     else
-        YarrGenerator<IncludeSubpatterns>(vm, pattern, charSize).compile(vm, jitObject);
+        YarrGenerator<IncludeSubpatterns>(vm, pattern, charSize).compile(jitObject);
 }
 
 }}

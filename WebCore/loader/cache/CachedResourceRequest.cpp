@@ -59,15 +59,17 @@ String CachedResourceRequest::splitFragmentIdentifierFromRequestURL(ResourceRequ
     return fragmentIdentifier;
 }
 
-void CachedResourceRequest::setInitiator(PassRefPtr<Element> element)
+void CachedResourceRequest::setInitiator(Element& element)
 {
-    ASSERT(!m_initiatorElement && m_initiatorName.isEmpty());
-    m_initiatorElement = element;
+    ASSERT(!m_initiatorElement);
+    ASSERT(m_initiatorName.isEmpty());
+    m_initiatorElement = &element;
 }
 
 void CachedResourceRequest::setInitiator(const AtomicString& name)
 {
-    ASSERT(!m_initiatorElement && m_initiatorName.isEmpty());
+    ASSERT(!m_initiatorElement);
+    ASSERT(m_initiatorName.isEmpty());
     m_initiatorName = name;
 }
 
@@ -78,16 +80,15 @@ const AtomicString& CachedResourceRequest::initiatorName() const
     if (!m_initiatorName.isEmpty())
         return m_initiatorName;
 
-    static NeverDestroyed<AtomicString> defaultName("resource", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<AtomicString> defaultName("other", AtomicString::ConstructFromLiteral);
     return defaultName;
 }
 
 void CachedResourceRequest::setAsPotentiallyCrossOrigin(const String& mode, Document& document)
 {
     ASSERT(m_options.mode == FetchOptions::Mode::NoCors);
-    ASSERT(document.securityOrigin());
 
-    m_origin = document.securityOrigin();
+    m_origin = &document.securityOrigin();
 
     if (mode.isNull())
         return;
@@ -99,15 +100,14 @@ void CachedResourceRequest::setAsPotentiallyCrossOrigin(const String& mode, Docu
         ? FetchOptions::Credentials::Include : FetchOptions::Credentials::SameOrigin;
     m_options.credentials = credentials;
     m_options.allowCredentials = credentials == FetchOptions::Credentials::Include ? AllowStoredCredentials : DoNotAllowStoredCredentials;
-    WebCore::updateRequestForAccessControl(m_resourceRequest, *document.securityOrigin(), m_options.allowCredentials);
+    WebCore::updateRequestForAccessControl(m_resourceRequest, document.securityOrigin(), m_options.allowCredentials);
 }
 
 void CachedResourceRequest::updateForAccessControl(Document& document)
 {
     ASSERT(m_options.mode == FetchOptions::Mode::Cors);
-    ASSERT(document.securityOrigin());
 
-    m_origin = document.securityOrigin();
+    m_origin = &document.securityOrigin();
     WebCore::updateRequestForAccessControl(m_resourceRequest, *m_origin, m_options.allowCredentials);
 }
 
@@ -129,13 +129,15 @@ void CachedResourceRequest::upgradeInsecureRequestIfNeeded(Document& document)
     upgradeInsecureResourceRequestIfNeeded(m_resourceRequest, document);
 }
 
-#if ENABLE(CACHE_PARTITIONING)
 void CachedResourceRequest::setDomainForCachePartition(Document& document)
 {
-    ASSERT(document.topOrigin());
-    m_resourceRequest.setDomainForCachePartition(document.topOrigin()->domainForCachePartition());
+    m_resourceRequest.setDomainForCachePartition(document.topOrigin().domainForCachePartition());
 }
-#endif
+
+void CachedResourceRequest::setDomainForCachePartition(const String& domain)
+{
+    m_resourceRequest.setDomainForCachePartition(domain);
+}
 
 static inline String acceptHeaderValueFromType(CachedResource::Type type)
 {
@@ -209,10 +211,12 @@ void CachedResourceRequest::removeFragmentIdentifierIfNeeded()
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
+
 void CachedResourceRequest::applyBlockedStatus(const ContentExtensions::BlockedStatus& blockedStatus)
 {
     ContentExtensions::applyBlockedStatusToRequest(blockedStatus, m_resourceRequest);
 }
+
 #endif
 
 void CachedResourceRequest::updateReferrerOriginAndUserAgentHeaders(FrameLoader& frameLoader, ReferrerPolicy defaultPolicy)

@@ -1,23 +1,24 @@
 /*
- * $Id: ossl_ns_spki.c 33497 2011-10-20 17:22:09Z emboss $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
 
-#define WrapSPKI(klass, obj, spki) do { \
+#define NewSPKI(klass) \
+    TypedData_Wrap_Struct((klass), &ossl_netscape_spki_type, 0)
+#define SetSPKI(obj, spki) do { \
     if (!(spki)) { \
 	ossl_raise(rb_eRuntimeError, "SPKI wasn't initialized!"); \
     } \
-    (obj) = Data_Wrap_Struct((klass), 0, NETSCAPE_SPKI_free, (spki)); \
+    RTYPEDDATA_DATA(obj) = (spki); \
 } while (0)
 #define GetSPKI(obj, spki) do { \
-    Data_Get_Struct((obj), NETSCAPE_SPKI, (spki)); \
+    TypedData_Get_Struct((obj), NETSCAPE_SPKI, &ossl_netscape_spki_type, (spki)); \
     if (!(spki)) { \
 	ossl_raise(rb_eRuntimeError, "SPKI wasn't initialized!"); \
     } \
@@ -37,16 +38,32 @@ VALUE eSPKIError;
 /*
  * Private functions
  */
+
+static void
+ossl_netscape_spki_free(void *spki)
+{
+    NETSCAPE_SPKI_free(spki);
+}
+
+static const rb_data_type_t ossl_netscape_spki_type = {
+    "OpenSSL/NETSCAPE_SPKI",
+    {
+	0, ossl_netscape_spki_free,
+    },
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
 static VALUE
 ossl_spki_alloc(VALUE klass)
 {
     NETSCAPE_SPKI *spki;
     VALUE obj;
 
+    obj = NewSPKI(klass);
     if (!(spki = NETSCAPE_SPKI_new())) {
 	ossl_raise(eSPKIError, NULL);
     }
-    WrapSPKI(klass, obj, spki);
+    SetSPKI(obj, spki);
 
     return obj;
 }
@@ -360,7 +377,7 @@ ossl_spki_verify(VALUE self, VALUE key)
  */
 
 void
-Init_ossl_ns_spki()
+Init_ossl_ns_spki(void)
 {
 #if 0
     mOSSL = rb_define_module("OpenSSL"); /* let rdoc know about mOSSL */
@@ -386,4 +403,3 @@ Init_ossl_ns_spki()
     rb_define_method(cSPKI, "challenge", ossl_spki_get_challenge, 0);
     rb_define_method(cSPKI, "challenge=", ossl_spki_set_challenge, 1);
 }
-

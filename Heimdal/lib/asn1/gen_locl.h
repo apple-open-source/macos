@@ -99,6 +99,7 @@ extern int support_ber;
 extern int template_flag;
 extern int rfc1510_bitstring;
 extern int one_code_file;
+extern int foundation_flag;
 extern int parse_units_flag;
 extern char *type_file_string;
 

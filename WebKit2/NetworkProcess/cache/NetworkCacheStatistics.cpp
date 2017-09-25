@@ -39,12 +39,13 @@
 #include <WebCore/SQLiteStatement.h>
 #include <WebCore/SQLiteTransaction.h>
 #include <wtf/RunLoop.h>
+#include <wtf/Seconds.h>
 
 namespace WebKit {
 namespace NetworkCache {
 
 static const char* StatisticsDatabaseName = "WebKitCacheStatistics.db";
-static const std::chrono::milliseconds mininumWriteInterval = std::chrono::milliseconds(10000);
+static const Seconds mininumWriteInterval { 10_s };
 
 static bool executeSQLCommand(WebCore::SQLiteDatabase& database, const String& sql)
 {
@@ -121,6 +122,8 @@ void Statistics::initialize(const String& databasePath)
 
 #if !LOG_DISABLED
         auto elapsedMS = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime).count());
+#else
+        UNUSED_PARAM(startTime);
 #endif
         LOG(NetworkCache, "(NetworkProcess) Network cache statistics database load complete, entries=%lu time=%" PRIi64 "ms", static_cast<size_t>(m_approximateEntryCount), elapsedMS);
 
@@ -128,6 +131,8 @@ void Statistics::initialize(const String& databasePath)
             bootstrapFromNetworkCache(networkCachePath);
 #if !LOG_DISABLED
             elapsedMS = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime).count());
+#else
+            UNUSED_PARAM(startTime);
 #endif
             LOG(NetworkCache, "(NetworkProcess) Network cache statistics database bootstrapping complete, entries=%lu time=%" PRIi64 "ms", static_cast<size_t>(m_approximateEntryCount), elapsedMS);
         }
@@ -220,9 +225,9 @@ void Statistics::recordNotUsingCacheForRequest(uint64_t webPageID, const Key& ke
         if (wasEverRequested) {
             String diagnosticKey = retrieveDecisionToDiagnosticKey(retrieveDecision);
             LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s was previously requested but we are not using the cache, reason: %s", webPageID, requestURL.string().ascii().data(), diagnosticKey.utf8().data());
-            NetworkProcess::singleton().logDiagnosticMessageWithValue(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::unusedKey(), diagnosticKey, WebCore::ShouldSample::Yes);
+            NetworkProcess::singleton().logDiagnosticMessage(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheUnusedReasonKey(), diagnosticKey, WebCore::ShouldSample::Yes);
         } else {
-            NetworkProcess::singleton().logDiagnosticMessageWithValue(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::requestKey(), WebCore::DiagnosticLoggingKeys::neverSeenBeforeKey(), WebCore::ShouldSample::Yes);
+            NetworkProcess::singleton().logDiagnosticMessage(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheUnusedReasonKey(), WebCore::DiagnosticLoggingKeys::neverSeenBeforeKey(), WebCore::ShouldSample::Yes);
             markAsRequested(hash);
         }
     });
@@ -260,9 +265,9 @@ void Statistics::recordRetrievalFailure(uint64_t webPageID, const Key& key, cons
         if (wasPreviouslyRequested) {
             String diagnosticKey = storeDecisionToDiagnosticKey(storeDecision.value());
             LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s was previously request but is not in the cache, reason: %s", webPageID, requestURL.string().ascii().data(), diagnosticKey.utf8().data());
-            NetworkProcess::singleton().logDiagnosticMessageWithValue(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::notInCacheKey(), diagnosticKey, WebCore::ShouldSample::Yes);
+            NetworkProcess::singleton().logDiagnosticMessage(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheFailureReasonKey(), diagnosticKey, WebCore::ShouldSample::Yes);
         } else {
-            NetworkProcess::singleton().logDiagnosticMessageWithValue(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::requestKey(), WebCore::DiagnosticLoggingKeys::neverSeenBeforeKey(), WebCore::ShouldSample::Yes);
+            NetworkProcess::singleton().logDiagnosticMessage(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheFailureReasonKey(), WebCore::DiagnosticLoggingKeys::neverSeenBeforeKey(), WebCore::ShouldSample::Yes);
             markAsRequested(hash);
         }
     });
@@ -297,13 +302,13 @@ void Statistics::recordRetrievedCachedEntry(uint64_t webPageID, const Key& key, 
 
     if (decision == UseDecision::Validate) {
         LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s is in the cache but needs revalidation", webPageID, requestURL.string().ascii().data());
-        NetworkProcess::singleton().logDiagnosticMessageWithValue(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::retrievalKey(), WebCore::DiagnosticLoggingKeys::needsRevalidationKey(), WebCore::ShouldSample::Yes);
+        NetworkProcess::singleton().logDiagnosticMessage(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::needsRevalidationKey(), WebCore::ShouldSample::Yes);
         return;
     }
 
     String diagnosticKey = cachedEntryReuseFailureToDiagnosticKey(decision);
     LOG(NetworkCache, "(NetworkProcess) webPageID %" PRIu64 ": %s is in the cache but wasn't used, reason: %s", webPageID, requestURL.string().ascii().data(), diagnosticKey.utf8().data());
-    NetworkProcess::singleton().logDiagnosticMessageWithValue(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheKey(), WebCore::DiagnosticLoggingKeys::unusableCachedEntryKey(), diagnosticKey, WebCore::ShouldSample::Yes);
+    NetworkProcess::singleton().logDiagnosticMessage(webPageID, WebCore::DiagnosticLoggingKeys::networkCacheReuseFailureKey(), diagnosticKey, WebCore::ShouldSample::Yes);
 }
 
 void Statistics::recordRevalidationSuccess(uint64_t webPageID, const Key& key, const WebCore::ResourceRequest& request)

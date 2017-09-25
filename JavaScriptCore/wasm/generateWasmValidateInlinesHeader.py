@@ -125,6 +125,13 @@ contents = wasm.header + """
 
 #if ENABLE(WEBASSEMBLY)
 
+#include <wtf/StdLibExtras.h>
+
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
+
 namespace JSC { namespace Wasm {
 
 """ + unarySpecializations + binarySpecializations + """
@@ -137,6 +144,7 @@ auto Validate::load(LoadOpType op, ExpressionType pointer, ExpressionType& resul
     switch (op) {
 """ + loadCases + """
     }
+    ASSERT_NOT_REACHED();
 }
 
 auto Validate::store(StoreOpType op, ExpressionType pointer, ExpressionType value, uint32_t) -> Result
@@ -147,9 +155,14 @@ auto Validate::store(StoreOpType op, ExpressionType pointer, ExpressionType valu
     switch (op) {
 """ + storeCases + """
     }
+    ASSERT_NOT_REACHED();
 }
 
 } } // namespace JSC::Wasm
+
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(WEBASSEMBLY)
 

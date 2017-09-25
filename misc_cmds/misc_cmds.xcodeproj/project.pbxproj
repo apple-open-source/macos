@@ -26,6 +26,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		3E59B92E1D4939A700D3128C /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E59B92D1D4939A700D3128C /* libncurses.dylib */; };
+		3E59B92F1D4939B000D3128C /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3E59B92D1D4939A700D3128C /* libncurses.dylib */; };
 		53D2641F112DD84700FFBD9F /* calendar.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9040FC34BFF00064057 /* calendar.c */; };
 		53D26420112DD84700FFBD9F /* easter.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9060FC34BFF00064057 /* easter.c */; };
 		53D26421112DD84700FFBD9F /* ncal.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9080FC34BFF00064057 /* ncal.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/ncal"; }; };
@@ -53,7 +55,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 53D2641D112DD84700FFBD9F /* cal */;
+			remoteGlobalIDString = 53D2641D112DD84700FFBD9F;
 			remoteInfo = cal;
 		};
 		723CE9B50FC36FC600064057 /* PBXContainerItemProxy */ = {
@@ -160,6 +162,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3E59B92D1D4939A700D3128C /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = usr/lib/libncurses.dylib; sourceTree = SDKROOT; };
 		53D26428112DD84700FFBD9F /* cal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cal; sourceTree = BUILT_PRODUCTS_DIR; };
 		723CE8580FC3436900064057 /* leave.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = leave.1; sourceTree = "<group>"; };
 		723CE8590FC3436900064057 /* leave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = leave.c; sourceTree = "<group>"; };
@@ -246,6 +249,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3E59B92E1D4939A700D3128C /* libncurses.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,6 +278,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3E59B92F1D4939B000D3128C /* libncurses.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,11 +292,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3E59B92C1D4939A700D3128C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				3E59B92D1D4939A700D3128C /* libncurses.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		723CE8490FC342D200064057 = {
 			isa = PBXGroup;
 			children = (
 				723CE8530FC3432200064057 /* Source */,
 				723CE85E0FC3437B00064057 /* Products */,
+				3E59B92C1D4939A700D3128C /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -604,9 +618,15 @@
 /* Begin PBXProject section */
 		723CE84B0FC342D200064057 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 723CE84E0FC342D200064057 /* Build configuration list for PBXProject "misc_cmds" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 723CE8490FC342D200064057;
 			productRefGroup = 723CE85E0FC3437B00064057 /* Products */;
 			projectDirPath = "";

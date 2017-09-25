@@ -6,6 +6,8 @@
  //
 
 _SOSCCAcceptApplicants
+_SOSCCAccountGetPublicKey
+_SOSCCAccountGetKeyCircleGeneration
 _SOSCCAccountHasPublicKey
 _SOSCCAccountIsNew
 _SOSCCAccountSetToNew
@@ -35,10 +37,13 @@ _SOSCCCopyViewUnawarePeerInfo
 _SOSCCCopyYetToSyncViewsList
 _SOSCCDeleteAccountState
 _SOSCCDeleteEngineState
+_SOSCCCleanupKVSKeys
+_SOSCCTestPopulateKVSWithBadKeys
 _SOSCCForEachEngineStateAsString
 _SOSCCForEachEngineStateAsStringFromArray
 _SOSCCGetLastDepartureReason
 _SOSCCGetStatusDescription
+_SOSCCGetViewResultDescription
 _SOSCCHandleIDSMessage
 _SOSCCRequestSyncWithPeerOverKVS
 _SOSCCRequestSyncWithPeerOverKVSUsingIDOnly
@@ -73,7 +78,6 @@ _SOSCCResetToEmpty
 _SOSCCResetToOffering
 _SOSCCSecurityProperty
 _SOSCCSendToPeerIsPending
-_SOSCCSetAutoAcceptInfo
 _SOSCCSetDeviceID
 _SOSCCSetEscrowRecord
 _SOSCCSetLastDepartureReason
@@ -87,6 +91,7 @@ _SOSCCValidateUserPublic
 _SOSCCView
 _SOSCCViewSet
 _SOSCCWaitForInitialSync
+_SOSCCCopyInitialSyncData
 
 _kSOSCCEngineStateCoderKey
 _kSOSCCEngineStateManifestCountKey
@@ -125,6 +130,9 @@ _SOSPeerInfoCopyWithEscrowRecordUpdate
 _SOSPeerInfoCopyWithGestaltUpdate
 _SOSPeerInfoCopyWithSecurityPropertyChange
 _SOSPeerInfoCopyWithViewsChange
+_SOSPeerInfoCopyTransportType
+_SOSPeerInfoCopySerialNumber
+_SOSPeerInfoCopyOSVersion
 _SOSPeerInfoCreate
 _SOSPeerInfoCreateCloudIdentity
 _SOSPeerInfoCreateCopy
@@ -145,7 +153,6 @@ _SOSPeerInfoGetPeerName
 _SOSPeerInfoGetPeerProtocolVersion
 _SOSPeerInfoGetPermittedViews
 _SOSPeerInfoGetRetirementDate
-_SOSPeerInfoCopyTransportType
 _SOSPeerInfoGetTypeID
 _SOSPeerInfoGetVersion
 _SOSPeerInfoHasBackupKey
@@ -166,6 +173,12 @@ _SOSPeerInfoUpdateDigestWithPublicKeyBytes
 _SOSPeerInfoUpgradeSignatures
 _SOSPeerInfoViewStatus
 _SOSPeerInfoExpandV2Data
+
+
+_SOSFullPeerInfoCreate
+_SOSFullPeerInfoPromoteToApplication
+_SOSFullPeerInfoGetPeerInfo
+_SOSCircleAcceptPeerFromHSA2
 
 _SOSCCSetDeviceID
 _SOSCCHandleIDSMessage
@@ -220,7 +233,6 @@ _der_encode_BackupSliceKeyBag
 _der_sizeof_BackupSliceKeyBag
 
 _SOSWrapToBackupSliceKeyBagForView
-_SOSAccountRecoveryKeyIsInBackupAndCurrentInView
 _SOSBSKBHasRecoveryKey
 
  //
@@ -247,9 +259,26 @@ _SOSCircleCreateFromData
 _SOSCircleGenerationIncrement
 _SOSCircleGenerationSetValue
 _SOSCircleGetGenerationSint
-_SOSAccountPeerGotInSync
-_SOSCloudKeychainRetrievePendingMessageFromProxy
+_SOSCircleCreate
+_SOSCircleCopyCircle
+_SOSCirclePreGenerationSign
+_SOSCircleGetGeneration
+_SOSGenerationIncrementAndCreate
+_SOSCircleCopyNextGenSignatureWithPeerAdded
+_SOSCircleGenerationSetValue
+_SOSCircleGenerationIncrement
+_SOSCircleGenerationSetValue
+_SOSCircleGenerationIncrement
+_SOSCircleGetGenerationSint
+_SOSCircleRequestAdmission
+_SOSCircleAcceptRequest
+_SOSCircleHasPeer
 
+
+_SOSPiggyBackBlobCreateFromData
+_SOSPiggyBackBlobCopyEncodedData
+
+_SOSCloudKeychainRetrievePendingMessageFromProxy
 _SOSCloudKeychainClearAll
 _SOSCloudKeychainGetAllObjectsFromCloud
 _SOSCloudKeychainGetObjectsFromCloud
@@ -275,14 +304,9 @@ _kSOSKVSAccountChangedKey
 _kSOSKVSInitialSyncKey
 _kSOSKVSRequiredKey
 _kSOSKVSOfficialDSIDKey
-
-_SOSCircleGenerationSetValue
-_SOSCircleGenerationIncrement
-
-
-_SOSCircleGenerationSetValue
-_SOSCircleGenerationIncrement
-_SOSCircleGetGenerationSint
+_kSOSKVSLastCleanupTimestampKey
+_kSOSKVSOTRConfigVersion
+_kSOSKVSWroteLastKeyParams
 
 _SOSKVSKeyGetKeyType
 
@@ -312,6 +336,11 @@ _kIDSMessageUsesAckModel
 _SOSGenerationCountCopyDescription
 
 _SOSLogSetOutputTo
+
+_der_sizeof_data_or_null
+_der_encode_data_or_null
+_der_decode_data_or_null
+
 
 #if !(TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 

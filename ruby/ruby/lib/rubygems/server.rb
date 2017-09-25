@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'webrick'
 require 'zlib'
 require 'erb'
@@ -530,6 +531,36 @@ div.method-source-code pre { color: #ffdead; overflow: hidden; }
     end
   end
 
+  def prerelease_specs req, res
+    reset_gems
+
+    res['content-type'] = 'application/x-gzip'
+
+    add_date res
+
+    specs = Gem::Specification.select do |spec|
+      spec.version.prerelease?
+    end.sort.map do |spec|
+      platform = spec.original_platform || Gem::Platform::RUBY
+      [spec.name, spec.version, platform]
+    end
+
+    specs = Marshal.dump specs
+
+    if req.path =~ /\.gz$/ then
+      specs = Gem.gzip specs
+      res['content-type'] = 'application/x-gzip'
+    else
+      res['content-type'] = 'application/octet-stream'
+    end
+
+    if req.request_method == 'HEAD' then
+      res['content-length'] = specs.length
+    else
+      res.body << specs
+    end
+  end
+
   def quick(req, res)
     reset_gems
 
@@ -537,7 +568,7 @@ div.method-source-code pre { color: #ffdead; overflow: hidden; }
     add_date res
 
     case req.request_uri.path
-    when %r|^/quick/(Marshal.#{Regexp.escape Gem.marshal_version}/)?(.*?)-([0-9.]+)(-.*?)?\.gemspec\.rz$| then
+    when %r|^/quick/(Marshal.#{Regexp.escape Gem.marshal_version}/)?(.*?)-([0-9.]+[^-]*?)(-.*?)?\.gemspec\.rz$| then
       marshal_format, name, version, platform = $1, $2, $3, $4
       specs = Gem::Specification.find_all_by_name name, version
 
@@ -671,13 +702,13 @@ div.method-source-code pre { color: #ffdead; overflow: hidden; }
   # documentation for the particular gem, otherwise a list with results is
   # shown.
   #
-  # === Additional trick - install documentation for ruby core
+  # === Additional trick - install documentation for Ruby core
   #
   # Note: please adjust paths accordingly use for example 'locate yaml.rb' and
   # 'gem environment' to identify directories, that are specific for your
   # local installation
   #
-  # 1. install ruby sources
+  # 1. install Ruby sources
   #      cd /usr/src
   #      sudo apt-get source ruby
   #
@@ -710,7 +741,7 @@ div.method-source-code pre { color: #ffdead; overflow: hidden; }
   # name pattern was found.
   #
   # The search is based on the file system content, not on the gems metadata.
-  # This allows additional documentation folders like 'core' for the ruby core
+  # This allows additional documentation folders like 'core' for the Ruby core
   # documentation - just put it underneath the main doc folder.
 
   def show_rdoc_for_pattern(pattern, res)
@@ -756,6 +787,11 @@ div.method-source-code pre { color: #ffdead; overflow: hidden; }
                        method(:latest_specs)
     @server.mount_proc "/latest_specs.#{Gem.marshal_version}.gz",
                        method(:latest_specs)
+
+    @server.mount_proc "/prerelease_specs.#{Gem.marshal_version}",
+                       method(:prerelease_specs)
+    @server.mount_proc "/prerelease_specs.#{Gem.marshal_version}.gz",
+                       method(:prerelease_specs)
 
     @server.mount_proc "/quick/", method(:quick)
 

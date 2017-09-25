@@ -43,6 +43,7 @@ enum {
 extern "C" void * IOHIDNXEventTranslatorSessionFilterFactory(CFAllocatorRef allocator, CFUUIDRef typeUUID);
 
 static boolean_t IsCompanionService(IOHIDServiceRef s1, IOHIDServiceRef s2);
+static NXEventHandle openHIDSystem(void);
 
 
 enum {
@@ -55,6 +56,7 @@ static const int64_t one_mil = 1000*1000;
 
 #define to_ns(ticks) ((ticks * tb_info.numer) / (tb_info.denom))
 #define to_ms(ticks) (to_ns(ticks)/one_mil)
+#define ns_to_absolute_time(x)  x / (tb_info.numer / tb_info.denom);
 
 static mach_timebase_info_data_t tb_info;
 
@@ -121,15 +123,18 @@ _wranglerNotifier (MACH_PORT_NULL),
 _displayState (kPMDisplayOn),
 _displaySleepAbortThreshold (kIOHIDDisplaySleepAbortThresholdMS),
 _displayWakeAbortThreshold (kIOHIDDisplayWakeAbortThresholdMS),
+_previousEventTime (0),
+_declareActivityThreshold (0),
 _powerStateChangeTime (0),
 _displayStateChangeTime (0),
-_maxDisplayTickleDuration (0)
+_displayLog(NULL)
 {
     CFPlugInAddInstanceForFactory( factoryID );
     
     if (tb_info.denom == 0) {
         mach_timebase_info(&tb_info);
     }
+    _declareActivityThreshold = ns_to_absolute_time(kIOHIDDeclareActivityThresholdMS * NSEC_PER_MSEC);
 }
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::IOHIDNXEventTranslatorSessionFilter
@@ -206,15 +211,10 @@ boolean_t IOHIDNXEventTranslatorSessionFilter::open(void * self, IOHIDSessionRef
     return static_cast<IOHIDNXEventTranslatorSessionFilter *>(self)->open(session, options);
 }
 
-boolean_t IOHIDNXEventTranslatorSessionFilter::open(IOHIDSessionRef session, IOOptionBits options)
+boolean_t IOHIDNXEventTranslatorSessionFilter::open(IOHIDSessionRef session __unused, IOOptionBits options __unused)
 {
-  
-    (void)session;
-    (void)options;
-    
-    
     _powerConnect = IORegisterForSystemPower (this, &_powerPort, powerNotificationCallback, &_powerNotifier);
-  
+    
     return _keyboards && _companions  && _modifiers;
 }
 
@@ -233,8 +233,12 @@ void IOHIDNXEventTranslatorSessionFilter::close(IOHIDSessionRef session __unused
     }
     
     if (_hidSystem != MACH_PORT_NULL) {
-        NXCloseEventStatus (_hidSystem);
+        IOServiceClose(_hidSystem);
         _hidSystem = MACH_PORT_NULL;
+    }
+    
+    if (_displayLog) {
+        CFRelease(_displayLog);
     }
 }
 
@@ -333,7 +337,6 @@ void IOHIDNXEventTranslatorSessionFilter::unregisterService(IOHIDServiceRef serv
         _modifiers.Remove(service);
         updateModifiers();
     }
-  
   
     if (_translator) {
        IOHIDPointerEventTranslatorUnRegisterService (_translator, service);
@@ -585,6 +588,12 @@ void IOHIDNXEventTranslatorSessionFilter::setPropertyForClient (CFStringRef key,
 
   if (CFEqual(key, CFSTR(kIOHIDActivityStateKey))) {
       updateActivity(CFBooleanGetValue((CFBooleanRef)key));
+  } else if (CFEqual(key, CFSTR(kIOHIDDeclareActivityThreshold))) {
+      if (property && CFGetTypeID(property) == CFNumberGetTypeID()) {
+          uint32_t val;
+          CFNumberGetValue((CFNumberRef)property, kCFNumberSInt32Type, &val);
+          _declareActivityThreshold = ns_to_absolute_time(val * NSEC_PER_MSEC);
+      }
   }
   if (_translator) {
       IOHIDPointerEventTranslatorSetProperty (_translator, key, property);
@@ -716,59 +725,62 @@ IOPMAssertionID IOHIDNXEventTranslatorSessionFilter::_AssertionID = 0;
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::displayStateFilter
 //------------------------------------------------------------------------------
-IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event) {
+IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event)
+{
+    IOHIDEventPolicyValue   policy              = IOHIDEventGetPolicy(event, kIOHIDEventPowerPolicy);
+    IOHIDEventSenderID      senderID            = IOHIDEventGetSenderID(event);
+    IOHIDEventType          eventType           = IOHIDEventGetType(event);
+    uint64_t                eventTime           = IOHIDEventGetTimeStamp(event);
+    IOHIDEventRef           result              = event;
+    uint64_t                deltaMS             = to_ms(mach_continuous_time()) - to_ms(_displayStateChangeTime);
+    uint64_t                eventDelta          = eventTime - _previousEventTime;
+    bool                    declareActivity     = true;
     
-    __block IOHIDEventPolicyValue policy = IOHIDEventGetPolicy(event, kIOHIDEventPowerPolicy);
-    IOHIDEventRef   result  = event;
-    uint64_t        deltaMS = to_ms(mach_continuous_time()) - to_ms(_displayStateChangeTime);
-    
-    HIDLogDebug ("displayStateFilter: policy:%llu, display state:0x%x, duration since last state change:%lldms\n", policy, _displayState, deltaMS);
-    
-    if (policy == kIOHIDEventPowerPolicyMaintainSystem &&
-        _displayState < kPMDisplayDim &&
-        deltaMS > _displaySleepAbortThreshold &&
-        sender != _dfr) {
-        policy = kIOHIDEventNoPolicy;
-        HIDLogDebug ("displayStateFilter: upgrade policy to %llu", policy);
-    }
+    // Cancel keyboard/button events when display is asleep or waking up
+    // Will still declare using activity.
     if ((_displayState < kPMDisplayDim || (_displayState > kPMDisplayDim && deltaMS < _displayWakeAbortThreshold)) &&
         shouldCancelEvent(event)) {
        HIDLogDebug ("displayStateFilter: Cancel event (type:%d)", IOHIDEventGetType(event));
        result = NULL;
     }
     
-    if (policy != kIOHIDEventNoPolicy) {
-        IOHIDEventSenderID senderID = IOHIDEventGetSenderID(event);
-        IOHIDEventType eventType = IOHIDEventGetType(event);
-      
-        if (policy == kIOHIDEventPowerPolicyWakeSystem) {
-            uint64_t prev = mach_continuous_time();
-            displayTickle();
-            uint64_t tempDuration = to_ns(mach_continuous_time()) - to_ns(prev);
-            
-            if (tempDuration > _maxDisplayTickleDuration) {
-                _maxDisplayTickleDuration = tempDuration;
-            }
-        }
+    // Prevent digitizer/pointer events from tickling display after 5s, unless sender is DFR.
+    if (policy == kIOHIDEventPowerPolicyMaintainSystem &&
+        _displayState < kPMDisplayDim &&
+        deltaMS > _displaySleepAbortThreshold &&
+        sender != _dfr) {
+        declareActivity = false;
+    }
+    
+    // Only wake/maintain policies should declare activity
+    if (policy == kIOHIDEventNoPolicy) {
+        declareActivity = false;
+    }
+    
+    // Only declare user activity every 250ms for digitizer/pointer events
+    if (policy == kIOHIDEventPowerPolicyMaintainSystem &&
+        eventDelta < _declareActivityThreshold) {
+        declareActivity = false;
+    } else {
+        _previousEventTime = eventTime;
+    }
+    
+    if (declareActivity) {
         // Log display wakes
         if (_displayState < kPMDisplayDim) {
             updateDisplayLog(senderID, policy, eventType);
         }
         dispatch_async(dispatch_get_main_queue(), ^() {
-            if (policy == kIOHIDEventPowerPolicyWakeSystem || policy == kIOHIDEventPowerPolicyMaintainSystem) {
-
-                HIDLogDebug ("IOPMAssertionDeclareUserActivity sender:0x%llx event type: %d", senderID, (int)eventType);
-                CFStringRefWrap activityString (std::string(kIOHIDEventSystemServerName) + std::string(".queue.tickle.") +
-                                                std::to_string(senderID) +  std::string(".") + std::to_string(eventType));
-                IOReturn status = IOPMAssertionDeclareUserActivity(activityString.Reference(),
-                                                                   kIOPMUserActiveLocal,
-                                                                   &_AssertionID);
-                if (status) {
-                    HIDLogError ("IOPMAssertionDeclareUserActivity status:0x%x", status);
-                }
-                
-                updateActivity(true);
+            CFStringRefWrap activityString (std::string(kIOHIDEventSystemServerName) + std::string(".queue.tickle.") +
+                                            std::to_string(senderID) +  std::string(".") + std::to_string(eventType));
+            IOReturn status = IOPMAssertionDeclareUserActivity(activityString.Reference(),
+                                                               kIOPMUserActiveLocal,
+                                                               &_AssertionID);
+            if (status) {
+                HIDLogError ("IOPMAssertionDeclareUserActivity status:0x%x", status);
             }
+            
+            updateActivity(true);
         });
     }
     return result;
@@ -799,44 +811,34 @@ boolean_t IOHIDNXEventTranslatorSessionFilter::shouldCancelEvent (IOHIDEventRef 
 // IOHIDNXEventTranslatorSessionFilter::updateDisplayLog
 //------------------------------------------------------------------------------
 void IOHIDNXEventTranslatorSessionFilter::updateDisplayLog (IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType) {
-    LogEntry entry = { {0, 0}, serviceID, policy, eventType };
+    LogEntry entry;
+    
     gettimeofday(&entry.time, NULL);
-  
-    if (_displayLog.size() == LOG_MAX_ENTRIES) {
-        _displayLog.pop();
+    entry.serviceID     = serviceID;
+    entry.policy        = policy;
+    entry.eventType     = eventType;
+    
+    if (_displayLog == NULL) {
+        _displayLog = _IOHIDSimpleQueueCreate(kCFAllocatorDefault, sizeof(LogEntry), LOG_MAX_ENTRIES);
     }
-    _displayLog.push(entry);
+    if (_displayLog) {
+        _IOHIDSimpleQueueEnqueue(_displayLog, &entry, true);
+    }
 }
 
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::updateActivity
 //------------------------------------------------------------------------------
 void IOHIDNXEventTranslatorSessionFilter::updateActivity (bool active) {
-
     if (_hidSystem == MACH_PORT_NULL) {
-        _hidSystem = NXOpenEventStatus ();
+        _hidSystem = openHIDSystem();
     }
+    
     kern_return_t status = IOHIDSetStateForSelector(_hidSystem, kIOHIDActivityUserIdle, active ? 0 : 1);
     if (status) {
          HIDLogError ("updateActivity: IOHIDSetStateForSelector status:0x%x", status);
     }
 }
-
-//------------------------------------------------------------------------------
-// IOHIDNXEventTranslatorSessionFilter::displayTickle
-//------------------------------------------------------------------------------
-void IOHIDNXEventTranslatorSessionFilter::displayTickle () {
-
-    if (_hidSystem == MACH_PORT_NULL) {
-        _hidSystem = NXOpenEventStatus ();
-    }
-  
-    kern_return_t status =  IOConnectSetCFProperty (_hidSystem, CFSTR("DisplayTickle"), kCFBooleanTrue);
-    if (status) {
-        HIDLogError ("DisplayTickle satus:0x%x", status);
-    }
-}
-
 
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::powerNotificationCallback
@@ -890,7 +892,7 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
     serializer.SetValueForKey(CFSTR("SystemPowerStateChangeTime"), CFNumberRefWrap(to_ms(mach_continuous_time()) - to_ms(_powerStateChangeTime)));
     serializer.SetValueForKey(CFSTR("SystemPowerState"), CFNumberRefWrap(_powerState));
     serializer.SetValueForKey(CFSTR("DisplayWrangelServiceObject"), CFNumberRefWrap(_wrangler));
-    serializer.SetValueForKey(CFSTR("MaxDisplayTickleDuration"), CFNumberRefWrap(_maxDisplayTickleDuration));
+    serializer.SetValueForKey(CFSTR("DeclareActivityThreshold"), CFNumberRefWrap(_declareActivityThreshold));
 
     CFMutableArrayRefWrap companions;
     _companions.Apply ([&companions](const void *key, const void *value) {
@@ -913,49 +915,37 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
     });
     serializer.SetValueForKey(CFSTR("TranslateWithGlobalModifiers"), updateModifiers);
     
-    CFMutableArrayRefWrap displayLog;
-    std::queue<LogEntry> tmpLog;
-    
-    tmpLog = _displayLog;
-    
-    while (tmpLog.size()) {
-        CFMutableDictionaryRefWrap log;
-        LogEntry entry = tmpLog.front();
-        tmpLog.pop();
-        
-        CFStringRef time = timePointToTimeString(&entry.time);
-        if (time) {
-            log.SetValueForKey(CFSTR("Time"), time);
-            CFRelease(time);
+    if (_displayLog) {
+        CFMutableArrayRef displayLog = CFArrayCreateMutable(kCFAllocatorDefault, LOG_MAX_ENTRIES, &kCFTypeArrayCallBacks);
+        if (displayLog) {
+            _IOHIDSimpleQueueApplyBlock (_displayLog, ^(void * entry, void * ctx) {
+                CFMutableArrayRef log = (CFMutableArrayRef)ctx;
+                LogEntry * entryData = (LogEntry *)entry;
+                
+                CFMutableDictionaryRef entryDict = CFDictionaryCreateMutable(CFGetAllocator(log), 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                if (!entryDict) {
+                    return;
+                }
+                
+                _IOHIDDictionaryAddSInt64(entryDict, CFSTR("ServiceID"), entryData->serviceID);
+                _IOHIDDictionaryAddSInt64(entryDict, CFSTR("Policy"), entryData->policy);
+                _IOHIDDictionaryAddSInt32(entryDict, CFSTR("EventType"), entryData->eventType);
+                
+                CFStringRef time = _IOHIDCreateTimeString(kCFAllocatorDefault, &entryData->time);
+                if (time) {
+                    CFDictionaryAddValue(entryDict, CFSTR("Time"), time);
+                    CFRelease(time);
+                }
+                
+                CFArrayAppendValue(log, entryDict);
+                CFRelease(entryDict);
+                
+            }, (void *)displayLog);
+            
+            serializer.SetValueForKey(CFSTR("DisplayWakeLog"), displayLog);
+            CFRelease(displayLog);
         }
-        log.SetValueForKey(CFSTR("ServiceID"), CFNumberRefWrap(entry.serviceID));
-        log.SetValueForKey(CFSTR("Policy"), CFNumberRefWrap(entry.policy));
-        log.SetValueForKey(CFSTR("EventType"), CFNumberRefWrap(entry.eventType));
-        displayLog.Append(log);
     }
-    
-    serializer.SetValueForKey(CFSTR("DisplayWakeLog"), displayLog);
-}
-
-//------------------------------------------------------------------------------
-// IOHIDNXEventTranslatorSessionFilter::timePointToTimeString
-//------------------------------------------------------------------------------
-CFStringRef IOHIDNXEventTranslatorSessionFilter::timePointToTimeString (struct timeval *tv) {
-    struct tm tmd;
-    struct tm *local_time;
-    char time_str[32] = { 0, };
-    
-    local_time = localtime_r(&tv->tv_sec, &tmd);
-    if (local_time == NULL) {
-        local_time = gmtime_r(&tv->tv_sec, &tmd);
-    }
-    
-    if (local_time) {
-        strftime(time_str, sizeof(time_str), "%F %H:%M:%S", local_time);
-    }
-    
-    CFStringRef time = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s.%06d"), time_str, tv->tv_usec);
-    return time;
 }
 
 //------------------------------------------------------------------------------
@@ -1004,4 +994,22 @@ static boolean_t IsCompanionService(IOHIDServiceRef s1, IOHIDServiceRef s2) {
   return true;
 }
 
+static NXEventHandle openHIDSystem(void)
+{
+    kern_return_t    kr;
+    io_service_t     service = MACH_PORT_NULL;
+    NXEventHandle    handle = MACH_PORT_NULL;
+    mach_port_t      masterPort;
+    
+    kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if(kr == KERN_SUCCESS) {
+        service = IORegistryEntryFromPath(masterPort, kIOServicePlane ":/IOResources/IOHIDSystem");
+        if (service) {
+            IOServiceOpen(service, mach_task_self(), kIOHIDParamConnectType, &handle);
+            IOObjectRelease(service);
+        }
+    }
+    
+    return handle;
+}
 

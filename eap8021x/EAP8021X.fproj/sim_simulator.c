@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,6 +31,7 @@
 #include <string.h>
 #include <CommonCrypto/CommonCryptor.h>
 #include "EAPLog.h"
+#include "EAPClientPlugin.h"
 #include "EAPSIMAKAUtil.h"
 #include "sim_simulator.h"
 #include "symbol_scope.h"

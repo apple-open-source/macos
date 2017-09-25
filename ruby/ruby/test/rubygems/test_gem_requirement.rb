@@ -1,7 +1,16 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require "rubygems/requirement"
 
 class TestGemRequirement < Gem::TestCase
+
+  def test_concat
+    r = req '>= 1'
+
+    r.concat ['< 2']
+
+    assert_equal [['>=', v(1)], ['<', v(2)]], r.requirements
+  end
 
   def test_equals2
     r = req "= 1.2"
@@ -34,6 +43,19 @@ class TestGemRequirement < Gem::TestCase
   def test_basic_non_none
     r = Gem::Requirement.new "= 1"
     assert_equal false, r.none?
+  end
+
+  def test_for_lockfile
+    assert_equal ' (~> 1.0)', req('~> 1.0').for_lockfile
+
+    assert_equal ' (~> 1.0, >= 1.0.1)', req('>= 1.0.1', '~> 1.0').for_lockfile
+
+    duped = req '= 1.0'
+    duped.requirements << ['=', v('1.0')]
+
+    assert_equal ' (= 1.0)', duped.for_lockfile
+
+    assert_nil Gem::Requirement.default.for_lockfile
   end
 
   def test_parse
@@ -186,6 +208,14 @@ class TestGemRequirement < Gem::TestCase
     end
   end
 
+  def test_satisfied_by_eh_tilde_gt_v0
+    r = req "~> 0.0.1"
+
+    refute_satisfied_by "0.1.1", r
+    assert_satisfied_by "0.0.2", r
+    assert_satisfied_by "0.0.1", r
+  end
+
   def test_satisfied_by_eh_good
     assert_satisfied_by "0.2.33",      "= 0.2.33"
     assert_satisfied_by "0.2.34",      "> 0.2.33"
@@ -256,6 +286,11 @@ class TestGemRequirement < Gem::TestCase
     refute_satisfied_by "1.1.pre", "~> 1.1"
     refute_satisfied_by "2.0.a",   "~> 1.0"
     refute_satisfied_by "2.0.a",   "~> 2.0"
+
+    refute_satisfied_by "0.9",     "~> 1"
+    assert_satisfied_by "1.0",     "~> 1"
+    assert_satisfied_by "1.1",     "~> 1"
+    refute_satisfied_by "2.0",     "~> 1"
   end
 
   def test_satisfied_by_eh_multiple
@@ -311,6 +346,16 @@ class TestGemRequirement < Gem::TestCase
     refute_satisfied_by "9.3.1",       ">= 9.3.2"
     refute_satisfied_by "9.3.03",      "<= 9.3.2"
     refute_satisfied_by "1.0.0.1",     "= 1.0"
+  end
+
+  def test_hash_with_multiple_versions
+    r1 = req('1.0', '2.0')
+    r2 = req('2.0', '1.0')
+    assert_equal r1.hash, r2.hash
+
+    r1 = req('1.0', '2.0').tap { |r| r.concat(['3.0']) }
+    r2 = req('3.0', '1.0').tap { |r| r.concat(['2.0']) }
+    assert_equal r1.hash, r2.hash
   end
 
   # Assert that two requirements are equal. Handles Gem::Requirements,

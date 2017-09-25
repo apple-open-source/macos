@@ -1,13 +1,13 @@
 #
 # Apple wrapper Makefile for PostgreSQL
-# Copyright (c) 2009-2013,2016 Apple Inc. All Rights Reserved.
+# Copyright (c) 2009-2013,2016-2017 Apple Inc. All Rights Reserved.
 #
 
 # General project info for use with RC/GNUsource.make makefile
 Project         = postgresql
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 207.4
+Submission      = 207.6
 
 # Include common server build variables
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
@@ -23,6 +23,7 @@ AppleInternalDir = $(DSTROOT)/AppleInternal/ServerTools/PostgreSQL
 ifndef DITTO
 	DITTO=/usr/bin/ditto
 endif
+REALSDKROOT = $(shell echo $(SDKROOT) | sed  s/\\/BuildRoot//)
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -42,7 +43,7 @@ Extra_Configure_Flags	= --prefix=$(SERVER_INSTALL_PATH_PREFIX)$(USRDIR) --sbindi
 	--localstatedir=$(DBDirCustomer) \
 	--htmldir=$(DocDir) \
 	--enable-thread-safety \
-	--includedir=$(SDKROOT)/usr/include \
+	--includedir=$(REALSDKROOT)/usr/local/include \
 	--enable-dtrace \
 	--with-perl \
 	--with-python \
@@ -55,7 +56,7 @@ Extra_Configure_Flags	= --prefix=$(SERVER_INSTALL_PATH_PREFIX)$(USRDIR) --sbindi
 	--with-libxslt \
 	--with-system-tzdata=$(SHAREDIR)/zoneinfo \
 	--with-tcl=yes \
-	--with-tclconfig=$(SDKROOT)/usr/lib
+	--with-tclconfig=$(SDKROOT)/System/Library/Frameworks/Tcl.framework/Versions/Current
 
 Extra_Make_Flags	=
 
@@ -236,7 +237,8 @@ cleanup-dst-root:
 		$(MKDIR) $(DSTROOT)/usr/local/bin; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/System; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/private; \
-		$(CP) $(DSTROOT)/usr/bin/pg_config $(DSTROOT)/usr/local/bin; \
+		$(MKDIR) $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin; \
+		$(CP) $(DSTROOT)/usr/bin/pg_config $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/bin; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/libexec; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/share; \
@@ -244,5 +246,8 @@ cleanup-dst-root:
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/lib/postgresql9.1; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/lib/postgresql9.2; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/lib/postgresql/pgxs; \
+		$(SILENT) $(MV) $(DSTROOT)$(REALSDKROOT)/usr/local/include $(DSTROOT)/usr/local/include; \
+		$(SILENT) $(RM) -Rf $(DSTROOT)/Applications/Xcode.app/Contents/Developer/Platforms; \
+		$(SILENT) $(RM) -Rf $(DSTROOT)/BuildRoot; \
 	fi
 	@echo "Done."

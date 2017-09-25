@@ -158,7 +158,7 @@ bool MDSCfTypeToUInt32(
 				MPDebug("MDS cfTypeToInt: Bad CFNumber type (%ld) key %s", numType, key);
 				return false;
 		}
-		Boolean brtn = CFNumberGetValue(cfNum, numType, &tmpValue);
+		Boolean brtn = CFNumberGetValue(cfNum, kCFNumberSInt64Type, &tmpValue);
 		if(!brtn) {
 			MPDebug("MDS cfTypeToInt: Bad CFNumber conversion");
 			return false;

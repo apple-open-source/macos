@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -560,13 +560,12 @@ _copyInterfaceEntityTypes(CFDictionaryRef protocols)
 		CFStringRef	entities[]	= { kSCPropNetInterfaceType,
 						    kSCPropNetInterfaceSubType,
 						    kSCPropNetInterfaceHardware };
-		int		i;
 
 		// include the "Interface" entity itself
 		CFSetAddValue(interface_entity_types, kSCEntNetInterface);
 
 		// include the entities associated with the interface
-		for (i = 0; i < sizeof(entities)/sizeof(entities[0]); i++) {
+		for (size_t i = 0; i < sizeof(entities)/sizeof(entities[0]); i++) {
 			CFStringRef     entity;
 
 			entity = CFDictionaryGetValue(interface, entities[i]);
@@ -1091,7 +1090,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 	CFRelease(path);
 
 	useSystemInterfaces = ((__SCPreferencesUsingDefaultPrefs(servicePrivate->prefs)) &&
-			       (__SCPreferencesGetLimitSCNetworkConfiguration(servicePrivate->prefs) == FALSE));
+			       !__SCPreferencesGetLimitSCNetworkConfiguration(servicePrivate->prefs));
 
 	if (isA_CFDictionary(entity)) {
 		name = CFDictionaryGetValue(entity, kSCPropUserDefinedName);
@@ -1256,11 +1255,10 @@ SCNetworkServiceRemove(SCNetworkServiceRef service)
 
 	sets = SCNetworkSetCopyAll(servicePrivate->prefs);
 	if (sets != NULL) {
-		CFIndex	i;
 		CFIndex n;
 
 		n = CFArrayGetCount(sets);
-		for (i = 0; i < n; i++) {
+		for (CFIndex i = 0; i < n; i++) {
 			SCNetworkSetRef	set;
 
 			set = CFArrayGetValueAtIndex(sets, i);
@@ -1940,7 +1938,7 @@ replaceServiceID(const void *value, void *context)
 	}
 
 	// remove link between "set" and old "service"
-	SCPreferencesPathRemoveValue(setPrivate->prefs, path);
+	(void) SCPreferencesPathRemoveValue(setPrivate->prefs, path);
 	CFRelease(path);
 
 	// create the link between "set" and the "service"
@@ -1951,7 +1949,7 @@ replaceServiceID(const void *value, void *context)
 	link = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,				// allocator
 							      service_context->newServiceID,	// service
 							      NULL);				// entity
-	SCPreferencesPathSetLink(setPrivate->prefs, path, link);
+	(void) SCPreferencesPathSetLink(setPrivate->prefs, path, link);
 
     done:
 

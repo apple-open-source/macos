@@ -28,7 +28,6 @@
 #include <security_utilities/mach++.h>
 #include <mach/mach_error.h>
 #include <security_utilities/debugging.h>
-#include <Security/cssmapple.h>		// error codes
 #include <servers/bootstrap_defs.h>	// debug
 #include <bootstrap_priv.h>
 
@@ -55,7 +54,7 @@ OSStatus Error::osStatus() const
 	case MIG_BAD_ARGUMENTS:
 	case MIG_TYPE_ERROR:
 	case MIG_REMOTE_ERROR:
-		return CSSMERR_CSSM_SERVICE_NOT_AVAILABLE;		// IPC mismatch of some sort
+		return errSecServiceNotAvailable;		// IPC mismatch of some sort
 	default:
 		return -1;		//@@@ some "internal error" code, perhaps?
 	}

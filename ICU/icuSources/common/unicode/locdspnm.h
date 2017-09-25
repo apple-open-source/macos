@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
 * Copyright (C) 2010-2016, International Business Machines Corporation and
@@ -18,10 +20,12 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/locid.h"
+#include "unicode/strenum.h"
 #include "unicode/uscript.h"
 #include "unicode/uldnames.h"
 #include "unicode/udisplaycontext.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -198,6 +202,7 @@ inline LocaleDisplayNames* LocaleDisplayNames::createInstance(const Locale& loca
 }
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif
 

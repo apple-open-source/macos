@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: platform.h,v 1.7 2007/06/18 23:47:52 tbox Exp $ */
 
 #ifndef LWRES_PLATFORM_H
 #define LWRES_PLATFORM_H 1
@@ -66,6 +66,9 @@
  * Defined if unistd.h does not cause fd_set to be delared.
  */
 /*@LWRES_PLATFORM_NEEDSYSSELECTH@ */
+
+/* VS2005 does not provide strlcpy() */
+#define LWRES_PLATFORM_NEEDSTRLCPY
 
 /*
  * Define some Macros

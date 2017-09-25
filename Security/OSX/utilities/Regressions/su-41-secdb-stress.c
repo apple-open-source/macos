@@ -190,7 +190,7 @@ static void tests(void)
     CFStringRef dbName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/Library/Keychains/su-41-sqldb-stress.db"), home_var ? home_var : "");
     CFStringPerformWithCString(dbName, ^(const char *path) { unlink(path); });
 
-    SecDbRef db = SecDbCreate(dbName, ^bool (SecDbConnectionRef dbconn, bool did_create, bool *callMeAgainForNextConnection, CFErrorRef *firstOpenError) {
+    SecDbRef db = SecDbCreate(dbName, ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool did_create, bool *callMeAgainForNextConnection, CFErrorRef *firstOpenError) {
         // This test will run when the database is first opened.
         return ts_ok(SecDbExec(dbconn, CFSTR("CREATE TABLE tablea(key TEXT,value BLOB);"), firstOpenError),
            "create table: %@", *firstOpenError);

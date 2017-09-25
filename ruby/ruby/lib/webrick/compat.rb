@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # compat.rb -- cross platform compatibility
 #
@@ -9,7 +10,7 @@
 # $IPR: compat.rb,v 1.6 2002/10/01 17:16:32 gotoyuzo Exp $
 
 ##
-# System call error module used by webrick for cross platform compatability.
+# System call error module used by webrick for cross platform compatibility.
 #
 # EPROTO:: protocol error
 # ECONNRESET:: remote host reset the connection request

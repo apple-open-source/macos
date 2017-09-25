@@ -48,6 +48,8 @@
 #define IPV6_ADDR_LEN 16
 #define IPV4_ADDR_LEN 4
 
+#define SYSTEM_UID_LIMIT 500
+
 /* kernel syscalls */
 extern int __initgroups(u_int gidsetsize, gid_t *gidset, int gmuid);
 
@@ -75,6 +77,16 @@ typedef struct
 	uint32_t cat;
 	int32_t key_offset;
 } si_context_t;
+
+si_mod_t *
+si_search_file(void)
+{
+	static si_mod_t *search = NULL;
+
+	if (search == NULL) search = si_module_with_name("file");
+
+	return search;
+}
 
 si_mod_t *
 si_search(void)
@@ -232,14 +244,20 @@ getpwnam_async_handle_reply(mach_msg_header_t *msg)
 struct passwd *
 getpwuid(uid_t uid)
 {
-	si_item_t *item;
+	si_item_t *item = NULL;
     
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %d\n", __func__, uid);
 #endif
-    
-    
-    item = si_user_byuid(si_search(), uid);
+
+	// Search the file module first for all system uids
+	// (ie, uid value < 500) since they should all be
+	// in the /etc/*passwd file.
+	if (uid < SYSTEM_UID_LIMIT)
+		item = si_user_byuid(si_search_file(), uid);
+
+	if (item == NULL)
+		item = si_user_byuid(si_search(), uid);
 	LI_set_thread_item(CATEGORY_USER + 200, item);
 
 	if (item == NULL) return NULL;
@@ -262,6 +280,19 @@ getpwuid_async_call(uid_t uid, si_user_async_callback callback, void *context)
 	sictx->orig_context = context;
 	sictx->cat = CATEGORY_USER;
 	sictx->key_offset = 200;
+
+	// Search the file module first for all system uids
+	// (ie, uid value < 500) since they should all be
+	// in the /etc/*passwd file.
+	if (uid < SYSTEM_UID_LIMIT)
+	{
+		si_item_t *item = si_user_byuid(si_search_file(), uid);
+		if (item)
+		{
+			si_item_release(item);
+			return si_async_call(si_search_file(), SI_CALL_USER_BYUID, NULL, NULL, NULL, (uint32_t)uid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+		}
+	}
 
 	return si_async_call(si_search(), SI_CALL_USER_BYUID, NULL, NULL, NULL, (uint32_t)uid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
@@ -611,6 +642,8 @@ _check_groups(const char *function, int32_t ngroups)
 	dispatch_once(&once, ^(void) {
 		const char *proc_name = getprogname();
 		if (strcmp(proc_name, "id") != 0 && strcmp(proc_name, "smbd") != 0 && strcmp(proc_name, "rpcsvchost") != 0) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 			aslmsg msg = asl_new(ASL_TYPE_MSG);
 			char buffer[256];
 
@@ -625,6 +658,7 @@ _check_groups(const char *function, int32_t ngroups)
 
 			asl_free(msg);
 		}
+#pragma clang diagnostic pop
 	});
 }
 #endif
@@ -3158,10 +3192,9 @@ getpwnam_r(const char *name, struct passwd *pw, char *buffer, size_t bufsize, st
 int
 getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct passwd **result)
 {
-	si_item_t *item;
+	si_item_t *item = NULL;
 	struct passwd *p;
 	int status;
-    uid_t localuid = uid;
 
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %d\n", __func__, uid);
@@ -3171,7 +3204,14 @@ getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct pa
 
 	if ((pw == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
     
-	item = si_user_byuid(si_search(), localuid);
+	// Search the file module first for all system uids
+	// (ie, uid value < 500) since they should all be
+	// in the /etc/*passwd file.
+	if (uid < SYSTEM_UID_LIMIT)
+		item = si_user_byuid(si_search_file(), uid);
+
+	if (item == NULL)
+		item = si_user_byuid(si_search(), uid);
 	if (item == NULL) return 0;
 
 	p = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));

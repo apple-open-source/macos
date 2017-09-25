@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebResourceLoader_h
-#define WebResourceLoader_h
+#pragma once
 
 #include "Connection.h"
 #include "MessageSender.h"
@@ -32,15 +31,12 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-#if USE(QUICK_LOOK)
-#include <WebCore/QuickLook.h>
-#endif
-
 namespace IPC {
 class DataReference;
 }
 
 namespace WebCore {
+class NetworkLoadMetrics;
 class ResourceError;
 class ResourceLoader;
 class ResourceRequest;
@@ -82,17 +78,16 @@ private:
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);
     void didReceiveResponse(const WebCore::ResourceResponse&, bool needsContinueDidReceiveResponseMessage);
     void didReceiveData(const IPC::DataReference&, int64_t encodedDataLength);
-    void didFinishResourceLoad(double finishTime);
+    void didRetrieveDerivedData(const String& type, const IPC::DataReference&);
+    void didFinishResourceLoad(const WebCore::NetworkLoadMetrics&);
     void didFailResourceLoad(const WebCore::ResourceError&);
 #if ENABLE(SHAREABLE_RESOURCE)
-    void didReceiveResource(const ShareableResource::Handle&, double finishTime);
+    void didReceiveResource(const ShareableResource::Handle&);
 #endif
 
     RefPtr<WebCore::ResourceLoader> m_coreLoader;
     TrackingParameters m_trackingParameters;
-    bool m_hasReceivedData { false };
+    size_t m_numBytesReceived { 0 };
 };
 
 } // namespace WebKit
-
-#endif // WebResourceLoader_h

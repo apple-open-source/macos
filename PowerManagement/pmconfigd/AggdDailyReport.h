@@ -35,10 +35,11 @@
 
 #ifndef AggdDailyReprt_h
 #define AggdDailyReprt_h
-#include "IOReport.h"
+
+#include <IOReport.h>
 #include <AggregateDictionary/ADClient.h>
 #include <syslog.h>
-#include <PrivateLib.h>
+#include "PrivateLib.h"
 
 
 
@@ -100,20 +101,5 @@ static struct IOReport_DailySample
 
 //Setup daily report
 void initializeAggdDailyReport(void);
-
-//Initialized sample from driver
-static void initializeDailySample(void);
-
-//Subscribe to event channels
-static IOReportSubscriptionRef IOReporter_subscription_init(CFMutableDictionaryRef *subscribed_channels);
-
-//Publish dailyReport
-static void submitAggdDailyReport(void);
-
-//Sample value from channel
-static void Process_IOReporter_Sample(CFMutableDictionaryRef newSample);
-
-//process the sampled value, report it and update the total buffer
-static IOReportIterationResult process_event(IOReportSampleRef spl, uint64_t unit, struct IOReport_Event_Buffer *IOReportSampleTotal, struct Daily_Report_Name_AggdKeys_Bundle *NameKeysBundle);
 
 #endif /* AggdDailyReprt_h */

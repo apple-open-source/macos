@@ -37,6 +37,11 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		084F5E841D50204F006CD296 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 084F5E831D50204F006CD296 /* Foundation.framework */; };
+		084F5E851D502102006CD296 /* radix_tree_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 08C28B3A1D501ACC000AE997 /* radix_tree_debug.c */; };
+		088C4D771D1AF049005C6B36 /* radix_tree.c in Sources */ = {isa = PBXBuildFile; fileRef = 088C4D741D1AEFB5005C6B36 /* radix_tree.c */; };
+		088C4D841D1AF16F005C6B36 /* radix_tree.c in Sources */ = {isa = PBXBuildFile; fileRef = 088C4D741D1AEFB5005C6B36 /* radix_tree.c */; };
+		08FEED021D501F6B00BE8A69 /* radix_tree_main.m in Sources */ = {isa = PBXBuildFile; fileRef = 08C28B421D501D2C000AE997 /* radix_tree_main.m */; };
 		0D468DCF1C7BEF51006FACF5 /* magazine_lite.c in Sources */ = {isa = PBXBuildFile; fileRef = 0D468DCC1C7BEE56006FACF5 /* magazine_lite.c */; };
 		0D468DD01C7BEF71006FACF5 /* stack_logging_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 0D468DCD1C7BEE65006FACF5 /* stack_logging_internal.h */; };
 		3FE91FED16A90B9200D1238A /* bitarray.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD116A90A8D00D1238A /* bitarray.c */; };
@@ -76,6 +81,8 @@
 		C0CE45471C52C90500C24048 /* purgeable_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = C957429F1BF681B00027269A /* purgeable_malloc.h */; };
 		C0CE45481C52C90500C24048 /* base.h in Headers */ = {isa = PBXBuildFile; fileRef = C95742891BF3FD290027269A /* base.h */; };
 		C0CE454E1C52C9E600C24048 /* libmalloc.a in CopyFiles */ = {isa = PBXBuildFile; fileRef = C0CE454C1C52C90500C24048 /* libmalloc.a */; };
+		C932D2681D6B8D840063B19E /* vm.c in Sources */ = {isa = PBXBuildFile; fileRef = C932D2661D6B8D840063B19E /* vm.c */; };
+		C932D2691D6B8D840063B19E /* vm.h in Headers */ = {isa = PBXBuildFile; fileRef = C932D2671D6B8D840063B19E /* vm.h */; };
 		C938BBD31C74F7A400522BBD /* trace.h in Headers */ = {isa = PBXBuildFile; fileRef = C938BBD21C74F7A400522BBD /* trace.h */; };
 		C9571C3A1C18AA1D00A67EE3 /* stack_logging.h in Headers */ = {isa = PBXBuildFile; fileRef = C9571C391C18AA1D00A67EE3 /* stack_logging.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C95742721BF2C2880027269A /* bitarray.h in Headers */ = {isa = PBXBuildFile; fileRef = 3FE91FD216A90A8D00D1238A /* bitarray.h */; };
@@ -115,6 +122,8 @@
 		C95742A91BF6842F0027269A /* frozen_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = C95742A51BF6842F0027269A /* frozen_malloc.h */; };
 		C95742AB1BF685CB0027269A /* legacy_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = C95742AA1BF685CB0027269A /* legacy_malloc.c */; };
 		C95742AC1BF685CB0027269A /* legacy_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = C95742AA1BF685CB0027269A /* legacy_malloc.c */; };
+		C99E320B1D6F7366005655A8 /* magazine_rack.c in Sources */ = {isa = PBXBuildFile; fileRef = C99E32091D6F7366005655A8 /* magazine_rack.c */; };
+		C99E320C1D6F7366005655A8 /* magazine_rack.h in Headers */ = {isa = PBXBuildFile; fileRef = C99E320A1D6F7366005655A8 /* magazine_rack.h */; };
 		C9ABCA051CB6FC6800ECB399 /* empty.s in Sources */ = {isa = PBXBuildFile; fileRef = C9ABCA041CB6FC6800ECB399 /* empty.s */; };
 /* End PBXBuildFile section */
 
@@ -179,6 +188,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		084F5E831D50204F006CD296 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		088C4D731D1AEFB5005C6B36 /* radix_tree_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = radix_tree_internal.h; sourceTree = "<group>"; };
+		088C4D741D1AEFB5005C6B36 /* radix_tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = radix_tree.c; sourceTree = "<group>"; };
+		088C4D751D1AEFB5005C6B36 /* radix_tree.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = radix_tree.h; sourceTree = "<group>"; };
+		088C4D761D1AEFC5005C6B36 /* radix_tree_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = radix_tree_test.m; sourceTree = "<group>"; };
+		08C28B3A1D501ACC000AE997 /* radix_tree_debug.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = radix_tree_debug.c; sourceTree = "<group>"; };
+		08C28B401D501D2C000AE997 /* radix-tree */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "radix-tree"; sourceTree = BUILT_PRODUCTS_DIR; };
+		08C28B421D501D2C000AE997 /* radix_tree_main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = radix_tree_main.m; sourceTree = "<group>"; };
 		0D468DCC1C7BEE56006FACF5 /* magazine_lite.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magazine_lite.c; sourceTree = "<group>"; };
 		0D468DCD1C7BEE65006FACF5 /* stack_logging_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stack_logging_internal.h; sourceTree = "<group>"; };
 		0D468DCE1C7BEE74006FACF5 /* stack_logging_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stack_logging_test.c; sourceTree = "<group>"; };
@@ -188,7 +205,7 @@
 		3FE91FCB16A90A8D00D1238A /* malloc_zone_malloc.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = malloc_zone_malloc.3; sourceTree = "<group>"; };
 		3FE91FD116A90A8D00D1238A /* bitarray.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bitarray.c; sourceTree = "<group>"; };
 		3FE91FD216A90A8D00D1238A /* bitarray.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bitarray.h; sourceTree = "<group>"; };
-		3FE91FD616A90A8D00D1238A /* magazine_malloc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_malloc.c; sourceTree = "<group>"; };
+		3FE91FD616A90A8D00D1238A /* magazine_malloc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = magazine_malloc.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		3FE91FD716A90A8D00D1238A /* magmallocProvider.d */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.dtrace; path = magmallocProvider.d; sourceTree = "<group>"; };
 		3FE91FD816A90A8D00D1238A /* malloc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc.c; sourceTree = "<group>"; };
 		3FE91FD916A90A8D00D1238A /* printf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = printf.h; sourceTree = "<group>"; };
@@ -210,7 +227,12 @@
 		C0CE454C1C52C90500C24048 /* libmalloc.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C92853A01C767F08001FEAF3 /* install-codes.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "install-codes.sh"; sourceTree = "<group>"; };
 		C931B58F1C81248100D0D230 /* madvise.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = madvise.c; sourceTree = "<group>"; };
+		C932D2631D6B6ED40063B19E /* magazine_tiny_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_tiny_test.c; sourceTree = "<group>"; };
+		C932D2641D6B73270063B19E /* dtrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dtrace.h; sourceTree = "<group>"; };
+		C932D2661D6B8D840063B19E /* vm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vm.c; sourceTree = "<group>"; };
+		C932D2671D6B8D840063B19E /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vm.h; sourceTree = "<group>"; };
 		C938BBD21C74F7A400522BBD /* trace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = trace.h; sourceTree = "<group>"; };
+		C93F76D71D6B9F8C0088931B /* magazine_testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = magazine_testing.h; sourceTree = "<group>"; };
 		C9571C391C18AA1D00A67EE3 /* stack_logging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stack_logging.h; sourceTree = "<group>"; };
 		C9571C3C1C18AD5F00A67EE3 /* balloon.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = balloon.cpp; sourceTree = "<group>"; };
 		C9571C3D1C18AD5F00A67EE3 /* balloon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = balloon.h; sourceTree = "<group>"; };
@@ -255,21 +277,33 @@
 		C95742861BF3F9550027269A /* magazine_zone.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = magazine_zone.h; sourceTree = "<group>"; };
 		C95742891BF3FD290027269A /* base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = base.h; sourceTree = "<group>"; };
 		C957428C1BF411330027269A /* thresholds.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = thresholds.h; sourceTree = "<group>"; };
-		C957428F1BF419DF0027269A /* magazine_tiny.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magazine_tiny.c; sourceTree = "<group>"; };
-		C95742921BF41C970027269A /* magazine_inline.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = magazine_inline.h; sourceTree = "<group>"; };
+		C957428F1BF419DF0027269A /* magazine_tiny.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = magazine_tiny.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
+		C95742921BF41C970027269A /* magazine_inline.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = magazine_inline.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		C95742951BF41E480027269A /* magazine_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = magazine_malloc.h; sourceTree = "<group>"; };
-		C95742981BF670D00027269A /* magazine_small.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magazine_small.c; sourceTree = "<group>"; };
+		C95742981BF670D00027269A /* magazine_small.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = magazine_small.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		C957429B1BF672F80027269A /* magazine_large.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magazine_large.c; sourceTree = "<group>"; };
 		C957429E1BF681B00027269A /* purgeable_malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = purgeable_malloc.c; sourceTree = "<group>"; };
 		C957429F1BF681B00027269A /* purgeable_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = purgeable_malloc.h; sourceTree = "<group>"; };
 		C95742A41BF6842F0027269A /* frozen_malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = frozen_malloc.c; sourceTree = "<group>"; };
 		C95742A51BF6842F0027269A /* frozen_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = frozen_malloc.h; sourceTree = "<group>"; };
 		C95742AA1BF685CB0027269A /* legacy_malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = legacy_malloc.c; sourceTree = "<group>"; };
+		C99E32091D6F7366005655A8 /* magazine_rack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magazine_rack.c; sourceTree = "<group>"; };
+		C99E320A1D6F7366005655A8 /* magazine_rack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = magazine_rack.h; sourceTree = "<group>"; };
 		C9ABCA041CB6FC6800ECB399 /* empty.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = empty.s; sourceTree = "<group>"; };
 		C9F77BBA1BF2B84800812E13 /* platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = platform.h; sourceTree = "<group>"; };
+		C9F8C2681D70B521008C4044 /* magazine_small_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_small_test.c; sourceTree = "<group>"; };
+		C9F8C2691D74C93A008C4044 /* magazine_rack.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_rack.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		08C28B3D1D501D2C000AE997 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				084F5E841D50204F006CD296 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3FE91FE516A90AEC00D1238A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -301,6 +335,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		084F5E821D50204F006CD296 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				084F5E831D50204F006CD296 /* Foundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		08C28B411D501D2C000AE997 /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				08C28B421D501D2C000AE997 /* radix_tree_main.m */,
+			);
+			path = tools;
+			sourceTree = "<group>";
+		};
 		3FE91FC816A90A8D00D1238A /* man */ = {
 			isa = PBXGroup;
 			children = (
@@ -315,10 +365,16 @@
 		3FE91FCC16A90A8D00D1238A /* src */ = {
 			isa = PBXGroup;
 			children = (
+				08C28B3A1D501ACC000AE997 /* radix_tree_debug.c */,
+				088C4D731D1AEFB5005C6B36 /* radix_tree_internal.h */,
+				088C4D741D1AEFB5005C6B36 /* radix_tree.c */,
+				088C4D751D1AEFB5005C6B36 /* radix_tree.h */,
 				C95742891BF3FD290027269A /* base.h */,
 				3FE91FD116A90A8D00D1238A /* bitarray.c */,
 				3FE91FD216A90A8D00D1238A /* bitarray.h */,
 				C957427B1BF2C8DE0027269A /* debug.h */,
+				C932D2641D6B73270063B19E /* dtrace.h */,
+				C9ABCA041CB6FC6800ECB399 /* empty.s */,
 				C95742A41BF6842F0027269A /* frozen_malloc.c */,
 				C95742A51BF6842F0027269A /* frozen_malloc.h */,
 				C957426D1BF2C0C80027269A /* internal.h */,
@@ -330,6 +386,8 @@
 				0D468DCC1C7BEE56006FACF5 /* magazine_lite.c */,
 				3FE91FD616A90A8D00D1238A /* magazine_malloc.c */,
 				C95742951BF41E480027269A /* magazine_malloc.h */,
+				C99E32091D6F7366005655A8 /* magazine_rack.c */,
+				C99E320A1D6F7366005655A8 /* magazine_rack.h */,
 				C95742981BF670D00027269A /* magazine_small.c */,
 				C957428F1BF419DF0027269A /* magazine_tiny.c */,
 				C95742861BF3F9550027269A /* magazine_zone.h */,
@@ -344,9 +402,10 @@
 				C957429F1BF681B00027269A /* purgeable_malloc.h */,
 				3FE91FDC16A90A8D00D1238A /* stack_logging_disk.c */,
 				0D468DCD1C7BEE65006FACF5 /* stack_logging_internal.h */,
-				C9ABCA041CB6FC6800ECB399 /* empty.s */,
 				C957428C1BF411330027269A /* thresholds.h */,
 				C938BBD21C74F7A400522BBD /* trace.h */,
+				C932D2661D6B8D840063B19E /* vm.c */,
+				C932D2671D6B8D840063B19E /* vm.h */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -378,6 +437,7 @@
 				3FE9201016A9109E00D1238A /* libmalloc_eOS.a */,
 				456E51C9197DF0D600A7E488 /* libmalloc_stress_test */,
 				C0CE454C1C52C90500C24048 /* libmalloc.a */,
+				08C28B401D501D2C000AE997 /* radix-tree */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -408,7 +468,9 @@
 				925383BD1BD03B4A00F745DB /* tests */,
 				3FE91FDF16A90A8D00D1238A /* xcodeconfig */,
 				3FE91FE216A90A8D00D1238A /* xcodescripts */,
+				08C28B411D501D2C000AE997 /* tools */,
 				3FE91FE916A90AEC00D1238A /* Products */,
+				084F5E821D50204F006CD296 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 			tabWidth = 4;
@@ -417,11 +479,16 @@
 		925383BD1BD03B4A00F745DB /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				0D468DCE1C7BEE74006FACF5 /* stack_logging_test.c */,
 				C931B58F1C81248100D0D230 /* madvise.c */,
-				C9571C3B1C18AD4F00A67EE3 /* MallocBench */,
+				C9F8C2691D74C93A008C4044 /* magazine_rack.c */,
+				C9F8C2681D70B521008C4044 /* magazine_small_test.c */,
+				C93F76D71D6B9F8C0088931B /* magazine_testing.h */,
+				C932D2631D6B6ED40063B19E /* magazine_tiny_test.c */,
 				925383D01BD03B4A00F745DB /* Makefile */,
+				C9571C3B1C18AD4F00A67EE3 /* MallocBench */,
 				C9571C661C18AD6A00A67EE3 /* MallocBench.cpp */,
+				088C4D761D1AEFC5005C6B36 /* radix_tree_test.m */,
+				0D468DCE1C7BEE74006FACF5 /* stack_logging_test.c */,
 				925383D11BD03B4A00F745DB /* stress_test.c */,
 			);
 			path = tests;
@@ -488,7 +555,9 @@
 				C0352EC71C3F3C4400DB5126 /* malloc_private.h in Headers */,
 				0D468DD01C7BEF71006FACF5 /* stack_logging_internal.h in Headers */,
 				C95742731BF2C2880027269A /* internal.h in Headers */,
+				C99E320C1D6F7366005655A8 /* magazine_rack.h in Headers */,
 				C95742721BF2C2880027269A /* bitarray.h in Headers */,
+				C932D2691D6B8D840063B19E /* vm.h in Headers */,
 				C938BBD31C74F7A400522BBD /* trace.h in Headers */,
 				C95742A81BF6842F0027269A /* frozen_malloc.h in Headers */,
 				C957428D1BF411330027269A /* thresholds.h in Headers */,
@@ -560,6 +629,22 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
+		08C28B3F1D501D2C000AE997 /* radix-tree */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 08C28B441D501D2C000AE997 /* Build configuration list for PBXNativeTarget "radix-tree" */;
+			buildPhases = (
+				08C28B3C1D501D2C000AE997 /* Sources */,
+				08C28B3D1D501D2C000AE997 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "radix-tree";
+			productName = "radix-tree";
+			productReference = 08C28B401D501D2C000AE997 /* radix-tree */;
+			productType = "com.apple.product-type.tool";
+		};
 		3FE91FE716A90AEC00D1238A /* libsystem_malloc */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3FE91FEA16A90AEC00D1238A /* Build configuration list for PBXNativeTarget "libsystem_malloc" */;
@@ -637,8 +722,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0700;
-				LastUpgradeCheck = 0710;
+				LastUpgradeCheck = 0900;
 				TargetAttributes = {
+					08C28B3F1D501D2C000AE997 = {
+						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Automatic;
+					};
 					45039161198FFF73004EE2A3 = {
 						CreatedOnToolsVersion = 6.0;
 					};
@@ -668,6 +757,7 @@
 				3FE91FFD16A9109E00D1238A /* libmalloc_eOS */,
 				C0CE452F1C52C90500C24048 /* libmalloc_static */,
 				456E51C8197DF0D600A7E488 /* libmalloc_stress_test */,
+				08C28B3F1D501D2C000AE997 /* radix-tree */,
 				925383D41BD03C0500F745DB /* darwintests */,
 			);
 		};
@@ -723,16 +813,28 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		08C28B3C1D501D2C000AE997 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				084F5E851D502102006CD296 /* radix_tree_debug.c in Sources */,
+				08FEED021D501F6B00BE8A69 /* radix_tree_main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3FE91FE416A90AEC00D1238A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				088C4D771D1AF049005C6B36 /* radix_tree.c in Sources */,
 				3FE91FED16A90B9200D1238A /* bitarray.c in Sources */,
 				C95742A01BF681B00027269A /* purgeable_malloc.c in Sources */,
 				C957429C1BF672F80027269A /* magazine_large.c in Sources */,
 				3FE91FF016A90B9200D1238A /* magazine_malloc.c in Sources */,
 				C95742991BF670D00027269A /* magazine_small.c in Sources */,
+				C99E320B1D6F7366005655A8 /* magazine_rack.c in Sources */,
 				C95742AB1BF685CB0027269A /* legacy_malloc.c in Sources */,
+				C932D2681D6B8D840063B19E /* vm.c in Sources */,
 				3FE91FF116A90B9200D1238A /* magmallocProvider.d in Sources */,
 				0D468DCF1C7BEF51006FACF5 /* magazine_lite.c in Sources */,
 				3FE91FF216A90B9200D1238A /* malloc.c in Sources */,
@@ -774,6 +876,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				088C4D841D1AF16F005C6B36 /* radix_tree.c in Sources */,
 				C0CE45311C52C90500C24048 /* bitarray.c in Sources */,
 				C0CE45321C52C90500C24048 /* purgeable_malloc.c in Sources */,
 				C0CE45331C52C90500C24048 /* magazine_large.c in Sources */,
@@ -821,6 +924,20 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		08C28B451D501D2C000AE997 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		08C28B461D501D2C000AE997 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		3FE91FEB16A90AEC00D1238A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3FE91FE016A90A8D00D1238A /* libmalloc.xcconfig */;
@@ -872,6 +989,7 @@
 		3FFC1BE916A908F800027192 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -898,42 +1016,25 @@
 		456E51CD197DF0D600A7E488 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
-				METAL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
-				SKIP_INSTALL = NO;
+				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 			};
 			name = Debug;
@@ -941,37 +1042,20 @@
 		456E51CE197DF0D600A7E488 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
-				METAL_ENABLE_DEBUG_INFO = NO;
-				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = "";
-				SKIP_INSTALL = NO;
+				SDKROOT = macosx.internal;
 				"SKIP_INSTALL[sdk=iphonesimulator*]" = YES;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 			};
@@ -1016,6 +1100,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		08C28B441D501D2C000AE997 /* Build configuration list for PBXNativeTarget "radix-tree" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				08C28B451D501D2C000AE997 /* Debug */,
+				08C28B461D501D2C000AE997 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		3FE91FEA16A90AEC00D1238A /* Build configuration list for PBXNativeTarget "libsystem_malloc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

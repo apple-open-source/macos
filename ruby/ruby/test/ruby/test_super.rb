@@ -1,5 +1,5 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestSuper < Test::Unit::TestCase
   class Base
@@ -152,14 +152,13 @@ class TestSuper < Test::Unit::TestCase
     a = A.new
     a.uu(12)
     assert_equal("A#tt", a.tt(12), "[ruby-core:3856]")
-    e = assert_raise(RuntimeError, "[ruby-core:24244]") {
+    assert_raise_with_message(RuntimeError, /implicit argument passing of super from method defined by define_method/, "[ruby-core:24244]") {
       lambda {
         Class.new {
           define_method(:a) {super}
         }.new.a
       }.call
     }
-    assert_match(/implicit argument passing of super from method defined by define_method/, e.message)
   end
 
   class SubSeq
@@ -195,7 +194,7 @@ class TestSuper < Test::Unit::TestCase
         end
       end
       overlaid.call(str = "123")
-      overlaid.call(ary = [1,2,3])
+      overlaid.call([1,2,3])
       str.reverse
     end
 
@@ -230,11 +229,8 @@ class TestSuper < Test::Unit::TestCase
     A.send(:include, Override)
   end
 
-  # [Bug #3351]
   def test_double_include
-    assert_equal([:Base, :Override], DoubleInclude::B.new.foo)
-    # should be changed as follows?
-    # assert_equal([:Base, :Override, :Override], DoubleInclude::B.new.foo)
+    assert_equal([:Base, :Override, :Override], DoubleInclude::B.new.foo, "[Bug #3351]")
   end
 
   module DoubleInclude2
@@ -272,12 +268,12 @@ class TestSuper < Test::Unit::TestCase
   end
 
   def test_super_in_instance_eval
-    super_class = Class.new {
+    super_class = EnvUtil.labeled_class("Super\u{30af 30e9 30b9}") {
       def foo
         return [:super, self]
       end
     }
-    sub_class = Class.new(super_class) {
+    sub_class = EnvUtil.labeled_class("Sub\u{30af 30e9 30b9}", super_class) {
       def foo
         x = Object.new
         x.instance_eval do
@@ -286,18 +282,18 @@ class TestSuper < Test::Unit::TestCase
       end
     }
     obj = sub_class.new
-    assert_raise(TypeError) do
+    assert_raise_with_message(TypeError, /Sub\u{30af 30e9 30b9}/) do
       obj.foo
     end
   end
 
   def test_super_in_instance_eval_with_define_method
-    super_class = Class.new {
+    super_class = EnvUtil.labeled_class("Super\u{30af 30e9 30b9}") {
       def foo
         return [:super, self]
       end
     }
-    sub_class = Class.new(super_class) {
+    sub_class = EnvUtil.labeled_class("Sub\u{30af 30e9 30b9}", super_class) {
       define_method(:foo) do
         x = Object.new
         x.instance_eval do
@@ -306,20 +302,19 @@ class TestSuper < Test::Unit::TestCase
       end
     }
     obj = sub_class.new
-    assert_raise(TypeError) do
+    assert_raise_with_message(TypeError, /Sub\u{30af 30e9 30b9}/) do
       obj.foo
     end
   end
 
   def test_super_in_orphan_block
-    super_class = Class.new {
+    super_class = EnvUtil.labeled_class("Super\u{30af 30e9 30b9}") {
       def foo
         return [:super, self]
       end
     }
-    sub_class = Class.new(super_class) {
+    sub_class = EnvUtil.labeled_class("Sub\u{30af 30e9 30b9}", super_class) {
       def foo
-        x = Object.new
         lambda { super() }
       end
     }
@@ -328,12 +323,12 @@ class TestSuper < Test::Unit::TestCase
   end
 
   def test_super_in_orphan_block_with_instance_eval
-    super_class = Class.new {
+    super_class = EnvUtil.labeled_class("Super\u{30af 30e9 30b9}") {
       def foo
         return [:super, self]
       end
     }
-    sub_class = Class.new(super_class) {
+    sub_class = EnvUtil.labeled_class("Sub\u{30af 30e9 30b9}", super_class) {
       def foo
         x = Object.new
         x.instance_eval do
@@ -342,7 +337,7 @@ class TestSuper < Test::Unit::TestCase
       end
     }
     obj = sub_class.new
-    assert_raise(TypeError) do
+    assert_raise_with_message(TypeError, /Sub\u{30af 30e9 30b9}/) do
       obj.foo.call
     end
   end
@@ -399,7 +394,7 @@ class TestSuper < Test::Unit::TestCase
   end
 
   def test_super_splat
-    # [ruby-list:49575] 
+    # [ruby-list:49575]
     y = Y.new
     assert_equal([1, 2], y.foo(1, 2))
     assert_equal([1, false], y.foo(1, false))
@@ -407,6 +402,13 @@ class TestSuper < Test::Unit::TestCase
     assert_equal([false, true], y.foo(false, true))
     assert_equal([false, false], y.foo(false, false))
     assert_equal([1, 2, 3, false, 5], y.foo(1, 2, 3, false, 5))
+  end
+
+  def test_missing_super
+    o = Class.new {def foo; super; end}.new
+    e = assert_raise(NoMethodError) {o.foo}
+    assert_same(o, e.receiver)
+    assert_equal(:foo, e.name)
   end
 
   def test_missing_super_in_method_module
@@ -449,7 +451,7 @@ class TestSuper < Test::Unit::TestCase
       def foo; super end
     end
 
-    m = a.instance_method(:foo).bind(Object.new.extend(a))
+    m = a.instance_method(:foo).bind(Object.new)
     assert_raise(NoMethodError, bug9377) do
       m.call
     end
@@ -509,5 +511,37 @@ class TestSuper < Test::Unit::TestCase
       end
     end
     assert_equal("A", b.new.foo, bug10263)
+  end
+
+  def test_super_with_block
+    a = Class.new do
+      def foo
+        yield
+      end
+    end
+
+    b = Class.new(a) do
+      def foo
+        super{
+          "b"
+        }
+      end
+    end
+
+    assert_equal "b", b.new.foo{"c"}
+  end
+
+  def test_public_zsuper_with_prepend
+    bug12876 = '[ruby-core:77784] [Bug #12876]'
+    m = EnvUtil.labeled_module("M")
+    c = EnvUtil.labeled_class("C") {prepend m; public :initialize}
+    o = assert_nothing_raised(Timeout::Error, bug12876) {
+      Timeout.timeout(3) {c.new}
+    }
+    assert_instance_of(c, o)
+    m.module_eval {def initialize; raise "exception in M"; end}
+    assert_raise_with_message(RuntimeError, "exception in M") {
+      c.new
+    }
   end
 end

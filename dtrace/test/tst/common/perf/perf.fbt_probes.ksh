@@ -4,12 +4,39 @@
 # as well as the gap between the number of fbt entry and return probes,
 # both as a raw probe numbers and as a percentage
 
-ENTRY_PROBES=`dtrace -xnolibs -ln 'fbt:::entry' | wc -l | awk '{print $1}'`
-status=$?
+# Also measures the number of modules for which we have fbt probes
+
+COUNT_ENTRIES_AWK='
+BEGIN {
+	entry_probes = 0;
+	modules = 0;
+}
+
+/$1 > 0/
+{
+	entry_probes++;
+	if (providers[$3] != 1) {
+		providers[$3] = 1;
+		modules++;
+	}
+}
+
+END {
+	print entry_probes;
+	print modules;
+}
+
+'
+
+entry_values=$(dtrace -xnolibs -ln 'fbt:::entry' | awk "$COUNT_ENTRIES_AWK")
+status=${PIPESTATUS[0]}
 if [ $status != 0 ]; then
 	exit $status
 fi
-RETURN_PROBES=`dtrace -xnolibs -ln 'fbt:::return' | wc -l | awk '{print $1}'`
+read ENTRY_PROBES MODULES <<< $entry_values
+
+RETURN_PROBES=$(dtrace -xnolibs -ln 'fbt:::return' | wc -l | awk '{print $1}')
+status=${PIPESTATUS[0]}
 if [ $status != 0 ]; then
 	exit $status
 fi
@@ -17,8 +44,8 @@ fi
 # We always have more entry probes than return probes (or, in the best case, as
 # many entry and return probes)
 
-GAP=`expr $ENTRY_PROBES - $RETURN_PROBES`
-PERCENT_RETURN=`awk "BEGIN { print $RETURN_PROBES / $ENTRY_PROBES * 100}"`
+GAP=$(expr $ENTRY_PROBES - $RETURN_PROBES)
+PERCENT_RETURN=$(awk "BEGIN { print $RETURN_PROBES / $ENTRY_PROBES * 100}")
 
 
 if [ -z $PERFDATA_FILE ]; then
@@ -51,6 +78,12 @@ echo "{
 			\"names\": [\"dtrace_fbt_return\"],
 			\"units\": [\"probes\"],
 			\"data\": [$RETURN_PROBES]
+		},
+		\"dtrace_fbt_modules\": {
+			\"description\": \"Number of modules having fbt probes\",
+			\"names\": [\"dtrace_fbt_modules\"],
+			\"units\": [\"modules\"],
+			\"data\": [$MODULES]
 		}
 	}
 }"> $PERFDATA_FILE

@@ -26,14 +26,14 @@
 #define SOSPeerCoder_h
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
 #include <Security/SecureObjectSync/SOSCoder.h>
-
+#include <Security/SecureObjectSync/SOSEngine.h>
 enum SOSCoderUnwrapStatus{
     SOSCoderUnwrapError = 0,
     SOSCoderUnwrapDecoded = 1,
     SOSCoderUnwrapHandled = 2
 };
 
-bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error);
+bool SOSPeerCoderSendMessageIfNeeded(SOSAccount* account, SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error);
 
 enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef coder, CFStringRef peer_id, CFDataRef codedMessage, CFDataRef *decodedMessage, bool *forceSave, CFErrorRef *error);
 

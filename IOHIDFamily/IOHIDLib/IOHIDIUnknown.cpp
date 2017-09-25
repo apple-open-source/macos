@@ -41,8 +41,7 @@ void IOHIDIUnknown::factoryAddRef()
 {
     if (0 == factoryRefCount++) {
         CFUUIDRef factoryId = kIOHIDDeviceFactoryID;
-
-        CFRetain(factoryId);
+        
         CFPlugInAddInstanceForFactory(factoryId);
     }
 }
@@ -53,7 +52,6 @@ void IOHIDIUnknown::factoryRelease()
         CFUUIDRef factoryId = kIOHIDDeviceFactoryID;
     
         CFPlugInRemoveInstanceForFactory(factoryId);
-        CFRelease(factoryId);
     }
     else if (factoryRefCount < 0)
         factoryRefCount = 0;

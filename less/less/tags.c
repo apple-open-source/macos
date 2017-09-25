@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -14,7 +14,8 @@
 
 #if TAGS
 
-public char *tags = "tags";
+public char ztags[] = "tags";
+public char *tags = ztags;
 
 static int total;
 static int curseq;
@@ -288,7 +289,7 @@ findctag(tag)
 
 	cleantags();
 	total = 0;
-	taglen = strlen(tag);
+	taglen = (int) strlen(tag);
 
 	/*
 	 * Search the tags file for the desired tag.
@@ -447,7 +448,7 @@ ctagsearch()
 		 * If tagendline is set, make sure we match all
 		 * the way to end of line (no extra chars after the match).
 		 */
-		len = strlen(curtag->tag_pattern);
+		len = (int)strlen(curtag->tag_pattern);
 		if (unix2003_compat) {
 			/* this should probably be the else case too */
 			found_string_match = strstr(line, curtag->tag_pattern) != NULL;
@@ -499,7 +500,7 @@ findgtag(tag, type)
 	{
 		fp = stdin;
 		/* Set tag default because we cannot read stdin again. */
-		tags = "tags";
+		tags = ztags;
 	} else
 	{
 #if !HAVE_POPEN
@@ -559,7 +560,7 @@ findgtag(tag, type)
 #endif
 				return TAG_INTR;
 			}
-			len = strlen(buf);
+			len = (int) strlen(buf);
 			if (len > 0 && buf[len-1] == '\n')
 				buf[len-1] = '\0';
 			else

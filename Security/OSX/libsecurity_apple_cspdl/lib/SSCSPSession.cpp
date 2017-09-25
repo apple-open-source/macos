@@ -346,6 +346,7 @@ SSCSPSession::FreeKey(const AccessCredentials *accessCred,
 {
 	if (ioKey.blobType() == CSSM_KEYBLOB_REFERENCE)
 	{
+        StLock<Mutex> _(mSSCSPDLSession.mKeyDeletionMutex);
 		// @@@ Note that this means that detaching a session should free
 		// all keys ascociated with it or else...
 		// -- or else what?

@@ -106,7 +106,7 @@ SecurityAgentXPCConnection::~SecurityAgentXPCConnection()
     // If a connection has been established, we need to tear it down.
     if (NULL != mXPCConnection) {
         // Tearing this down is a multi-step process. First, request a cancellation.
-        // This is safe even if the connection is already in the cancelled state.
+        // This is safe even if the connection is already in the canceled state.
         xpc_connection_cancel(mXPCConnection);
 
         // Then release the XPC connection
@@ -247,7 +247,7 @@ SecurityAgentXPCQuery::inferHints(Process &thisProcess)
     bool validSignature = thisProcess.checkAppleSigned();
     AuthItemSet clientImmutableHints;
 
-	clientImmutableHints.insert(AuthItemRef(AGENT_HINT_PROCESS_SIGNED, AuthValueOverlay(sizeof(validSignature), &validSignature)));
+	clientImmutableHints.insert(AuthItemRef(AGENT_HINT_CLIENT_SIGNED, AuthValueOverlay(sizeof(validSignature), &validSignature)));
 
 	mImmutableHints.insert(clientImmutableHints.begin(), clientImmutableHints.end());
 }
@@ -427,10 +427,8 @@ static xpc_object_t authItemSetToXPCArray(AuthItemSet input) {
     return outputArray;
 }
 
-OSStatus
+void
 SecurityAgentXPCQuery::invoke() {
-    __block OSStatus status = kAuthorizationResultUndefined;
-
     xpc_object_t hintsArray = authItemSetToXPCArray(mInHints);
     xpc_object_t contextArray = authItemSetToXPCArray(mInContext);
     xpc_object_t immutableHintsArray = authItemSetToXPCArray(mImmutableHints);
@@ -467,8 +465,6 @@ SecurityAgentXPCQuery::invoke() {
     xpc_release(contextArray);
     xpc_release(immutableHintsArray);
     xpc_release(requestObject);
-
-    return status;
 }
 
 void SecurityAgentXPCQuery::checkResult()
@@ -499,8 +495,7 @@ QueryKeychainUse::QueryKeychainUse(bool needPass, const Database *db)
 Reason QueryKeychainUse::queryUser (const char *database, const char *description, AclAuthorization action)
 {
     Reason reason = SecurityAgent::noReason;
-    uint32_t retryCount = 0;
-	OSStatus status;
+	uint32_t retryCount = 0;
 	AuthItemSet hints, context;
 
 	// prepopulate with client hints
@@ -537,7 +532,7 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
             hints.erase(retryHint); hints.insert(retryHint); // replace
 
             setInput(hints, context);
-			status = invoke();
+			invoke();
 
             if (retryCount > kMaximumAuthorizationTries)
 			{
@@ -575,7 +570,6 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 Reason QueryOld::query()
 {
 	Reason reason = SecurityAgent::noReason;
-	OSStatus status;
 	AuthItemSet hints, context;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 	int retryCount = 0;
@@ -605,7 +599,7 @@ Reason QueryOld::query()
         hints.erase(retryHint); hints.insert(retryHint); // replace
 
         setInput(hints, context);
-        status = invoke();
+        invoke();
 
         if (retryCount > maxTries)
         {
@@ -670,7 +664,6 @@ QueryKeybagPassphrase::QueryKeybagPassphrase(Session & session, int32_t tries) :
 Reason QueryKeybagPassphrase::query()
 {
 	Reason reason = SecurityAgent::noReason;
-	OSStatus status;
 	AuthItemSet hints, context;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 	int retryCount = 0;
@@ -701,7 +694,7 @@ Reason QueryKeybagPassphrase::query()
         hints.erase(retryHint); hints.insert(retryHint); // replace
 
         setInput(hints, context);
-        status = invoke();
+        invoke();
 
         checkResult();
 
@@ -732,7 +725,6 @@ Reason QueryKeybagNewPassphrase::query(CssmOwnedData &oldPassphrase, CssmOwnedDa
     CssmAutoData pass(Allocator::standard(Allocator::sensitive));
     CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
     Reason reason = SecurityAgent::noReason;
-	OSStatus status;
 	AuthItemSet hints, context;
 	int retryCount = 0;
 
@@ -766,7 +758,7 @@ Reason QueryKeybagNewPassphrase::query(CssmOwnedData &oldPassphrase, CssmOwnedDa
         hints.erase(retryHint); hints.insert(retryHint); // replace
 
         setInput(hints, context);
-        status = invoke();
+        invoke();
 
         checkResult();
 
@@ -823,7 +815,6 @@ Reason QueryNewPassphrase::query()
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 	CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
 
-    OSStatus status;
 	AuthItemSet hints, context;
 
 	int retryCount = 0;
@@ -860,7 +851,7 @@ Reason QueryNewPassphrase::query()
         hints.erase(retryHint); hints.insert(retryHint); // replace
 
         setInput(hints, context);
-		status = invoke();
+		invoke();
 
 		if (retryCount > maxTries)
 		{
@@ -940,7 +931,6 @@ Reason QueryGenericPassphrase::query(const CssmData *prompt, bool verify,
                                      string &passphrase)
 {
     Reason reason = SecurityAgent::noReason;
-    OSStatus status;    // not really used; remove?
     AuthItemSet hints, context;
 
     hints.insert(mClientHints.begin(), mClientHints.end());
@@ -959,7 +949,7 @@ Reason QueryGenericPassphrase::query(const CssmData *prompt, bool verify,
 
     do {
         setInput(hints, context);
-		status = invoke();
+		invoke();
 		checkResult();
 		passwordItem = mOutContext.find(AGENT_PASSWORD);
 
@@ -983,7 +973,6 @@ Reason QueryDBBlobSecret::query(DbHandle *dbHandleArray, uint8 dbHandleArrayCoun
 {
     Reason reason = SecurityAgent::noReason;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
-    OSStatus status;    // not really used; remove?
     AuthItemSet hints/*NUKEME*/, context;
 
 	hints.insert(mClientHints.begin(), mClientHints.end());
@@ -1006,7 +995,7 @@ Reason QueryDBBlobSecret::query(DbHandle *dbHandleArray, uint8 dbHandleArrayCoun
         hints.erase(retryHint); hints.insert(retryHint); // replace
 
         setInput(hints, context);
-		status = invoke();
+		invoke();
 		checkResult();
 		secretItem = mOutContext.find(AGENT_PASSWORD);
 		if (!secretItem)
@@ -1055,7 +1044,7 @@ QueryKeychainAuth::operator () (const char *database, const char *description, A
 	string password;
 
     using CommonCriteria::Securityd::KeychainAuthLogger;
-    KeychainAuthLogger logger(mAuditToken, AUE_ssauthint, database, description);
+    KeychainAuthLogger logger(mAuditToken, (short)AUE_ssauthint, database, description);
 
     hints.insert(mClientHints.begin(), mClientHints.end());
 

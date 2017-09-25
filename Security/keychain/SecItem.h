@@ -149,9 +149,9 @@ extern const CFStringRef kSecClassIdentity
         kSecAttrIsPermanent
         kSecAttrApplicationTag
         kSecAttrKeyType
-        kSecAttrPRF    (iOS only)
-        kSecAttrSalt   (iOS only)
-        kSecAttrRounds (iOS only)
+        kSecAttrPRF    (OS X only)
+        kSecAttrSalt   (OS X only)
+        kSecAttrRounds (OS X only)
         kSecAttrKeySizeInBits
         kSecAttrEffectiveKeySize
         kSecAttrCanEncrypt
@@ -399,12 +399,12 @@ extern const CFStringRef kSecClassIdentity
 
     @constant kSecAttrPRF Specifies a dictionary key whose value is the PRF
         (pseudo-random function) for this key (see "kSecAttrPRF Value Constants".)
-        iOS only.
+        OS X only.
     @constant kSecAttrSalt Specifies a dictionary key whose value is a
-        CFData containing the salt to use for this key. iOS only.
+        CFData containing the salt to use for this key. OS X only.
     @constant kSecAttrRounds Specifies a dictionary key whose value is the
         number of rounds for the pseudo-random function specified by kSecAttrPRF.
-        iOS only.
+        OS X only.
     @constant kSecAttrKeySizeInBits Specifies a dictionary key whose value
         is a CFNumberRef indicating the number of bits in this key.
     @constant kSecAttrEffectiveKeySize Specifies a dictionary key whose value
@@ -550,6 +550,10 @@ extern const CFStringRef kSecAttrSyncViewHint
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecAttrTokenID
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+extern const CFStringRef kSecAttrPersistantReference
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+extern const CFStringRef kSecAttrPersistentReference
+__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 /*!
     @enum kSecAttrAccessible Value Constants

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2006, 2010, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2006, 2010, 2011, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,7 @@
 CFStringRef
 SCDynamicStoreKeyCreateLocation(CFAllocatorRef allocator)
 {
+#pragma unused(allocator)
 	return CFRetain(kSCDynamicStoreDomainSetup);
 }
 

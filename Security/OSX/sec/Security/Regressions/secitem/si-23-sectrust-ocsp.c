@@ -1020,17 +1020,11 @@ static void tests(void)
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
-
+    /* Certificates are only EV if they are also CT. These aren't CT. */
     CFDictionaryRef info = SecTrustCopyInfo(trust);
     CFBooleanRef ev = (CFBooleanRef)CFDictionaryGetValue(info,
         kSecTrustInfoExtendedValidationKey);
-    ok(ev && CFEqual(kCFBooleanTrue, ev), "extended validation succeeded");
-
-    CFStringRef companyName = (CFStringRef)CFDictionaryGetValue(info,
-        kSecTrustInfoCompanyNameKey);
-    CFReleaseSafe(info);
-    ok(companyName && CFEqual(CFSTR("PayPal, Inc."), companyName),
-        "kSecTrustInfoCompanyNameKey is correct");
+    ok(!ev, "extended validation succeeded");
 
     SecPolicyRef ocspSignerPolicy;
     ok(ocspSignerPolicy = SecPolicyCreateOCSPSigner(),
@@ -1059,7 +1053,7 @@ static void tests(void)
 		"trust is kSecTrustResultUnspecified");
 
     CFReleaseSafe(ocspSignerPolicy);
-    //CFReleaseSafe(info);
+    CFReleaseSafe(info);
     CFReleaseSafe(trust);
     CFReleaseSafe(policies);
     CFReleaseSafe(certs);
@@ -1290,7 +1284,6 @@ static void test_aia(void) {
     CFDictionaryRef info;
     SecTrustRef trust;
     SecTrustResultType trustResult;
-    CFStringRef companyName;
     CFBooleanRef ev;
 
     /* Initialize common variables */
@@ -1319,7 +1312,7 @@ static void test_aia(void) {
     info = SecTrustCopyInfo(trust);
     ev = (CFBooleanRef)CFDictionaryGetValue(info,
         kSecTrustInfoExtendedValidationKey);
-    ok(ev, "extended validation succeeded due to caissuers fetch");
+    ok(!ev, "extended validation succeeded due to caissuers fetch");
     //display_anchor_digest(trust);
     CFReleaseSafe(info);
     CFReleaseSafe(trust);
@@ -1337,11 +1330,7 @@ static void test_aia(void) {
     info = SecTrustCopyInfo(trust);
     ev = (CFBooleanRef)CFDictionaryGetValue(info,
         kSecTrustInfoExtendedValidationKey);
-    ok(ev && CFEqual(kCFBooleanTrue, ev), "extended validation succeeded");
-    companyName = (CFStringRef)CFDictionaryGetValue(info,
-        kSecTrustInfoCompanyNameKey);
-    ok(companyName && CFEqual(CFSTR("OVH"), companyName),
-        "kSecTrustInfoCompanyNameKey is correct");
+    ok(!ev, "extended validation succeeded");
     //display_anchor_digest(trust);
     CFReleaseSafe(info);
     CFReleaseSafe(trust);
@@ -1359,11 +1348,7 @@ static void test_aia(void) {
     info = SecTrustCopyInfo(trust);
     ev = (CFBooleanRef)CFDictionaryGetValue(info,
         kSecTrustInfoExtendedValidationKey);
-    ok(ev && CFEqual(kCFBooleanTrue, ev), "extended validation succeeded");
-    companyName = (CFStringRef)CFDictionaryGetValue(info,
-        kSecTrustInfoCompanyNameKey);
-    ok(companyName && CFEqual(CFSTR("OVH"), companyName),
-        "kSecTrustInfoCompanyNameKey is correct");
+    ok(!ev, "extended validation succeeded");
     //display_anchor_digest(trust);
     CFReleaseSafe(info);
     CFReleaseSafe(trust);
@@ -1429,7 +1414,7 @@ int si_23_sectrust_ocsp(int argc, char *const *argv)
 
     unsigned host_cnt = 0;
 
-    plan_tests(68);
+    plan_tests(65);
 
     for (host_cnt = 0; host_cnt < sizeof(hosts)/sizeof(hosts[0]); host_cnt ++) {
         if(!ping_host(hosts[host_cnt])) {

@@ -1089,11 +1089,11 @@ static OSStatus createCertCsr(
 	CSSM_TP_CALLERAUTH_CONTEXT 	CallerAuthContext;
 	CSSM_FIELD					policyId;
 	unsigned char				serialNum[SERIAL_NUM_LENGTH];
-	CSSM_BOOL			isSystemKDC = CSSM_FALSE;
+	CSSM_BOOL                   isSystemKDC = CSSM_FALSE;
+    CSSM_OID                    ekuOIDS[2];
 
     /* KDC extKeyUsage */
     uint8_t	    KDCoidData[] = {0x2B, 0x6, 0x1, 0x5, 0x2, 0x3, 0x5};
-    CSSM_OID    KDCoid = {sizeof(KDCoidData), KDCoidData};
 
 	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not
 	 * used for the createCsr option, but we'll fill in as much as is practical
@@ -1169,24 +1169,34 @@ static OSStatus createCertCsr(
 		}
 		
 		/* Extended Key Usage, optional */
-		if (extendedKeyUse != NULL) {
-			extp->type = DT_ExtendedKeyUsage;
-			extp->critical = CSSM_FALSE;
-			extp->extension.extendedKeyUsage.numPurposes = 1;
-			extp->extension.extendedKeyUsage.purposes = const_cast<CSSM_OID_PTR>(extendedKeyUse);
+		if (extendedKeyUse != NULL || isSystemKDC) {
+            extp->type = DT_ExtendedKeyUsage;
+            extp->critical = CSSM_FALSE;
+            extp->extension.extendedKeyUsage.purposes = ekuOIDS;
+
+            if (extendedKeyUse != NULL && isSystemKDC) {
+                extp->extension.extendedKeyUsage.numPurposes = 2;
+                ekuOIDS[0].Data = extendedKeyUse->Data;
+                ekuOIDS[0].Length = extendedKeyUse->Length;
+                ekuOIDS[1].Data = KDCoidData;
+                ekuOIDS[1].Length = sizeof(KDCoidData);
+            } else {
+                /* only one purpose */
+                extp->extension.extendedKeyUsage.numPurposes = 1;
+                if (isSystemKDC) {
+                    ekuOIDS[0].Data = KDCoidData;
+                    ekuOIDS[0].Length = sizeof(KDCoidData);
+                } else {
+                    ekuOIDS[0].Data = extendedKeyUse->Data;
+                    ekuOIDS[0].Length = extendedKeyUse->Length;
+                }
+                ekuOIDS[1].Length = 0;
+            }
+
 			extp++;
 			numExts++;
 		}
 
-	    if (isSystemKDC) {
-		extp->type = DT_ExtendedKeyUsage;
-		extp->critical = CSSM_FALSE;
-		extp->extension.extendedKeyUsage.numPurposes = 1;
-		extp->extension.extendedKeyUsage.purposes = &KDCoid;
-		extp++;
-		numExts++;
-	    }
-	    
 		
 	}
 	

@@ -275,7 +275,7 @@ sntp_main (
 	for (i = 0; i < argc; ++i)
 		handle_lookup(argv[i], CTX_UCST);
 
-	gettimeofday_cached(base, &start_tv);
+    gettimeofday_cached(base, &start_tv); // ???: Verify success
 	event_base_dispatch(base);
 	event_base_free(base);
 
@@ -572,7 +572,7 @@ queue_xmt(
 	xctx = emalloc_zero(sizeof(*xctx));
 	xctx->sock = sock;
 	xctx->spkt = spkt;
-	gettimeofday_cached(base, &start_cb);
+	gettimeofday_cached(base, &start_cb); // ???: Verify success
 	xctx->sched = start_cb.tv_sec + (2 * xmt_delay);
 
 	LINK_SORT_SLIST(xmt_q, xctx, (xctx->sched < L_S_S_CUR()->sched),
@@ -622,7 +622,7 @@ xmt_timer_cb(
 
 	if (NULL == xmt_q || shutting_down)
 		return;
-	gettimeofday_cached(base, &start_cb);
+	gettimeofday_cached(base, &start_cb); // ???: Verify success
 	if (xmt_q->sched <= start_cb.tv_sec) {
 		UNLINK_HEAD_SLIST(x, xmt_q, link);
 		TRACE(2, ("xmt_timer_cb: at .%6.6u -> %s\n",
@@ -709,7 +709,7 @@ timeout_queries(void)
 	TRACE(3, ("timeout_queries: called to check %u items\n",
 		  (unsigned)COUNTOF(fam_listheads)));
 
-	gettimeofday_cached(base, &start_cb);
+	gettimeofday_cached(base, &start_cb); // ???: Verify success
 	for (idx = 0; idx < COUNTOF(fam_listheads); idx++) {
 		head = fam_listheads[idx];
 		for (spkt = head; spkt != NULL; spkt = spkt_next) {
@@ -1227,31 +1227,31 @@ handle_pkt(
 		TRACE(3, ("handle_pkt: %d bytes from %s %s\n",
 			  rpktl, stoa(host), hostname));
 
-            if (0 != gettimeofday_cached(base, &tv_dst)) {
-                msyslog(LOG_ERR, "gettimeofday_cached failed %m");
-                exit(EX_SOFTWARE);
-            }
-            if (tv_dst.tv_sec < base_tv.tv_sec) { // time went backwards
-                msyslog(LOG_ERR, "gettimeofday_cached {%#lx,%#x} < base gtod {%#lx,%#x}",
-                        tv_dst.tv_sec, tv_dst.tv_usec,
-                        base_tv.tv_sec, base_tv.tv_usec);
-                // retry with Vanilla gettimeofday()
-                if (0 != gettimeofday(&tv_dst, NULL)) {
-                    msyslog(LOG_ERR, "gettimeofday failed %m");
-                    exit(EX_SOFTWARE);
-                }
-                if (tv_dst.tv_sec < base_tv.tv_sec) { // time went backwards
-                    char os_message[200];
-                    msyslog(LOG_ERR, "gettimeofday {%#lx,%#x} < base gtod {%#lx,%#x}",
-                            tv_dst.tv_sec, tv_dst.tv_usec,
-                            base_tv.tv_sec, base_tv.tv_usec);
-                    snprintf(os_message, sizeof(os_message),
-                             "Time went backwards during packet offset calculation {%#lx,%#x} < base gtod {%#lx,%#x}",
+             if (0 != gettimeofday_cached(base, &tv_dst)) {
+                 msyslog(LOG_ERR, "gettimeofday_cached failed %m");
+                 exit(EX_SOFTWARE);
+             }
+             if (tv_dst.tv_sec < base_tv.tv_sec) { // time went backwards
+                 msyslog(LOG_ERR, "gettimeofday_cached {%#lx,%#x} < base gtod {%#lx,%#x}",
+                         tv_dst.tv_sec, tv_dst.tv_usec,
+                         base_tv.tv_sec, base_tv.tv_usec);
+                 // retry with Vanilla gettimeofday()
+                 if (0 != gettimeofday(&tv_dst, NULL)) {
+                     msyslog(LOG_ERR, "gettimeofday failed %m");
+                     exit(EX_SOFTWARE);
+                 }
+                 if (tv_dst.tv_sec < base_tv.tv_sec) { // time went backwards
+                     char os_message[200];
+                     msyslog(LOG_ERR, "gettimeofday {%#lx,%#x} < base gtod {%#lx,%#x}",
                              tv_dst.tv_sec, tv_dst.tv_usec,
                              base_tv.tv_sec, base_tv.tv_usec);
-                    os_crash(os_message);
-                }
-            }
+                     snprintf(os_message, sizeof(os_message),
+                              "Time went backwards during packet offset calculation {%#lx,%#x} < base gtod {%#lx,%#x}",
+                              tv_dst.tv_sec, tv_dst.tv_usec,
+                              base_tv.tv_sec, base_tv.tv_usec);
+                     os_crash(os_message);
+                 }
+             }
 
 		p_SNTP_PRETEND_TIME = getenv("SNTP_PRETEND_TIME");
 		if (p_SNTP_PRETEND_TIME) {
@@ -1631,11 +1631,7 @@ gettimeofday_cached(
 
 	return 0;
 #else
-    int r = event_base_gettimeofday_cached(b, caller_tv);
-    if (r != 0) {
-        msyslog(LOG_ERR, "%s: gettimeofday() error %m", progname);
-    }
-    return r;
+	return event_base_gettimeofday_cached(b, caller_tv);
 #endif
 }
 

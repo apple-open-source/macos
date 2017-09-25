@@ -6,13 +6,13 @@
 		<key>OpenSourceProject</key>
 		<string>ccid</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.25</string>
+		<string>1.4.27</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://pcsclite.alioth.debian.org/ccid.html</string>
 		<key>OpenSourceURL</key>
-		<string>https://alioth.debian.org/frs/download.php/file/4171/ccid-1.4.25.tar.bz2</string>
+		<string>https://alioth.debian.org/frs/download.php/file/4218/ccid-1.4.27.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2016-10-3</string>
+		<string>2017-06-02</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>destDirFix.patch - makefile.in, customized destination directory</string>

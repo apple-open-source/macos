@@ -4,6 +4,11 @@
 // * Apple locale stub addition.
 // ***************************************************************************
 en_TR{
-    %%Parent{"en_150"}
     Version{"2.1.11.50"}
+    Currencies{
+        TRY{
+            "₺",
+            "Turkish Lira",
+        }
+    }
 }

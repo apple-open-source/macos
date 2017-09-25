@@ -67,16 +67,49 @@ void hfs_generate_volume_notifications(struct hfsmount *hfsmp)
 	
 	freeblks = hfs_freeblks(hfsmp, 1);
 
+	/*
+	 * Find the theshold the number of free blocks fits into.
+	 * We fire upon reaching a level below desired only once,
+	 * except for when we reach the low disk or near low disk levels
+	 * from below, in which case we do not fire unless we have also
+	 * reached the desired disk level (hysteresis).
+	 * This is illustrated in the following diagram:
+	 *
+	 * fire ^
+	 * --------- desired level
+	 *      |
+	 *
+	 *
+	 *      |
+	 * --------- near low disk level
+	 * fire v
+	 *
+	 *
+	 *      |
+	 * --------- low disk level
+	 * fire v
+	 *
+	 *
+	 *      | ^ fire
+	 * --------- very low disk level
+	 * fire v |
+	 *
+	 */
 	if (freeblks < hfsmp->hfs_freespace_notify_dangerlimit) {
-		state = 2;
+		state = 4;
 	} else if (freeblks < hfsmp->hfs_freespace_notify_warninglimit) {
+		state = 3;
+	} else if (freeblks < hfsmp->hfs_freespace_notify_nearwarninglimit) {
+		state = 2;
+	} else if (freeblks < hfsmp->hfs_freespace_notify_desiredlevel) {
+		/* We are between the near low disk and desired levels */
 		state = 1;
 	} else if (freeblks >= hfsmp->hfs_freespace_notify_desiredlevel) {
 		state = 0;
 	}
 
 	/* Free blocks are less than dangerlimit for the first time */
-	if (state == 2 && !(hfsmp->hfs_notification_conditions & VQ_VERYLOWDISK)) {
+	if (state == 4 && !(hfsmp->hfs_notification_conditions & VQ_VERYLOWDISK)) {
 		/* Dump some logging to track down intermittent issues */
 		printf("hfs: set VeryLowDisk: vol:%s, freeblks:%d, dangerlimit:%d\n", hfsmp->vcbVN, freeblks, hfsmp->hfs_freespace_notify_dangerlimit);
 
@@ -96,13 +129,13 @@ void hfs_generate_volume_notifications(struct hfsmount *hfsmp)
 		}
 #endif
 
-		hfsmp->hfs_notification_conditions |= (VQ_VERYLOWDISK|VQ_LOWDISK);
+		hfsmp->hfs_notification_conditions |= (VQ_VERYLOWDISK|VQ_LOWDISK|VQ_NEARLOWDISK);
 		vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
-	} else if (state == 1) {
+	} else if (state == 3) {
 		/* Free blocks are less than warning limit for the first time */
 		if (!(hfsmp->hfs_notification_conditions & VQ_LOWDISK)) {
 			printf("hfs: set LowDisk: vol:%s, freeblks:%d, warninglimit:%d\n", hfsmp->vcbVN, freeblks, hfsmp->hfs_freespace_notify_warninglimit);
-			hfsmp->hfs_notification_conditions |= VQ_LOWDISK;
+			hfsmp->hfs_notification_conditions |= (VQ_LOWDISK|VQ_NEARLOWDISK);
 			vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
 		} else if (hfsmp->hfs_notification_conditions & VQ_VERYLOWDISK) {
 			/* Free blocks count has increased from danger limit to warning limit, so just clear VERYLOWDISK warning */
@@ -110,18 +143,53 @@ void hfs_generate_volume_notifications(struct hfsmount *hfsmp)
 			hfsmp->hfs_notification_conditions &= ~VQ_VERYLOWDISK;
 			vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
 		}
+	} else if (state == 2) {
+		/* Free blocks are less than the near warning limit for the first time */
+		if (!(hfsmp->hfs_notification_conditions & VQ_NEARLOWDISK)) {
+			printf("hfs: set NearLowDisk: vol:%s, freeblks:%d, nearwarninglimit:%d\n", hfsmp->vcbVN, freeblks,
+				   hfsmp->hfs_freespace_notify_nearwarninglimit);
+
+			hfsmp->hfs_notification_conditions |= VQ_NEARLOWDISK;
+			vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
+		} else {
+			/* Free blocks count has increased from warning/danger limit to near warning limit,
+			 * so clear VERYLOWDISK / LOWDISK warnings, and signal if we clear VERYLOWDISK */
+			hfsmp->hfs_notification_conditions &= ~VQ_LOWDISK;
+			if (hfsmp->hfs_notification_conditions & VQ_VERYLOWDISK) {
+				printf("hfs: clear VeryLowDisk: vol:%s, freeblks:%d, dangerlimit:%d\n", hfsmp->vcbVN, freeblks,
+					   hfsmp->hfs_freespace_notify_dangerlimit);
+
+				hfsmp->hfs_notification_conditions &= ~VQ_VERYLOWDISK;
+				vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
+			}
+		}
+	} else if (state == 1) {
+		/* Free blocks are less than the desireable level, but more than the near warning level
+		 * In this case, we may have to notify if we were previously underneath the danger limit */
+		if (hfsmp->hfs_notification_conditions & VQ_VERYLOWDISK) {
+			printf("hfs: clear VeryLowDisk: vol:%s, freeblks:%d, dangerlimit:%d\n", hfsmp->vcbVN, freeblks,
+				   hfsmp->hfs_freespace_notify_dangerlimit);
+
+			hfsmp->hfs_notification_conditions &= ~VQ_VERYLOWDISK;
+			vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
+		}
 	} else if (state == 0) {
 		/* Free blocks count has increased to desirable level, so clear all conditions */
-		if (hfsmp->hfs_notification_conditions & (VQ_LOWDISK|VQ_VERYLOWDISK)) {
+		if (hfsmp->hfs_notification_conditions & (VQ_NEARLOWDISK|VQ_LOWDISK|VQ_VERYLOWDISK)) {
+			if (hfsmp->hfs_notification_conditions & VQ_NEARLOWDISK) {
+				printf("hfs: clear NearLowDisk: vol:%s, freeblks:%d, nearwarninglimit:%d, desiredlevel:%d\n", hfsmp->vcbVN,
+					   freeblks, hfsmp->hfs_freespace_notify_nearwarninglimit, hfsmp->hfs_freespace_notify_desiredlevel);
+			}
 			if (hfsmp->hfs_notification_conditions & VQ_LOWDISK) {
-				printf("hfs: clear LowDisk: vol:%s, freeblks:%d, warninglimit:%d, desiredlevel:%d\n", hfsmp->vcbVN, freeblks, hfsmp->hfs_freespace_notify_warninglimit, hfsmp->hfs_freespace_notify_desiredlevel);
+				printf("hfs: clear LowDisk: vol:%s, freeblks:%d, warninglimit:%d, desiredlevel:%d\n", hfsmp->vcbVN, freeblks,
+					   hfsmp->hfs_freespace_notify_warninglimit, hfsmp->hfs_freespace_notify_desiredlevel);
 			}
 			if (hfsmp->hfs_notification_conditions & VQ_VERYLOWDISK) {
 				printf("hfs: clear VeryLowDisk: vol:%s, freeblks:%d, dangerlimit:%d\n", hfsmp->vcbVN, freeblks, hfsmp->hfs_freespace_notify_warninglimit);
 			} 
-			hfsmp->hfs_notification_conditions &= ~(VQ_VERYLOWDISK|VQ_LOWDISK);
+			hfsmp->hfs_notification_conditions &= ~(VQ_VERYLOWDISK|VQ_LOWDISK|VQ_NEARLOWDISK);
 			if (hfsmp->hfs_notification_conditions == 0) {
-				vfs_event_signal(&fsid, VQ_UPDATE, (intptr_t)NULL);
+				vfs_event_signal(&fsid, VQ_UPDATE|VQ_DESIRED_DISK, (intptr_t)NULL);
 			} else {
 				vfs_event_signal(&fsid, hfsmp->hfs_notification_conditions, (intptr_t)NULL);
 			}

@@ -192,24 +192,31 @@ struct mathfunc {
 #define Tilde		((char) 0x98)
 #define Qtick		((char) 0x99)
 #define Comma		((char) 0x9a)
+#define Dash            ((char) 0x9b) /* Only in patterns */
+#define Bang            ((char) 0x9c) /* Only in patterns */
+/*
+ * Marks the last of the group above.
+ * Remaining tokens are even more special.
+ */
+#define LAST_NORMAL_TOK Bang
 /*
  * Null arguments: placeholders for single and double quotes
  * and backslashes.
  */
-#define Snull		((char) 0x9b)
-#define Dnull		((char) 0x9c)
-#define Bnull		((char) 0x9d)
+#define Snull		((char) 0x9d)
+#define Dnull		((char) 0x9e)
+#define Bnull		((char) 0x9f)
 /*
  * Backslash which will be returned to "\" instead of being stripped
  * when we turn the string into a printable format.
  */
-#define Bnullkeep       ((char) 0x9e)
+#define Bnullkeep       ((char) 0xa0)
 /*
  * Null argument that does not correspond to any character.
  * This should be last as it does not appear in ztokens and
  * is used to initialise the IMETA type in inittyptab().
  */
-#define Nularg		((char) 0x9f)
+#define Nularg		((char) 0xa1)
 
 /*
  * Take care to update the use of IMETA appropriately when adding
@@ -220,7 +227,7 @@ struct mathfunc {
  * Also used in pattern character arrays as guaranteed not to
  * mark a character in a string.
  */
-#define Marker		((char) 0xa0)
+#define Marker		((char) 0xa2)
 
 /* chars that need to be quoted if meant literally */
 
@@ -272,7 +279,12 @@ enum {
     /*
      * As QT_BACKSLASH, but a NULL string is shown as ''.
      */
-    QT_BACKSLASH_SHOWNULL
+    QT_BACKSLASH_SHOWNULL,
+    /*
+     * Quoting as produced by quotedzputs(), used for human
+     * readability of parameter values.
+     */
+    QT_QUOTEDZPUTS
 };
 
 #define QT_IS_SINGLE(x)	((x) == QT_SINGLE || (x) == QT_SINGLE_OPTIONAL)
@@ -477,6 +489,7 @@ typedef struct complist  *Complist;
 typedef struct conddef   *Conddef;
 typedef struct dirsav    *Dirsav;
 typedef struct emulation_options *Emulation_options;
+typedef struct execcmd_params *Execcmd_params;
 typedef struct features  *Features;
 typedef struct feature_enables  *Feature_enables;
 typedef struct funcstack *Funcstack;
@@ -610,27 +623,34 @@ struct timedfn {
 /* (1<<4) is used for Z_END, see the wordcode definitions */
 /* (1<<5) is used for Z_SIMPLE, see the wordcode definitions */
 
-/* Condition types. */
+/*
+ * Condition types.
+ *
+ * Careful when changing these: both cond_binary_ops in text.c and
+ * condstr in cond.c depend on these.  (The zsh motto is "two instances
+ * are better than one".  Or something.)
+ */
 
 #define COND_NOT    0
 #define COND_AND    1
 #define COND_OR     2
 #define COND_STREQ  3
-#define COND_STRNEQ 4
-#define COND_STRLT  5
-#define COND_STRGTR 6
-#define COND_NT     7
-#define COND_OT     8
-#define COND_EF     9
-#define COND_EQ    10
-#define COND_NE    11
-#define COND_LT    12
-#define COND_GT    13
-#define COND_LE    14
-#define COND_GE    15
-#define COND_REGEX 16
-#define COND_MOD   17
-#define COND_MODI  18
+#define COND_STRDEQ 4
+#define COND_STRNEQ 5
+#define COND_STRLT  6
+#define COND_STRGTR 7
+#define COND_NT     8
+#define COND_OT     9
+#define COND_EF    10
+#define COND_EQ    11
+#define COND_NE    12
+#define COND_LT    13
+#define COND_GT    14
+#define COND_LE    15
+#define COND_GE    16
+#define COND_REGEX 17
+#define COND_MOD   18
+#define COND_MODI  19
 
 typedef int (*CondHandler) _((char **, int));
 
@@ -964,7 +984,8 @@ struct jobfile {
 
 struct job {
     pid_t gleader;		/* process group leader of this job  */
-    pid_t other;		/* subjob id or subshell pid         */
+    pid_t other;		/* subjob id (SUPERJOB)
+				 * or subshell pid (SUBJOB) */
     int stat;                   /* see STATs below                   */
     char *pwd;			/* current working dir of shell when *
 				 * this job was spawned              */
@@ -996,6 +1017,8 @@ struct job {
 #define STAT_SUBLEADER  (0x2000) /* is super-job, but leader is sub-shell */
 
 #define STAT_BUILTIN    (0x4000) /* job at tail of pipeline is a builtin */
+#define STAT_SUBJOB_ORPHANED (0x8000)
+                                 /* STAT_SUBJOB with STAT_SUPERJOB exited */
 
 #define SP_RUNNING -1		/* fake status for jobs currently running */
 
@@ -1047,6 +1070,7 @@ struct execstack {
     int trapisfunc;
     int traplocallevel;
     int noerrs;
+    int this_noerrexit;
     char *underscore;
 };
 
@@ -1369,6 +1393,21 @@ struct builtin {
  */
 #define BINF_ASSIGN		(1<<19)
 
+/**
+ * Parameters passed to execcmd().
+ * These are not opaque --- they are also used by the pipeline manager.
+ */
+struct execcmd_params {
+    LinkList args;		/* All command prefixes, arguments & options */
+    LinkList redir;		/* Redirections */
+    Wordcode beg;		/* The code at the start of the command */
+    Wordcode varspc;		/* The code for assignment parsed as such */
+    Wordcode assignspc;		/* The code for assignment parsed as typeset */
+    int type;			/* The WC_* type of the command */
+    int postassigns;		/* The number of assignspc assiguments */
+    int htok;			/* tokens in parameter list */
+};
+
 struct module {
     struct hashnode node;
     union {
@@ -1538,6 +1577,7 @@ enum zpc_chars {
     ZPC_KSH_STAR,               /* * for *(...) in KSH_GLOB */
     ZPC_KSH_PLUS,               /* + for +(...) in KSH_GLOB */
     ZPC_KSH_BANG,               /* ! for !(...) in KSH_GLOB */
+    ZPC_KSH_BANG2,              /* ! for !(...) in KSH_GLOB, untokenised */
     ZPC_KSH_AT,                 /* @ for @(...) in KSH_GLOB */
     ZPC_COUNT			/* Number of special chararacters */
 };
@@ -1549,8 +1589,8 @@ struct zpc_disables_save {
     struct zpc_disables_save *next;
     /*
      * Bit vector of ZPC_COUNT disabled characters.
-     * We'll live dangerously and assumed ZPC_COUNT is no greater
-     * than the number of bits an an unsigned int.
+     * We'll live dangerously and assume ZPC_COUNT is no greater
+     * than the number of bits in an unsigned int.
      */
     unsigned int disables;
 };
@@ -1779,6 +1819,8 @@ struct tieddata {
 #define PM_ZSHSTORED	(1<<18) /* function stored in zsh form              */
 
 /* Remaining flags do not correspond directly to command line arguments */
+#define PM_DONTIMPORT_SUID (1<<19) /* do not import if running setuid */
+#define PM_SINGLE       (1<<20) /* special can only have a single instance  */
 #define PM_LOCAL	(1<<21) /* this parameter will be made local        */
 #define PM_SPECIAL	(1<<22) /* special builtin parameter                */
 #define PM_DONTIMPORT	(1<<23)	/* do not import this variable              */
@@ -2554,7 +2596,7 @@ struct ttyinfo {
 
 #define txtchangeisset(T,X)	((T) & (X))
 #define txtchangeget(T,A)	(((T) & A ## _MASK) >> A ## _SHIFT)
-#define txtchangeset(T, X, Y)	((void)(T && (*T |= (X), *T &= ~(Y))))
+#define txtchangeset(T, X, Y)	((void)(T && (*T &= ~(Y), *T |= (X))))
 
 /*
  * For outputting sequences to change colour: specify foreground
@@ -2786,7 +2828,14 @@ enum errflag_bits {
     /*
      * User interrupt.
      */
-    ERRFLAG_INT = 2
+    ERRFLAG_INT = 2,
+    /*
+     * Hard error --- return to top-level prompt in interactive
+     * shell.  In non-interactive shell we'll typically already
+     * have exited.  This is reset by "errflag = 0" in
+     * loop(toplevel = 1, ...).
+     */
+    ERRFLAG_HARD = 4
 };
 
 /***********/
@@ -2908,6 +2957,7 @@ struct parse_stack {
     int incasepat;
     int isnewlin;
     int infor;
+    int inrepeat_;
     int intypeset;
 
     int eclen, ecused, ecnpats;
@@ -3051,6 +3101,13 @@ enum {
 #define AFTERTRAPHOOK  (zshhooks + 2)
 
 #ifdef MULTIBYTE_SUPPORT
+/* Final argument to mb_niceformat() */
+enum {
+    NICEFLAG_HEAP = 1,		/* Heap allocation where needed */
+    NICEFLAG_QUOTE = 2,		/* Result will appear in $'...' */
+    NICEFLAG_NODUP = 4,         /* Leave allocated */
+};
+
 /* Metafied input */
 #define nicezputs(str, outs)	(void)mb_niceformat((str), (outs), NULL, 0)
 #define MB_METACHARINIT()	mb_charinit()
@@ -3075,7 +3132,9 @@ typedef wint_t convchar_t;
  * much what the definition tells us.  However, we happen to know this
  * works on MacOS which doesn't define that.
  */
-#if defined(BROKEN_WCWIDTH) && (defined(__STDC_ISO_10646__) || defined(__APPLE__))
+#ifdef ENABLE_UNICODE9
+#define WCWIDTH(wc)	mk_wcwidth(wc)
+#elif defined(BROKEN_WCWIDTH) && (defined(__STDC_ISO_10646__) || defined(__APPLE__))
 #define WCWIDTH(wc)	mk_wcwidth(wc)
 #else
 #define WCWIDTH(wc)	wcwidth(wc)

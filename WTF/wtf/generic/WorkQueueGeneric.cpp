@@ -32,56 +32,31 @@
 
 #include <wtf/text/WTFString.h>
 
-static const size_t kVisualStudioThreadNameLimit = 31;
-
 void WorkQueue::platformInitialize(const char* name, Type, QOS)
 {
-    // This name can be com.apple.WebKit.ProcessLauncher or com.apple.CoreIPC.ReceiveQueue.
-    // We are using those names for the thread name, but both are longer than 31 characters,
-    // which is the limit of Visual Studio for thread names.
-    // When log is enabled createThread() will assert instead of truncate the name, so we need
-    // to make sure we don't use a name longer than 31 characters.
-    String threadName(name);
-    size_t size = threadName.reverseFind('.');
-    if (size != notFound)
-        threadName = threadName.substring(size + 1);
-    if (threadName.length() > kVisualStudioThreadNameLimit)
-        threadName = threadName.right(kVisualStudioThreadNameLimit);
-
     LockHolder locker(m_initializeRunLoopConditionMutex);
-    m_workQueueThread = createThread(threadName.ascii().data(), [this] {
+    m_workQueueThread = Thread::create(name, [this] {
         {
             LockHolder locker(m_initializeRunLoopConditionMutex);
             m_runLoop = &RunLoop::current();
             m_initializeRunLoopCondition.notifyOne();
         }
         m_runLoop->run();
-        {
-            LockHolder locker(m_terminateRunLoopConditionMutex);
-            m_runLoop = nullptr;
-            m_terminateRunLoopCondition.notifyOne();
-        }
     });
     m_initializeRunLoopCondition.wait(m_initializeRunLoopConditionMutex);
 }
 
 void WorkQueue::platformInvalidate()
 {
-    {
-        LockHolder locker(m_terminateRunLoopConditionMutex);
-        if (m_runLoop) {
-            m_runLoop->stop();
-            m_terminateRunLoopCondition.wait(m_terminateRunLoopConditionMutex);
-        }
-    }
-
+    if (m_runLoop)
+        m_runLoop->stop();
     if (m_workQueueThread) {
-        detachThread(m_workQueueThread);
-        m_workQueueThread = 0;
+        m_workQueueThread->detach();
+        m_workQueueThread = nullptr;
     }
 }
 
-void WorkQueue::dispatch(Function<void ()>&& function)
+void WorkQueue::dispatch(Function<void()>&& function)
 {
     RefPtr<WorkQueue> protect(this);
     m_runLoop->dispatch([protect, function = WTFMove(function)] {
@@ -89,7 +64,7 @@ void WorkQueue::dispatch(Function<void ()>&& function)
     });
 }
 
-void WorkQueue::dispatchAfter(std::chrono::nanoseconds delay, Function<void ()>&& function)
+void WorkQueue::dispatchAfter(Seconds delay, Function<void()>&& function)
 {
     RefPtr<WorkQueue> protect(this);
     m_runLoop->dispatchAfter(delay, [protect, function = WTFMove(function)] {

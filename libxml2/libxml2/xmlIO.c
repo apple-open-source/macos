@@ -1881,7 +1881,7 @@ xmlIOHTTPOpen (const char *filename) {
  */
 
 void *
-xmlIOHTTPOpenW(const char *post_uri, int compression)
+xmlIOHTTPOpenW(const char *post_uri, int compression ATTRIBUTE_UNUSED)
 {
 
     xmlIOHTTPWriteCtxtPtr ctxt = NULL;

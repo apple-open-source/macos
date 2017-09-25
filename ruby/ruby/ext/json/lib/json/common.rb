@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'json/version'
 require 'json/generic_object'
 
@@ -148,7 +149,7 @@ module JSON
   #   the default.
   # * *create_additions*: If set to false, the Parser doesn't create
   #   additions even if a matching class and create_id was found. This option
-  #   defaults to true.
+  #   defaults to false.
   # * *object_class*: Defaults to Hash
   # * *array_class*: Defaults to Array
   def parse(source, opts = {})
@@ -169,7 +170,7 @@ module JSON
   #   to true.
   # * *create_additions*: If set to false, the Parser doesn't create
   #   additions even if a matching class and create_id was found. This option
-  #   defaults to true.
+  #   defaults to false.
   def parse!(source, opts = {})
     opts = {
       :max_nesting  => false,
@@ -179,10 +180,9 @@ module JSON
   end
 
   # Generate a JSON document from the Ruby data structure _obj_ and return
-  # it. _state_ is
-  # * a JSON::State object,
+  # it. _state_ is * a JSON::State object,
   # * or a Hash like object (responding to to_hash),
-  # * or an object convertible into a hash by a to_h method,
+  # * an object convertible into a hash by a to_h method,
   # that is used as or to configure a State object.
   #
   # It defaults to a state object, that creates the shortest possible JSON text
@@ -391,7 +391,7 @@ module JSON
       end
     end
     opts = JSON.dump_default_options
-    limit and opts.update(:max_nesting => limit)
+    opts = opts.merge(:max_nesting => limit) if limit
     result = generate(obj, opts)
     if anIO
       anIO.write result
@@ -412,11 +412,8 @@ module JSON
     string
   end
 
-  # Shortuct for iconv.
-  if ::String.method_defined?(:encode) &&
-    # XXX Rubinius doesn't support ruby 1.9 encoding yet
-    defined?(RUBY_ENGINE) && RUBY_ENGINE != 'rbx'
-  then
+  # Shortcut for iconv.
+  if ::String.method_defined?(:encode)
     # Encodes string using Ruby's _String.encode_
     def self.iconv(to, from, string)
       string.encode(to, from)
@@ -452,7 +449,7 @@ module ::Kernel
     nil
   end
 
-  # Ouputs _objs_ to STDOUT as JSON strings in a pretty format, with
+  # Outputs _objs_ to STDOUT as JSON strings in a pretty format, with
   # indentation and over many lines.
   def jj(*objs)
     objs.each do |obj|

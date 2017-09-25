@@ -36,11 +36,11 @@
 
 namespace JSC {
 
-const ClassInfo WeakSetConstructor::s_info = { "Function", &Base::s_info, 0, CREATE_METHOD_TABLE(WeakSetConstructor) };
+const ClassInfo WeakSetConstructor::s_info = { "Function", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(WeakSetConstructor) };
 
 void WeakSetConstructor::finishCreation(VM& vm, WeakSetPrototype* prototype)
 {
-    Base::finishCreation(vm, prototype->classInfo()->className);
+    Base::finishCreation(vm, prototype->classInfo(vm)->className);
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, prototype, DontEnum | DontDelete | ReadOnly);
     putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), DontEnum | ReadOnly);
 }

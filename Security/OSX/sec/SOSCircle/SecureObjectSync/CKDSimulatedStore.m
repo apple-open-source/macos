@@ -65,6 +65,9 @@
 - (void)pushWrites {
 }
 
+- (void)addOneToOutGoing{
+    
+}
 - (BOOL) pullUpdates:(NSError **)failure
 {
     return true;
@@ -74,9 +77,12 @@
 {
     [self.data setObject:obj forKey:key];
 
-    if (self.proxy) {
-        [self.proxy storeKeysChanged: [NSSet setWithObject:key] initial: NO];
-    }
+    [self.proxy storeKeysChanged: [NSSet setWithObject:key] initial: NO];
+}
+
+- (void)perfCounters:(void(^)(NSDictionary *counters))callback
+{
+    callback(@{});
 }
 
 @end

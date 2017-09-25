@@ -78,9 +78,8 @@
 static void SecRSAPublicKeyDestroy(SecKeyRef key) {
     /* Zero out the public key */
     if (key->key) {
-        ccrsa_pub_ctx_t pubkey;
-        pubkey.pub = key->key;
-        cc_clear(ccrsa_pub_ctx_size(ccn_sizeof_n(ccrsa_ctx_n(pubkey))), pubkey.pub);
+        ccrsa_pub_ctx_t pubkey = key->key;
+        cc_clear(ccrsa_pub_ctx_size(ccn_sizeof_n(ccrsa_ctx_n(pubkey))), pubkey);
         free(key->key);
         key->key = NULL;
     }
@@ -170,7 +169,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
             require_action_quiet(key->key, errOut, result = errSecAllocate);
 
-            pubkey.pub = key->key;
+            pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
             require_noerr_quiet(ccrsa_import_pub(pubkey, keyDataLength, keyData), errOut);
@@ -186,7 +185,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
             require_action_quiet(key->key, errOut, result = errSecAllocate);
 
-            pubkey.pub = key->key;
+            pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
             result = ccrsa_pub_decode_apple(pubkey, keyDataLength, keyData);
@@ -200,7 +199,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
             require_action_quiet(key->key, errOut, result = errSecAllocate);
 
-            pubkey.pub = key->key;
+            pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
             require_noerr_quiet(ccrsa_pub_init(pubkey,
@@ -212,18 +211,17 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
         }
         case kSecExtractPublicFromPrivate:
         {
-            ccrsa_full_ctx_t fullKey;
-            fullKey.full = (ccrsa_full_ctx*) keyData;
-            
+            ccrsa_full_ctx_t fullKey = (ccrsa_full_ctx_t) keyData;
+
             size_n = ccrsa_ctx_n(fullKey);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
             require_action_quiet(key->key, errOut, result = errSecAllocate);
 
-            pubkey.pub = key->key;
+            pubkey = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
-            memcpy(pubkey.pub, ccrsa_ctx_public(fullKey).pub, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
+            memcpy(pubkey, ccrsa_ctx_public(fullKey), ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
             result = errSecSuccess;
             break;
         }
@@ -241,8 +239,7 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
     CFTypeRef result;
     require_action_quiet(CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit), out, result = kCFNull);
 
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccrsa_pub_ctx_t pubkey = key->key;
     result = kCFBooleanTrue;
     int ccerr = 0;
     switch (operation) {
@@ -275,14 +272,13 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
     }
 
     require_noerr_action_quiet(ccerr, out, (CFReleaseNull(result),
-                                            SecError(errSecParam, error, CFSTR("rsa_pub_crypt failed, ccerr=%d"), error)));
+                                            SecError(errSecParam, error, CFSTR("rsa_pub_crypt failed, ccerr=%d"), ccerr)));
 out:
     return result;
 }
 
 static size_t SecRSAPublicKeyBlockSize(SecKeyRef key) {
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccrsa_pub_ctx_t pubkey = key->key;
     return ccrsa_block_size(pubkey);
 }
 
@@ -314,8 +310,7 @@ static CFDataRef SecRSAPublicKeyCreatePKCS1(CFAllocatorRef allocator, ccrsa_pub_
 
 static OSStatus SecRSAPublicKeyCopyPublicSerialization(SecKeyRef key, CFDataRef* serialized)
 {
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccrsa_pub_ctx_t pubkey = key->key;
 
 	CFAllocatorRef allocator = CFGetAllocator(key);
     *serialized = SecRSAPublicKeyCreatePKCS1(allocator, pubkey);
@@ -336,8 +331,7 @@ static CFDictionaryRef SecRSAPublicKeyCopyAttributeDictionary(SecKeyRef key) {
 }
 
 static CFDataRef SecRSAPublicKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccrsa_pub_ctx_t pubkey = key->key;
     return SecRSAPublicKeyCreatePKCS1(CFGetAllocator(key), pubkey);
 }
 
@@ -346,8 +340,7 @@ static CFStringRef SecRSAPublicKeyCopyDescription(SecKeyRef key) {
     CFStringRef keyDescription = NULL;
     CFDataRef modRef = SecKeyCopyModulus(key);
 
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    ccrsa_pub_ctx_t pubkey = key->key;
 
     CFStringRef modulusString = CFDataCopyHexString(modRef);
     require_quiet(modulusString, fail);
@@ -395,8 +388,7 @@ SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
 CFDataRef SecKeyCopyModulus(SecKeyRef key) {
     CFDataRef modulus = NULL;
     if (key->key_class == &kSecRSAPublicKeyDescriptor) {
-        ccrsa_pub_ctx_t pubkey;
-        pubkey.pub = key->key;
+        ccrsa_pub_ctx_t pubkey = key->key;
 
         size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
 
@@ -424,8 +416,7 @@ CFDataRef SecKeyCopyModulus(SecKeyRef key) {
 CFDataRef SecKeyCopyExponent(SecKeyRef key) {
     CFDataRef exponent = NULL;
     if (key->key_class == &kSecRSAPublicKeyDescriptor) {
-        ccrsa_pub_ctx_t pubkey;
-        pubkey.pub = key->key;
+        ccrsa_pub_ctx_t pubkey = key->key;
 
         size_t e_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_e(pubkey));
 
@@ -461,9 +452,8 @@ CFDataRef SecKeyCopyExponent(SecKeyRef key) {
 static void SecRSAPrivateKeyDestroy(SecKeyRef key) {
     /* Zero out the public key */
     if (key->key) {
-        ccrsa_full_ctx_t fullkey;
-        fullkey.full = key->key;
-        cc_clear(ccrsa_full_ctx_size(ccn_sizeof_n(ccrsa_ctx_n(fullkey))), fullkey.full);
+        ccrsa_full_ctx_t fullkey = key->key;
+        cc_clear(ccrsa_full_ctx_size(ccn_sizeof_n(ccrsa_ctx_n(fullkey))), fullkey);
         free(key->key);
         key->key = NULL;
     }
@@ -485,7 +475,7 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
             key->key = calloc(1, ccrsa_full_ctx_size(ccn_sizeof_n(size_n)));
             require_action_quiet(key->key, errOut, result = errSecAllocate);
 
-            fullkey.full = key->key;
+            fullkey = key->key;
             ccrsa_ctx_n(fullkey) = size_n;
 
             require_quiet(ccrsa_import_priv(fullkey, keyDataLength, keyData)==0, errOut);
@@ -511,12 +501,12 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
             key->key = calloc(1, ccrsa_full_ctx_size(ccn_sizeof_n(size_n)));
             require_action_quiet(key->key, errOut, result = errSecAllocate);
 
-            fullkey.full = key->key;
+            fullkey = key->key;
             ccrsa_ctx_n(fullkey) = size_n;
 
             /* TODO: Add support for kSecPublicExponent parameter. */
             static uint8_t e[] = { 0x01, 0x00, 0x01 }; // Default is 65537
-            if (!ccrsa_generate_fips186_key(keyLengthInBits, fullkey.full, sizeof(e), e, ccrng_seckey,ccrng_seckey))
+            if (!ccrsa_generate_fips186_key(keyLengthInBits, fullkey, sizeof(e), e, ccrng_seckey,ccrng_seckey))
                 result = errSecSuccess;
             break;
         }
@@ -532,7 +522,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
                                                      CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFTypeRef result = kCFNull;
 
-    ccrsa_full_ctx_t fullkey = { .full = key->key };
+    ccrsa_full_ctx_t fullkey = key->key;
     int ccerr = 0;
     switch (operation) {
         case kSecKeyOperationTypeSign:
@@ -543,7 +533,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
                     require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
                                                   ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey)) < 0, out,
                                          (result = NULL,
-                                          SecError(errSecParam, error, CFSTR("%@: sign - digest too big (%d bytes)"),
+                                          SecError(errSecParam, error, CFSTR("%@: sign - digest too big (%d bytes)"), key,
                                                    (int)CFDataGetLength(in1))));
 
                     // Encrypt buffer and write it to output data.
@@ -560,7 +550,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
             if (CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit)) {
                 if (mode == kSecKeyOperationModePerform) {
                     // Decrypt buffer and write it to output data.
-                    result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(fullkey));
+                    result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(ccrsa_ctx_public(fullkey)));
                     ccerr = ccrsa_priv_crypt(fullkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                              (const cc_unit *)CFDataGetBytePtr(in1));
                 } else {
@@ -574,14 +564,13 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
     }
 
     require_noerr_action_quiet(ccerr, out, (CFReleaseNull(result),
-                                            SecError(errSecParam, error, CFSTR("rsa_priv_crypt failed, ccerr=%d"), error)));
+                                            SecError(errSecParam, error, CFSTR("rsa_priv_crypt failed, ccerr=%d"), ccerr)));
 out:
     return result;
 }
 
 static size_t SecRSAPrivateKeyBlockSize(SecKeyRef key) {
-    ccrsa_full_ctx_t fullkey;
-    fullkey.full = key->key;
+    ccrsa_full_ctx_t fullkey = key->key;
 
     return ccn_write_uint_size(ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey));
 }
@@ -610,8 +599,7 @@ static CFDataRef SecRSAPrivateKeyCreatePKCS1(CFAllocatorRef allocator, ccrsa_ful
 
 static CFDataRef SecRSAPrivateKeyCopyPKCS1(SecKeyRef key)
 {
-    ccrsa_full_ctx_t fullkey;
-    fullkey.full = key->key;
+    ccrsa_full_ctx_t fullkey = key->key;
 
 	CFAllocatorRef allocator = CFGetAllocator(key);
     return SecRSAPrivateKeyCreatePKCS1(allocator, fullkey);
@@ -619,11 +607,10 @@ static CFDataRef SecRSAPrivateKeyCopyPKCS1(SecKeyRef key)
 
 static OSStatus SecRSAPrivateKeyCopyPublicSerialization(SecKeyRef key, CFDataRef* serialized)
 {
-    ccrsa_full_ctx_t fullkey;
-    fullkey.full = key->key;
+    ccrsa_full_ctx_t fullkey = key->key;
 
 	CFAllocatorRef allocator = CFGetAllocator(key);
-    *serialized = SecRSAPublicKeyCreatePKCS1(allocator, fullkey);
+    *serialized = SecRSAPublicKeyCreatePKCS1(allocator, ccrsa_ctx_public(fullkey));
 
     if (NULL == *serialized)
         return errSecDecode;

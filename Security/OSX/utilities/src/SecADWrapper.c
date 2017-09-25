@@ -63,33 +63,40 @@ setup(void)
     });
     return bundle != NULL;
 }
+#endif
 
 void
 SecADClearScalarKey(CFStringRef key)
 {
+#if TARGET_OS_EMBEDDED
     if (setup())
         soft_ADClientClearScalarKey(key);
+#endif
 }
 
 void
 SecADSetValueForScalarKey(CFStringRef key, int64_t value)
 {
+#if TARGET_OS_EMBEDDED
     if (setup())
         soft_ADClientSetValueForScalarKey(key, value);
-
+#endif
 }
 void
 SecADAddValueForScalarKey(CFStringRef key, int64_t value)
 {
+#if TARGET_OS_EMBEDDED
     if (setup())
         soft_ADClientAddValueForScalarKey(key, value);
+#endif
 }
 
 void
 SecADClientPushValueForDistributionKey(CFStringRef key, int64_t value)
 {
+#if TARGET_OS_EMBEDDED
     if (setup())
         soft_ADClientPushValueForDistributionKey(key, value);
+#endif
 }
 
-#endif

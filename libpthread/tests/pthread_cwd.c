@@ -9,7 +9,7 @@
 #include <sys/param.h>
 #include <pthread/private.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 #include "../src/pthread_cwd.c"
 
@@ -81,9 +81,9 @@ T_DECL(pthread_cwd, "per-thread working directory")
 	umask(0);		/* "always successful" */
 
 	/* Now set us up the test directories... */
-	T_WITH_ERRNO; T_ASSERT_TRUE(mkdir(WORKDIR, 0777) != -1 || errno != EEXIST, NULL);
-	T_WITH_ERRNO; T_ASSERT_TRUE(mkdir(WORKDIR1, 0777) != -1 || errno != EEXIST, NULL);
-	T_WITH_ERRNO; T_ASSERT_TRUE(mkdir(WORKDIR2, 0777) != -1 || errno != EEXIST, NULL);
+	T_WITH_ERRNO; T_ASSERT_TRUE(mkdir(WORKDIR, 0777) != -1 || errno == EEXIST, NULL);
+	T_WITH_ERRNO; T_ASSERT_TRUE(mkdir(WORKDIR1, 0777) != -1 || errno == EEXIST, NULL);
+	T_WITH_ERRNO; T_ASSERT_TRUE(mkdir(WORKDIR2, 0777) != -1 || errno == EEXIST, NULL);
 
 	T_SETUPEND;
 

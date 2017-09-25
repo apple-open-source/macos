@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -14,8 +14,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id: nsupdate.c,v 1.193.12.4 2011/11/03 04:30:09 each Exp $ */
 
 /*! \file */
 
@@ -81,10 +79,18 @@
 
 #ifdef GSSAPI
 #include <dst/gssapi.h>
+#ifdef WIN32
+#include <krb5/krb5.h>
+#else
 #include ISC_PLATFORM_KRB5HEADER
+#endif
 #endif
 #include <bind9/getaddresses.h>
 
+#if defined(HAVE_READLINE)
+#include <readline/readline.h>
+#include <readline/history.h>
+#endif
 
 #ifdef HAVE_ADDRINFO
 #ifdef HAVE_GETADDRINFO
@@ -110,6 +116,9 @@ extern int h_errno;
 
 #define DNSDEFAULTPORT 53
 
+/* Number of addresses to request from bind9_getaddresses() */
+#define MAX_SERVERADDRS 4
+
 static isc_uint16_t dnsport = DNSDEFAULTPORT;
 
 #ifndef RESOLV_CONF
@@ -129,8 +138,8 @@ static isc_boolean_t local_only = ISC_FALSE;
 static isc_taskmgr_t *taskmgr = NULL;
 static isc_task_t *global_task = NULL;
 static isc_event_t *global_event = NULL;
-static isc_log_t *lctx = NULL;
-static isc_mem_t *mctx = NULL;
+static isc_log_t *glctx = NULL;
+static isc_mem_t *gmctx = NULL;
 static dns_dispatchmgr_t *dispatchmgr = NULL;
 static dns_requestmgr_t *requestmgr = NULL;
 static isc_socketmgr_t *socketmgr = NULL;
@@ -140,7 +149,7 @@ static dns_dispatch_t *dispatchv6 = NULL;
 static dns_message_t *updatemsg = NULL;
 static dns_fixedname_t fuserzone;
 static dns_name_t *userzone = NULL;
-static dns_name_t *zonename = NULL;
+static dns_name_t *zname = NULL;
 static dns_name_t tmpzonename;
 static dns_name_t restart_master;
 static dns_tsig_keyring_t *gssring = NULL;
@@ -148,13 +157,15 @@ static dns_tsigkey_t *tsigkey = NULL;
 static dst_key_t *sig0key = NULL;
 static lwres_context_t *lwctx = NULL;
 static lwres_conf_t *lwconf;
-static isc_sockaddr_t *servers;
+static isc_sockaddr_t *servers = NULL;
+static isc_sockaddr_t *master_servers = NULL;
+static isc_boolean_t default_servers = ISC_TRUE;
 static int ns_inuse = 0;
+static int master_inuse = 0;
 static int ns_total = 0;
-static isc_sockaddr_t *userserver = NULL;
-static isc_sockaddr_t *localaddr = NULL;
-static isc_sockaddr_t *serveraddr = NULL;
-static isc_sockaddr_t tempaddr;
+static int master_total = 0;
+static isc_sockaddr_t *localaddr4 = NULL;
+static isc_sockaddr_t *localaddr6 = NULL;
 static const char *keyfile = NULL;
 static char *keystr = NULL;
 static isc_entropy_t *entropy = NULL;
@@ -180,8 +191,10 @@ typedef struct nsu_requestinfo {
 } nsu_requestinfo_t;
 
 static void
-sendrequest(isc_sockaddr_t *srcaddr, isc_sockaddr_t *destaddr,
-	    dns_message_t *msg, dns_request_t **request);
+sendrequest(isc_sockaddr_t *destaddr, dns_message_t *msg,
+	    dns_request_t **request);
+static void
+send_update(dns_name_t *zonename, isc_sockaddr_t *master);
 
 ISC_PLATFORM_NORETURN_PRE static void
 fatal(const char *format, ...)
@@ -208,9 +221,8 @@ typedef struct nsu_gssinfo {
 static void
 start_gssrequest(dns_name_t *master);
 static void
-send_gssrequest(isc_sockaddr_t *srcaddr, isc_sockaddr_t *destaddr,
-		dns_message_t *msg, dns_request_t **request,
-		gss_ctx_id_t context);
+send_gssrequest(isc_sockaddr_t *destaddr, dns_message_t *msg,
+		dns_request_t **request, gss_ctx_id_t context);
 static void
 recvgss(isc_task_t *task, isc_event_t *event);
 #endif /* GSSAPI */
@@ -234,8 +246,7 @@ struct entropysource {
 static ISC_LIST(entropysource_t) sources;
 
 static void
-setup_entropy(isc_mem_t *mctx, const char *randomfile, isc_entropy_t **ectx)
-{
+setup_entropy(isc_mem_t *mctx, const char *randomfile, isc_entropy_t **ectx) {
 	isc_result_t result;
 	isc_entropysource_t *source = NULL;
 	entropysource_t *elt;
@@ -285,6 +296,16 @@ cleanup_entropy(isc_entropy_t **ectx) {
 	isc_entropy_detach(ectx);
 }
 
+static void
+master_from_servers(void) {
+
+	if (master_servers != NULL && master_servers != servers)
+		isc_mem_put(gmctx, master_servers,
+			    master_total * sizeof(isc_sockaddr_t));
+	master_servers = servers;
+	master_total = ns_total;
+	master_inuse = ns_inuse;
+}
 
 static dns_rdataclass_t
 getzoneclass(void) {
@@ -407,7 +428,7 @@ reset_system(void) {
 	if (updatemsg != NULL)
 		dns_message_reset(updatemsg, DNS_MESSAGE_INTENTRENDER);
 	else {
-		result = dns_message_create(mctx, DNS_MESSAGE_INTENTRENDER,
+		result = dns_message_create(gmctx, DNS_MESSAGE_INTENTRENDER,
 					    &updatemsg);
 		check_result(result, "dns_message_create");
 	}
@@ -512,13 +533,13 @@ setup_keystr(void) {
 	char *secretstr;
 	char *s, *n;
 	dns_fixedname_t fkeyname;
-	dns_name_t *keyname;
+	dns_name_t *mykeyname;
 	char *name;
 	dns_name_t *hmacname = NULL;
 	isc_uint16_t digestbits = 0;
 
 	dns_fixedname_init(&fkeyname);
-	keyname = dns_fixedname_name(&fkeyname);
+	mykeyname = dns_fixedname_name(&fkeyname);
 
 	debug("Creating key...");
 
@@ -539,15 +560,16 @@ setup_keystr(void) {
 		n = s;
 	}
 
-	isc_buffer_init(&keynamesrc, name, n - name);
-	isc_buffer_add(&keynamesrc, n - name);
+	isc_buffer_init(&keynamesrc, name, (unsigned int)(n - name));
+	isc_buffer_add(&keynamesrc, (unsigned int)(n - name));
 
 	debug("namefromtext");
-	result = dns_name_fromtext(keyname, &keynamesrc, dns_rootname, 0, NULL);
+	result = dns_name_fromtext(mykeyname, &keynamesrc, dns_rootname, 0,
+				   NULL);
 	check_result(result, "dns_name_fromtext");
 
 	secretlen = strlen(secretstr) * 3 / 4;
-	secret = isc_mem_allocate(mctx, secretlen);
+	secret = isc_mem_allocate(gmctx, secretlen);
 	if (secret == NULL)
 		fatal("out of memory");
 
@@ -562,8 +584,8 @@ setup_keystr(void) {
 	secretlen = isc_buffer_usedlength(&secretbuf);
 
 	debug("keycreate");
-	result = dns_tsigkey_create(keyname, hmacname, secret, secretlen,
-				    ISC_FALSE, NULL, 0, 0, mctx, NULL,
+	result = dns_tsigkey_create(mykeyname, hmacname, secret, secretlen,
+				    ISC_FALSE, NULL, 0, 0, gmctx, NULL,
 				    &tsigkey);
 	if (result != ISC_R_SUCCESS)
 		fprintf(stderr, "could not create key from %s: %s\n",
@@ -572,7 +594,7 @@ setup_keystr(void) {
 		dst_key_setbits(tsigkey->key, digestbits);
  failure:
 	if (secret != NULL)
-		isc_mem_free(mctx, secret);
+		isc_mem_free(gmctx, secret);
 }
 
 /*
@@ -585,7 +607,7 @@ read_sessionkey(isc_mem_t *mctx, isc_log_t *lctx) {
 	const cfg_obj_t *key = NULL;
 	const cfg_obj_t *secretobj = NULL;
 	const cfg_obj_t *algorithmobj = NULL;
-	const char *keyname;
+	const char *mykeyname;
 	const char *secretstr;
 	const char *algorithm;
 	isc_result_t result;
@@ -612,13 +634,13 @@ read_sessionkey(isc_mem_t *mctx, isc_log_t *lctx) {
 	if (secretobj == NULL || algorithmobj == NULL)
 		fatal("key must have algorithm and secret");
 
-	keyname = cfg_obj_asstring(cfg_map_getname(key));
+	mykeyname = cfg_obj_asstring(cfg_map_getname(key));
 	secretstr = cfg_obj_asstring(secretobj);
 	algorithm = cfg_obj_asstring(algorithmobj);
 
-	len = strlen(algorithm) + strlen(keyname) + strlen(secretstr) + 3;
+	len = strlen(algorithm) + strlen(mykeyname) + strlen(secretstr) + 3;
 	keystr = isc_mem_allocate(mctx, len);
-	snprintf(keystr, len, "%s:%s:%s", algorithm, keyname, secretstr);
+	snprintf(keystr, len, "%s:%s:%s", algorithm, mykeyname, secretstr);
 	setup_keystr();
 
  cleanup:
@@ -705,11 +727,23 @@ static void
 doshutdown(void) {
 	isc_task_detach(&global_task);
 
-	if (userserver != NULL)
-		isc_mem_put(mctx, userserver, sizeof(isc_sockaddr_t));
+	/*
+	 * The isc_mem_put of master_servers must be before the
+	 * isc_mem_put of servers as it sets the servers pointer
+	 * to NULL.
+	 */
+	if (master_servers != NULL && master_servers != servers)
+		isc_mem_put(gmctx, master_servers,
+			    master_total * sizeof(isc_sockaddr_t));
 
-	if (localaddr != NULL)
-		isc_mem_put(mctx, localaddr, sizeof(isc_sockaddr_t));
+	if (servers != NULL)
+		isc_mem_put(gmctx, servers, ns_total * sizeof(isc_sockaddr_t));
+
+	if (localaddr4 != NULL)
+		isc_mem_put(gmctx, localaddr4, sizeof(isc_sockaddr_t));
+
+	if (localaddr6 != NULL)
+		isc_mem_put(gmctx, localaddr6, sizeof(isc_sockaddr_t));
 
 	if (tsigkey != NULL) {
 		ddebug("Freeing TSIG key");
@@ -734,8 +768,6 @@ doshutdown(void) {
 
 	lwres_conf_clear(lwctx);
 	lwres_context_destroy(&lwctx);
-
-	isc_mem_put(mctx, servers, ns_total * sizeof(isc_sockaddr_t));
 
 	ddebug("Destroying request manager");
 	dns_requestmgr_detach(&requestmgr);
@@ -798,69 +830,95 @@ setup_system(void) {
 	if (!have_ipv4 && !have_ipv6)
 		fatal("could not find either IPv4 or IPv6");
 
-	result = isc_log_create(mctx, &lctx, &logconfig);
+	result = isc_log_create(gmctx, &glctx, &logconfig);
 	check_result(result, "isc_log_create");
 
-	isc_log_setcontext(lctx);
-	dns_log_init(lctx);
-	dns_log_setcontext(lctx);
+	isc_log_setcontext(glctx);
+	dns_log_init(glctx);
+	dns_log_setcontext(glctx);
 
 	result = isc_log_usechannel(logconfig, "default_debug", NULL, NULL);
 	check_result(result, "isc_log_usechannel");
 
-	isc_log_setdebuglevel(lctx, logdebuglevel);
+	isc_log_setdebuglevel(glctx, logdebuglevel);
 
-	lwresult = lwres_context_create(&lwctx, mctx, mem_alloc, mem_free, 1);
+	lwresult = lwres_context_create(&lwctx, gmctx, mem_alloc, mem_free, 1);
 	if (lwresult != LWRES_R_SUCCESS)
 		fatal("lwres_context_create failed");
 
 	(void)lwres_conf_parse(lwctx, RESOLV_CONF);
 	lwconf = lwres_conf_get(lwctx);
 
-	ns_total = lwconf->nsnext;
-	if (ns_total <= 0) {
-		/* No name servers in resolv.conf; default to loopback. */
-		struct in_addr localhost;
-		ns_total = 1;
-		servers = isc_mem_get(mctx, ns_total * sizeof(isc_sockaddr_t));
+	if (servers != NULL) {
+		if (master_servers == servers)
+			master_servers = NULL;
+		isc_mem_put(gmctx, servers, ns_total * sizeof(isc_sockaddr_t));
+	}
+
+	ns_inuse = 0;
+	if (local_only || lwconf->nsnext <= 0) {
+		struct in_addr in;
+		struct in6_addr in6;
+
+		if (local_only && keyfile == NULL)
+			keyfile = SESSION_KEYFILE;
+
+		default_servers = !local_only;
+
+		ns_total = (have_ipv4 ? 1 : 0) + (have_ipv6 ? 1 : 0);
+		servers = isc_mem_get(gmctx, ns_total * sizeof(isc_sockaddr_t));
 		if (servers == NULL)
 			fatal("out of memory");
-		localhost.s_addr = htonl(INADDR_LOOPBACK);
-		isc_sockaddr_fromin(&servers[0], &localhost, dnsport);
+
+		if (have_ipv4) {
+			in.s_addr = htonl(INADDR_LOOPBACK);
+			isc_sockaddr_fromin(&servers[0], &in, dnsport);
+		}
+		if (have_ipv6) {
+			memset(&in6, 0, sizeof(in6));
+			in6.s6_addr[15] = 1;
+			isc_sockaddr_fromin6(&servers[(have_ipv4 ? 1 : 0)],
+					     &in6, dnsport);
+		}
 	} else {
-		servers = isc_mem_get(mctx, ns_total * sizeof(isc_sockaddr_t));
+		ns_total = lwconf->nsnext;
+		servers = isc_mem_get(gmctx, ns_total * sizeof(isc_sockaddr_t));
 		if (servers == NULL)
 			fatal("out of memory");
 		for (i = 0; i < ns_total; i++) {
-			if (lwconf->nameservers[i].family == LWRES_ADDRTYPE_V4) {
+			if (lwconf->nameservers[i].family == LWRES_ADDRTYPE_V4)
+			{
 				struct in_addr in4;
-				memcpy(&in4, lwconf->nameservers[i].address, 4);
-				isc_sockaddr_fromin(&servers[i], &in4, dnsport);
+				memmove(&in4,
+					lwconf->nameservers[i].address, 4);
+				isc_sockaddr_fromin(&servers[i],
+						    &in4, dnsport);
 			} else {
 				struct in6_addr in6;
-				memcpy(&in6, lwconf->nameservers[i].address, 16);
-				isc_sockaddr_fromin6(&servers[i], &in6,
-						     dnsport);
+				memmove(&in6,
+					lwconf->nameservers[i].address, 16);
+				isc_sockaddr_fromin6(&servers[i],
+						     &in6, dnsport);
 			}
 		}
 	}
 
-	setup_entropy(mctx, NULL, &entropy);
+	setup_entropy(gmctx, NULL, &entropy);
 
-	result = isc_hash_create(mctx, entropy, DNS_NAME_MAXWIRE);
+	result = isc_hash_create(gmctx, entropy, DNS_NAME_MAXWIRE);
 	check_result(result, "isc_hash_create");
 	isc_hash_init();
 
-	result = dns_dispatchmgr_create(mctx, entropy, &dispatchmgr);
+	result = dns_dispatchmgr_create(gmctx, entropy, &dispatchmgr);
 	check_result(result, "dns_dispatchmgr_create");
 
-	result = isc_socketmgr_create(mctx, &socketmgr);
+	result = isc_socketmgr_create(gmctx, &socketmgr);
 	check_result(result, "dns_socketmgr_create");
 
-	result = isc_timermgr_create(mctx, &timermgr);
+	result = isc_timermgr_create(gmctx, &timermgr);
 	check_result(result, "dns_timermgr_create");
 
-	result = isc_taskmgr_create(mctx, 1, 0, &taskmgr);
+	result = isc_taskmgr_create(gmctx, 1, 0, &taskmgr);
 	check_result(result, "isc_taskmgr_create");
 
 	result = isc_task_create(taskmgr, 0, &global_task);
@@ -869,7 +927,7 @@ setup_system(void) {
 	result = isc_task_onshutdown(global_task, shutdown_program, NULL);
 	check_result(result, "isc_task_onshutdown");
 
-	result = dst_lib_init(mctx, entropy, 0);
+	result = dst_lib_init(gmctx, entropy, 0);
 	check_result(result, "dst_lib_init");
 	is_dst_up = ISC_TRUE;
 
@@ -900,7 +958,7 @@ setup_system(void) {
 		check_result(result, "dns_dispatch_getudp (v4)");
 	}
 
-	result = dns_requestmgr_create(mctx, timermgr,
+	result = dns_requestmgr_create(gmctx, timermgr,
 				       socketmgr, taskmgr, dispatchmgr,
 				       dispatchv4, dispatchv6, &requestmgr);
 	check_result(result, "dns_requestmgr_create");
@@ -908,29 +966,35 @@ setup_system(void) {
 	if (keystr != NULL)
 		setup_keystr();
 	else if (local_only) {
-		result = read_sessionkey(mctx, lctx);
+		result = read_sessionkey(gmctx, glctx);
 		if (result != ISC_R_SUCCESS)
 			fatal("can't read key from %s: %s\n",
 			      keyfile, isc_result_totext(result));
 	} else if (keyfile != NULL)
-		setup_keyfile(mctx, lctx);
+		setup_keyfile(gmctx, glctx);
 }
 
 static void
-get_address(char *host, in_port_t port, isc_sockaddr_t *sockaddr) {
+get_addresses(char *host, in_port_t port,
+	      isc_sockaddr_t *sockaddr, int naddrs)
+{
 	int count;
 	isc_result_t result;
 
 	isc_app_block();
-	result = bind9_getaddresses(host, port, sockaddr, 1, &count);
+	result = bind9_getaddresses(host, port, sockaddr, naddrs, &count);
 	isc_app_unblock();
 	if (result != ISC_R_SUCCESS)
 		fatal("couldn't get address for '%s': %s",
 		      host, isc_result_totext(result));
-	INSIST(count == 1);
 }
 
-#define PARSE_ARGS_FMT "dDML:y:ghlovk:p:rR::t:u:"
+static void
+version(void) {
+	fputs("nsupdate " VERSION "\n", stderr);
+}
+
+#define PARSE_ARGS_FMT "dDML:y:ghlovk:p:r:R::t:u:V"
 
 static void
 pre_parse_args(int argc, char **argv) {
@@ -953,7 +1017,11 @@ pre_parse_args(int argc, char **argv) {
 					argv[0], isc_commandline_option);
 			fprintf(stderr, "usage: nsupdate [-dD] [-L level] [-l]"
 				"[-g | -o | -y keyname:secret | -k keyfile] "
-				"[-v] [filename]\n");
+				"[-v] [-V] [filename]\n");
+			exit(1);
+
+		case 'V':
+			version();
 			exit(1);
 
 		default:
@@ -1066,22 +1134,6 @@ parse_args(int argc, char **argv, isc_mem_t *mctx, isc_entropy_t **ectx) {
 		exit(1);
 	}
 
-	if (local_only) {
-		struct in_addr localhost;
-
-		if (keyfile == NULL)
-			keyfile = SESSION_KEYFILE;
-
-		if (userserver == NULL) {
-			userserver = isc_mem_get(mctx, sizeof(isc_sockaddr_t));
-			if (userserver == NULL)
-				fatal("out of memory");
-		}
-
-		localhost.s_addr = htonl(INADDR_LOOPBACK);
-		isc_sockaddr_fromin(userserver, &localhost, dnsport);
-	}
-
 #ifdef GSSAPI
 	if (usegsstsig && (keyfile != NULL || keystr != NULL)) {
 		fprintf(stderr, "%s: cannot specify -g with -k or -y\n",
@@ -1122,14 +1174,14 @@ parse_name(char **cmdlinep, dns_message_t *msg, dns_name_t **namep) {
 	isc_buffer_t source;
 
 	word = nsu_strsep(cmdlinep, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read owner name\n");
 		return (STATUS_SYNTAX);
 	}
 
 	result = dns_message_gettempname(msg, namep);
 	check_result(result, "dns_message_gettempname");
-	result = isc_buffer_allocate(mctx, &namebuf, DNS_NAME_MAXWIRE);
+	result = isc_buffer_allocate(gmctx, &namebuf, DNS_NAME_MAXWIRE);
 	check_result(result, "isc_buffer_allocate");
 	dns_name_init(*namep, NULL);
 	dns_name_setbuffer(*namep, namebuf);
@@ -1154,26 +1206,31 @@ parse_rdata(char **cmdlinep, dns_rdataclass_t rdataclass,
 	dns_rdatacallbacks_t callbacks;
 	isc_result_t result;
 
+	if (cmdline == NULL) {
+		rdata->flags = DNS_RDATA_UPDATE;
+		return (STATUS_MORE);
+	}
+
 	while (*cmdline != 0 && isspace((unsigned char)*cmdline))
 		cmdline++;
 
 	if (*cmdline != 0) {
 		dns_rdatacallbacks_init(&callbacks);
-		result = isc_lex_create(mctx, strlen(cmdline), &lex);
+		result = isc_lex_create(gmctx, strlen(cmdline), &lex);
 		check_result(result, "isc_lex_create");
 		isc_buffer_init(&source, cmdline, strlen(cmdline));
 		isc_buffer_add(&source, strlen(cmdline));
 		result = isc_lex_openbuffer(lex, &source);
 		check_result(result, "isc_lex_openbuffer");
-		result = isc_buffer_allocate(mctx, &buf, MAXWIRE);
+		result = isc_buffer_allocate(gmctx, &buf, MAXWIRE);
 		check_result(result, "isc_buffer_allocate");
 		result = dns_rdata_fromtext(NULL, rdataclass, rdatatype, lex,
-					    dns_rootname, 0, mctx, buf,
+					    dns_rootname, 0, gmctx, buf,
 					    &callbacks);
 		isc_lex_destroy(&lex);
 		if (result == ISC_R_SUCCESS) {
 			isc_buffer_usedregion(buf, &r);
-			result = isc_buffer_allocate(mctx, &newbuf, r.length);
+			result = isc_buffer_allocate(gmctx, &newbuf, r.length);
 			check_result(result, "isc_buffer_allocate");
 			isc_buffer_putmem(newbuf, r.base, r.length);
 			isc_buffer_usedregion(newbuf, &r);
@@ -1220,7 +1277,7 @@ make_prereq(char *cmdline, isc_boolean_t ispositive, isc_boolean_t isrrset) {
 	 */
 	if (isrrset) {
 		word = nsu_strsep(&cmdline, " \t\r\n");
-		if (*word == 0) {
+		if (word == NULL || *word == 0) {
 			fprintf(stderr, "could not read class or type\n");
 			goto failure;
 		}
@@ -1236,7 +1293,7 @@ make_prereq(char *cmdline, isc_boolean_t ispositive, isc_boolean_t isrrset) {
 			 * Now read the type.
 			 */
 			word = nsu_strsep(&cmdline, " \t\r\n");
-			if (*word == 0) {
+			if (word == NULL || *word == 0) {
 				fprintf(stderr, "could not read type\n");
 				goto failure;
 			}
@@ -1310,7 +1367,7 @@ evaluate_prereq(char *cmdline) {
 
 	ddebug("evaluate_prereq()");
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read operation code\n");
 		return (STATUS_SYNTAX);
 	}
@@ -1344,14 +1401,14 @@ evaluate_server(char *cmdline) {
 	}
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read server name\n");
 		return (STATUS_SYNTAX);
 	}
 	server = word;
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0)
+	if (word == NULL || *word == 0)
 		port = dnsport;
 	else {
 		char *endp;
@@ -1366,13 +1423,22 @@ evaluate_server(char *cmdline) {
 		}
 	}
 
-	if (userserver == NULL) {
-		userserver = isc_mem_get(mctx, sizeof(isc_sockaddr_t));
-		if (userserver == NULL)
-			fatal("out of memory");
+	if (servers != NULL) {
+		if (master_servers == servers)
+			master_servers = NULL;
+		isc_mem_put(gmctx, servers, ns_total * sizeof(isc_sockaddr_t));
 	}
 
-	get_address(server, (in_port_t)port, userserver);
+	default_servers = ISC_FALSE;
+
+	ns_total = MAX_SERVERADDRS;
+	ns_inuse = 0;
+	servers = isc_mem_get(gmctx, ns_total * sizeof(isc_sockaddr_t));
+	if (servers == NULL)
+		fatal("out of memory");
+
+	memset(servers, 0, ns_total * sizeof(isc_sockaddr_t));
+	get_addresses(server, (in_port_t)port, servers, ns_total);
 
 	return (STATUS_MORE);
 }
@@ -1385,14 +1451,14 @@ evaluate_local(char *cmdline) {
 	struct in6_addr in6;
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read server name\n");
 		return (STATUS_SYNTAX);
 	}
 	local = word;
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0)
+	if (word == NULL || *word == 0)
 		port = 0;
 	else {
 		char *endp;
@@ -1407,17 +1473,19 @@ evaluate_local(char *cmdline) {
 		}
 	}
 
-	if (localaddr == NULL) {
-		localaddr = isc_mem_get(mctx, sizeof(isc_sockaddr_t));
-		if (localaddr == NULL)
+	if (have_ipv6 && inet_pton(AF_INET6, local, &in6) == 1) {
+		if (localaddr6 == NULL)
+			localaddr6 = isc_mem_get(gmctx, sizeof(isc_sockaddr_t));
+		if (localaddr6 == NULL)
 			fatal("out of memory");
-	}
-
-	if (have_ipv6 && inet_pton(AF_INET6, local, &in6) == 1)
-		isc_sockaddr_fromin6(localaddr, &in6, (in_port_t)port);
-	else if (have_ipv4 && inet_pton(AF_INET, local, &in4) == 1)
-		isc_sockaddr_fromin(localaddr, &in4, (in_port_t)port);
-	else {
+		isc_sockaddr_fromin6(localaddr6, &in6, (in_port_t)port);
+	} else if (have_ipv4 && inet_pton(AF_INET, local, &in4) == 1) {
+		if (localaddr4 == NULL)
+			localaddr4 = isc_mem_get(gmctx, sizeof(isc_sockaddr_t));
+		if (localaddr4 == NULL)
+			fatal("out of memory");
+		isc_sockaddr_fromin(localaddr4, &in4, (in_port_t)port);
+	} else {
 		fprintf(stderr, "invalid address %s", local);
 		return (STATUS_SYNTAX);
 	}
@@ -1432,7 +1500,7 @@ evaluate_key(char *cmdline) {
 	isc_buffer_t b;
 	isc_result_t result;
 	dns_fixedname_t fkeyname;
-	dns_name_t *keyname;
+	dns_name_t *mykeyname;
 	int secretlen;
 	unsigned char *secret = NULL;
 	isc_buffer_t secretbuf;
@@ -1441,13 +1509,13 @@ evaluate_key(char *cmdline) {
 	char *n;
 
 	namestr = nsu_strsep(&cmdline, " \t\r\n");
-	if (*namestr == 0) {
+	if (namestr == NULL || *namestr == 0) {
 		fprintf(stderr, "could not read key name\n");
 		return (STATUS_SYNTAX);
 	}
 
 	dns_fixedname_init(&fkeyname);
-	keyname = dns_fixedname_name(&fkeyname);
+	mykeyname = dns_fixedname_name(&fkeyname);
 
 	n = strchr(namestr, ':');
 	if (n != NULL) {
@@ -1458,19 +1526,19 @@ evaluate_key(char *cmdline) {
 
 	isc_buffer_init(&b, namestr, strlen(namestr));
 	isc_buffer_add(&b, strlen(namestr));
-	result = dns_name_fromtext(keyname, &b, dns_rootname, 0, NULL);
+	result = dns_name_fromtext(mykeyname, &b, dns_rootname, 0, NULL);
 	if (result != ISC_R_SUCCESS) {
 		fprintf(stderr, "could not parse key name\n");
 		return (STATUS_SYNTAX);
 	}
 
 	secretstr = nsu_strsep(&cmdline, "\r\n");
-	if (*secretstr == 0) {
+	if (secretstr == NULL || *secretstr == 0) {
 		fprintf(stderr, "could not read key secret\n");
 		return (STATUS_SYNTAX);
 	}
 	secretlen = strlen(secretstr) * 3 / 4;
-	secret = isc_mem_allocate(mctx, secretlen);
+	secret = isc_mem_allocate(gmctx, secretlen);
 	if (secret == NULL)
 		fatal("out of memory");
 
@@ -1479,17 +1547,17 @@ evaluate_key(char *cmdline) {
 	if (result != ISC_R_SUCCESS) {
 		fprintf(stderr, "could not create key from %s: %s\n",
 			secretstr, isc_result_totext(result));
-		isc_mem_free(mctx, secret);
+		isc_mem_free(gmctx, secret);
 		return (STATUS_SYNTAX);
 	}
 	secretlen = isc_buffer_usedlength(&secretbuf);
 
 	if (tsigkey != NULL)
 		dns_tsigkey_detach(&tsigkey);
-	result = dns_tsigkey_create(keyname, hmacname, secret, secretlen,
-				    ISC_FALSE, NULL, 0, 0, mctx, NULL,
+	result = dns_tsigkey_create(mykeyname, hmacname, secret, secretlen,
+				    ISC_FALSE, NULL, 0, 0, gmctx, NULL,
 				    &tsigkey);
-	isc_mem_free(mctx, secret);
+	isc_mem_free(gmctx, secret);
 	if (result != ISC_R_SUCCESS) {
 		fprintf(stderr, "could not create key from %s %s: %s\n",
 			namestr, secretstr, dns_result_totext(result));
@@ -1506,7 +1574,7 @@ evaluate_zone(char *cmdline) {
 	isc_result_t result;
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read zone name\n");
 		return (STATUS_SYNTAX);
 	}
@@ -1530,17 +1598,21 @@ evaluate_realm(char *cmdline) {
 #ifdef GSSAPI
 	char *word;
 	char buf[1024];
+	int n;
 
-	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
-		if (realm != NULL)
-			isc_mem_free(mctx, realm);
+	if (realm != NULL) {
+		isc_mem_free(gmctx, realm);
 		realm = NULL;
-		return (STATUS_MORE);
 	}
 
-	snprintf(buf, sizeof(buf), "@%s", word);
-	realm = isc_mem_strdup(mctx, buf);
+	word = nsu_strsep(&cmdline, " \t\r\n");
+	if (word == NULL || *word == 0)
+		return (STATUS_MORE);
+
+	n = snprintf(buf, sizeof(buf), "@%s", word);
+	if (n < 0 || (size_t)n >= sizeof(buf))
+		fatal("realm is too long");
+	realm = isc_mem_strdup(gmctx, buf);
 	if (realm == NULL)
 		fatal("out of memory");
 	return (STATUS_MORE);
@@ -1557,7 +1629,7 @@ evaluate_ttl(char *cmdline) {
 	isc_uint32_t ttl;
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not ttl\n");
 		return (STATUS_SYNTAX);
 	}
@@ -1591,7 +1663,7 @@ evaluate_class(char *cmdline) {
 	dns_rdataclass_t rdclass;
 
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read class name\n");
 		return (STATUS_SYNTAX);
 	}
@@ -1649,7 +1721,7 @@ update_addordelete(char *cmdline, isc_boolean_t isdelete) {
 	 * If it's a delete, ignore a TTL if present (for compatibility).
 	 */
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		if (!isdelete) {
 			fprintf(stderr, "could not read owner ttl\n");
 			goto failure;
@@ -1690,7 +1762,7 @@ update_addordelete(char *cmdline, isc_boolean_t isdelete) {
 	 */
 	word = nsu_strsep(&cmdline, " \t\r\n");
  parseclass:
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		if (isdelete) {
 			rdataclass = dns_rdataclass_any;
 			rdatatype = dns_rdatatype_any;
@@ -1714,7 +1786,7 @@ update_addordelete(char *cmdline, isc_boolean_t isdelete) {
 		 * Now read the type.
 		 */
 		word = nsu_strsep(&cmdline, " \t\r\n");
-		if (*word == 0) {
+		if (word == NULL || *word == 0) {
 			if (isdelete) {
 				rdataclass = dns_rdataclass_any;
 				rdatatype = dns_rdatatype_any;
@@ -1794,11 +1866,13 @@ evaluate_update(char *cmdline) {
 
 	ddebug("evaluate_update()");
 	word = nsu_strsep(&cmdline, " \t\r\n");
-	if (*word == 0) {
+	if (word == NULL || *word == 0) {
 		fprintf(stderr, "could not read operation code\n");
 		return (STATUS_SYNTAX);
 	}
 	if (strcasecmp(word, "delete") == 0)
+		isdelete = ISC_TRUE;
+	else if (strcasecmp(word, "del") == 0)
 		isdelete = ISC_TRUE;
 	else if (strcasecmp(word, "add") == 0)
 		isdelete = ISC_FALSE;
@@ -1863,7 +1937,7 @@ show_message(FILE *stream, dns_message_t *msg, const char *description) {
 		}
 		if (buf != NULL)
 			isc_buffer_free(&buf);
-		result = isc_buffer_allocate(mctx, &buf, bufsz);
+		result = isc_buffer_allocate(gmctx, &buf, bufsz);
 		check_result(result, "isc_buffer_allocate");
 		result = dns_message_totext(msg, style, 0, buf);
 		bufsz *= 2;
@@ -1878,28 +1952,14 @@ show_message(FILE *stream, dns_message_t *msg, const char *description) {
 	isc_buffer_free(&buf);
 }
 
-
 static isc_uint16_t
-get_next_command(void) {
-	char cmdlinebuf[MAXCMD];
-	char *cmdline;
+do_next_command(char *cmdline) {
 	char *word;
 
-	ddebug("get_next_command()");
-	if (interactive) {
-		fprintf(stdout, "> ");
-		fflush(stdout);
-	}
-	isc_app_block();
-	cmdline = fgets(cmdlinebuf, MAXCMD, input);
-	isc_app_unblock();
-	if (cmdline == NULL)
-		return (STATUS_QUIT);
+	ddebug("do_next_command()");
 	word = nsu_strsep(&cmdline, " \t\r\n");
 
-	if (feof(input))
-		return (STATUS_QUIT);
-	if (*word == 0)
+	if (word == NULL || *word == 0)
 		return (STATUS_SEND);
 	if (word[0] == ';')
 		return (STATUS_MORE);
@@ -1907,8 +1967,22 @@ get_next_command(void) {
 		return (STATUS_QUIT);
 	if (strcasecmp(word, "prereq") == 0)
 		return (evaluate_prereq(cmdline));
+	if (strcasecmp(word, "nxdomain") == 0)
+		return (make_prereq(cmdline, ISC_FALSE, ISC_FALSE));
+	if (strcasecmp(word, "yxdomain") == 0)
+		return (make_prereq(cmdline, ISC_TRUE, ISC_FALSE));
+	if (strcasecmp(word, "nxrrset") == 0)
+		return (make_prereq(cmdline, ISC_FALSE, ISC_TRUE));
+	if (strcasecmp(word, "yxrrset") == 0)
+		return (make_prereq(cmdline, ISC_TRUE, ISC_TRUE));
 	if (strcasecmp(word, "update") == 0)
 		return (evaluate_update(cmdline));
+	if (strcasecmp(word, "delete") == 0)
+		return (update_addordelete(cmdline, ISC_TRUE));
+	if (strcasecmp(word, "del") == 0)
+		return (update_addordelete(cmdline, ISC_TRUE));
+	if (strcasecmp(word, "add") == 0)
+		return (update_addordelete(cmdline, ISC_FALSE));
 	if (strcasecmp(word, "server") == 0)
 		return (evaluate_server(cmdline));
 	if (strcasecmp(word, "local") == 0)
@@ -1963,6 +2037,7 @@ get_next_command(void) {
 	}
 	if (strcasecmp(word, "help") == 0) {
 		fprintf(stdout,
+"nsupdate " VERSION ":\n"
 "local address [port]      (set local resolver)\n"
 "server address [port]     (set master server for zone)\n"
 "send                      (send the update request)\n"
@@ -1975,16 +2050,58 @@ get_next_command(void) {
 "oldgsstsig                (use Microsoft's GSS_TSIG to sign the request)\n"
 "zone name                 (set the zone to be updated)\n"
 "class CLASS               (set the zone's DNS class, e.g. IN (default), CH)\n"
-"prereq nxdomain name      (does this name not exist)\n"
-"prereq yxdomain name      (does this name exist)\n"
-"prereq nxrrset ....       (does this RRset exist)\n"
-"prereq yxrrset ....       (does this RRset not exist)\n"
-"update add ....           (add the given record to the zone)\n"
-"update delete ....        (remove the given record(s) from the zone)\n");
+"[prereq] nxdomain name    (does this name not exist)\n"
+"[prereq] yxdomain name    (does this name exist)\n"
+"[prereq] nxrrset ....     (does this RRset exist)\n"
+"[prereq] yxrrset ....     (does this RRset not exist)\n"
+"[update] add ....         (add the given record to the zone)\n"
+"[update] del[ete] ....    (remove the given record(s) from the zone)\n");
+		return (STATUS_MORE);
+	}
+	if (strcasecmp(word, "version") == 0) {
+		fprintf(stdout, "nsupdate " VERSION "\n");
 		return (STATUS_MORE);
 	}
 	fprintf(stderr, "incorrect section name: %s\n", word);
 	return (STATUS_SYNTAX);
+}
+
+static isc_uint16_t
+get_next_command(void) {
+	isc_uint16_t result = STATUS_QUIT;
+	char cmdlinebuf[MAXCMD];
+	char *cmdline;
+
+	isc_app_block();
+	if (interactive) {
+#ifdef HAVE_READLINE
+		cmdline = readline("> ");
+		if (cmdline != NULL)
+			add_history(cmdline);
+#else
+		fprintf(stdout, "> ");
+		fflush(stdout);
+		cmdline = fgets(cmdlinebuf, MAXCMD, input);
+#endif
+	} else
+		cmdline = fgets(cmdlinebuf, MAXCMD, input);
+	isc_app_unblock();
+
+	if (cmdline != NULL) {
+		char *tmp = cmdline;
+
+		/*
+		 * Normalize input by removing any eol as readline()
+		 * removes eol but fgets doesn't.
+		 */
+		(void)nsu_strsep(&tmp, "\r\n");
+		result = do_next_command(cmdline);
+	}
+#ifdef HAVE_READLINE
+	if (interactive)
+		free(cmdline);
+#endif
+	return (result);
 }
 
 static isc_boolean_t
@@ -2024,13 +2141,26 @@ check_tsig_error(dns_rdataset_t *rdataset, isc_buffer_t *b) {
 	if (tsig.error != 0) {
 		if (isc_buffer_remaininglength(b) < 1)
 		      check_result(ISC_R_NOSPACE, "isc_buffer_remaininglength");
-		isc__buffer_putstr(b, "(" /*)*/);
+		isc_buffer_putstr(b, "(" /*)*/);
 		result = dns_tsigrcode_totext(tsig.error, b);
 		check_result(result, "dns_tsigrcode_totext");
 		if (isc_buffer_remaininglength(b) < 1)
 		      check_result(ISC_R_NOSPACE, "isc_buffer_remaininglength");
-		isc__buffer_putstr(b,  /*(*/ ")");
+		isc_buffer_putstr(b,  /*(*/ ")");
 	}
+}
+
+static isc_boolean_t
+next_master(const char *caller, isc_sockaddr_t *addr, isc_result_t eresult) {
+	char addrbuf[ISC_SOCKADDR_FORMATSIZE];
+
+	isc_sockaddr_format(addr, addrbuf, sizeof(addrbuf));
+	fprintf(stderr, "; Communication with %s failed: %s\n",
+		addrbuf, isc_result_totext(eresult));
+	if (++master_inuse >= master_total)
+		return (ISC_FALSE);
+	ddebug("%s: trying next server", caller);
+	return (ISC_TRUE);
 }
 
 static void
@@ -2057,13 +2187,22 @@ update_completed(isc_task_t *task, isc_event_t *event) {
 	}
 
 	if (reqev->result != ISC_R_SUCCESS) {
-		fprintf(stderr, "; Communication with server failed: %s\n",
-			isc_result_totext(reqev->result));
-		seenerror = ISC_TRUE;
-		goto done;
+		if (!next_master("recvsoa", &master_servers[master_inuse],
+				 reqev->result)) {
+			seenerror = ISC_TRUE;
+			goto done;
+		}
+
+		ddebug("Destroying request [%p]", request);
+		dns_request_destroy(&request);
+		dns_message_renderreset(updatemsg);
+		dns_message_settsigkey(updatemsg, NULL);
+		send_update(zname, &master_servers[master_inuse]);
+		isc_event_free(&event);
+		return;
 	}
 
-	result = dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &answer);
+	result = dns_message_create(gmctx, DNS_MESSAGE_INTENTPARSE, &answer);
 	check_result(result, "dns_message_create");
 	result = dns_request_getresponse(request, answer,
 					 DNS_MESSAGEPARSE_PRESERVEORDER);
@@ -2117,24 +2256,23 @@ update_completed(isc_task_t *task, isc_event_t *event) {
  done:
 	dns_request_destroy(&request);
 	if (usegsstsig) {
-		dns_name_free(&tmpzonename, mctx);
-		dns_name_free(&restart_master, mctx);
+		dns_name_free(&tmpzonename, gmctx);
+		dns_name_free(&restart_master, gmctx);
 	}
 	isc_event_free(&event);
 	done_update();
 }
 
 static void
-send_update(dns_name_t *zonename, isc_sockaddr_t *master,
-	    isc_sockaddr_t *srcaddr)
-{
+send_update(dns_name_t *zone, isc_sockaddr_t *master) {
 	isc_result_t result;
 	dns_request_t *request = NULL;
 	unsigned int options = DNS_REQUESTOPT_CASE;
+	isc_sockaddr_t *srcaddr;
 
 	ddebug("send_update()");
 
-	setzone(zonename);
+	setzone(zone);
 
 	if (usevc)
 		options |= DNS_REQUESTOPT_TCP;
@@ -2148,6 +2286,11 @@ send_update(dns_name_t *zonename, isc_sockaddr_t *master,
 		isc_sockaddr_format(master, addrbuf, sizeof(addrbuf));
 		fprintf(stderr, "Sending update to %s\n", addrbuf);
 	}
+
+	if (isc_sockaddr_pf(master) == AF_INET6)
+		srcaddr = localaddr6;
+	else
+		srcaddr = localaddr4;
 
 	/* Windows doesn't like the tsig name to be compressed. */
 	if (updatemsg->tsigname)
@@ -2166,6 +2309,19 @@ send_update(dns_name_t *zonename, isc_sockaddr_t *master,
 }
 
 static void
+next_server(const char *caller, isc_sockaddr_t *addr, isc_result_t eresult) {
+	char addrbuf[ISC_SOCKADDR_FORMATSIZE];
+
+	isc_sockaddr_format(addr, addrbuf, sizeof(addrbuf));
+	fprintf(stderr, "; Communication with %s failed: %s\n",
+		addrbuf, isc_result_totext(eresult));
+	if (++ns_inuse >= ns_total)
+		fatal("could not reach any name server");
+	else
+		ddebug("%s: trying next server", caller);
+}
+
+static void
 recvsoa(isc_task_t *task, isc_event_t *event) {
 	dns_requestevent_t *reqev = NULL;
 	dns_request_t *request = NULL;
@@ -2181,6 +2337,7 @@ recvsoa(isc_task_t *task, isc_event_t *event) {
 	nsu_requestinfo_t *reqinfo;
 	dns_message_t *soaquery = NULL;
 	isc_sockaddr_t *addr;
+	isc_sockaddr_t *srcaddr;
 	isc_boolean_t seencname = ISC_FALSE;
 	dns_name_t tname;
 	unsigned int nlabels;
@@ -2202,56 +2359,54 @@ recvsoa(isc_task_t *task, isc_event_t *event) {
 	if (shuttingdown) {
 		dns_request_destroy(&request);
 		dns_message_destroy(&soaquery);
-		isc_mem_put(mctx, reqinfo, sizeof(nsu_requestinfo_t));
+		isc_mem_put(gmctx, reqinfo, sizeof(nsu_requestinfo_t));
 		isc_event_free(&event);
 		maybeshutdown();
 		return;
 	}
 
 	if (eresult != ISC_R_SUCCESS) {
-		char addrbuf[ISC_SOCKADDR_FORMATSIZE];
-
-		isc_sockaddr_format(addr, addrbuf, sizeof(addrbuf));
-		fprintf(stderr, "; Communication with %s failed: %s\n",
-			addrbuf, isc_result_totext(eresult));
-		if (userserver != NULL)
-			fatal("could not talk to specified name server");
-		else if (++ns_inuse >= lwconf->nsnext)
-			fatal("could not talk to any default name server");
+		next_server("recvsoa", addr, eresult);
 		ddebug("Destroying request [%p]", request);
 		dns_request_destroy(&request);
 		dns_message_renderreset(soaquery);
 		dns_message_settsigkey(soaquery, NULL);
-		sendrequest(localaddr, &servers[ns_inuse], soaquery, &request);
-		isc_mem_put(mctx, reqinfo, sizeof(nsu_requestinfo_t));
+		sendrequest(&servers[ns_inuse], soaquery, &request);
+		isc_mem_put(gmctx, reqinfo, sizeof(nsu_requestinfo_t));
 		isc_event_free(&event);
 		setzoneclass(dns_rdataclass_none);
 		return;
 	}
 
-	isc_mem_put(mctx, reqinfo, sizeof(nsu_requestinfo_t));
+	isc_mem_put(gmctx, reqinfo, sizeof(nsu_requestinfo_t));
 	reqinfo = NULL;
 	isc_event_free(&event);
 	reqev = NULL;
 
 	ddebug("About to create rcvmsg");
-	result = dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &rcvmsg);
+	result = dns_message_create(gmctx, DNS_MESSAGE_INTENTPARSE, &rcvmsg);
 	check_result(result, "dns_message_create");
 	result = dns_request_getresponse(request, rcvmsg,
 					 DNS_MESSAGEPARSE_PRESERVEORDER);
-	if (result == DNS_R_TSIGERRORSET && userserver != NULL) {
+	if (result == DNS_R_TSIGERRORSET && servers != NULL) {
 		dns_message_destroy(&rcvmsg);
 		ddebug("Destroying request [%p]", request);
 		dns_request_destroy(&request);
-		reqinfo = isc_mem_get(mctx, sizeof(nsu_requestinfo_t));
+		reqinfo = isc_mem_get(gmctx, sizeof(nsu_requestinfo_t));
 		if (reqinfo == NULL)
 			fatal("out of memory");
 		reqinfo->msg = soaquery;
 		reqinfo->addr = addr;
 		dns_message_renderreset(soaquery);
 		ddebug("retrying soa request without TSIG");
-		result = dns_request_createvia3(requestmgr, soaquery,
-						localaddr, addr, 0, NULL,
+
+		if (isc_sockaddr_pf(addr) == AF_INET6)
+			srcaddr = localaddr6;
+		else
+			srcaddr = localaddr4;
+
+		result = dns_request_createvia3(requestmgr, soaquery, srcaddr,
+						addr, 0, NULL,
 						FIND_TIMEOUT * 20,
 						FIND_TIMEOUT, 3,
 						global_task, recvsoa, reqinfo,
@@ -2345,9 +2500,9 @@ recvsoa(isc_task_t *task, isc_event_t *event) {
 	dns_name_clone(&soa.origin, &master);
 
 	if (userzone != NULL)
-		zonename = userzone;
+		zname = userzone;
 	else
-		zonename = name;
+		zname = name;
 
 	if (debugging) {
 		char namestr[DNS_NAME_FORMATSIZE];
@@ -2355,34 +2510,45 @@ recvsoa(isc_task_t *task, isc_event_t *event) {
 		fprintf(stderr, "The master is: %s\n", namestr);
 	}
 
-	if (userserver != NULL)
-		serveraddr = userserver;
-	else {
+	if (default_servers) {
 		char serverstr[DNS_NAME_MAXTEXT+1];
 		isc_buffer_t buf;
+		size_t size;
 
 		isc_buffer_init(&buf, serverstr, sizeof(serverstr));
 		result = dns_name_totext(&master, ISC_TRUE, &buf);
 		check_result(result, "dns_name_totext");
 		serverstr[isc_buffer_usedlength(&buf)] = 0;
-		get_address(serverstr, dnsport, &tempaddr);
-		serveraddr = &tempaddr;
-	}
+
+		if (master_servers != NULL && master_servers != servers)
+			isc_mem_put(gmctx, master_servers,
+				    master_total * sizeof(isc_sockaddr_t));
+		master_total = MAX_SERVERADDRS;
+		size = master_total * sizeof(isc_sockaddr_t);
+		master_servers = isc_mem_get(gmctx, size);
+		if (master_servers == NULL)
+			fatal("out of memory");
+
+		memset(master_servers, 0, size);
+		get_addresses(serverstr, dnsport, master_servers, master_total);
+		master_inuse = 0;
+	} else
+		master_from_servers();
 	dns_rdata_freestruct(&soa);
 
 #ifdef GSSAPI
 	if (usegsstsig) {
 		dns_name_init(&tmpzonename, NULL);
-		dns_name_dup(zonename, mctx, &tmpzonename);
+		dns_name_dup(zname, gmctx, &tmpzonename);
 		dns_name_init(&restart_master, NULL);
-		dns_name_dup(&master, mctx, &restart_master);
+		dns_name_dup(&master, gmctx, &restart_master);
 		start_gssrequest(&master);
 	} else {
-		send_update(zonename, serveraddr, localaddr);
+		send_update(zname, &master_servers[master_inuse]);
 		setzoneclass(dns_rdataclass_none);
 	}
 #else
-	send_update(zonename, serveraddr, localaddr);
+	send_update(zname, &master_servers[master_inuse]);
 	setzoneclass(dns_rdataclass_none);
 #endif
 
@@ -2408,27 +2574,31 @@ recvsoa(isc_task_t *task, isc_event_t *event) {
 	dns_request_destroy(&request);
 	dns_message_renderreset(soaquery);
 	dns_message_settsigkey(soaquery, NULL);
-	if (userserver != NULL)
-		sendrequest(localaddr, userserver, soaquery, &request);
-	else
-		sendrequest(localaddr, &servers[ns_inuse], soaquery, &request);
+	sendrequest(&servers[ns_inuse], soaquery, &request);
 	goto out;
 }
 
 static void
-sendrequest(isc_sockaddr_t *srcaddr, isc_sockaddr_t *destaddr,
-	    dns_message_t *msg, dns_request_t **request)
+sendrequest(isc_sockaddr_t *destaddr, dns_message_t *msg,
+	    dns_request_t **request)
 {
 	isc_result_t result;
 	nsu_requestinfo_t *reqinfo;
+	isc_sockaddr_t *srcaddr;
 
-	reqinfo = isc_mem_get(mctx, sizeof(nsu_requestinfo_t));
+	reqinfo = isc_mem_get(gmctx, sizeof(nsu_requestinfo_t));
 	if (reqinfo == NULL)
 		fatal("out of memory");
 	reqinfo->msg = msg;
 	reqinfo->addr = destaddr;
+
+	if (isc_sockaddr_pf(destaddr) == AF_INET6)
+		srcaddr = localaddr6;
+	else
+		srcaddr = localaddr4;
+
 	result = dns_request_createvia3(requestmgr, msg, srcaddr, destaddr, 0,
-					(userserver != NULL) ? tsigkey : NULL,
+					default_servers ? NULL : tsigkey,
 					FIND_TIMEOUT * 20, FIND_TIMEOUT, 3,
 					global_task, recvsoa, reqinfo, request);
 	check_result(result, "dns_request_createvia");
@@ -2441,8 +2611,7 @@ sendrequest(isc_sockaddr_t *srcaddr, isc_sockaddr_t *destaddr,
  * Get the realm from the users kerberos ticket if possible
  */
 static void
-get_ticket_realm(isc_mem_t *mctx)
-{
+get_ticket_realm(isc_mem_t *mctx) {
 	krb5_context ctx;
 	krb5_error_code rc;
 	krb5_ccache ccache;
@@ -2499,7 +2668,7 @@ start_gssrequest(dns_name_t *master) {
 	dns_name_t *servname;
 	dns_fixedname_t fname;
 	char namestr[DNS_NAME_FORMATSIZE];
-	char keystr[DNS_NAME_FORMATSIZE];
+	char mykeystr[DNS_NAME_FORMATSIZE];
 	char *err_message = NULL;
 
 	debug("start_gssrequest");
@@ -2508,7 +2677,7 @@ start_gssrequest(dns_name_t *master) {
 	if (gssring != NULL)
 		dns_tsigkeyring_detach(&gssring);
 	gssring = NULL;
-	result = dns_tsigkeyring_create(mctx, &gssring);
+	result = dns_tsigkeyring_create(gmctx, &gssring);
 
 	if (result != ISC_R_SUCCESS)
 		fatal("dns_tsigkeyring_create failed: %s",
@@ -2516,20 +2685,20 @@ start_gssrequest(dns_name_t *master) {
 
 	dns_name_format(master, namestr, sizeof(namestr));
 	if (kserver == NULL) {
-		kserver = isc_mem_get(mctx, sizeof(isc_sockaddr_t));
+		kserver = isc_mem_get(gmctx, sizeof(isc_sockaddr_t));
 		if (kserver == NULL)
 			fatal("out of memory");
 	}
-	if (userserver == NULL)
-		get_address(namestr, dnsport, kserver);
+	if (servers == NULL)
+		get_addresses(namestr, dnsport, kserver, 1);
 	else
-		(void)memcpy(kserver, userserver, sizeof(isc_sockaddr_t));
+		memmove(kserver, &servers[ns_inuse], sizeof(isc_sockaddr_t));
 
 	dns_fixedname_init(&fname);
 	servname = dns_fixedname_name(&fname);
 
 	if (realm == NULL)
-		get_ticket_realm(mctx);
+		get_ticket_realm(gmctx);
 
 	result = isc_string_printf(servicename, sizeof(servicename),
 				   "DNS/%s%s", namestr, realm ? realm : "");
@@ -2547,13 +2716,13 @@ start_gssrequest(dns_name_t *master) {
 	keyname = dns_fixedname_name(&fkname);
 
 	isc_random_get(&val);
-	result = isc_string_printf(keystr, sizeof(keystr), "%u.sig-%s",
+	result = isc_string_printf(mykeystr, sizeof(mykeystr), "%u.sig-%s",
 				   val, namestr);
 	if (result != ISC_R_SUCCESS)
-		fatal("isc_string_printf(keystr) failed: %s",
+		fatal("isc_string_printf(mykeystr) failed: %s",
 		      isc_result_totext(result));
-	isc_buffer_init(&buf, keystr, strlen(keystr));
-	isc_buffer_add(&buf, strlen(keystr));
+	isc_buffer_init(&buf, mykeystr, strlen(mykeystr));
+	isc_buffer_add(&buf, strlen(mykeystr));
 
 	result = dns_name_fromtext(keyname, &buf, dns_rootname, 0, NULL);
 	if (result != ISC_R_SUCCESS)
@@ -2564,7 +2733,7 @@ start_gssrequest(dns_name_t *master) {
 	keyname->attributes |= DNS_NAMEATTR_NOCOMPRESS;
 
 	rmsg = NULL;
-	result = dns_message_create(mctx, DNS_MESSAGE_INTENTRENDER, &rmsg);
+	result = dns_message_create(gmctx, DNS_MESSAGE_INTENTRENDER, &rmsg);
 	if (result != ISC_R_SUCCESS)
 		fatal("dns_message_create failed: %s",
 		      isc_result_totext(result));
@@ -2573,7 +2742,7 @@ start_gssrequest(dns_name_t *master) {
 	context = GSS_C_NO_CONTEXT;
 	result = dns_tkey_buildgssquery(rmsg, keyname, servname, NULL, 0,
 					&context, use_win2k_gsstsig,
-					mctx, &err_message);
+					gmctx, &err_message);
 	if (result == ISC_R_FAILURE)
 		fatal("tkey query failed: %s",
 		      err_message != NULL ? err_message : "unknown error");
@@ -2581,20 +2750,20 @@ start_gssrequest(dns_name_t *master) {
 		fatal("dns_tkey_buildgssquery failed: %s",
 		      isc_result_totext(result));
 
-	send_gssrequest(localaddr, kserver, rmsg, &request, context);
+	send_gssrequest(kserver, rmsg, &request, context);
 }
 
 static void
-send_gssrequest(isc_sockaddr_t *srcaddr, isc_sockaddr_t *destaddr,
-		dns_message_t *msg, dns_request_t **request,
-		gss_ctx_id_t context)
+send_gssrequest(isc_sockaddr_t *destaddr, dns_message_t *msg,
+		dns_request_t **request, gss_ctx_id_t context)
 {
 	isc_result_t result;
 	nsu_gssinfo_t *reqinfo;
 	unsigned int options = 0;
+	isc_sockaddr_t *srcaddr;
 
 	debug("send_gssrequest");
-	reqinfo = isc_mem_get(mctx, sizeof(nsu_gssinfo_t));
+	reqinfo = isc_mem_get(gmctx, sizeof(nsu_gssinfo_t));
 	if (reqinfo == NULL)
 		fatal("out of memory");
 	reqinfo->msg = msg;
@@ -2602,6 +2771,12 @@ send_gssrequest(isc_sockaddr_t *srcaddr, isc_sockaddr_t *destaddr,
 	reqinfo->context = context;
 
 	options |= DNS_REQUESTOPT_TCP;
+
+	if (isc_sockaddr_pf(destaddr) == AF_INET6)
+		srcaddr = localaddr6;
+	else
+		srcaddr = localaddr4;
+
 	result = dns_request_createvia3(requestmgr, msg, srcaddr, destaddr,
 					options, tsigkey, FIND_TIMEOUT * 20,
 					FIND_TIMEOUT, 3, global_task, recvgss,
@@ -2645,38 +2820,29 @@ recvgss(isc_task_t *task, isc_event_t *event) {
 	if (shuttingdown) {
 		dns_request_destroy(&request);
 		dns_message_destroy(&tsigquery);
-		isc_mem_put(mctx, reqinfo, sizeof(nsu_gssinfo_t));
+		isc_mem_put(gmctx, reqinfo, sizeof(nsu_gssinfo_t));
 		isc_event_free(&event);
 		maybeshutdown();
 		return;
 	}
 
 	if (eresult != ISC_R_SUCCESS) {
-		char addrbuf[ISC_SOCKADDR_FORMATSIZE];
-
-		isc_sockaddr_format(addr, addrbuf, sizeof(addrbuf));
-		fprintf(stderr, "; Communication with %s failed: %s\n",
-			addrbuf, isc_result_totext(eresult));
-		if (userserver != NULL)
-			fatal("could not talk to specified name server");
-		else if (++ns_inuse >= lwconf->nsnext)
-			fatal("could not talk to any default name server");
+		next_server("recvgss", addr, eresult);
 		ddebug("Destroying request [%p]", request);
 		dns_request_destroy(&request);
 		dns_message_renderreset(tsigquery);
-		sendrequest(localaddr, &servers[ns_inuse], tsigquery,
-			    &request);
-		isc_mem_put(mctx, reqinfo, sizeof(nsu_gssinfo_t));
+		sendrequest(&servers[ns_inuse], tsigquery, &request);
+		isc_mem_put(gmctx, reqinfo, sizeof(nsu_gssinfo_t));
 		isc_event_free(&event);
 		return;
 	}
-	isc_mem_put(mctx, reqinfo, sizeof(nsu_gssinfo_t));
+	isc_mem_put(gmctx, reqinfo, sizeof(nsu_gssinfo_t));
 
 	isc_event_free(&event);
 	reqev = NULL;
 
 	ddebug("recvgss creating rcvmsg");
-	result = dns_message_create(mctx, DNS_MESSAGE_INTENTPARSE, &rcvmsg);
+	result = dns_message_create(gmctx, DNS_MESSAGE_INTENTPARSE, &rcvmsg);
 	check_result(result, "dns_message_create");
 
 	result = dns_request_getresponse(request, rcvmsg,
@@ -2719,8 +2885,7 @@ recvgss(isc_task_t *task, isc_event_t *event) {
 	switch (result) {
 
 	case DNS_R_CONTINUE:
-		send_gssrequest(localaddr, kserver, tsigquery, &request,
-				context);
+		send_gssrequest(kserver, tsigquery, &request, context);
 		break;
 
 	case ISC_R_SUCCESS:
@@ -2753,7 +2918,7 @@ recvgss(isc_task_t *task, isc_event_t *event) {
 		check_result(result, "dns_message_checksig");
 #endif /* 0 */
 
-		send_update(&tmpzonename, serveraddr, localaddr);
+		send_update(&tmpzonename, &master_servers[master_inuse]);
 		setzoneclass(dns_rdataclass_none);
 		break;
 
@@ -2787,17 +2952,23 @@ start_update(void) {
 	if (answer != NULL)
 		dns_message_destroy(&answer);
 
-	if (userzone != NULL && userserver != NULL && ! usegsstsig) {
-		send_update(userzone, userserver, localaddr);
+	/*
+	 * If we have both the zone and the servers we have enough information
+	 * to send the update straight away otherwise we need to discover
+	 * the zone and / or the master server.
+	 */
+	if (userzone != NULL && !default_servers && !usegsstsig) {
+		master_from_servers();
+		send_update(userzone, &master_servers[master_inuse]);
 		setzoneclass(dns_rdataclass_none);
 		return;
 	}
 
-	result = dns_message_create(mctx, DNS_MESSAGE_INTENTRENDER,
+	result = dns_message_create(gmctx, DNS_MESSAGE_INTENTRENDER,
 				    &soaquery);
 	check_result(result, "dns_message_create");
 
-	if (userserver == NULL)
+	if (default_servers)
 		soaquery->flags |= DNS_MESSAGEFLAG_RD;
 
 	result = dns_message_gettempname(soaquery, &name);
@@ -2849,12 +3020,8 @@ start_update(void) {
 	ISC_LIST_APPEND(name->list, rdataset, link);
 	dns_message_addname(soaquery, name, DNS_SECTION_QUESTION);
 
-	if (userserver != NULL)
-		sendrequest(localaddr, userserver, soaquery, &request);
-	else {
-		ns_inuse = 0;
-		sendrequest(localaddr, &servers[ns_inuse], soaquery, &request);
-	}
+	ns_inuse = 0;
+	sendrequest(&servers[ns_inuse], soaquery, &request);
 }
 
 static void
@@ -2874,11 +3041,11 @@ cleanup(void) {
 		dns_tsigkeyring_detach(&gssring);
 	}
 	if (kserver != NULL) {
-		isc_mem_put(mctx, kserver, sizeof(isc_sockaddr_t));
+		isc_mem_put(gmctx, kserver, sizeof(isc_sockaddr_t));
 		kserver = NULL;
 	}
 	if (realm != NULL) {
-		isc_mem_free(mctx, realm);
+		isc_mem_free(gmctx, realm);
 		realm = NULL;
 	}
 #endif
@@ -2905,12 +3072,12 @@ cleanup(void) {
 	dns_name_destroy();
 
 	ddebug("Removing log context");
-	isc_log_destroy(&lctx);
+	isc_log_destroy(&glctx);
 
 	ddebug("Destroying memory context");
 	if (memdebugging)
-		isc_mem_stats(mctx, stderr);
-	isc_mem_destroy(&mctx);
+		isc_mem_stats(gmctx, stderr);
+	isc_mem_destroy(&gmctx);
 }
 
 static void
@@ -2950,14 +3117,14 @@ main(int argc, char **argv) {
 
 	pre_parse_args(argc, argv);
 
-	result = isc_mem_create(0, 0, &mctx);
+	result = isc_mem_create(0, 0, &gmctx);
 	check_result(result, "isc_mem_create");
 
-	parse_args(argc, argv, mctx, &entropy);
+	parse_args(argc, argv, gmctx, &entropy);
 
 	setup_system();
 
-	result = isc_app_onrun(mctx, global_task, getinput, NULL);
+	result = isc_app_onrun(gmctx, global_task, getinput, NULL);
 	check_result(result, "isc_app_onrun");
 
 	(void)isc_app_run();

@@ -13,6 +13,8 @@
 #include <Security/SecBase.h>
 #include <sandbox.h>
 
+AUTHD_DEFINE_LOG
+
 static Boolean AuthTokenEqualCallBack(const void *value1, const void *value2)
 {
     return (*(uint64_t*)value1) == (*(uint64_t*)value2);
@@ -57,6 +59,8 @@ struct _auth_token_s {
     
     CFMutableSetRef credentials;
     CFMutableSetRef authorized_rights;
+
+	CFMutableDataRef encryption_key;
     
     bool least_privileged;
     bool appleSigned;
@@ -72,21 +76,23 @@ static void
 _auth_token_finalize(CFTypeRef value)
 {
     auth_token_t auth = (auth_token_t)value;
-    LOGV("authtoken: deallocated %p", auth);
+    os_log_debug(AUTHD_LOG, "authtoken: finalizing");
     
     dispatch_barrier_sync(auth->dispatch_queue, ^{});
     
     dispatch_release(auth->dispatch_queue);
-    CFReleaseSafe(auth->session);
-    CFReleaseSafe(auth->processes);
-    CFReleaseSafe(auth->context);
-    CFReleaseSafe(auth->credentials);
-    CFReleaseSafe(auth->authorized_rights);
+    CFReleaseNull(auth->session);
+    CFReleaseNull(auth->processes);
+    CFReleaseNull(auth->context);
+    CFReleaseNull(auth->credentials);
+    CFReleaseNull(auth->authorized_rights);
     free_safe(auth->code_url);
-    CFReleaseSafe(auth->credential);
+    CFReleaseNull(auth->credential);
+	CFReleaseNull(auth->encryption_key);
     
     if (auth->creator_bootstrap_port != MACH_PORT_NULL) {
         mach_port_deallocate(mach_task_self(), auth->creator_bootstrap_port);
+		auth->creator_bootstrap_port = MACH_PORT_NULL;
     }
 }
 
@@ -103,8 +109,8 @@ static CFStringRef
 _auth_token_copy_description(CFTypeRef value)
 {
     auth_token_t auth = (auth_token_t)value;
-    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("auth_token: %p, uid=%i, pid=%i, processes=%li least_privileged=%i"),
-                                    auth, auth->auditInfo.euid, auth->auditInfo.pid, CFSetGetCount(auth->processes), auth->least_privileged);
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("auth_token: uid=%i, pid=%i, processes=%li least_privileged=%i"),
+                                    auth->auditInfo.euid, auth->auditInfo.pid, CFSetGetCount(auth->processes), auth->least_privileged);
 }
 
 static CFHashCode
@@ -146,7 +152,7 @@ _auth_token_create(const audit_info_s * auditInfo, bool operateAsLeastPrivileged
     require(auth != NULL, done);
     
     if (CCRandomCopyBytes(kCCRandomDefault, auth->blob.data, sizeof(auth->blob.data)) != kCCSuccess) {
-        LOGE("authtoken[%i]: failed to generate blob", auditInfo->pid);
+        os_log_error(AUTHD_LOG, "authtoken: failed to generate blob (PID %d)", auditInfo->pid);
         CFReleaseNull(auth);
         goto done;
     }
@@ -168,11 +174,21 @@ _auth_token_create(const audit_info_s * auditInfo, bool operateAsLeastPrivileged
 	else
 		auth->sandboxed = false;
     
+	size_t key_length = kCCKeySizeAES256;
+	auth->encryption_key = CFDataCreateMutable(kCFAllocatorDefault, key_length);
+	if (auth->encryption_key) {
+		int rv = CCRandomCopyBytes(kCCRandomDefault, CFDataGetMutableBytePtr(auth->encryption_key), key_length);
+		if (rv != kCCSuccess) {
+			CFReleaseNull(auth->encryption_key)
+		}
+		CFDataSetLength(auth->encryption_key, key_length);
+	}
+
 #if DEBUG
     CFHashCode code = AuthTokenHashCallBack(&auth->blob);
     if (memcmp(&code, auth->blob.data, sizeof(auth->blob.data)) != 0) {
-        LOGD("authtoken[%i]: blob = %x%01x", auth->auditInfo.pid, auth->blob.data[1], auth->blob.data[0]);
-        LOGD("authtoken[%i]: hash = %lx", auth->auditInfo.pid, code);
+        os_log_debug(AUTHD_LOG, "authtoken[%i]: blob = %x%01x", auth->auditInfo.pid, auth->blob.data[1], auth->blob.data[0]);
+        os_log_debug(AUTHD_LOG, "authtoken[%i]: hash = %lx", auth->auditInfo.pid, code);
         assert(false);
     }
 #endif
@@ -206,7 +222,7 @@ auth_token_create(process_t proc, bool operateAsLeastPrivileged)
         }
     }
     
-    LOGV("authtoken[%i]: created %p", auth->auditInfo.pid, auth);
+    os_log_debug(AUTHD_LOG, "authtoken: created for PID %d", auth->auditInfo.pid);
 
 done:
     return auth;
@@ -227,7 +243,7 @@ auth_token_create_with_audit_info(const audit_info_s* info, bool operateAsLeastP
     
     auth->session = server_find_copy_session(info->asid, true);
     if (auth->session == NULL) {
-        LOGV("authtoken[%i]: failed to create session", auth->auditInfo.pid);
+        os_log_debug(AUTHD_LOG, "authtoken: failed to create session (PID %d)", auth->auditInfo.pid);
         CFReleaseNull(auth);
         goto done;
     }
@@ -240,7 +256,7 @@ auth_token_create_with_audit_info(const audit_info_s* info, bool operateAsLeastP
     CFReleaseSafe(codePid);
     
     if (status) {
-        LOGV("authtoken[%i]: failed to create code ref (%d)", auth->auditInfo.pid, (int)status);
+        os_log_debug(AUTHD_LOG, "authtoken: failed to create code ref (%d)", (int)status);
         CFReleaseNull(auth);
         goto done;
     }
@@ -252,7 +268,7 @@ auth_token_create_with_audit_info(const audit_info_s* info, bool operateAsLeastP
         }
     }
 
-    LOGV("authtoken[%i]: created %p for %s", auth->auditInfo.pid, auth, auth->code_url);
+    os_log_debug(AUTHD_LOG, "authtoken: created for %{public}s", auth->code_url);
     
 done:
     CFReleaseSafe(code_Ref);
@@ -515,3 +531,9 @@ bool auth_token_check_state(auth_token_t auth, auth_token_state_t state)
         return auth->state == 0;
     }
 }
+
+CFDataRef auth_token_get_encryption_key(auth_token_t auth)
+{
+	return auth->encryption_key;
+}
+

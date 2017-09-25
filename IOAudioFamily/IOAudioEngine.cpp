@@ -1832,7 +1832,6 @@ UInt32 IOAudioEngine::getNumSampleFramesPerBuffer()
 IOAudioEngineState
 IOAudioEngine::getState()
 {
-    AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineGetState, (uintptr_t)this, index, state, 0);
     return state;
 }
 
@@ -2045,6 +2044,7 @@ void IOAudioEngine::timerFired()
 {
     audioDebugIOLog(7, "+ IOAudioEngine[%p]::timerFired()\n", this);
 
+    AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineTimerFired, (uintptr_t)this, 0, 0, 0);
     performErase();
     performFlush();
 	
@@ -2056,7 +2056,7 @@ void IOAudioEngine::timerFired()
 void IOAudioEngine::performErase()
 {
     audioDebugIOLog(7, "+ IOAudioEngine[%p]::performErase()\n", this);
-
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEnginePerformErase, (uintptr_t)this, 0, 0, 0 );
     assert(status);
     
     if (getRunEraseHead() && getState() == kIOAudioEngineRunning) {
@@ -2066,8 +2066,14 @@ void IOAudioEngine::performErase()
 		
 		assert(outputStreams);
 		
-		currentSampleFrame = getCurrentSampleFrame();
+		/* <rdar://30784792>, Assignment sequence of below 3 lines matter. eraseHeadSampleFrame is assigned first and then currentSampleFrame value is read.
+		 * This is to avoid erasing valid samples when the CPU context switch happens between two performErase() calls(one from timer, other from driver )
+		 */
 		eraseHeadSampleFrame = status->fEraseHeadSampleFrame;
+		currentSampleFrame = getCurrentSampleFrame();
+		status->fEraseHeadSampleFrame = currentSampleFrame;
+		
+		AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEnginePerformErase, (uintptr_t)this, currentSampleFrame, eraseHeadSampleFrame, eraseHeadSampleFrame );
 		
 		//	<rdar://12188841> Modified code to remove OSCollectionIterator allocation on every call
 		outputStreams->retain();
@@ -2112,10 +2118,9 @@ void IOAudioEngine::performErase()
 			}
 		}
 		outputStreams->release();
-		
-		status->fEraseHeadSampleFrame = currentSampleFrame;
     }
 
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEnginePerformErase, (uintptr_t)this, 0, 0, 0 );
     audioDebugIOLog(7, "- IOAudioEngine[%p]::performErase()\n", this);
 	return;
 }
@@ -2291,7 +2296,8 @@ IOReturn IOAudioEngine::getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime
 IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleInterval, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTime)
 {
     IOReturn result = kIOReturnBadArgument;
-    
+    UInt64 nanos;
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, (uintptr_t)sampleInterval, numSampleFrames, (uintptr_t)startingPosition);
     if (sampleInterval && (numSampleFrames != 0) && startingPosition) {
         IOAudioEnginePosition wakeupPosition;
         UInt32 wakeupOffset;
@@ -2302,6 +2308,9 @@ IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleInterval, UIn
         UInt64 wakeupIntervalScalar;
         UInt32 samplesFromLoopStart;
         AbsoluteTime wakeupThreadLatencyPaddingInterval;
+        
+        absolutetime_to_nanoseconds((*sampleInterval), &nanos);
+        AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, (nanos/1000), startingPosition->fSampleFrame, startingPosition->fLoopCount );
         
         // Total wakeup interval now calculated at 90% minus 125us
         
@@ -2342,7 +2351,10 @@ IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleInterval, UIn
 			result = kIOReturnIsoTooOld;
 		}
     }
-    
+
+    nanos = 0;
+    absolutetime_to_nanoseconds((*wakeupTime), &nanos);
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, (uintptr_t)(*wakeupTime), (nanos/1000), result );
     return result;
 }
 

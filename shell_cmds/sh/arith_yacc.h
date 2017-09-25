@@ -31,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
+ * $FreeBSD: head/bin/sh/arith_yacc.h 279503 2015-03-01 21:46:55Z jilles $
  */
 
 #define ARITH_ASS 1

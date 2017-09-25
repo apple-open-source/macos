@@ -33,6 +33,7 @@
 #include <WebCore/IntPoint.h>
 #include <WebCore/SelectionRect.h>
 #include <WebCore/TextIndicator.h>
+#include <WebCore/URL.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -41,6 +42,9 @@ struct InteractionInformationAtPosition {
     InteractionInformationRequest request;
 
     bool nodeAtPositionIsAssistedNode { false };
+#if ENABLE(DATA_INTERACTION)
+    bool hasSelectionAtPosition { false };
+#endif
     bool isSelectable { false };
     bool isNearMarkedText { false };
     bool touchCalloutEnabled { true };
@@ -52,8 +56,9 @@ struct InteractionInformationAtPosition {
 #if ENABLE(DATA_DETECTION)
     bool isDataDetectorLink { false };
 #endif
-    String url;
-    String imageURL;
+    WebCore::FloatPoint adjustedPointForNodeRespondingToClickEvents;
+    WebCore::URL url;
+    WebCore::URL imageURL;
     String title;
     String idAttribute;
     WebCore::IntRect bounds;

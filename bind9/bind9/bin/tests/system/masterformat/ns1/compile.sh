@@ -1,4 +1,4 @@
-# Copyright (C) 2005-2007, 2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2005-2007, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,5 +14,12 @@
 
 # $Id$
 
-../named-compilezone -D -F raw -o example.db.raw example example.db
+../named-compilezone -D -F raw -o example.db.raw example \
+        example.db > /dev/null 2>&1
+../named-compilezone -D -F raw=1 -o example.db.raw1 example-explicit \
+        example.db > /dev/null 2>&1
+../named-compilezone -D -F raw=0 -o example.db.compat example-compat \
+        example.db > /dev/null 2>&1
+../named-compilezone -D -F raw -L 3333 -o example.db.serial.raw example \
+        example.db > /dev/null 2>&1
 ../named-compilezone -D -F raw -o large.db.raw large large.db > /dev/null 2>&1

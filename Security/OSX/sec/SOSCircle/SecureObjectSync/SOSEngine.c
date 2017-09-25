@@ -35,6 +35,7 @@
 #include <Security/SecureObjectSync/SOSBackupEvent.h>
 #include <Security/SecureObjectSync/SOSPersist.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
+
 #include <corecrypto/ccder.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -52,6 +53,7 @@
 #include <utilities/SecADWrapper.h>
 #include <utilities/SecTrace.h>
 
+
 #include <AssertMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -61,6 +63,8 @@
 #include <Security/SecItemPriv.h>       // TODO: We can't leave this here.
 #include <securityd/SecItemSchema.h>
 #include <securityd/iCloudTrace.h>
+
+#include <keychain/ckks/CKKS.h>
 
 #include <CoreFoundation/CFURL.h>
 
@@ -560,8 +564,8 @@ static bool SOSEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
     return ok;
 }
 
-bool SOSTestEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error){
-    return SOSEngineSaveCoders(engine, txn, error);
+bool SOSTestEngineSaveCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error){
+    return SOSEngineSaveCoders((SOSEngineRef)engine, txn, error);
 }
 #if !TARGET_IPHONE_SIMULATOR
 
@@ -700,9 +704,9 @@ CFMutableDictionaryRef derStateToDictionaryCopy(CFDataRef state, CFErrorRef *err
     }
     return stateDict;
 }
-bool TestSOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error)
+bool TestSOSEngineLoadCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error)
 {
-    return SOSEngineLoadCoders(engine, txn, error);
+    return SOSEngineLoadCoders((SOSEngineRef)engine, txn, error);
 }
 
 static bool SOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
@@ -891,7 +895,7 @@ static void SOSEngineObjectWithView(SOSEngineRef engine, SOSObjectRef object, vo
     } else if (SecDbItemIsSyncableOrCorrupted(item)) {
         const SecDbClass *iclass = SecDbItemGetClass(item);
         CFTypeRef pdmn = SecDbItemGetCachedValueWithName(item, kSecAttrAccessible);
-        if ((iclass == &genp_class || iclass == &inet_class || iclass == &keys_class || iclass == &cert_class)
+        if ((iclass == genp_class() || iclass == inet_class() || iclass == keys_class() || iclass == cert_class())
             && isString(pdmn)
             && (CFEqual(pdmn, kSecAttrAccessibleWhenUnlocked)
                 || CFEqual(pdmn, kSecAttrAccessibleAfterFirstUnlock)
@@ -904,21 +908,27 @@ static void SOSEngineObjectWithView(SOSEngineRef engine, SOSObjectRef object, vo
             char cvalue = 0;
             bool isTomb = (isNumber(tomb) && CFNumberGetValue(tomb, kCFNumberCharType, &cvalue) && cvalue == 1);
             CFTypeRef viewHint = SecDbItemGetCachedValueWithName(item, kSecAttrSyncViewHint);
+
+            // Intecept CKKS-handled items here and short-circuit function
+            if(SOSViewHintInCKKSSystem(viewHint)) {
+                return;
+            }
+
             if (viewHint == NULL) {
-                if (iclass == &cert_class) {
+                if (iclass == cert_class()) {
                     withViewAndBackup(kSOSViewOtherSyncable);
                 } else {
                     if (!SecDbItemGetCachedValueWithName(item, kSecAttrTokenID)) {
                         withViewAndBackup(kSOSViewKeychainV0);
                     }
                     CFTypeRef agrp = SecDbItemGetCachedValueWithName(item, kSecAttrAccessGroup);
-                    if (iclass == &keys_class && CFEqualSafe(agrp, CFSTR("com.apple.security.sos"))) {
+                    if (iclass == keys_class() && CFEqualSafe(agrp, CFSTR("com.apple.security.sos"))) {
                         withViewAndBackup(kSOSViewiCloudIdentity);
                     } else if (CFEqualSafe(agrp, CFSTR("com.apple.cfnetwork"))) {
                         withViewAndBackup(kSOSViewAutofillPasswords);
                     } else if (CFEqualSafe(agrp, CFSTR("com.apple.safari.credit-cards"))) {
                         withViewAndBackup(kSOSViewSafariCreditCards);
-                    } else if (iclass == &genp_class) {
+                    } else if (iclass == genp_class()) {
                         if (CFEqualSafe(agrp, CFSTR("apple")) &&
                             CFEqualSafe(SecDbItemGetCachedValueWithName(item, kSecAttrService), CFSTR("AirPort"))) {
                             withViewAndBackup(kSOSViewWiFi);
@@ -1126,7 +1136,12 @@ static bool SOSChangeMapperSend(struct SOSChangeMapper *cm, CFErrorRef *error) {
 
 static bool SOSEngineUpdateChanges_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSDataSourceTransactionPhase phase, SOSDataSourceTransactionSource source, CFArrayRef changes, CFErrorRef *error)
 {
-    secnoticeq("engine", "%@: %s %s %ld changes, txn=%@, %p", engine->myID, phase == kSOSDataSourceTransactionWillCommit ? "will-commit" : phase == kSOSDataSourceTransactionDidCommit ? "did-commit" : "did-rollback", source == kSOSDataSourceSOSTransaction ? "sos" : "api", CFArrayGetCount(changes), txn, txn);
+    secnoticeq("engine", "%@: %s %s %ld changes, txn=%@, %p", engine->myID, phase == kSOSDataSourceTransactionWillCommit ? "will-commit" : phase == kSOSDataSourceTransactionDidCommit ? "did-commit" : "did-rollback",
+               source == kSOSDataSourceSOSTransaction ? "sos" :
+               source == kSOSDataSourceCKKSTransaction ? "ckks" :
+               source == kSOSDataSourceAPITransaction ? "api" :
+               "unknown",
+               CFArrayGetCount(changes), txn, txn);
     bool ok = true;
     switch (phase) {
         case kSOSDataSourceTransactionDidRollback:
@@ -1187,16 +1202,22 @@ static bool SOSEngineUpdateChanges_locked(SOSEngineRef engine, SOSTransactionRef
                 // writing to the DBConn will cause deadlocks.
                 if (mappedItemChanged || source == kSOSDataSourceSOSTransaction) {
                     // Write SOSEngine and SOSPeer state to disk
-                    secnotice("engine", "saving engine state");
-                    ok &= SOSEngineSave(engine, txn, error);
-
-                    if (kSOSDataSourceAPITransaction == source)
-                        SOSCCRequestSyncWithPeersList(engine->peerIDs);
+#if OCTAGON
+                    if(!SecCKKSTestDisableSOS()) {
+#endif
+                        secnotice("engine", "saving engine state");
+                        ok &= SOSEngineSave(engine, txn, error);
+                    
+                        if (kSOSDataSourceAPITransaction == source || kSOSDataSourceCKKSTransaction == source)
+                            SOSCCRequestSyncWithPeersList(engine->peerIDs);
+#if OCTAGON
+                    }
+#endif
                 } else {
-                    secnotice("engine", "Not saving engine state, nothing changed.");
+                    secinfo("engine", "Not saving engine state, nothing changed.");
                 }
             }
-
+            
             break;
         }
     }
@@ -1653,9 +1674,9 @@ static void SOSEngineCloudKeychainTrace(SOSEngineRef engine, CFAbsoluteTime now)
     struct _SecServerKeyStats inetStats = { };
     struct _SecServerKeyStats keysStats = { };
 
-    _SecServerGetKeyStats(&genp_class, &genpStats);
-    _SecServerGetKeyStats(&inet_class, &inetStats);
-    _SecServerGetKeyStats(&keys_class, &keysStats);
+    _SecServerGetKeyStats(genp_class(), &genpStats);
+    _SecServerGetKeyStats(inet_class(), &inetStats);
+    _SecServerGetKeyStats(keys_class(), &keysStats);
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         CloudKeychainTrace(num_peers, num_items, &genpStats, &inetStats, &keysStats);
@@ -1782,11 +1803,8 @@ static void SOSEngineForEachBackupPeer(SOSEngineRef engine, void (^with)(SOSPeer
     });
 }
 
-#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
 static const CFStringRef kSecADSecurityNewItemSyncTimeKey = CFSTR("com.apple.security.secureobjectsync.itemtime.new");
 static const CFStringRef kSecADSecurityKnownItemSyncTimeKey = CFSTR("com.apple.security.secureobjectsync.itemtime.known");
-#else
-#endif
 
 
 static void ReportItemSyncTime(SOSDataSourceRef ds, bool known, SOSObjectRef object)
@@ -1801,11 +1819,8 @@ static void ReportItemSyncTime(SOSDataSourceRef ds, bool known, SOSObjectRef obj
             syncTime = now - peerModificationAbsoluteTime;
         }
 
-#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
         SecADClientPushValueForDistributionKey(known ? kSecADSecurityKnownItemSyncTimeKey : kSecADSecurityNewItemSyncTimeKey,
                                                SecBucket2Significant(syncTime));
-#else
-#endif
     }
 }
 
@@ -2228,7 +2243,7 @@ static void SOSEngineCompletedSyncWithPeer(SOSEngineRef engine, SOSPeerRef peer)
 
 
 CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer,
-                                        CFErrorRef *error, SOSEnginePeerMessageSentBlock *sent) {
+                                        CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageSentBlock *sent) {
     SOSManifestRef local = SOSEngineCopyLocalPeerManifest_locked(engine, peer, error);
     __block SOSMessageRef message = SOSMessageCreate(kCFAllocatorDefault, SOSPeerGetMessageVersion(peer), error);
     SOSManifestRef confirmed = SOSPeerGetConfirmedManifest(peer);
@@ -2345,7 +2360,7 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
                 if (!object) {
                     const uint8_t *d = CFDataGetBytePtr(key);
                     secerror("%@:%@ object %02X%02X%02X%02X dropping from manifest: not found in datasource: %@",
-                               engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], dsfeError);
+                             engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], dsfeError);
                     SOSChangesAppendDelete(changes, key);
                 } else if (!(der = SOSEngineCopyObjectDER(engine, object, &localError))
                            || !(digest = SOSObjectCopyDigest(engine->dataSource, object, &localError))) {
@@ -2353,14 +2368,14 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
                         // Decode error, we need to drop these objects from our manifests
                         const uint8_t *d = CFDataGetBytePtr(key);
                         secnoticeq("engine", "%@:%@ object %02X%02X%02X%02X dropping from manifest: %@",
-                            engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], localError);
+                                   engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], localError);
                         SOSChangesAppendDelete(changes, key);
                         CFRelease(localError);
                     } else {
                         // Stop iterating and propagate out all other errors.
                         const uint8_t *d = CFDataGetBytePtr(key);
                         secnoticeq("engine", "%@:%@ object %02X%02X%02X%02X in SOSDataSourceForEachObject: %@",
-                            engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], localError);
+                                   engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], localError);
                         *stop = true;
                         CFErrorPropagate(localError, error);
                         CFReleaseNull(message);
@@ -2374,20 +2389,27 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
                         SOSChangesAppendDelete(changes, key);
                         SOSChangesAppendAdd(changes, object); // This is new behaviour but we think it's more correct
                     }
-
+                    
                     size_t objectLen = (size_t)CFDataGetLength(der);
                     if (SOSMessageAppendObject(message, der, &localError)) {
                         SOSDigestVectorAppend(&dv, CFDataGetBytePtr(digest));
+                        if(!*attributeList)
+                            *attributeList = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+                        CFDictionaryRef itemPlist = SOSObjectCopyPropertyList(engine->dataSource, object, &localError);
+                        if(itemPlist && !CFArrayContainsValue(*attributeList, CFRangeMake(0, CFArrayGetCount(*attributeList)), (CFStringRef)CFDictionaryGetValue(itemPlist, kSecAttrAccessGroup))){
+                                CFArrayAppendValue(*attributeList, (CFStringRef)CFDictionaryGetValue(itemPlist, kSecAttrAccessGroup));
+                            }//copy access group to array
                     } else {
                         const uint8_t *d = CFDataGetBytePtr(digest);
                         CFStringRef hexder = CFDataCopyHexString(der);
                         secnoticeq("engine", "%@:%@ object %02X%02X%02X%02X der: %@ dropping from manifest: %@",
-                                  engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], hexder, localError);
+                                   engine->myID, SOSPeerGetID(peer), d[0], d[1], d[2], d[3], hexder, localError);
                         CFReleaseNull(hexder);
                         CFReleaseNull(message);
                         // Since we can't send these objects let's assume they are bad too?
                         SOSChangesAppendDelete(changes, digest);
                     }
+                    
                     objectsSize += objectLen;
                     if (objectsSize > kSOSMessageMaxObjectsSize)
                         *stop = true;
@@ -2646,7 +2668,7 @@ done:
     return ok;
 }
 
-CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, CFSetRef /* CFStringRef */ peers, CFErrorRef *error)
+CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, CFSetRef /* CFStringRef */ peers, bool forceReset, CFErrorRef *error)
 {
     __block bool incomplete = false;
     CFMutableSetRef handledSet = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -2664,6 +2686,10 @@ CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, C
             require_quiet(peerID, done);
 
             if (SOSPeerMapEntryIsBackup(peer)) {
+                if(forceReset) {
+                    SOSPeerSetMustSendMessage(peer, true);
+                }
+
                 report_handled = SOSEngineWriteToBackup_locked(engine, peer, false, &dirty, &incomplete, &localError);
             }
 
@@ -2818,10 +2844,10 @@ bool SOSEngineWithPeerID(SOSEngineRef engine, CFStringRef peerID, CFErrorRef *er
     return result;
 }
 
-CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, SOSEnginePeerMessageSentBlock *sentBlock, CFErrorRef *error) {
-    __block CFDataRef message = NULL;
+CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentBlock *sentBlock, CFErrorRef *error){
+__block CFDataRef message = NULL;
     SOSEngineForPeerID(engine, peerID, error, ^(SOSTransactionRef txn, SOSPeerRef peer) {
-        message = SOSEngineCreateMessage_locked(engine, txn, peer, error, sentBlock);
+        message = SOSEngineCreateMessage_locked(engine, txn, peer, attributeList, error, sentBlock);
     });
     return message;
 }
@@ -2949,3 +2975,27 @@ retOut:
 
     return;
 }
+
+//For Testing
+void TestSOSEngineDoOnQueue(CFTypeRef engine, dispatch_block_t action)
+{
+    dispatch_sync(((SOSEngineRef)engine)->queue, action);
+}
+CFMutableDictionaryRef TestSOSEngineGetCoders(CFTypeRef engine){
+    return ((SOSEngineRef)engine)->coders;
+}
+
+bool TestSOSEngineDoTxnOnQueue(CFTypeRef engine, CFErrorRef *error, void(^transaction)(SOSTransactionRef txn, bool *commit))
+{
+    return SOSDataSourceWithCommitQueue(((SOSEngineRef)engine)->dataSource, error, ^(SOSTransactionRef txn, bool *commit) {
+        TestSOSEngineDoOnQueue((SOSEngineRef)engine, ^{ transaction(txn, commit); });
+    });
+}
+bool SOSEngineGetCodersNeedSaving(SOSEngineRef engine){
+    return engine->codersNeedSaving;
+}
+
+void SOSEngineSetCodersNeedSaving(SOSEngineRef engine, bool saved){
+    engine->codersNeedSaving = saved;
+}
+

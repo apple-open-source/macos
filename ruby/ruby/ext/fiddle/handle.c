@@ -48,7 +48,7 @@ fiddle_handle_free(void *ptr)
 static size_t
 fiddle_handle_memsize(const void *ptr)
 {
-    return ptr ? sizeof(struct dl_handle) : 0;
+    return sizeof(struct dl_handle);
 }
 
 static const rb_data_type_t fiddle_handle_data_type = {
@@ -116,10 +116,18 @@ predefined_fiddle_handle(void *handle)
 
 /*
  * call-seq:
- *    new(lib = nil, flags = Fiddle::RTLD_LAZY | Fiddle::RTLD_GLOBAL)
+ *    new(library = nil, flags = Fiddle::RTLD_LAZY | Fiddle::RTLD_GLOBAL)
  *
- * Create a new handler that opens library named +lib+ with +flags+.  If no
- * library is specified, RTLD_DEFAULT is used.
+ * Create a new handler that opens +library+ with +flags+.
+ *
+ * If no +library+ is specified or +nil+ is given, DEFAULT is used, which is
+ * the equivalent to RTLD_DEFAULT. See <code>man 3 dlopen</code> for more.
+ *
+ *	lib = Fiddle::Handle.new
+ *
+ * The default is dependent on OS, and provide a handle for all libraries
+ * already loaded. For example, in most cases you can use this to access +libc+
+ * functions, or ruby functions like +rb_str_new+.
  */
 static VALUE
 rb_fiddle_handle_initialize(int argc, VALUE argv[], VALUE self)
@@ -148,8 +156,6 @@ rb_fiddle_handle_initialize(int argc, VALUE argv[], VALUE self)
 	rb_bug("rb_fiddle_handle_new");
     }
 
-    rb_secure(2);
-
 #if defined(_WIN32)
     if( !clib ){
 	HANDLE rb_libruby_handle(void);
@@ -164,6 +170,7 @@ rb_fiddle_handle_initialize(int argc, VALUE argv[], VALUE self)
 # ifdef _WIN32_WCE
 	ptr = dlopen("coredll.dll", cflag);
 # else
+	(void)cflag;
 	ptr = w32_coredll();
 # endif
     }
@@ -307,14 +314,13 @@ fiddle_handle_sym(void *handle, VALUE symbol)
 {
 #if defined(HAVE_DLERROR)
     const char *err;
-# define CHECK_DLERROR if( err = dlerror() ){ func = 0; }
+# define CHECK_DLERROR if ((err = dlerror()) != 0) { func = 0; }
 #else
 # define CHECK_DLERROR
 #endif
     void (*func)();
     const char *name = SafeStringValueCStr(symbol);
 
-    rb_secure(2);
 #ifdef HAVE_DLERROR
     dlerror();
 #endif

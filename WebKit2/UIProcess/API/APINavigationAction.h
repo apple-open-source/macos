@@ -63,10 +63,12 @@ public:
     WebKit::WebEvent::Modifiers modifiers() const { return m_navigationActionData.modifiers; }
     WebKit::WebMouseEvent::Button mouseButton() const { return m_navigationActionData.mouseButton; }
     WebKit::WebMouseEvent::SyntheticClickType syntheticClickType() const { return m_navigationActionData.syntheticClickType; }
+    WebCore::FloatPoint clickLocationInRootViewCoordinates() const { return m_navigationActionData.clickLocationInRootViewCoordinates; }
     bool canHandleRequest() const { return m_navigationActionData.canHandleRequest; }
     bool shouldOpenExternalSchemes() const { return m_navigationActionData.shouldOpenExternalURLsPolicy == WebCore::ShouldOpenExternalURLsPolicy::ShouldAllow || m_navigationActionData.shouldOpenExternalURLsPolicy == WebCore::ShouldOpenExternalURLsPolicy::ShouldAllowExternalSchemes; }
     bool shouldOpenAppLinks() const { return m_shouldOpenAppLinks && m_navigationActionData.shouldOpenExternalURLsPolicy == WebCore::ShouldOpenExternalURLsPolicy::ShouldAllow; }
     bool shouldPerformDownload() const { return !m_navigationActionData.downloadAttribute.isNull(); }
+    bool isRedirect() const { return m_navigationActionData.isRedirect; }
 
     bool isProcessingUserGesture() const { return m_userInitiatedAction; }
     UserInitiatedAction* userInitiatedAction() const { return m_userInitiatedAction.get(); }

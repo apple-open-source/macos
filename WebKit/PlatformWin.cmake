@@ -11,9 +11,8 @@ if (${WTF_PLATFORM_WIN_CAIRO})
         win/WebURLAuthenticationChallengeSenderCURL.cpp
     )
     list(APPEND WebKit_LIBRARIES
-        PRIVATE libeay32.lib
+        ${OPENSSL_LIBRARIES}
         PRIVATE mfuuid.lib
-        PRIVATE ssleay32.lib
         PRIVATE strmiids.lib
     )
 else ()
@@ -57,10 +56,10 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/win/WebCoreSupport"
     "${DERIVED_SOURCES_WEBKIT_DIR}/include"
     "${DERIVED_SOURCES_WEBKIT_DIR}/Interfaces"
-    "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE"
-    "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE/include"
-    "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE/include/egl"
-    "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE/include/khr"
+    "${FORWARDING_HEADERS_DIR}/ANGLE"
+    "${FORWARDING_HEADERS_DIR}/ANGLE/include"
+    "${FORWARDING_HEADERS_DIR}/ANGLE/include/egl"
+    "${FORWARDING_HEADERS_DIR}/ANGLE/include/khr"
     "${DERIVED_SOURCES_DIR}/WebKit"
 )
 
@@ -255,9 +254,24 @@ list(APPEND WebKit_SOURCES_WebCoreSupport
 
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     enable_language(ASM_MASM)
-    list(APPEND WebKit_SOURCES
-        win/plugins/PaintHooks.asm
-    )
+    if (MSVC)
+        set(MASM_EXECUTABLE ml64)
+        set(MASM_FLAGS /c /Fo)
+        add_custom_command(
+            OUTPUT ${DERIVED_SOURCES_WEBKIT_DIR}/PaintHooks.obj
+            MAIN_DEPENDENCY win/plugins/PaintHooks.asm
+            COMMAND ${MASM_EXECUTABLE} ${MASM_FLAGS}
+                ${DERIVED_SOURCES_WEBKIT_DIR}/PaintHooks.obj
+                ${CMAKE_CURRENT_SOURCE_DIR}/win/plugins/PaintHooks.asm
+            VERBATIM)
+        list(APPEND WebKit_SOURCES
+            ${DERIVED_SOURCES_WEBKIT_DIR}/PaintHooks.obj
+        )
+    else ()
+        list(APPEND WebKit_SOURCES
+            win/plugins/PaintHooks.asm
+        )
+    endif ()
 endif ()
 
 list(APPEND WebKit_SOURCES ${WebKit_INCLUDES} ${WebKit_SOURCES_Classes} ${WebKit_SOURCES_WebCoreSupport})
@@ -443,24 +457,6 @@ if (ENABLE_GRAPHICS_CONTEXT_3D)
     )
 endif ()
 
-set(WebKit_LIBRARY_TYPE SHARED)
-
-# Make sure incremental linking is turned off, as it creates unacceptably long link times.
-string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS})
-set(CMAKE_SHARED_LINKER_FLAGS "${replace_CMAKE_SHARED_LINKER_FLAGS} /INCREMENTAL:NO")
-string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
-set(CMAKE_EXE_LINKER_FLAGS "${replace_CMAKE_EXE_LINKER_FLAGS} /INCREMENTAL:NO")
-
-string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_SHARED_LINKER_FLAGS_DEBUG ${CMAKE_SHARED_LINKER_FLAGS_DEBUG})
-set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${replace_CMAKE_SHARED_LINKER_FLAGS_DEBUG} /INCREMENTAL:NO")
-string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG})
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${replace_CMAKE_EXE_LINKER_FLAGS_DEBUG} /INCREMENTAL:NO")
-
-string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO ${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO})
-set(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${replace_CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO")
-string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO ${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO})
-set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${replace_CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO")
-
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
 
@@ -470,11 +466,7 @@ string(REPLACE " " "\;" CXX_LIBS ${CMAKE_CXX_STANDARD_LIBRARIES})
 list(APPEND WebKit_LIBRARIES ${CXX_LIBS})
 set(CMAKE_CXX_STANDARD_LIBRARIES "")
 
-if (${WTF_PLATFORM_WIN_CAIRO})
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:LIBCMT /NODEFAULTLIB:LIBCMTD")
-else ()
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-endif ()
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
 
 # If this directory isn't created before midl runs and attempts to output WebKit.tlb,
 # It fails with an unusual error - midl failed - failed to save all changes
@@ -482,12 +474,12 @@ file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 file(MAKE_DIRECTORY ${DERIVED_SOURCES_WEBKIT_DIR}/Interfaces)
 
 set(WebKitGUID_PRE_BUILD_COMMAND "${CMAKE_BINARY_DIR}/DerivedSources/WebKit/preBuild.cmd")
-file(WRITE "${WebKitGUID_PRE_BUILD_COMMAND}" "@xcopy /y /d /f \"${CMAKE_CURRENT_SOURCE_DIR}/win/WebKitCOMAPI.h\" \"${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKit\" >nul 2>nul\n@xcopy /y /d /f \"${CMAKE_CURRENT_SOURCE_DIR}/win/CFDictionaryPropertyBag.h\" \"${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKit\" >nul 2>nul\n")
-file(MAKE_DIRECTORY ${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKit)
+file(WRITE "${WebKitGUID_PRE_BUILD_COMMAND}" "@xcopy /y /d /f \"${CMAKE_CURRENT_SOURCE_DIR}/win/WebKitCOMAPI.h\" \"${FORWARDING_HEADERS_DIR}/WebKit\" >nul 2>nul\n@xcopy /y /d /f \"${CMAKE_CURRENT_SOURCE_DIR}/win/CFDictionaryPropertyBag.h\" \"${FORWARDING_HEADERS_DIR}/WebKit\" >nul 2>nul\n")
+file(MAKE_DIRECTORY ${FORWARDING_HEADERS_DIR}/WebKit)
 add_custom_command(TARGET WebKitGUID PRE_BUILD COMMAND ${WebKitGUID_PRE_BUILD_COMMAND} VERBATIM)
 
 set(WebKitGUID_POST_BUILD_COMMAND "${CMAKE_BINARY_DIR}/DerivedSources/WebKit/postBuild.cmd")
-file(WRITE "${WebKitGUID_POST_BUILD_COMMAND}" "@xcopy /y /d /f \"${DERIVED_SOURCES_WEBKIT_DIR}/Interfaces/*.h\" \"${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKit\" >nul 2>nul")
+file(WRITE "${WebKitGUID_POST_BUILD_COMMAND}" "@xcopy /y /d /f \"${DERIVED_SOURCES_WEBKIT_DIR}/Interfaces/*.h\" \"${FORWARDING_HEADERS_DIR}/WebKit\" >nul 2>nul")
 add_custom_command(TARGET WebKitGUID POST_BUILD COMMAND ${WebKitGUID_POST_BUILD_COMMAND} VERBATIM)
 
 set(WebKit_OUTPUT_NAME

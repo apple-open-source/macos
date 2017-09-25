@@ -145,8 +145,12 @@ stringsubstquote(char *strstart, char **pstrdpos)
 	    strret = dyncat(strstart, strsub);
     } else if (strdpos[len])
 	strret = dyncat(strsub, strdpos + len);
-    else
+    else if (*strsub)
 	strret = strsub;
+    else {
+	/* This ensures a $'' doesn't get elided. */
+	strret = dupstring(nulstring);
+    }
 
     *pstrdpos = strret + (strdpos - strstart) + strlen(strsub);
 
@@ -407,7 +411,9 @@ globlist(LinkList list, int nountok)
 	next = nextnode(node);
 	zglob(list, node, nountok);
     }
-    if (badcshglob == 1)
+    if (noerrs)
+	badcshglob = 0;
+    else if (badcshglob == 1)
 	zerr("no match");
 }
 
@@ -623,7 +629,7 @@ equalsubstr(char *str, int assign, int nomatch)
     cmdstr = dupstrpfx(str, pp-str);
     untokenize(cmdstr);
     remnulargs(cmdstr);
-    if (!(cnam = findcmd(cmdstr, 1))) {
+    if (!(cnam = findcmd(cmdstr, 1, 0))) {
 	if (nomatch)
 	    zerr("%s not found", cmdstr);
 	return NULL;
@@ -644,6 +650,8 @@ filesubstr(char **namptr, int assign)
 	char *ptr, *tmp, *res, *ptr2;
 	int val;
 
+	if (str[1] == Dash)
+	    str[1] = '-';
 	val = zstrtol(str + 1, &ptr, 10);
 	if (isend(str[1])) {   /* ~ */
 	    *namptr = dyncat(home ? home : "", str + 1);
@@ -680,19 +688,19 @@ filesubstr(char **namptr, int assign)
 	    *namptr = dyncat(ds, ptr);
 	    return 1;
 	} else if ((ptr = itype_end(str+1, IUSER, 0)) != str+1) {   /* ~foo */
-	    char *hom, save;
+	    char *untok, *hom;
 
-	    save = *ptr;
-	    if (!isend(save))
+	    if (!isend(*ptr))
 		return 0;
-	    *ptr = 0;
-	    if (!(hom = getnameddir(++str))) {
-		if (isset(NOMATCH))
-		    zerr("no such user or named directory: %s", str);
-		*ptr = save;
+	    untok = dupstring(++str);
+	    untok[ptr-str] = 0;
+	    untokenize(untok);
+
+	    if (!(hom = getnameddir(untok))) {
+		if (isset(NOMATCH) && isset(EXECOPT))
+		    zerr("no such user or named directory: %s", untok);
 		return 0;
 	    }
-	    *ptr = save;
 	    *namptr = dyncat(hom, ptr);
 	    return 1;
 	}
@@ -1887,12 +1895,13 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		    if (quotetype == QT_DOLLARS ||
 			quotetype == QT_BACKSLASH_PATTERN)
 			goto flagerr;
-		    if (s[1] == '-') {
+		    if (s[1] == '-' || s[1] == '+') {
 			if (quotemod)
 			    goto flagerr;
 			s++;
 			quotemod = 1;
-			quotetype = QT_SINGLE_OPTIONAL;
+			quotetype = (*s == '-') ? QT_SINGLE_OPTIONAL :
+			    QT_QUOTEDZPUTS;
 		    } else {
 			if (quotetype == QT_SINGLE_OPTIONAL) {
 			    /* extra q's after '-' not allowed */
@@ -2363,7 +2372,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	 * This is the inner handling for the case referred to above
 	 * where we have something like ${${(P)name}...}.
 	 *
-	 * Treat this as as a normal value here; all transformations on
+	 * Treat this as a normal value here; all transformations on
 	 * result are in outer instance.
 	 */
 	aspar = 0;
@@ -2543,12 +2552,19 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		 * necessary joining of arrays until this point
 		 * to avoid the multsub() horror.
 		 */
-		int tmplen = arrlen(v->pm->gsu.a->getfn(v->pm));
 
-		if (v->start < 0)
+		/* arrlen() is expensive, so only compute it if needed. */
+		int tmplen = -1;
+
+		if (v->start < 0) {
+		    tmplen = arrlen(v->pm->gsu.a->getfn(v->pm));
 		    v->start += tmplen + ((v->flags & VALFLAG_INV) ? 1 : 0);
-		if (!(v->flags & VALFLAG_INV) &&
-		    (v->start >= tmplen || v->start < 0))
+		}
+		if (!(v->flags & VALFLAG_INV))
+		    if (v->start < 0 ||
+			(tmplen != -1
+			 ? v->start >= tmplen
+			 : arrlen_le(v->pm->gsu.a->getfn(v->pm), v->start)))
 		    vunset = 1;
 	    }
 	    if (!vunset) {
@@ -2885,6 +2901,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 			    aval = paramvalarr(pm->gsu.h->getfn(pm), hkeys|hvals);
 		    } else
 			setaparam(idbeg, a);
+		    isarr = 1;
 		} else {
 		    untokenize(val);
 		    setsparam(idbeg, ztrdup(val));
@@ -2909,6 +2926,13 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
                 if (isset(EXECOPT)) {
                     *idend = '\0';
                     zerr("%s: %s", idbeg, *s ? s : "parameter not set");
+                    /*
+                     * In interactive shell we need to return to
+                     * top-level prompt --- don't clear this error
+                     * after handling a command as we do with
+                     * most errors.
+                     */
+                    errflag |= ERRFLAG_HARD;
                     if (!interact) {
                         if (mypid == getpid()) {
                             /*
@@ -3442,13 +3466,24 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      * exception is that ${name:-word} and ${name:+word} will have already
      * done any requested splitting of the word value with quoting preserved.
      */
-    if (ssub || (spbreak && isarr >= 0) || spsep || sep) {
+    if (ssub || spbreak || spsep || sep) {
+	int force_split = !ssub && (spbreak || spsep);
 	if (isarr) {
-	    val = sepjoin(aval, sep, 1);
-	    isarr = 0;
-	    ms_flags = 0;
+	    /* sep non-null here means F or j flag, force join */
+	    if (nojoin == 0 || sep) {
+		val = sepjoin(aval, sep, 1);
+		isarr = 0;
+		ms_flags = 0;
+	    } else if (force_split && (spsep || nojoin == 2)) {
+		/* Hack to simulate splitting individual elements:
+		 * forced joining as previously determined, or
+		 * join on what we later use to forcibly split
+		 */
+		val = sepjoin(aval, (nojoin == 1 ? NULL : spsep), 1);
+		isarr = 0;
+	    }
 	}
-	if (!ssub && (spbreak || spsep)) {
+	if (force_split && !isarr) {
 	    aval = sepsplit(val, spsep, 0, 1);
 	    if (!aval || !aval[0])
 		val = dupstring("");
@@ -3515,7 +3550,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	}
 	/*
 	 * TODO:  It would be really quite nice to abstract the
-	 * isarr and !issarr code into a function which gets
+	 * isarr and !isarr code into a function which gets
 	 * passed a pointer to a function with the effect of
 	 * the promptexpand bit.  Then we could use this for
 	 * a lot of stuff and bury val/aval/isarr inside a structure
@@ -3583,25 +3618,28 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	    ap = aval;
 
 	    if (quotemod > 0) {
-		if (quotetype > QT_BACKSLASH) {
+		if (quotetype == QT_QUOTEDZPUTS) {
+		    for (; *ap; ap++)
+			*ap = quotedzputs(*ap, NULL);
+		} else if (quotetype > QT_BACKSLASH) {
 		    int sl;
 		    char *tmp;
 
 		    for (; *ap; ap++) {
-			tmp = quotestring(*ap, NULL, quotetype);
+			tmp = quotestring(*ap, quotetype);
 			sl = strlen(tmp);
 			*ap = (char *) zhalloc(pre + sl + post + 1);
 			strcpy((*ap) + pre, tmp);
 			if (pre)
 			    ap[0][pre - 1] = ap[0][pre + sl] =
 				(quotetype != QT_DOUBLE ? '\'' : '"');
-			ap[0][pre + sl + 1] = '\0';
+			ap[0][pre + sl + post] = '\0';
 			if (quotetype == QT_DOLLARS)
 			  ap[0][0] = '$';
 		    }
 		} else
 		    for (; *ap; ap++)
-			*ap = quotestring(*ap, NULL, QT_BACKSLASH_SHOWNULL);
+			*ap = quotestring(*ap, QT_BACKSLASH_SHOWNULL);
 	    } else {
 		int one = noerrs, oef = errflag, haserr = 0;
 
@@ -3626,21 +3664,23 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	    if (!copied)
 		val = dupstring(val), copied = 1;
 	    if (quotemod > 0) {
-		if (quotetype > QT_BACKSLASH) {
+		if (quotetype == QT_QUOTEDZPUTS) {
+		    val = quotedzputs(val, NULL);
+		} else if (quotetype > QT_BACKSLASH) {
 		    int sl;
 		    char *tmp;
-		    tmp = quotestring(val, NULL, quotetype);
+		    tmp = quotestring(val, quotetype);
 		    sl = strlen(tmp);
-		    val = (char *) zhalloc(pre + sl + 2);
+		    val = (char *) zhalloc(pre + sl + post + 1);
 		    strcpy(val + pre, tmp);
 		    if (pre)
 			val[pre - 1] = val[pre + sl] =
 			    (quotetype != QT_DOUBLE ? '\'' : '"');
-		    val[pre + sl + 1] = '\0';
+		    val[pre + sl + post] = '\0';
 		    if (quotetype == QT_DOLLARS)
 		      val[0] = '$';
 		} else
-		    val = quotestring(val, NULL, QT_BACKSLASH_SHOWNULL);
+		    val = quotestring(val, QT_BACKSLASH_SHOWNULL);
 	    } else {
 		int one = noerrs, oef = errflag, haserr;
 
@@ -4005,6 +4045,19 @@ arithsubst(char *a, char **bptr, char *rest)
     return t;
 }
 
+/* This function implements colon modifiers.
+ *
+ * STR is an in/out parameter.  On entry it is the string (e.g., path)
+ * to modified.  On return it is the modified path.
+ *
+ * PTR is an in/out parameter.  On entry it contains the string of colon
+ * modifiers.  On return it points past the last recognised modifier.
+ *
+ * Example:
+ *     ENTRY:   *str is "."   *ptr is ":AN"
+ *     RETURN:  *str is "/home/foobar" (equal to $PWD)   *ptr points to the "N"
+ */
+
 /**/
 void
 modify(char **str, char **ptr)
@@ -4040,6 +4093,7 @@ modify(char **str, char **ptr)
 	    case 'u':
 	    case 'q':
 	    case 'Q':
+	    case 'P':
 		c = **ptr;
 		break;
 
@@ -4231,7 +4285,7 @@ modify(char **str, char **ptr)
 			    subst(&copy, hsubl, hsubr, gbal);
 			break;
 		    case 'q':
-			copy = quotestring(copy, NULL, QT_BACKSLASH_SHOWNULL);
+			copy = quotestring(copy, QT_BACKSLASH_SHOWNULL);
 			break;
 		    case 'Q':
 			{
@@ -4245,6 +4299,12 @@ modify(char **str, char **ptr)
 			    remnulargs(copy);
 			    untokenize(copy);
 			}
+			break;
+		    case 'P':
+			if (*copy != '/') {
+			    copy = zhtricat(metafy(zgetcwd(), -1, META_HEAPDUP), "/", copy);
+			}
+			copy = xsymlink(copy, 1);
 			break;
 		    }
 		    tc = *tt;
@@ -4307,7 +4367,7 @@ modify(char **str, char **ptr)
 			subst(str, hsubl, hsubr, gbal);
 		    break;
 		case 'q':
-		    *str = quotestring(*str, NULL, QT_BACKSLASH);
+		    *str = quotestring(*str, QT_BACKSLASH);
 		    break;
 		case 'Q':
 		    {
@@ -4321,6 +4381,12 @@ modify(char **str, char **ptr)
 			remnulargs(*str);
 			untokenize(*str);
 		    }
+		    break;
+		case 'P':
+		    if (**str != '/') {
+			*str = zhtricat(metafy(zgetcwd(), -1, META_HEAPDUP), "/", *str);
+		    }
+		    *str = xsymlink(*str, 1);
 		    break;
 		}
 	    }

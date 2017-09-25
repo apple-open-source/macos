@@ -49,7 +49,7 @@ class WorkerScriptLoader;
 
 class Worker final : public AbstractWorker, public ActiveDOMObject, private WorkerScriptLoaderClient {
 public:
-    static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, const String& url, JSC::RuntimeFlags);
+    static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, JSC::RuntimeFlags, const String& url);
     virtual ~Worker();
 
     ExceptionOr<void> postMessage(JSC::ExecState&, JSC::JSValue message, Vector<JSC::Strong<JSC::JSObject>>&&);
@@ -80,8 +80,9 @@ private:
 
     RefPtr<WorkerScriptLoader> m_scriptLoader;
     String m_identifier;
-    WorkerGlobalScopeProxy* m_contextProxy; // The proxy outlives the worker to perform thread shutdown.
+    WorkerGlobalScopeProxy& m_contextProxy; // The proxy outlives the worker to perform thread shutdown.
     std::optional<ContentSecurityPolicyResponseHeaders> m_contentSecurityPolicyResponseHeaders;
+    MonotonicTime m_workerCreationTime;
     bool m_shouldBypassMainWorldContentSecurityPolicy { false };
     JSC::RuntimeFlags m_runtimeFlags;
 };

@@ -24,7 +24,7 @@
  */
 
 /*
- * Portions Copyright 2007-2013 Apple Inc.
+ * Portions Copyright 2007-2016 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_vfsops.c	1.58	06/03/24 SMI"
@@ -1191,8 +1191,6 @@ autofs_sysctl(int *name, u_int namelen, __unused user_addr_t oldp,
 	if (namelen > 1)
 		return ENOTDIR;		/* overloaded error code */
 
-	error = 0;
-
 #ifdef DEBUG
 	req = CAST_DOWN(struct sysctl_req *, oldp);
 #endif
@@ -1382,6 +1380,96 @@ auto_is_automounter(int pid)
 }
 
 /*
+ * Structure representing a process that has registered itself as some
+ * sort of tracked process by opening a cloning autofs device.
+ */
+struct tracked_process {
+	LIST_ENTRY(tracked_process) entries;
+	int	pid;			/* PID of the nowait process */
+	int	minor;			/* minor device they opened */
+};
+LIST_HEAD(tracked_process_list, tracked_process);
+
+static struct tracked_process *
+tracked_process_alloc(size_t size, int pid, int minor)
+{
+	struct tracked_process *tp;
+
+	MALLOC(tp, struct tracked_process *, size, M_AUTOFS, M_WAITOK);
+	if (tp != NULL) {
+		tp->pid = pid;
+		tp->minor = minor;
+	}
+	return (tp);
+}
+
+static void
+tracked_process_free(struct tracked_process *tp)
+{
+
+	FREE(tp, M_AUTOFS);
+}
+
+static int
+tracked_process_insert(struct tracked_process_list *list,
+		       struct tracked_process *newtp)
+{
+	struct tracked_process *tp;
+
+	/*
+	 * We don't really care about keeping this list
+	 * sorted.  We essentially assign minor numbers
+	 * "randomly", and only care about ensuring that
+	 * we don't insert duplicates.
+	 */
+	LIST_FOREACH(tp, list, entries) {
+		if (newtp->minor == tp->minor) {
+			/*
+			 * This should never happen; caller
+			 * will log error.
+			 */
+			return (EBUSY);
+		}
+	}
+
+	LIST_INSERT_HEAD(list, newtp, entries);
+	return (0);
+}
+
+static void
+tracked_process_remove(__unused struct tracked_process_list *list,
+		       struct tracked_process *tp)
+{
+	LIST_REMOVE(tp, entries);
+}
+
+static struct tracked_process *
+tracked_process_find_minor(struct tracked_process_list *list,
+			   int minor)
+{
+	struct tracked_process *tp;
+
+	LIST_FOREACH(tp, list, entries) {
+		if (tp->minor == minor)
+			return (tp);
+	}
+	return (NULL);
+}
+
+static struct tracked_process *
+tracked_process_find_pid(struct tracked_process_list *list,
+			 pid_t pid)
+{
+	struct tracked_process *tp;
+
+	LIST_FOREACH(tp, list, entries) {
+		if (tp->pid == pid)
+			return (tp);
+	}
+	return (NULL);
+}
+
+/*
  * Opening /dev/autofs_nowait makes you (but not your children) a
  * nowait process; those processes trigger mounts, but don't wait
  * for them to finish - instead, they return ENOENT.  This is used
@@ -1413,18 +1501,9 @@ static struct cdevsw autofs_nowait_cdevsw = {
 static int	autofs_nowait_major = -1;
 static void	*autofs_nowait_devfs;
 
-/*
- * Structure representing a process that has registered itself as an
- * nowait process by opening a cloning autofs device.
- */
-struct nowait_process {
-	LIST_ENTRY(nowait_process) entries;
-	int	pid;			/* PID of the nowait process */
-	int	minor;			/* minor device they opened */
-};
-
-static LIST_HEAD(nowaitproclist, nowait_process) nowait_processes;
+static struct tracked_process_list nowait_processes;
 static lck_rw_t *autofs_nowait_processes_rwlock;
+static unsigned int autofs_nowait_nextminor = 0;
 
 /*
  * Given the dev entry that's being opened, we clone the device.  This driver
@@ -1443,35 +1522,17 @@ static lck_rw_t *autofs_nowait_processes_rwlock;
 static int
 autofs_nowait_dev_clone(__unused dev_t dev, int action)
 {
-	int minor;
-	struct nowait_process *nowait_process;
+	int rv;
 
 	if (action == DEVFS_CLONE_ALLOC) {
-		minor = 0;	/* tentative choice of minor */
 		lck_rw_lock_exclusive(autofs_nowait_processes_rwlock);
-		LIST_FOREACH(nowait_process, &nowait_processes, entries) {
-			if (minor < nowait_process->minor) {
-				/*
-				 * None of the nowait processes we've looked
-				 * at so far have this minor, and this
-				 * minor is less than all of the minors
-				 * later in the list (which is always
-				 * sorted in increasing order by minor
-				 * device number).
-				 *
-				 * Therefore, it's not in use.
-				 */
-				break;
-			}
-
-			/*
-			 * All minors <= nowait_process->minor are in use.
-			 * Try the next one after nowait_process->minor.
-			 */
-			minor = nowait_process->minor + 1;
-		}
+		rv = autofs_nowait_nextminor++ & 0xffff;
 		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-		return (minor);
+		return (rv);
+	}
+
+	if (action == DEVFS_CLONE_FREE) {
+		return (0);
 	}
 
 	return (-1);
@@ -1481,73 +1542,40 @@ static int
 autofs_nowait_dev_open(dev_t dev, __unused int oflags, __unused int devtype,
     struct proc *p)
 {
-	struct nowait_process *newnowait_process, *nowait_process, *lastnowait_process;
+	struct tracked_process *tp;
+	int error;
 
-	MALLOC(newnowait_process, struct nowait_process *, sizeof(*newnowait_process),
-	    M_AUTOFS, M_WAITOK);
-	if (newnowait_process == NULL)
-		return (ENOMEM);
-	newnowait_process->pid = proc_pid(p);
-	newnowait_process->minor = minor(dev);
-	/*
-	 * Insert the structure in the list of nowait processes in order by
-	 * minor device number.
-	 */
-	lck_rw_lock_exclusive(autofs_nowait_processes_rwlock);
-	if (LIST_EMPTY(&nowait_processes)) {
-		/*
-		 * List is empty, insert at the head.
-		 */
-		LIST_INSERT_HEAD(&nowait_processes, newnowait_process, entries);
+	tp = tracked_process_alloc(sizeof(*tp), proc_pid(p), minor(dev));
+	if (tp == NULL) {
+		error = ENOMEM;
 	} else {
-		/*
-		 * List isn't empty, insert in front of the first entry
-		 * with a larger minor device number.
-		 */
-		LIST_FOREACH(nowait_process, &nowait_processes, entries) {
-			if (newnowait_process->minor < nowait_process->minor) {
-				/*
-				 * This entry is the first one with a larger
-				 * minor device number.
-				 */
-				LIST_INSERT_BEFORE(nowait_process,
-				    newnowait_process, entries);
-				goto done;
-			}
-			lastnowait_process = nowait_process;
-		}
-		/*
-		 * lastnowait_process is the last entry in the list, and it
-		 * doesn't have a larger minor device number than the new
-		 * entry; insert the new entry after it.
-		 */
-		LIST_INSERT_AFTER(lastnowait_process, newnowait_process,
-		    entries);
+		lck_rw_lock_exclusive(autofs_nowait_processes_rwlock);
+		error = tracked_process_insert(&nowait_processes, tp);
+		lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
 	}
-done:
-	lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
-	return (0);
+
+	if (error) {
+		printf("autofs_nowait_dev_open: *** error %d for minor %d\n",
+		    error, minor(dev));
+		if (tp != NULL)
+			tracked_process_free(tp);
+	}
+	return (error);
 }
 
 static int
 autofs_nowait_dev_close(dev_t dev, __unused int flag, __unused int fmt,
     __unused struct proc *p)
 {
-	struct nowait_process *nowait_process;
+	struct tracked_process *tp;
 
-	/*
-	 * Remove the nowait_process structure for this device from the
-	 * list of nowait processes.
-	 */
 	lck_rw_lock_exclusive(autofs_nowait_processes_rwlock);
-	LIST_FOREACH(nowait_process, &nowait_processes, entries) {
-		if (minor(dev) == nowait_process->minor) {
-			LIST_REMOVE(nowait_process, entries);
-			FREE(nowait_process, M_AUTOFS);
-			break;
-		}
-	}
+	tp = tracked_process_find_minor(&nowait_processes, minor(dev));
+	if (tp != NULL)
+		tracked_process_remove(&nowait_processes, tp);
 	lck_rw_unlock_exclusive(autofs_nowait_processes_rwlock);
+	if (tp != NULL)
+		tracked_process_free(tp);
 	return (0);
 }
 
@@ -1557,17 +1585,15 @@ autofs_nowait_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 int
 auto_is_nowait_process(int pid)
 {
-	struct nowait_process *nowait_process;
+	struct tracked_process *tp;
+	int rv = 0;
 
 	lck_rw_lock_shared(autofs_nowait_processes_rwlock);
-	LIST_FOREACH(nowait_process, &nowait_processes, entries) {
-		if (pid == nowait_process->pid) {
-			lck_rw_unlock_shared(autofs_nowait_processes_rwlock);
-			return (1);
-		}
-	}
+	tp = tracked_process_find_pid(&nowait_processes, pid);
+	if (tp != NULL)
+		rv = 1;
 	lck_rw_unlock_shared(autofs_nowait_processes_rwlock);
-	return (0);
+	return (rv);
 }
 
 /*
@@ -1601,18 +1627,9 @@ static struct cdevsw autofs_notrigger_cdevsw = {
 static int	autofs_notrigger_major = -1;
 static void	*autofs_notrigger_devfs;
 
-/*
- * Structure representing a process that has registered itself as an
- * notrigger process by opening a cloning autofs device.
- */
-struct notrigger_process {
-	LIST_ENTRY(notrigger_process) entries;
-	int	pid;			/* PID of the notrigger process */
-	int	minor;			/* minor device they opened */
-};
-
-static LIST_HEAD(notriggerproclist, notrigger_process) notrigger_processes;
+static struct tracked_process_list notrigger_processes;
 static lck_rw_t *autofs_notrigger_processes_rwlock;
+static unsigned int autofs_notrigger_nextminor = 0;
 
 /*
  * Given the dev entry that's being opened, we clone the device.  This driver
@@ -1631,35 +1648,17 @@ static lck_rw_t *autofs_notrigger_processes_rwlock;
 static int
 autofs_notrigger_dev_clone(__unused dev_t dev, int action)
 {
-	int minor;
-	struct notrigger_process *notrigger_process;
+	int rv;
 
 	if (action == DEVFS_CLONE_ALLOC) {
-		minor = 0;	/* tentative choice of minor */
 		lck_rw_lock_exclusive(autofs_notrigger_processes_rwlock);
-		LIST_FOREACH(notrigger_process, &notrigger_processes, entries) {
-			if (minor < notrigger_process->minor) {
-				/*
-				 * None of the notrigger processes we've looked
-				 * at so far have this minor, and this
-				 * minor is less than all of the minors
-				 * later in the list (which is always
-				 * sorted in increasing order by minor
-				 * device number).
-				 *
-				 * Therefore, it's not in use.
-				 */
-				break;
-			}
-
-			/*
-			 * All minors <= notrigger_process->minor are in use.
-			 * Try the next one after notrigger_process->minor.
-			 */
-			minor = notrigger_process->minor + 1;
-		}
+		rv = autofs_notrigger_nextminor++ & 0xffff;
 		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-		return (minor);
+		return (rv);
+	}
+
+	if (action == DEVFS_CLONE_FREE) {
+		return (0);
 	}
 
 	return (-1);
@@ -1669,73 +1668,40 @@ static int
 autofs_notrigger_dev_open(dev_t dev, __unused int oflags, __unused int devtype,
     struct proc *p)
 {
-	struct notrigger_process *newnotrigger_process, *notrigger_process, *lastnotrigger_process;
+	struct tracked_process *tp;
+	int error;
 
-	MALLOC(newnotrigger_process, struct notrigger_process *, sizeof(*newnotrigger_process),
-	    M_AUTOFS, M_WAITOK);
-	if (newnotrigger_process == NULL)
-		return (ENOMEM);
-	newnotrigger_process->pid = proc_pid(p);
-	newnotrigger_process->minor = minor(dev);
-	/*
-	 * Insert the structure in the list of notrigger processes in order by
-	 * minor device number.
-	 */
-	lck_rw_lock_exclusive(autofs_notrigger_processes_rwlock);
-	if (LIST_EMPTY(&notrigger_processes)) {
-		/*
-		 * List is empty, insert at the head.
-		 */
-		LIST_INSERT_HEAD(&notrigger_processes, newnotrigger_process, entries);
+	tp = tracked_process_alloc(sizeof(*tp), proc_pid(p), minor(dev));
+	if (tp == NULL) {
+		error = ENOMEM;
 	} else {
-		/*
-		 * List isn't empty, insert in front of the first entry
-		 * with a larger minor device number.
-		 */
-		LIST_FOREACH(notrigger_process, &notrigger_processes, entries) {
-			if (newnotrigger_process->minor < notrigger_process->minor) {
-				/*
-				 * This entry is the first one with a larger
-				 * minor device number.
-				 */
-				LIST_INSERT_BEFORE(notrigger_process,
-				    newnotrigger_process, entries);
-				goto done;
-			}
-			lastnotrigger_process = notrigger_process;
-		}
-		/*
-		 * lastnotrigger_process is the last entry in the list, and it
-		 * doesn't have a larger minor device number than the new
-		 * entry; insert the new entry after it.
-		 */
-		LIST_INSERT_AFTER(lastnotrigger_process, newnotrigger_process,
-		    entries);
+		lck_rw_lock_exclusive(autofs_notrigger_processes_rwlock);
+		error = tracked_process_insert(&notrigger_processes, tp);
+		lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
 	}
-done:
-	lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
-	return (0);
+
+	if (error) {
+		printf("autofs_notrigger_dev_open: *** error %d for minor %d\n",
+		    error, minor(dev));
+		if (tp != NULL)
+			tracked_process_free(tp);
+	}
+	return (error);
 }
 
 static int
 autofs_notrigger_dev_close(dev_t dev, __unused int flag, __unused int fmt,
     __unused struct proc *p)
 {
-	struct notrigger_process *notrigger_process;
+	struct tracked_process *tp;
 
-	/*
-	 * Remove the notrigger_process structure for this device from the
-	 * list of notrigger processes.
-	 */
 	lck_rw_lock_exclusive(autofs_notrigger_processes_rwlock);
-	LIST_FOREACH(notrigger_process, &notrigger_processes, entries) {
-		if (minor(dev) == notrigger_process->minor) {
-			LIST_REMOVE(notrigger_process, entries);
-			FREE(notrigger_process, M_AUTOFS);
-			break;
-		}
-	}
+	tp = tracked_process_find_minor(&notrigger_processes, minor(dev));
+	if (tp != NULL)
+		tracked_process_remove(&notrigger_processes, tp);
 	lck_rw_unlock_exclusive(autofs_notrigger_processes_rwlock);
+	if (tp != NULL)
+		tracked_process_free(tp);
 	return (0);
 }
 
@@ -1745,7 +1711,8 @@ autofs_notrigger_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 int
 auto_is_notrigger_process(int pid)
 {
-	struct notrigger_process *notrigger_process;
+	struct tracked_process *tp;
+	int rv = 0;
 
 	/*
 	 * automountd, and anything it runs, is a notrigger process.
@@ -1754,14 +1721,11 @@ auto_is_notrigger_process(int pid)
 		return (1);
 
 	lck_rw_lock_shared(autofs_notrigger_processes_rwlock);
-	LIST_FOREACH(notrigger_process, &notrigger_processes, entries) {
-		if (pid == notrigger_process->pid) {
-			lck_rw_unlock_shared(autofs_notrigger_processes_rwlock);
-			return (1);
-		}
-	}
+	tp = tracked_process_find_pid(&notrigger_processes, pid);
+	if (tp != NULL)
+		rv = 1;
 	lck_rw_unlock_shared(autofs_notrigger_processes_rwlock);
-	return (0);
+	return (rv);
 }
 
 /*
@@ -1804,14 +1768,39 @@ static void	*autofs_homedirmounter_devfs;
  * homedirmounter process by opening a cloning autofs device.
  */
 struct homedirmounter_process {
-	LIST_ENTRY(homedirmounter_process) entries;
-	int	pid;		/* PID of the homedirmounter process */
-	int	minor;		/* minor device they opened */
-	vnode_t	mount_point;	/* autofs vnode on which they're doing a mount, if any */
+	struct tracked_process tracker;
+	vnode_t mount_point;	/* autofs vnode on which they're doing a mount, if any */
 };
 
-static LIST_HEAD(homedirmounterproclist, homedirmounter_process) homedirmounter_processes;
+static void
+homedirmounter_process_free(struct homedirmounter_process *hp)
+{
+	vnode_t vp;
+	fnnode_t *fnp;
+
+	if ((vp = hp->mount_point) != NULL) {
+		if ((fnp = vntofn(vp)) != NULL) {
+			/*
+			 * <13595777> Keep from racing with
+			 * homedirmounter
+			 */
+			if (fnp->fn_flags & MF_HOMEDIRMOUNT_LOCKED) {
+			        lck_mtx_unlock(fnp->fn_mnt_lock);
+			}
+
+			lck_mtx_lock(fnp->fn_lock);
+			fnp->fn_flags &= ~(MF_HOMEDIRMOUNT |
+			                   MF_HOMEDIRMOUNT_LOCKED);
+			lck_mtx_unlock(fnp->fn_lock);
+		}
+		vnode_rele(vp);
+	}
+	tracked_process_free((struct tracked_process *)hp);
+}
+
+static struct tracked_process_list homedirmounter_processes;
 static lck_rw_t *autofs_homedirmounter_processes_rwlock;
+static unsigned int autofs_homedirmounter_nextminor = 0;
 
 /*
  * Given the dev entry that's being opened, we clone the device.  This driver
@@ -1830,37 +1819,17 @@ static lck_rw_t *autofs_homedirmounter_processes_rwlock;
 static int
 autofs_homedirmounter_dev_clone(__unused dev_t dev, int action)
 {
-	int minor;
-	struct homedirmounter_process *homedirmounter_process;
+	int rv;
 
 	if (action == DEVFS_CLONE_ALLOC) {
-		minor = 0;	/* tentative choice of minor */
 		lck_rw_lock_exclusive(autofs_homedirmounter_processes_rwlock);
-		LIST_FOREACH(homedirmounter_process, &homedirmounter_processes,
-		    entries) {
-			if (minor < homedirmounter_process->minor) {
-				/*
-				 * None of the homedirmounter processes
-				 * we've looked at so far have this minor,
-				 * and this minor is less than all of the
-				 * minors later in the list (which is always
-				 * sorted in increasing order by minor
-				 * device number).
-				 *
-				 * Therefore, it's not in use.
-				 */
-				break;
-			}
-
-			/*
-			 * All minors <= homedirmounter_process->minor are
-			 * in use.  Try the next one after
-			 * homedirmounter_process->minor.
-			 */
-			minor = homedirmounter_process->minor + 1;
-		}
+		rv = autofs_homedirmounter_nextminor++ & 0xffff;
 		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-		return (minor);
+		return (rv);
+	}
+
+	if (action == DEVFS_CLONE_FREE) {
+		return (0);
 	}
 
 	return (-1);
@@ -1870,104 +1839,44 @@ static int
 autofs_homedirmounter_dev_open(dev_t dev, __unused int oflags, __unused int devtype,
     struct proc *p)
 {
-	struct homedirmounter_process *newhomedirmounter_process, *homedirmounter_process, *lasthomedirmounter_process;
+	struct homedirmounter_process *hp;
+	int error;
 
-	MALLOC(newhomedirmounter_process, struct homedirmounter_process *,
-	    sizeof(*newhomedirmounter_process), M_AUTOFS, M_WAITOK);
-	if (newhomedirmounter_process == NULL)
-		return (ENOMEM);
-	newhomedirmounter_process->pid = proc_pid(p);
-	newhomedirmounter_process->minor = minor(dev);
-	newhomedirmounter_process->mount_point = NULL;
-	/*
-	 * Insert the structure in the list of homedirmounter processes in
-	 * order by minor device number.
-	 */
-	lck_rw_lock_exclusive(autofs_homedirmounter_processes_rwlock);
-	if (LIST_EMPTY(&homedirmounter_processes)) {
-		/*
-		 * List is empty, insert at the head.
-		 */
-		LIST_INSERT_HEAD(&homedirmounter_processes,
-		    newhomedirmounter_process, entries);
+	hp = (struct homedirmounter_process *)
+	    tracked_process_alloc(sizeof(*hp), proc_pid(p), minor(dev));
+	if (hp == NULL) {
+		error = ENOMEM;
 	} else {
-		/*
-		 * List isn't empty, insert in front of the first entry
-		 * with a larger minor device number.
-		 */
-		LIST_FOREACH(homedirmounter_process, &homedirmounter_processes,
-		    entries) {
-			if (newhomedirmounter_process->minor < homedirmounter_process->minor) {
-				/*
-				 * This entry is the first one with a larger
-				 * minor device number.
-				 */
-				LIST_INSERT_BEFORE(homedirmounter_process,
-				    newhomedirmounter_process, entries);
-				goto done;
-			}
-			lasthomedirmounter_process = homedirmounter_process;
-		}
-		/*
-		 * lasthomedirmounter_process is the last entry in the list,
-		 * and it doesn't have a larger minor device number than the
-		 * new entry; insert the new entry after it.
-		 */
-		LIST_INSERT_AFTER(lasthomedirmounter_process,
-		    newhomedirmounter_process, entries);
+		hp->mount_point = NULL;
+
+		lck_rw_lock_exclusive(autofs_homedirmounter_processes_rwlock);
+		error = tracked_process_insert(&homedirmounter_processes, &hp->tracker);
+		lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
 	}
-done:
-	lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
-	return (0);
+
+	if (error) {
+		printf("autofs_homedirmounter_dev_open: *** error %d for minor %d\n",
+		    error, minor(dev));
+		if (hp != NULL)
+			homedirmounter_process_free(hp);
+	}
+	return (error);
 }
 
 static int
 autofs_homedirmounter_dev_close(dev_t dev, __unused int flag, __unused int fmt,
     __unused struct proc *p)
 {
-	struct homedirmounter_process *homedirmounter_process;
-	vnode_t vp;
-	fnnode_t *fnp;
+	struct homedirmounter_process *hp;
 
-	/*
-	 * Remove the homedirmounter_process structure for this device from the
-	 * list of homedirmounter processes.
-	 *
-	 * If it's holding onto a mount point fnnode, mark it as no
-	 * longer having a home directory mount in progress on it,
-	 * and release it.
-	 */
 	lck_rw_lock_exclusive(autofs_homedirmounter_processes_rwlock);
-	LIST_FOREACH(homedirmounter_process, &homedirmounter_processes,
-	    entries) {
-		if (minor(dev) == homedirmounter_process->minor) {
-			LIST_REMOVE(homedirmounter_process, entries);
-			vp = homedirmounter_process->mount_point;
-			if (vp != NULL) {
-				fnp = vntofn(vp);
-
-				if (fnp != NULL) {
-					/*
-					 * <13595777> Keep from racing with
-					 * homedirmounter
-					 */
-					if (fnp->fn_flags & MF_HOMEDIRMOUNT_LOCKED) {
-					        lck_mtx_unlock(fnp->fn_mnt_lock);
-					}
-
-					lck_mtx_lock(fnp->fn_lock);
-					fnp->fn_flags &= ~(MF_HOMEDIRMOUNT |
-					                   MF_HOMEDIRMOUNT_LOCKED);
-					lck_mtx_unlock(fnp->fn_lock);
-				}
-
-				vnode_rele(vp);
-			}
-			FREE(homedirmounter_process, M_AUTOFS);
-			break;
-		}
-	}
+	hp = (struct homedirmounter_process *)
+	    tracked_process_find_minor(&homedirmounter_processes, minor(dev));
+	if (hp != NULL)
+		tracked_process_remove(&homedirmounter_processes, &hp->tracker);
 	lck_rw_unlock_exclusive(autofs_homedirmounter_processes_rwlock);
+	if (hp != NULL)
+		homedirmounter_process_free(hp);
 	return (0);
 }
 
@@ -1979,20 +1888,16 @@ autofs_homedirmounter_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 int
 auto_is_homedirmounter_process(vnode_t vp, int pid)
 {
-	struct homedirmounter_process *homedirmounter_process;
-	int ret;
+	struct homedirmounter_process *hp;
+	int rv = 0;
 
 	lck_rw_lock_shared(autofs_homedirmounter_processes_rwlock);
-	LIST_FOREACH(homedirmounter_process, &homedirmounter_processes,
-	    entries) {
-		if (pid == homedirmounter_process->pid) {
-			ret = (vp == NULL) || (vp == homedirmounter_process->mount_point);
-			lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
-			return (ret);
-		}
-	}
+	hp = (struct homedirmounter_process *)
+	    tracked_process_find_pid(&homedirmounter_processes, pid);
+	if (hp != NULL)
+		rv = (vp == NULL) || (vp == hp->mount_point);
 	lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
-	return (0);
+	return (rv);
 }
 
 /*
@@ -2014,61 +1919,60 @@ auto_is_homedirmounter_process(vnode_t vp, int pid)
 int
 auto_mark_vnode_homedirmount(vnode_t vp, int pid, int need_lock)
 {
-	struct homedirmounter_process *homedirmounter_process;
-	int error;
+	struct homedirmounter_process *hp;
 	fnnode_t *fnp = NULL;
+	int error;
 
 	lck_rw_lock_shared(autofs_homedirmounter_processes_rwlock);
-	LIST_FOREACH(homedirmounter_process, &homedirmounter_processes,
-	    entries) {
-		if (pid == homedirmounter_process->pid) {
-			if (homedirmounter_process->mount_point != NULL) {
+	hp = (struct homedirmounter_process *)
+	    tracked_process_find_pid(&homedirmounter_processes, pid);
+	if (hp != NULL) {
+		if (hp->mount_point != NULL) {
+			/*
+			 * We're already a home directory mounter
+			 * for some mount point.  Is this that
+			 * mount point?
+			 */
+			if (hp->mount_point == vp) {
 				/*
-				 * We're already a home directory mounter
-				 * for some mount point.  Is this that
-				 * mount point?
+				 * Yes - not an error.  (That means
+				 * we don't have to avoid doing the
+				 * "make me the home directory
+				 * mounter" fsctl if we already
+				 * became the home directory mounter
+				 * as a result of doing an unmount.)
 				 */
-				if (homedirmounter_process->mount_point == vp) {
-					/*
-					 * Yes - not an error.  (That means
-					 * we don't have to avoid doing the
-					 * "make me the home directory
-					 * mounter" fsctl if we already
-					 * became the home directory mounter
-					 * as a result of doing an unmount.)
-					 */
-					error = 0;
-				} else {
-					/*
-					 * No - that's an error, as we can
-					 * only be the home directory mounter
-					 * for one vnode at a time.
-					 */
-					error = EBUSY;
-				}
+				error = 0;
 			} else {
 				/*
-				 * We're not a home directory mounter for
-				 * a mount point.  Make us the home
-				 * directory mounter for this vnode.
-				 * Attempt to grab a reference to it,
-				 * as we'll be storing a pointer to it.
+				 * No - that's an error, as we can
+				 * only be the home directory mounter
+				 * for one vnode at a time.
 				 */
-				error = vnode_ref(vp);
-				if (error == 0) {
-					/*
-					 * We succeeded.
-					 */
-					fnp = vntofn(vp);
-					lck_mtx_lock(fnp->fn_lock);
-					fnp->fn_flags |= MF_HOMEDIRMOUNT;
-					lck_mtx_unlock(fnp->fn_lock);
-					homedirmounter_process->mount_point = vp;
-				}
+				error = EBUSY;
 			}
-			lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
-			return (error);
+		} else {
+			/*
+			 * We're not a home directory mounter for
+			 * a mount point.  Make us the home
+			 * directory mounter for this vnode.
+			 * Attempt to grab a reference to it,
+			 * as we'll be storing a pointer to it.
+			 */
+			error = vnode_ref(vp);
+			if (error == 0) {
+				/*
+				 * We succeeded.
+				 */
+				fnp = vntofn(vp);
+				lck_mtx_lock(fnp->fn_lock);
+				fnp->fn_flags |= MF_HOMEDIRMOUNT;
+				lck_mtx_unlock(fnp->fn_lock);
+				hp->mount_point = vp;
+			}
 		}
+		lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
+		return (error);
 	}
 	lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
         

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #   shell.rb -
 #       $Release Version: 0.7 $
@@ -37,7 +38,7 @@ require "shell/process-controller"
 #   sh.cd("shell-test-1") # Change to the /tmp/shell-test-1 directory
 #   for dir in ["dir1", "dir3", "dir5"]
 #     if !sh.exists?(dir)
-#       sh.mkdir dir # make dir if it doesnt' already exist
+#       sh.mkdir dir # make dir if it doesn't already exist
 #       sh.cd(dir) do
 #         # change to the `dir` directory
 # 	  f = sh.open("tmpFile", "w") # open a new file in write mode
@@ -48,7 +49,7 @@ require "shell/process-controller"
 #     end
 #   end
 #
-# === Temp file creationg with self
+# === Temp file creation with self
 #
 # This example is identical to the first, except we're using
 # CommandProcessor#transact.
@@ -87,12 +88,10 @@ require "shell/process-controller"
 #   (sh.cat < "/etc/printcap") | sh.tee("tee11") >> "tee12"
 #
 class Shell
-  @RCS_ID='-$Id: shell.rb,v 1.9 2002/03/04 12:01:10 keiju Exp keiju $-'
 
   include Error
   extend Exception2MessageMapper
 
-#  @cascade = true
   # debug: true -> normal debug
   # debug: 1    -> eval definition debug
   # debug: 2    -> detail inspect debug
@@ -108,7 +107,6 @@ class Shell
 
     attr_accessor :cascade, :debug, :verbose
 
-#    alias cascade? cascade
     alias debug? debug
     alias verbose? verbose
     @verbose = true
@@ -355,7 +353,22 @@ class Shell
     @process_controller.kill_job(sig, command)
   end
 
-  # Convenience method for Shell::CommandProcessor.def_system_command
+  # call-seq:
+  #   def_system_command(command, path = command)
+  #
+  # Convenience method for Shell::CommandProcessor.def_system_command.
+  # Defines an instance method which will execute the given shell command.
+  # If the executable is not in Shell.default_system_path, you must
+  # supply the path to it.
+  #
+  #    Shell.def_system_command('hostname')
+  #    Shell.new.hostname # => localhost
+  #
+  #    # How to use an executable that's not in the default path
+  #
+  #    Shell.def_system_command('run_my_program', "~/hello")
+  #    Shell.new.run_my_program # prints "Hello from a C program!"
+  #
   def Shell.def_system_command(command, path = command)
     CommandProcessor.def_system_command(command, path)
   end
@@ -365,7 +378,17 @@ class Shell
     CommandProcessor.undef_system_command(command)
   end
 
-  # Convenience method for Shell::CommandProcessor.alias_command
+  # call-seq:
+  #   alias_command(alias, command, *opts, &block)
+  #
+  # Convenience method for Shell::CommandProcessor.alias_command.
+  # Defines an instance method which will execute a command under
+  # an alternative name.
+  #
+  #    Shell.def_system_command('date')
+  #    Shell.alias_command('date_in_utc', 'date', '-u')
+  #    Shell.new.date_in_utc # => Sat Jan 25 16:59:57 UTC 2014
+  #
   def Shell.alias_command(ali, command, *opts, &block)
     CommandProcessor.alias_command(ali, command, *opts, &block)
   end
@@ -375,7 +398,17 @@ class Shell
     CommandProcessor.unalias_command(ali)
   end
 
-  # Convenience method for Shell::CommandProcessor.install_system_commands
+  # call-seq:
+  #   install_system_commands(pre = "sys_")
+  #
+  # Convenience method for Shell::CommandProcessor.install_system_commands.
+  # Defines instance methods representing all the executable files found in
+  # Shell.default_system_path, with the given prefix prepended to their
+  # names.
+  #
+  #    Shell.install_system_commands
+  #    Shell.new.sys_echo("hello") # => hello
+  #
   def Shell.install_system_commands(pre = "sys_")
     CommandProcessor.install_system_commands(pre)
   end
@@ -413,7 +446,6 @@ class Shell
         yield mes if iterator?
         if _head
           _head = false
-#         "shell" " + mes
           prefix + mes
         else
           " "* prefix.size + mes

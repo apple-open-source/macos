@@ -15,6 +15,7 @@
 #include <sys/sysctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <libproc.h>
 
 #include <stdio.h>
@@ -32,8 +33,13 @@
 
 #include <mach/mach.h>
 
-walk_return_t
-vanilla_region_optimization(struct region *r, __unused void *arg)
+/*
+ * (Another optimization to consider is merging adjacent regions with
+ * the same properties.)
+ */
+
+static walk_return_t
+simple_region_optimization(struct region *r, __unused void *arg)
 {
     assert(0 != R_SIZE(r));
 
@@ -41,7 +47,7 @@ vanilla_region_optimization(struct region *r, __unused void *arg)
      * Elide unreadable regions
      */
     if ((r->r_info.max_protection & VM_PROT_READ) != VM_PROT_READ) {
-        if (opt->debug)
+        if (OPTIONS_DEBUG(opt, 2))
             printr(r, "eliding unreadable region\n");
         return WALK_DELETE_REGION;
     }
@@ -50,7 +56,7 @@ vanilla_region_optimization(struct region *r, __unused void *arg)
      * Elide submaps (here for debugging purposes?)
      */
     if (r->r_info.is_submap) {
-        if (opt->debug)
+        if (OPTIONS_DEBUG(opt))
             printr(r, "eliding submap\n");
         return WALK_DELETE_REGION;
     }
@@ -61,26 +67,47 @@ vanilla_region_optimization(struct region *r, __unused void *arg)
     if (r->r_info.protection == VM_PROT_NONE &&
         (VM_MEMORY_STACK == r->r_info.user_tag ||
          VM_MEMORY_MALLOC == r->r_info.user_tag)) {
-            if (opt->debug) {
+            if (OPTIONS_DEBUG(opt, 2)) {
                 hsize_str_t hstr;
-                printr(r, "eliding %s - guard\n",
-                       str_hsize(hstr, R_SIZE(r)));
+                tag_str_t tstr;
+                printr(r, "elide %s - %s\n", str_hsize(hstr, R_SIZE(r)), str_tagr(tstr, r));
             }
             return WALK_DELETE_REGION;
         }
+
+    /*
+     * Regions full of clean zfod data e.g. VM_MEMORY_MALLOC_LARGE can be recorded as zfod
+     */
+    if (r->r_info.share_mode == SM_PRIVATE &&
+        0 == r->r_info.external_pager &&
+        0 == r->r_info.pages_dirtied) {
+        if (OPTIONS_DEBUG(opt, 2)) {
+            hsize_str_t hstr;
+            tag_str_t tstr;
+            printr(r, "convert to zfod %s - %s\n", str_hsize(hstr, R_SIZE(r)), str_tagr(tstr, r));
+        }
+        r->r_inzfodregion = true;
+        r->r_op = &zfod_ops;
+    }
+
     return WALK_CONTINUE;
 }
 
 /*
  * (Paranoid validation + debugging assistance.)
  */
-static void
+void
 validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
 {
-    if (opt->debug)
-        printf("Core file: mh %p ncmds %u sizeofcmds %u\n",
-               mh, mh->ncmds, mh->sizeofcmds);
+    assert(NATIVE_MH_MAGIC == mh->magic);
+    assert(MH_CORE == mh->filetype);
 
+    if (OPTIONS_DEBUG(opt, 2))
+        printf("%s: core file: mh %p ncmds %u sizeofcmds %u\n",
+               __func__, mh, mh->ncmds, mh->sizeofcmds);
+
+    unsigned sizeofcmds = 0;
+    off_t corefilemaxoff = 0;
     const struct load_command *lc = (const void *)(mh + 1);
     for (unsigned i = 0; i < mh->ncmds; i++) {
 
@@ -90,43 +117,41 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
                   lc, mh, (uintptr_t)mh + mh->sizeofcmds);
             abort();
         }
-        if (opt->debug)
-            printf("lc %p cmd %u cmdsize %u ", lc, lc->cmd, lc->cmdsize);
-
-        const native_segment_command_t *sc;
-        const struct proto_coreinfo_command *cic;
-        const struct proto_fileref_command *frc;
-        const struct thread_command *tc;
+        if (OPTIONS_DEBUG(opt, 2))
+            printf("lc %p cmd %3u size %3u ", lc, lc->cmd, lc->cmdsize);
+        sizeofcmds += lc->cmdsize;
 
         switch (lc->cmd) {
-            case NATIVE_LC_SEGMENT:
-                sc = (const void *)lc;
-                if (opt->debug) {
-                    printf("%8s: mem %llx-%llx file %lld-%lld %x/%x flags %x\n",
+            case NATIVE_LC_SEGMENT: {
+                const native_segment_command_t *sc = (const void *)lc;
+                if (OPTIONS_DEBUG(opt, 2)) {
+                    printf("%8s: mem %llx-%llx file %lld-%lld %s/%s nsect %u flags %x\n",
                            "SEGMENT",
                            (mach_vm_offset_t)sc->vmaddr,
                            (mach_vm_offset_t)sc->vmaddr + sc->vmsize,
                            (off_t)sc->fileoff,
                            (off_t)sc->fileoff + (off_t)sc->filesize,
-                           sc->initprot, sc->maxprot, sc->flags);
+                           str_prot(sc->initprot), str_prot(sc->maxprot),
+						   sc->nsects, sc->flags);
                 }
                 if ((off_t)sc->fileoff < mh->sizeofcmds ||
                     (off_t)sc->filesize < 0) {
                     warnx("bad segment command");
                     abort();
                 }
-                if ((off_t)sc->fileoff > corefilesize ||
-                    (off_t)sc->fileoff + (off_t)sc->filesize > corefilesize) {
+                const off_t endoff = (off_t)sc->fileoff + (off_t)sc->filesize;
+                if ((off_t)sc->fileoff > corefilesize || endoff > corefilesize) {
                     /*
                      * We may have run out of space to write the data
                      */
                     warnx("segment command points beyond end of file");
                 }
+                corefilemaxoff = MAX(corefilemaxoff, endoff);
                 break;
-
-            case proto_LC_COREINFO:
-                cic = (const void *)lc;
-                if (opt->debug) {
+            }
+            case proto_LC_COREINFO: {
+                const struct proto_coreinfo_command *cic = (const void *)lc;
+                if (OPTIONS_DEBUG(opt, 2)) {
                     uuid_string_t uustr;
                     uuid_unparse_lower(cic->uuid, uustr);
                     printf("%8s: version %d type %d uuid %s addr %llx dyninfo %llx\n",
@@ -138,21 +163,27 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
                     abort();
                 }
                 break;
-
-            case proto_LC_FILEREF:
-                frc = (const void *)lc;
+            }
+            case proto_LC_FILEREF: {
+                const struct proto_fileref_command *frc = (const void *)lc;
                 const char *nm = frc->filename.offset + (char *)lc;
-                if (opt->debug) {
-                    uuid_string_t uustr;
-                    uuid_unparse_lower(frc->uuid, uustr);
-                    printf("%8s: mem %llx-%llx file %lld-%lld %x/%x '%s' %.12s..\n",
-                           "FILEREF",
-                           frc->vmaddr,
-                           frc->vmaddr + frc->vmsize,
+                if (OPTIONS_DEBUG(opt, 2)) {
+                    printf("%8s: mem %llx-%llx file %lld-%lld %s/%s '%s'\n",
+                           "FREF",
+                           frc->vmaddr, frc->vmaddr + frc->vmsize,
                            (off_t)frc->fileoff,
                            (off_t)frc->fileoff + (off_t)frc->filesize,
-                           frc->initprot, frc->maxprot, nm, uustr);
+                           str_prot(frc->prot), str_prot(frc->maxprot), nm);
                 }
+				switch (FREF_ID_TYPE(frc->flags)) {
+					case kFREF_ID_UUID:
+					case kFREF_ID_MTIMESPEC_LE:
+					case kFREF_ID_NONE:
+						break;
+					default:
+						warnx("unknown fref id type: flags %x", frc->flags);
+						abort();
+				}
                 if (nm <= (caddr_t)lc ||
                     nm > (caddr_t)lc + lc->cmdsize ||
                     (off_t)frc->fileoff < 0 || (off_t)frc->filesize < 0) {
@@ -160,20 +191,45 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
                     abort();
                 }
                 break;
-
-            case LC_THREAD:
-                tc = (const void *)lc;
-                if (opt->debug)
+           }
+           case proto_LC_COREDATA: {
+                const struct proto_coredata_command *cc = (const void *)lc;
+                if (OPTIONS_DEBUG(opt, 2)) {
+                    printf("%8s: mem %llx-%llx file %lld-%lld %s/%s flags %x\n",
+                        "COREDATA",
+                        cc->vmaddr, cc->vmaddr + cc->vmsize,
+                        (off_t)cc->fileoff,
+                        (off_t)cc->fileoff + (off_t)cc->filesize,
+                        str_prot(cc->prot), str_prot(cc->maxprot), cc->flags);
+                }
+                if ((off_t)cc->fileoff < mh->sizeofcmds ||
+                    (off_t)cc->filesize < 0) {
+					warnx("bad COREDATA command");
+                    abort();
+                }
+                const off_t endoff = (off_t)cc->fileoff + (off_t)cc->filesize;
+                if ((off_t)cc->fileoff > corefilesize || endoff > corefilesize) {
+                    /*
+                     * We may have run out of space to write the data
+                     */
+                    warnx("segment command points beyond end of file");
+                }
+                corefilemaxoff = MAX(corefilemaxoff, endoff);
+                break;
+           }
+           case LC_THREAD: {
+                const struct thread_command *tc = (const void *)lc;
+                if (OPTIONS_DEBUG(opt, 2))
                     printf("%8s:\n", "THREAD");
                 uint32_t *wbuf = (void *)(tc + 1);
                 do {
                     const uint32_t flavor = *wbuf++;
                     const uint32_t count = *wbuf++;
 
-                    if (opt->debug) {
+                    if (OPTIONS_DEBUG(opt, 2)) {
                         printf("  flavor %u count %u\n", flavor, count);
                         if (count) {
-                            boolean_t nl = false;
+                            bool nl = false;
                             for (unsigned k = 0; k < count; k++) {
                                 if (0 == (k & 7))
                                     printf("  [%3u] ", k);
@@ -196,15 +252,21 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
                     }
                 } while ((caddr_t) wbuf < (caddr_t)tc + tc->cmdsize);
                 break;
-
+            }
             default:
-                warnx("unknown cmd %u in header\n", lc->cmd);
+                warnx("unknown cmd %u in header", lc->cmd);
                 abort();
         }
         if (lc->cmdsize)
             lc = (const void *)((caddr_t)lc + lc->cmdsize);
         else
             break;
+    }
+    if (corefilemaxoff < corefilesize)
+        warnx("unused data after corefile offset %lld", corefilemaxoff);
+    if (sizeofcmds != mh->sizeofcmds) {
+        warnx("inconsistent mach header %u vs. %u", sizeofcmds, mh->sizeofcmds);
+        abort();
     }
 }
 
@@ -217,12 +279,16 @@ validate_core_header(const native_mach_header_t *mh, off_t corefilesize)
  *
  * - LC_SEGMENT{,_64} pointing at memory content in the file,
  *   each chunk consisting of a contiguous region.  Regions may be zfod
+ *   (no file content present).
+ *
+ * - proto_LC_COREDATA pointing at memory content in the file,
+ *   each chunk consisting of a contiguous region.  Regions may be zfod
  *   (no file content present) or content may be compressed (experimental)
  *
- * - prototype_LC_COREINFO (experimental), pointing at dyld (10.12 onwards)
+ * - proto_LC_COREINFO (experimental), pointing at dyld (10.12 onwards)
  *
- * - prototype_LC_FILEREF (experimental) pointing at memory
- *   content to be mapped in from another file at various offsets
+ * - proto_LC_FILEREF (experimental) pointing at memory
+ *   content to be mapped in from another uuid-tagged file at various offsets
  *
  * - LC_THREAD commands with state for each thread
  *
@@ -255,10 +321,16 @@ coredump_write(
         thread_count = 0;
     }
 
-    if (opt->debug) {
-        print_memory_region_header();
-        walk_region_list(rhead, region_print_memory, NULL);
-    }
+	if (OPTIONS_DEBUG(opt, 3)) {
+		print_memory_region_header();
+		walk_region_list(rhead, region_print_memory, NULL);
+		printf("\nmach header %lu\n", sizeof (native_mach_header_t));
+		printf("threadcount %u threadsize %lu\n", thread_count, thread_count * sizeof_LC_THREAD());
+		printf("fileref %lu %lu %llu\n", ssda.ssd_fileref.count, ssda.ssd_fileref.headersize, ssda.ssd_fileref.memsize);
+		printf("zfod %lu %lu %llu\n", ssda.ssd_zfod.count, ssda.ssd_zfod.headersize, ssda.ssd_zfod.memsize);
+		printf("vanilla %lu %lu %llu\n", ssda.ssd_vanilla.count, ssda.ssd_vanilla.headersize, ssda.ssd_vanilla.memsize);
+		printf("sparse %lu %lu %llu\n", ssda.ssd_sparse.count, ssda.ssd_sparse.headersize, ssda.ssd_sparse.memsize);
+	}
 
     size_t headersize = sizeof (native_mach_header_t) +
         thread_count * sizeof_LC_THREAD() +
@@ -266,7 +338,7 @@ coredump_write(
         ssda.ssd_zfod.headersize +
         ssda.ssd_vanilla.headersize +
         ssda.ssd_sparse.headersize;
-    if (opt->coreinfo)
+    if (opt->extended)
         headersize += sizeof (struct proto_coreinfo_command);
 
     void *header = calloc(1, headersize);
@@ -276,17 +348,17 @@ coredump_write(
     native_mach_header_t *mh = make_corefile_mach_header(header);
     struct load_command *lc = (void *)(mh + 1);
 
-    if (opt->coreinfo) {
+    if (opt->extended) {
         const struct proto_coreinfo_command *cc =
             make_coreinfo_command(mh, lc, aout_uuid, aout_load_addr, dyld_aii_addr);
         lc = (void *)((caddr_t)cc + cc->cmdsize);
     }
 
-    if (opt->debug) {
+    if (opt->verbose) {
         const unsigned long fileref_count = ssda.ssd_fileref.count;
         const unsigned long segment_count = fileref_count +
             ssda.ssd_zfod.count + ssda.ssd_vanilla.count + ssda.ssd_sparse.count;
-        printf("Dumping %lu memory segments", segment_count);
+        printf("Writing %lu segments", segment_count);
         if (0 != fileref_count)
             printf(" (including %lu file reference%s (%lu bytes))",
                    fileref_count, 1 == fileref_count ? "" : "s",
@@ -294,19 +366,20 @@ coredump_write(
         printf("\n");
     }
 
-    vm_size_t pagesize = ((vm_offset_t)1 << pageshift_host);
-    vm_offset_t pagemask = (vm_offset_t)(pagesize - 1);
+    mach_vm_offset_t pagesize = ((mach_vm_offset_t)1 << pageshift_host);
+    mach_vm_offset_t pagemask = pagesize - 1;
 
     struct write_segment_data wsda = {
         .wsd_task = task,
         .wsd_mh = mh,
         .wsd_lc = lc,
         .wsd_fd = fd,
-        .wsd_foffset = ((vm_offset_t)headersize + pagemask) & ~pagemask,
+		.wsd_nocache = false,
+        .wsd_foffset = ((mach_vm_offset_t)headersize + pagemask) & ~pagemask,
         .wsd_nwritten = 0,
     };
 
-    int ecode = 0;
+	int ecode = 0;
     if (0 != walk_region_list(rhead, region_write_memory, &wsda))
         ecode = EX_IOERR;
 
@@ -324,9 +397,11 @@ coredump_write(
      * Even if we've run out of space, try our best to
      * write out the header.
      */
-    if (-1 == pwrite(fd, header, headersize, 0))
+    if (0 != bounded_pwrite(fd, header, headersize, 0, &wsda.wsd_nocache, NULL))
         ecode = EX_IOERR;
-    else
+    if (0 == ecode && headersize != sizeof (*mh) + mh->sizeofcmds)
+       ecode = EX_SOFTWARE;
+    if (0 == ecode)
         wsda.wsd_nwritten += headersize;
 
     validate_core_header(mh, wsda.wsd_foffset);
@@ -349,17 +424,137 @@ coredump_write(
     return ecode;
 }
 
+static void
+addfileref(struct region *r, const struct libent *le, const char *nm)
+{
+	r->r_fileref = calloc(1, sizeof (*r->r_fileref));
+	if (r->r_fileref) {
+		if (le) {
+			assert(NULL == nm);
+			r->r_fileref->fr_libent = le;
+			r->r_fileref->fr_pathname = le->le_pathname;
+		} else {
+			assert(NULL == le);
+			r->r_fileref->fr_pathname = strdup(nm);
+		}
+		r->r_fileref->fr_offset = r->r_pageinfo.offset;
+		r->r_op = &fileref_ops;
+	}
+}
+
+/*
+ * Once all the info about the shared cache (filerefs) and the information from
+ * dyld (filerefs and subregions), take one last look for mappings
+ * of filesystem content to convert to additional filerefs.
+ *
+ * By default we are pessimistic: read-only mappings on read-only root.
+ */
+static walk_return_t
+label_mapped_files(struct region *r, void *arg)
+{
+	const struct proc_bsdinfo *pbi = arg;
+
+	if (r->r_fileref || r->r_insharedregion || r->r_incommregion || r->r_inzfodregion)
+		return WALK_CONTINUE;
+	if (r->r_nsubregions)
+		return WALK_CONTINUE;
+	if (!r->r_info.external_pager)
+		return WALK_CONTINUE;
+    if (!opt->allfilerefs) {
+        /* must be mapped without write permission */
+        if (0 != (r->r_info.protection & VM_PROT_WRITE))
+            return WALK_CONTINUE;
+    }
+
+	char pathbuf[MAXPATHLEN+1];
+	pathbuf[0] = '\0';
+	int len = proc_regionfilename(pbi->pbi_pid, R_ADDR(r), pathbuf, sizeof (pathbuf)-1);
+	if (len <= 0 || len > MAXPATHLEN)
+		return WALK_CONTINUE;
+	pathbuf[len] = 0;
+
+#if 0
+	/*
+	 * On the desktop, only refer to files beginning with particular
+	 * prefixes to increase the likelihood that we'll be able to
+	 * find the content later on.
+	 *
+	 * XXX Not practical with a writable root, but helpful for testing.
+	 */
+	static const char *white[] = {
+		"/System",
+		"/Library",
+		"/usr",
+	};
+	const unsigned nwhite = sizeof (white) / sizeof (white[0]);
+	bool skip = true;
+	for (unsigned i = 0; skip && i < nwhite; i++)
+		skip = 0 != strncmp(white[i], pathbuf, strlen(white[i]));
+	if (skip) {
+		if (OPTIONS_DEBUG(opt, 3))
+			printf("\t(%s not included)\n", pathbuf);
+		return WALK_CONTINUE;
+	}
+	static const char *black[] = {
+		"/System/Library/Caches",
+		"/Library/Caches",
+		"/usr/local",
+	};
+	const unsigned nblack = sizeof (black) / sizeof (black[0]);
+	for (unsigned i = 0; !skip && i < nblack; i++)
+		skip = 0 == strncmp(black[i], pathbuf, strlen(black[i]));
+	if (skip) {
+		if (OPTIONS_DEBUG(opt, 3))
+			printf("\t(%s excluded)\n", pathbuf);
+		return WALK_CONTINUE;
+	}
+#endif
+
+	struct statfs stfs;
+	if (-1 == statfs(pathbuf, &stfs)) {
+		switch (errno) {
+			case EACCES:
+			case EPERM:
+			case ENOENT:
+				break;
+			default:
+				warnc(errno, "statfs: %s", pathbuf);
+				break;
+		}
+		return WALK_CONTINUE;
+	}
+
+	do {
+		if (OPTIONS_DEBUG(opt, 2))
+			printr(r, "found mapped file %s\n", pathbuf);
+        if (!opt->allfilerefs) {
+            if ((stfs.f_flags & MNT_ROOTFS) != MNT_ROOTFS)
+                break;	// must be on the root filesystem
+            if ((stfs.f_flags & MNT_RDONLY) != MNT_RDONLY)
+                break;	// must be on a read-only filesystem
+        }
+		if (OPTIONS_DEBUG(opt, 2))
+			print_memory_region(r);
+		addfileref(r, NULL, pathbuf);
+	} while (0);
+
+	return WALK_CONTINUE;
+}
+
 int
-coredump(task_t task, int fd)
+coredump(task_t task, int fd, const struct proc_bsdinfo *__unused pbi)
 {
     /* this is the shared cache id, if any */
     uuid_t sc_uuid;
     uuid_clear(sc_uuid);
 
-    dyld_process_info dpi = get_task_dyld_info(task);
-    if (dpi) {
-        get_sc_uuid(dpi, sc_uuid);
-    }
+	dyld_process_info dpi = NULL;
+	if (opt->extended) {
+		dpi = get_task_dyld_info(task);
+		if (dpi) {
+			get_sc_uuid(dpi, sc_uuid);
+		}
+	}
 
     /* this group is for LC_COREINFO */
     mach_vm_offset_t dyld_addr = 0;     // all_image_infos -or- dyld mach header
@@ -377,59 +572,73 @@ coredump(task_t task, int fd)
         goto done;
     }
 
-    if (opt->debug)
+    if (OPTIONS_DEBUG(opt, 1))
         printf("Optimizing dump content\n");
-    walk_region_list(rhead, vanilla_region_optimization, NULL);
+    walk_region_list(rhead, simple_region_optimization, NULL);
 
-    if (dpi) {
-        if (opt->coreinfo || opt->sparse) {
-            /*
-             * Snapshot dyld's info ..
-             */
-            if (!libent_build_nametable(task, dpi))
-                warnx("error parsing dyld data => ignored");
-            else {
-                if (opt->coreinfo) {
-                    /*
-                     * Find the a.out load address and uuid, and the dyld mach header for the coreinfo
-                     */
-                    const struct libent *le;
-                    if (NULL != (le = libent_lookup_first_bytype(MH_EXECUTE))) {
-                        aout_load_addr = le->le_mhaddr;
-                        uuid_copy(aout_uuid, le->le_uuid);
-                    }
-                    if (NULL != (le = libent_lookup_first_bytype(MH_DYLINKER))) {
-                        dyld_addr = le->le_mhaddr;
-                    }
-                }
-                if (opt->sparse) {
-                    /*
-                     * Use dyld's view of what's being used in the address
-                     * space to shrink the dump.
-                     */
-                    if (0 == walk_region_list(rhead, decorate_memory_region, (void *)dpi)) {
-                        if (opt->debug)
-                            printf("Performing sparse dump optimization(s)\n");
-                        walk_region_list(rhead, sparse_region_optimization, NULL);
-                    } else {
-                        walk_region_list(rhead, undecorate_memory_region, NULL);
-                        warnx("error parsing dyld data => ignored");
-                    }
-                }
-            }
-        }
-        free_task_dyld_info(dpi);
-    }
+	if (dpi) {
+		/*
+		 * Snapshot dyld's info ..
+		 */
+		if (!libent_build_nametable(task, dpi))
+			warnx("error parsing dyld data => ignored");
+		else {
+			/*
+			 * Find the a.out load address and uuid, and the dyld mach header for the coreinfo
+			 */
+			const struct libent *le;
+			if (NULL != (le = libent_lookup_first_bytype(MH_EXECUTE))) {
+				aout_load_addr = le->le_mhaddr;
+				uuid_copy(aout_uuid, le->le_uuid);
+			}
+			if (NULL != (le = libent_lookup_first_bytype(MH_DYLINKER))) {
+				dyld_addr = le->le_mhaddr;
+			}
 
-    if (opt->debug)
+			/*
+			 * Use dyld's view of what's being used in the address
+			 * space to shrink the dump.
+			 */
+			if (OPTIONS_DEBUG(opt, 1))
+				printf("Decorating dump with dyld-derived data\n");
+			if (0 == walk_region_list(rhead, decorate_memory_region, (void *)dpi)) {
+				if (OPTIONS_DEBUG(opt, 1))
+					printf("Sparse dump optimization(s)\n");
+				walk_region_list(rhead, sparse_region_optimization, NULL);
+			} else {
+				walk_region_list(rhead, undecorate_memory_region, NULL);
+				warnx("error parsing dyld data => ignored");
+			}
+		}
+		free_task_dyld_info(dpi);
+	}
+
+	/*
+	 * Hunt for any memory mapped files that we can include by reference
+	 * Depending on whether the bsd part of the task is still present
+	 * we might be able to determine filenames of other regions mapping
+	 * them here - this allows fonts, images, and other read-only content
+	 * to be converted into file references, further reducing the size
+	 * of the dump.
+	 *
+	 * NOTE: Even though the corpse snapshots the VM, the filesystem is
+	 * not correspondingly snapshotted and thus may mutate while the dump
+     * proceeds - so be pessimistic about inclusion.
+	 */
+	if (opt->extended && NULL != pbi) {
+		if (OPTIONS_DEBUG(opt, 1))
+			printf("Mapped file optimization\n");
+		walk_region_list(rhead, label_mapped_files, (void *)pbi);
+	}
+
+    if (OPTIONS_DEBUG(opt, 1))
         printf("Optimization(s) done\n");
+
 done:
     if (0 == ecode)
         ecode = coredump_write(task, fd, rhead, aout_uuid, aout_load_addr, dyld_addr);
     return ecode;
 }
-
-#ifdef CONFIG_REFSC
 
 struct find_shared_cache_args {
     task_t fsc_task;
@@ -458,10 +667,9 @@ find_shared_cache(struct region *r, void *arg)
     if (r->r_pageinfo.offset != 0)
         return WALK_CONTINUE; /* must map beginning of file */
 
-    if (opt->debug) {
+    if (OPTIONS_DEBUG(opt, 1)) {
         hsize_str_t hstr;
-        printf("Examining shared cache candidate %llx-%llx (%s)\n",
-               R_ADDR(r), R_ENDADDR(r), str_hsize(hstr, R_SIZE(r)));
+        printr(r, "examining %s shared cache candidate\n", str_hsize(hstr, R_SIZE(r)));
     }
 
     struct copied_dyld_cache_header *ch;
@@ -469,20 +677,20 @@ find_shared_cache(struct region *r, void *arg)
     kern_return_t ret = mach_vm_read(fsc->fsc_task, R_ADDR(r), sizeof (*ch), (vm_offset_t *)&ch, &chlen);
 
     if (KERN_SUCCESS != ret) {
-        err_mach(ret, NULL, "mapping candidate shared region");
+        err_mach(ret, NULL, "mach_vm_read() candidate shared region header");
         return WALK_CONTINUE;
     }
 
     uuid_t scuuid;
     if (get_uuid_from_shared_cache_mapping(ch, chlen, scuuid) &&
         uuid_compare(scuuid, fsc->fsc_uuid) == 0) {
-        if (opt->debug > 2) {
+        if (OPTIONS_DEBUG(opt, 1)) {
             uuid_string_t uustr;
             uuid_unparse_lower(fsc->fsc_uuid, uustr);
             printr(r, "found shared cache %s here\n", uustr);
         }
         if (!r->r_info.external_pager) {
-            if (opt->debug)
+            if (OPTIONS_DEBUG(opt, 1))
                 printf("Hmm. Found shared cache magic# + uuid, but not externally paged?\n");
 #if 0
             return WALK_CONTINUE; /* should be "paged" from a file */
@@ -495,7 +703,7 @@ find_shared_cache(struct region *r, void *arg)
     }
     mach_vm_deallocate(mach_task_self(), (vm_offset_t)ch, chlen);
     if (fsc->fsc_object_id) {
-        if (opt->debug) {
+        if (OPTIONS_DEBUG(opt, 3)) {
             uuid_string_t uu;
             uuid_unparse_lower(fsc->fsc_uuid, uu);
             printf("Shared cache objid %llx uuid %s\n",
@@ -506,23 +714,23 @@ find_shared_cache(struct region *r, void *arg)
     return WALK_CONTINUE;
 }
 
-static boolean_t
+static bool
 compare_region_with_shared_cache(const struct region *r, struct find_shared_cache_args *fsc)
 {
     struct stat st;
     if (-1 == fstat(fsc->fsc_fd, &st)) {
-        if (opt->debug)
-            printr(r, "%s - %s\n",
+        if (OPTIONS_DEBUG(opt, 1))
+            printr(r, "cannot fstat %s - %s\n",
                    fsc->fsc_le->le_filename, strerror(errno));
         return false;
     }
-    void *file = mmap(NULL, (size_t)R_SIZE(r), PROT_READ, MAP_PRIVATE, fsc->fsc_fd, r->r_pageinfo.offset);
+    void *file = mmap(NULL, R_SIZEOF(r), PROT_READ, MAP_PRIVATE, fsc->fsc_fd, r->r_pageinfo.offset);
     if ((void *)-1L == file) {
-        if (opt->debug)
+        if (OPTIONS_DEBUG(opt, 1))
             printr(r, "mmap %s - %s\n", fsc->fsc_le->le_filename, strerror(errno));
         return false;
     }
-    madvise(file, (size_t)R_SIZE(r), MADV_SEQUENTIAL);
+    madvise(file, R_SIZEOF(r), MADV_SEQUENTIAL);
 
     vm_offset_t data = 0;
     mach_msg_type_number_t data_count;
@@ -530,7 +738,7 @@ compare_region_with_shared_cache(const struct region *r, struct find_shared_cach
 
     if (KERN_SUCCESS != kr || data_count < R_SIZE(r)) {
         err_mach(kr, r, "mach_vm_read()");
-        munmap(file, (size_t)R_SIZE(r));
+        munmap(file, R_SIZEOF(r));
         return false;
     }
 
@@ -549,7 +757,7 @@ compare_region_with_shared_cache(const struct region *r, struct find_shared_cach
          * Check what's really mapped there and reduce the size accordingly.
          */
         if (!is_actual_size(fsc->fsc_task, r, &cmpsize)) {
-            if (opt->debug)
+            if (OPTIONS_DEBUG(opt, 3))
                 printr(r, "narrowing the comparison (%llu "
                        "-> %llu)\n", R_SIZE(r), cmpsize);
         }
@@ -558,7 +766,7 @@ compare_region_with_shared_cache(const struct region *r, struct find_shared_cach
 
     mach_vm_behavior_set(mach_task_self(), data, data_count, VM_BEHAVIOR_SEQUENTIAL);
 
-    const boolean_t thesame = memcmp(file, (void *)data, (size_t)cmpsize) == 0;
+    const bool thesame = memcmp(file, (void *)data, (size_t)cmpsize) == 0;
 #if 0
     if (!thesame) {
         int diffcount = 0;
@@ -577,9 +785,9 @@ compare_region_with_shared_cache(const struct region *r, struct find_shared_cach
     }
 #endif
     mach_vm_deallocate(mach_task_self(), data, data_count);
-    munmap(file, (size_t)R_SIZE(r));
+    munmap(file, R_SIZEOF(r));
 
-    if (!thesame && opt->debug)
+    if (!thesame && OPTIONS_DEBUG(opt, 3))
         printr(r, "mapped file (%s) region is modified\n", fsc->fsc_le->le_filename);
     return thesame;
 }
@@ -598,47 +806,38 @@ label_shared_cache(struct region *r, void *arg)
         return WALK_CONTINUE;
     }
     if (((r->r_info.protection | r->r_info.max_protection) & VM_PROT_WRITE) != 0) {
-        /* writable, but was it written? */
-        if (r->r_info.pages_dirtied + r->r_info.pages_swapped_out != 0)
-            return WALK_CONTINUE;	// a heuristic ..
+        /* potentially writable, but was it written? */
+        if (0 != r->r_info.pages_dirtied)
+            return WALK_CONTINUE;
+        if (0 != r->r_info.pages_swapped_out)
+            return WALK_CONTINUE;
+        if (0 != r->r_info.pages_resident && !r->r_info.external_pager)
+            return WALK_CONTINUE;
+		if (OPTIONS_DEBUG(opt, 1))
+			printr(r, "verifying shared cache content against memory image\n");
         if (!compare_region_with_shared_cache(r, fsc)) {
             /* bits don't match */
+			if (OPTIONS_DEBUG(opt, 1))
+				printr(r, "hmm .. mismatch: using memory image\n");
             return WALK_CONTINUE;
         }
-    }
-
-    if (opt->debug > 2) {
-        /* this validation is -really- expensive */
-        if (!compare_region_with_shared_cache(r, fsc))
-            printr(r, "WARNING: region should match, but doesn't\n");
-    }
+	}
 
     /*
      * This mapped file segment will be represented as a reference
-     * to the file, rather than as a copy of the file.
+     * to the file, rather than as a copy of the mapped file.
      */
-    const struct libent *le = libent_lookup_byuuid(fsc->fsc_uuid);
-    r->r_fileref = calloc(1, sizeof (*r->r_fileref));
-    if (r->r_fileref) {
-        r->r_fileref->fr_libent = le;
-        if (r->r_fileref->fr_libent) {
-            r->r_fileref->fr_offset = r->r_pageinfo.offset;
-            r->r_op = &fileref_ops;
-        } else {
-            free(r->r_fileref);
-            r->r_fileref = NULL;
-        }
-    }
-    return WALK_CONTINUE;
+	addfileref(r, libent_lookup_byuuid(fsc->fsc_uuid), NULL);
+	return WALK_CONTINUE;
 }
-#endif /* CONFIG_REFSC */
 
 struct regionhead *
 coredump_prepare(task_t task, uuid_t sc_uuid)
 {
     struct regionhead *rhead = build_region_list(task);
 
-    if (opt->debug) {
+    if (OPTIONS_DEBUG(opt, 2)) {
+		printf("Region list built\n");
         print_memory_region_header();
         walk_region_list(rhead, region_print_memory, NULL);
     }
@@ -653,24 +852,27 @@ coredump_prepare(task_t task, uuid_t sc_uuid)
     const struct libent *le;
 
     if (NULL != nm)
-        le = libent_insert(nm, sc_uuid, 0, NULL);
+        le = libent_insert(nm, sc_uuid, 0, NULL, NULL, 0);
     else {
-        le = libent_insert("(shared cache)", sc_uuid, 0, NULL);
+        libent_insert("(anonymous shared cache)", sc_uuid, 0, NULL, NULL, 0);
         if (opt->verbose){
-            uuid_string_t uustr;
-            uuid_unparse_lower(sc_uuid, uustr);
-            printf("Shared cache UUID: %s, but no filename => ignored\n", uustr);
-            return rhead;
+			printf("Warning: cannot name the shared cache ");
+			if (OPTIONS_DEBUG(opt, 1)) {
+				uuid_string_t uustr;
+				uuid_unparse_lower(sc_uuid, uustr);
+				printf("(%s) ", uustr);
+			}
+			printf("- dump may be large!\n");
         }
+        return rhead;
     }
 
-#ifdef CONFIG_REFSC
-    if (opt->scfileref) {
+    if (opt->extended) {
         /*
          * See if we can replace entire regions with references to the shared cache
          * by looking at the VM meta-data about those regions.
          */
-        if (opt->debug) {
+        if (OPTIONS_DEBUG(opt, 1)) {
             uuid_string_t uustr;
             uuid_unparse_lower(sc_uuid, uustr);
             printf("Searching for shared cache with uuid %s\n", uustr);
@@ -694,15 +896,16 @@ coredump_prepare(task_t task, uuid_t sc_uuid)
             if (opt->verbose)
                 printf("Referenced %s\n", nm);
             fsca.fsc_le = le;
-            fsca.fsc_fd = open(fsca.fsc_le->le_filename, O_RDONLY);
-
-            walk_region_list(rhead, label_shared_cache, &fsca);
-
-            close(fsca.fsc_fd);
+            fsca.fsc_fd = open(fsca.fsc_le->le_pathname, O_RDONLY);
+            if (-1 == fsca.fsc_fd)
+                errc(EX_SOFTWARE, errno, "open %s", fsca.fsc_le->le_pathname);
+            else {
+                walk_region_list(rhead, label_shared_cache, &fsca);
+                close(fsca.fsc_fd);
+            }
             free(nm);
         }
     }
-#endif /* CONFIG_REFSC */
 
     return rhead;
 }

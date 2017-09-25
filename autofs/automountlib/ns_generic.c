@@ -233,7 +233,6 @@ getmapkeys(mapname, list, error, cache_time, stack, stkptr)
 	char **stack, ***stkptr;
 
 {
-	int ns_err = __NSW_SUCCESS;
 	int success = 0;
 	struct ns_info *nsp;
 
@@ -252,7 +251,11 @@ getmapkeys(mapname, list, error, cache_time, stack, stkptr)
 	}
 
 	for (nsp = ns_info; nsp->ns_name; nsp++) {
-		ns_err = nsp->ns_getmapkeys(mapname, list, error,
+		/* XXXab: it looks like lower levels will set error based on ns_err they will also
+		 *        return, so that's why we are not checking it. For now just cast it void,
+		 *        we need to refactor this to be more readable.
+		 */
+		(void)nsp->ns_getmapkeys(mapname, list, error,
 				cache_time, stack, stkptr);
 		if (*error == 0) {
 			/*

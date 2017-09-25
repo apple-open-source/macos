@@ -1,4 +1,4 @@
-/* $Id: sha1ossl.h 25189 2009-10-02 12:04:37Z akr $ */
+/* $Id: sha1ossl.h 55918 2016-08-16 03:13:24Z nagachika $ */
 
 #ifndef SHA1OSSL_H_INCLUDED
 #define SHA1OSSL_H_INCLUDED
@@ -15,6 +15,8 @@
 #endif
 #define SHA1_DIGEST_LENGTH	SHA_DIGEST_LENGTH
 
-void SHA1_Finish(SHA1_CTX *ctx, char *buf);
+static DEFINE_FINISH_FUNC_FROM_FINAL(SHA1)
+#undef SHA1_Finish
+#define SHA1_Finish rb_digest_SHA1_finish
 
 #endif

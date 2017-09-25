@@ -140,6 +140,58 @@ APACHE_MODULE(proxy_html, Fix HTML Links in a Reverse Proxy, , , , [
 ]
 )
 
+APACHE_MODULE(brotli, Brotli compression support, , , most, [
+  AC_ARG_WITH(brotli, APACHE_HELP_STRING(--with-brotli=PATH,Brotli installation directory),[
+    if test "$withval" != "yes" -a "x$withval" != "x"; then
+      ap_brotli_base="$withval"
+      ap_brotli_with=yes
+    fi
+  ])
+  ap_brotli_found=no
+  if test -n "$ap_brotli_base"; then
+    ap_save_cppflags=$CPPFLAGS
+    APR_ADDTO(CPPFLAGS, [-I${ap_brotli_base}/include])
+    AC_MSG_CHECKING([for Brotli library >= 0.6.0 via prefix])
+    AC_TRY_COMPILE(
+      [#include <brotli/encode.h>],[
+const uint8_t *o = BrotliEncoderTakeOutput((BrotliEncoderState*)0, (size_t*)0);
+if (o) return *o;],
+      [AC_MSG_RESULT(yes)
+       ap_brotli_found=yes
+       ap_brotli_cflags="-I${ap_brotli_base}/include"
+       ap_brotli_libs="-L${ap_brotli_base}/lib -lbrotlienc -lbrotlicommon"],
+      [AC_MSG_RESULT(no)]
+    )
+    CPPFLAGS=$ap_save_cppflags
+  else
+    if test -n "$PKGCONFIG"; then
+      AC_MSG_CHECKING([for Brotli library >= 0.6.0 via pkg-config])
+      if $PKGCONFIG --exists "libbrotlienc >= 0.6.0"; then
+        AC_MSG_RESULT(yes)
+        ap_brotli_found=yes
+        ap_brotli_cflags=`$PKGCONFIG libbrotlienc --cflags`
+        ap_brotli_libs=`$PKGCONFIG libbrotlienc --libs`
+      else
+        AC_MSG_RESULT(no)
+      fi
+    fi
+  fi
+  if test "$ap_brotli_found" = "yes"; then
+    APR_ADDTO(MOD_CFLAGS, [$ap_brotli_cflags])
+    APR_ADDTO(MOD_BROTLI_LDADD, [$ap_brotli_libs])
+    if test "$enable_brotli" = "shared"; then
+      dnl The only symbol which needs to be exported is the module
+      dnl structure, so ask libtool to hide everything else:
+      APR_ADDTO(MOD_BROTLI_LDADD, [-export-symbols-regex brotli_module])
+    fi
+  else
+    enable_brotli=no
+    if test "$ap_brotli_with" = "yes"; then
+      AC_MSG_ERROR([Brotli library was missing or unusable])
+    fi
+  fi
+])
+
 APR_ADDTO(INCLUDES, [-I\$(top_srcdir)/$modpath_current])
 
 APACHE_MODPATH_FINISH

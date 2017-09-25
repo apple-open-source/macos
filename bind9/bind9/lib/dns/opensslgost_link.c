@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2010-2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -121,10 +121,16 @@ opensslgost_verify(dst_context_t *dctx, const isc_region_t *sig) {
 	EVP_PKEY *pkey = key->keydata.pkey;
 
 	status = EVP_VerifyFinal(evp_md_ctx, sig->base, sig->length, pkey);
-	if (status != 1)
+	switch (status) {
+	case 1:
+		return (ISC_R_SUCCESS);
+	case 0:
 		return (dst__openssl_toresult(DST_R_VERIFYFAILURE));
-
-	return (ISC_R_SUCCESS);
+	default:
+		return (dst__openssl_toresult3(dctx->category,
+					       "EVP_VerifyFinal",
+					       DST_R_VERIFYFAILURE));
+	}
 }
 
 static isc_boolean_t
@@ -168,23 +174,29 @@ opensslgost_generate(dst_key_t *key, int unused, void (*callback)(int)) {
 		void (*fptr)(int);
 	} u;
 	EVP_PKEY *pkey = NULL;
+	isc_result_t ret;
 
 	UNUSED(unused);
 	ctx = EVP_PKEY_CTX_new_id(NID_id_GostR3410_2001, NULL);
 	if (ctx == NULL)
-		goto err;
+		DST_RET(dst__openssl_toresult2("EVP_PKEY_CTX_new_id",
+					       DST_R_OPENSSLFAILURE));
 	if (callback != NULL) {
 		u.fptr = callback;
 		EVP_PKEY_CTX_set_app_data(ctx, u.dptr);
 		EVP_PKEY_CTX_set_cb(ctx, &progress_cb);
 	}
 	if (EVP_PKEY_keygen_init(ctx) <= 0)
-		goto err;
+		DST_RET(dst__openssl_toresult2("EVP_PKEY_keygen_init",
+					       DST_R_OPENSSLFAILURE));
 	if (EVP_PKEY_CTX_ctrl_str(ctx, "paramset", "A") <= 0)
-		goto err;
+		DST_RET(dst__openssl_toresult2("EVP_PKEY_CTX_ctrl_str",
+					       DST_R_OPENSSLFAILURE));
 	if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
-		goto err;
+		DST_RET(dst__openssl_toresult2("EVP_PKEY_keygen",
+					       DST_R_OPENSSLFAILURE));
 	key->keydata.pkey = pkey;
+	key->key_size = EVP_PKEY_bits(pkey);
 	EVP_PKEY_CTX_free(ctx);
 	return (ISC_R_SUCCESS);
 
@@ -193,7 +205,7 @@ err:
 		EVP_PKEY_free(pkey);
 	if (ctx != NULL)
 		EVP_PKEY_CTX_free(ctx);
-	return (dst__openssl_toresult(DST_R_OPENSSLFAILURE));
+	return (ret);
 }
 
 static isc_boolean_t
@@ -242,7 +254,7 @@ opensslgost_todns(const dst_key_t *key, isc_buffer_t *data) {
 	len = i2d_PUBKEY(pkey, &p);
 	INSIST(len == sizeof(der));
 	INSIST(memcmp(gost_prefix, der, 37) == 0);
-	memcpy(r.base, der + 37, 64);
+	memmove(r.base, der + 37, 64);
 	isc_buffer_add(data, 64);
 
 	return (ISC_R_SUCCESS);
@@ -261,14 +273,16 @@ opensslgost_fromdns(dst_key_t *key, isc_buffer_t *data) {
 
 	if (r.length != 64)
 		return (DST_R_INVALIDPUBLICKEY);
-	memcpy(der, gost_prefix, 37);
-	memcpy(der + 37, r.base, 64);
+	memmove(der, gost_prefix, 37);
+	memmove(der + 37, r.base, 64);
 	isc_buffer_forward(data, 64);
 
 	p = der;
 	if (d2i_PUBKEY(&pkey, &p, (long) sizeof(der)) == NULL)
-		return (dst__openssl_toresult(DST_R_OPENSSLFAILURE));
+		return (dst__openssl_toresult2("d2i_PUBKEY",
+					       DST_R_OPENSSLFAILURE));
 	key->keydata.pkey = pkey;
+	key->key_size = EVP_PKEY_bits(pkey);
 
 	return (ISC_R_SUCCESS);
 }
@@ -284,6 +298,11 @@ opensslgost_tofile(const dst_key_t *key, const char *directory) {
 	if (key->keydata.pkey == NULL)
 		return (DST_R_NULLKEY);
 
+	if (key->external) {
+		priv.nelements = 0;
+		return (dst__privstruct_writefile(key, &priv, directory));
+	}
+
 	pkey = key->keydata.pkey;
 
 	len = i2d_PrivateKey(pkey, NULL);
@@ -293,7 +312,8 @@ opensslgost_tofile(const dst_key_t *key, const char *directory) {
 
 	p = der;
 	if (i2d_PrivateKey(pkey, &p) != len) {
-		result = dst__openssl_toresult(DST_R_OPENSSLFAILURE);
+		result = dst__openssl_toresult2("i2d_PrivateKey",
+						DST_R_OPENSSLFAILURE);
 		goto fail;
 	}
 
@@ -324,12 +344,21 @@ opensslgost_parse(dst_key_t *key, isc_lex_t *lexer, dst_key_t *pub) {
 	if (ret != ISC_R_SUCCESS)
 		return (ret);
 
-	INSIST(priv.elements[0].tag == TAG_GOST_PRIVASN1);
-	p = priv.elements[0].data;
-	if (d2i_PrivateKey(NID_id_GostR3410_2001, &pkey, &p,
-			   (long) priv.elements[0].length) == NULL)
-		DST_RET(DST_R_INVALIDPRIVATEKEY);
-	key->keydata.pkey = pkey;
+	if (key->external) {
+		INSIST(priv.nelements == 0);
+		if (pub == NULL)
+			DST_RET(DST_R_INVALIDPRIVATEKEY);
+		key->keydata.pkey = pub->keydata.pkey;
+		pub->keydata.pkey = NULL;
+	} else {
+		INSIST(priv.elements[0].tag == TAG_GOST_PRIVASN1);
+		p = priv.elements[0].data;
+		if (d2i_PrivateKey(NID_id_GostR3410_2001, &pkey, &p,
+				   (long) priv.elements[0].length) == NULL)
+			DST_RET(dst__openssl_toresult2("d2i_PrivateKey",
+						     DST_R_INVALIDPRIVATEKEY));
+		key->keydata.pkey = pkey;
+	}
 	key->key_size = EVP_PKEY_bits(pkey);
 	dst__privstruct_free(&priv, mctx);
 	memset(&priv, 0, sizeof(priv));
@@ -359,6 +388,7 @@ static dst_func_t opensslgost_functions = {
 	opensslgost_adddata,
 	opensslgost_sign,
 	opensslgost_verify,
+	NULL, /*%< verify2 */
 	NULL, /*%< computesecret */
 	opensslgost_compare,
 	NULL, /*%< paramcompare */
@@ -377,35 +407,47 @@ static dst_func_t opensslgost_functions = {
 
 isc_result_t
 dst__opensslgost_init(dst_func_t **funcp) {
+	isc_result_t ret;
+
 	REQUIRE(funcp != NULL);
 
 	/* check if the gost engine works properly */
 	e = ENGINE_by_id("gost");
 	if (e == NULL)
-		return (DST_R_OPENSSLFAILURE);
+		return (dst__openssl_toresult2("ENGINE_by_id",
+					       DST_R_OPENSSLFAILURE));
 	if (ENGINE_init(e) <= 0) {
 		ENGINE_free(e);
 		e = NULL;
-		return (DST_R_OPENSSLFAILURE);
+		return (dst__openssl_toresult2("ENGINE_init",
+					       DST_R_OPENSSLFAILURE));
 	}
 	/* better than to rely on digest_gost symbol */
 	opensslgost_digest = ENGINE_get_digest(e, NID_id_GostR3411_94);
+	if (opensslgost_digest == NULL)
+		DST_RET(dst__openssl_toresult2("ENGINE_get_digest",
+					       DST_R_OPENSSLFAILURE));
 	/* from openssl.cnf */
-	if ((opensslgost_digest == NULL) ||
-	    (ENGINE_register_pkey_asn1_meths(e) <= 0) ||
-	    (ENGINE_ctrl_cmd_string(e,
-				    "CRYPT_PARAMS",
-				    "id-Gost28147-89-CryptoPro-A-ParamSet",
-				    0) <= 0)) {
-		ENGINE_finish(e);
-		ENGINE_free(e);
-		e = NULL;
-		return (DST_R_OPENSSLFAILURE);
-	}
+	if (ENGINE_register_pkey_asn1_meths(e) <= 0)
+		DST_RET(dst__openssl_toresult2(
+				"ENGINE_register_pkey_asn1_meths",
+				DST_R_OPENSSLFAILURE));
+	if (ENGINE_ctrl_cmd_string(e,
+				   "CRYPT_PARAMS",
+				   "id-Gost28147-89-CryptoPro-A-ParamSet",
+				   0) <= 0)
+		DST_RET(dst__openssl_toresult2("ENGINE_ctrl_cmd_string",
+					       DST_R_OPENSSLFAILURE));
 
 	if (*funcp == NULL)
 		*funcp = &opensslgost_functions;
 	return (ISC_R_SUCCESS);
+
+ err:
+	ENGINE_finish(e);
+	ENGINE_free(e);
+	e = NULL;
+	return (ret);
 }
 
 #else /* HAVE_OPENSSL_GOST */

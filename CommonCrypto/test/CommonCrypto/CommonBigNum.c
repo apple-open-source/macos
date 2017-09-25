@@ -211,7 +211,7 @@ static int testBitCount()
     CCBigNumRef num1 = CCBigNumFromHexString(&status, hexstring);
     ok(status == 0, "BigNum Created");
     
-    int bits = CCBigNumBitCount(num1);
+    uint32_t bits = CCBigNumBitCount(num1);
     ok(bits == 157, "bit count is correct");
 
     CCBigNumFree(num1);

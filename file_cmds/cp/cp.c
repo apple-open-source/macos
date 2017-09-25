@@ -95,6 +95,7 @@ int fflag, iflag, nflag, pflag, vflag;
 int Xflag;
 #endif /* __APPLE__ */
 static int Rflag, rflag;
+	int cflag = 0;
 volatile sig_atomic_t info;
 
 enum op { FILE_TO_FILE, FILE_TO_DIR, DIR_TO_DNE };
@@ -111,8 +112,11 @@ main(int argc, char *argv[])
 	char *target;
 
 	Hflag = Lflag = Pflag = 0;
-	while ((ch = getopt(argc, argv, "HLPRXafinprv")) != -1)
+	while ((ch = getopt(argc, argv, "cHLPRXafinprv")) != -1)
 		switch (ch) {
+		case 'c':
+			cflag = 1;
+			break;
 		case 'H':
 			Hflag = 1;
 			Lflag = Pflag = 0;
@@ -173,6 +177,10 @@ main(int argc, char *argv[])
 
 	if (argc < 2)
 		usage();
+
+	if (cflag && Xflag) {
+		errx(1, "the -c and -X options may not be specified together");
+	}
 
 	fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
 	if (rflag) {

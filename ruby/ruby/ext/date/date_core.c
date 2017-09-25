@@ -1,11 +1,14 @@
 /*
-  date_core.c: Coded by Tadayoshi Funaba 2010-2013
+  date_core.c: Coded by Tadayoshi Funaba 2010-2014
 */
 
 #include "ruby.h"
 #include "ruby/encoding.h"
 #include <math.h>
 #include <time.h>
+#if defined(HAVE_SYS_TIME_H)
+#include <sys/time.h>
+#endif
 
 #define NDEBUG
 #include <assert.h>
@@ -111,7 +114,7 @@ f_zero_p(VALUE x)
 	return Qfalse;
       case T_RATIONAL:
 	{
-	    VALUE num = RRATIONAL(x)->num;
+	    VALUE num = rb_rational_num(x);
 	    return f_boolcast(FIXNUM_P(num) && FIX2LONG(num) == 0);
 	}
     }
@@ -283,36 +286,36 @@ union DateData {
 
 #define get_d1(x)\
     union DateData *dat;\
-    Data_Get_Struct(x, union DateData, dat);
+    TypedData_Get_Struct(x, union DateData, &d_lite_type, dat);
 
 #define get_d1a(x)\
     union DateData *adat;\
-    Data_Get_Struct(x, union DateData, adat);
+    TypedData_Get_Struct(x, union DateData, &d_lite_type, adat);
 
 #define get_d1b(x)\
     union DateData *bdat;\
-    Data_Get_Struct(x, union DateData, bdat);
+    TypedData_Get_Struct(x, union DateData, &d_lite_type, bdat);
 
 #define get_d2(x,y)\
     union DateData *adat, *bdat;\
-    Data_Get_Struct(x, union DateData, adat);\
-    Data_Get_Struct(y, union DateData, bdat);
+    TypedData_Get_Struct(x, union DateData, &d_lite_type, adat);\
+    TypedData_Get_Struct(y, union DateData, &d_lite_type, bdat);
 
 inline static VALUE
 canon(VALUE x)
 {
-    if (TYPE(x) == T_RATIONAL) {
-	VALUE den = RRATIONAL(x)->den;
+    if (RB_TYPE_P(x, T_RATIONAL)) {
+	VALUE den = rb_rational_den(x);
 	if (FIXNUM_P(den) && FIX2LONG(den) == 1)
-	    return RRATIONAL(x)->num;
+	    return rb_rational_num(x);
     }
     return x;
 }
 
 #ifndef USE_PACK
-#define set_to_simple(x, _nth, _jd ,_sg, _year, _mon, _mday, _flags) \
+#define set_to_simple(obj, x, _nth, _jd ,_sg, _year, _mon, _mday, _flags) \
 {\
-    (x)->nth = canon(_nth);\
+    RB_OBJ_WRITE((obj), &(x)->nth, canon(_nth)); \
     (x)->jd = _jd;\
     (x)->sg = (date_sg_t)(_sg);\
     (x)->year = _year;\
@@ -321,9 +324,9 @@ canon(VALUE x)
     (x)->flags = _flags;\
 }
 #else
-#define set_to_simple(x, _nth, _jd ,_sg, _year, _mon, _mday, _flags) \
+#define set_to_simple(obj, x, _nth, _jd ,_sg, _year, _mon, _mday, _flags) \
 {\
-    (x)->nth = canon(_nth);\
+    RB_OBJ_WRITE((obj), &(x)->nth, canon(_nth)); \
     (x)->jd = _jd;\
     (x)->sg = (date_sg_t)(_sg);\
     (x)->year = _year;\
@@ -333,13 +336,13 @@ canon(VALUE x)
 #endif
 
 #ifndef USE_PACK
-#define set_to_complex(x, _nth, _jd ,_df, _sf, _of, _sg,\
+#define set_to_complex(obj, x, _nth, _jd ,_df, _sf, _of, _sg,\
 _year, _mon, _mday, _hour, _min, _sec, _flags) \
 {\
-    (x)->nth = canon(_nth);\
+    RB_OBJ_WRITE((obj), &(x)->nth, canon(_nth));\
     (x)->jd = _jd;\
     (x)->df = _df;\
-    (x)->sf = canon(_sf);\
+    RB_OBJ_WRITE((obj), &(x)->sf, canon(_sf));\
     (x)->of = _of;\
     (x)->sg = (date_sg_t)(_sg);\
     (x)->year = _year;\
@@ -351,13 +354,13 @@ _year, _mon, _mday, _hour, _min, _sec, _flags) \
     (x)->flags = _flags;\
 }
 #else
-#define set_to_complex(x, _nth, _jd ,_df, _sf, _of, _sg,\
+#define set_to_complex(obj, x, _nth, _jd ,_df, _sf, _of, _sg,\
 _year, _mon, _mday, _hour, _min, _sec, _flags) \
 {\
-    (x)->nth = canon(_nth);\
+    RB_OBJ_WRITE((obj), &(x)->nth, canon(_nth));\
     (x)->jd = _jd;\
     (x)->df = _df;\
-    (x)->sf = canon(_sf);\
+    RB_OBJ_WRITE((obj), &(x)->sf, canon(_sf));\
     (x)->of = _of;\
     (x)->sg = (date_sg_t)(_sg);\
     (x)->year = _year;\
@@ -367,9 +370,9 @@ _year, _mon, _mday, _hour, _min, _sec, _flags) \
 #endif
 
 #ifndef USE_PACK
-#define copy_simple_to_complex(x, y) \
+#define copy_simple_to_complex(obj, x, y) \
 {\
-    (x)->nth = (y)->nth;\
+    RB_OBJ_WRITE((obj), &(x)->nth, (y)->nth);\
     (x)->jd = (y)->jd;\
     (x)->df = 0;\
     (x)->sf = INT2FIX(0);\
@@ -384,12 +387,12 @@ _year, _mon, _mday, _hour, _min, _sec, _flags) \
     (x)->flags = (y)->flags;\
 }
 #else
-#define copy_simple_to_complex(x, y) \
+#define copy_simple_to_complex(obj, x, y) \
 {\
-    (x)->nth = (y)->nth;\
+    RB_OBJ_WRITE((obj), &(x)->nth, (y)->nth);\
     (x)->jd = (y)->jd;\
     (x)->df = 0;\
-    (x)->sf = INT2FIX(0);\
+    RB_OBJ_WRITE((obj), &(x)->sf, INT2FIX(0));\
     (x)->of = 0;\
     (x)->sg = (date_sg_t)((y)->sg);\
     (x)->year = (y)->year;\
@@ -399,9 +402,9 @@ _year, _mon, _mday, _hour, _min, _sec, _flags) \
 #endif
 
 #ifndef USE_PACK
-#define copy_complex_to_simple(x, y) \
+#define copy_complex_to_simple(obj, x, y) \
 {\
-    (x)->nth = (y)->nth;\
+    RB_OBJ_WRITE((obj), &(x)->nth, (y)->nth);\
     (x)->jd = (y)->jd;\
     (x)->sg = (date_sg_t)((y)->sg);\
     (x)->year = (y)->year;\
@@ -410,9 +413,9 @@ _year, _mon, _mday, _hour, _min, _sec, _flags) \
     (x)->flags = (y)->flags;\
 }
 #else
-#define copy_complex_to_simple(x, y) \
+#define copy_complex_to_simple(obj, x, y) \
 {\
-    (x)->nth = (y)->nth;\
+    RB_OBJ_WRITE((obj), &(x)->nth, (y)->nth);\
     (x)->jd = (y)->jd;\
     (x)->sg = (date_sg_t)((y)->sg);\
     (x)->year = (y)->year;\
@@ -679,7 +682,7 @@ c_julian_leap_p(int y)
 inline static int
 c_gregorian_leap_p(int y)
 {
-    return MOD(y, 4) == 0 && y % 100 != 0 || MOD(y, 400) == 0;
+    return (MOD(y, 4) == 0 && y % 100 != 0) || MOD(y, 400) == 0;
 }
 
 static int
@@ -1117,11 +1120,13 @@ m_virtual_sg(union DateData *x)
 }
 
 inline static void
-canonicalize_s_jd(union DateData *x)
+canonicalize_s_jd(VALUE obj, union DateData *x)
 {
     int j = x->s.jd;
+    VALUE nth = x->s.nth;
     assert(have_jd_p(x));
-    canonicalize_jd(x->s.nth, x->s.jd);
+    canonicalize_jd(nth, x->s.jd);
+    RB_OBJ_WRITE(obj, &x->s.nth, nth);
     if (x->s.jd != j)
 	x->flags &= ~HAVE_CIVIL;
 }
@@ -1211,11 +1216,13 @@ get_c_time(union DateData *x)
 }
 
 inline static void
-canonicalize_c_jd(union DateData *x)
+canonicalize_c_jd(VALUE obj, union DateData *x)
 {
     int j = x->c.jd;
+    VALUE nth = x->c.nth;
     assert(have_jd_p(x));
-    canonicalize_jd(x->c.nth, x->c.jd);
+    canonicalize_jd(nth, x->c.jd);
+    RB_OBJ_WRITE(obj, &x->c.nth, nth);
     if (x->c.jd != j)
 	x->flags &= ~HAVE_CIVIL;
 }
@@ -1394,15 +1401,15 @@ guess_style(VALUE y, double sg) /* -/+oo or zero */
 }
 
 inline static void
-m_canonicalize_jd(union DateData *x)
+m_canonicalize_jd(VALUE obj, union DateData *x)
 {
     if (simple_dat_p(x)) {
 	get_s_jd(x);
-	canonicalize_s_jd(x);
+	canonicalize_s_jd(obj, x);
     }
     else {
 	get_c_jd(x);
-	canonicalize_c_jd(x);
+	canonicalize_c_jd(obj, x);
     }
 }
 
@@ -1720,23 +1727,6 @@ m_real_year(union DateData *x)
     return ry;
 }
 
-
-#ifdef USE_PACK
-inline static int
-m_pc(union DateData *x)
-{
-    if (simple_dat_p(x)) {
-	get_s_civil(x);
-	return x->s.pc;
-    }
-    else {
-	get_c_civil(x);
-	get_c_time(x);
-	return x->c.pc;
-    }
-}
-#endif
-
 inline static int
 m_mon(union DateData *x)
 {
@@ -1977,12 +1967,6 @@ k_date_p(VALUE x)
 }
 
 inline static VALUE
-k_datetime_p(VALUE x)
-{
-    return f_kind_of_p(x, cDateTime);
-}
-
-inline static VALUE
 k_numeric_p(VALUE x)
 {
     return f_kind_of_p(x, rb_cNumeric);
@@ -1992,6 +1976,13 @@ inline static VALUE
 k_rational_p(VALUE x)
 {
     return f_kind_of_p(x, rb_cRational);
+}
+
+static inline void
+expect_numeric(VALUE x)
+{
+    if (!k_numeric_p(x))
+	rb_raise(rb_eTypeError, "expected numeric");
 }
 
 #ifndef NDEBUG
@@ -2367,8 +2358,7 @@ offset_to_sec(VALUE vof, int *rof)
 	    return 1;
 	}
       default:
-	if (!k_numeric_p(vof))
-	    rb_raise(rb_eTypeError, "expected numeric");
+	expect_numeric(vof);
 	vof = f_to_r(vof);
 #ifdef CANONICALIZATION_FOR_MATHN
 	if (!k_rational_p(vof))
@@ -2393,8 +2383,8 @@ offset_to_sec(VALUE vof, int *rof)
 		return 1;
 	    }
 #endif
-	    vn = RRATIONAL(vs)->num;
-	    vd = RRATIONAL(vs)->den;
+	    vn = rb_rational_num(vs);
+	    vd = rb_rational_den(vs);
 
 	    if (FIXNUM_P(vn) && FIXNUM_P(vd) && (FIX2LONG(vd) == 1))
 		n = FIX2LONG(vn);
@@ -2942,16 +2932,30 @@ date_s_gregorian_leap_p(VALUE klass, VALUE y)
 }
 
 static void
-d_lite_gc_mark(union DateData *dat)
+d_lite_gc_mark(void *ptr)
 {
+    union DateData *dat = ptr;
     if (simple_dat_p(dat))
 	rb_gc_mark(dat->s.nth);
     else {
 	rb_gc_mark(dat->c.nth);
 	rb_gc_mark(dat->c.sf);
-
     }
 }
+
+static size_t
+d_lite_memsize(const void *ptr)
+{
+    const union DateData *dat = ptr;
+    return complex_dat_p(dat) ? sizeof(struct ComplexDateData) : sizeof(struct SimpleDateData);
+}
+
+static const rb_data_type_t d_lite_type = {
+    "Date",
+    {d_lite_gc_mark, RUBY_TYPED_DEFAULT_FREE, d_lite_memsize,},
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY|RUBY_TYPED_WB_PROTECTED,
+};
 
 inline static VALUE
 d_simple_new_internal(VALUE klass,
@@ -2963,9 +2967,9 @@ d_simple_new_internal(VALUE klass,
     struct SimpleDateData *dat;
     VALUE obj;
 
-    obj = Data_Make_Struct(klass, struct SimpleDateData,
-			   d_lite_gc_mark, -1, dat);
-    set_to_simple(dat, nth, jd, sg, y, m, d, flags & ~COMPLEX_DAT);
+    obj = TypedData_Make_Struct(klass, struct SimpleDateData,
+				&d_lite_type, dat);
+    set_to_simple(obj, dat, nth, jd, sg, y, m, d, flags & ~COMPLEX_DAT);
 
     assert(have_jd_p(dat) || have_civil_p(dat));
 
@@ -2984,9 +2988,9 @@ d_complex_new_internal(VALUE klass,
     struct ComplexDateData *dat;
     VALUE obj;
 
-    obj = Data_Make_Struct(klass, struct ComplexDateData,
-			   d_lite_gc_mark, -1, dat);
-    set_to_complex(dat, nth, jd, df, sf, of, sg,
+    obj = TypedData_Make_Struct(klass, struct ComplexDateData,
+				&d_lite_type, dat);
+    set_to_complex(obj, dat, nth, jd, df, sf, of, sg,
 		   y, m, d, h, min, s, flags | COMPLEX_DAT);
 
     assert(have_jd_p(dat) || have_civil_p(dat));
@@ -3117,7 +3121,7 @@ wholenum_p(VALUE x)
 	break;
       case T_RATIONAL:
 	{
-	    VALUE den = RRATIONAL(x)->den;
+	    VALUE den = rb_rational_den(x);
 	    return FIXNUM_P(den) && FIX2LONG(den) == 1;
 	}
 	break;
@@ -3687,7 +3691,11 @@ rt_rewrite_frags(VALUE hash)
 
     seconds = ref_hash("seconds");
     if (!NIL_P(seconds)) {
-	VALUE d, h, min, s, fr;
+	VALUE offset, d, h, min, s, fr;
+
+	offset = ref_hash("offset");
+	if (!NIL_P(offset))
+	    seconds = f_add(seconds, offset);
 
 	d = f_idiv(seconds, INT2FIX(DAY_IN_SECONDS));
 	fr = f_mod(seconds, INT2FIX(DAY_IN_SECONDS));
@@ -3707,7 +3715,6 @@ rt_rewrite_frags(VALUE hash)
 	set_hash("sec", s);
 	set_hash("sec_fraction", fr);
 	del_hash("seconds");
-	del_hash("offset");
     }
     return hash;
 }
@@ -3722,7 +3729,8 @@ static VALUE
 rt_complete_frags(VALUE klass, VALUE hash)
 {
     static VALUE tab = Qnil;
-    int g, e;
+    int g;
+    long e;
     VALUE k, a, d;
 
     if (NIL_P(tab)) {
@@ -3819,19 +3827,19 @@ rt_complete_frags(VALUE klass, VALUE hash)
     }
 
     {
-	int i, eno = 0, idx = 0;
+	long i, eno = 0, idx = 0;
 
-	for (i = 0; i < RARRAY_LENINT(tab); i++) {
+	for (i = 0; i < RARRAY_LEN(tab); i++) {
 	    VALUE x, a;
 
-	    x = RARRAY_PTR(tab)[i];
-	    a = RARRAY_PTR(x)[1];
+	    x = RARRAY_AREF(tab, i);
+	    a = RARRAY_AREF(x, 1);
 
 	    {
-		int j, n = 0;
+		long j, n = 0;
 
-		for (j = 0; j < RARRAY_LENINT(a); j++)
-		    if (!NIL_P(ref_hash0(RARRAY_PTR(a)[j])))
+		for (j = 0; j < RARRAY_LEN(a); j++)
+		    if (!NIL_P(ref_hash0(RARRAY_AREF(a, j))))
 			n++;
 		if (n > eno) {
 		    eno = n;
@@ -3843,15 +3851,15 @@ rt_complete_frags(VALUE klass, VALUE hash)
 	    g = 0;
 	else {
 	    g = 1;
-	    k = RARRAY_PTR(RARRAY_PTR(tab)[idx])[0];
-	    a = RARRAY_PTR(RARRAY_PTR(tab)[idx])[1];
+	    k = RARRAY_AREF(RARRAY_AREF(tab, idx), 0);
+	    a = RARRAY_AREF(RARRAY_AREF(tab, idx), 1);
 	    e =	eno;
 	}
     }
 
     d = Qnil;
 
-    if (g && !NIL_P(k) && (RARRAY_LENINT(a) - e)) {
+    if (g && !NIL_P(k) && (RARRAY_LEN(a) - e)) {
 	if (k == sym("ordinal")) {
 	    if (NIL_P(ref_hash("year"))) {
 		if (NIL_P(d))
@@ -3862,10 +3870,10 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		set_hash("yday", INT2FIX(1));
 	}
 	else if (k == sym("civil")) {
-	    int i;
+	    long i;
 
-	    for (i = 0; i < RARRAY_LENINT(a); i++) {
-		VALUE e = RARRAY_PTR(a)[i];
+	    for (i = 0; i < RARRAY_LEN(a); i++) {
+		VALUE e = RARRAY_AREF(a, i);
 
 		if (!NIL_P(ref_hash0(e)))
 		    break;
@@ -3879,10 +3887,10 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		set_hash("mday", INT2FIX(1));
 	}
 	else if (k == sym("commercial")) {
-	    int i;
+	    long i;
 
-	    for (i = 0; i < RARRAY_LENINT(a); i++) {
-		VALUE e = RARRAY_PTR(a)[i];
+	    for (i = 0; i < RARRAY_LEN(a); i++) {
+		VALUE e = RARRAY_AREF(a, i);
 
 		if (!NIL_P(ref_hash0(e)))
 		    break;
@@ -3903,10 +3911,10 @@ rt_complete_frags(VALUE klass, VALUE hash)
 					   ref_hash("wday"))));
 	}
 	else if (k == sym("wnum0")) {
-	    int i;
+	    long i;
 
-	    for (i = 0; i < RARRAY_LENINT(a); i++) {
-		VALUE e = RARRAY_PTR(a)[i];
+	    for (i = 0; i < RARRAY_LEN(a); i++) {
+		VALUE e = RARRAY_AREF(a, i);
 
 		if (!NIL_P(ref_hash0(e)))
 		    break;
@@ -3920,10 +3928,10 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		set_hash("wday", INT2FIX(0));
 	}
 	else if (k == sym("wnum1")) {
-	    int i;
+	    long i;
 
-	    for (i = 0; i < RARRAY_LENINT(a); i++) {
-		VALUE e = RARRAY_PTR(a)[i];
+	    for (i = 0; i < RARRAY_LEN(a); i++) {
+		VALUE e = RARRAY_AREF(a, i);
 
 		if (!NIL_P(ref_hash0(e)))
 		    break;
@@ -4641,6 +4649,7 @@ dup_obj(VALUE self)
 	{
 	    get_d1b(new);
 	    bdat->s = adat->s;
+	    RB_OBJ_WRITTEN(new, Qundef, bdat->s.nth);
 	    return new;
 	}
     }
@@ -4649,6 +4658,8 @@ dup_obj(VALUE self)
 	{
 	    get_d1b(new);
 	    bdat->c = adat->c;
+	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.nth);
+	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.sf);
 	    return new;
 	}
     }
@@ -4663,7 +4674,7 @@ dup_obj_as_complex(VALUE self)
 	VALUE new = d_lite_s_alloc_complex(rb_obj_class(self));
 	{
 	    get_d1b(new);
-	    copy_simple_to_complex(&bdat->c, &adat->s);
+	    copy_simple_to_complex(new, &bdat->c, &adat->s);
 	    bdat->c.flags |= HAVE_DF | COMPLEX_DAT;
 	    return new;
 	}
@@ -4673,6 +4684,8 @@ dup_obj_as_complex(VALUE self)
 	{
 	    get_d1b(new);
 	    bdat->c = adat->c;
+	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.nth);
+	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.sf);
 	    return new;
 	}
     }
@@ -4731,7 +4744,7 @@ d_lite_initialize(int argc, VALUE *argv, VALUE self)
 
 	decode_jd(jd, &nth, &rjd);
 	if (!df && f_zero_p(sf) && !of) {
-	    set_to_simple(&dat->s, nth, rjd, sg, 0, 0, 0, HAVE_JD);
+	    set_to_simple(self, &dat->s, nth, rjd, sg, 0, 0, 0, HAVE_JD);
 	}
 	else {
 	    if (!complex_dat_p(dat))
@@ -5710,8 +5723,7 @@ d_lite_plus(VALUE self, VALUE other)
 	}
 	break;
       default:
-	if (!k_numeric_p(other))
-	    rb_raise(rb_eTypeError, "expected numeric");
+	expect_numeric(other);
 	other = f_to_r(other);
 #ifdef CANONICALIZATION_FOR_MATHN
 	if (!k_rational_p(other))
@@ -5724,7 +5736,7 @@ d_lite_plus(VALUE self, VALUE other)
 	    int jd, df, s;
 
 	    if (wholenum_p(other))
-		return d_lite_plus(self, RRATIONAL(other)->num);
+		return d_lite_plus(self, rb_rational_num(other));
 
 	    if (f_positive_p(other))
 		s = +1;
@@ -5860,7 +5872,7 @@ minus_dd(VALUE self, VALUE other)
 	if (f_nonzero_p(sf))
 	    r = f_add(r, ns_to_day(sf));
 
-	if (TYPE(r) == T_RATIONAL)
+	if (RB_TYPE_P(r, T_RATIONAL))
 	    return r;
 	return rb_rational_new1(r);
     }
@@ -5895,8 +5907,7 @@ d_lite_minus(VALUE self, VALUE other)
       case T_FLOAT:
 	return d_lite_plus(self, DBL2NUM(-RFLOAT_VALUE(other)));
       default:
-	if (!k_numeric_p(other))
-	    rb_raise(rb_eTypeError, "expected numeric");
+	expect_numeric(other);
 	/* fall through */
       case T_BIGNUM:
       case T_RATIONAL:
@@ -5940,6 +5951,7 @@ d_lite_prev_day(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
+ *    d.succ  ->  date
  *    d.next  ->  date
  *
  * Returns a date object denoting the following day.
@@ -6014,6 +6026,7 @@ d_lite_rshift(VALUE self, VALUE other)
 static VALUE
 d_lite_lshift(VALUE self, VALUE other)
 {
+    expect_numeric(other);
     return d_lite_rshift(self, f_negate(other));
 }
 
@@ -6206,8 +6219,8 @@ cmp_dd(VALUE self, VALUE other)
 	int a_jd, b_jd,
 	    a_df, b_df;
 
-	m_canonicalize_jd(adat);
-	m_canonicalize_jd(bdat);
+	m_canonicalize_jd(self, adat);
+	m_canonicalize_jd(other, bdat);
 	a_nth = m_nth(adat);
 	b_nth = m_nth(bdat);
 	if (f_eqeq_p(a_nth, b_nth)) {
@@ -6281,13 +6294,12 @@ d_lite_cmp(VALUE self, VALUE other)
 	      m_gregorian_p(adat) == m_gregorian_p(bdat)))
 	    return cmp_dd(self, other);
 
-	if (have_jd_p(adat) &&
-	    have_jd_p(bdat)) {
+	{
 	    VALUE a_nth, b_nth;
 	    int a_jd, b_jd;
 
-	    m_canonicalize_jd(adat);
-	    m_canonicalize_jd(bdat);
+	    m_canonicalize_jd(self, adat);
+	    m_canonicalize_jd(other, bdat);
 	    a_nth = m_nth(adat);
 	    b_nth = m_nth(bdat);
 	    if (f_eqeq_p(a_nth, b_nth)) {
@@ -6297,76 +6309,6 @@ d_lite_cmp(VALUE self, VALUE other)
 		    return INT2FIX(0);
 		}
 		else if (a_jd < b_jd) {
-		    return INT2FIX(-1);
-		}
-		else {
-		    return INT2FIX(1);
-		}
-	    }
-	    else if (f_lt_p(a_nth, b_nth)) {
-		return INT2FIX(-1);
-	    }
-	    else {
-		return INT2FIX(1);
-	    }
-	}
-	else {
-#ifndef USE_PACK
-	    VALUE a_nth, b_nth;
-	    int a_year, b_year,
-		a_mon, b_mon,
-		a_mday, b_mday;
-#else
-	    VALUE a_nth, b_nth;
-	    int a_year, b_year,
-		a_pd, b_pd;
-#endif
-
-	    m_canonicalize_jd(adat);
-	    m_canonicalize_jd(bdat);
-	    a_nth = m_nth(adat);
-	    b_nth = m_nth(bdat);
-	    if (f_eqeq_p(a_nth, b_nth)) {
-		a_year = m_year(adat);
-		b_year = m_year(bdat);
-		if (a_year == b_year) {
-#ifndef USE_PACK
-		    a_mon = m_mon(adat);
-		    b_mon = m_mon(bdat);
-		    if (a_mon == b_mon) {
-			a_mday = m_mday(adat);
-			b_mday = m_mday(bdat);
-			if (a_mday == b_mday) {
-			    return INT2FIX(0);
-			}
-			else if (a_mday < b_mday) {
-			    return INT2FIX(-1);
-			}
-			else {
-			    return INT2FIX(1);
-			}
-		    }
-		    else if (a_mon < b_mon) {
-			return INT2FIX(-1);
-		    }
-		    else {
-			return INT2FIX(1);
-		    }
-#else
-		    a_pd = m_pc(adat);
-		    b_pd = m_pc(bdat);
-		    if (a_pd == b_pd) {
-			return INT2FIX(0);
-		    }
-		    else if (a_pd < b_pd) {
-			return INT2FIX(-1);
-		    }
-		    else {
-			return INT2FIX(1);
-		    }
-#endif
-		}
-		else if (a_year < b_year) {
 		    return INT2FIX(-1);
 		}
 		else {
@@ -6424,13 +6366,12 @@ d_lite_equal(VALUE self, VALUE other)
 	if (!(m_gregorian_p(adat) == m_gregorian_p(bdat)))
 	    return equal_gen(self, other);
 
-	if (have_jd_p(adat) &&
-	    have_jd_p(bdat)) {
+	{
 	    VALUE a_nth, b_nth;
 	    int a_jd, b_jd;
 
-	    m_canonicalize_jd(adat);
-	    m_canonicalize_jd(bdat);
+	    m_canonicalize_jd(self, adat);
+	    m_canonicalize_jd(other, bdat);
 	    a_nth = m_nth(adat);
 	    b_nth = m_nth(bdat);
 	    a_jd = m_local_jd(adat);
@@ -6438,47 +6379,6 @@ d_lite_equal(VALUE self, VALUE other)
 	    if (f_eqeq_p(a_nth, b_nth) &&
 		a_jd == b_jd)
 		return Qtrue;
-	    return Qfalse;
-	}
-	else {
-#ifndef USE_PACK
-	    VALUE a_nth, b_nth;
-	    int a_year, b_year,
-		a_mon, b_mon,
-		a_mday, b_mday;
-#else
-	    VALUE a_nth, b_nth;
-	    int a_year, b_year,
-		a_pd, b_pd;
-#endif
-
-	    m_canonicalize_jd(adat);
-	    m_canonicalize_jd(bdat);
-	    a_nth = m_nth(adat);
-	    b_nth = m_nth(bdat);
-	    if (f_eqeq_p(a_nth, b_nth)) {
-		a_year = m_year(adat);
-		b_year = m_year(bdat);
-		if (a_year == b_year) {
-#ifndef USE_PACK
-		    a_mon = m_mon(adat);
-		    b_mon = m_mon(bdat);
-		    if (a_mon == b_mon) {
-			a_mday = m_mday(adat);
-			b_mday = m_mday(bdat);
-			if (a_mday == b_mday)
-			    return Qtrue;
-		    }
-#else
-		    /* mon and mday only */
-		    a_pd = (m_pc(adat) >> MDAY_SHIFT);
-		    b_pd = (m_pc(bdat) >> MDAY_SHIFT);
-		    if (a_pd == b_pd) {
-			return Qtrue;
-		    }
-#endif
-		}
-	    }
 	    return Qfalse;
 	}
     }
@@ -7177,7 +7077,7 @@ d_lite_marshal_load(VALUE self, VALUE a)
     rb_check_frozen(self);
     rb_check_trusted(self);
 
-    if (TYPE(a) != T_ARRAY)
+    if (!RB_TYPE_P(a, T_ARRAY))
 	rb_raise(rb_eTypeError, "expected an array");
 
     switch (RARRAY_LEN(a)) {
@@ -7190,29 +7090,29 @@ d_lite_marshal_load(VALUE self, VALUE a)
 
 
 	    if  (RARRAY_LEN(a) == 2) {
-		ajd = f_sub(RARRAY_PTR(a)[0], half_days_in_day);
+		ajd = f_sub(RARRAY_AREF(a, 0), half_days_in_day);
 		of = INT2FIX(0);
-		sg = RARRAY_PTR(a)[1];
+		sg = RARRAY_AREF(a, 1);
 		if (!k_numeric_p(sg))
 		    sg = DBL2NUM(RTEST(sg) ? GREGORIAN : JULIAN);
 	    }
 	    else {
-		ajd = RARRAY_PTR(a)[0];
-		of = RARRAY_PTR(a)[1];
-		sg = RARRAY_PTR(a)[2];
+		ajd = RARRAY_AREF(a, 0);
+		of = RARRAY_AREF(a, 1);
+		sg = RARRAY_AREF(a, 2);
 	    }
 
 	    old_to_new(ajd, of, sg,
 		       &nth, &jd, &df, &sf, &rof, &rsg);
 
 	    if (!df && f_zero_p(sf) && !rof) {
-		set_to_simple(&dat->s, nth, jd, rsg, 0, 0, 0, HAVE_JD);
+		set_to_simple(self, &dat->s, nth, jd, rsg, 0, 0, 0, HAVE_JD);
 	    } else {
 		if (!complex_dat_p(dat))
 		    rb_raise(rb_eArgError,
 			     "cannot load complex into simple");
 
-		set_to_complex(&dat->c, nth, jd, df, sf, rof, rsg,
+		set_to_complex(self, &dat->c, nth, jd, df, sf, rof, rsg,
 			       0, 0, 0, 0, 0, 0,
 			       HAVE_JD | HAVE_DF | COMPLEX_DAT);
 	    }
@@ -7224,20 +7124,20 @@ d_lite_marshal_load(VALUE self, VALUE a)
 	    int jd, df, of;
 	    double sg;
 
-	    nth = RARRAY_PTR(a)[0];
-	    jd = NUM2INT(RARRAY_PTR(a)[1]);
-	    df = NUM2INT(RARRAY_PTR(a)[2]);
-	    sf = RARRAY_PTR(a)[3];
-	    of = NUM2INT(RARRAY_PTR(a)[4]);
-	    sg = NUM2DBL(RARRAY_PTR(a)[5]);
+	    nth = RARRAY_AREF(a, 0);
+	    jd = NUM2INT(RARRAY_AREF(a, 1));
+	    df = NUM2INT(RARRAY_AREF(a, 2));
+	    sf = RARRAY_AREF(a, 3);
+	    of = NUM2INT(RARRAY_AREF(a, 4));
+	    sg = NUM2DBL(RARRAY_AREF(a, 5));
 	    if (!df && f_zero_p(sf) && !of) {
-		set_to_simple(&dat->s, nth, jd, sg, 0, 0, 0, HAVE_JD);
+		set_to_simple(self, &dat->s, nth, jd, sg, 0, 0, 0, HAVE_JD);
 	    } else {
 		if (!complex_dat_p(dat))
 		    rb_raise(rb_eArgError,
 			     "cannot load complex into simple");
 
-		set_to_complex(&dat->c, nth, jd, df, sf, of, sg,
+		set_to_complex(self, &dat->c, nth, jd, df, sf, of, sg,
 			       0, 0, 0, 0, 0, 0,
 			       HAVE_JD | HAVE_DF | COMPLEX_DAT);
 	    }
@@ -8663,7 +8563,7 @@ date_to_datetime(VALUE self)
 	    get_d1b(new);
 	    bdat->c = adat->c;
 	    bdat->c.df = 0;
-	    bdat->c.sf = INT2FIX(0);
+	    RB_OBJ_WRITE(new, &bdat->c.sf, INT2FIX(0));
 #ifndef USE_PACK
 	    bdat->c.hour = 0;
 	    bdat->c.min = 0;
@@ -8729,7 +8629,7 @@ datetime_to_date(VALUE self)
 	VALUE new = d_lite_s_alloc_simple(cDate);
 	{
 	    get_d1b(new);
-	    copy_complex_to_simple(&bdat->s, &adat->c)
+	    copy_complex_to_simple(new, &bdat->s, &adat->c)
 	    bdat->s.jd = m_local_jd(adat);
 	    bdat->s.flags &= ~(HAVE_DF | HAVE_TIME | COMPLEX_DAT);
 	    return new;
@@ -9157,7 +9057,7 @@ Init_date_core(void)
      * The calendar week is a seven day period within a calendar year,
      * starting on a Monday and identified by its ordinal number within
      * the year; the first calendar week of the year is the one that
-     * includes the first Thursday of that year.  In the Gregorian
+     * includes the first Thursday of that year. In the Gregorian
      * calendar, this is equivalent to the week which includes January 4.
      *
      * In those classes, this so-called "commercial".
@@ -9168,8 +9068,8 @@ Init_date_core(void)
      * time) on January 1, 4713 BCE (in the Julian calendar).
      *
      * In this document, the astronomical Julian day number is same as the
-     * original Julian day number.  And the chronological Julian day
-     * number is a variation of the Julian day number.  Its days begin at
+     * original Julian day number. And the chronological Julian day
+     * number is a variation of the Julian day number. Its days begin at
      * midnight on local time.
      *
      * In this document, when the term "Julian day number" simply appears,
@@ -9185,9 +9085,9 @@ Init_date_core(void)
      * Gregorian calendar).
      *
      * In this document, the astronomical modified Julian day number is
-     * same as the original modified Julian day number.  And the
+     * same as the original modified Julian day number. And the
      * chronological modified Julian day number is a variation of the
-     * modified Julian day number.  Its days begin at midnight on local
+     * modified Julian day number. Its days begin at midnight on local
      * time.
      *
      * In this document, when the term "modified Julian day number" simply
@@ -9196,10 +9096,9 @@ Init_date_core(void)
      *
      * In those classes, this is so-called "mjd".
      *
-     *
      * == Date
      *
-     * A subclass of Object includes Comparable module, easily handles
+     * A subclass of Object that includes Comparable module and easily handles
      * date.
      *
      * Date object is created with Date::new, Date::jd, Date::ordinal,
@@ -9208,14 +9107,20 @@ Init_date_core(void)
      *
      *     require 'date'
      *
-     *     Date.new(2001,2,3)		#=> #<Date: 2001-02-03 ...>
-     *     Date.jd(2451944)		#=> #<Date: 2001-02-03 ...>
-     *     Date.ordinal(2001,34)	#=> #<Date: 2001-02-03 ...>
-     *     Date.commercial(2001,5,6)	#=> #<Date: 2001-02-03 ...>
-     *     Date.parse('2001-02-03')	#=> #<Date: 2001-02-03 ...>
+     *     Date.new(2001,2,3)
+     *	    #=> #<Date: 2001-02-03 ...>
+     *     Date.jd(2451944)
+     *	    #=> #<Date: 2001-02-03 ...>
+     *     Date.ordinal(2001,34)
+     *	    #=> #<Date: 2001-02-03 ...>
+     *     Date.commercial(2001,5,6)
+     *	    #=> #<Date: 2001-02-03 ...>
+     *     Date.parse('2001-02-03')
+     *	    #=> #<Date: 2001-02-03 ...>
      *     Date.strptime('03-02-2001', '%d-%m-%Y')
-     *					#=> #<Date: 2001-02-03 ...>
-     *     Time.new(2001,2,3).to_date	#=> #<Date: 2001-02-03 ...>
+     *	    #=> #<Date: 2001-02-03 ...>
+     *     Time.new(2001,2,3).to_date
+     *	    #=> #<Date: 2001-02-03 ...>
      *
      * All date objects are immutable; hence cannot modify themselves.
      *
@@ -9223,11 +9128,11 @@ Init_date_core(void)
      * of the day count, the offset and the day of calendar reform.
      *
      * The day count denotes the absolute position of a temporal
-     * dimension.  The offset is relative adjustment, which determines
-     * decoded local time with the day count.  The day of calendar
-     * reform denotes the start day of the new style.  The old style
+     * dimension. The offset is relative adjustment, which determines
+     * decoded local time with the day count. The day of calendar
+     * reform denotes the start day of the new style. The old style
      * of the West is the Julian calendar which was adopted by
-     * Caersar.  The new style is the Gregorian calendar, which is the
+     * Caesar. The new style is the Gregorian calendar, which is the
      * current civil calendar of many countries.
      *
      * The day count is virtually the astronomical Julian day number.
@@ -9265,88 +9170,28 @@ Init_date_core(void)
      *     d += 1			#=> #<Date: 2001-02-04 ...>
      *     d.strftime('%a %d %b %Y')	#=> "Sun 04 Feb 2001"
      *
-     *
-     * == DateTime
-     *
-     * A subclass of Date easily handles date, hour, minute, second and
-     * offset.
-     *
-     * DateTime does not consider any leapseconds, does not track
-     * any summer time rules.
-     *
-     * DateTime object is created with DateTime::new, DateTime::jd,
-     * DateTime::ordinal, DateTime::commercial, DateTime::parse,
-     * DateTime::strptime, DateTime::now, Time#to_datetime or etc.
-     *
-     *     require 'date'
-     *
-     *     DateTime.new(2001,2,3,4,5,6)
-     *				#=> #<DateTime: 2001-02-03T04:05:06+00:00 ...>
-     *
-     * The last element of day, hour, minute or senond can be
-     * fractional number. The fractional number's precision is assumed
-     * at most nanosecond.
-     *
-     *     DateTime.new(2001,2,3.5)
-     *				#=> #<DateTime: 2001-02-03T12:00:00+00:00 ...>
-     *
-     * An optional argument the offset indicates the difference
-     * between the local time and UTC.  For example, Rational(3,24)
-     * represents ahead of 3 hours of UTC, Rational(-5,24) represents
-     * behind of 5 hours of UTC.  The offset should be -1 to +1, and
-     * its precision is assumed at most second.  The default value is
-     * zero (equals to UTC).
-     *
-     *     DateTime.new(2001,2,3,4,5,6,Rational(3,24))
-     *				#=> #<DateTime: 2001-02-03T04:05:06+03:00 ...>
-     * also accepts string form.
-     *
-     *     DateTime.new(2001,2,3,4,5,6,'+03:00')
-     *				#=> #<DateTime: 2001-02-03T04:05:06+03:00 ...>
-     *
-     * An optional argument the day of calendar reform (start) denotes
-     * a Julian day number, which should be 2298874 to 2426355 or
-     * -/+oo.  The default value is Date::ITALY (2299161=1582-10-15).
-     *
-     * DateTime object has various methods. See each reference.
-     *
-     *     d = DateTime.parse('3rd Feb 2001 04:05:06+03:30')
-     *				#=> #<DateTime: 2001-02-03T04:05:06+03:30 ...>
-     *     d.hour		#=> 4
-     *     d.min		#=> 5
-     *     d.sec		#=> 6
-     *     d.offset		#=> (7/48)
-     *     d.zone		#=> "+03:30"
-     *     d += Rational('1.5')
-     *				#=> #<DateTime: 2001-02-04%16:05:06+03:30 ...>
-     *     d = d.new_offset('+09:00')
-     *				#=> #<DateTime: 2001-02-04%21:35:06+09:00 ...>
-     *     d.strftime('%I:%M:%S %p')
-     *				#=> "09:35:06 PM"
-     *     d > DateTime.new(1999)
-     *				#=> true
      */
     cDate = rb_define_class("Date", rb_cObject);
 
     rb_include_module(cDate, rb_mComparable);
 
-    /* An array of stirng of full month name in English.  The first
+    /* An array of strings of full month names in English.  The first
      * element is nil.
      */
     rb_define_const(cDate, "MONTHNAMES", mk_ary_of_str(13, monthnames));
 
-    /* An array of string of abbreviated month name in English.  The
+    /* An array of strings of abbreviated month names in English.  The
      * first element is nil.
      */
     rb_define_const(cDate, "ABBR_MONTHNAMES",
 		    mk_ary_of_str(13, abbr_monthnames));
 
-    /* An array of string of full name of days of the week in English.
+    /* An array of strings of the full names of days of the week in English.
      * The first is "Sunday".
      */
     rb_define_const(cDate, "DAYNAMES", mk_ary_of_str(7, daynames));
 
-    /* An array of string of abbreviated day name in English.  The
+    /* An array of strings of abbreviated day names in English.  The
      * first is "Sun".
      */
     rb_define_const(cDate, "ABBR_DAYNAMES", mk_ary_of_str(7, abbr_daynames));
@@ -9572,7 +9417,144 @@ Init_date_core(void)
     rb_define_method(cDate, "marshal_load", d_lite_marshal_load, 1);
     rb_define_singleton_method(cDate, "_load", date_s__load, 1);
 
-    /* datetime */
+    /*
+     * == DateTime
+     *
+     * A subclass of Date that easily handles date, hour, minute, second and
+     * offset.
+     *
+     * DateTime does not consider any leap seconds, does not track
+     * any summer time rules.
+     *
+     * DateTime object is created with DateTime::new, DateTime::jd,
+     * DateTime::ordinal, DateTime::commercial, DateTime::parse,
+     * DateTime::strptime, DateTime::now, Time#to_datetime or etc.
+     *
+     *     require 'date'
+     *
+     *     DateTime.new(2001,2,3,4,5,6)
+     *                         #=> #<DateTime: 2001-02-03T04:05:06+00:00 ...>
+     *
+     * The last element of day, hour, minute or second can be
+     * fractional number. The fractional number's precision is assumed
+     * at most nanosecond.
+     *
+     *     DateTime.new(2001,2,3.5)
+     *                         #=> #<DateTime: 2001-02-03T12:00:00+00:00 ...>
+     *
+     * An optional argument the offset indicates the difference
+     * between the local time and UTC. For example, <tt>Rational(3,24)</tt>
+     * represents ahead of 3 hours of UTC, <tt>Rational(-5,24)</tt> represents
+     * behind of 5 hours of UTC. The offset should be -1 to +1, and
+     * its precision is assumed at most second. The default value is
+     * zero(equals to UTC).
+     *
+     *     DateTime.new(2001,2,3,4,5,6,Rational(3,24))
+     *                         #=> #<DateTime: 2001-02-03T04:05:06+03:00 ...>
+     *
+     * also accepts string form.
+     *
+     *     DateTime.new(2001,2,3,4,5,6,'+03:00')
+     *                         #=> #<DateTime: 2001-02-03T04:05:06+03:00 ...>
+     *
+     * An optional argument the day of calendar reform (start) denotes
+     * a Julian day number, which should be 2298874 to 2426355 or
+     * -/+oo.  The default value is +Date::ITALY+ (2299161=1582-10-15).
+     *
+     * DateTime object has various methods. See each reference.
+     *
+     *     d = DateTime.parse('3rd Feb 2001 04:05:06+03:30')
+     *                         #=> #<DateTime: 2001-02-03T04:05:06+03:30 ...>
+     *     d.hour              #=> 4
+     *     d.min               #=> 5
+     *     d.sec               #=> 6
+     *     d.offset            #=> (7/48)
+     *     d.zone              #=> "+03:30"
+     *     d += Rational('1.5')
+     *                         #=> #<DateTime: 2001-02-04%16:05:06+03:30 ...>
+     *     d = d.new_offset('+09:00')
+     *                         #=> #<DateTime: 2001-02-04%21:35:06+09:00 ...>
+     *     d.strftime('%I:%M:%S %p')
+     *                         #=> "09:35:06 PM"
+     *     d > DateTime.new(1999)
+     *                         #=> true
+     *
+     * === When should you use DateTime and when should you use Time?
+     *
+     * It's a common misconception that
+     * {William Shakespeare}[http://en.wikipedia.org/wiki/William_Shakespeare]
+     * and
+     * {Miguel de Cervantes}[http://en.wikipedia.org/wiki/Miguel_de_Cervantes]
+     * died on the same day in history -
+     * so much so that UNESCO named April 23 as
+     * {World Book Day because of this fact}[http://en.wikipedia.org/wiki/World_Book_Day].
+     * However because England hadn't yet adopted
+     * {Gregorian Calendar Reform}[http://en.wikipedia.org/wiki/Gregorian_calendar#Gregorian_reform]
+     * (and wouldn't until {1752}[http://en.wikipedia.org/wiki/Calendar_(New_Style)_Act_1750])
+     * their deaths are actually 10 days apart.
+     * Since Ruby's Time class implements a
+     * {proleptic Gregorian calendar}[http://en.wikipedia.org/wiki/Proleptic_Gregorian_calendar]
+     * and has no concept of calendar reform then there's no way
+     * to express this. This is where DateTime steps in:
+     *
+     *     shakespeare = DateTime.iso8601('1616-04-23', Date::ENGLAND)
+     *      #=> Tue, 23 Apr 1616 00:00:00 +0000
+     *     cervantes = DateTime.iso8601('1616-04-23', Date::ITALY)
+     *      #=> Sat, 23 Apr 1616 00:00:00 +0000
+     *
+     * Already you can see something's weird - the days of the week
+     * are different, taking this further:
+     *
+     *     cervantes == shakespeare
+     *      #=> false
+     *     (shakespeare - cervantes).to_i
+     *      #=> 10
+     *
+     * This shows that in fact they died 10 days apart (in reality
+     * 11 days since Cervantes died a day earlier but was buried on
+     * the 23rd). We can see the actual date of Shakespeare's death by
+     * using the #gregorian method to convert it:
+     *
+     *     shakespeare.gregorian
+     *      #=> Tue, 03 May 1616 00:00:00 +0000
+     *
+     * So there's an argument that all the celebrations that take
+     * place on the 23rd April in Stratford-upon-Avon are actually
+     * the wrong date since England is now using the Gregorian calendar.
+     * You can see why when we transition across the reform
+     * date boundary:
+     *
+     *     # start off with the anniversary of Shakespeare's birth in 1751
+     *     shakespeare = DateTime.iso8601('1751-04-23', Date::ENGLAND)
+     *      #=> Tue, 23 Apr 1751 00:00:00 +0000
+     *
+     *     # add 366 days since 1752 is a leap year and April 23 is after February 29
+     *     shakespeare + 366
+     *      #=> Thu, 23 Apr 1752 00:00:00 +0000
+     *
+     *     # add another 365 days to take us to the anniversary in 1753
+     *     shakespeare + 366 + 365
+     *      #=> Fri, 04 May 1753 00:00:00 +0000
+     *
+     * As you can see, if we're accurately tracking the number of
+     * {solar years}[http://en.wikipedia.org/wiki/Tropical_year]
+     * since Shakespeare's birthday then the correct anniversary date
+     * would be the 4th May and not the 23rd April.
+     *
+     * So when should you use DateTime in Ruby and when should
+     * you use Time? Almost certainly you'll want to use Time
+     * since your app is probably dealing with current dates and
+     * times. However, if you need to deal with dates and times in a
+     * historical context you'll want to use DateTime to avoid
+     * making the same mistakes as UNESCO. If you also have to deal
+     * with timezones then best of luck - just bear in mind that
+     * you'll probably be dealing with
+     * {local solar times}[http://en.wikipedia.org/wiki/Solar_time],
+     * since it wasn't until the 19th century that the introduction
+     * of the railways necessitated the need for
+     * {Standard Time}[http://en.wikipedia.org/wiki/Standard_time#Great_Britain]
+     * and eventually timezones.
+     */
 
     cDateTime = rb_define_class("DateTime", cDate);
 

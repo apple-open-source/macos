@@ -1,21 +1,286 @@
                                                          -*- coding: utf-8 -*-
 
+Changes with Apache 2.4.27
+
+  *) COMPATIBILITY: mod_lua: Remove the undocumented exported 'apr_table'
+     global variable when using Lua 5.2 or later. This was exported as a
+     side effect from luaL_register, which is no longer supported as of
+     Lua 5.2 which deprecates pollution of the global namespace.
+     [Rainer Jung]
+
+  *) COMPATIBILITY: mod_http2: Disable and give warning when using Prefork.
+     The server will continue to run, but HTTP/2 will no longer be negotiated.
+     [Stefan Eissing]
+
+  *) COMPATIBILITY: mod_proxy_fcgi: Revert to 2.4.20 FCGI behavior for the
+     default ProxyFCGIBackendType, fixing a regression with PHP-FPM. PR 61202.
+     [Jacob Champion, Jim Jagielski]
+
+  *) mod_lua: Improve compatibility with Lua 5.1, 5.2 and 5.3.
+     PR58188, PR60831, PR61245. [Rainer Jung]
+  
+  *) mod_http2: Simplify ready queue, less memory and better performance. Update
+     mod_http2 version to 1.10.7. [Stefan Eissing]
+  
+  *) Allow single-char field names inadvertantly disallowed in 2.4.25.
+     PR 61220. [Yann Ylavic]
+
+  *) htpasswd / htdigest: Do not apply the strict permissions of the temporary
+     passwd file to a possibly existing passwd file. PR 61240. [Ruediger Pluem]
+
+  *) core: Avoid duplicate HEAD in Allow header.
+     This is a regression in 2.4.24 (unreleased), 2.4.25 and 2.4.26.
+     PR 61207. [Christophe Jaillet]
+
+Changes with Apache 2.4.26
+
+  *) SECURITY: CVE-2017-7679 (cve.mitre.org)
+     mod_mime can read one byte past the end of a buffer when sending a
+     malicious Content-Type response header.  [Yann Ylavic]
+
+  *) SECURITY: CVE-2017-7668 (cve.mitre.org)
+     The HTTP strict parsing changes added in 2.2.32 and 2.4.24 introduced a
+     bug in token list parsing, which allows ap_find_token() to search past
+     the end of its input string. By maliciously crafting a sequence of
+     request headers, an attacker may be able to cause a segmentation fault,
+     or to force ap_find_token() to return an incorrect value.
+     [Jacob Champion]
+
+  *) SECURITY: CVE-2017-7659 (cve.mitre.org)
+     A maliciously constructed HTTP/2 request could cause mod_http2 to
+     dereference a NULL pointer and crash the server process.
+
+  *) SECURITY: CVE-2017-3169 (cve.mitre.org)
+     mod_ssl may dereference a NULL pointer when third-party modules call
+     ap_hook_process_connection() during an HTTP request to an HTTPS port.
+     [Yann Ylavic]
+
+  *) SECURITY: CVE-2017-3167 (cve.mitre.org)
+     Use of the ap_get_basic_auth_pw() by third-party modules outside of the
+     authentication phase may lead to authentication requirements being
+     bypassed.
+     [Emmanuel Dreyfus <manu netbsd.org>, Jacob Champion, Eric Covener]
+
+  *) HTTP/2 support no longer tagged as "experimental" but is instead considered
+     fully production ready.
+
+  *) mod_http2: Fix for possible CPU busy loop introduced in v1.10.3 where a stream may keep
+     the session in continuous check for state changes that never happen. 
+     [Stefan Eissing]
+
+  *) mod_proxy_wstunnel: Add "upgrade" parameter to allow upgrade to other
+     protocols.  [Jean-Frederic Clere]
+
+  *) MPMs unix: Place signals handlers and helpers out of DSOs to avoid
+     a possible crash if a signal is caught during (graceful) restart.
+     PR 60487.  [Yann Ylavic]
+
+  *) mod_rewrite: When a substitution is a fully qualified URL, and the 
+     scheme/host/port matches the current virtual host, stop interpreting the 
+     path component as a local path just because the first component of the 
+     path exists in the filesystem.  Adds RewriteOption "LegacyPrefixDocRoot" 
+     to revert to previous behavior. PR60009.
+     [Hank Ibell <hwibell gmail.com>]
+ 
+  *) core: ap_parse_form_data() URL-decoding doesn't work on EBCDIC
+     platforms. PR61124. [Hank Ibell <hwibell gmail.com>]
+
+  *) ab: enable option processing for setting a custom HTTP method also for
+     non-SSL builds.  [Rainer Jung]
+
+  *) core: EBCDIC fixes for interim responses with additional headers.
+     [Eric Covener]
+
+  *) mod_env: when processing a 'SetEnv' directive, warn if the environment
+     variable name includes a '='. It is likely a configuration error.
+     PR 60249 [Christophe Jaillet]
+
+  *) Evaluate nested If/ElseIf/Else configuration blocks.
+     [Luca Toscano, Jacob Champion]
+
+  *) mod_rewrite: Add 'BNP' (backreferences-no-plus) flag to RewriteRule to 
+     allow spaces in backreferences to be encoded as %20 instead of '+'.
+     [Eric Covener]
+
+  *) mod_rewrite: Add the possibility to limit the escaping to specific
+     characters in backreferences by listing them in the B flag.
+     [Eric Covener]
+
+  *) mod_substitute: Fix spurious AH01328 (Line too long) errors on EBCDIC
+     systems.  [Eric Covener]
+
+  *) mod_http2: fail requests without ERROR log in case we need to read interim
+     responses and see only garbage. This can happen if proxied servers send
+     data where none should be, e.g. a body for a HEAD request. [Stefan Eissing]
+     
+  *) mod_proxy_http2: adding support for Reverse Proxy Request headers.
+     [Stefan Eissing]
+     
+  *) mod_http2: fixed possible deadlock that could occur when connections were 
+     terminated early with ongoing streams. Fixed possible hanger with timeout
+     on race when connection considers itself idle. [Stefan Eissing]  
+
+  *) mod_http2: MaxKeepAliveRequests now limits the number of times a 
+     slave connection gets reused. [Stefan Eissing]
+
+  *) mod_brotli: Add a new module for dynamic Brotli (RFC 7932) compression.
+     [Evgeny Kotkov]
+
+  *) mod_proxy_http2: Fixed bug in re-attempting proxy requests after 
+     connection error. Reliability of reconnect handling improved. 
+     [Stefan Eissing]
+  
+  *) mod_http2: better performance, eliminated need for nested locks and
+     thread privates. Moving request setups from the main connection to the
+     worker threads. Increase number of spare connections kept.
+     [Stefan Eissing]
+     
+  *) mod_http2: input buffering and dynamic flow windows for increased 
+     throughput. Requires nghttp2 >= v1.5.0 features. Announced at startup
+     in mod_http2 INFO log as feature 'DWINS'. [Stefan Eissing]
+
+  *) mod_http2: h2 workers with improved scalability for better scheduling
+     performance. There are H2MaxWorkers threads created at start and the
+     number is kept constant for now. [Stefan Eissing]
+     
+  *) mod_http2: obsoleted option H2SessionExtraFiles, will be ignored and
+     just log a warning. [Stefan Eissing]
+     
+  *) mod_autoindex: Add IndexOptions UseOldDateFormat to allow the date
+     format from 2.2 in the Last Modified column. PR60846.
+     [Hank Ibell <hwibell gmail.com>]
+ 
+  *) core: Add %{REMOTE_PORT} to the expression parser. PR59938
+     [Hank Ibell <hwibell gmail.com>]
+
+  *) mod_cache: Fix a regression in 2.4.25 for the forward proxy case by
+     computing and using the same entity key according to when the cache
+     checks, loads and saves the request.
+     PR 60577.  [Yann Ylavic]
+  
+  *) mod_proxy_hcheck: Don't validate timed out responses.  [Yann Ylavic]
+
+  *) mod_proxy_hcheck: Ensure thread-safety when concurrent healthchecks are
+     in use (ProxyHCTPsize > 0).  PR 60071.  [Yann Ylavic, Jim Jagielski]
+
+  *) core: %{DOCUMENT_URI} used in nested SSI expressions should point to the
+     URI originally requsted by the user, not the nested documents URI. This
+     restores the behavior of this variable to match the "legacy" SSI parser.
+     PR60624. [Hank Ibell <hwibell gmail.com>]
+
+  *) mod_proxy_fcgi: Add ProxyFCGISetEnvIf to fixup CGI environment
+     variables just before invoking the FastCGI. [Eric Covener,
+     Jacob Champion]
+
+  *) mod_proxy_fcgi: Return to 2.4.20-and-earlier behavior of leaving
+     a "proxy:fcgi://" prefix in the SCRIPT_FILENAME environment variable by
+     default.  Add ProxyFCGIBackendType to allow the type of backend to be
+     specified so these kinds of fixups can be restored without impacting
+     FPM. PR60576 [Eric Covener, Jim Jagielski]
+
+  *) mod_ssl: work around leaks on (graceful) restart. [Yann Ylavic]
+
+  *) mod_ssl: Add support for OpenSSL 1.1.0. [Rainer Jung]
+
+  *) Don't set SO_REUSEPORT unless ListenCoresBucketsRatio is greater
+     than zero.  [Eric Covener]
+
+  *) mod_http2: moving session cleanup to pre_close hook to avoid races with
+     modules already shut down and slave connections still operating.
+     [Stefan Eissing]
+
+  *) mod_lua: Support for Lua 5.3
+
+  *) mod_proxy_http2: support for ProxyPreserverHost directive. [Stefan Eissing]
+  
+  *) mod_http2: fix for crash when running out of memory.
+     [Robert Swiecki <robert swiecki.net>, Stefan Eissing]
+     
+  *) mod_proxy_fcgi: Return HTTP 504 rather than 503 in case of proxy timeout.
+     [Luca Toscano]
+
+  *) mod_http2: not counting file buckets again stream max buffer limits. 
+     Effectively transfering static files in one step from slave to master 
+     connection. [Stefan Eissing]
+    
+  *) mod_http2: comforting ap_check_pipeline() on slave connections
+     to facilitate reuse (see https://github.com/icing/mod_h2/issues/128).
+     [Stefan Eissing, reported by Armin Abfalterer]
+     
+  *) mod_http2: http/2 streams now with state handling/transitions as defined
+     in RFC7540. Stream cleanup/connection shutdown reworked to become easier
+     to understand/maintain/debug. Added many asserts on state and cleanup 
+     transitions. [Stefan Eissing]
+     
+  *) mod_auth_digest: Use an anonymous shared memory segment by default,
+     preventing startup failure after unclean shutdown.  PR 54622.
+     [Jan Kaluza]
+
+  *) mod_filter: Fix AddOutputFilterByType with non-content-level filters.
+     PR 58856. [Micha Lenk <micha lenk.info>]
+ 
+  *) mod_watchdog: Fix semaphore leak over restarts.  [Jim Jagielski]
+
+  *) mod_http2: regression fix on PR 59348, on graceful restart, ongoing 
+     streams are finished normally before the final GOAWAY is sent. 
+     [Stefan Eissing, <slavko gmail.com>]
+
+  *) mod_proxy: Allow the per-request environment variable "no-proxy" to
+     be used as an alternative to ProxyPass /path !. This is primarily
+     to set exceptions for ProxyPass specified in <Location> context.
+     Use SetEnvIf, not SetEnv. PR 60458.  [Eric Covener]
+
+  *) mod_http2: fixes PR60599, sending proper response for conditional requests
+     answered by mod_cache. [Jeff Wheelhouse, Stefan Eissing]
+     
+  *) mod_http2: rework of stream resource cleanup to avoid a crash in a close
+     of a lingering connection. Prohibit special file bucket beaming for
+     shared buckets. Files sent in stream output now use the stream pool
+     as read buffer, reducing memory footprint of connections.
+     [Yann Ylavic, Stefan Eissing]
+     
+  *) mod_proxy_fcgi, mod_fcgid: Fix crashes in ap_fcgi_encoded_env_len() when
+     modules add empty environment variables to the request. PR 60275.
+     [<alex2grad AT gmail.com>]
+
+  *) mod_http2: fix for possible page fault when stream is resumed during 
+     session shutdown. [sidney-j-r-m (github)]
+     
+  *) mod_http2: fix for h2 session ignoring new responses while already
+     open streams continue to have data available. [Stefan Eissing]
+     
+  *) mod_http2: adding support for MergeTrailers directive. [Stefan Eissing]
+  
+  *) mod_http2: limiting DATA frame sizes by TLS record sizes in use on the 
+     connection. Flushing outgoing frames earlier. [Stefan Eissing]
+
+  *) mod_http2: cleanup beamer registry on server reload.  PR 60510.
+     [Pavel Mateja <pavel verotel.cz>, Stefan Eissing]
+     
+  *) mod_proxy_{ajp,fcgi}: Fix a possible crash when reusing an established
+     backend connection, happening with LogLevel trace2 or higher configured,
+     or at any log level with compilers not detected as C99 compliant (e.g.
+     MSVC on Windows).  [Yann Ylavic]
+
+  *) mod_ext_filter: Don't interfere with "error buckets" issued by other
+     modules. PR 60375.  [Eric Covener, Lubos Uhliarik]
+
+  *) mod_http2: fixes https://github.com/icing/mod_h2/issues/126 e.g. beam
+     bucket lifetime handling when data is sent over temporary pools.
+     [Stefan Eissing] 
+  
 Changes with Apache 2.4.25
 
   *) Fix some build issues related to various modules.
      [Rainer Jung]
 
-Changes with Apache 2.4.24
+Changes with Apache 2.4.24 (not released)
 
   *) SECURITY: CVE-2016-8740 (cve.mitre.org)
      mod_http2: Mitigate DoS memory exhaustion via endless
      CONTINUATION frames.
      [Naveen Tiwari <naveen.tiwari@asu.edu> and CDF/SEFCOM at Arizona State
      University, Stefan Eissing]
-
-  *) SECURITY: CVE-2016-5387 (cve.mitre.org)
-     core: Mitigate [f]cgi "httpoxy" issues.
-     [Dominic Scheirlinck <dominic vendhq.com>, Yann Ylavic]
 
   *) SECURITY: CVE-2016-2161 (cve.mitre.org)
      mod_auth_digest: Prevent segfaults during client entry allocation when
@@ -37,6 +302,9 @@ Changes with Apache 2.4.24
      detected when serving the response, to avoid response splitting and cache
      pollution by malicious clients, upstream servers or faulty modules.
      [Stefan Fritsch, Eric Covener, Yann Ylavic]
+
+  *) core: Mitigate [f]cgi CVE-2016-5387 "httpoxy" issues.
+     [Dominic Scheirlinck <dominic vendhq.com>, Yann Ylavic]
 
   *) mod_rewrite: Limit runaway memory use by short circuiting some kinds of
      looping RewriteRules when the local path significantly exceeds 

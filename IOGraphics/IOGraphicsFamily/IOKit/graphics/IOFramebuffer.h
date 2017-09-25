@@ -24,17 +24,23 @@
 #define _IOKIT_IOFRAMEBUFFER_H
 
 #include <IOKit/IOService.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
 #include <IOKit/IOInterruptEventSource.h>
-#include <IOKit/graphics/IOGraphicsDevice.h>
-#include <IOKit/graphics/IOFramebufferShared.h>
+#pragma clang diagnostic pop
 #include <IOKit/IOLib.h>
 
+#include <IOKit/graphics/IOGraphicsDevice.h>
+#include <IOKit/graphics/IOFramebufferShared.h>
 
-#define IOFRAMEBUFFER_REV           2
+
+#define IOFRAMEBUFFER_REV           5
 
 
 class IOFramebuffer;
 class IOBufferMemoryDescriptor;
+struct IOFBController;
+
 
 typedef void (*CursorBlitProc)(
                     IOFramebuffer * inst,
@@ -140,8 +146,93 @@ enum {
     kIOFBNotifyWillNotify       = 80,
     kIOFBNotifyDidNotify        = 81,
 
-    kIOFBNotifyWSAAEnterDefer   = 90,
-    kIOFBNotifyWSAAExitDefer    = 91,
+    // <rdar://problem/32063590> IOGraphics needs to send WSAAWillExitDefer and WSAADidExitDefer instead of single message
+    kIOFBNotifyWSAAWillEnterDefer   = 90,   // since IOGRAPHICSTYPES_REV 53
+    kIOFBNotifyWSAAWillExitDefer    = 91,   // since IOGRAPHICSTYPES_REV 53
+
+    kIOFBNotifyWSAADidEnterDefer    = 92,   // since IOGRAPHICSTYPES_REV 53
+    kIOFBNotifyWSAADidExitDefer     = 93,   // since IOGRAPHICSTYPES_REV 53
+
+    kIOFBNotifyWSAAEnterDefer       = kIOFBNotifyWSAAWillEnterDefer,
+    kIOFBNotifyWSAAExitDefer        = kIOFBNotifyWSAAWillExitDefer,
+
+    kIOFBNotifyTerminated       = 100, // since IOGRAPHICSTYPES_REV 49
+};
+
+/*
+ Discussion: addFramebufferNotificationWithOptions
+
+ Clients that want to take advantage of the fine grain IOFramebuffer event notifications must register their framebuffer notification handler with addFramebufferNotificationWithOptions and provide a single kIOFBNotifyGroup ID, one or more kIOFBNotifyEvents and optionally a desired kIOFBNotifyPriority value.  If no priority is required, clients must set groupPriority to 0.  Clients must not register with any predefined kIOFBNotifyGroup that they do not belong to.  kIOFBNotifyGroup values within the range of 0x8000 to 0xFFFF are available for general and third party software use.  Where multiple independent software components end up using the same kIOFBNotifyGroup identification numbers, the callout order is determined first by priority and then by registration order.  Clients that request a priority that is outside of the range specified by kIOFBNotifyPriority_Min/kIOFBNotifyPriority_Max will be clamped to the range limits.
+
+ Handler invocation by IOGraphics:
+
+ Clients are only called for the kIOFBNotifyEvents that they requested at time of registration.
+ Multiple clients with the same kIOFBNotifyGroup are called in the order based on the requested priority.
+ Multiple clients with the same kIOFBNotifyGroup and the same priority are called in a "first registered, first served" order.
+ IOGraphics will invoke the handlers based on group, then priority, the registration order.  The ordering of the group callouts is private and will change as required/desired by Apple.  Clients must NOT rely on group callout order to determine system or intercomponent behavior.  If there is a strong need to be called before a specific component, please file a radar with the Component of "IOGraphics" and the Version of "all".
+
+ Discussion: addFramebufferNotification
+ Legacy and existing software that relies upon addFramebufferNotification() will behave as if they had called with the following options: addFramebufferNotificationWithOptions(..., kIOFBNotifyGroupID_Legacy, 0, kIOFBNotifyEvent_All);
+ Legacy clients are called after kIOFBNotifyGroup IDs within the range of 0x0 to 0x7FFF have been called, but before IDs in the range of 0x8000 to 0xFFFF.
+ */
+
+// addFramebufferNotificationWithOptions event types
+enum {
+    kIOFBNotifyEvent_None                   = (0ULL << 0),
+    kIOFBNotifyEvent_DisplayModeChange      = (1ULL << 0),
+    kIOFBNotifyEvent_SleepWake              = (1ULL << 1),  // Only for events: kIOFBNotifyWillSleep & kIOFBNotifyDidWake
+    kIOFBNotifyEvent_PowerOnOff             = (1ULL << 2),
+    kIOFBNotifyEvent_ChangeSpeed            = (1ULL << 3),
+    kIOFBNotifyEvent_ClamshellChange        = (1ULL << 4),
+    kIOFBNotifyEvent_CaptureChange          = (1ULL << 5),
+    kIOFBNotifyEvent_OnlineChange           = (1ULL << 6),
+    kIOFBNotifyEvent_DisplayDimsChange      = (1ULL << 7),
+    kIOFBNotifyEvent_Probed                 = (1ULL << 8),
+    kIOFBNotifyEvent_VRAMReady              = (1ULL << 9),
+    kIOFBNotifyEvent_Notify                 = (1ULL << 10), // kIOFBNotifyWillNotify & kIOFBNotifyDidNotify
+    kIOFBNotifyEvent_WSAADefer              = (1ULL << 11),
+    kIOFBNotifyEvent_Terminated             = (1ULL << 12),
+
+    kIOFBNotifyEvent_All                    = 0x1FFF
+};
+
+enum {
+    // 0x0 - 0xFF - Private: Reserved for IOGraphics.
+    kIOFBNotifyGroupID_Legacy                         = 0x001,
+    kIOFBNotifyGroupID_IODisplay                      = 0x010,
+
+    // 0x100 - 0x1FF - Reserved for Apple kernel extensions
+    kIOFBNotifyGroupID_AppleGraphicsDevicePolicy      = 0x100,
+    kIOFBNotifyGroupID_AppleGraphicsMGPUPowerControl  = 0x110,
+    kIOFBNotifyGroupID_AppleGraphicsMUXControl        = 0x120,
+    kIOFBNotifyGroupID_AppleGraphicsControl           = 0x130,
+    kIOFBNotifyGroupID_AppleGraphicsDisplayPolicy     = 0x140,
+    kIOFBNotifyGroupID_AppleGraphicsPowerManagement   = 0x150,
+    kIOFBNotifyGroupID_AppleHDAController             = 0x160,
+    kIOFBNotifyGroupID_AppleIOAccelDisplayPipe        = 0x170,
+    kIOFBNotifyGroupID_AppleMCCSControl               = 0x180,
+
+    // 0x200 - 0x2FF - Reserved for vendor kernel extensions
+    kIOFBNotifyGroupID_VendorIntel                    = 0x200,
+
+    // 0x300 - 0x3FF - Reserved for vendor kernel extensions
+    kIOFBNotifyGroupID_VendorNVIDIA                   = 0x300,
+
+    // 0x400 - 0x4FF - Reserved for vendor kernel extensions
+    kIOFBNotifyGroupID_VendorAMD                      = 0x400,
+
+    // 0x500 - 0x7FFF - Reserved for future use
+
+    // 0x8000+ - Reserved for third party software
+    kIOFBNotifyGroupID_ThirdParty                     = 0x8000,
+
+    kIOFBNotifyGroupID_Count                          = 15
+};
+
+// addFramebufferNotificationWithOptions group priority range
+enum {
+    kIOFBNotifyPriority_Min = -32768,
+    kIOFBNotifyPriority_Max = 32767,
 };
 
 struct IOFramebufferNotificationNotify
@@ -175,6 +266,7 @@ class IOFramebuffer : public IOGraphicsDevice
 {
     friend class IOFramebufferUserClient;
     friend class IOFramebufferSharedUserClient;
+    friend class IOFramebufferDiagnosticUserClient;
     friend class IOFramebufferParameterHandler;
     friend class IODisplay;
 
@@ -214,7 +306,9 @@ protected:
     CursorRemoveProc                    cursorRemoveProc;
 
     IOGSize                             maxCursorSize;
-    void *                              _IOFramebuffer_reservedE[7];
+    void *                              _IOFramebuffer_reservedE[6];
+    uint32_t                            _IOFramebuffer_reservedF;
+    uint32_t                            thisNameLen;
     const char *                        thisName;
     volatile unsigned char *            cursorSave;
     unsigned int                        white;
@@ -225,13 +319,13 @@ protected:
     semaphore_t                         vblSemaphore;
 
     /* memory ranges */
-    volatile unsigned char *            frameBuffer;
-    unsigned int                        totalWidth;
+    volatile unsigned char *            fFrameBuffer;
+    unsigned int                        fTotalWidth;
     unsigned int                        rowBytes;
     unsigned int                        bytesPerPixel;
 
-    IOMemoryMap *                       vramMap;
-    IOByteCount                         vramMapOffset;
+    IOMemoryMap *                       fVramMap;
+    IOByteCount                         fVramMapOffset;
     OSArray *                           userAccessRanges;
     unsigned int                        suspended:1;
     unsigned int                        captured:1;
@@ -240,10 +334,10 @@ protected:
     unsigned int                        cursorEnable:1;
     unsigned int                        _IOFramebuffer_reservedC:27;
     IOFramebuffer *                     nextDependent;
-    OSSet *                             fbNotifications;
+    OSArray *                           fFBNotifications;
 
-    class IOFramebufferUserClient *       serverConnect;
-    class IOFramebufferSharedUserClient * sharedConnect;
+    class IOFramebufferUserClient *       fServerConnect;
+    class IOFramebufferSharedUserClient * fSharedConnect;
 
     unsigned int                        opened:1;
     unsigned int                        dead:1;
@@ -286,6 +380,13 @@ public:
     virtual IOReturn doI2CRequest( UInt32 bus, struct IOI2CBusTiming * timing, struct IOI2CRequest * request );
     OSMetaClassDeclareReservedUsed(IOFramebuffer, 0);
 
+    /*! @function diagnoseReport
+     @abstract Provide private diagnostic information.
+     @discussion Allow vendor implementations to provide diagnostic information when a catastrophic failure has been encounterd.
+     */
+    virtual IOReturn diagnoseReport( void * param1, void * param2, void * param3, void * param4 );
+    OSMetaClassDeclareReservedUsed(IOFramebuffer, 1);
+
 /*! @function setGammaTable
     @abstract Set the gamma table to be used by the framebuffer.
     @discussion IOFramebuffer subclasses should implement this method to allow a gamma table to be set.
@@ -298,10 +399,10 @@ public:
  */
     virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
                                    UInt32 dataWidth, void * data, bool syncToVBL );
-    OSMetaClassDeclareReservedUsed(IOFramebuffer, 1);
+    OSMetaClassDeclareReservedUsed(IOFramebuffer, 2);
 
 private:
-    OSMetaClassDeclareReservedUnused(IOFramebuffer, 2);
+
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 3);
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 4);
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 5);
@@ -336,45 +437,52 @@ private:
 public:
     static void initialize();
 
-    virtual bool requestTerminate( IOService * provider, IOOptionBits options );
-    virtual IOService * probe( IOService * provider, SInt32 * score );
-    virtual bool start( IOService * provider );
-    virtual void stop( IOService * provider );
-    virtual void free();
-    virtual IOWorkLoop * getWorkLoop() const;
+    virtual bool attach( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual bool requestTerminate( IOService * provider, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
+    virtual bool terminate( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
+    virtual bool willTerminate( IOService * provider, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
+    virtual bool didTerminate( IOService * provider, IOOptionBits options, bool * defer ) APPLE_KEXT_OVERRIDE;
+    virtual void free() APPLE_KEXT_OVERRIDE;
+    virtual IOWorkLoop * getWorkLoop() const APPLE_KEXT_OVERRIDE;
 
     IOWorkLoop * getGraphicsSystemWorkLoop() const;
     IOWorkLoop * getControllerWorkLoop() const;
 
-    virtual IOReturn requestProbe( IOOptionBits options );
+    virtual IOReturn requestProbe( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn powerStateWillChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
-    virtual IOReturn powerStateDidChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
-    virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService * device);
-    virtual IOReturn setAggressiveness( unsigned long type, unsigned long newLevel );
-    virtual IOReturn getAggressiveness( unsigned long type, unsigned long * currentLevel );
+    virtual IOReturn powerStateWillChangeTo ( IOPMPowerFlags, unsigned long, IOService* ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn powerStateDidChangeTo ( IOPMPowerFlags, unsigned long, IOService* ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService * device) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setAggressiveness( unsigned long type, unsigned long newLevel ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn getAggressiveness( unsigned long type, unsigned long * currentLevel ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn newUserClient( task_t              owningTask,
                                     void *              security_id,
                                     UInt32              type,
-                                    IOUserClient **     handler );
+                                    IOUserClient **     clientH ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn callPlatformFunction( const OSSymbol * functionName,
                                     bool waitForFunction,
                                     void *p1, void *p2,
-                                    void *p3, void *p4 );
+                                    void *p3, void *p4 ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn message(UInt32 type, IOService *provider, void *argument = 0) APPLE_KEXT_OVERRIDE;
 
-    virtual void hideCursor( void );
-    virtual void showCursor( IOGPoint * cursorLoc, int frame );
-    virtual void moveCursor( IOGPoint * cursorLoc, int frame );
+    virtual void hideCursor( void ) APPLE_KEXT_OVERRIDE;
+    virtual void showCursor( IOGPoint * cursorLoc, int frame ) APPLE_KEXT_OVERRIDE;
+    virtual void moveCursor( IOGPoint * cursorLoc, int frame ) APPLE_KEXT_OVERRIDE;
     // virtual
     void resetCursor( void );
 
-    virtual void getVBLTime( AbsoluteTime * time, AbsoluteTime * delta );
+    virtual void getVBLTime( AbsoluteTime * time, AbsoluteTime * delta ) APPLE_KEXT_OVERRIDE;
 
-    virtual void getBoundingRect ( IOGBounds ** bounds );
+    virtual void getBoundingRect ( IOGBounds ** bounds ) APPLE_KEXT_OVERRIDE;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
     virtual IOReturn open( void );
     
     virtual void close( void );
+#pragma clang diagnostic pop
 
     virtual bool isConsoleDevice( void );
 
@@ -830,7 +938,10 @@ public:
     @result An IOReturn code.
 */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
     virtual IOReturn unregisterInterrupt( void * interruptRef );
+#pragma clang diagnostic pop
 
 /*! @function unregisterInterrupt
     @abstract Enable or disable a callback previously installed by registerForInterruptType().
@@ -860,6 +971,14 @@ public:
     
     IOReturn getAttributeForConnectionExt( IOIndex connectIndex,
             IOSelect attribute, uintptr_t * value );
+    
+    /* New */
+    IONotifier * addFramebufferNotificationWithOptions(IOFramebufferNotificationHandler handler,
+                                                       OSObject * target, void * ref,
+                                                       IOSelect groupID, IOIndex groupPriority, IOSelect events);
+
+    void resetLimitState(void);
+    void sendLimitState(const uint32_t line);
 };
 
 #endif /* ! _IOKIT_IOFRAMEBUFFER_H */

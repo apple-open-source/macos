@@ -120,6 +120,7 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT: munit = MeasureUnit::createAstronomicalUnit(*status); break;
         case UAMEASUNIT_LENGTH_PARSEC:          munit = MeasureUnit::createParsec(*status);      break;
         case UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN: munit = MeasureUnit::createMileScandinavian(*status); break;
+        case UAMEASUNIT_LENGTH_POINT:           munit = MeasureUnit::createPoint(*status);       break;
 
         case UAMEASUNIT_MASS_GRAM:              munit = MeasureUnit::createGram(*status);        break;
         case UAMEASUNIT_MASS_KILOGRAM:          munit = MeasureUnit::createKilogram(*status);    break;
@@ -474,7 +475,7 @@ static const KeyToUnits keyToUnits[] = {
 };
 enum { kKeyToUnitsCount = UPRV_LENGTHOF(keyToUnits) };
 
-enum { kCombinedKeyMax = 64 };
+enum { kCombinedKeyMax = 64, kKeyValueMax = 15 };
 
 static int compareKeyToUnits(const void* searchKey, const void* tableEntry) {
     return uprv_strncmp(((const KeyToUnits*)searchKey)->key, ((const KeyToUnits*)tableEntry)->key, kCombinedKeyMax);
@@ -512,13 +513,36 @@ uameasfmt_getUnitsForUsage( const char*     locale,
     
     // Get region to use
     char region[ULOC_COUNTRY_CAPACITY];
-    (void)ulocimp_getRegionForSupplementalData(locale, TRUE, region, sizeof(region), status);
-    if (U_FAILURE(*status)) {
-        return 0;
+    UErrorCode localStatus;
+    UBool usedOverride = FALSE;
+    // First check for ms overrides, except in certain categories
+    if (uprv_strcmp(category, "concentr") != 0 && uprv_strcmp(category, "duration") != 0) {
+        char msValue[kKeyValueMax + 1];
+        localStatus = U_ZERO_ERROR;
+        int32_t msValueLen = uloc_getKeywordValue(locale, "ms", msValue, kKeyValueMax, &localStatus);
+        if (U_SUCCESS(localStatus) && msValueLen> 2) {
+            msValue[kKeyValueMax] = 0; // ensure termination
+            if (uprv_strcmp(msValue, "metric") == 0) {
+                uprv_strcpy(region, "001");
+                usedOverride = TRUE;
+            } else if (uprv_strcmp(msValue, "ussystem") == 0) {
+                uprv_strcpy(region, "US");
+                usedOverride = TRUE;
+            } else if (uprv_strcmp(msValue, "uksystem") == 0) {
+                uprv_strcpy(region, "GB");
+                usedOverride = TRUE;
+            }
+        }
+    }
+    if (!usedOverride) {
+        (void)ulocimp_getRegionForSupplementalData(locale, TRUE, region, sizeof(region), status);
+        if (U_FAILURE(*status)) {
+            return 0;
+        }
     }
 
     UResourceBundle *unitb = NULL;
-    UErrorCode localStatus = U_ZERO_ERROR;
+    localStatus = U_ZERO_ERROR;
     int32_t retval = 0;
     UResourceBundle *regb = ures_getByKey(prefb, region, NULL, &localStatus);
     if (U_SUCCESS(localStatus)) {

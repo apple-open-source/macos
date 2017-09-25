@@ -279,7 +279,8 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flag
 		| kSecCSSigningInformation
 		| kSecCSRequirementInformation
 		| kSecCSDynamicInformation
-		| kSecCSContentInformation);
+		| kSecCSContentInformation
+        | kSecCSSkipResourceDirectory);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);
 	CFRef<CFDictionaryRef> info = code->signingInformation(flags);

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *****************************************************************************************
 * Copyright (C) 2015-2016, International Business Machines
@@ -80,12 +82,12 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUFieldPositionIteratorPointer, UFieldPositionIt
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
  * Get information for the next field in the formatted string to which this
- * UFieldPositionIterator currently applies, or return FALSE if there are
- * no more fields.
+ * UFieldPositionIterator currently applies, or return a negative value if there
+ * are no more fields.
  * @param fpositer
  *          A pointer to the UFieldPositionIterator object containing iteration
  *          state for the format fields.

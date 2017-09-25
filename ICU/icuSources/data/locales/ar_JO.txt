@@ -1,19 +1,13 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ar_JO.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ar_JO{
-    Version{"2.1.19.14"}
+    Version{"2.1.31.33"}
     calendar{
         gregorian{
             monthNames{
                 format{
                     abbreviated{
-                        "كانون الثاني",
+                        "كانون ٢",
                         "شباط",
                         "آذار",
                         "نيسان",
@@ -22,9 +16,9 @@ ar_JO{
                         "تموز",
                         "آب",
                         "أيلول",
-                        "تشرين الأول",
-                        "تشرين الثاني",
-                        "كانون الأول",
+                        "تشرين ١",
+                        "تشرين ٢",
+                        "كانون ١",
                     }
                     narrow{
                         "ك",
@@ -57,7 +51,7 @@ ar_JO{
                 }
                 stand-alone{
                     abbreviated{
-                        "كانون الثاني",
+                        "كانون ٢",
                         "شباط",
                         "آذار",
                         "نيسان",
@@ -66,9 +60,9 @@ ar_JO{
                         "تموز",
                         "آب",
                         "أيلول",
-                        "تشرين الأول",
-                        "تشرين الثاني",
-                        "كانون الأول",
+                        "تشرين ١",
+                        "تشرين ٢",
+                        "كانون ١",
                     }
                     narrow{
                         "ك",

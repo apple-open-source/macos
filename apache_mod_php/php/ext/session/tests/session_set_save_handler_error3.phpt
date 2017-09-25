@@ -3,6 +3,7 @@ Test session_set_save_handler() function : error functionality
 --INI--
 session.save_path=
 session.name=PHPSESSID
+session.save_handler=files
 --SKIPIF--
 <?php include('skipif.inc'); ?>
 --FILE--
@@ -34,9 +35,11 @@ ob_end_flush();
 --EXPECTF--
 *** Testing session_set_save_handler() : error functionality ***
 
-Fatal error: Uncaught exception 'Exception' with message 'Do something bad..!' in %s:%d
+Warning: Uncaught Exception: Do something bad..! in %s:%d
 Stack trace:
 #0 [internal function]: open('', 'PHPSESSID')
 #1 %s(%d): session_start()
 #2 {main}
   thrown in %s on line %d
+
+Fatal error: session_start(): Failed to initialize storage module: %s in %ssession_set_save_handler_error3.php on line %d

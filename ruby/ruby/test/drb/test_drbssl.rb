@@ -1,9 +1,12 @@
+# frozen_string_literal: false
 require_relative 'drbtest'
 
 begin
   require 'drb/ssl'
 rescue LoadError
 end
+
+module DRbTests
 
 if Object.const_defined?("OpenSSL")
 
@@ -36,9 +39,13 @@ end
 class TestDRbSSLCore < Test::Unit::TestCase
   include DRbCore
   def setup
-    @service_name = 'ut_drb_drbssl.rb'
-    @ext = DRbSSLService.ext_service(@service_name)
-    @there = @ext.front
+    setup_service 'ut_drb_drbssl.rb'
+    super
+  end
+
+  def teardown
+    super
+    DRbService.finish
   end
 
   def test_02_unknown
@@ -54,11 +61,17 @@ end
 class TestDRbSSLAry < Test::Unit::TestCase
   include DRbAry
   def setup
-    @service_name = 'ut_array_drbssl.rb'
-    @ext = DRbSSLService.ext_service(@service_name)
-    @there = @ext.front
+    setup_service 'ut_array_drbssl.rb'
+    super
+  end
+
+  def teardown
+    super
+    DRbService.finish
   end
 end
 
+
+end
 
 end

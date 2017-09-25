@@ -106,7 +106,7 @@ CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
 
 const SecRandomRef kSecRandomDefault = NULL;
 
-int SecRandomCopyBytes(SecRandomRef rnd, size_t count, uint8_t *bytes) {
+int SecRandomCopyBytes(SecRandomRef rnd, size_t count, void *bytes) {
     if (rnd != kSecRandomDefault)
         return errSecParam;
     return CCRandomCopyBytes(kCCRandomDefault, bytes, count);

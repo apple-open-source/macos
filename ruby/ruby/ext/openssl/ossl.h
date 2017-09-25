@@ -1,11 +1,10 @@
 /*
- * $Id: ossl.h 44659 2014-01-19 16:28:53Z nagachika $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #if !defined(_OSSL_H_)
@@ -45,7 +44,7 @@ extern "C" {
 #  define assert(condition)
 #endif
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(LIBRESSL_VERSION_NUMBER)
 #  include <openssl/e_os2.h>
 #  define OSSL_NO_CONF_API 1
 #  if !defined(OPENSSL_SYS_WIN32)
@@ -64,9 +63,12 @@ extern "C" {
 #include <openssl/rand.h>
 #include <openssl/conf.h>
 #include <openssl/conf_api.h>
+#if !defined(_WIN32)
+#  include <openssl/crypto.h>
+#endif
 #undef X509_NAME
 #undef PKCS7_SIGNER_INFO
-#if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ST_ENGINE)
+#if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_EVP_CIPHER_CTX_ENGINE)
 #  define OSSL_ENGINE_ENABLED
 #  include <openssl/engine.h>
 #endif
@@ -137,8 +139,8 @@ VALUE ossl_x509name_sk2ary(STACK_OF(X509_NAME) *names);
 VALUE ossl_buf2str(char *buf, int len);
 #define ossl_str_adjust(str, p) \
 do{\
-    int len = RSTRING_LENINT(str);\
-    int newlen = rb_long2int((p) - (unsigned char*)RSTRING_PTR(str));\
+    long len = RSTRING_LEN(str);\
+    long newlen = (long)((p) - (unsigned char*)RSTRING_PTR(str));\
     assert(newlen <= len);\
     rb_str_set_len((str), newlen);\
 }while(0)
@@ -165,7 +167,8 @@ VALUE ossl_exc_new(VALUE, const char *, ...);
 /*
  * Verify callback
  */
-extern int ossl_verify_cb_idx;
+extern int ossl_store_ctx_ex_verify_cb_idx;
+extern int ossl_store_ex_verify_cb_idx;
 
 struct ossl_verify_cb_args {
     VALUE proc;
@@ -244,4 +247,3 @@ void Init_openssl(void);
 #endif
 
 #endif /* _OSSL_H_ */
-

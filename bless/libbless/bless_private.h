@@ -110,6 +110,11 @@ uint32_t BLBlockChecksum(const void *buf , uint32_t length);
 /*
  * write the CFData to a file
  */
+enum {
+    kNoPreallocate,
+    kTryPreallocate,
+    kMustPreallocate
+};
 int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
 	     				 const char * dest, int shouldPreallocate);
 

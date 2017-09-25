@@ -1337,6 +1337,7 @@ static const char *request_var_names[] = {
     "CONTEXT_DOCUMENT_ROOT",    /* 26 */
     "REQUEST_STATUS",           /* 27 */
     "REMOTE_ADDR",              /* 28 */
+    "REMOTE_PORT",              /* 29 */
     NULL
 };
 
@@ -1405,7 +1406,10 @@ static const char *request_var_fn(ap_expr_eval_ctx_t *ctx, const void *data)
             return result;
         }
     case 23:
-        return r->uri;
+        {
+            const char *uri = apr_table_get(r->subprocess_env, "DOCUMENT_URI");
+            return uri ? uri : r->uri;
+        }
     case 24:
         {
             apr_time_exp_t tm;
@@ -1423,6 +1427,8 @@ static const char *request_var_fn(ap_expr_eval_ctx_t *ctx, const void *data)
         return r->status ? apr_psprintf(ctx->p, "%d", r->status) : "";
     case 28:
         return r->useragent_ip;
+    case 29:
+        return apr_psprintf(ctx->p, "%u", ctx->c->client_addr->port);
     default:
         ap_assert(0);
         return NULL;

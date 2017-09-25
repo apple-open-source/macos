@@ -26,6 +26,7 @@
 #ifndef RemoteLayerTreeTransaction_h
 #define RemoteLayerTreeTransaction_h
 
+#include "GenericCallback.h"
 #include "PlatformCAAnimationRemote.h"
 #include "RemoteLayerBackingStore.h"
 #include <WebCore/Color.h>
@@ -255,10 +256,13 @@ public:
     bool allowsUserScaling() const { return m_allowsUserScaling; }
     void setAllowsUserScaling(bool allowsUserScaling) { m_allowsUserScaling = allowsUserScaling; }
 
+    bool avoidsUnsafeArea() const { return m_avoidsUnsafeArea; }
+    void setAvoidsUnsafeArea(bool avoidsUnsafeArea) { m_avoidsUnsafeArea = avoidsUnsafeArea; }
+
     uint64_t transactionID() const { return m_transactionID; }
     void setTransactionID(uint64_t transactionID) { m_transactionID = transactionID; }
 
-    typedef uint64_t TransactionCallbackID;
+    typedef CallbackID TransactionCallbackID;
     const Vector<TransactionCallbackID>& callbackIDs() const { return m_callbackIDs; }
     void setCallbackIDs(Vector<TransactionCallbackID>&& callbackIDs) { m_callbackIDs = WTFMove(callbackIDs); }
 
@@ -296,6 +300,7 @@ private:
     WebCore::LayoutMilestones m_newlyReachedLayoutMilestones { 0 };
     bool m_scaleWasSetByUIProcess { false };
     bool m_allowsUserScaling { false };
+    bool m_avoidsUnsafeArea { true };
     bool m_viewportMetaTagWidthWasExplicit { false };
     bool m_viewportMetaTagCameFromImageDocument { false };
     bool m_isInStableState { false };

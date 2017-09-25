@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/platform'
 require 'rbconfig'
@@ -116,7 +117,11 @@ class TestGemPlatform < Gem::TestCase
 
     assert_equal expected, platform.to_a, 'i386-mswin32 VC6'
   ensure
-    RbConfig::CONFIG['RUBY_SO_NAME'] = orig_RUBY_SO_NAME
+    if orig_RUBY_SO_NAME then
+      RbConfig::CONFIG['RUBY_SO_NAME'] = orig_RUBY_SO_NAME
+    else
+      RbConfig::CONFIG.delete 'RUBY_SO_NAME'
+    end
   end
 
   def test_initialize_platform
@@ -184,6 +189,35 @@ class TestGemPlatform < Gem::TestCase
     assert((ppc_darwin8 === Gem::Platform.local), 'universal =~ ppc')
     assert((uni_darwin8 === Gem::Platform.local), 'universal =~ universal')
     assert((x86_darwin8 === Gem::Platform.local), 'universal =~ x86')
+  end
+
+  def test_nil_cpu_arch_is_treated_as_universal
+    with_nil_arch = Gem::Platform.new [nil, 'mingw32']
+    with_uni_arch = Gem::Platform.new ['universal', 'mingw32']
+    with_x86_arch = Gem::Platform.new ['x86', 'mingw32']
+
+    assert((with_nil_arch === with_uni_arch), 'nil =~ universal')
+    assert((with_uni_arch === with_nil_arch), 'universal =~ nil')
+    assert((with_nil_arch === with_x86_arch), 'nil =~ x86')
+    assert((with_x86_arch === with_nil_arch), 'x86 =~ nil')
+  end
+
+  def test_equals3_cpu_arm
+    arm   = Gem::Platform.new 'arm-linux'
+    armv5 = Gem::Platform.new 'armv5-linux'
+    armv7 = Gem::Platform.new 'armv7-linux'
+
+    util_set_arch 'armv5-linux'
+    assert((arm   === Gem::Platform.local), 'arm   === armv5')
+    assert((armv5 === Gem::Platform.local), 'armv5 === armv5')
+    refute((armv7 === Gem::Platform.local), 'armv7 === armv5')
+    refute((Gem::Platform.local ===   arm), 'armv5 === arm')
+
+    util_set_arch 'armv7-linux'
+    assert((arm   === Gem::Platform.local), 'arm   === armv7')
+    refute((armv5 === Gem::Platform.local), 'armv5 === armv7')
+    assert((armv7 === Gem::Platform.local), 'armv7 === armv7')
+    refute((Gem::Platform.local ===   arm), 'armv7 === arm')
   end
 
   def test_equals3_version

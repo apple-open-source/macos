@@ -21,6 +21,9 @@
 		<string>include/curl/multi.h: Add availability to curl_multi_wait (13158909)</string>
 		<string>lib/curl_gssapi.c: revert upstream 3b4ee0d to work around alignment problems (27287483)</string>
 		<string>lib/ldap.c: 5648196</string>
+		<string>lib/vtls/openssl.c: Add checks to handle weak-linking LibreSSL/OpenSSL (24620014)</string>
+		<string>lib/vtls/openssl.c: Convert checksum functions to use CommonCrypto (24620014)</string>
+		<string>lib/vtls/darwinssl.c: 32267048</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

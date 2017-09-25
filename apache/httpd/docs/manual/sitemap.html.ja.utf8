@@ -194,6 +194,7 @@
 <li><a href="mod/mod_authz_owner.html">Apache モジュール mod_authz_owner</a></li>
 <li><a href="mod/mod_authz_user.html">Apache モジュール mod_authz_user</a></li>
 <li><a href="mod/mod_autoindex.html">Apache モジュール mod_autoindex</a></li>
+<li><a href="mod/mod_brotli.html">Apache モジュール mod_brotli</a></li>
 <li><a href="mod/mod_buffer.html">Apache モジュール mod_buffer</a></li>
 <li><a href="mod/mod_cache.html">Apache モジュール mod_cache</a></li>
 <li><a href="mod/mod_cache_disk.html">Apache モジュール mod_cache_disk</a></li>
@@ -338,7 +339,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/sitemap.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

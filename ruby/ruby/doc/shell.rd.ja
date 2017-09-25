@@ -1,6 +1,6 @@
  -- shell.rb
 				$Release Version: 0.6.0 $
-			   	$Revision: 33181 $
+			   	$Revision: 47689 $
 			   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 
 =begin
@@ -47,7 +47,7 @@ OS上のコマンドを実行するにはまず, Shellのメソッドとして�
 
 --- Shell.def_system_command(command, path = command)
 
-      Shellのメソッドとしてcommandを登録します. 
+      Shellのメソッドとしてcommandを登録します.
 
       例)
       Shell.def_system_command "ls"
@@ -62,7 +62,7 @@ OS上のコマンドを実行するにはまず, Shellのメソッドとして�
 
 --- Shell.alias_command(ali, command, *opts) {...}
 
-      commandのaliasをします. 
+      commandのaliasをします.
 
       例)
         Shell.alias_command "lsC", "ls", "-CBF", "--show-control-chars"
@@ -139,7 +139,7 @@ OS上のコマンドを実行するにはまず, Shellのメソッドとして�
 --- Shell#test(command, file1, file2)
 --- Shell#[command, file1, file2]
 
-      ファイルテスト関数testと同じ. 
+      ファイルテスト関数testと同じ.
       例)
           sh[?e, "foo"]
           sh[:e, "foo"]
@@ -185,7 +185,7 @@ OS上のコマンドを実行するにはまず, Shellのメソッドとして�
 --- Shell#glob(patten)
 --- Shell#tee(file)
 
-      これらは実行すると, それらを内容とするFilterオブジェクトを返します. 
+      これらは実行すると, それらを内容とするFilterオブジェクトを返します.
 
 --- Filter#each &block
 

@@ -1,14 +1,28 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/es_US.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 es_US{
     %%Parent{"es_419"}
-    Version{"2.1.22.17"}
+    NumberElements{
+        latn{
+            patternsShort{
+                decimalFormat{
+                    1000{
+                        one{"0"}
+                        other{"0"}
+                    }
+                    10000{
+                        one{"00k"}
+                        other{"00k"}
+                    }
+                    100000{
+                        one{"000k"}
+                        other{"000k"}
+                    }
+                }
+            }
+        }
+    }
+    Version{"2.1.31.74"}
     calendar{
         generic{
             DateTimePatterns{
@@ -51,81 +65,81 @@ es_US{
             }
             intervalFormats{
                 MEd{
-                    M{"E, M/d – E, M/d"}
-                    d{"E, M/d – E, M/d"}
+                    M{"E, M/d – E, M/d"}
+                    d{"E, M/d – E, M/d"}
                 }
                 MMMEd{
-                    M{"E, MMM d – E, MMM d"}
-                    d{"E, MMM d – E, MMM d"}
+                    M{"E, MMM d – E, MMM d"}
+                    d{"E, MMM d – E, MMM d"}
                 }
                 MMMMEd{
-                    M{"E, d 'de' MMMM–E, d 'de' MMMM"}
-                    d{"E, d 'de' MMMM–E, d 'de' MMMM"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM"}
                 }
                 MMMMd{
-                    M{"d 'de' MMMM–d 'de' MMMM"}
-                    d{"d–d 'de' MMMM"}
+                    M{"d 'de' MMMM – d 'de' MMMM"}
+                    d{"d – d 'de' MMMM"}
                 }
                 MMMd{
-                    M{"MMM d – MMM d"}
-                    d{"MMM d – d"}
+                    M{"MMM d – MMM d"}
+                    d{"MMM d – d"}
                 }
                 Md{
-                    M{"M/d – M/d"}
-                    d{"M/d – M/d"}
+                    M{"M/d – M/d"}
+                    d{"M/d – M/d"}
                 }
                 yM{
-                    M{"M/y – M/y GGGGG"}
-                    y{"M/y – M/y GGGGG"}
+                    M{"M/y – M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
                 }
                 yMEd{
-                    M{"E, M/d/y – E, M/d/y GGGGG"}
-                    d{"E, M/d/y – E, M/d/y GGGGG"}
-                    y{"E, M/d/y – E, M/d/y GGGGG"}
+                    M{"E, M/d/y – E, M/d/y GGGGG"}
+                    d{"E, M/d/y – E, M/d/y GGGGG"}
+                    y{"E, M/d/y – E, M/d/y GGGGG"}
                 }
                 yMMM{
-                    M{"MMM – MMM y G"}
-                    y{"MMM y – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
                 }
                 yMMMEd{
-                    M{"E, MMM d – E, MMM d, y G"}
-                    d{"E, MMM d – E, MMM d, y G"}
-                    y{"E, MMM d, y – E, MMM d, y G"}
+                    M{"E, MMM d – E, MMM d, y G"}
+                    d{"E, MMM d – E, MMM d, y G"}
+                    y{"E, MMM d, y – E, MMM d, y G"}
                 }
                 yMMMM{
-                    M{"MMMM–MMMM 'de' y G"}
-                    y{"MMMM 'de' y–MMMM 'de' y G"}
+                    M{"MMMM – MMMM 'de' y G"}
+                    y{"MMMM 'de' y – MMMM 'de' y G"}
                 }
                 yMMMMEd{
-                    M{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y G"}
-                    d{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y G"}
-                    y{"E, d 'de' MMMM 'de' y–E, d 'de' MMMM 'de' y G"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y G"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y G"}
+                    y{"E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y G"}
                 }
                 yMMMMd{
-                    M{"d 'de' MMMM–d 'de' MMMM y G"}
-                    d{"d–d 'de' MMMM 'de' y G"}
-                    y{"d 'de' MMMM 'de' y–d 'de' MMMM 'de' y G"}
+                    M{"d 'de' MMMM – d 'de' MMMM y G"}
+                    d{"d – d 'de' MMMM 'de' y G"}
+                    y{"d 'de' MMMM 'de' y – d 'de' MMMM 'de' y G"}
                 }
                 yMMMd{
-                    M{"MMM d – MMM d, y G"}
-                    d{"MMM d – d, y G"}
-                    y{"MMM d, y – MMM d, y G"}
+                    M{"MMM d – MMM d, y G"}
+                    d{"MMM d – d, y G"}
+                    y{"MMM d, y – MMM d, y G"}
                 }
                 yMd{
-                    M{"M/d/y – M/d/y GGGGG"}
-                    d{"M/d/y – M/d/y GGGGG"}
-                    y{"M/d/y – M/d/y GGGGG"}
+                    M{"M/d/y – M/d/y GGGGG"}
+                    d{"M/d/y – M/d/y GGGGG"}
+                    y{"M/d/y – M/d/y GGGGG"}
                 }
             }
         }
         gregorian{
             AmPmMarkers{
-                "AM",
-                "PM",
+                "a. m.",
+                "p. m.",
             }
-            AmPmMarkersNarrow{
-                "a",
-                "p",
+            AmPmMarkersAbbr{
+                "a. m.",
+                "p. m.",
             }
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -166,79 +180,97 @@ es_US{
             dayPeriod{
                 format{
                     narrow{
-                        noon{"m"}
+                        evening1{"de la tarde"}
+                        morning1{"de la madrugada"}
+                        morning2{"mañana"}
+                        night1{"de la noche"}
+                        noon{"del mediodía"}
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        am{"a. m."}
+                        pm{"p. m."}
+                    }
+                    narrow{
+                        am{"a. m."}
+                        pm{"p. m."}
+                    }
+                    wide{
+                        am{"a. m."}
+                        pm{"p. m."}
                     }
                 }
             }
             intervalFormats{
                 MEd{
-                    M{"E, M/d – E, M/d"}
-                    d{"E, M/d – E, M/d"}
+                    M{"E, M/d – E, M/d"}
+                    d{"E, M/d – E, M/d"}
                 }
                 MMM{
-                    M{"MMM – MMM"}
+                    M{"MMM – MMM"}
                 }
                 MMMEd{
-                    M{"E, MMM d – E, MMM d"}
-                    d{"E, MMM d – E, MMM d"}
+                    M{"E, MMM d – E, MMM d"}
+                    d{"E, MMM d – E, MMM d"}
                 }
                 MMMMEd{
-                    M{"E, d 'de' MMMM–E, d 'de' MMMM"}
-                    d{"E, d 'de' MMMM–E, d 'de' MMMM"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM"}
                 }
                 MMMMd{
-                    M{"d 'de' MMMM–d 'de' MMMM"}
-                    d{"d–d 'de' MMMM"}
+                    M{"d 'de' MMMM – d 'de' MMMM"}
+                    d{"d – d 'de' MMMM"}
                 }
                 MMMd{
-                    M{"MMM d – MMM d"}
-                    d{"MMM d – d"}
+                    M{"MMM d – MMM d"}
+                    d{"MMM d – d"}
                 }
                 Md{
-                    M{"M/d – M/d"}
-                    d{"M/d – M/d"}
+                    M{"M/d – M/d"}
+                    d{"M/d – M/d"}
                 }
                 yM{
-                    M{"M/y – M/y"}
-                    y{"M/y – M/y"}
+                    M{"M/y – M/y"}
+                    y{"M/y – M/y"}
                 }
                 yMEd{
-                    M{"E, M/d/y – E, M/d/y"}
-                    d{"E, M/d/y – E, M/d/y"}
-                    y{"E, M/d/y – E, M/d/y"}
+                    M{"E, M/d/y – E, M/d/y"}
+                    d{"E, M/d/y – E, M/d/y"}
+                    y{"E, M/d/y – E, M/d/y"}
                 }
                 yMMM{
-                    M{"MMM – MMM y"}
-                    y{"MMM y – MMM y"}
+                    M{"MMM – MMM y"}
+                    y{"MMM y – MMM y"}
                 }
                 yMMMEd{
-                    M{"E, MMM d – E, MMM d, y"}
-                    d{"E, MMM d – E, MMM d, y"}
-                    y{"E, MMM d, y – E, MMM d, y"}
+                    M{"E, MMM d – E, MMM d, y"}
+                    d{"E, MMM d – E, MMM d, y"}
+                    y{"E, MMM d, y – E, MMM d, y"}
                 }
                 yMMMM{
-                    M{"MMMM–MMMM 'de' y"}
-                    y{"MMMM 'de' y–MMMM 'de' y"}
+                    M{"MMMM – MMMM 'de' y"}
+                    y{"MMMM 'de' y – MMMM 'de' y"}
                 }
                 yMMMMEd{
-                    M{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y"}
-                    d{"E, d 'de' MMMM–E, d 'de' MMMM 'de' y"}
-                    y{"E, d 'de' MMMM 'de' y–E, d 'de' MMMM 'de' y"}
+                    M{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y"}
+                    d{"E, d 'de' MMMM – E, d 'de' MMMM 'de' y"}
+                    y{"E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y"}
                 }
                 yMMMMd{
-                    M{"d 'de' MMMM–d 'de' MMMM 'de' y"}
-                    d{"d–d 'de' MMMM 'de' y"}
-                    y{"d 'de' MMMM 'de' y–d 'de' MMMM 'de' y"}
+                    M{"d 'de' MMMM – d 'de' MMMM 'de' y"}
+                    d{"d – d 'de' MMMM 'de' y"}
+                    y{"d 'de' MMMM 'de' y – d 'de' MMMM 'de' y"}
                 }
                 yMMMd{
-                    M{"MMM d – MMM d, y"}
-                    d{"MMM d – d, y"}
-                    y{"MMM d, y – MMM d, y"}
+                    M{"MMM d – MMM d, y"}
+                    d{"MMM d – d, y"}
+                    y{"MMM d, y – MMM d, y"}
                 }
                 yMd{
-                    M{"M/d/y – M/d/y"}
-                    d{"M/d/y – M/d/y"}
-                    y{"M/d/y – M/d/y"}
+                    M{"M/d/y – M/d/y"}
+                    d{"M/d/y – M/d/y"}
+                    y{"M/d/y – M/d/y"}
                 }
             }
         }

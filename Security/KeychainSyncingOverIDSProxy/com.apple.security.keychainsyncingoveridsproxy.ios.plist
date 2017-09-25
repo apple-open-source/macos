@@ -47,8 +47,6 @@
 	<array>
 		<string>/System/Library/Frameworks/Security.framework/KeychainSyncingOverIDSProxy.bundle/KeychainSyncingOverIDSProxy</string>
 	</array>
-	<key>RunAtLoad</key>
-	<false/>
 	<key>enabletransactions</key>
 	<true/>
 </dict>

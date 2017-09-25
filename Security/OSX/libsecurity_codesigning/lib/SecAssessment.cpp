@@ -427,12 +427,7 @@ CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 	CFRef<CFDictionaryRef> result;
 
 	// make context exist and writable
-	CFMutableDictionaryRef mcontext;
-	if (context == NULL) {
-		mcontext = makeCFMutableDictionary();
-	} else {
-		mcontext = makeCFMutableDictionary(context);
-	}
+	CFRef<CFMutableDictionaryRef> mcontext = context ? makeCFMutableDictionary(context) : makeCFMutableDictionary();
 	
 	if (CFDictionaryGetValue(mcontext, kSecAssessmentUpdateKeyAuthorization) == NULL) {
 		// no authorization passed in. Make an empty one in this context

@@ -59,7 +59,6 @@
 #include "IPv4ClasslessRoute.h"
 #include "nbo.h"
 #include "cfutil.h"
-#include <SystemConfiguration/SCPrivate.h>
 
 /*
  * Module: dhcpoa (dhcp options area)
@@ -431,7 +430,7 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type,
     
     str = CFStringCreateMutable(NULL, 0);
     dhcptype_print_cfstr_simple(str, type, opt, option_len);
-    SCPrint(TRUE, f, CFSTR("%@"), str);
+    my_CFStringPrint(f, str);
     CFRelease(str);
     return;
 }
@@ -489,7 +488,7 @@ dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
     
     str = CFStringCreateMutable(NULL, 0);
     dhcptype_print_cfstr(str, type, option, option_len);
-    SCPrint(TRUE, f, CFSTR("%@"), str);
+    my_CFStringPrint(f, str);
     CFRelease(str);
     return;
 }
@@ -1080,7 +1079,7 @@ dhcpol_fprint(FILE * f, dhcpol_t * list)
 
     str = CFStringCreateMutable(NULL, 0);
     dhcpol_print_cfstr(str, list);
-    SCPrint(TRUE, f, CFSTR("%@"), str);
+    my_CFStringPrint(f, str);
     CFRelease(str);
     return;
 }

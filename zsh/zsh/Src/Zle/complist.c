@@ -34,8 +34,9 @@
 /* Information about the list shown. */
 
 /*
- * noselect: 1 if complistmatches indicated we shouldn't do selection.
- *           Tested in domenuselect.
+ * noselect: 1 if complistmatches indicated we shouldn't do selection;
+ *           -1 if interactive mode needs to reset the selection list.
+ *           Tested in domenuselect, and in complistmatches to skip redraw.
  * mselect:  Local copy of the index of the currently selected match.
  *           Initialised to the gnum entry of the current match for
  *           each completion.
@@ -113,7 +114,7 @@ static Cmgroup *mgtab, *mgtabp;
  * Allow us to keep track of pointer arithmetic for mgtab; could
  * just as well have been for mtab but wasn't.
  */
-int mgtabsize;
+static int mgtabsize;
 #endif
 
 /*
@@ -346,9 +347,10 @@ getcoldef(char *s)
 	    char sav = p[1];
 
 	    p[1] = '\0';
+	    s = metafy(s, -1, META_USEHEAP);
 	    tokenize(s);
 	    gprog = patcompile(s, 0, NULL);
-	    p[1]  =sav;
+	    p[1] = sav;
 
 	    s = p + 1;
 	}
@@ -414,6 +416,7 @@ getcoldef(char *s)
 		break;
 	    *s++ = '\0';
 	}
+	p = metafy(p, -1, META_USEHEAP);
 	tokenize(p);
 	if ((prog = patcompile(p, 0, NULL))) {
 	    Patcol pc, po;
@@ -661,7 +664,9 @@ clprintfmt(char *p, int ml)
 
     initiscol();
 
-    for (; *p; p++) {
+    while (*p) {
+	convchar_t chr;
+	int chrlen = MB_METACHARLENCONV(p, &chr);
 	doiscol(i++);
 	cc++;
 	if (*p == '\n') {
@@ -672,11 +677,16 @@ clprintfmt(char *p, int ml)
 	if (ml == mlend - 1 && (cc % zterm_columns) == zterm_columns - 1)
 	    return 0;
 
-	if (*p == Meta) {
+	while (chrlen) {
+	    if (*p == Meta) {
+		p++;
+		chrlen--;
+		putc(*p ^ 32, shout);
+	    } else
+		putc(*p, shout);
+	    chrlen--;
 	    p++;
-	    putc(*p ^ 32, shout);
-	} else
-	    putc(*p, shout);
+	}
 	if ((beg = !(cc % zterm_columns)))
 	    ml++;
 	if (mscroll && !(cc % zterm_columns) &&
@@ -989,6 +999,7 @@ asklistscroll(int ml)
 
     fflush(shout);
     zsetterm();
+    menuselect_bindings();	/* sanity in case deleted by user */
     selectlocalmap(lskeymap);
     if (!(cmd = getkeycmd()) || cmd == Th(z_sendbreak))
 	ret = 1;
@@ -1979,7 +1990,8 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
     }
 #endif
 
-    noselect = 0;
+    if (noselect > 0)
+	noselect = 0;
 
     if ((minfo.asked == 2 && mselect < 0) || nlnct >= zterm_lines) {
 	showinglist = 0;
@@ -2077,9 +2089,11 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
     last_cap = (char *) zhalloc(max_caplen + 1);
     *last_cap = '\0';
 
-    if (!mnew && inselect && onlnct == nlnct && mlbeg >= 0 && mlbeg == molbeg)
-        singledraw();
-    else if (!compprintlist(mselect >= 0) || !clearflag)
+    if (!mnew && inselect &&
+	onlnct == nlnct && mlbeg >= 0 && mlbeg == molbeg) {
+	if (!noselect)
+	    singledraw();
+    } else if (!compprintlist(mselect >= 0) || !clearflag)
 	noselect = 1;
 
     onlnct = nlnct;
@@ -2092,7 +2106,7 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
     popheap();
     opts[EXTENDEDGLOB] = extendedglob;
 
-    return noselect;
+    return (noselect < 0 ? 0 : noselect);
 }
 
 static int
@@ -2433,6 +2447,7 @@ domenuselect(Hookdef dummy, Chdata dat)
     unqueue_signals();
     mhasstat = (mstatus && *mstatus);
     fdat = dat;
+    menuselect_bindings();	/* sanity in case deleted by user */
     selectlocalmap(mskeymap);
     noselect = 1;
     while ((menuacc &&
@@ -2545,14 +2560,23 @@ domenuselect(Hookdef dummy, Chdata dat)
         } else {
             statusline = NULL;
         }
+	if (noselect < 0) {
+	    showinglist = clearlist = 0;
+	    clearflag = 1;
+	}
         zrefresh();
 	statusline = NULL;
         inselect = 1;
+	selected = 1;
         if (noselect) {
+	    if (noselect < 0) {
+		/* no selection until after processing keystroke */
+		noselect = 0;
+		goto getk;
+	    }
             broken = 1;
             break;
         }
-	selected = 1;
 	if (!i) {
 	    i = mcols * mlines;
 	    while (i--)
@@ -2584,6 +2608,12 @@ domenuselect(Hookdef dummy, Chdata dat)
     	if (!do_last_key) {
 	    zmult = 1;
 	    cmd = getkeycmd();
+	    /*
+	     * On interrupt, we'll exit due to cmd being empty.
+	     * Don't propagate the interrupt any further, which
+	     * can screw up redrawing.
+	     */
+	    errflag &= ~ERRFLAG_INT;
 	    if (mtab_been_reallocated) {
 		do_last_key = 1;
 		continue;
@@ -2744,6 +2774,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 		if (nmessages) {
 		    showinglist = -2;
 		    zrefresh();
+		    noselect = -1;
 		} else {
 		    trashzle();
 		    zsetterm();
@@ -3377,7 +3408,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	do_single(*(minfo.cur));
     }
     if (wasnext || broken) {
-	menucmp = 2;
+	menucmp = 1;
 	showinglist = ((validlist && !nolist) ? -2 : 0);
 	minfo.asked = 0;
 	if (!noselect) {
@@ -3480,6 +3511,37 @@ enables_(Module m, int **enables)
 }
 
 /**/
+static void
+menuselect_bindings(void)
+{
+    if (!(mskeymap = openkeymap("menuselect"))) {
+	mskeymap = newkeymap(NULL, "menuselect");
+	linkkeymap(mskeymap, "menuselect", 1);
+	bindkey(mskeymap, "\t", refthingy(t_completeword), NULL);
+	bindkey(mskeymap, "\n", refthingy(t_acceptline), NULL);
+	bindkey(mskeymap, "\r", refthingy(t_acceptline), NULL);
+	bindkey(mskeymap, "\33[A",  refthingy(t_uplineorhistory), NULL);
+	bindkey(mskeymap, "\33[B",  refthingy(t_downlineorhistory), NULL);
+	bindkey(mskeymap, "\33[C",  refthingy(t_forwardchar), NULL);
+	bindkey(mskeymap, "\33[D",  refthingy(t_backwardchar), NULL);
+	bindkey(mskeymap, "\33OA",  refthingy(t_uplineorhistory), NULL);
+	bindkey(mskeymap, "\33OB",  refthingy(t_downlineorhistory), NULL);
+	bindkey(mskeymap, "\33OC",  refthingy(t_forwardchar), NULL);
+	bindkey(mskeymap, "\33OD",  refthingy(t_backwardchar), NULL);
+    }
+    if (!(lskeymap = openkeymap("listscroll"))) {
+	lskeymap = newkeymap(NULL, "listscroll");
+	linkkeymap(lskeymap, "listscroll", 1);
+	bindkey(lskeymap, "\t", refthingy(t_completeword), NULL);
+	bindkey(lskeymap, " ", refthingy(t_completeword), NULL);
+	bindkey(lskeymap, "\n", refthingy(t_acceptline), NULL);
+	bindkey(lskeymap, "\r", refthingy(t_acceptline), NULL);
+	bindkey(lskeymap, "\33[B",  refthingy(t_downlineorhistory), NULL);
+	bindkey(lskeymap, "\33OB",  refthingy(t_downlineorhistory), NULL);
+    }
+}
+
+/**/
 int
 boot_(Module m)
 {
@@ -3497,27 +3559,7 @@ boot_(Module m)
     }
     addhookfunc("comp_list_matches", (Hookfn) complistmatches);
     addhookfunc("menu_start", (Hookfn) domenuselect);
-    mskeymap = newkeymap(NULL, "menuselect");
-    linkkeymap(mskeymap, "menuselect", 1);
-    bindkey(mskeymap, "\t", refthingy(t_completeword), NULL);
-    bindkey(mskeymap, "\n", refthingy(t_acceptline), NULL);
-    bindkey(mskeymap, "\r", refthingy(t_acceptline), NULL);
-    bindkey(mskeymap, "\33[A",  refthingy(t_uplineorhistory), NULL);
-    bindkey(mskeymap, "\33[B",  refthingy(t_downlineorhistory), NULL);
-    bindkey(mskeymap, "\33[C",  refthingy(t_forwardchar), NULL);
-    bindkey(mskeymap, "\33[D",  refthingy(t_backwardchar), NULL);
-    bindkey(mskeymap, "\33OA",  refthingy(t_uplineorhistory), NULL);
-    bindkey(mskeymap, "\33OB",  refthingy(t_downlineorhistory), NULL);
-    bindkey(mskeymap, "\33OC",  refthingy(t_forwardchar), NULL);
-    bindkey(mskeymap, "\33OD",  refthingy(t_backwardchar), NULL);
-    lskeymap = newkeymap(NULL, "listscroll");
-    linkkeymap(lskeymap, "listscroll", 1);
-    bindkey(lskeymap, "\t", refthingy(t_completeword), NULL);
-    bindkey(lskeymap, " ", refthingy(t_completeword), NULL);
-    bindkey(lskeymap, "\n", refthingy(t_acceptline), NULL);
-    bindkey(lskeymap, "\r", refthingy(t_acceptline), NULL);
-    bindkey(lskeymap, "\33[B",  refthingy(t_downlineorhistory), NULL);
-    bindkey(lskeymap, "\33OB",  refthingy(t_downlineorhistory), NULL);
+    menuselect_bindings();
     return 0;
 }
 

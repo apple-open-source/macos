@@ -106,4 +106,7 @@
 // presence of commpage memsize
 #define CONFIG_HAS_COMMPAGE_MEMSIZE 1
 
+// presence of commpage number of cpu count
+#define CONFIG_HAS_COMMPAGE_NCPUS 1
+
 #endif // __PLATFORM_H

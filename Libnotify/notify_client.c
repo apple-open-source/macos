@@ -49,6 +49,8 @@
 #include <dispatch/private.h>
 #include <_simple.h>
 
+#include <mach-o/dyld_priv.h> // _dyld_is_memory_immutable
+
 #include "libnotify.h"
 
 #include "notify.h"
@@ -248,6 +250,29 @@ _notify_client_log(int level, const char *fmt, ...)
 	free(msg);
 }
 
+static char *
+_notify_strdup_if_mutable(const char *str)
+{
+    size_t size = strlen(str) + 1;
+    if (!_dyld_is_memory_immutable(str, size)) {
+        char *clone = (char *)malloc(size);
+        if (clone) {
+            memcpy(clone, str, size);
+        }
+        return clone;
+    }
+    return (char *)str;
+}
+
+static void
+_notify_free_if_mutable(char *str)
+{
+    size_t size = strlen(str) + 1;
+    if (!_dyld_is_memory_immutable(str, size)) {
+        free(str);
+    }
+}
+
 #pragma mark -
 #pragma mark name_node_t
 
@@ -293,7 +318,7 @@ name_node_for_name(const char *name, uint64_t nid, bool create, bool glock)
 			goto unlock_and_return;
 		}
 
-		n->name = strdup(name);
+		n->name = _notify_strdup_if_mutable(name);
 		if (n->name == NULL)
 		{
 			free(n);
@@ -370,7 +395,7 @@ name_node_release(name_node_t *n)
 	mutex_unlock(n->name, &n->lock, __func__, __LINE__);
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 
-	free(n->name);
+	_notify_free_if_mutable(n->name);
 	n->name = NULL;
 	free(n);
 }
@@ -1191,8 +1216,11 @@ notify_release_file_descriptor(int fd)
 	if (globals->fd_count == 1)
 	{
 		free(globals->fd_clnt);
+		globals->fd_clnt = NULL;
 		free(globals->fd_srv);
+		globals->fd_srv = NULL;
 		free(globals->fd_refcount);
+		globals->fd_refcount = NULL;
 		globals->fd_count = 0;
 		mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 		return;
@@ -1217,8 +1245,11 @@ notify_release_file_descriptor(int fd)
 		_notify_client_log(ASL_LEVEL_ERR, "notify_release_file_descriptor reallocf failed errno %d [%s]\n", errno, strerror(errno));
 #endif
 		free(globals->fd_clnt);
+		globals->fd_clnt = NULL;
 		free(globals->fd_srv);
+		globals->fd_srv = NULL;
 		free(globals->fd_refcount);
+		globals->fd_refcount = NULL;
 		globals->fd_count = 0;
 	}
 
@@ -2528,7 +2559,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 	size_t namelen;
 	fileport_t fileport;
 	kern_return_t kstatus;
-	uint32_t cid;
+	uint32_t cid = -1;
 	notify_globals_t globals = _notify_globals();
 
 	regenerate_check();

@@ -30,14 +30,16 @@ using namespace WebCore;
 
 namespace WebKit {
 
-UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, uint64_t frameID, const String& userMediaDocumentOriginIdentifier, const String& topLevelDocumentOriginIdentifier, const Vector<String>& audioDeviceUIDs, const Vector<String>& videoDeviceUIDs)
+UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, uint64_t mainFrameID, uint64_t frameID, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<String>&& audioDeviceUIDs, Vector<String>&& videoDeviceUIDs, String&& deviceIDHashSalt)
     : m_manager(&manager)
     , m_userMediaID(userMediaID)
+    , m_mainFrameID(mainFrameID)
     , m_frameID(frameID)
-    , m_userMediaDocumentSecurityOrigin((SecurityOriginData::fromDatabaseIdentifier(userMediaDocumentOriginIdentifier)->securityOrigin()))
-    , m_topLevelDocumentSecurityOrigin(SecurityOriginData::fromDatabaseIdentifier(topLevelDocumentOriginIdentifier)->securityOrigin())
-    , m_videoDeviceUIDs(videoDeviceUIDs)
-    , m_audioDeviceUIDs(audioDeviceUIDs)
+    , m_userMediaDocumentSecurityOrigin(WTFMove(userMediaDocumentOrigin))
+    , m_topLevelDocumentSecurityOrigin(WTFMove(topLevelDocumentOrigin))
+    , m_videoDeviceUIDs(WTFMove(videoDeviceUIDs))
+    , m_audioDeviceUIDs(WTFMove(audioDeviceUIDs))
+    , m_deviceIdentifierHashSalt(WTFMove(deviceIDHashSalt))
 {
 }
 
@@ -53,7 +55,6 @@ void UserMediaPermissionRequestProxy::allow(const String& audioDeviceUID, const 
 
 void UserMediaPermissionRequestProxy::deny(UserMediaAccessDenialReason reason)
 {
-    ASSERT(m_manager);
     if (!m_manager)
         return;
 
@@ -67,4 +68,3 @@ void UserMediaPermissionRequestProxy::invalidate()
 }
 
 } // namespace WebKit
-

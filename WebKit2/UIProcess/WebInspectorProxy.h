@@ -49,15 +49,6 @@ OBJC_CLASS WKWebInspectorWKWebView;
 OBJC_CLASS WKWebViewConfiguration;
 #endif
 
-#if PLATFORM(GTK)
-#include "WebInspectorClientGtk.h"
-#endif
-
-#if PLATFORM(EFL)
-#include <Ecore_Evas.h>
-#include <Evas.h>
-#endif
-
 namespace WebCore {
 class URL;
 }
@@ -65,12 +56,14 @@ class URL;
 namespace WebKit {
 
 class WebFrameProxy;
+class WebInspectorProxyClient;
 class WebPageProxy;
 class WebPreferences;
 
 enum class AttachmentSide {
     Bottom,
-    Right
+    Right,
+    Left,
 };
 
 class WebInspectorProxy : public API::ObjectImpl<API::Object::Type::Inspector>, public IPC::MessageReceiver {
@@ -119,7 +112,7 @@ public:
 
 #if PLATFORM(GTK)
     GtkWidget* inspectorView() const { return m_inspectorView; };
-    void initializeInspectorClientGtk(const WKInspectorClientGtkBase*);
+    void setClient(std::unique_ptr<WebInspectorProxyClient>&&);
 #endif
 
     void showConsole();
@@ -130,6 +123,7 @@ public:
     AttachmentSide attachmentSide() const { return m_attachmentSide; }
     bool isAttached() const { return m_isAttached; }
     void attachRight();
+    void attachLeft();
     void attachBottom();
     void attach(AttachmentSide = AttachmentSide::Bottom);
     void detach();
@@ -150,14 +144,6 @@ public:
     static String inspectorTestPageURL();
     static String inspectorBaseURL();
     static bool isMainOrTestInspectorPage(const WebCore::URL&);
-
-#if ENABLE(INSPECTOR_SERVER)
-    void enableRemoteInspection();
-    void remoteFrontendConnected();
-    void remoteFrontendDisconnected();
-    void dispatchMessageFromRemoteFrontend(const String& message);
-    int remoteInspectionPageID() const { return m_remoteInspectionPageId; }
-#endif
 
     static const unsigned minimumWindowWidth;
     static const unsigned minimumWindowHeight;
@@ -212,10 +198,6 @@ private:
     void save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
     void append(const String& filename, const String& content);
 
-#if ENABLE(INSPECTOR_SERVER)
-    void sendMessageToRemoteFrontend(const String& message);
-#endif
-
     bool canAttach() const { return m_canAttach; }
     bool shouldOpenAttached();
 
@@ -227,11 +209,8 @@ private:
 
     WebPreferences& inspectorPagePreferences() const;
 
-#if PLATFORM(GTK) || PLATFORM(EFL)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     void createInspectorWindow();
-#endif
-
-#if PLATFORM(GTK)
     void updateInspectorWindowTitle() const;
 #endif
 
@@ -260,17 +239,11 @@ private:
     RunLoop::Timer<WebInspectorProxy> m_closeTimer;
     String m_urlString;
 #elif PLATFORM(GTK)
-    WebInspectorClientGtk m_client;
+    std::unique_ptr<WebInspectorProxyClient> m_client;
     GtkWidget* m_inspectorView { nullptr };
     GtkWidget* m_inspectorWindow { nullptr };
     GtkWidget* m_headerBar { nullptr };
     String m_inspectedURLString;
-#elif PLATFORM(EFL)
-    Evas_Object* m_inspectorView { nullptr };
-    Ecore_Evas* m_inspectorWindow { nullptr };
-#endif
-#if ENABLE(INSPECTOR_SERVER)
-    int m_remoteInspectionPageId { 0 };
 #endif
 };
 

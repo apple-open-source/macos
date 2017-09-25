@@ -102,9 +102,11 @@ void TokenDaemon::childAction()
 	UnixError::check(::setgid(mGid));
 	UnixError::check(::setuid(mUid));
 #else //NDEBUG
+#ifndef __clang_analyzer__
 	// best effort, okay if not
 	::setgid(mGid);
 	::setuid(mUid);
+#endif // clang_analyzer
 #endif //NDEBUG
 	secinfo("tokend", "uid=%d gid=%d", getuid(), getgid());
 

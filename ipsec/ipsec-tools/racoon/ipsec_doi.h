@@ -186,7 +186,7 @@ struct ipsecdoi_pl_id {
 #define IDTYPE_LOGIN		6
 #define IDTYPE_SUBNET		7
 #define IDTYPE_KEYIDUSE     8
-#define IDTYPE_MAX          IDTYPE_KEYIDUSE
+#define IDTYPE_MAX          IDTYPE_KEYIDUSE + 1
 
 /* shared secret type, it's internal use. */
 #define SECRETTYPE_USE				0

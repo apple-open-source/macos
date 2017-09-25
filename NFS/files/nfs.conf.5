@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2010 Apple Inc.  All rights reserved.
+.\" Copyright (c) 2006-2017 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -56,6 +56,20 @@ option is on/enabled.
 .Pp	
 The options are:
 .Bl -tag -width -indent
+.It Cm nfs.client.default_nfs4domain
+Sets the default
+.Tn NFSv4
+domain name. If not set then string mappings are handed to
+.Cm opendirectoryd
+for resolution as is. Otherwise, if the domain name part of the string matches the
+.Tn NFSv4
+domain set here, then the domain part is stripped off and then
+given to
+.Cm opendirectoryd
+for resolution.
+See
+.Xr nfs 5
+for details.
 .It Cm nfs.client.access_cache_timeout
 How long (in seconds) that
 .Xr access 2
@@ -306,10 +320,12 @@ The
 configuration file.
 .El
 .Sh SEE ALSO
+.Xr nfs 5 ,
 .Xr nfsd 8 ,
 .Xr rpc.lockd 8 ,
 .Xr rpc.rquotad 8 ,
 .Xr rpc.statd 8 ,
-.Xr mount_nfs 8
+.Xr mount_nfs 8 ,
+.Xr opendirectoryd 8
 .\" .Sh BUGS              \" Document known, unremedied bugs
 .\" .Sh HISTORY           \" Document history if command behaves in a unique manner

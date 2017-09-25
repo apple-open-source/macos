@@ -1,4 +1,5 @@
 # coding: utf-8
+# frozen_string_literal: false
 
 ##
 # For RDoc::Text#to_html
@@ -10,10 +11,10 @@ require 'strscan'
 
 begin
   gem 'json'
+rescue NameError => e # --disable-gems
+  raise unless e.name == :gem
 rescue Gem::LoadError
 end
-
-require 'json'
 
 ##
 # Methods for manipulating comment text
@@ -103,6 +104,15 @@ module RDoc::Text
   # Requires the including class to implement #formatter
 
   def markup text
+    if @store.rdoc.options
+      locale = @store.rdoc.options.locale
+    else
+      locale = nil
+    end
+    if locale
+      i18n_text = RDoc::I18n::Text.new(text)
+      text = i18n_text.translate(locale)
+    end
     parse(text).accept formatter
   end
 
@@ -140,7 +150,7 @@ module RDoc::Text
   def snippet text, limit = 100
     document = parse text
 
-    RDoc::Markup::ToHtmlSnippet.new(limit).convert document
+    RDoc::Markup::ToHtmlSnippet.new(options, limit).convert document
   end
 
   ##
@@ -312,4 +322,3 @@ module RDoc::Text
   end
 
 end
-

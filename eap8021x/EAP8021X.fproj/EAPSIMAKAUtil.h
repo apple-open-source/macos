@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -280,6 +280,12 @@ EAPSIMAKAPacketDump(FILE * out_f, EAPPacketRef pkt);
 EAPSIMAKAAttributeType
 EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
 
+EAPSIMAKAEncryptedIdentityInfoRef
+EAPSIMAKAInitEncryptedIdentityInfo(CFDictionaryRef properties, bool static_config);
+
+void
+EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info);
+
 /*
  * Property: kEAPClientPropEAPSIMAKAKi
  * Purpose:
@@ -298,7 +304,33 @@ EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
  * kEAPClientPropEAPSIMAKAKi is provided then they are used to generate Kc and SRES
  * later using the SRAND sent by the server.
  */
-#define kEAPClientPropEAPSIMAKAOPc		CFSTR("EAPSIMAKAOPc") /* data */
+#define kEAPClientPropEAPSIMAKAOPc				CFSTR("EAPSIMAKAOPc") /* data */
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAAnonymousUserName
+ * Purpose:
+ * Statically configured anonymous username to be used in EAP-Response/Identity packet.
+ * This property is used when identity protection using encrypted IMSI is enabled.
+ */
+#define kEAPClientPropEAPSIMAKAAnonymousUserName		CFSTR("EAPSIMAKAAnonymousUserName") /* string */
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled
+ * Purpose:
+ * Statically configured flag that indicates that the identity protection using
+ * encrypted IMSI is enabled.
+ */
+#define kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled		CFSTR("EAPSIMAKAEncryptedIdentityEnabled") /* bool */
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAEncryptedUsername
+ * Purpose:
+ * Statically configured encrypted username to be used in AT_IDENTITY attributed.
+ * This property is used when identity protection using encrypted IMSI is enabled.
+ */
+#define kEAPClientPropEAPSIMAKAEncryptedUsername		CFSTR("EAPSIMAKAEncryptedUserName") /* data */
+
+#define EAP_SIM_AKA_DEFAULT_ANONYM_USERNAME			CFSTR("anonymous")
 
 /*
  * Property: kEAPClientPropEAPSIMAKAConservativePeer

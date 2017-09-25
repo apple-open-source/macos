@@ -1,7 +1,7 @@
 /*
  * Main loop for the CUPS scheduler.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -88,6 +88,8 @@ static int		dead_children = 0;
 					/* Dead children? */
 static int		stop_scheduler = 0;
 					/* Should the scheduler stop? */
+static time_t           local_timeout = 0;
+                                        /* Next local printer timeout */
 
 
 /*
@@ -701,6 +703,7 @@ main(int  argc,				/* I - Number of command-line args */
   current_time  = time(NULL);
   event_time    = current_time;
   expire_time   = current_time;
+  local_timeout = current_time + 60;
   fds           = 1;
   report_time   = 0;
   senddoc_time  = current_time;
@@ -765,18 +768,11 @@ main(int  argc,				/* I - Number of command-line args */
 
         if (!cupsdReadConfiguration())
         {
-#ifdef HAVE_ASL_H
-	  asl_object_t	m;		/* Log message */
-
-	  m = asl_new(ASL_TYPE_MSG);
-	  asl_set(m, ASL_KEY_FACILITY, "org.cups.cupsd");
-	  asl_log(NULL, m, ASL_LEVEL_ERR, "Unable to read configuration file \"%s\" - exiting.", ConfigurationFile);
-	  asl_release(m);
-#elif defined(HAVE_SYSTEMD_SD_JOURNAL_H)
+#ifdef HAVE_SYSTEMD_SD_JOURNAL_H
 	  sd_journal_print(LOG_ERR, "Unable to read configuration file \"%s\" - exiting.", ConfigurationFile);
 #else
           syslog(LOG_LPR, "Unable to read configuration file \'%s\' - exiting.", ConfigurationFile);
-#endif /* HAVE_ASL_H */
+#endif /* HAVE_SYSTEMD_SD_JOURNAL_H */
 
           break;
 	}
@@ -896,7 +892,7 @@ main(int  argc,				/* I - Number of command-line args */
     * Write dirty config/state files...
     */
 
-    if (DirtyCleanTime && current_time >= DirtyCleanTime)
+    if (DirtyCleanTime && current_time >= DirtyCleanTime && cupsArrayCount(Clients) == 0)
       cupsdCleanDirty();
 
 #ifdef __APPLE__
@@ -963,6 +959,13 @@ main(int  argc,				/* I - Number of command-line args */
 
       expire_time = current_time;
     }
+
+   /*
+    * Delete stale local printers...
+    */
+
+    if (current_time >= local_timeout)
+      cupsdDeleteTemporaryPrinters(0);
 
 #ifndef HAVE_AUTHORIZATION_H
    /*
@@ -1158,6 +1161,12 @@ main(int  argc,				/* I - Number of command-line args */
   */
 
   cupsdFreeAllJobs();
+
+ /*
+  * Delete all temporary printers...
+  */
+
+  cupsdDeleteTemporaryPrinters(1);
 
 #ifdef __APPLE__
  /*
@@ -1602,6 +1611,7 @@ select_timeout(int fds)			/* I - Number of descriptors returned */
   time_t		now;		/* Current time */
   cupsd_client_t	*con;		/* Client information */
   cupsd_job_t		*job;		/* Job information */
+  cupsd_printer_t       *printer;       /* Printer information */
   const char		*why;		/* Debugging aid */
 
 
@@ -1638,13 +1648,13 @@ select_timeout(int fds)			/* I - Number of descriptors returned */
 
 #ifdef __APPLE__
  /*
-  * When going to sleep, wake up to cancel jobs that don't complete in time.
+  * When going to sleep, wake up to abort jobs that don't complete in time.
   */
 
   if (SleepJobs > 0 && SleepJobs < timeout)
   {
     timeout = SleepJobs;
-    why     = "cancel jobs before sleeping";
+    why     = "abort jobs before sleeping";
   }
 #endif /* __APPLE__ */
 
@@ -1726,17 +1736,21 @@ select_timeout(int fds)			/* I - Number of descriptors returned */
     }
   }
 
-#ifdef HAVE_MALLINFO
  /*
-  * Log memory usage every minute...
+  * Check for temporary printers that need to be deleted...
   */
 
-  if (LogLevel >= CUPSD_LOG_DEBUG && (mallinfo_time + 60) < timeout)
+  for (printer = (cupsd_printer_t *)cupsArrayFirst(Printers); printer; printer = (cupsd_printer_t *)cupsArrayNext(Printers))
   {
-    timeout = mallinfo_time + 60;
-    why     = "display memory usage";
+    if (printer->temporary && !printer->job && local_timeout > (printer->state_time + 60))
+      local_timeout = printer->state_time + 60;
   }
-#endif /* HAVE_MALLINFO */
+
+  if (timeout > local_timeout)
+  {
+    timeout = local_timeout;
+    why     = "delete stale local printers";
+  }
 
  /*
   * Adjust from absolute to relative time.  We add 1 second to the timeout since

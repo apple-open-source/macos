@@ -1,14 +1,14 @@
 #
 # CGI makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1997-2006 by Easy Software Products.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 
 include ../Makedefs
@@ -219,7 +219,7 @@ libcupscgi.1.dylib:	$(LIBOBJS) libcupscgi.exp
 
 libcupscgi.la:    $(LIBOBJS)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
+	$(LD_CC) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
 		-version-info 1:0 $(LIBS)
 
 
@@ -240,7 +240,7 @@ libcupscgi.a:	$(LIBOBJS)
 
 admin.cgi:	admin.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ admin.o -lcupscgi $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ admin.o -lcupscgi $(LIBS)
 
 
 #
@@ -249,7 +249,7 @@ admin.cgi:	admin.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 
 classes.cgi:	classes.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ classes.o -lcupscgi $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ classes.o -lcupscgi $(LIBS)
 
 
 #
@@ -258,7 +258,7 @@ classes.cgi:	classes.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 
 help.cgi:	help.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ help.o -lcupscgi $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ help.o -lcupscgi $(LIBS)
 
 
 #
@@ -267,7 +267,7 @@ help.cgi:	help.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 
 jobs.cgi:	jobs.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ jobs.o -lcupscgi $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ jobs.o -lcupscgi $(LIBS)
 
 
 #
@@ -276,7 +276,7 @@ jobs.cgi:	jobs.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 
 makedocset:	makedocset.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ makedocset.o libcupscgi.a \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ makedocset.o libcupscgi.a \
 		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(SSLLIBS) $(DNSSDLIBS) \
 		$(LIBZ) $(LIBGSSAPI)
 
@@ -287,7 +287,7 @@ makedocset:	makedocset.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 
 printers.cgi:	printers.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ printers.o -L. -lcupscgi $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ printers.o -L. -lcupscgi $(LIBS)
 
 
 #
@@ -296,7 +296,7 @@ printers.cgi:	printers.o ../Makedefs ../cups/$(LIBCUPS) $(LIBCUPSCGI)
 
 testcgi:	testcgi.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testcgi.o libcupscgi.a \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testcgi.o libcupscgi.a \
 		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(SSLLIBS) $(DNSSDLIBS) \
 		$(LIBZ) $(LIBGSSAPI)
 	echo Testing CGI API...
@@ -309,7 +309,7 @@ testcgi:	testcgi.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 
 testhi:	testhi.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testhi.o libcupscgi.a \
+	$(LD_CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testhi.o libcupscgi.a \
 		../cups/$(LIBCUPSSTATIC) $(COMMONLIBS) $(SSLLIBS) $(DNSSDLIBS) \
 		$(LIBZ) $(LIBGSSAPI)
 	echo Testing help index API...
@@ -322,7 +322,7 @@ testhi:	testhi.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 
 testtemplate:	testtemplate.o ../Makedefs libcupscgi.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testtemplate.o libcupscgi.a ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o $@ testtemplate.o libcupscgi.a ../cups/$(LIBCUPSSTATIC) \
 		$(COMMONLIBS) $(SSLLIBS) $(DNSSDLIBS) $(LIBZ) $(LIBGSSAPI)
 
 

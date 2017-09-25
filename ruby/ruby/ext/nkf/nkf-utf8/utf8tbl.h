@@ -1,7 +1,6 @@
 /*
- * utf8tbl.h - Header file for Convertion Table
+ * utf8tbl.h - Header file for Conversion Table
  *
- * $Id: utf8tbl.h 37800 2012-11-22 08:47:30Z naruse $
  */
 
 #ifndef _UTF8TBL_H_

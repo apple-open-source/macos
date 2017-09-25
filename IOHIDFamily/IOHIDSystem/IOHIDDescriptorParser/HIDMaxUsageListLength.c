@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -101,7 +101,7 @@ HIDMaxUsageListLength	   (HIDReportType reportType,
  *		 a few words of RAM in exchange for speed.
 */
 	iButtons = 0;
-	for (i=0; i<ptPreparsedData->reportItemCount; i++)
+	for (i=0; i< (int)ptPreparsedData->reportItemCount; i++)
 	{
 		ptReportItem = &ptPreparsedData->reportItems[i];
 		if ((ptReportItem->reportType == reportType)

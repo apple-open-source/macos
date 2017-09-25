@@ -34,7 +34,6 @@
 #include "CDM.h"
 #include "Document.h"
 #include "JSMediaKeySystemAccess.h"
-#include "NotImplemented.h"
 
 namespace WebCore {
 
@@ -88,9 +87,13 @@ static void tryNextSupportedConfiguration(RefPtr<CDM>&& implementation, Vector<M
                 // 6.3.3.1.1. Set the keySystem attribute to keySystem.
                 // 6.3.3.1.2. Let the configuration value be supported configuration.
                 // 6.3.3.1.3. Let the cdm implementation value be implementation.
-                auto access = MediaKeySystemAccess::create(implementation->keySystem(), WTFMove(supportedConfiguration.value()), implementation.releaseNonNull());
+
+                // Obtain reference to the key system string before the `implementation` RefPtr<> is cleared out.
+                const String& keySystem = implementation->keySystem();
+                auto access = MediaKeySystemAccess::create(keySystem, WTFMove(supportedConfiguration.value()), implementation.releaseNonNull());
+
                 // 6.3.3.2. Resolve promise with access and abort the parallel steps of this algorithm.
-                promise->resolve<IDLInterface<MediaKeySystemAccess>>(access.get());
+                promise->resolveWithNewlyCreated<IDLInterface<MediaKeySystemAccess>>(WTFMove(access));
                 return;
             }
 

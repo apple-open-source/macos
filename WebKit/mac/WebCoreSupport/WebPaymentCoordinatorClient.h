@@ -38,15 +38,16 @@ private:
 
     bool supportsVersion(unsigned) override;
     bool canMakePayments() override;
-    void canMakePaymentsWithActiveCard(const String&, const String&, std::function<void (bool)> completionHandler) override;
-    void openPaymentSetup(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler) override;
+    void canMakePaymentsWithActiveCard(const String&, const String&, WTF::Function<void (bool)>&& completionHandler) override;
+    void openPaymentSetup(const String& merchantIdentifier, const String& domainName, WTF::Function<void (bool)>&& completionHandler) override;
     bool showPaymentUI(const WebCore::URL&, const Vector<WebCore::URL>& linkIconURLs, const WebCore::PaymentRequest&) override;
     void completeMerchantValidation(const WebCore::PaymentMerchantSession&) override;
-    void completeShippingMethodSelection(WebCore::PaymentAuthorizationStatus, std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems) override;
-    void completeShippingContactSelection(WebCore::PaymentAuthorizationStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>&, std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems) override;
-    void completePaymentMethodSelection(std::optional<WebCore::PaymentRequest::TotalAndLineItems>) override;
-    void completePaymentSession(WebCore::PaymentAuthorizationStatus) override;
+    void completeShippingMethodSelection(std::optional<WebCore::ShippingMethodUpdate>&&) override;
+    void completeShippingContactSelection(std::optional<WebCore::ShippingContactUpdate>&&) override;
+    void completePaymentMethodSelection(std::optional<WebCore::PaymentMethodUpdate>&&) override;
+    void completePaymentSession(std::optional<WebCore::PaymentAuthorizationResult>&&) override;
     void abortPaymentSession() override;
+    void cancelPaymentSession() override;
     void paymentCoordinatorDestroyed() override;
 };
 

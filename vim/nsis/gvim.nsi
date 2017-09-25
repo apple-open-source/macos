@@ -6,13 +6,19 @@
 # because uninstall deletes most files in $0.
 
 # Location of gvim_ole.exe, vimw32.exe, GvimExt/*, etc.
-!define VIMSRC "..\src"
+!ifndef VIMSRC
+  !define VIMSRC "..\src"
+!endif
 
 # Location of runtime files
-!define VIMRT ".."
+!ifndef VIMRT
+  !define VIMRT ".."
+!endif
 
 # Location of extra tools: diff.exe
-!define VIMTOOLS ..\..
+!ifndef VIMTOOLS
+  !define VIMTOOLS ..\..
+!endif
 
 # Comment the next line if you don't have UPX.
 # Get it at http://upx.sourceforge.net
@@ -21,8 +27,7 @@
 # comment the next line if you do not want to add Native Language Support
 !define HAVE_NLS
 
-!define VER_MAJOR 7
-!define VER_MINOR 4
+!include gvim_version.nsh	# for version number
 
 # ----------- No configurable settings below this line -----------
 
@@ -33,9 +38,10 @@
 Name "Vim ${VER_MAJOR}.${VER_MINOR}"
 OutFile gvim${VER_MAJOR}${VER_MINOR}.exe
 CRCCheck force
-SetCompressor lzma
+SetCompressor /SOLID lzma
 SetDatablockOptimize on
 RequestExecutionLevel highest
+XPStyle on
 
 ComponentText "This will install Vim ${VER_MAJOR}.${VER_MINOR} on your computer."
 DirText "Choose a directory to install Vim (should contain 'vim')"
@@ -55,9 +61,6 @@ LicenseData ${VIMRT}\doc\uganda.nsis.txt
 !ifdef HAVE_UPX
   !packhdr temp.dat "upx --best --compress-icons=1 temp.dat"
 !endif
-
-SetCompressor /SOLID lzma
-XPStyle on
 
 # This adds '\vim' to the user choice automagically.  The actual value is
 # obtained below with ReadINIStr.
@@ -185,6 +188,7 @@ Section "Vim executables and runtime files"
 	File /oname=install.exe ${VIMSRC}\installw32.exe
 	File /oname=uninstal.exe ${VIMSRC}\uninstalw32.exe
 	File ${VIMSRC}\vimrun.exe
+	File /oname=tee.exe ${VIMSRC}\teew32.exe
 	File /oname=xxd.exe ${VIMSRC}\xxdw32.exe
 	File ${VIMTOOLS}\diff.exe
 	File ${VIMRT}\vimtutor.bat
@@ -211,6 +215,28 @@ Section "Vim executables and runtime files"
 
 	SetOutPath $0\macros
 	File ${VIMRT}\macros\*.*
+
+	SetOutPath $0\pack\dist\opt\dvorak\dvorak
+	File ${VIMRT}\pack\dist\opt\dvorak\dvorak\*.*
+	SetOutPath $0\pack\dist\opt\dvorak\plugin
+	File ${VIMRT}\pack\dist\opt\dvorak\plugin\*.*
+
+	SetOutPath $0\pack\dist\opt\editexisting\plugin
+	File ${VIMRT}\pack\dist\opt\editexisting\plugin\*.*
+
+	SetOutPath $0\pack\dist\opt\justify\plugin
+	File ${VIMRT}\pack\dist\opt\justify\plugin\*.*
+
+	SetOutPath $0\pack\dist\opt\matchit\doc
+	File ${VIMRT}\pack\dist\opt\matchit\doc\*.*
+	SetOutPath $0\pack\dist\opt\matchit\plugin
+	File ${VIMRT}\pack\dist\opt\matchit\plugin\*.*
+
+	SetOutPath $0\pack\dist\opt\shellmenu\plugin
+	File ${VIMRT}\pack\dist\opt\shellmenu\plugin\*.*
+
+	SetOutPath $0\pack\dist\opt\swapmouse\plugin
+	File ${VIMRT}\pack\dist\opt\swapmouse\plugin\*.*
 
 	SetOutPath $0\plugin
 	File ${VIMRT}\plugin\*.*
@@ -356,7 +382,10 @@ SectionEnd
 		File ${VIMRT}\keymap\README.txt
 		File ${VIMRT}\keymap\*.vim
 		SetOutPath $0
-		File ${VIMRT}\libintl.dll
+		File ${VIMRT}\libintl-8.dll
+		File ${VIMRT}\libiconv-2.dll
+		File /nonfatal ${VIMRT}\libwinpthread-1.dll
+		File /nonfatal ${VIMRT}\libgcc_s_sjlj-1.dll
 	SectionEnd
 !endif
 

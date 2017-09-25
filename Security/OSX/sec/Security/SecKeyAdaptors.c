@@ -60,6 +60,11 @@ const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224 = CFSTR("
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256 = CFSTR("algid:sign:RSA:digest-PKCS1v15:SHA256");
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384 = CFSTR("algid:sign:RSA:digest-PKCS1v15:SHA384");
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512 = CFSTR("algid:sign:RSA:digest-PKCS1v15:SHA512");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA1 = CFSTR("algid:sign:RSA:digest-PSS:SHA1:SHA1:20");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA224 = CFSTR("algid:sign:RSA:digest-PSS:SHA224:SHA224:24");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA256 = CFSTR("algid:sign:RSA:digest-PSS:SHA256:SHA256:32");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA384 = CFSTR("algid:sign:RSA:digest-PSS:SHA384:SHA384:48");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPSSSHA512 = CFSTR("algid:sign:RSA:digest-PSS:SHA512:SHA512:64");
 
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5 = CFSTR("algid:sign:RSA:message-PKCS1v15:MD5");
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1 = CFSTR("algid:sign:RSA:message-PKCS1v15:SHA1");
@@ -67,6 +72,11 @@ const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224 = CFSTR(
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256 = CFSTR("algid:sign:RSA:message-PKCS1v15:SHA256");
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384 = CFSTR("algid:sign:RSA:message-PKCS1v15:SHA384");
 const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512 = CFSTR("algid:sign:RSA:message-PKCS1v15:SHA512");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA1 = CFSTR("algid:sign:RSA:message-PSS:SHA1:SHA1:20");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA224 = CFSTR("algid:sign:RSA:message-PSS:SHA224:SHA224:24");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA256 = CFSTR("algid:sign:RSA:message-PSS:SHA256:SHA256:32");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA384 = CFSTR("algid:sign:RSA:message-PSS:SHA384:SHA384:48");
+const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePSSSHA512 = CFSTR("algid:sign:RSA:message-PSS:SHA512:SHA512:64");
 
 const SecKeyAlgorithm kSecKeyAlgorithmECDSASignatureRFC4754 = CFSTR("algid:sign:ECDSA:RFC4754");
 
@@ -110,6 +120,16 @@ const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM = 
 const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM = CFSTR("algid:encrypt:ECIES:ECDHC:KDFX963:SHA384:AESGCM");
 const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM = CFSTR("algid:encrypt:ECIES:ECDHC:KDFX963:SHA512:AESGCM");
 
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM = CFSTR("algid:encrypt:ECIES:ECDH:KDFX963:SHA224:AESGCM-KDFIV");
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM = CFSTR("algid:encrypt:ECIES:ECDH:KDFX963:SHA256:AESGCM-KDFIV");
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM = CFSTR("algid:encrypt:ECIES:ECDH:KDFX963:SHA384:AESGCM-KDFIV");
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM = CFSTR("algid:encrypt:ECIES:ECDH:KDFX963:SHA512:AESGCM-KDFIV");
+
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM = CFSTR("algid:encrypt:ECIES:ECDHC:KDFX963:SHA224:AESGCM-KDFIV");
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM = CFSTR("algid:encrypt:ECIES:ECDHC:KDFX963:SHA256:AESGCM-KDFIV");
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM = CFSTR("algid:encrypt:ECIES:ECDHC:KDFX963:SHA384:AESGCM-KDFIV");
+const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM = CFSTR("algid:encrypt:ECIES:ECDHC:KDFX963:SHA512:AESGCM-KDFIV");
+
 const SecKeyAlgorithm kSecKeyAlgorithmECDHKeyExchangeStandard = CFSTR("algid:keyexchange:ECDH");
 const SecKeyAlgorithm kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1 = CFSTR("algid:keyexchange:ECDH:KDFX963:SHA1");
 const SecKeyAlgorithm kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224 = CFSTR("algid:keyexchange:ECDH:KDFX963:SHA224");
@@ -138,8 +158,8 @@ static void PerformWithCFDataBuffer(CFIndex size, void (^operation)(uint8_t *buf
     });
 }
 
-static CF_RETURNS_RETAINED CFDataRef SecKeyMessageToDigestAdaptor(SecKeyOperationContext *context, CFDataRef message, CFDataRef in2,
-                                              const struct ccdigest_info *di, CFErrorRef *error) {
+static CFDataRef SecKeyCopyDigestForMessage(SecKeyOperationContext *context, CFDataRef message, CFDataRef in2,
+                                            const struct ccdigest_info *di, CFErrorRef *error) {
     if (context->mode == kSecKeyOperationModeCheckIfSupported) {
         return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
     }
@@ -152,34 +172,58 @@ static CF_RETURNS_RETAINED CFDataRef SecKeyMessageToDigestAdaptor(SecKeyOperatio
     return result;
 }
 
-#define SECKEY_DIGEST_RSA_ADAPTORS(name, di) \
-static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15 ## name( \
-        SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
-    CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15 ## name); \
-    return SecKeyMessageToDigestAdaptor(context, in1, in2, di, error); \
+static CFTypeRef SecKeyCopyECDSASignatureForDigest(SecKeyOperationContext *context, CFDataRef digest, CFDataRef in2,
+                                                   SecKeyAlgorithm algorithm, const struct ccdigest_info *di, CFErrorRef *error) {
+    CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmECDSASignatureDigestX962);
+    if (context->mode == kSecKeyOperationModeCheckIfSupported) {
+        return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
+    }
+
+    if (CFDataGetLength(digest) != (CFIndex)di->output_size) {
+        SecError(errSecParam, error, CFSTR("bad digest size for signing with algorithm %@"), algorithm);
+        return NULL;
+    }
+
+    return SecKeyRunAlgorithmAndCopyResult(context, digest, in2, error);
 }
 
-#define SECKEY_DIGEST_ADAPTORS(name, di) SECKEY_DIGEST_RSA_ADAPTORS(name, di) \
-static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureMessageX962 ## name( \
+#define DIGEST_RSA_ADAPTORS(name, di) \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessage ## name( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
-    CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmECDSASignatureDigestX962 ## name); \
-    return SecKeyMessageToDigestAdaptor(context, in1, in2, di, error); \
+    CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureDigest ## name); \
+    return SecKeyCopyDigestForMessage(context, in1, in2, di, error); \
+}
+
+#define DIGEST_ECDSA_ADAPTORS(name, di) \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureMessage ## name( \
+        SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
+    CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmECDSASignatureDigest ## name); \
+    return SecKeyCopyDigestForMessage(context, in1, in2, di, error); \
 } \
-static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962 ## name( \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigest ## name( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
-    CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmECDSASignatureDigestX962); \
-    return SecKeyRunAlgorithmAndCopyResult(context, in1, in2, error); \
+    return SecKeyCopyECDSASignatureForDigest(context, in1, in2, kSecKeyAlgorithmECDSASignatureDigest ## name, di, error); \
 }
 
-SECKEY_DIGEST_ADAPTORS(SHA1, ccsha1_di())
-SECKEY_DIGEST_ADAPTORS(SHA224, ccsha224_di())
-SECKEY_DIGEST_ADAPTORS(SHA256, ccsha256_di())
-SECKEY_DIGEST_ADAPTORS(SHA384, ccsha384_di())
-SECKEY_DIGEST_ADAPTORS(SHA512, ccsha512_di())
-SECKEY_DIGEST_RSA_ADAPTORS(MD5, ccmd5_di())
+DIGEST_RSA_ADAPTORS(PKCS1v15SHA1, ccsha1_di())
+DIGEST_RSA_ADAPTORS(PKCS1v15SHA224, ccsha224_di())
+DIGEST_RSA_ADAPTORS(PKCS1v15SHA256, ccsha256_di())
+DIGEST_RSA_ADAPTORS(PKCS1v15SHA384, ccsha384_di())
+DIGEST_RSA_ADAPTORS(PKCS1v15SHA512, ccsha512_di())
+DIGEST_RSA_ADAPTORS(PKCS1v15MD5, ccmd5_di())
+DIGEST_RSA_ADAPTORS(PSSSHA1, ccsha1_di())
+DIGEST_RSA_ADAPTORS(PSSSHA224, ccsha224_di())
+DIGEST_RSA_ADAPTORS(PSSSHA256, ccsha256_di())
+DIGEST_RSA_ADAPTORS(PSSSHA384, ccsha384_di())
+DIGEST_RSA_ADAPTORS(PSSSHA512, ccsha512_di())
+DIGEST_ECDSA_ADAPTORS(X962SHA1, ccsha1_di())
+DIGEST_ECDSA_ADAPTORS(X962SHA224, ccsha224_di())
+DIGEST_ECDSA_ADAPTORS(X962SHA256, ccsha256_di())
+DIGEST_ECDSA_ADAPTORS(X962SHA384, ccsha384_di())
+DIGEST_ECDSA_ADAPTORS(X962SHA512, ccsha512_di())
 
-#undef SECKEY_DIGEST_RSA_ADAPTORS
-#undef SECKEY_DIGEST_ADAPTORS
+#undef DIGEST_RSA_ADAPTORS
+#undef DIGEST_ECDSA_ADAPTORS
 
 static CFDataRef SecKeyRSACopyBigEndianToCCUnit(CFDataRef bigEndian, size_t size) {
     CFMutableDataRef result = NULL;
@@ -231,17 +275,35 @@ static void PerformWithCCUnitToBigEndian(CFDataRef ccunits, size_t size, void (^
     });
 }
 
-static CFTypeRef SecKeyRSACopyPKCS1EMSASignature(SecKeyOperationContext *context,
-                                                 CFDataRef in1, CFDataRef in2, CFErrorRef *error, const uint8_t *oid) {
-    if (oid != NULL) {
+static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
+                                            CFDataRef in1, CFDataRef in2, CFErrorRef *error, bool pss, const struct ccdigest_info *di) {
+    CFDictionaryRef parameters = NULL;
+    __block CFTypeRef result = NULL;
+
+    require_action_quiet(parameters = SecKeyCopyAttributes(context->key), out,
+                         SecError(errSecParam, error, CFSTR("Unable to export key parameters")));
+    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA), out, result = kCFNull);
+    require_action_quiet(CFEqual(CFDictionaryGetValue(parameters, kSecAttrKeyClass), kSecAttrKeyClassPrivate), out, result = kCFNull);
+    CFReleaseNull(parameters);
+
+    if (pss) {
+        // Verify that algorithm is compatible with the modulus size.
+        size_t blockSize = SecKeyGetBlockSize(context->key);
+        require_action_quiet(blockSize >= di->output_size * 2 + 2, out,
+                             SecError(errSecParam, error, CFSTR("algorithm %@ incompatible with %lubit RSA key"),
+                                      CFArrayGetValueAtIndex(context->algorithm, CFArrayGetCount(context->algorithm) - 1),
+                                      blockSize * 8));
+    }
+
+    if (!pss && di != NULL) {
         CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw);
     }
+
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureRawCCUnit);
     if (context->mode == kSecKeyOperationModeCheckIfSupported) {
         return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
     }
 
-    __block CFTypeRef result = NULL;
     size_t size = SecKeyGetBlockSize(context->key);
     if (size == 0) {
         SecError(errSecParam, error, CFSTR("expecting RSA key"));
@@ -249,33 +311,49 @@ static CFTypeRef SecKeyRSACopyPKCS1EMSASignature(SecKeyOperationContext *context
     }
     PerformWithCFDataBuffer(size, ^(uint8_t *buffer, CFDataRef data) {
         uint8_t s[size];
-        int err = ccrsa_emsa_pkcs1v15_encode(size, s, CFDataGetLength(in1), CFDataGetBytePtr(in1), oid);
-        require_noerr_action_quiet(err, out, SecError(errSecParam, error, CFSTR("RSAsign wrong input data length")));
+        if (pss) {
+            uint8_t salt[di->output_size];
+            int err = ccrng_generate(ccrng_seckey, di->output_size, salt);
+            require_noerr_action_quiet(err, out, SecError(errSecInternal, error, CFSTR("PSS salt gen fail (%zu bytes), err %d"),
+                                                          di->output_size, err));
+            err = ccrsa_emsa_pss_encode(di, di, di->output_size, salt,
+                                        CFDataGetLength(in1), CFDataGetBytePtr(in1), size * 8 - 1, s);
+            require_noerr_action_quiet(err, out, SecError(errSecParam, error, CFSTR("RSASSA-PSS incompatible algorithm for key size")));
+        } else {
+            int err = ccrsa_emsa_pkcs1v15_encode(size, s, CFDataGetLength(in1), CFDataGetBytePtr(in1), di ? di->oid : NULL);
+            require_noerr_action_quiet(err, out, SecError(errSecParam, error, CFSTR("RSAsign wrong input data length")));
+        }
         ccn_read_uint(ccn_nof_size(size), (cc_unit *)buffer, size, s);
         require_quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
         CFAssignRetained(result, SecKeyRSACopyCCUnitToBigEndian(result, SecKeyGetBlockSize(context->key)));
     out:;
     });
+
+out:
+    CFReleaseSafe(parameters);
     return result;
 }
 
-#define seckey_ccoid_md5 ((unsigned char *)"\x06\x08\x2a\x86\x48\x86\xf7\x0d\x02\x05")
-
-#define PKCS1v15_EMSA_SIGN_ADAPTOR(name, oid) \
-static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPKCS1v15 ## name( \
+#define RSA_EMSA_SIGN_ADAPTOR(name, pss, di) \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigest ## name( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
-    return SecKeyRSACopyPKCS1EMSASignature(context, in1, in2, error, oid); \
+    return SecKeyRSACopyEMSASignature(context, in1, in2, error, pss, di); \
 }
 
-PKCS1v15_EMSA_SIGN_ADAPTOR(SHA1, ccoid_sha1)
-PKCS1v15_EMSA_SIGN_ADAPTOR(SHA224, ccoid_sha224)
-PKCS1v15_EMSA_SIGN_ADAPTOR(SHA256, ccoid_sha256)
-PKCS1v15_EMSA_SIGN_ADAPTOR(SHA384, ccoid_sha384)
-PKCS1v15_EMSA_SIGN_ADAPTOR(SHA512, ccoid_sha512)
-PKCS1v15_EMSA_SIGN_ADAPTOR(Raw, NULL)
-PKCS1v15_EMSA_SIGN_ADAPTOR(MD5, seckey_ccoid_md5)
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15SHA1, false, ccsha1_di())
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15SHA224, false, ccsha224_di())
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15SHA256, false, ccsha256_di())
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15SHA384, false, ccsha384_di())
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15SHA512, false, ccsha512_di())
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15Raw, false, NULL)
+RSA_EMSA_SIGN_ADAPTOR(PKCS1v15MD5, false, ccmd5_di())
+RSA_EMSA_SIGN_ADAPTOR(PSSSHA1, true, ccsha1_di())
+RSA_EMSA_SIGN_ADAPTOR(PSSSHA224, true, ccsha224_di())
+RSA_EMSA_SIGN_ADAPTOR(PSSSHA256, true, ccsha256_di())
+RSA_EMSA_SIGN_ADAPTOR(PSSSHA384, true, ccsha384_di())
+RSA_EMSA_SIGN_ADAPTOR(PSSSHA512, true, ccsha512_di())
 
-#undef PKCS1v15_EMSA_SIGN_ADAPTOR
+#undef RSA_EMSA_SIGN_ADAPTOR
 
 static CFTypeRef SecKeyAlgorithmAdaptorCopyBigEndianToCCUnit(SecKeyOperationContext *context,
                                                              CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
@@ -367,15 +445,31 @@ static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPKCS1
     }); \
 }
 
-PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA1, ccoid_sha1)
-PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA224, ccoid_sha224)
-PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA256, ccoid_sha256)
-PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA384, ccoid_sha384)
-PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA512, ccoid_sha512)
+#define PSS_EMSA_VERIFY_ADAPTOR(name, di) \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSS ## name( \
+        SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
+    return SecKeyRSAVerifyAdaptorCopyResult(context, in2, error, ^Boolean(CFDataRef decrypted) { \
+        return ccrsa_emsa_pss_decode(di, di, di->output_size, CFDataGetLength(in1), CFDataGetBytePtr(in1), \
+                                     CFDataGetLength(decrypted) * 8 - 1, (uint8_t *)CFDataGetBytePtr(decrypted)) == 0; \
+    }); \
+}
+
+PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA1, ccsha1_di()->oid)
+PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA224, ccsha224_di()->oid)
+PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA256, ccsha256_di()->oid)
+PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA384, ccsha384_di()->oid)
+PKCS1v15_EMSA_VERIFY_ADAPTOR(SHA512, ccsha512_di()->oid)
 PKCS1v15_EMSA_VERIFY_ADAPTOR(Raw, NULL)
-PKCS1v15_EMSA_VERIFY_ADAPTOR(MD5, seckey_ccoid_md5)
+PKCS1v15_EMSA_VERIFY_ADAPTOR(MD5, ccmd5_di()->oid)
+
+PSS_EMSA_VERIFY_ADAPTOR(SHA1, ccsha1_di())
+PSS_EMSA_VERIFY_ADAPTOR(SHA224, ccsha224_di())
+PSS_EMSA_VERIFY_ADAPTOR(SHA256, ccsha256_di())
+PSS_EMSA_VERIFY_ADAPTOR(SHA384, ccsha384_di())
+PSS_EMSA_VERIFY_ADAPTOR(SHA512, ccsha512_di())
 
 #undef PKCS1v15_EMSA_VERIFY_ADAPTOR
+#undef PSS_EMSA_VERIFY_ADAPTOR
 
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_EncryptDecrypt_RSAEncryptionRaw(SecKeyOperationContext *context,
                                                                                   CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
@@ -550,13 +644,13 @@ static CFIndex SecKeyGetCFIndexFromRef(CFTypeRef ref) {
     return result;
 }
 
-typedef CFDataRef (*SecKeyECIESKeyExchangeCopyResult)(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm, bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, CFErrorRef *error);
+typedef CFDataRef (*SecKeyECIESKeyExchangeCopyResult)(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm, bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV, CFErrorRef *error);
 typedef Boolean (*SecKeyECIESEncryptCopyResult)(CFDataRef keyExchangeResult, CFDataRef inData, CFMutableDataRef result, CFErrorRef *error);
 typedef CFDataRef SecKeyECIESDecryptCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFErrorRef *error);
 
 static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
                                               SecKeyECIESKeyExchangeCopyResult keyExchangeCopyResult,
-                                              SecKeyECIESEncryptCopyResult encryptCopyResult,
+                                              SecKeyECIESEncryptCopyResult encryptCopyResult, bool variableIV,
                                               CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFDictionaryRef parameters = NULL;
     SecKeyRef ephemeralPrivateKey = NULL, ephemeralPublicKey = NULL;
@@ -583,7 +677,7 @@ static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, S
 
     context->key = ephemeralPrivateKey;
     require_quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, true,
-                                                            ephemeralPubKeyData, pubKeyData, error), out);
+                                                            ephemeralPubKeyData, pubKeyData, variableIV, error), out);
     if (context->mode == kSecKeyOperationModePerform) {
         // Encrypt input data using AES-GCM.
         ciphertext = CFDataCreateMutableCopy(kCFAllocatorDefault, 0, ephemeralPubKeyData);
@@ -607,7 +701,7 @@ out:
 
 static CFTypeRef SecKeyECIESCopyDecryptedData(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
                                               SecKeyECIESKeyExchangeCopyResult keyExchangeCopyResult,
-                                              SecKeyECIESDecryptCopyResult decryptCopyResult,
+                                              SecKeyECIESDecryptCopyResult decryptCopyResult, bool variableIV,
                                               CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFTypeRef result = NULL;
     CFDictionaryRef parameters = NULL;
@@ -638,7 +732,7 @@ static CFTypeRef SecKeyECIESCopyDecryptedData(SecKeyOperationContext *context, S
 
     // Perform keyExchange operation.
     require_quiet(keyExchangeResult = keyExchangeCopyResult(context, keyExchangeAlgorithm, false,
-                                                            ephemeralPubKeyData, pubKeyData, error), out);
+                                                            ephemeralPubKeyData, pubKeyData, variableIV, error), out);
     if (context->mode == kSecKeyOperationModePerform) {
         // Decrypt ciphertext using AES-GCM.
         ciphertext = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, ciphertextBuffer, CFDataGetLength(in1) - (keySize * 2 + 1),
@@ -662,7 +756,7 @@ static const CFIndex kSecKeyIESTagLength = 16;
 static const UInt8 kSecKeyIESIV[16] = { 0 };
 
 static CFDataRef SecKeyECIESKeyExchangeKDFX963CopyResult(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
-                                                         bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey,
+                                                         bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV,
                                                          CFErrorRef *error) {
     CFDictionaryRef parameters = NULL;
     CFNumberRef keySizeRef = NULL;
@@ -676,6 +770,10 @@ static CFDataRef SecKeyECIESKeyExchangeKDFX963CopyResult(SecKeyOperationContext 
         CFIndex keySize = ((CFDataGetLength(pubKey) - 1) / 2) * 8;
         keySize = (keySize > 256) ? (256 / 8) : (128 / 8);
 
+        if (variableIV) {
+            keySize += sizeof(kSecKeyIESIV);
+        }
+
         // Generate shared secret using KDF.
         keySizeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &keySize);
         parameters = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
@@ -685,6 +783,12 @@ static CFDataRef SecKeyECIESKeyExchangeKDFX963CopyResult(SecKeyOperationContext 
     }
 
     result = SecKeyRunAlgorithmAndCopyResult(context, encrypt ? pubKey : ephemeralPubKey, parameters, error);
+    if (context->mode == kSecKeyOperationModePerform && !variableIV && result != NULL) {
+        // Append all-zero IV to the result.
+        CFMutableDataRef data = CFDataCreateMutableCopy(kCFAllocatorDefault, 0, result);
+        CFDataAppendBytes(data, kSecKeyIESIV, sizeof(kSecKeyIESIV));
+        CFAssignRetained(result, data);
+    }
     CFReleaseSafe(parameters);
     CFReleaseSafe(keySizeRef);
     return result;
@@ -697,9 +801,11 @@ static Boolean SecKeyECIESEncryptAESGCMCopyResult(CFDataRef keyExchangeResult, C
     CFDataSetLength(result, prefix + CFDataGetLength(inData) + kSecKeyIESTagLength);
     UInt8 *resultBuffer = CFDataGetMutableBytePtr(result) + prefix;
     UInt8 *tagBuffer = resultBuffer + CFDataGetLength(inData);
+    CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);
+    const UInt8 *ivBuffer = CFDataGetBytePtr(keyExchangeResult) + aesKeySize;
     require_action_quiet(ccgcm_one_shot(ccaes_gcm_encrypt_mode(),
-                                        CFDataGetLength(keyExchangeResult), CFDataGetBytePtr(keyExchangeResult),
-                                        sizeof(kSecKeyIESIV), kSecKeyIESIV,
+                                        aesKeySize, CFDataGetBytePtr(keyExchangeResult),
+                                        sizeof(kSecKeyIESIV), ivBuffer,
                                         0, NULL,
                                         CFDataGetLength(inData), CFDataGetBytePtr(inData),
                                         resultBuffer, kSecKeyIESTagLength, tagBuffer) == 0, out,
@@ -715,9 +821,11 @@ static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult,
     CFMutableDataRef tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
     CFDataGetBytes(inData, CFRangeMake(CFDataGetLength(inData) - kSecKeyIESTagLength, kSecKeyIESTagLength),
                    CFDataGetMutableBytePtr(tag));
+    CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);
+    const UInt8 *ivBuffer = CFDataGetBytePtr(keyExchangeResult) + aesKeySize;
     require_action_quiet(ccgcm_one_shot(ccaes_gcm_decrypt_mode(),
-                                        CFDataGetLength(keyExchangeResult), CFDataGetBytePtr(keyExchangeResult),
-                                        sizeof(kSecKeyIESIV), kSecKeyIESIV,
+                                        aesKeySize, CFDataGetBytePtr(keyExchangeResult),
+                                        sizeof(kSecKeyIESIV), ivBuffer,
                                         0, NULL,
                                         CFDataGetLength(plaintext), CFDataGetBytePtr(inData), CFDataGetMutableBytePtr(plaintext),
                                         kSecKeyIESTagLength, CFDataGetMutableBytePtr(tag)) == 0, out,
@@ -729,33 +837,42 @@ out:
     return result;
 }
 
-#define ECIES_X963_ADAPTOR(hashname, cofactor) \
-static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIES ## cofactor ## X963 ## hashname( \
+#define ECIES_X963_ADAPTOR(hashname, cofactor, namepart, variableIV) \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIES ## cofactor ## namepart ## hashname( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
     return SecKeyECIESCopyEncryptedData(context, kSecKeyAlgorithmECDHKeyExchange ## cofactor ## X963 ## hashname, \
-         SecKeyECIESKeyExchangeKDFX963CopyResult, SecKeyECIESEncryptAESGCMCopyResult, in1, in2, error); \
+         SecKeyECIESKeyExchangeKDFX963CopyResult, SecKeyECIESEncryptAESGCMCopyResult, variableIV, in1, in2, error); \
 } \
-static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIES ## cofactor ## X963 ## hashname( \
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIES ## cofactor ## namepart ## hashname( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
     return SecKeyECIESCopyDecryptedData(context, kSecKeyAlgorithmECDHKeyExchange ## cofactor ## X963 ## hashname, \
-        SecKeyECIESKeyExchangeKDFX963CopyResult, SecKeyECIESDecryptAESGCMCopyResult, in1, in2, error); \
+        SecKeyECIESKeyExchangeKDFX963CopyResult, SecKeyECIESDecryptAESGCMCopyResult, variableIV, in1, in2, error); \
 }
 
-ECIES_X963_ADAPTOR(SHA1, Standard)
-ECIES_X963_ADAPTOR(SHA224, Standard)
-ECIES_X963_ADAPTOR(SHA256, Standard)
-ECIES_X963_ADAPTOR(SHA384, Standard)
-ECIES_X963_ADAPTOR(SHA512, Standard)
-ECIES_X963_ADAPTOR(SHA1, Cofactor)
-ECIES_X963_ADAPTOR(SHA224, Cofactor)
-ECIES_X963_ADAPTOR(SHA256, Cofactor)
-ECIES_X963_ADAPTOR(SHA384, Cofactor)
-ECIES_X963_ADAPTOR(SHA512, Cofactor)
+ECIES_X963_ADAPTOR(SHA1, Standard, X963, false)
+ECIES_X963_ADAPTOR(SHA224, Standard, X963, false)
+ECIES_X963_ADAPTOR(SHA256, Standard, X963, false)
+ECIES_X963_ADAPTOR(SHA384, Standard, X963, false)
+ECIES_X963_ADAPTOR(SHA512, Standard, X963, false)
+ECIES_X963_ADAPTOR(SHA1, Cofactor, X963, false)
+ECIES_X963_ADAPTOR(SHA224, Cofactor, X963, false)
+ECIES_X963_ADAPTOR(SHA256, Cofactor, X963, false)
+ECIES_X963_ADAPTOR(SHA384, Cofactor, X963, false)
+ECIES_X963_ADAPTOR(SHA512, Cofactor, X963, false)
+
+ECIES_X963_ADAPTOR(SHA224, Standard, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA256, Standard, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA384, Standard, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA512, Standard, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA224, Cofactor, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA256, Cofactor, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA384, Cofactor, VariableIVX963, true)
+ECIES_X963_ADAPTOR(SHA512, Cofactor, VariableIVX963, true)
 
 #undef ECIES_X963_ADAPTOR
 
 static CFDataRef SecKeyECIESKeyExchangeSHA2562PubKeysCopyResult(SecKeyOperationContext *context, SecKeyAlgorithm keyExchangeAlgorithm,
-                                                                bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey,
+                                                                bool encrypt, CFDataRef ephemeralPubKey, CFDataRef pubKey, bool variableIV,
                                                                 CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, keyExchangeAlgorithm);
     context->operation = kSecKeyOperationTypeKeyExchange;
@@ -786,7 +903,7 @@ static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIES_Standard_SHA256_
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     return SecKeyECIESCopyDecryptedData(context, kSecKeyAlgorithmECDHKeyExchangeStandard,
                                         SecKeyECIESKeyExchangeSHA2562PubKeysCopyResult,
-                                        SecKeyECIESDecryptAESCBCCopyResult,
+                                        SecKeyECIESDecryptAESCBCCopyResult, false,
                                         in1, in2, error);
 }
 
@@ -932,6 +1049,12 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw,
             kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5,
 
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA1,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA224,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA256,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA384,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA512,
+
             kSecKeyAlgorithmRSASignatureRaw,
             kSecKeyAlgorithmRSASignatureRawCCUnit,
 
@@ -941,6 +1064,12 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5,
+
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA1,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA224,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA256,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA384,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA512,
 
             kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
             kSecKeyAlgorithmECDSASignatureMessageX962SHA224,
@@ -963,6 +1092,12 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPKCS1v15Raw,
             SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPKCS1v15MD5,
 
+            SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPSSSHA1,
+            SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPSSSHA224,
+            SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPSSSHA256,
+            SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPSSSHA384,
+            SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPSSSHA512,
+
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureRaw,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureRawCCUnit,
 
@@ -972,6 +1107,12 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA384,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA512,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15MD5,
+
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA1,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA224,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA256,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA384,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA512,
 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureMessageX962SHA1,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureMessageX962SHA224,
@@ -1000,12 +1141,24 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw,
             kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5,
 
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA1,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA224,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA256,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA384,
+            kSecKeyAlgorithmRSASignatureDigestPSSSHA512,
+
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512,
             kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5,
+
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA1,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA224,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA256,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA384,
+            kSecKeyAlgorithmRSASignatureMessagePSSSHA512,
 
             kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
             kSecKeyAlgorithmECDSASignatureMessageX962SHA224,
@@ -1030,12 +1183,24 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPKCS1v15Raw,
             SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPKCS1v15MD5,
 
+            SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSSSHA1,
+            SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSSSHA224,
+            SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSSSHA256,
+            SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSSSHA384,
+            SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPSSSHA512,
+
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA1,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA224,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA256,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA384,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15SHA512,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePKCS1v15MD5,
+
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA1,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA224,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA256,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA384,
+            SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureMessagePSSSHA512,
 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureMessageX962SHA1,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureMessageX962SHA224,
@@ -1081,6 +1246,16 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM,
             kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM,
             kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM,
+
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM,
+
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM,
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM,
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM,
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM,
         };
         const void *encryptValues[] = {
             SecKeyAlgorithmAdaptorCopyResult_EncryptDecrypt_RSAEncryptionRaw,
@@ -1110,6 +1285,16 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorX963SHA256,
             SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorX963SHA384,
             SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorX963SHA512,
+
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESStandardVariableIVX963SHA224,
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESStandardVariableIVX963SHA256,
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESStandardVariableIVX963SHA384,
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESStandardVariableIVX963SHA512,
+
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorVariableIVX963SHA224,
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorVariableIVX963SHA256,
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorVariableIVX963SHA384,
+            SecKeyAlgorithmAdaptorCopyResult_Encrypt_ECIESCofactorVariableIVX963SHA512,
         };
         check_compile_time(array_size(encryptKeys) == array_size(encryptValues));
         adaptors[kSecKeyOperationTypeEncrypt] = CFDictionaryCreate(kCFAllocatorDefault, encryptKeys, encryptValues,
@@ -1144,6 +1329,16 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM,
             kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM,
 
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM,
+            kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM,
+
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA224AESGCM,
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA256AESGCM,
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA384AESGCM,
+            kSecKeyAlgorithmECIESEncryptionCofactorVariableIVX963SHA512AESGCM,
+
             kSecKeyAlgorithmECIESEncryptionAKSSmartCard,
         };
         const void *decryptValues[] = {
@@ -1174,6 +1369,16 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorX963SHA256,
             SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorX963SHA384,
             SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorX963SHA512,
+
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESStandardVariableIVX963SHA224,
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESStandardVariableIVX963SHA256,
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESStandardVariableIVX963SHA384,
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESStandardVariableIVX963SHA512,
+
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorVariableIVX963SHA224,
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorVariableIVX963SHA256,
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorVariableIVX963SHA384,
+            SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIESCofactorVariableIVX963SHA512,
 
             SecKeyAlgorithmAdaptorCopyResult_Decrypt_ECIES_Standard_SHA256_2PubKeys,
         };

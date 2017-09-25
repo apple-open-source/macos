@@ -58,7 +58,8 @@ char *keychain_read_passphrase(const char *filename)
 			       (id)kSecAttrService: @"OpenSSH",
 			       (id)kSecAttrNoLegacy: @YES,
 			       (id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
-			       (id)kSecReturnData: @YES};
+			       (id)kSecReturnData: @YES,
+			       (id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
 	debug3("Search for item with query: %s", [[searchQuery description] UTF8String]);
 	ret = SecItemCopyMatching((CFDictionaryRef)searchQuery, (CFTypeRef *)&passphraseData);
 	if (ret == errSecItemNotFound) {
@@ -113,7 +114,8 @@ void store_in_keychain(const char *filename, const char *passphrase)
 				(id)kSecAttrLabel: [NSString stringWithFormat: @"SSH: %@", accountString],
 				(id)kSecAttrService: @"OpenSSH",
 				(id)kSecAttrNoLegacy: @YES,
-				(id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases"};
+				(id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
+				(id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
 
 	CFTypeRef searchResults = NULL;
 	NSMutableDictionary *searchQuery = [@{(id)kSecReturnRef: @YES} mutableCopy];
@@ -177,7 +179,8 @@ remove_from_keychain(const char *filename)
 			       (id)kSecAttrAccount: accountString,
 			       (id)kSecAttrService: @"OpenSSH",
 			       (id)kSecAttrNoLegacy: @YES,
-			       (id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases"};
+			       (id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
+			       (id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
 
 	ret = SecItemDelete((CFDictionaryRef)searchQuery);
 	if (ret == errSecSuccess) {
@@ -201,7 +204,8 @@ load_identities_from_keychain(int (^add_identity)(const char *identity))
 				(id)kSecAttrNoLegacy: @YES,
 				(id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
 				(id)kSecReturnAttributes: @YES,
-				(id)kSecMatchLimit: (id)kSecMatchLimitAll};
+				(id)kSecMatchLimit: (id)kSecMatchLimitAll,
+				(id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
 
 	err = SecItemCopyMatching((CFDictionaryRef)searchQuery, (CFTypeRef *)&searchResults);
 	if (err == errSecItemNotFound) {

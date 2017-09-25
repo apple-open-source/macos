@@ -1,6 +1,6 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2016-08-25 19:34:36.000000000 -0700
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2016-08-25 21:55:13.000000000 -0700
-@@ -162,6 +162,9 @@
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2017-04-18 11:34:02.000000000 -0700
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2017-04-19 20:59:33.000000000 -0700
+@@ -163,6 +163,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
  2B47..2B4C    ; Math
@@ -10,7 +10,7 @@
  FB29          ; Math
  FE61          ; Math
  FE62          ; Math
-@@ -252,7 +255,7 @@
+@@ -253,7 +256,7 @@
  1EEAB..1EEBB  ; Math
  1EEF0..1EEF1  ; Math
  
@@ -19,7 +19,7 @@
  
  # ================================================
  
-@@ -905,6 +908,11 @@
+@@ -914,6 +917,11 @@
  AC00..D7A3    ; Alphabetic
  D7B0..D7C6    ; Alphabetic
  D7CB..D7FB    ; Alphabetic
@@ -31,16 +31,16 @@
  F900..FA6D    ; Alphabetic
  FA70..FAD9    ; Alphabetic
  FB00..FB06    ; Alphabetic
-@@ -1193,7 +1201,7 @@
+@@ -1237,7 +1245,7 @@
  2B820..2CEA1  ; Alphabetic
  2F800..2FA1D  ; Alphabetic
  
--# Total code points: 110943
-+# Total code points: 110943+ApplePUA
+-# Total code points: 118240
++# Total code points: 118240+ApplePUA
  
  # ================================================
  
-@@ -2951,6 +2959,10 @@
+@@ -3007,6 +3015,10 @@
  ABE5          ; Case_Ignorable
  ABE8          ; Case_Ignorable
  ABED          ; Case_Ignorable
@@ -51,16 +51,16 @@
  FB1E          ; Case_Ignorable
  FBB2..FBC1    ; Case_Ignorable
  FE00..FE0F    ; Case_Ignorable
-@@ -3043,7 +3055,7 @@
+@@ -3117,7 +3129,7 @@
  E0020..E007F  ; Case_Ignorable
  E0100..E01EF  ; Case_Ignorable
  
--# Total code points: 2115
-+# Total code points: 2115+ApplePUA
+-# Total code points: 2240
++# Total code points: 2240+ApplePUA
  
  # ================================================
  
-@@ -9378,6 +9390,9 @@
+@@ -9596,6 +9608,9 @@
  ABE5          ; Grapheme_Extend
  ABE8          ; Grapheme_Extend
  ABED          ; Grapheme_Extend
@@ -70,16 +70,16 @@
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
  FE20..FE2F    ; Grapheme_Extend
-@@ -9456,7 +9471,7 @@
- 1E8D0..1E8D6  ; Grapheme_Extend
+@@ -9692,7 +9707,7 @@
+ E0020..E007F  ; Grapheme_Extend
  E0100..E01EF  ; Grapheme_Extend
  
--# Total code points: 1610
-+# Total code points: 1610+ApplePUA
+-# Total code points: 1828
++# Total code points: 1828+ApplePUA
  
  # ================================================
  
-@@ -10487,6 +10502,10 @@
+@@ -10731,6 +10746,10 @@
  AC00..D7A3    ; Grapheme_Base
  D7B0..D7C6    ; Grapheme_Base
  D7CB..D7FB    ; Grapheme_Base
@@ -90,18 +90,18 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -10976,7 +10995,7 @@
+@@ -11251,7 +11270,7 @@
  2B820..2CEA1  ; Grapheme_Base
  2F800..2FA1D  ; Grapheme_Base
  
--# Total code points: 118912+74 additions
-+# Total code points: 118912+74 additions+ApplePUA
+-# Total code points: 126288
++# Total code points: 126288+ApplePUA
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2016-08-25 15:16:52.000000000 -0700
-+++ icuSources/data/unidata/ppucd.txt	2016-08-25 21:57:10.000000000 -0700
-@@ -18460,8 +18460,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2017-04-18 11:34:02.000000000 -0700
++++ icuSources/data/unidata/ppucd.txt	2017-04-19 21:00:42.000000000 -0700
+@@ -18588,8 +18588,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;GCB=CN;lb=SG
  # DC00..DFFF Low Surrogates
  
@@ -119,10 +119,10 @@
 +cp;F882;bc=AL;gc=Lo;Alpha;Gr_Base
 +cp;F883;bc=R;gc=Sc;Gr_Base
 +cp;F884..F889;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable
-+cp;F88A..F895;bc=NSM;ccc=107;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable
++cp;F88A..F895;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable
 +cp;F896..F899;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable
 +cp;F89A..F89E;bc=R;gc=Lo;Alpha;Gr_Base
-+cp;F89F;bc=NSM;ccc=18;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable
++cp;F89F;bc=NSM;gc=Mn;GCB=EX;lb=CM;Gr_Ext;Case_Ignorable
 +cp;F8A0;bc=ET;gc=Sc;lb=PR;Gr_Base
 +cp;F8A1;bc=EN;ea=W;gc=No;nt=Di;nv=0;Gr_Base
 +cp;F8A2;bc=L;ea=W;gc=Nl;nt=Nu;nv=13;Alpha;Gr_Base
@@ -151,9 +151,9 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2016-08-25 14:39:20.000000000 -0700
-+++ icuSources/data/unidata/UnicodeData.txt	2016-08-25 21:55:45.000000000 -0700
-@@ -14876,7 +14876,65 @@
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2017-04-18 11:34:02.000000000 -0700
++++ icuSources/data/unidata/UnicodeData.txt	2017-04-19 21:04:53.000000000 -0700
+@@ -14932,7 +14932,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
  E000;<Private Use, First>;Co;0;L;;;;;N;;;;;
@@ -169,23 +169,23 @@
 +F883;Apple Corporate deprecated Arabic rial;Sc;0;R;;;;;N;;;;;
 +F884;<Apple Corporate deprecated Thai forms, First>;Mn;0;NSM;;;;;N;;;;;
 +F889;<Apple Corporate deprecated Thai forms, Last>;Mn;0;NSM;;;;;N;;;;;
-+F88A;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F88B;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F88C;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F88D;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F88E;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F88F;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F890;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F891;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F892;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F893;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F894;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
-+F895;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F88A;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F88B;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F88C;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F88D;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F88E;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F88F;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F890;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F891;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F892;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F893;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F894;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
++F895;Apple Corporate deprecated Thai form;Mn;0;NSM;;;;;N;;;;;
 +F896;<Apple Corporate deprecated Thai forms, First>;Mn;0;NSM;;;;;N;;;;;
 +F899;<Apple Corporate deprecated Thai forms, Last>;Mn;0;NSM;;;;;N;;;;;
 +F89A;<Apple Corporate mostly deprecated Hebrew misc, First>;Lo;0;R;;;;;N;;;;;
 +F89E;<Apple Corporate mostly deprecated Hebrew misc, Last>;Lo;0;R;;;;;N;;;;;
-+F89F;Apple Corporate deprecated Hebrew misc;Mn;18;NSM;;;;;N;;;;;
++F89F;Apple Corporate deprecated Hebrew misc;Mn;0;NSM;;;;;N;;;;;
 +F8A0;Apple Corporate deprecated Euro;Sc;0;ET;;;;;N;;;;;
 +F8A1;Apple Corporate deprecated Japanese digit zero full stop;No;0;EN;;;0;0;N;;;;;
 +F8A2;Apple Corporate deprecated Japanese roman numeral thirteen;Nl;0;L;;;;13;N;;;;;
@@ -220,14 +220,3 @@
  F900;CJK COMPATIBILITY IDEOGRAPH-F900;Lo;0;L;8C48;;;;N;;;;;
  F901;CJK COMPATIBILITY IDEOGRAPH-F901;Lo;0;L;66F4;;;;N;;;;;
  F902;CJK COMPATIBILITY IDEOGRAPH-F902;Lo;0;L;8ECA;;;;N;;;;;
---- icuSources/data/unidata/norm2/base_norm2/nfc.txt	2016-07-06 16:40:03.000000000 -0700
-+++ icuSources/data/unidata/norm2/nfc.txt	2016-08-25 21:58:56.000000000 -0700
-@@ -278,6 +278,8 @@
- AAC1:230
- AAF6:9
- ABED:9
-+F88A..F895:107
-+F89F:18
- FB1E:26
- FE20..FE26:230
- FE27..FE2D:220

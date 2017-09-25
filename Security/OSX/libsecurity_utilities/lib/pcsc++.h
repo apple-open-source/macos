@@ -30,6 +30,10 @@
 #ifndef _H_PCSC_PP
 #define _H_PCSC_PP
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+
 #include <security_utilities/utilities.h>
 #include <security_utilities/errors.h>
 #include <security_utilities/transactions.h>
@@ -195,5 +199,6 @@ private:
 }   // namespce PCSC
 }   // namespace Security
 
+#endif //TARGET_OS_OSX
 
 #endif //_H_PCSC_PP

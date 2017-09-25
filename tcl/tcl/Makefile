@@ -60,6 +60,8 @@ extra-int-headers:
 	$(_v) $(MV) -f $(foreach f,$(PrivateHeaderItems),"$(DSTROOT)$(FmwkDir)/PrivateHeaders/$(f)") "$(DSTROOT)$(FmwkDir)/Headers/tcl-private"
 	$(_v) $(RMDIR) "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 	$(_v) $(LN) -fsh "Headers/tcl-private" "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
+	$(_v) $(MKDIR) "$(DSTROOT)$(FmwkDir)/Modules"
+	$(_v) $(INSTALL_FILE) "$(SRCROOT)/module.map" "$(DSTROOT)$(FmwkDir)/Modules/module.map"
 
 fix-tclConfig:
 	$(_v) $(SED) -e "s#$(CFLAGS)##g" -e "s#$(LDFLAGS)##g" -e "/^TCL_CC=/s#'.*/usr/bin#'/usr/bin#" "$(DSTROOT)$(FmwkDir)/tclConfig.sh" > "$(SYMROOT)/tclConfig.sh"

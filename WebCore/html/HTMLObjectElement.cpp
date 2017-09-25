@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -27,12 +27,10 @@
 #include "Attribute.h"
 #include "CSSValueKeywords.h"
 #include "CachedImage.h"
-#include "Chrome.h"
-#include "ChromeClient.h"
 #include "ElementIterator.h"
-#include "EventNames.h"
 #include "FormDataList.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLImageLoader.h"
@@ -130,7 +128,7 @@ void HTMLObjectElement::parseAttribute(const QualifiedName& name, const AtomicSt
     } else
         HTMLPlugInImageElement::parseAttribute(name, value);
 
-    if (!invalidateRenderer || !inDocument() || !renderer())
+    if (!invalidateRenderer || !isConnected() || !renderer())
         return;
 
     clearUseFallbackContent();
@@ -153,14 +151,6 @@ static void mapDataParamToSrc(Vector<String>& paramNames, Vector<String>& paramV
         paramValues.append(WTFMove(dataParamValue));
     }
 }
-
-#if PLATFORM(IOS)
-static bool shouldNotPerformURLAdjustment()
-{
-    static bool shouldNotPerformURLAdjustment = IOSApplication::isNASAHD() && dyld_get_program_sdk_version() < DYLD_IOS_VERSION_5_0;
-    return shouldNotPerformURLAdjustment;
-}
-#endif
 
 // FIXME: This function should not deal with url or serviceType!
 void HTMLObjectElement::parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues, String& url, String& serviceType)
@@ -219,10 +209,6 @@ void HTMLObjectElement::parametersForPlugin(Vector<String>& paramNames, Vector<S
     // attribute, not by a param element. However, for compatibility, allow the
     // resource's URL to be given by a param named "src", "movie", "code" or "url"
     // if we know that resource points to a plug-in.
-#if PLATFORM(IOS)
-    if (shouldNotPerformURLAdjustment())
-        return;
-#endif
 
     if (url.isEmpty() && !urlParameter.isEmpty()) {
         SubframeLoader& loader = document().frame()->loader().subframeLoader();
@@ -352,7 +338,7 @@ void HTMLObjectElement::removedFrom(ContainerNode& insertionPoint)
 void HTMLObjectElement::childrenChanged(const ChildChange& change)
 {
     updateDocNamedItem();
-    if (inDocument() && !useFallbackContent()) {
+    if (isConnected() && !useFallbackContent()) {
         setNeedsWidgetUpdate(true);
         invalidateStyleForSubtree();
     }
@@ -374,7 +360,7 @@ void HTMLObjectElement::renderFallbackContent()
     if (useFallbackContent())
         return;
     
-    if (!inDocument())
+    if (!isConnected())
         return;
 
     invalidateStyleAndRenderersForSubtree();
@@ -445,7 +431,7 @@ void HTMLObjectElement::updateDocNamedItem()
             isNamedItem = false;
         child = child->nextSibling();
     }
-    if (isNamedItem != wasNamedItem && inDocument() && !isInShadowTree() && is<HTMLDocument>(document())) {
+    if (isNamedItem != wasNamedItem && isConnected() && !isInShadowTree() && is<HTMLDocument>(document())) {
         HTMLDocument& document = downcast<HTMLDocument>(this->document());
 
         const AtomicString& id = getIdAttribute();
@@ -498,10 +484,10 @@ void HTMLObjectElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) cons
         addSubresourceURL(urls, document().completeURL(useMap));
 }
 
-void HTMLObjectElement::didMoveToNewDocument(Document& oldDocument)
+void HTMLObjectElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
 {
     FormAssociatedElement::didMoveToNewDocument(oldDocument);
-    HTMLPlugInImageElement::didMoveToNewDocument(oldDocument);
+    HTMLPlugInImageElement::didMoveToNewDocument(oldDocument, newDocument);
 }
 
 bool HTMLObjectElement::appendFormData(FormDataList& encoding, bool)
@@ -519,11 +505,6 @@ bool HTMLObjectElement::appendFormData(FormDataList& encoding, bool)
         return false;
     encoding.appendData(name(), value);
     return true;
-}
-
-HTMLFormElement* HTMLObjectElement::virtualForm() const
-{
-    return FormAssociatedElement::form();
 }
 
 bool HTMLObjectElement::canContainRangeEndPoint() const

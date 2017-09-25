@@ -1,4 +1,5 @@
-require 'psych/helper'
+# frozen_string_literal: false
+require_relative 'helper'
 require 'date'
 
 module Psych
@@ -7,7 +8,7 @@ module Psych
 
     def setup
       super
-      @ss = Psych::ScalarScanner.new
+      @ss = Psych::ScalarScanner.new ClassLoader.new
     end
 
     def test_scan_time

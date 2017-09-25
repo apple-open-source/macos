@@ -26,6 +26,7 @@
 #include <Security/SecPolicyPriv.h>
 #include <security_keychain/IdentityCursor.h>
 #include <security_keychain/Identity.h>
+#include <os/activity.h>
 
 #include "SecBridge.h"
 
@@ -34,6 +35,9 @@ CFTypeID
 SecIdentitySearchGetTypeID(void)
 {
 	BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecIdentitySearchGetTypeID", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	return gTypes().IdentityCursor.typeID;
 
@@ -48,6 +52,9 @@ SecIdentitySearchCreate(
 	SecIdentitySearchRef *searchRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecIdentitySearchCreate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Required(searchRef);
 
@@ -64,6 +71,9 @@ OSStatus SecIdentitySearchCreateWithAttributes(
     SecIdentitySearchRef* searchRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecIdentitySearchCreateWithAttributes", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
     //
     // %%%TBI This function needs a new form of IdentityCursor that takes
@@ -87,6 +97,9 @@ OSStatus SecIdentitySearchCreateWithPolicy(
     SecIdentitySearchRef* searchRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecIdentitySearchCreateWithPolicy", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	Required(searchRef);
 
@@ -106,6 +119,9 @@ SecIdentitySearchCopyNext(
 	SecIdentityRef *identityRef)
 {
     BEGIN_SECAPI
+    os_activity_t activity = os_activity_create("SecIdentitySearchCopyNext", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
 
 	RequiredParam(identityRef);
 	SecPointer<Identity> identityPtr;

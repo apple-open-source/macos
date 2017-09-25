@@ -1,6 +1,4 @@
-$Id$
-
-PHP 5.6 UPGRADE NOTES
+PHP 7.1 UPGRADE NOTES
 
 1. Backward Incompatible Changes
 2. New Features
@@ -9,11 +7,12 @@ PHP 5.6 UPGRADE NOTES
 5. Changed Functions
 6. New Functions
 7. New Classes and Interfaces
-8. Removed Extensions
+8. Removed Extensions and SAPIs
 9. Other Changes to Extensions
 10. New Global Constants
 11. Changes to INI File Handling
-12. Other Changes
+12. Windows Support
+13. Other Changes
 
 
 ========================================
@@ -21,504 +20,507 @@ PHP 5.6 UPGRADE NOTES
 ========================================
 
 - Core:
-  By fixing bug #66015 it is no longer possible to overwrite keys in static scalar
-  arrays. Quick example to illustrate:
-  class Test {
-       const FIRST = 1;
-       public $array = array(
-           self::FIRST => 'first',
-           'second',
-           'third'
-       );
-  }
-  Test::$array will have as expected three array keys (1, 2, 3) and no longer
-  two (0, 1). self::FIRST will no longer overwrite 'third' having key 1 then,
-  but will mark the beginning of indexing. 
+  . 'void' can no longer be used as the name of a class, interface, or trait.
+    This applies to declarations, class_alias() and use statements.
+  . 'iterable' can no longer be used as the name of a class, interface, or
+    trait. This applies to declarations, class_alias() and use statements.
+    (RFC: https://wiki.php.net/rfc/iterable)
+  . (int), intval() where $base is 10 or unspecified, settype(), decbin(),
+    decoct(), dechex(), integer operators and other conversions now always
+    respect scientific notation in numeric strings.
+    (RFC: https://wiki.php.net/rfc/invalid_strings_in_arithmetic)
+  . The ASCII 0x7F Delete control character is no longer permitted in unquoted
+    identifiers in source code.
+  . The following functions may no longer be called dynamically using $func(),
+    call_user_func(), array_map() or similar:
+     . extract()
+     . compact()
+     . get_defined_vars()
+     . func_get_args()
+     . func_get_arg()
+     . func_num_args()
+     . parse_str() with one argument
+     . mb_parse_str() with one argument
+     . assert() with a string argument
+    (RFC: https://wiki.php.net/rfc/forbid_dynamic_scope_introspection)
+  . If the error_log is set to syslog, the PHP error levels are mapped to the
+    syslog error levels. This brings finer differentiation in the error logs
+    in contrary to the previous approach where all the errors are loggged with
+    the notice level only.
+  . Don't call destructors of incompletely constructed objects, even if they
+    are kept referenced. See bug #29368 and Zend/tests/bug29368_1.phpt.
+  . call_user_func() will now consistently throw a warning if a function with
+    reference arguments is called. However, call_user_func() will no longer
+    abort the call in this case.
+  . rand() and srand() are now aliases of mt_rand() and mt_srand().
+    Consequently the output of the following functions has changed:
+     . rand()
+     . shuffle()
+     . str_shuffle()
+     . array_rand()
+  . Fixes to random number generators mean that mt_rand() now produces a
+    different sequence of outputs to previous versions. If you relied on
+    mt_srand() to produce a deterministic sequence, it can be called using
+    mt_srand($seed, MT_RAND_PHP) to produce the old sequences.
+  . URL rewriter has been improved.
+     . Use dedicated buffer for Session module rewrite and User rewrite.
+     . Full path URL rewrite is supported. Allowed domain can be specified.
+       $_SERVER['HTTP_HOST'] is allowed by default when host whitelist is empty.
+     . Use session.trans_sid_tags and session.trans_sid_hosts to control
+       session rewrite.
+     . Use url_rewriter.tags and url_rewriter.hosts to control user rewrite.
+     . <form>'s "action" attribute is used to check if URL rewrite is allowed
+       and listed under hosts whitelist.
+     . <fieldset> is no longer considered as a special tag. <form> is the
+       only tag considered special.
+  . Calling a function with less arguments than mandatory declared ones in
+    signature now issues a Fatal Error (Error Exception) instead of a Warning.
+    (RFC https://wiki.php.net/rfc/too_few_args).
+  . The error message for E_RECOVERABLE errors has been changed from "Catchable
+    fatal error" to "Recoverable fatal error".
+  . The empty index operator (e.g. $str[] = $x) is not supported for strings
+    anymore, and throws a fatal error instead of silently converting to array.
+  . Array elements or object properties that are automatically created during
+    by-reference assignments will now result in a different order. For example
+  
+        $array = [];
+        $array["a"] =& $array["b"];
+        $array["b"] = 1;
+        var_dump($array);
+  
+    now results in the array ["b" => 1, "a" => 1], while for PHP 7.0 the result
+    was ["a" => 1, "b" => 1].
+  . The allowed_classes element of the $options parameter of unserialize() is
+    now strictly typed, i.e. if anything other than an array or a boolean is
+    given, unserialize() returns FALSE and issues an E_WARNING.
+  . $this, autoglobals, and variables with the same name as a parameter can no
+    longer be bound to a closure via the use construct.
 
 - JSON:
-  json_decode() no longer accepts non-lowercase variants of lone JSON true,
-  false or null values. For example, True or FALSE will now cause json_decode to
-  return NULL and set an error value you can fetch with json_last_error().
-  This affects JSON texts consisting solely of true, false or null. Text
-  containing non-lowercase values inside JSON arrays or objects has never been
-  accepted.
+  . The serialize_precision is used instead of precision when encoding double
+    values.
+  . An empty key is decoded as an empty property name instead of using _empty_
+    property name when decoding object to stdClass.
+  . When calling json_encode with JSON_UNESCAPED_UNICODE option, U+2028 and
+    U+2029 are escaped.
+
+- mbstring:
+  . mb_ereg() and mb_eregi() will now set the $regs argument to an empty array,
+    if nothing matched. Formerly, $regs was not modified in that case.
 
 - OpenSSL:
-  To prevent man-in-the-middle attacks against encrypted transfers client
-  streams now verify peer certificates by default. Previous versions
-  required users to manually enable peer verification. As a result of this
-  change, existing code using ssl:// or tls:// stream wrappers (e.g.
-  file_get_contents(), fsockopen(), stream_socket_client()) may no longer
-  connect successfully without manually disabling peer verification via the
-  stream context's "verify_peer" setting. Encrypted transfers delegate to
-  operating system certificate stores by default if not overridden via the
-  new openssl.cafile and openssl.cafile ini directives or via call-time SSL
-  context options, so most users should be unaffected by this transparent
-  security enhancement. (https://wiki.php.net/rfc/tls-peer-verification)
+  . Dropped sslv2 stream.
 
-- Mcrypt:
-  The mcrypt_encrypt(), mcrypt_decrypt() and mcrypt_{MODE}() functions no
-  longer accept keys or IVs with incorrect sizes. Furthermore an IV is now
-  required if the used block cipher mode requires it.
-
-- cURL:
-  Uploads using the @file syntax are now unsupported by default.
-
-========================================
-2. New Features
-========================================
-
-- Added constant scalar expressions syntax.
-  (https://wiki.php.net/rfc/const_scalar_exprs)
-
-- Added dedicated syntax for variadic functions.
-  (https://wiki.php.net/rfc/variadics)
-
-- Added support for argument unpacking to complement the variadic syntax.
-  (https://wiki.php.net/rfc/argument_unpacking)
-
-- Added an exponentiation operator (**).
-  (https://wiki.php.net/rfc/pow-operator)
-
-- Added unified default encoding. default_charset=UTF-8 and functions/extensions
-  use encoding settings honor default_charset.
-
-- The php://input stream is now re-usable and can be used concurrently with
-  enable_post_data_reading=0.
-
-- Added use function and use const.
-  (https://wiki.php.net/rfc/use_function)
-
-- Added a function for timing attack safe string comparison
-  (https://wiki.php.net/rfc/timing_attack)
-
-- Added the __debugInfo() magic method to allow userland classes to implement
-  the get_debug_info API previously available only to extensions.
-  (https://wiki.php.net/rfc/debug-info)
-
-- Added gost-crypto (CryptoPro S-box) hash algorithm.
-
-- Stream wrappers verify peer certificates and host names by default in
-  encrypted client streams.
-
-- Added openssl certificate fingerprint support (inclusive stream context
-  option).
-
-- Added support for SAN x509 extension matching when verifing host names in
-  encrypted streams.
-
-- Added a range of new SSL context options for improved encrypted stream
-  server security (https://wiki.php.net/rfc/improved-tls-defaults):
-
-    . "honor_cipher_order" allows servers to prioritize cipher suites of their
-      choosing when negotiating SSL/TLS handshakes.
-    . "single_ecdh_use" and "single_dh_use" allow for improved forward
-      secrecy in encrypted stream servers.
-    . "dh_param" allows specification of pre-generated key generation
-       parameters when negotiating ephemeral DHE ciphers in stream servers.
-    . "ecdh_curve" allows stream servers to specify which curve to use when
-       negotiating ephemeral ECDHE ciphers (defaults to NIST P-256).
-    . "rsa_key_size" SSL context option gives stream servers control
-      over the key size (in bits) used when negotiating RSA ciphers.
-    . "capture_session_meta" if specified stores an array of data describing
-      the TLS session's protocol/cipher in the "session_meta" SSL context key.
-
-- Added automatic mitigation against client-initated TLS renegotiation DoS
-  attacks in encrypted server streams. Renegotiation limiting may be
-  customized via three new SSL context options:
-
-    . "reneg_limit" (number of allowed renegotiations per time window)
-    . "reneg_window" (renegotiation time window in seconds)
-    . "reneg_limit_callback" (optional notification callback on limiting)
-
-- Encrypted TLS servers now support the server name indication (SNI) TLS
-  extension via the new "SNI_server_certs" SSL context option.
-
-- Added "crypto_method" SSL context option for use in encrypted streams.
-
-- Added "peer_name" SSL context option to better reflect peer certificate
-  name matching using SAN extension (replaces deprecated "CN_match").
-
-- Added stream wrapper support when specifying "cafile" SSL context paths.
-
-- Independent peer cert and peer name validation is now available via a new
-  boolean "verify_peer_name" SSL context option. This option is enabled by
-  default in encrypted client streams.
-
-- Added protocol-specific tlsv1.0://, tlsv1.1:// and tlsv1.2:// encryption
-  stream wrappers. tls:// wrapper now supports TLSv1.1 and TLSv1.2 (previously
-  only supported TLSv1).
-
-- Stream crypto method specification now accepts flags instead of values
-  allowing support for multiple discrete protocols in a given stream.
-
-- PostgreSQL database connections may now be established asynchronously using
-  new constants and polling functions in ext/pgsql.
-
-- Non-blocking read/write query behavior now optionally available in database
-  operations using the ext/pgsql extension.
-
-========================================
-3. Changes in SAPI modules
-========================================
-
-- Added phpdbg SAPI.
-  (https://wiki.php.net/rfc/phpdbg)
-
-- Support for FPM workers changing the apparmor profile through the pool configuration.
-  (https://wiki.php.net/rfc/fpm_change_hat)
-
-- Support for several XML MIME types in the built-in CLI server. For static
-  files with extensions .xml, .xsl, .xsd the Content-Type header
-  application/xml is now sent automatically.
-
-========================================
-4. Deprecated Functionality
-========================================
-
-- Incompatible context calls:
-  Instance calls from an incompatible context are now deprecated and issue
-  E_DEPRECATED instead of E_STRICT. See https://wiki.php.net/rfc/incompat_ctx
-
-- The "CN_match" and "SNI_server_name" SSL context options are deprecated in
-  favor of the new "peer_name" option. Name verification now checks certificate
-  SAN names as well as the CN field and the specific name fields are deprecated
-  to avoid confusion. Their use triggers E_DEPRECATED but continues to work as
-  before. If specified, the specific values take precedence over the general
-  "peer_name" value.
-
-- Deprecated PDO::PGSQL_ATTR_DISABLE_NATIVE_PREPARED_STATEMENT, an
-  undocument constant effectively equivalent to PDO::ATTR_EMULATE_PREPARES.
-
-- Deprecated INIs: Following INIs are deprecated in favour of new
-  internal_encoding/input_encoding/output_encoding. Refer to "Changes to
-  encodings in PHP 5.6" in "11. Other Changes" section for more details.
-
-    iconv.input_encoding
-    iconv.output_encoding
-    iconv.internal_encoding
-    mbstring.http_input
-    mbstring.http_output
-    mbstring.internal_encoding
-
-========================================
-5. Changed Functions
-========================================
-
-- cURL:
-  CURLOPT_SAFE_UPLOAD is now turned on by default and uploads with @file 
-  do not work unless it is explicitly set to false.
-
-  curl_setopt() now supports the following nullable settings (>= 5.5.11): 
-    . CURLOPT_CUSTOMREQUEST
-    . CURLOPT_FTPPORT
-    . CURLOPT_RANGE
-    . CURLOPT_FTP_ACCOUNT
-    . CURLOPT_RTSP_SESSION_ID
-    . CURLOPT_KRBLEVEL
-    . CURLOPT_KRB4LEVEL
-
-  curl_getinfo($ch, CURLINFO_CERTINFO) returns certificate Subject and Issuer
-  as a string (PHP >= 5.6.25)
-
-- Strings:
-  substr_compare() now allows $length to be zero.
-  pack() and unpack() now support 64-bit format specifiers: q, Q, J and P.
-
-- Crypt:
-  crypt() will now raise an E_NOTICE error if the salt parameter is omitted.
-  See: https://wiki.php.net/rfc/crypt_function_salt
-
-- Mcrypt:
-  The $source parameter of mcrypt_create_iv() now defaults to
-  MCRYPT_DEV_URANDOM instead of MCRYPT_DEV_RANDOM.
-
-- OpenSSL:
-  The $crypto_type parameter is now optional in stream_socket_enable_crypto()
-  if the stream's SSL context specifies the new "crypto_type" option. The
-  crypto method from the context is used as a fallback if no crypto method is
-  specified at call-time.
+- Session:
+  . Session ID is generated from CSPRNG directly. As a result, Session ID length
+    could be any length between 22 and 256. Note: Max size of session ID depends
+    on save handler you are using.
+  . Following INIs are removed
+     . session.hash_function
+     . session.hash_bits_per_character
+     . session.entropy_file
+     . session.entropy_length
+  . New INIs and defaults
+     . session.sid_length (Number of session ID characters - 22 to 256.
+       php.ini-* default: 26 Compiled default: 32)
+     . session.sid_bits_per_character (Bits used per character - 4 to 6.
+       php.ini-* default: 5 Compiled default: 4)
+  . Length of old session ID string is determined as follows
+     . Used hash function's bits.
+        . session.hash_function=0 - MD5 128 bits (This was default)
+        . session.hash_function=1 - SHA1 160 bits
+     . Bits per character. (4, 5 or 6 bits per character)
+     . Examples
+         MD5 and 4 bits = 32 chars,  ceil(128/4)=32
+         MD5 and 5 bits = 26 chars,  ceil(128/5)=26
+         MD5 and 6 bits = 22 chars,  ceil(128/6)=22
+         SHA1 and 4 bits = 40 chars, ceil(160/4)=40
+         SHA1 and 5 bits = 32 chars, ceil(160/5)=32
+         SHA1 and 6 bits = 27 chars, ceil(160/6)=27
+         and so on.
+  . session_start() returns FALSE and no longer initializes $_SESSION when
+    it failed to start session.
 
 - Reflection:
-  ReflectionClass::newInstanceWithoutConstructor previously didn't allow the
-  instantiation of any internal class which used custom object storage
-  (overriding the default create_object handler), this was changed to only
-  reject the instantiation of such classes if the class is also marked as
-  final.
+  . The behavior of ReflectionMethod::invoke() and ::invokeArgs() has been
+    aligned, which causes slightly different behavior than before for some
+    pathological cases.
 
-- XMLReader:
-  XMLReader::getAttributeNs and XMLReader::getAttributeNo now return NULL if
-  the attribute could not be found, just like XMLReader::getAttribute.
+========================================
+2. New Features
+========================================
+- Core
+  . Added void return type, which requires that a function not return a value.
+    (RFC: https://wiki.php.net/rfc/void_return_type)
+  . Added iterable pseudo-type accepting any array or object implementing
+    Traversable.
+    (RFC: https://wiki.php.net/rfc/iterable)
+  . String offset access now supports negative references, which will be
+    counted from the end of the string.
+    (RFC: https://wiki.php.net/rfc/negative-string-offsets)
+  . Added a form of the list() construct where keys can be specified.
+    (RFC: https://wiki.php.net/rfc/list_keys)
+  . Added [] = as alternative construct to list() =.
+    (RFC: https://wiki.php.net/rfc/short_list_syntax)
+  . Number operators taking numeric strings now emit "A non well formed numeric
+    value encountered" E_NOTICEs for leading-numeric strings, and "A
+    non-numeric value encountered" E_WARNINGs for non-numeric strings.
+    This always applies to the +, -, *, /, **, %, << and >> operators, and
+    their assignment counterparts +=, -=, *=, /=, **=, %=, <<= and >>=.
+    For the bitwise operators |, & and ^, and their assignment counterparts
+    |=, &= and ^=, this only applies where only one operand is a string.
+    Note that this never applies to the bitwise NOT operator, ~, which does not
+    handle numeric strings, nor to the increment and decrement operators
+    ++ and --, which have a unique approach to handling numeric strings.
+    (RFC: https://wiki.php.net/rfc/invalid_strings_in_arithmetic)
+  . Closure::fromCallable (RFC: https://wiki.php.net/rfc/closurefromcallable)
+  . Added support for class constant visibility modifiers.
+    (RFC: https://wiki.php.net/rfc/class_const_visibility)
+  . TypeError messages for arg_info type checks will now say "must be ...
+    or null", or "must ... or be null" where the parameter or return type
+    accepts null. arg_info type checks are used by all userland functions with
+    type declarations, and some internal functions. Both nullable type
+    declarations (?int) and parameters with default values of null
+    (int $foo = NULL) are considered to "accept null" for this purpose.
+  . The simple syntax for variable parsing inside of string literals now
+    supports negative offsets.
 
-- Pgsql:
-  pg_insert()/pg_select()/pg_update()/pg_delete() are no longer EXPERIMENTAL.
-  The following functions no longer block until query write completion if the
-  socket stream underlying a database connection is set to non-blocking mode:
-    . pg_send_execute()
-    . pg_send_prepare()
-    . pg_send_query()
-    . pg_send_query_params()
+========================================
+3. Changes in SAPI modules
+========================================
+- apache2handler:
+  . Implemented per module logging.
+  . Implemented error level mapping between PHP and Apache for the error logs.
 
-- unserialize:
-  Manipulated serialization strings for objects implementing Serializable by
-  replacing "C:" with "O:" at the start will now produce an error.
+========================================
+4. Deprecated Functionality
+========================================
 
-- parse_ini_file():
-- parse_ini_string():
-  Added scanner mode INI_SCANNER_TYPED to yield typed .ini values. 
-  For PHP >= 5.6.1
+- 'e' option of mb_ereg_replace() and mb_eregi_replace().
+- ext/mcrypt is now fully deprecated.
 
-- JSON:
-  Added JSON_PRESERVE_ZERO_FRACTION option (PHP >= 5.6.5)
+========================================
+5. Changed Functions
+========================================
+- get_headers() has an extra parameter which allows passing a custom stream
+  context.
+- The first $varname argument for getenv() is no longer mandatory, the
+  current environment variables will be returned as an associative array
+  when omitted.
+- json_encode() accepts new option JSON_UNESCAPED_LINE_TERMINATORS that
+  disables escaping of U+2028 and U+2029 characters when
+  JSON_UNESCAPED_UNICODE is supplied.
+- long2ip() accepts integer as parameter now
+- openssl_encrypt and openssl_decrypt have extra parameters for handling
+  authenticated encryption (tag, aad, tag_length) and decryption (tag, aad).
+- pg_last_notice() accepts optional long parameter to specify operation.
+  PGSQL_NOTICE_LAST - Get last notice (Default)
+  PGSQL_NOTICE_ALL - Get all stored notices
+  PGSQL_NOTICE_CLEAR - Remove all stored notices
+  It returns empty string or array on successful PGSQL_NOTICE_LAST/ALL calls.
+  It returned FALSE for empty notice previously.
+- pg_fetch_all() accepts 2nd optional result type parameter like
+  pg_fetch_row().
+- pg_select() accepts 4th optional result type parameter like pg_fetch_row().
+- parse_url() is more restrictive now and supports RFC3986.
+- unpack() accepts an additional optional $offset argument. '@' format code
+  (that specifes an absolute position) is applyed to input data after
+  the $offset argument.
+- strpos(), stripos(), substr_count(), grapheme_strpos(), grapheme_stripos(),
+  grapheme_extract(), iconv_strpos(), mb_strimwidth(), mb_ereg_search_setpos(),
+  mb_strpos() and mb_stripos() now accept negative string offsets.
+- substr_count() and mb_strimwidth() additionally also accept negative length.
+- file_get_contents() accepts a negative seek offset if the stream is seekable.
+- tempnam() throws a notice when failing back to the system temp dir.
+- getopt() has an extra by-ref parameter : optind
+- mb_ereg() and mb_ereg_replace() reject illegal byte sequences.
+- FILTER_FLAG_EMAIL_UNICODE can be used with filter_var() for email validation
+  according to RFC 6531.
+- output_reset_rewrite_vars() no longer reset session URL rewrite vars.
+- the lasinsertid() in pdo_pgsql extension triggers an error, when no nextval()
+  were called in in the current session.
+- fopen()
+  Since 7.1.2, mode 'e' was added, which sets the close-on-exec flag
+  on the opened file descriptor. This mode is only available in PHP compiled on
+  POSIX.1-2008 conform systems.
+
 
 ========================================
 6. New Functions
 ========================================
+- Core:
+  . Added sapi_windows_cp_set(), sapi_windows_cp_get(), sapi_windows_cp_is_utf8(),
+    sapi_windows_cp_conv() for codepage handling.
 
-- Datetime:
-  Added DatePeriod::getStartDate(), DatePeriod::getEndDate(), DatePeriod::getDateInterval() in 5.6.5.
+- cURL:
+  . Added curl_multi_errno() and curl_share_errno() to return the last error
+    number of curl_multi and curl_share resources.
+  . Added curl_share_strerror() to convert error code to error message text
+    describing the error.
 
-- GMP:
-  Added gmp_root($a, $nth) and gmp_rootrem($a, $nth) for calculating nth roots.
-  Added gmp_import($data, $word_size = 1, $options = GMP_MSW_FIRST | GMP_NATIVE_ENDIAN) in PHP 5.6.1.
-  Added gmp_export($gmpnumber, $word_size = 1, $options = GMP_MSW_FIRST | GMP_NATIVE_ENDIAN) in PHP 5.6.1.
-  Added gmp_random_range() and gmp_random_bits() in PHP 5.6.3.
+- Hash:
+  . In PHP 7.1.2: Added hash_hkdf() function, which implements the HMAC-based
+    Key Derivation Function (HKDF) algorithm according to RFC 5869. The
+    implementation combines the Extract and Expand steps.
 
-- Hash
-  Added hash_equals($known_string, $user_string)
+- pcntl:
+  . Added pcntl_signal_get_handler() that returns the current signal handler
+    for a particular signal.
 
-- OpenSSL:
-  Added string openssl_x509_fingerprint($x509, $type, $binary).
-  Added string openssl_spki_new($private_key, $challenge, $algorithm)
-  Added bool openssl_spki_verify($spkac)
-  Added string openssl_spki_export($spkac)
-  Added string openssl_spki_export_challenge($spkac)
-  Added array openssl_get_cert_locations()
+- Session:
+  . Added session_gc() that performs session data garbage collection.
+    https://wiki.php.net/rfc/session-gc
+  . Added session_create_id() for creating custom session ID.
+    https://wiki.php.net/rfc/session-create-id
 
-- LDAP:
-  Added ldap_escape($value, $ignore = "", $flags = 0).
-  Added ldap_modify_batch($link_identifier, $dn, $modifications) described in 
-  https://wiki.php.net/rfc/ldap_modify_batch.
-
-- Pgsql:
-  Added pg_socket($connection) to allow async connections and non-blocking IO
-  Added pg_connect_poll($connection) for establishing async connections
-  Added pg_consume_input($connection) for non-blocking query result consumption
-  Added pg_flush($connection) for non-blocking query write completion
-
-- PDO_pgsql
-  Added PDO::pgsqlGetNotify($result_type = PDO::FETCH_USE_DEFAULT, $ms_timeout = 0)
-  Added PDO::pgsqlGetPid()
-
-- Reflection
-  Added ReflectionFunction::isVariadic() and ReflectionParameter::isVariadic().
-
-- SPL
-  Added SplFileObject::fread($length) to complement fwrite() method (>= 5.5.11)
-
-- Zip:
-  Added ZipArchive::setPassword($password)
+- Standard:
+  . Added is_iterable() that determines if a value will be accepted by the new
+    iterable pseudo-type.
 
 ========================================
 7. New Classes and Interfaces
 ========================================
 
-
 ========================================
-8. Removed Extensions
+8. Removed Extensions and SAPIs
 ========================================
-
 
 ========================================
 9. Other Changes to Extensions
 ========================================
 
-- cURL:
-  - The following constants have been removed as they are now marked "obsolete"
-    in the underlying library and never had any effect to begin with:
-      . CURLOPT_CLOSEPOLICY
-      . CURLCLOSEPOLICY_CALLBACK
-      . CURLCLOSEPOLICY_LEAST_RECENTLY_USED
-      . CURLCLOSEPOLICY_LEAST_TRAFFIC
-      . CURLCLOSEPOLICY_OLDEST
-      . CURLCLOSEPOLICY_SLOWEST
+- Date:
+  . Invalid serialization data for a DateTime or DatePeriod object will now
+    throw an instance of Error from __wakeup() or __set_state() instead of
+    resulting in a fatal error.
+  . Timezone initialization failure from serialized data will now throw an
+    instance of Error from __wakeup() or __set_state() instead of resulting in
+    a fatal error.
+  . DateTime and DateTimeImmutable now properly incorporate microseconds when
+    constructed from the current time, either explicitly or with a relative
+    string (e.g. "first day of next month"). This means that naive comparisons
+    of two newly created instances will now more likely return FALSE instead of
+    TRUE:
+      new DateTime() == new DateTime();
 
-- GMP:
-  The GMP extension now uses objects as the underlying data structure, rather
-  than resources. GMP instances now support dumping, serialization, cloning,
-  casts to primitive types and have overloaded operators.
-  (RFC: https://wiki.php.net/rfc/operator_overloading_gmp)
-
-- OCI8:
-  - Added Implicit Result Set support for Oracle Database 12c with a
-    new oci_get_implicit_resultset() function.
-  - Using 'oci_execute($s, OCI_NO_AUTO_COMMIT)' for a SELECT no longer
-    unnecessarily initiates an internal ROLLBACK during connection
-    close.
-  - Multi-row OCI_RETURN_LOB queries require fewer "round trips" to the database.
-  - Added DTrace probes enabled with PHP's generic --enable-dtrace
-  - The oci_internal_debug() function is now a no-op.
-  - The phpinfo() output format for OCI8 has changed.
-
-- OpenSSL:
-  - The "SNI_enabled" SSL stream context option is now set to TRUE by default
-    if supported by the underlying openssl library.
-
-- PCRE:
-  - The information collected by the (*MARK) backtracking control verb is now
-    collected into the "MARK" index of the $matches array for preg_match(),
-    preg_match_all() and preg_replace_callback().
-
-- Pgsql:
-  - pg_insert()/pg_select()/pg_update()/pg_delete()/pg_meta_data()/pg_convert()
-    are no longer EXPERIMENTAL
-  - Added PGSQL_DML_ESCAPE option for pg_insert()/pg_select()/pg_update()/pg_delete()
-    that simply escapes all supplied parameters. These functions can be as fast as
-    native query. Unvalidated data(Unknown data types) is passed as string.
-    JSON/Array/etc are supported both PGSQL_DML_ESCAPE and pg_convert() as string.
-  - pg_select() returns PostgreSQL query resource when query is executed.
-  - Added extended flag parameter for pg_meta_data(). pg_meta_data() always
-    returns "is enum" attribute.
-  - The new pg_socket() function returns a socket stream with no behavior other
-    than to allow IO-readiness polling on a DB connection socket. Calling
-    stream_set_blocking() on its result enables non-blocking behavior.
-  - Passing the new PGSQL_CONNECT_ASYNC flag to pg_connect() allows applications
-    to poll for IO readiness via pg_connect_poll() and establish connections
-    asynchronously.
-
-- PDO_pgsql:
-  - Added PDO::PGSQL_ATTR_DISABLE_PREPARES constant to execute the queries
-    without preparing them, while still passing parameters separately from
-    the command text using PQexecParams.
-  - Added LISTEN/NOTIFY support via PDO::pgsqlGetNotify / PDO::pgsqlGetPid()
-    as described in https://bugs.php.net/bug.php?id=42614.
+- DBA:
+  . Data modification functions (e.g.: dba_insert()) now throw an instance of
+    Error instead of triggering a catchable fatal error if the key does not
+    contain exactly two elements.
 
 - DOM:
-  - DOMNode::textContent is now a writeable property. (>= 5.6.1)
+  . Invalid schema or RelaxNG validation contexts will throw an instance of
+    Error instead of resulting in a fatal error.
+  . Attempting to register a node class that does not extend the appropriate
+    base class will now throw an instance of Error instead of resulting in a
+    fatal error.
+  . Attempting to read an invalid or write to a readonly property will throw
+    an instance of Error instead of resulting in a fatal error.
+
+- GD:
+  . Changed the default of the ini setting gd.jpeg_ignore_warning to 1.
+
+- IMAP:
+  . An email address longer than 16385 bytes will throw an instance of Error
+    instead of resulting in a fatal error.
+    
+- Intl:
+  . Failure to call the parent constructor in a class extending Collator
+    before invoking the parent methods will throw an instance of Error
+    instead of resulting in a recoverable fatal error.
+  . Cloning a Transliterator object may will now throw an instance of Error
+    instead of resulting in a fatal error if cloning the internal
+    transliterator fails.
+
+- LDAP:
+  . Providing an unknown modification type to ldap_batch_modify() will now
+    throw an instance of Error instead of resulting in a fatal error.
+
+- Mbstring:
+  . mb_ereg() and mb_eregi() will now throw an instance of ParseError if an
+    invalid PHP expression is provided and the 'e' option is used.
+
+- Mcrypt:
+  . mcrypt_encrypt() and mcrypt_decrypt() will throw an instance of Error
+    instead of resulting in a fatal error if mcrypt cannot be initialized.
+
+- Mysqli:
+  . Attempting to read an invalid or write to a readonly property will throw
+    an instance of Error instead of resulting in a fatal error.
+
+- PDO_Firebird
+  As of PHP 7.1.2, the fetched data for integer fields is aware of the Firebird
+  datatypes. Previously all integers was fetched as strings, starting with
+  aforementioned PHP version integer fields are translated to the PHP integer
+  datatype. The 64-bit integers are still fetched as strings in 32-bit PHP
+  builds.
+
+- Reflection:
+  . Failure to retrieve a reflection object or retrieve an object property
+    will now throw an instance of Error instead of resulting in a fatal error.
+
+- Session:
+  . Custom session handlers that do not return strings for session IDs will 
+    now throw an instance of Error instead of resulting in a fatal error
+    when a function is called that must generate a session ID.
+  . Only CSPRNG is used to generate session ID.
+
+- SimpleXML:
+  . Creating an unnamed or duplicate attribute will throw an instance of Error
+    instead of resulting in a fatal error.
+
+- SPL:
+  . Attempting to clone an SplDirectory object will throw an instance of Error
+    instead of resulting in a fatal error.
+  . Calling ArrayIterator::append() when iterating over an object will throw an
+    instance of Error instead of resulting in a fatal error.
+
+- SQLite3:
+  . Upgraded bundled SQLite lib to 3.13.0
+
+- Standard:
+  . assert() will throw a ParseError when evaluating a string given as the first
+    argument if the PHP code is invalid instead of resulting in a catchable
+    fatal error.
+  . Calling forward_static_call() outside of a class scope will now throw an
+    instance of Error instead of resulting in a fatal error.
+
+- Tidy:
+  . Creating a tidyNode manually will now throw an instance of Error instead of
+    resulting in a fatal error.
+
+- WDDX:
+  . A circular reference when serializing will now throw an instance of Error
+    instead of resulting in a fatal error.
+
+- XML-RPC:
+  . A circular reference when serializing will now throw an instance of Error
+    instead of resulting in a fatal error.
+
+- Zip:
+  . ZipArchive::addGlob() will throw an instance of Error instead of resulting
+    in a fatal error if glob support is not available.
 
 ========================================
 10. New Global Constants
 ========================================
 
-- CURL:
-  CURL_HTTP_VERSION_2_0 and CURL_VERSION_HTTP2 (>= 5.6.8)
+- Core:
+  . PHP_FD_SETSIZE
 
-- GD:
-  IMG_WEBP (>= 5.6.25)
-
-- LDAP:
-  LDAP_ESCAPE_FILTER int(1)
-  LDAP_ESCAPE_DN     int(2)
+- JSON:
+  . JSON_UNESCAPED_LINE_TERMINATORS
 
 - Pgsql:
-  PGSQL_DML_ESCAPE   int(4096)
-  PGSQL_CONNECT_ASYNC
-  PGSQL_CONNECTION_STARTED
-  PGSQL_CONNECTION_MADE
-  PGSQL_CONNECTION_AWAITING_RESPONSE
-  PGSQL_CONNECTION_AUTH_OK
-  PGSQL_CONNECTION_SSL_STARTUP
-  PGSQL_CONNECTION_SETENV
-  PGSQL_POLLING_FAILED
-  PGSQL_POLLING_READING
-  PGSQL_POLLING_WRITING
-  PGSQL_POLLING_OK
-  PGSQL_POLLING_ACTIVE
+  PGSQL_NOTICE_LAST
+  PGSQL_NOTICE_ALL
+  PGSQL_NOTICE_CLEAR
 
-- OpenSSL:
-  STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT   int(9)
-  STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT   int(17)
-  STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT   int(33)
-  STREAM_CRYPTO_METHOD_ANY_CLIENT       int(63)
-  STREAM_CRYPTO_METHOD_TLSv1_0_SERVER   int(8)
-  STREAM_CRYPTO_METHOD_TLSv1_1_SERVER   int(16)
-  STREAM_CRYPTO_METHOD_TLSv1_2_SERVER   int(32)
-  STREAM_CRYPTO_METHOD_ANY_SERVER       int(62)
-  OPENSSL_DEFAULT_STREAM_CIPHERS        string
+- Standard:
+  . IMAGETYPE_WEBP
 
 ========================================
 11. Changes to INI File Handling
 ========================================
 
+- serialize_precision
+  . If the value is set to -1, then the dtoa mode 0 is used. The value -1
+    is now used by default.
+
+- precision
+  . If the value is set to -1, then the dtoa mode 0 is used. No changes
+    in default value which is still 14.
+
+- realpath_cache_size
+  . Set to 4096k by default
+
+========================================
+12. Windows Support
+========================================
+
 - Core:
-  Changed always_populate_raw_post_data to throw a deprecation warning when
-  enabled and to recognize the value -1 for never populating the global 
-  $HTTP_RAW_POST_DATA variable, which will be default in future PHP versions.
+  . Support for long and UTF-8 path;
 
-  default_charset is set to UTF-8. It was empty previously. default_charset
-  is used where it is applicable. Iconv/Mbstring/htmlentities/htmlspecialchars/
-  html_entity_decode use default_charset as default encoding.
+    If a web application is UTF-8 conform, no further action is required. For
+    applications depending on paths in non UTF-8 encodings for I/O, an explicit
+    INI directive has to be set. The encoding INI settings check relies on the
+    order in the core:
+      - internal_encoding
+      - default_charset
+      - zend.multibyte
 
-  internal_encoding/input_encoding/output_encoding is added for encoding
-  handling modules. Refer to "Changes to encodings in PHP 5.6" in "11. Other Changes"
-  section for more details.
+    Several functions for codepage handling were itroduced:
+      - sapi_windows_cp_set() to set the default codepage
+      - sapi_windows_cp_get() to retrieve the current codepage
+      - sapi_windows_cp_is_utf8()
+      - sapi_windows_cp_conv() to convert between codepages, using iconv()
+        compatible signature
+    These functions are thread safe.
 
-- cURL:
-  If the new openssl.cafile ini directive is specified ext/curl will give the
-  openssl path precedence over its own curl.cainfo directive.
+    The console output codepage is adjusted depending on the encoding used in
+    PHP. Depending on the concrete system OEM codepage, the visible output
+    might or might be not correct. For example, in the default cmd.exe and on
+    a system with the OEM codepage 437, outputs in codepages 1251, 1252, 1253
+    and some others can be shown correctly when using UTF-8. On the same system,
+    chars in codepage like 20932 probably won't be shown correctly. This refers
+    to the particular system rules for codepage, font compatibility and the
+    particular console program used. PHP automatically sets the console codepage
+    according to the encoding rules from php.ini. Using alternative consoles
+    instead of cmd.exe directly might bring better experience in some cases.
 
-- OpenSSL:
-  openssl.cafile and openssl.capath ini directives have been added to allow
-  global CA default specification as necessary.
+    Nevertheless be aware, runtime codepage switch after the request start
+    might bring unexpected side effects on CLI. The preferrable way is php.ini,
+    When PHP CLI is used in a console emulator, that doesn't support Unicode,
+    it might possibly be required, to avoid changing the console codepage. The
+    best way to achieve it is by setting the default or internal encoding to
+    correspond the ANSI codepage. Another method is to set the INI directives
+    output_encoding and input_encoding to the required codepage, in which case
+    however the difference between internal and I/O codepage is likely to cause
+    mojibake. In rare cases, if PHP happens to crash gracefully, the original
+    console codepage might be not restored. In this case, the chcp command
+    can be used, to restore it manually.
+
+    Special awareness for the DBCS systems - the codepage switch on runtime
+    using ini_set() is likely to cause display issues. The difference to the
+    non DBCS systems is, that the extended characters require two console cells
+    to be displayed. In certain case, only the mapping of the characters into
+    the glyph set of the font could happen, no actual font change. This is the
+    nature of DBCS systems, the most simple way to prevent display issues is
+    to avoid usage of ini_set() for the codepage change.
+
+    As a result of UTF-8 support in the streams, PHP scripts are not limited
+    to ASCII or ANSI filenames anymore. This is supported out of the box on
+    CLI. For other SAPI, the documentation for the corresponding server
+    is useful.
+
+    Long paths support is transparent. Paths longer than 260 bytes get
+    automatically prefixed with \\?\. The max path length is limited to
+    2048 bytes. Be aware, that the path segment limit (basename length) still
+    persists.
+
+    For the best portability, it is strongely recommended to handle filenames,
+    I/O and other related topics UTF-8. Additionally, for the console applications,
+    the usage of a TrueType font is preferrable and the usage of ini_set() for
+    the codepage change is discouraged.
+
+  . Support for ftok()
+
+- FCGI
+  . PHP_FCGI_CHILDREN is respected. If this environment variable is defined,
+    the first php-fcgi.exe process will exec the specified number of children.
+    Those will share the same TCP socket. 
+
+- readline:
+  . The readline extension is supported through the WinEditLine library
+    (http://mingweditline.sourceforge.net/). Thereby, the interactive CLI
+    shell is supported as well (php.exe -a).
+
+    It is well known, but nevertheless is worth mentioning again, that
+    the readline extension is not thread safe and will never be. Thus,
+    the usage of it with any true thread safe SAPI (like Apache mod_winnt) is
+    strongely discouraged.
 
 ========================================
-12. Other Changes
+13. Other Changes
 ========================================
-
-- File upload:
-  Uploads equal or greater than 2GB in size are now accepted.
-
-- HTTP stream wrapper:
-  HTTP 1.1 requests now include a Connection: close header unless explicitly
-  overridden by setting a Connection header via the header context option.
-
-- PDO_pgsql
-  A libpq version providing PQexecParams, PQprepare, PQescapeStringConn,
-  PQescapeByteaConn is now required. According to the release notes that means
-  8.0.8+ or 8.1.4+. 
-
-- Zip:
-  New --with-libzip option allow to use system libzip. Version > 0.11 required,
-  Version >= 0.11.2 recommended for all features.
-
-- Changes to encodings in PHP 5.6
-  The default value of default_charset is now UTF-8 when it is not
-  explicitly set in php.ini
-
-  The following php.ini parameters were added:
-    internal_encoding
-    input_encoding
-    output_encoding
-
-  The values of the following php.ini parameters have become empty in
-  PHP 5.6 (previously they were all ISO-8859-1)
-
-    iconv.input_encoding
-    iconv.output_encoding
-    iconv.internal_encoding
-
-  Changes were made to character set handling in:
-   - the iconv and mbstring extensions,
-   - and htmlentities(), htmlspecialchars(), html_entity_decode() functions
-
-  The precedence for these is now:
-
-   default_charset < internal/input/output_encoding < (mbstring.* || iconv.*) < function parameter
-
-  For example, the easiest way to use the UTF-8 encoding is to set
-  default_charset=UTF-8 and leave the following php.ini parameters
-
-  empty:
-
-    iconv.input_encoding
-    iconv.output_encoding
-    iconv.internal_encoding
-    mbstring.http_input
-    mbstring.http_output
-    mbstring.internal_encoding
-    internal_encoding
-    input_encoding
-    output_encoding
-
-  The mb_regex_encoding() default setting is changed from EUC-JP to UTF-8.
 

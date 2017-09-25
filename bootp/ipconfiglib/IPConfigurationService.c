@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,9 @@ kIPConfigurationServiceOptionIPv6Entity = _kIPConfigurationServiceOptionIPv6Enti
 
 const CFStringRef
 kIPConfigurationServiceOptionIPv6LinkLocalAddress = CFSTR("IPv6LinkLocalAddress");
+
+const CFStringRef
+kIPConfigurationServiceOptionAPNName = _kIPConfigurationServiceOptionAPNName;
 
 #ifndef kSCPropNetIPv6LinkLocalAddress
 STATIC const CFStringRef kSCPropNetIPv6LinkLocalAddress = CFSTR("LinkLocalAddress");
@@ -290,9 +293,10 @@ STATIC CFDictionaryRef
 config_dict_create(CFStringRef serviceID,
 		   CFDictionaryRef requested_ipv6_config,
 		   CFNumberRef mtu, CFBooleanRef perform_nud,
-		   CFStringRef ipv6_ll, CFBooleanRef enable_dad)
+		   CFStringRef ipv6_ll, CFBooleanRef enable_dad,
+		   CFStringRef apn_name)
 {
-#define N_KEYS_VALUES	7
+#define N_KEYS_VALUES	8
     int			count;
     CFDictionaryRef	config_dict;
     CFDictionaryRef 	ipv6_dict;
@@ -341,6 +345,13 @@ config_dict_create(CFStringRef serviceID,
     keys[count] = _kIPConfigurationServiceOptionClearState;
     values[count] = kCFBooleanTrue;
     count++;
+
+    /* APN name */
+    if (apn_name != NULL) {
+	keys[count] = kIPConfigurationServiceOptionAPNName;
+	values[count] = apn_name;
+	count++;
+    }
 
     options
 	= CFDictionaryCreate(NULL, keys, values, count,
@@ -641,6 +652,7 @@ IPConfigurationServiceRef
 IPConfigurationServiceCreate(CFStringRef interface_name, 
 			     CFDictionaryRef options)
 {
+    CFStringRef			apn_name = NULL;
     CFStringRef			ipv6_ll = NULL;
     CFBooleanRef		enable_dad = NULL;
     kern_return_t		kret;
@@ -719,12 +731,20 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 			  kIPConfigurationServiceOptionIPv6LinkLocalAddress);
 	    ipv6_ll = NULL;
 	}
+	apn_name = CFDictionaryGetValue(options,
+					kIPConfigurationServiceOptionAPNName);
+	if (apn_name != NULL
+	    && isA_CFString(apn_name) == NULL) {
+	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
+			  kIPConfigurationServiceOptionAPNName);
+	    apn_name = NULL;
+	}
     }
     serviceID = my_CFUUIDStringCreate(NULL);
     service->config_dict = config_dict_create(serviceID,
 					      requested_ipv6_config,
 					      mtu, perform_nud, ipv6_ll,
-					      enable_dad);
+					      enable_dad, apn_name);
 
     /* monitor for configd restart */
     service->queue = dispatch_queue_create("IPConfigurationService", NULL);

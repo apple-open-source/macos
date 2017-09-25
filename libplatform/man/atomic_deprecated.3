@@ -1,4 +1,4 @@
-.Dd May 26, 2004
+.Dd Mar 7, 2016
 .Dt ATOMIC_DEPRECATED 3
 .Os Darwin
 .Sh NAME
@@ -132,7 +132,8 @@ These are deprecated interfaces for atomic and synchronization
 operations, provided for compatibility with legacy code. New code should use
 the C11
 .In stdatomic.h
-interfaces.
+interfaces described in
+.Xr stdatomic 3 .
 .Ef
 .Pp
 These functions are thread and multiprocessor safe.  For each function, there
@@ -224,6 +225,7 @@ The compare-and-swap operations return true if the comparison was equal, ie if
 the swap occured. The bit test and set/clear operations return the original
 value of the bit.
 .Sh SEE ALSO
+.Xr stdatomic 3 ,
 .Xr atomic 3 ,
 .Xr spinlock_deprecated 3
 .Sh HISTORY

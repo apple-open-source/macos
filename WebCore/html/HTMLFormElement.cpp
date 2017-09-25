@@ -46,6 +46,7 @@
 #include "HTMLTableElement.h"
 #include "NodeRareData.h"
 #include "Page.h"
+#include "RadioNodeList.h"
 #include "RenderTextControl.h"
 #include "ScriptController.h"
 #include "Settings.h"
@@ -127,25 +128,17 @@ bool HTMLFormElement::rendererIsNeeded(const RenderStyle& style)
 Node::InsertionNotificationRequest HTMLFormElement::insertedInto(ContainerNode& insertionPoint)
 {
     HTMLElement::insertedInto(insertionPoint);
-    if (insertionPoint.inDocument())
+    if (insertionPoint.isConnected())
         document().didAssociateFormControl(this);
     return InsertionDone;
 }
 
-static inline Node* findRoot(Node* n)
-{
-    Node* root = n;
-    for (; n; n = n->parentNode())
-        root = n;
-    return root;
-}
-
 void HTMLFormElement::removedFrom(ContainerNode& insertionPoint)
 {
-    Node* root = findRoot(this);
+    Node& root = traverseToRootNode(); // Do not rely on rootNode() because our IsInTreeScope is outdated.
     Vector<FormAssociatedElement*> associatedElements(m_associatedElements);
     for (auto& associatedElement : associatedElements)
-        associatedElement->formRemovedFromTree(root);
+        associatedElement->formOwnerRemovedFromTree(root);
     HTMLElement::removedFrom(insertionPoint);
 }
 
@@ -174,6 +167,25 @@ HTMLElement* HTMLFormElement::item(unsigned index)
     return elements()->item(index);
 }
 
+std::optional<Variant<RefPtr<RadioNodeList>, RefPtr<Element>>> HTMLFormElement::namedItem(const AtomicString& name)
+{
+    auto namedItems = namedElements(name);
+
+    if (namedItems.isEmpty())
+        return std::nullopt;
+    if (namedItems.size() == 1)
+        return Variant<RefPtr<RadioNodeList>, RefPtr<Element>> { RefPtr<Element> { WTFMove(namedItems[0]) } };
+
+    return Variant<RefPtr<RadioNodeList>, RefPtr<Element>> { RefPtr<RadioNodeList> { radioNodeList(name) } };
+}
+
+Vector<AtomicString> HTMLFormElement::supportedPropertyNames() const
+{
+    // FIXME: Should be implemented (only needed for enumeration with includeDontEnumProperties mode
+    // since this class is annotated with LegacyUnenumerableNamedProperties).
+    return { };
+}
+
 void HTMLFormElement::submitImplicitly(Event& event, bool fromImplicitSubmissionTrigger)
 {
     unsigned submissionTriggerCount = 0;
@@ -194,8 +206,7 @@ void HTMLFormElement::submitImplicitly(Event& event, bool fromImplicitSubmission
         return;
 
     // Older iOS apps using WebViews expect the behavior of auto submitting multi-input forms.
-    Settings* settings = document().settings();
-    if (fromImplicitSubmissionTrigger && (submissionTriggerCount == 1 || (settings && settings->allowMultiElementImplicitSubmission())))
+    if (fromImplicitSubmissionTrigger && (submissionTriggerCount == 1 || document().settings().allowMultiElementImplicitSubmission()))
         prepareForSubmission(event);
 }
 
@@ -229,7 +240,7 @@ bool HTMLFormElement::validateInteractively()
 
     // Focus on the first focusable control and show a validation message.
     for (auto& control : unhandledInvalidControls) {
-        if (control->inDocument() && control->isFocusable()) {
+        if (control->isConnected() && control->isFocusable()) {
             control->focusAndShowValidationMessage();
             break;
         }
@@ -238,7 +249,7 @@ bool HTMLFormElement::validateInteractively()
     // Warn about all of unfocusable controls.
     if (document().frame()) {
         for (auto& control : unhandledInvalidControls) {
-            if (control->inDocument() && control->isFocusable())
+            if (control->isConnected() && control->isFocusable())
                 continue;
             String message = makeString("An invalid form control with name='", control->name(), "' is not focusable.");
             document().addConsoleMessage(MessageSource::Rendering, MessageLevel::Error, message);
@@ -269,12 +280,11 @@ void HTMLFormElement::prepareForSubmission(Event& event)
         return;
     }
 
-    StringPairVector controlNamesAndValues;
-    getTextFieldValues(controlNamesAndValues);
-    auto formState = FormState::create(this, controlNamesAndValues, &document(), NotSubmittedByJavaScript);
+    auto formState = FormState::create(*this, textFieldValues(), document(), NotSubmittedByJavaScript);
     frame->loader().client().dispatchWillSendSubmitEvent(WTFMove(formState));
 
     Ref<HTMLFormElement> protectedThis(*this);
+
     // Event handling can result in m_shouldSubmit becoming true, regardless of dispatchEvent() return value.
     if (dispatchEvent(Event::create(eventNames().submitEvent, true, true)))
         m_shouldSubmit = true;
@@ -295,20 +305,20 @@ void HTMLFormElement::submitFromJavaScript()
     submit(0, false, ScriptController::processingUserGesture(), SubmittedByJavaScript);
 }
 
-void HTMLFormElement::getTextFieldValues(StringPairVector& fieldNamesAndValues) const
+StringPairVector HTMLFormElement::textFieldValues() const
 {
-    ASSERT_ARG(fieldNamesAndValues, fieldNamesAndValues.isEmpty());
-
-    fieldNamesAndValues.reserveCapacity(m_associatedElements.size());
+    StringPairVector result;
+    result.reserveInitialCapacity(m_associatedElements.size());
     for (auto& associatedElement : m_associatedElements) {
-        HTMLElement& element = associatedElement->asHTMLElement();
+        auto& element = associatedElement->asHTMLElement();
         if (!is<HTMLInputElement>(element))
             continue;
-        HTMLInputElement& input = downcast<HTMLInputElement>(element);
+        auto& input = downcast<HTMLInputElement>(element);
         if (!input.isTextField())
             continue;
-        fieldNamesAndValues.append(std::make_pair(input.name().string(), input.value()));
+        result.uncheckedAppend({ input.name().string(), input.value() });
     }
+    return result;
 }
 
 void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool processingUserGesture, FormSubmissionTrigger formSubmissionTrigger)
@@ -344,9 +354,10 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool proce
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(true);
 
-    LockHistory lockHistory = processingUserGesture ? LockHistory::No : LockHistory::Yes;
-    Ref<HTMLFormElement> protectedThis(*this); // Form submission can execute arbitary JavaScript.
-    frame->loader().submitForm(FormSubmission::create(this, m_attributes, event, lockHistory, formSubmissionTrigger));
+    auto protectedThis = makeRef(*this); // Form submission can execute arbitary JavaScript.
+
+    auto shouldLockHistory = processingUserGesture ? LockHistory::No : LockHistory::Yes;
+    frame->loader().submitForm(FormSubmission::create(*this, m_attributes, event, shouldLockHistory, formSubmissionTrigger));
 
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(false);
@@ -419,8 +430,8 @@ void HTMLFormElement::requestAutocomplete()
     StringPairVector controlNamesAndValues;
     getTextFieldValues(controlNamesAndValues);
 
-    RefPtr<FormState> formState = FormState::create(this, controlNamesAndValues, &document(), SubmittedByJavaScript);
-    frame->loader().client().didRequestAutocomplete(formState.release());
+    auto formState = FormState::create(this, controlNamesAndValues, &document(), SubmittedByJavaScript);
+    frame->loader().client().didRequestAutocomplete(WTFMove(formState));
 }
 
 void HTMLFormElement::finishRequestAutocomplete(AutocompleteResult result)
@@ -446,7 +457,7 @@ void HTMLFormElement::finishRequestAutocomplete(AutocompleteResult result)
 
     // Dispatch events later as this API is meant to work asynchronously in all situations and implementations.
     if (!m_requestAutocompleteTimer.isActive())
-        m_requestAutocompleteTimer.startOneShot(0);
+        m_requestAutocompleteTimer.startOneShot(0_s);
 }
 
 void HTMLFormElement::requestAutocompleteTimerFired()
@@ -528,7 +539,7 @@ unsigned HTMLFormElement::formElementIndex(FormAssociatedElement* associatedElem
 
     // Treats separately the case where this element has the form attribute
     // for performance consideration.
-    if (associatedHTMLElement.hasAttributeWithoutSynchronization(formAttr) && associatedHTMLElement.inDocument()) {
+    if (associatedHTMLElement.hasAttributeWithoutSynchronization(formAttr) && associatedHTMLElement.isConnected()) {
         unsigned short position = compareDocumentPosition(associatedHTMLElement);
         ASSERT_WITH_SECURITY_IMPLICATION(!(position & DOCUMENT_POSITION_DISCONNECTED));
         if (position & DOCUMENT_POSITION_PRECEDING) {
@@ -848,14 +859,14 @@ void HTMLFormElement::resumeFromDocumentSuspension()
     resetAssociatedFormControlElements();
 }
 
-void HTMLFormElement::didMoveToNewDocument(Document& oldDocument)
+void HTMLFormElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
 {
     if (!shouldAutocomplete()) {
         oldDocument.unregisterForDocumentSuspensionCallbacks(this);
         document().registerForDocumentSuspensionCallbacks(this);
     }
 
-    HTMLElement::didMoveToNewDocument(oldDocument);
+    HTMLElement::didMoveToNewDocument(oldDocument, newDocument);
 }
 
 bool HTMLFormElement::shouldAutocomplete() const

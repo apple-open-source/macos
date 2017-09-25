@@ -32,6 +32,6 @@
 # SUCH DAMAGE.
 #
 #	@(#)newgrp	8.2 (Berkeley) 5/4/95
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/funcs/newgrp 139969 2005-01-10 08:39:26Z imp $
 
 newgrp() exec newgrp "$@"

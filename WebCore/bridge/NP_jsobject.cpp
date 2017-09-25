@@ -35,6 +35,7 @@
 #include "JSDOMBinding.h"
 #include "npruntime_priv.h"
 #include "runtime_root.h"
+#include <runtime/CatchScope.h>
 #include <runtime/Error.h>
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSLock.h>
@@ -277,7 +278,7 @@ bool _NPN_Evaluate(NPP, NPObject* o, NPString* s, NPVariant* variant)
         ExecState* exec = globalObject->globalExec();
         String scriptString = convertNPStringToUTF16(s);
         
-        JSValue returnValue = JSC::evaluate(exec, makeSource(scriptString), JSC::JSValue());
+        JSValue returnValue = JSC::evaluate(exec, JSC::makeSource(scriptString, { }), JSC::JSValue());
 
         convertValueToNPVariant(exec, returnValue, variant);
         scope.clearException();

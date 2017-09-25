@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013-2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2013-2017 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -252,13 +252,13 @@ WebInspector.DataGridNode = class DataGridNode extends WebInspector.Object
         return this._depth;
     }
 
-    get leftPadding()
+    get indentPadding()
     {
-        if (typeof this._leftPadding === "number")
-            return this._leftPadding;
+        if (typeof this._indentPadding === "number")
+            return this._indentPadding;
 
-        this._leftPadding = this.depth * this.dataGrid.indentWidth;
-        return this._leftPadding;
+        this._indentPadding = this.depth * this.dataGrid.indentWidth;
+        return this._indentPadding;
     }
 
     get shouldRefreshChildren()
@@ -349,28 +349,33 @@ WebInspector.DataGridNode = class DataGridNode extends WebInspector.Object
         cellElement.className = columnIdentifier + "-column";
         cellElement.__columnIdentifier = columnIdentifier;
 
-        var column = this.dataGrid.columns.get(columnIdentifier);
-
-        if (column["aligned"])
-            cellElement.classList.add(column["aligned"]);
-
-        if (column["group"])
-            cellElement.classList.add("column-group-" + column["group"]);
-
         var div = cellElement.createChild("div", "cell-content");
         var content = this.createCellContent(columnIdentifier, cellElement);
         div.append(content);
 
-        if (column["icon"]) {
-            let iconElement = document.createElement("div");
-            iconElement.classList.add("icon");
-            div.insertBefore(iconElement, div.firstChild);
+        let column = this.dataGrid.columns.get(columnIdentifier);
+        if (column) {
+            if (column["aligned"])
+                cellElement.classList.add(column["aligned"]);
+
+            if (column["group"])
+                cellElement.classList.add("column-group-" + column["group"]);
+
+            if (column["icon"]) {
+                let iconElement = document.createElement("div");
+                iconElement.classList.add("icon");
+                div.insertBefore(iconElement, div.firstChild);
+            }
         }
 
         if (columnIdentifier === this.dataGrid.disclosureColumnIdentifier) {
             cellElement.classList.add("disclosure");
-            if (this.leftPadding)
-                cellElement.style.setProperty("padding-left", this.leftPadding + "px");
+            if (this.indentPadding) {
+                if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL)
+                    cellElement.style.setProperty("padding-right", `${this.indentPadding}px`);
+                else
+                    cellElement.style.setProperty("padding-left", `${this.indentPadding}px`);
+            }
         }
 
         return cellElement;
@@ -378,7 +383,11 @@ WebInspector.DataGridNode = class DataGridNode extends WebInspector.Object
 
     createCellContent(columnIdentifier)
     {
-        return this.data[columnIdentifier] || "\u200b"; // Zero width space to keep the cell from collapsing.
+        if (!(columnIdentifier in this.data))
+            return zeroWidthSpace; // Zero width space to keep the cell from collapsing.
+
+        let data = this.data[columnIdentifier];
+        return (typeof data === "number") ? data.maxDecimals(2).toLocaleString() : data;
     }
 
     elementWithColumnIdentifier(columnIdentifier)
@@ -639,13 +648,18 @@ WebInspector.DataGridNode = class DataGridNode extends WebInspector.Object
     {
         if (!this.hasChildren)
             return false;
+
         let cell = event.target.enclosingNodeOrSelfWithNodeName("td");
         if (!cell || !cell.classList.contains("disclosure"))
             return false;
 
-        let computedLeftPadding = window.getComputedStyle(cell).getPropertyCSSValue("padding-left").getFloatValue(CSSPrimitiveValue.CSS_PX);
-        let left = cell.totalOffsetLeft + computedLeftPadding;
-        return event.pageX >= left && event.pageX <= left + this.disclosureToggleWidth;
+        let computedStyle = window.getComputedStyle(cell);
+        let start = 0;
+        if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL)
+            start += cell.totalOffsetRight - computedStyle.getPropertyCSSValue("padding-right").getFloatValue(CSSPrimitiveValue.CSS_PX) - this.disclosureToggleWidth;
+        else
+            start += cell.totalOffsetLeft + computedStyle.getPropertyCSSValue("padding-left").getFloatValue(CSSPrimitiveValue.CSS_PX);
+        return event.pageX >= start && event.pageX <= start + this.disclosureToggleWidth;
     }
 
     _attach()

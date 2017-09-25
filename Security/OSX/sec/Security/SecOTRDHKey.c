@@ -70,9 +70,9 @@ static size_t AppendECPublicKeyAsDATA(CFMutableDataRef data, ccec_pub_ctx_t publ
 
 static size_t AppendECCompactPublicKey(CFMutableDataRef data, ccec_pub_ctx_t public_key)
 {
-    size_t size = ccec_compact_export_size(false, public_key._full);
+    size_t size = ccec_compact_export_size(false, public_key);
 
-    ccec_compact_export(false, CFDataIncreaseLengthAndGetMutableBytes(data, (CFIndex)size), public_key._full);
+    ccec_compact_export(false, CFDataIncreaseLengthAndGetMutableBytes(data, (CFIndex)size), (ccec_full_ctx_t)public_key);
 
     return size;
 }
@@ -104,7 +104,7 @@ static CFStringRef SecOTRFullDHKeyCopyFormatDescription(CFTypeRef cf, CFDictiona
     SecOTRFullDHKeyRef fullDHKey = (SecOTRFullDHKeyRef)cf;
     __block CFStringRef description = NULL;
 
-    withXandY(fullDHKey->_key, ^(CFStringRef x, CFStringRef y) {
+    withXandY(ccec_ctx_pub(fullDHKey->_key), ^(CFStringRef x, CFStringRef y) {
         BufferPerformWithHexString(fullDHKey->keyHash, sizeof(fullDHKey->keyHash), ^(CFStringRef dataString) {
             description = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecOTRFullDHKeyRef@%p: x: %@ y: %@ [%@]>"), fullDHKey, x, y, dataString);
         });
@@ -130,7 +130,7 @@ static void SecOTRFullDHKeyDestroy(CFTypeRef cf)
 
 static inline void SecOTRFDHKUpdateHash(SecOTRFullDHKeyRef fullKey)
 {
-    GenerateHashForKey(fullKey->_key, fullKey->keyHash);
+    GenerateHashForKey(ccec_ctx_pub(fullKey->_key), fullKey->keyHash);
 }
 
 SecOTRFullDHKeyRef SecOTRFullDHKCreate(CFAllocatorRef allocator)
@@ -152,7 +152,7 @@ SecOTRFullDHKeyRef SecOTRFullDHKCreateFromBytes(CFAllocatorRef allocator, const 
     require_noerr(ReadLong(bytes, size, &publicKeySize), fail);
 
     require(publicKeySize <= *size, fail);
-    require_noerr(ccec_import_pub(ccec_cp_256(), publicKeySize, *bytes, newFDHK->_key), fail);
+    require_noerr(ccec_import_pub(ccec_cp_256(), publicKeySize, *bytes, ccec_ctx_pub(newFDHK->_key)), fail);
     
     *size -= publicKeySize;
     *bytes += publicKeySize;
@@ -184,20 +184,20 @@ void SecFDHKNewKey(SecOTRFullDHKeyRef fullKey)
 
 void SecFDHKAppendSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo)
 {
-    AppendECPublicKeyAsDATA(appendTo, fullKey->_key);
+    AppendECPublicKeyAsDATA(appendTo, ccec_ctx_pub(fullKey->_key));
     AppendMPI(appendTo, ccec_ctx_n(fullKey->_key), ccec_ctx_k(fullKey->_key));
 }
 
 void SecFDHKAppendPublicSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo)
 {
     if(ccec_ctx_bitlen(fullKey->_key) != kECKeySize) return;
-    AppendECPublicKeyAsDATA(appendTo, fullKey->_key);
+    AppendECPublicKeyAsDATA(appendTo, ccec_ctx_pub(fullKey->_key));
 }
 
 void SecFDHKAppendCompactPublicSerialization(SecOTRFullDHKeyRef fullKey, CFMutableDataRef appendTo)
 {
     if(ccec_ctx_bitlen(fullKey->_key) != kECKeySize) return;
-    AppendECCompactPublicKey(appendTo, fullKey->_key);
+    AppendECCompactPublicKey(appendTo, ccec_ctx_pub(fullKey->_key));
 }
 
 
@@ -254,16 +254,15 @@ static inline void SecOTRPDHKUpdateHash(SecOTRPublicDHKeyRef pubKey)
 
 static void ccec_copy_public(ccec_pub_ctx_t source, ccec_pub_ctx_t dest)
 {
-    ccec_ctx_cp(dest) = ccec_ctx_cp(source);
-    // TODO: +1?!
-    ccn_set(3*ccec_ctx_n(source), (cc_unit*) ccec_ctx_point(dest)._p, (cc_unit*) ccec_ctx_point(source)._p);
+    cc_size sourceKeyN = ccec_ctx_n(source);
+    memcpy(dest, source, ccec_pub_ctx_size(ccn_sizeof_n(sourceKeyN)));
 }
 
 SecOTRPublicDHKeyRef SecOTRPublicDHKCreateFromFullKey(CFAllocatorRef allocator, SecOTRFullDHKeyRef full)
 {
     SecOTRPublicDHKeyRef newPDHK = CFTypeAllocate(SecOTRPublicDHKey, struct _SecOTRPublicDHKey, allocator);
     
-    ccec_copy_public(full->_key, newPDHK->_key);
+    ccec_copy_public(ccec_ctx_pub(full->_key), newPDHK->_key);
     memcpy(newPDHK->keyHash, full->keyHash, CCSHA1_OUTPUT_SIZE);
 
     return newPDHK;
@@ -376,7 +375,7 @@ static int ccec_cmp(ccec_pub_ctx_t l, ccec_pub_ctx_t r)
 
 bool SecDHKIsGreater(SecOTRFullDHKeyRef myKey, SecOTRPublicDHKeyRef theirKey)
 {
-    return ccec_cmp(myKey->_key, theirKey->_key) > 0;
+    return ccec_cmp(ccec_ctx_pub(myKey->_key), theirKey->_key) > 0;
 }
 
 static void DeriveKeys(CFDataRef dataToHash,

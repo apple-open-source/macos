@@ -60,6 +60,9 @@ int run_transcode(__unused test_ctx_t *ctx)
 	assert_no_err(MKBKeyBagRegisterOTABackup(NULL, NULL));
 	assert_no_err(MKBKeyBagRelease(handle));
 
+	close(fd);
+	free(key);
+
 	return 0;
 }
 

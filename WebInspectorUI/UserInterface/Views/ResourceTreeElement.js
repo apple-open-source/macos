@@ -39,7 +39,7 @@ WebInspector.ResourceTreeElement = class ResourceTreeElement extends WebInspecto
     static compareResourceTreeElements(a, b)
     {
         // Compare by type first to keep resources grouped by type when not sorted into folders.
-        var comparisonResult = a.resource.type.localeCompare(b.resource.type);
+        var comparisonResult = a.resource.type.extendedLocaleCompare(b.resource.type);
         if (comparisonResult !== 0)
             return comparisonResult;
 
@@ -53,12 +53,12 @@ WebInspector.ResourceTreeElement = class ResourceTreeElement extends WebInspecto
         // domain of the resource. This causes resources to group by domain. If the resource
         // is on the same domain as the frame it will have an empty subtitle. This is good
         // because empty string sorts first, so those will appear before external resources.
-        comparisonResult = a.subtitle.localeCompare(b.subtitle);
+        comparisonResult = a.subtitle.extendedLocaleCompare(b.subtitle);
         if (comparisonResult !== 0)
             return comparisonResult;
 
         // Compare by title when the subtitles are the same.
-        return a.mainTitle.localeCompare(b.mainTitle);
+        return a.mainTitle.extendedLocaleCompare(b.mainTitle);
     }
 
     static compareFolderAndResourceTreeElements(a, b)
@@ -71,7 +71,7 @@ WebInspector.ResourceTreeElement = class ResourceTreeElement extends WebInspecto
         if (!aIsFolder && bIsFolder)
             return 1;
         if (aIsFolder && bIsFolder)
-            return a.mainTitle.localeCompare(b.mainTitle);
+            return a.mainTitle.extendedLocaleCompare(b.mainTitle);
 
         return WebInspector.ResourceTreeElement.compareResourceTreeElements(a, b);
     }
@@ -89,15 +89,11 @@ WebInspector.ResourceTreeElement = class ResourceTreeElement extends WebInspecto
         return {text: [urlComponents.lastPathComponent, urlComponents.path, this._resource.url]};
     }
 
-    onattach()
-    {
-        super.onattach();
-
-        this.element.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
-    }
-
     ondblclick()
     {
+        if (this._resource.type === WebInspector.Resource.Type.WebSocket)
+            return;
+
         InspectorFrontendHost.openInNewTab(this._resource.url);
     }
 
@@ -163,28 +159,30 @@ WebInspector.ResourceTreeElement = class ResourceTreeElement extends WebInspecto
             this.callFirstAncestorFunction("descendantResourceTreeElementMainTitleDidChange", [this, oldMainTitle]);
     }
 
-    _handleContextMenuEvent(event)
+    populateContextMenu(contextMenu, event)
     {
-        let contextMenu = WebInspector.ContextMenu.createFromEvent(event);
-
         WebInspector.appendContextMenuItemsForSourceCode(contextMenu, this._resource);
+
+        super.populateContextMenu(contextMenu, event);
     }
 
     // Private
 
     _updateStatus()
     {
-        if (this._resource.failed)
+        if (this._resource.hadLoadingError())
             this.addClassName(WebInspector.ResourceTreeElement.FailedStyleClassName);
         else
             this.removeClassName(WebInspector.ResourceTreeElement.FailedStyleClassName);
 
         if (this._resource.finished || this._resource.failed) {
             // Remove the spinner.
-            this.status = "";
+            if (this.status && this.status[WebInspector.ResourceTreeElement.SpinnerSymbol])
+                this.status = "";
         } else {
-            var spinner = new WebInspector.IndeterminateProgressSpinner;
+            let spinner = new WebInspector.IndeterminateProgressSpinner;
             this.status = spinner.element;
+            this.status[WebInspector.ResourceTreeElement.SpinnerSymbol] = true;
         }
     }
 
@@ -210,3 +208,5 @@ WebInspector.ResourceTreeElement = class ResourceTreeElement extends WebInspecto
 
 WebInspector.ResourceTreeElement.ResourceIconStyleClassName = "resource-icon";
 WebInspector.ResourceTreeElement.FailedStyleClassName = "failed";
+
+WebInspector.ResourceTreeElement.SpinnerSymbol = Symbol("spinner");

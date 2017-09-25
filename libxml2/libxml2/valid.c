@@ -10,6 +10,7 @@
 #define IN_LIBXML
 #include "libxml.h"
 
+#include <assert.h>
 #include <string.h>
 
 #ifdef HAVE_STDLIB_H
@@ -1184,29 +1185,35 @@ xmlDumpElementContent(xmlBufferPtr buf, xmlElementContentPtr content, int glob) 
 	    xmlBufferWriteCHAR(buf, content->name);
 	    break;
 	case XML_ELEMENT_CONTENT_SEQ:
-	    if ((content->c1->type == XML_ELEMENT_CONTENT_OR) ||
-	        (content->c1->type == XML_ELEMENT_CONTENT_SEQ))
+	    if ((content->c1 != NULL) &&
+	        ((content->c1->type == XML_ELEMENT_CONTENT_OR) ||
+	         (content->c1->type == XML_ELEMENT_CONTENT_SEQ)))
 		xmlDumpElementContent(buf, content->c1, 1);
 	    else
 		xmlDumpElementContent(buf, content->c1, 0);
-            xmlBufferWriteChar(buf, " , ");
-	    if ((content->c2->type == XML_ELEMENT_CONTENT_OR) ||
-	        ((content->c2->type == XML_ELEMENT_CONTENT_SEQ) &&
-		 (content->c2->ocur != XML_ELEMENT_CONTENT_ONCE)))
+            if ((content->c1 != NULL) && (content->c2 != NULL))
+                xmlBufferWriteChar(buf, " , ");
+	    if ((content->c2 != NULL) &&
+	        ((content->c2->type == XML_ELEMENT_CONTENT_OR) ||
+	         ((content->c2->type == XML_ELEMENT_CONTENT_SEQ) &&
+		  (content->c2->ocur != XML_ELEMENT_CONTENT_ONCE))))
 		xmlDumpElementContent(buf, content->c2, 1);
 	    else
 		xmlDumpElementContent(buf, content->c2, 0);
 	    break;
 	case XML_ELEMENT_CONTENT_OR:
-	    if ((content->c1->type == XML_ELEMENT_CONTENT_OR) ||
-	        (content->c1->type == XML_ELEMENT_CONTENT_SEQ))
+	    if ((content->c1 != NULL) &&
+	        ((content->c1->type == XML_ELEMENT_CONTENT_OR) ||
+	         (content->c1->type == XML_ELEMENT_CONTENT_SEQ)))
 		xmlDumpElementContent(buf, content->c1, 1);
 	    else
 		xmlDumpElementContent(buf, content->c1, 0);
-            xmlBufferWriteChar(buf, " | ");
-	    if ((content->c2->type == XML_ELEMENT_CONTENT_SEQ) ||
-	        ((content->c2->type == XML_ELEMENT_CONTENT_OR) &&
-		 (content->c2->ocur != XML_ELEMENT_CONTENT_ONCE)))
+            if ((content->c1 != NULL) && (content->c2 != NULL))
+                xmlBufferWriteChar(buf, " | ");
+	    if ((content->c2 != NULL) &&
+	        ((content->c2->type == XML_ELEMENT_CONTENT_SEQ) ||
+	         ((content->c2->type == XML_ELEMENT_CONTENT_OR) &&
+		  (content->c2->ocur != XML_ELEMENT_CONTENT_ONCE))))
 		xmlDumpElementContent(buf, content->c2, 1);
 	    else
 		xmlDumpElementContent(buf, content->c2, 0);
@@ -1248,6 +1255,14 @@ xmlSprintfElementContent(char *buf ATTRIBUTE_UNUSED,
 }
 #endif /* LIBXML_OUTPUT_ENABLED */
 
+static void
+terminateBufferTooSmall(char *buf, int size) {
+    int len = strlen(buf);
+    if ((size - len > 4) && (buf[len - 1] != '.'))
+	strncat(buf, " ...", size - len);
+    buf[size - 1] = '\0';
+}
+
 /**
  * xmlSnprintfElementContent:
  * @buf:  an output buffer
@@ -1261,34 +1276,49 @@ xmlSprintfElementContent(char *buf ATTRIBUTE_UNUSED,
 void
 xmlSnprintfElementContent(char *buf, int size, xmlElementContentPtr content, int englob) {
     int len;
+    int trailingLength;
 
     if (content == NULL) return;
+    assert(buf);
+    if (size < 1) return;
     len = strlen(buf);
     if (size - len < 50) {
-	if ((size - len > 4) && (buf[len - 1] != '.'))
-	    strcat(buf, " ...");
+	terminateBufferTooSmall(buf, size);
 	return;
     }
-    if (englob) strcat(buf, "(");
+    if (englob) {
+	assert(size - len > 1);
+	strncat(buf, "(", size - len);
+	len += 1;
+    }
+    trailingLength = (englob ? 1 : 0) + (content->ocur != XML_ELEMENT_CONTENT_ONCE ? 1 : 0);
     switch (content->type) {
         case XML_ELEMENT_CONTENT_PCDATA:
-            strcat(buf, "#PCDATA");
+            assert(size - len > 7);
+            strncat(buf, "#PCDATA", size - len);
+            len += 7;
 	    break;
 	case XML_ELEMENT_CONTENT_ELEMENT:
 	    if (content->prefix != NULL) {
-		if (size - len < xmlStrlen(content->prefix) + 10) {
-		    strcat(buf, " ...");
+		int prefixLength = xmlStrlen(content->prefix);
+		if (size - len < prefixLength + 1 + trailingLength + 1) {
+		    terminateBufferTooSmall(buf, size);
 		    return;
 		}
-		strcat(buf, (char *) content->prefix);
-		strcat(buf, ":");
+		strncat(buf, (char *)content->prefix, size - len);
+		len += prefixLength;
+		strncat(buf, ":", size - len);
+		len += 1;
 	    }
-	    if (size - len < xmlStrlen(content->name) + 10) {
-		strcat(buf, " ...");
-		return;
+	    if (content->name != NULL) {
+		int nameLength = xmlStrlen(content->name);
+		if (size - len < nameLength + trailingLength + 1) {
+		    terminateBufferTooSmall(buf, size);
+		    return;
+		}
+		strncat(buf, (char *)content->name, size - len);
+		len += nameLength;
 	    }
-	    if (content->name != NULL)
-		strcat(buf, (char *) content->name);
 	    break;
 	case XML_ELEMENT_CONTENT_SEQ:
 	    if ((content->c1->type == XML_ELEMENT_CONTENT_OR) ||
@@ -1298,17 +1328,18 @@ xmlSnprintfElementContent(char *buf, int size, xmlElementContentPtr content, int
 		xmlSnprintfElementContent(buf, size, content->c1, 0);
 	    len = strlen(buf);
 	    if (size - len < 50) {
-		if ((size - len > 4) && (buf[len - 1] != '.'))
-		    strcat(buf, " ...");
+		terminateBufferTooSmall(buf, size);
 		return;
 	    }
-            strcat(buf, " , ");
+            strncat(buf, " , ", size - len);
+            len += 3;
 	    if (((content->c2->type == XML_ELEMENT_CONTENT_OR) ||
 		 (content->c2->ocur != XML_ELEMENT_CONTENT_ONCE)) &&
 		(content->c2->type != XML_ELEMENT_CONTENT_ELEMENT))
 		xmlSnprintfElementContent(buf, size, content->c2, 1);
 	    else
 		xmlSnprintfElementContent(buf, size, content->c2, 0);
+	    len = strlen(buf);
 	    break;
 	case XML_ELEMENT_CONTENT_OR:
 	    if ((content->c1->type == XML_ELEMENT_CONTENT_OR) ||
@@ -1318,34 +1349,46 @@ xmlSnprintfElementContent(char *buf, int size, xmlElementContentPtr content, int
 		xmlSnprintfElementContent(buf, size, content->c1, 0);
 	    len = strlen(buf);
 	    if (size - len < 50) {
-		if ((size - len > 4) && (buf[len - 1] != '.'))
-		    strcat(buf, " ...");
+		terminateBufferTooSmall(buf, size);
 		return;
 	    }
-            strcat(buf, " | ");
+            strncat(buf, " | ", size - len);
+            len += 3;
 	    if (((content->c2->type == XML_ELEMENT_CONTENT_SEQ) ||
 		 (content->c2->ocur != XML_ELEMENT_CONTENT_ONCE)) &&
 		(content->c2->type != XML_ELEMENT_CONTENT_ELEMENT))
 		xmlSnprintfElementContent(buf, size, content->c2, 1);
 	    else
 		xmlSnprintfElementContent(buf, size, content->c2, 0);
+	    len = strlen(buf);
 	    break;
     }
-    if (englob)
-        strcat(buf, ")");
+    if (size - len < trailingLength + 1) {
+	terminateBufferTooSmall(buf, size);
+	return;
+    }
+    if (englob) {
+	strncat(buf, ")", size - len);
+	len += 1;
+    }
     switch (content->ocur) {
         case XML_ELEMENT_CONTENT_ONCE:
 	    break;
         case XML_ELEMENT_CONTENT_OPT:
-	    strcat(buf, "?");
+	    strncat(buf, "?", size - len);
+	    len += 1;
 	    break;
         case XML_ELEMENT_CONTENT_MULT:
-	    strcat(buf, "*");
+	    strncat(buf, "*", size - len);
+	    len += 1;
 	    break;
         case XML_ELEMENT_CONTENT_PLUS:
-	    strcat(buf, "+");
+	    strncat(buf, "+", size - len);
+	    len += 1;
 	    break;
     }
+    assert(size - len > 0);
+    buf[size - 1] = '\0';
 }
 
 /****************************************************************
@@ -4633,17 +4676,24 @@ xmlNodePtr elem, const xmlChar *prefix, xmlNsPtr ns, const xmlChar *value) {
 	}
     }
 
+    /*
+     * Casting ns to xmlAttrPtr is wrong. We'd need separate functions
+     * xmlAddID and xmlAddRef for namespace declarations, but it makes
+     * no practical sense to use ID types anyway.
+     */
+#if 0
     /* Validity Constraint: ID uniqueness */
     if (attrDecl->atype == XML_ATTRIBUTE_ID) {
-        if (xmlAddID(ctxt, doc, value, (xmlAttrPtr) attrDecl) == NULL)
+        if (xmlAddID(ctxt, doc, value, (xmlAttrPtr) ns) == NULL)
 	    ret = 0;
     }
 
     if ((attrDecl->atype == XML_ATTRIBUTE_IDREF) ||
 	(attrDecl->atype == XML_ATTRIBUTE_IDREFS)) {
-        if (xmlAddRef(ctxt, doc, value, (xmlAttrPtr) attrDecl) == NULL)
+        if (xmlAddRef(ctxt, doc, value, (xmlAttrPtr) ns) == NULL)
 	    ret = 0;
     }
+#endif
 
     /* Validity Constraint: Notation Attributes */
     if (attrDecl->atype == XML_ATTRIBUTE_NOTATION) {
@@ -5155,46 +5205,71 @@ static void
 xmlSnprintfElements(char *buf, int size, xmlNodePtr node, int glob) {
     xmlNodePtr cur;
     int len;
+    int trailingLength = (glob ? 1 : 0);
 
     if (node == NULL) return;
-    if (glob) strcat(buf, "(");
+    assert(buf);
+    if (size < 1) return;
+    len = strlen(buf);
+    if (glob) {
+        if (size - len < 1 + trailingLength + 1) {
+            terminateBufferTooSmall(buf, size);
+            return;
+        }
+        strncat(buf, "(", size - len);
+        len += 1;
+    }
     cur = node;
     while (cur != NULL) {
-	len = strlen(buf);
 	if (size - len < 50) {
-	    if ((size - len > 4) && (buf[len - 1] != '.'))
-		strcat(buf, " ...");
+	    terminateBufferTooSmall(buf, size);
 	    return;
 	}
         switch (cur->type) {
             case XML_ELEMENT_NODE:
+	    {
+		int nameLength;
+		int nextLength = (cur->next != NULL ? 1 : 0);
 		if ((cur->ns != NULL) && (cur->ns->prefix != NULL)) {
-		    if (size - len < xmlStrlen(cur->ns->prefix) + 10) {
-			if ((size - len > 4) && (buf[len - 1] != '.'))
-			    strcat(buf, " ...");
+		    int prefixLength = xmlStrlen(cur->ns->prefix);
+		    if (size - len < prefixLength + 1 + nextLength + trailingLength + 1) {
+			terminateBufferTooSmall(buf, size);
 			return;
 		    }
-		    strcat(buf, (char *) cur->ns->prefix);
-		    strcat(buf, ":");
+		    strncat(buf, (char *)cur->ns->prefix, size - len);
+		    len += prefixLength;
+		    strncat(buf, ":", size - len);
+		    len += 1;
 		}
-                if (size - len < xmlStrlen(cur->name) + 10) {
-		    if ((size - len > 4) && (buf[len - 1] != '.'))
-			strcat(buf, " ...");
+                nameLength = xmlStrlen(cur->name);
+                if (size - len < nameLength + nextLength + trailingLength + 1) {
+		    terminateBufferTooSmall(buf, size);
 		    return;
 		}
-	        strcat(buf, (char *) cur->name);
-		if (cur->next != NULL)
-		    strcat(buf, " ");
+	        strncat(buf, (char *)cur->name, size - len);
+	        len += nameLength;
+		if (cur->next != NULL) {
+		    strncat(buf, " ", size - len);
+		    len += nextLength;
+		}
 		break;
+            }
             case XML_TEXT_NODE:
 		if (xmlIsBlankNode(cur))
 		    break;
             case XML_CDATA_SECTION_NODE:
             case XML_ENTITY_REF_NODE:
-	        strcat(buf, "CDATA");
-		if (cur->next != NULL)
-		    strcat(buf, " ");
+	    {
+		int nextLength = (cur->next != NULL ? 1 : 0);
+	        assert(size - len > 5 + nextLength + trailingLength);
+	        strncat(buf, "CDATA", size - len);
+	        len += 5;
+		if (cur->next != NULL) {
+		    strncat(buf, " ", size - len);
+		    len += nextLength;
+		}
 		break;
+            }
             case XML_ATTRIBUTE_NODE:
             case XML_DOCUMENT_NODE:
 #ifdef LIBXML_DOCB_ENABLED
@@ -5205,10 +5280,17 @@ xmlSnprintfElements(char *buf, int size, xmlNodePtr node, int glob) {
             case XML_DOCUMENT_FRAG_NODE:
             case XML_NOTATION_NODE:
 	    case XML_NAMESPACE_DECL:
-	        strcat(buf, "???");
-		if (cur->next != NULL)
-		    strcat(buf, " ");
+	    {
+		int nextLength = (cur->next != NULL ? 1 : 0);
+	        assert(size - len > 3 + nextLength + trailingLength);
+	        strncat(buf, "???", size - len);
+	        len += 3;
+		if (cur->next != NULL) {
+		    strncat(buf, " ", size - len);
+		    len += nextLength;
+		}
 		break;
+	    }
             case XML_ENTITY_NODE:
             case XML_PI_NODE:
             case XML_DTD_NODE:
@@ -5222,7 +5304,13 @@ xmlSnprintfElements(char *buf, int size, xmlNodePtr node, int glob) {
 	}
 	cur = cur->next;
     }
-    if (glob) strcat(buf, ")");
+    if (glob) {
+        assert(size - len > trailingLength);
+        strncat(buf, ")", size - len);
+        len += trailingLength;
+    }
+    assert(size - len > 0);
+    buf[size - 1] = '\0';
 }
 
 /**
@@ -5737,7 +5825,7 @@ xmlValidatePushElement(xmlValidCtxtPtr ctxt, xmlDocPtr doc,
 	xmlElementPtr elemDecl;
 
 	/*
-	 * Check the new element agaisnt the content model of the new elem.
+	 * Check the new element against the content model of the new elem.
 	 */
 	if (state->elemDecl != NULL) {
 	    elemDecl = state->elemDecl;
@@ -5829,7 +5917,7 @@ xmlValidatePushCData(xmlValidCtxtPtr ctxt, const xmlChar *data, int len) {
 	xmlElementPtr elemDecl;
 
 	/*
-	 * Check the new element agaisnt the content model of the new elem.
+	 * Check the new element against the content model of the new elem.
 	 */
 	if (state->elemDecl != NULL) {
 	    elemDecl = state->elemDecl;
@@ -5903,7 +5991,7 @@ xmlValidatePopElement(xmlValidCtxtPtr ctxt, xmlDocPtr doc ATTRIBUTE_UNUSED,
 	xmlElementPtr elemDecl;
 
 	/*
-	 * Check the new element agaisnt the content model of the new elem.
+	 * Check the new element against the content model of the new elem.
 	 */
 	if (state->elemDecl != NULL) {
 	    elemDecl = state->elemDecl;

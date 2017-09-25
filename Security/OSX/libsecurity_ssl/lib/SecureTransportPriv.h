@@ -738,6 +738,13 @@ _SSLDisposeContext			(SSLContextRef		context);
 
 #endif /* TARGET_OS_IPHONE */
 
+/*
+ * Map the SSLProtocol enum to an enum capturing the wire format (coreTLS) version.
+ */
+#define SECURITY_HAS_TLS_VERSION_TRANSLATOR 1
+tls_protocol_version
+_SSLProtocolVersionToWireFormatValue   (SSLProtocol protocol);
+
 
 /*
  * Create a new Datagram TLS session context.

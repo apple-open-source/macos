@@ -827,7 +827,7 @@ void CL_qualCertStatementsToCssm(
 		return;
 	}
 	cdsaObj.qcStatements = (CE_QC_Statement *)alloc.malloc(
-		numQcs * sizeof(CE_AccessDescription));
+		numQcs * sizeof(CE_QC_Statement));
 	cdsaObj.numQCStatements = numQcs;
 	for(unsigned dex=0; dex<numQcs; dex++) {
 		CE_QC_Statement *dst = &cdsaObj.qcStatements[dex];

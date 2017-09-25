@@ -311,6 +311,7 @@ typedef struct __OSKext {
 #define __kOSKextKPIPrefix               CFSTR("com.apple.kpi.")
 #define __kOSKextCompatibilityBundleID   "com.apple.kernel.6.0"
 #define __kOSKextPrivateKPI              CFSTR("com.apple.kpi.private")
+#define __kOSKextKasanKPI                CFSTR("com.apple.kpi.kasan")
 
 /* Used when generating symbols.
  */
@@ -348,11 +349,13 @@ typedef struct __OSKext {
 * Module Internal Variables
 *********************************************************************/
 
+const char * OSKEXT_BUILD_DATE = "OSKEXT_BUILD_DATE " __TIME__ " " __DATE__;
+
 static pthread_once_t __sOSKextInitialized  = PTHREAD_ONCE_INIT;
 static Boolean        __sOSKextInitializing = false;
 
 /* force alignment to 4k boundaries */
-static const int g_max_align_to_4k = 0;
+__unused static const int g_max_align_to_4k = 0;
 
 /* Internal lookup collections.
  * Created the first time any kext is; all functions that access should
@@ -379,10 +382,13 @@ static const NXArchInfo       __sOSKextUnknownArchInfo         = {
     .byteorder   = NX_UnknownByteOrder,
     .description = "unknown CPU architecture",
 };
-static const NXArchInfo     * __sOSKextArchInfo                     = &__sOSKextUnknownArchInfo;
+static const NXArchInfo     * __sOSKextArchInfo                    = &__sOSKextUnknownArchInfo;
 static Boolean                __sOSKextSimulatedSafeBoot           = FALSE;
 static Boolean                __sOSKextUsesCaches                  = TRUE;
 static Boolean                __sOSKextStrictRecordingByLastOpened = FALSE;
+static Boolean                __sOSKextStrictAuthentication        = FALSE;
+static OSKextAuthFnPtr        __sOSKextAuthenticationFunction      = _OSKextBasicFilesystemAuthentication;
+static void                 * __sOSKextAuthenticationContext       = NULL;
 
 static CFArrayRef             __sOSKextPackageTypeValues       = NULL;
 static CFArrayRef             __sOSKextOSBundleRequiredValues  = NULL;
@@ -395,7 +401,7 @@ static OSKextVersion          __sOSNewKmodInfoKernelVersion = -1;
 
 static char sOSKextExecutableSuffix[128];
 
-static uint64_t nSplitKexts = 0, nNonSplitKexts = 0;
+__unused static uint64_t nSplitKexts = 0, nNonSplitKexts = 0;
 
 enum enumSegIdx {
     SEG_IDX_TEXT,
@@ -564,7 +570,7 @@ const CFStringRef kOSKextDiagnosticBundleVersionMismatchKey =
 
 const CFStringRef kOSKextDiagnosticsDependencyNotOSBundleRequired =
                   CFSTR("Dependency lacks appropriate value for OSBundleRequired "
-                  "and may not be availalble during early boot");
+                  "and may not be available during early boot");
 
 const CFStringRef kOSKextDiagnosticNotSignedKey =
                   CFSTR("Kext is not signed");
@@ -649,11 +655,11 @@ typedef struct plkInfo {
     SegInfo     plk_INFO;       /* __PRELINK_INFO */
 } plkInfo;
 
-static void __OSKextPackKASLROffsets(
+__unused static void __OSKextPackKASLROffsets(
     CFNumberRef value,
     void *context);
 
-static uint32_t kextcacheFileOffsetToPLKTEXTOffset(
+__unused static uint32_t kextcacheFileOffsetToPLKTEXTOffset(
     uint64_t        kcOffset,
     plkInfo *       plkInfo);
 
@@ -848,10 +854,10 @@ static Boolean __OSKextCreateMkextInfo(OSKextRef aKext);
 static Boolean __OSKextIsValid(OSKextRef aKext);
 static Boolean __OSKextValidate(OSKextRef aKext, CFMutableArrayRef propPath);
 static Boolean __OSKextValidateExecutable(OSKextRef aKext);
-static Boolean __OSKextAuthenticateURLRecursively(
+static Boolean __OSKextBasicFilesystemAuthenticationRecursive(
     OSKextRef aKext,
-    CFURLRef  anURL,
-    CFURLRef  pluginsURL);
+    CFURLRef anURL,
+    CFURLRef pluginsURL);
 
 static CFDictionaryRef __OSKextCopyDiagnosticsDict(
     OSKextRef              aKext,
@@ -1135,7 +1141,7 @@ Boolean _isArray(CFTypeRef);
 Boolean _isDictionary(CFTypeRef);
 Boolean _isString(CFTypeRef);
 
-static boolean_t __OSKextWantKextsFirst(CFDataRef kernelImage);
+__unused static boolean_t __OSKextWantKextsFirst(CFDataRef kernelImage);
 
 #pragma mark Function-Like Macros
 /*********************************************************************
@@ -1208,7 +1214,7 @@ static uint64_t getKCPlkSegVMSize(plkInfo *plkInfo, enum enumSegIdx idx) {
     }
 }
 
-static boolean_t setKCPlkSegVMSize(plkInfo *plkInfo, enum enumSegIdx idx, uint64_t x) {
+__unused static boolean_t setKCPlkSegVMSize(plkInfo *plkInfo, enum enumSegIdx idx, uint64_t x) {
     assert(plkInfo);
 
     switch (idx) {
@@ -1310,7 +1316,7 @@ static uint64_t getKCPlkSegNextVMAddr(plkInfo *plkInfo, enum enumSegIdx idx) {
     }
 }
 
-static boolean_t setKCPlkSegNextVMAddr(plkInfo *plkInfo, enum enumSegIdx idx, uint64_t x) {
+__unused static boolean_t setKCPlkSegNextVMAddr(plkInfo *plkInfo, enum enumSegIdx idx, uint64_t x) {
     if (!plkInfo)
         return false;
 
@@ -1340,7 +1346,7 @@ static boolean_t setKCPlkSegNextVMAddr(plkInfo *plkInfo, enum enumSegIdx idx, ui
     }
 }
 
-static boolean_t setKextVMAddr(OSKextRef aKext, enum enumSegIdx idx, uint64_t vmaddr) {
+__unused static boolean_t setKextVMAddr(OSKextRef aKext, enum enumSegIdx idx, uint64_t vmaddr) {
     if (!aKext)
         return false;
 
@@ -1370,7 +1376,7 @@ static boolean_t setKextVMAddr(OSKextRef aKext, enum enumSegIdx idx, uint64_t vm
     }
 }
 
-static uint64_t getKextVMAddr(OSKextRef aKext, enum enumSegIdx idx) {
+__unused static uint64_t getKextVMAddr(OSKextRef aKext, enum enumSegIdx idx) {
     assert(aKext);
 
     switch (idx) {
@@ -1393,7 +1399,7 @@ static uint64_t getKextVMAddr(OSKextRef aKext, enum enumSegIdx idx) {
     }
 }
 
-static boolean_t getSegIndex(const char *name, enum enumSegIdx *idx) {
+__unused static boolean_t getSegIndex(const char *name, enum enumSegIdx *idx) {
     if (!strcmp(name, "__TEXT")) {
         if (idx) 
             *idx = SEG_IDX_TEXT;
@@ -1923,7 +1929,7 @@ static Boolean __OSKextIsArchitectureLP64(void)
 
 /*********************************************************************
  *********************************************************************/
-static Boolean __OSKextIsSplitKext(OSKextRef aKext)
+__unused static Boolean __OSKextIsSplitKext(OSKextRef aKext)
 {
     if (aKext && aKext->loadInfo && aKext->loadInfo->linkInfo.vmaddr_TEXT_EXEC != 0) {
         return true;
@@ -1933,7 +1939,7 @@ static Boolean __OSKextIsSplitKext(OSKextRef aKext)
 
 /*********************************************************************
  *********************************************************************/
-static Boolean __OSKextIsSplitKextMacho64(struct mach_header_64 *kextHeader)
+__unused static Boolean __OSKextIsSplitKextMacho64(struct mach_header_64 *kextHeader)
 {
     struct segment_command_64 *seg_cmd = NULL;
     if (!kextHeader)
@@ -1949,7 +1955,7 @@ static Boolean __OSKextIsSplitKextMacho64(struct mach_header_64 *kextHeader)
 /*********************************************************************
 *********************************************************************/
 
-static CFURLRef OSKextGetExecutableURL(OSKextRef aKext)
+CFURLRef OSKextGetExecutableURL(OSKextRef aKext)
 {
     CFURLRef                 executableURL              = NULL;  // must release
     CFURLRef                 newURL                     = NULL;  // do not release
@@ -2261,6 +2267,24 @@ void _OSKextSetStrictRecordingByLastOpened(Boolean flag)
     return;
 }
 
+/*********************************************************************
+ *********************************************************************/
+void _OSKextSetStrictAuthentication(Boolean flag)
+{
+    __sOSKextStrictAuthentication = flag;
+    return;
+}
+
+/*********************************************************************
+ * An interface to set the authentication function used by
+ * OSKextAuthenticate in the current context.
+ *********************************************************************/
+void _OSKextSetAuthenticationFunction(OSKextAuthFnPtr authFn, void *context)
+{
+    __sOSKextAuthenticationFunction = authFn;
+    __sOSKextAuthenticationContext = context;
+    return;
+}
 
 
 #pragma mark Instance Management
@@ -5118,9 +5142,6 @@ finish:
     return result;
 }
 
-/*********************************************************************
-XXX - Should this check valid/authentic flags and skip failed kexts?
-*********************************************************************/
 OSKextRef OSKextGetCompatibleKextWithIdentifier(
     CFStringRef   aBundleID,
     OSKextVersion requestedVersion)
@@ -5148,7 +5169,18 @@ OSKextRef OSKextGetCompatibleKextWithIdentifier(
         OSKextRef theKext = (OSKextRef)foundEntry;
 
         if (OSKextIsCompatibleWithVersion(theKext, requestedVersion)) {
-            result = theKext;
+            if (__sOSKextStrictAuthentication) {
+                if (OSKextIsValid(theKext) && OSKextIsAuthentic(theKext)) {
+                    result = theKext;
+                } else {
+                    OSKextLogCFString(/* kext */ NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogValidationFlag,
+                                      CFSTR("Rejecting invalid/inauthentic kext for bundle id %@ at location %@."),
+                                      aBundleID, OSKextGetURL(theKext));
+                }
+            } else {
+                result = theKext;
+            }
         }
 
     } else if (CFArrayGetTypeID() == CFGetTypeID(foundEntry)) {
@@ -5158,9 +5190,22 @@ OSKextRef OSKextGetCompatibleKextWithIdentifier(
         count = CFArrayGetCount(kexts);
         for (i = 0; i < count; i++) {
             OSKextRef thisKext = (OSKextRef)CFArrayGetValueAtIndex(kexts, i);
+
             if (OSKextIsCompatibleWithVersion(thisKext, requestedVersion)) {
-                result = thisKext;
-                goto finish;
+                if (__sOSKextStrictAuthentication) {
+                    if (OSKextIsValid(thisKext) && OSKextIsAuthentic(thisKext)) {
+                        result = thisKext;
+                        goto finish;
+                    } else {
+                        OSKextLogCFString(/* kext */ NULL,
+                            kOSKextLogErrorLevel | kOSKextLogValidationFlag,
+                            CFSTR("Rejecting invalid/inauthentic kext for bundle id %@ at location %@."),
+                            aBundleID, OSKextGetURL(thisKext));
+                    }
+                } else {
+                    result = thisKext;
+                    goto finish;
+                }
             }
         }
     }
@@ -7329,6 +7374,27 @@ Boolean __OSKextHasAllDependencies(OSKextRef aKext)
     return false;
 }
 
+static Boolean __OSKextHasSuffix(OSKextRef aKext, const char *suffix)
+{
+    char path[PATH_MAX];
+
+    CFURLRef executableURL = OSKextGetExecutableURL(aKext);
+    if (!executableURL) {
+        return false;
+    }
+
+    if (__OSKextGetFileSystemPath(NULL, executableURL, true, path)) {
+        const size_t plen = strlen(path);
+        const size_t slen = strlen(suffix);
+
+        if ((plen > slen) && !strncmp(suffix, &path[plen - slen], slen)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /*********************************************************************
 *********************************************************************/
 // return should be OSReturn
@@ -7633,6 +7699,18 @@ Boolean __OSKextResolveDependencies(
                     libID, /* note */ NULL);
             }
             error = true;
+        }
+    }
+
+    /*
+     * If this is a KASan kext, implicitly link against the KASan bundle.
+     */
+    if (OSKextDeclaresExecutable(aKext) && __OSKextHasSuffix(aKext, "_kasan")) {
+        OSKextRef kasan_kext = OSKextGetKextWithIdentifier(__kOSKextKasanKPI);
+        if (kasan_kext) {
+            OSKextLog(aKext, kOSKextLogDetailLevel | kOSKextLogDependenciesFlag,
+                    "%s adding implicit KASan dependency", kextPath);
+            CFArrayAppendValue(aKext->loadInfo->dependencies, kasan_kext);
         }
     }
 
@@ -10405,7 +10483,7 @@ static Boolean __OSKextPerformLink(
         SAFE_FREE(bundleIDCString);
         
         return result;
-    }
+}
 
 
 /*********************************************************************
@@ -12982,12 +13060,10 @@ Boolean OSKextIsValid(OSKextRef aKext)
     return aKext->flags.valid ? true : false;
 }
 
-/*********************************************************************
-*********************************************************************/
-Boolean __OSKextAuthenticateURLRecursively(
+static Boolean __OSKextBasicFilesystemAuthenticationRecursive(
     OSKextRef aKext,
-    CFURLRef  anURL,
-    CFURLRef  pluginsURL)
+    CFURLRef anURL,
+    CFURLRef pluginsURL)
 {
     Boolean      result   = true;  // until we hit a bad one
     CFStringRef  filename = NULL;   // must release
@@ -13097,7 +13173,7 @@ Boolean __OSKextAuthenticateURLRecursively(
     count = CFArrayGetCount(urlContents);
     for (i = 0; i < count; i++) {
         CFURLRef thisURL = (CFURLRef)CFArrayGetValueAtIndex(urlContents, i);
-        result = __OSKextAuthenticateURLRecursively(aKext, thisURL, pluginsURL) && result;
+        result = __OSKextBasicFilesystemAuthenticationRecursive(aKext, thisURL, pluginsURL) && result;
     }
 
 finish:
@@ -13108,21 +13184,21 @@ finish:
 }
 
 /*********************************************************************
-*********************************************************************/
-Boolean OSKextAuthenticate(OSKextRef aKext)
+ * The default authentication function performs recursive URL validation
+ * of the entire bundle, without recursing into the pluginsURL. The actual
+ * validation is basic filesystem ownership and permission bits.
+ *********************************************************************/
+Boolean
+_OSKextBasicFilesystemAuthentication(OSKextRef aKext, __unused void *context)
 {
-    Boolean     result        = true;  // cleared when we hit an error
+    Boolean     result        = true;  // until we hit a bad one
     CFBundleRef kextBundle    = NULL;  // must release
     CFURLRef    pluginsURL    = NULL;  // must release
     CFURLRef    pluginsAbsURL = NULL;  // must release
 
-    aKext->flags.inauthentic = 0;
-    aKext->flags.authentic = 0;
-    aKext->flags.authenticated = 0;
-
     if (OSKextIsFromMkext(aKext)) {
         if (aKext->mkextInfo->mkextURL) {
-            result = __OSKextAuthenticateURLRecursively(aKext,
+            result = __OSKextBasicFilesystemAuthenticationRecursive(aKext,
                 aKext->mkextInfo->mkextURL, /* pluginsURL */ NULL);
             // xxx - need to look up all kexts from the mkext and mark them authenticated
         } else {
@@ -13148,24 +13224,52 @@ Boolean OSKextAuthenticate(OSKextRef aKext)
             }
         }
 
-        result = __OSKextAuthenticateURLRecursively(aKext, aKext->bundleURL,
+        result = __OSKextBasicFilesystemAuthenticationRecursive(aKext, aKext->bundleURL,
             pluginsAbsURL);
     }
 
 finish:
-
-   /*****
-    * All tests passed, yay.
-    */
-    if (result) {
-        aKext->flags.authentic = 1;
-        aKext->flags.authenticated = 1;
-    }
-
     SAFE_RELEASE(kextBundle);
     SAFE_RELEASE(pluginsURL);
     SAFE_RELEASE(pluginsAbsURL);
+    return result;
+}
 
+/*********************************************************************
+ * The actual authentication function can be controlled by the client
+ * using _OSKextSetAuthenticationFunction.   If so, that authentication
+ * function is called and its results are cached locally.  If no
+ * customized authentication function is provided, IOKit defaults to
+ * using the basic filesystem authentication check it has always performed.
+*********************************************************************/
+Boolean OSKextAuthenticate(OSKextRef aKext)
+{
+    Boolean     result        = true;
+
+    aKext->flags.inauthentic = 0;
+    aKext->flags.authentic = 0;
+    aKext->flags.authenticated = 0;
+
+    if (__sOSKextAuthenticationFunction) {
+        result = __sOSKextAuthenticationFunction(aKext, __sOSKextAuthenticationContext);
+    } else {
+        // Setting a NULL authentication function means its not authenticated.
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogValidationFlag,
+            "Trying to authenticate kext with no authentication function, failing.");
+        result = false;
+    }
+
+   /*****
+    * Update to denote authentication has happened, and place its result in
+    * the appropriate bit.
+    */
+    aKext->flags.authenticated = 1;
+    if (result) {
+        aKext->flags.authentic = 1;
+    } else {
+        aKext->flags.inauthentic = 1;
+    }
     return result;
 }
 
@@ -18988,6 +19092,17 @@ CFDataRef OSKextCreatePrelinkedKernel(
         kxldFlags |= kKXLDFlagIncludeRelocs;
     }
 
+    /*
+     * If strict authentication is enabled, ensure that the skip authentication flag
+     * is not respected when building a prelinked kernel.
+     */
+    if (__sOSKextStrictAuthentication &&
+        (flags & kOSKextKernelcacheSkipAuthenticationFlag) != 0) {
+        OSKextLog(/* kext */ NULL, kOSKextLogWarningLevel | kOSKextLogLinkFlag,
+            "Ignoring skip authentication flag due to strict authentication mode.");
+        flags &= ~kOSKextKernelcacheSkipAuthenticationFlag;
+    }
+
     /* Handle cross-linking if necessary */
     kxldPageSize = __OSKextSetupCrossLinkByArch(OSKextGetArchitecture()->cputype);
 
@@ -19506,6 +19621,25 @@ finish:
     return result;
 }
 
+/*********************************************************************
+*********************************************************************/
+CFStringRef OSKextCopyExecutableName(OSKextRef aKext)
+{
+    CFStringRef  result            = NULL;
+    CFURLRef     executableURL     = NULL;  // do not release
+
+    executableURL = OSKextGetExecutableURL(aKext);
+    if (!executableURL) {
+        goto finish;
+    }
+    result = CFURLCopyLastPathComponent(executableURL);
+
+finish:
+
+    return result;
+}
+
+
 #if PRAGMA_MARK
 /********************************************************************/
 #pragma mark URL Utilities
@@ -19837,7 +19971,7 @@ Boolean _isString(CFTypeRef cf)
     return false;
 }
 
-static void __OSKextShowPLKInfo(plkInfo *info)
+__unused static void __OSKextShowPLKInfo(plkInfo *info)
 {
     OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
               "\n plkInfo @%p: <%s %d>", info,
@@ -20177,7 +20311,7 @@ static void __OSKextScanFor(const UInt8 *dataPtr, int count, const UInt8 theChar
 
 #endif
 
-static const char * getSegmentCommandName(uint32_t theSegCommand)
+__unused static const char * getSegmentCommandName(uint32_t theSegCommand)
 {
     const char * theResult;
     

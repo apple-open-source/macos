@@ -22,7 +22,7 @@ constant_arg(VALUE arg, int (*str_to_int)(const char*, long, int*), const char *
     int ret;
 
     if (SYMBOL_P(arg)) {
-        arg = rb_sym_to_s(arg);
+        arg = rb_sym2str(arg);
         goto str;
     }
     else if (!NIL_P(tmp = rb_check_string_type(arg))) {
@@ -105,7 +105,7 @@ rsock_cmsg_type_arg(int family, int level, VALUE type)
             return constant_arg(type, rsock_scm_optname_to_int, "unknown UNIX control message");
           case IPPROTO_IP:
             return constant_arg(type, rsock_ip_optname_to_int, "unknown IP control message");
-#ifdef INET6
+#ifdef IPPROTO_IPV6
           case IPPROTO_IPV6:
             return constant_arg(type, rsock_ipv6_optname_to_int, "unknown IPv6 control message");
 #endif

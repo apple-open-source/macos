@@ -206,7 +206,7 @@ PMSystemEventsRootDomainInterest(void)
         mkdir(THERMAL_NOTIFICATION_DIR, 0777);
         chmod(THERMAL_NOTIFICATION_DIR, 0777);
         
-        fd = open(THERMAL_NOTIFICATION_FILE, O_CREAT|O_RDWR);
+        fd = open(THERMAL_NOTIFICATION_FILE, O_CREAT|O_RDWR, 0777);
         fchmod(fd, 0777);
         close(fd);
     }

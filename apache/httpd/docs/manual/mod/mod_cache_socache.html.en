@@ -51,14 +51,14 @@ HTTP caching filter.</td></tr>
     <pre class="prettyprint lang-config"># Turn on caching
 CacheSocache shmcb
 CacheSocacheMaxSize 102400
-&lt;Location /foo&gt;
+&lt;Location "/foo"&gt;
     CacheEnable socache
 &lt;/Location&gt;
 
 # Fall back to the disk cache
 CacheSocache shmcb
 CacheSocacheMaxSize 102400
-&lt;Location /foo&gt;
+&lt;Location "/foo"&gt;
     CacheEnable socache
     CacheEnable disk
 &lt;/Location&gt;</pre>
@@ -67,10 +67,10 @@ CacheSocacheMaxSize 102400
     <div class="note"><h3>Note:</h3>
       <p><code class="module"><a href="../mod/mod_cache_socache.html">mod_cache_socache</a></code> requires the services of
       <code class="module"><a href="../mod/mod_cache.html">mod_cache</a></code>, which must be loaded before
-      mod_cache_socache.</p>
+      <code class="module"><a href="../mod/mod_cache_socache.html">mod_cache_socache</a></code>.</p>
     </div>
 </div>
-<div id="quickview"><h3 class="directives">Directives</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3 class="directives">Directives</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#cachesocache">CacheSocache</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#cachesocachemaxsize">CacheSocacheMaxSize</a></li>
@@ -200,7 +200,7 @@ cache</td></tr>
     <p>This directive only takes effect when the data is being saved to the
     cache, as opposed to data being served from the cache.</p>
 
-    <pre class="prettyprint lang-config">CacheReadSize 102400</pre>
+    <pre class="prettyprint lang-config">CacheSocacheReadSize 102400</pre>
 
 
 </div>
@@ -257,7 +257,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_cache_socach
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -30,6 +30,12 @@
 
 #import "InjectedBundleNodeHandle.h"
 #import "WKWebProcessPlugInFrameInternal.h"
+#import <WebCore/DataDetection.h>
+#import <WebCore/Range.h>
+
+#if ENABLE(DATA_DETECTION)
+#import "WKDataDetectorTypesInternal.h"
+#endif
 
 using namespace WebKit;
 
@@ -58,6 +64,23 @@ using namespace WebKit;
 {
     return [wrapper(*_rangeHandle->document()->documentFrame().leakRef()) autorelease];
 }
+
+- (NSString *)text
+{
+    return _rangeHandle->text();
+}
+
+#if TARGET_OS_IPHONE
+- (NSArray *)detectDataWithTypes:(WKDataDetectorTypes)types context:(NSDictionary *)context WK_API_AVAILABLE(ios(WK_IOS_TBA))
+{
+#if ENABLE(DATA_DETECTION)
+    RefPtr<WebCore::Range> coreRange = &_rangeHandle->coreRange();
+    return WebCore::DataDetection::detectContentInRange(coreRange, fromWKDataDetectorTypes(types), context);
+#else
+    return nil;
+#endif
+}
+#endif
 
 - (InjectedBundleRangeHandle&)_rangeHandle
 {

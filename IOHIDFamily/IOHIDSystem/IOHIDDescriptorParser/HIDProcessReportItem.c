@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -115,7 +115,7 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 		// Determine the maximum signed value for a given report size.
 		// (Don't allow shifting into sign bit.)
 		SInt32 posSize = (ptReportItem->globals.reportSize >= 32) ? 
-						31 : ptReportItem->globals.reportSize;
+						31 : (SInt32)ptReportItem->globals.reportSize;
 		SInt32 realMax = (SInt32) ((1ull<<posSize) - 1);
 		
 		if (ptReportItem->globals.logicalMinimum > realMax)
@@ -187,7 +187,7 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 */
 
 	ptReport = &ptPreparsedData->reports[ptReportItem->globals.reportIndex];
-	iBits = ptReportItem->globals.reportSize * ptReportItem->globals.reportCount;
+	iBits = (int)(ptReportItem->globals.reportSize * ptReportItem->globals.reportCount);
 	switch (ptDescriptor->item.tag)
 	{
 		case kHIDTagFeature:

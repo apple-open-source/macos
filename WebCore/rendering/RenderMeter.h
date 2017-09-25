@@ -23,7 +23,6 @@
 #if ENABLE(METER_ELEMENT)
 
 #include "RenderBlockFlow.h"
-#include "RenderWidget.h"
 
 namespace WebCore {
 
@@ -43,7 +42,6 @@ private:
 
     const char* renderName() const override { return "RenderMeter"; }
     bool isMeter() const override { return true; }
-    bool requiresForcedStyleRecalcPropagation() const override { return true; }
 };
 
 } // namespace WebCore

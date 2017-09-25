@@ -1537,7 +1537,7 @@ _krb5_srp_create(const struct _krb5_srp_group *group)
 {
     const struct ccdigest_info *di = group->di();
     ccsrp_const_gp_t gp = group->gp();
-    ccsrp_ctx * srp;
+    struct ccsrp_ctx * srp;
     
     srp = malloc(ccsrp_sizeof_srp(di, gp));
     if (srp == NULL)
@@ -1558,7 +1558,7 @@ _krb5_srp_create_pa(krb5_context context,
 {
     krb5_error_code ret;
     char *username;
-    ccsrp_ctx *srpctx;
+    struct ccsrp_ctx *srpctx;
     krb5_data key;
 
     ret = krb5_data_alloc(verifier, _krb5_srp_pkisize(group));
@@ -1589,7 +1589,7 @@ _krb5_srp_create_pa(krb5_context context,
 	return ret;
     }
     
-    srpctx = (ccsrp_ctx *)_krb5_srp_create(group);
+    srpctx = (struct ccsrp_ctx *)_krb5_srp_create(group);
     if (srpctx == NULL) {
 	krb5_data_free(verifier);
 	krb5_data_free(&key);
@@ -1656,7 +1656,7 @@ enum KRB5_SRP_STATE {
 typedef struct srp_state_data {
     enum KRB5_SRP_STATE state;
     const struct _krb5_srp_group *group;
-    ccsrp_ctx *srp;
+    struct ccsrp_ctx *srp;
     size_t keylength;
     size_t pkilength;
     krb5_data key;
@@ -1736,7 +1736,7 @@ srp_step(krb5_context context, krb5_init_creds_context ctx, void *pa_ctx, PA_DAT
 	    return HEIM_ERR_PA_CANT_CONTINUE;
 	}
 
-	state->srp = (ccsrp_ctx *)_krb5_srp_create(state->group);
+	state->srp = (struct ccsrp_ctx *)_krb5_srp_create(state->group);
 	if (state->srp == NULL) {
 	    state->state = KRB5_SRP_STATE_DONE;
 	    free_KRB5_SRP_PA_ANNOUNCE(&sa);

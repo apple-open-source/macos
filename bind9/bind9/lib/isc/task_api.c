@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2010, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009-2012, 2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -99,6 +99,20 @@ isc_taskmgr_destroy(isc_taskmgr_t **managerp) {
 	ENSURE(*managerp == NULL);
 }
 
+void
+isc_taskmgr_setmode(isc_taskmgr_t *manager, isc_taskmgrmode_t mode) {
+	REQUIRE(ISCAPI_TASKMGR_VALID(manager));
+
+	manager->methods->setmode(manager, mode);
+}
+
+isc_taskmgrmode_t
+isc_taskmgr_mode(isc_taskmgr_t *manager) {
+	REQUIRE(ISCAPI_TASKMGR_VALID(manager));
+
+	return (manager->methods->mode(manager));
+}
+
 isc_result_t
 isc_task_create(isc_taskmgr_t *manager, unsigned int quantum,
 		isc_task_t **taskp)
@@ -158,7 +172,7 @@ isc_task_unsend(isc_task_t *task, void *sender, isc_eventtype_t type,
 }
 
 isc_result_t
-isc_task_onshutdown(isc_task_t *task, isc_taskaction_t action, const void *arg)
+isc_task_onshutdown(isc_task_t *task, isc_taskaction_t action, void *arg)
 {
 	REQUIRE(ISCAPI_TASK_VALID(task));
 
@@ -187,6 +201,17 @@ isc_task_purge(isc_task_t *task, void *sender, isc_eventtype_t type, void *tag)
 	return (task->methods->purgeevents(task, sender, type, tag));
 }
 
+void
+isc_taskmgr_setexcltask(isc_taskmgr_t *mgr, isc_task_t *task) {
+	REQUIRE(ISCAPI_TASK_VALID(task));
+	mgr->methods->setexcltask(mgr, task);
+}
+
+isc_result_t
+isc_taskmgr_excltask(isc_taskmgr_t *mgr, isc_task_t **taskp) {
+	return (mgr->methods->excltask(mgr, taskp));
+}
+
 isc_result_t
 isc_task_beginexclusive(isc_task_t *task) {
 	REQUIRE(ISCAPI_TASK_VALID(task));
@@ -199,6 +224,20 @@ isc_task_endexclusive(isc_task_t *task) {
 	REQUIRE(ISCAPI_TASK_VALID(task));
 
 	task->methods->endexclusive(task);
+}
+
+void
+isc_task_setprivilege(isc_task_t *task, isc_boolean_t priv) {
+	REQUIRE(ISCAPI_TASK_VALID(task));
+
+	task->methods->setprivilege(task, priv);
+}
+
+isc_boolean_t
+isc_task_privilege(isc_task_t *task) {
+	REQUIRE(ISCAPI_TASK_VALID(task));
+
+	return (task->methods->privilege(task));
 }
 
 

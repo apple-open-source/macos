@@ -1,4 +1,5 @@
 #include "c++utils.h"
+#include "SecCFRelease.h"
 
 using namespace std;
 
@@ -41,7 +42,7 @@ CFTypeRefHolder::~CFTypeRefHolder()
 {
 	if (mTypeRef != NULL)
 	{
-		CFRelease(mTypeRef);
+		CFReleaseNull(mTypeRef);
 	}
 }
 
@@ -51,7 +52,7 @@ void CFTypeRefHolder::Set(CFTypeRef typeRef)
 {
 	if (mTypeRef != NULL)
 	{
-		CFRelease(mTypeRef);
+		CFReleaseNull(mTypeRef);
 	}
 	
 	mTypeRef = typeRef;

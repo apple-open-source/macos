@@ -25,7 +25,7 @@
 #include "keychain_regressions.h"
 #include "kc-helpers.h"
 #include "kc-keychain-file-helpers.h"
-#include "test/testenv.h"
+#include "regressions/test/testenv.h"
 //
 //  testKeychainXattrs.c
 //

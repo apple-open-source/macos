@@ -737,6 +737,9 @@
 /* Define to 1 if you have the <linux/seccomp.h> header file. */
 /* #undef HAVE_LINUX_SECCOMP_H */
 
+/* Define to 1 if you have the `llabs' function. */
+#define HAVE_LLABS 1
+
 /* Define to 1 if you have the <locale.h> header file. */
 #define HAVE_LOCALE_H 1
 

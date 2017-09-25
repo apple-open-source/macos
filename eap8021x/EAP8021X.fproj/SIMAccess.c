@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2012-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,12 @@ SIMAuthenticateAKA(CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results)
 {
     AKAAuthResultsInit(results);
     return (false);
+}
+
+PRIVATE_EXTERN void
+SIMReportDecryptionError(CFDataRef encryptedIdentity)
+{
+    return;
 }
 
 #endif /* ! TARGET_OS_EMBEDDED */

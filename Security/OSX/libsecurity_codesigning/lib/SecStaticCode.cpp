@@ -121,6 +121,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSCheckGatekeeperArchitectures
 		| kSecCSRestrictSymlinks
 		| kSecCSRestrictToAppLike
+        | kSecCSUseSoftwareSigningCert
 	);
 
 	if (errors)
@@ -131,6 +132,20 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 	const SecRequirement *req = SecRequirement::optional(requirementRef);
 	DTRACK(CODESIGN_EVAL_STATIC, code, (char*)code->mainExecutablePath().c_str());
 	code->staticValidate(flags, req);
+
+#if TARGET_OS_IPHONE
+    // Everything checked out correctly but we need to make sure that when
+    // we validated the code directory, we trusted the signer.  We defer this
+    // until now because the caller may still trust the signer via a
+    // provisioning profile so if we prematurely throw an error when validating
+    // the directory, we potentially skip resource validation even though the
+    // caller will go on to trust the signature
+    // <rdar://problem/6075501> Applications that are validated against a provisioning profile do not have their resources checked
+    if (code->trustedSigningCertChain() == false) {
+        return CSError::cfError(errors, errSecCSSignatureUntrusted);
+    }
+#endif
+
 
 	END_CSAPI_ERRORS
 }
@@ -222,7 +237,7 @@ OSStatus SecCodeMapMemory(SecStaticCodeRef codeRef, SecCSFlags flags)
 	checkFlags(flags);
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);
 	if (const CodeDirectory *cd = code->codeDirectory(false)) {
-		fsignatures args = { code->diskRep()->signingBase(), (void *)cd, cd->length() };
+		fsignatures args = { static_cast<off_t>(code->diskRep()->signingBase()), (void *)cd, cd->length() };
 		UnixError::check(::fcntl(code->diskRep()->fd(), F_ADDSIGS, &args));
 	} else
 		MacOSError::throwMe(errSecCSUnsigned);

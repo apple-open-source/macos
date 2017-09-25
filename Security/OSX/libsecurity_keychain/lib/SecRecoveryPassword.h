@@ -62,7 +62,7 @@ extern CFStringRef kSecRecVersionNumber,
                 kSecRecWrappedPassword - the wrapped password bytes (base64)
  */
     
-CFDictionaryRef
+CFDictionaryRef CF_RETURNS_RETAINED
 SecWrapRecoveryPasswordWithAnswers(CFStringRef password, CFArrayRef questions, CFArrayRef answers)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA); 
 
@@ -78,7 +78,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
      
 */
 
-CFStringRef
+CFStringRef CF_RETURNS_RETAINED
 SecUnwrapRecoveryPasswordWithAnswers(CFDictionaryRef recref, CFArrayRef answers)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA); 
 

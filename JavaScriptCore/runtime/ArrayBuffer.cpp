@@ -248,6 +248,7 @@ RefPtr<ArrayBuffer> ArrayBuffer::tryCreate(unsigned numElements, unsigned elemen
 ArrayBuffer::ArrayBuffer(ArrayBufferContents&& contents)
     : m_contents(WTFMove(contents))
     , m_pinCount(0)
+    , m_isWasmMemory(false)
     , m_locked(false)
 {
 }
@@ -273,6 +274,13 @@ RefPtr<ArrayBuffer> ArrayBuffer::sliceImpl(unsigned begin, unsigned end) const
 void ArrayBuffer::makeShared()
 {
     m_contents.makeShared();
+    m_locked = true;
+}
+
+void ArrayBuffer::makeWasmMemory()
+{
+    m_locked = true;
+    m_isWasmMemory = true;
 }
 
 void ArrayBuffer::setSharingMode(ArrayBufferSharingMode newSharingMode)
@@ -284,7 +292,18 @@ void ArrayBuffer::setSharingMode(ArrayBufferSharingMode newSharingMode)
     makeShared();
 }
 
-bool ArrayBuffer::transferTo(ArrayBufferContents& result)
+bool ArrayBuffer::shareWith(ArrayBufferContents& result)
+{
+    if (!m_contents.m_data || !isShared()) {
+        result.m_data = nullptr;
+        return false;
+    }
+    
+    m_contents.shareWith(result);
+    return true;
+}
+
+bool ArrayBuffer::transferTo(VM& vm, ArrayBufferContents& result)
 {
     Ref<ArrayBuffer> protect(*this);
 
@@ -308,25 +327,38 @@ bool ArrayBuffer::transferTo(ArrayBufferContents& result)
     }
 
     m_contents.transferTo(result);
-    for (size_t i = numberOfIncomingReferences(); i--;) {
-        JSCell* cell = incomingReferenceAt(i);
-        if (JSArrayBufferView* view = jsDynamicCast<JSArrayBufferView*>(cell))
-            view->neuter();
-        else if (ArrayBufferNeuteringWatchpoint* watchpoint = jsDynamicCast<ArrayBufferNeuteringWatchpoint*>(cell))
-            watchpoint->fireAll();
-    }
+    notifyIncommingReferencesOfTransfer(vm);
     return true;
 }
 
-bool ArrayBuffer::shareWith(ArrayBufferContents& result)
+// We allow neutering wasm memory ArrayBuffers even though they are locked.
+void ArrayBuffer::neuter(VM& vm)
 {
-    if (!m_contents.m_data || !isShared()) {
-        result.m_data = nullptr;
-        return false;
+    ASSERT(isWasmMemory());
+    ArrayBufferContents unused;
+    m_contents.transferTo(unused);
+    notifyIncommingReferencesOfTransfer(vm);
+}
+
+void ArrayBuffer::notifyIncommingReferencesOfTransfer(VM& vm)
+{
+    for (size_t i = numberOfIncomingReferences(); i--;) {
+        JSCell* cell = incomingReferenceAt(i);
+        if (JSArrayBufferView* view = jsDynamicCast<JSArrayBufferView*>(vm, cell))
+            view->neuter();
+        else if (ArrayBufferNeuteringWatchpoint* watchpoint = jsDynamicCast<ArrayBufferNeuteringWatchpoint*>(vm, cell))
+            watchpoint->fireAll();
     }
-    
-    m_contents.shareWith(result);
-    return true;
+}
+
+ASCIILiteral errorMesasgeForTransfer(ArrayBuffer* buffer)
+{
+    ASSERT(buffer->isLocked());
+    if (buffer->isShared())
+        return ASCIILiteral("Cannot transfer a SharedArrayBuffer");
+    if (buffer->isWasmMemory())
+        return ASCIILiteral("Cannot transfer a WebAssembly.Memory");
+    return ASCIILiteral("Cannot transfer an ArrayBuffer whose backing store has been accessed by the JavaScriptCore C API");
 }
 
 } // namespace JSC

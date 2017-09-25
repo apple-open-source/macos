@@ -23,22 +23,27 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebCookieManager_h
-#define WebCookieManager_h
+#pragma once
 
+#include "CallbackID.h"
 #include "HTTPCookieAcceptPolicy.h"
 #include "MessageReceiver.h"
 #include "NetworkProcessSupplement.h"
+#include "OptionalCallbackID.h"
 #include "WebProcessSupplement.h"
+#include <WebCore/SessionID.h>
+#include <chrono>
 #include <stdint.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/Vector.h>
 
 #if USE(SOUP)
 #include "SoupCookiePersistentStorageType.h"
 #endif
 
 namespace WebCore {
+class URL;
 struct Cookie;
 }
 
@@ -53,35 +58,38 @@ public:
 
     static const char* supplementName();
 
-    void setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
+    void setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy, OptionalCallbackID);
+
 #if USE(SOUP)
     void setCookiePersistentStorage(const String& storagePath, uint32_t storageType);
 #endif
+
+    void notifyCookiesDidChange(WebCore::SessionID);
 
 private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
-    void getHostnamesWithCookies(uint64_t callbackID);
-    void deleteCookiesForHostname(const String&);
-    void deleteAllCookies();
-    void deleteAllCookiesModifiedSince(std::chrono::system_clock::time_point);
-    void addCookie(const WebCore::Cookie&, const String& hostname);
+    void getHostnamesWithCookies(WebCore::SessionID, CallbackID);
+
+    void deleteCookie(WebCore::SessionID, const WebCore::Cookie&, CallbackID);
+    void deleteCookiesForHostname(WebCore::SessionID, const String&);
+    void deleteAllCookies(WebCore::SessionID);
+    void deleteAllCookiesModifiedSince(WebCore::SessionID, std::chrono::system_clock::time_point, CallbackID);
+
+    void setCookie(WebCore::SessionID, const WebCore::Cookie&, CallbackID);
+    void setCookies(WebCore::SessionID, const Vector<WebCore::Cookie>&, const WebCore::URL&, const WebCore::URL& mainDocumentURL, CallbackID);
+    void getAllCookies(WebCore::SessionID, CallbackID);
+    void getCookies(WebCore::SessionID, const WebCore::URL&, CallbackID);
 
     void platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
-    void getHTTPCookieAcceptPolicy(uint64_t callbackID);
+    void getHTTPCookieAcceptPolicy(CallbackID);
     HTTPCookieAcceptPolicy platformGetHTTPCookieAcceptPolicy();
 
-    void startObservingCookieChanges();
-    void stopObservingCookieChanges();
-
-    static void cookiesDidChange();
-    void dispatchCookiesDidChange();
-
+    void startObservingCookieChanges(WebCore::SessionID);
+    void stopObservingCookieChanges(WebCore::SessionID);
 
     ChildProcess* m_process;
 };
 
 } // namespace WebKit
-
-#endif // WebCookieManager_h

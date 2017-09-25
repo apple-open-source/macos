@@ -149,6 +149,7 @@ bool Requirement::Interpreter::eval(int depth)
 			Match match(*this);
 			return certFieldValue(key, match, cert);
 		}
+#if TARGET_OS_OSX
 	case opCertGeneric:
 		{
 			SecCertificateRef cert = mContext->cert(get<int32_t>());
@@ -163,6 +164,7 @@ bool Requirement::Interpreter::eval(int depth)
 			Match match(*this);
 			return certFieldPolicy(key, match, cert);
 		}
+#endif
 	case opTrustedCert:
 		return trustedCert(get<int32_t>());
 	case opTrustedCerts:
@@ -222,6 +224,8 @@ bool Requirement::Interpreter::entitlementValue(const string &key, const Match &
 
 bool Requirement::Interpreter::certFieldValue(const string &key, const Match &match, SecCertificateRef cert)
 {
+// XXX: Not supported on embedded yet due to lack of supporting API
+#if TARGET_OS_OSX
 	// no cert, no chance
 	if (cert == NULL)
 		return false;
@@ -273,10 +277,11 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 
 	// unrecognized key. Fail but do not abort to promote backward compatibility down the road
 	secinfo("csinterp", "cert field notation \"%s\" not understood", key.c_str());
+#endif
 	return false;
 }
 
-	
+#if TARGET_OS_OSX
 bool Requirement::Interpreter::certFieldGeneric(const string &key, const Match &match, SecCertificateRef cert)
 {
 	// the key is actually a (binary) OID value
@@ -300,7 +305,7 @@ bool Requirement::Interpreter::certFieldPolicy(const CssmOid &oid, const Match &
 {
 	return cert && certificateHasPolicy(cert, oid) && match(kCFBooleanTrue);
 }
-
+#endif
 
 //
 // Check the Apple-signed condition
@@ -406,12 +411,16 @@ bool Requirement::Interpreter::verifyAnchor(SecCertificateRef cert, const unsign
 {
 	// get certificate bytes
 	if (cert) {
+        SHA1 hasher;
+#if TARGET_OS_OSX
 		CSSM_DATA certData;
 		MacOSError::check(SecCertificateGetData(cert, &certData));
 		
 		// verify hash
-		SHA1 hasher;
 		hasher(certData.Data, certData.Length);
+#else
+        hasher(SecCertificateGetBytePtr(cert), SecCertificateGetLength(cert));
+#endif
 		return hasher.verify(digest);
 	}
 	return false;
@@ -469,6 +478,8 @@ bool Requirement::Interpreter::trustedCert(int slot)
 //
 SecTrustSettingsResult Requirement::Interpreter::trustSetting(SecCertificateRef cert, bool isAnchor)
 {
+    // XXX: Not supported on embedded yet due to lack of supporting API
+#if TARGET_OS_OSX
 	// the SPI input is the uppercase hex form of the SHA-1 of the certificate...
 	assert(cert);
 	SHA1::Digest digest;
@@ -506,6 +517,9 @@ SecTrustSettingsResult Requirement::Interpreter::trustSetting(SecCertificateRef 
 		::free(errors);
 		MacOSError::throwMe(rc);
 	}
+#else
+    return kSecTrustSettingsResultUnspecified;
+#endif
 }
 
 

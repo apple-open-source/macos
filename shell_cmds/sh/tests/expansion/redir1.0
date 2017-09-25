@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/expansion/redir1.0 273920 2014-10-31 22:28:10Z jilles $
 
 bad=0
 for i in 0 1 2 3; do

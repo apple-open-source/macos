@@ -81,21 +81,12 @@ typedef enum {
 } h2_push_policy;
 
 typedef enum {
-    H2_STREAM_ST_IDLE,
-    H2_STREAM_ST_OPEN,
-    H2_STREAM_ST_RESV_LOCAL,
-    H2_STREAM_ST_RESV_REMOTE,
-    H2_STREAM_ST_CLOSED_INPUT,
-    H2_STREAM_ST_CLOSED_OUTPUT,
-    H2_STREAM_ST_CLOSED,
-} h2_stream_state_t;
-
-typedef enum {
     H2_SESSION_ST_INIT,             /* send initial SETTINGS, etc. */
     H2_SESSION_ST_DONE,             /* finished, connection close */
     H2_SESSION_ST_IDLE,             /* nothing to write, expecting data inc */
     H2_SESSION_ST_BUSY,             /* read/write without stop */
     H2_SESSION_ST_WAIT,             /* waiting for tasks reporting back */
+    H2_SESSION_ST_CLEANUP,          /* pool is being cleaned up */
 } h2_session_state;
 
 typedef struct h2_session_props {
@@ -107,6 +98,26 @@ typedef struct h2_session_props {
     unsigned int accepting : 1;     /* if the session is accepting new streams */
     unsigned int shutdown : 1;      /* if the final GOAWAY has been sent */
 } h2_session_props;
+
+typedef enum h2_stream_state_t {
+    H2_SS_IDLE,
+    H2_SS_RSVD_R,
+    H2_SS_RSVD_L,
+    H2_SS_OPEN,
+    H2_SS_CLOSED_R,
+    H2_SS_CLOSED_L,
+    H2_SS_CLOSED,
+    H2_SS_CLEANUP,
+    H2_SS_MAX
+} h2_stream_state_t;
+
+typedef enum {
+    H2_SEV_CLOSED_L,
+    H2_SEV_CLOSED_R,
+    H2_SEV_CANCELLED,
+    H2_SEV_EOS_SENT,
+    H2_SEV_IN_DATA_PENDING,
+} h2_stream_event_t;
 
 
 /* h2_request is the transformer of HTTP2 streams into HTTP/1.1 internal
@@ -143,5 +154,7 @@ typedef int h2_stream_pri_cmp(int stream_id1, int stream_id2, void *ctx);
 
 #define H2_TASK_ID_NOTE         "http2-task-id"
 #define H2_FILTER_DEBUG_NOTE    "http2-debug"
+#define H2_HDR_CONFORMANCE      "http2-hdr-conformance"
+#define H2_HDR_CONFORMANCE_UNSAFE      "unsafe"
 
 #endif /* defined(__mod_h2__h2__) */

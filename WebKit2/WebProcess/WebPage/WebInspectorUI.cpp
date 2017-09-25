@@ -138,6 +138,11 @@ void WebInspectorUI::closeWindow()
     m_underTest = false;
 }
 
+WebCore::UserInterfaceLayoutDirection WebInspectorUI::userInterfaceLayoutDirection() const
+{
+    return m_page.corePage()->userInterfaceLayoutDirection();
+}
+
 void WebInspectorUI::requestSetDockSide(DockSide side)
 {
     auto& webProcess = WebProcess::singleton();
@@ -147,6 +152,9 @@ void WebInspectorUI::requestSetDockSide(DockSide side)
         break;
     case DockSide::Right:
         webProcess.parentProcessConnection()->send(Messages::WebInspectorProxy::AttachRight(), m_inspectedPageIdentifier);
+        break;
+    case DockSide::Left:
+        webProcess.parentProcessConnection()->send(Messages::WebInspectorProxy::AttachLeft(), m_inspectedPageIdentifier);
         break;
     case DockSide::Bottom:
         webProcess.parentProcessConnection()->send(Messages::WebInspectorProxy::AttachBottom(), m_inspectedPageIdentifier);
@@ -165,6 +173,10 @@ void WebInspectorUI::setDockSide(DockSide side)
 
     case DockSide::Right:
         sideString = "right";
+        break;
+
+    case DockSide::Left:
+        sideString = "left";
         break;
 
     case DockSide::Bottom:

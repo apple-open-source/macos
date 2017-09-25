@@ -1,0 +1,26 @@
+
+#include "xcconfig/PlatformLibraries.xcconfig"
+
+PLATFORM_STR = "unknown"
+PLATFORM_STR[sdk=macosx*] = "macos"
+PLATFORM_STR[sdk=iphoneos*] = "iphone"
+PLATFORM_STR[sdk=watchos*] = "watch"
+PLATFORM_STR[sdk=appletvos*] = "tv"
+
+// Octagon is on for the mac and non-bridge non-horizon iphones
+OCTAGON_ON=0
+OCTAGON_ON[sdk=macosx*]=1
+
+// HORIZON Will be either "unset" (horizon on) or "0" (horizon off)
+HORIZON_INTERMEDIATE_ = 0
+HORIZON = $(HORIZON_INTERMEDIATE_$(RC_HORIZON))
+
+// If horizon is off, OCTAGON should be ON
+OCTAGON_ON_IOS_HORIZON_0 = 1
+OCTAGON_ON_IOS_HORIZON_ = 0
+
+OCTAGON_ON_IOS_BRIDGE_NO = $(OCTAGON_ON_IOS_HORIZON_$(HORIZON))
+OCTAGON_ON_IOS_BRIDGE_YES = 0
+OCTAGON_ON[sdk=iphone*] = $(OCTAGON_ON_IOS_BRIDGE_$(BRIDGE))
+OCTAGON_ON[sdk=watch*] = 0
+OCTAGON_ON[sdk=appletv*] = 0

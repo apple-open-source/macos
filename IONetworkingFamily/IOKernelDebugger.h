@@ -176,7 +176,7 @@ protected:
 /*! @function free
     @abstract Frees the IOKernelDebugger instance. */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 /*! @function nullTxHandler
     @abstract Null transmit handler.
@@ -263,7 +263,7 @@ protected:
 
     virtual IOReturn powerStateWillChangeTo( IOPMPowerFlags  flags,
                                              unsigned long   stateNumber,
-                                             IOService *     policyMaker );
+                                             IOService *     policyMaker ) APPLE_KEXT_OVERRIDE;
 
 /*! @function powerStateDidChangeTo
     @abstract Handles notification that the network controller did change
@@ -283,7 +283,7 @@ protected:
 
     virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags  flags,
                                             unsigned long   stateNumber,
-                                            IOService *     policyMaker );
+                                            IOService *     policyMaker ) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleOpen
     @abstract Handles a client open.
@@ -297,7 +297,7 @@ protected:
 
     virtual bool handleOpen( IOService *    forClient,
                              IOOptionBits   options,
-                             void *         arg );
+                             void *         arg ) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleClose
     @abstract Handles a client close.
@@ -308,7 +308,7 @@ protected:
 */
 
     virtual void handleClose( IOService *   forClient,
-                              IOOptionBits  options );
+                              IOOptionBits  options ) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleIsOpen
     @abstract Queries whether a client has an open on this object.
@@ -318,7 +318,7 @@ protected:
     specified, presently has an open on this object. 
 */
 
-    virtual bool handleIsOpen( const IOService * forClient ) const;
+    virtual bool handleIsOpen( const IOService * forClient ) const APPLE_KEXT_OVERRIDE;
 
 	static bool interfacePublished(
         void *target, void *param, IOService *service, IONotifier *notifier );
@@ -380,7 +380,7 @@ public:
      * Entry point for generic messages delivered from the provider.
      */
 
-    virtual IOReturn message( UInt32 type, IOService * provider, void * arg );
+    virtual IOReturn message( UInt32 type, IOService * provider, void * arg ) APPLE_KEXT_OVERRIDE;
 
 /*! @function signalDebugger
     @abstract Signal the kernel to enter the debugger when safe.

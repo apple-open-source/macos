@@ -121,9 +121,8 @@ file_trymacho(struct magic_set *ms, int fd, const unsigned char *buf,
 			return -1;
 		}
 
-		tmpbuf = malloc(HOWMANY + 1);
-		memset(tmpbuf, 0, sizeof(tmpbuf));
-		if ((tbytes = read(fd, tmpbuf, HOWMANY)) == -1) {
+		tmpbuf = calloc(1,ms->bytes_max + 1);
+		if ((tbytes = read(fd, tmpbuf, ms->bytes_max)) == -1) {
 			free(fat_archs);
 			free(tmpbuf);
 			return -1;

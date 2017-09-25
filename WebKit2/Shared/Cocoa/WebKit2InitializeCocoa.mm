@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,25 +26,48 @@
 #import "config.h"
 #import "WebKit2Initialize.h"
 
-#import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/URLParser.h>
+#import "LogInitialization.h"
+#import "WebSystemInterface.h"
+#import <WebCore/LogInitialization.h>
+#import <mutex>
+#import <runtime/InitializeThreading.h>
+#import <wtf/MainThread.h>
+#import <wtf/RunLoop.h>
 
-using namespace WebCore;
+#if PLATFORM(IOS)
+#import <WebCore/WebCoreThreadSystemInterface.h>
+#endif
 
 namespace WebKit {
 
-void platformInitializeWebKit2(ProcessType processType)
+static std::once_flag flag;
+
+static void runInitializationCode(void* = nullptr)
 {
-    static dispatch_once_t initOnce;
-    
-    // We don't want to use NSUserDefaults in the child processes.
-    if (processType == UIProcess) {
-        dispatch_once(&initOnce, ^ {
-            NSString *key = @"URLParserEnabled";
-            if ([[NSUserDefaults standardUserDefaults] objectForKey:key])
-                URLParser::setEnabled([[NSUserDefaults standardUserDefaults] boolForKey:key]);
-        });
-    }
+    InitWebCoreSystemInterface();
+#if PLATFORM(IOS)
+    InitWebCoreThreadSystemInterface();
+#endif
+
+    JSC::initializeThreading();
+    RunLoop::initializeMainRunLoop();
+
+#if !LOG_DISABLED || !RELEASE_LOG_DISABLED
+    WebCore::initializeLogChannelsIfNecessary();
+    WebKit::initializeLogChannelsIfNecessary();
+#endif // !LOG_DISABLED || !RELEASE_LOG_DISABLED
+}
+
+void InitializeWebKit2()
+{
+    // Make sure the initialization code is run only once and on the main thread since things like RunLoop::initializeMainRunLoop()
+    // are only safe to call on the main thread.
+    std::call_once(flag, [] {
+        if ([NSThread isMainThread])
+            runInitializationCode();
+        else
+            dispatch_sync_f(dispatch_get_main_queue(), nullptr, runInitializationCode);
+    });
 }
 
 }

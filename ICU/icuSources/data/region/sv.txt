@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/sv.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 sv{
     Countries{
         001{"världen"}
@@ -137,7 +131,7 @@ sv{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong, S.A.R. Kina"}
+        HK{"Hongkong (Kina)"}
         HM{"Heardön och McDonaldöarna"}
         HN{"Honduras"}
         HR{"Kroatien"}
@@ -184,14 +178,14 @@ sv{
         MC{"Monaco"}
         MD{"Moldavien"}
         ME{"Montenegro"}
-        MF{"S:t Martin"}
+        MF{"Saint-Martin"}
         MG{"Madagaskar"}
         MH{"Marshallöarna"}
         MK{"Makedonien"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongoliet"}
-        MO{"Macao, S.A.R. Kina"}
+        MO{"Macao (Kina)"}
         MP{"Nordmarianerna"}
         MQ{"Martinique"}
         MR{"Mauretanien"}
@@ -278,6 +272,7 @@ sv{
         UA{"Ukraina"}
         UG{"Uganda"}
         UM{"USA:s yttre öar"}
+        UN{"Förenta Nationerna"}
         US{"USA"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
@@ -303,13 +298,13 @@ sv{
         HK{"Hongkong"}
         MO{"Macao"}
         PS{"Palestina"}
+        UN{"FN"}
         US{"USA"}
     }
     Countries%variant{
         CD{"Demokratiska republiken Kongo"}
         CG{"Republiken Kongo"}
-        FK{"Falklandsöarna (Malvinerna)"}
         MK{"f.d. jugoslaviska republiken Makedonien"}
     }
-    Version{"2.1.23.66"}
+    Version{"2.1.32.59"}
 }

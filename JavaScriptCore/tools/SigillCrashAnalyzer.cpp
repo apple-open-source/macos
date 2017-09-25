@@ -28,6 +28,7 @@
 
 #include "CallFrame.h"
 #include "CodeBlock.h"
+#include "MachineContext.h"
 #include "VMInspector.h"
 #include <mutex>
 #include <wtf/StdLibExtras.h>
@@ -36,9 +37,7 @@
 #include "A64DOpcode.h"
 #endif
 
-#if HAVE(SIGNAL_H)
-#include <signal.h>
-#endif
+#include <wtf/threads/Signals.h>
 
 namespace JSC {
 
@@ -47,7 +46,13 @@ struct SignalContext;
 class SigillCrashAnalyzer {
 public:
     static SigillCrashAnalyzer& instance();
-    void analyze(SignalContext&);
+
+    enum class CrashSource {
+        Unknown,
+        JavaScriptCore,
+        Other,
+    };
+    CrashSource analyze(SignalContext&);
 
 private:
     SigillCrashAnalyzer() { }
@@ -72,17 +77,17 @@ private:
     
 #endif // USE(OS_LOG)
 
-#if CPU(X86_64)
 struct SignalContext {
-    SignalContext(mcontext_t& mcontext)
-        : mcontext(mcontext)
-        , machinePC(reinterpret_cast<void*>(mcontext->__ss.__rip))
-        , stackPointer(reinterpret_cast<void*>(mcontext->__ss.__rsp))
-        , framePointer(reinterpret_cast<CallFrame*>(mcontext->__ss.__rbp))
+    SignalContext(PlatformRegisters& registers)
+        : registers(registers)
+        , machinePC(MachineContext::instructionPointer(registers))
+        , stackPointer(MachineContext::stackPointer(registers))
+        , framePointer(MachineContext::framePointer(registers))
     { }
 
     void dump()
     {
+#if CPU(X86_64)
 #define FOR_EACH_REGISTER(v) \
         v(rax) \
         v(rbx) \
@@ -107,85 +112,46 @@ struct SignalContext {
         v(gs)
 
 #define DUMP_REGISTER(__reg) \
-        log("Register " #__reg ": %p", reinterpret_cast<void*>(mcontext->__ss.__##__reg));
+        log("Register " #__reg ": %p", reinterpret_cast<void*>(registers.__##__reg));
         FOR_EACH_REGISTER(DUMP_REGISTER)
 #undef FOR_EACH_REGISTER
-    }
-
-    mcontext_t& mcontext;
-    void* machinePC;
-    void* stackPointer;
-    void* framePointer;
-};
 
 #elif CPU(ARM64)
-
-struct SignalContext {
-    SignalContext(mcontext_t& mcontext)
-        : mcontext(mcontext)
-        , machinePC(reinterpret_cast<void*>(mcontext->__ss.__pc))
-        , stackPointer(reinterpret_cast<void*>(mcontext->__ss.__sp))
-        , framePointer(reinterpret_cast<CallFrame*>(mcontext->__ss.__fp))
-    { }
-
-    void dump()
-    {
         int i;
         for (i = 0; i < 28; i += 4) {
             log("x%d: %016llx x%d: %016llx x%d: %016llx x%d: %016llx",
-                i, mcontext->__ss.__x[i],
-                i+1, mcontext->__ss.__x[i+1],
-                i+2, mcontext->__ss.__x[i+2],
-                i+3, mcontext->__ss.__x[i+3]);
+                i, registers.__x[i],
+                i+1, registers.__x[i+1],
+                i+2, registers.__x[i+2],
+                i+3, registers.__x[i+3]);
         }
         ASSERT(i < 29);
         log("x%d: %016llx fp: %016llx lr: %016llx",
-            i, mcontext->__ss.__x[i], mcontext->__ss.__fp, mcontext->__ss.__lr);
+            i, registers.__x[i], registers.__fp, registers.__lr);
         log("sp: %016llx pc: %016llx cpsr: %08x",
-            mcontext->__ss.__sp, mcontext->__ss.__pc, mcontext->__ss.__cpsr);
+            registers.__sp, registers.__pc, registers.__cpsr);
+#endif
     }
 
-    mcontext_t& mcontext;
+    PlatformRegisters& registers;
     void* machinePC;
     void* stackPointer;
     void* framePointer;
 };
-
-#else
-
-struct SignalContext {
-    SignalContext(mcontext_t&) { }
-    
-    void dump() { }
-    
-    void* machinePC;
-    void* stackPointer;
-    void* framePointer;
-};
-    
-#endif
-
-struct sigaction oldSigIllAction;
-
-static void handleCrash(int, siginfo_t*, void* uap)
-{
-    sigaction(SIGILL, &oldSigIllAction, nullptr);
-
-    SignalContext context(static_cast<ucontext_t*>(uap)->uc_mcontext);
-    SigillCrashAnalyzer& analyzer = SigillCrashAnalyzer::instance();
-    analyzer.analyze(context);
-}
 
 static void installCrashHandler()
 {
 #if CPU(X86_64) || CPU(ARM64)
-    struct sigaction action;
-    action.sa_sigaction = reinterpret_cast<void (*)(int, siginfo_t *, void *)>(handleCrash);
-    sigfillset(&action.sa_mask);
-    action.sa_flags = SA_SIGINFO;
-    sigaction(SIGILL, &action, &oldSigIllAction);
-#else
-    UNUSED_PARAM(handleCrash);
+    installSignalHandler(Signal::Ill, [] (Signal, SigInfo&, PlatformRegisters& registers) {
+        SignalContext context(registers);
+
+        if (!isJITPC(context.machinePC))
+            return SignalAction::NotHandled;
+
+        SigillCrashAnalyzer& analyzer = SigillCrashAnalyzer::instance();
+        analyzer.analyze(context);
+        return SignalAction::NotHandled;
+    });
 #endif
 }
 
@@ -227,11 +193,12 @@ void enableSigillCrashAnalyzer()
     SigillCrashAnalyzer::instance();
 }
 
-void SigillCrashAnalyzer::analyze(SignalContext& context)
+auto SigillCrashAnalyzer::analyze(SignalContext& context) -> CrashSource
 {
+    CrashSource crashSource = CrashSource::Unknown;
     log("BEGIN SIGILL analysis");
 
-    [&] () {
+    do {
         // First, dump the signal context info so that we'll at least have the same info
         // that the default crash handler would given us in case this crash analyzer
         // itself crashes.
@@ -241,31 +208,33 @@ void SigillCrashAnalyzer::analyze(SignalContext& context)
 
         // Use a timeout period of 2 seconds. The client is about to crash, and we don't
         // want to turn the crash into a hang by re-trying the lock for too long.
-        auto expectedLockToken = inspector.lock(Seconds(2));
-        if (!expectedLockToken) {
-            ASSERT(expectedLockToken.error() == VMInspector::Error::TimedOut);
+        auto expectedLocker = inspector.lock(Seconds(2));
+        if (!expectedLocker) {
+            ASSERT(expectedLocker.error() == VMInspector::Error::TimedOut);
             log("ERROR: Unable to analyze SIGILL. Timed out while waiting to iterate VMs.");
-            return;
+            break;
         }
-        auto lockToken = expectedLockToken.value();
+        auto& locker = expectedLocker.value();
 
         void* pc = context.machinePC;
-        auto isInJITMemory = inspector.isValidExecutableMemory(lockToken, pc);
+        auto isInJITMemory = inspector.isValidExecutableMemory(locker, pc);
         if (!isInJITMemory) {
             log("ERROR: Timed out: not able to determine if pc %p is in valid JIT executable memory", pc);
-            return;
+            break;
         }
         if (!isInJITMemory.value()) {
             log("pc %p is NOT in valid JIT executable memory", pc);
-            return;
+            crashSource = CrashSource::Other;
+            break;
         }
         log("pc %p is in valid JIT executable memory", pc);
+        crashSource = CrashSource::JavaScriptCore;
 
 #if CPU(ARM64)
         size_t pcAsSize = reinterpret_cast<size_t>(pc);
         if (pcAsSize != roundUpToMultipleOf<sizeof(uint32_t)>(pcAsSize)) {
             log("pc %p is NOT properly aligned", pc);
-            return;
+            break;
         }
 
         // We know it's safe to read the word at the PC because we're handling a SIGILL.
@@ -274,31 +243,32 @@ void SigillCrashAnalyzer::analyze(SignalContext& context)
         log("instruction bits at pc %p is: 0x%08x", pc, wordAtPC);
 #endif
 
-        auto expectedCodeBlock = inspector.codeBlockForMachinePC(lockToken, pc);
+        auto expectedCodeBlock = inspector.codeBlockForMachinePC(locker, pc);
         if (!expectedCodeBlock) {
             if (expectedCodeBlock.error() == VMInspector::Error::TimedOut)
                 log("ERROR: Timed out: not able to determine if pc %p is in a valid CodeBlock", pc);
             else
                 log("The current thread does not own any VM JSLock");
-            return;
+            break;
         }
         CodeBlock* codeBlock = expectedCodeBlock.value();
         if (!codeBlock) {
             log("machine PC %p does not belong to any CodeBlock in the currently entered VM", pc);
-            return;
+            break;
         }
 
         log("pc %p belongs to CodeBlock %p of type %s", pc, codeBlock, JITCode::typeName(codeBlock->jitType()));
 
         dumpCodeBlock(codeBlock, pc);
-    } ();
+    } while (false);
 
     log("END SIGILL analysis");
+    return crashSource;
 }
 
 void SigillCrashAnalyzer::dumpCodeBlock(CodeBlock* codeBlock, void* machinePC)
 {
-#if CPU(ARM64)
+#if CPU(ARM64) && ENABLE(JIT)
     JITCode* jitCode = codeBlock->jitCode().get();
 
     // Dump the raw bits of the code.

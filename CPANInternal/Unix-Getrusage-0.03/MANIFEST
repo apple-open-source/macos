@@ -1,9 +1,0 @@
-Changes
-Getrusage.xs
-Makefile.PL
-MANIFEST
-ppport.h
-README
-t/Unix-Getrusage.t
-lib/Unix/Getrusage.pm
-META.yml                                 Module meta-data (added by MakeMaker)

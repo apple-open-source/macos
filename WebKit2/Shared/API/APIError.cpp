@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,9 +34,55 @@ namespace API {
 
 const WTF::String& Error::webKitErrorDomain()
 {
-    static NeverDestroyed<WTF::String> webKitErrorDomainString(ASCIILiteral("WebKitErrorDomain"));
+    static NeverDestroyed<WTF::String> webKitErrorDomainString(MAKE_STATIC_STRING_IMPL("WebKitErrorDomain"));
     return webKitErrorDomainString;
 }
+
+const WTF::String& Error::webKitNetworkErrorDomain()
+{
+#if USE(GLIB)
+    static NeverDestroyed<WTF::String> webKitErrorDomainString(MAKE_STATIC_STRING_IMPL("WebKitNetworkError"));
+    return webKitErrorDomainString;
+#else
+    return webKitErrorDomain();
+#endif
+}
+
+const WTF::String& Error::webKitPolicyErrorDomain()
+{
+#if USE(GLIB)
+    static NeverDestroyed<WTF::String> webKitErrorDomainString(MAKE_STATIC_STRING_IMPL("WebKitPolicyError"));
+    return webKitErrorDomainString;
+#else
+    return webKitErrorDomain();
+#endif
+}
+
+const WTF::String& Error::webKitPluginErrorDomain()
+{
+#if USE(GLIB)
+    static NeverDestroyed<WTF::String> webKitErrorDomainString(MAKE_STATIC_STRING_IMPL("WebKitPluginError"));
+    return webKitErrorDomainString;
+#else
+    return webKitErrorDomain();
+#endif
+}
+
+#if USE(SOUP)
+const WTF::String& Error::webKitDownloadErrorDomain()
+{
+    static NeverDestroyed<WTF::String> webKitErrorDomainString(MAKE_STATIC_STRING_IMPL("WebKitDownloadError"));
+    return webKitErrorDomainString;
+}
+#endif
+
+#if PLATFORM(GTK)
+const WTF::String& Error::webKitPrintErrorDomain()
+{
+    static NeverDestroyed<WTF::String> webKitErrorDomainString(MAKE_STATIC_STRING_IMPL("WebKitPrintError"));
+    return webKitErrorDomainString;
+}
+#endif
 
 void Error::encode(IPC::Encoder& encoder) const
 {

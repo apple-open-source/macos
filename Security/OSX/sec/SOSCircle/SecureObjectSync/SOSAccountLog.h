@@ -10,8 +10,7 @@
 #define SOSAccountLog_h
 
 #include <stdio.h>
-#include "SOSAccountPriv.h"
-#include <Security/SecureObjectSync/SOSAccountHSAJoin.h>
+#import <Security/SecureObjectSync/SOSAccountPriv.h>
 #include <Security/SecureObjectSync/SOSTransportCircle.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSViews.h>
@@ -19,9 +18,12 @@
 #include <Security/SecureObjectSync/SOSPeerInfoPriv.h>
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
 #include <Security/SecureObjectSync/SOSPeerInfoDER.h>
-//#include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
+#import <Security/SecureObjectSync/SOSAccountPriv.h>
 
-void SOSAccountLog(SOSAccountRef account);
-SOSAccountRef SOSAccountCreateFromStringRef(CFStringRef hexString);
+//#include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
+@class SOSAccount;
+
+void SOSAccountLog(SOSAccount* account);
+SOSAccount* SOSAccountCreateFromStringRef(CFStringRef hexString);
 
 #endif /* SOSAccountLog_h */

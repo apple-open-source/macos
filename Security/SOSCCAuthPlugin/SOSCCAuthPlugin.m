@@ -26,6 +26,7 @@
 										 completion: (dispatch_block_t) completion
 {
 	BOOL	do_auth = NO;
+    NSString* accountIdentifier = account.identifier; // strong reference
 	secinfo("accounts", "parameters %@", parameters);
 	secinfo("accounts", "account %@", account);
 
@@ -49,10 +50,10 @@
 			const char *password   = [rawPassword cStringUsingEncoding:NSUTF8StringEncoding];
 			CFDataRef passwordData = CFDataCreate(kCFAllocatorDefault, (const uint8_t *) password, strlen(password));
 			if (passwordData) {
-				secinfo("accounts", "Performing SOS circle credential set for account %@: %@", account.identifier, account.username);
+				secinfo("accounts", "Performing SOS circle credential set for account %@: %@", accountIdentifier, account.username);
 				NSString *dsid = [account aa_personID];
 				if (!SOSCCSetUserCredentialsAndDSID((__bridge CFStringRef) account.username, passwordData, (__bridge CFStringRef) dsid, &authError)) {
-					secerror("Unable to set SOS circle credentials for account %@: %@", account.identifier, authError);
+					secerror("Unable to set SOS circle credentials for account %@: %@", accountIdentifier, authError);
 					CFReleaseNull(authError);
 				}
 
@@ -60,12 +61,12 @@
 			}
 		} else {
 			if (!SOSCCCanAuthenticate(&authError)) {
-				secerror("Account %@ did not present a password and we could not authenticate the SOS circle: %@", account.identifier, authError);
+				secerror("Account %@ did not present a password and we could not authenticate the SOS circle: %@", accountIdentifier, authError);
 				CFReleaseNull(authError);	// CFReleaseSafe?
 			}
 		}
 	} else {
-		secinfo("accounts", "NOT performing SOS circle credential set for account %@: %@", account.identifier, account.username);
+		secinfo("accounts", "NOT performing SOS circle credential set for account %@: %@", accountIdentifier, account.username);
 	}
 
 	completion();

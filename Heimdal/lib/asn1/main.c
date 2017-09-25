@@ -63,16 +63,17 @@ seq_type(const char *p)
 }
 
 const char *fuzzer_string = "";
-int fuzzer_flag;
-int support_ber;
-int template_flag;
-int rfc1510_bitstring;
-int one_code_file;
-char *option_file;
+int fuzzer_flag = 0;
+int support_ber = 0;
+int template_flag = 0;
+int rfc1510_bitstring = 0;
+int one_code_file = 0;
+int foundation_flag = 0;
+char *option_file = NULL;
 int parse_units_flag = 1;
 char *type_file_string = "krb5-types.h";
-int version_flag;
-int help_flag;
+int version_flag = 0;
+int help_flag = 0;
 struct getargs args[] = {
     { "fuzzer", 0, arg_flag, &fuzzer_flag },
     { "template", 0, arg_flag, &template_flag },
@@ -84,6 +85,7 @@ struct getargs args[] = {
     { "one-code-file", 0, arg_flag, &one_code_file },
     { "option-file", 0, arg_string, &option_file },
     { "parse-units", 0, arg_negative_flag, &parse_units_flag },
+    { "foundation", 0, arg_flag, &foundation_flag },
     { "type-file", 0, arg_string, &type_file_string },
     { "version", 0, arg_flag, &version_flag },
     { "help", 0, arg_flag, &help_flag }
@@ -135,6 +137,11 @@ main(int argc, char **argv)
 		*p = '\0';
 	} else
 	    name = argv[optidx + 1];
+    }
+
+    if (foundation_flag && !template_flag) {
+	printf("--foundation require --template\n");
+	exit(1);
     }
 
     /*

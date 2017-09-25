@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,7 +50,9 @@
 
 #include "util.h"
 #include "IPConfigurationLog.h"
+#if !NO_SYSTEMCONFIGURATION
 #include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
+#endif /* !NO_SYSTEMCONFIGURATION */
 
 static boolean_t
 S_get_ifmediareq(int s, const char * name, struct ifmediareq * ifmr_p);
@@ -64,6 +66,7 @@ S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
 static link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
 
+#if !NO_SYSTEMCONFIGURATION
 static boolean_t
 S_interface_is_tethered(const char * ifname)
 {
@@ -81,6 +84,16 @@ S_interface_is_tethered(const char * ifname)
     CFRelease(ifname_cf);
     return (is_tethered);
 }
+
+#else /* !NO_SYSTEMCONFIGURATION */
+
+static boolean_t
+S_interface_is_tethered(const char * ifname)
+{
+    return (FALSE);
+}
+#endif /* !NO_SYSTEMCONFIGURATION */
+
 
 void *
 inet_addrinfo_copy(void * p)
@@ -140,12 +153,12 @@ S_build_interface_list(interface_list_t * interfaces)
     int			size;
     boolean_t		success = FALSE;
 
+    interfaces->list = NULL;
     if (getifaddrs(&addrs) < 0) {
 	goto done;
     }
     size = count_ifaddrs(addrs);
     if (size == 0) {
-	interfaces->list = NULL;
 	goto done;
     }
     interfaces->list 
@@ -276,8 +289,8 @@ S_build_interface_list(interface_list_t * interfaces)
     }
     /* make it the "right" size (plus 1 more in case it's 0) */
     interfaces->list = (interface_t *)
-	realloc(interfaces->list, 
-		sizeof(*(interfaces->list)) * (interfaces->count + 1));
+	reallocf(interfaces->list,
+		 sizeof(*(interfaces->list)) * (interfaces->count + 1));
     success = TRUE;
 
  done:
@@ -287,8 +300,8 @@ S_build_interface_list(interface_list_t * interfaces)
     if (success == FALSE) {
 	if (interfaces->list != NULL) {
 	    free(interfaces->list);
+	    interfaces->list = NULL;
 	}
-	interfaces->list = NULL;
     }
     if (s >= 0) {
 	close(s);
@@ -410,7 +423,7 @@ ifl_init()
     interface_list_t * list_p = (interface_list_t *)malloc(sizeof(*list_p));
     if (list_p == NULL
 	|| S_build_interface_list(list_p) == FALSE) {
-	if (list_p)
+	if (list_p != NULL)
 	    free(list_p);
 	return (NULL);
     }
@@ -594,10 +607,13 @@ if_link_update(interface_t * if_p)
 	fprintf(stderr, "sysctl() failed: %s", strerror(errno));
 	goto failed;
     }
+    if (buf_len < (sizeof(*ifm) + sizeof(*dl_p))) {
+	/* buf_len == 0 because interface is gone <rdar://problem/33365207> */
+	goto failed;
+    }
     /* ALIGN: buf is aligned (from malloc), cast ok. */
     ifm = (struct if_msghdr *)(void *)buf;
-    switch (ifm->ifm_type) {
-    case RTM_IFINFO:
+    if (ifm->ifm_type == RTM_IFINFO) {
 	dl_p = (struct sockaddr_dl *)(ifm + 1);
 	addr = dl_p->sdl_data + dl_p->sdl_nlen;
 	addr_length = dl_p->sdl_alen;

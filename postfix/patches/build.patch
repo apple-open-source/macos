@@ -1,14 +1,14 @@
 diff -ur a/makedefs b/makedefs
 --- a/makedefs	2016-05-15 09:39:11.000000000 -0700
 +++ b/makedefs	2016-06-08 09:52:23.000000000 -0700
-@@ -755,10 +755,12 @@
+@@ -776,10 +776,12 @@
  #
  # Look for the ICU library and enable unicode email if available.
  #
 +# Apple: manually icu flags
 +#
  case "$CCARGS" in
- *-DNO_EAI*) ;;
+ *-DNO_EAI*) CCARGS="$CCARGS "'-DDEF_SMTPUTF8_ENABLE=\"no\"';;
 -	 *) icu_cppflags=`(icu-config --cppflags) 2>/dev/null` && {
 -		icu_ldflags=`(icu-config --ldflags) 2>/dev/null` && {
 +	 *) icu_cppflags="-I/usr/local/include" && {
@@ -30,7 +30,7 @@ diff -ur a/src/postfix/Makefile.in b/src/postfix/Makefile.in
 diff -ur a/postfix-install b/postfix-install
 --- a/postfix-install	2016-01-02 16:25:23.000000000 -0800
 +++ b/postfix-install	2016-06-06 15:11:44.000000000 -0700
-@@ -340,22 +340,25 @@
+@@ -349,22 +349,25 @@
       *) link=$1
  	;;
      esac

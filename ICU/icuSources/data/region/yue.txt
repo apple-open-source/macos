@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/yue.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 yue{
     Countries{
         001{"世界"}
@@ -95,7 +89,7 @@ yue{
         CW{"庫拉索"}
         CX{"聖誕島"}
         CY{"賽普勒斯"}
-        CZ{"捷克共和國"}
+        CZ{"捷克"}
         DE{"德國"}
         DG{"迪亞哥加西亞島"}
         DJ{"吉布地"}
@@ -308,8 +302,9 @@ yue{
     Countries%variant{
         CD{"剛果民主共和國"}
         CG{"剛果共和國"}
+        CZ{"捷克共和國"}
         FK{"福克蘭群島 (馬爾維納斯群島)"}
         MK{"前南斯拉夫馬其頓共和國"}
     }
-    Version{"2.1.23.47"}
+    Version{"2.1.34.23"}
 }

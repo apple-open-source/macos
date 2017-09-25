@@ -36,7 +36,11 @@ CLImpl::CLImpl(const Module &module) : AttachmentImpl(module, CSSM_SERVICE_CL)
 }
 
 CLImpl::~CLImpl()
+try
 {
+}
+catch(...) {
+    return;
 }
 
 

@@ -34,7 +34,7 @@
     <p>Ce document décrit quand et comment utiliser des serveurs
     virtuels par nom.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#namevip">Serveurs virtuels par nom vs. par IP</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#namevip">Serveurs virtuels par nom vs. par IP</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#alg">Comment le serveur sélectionne-t-il le serveur
 virtuel basé sur le nom approprié</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#using">Utilisation de serveurs virtuels par nom</a></li>
@@ -91,7 +91,7 @@ virtuel basé sur le nom approprié</a></h2>
     (la plus exacte) correspondance avec la paire adresse IP/port
     utilisée dans la requête. Si plusieurs serveurs virtuels possèdent
     cette même paire adresse IP/port, Apache va ensuite comparer les
-    valeurs des directives <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code> et <code class="directive">module="core"&gt;ServerAlias</code> avec le nom de serveur
+    valeurs des directives <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code> et <code class="directive"><a href="../mod/core.html#serveralias">ServerAlias</a></code> avec le nom de serveur
     présent dans la requête.</p>
 
     <p>Si vous ne définissez pas de directive <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code> pour un serveur virtuel à base
@@ -258,7 +258,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/name-based.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

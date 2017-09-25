@@ -62,24 +62,28 @@ Manager& Manager::singleton()
 
 void Manager::initialize(const String& recordReplayMode, const String& recordReplayCacheLocation)
 {
-    DEBUG_LOG("Initializing");
-
-    if (equalIgnoringASCIICase(recordReplayMode, "record"))
+    if (equalIgnoringASCIICase(recordReplayMode, "record")) {
+        DEBUG_LOG("Initializing: recording mode");
         m_recordReplayMode = Record;
-    else if (equalIgnoringASCIICase(recordReplayMode, "replay"))
+    } else if (equalIgnoringASCIICase(recordReplayMode, "replay")) {
+        DEBUG_LOG("Initializing: replay mode");
         m_recordReplayMode = Replay;
-    else
+    } else {
+        DEBUG_LOG("Initializing: disabled");
         m_recordReplayMode = Disabled;
+    }
 
     m_recordReplayCacheLocation = WebCore::pathByAppendingComponent(recordReplayCacheLocation, kDirNameRecordReplay);
-    m_loadFileHandle = WebCore::FileHandle(reportLoadPath(), WebCore::OpenForWrite);
-    m_recordFileHandle = WebCore::FileHandle(reportRecordPath(), WebCore::OpenForWrite);
-    m_replayFileHandle = WebCore::FileHandle(reportReplayPath(), WebCore::OpenForWrite);
-
     DEBUG_LOG("Cache location = " STRING_SPECIFIER, DEBUG_STR(m_recordReplayCacheLocation));
 
-    if (isReplaying())
+    if (isRecording()) {
+        m_recordFileHandle = WebCore::FileHandle(reportRecordPath(), WebCore::OpenForWrite);
+    } else if (isReplaying()) {
+        m_recordFileHandle = WebCore::FileHandle(reportRecordPath(), WebCore::OpenForRead);
+        m_loadFileHandle = WebCore::FileHandle(reportLoadPath(), WebCore::OpenForWrite);
+        m_replayFileHandle = WebCore::FileHandle(reportReplayPath(), WebCore::OpenForWrite);
         loadResources();
+    }
 }
 
 void Manager::terminate()
@@ -129,17 +133,17 @@ Resource* Manager::findExactMatch(const WebCore::ResourceRequest& request)
 Resource* Manager::findBestFuzzyMatch(const WebCore::ResourceRequest& request)
 {
     const auto& url = request.url();
+    const auto& urlIdentifyingCommonDomain = Manager::urlIdentifyingCommonDomain(url);
+
+    const auto& lower = std::lower_bound(std::begin(m_cachedResources), std::end(m_cachedResources), urlIdentifyingCommonDomain, [](auto& resource, const auto& urlIdentifyingCommonDomain) {
+        return WTF::codePointCompareLessThan(resource.urlIdentifyingCommonDomain(), urlIdentifyingCommonDomain);
+    });
+    const auto& upper = std::upper_bound(lower, std::end(m_cachedResources), urlIdentifyingCommonDomain, [](const auto& urlIdentifyingCommonDomain, auto& resource) {
+        return WTF::codePointCompareLessThan(urlIdentifyingCommonDomain, resource.urlIdentifyingCommonDomain());
+    });
+
     Resource* bestMatch = nullptr;
     int bestScore = kMinMatch;
-    const auto& baseURL = url.string().left(url.pathStart());
-
-    const auto& lower = std::lower_bound(std::begin(m_cachedResources), std::end(m_cachedResources), baseURL, [](auto& resource, const auto& url) {
-        return WTF::codePointCompareLessThan(resource.baseURL().string(), url);
-    });
-    const auto& upper = std::upper_bound(lower, std::end(m_cachedResources), baseURL, [](const auto& url, auto& resource) {
-        return WTF::codePointCompareLessThan(resource.baseURL().string(), url);
-    });
-
     const auto& requestParameters = WebCore::URLParser::parseURLEncodedForm(url.query());
     for (auto iResource = lower; iResource != upper; ++iResource) {
         int thisScore = fuzzyMatchURLs(url, requestParameters, iResource->url(), iResource->queryParameters());
@@ -282,21 +286,21 @@ int Manager::fuzzyMatchURLs(const WebCore::URL& requestURL, const WebCore::URLPa
     auto resourceParameter = std::begin(resourceParameters);
 
     for (; requestParameter != std::end(requestParameters) && resourceParameter != std::end(resourceParameters); ++requestParameter, ++resourceParameter) {
-        if (requestParameter->first == resourceParameter->first) {
+        if (requestParameter->key == resourceParameter->key) {
 #if ENABLE(WTF_CAPTURE_INTERNAL_DEBUGGING)
-            if (requestParameter->second == resourceParameter->second)
+            if (requestParameter->value == resourceParameter->value)
                 DEBUG_LOG("Matching parameter names and values: \"" STRING_SPECIFIER "\" = \"" STRING_SPECIFIER "\"", DEBUG_STR(requestParameter->first), DEBUG_STR(requestParameter->second));
             else
                 DEBUG_LOG("Mismatching parameter values: \"" STRING_SPECIFIER "\" = \"" STRING_SPECIFIER "\" vs. \"" STRING_SPECIFIER "\"", DEBUG_STR(requestParameter->first), DEBUG_STR(requestParameter->second), DEBUG_STR(resourceParameter->second));
 #endif
-            score += (requestParameter->second == resourceParameter->second) ? kParameterMatchScore : kParameterMismatchScore;
+            score += (requestParameter->value == resourceParameter->value) ? kParameterMatchScore : kParameterMismatchScore;
             DEBUG_LOG("Score = %d", score);
         } else {
             DEBUG_LOG("Mismatching parameter names: " STRING_SPECIFIER ", " STRING_SPECIFIER, DEBUG_STR(requestParameter->first), DEBUG_STR(resourceParameter->first));
 
-            const auto scanForwardForMatch = [this, &score, kParameterMatchScore, kParameterMismatchScore, kParameterMissingScore](const auto& fixedIter, auto& scanningIter, const auto& scannerEnd) {
+            const auto scanForwardForMatch = [&score, kParameterMatchScore, kParameterMismatchScore, kParameterMissingScore](const auto& fixedIter, auto& scanningIter, const auto& scannerEnd) {
                 auto scanner = scanningIter;
-                while (scanner != scannerEnd && scanner->first != fixedIter->first)
+                while (scanner != scannerEnd && scanner->key != fixedIter->key)
                     ++scanner;
                 if (scanner == scannerEnd)
                     return false;
@@ -309,7 +313,7 @@ int Manager::fuzzyMatchURLs(const WebCore::URL& requestURL, const WebCore::URLPa
                 else
                     DEBUG_LOG("Mismatching parameter values: \"" STRING_SPECIFIER "\" = \"" STRING_SPECIFIER "\" vs. \"" STRING_SPECIFIER "\"", DEBUG_STR(fixedIter->first), DEBUG_STR(fixedIter->second), DEBUG_STR(scanner->second));
 #endif
-                score += (fixedIter->second == scanner->second) ? kParameterMatchScore : kParameterMismatchScore;
+                score += (fixedIter->value == scanner->value) ? kParameterMatchScore : kParameterMismatchScore;
                 DEBUG_LOG("Score = %d", score);
                 scanningIter = scanner;
                 return true;
@@ -405,13 +409,18 @@ String Manager::hashToPath(const String& hash)
 
     StringBuilder fileName;
     fileName.append(hashTail);
-    fileName.append(".data");
+    fileName.appendLiteral(".data");
 
     auto path = WebCore::pathByAppendingComponent(m_recordReplayCacheLocation, kDirNameResources);
     path = WebCore::pathByAppendingComponent(path, hashHead);
     path = WebCore::pathByAppendingComponent(path, fileName.toString());
 
     return path;
+}
+
+String Manager::urlIdentifyingCommonDomain(const WebCore::URL& url)
+{
+    return url.protocolHostAndPort();
 }
 
 void Manager::logRecordedResource(const WebCore::ResourceRequest& request)

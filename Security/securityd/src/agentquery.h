@@ -89,7 +89,7 @@ public:
 	virtual void disconnect();
 	virtual void terminate();
 	void create(const char *pluginId, const char *mechanismId);
-    OSStatus invoke();
+    void invoke();
     void setTerminateOnSleep(bool terminateOnSleep) {mTerminateOnSleep = terminateOnSleep;}
     bool getTerminateOnSleep() {return mTerminateOnSleep;}
     void setInput(const AuthItemSet& inHints, const AuthItemSet& inContext) { mInHints = inHints; mInContext = inContext; }

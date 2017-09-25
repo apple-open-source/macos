@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef     _SECURITY_SECTRUSTSETTINGSPRIV_H_
+#ifndef _SECURITY_SECTRUSTSETTINGSPRIV_H_
 #define _SECURITY_SECTRUSTSETTINGSPRIV_H_
 
 #include <Security/SecBase.h>
@@ -148,6 +148,23 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
      SecCertificateRef       certRef,                      /* optional */
      CFTypeRef               trustSettingsDictOrArray,     /* optional */
      CFDataRef               *settingsOut);                /* RETURNED */
+
+/*
+ * Add user trust settings for a SSL certificate and a given hostname.
+ * This is a wrapper around the SecTrustSettingsSetTrustSettings API
+ * and should be functionally equivalent to "Always trust" in the UI.
+ *
+ * When this function is called, the user will be prompted to authorize
+ * the trust settings change. After they successfully authenticate, or
+ * cancel the dialog, the result block will be called to indicate the
+ * current trust status. If an error occurred (such as errUserCanceled),
+ * the error reference provided to the block will be non-NULL.
+ */
+void SecTrustSettingsSetTrustedCertificateForSSLHost(
+    SecCertificateRef certificate,
+    CFStringRef hostname,
+    void (^result)(SecTrustSettingsResult trustResult, CFErrorRef error))
+    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_NA);
 
 /*
  * Purge the cache of User and Admin Certs

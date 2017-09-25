@@ -127,6 +127,7 @@ static bool InitializeNotifications () {
                 {
                     StLock<Mutex> lock (gNotificationLock ());
                     EventListenerList& eventList = gEventListeners();
+                    std::set<EventPointer *> processedListeners;
 
                     // route the message to its destination
                     u_int32_t* ptr = (u_int32_t*) buffer;
@@ -141,20 +142,34 @@ static bool InitializeNotifications () {
                     EventListenerList::iterator it = eventList.begin ();
                     while (it != eventList.end ())
                     {
-                        try
-                        {
-                            EventPointer ep = *it++;
-                            if (ep->GetDomain () == domain &&
-                                    (ep->GetMask () & (1 << event)) != 0)
-                            {
-                                ep->consume (domain, event, data);
-                            }
+                        EventPointer ep = *it++;
+                        /*
+                         * We can't hold the global event lock when processing callback handers
+                         * so remember what items we have processes and don't process them again.
+                         * and when we have done a callback we loop back and try again.
+                         */
+                        if (processedListeners.find(&ep) != processedListeners.end()) {
+                            continue;
                         }
-                        catch (CssmError &e)
-                        {
+                        processedListeners.insert(&ep);
+
+                        /* is this event for this Event handler */
+                        if (ep->GetDomain() != domain || (ep->GetMask() & (1 << event)) == 0)
+                            continue;
+
+                        lock.unlock();
+
+                        try {
+                            ep->consume (domain, event, data);
+                        } catch (CssmError &e) {
                             // If we throw, libnotify will abort the process. Log these...
                             secerror("caught CssmError while processing notification: %d %s", e.error, cssmErrorString(e.error));
                         }
+                        lock.lock();
+                        /*
+                         * If we have to grab the lock again, start over iteration
+                         */
+                        it = eventList.begin ();
                     }
                 }
 

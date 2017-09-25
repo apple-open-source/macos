@@ -746,7 +746,7 @@ loser:
  * they are assumed to have been imported already.
  */
 SecCertificateRef
-SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_DATA_PTR DERekp)
+SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_DATA_PTR *rawCerts, CSSM_DATA_PTR DERekp)
 {
     PLArenaPool *tmppoolp = NULL;
     SecCertificateRef cert = NULL;
@@ -763,11 +763,11 @@ SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_
     /* find cert */
     switch (ekp.selector) {
     case NSSSMIMEEncryptionKeyPref_IssuerSN:
-	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, NULL, NULL, ekp.id.issuerAndSN);
+	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, rawCerts, NULL, tmppoolp, ekp.id.issuerAndSN);
 	break;
     case NSSSMIMEEncryptionKeyPref_RKeyID:
     case NSSSMIMEEncryptionKeyPref_SubjectKeyID:
-	/* XXX not supported yet - we need to be able to look up certs by SubjectKeyID */
+            cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, NULL, ekp.id.subjectKeyID);
 	break;
     default:
 	PORT_Assert(0);

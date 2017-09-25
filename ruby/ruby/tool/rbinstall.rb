@@ -18,16 +18,15 @@ require 'shellwords'
 require 'optparse'
 require 'optparse/shellwords'
 require 'ostruct'
-require_relative 'vcs'
+require 'rubygems'
+begin
+  require "zlib"
+rescue LoadError
+  $" << "zlib.rb"
+end
 
 STDOUT.sync = true
-File.umask(0)
-
-begin
-  $vcs = VCS.detect(File.expand_path('../..', __FILE__))
-rescue VCS::NotFoundError
-  $vcs = nil
-end
+File.umask(077)
 
 def parse_args(argv = ARGV)
   $mantype = 'doc'
@@ -45,7 +44,7 @@ def parse_args(argv = ARGV)
   $script_mode = nil
   $strip = false
   $cmdtype = (if File::ALT_SEPARATOR == '\\'
-                File.exist?("rubystub.exe") ? 'exe' : 'bat'
+                File.exist?("rubystub.exe") ? 'exe' : 'cmd'
               end)
   mflags = []
   opt = OptionParser.new
@@ -77,7 +76,7 @@ def parse_args(argv = ARGV)
   end
   opt.on('--installed-list [FILENAME]') {|name| $installed_list = name}
   opt.on('--rdoc-output [DIR]') {|dir| $rdocdir = dir}
-  opt.on('--cmd-type=TYPE', %w[bat cmd plain]) {|cmd| $cmdtype = (cmd unless cmd == 'plain')}
+  opt.on('--cmd-type=TYPE', %w[cmd plain]) {|cmd| $cmdtype = (cmd unless cmd == 'plain')}
   opt.on('--[no-]strip') {|strip| $strip = strip}
 
   opt.order!(argv) do |v|
@@ -164,11 +163,11 @@ def install(src, dest, options = {})
   super(src, d, options)
   srcs = Array(src)
   if strip
-    d = srcs.map {|src| File.join(d, File.basename(src))} if $made_dirs[dest]
+    d = srcs.map {|s| File.join(d, File.basename(s))} if $made_dirs[dest]
     strip_file(d)
   end
   if $installed_list
-    dest = srcs.map {|src| File.join(dest, File.basename(src))} if $made_dirs[dest]
+    dest = srcs.map {|s| File.join(dest, File.basename(s))} if $made_dirs[dest]
     $installed_list.puts dest
   end
 end
@@ -205,6 +204,7 @@ def install_recursive(srcdir, dest, options = {})
   opts = options.clone
   noinst = opts.delete(:no_install)
   glob = opts.delete(:glob) || "*"
+  maxdepth = opts.delete(:maxdepth)
   subpath = (srcdir.size+1)..-1
   prune = []
   skip = []
@@ -224,19 +224,21 @@ def install_recursive(srcdir, dest, options = {})
   prune = path_matcher(prune)
   skip = path_matcher(skip)
   File.directory?(srcdir) or return rescue return
-  paths = [[srcdir, dest, true]]
+  paths = [[srcdir, dest, 0]]
   found = []
   while file = paths.shift
     found << file
     file, d, dir = *file
     if dir
+      depth = dir + 1
+      next if maxdepth and maxdepth < depth
       files = []
       Dir.foreach(file) do |f|
         src = File.join(file, f)
         d = File.join(dest, dir = src[subpath])
         stat = File.lstat(src) rescue next
         if stat.directory?
-          files << [src, d, true] if /\A\./ !~ f and !prune[dir]
+          files << [src, d, depth] if maxdepth != depth and /\A\./ !~ f and !prune[dir]
         elsif stat.symlink?
           # skip
         else
@@ -278,6 +280,12 @@ def with_destdir(dir)
   $destdir + dir
 end
 
+def without_destdir(dir)
+  return dir if !$destdir or $destdir.empty? or !dir.start_with?($destdir)
+  dir = dir.sub(/\A\w:/, '') if File::PATH_SEPARATOR == ';'
+  dir[$destdir.size..-1]
+end
+
 def prepare(mesg, basedir, subdirs=nil)
   return unless basedir
   case
@@ -311,7 +319,7 @@ rubyw_install_name = CONFIG["rubyw_install_name"]
 goruby_install_name = "go" + ruby_install_name
 
 bindir = CONFIG["bindir", true]
-libdir = CONFIG["libdir", true]
+libdir = CONFIG[CONFIG.fetch("libdirname", "libdir"), true]
 rubyhdrdir = CONFIG["rubyhdrdir", true]
 archhdrdir = CONFIG["rubyarchhdrdir"] || (rubyhdrdir + "/" + CONFIG['arch'])
 rubylibdir = CONFIG["rubylibdir", true]
@@ -327,9 +335,8 @@ enable_shared = CONFIG["ENABLE_SHARED"] == 'yes'
 dll = CONFIG["LIBRUBY_SO", enable_shared]
 lib = CONFIG["LIBRUBY", true]
 arc = CONFIG["LIBRUBY_A", true]
-major = CONFIG["MAJOR", true]
-minor = CONFIG["MINOR", true]
-load_relative = configure_args.include?("--enable-load-relative")
+config_h = File.read(CONFIG["EXTOUT"]+"/include/"+CONFIG["arch"]+"/ruby/config.h")
+load_relative = config_h[/^\s*#\s*define\s+LOAD_RELATIVE\s+(\d+)/, 1].to_i.nonzero?
 
 install?(:local, :arch, :bin, :'bin-arch') do
   prepare "binary commands", bindir
@@ -381,7 +388,7 @@ install?(:ext, :arch, :'ext-arch') do
   prepare "extension objects", sitearchlibdir
   prepare "extension objects", vendorarchlibdir
 end
-install?(:ext, :arch, :'ext-arch') do
+install?(:ext, :arch, :hdr, :'arch-hdr') do
   prepare "extension headers", archhdrdir
   install_recursive("#{$extout}/include/#{CONFIG['arch']}", archhdrdir, :glob => "*.h", :mode => $data_mode)
 end
@@ -391,7 +398,7 @@ install?(:ext, :comm, :'ext-comm') do
   prepare "extension scripts", sitelibdir
   prepare "extension scripts", vendorlibdir
 end
-install?(:ext, :comm, :'ext-comm') do
+install?(:ext, :comm, :hdr, :'comm-hdr') do
   hdrdir = rubyhdrdir + "/ruby"
   prepare "extension headers", hdrdir
   install_recursive("#{$extout}/include/ruby", hdrdir, :glob => "*.h", :mode => $data_mode)
@@ -412,13 +419,13 @@ end
 if load_relative
   PROLOG_SCRIPT = <<EOS
 #!/bin/sh\n# -*- ruby -*-
-bindir=`#{CONFIG["CHDIR"]} "${0%/*}" 2>/dev/null; pwd`
+bindir="${0%/*}"
 EOS
   if CONFIG["LIBRUBY_RELATIVE"] != 'yes' and libpathenv = CONFIG["LIBPATHENV"]
     pathsep = File::PATH_SEPARATOR
     PROLOG_SCRIPT << <<EOS
 prefix="${bindir%/bin}"
-export #{libpathenv}="$prefix/lib${#{libpathenv}#{pathsep}+#{pathsep}$#{libpathenv}}"
+export #{libpathenv}="$prefix/lib${#{libpathenv}:+#{pathsep}$#{libpathenv}}"
 EOS
   end
   PROLOG_SCRIPT << %Q[exec "$bindir/#{ruby_install_name}" -x "$0" "$@"\n]
@@ -460,19 +467,21 @@ install?(:local, :comm, :bin, :'bin-comm') do
   else
     trans = proc {|base| base}
   end
-  install_recursive(File.join(srcdir, "bin"), bindir) do |src, cmd|
+  prebatch = ':""||{ ""=> %q<-*- ruby -*-'"\n"
+  postbatch = PROLOG_SCRIPT ? "};{\n#{PROLOG_SCRIPT.sub(/\A(?:#.*\n)*/, '')}" : ''
+  postbatch << ">,\n}\n"
+  postbatch.gsub!(/(?=\n)/, ' #')
+  install_recursive(File.join(srcdir, "bin"), bindir, :maxdepth => 1) do |src, cmd|
     cmd = cmd.sub(/[^\/]*\z/m) {|n| RbConfig.expand(trans[n])}
 
-    shebang = ''
-    body = ''
-    open(src, "rb") do |f|
-      shebang = f.gets
-      body = f.read
+    shebang, body = open(src, "rb") do |f|
+      next f.gets, f.read
     end
-    if PROLOG_SCRIPT
+    shebang or raise "empty file - #{src}"
+    if PROLOG_SCRIPT and !$cmdtype
       shebang.sub!(/\A(\#!.*?ruby\b)?/) {PROLOG_SCRIPT + ($1 || "#!ruby\n")}
     else
-      shebang.sub!(/\A\#!.*?ruby\b/) {"#!" + ruby_shebang}
+      shebang.sub!(/\A(\#!.*?ruby\b)?/) {"#!" + ruby_shebang + ($1 ? "" : "\n")}
     end
     shebang.sub!(/\r$/, '')
     body.gsub!(/\r$/, '')
@@ -482,18 +491,8 @@ install?(:local, :comm, :bin, :'bin-comm') do
       case $cmdtype
       when "exe"
         stub + shebang + body
-      when "bat"
-        [<<-"EOH".gsub(/^\s+/, ''), shebang, body, "__END__\n:endofruby\n"].join.gsub(/$/, "\r")
-          @echo off
-          @if not "%~d0" == "~d0" goto WinNT
-          #{ruby_bin} -x "#{cmd}" %1 %2 %3 %4 %5 %6 %7 %8 %9
-          @goto endofruby
-          :WinNT
-          "%~dp0#{ruby_install_name}" -x "%~f0" %*
-          @goto endofruby
-        EOH
       when "cmd"
-        <<"/EOH" << shebang << body
+        prebatch + <<"/EOH" << postbatch << shebang << body
 @"%~dp0#{ruby_install_name}" -x "%~f0" %*
 @exit /b %ERRORLEVEL%
 /EOH
@@ -510,7 +509,7 @@ install?(:local, :comm, :lib) do
   install_recursive(File.join(srcdir, "lib"), rubylibdir, :no_install => noinst, :mode => $data_mode)
 end
 
-install?(:local, :arch, :lib) do
+install?(:local, :comm, :hdr, :'comm-hdr') do
   prepare "common headers", rubyhdrdir
 
   noinst = []
@@ -525,9 +524,14 @@ install?(:local, :comm, :man) do
   mdocs = Dir["#{srcdir}/man/*.[1-9]"]
   prepare "manpages", mandir, ([] | mdocs.collect {|mdoc| mdoc[/\d+$/]}).sort.collect {|sec| "man#{sec}"}
 
+  case $mantype
+  when /\.(?:(gz)|bz2)\z/
+    compress = $1 ? "gzip" : "bzip2"
+    suffix = $&
+  end
   mandir = File.join(mandir, "man")
   has_goruby = File.exist?(goruby_install_name+exeext)
-  require File.join(srcdir, "tool/mdoc2man.rb") if $mantype != "doc"
+  require File.join(srcdir, "tool/mdoc2man.rb") if /\Adoc\b/ !~ $mantype
   mdocs.each do |mdoc|
     next unless File.file?(mdoc) and open(mdoc){|fh| fh.read(1) == '.'}
     base = File.basename(mdoc)
@@ -539,59 +543,41 @@ install?(:local, :comm, :man) do
     destname = ruby_install_name.sub(/ruby/, base.chomp(".#{section}"))
     destfile = File.join(destdir, "#{destname}.#{section}")
 
-    if $mantype == "doc"
-      install mdoc, destfile, :mode => $data_mode
+    if /\Adoc\b/ =~ $mantype
+      if compress
+        w = open(mdoc) {|f|
+          stdin = STDIN.dup
+          STDIN.reopen(f)
+          begin
+            destfile << suffix
+            IO.popen(compress) {|f| f.read}
+          ensure
+            STDIN.reopen(stdin)
+            stdin.close
+          end
+        }
+        open_for_install(destfile, $data_mode) {w}
+      else
+        install mdoc, destfile, :mode => $data_mode
+      end
     else
       class << (w = [])
         alias print push
       end
       open(mdoc) {|r| Mdoc2Man.mdoc2man(r, w)}
-      open_for_install(destfile, $data_mode) {w.join("")}
-    end
-  end
-end
-
-# :stopdoc:
-module Gem
-  if defined?(Specification)
-    remove_const(:Specification)
-  end
-
-  class Specification < OpenStruct
-    def initialize(*)
-      super
-      yield(self) if defined?(yield)
-      self.executables ||= []
-    end
-
-    def self.load(path)
-      src = File.open(path, "rb") {|f| f.read}
-      src.sub!(/\A#.*/, '')
-      spec = eval(src, nil, path)
-      spec.date ||= last_date(path) || RUBY_RELEASE_DATE
-      spec
-    end
-
-    def self.last_date(path)
-      return unless $vcs
-      return unless time = $vcs.get_revisions(path)[2]
-      time.strftime("%Y-%m-%d")
-    end
-
-    def to_ruby
-        <<-GEMSPEC
-Gem::Specification.new do |s|
-  s.name = #{name.dump}
-  s.version = #{version.dump}
-  s.date = #{date.dump}
-  s.summary = #{summary.dump}
-  s.description = #{description.dump}
-  s.homepage = #{homepage.dump}
-  s.authors = #{authors.inspect}
-  s.email = #{email.inspect}
-  s.files = #{files.inspect}
-end
-        GEMSPEC
+      w = w.join("")
+      if compress
+        require 'tmpdir'
+        Dir.mktmpdir("man") {|d|
+          dest = File.join(d, File.basename(destfile))
+          File.open(dest, "wb") {|f| f.write w}
+          if system(compress, dest)
+            w = File.open(dest+suffix, "rb") {|f| f.read}
+            destfile << suffix
+          end
+        }
+      end
+      open_for_install(destfile, $data_mode) {w}
     end
   end
 end
@@ -633,7 +619,8 @@ module RbInstall
         when "ext"
           prefix = "#{$extout}/#{CONFIG['arch']}/"
           base = "#{prefix}#{relative_base}"
-          Dir.glob("#{base}{.so,/**/*.so}").collect do |built_library|
+          dlext = CONFIG['DLEXT']
+          Dir.glob("#{base}{.#{dlext},/**/*.#{dlext}}").collect do |built_library|
             remove_prefix(prefix, built_library)
           end
         when "lib"
@@ -665,47 +652,52 @@ module RbInstall
         @gemspec.to_ruby
       end
     end
+  end
 
-    class Generator < Struct.new(:name, :base_dir, :src, :execs)
-      def gemspec
-        @gemspec ||= eval spec_source
+  class UnpackedInstaller < Gem::Installer
+    module DirPackage
+      def extract_files(destination_dir, pattern = "*")
+        path = File.dirname(@gem.path)
+        return if path == destination_dir
+        File.chmod(0700, destination_dir)
+        mode = pattern == "bin/*" ? $script_mode : $data_mode
+        install_recursive(path, without_destdir(destination_dir),
+                          :glob => pattern,
+                          :no_install => "*.gemspec",
+                          :mode => mode)
+        File.chmod($dir_mode, destination_dir)
       end
+    end
 
-      def spec_source
-        <<-GEMSPEC
-Gem::Specification.new do |s|
-  s.name = #{name.dump}
-  s.version = #{version.dump}
-  s.summary = "This #{name} is bundled with Ruby"
-  s.executables = #{execs.inspect}
-  s.files = #{files.inspect}
-end
-        GEMSPEC
-      end
+    def initialize(spec, *options)
+      super(spec.loaded_from, *options)
+      @package.extend(DirPackage).spec = spec
+    end
 
-      private
-      def version
-        version = open(src) { |f|
-          f.find { |s| /^\s*\w*VERSION\s*=(?!=)/ =~ s }
-        } or return
-        version.split(%r"=\s*", 2)[1].strip[/\A([\'\"])(.*?)\1/, 2]
-      end
-
-      def files
-        file_collector = FileCollector.new(base_dir)
-        file_collector.collect
-      end
+    def write_cache_file
     end
   end
 end
+
+class Gem::Installer
+  install = instance_method(:install)
+  define_method(:install) do
+    spec.post_install_message = nil
+    install.bind(self).call
+  end
+
+  generate_bin_script = instance_method(:generate_bin_script)
+  define_method(:generate_bin_script) do |filename, bindir|
+    generate_bin_script.bind(self).call(filename, bindir)
+    File.chmod($script_mode, File.join(bindir, formatted_program_filename(filename)))
+  end
+end
+
 # :startdoc:
 
 install?(:ext, :comm, :gem) do
-  $:.unshift(File.join(srcdir, "lib"))
-  require("rubygems.rb")
   gem_dir = Gem.default_dir
-  # Gem.ensure_gem_subdirectories makes subdirectories group-writable.
-  directories = Gem::REPOSITORY_SUBDIRECTORIES
+  directories = Gem.ensure_gem_subdirectories(gem_dir, :mode => $dir_mode)
   prepare "default gems", gem_dir, directories
 
   spec_dir = File.join(gem_dir, directories.grep(/^spec/)[0])
@@ -713,22 +705,6 @@ install?(:ext, :comm, :gem) do
   makedirs(default_spec_dir)
 
   gems = {}
-  File.foreach(File.join(srcdir, "defs/default_gems")) do |line|
-    line.chomp!
-    line.sub!(/\s*#.*/, '')
-    next if line.empty?
-    words = []
-    line.scan(/\G\s*([^\[\]\s]+|\[([^\[\]]*)\])/) do
-      words << ($2 ? $2.split : $1)
-    end
-    name, base_dir, src, execs = *words
-    next unless name and base_dir and src
-
-    src       = File.join(srcdir, src)
-    base_dir  = File.join(srcdir, base_dir)
-    specgen   = RbInstall::Specs::Generator.new(name, base_dir, src, execs || [])
-    gems[name] ||= specgen
-  end
 
   Dir.glob(srcdir+"/{lib,ext}/**/*.gemspec").each do |src|
     specgen   = RbInstall::Specs::Reader.new(src)
@@ -737,7 +713,6 @@ install?(:ext, :comm, :gem) do
 
   gems.sort.each do |name, specgen|
     gemspec   = specgen.gemspec
-    base_dir  = specgen.src.sub(/\A#{Regexp.escape(srcdir)}\//, "")
     full_name = "#{gemspec.name}-#{gemspec.version}"
 
     puts "#{" "*30}#{gemspec.name} #{gemspec.version}"
@@ -751,8 +726,54 @@ install?(:ext, :comm, :gem) do
       makedirs(bin_dir)
 
       execs = gemspec.executables.map {|exec| File.join(srcdir, 'bin', exec)}
-      install(execs, bin_dir, :mode => $prog_mode)
+      install(execs, bin_dir, :mode => $script_mode)
     end
+  end
+end
+
+install?(:ext, :comm, :gem) do
+  gem_dir = Gem.default_dir
+  directories = Gem.ensure_gem_subdirectories(gem_dir, :mode => $dir_mode)
+  prepare "bundle gems", gem_dir, directories
+  install_dir = with_destdir(gem_dir)
+  installed_gems = {}
+  options = {
+    :install_dir => install_dir,
+    :bin_dir => with_destdir(bindir),
+    :domain => :local,
+    :ignore_dependencies => true,
+    :dir_mode => $dir_mode,
+    :data_mode => $data_mode,
+    :prog_mode => $prog_mode,
+    :wrappers => true,
+    :format_executable => true,
+  }
+  Gem::Specification.each_spec([srcdir+'/gems/*']) do |spec|
+    ins = RbInstall::UnpackedInstaller.new(spec, options)
+    puts "#{" "*30}#{spec.name} #{spec.version}"
+    ins.install
+    File.chmod($data_mode, File.join(install_dir, "specifications", "#{spec.full_name}.gemspec"))
+    installed_gems[spec.full_name] = true
+  end
+  installed_gems, gems = Dir.glob(srcdir+'/gems/*.gem').partition {|gem| installed_gems.key?(File.basename(gem, '.gem'))}
+  unless installed_gems.empty?
+    install installed_gems, gem_dir+"/cache"
+  end
+  next if gems.empty?
+  if defined?(Zlib)
+    Gem.instance_variable_set(:@ruby, with_destdir(File.join(bindir, ruby_install_name)))
+    gems.each do |gem|
+      Gem.install(gem, Gem::Requirement.default, options)
+      gemname = File.basename(gem)
+      puts "#{" "*30}#{gemname}"
+    end
+    # fix directory permissions
+    # TODO: Gem.install should accept :dir_mode option or something
+    File.chmod($dir_mode, *Dir.glob(install_dir+"/**/"))
+    # fix .gemspec permissions
+    File.chmod($data_mode, *Dir.glob(install_dir+"/specifications/*.gemspec"))
+  else
+    puts "skip installing bundle gems because of lacking zlib"
   end
 end
 
@@ -763,18 +784,23 @@ include FileUtils::NoWrite if $dryrun
 @fileutils_output = STDOUT
 @fileutils_label = ''
 
+all = $install.delete(:all)
 $install << :local << :ext if $install.empty?
-$install.each do |inst|
+installs = $install.map do |inst|
   if !(procs = $install_procs[inst]) || procs.empty?
     next warn("unknown install target - #{inst}")
   end
-  procs.each do |block|
-    dir = Dir.pwd
-    begin
-      block.call
-    ensure
-      Dir.chdir(dir)
-    end
+  procs
+end
+installs.flatten!
+installs.uniq!
+installs |= $install_procs[:all] if all
+installs.each do |block|
+  dir = Dir.pwd
+  begin
+    block.call
+  ensure
+    Dir.chdir(dir)
   end
 end
 

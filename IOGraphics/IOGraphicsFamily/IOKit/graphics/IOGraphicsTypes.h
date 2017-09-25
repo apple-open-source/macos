@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     46
+#define IOGRAPHICSTYPES_REV     56
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -275,6 +275,24 @@ enum {
 	kIOFBDisplayPortTrainingAttribute   = 'dpta',
 
     kIOFBDisplayState                   = 'dstt',
+
+    kIOFBVariableRefreshRate            = 'vrr?',
+
+    kIOFBLimitHDCPAttribute             = 'hdcp',
+    kIOFBLimitHDCPStateAttribute        = 'sHDC',
+
+    kIOFBStop                           = 'stop',
+
+    kIOFBRedGammaScaleAttribute         = 'gslr',    // as of IOGRAPHICSTYPES_REV 54
+    kIOFBGreenGammaScaleAttribute       = 'gslg',    // as of IOGRAPHICSTYPES_REV 54
+    kIOFBBlueGammaScaleAttribute        = 'gslb',    // as of IOGRAPHICSTYPES_REV 54
+};
+
+enum {
+    kIOFBHDCPLimit_AllowAll             = 0,
+    kIOFBHDCPLimit_NoHDCP1x             = 1 << 0,
+    kIOFBHDCPLimit_NoHDCP20Type0        = 1 << 1,
+    kIOFBHDCPLimit_NoHDCP20Type1        = 1 << 2,   // Default case
 };
 
 // <rdar://problem/29184178> IOGraphics: Implement display state attribute for deteriming display state post wake
@@ -379,6 +397,7 @@ typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
  * @field verticalSyncConfig kIOSyncPositivePolarity for positive polarity vertical sync (0 for negative).
  * @field verticalSyncLevel Zero.
  * @field numLinks number of links to be used by a dual link timing, if zero, assume one link.
+ * @field verticalBlankingExtension maximum number of blanking extension lines that is available. (0 for none).
  * @field __reservedB Reserved set to zero.
  */
 
@@ -421,7 +440,9 @@ struct IODetailedTimingInformationV2 {
     UInt32      verticalSyncLevel;              // Future use (init to 0)
     UInt32      numLinks;
 
-    UInt32      __reservedB[7];                 // Init to 0
+    UInt32      verticalBlankingExtension;      // lines (AdaptiveSync: 0 for non-AdaptiveSync support)
+
+    UInt32      __reservedB[6];                 // Init to 0
 };
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformationV2;
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformation;
@@ -898,7 +919,8 @@ enum
 enum {
     // connection types for IOServiceOpen
     kIOFBServerConnectType              = 0,
-    kIOFBSharedConnectType              = 1
+    kIOFBSharedConnectType              = 1,
+    kIOFBDiagnoseConnectType            = 2,
 };
 
 enum {

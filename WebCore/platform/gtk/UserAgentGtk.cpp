@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2012, 2014 Igalia S.L.
+ * Copyright (C) 2012, 2014, 2016 Igalia S.L.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,7 +65,7 @@ static const String platformVersionForUAString()
     // OS X or anything on ARM triggers mobile versions of some websites.
     //
     // FIXME: The final result should include OS version, e.g. "Intel Mac OS X 10_8_4".
-    static NeverDestroyed<const String> uaOSVersion(ASCIILiteral("Intel Mac OS X"));
+    static NeverDestroyed<const String> uaOSVersion(MAKE_STATIC_STRING_IMPL("Intel Mac OS X"));
     return uaOSVersion;
 #endif
 }
@@ -82,6 +83,8 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
 
     if (quirks.contains(UserAgentQuirks::NeedsMacintoshPlatform))
         uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsMacintoshPlatform));
+    else if (quirks.contains(UserAgentQuirks::NeedsLinuxDesktopPlatform))
+        uaString.append(UserAgentQuirks::stringForQuirk(UserAgentQuirks::NeedsLinuxDesktopPlatform));
     else {
         uaString.append(platformForUAString());
         uaString.appendLiteral("; ");
@@ -100,7 +103,7 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
 
     // Version/X is mandatory *before* Safari/X to be a valid Safari UA. See
     // https://bugs.webkit.org/show_bug.cgi?id=133403 for details.
-    uaString.appendLiteral(" Version/10.0 Safari/");
+    uaString.appendLiteral("Version/11.0 Safari/");
     uaString.append(versionForUAString());
 
     return uaString.toString();

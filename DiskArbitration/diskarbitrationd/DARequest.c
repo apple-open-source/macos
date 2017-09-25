@@ -507,28 +507,6 @@ static Boolean __DARequestMount( DARequestRef request )
             }
         }
 
-        /*
-         * Determine whether the mount point is accessible by the user.
-         */
-
-        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
-        {
-            CFTypeRef mountpoint;
-
-            mountpoint = DARequestGetArgument2( request );
-
-            if ( mountpoint )
-            {
-                if ( DARequestGetUserUID( request ) )
-                {
-                    if ( DARequestGetUserUID( request ) != DADiskGetUserUID( disk ) )
-                    {
-                        status = kDAReturnNotPermitted;
-                    }
-                }
-            }
-        }
-
         if ( status )
         {
             DARequestDispatchCallback( request, status );

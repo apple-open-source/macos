@@ -129,7 +129,7 @@ bool OpaqueWhitelist::contains(SecStaticCodeRef codeRef, SecAssessmentFeedback f
 	trace.add("signature2", "%s", currentHash.c_str());
 	trace.add("signature3", "%s", opaqueHash.c_str());
 	trace.add("result", match ? "pass" : "fail");
-	trace.add("reason", "%d", reason);
+	trace.add("reason", "%d", (int)reason);
 	if (!team.empty())
 		trace.add("teamid", "%s", team.c_str());
 	if (cfVersion)

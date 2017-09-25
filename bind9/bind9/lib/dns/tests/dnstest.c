@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2011-2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -76,7 +76,7 @@ static isc_logcategory_t categories[] = {
 };
 
 static void
-cleanup_managers() {
+cleanup_managers(void) {
 	if (app_running)
 		isc_app_finish();
 	if (socketmgr != NULL)
@@ -90,7 +90,7 @@ cleanup_managers() {
 }
 
 static isc_result_t
-create_managers() {
+create_managers(void) {
 	isc_result_t result;
 #ifdef ISC_PLATFORM_USETHREADS
 	ncpus = isc_os_ncpus();
@@ -167,7 +167,7 @@ dns_test_begin(FILE *logfile, isc_boolean_t start_managers) {
 }
 
 void
-dns_test_end() {
+dns_test_end(void) {
 	if (lctx != NULL)
 		isc_log_destroy(&lctx);
 	if (dst_active) {
@@ -212,9 +212,11 @@ dns_test_makezone(const char *name, dns_zone_t **zonep, dns_view_t *view,
 	else if (!keepview)
 		keepview = ISC_TRUE;
 
-	CHECK(dns_zone_create(&zone, mctx));
+	zone = *zonep;
+	if (zone == NULL)
+		CHECK(dns_zone_create(&zone, mctx));
 
-	isc_buffer_init(&buffer, name, strlen(name));
+	isc_buffer_constinit(&buffer, name, strlen(name));
 	isc_buffer_add(&buffer, strlen(name));
 	dns_fixedname_init(&fixorigin);
 	origin = dns_fixedname_name(&fixorigin);
@@ -241,7 +243,7 @@ dns_test_makezone(const char *name, dns_zone_t **zonep, dns_view_t *view,
 }
 
 isc_result_t
-dns_test_setupzonemgr() {
+dns_test_setupzonemgr(void) {
 	isc_result_t result;
 	REQUIRE(zonemgr == NULL);
 
@@ -270,7 +272,7 @@ dns_test_releasezone(dns_zone_t *zone) {
 }
 
 void
-dns_test_closezonemgr() {
+dns_test_closezonemgr(void) {
 	REQUIRE(zonemgr != NULL);
 
 	dns_zonemgr_shutdown(zonemgr);

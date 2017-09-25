@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Inc.
+ * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +22,9 @@
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
+
+enum class CanWrap : bool { No, Yes };
+enum class DidWrap : bool { No, Yes };
 
 class Frame;
 class TreeScope;
@@ -62,16 +65,14 @@ public:
     WEBCORE_EXPORT Frame* traverseNext(const Frame* stayWithin = nullptr) const;
     // Rendered means being the main frame or having an ownerRenderer. It may not have been parented in the Widget tree yet (see WidgetHierarchyUpdatesSuspensionScope).
     WEBCORE_EXPORT Frame* traverseNextRendered(const Frame* stayWithin = nullptr) const;
-    WEBCORE_EXPORT Frame* traverseNextWithWrap(bool) const;
-    WEBCORE_EXPORT Frame* traversePreviousWithWrap(bool) const;
-    
-    WEBCORE_EXPORT void appendChild(PassRefPtr<Frame>);
-    bool transferChild(PassRefPtr<Frame>);
+    WEBCORE_EXPORT Frame* traverseNext(CanWrap, DidWrap* = nullptr) const;
+    WEBCORE_EXPORT Frame* traversePrevious(CanWrap, DidWrap* = nullptr) const;
 
-    Frame* traverseNextInPostOrderWithWrap(bool) const;
+    Frame* traverseNextInPostOrder(CanWrap) const;
 
+    WEBCORE_EXPORT void appendChild(Frame&);
     void detachFromParent() { m_parent = nullptr; }
-    void removeChild(Frame*);
+    void removeChild(Frame&);
 
     Frame* child(unsigned index) const;
     Frame* child(const AtomicString& name) const;
@@ -91,7 +92,6 @@ public:
 private:
     Frame* deepFirstChild() const;
     Frame* deepLastChild() const;
-    void actuallyAppendChild(PassRefPtr<Frame>);
 
     bool scopedBy(TreeScope*) const;
     Frame* scopedChild(unsigned index, TreeScope*) const;

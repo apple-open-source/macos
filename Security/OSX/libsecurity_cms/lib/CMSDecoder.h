@@ -121,17 +121,14 @@ OSStatus CMSDecoderCopyDetachedContent(
     __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
- * Optionally specify a SecKeychainRef, or an array of them, containing
- * intermediate certs to be used in verifying a signed message's signer
- * certs. By default, the default keychain search list is used for this. 
- * Specify an empty CFArrayRef to search *no* keychains for intermediate
- * certs. 
- * If this is called, it must be called before CMSDecoderCopySignerStatus().
+ * This function no longer affects the behavior of the CMS Decoder. Please
+ * discontinue use.
  */
 OSStatus CMSDecoderSetSearchKeychain(
 	CMSDecoderRef		cmsDecoder,
 	CFTypeRef			keychainOrArray)
-    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_5, __MAC_10_13, __IPHONE_NA, __IPHONE_NA,
+                                       "To change the search keychains call SecKeychainSetSearchList.");
 
 /*
  * Obtain the number of signers of a message. A result of zero indicates that

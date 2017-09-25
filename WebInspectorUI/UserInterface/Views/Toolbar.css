@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,7 @@ body.mac-platform:not(.docked) {
 .toolbar .control-section {
     display: flex;
 
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
 
@@ -69,10 +69,19 @@ body.mac-platform:not(.docked) {
     padding-right: 2px;
 
     min-width: -webkit-min-content;
+
+    --toolbar-control-section-padding-start: 6px;
+    --toolbar-control-section-padding-end: 2px;
 }
 
-.toolbar:matches(.icon-and-label-horizontal.small-size, .icon-only.small-size, .label-only) .control-section {
-    flex-direction: row;
+body[dir=ltr] .toolbar .control-section {
+    padding-left: var(--toolbar-control-section-padding-start);
+    padding-right: var(--toolbar-control-section-padding-end);
+}
+
+body[dir=rtl] .toolbar .control-section {
+    padding-left: var(--toolbar-control-section-padding-end);
+    padding-right: var(--toolbar-control-section-padding-start);
 }
 
 .toolbar .item-section {

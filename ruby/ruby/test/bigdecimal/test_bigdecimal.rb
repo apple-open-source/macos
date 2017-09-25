@@ -1,5 +1,6 @@
+# frozen_string_literal: false
 require_relative "testbase"
-require_relative "../ruby/envutil"
+require 'bigdecimal/math'
 
 require 'thread'
 
@@ -85,6 +86,9 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_raise(ArgumentError) { BigDecimal(0.1) }
     assert_raise(ArgumentError) { BigDecimal(0.1, Float::DIG + 2) }
     assert_nothing_raised { BigDecimal(0.1, Float::DIG + 1) }
+
+    bug9214 = '[ruby-core:58858]'
+    assert_equal(BigDecimal(-0.0, Float::DIG).sign, -1, bug9214)
   end
 
   def test_global_new_with_big_decimal
@@ -434,11 +438,37 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_equal(0, BigDecimal("1E-1") <=> 10**(-1), '#4825')
   end
 
+  def test_cmp_issue9192
+    bug9192 = '[ruby-core:58756] [#9192]'
+    operators = { :== => :==, :< => :>, :> => :<, :<= => :>=, :>= => :<= }
+    5.upto(8) do |i|
+      s = "706.0#{i}"
+      d = BigDecimal(s)
+      f = s.to_f
+      operators.each do |op, inv|
+        assert_equal(d.send(op, f), f.send(inv, d),
+                     "(BigDecimal(#{s.inspect}) #{op} #{s}) and (#{s} #{inv} BigDecimal(#{s.inspect})) is different #{bug9192}")
+      end
+    end
+  end
+
   def test_cmp_nan
     n1 = BigDecimal.new("1")
     BigDecimal.mode(BigDecimal::EXCEPTION_NaN, false)
     assert_equal(nil, BigDecimal.new("NaN") <=> n1)
     assert_equal(false, BigDecimal.new("NaN") > n1)
+  end
+
+  def test_cmp_float_nan
+    assert_equal(nil, BigDecimal.new("1") <=> Float::NAN)
+  end
+
+  def test_cmp_float_pos_inf
+    assert_equal(-1, BigDecimal.new("1") <=> Float::INFINITY)
+  end
+
+  def test_cmp_float_neg_inf
+    assert_equal(+1, BigDecimal.new("1") <=> -Float::INFINITY)
   end
 
   def test_cmp_failing_coercion
@@ -604,8 +634,8 @@ class TestBigDecimal < Test::Unit::TestCase
 
   def test_coerce
     a, b = BigDecimal.new("1").coerce(1.0)
-    assert_instance_of(Float, a)
-    assert_instance_of(Float, b)
+    assert_instance_of(BigDecimal, a)
+    assert_instance_of(BigDecimal, b)
     assert_equal(2, 1 + BigDecimal.new("1"), '[ruby-core:25697]')
 
     a, b = BigDecimal("1").coerce(1.quo(10))
@@ -676,6 +706,12 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_kind_of(BigDecimal, BigDecimal.new("3") * 1.quo(3))
   end
 
+  def test_mult_with_nil
+    assert_raise(TypeError) {
+      BigDecimal('1.1') * nil
+    }
+  end
+
   def test_div
     x = BigDecimal.new((2**100).to_s)
     assert_equal(BigDecimal.new((2**100 / 3).to_s), (x / 3).to_i)
@@ -683,6 +719,10 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_equal(BigDecimal::SIGN_NEGATIVE_ZERO, (BigDecimal.new("-0") / 1).sign)
     assert_equal(2, BigDecimal.new("2") / 1)
     assert_equal(-2, BigDecimal.new("2") / -1)
+
+    assert_equal(BigDecimal('1486.868686869'), BigDecimal('1472.0') / BigDecimal('0.99'), '[ruby-core:59365] [#9316]')
+
+    assert_equal(4.124045235, BigDecimal('0.9932') / (700 * BigDecimal('0.344045') / BigDecimal('1000.0')), '[#9305]')
   end
 
   def test_div_with_float
@@ -801,6 +841,20 @@ class TestBigDecimal < Test::Unit::TestCase
 
     assert_equal(0, BigDecimal.new("0").sqrt(1))
     assert_equal(1, BigDecimal.new("1").sqrt(1))
+  end
+
+  def test_sqrt_5266
+    x = BigDecimal('2' + '0'*100)
+    assert_equal('0.14142135623730950488016887242096980785696718753769480731',
+                 x.sqrt(56).to_s(56).split(' ')[0])
+    assert_equal('0.1414213562373095048801688724209698078569671875376948073',
+                 x.sqrt(55).to_s(55).split(' ')[0])
+
+    x = BigDecimal('2' + '0'*200)
+    assert_equal('0.14142135623730950488016887242096980785696718753769480731766797379907324784621070388503875343276415727350138462',
+                 x.sqrt(110).to_s(110).split(' ')[0])
+    assert_equal('0.1414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641572735013846',
+                 x.sqrt(109).to_s(109).split(' ')[0])
   end
 
   def test_fix
@@ -1108,6 +1162,9 @@ class TestBigDecimal < Test::Unit::TestCase
     e   = BigDecimal("2.71828182845904523536028747135266249775724709369996")
     pow = BigDecimal("22.459157718361045473")
     assert_equal(pow, pi.power(e, 20))
+
+    b = BigDecimal('1.034482758620689655172413793103448275862068965517241379310344827586206896551724')
+    assert_equal(BigDecimal('0.114523E1'), b.power(4, 5), '[Bug #8818] [ruby-core:56802]')
   end
 
   def test_limit
@@ -1116,6 +1173,25 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_equal(90, x ** 4) # OK? must it be 80?
     # 3 * 3 * 3 * 3 = 10 * 3 * 3 = 30 * 3 = 90 ???
     assert_raise(ArgumentError) { BigDecimal.limit(-1) }
+
+    bug7458 = '[ruby-core:50269] [#7458]'
+    one = BigDecimal('1')
+    epsilon = BigDecimal('0.7E-18')
+    BigDecimal.save_limit do
+      BigDecimal.limit(0)
+      assert_equal(BigDecimal("1.0000000000000000007"), one + epsilon, "limit(0) #{bug7458}")
+
+      1.upto(18) do |lim|
+        BigDecimal.limit(lim)
+        assert_equal(BigDecimal("1.0"), one + epsilon, "limit(#{lim}) #{bug7458}")
+      end
+
+      BigDecimal.limit(19)
+      assert_equal(BigDecimal("1.000000000000000001"), one + epsilon, "limit(19) #{bug7458}")
+
+      BigDecimal.limit(20)
+      assert_equal(BigDecimal("1.0000000000000000007"), one + epsilon, "limit(20) #{bug7458}")
+    end
   end
 
   def test_sign
@@ -1321,9 +1397,21 @@ class TestBigDecimal < Test::Unit::TestCase
     EOS
   end
 
+  def test_BigMath_log_with_string
+    assert_raise(ArgumentError) do
+      BigMath.log("foo", 20)
+    end
+  end
+
   def test_BigMath_log_with_nil
     assert_raise(ArgumentError) do
       BigMath.log(nil, 20)
+    end
+  end
+
+  def test_BigMath_log_with_non_integer_precision
+    assert_raise(ArgumentError) do
+      BigMath.log(1, 0.5)
     end
   end
 
@@ -1339,7 +1427,19 @@ class TestBigDecimal < Test::Unit::TestCase
     end
   end
 
-  def test_BigMath_log_with_zerp_precision
+  def test_BigMath_log_with_zero_arg
+    assert_raise(Math::DomainError) do
+      BigMath.log(0, 20)
+    end
+  end
+
+  def test_BigMath_log_with_negative_arg
+    assert_raise(Math::DomainError) do
+      BigMath.log(-1, 20)
+    end
+  end
+
+  def test_BigMath_log_with_zero_precision
     assert_raise(ArgumentError) do
       BigMath.log(1, 0)
     end
@@ -1375,6 +1475,13 @@ class TestBigDecimal < Test::Unit::TestCase
     end
   end
 
+  def test_BigMath_log_with_float_nan
+    BigDecimal.save_exception_mode do
+      BigDecimal.mode(BigDecimal::EXCEPTION_NaN, false)
+      assert(BigMath.log(Float::NAN, 20).nan?)
+    end
+  end
+
   def test_BigMath_log_with_1
     assert_in_delta(0.0, BigMath.log(1, 20))
     assert_in_delta(0.0, BigMath.log(1.0, 20))
@@ -1382,7 +1489,7 @@ class TestBigDecimal < Test::Unit::TestCase
   end
 
   def test_BigMath_log_with_exp_1
-    assert_in_delta(1.0, BigMath.log(BigMath.exp(1, 20), 20))
+    assert_in_delta(1.0, BigMath.log(BigMath.E(10), 10))
   end
 
   def test_BigMath_log_with_2
@@ -1391,14 +1498,26 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_in_delta(Math.log(2), BigMath.log(BigDecimal(2), 20))
   end
 
-  def test_BigMath_log_with_square_of_exp_2
-    assert_in_delta(2, BigMath.log(BigMath.exp(1, 20)**2, 20))
+  def test_BigMath_log_with_square_of_E
+    assert_in_delta(2, BigMath.log(BigMath.E(20)**2, 20))
+  end
+
+  def test_BigMath_log_with_high_precision_case
+    e   = BigDecimal('2.71828182845904523536028747135266249775724709369996')
+    e_3 = e.mult(e, 50).mult(e, 50)
+    log_3 = BigMath.log(e_3, 50)
+    assert_in_delta(3, log_3, 0.0000000000_0000000000_0000000000_0000000000_0000000001)
   end
 
   def test_BigMath_log_with_42
     assert_in_delta(Math.log(42), BigMath.log(42, 20))
     assert_in_delta(Math.log(42), BigMath.log(42.0, 20))
     assert_in_delta(Math.log(42), BigMath.log(BigDecimal(42), 20))
+  end
+
+  def test_BigMath_log_with_101
+    # this is mainly a performance test (should be very fast, not the 0.3 s)
+    assert_in_delta(Math.log(101), BigMath.log(101, 20), 1E-15)
   end
 
   def test_BigMath_log_with_reciprocal_of_42
@@ -1445,5 +1564,32 @@ class TestBigDecimal < Test::Unit::TestCase
     assert_in_out_err(%w[-rbigdecimal --disable-gems], <<-EOS, [], [])
     Thread.current.keys.to_s
     EOS
+  end
+
+  def assert_no_memory_leak(code, *rest, **opt)
+    code = "8.times {20_000.times {begin #{code}; rescue NoMemoryError; end}; GC.start}"
+    super(["-rbigdecimal"],
+          "b = BigDecimal('10'); b.nil?; " \
+          "GC.add_stress_to_class(BigDecimal); "\
+          "#{code}", code, *rest, rss: true, limit: 1.1, **opt)
+  end
+
+  if EnvUtil.gc_stress_to_class?
+    def test_no_memory_leak_allocate
+      assert_no_memory_leak("BigDecimal.allocate")
+    end
+
+    def test_no_memory_leak_initialize
+      assert_no_memory_leak("BigDecimal.new")
+    end
+
+    def test_no_memory_leak_global_new
+      assert_no_memory_leak("BigDecimal('10')")
+      assert_no_memory_leak("BigDecimal(b)")
+    end
+
+    def test_no_memory_leak_create
+      assert_no_memory_leak("b + 10")
+    end
   end
 end

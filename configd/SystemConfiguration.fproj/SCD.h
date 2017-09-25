@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,12 +27,10 @@
 #include <Availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
-#include <asl.h>
 #include <SystemConfiguration/SCDynamicStore.h>
 
 
 typedef struct {
-	aslclient		_asl;
 	int			_sc_error;
 	SCDynamicStoreRef	_sc_store;
 } __SCThreadSpecificData, *__SCThreadSpecificDataRef;

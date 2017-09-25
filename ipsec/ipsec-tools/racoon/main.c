@@ -67,7 +67,6 @@
 #include "cfparse_proto.h"
 #include "isakmp_var.h"
 #ifdef ENABLE_HYBRID
-#include <resolv.h>
 #include "isakmp.h"
 #include "isakmp_xauth.h"
 #include "isakmp_cfg.h"
@@ -198,14 +197,14 @@ main(ac, av)
 
 	parse(ac, av);
 
-	plog(ASL_LEVEL_INFO, "***** racoon started: pid=%d  started by: %d, launchdlaunched %d\n", getpid(), getppid(), launchdlaunched);
-	plog(ASL_LEVEL_INFO, "%s\n", version);
+	plog(ASL_LEVEL_NOTICE, "racoon started: pid=%d  started by: %d, launchdlaunched %d\n", getpid(), getppid(), launchdlaunched);
+	plog(ASL_LEVEL_NOTICE, "%s\n", version);
 #ifdef HAVE_OPENSSL
-	plog(ASL_LEVEL_INFO, "@(#)"
+	plog(ASL_LEVEL_NOTICE, "@(#)"
 	    "This product linked %s (http://www.openssl.org/)"
 	    "\n", eay_version());
 #endif
-	plog(ASL_LEVEL_INFO, "Reading configuration from \"%s\"\n", 
+	plog(ASL_LEVEL_NOTICE, "Reading configuration from \"%s\"\n", 
 	    lcconf->racoon_conf);
 
     //%%%%% this sould probably be moved to session()
@@ -256,7 +255,7 @@ main(ac, av)
 		close(0);
 	else {
 		if ( !exec_done && launchdlaunched ){
-			plog(ASL_LEVEL_INFO, 
+			plog(ASL_LEVEL_NOTICE, 
 				 "racoon launched by launchd.\n");
 			exec_done = 1;
 			if (atexit(cleanup_pidfile) < 0) {

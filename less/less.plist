@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2014-08-28</string>
+	<string>2017-04-10</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -15,12 +15,12 @@
 	</array>
 	<key>OpenSourceProject</key>
 	<string>less</string>
-	<key>OpenSourceSHA1</key>
-	<string>d5b07180d3dad327ccc8bc66818a31577e8710a2</string>
+	<key>OpenSourceSHA512</key>
+	<string>d31274fdada570fbc6706d7c52637d1accbd18ce947ec062e10b1624c251a8533c6638bc3a1d89d3c70a0c7b9c6d45740598bec9003f281d64c587b1f829125a</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.greenwoodsoftware.com/less/less-458.tar.gz</string>
+	<string>http://www.greenwoodsoftware.com/less/less-487.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>458</string>
+	<string>481</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.greenwoodsoftware.com/less/</string>
 </dict>

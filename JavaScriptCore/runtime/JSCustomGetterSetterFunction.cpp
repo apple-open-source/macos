@@ -33,7 +33,7 @@
 
 namespace JSC {
 
-const ClassInfo JSCustomGetterSetterFunction::s_info = { "Function", &Base::s_info, 0, CREATE_METHOD_TABLE(JSCustomGetterSetterFunction) };
+const ClassInfo JSCustomGetterSetterFunction::s_info = { "Function", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCustomGetterSetterFunction) };
 
 EncodedJSValue JSC_HOST_CALL JSCustomGetterSetterFunction::customGetterSetterFunctionCall(ExecState* exec)
 {
@@ -88,7 +88,7 @@ void JSCustomGetterSetterFunction::visitChildren(JSCell* cell, SlotVisitor& visi
 void JSCustomGetterSetterFunction::finishCreation(VM& vm, NativeExecutable* executable, CustomGetterSetter* getterSetter, const String& name)
 {
     Base::finishCreation(vm, executable, isSetter(), name);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     ASSERT(getterSetter);
     m_getterSetter.set(vm, this, getterSetter);
 }

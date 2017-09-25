@@ -1,17 +1,16 @@
 /*
- * $Id: ossl_digest.c 33634 2011-11-04 07:19:23Z nobu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
 
 #define GetDigest(obj, ctx) do { \
-    Data_Get_Struct((obj), EVP_MD_CTX, (ctx)); \
+    TypedData_Get_Struct((obj), EVP_MD_CTX, &ossl_digest_type, (ctx)); \
     if (!(ctx)) { \
 	ossl_raise(rb_eRuntimeError, "Digest CTX wasn't initialized!"); \
     } \
@@ -29,6 +28,20 @@ VALUE eDigestError;
 
 static VALUE ossl_digest_alloc(VALUE klass);
 
+static void
+ossl_digest_free(void *ctx)
+{
+    EVP_MD_CTX_destroy(ctx);
+}
+
+static const rb_data_type_t ossl_digest_type = {
+    "OpenSSL/Digest",
+    {
+	0, ossl_digest_free,
+    },
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
 /*
  * Public
  */
@@ -38,7 +51,7 @@ GetDigestPtr(VALUE obj)
     const EVP_MD *md;
     ASN1_OBJECT *oid = NULL;
 
-    if (TYPE(obj) == T_STRING) {
+    if (RB_TYPE_P(obj, T_STRING)) {
     	const char *name = StringValueCStr(obj);
 
 	md = EVP_get_digestbyname(name);
@@ -81,13 +94,11 @@ ossl_digest_new(const EVP_MD *md)
 static VALUE
 ossl_digest_alloc(VALUE klass)
 {
-    EVP_MD_CTX *ctx;
-    VALUE obj;
-
-    ctx = EVP_MD_CTX_create();
+    VALUE obj = TypedData_Wrap_Struct(klass, &ossl_digest_type, 0);
+    EVP_MD_CTX *ctx = EVP_MD_CTX_create();
     if (ctx == NULL)
 	ossl_raise(rb_eRuntimeError, "EVP_MD_CTX_create() failed");
-    obj = Data_Wrap_Struct(klass, 0, EVP_MD_CTX_destroy, ctx);
+    RTYPEDDATA_DATA(obj) = ctx;
 
     return obj;
 }
@@ -294,7 +305,7 @@ ossl_digest_block_length(VALUE self)
  * INIT
  */
 void
-Init_ossl_digest()
+Init_ossl_digest(void)
 {
     rb_require("digest");
 

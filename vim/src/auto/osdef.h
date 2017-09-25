@@ -25,13 +25,13 @@
 #endif
 #if defined(sun) || defined(_SEQUENT_)
 /* used inside of stdio macros getc(), puts(), putchar()... */
-extern int	_flsbuf __ARGS((int, FILE *));
-extern int	_filbuf __ARGS((FILE *));
+extern int	_flsbuf(int, FILE *);
+extern int	_filbuf(FILE *);
 #endif
 
 #if !defined(HAVE_SELECT)
-struct pollfd;			/* for poll __ARGS */
-extern int	poll __ARGS((struct pollfd *, long, int));
+struct pollfd;			/* for poll() */
+extern int	poll(struct pollfd *, long, int);
 #endif
 
 #ifdef HAVE_MEMSET
@@ -127,8 +127,8 @@ extern int	poll __ARGS((struct pollfd *, long, int));
 #endif
 
 #ifdef ISC
-extern int	_Xmblen __ARGS((char const *, size_t));
+extern int	_Xmblen(char const *, size_t);
 #else
 		/* This is different from the header but matches mblen() */
-extern int	_Xmblen __ARGS((char *, size_t));
+extern int	_Xmblen(char *, size_t);
 #endif

@@ -12,5 +12,5 @@ Extra_CC_Flags += -D__FBSDID=__RCSID
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
-Install_Program_Mode = 02555
-Install_Program_Group = tty
+#Install_Program_Mode = 02555
+#Install_Program_Group = tty

@@ -26,6 +26,7 @@
 #include <mach/boolean.h>
 #include <stdint.h>
 #include "timer.h"
+#include "IPConfigurationControlPrefs.h"
 
 extern uint16_t 		G_client_port;
 extern boolean_t		G_dhcp_accepts_bootp;
@@ -62,6 +63,7 @@ extern int			G_wake_skew_secs;
 extern const unsigned char	G_rfc_magic[4];
 extern const struct in_addr	G_ip_broadcast;
 extern const struct in_addr	G_ip_zeroes;
+extern IPConfigurationInterfaceTypes G_awd_interface_types;
 
 #include "ipconfigd_globals.h"
 

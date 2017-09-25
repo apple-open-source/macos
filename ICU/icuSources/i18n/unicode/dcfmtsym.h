@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ********************************************************************************
 *   Copyright (C) 1997-2016, International Business Machines
@@ -33,6 +35,7 @@
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
 #include "unicode/unum.h"
+#include "unicode/unistr.h"
 
 /**
  * \file
@@ -40,6 +43,7 @@
  */
 
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -390,7 +394,7 @@ public:
      * Returns that pattern stored in currecy info. Internal API for use by NumberFormat API.
      * @internal
      */
-    inline const UChar* getCurrencyPattern(void) const;
+    inline const char16_t* getCurrencyPattern(void) const;
 #endif  /* U_HIDE_INTERNAL_API */
 
 private:
@@ -421,7 +425,7 @@ private:
 
     char actualLocale[ULOC_FULLNAME_CAPACITY];
     char validLocale[ULOC_FULLNAME_CAPACITY];
-    const UChar* currPattern;
+    const char16_t* currPattern;
 
     UnicodeString currencySpcBeforeSym[UNUM_CURRENCY_SPACING_COUNT];
     UnicodeString currencySpcAfterSym[UNUM_CURRENCY_SPACING_COUNT];
@@ -489,13 +493,14 @@ DecimalFormatSymbols::getLocale() const {
 }
 
 #ifndef U_HIDE_INTERNAL_API
-inline const UChar*
+inline const char16_t*
 DecimalFormatSymbols::getCurrencyPattern() const {
     return currPattern;
 }
 #endif /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

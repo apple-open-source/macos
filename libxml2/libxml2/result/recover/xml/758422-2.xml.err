@@ -1,0 +1,16 @@
+./test/recover/xml/758422-2.xml:1: parser error : Space required after the element name
+<!DOCTYPE doc [<!ELEMENT D(g|()*>
+                          ^
+./test/recover/xml/758422-2.xml:1: parser error : ContentDecl : Name or '(' expected
+<!DOCTYPE doc [<!ELEMENT D(g|()*>
+                              ^
+./test/recover/xml/758422-2.xml:2: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+
+^
+./test/recover/xml/758422-2.xml:2: parser error : DOCTYPE improperly terminated
+
+^
+./test/recover/xml/758422-2.xml:2: parser error : Start tag expected, '<' not found
+
+^

@@ -4,7 +4,10 @@
 /* C API TEST FOR APPLE MEASUREFORMAT C WRAPPER */
 
 #include "unicode/utypes.h"
+
+#if U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD || U_PLATFORM == U_PF_SOLARIS
 #include <unistd.h>
+#endif
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -98,7 +101,7 @@ static const SingleUnitFormat en_singFmt[] = {
     { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, 37.203, "37.20 kilometers per hour", "37 kilometers per hour", "37.203 kph",       "37.2 kph",       "37kph",       "37kph",     0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37.20 degrees Celsius",     "37 degrees Celsius",     "37.203\\u00B0C",   "37.2\\u00B0C",   "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20 degrees Fahrenheit",  "37 degrees Fahrenheit",  "37.203\\u00B0F",   "37.2\\u00B0F",   "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20\\u00B0",              "37\\u00B0",              "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20 degrees",             "37 degrees",             "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_VOLUME_LITER,             37.203, "37.20 liters",              "37 liters",              "37.203 L",         "37.2 L",         "37L",         "37L",       0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
     { UAMEASUNIT_ENERGY_JOULE,             37.203, "37.20 joules",              "37 joules",              "37.203 J",         "37.2 J",         "37J",         "37J",       0,2,    0,2   },
@@ -114,7 +117,7 @@ static const SingleUnitFormat en_GB_singFmt[] = {
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37.20 centimetres",         "37 centimetres",         "37.203 cm",        "37.2 cm",        "37cm",        "37cm",      0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37.20 degrees Celsius",     "37 degrees Celsius",     "37.203\\u00B0C",   "37.2\\u00B0C",   "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20 degrees Fahrenheit",  "37 degrees Fahrenheit",  "37.203\\u00B0F",   "37.2\\u00B0F",   "37\\u00B0F",  "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20\\u00B0",              "37\\u00B0",              "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20 degrees",             "37 degrees",             "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_VOLUME_LITER,             37.203, "37.20 litres",              "37 litres",              "37.203 l",         "37.2 l",         "37l",         "37l",       0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
@@ -165,7 +168,7 @@ static const SingleUnitName en_singNam[] = {
     { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR, "kilometers per hour", "km/hour",   "km/hr"     },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      "degrees Celsius",     "deg. C",    "\\u00B0C"  },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "degrees Fahrenheit",  "deg. F",    "\\u00B0F"  },
-    { UAMEASUNIT_TEMPERATURE_GENERIC,      "\\u00B0",             "\\u00B0",  "\\u00B0"    },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      "degrees",             "deg.",      "deg."      },
     { UAMEASUNIT_VOLUME_LITER,             "liters",              "liters",    "liter"     },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       "Calories",            "Cal",       "Cal"       },
     { UAMEASUNIT_ENERGY_JOULE,             "joules",              "joules",    "joule"     },
@@ -179,7 +182,7 @@ static const SingleUnitName en_GB_singNam[] = {
     { UAMEASUNIT_LENGTH_CENTIMETER,        "centimetres",         "cm",        "cm"        },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      "degrees Celsius",     "deg. C",    "\\u00B0C"  },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   "degrees Fahrenheit",  "deg. F",    "\\u00B0F"  },
-    { UAMEASUNIT_TEMPERATURE_GENERIC,      "\\u00B0",             "\\u00B0",  "\\u00B0"    },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      "degrees",             "deg.",      "deg."      },
     { UAMEASUNIT_VOLUME_LITER,             "litres",              "litres",    "litre"     },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       "Calories",            "Cal",       "Cal"       },
     { (UAMeasureUnit)0, NULL, NULL, NULL }
@@ -779,7 +782,9 @@ static void TestUAMeasureFormat()
         unum_close(numfmt_2);
    }
    /* sleep to check leaks etc */
+#if U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD || U_PLATFORM == U_PF_SOLARIS
    sleep(8);
+#endif
 }
 
 static void TestUAMeasFmtOpenAllLocs()
@@ -847,7 +852,7 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "fr_FR@rg=USZZZZ", "length",  "person",          1, { UAMEASUNIT_LENGTH_INCH } },
     { "fr_FR@rg=USZZZZ", "length",  "person-informal", 2, { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH } },
     { "fr_FR@rg=USZZZZ", "length",  "person-small",    1, { UAMEASUNIT_LENGTH_INCH } },
-    { "en_IN",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_INCH_HG } },
+    { "en_IN",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_HECTOPASCAL } },
     { "es_MX",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY } },
     { "fr_FR",           "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_HECTOPASCAL } },
     { "pt"/*BR*/,        "pressure","baromtrc",        1, { UAMEASUNIT_PRESSURE_MILLIBAR } },
@@ -858,7 +863,16 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "fr_FR",           "length",  "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
     { "fr_FR",           "length",  "small",           1, { UAMEASUNIT_LENGTH_CENTIMETER } },
     { "en_US",           "xxxxxxxx","yyyyyyyy",        0, { (UAMeasureUnit)0 } },
-{ NULL, NULL, NULL, 0, { (UAMeasureUnit)0 } }
+    // tests for ms=
+    { "en_US@ms=metric",   "length", "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
+    { "fr_FR@ms=ussystem", "length", "large",           1, { UAMEASUNIT_LENGTH_MILE } },
+    { "en_GB@ms=metric",   "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER } },
+    { "en_US@ms=uksystem", "mass",   "person",          2, { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND } },
+    { "fr_FR",             "mass",   "person",          1, { UAMEASUNIT_MASS_KILOGRAM } },
+    { "fr_FR@rg=USZZZZ",   "mass",   "person",          1, { UAMEASUNIT_MASS_POUND } },
+    { "fr_FR@ms=uksystem;rg=USZZZZ", "mass", "person",  2, { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND } },
+    // terminator
+    { NULL, NULL, NULL, 0, { (UAMeasureUnit)0 } }
 };
 
 static void TestUAGetUnitsForUsage()

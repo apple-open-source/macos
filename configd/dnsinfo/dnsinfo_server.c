@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,7 @@
 #include <bsm/libbsm.h>
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
+#include <os/state_private.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -293,6 +294,65 @@ process_new_connection(xpc_connection_t c)
 
 
 #pragma mark -
+#pragma mark DNS configuration state
+
+
+static void
+add_state_handler()
+{
+#if	!TARGET_OS_SIMULATOR
+	os_state_block_t	state_block;
+	os_state_handle_t	state_handle;
+
+	state_block = ^os_state_data_t(os_state_hints_t hints) {
+#pragma unused(hints)
+		CFIndex		dnsinfo_len;
+		os_state_data_t	state_data;
+		size_t		state_data_size;
+
+		dnsinfo_len = (S_dns_info.data != NULL) ? CFDataGetLength(S_dns_info.data) : 0;
+		state_data_size = OS_STATE_DATA_SIZE_NEEDED(dnsinfo_len);
+		if (state_data_size > MAX_STATEDUMP_SIZE) {
+			SC_log(LOG_ERR, "DNS configuration: state data too large (%zd > %zd)",
+			       state_data_size,
+			       MAX_STATEDUMP_SIZE);
+			return NULL;
+		}
+
+		state_data = calloc(1, state_data_size);
+		if (state_data == NULL) {
+			SC_log(LOG_ERR, "DNS configuration: could not allocate state data");
+			return NULL;
+		}
+
+		state_data->osd_type = OS_STATE_DATA_CUSTOM;
+		state_data->osd_data_size = (uint32_t)dnsinfo_len;
+		strlcpy(state_data->osd_decoder.osdd_library,
+			"SystemConfiguration",
+			sizeof(state_data->osd_decoder.osdd_library));
+		strlcpy(state_data->osd_decoder.osdd_type,
+			"dnsinfo",
+			sizeof(state_data->osd_decoder.osdd_type));
+		strlcpy(state_data->osd_title, "DNS Configuration", sizeof(state_data->osd_title));
+		if (dnsinfo_len > 0) {
+			memcpy(state_data->osd_data, CFDataGetBytePtr(S_dns_info.data), dnsinfo_len);
+		}
+
+		return state_data;
+	};
+
+	state_handle = os_state_add_handler(_dnsinfo_server_queue(), state_block);
+	if (state_handle == 0) {
+		SC_log(LOG_ERR, "DNS configuration: os_state_add_handler() failed");
+	}
+#endif	// !TARGET_OS_SIMULATOR
+
+
+	return;
+}
+
+
+#pragma mark -
 #pragma mark DNS configuration server SPIs
 
 
@@ -301,6 +361,7 @@ void
 load_DNSConfiguration(CFBundleRef		bundle,
 		      _dns_sync_handler_t	syncHandler)
 {
+#pragma unused(bundle)
 	xpc_connection_t	c;
 	const char		*name;
 
@@ -308,6 +369,11 @@ load_DNSConfiguration(CFBundleRef		bundle,
 	 * keep track of DNS configuration acknowledgements
 	 */
 	_libSC_info_server_init(&S_dns_info);
+
+	/*
+	 * add a state dump handler
+	 */
+	add_state_handler();
 
 	/*
 	 * save the in-sync/not-in-sync handler
@@ -348,7 +414,6 @@ load_DNSConfiguration(CFBundleRef		bundle,
 
 		} else {
 			SC_log(LOG_ERR, "DNS configuration server: unknown event type : %p", type);
-
 		}
 	});
 

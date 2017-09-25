@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # Implementation of the _Observer_ object-oriented design pattern.  The
 # following documentation is copied, with modifications, from "Programming
@@ -15,12 +16,13 @@
 # module, which provides the methods for managing the associated observer
 # objects.
 #
-# The observers must implement a method called +update+ to receive
-# notifications.
-#
 # The observable object must:
 # * assert that it has +#changed+
 # * call +#notify_observers+
+#
+# An observer subscribes to updates using Observable#add_observer, which also
+# specifies the method called via #notify_observers. The default method for
+# #notify_observers is #update.
 #
 # === Example
 #
@@ -49,13 +51,13 @@
 #     end
 #
 #     def run
-#       lastPrice = nil
+#       last_price = nil
 #       loop do
 #         price = Price.fetch(@symbol)
 #         print "Current price: #{price}\n"
-#         if price != lastPrice
+#         if price != last_price
 #           changed                 # notify observers
-#           lastPrice = price
+#           last_price = price
 #           notify_observers(Time.now, price)
 #         end
 #         sleep 1
@@ -64,7 +66,7 @@
 #   end
 #
 #   class Price           ### A mock class to fetch a stock price (60 - 140).
-#     def Price.fetch(symbol)
+#     def self.fetch(symbol)
 #       60 + rand(80)
 #     end
 #   end
@@ -126,7 +128,7 @@ module Observable
   def add_observer(observer, func=:update)
     @observer_peers = {} unless defined? @observer_peers
     unless observer.respond_to? func
-      raise NoMethodError, "observer does not respond to `#{func.to_s}'"
+      raise NoMethodError, "observer does not respond to `#{func}'"
     end
     @observer_peers[observer] = func
   end

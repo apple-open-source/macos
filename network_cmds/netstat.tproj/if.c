@@ -129,14 +129,6 @@ struct queue_stats {
 	unsigned int		 handle;
 };
 
-static void print_cbqstats(int slot, struct cbq_classstats *,
-    struct queue_stats *);
-static void print_priqstats(int slot, struct priq_classstats *,
-    struct queue_stats *);
-static void print_hfscstats(int slot, struct hfsc_classstats *,
-    struct queue_stats *);
-static void print_fairqstats(int slot, struct fairq_classstats *,
-    struct queue_stats *);
 static void print_tcqstats(int slot, struct tcq_classstats *,
     struct queue_stats *);
 static void print_qfqstats(int slot, struct qfq_classstats *,
@@ -1449,22 +1441,6 @@ loop:
 		update_avg(ifcqs, &qstats[n]);
 
 		switch (scheduler) {
-			case PKTSCHEDT_CBQ:
-				print_cbqstats(n, &ifcqs->ifqs_cbq_stats,
-				    &qstats[n]);
-				break;
-			case PKTSCHEDT_HFSC:
-				print_hfscstats(n, &ifcqs->ifqs_hfsc_stats,
-				    &qstats[n]);
-				break;
-			case PKTSCHEDT_PRIQ:
-				print_priqstats(n, &ifcqs->ifqs_priq_stats,
-				    &qstats[n]);
-				break;
-			case PKTSCHEDT_FAIRQ:
-				print_fairqstats(n, &ifcqs->ifqs_fairq_stats,
-				    &qstats[n]);
-				break;
 			case PKTSCHEDT_TCQ:
 				print_tcqstats(n, &ifcqs->ifqs_tcq_stats,
 				    &qstats[n]);
@@ -1503,131 +1479,6 @@ loop:
 done:
 	free(ifcqs);
 	close(s);
-}
-
-static void
-print_cbqstats(int slot, struct cbq_classstats *cs, struct queue_stats *qs)
-{
-	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
-	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
-	    (unsigned long long)cs->xmit_cnt.packets,
-	    (unsigned long long)cs->xmit_cnt.bytes,
-	    (unsigned long long)cs->drop_cnt.packets,
-	    (unsigned long long)cs->drop_cnt.bytes);
-	printf("     [ qlength: %3d/%3d  borrows: %6u  "
-	    "suspends: %6u  qalg: %s ]\n", cs->qcnt, cs->qmax,
-	    cs->borrows, cs->delays, qtype2str(cs->qtype));
-	printf("     [ service class: %5s ]\n", qid2str(cs->handle));
-
-	if (qs->avgn >= 2) {
-		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
-		    qs->avg_packets / interval,
-		    rate2str((8 * qs->avg_bytes) / interval));
-	}
-
-	if (qflag < 2)
-		return;
-
-	switch (cs->qtype) {
-	case Q_SFB:
-		print_sfbstats(&cs->sfb);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-print_priqstats(int slot, struct priq_classstats *cs, struct queue_stats *qs)
-{
-	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
-	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
-	    (unsigned long long)cs->xmitcnt.packets,
-	    (unsigned long long)cs->xmitcnt.bytes,
-	    (unsigned long long)cs->dropcnt.packets,
-	    (unsigned long long)cs->dropcnt.bytes);
-	printf("     [ qlength: %3d/%3d  qalg: %11s  service class: %5s ]\n",
-	     cs->qlength, cs->qlimit, qtype2str(cs->qtype),
-	     qid2str(cs->class_handle));
-
-	if (qs->avgn >= 2) {
-		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
-		    qs->avg_packets / interval,
-		    rate2str((8 * qs->avg_bytes) / interval));
-	}
-
-	if (qflag < 2)
-		return;
-
-	switch (cs->qtype) {
-	case Q_SFB:
-		print_sfbstats(&cs->sfb);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-print_hfscstats(int slot, struct hfsc_classstats *cs, struct queue_stats *qs)
-{
-	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
-	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
-	    (unsigned long long)cs->xmit_cnt.packets,
-	    (unsigned long long)cs->xmit_cnt.bytes,
-	    (unsigned long long)cs->drop_cnt.packets,
-	    (unsigned long long)cs->drop_cnt.bytes);
-	printf("     [ qlength: %3d/%3d  qalg: %11s  service class: %5s ]\n",
-	     cs->qlength, cs->qlimit, qtype2str(cs->qtype),
-	     qid2str(cs->class_handle));
-
-	if (qs->avgn >= 2) {
-		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
-		    qs->avg_packets / interval,
-		    rate2str((8 * qs->avg_bytes) / interval));
-	}
-
-	if (qflag < 2)
-		return;
-
-	switch (cs->qtype) {
-	case Q_SFB:
-		print_sfbstats(&cs->sfb);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-print_fairqstats(int slot, struct fairq_classstats *cs, struct queue_stats *qs)
-{
-	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
-	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
-	    (unsigned long long)cs->xmit_cnt.packets,
-	    (unsigned long long)cs->xmit_cnt.bytes,
-	    (unsigned long long)cs->drop_cnt.packets,
-	    (unsigned long long)cs->drop_cnt.bytes);
-	printf("     [ qlength: %3d/%3d  qalg: %11s  service class: %5s ]]\n",
-	    cs->qlength, cs->qlimit, qtype2str(cs->qtype),
-	    qid2str(cs->class_handle));
-
-	if (qs->avgn >= 2) {
-		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
-		    qs->avg_packets / interval,
-		    rate2str((8 * qs->avg_bytes) / interval));
-	}
-
-	if (qflag < 2)
-		return;
-
-	switch (cs->qtype) {
-	case Q_SFB:
-		print_sfbstats(&cs->sfb);
-		break;
-	default:
-		break;
-	}
 }
 
 static void
@@ -1713,12 +1564,23 @@ static void
 print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
     struct queue_stats *qs)
 {
+	int i = 0;
+
+	if (fqst->fcls_service_class == 0 && fqst->fcls_pri == 0)
+		return;
+	printf("=====================================================\n");
 	printf("     [ pri: %s (%d)\tsrv_cl: 0x%x\tquantum: %d\tdrr_max: %d ]\n",
 	    pri2str(fqst->fcls_pri), fqst->fcls_pri,
 	    fqst->fcls_service_class, fqst->fcls_quantum,
 	    fqst->fcls_drr_max);
-	printf("     [ budget: %lld\t\ttarget qdelay: %14s ]\n",
+	printf("     [ queued pkts: %llu\tbytes: %llu ]\n",
+	    fqst->fcls_pkt_cnt, fqst->fcls_byte_cnt);
+	printf("     [ dequeued pkts: %llu\tbytes: %llu ]\n",
+	    fqst->fcls_dequeue, fqst->fcls_dequeue_bytes);
+	printf("     [ budget: %lld\ttarget qdelay: %10s\t",
 	    fqst->fcls_budget, nsec_to_str(fqst->fcls_target_qdelay));
+	printf("update interval:%10s ]\n",
+	    nsec_to_str(fqst->fcls_update_interval));
 	printf("     [ flow control: %u\tfeedback: %u\tstalls: %u\tfailed: %u ]\n",
 	    fqst->fcls_flow_control, fqst->fcls_flow_feedback,
 	    fqst->fcls_dequeue_stall, fqst->fcls_flow_control_fail);
@@ -1728,14 +1590,38 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 	printf("     [ flows total: %u\tnew: %u\told: %u ]\n",
 	    fqst->fcls_flows_cnt,
 	    fqst->fcls_newflows_cnt, fqst->fcls_oldflows_cnt);
-	printf("     [ queued pkts: %llu\tbytes: %llu ]\n",
-	    fqst->fcls_pkt_cnt, fqst->fcls_byte_cnt);
-	printf("     [ dequeued pkts: %llu\tbytes: %llu ]\n",
-	    fqst->fcls_dequeue, fqst->fcls_dequeue_bytes);
 	printf("     [ throttle on: %u\toff: %u\tdrop: %u ]\n",
 	    fqst->fcls_throttle_on, fqst->fcls_throttle_off,
 	    fqst->fcls_throttle_drops);
-	printf("=====================================================\n");
+
+	if (qflag < 2)
+		return;
+
+	if (fqst->fcls_flowstats_cnt > 0) {
+		printf("Flowhash\tBytes\tMin qdelay\tFlags\t\n");
+		for (i = 0; i < fqst->fcls_flowstats_cnt; i++) {
+			printf("%u\t%u\t%14s\t",
+			    fqst->fcls_flowstats[i].fqst_flowhash,
+			    fqst->fcls_flowstats[i].fqst_bytes,
+			    nsec_to_str(fqst->fcls_flowstats[i].fqst_min_qdelay));
+			if (fqst->fcls_flowstats[i].fqst_flags &
+			    FQ_FLOWSTATS_OLD_FLOW)
+				printf("O");
+			if (fqst->fcls_flowstats[i].fqst_flags &
+			    FQ_FLOWSTATS_NEW_FLOW)
+				printf("N");
+			if (fqst->fcls_flowstats[i].fqst_flags &
+			    FQ_FLOWSTATS_LARGE_FLOW)
+				printf("L");
+			if (fqst->fcls_flowstats[i].fqst_flags &
+			    FQ_FLOWSTATS_DELAY_HIGH)
+				printf("D");
+			if (fqst->fcls_flowstats[i].fqst_flags &
+			    FQ_FLOWSTATS_FLOWCTL_ON)
+				printf("F");
+			printf("\n");
+		}
+	}
 }
 
 static void
@@ -1823,22 +1709,6 @@ update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
 	n = qs->avgn;
 
 	switch (ifcqs->ifqs_scheduler) {
-	case PKTSCHEDT_CBQ:
-		b = ifcqs->ifqs_cbq_stats.xmit_cnt.bytes;
-		p = ifcqs->ifqs_cbq_stats.xmit_cnt.packets;
-		break;
-	case PKTSCHEDT_PRIQ:
-		b = ifcqs->ifqs_priq_stats.xmitcnt.bytes;
-		p = ifcqs->ifqs_priq_stats.xmitcnt.packets;
-		break;
-	case PKTSCHEDT_HFSC:
-		b = ifcqs->ifqs_hfsc_stats.xmit_cnt.bytes;
-		p = ifcqs->ifqs_hfsc_stats.xmit_cnt.packets;
-		break;
-	case PKTSCHEDT_FAIRQ:
-		b = ifcqs->ifqs_fairq_stats.xmit_cnt.bytes;
-		p = ifcqs->ifqs_fairq_stats.xmit_cnt.packets;
-		break;
 	case PKTSCHEDT_TCQ:
 		b = ifcqs->ifqs_tcq_stats.xmitcnt.bytes;
 		p = ifcqs->ifqs_tcq_stats.xmitcnt.packets;
@@ -1890,15 +1760,6 @@ qtype2str(classq_type_t t)
         case Q_DROPTAIL:
 		c = "DROPTAIL";
 		break;
-        case Q_RED:
-		c = "RED";
-		break;
-        case Q_RIO:
-		c = "RIO";
-		break;
-        case Q_BLUE:
-		c = "BLUE";
-		break;
         case Q_SFB:
 		c = "SFB";
 		break;
@@ -1947,18 +1808,6 @@ sched2str(unsigned int s)
 	switch (s) {
 	case PKTSCHEDT_NONE:
 		c = "NONE";
-		break;
-	case PKTSCHEDT_CBQ:
-		c = "CBQ";
-		break;
-	case PKTSCHEDT_HFSC:
-		c = "HFSC";
-		break;
-	case PKTSCHEDT_PRIQ:
-		c = "PRIQ";
-		break;
-	case PKTSCHEDT_FAIRQ:
-		c = "FAIRQ";
 		break;
 	case PKTSCHEDT_TCQ:
 		c = "TCQ";

@@ -34,6 +34,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define CORETLS_MAX_VERSION 0x0304
+
 typedef enum
 {
     /* This value never appears in the actual protocol */
@@ -43,6 +45,8 @@ typedef enum
     tls_protocol_version_TLS_1_0 = 0x0301,		/* TLS 1.0 == SSL 3.1 */
     tls_protocol_version_TLS_1_1 = 0x0302,
     tls_protocol_version_TLS_1_2 = 0x0303,
+    tls_protocol_version_TLS_1_3 = 0x0304,
+    tls_protocol_version_TLS_1_3_DRAFT = 0x7f12, /* Temporary version number used during pre-standard testing */
     tls_protocol_version_DTLS_1_0 = 0xfeff,
 } tls_protocol_version;
 
@@ -139,6 +143,14 @@ typedef enum
     tls_curve_secp521r1 = 25
 } tls_named_curve;
 
+/*
+ * An enumeration for the possible return types for a certificate verification call.
+ */
+typedef enum {
+    tls_verify_result_pass,
+    tls_verify_result_fail,
+    tls_verify_result_pending,
+} tls_verify_result;
 
 /*
  * This is the buffer type used internally.

@@ -94,7 +94,7 @@ od_get_error_string(CFErrorRef err)
  * Return a CFMutableStringRef for the URL on success, NULL on failure.
  */
 static CFMutableStringRef
-get_home_dir_url(CFStringRef homedir)
+copy_home_dir_url(CFStringRef homedir)
 {
 	CFRange homedir_range, item_start, item_stop, item_actual;
 	CFStringRef substring;
@@ -205,6 +205,7 @@ main(int argc, char **argv)
 		fprintf(stderr, "od_user_home: Can't create OD node: %s\n",
 		    errstring);
 		free(errstring);
+		CFRelease(username);
 		return 2;
 	}
 	attributes = CFArrayCreate(kCFAllocatorDefault,
@@ -218,6 +219,7 @@ main(int argc, char **argv)
 		fprintf(stderr, "od_user_home: Can't create OD query: %s\n",
 		    errstring);
 		free(errstring);
+		CFRelease(username);
 		return 2;
 	}
 	results = ODQueryCopyResults(query, FALSE, &error);
@@ -227,12 +229,14 @@ main(int argc, char **argv)
 			fprintf(stderr, "od_user_home: Can't copy OD query results: %s\n",
 			    errstring);
 			free(errstring);
+			CFRelease(username);
 			return 2;
 		}
 
 		/*
 		 * No results - no such user.  Return an error.
 		 */
+		CFRelease(username);
 		return 2;
 	}
 	count = CFArrayGetCount(results);
@@ -251,6 +255,8 @@ main(int argc, char **argv)
 				fprintf(stderr, "od_user_homes: Can't get kODAttributeTypeMetaNodeLocation from record: %s\n",
 				    errstring);
 				free(errstring);
+				CFRelease(results);
+				CFRelease(username);
 				return 2;
 			}
 
@@ -267,7 +273,7 @@ main(int argc, char **argv)
 					CFMutableStringRef url;
 					char *urlstr;
 
-					url = get_home_dir_url(homedir);
+					url = copy_home_dir_url(homedir);
 					if (url != NULL) {
 						// if it's AFP, ensure we have no-user auth
 						CFStringFindAndReplace(url,
@@ -278,6 +284,10 @@ main(int argc, char **argv)
 						urlstr = od_CFStringtoCString(url);
 						if (urlstr == NULL) {
 							fprintf(stderr, "od_user_homes: Can't convert path string to C string\n");
+							CFRelease(url);
+							CFRelease(values);
+							CFRelease(results);
+							CFRelease(username);
 							return 2;
 						}
 						printf("%s\n", urlstr);

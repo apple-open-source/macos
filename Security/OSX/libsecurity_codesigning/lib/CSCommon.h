@@ -111,16 +111,18 @@ CF_ENUM(OSStatus) {
 	errSecCSBadFrameworkVersion = 		-67009, /* embedded framework contains modified or invalid version */
 	errSecCSUnsealedFrameworkRoot =		-67008, /* unsealed contents present in the root directory of an embedded framework */
 	errSecCSWeakResourceEnvelope =		-67007, /* resource envelope is obsolete (version 1 signature) */
-	errSecCSCancelled =					-67006, /* operation was terminated by explicit cancellation */
+    errSecCSCancelled =					-67006, /* operation was terminated by explicit cancelation */
 	errSecCSInvalidPlatform =			-67005,	/* invalid platform identifier or platform mismatch */
 	errSecCSTooBig =					-67004,	/* code is too big for current signing format */
 	errSecCSInvalidSymlink =			-67003,	/* invalid destination for symbolic link in bundle */
 	errSecCSNotAppLike =				-67002,	/* the code is valid but does not seem to be an app */
 	errSecCSBadDiskImageFormat =		-67001,	/* disk image format unrecognized, invalid, or unsuitable */
-	errSecCSUnsupportedDigestAlgorithm = -67000, /* signature digest algorithm(s) specified are not supported */
+	errSecCSUnsupportedDigestAlgorithm = -67000, /* a requested signature digest algorithm is not supported */
 	errSecCSInvalidAssociatedFileData =	-66999,	/* resource fork, Finder information, or similar detritus not allowed */
     errSecCSInvalidTeamIdentifier =     -66998, /* a Team Identifier string is invalid */
     errSecCSBadTeamIdentifier =         -66997, /* a Team Identifier is wrong or inappropriate */
+    errSecCSSignatureUntrusted =        -66996, /* signature is valid but signer is not trusted */
+	errSecMultipleExecSegments =		-66995, /* the image contains multiple executable segments */
 };
 
 /*
@@ -254,7 +256,6 @@ typedef CF_OPTIONS(uint32_t, SecCodeSignatureFlags) {
 	kSecCodeSignatureEnforcement = 0x1000, /* enforce code signing */
 	kSecCodeSignatureLibraryValidation = 0x2000, /* library validation required */
 };
-
 
 /*!
 	@typedef SecCodeStatus

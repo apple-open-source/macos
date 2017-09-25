@@ -17,10 +17,10 @@
 /*	[\fB-i \fIname\fR]
 /*
 /*	\fBpostmulti\fR \fB-p\fR [\fB-av\fR] [\fB-g \fIgroup\fR]
-/*	[\fB-i \fIname\fR] \fIcommand...\fR
+/*	[\fB-i \fIname\fR] \fIpostfix-command...\fR
 /*
 /*	\fBpostmulti\fR \fB-x\fR [\fB-aRv\fR] [\fB-g \fIgroup\fR]
-/*	[\fB-i \fIname\fR] \fIcommand...\fR
+/*	[\fB-i \fIname\fR] \fIunix-command...\fR
 /*
 /* .ti -4
 /*	\fBLife-cycle management:\fR
@@ -105,8 +105,8 @@
 /*	List Postfix instances with their instance name, instance
 /*	group name, enable/disable status and configuration directory.
 /* .SH "Postfix-wrapper mode"
-/* .IP \fB-p\fR
-/*	Invoke \fBpostfix(1)\fR to execute the specified \fIcommand\fR.
+/* .IP "\fB-p \fIpostfix-command\fR"
+/*	Invoke \fBpostfix(1)\fR to execute \fIpostfix-command\fR.
 /*	This option implements the \fBpostfix-wrapper\fR(5) interface.
 /* .RS
 /* .IP \(bu
@@ -136,8 +136,8 @@
 /*	# postmulti -g msa -p start
 /* .RE
 /* .SH "Command mode"
-/* .IP \fB-x\fR
-/*	Execute the specified \fIcommand\fR for all Postfix instances.
+/* .IP "\fB-x \fIunix-command\fR"
+/*	Execute the specified \fIunix-command\fR for all Postfix instances.
 /*	The command runs with appropriate environment settings for
 /*	MAIL_CONFIG, command_directory, daemon_directory,
 /*	config_directory, queue_directory, data_directory,
@@ -353,8 +353,8 @@
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-/*	The mail system name that is prepended to the process name in syslog
-/*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/*	A prefix that is prepended to the process name in syslog
+/*	records, so that, for example, "smtpd" becomes "prefix/smtpd".
 /* .PP
 /*	Available in Postfix 3.0 and later:
 /* .IP "\fBmeta_directory (see 'postconf -d' output)\fR"
@@ -763,7 +763,7 @@ static INSTANCE *create_primary_instance(void)
     INSTANCE *ip = alloc_instance(var_config_dir);
 
     /*
-     * There is no need to load primary instance paramater settings from
+     * There is no need to load primary instance parameter settings from
      * file. We already have the main.cf parameters of interest in memory.
      */
 #define SAVE_INSTANCE_NAME(val) (*(val) ? mystrdup(val) : 0)
@@ -1814,7 +1814,7 @@ int     main(int argc, char **argv)
     }
 
     /*
-     * Proces main.cf parameters.
+     * Process main.cf parameters.
      */
     mail_conf_read();
     get_mail_conf_str_table(str_table);

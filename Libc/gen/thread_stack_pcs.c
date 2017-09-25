@@ -29,7 +29,7 @@
 #include <stdlib.h>
 #include "stack_logging.h"
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
 #define FP_LINK_OFFSET 1
 #elif defined(__ppc__) || defined(__ppc64__)
 #define FP_LINK_OFFSET 2
@@ -40,7 +40,7 @@
 #define	INSTACK(a)	((a) >= stackbot && (a) <= stacktop)
 #if defined(__ppc__) || defined(__ppc64__) || defined(__x86_64__)
 #define	ISALIGNED(a)	((((uintptr_t)(a)) & 0xf) == 0)
-#elif defined(__arm__) 
+#elif defined(__arm__) || defined(__arm64__)
 #define	ISALIGNED(a)	((((uintptr_t)(a)) & 0x1) == 0)
 #elif defined(__i386__)
 #define	ISALIGNED(a)	((((uintptr_t)(a)) & 0xf) == 8)
@@ -68,7 +68,7 @@ _thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *nb, unsigned ski
      * optimization).  We now inline the code to get the stack frame pointer,
      * so we are consistent about the stack frame.
      */
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
     frame = __builtin_frame_address(0);
 #elif defined(__ppc__) || defined(__ppc64__)
     /* __builtin_frame_address IS BROKEN IN BEAKER: RADAR #2340421 */

@@ -29,7 +29,7 @@
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "JSDOMBinding.h"
+#include "JSDOMExceptionHandling.h"
 #include "JSDOMWindow.h"
 #include "JSMainThreadExecState.h"
 #include "JSMainThreadExecStateInstrumentation.h"
@@ -65,7 +65,7 @@ std::unique_ptr<ScheduledAction> ScheduledAction::create(ExecState* exec, DOMWra
 
 ScheduledAction::ScheduledAction(ExecState* exec, JSValue function, DOMWrapperWorld& isolatedWorld)
     : m_function(exec->vm(), function)
-    , m_isolatedWorld(&isolatedWorld)
+    , m_isolatedWorld(isolatedWorld)
 {
     // setTimeout(function, interval, arg0, arg1...).
     // Start at 2 to skip function and interval.
@@ -114,7 +114,7 @@ void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSV
 
 void ScheduledAction::execute(Document& document)
 {
-    JSDOMWindow* window = toJSDOMWindow(document.frame(), *m_isolatedWorld);
+    JSDOMWindow* window = toJSDOMWindow(document.frame(), m_isolatedWorld);
     if (!window)
         return;
 
@@ -123,9 +123,9 @@ void ScheduledAction::execute(Document& document)
         return;
 
     if (m_function)
-        executeFunctionInContext(window, window->shell(), document);
+        executeFunctionInContext(window, window->proxy(), document);
     else
-        frame->script().executeScriptInWorld(*m_isolatedWorld, m_code);
+        frame->script().executeScriptInWorld(m_isolatedWorld, m_code);
 }
 
 void ScheduledAction::execute(WorkerGlobalScope& workerGlobalScope)

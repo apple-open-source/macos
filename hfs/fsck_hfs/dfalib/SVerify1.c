@@ -2446,6 +2446,7 @@ CheckAttributeRecord(SGlobPtr GPtr, const HFSPlusAttrKey *key, const HFSPlusAttr
 			 * currently.  Also check extents only in verify stage to avoid 
 			 * false overlap extents error. 
 			 */
+
 			if (dfaStage == kVerifyStage) {
 				/* Start block in the key should be zero */
 				if (key->startBlock != 0) {
@@ -2454,9 +2455,11 @@ CheckAttributeRecord(SGlobPtr GPtr, const HFSPlusAttrKey *key, const HFSPlusAttr
 					goto err_out;
 				}
 
+                HFSPlusForkData forkData;
+                memcpy((void*)(&forkData), (void*)(&rec->forkData.theFork), sizeof(HFSPlusForkData));
 				/* Check the extent information and record overlapping extents, if any */
-				result = CheckFileExtents (GPtr, fileID, kEAData, attrname, 
-							rec->forkData.theFork.extents, &blocks);
+				result = CheckFileExtents (GPtr, fileID, kEAData, attrname,
+                                           &forkData.extents, &blocks);
 				if (result) {
 					goto update_out;
 				}

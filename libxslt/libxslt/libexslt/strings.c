@@ -75,7 +75,7 @@ exsltStrTokenizeFunction(xmlXPathParserContextPtr ctxt, int nargs)
         ret = xmlXPathNewNodeSet(NULL);
         if (ret != NULL) {
             for (cur = str, token = str; *cur != 0; cur += clen) {
-	        clen = xmlUTF8Size(cur);
+	        clen = xmlUTF8Strsize(cur, 1);
 		if (*delimiters == 0) {	/* empty string case */
 		    xmlChar ctmp;
 		    ctmp = *(cur+clen);
@@ -87,7 +87,7 @@ exsltStrTokenizeFunction(xmlXPathParserContextPtr ctxt, int nargs)
                     *(cur+clen) = ctmp; /* restore the changed byte */
                     token = cur + clen;
                 } else for (delimiter = delimiters; *delimiter != 0;
-				delimiter += xmlUTF8Size(delimiter)) {
+				delimiter += xmlUTF8Strsize(delimiter, 1)) {
                     if (!xmlUTF8Charcmp(cur, delimiter)) {
                         if (cur == token) {
                             /* discard empty tokens */
@@ -275,7 +275,10 @@ exsltStrEncodeUriFunction (xmlXPathParserContextPtr ctxt, int nargs) {
     str = xmlXPathPopString(ctxt);
     str_len = xmlUTF8Strlen(str);
 
-    if (str_len == 0) {
+    if (str_len <= 0) {
+        if (str_len < 0)
+            xsltGenericError(xsltGenericErrorContext,
+                             "exsltStrEncodeUriFunction: invalid UTF-8\n");
 	xmlXPathReturnEmptyString(ctxt);
 	xmlFree(str);
 	return;
@@ -320,7 +323,10 @@ exsltStrDecodeUriFunction (xmlXPathParserContextPtr ctxt, int nargs) {
     str = xmlXPathPopString(ctxt);
     str_len = xmlUTF8Strlen(str);
 
-    if (str_len == 0) {
+    if (str_len <= 0) {
+        if (str_len < 0)
+            xsltGenericError(xsltGenericErrorContext,
+                             "exsltStrDecodeUriFunction: invalid UTF-8\n");
 	xmlXPathReturnEmptyString(ctxt);
 	xmlFree(str);
 	return;
@@ -364,14 +370,22 @@ exsltStrPaddingFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 	str_len = xmlUTF8Strlen(str);
 	str_size = xmlStrlen(str);
     }
-    if (str_len == 0) {
+
+    number = (int) xmlXPathPopNumber(ctxt);
+
+    if (str_len <= 0) {
+        if (str_len < 0) {
+            xsltGenericError(xsltGenericErrorContext,
+                             "exsltStrPaddingFunction: invalid UTF-8\n");
+            xmlXPathReturnEmptyString(ctxt);
+            xmlFree(str);
+            return;
+        }
 	if (str != NULL) xmlFree(str);
 	str = xmlStrdup((const xmlChar *) " ");
 	str_len = 1;
 	str_size = 1;
     }
-
-    number = (int) xmlXPathPopNumber(ctxt);
 
     if (number <= 0) {
 	xmlXPathReturnEmptyString(ctxt);
@@ -421,6 +435,16 @@ exsltStrAlignFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 
     str_l = xmlUTF8Strlen (str);
     padding_l = xmlUTF8Strlen (padding);
+
+    if (str_l < 0 || padding_l < 0) {
+        xsltGenericError(xsltGenericErrorContext,
+                         "exsltStrAlignFunction: invalid UTF-8\n");
+        xmlXPathReturnEmptyString(ctxt);
+        xmlFree(str);
+        xmlFree(padding);
+        xmlFree(alignment);
+        return;
+    }
 
     if (str_l == padding_l) {
 	xmlXPathReturnString (ctxt, str);
@@ -707,7 +731,7 @@ exsltStrReplaceFunction (xmlXPathParserContextPtr ctxt, int nargs) {
                 start = src;
             }
 
-            src += xmlUTF8Size(src);
+            src += xmlUTF8Strsize(src, 1);
         }
         else {
             if ((start < src &&

@@ -93,7 +93,20 @@ extern const char *str_tls_level(int);
 #define OpenSSL_version_num SSLeay
 #define OpenSSL_version SSLeay_version
 #define OPENSSL_VERSION SSLEAY_VERSION
-#define X509_up_ref(x) CRYPTO_add(&((x)->references), 1, CRYPTO_LOCK_X509)
+#define X509_up_ref(x) \
+	CRYPTO_add(&((x)->references), 1, CRYPTO_LOCK_X509)
+#define EVP_PKEY_up_ref(k) \
+	CRYPTO_add(&((k)->references), 1, CRYPTO_LOCK_EVP_PKEY)
+#define X509_STORE_CTX_get0_cert(ctx) ((ctx)->cert)
+#define X509_STORE_CTX_get0_untrusted(ctx) ((ctx)->untrusted)
+#define X509_STORE_CTX_set0_untrusted X509_STORE_CTX_set_chain
+#define X509_STORE_CTX_set0_trusted_stack X509_STORE_CTX_trusted_stack
+#define ASN1_STRING_get0_data ASN1_STRING_data
+#define X509_getm_notBefore X509_get_notBefore
+#define X509_getm_notAfter X509_get_notAfter
+#define TLS_method SSLv23_method
+#define TLS_client_method SSLv23_client_method
+#define TLS_server_method SSLv23_server_method
 #endif
 
 /* SSL_CIPHER_get_name() got constified in 0.9.7g */
@@ -130,7 +143,7 @@ extern const char *str_tls_level(int);
 #define TLS_MGR_SCACHE_LMTP	"lmtp"
 
  /*
-  * RFC 6698 DANE
+  * RFC 6698, 7671, 7672 DANE
   */
 #define TLS_DANE_TA	0		/* Match trust-anchor digests */
 #define TLS_DANE_EE	1		/* Match end-entity digests */
@@ -233,7 +246,7 @@ typedef struct {
     const char *mdalg;			/* default message digest algorithm */
     /* Built-in vs external SSL_accept/read/write/shutdown support. */
     VSTREAM *stream;			/* Blocking-mode SMTP session */
-    /* RFC 6698 DANE trust input and verification state */
+    /* DANE TLSA trust input and verification state */
     const TLS_DANE *dane;		/* DANE TLSA digests */
     int     errordepth;			/* Chain depth of error cert */
     int     tadepth;			/* Chain depth of trust anchor */
@@ -447,7 +460,7 @@ typedef struct {
     const char *cipher_exclusions;	/* Ciphers to exclude */
     const ARGV *matchargv;		/* Cert match patterns */
     const char *mdalg;			/* default message digest algorithm */
-    const TLS_DANE *dane;		/* RFC 6698 verification */
+    const TLS_DANE *dane;		/* DANE TLSA verification */
 } TLS_CLIENT_START_PROPS;
 
 extern TLS_APPL_STATE *tls_client_init(const TLS_CLIENT_INIT_PROPS *);
@@ -586,7 +599,8 @@ extern int tls_bio(int, int, TLS_SESS_STATE *,
   */
 extern void tls_set_dh_from_file(const char *, int);
 extern DH *tls_tmp_dh_cb(SSL *, int, int);
-extern int tls_set_eecdh_curve(SSL_CTX *, const char *);
+extern void tls_set_eecdh_curve(SSL_CTX *, const char *);
+extern void tls_auto_eecdh_curves(SSL_CTX *);
 
  /*
   * tls_rsa.c

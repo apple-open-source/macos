@@ -1,9 +1,9 @@
---- Makefile.in.orig	2009-01-13 19:09:28.000000000 -0800
-+++ Makefile.in	2009-01-13 19:09:52.000000000 -0800
-@@ -608,7 +608,7 @@
- 	cd $(top_srcdir) && \
- 	  $(AUTOMAKE) --gnu  Makefile
- .PRECIOUS: Makefile
+--- Makefile.in.orig	2017-05-19 16:08:20.000000000 -0700
++++ Makefile.in	2017-05-19 16:08:25.000000000 -0700
+@@ -1338,7 +1338,7 @@
+ 	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu Makefile'; \
+ 	$(am__cd) $(top_srcdir) && \
+ 	  $(AUTOMAKE) --gnu Makefile
 -Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 +Makefile:
  	@case '$?' in \

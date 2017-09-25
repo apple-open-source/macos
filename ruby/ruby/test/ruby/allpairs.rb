@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 module AllPairs
   module_function
 
@@ -66,7 +67,6 @@ module AllPairs
   def each_index(*vs)
     n = vs.length
     max_v = vs.max
-    prime = make_prime(max_v)
     h = {}
     make_large_block(max_v, n) {|row|
       row = vs.zip(row).map {|v, i| i % v }

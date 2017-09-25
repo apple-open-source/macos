@@ -547,6 +547,11 @@ OSStatus impExpPkcs12Import(
 		}
 
 		}
+        if(!importedCertRef) {
+            SecImpExpDbg("SecCertificateGetData error (couldn't find cert)");
+            goto loopEnd;
+        }
+
 		/* Get digest of this cert's public key */
 		ortn = SecCertificateGetData(importedCertRef, &certData);
 		if(ortn) {

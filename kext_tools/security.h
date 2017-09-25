@@ -60,10 +60,7 @@ void    recordKextLoadForMT(OSKextRef aKext);
 
 OSStatus checkKextSignature(OSKextRef aKext,
                             Boolean checkExceptionList,
-                            Boolean earlyBoot);
-OSStatus checkSignaturesOfDependents(OSKextRef theKext,
-                                     Boolean checkExceptionList,
-                                     Boolean earlyBoot);
+                            Boolean allowNetwork);
 Boolean isInExceptionList(OSKextRef theKext, CFURLRef theKextURL, Boolean useCache);
 Boolean isInStrictExceptionList(OSKextRef theKext, CFURLRef theKextURL, Boolean useCache);
 Boolean isInLibraryExtensionsFolder(OSKextRef theKext);
@@ -73,17 +70,33 @@ Boolean isInvalidSignatureAllowed(void);
 Boolean isKextdRunning(void);
 int callSecKeychainMDSInstall( void );
 
+void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer, CFDictionaryRef codesignAttributes);
+
+// A set of authentication options for use with the global authentication function.
+typedef struct AuthOptions {
+    Boolean allowNetwork;
+    Boolean isCacheLoad;
+    Boolean performFilesystemValidation;
+    Boolean performSignatureValidation;
+    Boolean requireSecureLocation;
+    Boolean respectSystemPolicy;
+} AuthOptions_t;
+
+// context is expected to be a pointer to an AuthOptions_t structure.
+Boolean authenticateKext(OSKextRef theKext, void *context);
 
 #if !TARGET_OS_EMBEDDED
+#include <dz/dz.h>
+#if DZ_API_VERSION >= 20170214
 #define HAVE_DANGERZONE 1
-#else // !TARGET_OS_EMBEDDED
-#define HAVE_DANGERZONE 0
+#endif // DZ_API_VERSION
 #endif // !TARGET_OS_EMBEDDED
 
-void dzRecordKextLoadUser(OSKextRef kext);
-void dzRecordKextLoadKernel(OSKextRef kext);
-void dzRecordKextLoadBypass(OSKextRef kext);
-void dzRecordKextCacheAdd(OSKextRef kext);
-Boolean dzAllowKextLoad(OSKextRef kext);
+#if HAVE_DANGERZONE
+void dzRecordKextLoadUser(OSKextRef kext, bool allowed);
+void dzRecordKextLoadKernel(OSKextRef kext, bool allowed);
+void dzRecordKextLoadBypass(OSKextRef kext, bool allowed);
+void dzRecordKextCacheAdd(OSKextRef kext, bool allowed);
+#endif
 
 #endif // _SECURITY_H

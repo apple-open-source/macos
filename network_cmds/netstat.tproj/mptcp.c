@@ -78,7 +78,7 @@ printmptcp(int id, conninfo_mptcp_t *mptcp)
 	    "aid(%d)]\n", id,
 	    mptcp->mptcpci_mpte_flags, mptcp->mptcpci_flags,
 	    mptcpstates[mptcp->mptcpci_state], mptcp->mptcpci_rtoken,
-	    mptcp->mptcpci_sndnxt, mptcp->mptcpci_rcvatmark,
+	    mptcp->mptcpci_sndnxt, mptcp->mptcpci_rcvnxt,
 	    mptcp->mptcpci_mpte_addrid);
 
 	flow = (mptcp_flow_t*)((caddr_t)mptcp + mptcp->mptcpci_flow_offset);
@@ -113,9 +113,8 @@ printmptcp(int id, conninfo_mptcp_t *mptcp)
 		tcpci = (conninfo_tcp_t*)((caddr_t)flow +
 		    flow->flow_tcpci_offset);
 		printf("%s \n"
-		    "      [dsn(%#"PRIx64"), relseq(%-4.4d), err(%d)]\n",
+		    "      [relseq(%-4.4d), err(%d)]\n",
 		    tcpstates[tcpci->tcpci_tcp_info.tcpi_state],
-		    flow->flow_sndnxt,
 		    flow->flow_relseq,
 		    flow->flow_soerror);
 

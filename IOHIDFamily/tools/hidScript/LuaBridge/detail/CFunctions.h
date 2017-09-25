@@ -138,7 +138,7 @@ struct CFunc
       {
         assert (lua_isnil (L, -1));
         lua_pop (L, 2);
-        result = luaL_error (L,"no writable variable '%s'", lua_tostring (L, 2));
+        luaL_error (L,"no writable variable '%s'", lua_tostring (L, 2));
       }
     }
 

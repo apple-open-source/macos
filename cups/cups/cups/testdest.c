@@ -1,13 +1,13 @@
 /*
  * CUPS destination API test program for CUPS.
  *
- * Copyright 2012-2016 by Apple Inc.
+ * Copyright 2012-2017 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -105,6 +105,14 @@ main(int  argc,				/* I - Number of command-line arguments */
   }
   else if (!strncmp(argv[1], "ipp://", 6) || !strncmp(argv[1], "ipps://", 7))
     dest = cupsGetDestWithURI(NULL, argv[1]);
+  else if (!strcmp(argv[1], "default"))
+  {
+    dest = cupsGetNamedDest(CUPS_HTTP_DEFAULT, NULL, NULL);
+    if (dest && dest->instance)
+      printf("default is \"%s/%s\".\n", dest->name, dest->instance);
+    else
+      printf("default is \"%s\".\n", dest->name);
+  }
   else
     dest = cupsGetNamedDest(CUPS_HTTP_DEFAULT, argv[1], NULL);
 
@@ -218,9 +226,9 @@ enum_cb(void        *user_data,		/* I - User data (unused) */
   (void)flags;
 
   if (dest->instance)
-    printf("%s/%s:\n", dest->name, dest->instance);
+    printf("%s%s/%s:\n", (flags & CUPS_DEST_FLAGS_REMOVED) ? "REMOVE " : "", dest->name, dest->instance);
   else
-    printf("%s:\n", dest->name);
+    printf("%s%s:\n", (flags & CUPS_DEST_FLAGS_REMOVED) ? "REMOVE " : "", dest->name);
 
   for (i = 0; i < dest->num_options; i ++)
     printf("    %s=\"%s\"\n", dest->options[i].name, dest->options[i].value);
@@ -463,10 +471,37 @@ show_default(http_t       *http,	/* I - Connection to destination */
 	     cups_dinfo_t *dinfo,	/* I - Destination information */
 	     const char  *option)	/* I - Option */
 {
-  (void)http;
-  (void)dest;
-  (void)dinfo;
-  (void)option;
+  if (!strcmp(option, "media"))
+  {
+   /*
+    * Show default media option...
+    */
+
+    cups_size_t size;                   /* Media size information */
+
+    if (cupsGetDestMediaDefault(http, dest, dinfo, CUPS_MEDIA_FLAGS_DEFAULT, &size))
+      printf("%s (%.2fx%.2fmm, margins=[%.2f %.2f %.2f %.2f])\n", size.media, size.width * 0.01, size.length * 0.01, size.left * 0.01, size.bottom * 0.01, size.right * 0.01, size.top * 0.01);
+     else
+       puts("FAILED");
+  }
+  else
+  {
+   /*
+    * Show default other option...
+    */
+
+    ipp_attribute_t *defattr;           /* Default attribute */
+
+    if ((defattr = cupsFindDestDefault(http, dest, dinfo, option)) != NULL)
+    {
+      char value[1024];                 /* Value of default attribute */
+
+      ippAttributeString(defattr, value, sizeof(value));
+      puts(value);
+    }
+    else
+      puts("FAILED");
+  }
 }
 
 
@@ -594,7 +629,8 @@ show_supported(http_t       *http,	/* I - Connection to destination */
   }
   else if (!value)
   {
-    puts(option);
+    printf("%s (%s - %s)\n", option, cupsLocalizeDestOption(http, dest, dinfo, option), cupsCheckDestSupported(http, dest, dinfo, option, NULL) ? "supported" : "not-supported");
+
     if ((attr = cupsFindDestSupported(http, dest, dinfo, option)) != NULL)
     {
       count = ippGetCount(attr);
@@ -608,7 +644,13 @@ show_supported(http_t       *http,	/* I - Connection to destination */
 
         case IPP_TAG_ENUM :
 	    for (i = 0; i < count; i ++)
-              printf("  %s\n", ippEnumString(option, ippGetInteger(attr, i)));
+	    {
+	      int val = ippGetInteger(attr, i);
+	      char valstr[256];
+
+              snprintf(valstr, sizeof(valstr), "%d", val);
+              printf("  %s (%s)\n", ippEnumString(option, ippGetInteger(attr, i)), cupsLocalizeDestValue(http, dest, dinfo, option, valstr));
+            }
 	    break;
 
         case IPP_TAG_RANGE :
@@ -634,11 +676,15 @@ show_supported(http_t       *http,	/* I - Connection to destination */
 	    }
 	    break;
 
+	case IPP_TAG_KEYWORD :
+	    for (i = 0; i < count; i ++)
+              printf("  %s (%s)\n", ippGetString(attr, i, NULL), cupsLocalizeDestValue(http, dest, dinfo, option, ippGetString(attr, i, NULL)));
+	    break;
+
 	case IPP_TAG_TEXTLANG :
 	case IPP_TAG_NAMELANG :
 	case IPP_TAG_TEXT :
 	case IPP_TAG_NAME :
-	case IPP_TAG_KEYWORD :
 	case IPP_TAG_URI :
 	case IPP_TAG_URISCHEME :
 	case IPP_TAG_CHARSET :

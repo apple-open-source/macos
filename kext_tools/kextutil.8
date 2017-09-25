@@ -222,6 +222,7 @@ authentication, and dependency resolution; a failure at any
 stage can make tests in further stages impossible.
 Thus, a kext with validation failures may have unreported
 authentication problems or missing dependencies.
+Additionally, some tests require being run as root.
 .It Fl v Li [ 0-6 | 0x#### Ns Li ] , Fl verbose Li [ 0-6 | 0x#### Ns Li ]
 Verbose mode; print information about program operation.
 Higher levels of verbosity include all lower levels.

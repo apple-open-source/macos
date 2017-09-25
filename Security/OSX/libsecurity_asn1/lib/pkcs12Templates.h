@@ -70,7 +70,7 @@
 #define _PKCS12_TEMPLATES_H_
 
 #include <Security/keyTemplates.h>	/* for NSS_Attribute */
-#include <Security/pkcs7Templates.h>			/* will be lib-specific place */
+#include <security_asn1/pkcs7Templates.h>			/* will be lib-specific place */
 
 #ifdef __cplusplus
 extern "C" {

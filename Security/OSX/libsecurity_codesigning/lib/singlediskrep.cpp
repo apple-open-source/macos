@@ -83,6 +83,14 @@ size_t SingleDiskRep::signingLimit()
 }
 
 //
+// No executable segment in non-machO files.
+//
+size_t SingleDiskRep::execSegLimit(const Architecture *)
+{
+	return 0;
+}
+
+//
 // A lazily opened read-only file descriptor for the path.
 //
 FileDesc &SingleDiskRep::fd()

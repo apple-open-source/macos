@@ -687,7 +687,7 @@ EsprimaFormatter = class EsprimaFormatter
         }
 
         if (nodeType === "Property") {
-            console.assert(tokenValue === ":" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async" || tokenValue === "*" || tokenValue === "[" || tokenValue === "]", token);
+            console.assert(tokenValue === ":" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async" || tokenValue === "*" || tokenValue === "[" || tokenValue === "]" || tokenValue === "(" || tokenValue === ")", token);
             builder.appendToken(tokenValue, tokenOffset);
             if (tokenValue === ":" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async")
                 builder.appendSpace();
@@ -695,7 +695,7 @@ EsprimaFormatter = class EsprimaFormatter
         }
 
         if (nodeType === "MethodDefinition") {
-            console.assert(tokenValue === "static" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async" || tokenValue === "*" || tokenValue === "[" || tokenValue === "]", token);
+            console.assert(tokenValue === "static" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async" || tokenValue === "*" || tokenValue === "[" || tokenValue === "]" || tokenValue === "(" || tokenValue === ")", token);
             builder.appendToken(tokenValue, tokenOffset);
             if (tokenValue === "static" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async")
                 builder.appendSpace();
@@ -815,7 +815,7 @@ EsprimaFormatter = class EsprimaFormatter
                 builder.appendSpace();
             builder.appendToken(tokenValue, tokenOffset);
             builder.appendSpace();
-            return;            
+            return;
         }
 
         if (nodeType === "ExportAllDeclaration" || nodeType === "ExportDefaultDeclaration" || nodeType === "ImportDefaultSpecifier" || nodeType === "ImportNamespaceSpecifier") {
@@ -828,9 +828,12 @@ EsprimaFormatter = class EsprimaFormatter
         // Include these here so we get only get warnings about unhandled nodes.
         if (nodeType === "ExpressionStatement"
             || nodeType === "SpreadElement"
+            || nodeType === "SpreadProperty"
             || nodeType === "Super"
+            || nodeType === "Import"
             || nodeType === "MetaProperty"
             || nodeType === "RestElement"
+            || nodeType === "RestProperty"
             || nodeType === "TemplateElement"
             || nodeType === "TemplateLiteral"
             || nodeType === "DebuggerStatement"

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocRdInlineParser < RDoc::TestCase
@@ -175,4 +176,3 @@ class TestRDocRdInlineParser < RDoc::TestCase
   end
 
 end
-

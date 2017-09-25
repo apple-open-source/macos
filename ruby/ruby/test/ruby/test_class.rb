@@ -1,5 +1,5 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestClass < Test::Unit::TestCase
   # ------------------
@@ -144,23 +144,21 @@ class TestClass < Test::Unit::TestCase
     assert_match(/:#{line}: warning: method redefined; discarding old foo/, stderr)
     assert_match(/:#{line-1}: warning: previous definition of foo/, stderr, feature2155)
 
-    stderr = EnvUtil.verbose_warning do
+    assert_warning '' do
       Class.new do
         def foo; end
         alias bar foo
         def foo; end
       end
     end
-    assert_equal("", stderr)
 
-    stderr = EnvUtil.verbose_warning do
+    assert_warning '' do
       Class.new do
         def foo; end
         alias bar foo
         alias bar foo
       end
     end
-    assert_equal("", stderr)
 
     line = __LINE__+4
     stderr = EnvUtil.verbose_warning do
@@ -172,22 +170,20 @@ class TestClass < Test::Unit::TestCase
     assert_match(/:#{line}: warning: method redefined; discarding old foo/, stderr)
     assert_match(/:#{line-1}: warning: previous definition of foo/, stderr, feature2155)
 
-    stderr = EnvUtil.verbose_warning do
+    assert_warning '' do
       Class.new do
         define_method(:foo) do end
         alias bar foo
         alias bar foo
       end
     end
-    assert_equal("", stderr)
 
-    stderr = EnvUtil.verbose_warning do
+    assert_warning '' do
       Class.new do
         def foo; end
         undef foo
       end
     end
-    assert_equal("", stderr)
   end
 
   def test_check_inheritable
@@ -198,6 +194,9 @@ class TestClass < Test::Unit::TestCase
     assert_raise(TypeError) { Class.new(c) }
     assert_raise(TypeError) { Class.new(Class) }
     assert_raise(TypeError) { eval("class Foo < Class; end") }
+    m = "M\u{1f5ff}"
+    o = Class.new {break eval("class #{m}; self; end.new")}
+    assert_raise_with_message(TypeError, /#{m}/) {Class.new(o)}
   end
 
   def test_initialize_copy
@@ -361,6 +360,38 @@ class TestClass < Test::Unit::TestCase
         end
       end;
     end
+
+    m = Module.new
+    n = "M\u{1f5ff}"
+    c = m.module_eval "class #{n}; new; end"
+    assert_raise_with_message(TypeError, /#{n}/) {
+      eval <<-"end;"
+        class C < c
+        end
+      end;
+    }
+    assert_raise_with_message(TypeError, /#{n}/) {
+      m.module_eval "class #{n} < Class.new; end"
+    }
+  end
+
+  define_method :test_invalid_reset_superclass do
+    class A; end
+    class SuperclassCannotBeReset < A
+    end
+    assert_equal A, SuperclassCannotBeReset.superclass
+
+    assert_raise_with_message(TypeError, /superclass mismatch/) {
+      class SuperclassCannotBeReset < String
+      end
+    }
+
+    assert_raise_with_message(TypeError, /superclass mismatch/, "[ruby-core:75446]") {
+      class SuperclassCannotBeReset < Object
+      end
+    }
+
+    assert_equal A, SuperclassCannotBeReset.superclass
   end
 
   def test_cloned_singleton_method_added
@@ -375,5 +406,193 @@ class TestClass < Test::Unit::TestCase
     d = c.clone
     assert_empty(added.grep(->(k) {c == k[0]}), bug5283)
     assert_equal(:foo, d.foo)
+  end
+
+  def test_singleton_class_p
+    feature7609 = '[ruby-core:51087] [Feature #7609]'
+    assert_predicate(self.singleton_class, :singleton_class?, feature7609)
+    assert_not_predicate(self.class, :singleton_class?, feature7609)
+  end
+
+  def test_freeze_to_s
+    assert_nothing_raised("[ruby-core:41858] [Bug #5828]") {
+      Class.new.freeze.clone.to_s
+    }
+  end
+
+  def test_singleton_class_of_frozen_object
+    obj = Object.new
+    c = obj.singleton_class
+    obj.freeze
+    assert_raise_with_message(RuntimeError, /frozen object/) {
+      c.class_eval {def f; end}
+    }
+  end
+
+  def test_singleton_class_message
+    c = Class.new.freeze
+    assert_raise_with_message(RuntimeError, /frozen Class/) {
+      def c.f; end
+    }
+  end
+
+  def test_singleton_class_should_has_own_namespace
+    # CONST in singleton class
+    objs = []
+    $i = 0
+
+    2.times{
+      objs << obj = Object.new
+      class << obj
+        CONST = ($i += 1)
+        def foo
+          CONST
+        end
+      end
+    }
+    assert_equal(1, objs[0].foo, '[Bug #10943]')
+    assert_equal(2, objs[1].foo, '[Bug #10943]')
+
+    # CONST in block in singleton class
+    objs = []
+    $i = 0
+
+    2.times{
+      objs << obj = Object.new
+      class << obj
+        1.times{
+          CONST = ($i += 1)
+        }
+        def foo
+          [nil].map{
+            CONST
+          }
+        end
+      end
+    }
+    assert_equal([1], objs[0].foo, '[Bug #10943]')
+    assert_equal([2], objs[1].foo, '[Bug #10943]')
+
+    # class def in singleton class
+    objs = []
+    $xs = []
+    $i = 0
+
+    2.times{
+      objs << obj = Object.new
+      class << obj
+        CONST = ($i += 1)
+        class X
+          $xs << self
+          CONST = ($i += 1)
+          def foo
+            CONST
+          end
+        end
+
+        def x
+          X
+        end
+      end
+    }
+    assert_not_equal($xs[0], $xs[1], '[Bug #10943]')
+    assert_not_equal(objs[0].x, objs[1].x, '[Bug #10943]')
+    assert_equal(2, $xs[0]::CONST, '[Bug #10943]')
+    assert_equal(2, $xs[0].new.foo, '[Bug #10943]')
+    assert_equal(4, $xs[1]::CONST, '[Bug #10943]')
+    assert_equal(4, $xs[1].new.foo, '[Bug #10943]')
+
+    # class def in block in singleton class
+    objs = []
+    $xs = []
+    $i = 0
+
+    2.times{
+      objs << obj = Object.new
+      class << obj
+        1.times{
+          CONST = ($i += 1)
+        }
+        1.times{
+          class X
+            $xs << self
+            CONST = ($i += 1)
+            def foo
+              CONST
+            end
+          end
+
+          def x
+            X
+          end
+        }
+      end
+    }
+    assert_not_equal($xs[0], $xs[1], '[Bug #10943]')
+    assert_not_equal(objs[0].x, objs[1].x, '[Bug #10943]')
+    assert_equal(2, $xs[0]::CONST, '[Bug #10943]')
+    assert_equal(2, $xs[0].new.foo, '[Bug #10943]')
+    assert_equal(4, $xs[1]::CONST, '[Bug #10943]')
+    assert_equal(4, $xs[1].new.foo, '[Bug #10943]')
+
+    # method def in singleton class
+    ms = []
+    ps = $test_singleton_class_shared_cref_ps = []
+    2.times{
+      ms << Module.new do
+        class << self
+          $test_singleton_class_shared_cref_ps << Proc.new{
+            def xyzzy
+              self
+            end
+          }
+        end
+      end
+    }
+
+    ps.each{|p| p.call} # define xyzzy methods for each singleton classes
+    ms.each{|m|
+      assert_equal(m, m.xyzzy, "Bug #10871")
+    }
+  end
+
+  def test_redefinition_mismatch
+    m = Module.new
+    m.module_eval "A = 1"
+    assert_raise_with_message(TypeError, /is not a class/) {
+      m.module_eval "class A; end"
+    }
+    n = "M\u{1f5ff}"
+    m.module_eval "#{n} = 42"
+    assert_raise_with_message(TypeError, "#{n} is not a class") {
+      m.module_eval "class #{n}; end"
+    }
+
+    assert_separately([], <<-"end;")
+      Date = (class C\u{1f5ff}; self; end).new
+      assert_raise_with_message(TypeError, /C\u{1f5ff}/) {
+        require 'date'
+      }
+    end;
+  end
+
+  def test_should_not_expose_singleton_class_without_metaclass
+    assert_normal_exit %q{
+      klass = Class.new(Array)
+      # The metaclass of +klass+ should handle #bla since it should inherit methods from meta:meta:Array
+      def (Array.singleton_class).bla; :bla; end
+      hidden = ObjectSpace.each_object(Class).find { |c| klass.is_a? c and c.inspect.include? klass.inspect }
+      raise unless hidden.nil?
+    }, '[Bug #11740]'
+
+    assert_normal_exit %q{
+      klass = Class.new(Array)
+      klass.singleton_class
+      # The metaclass of +klass+ should handle #bla since it should inherit methods from meta:meta:Array
+      def (Array.singleton_class).bla; :bla; end
+      hidden = ObjectSpace.each_object(Class).find { |c| klass.is_a? c and c.inspect.include? klass.inspect }
+      raise if hidden.nil?
+    }, '[Bug #11740]'
+
   end
 end

@@ -1,0 +1,46 @@
+.\" Copyright (c) 2017, Apple Computer, Inc.  All rights reserved.
+.\"
+.Dd March 31, 2017
+.Dt MSLUTIL 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm mslutil
+.Nd Tool to enable / disable malloc stack logging on a specific proces
+.Sh SYNOPSIS
+.Nm mslutil pid [--enable flavor] | [--disable] 
+.Sh DESCRIPTION
+The
+.Nm mslutil
+utility enables/disables malloc stack logging on the process specified by 
+.Nm pid.
+It requires root privileges.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.\" ==========
+.It Fl -enable
+Specifying the
+.Fl -enable
+option enables malloc stack logging, using the 
+.Pa flavor
+provided.
+The supported flavors are:
+.Pp
+.Pa full		
+Standard malloc stack logging that records both vm and malloc calls
+.Pp
+.Pa malloc	
+Standard malloc stack logging that records only malloc calls
+.Pp
+.Pa vm		
+Standard malloc stack logging that records only vm calls
+.Pp
+.Pa lite		
+Lite mode of malloc stack logging.
+.\" ==========
+.It Fl -disable
+Specifying the
+.Fl -disable
+option disables any current mode of malloc stack logging.
+.\" ==========
+.El

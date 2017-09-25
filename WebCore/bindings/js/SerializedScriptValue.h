@@ -27,17 +27,21 @@
 #pragma once
 
 #include "ExceptionOr.h"
-#include <bindings/ScriptValue.h>
 #include <heap/Strong.h>
 #include <runtime/ArrayBuffer.h>
 #include <runtime/JSCJSValue.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
-#include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef const struct OpaqueJSValue* JSValueRef;
+
+#if ENABLE(WEBASSEMBLY)
+namespace JSC { namespace Wasm {
+class Module;
+} }
+#endif
 
 namespace WebCore {
 
@@ -50,6 +54,9 @@ enum class SerializationErrorMode { NonThrowing, Throwing };
 enum class SerializationContext { Default, WorkerPostMessage };
 
 using ArrayBufferContentsArray = Vector<JSC::ArrayBufferContents>;
+#if ENABLE(WEBASSEMBLY)
+using WasmModuleArray = Vector<RefPtr<JSC::Wasm::Module>>;
+#endif
 
 class SerializedScriptValue : public ThreadSafeRefCounted<SerializedScriptValue> {
 public:
@@ -96,11 +103,18 @@ public:
 
 private:
     WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&);
-    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers);
+    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers
+#if ENABLE(WEBASSEMBLY)
+        , std::unique_ptr<WasmModuleArray>
+#endif
+        );
 
     Vector<unsigned char> m_data;
     std::unique_ptr<ArrayBufferContentsArray> m_arrayBufferContentsArray;
     std::unique_ptr<ArrayBufferContentsArray> m_sharedBufferContentsArray;
+#if ENABLE(WEBASSEMBLY)
+    std::unique_ptr<WasmModuleArray> m_wasmModulesArray;
+#endif
     Vector<String> m_blobURLs;
 };
 

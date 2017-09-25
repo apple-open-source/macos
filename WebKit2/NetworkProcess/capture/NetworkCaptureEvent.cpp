@@ -28,6 +28,9 @@
 
 #if ENABLE(NETWORK_CAPTURE)
 
+#define JSON_NOEXCEPTION 1
+#undef __EXCEPTIONS
+
 #include "NetworkCaptureLogging.h"
 #include "json.hpp"
 #include <WebCore/ResourceError.h>
@@ -186,7 +189,7 @@ template<>
 struct JSONCoder<String> {
     static json encode(const String& val)
     {
-        return json(static_cast<const char*>(val.utf8().data()));
+        return json(std::string(static_cast<const char*>(val.utf8().data()), val.length()));
     }
 
     static String decode(const json& jVal)
@@ -337,7 +340,7 @@ struct JSONCoder<WebCore::SharedBuffer> {
     {
         Vector<char> buffer;
         base64Encode(data.data(), data.size(), buffer);
-        return json(&buffer[0], buffer.size());
+        return json(std::string(&buffer[0], buffer.size()));
     }
 
     static Ref<WebCore::SharedBuffer> decode(const json& jData)
@@ -346,7 +349,7 @@ struct JSONCoder<WebCore::SharedBuffer> {
         const auto& str = jData.get_ref<const std::string&>();
         auto result = base64Decode(str.c_str(), str.size(), data);
         ASSERT_UNUSED(result, result);
-        return WebCore::SharedBuffer::adoptVector(data);
+        return WebCore::SharedBuffer::create(WTFMove(data));
     }
 };
 

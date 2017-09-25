@@ -74,8 +74,14 @@ nihosts:
 interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
+interfaces-no-sc: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -DNO_SYSTEMCONFIGURATION=1 -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+
 dhcpopt: dhcp_options.c cfutil.c util.c DNSNameList.c IPv4ClasslessRoute.c ptrlist.c IPConfigurationLog.c
-	$(CC) -Wall -g -DTEST_DHCP_OPTIONS -o $@ $^ -framework CoreFoundation -framework SystemConfiguration -framework CoreFoundation
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -Wall -g -DTEST_DHCP_OPTIONS -o $@ $^ -framework SystemConfiguration -framework CoreFoundation
+
+dhcpopt-no-sc: dhcp_options.c cfutil.c util.c DNSNameList.c IPv4ClasslessRoute.c ptrlist.c IPConfigurationLog.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DNO_SYSTEMCONFIGURATION=1 -Wall -g -DTEST_DHCP_OPTIONS -o $@ $^ -framework CoreFoundation
 
 macncopt: macnc_options.c
 	cc -Wall -g -DTEST_MACNC_OPTIONS -o macncopt macnc_options.c dhcp_options.c ptrlist.c util.c DNSNameList.c

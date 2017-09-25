@@ -1101,8 +1101,13 @@ IOReturn IOFireWireController::poweredStart( void )
     // Set our node unique ID.
 	UInt64 guid_big = OSSwapHostToBigInt64( guid );
     OSData *t = OSData::withBytes(&guid_big, sizeof(guid_big));
-    fRootDir->addEntry(kConfigNodeUniqueIdKey, t);
-        
+    if( t )
+    {
+        fRootDir->addEntry(kConfigNodeUniqueIdKey, t);
+        t->release();
+        t = NULL;
+    }
+    
     fTimer->enable();
 
     // Create local node
@@ -4231,29 +4236,35 @@ void IOFireWireController::initSecurity( void )
 		{
 			OSIterator *	iterator		= NULL;
 			OSBoolean *		keyswitchState	= NULL;
-				
-			iterator = getMatchingServices( nameMatching("AppleKeyswitch") );
-			if( iterator != NULL )
-			{
-				OSObject * obj = NULL;
-				waitForKeyswitch = false;
+            
+            OSDictionary *  keyswitch_match_dict = keyswitch_match_dict = nameMatching("AppleKeyswitch");
+            if( keyswitch_match_dict )
+            {
+                iterator = getMatchingServices( keyswitch_match_dict );
+                if( iterator != NULL )
+                {
+                    OSObject * obj = NULL;
+                    waitForKeyswitch = false;
 
-				if( (obj = iterator->getNextObject()) )
-				{
-					IOService *	service = (IOService*)obj;
-					keyswitchState = OSDynamicCast( OSBoolean, service->getProperty( "Keyswitch" ) );
-					
-					if( keyswitchState->isTrue() )
-					{
-						// set security mode to secure
-						mode = kIOFWSecurityModeSecure;
-					}
-				}
-				
-				iterator->release();
-				iterator = NULL;
-			}
-
+                    if( (obj = iterator->getNextObject()) )
+                    {
+                        IOService *	service = (IOService*)obj;
+                        keyswitchState = OSDynamicCast( OSBoolean, service->getProperty( "Keyswitch" ) );
+                        
+                        if( keyswitchState->isTrue() )
+                        {
+                            // set security mode to secure
+                            mode = kIOFWSecurityModeSecure;
+                        }
+                    }
+                    
+                    iterator->release();
+                    iterator = NULL;
+                }
+                
+                keyswitch_match_dict->release();
+            }
+            
 			if( retryCount == 0 )
 				waitForKeyswitch = false;
 
@@ -4271,11 +4282,15 @@ void IOFireWireController::initSecurity( void )
 		// add notification for changes to secruity keyswitch
 		//
 		
-		
-		fKeyswitchNotifier = addMatchingNotification( gIOMatchedNotification, nameMatching( "AppleKeyswitch" ),
-											  (IOServiceMatchingNotificationHandler)&IOFireWireController::serverKeyswitchCallback,
-											  this, 0 );
-		
+        OSDictionary * name_match_dict = nameMatching( "AppleKeyswitch" );
+        if( name_match_dict )
+        {
+            fKeyswitchNotifier = addMatchingNotification( gIOMatchedNotification, name_match_dict,
+                                                         (IOServiceMatchingNotificationHandler)&IOFireWireController::serverKeyswitchCallback,
+                                                         this, 0 );
+            
+            name_match_dict->release();
+        }
 	}
 
 	//

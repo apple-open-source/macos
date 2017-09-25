@@ -148,6 +148,7 @@ errOut:
 }
 
 CFDataRef SecOCSPRequestGetDER(SecOCSPRequestRef this) {
+    if (!this) { return NULL; }
     CFDataRef der = this->der;
     if (!der) {
         this->der = der = _SecOCSPRequestCopyDEREncoding(this);

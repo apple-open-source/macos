@@ -30,9 +30,11 @@
 
 #if USE(SOUP)
 
+#include "Cookie.h"
 #include "ResourceHandle.h"
 #include "SoupNetworkSession.h"
 #include <libsoup/soup.h>
+#include <wtf/DateMath.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -47,14 +49,17 @@
 
 namespace WebCore {
 
-NetworkStorageSession::NetworkStorageSession(SessionID sessionID, std::unique_ptr<SoupNetworkSession> session)
+NetworkStorageSession::NetworkStorageSession(SessionID sessionID, std::unique_ptr<SoupNetworkSession>&& session)
     : m_sessionID(sessionID)
     , m_session(WTFMove(session))
 {
+    setCookieStorage(m_session ? m_session->cookieJar() : nullptr);
 }
 
 NetworkStorageSession::~NetworkStorageSession()
 {
+    g_signal_handlers_disconnect_matched(m_cookieStorage.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
+
 #if USE(LIBSECRET)
     g_cancellable_cancel(m_persisentStorageCancellable.get());
 #endif
@@ -76,20 +81,68 @@ NetworkStorageSession& NetworkStorageSession::defaultStorageSession()
 
 void NetworkStorageSession::ensurePrivateBrowsingSession(SessionID sessionID, const String&)
 {
-    auto session = std::make_unique<NetworkStorageSession>(sessionID, SoupNetworkSession::createPrivateBrowsingSession());
     ASSERT(sessionID != SessionID::defaultSessionID());
     ASSERT(!globalSessionMap().contains(sessionID));
-    globalSessionMap().add(sessionID, WTFMove(session));
+    globalSessionMap().add(sessionID, std::make_unique<NetworkStorageSession>(sessionID, std::make_unique<SoupNetworkSession>()));
+}
+
+void NetworkStorageSession::ensureSession(SessionID, const String&)
+{
+    // FIXME: Implement
 }
 
 void NetworkStorageSession::switchToNewTestingSession()
 {
-    defaultSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), SoupNetworkSession::createTestingSession());
+    defaultSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), std::make_unique<SoupNetworkSession>());
 }
 
-SoupNetworkSession& NetworkStorageSession::soupNetworkSession() const
+SoupNetworkSession& NetworkStorageSession::getOrCreateSoupNetworkSession() const
 {
-    return m_session ? *m_session : SoupNetworkSession::defaultSession();
+    if (!m_session)
+        m_session = std::make_unique<SoupNetworkSession>(m_cookieStorage.get());
+    return *m_session;
+}
+
+void NetworkStorageSession::clearSoupNetworkSessionAndCookieStorage()
+{
+    ASSERT(defaultSession().get() == this);
+    m_session = nullptr;
+    m_cookieObserverHandler = nullptr;
+    m_cookieStorage = nullptr;
+}
+
+void NetworkStorageSession::cookiesDidChange(NetworkStorageSession* session)
+{
+    if (session->m_cookieObserverHandler)
+        session->m_cookieObserverHandler();
+}
+
+SoupCookieJar* NetworkStorageSession::cookieStorage() const
+{
+    RELEASE_ASSERT(!m_session || m_session->cookieJar() == m_cookieStorage.get());
+    return m_cookieStorage.get();
+}
+
+void NetworkStorageSession::setCookieStorage(SoupCookieJar* jar)
+{
+    if (m_cookieStorage)
+        g_signal_handlers_disconnect_matched(m_cookieStorage.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
+
+    // We always have a valid cookieStorage.
+    if (jar)
+        m_cookieStorage = jar;
+    else {
+        m_cookieStorage = adoptGRef(soup_cookie_jar_new());
+        soup_cookie_jar_set_accept_policy(m_cookieStorage.get(), SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY);
+    }
+    g_signal_connect_swapped(m_cookieStorage.get(), "changed", G_CALLBACK(cookiesDidChange), this);
+    if (m_session && m_session->cookieJar() != m_cookieStorage.get())
+        m_session->setCookieJar(m_cookieStorage.get());
+}
+
+void NetworkStorageSession::setCookieObserverHandler(Function<void ()>&& handler)
+{
+    m_cookieObserverHandler = WTFMove(handler);
 }
 
 #if USE(LIBSECRET)
@@ -234,6 +287,61 @@ void NetworkStorageSession::saveCredentialToPersistentStorage(const ProtectionSp
     UNUSED_PARAM(protectionSpace);
     UNUSED_PARAM(credential);
 #endif
+}
+
+static SoupDate* msToSoupDate(double ms)
+{
+    int year = msToYear(ms);
+    int dayOfYear = dayInYear(ms, year);
+    bool leapYear = isLeapYear(year);
+    return soup_date_new(year, monthFromDayInYear(dayOfYear, leapYear), dayInMonthFromDayInYear(dayOfYear, leapYear), msToHours(ms), msToMinutes(ms), static_cast<int>(ms / 1000) % 60);
+}
+
+static SoupCookie* toSoupCookie(const Cookie& cookie)
+{
+    SoupCookie* soupCookie = soup_cookie_new(cookie.name.utf8().data(), cookie.value.utf8().data(),
+        cookie.domain.utf8().data(), cookie.path.utf8().data(), -1);
+    soup_cookie_set_http_only(soupCookie, cookie.httpOnly);
+    soup_cookie_set_secure(soupCookie, cookie.secure);
+    if (!cookie.session) {
+        SoupDate* date = msToSoupDate(cookie.expires);
+        soup_cookie_set_expires(soupCookie, date);
+        soup_date_free(date);
+    }
+    return soupCookie;
+}
+
+void NetworkStorageSession::setCookies(const Vector<Cookie>& cookies, const URL&, const URL&)
+{
+    for (auto cookie : cookies)
+        soup_cookie_jar_add_cookie(cookieStorage(), toSoupCookie(cookie));
+}
+
+void NetworkStorageSession::setCookie(const Cookie&)
+{
+    // FIXME: Implement for WK2 to use.
+}
+
+void NetworkStorageSession::deleteCookie(const Cookie&)
+{
+    // FIXME: Implement for WK2 to use.
+}
+
+Vector<Cookie> NetworkStorageSession::getAllCookies()
+{
+    // FIXME: Implement for WK2 to use.
+    return { };
+}
+
+Vector<Cookie> NetworkStorageSession::getCookies(const URL&)
+{
+    // FIXME: Implement for WK2 to use.
+    return { };
+}
+
+void NetworkStorageSession::flushCookieStore()
+{
+    // FIXME: Implement for WK2 to use.
 }
 
 } // namespace WebCore

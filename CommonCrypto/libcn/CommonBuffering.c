@@ -49,7 +49,8 @@ CNBufferProcessData(CNBufferRef bufRef,
                     cnProcessFunction pFunc, cnSizeFunction sizeFunc)
 {
     size_t  blocksize = bufRef->chunksize;
-    uint8_t *input = (uint8_t *) in, *output = out;
+    const uint8_t *input = in;
+    uint8_t *output = out;
     size_t inputLen = inLen, outputLen, inputUsing, outputAvailable;
     
     outputAvailable = outputLen = *outLen;

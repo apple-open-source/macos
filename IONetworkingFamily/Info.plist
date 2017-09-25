@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IONetworkingFamily</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.2</string>
+	<string>3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.2</string>
+	<string>3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IONetworkStack</key>

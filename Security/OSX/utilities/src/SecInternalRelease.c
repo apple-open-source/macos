@@ -24,21 +24,13 @@
 #include <dispatch/dispatch.h>
 #include <AssertMacros.h>
 #include <strings.h>
-#include <Security/SecuritydXPC.h>
-#include <ipc/securityd_client.h>
+#include <os/variant_private.h>
 
 #include "SecInternalReleasePriv.h"
 
-static bool void_to_error(enum SecXPCOperation op, CFErrorRef *error) {
-    __block bool ret = false;
-    securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
-        return (ret = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, error));
-    });
-    return ret;
-}
-
 bool SecIsInternalRelease(void) {
     static bool isInternal = false;
+
 
     return isInternal;
 }

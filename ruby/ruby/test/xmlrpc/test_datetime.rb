@@ -1,6 +1,8 @@
+# frozen_string_literal: false
 require 'test/unit'
 require "xmlrpc/datetime"
 
+module TestXMLRPC
 class Test_DateTime < Test::Unit::TestCase
 
   def test_new
@@ -156,4 +158,5 @@ class Test_DateTime < Test::Unit::TestCase
     XMLRPC::DateTime.new(1970, 3, 24, 12, 0, 5)
   end
 
+end
 end

@@ -153,7 +153,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUATimeUnitFormatPointer, UATimeUnitFormat, uatm
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 
 /**

@@ -197,49 +197,50 @@ int get_task_info (KINFO *ki)
 	err=0;
 	//ki->curpri = 255;
 	//ki->basepri = 255;
-	ki->swapped = 1;
-	ki->thval = malloc(ki->thread_count * sizeof(struct thread_values));
-	for (j = 0; j < ki->thread_count; j++) {
-		int tstate;
-        	thread_info_count = THREAD_BASIC_INFO_COUNT;
-		error = thread_info(ki->thread_list[j], THREAD_BASIC_INFO,
-			 (thread_info_t)&ki->thval[j].tb,
-			&thread_info_count);
-		if (error != KERN_SUCCESS) {
+    ki->swapped = 1;
+    ki->thval = calloc(ki->thread_count, sizeof(struct thread_values));
+    for (j = 0; j < ki->thread_count; j++) {
+        int tstate;
+        thread_info_count = THREAD_BASIC_INFO_COUNT;
+        error = thread_info(ki->thread_list[j], THREAD_BASIC_INFO,
+                            (thread_info_t)&ki->thval[j].tb,
+                            &thread_info_count);
+        if (error != KERN_SUCCESS) {
 #ifdef DEBUG
-			mach_error("Call to thread_info() failed", error);
+            mach_error("Call to thread_info() failed", error);
 #endif
-			err=1;
-			}
-		error = thread_schedinfo(ki, ki->thread_list[j],
-			ki->thval[j].tb.policy, &ki->thval[j].schedinfo);
-		if (error != KERN_SUCCESS) {
+            err=1;
+        } else {
+            ki->cpu_usage += ki->thval[j].tb.cpu_usage;
+        }
+        error = thread_schedinfo(ki, ki->thread_list[j],
+                                 ki->thval[j].tb.policy, &ki->thval[j].schedinfo);
+        if (error != KERN_SUCCESS) {
 #ifdef DEBUG
-			mach_error("Call to thread_info() failed", error);
+            mach_error("Call to thread_schedinfo() failed", error);
 #endif
-			err=1;
-			}
-		ki->cpu_usage += ki->thval[j].tb.cpu_usage;
-		tstate = mach_state_order(ki->thval[j].tb.run_state,
-				ki->thval[j].tb.sleep_time);
-		if (tstate < ki->state)
-			ki->state = tstate;
-		if ((ki->thval[j].tb.flags & TH_FLAGS_SWAPPED ) == 0)
-			ki->swapped = 0;
-		mach_port_deallocate(mach_task_self(),
-			ki->thread_list[j]);
-	}
-	ki->invalid_thinfo = err;
+            err=1;
+        }
+        tstate = mach_state_order(ki->thval[j].tb.run_state,
+                                  ki->thval[j].tb.sleep_time);
+        if (tstate < ki->state)
+            ki->state = tstate;
+        if ((ki->thval[j].tb.flags & TH_FLAGS_SWAPPED ) == 0)
+            ki->swapped = 0;
+        mach_port_deallocate(mach_task_self(),
+                             ki->thread_list[j]);
+    }
+    ki->invalid_thinfo = err;
 	 /* Deallocate the list of threads. */
-	error = vm_deallocate(mach_task_self(), 
-		(vm_address_t)(ki->thread_list),
-		 sizeof(*ki->thread_list) * ki->thread_count);
-	if (error != KERN_SUCCESS) {
+    error = vm_deallocate(mach_task_self(),
+                          (vm_address_t)(ki->thread_list),
+                          sizeof(*ki->thread_list) * ki->thread_count);
+    if (error != KERN_SUCCESS) {
 #ifdef DEBUG
-		 mach_error("Trouble freeing thread_list", error);
+        mach_error("Trouble freeing thread_list", error);
 #endif
-	}
+    }
 
-	mach_port_deallocate(mach_task_self(),ki->task);
-	return(0);
+    mach_port_deallocate(mach_task_self(),ki->task);
+    return(0);
 }

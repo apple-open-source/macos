@@ -167,7 +167,7 @@ WebNetscapePluginStream::WebNetscapePluginStream(NSURLRequest *request, NPP plug
     WebNetscapePluginView *view = (WebNetscapePluginView *)plugin->ndata;
     
     // This check has already been done by the plug-in view.
-    ASSERT(core([view webFrame])->document()->securityOrigin()->canDisplay([request URL]));
+    ASSERT(core([view webFrame])->document()->securityOrigin().canDisplay([request URL]));
     
     ASSERT([request URL]);
     ASSERT(plugin);
@@ -302,7 +302,7 @@ void WebNetscapePluginStream::stop()
         cancelLoadAndDestroyStreamWithError(m_loader->cancelledError());
 }
 
-void WebNetscapePluginStream::willSendRequest(NetscapePlugInStreamLoader*, ResourceRequest&& request, const ResourceResponse&, std::function<void (WebCore::ResourceRequest&&)>&& callback)
+void WebNetscapePluginStream::willSendRequest(NetscapePlugInStreamLoader*, ResourceRequest&& request, const ResourceResponse&, WTF::Function<void (WebCore::ResourceRequest&&)>&& callback)
 {
     // FIXME: We should notify the plug-in with NPP_URLRedirectNotify here.
     callback(WTFMove(request));
@@ -530,7 +530,7 @@ void WebNetscapePluginStream::deliverData()
         if (deliveryBytes <= 0) {
             // Plug-in can't receive anymore data right now. Send it later.
             if (!m_deliverDataTimer.isActive())
-                m_deliverDataTimer.startOneShot(0);
+                m_deliverDataTimer.startOneShot(0_s);
             break;
         } else {
             deliveryBytes = std::min(deliveryBytes, totalBytes - totalBytesDelivered);

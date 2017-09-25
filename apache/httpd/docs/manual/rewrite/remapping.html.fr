@@ -41,7 +41,7 @@ fonctionneront pas sur votre système si vous vous contentez de les
 copier/coller dans vos fichiers de configuration.</div>
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#old-to-new">De l'ancienne à la nouvelle URL (en interne)</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#old-to-new">De l'ancienne à la nouvelle URL (en interne)</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#old-to-new-extern">De l'ancien au nouveau (en externe)</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#movehomedirs">Ressource déplacée vers un autre serveur</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#static-to-dynamic">De statique à dynamique</a></li>
@@ -196,7 +196,7 @@ Redirect "/docs/" "http://nouveau.example.com/docs/"</pre>
 
 <pre class="prettyprint lang-config">RewriteEngine  on
 RewriteBase    "/~quux/"
-RewriteRule    "^foo\.html$"  "foo.cgi"   [H=<strong>cgi-script</strong>]</pre>
+RewriteRule    "^foo\.html$"  "foo.cgi"  [H=<strong>cgi-script</strong>]</pre>
 
         </dd>
       </dl>
@@ -708,7 +708,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/remapping.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -44,7 +44,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2013-03-08</string>
+		<string>2013-09-06</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 		<key>OpenSourceLicenseFile</key>
@@ -53,18 +53,18 @@
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>gem/sqlite3</string>
-		<key>OpenSourceSHA1</key>
-		<string>b57064b29bec0be22559f62e0e0bda86dea824ad</string>
+		<key>OpenSourceSHA256</key>
+		<string>de8ecdcc00a7af0cda98661ed94ce442964b9403b425e95c3ac4544b1f3720a7</string>
 		<key>OpenSourceURL</key>
-		<string>https://rubygems.org/downloads/sqlite3-1.3.7.gem</string>
+		<string>https://rubygems.org/downloads/sqlite3-1.3.11.gem</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.7</string>
+		<string>1.3.11</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://github.com/luislavena/sqlite3-ruby</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2013-03-08</string>
+		<string>2016-09-06</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 		<key>OpenSourceLicenseFile</key>
@@ -73,14 +73,14 @@
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>libxml-ruby</string>
-		<key>OpenSourceSHA1</key>
-		<string>a337c4f0e56d24c7658df8de821dac0248621d66</string>
+		<key>OpenSourceSHA256</key>
+		<string>e25a6278aaca2376ec0cc9e93a034a25d95af1102590abdbfce786d5c6612ddf</string>
 		<key>OpenSourceURL</key>
-		<string>https://rubygems.org/downloads/libxml-ruby-2.6.0.gem</string>
+		<string>https://rubygems.org/downloads/libxml-ruby-2.9.0.gem</string>
 		<key>OpenSourceVersion</key>
-		<string>2.6.0</string>
+		<string>2.9.0</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://xml4r.github.com/libxml-ruby/</string>
+		<string>https://rubygems.org/gems/libxml-ruby</string>
 	</dict>
 </array>
 </plist>

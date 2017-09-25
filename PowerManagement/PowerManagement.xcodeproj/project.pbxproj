@@ -39,6 +39,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				4878DC861E77757A00CF1891 /* PBXTargetDependency */,
 				48644FC51B7D5BBC00AC7C92 /* PBXTargetDependency */,
 				22B9840C16FBAC8200BB59FC /* PBXTargetDependency */,
 				72D6394014BCD3D200C8DF29 /* PBXTargetDependency */,
@@ -69,6 +70,8 @@
 			buildPhases = (
 			);
 			dependencies = (
+				48A48D901EF4320F0016FE7B /* PBXTargetDependency */,
+				80E851291E3AB29300B8A8EE /* PBXTargetDependency */,
 				4851F9AE1C6438C400125DBE /* PBXTargetDependency */,
 				8C1DA6F31986C02A0041B69A /* PBXTargetDependency */,
 				72A1C142128E0B0700754139 /* PBXTargetDependency */,
@@ -81,16 +84,49 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		1161A0771DF79B3F00EC5CD5 /* AggdDailyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */; };
-		1161A0791DF9081800EC5CD5 /* AggdDailyReport.c in Sources */ = {isa = PBXBuildFile; fileRef = 1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */; };
-		220D60601828511000E98262 /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
-		220D60611828511000E98262 /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
-		22996B0018A3B5F7003ACA7D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22996AFF18A3B5F7003ACA7D /* Security.framework */; };
-		22A3A35418C923BD004EC1B1 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
-		22A3A35518C923C5004EC1B1 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
+		1149A7A91E8351F40060933C /* PowerSource_XCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 1149A7A61E8351EE0060933C /* PowerSource_XCTest.m */; };
+		1149A7AA1E8351F80060933C /* PAssertions_XCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 1149A7A51E8351EE0060933C /* PAssertions_XCTest.m */; };
+		119B32331E414FD800EB0780 /* powerd_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 119B32321E414FD800EB0780 /* powerd_test.m */; };
+		119B323D1E41503A00EB0780 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		119B323E1E41503E00EB0780 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
+		119B323F1E41504400EB0780 /* RepeatingAutoWake.c in Sources */ = {isa = PBXBuildFile; fileRef = A999C3F40450D9290018C661 /* RepeatingAutoWake.c */; };
+		119B32401E41504800EB0780 /* AutoWakeScheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */; };
+		119B32411E41504C00EB0780 /* BatteryTimeRemaining.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */; };
+		119B32421E41505000EB0780 /* ExternalMedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 727593FC125555EA00C59A8E /* ExternalMedia.c */; };
+		119B32431E41505400EB0780 /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
+		119B32441E41505700EB0780 /* Platform.c in Sources */ = {isa = PBXBuildFile; fileRef = 72CF0669182DB08300F34C80 /* Platform.c */; };
+		119B32451E41505B00EB0780 /* PMConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */; };
+		119B32461E41506100EB0780 /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
+		119B32471E41506400EB0780 /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
+		119B32481E41506900EB0780 /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
+		119B32491E41506D00EB0780 /* PMSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */; };
+		119B324A1E41507000EB0780 /* UPSLowPower.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF6031ECBBC0ACA28D7 /* UPSLowPower.c */; };
+		119B324B1E41507400EB0780 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
+		119B324C1E41507900EB0780 /* PMStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 7221FC8E12DFEDEC00C69087 /* PMStore.c */; };
+		119B324D1E41507C00EB0780 /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
+		119B324E1E41507F00EB0780 /* pmconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */; };
+		119B32501E41508C00EB0780 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		119B32511E4150D500EB0780 /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {ATTRIBUTES = (Client, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		119B32521E41628800EB0780 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
+		119B32541E4162AE00EB0780 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32531E4162AE00EB0780 /* CoreFoundation.framework */; };
+		119B32561E4162B400EB0780 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32551E4162B400EB0780 /* IOKit.framework */; };
+		119B32581E41634D00EB0780 /* powerd_test.h in Headers */ = {isa = PBXBuildFile; fileRef = 119B323A1E41501100EB0780 /* powerd_test.h */; };
+		119B32591E41635200EB0780 /* AggdDailyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */; };
+		119B325A1E4164A200EB0780 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
+		119B325B1E41654800EB0780 /* CommonLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 728F7A091A2657E800EA70CC /* CommonLib.h */; };
+		119B325C1E41658700EB0780 /* libsystemstats.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 481D3D3A1B166D5000201979 /* libsystemstats.dylib */; };
+		119B325E1E4165A300EB0780 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B325D1E4165A300EB0780 /* Security.framework */; };
+		119B32601E4165B000EB0780 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B325F1E4165B000EB0780 /* SystemConfiguration.framework */; };
+		119B32621E4165BD00EB0780 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 119B32611E4165BD00EB0780 /* libbsm.dylib */; };
+		119B32631E4168EF00EB0780 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E171AB0C600003409C8 /* libenergytrace.dylib */; };
+		11DA8BEA1E84C20F00664706 /* sleepwakenotification-test.c in CopyFiles */ = {isa = PBXBuildFile; fileRef = 11DA8BE91E84C20F00664706 /* sleepwakenotification-test.c */; };
+		11DA8BF81E84C24E00664706 /* sleepwakenotification-test.c in Sources */ = {isa = PBXBuildFile; fileRef = 11DA8BE91E84C20F00664706 /* sleepwakenotification-test.c */; };
+		11DA8BF91E84C28D00664706 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC7D1E7769E200CF1891 /* CoreFoundation.framework */; };
+		11DA8BFA1E84C29300664706 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC791E7769D000CF1891 /* IOKit.framework */; };
 		22B9840916FBA91100BB59FC /* swd.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B9840816FBA91100BB59FC /* swd.c */; };
 		22B9840A16FBABC800BB59FC /* com.apple.powerd.swd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 22B9840716FBA91100BB59FC /* com.apple.powerd.swd.plist */; };
-		481D3D3B1B166D5000201979 /* libsystemstats.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 481D3D3A1B166D5000201979 /* libsystemstats.dylib */; };
+		482AAA601DD2F9F9001C14E3 /* SmbusHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 482AAA5E1DD2F9F9001C14E3 /* SmbusHandler.cpp */; };
+		484C4E861EDE2C70005B4487 /* BatteryData.c in Sources */ = {isa = PBXBuildFile; fileRef = 481801D41ECE17F500467D4B /* BatteryData.c */; };
 		484EA0F216BEEB8400E70CF3 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
 		4851F9AC1C6431D000125DBE /* IOPSCreatePowerSource-simple.c in Sources */ = {isa = PBXBuildFile; fileRef = 4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */; };
 		48644FC31B7D5B8F00AC7C92 /* pmtool.c in Sources */ = {isa = PBXBuildFile; fileRef = 48644FC11B7D5B2800AC7C92 /* pmtool.c */; };
@@ -98,13 +134,103 @@
 		48644FCD1B7D603B00AC7C92 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		48644FCE1B7D603E00AC7C92 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		4874455916B31BB000F343A8 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
+		4878DBD41E7123EF00CF1891 /* CoreDuet.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DBD21E7123EF00CF1891 /* CoreDuet.framework */; };
+		4878DBD51E7123EF00CF1891 /* CoreDuetContext.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DBD31E7123EF00CF1891 /* CoreDuetContext.framework */; };
+		4878DBD61E71240D00CF1891 /* StandbyTimer.c in Sources */ = {isa = PBXBuildFile; fileRef = 489585BC1E42231300DAD9E9 /* StandbyTimer.c */; };
+		4878DBD71E71241400CF1891 /* adaptiveDisplay.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CE38981E6224AD001563E6 /* adaptiveDisplay.m */; };
+		4878DBD91E72134500CF1891 /* test_standbyTimer.m in Sources */ = {isa = PBXBuildFile; fileRef = 4878DBD81E72134500CF1891 /* test_standbyTimer.m */; };
+		4878DC501E775D4800CF1891 /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
+		4878DC511E775D5000CF1891 /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
+		4878DC521E775D6700CF1891 /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
+		4878DC531E775D6700CF1891 /* PrivateLib.c in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
+		4878DC541E775D6E00CF1891 /* TTYKeepAwake.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D984490B20BE7800D66087 /* TTYKeepAwake.h */; };
+		4878DC551E775D7500CF1891 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = 72CF066A182DB08300F34C80 /* Platform.h */; };
+		4878DC561E775D7E00CF1891 /* PMSystemEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */; };
+		4878DC571E775D8500CF1891 /* adaptiveDisplay.h in Headers */ = {isa = PBXBuildFile; fileRef = 48CE389E1E6375B2001563E6 /* adaptiveDisplay.h */; };
+		4878DC581E775D8C00CF1891 /* PMConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 7266E16E0E5BEDAE00F9BC0B /* PMConnection.h */; };
+		4878DC591E775D9400CF1891 /* HIDEventWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = 7235220E1117A10A0089FB9F /* HIDEventWatcher.h */; };
+		4878DC5A1E775D9D00CF1891 /* ExternalMedia.h in Headers */ = {isa = PBXBuildFile; fileRef = 727593FD125555EA00C59A8E /* ExternalMedia.h */; };
+		4878DC5B1E775DA300CF1891 /* PMStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 7221FC8D12DFEDEC00C69087 /* PMStore.h */; };
+		4878DC5C1E77686900CF1891 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
+		4878DC5D1E77686900CF1891 /* RepeatingAutoWake.c in Sources */ = {isa = PBXBuildFile; fileRef = A999C3F40450D9290018C661 /* RepeatingAutoWake.c */; };
+		4878DC5E1E77686900CF1891 /* AutoWakeScheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */; };
+		4878DC5F1E77686900CF1891 /* BatteryTimeRemaining.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */; };
+		4878DC601E77686900CF1891 /* ExternalMedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 727593FC125555EA00C59A8E /* ExternalMedia.c */; };
+		4878DC611E77686900CF1891 /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
+		4878DC621E77686900CF1891 /* Platform.c in Sources */ = {isa = PBXBuildFile; fileRef = 72CF0669182DB08300F34C80 /* Platform.c */; };
+		4878DC631E77686900CF1891 /* PMConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */; };
+		4878DC641E77686900CF1891 /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
+		4878DC651E77686900CF1891 /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
+		4878DC661E77686900CF1891 /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
+		4878DC671E77686900CF1891 /* PMSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */; };
+		4878DC681E77686900CF1891 /* UPSLowPower.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF6031ECBBC0ACA28D7 /* UPSLowPower.c */; };
+		4878DC691E77686900CF1891 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
+		4878DC6A1E77686900CF1891 /* StandbyTimer.c in Sources */ = {isa = PBXBuildFile; fileRef = 489585BC1E42231300DAD9E9 /* StandbyTimer.c */; };
+		4878DC6B1E77686900CF1891 /* PMStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 7221FC8E12DFEDEC00C69087 /* PMStore.c */; };
+		4878DC6C1E77686900CF1891 /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
+		4878DC6D1E77686900CF1891 /* pmconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */; };
+		4878DC6F1E7768C800CF1891 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		4878DC701E7768E000CF1891 /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		4878DC711E7768F700CF1891 /* adaptiveDisplay.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CE38981E6224AD001563E6 /* adaptiveDisplay.m */; };
+		4878DC721E77690500CF1891 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		4878DC741E7769B300CF1891 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC731E7769B300CF1891 /* libenergytrace.dylib */; };
+		4878DC761E7769BA00CF1891 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC751E7769BA00CF1891 /* DiskArbitration.framework */; };
+		4878DC781E7769C900CF1891 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC771E7769C900CF1891 /* libbsm.dylib */; };
+		4878DC7A1E7769D000CF1891 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC791E7769D000CF1891 /* IOKit.framework */; };
+		4878DC7C1E7769DC00CF1891 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC7B1E7769DC00CF1891 /* SystemConfiguration.framework */; };
+		4878DC7E1E7769E200CF1891 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC7D1E7769E200CF1891 /* CoreFoundation.framework */; };
+		4878DC801E7769EC00CF1891 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC7F1E7769EC00CF1891 /* Security.framework */; };
+		4878DC821E776A1E00CF1891 /* libsystemstats.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC811E776A1E00CF1891 /* libsystemstats.dylib */; };
+		4878DC831E776A4C00CF1891 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
+		4878DC841E776B6800CF1891 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
+		48908F661EE611ED00F90EAB /* test_batteryData.m in Sources */ = {isa = PBXBuildFile; fileRef = 48908F651EE611ED00F90EAB /* test_batteryData.m */; };
+		48A48D4D1EF42F8F0016FE7B /* PMStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 7221FC8D12DFEDEC00C69087 /* PMStore.h */; };
+		48A48D4F1EF42F8F0016FE7B /* HIDEventWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = 7235220E1117A10A0089FB9F /* HIDEventWatcher.h */; };
+		48A48D501EF42F8F0016FE7B /* PMConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 7266E16E0E5BEDAE00F9BC0B /* PMConnection.h */; };
+		48A48D521EF42F8F0016FE7B /* PMSystemEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */; };
+		48A48D551EF42F8F0016FE7B /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
+		48A48D571EF42F8F0016FE7B /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
+		48A48D581EF42F8F0016FE7B /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
+		48A48D5A1EF42F8F0016FE7B /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
+		48A48D5B1EF42F8F0016FE7B /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
+		48A48D5D1EF42F8F0016FE7B /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		48A48D5E1EF42F8F0016FE7B /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		48A48D601EF42F8F0016FE7B /* RepeatingAutoWake.c in Sources */ = {isa = PBXBuildFile; fileRef = A999C3F40450D9290018C661 /* RepeatingAutoWake.c */; };
+		48A48D611EF42F8F0016FE7B /* AutoWakeScheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */; };
+		48A48D621EF42F8F0016FE7B /* BatteryTimeRemaining.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */; };
+		48A48D641EF42F8F0016FE7B /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
+		48A48D661EF42F8F0016FE7B /* PMConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */; };
+		48A48D671EF42F8F0016FE7B /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
+		48A48D681EF42F8F0016FE7B /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
+		48A48D691EF42F8F0016FE7B /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
+		48A48D6A1EF42F8F0016FE7B /* PMSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */; };
+		48A48D6B1EF42F8F0016FE7B /* UPSLowPower.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF6031ECBBC0ACA28D7 /* UPSLowPower.c */; };
+		48A48D6C1EF42F8F0016FE7B /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
+		48A48D6E1EF42F8F0016FE7B /* PMStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 7221FC8E12DFEDEC00C69087 /* PMStore.c */; };
+		48A48D6F1EF42F8F0016FE7B /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
+		48A48D701EF42F8F0016FE7B /* pmconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */; };
+		48A48D731EF42F8F0016FE7B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC7F1E7769EC00CF1891 /* Security.framework */; };
+		48A48D741EF42F8F0016FE7B /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
+		48A48D761EF42F8F0016FE7B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC7B1E7769DC00CF1891 /* SystemConfiguration.framework */; };
+		48A48D771EF42F8F0016FE7B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC791E7769D000CF1891 /* IOKit.framework */; };
+		48A48D781EF42F8F0016FE7B /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC771E7769C900CF1891 /* libbsm.dylib */; };
+		48A48D7A1EF42F8F0016FE7B /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4878DC731E7769B300CF1891 /* libenergytrace.dylib */; };
+		48A48D821EF430540016FE7B /* BatteryData.c in Sources */ = {isa = PBXBuildFile; fileRef = 481801D41ECE17F500467D4B /* BatteryData.c */; };
+		48A48D831EF4305B0016FE7B /* AggdDailyReport.c in Sources */ = {isa = PBXBuildFile; fileRef = 1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */; };
+		48A48D841EF430600016FE7B /* BatteryData.h in Headers */ = {isa = PBXBuildFile; fileRef = 481801D51ECE17F500467D4B /* BatteryData.h */; };
+		48A48D851EF430660016FE7B /* AggdDailyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */; };
+		48A48D871EF4309A0016FE7B /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48A48D861EF4309A0016FE7B /* AggregateDictionary.framework */; };
+		48A48D881EF430B40016FE7B /* com.apple.powerd-embedded.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */; };
+		48A48D8A1EF430CC0016FE7B /* upsshutdown in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9D743DA05AF3D4D0075549C /* upsshutdown */; };
+		48A48D8C1EF430E50016FE7B /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
+		48A48D8E1EF431340016FE7B /* PrivateLib.h in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B73047C482B00FA82A6 /* PrivateLib.h */; };
+		48A48D921EF4D16B0016FE7B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48A48D911EF4D16B0016FE7B /* CoreFoundation.framework */; };
 		48D667431C99D70F0006F1C8 /* energyprefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 48D667331C99D6D70006F1C8 /* energyprefs.c */; };
 		48D667441C99D7190006F1C8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		48D6674A1C99D7BD0006F1C8 /* migrateenergyprefs.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D667481C99D7B00006F1C8 /* migrateenergyprefs.m */; };
 		48D6674B1C99D7C80006F1C8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		48D6674C1C99D7CC0006F1C8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		48D6674E1C99D7D50006F1C8 /* SystemMigration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D6674D1C99D7D50006F1C8 /* SystemMigration.framework */; };
-		48E15D611D08A7A7007E3632 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48E15D601D08A7A7007E3632 /* AggregateDictionary.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		48EDE27D1C5356F3002CAB81 /* libIOReport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4874455816B31BB000F343A8 /* libIOReport.a */; };
 		504E1BCE11372B3F00AAAA84 /* caffeinate.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 504E1BCC11372B0500AAAA84 /* caffeinate.8 */; };
 		504E1C121137329D00AAAA84 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
@@ -115,32 +241,13 @@
 		720BF5F718DD2804005621D0 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */; };
 		720C18F016C8CB8F00357F83 /* com.apple.iokit.power in Resources */ = {isa = PBXBuildFile; fileRef = 720C18EF16C8CB8F00357F83 /* com.apple.iokit.power */; };
 		720C18F216C8CC2300357F83 /* com.apple.iokit.power in CopyFiles */ = {isa = PBXBuildFile; fileRef = 720C18EF16C8CB8F00357F83 /* com.apple.iokit.power */; };
-		7221FC8F12DFEDEC00C69087 /* PMStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 7221FC8D12DFEDEC00C69087 /* PMStore.h */; };
-		7221FC9012DFEDEC00C69087 /* PMStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 7221FC8E12DFEDEC00C69087 /* PMStore.c */; };
-		7221FC9112DFEDEC00C69087 /* PMStore.h in Headers */ = {isa = PBXBuildFile; fileRef = 7221FC8D12DFEDEC00C69087 /* PMStore.h */; };
-		7221FC9212DFEDEC00C69087 /* PMStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 7221FC8E12DFEDEC00C69087 /* PMStore.c */; };
 		7226093509AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */; };
 		7227113B0A6DA17900F34043 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; };
-		723522101117A10A0089FB9F /* HIDEventWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = 7235220E1117A10A0089FB9F /* HIDEventWatcher.h */; };
-		723522111117A10A0089FB9F /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
-		723522121117A10A0089FB9F /* HIDEventWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = 7235220E1117A10A0089FB9F /* HIDEventWatcher.h */; };
-		723522131117A10A0089FB9F /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
-		724B214A173AE8810064FE07 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B2149173AE8810064FE07 /* Security.framework */; };
 		725E685E18DED0DA005DA3E7 /* powerassertions-timeouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 725E685D18DED0DA005DA3E7 /* powerassertions-timeouts.c */; };
 		725E686618DED220005DA3E7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */; };
 		725E686718DED225005DA3E7 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */; };
-		7266E1700E5BEDAE00F9BC0B /* PMConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 7266E16E0E5BEDAE00F9BC0B /* PMConnection.h */; };
-		7266E1710E5BEDAE00F9BC0B /* PMConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */; };
-		7266E1720E5BEDAE00F9BC0B /* PMConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 7266E16E0E5BEDAE00F9BC0B /* PMConnection.h */; };
-		7266E1730E5BEDAE00F9BC0B /* PMConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */; };
 		726F8655119C9F2000221765 /* DisplayServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 726F8654119C9F2000221765 /* DisplayServices.framework */; };
-		727593FE125555EA00C59A8E /* ExternalMedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 727593FC125555EA00C59A8E /* ExternalMedia.c */; };
-		727593FF125555EA00C59A8E /* ExternalMedia.h in Headers */ = {isa = PBXBuildFile; fileRef = 727593FD125555EA00C59A8E /* ExternalMedia.h */; };
-		727594341255613F00C59A8E /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 727594331255613F00C59A8E /* DiskArbitration.framework */; };
 		728F7A071A25689100EA70CC /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
-		728F7A081A2656D000EA70CC /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
-		728FBE1D11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 728FBE1C11CC4EBE00CDB654 /* libbsm.dylib */; };
-		728FBE1E11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 728FBE1C11CC4EBE00CDB654 /* libbsm.dylib */; };
 		729A74330A01EC0C000AB587 /* pmset.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40D4F0DD01F4A1F40ACA2928 /* pmset.1 */; };
 		729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
@@ -155,24 +262,7 @@
 		729A75910A01EEB9000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		729A75920A01EEB9000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		729A75930A01EED1000AB587 /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
-		729A75AA0A01F2C9000AB587 /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
-		729A75AB0A01F2C9000AB587 /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
-		729A75AC0A01F2C9000AB587 /* PrivateLib.h in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B73047C482B00FA82A6 /* PrivateLib.h */; };
-		729A75AD0A01F2C9000AB587 /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
 		729A75AF0A01F2D7000AB587 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A9E691B70564519800938E2D /* Localizable.strings */; };
-		729A75C20A01F314000AB587 /* pmconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */; };
-		729A75C30A01F314000AB587 /* BatteryTimeRemaining.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */; };
-		729A75C40A01F314000AB587 /* PMSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */; };
-		729A75C50A01F314000AB587 /* UPSLowPower.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF6031ECBBC0ACA28D7 /* UPSLowPower.c */; };
-		729A75C60A01F314000AB587 /* AutoWakeScheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */; };
-		729A75C70A01F314000AB587 /* RepeatingAutoWake.c in Sources */ = {isa = PBXBuildFile; fileRef = A999C3F40450D9290018C661 /* RepeatingAutoWake.c */; };
-		729A75C80A01F314000AB587 /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
-		729A75C90A01F314000AB587 /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
-		729A75CA0A01F314000AB587 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
-		729A75CC0A01F314000AB587 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
-		729A75CD0A01F350000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
-		729A75CE0A01F350000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
-		729A75CF0A01F350000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		729A75D00A01F382000AB587 /* upsshutdown in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9D743DA05AF3D4D0075549C /* upsshutdown */; };
 		729A75D10A01F3B3000AB587 /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
 		729F44BB12D7DB3600AD49A8 /* com.apple.powerd.plist in Resources */ = {isa = PBXBuildFile; fileRef = 729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */; };
@@ -187,48 +277,17 @@
 		72A8C49A173AE73D00562BA6 /* darktool.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A8C499173AE73D00562BA6 /* darktool.c */; };
 		72A8C49C173AE79D00562BA6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A8C49B173AE79D00562BA6 /* CoreFoundation.framework */; };
 		72A8C49E173AE7A400562BA6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A8C49D173AE7A400562BA6 /* IOKit.framework */; };
-		72A9DF030CDAA05B000FDB18 /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
-		72A9DF040CDAA05B000FDB18 /* PMSystemEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */; };
-		72B902A217DE4D48000B3087 /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
-		72B902A317DE4D49000B3087 /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
-		72CF066B182DB08300F34C80 /* Platform.c in Sources */ = {isa = PBXBuildFile; fileRef = 72CF0669182DB08300F34C80 /* Platform.c */; };
-		72CF066C182DB08300F34C80 /* Platform.h in Headers */ = {isa = PBXBuildFile; fileRef = 72CF066A182DB08300F34C80 /* Platform.h */; };
 		72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
 		72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
-		72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
-		72D9844B0B20BE7800D66087 /* TTYKeepAwake.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D984490B20BE7800D66087 /* TTYKeepAwake.h */; };
-		72DC9D810E1D99910066B287 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
-		72E8154C0CFE470B00CF547E /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
-		72E8154D0CFE470B00CF547E /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
-		72E8154E0CFE470B00CF547E /* PrivateLib.h in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B73047C482B00FA82A6 /* PrivateLib.h */; };
-		72E8154F0CFE470B00CF547E /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
-		72E815510CFE470B00CF547E /* TTYKeepAwake.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D984490B20BE7800D66087 /* TTYKeepAwake.h */; };
-		72E815520CFE470B00CF547E /* PMSystemEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */; };
 		72E815540CFE470B00CF547E /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A9E691B70564519800938E2D /* Localizable.strings */; };
-		72E815570CFE470B00CF547E /* pmconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */; };
-		72E815580CFE470B00CF547E /* BatteryTimeRemaining.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */; };
-		72E815590CFE470B00CF547E /* PMSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */; };
-		72E8155A0CFE470B00CF547E /* UPSLowPower.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF6031ECBBC0ACA28D7 /* UPSLowPower.c */; };
-		72E8155B0CFE470B00CF547E /* AutoWakeScheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */; };
-		72E8155C0CFE470B00CF547E /* RepeatingAutoWake.c in Sources */ = {isa = PBXBuildFile; fileRef = A999C3F40450D9290018C661 /* RepeatingAutoWake.c */; };
-		72E8155D0CFE470B00CF547E /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
-		72E8155E0CFE470B00CF547E /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
-		72E8155F0CFE470B00CF547E /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
-		72E815610CFE470B00CF547E /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
-		72E815630CFE470B00CF547E /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
-		72E815650CFE470B00CF547E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
-		72E815660CFE470B00CF547E /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
-		72E815670CFE470B00CF547E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
-		72E815690CFE470B00CF547E /* upsshutdown in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9D743DA05AF3D4D0075549C /* upsshutdown */; };
-		72E8156B0CFE470B00CF547E /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
 		72EA6D1718EA2DE100FCE94F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E118C16D5400E7B3B4 /* CoreFoundation.framework */; };
 		72EA6D2418EA303700FCE94F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CEF7E318C16D5B00E7B3B4 /* IOKit.framework */; };
 		72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72FB64721A9CF63C008B6634 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
-		72FB64731A9CF650008B6634 /* CommonLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 728F7A061A25687B00EA70CC /* CommonLib.c */; };
-		80780E181AB0C600003409C8 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E171AB0C600003409C8 /* libenergytrace.dylib */; };
-		80780E1A1AB12D52003409C8 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E191AB12D52003409C8 /* libenergytrace.dylib */; };
+		808EE7EB1DB6CFA90035C5A1 /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
+		808EE7EC1DB6CFA90035C5A1 /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
+		808EE7ED1DB6CFA90035C5A1 /* AppleSmartBatteryManagerUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */; };
 		8C1DA6DC1986BFE90041B69A /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
 		8C1DA6DF1986BFE90041B69A /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		8C1DA6E01986BFE90041B69A /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
@@ -239,8 +298,8 @@
 		8C1DA6E61986BFE90041B69A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		8C1DA6E71986BFE90041B69A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		8C1DA6EB1986BFE90041B69A /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
-		C19023350EBA720300AE2356 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
-		D81001D21755323100140DD3 /* com.apple.powerd-embedded.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */; };
+		D083E23F1F0481AA00A0AAB8 /* powerd.codes in Resources */ = {isa = PBXBuildFile; fileRef = D083E23E1F0481AA00A0AAB8 /* powerd.codes */; };
+		D083E2411F04821A00A0AAB8 /* powerd.codes in CopyFiles */ = {isa = PBXBuildFile; fileRef = D083E23E1F0481AA00A0AAB8 /* powerd.codes */; };
 		D81001D31755326000140DD3 /* com.apple.powerd-embedded.plist in Resources */ = {isa = PBXBuildFile; fileRef = D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */; };
 /* End PBXBuildFile section */
 
@@ -265,6 +324,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 48644FB61B7D5B0500AC7C92;
 			remoteInfo = pmtool;
+		};
+		4878DC851E77757A00CF1891 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4878DC451E77597E00CF1891;
+			remoteInfo = "powerd-binary";
+		};
+		48A48D8F1EF4320F0016FE7B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 48A48D4B1EF42F8F0016FE7B;
+			remoteInfo = "powerd-binary-Embedded";
 		};
 		48D667411C99D7040006F1C8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -378,6 +451,13 @@
 			remoteGlobalIDString = 72CEF7C618C16C8100E7B3B4;
 			remoteInfo = BATS;
 		};
+		80E851281E3AB29300B8A8EE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 808EE7E01DB6CF260035C5A1;
+			remoteInfo = "AppleSmartBatteryManager-Embedded";
+		};
 		8C1DA6F21986C02A0041B69A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -388,6 +468,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		11DA8BED1E84C24000664706 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		22B983FE16FBA71500BB59FC /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -405,6 +494,45 @@
 			dstSubfolderSpec = 0;
 			files = (
 				48644FCC1B7D5F4B00AC7C92 /* pmtool.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4878DC441E77597E00CF1891 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		48A48D7B1EF42F8F0016FE7B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				48A48D881EF430B40016FE7B /* com.apple.powerd-embedded.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		48A48D891EF430B60016FE7B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				48A48D8A1EF430CC0016FE7B /* upsshutdown in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		48A48D8B1EF430D00016FE7B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				48A48D8C1EF430E50016FE7B /* upsshutdown.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -505,22 +633,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		729F450712D7EC8E00AD49A8 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/LaunchDaemons;
-			dstSubfolderSpec = 0;
-			files = (
-				D81001D21755323100140DD3 /* com.apple.powerd-embedded.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		72A694E518EA2D3700D5D682 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /AppleInternal/CoreOS/PowerManagement;
 			dstSubfolderSpec = 0;
 			files = (
+				11DA8BEA1E84C20F00664706 /* sleepwakenotification-test.c in CopyFiles */,
 				72A694E618EA2D4400D5D682 /* iopmruntests.py in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -532,26 +651,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				72A8C491173AE68900562BA6 /* darktool.1 in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		72E815680CFE470B00CF547E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/libexec;
-			dstSubfolderSpec = 0;
-			files = (
-				72E815690CFE470B00CF547E /* upsshutdown in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		72E8156A0CFE470B00CF547E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				72E8156B0CFE470B00CF547E /* upsshutdown.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -584,11 +683,38 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D083E2401F04820B00A0AAB8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/share/misc;
+			dstSubfolderSpec = 0;
+			files = (
+				D083E2411F04821A00A0AAB8 /* powerd.codes in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1149A7A41E8351EE0060933C /* PAssertions_XCTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PAssertions_XCTest.h; sourceTree = "<group>"; };
+		1149A7A51E8351EE0060933C /* PAssertions_XCTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PAssertions_XCTest.m; sourceTree = "<group>"; };
+		1149A7A61E8351EE0060933C /* PowerSource_XCTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PowerSource_XCTest.m; sourceTree = "<group>"; };
+		1149A7A71E8351EE0060933C /* PS_XCTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PS_XCTest.h; sourceTree = "<group>"; };
+		1149A7A81E8351EE0060933C /* XCTest_FunctionDefinitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XCTest_FunctionDefinitions.h; sourceTree = "<group>"; };
 		1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AggdDailyReport.h; sourceTree = "<group>"; };
 		1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AggdDailyReport.c; sourceTree = "<group>"; };
+		119B322B1E414F5D00EB0780 /* pmconfigd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pmconfigd.h; sourceTree = "<group>"; };
+		119B32301E414FD800EB0780 /* powerd_test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = powerd_test.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		119B32321E414FD800EB0780 /* powerd_test.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = powerd_test.m; sourceTree = "<group>"; };
+		119B32341E414FD800EB0780 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		119B323A1E41501100EB0780 /* powerd_test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = powerd_test.h; sourceTree = "<group>"; };
+		119B32531E4162AE00EB0780 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		119B32551E4162B400EB0780 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		119B325D1E4165A300EB0780 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		119B325F1E4165B000EB0780 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		119B32611E4165BD00EB0780 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = usr/lib/libbsm.dylib; sourceTree = SDKROOT; };
+		11DA8BE91E84C20F00664706 /* sleepwakenotification-test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sleepwakenotification-test.c"; sourceTree = "<group>"; };
+		11DA8BEF1E84C24000664706 /* SleepWakeNotification */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SleepWakeNotification; sourceTree = BUILT_PRODUCTS_DIR; };
 		220D605F1828511000E98262 /* PMAssertionLog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMAssertionLog.c; sourceTree = "<group>"; };
 		22996AFF18A3B5F7003ACA7D /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		22B9840516FBA71500BB59FC /* swd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = swd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -606,7 +732,11 @@
 		40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pmconfigd.c; path = pmconfigd/pmconfigd.c; sourceTree = SOURCE_ROOT; };
 		40D4F0DC01F4A1F40ACA2928 /* pmset.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = pmset.c; sourceTree = "<group>"; };
 		40D4F0DD01F4A1F40ACA2928 /* pmset.1 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = pmset.1; sourceTree = "<group>"; };
+		481801D41ECE17F500467D4B /* BatteryData.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = BatteryData.c; sourceTree = "<group>"; };
+		481801D51ECE17F500467D4B /* BatteryData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryData.h; sourceTree = "<group>"; };
 		481D3D3A1B166D5000201979 /* libsystemstats.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsystemstats.dylib; path = usr/lib/libsystemstats.dylib; sourceTree = SDKROOT; };
+		482AAA5E1DD2F9F9001C14E3 /* SmbusHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SmbusHandler.cpp; path = AppleSmartBatteryManager/SmbusHandler.cpp; sourceTree = "<group>"; };
+		482AAA5F1DD2F9F9001C14E3 /* SmbusHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SmbusHandler.h; path = AppleSmartBatteryManager/SmbusHandler.h; sourceTree = "<group>"; };
 		4851F9A81C6431A000125DBE /* PMtests.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMtests.h; sourceTree = "<group>"; };
 		4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "IOPSCreatePowerSource-simple.c"; sourceTree = "<group>"; };
 		48644FB71B7D5B0500AC7C92 /* pmtool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmtool; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -615,6 +745,28 @@
 		48644FC61B7D5E4C00AC7C92 /* pmtool.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = pmtool.1; path = pmtool/pmtool.1; sourceTree = SOURCE_ROOT; };
 		48644FC71B7D5E4C00AC7C92 /* pmtool.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = pmtool.entitlements; path = pmtool/pmtool.entitlements; sourceTree = SOURCE_ROOT; };
 		4874455816B31BB000F343A8 /* libIOReport.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libIOReport.a; path = /usr/local/lib/libIOReport.a; sourceTree = SDKROOT; };
+		4878DBC91E6E254C00CF1891 /* StandbyTimer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StandbyTimer.h; sourceTree = "<group>"; };
+		4878DBD21E7123EF00CF1891 /* CoreDuet.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDuet.framework; path = System/Library/PrivateFrameworks/CoreDuet.framework; sourceTree = SDKROOT; };
+		4878DBD31E7123EF00CF1891 /* CoreDuetContext.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDuetContext.framework; path = System/Library/PrivateFrameworks/CoreDuetContext.framework; sourceTree = SDKROOT; };
+		4878DBD81E72134500CF1891 /* test_standbyTimer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = test_standbyTimer.m; sourceTree = "<group>"; };
+		4878DC361E77593400CF1891 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		4878DC461E77597E00CF1891 /* powerd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = powerd; sourceTree = BUILT_PRODUCTS_DIR; };
+		4878DC731E7769B300CF1891 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/libenergytrace.dylib; sourceTree = DEVELOPER_DIR; };
+		4878DC751E7769BA00CF1891 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/DiskArbitration.framework; sourceTree = DEVELOPER_DIR; };
+		4878DC771E7769C900CF1891 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/libbsm.dylib; sourceTree = DEVELOPER_DIR; };
+		4878DC791E7769D000CF1891 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		4878DC7B1E7769DC00CF1891 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		4878DC7D1E7769E200CF1891 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		4878DC7F1E7769EC00CF1891 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		4878DC811E776A1E00CF1891 /* libsystemstats.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsystemstats.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/libsystemstats.dylib; sourceTree = DEVELOPER_DIR; };
+		48908F651EE611ED00F90EAB /* test_batteryData.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = test_batteryData.m; sourceTree = "<group>"; };
+		489585BC1E42231300DAD9E9 /* StandbyTimer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = StandbyTimer.c; sourceTree = "<group>"; };
+		48A48D811EF42F8F0016FE7B /* powerd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = powerd; sourceTree = BUILT_PRODUCTS_DIR; };
+		48A48D861EF4309A0016FE7B /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = DEVELOPER_DIR; };
+		48A48D911EF4D16B0016FE7B /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		48CE38971E6224AD001563E6 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = ../entitlements.plist; sourceTree = "<group>"; };
+		48CE38981E6224AD001563E6 /* adaptiveDisplay.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = adaptiveDisplay.m; sourceTree = "<group>"; };
+		48CE389E1E6375B2001563E6 /* adaptiveDisplay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = adaptiveDisplay.h; sourceTree = "<group>"; };
 		48D6672A1C99D6CD0006F1C8 /* energyprefs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = energyprefs; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D667331C99D6D70006F1C8 /* energyprefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = energyprefs.c; sourceTree = "<group>"; };
 		48D667391C99D6F30006F1C8 /* migrateenergyprefs.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = migrateenergyprefs.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -691,6 +843,8 @@
 		72FE7EA609AE4942003E0C4C /* upsshutdown.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = upsshutdown.8; sourceTree = "<group>"; };
 		80780E171AB0C600003409C8 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = usr/lib/libenergytrace.dylib; sourceTree = SDKROOT; };
 		80780E191AB12D52003409C8 /* libenergytrace.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libenergytrace.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib/libenergytrace.dylib; sourceTree = DEVELOPER_DIR; };
+		808EE7E11DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AppleSmartBatteryManager-Embedded.kext"; sourceTree = BUILT_PRODUCTS_DIR; };
+		80FD7DB01E36AEA8008803C4 /* Info-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-Embedded.plist"; path = "AppleSmartBatteryManager/Info-Embedded.plist"; sourceTree = "<group>"; };
 		8CCB23AD1979C99000F63BE8 /* libIOAccessoryManager.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libIOAccessoryManager.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/usr/lib/libIOAccessoryManager.dylib; sourceTree = DEVELOPER_DIR; };
 		A999C3F40450D9290018C661 /* RepeatingAutoWake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = RepeatingAutoWake.c; path = pmconfigd/RepeatingAutoWake.c; sourceTree = SOURCE_ROOT; };
 		A999C3F50450D9290018C661 /* RepeatingAutoWake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = RepeatingAutoWake.h; path = pmconfigd/RepeatingAutoWake.h; sourceTree = SOURCE_ROOT; };
@@ -701,6 +855,7 @@
 		A9FD4B72047C482B00FA82A6 /* PrivateLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = PrivateLib.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		A9FD4B73047C482B00FA82A6 /* PrivateLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PrivateLib.h; sourceTree = "<group>"; };
 		C110135B0EBB9C9F00FD5C2D /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
+		D083E23E1F0481AA00A0AAB8 /* powerd.codes */ = {isa = PBXFileReference; lastKnownFileType = text; path = powerd.codes; sourceTree = "<group>"; };
 		D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.powerd-embedded.plist"; sourceTree = "<group>"; };
 		F7828183058E83D30055547B /* ioupspluginmig.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ioupspluginmig.defs; sourceTree = "<group>"; };
 		F7828184058E83D30055547B /* IOUPSPrivate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOUPSPrivate.c; sourceTree = "<group>"; };
@@ -710,6 +865,32 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		119B322D1E414FD800EB0780 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4878DBD41E7123EF00CF1891 /* CoreDuet.framework in Frameworks */,
+				4878DBD51E7123EF00CF1891 /* CoreDuetContext.framework in Frameworks */,
+				119B32631E4168EF00EB0780 /* libenergytrace.dylib in Frameworks */,
+				119B325C1E41658700EB0780 /* libsystemstats.dylib in Frameworks */,
+				119B32521E41628800EB0780 /* libIOReport.a in Frameworks */,
+				119B325E1E4165A300EB0780 /* Security.framework in Frameworks */,
+				119B32541E4162AE00EB0780 /* CoreFoundation.framework in Frameworks */,
+				119B32601E4165B000EB0780 /* SystemConfiguration.framework in Frameworks */,
+				119B32561E4162B400EB0780 /* IOKit.framework in Frameworks */,
+				119B32621E4165BD00EB0780 /* libbsm.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DA8BEC1E84C24000664706 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11DA8BFA1E84C29300664706 /* IOKit.framework in Frameworks */,
+				11DA8BF91E84C28D00664706 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		22B983F816FBA71500BB59FC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -723,6 +904,37 @@
 			files = (
 				48644FCD1B7D603B00AC7C92 /* CoreFoundation.framework in Frameworks */,
 				48644FCE1B7D603E00AC7C92 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4878DC431E77597E00CF1891 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4878DC821E776A1E00CF1891 /* libsystemstats.dylib in Frameworks */,
+				4878DC801E7769EC00CF1891 /* Security.framework in Frameworks */,
+				4878DC831E776A4C00CF1891 /* libIOReport.a in Frameworks */,
+				4878DC7E1E7769E200CF1891 /* CoreFoundation.framework in Frameworks */,
+				4878DC7C1E7769DC00CF1891 /* SystemConfiguration.framework in Frameworks */,
+				4878DC7A1E7769D000CF1891 /* IOKit.framework in Frameworks */,
+				4878DC781E7769C900CF1891 /* libbsm.dylib in Frameworks */,
+				4878DC761E7769BA00CF1891 /* DiskArbitration.framework in Frameworks */,
+				4878DC741E7769B300CF1891 /* libenergytrace.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48A48D711EF42F8F0016FE7B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48A48D921EF4D16B0016FE7B /* CoreFoundation.framework in Frameworks */,
+				48A48D871EF4309A0016FE7B /* AggregateDictionary.framework in Frameworks */,
+				48A48D731EF42F8F0016FE7B /* Security.framework in Frameworks */,
+				48A48D741EF42F8F0016FE7B /* libIOReport.a in Frameworks */,
+				48A48D761EF42F8F0016FE7B /* SystemConfiguration.framework in Frameworks */,
+				48A48D771EF42F8F0016FE7B /* IOKit.framework in Frameworks */,
+				48A48D781EF42F8F0016FE7B /* libbsm.dylib in Frameworks */,
+				48A48D7A1EF42F8F0016FE7B /* libenergytrace.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -801,22 +1013,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		729A75990A01F1D7000AB587 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				481D3D3B1B166D5000201979 /* libsystemstats.dylib in Frameworks */,
-				22A3A35518C923C5004EC1B1 /* libIOReport.a in Frameworks */,
-				724B214A173AE8810064FE07 /* Security.framework in Frameworks */,
-				729A75CD0A01F350000AB587 /* CoreFoundation.framework in Frameworks */,
-				729A75CE0A01F350000AB587 /* SystemConfiguration.framework in Frameworks */,
-				729A75CF0A01F350000AB587 /* IOKit.framework in Frameworks */,
-				728FBE1E11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */,
-				727594341255613F00C59A8E /* DiskArbitration.framework in Frameworks */,
-				80780E181AB0C600003409C8 /* libenergytrace.dylib in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		72A1BF86128E037A00754139 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -844,27 +1040,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		72E815640CFE470B00CF547E /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				48E15D611D08A7A7007E3632 /* AggregateDictionary.framework in Frameworks */,
-				22996B0018A3B5F7003ACA7D /* Security.framework in Frameworks */,
-				72E815650CFE470B00CF547E /* CoreFoundation.framework in Frameworks */,
-				72E815660CFE470B00CF547E /* SystemConfiguration.framework in Frameworks */,
-				72E815670CFE470B00CF547E /* IOKit.framework in Frameworks */,
-				728FBE1D11CC4EBE00CDB654 /* libbsm.dylib in Frameworks */,
-				22A3A35418C923BD004EC1B1 /* libIOReport.a in Frameworks */,
-				80780E1A1AB12D52003409C8 /* libenergytrace.dylib in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		72EA6D1318EA2DE100FCE94F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				72EA6D2418EA303700FCE94F /* IOKit.framework in Frameworks */,
 				72EA6D1718EA2DE100FCE94F /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		808EE7DD1DB6CF260035C5A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -897,7 +1085,6 @@
 				504E1BB71137275800AAAA84 /* caffeinate */,
 				72A8C48D173AE68900562BA6 /* darktool */,
 				48644FC01B7D5B1200AC7C92 /* pmtool */,
-				725E685C18DED0DA005DA3E7 /* powerassertions-timeouts.c */,
 				48D667451C99D77A0006F1C8 /* migrateenergyprefs */,
 				40882B99019742A20ACA2928 /* Frameworks */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
@@ -908,6 +1095,7 @@
 		08FB7795FE84155DC02AAC07 /* powerd */ = {
 			isa = PBXGroup;
 			children = (
+				119B32311E414FD800EB0780 /* Tests */,
 				A9B6F98D054DDD9200F5EC01 /* Resources */,
 				720A66C406C2F7C600944335 /* powermanagement.defs */,
 				72D984480B20BE7800D66087 /* TTYKeepAwake.c */,
@@ -919,6 +1107,8 @@
 				40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */,
 				40BE9CF3031ECBBC0ACA28D7 /* BatteryTimeRemaining.h */,
 				727593FC125555EA00C59A8E /* ExternalMedia.c */,
+				48CE38981E6224AD001563E6 /* adaptiveDisplay.m */,
+				48CE389E1E6375B2001563E6 /* adaptiveDisplay.h */,
 				727593FD125555EA00C59A8E /* ExternalMedia.h */,
 				7235220E1117A10A0089FB9F /* HIDEventWatcher.h */,
 				7235220F1117A10A0089FB9F /* HIDEventWatcher.c */,
@@ -937,10 +1127,13 @@
 				40BE9CF7031ECBBC0ACA28D7 /* UPSLowPower.h */,
 				72DC9D6A0E1D98210066B287 /* SystemLoad.h */,
 				72DC9D6B0E1D98210066B287 /* SystemLoad.c */,
+				489585BC1E42231300DAD9E9 /* StandbyTimer.c */,
+				4878DBC91E6E254C00CF1891 /* StandbyTimer.h */,
 				7221FC8D12DFEDEC00C69087 /* PMStore.h */,
 				7221FC8E12DFEDEC00C69087 /* PMStore.c */,
 				A9FD4B73047C482B00FA82A6 /* PrivateLib.h */,
 				A9FD4B72047C482B00FA82A6 /* PrivateLib.c */,
+				119B322B1E414F5D00EB0780 /* pmconfigd.h */,
 				40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */,
 				1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */,
 				1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */,
@@ -949,9 +1142,30 @@
 				729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */,
 				D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */,
 				72EB16B714C75E47002F68C3 /* AppWorkaround.plist */,
+				481801D41ECE17F500467D4B /* BatteryData.c */,
+				481801D51ECE17F500467D4B /* BatteryData.h */,
+				D083E23E1F0481AA00A0AAB8 /* powerd.codes */,
 			);
 			name = powerd;
 			path = pmconfigd;
+			sourceTree = "<group>";
+		};
+		119B32311E414FD800EB0780 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				48908F651EE611ED00F90EAB /* test_batteryData.m */,
+				1149A7A41E8351EE0060933C /* PAssertions_XCTest.h */,
+				1149A7A51E8351EE0060933C /* PAssertions_XCTest.m */,
+				1149A7A61E8351EE0060933C /* PowerSource_XCTest.m */,
+				1149A7A71E8351EE0060933C /* PS_XCTest.h */,
+				1149A7A81E8351EE0060933C /* XCTest_FunctionDefinitions.h */,
+				4878DBD81E72134500CF1891 /* test_standbyTimer.m */,
+				119B32321E414FD800EB0780 /* powerd_test.m */,
+				119B323A1E41501100EB0780 /* powerd_test.h */,
+				119B32341E414FD800EB0780 /* Info.plist */,
+			);
+			name = Tests;
+			path = "powerd-test";
 			sourceTree = "<group>";
 		};
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
@@ -973,6 +1187,11 @@
 				48644FB71B7D5B0500AC7C92 /* pmtool */,
 				48D6672A1C99D6CD0006F1C8 /* energyprefs */,
 				48D667391C99D6F30006F1C8 /* migrateenergyprefs.bundle */,
+				808EE7E11DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded.kext */,
+				119B32301E414FD800EB0780 /* powerd_test.xctest */,
+				4878DC461E77597E00CF1891 /* powerd */,
+				11DA8BEF1E84C24000664706 /* SleepWakeNotification */,
+				48A48D811EF42F8F0016FE7B /* powerd */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -998,6 +1217,23 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				48A48D911EF4D16B0016FE7B /* CoreFoundation.framework */,
+				48A48D861EF4309A0016FE7B /* AggregateDictionary.framework */,
+				4878DC811E776A1E00CF1891 /* libsystemstats.dylib */,
+				4878DC7F1E7769EC00CF1891 /* Security.framework */,
+				4878DC7D1E7769E200CF1891 /* CoreFoundation.framework */,
+				4878DC7B1E7769DC00CF1891 /* SystemConfiguration.framework */,
+				4878DC791E7769D000CF1891 /* IOKit.framework */,
+				4878DC771E7769C900CF1891 /* libbsm.dylib */,
+				4878DC751E7769BA00CF1891 /* DiskArbitration.framework */,
+				4878DC731E7769B300CF1891 /* libenergytrace.dylib */,
+				4878DBD21E7123EF00CF1891 /* CoreDuet.framework */,
+				4878DBD31E7123EF00CF1891 /* CoreDuetContext.framework */,
+				119B32611E4165BD00EB0780 /* libbsm.dylib */,
+				119B325F1E4165B000EB0780 /* SystemConfiguration.framework */,
+				119B325D1E4165A300EB0780 /* Security.framework */,
+				119B32551E4162B400EB0780 /* IOKit.framework */,
+				119B32531E4162AE00EB0780 /* CoreFoundation.framework */,
 				48E15D601D08A7A7007E3632 /* AggregateDictionary.framework */,
 				48D6674D1C99D7D50006F1C8 /* SystemMigration.framework */,
 				481D3D3A1B166D5000201979 /* libsystemstats.dylib */,
@@ -1018,6 +1254,7 @@
 				40882BA6019747120ACA2928 /* CoreFoundation.framework */,
 				40882BA7019747120ACA2928 /* IOKit.framework */,
 				40882BA8019747120ACA2928 /* SystemConfiguration.framework */,
+				4878DC361E77593400CF1891 /* Foundation.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -1052,13 +1289,6 @@
 			name = caffeinate;
 			sourceTree = "<group>";
 		};
-		725E685C18DED0DA005DA3E7 /* powerassertions-timeouts.c */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = "powerassertions-timeouts.c";
-			sourceTree = "<group>";
-		};
 		728F7A021A2567D500EA70CC /* common */ = {
 			isa = PBXGroup;
 			children = (
@@ -1082,6 +1312,7 @@
 		72CEF7C518C16C6200E7B3B4 /* BATS */ = {
 			isa = PBXGroup;
 			children = (
+				11DA8BE91E84C20F00664706 /* sleepwakenotification-test.c */,
 				4851F9A81C6431A000125DBE /* PMtests.h */,
 				48D667331C99D6D70006F1C8 /* energyprefs.c */,
 				4851F9A91C6431A000125DBE /* IOPSCreatePowerSource-simple.c */,
@@ -1098,11 +1329,14 @@
 				72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */,
 				72D0ECFA08F73FB600CCEA2F /* AppleSmartBattery.h */,
 				72D0ECFB08F73FB600CCEA2F /* AppleSmartBatteryCommands.h */,
+				482AAA5E1DD2F9F9001C14E3 /* SmbusHandler.cpp */,
+				482AAA5F1DD2F9F9001C14E3 /* SmbusHandler.h */,
 				72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */,
 				72D0ECFD08F73FB600CCEA2F /* AppleSmartBatteryManager.h */,
 				7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */,
 				7226093309AAAFC8005EB532 /* AppleSmartBatteryManagerUserClient.h */,
 				72D0ECFE08F73FB600CCEA2F /* Info.plist */,
+				80FD7DB01E36AEA8008803C4 /* Info-Embedded.plist */,
 			);
 			name = AppleSmartBatteryManager;
 			sourceTree = "<group>";
@@ -1110,6 +1344,7 @@
 		A9B6F98D054DDD9200F5EC01 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				48CE38971E6224AD001563E6 /* entitlements.plist */,
 				720C18EF16C8CB8F00357F83 /* com.apple.iokit.power */,
 				729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */,
 				A9E691B70564519800938E2D /* Localizable.strings */,
@@ -1134,6 +1369,52 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		119B32571E41634200EB0780 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				119B325B1E41654800EB0780 /* CommonLib.h in Headers */,
+				119B32581E41634D00EB0780 /* powerd_test.h in Headers */,
+				119B32591E41635200EB0780 /* AggdDailyReport.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4878DC4F1E775CEE00CF1891 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4878DC5B1E775DA300CF1891 /* PMStore.h in Headers */,
+				4878DC5A1E775D9D00CF1891 /* ExternalMedia.h in Headers */,
+				4878DC591E775D9400CF1891 /* HIDEventWatcher.h in Headers */,
+				4878DC581E775D8C00CF1891 /* PMConnection.h in Headers */,
+				4878DC571E775D8500CF1891 /* adaptiveDisplay.h in Headers */,
+				4878DC561E775D7E00CF1891 /* PMSystemEvents.h in Headers */,
+				4878DC551E775D7500CF1891 /* Platform.h in Headers */,
+				4878DC541E775D6E00CF1891 /* TTYKeepAwake.h in Headers */,
+				4878DC521E775D6700CF1891 /* IOUPSPrivate.h in Headers */,
+				4878DC531E775D6700CF1891 /* PrivateLib.c in Headers */,
+				4878DC511E775D5000CF1891 /* RepeatingAutoWake.h in Headers */,
+				4878DC501E775D4800CF1891 /* AutoWakeScheduler.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48A48D4C1EF42F8F0016FE7B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48A48D8E1EF431340016FE7B /* PrivateLib.h in Headers */,
+				48A48D851EF430660016FE7B /* AggdDailyReport.h in Headers */,
+				48A48D841EF430600016FE7B /* BatteryData.h in Headers */,
+				48A48D4D1EF42F8F0016FE7B /* PMStore.h in Headers */,
+				48A48D4F1EF42F8F0016FE7B /* HIDEventWatcher.h in Headers */,
+				48A48D501EF42F8F0016FE7B /* PMConnection.h in Headers */,
+				48A48D521EF42F8F0016FE7B /* PMSystemEvents.h in Headers */,
+				48A48D551EF42F8F0016FE7B /* IOUPSPrivate.h in Headers */,
+				48A48D571EF42F8F0016FE7B /* RepeatingAutoWake.h in Headers */,
+				48A48D581EF42F8F0016FE7B /* AutoWakeScheduler.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		729A75830A01EE43000AB587 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1142,38 +1423,10 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		729A75A90A01F2C5000AB587 /* Headers */ = {
+		808EE7DE1DB6CF260035C5A1 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				729A75AA0A01F2C9000AB587 /* AutoWakeScheduler.h in Headers */,
-				729A75AB0A01F2C9000AB587 /* RepeatingAutoWake.h in Headers */,
-				729A75AC0A01F2C9000AB587 /* PrivateLib.h in Headers */,
-				729A75AD0A01F2C9000AB587 /* IOUPSPrivate.h in Headers */,
-				72D9844B0B20BE7800D66087 /* TTYKeepAwake.h in Headers */,
-				72CF066C182DB08300F34C80 /* Platform.h in Headers */,
-				72A9DF040CDAA05B000FDB18 /* PMSystemEvents.h in Headers */,
-				7266E1720E5BEDAE00F9BC0B /* PMConnection.h in Headers */,
-				723522101117A10A0089FB9F /* HIDEventWatcher.h in Headers */,
-				727593FF125555EA00C59A8E /* ExternalMedia.h in Headers */,
-				7221FC9112DFEDEC00C69087 /* PMStore.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72E8154B0CFE470B00CF547E /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72E8154C0CFE470B00CF547E /* AutoWakeScheduler.h in Headers */,
-				72E8154D0CFE470B00CF547E /* RepeatingAutoWake.h in Headers */,
-				72E8154E0CFE470B00CF547E /* PrivateLib.h in Headers */,
-				72E8154F0CFE470B00CF547E /* IOUPSPrivate.h in Headers */,
-				72E815510CFE470B00CF547E /* TTYKeepAwake.h in Headers */,
-				1161A0771DF79B3F00EC5CD5 /* AggdDailyReport.h in Headers */,
-				72E815520CFE470B00CF547E /* PMSystemEvents.h in Headers */,
-				7266E1700E5BEDAE00F9BC0B /* PMConnection.h in Headers */,
-				723522121117A10A0089FB9F /* HIDEventWatcher.h in Headers */,
-				7221FC8F12DFEDEC00C69087 /* PMStore.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1188,6 +1441,41 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		119B322F1E414FD800EB0780 /* powerd_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 119B32351E414FD800EB0780 /* Build configuration list for PBXNativeTarget "powerd_test" */;
+			buildPhases = (
+				119B322C1E414FD800EB0780 /* Sources */,
+				119B322D1E414FD800EB0780 /* Frameworks */,
+				119B322E1E414FD800EB0780 /* Resources */,
+				119B32571E41634200EB0780 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = powerd_test;
+			productName = "powerd-test";
+			productReference = 119B32301E414FD800EB0780 /* powerd_test.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		11DA8BEE1E84C24000664706 /* SleepWakeNotification */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 11DA8BF31E84C24000664706 /* Build configuration list for PBXNativeTarget "SleepWakeNotification" */;
+			buildPhases = (
+				11DA8BEB1E84C24000664706 /* Sources */,
+				11DA8BEC1E84C24000664706 /* Frameworks */,
+				11DA8BED1E84C24000664706 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SleepWakeNotification;
+			productName = SleepWakeNotification;
+			productReference = 11DA8BEF1E84C24000664706 /* SleepWakeNotification */;
+			productType = "com.apple.product-type.tool";
+		};
 		22B983F316FBA71500BB59FC /* swd */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 22B9840016FBA71500BB59FC /* Build configuration list for PBXNativeTarget "swd" */;
@@ -1220,6 +1508,45 @@
 			name = pmtool;
 			productName = pmtool;
 			productReference = 48644FB71B7D5B0500AC7C92 /* pmtool */;
+			productType = "com.apple.product-type.tool";
+		};
+		4878DC451E77597E00CF1891 /* powerd-binary */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4878DC4A1E77597E00CF1891 /* Build configuration list for PBXNativeTarget "powerd-binary" */;
+			buildPhases = (
+				4878DC4F1E775CEE00CF1891 /* Headers */,
+				4878DC421E77597E00CF1891 /* Sources */,
+				4878DC431E77597E00CF1891 /* Frameworks */,
+				4878DC441E77597E00CF1891 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "powerd-binary";
+			productName = "powerd-binary";
+			productReference = 4878DC461E77597E00CF1891 /* powerd */;
+			productType = "com.apple.product-type.tool";
+		};
+		48A48D4B1EF42F8F0016FE7B /* powerd-binary-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 48A48D7C1EF42F8F0016FE7B /* Build configuration list for PBXNativeTarget "powerd-binary-Embedded" */;
+			buildPhases = (
+				48A48D4C1EF42F8F0016FE7B /* Headers */,
+				48A48D591EF42F8F0016FE7B /* Sources */,
+				48A48D711EF42F8F0016FE7B /* Frameworks */,
+				48A48D7B1EF42F8F0016FE7B /* CopyFiles */,
+				48A48D891EF430B60016FE7B /* CopyFiles */,
+				48A48D8B1EF430D00016FE7B /* CopyFiles */,
+				48A48D8D1EF430E90016FE7B /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "powerd-binary-Embedded";
+			productName = "powerd-binary";
+			productReference = 48A48D811EF42F8F0016FE7B /* powerd */;
 			productType = "com.apple.product-type.tool";
 		};
 		48D667291C99D6CD0006F1C8 /* energyprefs */ = {
@@ -1362,15 +1689,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 729A759D0A01F1D8000AB587 /* Build configuration list for PBXNativeTarget "powerd" */;
 			buildPhases = (
-				729A75A90A01F2C5000AB587 /* Headers */,
 				729A75970A01F1D7000AB587 /* Resources */,
-				729A75980A01F1D7000AB587 /* Sources */,
-				729A75990A01F1D7000AB587 /* Frameworks */,
 				729F450612D7EC8E00AD49A8 /* CopyFiles */,
 				72EB16BA14C75E8C002F68C3 /* CopyFiles */,
 				729A75A40A01F239000AB587 /* CopyFiles */,
 				729A75A60A01F239000AB587 /* CopyFiles */,
 				720C18F116C8CC0700357F83 /* CopyFiles */,
+				D083E2401F04820B00A0AAB8 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1434,14 +1759,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 72E8156C0CFE470B00CF547E /* Build configuration list for PBXNativeTarget "powerd-Embedded" */;
 			buildPhases = (
-				72E8154B0CFE470B00CF547E /* Headers */,
 				72E815530CFE470B00CF547E /* Resources */,
-				72E815560CFE470B00CF547E /* Sources */,
-				72E815640CFE470B00CF547E /* Frameworks */,
-				729F450712D7EC8E00AD49A8 /* CopyFiles */,
-				72E815680CFE470B00CF547E /* CopyFiles */,
-				72E8156A0CFE470B00CF547E /* CopyFiles */,
-				D81001D51755540400140DD3 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -1469,6 +1787,24 @@
 			productReference = 72EA6D1618EA2DE100FCE94F /* IOPSCreatePowerSource-simple */;
 			productType = "com.apple.product-type.tool";
 		};
+		808EE7E01DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 808EE7EA1DB6CF270035C5A1 /* Build configuration list for PBXNativeTarget "AppleSmartBatteryManager-Embedded" */;
+			buildPhases = (
+				808EE7DC1DB6CF260035C5A1 /* Sources */,
+				808EE7DD1DB6CF260035C5A1 /* Frameworks */,
+				808EE7DE1DB6CF260035C5A1 /* Headers */,
+				808EE7DF1DB6CF260035C5A1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "AppleSmartBatteryManager-Embedded";
+			productName = "AppleSmartBatteryManager-Embedded";
+			productReference = 808EE7E11DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
 		8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8C1DA6EC1986BFE90041B69A /* Build configuration list for PBXNativeTarget "ioupsd-Embedded" */;
@@ -1493,16 +1829,32 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0810;
 				TargetAttributes = {
+					119B322F1E414FD800EB0780 = {
+						CreatedOnToolsVersion = 8.1;
+						ProvisioningStyle = Automatic;
+					};
+					11DA8BEE1E84C24000664706 = {
+						CreatedOnToolsVersion = 8.3;
+						ProvisioningStyle = Automatic;
+					};
 					48644FB61B7D5B0500AC7C92 = {
 						CreatedOnToolsVersion = 7.0;
+					};
+					4878DC451E77597E00CF1891 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
 					};
 					48D667291C99D6CD0006F1C8 = {
 						CreatedOnToolsVersion = 7.3;
 					};
 					48D667381C99D6F30006F1C8 = {
 						CreatedOnToolsVersion = 7.3;
+					};
+					808EE7E01DB6CF260035C5A1 = {
+						CreatedOnToolsVersion = 8.1;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -1523,10 +1875,11 @@
 				409C6E9901A0B1A80ACA2928 /* PowerManagement */,
 				A661C2440CFE1C3D00B7CC2B /* PowerManagement-Embedded */,
 				72D0ECDE08F73D3000CCEA2F /* AppleSmartBatteryManager */,
+				808EE7E01DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded */,
 				729A759A0A01F1D7000AB587 /* powerd */,
 				72E8154A0CFE470B00CF547E /* powerd-Embedded */,
-				72A1BF87128E037A00754139 /* pmset-Embedded */,
 				729A742B0A01EBB0000AB587 /* pmset */,
+				72A1BF87128E037A00754139 /* pmset-Embedded */,
 				729A757D0A01EDED000AB587 /* ioupsd */,
 				8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */,
 				727D787C0A02D48D002EBD29 /* suidLauncherTool */,
@@ -1542,11 +1895,22 @@
 				72EA6D1518EA2DE100FCE94F /* IOPSCreatePowerSource-simple */,
 				48D667291C99D6CD0006F1C8 /* energyprefs */,
 				48D667381C99D6F30006F1C8 /* migrateenergyprefs */,
+				119B322F1E414FD800EB0780 /* powerd_test */,
+				4878DC451E77597E00CF1891 /* powerd-binary */,
+				11DA8BEE1E84C24000664706 /* SleepWakeNotification */,
+				48A48D4B1EF42F8F0016FE7B /* powerd-binary-Embedded */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		119B322E1E414FD800EB0780 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		48D667371C99D6F30006F1C8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1562,6 +1926,7 @@
 				729F44BB12D7DB3600AD49A8 /* com.apple.powerd.plist in Resources */,
 				72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */,
 				720C18F016C8CB8F00357F83 /* com.apple.iokit.power in Resources */,
+				D083E23F1F0481AA00A0AAB8 /* powerd.codes in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1574,10 +1939,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		808EE7DF1DB6CF260035C5A1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		D81001D51755540400140DD3 /* ShellScript */ = {
+		48A48D8D1EF430E90016FE7B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -1594,6 +1966,50 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		119B322C1E414FD800EB0780 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				484C4E861EDE2C70005B4487 /* BatteryData.c in Sources */,
+				48908F661EE611ED00F90EAB /* test_batteryData.m in Sources */,
+				4878DBD71E71241400CF1891 /* adaptiveDisplay.m in Sources */,
+				1149A7A91E8351F40060933C /* PowerSource_XCTest.m in Sources */,
+				4878DBD61E71240D00CF1891 /* StandbyTimer.c in Sources */,
+				119B324E1E41507F00EB0780 /* pmconfigd.c in Sources */,
+				119B32331E414FD800EB0780 /* powerd_test.m in Sources */,
+				4878DBD91E72134500CF1891 /* test_standbyTimer.m in Sources */,
+				119B32501E41508C00EB0780 /* CommonLib.c in Sources */,
+				119B324B1E41507400EB0780 /* SystemLoad.c in Sources */,
+				1149A7AA1E8351F80060933C /* PAssertions_XCTest.m in Sources */,
+				119B32411E41504C00EB0780 /* BatteryTimeRemaining.c in Sources */,
+				119B32491E41506D00EB0780 /* PMSettings.c in Sources */,
+				119B32401E41504800EB0780 /* AutoWakeScheduler.c in Sources */,
+				119B323F1E41504400EB0780 /* RepeatingAutoWake.c in Sources */,
+				119B324D1E41507C00EB0780 /* PrivateLib.c in Sources */,
+				119B32511E4150D500EB0780 /* ioupspluginmig.defs in Sources */,
+				119B32441E41505700EB0780 /* Platform.c in Sources */,
+				119B325A1E4164A200EB0780 /* IOUPSPrivate.c in Sources */,
+				119B323D1E41503A00EB0780 /* powermanagement.defs in Sources */,
+				119B323E1E41503E00EB0780 /* TTYKeepAwake.c in Sources */,
+				119B32481E41506900EB0780 /* PMSystemEvents.c in Sources */,
+				119B32451E41505B00EB0780 /* PMConnection.c in Sources */,
+				119B32431E41505400EB0780 /* HIDEventWatcher.c in Sources */,
+				119B324A1E41507000EB0780 /* UPSLowPower.c in Sources */,
+				119B32421E41505000EB0780 /* ExternalMedia.c in Sources */,
+				119B32461E41506100EB0780 /* PMAssertionLog.c in Sources */,
+				119B32471E41506400EB0780 /* PMAssertions.c in Sources */,
+				119B324C1E41507900EB0780 /* PMStore.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DA8BEB1E84C24000664706 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11DA8BF81E84C24E00664706 /* sleepwakenotification-test.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		22B983F416FBA71500BB59FC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1607,6 +2023,63 @@
 			buildActionMask = 2147483647;
 			files = (
 				48644FC31B7D5B8F00AC7C92 /* pmtool.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4878DC421E77597E00CF1891 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4878DC841E776B6800CF1891 /* IOUPSPrivate.c in Sources */,
+				4878DC721E77690500CF1891 /* CommonLib.c in Sources */,
+				4878DC711E7768F700CF1891 /* adaptiveDisplay.m in Sources */,
+				4878DC701E7768E000CF1891 /* ioupspluginmig.defs in Sources */,
+				4878DC6F1E7768C800CF1891 /* powermanagement.defs in Sources */,
+				4878DC5C1E77686900CF1891 /* TTYKeepAwake.c in Sources */,
+				4878DC5D1E77686900CF1891 /* RepeatingAutoWake.c in Sources */,
+				4878DC5E1E77686900CF1891 /* AutoWakeScheduler.c in Sources */,
+				4878DC5F1E77686900CF1891 /* BatteryTimeRemaining.c in Sources */,
+				4878DC601E77686900CF1891 /* ExternalMedia.c in Sources */,
+				4878DC611E77686900CF1891 /* HIDEventWatcher.c in Sources */,
+				4878DC621E77686900CF1891 /* Platform.c in Sources */,
+				4878DC631E77686900CF1891 /* PMConnection.c in Sources */,
+				4878DC641E77686900CF1891 /* PMAssertionLog.c in Sources */,
+				4878DC651E77686900CF1891 /* PMAssertions.c in Sources */,
+				4878DC661E77686900CF1891 /* PMSystemEvents.c in Sources */,
+				4878DC671E77686900CF1891 /* PMSettings.c in Sources */,
+				4878DC681E77686900CF1891 /* UPSLowPower.c in Sources */,
+				4878DC691E77686900CF1891 /* SystemLoad.c in Sources */,
+				4878DC6A1E77686900CF1891 /* StandbyTimer.c in Sources */,
+				4878DC6B1E77686900CF1891 /* PMStore.c in Sources */,
+				4878DC6C1E77686900CF1891 /* PrivateLib.c in Sources */,
+				4878DC6D1E77686900CF1891 /* pmconfigd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48A48D591EF42F8F0016FE7B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48A48D831EF4305B0016FE7B /* AggdDailyReport.c in Sources */,
+				48A48D821EF430540016FE7B /* BatteryData.c in Sources */,
+				48A48D5A1EF42F8F0016FE7B /* IOUPSPrivate.c in Sources */,
+				48A48D5B1EF42F8F0016FE7B /* CommonLib.c in Sources */,
+				48A48D5D1EF42F8F0016FE7B /* ioupspluginmig.defs in Sources */,
+				48A48D5E1EF42F8F0016FE7B /* powermanagement.defs in Sources */,
+				48A48D601EF42F8F0016FE7B /* RepeatingAutoWake.c in Sources */,
+				48A48D611EF42F8F0016FE7B /* AutoWakeScheduler.c in Sources */,
+				48A48D621EF42F8F0016FE7B /* BatteryTimeRemaining.c in Sources */,
+				48A48D641EF42F8F0016FE7B /* HIDEventWatcher.c in Sources */,
+				48A48D661EF42F8F0016FE7B /* PMConnection.c in Sources */,
+				48A48D671EF42F8F0016FE7B /* PMAssertionLog.c in Sources */,
+				48A48D681EF42F8F0016FE7B /* PMAssertions.c in Sources */,
+				48A48D691EF42F8F0016FE7B /* PMSystemEvents.c in Sources */,
+				48A48D6A1EF42F8F0016FE7B /* PMSettings.c in Sources */,
+				48A48D6B1EF42F8F0016FE7B /* UPSLowPower.c in Sources */,
+				48A48D6C1EF42F8F0016FE7B /* SystemLoad.c in Sources */,
+				48A48D6E1EF42F8F0016FE7B /* PMStore.c in Sources */,
+				48A48D6F1EF42F8F0016FE7B /* PrivateLib.c in Sources */,
+				48A48D701EF42F8F0016FE7B /* pmconfigd.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1678,34 +2151,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		729A75980A01F1D7000AB587 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				728F7A081A2656D000EA70CC /* CommonLib.c in Sources */,
-				72DC9D810E1D99910066B287 /* SystemLoad.c in Sources */,
-				729A75C20A01F314000AB587 /* pmconfigd.c in Sources */,
-				729A75C30A01F314000AB587 /* BatteryTimeRemaining.c in Sources */,
-				729A75C40A01F314000AB587 /* PMSettings.c in Sources */,
-				729A75C50A01F314000AB587 /* UPSLowPower.c in Sources */,
-				729A75C60A01F314000AB587 /* AutoWakeScheduler.c in Sources */,
-				729A75C70A01F314000AB587 /* RepeatingAutoWake.c in Sources */,
-				729A75C80A01F314000AB587 /* PrivateLib.c in Sources */,
-				729A75C90A01F314000AB587 /* ioupspluginmig.defs in Sources */,
-				72CF066B182DB08300F34C80 /* Platform.c in Sources */,
-				729A75CA0A01F314000AB587 /* IOUPSPrivate.c in Sources */,
-				729A75CC0A01F314000AB587 /* powermanagement.defs in Sources */,
-				72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */,
-				72A9DF030CDAA05B000FDB18 /* PMSystemEvents.c in Sources */,
-				7266E1730E5BEDAE00F9BC0B /* PMConnection.c in Sources */,
-				723522111117A10A0089FB9F /* HIDEventWatcher.c in Sources */,
-				72B902A217DE4D48000B3087 /* PMAssertions.c in Sources */,
-				727593FE125555EA00C59A8E /* ExternalMedia.c in Sources */,
-				220D60601828511000E98262 /* PMAssertionLog.c in Sources */,
-				7221FC9212DFEDEC00C69087 /* PMStore.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		72A1BF85128E037A00754139 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1729,34 +2174,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */,
+				482AAA601DD2F9F9001C14E3 /* SmbusHandler.cpp in Sources */,
 				72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */,
 				7226093509AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72E815560CFE470B00CF547E /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72FB64731A9CF650008B6634 /* CommonLib.c in Sources */,
-				1161A0791DF9081800EC5CD5 /* AggdDailyReport.c in Sources */,
-				72E815570CFE470B00CF547E /* pmconfigd.c in Sources */,
-				72E815580CFE470B00CF547E /* BatteryTimeRemaining.c in Sources */,
-				72E815590CFE470B00CF547E /* PMSettings.c in Sources */,
-				72E8155A0CFE470B00CF547E /* UPSLowPower.c in Sources */,
-				72E8155B0CFE470B00CF547E /* AutoWakeScheduler.c in Sources */,
-				72E8155C0CFE470B00CF547E /* RepeatingAutoWake.c in Sources */,
-				72E8155D0CFE470B00CF547E /* PrivateLib.c in Sources */,
-				220D60611828511000E98262 /* PMAssertionLog.c in Sources */,
-				72B902A317DE4D49000B3087 /* PMAssertions.c in Sources */,
-				72E8155E0CFE470B00CF547E /* ioupspluginmig.defs in Sources */,
-				72E8155F0CFE470B00CF547E /* IOUPSPrivate.c in Sources */,
-				72E815610CFE470B00CF547E /* powermanagement.defs in Sources */,
-				72E815630CFE470B00CF547E /* PMSystemEvents.c in Sources */,
-				7266E1710E5BEDAE00F9BC0B /* PMConnection.c in Sources */,
-				C19023350EBA720300AE2356 /* SystemLoad.c in Sources */,
-				723522131117A10A0089FB9F /* HIDEventWatcher.c in Sources */,
-				7221FC9012DFEDEC00C69087 /* PMStore.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1765,6 +2185,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				4851F9AC1C6431D000125DBE /* IOPSCreatePowerSource-simple.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		808EE7DC1DB6CF260035C5A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				808EE7EB1DB6CFA90035C5A1 /* AppleSmartBattery.cpp in Sources */,
+				808EE7EC1DB6CFA90035C5A1 /* AppleSmartBatteryManager.cpp in Sources */,
+				808EE7ED1DB6CFA90035C5A1 /* AppleSmartBatteryManagerUserClient.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1796,6 +2226,16 @@
 			isa = PBXTargetDependency;
 			target = 48644FB61B7D5B0500AC7C92 /* pmtool */;
 			targetProxy = 48644FC41B7D5BBC00AC7C92 /* PBXContainerItemProxy */;
+		};
+		4878DC861E77757A00CF1891 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4878DC451E77597E00CF1891 /* powerd-binary */;
+			targetProxy = 4878DC851E77757A00CF1891 /* PBXContainerItemProxy */;
+		};
+		48A48D901EF4320F0016FE7B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 48A48D4B1EF42F8F0016FE7B /* powerd-binary-Embedded */;
+			targetProxy = 48A48D8F1EF4320F0016FE7B /* PBXContainerItemProxy */;
 		};
 		48D667421C99D7040006F1C8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1877,6 +2317,11 @@
 			target = 72CEF7C618C16C8100E7B3B4 /* BATS */;
 			targetProxy = 72EE05D81909C876009A2681 /* PBXContainerItemProxy */;
 		};
+		80E851291E3AB29300B8A8EE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 808EE7E01DB6CF260035C5A1 /* AppleSmartBatteryManager-Embedded */;
+			targetProxy = 80E851281E3AB29300B8A8EE /* PBXContainerItemProxy */;
+		};
 		8C1DA6F31986C02A0041B69A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 8C1DA6DA1986BFE90041B69A /* ioupsd-Embedded */;
@@ -1896,6 +2341,422 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		119B32361E414FD800EB0780 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					"XCTEST=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "pmconfigd/powerd-test/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Development-Embedded";
+		};
+		119B32371E414FD800EB0780 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					"XCTEST=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "pmconfigd/powerd-test/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		119B32381E414FD800EB0780 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "pmconfigd/powerd-test/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Deployment-Embedded";
+		};
+		119B32391E414FD800EB0780 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "pmconfigd/powerd-test/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.powerd-test";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		11DA8BF41E84C24000664706 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/PowerManagement;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		11DA8BF51E84C24000664706 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/PowerManagement;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Development;
+		};
+		11DA8BF61E84C24000664706 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/PowerManagement;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		11DA8BF71E84C24000664706 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/PowerManagement;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Deployment;
+		};
 		22B9840116FBA71500BB59FC /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1904,7 +2765,7 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = swd;
@@ -1920,7 +2781,7 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
@@ -1937,7 +2798,7 @@
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = swd;
@@ -1953,7 +2814,7 @@
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = swd;
@@ -1992,6 +2853,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2037,6 +2899,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2076,6 +2939,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2114,6 +2978,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2124,6 +2989,479 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
+			};
+			name = Deployment;
+		};
+		4878DC4B1E77597E00CF1891 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = pmconfigd/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		4878DC4C1E77597E00CF1891 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = pmconfigd/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					CoreDuetContext,
+					"-weak_framework",
+					CoreDuet,
+				);
+				PRODUCT_NAME = powerd;
+				SDKROOT = macosx;
+			};
+			name = Development;
+		};
+		4878DC4D1E77597E00CF1891 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = pmconfigd/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDK_DIR)/System/Library/PrivateFrameworks/",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		4878DC4E1E77597E00CF1891 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = pmconfigd/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					CoreDuetContext,
+					"-weak_framework",
+					CoreDuet,
+				);
+				PRODUCT_NAME = powerd;
+				SDKROOT = macosx;
+			};
+			name = Deployment;
+		};
+		48A48D7D1EF42F8F0016FE7B /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-Embedded.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_MODULE_NAME = powerd;
+				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		48A48D7E1EF42F8F0016FE7B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-Embedded.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_MODULE_NAME = powerd;
+				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
+			};
+			name = Development;
+		};
+		48A48D7F1EF42F8F0016FE7B /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-Embedded.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDK_DIR)/System/Library/PrivateFrameworks/",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_MODULE_NAME = powerd;
+				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		48A48D801EF42F8F0016FE7B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "pmconfigd/entitlements-Embedded.plist";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle/;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)//usr/local/lib",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_MODULE_NAME = powerd;
+				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
 			};
 			name = Deployment;
 		};
@@ -2158,6 +3496,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2204,6 +3543,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2244,6 +3584,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2283,6 +3624,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2333,6 +3675,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2388,6 +3731,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2437,6 +3781,7 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2485,6 +3830,7 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2508,6 +3854,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_PEDANTIC = NO;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
@@ -2526,6 +3873,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_PEDANTIC = NO;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
@@ -2542,6 +3890,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_PEDANTIC = NO;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
@@ -2559,6 +3908,7 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_PEDANTIC = NO;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
@@ -2595,6 +3945,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2632,6 +3983,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2664,6 +4016,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2696,6 +4049,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2733,6 +4087,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2770,6 +4125,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2802,6 +4158,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2834,6 +4191,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -2896,7 +4254,7 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
@@ -2915,7 +4273,7 @@
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
@@ -2931,6 +4289,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = ioupsd;
 				ZERO_LINK = NO;
@@ -2941,6 +4300,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = ioupsd;
 				ZERO_LINK = NO;
@@ -2952,13 +4312,18 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -2970,11 +4335,16 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -2986,6 +4356,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
@@ -3003,6 +4374,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
@@ -3016,6 +4388,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
@@ -3032,6 +4405,7 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
@@ -3069,6 +4443,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3108,6 +4483,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3142,6 +4518,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3175,6 +4552,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3259,8 +4637,28 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C110135B0EBB9C9F00FD5C2D /* AspenSDK.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				PM_VERSION = 161.0.0;
 				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = "-Wall";
@@ -3271,7 +4669,25 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C110135B0EBB9C9F00FD5C2D /* AspenSDK.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				PM_VERSION = 161.0.0;
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -3311,6 +4727,7 @@
 				INFOPLIST_FILE = AppleSmartBatteryManager/Info.plist;
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManager;
 				PRODUCT_NAME = AppleSmartBatteryManager;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -3351,6 +4768,7 @@
 				INFOPLIST_FILE = AppleSmartBatteryManager/Info.plist;
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManager;
 				PRODUCT_NAME = AppleSmartBatteryManager;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -3428,21 +4846,19 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				OTHER_LDFLAGS = "-Wl,-upward_framework,AggregateDictionary";
 				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -3454,24 +4870,20 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks",
-				);
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib",
-				);
 				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				OTHER_LDFLAGS = "-Wl,-upward_framework,AggregateDictionary";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
 			};
@@ -3482,19 +4894,17 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				OTHER_LDFLAGS = "-Wl,-upward_framework,AggregateDictionary";
 				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
 				STRIP_INSTALLED_PRODUCT = YES;
 				WRAPPER_EXTENSION = bundle;
@@ -3507,22 +4917,18 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks",
-				);
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(DEVELOPER_DIR)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.Internal.sdk/usr/lib",
-				);
 				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				OTHER_LDFLAGS = "-Wl,-upward_framework,AggregateDictionary";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
+				SDKROOT = iphoneos.internal;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
 			};
@@ -3553,6 +4959,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3590,6 +4997,7 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3622,6 +5030,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3654,6 +5063,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -3666,10 +5076,209 @@
 			};
 			name = Deployment;
 		};
+		808EE7E61DB6CF260035C5A1 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "AppleSmartBatteryManager/Info-Embedded.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Development-Embedded";
+		};
+		808EE7E71DB6CF260035C5A1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "AppleSmartBatteryManager/Info-Embedded.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		808EE7E81DB6CF260035C5A1 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "AppleSmartBatteryManager/Info-Embedded.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Deployment-Embedded";
+		};
+		808EE7E91DB6CF260035C5A1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "AppleSmartBatteryManager/Info-Embedded.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManagerEmbedded;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
 		8C1DA6ED1986BFE90041B69A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = ioupsd;
 				ZERO_LINK = NO;
@@ -3680,6 +5289,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3695,6 +5305,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = ioupsd;
 				ZERO_LINK = NO;
@@ -3704,6 +5315,7 @@
 		8C1DA6F01986BFE90041B69A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3717,7 +5329,27 @@
 		A60E72020CFE3809003989A7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				PM_VERSION = 161.0.0;
 				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = "-Wall";
@@ -3756,6 +5388,7 @@
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManager;
 				PRODUCT_NAME = AppleSmartBatteryManager;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -3766,12 +5399,23 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					CoreDuet,
+					"-weak_framework",
+					CoreDuetContext,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -3786,7 +5430,7 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-D__I_AM_PMSET__";
@@ -3799,6 +5443,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3827,9 +5472,27 @@
 		A60E720E0CFE3815003989A7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				PM_VERSION = 161.0.0;
 				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = "-Wall";
@@ -3865,6 +5528,7 @@
 				INFOPLIST_FILE = AppleSmartBatteryManager/Info.plist;
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.AppleSmartBatteryManager;
 				PRODUCT_NAME = AppleSmartBatteryManager;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -3875,10 +5539,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					CoreDuet,
+					"-weak_framework",
+					CoreDuetContext,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.powerd;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -3892,7 +5567,7 @@
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "-D__I_AM_PMSET__";
 				PRODUCT_NAME = pmset;
@@ -3903,6 +5578,7 @@
 		A60E72140CFE3815003989A7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3951,6 +5627,28 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		119B32351E414FD800EB0780 /* Build configuration list for PBXNativeTarget "powerd_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				119B32361E414FD800EB0780 /* Development-Embedded */,
+				119B32371E414FD800EB0780 /* Development */,
+				119B32381E414FD800EB0780 /* Deployment-Embedded */,
+				119B32391E414FD800EB0780 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		11DA8BF31E84C24000664706 /* Build configuration list for PBXNativeTarget "SleepWakeNotification" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11DA8BF41E84C24000664706 /* Development-Embedded */,
+				11DA8BF51E84C24000664706 /* Development */,
+				11DA8BF61E84C24000664706 /* Deployment-Embedded */,
+				11DA8BF71E84C24000664706 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		22B9840016FBA71500BB59FC /* Build configuration list for PBXNativeTarget "swd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3969,6 +5667,28 @@
 				48644FBC1B7D5B0500AC7C92 /* Development */,
 				48644FBD1B7D5B0500AC7C92 /* Deployment-Embedded */,
 				48644FBE1B7D5B0500AC7C92 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4878DC4A1E77597E00CF1891 /* Build configuration list for PBXNativeTarget "powerd-binary" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4878DC4B1E77597E00CF1891 /* Development-Embedded */,
+				4878DC4C1E77597E00CF1891 /* Development */,
+				4878DC4D1E77597E00CF1891 /* Deployment-Embedded */,
+				4878DC4E1E77597E00CF1891 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		48A48D7C1EF42F8F0016FE7B /* Build configuration list for PBXNativeTarget "powerd-binary-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48A48D7D1EF42F8F0016FE7B /* Development-Embedded */,
+				48A48D7E1EF42F8F0016FE7B /* Development */,
+				48A48D7F1EF42F8F0016FE7B /* Deployment-Embedded */,
+				48A48D801EF42F8F0016FE7B /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -4178,6 +5898,17 @@
 				72EA6D1E18EA2DE100FCE94F /* Development */,
 				72EA6D1F18EA2DE100FCE94F /* Deployment-Embedded */,
 				72EA6D2018EA2DE100FCE94F /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		808EE7EA1DB6CF270035C5A1 /* Build configuration list for PBXNativeTarget "AppleSmartBatteryManager-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				808EE7E61DB6CF260035C5A1 /* Development-Embedded */,
+				808EE7E71DB6CF260035C5A1 /* Development */,
+				808EE7E81DB6CF260035C5A1 /* Deployment-Embedded */,
+				808EE7E91DB6CF260035C5A1 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

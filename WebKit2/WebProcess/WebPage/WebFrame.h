@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebFrame_h
-#define WebFrame_h
+#pragma once
 
 #include "APIObject.h"
 #include "DownloadID.h"
@@ -36,7 +35,6 @@
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/PolicyChecker.h>
 #include <wtf/Forward.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
 
@@ -66,8 +64,8 @@ struct FrameInfoData;
 
 class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame> {
 public:
-    static PassRefPtr<WebFrame> createWithCoreMainFrame(WebPage*, WebCore::Frame*);
-    static PassRefPtr<WebFrame> createSubframe(WebPage*, const String& frameName, WebCore::HTMLFrameOwnerElement*);
+    static Ref<WebFrame> createWithCoreMainFrame(WebPage*, WebCore::Frame*);
+    static Ref<WebFrame> createSubframe(WebPage*, const String& frameName, WebCore::HTMLFrameOwnerElement*);
     ~WebFrame();
 
     // Called when the FrameLoaderClient (and therefore the WebCore::Frame) is being torn down.
@@ -81,7 +79,7 @@ public:
     FrameInfoData info() const;
     uint64_t frameID() const { return m_frameID; }
 
-    uint64_t setUpPolicyListener(WebCore::FramePolicyFunction);
+    uint64_t setUpPolicyListener(WebCore::FramePolicyFunction&&);
     void invalidatePolicyListener();
     void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyAction, uint64_t navigationID, DownloadID);
 
@@ -111,7 +109,7 @@ public:
     WebCore::IntSize scrollOffset() const;
     bool hasHorizontalScrollbar() const;
     bool hasVerticalScrollbar() const;
-    PassRefPtr<InjectedBundleHitTestResult> hitTest(const WebCore::IntPoint) const;
+    RefPtr<InjectedBundleHitTestResult> hitTest(const WebCore::IntPoint) const;
     bool getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha);
     bool containsAnyFormElements() const;
     bool containsAnyFormControls() const;
@@ -158,7 +156,7 @@ public:
     RetainPtr<CFDataRef> webArchiveData(FrameFilterFunction, void* context);
 #endif
 
-    PassRefPtr<ShareableBitmap> createSelectionSnapshot() const;
+    RefPtr<ShareableBitmap> createSelectionSnapshot() const;
 
 #if PLATFORM(IOS)
     uint64_t firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
@@ -166,13 +164,13 @@ public:
 #endif
 
 private:
-    static PassRefPtr<WebFrame> create(std::unique_ptr<WebFrameLoaderClient>);
-    WebFrame(std::unique_ptr<WebFrameLoaderClient>);
+    static Ref<WebFrame> create(std::unique_ptr<WebFrameLoaderClient>);
+    explicit WebFrame(std::unique_ptr<WebFrameLoaderClient>);
 
     WebCore::Frame* m_coreFrame { nullptr };
 
     uint64_t m_policyListenerID { 0 };
-    WebCore::FramePolicyFunction m_policyFunction { nullptr };
+    WebCore::FramePolicyFunction m_policyFunction;
     DownloadID m_policyDownloadID { 0 };
 
     std::unique_ptr<WebFrameLoaderClient> m_frameLoaderClient;
@@ -186,5 +184,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // WebFrame_h

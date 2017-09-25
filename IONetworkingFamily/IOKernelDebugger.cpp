@@ -57,15 +57,15 @@ public:
 	name (for example, en1)
 	*/
 	
-	virtual IOService *probe(IOService *provider, SInt32 *score);
+	virtual IOService *probe(IOService *provider, SInt32 *score) APPLE_KEXT_OVERRIDE;
 	
-    virtual bool start( IOService * provider );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual void stop( IOService * provider );
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn message( UInt32       type,
                               IOService *  provider,
-                              void *       argument = 0 );
+                              void *       argument = 0 ) APPLE_KEXT_OVERRIDE;
 };
 
 //---------------------------------------------------------------------------
@@ -191,15 +191,20 @@ IOService *IOKDP::probe(IOService *provider, SInt32 *score)
 			}
 			break;
 		}
-		
-		//else default to old plist metric: the IOKernelDebugger has IOPrimaryDebugPort property
-		OSBoolean *pdp = OSDynamicCast(OSBoolean, provider->getProperty(kIOPrimaryDebugPortKey));
-		if(!pdp || pdp->isFalse())
-		{
-			//IOLog("_kdp_ not primary debug port\n");
-			return 0;
-		}
-		break;
+        
+#if TARGET_OS_EMBEDDED
+        return 0; // Do not use built-in Ethernet as default debugger in embedded OS <rdar://31970820>
+#else
+        //else default to old plist metric: the IOKernelDebugger has IOPrimaryDebugPort property
+        OSBoolean *pdp = OSDynamicCast(OSBoolean, provider->getProperty(kIOPrimaryDebugPortKey));
+        if(!pdp || pdp->isFalse())
+        {
+            //IOLog("_kdp_ not primary debug port\n");
+            return 0;
+        }
+#endif
+        
+        break;
 	}while(false);
 	
 	//IOLog("_kdp_ MATCHED!\n");

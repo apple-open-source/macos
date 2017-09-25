@@ -170,12 +170,16 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
+#ifndef __clang_analyzer__
 			messagingName = bootstrapName;
+#endif
 		}
 	}
 	else
 	{
+#ifndef __clang_analyzer__
 		messagingName = bootstrapName;
+#endif
 	}
 	
 	// configure logging first
@@ -220,6 +224,9 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+// The clang static analyzer isn't a big fan of our "object creation hooks object into global pointer graph" model.
+// Tell it not to worry.
+#ifndef __clang_analyzer__
 	// introduce all supported ACL subject types
 	new AnyAclSubject::Maker();
 	new PasswordAclSubject::Maker();
@@ -233,9 +240,10 @@ int main(int argc, char *argv[])
 	new PartitionAclSubject::Maker();
 	new PreAuthorizationAcls::OriginMaker();
     new PreAuthorizationAcls::SourceMaker();
-
+#endif
     // establish the code equivalents database
     CodeSignatures codeSignatures;
+
 
     // create the main server object and register it
  	Server server(codeSignatures, bootstrapName);
@@ -264,11 +272,12 @@ int main(int argc, char *argv[])
     
     // install MDS (if needed) and initialize the local CSSM
     server.loadCssm(mdsIsInstalled);
-    
-	// create the shared memory notification hub
+
 #ifndef __clang_analyzer__
+	// create the shared memory notification hub
 	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
-#endif // __clang_analyzer__
+#endif
+	
 
 	// okay, we're ready to roll
     secnotice("SS", "Entering service as %s", (char*)bootstrapName);
@@ -330,7 +339,5 @@ static PCSCMonitor::ServiceLevel scOptions(const char *optionString)
 //
 static void handleSignals(int sig)
 {
-    secnotice("SS", "signal received: %d", sig);
-	if (kern_return_t rc = self_client_handleSignal(gMainServerPort, mach_task_self(), sig))
-		Syslog::error("self-send failed (mach error %d)", rc);
+	(void)self_client_handleSignal(gMainServerPort, mach_task_self(), sig);
 }

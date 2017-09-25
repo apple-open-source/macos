@@ -1,4 +1,7 @@
+# frozen_string_literal: false
 require 'stringio'
+require 'psych/class_loader'
+require 'psych/scalar_scanner'
 
 module Psych
   module Nodes
@@ -32,7 +35,7 @@ module Psych
       #
       # See also Psych::Visitors::ToRuby
       def to_ruby
-        Visitors::ToRuby.new.accept self
+        Visitors::ToRuby.create.accept(self)
       end
       alias :transform :to_ruby
 

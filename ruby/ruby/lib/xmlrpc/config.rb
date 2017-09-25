@@ -1,5 +1,6 @@
+# frozen_string_literal: false
 #
-# $Id: config.rb 36958 2012-09-13 02:22:10Z zzak $
+# $Id: config.rb 53141 2015-12-16 05:07:31Z naruse $
 # Configuration file for XML-RPC for Ruby
 #
 
@@ -18,6 +19,7 @@ module XMLRPC # :nodoc:
     # * XMLParser::XMLStreamParser (fastest)
     # * XMLParser::REXMLStreamParser
     # * XMLParser::XMLScanStreamParser
+    # * XMLParser::LibXMLStreamParser
     DEFAULT_PARSER = XMLParser::REXMLStreamParser
 
     # enable <code><nil/></code> tag
@@ -27,7 +29,7 @@ module XMLRPC # :nodoc:
     # allows integers greater than 32-bit if +true+
     ENABLE_BIGINT        = false
 
-    # enable marshalling ruby objects which include XMLRPC::Marshallable
+    # enable marshalling Ruby objects which include XMLRPC::Marshallable
     ENABLE_MARSHALLING   = true
 
     # enable multiCall extension by default

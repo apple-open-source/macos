@@ -250,7 +250,6 @@ routine io_pm_set_dw_linger_interval(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
             in  newInterval   : uint32_t;
-            out oldInterval   : uint32_t;
             out return_val    : int);
 
 routine io_pm_change_sa_assertion_behavior(

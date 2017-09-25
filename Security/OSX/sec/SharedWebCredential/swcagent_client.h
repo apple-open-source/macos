@@ -47,6 +47,7 @@ extern CFStringRef sSWCAXPCErrorDomain;
 
 extern const char *kSecXPCKeyOperation;
 extern const char *kSecXPCKeyResult;
+extern const char *kSecXPCKeyEndpoint;
 extern const char *kSecXPCKeyError;
 extern const char *kSecXPCKeyClientToken;
 extern const char *kSecXPCKeyPeerInfoArray;
@@ -68,6 +69,7 @@ extern const char *kSecXPCKeyEscrowLabel;
 extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyViewName;
 extern const char *kSecXPCKeyViewActionCode;
+
 //
 // MARK: Mach port request IDs
 //

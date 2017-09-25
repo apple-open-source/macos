@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -60,7 +60,9 @@
 struct IPMonitorControl {
     CFRuntimeBase		cf_base;
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
     os_activity_t		activity;
+#endif	// VERBOSE_ACTIVITY_LOGGING
     dispatch_queue_t		queue;
     xpc_connection_t		connection;
     CFMutableDictionaryRef	assertions; /* ifname<string> = rank<number> */
@@ -102,9 +104,11 @@ __IPMonitorControlDeallocate(CFTypeRef cf)
     if (control->connection != NULL) {
 	xpc_release(control->connection);
     }
+#ifdef	VERBOSE_ACTIVITY_LOGGING
     if (control->activity != NULL) {
 	os_release(control->activity);
     }
+#endif	// VERBOSE_ACTIVITY_LOGGING
     if (control->queue != NULL) {
 	xpc_release(control->queue);
     }
@@ -293,9 +297,11 @@ IPMonitorControlCreate(void)
 	os_release(activity);
     };
     xpc_connection_set_event_handler(connection, handler);
-    control->activity = os_activity_create("accessing IPMonitor [rank] controls",
-					   OS_ACTIVITY_CURRENT,
-					   OS_ACTIVITY_FLAG_DEFAULT);
+#ifdef	VERBOSE_ACTIVITY_LOGGING
+	control->activity = os_activity_create("accessing IPMonitor [rank] controls",
+					       OS_ACTIVITY_CURRENT,
+					       OS_ACTIVITY_FLAG_DEFAULT);
+#endif	// VERBOSE_ACTIVITY_LOGGING
     control->connection = connection;
     control->queue = queue;
     xpc_connection_resume(connection);
@@ -316,7 +322,9 @@ IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
 	return (FALSE);
     }
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
     os_activity_scope(control->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
     request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(request,
@@ -381,7 +389,9 @@ IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
 	return rank;
     }
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
     os_activity_scope(control->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
     request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(request,

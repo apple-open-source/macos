@@ -115,7 +115,7 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 	struct addrinfo hints, *res;
 	int error;
 	char c;
-	
+
 	/*
 	 * Verify the arguments, and make sure we have
 	 * at least 7 bytes for the option.
@@ -148,9 +148,9 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 		*cpp = lsrp = (char *)ALIGN(buf);
 		ep = lsrp + 1024;
 	}
-	
+
 	cp = arg;
-	
+
 #ifdef INET6
 	if (ai->ai_family == AF_INET6) {
 		cmsg = inet6_rthdr_init(*cpp, IPV6_RTHDR_TYPE_0);
@@ -171,16 +171,16 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 			*lsrp++ = IPOPT_SSRR;
 		} else
 			*lsrp++ = IPOPT_LSRR;
-		
+
 		if (*cp != '@')
 			return -1;
-		
+
 		lsrp++;		/* skip over length, we'll fill it in later */
 		*lsrp++ = 4;
 		*protop = IPPROTO_IP;
 		*optp = IP_OPTIONS;
 	}
-	
+
 	cp++;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = ai->ai_family;
@@ -211,7 +211,7 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 		}
 		if (!c)
 			cp2 = 0;
-		
+
 		hints.ai_flags = AI_NUMERICHOST;
 		error = getaddrinfo(cp, NULL, &hints, &res);
 #ifdef EAI_NODATA
@@ -258,8 +258,10 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 				return -1;
 		} else
 #endif
-			if (lsrp + 4 > ep)
+			if (lsrp + 4 > ep) {
+				freeaddrinfo(res);
 				return -1;
+			}
 		freeaddrinfo(res);
 	}
 #ifdef INET6

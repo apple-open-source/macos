@@ -262,8 +262,8 @@ restart:
 		goto restart;
 
 	/* seq->first is already less than slot, so just leave it */
-	seq->count = e - b + 1;
-	seq->index = b;
+	seq->count = (int)(e - b + 1);
+	seq->index = (int)(b);
 	/*
 	 * The fmt string contains the characters before the bracket, the
 	 * a format specifier (either decimal or hex) and any characters

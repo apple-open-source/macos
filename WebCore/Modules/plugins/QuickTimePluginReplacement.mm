@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,22 +34,26 @@
 #import "HTMLPlugInElement.h"
 #import "HTMLVideoElement.h"
 #import "JSDOMBinding.h"
+#import "JSDOMConvertNullable.h"
+#import "JSDOMConvertSequences.h"
+#import "JSDOMConvertStrings.h"
 #import "JSDOMGlobalObject.h"
 #import "JSHTMLVideoElement.h"
 #import "JSQuickTimePluginReplacement.h"
 #import "Logging.h"
 #import "MainFrame.h"
-#import "Page.h"
 #import "RenderElement.h"
 #import "ScriptController.h"
 #import "ScriptSourceCode.h"
 #import "Settings.h"
+#import "ShadowRoot.h"
 #import "UserAgentScripts.h"
-#import <objc/runtime.h>
-#import <AVFoundation/AVFoundation.h>
+#import <AVFoundation/AVMetadataItem.h>
 #import <Foundation/NSString.h>
-#import <JavaScriptCore/JavaScriptCore.h>
 #import <JavaScriptCore/APICast.h>
+#import <JavaScriptCore/JavaScriptCore.h>
+#import <objc/runtime.h>
+#import <runtime/CatchScope.h>
 #import <wtf/text/Base64.h>
 
 #import "CoreMediaSoftLink.h"
@@ -116,9 +120,9 @@ bool QuickTimePluginReplacement::supportsFileExtension(const String& extension)
     return extensionSet.get().contains(extension);
 }
 
-bool QuickTimePluginReplacement::isEnabledBySettings(const Settings* settings)
+bool QuickTimePluginReplacement::isEnabledBySettings(const Settings& settings)
 {
-    return settings->quickTimePluginReplacementEnabled();
+    return settings.quickTimePluginReplacementEnabled();
 }
 
 QuickTimePluginReplacement::QuickTimePluginReplacement(HTMLPlugInElement& plugin, const Vector<String>& paramNames, const Vector<String>& paramValues)
@@ -201,7 +205,7 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot& root)
     if (replacementFunction.isUndefinedOrNull())
         return false;
     JSC::JSObject* replacementObject = replacementFunction.toObject(exec);
-    ASSERT(!scope.exception());
+    scope.assertNoException();
     JSC::CallData callData;
     JSC::CallType callType = replacementObject->methodTable()->getCallData(replacementObject, callData);
     if (callType == JSC::CallType::None)
@@ -222,7 +226,7 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot& root)
     // Get the <video> created to replace the plug-in.
     JSC::JSValue value = replacement.get(exec, JSC::Identifier::fromString(exec, "video"));
     if (!scope.exception() && !value.isUndefinedOrNull())
-        m_mediaElement = JSHTMLVideoElement::toWrapped(value);
+        m_mediaElement = JSHTMLVideoElement::toWrapped(vm, value);
 
     if (!m_mediaElement) {
         LOG(Plugins, "%p - Failed to find <video> element created by QuickTime plugin replacement script.", this);
@@ -234,7 +238,7 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot& root)
     value = replacement.get(exec, JSC::Identifier::fromString(exec, "scriptObject"));
     if (!scope.exception() && !value.isUndefinedOrNull()) {
         m_scriptObject = value.toObject(exec);
-        ASSERT(!scope.exception());
+        scope.assertNoException();
     }
 
     if (!m_scriptObject) {

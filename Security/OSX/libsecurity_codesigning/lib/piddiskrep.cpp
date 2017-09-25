@@ -167,6 +167,11 @@ size_t PidDiskRep::signingLimit()
         return 0;
 }
 
+size_t PidDiskRep::execSegLimit(const Architecture *)
+{
+		return 0;
+}
+    
 string PidDiskRep::format()
 {
         return "pid diskrep";

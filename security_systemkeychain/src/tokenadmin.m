@@ -25,8 +25,6 @@
 
 #include "tokenadmin.h"
 
-#include "readline.h"
-
 //#include "cmsutil.h"
 //#include "db_commands.h"
 #include "create_fv_user.h"
@@ -251,9 +249,6 @@ main(int argc, char * const *argv)
 	int result = 0;
 	int do_help = 0;
 	int ch;
-	const char *shortUserName = NULL;
-	const char *longUserName = NULL;
-	const char *password = NULL;
 	
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	/* Remember my name. */

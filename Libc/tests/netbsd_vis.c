@@ -76,7 +76,7 @@ T_DECL(strvis_basic, "strvis(3)")
 			if (dstbuf[j] != (char)j)
 				T_FAIL("Failed for style %x, char %d [%d]", styles[i], j, dstbuf[j]);
 		if (dstbuf[SIZE] != '\0')
-			T_FAIL("Failed for style %x, the result must be null-terminated [%d]", dstbuf[SIZE]);
+			T_FAIL("Failed for style %x, the result must be null-terminated [%d]", styles[i], dstbuf[SIZE]);
 	}
 	free(dstbuf);
 	free(srcbuf);

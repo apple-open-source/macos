@@ -60,6 +60,12 @@
 /* .IP "\fBsmtputf8_autodetect_classes (sendmail, verify)\fR"
 /*	Detect that a message requires SMTPUTF8 support for the specified
 /*	mail origin classes.
+/* .PP
+/*	Available in Postfix version 3.2 and later:
+/* .IP "\fBenable_idna2003_compatibility (no)\fR"
+/*	Enable 'transitional' compatibility between IDNA2003 and IDNA2008,
+/*	when converting UTF-8 domain names to/from the ASCII form that is
+/*	used for DNS lookups.
 /* RESOURCE AND RATE CONTROLS
 /* .ad
 /* .fi
@@ -122,8 +128,8 @@
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-/*	The mail system name that is prepended to the process name in syslog
-/*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/*	A prefix that is prepended to the process name in syslog
+/*	records, so that, for example, "smtpd" becomes "prefix/smtpd".
 /* .IP "\fBverp_delimiter_filter (-=+)\fR"
 /*	The characters Postfix accepts as VERP delimiter characters on the
 /*	Postfix \fBsendmail\fR(1) command line and in SMTP commands.

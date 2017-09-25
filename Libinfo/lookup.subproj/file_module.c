@@ -341,18 +341,18 @@ _fsi_get_validation(si_mod_t *si, int vtype, const char *path, FILE *f, uint64_t
 static int
 _fsi_validate(si_mod_t *si, int cat, uint64_t va, uint64_t vb)
 {
+#if !TARGET_OS_EMBEDDED
 	struct stat sb;
 	const char *path;
 	uint32_t item_val, curr_val, vtype;
 	file_si_private_t *pp;
 	int status;
+#endif
 
 	if (si == NULL) return 0;
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_EMBEDDED
 	/* /etc is on a read-only filesystem, so no validation is required */
-	return 1;
-#endif
 
 	pp = (file_si_private_t *)si->private;
 	if (pp == NULL) return 0;
@@ -449,6 +449,7 @@ _fsi_validate(si_mod_t *si, int cat, uint64_t va, uint64_t vb)
 		curr_val = ntohl(curr_val);
 		if (item_val != curr_val) return 0;
 	}
+#endif
 
 	return 1;
 }
@@ -1863,6 +1864,7 @@ _fsi_fs_root(si_mod_t *si)
 		root_spec = _fsi_get_device_path(rootstat.st_dev);
 
 		rootfs = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, 0LL, 0LL, root_spec, root_path, rootfsinfo.f_fstypename, FSTAB_RW, FSTAB_RW, 0, 1);
+		free(root_spec);
 	});
 
 	return si_item_retain(rootfs);

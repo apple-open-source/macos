@@ -295,7 +295,7 @@ scantermcap(UNUSED(HashTable ht), ScanFunc func, int flags)
     }
 }
 
-struct paramdef partab[] = {
+static struct paramdef partab[] = {
     SPECIALPMDEF("termcap", PM_READONLY, NULL, gettermcap, scantermcap)
 };
 
@@ -342,7 +342,7 @@ enables_(Module m, int **enables)
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
 #ifdef HAVE_TGETENT
 # ifdef HAVE_SETUPTERM

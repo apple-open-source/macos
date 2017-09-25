@@ -39,11 +39,28 @@
 extern "C" {
 #endif
 
+typedef enum {
+	DT_PR_CREATE = 0,
+	DT_PR_LINK = 1,
+	DT_PR_MAX = 2
+} dt_pr_t;
+
+struct dt_libproc_fn {
+	int (*lookup_by_name)(struct ps_prochandle *, Lmid_t, const char *,
+		const char *, GElf_Sym *, prsyminfo_t *);
+	int (*object_iter)(struct ps_prochandle *, proc_map_f *, void *);
+	int (*objc_method_iter)(struct ps_prochandle *, proc_objc_f* , void *);
+	int (*symbol_iter_by_addr)(struct ps_prochandle *, const char *, int,
+		int, proc_sym_f *, void *);
+};
+
+extern struct dt_libproc_fn dt_libproc_funcs[DT_PR_MAX];
+
 #define	DT_PROC_ERR	(-1)
 #define	DT_PROC_ALIGN	(-2)
 
 extern int dt_pid_create_probes(dtrace_probedesc_t *, dtrace_hdl_t *,
-    dt_pcb_t *pcb);
+    dt_pcb_t *pcb, dt_pr_t);
 extern int dt_pid_create_probes_module(dtrace_hdl_t *, dt_proc_t *);
 
 extern int dt_pid_create_entry_probe(struct ps_prochandle *, dtrace_hdl_t *,

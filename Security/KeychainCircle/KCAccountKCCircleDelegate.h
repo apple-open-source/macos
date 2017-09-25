@@ -19,9 +19,10 @@
 
  @parameter circleJoinData
  Data the acceptor made to allow us to join the circle.
-
+ @parameter version
+ Piggybacking version, let's secd know it should expect more data
  */
-- (bool) processCircleJoinData: (NSData*) circleJoinData error: (NSError**)error;
+- (bool) processCircleJoinData: (NSData*) circleJoinData version:(PiggyBackProtocolVersion)version error: (NSError**)error;
 
 + (instancetype) delegate;
 
@@ -39,7 +40,8 @@
  */
 - (NSData*) circleJoinDataFor: (SOSPeerInfoRef) peer
                         error: (NSError**) error;
-
+-(NSData*) circleGetInitialSyncViews: (NSError**) error;
+    
 + (instancetype) delegate;
 
 @end

@@ -1387,42 +1387,8 @@ exit:
 
 IOReturn IOPMActivateSystemPowerSettings( void )
 {
-    io_registry_entry_t         rootdomain = MACH_PORT_NULL;
-    CFDictionaryRef             settings = NULL;
-    IOReturn                    ret = kIOReturnSuccess;
-    bool                        disable_sleep = false;
 
-    settings = IOPMCopySystemPowerSettings();
-    if(!settings) {
-        goto exit;
-    }
-
-    // Disable Sleep?
-    disable_sleep = (kCFBooleanTrue ==
-                        CFDictionaryGetValue( settings, kIOPMSleepDisabledKey ));
-
-    rootdomain = getPMRootDomainRef();
-#if !TARGET_OS_IPHONE
-    IORegistryEntrySetCFProperty( rootdomain, kIOPMSleepDisabledKey,
-                        (disable_sleep ? kCFBooleanTrue : kCFBooleanFalse));
-#else
-    ret = IORegistryEntrySetCFProperty( rootdomain, kIOPMSleepDisabledKey,
-                                       (disable_sleep ? kCFBooleanTrue : kCFBooleanFalse));
-#endif
-
-#if !TARGET_OS_IPHONE
-    bool    avoid_keyStore = false;
-    // Disable FDE Key Store on SMC
-    avoid_keyStore = (kCFBooleanTrue ==
-                        CFDictionaryGetValue( settings, CFSTR(kIOPMDestroyFVKeyOnStandbyKey) ));
-    ret = IORegistryEntrySetCFProperty( rootdomain, CFSTR(kIOPMDestroyFVKeyOnStandbyKey),
-                        (avoid_keyStore ? kCFBooleanTrue : kCFBooleanFalse));
-
-#endif
-
-exit:
-    if(settings) CFRelease( settings );
-    return ret;
+    return kIOReturnUnsupported;
 }
 
 CFDictionaryRef IOPMCopySystemPowerSettings(void)
@@ -1454,12 +1420,7 @@ IOReturn IOPMSetSystemPowerSetting(CFStringRef key, CFTypeRef value)
     if ((getuid() != 0) && (geteuid() != 0)) {
         return kIOReturnNotPrivileged;
     }
-    if (!CFEqual(key, CFSTR(kIOPMDestroyFVKeyOnStandbyKey)) &&
-            !CFEqual(key, kIOPMSleepDisabledKey) &&
-            !CFEqual(key, CFSTR(kIOPMUpdateDarkWakeBGSettingKey))) {
-        rc = kIOReturnBadArgument;
-        goto exit;
-    }
+
     settings = IOPMCopySystemPowerSettings();
     if (!settings) {
         mutableSettings = CFDictionaryCreateMutable(0, 0,
@@ -1497,6 +1458,9 @@ exit:
     if (mutableSettings) {
         CFRelease(mutableSettings);
     }
+#else
+    (void)key;
+    (void)value;
 #endif
     return rc;
 }
@@ -1578,6 +1542,7 @@ static CFDictionaryRef getSystemProvidedPreferences(void)
     CFDictionaryRef         defaultPrefs    = NULL;
     io_registry_entry_t     regEntry        = MACH_PORT_NULL;
     bool                    overrides       = false;
+    bool                    overrideCopied  = false;
 
     regEntry = getPMRootDomainRef();
     if (regEntry == MACH_PORT_NULL) {
@@ -1604,6 +1569,7 @@ static CFDictionaryRef getSystemProvidedPreferences(void)
             acOverride = CFDictionaryCreateCopy(0,overridePrefs);
             battOverride = CFDictionaryCreateCopy(0,overridePrefs);
             upsOverride = CFDictionaryCreateCopy(0,overridePrefs);
+            overrideCopied = true;
         } else if (!acOverride || !battOverride || !upsOverride) {
             goto exit;
         }
@@ -1660,6 +1626,17 @@ exit:
     if (battDict)      CFRelease(battDict);
     if (upsDict)       CFRelease(upsDict);
     if (defaultPrefs)  CFRelease(defaultPrefs);
+    if (overrideCopied) {
+        if (acOverride) {
+            CFRelease(acOverride);
+        }
+        if (battOverride) {
+            CFRelease(battOverride);
+        }
+        if (upsOverride) {
+            CFRelease(upsOverride);
+        }
+    }
 
     return systemPrefs;
 }

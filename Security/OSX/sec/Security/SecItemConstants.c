@@ -109,6 +109,16 @@ SEC_CONST_DECL (kSecAttrTombstone, "tomb");
 SEC_CONST_DECL (kSecAttrMultiUser, "musr");
 SEC_CONST_DECL (kSecAttrNoLegacy, "nleg");
 SEC_CONST_DECL (kSecAttrTokenOID, "toid");
+SEC_CONST_DECL (kSecAttrUUID, "UUID");
+SEC_CONST_DECL (kSecAttrPersistantReference, "persistref");
+SEC_CONST_DECL (kSecAttrPersistentReference, "persistref");
+SEC_CONST_DECL (kSecAttrSysBound, "sysb");
+SEC_CONST_DECL (kSecAttrSHA1, "sha1");
+
+SEC_CONST_DECL (kSecAttrDeriveSyncIDFromItemAttributes, "dspk");
+SEC_CONST_DECL (kSecAttrPCSPlaintextServiceIdentifier, "pcss");
+SEC_CONST_DECL (kSecAttrPCSPlaintextPublicKey, "pcsk");
+SEC_CONST_DECL (kSecAttrPCSPlaintextPublicIdentity, "pcsi");
 
 /* Predefined access groups constants */
 SEC_CONST_DECL (kSecAttrAccessGroupToken, "com.apple.token");
@@ -149,6 +159,7 @@ SEC_CONST_DECL (kSecUseAuthenticationUI, "u_AuthUI");
 SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
 SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
 SEC_CONST_DECL (kSecUseCallerName, "u_CallerName");
+SEC_CONST_DECL (kSecUseTokenRawItems, "u_TokenRawItems");
 
 /* kSecAttrAccessible Value Constants. */
 SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");
@@ -218,6 +229,8 @@ SEC_CONST_DECL (kSecAttrKeyClassSymmetric, "2");
 SEC_CONST_DECL (kSecAttrKeyTypeRSA, "42");
 SEC_CONST_DECL (kSecAttrKeyTypeEC, "73");  /* rdar://10755886 */
 SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandom, "73");
+SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandomPKA, "2147483678");  /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED */
+SEC_CONST_DECL (kSecAttrKeyTypeSecureEnclaveAttestation, "2147483679"); /* <Security/cssmapple.h> CSSM_ALGID__FIRST_UNUSED + 1 */
 
 /* kSecAttrSynchronizable Value Constants. */
 SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
@@ -226,6 +239,9 @@ SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
    any SecItem apis directly. */
 SEC_CONST_DECL (kSecPrivateKeyAttrs, "private");
 SEC_CONST_DECL (kSecPublicKeyAttrs, "public");
+
+/* This is here only temporarily until MobileActivation starts using kSecAttrTokenOID instead of this specific attribute. */
+SEC_CONST_DECL (kSecAttrSecureEnclaveKeyBlob, "toid");
 
 /* Constants used by SecPassword - in SecPasswordStrength */
 SEC_CONST_DECL (kSecPasswordMaxLength, "PasswordMaxLength");
@@ -243,6 +259,10 @@ SEC_CONST_DECL (kSecUseAuthenticationContext, "u_AuthCtx");
 
 /* kSecAttrTokenID Value Constants. */
 SEC_CONST_DECL (kSecAttrTokenIDSecureEnclave, "com.apple.setoken");
+SEC_CONST_DECL (kSecAttrTokenIDAppleKeyStore, "com.apple.setoken:aks");
+
+/* Internal kSecAttrAccessGroup for syncing */
+SEC_CONST_DECL (kSOSInternalAccessGroup, "com.apple.security.sos");
 
 /*  View Hint Constants */
 
@@ -250,6 +270,7 @@ SEC_CONST_DECL (kSecAttrTokenIDSecureEnclave, "com.apple.setoken");
 #define DO_SEC_CONST_DECL_(VIEWNAME, DEFSTRING) const CFTypeRef kSecAttrViewHint##VIEWNAME = CFSTR(DEFSTRING);
 #define DO_SEC_CONST_DECL_V(VIEWNAME, DEFSTRING)
 
-#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, DEFAULTSETTING, INITIALSYNCSETTING, ALWAYSONSETTING, BACKUPSETTING, V0SETTING) DO_SEC_CONST_DECL_##V0SETTING(VIEWNAME, DEFSTRING)
+#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, SYSTEM, DEFAULTSETTING, INITIALSYNCSETTING, ALWAYSONSETTING, BACKUPSETTING, V0SETTING) DO_SEC_CONST_DECL_##V0SETTING(VIEWNAME, DEFSTRING)
 #include "Security/SecureObjectSync/ViewList.list"
 #undef DOVIEWMACRO
+

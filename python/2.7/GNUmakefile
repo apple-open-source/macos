@@ -91,6 +91,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/sysconfig.py < $(FIX)/sysconfig.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/tests/test_build_ext.py < $(FIX)/Lib_distutils_tests_test_build_ext.py.ed && \
+	ed - $(PROJECT)/Lib/distutils/ccompiler.py < $(FIX)/ccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
 	ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py < $(FIX)/bundlebuilder.py.ed && \
@@ -119,6 +120,7 @@ $(OBJROOT)/$(PROJECT):
 	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
+	ed - $(PROJECT)/Modules/main.c < $(FIX)/Modules_main.c.ed && \
 	patch $(PROJECT)/Mac/Makefile.in $(FIX)/Mac.Makefile.in.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-23359785.patch && \
 	patch $(PROJECT)/Include/pymactoolbox.h $(FIX)/pymactoolbox.h.diff && \

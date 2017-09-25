@@ -39,12 +39,11 @@
 #include "SecCTKKeyPriv.h"
 
 const CFStringRef kSecUseToken = CFSTR("u_Token");
-const CFStringRef kSecUseTokenObjectID = CFSTR("u_TokenOID");
 
 typedef struct {
     TKTokenRef token;
     CFStringRef token_id;
-    CFDataRef objectID;
+    CFDataRef object_id;
     SecCFDictionaryCOW auth_params;
     SecCFDictionaryCOW attributes;
     CFMutableDictionaryRef params;
@@ -54,7 +53,7 @@ static void SecCTKKeyDestroy(SecKeyRef key) {
     SecCTKKeyData *kd = key->key;
     CFReleaseNull(kd->token);
     CFReleaseNull(kd->token_id);
-    CFReleaseNull(kd->objectID);
+    CFReleaseNull(kd->object_id);
     CFReleaseNull(kd->auth_params.mutable_dictionary);
     CFReleaseNull(kd->attributes.mutable_dictionary);
     CFReleaseNull(kd->params);
@@ -62,7 +61,9 @@ static void SecCTKKeyDestroy(SecKeyRef key) {
 
 static CFIndex SecCTKGetAlgorithmID(SecKeyRef key) {
     SecCTKKeyData *kd = key->key;
-    if (CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom)) {
+    if (CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom) ||
+        CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandomPKA) ||
+        CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeSecureEnclaveAttestation)) {
         return kSecECDSAAlgorithmID;
     }
     return kSecRSAAlgorithmID;
@@ -91,37 +92,83 @@ static const CFTypeRef *aclOperations[] = {
     [kSecKeyOperationTypeKeyExchange] = &kAKSKeyOpComputeKey,
 };
 
+static TKTokenRef SecCTKKeyCreateToken(SecKeyRef key, CFDictionaryRef auth_params, CFDictionaryRef *last_params, CFErrorRef *error) {
+    TKTokenRef token = NULL;
+    SecCTKKeyData *kd = key->key;
+    SecCFDictionaryCOW attributes = { auth_params };
+    if (kd->params && CFDictionaryGetCount(kd->params) > 0) {
+        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attributes), CFSTR(kTKTokenCreateAttributeAuxParams), kd->params);
+    }
+    require_quiet(token = SecTokenCreate(kd->token_id, attributes.dictionary, error), out);
+    if (last_params != NULL) {
+        CFAssignRetained(*last_params, auth_params ? CFDictionaryCreateCopy(NULL, auth_params) : NULL);
+    }
+
+out:
+    CFReleaseNull(attributes.mutable_dictionary);
+    return token;
+}
+
+static TKTokenRef SecCTKKeyCopyToken(SecKeyRef key, CFErrorRef *error) {
+    SecCTKKeyData *kd = key->key;
+    TKTokenRef token = CFRetainSafe(kd->token);
+    if (token == NULL) {
+        token = SecCTKKeyCreateToken(key, kd->auth_params.dictionary, NULL, error);
+    }
+    return token;
+}
+
 static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
                                               CFArrayRef algorithms, SecKeyOperationMode mode,
                                               CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     SecCTKKeyData *kd = key->key;
     __block SecCFDictionaryCOW auth_params = { kd->auth_params.dictionary };
+    __block CFDictionaryRef last_params = kd->auth_params.dictionary ? CFDictionaryCreateCopy(NULL, kd->auth_params.dictionary) : NULL;
     __block TKTokenRef token = CFRetainSafe(kd->token);
     __block CFTypeRef result = kCFNull;
 
     CFErrorRef localError = NULL;
-    SecItemAuthDo(&auth_params, &localError, ^SecItemAuthResult(CFDictionaryRef ap, CFArrayRef *ac_pairs, CFErrorRef *error) {
-        if (auth_params.mutable_dictionary != NULL || token == NULL || kd->params != NULL) {
+    SecItemAuthDo(&auth_params, &localError, ^SecItemAuthResult(CFArrayRef *ac_pairs, CFErrorRef *error) {
+        if (!CFEqualSafe(last_params, auth_params.dictionary) || token == NULL) {
             // token was not connected yet or auth_params were modified, so reconnect the token in order to update the attributes.
-            SecCFDictionaryCOW attributes = { ap };
-            if (kd->params && CFDictionaryGetCount(kd->params) > 0) {
-                CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attributes), CFSTR(kTKTokenCreateAttributeAuxParams), kd->params);
-            }
-            CFAssignRetained(token, SecTokenCreate(kd->token_id, attributes.dictionary, error));
-            CFReleaseSafe(attributes.mutable_dictionary);
+            CFAssignRetained(token, SecCTKKeyCreateToken(key, auth_params.dictionary, &last_params, error));
             if (token == NULL) {
                 return kSecItemAuthResultError;
             }
         }
 
-        result = TKTokenCopyOperationResult(token, kd->objectID, operation, algorithms, mode, in1, in2, error);
+        result = kCFBooleanTrue;
+        if (mode == kSecKeyOperationModePerform) {
+            // Check, whether we are not trying to perform the operation with large data.  If yes, explicitly do the check whether
+            // the operation is supported first, in order to avoid jetsam of target extension with operation type which is typically
+            // not supported by the extension at all.
+            // <rdar://problem/31762984> unable to decrypt large data with kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
+            CFIndex inputSize = 0;
+            if (in1 != NULL && CFGetTypeID(in1) == CFDataGetTypeID()) {
+                inputSize += CFDataGetLength(in1);
+            }
+            if (in2 != NULL && CFGetTypeID(in2) == CFDataGetTypeID()) {
+                inputSize += CFDataGetLength(in2);
+            }
+            if (inputSize > 32 * 1024) {
+                result = TKTokenCopyOperationResult(token, kd->object_id, operation, algorithms, kSecKeyOperationModeCheckIfSupported,
+                                                    NULL, NULL, error);
+            }
+        }
+
+        if (CFEqualSafe(result, kCFBooleanTrue)) {
+            result = TKTokenCopyOperationResult(token, kd->object_id, operation, algorithms, mode, in1, in2, error);
+        }
         return (result != NULL) ? kSecItemAuthResultOK : SecCTKProcessError(*aclOperations[operation], token,
-                                                                            kd->objectID, ac_pairs, error);
+                                                                            kd->object_id, ac_pairs, error);
+    }, ^{
+        CFAssignRetained(token, SecCTKKeyCreateToken(key, auth_params.dictionary, &last_params, NULL));
     });
 
     CFErrorPropagate(localError, error);
-    CFReleaseSafe(auth_params.mutable_dictionary);
-    CFReleaseSafe(token);
+    CFReleaseNull(auth_params.mutable_dictionary);
+    CFReleaseNull(token);
+    CFReleaseNull(last_params);
     return result;
 }
 
@@ -141,14 +188,17 @@ static OSStatus SecCTKKeyCopyPublicOctets(SecKeyRef key, CFDataRef *data) {
     OSStatus status = errSecSuccess;
     CFErrorRef error = NULL;
     CFDataRef publicData = NULL;
+    TKTokenRef token = NULL;
 
     SecCTKKeyData *kd = key->key;
-    require_action_quiet(publicData = TKTokenCopyPublicKeyData(kd->token, kd->objectID, &error), out,
+    require_action_quiet(token = SecCTKKeyCopyToken(key, &error), out, status = SecErrorGetOSStatus(error));
+    require_action_quiet(publicData = TKTokenCopyPublicKeyData(token, kd->object_id, &error), out,
                          status = SecErrorGetOSStatus(error));
     *data = publicData;
 
 out:
     CFReleaseSafe(error);
+    CFReleaseSafe(token);
     return status;
 }
 
@@ -163,7 +213,7 @@ static const CFStringRef *kSecExportableCTKKeyAttributes[] = {
     &kSecClass,
     &kSecAttrTokenID,
     &kSecAttrKeyClass,
-    &kSecAttrIsPermanent,
+    &kSecAttrAccessControl,
     &kSecAttrIsPrivate,
     &kSecAttrIsModifiable,
     &kSecAttrKeyType,
@@ -189,12 +239,14 @@ static CFDictionaryRef SecCTKKeyCopyAttributeDictionary(SecKeyRef key) {
     CFMutableDictionaryRef attrs = NULL;
     CFErrorRef error = NULL;
     CFDataRef publicData = NULL, digest = NULL;
+    TKTokenRef token = NULL;
     SecCTKKeyData *kd = key->key;
 
     // Encode ApplicationLabel as SHA1 digest of public key bytes.
-    require_quiet(publicData = TKTokenCopyPublicKeyData(kd->token, kd->objectID, &error), out);
+    require_quiet(token = SecCTKKeyCopyToken(key, &error), out);
+    require_quiet(publicData = TKTokenCopyPublicKeyData(token, kd->object_id, &error), out);
 
-    /* Calculate the digest of the public key. */
+    // Calculate the digest of the public key.
     require(digest = SecSHA1DigestCreate(NULL, CFDataGetBytePtr(publicData), CFDataGetLength(publicData)), out);
     attrs = CFDictionaryCreateMutableForCFTypes(CFGetAllocator(key));
     CFDictionarySetValue(attrs, kSecAttrApplicationLabel, digest);
@@ -206,10 +258,18 @@ static CFDictionaryRef SecCTKKeyCopyAttributeDictionary(SecKeyRef key) {
         }
     }
 
+    // Consistently with existing RSA and EC software keys implementation, mark all keys as permanent ones.
+    CFDictionarySetValue(attrs, kSecAttrIsPermanent, kCFBooleanTrue);
+
+    // Always export token_id and object_id.
+    CFDictionarySetValue(attrs, kSecAttrTokenID, kd->token_id);
+    CFDictionarySetValue(attrs, kSecAttrTokenOID, kd->object_id);
+
 out:
     CFReleaseSafe(error);
     CFReleaseSafe(publicData);
     CFReleaseSafe(digest);
+    CFReleaseSafe(token);
     return attrs;
 }
 
@@ -245,9 +305,10 @@ static Boolean SecCTKKeySetParameter(SecKeyRef key, CFStringRef name, CFProperty
         name = kSecUseCredentialReference;
     }
 
+    // Release existing token connection to enforce creation of new connection with new params.
+    CFReleaseNull(kd->token);
+
     if (isUseFlag) {
-        // Release existing token connection to enforce creation of new connection with new auth params.
-        CFReleaseNull(kd->token);
         if (value != NULL) {
             CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->auth_params), name, value);
         } else {
@@ -289,7 +350,7 @@ static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef key) {
     SecKeyRef result = SecKeyCreate(CFGetAllocator(key), &kSecCTKKeyDescriptor, 0, 0, 0);
     SecCTKKeyData *kd = key->key, *rd = result->key;
     rd->token = CFRetainSafe(kd->token);
-    rd->objectID = CFRetainSafe(kd->objectID);
+    rd->object_id = CFRetainSafe(kd->object_id);
     rd->token_id = CFRetainSafe(kd->token_id);
     if (kd->attributes.dictionary != NULL) {
         rd->attributes.dictionary = kd->attributes.dictionary;
@@ -306,11 +367,11 @@ SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttrib
     SecKeyRef key = SecKeyCreate(allocator, &kSecCTKKeyDescriptor, 0, 0, 0);
     SecCTKKeyData *kd = key->key;
     kd->token = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecUseToken));
-    kd->objectID = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecUseTokenObjectID));
+    kd->object_id = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecAttrTokenOID));
     kd->token_id = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecAttrTokenID));
     kd->attributes.dictionary = refAttributes;
     CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecUseToken);
-    CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecUseTokenObjectID);
+    CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrTokenOID);
     SecItemAuthCopyParams(&kd->auth_params, &kd->attributes);
     if (CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrIsPrivate) == NULL) {
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrIsPrivate, kCFBooleanTrue);
@@ -324,15 +385,34 @@ SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttrib
         NULL,
     };
 
-    for (const CFStringRef **attrName = &numericAttributes[0]; *attrName != NULL; attrName++) {
-        CFTypeRef value = CFDictionaryGetValue(kd->attributes.dictionary, **attrName);
-        if (value != NULL && CFGetTypeID(value) == CFNumberGetTypeID()) {
-            CFIndex number;
-            if (CFNumberGetValue(value, kCFNumberCFIndexType, &number)) {
-                CFStringRef newValue = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%ld"), (long)number);
-                if (newValue != NULL) {
-                    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), **attrName, newValue);
-                    CFRelease(newValue);
+    if (kd->token == NULL) {
+        kd->token = SecCTKKeyCopyToken(key, error);
+        if (kd->token != NULL) {
+            CFMutableDictionaryRef attrs = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, kd->attributes.dictionary);
+            CFAssignRetained(kd->object_id, TKTokenCreateOrUpdateObject(kd->token, kd->object_id, attrs, error));
+            CFDictionaryForEach(attrs, ^(const void *key, const void *value) {
+                CFDictionaryAddValue(SecCFDictionaryCOWGetMutable(&kd->attributes), key, value);
+            });
+            CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrTokenOID);
+            CFReleaseSafe(attrs);
+        }
+
+        if (kd->token == NULL || kd->object_id == NULL) {
+            CFReleaseNull(key);
+        }
+    }
+
+    if (key != NULL) {
+        for (const CFStringRef **attrName = &numericAttributes[0]; *attrName != NULL; attrName++) {
+            CFTypeRef value = CFDictionaryGetValue(kd->attributes.dictionary, **attrName);
+            if (value != NULL && CFGetTypeID(value) == CFNumberGetTypeID()) {
+                CFIndex number;
+                if (CFNumberGetValue(value, kCFNumberCFIndexType, &number)) {
+                    CFStringRef newValue = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%ld"), (long)number);
+                    if (newValue != NULL) {
+                        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), **attrName, newValue);
+                        CFRelease(newValue);
+                    }
                 }
             }
         }
@@ -343,34 +423,37 @@ SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttrib
 
 OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
     OSStatus status;
-    CFMutableDictionaryRef attrs = NULL;
-    CFDictionaryRef keyAttrs = NULL;
+    __block SecCFDictionaryCOW attrs = { NULL };
     CFDataRef publicData = NULL;
 
     require_action_quiet(publicKey != NULL, out, status = errSecParam);
     require_action_quiet(privateKey != NULL, out, status = errSecParam);
 
-    // Simply adding key on the token without value will cause the token to generate the key and automatically
-    // add it to the keychain.  Prepare dictionary specifying item to add.
-    keyAttrs = CFDictionaryGetValue(parameters, kSecPrivateKeyAttrs);
-    attrs = (keyAttrs == NULL) ? CFDictionaryCreateMutableForCFTypes(NULL) : CFDictionaryCreateMutableCopy(NULL, 0, keyAttrs);
+    // Simply adding key on the token without value will cause the token to generate the key.
+    // Prepare dictionary specifying item to add.
+    attrs.dictionary = CFDictionaryGetValue(parameters, kSecPrivateKeyAttrs);
 
     CFDictionaryForEach(parameters, ^(const void *key, const void *value) {
         if (!CFEqual(key, kSecPrivateKeyAttrs) && !CFEqual(key, kSecPublicKeyAttrs)) {
-            CFDictionarySetValue(attrs, key, value);
+            CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), key, value);
         }
     });
-    CFDictionaryRemoveValue(attrs, kSecValueData);
-    CFDictionarySetValue(attrs, kSecClass, kSecClassKey);
-    CFDictionarySetValue(attrs, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
-    CFDictionarySetValue(attrs, kSecReturnRef, kCFBooleanTrue);
+    CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&attrs), kSecValueData);
+    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecClass, kSecClassKey);
+    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecReturnRef, kCFBooleanTrue);
+
+    // Do not automatically store tke key into the keychain, caller will do it on its own if it is really requested.
+    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attrs), kSecAttrIsPermanent, kCFBooleanFalse);
 
     // Add key from given attributes to the token (having no data will cause the token to actually generate the key).
-    require_noerr_quiet(status = SecItemAdd(attrs, (CFTypeRef *)privateKey), out);
+    require_noerr_quiet(status = SecItemAdd(attrs.dictionary, (CFTypeRef *)privateKey), out);
 
     // Create non-token public key.
     require_noerr_quiet(status = SecCTKKeyCopyPublicOctets(*privateKey, &publicData), out);
-    if (CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeEC)) {
+    if (CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeEC) ||
+        CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandomPKA) ||
+        CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeSecureEnclaveAttestation)) {
         *publicKey = SecKeyCreateECPublicKey(NULL, CFDataGetBytePtr(publicData), CFDataGetLength(publicData),
                                              kSecKeyEncodingBytes);
     } else if (CFEqualSafe(CFDictionaryGetValue(parameters, kSecAttrKeyType), kSecAttrKeyTypeRSA)) {
@@ -386,124 +469,86 @@ OSStatus SecCTKKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey,
     }
 
 out:
-    CFReleaseSafe(attrs);
+    CFReleaseSafe(attrs.mutable_dictionary);
     CFReleaseSafe(publicData);
     return status;
 }
 
+const CFStringRef kSecKeyParameterSETokenAttestationNonce = CFSTR("com.apple.security.seckey.setoken.attestation-nonce");
+
 SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error) {
-    if (keyType != kSecKeyAttestationKeyTypeSIK && keyType != kSecKeyAttestationKeyTypeGID) {
-        SecError(errSecParam, error, CFSTR("unexpected attestation key type %u"), (unsigned)keyType);
-        return NULL;
-    }
+    CFDictionaryRef attributes = NULL;
+    CFDataRef object_id = NULL;
+    SecKeyRef key = NULL;
 
-    // [NSKeyedArchiver archivedDataWithRootObject:[@"com.apple.setoken.sik" dataUsingEncoding:NSUTF8StringEncoding]];
-    static const uint8_t sikObjectIDBytes[] = {
-        0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd4, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x14,
-        0x15, 0x58, 0x24, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x58, 0x24, 0x6f, 0x62, 0x6a, 0x65,
-        0x63, 0x74, 0x73, 0x59, 0x24, 0x61, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0x54, 0x24, 0x74,
-        0x6f, 0x70, 0x12, 0x00, 0x01, 0x86, 0xa0, 0xa3, 0x07, 0x08, 0x0d, 0x55, 0x24, 0x6e, 0x75, 0x6c,
-        0x6c, 0xd2, 0x09, 0x0a, 0x0b, 0x0c, 0x57, 0x4e, 0x53, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x56, 0x24,
-        0x63, 0x6c, 0x61, 0x73, 0x73, 0x4f, 0x10, 0x15, 0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c,
-        0x65, 0x2e, 0x73, 0x65, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x2e, 0x73, 0x69, 0x6b, 0x80, 0x02, 0xd2,
-        0x0e, 0x0f, 0x10, 0x11, 0x5a, 0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x6e, 0x61, 0x6d, 0x65, 0x58,
-        0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x5d, 0x4e, 0x53, 0x4d, 0x75, 0x74, 0x61, 0x62,
-        0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0xa3, 0x10, 0x12, 0x13, 0x56, 0x4e, 0x53, 0x44, 0x61, 0x74,
-        0x61, 0x58, 0x4e, 0x53, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x10, 0x0f, 0x4e, 0x53, 0x4b,
-        0x65, 0x79, 0x65, 0x64, 0x41, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0xd1, 0x16, 0x17, 0x54,
-        0x72, 0x6f, 0x6f, 0x74, 0x80, 0x01, 0x08, 0x11, 0x1a, 0x23, 0x2d, 0x32, 0x37, 0x3b, 0x41, 0x46,
-        0x4e, 0x55, 0x6d, 0x6f, 0x74, 0x7f, 0x88, 0x96, 0x9a, 0xa1, 0xaa, 0xbc, 0xbf, 0xc4, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc6
-    };
+    require_action_quiet(keyType == kSecKeyAttestationKeyTypeSIK || keyType == kSecKeyAttestationKeyTypeGID, out,
+                         SecError(errSecParam, error, CFSTR("unexpected attestation key type %u"), (unsigned)keyType));
 
-    // [NSKeyedArchiver archivedDataWithRootObject:[@"com.apple.setoken.gid" dataUsingEncoding:NSUTF8StringEncoding]];
-    static const uint8_t gidObjectIDBytes[] = {
-        0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd4, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x14,
-        0x15, 0x58, 0x24, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x58, 0x24, 0x6f, 0x62, 0x6a, 0x65,
-        0x63, 0x74, 0x73, 0x59, 0x24, 0x61, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0x54, 0x24, 0x74,
-        0x6f, 0x70, 0x12, 0x00, 0x01, 0x86, 0xa0, 0xa3, 0x07, 0x08, 0x0d, 0x55, 0x24, 0x6e, 0x75, 0x6c,
-        0x6c, 0xd2, 0x09, 0x0a, 0x0b, 0x0c, 0x57, 0x4e, 0x53, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x56, 0x24,
-        0x63, 0x6c, 0x61, 0x73, 0x73, 0x4f, 0x10, 0x15, 0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c,
-        0x65, 0x2e, 0x73, 0x65, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x2e, 0x67, 0x69, 0x64, 0x80, 0x02, 0xd2,
-        0x0e, 0x0f, 0x10, 0x11, 0x5a, 0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x6e, 0x61, 0x6d, 0x65, 0x58,
-        0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x5d, 0x4e, 0x53, 0x4d, 0x75, 0x74, 0x61, 0x62,
-        0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0xa3, 0x10, 0x12, 0x13, 0x56, 0x4e, 0x53, 0x44, 0x61, 0x74,
-        0x61, 0x58, 0x4e, 0x53, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x10, 0x0f, 0x4e, 0x53, 0x4b,
-        0x65, 0x79, 0x65, 0x64, 0x41, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0xd1, 0x16, 0x17, 0x54,
-        0x72, 0x6f, 0x6f, 0x74, 0x80, 0x01, 0x08, 0x11, 0x1a, 0x23, 0x2d, 0x32, 0x37, 0x3b, 0x41, 0x46,
-        0x4e, 0x55, 0x6d, 0x6f, 0x74, 0x7f, 0x88, 0x96, 0x9a, 0xa1, 0xaa, 0xbc, 0xbf, 0xc4, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc6
-    };
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.sik" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t sikObjectIDBytes[] = { 0x04, 21, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 's', 'i', 'k' };
+    // [[TKTLVBERRecord alloc] initWithPropertyList:[@"com.apple.setoken.gid" dataUsingEncoding:NSUTF8StringEncoding]].data
+    static const uint8_t gidObjectIDBytes[] = { 0x04, 21, 'c', 'o', 'm', '.', 'a', 'p', 'p', 'l', 'e', '.', 's', 'e', 't', 'o', 'k', 'e', 'n', '.', 'g', 'i', 'd' };
 
-    CFDataRef objectID = (keyType == kSecKeyAttestationKeyTypeSIK) ?
-                         CFDataCreate(kCFAllocatorDefault, sikObjectIDBytes, sizeof(sikObjectIDBytes)) :
-                         CFDataCreate(kCFAllocatorDefault, gidObjectIDBytes, sizeof(gidObjectIDBytes)) ;
+    object_id = (keyType == kSecKeyAttestationKeyTypeSIK ?
+                 CFDataCreate(kCFAllocatorDefault, sikObjectIDBytes, sizeof(sikObjectIDBytes)) :
+                 CFDataCreate(kCFAllocatorDefault, gidObjectIDBytes, sizeof(gidObjectIDBytes)));
 
-    const void *keys[] = { kSecUseToken, kSecUseTokenObjectID, kSecAttrTokenID };
-    const void *values[] = { kCFNull, objectID, CFSTR("com.apple.setoken.attest") };
+    attributes = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                              kSecAttrTokenOID, object_id,
+                                              kSecAttrTokenID, kSecAttrTokenIDAppleKeyStore,
+                                              NULL);
+    key = SecKeyCreateCTKKey(kCFAllocatorDefault, attributes, error);
 
-    CFDictionaryRef attributes = CFDictionaryCreate(kCFAllocatorDefault,
-                                                    keys, values, sizeof(keys) / sizeof(*keys),
-                                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
-    return SecKeyCreateCTKKey(kCFAllocatorDefault, attributes, error);
+out:
+    CFReleaseSafe(attributes);
+    CFReleaseSafe(object_id);
+    return key;
 }
 
 CFDataRef SecKeyCreateAttestation(SecKeyRef key, SecKeyRef keyToAttest, CFErrorRef *error) {
-    if (!key || !keyToAttest) {
-        SecError(errSecParam, error, CFSTR("attestation key(s) is NULL"));
-        return NULL;
-    }
-
+    __block CFDictionaryRef attributes = NULL, outputAttributes = NULL;
+    CFDataRef attestationData = NULL;
+    CFErrorRef localError = NULL;
     SecCTKKeyData *attestingKeyData = key->key;
     SecCTKKeyData *keyToAttestData = keyToAttest->key;
+    __block TKTokenRef token = NULL;
 
-    if (key->key_class != &kSecCTKKeyDescriptor) {
-        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), key);
-        return NULL;
-    }
-    if (keyToAttest->key_class != &kSecCTKKeyDescriptor || CFEqual(keyToAttestData->token, kCFNull)) {
-        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), keyToAttest);
-        return NULL;
+    if (error == NULL) {
+        error = &localError;
     }
 
-    const void *keys[] = {
-        CFSTR(kTKTokenControlAttribAttestingKey),
-        CFSTR(kTKTokenControlAttribKeyToAttest),
-    };
-    const void *values[] = {
-        attestingKeyData->objectID,
-        keyToAttestData->objectID
-    };
+    __block SecCFDictionaryCOW auth_params = { keyToAttestData->auth_params.dictionary };
 
-    CFDictionaryRef attributes = NULL;
-    __block CFDictionaryRef outputAttributes = NULL;
-    CFDataRef attestationData = NULL;
-    __block SecCFDictionaryCOW sign_auth_params = { keyToAttestData->auth_params.dictionary };
+    require_action_quiet(key->key_class == &kSecCTKKeyDescriptor, out,
+                         SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), key));
+    require_action_quiet(keyToAttest->key_class == &kSecCTKKeyDescriptor, out,
+                         SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), keyToAttest));
 
-    attributes = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(*keys),
-                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    attributes = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                              CFSTR(kTKTokenControlAttribAttestingKey), attestingKeyData->object_id,
+                                              CFSTR(kTKTokenControlAttribKeyToAttest), keyToAttestData->object_id,
+                                              NULL);
 
-    SecItemAuthDo(&sign_auth_params, error, ^SecItemAuthResult(CFDictionaryRef auth_params, CFArrayRef *ac_pairs, CFErrorRef *error) {
-        outputAttributes = TKTokenControl(keyToAttestData->token, attributes, error);
-        return outputAttributes ? kSecItemAuthResultOK : SecCTKProcessError(kAKSKeyOpAttest, keyToAttestData->token, keyToAttestData->objectID, ac_pairs, error);
-    });
-    require(outputAttributes, out);
+    bool ok = SecItemAuthDo(&auth_params, error, ^SecItemAuthResult(CFArrayRef *ac_pairs, CFErrorRef *error) {
+        if (auth_params.mutable_dictionary != NULL || token == NULL) {
+            CFAssignRetained(token, SecCTKKeyCopyToken(key, error));
+            if (token == NULL) {
+                return kSecItemAuthResultError;
+            }
+        }
 
-    attestationData = CFDictionaryGetValue(outputAttributes, CFSTR(kTKTokenControlAttribAttestationData));
-    require_action(attestationData, out, SecError(errSecInternal, error, CFSTR("could not get attestation data")));
-
-    if (CFGetTypeID(attestationData) != CFDataGetTypeID()) {
-        SecError(errSecInternal, error, CFSTR("unexpected attestation object type"));
-        attestationData = NULL;
-    }
-
-    CFRetainSafe(attestationData);
+        outputAttributes = TKTokenControl(token, attributes, error);
+        return outputAttributes ? kSecItemAuthResultOK : SecCTKProcessError(kAKSKeyOpAttest, keyToAttestData->token, keyToAttestData->object_id, ac_pairs, error);
+    }, NULL);
+    require_quiet(ok, out);
+    require_action_quiet(attestationData = CFRetainSafe(CFDictionaryGetValue(outputAttributes, CFSTR(kTKTokenControlAttribAttestationData))),
+                         out, SecError(errSecInternal, error, CFSTR("could not get attestation data")));
 
 out:
     CFReleaseSafe(attributes);
     CFReleaseSafe(outputAttributes);
+    CFReleaseSafe(localError);
+    CFReleaseSafe(auth_params.mutable_dictionary);
+    CFReleaseSafe(token);
     return attestationData;
 }

@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2000-2004,2006,2011,2013-2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,22 +34,21 @@
 namespace Security {
 
 
-CssmError::CssmError(CSSM_RETURN err) : error(err)
+CssmError::CssmError(CSSM_RETURN err, bool suppresslogging) : error(err)
 {
     SECURITY_EXCEPTION_THROW_CSSM(this, err);
 
-    snprintf(whatBuffer, whatBufferSize, "CSSM Exception: %d %s", err, cssmErrorString(err));
-    switch(err) {
-        case CSSMERR_CL_UNKNOWN_TAG:
-#ifndef NDEBUG
-            secinfo("security_exception", "%s", what());
-            LogBacktrace();
-#endif
-            break;
-        default:
-            secnotice("security_exception", "%s", what());
-            LogBacktrace();
-            break;
+    if(!suppresslogging || secinfoenabled("security_exception")) {
+        snprintf(whatBuffer, whatBufferSize, "CSSM Exception: %d %s", err, cssmErrorString(err));
+        switch(err) {
+            /* reduce log noise by filtering out some non-error exceptions */
+            case CSSMERR_CL_UNKNOWN_TAG:
+                break;
+            default:
+                secnotice("security_exception", "%s", what());
+                LogBacktrace();
+                break;
+        }
     }
 }
 
@@ -66,7 +65,7 @@ OSStatus CssmError::osStatus() const
 	{
 		return errSecParam;
 	}
-	
+
 	return error;
 }
 
@@ -74,11 +73,11 @@ OSStatus CssmError::osStatus() const
 int CssmError::unixError() const
 {
 	OSStatus err = osStatus();
-	
+
 	// embedded UNIX errno values are returned verbatim
 	if (err >= errSecErrnoBase && err <= errSecErrnoLimit)
 		return err - errSecErrnoBase;
-	
+
 	// re-map certain CSSM errors
     switch (err) {
 	case CSSM_ERRCODE_MEMORY_ERROR:
@@ -98,7 +97,12 @@ int CssmError::unixError() const
 
 void CssmError::throwMe(CSSM_RETURN err)
 {
-	throw CssmError(err);
+	throw CssmError(err, false);
+}
+
+void CssmError::throwMeNoLogging(CSSM_RETURN err)
+{
+    throw CssmError(err, true);
 }
 
 
@@ -123,7 +127,7 @@ CSSM_RETURN CssmError::cssmError(const CommonError &error, CSSM_RETURN base)
 		case BOOTSTRAP_UNKNOWN_SERVICE:
 		case MIG_SERVER_DIED:
 			return CSSM_ERRCODE_SERVICE_NOT_AVAILABLE;
-		default: 
+		default:
 			return CSSM_ERRCODE_INTERNAL_ERROR;
 		}
 	} else {

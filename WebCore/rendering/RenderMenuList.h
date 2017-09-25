@@ -60,6 +60,8 @@ public:
     String text() const;
 
 private:
+    void willBeDestroyed() override;
+
     void element() const = delete;
 
     bool isMenuList() const override { return true; }
@@ -80,8 +82,6 @@ private:
     void computePreferredLogicalWidths() override;
 
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
-
-    bool requiresForcedStyleRecalcPropagation() const override { return true; }
 
     // PopupMenuClient methods
     void valueChanged(unsigned listIndex, bool fireOnChange = true) override;

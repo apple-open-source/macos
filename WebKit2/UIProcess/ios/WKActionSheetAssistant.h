@@ -42,7 +42,7 @@ struct InteractionInformationAtPosition;
 
 @protocol WKActionSheetAssistantDelegate <NSObject>
 @required
-- (const WebKit::InteractionInformationAtPosition&)positionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant;
+- (std::optional<WebKit::InteractionInformationAtPosition>)positionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant;
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant performAction:(WebKit::SheetAction)action;
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant openElementAtLocation:(CGPoint)location;
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant shareElementWithURL:(NSURL *)url rect:(CGRect)boundingRect;
@@ -58,11 +58,17 @@ struct InteractionInformationAtPosition;
 - (void)actionSheetAssistantDidStopInteraction:(WKActionSheetAssistant *)assistant;
 - (NSDictionary *)dataDetectionContextForActionSheetAssistant:(WKActionSheetAssistant *)assistant;
 - (NSString *)selectedTextForActionSheetAssistant:(WKActionSheetAssistant *)assistant;
+- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant getAlternateURLForImage:(UIImage *)image completion:(void (^)(NSURL *alternateURL, NSDictionary *userInfo))completion;
 
 @end
 
+#if ENABLE(DATA_DETECTION)
 @interface WKActionSheetAssistant : NSObject <WKActionSheetDelegate, DDDetectionControllerInteractionDelegate>
+#else
+@interface WKActionSheetAssistant : NSObject <WKActionSheetDelegate>
+#endif
 @property (nonatomic, weak) id <WKActionSheetAssistantDelegate> delegate;
+@property (nonatomic) BOOL needsLinkIndicator;
 - (id)initWithView:(UIView *)view;
 - (void)showLinkSheet;
 - (void)showImageSheet;

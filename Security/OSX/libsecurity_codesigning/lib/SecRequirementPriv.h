@@ -30,6 +30,8 @@
 #define _H_SECREQUIREMENTPRIV
 
 #include <Security/SecRequirement.h>
+#include <Security/SecCertificatePriv.h>
+
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,6 +62,7 @@
 #include <sys/sysctl.h>
 #include <sys/kern_event.h>
 #include <network/config.h>
+#include <netinet6/nd6.h>
 
 static dispatch_queue_t			S_kev_queue;
 static dispatch_source_t		S_kev_source;
@@ -250,8 +251,8 @@ post_network_changed(void)
 static void
 logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 {
-	int	i;
-	int	j;
+	int	    i;
+	uint32_t    j;
 
 	if (!_verbose) {
 		return;
@@ -282,10 +283,10 @@ static uint8_t info_zero[DLIL_MODARGLEN];
 static void
 processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 {
-	int				dataLen = (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
-	void *				event_data = &ev_msg->event_data[0];
-	Boolean				handled = TRUE;
-	char				ifr_name[IFNAMSIZ];
+	size_t	    dataLen	= (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
+	void *	    event_data	= &ev_msg->event_data[0];
+	char	    ifr_name[IFNAMSIZ];
+	Boolean	    handled	= TRUE;
 
 	switch (ev_msg->kev_subclass) {
 		case KEV_INET_SUBCLASS : {
@@ -384,7 +385,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				case KEV_INET6_ADDR_DELETED :
 				case KEV_INET6_NEW_LL_ADDR :
 				case KEV_INET6_NEW_RTADV_ADDR :
-				case KEV_INET6_DEFROUTER :
 					if (dataLen < sizeof(*ev)) {
 						handled = FALSE;
 						break;
@@ -403,6 +403,16 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					    != KEV_INET6_ADDR_DELETED) {
 						check_interface_link_status(ifr_name);
 					}
+					break;
+
+				case KEV_INET6_REQUEST_NAT64_PREFIX :
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process NAT64 prefix request: %s", (char *)ifr_name);
+					nat64_prefix_request(ifr_name);
 					break;
 
 				default :
@@ -466,9 +476,10 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					}
 					copy_if_name(&protoEvent->link_data,
 						     ifr_name, sizeof(ifr_name));
-					SC_log(LOG_INFO, "Process protocol %s: %s (n=%d)",
+					SC_log(LOG_INFO, "Process protocol %s: %s (pf=%d, n=%d)",
 						 (ev_msg->event_code == KEV_DL_PROTO_ATTACHED) ? "attach" : "detach",
 						 (char *)ifr_name,
+						 protoEvent->proto_family,
 						 protoEvent->proto_remaining_count);
 					if (protoEvent->proto_remaining_count == 0) {
 						mark_if_down(ifr_name);
@@ -573,6 +584,33 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 
 #ifdef	KEV_ND6_SUBCLASS
 		case KEV_ND6_SUBCLASS : {
+			struct kev_nd6_event * ev;
+
+			ev = (struct kev_nd6_event *)event_data;
+			switch (ev_msg->event_code) {
+			case KEV_ND6_ADDR_DETACHED :
+			case KEV_ND6_ADDR_DEPRECATED :
+			case KEV_ND6_ADDR_EXPIRED :
+				if (dataLen < sizeof(*ev)) {
+					handled = FALSE;
+					break;
+				}
+				copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+				SC_log(LOG_INFO, "Process ND6 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
+				interface_update_ipv6(NULL, ifr_name);
+				break;
+			case KEV_ND6_RTR_EXPIRED :
+				if (dataLen < sizeof(*ev)) {
+					handled = FALSE;
+					break;
+				}
+				copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
+				SC_log(LOG_INFO, "Process IPv6 router expired: %s: %d", (char *)ifr_name, ev_msg->event_code);
+				ipv6_router_expired(ifr_name);
+				break;
+			default :
+				break;
+			}
 			break;
 		}
 #endif	// KEV_ND6_SUBCLASS
@@ -614,13 +652,13 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 static Boolean
 eventCallback(int so)
 {
-	ssize_t			status;
 	union {
 		char			bytes[1024];
 		struct kern_event_msg	ev_msg1;	// first kernel event
 	} buf;
 	struct kern_event_msg	*ev_msg		= &buf.ev_msg1;
 	ssize_t			offset		= 0;
+	ssize_t			status;
 
 	status = recv(so, &buf, sizeof(buf), 0);
 	if (status == -1) {
@@ -631,7 +669,7 @@ eventCallback(int so)
 	cache_open();
 
 	while (offset < status) {
-		if ((offset + ev_msg->total_size) > status) {
+		if ((offset + (ssize_t)ev_msg->total_size) > status) {
 			SC_log(LOG_NOTICE, "missed SYSPROTO_EVENT event, buffer not big enough");
 			break;
 		}
@@ -751,6 +789,7 @@ schedule_timer(void)
 static void
 check_for_new_interfaces(void * context)
 {
+#pragma unused(context)
 	static int	count;
 	char		msg[32];
 

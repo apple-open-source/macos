@@ -41,7 +41,10 @@
 typedef struct gmatch *Gmatch;
 
 struct gmatch {
+    /* Metafied file name */
     char *name;
+    /* Unmetafied file name; embedded nulls can't occur in file names */
+    char *uname;
     /*
      * Array of sort strings:  one for each GS_EXEC sort type in
      * the glob qualifiers.
@@ -280,7 +283,7 @@ addpath(char *s, int l)
 static int
 statfullpath(const char *s, struct stat *st, int l)
 {
-    char buf[PATH_MAX];
+    char buf[PATH_MAX+1];
 
     DPUTS(strlen(s) + !*s + pathpos - pathbufcwd >= PATH_MAX,
 	  "BUG: statfullpath(): pathname too long");
@@ -306,7 +309,7 @@ statfullpath(const char *s, struct stat *st, int l)
 /* This may be set by qualifier functions to an array of strings to insert
  * into the list instead of the original string. */
 
-char **inserts;
+static char **inserts;
 
 /* add a match to the list */
 
@@ -776,7 +779,7 @@ parsepat(char *str)
 
     /* Now there is no (#X) in front, we can check the path. */
     if (!pathbuf)
-	pathbuf = zalloc(pathbufsz = PATH_MAX);
+	pathbuf = zalloc(pathbufsz = PATH_MAX+1);
     DPUTS(pathbufcwd, "BUG: glob changed directory");
     if (*str == '/') {		/* pattern has absolute path */
 	str++;
@@ -911,7 +914,8 @@ gmatchcmp(Gmatch a, Gmatch b)
     for (i = gf_nsorts, s = gf_sortlist; i; i--, s++) {
 	switch (s->tp & ~GS_DESC) {
 	case GS_NAME:
-	    r = zstrcmp(b->name, a->name, gf_numsort ? SORTIT_NUMERICALLY : 0);
+	    r = zstrcmp(b->uname, a->uname,
+			gf_numsort ? SORTIT_NUMERICALLY : 0);
 	    break;
 	case GS_DEPTH:
 	    {
@@ -1170,7 +1174,7 @@ checkglobqual(char *str, int sl, int nobareglob, char **sp)
 }
 
 /* Main entry point to the globbing code for filename globbing. *
- * np points to a node in the list list which will be expanded  *
+ * np points to a node in the list which will be expanded  *
  * into a series of nodes.                                      */
 
 /**/
@@ -1230,7 +1234,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 	char *s;
 	int sense, qualsfound;
 	off_t data;
-	char *sdata, *newcolonmod;
+	char *sdata, *newcolonmod, *ptr;
 	int (*func) _((char *, Statptr, off_t, char *));
 
 	/*
@@ -1273,16 +1277,12 @@ zglob(LinkList list, LinkNode np, int nountok)
 	*s++ = 0;
 	if (qualsfound == 2)
 	    s += 2;
+	for (ptr = s; *ptr; ptr++)
+	    if (*ptr == Dash)
+		*ptr = '-';
 	while (*s && !newcolonmod) {
 	    func = (int (*) _((char *, Statptr, off_t, char *)))0;
-	    if (idigit(*s)) {
-		/* Store numeric argument for qualifier */
-		func = qualflags;
-		data = 0;
-		sdata = NULL;
-		while (idigit(*s))
-		    data = data * 010 + (*s++ - '0');
-	    } else if (*s == ',') {
+	    if (*s == ',') {
 		/* A comma separates alternative sets of qualifiers */
 		s++;
 		sense = 0;
@@ -1856,6 +1856,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 	int nexecs = 0;
 	struct globsort *sortp;
 	struct globsort *lastsortp = gf_sortlist + gf_nsorts;
+	Gmatch gmptr;
 
 	/* First find out if there are any GS_EXECs, counting them. */
 	for (sortp = gf_sortlist; sortp < lastsortp; sortp++)
@@ -1904,6 +1905,23 @@ zglob(LinkList list, LinkNode np, int nountok)
 
 		    iexec++;
 		}
+	    }
+	}
+
+	/*
+	 * Where necessary, create unmetafied version of names
+	 * for comparison.  If no Meta characters just point
+	 * to original string.  All on heap.
+	 */
+	for (gmptr = matchbuf; gmptr < matchptr; gmptr++)
+	{
+	    if (strchr(gmptr->name, Meta))
+	    {
+		int dummy;
+		gmptr->uname = dupstring(gmptr->name);
+		unmetafy(gmptr->uname, &dummy);
+	    } else {
+		gmptr->uname = gmptr->name;
 	    }
 	}
 
@@ -3481,6 +3499,10 @@ zshtokenize(char *s, int flags)
     for (; *s; s++) {
       cont:
 	switch (*s) {
+	case Meta:
+	    /* skip both Meta and following character */
+	    s++;
+	    break;
 	case Bnull:
 	case Bnullkeep:
 	case '\\':
@@ -3512,6 +3534,7 @@ zshtokenize(char *s, int flags)
 	case ')':
 	    if (flags & ZSHTOK_SHGLOB)
 		break;
+	    /*FALLTHROUGH*/
 	case '>':
 	case '^':
 	case '#':
@@ -3521,7 +3544,9 @@ zshtokenize(char *s, int flags)
 	case '*':
 	case '?':
 	case '=':
-	    for (t = ztokens; *t; t++)
+	case '-':
+	case '!':
+	    for (t = ztokens; *t; t++) {
 		if (*t == *s) {
 		    if (bslash)
 			s[-1] = (flags & ZSHTOK_SUBST) ? Bnullkeep : Bnull;
@@ -3529,6 +3554,8 @@ zshtokenize(char *s, int flags)
 			*s = (t - ztokens) + Pound;
 		    break;
 		}
+	    }
+	    break;
 	}
 	bslash = 0;
     }
@@ -3802,13 +3829,16 @@ qualsheval(char *name, UNUSED(struct stat *buf), UNUSED(off_t days), char *str)
 
     if ((prog = parse_string(str, 0))) {
 	int ef = errflag, lv = lastval, ret;
+	int cshglob = badcshglob;
 
 	unsetparam("reply");
 	setsparam("REPLY", ztrdup(name));
+	badcshglob = 0;
 
 	execode(prog, 1, 0, "globqual");
 
-	ret = lastval;
+	if ((ret = lastval))
+	    badcshglob |= cshglob;
 	/* Retain any user interrupt error status */
 	errflag = ef | (errflag & ERRFLAG_INT);
 	lastval = lv;

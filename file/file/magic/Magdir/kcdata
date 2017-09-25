@@ -1,0 +1,6 @@
+
+0	lelong		0x59a25807		kcdata: stackshot
+0	lelong		0xDEADF157		kcdata: crashinfo
+0	lelong		0xDE17A59A		kcdata: delta stackshot
+0	lelong		0x53A20900		kcdata: os reason
+0	lelong		0x1e21c09f		kcdata: xnupost config

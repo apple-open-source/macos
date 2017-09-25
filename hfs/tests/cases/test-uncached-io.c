@@ -186,7 +186,9 @@ int run_uncached_io(__unused test_ctx_t *ctx)
 	} // for (pass...)
 
 	assert_no_err(unlink(file1));
-	
+
+	assert_no_err (close(fd));
+	assert_no_err (close(fd2));
 	free(file1);
 	free(file2);
 	

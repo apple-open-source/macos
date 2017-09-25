@@ -194,8 +194,6 @@ main(__unused int argc, __unused char **argv)
 	 */
 	dispatch_main();
 
-	syslog(LOG_ERR, "Run loop exited");
-
 	return 0;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -73,7 +73,9 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 		return FALSE;
 	}
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_activity_scope(storePrivate->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 
@@ -148,7 +150,9 @@ SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 		return FALSE;
 	}
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_activity_scope(storePrivate->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 

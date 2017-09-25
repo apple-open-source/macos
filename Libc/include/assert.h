@@ -73,7 +73,7 @@ __END_DECLS
 #else /* __GNUC__ */
 
 __BEGIN_DECLS
-void __assert_rtn(const char *, const char *, int, const char *) __dead2;
+void __assert_rtn(const char *, const char *, int, const char *) __dead2 __disable_tail_calls;
 #if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && ((__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__-0) < 1070)
 void __eprintf(const char *, const char *, unsigned, const char *) __dead2;
 #endif

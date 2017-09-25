@@ -130,6 +130,22 @@
 >long
 >CURSOR: 0
 
+  zletest $'one two\e03rX$.'
+0:repeat replace chars at the end of the line consumes the replace char
+>BUFFER: XXX two
+>CURSOR: 6
+
+  zletest $'one two three\e02rxw3.w.'
+0:numeric argument to repeat replaces change count
+>BUFFER: xxe xxx xxxee
+>CURSOR: 10
+
+  zletest $'one two three four five six seven eight\e.03d2wk.1.'
+0:numeric args to both action and movement are multiplied (and saved for any repeat)
+>BUFFER: eight
+>seven eight
+>CURSOR: 0
+
   zletest $'yankee doodle\ebhDyy0"1P'
 0:paste register 1 to get last deletion
 >BUFFER:  doodleyankee
@@ -176,6 +192,11 @@
 0:retrieve unnamed register after appending
 >BUFFER: second
 >
+>CURSOR: 0
+
+  zletest $'123456789\exxxxxxxxx"1P.........'
+0:repeat advances to next killring register
+>BUFFER: 9987654321
 >CURSOR: 0
 
   zletest $'Z\exayankee doodle\e"_db0"_yeP'
@@ -243,6 +264,12 @@
 0:repeat initial edit with overstrike set
 >BUFFER: binging
 >CURSOR: 3
+
+  print -u $ZTST_fd 'This test may hang the shell when it fails...'
+  zletest $'worm\erdhd..'
+0:use of vi-repeat as the motion and repeat after a failed change
+>BUFFER: wodd
+>CURSOR: 2
 
   zpty_run 'bindkey "^_" undo'
   zletest $'undoc\037e'

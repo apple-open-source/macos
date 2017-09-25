@@ -26,6 +26,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <Security/AuthorizationPriv.h>
+#include <utilities/SecCFRelease.h>
 
 #include "authz.h"
 #include "security_tool.h"
@@ -91,7 +92,7 @@ write_dict_to_stdout(CFDictionaryRef dict)
 	CFRelease(right_definition_xml);
 }
 
-static CFDictionaryRef
+static CFDictionaryRef CF_RETURNS_RETAINED
 read_dict_from_stdin()
 {
 	ssize_t bytes_read = 0;
@@ -127,7 +128,7 @@ read_dict_from_stdin()
 	return right_dict;
 }
 
-static CFPropertyListRef
+static CFPropertyListRef CF_RETURNS_RETAINED
 read_plist_from_file(CFStringRef filePath)
 {
 	CFTypeRef         property = NULL;
@@ -225,6 +226,7 @@ write_plist_to_file(CFPropertyListRef propertyList, CFStringRef filePath)
 
 	status = TRUE;
 bail:
+    CFReleaseNull(property);
 	if (NULL != xmlData)
 		CFRelease(xmlData);
 	if (NULL != fileURL)

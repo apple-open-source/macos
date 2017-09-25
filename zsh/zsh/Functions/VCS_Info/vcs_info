@@ -10,7 +10,7 @@
 
 setopt localoptions noksharrays extendedglob NO_shwordsplit
 local file func sys
-local -a static_functions
+local -a static_functions msgs
 local -i maxexports
 
 static_functions=(
@@ -19,9 +19,11 @@ static_functions=(
     VCS_INFO_check_com
     VCS_INFO_formats
     VCS_INFO_get_cmd
+    VCS_INFO_hexdump
     VCS_INFO_hook
     VCS_INFO_maxexports
     VCS_INFO_nvcsformats
+    VCS_INFO_patch2subject
     VCS_INFO_quilt
     VCS_INFO_realpath
     VCS_INFO_reposub

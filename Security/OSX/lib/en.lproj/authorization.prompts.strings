@@ -144,7 +144,7 @@
 
 "com.apple.AOSNotification.FindMyMac.remove" = "__APPNAME__ is trying to turn off Find My Mac.";
 
-"com.apple.iBooksX.ParentalControl" = "__APPNAME__ is trying to unlock your Parental Controls preferences.";
+"com.apple.iBooksX.ParentalControl" = "__APPNAME__ is trying to unlock Parental Controls preferences.";
 
 "system.services.networkextension.vpn" = "__APPNAME__ is trying to modify the VPN configuration.";
 
@@ -160,3 +160,4 @@
 
 "com.apple.security.sudo" = "__APPNAME__ is trying to execute a command as administrator.";
 
+"com.apple.configurationprofiles.userprofile.trustcert" = "__APPNAME__ is trying to trust a certificate from a user configuration profile.";

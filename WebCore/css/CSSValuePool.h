@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "CSSFontFamily.h"
 #include "CSSInheritedValue.h"
 #include "CSSInitialValue.h"
 #include "CSSPrimitiveValue.h"
@@ -51,7 +50,7 @@ class CSSValuePool {
 public:
     static CSSValuePool& singleton();
 
-    PassRefPtr<CSSValueList> createFontFaceValue(const AtomicString&);
+    RefPtr<CSSValueList> createFontFaceValue(const AtomicString&);
     Ref<CSSPrimitiveValue> createFontFamilyValue(const String&, FromSystemFontID = FromSystemFontID::No);
     Ref<CSSInheritedValue> createInheritedValue() { return m_inheritedValue.get(); }
     Ref<CSSInitialValue> createImplicitInitialValue() { return m_implicitInitialValue.get(); }

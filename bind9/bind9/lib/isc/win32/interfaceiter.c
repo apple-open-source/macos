@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007-2009, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -59,7 +59,7 @@ void InitSockets(void);
 struct isc_interfaceiter {
 	unsigned int		magic;		/* Magic number. */
 	isc_mem_t		*mctx;
-	int			socket;
+	SOCKET			socket;
 	INTERFACE_INFO		IFData;		/* Current Interface Info */
 	int			numIF;		/* Current Interface count */
 	int			v4IF;		/* Number of IPv4 Interfaces */
@@ -88,14 +88,14 @@ get_addr(unsigned int family, isc_netaddr_t *dst, struct sockaddr *src) {
 	dst->family = family;
 	switch (family) {
 	case AF_INET:
-		memcpy(&dst->type.in,
-		       &((struct sockaddr_in *) src)->sin_addr,
-		       sizeof(struct in_addr));
+		memmove(&dst->type.in,
+			&((struct sockaddr_in *) src)->sin_addr,
+			sizeof(struct in_addr));
 		break;
 	case	AF_INET6:
-		memcpy(&dst->type.in6,
-		       &((struct sockaddr_in6 *) src)->sin6_addr,
-		       sizeof(struct in6_addr));
+		memmove(&dst->type.in6,
+			&((struct sockaddr_in6 *) src)->sin6_addr,
+			sizeof(struct in6_addr));
 		dst->zone = ((struct sockaddr_in6 *) src)->sin6_scope_id;
 		break;
 	default:
@@ -137,7 +137,8 @@ isc_interfaceiter_create(isc_mem_t *mctx, isc_interfaceiter_t **iterp) {
 	 * Create an unbound datagram socket to do the
 	 * SIO_GET_INTERFACE_LIST WSAIoctl on.
 	 */
-	if ((iter->socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	iter->socket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (iter->socket == INVALID_SOCKET) {
 		error = WSAGetLastError();
 		if (error == WSAEAFNOSUPPORT)
 			goto inet6_only;
@@ -217,7 +218,8 @@ isc_interfaceiter_create(isc_mem_t *mctx, isc_interfaceiter_t **iterp) {
 	 * Create an unbound datagram socket to do the
 	 * SIO_ADDRESS_LIST_QUERY WSAIoctl on.
 	 */
-	if ((iter->socket = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+	iter->socket = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (iter->socket == INVALID_SOCKET) {
 		error = WSAGetLastError();
 		if (error == WSAEAFNOSUPPORT)
 			goto inet_only;
@@ -291,7 +293,7 @@ isc_interfaceiter_create(isc_mem_t *mctx, isc_interfaceiter_t **iterp) {
 		isc_mem_put(mctx, iter->buf4, iter->buf4size);
 
  alloc_failure:
-	if (iter->socket >= 0)
+	if (iter->socket != INVALID_SOCKET)
 		(void) closesocket(iter->socket);
 
  socket_failure:
@@ -423,7 +425,7 @@ internal_next(isc_interfaceiter_t *iter) {
 		return (ISC_R_NOMORE);
 
 	memset(&(iter->IFData), 0, sizeof(INTERFACE_INFO));
-	memcpy(&(iter->IFData), iter->pos4, sizeof(INTERFACE_INFO));
+	memmove(&(iter->IFData), iter->pos4, sizeof(INTERFACE_INFO));
 	iter->numIF++;
 
 	return (ISC_R_SUCCESS);
@@ -441,7 +443,7 @@ isc_result_t
 isc_interfaceiter_current(isc_interfaceiter_t *iter,
 			  isc_interface_t *ifdata) {
 	REQUIRE(iter->result == ISC_R_SUCCESS);
-	memcpy(ifdata, &iter->current, sizeof(*ifdata));
+	memmove(ifdata, &iter->current, sizeof(*ifdata));
 	return (ISC_R_SUCCESS);
 }
 

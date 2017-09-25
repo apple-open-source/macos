@@ -146,7 +146,7 @@ static bool SOSCircleDigestArray(const struct ccdigest_info *di, CFMutableArrayR
 {
     __block bool success = true;
     ccdigest_di_decl(di, array_digest);
-    const void * a_digest = array_digest;
+    void * a_digest = (void * )array_digest;
 
     ccdigest_init(di, array_digest);
     CFArraySortValues(array, CFRangeMake(0, CFArrayGetCount(array)), SOSPeerInfoCompareByID, SOSPeerCmpPubKeyHash);
@@ -227,6 +227,10 @@ fail:
     return result;
 }
 
+CFDictionaryRef SOSCircleCopyAllSignatures(SOSCircleRef circle) {
+    return CFDictionaryCreateCopy(kCFAllocatorDefault, circle->signatures);
+}
+
 #define circle_signature_di() ccsha256_di()
 
 static CFDataRef SecKeyCopyRawHashSignature(const struct ccdigest_info *di, const uint8_t* hashToSign, SecKeyRef privKey, CFErrorRef *error) {
@@ -236,7 +240,7 @@ static CFDataRef SecKeyCopyRawHashSignature(const struct ccdigest_info *di, cons
     size_t signatureSpace = CFDataGetLength(signature);
 
     OSStatus status = SecKeyRawSign(privKey, kSecPaddingNone, hashToSign, di->output_size, CFDataGetMutableBytePtr(signature), &signatureSpace);
-    require_quiet(SecError(status, error, CFSTR("Signing failed: %d"), status), fail);
+    require_quiet(SecError(status, error, CFSTR("Signing failed: %d"), (int)status), fail);
 
     if (signatureSpace < (size_t)CFDataGetLength(signature)) {
         CFDataSetLength(signature, signatureSpace);
@@ -1422,9 +1426,29 @@ void debugDumpCircle(CFStringRef message, SOSCircleRef circle) {
 
 bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenCountRef gencount, SecKeyRef pPubKey, CFDataRef signature, SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     SOSPeerInfoRef peerInfo = SOSFullPeerInfoGetPeerInfo(fpi);
-     CFSetAddValue(circle->peers, peerInfo);
+    bool res;
+
+    CFSetAddValue(circle->peers, peerInfo);
+
     // Gen sign first, then add signature from our approver - remember gensign removes all existing sigs.
-    return  SOSCircleGenerationSignWithGenCount(circle, userKey, fpi, gencount, error) && SOSCircleSetSignature(circle, pPubKey, signature, error) && SOSCircleVerify(circle, pPubKey, error);
+    res = SOSCircleGenerationSignWithGenCount(circle, userKey, fpi, gencount, error);
+    if (!res) {
+        secnotice("circleJoin", "Failed to regenerate circle with new gen count: %@", error ? *error : NULL);
+        return res;
+    }
+    res = SOSCircleSetSignature(circle, pPubKey, signature, error);
+    if (!res) {
+        secnotice("circleJoin", "Failed to set signature: %@", error ? *error : NULL);
+        return res;
+    }
+    res = SOSCircleVerify(circle, pPubKey, error);
+    if (!res) {
+        secnotice("circleJoin", "Circle failed to validate after peer signature: %@", error ? *error : NULL);
+        return res;
+    }
+    secnotice("circleJoin", "Circle accepted successfullyed");
+
+    return true;
 }
 
 

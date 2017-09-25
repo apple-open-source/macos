@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ko.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ko{
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"아비장"}
@@ -196,7 +190,7 @@ ko{
             ec{"산루이스"}
         }
         "America:Argentina:Tucuman"{
-            ec{"뚜꾸만"}
+            ec{"투쿠만"}
         }
         "America:Argentina:Ushuaia"{
             ec{"우수아이아"}
@@ -308,6 +302,9 @@ ko{
         }
         "America:El_Salvador"{
             ec{"엘살바도르"}
+        }
+        "America:Fort_Nelson"{
+            ec{"포트 넬슨"}
         }
         "America:Fortaleza"{
             ec{"포르탈레자"}
@@ -505,7 +502,7 @@ ko{
             ec{"포트오브스페인"}
         }
         "America:Porto_Velho"{
-            ec{"포르투벨류"}
+            ec{"포르토벨료"}
         }
         "America:Puerto_Rico"{
             ec{"푸에르토리코"}
@@ -671,6 +668,9 @@ ko{
         }
         "Asia:Bangkok"{
             ec{"방콕"}
+        }
+        "Asia:Barnaul"{
+            ec{"바르나울"}
         }
         "Asia:Beirut"{
             ec{"베이루트"}
@@ -849,6 +849,9 @@ ko{
         "Asia:Tokyo"{
             ec{"도쿄"}
         }
+        "Asia:Tomsk"{
+            ec{"톰스크"}
+        }
         "Asia:Ulaanbaatar"{
             ec{"울란바토르"}
         }
@@ -939,6 +942,9 @@ ko{
         "Australia:Sydney"{
             ec{"시드니"}
         }
+        "Etc:UTC"{
+            ls{"협정 세계시"}
+        }
         "Etc:Unknown"{
             ec{"알 수 없는 장소"}
         }
@@ -947,6 +953,9 @@ ko{
         }
         "Europe:Andorra"{
             ec{"안도라"}
+        }
+        "Europe:Astrakhan"{
+            ec{"아스트라한"}
         }
         "Europe:Athens"{
             ec{"아테네"}
@@ -980,7 +989,7 @@ ko{
         }
         "Europe:Dublin"{
             ec{"더블린"}
-            ld{"아일랜드 시간"}
+            ld{"아일랜드 표준시"}
         }
         "Europe:Gibraltar"{
             ec{"지브롤터"}
@@ -1005,6 +1014,9 @@ ko{
         }
         "Europe:Kiev"{
             ec{"키예프"}
+        }
+        "Europe:Kirov"{
+            ec{"키로프"}
         }
         "Europe:Lisbon"{
             ec{"리스본"}
@@ -1081,6 +1093,9 @@ ko{
         }
         "Europe:Tirane"{
             ec{"티라나"}
+        }
+        "Europe:Ulyanovsk"{
+            ec{"울리야노프스크"}
         }
         "Europe:Uzhgorod"{
             ec{"우주고로트"}
@@ -1774,6 +1789,9 @@ ko{
         }
         "meta:Ponape"{
             ls{"포나페 시간"}
+        }
+        "meta:Pyongyang"{
+            ls{"평양 시간"}
         }
         "meta:Qyzylorda"{
             ld{"키질로르다 하계 표준시"}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,6 +76,11 @@ extern const CFStringRef	kIPConfigurationServiceOptionIPv6LinkLocalAddress; /* s
  */
 extern const CFStringRef	kIPConfigurationServiceOptionEnableDAD; /* boolean */
 
+/*
+ * kIPConfigurationServiceOptionAPNName (CFStringRef)
+ * - specify the APN name
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionAPNName; /* string */
 
 /*
  * Function: IPConfigurationServiceCreate

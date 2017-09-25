@@ -49,6 +49,8 @@ public:
 
 	static void didChangeKeyAclCallback(void *context, SecurityServer::ClientSession &clientSession,
 		SecurityServer::KeyHandle keyHandle, CSSM_ACL_AUTHORIZATION_TAG tag);
+
+    Mutex mKeyDeletionMutex; // Used to ensure that only one thread is in either SSCSPSession::FreeKey or SSCSPDLSession::didChangeKeyAcl at a time, since SSCSPDLSession::didChangeKeyAcl might be trying to use the free-ing key (from a securityd callback).
 };
 
 

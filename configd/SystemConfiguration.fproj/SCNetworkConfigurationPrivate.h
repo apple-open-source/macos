@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -175,8 +175,8 @@ _SCNetworkInterfaceCompare				(const void			*val1,
 	@function _SCNetworkInterfaceCopyActive
 	@discussion Creates an SCNetworkInterface and associated with interface name
 		and SCDynamicStoreRef
-	@param the interface name
-	@param the SCDynamicStoreRef
+	@param store The SCDynamicStoreRef
+	@param bsdName The interface name
 	@result the SCNetworkInterface
  */
 SCNetworkInterfaceRef
@@ -261,7 +261,7 @@ _SCNetworkInterfaceCreateWithIONetworkInterfaceObject	(io_object_t			if_obj)		__
 /*!
 	@function SCNetworkInterfaceGetPrimaryRank
 	@discussion We allow caller to retrieve the rank on an interface.
-	@param the interface to get the rank
+	@param interface The interface to get the rank
 	@result SCNetworkServicePrimaryRank
  */
 SCNetworkServicePrimaryRank
@@ -272,8 +272,8 @@ SCNetworkInterfaceGetPrimaryRank			(SCNetworkInterfaceRef		interface)	__OSX_AVAI
 	@discussion We allow caller to set an assertion on an interface.
 		The rank assertion lives as long as the SCNetworkInterfaceRef
 		remains valid.
-	@param the interface to set the rank assertion
-	@param the new rank to be set
+	@param interface The interface to set the rank assertion
+	@param newRank The new rank to be set
 	@result TRUE if operation is successful; FALSE if an error was encountered.
  */
 Boolean
@@ -445,16 +445,6 @@ _SCNetworkInterfaceIsBuiltin				(SCNetworkInterfaceRef		interface)	__OSX_AVAILAB
  */
 Boolean
 _SCNetworkInterfaceIsHiddenConfiguration		(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
-
-/*!
-	@function _SCNetworkInterfaceIsModemV92
-	@discussion Identifies if a modem network interface supports
-		v.92 (hold).
-	@param interface The network interface.
-	@result TRUE if the interface is "v.92" modem.
- */
-Boolean
-_SCNetworkInterfaceIsModemV92				(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
 	@function _SCNetworkInterfaceIsTethered
@@ -750,11 +740,11 @@ SCNetworkInterfaceSetDisableUntilNeeded			(SCNetworkInterfaceRef		interface,
 
 
 CFDictionaryRef
-SCNetworkInterfaceGetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
+SCNetworkInterfaceGetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0);
 
 Boolean
 SCNetworkInterfaceSetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface,
-							 CFDictionaryRef		policy)		__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
+							 CFDictionaryRef		policy)		__OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0);
 
 
 #pragma mark -
@@ -771,6 +761,19 @@ isA_SCNetworkProtocol(CFTypeRef obj)
 {
 	return (isA_CFType(obj, SCNetworkProtocolGetTypeID()));
 }
+
+/*!
+	@function _SCNetworkProtocolCompare
+	@discussion Compares two SCNetworkProtocol objects.
+	@param val1 The SCNetworkProtocol object.
+	@param val2 The SCNetworkProtocol object.
+	@param context Not used.
+	@result A comparison result.
+ */
+CFComparisonResult
+_SCNetworkProtocolCompare				(const void			*val1,
+							 const void			*val2,
+							 void				*context)	__OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
 
 
 #pragma mark -
@@ -809,7 +812,7 @@ _SCNetworkServiceCompare				(const void			*val1,
 	      API in that queries and operations interact with the "active" service
 	      represented in the SCDynamicStore.  Only a limited subset of the
 	      SCNetworkService APIs are supported.
-	@param prefs The dynamic store session.
+	@param store The dynamic store session.
 	@param serviceID The unique identifier for the service.
 	@result A reference to the SCNetworkService represented in the SCDynamicStore;
 		NULL if the serviceID does not exist in the SCDynamicStore or if an
@@ -905,6 +908,19 @@ isA_SCNetworkSet(CFTypeRef obj)
 	return (isA_CFType(obj, SCNetworkSetGetTypeID()));
 }
 
+
+/*!
+	@function _SCNetworkSetCompare
+	@discussion Compares two SCNetworkSet objects.
+	@param val1 The SCNetworkSet object.
+	@param val2 The SCNetworkSet object.
+	@param context Not used.
+	@result A comparison result.
+ */
+CFComparisonResult
+_SCNetworkSetCompare					(const void			*val1,
+							 const void			*val2,
+							 void				*context)	__OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0);
 
 /*!
 	@function SCNetworkSetCopyAvailableInterfaces
@@ -1131,10 +1147,10 @@ _SCNetworkConfigurationCopyMigrationPaths(CFDictionaryRef options)				__OSX_AVAI
 
 CF_RETURNS_RETAINED
 CFArrayRef
-_SCNetworkConfigurationPerformMigration(CFURLRef sourceDir,
-					CFURLRef currentDir,
-					CFURLRef targetDir,
-					CFDictionaryRef options)				__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+_SCNetworkConfigurationPerformMigration		(CFURLRef			sourceDir,
+						 CFURLRef			currentDir,
+						 CFURLRef			targetDir,
+						 CFDictionaryRef		options)	__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
 
 
 /*!
@@ -1148,8 +1164,8 @@ _SCNetworkConfigurationPerformMigration(CFURLRef sourceDir,
  */
 
 Boolean
-_SCNetworkConfigurationCheckValidity(CFURLRef configDir,
-				     CFDictionaryRef options)					__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+_SCNetworkConfigurationCheckValidity		(CFURLRef			configDir,
+						 CFDictionaryRef		options)	__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
 
 
 /*!
@@ -1162,31 +1178,29 @@ _SCNetworkConfigurationCheckValidity(CFURLRef configDir,
  */
 
 Boolean
-_SCNetworkConfigurationCheckValidityWithPreferences (SCPreferencesRef prefs,
-						      SCPreferencesRef ni_prefs,
-						      CFDictionaryRef options)				__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+_SCNetworkConfigurationCheckValidityWithPreferences
+						(SCPreferencesRef		prefs,
+						 SCPreferencesRef		ni_prefs,
+						 CFDictionaryRef		options)	__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 
 /*!
  @function _SCNetworkMigrationAreConfigurationsIdentical
  @discussion Compares the migration output between network configurations
 		with the expected output.
- @param configPref Preferences pointing toward preferences.plist file to
-		be compared with expected file.
- @param configNetworkInterfacePref Preferences pointing toward NetworkInterfaces.plist
-		file to be compared with expected file.
- @param expectedConfigPref Preferences pointing toward preferences.plist file
-		which is the expected result.
- @param expectedNetworkInterfacePref Preferences pointing toward NetworkInterfaces.plist
-		file which is the expected file.
+ @param configurationURL A URL pointing to the top-level directory of the
+		configuration to compare. This directory is expected to have
+		a Library/Preferences/SystemConfiguration subdirectoy.
+ @param expectedConfigurationURL A URL pointing to the top-level directory of
+		the expected configuration. This directory is expected to have
+		a Library/Preferences/SystemConfiguration subdirectoy.
  @result TRUE if configurations match with the expected configurations
 
  */
 
 Boolean
-_SCNetworkMigrationAreConfigurationsIdentical (CFURLRef configurationURL,
-					       CFURLRef expectedConfigurationURL)
-							__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
+_SCNetworkMigrationAreConfigurationsIdentical	(CFURLRef			configurationURL,
+						 CFURLRef			expectedConfigurationURL)	__OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0);
 
 /*!
  @function	_SCNetworkConfigurationCopyMigrationRemovePaths

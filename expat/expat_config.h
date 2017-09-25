@@ -105,3 +105,5 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
+
+#define HAVE_ARC4RANDOM_BUF 1

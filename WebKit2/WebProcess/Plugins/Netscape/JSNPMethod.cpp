@@ -43,7 +43,7 @@ namespace WebKit {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSNPMethod);
 
-const ClassInfo JSNPMethod::s_info = { "NPMethod", &InternalFunction::s_info, 0, CREATE_METHOD_TABLE(JSNPMethod) };
+const ClassInfo JSNPMethod::s_info = { "NPMethod", &InternalFunction::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSNPMethod) };
 
 JSNPMethod::JSNPMethod(JSGlobalObject* globalObject, Structure* structure, NPIdentifier npIdentifier)
     : InternalFunction(globalObject->vm(), structure)
@@ -54,7 +54,7 @@ JSNPMethod::JSNPMethod(JSGlobalObject* globalObject, Structure* structure, NPIde
 void JSNPMethod::finishCreation(VM& vm, const String& name)
 {
     Base::finishCreation(vm, name);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
 }
 
 static EncodedJSValue JSC_HOST_CALL callMethod(ExecState* exec)
@@ -67,7 +67,7 @@ static EncodedJSValue JSC_HOST_CALL callMethod(ExecState* exec)
     JSValue thisValue = exec->thisValue();
 
     // Check if we're calling a method on the plug-in script object.
-    if (thisValue.inherits(JSHTMLElement::info())) {
+    if (thisValue.inherits(vm, JSHTMLElement::info())) {
         JSHTMLElement* element = jsCast<JSHTMLElement*>(asObject(thisValue));
 
         // Try to get the script object from the element
@@ -75,7 +75,7 @@ static EncodedJSValue JSC_HOST_CALL callMethod(ExecState* exec)
             thisValue = scriptObject;
     }
 
-    if (thisValue.inherits(JSNPObject::info())) {
+    if (thisValue.inherits(vm, JSNPObject::info())) {
         JSNPObject* jsNPObject = jsCast<JSNPObject*>(asObject(thisValue));
 
         return JSValue::encode(jsNPObject->callMethod(exec, jsNPMethod->npIdentifier()));

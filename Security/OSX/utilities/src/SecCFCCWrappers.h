@@ -28,6 +28,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <corecrypto/ccsha1.h>
+#include <corecrypto/ccsha2.h>
 
 __BEGIN_DECLS
 
@@ -35,8 +36,10 @@ CFDataRef CFDataCreateDigestWithBytes(CFAllocatorRef allocator, const struct ccd
                                       const void *data, CFErrorRef *error);
 
 CFDataRef CFDataCreateSHA1DigestWithBytes(CFAllocatorRef allocator, size_t len, const void *data, CFErrorRef *error);
+CFDataRef CFDataCreateSHA256DigestWithBytes(CFAllocatorRef allocator, size_t len, const void *data, CFErrorRef *error);
 
 CFDataRef CFDataCopySHA1Digest(CFDataRef dataToDigest, CFErrorRef *error);
+CFDataRef CFDataCopySHA256Digest(CFDataRef dataToDigest, CFErrorRef *error);
 
 __END_DECLS
 

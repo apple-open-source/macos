@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,8 @@
 #include <net/if.h>
 #include <net/if_media.h>
 
-#define	SC_LOG_HANDLE	__log_LinkConfiguration()
+#define	SC_LOG_HANDLE		__log_LinkConfiguration()
+#define SC_LOG_HANDLE_TYPE	static
 #include "SCNetworkConfigurationInternal.h"
 #include <SystemConfiguration/SCDPlugin.h>		// for _SCDPluginExecCommand
 
@@ -136,7 +137,7 @@ _SCNetworkInterfaceSetCapabilities(SCNetworkInterfaceRef	interface,
 	ret = ioctl(sock, SIOCSIFCAP, (caddr_t)&ifr);
 	(void)close(sock);
 	if (ret == -1) {
-		SC_log(LOG_INFO, "ioctl(SIOCSIFCAP) failed: %s", strerror(errno));
+		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFCAP) failed: %s", interfaceName, strerror(errno));
 		return FALSE;
 	}
 #endif	// SIOCSIFCAP
@@ -265,7 +266,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	(void)_SC_cfstring_to_cstring(interfaceName, ifm.ifm_name, sizeof(ifm.ifm_name), kCFStringEncodingASCII);
 
 	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
-		SC_log(LOG_NOTICE, "ioctl(SIOCGIFMEDIA) failed: %s", strerror(errno));
+		SC_log(LOG_ERR, "%@: ioctl(SIOCGIFMEDIA) failed: %s", interfaceName, strerror(errno));
 		goto done;
 	}
 
@@ -278,7 +279,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	SC_log(LOG_INFO, "new media settings: 0x%8.8x", ifr.ifr_media);
 
 	if (ioctl(sock, SIOCSIFMEDIA, (caddr_t)&ifr) == -1) {
-		SC_log(LOG_NOTICE, "%@: ioctl(SIOCSIFMEDIA) failed: %s", interfaceName, strerror(errno));
+		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFMEDIA) failed: %s", interfaceName, strerror(errno));
 		goto done;
 	}
 
@@ -303,6 +304,8 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 static void
 ifconfig_exit(pid_t pid, int status, struct rusage *rusage, void *context)
 {
+#pragma unused(pid)
+#pragma unused(rusage)
 	char	*if_name	= (char *)context;
 
 	if (WIFEXITED(status)) {
@@ -437,7 +440,7 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 	ret = ioctl(sock, SIOCSIFMTU, (caddr_t)&ifr);
 	(void)close(sock);
 	if (ret == -1) {
-		SC_log(LOG_NOTICE, "ioctl(SIOCSIFMTU) failed: %s", strerror(errno));
+		SC_log(LOG_ERR, "%@: ioctl(SIOCSIFMTU) failed: %s", interfaceName, strerror(errno));
 		ok = FALSE;
 		goto done;
 	}
@@ -658,6 +661,7 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 static void
 linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
+#pragma unused(arg)
 	os_activity_t		activity;
 	CFDictionaryRef		changes;
 	CFIndex			i;
@@ -721,6 +725,7 @@ __private_extern__
 void
 load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 {
+#pragma unused(bundleVerbose)
 	CFStringRef		key;
 	CFMutableArrayRef	keys		= NULL;
 	Boolean			ok;

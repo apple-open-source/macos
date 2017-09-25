@@ -36,6 +36,7 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentitySearch.h>
+#include <Security/SecItem.h>
 
 // SecCertificateInferLabel, SecDigestGetData
 #include <Security/SecCertificatePriv.h>
@@ -59,7 +60,7 @@ do_set_identity_preference(CFTypeRef keychainOrArray,
 
 	// find identity (if specified by name or hash)
 	if (identity || hash) {
-		identityRef = find_identity(keychainOrArray, identity, hash, keyUsage);
+		identityRef = CopyMatchingIdentity(keychainOrArray, identity, hash, keyUsage);
 		if (!identityRef) {
 			sec_error("No matching identity found for \"%s\"", (hash) ? hash : identity);
 			result = 1;
@@ -79,6 +80,13 @@ cleanup:
 
 	return result;
 }
+
+typedef struct {
+    int i;
+    const char *name;
+} ctk_print_context;
+
+OSStatus ctk_dump_item(CFTypeRef item, ctk_print_context *ctx);
 
 static int
 do_get_identity_preference(const char *service,
@@ -159,7 +167,19 @@ do_get_identity_preference(const char *service,
 	}
 	else
 	{
-		print_keychain_item_attributes(stdout, (SecKeychainItemRef)certRef, FALSE, FALSE, FALSE, FALSE);
+        CFTypeRef keys[] = { kSecValueRef, kSecReturnAttributes };
+        CFTypeRef values[] = { certRef, kCFBooleanTrue };
+        CFDictionaryRef query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(CFTypeRef), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryRef attributes = NULL;
+        if (SecItemCopyMatching(query, (void *)&attributes) == errSecSuccess && CFDictionaryContainsKey(attributes, kSecAttrTokenID)) {
+            ctk_print_context ctx = { 1, "certificate" };
+            ctk_dump_item(attributes, &ctx);
+        } else
+            print_keychain_item_attributes(stdout, (SecKeychainItemRef)certRef, FALSE, FALSE, FALSE, FALSE);
+
+        CFRelease(query);
+        if(attributes)
+            CFRelease(attributes);
 	}
 
 cleanup:

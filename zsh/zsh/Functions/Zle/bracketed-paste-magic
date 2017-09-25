@@ -20,7 +20,7 @@
 # active-widgets
 #  Looked up in the context :bracketed-paste-magic to obtain a list of
 #  patterns that match widget names that should be activated during the
-#  paste.  All other key sequences are processed as self-insert-unmeta.
+#  paste.  All other key sequences are processed as "zle .self-insert".
 #  The default is 'self-*' so any user-defined widgets named with that
 #  prefix are active along with the builtin self-insert.  If this style is
 #  not set (note: it must be explicitly deleted after loading this
@@ -31,7 +31,7 @@
 #
 # inactive-keys
 #  This is the inverse of active-widgets, it lists key sequences that
-#  always use self-insert-unmeta even when bound to an active-widget.
+#  always use "zle .self-insert" even when bound to an active-widget.
 #  Note that this is a list of literal key sequences, not patterns.
 #  This style is in context :bracketed-paste-magic and has no default.
 #
@@ -175,7 +175,7 @@ bracketed-paste-magic() {
 		case $REPLY in
 		    (${~bpm_active}) function () {
 			emulate -L $bpm_emulate; set -$bpm_opts
-			zle $REPLY
+			zle $REPLY -w
 		    };;
 		    (*) zle .self-insert;;
 		esac
@@ -184,7 +184,7 @@ bracketed-paste-magic() {
 	PASTED=$BUFFER
 
 	# Reset the undo state
-	zle undo $bpm_undo
+	zle .undo $bpm_undo
 	UNDO_LIMIT_NO=$bpm_limit
 
 	zle -K $bpm_keymap
@@ -212,7 +212,7 @@ bracketed-paste-magic() {
 
     # Reprocess $PASTED as an actual paste this time
     zle -U - $PASTED$'\e[201~'	# append paste-end marker
-    zle .bracketed-paste
+    zle .bracketed-paste -- "$@"
     zle .split-undo
 
     # Arrange to display highlighting if necessary

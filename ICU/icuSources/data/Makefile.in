@@ -1,4 +1,6 @@
 ## Makefile.in for ICU data
+## Copyright (C) 2016 and later: Unicode, Inc. and others.
+## License & terms of use: http://www.unicode.org/copyright.html
 ## Copyright (c) 1999-2015, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
@@ -339,7 +341,7 @@ UNIT_SRC_FILES = $(UNIT_SRC:%=$(UNITSRCDIR)/%)
 INSTALLED_UNIT_FILES = $(UNIT_SOURCE:%.txt=%)  $(UNIT_SOURCE_LOCAL:%.txt=%)
 endif
 ifdef COLLATION_SOURCE
-COL_SRC= root.txt $(COLLATION_SOURCE) $(COLLATION_ALIAS_SOURCE) $(COLLATION_SOURCE_LOCAL)
+COL_SRC= root.txt $(COLLATION_SOURCE) $(COLLATION_ALIAS_SOURCE) $(COLLATION_SOURCE_LOCAL) $(COLLATION_ALIAS_SOURCE_LOCAL)
 COL_SRC_FILES = $(COL_SRC:%=$(COLSRCDIR)/%)
 INSTALLED_COL_FILES = $(COLLATION_SOURCE:%.txt=%)  $(COLLATION_SOURCE_LOCAL:%.txt=%)
 endif

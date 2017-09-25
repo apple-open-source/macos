@@ -27,6 +27,7 @@ var emDash = "\u2014";
 var enDash = "\u2013";
 var figureDash = "\u2012";
 var ellipsis = "\u2026";
+var zeroWidthSpace = "\u200b";
 
 Object.defineProperty(Object, "shallowCopy",
 {
@@ -82,6 +83,20 @@ Object.defineProperty(Object, "shallowEqual",
         }
 
         return true;
+    }
+});
+
+Object.defineProperty(Object, "shallowMerge",
+{
+    value(a, b)
+    {
+        let result = Object.shallowCopy(a);
+        let keys = Object.keys(b);
+        for (let i = 0; i < keys.length; ++i) {
+            console.assert(!result.hasOwnProperty(keys[i]) || result[keys[i]] === b[keys[i]], keys[i]);
+            result[keys[i]] = b[keys[i]];
+        }
+        return result;
     }
 });
 
@@ -355,6 +370,14 @@ Object.defineProperty(Element.prototype, "totalOffsetLeft",
     get: function()
     {
         return this.getBoundingClientRect().left;
+    }
+});
+
+Object.defineProperty(Element.prototype, "totalOffsetRight",
+{
+    get: function()
+    {
+        return this.getBoundingClientRect().right;
     }
 });
 
@@ -648,6 +671,14 @@ Object.defineProperty(String.prototype, "capitalize",
     }
 });
 
+Object.defineProperty(String.prototype, "extendedLocaleCompare",
+{
+    value(other)
+    {
+        return this.localeCompare(other, undefined, {numeric: true});
+    }
+});
+
 Object.defineProperty(String, "tokenizeFormatString",
 {
     value: function(format)
@@ -767,7 +798,7 @@ Object.defineProperty(String, "standardFormatters",
     value: {
         d: function(substitution)
         {
-            return parseInt(substitution);
+            return parseInt(substitution).toLocaleString();
         },
 
         f: function(substitution, token)
@@ -981,7 +1012,6 @@ Object.defineProperty(Number, "percentageString",
 {
     value: function(fraction, precision = 1)
     {
-        console.assert(fraction >= 0 && fraction <= 1);
         return fraction.toLocaleString(undefined, {minimumFractionDigits: precision, style: "percent"});
     }
 });
@@ -1059,9 +1089,16 @@ Object.defineProperty(Number, "bytesToString",
         }
 
         let megabytes = kilobytes / 1024;
-        if (higherResolution || Math.abs(megabytes) < 10)
-            return WebInspector.UIString("%.2f MB").format(megabytes);
-        return WebInspector.UIString("%.1f MB").format(megabytes);
+        if (Math.abs(megabytes) < 1024) {
+            if (higherResolution || Math.abs(megabytes) < 10)
+                return WebInspector.UIString("%.2f MB").format(megabytes);
+            return WebInspector.UIString("%.1f MB").format(megabytes);
+        }
+
+        let gigabytes = megabytes / 1024;
+        if (higherResolution || Math.abs(gigabytes) < 10)
+            return WebInspector.UIString("%.2f GB").format(gigabytes);
+        return WebInspector.UIString("%.1f GB").format(gigabytes);
     }
 });
 
@@ -1070,7 +1107,7 @@ Object.defineProperty(Number, "abbreviate",
     value: function(num)
     {
         if (num < 1000)
-            return num;
+            return num.toLocaleString();
 
         if (num < 1000000)
             return WebInspector.UIString("%.1fK").format(Math.round(num / 100) / 10);

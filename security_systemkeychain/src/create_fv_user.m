@@ -25,7 +25,6 @@
 
 #include "create_fv_user.h"
 
-#include "readline.h"
 #include "tokenadmin.h"
 #include "TokenIDHelper.h"
 
@@ -84,7 +83,7 @@ create_fv_user(int argc, char * const *argv)
 	char *userShortName = NULL;
 	char *userFullName = NULL;
 	char *kcpassword = NULL;
-	char *encryptionHash = NULL;
+
 	int ch, result = 0;
 	while ((ch = getopt(argc, argv, "u:l:p:h:")) != -1)
 	{
@@ -100,7 +99,6 @@ create_fv_user(int argc, char * const *argv)
 			kcpassword = optarg;
 			break;
 		case 'h':
-			encryptionHash = optarg;
 			break;
 		case '?':
 		default:
@@ -109,6 +107,7 @@ create_fv_user(int argc, char * const *argv)
 	}
 	argc -= optind;
 	argv += optind;
+    (void)argv;
 
 	if (argc != 0)
 		return 2;
@@ -335,14 +334,5 @@ static void _createUserAccount(NSArray *inCertificates)
 
 	[newUser createHTTPConfig];
 	printf("New user account created and configured\n");
-//	[Utilities syncAFPIfNeeded];
+    [newUser release];
 }
-//>>>>>>>>>>>> don't forget to add the hash to "dsAttrTypeStandard:AuthenticationAuthority"
-/*
-	NSArray *forbiddenUserNames = [NSArray arrayWithObjects:
-		@"admin", @"ftp", @"public", 
-		nil];
-tolower
-- (NSUInteger)[forbiddenUserNames indexOfObject:(id)anObject;
-NSString 
-*/

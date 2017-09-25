@@ -99,6 +99,7 @@ typedef enum {
 	SC_10_5_10_7,	// deprecated in 10.7
 	SC_10_1_10_9,	// deprecated in 10.9
 	SC_10_2_10_9,	// deprecated in 10.9
+	SC_10_2_10_13,	// deprecated in 10.13
 	SC_10_3_10_9,	// deprecated in 10.9
 	SC_10_4_10_9,	// deprecated in 10.9
 	SC_10_6_IPHONE_2_0,
@@ -120,6 +121,8 @@ typedef enum {
 	SC_10_10_IPHONE_8_0_PRIVATE,
 	SC_10_11_IPHONE_9_0_PRIVATE,
 	SC_10_12_IPHONE_10_0_PRIVATE,
+	SC_10_13_IPHONE_10_0_PRIVATE,
+	SC_10_13_IPHONE_11_0_PRIVATE,
 	SC_IPHONE_2_0_PRIVATE,
 	COMMENT_DEPRECATED,
 	GROUP_DEPRECATED,
@@ -273,6 +276,7 @@ typedef enum {
 #define EXCLUDESIMPLEHOSTNAMES	"ExcludeSimpleHostnames"
 #define EXECUTABLE		"Executable"
 #define EXPENSIVE		"Expensive"
+#define EXPIRED			"Expired"
 #define EXTERNAL		"External"
 #define FAILOVER		"Failover"
 #define FAILURE			"Failure"
@@ -350,6 +354,7 @@ typedef enum {
 #define MSCHAP2			"MSCHAP2"
 #define MTU			"MTU"
 #define NAME			"Name"
+#define NAT64			"NAT64"
 #define NETBIOS			"NetBIOS"
 #define NETINFO			"NetInfo"
 #define NETWORK			"Network"
@@ -383,6 +388,7 @@ typedef enum {
 #define PPPSERIAL		"PPPSerial"
 #define PPTP			"PPTP"
 #define PREFERRED		"Preferred"
+#define PREFIX			"Prefix"
 #define PREFIXLENGTH		"PrefixLength"
 #define PREFS			"Prefs"
 #define PRIMARYINTERFACE	"PrimaryInterface"
@@ -407,6 +413,7 @@ typedef enum {
 #define REMINDER		"Reminder"
 #define REMINDERTIME		"ReminderTime"
 #define REMOTEADDRESS		"RemoteAddress"
+#define REQUEST			"Request"
 #define REQUESTED		"Requested"
 #define REQUIRED		"Required"
 #define REQUIREMENT		"Requirement"
@@ -593,11 +600,13 @@ static schemaDefinition names[] = {
     { SC_10_5_PRIVATE, NETENT, EAPOL, NULL, CFDICTIONARY },
     { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP FAILURE, NULL, NULL},
     { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP ALIVE, NULL, NULL},
+    { SC_10_13_IPHONE_11_0_PRIVATE, NETENT, IPV6 ROUTER EXPIRED, NULL, NULL},
     { SC_10_9_IPHONE_7_0_PRIVATE, NETENT, LINKISSUES, NULL, CFDICTIONARY},
     { SC_10_7_IPHONE_5_0_PRIVATE, NETENT, LINKQUALITY, NULL, CFDICTIONARY},
     { SC_10_7_IPHONE_4_0_PRIVATE, NETENT, LOOPBACK, NULL, CFDICTIONARY },
+    { SC_10_13_IPHONE_11_0_PRIVATE, NETENT, NAT64 PREFIX REQUEST, NULL, NULL},
     { SC_10_6_IPHONE_3_0_PRIVATE, NETENT, ONDEMAND, NULL, CFDICTIONARY },
-    { SC_10_12_IPHONE_10_0_PRIVATE, NETENT, QOSMARKING POLICY, NULL, CFDICTIONARY },
+    { SC_10_13_IPHONE_10_0_PRIVATE, NETENT, QOSMARKING POLICY, NULL, CFDICTIONARY },
     { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, SERVICE, "__SERVICE__", CFDICTIONARY },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETENT, VPN, NULL, CFDICTIONARY },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
@@ -714,7 +723,7 @@ static schemaDefinition names[] = {
     { SC_10_1, NETPROP INTERFACE, HARDWARE, NULL, CFSTRING },
     { SC_10_1, NETPROP INTERFACE, TYPE, NULL, CFSTRING },
     { SC_10_1, NETPROP INTERFACE, SUBTYPE, NULL, CFSTRING },
-    { SC_10_2, NETPROP INTERFACE, SUPPORTSMODEMONHOLD, NULL, CFNUMBER_BOOL },
+    { SC_10_2_10_13, NETPROP INTERFACE, SUPPORTSMODEMONHOLD, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP INTERFACE TYPE " values ---", NULL, NULL, NULL },
     { SC_10_1, NETVAL INTERFACE TYPE, ETHERNET, NULL, NULL },
@@ -1110,13 +1119,13 @@ static schemaDefinition names[] = {
 
    { GROUP_PRIVATE, NETPROP LINK, KEY_PREFIX NETENT QOSMARKING POLICY " Entity Keys", NULL, NULL },
 
-    { SC_10_12_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, APPLE AUDIOVIDEOCALLS,
+    { SC_10_13_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, APPLE AUDIOVIDEOCALLS,
 				    QOSMARKING APPLE AUDIOVIDEOCALLS,
 				    CFBOOLEAN},
-    { SC_10_12_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, ENABLED,
+    { SC_10_13_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, ENABLED,
 				    QOSMARKING ENABLED,
 				    CFBOOLEAN},
-    { SC_10_12_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, WHITELISTED APP IDENTIFIERS,
+    { SC_10_13_IPHONE_10_0_PRIVATE, NETPROP QOSMARKING, WHITELISTED APP IDENTIFIERS,
 				    QOSMARKING WHITELISTED APP IDENTIFIERS,
 				    CFARRAY_CFSTRING},
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
@@ -1395,6 +1404,9 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_10_2_10_9:
 		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
 		break;
+	    case SC_10_2_10_13:
+		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_13,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
+		break;
 	    case SC_10_3_10_9:
 		printf("  __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);\n");
 		break;
@@ -1442,6 +1454,12 @@ print_headerdoc(schemaDefinition *def)
 		break;
 	    case SC_10_12_IPHONE_10_0_PRIVATE:
 		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);\n");
+		break;
+	    case SC_10_13_IPHONE_10_0_PRIVATE:
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_10_0/*SPI*/);\n");
+		break;
+	    case SC_10_13_IPHONE_11_0_PRIVATE:
+		printf("  __OSX_AVAILABLE_STARTING(__MAC_10_13,__IPHONE_11_0/*SPI*/);\n");
 		break;
 	    case SC_IPHONE_2_0_PRIVATE:
 		printf("  __OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_2_0/*SPI*/);\n");
@@ -1602,6 +1620,7 @@ dump_names(int type)
 			    case SC_10_1_10_4:
 			    case SC_10_1_10_9:
 			    case SC_10_2_10_9:
+			    case SC_10_2_10_13:
 			    case SC_10_3_10_9:
 			    case SC_10_4_10_9:
 				// don't report deprecated keys
@@ -1618,6 +1637,8 @@ dump_names(int type)
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
 			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_10_12_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				// don't report private definitions
 				break;
@@ -1632,6 +1653,7 @@ dump_names(int type)
 			    case SC_10_1_10_4:
 			    case SC_10_1_10_9:
 			    case SC_10_2_10_9:
+			    case SC_10_2_10_13:
 			    case SC_10_3_10_9:
 			    case SC_10_4_10_9:
 				// don't report deprecated keys
@@ -1648,6 +1670,8 @@ dump_names(int type)
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
 			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_10_12_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				print_comment(&names[i]);
 				break;
@@ -1672,6 +1696,8 @@ dump_names(int type)
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
 			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_10_12_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				// don't report private definitions
 				break;
@@ -1694,6 +1720,8 @@ dump_names(int type)
 			    case SC_10_10_IPHONE_8_0_PRIVATE:
 			    case SC_10_11_IPHONE_9_0_PRIVATE:
 			    case SC_10_12_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_10_0_PRIVATE:
+			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 				print_headerdoc(&names[i]);
 				break;

@@ -9,6 +9,7 @@
 #include "kextload_main.h"
 #include "kext_tools_util.h"
 #include "security.h"
+#include "staging.h"
 
 #include <libc.h>
 #include <servers/bootstrap.h>
@@ -459,6 +460,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     OSReturn   loadResult = kOSReturnError;
     char       scratchCString[PATH_MAX];
     CFIndex    count, index;
+    OSKextRef ownedKext = NULL;  // must release
 #if !TARGET_OS_EMBEDDED
     Boolean     earlyBoot = false;
     Boolean     readOnly = false;
@@ -476,6 +478,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         result = EX_OSERR;
         goto finish;
     }
+
 #if !TARGET_OS_EMBEDDED
     // not perfect, but we check to see if kextd is running to determine
     // if we are in early boot.
@@ -499,7 +502,21 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             goto finish;
         }
     }
+
+    // Configure authentication required - do not use network or respect
+    // system policy if we are in early boot.
+    AuthOptions_t authOptions = {
+        .allowNetwork = !earlyBoot,
+        .isCacheLoad = false,
+        .performFilesystemValidation = true,
+        .performSignatureValidation = true,
+        .requireSecureLocation = true,
+        .respectSystemPolicy = !earlyBoot,
+    };
+    _OSKextSetAuthenticationFunction(&authenticateKext, &authOptions);
+    _OSKextSetStrictAuthentication(true);
 #endif
+
     count = CFArrayGetCount(toolArgs->kextIDs);
     for (index = 0; index < count; index++) {
         OSKextRef     theKext = NULL;  // do not release
@@ -524,7 +541,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                 "Error: Kext %s - not found/unable to create.", scratchCString);
-            result = kOSKextReturnNotFound;
+            result = exitStatusForOSReturn(kOSKextReturnNotFound);
             goto finish;
         }
         
@@ -540,41 +557,49 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                                   kextID);
         }
         else {
-            OSStatus  sigResult = checkKextSignature(theKext, true, earlyBoot);
-            if ( sigResult != 0 ) {
-                if ( isInvalidSignatureAllowed() ) {
-                    OSKextLogCFString(NULL,
-                                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                                      CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext '%s'"),
-                                      (long)sigResult, (long)sigResult,
-                                      scratchCString);
-                }
-                else {
-                    OSKextLogCFString(NULL,
-                                      kOSKextLogErrorLevel |
-                                      kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                                      CFSTR("ERROR: invalid signature for '%s', will not load"),
-                                      scratchCString);
-                    result = sigResult;
-                    goto finish;
-                }
+            // Perform staging to ensure all kexts are in SIP protected locations.
+            theKext = createStagedKext(theKext);
+            if (!theKext) {
+                OSKextLog(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                          "%s could not be staged, failing.",
+                          scratchCString);
+                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                goto finish;
             }
-            sigResult = checkSignaturesOfDependents(theKext, true, earlyBoot);
-            if (sigResult != 0) {
-                OSKextLog(/* kext */ NULL,
-                          kOSKextLogErrorLevel | kOSKextLogLoadFlag |
-                          kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
-                          "Signature failure in dependencies for kext load request.");
-                result = sigResult;
+
+            // theKext returned by staging is owned here, so make sure it gets released at the
+            // end of the loop or in the error handler at the end of the function.
+            ownedKext = theKext;
+
+            // Force authentication checks now so they can be reported gracefully.
+            if (!OSKextIsAuthentic(theKext)) {
+                OSKextLog(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                          "%s failed security checks; failing.", scratchCString);
+                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                goto finish;
+            }
+
+            if (!OSKextAuthenticateDependencies(theKext)) {
+                OSKextLog(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                          "%s's dependencies failed security checks; failing.", scratchCString);
+                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
                 goto finish;
             }
         }
 #endif // not TARGET_OS_EMBEDDED
 
 #if HAVE_DANGERZONE
-        // Ideally we would gate these loads with Danger Zone, but this codepath is specifically for early
-        // boot when kextd and daemons aren't available.
-        dzRecordKextLoadBypass(theKext);
+        // Note: This code path is mainly only used in early boot before daemons aren't
+        // available. While it is possible to exercise this code path after fully booting,
+        // it is difficult and should be removed in the future in favor of ensuring
+        // everything goes through kextd. For now, intentionally only logging allowed kexts.
+        dzRecordKextLoadBypass(theKext, TRUE);
 #endif // HAVE_DANGERZONE
 
         /* The codepath from this function will do any error logging
@@ -601,6 +626,9 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                 "%s loaded successfully (or already loaded).",
                 scratchCString);
         }
+
+        // Clear ownedKext before iterating to the next kext ID.
+        SAFE_RELEASE_NULL(ownedKext);
     }
 
     count = CFArrayGetCount(toolArgs->kextURLs);
@@ -633,7 +661,6 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
              * and cleanup needed.
              */
 #if !TARGET_OS_EMBEDDED
-            OSStatus        sigResult = 0;
             CFStringRef     myBundleID = NULL;         // do not release
 
             myBundleID = OSKextGetIdentifier(theKext);
@@ -649,56 +676,57 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                                       myBundleID);
             }
             else {
-                sigResult = checkKextSignature(theKext, true, earlyBoot);
-                if ( sigResult != 0 ) {
-                    if ( isInvalidSignatureAllowed() ) {
-                        OSKextLogCFString(NULL,
-                                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                                          CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext '%s'"),
-                                          (long)sigResult, (long)sigResult,
-                                          scratchCString);
-                        sigResult = 0;
-                    }
-                    else {
-                        OSKextLogCFString(NULL,
-                                          kOSKextLogErrorLevel |
-                                          kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                                          CFSTR("ERROR: invalid signature for '%s', will not load"),
-                                          scratchCString);
-                        loadResult = sigResult;
-                    }
+                // Perform staging to ensure all kexts are in SIP protected locations.
+                theKext = createStagedKext(theKext);
+                if (!theKext) {
+                    OSKextLog(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                              "%s could not be staged, failing.",
+                              scratchCString);
+                    result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                    goto finish;
                 }
-                sigResult = checkSignaturesOfDependents(theKext, true, earlyBoot);
-                if (sigResult != 0) {
-                    OSKextLog(/* kext */ NULL,
-                              kOSKextLogErrorLevel | kOSKextLogLoadFlag |
-                              kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
-                              "Signature failure in dependencies for kext load request.");
-                    loadResult = sigResult;
+
+                // theKext returned by staging is owned here, so make sure it gets released at the
+                // end of the loop or in the error handler at the end of the function.
+                ownedKext = theKext;
+
+                // Force authentication checks now so they can be reported gracefully.
+                if (!OSKextIsAuthentic(theKext)) {
+                    OSKextLog(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                              "%s failed security checks; failing.", scratchCString);
+                    result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                    goto finish;
+                }
+
+                if (!OSKextAuthenticateDependencies(theKext)) {
+                    OSKextLog(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                              "%s's dependencies failed security checks; failing.", scratchCString);
+                    result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
                     goto finish;
                 }
             }
 
 #if HAVE_DANGERZONE
-            // Ideally we would gate these loads with Danger Zone, but this codepath is specifically for early
-            // boot when kextd and daemons aren't available.
-            dzRecordKextLoadBypass(theKext);
+            // Note: This code path is mainly only used in early boot before daemons aren't
+            // available. While it is possible to exercise this code path after fully booting,
+            // it is difficult and should be removed in the future in favor of ensuring
+            // everything goes through kextd. For now, intentionally only logging allowed kexts.
+            dzRecordKextLoadBypass(theKext, TRUE);
 #endif // HAVE_DANGERZONE
-            
-            if (sigResult == 0) {
-                loadResult = OSKextLoadWithOptions(theKext,
-                                                   kOSKextExcludeNone,
-                                                   kOSKextExcludeNone,
-                                                   NULL,
-                                                   false);
-            }
-#else
+
+#endif // not TARGET_OS_EMBEDDED
+
             loadResult = OSKextLoadWithOptions(theKext,
                                                kOSKextExcludeNone,
                                                kOSKextExcludeNone,
                                                NULL,
                                                false);
-#endif // not TARGET_OS_EMBEDDED
         }
         if (loadResult != kOSReturnSuccess) {
             OSKextLog(/* kext */ NULL,
@@ -715,9 +743,14 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                 "%s loaded successfully (or already loaded).",
                 scratchCString);
         }
+
+        // Clear ownedKext before iterating to the next kext URL.
+        SAFE_RELEASE_NULL(ownedKext);
     }
 
 finish:
+    // In an error case, we may get here and still have a lingering ownership.
+    SAFE_RELEASE(ownedKext);
     return result;
 }
 
@@ -730,6 +763,9 @@ ExitStatus exitStatusForOSReturn(OSReturn osReturn)
     switch (osReturn) {
     case kOSKextReturnNotPrivileged:
         result = EX_NOPERM;
+        break;
+    case kOSKextReturnSystemPolicy:
+        result = kKextloadExitSystemPolicy;
         break;
     default:
         result = EX_OSERR;

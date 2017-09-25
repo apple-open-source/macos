@@ -146,6 +146,8 @@ AC_ARG_WITH(iso8859x,
 [  --with-iso8859x         add ISO8859X support if no iconv (on)])
 AC_ARG_WITH(legacy,
 [  --with-legacy           add deprecated APIs for compatibility (on)])
+AC_ARG_WITH(fuzzers,
+[  --with-fuzzers[[=LIB]]    build libxml2 fuzzers (optionally using libFuzzer.a or AFL) (on)])
 AC_ARG_WITH(mem_debug,
 [  --with-mem-debug        add the memory debugging module (off)])
 AC_ARG_WITH(minimum,
@@ -301,6 +303,10 @@ then
     if test "$with_legacy" = ""
     then
       with_legacy=no
+    fi
+    if test "$with_fuzzers" = ""
+    then
+      with_fuzzers=yes
     fi
     if test "$with_mem_debug" = ""
     then 
@@ -834,6 +840,67 @@ esac
 
 
 dnl
+dnl Check for libFuzzer.a
+dnl
+
+AC_PROG_CXX
+AC_LANG_SAVE
+AC_LANG_CPLUSPLUS
+dnl If not found, download these macros to a local ./m4/ directory:
+dnl https://www.gnu.org/software/autoconf-archive/ax_cxx_compile_stdcxx.html
+dnl https://www.gnu.org/software/autoconf-archive/ax_cxx_compile_stdcxx_11.html
+AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
+
+if test "$with_fuzzers" = ""
+then
+    with_fuzzers=yes
+fi
+
+if test "$with_fuzzers" != "no" -a "$with_fuzzers" != "yes"
+then
+    AC_MSG_CHECKING(for fuzzing library)
+    _libs="${LIBS}"
+    LIBS="${LIBS} ${with_fuzzers}"
+    AC_TRY_LINK([
+#include <stddef.h>
+#if defined(HAVE_STDINT_H)
+#include <stdint.h>
+#elif defined(HAVE_INTTYPES_H)
+#include <inttypes.h>
+#elif defined(WIN32)
+typedef unsigned char uint8_t;
+#endif
+int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);],[
+    return 0; } /* main */
+int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {],[
+        AC_MSG_RESULT(yes)
+        LIBS="${_libs}"],[
+        with_fuzzers=no
+        AC_MSG_RESULT(no)
+        LIBS="${_libs}"])
+
+fi
+
+AC_LANG_RESTORE
+
+if test "$with_fuzzers" = "yes"
+then
+    FUZZ_SUBDIR=fuzz
+    LIB_FUZZING_ENGINE=
+elif test "$with_fuzzers" != "no"
+then
+    FUZZ_SUBDIR=fuzz
+    LIB_FUZZING_ENGINE="${with_fuzzers}"
+else
+    FUZZ_SUBDIR=
+    LIB_FUZZING_ENGINE=
+fi
+AC_SUBST(FUZZ_SUBDIR)
+AC_SUBST(LIB_FUZZING_ENGINE)
+AM_CONDITIONAL(USE_STANDALONE_FUZZING_ENGINE, test "$with_fuzzers" = "yes")
+
+
+dnl
 dnl check for python
 dnl
 
@@ -1274,7 +1341,7 @@ if test "$with_html" = "no" ; then
 else    
     WITH_HTML=1
     HTML_OBJ="HTMLparser.o HTMLtree.o"
-    TEST_HTML=HTMLtests
+    TEST_HTML="HTMLtests HTMLRecovertests"
     if test "$with_push" != "no" ; then
         TEST_PHTML=HTMLPushtests
     else
@@ -1727,7 +1794,7 @@ rm -f COPYING.LIB COPYING
 ln -s $srcdir/Copyright COPYING
 
 # keep on one line for cygwin c.f. #130896
-AC_CONFIG_FILES([libxml2.spec:libxml.spec.in Makefile include/Makefile include/libxml/Makefile doc/Makefile doc/examples/Makefile doc/devhelp/Makefile example/Makefile python/Makefile python/tests/Makefile xstc/Makefile include/libxml/xmlversion.h libxml-2.0.pc libxml-2.0-uninstalled.pc libxml2-config.cmake])
+AC_CONFIG_FILES([libxml2.spec:libxml.spec.in Makefile include/Makefile include/libxml/Makefile doc/Makefile doc/examples/Makefile doc/devhelp/Makefile example/Makefile fuzz/Makefile python/Makefile python/tests/Makefile xstc/Makefile include/libxml/xmlversion.h libxml-2.0.pc libxml-2.0-uninstalled.pc libxml2-config.cmake])
 AC_CONFIG_FILES([python/setup.py], [chmod +x python/setup.py])
 AC_CONFIG_FILES([xml2-config], [chmod +x xml2-config])
 AC_OUTPUT

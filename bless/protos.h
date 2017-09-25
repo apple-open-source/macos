@@ -49,8 +49,15 @@ void usage_short(void);
 
 void addPayload(const char *path);
 
+int CopyManifests(BLContextPtr context, const char *destFile, const char *srcFile);
+
 
 extern int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 				   CFDataRef labelData);
 extern int setefilegacypath(BLContextPtr context, const char * path, int bootNext,
                             const char *legacyHint, const char *optionalData);
+
+int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
+					   CFDataRef labelData, CFDataRef labelData2);
+
+int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);

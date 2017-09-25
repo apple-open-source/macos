@@ -1,11 +1,16 @@
---- apr-config.in.orig	2015-04-01 16:25:35.000000000 -0700
-+++ apr-config.in	2015-04-01 16:25:36.000000000 -0700
-@@ -28,7 +28,7 @@
+--- apr-config.in.orig	2017-06-22 08:07:46.000000000 -0700
++++ apr-config.in	2017-06-22 08:09:11.000000000 -0700
+@@ -28,10 +28,10 @@
  datarootdir="@datadir@"
  datadir="@datadir@"
  installbuilddir="@installbuilddir@"
 -includedir="@includedir@"
 +includedir="${SDKROOT}@includedir@"
  
- CC="@CC@"
- CPP="@CPP@"
+-CC="@CC@"
+-CPP="@CPP@"
++CC="xcrun cc"
++CPP="xcrun cc -E"
+ SHELL="@SHELL@"
+ CPPFLAGS="@EXTRA_CPPFLAGS@"
+ CFLAGS="@EXTRA_CFLAGS@"

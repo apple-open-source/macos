@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **************************************************************************
 *   Copyright (C) 2002-2016 International Business Machines Corporation
@@ -1073,6 +1075,15 @@ UBool RegexMatcher::findUsingChunk(UErrorCode &status) {
             }
             if (fMatch) {
                 return TRUE;
+            }
+            // In bug 31063104 which has a zero-length text buffer we get here with
+            // inputBuf=NULL, startPos=fActiveLimit=0 (and fMatch F) which violates the
+            // requirement for U16_FWD_1 (utf16.h) that startPos < fActiveLimit. Having
+            // inputBuf=NULL (chunkContexts NULL) is probably due to an error in the
+            // CFStringUText functions. Nevertheless, to be defensive, add test below.
+            if (startPos >= testLen) {
+                fHitEnd = TRUE;
+                return FALSE;
             }
             U16_FWD_1(inputBuf, startPos, fActiveLimit);
         }
@@ -3564,7 +3575,14 @@ GC_Done:
                         }
                     }
                     fp = StateSave(fp, fp->fPatIdx, status);
+                } else {
+                    // Increment time-out counter. (StateSave() does it if count >= minCount)
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 }
+
                 fp->fPatIdx = opValue + 4;    // Loop back.
             }
             break;
@@ -3621,6 +3639,11 @@ GC_Done:
                     // We haven't met the minimum number of matches yet.
                     //   Loop back for another one.
                     fp->fPatIdx = opValue + 4;    // Loop back.
+                    // Increment time-out counter. (StateSave() does it if count >= minCount)
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 } else {
                     // We do have the minimum number of matches.
 
@@ -5097,6 +5120,12 @@ GC_Done:
                         }
                     }
                     fp = StateSave(fp, fp->fPatIdx, status);
+                } else {
+                    // Increment time-out counter. (StateSave() does it if count >= minCount)
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 }
                 fp->fPatIdx = opValue + 4;    // Loop back.
             }
@@ -5154,6 +5183,10 @@ GC_Done:
                     // We haven't met the minimum number of matches yet.
                     //   Loop back for another one.
                     fp->fPatIdx = opValue + 4;    // Loop back.
+                    fTickCounter--;
+                    if (fTickCounter <= 0) {
+                        IncrementTime(status);    // Re-initializes fTickCounter
+                    }
                 } else {
                     // We do have the minimum number of matches.
 

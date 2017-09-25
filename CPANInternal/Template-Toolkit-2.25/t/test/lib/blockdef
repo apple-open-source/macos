@@ -1,9 +1,0 @@
-start of blockdef
-[%- BLOCK block1 -%]
-This is block 1, defined in blockdef, a is [% a %]
-[% END %]
-
-[% BLOCK block2 -%]
-This is block 2, defined in blockdef, b is [% b %]
-[% END -%]
-end of blockdef

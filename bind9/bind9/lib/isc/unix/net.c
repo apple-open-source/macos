@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -301,8 +301,6 @@ try_ipv6only(void) {
 		goto close;
 	}
 
-	close(s);
-
 	ipv6only_result = ISC_R_SUCCESS;
 
 close:
@@ -319,6 +317,7 @@ initialize_ipv6only(void) {
 #endif /* WANT_IPV6 */
 
 #ifdef ISC_PLATFORM_HAVEIN6PKTINFO
+#ifdef WANT_IPV6
 static void
 try_ipv6pktinfo(void) {
 	int s, on;
@@ -358,7 +357,6 @@ try_ipv6pktinfo(void) {
 		goto close;
 	}
 
-	close(s);
 	ipv6pktinfo_result = ISC_R_SUCCESS;
 
 close:
@@ -371,6 +369,7 @@ initialize_ipv6pktinfo(void) {
 	RUNTIME_CHECK(isc_once_do(&once_ipv6pktinfo,
 				  try_ipv6pktinfo) == ISC_R_SUCCESS);
 }
+#endif /* WANT_IPV6 */
 #endif /* ISC_PLATFORM_HAVEIN6PKTINFO */
 #endif /* ISC_PLATFORM_HAVEIPV6 */
 

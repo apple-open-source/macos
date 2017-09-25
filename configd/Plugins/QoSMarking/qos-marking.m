@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -135,16 +135,24 @@ supportsQoSMarking(int s, const char *ifname)
 	bzero(&ifr, sizeof(ifr));
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	if (ioctl(s, SIOCGIFTYPE, (caddr_t)&ifr) == -1) {
-		SC_log(LOG_NOTICE, "%s: ioctl(SIOCGIFTYPE) failed: %m", ifname);
+		SC_log(LOG_NOTICE, "%s: ioctl(SIOCGIFTYPE) failed: %s",
+		       ifname,
+		       strerror(errno));
 		ifr.ifr_type.ift_type = 0;
 		ifr.ifr_type.ift_family = IFRTYPE_FAMILY_ANY;
 		ifr.ifr_type.ift_subfamily = IFRTYPE_SUBFAMILY_ANY;
 	}
 
+#if	!TARGET_OS_IPHONE
+	if (ifr.ifr_type.ift_family == IFRTYPE_FAMILY_ETHERNET) {
+		return true;
+	}
+#else	// !TARGET_OS_IPHONE
 	if ((ifr.ifr_type.ift_family == IFRTYPE_FAMILY_ETHERNET) &&
 	    (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_WIFI)) {
 		return true;
 	}
+#endif	// !TARGET_OS_IPHONE
 
 	return false;
 }
@@ -227,55 +235,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 
 - (NEPolicySession *)createPolicySession
 {
-	NEPolicySession *session	= nil;
-#if	!TARGET_OS_IPHONE
-	/*
-	 * Note: we cannot have entitlements on OSX so we open a kernel
-	 *       control socket and use it to create a policy session
-	 */
-
-	struct sockaddr_ctl	kernctl_addr;
-	struct ctl_info		kernctl_info;
-	int			sock;
-
-	// Create kernel control socket
-	sock = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
-	if (sock == -1) {
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-		return nil;
-	}
-
-	bzero(&kernctl_info, sizeof(kernctl_info));
-	strlcpy(kernctl_info.ctl_name, NECP_CONTROL_NAME, sizeof(kernctl_info.ctl_name));
-	if (ioctl(sock, CTLIOCGINFO, &kernctl_info)) {
-		SC_log(LOG_ERR, "ioctl() failed: %s", strerror(errno));
-		close(sock);
-		return nil;
-	}
-
-	bzero(&kernctl_addr, sizeof(kernctl_addr));
-	kernctl_addr.sc_len = sizeof(kernctl_addr);
-	kernctl_addr.sc_family = AF_SYSTEM;
-	kernctl_addr.ss_sysaddr = AF_SYS_CONTROL;
-	kernctl_addr.sc_id = kernctl_info.ctl_id;
-	kernctl_addr.sc_unit = 0;
-	if (connect(sock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr))) {
-		SC_log(LOG_ERR, "connect() failed: %s", strerror(errno));
-		close(sock);
-		return nil;
-	}
-
-	/* Create policy session */
-	session = [[NEPolicySession alloc] initWithSocket:sock];
-	if (session == nil) {
-		close(sock);
-	}
-
-#else	// !TARGET_OS_IPHONE
-	session = [[NEPolicySession alloc] init];
-#endif	// !TARGET_OS_IPHONE
-
-	return session;
+	return [[NEPolicySession alloc] init];
 }
 
 
@@ -613,6 +573,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 		uuids = [NSMutableArray array];
 
 		xpc_array_apply(mapping, ^bool(size_t index, xpc_object_t value) {
+#pragma unused(index)
 			if ((value != NULL) &&
 			    (xpc_get_type(value) == XPC_TYPE_UUID)) {
 				NSUUID *	uuid;
@@ -1074,6 +1035,7 @@ parse_component(CFStringRef key, CFStringRef prefix)
 static void
 qosMarkingConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
+#pragma unused(arg)
 	os_activity_t		activity;
 	CFDictionaryRef		changes;
 	CFIndex			n;
@@ -1149,6 +1111,7 @@ __private_extern__
 void
 load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
 {
+#pragma unused(bundleVerbose)
 	CFDictionaryRef		dict;
 	CFStringRef		key;
 	CFMutableArrayRef	keys;

@@ -346,6 +346,48 @@ path_binread(int argc, VALUE *argv, VALUE self)
 
 /*
  * call-seq:
+ *   pathname.write(string, [offset] )   => fixnum
+ *   pathname.write(string, [offset], open_args )   => fixnum
+ *
+ * Writes +contents+ to the file.
+ *
+ * See IO.write.
+ *
+ */
+static VALUE
+path_write(int argc, VALUE *argv, VALUE self)
+{
+    VALUE args[4];
+    int n;
+
+    args[0] = get_strpath(self);
+    n = rb_scan_args(argc, argv, "03", &args[1], &args[2], &args[3]);
+    return rb_funcall2(rb_cIO, rb_intern("write"), 1+n, args);
+}
+
+/*
+ * call-seq:
+ *   pathname.binwrite(string, [offset] )   => fixnum
+ *   pathname.binwrite(string, [offset], open_args )   => fixnum
+ *
+ * Writes +contents+ to the file, opening it in binary mode.
+ *
+ * See IO.binwrite.
+ *
+ */
+static VALUE
+path_binwrite(int argc, VALUE *argv, VALUE self)
+{
+    VALUE args[4];
+    int n;
+
+    args[0] = get_strpath(self);
+    n = rb_scan_args(argc, argv, "03", &args[1], &args[2], &args[3]);
+    return rb_funcall2(rb_cIO, rb_intern("binwrite"), 1+n, args);
+}
+
+/*
+ * call-seq:
  *   pathname.readlines(sep=$/ [, open_args])     -> array
  *   pathname.readlines(limit [, open_args])      -> array
  *   pathname.readlines(sep, limit [, open_args]) -> array
@@ -397,6 +439,25 @@ path_atime(VALUE self)
 {
     return rb_funcall(rb_cFile, rb_intern("atime"), 1, get_strpath(self));
 }
+
+#if defined(HAVE_STRUCT_STAT_ST_BIRTHTIMESPEC) || defined(_WIN32)
+/*
+ * call-seq:
+ *   pathname.birthtime	-> time
+ *
+ * Returns the birth time for the file.
+ * If the platform doesn't have birthtime, raises NotImplementedError.
+ *
+ * See File.birthtime.
+ */
+static VALUE
+path_birthtime(VALUE self)
+{
+    return rb_funcall(rb_cFile, rb_intern("birthtime"), 1, get_strpath(self));
+}
+#else
+# define path_birthtime rb_f_notimplement
+#endif
 
 /*
  * call-seq:
@@ -926,7 +987,7 @@ path_zero_p(VALUE self)
 }
 
 static VALUE
-glob_i(VALUE elt, VALUE klass, int argc, VALUE *argv)
+glob_i(RB_BLOCK_CALL_FUNC_ARGLIST(elt, klass))
 {
     return rb_yield(rb_class_new_instance(1, &elt, klass));
 }
@@ -955,7 +1016,7 @@ path_s_glob(int argc, VALUE *argv, VALUE klass)
         ary = rb_funcall2(rb_cDir, rb_intern("glob"), n, args);
         ary = rb_convert_type(ary, T_ARRAY, "Array", "to_ary");
         for (i = 0; i < RARRAY_LEN(ary); i++) {
-            VALUE elt = RARRAY_PTR(ary)[i];
+            VALUE elt = RARRAY_AREF(ary, i);
             elt = rb_class_new_instance(1, &elt, klass);
             rb_ary_store(ary, i, elt);
         }
@@ -1015,7 +1076,7 @@ path_entries(VALUE self)
     ary = rb_funcall(rb_cDir, rb_intern("entries"), 1, str);
     ary = rb_convert_type(ary, T_ARRAY, "Array", "to_ary");
     for (i = 0; i < RARRAY_LEN(ary); i++) {
-        VALUE elt = RARRAY_PTR(ary)[i];
+	VALUE elt = RARRAY_AREF(ary, i);
         elt = rb_class_new_instance(1, &elt, klass);
         rb_ary_store(ary, i, elt);
     }
@@ -1064,7 +1125,7 @@ path_opendir(VALUE self)
 }
 
 static VALUE
-each_entry_i(VALUE elt, VALUE klass, int argc, VALUE *argv)
+each_entry_i(RB_BLOCK_CALL_FUNC_ARGLIST(elt, klass))
 {
     return rb_yield(rb_class_new_instance(1, &elt, klass));
 }
@@ -1107,7 +1168,20 @@ path_unlink(VALUE self)
 }
 
 /*
- * Creates a new Pathname object.
+ * :call-seq:
+ *  Pathname(path)  -> pathname
+ *
+ * Creates a new Pathname object from the given string, +path+, and returns
+ * pathname object.
+ *
+ * In order to use this constructor, you must first require the Pathname
+ * standard library extension.
+ *
+ *	require 'pathname'
+ *	Pathname("/home/zzak")
+ *	#=> #<Pathname:/home/zzak>
+ *
+ * See also Pathname::new for more information.
  */
 static VALUE
 path_f_pathname(VALUE self, VALUE str)
@@ -1233,6 +1307,7 @@ path_f_pathname(VALUE self, VALUE str)
  *
  * These methods are a facade for File:
  * - #atime
+ * - #birthtime
  * - #ctime
  * - #mtime
  * - #chmod(mode)
@@ -1295,7 +1370,7 @@ path_f_pathname(VALUE self, VALUE str)
  * information.  In some cases, a brief description will follow.
  */
 void
-Init_pathname()
+Init_pathname(void)
 {
     id_at_path = rb_intern("@path");
     id_to_path = rb_intern("to_path");
@@ -1321,8 +1396,11 @@ Init_pathname()
     rb_define_method(rb_cPathname, "read", path_read, -1);
     rb_define_method(rb_cPathname, "binread", path_binread, -1);
     rb_define_method(rb_cPathname, "readlines", path_readlines, -1);
+    rb_define_method(rb_cPathname, "write", path_write, -1);
+    rb_define_method(rb_cPathname, "binwrite", path_binwrite, -1);
     rb_define_method(rb_cPathname, "sysopen", path_sysopen, -1);
     rb_define_method(rb_cPathname, "atime", path_atime, 0);
+    rb_define_method(rb_cPathname, "birthtime", path_birthtime, 0);
     rb_define_method(rb_cPathname, "ctime", path_ctime, 0);
     rb_define_method(rb_cPathname, "mtime", path_mtime, 0);
     rb_define_method(rb_cPathname, "chmod", path_chmod, 1);

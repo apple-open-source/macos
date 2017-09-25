@@ -294,8 +294,6 @@ typedef struct
 //  Globals
 //===========================================================================================================================
 
-extern mDNS     mDNSStorage;
-
 static DNSDomainStats *             gDomainStatsList            = NULL;
 static ResolveStatsDomain *         gResolveStatsList           = NULL;
 static ResolveStatsDNSServer *      gResolveStatsServerList     = NULL;
@@ -1487,10 +1485,10 @@ mDNSlocal mStatus SubmitAWDMetric(UInt32 inMetricID)
 
         case AWDMetricId_MDNSResponder_ServicesStats:
             [AWDMetricManagerSoft postMetricWithId:AWDMetricId_MDNSResponder_ServicesStats unsignedIntegerValue:max_num_regservices];
-            KQueueLock(&mDNSStorage);
+            KQueueLock();
             // reset the no of max services since we want to collect the max no of services registered per AWD submission period
             max_num_regservices = curr_num_regservices;
-            KQueueUnlock(&mDNSStorage, "SubmitAWDSimpleMetricServiceStats");
+            KQueueUnlock("SubmitAWDSimpleMetricServiceStats");
             err = mStatus_NoError;
             break;
             
@@ -1520,10 +1518,10 @@ mDNSlocal mStatus SubmitAWDMetricQueryStats(void)
     err = CreateDomainStatsList(&newDomainStatsList);
     require_noerr_quiet(err, exit);
 
-    KQueueLock(&mDNSStorage);
+    KQueueLock();
     domainStatsList = gDomainStatsList;
     gDomainStatsList = newDomainStatsList;
-    KQueueUnlock(&mDNSStorage, "SubmitAWDMetricQueryStats");
+    KQueueUnlock("SubmitAWDMetricQueryStats");
 
     container = [gAWDServerConnection newMetricContainerWithIdentifier:AWDMetricId_MDNSResponder_DNSStatistics];
     require_action_quiet(container, exit, err = mStatus_UnknownErr);
@@ -1578,14 +1576,14 @@ mDNSlocal mStatus SubmitAWDMetricResolveStats(void)
     err = CreateResolveStatsList(&newResolveStatsList);
     require_noerr_quiet(err, exit);
 
-    KQueueLock(&mDNSStorage);
+    KQueueLock();
     domainList = gResolveStatsList;
     serverList = gResolveStatsServerList;
     gResolveStatsList           = newResolveStatsList;
     gResolveStatsServerList     = NULL;
     gResolveStatsNextServerID   = 0;
     gResolveStatsObjCount       = 0;
-    KQueueUnlock(&mDNSStorage, "SubmitAWDMetricResolveStats");
+    KQueueUnlock("SubmitAWDMetricResolveStats");
 
     container = [gAWDServerConnection newMetricContainerWithIdentifier:AWDMetricId_MDNSResponder_ResolveStats];
     require_action_quiet(container, exit, err = mStatus_UnknownErr);

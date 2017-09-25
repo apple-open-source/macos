@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2011, 2013  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: t_master.c,v 1.39.346.2 2011/03/12 04:59:14 tbox Exp $ */
+/* $Id: t_master.c,v 1.41 2011/03/12 04:59:46 tbox Exp $ */
 
 #include <config.h>
 
@@ -319,17 +319,24 @@ t11() {
 
 
 testspec_t	T_testlist[] = {
-	{	t1,	"ISC_R_SUCCESS"		},
-	{	t2,	"ISC_R_UNEXPECTEDEND"	},
-	{	t3,	"DNS_NOOWNER"		},
-	{	t4,	"DNS_NOTTL"		},
-	{	t5,	"DNS_BADCLASS"		},
-	{	t6,	"DNSKEY RR 1"		},
-	{	t7,	"DNSKEY RR 2"		},
-	{	t8,	"$INCLUDE"		},
-	{	t9,	"$INCLUDE w/ DNS_BADCLASS"	},
-	{	t10,	"non empty blank lines"	},
-	{	t11,	"leading zeros in serial"	},
-	{	NULL,	NULL			}
+	{	(PFV) t1,	"ISC_R_SUCCESS"			},
+	{	(PFV) t2,	"ISC_R_UNEXPECTEDEND"		},
+	{	(PFV) t3,	"DNS_NOOWNER"			},
+	{	(PFV) t4,	"DNS_NOTTL"			},
+	{	(PFV) t5,	"DNS_BADCLASS"			},
+	{	(PFV) t6,	"DNSKEY RR 1"			},
+	{	(PFV) t7,	"DNSKEY RR 2"			},
+	{	(PFV) t8,	"$INCLUDE"			},
+	{	(PFV) t9,	"$INCLUDE w/ DNS_BADCLASS"	},
+	{	(PFV) t10,	"non empty blank lines"		},
+	{	(PFV) t11,	"leading zeros in serial"	},
+	{	(PFV) 0,	NULL				}
 };
 
+#ifdef WIN32
+int
+main(int argc, char **argv) {
+	t_settests(T_testlist);
+	return (t_main(argc, argv));
+}
+#endif

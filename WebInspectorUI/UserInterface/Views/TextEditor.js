@@ -519,7 +519,7 @@ WebInspector.TextEditor = class TextEditor extends WebInspector.View
                 return;
 
             // Avoid highlighting the execution line while debugging.
-            if (WebInspector.debuggerManager.paused && (!this._executionLineNumber || line === this._executionLineNumber))
+            if (WebInspector.debuggerManager.paused && line === this._executionLineNumber)
                 return;
 
             this._codeMirror.addLineClass(lineHandle, "wrap", WebInspector.TextEditor.HighlightedStyleClassName);
@@ -839,7 +839,7 @@ WebInspector.TextEditor = class TextEditor extends WebInspector.View
         let indentString = WebInspector.indentString();
         const includeSourceMapData = true;
 
-        let sourceType = this._delegate.textEditorScriptSourceType(this);
+        let sourceType = this._delegate ? this._delegate.textEditorScriptSourceType(this) : WebInspector.Script.SourceType.Program;
         const isModule = sourceType === WebInspector.Script.SourceType.Module;
 
         let workerProxy = WebInspector.FormatterWorkerProxy.singleton();
@@ -1086,6 +1086,13 @@ WebInspector.TextEditor = class TextEditor extends WebInspector.View
         this._bouncyHighlightElement.style.left = coordinates.left + "px";
         this.element.appendChild(this._bouncyHighlightElement);
 
+        let scrollHandler = () => {
+            if (this._bouncyHighlightElement)
+                this._bouncyHighlightElement.remove();
+        };
+
+        this.addScrollHandler(scrollHandler);
+
         function animationEnded()
         {
             if (!this._bouncyHighlightElement)
@@ -1093,6 +1100,8 @@ WebInspector.TextEditor = class TextEditor extends WebInspector.View
 
             this._bouncyHighlightElement.remove();
             delete this._bouncyHighlightElement;
+
+            this.removeScrollHandler(scrollHandler);
         }
 
         // Listen for the end of the animation so we can remove the element.

@@ -26,14 +26,16 @@
 #pragma once
 
 #include <WebCore/EditorInsertAction.h>
-#include <WebCore/SharedBuffer.h>
 #include <WebCore/TextAffinity.h>
 #include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 class CSSStyleDeclaration;
+class DocumentFragment;
 class Node;
 class Range;
+class SharedBuffer;
 }
 
 namespace WebKit {
@@ -62,6 +64,7 @@ public:
     virtual void willWriteToPasteboard(WebKit::WebPage&, WebCore::Range*) { }
     virtual void getPasteboardDataForRange(WebKit::WebPage&, WebCore::Range*, Vector<WTF::String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData) { }
     virtual void didWriteToPasteboard(WebKit::WebPage&) { }
+    virtual bool performTwoStepDrop(WebKit::WebPage&, WebCore::DocumentFragment&, WebCore::Range&, bool) { return false; }
 };
 
 } // namespace InjectedBundle

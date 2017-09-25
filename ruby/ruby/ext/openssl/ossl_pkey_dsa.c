@@ -1,11 +1,10 @@
 /*
- * $Id: ossl_pkey_dsa.c 36355 2012-07-10 13:57:11Z nobu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #if !defined(OPENSSL_NO_DSA)
@@ -40,6 +39,7 @@ dsa_instance(VALUE klass, DSA *dsa)
     if (!dsa) {
 	return Qfalse;
     }
+    obj = NewPKey(klass);
     if (!(pkey = EVP_PKEY_new())) {
 	return Qfalse;
     }
@@ -47,7 +47,7 @@ dsa_instance(VALUE klass, DSA *dsa)
 	EVP_PKEY_free(pkey);
 	return Qfalse;
     }
-    WrapPKey(klass, obj, pkey);
+    SetPKey(obj, pkey);
 
     return obj;
 }
@@ -60,10 +60,11 @@ ossl_dsa_new(EVP_PKEY *pkey)
     if (!pkey) {
 	obj = dsa_instance(cDSA, DSA_new());
     } else {
+	obj = NewPKey(cDSA);
 	if (EVP_PKEY_type(pkey->type) != EVP_PKEY_DSA) {
 	    ossl_raise(rb_eTypeError, "Not a DSA key!");
 	}
-	WrapPKey(cDSA, obj, pkey);
+	SetPKey(obj, pkey);
     }
     if (obj == Qfalse) {
 	ossl_raise(eDSAError, NULL);
@@ -109,7 +110,7 @@ dsa_generate(int size)
     unsigned long h;
 
     if (!dsa) return 0;
-    if (!RAND_bytes(seed, seed_len)) {
+    if (RAND_bytes(seed, seed_len) <= 0) {
 	DSA_free(dsa);
 	return 0;
     }
@@ -143,7 +144,7 @@ dsa_generate(int size)
     int seed_len = 20, counter;
     unsigned long h;
 
-    if (!RAND_bytes(seed, seed_len)) {
+    if (RAND_bytes(seed, seed_len) <= 0) {
 	return 0;
     }
     dsa = DSA_generate_parameters(size, seed, seed_len, &counter, &h,
@@ -291,7 +292,9 @@ ossl_dsa_is_private(VALUE self)
 
 /*
  *  call-seq:
+ *    dsa.export([cipher, password]) -> aString
  *    dsa.to_pem([cipher, password]) -> aString
+ *    dsa.to_s([cipher, password]) -> aString
  *
  * Encodes this DSA to its PEM encoding.
  *
@@ -495,10 +498,11 @@ ossl_dsa_sign(VALUE self, VALUE data)
     VALUE str;
 
     GetPKeyDSA(self, pkey);
-    StringValue(data);
-    if (!DSA_PRIVATE(self, pkey->pkey.dsa)) {
+    if (!pkey->pkey.dsa->q)
+	ossl_raise(eDSAError, "incomplete DSA");
+    if (!DSA_PRIVATE(self, pkey->pkey.dsa))
 	ossl_raise(eDSAError, "Private DSA key needed!");
-    }
+    StringValue(data);
     str = rb_str_new(0, ossl_dsa_buf_size(pkey));
     if (!DSA_sign(0, (unsigned char *)RSTRING_PTR(data), RSTRING_LENINT(data),
 		  (unsigned char *)RSTRING_PTR(str),
@@ -561,7 +565,7 @@ OSSL_PKEY_BN(dsa, priv_key)
  * INIT
  */
 void
-Init_ossl_dsa()
+Init_ossl_dsa(void)
 {
 #if 0
     mOSSL = rb_define_module("OpenSSL"); /* let rdoc know about mOSSL and mPKey */
@@ -615,7 +619,7 @@ Init_ossl_dsa()
 
 #else /* defined NO_DSA */
 void
-Init_ossl_dsa()
+Init_ossl_dsa(void)
 {
 }
 #endif /* NO_DSA */

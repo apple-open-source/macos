@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/commands/build_command'
 require 'rubygems/package'
@@ -7,7 +8,7 @@ class TestGemCommandsBuildCommand < Gem::TestCase
   def setup
     super
 
-    @gem = quick_spec 'some_gem' do |s|
+    @gem = util_spec 'some_gem' do |s|
       s.rubyforge_project = 'example'
     end
 
@@ -62,6 +63,16 @@ class TestGemCommandsBuildCommand < Gem::TestCase
     assert_equal "ERROR:  Gemspec file not found: some_gem\n", @ui.error
   end
 
+  def test_can_find_gemspecs_without_dot_gemspec
+    gemspec_file = File.join(@tempdir, @gem.spec_name)
+
+    File.open gemspec_file + ".gemspec", 'w' do |gs|
+      gs.write @gem.to_ruby
+    end
+
+    util_test_build_gem @gem, gemspec_file
+  end
+
   def util_test_build_gem(gem, gemspec_file, check_licenses=true)
     @cmd.options[:args] = [gemspec_file]
 
@@ -79,7 +90,7 @@ class TestGemCommandsBuildCommand < Gem::TestCase
     assert_equal [], output
 
     if check_licenses
-      assert_equal "WARNING:  licenses is empty\n", @ui.error
+      assert_match "WARNING:  licenses is empty", @ui.error
     end
 
     gem_file = File.join @tempdir, File.basename(gem.cache_file)

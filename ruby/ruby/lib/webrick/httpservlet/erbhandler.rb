@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # erbhandler.rb -- ERBHandler Class
 #
@@ -56,7 +57,7 @@ module WEBrick
           res.body = evaluate(ERB.new(data), req, res)
           res['content-type'] ||=
             HTTPUtils::mime_type(@script_filename, @config[:MimeTypes])
-        rescue StandardError => ex
+        rescue StandardError
           raise
         rescue Exception => ex
           @logger.error(ex)

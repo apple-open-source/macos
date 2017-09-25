@@ -1,11 +1,8 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
-
-# use of $= is deprecated after 1.7.1
-def pre_1_7_1
-end
 
 class TestString < Test::Unit::TestCase
+  ENUMERATOR_WANTARRAY = RUBY_VERSION >= "3.0.0"
 
   def initialize(*args)
     @cls = String
@@ -15,12 +12,39 @@ class TestString < Test::Unit::TestCase
     super
   end
 
-  def S(str)
-    @cls.new(str)
+  def S(*args)
+    @cls.new(*args)
   end
 
   def test_s_new
-    assert_equal("RUBY", S("RUBY"))
+    assert_equal("", S())
+    assert_equal(Encoding::ASCII_8BIT, S().encoding)
+
+    assert_equal("", S(""))
+    assert_equal(__ENCODING__, S("").encoding)
+
+    src = "RUBY"
+    assert_equal(src, S(src))
+    assert_equal(__ENCODING__, S(src).encoding)
+
+    src.force_encoding("euc-jp")
+    assert_equal(src, S(src))
+    assert_equal(Encoding::EUC_JP, S(src).encoding)
+
+
+    assert_equal("", S(encoding: "euc-jp"))
+    assert_equal(Encoding::EUC_JP, S(encoding: "euc-jp").encoding)
+
+    assert_equal("", S("", encoding: "euc-jp"))
+    assert_equal(Encoding::EUC_JP, S("", encoding: "euc-jp").encoding)
+
+    src = "RUBY"
+    assert_equal(src, S(src, encoding: "euc-jp"))
+    assert_equal(Encoding::EUC_JP, S(src, encoding: "euc-jp").encoding)
+
+    src.force_encoding("euc-jp")
+    assert_equal(src, S(src, encoding: "utf-8"))
+    assert_equal(Encoding::UTF_8, S(src, encoding: "utf-8").encoding)
   end
 
   def test_AREF # '[]'
@@ -126,20 +150,6 @@ class TestString < Test::Unit::TestCase
     s[S("Foo")] = S("Bar")
     assert_equal(S("BarBar"), s)
 
-    pre_1_7_1 do
-      s = S("FooBar")
-      s[S("Foo")] = S("xyz")
-      assert_equal(S("xyzBar"), s)
-
-      $= = true
-      s = S("FooBar")
-      s[S("FOO")] = S("Bar")
-      assert_equal(S("BarBar"), s)
-      s[S("FOO")] = S("xyz")
-      assert_equal(S("BarBar"), s)
-      $= = false
-    end
-
     s = S("a string")
     s[0..s.size] = S("another string")
     assert_equal(S("another string"), s)
@@ -159,12 +169,6 @@ class TestString < Test::Unit::TestCase
     assert_equal(-1, S("abcde") <=> S("abcdef"))
 
     assert_equal(-1, S("ABCDEF") <=> S("abcdef"))
-
-    pre_1_7_1 do
-      $= = true
-      assert_equal(0, S("ABCDEF") <=> S("abcdef"))
-      $= = false
-    end
 
     assert_nil("foo" <=> Object.new)
 
@@ -186,18 +190,11 @@ class TestString < Test::Unit::TestCase
   end
 
   def test_EQUAL # '=='
-    assert_equal(false, S("foo") == :foo)
-    assert(S("abcdef") == S("abcdef"))
+    assert_not_equal(:foo, S("foo"))
+    assert_equal(S("abcdef"), S("abcdef"))
 
-    pre_1_7_1 do
-      $= = true
-      assert(S("CAT") == S('cat'))
-      assert(S("CaT") == S('cAt'))
-      $= = false
-    end
-
-    assert(S("CAT") != S('cat'))
-    assert(S("CaT") != S('cAt'))
+    assert_not_equal(S("CAT"), S('cat'))
+    assert_not_equal(S("CaT"), S('cAt'))
 
     o = Object.new
     def o.to_str; end
@@ -234,12 +231,6 @@ class TestString < Test::Unit::TestCase
   def test_MATCH # '=~'
     assert_equal(10,  S("FeeFieFoo-Fum") =~ /Fum$/)
     assert_equal(nil, S("FeeFieFoo-Fum") =~ /FUM$/)
-
-    pre_1_7_1 do
-      $= = true
-      assert_equal(10,  S("FeeFieFoo-Fum") =~ /FUM$/)
-      $= = false
-    end
 
     o = Object.new
     def o.=~(x); x + "bar"; end
@@ -279,24 +270,18 @@ class TestString < Test::Unit::TestCase
   end
 
   def casetest(a, b, rev=false)
+    msg = proc {"#{a} should#{' not' if rev} match #{b}"}
     case a
-      when b
-        assert(!rev)
-      else
-        assert(rev)
+    when b
+      assert(!rev, msg)
+    else
+      assert(rev, msg)
     end
   end
 
   def test_VERY_EQUAL # '==='
     # assert_equal(true, S("foo") === :foo)
     casetest(S("abcdef"), S("abcdef"))
-
-    pre_1_7_1 do
-      $= = true
-      casetest(S("CAT"), S('cat'))
-      casetest(S("CaT"), S('cAt'))
-      $= = false
-    end
 
     casetest(S("CAT"), S('cat'), true) # Reverse the test - we don't want to
     casetest(S("CaT"), S('cAt'), true) # find these in the case.
@@ -450,25 +435,20 @@ class TestString < Test::Unit::TestCase
 
   def test_clone
     for taint in [ false, true ]
-      for untrust in [ false, true ]
-        for frozen in [ false, true ]
-          a = S("Cool")
-          a.taint  if taint
-          a.untrust  if untrust
-          a.freeze if frozen
-          b = a.clone
+      for frozen in [ false, true ]
+        a = S("Cool")
+        a.taint  if taint
+        a.freeze if frozen
+        b = a.clone
 
-          assert_equal(a, b)
-          assert(a.__id__ != b.__id__)
-          assert_equal(a.frozen?, b.frozen?)
-          assert_equal(a.untrusted?, b.untrusted?)
-          assert_equal(a.tainted?, b.tainted?)
-        end
+        assert_equal(a, b)
+        assert_not_same(a, b)
+        assert_equal(a.frozen?, b.frozen?)
+        assert_equal(a.tainted?, b.tainted?)
       end
     end
 
-    null = File.exist?("/dev/null") ? "/dev/null" : "NUL" # maybe DOSISH
-    assert_equal("", File.read(null).clone, '[ruby-dev:32819] reported by Kazuhiro NISHIYAMA')
+    assert_equal("", File.read(IO::NULL).clone, '[ruby-dev:32819] reported by Kazuhiro NISHIYAMA')
   end
 
   def test_concat
@@ -480,6 +460,7 @@ class TestString < Test::Unit::TestCase
     result << 0x0300
     expected = S("\u0300".encode(Encoding::UTF_16LE))
     assert_equal(expected, result, bug7090)
+    assert_raise(TypeError) { 'foo' << :foo }
   end
 
   def test_count
@@ -505,7 +486,16 @@ class TestString < Test::Unit::TestCase
 
   def test_crypt
     assert_equal(S('aaGUC/JkO9/Sc'), S("mypassword").crypt(S("aa")))
-    assert(S('aaGUC/JkO9/Sc') != S("mypassword").crypt(S("ab")))
+    assert_not_equal(S('aaGUC/JkO9/Sc'), S("mypassword").crypt(S("ab")))
+    assert_raise(ArgumentError) {S("mypassword").crypt(S(""))}
+    assert_raise(ArgumentError) {S("mypassword").crypt(S("\0a"))}
+    assert_raise(ArgumentError) {S("mypassword").crypt(S("a\0"))}
+    assert_raise(ArgumentError) {S("poison\u0000null").crypt(S("aa"))}
+    [Encoding::UTF_16BE, Encoding::UTF_16LE,
+     Encoding::UTF_32BE, Encoding::UTF_32LE].each do |enc|
+      assert_raise(ArgumentError) {S("mypassword").crypt(S("aa".encode(enc)))}
+      assert_raise(ArgumentError) {S("mypassword".encode(enc)).crypt(S("aa"))}
+    end
   end
 
   def test_delete
@@ -587,20 +577,16 @@ class TestString < Test::Unit::TestCase
 
   def test_dup
     for taint in [ false, true ]
-      for untrust in [ false, true ]
-        for frozen in [ false, true ]
-          a = S("hello")
-          a.taint  if taint
-          a.untrust  if untrust
-          a.freeze if frozen
-          b = a.dup
+      for frozen in [ false, true ]
+        a = S("hello")
+        a.taint  if taint
+        a.freeze if frozen
+        b = a.dup
 
-          assert_equal(a, b)
-          assert(a.__id__ != b.__id__)
-          assert(!b.frozen?)
-          assert_equal(a.tainted?, b.tainted?)
-          assert_equal(a.untrusted?, b.untrusted?)
-        end
+        assert_equal(a, b)
+        assert_not_same(a, b)
+        assert_not_predicate(b, :frozen?)
+        assert_equal(a.tainted?, b.tainted?)
       end
     end
   end
@@ -642,7 +628,7 @@ class TestString < Test::Unit::TestCase
     s = S("ABC")
     assert_equal [65, 66, 67], s.bytes
 
-    if RUBY_VERSION >= "2.1.0"
+    if ENUMERATOR_WANTARRAY
       assert_warn(/block not used/) {
         assert_equal [65, 66, 67], s.bytes {}
       }
@@ -679,7 +665,7 @@ class TestString < Test::Unit::TestCase
     s = S("\u3042\u3044\u3046")
     assert_equal [0x3042, 0x3044, 0x3046], s.codepoints
 
-    if RUBY_VERSION >= "2.1.0"
+    if ENUMERATOR_WANTARRAY
       assert_warn(/block not used/) {
         assert_equal [0x3042, 0x3044, 0x3046], s.codepoints {}
       }
@@ -710,7 +696,7 @@ class TestString < Test::Unit::TestCase
     s = S("ABC")
     assert_equal ["A", "B", "C"], s.chars
 
-    if RUBY_VERSION >= "2.1.0"
+    if ENUMERATOR_WANTARRAY
       assert_warn(/block not used/) {
         assert_equal ["A", "B", "C"], s.chars {}
       }
@@ -772,7 +758,7 @@ class TestString < Test::Unit::TestCase
     assert_equal ["hello\n", "world"], s.lines
     assert_equal ["hello\nworld"], s.lines(nil)
 
-    if RUBY_VERSION >= "2.1.0"
+    if ENUMERATOR_WANTARRAY
       assert_warn(/block not used/) {
         assert_equal ["hello\n", "world"], s.lines {}
       }
@@ -787,8 +773,8 @@ class TestString < Test::Unit::TestCase
   end
 
   def test_empty?
-    assert(S("").empty?)
-    assert(!S("not").empty?)
+    assert_empty(S(""))
+    assert_not_empty(S("not"))
   end
 
   def test_end_with?
@@ -802,8 +788,8 @@ class TestString < Test::Unit::TestCase
 
   def test_eql?
     a = S("hello")
-    assert(a.eql?(S("hello")))
-    assert(a.eql?(a))
+    assert_operator(a, :eql?, S("hello"))
+    assert_operator(a, :eql?, a)
   end
 
   def test_gsub
@@ -813,12 +799,11 @@ class TestString < Test::Unit::TestCase
                  S("hello").gsub(/./) { |s| s[0].to_s + S(' ')})
     assert_equal(S("HELL-o"),
                  S("hello").gsub(/(hell)(.)/) { |s| $1.upcase + S('-') + $2 })
+    assert_equal(S("<>h<>e<>l<>l<>o<>"), S("hello").gsub(S(''), S('<\0>')))
 
     a = S("hello")
     a.taint
-    a.untrust
-    assert(a.gsub(/./, S('X')).tainted?)
-    assert(a.gsub(/./, S('X')).untrusted?)
+    assert_predicate(a.gsub(/./, S('X')), :tainted?)
 
     assert_equal("z", "abc".gsub(/./, "a" => "z"), "moved from btest/knownbug")
 
@@ -838,6 +823,11 @@ class TestString < Test::Unit::TestCase
     c.force_encoding Encoding::US_ASCII
 
     assert_equal Encoding::UTF_8, a.gsub(/world/, c).encoding
+
+    assert_equal S("a\u{e9}apos&lt;"), S("a\u{e9}'&lt;").gsub("'", "apos")
+
+    bug9849 = '[ruby-core:62669] [Bug #9849]'
+    assert_equal S("\u{3042 3042 3042}!foo!"), S("\u{3042 3042 3042}/foo/").gsub("/", "!"), bug9849
   end
 
   def test_gsub!
@@ -861,10 +851,8 @@ class TestString < Test::Unit::TestCase
 
     r = S('X')
     r.taint
-    r.untrust
     a.gsub!(/./, r)
-    assert(a.tainted?)
-    assert(a.untrusted?)
+    assert_predicate(a, :tainted?)
 
     a = S("hello")
     assert_nil(a.sub!(S('X'), S('Y')))
@@ -892,9 +880,11 @@ class TestString < Test::Unit::TestCase
 
   def test_hash
     assert_equal(S("hello").hash, S("hello").hash)
-    assert(S("hello").hash != S("helLO").hash)
+    assert_not_equal(S("hello").hash, S("helLO").hash)
     bug4104 = '[ruby-core:33500]'
     assert_not_equal(S("a").hash, S("a\0").hash, bug4104)
+    bug9172 = '[ruby-core:58658] [Bug #9172]'
+    assert_not_equal(S("sub-setter").hash, S("discover").hash, bug9172)
   end
 
   def test_hash_random
@@ -920,10 +910,10 @@ class TestString < Test::Unit::TestCase
   end
 
   def test_include?
-    assert( S("foobar").include?(?f))
-    assert( S("foobar").include?(S("foo")))
-    assert(!S("foobar").include?(S("baz")))
-    assert(!S("foobar").include?(?z))
+    assert_include(S("foobar"), ?f)
+    assert_include(S("foobar"), S("foo"))
+    assert_not_include(S("foobar"), S("baz"))
+    assert_not_include(S("foobar"), ?z)
   end
 
   def test_index
@@ -968,7 +958,7 @@ class TestString < Test::Unit::TestCase
 
   def test_intern
     assert_equal(:koala, S("koala").intern)
-    assert(:koala !=     S("Koala").intern)
+    assert_not_equal(:koala, S("Koala").intern)
   end
 
   def test_length
@@ -1053,11 +1043,9 @@ class TestString < Test::Unit::TestCase
 
     a = S("foo")
     a.taint
-    a.untrust
     b = a.replace(S("xyz"))
     assert_equal(S("xyz"), b)
-    assert(b.tainted?)
-    assert(b.untrusted?)
+    assert_predicate(b, :tainted?)
 
     s = "foo" * 100
     s2 = ("bar" * 100).dup
@@ -1151,11 +1139,19 @@ class TestString < Test::Unit::TestCase
 
     a = S("hello")
     a.taint
-    a.untrust
     res = []
     a.scan(/./) { |w| res << w }
-    assert(res[0].tainted?, '[ruby-core:33338] #4087')
-    assert(res[0].untrusted?, '[ruby-core:33338] #4087')
+    assert_predicate(res[0], :tainted?, '[ruby-core:33338] #4087')
+
+    /h/ =~ a
+    a.scan(/x/)
+    assert_nil($~)
+
+    /h/ =~ a
+    a.scan('x')
+    assert_nil($~)
+
+    assert_equal(3, S("hello hello hello").scan("hello".taint).count(&:tainted?))
   end
 
   def test_size
@@ -1297,14 +1293,6 @@ class TestString < Test::Unit::TestCase
     assert_equal(S("Bar"), a.slice!(S("Bar")))
     assert_equal(S("Foo"), a)
 
-    pre_1_7_1 do
-      a=S("FooBar")
-      assert_nil(a.slice!(S("xyzzy")))
-      assert_equal(S("FooBar"), a)
-      assert_nil(a.slice!(S("plugh")))
-      assert_equal(S("FooBar"), a)
-    end
-
     assert_raise(ArgumentError) { "foo".slice! }
   end
 
@@ -1333,13 +1321,42 @@ class TestString < Test::Unit::TestCase
     assert_equal([], "".split(//, 1))
 
     assert_equal("[2, 3]", [1,2,3].slice!(1,10000).inspect, "moved from btest/knownbug")
+  end
 
+  def test_split_encoding
     bug6206 = '[ruby-dev:45441]'
     Encoding.list.each do |enc|
       next unless enc.ascii_compatible?
       s = S("a:".force_encoding(enc))
       assert_equal([enc]*2, s.split(":", 2).map(&:encoding), bug6206)
     end
+  end
+
+  def test_split_wchar
+    bug8642 = '[ruby-core:56036] [Bug #8642]'
+    [
+     Encoding::UTF_16BE, Encoding::UTF_16LE,
+     Encoding::UTF_32BE, Encoding::UTF_32LE,
+    ].each do |enc|
+      s = S("abc,def".encode(enc))
+      assert_equal(["abc", "def"].map {|c| c.encode(enc)},
+                   s.split(",".encode(enc)),
+                   "#{bug8642} in #{enc.name}")
+    end
+  end
+
+  def test_split_invalid_sequence
+    bug10886 = '[ruby-core:68229] [Bug #10886]'
+    broken = S("\xa1".force_encoding("utf-8"))
+    assert_raise(ArgumentError, bug10886) {
+      S("a,b").split(broken)
+    }
+  end
+
+  def test_split_invalid_argument
+    assert_raise(TypeError) {
+      S("a,b").split(BasicObject.new)
+    }
   end
 
   def test_squeeze
@@ -1410,6 +1427,7 @@ class TestString < Test::Unit::TestCase
     assert_equal(S("HELL-o"),   S("hello").sub(/(hell)(.)/) {
                    |s| $1.upcase + S('-') + $2
                    })
+    assert_equal(S("h<e>llo"),  S("hello").sub('e', S('<\0>')))
 
     assert_equal(S("a\\aba"), S("ababa").sub(/b/, '\\'))
     assert_equal(S("ab\\aba"), S("ababa").sub(/(b)/, '\1\\'))
@@ -1443,10 +1461,8 @@ class TestString < Test::Unit::TestCase
 
     a = S("hello")
     a.taint
-    a.untrust
     x = a.sub(/./, S('X'))
-    assert(x.tainted?)
-    assert(x.untrusted?)
+    assert_predicate(x, :tainted?)
 
     o = Object.new
     def o.to_str; "bar"; end
@@ -1461,6 +1477,12 @@ class TestString < Test::Unit::TestCase
     o = Object.new
     def o.to_s; self; end
     assert_match(/^foo#<Object:0x.*>baz$/, "foobarbaz".sub("bar") { o })
+
+    assert_equal(S("Abc"), S("abc").sub("a", "A"))
+    m = nil
+    assert_equal(S("Abc"), S("abc").sub("a") {m = $~; "A"})
+    assert_equal(S("a"), m[0])
+    assert_equal(/a/, m.regexp)
   end
 
   def test_sub!
@@ -1487,10 +1509,8 @@ class TestString < Test::Unit::TestCase
 
     r = S('X')
     r.taint
-    r.untrust
     a.sub!(/./, r)
-    assert(a.tainted?)
-    assert(a.untrusted?)
+    assert_predicate(a, :tainted?)
   end
 
   def test_succ
@@ -1564,7 +1584,9 @@ class TestString < Test::Unit::TestCase
     n += S("\001")
     assert_equal(16, n.sum(17))
     n[0] = 2.chr
-    assert(15 != n.sum)
+    assert_not_equal(15, n.sum)
+    assert_equal(17, n.sum(0))
+    assert_equal(17, n.sum(-1))
   end
 
   def check_sum(str, bits=16)
@@ -1579,7 +1601,7 @@ class TestString < Test::Unit::TestCase
     assert_equal(294, "abc".sum)
     check_sum("abc")
     check_sum("\x80")
-    0.upto(70) {|bits|
+    -3.upto(70) {|bits|
       check_sum("xyz", bits)
     }
   end
@@ -2010,6 +2032,9 @@ class TestString < Test::Unit::TestCase
       s = S("a:".force_encoding(enc))
       assert_equal([enc]*3, s.partition("|").map(&:encoding), bug6206)
     end
+
+    assert_equal(["\u30E6\u30FC\u30B6", "@", "\u30C9\u30E1.\u30A4\u30F3"],
+      "\u30E6\u30FC\u30B6@\u30C9\u30E1.\u30A4\u30F3".partition(/[@.]/))
   end
 
   def test_rpartition
@@ -2025,10 +2050,19 @@ class TestString < Test::Unit::TestCase
       s = S("a:".force_encoding(enc))
       assert_equal([enc]*3, s.rpartition("|").map(&:encoding), bug6206)
     end
+
+    bug8138 = '[ruby-dev:47183]'
+    assert_equal(["\u30E6\u30FC\u30B6@\u30C9\u30E1", ".", "\u30A4\u30F3"],
+      "\u30E6\u30FC\u30B6@\u30C9\u30E1.\u30A4\u30F3".rpartition(/[@.]/), bug8138)
   end
 
   def test_setter
     assert_raise(TypeError) { $/ = 1 }
+    name = "\u{5206 884c}"
+    assert_separately([], <<-"end;") #    do
+      alias $#{name} $/
+      assert_raise_with_message(TypeError, /\\$#{name}/) { $#{name} = 1 }
+    end;
   end
 
   def test_to_id
@@ -2195,19 +2229,74 @@ class TestString < Test::Unit::TestCase
     assert_equal(u("\x82")+("\u3042"*9), ("\u3042"*10).byteslice(2, 28))
 
     bug7954 = '[ruby-dev:47108]'
-    assert_equal(false, "\u3042".byteslice(0, 2).valid_encoding?)
-    assert_equal(false, ("\u3042"*10).byteslice(0, 20).valid_encoding?)
+    assert_equal(false, "\u3042".byteslice(0, 2).valid_encoding?, bug7954)
+    assert_equal(false, ("\u3042"*10).byteslice(0, 20).valid_encoding?, bug7954)
+  end
+
+  def test_unknown_string_option
+    str = nil
+    assert_nothing_raised(SyntaxError) do
+      eval(%{
+        str = begin"hello"end
+      })
+    end
+    assert_equal "hello", str
+  end
+
+  def test_eq_tilde_can_be_overridden
+    assert_separately([], <<-RUBY)
+      class String
+        undef =~
+        def =~(str)
+          "foo"
+        end
+      end
+
+      assert_equal("foo", "" =~ //)
+    RUBY
+  end
+
+  class Bug9581 < String
+    def =~ re; :foo end
+  end
+
+  def test_regexp_match_subclass
+    s = Bug9581.new("abc")
+    r = /abc/
+    assert_equal(:foo, s =~ r)
+    assert_equal(:foo, s.send(:=~, r))
+    assert_equal(:foo, s.send(:=~, /abc/))
+    assert_equal(:foo, s =~ /abc/, "should not use optimized instruction")
   end
 
   def test_LSHIFT_neary_long_max
     return unless @cls == String
-    assert_ruby_status([], <<-'end;', '[ruby-core:61886] [Bug #9709]')
+    assert_ruby_status([], <<-'end;', '[ruby-core:61886] [Bug #9709]', timeout: 20)
       begin
         a = "a" * 0x4000_0000
         a << "a" * 0x1_0000
       rescue NoMemoryError
       end
     end;
+  end if [0].pack("l!").bytesize < [nil].pack("p").bytesize
+  # enable only when string size range is smaller than memory space
+
+  def test_uplus_minus
+    str = "foo"
+    assert_equal(false, str.frozen?)
+    assert_equal(false, (+str).frozen?)
+    assert_equal(true,  (-str).frozen?)
+
+    assert_equal(str.object_id, (+str).object_id)
+    assert_not_equal(str.object_id, (-str).object_id)
+
+    str = "bar".freeze
+    assert_equal(true,  str.frozen?)
+    assert_equal(false, (+str).frozen?)
+    assert_equal(true,  (-str).frozen?)
+
+    assert_not_equal(str.object_id, (+str).object_id)
+    assert_equal(str.object_id, (-str).object_id)
   end
 end
 

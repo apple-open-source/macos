@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************************
 * Copyright (C) 2008-2016, International Business Machines Corporation and
 * others. All Rights Reserved.
@@ -28,6 +30,7 @@
 #include "unicode/dtptngen.h"
 #include "unicode/udateintervalformat.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 
@@ -1009,7 +1012,7 @@ private:
 
 
     // from calendar field to pattern letter
-    static const UChar fgCalendarFieldToPatternLetter[];
+    static const char16_t fgCalendarFieldToPatternLetter[];
 
 
     /**
@@ -1057,6 +1060,7 @@ DateIntervalFormat::operator!=(const Format& other) const  {
 }
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

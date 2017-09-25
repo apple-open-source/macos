@@ -81,14 +81,14 @@ protected:
     explicit ChildProcess();
     virtual ~ChildProcess();
 
-    void setTerminationTimeout(double seconds) { m_terminationTimeout = seconds; }
+    void setTerminationTimeout(Seconds seconds) { m_terminationTimeout = seconds; }
 
     virtual void initializeProcess(const ChildProcessInitializationParameters&);
     virtual void initializeProcessName(const ChildProcessInitializationParameters&);
     virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&);
     virtual void initializeConnection(IPC::Connection*);
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+#if PLATFORM(MAC)
     static void setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier);
 #endif
 
@@ -120,7 +120,7 @@ private:
 
     // The timeout, in seconds, before this process will be terminated if termination
     // has been enabled. If the timeout is 0 seconds, the process will be terminated immediately.
-    double m_terminationTimeout;
+    Seconds m_terminationTimeout;
 
     // A termination counter; when the counter reaches zero, the process will be terminated
     // after a given period of time.

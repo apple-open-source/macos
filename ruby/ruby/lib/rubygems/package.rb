@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# frozen_string_literal: true
 #--
 # Copyright (C) 2004 Mauricio Julio Fernández Pradier
 # See LICENSE.txt for additional licensing information.
@@ -37,7 +38,7 @@
 #   the_gem.spec # get the spec out of the gem
 #   the_gem.verify # check the gem is OK (contains valid gem specification, contains a not corrupt contents archive)
 #
-# #files are the files in the .gem tar file, not the ruby files in the gem
+# #files are the files in the .gem tar file, not the Ruby files in the gem
 # #extract_files and #contents automatically call #verify
 
 require 'rubygems/security'
@@ -54,10 +55,12 @@ class Gem::Package
   class FormatError < Error
     attr_reader :path
 
-    def initialize message, path = nil
-      @path = path
+    def initialize message, source = nil
+      if source
+        @path = source.path
 
-      message << " in #{path}" if path
+        message = message + " in #{path}" if path
+      end
 
       super message
     end
@@ -79,6 +82,7 @@ class Gem::Package
   # Raised when a tar file is corrupt
 
   class TarInvalidError < Error; end
+
 
   attr_accessor :build_time # :nodoc:
 
@@ -114,19 +118,26 @@ class Gem::Package
   end
 
   ##
-  # Creates a new Gem::Package for the file at +gem+.
+  # Creates a new Gem::Package for the file at +gem+. +gem+ can also be
+  # provided as an IO object.
   #
   # If +gem+ is an existing file in the old format a Gem::Package::Old will be
   # returned.
 
-  def self.new gem
+  def self.new gem, security_policy = nil
+    gem = if gem.is_a?(Gem::Package::Source)
+            gem
+          elsif gem.respond_to? :read
+            Gem::Package::IOSource.new gem
+          else
+            Gem::Package::FileSource.new gem
+          end
+
     return super unless Gem::Package == self
-    return super unless File.exist? gem
+    return super unless gem.present?
 
-    start = File.read gem, 20
-
-    return super unless start
-    return super unless start.include? 'MD5SUM ='
+    return super unless gem.start
+    return super unless gem.start.include? 'MD5SUM ='
 
     Gem::Package::Old.new gem
   end
@@ -134,7 +145,7 @@ class Gem::Package
   ##
   # Creates a new package that will read or write to the file +gem+.
 
-  def initialize gem # :notnew:
+  def initialize gem, security_policy # :notnew:
     @gem = gem
 
     @build_time      = Time.now
@@ -142,10 +153,17 @@ class Gem::Package
     @contents        = nil
     @digests         = Hash.new { |h, algorithm| h[algorithm] = {} }
     @files           = nil
-    @security_policy = nil
+    @security_policy = security_policy
     @signatures      = {}
     @signer          = nil
     @spec            = nil
+  end
+
+  ##
+  # Copies this package to +path+ (if possible)
+
+  def copy_to path
+    FileUtils.cp @gem.path, path unless File.exist? path
   end
 
   ##
@@ -190,7 +208,11 @@ class Gem::Package
 
   def add_files tar # :nodoc:
     @spec.files.each do |file|
-      stat = File.stat file
+      stat = File.lstat file
+
+      if stat.symlink?
+        tar.add_symlink file, File.readlink(file), stat.mode
+      end
 
       next unless stat.file?
 
@@ -227,7 +249,7 @@ class Gem::Package
 
     setup_signer
 
-    open @gem, 'wb' do |gem_io|
+    @gem.with_write_io do |gem_io|
       Gem::Package::TarWriter.new gem_io do |gem|
         add_metadata gem
         add_contents gem
@@ -255,7 +277,7 @@ EOM
 
     @contents = []
 
-    open @gem, 'rb' do |io|
+    @gem.with_read_io do |io|
       gem_tar = Gem::Package::TarReader.new io
 
       gem_tar.each do |entry|
@@ -280,11 +302,16 @@ EOM
     algorithms = if @checksums then
                    @checksums.keys
                  else
-                   [Gem::Security::DIGEST_NAME]
+                   [Gem::Security::DIGEST_NAME].compact
                  end
 
     algorithms.each do |algorithm|
-      digester = OpenSSL::Digest.new algorithm
+      digester =
+        if defined?(OpenSSL::Digest) then
+          OpenSSL::Digest.new algorithm
+        else
+          Digest.const_get(algorithm).new
+        end
 
       digester << entry.read(16384) until entry.eof?
 
@@ -298,19 +325,22 @@ EOM
 
   ##
   # Extracts the files in this package into +destination_dir+
+  #
+  # If +pattern+ is specified, only entries matching that glob will be
+  # extracted.
 
-  def extract_files destination_dir
+  def extract_files destination_dir, pattern = "*"
     verify unless @spec
 
     FileUtils.mkdir_p destination_dir
 
-    open @gem, 'rb' do |io|
+    @gem.with_read_io do |io|
       reader = Gem::Package::TarReader.new io
 
       reader.each do |entry|
         next unless entry.full_name == 'data.tar.gz'
 
-        extract_tar_gz entry, destination_dir
+        extract_tar_gz entry, destination_dir, pattern
 
         return # ignore further entries
       end
@@ -324,21 +354,38 @@ EOM
   # If an entry in the archive contains a relative path above
   # +destination_dir+ or an absolute path is encountered an exception is
   # raised.
+  #
+  # If +pattern+ is specified, only entries matching that glob will be
+  # extracted.
 
-  def extract_tar_gz io, destination_dir # :nodoc:
+  def extract_tar_gz io, destination_dir, pattern = "*" # :nodoc:
     open_tar_gz io do |tar|
       tar.each do |entry|
+        next unless File.fnmatch pattern, entry.full_name, File::FNM_DOTMATCH
+
         destination = install_location entry.full_name, destination_dir
 
         FileUtils.rm_rf destination
 
-        FileUtils.mkdir_p File.dirname destination
+        mkdir_options = {}
+        mkdir_options[:mode] = entry.header.mode if entry.directory?
+        mkdir =
+          if entry.directory? then
+            destination
+          else
+            File.dirname destination
+          end
 
-        open destination, 'wb', entry.header.mode do |out|
+        FileUtils.mkdir_p mkdir, mkdir_options
+
+        open destination, 'wb' do |out|
           out.write entry.read
-        end
+          FileUtils.chmod entry.header.mode, destination
+        end if entry.file?
 
-        say destination if Gem.configuration.really_verbose
+        File.symlink(entry.header.linkname, destination) if entry.symlink?
+
+        verbose destination
       end
     end
   end
@@ -369,6 +416,7 @@ EOM
 
     destination_dir = File.realpath destination_dir if
       File.respond_to? :realpath
+    destination_dir = File.expand_path destination_dir
 
     destination = File.join destination_dir, filename
     destination = File.expand_path destination
@@ -428,12 +476,13 @@ EOM
   # certificate and key are not present only checksum generation is set up.
 
   def setup_signer
+    passphrase = ENV['GEM_PRIVATE_KEY_PASSPHRASE']
     if @spec.signing_key then
-      @signer = Gem::Security::Signer.new @spec.signing_key, @spec.cert_chain
+      @signer = Gem::Security::Signer.new @spec.signing_key, @spec.cert_chain, passphrase
       @spec.signing_key = nil
       @spec.cert_chain = @signer.cert_chain.map { |cert| cert.to_s }
     else
-      @signer = Gem::Security::Signer.new nil, nil
+      @signer = Gem::Security::Signer.new nil, nil, passphrase
       @spec.cert_chain = @signer.cert_chain.map { |cert| cert.to_pem } if
         @signer.cert_chain
     end
@@ -466,7 +515,7 @@ EOM
     @files     = []
     @spec      = nil
 
-    open @gem, 'rb' do |io|
+    @gem.with_read_io do |io|
       Gem::Package::TarReader.new io do |reader|
         read_checksums reader
 
@@ -510,27 +559,38 @@ EOM
   end
 
   ##
+  # Verifies +entry+ in a .gem file.
+
+  def verify_entry entry
+    file_name = entry.full_name
+    @files << file_name
+
+    case file_name
+    when /\.sig$/ then
+      @signatures[$`] = entry.read if @security_policy
+      return
+    else
+      digest entry
+    end
+
+    case file_name
+    when /^metadata(.gz)?$/ then
+      load_spec entry
+    when 'data.tar.gz' then
+      verify_gz entry
+    end
+  rescue => e
+    message = "package is corrupt, exception while verifying: " +
+              "#{e.message} (#{e.class})"
+    raise Gem::Package::FormatError.new message, @gem
+  end
+
+  ##
   # Verifies the files of the +gem+
 
   def verify_files gem
     gem.each do |entry|
-      file_name = entry.full_name
-      @files << file_name
-
-      case file_name
-      when /\.sig$/ then
-        @signatures[$`] = entry.read if @security_policy
-        next
-      else
-        digest entry
-      end
-
-      case file_name
-      when /^metadata(.gz)?$/ then
-        load_spec entry
-      when 'data.tar.gz' then
-        verify_gz entry
-      end
+      verify_entry entry
     end
 
     unless @spec then
@@ -557,9 +617,11 @@ EOM
 end
 
 require 'rubygems/package/digest_io'
+require 'rubygems/package/source'
+require 'rubygems/package/file_source'
+require 'rubygems/package/io_source'
 require 'rubygems/package/old'
 require 'rubygems/package/tar_header'
 require 'rubygems/package/tar_reader'
 require 'rubygems/package/tar_reader/entry'
 require 'rubygems/package/tar_writer'
-

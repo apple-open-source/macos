@@ -10,6 +10,100 @@
 
 #include "rubysocket.h"
 
+static VALUE sym_wait_writable;
+
+static VALUE sock_s_unpack_sockaddr_in(VALUE, VALUE);
+
+void
+rsock_sys_fail_host_port(const char *mesg, VALUE host, VALUE port)
+{
+    rsock_syserr_fail_host_port(errno, mesg, host, port);
+}
+
+void
+rsock_syserr_fail_host_port(int err, const char *mesg, VALUE host, VALUE port)
+{
+    VALUE message;
+
+    message = rb_sprintf("%s for %+"PRIsVALUE" port % "PRIsVALUE"",
+			 mesg, host, port);
+
+    rb_syserr_fail_str(err, message);
+}
+
+void
+rsock_sys_fail_path(const char *mesg, VALUE path)
+{
+    rsock_syserr_fail_path(errno, mesg, path);
+}
+
+void
+rsock_syserr_fail_path(int err, const char *mesg, VALUE path)
+{
+    VALUE message;
+
+    if (RB_TYPE_P(path, T_STRING)) {
+	message = rb_sprintf("%s for % "PRIsVALUE"", mesg, path);
+	rb_syserr_fail_str(err, message);
+    }
+    else {
+	rb_syserr_fail(err, mesg);
+    }
+}
+
+void
+rsock_sys_fail_sockaddr(const char *mesg, struct sockaddr *addr, socklen_t len)
+{
+    rsock_syserr_fail_sockaddr(errno, mesg, addr, len);
+}
+
+void
+rsock_syserr_fail_sockaddr(int err, const char *mesg, struct sockaddr *addr, socklen_t len)
+{
+    VALUE rai;
+
+    rai = rsock_addrinfo_new(addr, len, PF_UNSPEC, 0, 0, Qnil, Qnil);
+
+    rsock_syserr_fail_raddrinfo(err, mesg, rai);
+}
+
+void
+rsock_sys_fail_raddrinfo(const char *mesg, VALUE rai)
+{
+    rsock_syserr_fail_raddrinfo(errno, mesg, rai);
+}
+
+void
+rsock_syserr_fail_raddrinfo(int err, const char *mesg, VALUE rai)
+{
+    VALUE str, message;
+
+    str = rsock_addrinfo_inspect_sockaddr(rai);
+    message = rb_sprintf("%s for %"PRIsVALUE"", mesg, str);
+
+    rb_syserr_fail_str(err, message);
+}
+
+void
+rsock_sys_fail_raddrinfo_or_sockaddr(const char *mesg, VALUE addr, VALUE rai)
+{
+    rsock_syserr_fail_raddrinfo_or_sockaddr(errno, mesg, addr, rai);
+}
+
+void
+rsock_syserr_fail_raddrinfo_or_sockaddr(int err, const char *mesg, VALUE addr, VALUE rai)
+{
+    if (NIL_P(rai)) {
+        StringValue(addr);
+
+	rsock_syserr_fail_sockaddr(err, mesg,
+            (struct sockaddr *)RSTRING_PTR(addr),
+            (socklen_t)RSTRING_LEN(addr)); /* overflow should be checked already */
+    }
+    else
+	rsock_syserr_fail_raddrinfo(err, mesg, rai);
+}
+
 static void
 setup_domain_and_type(VALUE domain, int *dv, VALUE type, int *tv)
 {
@@ -46,7 +140,6 @@ sock_initialize(int argc, VALUE *argv, VALUE sock)
     if (NIL_P(protocol))
         protocol = INT2FIX(0);
 
-    rb_secure(3);
     setup_domain_and_type(domain, &d, type, &t);
     fd = rsock_socket(d, t, NUM2INT(protocol));
     if (fd < 0) rb_sys_fail("socket(2)");
@@ -58,7 +151,7 @@ sock_initialize(int argc, VALUE *argv, VALUE sock)
 static VALUE
 io_call_close(VALUE io)
 {
-    return rb_funcall(io, rb_intern("close"), 0, 0);
+    return rb_funcallv(io, rb_intern("close"), 0, 0);
 }
 
 static VALUE
@@ -76,16 +169,29 @@ pair_yield(VALUE pair)
 
 #if defined HAVE_SOCKETPAIR
 
+#ifdef SOCK_CLOEXEC
 static int
 rsock_socketpair0(int domain, int type, int protocol, int sv[2])
 {
     int ret;
+    static int cloexec_state = -1; /* <0: unknown, 0: ignored, >0: working */
 
-#ifdef SOCK_CLOEXEC
-    static int try_sock_cloexec = 1;
-    if (try_sock_cloexec) {
+    if (cloexec_state > 0) { /* common path, if SOCK_CLOEXEC is defined */
         ret = socketpair(domain, type|SOCK_CLOEXEC, protocol, sv);
-        if (ret == -1 && errno == EINVAL) {
+        if (ret == 0 && (sv[0] <= 2 || sv[1] <= 2)) {
+            goto fix_cloexec; /* highly unlikely */
+        }
+        goto update_max_fd;
+    }
+    else if (cloexec_state < 0) { /* usually runs once only for detection */
+        ret = socketpair(domain, type|SOCK_CLOEXEC, protocol, sv);
+        if (ret == 0) {
+            cloexec_state = rsock_detect_cloexec(sv[0]);
+            if ((cloexec_state == 0) || (sv[0] <= 2 || sv[1] <= 2))
+                goto fix_cloexec;
+            goto update_max_fd;
+        }
+        else if (ret == -1 && errno == EINVAL) {
             /* SOCK_CLOEXEC is available since Linux 2.6.27.  Linux 2.6.18 fails with EINVAL */
             ret = socketpair(domain, type, protocol, sv);
             if (ret != -1) {
@@ -93,26 +199,41 @@ rsock_socketpair0(int domain, int type, int protocol, int sv[2])
                  * So disable SOCK_CLOEXEC only if socketpair() succeeds without SOCK_CLOEXEC.
                  * Ex. Socket.pair(:UNIX, 0xff) fails with EINVAL.
                  */
-                try_sock_cloexec = 0;
+                cloexec_state = 0;
             }
         }
     }
-    else {
+    else { /* cloexec_state == 0 */
         ret = socketpair(domain, type, protocol, sv);
     }
-#else
-    ret = socketpair(domain, type, protocol, sv);
-#endif
-
     if (ret == -1) {
         return -1;
     }
 
-    rb_fd_fix_cloexec(sv[0]);
-    rb_fd_fix_cloexec(sv[1]);
+fix_cloexec:
+    rb_maygvl_fd_fix_cloexec(sv[0]);
+    rb_maygvl_fd_fix_cloexec(sv[1]);
+
+update_max_fd:
+    rb_update_max_fd(sv[0]);
+    rb_update_max_fd(sv[1]);
 
     return ret;
 }
+#else /* !SOCK_CLOEXEC */
+static int
+rsock_socketpair0(int domain, int type, int protocol, int sv[2])
+{
+    int ret = socketpair(domain, type, protocol, sv);
+
+    if (ret == -1)
+	return -1;
+
+    rb_fd_fix_cloexec(sv[0]);
+    rb_fd_fix_cloexec(sv[1]);
+    return ret;
+}
+#endif /* !SOCK_CLOEXEC */
 
 static int
 rsock_socketpair(int domain, int type, int protocol, int sv[2])
@@ -120,8 +241,7 @@ rsock_socketpair(int domain, int type, int protocol, int sv[2])
     int ret;
 
     ret = rsock_socketpair0(domain, type, protocol, sv);
-    if (ret < 0 && (errno == EMFILE || errno == ENFILE)) {
-        rb_gc();
+    if (ret < 0 && rb_gc_for_fd(errno)) {
         ret = rsock_socketpair0(domain, type, protocol, sv);
     }
 
@@ -141,6 +261,14 @@ rsock_socketpair(int domain, int type, int protocol, int sv[2])
  *
  * _protocol_ should be a protocol defined in the domain,
  * defaults to 0 for the domain.
+ *
+ *   s1, s2 = Socket.pair(:UNIX, :STREAM, 0)
+ *   s1.send "a", 0
+ *   s1.send "b", 0
+ *   s1.close
+ *   p s2.recv(10) #=> "ab"
+ *   p s2.recv(10) #=> ""
+ *   p s2.recv(10) #=> ""
  *
  *   s1, s2 = Socket.pair(:UNIX, :DGRAM, 0)
  *   s1.send "a", 0
@@ -167,8 +295,6 @@ rsock_sock_s_socketpair(int argc, VALUE *argv, VALUE klass)
     if (ret < 0) {
 	rb_sys_fail("socketpair(2)");
     }
-    rb_fd_fix_cloexec(sp[0]);
-    rb_fd_fix_cloexec(sp[1]);
 
     s1 = rsock_init_sock(rb_obj_alloc(klass), sp[0]);
     s2 = rsock_init_sock(rb_obj_alloc(klass), sp[1]);
@@ -184,7 +310,7 @@ rsock_sock_s_socketpair(int argc, VALUE *argv, VALUE klass)
 
 /*
  * call-seq:
- * 	socket.connect(remote_sockaddr) => 0
+ *   socket.connect(remote_sockaddr) => 0
  *
  * Requests a connection to be made on the given +remote_sockaddr+. Returns 0 if
  * successful, otherwise an exception is raised.
@@ -193,14 +319,14 @@ rsock_sock_s_socketpair(int argc, VALUE *argv, VALUE klass)
  * * +remote_sockaddr+ - the +struct+ sockaddr contained in a string or Addrinfo object
  *
  * === Example:
- * 	# Pull down Google's web page
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 80, 'www.google.com' )
- * 	socket.connect( sockaddr )
- * 	socket.write( "GET / HTTP/1.0\r\n\r\n" )
- * 	results = socket.read
+ *   # Pull down Google's web page
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 80, 'www.google.com' )
+ *   socket.connect( sockaddr )
+ *   socket.write( "GET / HTTP/1.0\r\n\r\n" )
+ *   results = socket.read
  *
  * === Unix-based Exceptions
  * On unix-based systems the following system exceptions may be raised if
@@ -296,78 +422,49 @@ rsock_sock_s_socketpair(int argc, VALUE *argv, VALUE klass)
 static VALUE
 sock_connect(VALUE sock, VALUE addr)
 {
+    VALUE rai;
     rb_io_t *fptr;
     int fd, n;
 
-    SockAddrStringValue(addr);
+    SockAddrStringValueWithAddrinfo(addr, rai);
     addr = rb_str_new4(addr);
     GetOpenFile(sock, fptr);
     fd = fptr->fd;
-    n = rsock_connect(fd, (struct sockaddr*)RSTRING_PTR(addr), RSTRING_LENINT(addr), 0);
+    n = rsock_connect(fd, (struct sockaddr*)RSTRING_PTR(addr), RSTRING_SOCKLEN(addr), 0);
     if (n < 0) {
-	rb_sys_fail("connect(2)");
+	rsock_sys_fail_raddrinfo_or_sockaddr("connect(2)", addr, rai);
     }
 
     return INT2FIX(n);
 }
 
-/*
- * call-seq:
- * 	socket.connect_nonblock(remote_sockaddr) => 0
- *
- * Requests a connection to be made on the given +remote_sockaddr+ after
- * O_NONBLOCK is set for the underlying file descriptor.
- * Returns 0 if successful, otherwise an exception is raised.
- *
- * === Parameter
- * * +remote_sockaddr+ - the +struct+ sockaddr contained in a string or Addrinfo object
- *
- * === Example:
- * 	# Pull down Google's web page
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
- * 	sockaddr = Socket.sockaddr_in(80, 'www.google.com')
- * 	begin # emulate blocking connect
- * 	  socket.connect_nonblock(sockaddr)
- * 	rescue IO::WaitWritable
- * 	  IO.select(nil, [socket]) # wait 3-way handshake completion
- * 	  begin
- * 	    socket.connect_nonblock(sockaddr) # check connection failure
- * 	  rescue Errno::EISCONN
- * 	  end
- * 	end
- * 	socket.write("GET / HTTP/1.0\r\n\r\n")
- * 	results = socket.read
- *
- * Refer to Socket#connect for the exceptions that may be thrown if the call
- * to _connect_nonblock_ fails.
- *
- * Socket#connect_nonblock may raise any error corresponding to connect(2) failure,
- * including Errno::EINPROGRESS.
- *
- * If the exception is Errno::EINPROGRESS,
- * it is extended by IO::WaitWritable.
- * So IO::WaitWritable can be used to rescue the exceptions for retrying connect_nonblock.
- *
- * === See
- * * Socket#connect
- */
+/* :nodoc: */
 static VALUE
-sock_connect_nonblock(VALUE sock, VALUE addr)
+sock_connect_nonblock(VALUE sock, VALUE addr, VALUE ex)
 {
+    VALUE rai;
     rb_io_t *fptr;
     int n;
 
-    SockAddrStringValue(addr);
+    SockAddrStringValueWithAddrinfo(addr, rai);
     addr = rb_str_new4(addr);
     GetOpenFile(sock, fptr);
     rb_io_set_nonblock(fptr);
-    n = connect(fptr->fd, (struct sockaddr*)RSTRING_PTR(addr), RSTRING_LENINT(addr));
+    n = connect(fptr->fd, (struct sockaddr*)RSTRING_PTR(addr), RSTRING_SOCKLEN(addr));
     if (n < 0) {
-        if (errno == EINPROGRESS)
-            rb_mod_sys_fail(rb_mWaitWritable, "connect(2) would block");
-	rb_sys_fail("connect(2)");
+	int e = errno;
+	if (e == EINPROGRESS) {
+            if (ex == Qfalse) {
+                return sym_wait_writable;
+            }
+            rb_readwrite_syserr_fail(RB_IO_WAIT_WRITABLE, e, "connect(2) would block");
+	}
+	if (e == EISCONN) {
+            if (ex == Qfalse) {
+                return INT2FIX(0);
+            }
+	}
+	rsock_syserr_fail_raddrinfo_or_sockaddr(e, "connect(2)", addr, rai);
     }
 
     return INT2FIX(n);
@@ -375,7 +472,7 @@ sock_connect_nonblock(VALUE sock, VALUE addr)
 
 /*
  * call-seq:
- * 	socket.bind(local_sockaddr) => 0
+ *   socket.bind(local_sockaddr) => 0
  *
  * Binds to the given local address.
  *
@@ -383,18 +480,18 @@ sock_connect_nonblock(VALUE sock, VALUE addr)
  * * +local_sockaddr+ - the +struct+ sockaddr contained in a string or an Addrinfo object
  *
  * === Example
- * 	require 'socket'
+ *   require 'socket'
  *
- * 	# use Addrinfo
- * 	socket = Socket.new(:INET, :STREAM, 0)
- * 	socket.bind(Addrinfo.tcp("127.0.0.1", 2222))
- * 	p socket.local_address #=> #<Addrinfo: 127.0.0.1:2222 TCP>
+ *   # use Addrinfo
+ *   socket = Socket.new(:INET, :STREAM, 0)
+ *   socket.bind(Addrinfo.tcp("127.0.0.1", 2222))
+ *   p socket.local_address #=> #<Addrinfo: 127.0.0.1:2222 TCP>
  *
- * 	# use struct sockaddr
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
- * 	socket.bind( sockaddr )
+ *   # use struct sockaddr
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ *   socket.bind( sockaddr )
  *
  * === Unix-based Exceptions
  * On unix-based based systems the following system exceptions may be raised if
@@ -462,19 +559,20 @@ sock_connect_nonblock(VALUE sock, VALUE addr)
 static VALUE
 sock_bind(VALUE sock, VALUE addr)
 {
+    VALUE rai;
     rb_io_t *fptr;
 
-    SockAddrStringValue(addr);
+    SockAddrStringValueWithAddrinfo(addr, rai);
     GetOpenFile(sock, fptr);
-    if (bind(fptr->fd, (struct sockaddr*)RSTRING_PTR(addr), RSTRING_LENINT(addr)) < 0)
-	rb_sys_fail("bind(2)");
+    if (bind(fptr->fd, (struct sockaddr*)RSTRING_PTR(addr), RSTRING_SOCKLEN(addr)) < 0)
+	rsock_sys_fail_raddrinfo_or_sockaddr("bind(2)", addr, rai);
 
     return INT2FIX(0);
 }
 
 /*
  * call-seq:
- * 	socket.listen( int ) => 0
+ *   socket.listen( int ) => 0
  *
  * Listens for connections, using the specified +int+ as the backlog. A call
  * to _listen_ only applies if the +socket+ is of type SOCK_STREAM or
@@ -484,18 +582,18 @@ sock_bind(VALUE sock, VALUE addr)
  * * +backlog+ - the maximum length of the queue for pending connections.
  *
  * === Example 1
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
- * 	socket.bind( sockaddr )
- * 	socket.listen( 5 )
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ *   socket.bind( sockaddr )
+ *   socket.listen( 5 )
  *
  * === Example 2 (listening on an arbitrary port, unix-based systems only):
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	socket.listen( 1 )
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   socket.listen( 1 )
  *
  * === Unix-based Exceptions
  * On unix based systems the above will work because a new +sockaddr+ struct
@@ -548,7 +646,6 @@ rsock_sock_listen(VALUE sock, VALUE log)
     rb_io_t *fptr;
     int backlog;
 
-    rb_secure(4);
     backlog = NUM2INT(log);
     GetOpenFile(sock, fptr);
     if (listen(fptr->fd, backlog) < 0)
@@ -559,8 +656,8 @@ rsock_sock_listen(VALUE sock, VALUE log)
 
 /*
  * call-seq:
- * 	socket.recvfrom(maxlen) => [mesg, sender_addrinfo]
- * 	socket.recvfrom(maxlen, flags) => [mesg, sender_addrinfo]
+ *   socket.recvfrom(maxlen) => [mesg, sender_addrinfo]
+ *   socket.recvfrom(maxlen, flags) => [mesg, sender_addrinfo]
  *
  * Receives up to _maxlen_ bytes from +socket+. _flags_ is zero or more
  * of the +MSG_+ options. The first element of the results, _mesg_, is the data
@@ -572,27 +669,27 @@ rsock_sock_listen(VALUE sock, VALUE log)
  * * +flags+ - zero or more of the +MSG_+ options
  *
  * === Example
- * 	# In one file, start this first
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
- * 	socket.bind( sockaddr )
- * 	socket.listen( 5 )
- * 	client, client_addrinfo = socket.accept
- * 	data = client.recvfrom( 20 )[0].chomp
- * 	puts "I only received 20 bytes '#{data}'"
- * 	sleep 1
- * 	socket.close
+ *   # In one file, start this first
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ *   socket.bind( sockaddr )
+ *   socket.listen( 5 )
+ *   client, client_addrinfo = socket.accept
+ *   data = client.recvfrom( 20 )[0].chomp
+ *   puts "I only received 20 bytes '#{data}'"
+ *   sleep 1
+ *   socket.close
  *
- * 	# In another file, start this second
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
- * 	socket.connect( sockaddr )
- * 	socket.puts "Watch this get cut short!"
- * 	socket.close
+ *   # In another file, start this second
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ *   socket.connect( sockaddr )
+ *   socket.puts "Watch this get cut short!"
+ *   socket.close
  *
  * === Unix-based Exceptions
  * On unix-based based systems the following system exceptions may be raised if the
@@ -668,72 +765,11 @@ sock_recvfrom(int argc, VALUE *argv, VALUE sock)
     return rsock_s_recvfrom(sock, argc, argv, RECV_SOCKET);
 }
 
-/*
- * call-seq:
- * 	socket.recvfrom_nonblock(maxlen) => [mesg, sender_addrinfo]
- * 	socket.recvfrom_nonblock(maxlen, flags) => [mesg, sender_addrinfo]
- *
- * Receives up to _maxlen_ bytes from +socket+ using recvfrom(2) after
- * O_NONBLOCK is set for the underlying file descriptor.
- * _flags_ is zero or more of the +MSG_+ options.
- * The first element of the results, _mesg_, is the data received.
- * The second element, _sender_addrinfo_, contains protocol-specific address
- * information of the sender.
- *
- * When recvfrom(2) returns 0, Socket#recvfrom_nonblock returns
- * an empty string as data.
- * The meaning depends on the socket: EOF on TCP, empty packet on UDP, etc.
- *
- * === Parameters
- * * +maxlen+ - the maximum number of bytes to receive from the socket
- * * +flags+ - zero or more of the +MSG_+ options
- *
- * === Example
- * 	# In one file, start this first
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
- * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
- * 	socket.bind(sockaddr)
- * 	socket.listen(5)
- * 	client, client_addrinfo = socket.accept
- * 	begin # emulate blocking recvfrom
- * 	  pair = client.recvfrom_nonblock(20)
- * 	rescue IO::WaitReadable
- * 	  IO.select([client])
- * 	  retry
- * 	end
- * 	data = pair[0].chomp
- * 	puts "I only received 20 bytes '#{data}'"
- * 	sleep 1
- * 	socket.close
- *
- * 	# In another file, start this second
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
- * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
- * 	socket.connect(sockaddr)
- * 	socket.puts "Watch this get cut short!"
- * 	socket.close
- *
- * Refer to Socket#recvfrom for the exceptions that may be thrown if the call
- * to _recvfrom_nonblock_ fails.
- *
- * Socket#recvfrom_nonblock may raise any error corresponding to recvfrom(2) failure,
- * including Errno::EWOULDBLOCK.
- *
- * If the exception is Errno::EWOULDBLOCK or Errno::AGAIN,
- * it is extended by IO::WaitReadable.
- * So IO::WaitReadable can be used to rescue the exceptions for retrying recvfrom_nonblock.
- *
- * === See
- * * Socket#recvfrom
- */
+/* :nodoc: */
 static VALUE
-sock_recvfrom_nonblock(int argc, VALUE *argv, VALUE sock)
+sock_recvfrom_nonblock(VALUE sock, VALUE len, VALUE flg, VALUE str, VALUE ex)
 {
-    return rsock_s_recvfrom_nonblock(sock, argc, argv, RECV_SOCKET);
+    return rsock_s_recvfrom_nonblock(sock, len, flg, str, ex, RECV_SOCKET);
 }
 
 /*
@@ -755,110 +791,64 @@ sock_accept(VALUE sock)
 {
     rb_io_t *fptr;
     VALUE sock2;
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
     socklen_t len = (socklen_t)sizeof buf;
 
     GetOpenFile(sock, fptr);
-    sock2 = rsock_s_accept(rb_cSocket,fptr->fd,(struct sockaddr*)&buf,&len);
+    sock2 = rsock_s_accept(rb_cSocket,fptr->fd,&buf.addr,&len);
 
-    return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, (struct sockaddr*)&buf, len));
+    return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, &buf.addr, len));
 }
 
-/*
- * call-seq:
- * 	socket.accept_nonblock => [client_socket, client_addrinfo]
- *
- * Accepts an incoming connection using accept(2) after
- * O_NONBLOCK is set for the underlying file descriptor.
- * It returns an array containing the accepted socket
- * for the incoming connection, _client_socket_,
- * and an Addrinfo, _client_addrinfo_.
- *
- * === Example
- * 	# In one script, start this first
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
- * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
- * 	socket.bind(sockaddr)
- * 	socket.listen(5)
- * 	begin # emulate blocking accept
- * 	  client_socket, client_addrinfo = socket.accept_nonblock
- * 	rescue IO::WaitReadable, Errno::EINTR
- * 	  IO.select([socket])
- * 	  retry
- * 	end
- * 	puts "The client said, '#{client_socket.readline.chomp}'"
- * 	client_socket.puts "Hello from script one!"
- * 	socket.close
- *
- * 	# In another script, start this second
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
- * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
- * 	socket.connect(sockaddr)
- * 	socket.puts "Hello from script 2."
- * 	puts "The server said, '#{socket.readline.chomp}'"
- * 	socket.close
- *
- * Refer to Socket#accept for the exceptions that may be thrown if the call
- * to _accept_nonblock_ fails.
- *
- * Socket#accept_nonblock may raise any error corresponding to accept(2) failure,
- * including Errno::EWOULDBLOCK.
- *
- * If the exception is Errno::EWOULDBLOCK, Errno::AGAIN, Errno::ECONNABORTED or Errno::EPROTO,
- * it is extended by IO::WaitReadable.
- * So IO::WaitReadable can be used to rescue the exceptions for retrying accept_nonblock.
- *
- * === See
- * * Socket#accept
- */
+/* :nodoc: */
 static VALUE
-sock_accept_nonblock(VALUE sock)
+sock_accept_nonblock(VALUE sock, VALUE ex)
 {
     rb_io_t *fptr;
     VALUE sock2;
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
+    struct sockaddr *addr = &buf.addr;
     socklen_t len = (socklen_t)sizeof buf;
 
     GetOpenFile(sock, fptr);
-    sock2 = rsock_s_accept_nonblock(rb_cSocket, fptr, (struct sockaddr *)&buf, &len);
-    return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, (struct sockaddr*)&buf, len));
+    sock2 = rsock_s_accept_nonblock(rb_cSocket, ex, fptr, addr, &len);
+
+    if (SYMBOL_P(sock2)) /* :wait_readable */
+	return sock2;
+    return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, &buf.addr, len));
 }
 
 /*
  * call-seq:
- * 	socket.sysaccept => [client_socket_fd, client_addrinfo]
+ *   socket.sysaccept => [client_socket_fd, client_addrinfo]
  *
  * Accepts an incoming connection returning an array containing the (integer)
  * file descriptor for the incoming connection, _client_socket_fd_,
  * and an Addrinfo, _client_addrinfo_.
  *
  * === Example
- * 	# In one script, start this first
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
- * 	socket.bind( sockaddr )
- * 	socket.listen( 5 )
- * 	client_fd, client_addrinfo = socket.sysaccept
- * 	client_socket = Socket.for_fd( client_fd )
- * 	puts "The client said, '#{client_socket.readline.chomp}'"
- * 	client_socket.puts "Hello from script one!"
- * 	socket.close
+ *   # In one script, start this first
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ *   socket.bind( sockaddr )
+ *   socket.listen( 5 )
+ *   client_fd, client_addrinfo = socket.sysaccept
+ *   client_socket = Socket.for_fd( client_fd )
+ *   puts "The client said, '#{client_socket.readline.chomp}'"
+ *   client_socket.puts "Hello from script one!"
+ *   socket.close
  *
- * 	# In another script, start this second
- * 	require 'socket'
- * 	include Socket::Constants
- * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
- * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
- * 	socket.connect( sockaddr )
- * 	socket.puts "Hello from script 2."
- * 	puts "The server said, '#{socket.readline.chomp}'"
- * 	socket.close
+ *   # In another script, start this second
+ *   require 'socket'
+ *   include Socket::Constants
+ *   socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ *   sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ *   socket.connect( sockaddr )
+ *   socket.puts "Hello from script 2."
+ *   puts "The server said, '#{socket.readline.chomp}'"
+ *   socket.close
  *
  * Refer to Socket#accept for the exceptions that may be thrown if the call
  * to _sysaccept_ fails.
@@ -871,13 +861,13 @@ sock_sysaccept(VALUE sock)
 {
     rb_io_t *fptr;
     VALUE sock2;
-    struct sockaddr_storage buf;
+    union_sockaddr buf;
     socklen_t len = (socklen_t)sizeof buf;
 
     GetOpenFile(sock, fptr);
-    sock2 = rsock_s_accept(0,fptr->fd,(struct sockaddr*)&buf,&len);
+    sock2 = rsock_s_accept(0,fptr->fd,&buf.addr,&len);
 
-    return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, (struct sockaddr*)&buf, len));
+    return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, &buf.addr, len));
 }
 
 #ifdef HAVE_GETHOSTNAME
@@ -895,17 +885,35 @@ sock_sysaccept(VALUE sock)
 static VALUE
 sock_gethostname(VALUE obj)
 {
-#ifndef HOST_NAME_MAX
-#  define HOST_NAME_MAX 1024
+#if defined(NI_MAXHOST)
+#  define RUBY_MAX_HOST_NAME_LEN NI_MAXHOST
+#elif defined(HOST_NAME_MAX)
+#  define RUBY_MAX_HOST_NAME_LEN HOST_NAME_MAX
+#else
+#  define RUBY_MAX_HOST_NAME_LEN 1024
 #endif
-    char buf[HOST_NAME_MAX+1];
 
-    rb_secure(3);
-    if (gethostname(buf, (int)sizeof buf - 1) < 0)
-	rb_sys_fail("gethostname");
+    long len = RUBY_MAX_HOST_NAME_LEN;
+    VALUE name;
 
-    buf[sizeof buf - 1] = '\0';
-    return rb_str_new2(buf);
+    name = rb_str_new(0, len);
+    while (gethostname(RSTRING_PTR(name), len) < 0) {
+	int e = errno;
+	switch (e) {
+	  case ENAMETOOLONG:
+#ifdef __linux__
+	  case EINVAL:
+	    /* glibc before version 2.1 uses EINVAL instead of ENAMETOOLONG */
+#endif
+	    break;
+	  default:
+	    rb_syserr_fail(e, "gethostname(3)");
+	}
+	rb_str_modify_expand(name, len);
+	len += len;
+    }
+    rb_str_resize(name, strlen(RSTRING_PTR(name)));
+    return name;
 }
 #else
 #ifdef HAVE_UNAME
@@ -917,7 +925,6 @@ sock_gethostname(VALUE obj)
 {
     struct utsname un;
 
-    rb_secure(3);
     uname(&un);
     return rb_str_new2(un.nodename);
 }
@@ -927,7 +934,7 @@ sock_gethostname(VALUE obj)
 #endif
 
 static VALUE
-make_addrinfo(struct addrinfo *res0, int norevlookup)
+make_addrinfo(struct rb_addrinfo *res0, int norevlookup)
 {
     VALUE base, ary;
     struct addrinfo *res;
@@ -936,10 +943,10 @@ make_addrinfo(struct addrinfo *res0, int norevlookup)
 	rb_raise(rb_eSocket, "host not found");
     }
     base = rb_ary_new();
-    for (res = res0; res; res = res->ai_next) {
+    for (res = res0->ai; res; res = res->ai_next) {
 	ary = rsock_ipaddr(res->ai_addr, res->ai_addrlen, norevlookup);
 	if (res->ai_canonname) {
-	    RARRAY_PTR(ary)[2] = rb_str_new2(res->ai_canonname);
+	    RARRAY_ASET(ary, 2, rb_str_new2(res->ai_canonname));
 	}
 	rb_ary_push(ary, INT2FIX(res->ai_family));
 	rb_ary_push(ary, INT2FIX(res->ai_socktype));
@@ -950,19 +957,19 @@ make_addrinfo(struct addrinfo *res0, int norevlookup)
 }
 
 static VALUE
-sock_sockaddr(struct sockaddr *addr, size_t len)
+sock_sockaddr(struct sockaddr *addr, socklen_t len)
 {
     char *ptr;
 
     switch (addr->sa_family) {
       case AF_INET:
 	ptr = (char*)&((struct sockaddr_in*)addr)->sin_addr.s_addr;
-	len = sizeof(((struct sockaddr_in*)addr)->sin_addr.s_addr);
+	len = (socklen_t)sizeof(((struct sockaddr_in*)addr)->sin_addr.s_addr);
 	break;
 #ifdef AF_INET6
       case AF_INET6:
 	ptr = (char*)&((struct sockaddr_in6*)addr)->sin6_addr.s6_addr;
-	len = sizeof(((struct sockaddr_in6*)addr)->sin6_addr.s6_addr);
+	len = (socklen_t)sizeof(((struct sockaddr_in6*)addr)->sin6_addr.s6_addr);
 	break;
 #endif
       default:
@@ -984,8 +991,9 @@ sock_sockaddr(struct sockaddr *addr, size_t len)
 static VALUE
 sock_s_gethostbyname(VALUE obj, VALUE host)
 {
-    rb_secure(3);
-    return rsock_make_hostent(host, rsock_addrinfo(host, Qnil, SOCK_STREAM, AI_CANONNAME), sock_sockaddr);
+    struct rb_addrinfo *res =
+	rsock_addrinfo(host, Qnil, AF_UNSPEC, SOCK_STREAM, AI_CANONNAME);
+    return rsock_make_hostent(host, res, sock_sockaddr);
 }
 
 /*
@@ -1016,7 +1024,7 @@ sock_s_gethostbyaddr(int argc, VALUE *argv)
 	t = AF_INET6;
     }
 #endif
-    h = gethostbyaddr(RSTRING_PTR(addr), RSTRING_LENINT(addr), t);
+    h = gethostbyaddr(RSTRING_PTR(addr), RSTRING_SOCKLEN(addr), t);
     if (h == NULL) {
 #ifdef HAVE_HSTRERROR
 	extern int h_errno;
@@ -1129,7 +1137,7 @@ sock_s_getservbyport(int argc, VALUE *argv)
  *
  * Obtains address information for _nodename_:_servname_.
  *
- * _family_ should be an address family such as: :INET, :INET6, :UNIX, etc.
+ * _family_ should be an address family such as: :INET, :INET6, etc.
  *
  * _socktype_ should be a socket type such as: :STREAM, :DGRAM, :RAW, etc.
  *
@@ -1159,7 +1167,8 @@ static VALUE
 sock_s_getaddrinfo(int argc, VALUE *argv)
 {
     VALUE host, port, family, socktype, protocol, flags, ret, revlookup;
-    struct addrinfo hints, *res;
+    struct addrinfo hints;
+    struct rb_addrinfo *res;
     int norevlookup;
 
     rb_scan_args(argc, argv, "25", &host, &port, &family, &socktype, &protocol, &flags, &revlookup);
@@ -1182,7 +1191,7 @@ sock_s_getaddrinfo(int argc, VALUE *argv)
     res = rsock_getaddrinfo(host, port, &hints, 0);
 
     ret = make_addrinfo(res, norevlookup);
-    freeaddrinfo(res);
+    rb_freeaddrinfo(res);
     return ret;
 }
 
@@ -1215,9 +1224,10 @@ sock_s_getnameinfo(int argc, VALUE *argv)
     char *hptr, *pptr;
     char hbuf[1024], pbuf[1024];
     int fl;
-    struct addrinfo hints, *res = NULL, *r;
+    struct rb_addrinfo *res = NULL;
+    struct addrinfo hints, *r;
     int error, saved_errno;
-    struct sockaddr_storage ss;
+    union_sockaddr ss;
     struct sockaddr *sap;
     socklen_t salen;
 
@@ -1235,11 +1245,11 @@ sock_s_getnameinfo(int argc, VALUE *argv)
 	    rb_raise(rb_eTypeError, "sockaddr length too big");
 	}
 	memcpy(&ss, RSTRING_PTR(sa), RSTRING_LEN(sa));
-	if ((size_t)RSTRING_LEN(sa) != SS_LEN(&ss)) {
+        if (!VALIDATE_SOCKLEN(&ss.addr, RSTRING_LEN(sa))) {
 	    rb_raise(rb_eTypeError, "sockaddr size differs - should not happen");
 	}
-	sap = (struct sockaddr*)&ss;
-        salen = RSTRING_LEN(sa);
+	sap = &ss.addr;
+        salen = RSTRING_SOCKLEN(sa);
 	goto call_nameinfo;
     }
     tmp = rb_check_array_type(sa);
@@ -1247,16 +1257,16 @@ sock_s_getnameinfo(int argc, VALUE *argv)
 	sa = tmp;
 	MEMZERO(&hints, struct addrinfo, 1);
 	if (RARRAY_LEN(sa) == 3) {
-	    af = RARRAY_PTR(sa)[0];
-	    port = RARRAY_PTR(sa)[1];
-	    host = RARRAY_PTR(sa)[2];
+	    af = RARRAY_AREF(sa, 0);
+	    port = RARRAY_AREF(sa, 1);
+	    host = RARRAY_AREF(sa, 2);
 	}
 	else if (RARRAY_LEN(sa) >= 4) {
-	    af = RARRAY_PTR(sa)[0];
-	    port = RARRAY_PTR(sa)[1];
-	    host = RARRAY_PTR(sa)[3];
+	    af = RARRAY_AREF(sa, 0);
+	    port = RARRAY_AREF(sa, 1);
+	    host = RARRAY_AREF(sa, 3);
 	    if (NIL_P(host)) {
-		host = RARRAY_PTR(sa)[2];
+		host = RARRAY_AREF(sa, 2);
 	    }
 	    else {
 		/*
@@ -1300,8 +1310,8 @@ sock_s_getnameinfo(int argc, VALUE *argv)
         hints.ai_family = NIL_P(af) ? PF_UNSPEC : rsock_family_arg(af);
 	error = rb_getaddrinfo(hptr, pptr, &hints, &res);
 	if (error) goto error_exit_addr;
-	sap = res->ai_addr;
-        salen = res->ai_addrlen;
+	sap = res->ai->ai_addr;
+        salen = res->ai->ai_addrlen;
     }
     else {
 	rb_raise(rb_eTypeError, "expecting String or Array");
@@ -1312,7 +1322,7 @@ sock_s_getnameinfo(int argc, VALUE *argv)
 			   pbuf, sizeof(pbuf), fl);
     if (error) goto error_exit_name;
     if (res) {
-	for (r = res->ai_next; r; r = r->ai_next) {
+	for (r = res->ai->ai_next; r; r = r->ai_next) {
 	    char hbuf2[1024], pbuf2[1024];
 
 	    sap = r->ai_addr;
@@ -1321,23 +1331,23 @@ sock_s_getnameinfo(int argc, VALUE *argv)
 				   pbuf2, sizeof(pbuf2), fl);
 	    if (error) goto error_exit_name;
 	    if (strcmp(hbuf, hbuf2) != 0|| strcmp(pbuf, pbuf2) != 0) {
-		freeaddrinfo(res);
+		rb_freeaddrinfo(res);
 		rb_raise(rb_eSocket, "sockaddr resolved to multiple nodename");
 	    }
 	}
-	freeaddrinfo(res);
+	rb_freeaddrinfo(res);
     }
     return rb_assoc_new(rb_str_new2(hbuf), rb_str_new2(pbuf));
 
   error_exit_addr:
     saved_errno = errno;
-    if (res) freeaddrinfo(res);
+    if (res) rb_freeaddrinfo(res);
     errno = saved_errno;
     rsock_raise_socket_error("getaddrinfo", error);
 
   error_exit_name:
     saved_errno = errno;
-    if (res) freeaddrinfo(res);
+    if (res) rb_freeaddrinfo(res);
     errno = saved_errno;
     rsock_raise_socket_error("getnameinfo", error);
 
@@ -1361,10 +1371,10 @@ sock_s_getnameinfo(int argc, VALUE *argv)
 static VALUE
 sock_s_pack_sockaddr_in(VALUE self, VALUE port, VALUE host)
 {
-    struct addrinfo *res = rsock_addrinfo(host, port, 0, 0);
-    VALUE addr = rb_str_new((char*)res->ai_addr, res->ai_addrlen);
+    struct rb_addrinfo *res = rsock_addrinfo(host, port, AF_UNSPEC, 0, 0);
+    VALUE addr = rb_str_new((char*)res->ai->ai_addr, res->ai->ai_addrlen);
 
-    freeaddrinfo(res);
+    rb_freeaddrinfo(res);
     OBJ_INFECT(addr, port);
     OBJ_INFECT(addr, host);
 
@@ -1407,7 +1417,7 @@ sock_s_unpack_sockaddr_in(VALUE self, VALUE addr)
         rb_raise(rb_eArgError, "not an AF_INET sockaddr");
 #endif
     }
-    host = rsock_make_ipaddr((struct sockaddr*)sockaddr, RSTRING_LEN(addr));
+    host = rsock_make_ipaddr((struct sockaddr*)sockaddr, RSTRING_SOCKLEN(addr));
     OBJ_INFECT(host, addr);
     return rb_assoc_new(INT2NUM(ntohs(sockaddr->sin_port)), host);
 }
@@ -1431,8 +1441,7 @@ sock_s_pack_sockaddr_un(VALUE self, VALUE path)
     VALUE addr;
 
     StringValue(path);
-    MEMZERO(&sockaddr, struct sockaddr_un, 1);
-    sockaddr.sun_family = AF_UNIX;
+    INIT_SOCKADDR_UN(&sockaddr, sizeof(struct sockaddr_un));
     if (sizeof(sockaddr.sun_path) < (size_t)RSTRING_LEN(path)) {
         rb_raise(rb_eArgError, "too long unix socket path (%"PRIuSIZE" bytes given but %"PRIuSIZE" bytes max)",
             (size_t)RSTRING_LEN(path), sizeof(sockaddr.sun_path));
@@ -1475,17 +1484,58 @@ sock_s_unpack_sockaddr_un(VALUE self, VALUE addr)
 	rb_raise(rb_eTypeError, "too long sockaddr_un - %ld longer than %d",
 		 RSTRING_LEN(addr), (int)sizeof(struct sockaddr_un));
     }
-    path = rsock_unixpath_str(sockaddr, RSTRING_LENINT(addr));
+    path = rsock_unixpath_str(sockaddr, RSTRING_SOCKLEN(addr));
     OBJ_INFECT(path, addr);
     return path;
 }
 #endif
 
 #if defined(HAVE_GETIFADDRS) || defined(SIOCGLIFCONF) || defined(SIOCGIFCONF) || defined(_WIN32)
-static VALUE
-sockaddr_obj(struct sockaddr *addr)
+
+static socklen_t
+sockaddr_len(struct sockaddr *addr)
 {
-    socklen_t len;
+    if (addr == NULL)
+        return 0;
+
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+    if (addr->sa_len != 0)
+        return addr->sa_len;
+#endif
+
+    switch (addr->sa_family) {
+      case AF_INET:
+        return (socklen_t)sizeof(struct sockaddr_in);
+
+#ifdef AF_INET6
+      case AF_INET6:
+        return (socklen_t)sizeof(struct sockaddr_in6);
+#endif
+
+#ifdef HAVE_SYS_UN_H
+      case AF_UNIX:
+        return (socklen_t)sizeof(struct sockaddr_un);
+#endif
+
+#ifdef AF_PACKET
+      case AF_PACKET:
+        return (socklen_t)(offsetof(struct sockaddr_ll, sll_addr) + ((struct sockaddr_ll *)addr)->sll_halen);
+#endif
+
+      default:
+        return (socklen_t)(offsetof(struct sockaddr, sa_family) + sizeof(addr->sa_family));
+    }
+}
+
+socklen_t
+rsock_sockaddr_len(struct sockaddr *addr)
+{
+    return sockaddr_len(addr);
+}
+
+static VALUE
+sockaddr_obj(struct sockaddr *addr, socklen_t len)
+{
 #if defined(AF_INET6) && defined(__KAME__)
     struct sockaddr_in6 addr6;
 #endif
@@ -1493,18 +1543,14 @@ sockaddr_obj(struct sockaddr *addr)
     if (addr == NULL)
         return Qnil;
 
-    switch (addr->sa_family) {
-      case AF_INET:
-        len = (socklen_t)sizeof(struct sockaddr_in);
-        break;
+    len = sockaddr_len(addr);
 
-#ifdef AF_INET6
-      case AF_INET6:
-        len = (socklen_t)sizeof(struct sockaddr_in6);
-#  ifdef __KAME__
+#if defined(__KAME__) && defined(AF_INET6)
+    if (addr->sa_family == AF_INET6) {
 	/* KAME uses the 2nd 16bit word of link local IPv6 address as interface index internally */
         /* http://orange.kame.net/dev/cvsweb.cgi/kame/IMPLEMENTATION */
 	/* convert fe80:1::1 to fe80::1%1 */
+        len = (socklen_t)sizeof(struct sockaddr_in6);
 	memcpy(&addr6, addr, len);
 	addr = (struct sockaddr *)&addr6;
 	if (IN6_IS_ADDR_LINKLOCAL(&addr6.sin6_addr) &&
@@ -1514,27 +1560,18 @@ sockaddr_obj(struct sockaddr *addr)
 	    addr6.sin6_addr.s6_addr[2] = 0;
 	    addr6.sin6_addr.s6_addr[3] = 0;
 	}
-#  endif
-        break;
-#endif
-
-#ifdef HAVE_SYS_UN_H
-      case AF_UNIX:
-        len = (socklen_t)sizeof(struct sockaddr_un);
-        break;
-#endif
-
-      default:
-        len = (socklen_t)sizeof(struct sockaddr_in);
-        break;
     }
-#ifdef SA_LEN
-    if (len < (socklen_t)SA_LEN(addr))
-	len = (socklen_t)SA_LEN(addr);
 #endif
 
     return rsock_addrinfo_new(addr, len, addr->sa_family, 0, 0, Qnil, Qnil);
 }
+
+VALUE
+rsock_sockaddr_obj(struct sockaddr *addr, socklen_t len)
+{
+    return sockaddr_obj(addr, len);
+}
+
 #endif
 
 #if defined(HAVE_GETIFADDRS) || (defined(SIOCGLIFCONF) && defined(SIOCGLIFNUM) && !defined(__hpux)) || defined(SIOCGIFCONF) ||  defined(_WIN32)
@@ -1570,7 +1607,28 @@ socket_s_ip_address_list(VALUE self)
     list = rb_ary_new();
     for (p = ifp; p; p = p->ifa_next) {
         if (p->ifa_addr != NULL && IS_IP_FAMILY(p->ifa_addr->sa_family)) {
-            rb_ary_push(list, sockaddr_obj(p->ifa_addr));
+            struct sockaddr *addr = p->ifa_addr;
+#if defined(AF_INET6) && defined(__sun)
+            /*
+             * OpenIndiana SunOS 5.11 getifaddrs() returns IPv6 link local
+             * address with sin6_scope_id == 0.
+             * So fill it from the interface name (ifa_name).
+             */
+            struct sockaddr_in6 addr6;
+            if (addr->sa_family == AF_INET6) {
+                socklen_t len = (socklen_t)sizeof(struct sockaddr_in6);
+                memcpy(&addr6, addr, len);
+                addr = (struct sockaddr *)&addr6;
+                if (IN6_IS_ADDR_LINKLOCAL(&addr6.sin6_addr) &&
+                    addr6.sin6_scope_id == 0) {
+                    unsigned int ifindex = if_nametoindex(p->ifa_name);
+                    if (ifindex != 0) {
+                        addr6.sin6_scope_id = ifindex;
+                    }
+                }
+            }
+#endif
+            rb_ary_push(list, sockaddr_obj(addr, sockaddr_len(addr)));
         }
     }
 
@@ -1584,7 +1642,7 @@ socket_s_ip_address_list(VALUE self)
     int ret;
     struct lifnum ln;
     struct lifconf lc;
-    char *reason = NULL;
+    const char *reason = NULL;
     int save_errno;
     int i;
     VALUE list = Qnil;
@@ -1593,7 +1651,7 @@ socket_s_ip_address_list(VALUE self)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1)
-        rb_sys_fail("socket");
+        rb_sys_fail("socket(2)");
 
     memset(&ln, 0, sizeof(ln));
     ln.lifn_family = AF_UNSPEC;
@@ -1632,7 +1690,7 @@ socket_s_ip_address_list(VALUE self)
                 }
                 ((struct sockaddr_in6 *)(&req->lifr_addr))->sin6_scope_id = req2.lifr_index;
             }
-            rb_ary_push(list, sockaddr_obj((struct sockaddr *)&req->lifr_addr));
+            rb_ary_push(list, sockaddr_obj((struct sockaddr *)&req->lifr_addr, req->lifr_addrlen));
         }
     }
 
@@ -1645,13 +1703,13 @@ socket_s_ip_address_list(VALUE self)
     errno = save_errno;
 
     if (reason)
-	rb_sys_fail(reason);
+	rb_syserr_fail(save_errno, reason);
     return list;
 
 #elif defined(SIOCGIFCONF)
     int fd = -1;
     int ret;
-#define EXTRA_SPACE (sizeof(struct ifconf) + sizeof(struct sockaddr_storage))
+#define EXTRA_SPACE ((int)(sizeof(struct ifconf) + sizeof(union_sockaddr)))
     char initbuf[4096+EXTRA_SPACE];
     char *buf = initbuf;
     int bufsize;
@@ -1663,7 +1721,7 @@ socket_s_ip_address_list(VALUE self)
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1)
-        rb_sys_fail("socket");
+        rb_sys_fail("socket(2)");
 
     bufsize = sizeof(initbuf);
     buf = initbuf;
@@ -1704,9 +1762,9 @@ socket_s_ip_address_list(VALUE self)
     while ((char*)req < (char*)conf.ifc_req + conf.ifc_len) {
 	struct sockaddr *addr = &req->ifr_addr;
         if (IS_IP_FAMILY(addr->sa_family)) {
-	    rb_ary_push(list, sockaddr_obj(addr));
+	    rb_ary_push(list, sockaddr_obj(addr, sockaddr_len(addr)));
 	}
-#ifdef HAVE_SA_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 # ifndef _SIZEOF_ADDR_IFREQ
 #  define _SIZEOF_ADDR_IFREQ(r) \
           (sizeof(struct ifreq) + \
@@ -1730,7 +1788,7 @@ socket_s_ip_address_list(VALUE self)
     errno = save_errno;
 
     if (reason)
-	rb_sys_fail(reason);
+	rb_syserr_fail(save_errno, reason);
     return list;
 
 #undef EXTRA_SPACE
@@ -1821,7 +1879,7 @@ socket_s_ip_address_list(VALUE self)
 #else
 	    if (IS_IP_FAMILY(uni->Address.lpSockaddr->sa_family))
 #endif
-		rb_ary_push(list, sockaddr_obj(uni->Address.lpSockaddr));
+		rb_ary_push(list, sockaddr_obj(uni->Address.lpSockaddr, uni->Address.iSockaddrLength));
 	}
 	for (any = adapters->FirstAnycastAddress; any; any = any->Next) {
 #ifndef INET6
@@ -1829,7 +1887,7 @@ socket_s_ip_address_list(VALUE self)
 #else
 	    if (IS_IP_FAMILY(any->Address.lpSockaddr->sa_family))
 #endif
-		rb_ary_push(list, sockaddr_obj(any->Address.lpSockaddr));
+		rb_ary_push(list, sockaddr_obj(any->Address.lpSockaddr, any->Address.iSockaddrLength));
 	}
     }
 
@@ -1842,7 +1900,7 @@ socket_s_ip_address_list(VALUE self)
 #endif
 
 void
-Init_socket()
+Init_socket(void)
 {
     rsock_init_basicsocket();
 
@@ -1860,7 +1918,7 @@ Init_socket()
      *
      * === What's a socket?
      *
-     * Sockets are endpoints of a bidirectionnal communication channel.
+     * Sockets are endpoints of a bidirectional communication channel.
      * Sockets can communicate within a process, between processes on the same
      * machine or between different machines.  There are many types of socket:
      * TCPSocket, UDPSocket or UNIXSocket for example.
@@ -1885,7 +1943,7 @@ Init_socket()
      *
      * *hostname:*
      * The identifier of a network interface:
-     * *    a string (hostname, IPv4 or IPv6 adress or +broadcast+
+     * *    a string (hostname, IPv4 or IPv6 address or +broadcast+
      *	    which specifies a broadcast address)
      * *    a zero-length string which specifies INADDR_ANY
      * *    an integer (interpreted as binary address in host byte order).
@@ -1967,15 +2025,26 @@ Init_socket()
 
     rb_define_method(rb_cSocket, "initialize", sock_initialize, -1);
     rb_define_method(rb_cSocket, "connect", sock_connect, 1);
-    rb_define_method(rb_cSocket, "connect_nonblock", sock_connect_nonblock, 1);
+
+    /* for ext/socket/lib/socket.rb use only: */
+    rb_define_private_method(rb_cSocket,
+			     "__connect_nonblock", sock_connect_nonblock, 2);
+
     rb_define_method(rb_cSocket, "bind", sock_bind, 1);
     rb_define_method(rb_cSocket, "listen", rsock_sock_listen, 1);
     rb_define_method(rb_cSocket, "accept", sock_accept, 0);
-    rb_define_method(rb_cSocket, "accept_nonblock", sock_accept_nonblock, 0);
+
+    /* for ext/socket/lib/socket.rb use only: */
+    rb_define_private_method(rb_cSocket,
+			     "__accept_nonblock", sock_accept_nonblock, 1);
+
     rb_define_method(rb_cSocket, "sysaccept", sock_sysaccept, 0);
 
     rb_define_method(rb_cSocket, "recvfrom", sock_recvfrom, -1);
-    rb_define_method(rb_cSocket, "recvfrom_nonblock", sock_recvfrom_nonblock, -1);
+
+    /* for ext/socket/lib/socket.rb use only: */
+    rb_define_private_method(rb_cSocket,
+			     "__recvfrom_nonblock", sock_recvfrom_nonblock, 4);
 
     rb_define_singleton_method(rb_cSocket, "socketpair", rsock_sock_s_socketpair, -1);
     rb_define_singleton_method(rb_cSocket, "pair", rsock_sock_s_socketpair, -1);
@@ -1996,4 +2065,7 @@ Init_socket()
 #endif
 
     rb_define_singleton_method(rb_cSocket, "ip_address_list", socket_s_ip_address_list, 0);
+
+#undef rb_intern
+    sym_wait_writable = ID2SYM(rb_intern("wait_writable"));
 }

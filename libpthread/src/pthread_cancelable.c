@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,29 +17,29 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
- *              All Rights Reserved 
- *  
- * Permission to use, copy, modify, and distribute this software and 
- * its documentation for any purpose and without fee is hereby granted, 
- * provided that the above copyright notice appears in all copies and 
- * that both the copyright notice and this permission notice appear in 
- * supporting documentation. 
- *  
- * OSF DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE 
- * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
- * FOR A PARTICULAR PURPOSE. 
- *  
- * IN NO EVENT SHALL OSF BE LIABLE FOR ANY SPECIAL, INDIRECT, OR 
- * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM 
- * LOSS OF USE, DATA OR PROFITS, WHETHER IN ACTION OF CONTRACT, 
- * NEGLIGENCE, OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION 
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. 
- * 
+ * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991
+ *              All Rights Reserved
+ *
+ * Permission to use, copy, modify, and distribute this software and
+ * its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notice appears in all copies and
+ * that both the copyright notice and this permission notice appear in
+ * supporting documentation.
+ *
+ * OSF DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE.
+ *
+ * IN NO EVENT SHALL OSF BE LIABLE FOR ANY SPECIAL, INDIRECT, OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN ACTION OF CONTRACT,
+ * NEGLIGENCE, OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
  */
 /*
  * MkLinux
@@ -49,6 +49,7 @@
  * POSIX Pthread Library
  */
 
+#include "resolver.h"
 #include "internal.h"
 
 #include <stdio.h>	/* For printf(). */
@@ -63,8 +64,6 @@
 #include <mach/vm_statistics.h>
 
 extern int __unix_conforming;
-extern int _pthread_setcancelstate_internal(int state, int *oldstate, int conforming);
-extern void _pthread_testcancel(pthread_t thread, int isconforming);
 extern int _pthread_cond_wait(pthread_cond_t *cond,
 			pthread_mutex_t *mutex,
 			const struct timespec *abstime,
@@ -72,7 +71,8 @@ extern int _pthread_cond_wait(pthread_cond_t *cond,
 			int isconforming);
 extern int __sigwait(const sigset_t *set, int *sig);
 extern int __pthread_sigmask(int, const sigset_t *, sigset_t *);
-extern int __pthread_markcancel(int);
+extern int __pthread_markcancel(mach_port_t);
+extern int __pthread_canceled(int);
 
 #ifdef VARIANT_CANCELABLE
 extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
@@ -80,11 +80,29 @@ extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relati
 extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec)  __asm__("___semwait_signal_nocancel");
 #endif
 
+PTHREAD_NOEXPORT
+int _pthread_join(pthread_t thread, void **value_ptr, int conforming,
+		int (*_semwait_signal)(int, int, int, int, __int64_t, __int32_t));
+
 #ifndef VARIANT_CANCELABLE
+
+PTHREAD_ALWAYS_INLINE
+static inline int
+_pthread_update_cancel_state(pthread_t thread, int mask, int state)
+{
+	int oldstate, newstate;
+	os_atomic_rmw_loop2o(thread, cancel_state, oldstate, newstate, seq_cst, {
+		newstate = oldstate;
+		newstate &= ~mask;
+		newstate |= state;
+	});
+	return oldstate;
+}
 
 /*
  * Cancel a thread
  */
+PTHREAD_NOEXPORT_VARIANT
 int
 pthread_cancel(pthread_t thread)
 {
@@ -93,26 +111,26 @@ pthread_cancel(pthread_t thread)
 		__unix_conforming = 1;
 #endif /* __DARWIN_UNIX03 */
 
-	if (_pthread_lookup_thread(thread, NULL, 0) != 0)
+	if (!_pthread_is_valid(thread, 0, NULL)) {
 		return(ESRCH);
+	}
 
 	/* if the thread is a workqueue thread, then return error */
 	if (thread->wqthread != 0) {
 		return(ENOTSUP);
 	}
 #if __DARWIN_UNIX03
-	int state;
-
-	_PTHREAD_LOCK(thread->lock);
-	state = thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
-	_PTHREAD_UNLOCK(thread->lock);
-	if (state & PTHREAD_CANCEL_ENABLE)
-		__pthread_markcancel(_pthread_kernel_thread(thread));
+	int state = os_atomic_or2o(thread, cancel_state, _PTHREAD_CANCEL_PENDING, relaxed);
+	if (state & PTHREAD_CANCEL_ENABLE) {
+		mach_port_t kport = _pthread_kernel_thread(thread);
+		if (kport) __pthread_markcancel(kport);
+	}
 #else /* __DARWIN_UNIX03 */
 	thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
 #endif /* __DARWIN_UNIX03 */
 	return (0);
 }
+
 
 void
 pthread_testcancel(void)
@@ -128,9 +146,116 @@ pthread_testcancel(void)
 #endif /* __DARWIN_UNIX03 */
 }
 
+#ifndef BUILDING_VARIANT /* [ */
+
+PTHREAD_NOEXPORT_VARIANT
+void
+_pthread_exit_if_canceled(int error)
+{
+	if (((error & 0xff) == EINTR) && __unix_conforming && (__pthread_canceled(0) == 0)) {
+		pthread_t self = pthread_self();
+		if (self != NULL) {
+			self->cancel_error = error;
+		}
+		pthread_exit(PTHREAD_CANCELED);
+	}
+}
+
+
+PTHREAD_NOEXPORT_VARIANT
+void
+_pthread_testcancel(pthread_t thread, int isconforming)
+{
+	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
+
+	int state = os_atomic_load2o(thread, cancel_state, seq_cst);
+	if ((state & flags) == flags) {
+		pthread_exit(isconforming ? PTHREAD_CANCELED : 0);
+	}
+}
+
+PTHREAD_NOEXPORT
+void
+_pthread_markcancel_if_canceled(pthread_t thread, mach_port_t kport)
+{
+	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
+
+	int state = os_atomic_or2o(thread, cancel_state,
+			_PTHREAD_CANCEL_INITIALIZED, relaxed);
+	if ((state & flags) == flags && __unix_conforming) {
+		__pthread_markcancel(kport);
+	}
+}
+
+PTHREAD_NOEXPORT
+void *
+_pthread_get_exit_value(pthread_t thread, int conforming)
+{
+	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
+	void *value = thread->exit_value;
+
+	if (conforming) {
+		int state = os_atomic_load2o(thread, cancel_state, seq_cst);
+		if ((state & flags) == flags) {
+			value = PTHREAD_CANCELED;
+		}
+	}
+	return value;
+}
+
+/* When a thread exits set the cancellation state to DISABLE and DEFERRED */
+PTHREAD_NOEXPORT
+void
+_pthread_setcancelstate_exit(pthread_t thread, void *value_ptr, int conforming)
+{
+	_pthread_update_cancel_state(thread,
+			_PTHREAD_CANCEL_STATE_MASK | _PTHREAD_CANCEL_TYPE_MASK,
+			PTHREAD_CANCEL_DISABLE | PTHREAD_CANCEL_DEFERRED);
+	if (value_ptr == PTHREAD_CANCELED) {
+		_PTHREAD_LOCK(thread->lock);
+		thread->detached |= _PTHREAD_WASCANCEL; // 4597450
+		_PTHREAD_UNLOCK(thread->lock);
+	}
+}
+
+#endif /* !BUILDING_VARIANT ] */
+
 /*
  * Query/update the cancelability 'state' of a thread
  */
+PTHREAD_ALWAYS_INLINE
+static inline int
+_pthread_setcancelstate_internal(int state, int *oldstateptr, int conforming)
+{
+	pthread_t self;
+
+	switch (state) {
+		case PTHREAD_CANCEL_ENABLE:
+			if (conforming) {
+				__pthread_canceled(1);
+			}
+			break;
+		case PTHREAD_CANCEL_DISABLE:
+			if (conforming) {
+				__pthread_canceled(2);
+			}
+			break;
+		default:
+			return EINVAL;
+	}
+
+	self = pthread_self();
+	int oldstate = _pthread_update_cancel_state(self, _PTHREAD_CANCEL_STATE_MASK, state);
+	if (oldstateptr) {
+		*oldstateptr = oldstate & _PTHREAD_CANCEL_STATE_MASK;
+	}
+	if (!conforming) {
+		_pthread_testcancel(self, 0);  /* See if we need to 'die' now... */
+	}
+	return 0;
+}
+
+PTHREAD_NOEXPORT_VARIANT
 int
 pthread_setcancelstate(int state, int *oldstate)
 {
@@ -147,6 +272,7 @@ pthread_setcancelstate(int state, int *oldstate)
 /*
  * Query/update the cancelability 'type' of a thread
  */
+PTHREAD_NOEXPORT_VARIANT
 int
 pthread_setcanceltype(int type, int *oldtype)
 {
@@ -161,17 +287,16 @@ pthread_setcanceltype(int type, int *oldtype)
 	    (type != PTHREAD_CANCEL_ASYNCHRONOUS))
 		return EINVAL;
 	self = pthread_self();
-	_PTHREAD_LOCK(self->lock);
-	if (oldtype)
-		*oldtype = self->cancel_state & _PTHREAD_CANCEL_TYPE_MASK;
-	self->cancel_state &= ~_PTHREAD_CANCEL_TYPE_MASK;
-	self->cancel_state |= type;
-	_PTHREAD_UNLOCK(self->lock);
+	int oldstate = _pthread_update_cancel_state(self, _PTHREAD_CANCEL_TYPE_MASK, type);
+	if (oldtype) {
+		*oldtype = oldstate & _PTHREAD_CANCEL_TYPE_MASK;
+	}
 #if !__DARWIN_UNIX03
 	_pthread_testcancel(self, 0);  /* See if we need to 'die' now... */
 #endif /* __DARWIN_UNIX03 */
 	return (0);
 }
+
 
 int
 pthread_sigmask(int how, const sigset_t * set, sigset_t * oset)
@@ -188,9 +313,7 @@ pthread_sigmask(int how, const sigset_t * set, sigset_t * oset)
 #endif /* __DARWIN_UNIX03 */
 }
 
-#endif /* VARIANT_CANCELABLE */
-
-#if __DARWIN_UNIX03
+#ifndef BUILDING_VARIANT /* [ */
 
 static void
 __posix_join_cleanup(void *arg)
@@ -203,94 +326,94 @@ __posix_join_cleanup(void *arg)
 	_PTHREAD_UNLOCK(thread->lock);
 }
 
-#endif /* __DARWIN_UNIX03 */
+PTHREAD_NOEXPORT PTHREAD_NOINLINE
+int
+_pthread_join(pthread_t thread, void **value_ptr, int conforming,
+		int (*_semwait_signal)(int, int, int, int, __int64_t, __int32_t))
+{
+	int res = 0;
+	pthread_t self = pthread_self();
+	kern_return_t kern_res;
+	semaphore_t joinsem, death = (semaphore_t)os_get_cached_semaphore();
+
+	if (!_pthread_is_valid(thread, PTHREAD_IS_VALID_LOCK_THREAD, NULL)) {
+		res = ESRCH;
+		goto out;
+	}
+
+	if (thread->sig != _PTHREAD_SIG) {
+		res = ESRCH;
+	} else if ((thread->detached & PTHREAD_CREATE_DETACHED) ||
+			!(thread->detached & PTHREAD_CREATE_JOINABLE) ||
+			(thread->joiner != NULL)) {
+		res = EINVAL;
+	} else if (thread == self || (self != NULL && self->joiner == thread)) {
+		res = EDEADLK;
+	}
+	if (res != 0) {
+		_PTHREAD_UNLOCK(thread->lock);
+		goto out;
+	}
+
+	joinsem = thread->joiner_notify;
+	if (joinsem == SEMAPHORE_NULL) {
+		thread->joiner_notify = joinsem = death;
+		death = MACH_PORT_NULL;
+	}
+	thread->joiner = self;
+	_PTHREAD_UNLOCK(thread->lock);
+
+	if (conforming) {
+		/* Wait for it to signal... */
+		pthread_cleanup_push(__posix_join_cleanup, (void *)thread);
+		do {
+			res = _semwait_signal(joinsem, 0, 0, 0, 0, 0);
+		} while ((res < 0) && (errno == EINTR));
+		pthread_cleanup_pop(0);
+	} else {
+		/* Wait for it to signal... */
+		kern_return_t (*_semaphore_wait)(semaphore_t) =
+				(void*)_semwait_signal;
+		do {
+			kern_res = _semaphore_wait(joinsem);
+		} while (kern_res != KERN_SUCCESS);
+	}
+
+	os_put_cached_semaphore((os_semaphore_t)joinsem);
+	res = _pthread_join_cleanup(thread, value_ptr, conforming);
+
+out:
+	if (death) {
+		os_put_cached_semaphore(death);
+	}
+	return res;
+}
+
+#endif /* !BUILDING_VARIANT ] */
+#endif /* VARIANT_CANCELABLE */
 
 /*
  * Wait for a thread to terminate and obtain its exit value.
  */
-int       
-pthread_join(pthread_t thread, 
-	     void **value_ptr)
+int
+pthread_join(pthread_t thread, void **value_ptr)
 {
-	int res = 0;
-	pthread_t self = pthread_self();
-	mach_port_t kthport;
-	int conforming = 0;
-#if !__DARWIN_UNIX03
-	kern_return_t kern_res;
-#endif
-
 #if __DARWIN_UNIX03
 	if (__unix_conforming == 0)
 		__unix_conforming = 1;
 
 #ifdef VARIANT_CANCELABLE
-	_pthread_testcancel(self, 1);
+	_pthread_testcancel(pthread_self(), 1);
 #endif /* VARIANT_CANCELABLE */
+	return _pthread_join(thread, value_ptr, 1, __semwait_signal);
+#else
+	return _pthread_join(thread, value_ptr, 0, (void*)semaphore_wait);
 #endif /* __DARWIN_UNIX03 */
 
-	if ((res = _pthread_lookup_thread(thread, &kthport, 1)) != 0)
-		return(res);
-
-	if (thread->sig == _PTHREAD_SIG) {
-		semaphore_t death = SEMAPHORE_NULL; /* in case we need it */
-		semaphore_t joinsem = SEMAPHORE_NULL;
-
-		if (thread->joiner_notify == SEMAPHORE_NULL) {
-			death = (semaphore_t)os_get_cached_semaphore();
-		}
-
-		_PTHREAD_LOCK(thread->lock);
-		if ((thread->detached & PTHREAD_CREATE_JOINABLE) &&
-				(thread->joiner == NULL)) {
-			PTHREAD_ASSERT(_pthread_kernel_thread(thread) == kthport);
-			if (thread != self && (self == NULL || self->joiner != thread)) {
-				if (thread->joiner_notify == SEMAPHORE_NULL) {
-					thread->joiner_notify = death;
-					death = SEMAPHORE_NULL;
-				} 
-				joinsem = thread->joiner_notify;
-				thread->joiner = self;
-				_PTHREAD_UNLOCK(thread->lock);
-
-				if (death != SEMAPHORE_NULL) {
-					os_put_cached_semaphore((os_semaphore_t)death);
-					death = SEMAPHORE_NULL;
-				}
-#if __DARWIN_UNIX03
-				/* Wait for it to signal... */ 
-				pthread_cleanup_push(__posix_join_cleanup, (void *)thread);
-				do {
-					res = __semwait_signal(joinsem, 0, 0, 0, (int64_t)0, (int32_t)0);
-				} while ((res < 0) && (errno == EINTR));
-				pthread_cleanup_pop(0);
-#else /* __DARWIN_UNIX03 */
-				/* Wait for it to signal... */ 
-				do {
-					kern_res = semaphore_wait(joinsem);
-				} while (kern_res != KERN_SUCCESS);
-#endif /* __DARWIN_UNIX03 */
-
-				os_put_cached_semaphore((os_semaphore_t)joinsem);
-				res = _pthread_join_cleanup(thread, value_ptr, conforming);
-			} else {
-				_PTHREAD_UNLOCK(thread->lock);
-				res = EDEADLK;
-			}
-		} else {
-			_PTHREAD_UNLOCK(thread->lock);
-			res = EINVAL;
-		}
-		if (death != SEMAPHORE_NULL) {
-			os_put_cached_semaphore((os_semaphore_t)death);
-		}
-		return res;
-	}
-	return ESRCH;
 }
 
-int       
-pthread_cond_wait(pthread_cond_t *cond, 
+int
+pthread_cond_wait(pthread_cond_t *cond,
 		  pthread_mutex_t *mutex)
 {
 	int conforming;
@@ -310,8 +433,8 @@ pthread_cond_wait(pthread_cond_t *cond,
 	return (_pthread_cond_wait(cond, mutex, (struct timespec *)NULL, 0, conforming));
 }
 
-int       
-pthread_cond_timedwait(pthread_cond_t *cond, 
+int
+pthread_cond_timedwait(pthread_cond_t *cond,
 		       pthread_mutex_t *mutex,
 		       const struct timespec *abstime)
 {
@@ -351,8 +474,8 @@ sigwait(const sigset_t * set, int * sig)
 #ifdef VARIANT_CANCELABLE
 		_pthread_testcancel(pthread_self(), 1);
 #endif /* VARIANT_CANCELABLE */
-		
-		/* 
+
+		/*
 		 * EINTR that isn't a result of pthread_cancel()
 		 * is translated to 0.
 		 */
@@ -363,7 +486,7 @@ sigwait(const sigset_t * set, int * sig)
 	return(err);
 #else /* __DARWIN_UNIX03 */
 	if (__sigwait(set, sig) == -1) {
-		/* 
+		/*
 		 * EINTR that isn't a result of pthread_cancel()
 		 * is translated to 0.
 		 */
@@ -375,3 +498,4 @@ sigwait(const sigset_t * set, int * sig)
 	return 0;
 #endif /* __DARWIN_UNIX03 */
 }
+

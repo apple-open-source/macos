@@ -14,11 +14,13 @@
 #include <utilities/SecAKSWrappers.h>
 #include <utilities/debugging.h>
 
+#include <notify.h>
 
 @interface CKDAKSLockMonitor ()
 
 @property XPCNotificationDispatcher* dispatcher;
 @property XPCNotificationBlock notificationBlock;
+@property dispatch_queue_t queue;
 
 @end
 
@@ -34,39 +36,56 @@
     if (self) {
         XPCNotificationDispatcher* dispatcher = [XPCNotificationDispatcher dispatcher];
 
-        [dispatcher addListener: self];
+        _queue = dispatch_queue_create("CKDAKSLockMonitor", NULL);
+        _locked = true;
+        _unlockedSinceBoot = false;
 
-        self->_locked = true;
-        self->_unlockedSinceBoot = false;
+        /* also use dispatch to make sure */
+        int token = 0;
+        __weak typeof(self) weakSelf = self;
+        notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int t) {
+            [weakSelf _onqueueRecheck];
+        });
 
         [self recheck];
+
+        [dispatcher addListener: self];
     }
 
     return self;
 }
 
 - (void) handleNotification:(const char *)name {
-    if (strcmp(name, kUserKeybagStateChangeNotification) == 0) {
+    if (strcmp(name, kUserKeybagStateChangeNotification) == 0 || strcmp(name, "com.apple.mobile.keybagd.lock_status") == 0) {
         [self recheck];
     }
 }
 
 - (void) notifyListener {
-    if (self.listener) {
+    // Take a strong reference:
+    __strong __typeof(self.listener) listener = self.listener;
+
+    if (listener) {
         if (self.locked) {
-            [self.listener locked];
+            [listener locked];
         } else {
-            [self.listener unlocked];
+            [listener unlocked];
         }
     }
 }
 
 - (void)connectTo: (NSObject<CKDLockListener>*) listener {
-    self->_listener = listener;
+    _listener = listener;
     [self notifyListener];
 }
 
 - (void) recheck {
+    dispatch_async(_queue, ^{
+        [self _onqueueRecheck];
+    });
+}
+
+- (void) _onqueueRecheck {
     CFErrorRef aksError = NULL;
     bool locked = true; // Assume locked if we get an error
 
@@ -76,10 +95,10 @@
     }
 
     BOOL previousLocked = self.locked;
-    self->_locked = locked;
+    _locked = locked;
 
     if (!self.locked) {
-        self->_unlockedSinceBoot = true;
+        _unlockedSinceBoot = true;
     }
 
     if (previousLocked != self.locked) {

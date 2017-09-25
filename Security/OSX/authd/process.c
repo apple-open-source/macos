@@ -12,6 +12,8 @@
 #include <Security/SecCode.h>
 #include <Security/SecRequirement.h>
 
+AUTHD_DEFINE_LOG
+
 struct _process_s {
     __AUTH_BASE_STRUCT_HEADER__;
     
@@ -52,10 +54,10 @@ _unregister_auth_tokens(const void *value, void *context)
 static void
 _destroy_zombie_tokens(process_t proc)
 {
-    LOGD("process[%i] destroy zombies, %ld auth tokens", process_get_pid(proc), CFBagGetCount(proc->authTokens));
+    os_log_debug(AUTHD_LOG, "destroy zombies, %ld auth tokens", CFBagGetCount(proc->authTokens));
     _cf_bag_iterate(proc->authTokens, ^bool(CFTypeRef value) {
         auth_token_t auth = (auth_token_t)value;
-        LOGD("process[%i] %p, creator=%i, zombie=%i, process_cout=%ld", process_get_pid(proc), auth, auth_token_is_creator(auth, proc), auth_token_check_state(auth, auth_token_state_zombie), auth_token_get_process_count(auth));
+        os_log_debug(AUTHD_LOG, "process:, creator=%i, zombie=%i, process_cout=%ld", auth_token_is_creator(auth, proc), auth_token_check_state(auth, auth_token_state_zombie), auth_token_get_process_count(auth));
         if (auth_token_is_creator(auth, proc) && auth_token_check_state(auth, auth_token_state_zombie) && (auth_token_get_process_count(auth) == 1)) {
             CFBagRemoveValue(proc->authTokens, auth);
         }
@@ -68,7 +70,7 @@ _process_finalize(CFTypeRef value)
 {
     process_t proc = (process_t)value;
 
-    LOGV("process[%i]: deallocated %p", proc->auditInfo.pid, proc);
+    os_log_debug(AUTHD_LOG, "process deallocated");
     
     dispatch_barrier_sync(proc->dispatch_queue, ^{
         CFBagApplyFunction(proc->authTokens, _unregister_auth_tokens, proc);
@@ -77,16 +79,17 @@ _process_finalize(CFTypeRef value)
     session_remove_process(proc->session, proc);
     
     dispatch_release(proc->dispatch_queue);
-    CFReleaseSafe(proc->authTokens);
-    CFReleaseSafe(proc->connections);
-    CFReleaseSafe(proc->session);
-    CFReleaseSafe(proc->codeRef);
-    CFReleaseSafe(proc->code_requirement);
-    CFReleaseSafe(proc->code_requirement_data);
-    CFReleaseSafe(proc->code_entitlements);
+    CFReleaseNull(proc->authTokens);
+    CFReleaseNull(proc->connections);
+    CFReleaseNull(proc->session);
+    CFReleaseNull(proc->codeRef);
+    CFReleaseNull(proc->code_requirement);
+    CFReleaseNull(proc->code_requirement_data);
+    CFReleaseNull(proc->code_entitlements);
     free_safe(proc->code_identifier);
     if (proc->bootstrap != MACH_PORT_NULL) {
         mach_port_deallocate(mach_task_self(), proc->bootstrap);
+		proc->bootstrap = MACH_PORT_NULL;
     }
 }
 
@@ -145,13 +148,13 @@ process_create(const audit_info_s * auditInfo, session_t session)
     CFReleaseSafe(codePid);
 
     if (status) {
-        LOGE("process[%i]: failed to create code ref %d", proc->auditInfo.pid, (int)status);
+        os_log_error(AUTHD_LOG, "process: PID %d failed to create code ref %d", proc->auditInfo.pid, (int)status);
         CFReleaseNull(proc);
         goto done;
     }
     
     status = SecCodeCopySigningInformation(proc->codeRef, kSecCSRequirementInformation, &code_info);
-    require_noerr_action(status, done, LOGV("process[%i]: SecCodeCopySigningInformation failed with %d", proc->auditInfo.pid, (int)status));
+    require_noerr_action(status, done, os_log_debug(AUTHD_LOG, "process: PID %d SecCodeCopySigningInformation failed with %d", proc->auditInfo.pid, (int)status));
 
     CFTypeRef value = NULL;
     if (CFDictionaryGetValueIfPresent(code_info, kSecCodeInfoDesignatedRequirement, (const void**)&value)) {
@@ -197,7 +200,7 @@ process_create(const audit_info_s * auditInfo, session_t session)
 		proc->appStoreSigned = process_verify_requirement(proc, secRequirementRef);
 		CFReleaseSafe(secRequirementRef);
 	}
-    LOGV("process[%i]: created (sid=%i) %s %p", proc->auditInfo.pid, proc->auditInfo.asid, proc->code_url, proc);
+    os_log_debug(AUTHD_LOG, "process: PID %d created (sid=%i) %{public}s", proc->auditInfo.pid, proc->auditInfo.asid, proc->code_url);
 
 done:
     CFReleaseSafe(code_info);
@@ -467,7 +470,7 @@ bool process_verify_requirement(process_t proc, SecRequirementRef requirment)
 {
     OSStatus status = SecCodeCheckValidity(proc->codeRef, kSecCSDefaultFlags, requirment);
     if (status != errSecSuccess) {
-        LOGV("process[%i]: code requirement check failed (%d)", proc->auditInfo.pid, (int)status);
+        os_log_debug(AUTHD_LOG, "process: PID %d code requirement check failed (%d)", proc->auditInfo.pid, (int)status);
     }
     return (status == errSecSuccess);
 }

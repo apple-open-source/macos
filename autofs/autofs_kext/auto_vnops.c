@@ -740,7 +740,6 @@ auto_readdir(struct vnop_readdir_args *ap)
 		 * already there.
 		 */
 		if (fnip->fi_flags & MF_UNMOUNTING) {
-			myeof = 1;
 			if (ap->a_eofflag != NULL)
 				*ap->a_eofflag = 1;
 			goto done;
@@ -1111,7 +1110,7 @@ auto_fsctl(struct vnop_ioctl_args * ap)
 	 * The only operation we support is "mark this as having a home
 	 * directory mount in progress".
 	 */
-	if (ap->a_command != IOCBASECMD(AUTOFS_MARK_HOMEDIRMOUNT))
+	if (ap->a_command != AUTOFS_MARK_HOMEDIRMOUNT)
 		return (EINVAL);
 
         /* 

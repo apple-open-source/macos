@@ -167,11 +167,11 @@ void SecurityServerAcl::validatePartition(SecurityServerEnvironment& env, bool p
 		CFArrayRef partitionList;
 		if (cfscan(partition, "{Partitions=%AO}", &partitionList)) {
 			CFRef<CFStringRef> partitionDebug = CFCopyDescription(partitionList);	// for debugging only
-			secnotice("integrity", "ACL partitionID = %s", cfString(partitionDebug).c_str());
+			secinfo("integrity", "ACL partitionID = %s", cfString(partitionDebug).c_str());
 			if (env.database) {
 				CFRef<CFStringRef> clientPartitionID = makeCFString(env.database->process().partitionId());
 				if (CFArrayContainsValue(partitionList, CFRangeMake(0, CFArrayGetCount(partitionList)), clientPartitionID)) {
-					secnotice("integrity", "ACL partitions match: %s", cfString(clientPartitionID).c_str());
+					secinfo("integrity", "ACL partitions match: %s", cfString(clientPartitionID).c_str());
 					return;
 				} else {
 					secnotice("integrity", "ACL partition mismatch: client %s ACL %s", cfString(clientPartitionID).c_str(), cfString(partitionDebug).c_str());
@@ -377,7 +377,7 @@ bool SecurityServerAcl::createClientPartitionID(Process& process)
 	ObjectAcl::AclEntry partition(subject);
 	partition.addAuthorization(CSSM_ACL_AUTHORIZATION_PARTITION_ID);
 	this->add(CSSM_APPLE_ACL_TAG_PARTITION_ID, partition);
-	secnotice("integrity", "added partition %s to new key", partitionID.c_str());
+	secinfo("integrity", "added partition %s to new key", partitionID.c_str());
 	return true;
 }
 

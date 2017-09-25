@@ -1,6 +1,6 @@
 #!/bin/sh
 ##
-# Copyright 2002-2014 Apple Inc.
+# Copyright 2002-2017 Apple Inc.
 #
 # This script configures NetBoot
 ##
@@ -81,14 +81,14 @@ local_mount()
     limit=11
     while [ $tries -lt $limit ]; do
 	tries=$(( tries + 1 ))
-	volinfo=`autodiskmount -F 2>/dev/null`
+	volinfo=`/usr/libexec/netbootdisk -F 2>/dev/null`
 	if [ $? -ne 0 ]; then
 	    if [ $tries -lt $limit ]; then
 		echo "Waiting for local drives..."
 		echo "Waiting for local drives (retry ${tries}/$(( limit - 1 )))..." > /dev/console
 		sleep 5
 	    else
-		echo "autodiskmount -F found no local drives"
+		echo "netbootdisk found no local drives"
 		return 1
 	    fi
 	else

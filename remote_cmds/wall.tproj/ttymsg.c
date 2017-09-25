@@ -97,8 +97,10 @@ ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 	 * if not running as root; not an error.
 	 */
 	if ((fd = open(device, O_WRONLY|O_NONBLOCK, 0)) < 0) {
+#ifndef __APPLE__
 		if (errno == EBUSY || errno == EACCES)
 			return (NULL);
+#endif /* !__APPLE__ */
 		(void) snprintf(errbuf, sizeof(errbuf), "%s: %s", device,
 		    strerror(errno));
 		return (errbuf);

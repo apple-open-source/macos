@@ -71,9 +71,9 @@ enum {
 */
 
 OSStatus AuthorizationCreateWithAuditToken(audit_token_t token,
-    const AuthorizationEnvironment *environment,
+    const AuthorizationEnvironment * _Nullable environment,
     AuthorizationFlags flags,
-    AuthorizationRef *authorization);
+    AuthorizationRef _Nullable * _Nonnull authorization);
 
 /*!
     @function AuthorizationExecuteWithPrivilegesExternalForm
@@ -97,11 +97,60 @@ OSStatus AuthorizationCreateWithAuditToken(audit_token_t token,
     for this functionality.
 */
     
-OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExternalForm * extForm,
-    const char *pathToTool,
+OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExternalForm * _Nonnull extForm,
+    const char * _Nonnull pathToTool,
     AuthorizationFlags flags,
-    char *const *arguments,
-    FILE **communicationsPipe) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
+    char * _Nonnull const * _Nonnull arguments,
+    FILE * _Nullable * _Nonnull communicationsPipe) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
+
+/*!
+ @function AuthorizationExecuteWithPrivileges
+ Run an executable tool with enhanced privileges after passing
+ suitable authorization procedures.
+ @param authorization An authorization reference that is used to authorize
+ access to the enhanced privileges. It is also passed to the tool for
+ further access control.
+ @param pathToTool Full pathname to the tool that should be executed
+ with enhanced privileges.
+ @param options Option bits (reserved). Must be zero.
+ @param arguments An argv-style vector of strings to be passed to the tool.
+ @param communicationsPipe Assigned a UNIX stdio FILE pointer for
+ a bidirectional pipe to communicate with the tool. The tool will have
+ this pipe as its standard I/O channels (stdin/stdout). If NULL, do not
+ establish a communications pipe.
+
+ @discussion This function has been deprecated and should no longer be used.
+ Use a launchd-launched helper tool and/or the Service Mangement framework
+ for this functionality.
+ */
+OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef _Nonnull authorization,
+												const char * _Nonnull pathToTool,
+												AuthorizationFlags options,
+												char * __nonnull const * __nonnull arguments,
+												FILE * __nullable * __nullable communicationsPipe) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
+
+/*!
+ @function AuthorizationPreauthorizeCredentials
+ Tries to preauthorize provided credentials by authorizationhost PAM. No user interface will be shown.
+ Credentials is set of the context items which will be passed to the authorizationhost.
+ */
+OSStatus AuthorizationPreauthorizeCredentials(AuthorizationRef _Nonnull authorization,
+											  const AuthorizationItemSet * __nonnull credentials) __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
+
+/*!
+ @function AuthorizationCopyPrivilegedReference
+ From within a tool launched via the AuthorizationExecuteWithPrivileges function
+ ONLY, retrieve the AuthorizationRef originally passed to that function.
+ While AuthorizationExecuteWithPrivileges already verified the authorization to
+ launch your tool, the tool may want to avail itself of any additional pre-authorizations
+ the caller may have obtained through that reference.
+
+ @discussion This function has been deprecated and should no longer be used.
+ Use a launchd-launched helper tool and/or the Service Mangement framework
+ for this functionality.
+ */
+OSStatus AuthorizationCopyPrivilegedReference(AuthorizationRef __nullable * __nonnull authorization,
+												  AuthorizationFlags flags) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
 
 /*
     @function AuthorizationDismiss
@@ -139,7 +188,7 @@ OSStatus SessionSetDistinguishedUser(SecuritySessionId session, uid_t user);
         special constants defined in AuthSession.h.
 	@param user (output) Will receive the uid. Unchanged on error.
  */
-OSStatus SessionGetDistinguishedUser(SecuritySessionId session, uid_t *user);
+OSStatus SessionGetDistinguishedUser(SecuritySessionId session, uid_t * _Nonnull user);
 
 /*!
 	@function SessionSetUserPreferences
@@ -157,7 +206,7 @@ OSStatus SessionSetUserPreferences(SecuritySessionId session);
     @param authRef (input) The authorization object on which this operation is performed.
     @param enable (input) desired smartcard login support state, TRUE to enable, FALSE to disable
  */
-OSStatus AuthorizationEnableSmartCard(AuthorizationRef authRef, Boolean enable);
+OSStatus AuthorizationEnableSmartCard(AuthorizationRef _Nonnull authRef, Boolean enable);
 
 #if defined(__cplusplus)
 }

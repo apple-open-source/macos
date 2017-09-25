@@ -27,14 +27,25 @@ class _IOFramebufferNotifier : public IONotifier
     OSDeclareDefaultStructors(_IOFramebufferNotifier)
 
 public:
-    OSSet *                             whence;
+    OSOrderedSet *                      fWhence;
 
-    IOFramebufferNotificationHandler    handler;
-    OSObject *                          self;
-    void *                              ref;
+    IOFramebufferNotificationHandler    fHandler;
+    OSObject *                          fTarget;
+    void *                              fRef;
     bool                                fEnable;
+    int32_t                             fGroup;
+    IOIndex                             fGroupPriority;
+    IOSelect                            fEvents;
+    IOSelect                            fLastEvent;
 
-    virtual void remove();
-    virtual bool disable();
-    virtual void enable( bool was );
+    char                                fName[64];
+    uint64_t                            fStampStart;
+    uint64_t                            fStampEnd;
+
+    virtual void remove() APPLE_KEXT_OVERRIDE;
+    virtual bool disable() APPLE_KEXT_OVERRIDE;
+    virtual void enable( bool was ) APPLE_KEXT_OVERRIDE;
+
+    bool init(IOFramebufferNotificationHandler handler, OSObject * target, void * ref,
+              IOIndex groupPriority, IOSelect events, int32_t groupIndex);
 };

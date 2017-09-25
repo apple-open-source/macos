@@ -31,7 +31,7 @@
 static char sccsid[] = "@(#)readdir.c	8.3 (Berkeley) 9/29/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/readdir.c,v 1.15 2008/05/05 14:05:23 kib Exp $");
+__FBSDID("$FreeBSD$");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -39,7 +39,6 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/readdir.c,v 1.15 2008/05/05 14:05:23 kib Ex
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
-#include <unistd.h>
 #include "un-namespace.h"
 
 #include "libc_private.h"
@@ -49,29 +48,36 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/readdir.c,v 1.15 2008/05/05 14:05:23 kib Ex
  * get next entry in a directory.
  */
 struct dirent *
-_readdir_unlocked(dirp, skip)
-	DIR *dirp;
-	int skip;
+_readdir_unlocked(DIR *dirp, int skip)
 {
 	struct dirent *dp;
+	long initial_seek;
+	long initial_loc = 0;
 
 	for (;;) {
 		if (dirp->dd_loc >= dirp->dd_size) {
 			if (dirp->dd_flags & __DTF_READALL)
 				return (NULL);
+			initial_loc = dirp->dd_loc;
+			dirp->dd_flags &= ~__DTF_SKIPREAD;
 			dirp->dd_loc = 0;
 		}
-		if (dirp->dd_loc == 0 && !(dirp->dd_flags & __DTF_READALL)) {
+		if (dirp->dd_loc == 0 &&
+		    !(dirp->dd_flags & (__DTF_READALL | __DTF_SKIPREAD))) {
 #if __DARWIN_64_BIT_INO_T
-			dirp->dd_size = __getdirentries64(dirp->dd_fd,
+			initial_seek = dirp->dd_td->seekoff;
+			dirp->dd_size = (long)__getdirentries64(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
 #else /* !__DARWIN_64_BIT_INO_T */
+			initial_seek = dirp->dd_seek;
 			dirp->dd_size = _getdirentries(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
 #endif /* __DARWIN_64_BIT_INO_T */
 			if (dirp->dd_size <= 0)
 				return (NULL);
+			_fixtelldir(dirp, initial_seek, initial_loc);
 		}
+		dirp->dd_flags &= ~__DTF_SKIPREAD;
 		dp = (struct dirent *)(dirp->dd_buf + dirp->dd_loc);
 		if ((long)dp & 03L)	/* bogus pointer check */
 			return (NULL);
@@ -88,8 +94,7 @@ _readdir_unlocked(dirp, skip)
 }
 
 struct dirent *
-readdir(dirp)
-	DIR *dirp;
+readdir(DIR *dirp)
 {
 	struct dirent	*dp;
 
@@ -104,10 +109,7 @@ readdir(dirp)
 }
 
 int
-readdir_r(dirp, entry, result)
-	DIR *dirp;
-	struct dirent *entry;
-	struct dirent **result;
+readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result)
 {
 	struct dirent *dp;
 	int saved_errno;

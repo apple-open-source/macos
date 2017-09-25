@@ -35,8 +35,9 @@ WebInspector.ResourceClusterContentView = class ResourceClusterContentView exten
 
         function createPathComponent(displayName, className, identifier)
         {
-            var pathComponent = new WebInspector.HierarchicalPathComponent(displayName, className, identifier, false, true);
+            let pathComponent = new WebInspector.HierarchicalPathComponent(displayName, className, identifier, false, true);
             pathComponent.addEventListener(WebInspector.HierarchicalPathComponent.Event.SiblingWasSelected, this._pathComponentSelected, this);
+            pathComponent.comparisonData = resource;
             return pathComponent;
         }
 
@@ -76,11 +77,18 @@ WebInspector.ResourceClusterContentView = class ResourceClusterContentView exten
             break;
 
         case WebInspector.Resource.Type.Image:
-            this._responseContentView = new WebInspector.ImageResourceContentView(this._resource);
+            if (this._resource.mimeTypeComponents.type === "image/svg+xml")
+                this._responseContentView = new WebInspector.SVGImageResourceClusterContentView(this._resource);
+            else
+                this._responseContentView = new WebInspector.ImageResourceContentView(this._resource);
             break;
 
         case WebInspector.Resource.Type.Font:
             this._responseContentView = new WebInspector.FontResourceContentView(this._resource);
+            break;
+
+        case WebInspector.Resource.Type.WebSocket:
+            this._responseContentView = new WebInspector.WebSocketContentView(this._resource);
             break;
 
         default:
@@ -249,7 +257,7 @@ WebInspector.ResourceClusterContentView = class ResourceClusterContentView exten
         if (!currentResponseContentView)
             return;
 
-        delete this._responseContentView;
+        this._responseContentView = null;
 
         this.contentViewContainer.replaceContentView(currentResponseContentView, this.responseContentView);
     }

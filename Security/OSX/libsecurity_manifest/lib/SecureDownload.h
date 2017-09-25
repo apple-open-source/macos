@@ -55,7 +55,7 @@ extern "C" {
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
-
+#include <Security/SecTrust.h> /* SecTrustRef */
 
 
 typedef struct OpaqueSecureDownload *SecureDownloadRef;

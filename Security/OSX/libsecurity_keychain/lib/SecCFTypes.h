@@ -82,7 +82,6 @@ public:
 	CFClass Access;
 	CFClass ACL;
 	CFClass Certificate;
-	CFClass CertificateRequest;
 	CFClass Identity;
 	CFClass IdentityCursor;
 	CFClass ItemImpl;

@@ -31,7 +31,6 @@
 #include "IOHIDPrivateKeys.h"
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOLib.h>
-#include <IOKit/usb/USB.h>
 #include "IOHIDFamilyTrace.h"
 #include "IOHIDEventTypes.h"
 #include "IOHIDDebug.h"
@@ -239,6 +238,9 @@ bool IOHIDEventDriver::init( OSDictionary * dictionary )
     require_action(super::init(dictionary), exit, result=false);
 
     _reserved = IONew(ExpansionData, 1);
+
+    require_action(_reserved, exit, result=false);
+
     bzero(_reserved, sizeof(ExpansionData));
     
     _preferredAxisRemovalPercentage = kDefaultPreferredAxisRemovalPercentage;
@@ -1225,7 +1227,11 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
         element->retain();
         _digitizer.touchCancelElement = element;
     }
-
+    
+    if (element->getUsagePage() == kHIDPage_Digitizer && element->getUsage() == kHIDUsage_Dig_Untouch) {
+        _digitizer.collectionDispatch = true;
+    }
+    
     switch ( parent->getUsage() ) {
         case kHIDUsage_Dig_DeviceSettings:
             if  ( element->getUsagePage() == kHIDPage_Digitizer && element->getUsage() == kHIDUsage_Dig_DeviceMode ) {
@@ -1798,11 +1804,11 @@ bool IOHIDEventDriver::parseUnicodeElement(IOHIDElement * )
 {
     return false;
 }
-bool IOHIDEventDriver::parseLegacyUnicodeElement(IOHIDElement * element)
+bool IOHIDEventDriver::parseLegacyUnicodeElement(IOHIDElement * element __unused)
 {
     return false;
 }
-bool IOHIDEventDriver::parseGestureUnicodeElement(IOHIDElement * element)
+bool IOHIDEventDriver::parseGestureUnicodeElement(IOHIDElement * element __unused)
 {
     return false;
 }
@@ -2031,7 +2037,7 @@ void IOHIDEventDriver::handleInterruptReport (
     if (!readyForReports() || reportType!= kIOHIDReportTypeInput)
         return;
   
-    _lastReportTime = timeStamp;
+    _lastReportTime = mach_continuous_time();
   
     IOHID_DEBUG(kIOHIDDebugCode_InturruptReport, reportType, reportID, getRegistryEntryID(), 0);
   
@@ -2601,16 +2607,17 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     UInt32                  elementIndex    = 0;
     UInt32                  elementCount    = 0;
     UInt32                  buttonState     = 0;
+    UInt32                  cancelState     = 0;
     UInt32                  transducerID    = reportID;
     IOFixed                 X               = 0;
     IOFixed                 Y               = 0;
     IOFixed                 Z               = 0;
     IOFixed                 tipPressure     = 0;
     IOFixed                 barrelPressure  = 0;
-    IOFixed                 tiltX           = 0;
-    IOFixed                 tiltY           = 0;
+    //IOFixed                 tiltX           = 0;
+    //IOFixed                 tiltY           = 0;
     IOFixed                 twist           = 0;
-    bool                    invert          = false;
+    //bool                    invert          = false;
     bool                    inRange         = true;
     bool                    valid           = true;
     UInt32                  eventMask       = 0;
@@ -2668,10 +2675,14 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                         transducerID = value;
                         handled    |= elementIsCurrent;
                         break;
+                    case kHIDUsage_Dig_Untouch:
+                        setButtonState ( &cancelState, 0, value);
+                        handled    |= elementIsCurrent;
+                        break;
                     case kHIDUsage_Dig_Touch:
                     case kHIDUsage_Dig_TipSwitch:
                         setButtonState ( &buttonState, 0, value);
-                        handled    |= (elementIsCurrent | buttonState != 0);
+                        handled    |= (elementIsCurrent | (buttonState != 0));
                         break;
                     case kHIDUsage_Dig_BarrelSwitch:
                         setButtonState ( &buttonState, 1, value);
@@ -2679,7 +2690,7 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                         break;
                     case kHIDUsage_Dig_Eraser:
                         setButtonState ( &buttonState, 2, value);
-                        invert = value != 0;
+                        //invert = value != 0;
                         handled    |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_InRange:
@@ -2695,11 +2706,11 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                         handled    |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_XTilt:
-                        tiltX = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        //tiltX = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
                         handled    |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_YTilt:
-                        tiltY = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        //tiltY = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
                         handled    |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_Twist:
@@ -2707,7 +2718,7 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                         handled    |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_Invert:
-                        invert = value != 0;
+                        //invert = value != 0;
                         handled    |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_Quality:
@@ -2741,7 +2752,11 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     if (touch != transducer->touch) {
         eventMask |= kIOHIDDigitizerEventTouch;
     }
-
+  
+    if (buttonState & cancelState & 1) {
+        eventMask |= kIOHIDDigitizerEventCancel;
+    }
+    
     if (inRange && ( (transducer->X != X) || (transducer->Y != Y) || (transducer->Z != Z))) {
         eventMask |= kIOHIDDigitizerEventPosition;
     }
@@ -3126,11 +3141,11 @@ IOHIDEvent * IOHIDEventDriver::handleUnicodeGestureCandidateReport(EventElementC
 //====================================================================================================
 // IOHIDEventDriver::handleVendorMessageReport
 //====================================================================================================
-void IOHIDEventDriver::handleVendorMessageReport(AbsoluteTime timeStamp,  IOMemoryDescriptor * report, UInt32 reportID, int phase) {
+void IOHIDEventDriver::handleVendorMessageReport(AbsoluteTime timeStamp,  IOMemoryDescriptor * report __unused, UInt32 reportID, int phase) {
     if (_vendorMessage.elements) {
         if (phase == kIOParseVendorMessageReport) {
             //Prepare events and defer to be dispatched as child events
-            for (int index = 0; index < _vendorMessage.elements->getCount(); index++) {
+            for (unsigned int index = 0; index < _vendorMessage.elements->getCount(); index++) {
                 if (!_vendorMessage.pendingEvents){
                     _vendorMessage.pendingEvents = OSArray::withCapacity (_vendorMessage.elements->getCount());
                     if (_vendorMessage.pendingEvents == NULL) {
@@ -3138,13 +3153,13 @@ void IOHIDEventDriver::handleVendorMessageReport(AbsoluteTime timeStamp,  IOMemo
                     }
                 }
                 IOHIDElement * currentElement = OSDynamicCast(IOHIDElement, _vendorMessage.elements->getObject(index));
-                if (currentElement) {
+                if (currentElement && currentElement->getReportID() == reportID) {
                     OSData *value = currentElement->getDataValue();
                     if (value && value->getLength()) {
                         const void *data = value->getBytesNoCopy();
                         unsigned int dataLength = value->getLength();
                         IOHIDEvent * event = IOHIDEvent::vendorDefinedEvent(
-                                                          currentElement->getTimeStamp(),
+                                                          timeStamp,
                                                           currentElement->getUsagePage(),
                                                           currentElement->getUsage(),
                                                           0,
@@ -3163,7 +3178,7 @@ void IOHIDEventDriver::handleVendorMessageReport(AbsoluteTime timeStamp,  IOMemo
             OSArray * pendingEvents = OSArray::withArray(_vendorMessage.pendingEvents);
             _vendorMessage.pendingEvents->flushCollection();
             if (pendingEvents) {
-                for (int index = 0; index < pendingEvents->getCount(); index++) {
+                for (unsigned int index = 0; index < pendingEvents->getCount(); index++) {
                     IOHIDEvent * event = OSDynamicCast (IOHIDEvent, pendingEvents->getObject(index));
                     if (event) {
                         dispatchEvent (event);
@@ -3189,7 +3204,7 @@ void IOHIDEventDriver::handleBiometricReport(AbsoluteTime timeStamp, UInt32 repo
     for (index = 0, count = _biometric.elements->getCount(); index < count; index++) {
         IOHIDElement *  element;
         AbsoluteTime    elementTimeStamp;
-        UInt32          usagePage, usage, exponent, value;
+        UInt32          usagePage, usage, value;
         
         element = OSDynamicCast(IOHIDElement, _biometric.elements->getObject(index));
         if (!element)
@@ -3248,7 +3263,7 @@ exit:
 //====================================================================================================
 void IOHIDEventDriver::dispatchEvent(IOHIDEvent * event, IOOptionBits options) {
   if (_vendorMessage.pendingEvents && _vendorMessage.pendingEvents->getCount()) {
-      for (int index = 0; index < _vendorMessage.pendingEvents->getCount(); index++) {
+      for (unsigned int index = 0; index < _vendorMessage.pendingEvents->getCount(); index++) {
           IOHIDEvent * childEvent = OSDynamicCast (IOHIDEvent, _vendorMessage.pendingEvents->getObject(index));
           if (childEvent) {
               event->appendChild(childEvent);
@@ -3335,7 +3350,7 @@ exit:
 //====================================================================================================
 // IOHIDEventDriver::serializeDebugState
 //====================================================================================================
-bool   IOHIDEventDriver::serializeDebugState(void * ref, OSSerialize * serializer) {
+bool   IOHIDEventDriver::serializeDebugState(void * ref __unused, OSSerialize * serializer) {
     bool          result = false;
     uint64_t      currentTime,deltaTime;
     uint64_t      nanoTime;
@@ -3343,10 +3358,9 @@ bool   IOHIDEventDriver::serializeDebugState(void * ref, OSSerialize * serialize
     OSDictionary  *debugDict = OSDictionary::withCapacity(4);
   
     require(debugDict, exit);
-    clock_get_uptime(&currentTime);
-  
   
     if (_lastReportTime) {
+        currentTime =  mach_continuous_time();
         deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(_lastReportTime));
 
         absolutetime_to_nanoseconds(deltaTime, &nanoTime);

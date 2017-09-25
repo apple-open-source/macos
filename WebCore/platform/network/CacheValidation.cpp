@@ -38,10 +38,12 @@
 
 namespace WebCore {
 
+using namespace std::literals::chrono_literals;
+
 // These response headers are not copied from a revalidated response to the
 // cached response headers. For compatibility, this list is based on Chromium's
 // net/http/http_response_headers.cc.
-const char* const headersToIgnoreAfterRevalidation[] = {
+static const char* const headersToIgnoreAfterRevalidation[] = {
     "allow",
     "connection",
     "etag",
@@ -60,7 +62,7 @@ const char* const headersToIgnoreAfterRevalidation[] = {
 // Some header prefixes mean "Don't copy this header from a 304 response.".
 // Rather than listing all the relevant headers, we can consolidate them into
 // this list, also grabbed from Chromium's net/http/http_response_headers.cc.
-const char* const headerPrefixesToIgnoreAfterRevalidation[] = {
+static const char* const headerPrefixesToIgnoreAfterRevalidation[] = {
     "content-",
     "x-content-",
     "x-webkit-"
@@ -72,8 +74,10 @@ static inline bool shouldUpdateHeaderAfterRevalidation(const String& header)
         if (equalIgnoringASCIICase(header, headerToIgnore))
             return false;
     }
-    for (size_t i = 0; i < WTF_ARRAY_LENGTH(headerPrefixesToIgnoreAfterRevalidation); i++) {
-        if (header.startsWith(headerPrefixesToIgnoreAfterRevalidation[i], false))
+    for (auto& prefixToIgnore : headerPrefixesToIgnoreAfterRevalidation) {
+        // FIXME: Would be more efficient if we added an overload of
+        // startsWithIgnoringASCIICase that takes a const char*.
+        if (header.startsWithIgnoringASCIICase(prefixToIgnore))
             return false;
     }
     return true;
@@ -113,7 +117,9 @@ std::chrono::microseconds computeCurrentAge(const ResourceResponse& response, st
 std::chrono::microseconds computeFreshnessLifetimeForHTTPFamily(const ResourceResponse& response, std::chrono::system_clock::time_point responseTime)
 {
     using namespace std::chrono;
-    ASSERT(response.url().protocolIsInHTTPFamily());
+
+    if (!response.url().protocolIsInHTTPFamily())
+        return 0us;
 
     // Freshness Lifetime:
     // http://tools.ietf.org/html/rfc7234#section-4.2.1
@@ -316,7 +322,8 @@ CacheControlDirectives parseCacheControlDirectives(const HTTPHeaderMap& headers)
                 double maxStale = directives[i].second.toDouble(&ok);
                 if (ok)
                     result.maxStale = duration_cast<microseconds>(duration<double>(maxStale));
-            }
+            } else if (equalLettersIgnoringASCIICase(directives[i].first, "immutable"))
+                result.immutable = true;
         }
     }
 
@@ -355,7 +362,7 @@ Vector<std::pair<String, String>> collectVaryingRequestHeaders(const WebCore::Re
     if (varyValue.isEmpty())
         return { };
     Vector<String> varyingHeaderNames;
-    varyValue.split(',', /*allowEmptyEntries*/ false, varyingHeaderNames);
+    varyValue.split(',', varyingHeaderNames);
     Vector<std::pair<String, String>> varyingRequestHeaders;
     varyingRequestHeaders.reserveCapacity(varyingHeaderNames.size());
     for (auto& varyHeaderName : varyingHeaderNames) {
@@ -377,6 +384,45 @@ bool verifyVaryingRequestHeaders(const Vector<std::pair<String, String>>& varyin
             return false;
     }
     return true;
+}
+
+// http://tools.ietf.org/html/rfc7231#page-48
+bool isStatusCodeCacheableByDefault(int statusCode)
+{
+    switch (statusCode) {
+    case 200: // OK
+    case 203: // Non-Authoritative Information
+    case 204: // No Content
+    case 206: // Partial Content
+    case 300: // Multiple Choices
+    case 301: // Moved Permanently
+    case 404: // Not Found
+    case 405: // Method Not Allowed
+    case 410: // Gone
+    case 414: // URI Too Long
+    case 501: // Not Implemented
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isStatusCodePotentiallyCacheable(int statusCode)
+{
+    switch (statusCode) {
+    case 201: // Created
+    case 202: // Accepted
+    case 205: // Reset Content
+    case 302: // Found
+    case 303: // See Other
+    case 307: // Temporary redirect
+    case 403: // Forbidden
+    case 406: // Not Acceptable
+    case 415: // Unsupported Media Type
+        return true;
+    default:
+        return false;
+    }
 }
 
 }

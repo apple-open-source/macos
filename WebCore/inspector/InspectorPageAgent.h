@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -74,7 +74,7 @@ public:
         XHRResource,
         FetchResource,
         WebSocketResource,
-        OtherResource
+        OtherResource,
     };
 
     static bool cachedResourceContent(CachedResource*, String* result, bool* base64Encoded);
@@ -91,16 +91,14 @@ public:
     // Page API for InspectorFrontend
     void enable(ErrorString&) override;
     void disable(ErrorString&) override;
-    void addScriptToEvaluateOnLoad(ErrorString&, const String& source, String* result) override;
-    void removeScriptToEvaluateOnLoad(ErrorString&, const String& identifier) override;
-    void reload(ErrorString&, const bool* optionalIgnoreCache, const String* optionalScriptToEvaluateOnLoad) override;
+    void reload(ErrorString&, const bool* const optionalIgnoreCache, const bool* const optionalRevalidateAllResources, const String* const optionalScriptToEvaluateOnLoad) override;
     void navigate(ErrorString&, const String& url) override;
     void getCookies(ErrorString&, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Page::Cookie>>& cookies) override;
     void deleteCookie(ErrorString&, const String& cookieName, const String& url) override;
     void getResourceTree(ErrorString&, RefPtr<Inspector::Protocol::Page::FrameResourceTree>&) override;
     void getResourceContent(ErrorString&, const String& frameId, const String& url, String* content, bool* base64Encoded) override;
-    void searchInResource(ErrorString&, const String& frameId, const String& url, const String& query, const bool* optionalCaseSensitive, const bool* optionalIsRegex, const String* optionalRequestId, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>>&) override;
-    void searchInResources(ErrorString&, const String&, const bool* caseSensitive, const bool* isRegex, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Page::SearchResult>>&) override;
+    void searchInResource(ErrorString&, const String& frameId, const String& url, const String& query, const bool* const optionalCaseSensitive, const bool* const optionalIsRegex, const String* const optionalRequestId, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>>&) override;
+    void searchInResources(ErrorString&, const String&, const bool* const caseSensitive, const bool* const isRegex, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Page::SearchResult>>&) override;
     void setShowPaintRects(ErrorString&, bool show) override;
     void setEmulatedMedia(ErrorString&, const String&) override;
     void getCompositingBordersVisible(ErrorString&, bool* out_param) override;
@@ -118,7 +116,7 @@ public:
     void loaderDetachedFromFrame(DocumentLoader&);
     void frameStartedLoading(Frame&);
     void frameStoppedLoading(Frame&);
-    void frameScheduledNavigation(Frame&, double delay);
+    void frameScheduledNavigation(Frame&, Seconds delay);
     void frameClearedScheduledNavigation(Frame&);
     void applyEmulatedMedia(String&);
     void didPaint(RenderObject&, const LayoutRect&);
@@ -157,7 +155,6 @@ private:
     InspectorClient* m_client { nullptr };
     InspectorOverlay* m_overlay { nullptr };
 
-    long m_lastScriptIdentifier { 0 };
     String m_pendingScriptToEvaluateOnLoadOnce;
     String m_scriptToEvaluateOnLoadOnce;
     HashMap<Frame*, String> m_frameToIdentifier;
@@ -167,7 +164,6 @@ private:
     bool m_isFirstLayoutAfterOnLoad { false };
     bool m_showPaintRects { false };
     String m_emulatedMedia;
-    RefPtr<Inspector::InspectorObject> m_scriptsToEvaluateOnLoad;
 };
 
 } // namespace WebCore

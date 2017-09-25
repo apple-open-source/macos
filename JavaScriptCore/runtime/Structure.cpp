@@ -181,13 +181,13 @@ Structure::Structure(VM& vm, JSGlobalObject* globalObject, JSValue prototype, co
     : JSCell(vm, vm.structureStructure.get())
     , m_blob(vm.heap.structureIDTable().allocateID(this), indexingType, typeInfo)
     , m_outOfLineTypeFlags(typeInfo.outOfLineTypeFlags())
+    , m_inlineCapacity(inlineCapacity)
+    , m_bitField(0)
     , m_globalObject(vm, this, globalObject, WriteBarrier<JSGlobalObject>::MayBeNull)
     , m_prototype(vm, this, prototype)
     , m_classInfo(classInfo)
     , m_transitionWatchpointSet(IsWatched)
     , m_offset(invalidOffset)
-    , m_inlineCapacity(inlineCapacity)
-    , m_bitField(0)
 {
     setDictionaryKind(NoneDictionaryKind);
     setIsPinnedPropertyTable(false);
@@ -210,16 +210,16 @@ Structure::Structure(VM& vm, JSGlobalObject* globalObject, JSValue prototype, co
     ASSERT(hasGetterSetterProperties() || !m_classInfo->hasStaticSetterOrReadonlyProperties());
 }
 
-const ClassInfo Structure::s_info = { "Structure", 0, 0, CREATE_METHOD_TABLE(Structure) };
+const ClassInfo Structure::s_info = { "Structure", nullptr, nullptr, nullptr, CREATE_METHOD_TABLE(Structure) };
 
 Structure::Structure(VM& vm)
     : JSCell(CreatingEarlyCell)
+    , m_inlineCapacity(0)
+    , m_bitField(0)
     , m_prototype(vm, this, jsNull())
     , m_classInfo(info())
     , m_transitionWatchpointSet(IsWatched)
     , m_offset(invalidOffset)
-    , m_inlineCapacity(0)
-    , m_bitField(0)
 {
     setDictionaryKind(NoneDictionaryKind);
     setIsPinnedPropertyTable(false);
@@ -245,12 +245,12 @@ Structure::Structure(VM& vm)
 
 Structure::Structure(VM& vm, Structure* previous, DeferredStructureTransitionWatchpointFire* deferred)
     : JSCell(vm, vm.structureStructure.get())
+    , m_inlineCapacity(previous->m_inlineCapacity)
+    , m_bitField(0)
     , m_prototype(vm, this, previous->storedPrototype())
     , m_classInfo(previous->m_classInfo)
     , m_transitionWatchpointSet(IsWatched)
     , m_offset(invalidOffset)
-    , m_inlineCapacity(previous->m_inlineCapacity)
-    , m_bitField(0)
 {
     setDictionaryKind(previous->dictionaryKind());
     setIsPinnedPropertyTable(previous->hasBeenFlattenedBefore());
@@ -918,6 +918,8 @@ void Structure::willStoreValueSlow(
         table->makeTop(vm, propertyName, age);
         entry->hasInferredType = false;
     }
+    
+    propertyTable->use(); // This makes it safe to use entry above.
 }
 
 #if DUMP_PROPERTYMAP_STATS
@@ -1143,10 +1145,10 @@ bool Structure::prototypeChainMayInterceptStoreTo(VM& vm, PropertyName propertyN
     }
 }
 
-PassRefPtr<StructureShape> Structure::toStructureShape(JSValue value)
+Ref<StructureShape> Structure::toStructureShape(JSValue value)
 {
-    RefPtr<StructureShape> baseShape = StructureShape::create();
-    RefPtr<StructureShape> curShape = baseShape;
+    Ref<StructureShape> baseShape = StructureShape::create();
+    RefPtr<StructureShape> curShape = baseShape.ptr();
     Structure* curStructure = this;
     JSValue curValue = value;
     while (curStructure) {
@@ -1168,7 +1170,7 @@ PassRefPtr<StructureShape> Structure::toStructureShape(JSValue value)
 
         if (curStructure->storedPrototypeStructure()) {
             auto newShape = StructureShape::create();
-            curShape->setProto(newShape.ptr());
+            curShape->setProto(newShape.copyRef());
             curShape = WTFMove(newShape);
             curValue = curStructure->storedPrototype();
         }
@@ -1176,7 +1178,7 @@ PassRefPtr<StructureShape> Structure::toStructureShape(JSValue value)
         curStructure = curStructure->storedPrototypeStructure();
     }
     
-    return WTFMove(baseShape);
+    return baseShape;
 }
 
 bool Structure::canUseForAllocationsOf(Structure* other)

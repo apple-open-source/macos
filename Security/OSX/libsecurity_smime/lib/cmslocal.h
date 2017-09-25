@@ -48,7 +48,9 @@
 #include <Security/secasn1t.h>
 
 extern const SecAsn1Template SecCmsIssuerAndSNTemplate[];
+#if 0
 extern const SecAsn1Template SecCmsContentInfoTemplate[];
+#endif
 
 /************************************************************************/
 SEC_BEGIN_PROTOS

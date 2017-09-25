@@ -41,6 +41,8 @@
 #include "CSSFilterImageValue.h"
 #include "CSSFontFaceSrcValue.h"
 #include "CSSFontFeatureValue.h"
+#include "CSSFontStyleRangeValue.h"
+#include "CSSFontStyleValue.h"
 #include "CSSFontValue.h"
 #include "CSSFontVariationValue.h"
 #include "CSSFunctionValue.h"
@@ -62,11 +64,9 @@
 #include "CSSValueList.h"
 #include "CSSVariableReferenceValue.h"
 
-#if ENABLE(CSS_GRID_LAYOUT)
 #include "CSSGridAutoRepeatValue.h"
 #include "CSSGridLineNamesValue.h"
 #include "CSSGridTemplateAreasValue.h"
-#endif
 
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "DeprecatedCSSOMValueList.h"
@@ -101,7 +101,7 @@ CSSValue::Type CSSValue::cssValueType() const
     return CSS_CUSTOM;
 }
 
-bool CSSValue::traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const
+bool CSSValue::traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const
 {
     if (is<CSSValueList>(*this))
         return downcast<CSSValueList>(*this).traverseSubresources(handler);
@@ -168,14 +168,12 @@ bool CSSValue::equals(const CSSValue& other) const
             return compareCSSValues<CSSUnsetValue>(*this, other);
         case RevertClass:
             return compareCSSValues<CSSRevertValue>(*this, other);
-#if ENABLE(CSS_GRID_LAYOUT)
         case GridAutoRepeatClass:
             return compareCSSValues<CSSGridAutoRepeatValue>(*this, other);
         case GridLineNamesClass:
             return compareCSSValues<CSSGridLineNamesValue>(*this, other);
         case GridTemplateAreasClass:
             return compareCSSValues<CSSGridTemplateAreasValue>(*this, other);
-#endif
         case PrimitiveClass:
             return compareCSSValues<CSSPrimitiveValue>(*this, other);
         case ReflectClass:
@@ -210,6 +208,10 @@ bool CSSValue::equals(const CSSValue& other) const
             return compareCSSValues<CSSVariableReferenceValue>(*this, other);
         case PendingSubstitutionValueClass:
             return compareCSSValues<CSSPendingSubstitutionValue>(*this, other);
+        case FontStyleClass:
+            return compareCSSValues<CSSFontStyleValue>(*this, other);
+        case FontStyleRangeClass:
+            return compareCSSValues<CSSFontStyleRangeValue>(*this, other);
         default:
             ASSERT_NOT_REACHED();
             return false;
@@ -264,14 +266,12 @@ String CSSValue::cssText() const
         return downcast<CSSUnsetValue>(*this).customCSSText();
     case RevertClass:
         return downcast<CSSRevertValue>(*this).customCSSText();
-#if ENABLE(CSS_GRID_LAYOUT)
     case GridAutoRepeatClass:
         return downcast<CSSGridAutoRepeatValue>(*this).customCSSText();
     case GridLineNamesClass:
         return downcast<CSSGridLineNamesValue>(*this).customCSSText();
     case GridTemplateAreasClass:
         return downcast<CSSGridTemplateAreasValue>(*this).customCSSText();
-#endif
     case PrimitiveClass:
         return downcast<CSSPrimitiveValue>(*this).customCSSText();
     case ReflectClass:
@@ -308,6 +308,10 @@ String CSSValue::cssText() const
         return downcast<CSSVariableReferenceValue>(*this).customCSSText();
     case PendingSubstitutionValueClass:
         return downcast<CSSPendingSubstitutionValue>(*this).customCSSText();
+    case FontStyleClass:
+        return downcast<CSSFontStyleValue>(*this).customCSSText();
+    case FontStyleRangeClass:
+        return downcast<CSSFontStyleRangeValue>(*this).customCSSText();
     }
 
     ASSERT_NOT_REACHED();
@@ -373,7 +377,6 @@ void CSSValue::destroy()
     case RevertClass:
         delete downcast<CSSRevertValue>(this);
         return;
-#if ENABLE(CSS_GRID_LAYOUT)
     case GridAutoRepeatClass:
         delete downcast<CSSGridAutoRepeatValue>(this);
         return;
@@ -383,7 +386,6 @@ void CSSValue::destroy()
     case GridTemplateAreasClass:
         delete downcast<CSSGridTemplateAreasValue>(this);
         return;
-#endif
     case PrimitiveClass:
         delete downcast<CSSPrimitiveValue>(this);
         return;
@@ -439,6 +441,12 @@ void CSSValue::destroy()
         return;
     case PendingSubstitutionValueClass:
         delete downcast<CSSPendingSubstitutionValue>(this);
+        return;
+    case FontStyleClass:
+        delete downcast<CSSFontStyleValue>(this);
+        return;
+    case FontStyleRangeClass:
+        delete downcast<CSSFontStyleRangeValue>(this);
         return;
     }
     ASSERT_NOT_REACHED();

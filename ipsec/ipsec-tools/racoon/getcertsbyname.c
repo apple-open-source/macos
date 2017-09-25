@@ -31,13 +31,20 @@
 
 #include "config.h"
 
+#if ENABLE_DNSSEC_CERTS
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>
 #include <arpa/nameser_compat.h>
+
+// Note: this is currently compiled out because ENABLE_DNSSEC_CERTS=0
+// TODO: switch to DNSServiceRef APIs before enabling
+#error "Need to switch to DNSServiceRef APIs before enabling"
 #include <resolv.h>
+
 #ifdef HAVE_LWRES_GETRRSETBYNAME
 #include <lwres/netdb.h>
 #include <lwres/lwres.h>
@@ -232,6 +239,10 @@ getcertsbyname(name, res)
 		}
 		answer = p;
 
+        // Note: this is currently compiled out because ENABLE_DNSSEC_CERTS=0
+        // TODO: switch to DNSServiceRef APIs before enabling
+        #error "Need to switch to DNSServiceRef APIs before enabling"
+
 		anslen = res_query(name,  C_IN, T_CERT, answer, buflen);
 		if (anslen == -1)
 			goto end;
@@ -412,3 +423,5 @@ main(ac, av)
 	exit(0);
 }
 #endif
+
+#endif /* ENABLE_DNSSEC_CERTS */

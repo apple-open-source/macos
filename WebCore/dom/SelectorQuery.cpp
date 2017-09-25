@@ -196,7 +196,7 @@ Element* SelectorDataList::queryFirst(ContainerNode& rootNode) const
 
 static const CSSSelector* selectorForIdLookup(const ContainerNode& rootNode, const CSSSelector& firstSelector)
 {
-    if (!rootNode.inDocument())
+    if (!rootNode.isConnected())
         return nullptr;
     if (rootNode.document().inQuirksMode())
         return nullptr;
@@ -246,7 +246,7 @@ ALWAYS_INLINE void SelectorDataList::executeFastPathForIdSelector(const Containe
 
 static ContainerNode& filterRootById(ContainerNode& rootNode, const CSSSelector& firstSelector)
 {
-    if (!rootNode.inDocument())
+    if (!rootNode.isConnected())
         return rootNode;
     if (rootNode.document().inQuirksMode())
         return rootNode;
@@ -336,8 +336,8 @@ ALWAYS_INLINE void SelectorDataList::executeSingleTagNameSelectorData(const Cont
     const AtomicString& selectorLowercaseLocalName = selectorData.selector->tagLowercaseLocalName();
     const AtomicString& selectorNamespaceURI = tagQualifiedName.namespaceURI();
 
-    if (selectorNamespaceURI == starAtom) {
-        if (selectorLocalName != starAtom) {
+    if (selectorNamespaceURI == starAtom()) {
+        if (selectorLocalName != starAtom()) {
             // Common case: name defined, selectorNamespaceURI is a wildcard.
             elementsForLocalName<SelectorQueryTrait>(rootNode, selectorLocalName, selectorLowercaseLocalName, output);
         } else {
@@ -345,7 +345,7 @@ ALWAYS_INLINE void SelectorDataList::executeSingleTagNameSelectorData(const Cont
             anyElement<SelectorQueryTrait>(rootNode, output);
         }
     } else {
-        // Fallback: NamespaceURI is set, selectorLocalName may be starAtom.
+        // Fallback: NamespaceURI is set, selectorLocalName may be starAtom().
         for (auto& element : elementDescendants(const_cast<ContainerNode&>(rootNode))) {
             if (element.namespaceURI() == selectorNamespaceURI && localNameMatches(element, selectorLocalName, selectorLowercaseLocalName)) {
                 SelectorQueryTrait::appendOutputForElement(output, &element);

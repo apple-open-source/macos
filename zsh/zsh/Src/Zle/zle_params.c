@@ -103,9 +103,27 @@ static const struct gsu_integer yankend_gsu =
 { get_yankend, set_yankend, zleunsetfn };
 static const struct gsu_integer yankactive_gsu =
 { get_yankactive, NULL, zleunsetfn };
+static const struct gsu_integer isearchmatchstart_gsu =
+{ get_isearchmatchstart, NULL, zleunsetfn };
+static const struct gsu_integer isearchmatchend_gsu =
+{ get_isearchmatchend, NULL, zleunsetfn };
+static const struct gsu_integer isearchmatchactive_gsu =
+{ get_isearchmatchactive, NULL, zleunsetfn };
+static const struct gsu_integer suffixstart_gsu =
+{ get_suffixstart, NULL, zleunsetfn };
+static const struct gsu_integer suffixend_gsu =
+{ get_suffixend, NULL, zleunsetfn };
+static const struct gsu_integer suffixactive_gsu =
+{ get_suffixactive, NULL, zleunsetfn };
 
 static const struct gsu_array killring_gsu =
 { get_killring, set_killring, unset_killring };
+
+static const struct gsu_scalar register_gsu =
+{ strgetfn, set_register, unset_register };
+static const struct gsu_hash registers_gsu =
+{ hashgetfn, set_registers, zleunsetfn };
+
 /* implementation is in zle_refresh.c */
 static const struct gsu_array region_highlight_gsu =
 { get_region_highlight, set_region_highlight, unset_region_highlight };
@@ -152,6 +170,12 @@ static struct zleparam {
     { "YANK_START", PM_INTEGER, GSU(yankstart_gsu), NULL },
     { "YANK_END", PM_INTEGER, GSU(yankend_gsu), NULL },
     { "YANK_ACTIVE", PM_INTEGER | PM_READONLY, GSU(yankactive_gsu), NULL },
+    { "ISEARCHMATCH_START", PM_INTEGER, GSU(isearchmatchstart_gsu), NULL },
+    { "ISEARCHMATCH_END", PM_INTEGER, GSU(isearchmatchend_gsu), NULL },
+    { "ISEARCHMATCH_ACTIVE", PM_INTEGER | PM_READONLY, GSU(isearchmatchactive_gsu), NULL },
+    { "SUFFIX_START", PM_INTEGER, GSU(suffixstart_gsu), NULL },
+    { "SUFFIX_END", PM_INTEGER, GSU(suffixend_gsu), NULL },
+    { "SUFFIX_ACTIVE", PM_INTEGER | PM_READONLY, GSU(suffixactive_gsu), NULL },
     { "ZLE_STATE", PM_SCALAR | PM_READONLY, GSU(zle_state_gsu), NULL },
     { NULL, 0, NULL, NULL }
 };
@@ -163,6 +187,7 @@ mod_export void
 makezleparams(int ro)
 {
     struct zleparam *zp;
+    Param reg_param;
 
     for(zp = zleparams; zp->name; zp++) {
 	Param pm = createparam(zp->name, (zp->type |PM_SPECIAL|PM_REMOVABLE|
@@ -188,6 +213,11 @@ makezleparams(int ro)
 	if ((zp->type & PM_UNSET) && (zmod.flags & (MOD_MULT|MOD_TMULT)))
 	    pm->node.flags &= ~PM_UNSET;
     }
+
+    reg_param = createspecialhash("registers", get_registers, &scan_registers,
+	    PM_LOCAL|PM_REMOVABLE);
+    reg_param->gsu.h = &registers_gsu;
+    reg_param->level = locallevel + 1;
 }
 
 /* Special unset function for ZLE special parameters: act like the standard *
@@ -521,6 +551,48 @@ set_yankend(UNUSED(Param pm), zlong i)
 }
 
 /**/
+static zlong
+get_isearchmatchstart(UNUSED(Param pm))
+{
+    return isearch_startpos;
+}
+
+/**/
+static zlong
+get_isearchmatchend(UNUSED(Param pm))
+{
+    return isearch_endpos;
+}
+
+/**/
+static zlong
+get_isearchmatchactive(UNUSED(Param pm))
+{
+    return isearch_active;
+}
+
+/**/
+static zlong
+get_suffixstart(UNUSED(Param pm))
+{
+    return zlecs - suffixlen;
+}
+
+/**/
+static zlong
+get_suffixend(UNUSED(Param pm))
+{
+    return zlecs;
+}
+
+/**/
+static zlong
+get_suffixactive(UNUSED(Param pm))
+{
+    return suffixlen;
+}
+
+/**/
 static char *
 get_cutbuffer(UNUSED(Param pm))
 {
@@ -650,6 +722,111 @@ unset_killring(Param pm, int exp)
 	set_killring(pm, NULL);
 	stdunsetfn(pm, exp);
     }
+}
+
+/**/
+static void
+set_register(Param pm, char *value)
+{
+    int n = 0;
+    int offset = -1;
+    Cutbuffer vbuf;
+
+    if (!pm->node.nam || pm->node.nam[1])
+	;
+    else if (*pm->node.nam >= '0' && *pm->node.nam <= '9')
+	offset = '0' - 26;
+    else if (*pm->node.nam >= 'a' && *pm->node.nam <= 'z')
+	offset = 'a';
+
+    if (offset == -1) {
+	zerr("invalid zle register: %s", pm->node.nam);
+	return;
+    }
+
+    vbuf = &vibuf[*pm->node.nam - offset];
+    if (*value)
+	vbuf->buf = stringaszleline(value, 0, &n, NULL, NULL);
+    vbuf->len = n;
+}
+
+/**/
+static void
+unset_register(Param pm, UNUSED(int exp))
+{
+    set_register(pm, "");
+}
+
+/**/
+static void
+scan_registers(UNUSED(HashTable ht), ScanFunc func, int flags)
+{
+    int i;
+    char ch;
+    struct param pm;
+
+    memset((void *)&pm, 0, sizeof(struct param));
+    pm.node.flags = PM_SCALAR | PM_READONLY;
+    pm.gsu.s = &nullsetscalar_gsu;
+
+    for (i = 0, ch = 'a'; i < 36; i++) {
+	pm.node.nam = zhalloc(2);
+	*pm.node.nam = ch;
+	pm.node.nam[1] = '\0';
+	pm.u.str = zlelineasstring(vibuf[i].buf, vibuf[i].len, 0, NULL, NULL, 1);
+	func(&pm.node, flags);
+	if (ch++ == 'z')
+	    ch = '0';
+    }
+}
+
+/**/
+static HashNode
+get_registers(UNUSED(HashTable ht), const char *name)
+{
+    Param pm = (Param) hcalloc(sizeof(struct param));
+    int vbuf = -1;
+    pm->node.nam = dupstring(name);
+    pm->node.flags = PM_SCALAR;
+    pm->gsu.s = &register_gsu;
+
+    if (name[1])
+       ;
+    else if (*name >= '0' && *name <= '9')
+	vbuf = *name - '0' + 26;
+    else if (*name >= 'a' && *name <= 'z')
+	vbuf = *name - 'a';
+
+    if (vbuf == -1) {
+	pm->u.str = dupstring("");
+	pm->node.flags |= (PM_UNSET|PM_SPECIAL);
+    } else
+	pm->u.str = zlelineasstring(vibuf[vbuf].buf, vibuf[vbuf].len, 0, NULL, NULL, 1);
+
+    return &pm->node;
+}
+
+/**/
+static void
+set_registers(UNUSED(Param pm), HashTable ht)
+{
+    int i;
+    HashNode hn;
+
+    if (!ht)
+        return;
+
+    for (i = 0; i < ht->hsize; i++)
+        for (hn = ht->nodes[i]; hn; hn = hn->next) {
+            struct value v;
+            v.isarr = v.flags = v.start = 0;
+            v.end = -1;
+            v.arr = NULL;
+            v.pm = (Param) hn;
+
+	    set_register(v.pm, getstrvalue(&v));
+        }
+    deleteparamtable(ht);
 }
 
 static void

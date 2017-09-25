@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Canon Inc.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -30,7 +31,7 @@
 
 #if ENABLE(STREAMS_API)
 
-#include "JSDOMBinding.h"
+#include "JSDOMConvertBufferSource.h"
 #include "JSReadableStreamDefaultController.h"
 #include <runtime/JSCJSValue.h>
 #include <runtime/JSCJSValueInlines.h>
@@ -102,7 +103,7 @@ inline bool ReadableStreamDefaultController::enqueue(RefPtr<JSC::ArrayBuffer>&& 
     auto chunk = JSC::Uint8Array::create(WTFMove(buffer), 0, length);
     ASSERT(chunk);
     enqueue(state, toJS(&state, &globalObject, chunk.get()));
-    ASSERT_UNUSED(scope, !scope.exception());
+    scope.assertNoException();
     return true;
 }
 

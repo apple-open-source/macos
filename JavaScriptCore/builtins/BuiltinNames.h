@@ -35,6 +35,7 @@ namespace JSC {
 #define JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
     JSC_COMMON_BYTECODE_INTRINSIC_FUNCTIONS_EACH_NAME(macro) \
     JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(macro) \
+    macro(add) \
     macro(arrayIteratorNextIndex) \
     macro(arrayIterationKind) \
     macro(arrayIteratorNext) \
@@ -52,7 +53,6 @@ namespace JSC {
     macro(deferred) \
     macro(countdownHolder) \
     macro(Object) \
-    macro(ownEnumerablePropertyKeys) \
     macro(Number) \
     macro(Array) \
     macro(ArrayBuffer) \
@@ -73,6 +73,7 @@ namespace JSC {
     macro(ownKeys) \
     macro(Error) \
     macro(RangeError) \
+    macro(Set) \
     macro(TypeError) \
     macro(typedArrayLength) \
     macro(typedArraySort) \
@@ -80,9 +81,10 @@ namespace JSC {
     macro(typedArraySubarrayCreate) \
     macro(BuiltinLog) \
     macro(homeObject) \
-    macro(getTemplateObject) \
     macro(templateRegistryKey) \
     macro(enqueueJob) \
+    macro(hostPromiseRejectionTracker) \
+    macro(promiseIsHandled) \
     macro(promiseState) \
     macro(promiseReactions) \
     macro(promiseResult) \
@@ -129,7 +131,6 @@ namespace JSC {
     macro(isArraySlow) \
     macro(isArrayConstructor) \
     macro(isConstructor) \
-    macro(isDerivedConstructor) \
     macro(concatMemcpy) \
     macro(appendMemcpy) \
     macro(predictFinalLengthFromArgumunts) \
@@ -160,12 +161,15 @@ namespace JSC {
     macro(stringSubstrInternal) \
     macro(makeBoundFunction) \
     macro(hasOwnLengthProperty) \
+    macro(importModule) \
+    macro(propertyIsEnumerable) \
     macro(WebAssembly) \
     macro(Module) \
     macro(Instance) \
     macro(Memory) \
     macro(Table) \
     macro(CompileError) \
+    macro(LinkError) \
     macro(RuntimeError) \
 
 

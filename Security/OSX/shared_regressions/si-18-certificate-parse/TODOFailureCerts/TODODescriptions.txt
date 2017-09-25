@@ -1,0 +1,29 @@
+The following certs do not fail because parse failures in non-critical extensions are ignored.
+The certificate merely marks those extensions as not present.
+parse_fail_keyusage_extra_bit.cer
+	-the length field says 2 but there are 2 bytes in the bitstring (plus unused bits field which makes 3)
+	-we happily skip the extra byte
+parse_fail_length_63.cer
+	-length field in AKID
+parse_fail_tag_27.cer
+	-tag field in EKU (seq)
+parse_fail_tag_28.cer
+	-tag field in EKU (oid)
+parse_fail_tag_32.cer
+	-tag field in SKID
+parse_fail_tag_36.cer
+	-tag field in AKID
+
+parse_fail_too_big.cer succeeds because we ignore extra data after the cert.
+
+parse_fail_basic_constraints_notCA_pathlen.cer
+We don’t enforce (from RFC 5280):
+   CAs MUST NOT include the pathLenConstraint field unless the cA
+   boolean is asserted and the key usage extension asserts the
+   keyCertSign bit.
+
+parse_fail_ec_not_on_curve.cer
+We don’t check that the point is on the curve until we use the key (e.g. for verifying a signature).
+
+spki_fail_tag_4.cer
+SecECPublicKeyInit doesn’t read the parameters of the algorithm ID.

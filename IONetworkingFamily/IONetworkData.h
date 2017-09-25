@@ -179,7 +179,7 @@ protected:
     @abstract Frees the IONetworkData object. 
 */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 /*! @function writeBytes
     @abstract Writes to the data buffer with data from a source buffer
@@ -463,7 +463,7 @@ public:
     @result Returns true on success, false otherwise. 
 */
 
-    virtual bool serialize(OSSerialize * s) const;
+    virtual bool serialize(OSSerialize * s) const APPLE_KEXT_OVERRIDE;
 
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IONetworkData,  0);

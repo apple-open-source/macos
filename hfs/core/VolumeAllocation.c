@@ -794,13 +794,13 @@ CheckUnmappedBytes (struct hfsmount *hfsmp, uint64_t blockno, uint64_t numblocks
  ;				Additionally build up the summary table as needed.
  ;
  ;				This function reads the bitmap in large block size 
- ; 				(up to 1MB) unlink the runtime which reads the bitmap 
+ ; 				(up to 1MB) unlike the runtime which reads the bitmap 
  ; 				in 4K block size.  So if this function is being called 
  ;				after the volume is mounted and actively modified, the 
  ;				caller needs to invalidate all of the existing buffers 
  ;				associated with the bitmap vnode before calling this 
  ; 				function.  If the buffers are not invalidated, it can 
- ;				cause but_t collision and potential data corruption.
+ ;				cause buf_t collision and potential data corruption.
  ;  
  ; Input Arguments:
  ;	hfsmp			- The volume containing the allocation blocks.

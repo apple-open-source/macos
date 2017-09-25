@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 struct context {
 	pthread_mutex_t mutex;

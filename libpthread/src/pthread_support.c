@@ -31,7 +31,7 @@
 /* We should move abort() into Libsyscall, if possible. */
 int __getpid(void);
 
-PTHREAD_NORETURN int
+int
 __kill(int pid, int signum, int posix);
 
 void

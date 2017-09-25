@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 require "erb"
 
 require "test/unit"
-require 'rss-assertions'
+require_relative 'rss-assertions'
 
 require "rss"
 

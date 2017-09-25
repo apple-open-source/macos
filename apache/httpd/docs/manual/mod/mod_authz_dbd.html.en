@@ -50,7 +50,7 @@
        the backend database driver and connection parameters, and
        manage the database connections.</p>
 </div>
-<div id="quickview"><h3>Topics</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Topics</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#requiredirectives">The Require Directives</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#login">Database Login</a></li>
@@ -89,8 +89,8 @@
     <p>This directive specifies group membership that is required for the
     user to gain access.</p>
 
-    <pre class="prettyprint lang-config">      Require dbd-group team
-      AuthzDBDQuery "SELECT group FROM authz WHERE user = %s"</pre>
+    <pre class="prettyprint lang-config">Require dbd-group team
+AuthzDBDQuery "SELECT group FROM authz WHERE user = %s"</pre>
 
 
 
@@ -100,8 +100,8 @@
     <p>This directive specifies a query to be run indicating the user
     has logged in.</p>
 
-    <pre class="prettyprint lang-config">      Require dbd-login
-      AuthzDBDQuery "UPDATE authn SET login = 'true' WHERE user = %s"</pre>
+    <pre class="prettyprint lang-config">Require dbd-login
+AuthzDBDQuery "UPDATE authn SET login = 'true' WHERE user = %s"</pre>
 
 
 
@@ -111,8 +111,8 @@
     <p>This directive specifies a query to be run indicating the user
     has logged out.</p>
 
-    <pre class="prettyprint lang-config">      Require dbd-logout
-      AuthzDBDQuery "UPDATE authn SET login = 'false' WHERE user = %s"</pre>
+    <pre class="prettyprint lang-config">Require dbd-logout
+AuthzDBDQuery "UPDATE authn SET login = 'false' WHERE user = %s"</pre>
 
 
 
@@ -306,7 +306,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authz_dbd.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

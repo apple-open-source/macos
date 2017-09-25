@@ -4,7 +4,8 @@
 #include <unistd.h>
 #include <os/assumes.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
+
 
 static uintptr_t stackaddr;
 static const size_t stacksize = 4096 * 8;

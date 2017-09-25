@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocGeneratorRI < RDoc::TestCase
@@ -40,14 +41,6 @@ class TestRDocGeneratorRI < RDoc::TestCase
 
     Dir.chdir @pwd
     FileUtils.rm_rf @tmpdir
-  end
-
-  def assert_file path
-    assert File.file?(path), "#{path} is not a file"
-  end
-
-  def refute_file path
-    refute File.exist?(path), "#{path} exists"
   end
 
   def test_generate

@@ -228,8 +228,6 @@ void IOPCIDevice::detach( IOService * provider )
 		setTunnelL1Enable(this, true);
 	}
 
-    if (parent) parent->removeDevice(this);
-
     PMstop();
 
 	IOLockLock(reserved->lock);
@@ -239,6 +237,8 @@ void IOPCIDevice::detach( IOService * provider )
 		IOLockSleep(reserved->lock, &reserved->pmActive, THREAD_UNINT);
 	}
 	IOLockUnlock(reserved->lock);
+
+    if (parent) parent->removeDevice(this);
 
     super::detach(provider);
 
@@ -292,6 +292,7 @@ void IOPCIDevice::free()
 {
     if (savedConfig)
     {
+		if (configShadow(this)->link.next) panic("IOPCIDevice(%p) linked", this);
         IODelete(savedConfig, IOPCIConfigShadow, 1);
         savedConfig = 0;
     }

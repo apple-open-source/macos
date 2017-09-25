@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1034,6 +1034,49 @@ S_refresh_service(mach_port_t server, int argc, char * argv[])
     return (0);
 }
 
+static int
+S_set_awd_interfaces(mach_port_t server, int argc, char * argv[])
+{
+    IPConfigurationInterfaceTypes	types;
+
+    if (argc == 0) {
+	types = kIPConfigurationInterfaceTypesNone;
+    }
+    else {
+	CFStringRef			str;
+
+	str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingASCII);
+	types = IPConfigurationInterfaceTypesFromString(str);
+	my_CFRelease(&str);
+	if (types == kIPConfigurationInterfaceTypesUnspecified) {
+	    fprintf(stderr, "invalid type '%s'\n", argv[0]);
+	    return (1);
+	}
+    }
+    if (IPConfigurationControlPrefsSetAWDReportInterfaceTypes(types) == FALSE) {
+	fprintf(stderr, "failed to set AWD interface types\n");
+	return (1);
+    }
+    return (0);
+}
+
+static int
+S_get_awd_interfaces(mach_port_t server, int argc, char * argv[])
+{
+    char *				cstr;
+    CFStringRef				str;
+    IPConfigurationInterfaceTypes	types;
+
+    types = IPConfigurationControlPrefsGetAWDReportInterfaceTypes();
+    if (types == kIPConfigurationInterfaceTypesUnspecified) {
+	types = kIPConfigurationInterfaceTypesCellular;
+    }
+    str = IPConfigurationInterfaceTypesToString(types);
+    cstr = my_CFStringToCString(str, kCFStringEncodingASCII);
+    printf("%s\n", cstr);
+    free(cstr);
+    return (0);
+}
 
 static const struct command_info {
     const char *command;
@@ -1085,6 +1128,8 @@ static const struct command_info {
       0, 0 },
     { "refreshService", S_refresh_service, 2, 
       "<service ID> <interface name>", 0, 0 },
+    { "setawdinterfaces", S_set_awd_interfaces, 0, "[ All | Cellular | None ]", 0, 1 },
+    { "getawdinterfaces", S_get_awd_interfaces, 0, NULL, 0, 1 },
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: nsecify.c,v 1.10.346.2 2011/08/29 23:45:52 tbox Exp $ */
+/* $Id: nsecify.c,v 1.12 2011/08/29 23:46:44 tbox Exp $ */
 
 #include <config.h>
 

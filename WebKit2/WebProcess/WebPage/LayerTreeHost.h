@@ -28,7 +28,10 @@
 
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
 
+#include "CallbackID.h"
 #include "LayerTreeContext.h"
+#include <WebCore/DisplayRefreshMonitor.h>
+#include <WebCore/PlatformScreen.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -69,9 +72,8 @@ public:
     virtual void setNonCompositedContentsNeedDisplayInRect(const WebCore::IntRect&) { };
     virtual void scrollNonCompositedContents(const WebCore::IntRect&) { };
     virtual void forceRepaint() = 0;
-    virtual bool forceRepaintAsync(uint64_t /*callbackID*/) { return false; }
+    virtual bool forceRepaintAsync(CallbackID) { return false; }
     virtual void sizeDidChange(const WebCore::IntSize& newSize) = 0;
-    virtual void deviceOrPageScaleFactorChanged() = 0;
     virtual void pageBackgroundTransparencyChanged() = 0;
 
     virtual void pauseRendering();
@@ -79,21 +81,27 @@ public:
 
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return nullptr; }
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    virtual void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection&, IPC::Decoder&) = 0;
-#endif
-
 #if USE(COORDINATED_GRAPHICS_THREADED)
     virtual void contentsSizeChanged(const WebCore::IntSize&) { };
-    virtual void didChangeViewportProperties(const WebCore::ViewportAttributes&) { };
+    virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) { };
 #endif
 
-#if USE(COORDINATED_GRAPHICS) && ENABLE(REQUEST_ANIMATION_FRAME)
+#if USE(COORDINATED_GRAPHICS)
     virtual void scheduleAnimation() = 0;
+    virtual void setIsDiscardable(bool) { };
+    virtual void clearUpdateAtlases() = 0;
 #endif
 
 #if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
     virtual void setNativeSurfaceHandleForCompositing(uint64_t) { };
+#endif
+
+#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
+    virtual void deviceOrPageScaleFactorChanged() = 0;
+#endif
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) { return nullptr; }
 #endif
 
     virtual void setViewOverlayRootLayer(WebCore::GraphicsLayer* viewOverlayRootLayer) { m_viewOverlayRootLayer = viewOverlayRootLayer; }

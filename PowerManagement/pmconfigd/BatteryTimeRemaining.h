@@ -28,11 +28,11 @@
  * 29-Aug-02 ebold created
  *
 */
-#include "PrivateLib.h"
- 
 #ifndef _BatteryTimeRemaining_h_
 #define _BatteryTimeRemaining_h_
 
+#include "PrivateLib.h"
+#include "XCTest_FunctionDefinitions.h"
 
 __private_extern__ void BatteryTimeRemaining_prime(void);
 
@@ -40,6 +40,8 @@ __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t mess
 
 __private_extern__ void BatteryTimeRemainingRTCDidResync(void);
 
+__private_extern__ void readAndPublishACAdapter(bool adapterExists, CFDictionaryRef batteryACDict);
+__private_extern__ void  initializeBatteryCalculations(void);
 /*!
  * Pass kInternalBattery to kernelPowerSourcesDidChange when you need 
  * PM to re-evaluate the single internal battery (modeled as an IOPMPowerSource)
@@ -54,6 +56,7 @@ __private_extern__ void BatterySetNoPoll(bool noPoll);
 
 __private_extern__ bool isFullyCharged(IOPMBattery *b);
 
+__private_extern__ void sendAdapterDetails(xpc_object_t remoteConnection, xpc_object_t msg);
 
 /* getActivePSType
  * returns one of AC, Internal Battery, or External Battery
@@ -81,5 +84,37 @@ __private_extern__ CFDictionaryRef getActiveUPSDictionary(void);
 #define kIOPSDynamicStoreLowBattPathKey         "/IOKit/LowBatteryWarning"
 #endif
 
+typedef enum {
+    kPSTypeUnknown          = 0,
+    kPSTypeIntBattery       = 1,
+    kPSTypeUPS              = 2,
+    kPSTypeAccessory        = 3
+} psTypes_t;
+
+
+/* PSStruct
+ * Contains all the details about each power source that the system describes.
+ * This struct is the backbone of the IOPowerSources() IOKit API for
+ * power source reporting.
+ */
+typedef struct {
+    // powerd will assign a unique psid to all sources.
+    long                psid;
+    
+    psTypes_t           psType;
+    
+    // Ensure that only the process that created
+    // a ps may modify it or destroy it, by recording caller's pid.
+    int                 pid;
+    XCT_UNSAFE_UNRETAINED dispatch_source_t   procdeathsrc;
+    
+    // This is the most current recorded state of this power source.
+    CFDictionaryRef     description;
+    
+    // log of previous battery updates, maintained as ring buffer
+    CFMutableArrayRef       log;
+    CFIndex                 logIdx;         // Index for next record
+    uint64_t                logUpdate_ts;   // Timestamp of last log
+} PSStruct;
 
 #endif //_BatteryTimeRemaining_h_

@@ -487,7 +487,7 @@ EXTRA_DIST = Info.plist.src create_Info_plist.pl reader.conf.in \
 	towitoko/COPYING towitoko/README openct/LICENSE openct/README \
 	convert_version.pl 92_pcscd_ccid.rules
 
-INSTALL_UDEV_RULE_FILE = @/bin/echo -e "\n\33[01;31m***************\n" ; echo "copy the src/92_pcscd_ccid.rules file in udev directory (/etc/udev/rules.d/)" ; /bin/echo -e "\n***************\n\33[0m"
+INSTALL_UDEV_RULE_FILE = @/bin/echo "***************" ; echo "copy the src/92_pcscd_ccid.rules file in udev directory (/etc/udev/rules.d/)" ; /bin/echo "***************"
 DISTCLEANFILES = tokenparser.c Info.plist
 all: all-am
 
@@ -502,9 +502,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu src/Makefile
+	  $(AUTOMAKE) --foreign src/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \

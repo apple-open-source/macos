@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require_relative 'base'
 require 'tempfile'
 
@@ -10,7 +11,7 @@ class TestMkmf
     end
 
     def test_have_macro_header
-      Tempfile.open(%w"test_mkmf .h", ".") do |tmp|
+      Tempfile.create(%w"test_mkmf .h", ".") do |tmp|
         tmp.puts("#undef #{MACRO_NAME}")
         tmp.puts("#define #{MACRO_NAME} 1")
         tmp.close
@@ -24,7 +25,7 @@ class TestMkmf
     end
 
     def test_not_have_macro_header
-      Tempfile.open(%w"test_mkmf .h", ".") do |tmp|
+      Tempfile.create(%w"test_mkmf .h", ".") do |tmp|
         tmp.puts("#undef #{MACRO_NAME}")
         tmp.close
         base = File.basename(tmp.path)

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -29,6 +29,7 @@
 #include "CSSPrimitiveValueMappings.h"
 #include "ChromeClient.h"
 #include "Document.h"
+#include "Editing.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
@@ -39,6 +40,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "LayoutDisallowedScope.h"
 #include "Logging.h"
 #include "NoEventDispatchAssertion.h"
 #include "NodeTraversal.h"
@@ -48,7 +50,6 @@
 #include "ShadowRoot.h"
 #include "Text.h"
 #include "TextControlInnerElements.h"
-#include "htmlediting.h"
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -83,7 +84,7 @@ bool HTMLTextFormControlElement::childShouldCreateRenderer(const Node& child) co
 Node::InsertionNotificationRequest HTMLTextFormControlElement::insertedInto(ContainerNode& insertionPoint)
 {
     InsertionNotificationRequest insertionNotificationRequest = HTMLFormControlElementWithState::insertedInto(insertionPoint);
-    if (!insertionPoint.inDocument())
+    if (!insertionPoint.isConnected())
         return insertionNotificationRequest;
     String initialValue = value();
     setTextAsOfLastFormControlChangeEvent(initialValue.isNull() ? emptyString() : initialValue);
@@ -433,7 +434,7 @@ static inline void setContainerAndOffsetForRange(Node* node, int offset, Node*& 
     }
 }
 
-PassRefPtr<Range> HTMLTextFormControlElement::selection() const
+RefPtr<Range> HTMLTextFormControlElement::selection() const
 {
     if (!renderer() || !isTextFormControl() || !hasCachedSelection())
         return nullptr;
@@ -549,7 +550,8 @@ static String innerTextValueFrom(TextControlInnerTextElement& innerText)
 
 void HTMLTextFormControlElement::setInnerTextValue(const String& value)
 {
-    TextControlInnerTextElement* innerText = innerTextElement();
+    LayoutDisallowedScope layoutDisallowedScope(LayoutDisallowedScope::Reason::PerformanceOptimization);
+    RefPtr<TextControlInnerTextElement> innerText = innerTextElement();
     if (!innerText)
         return;
 
@@ -577,7 +579,7 @@ void HTMLTextFormControlElement::setInnerTextValue(const String& value)
 #if HAVE(ACCESSIBILITY) && PLATFORM(COCOA)
         if (textIsChanged && renderer()) {
             if (AXObjectCache* cache = document().existingAXObjectCache())
-                cache->postTextReplacementNotification(this, AXTextEditTypeDelete, previousValue, AXTextEditTypeInsert, value, VisiblePosition(Position(this, Position::PositionIsBeforeAnchor)));
+                cache->postTextReplacementNotificationForTextControl(*this, previousValue, value);
         }
 #endif
     }
@@ -805,7 +807,7 @@ void HTMLTextFormControlElement::adjustInnerTextStyle(const RenderStyle& parentS
     }
 
     if (isDisabledFormControl())
-        textBlockStyle.setColor(document().page()->theme().disabledTextColor(textBlockStyle.visitedDependentColor(CSSPropertyColor), parentStyle.visitedDependentColor(CSSPropertyBackgroundColor)));
+        textBlockStyle.setColor(RenderTheme::singleton().disabledTextColor(textBlockStyle.visitedDependentColor(CSSPropertyColor), parentStyle.visitedDependentColor(CSSPropertyBackgroundColor)));
 #if PLATFORM(IOS)
     if (textBlockStyle.textSecurity() != TSNONE && !textBlockStyle.isLeftToRightDirection()) {
         // Preserve the alignment but force the direction to LTR so that the last-typed, unmasked character

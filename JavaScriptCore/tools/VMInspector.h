@@ -39,23 +39,29 @@ public:
         TimedOut
     };
 
-    enum class LockToken { LockedValue };
+    typedef WTF::Locker<Lock> Locker;
 
     static VMInspector& instance();
 
     void add(VM*);
     void remove(VM*);
 
-    Expected<LockToken, Error> lock(Seconds timeout = Seconds::infinity());
+    Lock& getLock() { return m_lock; }
 
-    Expected<bool, Error> isValidExecutableMemory(LockToken, void*);
-    Expected<CodeBlock*, Error> codeBlockForMachinePC(LockToken, void*);
-
-private:
     enum class FunctorStatus {
         Continue,
         Done
     };
+
+    template <typename Functor>
+    void iterate(const Locker&, const Functor& functor) { iterate(functor); }
+
+    Expected<Locker, Error> lock(Seconds timeout = Seconds::infinity());
+
+    Expected<bool, Error> isValidExecutableMemory(const Locker&, void*);
+    Expected<CodeBlock*, Error> codeBlockForMachinePC(const Locker&, void*);
+
+private:
     template <typename Functor> void iterate(const Functor& functor)
     {
         for (VM* vm = m_list.head(); vm; vm = vm->next()) {

@@ -140,6 +140,7 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 - (void)processPendingKeysForCurrentLockState;
 
 - (void)registerKeys: (NSDictionary*)keys forAccount: (NSString*) accountUUID;
+- (void)removeKeys: (NSArray*)keys forAccount: (NSString*) accountUUID;
 
 - (void)processKeyChangedEvent:(NSDictionary *)keysChangedInCloud;
 - (NSMutableDictionary *)copyValues:(NSSet *)keysOfInterest;
@@ -148,7 +149,6 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 - (void) calloutWith: (void(^)(NSSet *pending, NSSet* pendingSyncIDs, NSSet* pendingBackupSyncIDs, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, NSSet *handledSyncs, bool handledEnsurePeerRegistration, NSError* error))) callout;
 - (void) sendKeysCallout: (NSSet *(^)(NSSet* pending, NSError **error)) handleKeys;
 
-- (void)recordWriteToKVS:(NSDictionary *)values;
-- (NSDictionary*)recordHaltedValuesAndReturnValuesToSafelyWrite:(NSDictionary *)values;
+- (void)perfCounters:(void(^)(NSDictionary *counters))callback;
 
 @end

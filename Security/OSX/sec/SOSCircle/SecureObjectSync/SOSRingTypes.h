@@ -55,23 +55,6 @@ typedef struct ringfuncs_t {
     CFDataRef               (*sosRingGetPayload)(SOSRingRef ring, CFErrorRef *error);
 } ringFuncStruct, *ringFuncs;
 
-// ViewRequirements
-bool SOSRingRequirementKnown(SOSAccountRef account, CFStringRef name, CFErrorRef *error);
-bool SOSRingRequirementCreate(SOSAccountRef account, CFStringRef name, SOSRingType type, CFErrorRef *error);
-
-// Admins
-bool SOSRingRequirementResetToOffering(SOSAccountRef account, CFStringRef name, CFErrorRef* error);
-bool SOSRingRequirementResetToEmpty(SOSAccountRef account, CFStringRef name, CFErrorRef* error);
-
-// Clients
-bool SOSRingRequirementRequestToJoin(SOSAccountRef account, CFStringRef name, CFErrorRef* error);
-bool SOSRingRequirementRemoveThisDevice(SOSAccountRef account, CFStringRef name, CFErrorRef* error);
-
-// Approvers
-CFArrayRef SOSRingRequirementGetApplicants(SOSAccountRef account, CFStringRef name, CFErrorRef* error);
-bool SOSRingRequirementAcceptApplicants(SOSAccountRef account, CFStringRef name, CFArrayRef applicants, CFErrorRef* error);
-bool SOSRingRequirementRejectApplicants(SOSAccountRef account, CFStringRef name, CFArrayRef applicants, CFErrorRef *error);
-
 static inline SOSRingRef SOSRingCreate_ForType(CFStringRef name, SOSRingType type, CFStringRef myPeerID, CFErrorRef *error) {
     SOSRingRef retval = NULL;
     retval = SOSRingCreate_Internal(name, type, error);

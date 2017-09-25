@@ -42,7 +42,10 @@
 #include <Security/cssmapi.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/cssmapple.h>
+
+#if !USE_CDSA_CRYPTO
 #include <Security/SecItem.h>
+#endif
 
 #ifdef	NDEBUG
 #define CSSM_PERROR(f, r)

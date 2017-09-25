@@ -51,7 +51,7 @@ public:
     }
     
     SInt32 asFixed24x8() const {
-        return value / 256LL;
+        return (SInt32)(value / 256LL);
     }
     
     UInt16 fraction() const {

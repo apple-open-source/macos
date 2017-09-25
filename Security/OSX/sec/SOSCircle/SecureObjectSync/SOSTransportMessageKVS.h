@@ -2,23 +2,22 @@
 
 #ifndef sec_SOSTransportMessageKVS_h
 #define sec_SOSTransportMessageKVS_h
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include <Security/SecureObjectSync/SOSAccountPriv.h>
+#import <Security/SecureObjectSync/SOSTransportMessage.h>
+@class SOSMessage;
 
-//
-// KVS Stuff
-//
+@interface SOSMessageKVS : SOSMessage
+{
+    CFMutableDictionaryRef pending_changes;
+}
+@property (atomic) CFMutableDictionaryRef pending_changes;
 
-typedef struct __OpaqueSOSTransportMessageKVS *SOSTransportMessageKVSRef;
+-(CFIndex) SOSTransportMessageGetTransportType;
+-(CFStringRef) SOSTransportMessageGetCircleName;
+-(CFTypeRef) SOSTransportMessageGetEngine;
+-(SOSAccount*) SOSTransportMessageGetAccount;
+-(bool) SOSTransportMessageKVSAppendKeyInterest:(SOSMessageKVS*) transport ak:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef) afterFirstUnlockKeys
+                                       unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)localError;
 
-SOSTransportMessageKVSRef SOSTransportMessageKVSCreate(SOSAccountRef account, CFStringRef circleName, CFErrorRef *error);
-
-//
-// Key interests
-//
-
-
-bool SOSTransportMessageKVSAppendKeyInterest(SOSTransportMessageKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *localError);
-
-bool SOSTransportMessageSendMessageIfNeeded(SOSTransportMessageRef transport, CFStringRef circle_id, CFStringRef peer_id, CFErrorRef *error);    
-
+@end
 #endif

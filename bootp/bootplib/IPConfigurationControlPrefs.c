@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,15 @@
  * kVerbose
  * - indicates whether verbose logging is enabled or not
  */
-#define kVerbose			CFSTR("Verbose")
+#define kVerbose			CFSTR("Verbose")	/* boolean */
+
+/*
+ * kAWDReportInterfaceTypes
+ * - indicates whether to submit AWD report for particular interface
+ *   types
+ * - a string with one of "All", "Cellular", or "None"
+ */
+#define kAWDReportInterfaceTypes	CFSTR("AWDReportInterfaceTypes") /* string */
 
 STATIC SCPreferencesRef				S_prefs;
 STATIC IPConfigurationControlPrefsCallBack	S_callback;
@@ -223,6 +231,86 @@ prefs_set_boolean(CFStringRef key, CFBooleanRef b)
     return;
 }
 
+STATIC CFStringRef
+prefs_get_string(CFStringRef key)
+{
+    CFStringRef	str = NULL;
+
+#if TARGET_OS_EMBEDDED
+    str = SCPreferencesGetValue(IPConfigurationControlManagedPrefsGet(), key);
+    str = isA_CFString(str);
+#endif /* TARGET_OS_EMBEDDED */
+    if (str == NULL) {
+	str = SCPreferencesGetValue(IPConfigurationControlPrefsGet(), key);
+	str = isA_CFString(str);
+    }
+    return (str);
+}
+
+STATIC void
+prefs_set_string(CFStringRef key, CFStringRef str)
+{
+    SCPreferencesRef	prefs = IPConfigurationControlPrefsGet();
+
+    if (prefs != NULL) {
+	if (isA_CFString(str) == NULL) {
+	    SCPreferencesRemoveValue(prefs, key);
+	}
+	else {
+	    SCPreferencesSetValue(prefs, key, str);
+	}
+    }
+    return;
+}
+
+
+typedef struct {
+    IPConfigurationInterfaceTypes	type;
+    CFStringRef				str;
+} if_type_table_entry, *if_type_table_entry_ref;
+
+STATIC if_type_table_entry interface_types[] = {
+    { kIPConfigurationInterfaceTypesNone, CFSTR("None") },
+    { kIPConfigurationInterfaceTypesCellular, CFSTR("Cellular") },
+    { kIPConfigurationInterfaceTypesAll, CFSTR("All") },
+};
+#define INTERFACE_TYPES_COUNT 	(sizeof(interface_types) / sizeof(interface_types[0]))
+#define DEFAULT_INTERFACE_TYPES	kIPConfigurationTypesCellular
+
+PRIVATE_EXTERN IPConfigurationInterfaceTypes
+IPConfigurationInterfaceTypesFromString(CFStringRef str)
+{
+    if (str != NULL) {
+	int			i;
+	if_type_table_entry_ref	scan;
+
+	for (i = 0, scan = interface_types;
+	     i < INTERFACE_TYPES_COUNT;
+	     i++, scan++) {
+	    if (CFEqual(scan->str, str)) {
+		return (scan->type);
+	    }
+	}
+    }
+    return (kIPConfigurationInterfaceTypesUnspecified);
+}
+
+PRIVATE_EXTERN CFStringRef
+IPConfigurationInterfaceTypesToString(IPConfigurationInterfaceTypes types)
+{
+    int				i;
+    if_type_table_entry_ref	scan;
+
+    for (i = 0, scan = interface_types;
+	 i < INTERFACE_TYPES_COUNT;
+	 i++, scan++) {
+	if (types == scan->type) {
+	    return (scan->str);
+	}
+    }
+    return (NULL);
+}
+
 /**
  ** Get
  **/
@@ -239,6 +327,15 @@ IPConfigurationControlPrefsGetVerbose(void)
     return (verbose);
 }
 
+PRIVATE_EXTERN IPConfigurationInterfaceTypes
+IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void)
+{
+    CFStringRef	types;
+
+    types = prefs_get_string(kAWDReportInterfaceTypes);
+    return (IPConfigurationInterfaceTypesFromString(types));
+}
+
 /**
  ** Set
  **/
@@ -251,5 +348,16 @@ IPConfigurationControlPrefsSetVerbose(Boolean verbose)
     else {
 	prefs_set_boolean(kVerbose, kCFBooleanTrue); 
     }
+    return (IPConfigurationControlPrefsSave());
+}
+
+PRIVATE_EXTERN Boolean
+IPConfigurationControlPrefsSetAWDReportInterfaceTypes(IPConfigurationInterfaceTypes
+						      types)
+{
+    CFStringRef		str;
+
+    str = IPConfigurationInterfaceTypesToString(types);
+    prefs_set_string(kAWDReportInterfaceTypes, str);
     return (IPConfigurationControlPrefsSave());
 }

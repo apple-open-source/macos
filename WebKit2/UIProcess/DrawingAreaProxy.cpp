@@ -55,21 +55,21 @@ DrawingAreaProxy::~DrawingAreaProxy()
     m_webPageProxy.process().removeMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), m_webPageProxy.pageID());
 }
 
-void DrawingAreaProxy::setSize(const IntSize& size, const IntSize& layerPosition, const IntSize& scrollOffset)
+bool DrawingAreaProxy::setSize(const IntSize& size, const IntSize& layerPosition, const IntSize& scrollOffset)
 { 
     if (m_size == size && m_layerPosition == layerPosition && scrollOffset.isZero())
-        return;
+        return false;
 
     m_size = size;
     m_layerPosition = layerPosition;
     m_scrollOffset += scrollOffset;
     sizeDidChange();
+    return true;
 }
 
 #if PLATFORM(COCOA)
 MachSendRight DrawingAreaProxy::createFence()
 {
-    ASSERT_NOT_REACHED();
     return MachSendRight();
 }
 #endif
@@ -83,7 +83,7 @@ void DrawingAreaProxy::setViewExposedRect(std::optional<WebCore::FloatRect> view
     m_viewExposedRect = viewExposedRect;
 
     if (!m_viewExposedRectChangedTimer.isActive())
-        m_viewExposedRectChangedTimer.startOneShot(0);
+        m_viewExposedRectChangedTimer.startOneShot(0_s);
 }
 
 void DrawingAreaProxy::viewExposedRectChangedTimerFired()

@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHZLE" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -558,6 +558,13 @@ after the cursor\&.
 When repeatedly invoking a kill widget, text is appended to the cutbuffer
 instead of replacing it, but when wrapping such widgets, it is necessary
 to call `\fBzle \-f kill\fP\&' to retain this effect\&.
+.PP
+\fBvichange\fP for indicating that the widget represents a vi change that
+can be repeated as a whole with `\fBvi\-repeat\-change\fP\&'\&. The flag should be set
+early in the function before inspecting the value of \fBNUMERIC\fP or invoking
+other widgets\&. This has no effect for a widget invoked from insert mode\&. If
+insert mode is active when the widget finishes, the change extends until next
+returning to command mode\&.
 .RE
 .TP
 \fB\-C\fP \fIwidget\fP \fIcompletion\-widget\fP \fIfunction\fP
@@ -896,7 +903,7 @@ The start of a command line (at prompt \fBPS1\fP)\&.
 A continuation to a command line (at prompt \fBPS2\fP)\&.
 .TP
 \fBselect\fP
-In a \fBselect\fP loop\&.
+In a \fBselect\fP loop (at prompt \fBPS3\fP)\&.
 .TP
 \fBvared\fP
 Editing a variable in \fBvared\fP\&.
@@ -924,6 +931,24 @@ history\&.  Note this is not the same as the parameter \fBHISTCMD\fP,
 which always gives the number of the history line being added to the main
 shell\&'s history\&.  \fBHISTNO\fP refers to the line being retrieved within
 zle\&.
+.TP
+.PD 0
+\fBISEARCHMATCH_ACTIVE\fP (integer)
+.TP
+.PD 0
+\fBISEARCHMATCH_START\fP (integer)
+.TP
+.PD
+\fBISEARCHMATCH_END\fP (integer)
+\fBISEARCHMATCH_ACTIVE\fP indicates whether a part of the \fBBUFFER\fP is
+currently matched by an incremental search pattern\&. \fBISEARCHMATCH_START\fP
+and \fBISEARCHMATCH_END\fP give the location of the matched part and are
+in the same units as \fBCURSOR\fP\&. They are only valid for reading
+when \fBISEARCHMATCH_ACTIVE\fP is non\-zero\&.
+.RS
+.PP
+All parameters are read\-only\&.
+.RE
 .TP
 \fBKEYMAP\fP (scalar)
 The name of the currently selected keymap; read\-only\&.
@@ -966,7 +991,7 @@ cursor remains between the new \fB$LBUFFER\fP and the old \fB$RBUFFER\fP\&.
 \fBMARK\fP (integer)
 Like \fBCURSOR\fP, but for the mark\&. With vi\-mode operators that wait for
 a movement command to select a region of text, setting \fBMARK\fP allows
-the selection to extend in both directions from the the initial cursor
+the selection to extend in both directions from the initial cursor
 position\&.
 .TP
 \fBNUMERIC\fP (integer)
@@ -1062,6 +1087,28 @@ as soon as the line is accepted\&.
 The final highlighting on the command line depends on both \fBregion_highlight\fP
 and \fBzle_highlight\fP; see
 the section CHARACTER HIGHLIGHTING below for details\&.
+.RE
+.TP
+\fBregisters\fP (associative array)
+The contents of each of the vi register buffers\&. These are
+typically set using \fBvi\-set\-buffer\fP followed by a delete, change or
+yank command\&.
+.TP
+.PD 0
+\fBSUFFIX_ACTIVE\fP (integer)
+.TP
+.PD 0
+\fBSUFFIX_START\fP (integer)
+.TP
+.PD
+\fBSUFFIX_END\fP (integer)
+\fBSUFFIX_ACTIVE\fP indicates whether an auto\-removable completion suffix
+is currently active\&. \fBSUFFIX_START\fP and \fBSUFFIX_END\fP give the
+location of the suffix and are in the same units as \fBCURSOR\fP\&. They are
+only valid for reading when \fBSUFFIX_ACTIVE\fP is non\-zero\&.
+.RS
+.PP
+All parameters are read\-only\&.
 .RE
 .TP
 \fBUNDO_CHANGE_NO\fP (integer)
@@ -1191,6 +1238,10 @@ zle \-N zle\-isearch\-exit\fP
 .fi
 .RE
 .RE
+.TP
+\fBzle\-line\-pre\-redraw\fP
+Executed whenever the input line is about to be redrawn, providing an
+opportunity to update the region_highlight array\&.
 .TP
 \fBzle\-line\-init\fP
 Executed every time the line editor is started to read a new line
@@ -1822,6 +1873,12 @@ Delete the current word\&.
 \fBdown\-case\-word\fP (\fBESC\-L ESC\-l\fP) (unbound) (unbound)
 Convert the current word to all lowercase and move past it\&.
 .TP
+\fBvi\-down\-case\fP (unbound) (\fBgu\fP) (unbound)
+Read a movement command from the keyboard, and convert all characters
+from the cursor position to the endpoint of the movement to lowercase\&.
+If the movement command is \fBvi\-down\-case\fP, swap the case of all
+characters on the current line\&.
+.TP
 \fBkill\-word\fP (\fBESC\-D ESC\-d\fP) (unbound) (unbound)
 Kill the current word\&.
 .TP
@@ -1949,9 +2006,26 @@ to the left\&.
 .TP
 \fBtranspose\-words\fP (\fBESC\-T ESC\-t\fP) (unbound) (unbound)
 Exchange the current word with the one before it\&.
+.RS
+.PP
+With a positive numeric argument \fIN\fP, the word around the cursor, or
+following it if the cursor is between words, is transposed with the
+preceding \fIN\fP words\&.  The cursor is put at the end of the resulting
+group of words\&.
+.PP
+With a negative numeric argument \fI\-N\fP, the effect is the same as using
+a positive argument \fIN\fP except that the original cursor position is
+retained, regardless of how the words are rearranged\&.
+.RE
 .TP
 \fBvi\-unindent\fP (unbound) (\fB<\fP) (unbound)
 Unindent a number of lines\&.
+.TP
+\fBvi\-up\-case\fP (unbound) (\fBgU\fP) (unbound)
+Read a movement command from the keyboard, and convert all characters
+from the cursor position to the endpoint of the movement to lowercase\&.
+If the movement command is \fBvi\-up\-case\fP, swap the case of all
+characters on the current line\&.
 .TP
 \fBup\-case\-word\fP (\fBESC\-U ESC\-u\fP) (unbound) (unbound)
 Convert the current word to all caps and move past it\&.
@@ -2136,11 +2210,19 @@ Beep, unless the \fBBEEP\fP option is unset\&.
 This widget is invoked when text is pasted to the terminal emulator\&. It
 is not intended to be bound to actual keys but instead to the special
 sequence generated by the terminal emulator when text is pasted\&.
-If a numeric argument is given, shell quoting will be applied to the
-pasted text before it is inserted\&. When called from a widget function,
-an argument can be given to specify a variable to which pasted text is
-assigned\&.
 .RS
+.PP
+When invoked interactively, the pasted text is inserted to the buffer
+and placed in the cutbuffer\&.
+If a numeric argument is given, shell quoting will be applied to the
+pasted text before it is inserted\&.
+.PP
+When a named buffer is specified with \fBvi\-set\-buffer\fP (\fB"x\fP),
+the pasted text is stored in that named buffer but not inserted\&.
+.PP
+When called from a widget function as `\fBbracketed\-paste\fP \fIname\fP`, the
+pasted text is assigned to the variable \fIname\fP and no other processing is
+done\&.
 .PP
 See also the \fBzle_bracketed_paste\fP parameter\&.
 .RE
@@ -2172,8 +2254,13 @@ If a zero numeric argument is given, the region is activated but
 point and mark are not swapped\&.
 .TP
 \fBexecute\-named\-cmd\fP (\fBESC\-x\fP) (\fB:\fP) (unbound)
-Read the name of an editor command and
-execute it\&.  A restricted set of editing functions is available in the
+Read the name of an editor command and execute it\&.  Aliasing this
+widget with `\fBzle \-A\fP\&' or replacing it with `\fBzle \-N\fP' has no
+effect when interpreting key bindings, but `\fBzle execute\-named\-cmd\fP\&'
+will invoke such an alias or replacement\&.
+.RS
+.PP
+A restricted set of editing functions is available in the
 mini\-buffer\&.  Keys are looked up in the special
 \fBcommand\fP keymap, and if not found there in the main keymap\&.
 An interrupt signal, as defined by the stty setting, will
@@ -2198,7 +2285,6 @@ be extended\&.  The allowed functions are:
 \fBaccept\-line\fP,
 \fBexpand\-or\-complete\fP and
 \fBexpand\-or\-complete\-prefix\fP\&.
-.RS
 .PP
 \fBkill\-region\fP kills the last word,
 and vi\-cmd\-mode is treated the same as accept\-line\&.
@@ -2216,7 +2302,8 @@ Currently this command may not be redefined or called by name\&.
 Redo the last function executed with \fBexecute\-named\-cmd\fP\&.
 .RS
 .PP
-Currently this command may not be redefined or called by name\&.
+Like \fBexecute\-named\-cmd\fP, this command may not be redefined,
+but it may be called by name\&.
 .RE
 .TP
 \fBget\-line\fP (\fBESC\-G ESC\-g\fP) (unbound) (unbound)
@@ -2358,7 +2445,7 @@ concerned replaces the previous contents of the specified buffer\&. If
 a named buffer is specified using a capital, the newly cut text is
 appended to the buffer instead of overwriting it\&. When using the \fB"_\fP
 buffer, nothing happens\&. This can be useful for deleting text without
-affecting the normal registers\&.
+affecting any buffers\&.
 .PP
 If no buffer is specified for a cut or change command, \fB"1\fP is used, and
 the contents of \fB"1\fP to \fB"8\fP are each shifted along one buffer;
@@ -2515,15 +2602,14 @@ When one of the incremental history search widgets is active, the
 area of the command line matched by the search string or pattern\&.
 .TP
 \fBregion\fP
-The region between the cursor (point) and the mark as set with
-\fBset\-mark\-command\fP\&.  The region is only highlighted if it is active,
-which is the case if \fBset\-mark\-command\fP or \fBexchange\-point\-and\-mark\fP
-has been called and the line has not been subsequently modified\&.  The
-region can be deactivated by calling \fBset\-mark\-command\fP with a
-negative numeric argument, or reactivated by calling
-\fBexchange\-point\-and\-mark\fP with a zero numeric argument\&.  Note
-that whether or not the region is active has no effect on its
-use within widgets, it simply determines whether it is highlighted\&.
+The currently selected text\&. In emacs terminology, this is referred to as
+the region and is bounded by the cursor (point) and the mark\&. The region
+is only highlighted if it is active, which is the case after the mark
+is modified with \fBset\-mark\-command\fP or \fBexchange\-point\-and\-mark\fP\&.
+Note that whether or not the region is active has no effect on its
+use within emacs style widgets, it simply determines whether it is
+highlighted\&. In vi mode, the region corresponds to selected text in
+visual mode\&.
 .TP
 \fBspecial\fP
 Individual characters that have no direct printable

@@ -32,10 +32,9 @@ _dispatch_semaphore_class_init(long value, dispatch_semaphore_class_t dsemau)
 	struct dispatch_semaphore_header_s *dsema = dsemau._dsema_hdr;
 
 	dsema->do_next = DISPATCH_OBJECT_LISTLESS;
-	dsema->do_targetq = _dispatch_get_root_queue(_DISPATCH_QOS_CLASS_DEFAULT,
-			false);
+	dsema->do_targetq = _dispatch_get_root_queue(DISPATCH_QOS_DEFAULT, false);
 	dsema->dsema_value = value;
-	_os_semaphore_init(&dsema->dsema_sema, _OS_SEM_POLICY_FIFO);
+	_dispatch_sema4_init(&dsema->dsema_sema, _DSEMA4_POLICY_FIFO);
 }
 
 #pragma mark -
@@ -53,15 +52,16 @@ dispatch_semaphore_create(long value)
 		return DISPATCH_BAD_INPUT;
 	}
 
-	dsema = (dispatch_semaphore_t)_dispatch_alloc(DISPATCH_VTABLE(semaphore),
-			sizeof(struct dispatch_semaphore_s));
+	dsema = (dispatch_semaphore_t)_dispatch_object_alloc(
+			DISPATCH_VTABLE(semaphore), sizeof(struct dispatch_semaphore_s));
 	_dispatch_semaphore_class_init(value, dsema);
 	dsema->dsema_orig = value;
 	return dsema;
 }
 
 void
-_dispatch_semaphore_dispose(dispatch_object_t dou)
+_dispatch_semaphore_dispose(dispatch_object_t dou,
+		DISPATCH_UNUSED bool *allow_free)
 {
 	dispatch_semaphore_t dsema = dou._dsema;
 
@@ -70,7 +70,7 @@ _dispatch_semaphore_dispose(dispatch_object_t dou)
 				"Semaphore object deallocated while in use");
 	}
 
-	_os_semaphore_dispose(&dsema->dsema_sema);
+	_dispatch_sema4_dispose(&dsema->dsema_sema, _DSEMA4_POLICY_FIFO);
 }
 
 size_t
@@ -95,8 +95,8 @@ DISPATCH_NOINLINE
 long
 _dispatch_semaphore_signal_slow(dispatch_semaphore_t dsema)
 {
-	_os_semaphore_create(&dsema->dsema_sema, _OS_SEM_POLICY_FIFO);
-	_os_semaphore_signal(&dsema->dsema_sema, 1);
+	_dispatch_sema4_create(&dsema->dsema_sema, _DSEMA4_POLICY_FIFO);
+	_dispatch_sema4_signal(&dsema->dsema_sema, 1);
 	return 1;
 }
 
@@ -121,10 +121,10 @@ _dispatch_semaphore_wait_slow(dispatch_semaphore_t dsema,
 {
 	long orig;
 
-	_os_semaphore_create(&dsema->dsema_sema, _OS_SEM_POLICY_FIFO);
+	_dispatch_sema4_create(&dsema->dsema_sema, _DSEMA4_POLICY_FIFO);
 	switch (timeout) {
 	default:
-		if (!_os_semaphore_timedwait(&dsema->dsema_sema, timeout)) {
+		if (!_dispatch_sema4_timedwait(&dsema->dsema_sema, timeout)) {
 			break;
 		}
 		// Fall through and try to undo what the fast path did to
@@ -134,13 +134,13 @@ _dispatch_semaphore_wait_slow(dispatch_semaphore_t dsema,
 		while (orig < 0) {
 			if (os_atomic_cmpxchgvw2o(dsema, dsema_value, orig, orig + 1,
 					&orig, relaxed)) {
-				return _OS_SEM_TIMEOUT();
+				return _DSEMA4_TIMEOUT();
 			}
 		}
 		// Another thread called semaphore_signal().
 		// Fall through and drain the wakeup.
 	case DISPATCH_TIME_FOREVER:
-		_os_semaphore_wait(&dsema->dsema_sema);
+		_dispatch_sema4_wait(&dsema->dsema_sema);
 		break;
 	}
 	return 0;
@@ -163,7 +163,7 @@ DISPATCH_ALWAYS_INLINE
 static inline dispatch_group_t
 _dispatch_group_create_with_count(long count)
 {
-	dispatch_group_t dg = (dispatch_group_t)_dispatch_alloc(
+	dispatch_group_t dg = (dispatch_group_t)_dispatch_object_alloc(
 			DISPATCH_VTABLE(group), sizeof(struct dispatch_group_s));
 	_dispatch_semaphore_class_init(count, dg);
 	if (count) {
@@ -214,9 +214,10 @@ _dispatch_group_wake(dispatch_group_t dg, bool needs_release)
 	rval = (long)os_atomic_xchg2o(dg, dg_waiters, 0, relaxed);
 	if (rval) {
 		// wake group waiters
-		_os_semaphore_create(&dg->dg_sema, _OS_SEM_POLICY_FIFO);
-		_os_semaphore_signal(&dg->dg_sema, rval);
+		_dispatch_sema4_create(&dg->dg_sema, _DSEMA4_POLICY_FIFO);
+		_dispatch_sema4_signal(&dg->dg_sema, rval);
 	}
+	uint16_t refs = needs_release ? 1 : 0; // <rdar://problem/22318411>
 	if (head) {
 		// async group notify blocks
 		do {
@@ -225,11 +226,9 @@ _dispatch_group_wake(dispatch_group_t dg, bool needs_release)
 			_dispatch_continuation_async(dsn_queue, head);
 			_dispatch_release(dsn_queue);
 		} while ((head = next));
-		_dispatch_release(dg);
+		refs++;
 	}
-	if (needs_release) {
-		_dispatch_release(dg); // <rdar://problem/22318411>
-	}
+	if (refs) _dispatch_release_n(dg, refs);
 	return 0;
 }
 
@@ -247,7 +246,7 @@ dispatch_group_leave(dispatch_group_t dg)
 }
 
 void
-_dispatch_group_dispose(dispatch_object_t dou)
+_dispatch_group_dispose(dispatch_object_t dou, DISPATCH_UNUSED bool *allow_free)
 {
 	dispatch_group_t dg = dou._dg;
 
@@ -256,7 +255,7 @@ _dispatch_group_dispose(dispatch_object_t dou)
 				"Group object deallocated while in use");
 	}
 
-	_os_semaphore_dispose(&dg->dg_sema);
+	_dispatch_sema4_dispose(&dg->dg_sema, _DSEMA4_POLICY_FIFO);
 }
 
 size_t
@@ -301,10 +300,10 @@ _dispatch_group_wait_slow(dispatch_group_t dg, dispatch_time_t timeout)
 		timeout = DISPATCH_TIME_FOREVER;
 	}
 
-	_os_semaphore_create(&dg->dg_sema, _OS_SEM_POLICY_FIFO);
+	_dispatch_sema4_create(&dg->dg_sema, _DSEMA4_POLICY_FIFO);
 	switch (timeout) {
 	default:
-		if (!_os_semaphore_timedwait(&dg->dg_sema, timeout)) {
+		if (!_dispatch_sema4_timedwait(&dg->dg_sema, timeout)) {
 			break;
 		}
 		// Fall through and try to undo the earlier change to
@@ -314,13 +313,13 @@ _dispatch_group_wait_slow(dispatch_group_t dg, dispatch_time_t timeout)
 		while (orig_waiters) {
 			if (os_atomic_cmpxchgvw2o(dg, dg_waiters, orig_waiters,
 					orig_waiters - 1, &orig_waiters, relaxed)) {
-				return _OS_SEM_TIMEOUT();
+				return _DSEMA4_TIMEOUT();
 			}
 		}
 		// Another thread is running _dispatch_group_wake()
 		// Fall through and drain the wakeup.
 	case DISPATCH_TIME_FOREVER:
-		_os_semaphore_wait(&dg->dg_sema);
+		_dispatch_sema4_wait(&dg->dg_sema);
 		break;
 	}
 	return 0;
@@ -333,7 +332,7 @@ dispatch_group_wait(dispatch_group_t dg, dispatch_time_t timeout)
 		return 0;
 	}
 	if (timeout == 0) {
-		return _OS_SEM_TIMEOUT();
+		return _DSEMA4_TIMEOUT();
 	}
 	return _dispatch_group_wait_slow(dg, timeout);
 }

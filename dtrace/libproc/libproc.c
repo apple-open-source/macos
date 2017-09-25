@@ -62,31 +62,6 @@ extern int _dtrace_mangled;
 
 
 /*
- * Check if DTrace will be able to attach to the process with the current
- * security configuration. The functions returns true if there is no issue,
- * otherwise false is returner.
- */
-bool
-canAttachToProcess(pid_t pid)
-{
-	bool canAttach = true;
-
-	assert(pid != -1);
-
-#if !TARGET_OS_EMBEDDED
-	/*
-	 * If rootless is enabled, ensure that the process is signed with the
-	 * following entitlements: com.apple.security.get-task-allow
-	 */
-	if (csr_check(CSR_ALLOW_TASK_FOR_PID) != 0) {
-		canAttach = rootless_allows_task_for_pid(pid);
-	}
-#endif
-
-	return canAttach;
-}
-
-/*
  * This is a helper method, it does extended lookups following roughly these rules
  *
  * 1. An exact match (i.e. a full pathname): "/usr/lib/libc.so.1"
@@ -144,7 +119,6 @@ CSSymbolOwnerRef symbolOwnerForName(CSSymbolicatorRef symbolicator, const char* 
 }
 
 #define APPLE_PCREATE_BAD_SYMBOLICATOR		0x0F000001
-#define APPLE_PCREATE_BAD_ARCHITECTURE		0x0F000002
 #define APPLE_EXECUTABLE_RESTRICTED		0x0F000003
 #define APPLE_EXECUTABLE_NOT_ATTACHABLE		0x0F000004
 
@@ -252,12 +226,12 @@ Pcreate(const char *file,	/* executable file name */
         cpu_type_t arch)    /* architecture to launch */
 {		
 	struct ps_prochandle* proc = NULL;
-        
+
 	int pid;
 	posix_spawnattr_t attr;
 	task_t task;
 	uint32_t flags;
-    
+
 	*perr = posix_spawnattr_init(&attr);
 	if (0 != *perr) goto destroy_attr;
 	
@@ -290,28 +264,16 @@ destroy_attr:
 			return NULL;
 		}
 #endif
-		/*
-		 * Check if DTrace will be able to attach to the process.
-		 */
-		if (!canAttachToProcess(pid)) {
-			if (kill(pid, SIGKILL))
-				perror("kill()");
-
-			*perr = APPLE_EXECUTABLE_NOT_ATTACHABLE;
-			return NULL;
-		}
-
-
 		*perr = task_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
 			proc = createProcAndSymbolicator(pid, task, perr, true);
 		} else {
+			if (kill(pid, SIGKILL))
+				perror("kill()");
 			*perr = -(*perr); // Make room for mach errors
 		}
-	} else if (*perr == EBADARCH) {
-		*perr = APPLE_PCREATE_BAD_ARCHITECTURE;
 	}
-        
+
 	return proc;
 }
 
@@ -324,32 +286,8 @@ Pcreate_error(int error)
 	const char *str;
 	
 	switch (error) {
-		case C_FORK:
-			str = "cannot fork";
-			break;
-		case C_PERM:
-			str = "file is set-id or unreadable [Note: the '-c' option requires a full pathname to the file]\n";
-			break;
-		case C_NOEXEC:
-			str = "cannot execute file";
-			break;
-		case C_INTR:
-			str = "operation interrupted";
-			break;
-		case C_LP64:
-			str = "program is _LP64, self is not";
-			break;
-		case C_STRANGE:
-			str = "unanticipated system error";
-			break;
-		case C_NOENT:
-			str = "cannot find executable file";
-			break;
 		case APPLE_PCREATE_BAD_SYMBOLICATOR:
 			str = "Could not create symbolicator for task";
-			break;
-		case APPLE_PCREATE_BAD_ARCHITECTURE:
-			str = "requested architecture missing from executable";
 			break;
 		case APPLE_EXECUTABLE_RESTRICTED:
 			str = "dtrace cannot control executables signed with restricted entitlements";
@@ -361,7 +299,7 @@ Pcreate_error(int error)
 			if (error < 0)
 				str = mach_error_string(-error);
 			else
-				str = "unknown error";
+				str = strerror(error);
 			break;
 	}
 	
@@ -397,14 +335,6 @@ struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 	
 	if (flags & PGRAB_RDONLY || (0 == flags)) {	
 		task_t task;
-
-		/*
-		 * Check if DTrace will be able to attach to the process.
-		 */
-		if (!canAttachToProcess(pid)) {
-			*perr = APPLE_EXECUTABLE_NOT_ATTACHABLE;
-			return NULL;
-		}
 
 		*perr = task_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
@@ -542,6 +472,37 @@ int pr_ioctl(struct ps_prochandle *P, int foo, int bar, void *baz, size_t blah) 
 }
 
 /*
+ * When processing new modules loaded in a process, we only want to look at
+ * what has changed since the last processing attempt.
+ *
+ * We work through "generations of symbol owners. Dyld may load library after
+ * library with the same load timestamp. So we mark the symbol owners with a "generation"
+ * and only look at those that are unmarked, or are the current generation.
+ *
+ * This is a Darwin-specific optimization.
+ */
+static int
+update_check_symbol_owner_gen(struct ps_prochandle *P, CSSymbolOwnerRef owner, bool err_on_mismatched_gen)
+{
+	uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);
+	if (generation == 0) {
+		CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);
+		return 0;
+	}
+	if (err_on_mismatched_gen && generation != P->current_symbol_owner_generation) {
+		return -1;
+	}
+	return 0;
+}
+
+static int
+update_check_symbol_gen(struct ps_prochandle *P, CSSymbolRef symbol, bool err_on_mismatched_gen)
+{
+	CSSymbolOwnerRef owner = CSSymbolGetSymbolOwner(symbol);
+	return update_check_symbol_owner_gen(P, owner, err_on_mismatched_gen);
+}
+
+/*
  * Search the process symbol tables looking for a symbol whose name matches the
  * specified name and whose object and link map optionally match the specified
  * parameters.  On success, the function returns 0 and fills in the GElf_Sym
@@ -556,16 +517,15 @@ int pr_ioctl(struct ps_prochandle *P, int foo, int bar, void *baz, size_t blah) 
  * Most of the time, prsyminfo_t is null, and when it is used, only
  * prs_lmid is set.
  */
-int Pxlookup_by_name(
+int Pxlookup_by_name_sym(
 		     struct ps_prochandle *P,
 		     Lmid_t lmid,		/* link map to match, or -1 (PR_LMID_EVERY) for any */
 		     const char *oname,		/* load object name */
 		     const char *sname,		/* symbol name */
 		     GElf_Sym *symp,		/* returned symbol table entry */
-		     prsyminfo_t *sip)		/* returned symbol info */
+		     prsyminfo_t *sip,		/* returned symbol info */
+		     bool only_current_gen)
 {
-	int err = -1;
-        
 	__block CSSymbolRef symbol = kCSNull;
 	if (oname != NULL) {
 		CSSymbolOwnerRef owner = symbolOwnerForName(P->symbolicator, oname);
@@ -581,43 +541,70 @@ int Pxlookup_by_name(
 			CSSymbolicatorForeachSymbolWithNameAtTime(P->symbolicator, sname, kCSNow, ^(CSSymbolRef s) { if (CSIsNull(symbol)) symbol = s; });
 		}
 	}
-		
+
+	if (CSIsNull(symbol)) {
+		return PLOOKUP_NOT_FOUND;
+	}
+
 	// Filter out symbols we do not want to instrument
-	if (!CSIsNull(symbol)) {
-		if (CSSymbolIsDyldStub(symbol)) symbol = kCSNull;
-		if (!CSSymbolIsFunction(symbol)) symbol = kCSNull;
+	if (CSSymbolIsDyldStub(symbol) || !CSSymbolIsFunction(symbol)) {
+		return PLOOKUP_NOT_FOUND;
 	}
-	
-	if (!CSIsNull(symbol)) {
-		err = 0;
-		
-		if (symp) {
-			CSRange addressRange = CSSymbolGetRange(symbol);
-			
-			symp->st_name = 0;
-			symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+
+	 // Check that the symbol we found is part of the current generation
+	if (update_check_symbol_gen(P, symbol, only_current_gen) != 0) {
+		return PLOOKUP_WRONG_GEN;
+	}
+
+	if (symp) {
+		CSRange addressRange = CSSymbolGetRange(symbol);
+
+		symp->st_name = 0;
+		symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
 #if defined(__arm__) || defined(__arm64__)
-			if (CSSymbolIsArm(symbol)) {
-				symp->st_arch_subinfo = 1;
-			} else {
-				symp->st_arch_subinfo = 2;
-			}
+		if (CSSymbolIsArm(symbol)) {
+			symp->st_arch_subinfo = 1;
+		} else {
+			symp->st_arch_subinfo = 2;
+		}
 #endif
-			symp->st_other = 0;
-			symp->st_shndx = SHN_MACHO;
-			symp->st_value = addressRange.location;
-			symp->st_size = addressRange.length;
-		}
-		
-		if (sip) {
-			sip->prs_lmid = LM_ID_BASE;
-		}
+		symp->st_other = 0;
+		symp->st_shndx = SHN_MACHO;
+		symp->st_value = addressRange.location;
+		symp->st_size = addressRange.length;
 	}
-        
-	return err;
+
+	if (sip) {
+		sip->prs_lmid = LM_ID_BASE;
+	}
+
+	return 0;
+}
+
+int
+Pxlookup_by_name_new_syms(
+		     struct ps_prochandle *P,
+		     Lmid_t lmid,		/* link map to match, or -1 (PR_LMID_EVERY) for any */
+		     const char *oname,		/* load object name */
+		     const char *sname,		/* symbol name */
+		     GElf_Sym *symp,		/* returned symbol table entry */
+		     prsyminfo_t *sip)		/* returned symbol info */
+{
+	return Pxlookup_by_name_sym(P, lmid, oname, sname, symp, sip, true);
 }
 
 
+int
+Pxlookup_by_name(
+		     struct ps_prochandle *P,
+		     Lmid_t lmid,		/* link map to match, or -1 (PR_LMID_EVERY) for any */
+		     const char *oname,		/* load object name */
+		     const char *sname,		/* symbol name */
+		     GElf_Sym *symp,		/* returned symbol table entry */
+		     prsyminfo_t *sip)		/* returned symbol info */
+{
+	return Pxlookup_by_name_sym(P, lmid, oname, sname, symp, sip, false);
+}
 /*
  * Search the process symbol tables looking for a symbol whose
  * value to value+size contain the address specified by addr.
@@ -750,32 +737,33 @@ ssize_t Pread(struct ps_prochandle *P, void *buf, size_t nbyte, mach_vm_address_
 	return bytes_read;
 }
 
-int Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd) {
+static int
+Pobject_iter_symbols(struct ps_prochandle *P, proc_map_f *func, void *cd, bool only_current_gen)
+{
 	__block int err = 0;
-        	
+
 	CSSymbolicatorForeachSymbolOwnerAtTime(P->symbolicator, kCSNow, ^(CSSymbolOwnerRef owner) {
-		
-		// We work through "generations of symbol owners. At any given point, we only want to
-		// look at what has changed since the last processing attempt. Dyld may load library after
-		// library with the same load timestamp. So we mark the symbol owners with a "generation"
-		// and only look at those that are unmarked, or are the current generation.
-		uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);		
-		if (generation == 0 || generation == P->current_symbol_owner_generation) {
-			if (generation == 0)
-				CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);
-						
+		if (update_check_symbol_owner_gen(P, owner, only_current_gen) == 0) {
 			if (err) return; // skip everything after error
-			
+
 			prmap_t map;
 			const char* name = CSSymbolOwnerGetName(owner);
 			map.pr_vaddr = CSSymbolOwnerGetBaseAddress(owner);
 			map.pr_mflags = MA_READ;
-			
+
 			err = func(cd, &map, name);
 		}
 	});
-	
+
 	return err;
+}
+
+int Pobject_iter(struct ps_prochandle *P, proc_map_f *func, void *cd) {
+	return Pobject_iter_symbols(P, func, cd, false);
+}
+
+int Pobject_iter_new_syms(struct ps_prochandle *P, proc_map_f *func, void *cd) {
+	return Pobject_iter_symbols(P, func, cd, true);
 }
 
 // The solaris version of XYZ_to_map() didn't require the prmap_t* map argument.
@@ -879,28 +867,21 @@ int Plmid(struct ps_prochandle *P, mach_vm_address_t addr, Lmid_t *lmidp) {
  * This is an Apple only proc method. It is used by the objc provider,
  * to iterate all classes and methods.
  */
-int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
+static int
+Pobjc_method_iter_syms(struct ps_prochandle *P, proc_objc_f *func, void *cd, bool only_current_gen) {
 	__block int err = 0;
 	CSSymbolicatorForeachSymbolOwnerAtTime(P->symbolicator, kCSNow, ^(CSSymbolOwnerRef owner) {
-		// We work through "generations of symbol owners. At any given point, we only want to
-		// look at what has changed since the last processing attempt. Dyld may load library after
-		// library with the same load timestamp. So we mark the symbol owners with a "generation"
-		// and only look at those that are unmarked, or are the current generation.
-		uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);		
-		if (generation == 0 || generation == P->current_symbol_owner_generation) {
-			if (generation == 0)
-				CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);
-								
+		if (update_check_symbol_owner_gen(P, owner, only_current_gen) == 0) {
 			if (err) return; // Have to bail out on error condition
 			
 			CSSymbolOwnerForeachSymbol(owner, ^(CSSymbolRef symbol) {
-				
+
 				if (err) return; // Have to bail out on error condition
 				
 				if (CSSymbolIsObjcMethod(symbol)) {
 					GElf_Sym gelf_sym;
 					CSRange addressRange = CSSymbolGetRange(symbol);
-					
+
 					gelf_sym.st_name = 0;
 					gelf_sym.st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
 					gelf_sym.st_other = 0;
@@ -914,10 +895,10 @@ int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
 					gelf_sym.st_shndx = SHN_MACHO;
 					gelf_sym.st_value = addressRange.location;
 					gelf_sym.st_size = addressRange.length;
-					
-					const char* symbolName = CSSymbolGetName(symbol);				
+
+					const char* symbolName = CSSymbolGetName(symbol);
 					size_t symbolNameLength = strlen(symbolName);
-					
+
 					// First find the split point
 					size_t split_index = 0;
 					while (symbolName[split_index] != ' ' && symbolName[split_index] != 0)
@@ -955,6 +936,15 @@ int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
 	return err;
 }
 
+int
+Pobjc_method_iter_new_syms(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
+	return Pobjc_method_iter_syms(P, func, cd, true);
+}
+
+int
+Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
+	return Pobjc_method_iter_syms(P, func, cd, false);
+}
 /*
  * APPLE NOTE: 
  *
@@ -969,25 +959,20 @@ int Pobjc_method_iter(struct ps_prochandle *P, proc_objc_f *func, void *cd) {
  * Note that we do not actually iterate in address order!
  */
 
-int Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name, int which, int mask, proc_sym_f *func, void *cd) {
+static int
+Psymbol_iter_by_addr_syms(struct ps_prochandle *P, const char *object_name,
+     int which, int mask, proc_sym_f *func, void *cd, bool only_current_gen)
+{
 	__block int err = 0;
 	
 	if (which != PR_SYMTAB)
 		return err;
-        
+
 	CSSymbolOwnerRef owner = symbolOwnerForName(P->symbolicator, object_name);
 			
 	// <rdar://problem/4877551>
 	if (!CSIsNull(owner)) {
-		// We work through "generations of symbol owners. At any given point, we only want to
-		// look at what has changed since the last processing attempt. Dyld may load library after
-		// library with the same load timestamp. So we mark the symbol owners with a "generation"
-		// and only look at those that are unmarked, or are the current generation.
-		uintptr_t generation = CSSymbolOwnerGetTransientUserData(owner);		
-		if (generation == 0 || generation == P->current_symbol_owner_generation) {
-			if (generation == 0)
-				CSSymbolOwnerSetTransientUserData(owner, P->current_symbol_owner_generation);			
-		
+		if (update_check_symbol_owner_gen(P, owner, only_current_gen) == 0) {
 			CSSymbolOwnerForeachSymbol(owner, ^(CSSymbolRef symbol) {
 				if (err)
 					return; // Bail out on error.
@@ -1036,8 +1021,24 @@ int Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name, int w
 		// We must fail if the owner cannot be found
 		err = -1;
 	}
-        
+
 	return err;
+}
+
+int
+Psymbol_iter_by_addr_new_syms(struct ps_prochandle *P, const char *object_name,
+     int which, int mask, proc_sym_f *func, void *cd)
+{
+	return Psymbol_iter_by_addr_syms(P, object_name, which, mask, func,
+	       cd, true);
+}
+
+int
+Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name,
+     int which, int mask, proc_sym_f *func, void *cd)
+{
+	return Psymbol_iter_by_addr_syms(P, object_name, which, mask, func,
+	       cd, false);
 }
 
 void Pupdate_maps(struct ps_prochandle *P) {

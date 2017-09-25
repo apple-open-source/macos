@@ -64,7 +64,7 @@
 // MARK: SecOCSPCacheDb
 
 static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
-    return SecDbCreate(path, ^bool (SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
+    return SecDbCreate(path, ^bool (SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error) {
         __block bool ok;
         ok = (SecDbExec(dbconn, CFSTR("PRAGMA auto_vacuum = FULL"), error) &&
               SecDbExec(dbconn, CFSTR("PRAGMA journal_mode = WAL"), error));
@@ -135,10 +135,15 @@ errOut:
 
 static CFStringRef SecOCSPCacheCopyPath(void) {
     CFStringRef ocspRelPath = kSecOCSPCacheFileName;
+#if TARGET_OS_IPHONE
     CFURLRef ocspURL = SecCopyURLForFileInKeychainDirectory(ocspRelPath);
     if (!ocspURL) {
         ocspURL = SecCopyURLForFileInUserCacheDirectory(ocspRelPath);
     }
+#else
+    /* macOS caches should be in user cache dir */
+    CFURLRef ocspURL = SecCopyURLForFileInUserCacheDirectory(ocspRelPath);
+#endif
     CFStringRef ocspPath = NULL;
     if (ocspURL) {
         ocspPath = CFURLCopyFileSystemPath(ocspURL, kCFURLPOSIXPathStyle);
@@ -285,6 +290,15 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
     });
     if (!ok) {
         secerror("_SecOCSPCacheAddResponse failed: %@", localError);
+        CFReleaseNull(localError);
+    } else {
+        // force a vacuum when we modify the database
+        ok &= SecDbPerformWrite(this->db, &localError, ^(SecDbConnectionRef dbconn) {
+            ok = SecDbExec(dbconn, CFSTR("VACUUM"), &localError);
+            if (!ok) {
+                secerror("_SecOCSPCacheAddResponse VACUUM failed: %@", localError);
+            }
+        });
     }
     CFReleaseSafe(localError);
 }

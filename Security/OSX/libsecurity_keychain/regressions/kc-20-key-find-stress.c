@@ -33,6 +33,8 @@
 
 #define BLOCKS 7000
 
+static long concurrentBlocks = 64;
+
 static void tests() {
 
     SecKeychainRef kc = getPopulatedTestKeychain();
@@ -44,18 +46,33 @@ static void tests() {
     });
     dispatch_group_t g = dispatch_group_create();
 
-    for(int i = 0; i < BLOCKS; i++) {
-        dispatch_group_async(g, release_queue, ^() {
-            SecKeychainItemRef blockItem = NULL;
+    __block int iteration = 0;
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(concurrentBlocks);
 
-            CFMutableDictionaryRef query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
-            CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
+    dispatch_block_t identityBlock = ^() {
+        SecKeychainItemRef blockItem = NULL;
 
-            ok_status(SecItemCopyMatching(query, (CFTypeRef*) &blockItem), "%s: SecItemCopyMatching(%d)", testName, i);
+        CFMutableDictionaryRef query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
+        CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
 
-            CFReleaseNull(blockItem);
-        });
-    }
+        ok_status(SecItemCopyMatching(query, (CFTypeRef*) &blockItem), "%s: SecItemCopyMatching", testName);
+
+        CFReleaseNull(blockItem);
+        CFReleaseNull(query);
+
+        dispatch_semaphore_signal(semaphore);
+    };
+
+    // Send this to background queue, so that when we wait, it doesn't block main queue
+
+    dispatch_group_async(g, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        for (iteration = 0; iteration < BLOCKS; iteration++) {
+            // Wait until one of our concurrentBlocks "slots" are available
+            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+
+            dispatch_group_async(g, release_queue, identityBlock);
+        }
+    });
 
     dispatch_group_wait(g, DISPATCH_TIME_FOREVER);
 

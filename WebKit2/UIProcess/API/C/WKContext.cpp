@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WKContextPrivate.h"
 
+#include "APIArray.h"
 #include "APIClient.h"
 #include "APIDownloadClient.h"
 #include "APILegacyContextHistoryClient.h"
@@ -38,6 +39,7 @@
 #include "WKContextConfigurationRef.h"
 #include "WKRetainPtr.h"
 #include "WebCertificateInfo.h"
+#include "WebContextInjectedBundleClient.h"
 #include "WebIconDatabase.h"
 #include "WebProcessPool.h"
 #include <wtf/RefPtr.h>
@@ -91,7 +93,7 @@ void WKContextSetClient(WKContextRef contextRef, const WKContextClientBase* wkCl
 
 void WKContextSetInjectedBundleClient(WKContextRef contextRef, const WKContextInjectedBundleClientBase* wkClient)
 {
-    toImpl(contextRef)->initializeInjectedBundleClient(wkClient);
+    toImpl(contextRef)->setInjectedBundleClient(std::make_unique<WebContextInjectedBundleClient>(wkClient));
 }
 
 void WKContextSetHistoryClient(WKContextRef contextRef, const WKContextHistoryClientBase* wkClient)
@@ -379,12 +381,7 @@ void WKContextRegisterURLSchemeAsBypassingContentSecurityPolicy(WKContextRef con
 
 void WKContextRegisterURLSchemeAsCachePartitioned(WKContextRef contextRef, WKStringRef urlScheme)
 {
-#if ENABLE(CACHE_PARTITIONING)
     toImpl(contextRef)->registerURLSchemeAsCachePartitioned(toImpl(urlScheme)->string());
-#else
-    UNUSED_PARAM(contextRef);
-    UNUSED_PARAM(urlScheme);
-#endif
 }
 
 void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef contextRef, WKStringRef urlScheme)
@@ -409,7 +406,7 @@ WKCookieManagerRef WKContextGetCookieManager(WKContextRef contextRef)
 
 WKWebsiteDataStoreRef WKContextGetWebsiteDataStore(WKContextRef context)
 {
-    return toAPI(toImpl(context)->websiteDataStore());
+    return toAPI(&toImpl(context)->websiteDataStore());
 }
 
 WKApplicationCacheManagerRef WKContextGetApplicationCacheManager(WKContextRef context)
@@ -507,6 +504,16 @@ void WKContextGetStatisticsWithOptions(WKContextRef contextRef, WKStatisticsOpti
     toImpl(contextRef)->getStatistics(optionsMask, toGenericCallbackFunction(context, callback));
 }
 
+bool WKContextJavaScriptConfigurationFileEnabled(WKContextRef contextRef)
+{
+    return toImpl(contextRef)->javaScriptConfigurationFileEnabled();
+}
+
+void WKContextSetJavaScriptConfigurationFileEnabled(WKContextRef contextRef, bool enable)
+{
+    toImpl(contextRef)->setJavaScriptConfigurationFileEnabled(enable);
+}
+
 void WKContextGarbageCollectJavaScriptObjects(WKContextRef contextRef)
 {
     toImpl(contextRef)->garbageCollectJavaScriptObjects();
@@ -522,6 +529,11 @@ void WKContextUseTestingNetworkSession(WKContextRef context)
     toImpl(context)->useTestingNetworkSession();
 }
 
+void WKContextSetAllowsAnySSLCertificateForWebSocketTesting(WKContextRef context, bool allows)
+{
+    toImpl(context)->setAllowsAnySSLCertificateForWebSocket(allows);
+}
+
 void WKContextClearCachedCredentials(WKContextRef context)
 {
     toImpl(context)->clearCachedCredentials();
@@ -529,7 +541,7 @@ void WKContextClearCachedCredentials(WKContextRef context)
 
 WKDictionaryRef WKContextCopyPlugInAutoStartOriginHashes(WKContextRef contextRef)
 {
-    return toAPI(toImpl(contextRef)->plugInAutoStartOriginHashes().leakRef());
+    return toAPI(&toImpl(contextRef)->plugInAutoStartOriginHashes().leakRef());
 }
 
 void WKContextSetPlugInAutoStartOriginHashes(WKContextRef contextRef, WKDictionaryRef dictionaryRef)
@@ -566,6 +578,11 @@ void WKContextSetMemoryCacheDisabled(WKContextRef contextRef, bool disabled)
 void WKContextSetFontWhitelist(WKContextRef contextRef, WKArrayRef arrayRef)
 {
     toImpl(contextRef)->setFontWhitelist(toImpl(arrayRef));
+}
+
+void WKContextTerminateNetworkProcess(WKContextRef context)
+{
+    toImpl(context)->terminateNetworkProcess();
 }
 
 pid_t WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)

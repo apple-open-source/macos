@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -202,7 +202,7 @@ const NFS_MFLAG_NONEGNAMECACHE		= 7;	/* don't do negative name caching */
 const NFS_MFLAG_MUTEJUKEBOX		= 8;	/* don't treat jukebox errors as unresponsive */
 const NFS_MFLAG_EPHEMERAL		= 9;	/* ephemeral (mirror) mount */
 const NFS_MFLAG_NOCALLBACK		= 10;	/* don't provide callback RPC service */
-const NFS_MFLAG_NONAMEDATTR		= 11;	/* don't use named attributes */
+const NFS_MFLAG_NAMEDATTR		= 11;	/* don't use named attributes */
 const NFS_MFLAG_NOACL			= 12;	/* don't support ACLs */
 const NFS_MFLAG_ACLONLY			= 13;	/* only support ACLs - not mode */
 const NFS_MFLAG_NFC			= 14;	/* send NFC strings */

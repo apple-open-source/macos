@@ -28,9 +28,7 @@
 #include <IOKit/graphics/IOGraphicsTypes.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/IOHibernatePrivate.h>
-#if !TARGET_OS_EMBEDDED
 #include <IOKit/platform/IOPlatformSupportPrivate.h>
-#endif
 #include <Security/SecTask.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -59,18 +57,13 @@
 
 
 #define kIntegerStringLen               15
+extern os_log_t    sleepwake_log;
+#undef   LOG_STREAM
+#define  LOG_STREAM   sleepwake_log
 
-#if !TARGET_OS_EMBEDDED
 #include <IOKit/smc/SMCUserClient.h>
 #include <systemstats/systemstats.h>
 
-#else
-
-#ifndef kIOPMPSRawExternalConnectedKey
-#define kIOPMPSRawExternalConnectedKey        "AppleRawExternalConnected"
-#endif
-
-#endif /* TARGET_OS_EMBEDDED */
 
 #ifndef kIOHIDIdleTimeKy
 #define kIOHIDIdleTimeKey                               "HIDIdleTime"
@@ -120,7 +113,6 @@ static int sleepCntSinceFailure = -1;
 
 __private_extern__ bool             isDisplayAsleep( );
 
-#if !TARGET_OS_EMBEDDED
 // Cached data for LowCapRatio
 static time_t               cachedLowCapRatioTime = 0;
 static bool                 cachedKeyPresence = false;
@@ -133,7 +125,7 @@ static bool                 cachedHasLowCap = false;
 #define kFDRIntervalAfterPE (1*60)
 
 static uint64_t nextFDREventDue = 0;
-#endif
+static void logASLMessageHibernateStatistics(void);
 
 typedef struct {
     CFStringRef     sleepReason;
@@ -193,7 +185,6 @@ static PowerEventReasons     reasons = {
             NULL);
 
 
-static void logASLMessageHibernateStatistics(void);
 
 // dynamicStoreNotifyCallBack is defined in pmconfigd.c
 // is not defined in pmset! so we don't compile this code in pmset.
@@ -269,7 +260,6 @@ exit:
 static void initSleepCnt()
 {
     int cnt = -1; // Init to invalid value
-#if !TARGET_OS_EMBEDDED
     size_t msgCnt;
     asl_object_t cq = NULL;
     asl_object_t        msg, msgList = NULL;
@@ -290,7 +280,7 @@ static void initSleepCnt()
 
     msg = asl_get_index(msgList, msgCnt-1);
     if ((str = asl_get(msg, kPMASLSleepCntSinceFailure))) {
-        cnt = strtol(str, NULL, 0);
+        cnt = (int)strtol(str, NULL, 0);
     }
 
 exit:
@@ -300,7 +290,6 @@ exit:
     if (msgList) {
         asl_release(msgList);
     }
-#endif
     sleepCntSinceFailure = cnt;
 }
 
@@ -516,14 +505,10 @@ __private_extern__ void _updateWakeReason
     reasons.claimedWake = claimedReasonFromEventsArray(reasons.claimedWakeEventsArray);
     if (reasons.claimedWake) {
         reasons.interpretedWake = reasons.claimedWake;
-#if !TARGET_OS_EMBEDDED
         mt2PublishSleepWakeInfo(reasons.platformWakeType, reasons.claimedWake, true);
-#endif
     } else {
         reasons.interpretedWake = reasons.platformWakeType;
-#if !TARGET_OS_EMBEDDED
         mt2PublishSleepWakeInfo(reasons.platformWakeType, reasons.platformWakeType, true);
-#endif
     }
 
     getPlatformWakeReason(wakeReason, wakeType);
@@ -575,25 +560,18 @@ _getHibernateState(
 }
 
 __private_extern__
-const char * getSleepTypeString(void)
+const char *sleepType2String(int sleepType)
 {
-    const char      *string = NULL;
-#if !TARGET_OS_EMBEDDED
-    io_service_t    rootDomain = getRootDomain();
-    CFNumberRef     sleepTypeNum;
+    const char *string;
 
-    sleepTypeNum = IORegistryEntryCreateCFProperty(
-                        rootDomain,
-                        CFSTR(kIOPMSystemSleepTypeKey),
-                        kCFAllocatorDefault, 0);
-
-    if (isA_CFNumber(sleepTypeNum))
-    {
-        int sleepType = kIOPMSleepTypeInvalid;
-
-        CFNumberGetValue(sleepTypeNum, kCFNumberIntType, &sleepType);
         switch (sleepType)
         {
+            case kIOPMSleepTypeInvalid:
+                string = "Invalid";
+                break;
+            case kIOPMSleepTypeAbortedSleep:
+                string = "Aborted Sleep";
+                break;
             case kIOPMSleepTypeNormalSleep:
                 string = "Normal Sleep";
                 break;
@@ -612,19 +590,49 @@ const char * getSleepTypeString(void)
             case kIOPMSleepTypeDeepIdle:
                 string = "Deep Idle";
                 break;
+            default:
+                string = "Unknown";
+                break;
         }
-    }
-    if (sleepTypeNum)
-        CFRelease(sleepTypeNum);
+        return string;
+}
 
-#endif /* !TARGET_OS_EMBEDDED */
-    return string;
+
+__private_extern__ int getLastSleepType()
+{
+
+    io_service_t    rootDomain = getRootDomain();
+    CFNumberRef     sleepTypeNum;
+
+    int sleepType = kIOPMSleepTypeInvalid;
+
+    sleepTypeNum = IORegistryEntryCreateCFProperty(
+                        rootDomain,
+                        CFSTR(kIOPMSystemSleepTypeKey),
+                        kCFAllocatorDefault, 0);
+
+    if (isA_CFNumber(sleepTypeNum))
+    {
+        CFNumberGetValue(sleepTypeNum, kCFNumberIntType, &sleepType);
+    }
+    if (sleepTypeNum) {
+        CFRelease(sleepTypeNum);
+    }
+
+    return sleepType;
+
+}
+
+
+static const char * getSleepTypeString(void)
+{
+    return sleepType2String(getLastSleepType());
+    return NULL;
 }
 
 
 static void sendNotification(int command)
 {
-#if !TARGET_OS_EMBEDDED
     CFMutableDictionaryRef   dict = NULL;
     int numberOfSeconds = 600;
 
@@ -646,7 +654,6 @@ static void sendNotification(int command)
     CFRelease(dict);
     CFRelease(secondsValue);
     CFRelease(commandValue);
-#endif
 }
 
 
@@ -675,7 +682,6 @@ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
 {
     IOReturn                    ret         = kIOReturnError;
     
-#if !TARGET_OS_EMBEDDED
     CFNumberRef                 num         = NULL;
     CFDictionaryRef             dict        = NULL;
 
@@ -718,7 +724,6 @@ exit:
         CFRelease(dict);
     }
     
-#endif
     return ret;
 }
 
@@ -727,7 +732,6 @@ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
                              time_t since)
 {
     IOReturn                    ret         = kIOReturnError;
-#if !TARGET_OS_EMBEDDED
     
     CFMutableDictionaryRef      dict        = NULL; // must release
     CFNumberRef                 num         = NULL; // must release
@@ -766,7 +770,6 @@ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
 exit:
     if (dict)           CFRelease(dict);
     
-#endif
     return ret;
 }
 
@@ -789,16 +792,6 @@ static void _unpackBatteryState(IOPMBattery *b, CFDictionaryRef prop)
     boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSIsChargingKey));
     b->isCharging = (kCFBooleanTrue == boo);
 
-#if TARGET_OS_EMBEDDED
-    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSRawExternalConnectedKey));
-    b->rawExternalConnected = (kCFBooleanTrue == boo);
-
-    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSAtCriticalLevelKey));
-    b->isCritical = (kCFBooleanTrue == boo);
-
-    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSRestrictedModeKey));
-    b->isRestricted = (kCFBooleanTrue == boo);
-#endif
 
     b->failureDetected = (CFStringRef)CFDictionaryGetValue(prop, CFSTR(kIOPMPSErrorConditionKey));
 
@@ -891,7 +884,6 @@ __private_extern__ IOPMBattery *_newBatteryFound(io_registry_entry_t where)
                             new_battery_index);
 
     new_battery_index++;
-    _batteryChanged(new_battery);
 
     /* Real, physical battery found */
     if (!physicalBatteriesSet) {
@@ -906,10 +898,6 @@ __private_extern__ IOPMBattery *_newBatteryFound(io_registry_entry_t where)
     physicalBatteriesArray = (IOPMBattery **)calloc(physicalBatteriesCount, sizeof(IOPMBattery *));
     CFSetGetValues(physicalBatteriesSet, (const void **)physicalBatteriesArray);
 
-    // TODO: We should really be posting this kIOPSNotifyAttach from
-    // BatteryTimeRemaining.c, not right here.
-    notify_post(kIOPSNotifyAttach);
-    
     return new_battery;
 }
 
@@ -917,6 +905,12 @@ __private_extern__ IOPMBattery *_newBatteryFound(io_registry_entry_t where)
 __private_extern__ void _batteryChanged(IOPMBattery *changed_battery)
 {
     kern_return_t       kr;
+
+    CFMutableDictionaryRef props = NULL;
+    CFDictionaryRef adapter = NULL;
+    CFBooleanRef externalConnected = kCFBooleanFalse;
+    CFBooleanRef battInstalled = kCFBooleanFalse;
+    bool newBattery = true;
 
     if(!changed_battery) {
         // This is unexpected; we're not tracking this battery
@@ -927,19 +921,41 @@ __private_extern__ void _batteryChanged(IOPMBattery *changed_battery)
     if(changed_battery->properties) {
         CFRelease(changed_battery->properties);
         changed_battery->properties = NULL;
+        newBattery = false;
     }
 
     kr = IORegistryEntryCreateCFProperties(
                             changed_battery->me,
-                            &(changed_battery->properties),
+                            &props,
                             kCFAllocatorDefault, 0);
     if(KERN_SUCCESS != kr) {
-        changed_battery->properties = NULL;
         goto exit;
     }
 
-    _unpackBatteryState(changed_battery, changed_battery->properties);
+    if (CFDictionaryGetValueIfPresent(props, CFSTR(kIOPMPSBatteryInstalledKey), (const void **)&battInstalled) &&
+            (battInstalled == kCFBooleanTrue)) {
+
+        _unpackBatteryState(changed_battery, props);
+        if (newBattery) {
+            // New battery
+            initializeBatteryCalculations();
+        }
+    }
+    else {
+        // There is no battery here. May be just an adapeter
+        INFO_LOG("Battery is not installed\n");
+        CFDictionaryGetValueIfPresent(props, CFSTR(kIOPMPSExternalConnectedKey), (const void **)&externalConnected);
+        CFDictionaryGetValueIfPresent(props, CFSTR(kIOPMPSAdapterDetailsKey), (const void **)&adapter);
+
+        if (isA_CFDictionary(adapter)) {
+            readAndPublishACAdapter((externalConnected == kCFBooleanTrue) ? true : false, adapter);
+        }
+        CFRelease(props);
+        props = NULL;
+    }
+
 exit:
+    changed_battery->properties = props;
     return;
 }
 
@@ -1008,23 +1024,30 @@ __private_extern__ bool getPowerState(PowerSources *source, uint32_t *percentage
     int                                         batteryCount = 0;
     uint32_t                                    capPercent = 0;
     int                                         i;
+    int                                         validBattCount = 0;
+    bool                                        ret = false;
 
+    *source = kACPowered;
     batteryCount = _batteryCount();
     if (0 < batteryCount) {
         batteries = _batteries();
         for (i=0; i< batteryCount; i++) {
-            if (batteries[i]->isPresent
-                && (0 != batteries[i]->maxCap)) {
+            if (batteries[i]->isPresent == false) {
+                continue;
+            }
+            validBattCount++;
+            if (0 != batteries[i]->maxCap) {
                 capPercent += (batteries[i]->currentCap * 100) / batteries[i]->maxCap;
             }
         }
-        *source = batteries[0]->externalConnected ? kACPowered : kBatteryPowered;
-        *percentage = capPercent;
-        return true;
-    } else {
-        *source = kACPowered;
-        return false;
+        if (validBattCount) {
+            *source = batteries[0]->externalConnected ? kACPowered : kBatteryPowered;
+            *percentage = capPercent;
+            ret = true;
+        }
     }
+
+    return ret;
 }
 
 
@@ -1046,9 +1069,6 @@ static void printCapabilitiesToBuf(char *buf, int buf_size, IOPMCapabilityBits i
 
 __private_extern__ bool isA_installEnvironment()
 {
-#if TARGET_OS_EMBEDDED
-    return false;
-#else
     static int installEnv = -1;
 
     if (installEnv == -1) {
@@ -1056,7 +1076,6 @@ __private_extern__ bool isA_installEnvironment()
     }
 
     return (installEnv);
-#endif
 }
 
 __private_extern__ aslmsg new_msg_pmset_log(void)
@@ -1129,7 +1148,7 @@ __private_extern__ void logASLMessageSleep(
     aslmsg                  m;
     char                    uuidString[150];
     char                    source[10];
-    uint32_t                percentage;
+    uint32_t                percentage = 0;
     char                    numbuf[15];
     bool                    success = true;
     char                    messageString[200];
@@ -1138,7 +1157,6 @@ __private_extern__ void logASLMessageSleep(
     PowerSources            pwrSrc;
 
     numbuf[0] = 0;
-    m = new_msg_pmset_log();
 
     reasonString[0] = messageString[0] = tcpKeepAliveString[0] = source[0] =  0;
     
@@ -1149,9 +1167,6 @@ __private_extern__ void logASLMessageSleep(
         success = true;
         if (sleepType == kIsS0Sleep) {
             snprintf(messageString, sizeof(messageString), "Entering Sleep state");
-#if !TARGET_OS_EMBEDDED && TCPKEEPALIVE
-            attachTCPKeepAliveKeys(m, tcpKeepAliveString, sizeof(tcpKeepAliveString));
-#endif
         } else {
            snprintf(messageString, sizeof(messageString), "Entering DarkWake state");
         }
@@ -1166,13 +1181,18 @@ __private_extern__ void logASLMessageSleep(
                 failureStr);
     }
 
+    getPowerState(&pwrSrc, &percentage);
+    INFO_LOG("%{public}s", messageString);
+    m = new_msg_pmset_log();
     if (success) {
         asl_set(m, kPMASLDomainKey, kPMASLDomainPMSleep);
-        if (getPowerState(&pwrSrc, &percentage)) {
-            snprintf(numbuf, 10, "%d", percentage);
-            asl_set(m, kPMASLBatteryPercentageKey, numbuf);
-        }
+
+        snprintf(numbuf, 10, "%d", percentage);
+        asl_set(m, kPMASLBatteryPercentageKey, numbuf);
+
         asl_set(m, kPMASLPowerSourceKey, (pwrSrc == kACPowered) ? "AC" : "Batt");
+
+        attachTCPKeepAliveKeys(m, tcpKeepAliveString, sizeof(tcpKeepAliveString));
     }
     else {
         asl_set(m, kPMASLDomainKey, kPMASLDomainSWFailure);
@@ -1189,12 +1209,8 @@ __private_extern__ void logASLMessageSleep(
             messageString, tcpKeepAliveString);
     
     asl_set(m, kPMASLSignatureKey, sig);
-#if TARGET_OS_EMBEDDED
-    INFO_LOG("%s", messageString);
-#else
     asl_set(m, ASL_KEY_MSG, messageString);
     asl_send(NULL, m);
-#endif
     asl_release(m);
 
     if (isA_installEnvironment()) {
@@ -1219,7 +1235,7 @@ __private_extern__ void logASLMessageWake(
     CFStringRef             tmpStr = NULL;
     char                    buf[200];
     char                    source[10];
-    uint32_t                percentage;
+    uint32_t                percentage = 0;
     char                    wakeReasonBuf[50];
     char                    cBuf[50];
     const char *            detailString = NULL;
@@ -1245,15 +1261,12 @@ __private_extern__ void logASLMessageWake(
     }
 
     buf[0] = source[0] = battCap[0] = 0;
+    getPowerState(&pwrSrc, &percentage);
     if (!strncmp(sig, kPMASLSigSuccess, sizeof(kPMASLSigSuccess)))
     {
         char  wakeTypeBuf[50];
 
         wakeReasonBuf[0] = wakeTypeBuf[0] = 0;
-#if TARGET_OS_EMBEDDED
-        size_t  size = sizeof(wakeReasonBuf);
-        sysctlbyname("kern.wakereason", wakeReasonBuf, &size, NULL, 0);
-#else
         if (isA_CFString(reasons.platformWakeReason)) {
             CFStringGetCString(reasons.platformWakeReason, wakeReasonBuf, sizeof(wakeReasonBuf), kCFStringEncodingUTF8);
         }
@@ -1261,12 +1274,10 @@ __private_extern__ void logASLMessageWake(
             CFStringGetCString(reasons.platformWakeType, wakeTypeBuf, sizeof(wakeTypeBuf), kCFStringEncodingUTF8);
         }
         snprintf(wakeReasonBuf, sizeof(wakeReasonBuf), "%s/%s", wakeReasonBuf, wakeTypeBuf);
-#endif
         detailString = wakeReasonBuf;
-        if (getPowerState(&pwrSrc, &percentage)) {
-            snprintf(battCap, 10, "%d", percentage);
-            asl_set(m, kPMASLBatteryPercentageKey, battCap);
-        }
+
+        snprintf(battCap, 10, "%d", percentage);
+        asl_set(m, kPMASLBatteryPercentageKey, battCap);
         asl_set(m, kPMASLPowerSourceKey, (pwrSrc == kACPowered) ? "AC" : "BATT");
     } else {
         detailString = failureStr;
@@ -1371,15 +1382,12 @@ __private_extern__ void logASLMessageWake(
           detailString ? "due to" : "",
           detailString ? detailString : "");
 
-#if TARGET_OS_EMBEDDED
-    INFO_LOG("%s\n", buf);
-#else
+    INFO_LOG("%{public}s\n", buf);
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
     if (success) {
         logASLMessageHibernateStatistics( );
     }
-#endif
     asl_release(m);
 
     if (isA_installEnvironment()) {
@@ -1410,90 +1418,10 @@ __private_extern__ void logASLAppWakeReason(
 
     asl_send(NULL, m);
     asl_release(m);
+
+    INFO_LOG("%{public}s\n", msg);
 }
 
-
-/*****************************************************************************/
-
-static void logASLMessageHibernateStatistics(void)
-{
-    aslmsg                  m = NULL;
-    CFDataRef               statsData = NULL;
-    PMStatsStruct           *stats = NULL;
-    uint64_t                readHIBImageMS = 0;
-    uint64_t                writeHIBImageMS = 0;
-    CFNumberRef             hibernateModeNum = NULL;
-    CFNumberRef             hibernateDelayNum = NULL;
-    int                     hibernateMode = 0;
-    char                    valuestring[25];
-    int                     hibernateDelay = 0;
-    char                    buf[100];
-    char                    uuidString[150];
-
-    if (sleepCntSinceFailure == -1) {
-        initSleepCnt();
-        if (sleepCntSinceFailure < 0) {
-            sleepCntSinceFailure = 0;
-        }
-    }
-    m = new_msg_pmset_log();
-
-    asl_set(m, kPMASLDomainKey, kPMASLDomainHibernateStatistics);
-
-    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
-
-    if (_getUUIDString(uuidString, sizeof(uuidString))) {
-        asl_set(m, kPMASLUUIDKey, uuidString);
-    }
-
-    snprintf(buf, sizeof(buf), "%d", sleepCntSinceBoot);
-    asl_set(m, kPMASLSleepCntSinceBoot, buf);
-    snprintf(buf, sizeof(buf), "%d", sleepCntSinceFailure);
-    asl_set(m, kPMASLSleepCntSinceFailure, buf);
-
-    hibernateModeNum = (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOHibernateModeKey));
-    if (hibernateModeNum) {
-        CFNumberGetValue(hibernateModeNum, kCFNumberIntType, &hibernateMode);
-        CFRelease(hibernateModeNum);
-    }
-
-    hibernateDelayNum= (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOPMDeepSleepDelayKey));
-    if (hibernateDelayNum) {
-        CFNumberGetValue(hibernateDelayNum, kCFNumberIntType, &hibernateDelay);
-        CFRelease(hibernateDelayNum);
-    }
-
-    statsData = (CFDataRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsKey));
-    if (statsData && (stats = (PMStatsStruct *)CFDataGetBytePtr(statsData)))
-    {
-        writeHIBImageMS = (stats->hibWrite.stop - stats->hibWrite.start)/1000000UL;
-
-        readHIBImageMS =(stats->hibRead.stop - stats->hibRead.start)/1000000UL;
-
-    }
-
-    snprintf(valuestring, sizeof(valuestring), "hibernatemode=%d", hibernateMode);
-    asl_set(m, kPMASLSignatureKey, valuestring);
-    // If readHibImageMS == zero, that means we woke from the contents of memory
-    // and did not read the hibernate image.
-    if (writeHIBImageMS)
-        snprintf(buf, sizeof(buf), "wr=%qd ms ", writeHIBImageMS);
-
-    if (readHIBImageMS)
-        snprintf(buf, sizeof(buf), "rd=%qd ms", readHIBImageMS);
-    asl_set(m, kPMASLDelayKey, buf);
-
-    snprintf(buf, sizeof(buf), "hibmode=%d standbydelay=%d", hibernateMode, hibernateDelay);
-    asl_set(m, ASL_KEY_MSG, buf);
-
-    if (m) {
-        asl_send(NULL, m);
-        asl_release(m);
-    }
-    if(statsData)
-        CFRelease(statsData);
-    return;
-}
 
 /*****************************************************************************/
 
@@ -1534,12 +1462,11 @@ __private_extern__ void logASLPMConnectionNotify(
 __private_extern__ void logASLDisplayStateChange()
 {
 
-#if !TARGET_OS_EMBEDDED
+    bool displayOff = isDisplayAsleep();
+
+
     aslmsg m;
     char buf[128];
-    bool displayState = isDisplayAsleep();
-
-
     m = new_msg_pmset_log();
     asl_set(m, kPMASLDomainKey, kPMASLDomainAppNotify);
 
@@ -1549,22 +1476,22 @@ __private_extern__ void logASLDisplayStateChange()
     }
 
    snprintf(buf, sizeof(buf), "Display is turned %s",
-        displayState ? "off" : "on");
+        displayOff ? "off" : "on");
 
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
     asl_release(m);
 
-    if (displayState) {
+    if (isA_installEnvironment()) {
+        syslog(LOG_INFO | LOG_INSTALL, "%s\n", buf);
+    }
+
+    if (displayOff) {
         /* Log all assertions when display goes off */
         CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{ logASLAllAssertions(); });
         CFRunLoopWakeUp(_getPMRunLoop());
     }
 
-    if (isA_installEnvironment()) {
-        syslog(LOG_INFO | LOG_INSTALL, "%s\n", buf);
-    }
-#endif
 }
 
 __private_extern__ void logASLPerforamceState(int perfState)
@@ -1898,7 +1825,6 @@ __private_extern__ void logASLMessageExecutedWakeupEvent(CFStringRef requestedMa
     CFRelease(messageString);
 }
 
-#if !TARGET_OS_EMBEDDED
 __private_extern__ void logASLMessageIgnoredDWTEmergency(void)
 {
     aslmsg      m;
@@ -1924,7 +1850,6 @@ __private_extern__ void logASLMessageIgnoredDWTEmergency(void)
     asl_send(NULL, m);
     asl_release(m);
 }
-#endif
 
 __private_extern__ void logASLMessageSleepCanceledAtLastCall(
                                bool tcpka_active,
@@ -2000,7 +1925,6 @@ __private_extern__ void logASLBatteryHealthChanged(const char *health,
 __private_extern__ void logASLLowBatteryWarning(IOPSLowBatteryWarningLevel level,
                                                    int time, int ccap)
 {
-#if !TARGET_OS_EMBEDDED
     aslmsg      m;
     char        strbuf[125];
     
@@ -2016,12 +1940,10 @@ __private_extern__ void logASLLowBatteryWarning(IOPSLowBatteryWarningLevel level
     
     asl_send(NULL, m);
     asl_release(m);
-#endif
 }
 
 __private_extern__ void logASLSleepPreventers(int preventerType)
 {
-#if !TARGET_OS_EMBEDDED
     aslmsg      m;
     char        strbuf[125];
     CFArrayRef  preventers;
@@ -2078,7 +2000,6 @@ __private_extern__ void logASLSleepPreventers(int preventerType)
     {
         CFRelease(preventers);
     }
-#endif
 }
 /*****************************************************************************/
 /*****************************************************************************/
@@ -2090,19 +2011,6 @@ __private_extern__ void logASLSleepPreventers(int preventerType)
 /***************************************************************************/
 #pragma mark MT2 DarkWake
 
-#if TARGET_OS_EMBEDDED
-/* These are stubs of MT2 functions, so we can build for embedded, without this functionality. */
-void initializeMT2Aggregator(void) {};
-void mt2DarkWakeEnded(void) {};
-void mt2EvaluateSystemSupport(void) {};
-void mt2RecordWakeEvent(uint32_t description) {};
-void mt2RecordThermalEvent(uint32_t description) {};
-void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion) {};
-void mt2PublishReports(void) {};
-void mt2PublishSleepFailure(const char *failType, const char *pci_string) {};
-void mt2PublishWakeFailure(const char *failType, const char *pci_string) {};
-void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName) {};
-#else
 
 /*
  * MessageTracer2 DarkWake Keys
@@ -2337,7 +2245,7 @@ static int mt2PublishDomainProcess(const char *appdomain, CFDictionaryRef apps)
     uintptr_t           *counts;
     char                buf[2*kProcNameBufLen];
     int                 sendCount = 0;
-    int                 appcount = 0;
+    long                appcount = 0;
     int                 i = 0;
 
     if (!mt2 || !apps || (0 == (appcount = CFDictionaryGetCount(apps))))
@@ -2483,7 +2391,7 @@ void mt2RecordWakeEvent(uint32_t description)
         return;
     }
 
-    if (kWakeStateFull & description) {
+    if ((kWakeStateDark & description) == 0) {
         /* The system just woke into FullWake.
          * To make sure that we publish mt2 reports in a timely manner,
          * we'll try now. It'll only actually happen if the PublishInterval has
@@ -2552,7 +2460,7 @@ void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion)
             if (!CFSetContainsValue(mt2->alreadyRecordedBackground, processName)) {
                 int x = (int)CFDictionaryGetValue(mt2->tookBackground, processName);
                 x++;
-                CFDictionarySetValue(mt2->tookBackground, processName, (uintptr_t)x);
+                CFDictionarySetValue(mt2->tookBackground, processName, (void *)(uintptr_t)x);
                 CFSetAddValue(mt2->alreadyRecordedBackground, processName);
             }
         }
@@ -2563,7 +2471,7 @@ void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion)
             if (!CFSetContainsValue(mt2->alreadyRecordedPush, processName)) {
                 int x = (int)CFDictionaryGetValue(mt2->tookPush, processName);
                 x++;
-                CFDictionarySetValue(mt2->tookPush, processName, (uintptr_t)x);
+                CFDictionarySetValue(mt2->tookPush, processName, (void *)(uintptr_t)x);
                 CFSetAddValue(mt2->alreadyRecordedPush, processName);
             }
         }
@@ -2571,7 +2479,7 @@ void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion)
             if (!CFSetContainsValue(mt2->alreadyRecordedPushTimeouts, processName)) {
                 int x = (int)CFDictionaryGetValue(mt2->timeoutPush, processName);
                 x++;
-                CFDictionarySetValue(mt2->timeoutPush, (const void *)processName, (uintptr_t)x);
+                CFDictionarySetValue(mt2->timeoutPush, (const void *)processName, (void *)(uintptr_t)x);
                 CFSetAddValue(mt2->alreadyRecordedPushTimeouts, processName);
             }
         }
@@ -2600,7 +2508,7 @@ void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName)
 
     int x = (int)CFDictionaryGetValue(dict, procName);
     x++;
-    CFDictionarySetValue(dict, (const void *)procName, (uintptr_t)x);
+    CFDictionarySetValue(dict, (const void *)procName, (void *)(uintptr_t)x);
 
 }
 
@@ -2717,7 +2625,90 @@ void mt2PublishSleepWakeFailure(const char *failType, const char *phase, const c
     sleepCntSinceFailure = 0;
     logASLMessageHibernateStatistics();
 }
-#endif      /* #endif for iOS */
+
+/*****************************************************************************/
+
+static void logASLMessageHibernateStatistics(void)
+{
+    aslmsg                  m = NULL;
+    CFDataRef               statsData = NULL;
+    PMStatsStruct           *stats = NULL;
+    uint64_t                readHIBImageMS = 0;
+    uint64_t                writeHIBImageMS = 0;
+    CFNumberRef             hibernateModeNum = NULL;
+    CFNumberRef             hibernateDelayNum = NULL;
+    int                     hibernateMode = 0;
+    char                    valuestring[25];
+    int                     hibernateDelay = 0;
+    char                    buf[100];
+    char                    uuidString[150];
+
+    if (sleepCntSinceFailure == -1) {
+        initSleepCnt();
+        if (sleepCntSinceFailure < 0) {
+            sleepCntSinceFailure = 0;
+        }
+    }
+    m = new_msg_pmset_log();
+
+    asl_set(m, kPMASLDomainKey, kPMASLDomainHibernateStatistics);
+
+    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+
+    if (_getUUIDString(uuidString, sizeof(uuidString))) {
+        asl_set(m, kPMASLUUIDKey, uuidString);
+    }
+
+    snprintf(buf, sizeof(buf), "%d", sleepCntSinceBoot);
+    asl_set(m, kPMASLSleepCntSinceBoot, buf);
+    snprintf(buf, sizeof(buf), "%d", sleepCntSinceFailure);
+    asl_set(m, kPMASLSleepCntSinceFailure, buf);
+
+    hibernateModeNum = (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOHibernateModeKey));
+    if (hibernateModeNum) {
+        CFNumberGetValue(hibernateModeNum, kCFNumberIntType, &hibernateMode);
+        CFRelease(hibernateModeNum);
+    }
+
+    hibernateDelayNum= (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOPMDeepSleepDelayKey));
+    if (hibernateDelayNum) {
+        CFNumberGetValue(hibernateDelayNum, kCFNumberIntType, &hibernateDelay);
+        CFRelease(hibernateDelayNum);
+    }
+
+    statsData = (CFDataRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsKey));
+    if (statsData && (stats = (PMStatsStruct *)CFDataGetBytePtr(statsData)))
+    {
+        writeHIBImageMS = (stats->hibWrite.stop - stats->hibWrite.start)/1000000UL;
+
+        readHIBImageMS =(stats->hibRead.stop - stats->hibRead.start)/1000000UL;
+
+    }
+
+    snprintf(valuestring, sizeof(valuestring), "hibernatemode=%d", hibernateMode);
+    asl_set(m, kPMASLSignatureKey, valuestring);
+    // If readHibImageMS == zero, that means we woke from the contents of memory
+    // and did not read the hibernate image.
+    if (writeHIBImageMS)
+        snprintf(buf, sizeof(buf), "wr=%qd ms ", writeHIBImageMS);
+
+    if (readHIBImageMS)
+        snprintf(buf, sizeof(buf), "rd=%qd ms", readHIBImageMS);
+    asl_set(m, kPMASLDelayKey, buf);
+
+    snprintf(buf, sizeof(buf), "hibmode=%d standbydelay=%d", hibernateMode, hibernateDelay);
+    asl_set(m, ASL_KEY_MSG, buf);
+
+    if (m) {
+        asl_send(NULL, m);
+        asl_release(m);
+    }
+    if(statsData)
+        CFRelease(statsData);
+    return;
+}
+
+
 
 #pragma mark FDR
 
@@ -2726,7 +2717,6 @@ void mt2PublishSleepWakeFailure(const char *failType, const char *phase, const c
  *************************/
 void recordFDREvent(int eventType, bool checkStandbyStatus,  IOPMBattery **batteries)
 {
-#if !TARGET_OS_EMBEDDED
 
     struct systemstats_sleep_s s;
     struct systemstats_wake_s w;
@@ -2823,7 +2813,6 @@ void recordFDREvent(int eventType, bool checkStandbyStatus,  IOPMBattery **batte
             return;
     }
 
-#endif
 }
 
 #pragma mark SMC and Hardware
@@ -2832,7 +2821,6 @@ void recordFDREvent(int eventType, bool checkStandbyStatus,  IOPMBattery **batte
  ************************* Send AppleSMC a kCFPropertyTrue
  ************************* on time discontinuities.
  *************************/
-#if !TARGET_OS_EMBEDDED
 
 static void setSMCProperty(void)
 {
@@ -2913,7 +2901,6 @@ static void registerForCalendarChangedNotification(void)
         mach_port_deallocate(mach_task_self(), host_port);
     }
 }
-#endif
 
 __private_extern__ uint64_t monotonicTS2Secs(uint64_t tsc)
 {
@@ -2926,6 +2913,12 @@ __private_extern__ uint64_t monotonicTS2Secs(uint64_t tsc)
     return ( (tsc * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_SEC));
 
 }
+/* Returns monotonic continuous time in secs */
+__private_extern__ uint64_t getMonotonicContinuousTime( )
+{
+    return monotonicTS2Secs(mach_continuous_time());
+}
+
 /* Returns monotonic time in secs */
 __private_extern__ uint64_t getMonotonicTime( )
 {
@@ -2975,9 +2968,6 @@ callerIsConsole(
     int uid,
     int gid)
 {
-#if TARGET_OS_EMBEDDED
-    return false;
-#else
     CFStringRef                 user_name = NULL;
     uid_t                       console_uid;
     gid_t                       console_gid;
@@ -2992,15 +2982,12 @@ callerIsConsole(
         // no data returned re: console user's uid or gid; return "false"
         return false;
     }
-#endif /* !TARGET_OS_EMBEDDED */
 }
 
 
 void _oneOffHacksSetup(void)
 {
-#if !TARGET_OS_EMBEDDED
     registerForCalendarChangedNotification();
-#endif
 }
 
 static const CFTimeInterval kTimeNSPerSec = 1000000000.0;
@@ -3048,18 +3035,6 @@ exit:
 /************************************************************************/
 /************************************************************************/
 // Forwards
-#if !TARGET_OS_EMBEDDED
-static IOReturn _smcWriteKey(
-    uint32_t key,
-    uint8_t *outBuf,
-    uint8_t outBufMax);
-static IOReturn _smcReadKey(
-    uint32_t key,
-    uint8_t *outBuf,
-    uint8_t *outBufMax,
-    bool byteSwap);
-
-#endif
 
 /* Legacy format */
 
@@ -3085,301 +3060,12 @@ static IOReturn _smcReadKey(
 
 
 
-#if !TARGET_OS_EMBEDDED
-static void stuffInt32(CFMutableDictionaryRef d, CFStringRef k, uint32_t n)
-{
-    CFNumberRef stuffNum = NULL;
-    if ((stuffNum = CFNumberCreate(0, kCFNumberSInt32Type, &n)))
-    {
-        CFDictionarySetValue(d, k, stuffNum);
-        CFRelease(stuffNum);
-    }
-}
 
-static void stuffString(CFMutableDictionaryRef d, CFStringRef k, char *str)
-{
-    CFStringRef  strRef = NULL;
-
-    if ((strRef = CFStringCreateWithCString(0, str, kCFStringEncodingUTF8))) {
-        CFDictionarySetValue(d, k, strRef);
-        CFRelease(strRef);
-    }
-
-}
-
-static IOReturn  populateAcidData(uint64_t acBits, CFMutableDictionaryRef acDict)
-{
-    int                             j = 0;
-
-    struct AdapterAttributes{
-        uint32_t        valCommEn;
-        uint32_t        valVoltageID;
-        uint32_t        valID;
-        uint32_t        valPower;
-        uint32_t        valRevision;
-        uint32_t        valSerial;
-        uint32_t        valFamily;
-        uint32_t        valCurrent;
-        uint32_t        valSource;
-    } info;
-
-
-    // Decode SMC key
-    info.valID              = (acBits >> kACIDBit) & 0xFFF;
-    info.valFamily          = (acBits >> kACFamilyBit) & 0xFF;
-    info.valPower           = (acBits >> kACPowerBit) & 0xFF;
-    if ( (info.valSource    = (acBits >> kACSourceIdBit) & k3BitMask))
-    {
-        // New format
-        info.valSerial      = (acBits >> kACSerialBit) & 0x1FFFFFF;
-        info.valCurrent     = ((acBits >> kACCurrentIdBit) & 0xFF) * 25;
-        info.valVoltageID   = (acBits >> kACVoltageIDBit) & k3BitMask;
-    } else {
-        // Legacy format
-        info.valSerial      = (acBits >> kACSerialBit) & 0xFFFFFF;
-        info.valRevision    = (acBits >> kACRevisionBit) & 0xF;
-    }
-
-    // Publish values in dictionary
-
-    if (info.valSource) {
-        // New format
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), info.valCurrent);
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterSourceKey), info.valSource);
-
-    }
-    else {
-        // Legacy format
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterRevisionKey), info.valRevision);
-    }
-
-    if (0 != info.valPower) {
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), info.valPower);
-    }
-
-    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), info.valID);
-    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterSerialNumberKey), info.valSerial);
-    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterFamilyKey), info.valFamily);
-
-    return kIOReturnSuccess;
-}
-
-#endif
-
-#if !TARGET_OS_EMBEDDED
-static uint32_t makeKey(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
-    return (a << 24 | ('0' + b) << 16 | c << 8 | d);
-}
-
-/* rdar://23925883 - Machines that have Ace interface require a special
- * polling mechanism in order to read adapter info from the SMC.
- */
-static CFMutableDictionaryRef copySMCAdapterInfo(uint8_t port, CFDictionaryRef oldACDict)
-{
-    bool readFromSMC = false;
-    int32_t current, nominalV, minV, maxV, watts;
-    char  str[33];
-    uint8_t readKeyLen;
-    CFMutableDictionaryRef acDict = NULL;
-    IOReturn ret;
-    uint8_t prevPort = 0xff;
-    
-    current = nominalV = minV =  maxV = watts = 0;
-    readKeyLen = sizeof(current);
-    
-    ret = _smcReadKey(makeKey('D', port, 'I', 'R'), (void *)&current, &readKeyLen, true);
-    if ((ret != kIOReturnSuccess) || (current == 0)) {
-        
-        asl_log(0,0,ASL_LEVEL_ERR, "Failed to read current rating(0x%x)\n", ret);
-        return NULL;
-    }
-    _smcReadKey(makeKey('D', port, 'V', 'R'), (void *)&nominalV, &readKeyLen, true);
-    if ((ret != kIOReturnSuccess) || (nominalV == 0)) {
-        
-        asl_log(0,0,ASL_LEVEL_ERR, "Failed to read nominal Voltage rating(0x%x)\n", ret);
-        return NULL;
-    }
-    
-    do {
-        int32_t prevCurrent, prevNominalV;
-        CFNumberRef prevCurrentRef = NULL;
-        CFNumberRef prevNominalVRef = NULL;
-        
-        if (prevPort != port) {
-            // Get the data again when winner port has changed.
-            prevPort = port;
-            readFromSMC = true;
-            break;
-        }
-        if (!isA_CFDictionary(oldACDict)) {
-            readFromSMC = true;
-            break;
-        }
-        
-        
-        prevCurrentRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSPowerAdapterCurrentKey));
-        if ((!isA_CFNumber(prevCurrentRef)) ||
-            (!CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent)) ||
-            (current != prevCurrent)
-            ) {
-            // Get the data again when current has changed.
-            readFromSMC = true;
-            break;
-        }
-        
-        prevNominalVRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSVoltageKey));
-        if ((!isA_CFNumber(prevCurrentRef)) ||
-            (!CFNumberGetValue(prevNominalVRef, kCFNumberIntType, &prevNominalV)) ||
-            (nominalV != prevNominalV)
-            ) {
-            // Get the data again when voltage has changed.
-            readFromSMC = true;
-            break;
-        }
-        
-        if (
-            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterSerialStringKey))) ||
-            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterIDKey))) ||
-            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey))) ||
-            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey))) ||
-            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey))) ||
-            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterNameKey)))
-            ) {
-            readFromSMC = true;
-            break;
-        }
-        
-    } while (0);
-    
-    if (!readFromSMC)
-        return NULL;
-    
-    acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (!acDict) {
-        return NULL;
-    }
-    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), current);
-    
-    _smcReadKey(makeKey('D', port, 'V', 'M'), (void *)&minV, &readKeyLen, true);
-    _smcReadKey(makeKey('D', port, 'V', 'X'), (void *)&maxV, &readKeyLen, true);
-    if ((nominalV == minV) && (maxV != 0)) {
-        watts = (current * maxV)/(1000*1000);
-        stuffInt32(acDict, CFSTR(kIOPSVoltageKey), maxV);
-    }
-    else if (nominalV != 0) {
-        watts = (current * nominalV)/(1000*1000);
-        stuffInt32(acDict, CFSTR(kIOPSVoltageKey), nominalV);
-    }
-    
-    if (watts) {
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), watts);
-    }
-    
-    
-    readKeyLen = sizeof(str);
-    bzero(str, sizeof(str));
-    ret = _smcReadKey(makeKey('D', port, 'i', 's'), (void *)&str, &readKeyLen, false);
-    if ((ret == kIOReturnSuccess) && (str[0] != 0))  {
-        stuffString(acDict, CFSTR(kIOPSPowerAdapterSerialStringKey), str);
-    }
-    
-    readKeyLen = sizeof(str);
-    bzero(str, sizeof(str));
-    ret = _smcReadKey(makeKey('D', port, 'i', 'f'), (void *)&str, &readKeyLen, false);
-    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-        stuffString(acDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey), str);
-    }
-    
-    readKeyLen = sizeof(str);
-    bzero(str, sizeof(str));
-    ret = _smcReadKey(makeKey('D', port, 'i', 'h'), (void *)&str, &readKeyLen, false);
-    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-        stuffString(acDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey), str);
-    }
-    
-    readKeyLen = sizeof(str);
-    bzero(str, sizeof(str));
-    ret = _smcReadKey(makeKey('D', port, 'i', 'i'), (void *)&str, &readKeyLen, false);
-    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-        uint32_t id = 0;
-        id = strtol(str, 0, 0);
-        if (id != 0) {
-            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), id);
-        }
-        
-    }
-    
-    readKeyLen = sizeof(str);
-    bzero(str, sizeof(str));
-    ret = _smcReadKey(makeKey('D', port, 'i', 'm'), (void *)&str, &readKeyLen, false);
-    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-        stuffString(acDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey), str);
-    }
-    
-    readKeyLen = sizeof(str);
-    bzero(str, sizeof(str));
-    ret = _smcReadKey(makeKey('D', port, 'i', 'n'), (void *)&str, &readKeyLen, false);
-    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-        stuffString(acDict, CFSTR(kIOPSPowerAdapterNameKey), str);
-    }
-    
-    return acDict;
-}
-#endif
 
 /************************************************************************/
 __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
 {
-#if !TARGET_OS_EMBEDDED
-    IOReturn ret;
-    static bool supportsACID = false;
-
-
-    uint64_t acBits;
-    uint8_t readKeyLen;
-    CFMutableDictionaryRef          acDict = NULL;
-    uint8_t numPorts;
-
-    if (supportsACID && oldACDict) {
-        /* No need to re-read the data on ACID supported systems */
-        return NULL;
-    }
-    
-    // Some machines may have ACID and AC-N keys, so check AC-N first
-    readKeyLen = sizeof(numPorts);
-    ret =  _smcReadKey('AC-N', (void *)&numPorts, &readKeyLen, false);
-    if (ret == kIOReturnSuccess) {
-        supportsACID = false;
-        uint8_t acWinner;
-        
-        ret =  _smcReadKey('AC-W', (void *)&acWinner, &readKeyLen, false);
-        if (ret == kIOReturnSuccess && acWinner > 0) {
-            // Get the winning adapter's dictionary
-            acDict = copySMCAdapterInfo(acWinner, oldACDict);
-        }
-    } else if (ret == kIOReturnNotFound) {
-        readKeyLen = sizeof(acBits);
-        ret =  _smcReadKey('ACID', (void *)&acBits, &readKeyLen, false);
-        
-        if (ret == kIOReturnSuccess) {
-            supportsACID = true;
-            acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-            if (!acDict) {
-                return NULL;
-            }
-            populateAcidData(acBits, acDict);
-        } else if (ret == kIOReturnNotFound) {
-            // Handle machines that do not support Ace or ACID
-            acDict = copySMCAdapterInfo(0, oldACDict);
-        }
-    }
-    return acDict;
-
-#else
     return NULL;
-#endif
 }
 /************************************************************************/
 __private_extern__ PowerSources _getPowerSource(void)
@@ -3394,237 +3080,12 @@ __private_extern__ PowerSources _getPowerSource(void)
 }
 
 
-#if !TARGET_OS_EMBEDDED
-/************************************************************************/
-__private_extern__ IOReturn _smcWakeTimerPrimer(void)
-{
-    uint8_t  buf[2];
-
-    buf[0] = 0;
-    buf[1] = 1;
-    return _smcWriteKey('CLWK', buf, 2);
-}
-
-/************************************************************************/
-__private_extern__ IOReturn _smcWakeTimerGetResults(uint16_t *mSec)
-{
-    uint8_t     size = 2;
-    uint8_t     buf[2];
-    IOReturn    ret;
-    ret = _smcReadKey('CLWK', buf, &size, true);
-
-    if (kIOReturnSuccess == ret) {
-        *mSec = buf[0] | (buf[1] << 8);
-    }
-
-    return ret;
-}
-
-bool smcSilentRunningSupport(void)
-{
-    uint8_t     size = 1;
-    uint8_t     buf[1];
-    static IOReturn    ret = kIOReturnInvalid;
-
-    if (ret != kIOReturnSuccess) {
-       ret = _smcReadKey('WKTP', buf, &size, true);
-    }
-
-    if (kIOReturnSuccess == ret) {
-        return true;
-    }
-    return false;
-}
-
-
-
-/************************************************************************/
-/************************************************************************/
-
-static IOReturn callSMCFunction(
-    int which,
-    SMCParamStruct *inputValues,
-    SMCParamStruct *outputValues);
-
-/************************************************************************/
-// Methods
-static IOReturn _smcWriteKey(
-    uint32_t key,
-    uint8_t *outBuf,
-    uint8_t outBufMax)
-{
-    SMCParamStruct  stuffMeIn;
-    SMCParamStruct  stuffMeOut;
-    IOReturn        ret;
-    int             i;
-
-    if (key == 0)
-        return kIOReturnCannotWire;
-
-    bzero(&stuffMeIn, sizeof(SMCParamStruct));
-    bzero(&stuffMeOut, sizeof(SMCParamStruct));
-
-    // Determine key's data size
-    stuffMeIn.data8             = kSMCGetKeyInfo;
-    stuffMeIn.key               = key;
-
-    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
-    if (kIOReturnSuccess != ret) {
-        goto exit;
-    }
-
-    if (stuffMeOut.result == kSMCKeyNotFound) {
-        ret = kIOReturnNotFound;
-        goto exit;
-    } else if (stuffMeOut.result != kSMCSuccess) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    // Write Key
-    stuffMeIn.data8             = kSMCWriteKey;
-    stuffMeIn.key               = key;
-    stuffMeIn.keyInfo.dataSize  = stuffMeOut.keyInfo.dataSize;
-    if (outBuf) {
-        if (outBufMax > 32) outBufMax = 32;
-        for (i=0; i<outBufMax; i++) {
-            stuffMeIn.bytes[i] = outBuf[i];
-        }
-    }
-    bzero(&stuffMeOut, sizeof(SMCParamStruct));
-    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
-
-    if (stuffMeOut.result != kSMCSuccess) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-exit:
-    return ret;
-}
-
-static IOReturn _smcReadKey(
-    uint32_t key,
-    uint8_t *outBuf,
-    uint8_t *outBufMax, 
-    bool byteSwap)
-{
-    SMCParamStruct  stuffMeIn;
-    SMCParamStruct  stuffMeOut;
-    IOReturn        ret;
-    int             i;
-
-    if (key == 0 || outBuf == NULL)
-        return kIOReturnCannotWire;
-
-    // Determine key's data size
-    bzero(outBuf, *outBufMax);
-    bzero(&stuffMeIn, sizeof(SMCParamStruct));
-    bzero(&stuffMeOut, sizeof(SMCParamStruct));
-    stuffMeIn.data8 = kSMCGetKeyInfo;
-    stuffMeIn.key = key;
-
-    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
-    if (kIOReturnSuccess != ret) {
-        goto exit;
-    }
-
-    if (stuffMeOut.result == kSMCKeyNotFound) {
-        ret = kIOReturnNotFound;
-        goto exit;
-    } else if (stuffMeOut.result != kSMCSuccess) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    // Get Key Value
-    stuffMeIn.data8 = kSMCReadKey;
-    stuffMeIn.key = key;
-    stuffMeIn.keyInfo.dataSize = stuffMeOut.keyInfo.dataSize;
-    bzero(&stuffMeOut, sizeof(SMCParamStruct));
-    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
-    if (stuffMeOut.result == kSMCKeyNotFound) {
-        ret = kIOReturnNotFound;
-        goto exit;
-    } else if (stuffMeOut.result != kSMCSuccess) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    if (*outBufMax > stuffMeIn.keyInfo.dataSize)
-        *outBufMax = stuffMeIn.keyInfo.dataSize;
-
-    // Byte-swap data returning from the SMC.
-    // The data at key 'ACID' are not provided by the SMC and do
-    // NOT need to be byte-swapped.
-    for (i=0; i<*outBufMax; i++)
-    {
-        if (!byteSwap)
-        {
-            // Do not byte swap
-            outBuf[i] = stuffMeOut.bytes[i];
-        } else {
-            // Byte swap
-            outBuf[i] = stuffMeOut.bytes[*outBufMax - (i + 1)];
-        }
-    }
-exit:
-    return ret;
-}
-
-static IOReturn callSMCFunction(
-    int which,
-    SMCParamStruct *inputValues,
-    SMCParamStruct *outputValues)
-{
-    IOReturn result = kIOReturnError;
-
-    size_t         inStructSize = sizeof(SMCParamStruct);
-    size_t         outStructSize = sizeof(SMCParamStruct);
-
-    io_connect_t    _SMCConnect = IO_OBJECT_NULL;
-    io_service_t    smc = IO_OBJECT_NULL;
-
-    smc = IOServiceGetMatchingService(
-        kIOMasterPortDefault,
-        IOServiceMatching("AppleSMC"));
-    if (IO_OBJECT_NULL == smc) {
-        return kIOReturnError;
-    }
-
-    result = IOServiceOpen(smc, mach_task_self(), 1, &_SMCConnect);
-    if (result != kIOReturnSuccess ||
-        IO_OBJECT_NULL == _SMCConnect) {
-        _SMCConnect = IO_OBJECT_NULL;
-        goto exit;
-    }
-
-    result = IOConnectCallMethod(_SMCConnect, kSMCUserClientOpen,
-                    NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
-    if (result != kIOReturnSuccess) {
-        goto exit;
-    }
-
-    result = IOConnectCallStructMethod(_SMCConnect, which,
-                        inputValues, inStructSize,
-                        outputValues, &outStructSize);
-
-exit:
-    if (IO_OBJECT_NULL != _SMCConnect) {
-        IOConnectCallMethod(_SMCConnect, kSMCUserClientClose,
-                    NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
-        IOServiceClose(_SMCConnect);
-    }
-
-    return result;
-}
-
-#else
 bool smcSilentRunningSupport(void)
 {
    return false;
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+
 
 /*****************************************************************************/
 /*****************************************************************************/

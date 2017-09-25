@@ -307,7 +307,7 @@ DLDbListCFPref::writePropertyList()
 		// The prefs file should at least be made readable by user/group/other and writable by the owner.
 		// Change from euid to ruid if needed for the duration of the new prefs file creat.
 		
-		mode_t mode = 0666;
+		mode_t mode = 0644;
 		changeIdentity(UNPRIV);
 		int fd = open(mPrefsPath.c_str(), O_WRONLY|O_CREAT|O_TRUNC, mode);
 		changeIdentity(PRIV);
@@ -342,7 +342,7 @@ DLDbListCFPref::testAndFixPropertyList()
 {
 	char *prefsPath = (char *)mPrefsPath.c_str();
 	
-	int fd1, fd2, retval;
+	int fd1, retval;
 	struct stat stbuf;
 
 	if((fd1 = open(prefsPath, O_RDONLY)) < 0) {
@@ -355,20 +355,27 @@ DLDbListCFPref::testAndFixPropertyList()
 	if(stbuf.st_uid != getuid()) {
 		char tempfile[MAXPATHLEN+1];
 
-		snprintf(tempfile, MAXPATHLEN, "%s.XXXXX", prefsPath);
-		mktemp(tempfile);
-		changeIdentity(UNPRIV);
-		if((fd2 = open(tempfile, O_RDWR | O_CREAT | O_EXCL, 0666)) < 0) {
-			retval = -1;
+        changeIdentity(UNPRIV);
+
+		snprintf(tempfile, MAXPATHLEN, "%s.XXXXXX", prefsPath);
+		int fd2 = mkstemp(tempfile);
+        if (fd2 < 0 || ::fchmod(fd2, 0644) != 0) {
+            ::unlink(tempfile);
+            retval = -1;
 		} else {
 			copyfile_state_t s = copyfile_state_alloc();
 			retval = fcopyfile(fd1, fd2, s, COPYFILE_DATA);
 			copyfile_state_free(s);
-			if(!retval) retval = ::unlink(prefsPath);
-			if(!retval) retval = ::rename(tempfile, prefsPath);
+            if (retval) {
+                ::unlink(tempfile);
+            } else {
+                retval = ::unlink(prefsPath);
+                if(!retval) retval = ::rename(tempfile, prefsPath);
+            }
 		}
 		changeIdentity(PRIV);
-		close(fd2);
+        if (fd2 >= 0)
+            close(fd2);
 	}
 	close(fd1);
 	return retval;

@@ -92,7 +92,7 @@ WebInspector.CSSKeywordCompletions.AllPropertyNamesPlaceholder = "__all-properti
 WebInspector.CSSKeywordCompletions.InheritedProperties = [
     "azimuth", "border-collapse", "border-spacing", "caption-side", "clip-rule", "color", "color-interpolation",
     "color-interpolation-filters", "color-rendering", "cursor", "direction", "elevation", "empty-cells", "fill",
-    "fill-opacity", "fill-rule", "font", "font-family", "font-size", "font-style", "font-variant", "font-variant-numeric", "font-weight",
+    "fill-opacity", "fill-rule", "font", "font-family", "font-size", "font-style", "font-variant", "font-variant-numeric", "font-weight", "font-optical-sizing",
     "glyph-orientation-horizontal", "glyph-orientation-vertical", "hanging-punctuation", "image-rendering", "kerning", "letter-spacing",
     "line-height", "list-style", "list-style-image", "list-style-position", "list-style-type", "marker", "marker-end",
     "marker-mid", "marker-start", "orphans", "pitch", "pitch-range", "pointer-events", "quotes", "resize", "richness",
@@ -170,6 +170,12 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "clear": [
         "none", "left", "right", "both"
     ],
+    "fill-rule": [
+        "nonzero", "evenodd"
+    ],
+    "stroke-linecap": [
+        "butt", "round", "square"
+    ],
     "stroke-linejoin": [
         "round", "miter", "bevel"
     ],
@@ -188,6 +194,9 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "font-stretch": [
         "normal", "wider", "narrower", "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
         "semi-expanded", "expanded", "extra-expanded", "ultra-expanded"
+    ],
+    "font-optical-sizing": [
+        "auto", "none",
     ],
     "-webkit-color-correction": [
         "default", "srgb"
@@ -229,12 +238,12 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double", "auto"
     ],
     "cursor": [
-        "none", "copy", "auto", "crosshair", "default", "pointer", "move", "vertical-text", "cell", "context-menu",
-        "alias", "progress", "no-drop", "not-allowed", "zoom-in", "zoom-out", "e-resize", "ne-resize",
-        "nw-resize", "n-resize", "se-resize", "sw-resize", "s-resize", "w-resize", "ew-resize", "ns-resize",
-        "nesw-resize", "nwse-resize", "col-resize", "row-resize", "text", "wait", "help", "all-scroll", "-webkit-grab",
-        "-webkit-zoom-in", "-webkit-zoom-out",
-        "-webkit-grabbing", "url()", "image-set()"
+        "auto", "default", "none", "context-menu", "help", "pointer", "progress", "wait", "cell", "crosshair", "text", "vertical-text",
+        "alias", "copy", "move", "no-drop", "not-allowed", "grab", "grabbing",
+        "e-resize", "n-resize", "ne-resize", "nw-resize", "s-resize", "se-resize", "sw-resize", "w-resize", "ew-resize", "ns-resize", "nesw-resize", "nwse-resize",
+        "col-resize", "row-resize", "all-scroll", "zoom-in", "zoom-out",
+        "-webkit-grab", "-webkit-grabbing", "-webkit-zoom-in", "-webkit-zoom-out",
+        "url()", "image-set()"
     ],
     "border-width": [
         "medium", "thick", "thin", "calc()"
@@ -382,7 +391,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "-apple-system-headline", "-apple-system-body", "-apple-system-subheadline", "-apple-system-footnote",
         "-apple-system-caption1", "-apple-system-caption2", "-apple-system-short-headline", "-apple-system-short-body",
         "-apple-system-short-subheadline", "-apple-system-short-footnote", "-apple-system-short-caption1",
-        "-apple-system-tall-body", "-apple-system-title1", "-apple-system-title2", "-apple-system-title3"
+        "-apple-system-tall-body", "-apple-system-title0", "-apple-system-title1", "-apple-system-title2", "-apple-system-title3", "-apple-system-title4", "system-ui"
     ],
     "dominant-baseline": [
         "middle", "auto", "central", "text-before-edge", "text-after-edge", "ideographic", "alphabetic", "hanging",
@@ -491,7 +500,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "-apple-system-subheadline", "-apple-system-footnote", "-apple-system-caption1", "-apple-system-caption2",
         "-apple-system-short-headline", "-apple-system-short-body", "-apple-system-short-subheadline",
         "-apple-system-short-footnote", "-apple-system-short-caption1", "-apple-system-tall-body",
-        "-apple-system-title1", "-apple-system-title2", "-apple-system-title3"
+        "-apple-system-title0", "-apple-system-title1", "-apple-system-title2", "-apple-system-title3", "-apple-system-title4", "system-ui"
     ],
     "text-overflow-mode": [
         "clip", "ellipsis"
@@ -500,7 +509,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "none", "hidden", "inset", "groove", "ridge", "outset", "dotted", "dashed", "solid", "double"
     ],
     "unicode-bidi": [
-        "normal", "bidi-override", "embed", "-webkit-plaintext", "-webkit-isolate", "-webkit-isolate-override"
+        "normal", "bidi-override", "embed", "plaintext", "isolate", "isolate-override"
     ],
     "clip-rule": [
         "nonzero", "evenodd"
@@ -839,6 +848,12 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "orientation": [
         "auto", "portait", "landscape"
     ],
+    "scroll-snap-align": [
+        "none", "start", "center", "end"
+    ],
+    "scroll-snap-type": [
+        "none", "mandatory", "proximity", "x", "y", "inline", "block", "both"
+    ],
     "user-zoom": [
         "zoom", "fixed"
     ],
@@ -1008,21 +1023,6 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     */
     "-webkit-animation-trigger": [
         "auto", "container-scroll()"
-    ],
-    "-webkit-scroll-snap-type": [
-        "none", "mandatory", "proximity"
-    ],
-    "-webkit-scroll-snap-points-x": [
-        "elements", "repeat()"
-    ],
-    "-webkit-scroll-snap-points-y": [
-        "elements", "repeat()"
-    ],
-    "-webkit-scroll-snap-destination": [
-        "none", "left", "right", "bottom", "top", "center"
-    ],
-    "-webkit-scroll-snap-coordinate": [
-        "none", "left", "right", "bottom", "top", "center"
     ],
 
     // iOS Properties

@@ -1,4 +1,4 @@
-The 'curl' subdirectory is based on curl 7.54.0
+The 'curl' subdirectory is based on curl 7.51.0
 
 == Updating ==
 
@@ -22,14 +22,21 @@ Update xcscripts/install_libtest.sh (see comment at top) -- NOTE: This hasn't be
 
 == Configuration ==
 
-./configure --with-gssapi --enable-hidden-symbols --disable-static --enable-threaded-resolver --with-darwinssl --without-libssh2
+macOS:
+SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --with-gssapi --with-ssl=/usr/local/libressl
+
+iOS (etc):
+SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-darwinssl
 
 Changes to include/curl/curlbuild.h post-configure:
   (1) Add #ifdef __LP64__ for CURL_SIZEOF_LONG.
   (2) Change CURL_TYPEOF_CURL_OFF_T and associated defines to int64_t (configure gets it wrong for 32-bit).
 		(requires CURL_PULL_STDINT_H, CURL_PULL_INTTYPES_H)
 
-Changes to lib/curl_config.h post-configure:
+Changes to curl_config.h post-configure:
   (1) Add #ifdef __LP64__ for SIZEOF_LONG, SIZEOF_SIZE_T, SIZEOF_TIME_T, SIZEOF_VOIDP
-  (2) #undef HAVE_GSSAPI, OS - conditionally defined in common.xcconfig
-  (3) #undef CURL_CA_BUNDLE - not available everywhere, and we currently use SecureTransport
+  (2) #undef OS - conditionally defined in common.xcconfig
+  (3) [iOS only] #undef CURL_CA_BUNDLE - causes an error; we currently use SecureTransport
+  (4) Enable USE_NGHTTP2.  Because our nghttp2 is at a non-standard path and we
+      don't install the pkgconfig support, the configure script cannot
+      configure it automatically.

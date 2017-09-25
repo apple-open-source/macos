@@ -34,7 +34,6 @@
 #include "SlotVisitor.h"
 #include "TypedArrayType.h"
 #include "WriteBarrier.h"
-#include <wtf/Noncopyable.h>
 
 namespace JSC {
 
@@ -50,11 +49,20 @@ class PropertyDescriptor;
 class PropertyNameArray;
 class Structure;
 
-template<typename T> void* allocateCell(Heap&);
-template<typename T> void* allocateCell(Heap&, size_t);
+enum class AllocationFailureMode {
+    ShouldAssertOnFailure,
+    ShouldNotAssertOnFailure
+};
 
-template<typename T> void* allocateCell(Heap&, GCDeferralContext*);
-template<typename T> void* allocateCell(Heap&, GCDeferralContext*, size_t);
+enum class GCDeferralContextArgPresense {
+    HasArg,
+    DoesNotHaveArg
+};
+
+template<typename T> void* allocateCell(Heap&, size_t = sizeof(T));
+template<typename T> void* tryAllocateCell(Heap&, size_t = sizeof(T));
+template<typename T> void* allocateCell(Heap&, GCDeferralContext*, size_t = sizeof(T));
+template<typename T> void* tryAllocateCell(Heap&, GCDeferralContext*, size_t = sizeof(T));
 
 #define DECLARE_EXPORT_INFO                                                  \
     protected:                                                               \
@@ -71,10 +79,8 @@ template<typename T> void* allocateCell(Heap&, GCDeferralContext*, size_t);
 class JSCell : public HeapCell {
     friend class JSValue;
     friend class MarkedBlock;
-    template<typename T> friend void* allocateCell(Heap&);
-    template<typename T> friend void* allocateCell(Heap&, size_t);
-    template<typename T> friend void* allocateCell(Heap&, GCDeferralContext*);
-    template<typename T> friend void* allocateCell(Heap&, GCDeferralContext*, size_t);
+    template<typename T, AllocationFailureMode, GCDeferralContextArgPresense>
+    friend void* tryAllocateCellHelper(Heap&, GCDeferralContext*, size_t);
 
 public:
     static const unsigned StructureFlags = 0;
@@ -101,11 +107,10 @@ public:
     bool isString() const;
     bool isSymbol() const;
     bool isObject() const;
-    bool isAnyWasmCallee() const;
     bool isGetterSetter() const;
     bool isCustomGetterSetter() const;
     bool isProxy() const;
-    bool inherits(const ClassInfo*) const;
+    bool inherits(VM&, const ClassInfo*) const;
     bool isAPIValueWrapper() const;
     
     // Each cell has a built-in lock. Currently it's simply available for use if you need it. It's
@@ -128,7 +133,7 @@ public:
 
     TypeInfo::InlineTypeFlags inlineTypeFlags() const { return m_flags; }
 
-    const char* className() const;
+    const char* className(VM&) const;
 
     // Extracting the value.
     JS_EXPORT_PRIVATE bool getString(ExecState*, String&) const;
@@ -165,11 +170,12 @@ public:
     JS_EXPORT_PRIVATE static void heapSnapshot(JSCell*, HeapSnapshotBuilder&);
 
     // Object operations, with the toObject operation included.
-    const ClassInfo* classInfo() const;
+    const ClassInfo* classInfo(VM&) const;
     const MethodTable* methodTable() const;
     const MethodTable* methodTable(VM&) const;
     static bool put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     static bool putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
+    bool putInline(ExecState*, PropertyName, JSValue, PutPropertySlot&);
         
     static bool deleteProperty(JSCell*, ExecState*, PropertyName);
     static bool deletePropertyByIndex(JSCell*, ExecState*, unsigned propertyName);
@@ -253,7 +259,7 @@ protected:
     static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
     JS_EXPORT_PRIVATE static ArrayBuffer* slowDownAndWasteMemory(JSArrayBufferView*);
-    JS_EXPORT_PRIVATE static PassRefPtr<ArrayBufferView> getTypedArrayImpl(JSArrayBufferView*);
+    JS_EXPORT_PRIVATE static RefPtr<ArrayBufferView> getTypedArrayImpl(JSArrayBufferView*);
 
 private:
     friend class LLIntOffsetsExtractor;
@@ -270,29 +276,29 @@ private:
 template<typename To, typename From>
 inline To jsCast(From* from)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(!from || from->JSCell::inherits(std::remove_pointer<To>::type::info()));
+    ASSERT_WITH_SECURITY_IMPLICATION(!from || from->JSCell::inherits(*from->JSCell::vm(), std::remove_pointer<To>::type::info()));
     return static_cast<To>(from);
 }
     
 template<typename To>
 inline To jsCast(JSValue from)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(from.isCell() && from.asCell()->JSCell::inherits(std::remove_pointer<To>::type::info()));
+    ASSERT_WITH_SECURITY_IMPLICATION(from.isCell() && from.asCell()->JSCell::inherits(*from.asCell()->vm(), std::remove_pointer<To>::type::info()));
     return static_cast<To>(from.asCell());
 }
 
 template<typename To, typename From>
-inline To jsDynamicCast(From* from)
+inline To jsDynamicCast(VM& vm, From* from)
 {
-    if (LIKELY(from->inherits(std::remove_pointer<To>::type::info())))
+    if (LIKELY(from->JSCell::inherits(vm, std::remove_pointer<To>::type::info())))
         return static_cast<To>(from);
     return nullptr;
 }
 
 template<typename To>
-inline To jsDynamicCast(JSValue from)
+inline To jsDynamicCast(VM& vm, JSValue from)
 {
-    if (LIKELY(from.isCell() && from.asCell()->inherits(std::remove_pointer<To>::type::info())))
+    if (LIKELY(from.isCell() && from.asCell()->inherits(vm, std::remove_pointer<To>::type::info())))
         return static_cast<To>(from.asCell());
     return nullptr;
 }

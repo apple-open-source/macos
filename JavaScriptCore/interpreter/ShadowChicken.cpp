@@ -84,7 +84,7 @@ void ShadowChicken::log(VM& vm, ExecState* exec, const Packet& packet)
     *m_logCursor++ = packet;
 }
 
-void ShadowChicken::update(VM&, ExecState* exec)
+void ShadowChicken::update(VM& vm, ExecState* exec)
 {
     if (verbose) {
         dataLog("Running update on: ", *this, "\n");
@@ -152,7 +152,7 @@ void ShadowChicken::update(VM&, ExecState* exec)
     if (!m_stack.isEmpty()) {
         Vector<Frame> stackRightNow;
         StackVisitor::visit(
-            exec, [&] (StackVisitor& visitor) -> StackVisitor::Status {
+            exec, &vm, [&] (StackVisitor& visitor) -> StackVisitor::Status {
                 if (visitor->isInlinedFrame())
                     return StackVisitor::Continue;
                 if (visitor->isWasmFrame()) {
@@ -164,7 +164,7 @@ void ShadowChicken::update(VM&, ExecState* exec)
                 bool isTailDeleted = false;
                 // FIXME: Make shadow chicken work with Wasm.
                 // https://bugs.webkit.org/show_bug.cgi?id=165441
-                stackRightNow.append(Frame(jsCast<JSObject*>(visitor->callee()), visitor->callFrame(), isTailDeleted));
+                stackRightNow.append(Frame(jsCast<JSObject*>(visitor->callee().asCell()), visitor->callFrame(), isTailDeleted));
                 return StackVisitor::Continue;
             });
         stackRightNow.reverse();
@@ -273,7 +273,7 @@ void ShadowChicken::update(VM&, ExecState* exec)
     
     Vector<Frame> toPush;
     StackVisitor::visit(
-        exec, [&] (StackVisitor& visitor) -> StackVisitor::Status {
+        exec, &vm, [&] (StackVisitor& visitor) -> StackVisitor::Status {
             if (visitor->isInlinedFrame()) {
                 // FIXME: Handle inlining.
                 // https://bugs.webkit.org/show_bug.cgi?id=155686
@@ -300,13 +300,13 @@ void ShadowChicken::update(VM&, ExecState* exec)
             CodeBlock* codeBlock = callFrame->codeBlock();
             if (codeBlock && codeBlock->wasCompiledWithDebuggingOpcodes() && codeBlock->scopeRegister().isValid()) {
                 scope = callFrame->scope(codeBlock->scopeRegister().offset());
-                RELEASE_ASSERT(scope->inherits(JSScope::info()));
+                RELEASE_ASSERT(scope->inherits(vm, JSScope::info()));
             } else if (foundFrame) {
                 scope = m_log[indexInLog].scope;
                 if (scope)
-                    RELEASE_ASSERT(scope->inherits(JSScope::info()));
+                    RELEASE_ASSERT(scope->inherits(vm, JSScope::info()));
             }
-            toPush.append(Frame(jsCast<JSObject*>(visitor->callee()), callFrame, isTailDeleted, callFrame->thisValue(), scope, codeBlock, callFrame->callSiteIndex()));
+            toPush.append(Frame(jsCast<JSObject*>(visitor->callee().asCell()), callFrame, isTailDeleted, callFrame->thisValue(), scope, codeBlock, callFrame->callSiteIndex()));
 
             if (indexInLog < logCursorIndex
                 // This condition protects us from the case where advanceIndexInLogTo didn't find
@@ -349,7 +349,7 @@ void ShadowChicken::update(VM&, ExecState* exec)
                     }
                     Packet packet = m_log[indexInLog];
                     bool isTailDeleted = true;
-                    RELEASE_ASSERT(tailPacket.scope->inherits(JSScope::info()));
+                    RELEASE_ASSERT(tailPacket.scope->inherits(vm, JSScope::info()));
                     toPush.append(Frame(packet.callee, packet.frame, isTailDeleted, tailPacket.thisValue, tailPacket.scope, tailPacket.codeBlock, tailPacket.callSiteIndex));
                 }
             }
@@ -457,7 +457,7 @@ JSArray* ShadowChicken::functionsOnStack(ExecState* exec)
         vm, exec,
         [&] (const Frame& frame) -> bool {
             result->push(exec, frame.callee);
-            RELEASE_ASSERT(!scope.exception()); // This function is only called from tests.
+            scope.releaseAssertNoException(); // This function is only called from tests.
             return true;
         });
     

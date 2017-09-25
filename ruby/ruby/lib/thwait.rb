@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #   thwait.rb - thread synchronization class
 #       $Release Version: 0.9 $
@@ -15,7 +16,7 @@ require "e2mmap.rb"
 #
 # Example:
 #
-#   ThreadsWait.all_wait(thr1, thr2, ...) do |t|
+#   ThreadsWait.all_waits(thr1, thr2, ...) do |t|
 #     STDERR.puts "Thread #{t} has terminated."
 #   end
 #
@@ -25,8 +26,6 @@ require "e2mmap.rb"
 #
 #
 class ThreadsWait
-  RCS_ID='-$Id: thwait.rb,v 1.3 1998/06/26 03:19:34 keiju Exp keiju $-'
-
   extend Exception2MessageMapper
   def_exception("ErrNoWaitingThread", "No threads for waiting.")
   def_exception("ErrNoFinishedThread", "No finished threads.")
@@ -57,7 +56,7 @@ class ThreadsWait
   end
 
   # Returns the array of threads that have not terminated yet.
-  attr :threads
+  attr_reader :threads
 
   #
   # Returns +true+ if there are no threads in the pool still running.

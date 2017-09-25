@@ -662,7 +662,7 @@ bool AppleLVMGroup::clearLogicalVolumeEntry(UInt64 offset, UInt32 size)
 
     AppleLVMVolumeOnDisk * lve = (AppleLVMVolumeOnDisk *)lveBuffer->getBytesNoCopy();
     bzero(lve, size);
-    strncpy((char *)kAppleLVMVolumeFreeMagic, lve->lvMagic, sizeof(lve->lvMagic));
+    strlcpy(lve->lvMagic, (char *)kAppleLVMVolumeFreeMagic, sizeof(lve->lvMagic));
 
     AppleRAIDMember * member;
     UInt64 memberOffset;
@@ -1141,7 +1141,10 @@ UInt64 AppleLVMGroup::findFreeLVEOffset(AppleLVMVolume * lvNew)
 
 	IOLog1("AppleLVMGroup::findFreeLVEOffset(): firstBit %u, nextBit %u\n", (uint32_t)firstBit, (uint32_t)nextBit);
 
-	if (bitsGap >= bitsNeeded) return (firstBit + 1) * kAppleLVMVolumeOnDiskMinSize + secondaryStart;
+    if (bitsGap >= bitsNeeded) {
+        if (bitmap) IODelete(bitmap, UInt32, bitmapSize + 1);
+        return (firstBit + 1) * kAppleLVMVolumeOnDiskMinSize + secondaryStart;
+    }
     }
 	
 full:
@@ -1190,7 +1193,7 @@ bool AppleLVMGroup::updateLVGTOC(void)
 	AppleLVGTOCEntryOnDisk * tocEntry = &firstEntry[i];
 	AppleLVMVolume * lv = arLogicalVolumes[i];
 	if (lv) {
-	    strncpy(tocEntry->lveUUID, (char *)lv->getVolumeUUIDString(), sizeof(tocEntry->lveUUID));
+	    strlcpy(tocEntry->lveUUID, (char *)lv->getVolumeUUIDString(), sizeof(tocEntry->lveUUID));
 	    tocEntry->lveVolumeSize = lv->getClaimedSize();
 	    tocEntry->lveEntryOffset = lv->getEntryOffset();
 	    tocEntry->lveEntrySize = lv->getEntrySize();

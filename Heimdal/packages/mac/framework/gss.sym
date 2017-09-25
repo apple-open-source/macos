@@ -1,5 +1,6 @@
 &__gss_c_nt_uuid_desc
 &__gss_appl_lkdc_supported_desc
+&__gss_c_attr_local_login_user
 %ifdef ENABLE_NTLM
 &__gss_c_ntlm_v1
 &__gss_c_ntlm_force_v1
@@ -47,6 +48,7 @@ gss_inquire_cred
 gss_inquire_cred_by_mech
 gss_inquire_cred_by_oid
 gss_inquire_mechs_for_name
+gss_inquire_name
 gss_inquire_names_for_mech
 gss_inquire_sec_context_by_oid
 gss_inquire_sec_context_by_oid
@@ -110,13 +112,6 @@ gss_cred_label_set				,private
 gss_inquire_attrs_for_mech
 gss_display_mech_attr
 gss_acquire_cred_with_password
-#
-# Symbols for KerberosHelper
-#
-free_NegotiationToken
-free_NegotiationTokenWin
-decode_NegotiationToken
-decode_NegotiationTokenWin
 #
 #
 #

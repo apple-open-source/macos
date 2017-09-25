@@ -22,6 +22,7 @@
  */
 
 #include "internal.h"
+#include "radix_tree.h"
 
 #pragma mark -
 #pragma mark Defines
@@ -141,6 +142,8 @@ typedef struct {
 	uint32_t next_free_index_buffer_offset;
 	char index_buffer[STACK_LOGGING_BLOCK_WRITING_SIZE];
 	backtrace_uniquing_table *uniquing_table;
+	struct radix_tree *vm_stackid_table;
+	uint64_t vm_stackid_table_size;
 } stack_buffer_shared_memory;
 #pragma pack(pop)
 
@@ -162,6 +165,7 @@ typedef struct {
 	uint64_t last_index_file_offset;
 	backtrace_uniquing_table uniquing_table_snapshot; // snapshot of the remote process' uniquing table
 	boolean_t lite_mode;
+	struct radix_tree *vm_stackid_table;
 } remote_index_cache;
 
 // for reading stack history information from remote processes:
@@ -222,6 +226,7 @@ static const slot_parent slot_no_parent_normal =   0xFFFFFFFFFFFFFFFF;	    // 64
 static const slot_parent slot_no_parent_refcount = 0xFFFFFFFF;				// 32 bits
 
 static _malloc_lock_s stack_logging_lock = _MALLOC_LOCK_INIT;
+static vm_address_t thread_doing_logging = 0;
 
 // single-thread access variables
 static stack_buffer_shared_memory *pre_write_buffers;
@@ -1027,6 +1032,8 @@ __prepare_to_log_stacks(boolean_t lite_mode)
 			return false;
 		}
 
+		pre_write_buffers->vm_stackid_table = NULL;
+
 		uint64_t stack_buffer_sz = (uint64_t)round_page(sizeof(vm_address_t) * STACK_LOGGING_MAX_STACK_SIZE);
 		stack_buffer = (vm_address_t *)sld_allocate_pages(stack_buffer_sz);
 		if (!stack_buffer) {
@@ -1103,11 +1110,13 @@ __attribute__((visibility("hidden"))) void
 __malloc_lock_stack_logging()
 {
 	_malloc_lock_lock(&stack_logging_lock);
+	thread_doing_logging = (vm_address_t)_os_tsd_get_direct(__TSD_THREAD_SELF);
 }
 
 __attribute__((visibility("hidden"))) void
 __malloc_unlock_stack_logging()
 {
+	thread_doing_logging = 0;
 	_malloc_lock_unlock(&stack_logging_lock);
 }
 
@@ -1128,7 +1137,7 @@ __enter_stack_into_table_while_locked(vm_address_t self_thread, uint32_t num_hot
 	}
 	
 	// skip stack frames after the malloc call
-	num_hot_to_skip += 4;
+	num_hot_to_skip += 3; // __disk_stack_logging_log_stack | __enter_stack_into_table_while_locked | thread_stack_pcs
 	
 	if (count <= num_hot_to_skip) {
 		// Oops!  Didn't get a valid backtrace from thread_stack_pcs().
@@ -1218,6 +1227,11 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 		return;
 	}
 
+	if (stack_logging_mode == stack_logging_mode_lite &&
+		!((type_flags & stack_logging_type_vm_allocate) ||(type_flags & stack_logging_type_vm_deallocate))) {
+		return;
+	}
+
 	uintptr_t size;
 	uintptr_t ptr_arg;
 
@@ -1252,7 +1266,7 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 		}
 	}
 	if (type_flags & stack_logging_type_alloc || type_flags & stack_logging_type_vm_allocate) {
-		if (return_val == 0) {
+		if (return_val == 0 || return_val == (uintptr_t)MAP_FAILED) {
 			return; // alloc that failed
 		}
 		size = arg2;
@@ -1269,7 +1283,6 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 	type_flags &= stack_logging_valid_type_flags;
 
 	vm_address_t self_thread = (vm_address_t)_os_tsd_get_direct(__TSD_THREAD_SELF);
-	static vm_address_t thread_doing_logging = 0;
 
 	if (thread_doing_logging == self_thread) {
 		// Prevent a thread from deadlocking against itself if vm_allocate() or malloc()
@@ -1285,15 +1298,21 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 
 	thread_doing_logging = self_thread; // for preventing deadlock'ing on stack logging on a single thread
 
+	if (stack_logging_mode == stack_logging_mode_lite && (type_flags & stack_logging_type_vm_deallocate)) {
+		if (pre_write_buffers && pre_write_buffers->vm_stackid_table) {
+			radix_tree_delete(&pre_write_buffers->vm_stackid_table,
+							  trunc_page(ptr_arg), round_page(ptr_arg + size) - trunc_page(ptr_arg));
+			goto out;
+		}
+	}
+
 	// now actually begin
 	__prepare_to_log_stacks(false);
 
 	// since there could have been a fatal (to stack logging) error such as the log files not being created, check these variables
 	// before continuing
 	if (!stack_logging_enable_logging || stack_logging_postponed) {
-		thread_doing_logging = 0;
-		_malloc_lock_unlock(&stack_logging_lock);
-		return;
+		goto out;
 	}
 
 	if (type_flags & stack_logging_type_alloc) {
@@ -1308,18 +1327,35 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 		// *waves hand* the last allocation never occurred
 		pre_write_buffers->next_free_index_buffer_offset -= (uint32_t)sizeof(stack_logging_index_event);
 		last_logged_malloc_address = 0ul;
-
-		thread_doing_logging = 0;
-		_malloc_lock_unlock(&stack_logging_lock);
-		return;
+		goto out;
 	}
 
-	uint64_t uniqueStackIdentifier = __enter_stack_into_table_while_locked(self_thread, num_hot_to_skip, true, 0);
+	uint64_t uniqueStackIdentifier;
+	if (stack_logging_mode == stack_logging_mode_lite) {
+		uniqueStackIdentifier = __enter_stack_into_table_while_locked(self_thread, num_hot_to_skip, false, 1);
+	} else {
+		uniqueStackIdentifier = __enter_stack_into_table_while_locked(self_thread, num_hot_to_skip, true, 0);
+	}
 	
 	if (uniqueStackIdentifier == __invalid_stack_id) {
-		thread_doing_logging = 0;
-		_malloc_lock_unlock(&stack_logging_lock);
-		return;
+		goto out;
+	}
+
+	if (stack_logging_mode == stack_logging_mode_lite && (type_flags & stack_logging_type_vm_allocate)) {
+		if (pre_write_buffers) {
+			if (!pre_write_buffers->vm_stackid_table) {
+				pre_write_buffers->vm_stackid_table	= radix_tree_create();
+				pre_write_buffers->vm_stackid_table_size = radix_tree_size(pre_write_buffers->vm_stackid_table);
+			}
+			if (pre_write_buffers->vm_stackid_table) {
+				uint64_t address = return_val;
+				radix_tree_insert(&pre_write_buffers->vm_stackid_table,
+								  trunc_page(address), round_page(address+size) - trunc_page(address),
+								  uniqueStackIdentifier);
+				pre_write_buffers->vm_stackid_table_size = radix_tree_size(pre_write_buffers->vm_stackid_table);
+			}
+		}
+		goto out;
 	}
 
 	stack_logging_index_event current_index;
@@ -1349,6 +1385,7 @@ __disk_stack_logging_log_stack(uint32_t type_flags,
 			sizeof(stack_logging_index_event));
 	pre_write_buffers->next_free_index_buffer_offset += (uint32_t)sizeof(stack_logging_index_event);
 
+out:
 	thread_doing_logging = 0;
 	_malloc_lock_unlock(&stack_logging_lock);
 }
@@ -1699,6 +1736,16 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 					descriptors->remote_stack_buffer_shared_memory_address, descriptors->remote_pid);
 		}
 		cache->lite_mode = descriptors->task_uses_lite_mode;
+
+		if (cache->shmem && cache->shmem->vm_stackid_table) {
+			cache->vm_stackid_table = (struct radix_tree *)map_shared_memory_from_task(
+				descriptors->remote_task, (mach_vm_address_t) cache->shmem->vm_stackid_table, cache->shmem->vm_stackid_table_size);
+			if (!cache->vm_stackid_table) {
+				_malloc_printf(ASL_LEVEL_INFO,
+							   "warning: unable to map vm_stackid table from %llx in target process %d; no VM stack backtraces will be available.\n",
+							   (mach_vm_address_t) cache->shmem->vm_stackid_table, descriptors->remote_pid);
+			}
+		}
 	}
 
 	// suspend and see how much updating there is to do. there are three scenarios, listed below
@@ -2313,7 +2360,7 @@ __mach_stack_logging_get_frames(task_t task,
 		return KERN_FAILURE;
 	}
 
-	return __mach_stack_logging_frames_for_uniqued_stack(task, located_file_position, stack_frames_buffer, max_stack_frames, count);
+	return __mach_stack_logging_get_frames_for_stackid(task, located_file_position, stack_frames_buffer, max_stack_frames, count, NULL);
 }
 
 kern_return_t
@@ -2410,12 +2457,48 @@ __mach_stack_logging_enumerate_records(task_t task,
 	return err;
 }
 
+uint64_t
+__mach_stack_logging_stackid_for_vm_region(task_t task, mach_vm_address_t address)
+{
+	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task, 0);
+	if (remote_fd == NULL) {
+		return __invalid_stack_id;
+	}
+
+	kern_return_t err = update_cache_for_file_streams(remote_fd);
+	if (err != KERN_SUCCESS) {
+		release_file_streams_for_task(task);
+		return __invalid_stack_id;
+	}
+
+	uint64_t stackid = __invalid_stack_id;
+
+	if (remote_fd->cache && remote_fd->cache->vm_stackid_table) {
+		stackid = radix_tree_lookup(remote_fd->cache->vm_stackid_table, address);
+	}
+
+	release_file_streams_for_task(task);
+	return stackid;
+}
+
 kern_return_t
 __mach_stack_logging_frames_for_uniqued_stack(task_t task,
-		uint64_t stack_identifier,
-		mach_vm_address_t *stack_frames_buffer,
-		uint32_t max_stack_frames,
-		uint32_t *count)
+											  uint64_t stack_identifier,
+											  mach_vm_address_t *stack_frames_buffer,
+											  uint32_t max_stack_frames,
+											  uint32_t *count)
+{
+	return __mach_stack_logging_get_frames_for_stackid(task, stack_identifier, stack_frames_buffer, max_stack_frames, count, NULL);
+}
+
+
+kern_return_t
+__mach_stack_logging_get_frames_for_stackid(task_t task,
+											uint64_t stack_identifier,
+											mach_vm_address_t *stack_frames_buffer,
+											uint32_t max_stack_frames,
+											uint32_t *count,
+											bool *last_frame_is_threadid)
 {
 	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task, 0);
 	if (remote_fd == NULL) {
@@ -2434,6 +2517,10 @@ __mach_stack_logging_frames_for_uniqued_stack(task_t task,
 	unwind_stack_from_table_index(&remote_fd->cache->uniquing_table_snapshot, stack_identifier, stack_frames_buffer, count, max_stack_frames, lite_mode);
 
 	release_file_streams_for_task(task);
+
+	if (last_frame_is_threadid) {
+		*last_frame_is_threadid = !lite_mode;
+	}
 
 	if (*count) {
 		return KERN_SUCCESS;
@@ -2561,7 +2648,7 @@ __mach_stack_logging_uniquing_table_serialize(struct backtrace_uniquing_table *t
 	uint64_t num_nodes = 0;
 	while (table_chunk_header) {
 		num_nodes += table_chunk_header->num_nodes_in_chunk;
-		size_t chunk_size = 2 * sizeof(mach_vm_address_t) * table_chunk_header->num_nodes_in_chunk;
+		size_t chunk_size = 2 * sizeof(mach_vm_address_t) *  (size_t)table_chunk_header->num_nodes_in_chunk;
 		kr = mach_vm_copy(mach_task_self(), (mach_vm_address_t)table_chunk_header->table_chunk, chunk_size, (vm_address_t)p);
 		if (kr != KERN_SUCCESS) {
 			memcpy(p, table_chunk_header->table_chunk, chunk_size);

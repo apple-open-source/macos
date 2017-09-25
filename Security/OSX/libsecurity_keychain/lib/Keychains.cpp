@@ -46,7 +46,7 @@
 
 #include <Security/SecKeychainItemPriv.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include "DLDbListCFPref.h"
+#include "DLDBListCFPref.h"
 #include <fcntl.h>
 #include <glob.h>
 #include <sys/param.h>
@@ -433,12 +433,6 @@ KeychainImpl::getKeychainMutex()
 	return &mMutex;
 }
 
-ReadWriteLock*
-KeychainImpl::getKeychainReadWriteLock()
-{
-    return &mRWLock;
-}
-
 void KeychainImpl::aboutToDestruct()
 {
     // remove me from the global cache, we are done
@@ -811,7 +805,7 @@ void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 void
 KeychainImpl::addCopy(Item &inItem)
 {
-    StReadWriteLock _(mRWLock, StReadWriteLock::Write);
+    StLock<Mutex>_(mMutex);
 
 	Keychain keychain(this);
 	PrimaryKey primaryKey = inItem->addWithCopyInfo(keychain, true);
@@ -822,8 +816,7 @@ KeychainImpl::addCopy(Item &inItem)
 void
 KeychainImpl::add(Item &inItem)
 {
-    // Make sure we hold a write lock on ourselves when we do this
-    StReadWriteLock _(mRWLock, StReadWriteLock::Write);
+    StLock<Mutex>_(mMutex);
 
 	Keychain keychain(this);
 	PrimaryKey primaryKey = inItem->add(keychain);
@@ -882,7 +875,7 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 void
 KeychainImpl::deleteItem(Item &inoutItem)
 {
-    StReadWriteLock _(mRWLock, StReadWriteLock::Write);
+    StLock<Mutex>_(mMutex);
 
 	{
 		// item must be persistent
@@ -933,7 +926,7 @@ KeychainImpl::csp()
 {
 	StLock<Mutex>_(mMutex);
 	
-	if (!mDb->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+	if (!(mDb->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
 	// Try to cast first to a CSPDL to handle case where we don't have an SSDb
@@ -1416,8 +1409,7 @@ void KeychainImpl::tickle() {
 
 
 bool KeychainImpl::performKeychainUpgradeIfNeeded() {
-    // Grab this keychain's mutex. This might not be sufficient, since the
-    // keychain might have outstanding cursors. We'll grab the RWLock later if needed.
+    // Grab this keychain's mutex.
     StLock<Mutex>_(mMutex);
 
     if(!globals().integrityProtection()) {
@@ -1605,17 +1597,9 @@ bool KeychainImpl::keychainMigration(const string oldPath, const uint32 dbBlobVe
     //
     // If the keychain is unlocked, try to upgrade it.
     // In either case, reload the database from disk.
-    // We need this keychain's read/write lock.
 
-    // Try to grab the keychain write lock.
-    StReadWriteLock lock(mRWLock, StReadWriteLock::TryWrite);
-
-    // If we didn't manage to grab the lock, there's readers out there
-    // currently reading this keychain. Abort the upgrade.
-    if(!lock.isLocked()) {
-        secnotice("integrity", "couldn't get read-write lock, aborting upgrade");
-        return false;
-    }
+    // Try to grab the keychain mutex (although we should already have it)
+    StLock<Mutex>_(mMutex);
 
     // Take the file lock on the existing database. We don't need to commit this txion, because we're not planning to
     // change the original keychain.

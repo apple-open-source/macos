@@ -31,7 +31,6 @@
 #include "CoordinatedLayerTreeHost.h"
 
 #include "DrawingArea.h"
-#include "WebCoordinatedSurface.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/FrameView.h>
@@ -40,10 +39,10 @@
 
 #if USE(COORDINATED_GRAPHICS_THREADED)
 #include "ThreadSafeCoordinatedSurface.h"
-#elif USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-#include "CoordinatedGraphicsArgumentCoders.h"
-#include "CoordinatedLayerTreeHostProxyMessages.h"
-#include "WebCoreArgumentCoders.h"
+#endif
+
+#if USE(GLIB_EVENT_LOOP)
+#include <wtf/glib/RunLoopSourcePriority.h>
 #endif
 
 using namespace WebCore;
@@ -64,10 +63,11 @@ CoordinatedLayerTreeHost::CoordinatedLayerTreeHost(WebPage& webPage)
     , m_coordinator(webPage.corePage(), *this)
     , m_layerFlushTimer(RunLoop::main(), this, &CoordinatedLayerTreeHost::layerFlushTimerFired)
 {
-    m_coordinator.createRootLayer(m_webPage.size());
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    m_layerTreeContext.contextID = downcast<CoordinatedGraphicsLayer>(*m_coordinator.rootLayer()).id();
+#if USE(GLIB_EVENT_LOOP)
+    m_layerFlushTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
+    m_layerFlushTimer.setName("[WebKit] CoordinatedLayerTreeHost");
 #endif
+    m_coordinator.createRootLayer(m_webPage.size());
 
     CoordinatedSurface::setFactory(createCoordinatedSurface);
     scheduleLayerFlush();
@@ -78,8 +78,13 @@ void CoordinatedLayerTreeHost::scheduleLayerFlush()
     if (!m_layerFlushSchedulingEnabled)
         return;
 
+    if (m_isWaitingForRenderer) {
+        m_scheduledWhileWaitingForRenderer = true;
+        return;
+    }
+
     if (!m_layerFlushTimer.isActive())
-        m_layerFlushTimer.startOneShot(0);
+        m_layerFlushTimer.startOneShot(0_s);
 }
 
 void CoordinatedLayerTreeHost::cancelPendingLayerFlush()
@@ -122,12 +127,15 @@ void CoordinatedLayerTreeHost::forceRepaint()
     m_coordinator.flushPendingLayerChanges();
 }
 
-bool CoordinatedLayerTreeHost::forceRepaintAsync(uint64_t callbackID)
+bool CoordinatedLayerTreeHost::forceRepaintAsync(CallbackID callbackID)
 {
-    // We expect the UI process to not require a new repaint until the previous one has finished.
-    ASSERT(!m_forceRepaintAsyncCallbackID);
-    m_forceRepaintAsyncCallbackID = callbackID;
     scheduleLayerFlush();
+
+    // We want a clean repaint, meaning that if we're currently waiting for the renderer
+    // to finish an update, we'll have to schedule another flush when it's done.
+    ASSERT(!m_forceRepaintAsync.callbackID);
+    m_forceRepaintAsync.callbackID = OptionalCallbackID(callbackID);
+    m_forceRepaintAsync.needsFreshFlush = m_scheduledWhileWaitingForRenderer;
     return true;
 }
 
@@ -146,8 +154,29 @@ void CoordinatedLayerTreeHost::setVisibleContentsRect(const FloatRect& rect, con
 void CoordinatedLayerTreeHost::renderNextFrame()
 {
     m_isWaitingForRenderer = false;
-    scheduleLayerFlush();
+    bool scheduledWhileWaitingForRenderer = std::exchange(m_scheduledWhileWaitingForRenderer, false);
     m_coordinator.renderNextFrame();
+
+    if (m_forceRepaintAsync.callbackID) {
+        // If the asynchronous force-repaint needs a separate fresh flush, it was due to
+        // the force-repaint request being registered while CoordinatedLayerTreeHost was
+        // waiting for the renderer to finish an update.
+        ASSERT(!m_forceRepaintAsync.needsFreshFlush || scheduledWhileWaitingForRenderer);
+
+        // Execute the callback if another layer flush and the subsequent state update
+        // aren't needed. If they are, the callback will be executed when this function
+        // is called after the next update.
+        if (!m_forceRepaintAsync.needsFreshFlush) {
+            m_webPage.send(Messages::WebPageProxy::VoidCallback(m_forceRepaintAsync.callbackID.callbackID()));
+            m_forceRepaintAsync.callbackID = OptionalCallbackID();
+        }
+        m_forceRepaintAsync.needsFreshFlush = false;
+    }
+
+    if (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive()) {
+        m_layerFlushTimer.stop();
+        layerFlushTimerFired();
+    }
 }
 
 void CoordinatedLayerTreeHost::didFlushRootLayer(const FloatRect& visibleContentRect)
@@ -164,15 +193,15 @@ void CoordinatedLayerTreeHost::layerFlushTimerFired()
 
     m_coordinator.syncDisplayState();
 
-    if (!m_isValid)
+    if (!m_isValid || !m_coordinator.rootCompositingLayer())
         return;
 
-    bool didSync = m_coordinator.flushPendingLayerChanges();
+    // If a force-repaint callback was registered, we should force a 'frame sync' that
+    // will guarantee us a call to renderNextFrame() once the update is complete.
+    if (m_forceRepaintAsync.callbackID)
+        m_coordinator.forceFrameSync();
 
-    if (m_forceRepaintAsyncCallbackID) {
-        m_webPage.send(Messages::WebPageProxy::VoidCallback(m_forceRepaintAsyncCallbackID));
-        m_forceRepaintAsyncCallbackID = 0;
-    }
+    bool didSync = m_coordinator.flushPendingLayerChanges();
 
     if (m_notifyAfterScheduledLayerFlush && didSync) {
         m_webPage.drawingArea()->layerHostDidFlushLayers();
@@ -186,9 +215,6 @@ void CoordinatedLayerTreeHost::paintLayerContents(const GraphicsLayer*, Graphics
 
 void CoordinatedLayerTreeHost::commitSceneState(const CoordinatedGraphicsState& state)
 {
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    m_webPage.send(Messages::CoordinatedLayerTreeHostProxy::CommitCoordinatedGraphicsState(state));
-#endif
     m_isWaitingForRenderer = true;
 }
 
@@ -196,8 +222,6 @@ RefPtr<CoordinatedSurface> CoordinatedLayerTreeHost::createCoordinatedSurface(co
 {
 #if USE(COORDINATED_GRAPHICS_THREADED)
     return ThreadSafeCoordinatedSurface::create(size, flags);
-#elif USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    return WebCoordinatedSurface::create(size, flags);
 #else
     UNUSED_PARAM(size);
     UNUSED_PARAM(flags);
@@ -220,7 +244,6 @@ GraphicsLayerFactory* CoordinatedLayerTreeHost::graphicsLayerFactory()
     return &m_coordinator;
 }
 
-#if ENABLE(REQUEST_ANIMATION_FRAME)
 void CoordinatedLayerTreeHost::scheduleAnimation()
 {
     if (m_isWaitingForRenderer)
@@ -230,13 +253,17 @@ void CoordinatedLayerTreeHost::scheduleAnimation()
         return;
 
     scheduleLayerFlush();
-    m_layerFlushTimer.startOneShot(m_coordinator.nextAnimationServiceTime());
+    m_layerFlushTimer.startOneShot(1_s * m_coordinator.nextAnimationServiceTime());
 }
-#endif
 
 void CoordinatedLayerTreeHost::commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset)
 {
     m_coordinator.commitScrollOffset(layerID, offset);
+}
+
+void CoordinatedLayerTreeHost::clearUpdateAtlases()
+{
+    m_coordinator.clearUpdateAtlases();
 }
 
 } // namespace WebKit

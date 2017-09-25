@@ -37,18 +37,18 @@ using namespace JSC;
 
 namespace Inspector {
 
-const ClassInfo JSJavaScriptCallFrame::s_info = { "JavaScriptCallFrame", &Base::s_info, 0, CREATE_METHOD_TABLE(JSJavaScriptCallFrame) };
+const ClassInfo JSJavaScriptCallFrame::s_info = { "JavaScriptCallFrame", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSJavaScriptCallFrame) };
 
-JSJavaScriptCallFrame::JSJavaScriptCallFrame(VM& vm, Structure* structure, PassRefPtr<JavaScriptCallFrame> impl)
+JSJavaScriptCallFrame::JSJavaScriptCallFrame(VM& vm, Structure* structure, Ref<JavaScriptCallFrame>&& impl)
     : JSDestructibleObject(vm, structure)
-    , m_impl(impl.leakRef())
+    , m_impl(&impl.leakRef())
 {
 }
 
 void JSJavaScriptCallFrame::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
 }
 
 JSObject* JSJavaScriptCallFrame::createPrototype(VM& vm, JSGlobalObject* globalObject)
@@ -228,14 +228,9 @@ JSValue toJS(ExecState* exec, JSGlobalObject* globalObject, JavaScriptCallFrame*
 
     JSObject* prototype = JSJavaScriptCallFrame::createPrototype(exec->vm(), globalObject);
     Structure* structure = JSJavaScriptCallFrame::createStructure(exec->vm(), globalObject, prototype);
-    JSJavaScriptCallFrame* javaScriptCallFrame = JSJavaScriptCallFrame::create(exec->vm(), structure, impl);
+    JSJavaScriptCallFrame* javaScriptCallFrame = JSJavaScriptCallFrame::create(exec->vm(), structure, *impl);
 
     return javaScriptCallFrame;
-}
-
-JSJavaScriptCallFrame* toJSJavaScriptCallFrame(JSValue value)
-{
-    return value.inherits(JSJavaScriptCallFrame::info()) ? jsCast<JSJavaScriptCallFrame*>(value) : nullptr;
 }
 
 } // namespace Inspector

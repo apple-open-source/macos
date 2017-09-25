@@ -193,8 +193,6 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolR
                 cmsdigcx->digobjs[i] = 0;
             }
 	rv = SECSuccess;
-	if (digestsp)
-	    *digestsp = NULL;
 	goto cleanup;
     }
 

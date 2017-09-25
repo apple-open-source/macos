@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  ustr_wcs.cpp
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -252,13 +254,13 @@ u_strToWCS(wchar_t *dest,
         srcLength = u_strlen(src);
     }
     if(0 < srcLength && srcLength <= destCapacity){
-        u_memcpy(dest, src, srcLength);
+        u_memcpy((UChar *)dest, src, srcLength);
     }
     if(pDestLength){
        *pDestLength = srcLength;
     }
 
-    u_terminateUChars(dest,destCapacity,srcLength,pErrorCode);
+    u_terminateUChars((UChar *)dest,destCapacity,srcLength,pErrorCode);
 
     return dest;
 
@@ -504,10 +506,10 @@ u_strFromWCS(UChar   *dest,
 #ifdef U_WCHAR_IS_UTF16
     /* wchar_t is UTF-16 just do a memcpy */
     if(srcLength == -1){
-        srcLength = u_strlen(src);
+        srcLength = u_strlen((const UChar *)src);
     }
     if(0 < srcLength && srcLength <= destCapacity){
-        u_memcpy(dest, src, srcLength);
+        u_memcpy(dest, (const UChar *)src, srcLength);
     }
     if(pDestLength){
        *pDestLength = srcLength;

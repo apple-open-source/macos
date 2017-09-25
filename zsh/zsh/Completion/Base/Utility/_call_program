@@ -1,6 +1,16 @@
 #autoload +X
 
-local tmp err_fd=-1
+local curcontext="${curcontext}" tmp err_fd=-1
+local -a prefix
+
+if [[ "$1" = -p ]]; then
+  shift
+  if (( $#_comp_priv_prefix )); then
+    curcontext="${curcontext%:*}/${${(@M)_comp_priv_prefix:#^*[^\\]=*}[1]}:"
+    zstyle -t ":completion:${curcontext}:${1}" gain-privileges &&
+	prefix=( $_comp_priv_prefix )
+  fi
+fi
 
 if (( ${debug_fd:--1} > 2 )) || [[ ! -t 2 ]]
 then exec {err_fd}>&2	# debug_fd is saved stderr, 2 is trace or redirect
@@ -13,10 +23,10 @@ if zstyle -s ":completion:${curcontext}:${1}" command tmp; then
   if [[ "$tmp" = -* ]]; then
     eval "$tmp[2,-1]" "$argv[2,-1]"
   else
-    eval "$tmp"
+    eval $prefix "$tmp"
   fi
 else
-  eval "$argv[2,-1]"
+  eval $prefix "$argv[2,-1]"
 fi 2>&$err_fd
 
 } always {

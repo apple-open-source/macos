@@ -1,14 +1,14 @@
 /*
  * Process management routines for the CUPS scheduler.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -125,6 +125,7 @@ cupsdCreateProfile(int job_id,		/* I - Job ID or 0 for none */
   if (LogLevel >= CUPSD_LOG_DEBUG)
     cupsFilePuts(fp, "(debug deny)\n");
   cupsFilePuts(fp, "(import \"system.sb\")\n");
+  cupsFilePuts(fp, "(import \"com.apple.corefoundation.sb\")\n");
   cupsFilePuts(fp, "(system-network)\n");
   cupsFilePuts(fp, "(allow mach-per-user-lookup)\n");
   cupsFilePuts(fp, "(allow ipc-posix-sem)\n");
@@ -874,7 +875,7 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
     if (ch == '/' && !*src)
       break;				/* Don't add trailing slash */
 
-    if (strchr(".?*()[]^$\\", ch))
+    if (strchr(".?*()[]^$\\\"", ch))
       *dstptr++ = '\\';
 
     *dstptr++ = (char)ch;

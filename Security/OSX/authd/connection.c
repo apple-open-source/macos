@@ -27,7 +27,7 @@ _connection_finalize(CFTypeRef value)
     dispatch_barrier_sync(conn->dispatch_queue, ^{});
     dispatch_barrier_sync(conn->dispatch_queue_internal, ^{});
     
-    CFReleaseSafe(conn->proc);
+    CFReleaseNull(conn->proc);
     CFReleaseNull(conn->engine);
     dispatch_release(conn->dispatch_queue);
     dispatch_release(conn->dispatch_queue_internal);

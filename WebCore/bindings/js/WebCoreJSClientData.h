@@ -24,7 +24,6 @@
 #include "DOMWrapperWorld.h"
 #include "WebCoreBuiltinNames.h"
 #include "WebCoreJSBuiltins.h"
-#include "WebCoreTypedArrayController.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
 
@@ -78,7 +77,7 @@ private:
     WebCoreBuiltinNames m_builtinNames;
     
     JSC::JSDestructibleObjectSubspace m_outputConstraintSpace;
-    JSC::Subspace m_globalObjectOutputConstraintSpace;
+    JSC::JSSegmentedVariableObjectSubspace m_globalObjectOutputConstraintSpace;
 };
 
 } // namespace WebCore

@@ -29,53 +29,12 @@
 #define _SECURITYD_SECITEMDB_H_
 
 #include <securityd/SecDbQuery.h>
-#include "securityd_client.h"
+
+struct SecurityClient;
 
 __BEGIN_DECLS
 
-#if 0
-//
-// MARK: SecItemDb (a SecDb of SecDbItems)
-//
-typedef struct SecItemDb *SecItemDbRef;
-typedef struct SecItemDbConnection *SecItemDbConnectionRef;
-
-struct SecItemDb {
-    CFRuntimeBase _base;
-    SecDbRef db;
-    CFDictionaryRef classes; // className -> SecItemClass mapping
-};
-
-struct SecItemDbConnection {
-    SecDbConnectionRef db;
-};
-
-SecItemDbRef SecItemDbCreate(SecDbRef db);
-SecItemDbRef SecItemDbRegisterClass(SecItemDbRef db, const SecDbClass *class, void(^upgrade)(SecDbItemRef item, uint32_t current_version));
-
-SecItemDbConnectionRef SecItemDbAcquireConnection(SecItemDbRef db);
-void SecItemDbReleaseConnection(SecItemDbRef db, SecItemDbConnectionRef dbconn);
-
-bool SecItemDbInsert(SecItemDbConnectionRef dbconn, SecDbItemRef item, CFErrorRef *error);
-
-bool SecItemDbDelete(SecItemDbConnectionRef dbconn, SecDbItemRef item, CFErrorRef *error);
-
-// Low level update, just do the update
-bool SecItemDbDoUpdate(SecItemDbConnectionRef dbconn, SecDbItemRef old_item, SecDbItemRef new_item, CFErrorRef *error,
-                       bool (^use_attr_in_where)(const SecDbAttr *attr));
-
-// High level update, will replace tombstones and create them if needed.
-bool SecItemDbUpdate(SecItemDbConnectionRef dbconn, SecDbItemRef old_item, SecDbItemRef new_item, CFErrorRef *error);
-
-bool SecItemDbSelect(SecItemDbConnectionRef dbconn, SecDbQueryRef query, CFErrorRef *error,
-                     bool (^use_attr_in_where)(const SecDbAttr *attr),
-                     bool (^add_where_sql)(CFMutableStringRef sql, bool *needWhere),
-                     bool (^bind_added_where)(sqlite3_stmt *stmt, int col),
-                     void (^handle_row)(SecDbItemRef item, bool *stop));
-#endif
-
-
-bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, bool includeVersion, CFErrorRef *error);
+bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFArrayRef classIndexesForNewTables, bool includeVersion, CFErrorRef *error);
 
 bool SecItemDbDeleteSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFErrorRef *error);
 
@@ -113,13 +72,13 @@ enum SecItemFilter {
 };
 
 CFDictionaryRef SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
-                                           SecurityClient *client,
+                                           struct SecurityClient *client,
                                            keybag_handle_t src_keybag,
                                            keybag_handle_t dest_keybag,
                                            enum SecItemFilter filter,
                                            CFErrorRef *error);
 bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt,
-                                    SecurityClient *client,
+                                    struct SecurityClient *client,
                                     keybag_handle_t src_keybag,
                                     keybag_handle_t dest_keybag,
                                     CFDictionaryRef keychain,
@@ -127,7 +86,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt,
                                     CFErrorRef *error);
 
 CFStringRef
-SecServerBackupGetKeybagUUID(CFDictionaryRef keychain);
+SecServerBackupGetKeybagUUID(CFDictionaryRef keychain, CFErrorRef *error);
 
 
 #if TARGET_OS_IPHONE
@@ -135,16 +94,22 @@ bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool 
 #endif
 
 bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)());
+bool kc_transaction_type(SecDbConnectionRef dbt, SecDbTransactionType type, CFErrorRef *error, bool(^perform)());
 bool s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
                         CFArrayRef accessGroups, CFErrorRef *error);
 bool s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *error);
 bool s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                   CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups, CFErrorRef *error);
 bool s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFErrorRef *error);
+bool s3dl_copy_digest(SecDbConnectionRef dbt, Query *q, CFArrayRef *result, CFArrayRef accessGroups, CFErrorRef *error);
+
 const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c, CFTypeRef key, CFErrorRef *error);
 
 bool s3dl_dbt_keys_current(SecDbConnectionRef dbt, uint32_t current_generation, CFErrorRef *error);
-bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, SecurityClient *client, CFErrorRef *error);
+bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, struct SecurityClient *client, CFErrorRef *error);
+
+// We'd love to take a query here, but switching layers at the callsite means we don't have it
+bool s3dl_item_make_new_uuid(SecDbItemRef item, bool uuid_from_primary_key, CFErrorRef* error);
         
 __END_DECLS
 

@@ -292,13 +292,13 @@ tests(void)
         pthread_create(&client_thread, NULL, securetransport_ssl_thread, client);
         pthread_create(&server_thread, NULL, securetransport_ssl_thread, server);
 
-        int server_err, client_err;
+        intptr_t server_err, client_err;
         pthread_join(client_thread, (void*)&client_err);
         pthread_join(server_thread, (void*)&server_err);
 
-        ok(server_err==((i==3)?errSSLPeerCertUnknown:0), "Server error = %d (i=%d)", server_err, i);
+        ok(server_err==((i==3)?errSSLPeerCertUnknown:0), "Server error = %zu (i=%d)", server_err, i);
         /* tests 0/1 should cause errSSLClosedAbort, 2 should cause errSSLBadRecordMac, 3 should cause errSSLXCertChainInvalid */
-        ok(client_err==((i==3)?errSSLXCertChainInvalid:(i==2)?errSSLBadRecordMac:errSSLClosedAbort), "Client error = %d (i=%d)", client_err, i);
+        ok(client_err==((i==3)?errSSLXCertChainInvalid:(i==2)?errSSLBadRecordMac:errSSLClosedAbort), "Client error = %zu (i=%d)", client_err, i);
 
 out:
         free(client);

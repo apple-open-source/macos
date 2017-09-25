@@ -1920,7 +1920,7 @@ SetDNSServers( mDNS *const m )
 	{
 		mDNSAddr addr;
 		err = StringToAddress( &addr, ipAddr->IpAddress.String );
-		if ( !err ) mDNS_AddDNSServer(m, mDNSNULL, mDNSInterface_Any, 0, &addr, UnicastDNSPort, kScopeNone, DEFAULT_UDNS_TIMEOUT, mDNSfalse, 0, mDNStrue, mDNStrue, mDNSfalse);
+		if ( !err ) mDNS_AddDNSServer(m, mDNSNULL, mDNSInterface_Any, 0, &addr, UnicastDNSPort, kScopeNone, DEFAULT_UDNS_TIMEOUT, mDNSfalse, mDNSfalse, 0, mDNStrue, mDNStrue, mDNSfalse);
 	}
 
 exit:
@@ -2843,7 +2843,7 @@ mDNSlocal mStatus	SetupInterface( mDNS * const inMDNS, const struct ifaddrs *inI
     ifd->interfaceInfo.DirectLink = mDNSfalse;
     ifd->interfaceInfo.SupportsUnicastMDNSResponse = mDNStrue;
 
-	err = mDNS_RegisterInterface( inMDNS, &ifd->interfaceInfo, mDNSfalse );
+	err = mDNS_RegisterInterface( inMDNS, &ifd->interfaceInfo, NormalActivation );
 	require_noerr( err, exit );
 	ifd->hostRegistered = mDNStrue;
 	
@@ -2880,7 +2880,7 @@ mDNSlocal mStatus	TearDownInterface( mDNS * const inMDNS, mDNSInterfaceData *inI
 	if( inIFD->hostRegistered )
 	{
 		inIFD->hostRegistered = mDNSfalse;
-		mDNS_DeregisterInterface( inMDNS, &inIFD->interfaceInfo, mDNSfalse );
+		mDNS_DeregisterInterface( inMDNS, &inIFD->interfaceInfo, NormalActivation );
 	}
 	
 	// Tear down the multicast socket.

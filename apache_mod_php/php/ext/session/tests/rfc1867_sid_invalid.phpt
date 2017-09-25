@@ -9,12 +9,14 @@ session.save_path=
 session.name=PHPSESSID
 session.use_cookies=1
 session.use_only_cookies=0
+session.use_strict_mode=0
 session.auto_start=0
 session.upload_progress.enabled=1
 session.upload_progress.cleanup=0
 session.upload_progress.prefix=upload_progress_
 session.upload_progress.name=PHP_SESSION_UPLOAD_PROGRESS
 session.upload_progress.freq=0
+session.save_handler=files
 --SKIPIF--
 <?php include('skipif.inc'); ?>
 --COOKIE--
@@ -47,13 +49,13 @@ session_destroy();
 --EXPECTF--
 Warning: Unknown: The session id is too long or contains illegal characters, valid characters are a-z, A-Z, 0-9 and '-,' in Unknown on line 0
 
-Warning: Unknown: The session id is too long or contains illegal characters, valid characters are a-z, A-Z, 0-9 and '-,' in Unknown on line 0
+Warning: Unknown: Failed to read session data: files (path: ) in Unknown on line 0
 
 Warning: Unknown: Failed to write session data (files). Please verify that the current setting of session.save_path is correct () in Unknown on line 0
 
 Warning: Unknown: The session id is too long or contains illegal characters, valid characters are a-z, A-Z, 0-9 and '-,' in Unknown on line 0
 
-Warning: Unknown: The session id is too long or contains illegal characters, valid characters are a-z, A-Z, 0-9 and '-,' in Unknown on line 0
+Warning: Unknown: Failed to read session data: files (path: ) in Unknown on line 0
 
 Warning: Unknown: Failed to write session data (files). Please verify that the current setting of session.save_path is correct () in Unknown on line 0
 string(%d) "%s"

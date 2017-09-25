@@ -6,7 +6,7 @@
  This file contains iOS only tests that are built in libSecurityRegression.a
  For test shared between OSX and iOS, see shared_regressions.h
  */
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 
 ONE_TEST(pbkdf2_00_hmac_sha1)
 ONE_TEST(spbkdf_00_hmac_sha1)
@@ -31,12 +31,7 @@ ONE_TEST(si_41_sececkey)
 ONE_TEST(si_42_identity)
 ONE_TEST(si_43_persistent)
 ONE_TEST(si_50_secrandom)
-ONE_TEST(si_60_cms)
-ONE_TEST(si_61_pkcs12)
 ONE_TEST(si_63_scep)
-ONE_TEST(si_64_ossl_cms)
-ONE_TEST(si_65_cms_cert_policy)
-ONE_TEST(si_68_secmatchissuer)
 ONE_TEST(si_69_keydesc)
 ONE_TEST(si_72_syncableitems)
 ONE_TEST(si_73_secpasswordgenerate)

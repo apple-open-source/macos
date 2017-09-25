@@ -63,13 +63,15 @@ class WebProcessPool;
 @property (nonatomic, getter=isShowingInspectorIndication) BOOL showingInspectorIndication;
 @property (nonatomic, readonly) BOOL isBackground;
 @property (nonatomic, readonly, getter=isResigningFirstResponder) BOOL resigningFirstResponder;
+@property (nonatomic) BOOL sizeChangedSinceLastVisibleContentRectUpdate;
 
 - (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView;
 
 - (void)didUpdateVisibleRect:(CGRect)visibleRect
     unobscuredRect:(CGRect)unobscuredRect
     unobscuredRectInScrollViewCoordinates:(CGRect)unobscuredRectInScrollViewCoordinates
-    obscuredInset:(CGSize)topInset
+    obscuredInsets:(UIEdgeInsets)obscuredInsets
+    unobscuredSafeAreaInsets:(UIEdgeInsets)unobscuredSafeAreaInsets
     inputViewBounds:(CGRect)inputViewBounds
     scale:(CGFloat)scale minimumScale:(CGFloat)minimumScale
     inStableState:(BOOL)isStableState

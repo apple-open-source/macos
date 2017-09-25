@@ -29,6 +29,7 @@
 #include "reqmaker.h"
 #include <security_utilities/logging.h>
 #include <security_utilities/cfmunge.h>
+#include <security_utilities/casts.h>
 
 
 
@@ -158,6 +159,82 @@ size_t MachORep::signingLimit()
 {
 	auto_ptr<MachO> macho(mExecutable->architecture());
 	return macho->signingExtent();
+}
+
+bool MachORep::needsExecSeg(const MachO& macho) {
+	if (const version_min_command *version = macho.findMinVersion()) {
+		uint32_t min = UINT32_MAX;
+
+		switch (macho.flip(version->cmd)) {
+			case LC_VERSION_MIN_IPHONEOS:
+			case LC_VERSION_MIN_TVOS:
+				min = (11 << 16 | 0 << 8);
+				break;
+			case LC_VERSION_MIN_WATCHOS:
+				min = (4 << 16 | 0 << 8);
+				break;
+
+			default:
+				/* macOS currently does not get this. */
+				return false;
+		}
+
+		if (macho.flip(version->version) >= min) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+size_t MachORep::execSegBase(const Architecture *arch)
+{
+	auto_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
+
+	if (!needsExecSeg(*macho)) {
+		return 0;
+	}
+
+	segment_command const * const text_cmd = macho->findSegment("__TEXT");
+
+	if (text_cmd == NULL) {
+		return 0;
+	}
+
+	size_t off = 0;
+
+	if (macho->is64()) {
+		off = int_cast<uint64_t,size_t>(reinterpret_cast<segment_command_64 const * const>(text_cmd)->fileoff);
+	} else {
+		off = text_cmd->fileoff;
+	}
+
+	return off;
+}
+
+size_t MachORep::execSegLimit(const Architecture *arch)
+{
+	auto_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
+
+	if (!needsExecSeg(*macho)) {
+		return 0;
+	}
+
+	segment_command const * const text_cmd = macho->findSegment("__TEXT");
+
+	if (text_cmd == NULL) {
+		return 0;
+	}
+
+	size_t size = 0;
+
+	if (macho->is64()) {
+		size = int_cast<uint64_t,size_t>(reinterpret_cast<segment_command_64 const * const>(text_cmd)->filesize);
+	} else {
+		size = text_cmd->filesize;
+	}
+
+	return size;
 }
 
 

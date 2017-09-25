@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2016 Apple Inc. All Rights Reserved.
+ *  Copyright (C) 2003-2017 Apple Inc. All Rights Reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,10 +20,16 @@
 #include "config.h"
 #include "JSLazyEventListener.h"
 
+#include "CachedScriptFetcher.h"
+#include "ContainerNode.h"
 #include "ContentSecurityPolicy.h"
+#include "Document.h"
+#include "Element.h"
 #include "Frame.h"
 #include "JSNode.h"
+#include "QualifiedName.h"
 #include "ScriptController.h"
+#include <runtime/CatchScope.h>
 #include <runtime/FunctionConstructor.h>
 #include <runtime/IdentifierInlines.h>
 #include <wtf/NeverDestroyed.h>
@@ -81,7 +87,11 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
     if (m_code.isNull() || m_eventParameterName.isNull())
         return nullptr;
 
-    Document& document = downcast<Document>(*executionContext);
+    // As per the HTML specification [1], if this is an element's event handler, then document should be the
+    // element's document. The script execution context may be different from the node's document if the
+    // node's document was created by JavaScript.
+    // [1] https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
+    Document& document = m_originalNode ? m_originalNode->document() : downcast<Document>(*executionContext);
 
     if (!document.frame())
         return nullptr;
@@ -112,7 +122,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
 
     JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(
         exec, exec->lexicalGlobalObject(), args, Identifier::fromString(exec, m_functionName),
-        m_sourceURL, m_sourcePosition, overrideLineNumber);
+        SourceOrigin { m_sourceURL, CachedScriptFetcher::create(document.charset()) }, m_sourceURL, m_sourcePosition, overrideLineNumber);
 
     if (UNLIKELY(scope.exception())) {
         reportCurrentException(exec);
@@ -138,8 +148,8 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
 
 static const String& eventParameterName(bool isSVGEvent)
 {
-    static NeverDestroyed<const String> eventString(ASCIILiteral("event"));
-    static NeverDestroyed<const String> evtString(ASCIILiteral("evt"));
+    static NeverDestroyed<const String> eventString(MAKE_STATIC_STRING_IMPL("event"));
+    static NeverDestroyed<const String> evtString(MAKE_STATIC_STRING_IMPL("evt"));
     return isSVGEvent ? evtString : eventString;
 }
 

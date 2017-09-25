@@ -26,6 +26,7 @@
 #include "sqlite++.h"
 #include <stdexcept>
 #include <security_utilities/cfutilities.h>
+#include <security_utilities/debugging_internal.h>
 
 
 //@@@

@@ -34,6 +34,7 @@
 #include "WebPasteboardProxy.h"
 #include "WebProcessProxy.h"
 #include "WebsiteDataStore.h"
+#include <WebCore/PlatformDisplay.h>
 #include <WebCore/UserAgent.h>
 #include <gtk/gtkx.h>
 #include <wtf/NeverDestroyed.h>
@@ -47,6 +48,11 @@ void WebPageProxy::platformInitialize()
 GtkWidget* WebPageProxy::viewWidget()
 {
     return static_cast<PageClientImpl&>(m_pageClient).viewWidget();
+}
+
+JSGlobalContextRef WebPageProxy::javascriptGlobalContext()
+{
+    return m_pageClient.javascriptGlobalContext();
 }
 
 String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent)
@@ -78,7 +84,7 @@ void WebPageProxy::editorStateChanged(const EditorState& editorState)
 {
     m_editorState = editorState;
     
-    if (editorState.shouldIgnoreCompositionSelectionChange)
+    if (editorState.shouldIgnoreSelectionChanges)
         return;
     if (m_editorState.selectionIsRange)
         WebPasteboardProxy::singleton().setPrimarySelectionOwner(focusedFrame());
@@ -102,6 +108,7 @@ static gboolean pluginContainerPlugRemoved(GtkSocket* socket)
 
 void WebPageProxy::createPluginContainer(uint64_t& windowID)
 {
+    RELEASE_ASSERT(WebCore::PlatformDisplay::sharedDisplay().type() == WebCore::PlatformDisplay::Type::X11);
     GtkWidget* socket = gtk_socket_new();
     g_signal_connect(socket, "plug-removed", G_CALLBACK(pluginContainerPlugRemoved), 0);
     gtk_container_add(GTK_CONTAINER(viewWidget()), socket);

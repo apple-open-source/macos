@@ -21,6 +21,19 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+// client.c is from the iOS world and must compile with an iOS view of the headers
+#ifndef SEC_IOS_ON_OSX
+#define SEC_IOS_ON_OSX 1
+#endif // SEC_IOS_ON_OSX
+
+#if TARGET_OS_OSX
+#ifndef SECITEM_SHIM_OSX
+#define SECITEM_SHIM_OSX 1
+#endif // SECITEM_SHIM_OSX
+#endif // TARGET_OS_OSX
+
 #include <stdbool.h>
 #include <sys/queue.h>
 #include <syslog.h>
@@ -40,9 +53,11 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDispatchRelease.h>
 #include <utilities/SecDb.h> // TODO Fixme this gets us SecError().
+#include <utilities/SecAKSWrappers.h>
 #include <ipc/securityd_client.h>
 
 struct securityd *gSecurityd;
+struct trustd *gTrustd;
 
 //
 // MARK: XPC IPC.
@@ -61,6 +76,8 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                    CFSTR("sync"),
 #endif
                                    CFSTR("com.apple.security.sos"),
+                                   CFSTR("com.apple.security.ckks"),
+                                   CFSTR("com.apple.security.sos-usercredential"),
                                    CFSTR("com.apple.sbd"),
                                    CFSTR("com.apple.lakitu"),
                                    kSecAttrAccessGroupToken,
@@ -149,9 +166,7 @@ static xpc_connection_t securityd_create_connection(const char *name, uint64_t f
 }
 
 static xpc_connection_t sSecuritydConnection;
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
 static xpc_connection_t sTrustdConnection;
-#endif
 
 static xpc_connection_t securityd_connection(void) {
     static dispatch_once_t once;
@@ -172,8 +187,11 @@ static xpc_connection_t trustd_connection(void) {
 	});
 	return sTrustdConnection;
 #else
-	// on iOS all operations are still handled by securityd
-	return securityd_connection();
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        sTrustdConnection = securityd_create_connection(kTrustdXPCServiceName, 0);
+    });
+    return sTrustdConnection;
 #endif
 }
 
@@ -185,7 +203,9 @@ static bool is_trust_operation(enum SecXPCOperation op) {
 		case sec_trust_evaluate_id:
 		case sec_trust_store_copy_all_id:
 		case sec_trust_store_copy_usage_constraints_id:
-		case sec_device_is_internal_id:
+        case sec_ota_pki_asset_version_id:
+        case kSecXPCOpOTAGetEscrowCertificates:
+        case kSecXPCOpOTAPKIGetNewAsset:
 			return true;
 		default:
 			break;
@@ -209,14 +229,15 @@ static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation 
 // NOTE: This is not thread safe, but this SPI is for testing only.
 void SecServerSetMachServiceName(const char *name) {
     // Make sure sSecXPCServer.queue exists.
-    securityd_connection();
+    trustd_connection();
 
-    xpc_connection_t oldConection = sSecuritydConnection;
-    sSecuritydConnection = securityd_create_connection(name, 0);
+    xpc_connection_t oldConection = sTrustdConnection;
+    sTrustdConnection = securityd_create_connection(name, 0);
     if (oldConection)
         xpc_release(oldConection);
 }
 
+XPC_RETURNS_RETAINED
 xpc_object_t
 securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
 {
@@ -236,14 +257,14 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
         CFIndex code =  0;
         if (reply == XPC_ERROR_CONNECTION_INTERRUPTED || reply == XPC_ERROR_CONNECTION_INVALID) {
             code = kSecXPCErrorConnectionFailed;
-#if TARGET_OS_IPHONE
-            seccritical("Failed to talk to %s after %d attempts.", "securityd",
-                        max_tries);
-#else
             seccritical("Failed to talk to %s after %d attempts.",
-                (is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" : "secd",
-                max_tries);
+                (is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" :
+#if TARGET_OS_IPHONE
+                        "securityd",
+#else
+                        "secd",
 #endif
+                max_tries);
         } else if (reply == XPC_ERROR_TERMINATION_IMMINENT)
             code = kSecXPCErrorUnknown;
         else
@@ -260,7 +281,9 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
     return reply;
 }
 
-xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef* error)
+XPC_RETURNS_RETAINED
+xpc_object_t
+securityd_create_message(enum SecXPCOperation op, CFErrorRef* error)
 {
     xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
     if (message) {
@@ -274,12 +297,28 @@ xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef* error
 
 // Return true if there is no error in message, return false and set *error if there is.
 bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error) {
-    xpc_object_t xpc_error = xpc_dictionary_get_value(message, kSecXPCKeyError);
+    xpc_object_t xpc_error = NULL;
+    if (message == NULL)
+        return false;
+
+    xpc_error = xpc_dictionary_get_value(message, kSecXPCKeyError);
     if (xpc_error == NULL)
         return true;
 
+    CFErrorRef localError = SecCreateCFErrorWithXPCObject(xpc_error);
+
+#if TARGET_OS_IPHONE
+    secdebug("xpc", "Talking to securityd failed with error: %@", localError);
+#else
+    uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
+    secdebug("xpc", "Talking to %s failed with error: %@",
+             (is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" : "secd", localError);
+#endif
+
     if (error) {
-        *error = SecCreateCFErrorWithXPCObject(xpc_error);
+        *error = localError;
+    } else {
+        CFReleaseSafe(localError);
     }
     return false;
 }
@@ -317,7 +356,8 @@ _SecSecuritydCopyWhoAmI(CFErrorRef *error)
             reply = _CFXPCCreateCFObjectFromXPCObject(response);
             xpc_release(response);
         } else {
-            securityd_message_no_error(response, error);
+            secerror("Securityd failed getting whoamid with error: %@",
+                     error ? *error : NULL);
         }
         xpc_release(message);
     }
@@ -388,6 +428,48 @@ _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error)
     }
     return reply;
 }
+
+XPC_RETURNS_RETAINED xpc_endpoint_t
+_SecSecuritydCopyEndpoint(enum SecXPCOperation op, CFErrorRef *error)
+{
+    xpc_endpoint_t endpoint = NULL;
+    xpc_object_t message = securityd_create_message(op, error);
+    if (message) {
+        xpc_object_t response = securityd_message_with_reply_sync(message, error);
+        if (response) {
+            endpoint = xpc_dictionary_get_value(response, kSecXPCKeyEndpoint);
+            if (endpoint) {
+                if(xpc_get_type(endpoint) != XPC_TYPE_ENDPOINT) {
+                    secerror("endpoint was not an endpoint");
+                    endpoint = NULL;
+                } else {
+                    xpc_retain(endpoint);
+                }
+            } else {
+                secerror("endpoint was null");
+            }
+            xpc_release(response);
+        } else {
+            secerror("Securityd failed getting endpoint with error: %@", error ? *error : NULL);
+        }
+        xpc_release(message);
+    }
+    return endpoint;
+}
+
+
+XPC_RETURNS_RETAINED xpc_endpoint_t
+_SecSecuritydCopyCKKSEndpoint(CFErrorRef *error)
+{
+    return _SecSecuritydCopyEndpoint(kSecXPCOpCKKSEndpoint, error);
+}
+
+XPC_RETURNS_RETAINED xpc_endpoint_t
+_SecSecuritydCopySOSStatusEndpoint(CFErrorRef *error)
+{
+    return _SecSecuritydCopyEndpoint(kSecXPCOpSOSEndpoint, error);
+}
+
 
 
 

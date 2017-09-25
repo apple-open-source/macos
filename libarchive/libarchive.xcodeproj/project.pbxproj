@@ -16,6 +16,7 @@
 				FD033CA31484563A00AD35B6 /* PBXTargetDependency */,
 				FD033CA51484563E00AD35B6 /* PBXTargetDependency */,
 				FD033CA71484564000AD35B6 /* PBXTargetDependency */,
+				FD22F8B01D6FA2BA0046F7FF /* PBXTargetDependency */,
 			);
 			name = libarchive_executables;
 			productName = libarchive_executables;
@@ -30,6 +31,18 @@
 			);
 			name = libarchive_libs;
 			productName = libarchive_libs;
+		};
+		FD22F8AC1D6FA2B50046F7FF /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD22F8AE1D6FA2B50046F7FF /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+				FD22F8B11D6FA2CD0046F7FF /* Install BATS plist */,
+				FD51A7831D76430300F1E80A /* Install Tests */,
+			);
+			dependencies = (
+			);
+			name = tests;
+			productName = tests;
 		};
 		FD9B8A3D104DCC260096D791 /* All */ = {
 			isa = PBXAggregateTarget;
@@ -46,6 +59,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		FD22F8B71D6FA2FE0046F7FF /* libarchive.plist in Install BATS plist */ = {isa = PBXBuildFile; fileRef = FD22F8B41D6FA2F00046F7FF /* libarchive.plist */; };
 		FD7846531537B5F3003C8F36 /* liblzma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD7846521537B5F3003C8F36 /* liblzma.dylib */; };
 		FD9B899E104DC7F10096D791 /* archive_check_magic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8969104DC7F00096D791 /* archive_check_magic.c */; };
 		FD9B899F104DC7F10096D791 /* archive_entry_copy_stat.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B896A104DC7F00096D791 /* archive_entry_copy_stat.c */; };
@@ -181,13 +195,31 @@
 			remoteGlobalIDString = FD033C9E1484562E00AD35B6;
 			remoteInfo = libarchive_executables;
 		};
+		FD22F8AF1D6FA2BA0046F7FF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD22F8AC1D6FA2B50046F7FF;
+			remoteInfo = tests;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		FD22F8B11D6FA2CD0046F7FF /* Install BATS plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				FD22F8B71D6FA2FE0046F7FF /* libarchive.plist in Install BATS plist */,
+			);
+			name = "Install BATS plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FD9B8AAE104DD4610096D791 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "/usr/share/man/man1";
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B8AAD104DD4360096D791 /* bsdtar.1 in Install Man Page */,
@@ -198,7 +230,7 @@
 		FD9B8AB0104DD4A60096D791 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "/usr/share/man/man1";
+			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B8ACC104DD5950096D791 /* bsdcpio.1 in Install Man Page */,
@@ -212,6 +244,7 @@
 		8154971E185E6F1500B3E145 /* libs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = libs.xcconfig; path = xcodeconfig/libs.xcconfig; sourceTree = "<group>"; };
 		8154971F185E709800B3E145 /* executables.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = executables.xcconfig; path = xcodeconfig/executables.xcconfig; sourceTree = "<group>"; };
 		81549720185E714D00B3E145 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcodeconfig/base.xcconfig; sourceTree = "<group>"; };
+		FD22F8B41D6FA2F00046F7FF /* libarchive.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libarchive.plist; sourceTree = "<group>"; };
 		FD7846521537B5F3003C8F36 /* liblzma.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liblzma.dylib; path = /usr/lib/liblzma.dylib; sourceTree = "<absolute>"; };
 		FD9B8961104D9F050096D791 /* libarchive.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libarchive.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9B8969104DC7F00096D791 /* archive_check_magic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_check_magic.c; path = libarchive/libarchive/archive_check_magic.c; sourceTree = "<group>"; };
@@ -346,6 +379,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		FD22F8B31D6FA2F00046F7FF /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				FD22F8B41D6FA2F00046F7FF /* libarchive.plist */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
 		FD9B894C104D9EED0096D791 = {
 			isa = PBXGroup;
 			children = (
@@ -358,6 +399,7 @@
 				FDE953A6114881280033A30A /* libarchive_fe */,
 				FD9B8A3A104DCC050096D791 /* tar */,
 				FD9B8A69104DCCA90096D791 /* cpio */,
+				FD22F8B31D6FA2F00046F7FF /* tests */,
 				FD9B8962104D9F050096D791 /* Products */,
 				FD9B8A13104DCA400096D791 /* libbz2.dylib */,
 				FD9B8A17104DCA4C0096D791 /* libz.dylib */,
@@ -587,6 +629,12 @@
 		FD9B894E104D9EED0096D791 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				TargetAttributes = {
+					FD22F8AC1D6FA2B50046F7FF = {
+						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = FD9B8951104D9EED0096D791 /* Build configuration list for PBXProject "libarchive" */;
 			compatibilityVersion = "Xcode 2.4";
@@ -610,11 +658,27 @@
 				FDE953BF114881CA0033A30A /* libarchive_fe */,
 				FD9B8A1D104DCB9A0096D791 /* tar */,
 				FD9B8A51104DCC630096D791 /* cpio */,
+				FD22F8AC1D6FA2B50046F7FF /* tests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		FD51A7831D76430300F1E80A /* Install Tests */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Install Tests";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/install_tests.sh";
+			showEnvVarsInLog = 0;
+		};
 		FD9B8A82104DD01C0096D791 /* Make .dylib Symlinks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -817,6 +881,11 @@
 			target = FD033C9E1484562E00AD35B6 /* libarchive_executables */;
 			targetProxy = FD033CAF1484565900AD35B6 /* PBXContainerItemProxy */;
 		};
+		FD22F8B01D6FA2BA0046F7FF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD22F8AC1D6FA2B50046F7FF /* tests */;
+			targetProxy = FD22F8AF1D6FA2BA0046F7FF /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -831,6 +900,13 @@
 		FD033CAA1484564700AD35B6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8154971E185E6F1500B3E145 /* libs.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FD22F8AD1D6FA2B50046F7FF /* Release */ = {
+			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -876,6 +952,7 @@
 		FDE953C1114881CC0033A30A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_PREPROCESSOR_DEFINITIONS = "PLATFORM_CONFIG_H=\\\"$(SRCROOT)/config.h\\\"";
 				PRODUCT_NAME = archive_fe;
 				SKIP_INSTALL = YES;
@@ -897,6 +974,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD033CAA1484564700AD35B6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD22F8AE1D6FA2B50046F7FF /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD22F8AD1D6FA2B50046F7FF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

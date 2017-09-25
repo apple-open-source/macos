@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -16,6 +16,7 @@
 
 #include "less.h"
 #include "charset.h"
+#include "position.h"
 
 static char *linebuf = NULL;	/* Buffer which holds the current output line */
 static char *attr = NULL;	/* Extension of linebuf to hold attributes */
@@ -35,7 +36,7 @@ static int overstrike;		/* Next char should overstrike previous char */
 static int last_overstrike = AT_NORMAL;
 static int is_null_line;	/* There is no current line */
 static int lmargin;		/* Left margin */
-static char pendc;
+static LWCHAR pendc;
 static POSITION pendpos;
 static char *end_ansi_chars;
 static char *mid_ansi_chars;
@@ -78,7 +79,7 @@ init_line()
 
 	mid_ansi_chars = lgetenv("LESSANSIMIDCHARS");
 	if (mid_ansi_chars == NULL || *mid_ansi_chars == '\0')
-		mid_ansi_chars = "0123456789;[?!\"'#%()*+ ";
+		mid_ansi_chars = "0123456789:;[?!\"'#%()*+ ";
 
 	linebuf = (char *) ecalloc(LINEBUF_SIZE, sizeof(char));
 	attr = (char *) ecalloc(LINEBUF_SIZE, sizeof(char));
@@ -209,13 +210,13 @@ plinenum(pos)
 		int n;
 
 		linenumtoa(linenum, buf);
-		n = strlen(buf);
+		n = (int) strlen(buf);
 		if (n < MIN_LINENUM_WIDTH)
 			n = MIN_LINENUM_WIDTH;
 		sprintf(linebuf+curr, "%*s ", n, buf);
 		n++;  /* One space after the line number. */
 		for (i = 0; i < n; i++)
-			attr[curr+i] = AT_NORMAL;
+			attr[curr+i] = AT_BOLD;
 		curr += n;
 		column += n;
 		lmargin += n;
@@ -491,7 +492,7 @@ backc()
 	       && column > lmargin
 	       && (!(attr[curr - 1] & (AT_ANSI|AT_BINARY))))
 	{
-		curr = p - linebuf;
+		curr = (int) (p - linebuf);
 		prev_ch = step_char(&p, -1, linebuf + lmargin);
 		width = pwidth(ch, attr[curr], prev_ch);
 		column -= width;
@@ -604,7 +605,7 @@ store_char(ch, a, rep, pos)
 			do {
 				bch = step_char(&p, -1, linebuf);
 			} while (p > linebuf && !IS_CSI_START(bch));
-			curr = p - linebuf;
+			curr = (int) (p - linebuf);
 			return 0;
 		}
 		a = AT_ANSI;	/* Will force re-AT_'ing around it.  */
@@ -697,7 +698,7 @@ store_tab(attr, pos)
 
 	static int
 store_prchar(c, pos)
-	char c;
+	LWCHAR c;
 	POSITION pos;
 {
 	char *s;
@@ -741,13 +742,15 @@ flush_mbc_buf(pos)
  */
 	public int
 pappend(c, pos)
-	char c;
+	unsigned char c;
 	POSITION pos;
 {
 	int r;
 
 	if (pendc)
 	{
+		if (c == '\r' && pendc == '\r')
+			return (0);
 		if (do_append(pendc, NULL, pendpos))
 			/*
 			 * Oops.  We've probably lost the char which
@@ -781,7 +784,7 @@ pappend(c, pos)
 
 	if (!utf_mode)
 	{
-		r = do_append((LWCHAR) c, NULL, pos);
+		r = do_append(c, NULL, pos);
 	} else
 	{
 		/* Perform strict validation in all possible cases. */
@@ -791,7 +794,7 @@ pappend(c, pos)
 			mbc_buf_index = 1;
 			*mbc_buf = c;
 			if (IS_ASCII_OCTET(c))
-				r = do_append((LWCHAR) c, NULL, pos);
+				r = do_append(c, NULL, pos);
 			else if (IS_UTF8_LEAD(c))
 			{
 				mbc_buf_len = utf_len(c);
@@ -805,7 +808,7 @@ pappend(c, pos)
 			mbc_buf[mbc_buf_index++] = c;
 			if (mbc_buf_index < mbc_buf_len)
 				return (0);
-			if (is_utf8_well_formed(mbc_buf))
+			if (is_utf8_well_formed(mbc_buf, mbc_buf_index))
 				r = do_append(get_wchar(mbc_buf), mbc_buf, mbc_pos);
 			else
 				/* Complete, but not shortest form, sequence. */
@@ -885,8 +888,14 @@ do_append(ch, rep, pos)
 		 * or just deletion of the character in the buffer.
 		 */
 		overstrike = utf_mode ? -1 : 0;
-		/* To be correct, this must be a base character.  */
-		prev_ch = get_wchar(linebuf + curr);
+		if (utf_mode)
+		{
+			/* To be correct, this must be a base character.  */
+			prev_ch = get_wchar(linebuf + curr);
+		} else
+		{
+			prev_ch = (unsigned char) linebuf[curr];
+		}
 		a = attr[curr];
 		if (ch == prev_ch)
 		{
@@ -1246,4 +1255,31 @@ back_raw_line(curr_pos, linep, line_lenp)
 	if (line_lenp != NULL)
 		*line_lenp = size_linebuf - 1 - n;
 	return (new_pos);
+}
+
+/*
+ * Find the shift necessary to show the end of the longest displayed line.
+ */
+	public int
+rrshift()
+{
+	POSITION pos;
+	int save_width;
+	int line;
+	int longest = 0;
+
+	save_width = sc_width;
+	sc_width = INT_MAX;
+	hshift = 0;
+	pos = position(TOP);
+	for (line = 0; line < sc_height && pos != NULL_POSITION; line++)
+	{
+		pos = forw_line(pos);
+		if (column > longest)
+			longest = column;
+	}
+	sc_width = save_width;
+	if (longest < sc_width)
+		return 0;
+	return longest - sc_width;
 }

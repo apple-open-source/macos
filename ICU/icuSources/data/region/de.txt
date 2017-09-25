@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/de.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 de{
     Countries{
         001{"Welt"}
@@ -91,11 +85,11 @@ de{
         CP{"Clipperton-Insel"}
         CR{"Costa Rica"}
         CU{"Kuba"}
-        CV{"Kap Verde"}
+        CV{"Cabo Verde"}
         CW{"Curaçao"}
         CX{"Weihnachtsinsel"}
         CY{"Zypern"}
-        CZ{"Tschechische Republik"}
+        CZ{"Tschechien"}
         DE{"Deutschland"}
         DG{"Diego Garcia"}
         DJ{"Dschibuti"}
@@ -137,7 +131,7 @@ de{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Sonderverwaltungszone Hongkong"}
+        HK{"Hongkong (China)"}
         HM{"Heard und McDonaldinseln"}
         HN{"Honduras"}
         HR{"Kroatien"}
@@ -191,7 +185,7 @@ de{
         ML{"Mali"}
         MM{"Myanmar"}
         MN{"Mongolei"}
-        MO{"Sonderverwaltungsregion Macau"}
+        MO{"Macau (China)"}
         MP{"Nördliche Marianen"}
         MQ{"Martinique"}
         MR{"Mauretanien"}
@@ -245,7 +239,7 @@ de{
         SG{"Singapur"}
         SH{"St. Helena"}
         SI{"Slowenien"}
-        SJ{"Svalbard und Jan Mayen"}
+        SJ{"Spitzbergen"}
         SK{"Slowakei"}
         SL{"Sierra Leone"}
         SM{"San Marino"}
@@ -266,7 +260,7 @@ de{
         TH{"Thailand"}
         TJ{"Tadschikistan"}
         TK{"Tokelau"}
-        TL{"Timor-Leste"}
+        TL{"Osttimor"}
         TM{"Turkmenistan"}
         TN{"Tunesien"}
         TO{"Tonga"}
@@ -278,6 +272,7 @@ de{
         UA{"Ukraine"}
         UG{"Uganda"}
         UM{"Amerikanische Überseeinseln"}
+        UN{"Vereinte Nationen"}
         US{"Vereinigte Staaten"}
         UY{"Uruguay"}
         UZ{"Usbekistan"}
@@ -303,15 +298,16 @@ de{
         HK{"Hongkong"}
         MO{"Macau"}
         PS{"Palästina"}
+        UN{"UN"}
         US{"USA"}
     }
     Countries%variant{
         CD{"Kongo (Demokratische Republik)"}
         CG{"Kongo (Republik)"}
         CI{"Elfenbeinküste"}
+        CZ{"Tschechische Republik"}
         FK{"Falklandinseln (Malwinen)"}
         MK{"Mazedonien (EJR)"}
-        TL{"Osttimor"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
 }

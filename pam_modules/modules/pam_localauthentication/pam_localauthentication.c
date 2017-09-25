@@ -32,12 +32,15 @@
 #include <coreauthd_spi.h>
 #include <pwd.h>
 #include <LocalAuthentication/LAPrivateDefines.h>
+#include <stdbool.h>
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT
 
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
+
+#define CONTINUITY_UNLOCK_PARAM "continuityunlock"
 
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
@@ -53,6 +56,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     CFNumberRef key = NULL;
     CFNumberRef value = NULL;
     int tmp;
+    bool isContinuityUnlock = openpam_get_option(pamh, CONTINUITY_UNLOCK_PARAM) != NULL;
 
     const char *user = NULL;
     struct passwd *pwd = NULL;
@@ -74,7 +78,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     }
     
     /* get the externalized context */
-    tmpval = pam_get_data(pamh, "token_la", (void *)&externalized_context);
+    tmpval = pam_get_data(pamh, isContinuityUnlock ? "token_lacont" : "token_la", (void *)&externalized_context);
     if (tmpval != PAM_SUCCESS) {
         openpam_log(PAM_LOG_ERROR, "error obtaining the token: %d", tmpval);
         retval = PAM_AUTHINFO_UNAVAIL;
@@ -107,8 +111,9 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     CFDictionarySetValue(options, key, value);
 
     /* evaluate policy */
-    if (!LAEvaluatePolicy(context, kLAPolicyDeviceOwnerAuthenticationWithBiometrics, options, &error)) {
-        openpam_log(PAM_LOG_ERROR, "policy evaluation failed: %ld", CFErrorGetCode(error));
+    int policy = isContinuityUnlock ? kLAPolicyContinuityUnlock : kLAPolicyDeviceOwnerAuthenticationWithBiometrics;
+    if (!LAEvaluatePolicy(context, policy, options, &error)) {
+        openpam_log(PAM_LOG_ERROR, "policy %d evaluation failed: %ld", policy, CFErrorGetCode(error));
         retval = PAM_AUTH_ERR;
         goto cleanup;
     }
@@ -120,7 +125,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
         goto cleanup;
     }
     
-    /* we passed the Touch ID authentication successfully */
+    /* we passed the authentication successfully */
     retval = PAM_SUCCESS;
     
 cleanup:

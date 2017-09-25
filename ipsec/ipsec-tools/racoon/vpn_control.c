@@ -4,13 +4,13 @@
  * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.1 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,14 +18,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -37,7 +37,7 @@
  * 3. Neither the name of the project nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,7 +68,7 @@
 #include <netinet/in.h>
 #ifndef HAVE_NETINET6_IPSEC
 #include <netinet/ipsec.h>
-#else 
+#else
 #include <netinet6/ipsec.h>
 #endif
 
@@ -127,10 +127,10 @@ extern int vpn_get_config (phase1_handle_t *, struct vpnctl_status_phase_change 
 extern int vpn_xauth_reply (u_int32_t, void *, size_t);
 
 
-int                     
-checklaunchd()                  
-{               
-	launch_data_t checkin_response = NULL; 
+int
+checklaunchd()
+{
+	launch_data_t checkin_response = NULL;
 #ifdef LION_TEST
     launch_data_t checkin_request = NULL;
 #endif
@@ -150,7 +150,7 @@ checklaunchd()
 #else
 	if ((checkin_response = launch_socket_service_check_in()) == NULL) {
 #endif
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "failed to launch_socket_service_check_in.\n");
 		goto done;
 	}
@@ -161,24 +161,24 @@ checklaunchd()
     }
 #endif
 	if (LAUNCH_DATA_ERRNO == launch_data_get_type(checkin_response)) {
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "launch_data_get_type error %d\n",
 			 launch_data_get_errno(checkin_response));
 		goto done;
 	}
 	if ( (sockets_dict = launch_data_dict_lookup(checkin_response, LAUNCH_JOBKEY_SOCKETS)) == NULL){
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "failed to launch_data_dict_lookup.\n");
 		goto done;
 	}
 	if ( !(socketct = launch_data_dict_get_count(sockets_dict))){
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "launch_data_dict_get_count returns no socket defined.\n");
 		goto done;
 	}
 	
 	if ( (listening_fd_array = launch_data_dict_lookup(sockets_dict, "Listeners")) == NULL ){
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "failed to launch_data_dict_lookup.\n");
 		goto done;
 	}
@@ -190,11 +190,11 @@ checklaunchd()
 			continue;
 		}
 		
-		/* Is this the VPN control socket? */ 
-		if ( fdsockaddr.ss_family == AF_UNIX && 
+		/* Is this the VPN control socket? */
+		if ( fdsockaddr.ss_family == AF_UNIX &&
 				(!(strcmp(vpncontrolsock_path, ((struct sockaddr_un *)&fdsockaddr)->sun_path))))
-		{       
-			plog(ASL_LEVEL_INFO, 
+		{
+			plog(ASL_LEVEL_NOTICE,
 				 "found launchd socket.\n");
 			returnval = fd;
 			break;
@@ -202,12 +202,12 @@ checklaunchd()
 	}
 	// TODO: check if we have any leaked fd
 	if ( listenerct == i){
-		plog(ASL_LEVEL_ERR, 
-			 "failed to find launchd socket\n");               
+		plog(ASL_LEVEL_ERR,
+			 "failed to find launchd socket\n");
 		returnval = 0;
 	}
 	
-done:   
+done:
 	if (checkin_response)
 		launch_data_free(checkin_response);
 	return(returnval);
@@ -224,30 +224,30 @@ vpncontrol_handler(void *unused)
 	struct vpnctl_socket_elem *sock_elem;
 
 	
-    sock_elem = racoon_malloc(sizeof(struct vpnctl_socket_elem));
+	sock_elem = racoon_calloc(1, sizeof(struct vpnctl_socket_elem));
 	if (sock_elem == NULL) {
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"memory error: %s\n", strerror(errno));
 		return; //%%%%%% terminate
 	}
 	LIST_INIT(&sock_elem->bound_addresses);
-    
+
 	sock_elem->sock = accept(lcconf->sock_vpncontrol, (struct sockaddr *)&from, &fromlen);
 	if (sock_elem->sock < 0) {
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"failed to accept vpn_control command: %s\n", strerror(errno));
 		racoon_free(sock_elem);
 		return; //%%%%% terminate
 	}
 	LIST_INSERT_HEAD(&lcconf->vpnctl_comm_socks, sock_elem, chain);
-    
+
     sock_elem->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, sock_elem->sock, 0, dispatch_get_main_queue());
     if (sock_elem->source == NULL) {
 		plog(ASL_LEVEL_ERR, "could not create comm socket source.");
 		racoon_free(sock_elem);
 		return; //%%%%% terminate
     }
-    dispatch_source_set_event_handler(sock_elem->source, 
+    dispatch_source_set_event_handler(sock_elem->source,
                                         ^{
                                                 vpncontrol_comm_handler(sock_elem);
                                         });
@@ -260,8 +260,8 @@ vpncontrol_handler(void *unused)
                                            dispatch_release(the_source); /* Release the source on cancel */
                                        });
     dispatch_resume(sock_elem->source);
-    
-	plog(ASL_LEVEL_NOTICE, 
+
+	plog(ASL_LEVEL_NOTICE,
 		"accepted connection on vpn control socket.\n");		
 	check_auto_exit();
 		
@@ -272,62 +272,74 @@ void
 vpncontrol_comm_handler(struct vpnctl_socket_elem *elem)
 {
 	struct vpnctl_hdr hdr;
-	char *combuf = NULL;
 	ssize_t len;
 
 	/* get buffer length */
-	while ((len = recv(elem->sock, (char *)&hdr, sizeof(hdr), MSG_PEEK)) < 0) {
-		if (errno == EINTR)
-			continue;
-		plog(ASL_LEVEL_ERR, 
-			"failed to recv vpn_control command: %s\n", strerror(errno));
-		goto end;
-	}
-	if (len == 0) {
-		plog(ASL_LEVEL_DEBUG, 
-			"vpn_control socket closed by peer.\n");
-        /* kill all related connections */
-        vpncontrol_disconnect_all(elem, ike_session_stopped_by_controller_comm_lost);
-		vpncontrol_close_comm(elem);
-		return; // %%%%%% terminate
-	}
-		
-	/* sanity check */
-	if (len < sizeof(hdr)) {
-		plog(ASL_LEVEL_ERR, 
-			"invalid header length of vpn_control command - len=%ld - expected %ld\n", len, sizeof(hdr));
-		goto end;
-	}
+	if (elem->buffer == NULL) {
+		while ((len = recv(elem->sock, (char *)&hdr, sizeof(hdr), MSG_PEEK)) < 0) {
+			if (errno == EINTR)
+				continue;
+			plog(ASL_LEVEL_ERR, "failed to recv vpn_control command: %s\n", strerror(errno));
+			return;
+		}
+		if (len == 0) {
+			plog(ASL_LEVEL_NOTICE, "vpn_control socket closed by peer.\n");
+			/* kill all related connections */
+			vpncontrol_disconnect_all(elem, ike_session_stopped_by_controller_comm_lost);
+			vpncontrol_close_comm(elem);
+			return; // %%%%%% terminate
+		}
 
-	/* get buffer to receive */
-	if ((combuf = racoon_malloc(ntohs(hdr.len) + sizeof(hdr))) == 0) {
-		plog(ASL_LEVEL_ERR, 
-			"failed to alloc buffer for vpn_control command\n");
-		goto end;
+		/* sanity check */
+		if (len < sizeof(hdr)) {
+			plog(ASL_LEVEL_ERR,
+				 "invalid header length of vpn_control command - len=%ld - expected %ld\n", len, sizeof(hdr));
+			return;
+		}
+
+		elem->read_bytes_len = 0; // Sanity
+		elem->pending_bytes_len = ntohs(hdr.len) + sizeof(hdr);
+
+		/* get buffer to receive */
+		elem->buffer = racoon_malloc(elem->pending_bytes_len);
+		if (elem->buffer == NULL) {
+			plog(ASL_LEVEL_ERR,
+				 "failed to alloc buffer for vpn_control command\n");
+			return;
+		}
 	}
 
 	/* get real data */
-	while ((len = recv(elem->sock, combuf, ntohs(hdr.len) + sizeof(hdr), 0)) < 0) {
+	while ((len = recv(elem->sock, elem->buffer + elem->read_bytes_len, elem->pending_bytes_len, 0)) < 0) {
 		if (errno == EINTR)
 			continue;
-		plog(ASL_LEVEL_ERR, 
-			"failed to recv vpn_control command: %s\n",
-			strerror(errno));
-		goto end;
+		plog(ASL_LEVEL_ERR, "failed to recv vpn_control command: %s\n",
+			 strerror(errno));
+		return;
 	}
 
-	if (len < (sizeof(hdr) + ntohs(hdr.len))) {
-		plog(ASL_LEVEL_ERR,
-			 "invalid length of vpn_control command - len=%ld - expected %ld\n", len, (sizeof(hdr) + ntohs(hdr.len)));
-		goto end;
+	if (len == 0) {
+		plog(ASL_LEVEL_NOTICE, "vpn_control socket closed by peer while reading packet\n");
+		/* kill all related connections */
+		vpncontrol_disconnect_all(elem, ike_session_stopped_by_controller_comm_lost);
+		vpncontrol_close_comm(elem);
+		return;
 	}
 
-	(void)vpncontrol_process(elem, combuf, len);
+	elem->read_bytes_len += len;
 
-end:
-	if (combuf)
-		racoon_free(combuf);
-	return;
+	if (len < elem->pending_bytes_len) {
+		plog(ASL_LEVEL_NOTICE,
+			 "received partial vpn_control command - len=%ld - expected %u\n", len, elem->pending_bytes_len);
+		elem->pending_bytes_len -= len;
+		return;
+	} else {
+		(void)vpncontrol_process(elem, elem->buffer, elem->read_bytes_len);
+		free(elem->buffer);
+		elem->buffer = NULL;
+		elem->read_bytes_len = 0;
+		elem->pending_bytes_len = 0;
+	}
 }
 
 static int
@@ -355,7 +367,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 					break;
 				}
 			
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					"received bind command on vpn control socket.\n");
 				addr = racoon_calloc(1, sizeof(struct bound_addr));
 				if (addr == NULL) {
@@ -370,6 +382,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 						plog(ASL_LEVEL_ERR, 	
 							"memory error: %s\n", strerror(errno));
 						error = -1;
+						racoon_free(addr);
 						break;
 					}
 					memcpy(addr->version->v, pkt + 1, ntohs(pkt->vers_len));
@@ -392,7 +405,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					"received unbind command on vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == 0xFFFFFFFF ||
@@ -420,7 +433,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct redirect *t_raddr;
 				int found = 0;
 				
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					"received redirect command on vpn control socket - address = %x.\n", ntohl(redirect_msg->redirect_address));
 				
 				LIST_FOREACH_SAFE(raddr, &lcconf->redirect_addresses, chain, t_raddr) {
@@ -439,7 +452,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				if (!found) {
 					raddr = racoon_malloc(sizeof(struct redirect));
 					if (raddr == NULL) {
-						plog(ASL_LEVEL_DEBUG, 
+						plog(ASL_LEVEL_ERR,
 							"cannot allcoate memory for redirect address.\n");					
 						error = -1;
 						break;
@@ -475,7 +488,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 					break;
 				}
 
-				plog(ASL_LEVEL_DEBUG,
+				plog(ASL_LEVEL_NOTICE,
 					"received xauth info command vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
@@ -500,7 +513,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
-				plog(ASL_LEVEL_DEBUG,
+				plog(ASL_LEVEL_NOTICE,
 						"received set v6 prefix of len %u command on vpn control socket, adding to all addresses.\n", pkt->nat64_prefix.length);
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					memcpy(&addr->nat64_prefix, &pkt->nat64_prefix, sizeof(addr->nat64_prefix));
@@ -529,7 +542,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 					pending_signal_handle = 0;
 				}
 
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					"received connect command on vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
@@ -553,7 +566,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					"received disconnect command on vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
@@ -577,7 +590,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
-				plog(ASL_LEVEL_DEBUG, "received start_ph2 command on vpn control socket.\n");
+				plog(ASL_LEVEL_NOTICE, "received start_ph2 command on vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
 						/* start the connection */
@@ -600,7 +613,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
                 struct bound_addr *srv;
                 struct bound_addr *t_addr;
 
-                plog(ASL_LEVEL_DEBUG, 
+                plog(ASL_LEVEL_NOTICE,
                      "received start_dpd command on vpn control socket.\n");
                 LIST_FOREACH_SAFE(srv, &elem->bound_addresses, chain, t_addr) {
                     if (pkt->address == srv->address) {
@@ -637,7 +650,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct sockaddr_in saddr;
 				struct sockaddr_in daddr;
 
-				plogdump(ASL_LEVEL_DEBUG, pkt, ntohs(hdr->len) + sizeof(struct vpnctl_hdr), "received assert command on vpn control socket.\n");
+				plogdump(ASL_LEVEL_NOTICE, pkt, ntohs(hdr->len) + sizeof(struct vpnctl_hdr), "received assert command on vpn control socket.\n");
 //				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 //					if (pkt->dst_address == addr->address) {
 						bzero(&saddr, sizeof(saddr));
@@ -670,7 +683,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					 "received reconnect command on vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
@@ -683,7 +696,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_
 			break;
 
 		default:
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 				"invalid command: %d\n", ntohs(hdr->msg_type));
 			error = -1;		// for now
 			break;
@@ -705,7 +718,7 @@ vpncontrol_reply(int so, char *combuf)
 
 	tlen = send(so, combuf, sizeof(struct vpnctl_hdr), 0);
 	if (tlen < 0) {
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"failed to send vpn_control message: %s\n", strerror(errno));
 		return -1;
 	}
@@ -733,7 +746,7 @@ vpncontrol_set_nat64_prefix(nw_nat64_prefix_t *prefix)
 int
 vpncontrol_notify_need_authinfo(phase1_handle_t *iph1, void* attr_list, size_t attr_len)
 {
-	struct vpnctl_status_need_authinfo *msg = NULL; 
+	struct vpnctl_status_need_authinfo *msg = NULL;
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
 	size_t msg_size;
@@ -744,12 +757,12 @@ vpncontrol_notify_need_authinfo(phase1_handle_t *iph1, void* attr_list, size_t a
 	if (!iph1)
 		goto end;
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		"sending vpn_control xauth need info status\n");
 
 	msg = (struct vpnctl_status_need_authinfo *)racoon_malloc(msg_size = sizeof(struct vpnctl_status_need_authinfo) + attr_len);
 	if (msg == NULL) {
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"unable to allocate space for vpn control message.\n");
 		return -1;
 	}
@@ -778,7 +791,7 @@ vpncontrol_notify_need_authinfo(phase1_handle_t *iph1, void* attr_list, size_t a
 				plog(ASL_LEVEL_DEBUG, "vpn control writing %zu bytes\n", msg_size);
 				tlen = send(sock_elem->sock, msg, msg_size, 0);
 				if (tlen < 0) {
-					plog(ASL_LEVEL_ERR, 
+					plog(ASL_LEVEL_ERR,
 						"failed to send vpn_control need authinfo status: %s\n", strerror(errno));
 				}
 				break;
@@ -795,7 +808,7 @@ end:
 int
 vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t address, u_int16_t data_len, u_int8_t *data)
 {
-	struct vpnctl_status_failed *msg = NULL; 
+	struct vpnctl_status_failed *msg = NULL;
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
 	size_t len;
@@ -805,7 +818,7 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 	
 	msg = (struct vpnctl_status_failed *)racoon_malloc(len);
 	if (msg == NULL) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_ERR,
 				"unable to allcate memory for vpn control status message.\n");
 		return -1;
 	}
@@ -818,7 +831,7 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 	msg->from = htons(from);
 	if (data_len > 0)
 		memcpy(msg->data, data, data_len);	
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_ERR,
 			"sending vpn_control ike failed message - code=%d  from=%s.\n", notify_code,
 					(from == FROM_LOCAL ? "local" : "remote"));
 
@@ -828,8 +841,11 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 				bound_addr->address == address) {
 				tlen = send(sock_elem->sock, msg, len, 0);
 				if (tlen < 0) {
-					plog(ASL_LEVEL_ERR, 
+					plog(ASL_LEVEL_ERR,
 						"Unable to send vpn_control ike notify failed: %s\n", strerror(errno));
+				} else {
+					plog(ASL_LEVEL_DEBUG,
+						 "Sent %zd/%zu bytes\n", tlen, len);
 				}
 				break;
 			}
@@ -870,7 +886,7 @@ vpncontrol_status_2_str(u_int16_t msg_type)
 int
 vpncontrol_notify_phase_change(int start, u_int16_t from, phase1_handle_t *iph1, phase2_handle_t *iph2)
 {
-	struct vpnctl_status_phase_change *msg; 
+	struct vpnctl_status_phase_change *msg;
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
 	ssize_t tlen;
@@ -886,7 +902,7 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, phase1_handle_t *iph1,
 	}
 		
 	if (msg == NULL) {
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 						"unable to allocate space for vpn control message.\n");
 		return -1;
 	}
@@ -896,8 +912,8 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, phase1_handle_t *iph1,
 			plog(ASL_LEVEL_ERR, "bad address for ph1 status change.\n");
 			goto end;
 		}
-		msg->hdr.msg_type = htons(start ? 
-			(from == FROM_LOCAL ? VPNCTL_STATUS_PH1_START_US : VPNCTL_STATUS_PH1_START_PEER) 
+		msg->hdr.msg_type = htons(start ?
+			(from == FROM_LOCAL ? VPNCTL_STATUS_PH1_START_US : VPNCTL_STATUS_PH1_START_PEER)
 			: VPNCTL_STATUS_PH1_ESTABLISHED);
 		// TODO: indicate version
 	} else {
@@ -923,7 +939,7 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, phase1_handle_t *iph1,
 				plog(ASL_LEVEL_DEBUG, "vpn control writing %zu bytes\n", msg_size);
 				tlen = send(sock_elem->sock, msg, msg_size, 0);
 				if (tlen < 0) {
-					plog(ASL_LEVEL_ERR, 
+					plog(ASL_LEVEL_ERR,
 						"failed to send vpn_control phase change status: %s\n", strerror(errno));
 				}
 				break;
@@ -940,7 +956,7 @@ end:
 static int
 vpncontrol_notify_peer_resp (u_int16_t notify_code, u_int32_t address)
 {
-	struct vpnctl_status_peer_resp msg; 
+	struct vpnctl_status_peer_resp msg;
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
 	ssize_t tlen;
@@ -952,7 +968,7 @@ vpncontrol_notify_peer_resp (u_int16_t notify_code, u_int32_t address)
 	msg.hdr.len = htons(sizeof(msg) - sizeof(msg.hdr));
 	msg.address = address;
 	msg.ike_code = notify_code;
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		 "sending vpn_control status (peer response) message - code=%d  addr=%x.\n", notify_code, address);
 	
 	LIST_FOREACH(sock_elem, &lcconf->vpnctl_comm_socks, chain) {
@@ -961,7 +977,7 @@ vpncontrol_notify_peer_resp (u_int16_t notify_code, u_int32_t address)
 				bound_addr->address == address) {
 				tlen = send(sock_elem->sock, &msg, sizeof(msg), 0);
 				if (tlen < 0) {
-					plog(ASL_LEVEL_ERR, 
+					plog(ASL_LEVEL_ERR,
 						 "unable to send vpn_control status (peer response): %s\n", strerror(errno));
 				} else {
 					rc = 0;
@@ -1006,13 +1022,13 @@ int
 vpncontrol_init(void)
 {
     int sock;
-    
+
 	if (vpncontrolsock_path == NULL) {
 		lcconf->sock_vpncontrol = -1;
 		return 0;
 	}
 
-	if ( (lcconf->sock_vpncontrol = checklaunchd()) == 0 ) { 
+	if ( (lcconf->sock_vpncontrol = checklaunchd()) == 0 ) {
 		memset(&sunaddr, 0, sizeof(sunaddr));
 		sunaddr.sun_family = AF_UNIX;
 		snprintf(sunaddr.sun_path, sizeof(sunaddr.sun_path),
@@ -1020,7 +1036,7 @@ vpncontrol_init(void)
 
 		lcconf->sock_vpncontrol = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (lcconf->sock_vpncontrol == -1) {
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 				"socket: %s\n", strerror(errno));
 			return -1;
 		}
@@ -1028,11 +1044,11 @@ vpncontrol_init(void)
 		if (fcntl(lcconf->sock_vpncontrol, F_SETFL, O_NONBLOCK) == -1) {
 			plog(ASL_LEVEL_ERR, "failed to put VPN-Control socket in non-blocking mode\n");
 		}
-        
+
 		unlink(sunaddr.sun_path);
 		if (bind(lcconf->sock_vpncontrol, (struct sockaddr *)&sunaddr,
 				sizeof(sunaddr)) != 0) {
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 				"bind(sockname:%s): %s\n",
 				sunaddr.sun_path, strerror(errno));
 			(void)close(lcconf->sock_vpncontrol);
@@ -1040,30 +1056,30 @@ vpncontrol_init(void)
 		}
 
 		if (chown(sunaddr.sun_path, vpncontrolsock_owner, vpncontrolsock_group) != 0) {
-			plog(ASL_LEVEL_ERR, 
-				"chown(%s, %d, %d): %s\n", 
-				sunaddr.sun_path, vpncontrolsock_owner, 
+			plog(ASL_LEVEL_ERR,
+				"chown(%s, %d, %d): %s\n",
+				sunaddr.sun_path, vpncontrolsock_owner,
 				vpncontrolsock_group, strerror(errno));
 			(void)close(lcconf->sock_vpncontrol);
 			return -1;
 		}
 
 		if (chmod(sunaddr.sun_path, vpncontrolsock_mode) != 0) {
-			plog(ASL_LEVEL_ERR, 
-				"chmod(%s, 0%03o): %s\n", 
+			plog(ASL_LEVEL_ERR,
+				"chmod(%s, 0%03o): %s\n",
 				sunaddr.sun_path, vpncontrolsock_mode, strerror(errno));
 			(void)close(lcconf->sock_vpncontrol);
 			return -1;
 		}
 
 		if (listen(lcconf->sock_vpncontrol, 5) != 0) {
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 				"listen(sockname:%s): %s\n",
 				sunaddr.sun_path, strerror(errno));
 			(void)close(lcconf->sock_vpncontrol);
 			return -1;
 		}
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"opened %s as racoon management.\n", sunaddr.sun_path);
 	}
     lcconf->vpncontrol_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, lcconf->sock_vpncontrol, 0, dispatch_get_main_queue());
@@ -1073,7 +1089,7 @@ vpncontrol_init(void)
     }
     dispatch_source_set_event_handler_f(lcconf->vpncontrol_source, vpncontrol_handler);
     sock = lcconf->sock_vpncontrol;
-    dispatch_source_set_cancel_handler(lcconf->vpncontrol_source, 
+    dispatch_source_set_cancel_handler(lcconf->vpncontrol_source,
                                          ^{
                                                 close(sock);
                                          });
@@ -1086,10 +1102,10 @@ vpncontrol_disconnect_all(struct vpnctl_socket_elem *elem, const char *reason)
 {
     struct bound_addr *addr;
     struct bound_addr *t_addr;
-    
-    plog(ASL_LEVEL_DEBUG, 
+
+    plog(ASL_LEVEL_NOTICE,
          "received disconnect all command.\n");
-    
+
     LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
         /* stop any connections */
         vpn_disconnect(addr, reason);
@@ -1102,12 +1118,12 @@ vpncontrol_close()
     struct vpnctl_socket_elem *elem;
 	struct vpnctl_socket_elem *t_elem;
 	
-    plog(ASL_LEVEL_DEBUG, 
+    plog(ASL_LEVEL_NOTICE,
          "vpncontrol_close.\n");
 
     dispatch_source_cancel(lcconf->vpncontrol_source);
     lcconf->vpncontrol_source = NULL;
-    
+
     lcconf->sock_vpncontrol = -1;
     LIST_FOREACH_SAFE(elem, &lcconf->vpnctl_comm_socks, chain, t_elem)
         vpncontrol_close_comm(elem);
@@ -1119,12 +1135,20 @@ vpncontrol_close_comm(struct vpnctl_socket_elem *elem)
 	struct bound_addr *addr;
 	struct bound_addr *t_addr;
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		"vpncontrol_close_comm.\n");
 	
 	LIST_REMOVE(elem, chain);
-	if (elem->sock != -1)
+	if (elem->sock != -1) {
 		dispatch_source_cancel(elem->source);
+		elem->sock = -1;
+	}
+	if (elem->buffer != NULL) {
+		free(elem->buffer);
+		elem->buffer = NULL;
+		elem->pending_bytes_len = 0;
+		elem->read_bytes_len = 0;
+	}
 	LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 		flushsainfo_dynamic(addr->address);
 		LIST_REMOVE(addr, chain);

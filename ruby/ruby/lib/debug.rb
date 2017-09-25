@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # Copyright (C) 2000  Network Applied Communication Laboratory, Inc.
 # Copyright (C) 2000  Information-technology Promotion Agency, Japan
 # Copyright (C) 2000-2003  NAKAMURA, Hiroshi  <nahi@ruby-lang.org>
@@ -752,9 +753,18 @@ EOHELP
         (id ? ":in `#{id.id2name}'" : "")
     end
 
+    def script_lines(file, line)
+      unless (lines = SCRIPT_LINES__[file]) and lines != true
+        Tracer::Single.get_line(file, line) if File.exist?(file)
+        lines = SCRIPT_LINES__[file]
+        lines = nil if lines == true
+      end
+      lines
+    end
+
     def display_list(b, e, file, line)
-      stdout.printf "[%d, %d] in %s\n", b, e, file
-      if lines = SCRIPT_LINES__[file] and lines != true
+      if lines = script_lines(file, line)
+        stdout.printf "[%d, %d] in %s\n", b, e, file
         b.upto(e) do |n|
           if n > 0 && lines[n-1]
             if n == line
@@ -770,11 +780,8 @@ EOHELP
     end
 
     def line_at(file, line)
-      lines = SCRIPT_LINES__[file]
-      if lines
-        return "\n" if lines == true
-        line = lines[line-1]
-        return "\n" unless line
+      lines = script_lines(file, line)
+      if lines and line = lines[line-1]
         return line
       end
       return "\n"
@@ -910,7 +917,7 @@ EOHELP
 
     # Returns the list of break points where execution will be stopped.
     #
-    # See DEBUGGER__ for more useage
+    # See DEBUGGER__ for more usage
     def break_points
       @break_points
     end
@@ -1001,6 +1008,29 @@ EOHELP
       end
       @stdout.print "\n"
     end
+
+    # Prints all threads in @thread_list to @stdout. Returns a sorted array of
+    # values from the @thread_list hash.
+    #
+    # While in the debugger you can list all of
+    # the threads with: <b>DEBUGGER__.thread_list_all</b>
+    #
+    #   (rdb:1) DEBUGGER__.thread_list_all
+    #   +1 #<Thread:0x007fb2320c03f0 run> debug_me.rb.rb:3
+    #    2 #<Thread:0x007fb23218a538@debug_me.rb.rb:3 sleep>
+    #    3 #<Thread:0x007fb23218b0f0@debug_me.rb.rb:3 sleep>
+    #   [1, 2, 3]
+    #
+    # Your current thread is indicated by a <b>+</b>
+    #
+    # Additionally you can list all threads with <b>th l</b>
+    #
+    #   (rdb:1) th l
+    #    +1 #<Thread:0x007f99328c0410 run>  debug_me.rb:3
+    #     2 #<Thread:0x007f9932938230@debug_me.rb:3 sleep> debug_me.rb:3
+    #     3 #<Thread:0x007f9932938e10@debug_me.rb:3 sleep> debug_me.rb:3
+    #
+    # See DEBUGGER__ for more usage.
 
     def thread_list_all
       for th in @thread_list.values.sort

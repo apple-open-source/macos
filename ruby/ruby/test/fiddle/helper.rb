@@ -1,8 +1,8 @@
+# frozen_string_literal: false
 require 'minitest/autorun'
 require 'fiddle'
 
 # FIXME: this is stolen from DL and needs to be refactored.
-require_relative '../ruby/envutil'
 
 libc_so = libm_so = nil
 
@@ -27,7 +27,8 @@ when /linux/
   libm_so = File.join(libdir, "libm.so.6")
 when /mingw/, /mswin/
   require "rbconfig"
-  libc_so = libm_so = RbConfig::CONFIG["RUBY_SO_NAME"].split(/-/).find{|e| /^msvc/ =~ e} + ".dll"
+  crtname = RbConfig::CONFIG["RUBY_SO_NAME"][/msvc\w+/] || 'ucrtbase'
+  libc_so = libm_so = "#{crtname}.dll"
 when /darwin/
   libc_so = "/usr/lib/libc.dylib"
   libm_so = "/usr/lib/libm.dylib"
@@ -37,6 +38,9 @@ when /kfreebsd/
 when /gnu/	#GNU/Hurd
   libc_so = "/lib/libc.so.0.3"
   libm_so = "/lib/libm.so.6"
+when /mirbsd/
+  libc_so = "/usr/lib/libc.so.41.10"
+  libm_so = "/usr/lib/libm.so.7.0"
 when /freebsd/
   libc_so = "/lib/libc.so.7"
   libm_so = "/lib/libm.so.5"
@@ -111,6 +115,12 @@ module Fiddle
     def setup
       @libc = Fiddle.dlopen(LIBC_SO)
       @libm = Fiddle.dlopen(LIBM_SO)
+    end
+
+    def teardown
+      if /linux/ =~ RUBY_PLATFORM
+        GC.start
+      end
     end
   end
 end

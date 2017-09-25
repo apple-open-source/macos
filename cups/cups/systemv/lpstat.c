@@ -1,14 +1,14 @@
 /*
  * "lpstat" command for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -77,7 +77,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     {
       for (opt = argv[i] + 1; *opt; opt ++)
       {
-	switch (argv[i][1])
+	switch (*opt)
 	{
 	  case 'D' : /* Show description */
 	      long_status = 1;
@@ -239,6 +239,41 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 	      show_default(dests);
 	      break;
+
+	  case 'e' : /* List destinations */
+	      {
+                cups_dest_t *temp = NULL, *dest;
+                int j, num_temp = cupsGetDests(&temp);
+
+                op = 'e';
+
+                for (j = num_temp, dest = temp; j > 0; j --, dest ++)
+                {
+                  if (dest->instance)
+                    printf("%s/%s", dest->name, dest->instance);
+                  else
+                    fputs(dest->name, stdout);
+
+                  if (long_status)
+                  {
+                    const char *printer_uri_supported = cupsGetOption("printer-uri-supported", dest->num_options, dest->options);
+                    const char *printer_is_temporary = cupsGetOption("printer-is-temporary", dest->num_options, dest->options);
+                    const char *type = "network";
+
+                    if (printer_is_temporary && !strcmp(printer_is_temporary, "true"))
+                      type = "temporary";
+                    else if (printer_uri_supported)
+                      type = "permanent";
+
+                    printf(" %s %s %s\n", type, printer_uri_supported ? printer_uri_supported : "none", cupsGetOption("device-uri", dest->num_options, dest->options));
+                  }
+                  else
+                    putchar('\n');
+                }
+
+                cupsFreeDests(num_temp, temp);
+              }
+              break;
 
 	  case 'f' : /* Show forms */
 	      op   = 'f';

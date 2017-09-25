@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * Copyright (c) 1997-2016, International Business Machines
  * Corporation and others. All Rights Reserved.
@@ -686,7 +688,7 @@ static void TestGetSetDateAPI()
 
     /*Testing  if setDate works fine  */
     log_verbose("\nTesting the ucal_setDate() function \n");
-    u_uastrcpy(temp, "Dec 17, 1971, 11:05:28 PM");
+    u_uastrcpy(temp, "Dec 17, 1971 at 11:05:28 PM");
     ucal_setDate(caldef,1971, UCAL_DECEMBER, 17, &status);
     if(U_FAILURE(status)){
         log_err("error in setting the calendar date : %s\n", u_errorName(status));
@@ -717,7 +719,7 @@ static void TestGetSetDateAPI()
 
     /*Testing if setDateTime works fine */
     log_verbose("\nTesting the ucal_setDateTime() function \n");
-    u_uastrcpy(temp, "May 3, 1972, 4:30:42 PM");
+    u_uastrcpy(temp, "May 3, 1972 at 4:30:42 PM");
     ucal_setDateTime(caldef,1972, UCAL_MAY, 3, 16, 30, 42, &status);
     if(U_FAILURE(status)){
         log_err("error in setting the calendar date : %s\n", u_errorName(status));

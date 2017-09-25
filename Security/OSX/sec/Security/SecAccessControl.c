@@ -242,13 +242,13 @@ static bool checkItemInArray(CFTypeRef item, const CFTypeRef *values, CFIndex co
             return true;
         }
     }
-    return SecError(errSecParam, error, errMessage, item);
+    return SecError(errSecParam, error, CFSTR("%@: %@"), errMessage, item);
 }
 
 #define CheckItemInArray(item, values, msg) \
 { \
     const CFTypeRef vals[] = values; \
-    if (!checkItemInArray(item, vals, sizeof(vals)/sizeof(*vals), CFSTR(msg), error)) { \
+    if (!checkItemInArray(item, vals, sizeof(vals)/sizeof(*vals), msg, error)) { \
         return false; \
     } \
 }
@@ -264,7 +264,7 @@ bool SecAccessControlSetProtection(SecAccessControlRef access_control, CFTypeRef
                                                kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
                                                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                                                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly),
-                         "SecAccessControl: invalid protection %@");
+                         CFSTR("SecAccessControl: invalid protection"));
     }
 
     // Protection valid, use it.
@@ -346,7 +346,7 @@ bool SecAccessControlAddConstraintForOperation(SecAccessControlRef access_contro
                                           kAKSKeyOpSign, kAKSKeyOpAttest, kAKSKeyOpComputeKey,
 #endif
                                           kAKSKeyOpSync, kAKSKeyOpDefaultAcl, kAKSKeyOpDelete),
-                     "SecAccessControl: invalid operation %@");
+                     CFSTR("SecAccessControl: invalid operation"));
     if (!isDictionary(constraint) && !CFEqual(constraint, kCFBooleanTrue) && !CFEqual(constraint, kCFBooleanFalse) ) {
         return SecError(errSecParam, error, CFSTR("invalid constraint"));
     }

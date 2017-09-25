@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *   Copyright (C) 1996-2015, International Business Machines
@@ -23,6 +25,7 @@
 #include "unicode/ustring.h"
 #include "unicode/udisplaycontext.h"
 #include "unicode/ufieldpositer.h"
+#include "unicode/ucasemap.h"
 #include "cpputils.h"
 #include "reldtfmt.h"
 #include "umutex.h"

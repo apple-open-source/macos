@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006, 2011, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006, 2011, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -109,6 +109,7 @@ __private_extern__
 void
 cache_SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
+#pragma unused(store)
 	CFIndex	i;
 
 	i = CFArrayGetFirstIndexOfValue(cached_removals,
@@ -128,6 +129,7 @@ __private_extern__
 void
 cache_SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 {
+#pragma unused(store)
 	CFDictionaryRemoveValue(cached_set, key);
 
 	if (!CFArrayContainsValue(cached_removals,
@@ -144,6 +146,7 @@ __private_extern__
 void
 cache_SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key)
 {
+#pragma unused(store)
 	if (!CFArrayContainsValue(cached_notifys,
 				  CFRangeMake(0, CFArrayGetCount(cached_notifys)),
 				  key)) {

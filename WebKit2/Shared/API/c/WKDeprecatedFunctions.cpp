@@ -25,12 +25,13 @@
 
 #include "config.h"
 
+#include "APIContentRuleList.h"
 #include "APIDictionary.h"
-#include "APIUserContentExtension.h"
 #include "WKAPICast.h"
 #include "WKArray.h"
 #include "WKContextPrivate.h"
 #include "WKMutableDictionary.h"
+#include "WKPageGroup.h"
 #include "WKPreferencesRefPrivate.h"
 #include "WebPageGroup.h"
 #include "WebUserContentControllerProxy.h"
@@ -40,13 +41,6 @@
 #endif
 
 // Deprecated functions that should be removed from the framework once nobody uses them.
-
-extern "C" {
-WK_EXPORT WKStringRef WKPageGroupCopyIdentifier(WKPageGroupRef pageGroup);
-WK_EXPORT void WKPageGroupAddUserContentFilter(WKPageGroupRef pageGroup, WKUserContentFilterRef userContentFilter);
-WK_EXPORT void WKPageGroupRemoveUserContentFilter(WKPageGroupRef pageGroup, WKStringRef userContentFilterName);
-WK_EXPORT void WKPageGroupRemoveAllUserContentFilters(WKPageGroupRef pageGroup);
-}
 
 using namespace WebKit;
 
@@ -63,31 +57,22 @@ WKStringRef WKPageGroupCopyIdentifier(WKPageGroupRef)
     return nullptr;
 }
 
-void WKPageGroupAddUserContentFilter(WKPageGroupRef pageGroupRef, WKUserContentFilterRef userContentFilterRef)
+void WKPageGroupAddUserContentFilter(WKPageGroupRef pageGroupRef, WKUserContentFilterRef contentFilterRef)
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    toImpl(pageGroupRef)->userContentController().addUserContentExtension(*toImpl(userContentFilterRef));
+    toImpl(pageGroupRef)->userContentController().addContentRuleList(*toImpl(contentFilterRef));
 #else
     UNUSED_PARAM(pageGroupRef);
-    UNUSED_PARAM(userContentFilterRef);
+    UNUSED_PARAM(contentFilterRef);
 #endif
 }
 
-void WKPageGroupRemoveUserContentFilter(WKPageGroupRef pageGroupRef, WKStringRef userContentFilterNameRef)
+void WKPageGroupRemoveUserContentFilter(WKPageGroupRef pageGroupRef, WKStringRef contentFilterNameRef)
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    toImpl(pageGroupRef)->userContentController().removeUserContentExtension(toWTFString(userContentFilterNameRef));
+    toImpl(pageGroupRef)->userContentController().removeContentRuleList(toWTFString(contentFilterNameRef));
 #else
     UNUSED_PARAM(pageGroupRef);
-    UNUSED_PARAM(userContentFilterNameRef);
-#endif
-}
-
-void WKPageGroupRemoveAllUserContentFilters(WKPageGroupRef pageGroupRef)
-{
-#if ENABLE(CONTENT_EXTENSIONS)
-    toImpl(pageGroupRef)->userContentController().removeAllUserContentExtensions();
-#else
-    UNUSED_PARAM(pageGroupRef);
+    UNUSED_PARAM(contentFilterNameRef);
 #endif
 }

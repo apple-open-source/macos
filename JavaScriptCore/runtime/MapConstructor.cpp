@@ -37,11 +37,11 @@
 
 namespace JSC {
 
-const ClassInfo MapConstructor::s_info = { "Function", &Base::s_info, 0, CREATE_METHOD_TABLE(MapConstructor) };
+const ClassInfo MapConstructor::s_info = { "Function", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(MapConstructor) };
 
 void MapConstructor::finishCreation(VM& vm, MapPrototype* mapPrototype, GetterSetter* speciesSymbol)
 {
-    Base::finishCreation(vm, mapPrototype->classInfo()->className);
+    Base::finishCreation(vm, mapPrototype->classInfo(vm)->className);
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, mapPrototype, DontEnum | DontDelete | ReadOnly);
     putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), DontEnum | ReadOnly);
     putDirectNonIndexAccessor(vm, vm.propertyNames->speciesSymbol, speciesSymbol, Accessor | ReadOnly | DontEnum);
@@ -62,11 +62,19 @@ static EncodedJSValue JSC_HOST_CALL constructMap(ExecState* exec)
     JSGlobalObject* globalObject = asInternalFunction(exec->jsCallee())->globalObject();
     Structure* mapStructure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), globalObject->mapStructure());
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    JSMap* map = JSMap::create(exec, vm, mapStructure);
-    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+
     JSValue iterable = exec->argument(0);
     if (iterable.isUndefinedOrNull())
-        return JSValue::encode(map);
+        return JSValue::encode(JSMap::create(exec, vm, mapStructure));
+
+    if (isJSMap(iterable)) {
+        JSMap* iterableMap = jsCast<JSMap*>(iterable);
+        if (iterableMap->canCloneFastAndNonObservable(mapStructure))
+            return JSValue::encode(iterableMap->clone(exec, vm, mapStructure));
+    }
+
+    JSMap* map = JSMap::create(exec, vm, mapStructure);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     JSValue adderFunction = map->JSObject::get(exec, exec->propertyNames().set);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());

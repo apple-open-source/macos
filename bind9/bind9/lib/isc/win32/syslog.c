@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -138,7 +138,7 @@ openlog(const char *name, int flags, ...) {
  * In fact if we failed then we would have nowhere to put the message
  */
 void
-closelog() {
+closelog(void) {
 	DeregisterEventSource(hAppLog);
 }
 
@@ -147,7 +147,7 @@ closelog() {
  */
 void
 ModifyLogLevel(int level) {
-	debug_level = level;	
+	debug_level = level;
 }
 
 /*

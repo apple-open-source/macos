@@ -459,8 +459,6 @@
 /* .IP "\fBsmtp_tls_force_insecure_host_tlsa_lookup (no)\fR"
 /*	Lookup the associated DANE TLSA RRset even when a hostname is
 /*	not an alias and its address records lie in an unsigned zone.
-/* .IP "\fBtls_dane_trust_anchor_digest_enable (yes)\fR"
-/*	RFC 6698 trust-anchor digest support in the Postfix TLS library.
 /* .IP "\fBtlsmgr_service_name (tlsmgr)\fR"
 /*	The name of the \fBtlsmgr\fR(8) service entry in master.cf.
 /* .PP
@@ -595,6 +593,12 @@
 /* .IP "\fBsmtputf8_autodetect_classes (sendmail, verify)\fR"
 /*	Detect that a message requires SMTPUTF8 support for the specified
 /*	mail origin classes.
+/* .PP
+/*	Available in Postfix version 3.2 and later:
+/* .IP "\fBenable_idna2003_compatibility (no)\fR"
+/*	Enable 'transitional' compatibility between IDNA2003 and IDNA2008,
+/*	when converting UTF-8 domain names to/from the ASCII form that is
+/*	used for DNS lookups.
 /* TROUBLE SHOOTING CONTROLS
 /* .ad
 /* .fi
@@ -683,8 +687,8 @@
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
-/*	The mail system name that is prepended to the process name in syslog
-/*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/*	A prefix that is prepended to the process name in syslog
+/*	records, so that, for example, "smtpd" becomes "prefix/smtpd".
 /* .PP
 /*	Available with Postfix 2.2 and earlier:
 /* .IP "\fBfallback_relay (empty)\fR"
@@ -705,6 +709,10 @@
 /* .IP "\fBlmtp_fallback_relay (empty)\fR"
 /*	Optional list of relay hosts for LMTP destinations that can't be
 /*	found or that are unreachable.
+/* .PP
+/*	Available with Postfix 3.2 and later:
+/* .IP "\fBsmtp_tcp_port (smtp)\fR"
+/*	The default TCP port that the Postfix SMTP client connects to.
 /* SEE ALSO
 /*	generic(5), output address rewriting
 /*	header_checks(5), message header content inspection
@@ -908,7 +916,7 @@ char   *var_smtp_tls_insecure_mx_policy;
 char   *var_smtp_generic_maps;
 char   *var_prop_extension;
 bool    var_smtp_sender_auth;
-char   *var_lmtp_tcp_port;
+char   *var_smtp_tcp_port;
 int     var_scache_proto_tmout;
 bool    var_smtp_cname_overr;
 char   *var_smtp_pix_bug_words;

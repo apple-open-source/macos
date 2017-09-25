@@ -70,17 +70,17 @@ private:
 
 public:
 
-    virtual IOReturn clientClose( void );
+    virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
     
     virtual IOReturn externalMethod( uint32_t selector, 
                                 IOExternalMethodArguments * arguments,
                                 IOExternalMethodDispatch * dispatch = 0, 
-                                OSObject * targe    = 0, void * reference = 0 );
+                                OSObject * targe    = 0, void * reference = 0 ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool start( IOService * provider );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
     virtual bool initWithTask(task_t owningTask, void *security_id, 
-                    UInt32 type, OSDictionary * properties);
+                    UInt32 type, OSDictionary * properties) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* ! __AppleSmartBatteryManagerUserClient__ */

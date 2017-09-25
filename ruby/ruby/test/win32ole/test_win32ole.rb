@@ -1,4 +1,5 @@
 # coding: us-ascii
+# frozen_string_literal: false
 
 begin
   require 'win32ole'
@@ -169,6 +170,33 @@ if defined?(WIN32OLE)
       }
     end
 
+    def test_s_new_exc_svr_tainted
+      th = Thread.start {
+        $SAFE = 1
+        svr = "Scripting.Dictionary"
+        svr.taint
+        WIN32OLE.new(svr)
+      }
+      exc = assert_raise(SecurityError) {
+        th.join
+      }
+      assert_match(/insecure object creation - `Scripting.Dictionary'/, exc.message)
+    end
+
+    def test_s_new_exc_host_tainted
+      th = Thread.start {
+        $SAFE = 1
+        svr = "Scripting.Dictionary"
+        host = "localhost"
+        host.taint
+        WIN32OLE.new(svr, host)
+      }
+      exc = assert_raise(SecurityError) {
+        th.join
+      }
+      assert_match(/insecure object creation - `localhost'/, exc.message)
+    end
+
     def test_s_new_DCOM
       rshell = WIN32OLE.new("Shell.Application")
       assert_instance_of(WIN32OLE, rshell)
@@ -192,6 +220,19 @@ if defined?(WIN32OLE)
       assert_raise(TypeError) {
         WIN32OLE.connect(1)
       }
+    end
+
+    def test_s_coonect_exc_tainted
+      th = Thread.start {
+        $SAFE = 1
+        svr = "winmgmts:"
+        svr.taint
+        WIN32OLE.connect(svr)
+      }
+      exc = assert_raise(SecurityError) {
+        th.join
+      }
+      assert_match(/insecure connection - `winmgmts:'/, exc.message)
     end
 
     def test_invoke_accept_symbol_hash_key
@@ -228,7 +269,7 @@ if defined?(WIN32OLE)
     def test_invoke_hash_key_non_str_sym
       fso = WIN32OLE.new('Scripting.FileSystemObject')
       begin
-        bfolder = fso.getFolder({1 => "."})
+        fso.getFolder({1 => "."})
         assert(false)
       rescue TypeError
         assert(true)
@@ -270,7 +311,10 @@ if defined?(WIN32OLE)
     def test_ole_query_interface
       shell=WIN32OLE.new('Shell.Application')
       assert_raise(ArgumentError) {
-        shell2 = shell.ole_query_interface
+        shell.ole_query_interface
+      }
+      assert_raise(TypeError) {
+        shell.ole_query_interface(0x11223344)
       }
       shell2 = shell.ole_query_interface('{A4C6892C-3BA9-11D2-9DEA-00C04FB16162}')
       assert_instance_of(WIN32OLE, shell2)
@@ -494,6 +538,13 @@ if defined?(WIN32OLE)
 
     def test_const_LOCALE_USER_DEFAULT
       assert_equal(0x0400, WIN32OLE::LOCALE_USER_DEFAULT);
+    end
+
+    def test_method_missing
+      assert_raise(ArgumentError) {@dict1.method_missing}
+      assert_raise(TypeError) {@dict1.method_missing(1)}
+      assert_raise(ArgumentError) {@dict1.method_missing("foo=")}
+      assert_raise(ArgumentError) {@dict1.method_missing("foo=", 1, 2)}
     end
   end
 

@@ -44,7 +44,7 @@
 /* Currently HFS has maximum subtypes (5) */ 
 #define MAX_FS_SUBTYPES			5
 
-/* Maximun length of f_fstypename in /System/Library/Filesystem/ */
+/* Maximum length of f_fstypename in /System/Library/Filesystem/ */
 #define MAX_FSNAME			10
 
 #define kFSSystemLibraryFileSystemsPath CFSTR("/System/Library/Filesystems")
@@ -53,6 +53,23 @@
 #define KEY_FS_NAME 			CFSTR("FSName")
 #define UNKNOWN_FS_NAME			CFSTR("Unknown")
 
+// Temporary untill added to fsproperties.h
+#ifndef kFSEncryptNameKey
+#define    kFSEncryptNameKey             "FSEncryptionName"
+#endif
+
+/* APFS type and subtype number */
+#define APFS_NAME	"apfs"
+#define CASE_SENSITIVE			CFSTR("CaseSensitive")
+
+// APFS IORegistry object keys - can remove this if they enter IOKit framework at some point
+#define kAPFSEncryptedKey			"Encrypted"		/* Volume is encrypted (boolean) */
+#define APFS_FS_NAME				CFSTR("APFS")
+
+enum {
+    kAPFSXSubType    = 0,    /* APFS Case-sensitive */
+    kAPFSSubType     = 1     /* APFS Case-insensitive */
+};
 
 /* HFS type and subtype number */
 #define HFS_NAME	"hfs" 
@@ -63,7 +80,7 @@ enum {
     kHFSXJSubType       = 3,    /* HFS Case-sensitive, Journaled */
     kHFSSubType         = 128   /* HFS */
 };
-#define MAX_HFS_BLOCK_READ  512
+#define MAX_HFS_BLOCKSIZE 65536 // 64 KB
 
 /* MSDOS type and subtype number */
 #define MSDOS_NAME	"msdos"
@@ -77,9 +94,10 @@ enum {
 /* Internal function */
 CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, bool localized, bool encrypted);
 bool getfstype(char *devnode, char *fsname, int *fssubtype);
+bool is_apfs(char *devnode, int *fssubtype);
 bool is_hfs(char *devnode, int *fssubtype);
 bool is_msdos(char *devnode, int *fssubtype);
 static int getblk(int fd, unsigned long blk, int blksize, char* buf);
 static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset);
-
+ssize_t readdisk(int fd, off_t startaddr, size_t length, size_t blocksize, char* buf);
 #endif /* !__FS_FORMATNAME__ */

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require "rexml/namespace"
 require 'rexml/text'
 
@@ -80,8 +81,11 @@ module REXML
     # Returns the namespace URL, if defined, or nil otherwise
     #
     #  e = Element.new("el")
-    #  e.add_attributes({"xmlns:ns", "http://url"})
-    #  e.namespace( "ns" )              # -> "http://url"
+    #  e.add_namespace("ns", "http://url")
+    #  e.add_attribute("ns:a", "b")
+    #  e.add_attribute("nsx:a", "c")
+    #  e.attribute("ns:a").namespace # => "http://url"
+    #  e.attribute("nsx:a").namespace # => nil
     def namespace arg=nil
       arg = prefix if arg.nil?
       @element.namespace arg
@@ -106,7 +110,7 @@ module REXML
     #  b.to_string     # -> "ns:x='y'"
     def to_string
       if @element and @element.context and @element.context[:attribute_quote] == :quote
-        %Q^#@expanded_name="#{to_s().gsub(/"/, '&quote;')}"^
+        %Q^#@expanded_name="#{to_s().gsub(/"/, '&quot;')}"^
       else
         "#@expanded_name='#{to_s().gsub(/'/, '&apos;')}'"
       end
@@ -156,7 +160,7 @@ module REXML
       self
     end
 
-    # Removes this Attribute from the tree, and returns true if successfull
+    # Removes this Attribute from the tree, and returns true if successful
     #
     # This method is usually not called directly.
     def remove

@@ -292,11 +292,11 @@ cindex(hook function utility)
 
 startitem()
 findex(add-zsh-hook)
-item(tt(add-zsh-hook) [ tt(-dD) ] [ tt(-Uzk) ] var(hook) var(function))(
+item(tt(add-zsh-hook) [ tt(-L) | tt(-dD) ] [ tt(-Uzk) ] var(hook) var(function))(
 Several functions are special to the shell, as described in the section
 ifnzman(Special Functions, noderef(Functions))\
 ifzman(SPECIAL FUNCTIONS, see zmanref(zshmisc)),
-in that they are automatic called at a specific point during shell execution.
+in that they are automatically called at specific points during shell execution.
 Each has an associated array consisting of names of functions to be
 called at the same point; these are so-called `hook functions'.
 The shell function tt(add-zsh-hook) provides a simple way of adding or
@@ -311,6 +311,10 @@ still be manipulated as a hook.
 var(function) is name of an ordinary shell function.  If no options
 are given this will be added to the array of functions to be executed
 in the given context.
+Functions are invoked in the order they were added.
+
+If the option tt(-L) is given, the current values for the hook arrays
+are listed with tt(typeset).
 
 If the option tt(-d) is given, the var(function) is removed from
 the array of functions to be executed.
@@ -322,6 +326,55 @@ functions to be executed.
 The options tt(-U), tt(-z) and tt(-k) are passed as arguments to
 tt(autoload) for var(function).  For functions contributed with zsh, the
 options tt(-Uz) are appropriate.
+)
+findex(add-zle-hook-widget)
+item(tt(add-zle-hook-widget) [ tt(-L) | tt(-dD) ] [ tt(-Uzk) ] var(hook) var(widgetname))(
+Several widget names are special to the line editor, as described in the section
+ifnzman(Special Widgets, noderef(Zle Widgets))\
+ifzman(Special Widgets, see zmanref(zshzle)),
+in that they are automatically called at specific points during editing.
+Unlike function hooks, these do not use a predefined array of other names
+to call at the same point; the shell function tt(add-zle-hook-widget)
+maintains a similar array and arranges for the special widget to invoke
+those additional widgets.
+
+var(hook) is one of tt(isearch-exit), tt(isearch-update),
+tt(line-pre-redraw), tt(line-init), tt(line-finish), tt(history-line-set),
+or tt(keymap-select), corresponding to each of the special widgets
+tt(zle-isearch-exit), etc.  The special widget names are also accepted
+as the var(hook) argument.
+
+var(widgetname) is the name of a ZLE widget.  If no options are given this
+is added to the array of widgets to be invoked in the given hook context.
+Widgets are invoked in the order they were added, with
+example(tt(zle )var(widgetname)tt( -Nw -- "$@"))
+
+vindex(WIDGET, in hooks)
+Note that this means that the `tt(WIDGET)' special parameter tracks the
+var(widgetname) when the widget function is called, rather than tracking
+the name of the corresponding special hook widget.
+
+If the option tt(-d) is given, the var(widgetname) is removed from
+the array of widgets to be executed.
+
+If the option tt(-D) is given, the var(widgetname) is treated as a pattern
+and any matching names of widgets are removed from the array.
+
+If var(widgetname) does not name an existing widget when added to the
+array, it is assumed that a shell function also named var(widgetname) is
+meant to provide the implementation of the widget.  This name is therefore
+marked for autoloading, and the options tt(-U), tt(-z) and tt(-k) are
+passed as arguments to tt(autoload) as with tt(add-zsh-hook).  The
+widget is also created with `tt(zle -N )var(widgetname)' to cause the
+corresponding function to be loaded the first time the hook is called.
+
+The arrays of var(widgetname) are currently maintained in tt(zstyle)
+contexts, one for each var(hook) context, with a style of `tt(widgets)'.
+If the tt(-L) option is given, this set of styles is listed with
+`tt(zstyle -L)'.  This implementation may change, and the special widgets
+that refer to the styles are created only if tt(add-zle-hook-widget) is
+called to add at least one widget, so if this function is used for any
+hooks, then all hooks should be managed only via this function.
 )
 enditem()
 
@@ -998,7 +1051,7 @@ tt(:vcs_info:-init-:*:-all-) context.
 
 Say, tt(~/.zsh) is a directory under version control, in which you do
 not want tt(vcs_info) to be active, do:
-example(zstyle ':vcs_info:*' disable-patterns "$HOME/.zsh+LPAR()|/*+RPAR()")
+example(zstyle ':vcs_info:*' disable-patterns "${+LPAR()b+RPAR()HOME}/.zsh+LPAR()|/*+RPAR()")
 )
 kindex(use-quilt)
 item(tt(use-quilt))(
@@ -1017,7 +1070,7 @@ tt(Quilt Support) for details.
 )
 kindex(quiltcommand)
 item(tt(quiltcommand))(
-When tt(quilt) itself is called in quilt support the value of this style
+When tt(quilt) itself is called in quilt support, the value of this style
 is used as the command name.
 )
 kindex(check-for-changes)
@@ -1888,6 +1941,8 @@ tindex(transpose-words-match)
 tindex(capitalize-word-match)
 tindex(up-case-word-match)
 tindex(down-case-word-match)
+tindex(delete-whole-word-match)
+tindex(select-word-match)
 tindex(select-word-style)
 tindex(match-word-context)
 tindex(match-words-by-style)
@@ -1895,12 +1950,14 @@ xitem(tt(forward-word-match), tt(backward-word-match))
 xitem(tt(kill-word-match), tt(backward-kill-word-match))
 xitem(tt(transpose-words-match), tt(capitalize-word-match))
 xitem(tt(up-case-word-match), tt(down-case-word-match))
+xitem(tt(delete-whole-word-match), tt(select-word-match))
 item(tt(select-word-style), tt(match-word-context), tt(match-words-by-style))(
-The eight `tt(-match)' functions are drop-in replacements for the
+The first eight `tt(-match)' functions are drop-in replacements for the
 builtin widgets without the suffix.  By default they behave in a similar
 way.  However, by the use of styles and the function tt(select-word-style),
-the way words are matched can be altered.  For comparison, the widgets
-described in ifzman(zmanref(zshzle) under Text Objects)\
+the way words are matched can be altered. tt(select-word-match) is intended
+to be used as a text object in vi mode but with custom word styles. For
+comparison, the widgets described in ifzman(zmanref(zshzle) under Text Objects)\
 ifnzman(noderef(Text Objects)) use fixed definitions of words, compatible
 with the tt(vim) editor.
 
@@ -1908,7 +1965,7 @@ The simplest way of configuring the functions is to use
 tt(select-word-style), which can either be called as a normal function with
 the appropriate argument, or invoked as a user-defined widget that will
 prompt for the first character of the word style to be used.  The first
-time it is invoked, the eight tt(-match) functions will automatically
+time it is invoked, the first eight tt(-match) functions will automatically
 replace the builtin versions, so they do not need to be loaded explicitly.
 
 The word styles available are as follows.  Only the first character
@@ -2049,7 +2106,7 @@ Here are some examples of use of the tt(word-context) style to extend
 the context.
 
 example(zstyle ':zle:*' word-context \ 
-       "*/*" file "[[:space:]]" whitespace
+       "*/*" filename "[[:space:]]" whitespace
 zstyle ':zle:transpose-words:whitespace' word-style shell
 zstyle ':zle:transpose-words:filename' word-style normal
 zstyle ':zle:transpose-words:filename' word-chars '')
@@ -2076,6 +2133,17 @@ non-word characters following that word (7) the remainder of the line.  Any
 of the elements may be an empty string; the calling function should test
 for this to decide whether it can perform its function.
 
+If the variable tt(matched_words) is defined by the caller to
+tt(match-words-by-style) as an associative array (tt(local -A
+matched_words)), then the seven values given above should be retrieved
+from it as elements named tt(start), tt(word-before-cursor),
+tt(ws-before-cursor), tt(ws-after-cursor), tt(word-after-cursor),
+tt(ws-after-word), and tt(end).  In addition the element
+tt(is-word-start) is 1 if the cursor is on the start of a word or
+subword, or on white space before it (the cases can be distinguished by
+testing the tt(ws-after-cursor) element) and 0 otherwise.  This form is
+recommended for future compatibility.
+
 It is possible to pass options with arguments to tt(match-words-by-style)
 to override the use of styles.  The options are:
 startsitem()
@@ -2094,7 +2162,7 @@ tt(match-word-context).  This should not usually need to be called
 directly.
 )
 tindex(bracketed-paste-magic)
-item(bracketed-paste-magic)(
+item(tt(bracketed-paste-magic))(
 The tt(bracketed-paste) widget (see ifzman(subsection Miscellaneous in
 zmanref(zshzle))ifnzman(noderef(Miscellaneous) in noderef(Zle Widgets)))
 inserts pasted text literally into the editor buffer rather than interpret
@@ -2912,6 +2980,17 @@ and aliases `tt(globurl)' to `tt(noglob urlglobber)'.  This function takes
 a local URL apart, attempts to pattern-match the local file portion of the
 URL path, and then puts the results back into URL format again.
 )
+tindex(vi-pipe)
+item(tt(vi-pipe))(
+This function reads a movement command from the keyboard and then
+prompts for an external command. The part of the buffer covered by
+the movement is piped to the external command and then replaced by
+the command's output. If the movement command is bound to vi-pipe,
+the current line is used.
+
+The function serves as an example for reading a vi movement command
+from within a user-defined widget.
+)
 tindex(which-command)
 item(tt(which-command))(
 This function is a drop-in replacement for the builtin widget
@@ -2940,6 +3019,9 @@ the variable tt(ZCALC_AUTO_INSERT_PREFIX).
 
 Hence, for example, typing `tt(PLUS()12)' followed by return adds 12
 to the previous result.
+
+If zcalc is in RPN mode (tt(-r) option) the effect of this binding is
+automatically suppressed as operators alone on a line are meaningful.
 
 When not in zcalc, the key simply inserts the symbol itself.
 )
@@ -3396,7 +3478,7 @@ will ensure that any files found in that area will be executed as MIME
 types even if they are executable.  As this example shows, the complete
 file name is matched against the pattern, regardless of how the file
 was passed to the handler.  The file is resolved to a full path using
-the tt(:A) modifier described in
+the tt(:P) modifier described in
 ifzman(the subsection Modifiers in zmanref(zshexpn))\
 ifnzman(noderef(Modifiers));
 this means that symbolic links are resolved where possible, so that
@@ -3654,7 +3736,7 @@ sect(Mathematical Functions)
 
 startitem()
 findex(zcalc)
-item(tt(zcalc) [ tt(-ef) ] [ var(expression) ... ])(
+item(tt(zcalc) [ tt(-erf) ] [ var(expression) ... ])(
 A reasonably powerful calculator based on zsh's arithmetic evaluation
 facility.  The syntax is similar to that of formulae in most programming
 languages; see
@@ -3705,8 +3787,14 @@ first few positional parameters.  A visual indication of this is given when
 the calculator starts.
 
 The constants tt(PI) (3.14159...) and tt(E) (2.71828...) are provided.
-Parameter assignment is possible, but note that all parameters will be put
-into the global namespace.
+Parameter assignment is possible, but note that all parameters will be
+put into the global namespace unless the tt(:local) special command is
+used.  The function creates local variables whose names start with
+tt(_), so users should avoid doing so.  The variables tt(ans) (the last
+answer) and tt(stack) (the stack in RPN mode) may be referred to
+directly; tt(stack) is an array but elements of it are numeric.  Various
+other special variables are used locally with their standard meaning,
+for example tt(compcontext), tt(match), tt(mbegin), tt(mend), tt(psvar).
 
 The output base can be initialised by passing the option `tt(-#)var(base)',
 for example `tt(zcalc -#16)' (the `tt(#)' may have to be quoted, depending
@@ -3720,11 +3808,69 @@ If the option `tt(-f)' is set, all numbers are treated as floating
 point, hence for example the expression `tt(3/4)' evaluates to 0.75
 rather than 0.  Options must appear in separate words.
 
+If the option `tt(-r)' is set, RPN (Reverse Polish Notation) mode is
+entered.  This has various additional properties:
+startitem()
+item(Stack)(
+Evaluated values are maintained in a stack; this is contained in
+an array named tt(stack) with the most recent value in tt(${stack[1]}).
+)
+item(Operators and functions)(
+If the line entered matches an operator (tt(+), tt(-), tt(*),
+tt(/), tt(**), tt(^), tt(|) or tt(&)) or a function supplied by the
+tt(zsh/mathfunc) library, the bottom element or elements of the stack
+are popped to use as the argument or arguments.  The higher elements
+of stack (least recent) are used as earlier arguments.  The result is
+then pushed into tt(${stack[1]}).
+)
+item(Expressions)(
+Other expressions are evaluated normally, printed, and added to the
+stack as numeric values.  The syntax within expressions on a single line
+is normal shell arithmetic (not RPN).
+)
+item(Stack listing)(
+If an integer follows the option tt(-r) with no space, then
+on every evaluation that many elements of the stack, where available,
+are printed instead of just the most recent result.  Hence, for example,
+tt(zcalc -r4) shows tt($stack[4]) to tt($stack[1]) each time results
+are printed.
+)
+item(Duplication: tt(=))(
+The pseudo-operator tt(=) causes the most recent element of
+the stack to be duplicated onto the stack.
+)
+item(tt(pop))(
+The pseudo-function tt(pop) causes the most recent element of
+the stack to be popped.  A `tt(>)' on its own has the same effect.
+)
+item(tt(>)var(ident))(
+The expression tt(>) followed (with no space) by a shell identifier
+causes the most recent element of the stack to be popped and
+assigned to the variable with that name.  The variable is
+local to the tt(zcalc) function.
+)
+item(tt(<)var(ident))(
+The expression tt(<) followed (with no space) by a shell identifier
+causes the value of the variable with that name to be pushed
+onto the stack.  var(ident) may be an integer, in which
+case the previous result with that number (as shown before
+the tt(>) in the standard tt(zcalc) prompt) is put on the stack.
+)
+item(Exchange: tt(xy))(
+The pseudo-function tt(xy) causes the most recent two elements of
+the stack to be exchanged.  `tt(<>)' has the same effect.
+)
+enditem()
+
 The prompt is configurable via the parameter tt(ZCALCPROMPT), which
 undergoes standard prompt expansion.  The index of the current entry is
 stored locally in the first element of the array tt(psvar), which can be
 referred to in tt(ZCALCPROMPT) as `tt(%1v)'.  The default prompt is
 `tt(%1v> )'.
+
+The variable tt(ZCALC_ACTIVE) is set within the function and can
+be tested by nested functions; it has the value tt(rpn) if RPN mode is
+active, else 1.
 
 A few special commands are available; these are introduced by a colon.
 For backward compatibility, the colon may be omitted for certain
@@ -3765,8 +3911,7 @@ is executed in the context of the function, i.e. with local variables.
 Space is optional after tt(:!).
 )
 item(tt(:local) var(arg) ...)(
-Declare variables local to the function.  Note that certain variables
-are used by the function for its own purposes.  Other variables
+Declare variables local to the function.  Other variables
 may be used, too, but they will be taken from or put into the global
 scope.
 )
@@ -3780,7 +3925,13 @@ Note that tt(zcalc) takes care of all quoting.  Hence for example:
 
 example(:f cube $1 * $1 * $1)
 
-defines a function to cube the sole argument.
+defines a function to cube the sole argument.  Functions so defined, or
+indeed any functions defined directly or indirectly using tt(functions
+-M), are available to execute by typing only the name on the line in RPN
+mode; this pops the appropriate number of arguments off the stack
+to pass to the function, i.e. 1 in the case of the example tt(cube)
+function.  If there are optional arguments only the mandatory
+arguments are supplied by this means.
 )
 item(tt([#)var(base)tt(]))(
 This is not a special command, rather part of normal arithmetic
@@ -3792,9 +3943,30 @@ always specified in decimal. `tt([#])' restores the normal output format.
 Note that setting an output base suppresses floating point output; use
 `tt([#])' to return to normal operation.
 )
+item(tt($)var(var))(
+Print out the value of var literally; does not affect the calculation.
+To use the value of var, omit the leading `tt($)'.
+)
 enditem()
 
 See the comments in the function for a few extra tips.
+)
+findex(max)
+findex(min)
+findex(sum)
+findex(zmathfunc)
+xitem(tt(min+LPAR())var(arg)tt(, ...+RPAR()))
+xitem(tt(max+LPAR())var(arg)tt(, ...+RPAR()))
+xitem(tt(sum+LPAR())var(arg)tt(, ...+RPAR()))
+item(tt(zmathfunc))(
+The function tt(zmathfunc) defines the three mathematical functions
+tt(min), tt(max), and tt(sum).  The functions tt(min) and tt(max) take
+one or more arguments.  The function tt(sum) takes zero or more arguments.
+Arguments can be of different types (ints and floats).
+
+Not to be confused with the tt(zsh/mathfunc) module, described in
+ifzman(the section `The zsh/mathfunc Module' in zmanref(zshmodules))\
+ifnzman(noderef(The zsh/mathfunc Module)).
 )
 findex(zmathfuncdef)
 item(tt(zmathfuncdef) [ var(mathfunc) [ var(body) ] ])(
@@ -4030,12 +4202,29 @@ your search path, in order to be found and used by tt(run-help).
 
 startitem()
 findex(run-help-git)
+findex(run-help-ip)
+findex(run-help-openssl)
+findex(run-help-p4)
+findex(run-help-sudo)
 findex(run-help-svk)
 findex(run-help-svn)
-xitem(tt(run-help-git))
-xitem(tt(run-help-svk))
+xitem(run-help-git)
+xitem(run-help-ip)
+xitem(run-help-openssl)
+xitem(run-help-p4)
+xitem(run-help-sudo)
+xitem(run-help-svk)
 item(tt(run-help-svn))(
-Assistant functions for the tt(git), tt(svk), and tt(svn) commands.
+Assistant functions for the
+tt(git),
+tt(ip),
+tt(openssl),
+tt(p4),
+tt(sudo),
+tt(svk),
+and 
+tt(svn),
+commands.
 )
 enditem()
 )

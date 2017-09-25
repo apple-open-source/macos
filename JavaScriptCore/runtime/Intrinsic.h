@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,20 +27,31 @@
 
 namespace JSC {
 
-enum JS_EXPORT_PRIVATE Intrinsic {
+enum Intrinsic {
     // Call intrinsics.
     NoIntrinsic,
     AbsIntrinsic,
+    ACosIntrinsic,
+    ASinIntrinsic,
+    ATanIntrinsic,
+    ACoshIntrinsic,
+    ASinhIntrinsic,
+    ATanhIntrinsic,
     MinIntrinsic,
     MaxIntrinsic,
     SqrtIntrinsic,
     SinIntrinsic,
+    CbrtIntrinsic,
     Clz32Intrinsic,
     CosIntrinsic,
     TanIntrinsic,
+    CoshIntrinsic,
+    SinhIntrinsic,
+    TanhIntrinsic,
     ArrayPushIntrinsic,
     ArrayPopIntrinsic,
     ArraySliceIntrinsic,
+    ArrayIndexOfIntrinsic,
     CharCodeAtIntrinsic,
     CharAtIntrinsic,
     FromCharCodeIntrinsic,
@@ -49,13 +60,19 @@ enum JS_EXPORT_PRIVATE Intrinsic {
     CeilIntrinsic,
     RoundIntrinsic,
     ExpIntrinsic,
+    Expm1Intrinsic,
     LogIntrinsic,
+    Log10Intrinsic,
+    Log1pIntrinsic,
+    Log2Intrinsic,
     RegExpExecIntrinsic,
     RegExpTestIntrinsic,
     RegExpTestFastIntrinsic,
     StringPrototypeValueOfIntrinsic,
     StringPrototypeReplaceIntrinsic,
     StringPrototypeReplaceRegExpIntrinsic,
+    StringPrototypeToLowerCaseIntrinsic,
+    NumberPrototypeToStringIntrinsic,
     IMulIntrinsic,
     RandomIntrinsic,
     FRoundIntrinsic,
@@ -78,7 +95,7 @@ enum JS_EXPORT_PRIVATE Intrinsic {
     AtomicsWaitIntrinsic,
     AtomicsWakeIntrinsic,
     AtomicsXorIntrinsic,
-    ToLowerCaseIntrinsic,
+    ParseIntIntrinsic,
 
     // Getter intrinsics.
     TypedArrayLengthIntrinsic,
@@ -95,4 +112,16 @@ enum JS_EXPORT_PRIVATE Intrinsic {
     FiatInt52Intrinsic,
 };
 
+const char* intrinsicName(Intrinsic);
+
 } // namespace JSC
+
+namespace WTF {
+
+class PrintStream;
+
+void printInternal(PrintStream&, JSC::Intrinsic);
+
+} // namespace WTF
+
+

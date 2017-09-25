@@ -37,11 +37,7 @@
 	<array>
 		<string>/System/Library/Frameworks/Security.framework/Versions/A/Resources/KeychainSyncingOverIDSProxy.bundle/Contents/MacOS/KeychainSyncingOverIDSProxy</string>
 	</array>
-	<key>RunAtLoad</key>
-	<false/>
 	<key>EnablePressuredExit</key>
 	<true/>
-	<key>KeepAlive</key>
-	<false/>
 </dict>
 </plist>

@@ -29,8 +29,6 @@
 
 #include "regenc.h"
 
-#define numberof(array) (int)(sizeof(array) / sizeof((array)[0]))
-
 #define ENC_IS_ISO_8859_1_CTYPE(code,ctype) \
   ((EncISO_8859_1_CtypeTable[code] & CTYPE_TO_BIT(ctype)) != 0)
 
@@ -277,13 +275,3 @@ OnigEncodingDefine(iso_8859_1, ISO_8859_1) = {
   ONIGENC_FLAG_NONE,
 };
 ENC_ALIAS("ISO8859-1", "ISO-8859-1")
-
-/*
- * Name: windows-1252
- * MIBenum: 2252
- * Link: http://www.iana.org/assignments/character-sets
- * Link: http://www.microsoft.com/globaldev/reference/sbcs/1252.mspx
- * Link: http://en.wikipedia.org/wiki/Windows-1252
- */
-ENC_REPLICATE("Windows-1252", "ISO-8859-1")
-ENC_ALIAS("CP1252", "Windows-1252")

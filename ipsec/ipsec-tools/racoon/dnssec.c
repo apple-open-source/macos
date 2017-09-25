@@ -33,6 +33,8 @@
 
 #include "config.h"
 
+#if ENABLE_DNSSEC_CERTS
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <stdlib.h>
@@ -151,3 +153,5 @@ err:
 
 	goto end;
 }
+
+#endif /* ENABLE_DNSSEC_CERTS */

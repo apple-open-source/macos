@@ -28,6 +28,8 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
+AUTHD_DEFINE_LOG
+
 #define MAX_PROCESS_RIGHTS   100
 
 static CFMutableDictionaryRef gProcessMap = NULL;
@@ -122,23 +124,23 @@ void server_cleanup()
 
 static void _IOMPCallBack(void * param AUTH_UNUSED, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMSystemPowerStateCapabilities capabilities)
 {
-    LOGV("server: IOMP powerstates %i", capabilities);
+    os_log_debug(AUTHD_LOG, "server: IOMP powerstates %i", capabilities);
     if (capabilities & kIOPMSystemPowerStateCapabilityDisk)
-        LOGV("server: disk");
+        os_log_debug(AUTHD_LOG, "server: disk");
     if (capabilities & kIOPMSystemPowerStateCapabilityNetwork)
-        LOGV("server: net");
+        os_log_debug(AUTHD_LOG, "server: net");
     if (capabilities & kIOPMSystemPowerStateCapabilityAudio)
-        LOGV("server: audio");
+        os_log_debug(AUTHD_LOG, "server: audio");
     if (capabilities & kIOPMSystemPowerStateCapabilityVideo)
-        LOGV("server: video");
+        os_log_debug(AUTHD_LOG, "server: video");
     
     /* if cpu and no display -> in DarkWake */
-    LOGD("server: DarkWake check current=%i==%i", (capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)), kIOPMSystemPowerStateCapabilityCPU);
+    os_log_debug(AUTHD_LOG, "server: DarkWake check current=%i==%i", (capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)), kIOPMSystemPowerStateCapabilityCPU);
     if ((capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)) == kIOPMSystemPowerStateCapabilityCPU) {
-        LOGV("server: enter DarkWake");
+        os_log_debug(AUTHD_LOG, "server: enter DW");
         gInDarkWake = true;
     } else if (gInDarkWake) {
-        LOGV("server: exit DarkWake");
+        os_log_debug(AUTHD_LOG, "server: exit DW");
         gInDarkWake = false;
     }
     
@@ -190,19 +192,19 @@ static void _setupAuditSessionMonitor()
         auditinfo_addr_t aia;
         
         if (NULL == dev) {
-            LOGE("server: could not open %s %d", AUDIT_SDEV_PATH, errno);
+            os_log_error(AUTHD_LOG, "server: could not open %{public}s %d", AUDIT_SDEV_PATH, errno);
             return;
         }
         
         for (;;) {
             if (0 != au_sdev_read_aia(dev, &event, &aia)) {
-                LOGE("server: au_sdev_read_aia failed: %d", errno);
+                os_log_error(AUTHD_LOG, "server: au_sdev_read_aia failed: %d", errno);
                 continue;
             }
-            LOGD("server: au_sdev_handle_t event=%i, session=%i", event, aia.ai_asid);
+            os_log_debug(AUTHD_LOG, "server: au_sdev_handle_t event=%i, session=%i", event, aia.ai_asid);
             if (event == AUE_SESSION_END) {
                 dispatch_async(get_server_dispatch_queue(), ^{
-                    LOGV("server: session %i destroyed", aia.ai_asid);
+                    os_log_debug(AUTHD_LOG, "server: session %i destroyed", aia.ai_asid);
                     CFDictionaryRemoveValue(gSessionMap, &aia.ai_asid);
                 });
             }
@@ -233,7 +235,7 @@ OSStatus server_init(void)
     auditinfo_addr_t info;
     memset(&info, 0, sizeof(info));
     getaudit_addr(&info, sizeof(info));
-    LOGV("server: uid=%i, sid=%i", info.ai_auid, info.ai_asid);
+    os_log_debug(AUTHD_LOG, "server: uid=%i, sid=%i", info.ai_auid, info.ai_asid);
     
     require_action(get_server_dispatch_queue() != NULL, done, status = errAuthorizationInternal);
     
@@ -328,7 +330,7 @@ server_register_connection(xpc_connection_t connection)
         }
     });
     
-    LOGV("server[%i]: registered connection (total=%li)", info.pid, conn_count);
+    os_log_debug(AUTHD_LOG, "server: registered connection (total=%li)", conn_count);
 
 done:
     CFReleaseSafe(session);
@@ -344,7 +346,7 @@ server_unregister_connection(connection_t conn)
     
     dispatch_sync(get_server_dispatch_queue(), ^{
         CFIndex connectionCount = process_get_connection_count(proc);
-        LOGV("server[%i]: unregistered connection (total=%li)", process_get_pid(proc), connectionCount);
+        os_log_debug(AUTHD_LOG, "server: unregistered connection (total=%li)", connectionCount);
 
         if (connectionCount == 1) {
             CFDictionaryRemoveValue(gProcessMap, process_get_key(proc));
@@ -364,7 +366,7 @@ server_register_auth_token(auth_token_t auth)
 {
     assert(auth); // marked non-null
     dispatch_sync(get_server_dispatch_queue(), ^{
-        LOGV("server: registering auth %p", auth);
+        os_log_debug(AUTHD_LOG, "server: registering authorization");
         CFDictionarySetValue(gAuthTokenMap, auth_token_get_key(auth), auth);
         auth_token_set_state(auth, auth_token_state_registered);
     });
@@ -376,7 +378,7 @@ server_unregister_auth_token(auth_token_t auth)
     assert(auth);
     AuthorizationBlob blob = *(AuthorizationBlob*)auth_token_get_key(auth);
     dispatch_async(get_server_dispatch_queue(), ^{
-        LOGV("server: unregistering auth %p", auth);
+        os_log_debug(AUTHD_LOG, "server: unregistering authorization");
         CFDictionaryRemoveValue(gAuthTokenMap, &blob);
     });
 }
@@ -433,15 +435,38 @@ _process_find_copy_auth_token_from_xpc(process_t proc, xpc_object_t message, aut
     require_action(auth != NULL, done, status = errAuthorizationInvalidRef);
 
 #if DEBUG
-    LOGV("server[%i]: authtoken lookup %#x%x %p", process_get_pid(proc), blob->data[1],blob->data[0], auth);
+    os_log_debug(AUTHD_LOG, "server: authtoken lookup %#x%x %p", blob->data[1],blob->data[0], auth);
 #else
-    LOGV("server[%i]: authtoken lookup %p", process_get_pid(proc), auth);
+    os_log_debug(AUTHD_LOG, "server: authtoken lookup");
 #endif
     
     *auth_out = auth;
     
 done:
     return status;
+}
+
+static OSStatus _server_preauthorize(connection_t conn, auth_token_t auth, auth_items_t context, engine_t * engine_out)
+{
+	__block OSStatus status = errAuthorizationDenied;
+	engine_t engine = NULL;
+
+	require_action(conn, done, status = errAuthorizationInternal);
+
+	engine = engine_create(conn, auth);
+	require_action(engine, done, status = errAuthorizationInternal);
+
+	status = engine_preauthorize(engine, context);
+
+done:
+	if (engine) {
+		if (engine_out) {
+			*engine_out = engine;
+		} else {
+			CFRelease(engine);
+		}
+	}
+	return status;
 }
 
 static OSStatus _server_authorize(connection_t conn, auth_token_t auth, AuthorizationFlags flags, auth_rights_t rights, auth_items_t environment, engine_t * engine_out)
@@ -565,7 +590,7 @@ authorization_free(connection_t conn, xpc_object_t message, xpc_object_t reply A
     if (flags & kAuthorizationFlagDestroyRights) {
         auth_token_credentials_iterate(auth, ^bool(credential_t cred) {
             credential_invalidate(cred);
-            LOGV("engine[%i]: invalidating %scredential %s (%i) from authorization (%p)", connection_get_pid(conn), credential_get_shared(cred) ? "shared " : "", credential_get_name(cred), credential_get_uid(cred), auth);
+            os_log_debug(AUTHD_LOG, "engine[%i]: invalidating %{public}scredential %{public}s (%i)", connection_get_pid(conn), credential_get_shared(cred) ? "shared " : "", credential_get_name(cred), credential_get_uid(cred));
             return true;
         });
         
@@ -576,9 +601,38 @@ authorization_free(connection_t conn, xpc_object_t message, xpc_object_t reply A
     
 done:
     CFReleaseSafe(auth);
-    LOGV("server[%i]: AuthorizationFree %d (flags:%x)", connection_get_pid(conn), (int)status, (unsigned int)flags);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationFree %d (flags:%x)", (int)status, (unsigned int)flags);
     return status;
 }
+
+// IN:  AUTH_XPC_BLOB, AUTH_XPC_DATA
+// OUT:
+OSStatus
+authorization_preauthorize_credentials(connection_t conn, xpc_object_t message, xpc_object_t reply)
+{
+	OSStatus status = errAuthorizationDenied;
+	engine_t engine = NULL;
+
+	process_t proc = connection_get_process(conn);
+
+	// Passed in args
+	auth_items_t context = auth_items_create_with_xpc(xpc_dictionary_get_value(message, AUTH_XPC_DATA));
+
+	auth_token_t auth = NULL;
+	status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
+	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "preauthorize_credentials: no auth token"));
+
+	status = _server_preauthorize(conn, auth, context, &engine);
+	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "preauthorize_credentials: authorization failed"));
+
+done:
+	CFReleaseSafe(context);
+	CFReleaseSafe(auth);
+	CFReleaseSafe(engine);
+
+	return status;
+}
+
 
 // IN:  AUTH_XPC_BLOB, AUTH_XPC_RIGHTS, AUTH_XPC_ENVIRONMENT, AUTH_XPC_FLAGS
 // OUT: AUTH_XPC_OUT_ITEMS
@@ -597,11 +651,10 @@ authorization_copy_rights(connection_t conn, xpc_object_t message, xpc_object_t 
     
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
-    require_noerr_action_quiet(status, done, LOGE("copy_rights: no auth token"));
+    require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: no auth token"));
     
     status = _server_authorize(conn, auth, flags, rights, environment, &engine);
-	require_noerr_action_quiet(status, done, LOGE("copy_rights: _server_authorize failed"));
+	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_rights: authorization failed"));
 
 	//reply
     xpc_object_t outItems = auth_rights_export_xpc(engine_get_granted_rights(engine));
@@ -625,41 +678,49 @@ authorization_copy_info(connection_t conn, xpc_object_t message, xpc_object_t re
     
     OSStatus status = errAuthorizationSuccess;
     auth_items_t items = NULL;
+	auth_items_t local_items = NULL;
     const char * tag = NULL;
     
     process_t proc = connection_get_process(conn);
     
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
-    require_noerr(status, done);
-    
+	require_noerr_action_quiet(status, done, os_log_error(AUTHD_LOG, "copy_info: no auth token"));
+
     items = auth_items_create();
     
     tag = xpc_dictionary_get_string(message, AUTH_XPC_TAG);
-    LOGV("server[%i]: requested tag: %s", connection_get_pid(conn), tag ? tag : "(all)");
+    os_log_debug(AUTHD_LOG, "server: requested tag: %{public}s", tag ? tag : "(all)");
 	if (tag) {
 		size_t len;
 		const void * data = auth_items_get_data_with_flags(auth_token_get_context(auth), tag, &len, kAuthorizationContextFlagExtractable);
-		if (data)
+		if (data) {
+			os_log_debug(AUTHD_LOG, "server: requested tag found");
 			auth_items_set_data(items, tag, data, len);
+		}
 	} else {
 		auth_items_copy_with_flags(items, auth_token_get_context(auth), kAuthorizationContextFlagExtractable);
 	}
 
+	local_items = auth_items_create();
+	auth_items_content_copy(local_items, items); // we do not want decrypt content of the authorizationref memory which is where pointers point to
+	auth_items_decrypt(local_items, auth_token_get_encryption_key(auth));
+	os_log_debug(AUTHD_LOG, "server: decrypted authorization context data");
+
 #if DEBUG
-    LOGV("server[%i]: Dumping requested AuthRef items", connection_get_pid(conn));
-    _show_cf(items);
+    os_log_debug(AUTHD_LOG, "server: Dumping requested AuthRef items: %{public}@", items);
 #endif
 
     //reply
-    xpc_object_t outItems = auth_items_export_xpc(items);
+    xpc_object_t outItems = auth_items_export_xpc(local_items);
     xpc_dictionary_set_value(reply, AUTH_XPC_OUT_ITEMS, outItems);
     xpc_release_safe(outItems);
     
 done:
-    CFReleaseSafe(items);
+    CFReleaseSafe(local_items);
+	CFReleaseSafe(items);
     CFReleaseSafe(auth);
-    LOGV("server[%i]: AuthorizationCopyInfo %i", connection_get_pid(conn), (int) status);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationCopyInfo %i", (int) status);
     return status;
 }
 
@@ -688,7 +749,7 @@ authorization_make_external_form(connection_t conn, xpc_object_t message, xpc_ob
     
 done:
     CFReleaseSafe(auth);
-    LOGV("server[%i]: AuthorizationMakeExternalForm %d", connection_get_pid(conn), (int)status);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationMakeExternalForm %d", (int)status);
     return status;
 }
 
@@ -716,7 +777,7 @@ authorization_create_from_external_form(connection_t conn, xpc_object_t message,
     
 done:
     CFReleaseSafe(auth);
-    LOGV("server[%i]: AuthorizationCreateFromExternalForm %d", connection_get_pid(conn), (int)status);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationCreateFromExternalForm %d", (int)status);
     return status;
 }
 
@@ -751,7 +812,7 @@ done:
     CFReleaseSafe(cfdict);
     xpc_release_safe(xpcdict);
     CFReleaseSafe(rule);
-    LOGV("server[%i]: AuthorizationRightGet %d", connection_get_pid(conn), (int)status);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationRightGet %d", (int)status);
     return status;
 }
 
@@ -888,11 +949,11 @@ authorization_enable_smartcard(connection_t conn, xpc_object_t message, xpc_obje
 
     if (!_update_rule_mechanism(dbconn, SYSTEM_LOGIN_CONSOLE, SMARTCARD_LINE, BUILTIN_LINE, enable_smartcard ? false : true)) {
         status = errAuthorizationInternal;
-        LOGE("server[%i]: smartcard: enable(%i) failed to update %s", connection_get_pid(conn), enable_smartcard, SYSTEM_LOGIN_CONSOLE);
+        os_log_error(AUTHD_LOG, "server: smartcard: enable(%i) failed to update %{public}s", enable_smartcard, SYSTEM_LOGIN_CONSOLE);
     }
     if (!_update_rule_mechanism(dbconn, AUTHENTICATE, SMARTCARD_LINE, NULL, enable_smartcard ? false : true)) {
         status = errAuthorizationInternal;
-        LOGE("server[%i]: smartcard: enable(%i) failed to update %s", connection_get_pid(conn), enable_smartcard, AUTHENTICATE);
+        os_log_error(AUTHD_LOG, "server: smartcard: enable(%i) failed to update %{public}s", enable_smartcard, AUTHENTICATE);
     }
 
     authdb_checkpoint(dbconn);
@@ -980,19 +1041,19 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
     
     rule = rule_create_with_plist(rule_type, cf_rule_name, cf_rule_dict, dbconn);
     if (process_get_uid(proc) != 0) {
-        require_action(rule_get_extract_password(rule) == false, done, status = errAuthorizationDenied; LOGE("server[%i]: AuthorizationRightSet not allowed to set extract-password. (denied)", connection_get_pid(conn)));
+        require_action(rule_get_extract_password(rule) == false, done, status = errAuthorizationDenied; os_log_error(AUTHD_LOG, "server: AuthorizationRightSet not allowed to set extract-password. (denied)"));
     }
     
     // if rule doesn't currently exist then we have to check to see if they are over the Max.
     if (rule_get_id(rule) == 0) {
         if (process_get_identifier(proc) == NULL) {
-            LOGE("server[%i]: AuthorizationRightSet required for process %s (missing code signature). To add rights to the Authorization database, your process must have a code signature.", connection_get_pid(conn), process_get_code_url(proc));
+            os_log_error(AUTHD_LOG, "server: AuthorizationRightSet required for process %{public}s (missing code signature). To add rights to the Authorization database, your process must have a code signature.", process_get_code_url(proc));
             force_modify = true;
         } else {
             int64_t process_rule_count = _process_get_identifier_count(proc, dbconn);
             if ((process_rule_count >= _get_max_process_rights())) {
                 if (!connection_get_syslog_warn(conn)) {
-                    LOGE("server[%i]: AuthorizationRightSet Denied API abuse process %s already contains %lli rights.", connection_get_pid(conn), process_get_code_url(proc), _get_max_process_rights());
+                    os_log_error(AUTHD_LOG, "server: AuthorizationRightSet Denied API abuse process %{public}s already contains %lli rights.", process_get_code_url(proc), _get_max_process_rights());
                     connection_set_syslog_warn(conn);
                 }
                 status = errAuthorizationDenied;
@@ -1002,7 +1063,7 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
     } else {
         if (auth_rule) {
             if (process_get_uid(proc) != 0) {
-                LOGE("server[%i]: AuthorizationRightSet denied, root required to update the 'authenticate' rule", connection_get_pid(conn));
+                os_log_error(AUTHD_LOG, "server: AuthorizationRightSet denied, root required to update the 'authenticate' rule");
                 status = errAuthorizationDenied;
                 goto done;
             }
@@ -1010,7 +1071,7 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
             // verify they are updating a right and not a rule
             existingRule = rule_create_with_string(rule_get_name(rule), dbconn);
             if (rule_get_type(existingRule) == RT_RULE) {
-                LOGE("server[%i]: AuthorizationRightSet Denied updating '%s' rule is prohibited", connection_get_pid(conn), rule_get_name(existingRule));
+                os_log_error(AUTHD_LOG, "server: AuthorizationRightSet Denied updating '%{public}s' rule is prohibited", rule_get_name(existingRule));
                 status = errAuthorizationDenied;
                 goto done;
             }
@@ -1032,11 +1093,11 @@ authorization_right_set(connection_t conn, xpc_object_t message, xpc_object_t re
     }
     
     if (rule_sql_commit(rule, dbconn, engine ? engine_get_time(engine) : CFAbsoluteTimeGetCurrent(), proc)) {
-        LOGV("server[%i]: Successfully updated rule %s", connection_get_pid(conn), rule_get_name(rule));
+        os_log_debug(AUTHD_LOG, "server: Successfully updated rule %{public}s", rule_get_name(rule));
         authdb_checkpoint(dbconn);
         status = errAuthorizationSuccess;
     } else {
-        LOGE("server[%i]: Failed to update rule %s", connection_get_pid(conn), rule_get_name(rule));
+        os_log_error(AUTHD_LOG, "server: Failed to update rule %{public}s", rule_get_name(rule));
         status = errAuthorizationDenied;
     }
 
@@ -1095,7 +1156,7 @@ done:
     CFReleaseSafe(auth);
     CFReleaseSafe(rule);
     CFReleaseSafe(engine);
-    LOGV("server[%i]: AuthorizationRightRemove %d", connection_get_pid(conn), (int)status);
+    os_log_debug(AUTHD_LOG, "server: AuthorizationRightRemove %d", (int)status);
     return status;
 }
 
@@ -1124,7 +1185,7 @@ server_dev() {
 //    authdb_get_key_value(server_get_authdb_reader(), "config", &config);
 //    auth_items_set_double(config, "test", d1);
 //    d2 = auth_items_get_double(config, "test");
-//    LOGV("d1=%f d2=%f", d1, d2);
+//    os_log_debug(AUTHD_LOG, "d1=%f d2=%f", d1, d2);
 //    CFReleaseSafe(config);
     
     

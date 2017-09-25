@@ -154,7 +154,7 @@ typedef struct
      /* for import and export */
      uint32_t                    version;        /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
      SecKeyImportExportFlags flags;              /* SecKeyImportExportFlags bits */
-     CFTypeRef                    passphrase;    /* kSecFormatPKCS12, kSecFormatWrapped*
+     CFTypeRef __nullable           passphrase;  /* kSecFormatPKCS12, kSecFormatWrapped*
                                                   *    formats only. Legal types are
                                                   *    CFStringRef and CFDataRef. */
      CFStringRef                    alertTitle;  /* title of secure passphrase alert panel */
@@ -174,11 +174,11 @@ typedef struct
      /* for import and export */
      uint32_t                    version;        /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
      SecKeyImportExportFlags flags;              /* SecKeyImportExportFlags bits */
-     CFTypeRef                    passphrase;    /* kSecFormatPKCS12, kSecFormatWrapped*
+     CFTypeRef __nullable           passphrase;    /* kSecFormatPKCS12, kSecFormatWrapped*
                                                   *    formats only. Legal types are
                                                   *    CFStringRef and CFDataRef. */
-     CFStringRef                    alertTitle;  /* title of secure passphrase alert panel */
-     CFStringRef                    alertPrompt; /* prompt in secure passphrase alert panel */
+     CFStringRef __nullable         alertTitle;  /* title of secure passphrase alert panel */
+     CFStringRef __nullable         alertPrompt; /* prompt in secure passphrase alert panel */
 
      /* for import only */
      SecAccessRef __nullable     accessRef;      /* specifies the initial ACL of imported

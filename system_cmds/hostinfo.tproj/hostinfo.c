@@ -54,7 +54,6 @@ main(int argc, char *argv[])
 	kern_return_t		ret;
 	unsigned int		size, count;
 	char			*cpu_name, *cpu_subname;
-	int			i;
 	int			mib[2];
 	size_t			len;
 	uint64_t		memsize;
@@ -99,6 +98,19 @@ main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
 	}
 
+	unsigned int cpu_count = 0;
+	unsigned int data_count = 0;
+	struct processor_basic_info *processor_basic_infop = NULL;
+	ret = host_processor_info(host,
+	                          PROCESSOR_BASIC_INFO,
+	                          &cpu_count,
+	                          (processor_info_array_t *)&processor_basic_infop,
+	                          &data_count);
+	if (ret != KERN_SUCCESS) {
+		mach_error(argv[0], ret);
+		exit(EXIT_FAILURE);
+	}
+
 	mib[0] = CTL_HW;
 	mib[1] = HW_MEMSIZE;
 	len = sizeof(memsize);
@@ -125,8 +137,11 @@ main(int argc, char *argv[])
 	printf(" %s (%s)\n", cpu_name, cpu_subname);
 
 	printf("Processor%s active:", (hi.avail_cpus > 1) ? "s" : "");
-	for (i = 0; i < hi.avail_cpus; i++)
-		printf(" %d", i);
+	for (int i = 0; i < cpu_count; i++) {
+		if (processor_basic_infop[i].running) {
+			printf(" %d", i);
+		}
+	}
 	printf("\n");
 
 	if (((float)memsize / (1024.0 * 1024.0)) >= 1024.0)

@@ -58,11 +58,14 @@ struct __SecValidInfo {
     SecValidInfoFormat  format;     // format of per-issuer validity data
     CFDataRef           certHash;   // SHA-256 hash of cert to which the following info applies
     CFDataRef           issuerHash; // SHA-256 hash of issuing CA certificate
-    bool                valid;      // true if found on allow list, false if on block list
+    CFDataRef           anchorHash; // SHA-256 hash of anchor certificate (optional)
+    bool                isOnList;   // true if this cert was found on allow list or block list
+    bool                valid;      // true if this is an allow list, false if a block list
     bool                complete;   // true if list is complete (i.e. status is definitive)
     bool                checkOCSP;  // true if complete is false and OCSP check is required
     bool                knownOnly;  // true if all intermediates under issuer must be found in database
     bool                requireCT;  // true if this cert must have CT proof
+    bool                noCACheck;  // true if an entry does not require an OCSP check to accept
 };
 
 /*!
@@ -73,11 +76,19 @@ struct __SecValidInfo {
 void SecValidInfoRelease(SecValidInfoRef validInfo);
 
 /*!
+	@function SecValidInfoSetAnchor
+	@abstract Updates a SecValidInfo reference with info about the anchor certificate in a chain.
+	@param validInfo The SecValidInfo reference to be updated.
+	@param anchor The certificate which anchors the chain for the certificate in this SecValidInfo reference.
+	@discussion A SecValidInfo reference contains information about a single certificate and its issuer. In some cases, it may be necessary to additionally examine the anchor of the certificate chain to determine validity.
+ */
+void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor);
+
+/*!
 	@function SecRevocationDbCheckNextUpdate
 	@abstract Periodic hook to poll for updates.
-    @result A boolean value indicating whether an update check was dispatched.
  */
-bool SecRevocationDbCheckNextUpdate(void);
+void SecRevocationDbCheckNextUpdate(void);
 
 /*!
 	@function SecRevocationDbCopyMatching
@@ -102,6 +113,35 @@ CFIndex SecRevocationDbGetVersion(void);
 	@result On success, the returned version will be a value greater than or equal to zero. A version of 0 indicates an empty database which has yet to be populated. If the version cannot be obtained, -1 is returned.
  */
 CFIndex SecRevocationDbGetSchemaVersion(void);
+
+/*!
+ @function SecValidUpdateVerifyAndIngest
+ @abstract Callback for receiving update data.
+ @param updateData The decompressed update data.
+ */
+void SecValidUpdateVerifyAndIngest(CFDataRef updateData);
+
+/*!
+ @function readValidFile
+ @abstract Reads data into a CFDataRef using mmap.
+ @param fileName The file to read.
+ @param bytes The data read from the file.
+ @result An integer indicating failure (non-zero) or success.
+ @discussion This function mmaps the file and then makes a no-copy CFData for use of that mmapped file.  This data MUST be munmapped when the caller has finished with the data.
+ */
+int readValidFile(const char *fileName, CFDataRef  *bytes);
+
+/*!
+ @function SecRevocationDbComputeAndSetNextUpdateTime
+ @abstract Callback to push forward next update.
+ */
+void SecRevocationDbComputeAndSetNextUpdateTime(void);
+
+/*!
+ @function SecRevocationDbInitialize
+ @abstract Initializes revocation database if it doesn't exist or needs to be replaced. This should only be called once at process startup, before any database connections are established.
+ */
+void SecRevocationDbInitialize(void);
 
 
 __END_DECLS

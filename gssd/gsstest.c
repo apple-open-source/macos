@@ -148,7 +148,7 @@ int interactive = 0;
 int version = 0;
 uint32_t uid;
 uint32_t flags;
-uint32_t gssd_flags = GSSD_HOME_ACCESS_OK;
+uint32_t gssd_flags = 0;
 char *principal="";
 char svcname[1024];
 mach_port_t server_mp = MACH_PORT_NULL;

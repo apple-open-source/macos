@@ -46,18 +46,17 @@ void WebDragClient::willPerformDragSourceAction(DragSourceAction, const IntPoint
 {
 }
 
-DragDestinationAction WebDragClient::actionMaskForDrag(const DragData&)
-{
-    return DragDestinationActionAny;
-}
-
 DragSourceAction WebDragClient::dragSourceActionMaskForPoint(const IntPoint&)
 {
     return DragSourceActionAny;
 }
 
 #if !PLATFORM(COCOA) && !PLATFORM(GTK)
-void WebDragClient::startDrag(DragImageRef, const IntPoint&, const IntPoint&, DataTransfer&, Frame&, bool)
+void WebDragClient::startDrag(DragItem, DataTransfer&, Frame&)
+{
+}
+
+void WebDragClient::didConcludeEditDrag()
 {
 }
 #endif

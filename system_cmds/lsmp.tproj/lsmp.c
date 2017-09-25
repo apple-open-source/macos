@@ -27,7 +27,9 @@
 #include <stdlib.h>
 #include <libproc.h>
 #include <TargetConditionals.h>
+#include <errno.h>
 #include "common.h"
+#include "json.h"
 
 #if TARGET_OS_EMBEDDED
 #define TASK_FOR_PID_USAGE_MESG "\nPlease check your boot-args to ensure you have access to task_for_pid()."
@@ -40,10 +42,8 @@ struct prog_configs lsmp_config = {
     .show_voucher_details   = FALSE,
     .verbose                = FALSE,
     .pid                    = 0,
+    .json_output            = NULL,
 };
-
-my_per_task_info_t *psettaskinfo;
-mach_msg_type_number_t taskCount;
 
 static void print_usage(char *progname) {
     fprintf(stderr, "Usage: %s -p <pid> [-a|-v|-h] \n", "lsmp");
@@ -51,10 +51,24 @@ static void print_usage(char *progname) {
     fprintf(stderr, "\t-p <pid> :  print all mach ports for process id <pid>. \n");
     fprintf(stderr, "\t-a :  print all mach ports for all processeses. \n");
     fprintf(stderr, "\t-v :  print verbose details for kernel objects.\n");
+    fprintf(stderr, "\t-j <path> :  save output as JSON to <path>.\n");
     fprintf(stderr, "\t-h :  print this help.\n");
     exit(1);
 }
 
+static void print_task_info(my_per_task_info_t *taskinfo, mach_msg_type_number_t taskCount, my_per_task_info_t *psettaskinfo, boolean_t verbose, JSON_t json) {
+    printf("Process (%d) : %s\n", taskinfo->pid, taskinfo->processName);
+    JSON_OBJECT_BEGIN(json);
+    JSON_OBJECT_SET(json, pid, %d, taskinfo->pid);
+    JSON_OBJECT_SET(json, name, "%s", taskinfo->processName);
+    show_task_mach_ports(taskinfo, taskCount, psettaskinfo, json);
+    print_task_exception_info(taskinfo, json);
+    if (verbose) {
+        printf("\n");
+        print_task_threads_special_ports(taskinfo, json);
+    }
+    JSON_OBJECT_END(json);
+}
 
 int main(int argc, char *argv[]) {
     kern_return_t ret;
@@ -64,8 +78,10 @@ int main(int argc, char *argv[]) {
     char *progname = "lsmp";
     int i, option = 0;
     lsmp_config.voucher_detail_length = 128; /* default values for config */
+    my_per_task_info_t *psettaskinfo;
+    mach_msg_type_number_t taskCount;
 
-    while((option = getopt(argc, argv, "hvalp:")) != -1) {
+    while((option = getopt(argc, argv, "hvalp:j:")) != -1) {
 		switch(option) {
             case 'a':
                 /* user asked for info on all processes */
@@ -87,6 +103,14 @@ int main(int argc, char *argv[]) {
                 lsmp_config.pid = atoi(optarg);
                 if (lsmp_config.pid == 0) {
                     fprintf(stderr, "Unknown pid: %s\n", optarg);
+                    exit(1);
+                }
+                break;
+
+            case 'j':
+                lsmp_config.json_output = JSON_OPEN(optarg);
+                if (lsmp_config.json_output == NULL) {
+                    fprintf(stderr, "Unable to open \"%s\": %s\n", optarg, strerror(errno));
                     exit(1);
                 }
                 break;
@@ -182,39 +206,36 @@ int main(int argc, char *argv[]) {
         ret = KERN_SUCCESS;
     }
 
+    JSON_OBJECT_BEGIN(lsmp_config.json_output);
+    JSON_OBJECT_SET(lsmp_config.json_output, version, "%.1f", 1.0);
+    JSON_KEY(lsmp_config.json_output, processes);
+    JSON_ARRAY_BEGIN(lsmp_config.json_output);
+
     if (lsmp_config.show_all_tasks == FALSE) {
         if (taskinfo == NULL) {
             fprintf(stderr, "Failed to find task ipc information for pid %d\n", lsmp_config.pid);
             exit(1);
         }
-        printf("Process (%d) : %s\n", taskinfo->pid, taskinfo->processName);
-        show_task_mach_ports(taskinfo, taskCount, psettaskinfo);
-        print_task_exception_info(taskinfo);
-        printf("\n");
-        print_task_threads_special_ports(taskinfo);
-
+        print_task_info(taskinfo, taskCount, psettaskinfo, TRUE, lsmp_config.json_output);
     } else {
         for (i=0; i < taskCount; i++) {
             if (psettaskinfo[i].valid != TRUE)
                 continue;
-            printf("Process (%d) : %s\n", psettaskinfo[i].pid, psettaskinfo[i].processName);
-            show_task_mach_ports(&psettaskinfo[i], taskCount, psettaskinfo);
-            print_task_exception_info(&psettaskinfo[i]);
-
-            if (lsmp_config.verbose) {
-                printf("\n");
-                print_task_threads_special_ports(&psettaskinfo[i]);
-            }
-
+            print_task_info(&psettaskinfo[i], taskCount, psettaskinfo, lsmp_config.verbose, lsmp_config.json_output);
             printf("\n\n");
         }
     }
+
+    JSON_ARRAY_END(lsmp_config.json_output);
+    JSON_OBJECT_END(lsmp_config.json_output);
 
 	if (taskCount > 1) {
         vm_deallocate(mach_task_self(), (vm_address_t)tasks, (vm_size_t)taskCount * sizeof(mach_port_t));
     }
 
     deallocate_taskinfo_memory(psettaskinfo);
+
+    JSON_CLOSE(lsmp_config.json_output);
 
 	return(0);
 }

@@ -16,6 +16,9 @@ engine_t engine_create(connection_t, auth_token_t);
 AUTH_NONNULL1 AUTH_NONNULL2
 OSStatus engine_authorize(engine_t, auth_rights_t rights, auth_items_t environment, AuthorizationFlags);
 
+AUTH_NONNULL1 AUTH_NONNULL2
+OSStatus engine_preauthorize(engine_t engine, auth_items_t credentials);
+
 AUTH_NONNULL_ALL
 OSStatus engine_verify_modification(engine_t, rule_t, bool remove, bool force_modify);
 
@@ -30,6 +33,12 @@ void engine_destroy_agents(engine_t);
     
 AUTH_NONNULL_ALL
 void engine_interrupt_agent(engine_t engine);
+
+AUTH_NONNULL_ALL
+bool engine_acquire_sheet_data(engine_t engine);
+
+AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
+CFTypeRef engine_copy_context(engine_t engine, auth_items_t source);
 
 #if defined(__cplusplus)
 }

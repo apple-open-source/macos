@@ -199,11 +199,11 @@ cd_calc(void)
             set->count++;
             if ((l = strlen(str->str)) > cd_state.pre)
                 cd_state.pre = l;
-            if ((l = MB_METASTRWIDTH(str->str)) > cd_state.premaxw)
+            if ((l = ZMB_nicewidth(str->str)) > cd_state.premaxw)
                 cd_state.premaxw = l;
             if (str->desc) {
                 set->desc++;
-                if ((l = strlen(str->desc)) > cd_state.suf)
+                if ((l = strlen(str->desc)) > cd_state.suf) /* ### strlen() assumes no \n */
                     cd_state.suf = l;
             }
         }
@@ -490,7 +490,7 @@ cd_init(char *nam, char *hide, char *mlen, char *sep,
     setp = &(cd_state.sets);
     cd_state.sep = ztrdup(sep);
     cd_state.slen = strlen(sep);
-    cd_state.swidth = MB_METASTRWIDTH(sep);
+    cd_state.swidth = ZMB_nicewidth(sep);
     cd_state.sets = NULL;
     cd_state.showd = disp;
     cd_state.maxg = cd_state.groups = cd_state.descs = 0;
@@ -526,7 +526,8 @@ cd_init(char *nam, char *hide, char *mlen, char *sep,
             str->other = NULL;
             str->set = set;
 
-            for (tmp = *ap; *tmp && *tmp != ':'; tmp++)
+	    /* Advance tmp to the first unescaped colon. */
+	    for (tmp = *ap; *tmp && *tmp != ':'; tmp++)
                 if (*tmp == '\\' && tmp[1])
                     tmp++;
 
@@ -537,7 +538,7 @@ cd_init(char *nam, char *hide, char *mlen, char *sep,
             *tmp = '\0';
             str->str = str->match = ztrdup(rembslash(*ap));
             str->len = strlen(str->str);
-            str->width = MB_METASTRWIDTH(str->str);
+            str->width = ZMB_nicewidth(str->str);
 	    str->sortstr = NULL;
         }
         if (str)
@@ -692,7 +693,7 @@ cd_get(char **params)
 			 * end of screen as safety margin
 			 */
 			d = str->desc;
-			w = MB_METASTRWIDTH(d);
+			w = ZMB_nicewidth(d);
 			if (w <= remw)
 			    strcpy(p, d);
 			else {
@@ -701,7 +702,7 @@ cd_get(char **params)
 				l = MB_METACHARLEN(d);
 				memcpy(pp, d, l);
 				pp[l] = '\0';
-				w = MB_METASTRWIDTH(pp);
+				w = ZMB_nicewidth(pp);
 				if (w > remw) {
 				    *pp = '\0';
 				    break;
@@ -792,7 +793,7 @@ cd_get(char **params)
 			cd_state.swidth - CM_SPACE;
 		    p = pp = dbuf + cd_state.slen;
 		    d = str->desc;
-		    w = MB_METASTRWIDTH(d);
+		    w = ZMB_nicewidth(d);
 		    if (w <= remw) {
 			strcpy(p, d);
 			remw -= w;
@@ -802,7 +803,7 @@ cd_get(char **params)
 			    l = MB_METACHARLEN(d);
 			    memcpy(pp, d, l);
 			    pp[l] = '\0';
-			    w = MB_METASTRWIDTH(pp);
+			    w = ZMB_nicewidth(pp);
 			    if (w > remw) {
 				*pp = '\0';
 				break;
@@ -913,7 +914,7 @@ struct cadef {
     int lastt;			/* last time this was used */
     Caopt *single;		/* array of single-letter options */
     char *match;		/* -M spec to use */
-    int argsactive;		/* if arguments are still allowed */
+    int argsactive;		/* if normal arguments are still allowed */
 				/* used while parsing a command line */
     char *set;			/* set name prefix (<name>-), shared */
     char *sname;		/* set name */
@@ -921,7 +922,7 @@ struct cadef {
     char *nonarg;		/* pattern for non-args (-A argument) */
 };
 
-#define CDF_SEP 1
+#define CDF_SEP 1		/* -S was specified: -- terminates options */
 
 /* Description for an option. */
 
@@ -938,11 +939,11 @@ struct caopt {
     int not;			/* don't complete this option (`!...') */
 };
 
-#define CAO_NEXT    1
-#define CAO_DIRECT  2
-#define CAO_ODIRECT 3
-#define CAO_EQUAL   4
-#define CAO_OEQUAL  5
+#define CAO_NEXT    1		/* argument follows in next argument (`-opt:...') */
+#define CAO_DIRECT  2		/* argument follows option directly (`-opt-:...') */
+#define CAO_ODIRECT 3		/* argument may follow option directly (`-opt+:...') */
+#define CAO_EQUAL   4		/* argument follows mandatory equals (`-opt=-:...') */
+#define CAO_OEQUAL  5		/* argument follows optional equals (`-opt=:...') */
 
 /* Description for an argument */
 
@@ -956,7 +957,7 @@ struct caarg {
     char *opt;			/* option name if for an option */
     int num;			/* it's the num'th argument */
     int min;			/* it's also this argument, using opt. args */
-    int direct;			/* number was given directly */
+    int direct;			/* true if argument number was given explicitly */
     int active;			/* still allowed on command line */
     char *set;			/* set name, shared */
 };
@@ -1693,10 +1694,10 @@ ca_get_opt(Cadef d, char *line, int full, char **end)
 	for (p = d->opts; p; p = p->next)
 	    if (p->active && ((!p->args || p->type == CAO_NEXT) ?
 			      !strcmp(p->name, line) : strpfx(p->name, line))) {
-	    int l = strlen(p->name);
-	    if ((p->type == CAO_OEQUAL || p->type == CAO_EQUAL) &&
-		line[l] && line[l] != '=')
-		continue;
+		int l = strlen(p->name);
+		if ((p->type == CAO_OEQUAL || p->type == CAO_EQUAL) &&
+		    line[l] && line[l] != '=')
+		    continue;
 
 		if (end) {
 		    /* Return a pointer to the end of the option. */
@@ -1771,7 +1772,12 @@ ca_get_arg(Cadef d, int n)
     return NULL;
 }
 
-/* Use a xor list, marking options as inactive. */
+/* Mark options as inactive.
+ *   d: option definitions for a set
+ *   pass either:
+ *     xor: a list if exclusions
+ *     opts: if set, all options excluded leaving only nornal/rest arguments
+ * if ca_xor list initialised, exclusions are added to it */
 
 static LinkList ca_xor;
 
@@ -1847,22 +1853,37 @@ ca_inactive(Cadef d, char **xor, int cur, int opts, char *optname)
 
 typedef struct castate *Castate;
 
-/*
- *           **** DOCUMENT ME ****
- *
- * This structure and its use are a nightmare.
- */
+/* Encapsulates details from parsing the current line against a particular set,
+ * Covers positions of options and normal arguments. Used as a linked list
+ * with one state for each set. */
 
 struct castate {
-    Castate snext;
-    Cadef d;
-    int nopts;
-    Caarg def, ddef;
-    Caopt curopt, dopt;
-    int opt, arg, argbeg, optbeg, nargbeg, restbeg, curpos, argend;
-    int inopt, inrest, inarg, nth, doff, singles, oopt, actopts;
-    LinkList args;
-    LinkList *oargs;
+    Castate snext;	/* state for next set */
+    Cadef d;		/* parsed _arguments specs for the set */
+    int nopts;		/* number of specified options (size of oargs) */
+    Caarg def;		/* definition for the current set */
+    Caarg ddef;
+    Caopt curopt;	/* option description corresponding to option found on the command-line */
+    Caopt dopt;
+    int opt;		/* the length of the option up to a maximum of 2 */
+    int arg;		/* completing arguments to an option or rest args */
+    int argbeg;         /* position of first rest argument (+1) */
+    int optbeg;		/* first word after the last option to the left of the cursor:
+			 * in effect the start of any arguments to the current option */
+    int nargbeg;	/* same as optbeg but used during parse */
+    int restbeg;	/* same as argbeg but used during parse */
+    int curpos;		/* current word position */
+    int argend;         /* total number of words */
+    int inopt;		/* set to current word pos if word is a recognised option */
+    int inrest;		/* unused */
+    int inarg;          /* in a normal argument */
+    int nth;		/* number of current normal arg */
+    int doff;		/* length of current option */
+    int singles;	/* argument consists of clumped options */
+    int oopt;
+    int actopts;	/* count of active options */
+    LinkList args;	/* list of non-option args used for populating $line */
+    LinkList *oargs;	/* list of lists used for populating $opt_args */
 };
 
 static struct castate ca_laststate;
@@ -1908,7 +1929,9 @@ ca_opt_arg(Caopt opt, char *line)
     return ztrdup(line);
 }
 
-/* Parse a command line. */
+/* Parse the command line for a particular argument set (d).
+ * Returns 1 if the set should be skipped because it doesn't match
+ * existing options on the line. */
 
 static int
 ca_parse_line(Cadef d, int multi, int first)
@@ -1970,7 +1993,7 @@ ca_parse_line(Cadef d, int multi, int first)
 
 	goto end;
     }
-    if (d->nonarg)
+    if (d->nonarg) /* argument to -A */
 	napat = patcompile(d->nonarg, 0, NULL);
 
     /* Loop over the words from the line. */
@@ -2008,8 +2031,9 @@ ca_parse_line(Cadef d, int multi, int first)
 		return 1;
 	    continue;
 	}
-	/* We've got a definition for an argument, skip to the next. */
 
+	/* We've got a definition for an option/rest argument. For an option,
+	 * this means that we're completing arguments to that option. */
 	if (state.def) {
 	    state.arg = 0;
 	    if (state.curopt)
@@ -2167,12 +2191,16 @@ ca_parse_line(Cadef d, int multi, int first)
 #endif
 		   )
 	    return 1;
-	else if (state.arg && (!napat || !pattry(napat, line))) {
+	else if (state.arg &&
+		 (!napat || cur <= compcurrent || !pattry(napat, line))) {
 	    /* Otherwise it's a normal argument. */
-	    if (napat && ca_inactive(d, NULL, cur + 1, 1, NULL))
+	    if (napat && cur <= compcurrent &&
+		    ca_inactive(d, NULL, cur + 1, 1, NULL))
 		return 1;
 
 	    arglast = 1;
+	    /* if this is the first normal arg after an option, may have been
+	     * earlier normal arguments if they're intermixed with options */
 	    if (state.inopt) {
 		state.inopt = 0;
 		state.nargbeg = cur - 1;
@@ -2308,7 +2336,10 @@ ca_parse_line(Cadef d, int multi, int first)
     return 0;
 }
 
-/* Build a colon-list from a list. */
+/* Build a colon-list from a list.
+ *
+ * This is only used to populate values of $opt_args.
+ */
 
 static char *
 ca_colonlist(LinkList l)
@@ -2318,16 +2349,19 @@ ca_colonlist(LinkList l)
 	int len = 0;
 	char *p, *ret, *q;
 
+	/* Compute the length to be allocated. */
 	for (n = firstnode(l); n; incnode(n)) {
 	    len++;
 	    for (p = (char *) getdata(n); *p; p++)
-		len += (*p == ':' ? 2 : 1);
+		len += (*p == ':' || *p == '\\') ? 2 : 1;
 	}
 	ret = q = (char *) zalloc(len);
 
+	/* Join L into RET, joining with colons and escaping colons and
+	 * backslashes. */
 	for (n = firstnode(l); n;) {
 	    for (p = (char *) getdata(n); *p; p++) {
-		if (*p == ':')
+		if (*p == ':' || *p == '\\')
 		    *q++ = '\\';
 		*q++ = *p;
 	    }
@@ -2516,25 +2550,26 @@ bin_comparguments(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	    if (!(def = get_cadef(nam, args + 1)))
 		return 1;
 
-	    multi = !!def->snext;
+	    multi = !!def->snext; /* if we have sets */
 	    ca_parsed = cap;
 	    ca_xor = (multi ? newlinklist() : NULL);
 
-	    while (def) {
+	    while (def) { /* for each set */
 		use = !ca_parse_line(def, multi, first);
 		nx = ca_xor;
-		ca_xor = NULL;
+		ca_xor = NULL; /* don't want to duplicate the xors in the list */
 		while ((def = def->snext)) {
 		    if (nx) {
 			for (node = firstnode(nx); node; incnode(node)) {
 			    xor[0] = (char *) getdata(node);
 			    if (!strcmp(xor[0], def->sname) ||
 				ca_inactive(def, xor, compcurrent, 0, NULL))
-				break;
+				break; /* exclude this whole set */
 			}
-			if (!node)
+			if (!node) /* continue with this set */
 			    break;
 		    }
+		    /* entire set was excluded, continue to next set */
 		}
 		ca_xor = nx;
 		if (use && def) {
@@ -3546,7 +3581,7 @@ comp_quote(char *str, int prefix)
     if ((x = (prefix && *str == '=')))
 	*str = 'x';
 
-    ret = quotestring(str, NULL, *compqstack);
+    ret = quotestring(str, *compqstack);
 
     if (x)
 	*str = *ret = '=';
@@ -4480,6 +4515,10 @@ cfp_matcher_pats(char *matcher, char *add)
     return add;
 }
 
+/*
+ * ### This function call is skipped by _approximate, so "opt" probably means "optimize".
+ */
+
 static void
 cfp_opt_pats(char **pats, char *matcher)
 {
@@ -4732,7 +4771,7 @@ cf_ignore(char **names, LinkList ign, char *style, char *path)
     for (; (n = *names); names++) {
 	if (!ztat(n, &nst, 1) && S_ISDIR(nst.st_mode)) {
 	    if (tpwd && nst.st_dev == est.st_dev && nst.st_ino == est.st_ino) {
-		addlinknode(ign, quotestring(n, NULL, QT_BACKSLASH));
+		addlinknode(ign, quotestring(n, QT_BACKSLASH));
 		continue;
 	    }
 	    if (tpar && !strncmp((c = dupstring(n)), path, pl)) {
@@ -4748,7 +4787,7 @@ cf_ignore(char **names, LinkList ign, char *style, char *path)
 		if (found || ((e = strrchr(c, '/')) && e > c + pl &&
 			      !ztat(c, &st, 1) && st.st_dev == nst.st_dev &&
 			      st.st_ino == nst.st_ino))
-		    addlinknode(ign, quotestring(n, NULL, QT_BACKSLASH));
+		    addlinknode(ign, quotestring(n, QT_BACKSLASH));
 	    }
 	}
     }
@@ -4811,6 +4850,20 @@ cf_remove_other(char **names, char *pre, int *amb)
     return NULL;
 }
 
+/*
+ * SYNOPSIS:
+ *     1. compfiles -p  parnam1 parnam2 skipped matcher sdirs parnam3 varargs [..varargs]
+ *     2. compfiles -p- parnam1 parnam2 skipped matcher sdirs parnam3 varargs [..varargs]
+ *     3. compfiles -P  parnam1 parnam2 skipped matcher sdirs parnam3 
+ *
+ *     1. Set parnam1 to an array of patterns....
+ *        ${(P)parnam1} is an in/out parameter.
+ *     2. Like #1 but without calling cfp_opt_pats().  (This is only used by _approximate.)
+ *     3. Like #1 but varargs is implicitly set to  char *varargs[2] = { "*(-/)", NULL };.
+ *
+ *     parnam2 has to do with the accept-exact style (see cfp_test_exact()).
+ */
+
 static int
 bin_compfiles(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 {
@@ -4839,11 +4892,12 @@ bin_compfiles(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	    }
 	    queue_signals();
 	    if (!(tmp = getaparam(args[1]))) {
+		unqueue_signals();
 		zwarnnam(nam, "unknown parameter: %s", args[1]);
 		return 0;
 	    }
 	    for (l = newlinklist(); *tmp; tmp++)
-		addlinknode(l, *tmp);
+		addlinknode(l, quotestring(*tmp, QT_BACKSLASH_PATTERN));
 	    set_list_array(args[1], cf_pats((args[0][1] == 'P'), !!args[0][2],
 					    l, getaparam(args[2]), args[3],
 					    args[4], args[5],
@@ -4994,7 +5048,7 @@ enables_(Module m, int **enables)
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     return 0;
 }

@@ -125,6 +125,15 @@ int	inet6_flush_routes(const char * ifname);
 boolean_t
 inet6_forwarding_is_enabled(void);
 
+int
+inet6_ifstat(const char * if_name, struct in6_ifstat * stat);
+
+boolean_t
+inet6_get_linklocal_address(int if_index, struct in6_addr * ret_addr);
+
+int
+inet6_router_and_prefix_count(int if_index, int * ret_prefix_count);
+
 void
 inet6_addrlist_init(inet6_addrlist_t * addr_list_p);
 

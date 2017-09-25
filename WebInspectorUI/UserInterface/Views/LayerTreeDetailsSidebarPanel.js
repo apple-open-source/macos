@@ -27,17 +27,11 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 {
     constructor()
     {
-        super("layer-tree", WebInspector.UIString("Layers"), WebInspector.UIString("Layer"));
+        super("layer-tree", WebInspector.UIString("Layers"));
 
         this._dataGridNodesByLayerId = new Map;
 
         this.element.classList.add("layer-tree");
-
-        WebInspector.showShadowDOMSetting.addEventListener(WebInspector.Setting.Event.Changed, this._showShadowDOMSettingChanged, this);
-
-        this._buildLayerInfoSection();
-        this._buildDataGridSection();
-        this._buildBottomBar();
     }
 
     // DetailsSidebarPanel Overrides.
@@ -67,8 +61,21 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 
     // Protected
 
+    initialLayout()
+    {
+        super.initialLayout();
+
+        WebInspector.showShadowDOMSetting.addEventListener(WebInspector.Setting.Event.Changed, this._showShadowDOMSettingChanged, this);
+
+        this._buildLayerInfoSection();
+        this._buildDataGridSection();
+        this._buildBottomBar();
+    }
+
     layout()
     {
+        super.layout();
+
         if (!this.domNode)
             return;
 
@@ -76,6 +83,14 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
             this._unfilteredChildLayers = childLayers;
             this._updateDisplayWithLayers(layerForNode, childLayers);
         });
+    }
+
+    sizeDidChange()
+    {
+        super.sizeDidChange();
+
+        // FIXME: <https://webkit.org/b/152269> Web Inspector: Convert DetailsSection classes to use View
+        this._childLayersRow.sizeDidChange();
     }
 
     // Private

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -211,7 +211,7 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 		bzero(&opts, sizeof(opts));
 		opts.flags = MPO_CONTEXT_AS_GUARD;
 
-		kr = mach_port_construct(mach_task_self(), &opts, newSession, &mp);
+		kr = mach_port_construct(mach_task_self(), &opts, (mach_port_context_t)newSession, &mp);
 #else	// HAVE_MACHPORT_GUARDS
 		kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &mp);
 #endif	// HAVE_MACHPORT_GUARDS
@@ -319,7 +319,7 @@ cleanupSession(mach_port_t server)
 			 * Our send right has already been removed. Remove our receive right.
 			 */
 #ifdef	HAVE_MACHPORT_GUARDS
-			(void) mach_port_destruct(mach_task_self(), server, 0, thisSession);
+			(void) mach_port_destruct(mach_task_self(), server, 0, (mach_port_context_t)thisSession);
 #else	// HAVE_MACHPORT_GUARDS
 			(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
 #endif	// HAVE_MACHPORT_GUARDS
@@ -537,6 +537,7 @@ hasRootAccess(serverSessionRef session)
 	return (session->callerRootAccess == YES) ? TRUE : FALSE;
 
 #else	// !TARGET_OS_SIMULATOR
+#pragma unused(session)
 
 	/*
 	 * assume that all processes interacting with
@@ -550,7 +551,7 @@ hasRootAccess(serverSessionRef session)
 
 __private_extern__
 Boolean
-hasWriteAccess(serverSessionRef session, CFStringRef key)
+hasWriteAccess(serverSessionRef session, const char *op, CFStringRef key)
 {
 	Boolean	isSetup;
 
@@ -572,8 +573,9 @@ hasWriteAccess(serverSessionRef session, CFStringRef key)
 			 * general, this is unwise and we should at the
 			 * very least complain.
 			 */
-			SC_log(LOG_NOTICE, "*** Non-configd process (pid=%d) attempting to modify \"%@\" ***",
+			SC_log(LOG_NOTICE, "*** Non-configd process (pid=%d) attempting to %s \"%@\" ***",
 			       pid,
+			       op,
 			       key);
 		}
 

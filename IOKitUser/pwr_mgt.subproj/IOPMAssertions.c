@@ -64,7 +64,6 @@
     os_log_error(OS_LOG_DEFAULT, fmt, ##args); \
 }
 
-
 static uint64_t  collectBackTrace = 0;
 
 IOReturn _pm_connect(mach_port_t *newConnection);
@@ -1495,8 +1494,6 @@ IOReturn IOPMAssertionDeclareUserActivity(
     mach_port_t     pm_server = MACH_PORT_NULL;
     kern_return_t   kern_result = KERN_SUCCESS;
     IOReturn        err;
-    static struct   timeval prev_ts = {0,0};
-    struct timeval  ts;
     int             disableAppSleep = 0;
 
 
@@ -1508,15 +1505,7 @@ IOReturn IOPMAssertionDeclareUserActivity(
         goto exit;
     }
 
-    gettimeofday(&ts, NULL);
-    if (ts.tv_sec - prev_ts.tv_sec <= 5) {
-        if ( *AssertionID == kIOPMNullAssertionID )
-            *AssertionID = 0xabcd; /* Give a dummy id */
-        return_code = kIOReturnSuccess;
-        goto exit;
-    }
-    prev_ts = ts;
-
+    
     err = pm_connect_init(&pm_server);
     if(kIOReturnSuccess != err) {
         return_code = kIOReturnInternalError;
@@ -2216,7 +2205,7 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle)
         if (excHandle->token) {
             notify_cancel(excHandle->token);
         }
-        bzero(excHandle, sizeof(excHandle));
+        bzero(excHandle, sizeof(*excHandle));
         free(excHandle);
     }
 }

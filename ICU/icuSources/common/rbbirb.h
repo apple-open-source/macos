@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 //
 //  rbbirb.h
 //
@@ -144,9 +146,6 @@ public:
     UBool                         fLookAheadHardBreak;  // True:  Look ahead matches cause an
                                                      // immediate break, no continuing for the
                                                      // longest match.
-
-    UBool                         fRINoChain;        // True:  suppress chaining of rules on chars
-                                                     //   with (grapheme/word/line)break property == RI.
 
     RBBISetBuilder                *fSetBuilder;      // Set and Character Category builder.
     UVector                       *fUSetNodes;       // Vector of all uset nodes.

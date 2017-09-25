@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ast.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ast{
     Countries{
         001{"Mundu"}
@@ -308,9 +302,10 @@ ast{
     Countries%variant{
         CD{"Congu (RDC)"}
         CG{"Congu (República del)"}
+        CI{"Costa del Marfil"}
         FK{"Islles Malvines (Falkland Islands)"}
         MK{"Macedonia (ARYDM)"}
         TL{"Timor Este"}
     }
-    Version{"2.1.24.11"}
+    Version{"2.1.31.86"}
 }

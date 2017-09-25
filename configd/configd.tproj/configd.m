@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -154,6 +154,10 @@ catcher(int signum)
 static void
 term(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+#pragma unused(port)
+#pragma unused(msg)
+#pragma unused(size)
+#pragma unused(info)
 	int	status	= EX_OK;
 	Boolean	wait;
 
@@ -171,6 +175,7 @@ term(CFMachPortRef port, void *msg, CFIndex size, void *info)
 static void
 parent_exit(int i)
 {
+#pragma unused(i)
 	_exit (0);
 }
 
@@ -257,6 +262,7 @@ fork_child()
 static CFStringRef
 termMPCopyDescription(const void *info)
 {
+#pragma unused(info)
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGTERM MP>"));
 }
 

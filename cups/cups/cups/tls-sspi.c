@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -1795,7 +1795,7 @@ http_sspi_find_credentials(
   }
 #endif /* SP_PROT_TLS1_2_SERVER */
 
-  /* TODO: Support _HTTP_TLS_ALLOW_RC4 and _HTTP_TLS_ALLOW_DH options; right now we'll rely on Windows registry to enable/disable RC4/DH... */
+  /* TODO: Support _HTTP_TLS_ALLOW_RC4, _HTTP_TLS_ALLOW_DH, and _HTTP_TLS_DENY_CBC options; right now we'll rely on Windows registry to enable/disable RC4/DH/CBC... */
 
  /*
   * Create an SSPI credential.

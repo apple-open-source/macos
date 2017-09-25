@@ -32,8 +32,6 @@
 #include "NotificationPermissionRequestManager.h"
 #include "SessionTracker.h"
 #include "UserData.h"
-#include "WKAPICast.h"
-#include "WKBundleAPICast.h"
 #include "WebConnectionToUIProcess.h"
 #include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
@@ -60,6 +58,8 @@
 #include <WebCore/GeolocationClient.h>
 #include <WebCore/GeolocationController.h>
 #include <WebCore/GeolocationPosition.h>
+#include <WebCore/JSDOMConvertBufferSource.h>
+#include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/JSNotification.h>
 #include <WebCore/MainFrame.h>
@@ -77,8 +77,7 @@
 #include <WebCore/UserScript.h>
 #include <WebCore/UserStyleSheet.h>
 
-
-#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS)
 #include "WebNotificationManager.h"
 #endif
 
@@ -87,7 +86,7 @@ using namespace JSC;
 
 namespace WebKit {
 
-PassRefPtr<InjectedBundle> InjectedBundle::create(const WebProcessCreationParameters& parameters, API::Object* initializationUserData)
+RefPtr<InjectedBundle> InjectedBundle::create(const WebProcessCreationParameters& parameters, API::Object* initializationUserData)
 {
     auto bundle = adoptRef(*new InjectedBundle(parameters));
 
@@ -101,6 +100,7 @@ PassRefPtr<InjectedBundle> InjectedBundle::create(const WebProcessCreationParame
 InjectedBundle::InjectedBundle(const WebProcessCreationParameters& parameters)
     : m_path(parameters.injectedBundlePath)
     , m_platformBundle(0)
+    , m_client(std::make_unique<API::InjectedBundle::Client>())
 {
 }
 
@@ -108,9 +108,12 @@ InjectedBundle::~InjectedBundle()
 {
 }
 
-void InjectedBundle::initializeClient(const WKBundleClientBase* client)
+void InjectedBundle::setClient(std::unique_ptr<API::InjectedBundle::Client>&& client)
 {
-    m_client.initialize(client);
+    if (!client)
+        m_client = std::make_unique<API::InjectedBundle::Client>();
+    else
+        m_client = WTFMove(client);
 }
 
 void InjectedBundle::postMessage(const String& messageName, API::Object* messageBody)
@@ -182,11 +185,6 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
         RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(enabled);
 #endif
 
-#if ENABLE(FETCH_API)
-    if (preference == "WebKitFetchAPIEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setFetchAPIEnabled(enabled);
-#endif
-
 #if ENABLE(STREAMS_API)
     if (preference == "WebKitReadableByteStreamAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setReadableByteStreamAPIEnabled(enabled);
@@ -194,21 +192,8 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
         RuntimeEnabledFeatures::sharedFeatures().setWritableStreamAPIEnabled(enabled);
 #endif
 
-#if ENABLE(DOWNLOAD_ATTRIBUTE)
-    if (preference == "WebKitDownloadAttributeEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setDownloadAttributeEnabled(enabled);
-#endif
-
-    if (preference == "WebKitShadowDOMEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setShadowDOMEnabled(enabled);
-
-#if ENABLE(CSS_GRID_LAYOUT)
     if (preference == "WebKitCSSGridLayoutEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled(enabled);
-#endif
-
-    if (preference == "WebKitCustomElementsEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setCustomElementsEnabled(enabled);
 
     if (preference == "WebKitInteractiveFormValidationEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setInteractiveFormValidationEnabled(enabled);
@@ -216,6 +201,11 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
 #if ENABLE(WEBGL2)
     if (preference == "WebKitWebGL2Enabled")
         RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(enabled);
+#endif
+
+#if ENABLE(WEBGPU)
+    if (preference == "WebKitWebGPUEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setWebGPUEnabled(enabled);
 #endif
 
     if (preference == "WebKitModernMediaControlsEnabled")
@@ -226,45 +216,35 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
         RuntimeEnabledFeatures::sharedFeatures().setEncryptedMediaAPIEnabled(enabled);
 #endif
 
-#if ENABLE(SUBTLE_CRYPTO)
-    if (preference == "WebKitSubtleCryptoEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setSubtleCryptoEnabled(enabled);
-#endif
-
 #if ENABLE(MEDIA_STREAM)
-    if (preference == "WebKitMediaStreamEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setMediaStreamEnabled(enabled);
+    if (preference == "WebKitMediaDevicesEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setMediaDevicesEnabled(enabled);
 #endif
 
 #if ENABLE(WEB_RTC)
-    if (preference == "WebKitPeerConnectionEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setPeerConnectionEnabled(enabled);
+    if (preference == "WebKitWebRTCLegacyAPIEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setWebRTCLegacyAPIEnabled(enabled);
 #endif
+
+    if (preference == "WebKitIsSecureContextAttributeEnabled") {
+        WebPreferencesStore::overrideBoolValueForKey(WebPreferencesKey::isSecureContextAttributeEnabledKey(), enabled);
+        RuntimeEnabledFeatures::sharedFeatures().setIsSecureContextAttributeEnabled(enabled);
+    }
 
     // Map the names used in LayoutTests with the names used in WebCore::Settings and WebPreferencesStore.
 #define FOR_EACH_OVERRIDE_BOOL_PREFERENCE(macro) \
-    macro(WebKitAcceleratedCompositingEnabled, AcceleratedCompositingEnabled, acceleratedCompositingEnabled) \
-    macro(WebKitCanvasUsesAcceleratedDrawing, CanvasUsesAcceleratedDrawing, canvasUsesAcceleratedDrawing) \
-    macro(WebKitFrameFlatteningEnabled, FrameFlatteningEnabled, frameFlatteningEnabled) \
     macro(WebKitJavaEnabled, JavaEnabled, javaEnabled) \
     macro(WebKitJavaScriptEnabled, ScriptEnabled, javaScriptEnabled) \
-    macro(WebKitLoadSiteIconsKey, LoadsSiteIconsIgnoringImageLoadingSetting, loadsSiteIconsIgnoringImageLoadingPreference) \
-    macro(WebKitOfflineWebApplicationCacheEnabled, OfflineWebApplicationCacheEnabled, offlineWebApplicationCacheEnabled) \
-    macro(WebKitPageCacheSupportsPluginsPreferenceKey, PageCacheSupportsPlugins, pageCacheSupportsPlugins) \
     macro(WebKitPluginsEnabled, PluginsEnabled, pluginsEnabled) \
     macro(WebKitUsesPageCachePreferenceKey, UsesPageCache, usesPageCache) \
-    macro(WebKitAllowsPageCacheWithWindowOpenerKey, AllowsPageCacheWithWindowOpener, allowsPageCacheWithWindowOpener) \
     macro(WebKitWebAudioEnabled, WebAudioEnabled, webAudioEnabled) \
     macro(WebKitWebGLEnabled, WebGLEnabled, webGLEnabled) \
     macro(WebKitXSSAuditorEnabled, XSSAuditorEnabled, xssAuditorEnabled) \
     macro(WebKitShouldRespectImageOrientation, ShouldRespectImageOrientation, shouldRespectImageOrientation) \
-    macro(WebKitEnableCaretBrowsing, CaretBrowsingEnabled, caretBrowsingEnabled) \
     macro(WebKitDisplayImagesKey, LoadsImagesAutomatically, loadsImagesAutomatically) \
-    macro(WebKitHTTPEquivEnabled, HttpEquivEnabled, httpEquivEnabled) \
     macro(WebKitVisualViewportEnabled, VisualViewportEnabled, visualViewportEnabled) \
     macro(WebKitLargeImageAsyncDecodingEnabled, LargeImageAsyncDecodingEnabled, largeImageAsyncDecodingEnabled) \
     macro(WebKitAnimatedImageAsyncDecodingEnabled, AnimatedImageAsyncDecodingEnabled, animatedImageAsyncDecodingEnabled) \
-    macro(WebKitES6ModulesEnabled, Es6ModulesEnabled, es6ModulesEnabled) \
     \
 
 #define OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES(TestRunnerName, SettingsName, WebPreferencesName) \
@@ -315,7 +295,14 @@ void InjectedBundle::setFrameFlatteningEnabled(WebPageGroupProxy* pageGroup, boo
 {
     const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
     for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
-        (*iter)->settings().setFrameFlatteningEnabled(enabled);
+        (*iter)->settings().setFrameFlattening(enabled ? FrameFlatteningFullyEnabled : FrameFlatteningDisabled);
+}
+
+void InjectedBundle::setAsyncFrameScrollingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        (*iter)->settings().setAsyncFrameScrollingEnabled(enabled);
 }
 
 void InjectedBundle::setJavaScriptCanAccessClipboard(WebPageGroupProxy* pageGroup, bool enabled)
@@ -444,10 +431,10 @@ bool InjectedBundle::isProcessingUserGesture()
     return ScriptController::processingUserGesture();
 }
 
-void InjectedBundle::addUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime injectionTime, WebCore::UserContentInjectedFrames injectedFrames)
+void InjectedBundle::addUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, String&& source, String&& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime injectionTime, WebCore::UserContentInjectedFrames injectedFrames)
 {
     // url is not from URL::string(), i.e. it has not already been parsed by URL, so we have to use the relative URL constructor for URL instead of the ParsedURLStringTag version.
-    UserScript userScript{ source, URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectionTime, injectedFrames };
+    UserScript userScript { WTFMove(source), URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectionTime, injectedFrames };
 
     pageGroup->userContentController().addUserScript(*scriptWorld, WTFMove(userScript));
 }
@@ -512,7 +499,8 @@ void InjectedBundle::reportException(JSContextRef context, JSValueRef exception)
     JSLockHolder lock(execState);
 
     // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a Page.
-    if (!toJSDOMWindow(execState->lexicalGlobalObject()))
+    JSC::JSGlobalObject* globalObject = execState->lexicalGlobalObject();
+    if (!toJSDOMWindow(globalObject->vm(), globalObject))
         return;
 
     WebCore::reportException(execState, toJS(execState, exception));
@@ -520,27 +508,27 @@ void InjectedBundle::reportException(JSContextRef context, JSValueRef exception)
 
 void InjectedBundle::didCreatePage(WebPage* page)
 {
-    m_client.didCreatePage(this, page);
+    m_client->didCreatePage(*this, *page);
 }
 
 void InjectedBundle::willDestroyPage(WebPage* page)
 {
-    m_client.willDestroyPage(this, page);
+    m_client->willDestroyPage(*this, *page);
 }
 
 void InjectedBundle::didInitializePageGroup(WebPageGroupProxy* pageGroup)
 {
-    m_client.didInitializePageGroup(this, pageGroup);
+    m_client->didInitializePageGroup(*this, *pageGroup);
 }
 
 void InjectedBundle::didReceiveMessage(const String& messageName, API::Object* messageBody)
 {
-    m_client.didReceiveMessage(this, messageName, messageBody);
+    m_client->didReceiveMessage(*this, messageName, messageBody);
 }
 
 void InjectedBundle::didReceiveMessageToPage(WebPage* page, const String& messageName, API::Object* messageBody)
 {
-    m_client.didReceiveMessageToPage(this, page, messageName, messageBody);
+    m_client->didReceiveMessageToPage(*this, *page, messageName, messageBody);
 }
 
 void InjectedBundle::setUserStyleSheetLocation(WebPageGroupProxy* pageGroup, const String& location)
@@ -552,7 +540,7 @@ void InjectedBundle::setUserStyleSheetLocation(WebPageGroupProxy* pageGroup, con
 
 void InjectedBundle::setWebNotificationPermission(WebPage* page, const String& originString, bool allowed)
 {
-#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS)
     page->notificationPermissionRequestManager()->setPermissionLevelForTesting(originString, allowed);
 #else
     UNUSED_PARAM(page);
@@ -563,7 +551,7 @@ void InjectedBundle::setWebNotificationPermission(WebPage* page, const String& o
 
 void InjectedBundle::removeAllWebNotificationPermissions(WebPage* page)
 {
-#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS)
     page->notificationPermissionRequestManager()->removeAllPermissionsForTesting();
 #else
     UNUSED_PARAM(page);
@@ -572,8 +560,8 @@ void InjectedBundle::removeAllWebNotificationPermissions(WebPage* page)
 
 uint64_t InjectedBundle::webNotificationID(JSContextRef jsContext, JSValueRef jsNotification)
 {
-#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
-    WebCore::Notification* notification = JSNotification::toWrapped(toJS(toJS(jsContext), jsNotification));
+#if ENABLE(NOTIFICATIONS)
+    WebCore::Notification* notification = JSNotification::toWrapped(toJS(jsContext)->vm(), toJS(toJS(jsContext), jsNotification));
     if (!notification)
         return 0;
     return WebProcess::singleton().supplement<WebNotificationManager>()->notificationIDForTesting(notification);
@@ -585,10 +573,10 @@ uint64_t InjectedBundle::webNotificationID(JSContextRef jsContext, JSValueRef js
 }
 
 // FIXME Get rid of this function and move it into WKBundle.cpp.
-PassRefPtr<API::Data> InjectedBundle::createWebDataFromUint8Array(JSContextRef context, JSValueRef data)
+Ref<API::Data> InjectedBundle::createWebDataFromUint8Array(JSContextRef context, JSValueRef data)
 {
     JSC::ExecState* execState = toJS(context);
-    RefPtr<Uint8Array> arrayData = WebCore::toUnsharedUint8Array(toJS(execState, data));
+    RefPtr<Uint8Array> arrayData = WebCore::toUnsharedUint8Array(execState->vm(), toJS(execState, data));
     return API::Data::create(static_cast<unsigned char*>(arrayData->baseAddress()), arrayData->byteLength());
 }
 

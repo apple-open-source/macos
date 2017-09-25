@@ -26,12 +26,8 @@
 
 #include <string.h>
 #include <Availability.h>
-#ifdef KERNEL
-#include <machine/limits.h>
-#else
 #include <limits.h>
 #include <stdlib.h>
-#endif /* KERNEL */
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonHMAC.h>
 
@@ -73,15 +69,15 @@ typedef uint32_t CCPseudoRandomAlgorithm;
                         called if the same key is  expected to be derived.
  @param passwordLen     The length of the text password in bytes.
  @param salt            The salt byte values used as input to the derivation 
-                        function.
- @param saltLen         The length of the salt in bytes.
+                        function. The pointer can be NULL, only when saltLen is zero.
+ @param saltLen         The length of the salt in bytes. It can be zero.
  @param prf             The Pseudo Random Algorithm to use for the derivation 
                         iterations.
  @param rounds          The number of rounds of the Pseudo Random Algorithm 
-                        to use.
+                        to use. It cannot be zero.
  @param derivedKey      The resulting derived key produced by the function.  
                         The space for this must be provided by the caller.
- @param derivedKeyLen   The expected length of the derived key in bytes.
+ @param derivedKeyLen   The expected length of the derived key in bytes. It cannot be zero.
  
  @discussion The following values are used to designate the PRF:
  
@@ -115,7 +111,7 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
             the current platform.  
  @param algorithm       Currently only PBKDF2 is available via kCCPBKDF2
  @param passwordLen     The length of the text password in bytes.
- @param saltLen         The length of the salt in bytes.
+ @param saltLen         The length of the salt in bytes. saltlen must be smaller than 133.
  @param prf             The Pseudo Random Algorithm to use for the derivation 
                         iterations.
  @param derivedKeyLen   The expected length of the derived key in bytes.
@@ -124,7 +120,8 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
  
  @result the number of iterations to use for the desired processing time.
         Returns a minimum of 10000 iterations (safety net, not a particularly recommended value)
-            The number of iterations is a trade-off of usability and security.
+            The number of iterations is a trade-off of usability and security. If there is and error
+            the function returns (unsigned)(-1). The minimum return value is set to 10000.
  
  */
 

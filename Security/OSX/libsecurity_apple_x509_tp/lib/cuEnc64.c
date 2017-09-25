@@ -260,6 +260,10 @@ unsigned char *cuDec64(const unsigned char *inbuf,
 	bp = news;
 
 	obuflen = (inlen / 4) * 3;
+    if(obuflen == 0) {
+        free(news);
+        return NULL;
+    }
 	outbuf = (unsigned char*)malloc(obuflen);
 	outp = outbuf;
 
@@ -408,6 +412,10 @@ static const char *findStr(
 	const char *cp;
 	size_t srchStrLen = strlen(str);
 	char c = str[0];
+
+    if(!inText) {
+        return NULL;
+    }
 	
 	/* last char * we can search in inText for start of str */
 	const char *endCp = inText + inTextLen - srchStrLen;
@@ -439,6 +447,10 @@ static const char *getLine(
 	*consumed = 0;
 	const char *cp = inText;
 	const char *newline = NULL;		// if we found a newline, this points to the first one
+
+    if(!inText) {
+        return NULL;
+    }
 	
 	while(inTextLen) {
 		char c = *cp;

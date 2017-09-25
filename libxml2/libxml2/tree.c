@@ -52,6 +52,8 @@ int __xmlRegisterCallbacks = 0;
  *									*
  ************************************************************************/
 
+extern const int xmlEntityDecodingDepthMax;
+
 static xmlNsPtr
 xmlNewReconciliedNs(xmlDocPtr doc, xmlNodePtr tree, xmlNsPtr ns);
 
@@ -1404,6 +1406,8 @@ xmlStringLenGetNodeList(const xmlDoc *doc, const xmlChar *value, int len) {
 			else if ((ent != NULL) && (ent->children == NULL)) {
 			    xmlNodePtr temp;
 
+                            /* Set to non-NULL value to avoid recursion. */
+			    ent->children = (xmlNodePtr) -1;
 			    ent->children = xmlStringGetNodeList(doc,
 				    (const xmlChar*)node->content);
 			    ent->owner = 1;
@@ -1596,6 +1600,7 @@ xmlStringGetNodeList(const xmlDoc *doc, const xmlChar *value) {
 			else if ((ent != NULL) && (ent->children == NULL)) {
 			    xmlNodePtr temp;
 
+                            /* Set to non-NULL value to avoid recursion. */
 			    ent->children = (xmlNodePtr) -1;
 			    ent->children = xmlStringGetNodeList(doc,
 				    (const xmlChar*)node->content);
@@ -1603,6 +1608,7 @@ xmlStringGetNodeList(const xmlDoc *doc, const xmlChar *value) {
 			    temp = ent->children;
 			    while (temp) {
 				temp->parent = (xmlNodePtr)ent;
+				ent->last = temp;
 				temp = temp->next;
 			    }
 			}
@@ -1654,6 +1660,9 @@ out:
     return(ret);
 }
 
+static xmlChar *
+xmlNodeListGetStringInternal(xmlDocPtr doc, const xmlNode *list, int inLine, int depth);
+
 /**
  * xmlNodeListGetString:
  * @doc:  the document
@@ -1668,10 +1677,20 @@ out:
 xmlChar *
 xmlNodeListGetString(xmlDocPtr doc, const xmlNode *list, int inLine)
 {
+    return xmlNodeListGetStringInternal(doc, list, inLine, 0);
+}
+
+static xmlChar *
+xmlNodeListGetStringInternal(xmlDocPtr doc, const xmlNode *list, int inLine, int depth)
+{
     const xmlNode *node = list;
     xmlChar *ret = NULL;
     xmlEntityPtr ent;
     int attr;
+
+    if (depth > xmlEntityDecodingDepthMax) {
+        return(NULL); /* Avoid stack overflow due to previous XML_ERR_ENTITY_LOOP. */
+    }
 
     if (list == NULL)
         return (NULL);
@@ -1710,7 +1729,7 @@ xmlNodeListGetString(xmlDocPtr doc, const xmlNode *list, int inLine)
                      * entity reference nodes (among others).
                      * -> we recursive  call xmlNodeListGetString()
                      * which handles these types */
-                    buffer = xmlNodeListGetString(doc, ent->children, 1);
+                    buffer = xmlNodeListGetStringInternal(doc, ent->children, 1, depth + 1);
                     if (buffer != NULL) {
                         ret = xmlStrcat(ret, buffer);
                         xmlFree(buffer);
@@ -8212,7 +8231,7 @@ xmlDOMWrapRemoveNode(xmlDOMWrapCtxtPtr ctxt, xmlDocPtr doc,
 		     xmlNodePtr node, int options ATTRIBUTE_UNUSED)
 {
     xmlNsPtr *list = NULL;
-    int sizeList, nbList, i, j;
+    int sizeList, nbList = 0, i, j;
     xmlNsPtr ns;
 
     if ((node == NULL) || (doc == NULL) || (node->doc != doc))

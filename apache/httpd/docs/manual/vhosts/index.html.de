@@ -56,7 +56,7 @@
     beschreiben.</p>
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#support">Unterstützung virtueller Hosts</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#support">Unterstützung virtueller Hosts</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#directives">Konfigurationsdirektiven</a></li>
 </ul><h3>Siehe auch</h3><ul class="seealso"><li><code class="module"><a href="../mod/mod_vhost_alias.html">mod_vhost_alias</a></code></li><li><a href="name-based.html">Namensbasierte virtuelle Hosts</a></li><li><a href="ip-based.html">IP-basierte virtuelle Hosts</a></li><li><a href="examples.html">Beispiele für virtuelle
   Hosts</a></li><li><a href="fd-limits.html">Datei-Deskriptor-Begrenzungen</a></li><li><a href="mass.html">Massen-Virtual-Hosting</a></li><li><a href="details.html">Zuweisung virtueller Hosts</a></li></ul></div>
@@ -115,7 +115,7 @@
 <a href="../tr/vhosts/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/vhosts/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Module</a> | <a href="../mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossar</a> | <a href="../sitemap.html">Seitenindex</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

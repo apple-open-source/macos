@@ -1,4 +1,5 @@
-require 'dtrace/helper'
+# frozen_string_literal: false
+require_relative 'helper'
 require 'tempfile'
 
 module DTrace

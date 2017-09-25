@@ -29,7 +29,6 @@
  *
  */
 
-#if !TARGET_OS_EMBEDDED
 
 #include <sys/syslog.h>
 #include <syslog.h>
@@ -602,4 +601,3 @@ _secondsSpentOnUPSPower(void)
 
 
 
-#endif /* TARGET_OS_EMBEDDED */

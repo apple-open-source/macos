@@ -27,6 +27,8 @@
 //
 #include <security_utilities/errors.h>
 #include <security_utilities/debugging.h>
+#include <security_utilities/utility_config.h>
+#include <security_utilities/debugging_internal.h>
 #include <typeinfo>
 #include <stdio.h>
 #include <Security/SecBase.h>
@@ -121,13 +123,15 @@ UnixError::UnixError() : error(errno)
     LogBacktrace();
 }
 
-UnixError::UnixError(int err) : error(err)
+UnixError::UnixError(int err, bool suppresslogging) : error(err)
 {
     SECURITY_EXCEPTION_THROW_UNIX(this, err);
 
-    snprintf(whatBuffer, whatBufferSize, "UNIX error exception: %d", this->error);
-    secnotice("security_exception", "%s", what());
-    LogBacktrace();
+    if(!suppresslogging || secinfoenabled("security_exception")) {
+        snprintf(whatBuffer, whatBufferSize, "UNIX error exception: %d", this->error);
+        secnotice("security_exception", "%s", what());
+        LogBacktrace();
+    }
 }
 
 const char *UnixError::what() const throw ()
@@ -144,10 +148,12 @@ OSStatus UnixError::osStatus() const
 int UnixError::unixError() const
 { return error; }
 
-void UnixError::throwMe(int err) { throw UnixError(err); }
+void UnixError::throwMe(int err) { throw UnixError(err, false); }
+void UnixError::throwMeNoLogging(int err) { throw UnixError(err, true); }
+
 
 // @@@ This is a hack for the Network protocol state machine
-UnixError UnixError::make(int err) { return UnixError(err); }
+UnixError UnixError::make(int err) { return UnixError(err, false); }
 
 
 //

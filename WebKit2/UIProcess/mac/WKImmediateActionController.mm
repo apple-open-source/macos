@@ -42,9 +42,9 @@
 #import <WebCore/NSMenuSPI.h>
 #import <WebCore/NSPopoverSPI.h>
 #import <WebCore/QuickLookMacSPI.h>
-#import <WebCore/SoftLinking.h>
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/URL.h>
+#import <wtf/SoftLinking.h>
 
 SOFT_LINK_FRAMEWORK_IN_UMBRELLA(Quartz, QuickLookUI)
 SOFT_LINK_CLASS(QuickLookUI, QLPreviewMenuItem)
@@ -254,7 +254,7 @@ using namespace WebKit;
     _page->setTextIndicatorAnimationProgress(1);
 }
 
-- (PassRefPtr<API::HitTestResult>)_webHitTestResult
+- (RefPtr<API::HitTestResult>)_webHitTestResult
 {
     RefPtr<API::HitTestResult> hitTestResult;
     if (_state == ImmediateActionState::Ready)
@@ -262,7 +262,7 @@ using namespace WebKit;
     else
         hitTestResult = _page->lastMouseMoveHitTestResult();
 
-    return WTFMove(hitTestResult);
+    return hitTestResult;
 }
 
 #pragma mark Immediate actions
@@ -401,10 +401,8 @@ using namespace WebKit;
 
     actionContext.altMode = YES;
     actionContext.immediate = YES;
-    if ([[getDDActionsManagerClass() sharedManager] respondsToSelector:@selector(hasActionsForResult:actionContext:)]) {
-        if (![[getDDActionsManagerClass() sharedManager] hasActionsForResult:actionContext.mainResult actionContext:actionContext])
-            return nil;
-    }
+    if (![[getDDActionsManagerClass() sharedManager] hasActionsForResult:actionContext.mainResult actionContext:actionContext])
+        return nil;
 
     RefPtr<WebPageProxy> page = _page;
     PageOverlay::PageOverlayID overlayID = _hitTestResultData.detectedDataOriginatingPageOverlay;

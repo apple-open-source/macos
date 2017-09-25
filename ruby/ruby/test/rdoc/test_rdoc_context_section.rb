@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocContextSection < RDoc::TestCase
@@ -11,13 +12,6 @@ class TestRDocContextSection < RDoc::TestCase
 
     @S = RDoc::Context::Section
     @s = @S.new @klass, 'section', comment('# comment', @top_level)
-  end
-
-  def mu_pp obj
-    s = ''
-    s = PP.pp obj, s
-    s.force_encoding Encoding.default_external if defined? Encoding
-    s.chomp
   end
 
   def test_add_comment

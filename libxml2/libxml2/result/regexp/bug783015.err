@@ -1,0 +1,2 @@
+regexp error : failed to compile: Unterminated quantifier
+regexp error : failed to compile: xmlFAParseRegExp: extra characters

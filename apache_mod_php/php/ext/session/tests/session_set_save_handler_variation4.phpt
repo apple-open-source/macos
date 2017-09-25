@@ -8,6 +8,7 @@ session.gc_divisor=1
 session.gc_maxlifetime=0
 session.save_path=
 session.name=PHPSESSID
+session.save_handler=files
 --FILE--
 <?php
 
@@ -23,7 +24,8 @@ echo "*** Testing session_set_save_handler() : variation ***\n";
 
 function noisy_gc($maxlifetime) {
 	echo("GC [".$maxlifetime."]\n");
-	gc($maxlifetime);
+	echo gc($maxlifetime)." deleted\n";
+	return true;
 }
 
 require_once "save_handler.inc";
@@ -53,6 +55,7 @@ ob_end_flush();
 Open [%s,PHPSESSID]
 Read [%s,%s]
 GC [0]
+1 deleted
 array(3) {
   ["Blah"]=>
   string(12) "Hello World!"
@@ -67,6 +70,7 @@ NULL
 Open [%s,PHPSESSID]
 Read [%s,%s]
 GC [0]
+1 deleted
 array(3) {
   ["Blah"]=>
   string(12) "Hello World!"
@@ -77,7 +81,7 @@ array(3) {
 }
 Destroy [%s,%s]
 
-Warning: unlink(%s): No such file or directory in %s on line %d
+Warning: unlink(%s): No such file or directory in %s on line %s
 Close [%s,PHPSESSID]
 bool(true)
 

@@ -21,18 +21,21 @@
  */
 
 
+#define IOFRAMEBUFFER_PRIVATE
+
 #include <libkern/OSAtomic.h>
 #include <IOKit/IOUserClient.h>
-
-#define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/IOHibernatePrivate.h>
-#include <IOKit/graphics/IODisplay.h>
-#include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
+
+#include <IOKit/graphics/IODisplay.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
+
+#include "IOGraphicsKTrace.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -145,6 +148,7 @@ struct EDID
 
 void IODisplay::initialize( void )
 {
+    IOD_START(initialize,0,0,0);
     gIODisplayParametersKey     = OSSymbol::withCStringNoCopy(
                                   kIODisplayParametersKey );
     gIODisplayGUIDKey           = OSSymbol::withCStringNoCopy(
@@ -265,6 +269,7 @@ void IODisplay::initialize( void )
         gIODisplayFastBootEDIDKey  = OSSymbol::withCStringNoCopy( kIODisplayFastBootEDIDKey );
         gIODisplayZeroData         = OSData::withCapacity(0);
     }
+    IOD_END(initialize,0,0,0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -272,13 +277,17 @@ void IODisplay::initialize( void )
 IOService * IODisplay::probe(   IOService *     provider,
                               SInt32 *  score )
 {
+    IOD_START(probe,0,0,0);
     fConnection = OSDynamicCast(IODisplayConnect, provider);
 
+    IOD_END(probe,0,0,0);
     return (this);
 }
 
 IODisplayConnect * IODisplay::getConnection( void )
 {
+    IOD_START(getConnection,0,0,0);
+    IOD_END(getConnection,0,0,0);
     return (fConnection);
 }
 
@@ -287,9 +296,12 @@ IOReturn IODisplay::getGammaTableByIndex(
     UInt32 * /* channelCount */, UInt32 * /* dataCount */,
     UInt32 * /* dataWidth */, void ** /* data */ )
 {
+    IOD_START(getGammaTableByIndex,0,0,0);
+    IOD_END(getGammaTableByIndex,kIOReturnUnsupported,0,0);
     return (kIOReturnUnsupported);
 }
 
+void IODisplayUpdateNVRAM( IOService * entry, OSData * property );
 void IODisplayUpdateNVRAM( IOService * entry, OSData * property )
 {
     if (true && gIODisplayFastBootPlatform)
@@ -308,12 +320,17 @@ void IODisplayUpdateNVRAM( IOService * entry, OSData * property )
 
 void IODisplay::searchParameterHandlers(IORegistryEntry * entry)
 {
+    IOD_START(searchParameterHandlers,0,0,0);
     IORegistryIterator *        iter;
     IODisplayParameterHandler * parameterHandler;
 
     iter = IORegistryIterator::iterateOver(entry, gIOServicePlane,
                                            kIORegistryIterateRecursively);
-    if (!iter) return;
+    if (!iter)
+    {
+        IOD_END(searchParameterHandlers,-1,0,0);
+        return;
+    }
 	do
 	{
 		iter->reset();
@@ -326,10 +343,12 @@ void IODisplay::searchParameterHandlers(IORegistryEntry * entry)
 	} 
 	while (!iter->isValid());
 	iter->release();
+    IOD_END(searchParameterHandlers,0,0,0);
 }
 
 bool IODisplay::start( IOService * provider )
 {
+    IOD_START(start,0,0,0);
     IOFramebuffer *     framebuffer;
     uintptr_t           connectFlags;
     OSData *            edidData;
@@ -339,16 +358,26 @@ bool IODisplay::start( IOService * provider )
     uint32_t            serial = 0;
 
     if (!super::start(provider))
+    {
+        IOD_END(start,false,0,0);
         return (false);
+    }
 
     if (!fConnection)
+    {
         // as yet unmatched display device (ADB)
+        IOD_END(start,true,__LINE__,0);
         return (true);
+    }
 
     framebuffer = fConnection->getFramebuffer();
     assert( framebuffer );
 
+    fWSAADeferState = kIOWSAA_DeferEnd;
+
+    FB_START(getAttributeForConnection,kConnectionFlags,__LINE__,0);
     fConnection->getAttributeForConnection(kConnectionFlags, &connectFlags);
+    FB_END(getAttributeForConnection,0,__LINE__,connectFlags);
     uint32_t flagsData = (uint32_t) connectFlags;
     setProperty(kIODisplayConnectFlagsKey, &flagsData, sizeof(flagsData));
 
@@ -404,13 +433,17 @@ bool IODisplay::start( IOService * provider )
         UInt32  sense, extSense;
         UInt32  senseType, displayType;
 
-        if (kIOReturnSuccess != fConnection->getAttributeForConnection(
-                    kConnectionSupportsAppleSense, NULL))
+        FB_START(getAttributeForConnection,kConnectionSupportsAppleSense,__LINE__,0);
+        IOReturn err = fConnection->getAttributeForConnection( kConnectionSupportsAppleSense, NULL);
+        FB_END(getAttributeForConnection,err,__LINE__,0);
+        if (kIOReturnSuccess != err)
             continue;
 
-        if (kIOReturnSuccess != framebuffer->getAppleSense(
-                    fConnection->getConnection(),
-                    &senseType, &sense, &extSense, &displayType))
+        FB_START(getAppleSense,0,__LINE__,0);
+        IOReturn error = framebuffer->getAppleSense(fConnection->getConnection(),
+                                                  &senseType, &sense, &extSense, &displayType);
+        FB_END(getAppleSense,error,__LINE__,0);
+        if (kIOReturnSuccess != error)
             continue;
 
         setProperty( kAppleDisplayTypeKey, displayType, 32);
@@ -534,46 +567,65 @@ bool IODisplay::start( IOService * provider )
 
     framebuffer->displayOnline(this, +1, options);
 
-    fNotifier = framebuffer->addFramebufferNotification(
-                    &IODisplay::_framebufferEvent, this, NULL );
-
+    fNotifier = framebuffer->addFramebufferNotificationWithOptions( &IODisplay::_framebufferEvent, this, NULL,
+                                                                   kIOFBNotifyGroupID_IODisplay, 0,
+                                                                   kIOFBNotifyEvent_SleepWake |
+                                                                   kIOFBNotifyEvent_ClamshellChange |
+                                                                   kIOFBNotifyEvent_Probed |
+                                                                   kIOFBNotifyEvent_DisplayDimsChange |
+                                                                   kIOFBNotifyEvent_WSAADefer |
+                                                                   kIOFBNotifyEvent_DisplayModeChange );
     registerService();
 
+    IOD_END(start,true,__LINE__,0);
     return (true);
 }
 
 bool IODisplay::addParameterHandler( IODisplayParameterHandler * parameterHandler )
 {
+    IOD_START(addParameterHandler,0,0,0);
     OSArray * array;
     array = OSDynamicCast(OSArray, fParameterHandler);
 
     if (array && ((unsigned int) -1 != array->getNextIndexOfObject(parameterHandler, 0)))
+    {
+        IOD_END(addParameterHandler,true,__LINE__,0);
         return (true);
+    }
 
     if (!parameterHandler->setDisplay(this))
+    {
+        IOD_END(addParameterHandler,false,__LINE__,0);
         return (false);
+    }
 
     if (!array)
     {
         array = OSArray::withCapacity(2);
         if (!array)
+        {
+            IOD_END(addParameterHandler,false,__LINE__,0);
             return (false);
+        }
        fParameterHandler = (IODisplayParameterHandler *) array;
     }
 
     array->setObject(parameterHandler);
 
+    IOD_END(addParameterHandler,true,__LINE__,0);
     return (true);
 }
 
 bool IODisplay::removeParameterHandler( IODisplayParameterHandler * parameterHandler )
 {
+    IOD_START(removeParameterHandler,0,0,0);
     OSArray * array;
 
     if (parameterHandler == fParameterHandler)
     {
         fParameterHandler->release();
         fParameterHandler = 0;
+        IOD_END(removeParameterHandler,true,__LINE__,0);
         return (true);
     }
 
@@ -584,14 +636,17 @@ bool IODisplay::removeParameterHandler( IODisplayParameterHandler * parameterHan
         if (idx != (unsigned int)-1)
         {
             array->removeObject(idx);
+            IOD_END(removeParameterHandler,true,__LINE__,0);
             return (true);
         }
     }
+    IOD_END(removeParameterHandler,false,0,0);
     return (false);
 }
 
 void IODisplay::stop( IOService * provider )
 {
+    IOD_START(stop,0,0,0);
     if (fConnection)
     {
         fConnection->getFramebuffer()->displayOnline(this, -1, 0);
@@ -609,20 +664,24 @@ void IODisplay::stop( IOService * provider )
     }
 
 	removeProperty(gIODisplayParametersKey);
+    IOD_END(stop,0,0,0);
 }
 
 void IODisplay::free()
 {
-    if (fParameterHandler)
-    {
-        fParameterHandler->release();
-        fParameterHandler = 0;
+    IOD_START(free,0,0,0);
+    OSSafeReleaseNULL(fParameterHandler);
+    if (fDisplayPMVars) {
+        IODelete(fDisplayPMVars, IODisplayPMVars, 1);
+        fDisplayPMVars = 0;
     }
     super::free();
+    IOD_END(free,0,0,0);
 }
 
 IOReturn IODisplay::readFramebufferEDID( void )
 {
+    IOD_START(readFramebufferEDID,0,0,0);
     IOReturn            err;
     IOFramebuffer *     framebuffer;
     OSData *            data;
@@ -638,19 +697,27 @@ IOReturn IODisplay::readFramebufferEDID( void )
 
     do
     {
+        FB_START(getAttributeForConnection,kConnectionSupportsHLDDCSense,__LINE__,0);
         err = fConnection->getAttributeForConnection(
                   kConnectionSupportsHLDDCSense, NULL );
+        FB_END(getAttributeForConnection,err,__LINE__,0);
         if (err)
             continue;
 
-        if (!framebuffer->hasDDCConnect(fConnection->getConnection()))
+        FB_START(hasDDCConnect,0,__LINE__,0);
+        bool hasDDC = framebuffer->hasDDCConnect(fConnection->getConnection());
+        FB_END(hasDDCConnect,hasDDC,__LINE__,0);
+
+        if (!hasDDC)
         {
             err = kIOReturnUnsupported;
             continue;
         }
         length = sizeof( EDID);
+        FB_START(getDDCBlock,0,__LINE__,0);
         err = framebuffer->getDDCBlock( fConnection->getConnection(),
                                         1, kIODDCBlockTypeEDID, 0, (UInt8 *) &readEDID, &length );
+        FB_END(getDDCBlock,err,__LINE__,0);
         if (err || (length != sizeof(EDID)))
             continue;
 
@@ -663,8 +730,10 @@ IOReturn IODisplay::readFramebufferEDID( void )
         for (index = 2; index < (2 + numExts); index++)
         {
             length = sizeof(EDID);
+            FB_START(getDDCBlock,0,__LINE__,0);
             err = framebuffer->getDDCBlock( fConnection->getConnection(),
                                             index, kIODDCBlockTypeEDID, 0, edidBlock, &length );
+            FB_END(getDDCBlock,err,__LINE__,0);
             if (err || (length != sizeof(EDID)))
                 break;
             if (0 == bcmp(edidBlock, &readEDID, sizeof(EDID)))
@@ -678,12 +747,14 @@ IOReturn IODisplay::readFramebufferEDID( void )
     }
     while (false);
 
+    IOD_END(readFramebufferEDID,err,0,0);
     return (err);
 }
 
 IOReturn IODisplay::getConnectFlagsForDisplayMode(
     IODisplayModeID mode, UInt32 * flags )
 {
+    IOD_START(getConnectFlagsForDisplayMode,mode,0,0);
     IOReturn            err;
     IOFramebuffer *     framebuffer;
 
@@ -691,9 +762,11 @@ IOReturn IODisplay::getConnectFlagsForDisplayMode(
     framebuffer = fConnection->getFramebuffer();
     assert( framebuffer );
 
+    FB_START(connectFlags,mode,__LINE__,0);
     err = framebuffer->connectFlags(
               fConnection->getConnection(),
               mode, flags );
+    FB_END(connectFlags,err,__LINE__,*flags);
 
     if (kIOReturnUnsupported == err)
     {
@@ -701,6 +774,7 @@ IOReturn IODisplay::getConnectFlagsForDisplayMode(
         err = kIOReturnSuccess;
     }
 
+    IOD_END(getConnectFlagsForDisplayMode,err,0,0);
     return (err);
 }
 
@@ -709,6 +783,7 @@ IOReturn IODisplay::getConnectFlagsForDisplayMode(
 OSDictionary * IODisplay::getIntegerRange( OSDictionary * params,
         const OSSymbol * sym, SInt32 * value, SInt32 * min, SInt32 * max )
 {
+    IOD_START(getIntegerRange,0,0,0);
     OSNumber *          num;
 
     params = OSDynamicCast( OSDictionary, params->getObject( sym ));
@@ -738,17 +813,20 @@ OSDictionary * IODisplay::getIntegerRange( OSDictionary * params,
                     continue;
                 *max = num->unsigned32BitValue();
             }
+            IOD_END(getIntegerRange,0,0,0);
             return (params);
         }
         while (false);
     }
 
-    return (false);
+    IOD_END(getIntegerRange,0,__LINE__,0);
+    return (NULL);
 }
 
 bool IODisplay::setForKey( OSDictionary * params, const OSSymbol * sym,
                            SInt32 value, SInt32 min, SInt32 max )
 {
+    IOD_START(setForKey,value,min,max);
     SInt32 adjValue;
     bool ok;
 
@@ -761,11 +839,13 @@ bool IODisplay::setForKey( OSDictionary * params, const OSSymbol * sym,
     if ((ok = doIntegerSet(params, sym, adjValue)))
         updateNumber(params, gIODisplayValueKey, value);
 
+    IOD_END(setForKey,ok,0,0);
     return (ok);
 }
 
 IOReturn IODisplay::setProperties( OSObject * properties )
 {
+    IOD_START(setProperties,0,0,0);
     IOReturn                    err = kIOReturnSuccess;
     OSDictionary *              dict;
     OSDictionary *              dict2;
@@ -786,12 +866,18 @@ IOReturn IODisplay::setProperties( OSObject * properties )
     IOFramebuffer *             framebuffer = NULL;
 
     if (isInactive())
+    {
+        IOD_END(setProperties,kIOReturnNotReady,__LINE__,0);
         return (kIOReturnNotReady);
+    }
 
     if (fConnection)
         framebuffer = fConnection->getFramebuffer();
     if (!framebuffer)
+    {
+        IOD_END(setProperties,kIOReturnNotReady,__LINE__,0);
         return (kIOReturnNotReady);
+    }
 
     framebuffer->fbLock();
 
@@ -815,9 +901,12 @@ IOReturn IODisplay::setProperties( OSObject * properties )
     }
 
     dict = OSDynamicCast(OSDictionary, properties);
-    if (!dict || !(displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey))))
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    if (!dict || !(displayParams = OSDynamicCast(OSDictionary, paramProp)))
     {
         framebuffer->fbUnlock();
+        OSSafeReleaseNULL(paramProp);
+        IOD_END(setProperties,kIOReturnUnsupported,0,0);
         return (kIOReturnUnsupported);
     }
 
@@ -915,19 +1004,22 @@ IOReturn IODisplay::setProperties( OSObject * properties )
         doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersCommitKey)),
                       gIODisplayParametersCommitKey, 0 );
 
-    doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersFlushKey)),
-                 gIODisplayParametersFlushKey, 0 );
+    if (kIOWSAA_DeferStart != fWSAADeferState)
+        doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersFlushKey)),
+                     gIODisplayParametersFlushKey, 0 );
 
     framebuffer->fbUnlock();
 
     displayParams->release();
 
+    IOD_END(setProperties,kIOReturnUnsupported,allOK,err);
     return (allOK ? err : kIOReturnError);
 }
 
 bool IODisplay::updateNumber( OSDictionary * params, const OSSymbol * key,
                               SInt32 value )
 {
+    IOD_START(updateNumber,value,0,0);
     OSNumber * num;
 
     if ((OSCollection::kImmutable & params->setOptions(0, 0)) 
@@ -944,12 +1036,14 @@ bool IODisplay::updateNumber( OSDictionary * params, const OSSymbol * key,
             num->release();
         }
     }
+    IOD_END(updateNumber,num != 0,0,0);
     return (num != 0);
 }
 
 bool IODisplay::addParameter( OSDictionary * params, const OSSymbol * paramName,
                               SInt32 min, SInt32 max )
 {
+    IOD_START(addParameter,min,max,0);
     OSDictionary *      paramDict;
     bool                ok = true;
 
@@ -958,7 +1052,10 @@ bool IODisplay::addParameter( OSDictionary * params, const OSSymbol * paramName,
     {
         paramDict = OSDictionary::withCapacity(3);
         if (!paramDict)
+        {
+            IOD_END(addParameter,false,__LINE__,0);
             return (false);
+        }
         params->setObject(paramName, paramDict);
         paramDict->release();
     }
@@ -970,18 +1067,23 @@ bool IODisplay::addParameter( OSDictionary * params, const OSSymbol * paramName,
     if (!paramDict->getObject(gIODisplayValueKey))
         updateNumber(paramDict, gIODisplayValueKey, min);
 
+    IOD_END(addParameter,ok,__LINE__,0);
     return (ok);
 }
 
 bool IODisplay::setParameter( OSDictionary * params, const OSSymbol * paramName,
                               SInt32 value )
 {
+    IOD_START(setParameter,value,0,0);
     OSDictionary *      paramDict;
     bool                ok = true;
 
     paramDict = (OSDictionary *) params->getObject(paramName);
     if (!paramDict)
+    {
+        IOD_END(setParameter,false,__LINE__,0);
         return (false);
+    }
 
     // invert rotation
     if (paramName == gIODisplayRotationKey)
@@ -993,32 +1095,48 @@ bool IODisplay::setParameter( OSDictionary * params, const OSSymbol * paramName,
 
     updateNumber( paramDict, gIODisplayValueKey, value );
 
+    IOD_END(setParameter,ok,__LINE__,0);
     return (ok);
 }
 
 IOReturn IODisplay::_framebufferEvent( OSObject * _self, void * ref,
                                        IOFramebuffer * framebuffer, IOIndex event, void * info )
 {
-    IODisplay * self = (IODisplay *) _self;
+    IOD_START(_framebufferEvent,event,0,0);
+    IOReturn    err;
 
-    return (self->framebufferEvent(framebuffer , event, info));
+    IODisplay * self = (IODisplay *) _self;
+    err = self->framebufferEvent(framebuffer , event, info);
+
+    IOD_END(_framebufferEvent,err,0,0);
+    return (err);
 }
 
 IOReturn IODisplay::framebufferEvent( IOFramebuffer * framebuffer,
                                       IOIndex event, void * info )
 {
+    IOD_START(framebufferEvent,event,0,0);
     IOReturn       err;
     OSDictionary * displayParams;
+    OSObject     * paramProp;
 
     switch (event)
     {
+        case kIOFBNotifyWSAAWillEnterDefer:
+            fWSAADeferState = kIOWSAA_DeferStart;
+            err = kIOReturnSuccess;
+            break;
+        case kIOFBNotifyWSAADidExitDefer:
+            fWSAADeferState = kIOWSAA_DeferEnd;
+            err = kIOReturnSuccess;
+            break;
         case kIOFBNotifyDisplayModeDidChange:
 
-            displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-            if (doUpdate() && displayParams)
+            paramProp = copyProperty(gIODisplayParametersKey);
+            displayParams = OSDynamicCast(OSDictionary, paramProp);
+            if (doUpdate() && displayParams && (kIOWSAA_DeferStart != fWSAADeferState))
                 setProperties(displayParams);
-            if (displayParams)
-                displayParams->release();
+            OSSafeReleaseNULL(paramProp);
             /* fall thru */
 
         default:
@@ -1026,6 +1144,7 @@ IOReturn IODisplay::framebufferEvent( IOFramebuffer * framebuffer,
             break;
     }
 
+    IOD_END(framebufferEvent,err,0,0);
     return (err);
 }
 
@@ -1037,6 +1156,7 @@ UInt32 gIODisplayFadeStyle;
 bool IODisplay::doIntegerSet( OSDictionary * params,
                               const OSSymbol * paramName, UInt32 value )
 {
+    IOD_START(doIntegerSet,value,0,0);
     IODisplayParameterHandler * parameterHandler;
     OSArray *                   array;
     bool                        ok = false;
@@ -1044,21 +1164,25 @@ bool IODisplay::doIntegerSet( OSDictionary * params,
     if (gIODisplayFadeTime1Key == paramName)
     {
     	gIODisplayFadeTime1 = value;
+        IOD_END(doIntegerSet,true,__LINE__,0);
         return (true);
     }
     if (gIODisplayFadeTime2Key == paramName)
     {
     	gIODisplayFadeTime2 = value;
+        IOD_END(doIntegerSet,true,__LINE__,0);
         return (true);
     }
     if (gIODisplayFadeTime3Key == paramName)
     {
     	gIODisplayFadeTime3 = value;
+        IOD_END(doIntegerSet,true,__LINE__,0);
         return (true);
     }
     if (gIODisplayFadeStyleKey == paramName)
     {
     	gIODisplayFadeStyle = value;
+        IOD_END(doIntegerSet,true,__LINE__,0);
         return (true);
     }
 
@@ -1077,11 +1201,13 @@ bool IODisplay::doIntegerSet( OSDictionary * params,
         }
     }
 
+    IOD_END(doIntegerSet,ok,__LINE__,0);
     return (ok);
 }
 
 bool IODisplay::doDataSet( const OSSymbol * paramName, OSData * value )
 {
+    IOD_START(doDataSet,0,0,0);
     IODisplayParameterHandler * parameterHandler;
     OSArray *                   array;
     bool                        ok = false;
@@ -1101,11 +1227,13 @@ bool IODisplay::doDataSet( const OSSymbol * paramName, OSData * value )
         }
     }
 
+    IOD_END(doDataSet,ok,0,0);
     return (ok);
 }
 
 bool IODisplay::doUpdate( void )
 {
+    IOD_START(doUpdate,0,0,0);
     IODisplayParameterHandler * parameterHandler;
     OSArray *                   array;
     bool                        ok = true;
@@ -1125,6 +1253,7 @@ bool IODisplay::doUpdate( void )
         }
     }
 
+    IOD_END(doUpdate,ok,0,0);
     return (ok);
 }
 
@@ -1145,6 +1274,7 @@ bool IODisplay::doUpdate( void )
 
 void IODisplay::initPowerManagement( IOService * provider )
 {
+    IOD_START(initPowerManagement,0,0,0);
     static const IOPMPowerState defaultPowerStates[kIODisplayNumPowerStates] = {
         // version,
         // capabilityFlags, outputPowerCharacter, inputPowerRequirement,
@@ -1157,24 +1287,19 @@ void IODisplay::initPowerManagement( IOService * provider )
     };
     IOPMPowerState ourPowerStates[kIODisplayNumPowerStates];
 
-    OSDictionary * displayParams;
     SInt32         value, min, max;
 
     bcopy(defaultPowerStates, ourPowerStates, sizeof(ourPowerStates));
-    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-    if (displayParams)
-    {
-        if (getIntegerRange(displayParams, gIODisplayAudioMuteAndScreenBlankKey,
-                             &value, &min, &max))
-        {
-            if ((max >= kIODisplayBlankValue)
-                || (kIOGDbgK59Mode & gIOGDebugFlags))
-            {
-                fDisplayPMVars->minDimState = 1;
-            }
-        }
-        displayParams->release();
+
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    OSDictionary *displayParams = OSDynamicCast(OSDictionary, paramProp);
+    if (displayParams
+     && getIntegerRange(displayParams, gIODisplayAudioMuteAndScreenBlankKey,
+                        &value, &min, &max)
+     && ((max >= kIODisplayBlankValue) || (kIOGDbgK59Mode & gIOGDebugFlags))) {
+        fDisplayPMVars->minDimState = 1;
     }
+    OSSafeReleaseNULL(paramProp);
     fDisplayPMVars->currentState = kIODisplayMaxPowerState;
 
     // initialize superclass variables
@@ -1184,6 +1309,8 @@ void IODisplay::initPowerManagement( IOService * provider )
 
     // register ourselves with policy-maker (us)
     registerPowerDriver(this, ourPowerStates, kIODisplayNumPowerStates);
+
+    IOD_END(initPowerManagement,0,0,0);
 }
 
 
@@ -1200,6 +1327,7 @@ void IODisplay::initPowerManagement( IOService * provider )
 
 void IODisplay::setDisplayPowerState(unsigned long state)
 {
+    IOD_START(setDisplayPowerState,state,0,0);
     if (initialized)
     {
         if (state)
@@ -1209,14 +1337,31 @@ void IODisplay::setDisplayPowerState(unsigned long state)
                 state = fDisplayPMVars->minDimState;
         }
         fDisplayPMVars->displayIdle = (state != fDisplayPMVars->maxState);
+
+        IOG_KTRACE(DBG_IOG_CHANGE_POWER_STATE_PRIV,
+                   DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAY,
+                   0, state,
+                   0, 0,
+                   0, 0);
+
         changePowerStateToPriv(state);
     }
+    IOD_END(setDisplayPowerState,0,0,0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // obsolete
-void IODisplay::dropOneLevel(void)		{}
-void IODisplay::makeDisplayUsable(void)	{}
+void IODisplay::dropOneLevel(void)
+{
+    IOD_START(dropOneLevel,0,0,0);
+    IOD_END(dropOneLevel,0,0,0);
+}
+void IODisplay::makeDisplayUsable(void)
+{
+    IOD_START(makeDisplayUsable,0,0,0);
+    IOD_END(makeDisplayUsable,0,0,0);
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // setPowerState
@@ -1225,11 +1370,18 @@ void IODisplay::makeDisplayUsable(void)	{}
 
 IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
-    OSDictionary * displayParams;
+    IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
+               DBG_FUNC_NONE,
+               0, powerState,
+               0, DBG_IOG_SOURCE_IODISPLAY,
+               0, 0,
+               0, 0);
+    IOD_START(setPowerState,powerState,0,0);
 
     if (fDisplayPMVars->minDimState)
     {
-        displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+        OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+        OSDictionary * displayParams = OSDynamicCast(OSDictionary, paramProp);
         if (displayParams)
         {
             doIntegerSet(displayParams, gIODisplayAudioMuteAndScreenBlankKey, 
@@ -1241,10 +1393,11 @@ IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDev
                                 (powerState > fDisplayPMVars->minDimState) 
                                     ? 255 : 0);
             }
-            displayParams->release();
         }
+        OSSafeReleaseNULL(paramProp);
     }
 
+    IOD_END(setPowerState,kIOReturnSuccess,0,0);
     return (kIOReturnSuccess);
 }
 
@@ -1257,10 +1410,12 @@ IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDev
 
 unsigned long IODisplay::maxCapabilityForDomainState( IOPMPowerFlags domainState )
 {
+    IOD_START(maxCapabilityForDomainState,domainState,0,0);
+    unsigned long   ret = 0;
     if (domainState & IOPMPowerOn)
-        return (kIODisplayMaxPowerState);
-    else
-        return (0);
+        ret = (kIODisplayMaxPowerState);
+    IOD_END(maxCapabilityForDomainState,ret,0,0);
+    return (ret);
 }
 
 
@@ -1274,13 +1429,17 @@ unsigned long IODisplay::maxCapabilityForDomainState( IOPMPowerFlags domainState
 
 unsigned long IODisplay::initialPowerStateForDomainState( IOPMPowerFlags domainState )
 {
+    IOD_START(initialPowerStateForDomainState,domainState,0,0);
+    unsigned long   ret = 0;
     if (domainState & IOPMPowerOn)
         // domain has power
-        return (kIODisplayMaxPowerState);
+        ret = (kIODisplayMaxPowerState);
     else
         // domain is down, so display is off
-        return (kIODisplayMaxPowerState);
-    return (0);
+        ret = (kIODisplayMaxPowerState);
+
+    IOD_END(initialPowerStateForDomainState,ret,0,0);
+    return (ret);
 }
 
 
@@ -1294,12 +1453,17 @@ unsigned long IODisplay::initialPowerStateForDomainState( IOPMPowerFlags domainS
 
 unsigned long IODisplay::powerStateForDomainState( IOPMPowerFlags domainState )
 {
+    IOD_START(powerStateForDomainState,domainState,0,0);
+    unsigned long   ret;
     if (domainState & IOPMPowerOn)
         // domain has power
-        return (getPowerState());
+        ret = (getPowerState());
     else
         // domain is down, so display is off
-        return (0);
+        ret = (0);
+
+    IOD_END(powerStateForDomainState,ret,0,0);
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

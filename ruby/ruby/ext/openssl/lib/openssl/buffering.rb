@@ -1,24 +1,23 @@
-#
+# coding: binary
+# frozen_string_literal: false
 #--
-#= $RCSfile$ -- Buffering mix-in module.
-#
 #= Info
 #  'OpenSSL for Ruby 2' project
 #  Copyright (C) 2001 GOTOU YUUZOU <gotoyuzo@notwork.org>
 #  All rights reserved.
 #
 #= Licence
-#  This program is licenced under the same licence as Ruby.
+#  This program is licensed under the same licence as Ruby.
 #  (See the file 'LICENCE'.)
-#
-#= Version
-#  $Id: buffering.rb 45053 2014-02-19 17:14:45Z nagachika $
 #++
 
 ##
 # OpenSSL IO buffering mix-in module.
 #
 # This module allows an OpenSSL::SSL::SSLSocket to behave like an IO.
+#
+# You typically won't use this module directly, you can see it implemented in
+# OpenSSL::SSL::SSLSocket.
 
 module OpenSSL::Buffering
   include Enumerable
@@ -35,7 +34,11 @@ module OpenSSL::Buffering
 
   BLOCK_SIZE = 1024*16
 
-  def initialize(*args)
+  ##
+  # Creates an instance of OpenSSL's buffering IO module.
+
+  def initialize(*)
+    super
     @eof = false
     @rbuffer = ""
     @sync = @io.sync
@@ -162,7 +165,7 @@ module OpenSSL::Buffering
   # when the peer requests a new TLS/SSL handshake.  See openssl the FAQ for
   # more details.  http://www.openssl.org/support/faq.html
 
-  def read_nonblock(maxlen, buf=nil)
+  def read_nonblock(maxlen, buf=nil, exception: true)
     if maxlen == 0
       if buf
         buf.clear
@@ -172,7 +175,7 @@ module OpenSSL::Buffering
       end
     end
     if @rbuffer.empty?
-      return sysread_nonblock(maxlen, buf)
+      return sysread_nonblock(maxlen, buf, exception: exception)
     end
     ret = consume_rbuff(maxlen)
     if buf
@@ -206,7 +209,7 @@ module OpenSSL::Buffering
     else
       size = idx ? idx+eol.size : nil
     end
-    if limit and limit >= 0
+    if size && limit && limit >= 0
       size = [size, limit].min
     end
     consume_rbuff(size)
@@ -371,9 +374,9 @@ module OpenSSL::Buffering
   # is when the peer requests a new TLS/SSL handshake.  See the openssl FAQ
   # for more details.  http://www.openssl.org/support/faq.html
 
-  def write_nonblock(s)
+  def write_nonblock(s, exception: true)
     flush
-    syswrite_nonblock(s)
+    syswrite_nonblock(s, exception: exception)
   end
 
   ##

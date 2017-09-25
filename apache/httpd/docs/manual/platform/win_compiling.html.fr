@@ -43,7 +43,7 @@
     fonctionnalités très limitées.</p>
 
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#requirements">Prérequis</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#requirements">Prérequis</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#unixsrcbuild">Compilation à partir des sources Unix</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#commandbuild">Compilation à partir de la ligne de commandes</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#workspacebuild">Compilation depuis l'espace de travail IDE de Developer
@@ -419,6 +419,15 @@ l'arborescence de développement</a></li>
     description des fichiers de mod_apachemodule.so à leurs compilations
     d'identificateur de version de ressource .rc partagée.</div>
 
+    
+	<div class="note"><strong>Compilation avec OpenSSL versions 1.1.0 et supérieures</strong>
+    Suite à une modification de la structure de compilation d'OpenSSL à partir
+    de la version 1.1.0, vous devez convertir les fichiers dsp concernés via la
+    commance cvtdsp.pl fournie par APR versions 1.6 et supérieures :
+    <div class="example"><p><code>
+      perl srclib\apr\build\cvtdsp.pl -ossl11
+    </code></p></div>
+	</div>
 
     
     <p>Les utilisateurs de Visual Studio 2002 (.NET) et versions
@@ -585,7 +594,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/platform/win_compili
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

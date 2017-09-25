@@ -110,8 +110,8 @@ typedef union {
 #pragma mark Modes
 
 /** Setup the mode
- @param cipher		The index of the LTC Cipher - must be registered
- @param IV		The initial vector
+ @param modeObj		ccmode to setup
+ @param iv		The initial vector
  @param key		The input symmetric key
  @param keylen		The length of the input key (octets)
  @param tweak		The input tweak or salt
@@ -129,7 +129,6 @@ typedef void (*ccmode_setup_p)(const corecryptoMode modeObj, const void *iv,
  @param ct		[out] The ciphertext
  @param len		the length of data (in == out) octets
  @param ctx		The mode context
- @return # bytes encrypted
  */
 
 typedef void (*ccmode_encrypt_p)(const corecryptoMode modeObj, const void *pt, void *ct, size_t len, modeCtx ctx);
@@ -139,7 +138,6 @@ typedef void (*ccmode_encrypt_p)(const corecryptoMode modeObj, const void *pt, v
  @param pt		[out] The plaintext
  @param len		the length of data (in == out) octets
  @param ctx		The mode context
- @return # bytes encrypted
  */
 typedef void (*ccmode_decrypt_p)(const corecryptoMode modeObj, const void *ct, void *pt, size_t len, modeCtx ctx);
 
@@ -150,8 +148,7 @@ typedef void (*ccmode_decrypt_p)(const corecryptoMode modeObj, const void *ct, v
  @param tweak		The 128--bit encryption tweak (e.g. sector
  number)
  @param ctx		The mode context
- @return # bytes encrypted
- */
+  */
 typedef void (*ccmode_encrypt_tweaked_p)(const corecryptoMode modeObj, const void *pt, size_t len,
                                       void *ct, const void *tweak, modeCtx ctx);
 /** Decrypt a block with a tweak (XTS mode currently)
@@ -159,7 +156,6 @@ typedef void (*ccmode_encrypt_tweaked_p)(const corecryptoMode modeObj, const voi
  @param pt		[out] The plaintext
  @param len		the length of data (in == out) octets
  @param ctx		The mode context
- @return # bytes encrypted
  */
 typedef void (*ccmode_decrypt_tweaked_p)(const corecryptoMode modeObj, const void *ct, size_t len,
                                       void *pt, const void *tweak, modeCtx ctx);
@@ -168,13 +164,13 @@ typedef void (*ccmode_decrypt_tweaked_p)(const corecryptoMode modeObj, const voi
  */
 typedef int (*ccmode_done_p)(const corecryptoMode modeObj, modeCtx ctx);
 /** Set an Initial Vector
- @param IV		The initial vector
+ @param iv		The initial vector
  @param len		The length of the initial vector
  @param ctx		The mode context
  */
 typedef int (*ccmode_setiv_p)(const corecryptoMode modeObj, const void *iv, uint32_t len, modeCtx ctx);
 /** Get an Initial Vector
- @param IV		[out] The initial vector
+ @param iv		[out] The initial vector
  @param len		The length of the initial vector
  @param ctx		The mode context
  */

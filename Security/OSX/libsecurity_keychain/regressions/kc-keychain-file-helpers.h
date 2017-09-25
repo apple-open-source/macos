@@ -64,6 +64,7 @@ static void writeFile(const char* path, uint8_t* buf, size_t len) {
     FILE * fp = fopen(path, "w+");
     fwrite(buf, sizeof(uint8_t), len, fp);
     fclose(fp);
+    sync();
 }
 
 // The following keychain includes:

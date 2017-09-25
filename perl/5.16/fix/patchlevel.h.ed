@@ -1,5 +1,0 @@
-/^	,NULL/i
-	,"/Library/Perl/Updates/<version> comes before system perl directories"
-	,"installprivlib and installarchlib points to the Updates directory"
-.
-w

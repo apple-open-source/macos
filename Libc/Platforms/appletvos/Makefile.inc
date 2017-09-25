@@ -17,17 +17,6 @@
 # OSThermalNotification APIs
 FEATURE_THERM_NOTIFICATION_APIS = 1
 
-# Move localtime to /var/db/timezone
-FEATURE_MOVE_LOCALTIME = 1
-
-# Use TZDIR symlink in /var/db
-FEATURE_TZDIR_SYMLINK = 1
-
-.if RC_ProjectName _Sim$
-FEATURE_MOVE_LOCALTIME = 0
-FEATURE_TZDIR_SYMLINK = 0
-.endif
-
 # No pre-1050 variants (should match sys/cdefs.h)
 FEATURE_ONLY_1050_VARIANTS = 1
 

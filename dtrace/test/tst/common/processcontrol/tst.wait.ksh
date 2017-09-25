@@ -5,17 +5,13 @@ dtrace=/usr/sbin/dtrace
 # ASSERTION:
 #	To verify that a binary launched with dtrace -W is controlled and 
 #	start tracing correctly.
-#
-#	This relies on the /usr/bin/true being on the file system and the binary
-#	calling some form of "exit" function.
 
-
-# Start a subshell that will run /usr/bin/true periodically
+# Start a subshell that will run tst.has_initializers.exe periodically
 
 (
 	while [ 1 -eq 1 ]
 	do
-		/usr/bin/true
+		./tst.has_initializers.exe
 		sleep 0.01
 	done
 ) &
@@ -24,8 +20,8 @@ SUBPID=$!
 
 script()
 {
-	$dtrace -xnolibs -W true -qs /dev/stdin <<EOF
-	pid\$target::*exit*:entry
+	$dtrace -xnolibs -W tst.has_initializers.exe -qs /dev/stdin <<EOF
+	pid\$target::main_binary_function:entry
 	{
 		trace("Called");
 		exit(0);

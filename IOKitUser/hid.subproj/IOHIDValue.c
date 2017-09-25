@@ -116,7 +116,7 @@ IOHIDValueRef _IOHIDValueCreateWithElementValuePtr(CFAllocatorRef allocator, IOH
     if ( !element || !pElementValue )
         return (_Nonnull IOHIDValueRef)NULL;
         
-    length  = _IOHIDElementGetLength(element);
+    length  =  min(_IOHIDElementGetLength(element), (CFIndex)(pElementValue->totalSize - sizeof(*pElementValue) + sizeof(pElementValue->value)));
     event   = __IOHIDValueCreatePrivate(allocator, NULL, length);
 
     if (!event)
@@ -125,7 +125,7 @@ IOHIDValueRef _IOHIDValueCreateWithElementValuePtr(CFAllocatorRef allocator, IOH
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = *((uint64_t *)&(pElementValue->timestamp));
     event->length       = length;
-    
+  
     __IOHIDValueConvertWordToByte((const uint32_t *)&(pElementValue->value[0]), event->bytes, length);
     
     return event;

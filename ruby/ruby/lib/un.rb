@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # = un.rb
 #
@@ -32,7 +33,9 @@ module FileUtils
   @fileutils_output = $stdout
 end
 
+# :nodoc:
 def setup(options = "", *long_options)
+  caller = caller_locations(1, 1)[0].label
   opt_hash = {}
   argv = []
   OptionParser.new do |o|
@@ -53,6 +56,10 @@ def setup(options = "", *long_options)
       end
     end
     o.on("-v") do opt_hash[:verbose] = true end
+    o.on("--help") do
+      UN.help([caller])
+      exit
+    end
     o.order!(ARGV) do |x|
       if /[*?\[{]/ =~ x
         argv.concat(Dir[x])
@@ -246,8 +253,10 @@ def wait_writable
         break
       rescue Errno::EACCES => e
         raise if n and (n -= 1) <= 0
-        puts e
-        STDOUT.flush
+        if verbose
+          puts e
+          STDOUT.flush
+        end
         sleep wait
         retry
       end
@@ -311,10 +320,8 @@ def httpd
     [:Port, :MaxClients].each do |name|
       opt = options[name] and (options[name] = Integer(opt)) rescue nil
     end
-    unless argv.size == 1
-      raise ArgumentError, "DocumentRoot is mandatory"
-    end
-    options[:DocumentRoot] = argv.shift
+    options[:Port] ||= 8080     # HTTP Alternate
+    options[:DocumentRoot] = argv.shift || '.'
     s = WEBrick::HTTPServer.new(options)
     shut = proc {s.shutdown}
     siglist = %w"TERM QUIT"
@@ -335,15 +342,33 @@ end
 
 def help
   setup do |argv,|
+    UN.help(argv)
+  end
+end
+
+module UN # :nodoc:
+  module_function
+  def help(argv, output: $stdout)
     all = argv.empty?
+    cmd = nil
+    if all
+      store = proc {|msg| output << msg}
+    else
+      messages = {}
+      store = proc {|msg| messages[cmd] = msg}
+    end
     open(__FILE__) do |me|
       while me.gets("##\n")
         if help = me.gets("\n\n")
-          if all or argv.delete help[/-e \w+/].sub(/-e /, "")
-            print help.gsub(/^# ?/, "")
+          if all or argv.include?(cmd = help[/^#\s*ruby\s.*-e\s+(\w+)/, 1])
+            store[help.gsub(/^# ?/, "")]
+            break unless all or argv.size > messages.size
           end
         end
       end
+    end
+    if messages
+      argv.each {|arg| output << messages[arg]}
     end
   end
 end

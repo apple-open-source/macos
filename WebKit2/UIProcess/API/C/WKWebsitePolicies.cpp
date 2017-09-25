@@ -51,3 +51,64 @@ bool WKWebsitePoliciesGetContentBlockersEnabled(WKWebsitePoliciesRef websitePoli
 {
     return toImpl(websitePolicies)->contentBlockersEnabled();
 }
+
+void WKWebsitePoliciesSetAllowedAutoplayQuirks(WKWebsitePoliciesRef websitePolicies, WKWebsiteAutoplayQuirk allowedQuirks)
+{
+    OptionSet<WebsiteAutoplayQuirk> quirks;
+    if (allowedQuirks & kWKWebsiteAutoplayQuirkInheritedUserGestures)
+        quirks |= WebsiteAutoplayQuirk::InheritedUserGestures;
+
+    if (allowedQuirks & kWKWebsiteAutoplayQuirkSynthesizedPauseEvents)
+        quirks |= WebsiteAutoplayQuirk::SynthesizedPauseEvents;
+
+    toImpl(websitePolicies)->setAllowedAutoplayQuirks(quirks);
+}
+
+WKWebsiteAutoplayQuirk WKWebsitePoliciesGetAllowedAutoplayQuirks(WKWebsitePoliciesRef websitePolicies)
+{
+    WKWebsiteAutoplayQuirk quirks = 0;
+    auto allowedQuirks = toImpl(websitePolicies)->allowedAutoplayQuirks();
+
+    if (allowedQuirks.contains(WebsiteAutoplayQuirk::SynthesizedPauseEvents))
+        quirks |= kWKWebsiteAutoplayQuirkSynthesizedPauseEvents;
+
+    if (allowedQuirks.contains(WebsiteAutoplayQuirk::InheritedUserGestures))
+        quirks |= kWKWebsiteAutoplayQuirkInheritedUserGestures;
+
+    return quirks;
+}
+
+WKWebsiteAutoplayPolicy WKWebsitePoliciesGetAutoplayPolicy(WKWebsitePoliciesRef websitePolicies)
+{
+    switch (toImpl(websitePolicies)->autoplayPolicy()) {
+    case WebKit::WebsiteAutoplayPolicy::Default:
+        return kWKWebsiteAutoplayPolicyDefault;
+    case WebsiteAutoplayPolicy::Allow:
+        return kWKWebsiteAutoplayPolicyAllow;
+    case WebsiteAutoplayPolicy::AllowWithoutSound:
+        return kWKWebsiteAutoplayPolicyAllowWithoutSound;
+    case WebsiteAutoplayPolicy::Deny:
+        return kWKWebsiteAutoplayPolicyDeny;
+    }
+    ASSERT_NOT_REACHED();
+    return kWKWebsiteAutoplayPolicyDefault;
+}
+
+void WKWebsitePoliciesSetAutoplayPolicy(WKWebsitePoliciesRef websitePolicies, WKWebsiteAutoplayPolicy policy)
+{
+    switch (policy) {
+    case kWKWebsiteAutoplayPolicyDefault:
+        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Default);
+        return;
+    case kWKWebsiteAutoplayPolicyAllow:
+        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Allow);
+        return;
+    case kWKWebsiteAutoplayPolicyAllowWithoutSound:
+        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::AllowWithoutSound);
+        return;
+    case kWKWebsiteAutoplayPolicyDeny:
+        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Deny);
+        return;
+    }
+    ASSERT_NOT_REACHED();
+}

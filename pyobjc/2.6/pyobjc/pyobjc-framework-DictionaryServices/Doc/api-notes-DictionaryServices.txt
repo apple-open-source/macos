@@ -1,4 +1,0 @@
-API Notes for the DictionaryServices framework
-==============================================
-
-PyObjC provides complete wrappers for the DictionaryServices framework.

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  derb.cpp
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -368,7 +370,7 @@ static void printCString(UFILE *out, const char *str, int32_t len) {
 
 static void printIndent(UFILE *out, int32_t indent) {
     icu::UnicodeString inchar(indent, 0x20, indent);
-    printString(out, inchar.getBuffer(), indent);
+    printString(out, (const UChar *)inchar.getBuffer(), indent);
 }
 
 static void printHex(UFILE *out, uint8_t what) {

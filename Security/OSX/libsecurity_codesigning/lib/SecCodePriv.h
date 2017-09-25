@@ -196,7 +196,7 @@ CFDataRef SecCodeCopyComponent(SecCodeRef code, int slot, CFDataRef hash);
     
     
 /*
-    @funtion SecCodeValidateFileResource
+    @function SecCodeValidateFileResource
     For a SecStaticCodeRef, check that a given CFData object faithfully represents
     a plain-file resource in its resource seal.
     This call will fail if the file is missing in the bundle, even if it is optional.

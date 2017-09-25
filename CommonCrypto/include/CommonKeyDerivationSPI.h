@@ -12,6 +12,10 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonDigestSPI.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+    
 /*!
     @enum       CCKDFAlgorithm
     @abstract   Key Derivation algorithms implemented by this module.
@@ -24,7 +28,6 @@
     @constant   kCCKDFAlgorithmFB_HMAC_FIXED
  	@constant   kCCKDFAlgorithmDPIPE_HMAC
 */
-
 enum {
     kCCKDFAlgorithmPBKDF2_HMAC = 0,
     kCCKDFAlgorithmCTR_HMAC,
@@ -46,5 +49,10 @@ CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
                     const void *salt, size_t saltLen,       // for PBKDF
                     void *derivedKey, size_t derivedKeyLen)
 __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+    
+    
+#ifdef __cplusplus
+}
+#endif
 
 #endif

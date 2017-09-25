@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -103,14 +103,14 @@ OSStatus HIDGetCaps(HIDPreparsedDataRef preparsedDataRef, HIDCapsPtr ptCapabilit
 	ptCapabilities->inputReportByteLength = 0;
 	ptCapabilities->outputReportByteLength = 0;
 	ptCapabilities->featureReportByteLength = 0;
-	for (i=0; i<ptPreparsedData->reportCount; i++)
+	for (i=0; i< (int)ptPreparsedData->reportCount; i++)
 	{
 		ptReport = &ptPreparsedData->reports[i];
-		if (ptCapabilities->inputReportByteLength < ptReport->inputBitCount)
+		if (ptCapabilities->inputReportByteLength < (IOByteCount)ptReport->inputBitCount)
 			ptCapabilities->inputReportByteLength = ptReport->inputBitCount;
-		if (ptCapabilities->outputReportByteLength < ptReport->outputBitCount)
+		if (ptCapabilities->outputReportByteLength < (IOByteCount)ptReport->outputBitCount)
 			ptCapabilities->outputReportByteLength = ptReport->outputBitCount;
-		if (ptCapabilities->featureReportByteLength < ptReport->featureBitCount)
+		if (ptCapabilities->featureReportByteLength < (IOByteCount)ptReport->featureBitCount)
 			ptCapabilities->featureReportByteLength = ptReport->featureBitCount;
 	}
 	ptCapabilities->inputReportByteLength = (ptCapabilities->inputReportByteLength + 7) /8;
@@ -126,7 +126,7 @@ OSStatus HIDGetCaps(HIDPreparsedDataRef preparsedDataRef, HIDCapsPtr ptCapabilit
 	ptCapabilities->numberOutputValueCaps = 0;
 	ptCapabilities->numberFeatureButtonCaps = 0;
 	ptCapabilities->numberFeatureValueCaps = 0;
-	for (i=0; i<ptPreparsedData->reportItemCount; i++)
+	for (i=0; i<(int)ptPreparsedData->reportItemCount; i++)
 	{
 		ptReportItem = &ptPreparsedData->reportItems[i];
 		switch (ptReportItem->reportType)
@@ -206,14 +206,14 @@ OSStatus HIDGetCapabilities(HIDPreparsedDataRef preparsedDataRef, HIDCapabilitie
 	ptCapabilities->inputReportByteLength = 0;
 	ptCapabilities->outputReportByteLength = 0;
 	ptCapabilities->featureReportByteLength = 0;
-	for (i=0; i<ptPreparsedData->reportCount; i++)
+	for (i=0; i<(int)ptPreparsedData->reportCount; i++)
 	{
 		ptReport = &ptPreparsedData->reports[i];
-		if (ptCapabilities->inputReportByteLength < ptReport->inputBitCount)
+		if (ptCapabilities->inputReportByteLength < (IOByteCount)ptReport->inputBitCount)
 			ptCapabilities->inputReportByteLength = ptReport->inputBitCount;
-		if (ptCapabilities->outputReportByteLength < ptReport->outputBitCount)
+		if (ptCapabilities->outputReportByteLength < (IOByteCount)ptReport->outputBitCount)
 			ptCapabilities->outputReportByteLength = ptReport->outputBitCount;
-		if (ptCapabilities->featureReportByteLength < ptReport->featureBitCount)
+		if (ptCapabilities->featureReportByteLength < (IOByteCount)ptReport->featureBitCount)
 			ptCapabilities->featureReportByteLength = ptReport->featureBitCount;
 	}
 	ptCapabilities->inputReportByteLength = (ptCapabilities->inputReportByteLength + 7) /8;
@@ -229,7 +229,7 @@ OSStatus HIDGetCapabilities(HIDPreparsedDataRef preparsedDataRef, HIDCapabilitie
 	ptCapabilities->numberOutputValueCaps = 0;
 	ptCapabilities->numberFeatureButtonCaps = 0;
 	ptCapabilities->numberFeatureValueCaps = 0;
-	for (i=0; i<ptPreparsedData->reportItemCount; i++)
+	for (i=0; i<(int)ptPreparsedData->reportItemCount; i++)
 	{
 		ptReportItem = &ptPreparsedData->reportItems[i];
 		switch (ptReportItem->reportType)

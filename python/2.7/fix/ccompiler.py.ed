@@ -1,0 +1,7 @@
+/if lib_type not in/c
+        if lib_type not in ("static", "shared", "dylib", "tbd", "api", "spi"):
+.
+/raise ValueError, "'lib_type' must be/c
+            raise ValueError, "'lib_type' must be \"static\", \"shared\", \"dylib\", \"tbd\", \"api\", or \"spi\""
+.
+w

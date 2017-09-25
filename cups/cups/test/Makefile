@@ -1,14 +1,14 @@
 #
 # IPP test makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
+# Copyright 2007-2017 by Apple Inc.
 # Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
 # property of Apple Inc. and are protected by Federal copyright
 # law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 # which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# missing or damaged, see the license at "http://www.cups.org/".
 #
 
 include ../Makedefs
@@ -58,7 +58,7 @@ TARGETS		=	\
 			$(IPPFIND_BIN) \
 			ippserver \
 			ipptool \
-			ipptool-static
+			$(LOCALTARGET)
 
 
 #
@@ -87,7 +87,8 @@ unittests:
 #
 
 clean:
-	$(RM) $(TARGETS) $(OBJS) ippfind-static ippserver-shared
+	$(RM) $(TARGETS) $(OBJS)
+	$(RM) ippserver ippserver-shared ipptool-static
 
 
 #
@@ -170,14 +171,21 @@ uninstall:
 
 
 #
+# Local programs (not built when cross-compiling...)
+#
+
+local:	ippserver ippserver-shared ipptool-static
+
+
+#
 # ippfind
 #
 
 ippfind:	ippfind.o ../cups/$(LIBCUPS) ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ ippfind.o $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ ippfind.o $(LIBS)
 	echo Linking $@-static...
-	$(CC) $(LDFLAGS) -o $@-static ippfind.o  ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o $@-static ippfind.o  ../cups/$(LIBCUPSSTATIC) \
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
@@ -187,7 +195,7 @@ ippfind:	ippfind.o ../cups/$(LIBCUPS) ../cups/$(LIBCUPSSTATIC)
 
 ippserver:	ippserver.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ ippserver.o  ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o $@ ippserver.o  ../cups/$(LIBCUPSSTATIC) \
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
@@ -197,7 +205,7 @@ ippserver:	ippserver.o ../cups/$(LIBCUPSSTATIC)
 
 ippserver-shared:	ippserver.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ ippserver.o $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ ippserver.o $(LIBS)
 
 
 #
@@ -206,7 +214,7 @@ ippserver-shared:	ippserver.o ../cups/$(LIBCUPS)
 
 ipptool:	ipptool.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ ipptool.o $(LIBS)
+	$(LD_CC) $(LDFLAGS) -o $@ ipptool.o $(LIBS)
 
 
 #
@@ -215,7 +223,7 @@ ipptool:	ipptool.o ../cups/$(LIBCUPS)
 
 ipptool-static:	ipptool.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ ipptool.o  ../cups/$(LIBCUPSSTATIC) \
+	$(LD_CC) $(LDFLAGS) -o $@ ipptool.o  ../cups/$(LIBCUPSSTATIC) \
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 

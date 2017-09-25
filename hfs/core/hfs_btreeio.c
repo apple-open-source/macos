@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -722,6 +722,12 @@ again:
 	btcb->releaseBlockProc  = ReleaseBTreeBlock;
 	btcb->setEndOfForkProc  = ExtendBTreeFile;
 	btcb->keyCompareProc    = (KeyCompareProcPtr)hfs_attrkeycompare;
+	
+	/* 
+	 * NOTE: We must make sure to zero out this pointer if we error out in this function!
+	 * If we don't, then unmount will treat it as a valid pointer which can lead to a
+	 * use-after-free 
+	 */
 	VTOF(vp)->fcbBTCBPtr    = btcb;
 
 	/*
@@ -903,6 +909,18 @@ again:
 	}
 
 exit:
+
+	if (vp && result) {
+		/* 
+		 * If we're about to error out, then make sure to zero out the B-Tree control block pointer
+		 * from the filefork of the EA B-Tree cnode/vnode. Failing to do this will lead to a use
+		 * after free at unmount or BTFlushPath. Since we're about to error out anyway, this memory
+		 * will be freed.
+		 */
+		VTOF(vp)->fcbBTCBPtr = NULL;
+	}
+	
+
 	if (vp) {
 		hfs_unlock(VTOC(vp));
 	}

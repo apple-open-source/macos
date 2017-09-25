@@ -1598,7 +1598,7 @@ skipped.  The option is restored after the trap exits.
 
 Exiting due to tt(ERR_EXIT) has certain interactions with asynchronous
 jobs noted in
-ifzman(the section JOBS in in zmanref(zshmisc))\
+ifzman(the section JOBS in zmanref(zshmisc))\
 ifnzman(noderef(Jobs & Signals)).
 )
 pindex(ERR_RETURN)
@@ -1929,7 +1929,8 @@ Emulate bf(ksh) array handling as closely as possible.  If this option
 is set, array elements are numbered from zero, an array parameter
 without subscript refers to the first element instead of the whole array,
 and braces are required to delimit a subscript (`tt(${path[2]})' rather
-than just `tt($path[2])').
+than just `tt($path[2])') or to apply modifiers to any parameter
+(`tt(${PWD:h})' rather than `tt($PWD:h)').
 )
 pindex(KSH_AUTOLOAD)
 pindex(NO_KSH_AUTOLOAD)
@@ -2097,6 +2098,12 @@ the parameter tt($#) even if followed by a valid parameter name.
 When it is unset, zsh allows expressions of the form tt($#)var(name)
 to refer to the length of tt($)var(name), even for special variables,
 for example in expressions such as tt($#-) and tt($#*).
+
+Another difference is that with the option set assignment to an
+unset variable in arithmetic context causes the variable to be created
+as a scalar rather than a numeric type.  So after `tt(unset t; (( t = 3
+)))'. without tt(POSIX_IDENTIFIERS) set tt(t) has integer type, while with
+it set it has scalar type.
 
 When the option is unset and multibyte character support is enabled (i.e. it
 is compiled in and the option tt(MULTIBYTE) is set), then additionally any

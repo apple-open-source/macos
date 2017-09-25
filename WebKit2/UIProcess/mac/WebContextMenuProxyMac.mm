@@ -78,20 +78,20 @@ using namespace WebCore;
 @end
 
 @interface WKSelectionHandlerWrapper : NSObject {
-    std::function<void ()> _selectionHandler;
+    WTF::Function<void ()> _selectionHandler;
 }
-- (id)initWithSelectionHandler:(std::function<void ()>)selectionHandler;
+- (id)initWithSelectionHandler:(WTF::Function<void ()>&&)selectionHandler;
 - (void)executeSelectionHandler;
 @end
 
 @implementation WKSelectionHandlerWrapper
-- (id)initWithSelectionHandler:(std::function<void ()>)selectionHandler
+- (id)initWithSelectionHandler:(WTF::Function<void ()>&&)selectionHandler
 {
     self = [super init];
     if (!self)
         return nil;
     
-    _selectionHandler = selectionHandler;
+    _selectionHandler = WTFMove(selectionHandler);
     return self;
 }
 
@@ -266,9 +266,6 @@ void WebContextMenuProxyMac::clearServicesMenu()
 
 RetainPtr<NSMenuItem> WebContextMenuProxyMac::createShareMenuItem()
 {
-    if (![[NSMenuItem class] respondsToSelector:@selector(standardShareMenuItemWithItems:)])
-        return nil;
-
     const WebHitTestResultData& hitTestData = m_context.webHitTestResultData();
 
     auto items = adoptNS([[NSMutableArray alloc] init]);
@@ -296,7 +293,7 @@ RetainPtr<NSMenuItem> WebContextMenuProxyMac::createShareMenuItem()
     if (![items count])
         return nil;
 
-    RetainPtr<NSMenuItem> item = [NSMenuItem standardShareMenuItemWithItems:items.get()];
+    RetainPtr<NSMenuItem> item = [NSMenuItem standardShareMenuItemForItems:items.get()];
     if (!item)
         return nil;
 

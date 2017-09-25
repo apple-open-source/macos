@@ -110,7 +110,7 @@ void HIDUsageAndPageFromIndex (HIDPreparsedDataRef preparsedDataRef,
 			if (iUsages < 0)
 				iUsages = -iUsages;
 			iUsages++;		// Add off by one adjustment AFTER sign correction.
-			if (iUsages > index)
+			if (iUsages > (int)index)
 			{
 				ptUsageAndPage->usagePage = ptUsageItem->usagePage;
 				ptUsageAndPage->usage = ptUsageItem->usageMinimum + index;

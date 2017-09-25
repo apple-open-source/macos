@@ -18,7 +18,7 @@
  * mod_auth_digest: MD5 digest authentication
  *
  * Originally by Alexei Kosut <akosut@nueva.pvt.k12.ca.us>
- * Updated to RFC-2617 by Ronald Tschalär <ronald@innovation.ch>
+ * Updated to RFC-2617 by Ronald Tschalï¿½r <ronald@innovation.ch>
  * based on mod_auth, by Rob McCool and Robert S. Thau
  *
  * This module an updated version of modules/standard/mod_digest.c
@@ -232,7 +232,7 @@ static apr_status_t initialize_secret(server_rec *s)
 {
     apr_status_t status;
 
-    ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s, APLOGNO(01757)
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(01757)
                  "generating secret for digest authentication ...");
 
 #if APR_HAS_RANDOM
@@ -299,9 +299,18 @@ static int initialize_tables(server_rec *s, apr_pool_t *ctx)
     client_shm_filename = ap_runtime_dir_relative(ctx, "authdigest_shm");
     client_shm_filename = ap_append_pid(ctx, client_shm_filename, ".");
 
-    /* Now create that segment */
-    sts = apr_shm_create(&client_shm, shmem_size,
-                        client_shm_filename, ctx);
+    /* Use anonymous shm by default, fall back on name-based. */
+    sts = apr_shm_create(&client_shm, shmem_size, NULL, ctx);
+    if (APR_STATUS_IS_ENOTIMPL(sts)) {
+        /* For a name-based segment, remove it first in case of a
+         * previous unclean shutdown. */
+        apr_shm_remove(client_shm_filename, ctx);
+
+        /* Now create that segment */
+        sts = apr_shm_create(&client_shm, shmem_size,
+                            client_shm_filename, ctx);
+    }
+
     if (APR_SUCCESS != sts) {
         ap_log_error(APLOG_MARK, APLOG_ERR, sts, s, APLOGNO(01762)
                      "Failed to create shared memory segment on file %s",
@@ -833,7 +842,7 @@ static long gc(server_rec *s)
 
             if (err) {
                 /* Nothing we can really do but log... */
-                ap_log_error(APLOG_MARK, APLOG_ERR, err, s, APLOGNO()
+                ap_log_error(APLOG_MARK, APLOG_ERR, err, s, APLOGNO(10007)
                              "Failed to free auth_digest client allocation");
             }
         }
@@ -956,13 +965,13 @@ static int get_digest_rec(request_rec *r, digest_header_rec *resp)
 
         /* find value */
 
+        vv = 0;
         if (auth_line[0] == '=') {
             auth_line++;
             while (apr_isspace(auth_line[0])) {
                 auth_line++;
             }
 
-            vv = 0;
             if (auth_line[0] == '\"') {         /* quoted string */
                 auth_line++;
                 while (auth_line[0] != '\"' && auth_line[0] != '\0') {
@@ -981,8 +990,8 @@ static int get_digest_rec(request_rec *r, digest_header_rec *resp)
                     value[vv++] = *auth_line++;
                 }
             }
-            value[vv] = '\0';
         }
+        value[vv] = '\0';
 
         while (auth_line[0] != ',' && auth_line[0] != '\0') {
             auth_line++;

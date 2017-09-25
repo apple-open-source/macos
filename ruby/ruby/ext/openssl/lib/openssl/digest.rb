@@ -1,7 +1,5 @@
+# frozen_string_literal: false
 #--
-#
-# $RCSfile$
-#
 # = Ruby-space predefined Digest subclasses
 #
 # = Info
@@ -10,12 +8,8 @@
 # All rights reserved.
 #
 # = Licence
-# This program is licenced under the same licence as Ruby.
+# This program is licensed under the same licence as Ruby.
 # (See the file 'LICENCE'.)
-#
-# = Version
-# $Id: digest.rb 41809 2013-07-06 16:52:56Z nagachika $
-#
 #++
 
 module OpenSSL
@@ -38,31 +32,30 @@ module OpenSSL
     #   OpenSSL::Digest::SHA256.digest("abc")
 
     def self.digest(name, data)
-        super(data, name)
+      super(data, name)
     end
 
     alg.each{|name|
-      klass = Class.new(Digest){
-        define_method(:initialize){|*data|
-          if data.length > 1
-            raise ArgumentError,
-              "wrong number of arguments (#{data.length} for 1)"
-          end
-          super(name, data.first)
-        }
+      klass = Class.new(self) {
+        define_method(:initialize, ->(data = nil) {super(name, data)})
       }
       singleton = (class << klass; self; end)
       singleton.class_eval{
-        define_method(:digest){|data| Digest.digest(name, data) }
-        define_method(:hexdigest){|data| Digest.hexdigest(name, data) }
+        define_method(:digest){|data| new.digest(data) }
+        define_method(:hexdigest){|data| new.hexdigest(data) }
       }
       const_set(name, klass)
     }
 
-    # This class is only provided for backwards compatibility.  Use OpenSSL::Digest in the future.
-    class Digest < Digest
+    # Deprecated.
+    #
+    # This class is only provided for backwards compatibility.
+    class Digest < Digest # :nodoc:
+      # Deprecated.
+      #
+      # See OpenSSL::Digest.new
       def initialize(*args)
-        # add warning
+        warn('Digest::Digest is deprecated; use Digest')
         super(*args)
       end
     end
@@ -86,4 +79,3 @@ module OpenSSL
   module_function :Digest
 
 end # OpenSSL
-

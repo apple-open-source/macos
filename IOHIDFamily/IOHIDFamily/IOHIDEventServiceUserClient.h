@@ -68,6 +68,7 @@ private:
     uint32_t                    _lastEventType;
     uint32_t                    _droppedEventCount;
     uint64_t                    _lastDroppedEventTime;
+    uint64_t                    _eventCount;
   
   
     void eventServiceCallback(  IOHIDEventService *             sender,

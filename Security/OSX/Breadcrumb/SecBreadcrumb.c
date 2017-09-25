@@ -285,6 +285,7 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
                              outLength, CFDataGetBytePtr(inBreadcrumb) + 1 + ivLen, CFDataGetMutableBytePtr(oldpw),
                              tagLen, tag);
         if (res) {
+            CFReleaseNull(gcmkey);
             CFReleaseNull(oldpw);
             CFReleaseNull(gcmkey);
             return false;

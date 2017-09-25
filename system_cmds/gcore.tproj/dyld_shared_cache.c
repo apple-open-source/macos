@@ -73,14 +73,14 @@ shared_cache_filename(const uuid_t uu)
 
             int d = open(fe->fts_accpath, O_RDONLY);
             if (-1 == d) {
-                if (opt->debug)
+                if (OPTIONS_DEBUG(opt, 1))
                     printf("%s: cannot open - %s\n", fe->fts_accpath, strerror(errno));
                 continue;
             }
             void *addr = mmap(NULL, dyld_cache_header_size, PROT_READ, MAP_PRIVATE, d, 0);
             close(d);
             if ((void *)-1 == addr) {
-                if (opt->debug)
+                if (OPTIONS_DEBUG(opt, 1))
                     printf("%s: cannot mmap - %s\n", fe->fts_accpath, strerror(errno));
                 continue;
             }
@@ -89,7 +89,7 @@ shared_cache_filename(const uuid_t uu)
             if (get_uuid_from_shared_cache_mapping(addr, dyld_cache_header_size, scuuid)) {
                 if (uuid_compare(uu, scuuid) == 0)
                     nm = strdup(fe->fts_accpath);
-                else if (opt->debug) {
+                else if (OPTIONS_DEBUG(opt, 3)) {
                     uuid_string_t scstr;
                     uuid_unparse_lower(scuuid, scstr);
                     printf("%s: shared cache mismatch (%s)\n", fe->fts_accpath, scstr);

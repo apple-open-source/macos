@@ -1,14 +1,14 @@
 /*
  * Private localization support for CUPS.
  *
- * Copyright 2007-2010 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -22,6 +22,9 @@
 
 #  include <stdio.h>
 #  include <cups/transcode.h>
+#  ifdef __APPLE__
+#    include <CoreFoundation/CoreFoundation.h>
+#  endif /* __APPLE__ */
 
 #  ifdef __cplusplus
 extern "C" {
@@ -51,8 +54,8 @@ typedef struct _cups_message_s		/**** Message catalog entry ****/
  */
 
 #  ifdef __APPLE__
-extern const char	*_cupsAppleLanguage(const char *locale, char *language,
-			                    size_t langsize);
+extern const char	*_cupsAppleLanguage(const char *locale, char *language, size_t langsize);
+extern const char	*_cupsAppleLocale(CFStringRef languageName, char *locale, size_t localesize);
 #  endif /* __APPLE__ */
 extern void		_cupsCharmapFlush(void);
 extern const char	*_cupsEncodingName(cups_encoding_t encoding);

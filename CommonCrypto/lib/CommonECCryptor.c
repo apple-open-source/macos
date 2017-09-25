@@ -38,11 +38,11 @@
 
 typedef struct _CCECCryptor {
     union {
-        ccec_full_ctx *private;
-        ccec_pub_ctx *public;
+        ccec_full_ctx_t private;
+        ccec_pub_ctx_t public;
         uint8_t *bytes;
     } ecKey;
-    size_t keySize;
+    size_t key_nbits;
     CCECKeyType keyType;
 } CCECCryptor;
 
@@ -60,7 +60,7 @@ ccMallocECCryptor(size_t nbits, CCECKeyType keyType)
 
     if((retval = CC_XMALLOC(sizeof(CCECCryptor))) == NULL) return NULL;
     
-    retval->keySize = nbits;
+    retval->key_nbits = nbits;
     retval->ecKey.bytes = NULL;
     
     switch(keyType) {
@@ -90,7 +90,7 @@ errOut:
 static void
 ccECCryptorFree(CCECCryptor *theKey)
 {
-    size_t nbits = theKey->keySize;
+    size_t nbits = theKey->key_nbits;
     size_t ctxSize = 0;
     
     ccec_const_cp_t cp = ccec_get_cp(nbits);    
@@ -163,7 +163,7 @@ CCECCryptorGeneratePair(size_t nbits, CCECCryptorRef *publicKey, CCECCryptorRef 
     ccec_const_cp_t cp = ccec_get_cp(nbits);    
 
     __Require_Action((privateCryptor = ccMallocECCryptor(nbits, ccECKeyPrivate)) != NULL, errOut, retval = kCCMemoryFailure);
-    privateCryptor->keySize = nbits;
+    privateCryptor->key_nbits = nbits;
 
     __Require_Action((ccec_generate_key(cp, theRng, privateCryptor->ecKey.private) == 0), errOut, retval = kCCDecodeError);
         
@@ -192,11 +192,11 @@ CCECCryptorGetPublicKeyFromPrivateKey(CCECCryptorRef privateKey)
     CCECCryptor *publicCryptor = NULL;
 
     CC_DEBUG_LOG("Entering\n");
-    __Require((publicCryptor = ccMallocECCryptor(privateKey->keySize, ccECKeyPublic)) != NULL, errOut);
-    ccec_const_cp_t cp = ccec_get_cp(privateKey->keySize);    
+    __Require((publicCryptor = ccMallocECCryptor(privateKey->key_nbits, ccECKeyPublic)) != NULL, errOut);
+    ccec_const_cp_t cp = ccec_get_cp(privateKey->key_nbits);    
     size_t ctx_size = ccec_pub_ctx_size(ccec_cp_prime_size(cp));
     CC_XMEMCPY(publicCryptor->ecKey.public, privateKey->ecKey.public, ctx_size);
-    publicCryptor->keySize = privateKey->keySize;
+    publicCryptor->key_nbits = privateKey->key_nbits;
     publicCryptor->keyType = ccECKeyPublic;
     
     if(ccECpairwiseConsistencyCheck(privateKey, publicCryptor) == false) goto errOut;
@@ -270,7 +270,7 @@ int CCECGetKeySize(CCECCryptorRef key)
 {
     CC_DEBUG_LOG("Entering\n");
     if(key == NULL) return kCCParamError;
-    return (int) key->keySize;
+    return (int) key->key_nbits;
 }
 
 void 
@@ -302,13 +302,13 @@ CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, void *keyPack
                 if((cryptor = ccMallocECCryptor(nbits, ccECKeyPrivate)) == NULL) return kCCMemoryFailure;
                 ccec_const_cp_t cp = ccec_get_cp(nbits);
                 __Require_Action(ccec_x963_import_priv(cp, keyPackageLen, keyPackage, cryptor->ecKey.private) == 0, errOut, retval = kCCDecodeError);
-                cryptor->keySize = nbits;
+                cryptor->key_nbits = nbits;
             } else if(keyType == ccECKeyPublic) {
                 size_t nbits = ccec_x963_import_pub_size(keyPackageLen);
                 if((cryptor = ccMallocECCryptor(nbits, ccECKeyPublic)) == NULL) return kCCMemoryFailure;
                 ccec_const_cp_t cp = ccec_get_cp(nbits);
                 __Require_Action(ccec_x963_import_pub(cp, keyPackageLen, keyPackage, cryptor->ecKey.public) == 0, errOut, retval = kCCDecodeError);
-                cryptor->keySize = nbits;
+                cryptor->key_nbits = nbits;
             } else return kCCParamError;
 
             cryptor->keyType = keyType;
@@ -352,7 +352,7 @@ CCCryptorStatus CCECCryptorExportKey(CCECKeyExternalFormat format, void *keyPack
     
     switch(format) {
         case kCCImportKeyBinary: {
-            size_t len = ccec_x963_export_size(keyType == ccECKeyPrivate, key->ecKey.private);
+            size_t len = ccec_x963_export_size(keyType == ccECKeyPrivate, ccec_ctx_public(key->ecKey.private));
             
             if(len > *keyPackageLen) {
                 *keyPackageLen = len;

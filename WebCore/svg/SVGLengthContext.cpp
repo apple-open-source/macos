@@ -32,7 +32,6 @@
 #include "RenderSVGRoot.h"
 #include "RenderSVGViewportContainer.h"
 #include "RenderView.h"
-#include "SVGNames.h"
 #include "SVGSVGElement.h"
 
 namespace WebCore {
@@ -243,7 +242,7 @@ ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToEMS(float value)
     if (!style)
         return Exception { NOT_SUPPORTED_ERR };
 
-    float fontSize = style->fontSize();
+    float fontSize = style->computedFontPixelSize();
     if (!fontSize)
         return Exception { NOT_SUPPORTED_ERR };
 
@@ -256,7 +255,7 @@ ExceptionOr<float> SVGLengthContext::convertValueFromEMSToUserUnits(float value)
     if (!style)
         return Exception { NOT_SUPPORTED_ERR };
 
-    return value * style->fontSize();
+    return value * style->computedFontPixelSize();
 }
 
 ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToEXS(float value) const

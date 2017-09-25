@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -1507,6 +1507,62 @@ exit_nolock:
 	return MacToVFSError(result);
 }
 
+/*
+ * Removes a non rsrc-fork, non-finderinfo EA from the specified file ID.
+ * Note that this results in a bit of code duplication for the xattr removal
+ * path.  This is done because it's a bit messy to deal with things without the 
+ * cnode.  This function is used by exchangedata to port XATTRS to alternate
+ * fileIDs while everything is locked, and the cnodes are in a transitional state.  
+ *
+ * Assumes that the cnode backing the fileid specified is LOCKED.
+ */ 
+
+int 
+hfs_removexattr_by_id (struct hfsmount *hfsmp, uint32_t fileid, const char *xattr_name ) {
+	struct BTreeIterator iter; // allocated on the stack to avoid heap allocation mid-txn
+	int ret = 0;
+	int started_txn = 0;
+	int lockflags;
+
+	memset (&iter, 0, sizeof(iter));
+
+	//position the B-Tree iter key before grabbing locks and starting a txn 	
+	ret = hfs_buildattrkey (fileid, xattr_name, (HFSPlusAttrKey*)&iter.key);
+	if (ret) {
+		goto xattr_out;
+	}	
+
+	//note: this is likely a nested transaction since there is a global transaction cover
+	if (hfs_start_transaction (hfsmp) != 0) {
+		ret = EINVAL;		
+		goto xattr_out;		
+	}
+	started_txn = 1;
+
+
+    lockflags = hfs_systemfile_lock(hfsmp, SFL_ATTRIBUTE | SFL_BITMAP, HFS_EXCLUSIVE_LOCK);
+
+	//actually remove the EA from the tree
+    ret = remove_attribute_records(hfsmp, &iter);
+
+    hfs_systemfile_unlock(hfsmp, lockflags);
+	
+	/*
+   	 * NOTE: Responsibility of the caller to remove the "has XATTRs" bit in the catalog record
+	 * if this was the last EA.  
+	 */	 
+
+
+xattr_out:
+	if (started_txn) {
+		hfs_end_transaction(hfsmp);
+	}
+
+	return MacToVFSError(ret);	
+		
+}
+
+
 /* Check if any attribute record exist for given fileID.  This function 
  * is called by hfs_vnop_removexattr to determine if it should clear the 
  * attribute bit in the catalog record or not.
@@ -2016,7 +2072,7 @@ hfs_set_volxattr(struct hfsmount *hfsmp, unsigned int xattrtype, int state)
 		return (ENOTSUP);
 	}
 #endif
-	if (xattrtype != HFS_SET_XATTREXTENTS_STATE) {
+	if (xattrtype != HFSIOC_SET_XATTREXTENTS_STATE) {
 		return EINVAL;
 	}
 

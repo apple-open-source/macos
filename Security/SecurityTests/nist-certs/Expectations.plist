@@ -2,57 +2,53 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Validpre2000UTCnotBeforeDateTest3EE.crt</key>
-	<string>Can&apos;t parse 1950 UTCTime</string>
 	<key>InvalidBasicSelfIssuedNewWithOldTest5EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidBasicSelfIssuedOldWithNewTest2EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidLongSerialNumberTest18EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidNegativeSerialNumberTest15EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidcRLIssuerTest27EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidcRLIssuerTest31EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidcRLIssuerTest32EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidcRLIssuerTest34EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidcRLIssuerTest35EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidkeyUsageCriticalcRLSignFalseTest4EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidkeyUsageNotCriticalcRLSignFalseTest5EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlyContainsAttributeCertsTest14EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlyContainsCACertsTest12EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlyContainsUserCertsTest11EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlySomeReasonsTest15EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlySomeReasonsTest16EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlySomeReasonsTest17EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlySomeReasonsTest20EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>InvalidonlySomeReasonsTest21EE.crt</key>
-	<string>Check PDF</string>
+	<string>CRLs not supported.</string>
 	<key>ValidDSAParameterInheritanceTest5EE.crt</key>
-	<string>Check PDF</string>
+	<string>DSA not supported.</string>
 	<key>ValidDSASignaturesTest4EE.crt</key>
-	<string>Check PDF</string>
+	<string>DSA not supported.</string>
 	<key>ValidRolloverfromPrintableStringtoUTF8StringTest10EE.crt</key>
-	<string>Check PDF</string>
+	<string>&lt;rdar://problem/30270922&gt;</string>
 	<key>ValidUTF8StringCaseInsensitiveMatchTest11EE.crt</key>
-	<string>Check PDF</string>
+	<string>&lt;rdar://problem/30270922&gt;</string>
 	<key>InvalidDNnameConstraintsTest13EE.crt</key>
-	<string>Check PDF</string>
-	<key>ValidDNnameConstraintsTest14EE.crt</key>
-	<string>Can&apos;t evaluate empty subject name.</string>
+	<string>&lt;rdar://problem/22749979&gt; -- non-intersecting subtrees are appended</string>
 </dict>
 </plist>

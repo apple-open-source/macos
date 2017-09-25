@@ -1,3 +1,0 @@
-<leak1>
-[% a = holler('Hello') -%]
-</leak1>

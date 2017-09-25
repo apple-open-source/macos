@@ -50,17 +50,9 @@ void GIFImageDecoder::setData(SharedBuffer& data, bool allDataReceived)
         m_reader->setData(&data);
 }
 
-bool GIFImageDecoder::isSizeAvailable()
-{
-    if (!ImageDecoder::isSizeAvailable())
-         decode(0, GIFSizeQuery);
-
-    return ImageDecoder::isSizeAvailable();
-}
-
 bool GIFImageDecoder::setSize(const IntSize& size)
 {
-    if (ImageDecoder::isSizeAvailable() && this->size() == size)
+    if (ImageDecoder::encodedDataStatus() >= EncodedDataStatus::SizeAvailable && this->size() == size)
         return true;
 
     if (!ImageDecoder::setSize(size))
@@ -72,7 +64,7 @@ bool GIFImageDecoder::setSize(const IntSize& size)
 
 size_t GIFImageDecoder::frameCount() const
 {
-    const_cast<GIFImageDecoder*>(this)->decode(std::numeric_limits<unsigned>::max(), GIFFrameCountQuery);
+    const_cast<GIFImageDecoder*>(this)->decode(std::numeric_limits<unsigned>::max(), GIFFrameCountQuery, isAllDataReceived());
     return m_frameBufferCache.size();
 }
 
@@ -116,7 +108,7 @@ ImageFrame* GIFImageDecoder::frameBufferAtIndex(size_t index)
 
     ImageFrame& frame = m_frameBufferCache[index];
     if (!frame.isComplete())
-        decode(index + 1, GIFFullQuery);
+        decode(index + 1, GIFFullQuery, isAllDataReceived());
     return &frame;
 }
 
@@ -132,6 +124,10 @@ void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
     // can be asked to clear more frames than we currently have.
     if (m_frameBufferCache.isEmpty())
         return; // Nothing to do.
+
+    // Lock the decodelock here, as we are going to destroy the GIFImageReader and doing so while
+    // there's an ongoing decode will cause a crash.
+    LockHolder locker(m_decodeLock);
 
     // The "-1" here is tricky.  It does not mean that |clearBeforeFrame| is the
     // last frame we wish to preserve, but rather that we never want to clear
@@ -163,7 +159,7 @@ void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
     //     has a disposal method other than DisposalMethod::RestoreToPrevious, stop
     //     scanning, as we'll only need this frame when decoding the next one.
     Vector<ImageFrame>::iterator i(end);
-    for (; (i != m_frameBufferCache.begin()) && (i->isEmpty() || (i->disposalMethod() == ImageFrame::DisposalMethod::RestoreToPrevious)); --i) {
+    for (; (i != m_frameBufferCache.begin()) && (i->isInvalid() || (i->disposalMethod() == ImageFrame::DisposalMethod::RestoreToPrevious)); --i) {
         if (i->isComplete() && (i != end))
             i->clear();
     }
@@ -171,7 +167,7 @@ void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
     // Now |i| holds the last frame we need to preserve; clear prior frames.
     for (Vector<ImageFrame>::iterator j(m_frameBufferCache.begin()); j != i; ++j) {
         ASSERT(!j->isPartial());
-        if (j->isEmpty())
+        if (j->isInvalid())
             j->clear();
     }
 
@@ -211,7 +207,7 @@ bool GIFImageDecoder::haveDecodedRow(unsigned frameIndex, const Vector<unsigned 
 
     // Initialize the frame if necessary.
     ImageFrame& buffer = m_frameBufferCache[frameIndex];
-    if ((buffer.isEmpty() && !initFrameBuffer(frameIndex)) || !buffer.hasBackingStore())
+    if ((buffer.isInvalid() && !initFrameBuffer(frameIndex)) || !buffer.hasBackingStore())
         return false;
 
     RGBA32* currentAddress = buffer.backingStore()->pixelAt(xBegin, yBegin);
@@ -248,10 +244,10 @@ bool GIFImageDecoder::frameComplete(unsigned frameIndex, unsigned frameDuration,
     // Initialize the frame if necessary.  Some GIFs insert do-nothing frames,
     // in which case we never reach haveDecodedRow() before getting here.
     ImageFrame& buffer = m_frameBufferCache[frameIndex];
-    if (buffer.isEmpty() && !initFrameBuffer(frameIndex))
+    if (buffer.isInvalid() && !initFrameBuffer(frameIndex))
         return false; // initFrameBuffer() has already called setFailed().
 
-    buffer.setDecoding(ImageFrame::Decoding::Complete);
+    buffer.setDecodingStatus(DecodingStatus::Complete);
     buffer.setDuration(frameDuration);
     buffer.setDisposalMethod(disposalMethod);
 
@@ -301,11 +297,12 @@ void GIFImageDecoder::gifComplete()
     m_reader = nullptr;
 }
 
-void GIFImageDecoder::decode(unsigned haltAtFrame, GIFQuery query)
+void GIFImageDecoder::decode(unsigned haltAtFrame, GIFQuery query, bool allDataReceived)
 {
     if (failed())
         return;
 
+    LockHolder locker(m_decodeLock);
     if (!m_reader) {
         m_reader = std::make_unique<GIFImageReader>(this);
         m_reader->setData(m_data.get());
@@ -334,7 +331,7 @@ void GIFImageDecoder::decode(unsigned haltAtFrame, GIFQuery query)
 
     // It is also a fatal error if all data is received but we failed to decode
     // all frames completely.
-    if (isAllDataReceived() && haltAtFrame >= m_frameBufferCache.size() && m_reader)
+    if (allDataReceived && haltAtFrame >= m_frameBufferCache.size() && m_reader)
         setFailed();
 }
 
@@ -404,7 +401,7 @@ bool GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
     buffer->backingStore()->setFrameRect(IntRect(left, top, right - left, bottom - top));
 
     // Update our status to be partially complete.
-    buffer->setDecoding(ImageFrame::Decoding::Partial);
+    buffer->setDecodingStatus(DecodingStatus::Partial);
 
     // Reset the alpha pixel tracker for this frame.
     m_currentBufferSawAlpha = false;

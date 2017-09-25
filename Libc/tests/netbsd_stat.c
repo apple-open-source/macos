@@ -134,7 +134,7 @@ ATF_TC_HEAD(stat_err, tc)
 	atf_tc_set_md_var(tc, "descr", "Test errors from the stat(2) family");
 }
 
-ATF_TC_BODY(stat_err, tc)
+T_DECL(stat_err, "")
 {
 	char buf[NAME_MAX + 1];
 	struct stat st;
@@ -175,7 +175,7 @@ ATF_TC_HEAD(stat_mtime, tc)
 	atf_tc_set_md_var(tc, "descr", "Test modification times with stat(2)");
 }
 
-ATF_TC_BODY(stat_mtime, tc)
+T_DECL(stat_mtime, "")
 {
 	struct stat sa, sb;
 	int fd[3];
@@ -188,17 +188,17 @@ ATF_TC_BODY(stat_mtime, tc)
 
 		fd[i] = open(path, O_WRONLY | O_CREAT);
 
-		ATF_REQUIRE(fd[i] != -1);
-		ATF_REQUIRE(write(fd[i], "X", 1) == 1);
-		ATF_REQUIRE(stat(path, &sa) == 0);
+		T_ASSERT_POSIX_SUCCESS(fd[i], NULL);
+		T_ASSERT_EQ(write(fd[i], "X", 1), 1, NULL);
+		T_ASSERT_POSIX_ZERO(stat(path, &sa), NULL);
 
 		(void)sleep(1);
 
-		ATF_REQUIRE(write(fd[i], "X", 1) == 1);
-		ATF_REQUIRE(stat(path, &sb) == 0);
+		T_ASSERT_EQ(write(fd[i], "X", 1), 1, NULL);
+		T_ASSERT_POSIX_ZERO(stat(path, &sb), NULL);
 
-		ATF_REQUIRE(close(fd[i]) == 0);
-		ATF_REQUIRE(unlink(path) == 0);
+		T_ASSERT_POSIX_ZERO(close(fd[i]), NULL);
+		T_ASSERT_POSIX_ZERO(unlink(path), NULL);
 
 		if (sa.st_mtime == sb.st_mtime)
 			atf_tc_fail("mtimes did not change");
@@ -217,7 +217,7 @@ ATF_TC_HEAD(stat_perm, tc)
 	atf_tc_set_md_var(tc, "require.user", "root");
 }
 
-ATF_TC_BODY(stat_perm, tc)
+T_DECL(stat_perm, "")
 {
 	struct stat sa, sb;
 	gid_t gid;
@@ -232,9 +232,9 @@ ATF_TC_BODY(stat_perm, tc)
 
 	fd = open(path, O_RDONLY | O_CREAT);
 
-	ATF_REQUIRE(fd != -1);
-	ATF_REQUIRE(fstat(fd, &sa) == 0);
-	ATF_REQUIRE(stat(path, &sb) == 0);
+	T_ASSERT_POSIX_SUCCESS(fd, NULL);
+	T_ASSERT_POSIX_ZERO(fstat(fd, &sa), NULL);
+	T_ASSERT_POSIX_ZERO(stat(path, &sb), NULL);
 
 	if (gid != sa.st_gid || sa.st_gid != sb.st_gid)
 		atf_tc_fail("invalid GID");
@@ -242,8 +242,8 @@ ATF_TC_BODY(stat_perm, tc)
 	if (uid != sa.st_uid || sa.st_uid != sb.st_uid)
 		atf_tc_fail("invalid UID");
 
-	ATF_REQUIRE(close(fd) == 0);
-	ATF_REQUIRE(unlink(path) == 0);
+	T_ASSERT_POSIX_ZERO(close(fd), NULL);
+	T_ASSERT_POSIX_ZERO(unlink(path), NULL);
 }
 
 ATF_TC_CLEANUP(stat_perm, tc)
@@ -257,7 +257,7 @@ ATF_TC_HEAD(stat_size, tc)
 	atf_tc_set_md_var(tc, "descr", "Test file sizes with stat(2)");
 }
 
-ATF_TC_BODY(stat_size, tc)
+T_DECL(stat_size, "")
 {
 	struct stat sa, sb, sc;
 	const size_t n = 10;
@@ -273,10 +273,10 @@ ATF_TC_BODY(stat_size, tc)
 		(void)memset(&sb, 0, sizeof(struct stat));
 		(void)memset(&sc, 0, sizeof(struct stat));
 
-		ATF_REQUIRE(fstat(fd, &sa) == 0);
-		ATF_REQUIRE(write(fd, "X", 1) == 1);
-		ATF_REQUIRE(fstat(fd, &sb) == 0);
-		ATF_REQUIRE(stat(path, &sc) == 0);
+		T_ASSERT_POSIX_ZERO(fstat(fd, &sa), NULL);
+		T_ASSERT_EQ(write(fd, "X", 1), 1, NULL);
+		T_ASSERT_POSIX_ZERO(fstat(fd, &sb), NULL);
+		T_ASSERT_POSIX_ZERO(stat(path, &sc), NULL);
 
 		if (sa.st_size + 1 != sb.st_size)
 			atf_tc_fail("invalid file size");
@@ -285,8 +285,8 @@ ATF_TC_BODY(stat_size, tc)
 			atf_tc_fail("stat(2) and fstat(2) mismatch");
 	}
 
-	ATF_REQUIRE(close(fd) == 0);
-	ATF_REQUIRE(unlink(path) == 0);
+	T_ASSERT_POSIX_ZERO(close(fd), NULL);
+	T_ASSERT_POSIX_ZERO(unlink(path), NULL);
 }
 
 ATF_TC_CLEANUP(stat_size, tc)
@@ -301,7 +301,7 @@ ATF_TC_HEAD(stat_socket, tc)
 	    "a socket (PR kern/46077)");
 }
 
-ATF_TC_BODY(stat_socket, tc)
+T_DECL(stat_socket, "")
 {
 	struct sockaddr_in addr;
 	struct stat st;
@@ -316,9 +316,9 @@ ATF_TC_BODY(stat_socket, tc)
 
 	flags = fcntl(fd, F_GETFL);
 
-	ATF_REQUIRE(flags != -1);
-	ATF_REQUIRE(fcntl(fd, F_SETFL, flags | O_NONBLOCK) != -1);
-	ATF_REQUIRE(inet_pton(AF_INET, "127.0.0.1", &iaddr) == 1);
+	T_ASSERT_POSIX_SUCCESS(flags, NULL);
+	T_ASSERT_POSIX_SUCCESS(fcntl(fd, F_SETFL, flags | O_NONBLOCK), NULL);
+	T_ASSERT_EQ(inet_pton(AF_INET, "127.0.0.1", &iaddr), 1, NULL);
 
 	addr.sin_port = htons(42);
 	addr.sin_family = AF_INET;
@@ -344,7 +344,7 @@ ATF_TC_HEAD(stat_symlink, tc)
 	atf_tc_set_md_var(tc, "descr", "Test symbolic links with stat(2)");
 }
 
-ATF_TC_BODY(stat_symlink, tc)
+T_DECL(stat_symlink, "")
 {
 	const char *pathlink = "pathlink";
 	struct stat sa, sb;
@@ -356,9 +356,9 @@ ATF_TC_BODY(stat_symlink, tc)
 	fd = open(path, O_WRONLY | O_CREAT);
 
 	ATF_REQUIRE(fd >= 0);
-	ATF_REQUIRE(symlink(path, pathlink) == 0);
-	ATF_REQUIRE(stat(pathlink, &sa) == 0);
-	ATF_REQUIRE(lstat(pathlink, &sb) == 0);
+	T_ASSERT_POSIX_ZERO(symlink(path, pathlink), NULL);
+	T_ASSERT_POSIX_ZERO(stat(pathlink, &sa), NULL);
+	T_ASSERT_POSIX_ZERO(lstat(pathlink, &sb), NULL);
 
 	if (S_ISLNK(sa.st_mode) != 0)
 		atf_tc_fail("stat(2) detected symbolic link");
@@ -369,8 +369,8 @@ ATF_TC_BODY(stat_symlink, tc)
 	if (sa.st_mode == sb.st_mode)
 		atf_tc_fail("inconsistencies between stat(2) and lstat(2)");
 
-	ATF_REQUIRE(unlink(path) == 0);
-	ATF_REQUIRE(unlink(pathlink) == 0);
+	T_ASSERT_POSIX_ZERO(unlink(path), NULL);
+	T_ASSERT_POSIX_ZERO(unlink(pathlink), NULL);
 }
 
 ATF_TC_CLEANUP(stat_symlink, tc)

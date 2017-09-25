@@ -30,18 +30,21 @@
 #include "InspectorOverlay.h"
 
 #include "DocumentLoader.h"
+#include "EditorClient.h"
 #include "Element.h"
 #include "EmptyClients.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "InspectorClient.h"
 #include "InspectorOverlayPage.h"
+#include "LibWebRTCProvider.h"
 #include "MainFrame.h"
 #include "Node.h"
 #include "Page.h"
 #include "PageConfiguration.h"
 #include "PolygonShape.h"
 #include "PseudoElement.h"
+#include "RTCController.h"
 #include "RectangleShape.h"
 #include "RenderBoxModelObject.h"
 #include "RenderElement.h"
@@ -54,11 +57,13 @@
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "Settings.h"
+#include "SocketProvider.h"
 #include "StyledElement.h"
 #include <inspector/InspectorProtocolObjects.h>
 #include <inspector/InspectorValues.h>
 
 using namespace Inspector;
+using namespace std::literals::chrono_literals;
 
 namespace WebCore {
 
@@ -338,7 +343,7 @@ void InspectorOverlay::update()
     drawPaintRects();
 
     // Position DOM elements.
-    overlayPage()->mainFrame().document()->recalcStyle(Style::Force);
+    overlayPage()->mainFrame().document()->resolveStyle(Document::ResolveStyleType::Rebuild);
     if (overlayView->needsLayout())
         overlayView->layout();
 
@@ -509,8 +514,8 @@ void InspectorOverlay::showPaintRect(const FloatRect& rect)
     m_paintRects.append(TimeRectPair(removeTime, rootRect));
 
     if (!m_paintRectUpdateTimer.isActive()) {
-        const double paintRectsUpdateIntervalSeconds = 0.032;
-        m_paintRectUpdateTimer.startRepeating(paintRectsUpdateIntervalSeconds);
+        const Seconds paintRectsUpdateInterval { 32_ms };
+        m_paintRectUpdateTimer.startRepeating(paintRectsUpdateInterval);
     }
 
     drawPaintRects();
@@ -857,7 +862,11 @@ Page* InspectorOverlay::overlayPage()
     if (m_overlayPage)
         return m_overlayPage.get();
 
-    PageConfiguration pageConfiguration(makeUniqueRef<EmptyEditorClient>(), SocketProvider::create());
+    PageConfiguration pageConfiguration(
+        createEmptyEditorClient(),
+        SocketProvider::create(),
+        makeUniqueRef<LibWebRTCProvider>()
+    );
     fillWithEmptyClients(pageConfiguration);
     m_overlayPage = std::make_unique<Page>(WTFMove(pageConfiguration));
     m_overlayPage->setDeviceScaleFactor(m_page.deviceScaleFactor());

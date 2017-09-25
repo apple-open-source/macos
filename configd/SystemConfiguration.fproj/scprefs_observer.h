@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,7 @@ __BEGIN_DECLS
  @discussion Sends a notification to interested configuration agents
  when a particular preference file has changed.
  @param type the type of preference (MCX on OSX, Global/Profiles on iOS) to watch.
- @param plist the name of the plist file to watch.
+ @param plist_name the name of the plist file to watch.
  @param queue the queue to be called back on.
  @param block the block to be called back on.
  @result Returns the created preferences observer

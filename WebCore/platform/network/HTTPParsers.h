@@ -51,12 +51,10 @@ enum class XSSProtectionDisposition {
     BlockEnabled,
 };
 
-#if ENABLE(NOSNIFF)
 enum ContentTypeOptionsDisposition {
     ContentTypeOptionsNone,
     ContentTypeOptionsNosniff
 };
-#endif
 
 enum XFrameOptionsDisposition {
     XFrameOptionsNone,
@@ -69,6 +67,8 @@ enum XFrameOptionsDisposition {
 
 bool isValidReasonPhrase(const String&);
 bool isValidHTTPHeaderValue(const String&);
+bool isValidAcceptHeaderValue(const String&);
+bool isValidLanguageHeaderValue(const String&);
 bool isValidHTTPToken(const String&);
 bool parseHTTPRefresh(const String& refresh, double& delay, String& url);
 std::optional<std::chrono::system_clock::time_point> parseHTTPDate(const String&);
@@ -83,9 +83,7 @@ XFrameOptionsDisposition parseXFrameOptionsHeader(const String&);
 // -1 could be set to one of the return parameters to indicate the value is not specified.
 WEBCORE_EXPORT bool parseRange(const String&, long long& rangeOffset, long long& rangeEnd, long long& rangeSuffixLength);
 
-#if ENABLE(NOSNIFF)
 ContentTypeOptionsDisposition parseContentTypeOptionsHeader(const String& header);
-#endif
 
 // Parsing Complete HTTP Messages.
 enum HTTPVersion { Unknown, HTTP_1_0, HTTP_1_1 };

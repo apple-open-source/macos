@@ -28,7 +28,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -83,7 +83,7 @@ OSStatus HIDGetReportLength(HIDReportType reportType,
 		
 	// Go through the Reports.
 
-	for (iR = 0; iR < ptPreparsedData->reportCount; iR++)
+	for (iR = 0; iR < (int)ptPreparsedData->reportCount; iR++)
 	{
 		if (ptPreparsedData->reports[iR].reportID == reportID)
 		{

@@ -26,7 +26,7 @@
 #pragma once
 
 #include "JSCell.h"
-#include "MarkedAllocator.h"
+#include "MarkedAllocatorInlines.h"
 #include "MarkedBlock.h"
 #include "MarkedSpace.h"
 #include "Subspace.h"
@@ -68,6 +68,24 @@ void Subspace::forEachMarkedCell(const Func& func)
     forEachLargeAllocation(
         [&] (LargeAllocation* allocation) {
             if (allocation->isMarked())
+                func(allocation->cell(), m_attributes.cellKind);
+        });
+}
+
+template<typename Func>
+void Subspace::forEachLiveCell(const Func& func)
+{
+    forEachMarkedBlock(
+        [&] (MarkedBlock::Handle* handle) {
+            handle->forEachLiveCell(
+                [&] (HeapCell* cell, HeapCell::Kind kind) -> IterationStatus { 
+                    func(cell, kind);
+                    return IterationStatus::Continue;
+                });
+        });
+    forEachLargeAllocation(
+        [&] (LargeAllocation* allocation) {
+            if (allocation->isLive())
                 func(allocation->cell(), m_attributes.cellKind);
         });
 }

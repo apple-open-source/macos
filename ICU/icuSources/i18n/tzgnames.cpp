@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 2011-2016, International Business Machines Corporation and
@@ -16,6 +18,7 @@
 #include "unicode/rbtz.h"
 #include "unicode/simpleformatter.h"
 #include "unicode/simpletz.h"
+#include "unicode/strenum.h"
 #include "unicode/vtzone.h"
 
 #include "cmemory.h"

@@ -45,12 +45,6 @@ __BEGIN_DECLS
 __END_DECLS
 
 //===========================================================================
-// Static Helper Declarations
-//===========================================================================
-static IOReturn MergeDictionaries(CFDictionaryRef srcDict, CFMutableDictionaryRef * pDstDict);
-
-
-//===========================================================================
 // CFPlugIn Static Assignments
 //===========================================================================
 IOCFPlugInInterface IOHIDEventServiceClass::sIOCFPlugInInterfaceV1 =
@@ -471,9 +465,6 @@ IOReturn IOHIDEventServiceClass::probe(CFDictionaryRef propertyTable __unused, i
 IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, io_service_t service)
 {
     IOReturn                ret             = kIOReturnError;
-    HRESULT                 plugInResult    = S_OK;
-    SInt32                  score           = 0;
-    CFMutableDictionaryRef  serviceProps    = NULL;
     
     do {
         _service = service;
@@ -749,7 +740,7 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
 // IOHIDEventServiceClass::getPropertyInfo
 //---------------------------------------------------------------------------
 PROPERTY_INFO* IOHIDEventServiceClass::getPropertyInfo(CFStringRef key) {
-  for (int index = 0; index < sizeof(PropertyInfoTable)/sizeof(PropertyInfoTable[0]); index++) {
+  for (size_t index = 0; index < sizeof(PropertyInfoTable)/sizeof(PropertyInfoTable[0]); index++) {
     if (CFEqual (PropertyInfoTable[index].key, key)) {
       return &PropertyInfoTable[index];
     }
@@ -767,7 +758,6 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
     size_t              inputDataSize   = 0;
     UInt8 *             outputData      = NULL;
     size_t              outputDataSize  = 0;
-    size_t              eventDataSize   = 0;
     CFDataRef           fieldData       = NULL;
     CFMutableDataRef    eventData       = NULL;
     IOHIDEventRef       event           = NULL;
@@ -895,30 +885,3 @@ void IOHIDEventServiceClass::unscheduleFromDispatchQueue(dispatch_queue_t queue 
     }
 }
 
-//===========================================================================
-// Static Helper Definitions
-//===========================================================================
-IOReturn MergeDictionaries(CFDictionaryRef srcDict, CFMutableDictionaryRef * pDstDict)
-{
-    uint32_t        count;
-    CFTypeRef *     values;
-    CFStringRef *   keys;
-    
-    if ( !pDstDict || !srcDict || !(count = CFDictionaryGetCount(srcDict)))
-        return kIOReturnBadArgument;
-        
-    if ( !*pDstDict || 
-        !(*pDstDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)))
-        return kIOReturnNoMemory;
-                
-    values  = (CFTypeRef *)malloc(sizeof(CFTypeRef) * count);
-    keys    = (CFStringRef *)malloc(sizeof(CFStringRef) * count);
-    
-    for ( uint32_t i=0; i<count; i++) 
-        CFDictionarySetValue(*pDstDict, keys[i], values[i]);
-    
-    free(values);
-    free(keys);
-
-    return kIOReturnSuccess;
-}

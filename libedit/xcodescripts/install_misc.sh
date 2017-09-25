@@ -8,11 +8,10 @@ if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 	rm -rf ${DSTROOT}/usr/local/lib
 fi
 
-mkdir -p $DSTROOT/usr/lib/pkgconfig $DSTROOT/usr/local/lib
+mkdir -p $DSTROOT/usr/local/lib
 # -- libedit.la gets mastered out, so lets try not installing it at all and verify it has no impact
 # on other projects building (it shouldn't)
 # install -g $INSTALL_GROUP -o $INSTALL_OWNER $SRCROOT/local/libedit.la $DSTROOT/usr/local/lib
-install -g $ALTERNATE_GROUP -o $ALTERNATE_OWNER -m $ALTERNATE_MODE $SRCROOT/local/libedit.pc $DSTROOT/usr/lib/pkgconfig
 for l in libedit.2.dylib libedit.3.0.dylib libedit.dylib libreadline.dylib ; do
 	ln -s libedit.3.dylib $DSTROOT/usr/lib/$l
 done

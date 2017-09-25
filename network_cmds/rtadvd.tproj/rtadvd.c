@@ -1535,7 +1535,8 @@ struct rainfo *rainfo;
 	struct in6_pktinfo *pi;
 	struct soliciter *sol, *nextsol;
 
-	if ((iflist[rainfo->ifindex]->ifm_flags & IFF_UP) == 0) {
+	if (iflist[rainfo->ifindex] == NULL ||
+	    (iflist[rainfo->ifindex]->ifm_flags & IFF_UP) == 0) {
 		syslog(LOG_DEBUG, "<%s> %s is not up, skip sending RA",
 		       __func__, rainfo->ifname);
 		return;

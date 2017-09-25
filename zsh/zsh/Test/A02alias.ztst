@@ -96,3 +96,22 @@
 0:unalias -as
 >foo is a suffix alias for print
 >foo: suffix alias
+
+  aliases[x=y]=z
+  alias -L | grep x=y
+  echo $pipestatus[1]
+0:printing invalid aliases warns
+>0
+?(eval):2: invalid alias 'x=y' encountered while printing aliases
+# Currently, 'alias -L' returns 0 in this case.  Perhaps it should return 1.
+
+  alias -s mysuff='print -r "You said it.";'
+  eval 'thingummy.mysuff'
+127:No endless loop with suffix alias in command position
+>You said it.
+?(eval):1: command not found: thingummy.mysuff
+
+  alias +x; alias -z
+1:error message has the correct sign
+?(eval):alias:1: bad option: +x
+?(eval):alias:1: bad option: -z

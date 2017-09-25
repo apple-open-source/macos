@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHMISC" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -966,6 +966,33 @@ Note that a pipe is an implicit redirection; thus
 .PP
 writes the date to the file `\fBfoo\fP\&', and also pipes it to cat\&.
 .PP
+Note also that redirections are always expanded in order\&.  This happens
+regardless of the setting of the \fBMULTIOS\fP option, but with the option
+in effect there are additional consequences\&. For example,
+the meaning of the expression \fB>&1\fP will change after a previous
+redirection:
+.PP
+.RS
+.nf
+\fBdate >&1 >output\fP
+.fi
+.RE
+.PP
+In the case above, the \fB>&1\fP refers to the standard output at the
+start of the line; the result is similar to the \fBtee\fP command\&.
+However, consider:
+.PP
+.RS
+.nf
+\fBdate >output >&1\fP
+.fi
+.RE
+.PP
+As redirections are evaluated in order, when the \fB>&1\fP is encountered
+the standard output is set to the file \fBoutput\fP and another copy of
+the output is therefore sent to that file\&.  This is unlikely to be what
+is intended\&.
+.PP
 If the \fBMULTIOS\fP
 option is set, the word after a redirection operator is also subjected
 to filename generation (globbing)\&.  Thus
@@ -1116,13 +1143,14 @@ not handle this executable format in the kernel\&.
 .PP
 If no external command is found but a function \fBcommand_not_found_handler\fP
 exists the shell executes this function with all
-command line arguments\&.  The function should return status zero if it
-successfully handled the command, or non\-zero status if it failed\&.
-In the latter case the standard handling is applied: `command not
-found\&' is printed to standard error and the shell exits with status 127\&.
-Note that the handler is executed in a subshell forked to execute
-an external command, hence changes to directories, shell parameters,
-etc\&. have no effect on the main shell\&.
+command line arguments\&.  The return status of the function becomes the
+status of the command\&.  If the function wishes to mimic the
+behaviour of the shell when the command is not found, it should
+print the message `\fBcommand not found:\fP \fIcmd\fP\&' to standard error
+and return status 127\&.  Note that the handler is executed in a
+subshell forked to execute an external command, hence changes to
+directories, shell parameters, etc\&. have no effect on the main shell\&.
+.PP
 .\" Yodl file: Zsh/func.yo
 .SH "FUNCTIONS"
 Shell functions are defined with the \fBfunction\fP reserved word or the
@@ -1615,10 +1643,10 @@ or by one of the following:
 The job with the given number\&.
 .TP
 \fB%\fP\fIstring\fP
-Any job whose command line begins with \fIstring\fP\&.
+The last job whose command line begins with \fIstring\fP\&.
 .TP
 \fB%?\fP\fIstring\fP
-Any job whose command line contains \fIstring\fP\&.
+The last job whose command line contains \fIstring\fP\&.
 .TP
 \fB%%\fP
 Current job\&.
@@ -2064,6 +2092,9 @@ is open and associated with a terminal device\&.
 \fB\-u\fP \fIfile\fP
 true if \fIfile\fP exists and has its setuid bit set\&.
 .TP
+\fB\-v\fP \fIvarname\fP
+true if shell variable \fIvarname\fP is set\&.
+.TP
 \fB\-w\fP \fIfile\fP
 true if \fIfile\fP exists and is writable by current process\&.
 .TP
@@ -2107,8 +2138,10 @@ true if \fIfile1\fP and \fIfile2\fP exist and refer to the same file\&.
 .PD
 \fIstring\fP \fB==\fP \fIpattern\fP
 true if \fIstring\fP matches \fIpattern\fP\&.
-The `\fB==\fP\&' form is the preferred one\&.  The `\fB=\fP' form is for
-backward compatibility and should be considered obsolete\&.
+The two forms are exactly equivalent\&.  The `\fB=\fP\&' form is
+the traditional shell syntax (and hence the only one generally used
+with the \fBtest\fP and \fB[\fP builtins); the `\fB==\fP\&' form provides
+compatibility with other sorts of computer language\&.
 .TP
 \fIstring\fP \fB!=\fP \fIpattern\fP
 true if \fIstring\fP does not match \fIpattern\fP\&.

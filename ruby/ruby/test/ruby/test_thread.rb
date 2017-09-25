@@ -1,7 +1,7 @@
 # -*- coding: us-ascii -*-
+# frozen_string_literal: false
 require 'test/unit'
 require 'thread'
-require_relative 'envutil'
 
 class TestThread < Test::Unit::TestCase
   class Thread < ::Thread
@@ -25,6 +25,13 @@ class TestThread < Test::Unit::TestCase
       rescue Exception
       end
     end
+  end
+
+  def test_inspect
+    th = Module.new {break module_eval("class C\u{30b9 30ec 30c3 30c9} < Thread; self; end")}.start{}
+    assert_match(/::C\u{30b9 30ec 30c3 30c9}:/, th.inspect)
+  ensure
+    th.join
   end
 
   def test_main_thread_variable_in_enumerator
@@ -64,14 +71,14 @@ class TestThread < Test::Unit::TestCase
   end
 
   def test_thread_variable?
-    refute Thread.new { Thread.current.thread_variable?("foo") }.join.value
+    Thread.new { assert_not_send([Thread.current, :thread_variable?, "foo"]) }.value
     t = Thread.new {
       Thread.current.thread_variable_set("foo", "bar")
     }.join
 
-    assert t.thread_variable?("foo")
-    assert t.thread_variable?(:foo)
-    refute t.thread_variable?(:bar)
+    assert_send([t, :thread_variable?, "foo"])
+    assert_send([t, :thread_variable?, :foo])
+    assert_not_send([t, :thread_variable?, :bar])
   end
 
   def test_thread_variable_strings_and_symbols_are_the_same_key
@@ -83,41 +90,32 @@ class TestThread < Test::Unit::TestCase
   def test_thread_variable_frozen
     t = Thread.new { }.join
     t.freeze
-    assert_raises(RuntimeError) do
+    assert_raise(RuntimeError) do
       t.thread_variable_set(:foo, "bar")
-    end
-  end
-
-  def test_thread_variable_security
-    t = Thread.new { sleep }
-
-    assert_raises(SecurityError) do
-      Thread.new { $SAFE = 4; t.thread_variable_get(:foo) }.join
-    end
-
-    assert_raises(SecurityError) do
-      Thread.new { $SAFE = 4; t.thread_variable_set(:foo, :baz) }.join
     end
   end
 
   def test_mutex_synchronize
     m = Mutex.new
     r = 0
-    max = 10
-    (1..max).map{
+    num_threads = 10
+    loop=100
+    (1..num_threads).map{
       Thread.new{
-        i=0
-        while i<max*max
-          i+=1
+        loop.times{
           m.synchronize{
-            r += 1
+            tmp = r
+            # empty and waste loop for making thread preemption
+            100.times {
+            }
+            r = tmp + 1
           }
-        end
+        }
       }
     }.each{|e|
       e.join
     }
-    assert_equal(max * max * max, r)
+    assert_equal(num_threads*loop, r)
   end
 
   def test_mutex_synchronize_yields_no_block_params
@@ -129,7 +127,6 @@ class TestThread < Test::Unit::TestCase
     dir = File.dirname(__FILE__)
     lbtest = File.join(dir, "lbtest.rb")
     $:.unshift File.join(File.dirname(dir), 'ruby')
-    require 'envutil'
     $:.shift
     3.times {
       `#{EnvUtil.rubybin} #{lbtest}`
@@ -139,17 +136,21 @@ class TestThread < Test::Unit::TestCase
 
   def test_priority
     c1 = c2 = 0
-    t1 = Thread.new { loop { c1 += 1 } }
+    run = true
+    t1 = Thread.new { c1 += 1 while run }
     t1.priority = 3
-    t2 = Thread.new { loop { c2 += 1 } }
+    t2 = Thread.new { c2 += 1 while run }
     t2.priority = -3
     assert_equal(3, t1.priority)
     assert_equal(-3, t2.priority)
     sleep 0.5
     5.times do
+      assert_not_predicate(t1, :stop?)
+      assert_not_predicate(t2, :stop?)
       break if c1 > c2
       sleep 0.1
     end
+    run = false
     t1.kill
     t2.kill
     assert_operator(c1, :>, c2, "[ruby-dev:33124]") # not guaranteed
@@ -177,22 +178,27 @@ class TestThread < Test::Unit::TestCase
 
   def test_join
     t = Thread.new { sleep }
-    assert_nil(t.join(0.5))
+    assert_nil(t.join(0.05))
 
   ensure
     t.kill if t
   end
 
   def test_join2
-    t1 = Thread.new { sleep(1.5) }
+    ok = false
+    t1 = Thread.new { ok = true; sleep }
+    Thread.pass until ok
+    Thread.pass until t1.stop?
     t2 = Thread.new do
-      t1.join(1)
+      Thread.pass while ok
+      t1.join(0.01)
     end
     t3 = Thread.new do
-      sleep 0.5
+      ok = false
       t1.join
     end
     assert_nil(t2.value)
+    t1.wakeup
     assert_equal(t1, t3.value)
 
   ensure
@@ -244,10 +250,10 @@ class TestThread < Test::Unit::TestCase
       Thread.stop
       s += 1
     end
-    sleep 0.5
+    Thread.pass until t.stop?
     assert_equal(1, s)
     t.wakeup
-    sleep 0.5
+    Thread.pass while t.alive?
     assert_equal(2, s)
     assert_raise(ThreadError) { t.wakeup }
 
@@ -270,7 +276,7 @@ class TestThread < Test::Unit::TestCase
     assert_in_out_err([], <<-INPUT) do |r, e|
       t1 = Thread.new { sleep }
       Thread.pass
-      t2 = Thread.new { loop { } }
+      t2 = Thread.new { loop { Thread.pass } }
       Thread.new { }.join
       p [Thread.current, t1, t2].map{|t| t.object_id }.sort
       p Thread.list.map{|t| t.object_id }.sort
@@ -291,8 +297,8 @@ class TestThread < Test::Unit::TestCase
     assert_in_out_err([], <<-INPUT, %w(false 1), [])
       p Thread.abort_on_exception
       begin
-        Thread.new { raise }
-        sleep 0.5
+        t = Thread.new { raise }
+        Thread.pass until t.stop?
         p 1
       rescue
         p 2
@@ -314,8 +320,8 @@ class TestThread < Test::Unit::TestCase
     assert_in_out_err(%w(--disable-gems -d), <<-INPUT, %w(false 2), %r".+")
       p Thread.abort_on_exception
       begin
-        Thread.new { raise }
-        sleep 0.5
+        t = Thread.new { raise }
+        Thread.pass until t.stop?
         p 1
       rescue
         p 2
@@ -325,9 +331,11 @@ class TestThread < Test::Unit::TestCase
     assert_in_out_err([], <<-INPUT, %w(false true 2), [])
       p Thread.abort_on_exception
       begin
-        t = Thread.new { sleep 0.5; raise }
+        ok = false
+        t = Thread.new { Thread.pass until ok; raise }
         t.abort_on_exception = true
         p t.abort_on_exception
+        ok = 1
         sleep 1
         p 1
       rescue
@@ -341,7 +349,7 @@ class TestThread < Test::Unit::TestCase
     b = Thread.new { Thread.stop }
     c = Thread.new { Thread.exit }
     e = Thread.current
-    sleep 0.5
+    Thread.pass while a.alive? or !b.stop? or c.alive?
 
     assert_equal(nil, a.status)
     assert_predicate(a, :stop?)
@@ -382,10 +390,17 @@ class TestThread < Test::Unit::TestCase
   end
 
   def test_safe_level
-    t = Thread.new { $SAFE = 3; sleep }
-    sleep 0.5
+    ok = false
+    t = Thread.new do
+      EnvUtil.suppress_warning do
+        $SAFE = 1
+      end
+      ok = true
+      sleep
+    end
+    Thread.pass until ok
     assert_equal(0, Thread.current.safe_level)
-    assert_equal(3, t.safe_level)
+    assert_equal(1, t.safe_level)
 
   ensure
     t.kill if t
@@ -412,16 +427,6 @@ class TestThread < Test::Unit::TestCase
   end
 
   def test_thread_local_security
-    t = Thread.new { sleep }
-
-    assert_raise(SecurityError) do
-      Thread.new { $SAFE = 4; t[:foo] }.join
-    end
-
-    assert_raise(SecurityError) do
-      Thread.new { $SAFE = 4; t[:foo] = :baz }.join
-    end
-
     assert_raise(RuntimeError) do
       Thread.new do
         Thread.current[:foo] = :bar
@@ -431,12 +436,23 @@ class TestThread < Test::Unit::TestCase
     end
   end
 
+  def test_thread_local_dynamic_symbol
+    bug10667 = '[ruby-core:67185] [Bug #10667]'
+    t = Thread.new {}.join
+    key_str = "foo#{rand}"
+    key_sym = key_str.to_sym
+    t.thread_variable_set(key_str, "bar")
+    assert_equal("bar", t.thread_variable_get(key_str), "#{bug10667}: string key")
+    assert_equal("bar", t.thread_variable_get(key_sym), "#{bug10667}: symbol key")
+  end
+
   def test_select_wait
-    assert_nil(IO.select(nil, nil, nil, 1))
+    assert_nil(IO.select(nil, nil, nil, 0.001))
     t = Thread.new do
       IO.select(nil, nil, nil, nil)
     end
-    sleep 0.5
+    Thread.pass until t.stop?
+    assert_predicate(t, :alive?)
     t.kill
   end
 
@@ -458,7 +474,7 @@ class TestThread < Test::Unit::TestCase
       m.lock
       :foo
     end
-    sleep 0.5
+    Thread.pass until t.stop?
     t.kill
     assert_nil(t.value)
   end
@@ -532,22 +548,20 @@ class TestThread < Test::Unit::TestCase
   def test_no_valid_cfp
     skip 'with win32ole, cannot run this testcase because win32ole redefines Thread#intialize' if defined?(WIN32OLE)
     bug5083 = '[ruby-dev:44208]'
-    assert_equal([], Thread.new(&Module.method(:nesting)).value)
-    error = assert_raise(RuntimeError) do
-      Thread.new(:to_s, &Module.method(:undef_method)).join
-    end
-    assert_equal("Can't call on top of Fiber or Thread", error.message, bug5083)
+    assert_equal([], Thread.new(&Module.method(:nesting)).value, bug5083)
+    assert_instance_of(Thread, Thread.new(:to_s, &Class.new.method(:undef_method)).join, bug5083)
   end
 
   def make_handle_interrupt_test_thread1 flag
     r = []
     ready_p = false
+    done = false
     th = Thread.new{
       begin
         Thread.handle_interrupt(RuntimeError => flag){
           begin
             ready_p = true
-            sleep 0.5
+            sleep 0.01 until done
           rescue
             r << :c1
           end
@@ -559,6 +573,7 @@ class TestThread < Test::Unit::TestCase
     Thread.pass until ready_p
     th.raise
     begin
+      done = true
       th.join
     rescue
       r << :c3
@@ -623,19 +638,19 @@ class TestThread < Test::Unit::TestCase
       th = Thread.start{
         Thread.handle_interrupt(Object => :on_blocking){
           begin
+            Thread.pass until r == :wait
             Thread.current.raise RuntimeError
-            r=:ok
+            r = :ok
             sleep
           ensure
-            th_s.raise e
+            th_s.raise e, "raise from ensure", $@
           end
         }
       }
-      sleep 1
-      r=:ng
-      th.raise RuntimeError
-      th.join
-    rescue e
+      assert_raise(e) {r = :wait; sleep 0.2}
+      assert_raise(RuntimeError) {th.join(0.2)}
+    ensure
+      th.kill
     end
     assert_equal(:ok,r)
   end
@@ -652,7 +667,7 @@ class TestThread < Test::Unit::TestCase
         }
       }
 
-      sleep 0.1
+      Thread.pass while t.stop?
       t.raise RuntimeError
       th_waiting = false
       t.join rescue nil
@@ -662,10 +677,11 @@ class TestThread < Test::Unit::TestCase
 
   def test_handle_interrupt_and_p
     assert_in_out_err([], <<-INPUT, %w(:ok :ok), [])
-      th_waiting = true
+      th_waiting = false
 
       t = Thread.new {
         Thread.handle_interrupt(RuntimeError => :on_blocking) {
+          th_waiting = true
           nil while th_waiting
           # p shouldn't provide interruptible point
           p :ok
@@ -673,7 +689,7 @@ class TestThread < Test::Unit::TestCase
         }
       }
 
-      sleep 0.1
+      Thread.pass until th_waiting
       t.raise RuntimeError
       th_waiting = false
       t.join rescue nil
@@ -683,11 +699,12 @@ class TestThread < Test::Unit::TestCase
   def test_handle_interrupted?
     q = Queue.new
     Thread.handle_interrupt(RuntimeError => :never){
+      done = false
       th = Thread.new{
         q.push :e
         begin
           begin
-            sleep 0.5
+            Thread.pass until done
           rescue => e
             q.push :ng1
           end
@@ -704,6 +721,7 @@ class TestThread < Test::Unit::TestCase
       }
       q.pop
       th.raise
+      done = true
       th.join
       assert_equal(:ok, q.pop)
     }
@@ -730,9 +748,24 @@ _eom
   end
 
   def test_uninitialized
-    c = Class.new(Thread)
-    c.class_eval { def initialize; end }
+    c = Class.new(Thread) {def initialize; end}
     assert_raise(ThreadError) { c.new.start }
+
+    bug11959 = '[ruby-core:72732] [Bug #11959]'
+
+    c = Class.new(Thread) {def initialize; exit; end}
+    assert_raise(ThreadError, bug11959) { c.new }
+
+    c = Class.new(Thread) {def initialize; raise; end}
+    assert_raise(ThreadError, bug11959) { c.new }
+
+    c = Class.new(Thread) {
+      def initialize
+        pending = pending_interrupt?
+        super {pending}
+      end
+    }
+    assert_equal(false, c.new.value, bug11959)
   end
 
   def test_backtrace
@@ -749,7 +782,7 @@ _eom
     bug5757 = '[ruby-dev:44985]'
     t0 = Time.now.to_f
     pid = nil
-    cmd = 'r,=IO.pipe; Thread.start {Thread.pass until Thread.main.stop?; puts; STDOUT.flush}; r.read'
+    cmd = 'Signal.trap(:INT, "DEFAULT"); r,=IO.pipe; Thread.start {Thread.pass until Thread.main.stop?; puts; STDOUT.flush}; r.read'
     opt = {}
     opt[:new_pgroup] = true if /mswin|mingw/ =~ RUBY_PLATFORM
     s, _err = EnvUtil.invoke_ruby(['-e', cmd], "", true, true, opt) do |in_p, out_p, err_p, cpid|
@@ -761,18 +794,18 @@ _eom
     end
     t1 = Time.now.to_f
     assert_equal(pid, s.pid, bug5757)
-    unless /mswin|mingw/ =~ RUBY_PLATFORM
-      # status of signal is not supported on Windows
-      assert_equal([false, true, false, Signal.list["INT"]],
-                   [s.exited?, s.signaled?, s.stopped?, s.termsig],
-                   "[s.exited?, s.signaled?, s.stopped?, s.termsig]")
-    end
+    assert_equal([false, true, false, Signal.list["INT"]],
+                 [s.exited?, s.signaled?, s.stopped?, s.termsig],
+                 "[s.exited?, s.signaled?, s.stopped?, s.termsig]")
     assert_in_delta(t1 - t0, 1, 1, bug5757)
   end
 
   def test_thread_join_in_trap
+    assert_separately [], <<-'EOS'
+    Signal.trap(:INT, "DEFAULT")
+    t0 = Thread.current
     assert_nothing_raised{
-      t = Thread.new{ sleep 0.2; Process.kill(:INT, $$) }
+      t = Thread.new {Thread.pass until t0.stop?; Process.kill(:INT, $$)}
 
       Signal.trap :INT do
         t.join
@@ -780,27 +813,30 @@ _eom
 
       t.join
     }
+    EOS
+  end
 
-    assert_equal(:normal_end,
-                 begin
-                   t = Thread.new{ sleep 0.2; Process.kill(:INT, $$); :normal_end }
+  def test_thread_value_in_trap
+    assert_separately [], <<-'EOS'
+    Signal.trap(:INT, "DEFAULT")
+    t0 = Thread.current
+    t = Thread.new {Thread.pass until t0.stop?; Process.kill(:INT, $$); :normal_end}
 
-                   Signal.trap :INT do
-                     t.value
-                   end
-                   t.value
-                 end
-                 )
+    Signal.trap :INT do
+      t.value
+    end
+    assert_equal(:normal_end, t.value)
+    EOS
   end
 
   def test_thread_join_current
-    assert_raises(ThreadError) do
+    assert_raise(ThreadError) do
       Thread.current.join
     end
   end
 
   def test_thread_join_main_thread
-    assert_raises(ThreadError) do
+    assert_raise(ThreadError) do
       Thread.new(Thread.current) {|t|
         t.join
       }.join
@@ -808,14 +844,20 @@ _eom
   end
 
   def test_main_thread_status_at_exit
-    assert_in_out_err([], <<-INPUT, %w(false), [])
+    assert_in_out_err([], <<-'INPUT', ["false false aborting"], [])
+require 'thread'
+q = Queue.new
 Thread.new(Thread.current) {|mth|
   begin
-    sleep 0.1
+    q.push nil
+    mth.run
+    Thread.pass until mth.stop?
+    p :mth_stopped # don't run if killed by rb_thread_terminate_all
   ensure
-    p mth.alive?
+    puts "#{mth.alive?} #{mth.status} #{Thread.current.status}"
   end
 }
+q.pop
     INPUT
   end
 
@@ -825,10 +867,12 @@ Thread.new(Thread.current) {|mth|
     assert_in_out_err([], <<-INPUT, %w(sleep run), [])
       Signal.trap(:INT) {
         puts Thread.current.status
+        exit
       }
+      t = Thread.current
 
       Thread.new(Thread.current) {|mth|
-        sleep 0.01
+        Thread.pass until t.stop?
         puts mth.status
         Process.kill(:INT, $$)
       }
@@ -855,11 +899,13 @@ Thread.new(Thread.current) {|mth|
     }
 
     begin
-      sleep 0.01
+      Thread.pass until ary.size >= 1
+      Thread.pass until t.stop?
       t.kill  # wake up sleep #1
-      sleep 0.01
+      Thread.pass until ary.size >= 2
+      Thread.pass until t.stop?
       t.raise "wakeup" # wake up sleep #2
-      sleep 0.01
+      Thread.pass while t.alive?
       assert_equal(ary, ["run", "aborting", "aborting"])
     ensure
       t.join rescue nil
@@ -886,9 +932,8 @@ Thread.new(Thread.current) {|mth|
         sleep
       }
 
-      sleep 0.01 until th.status == "sleep"
-      # acquired another thread.
-      assert_equal(mutex.locked?, true)
+      # acquired by another thread.
+      Thread.pass until mutex.locked?
       assert_equal(mutex.owned?, false)
     ensure
       th.kill if th
@@ -899,15 +944,17 @@ Thread.new(Thread.current) {|mth|
     assert_in_out_err([], <<-INPUT, %w(locked unlocked false), [])
       m = Mutex.new
 
+      trapped = false
       Signal.trap("INT") { |signo|
         m.unlock
+        trapped = true
         puts "unlocked"
       }
 
       m.lock
       puts "locked"
       Process.kill("INT", $$)
-      sleep 0.2
+      Thread.pass until trapped
       puts m.locked?
     INPUT
   end
@@ -916,7 +963,7 @@ Thread.new(Thread.current) {|mth|
     env = {}
     env['RUBY_THREAD_VM_STACK_SIZE'] = vm_stack_size.to_s if vm_stack_size
     env['RUBY_THREAD_MACHINE_STACK_SIZE'] = machine_stack_size.to_s if machine_stack_size
-    out, = EnvUtil.invoke_ruby([env, '-e', script], '', true, true, :timeout => 50)
+    out, = EnvUtil.invoke_ruby([env, '-e', script], '', true, true)
     use_length ? out.length : out
   end
 
@@ -933,8 +980,9 @@ Thread.new(Thread.current) {|mth|
                     "0 thread_machine_stack_size")
     assert_operator(h_default[:thread_machine_stack_size], :<=, h_large[:thread_machine_stack_size],
                     "large thread_machine_stack_size")
+  end
 
-    # check VM machine stack size
+  def test_vm_machine_stack_size
     script = 'def rec; print "."; STDOUT.flush; rec; end; rec'
     size_default = invoke_rec script, nil, nil
     assert_operator(size_default, :>, 0, "default size")
@@ -942,9 +990,9 @@ Thread.new(Thread.current) {|mth|
     assert_operator(size_default, :>, size_0, "0 size")
     size_large = invoke_rec script, 1024 * 1024 * 10, nil
     assert_operator(size_default, :<, size_large, "large size")
+  end
 
-    return if /mswin|mingw/ =~ RUBY_PLATFORM
-
+  def test_machine_stack_size
     # check machine stack size
     # Note that machine stack size may not change size (depend on OSs)
     script = 'def rec; print "."; STDOUT.flush; 1.times{1.times{1.times{rec}}}; end; Thread.new{rec}.join'
@@ -954,7 +1002,7 @@ Thread.new(Thread.current) {|mth|
     assert_operator(size_default, :>=, size_0, "0 size")
     size_large = invoke_rec script, vm_stack_size, 1024 * 1024 * 10
     assert_operator(size_default, :<=, size_large, "large size")
-  end
+  end unless /mswin|mingw/ =~ RUBY_PLATFORM
 
   def test_blocking_mutex_unlocked_on_fork
     bug8433 = '[ruby-core:55102] [Bug #8433]'
@@ -1003,4 +1051,57 @@ Thread.new(Thread.current) {|mth|
     assert_not_predicate(status, :signaled?, FailDesc[status, bug9751, output])
     assert_predicate(status, :success?, bug9751)
   end if Process.respond_to?(:fork)
+
+  def test_subclass_no_initialize
+    t = Module.new do
+      break eval("class C\u{30b9 30ec 30c3 30c9} < Thread; self; end")
+    end
+    t.class_eval do
+      def initialize
+      end
+    end
+    assert_raise_with_message(ThreadError, /C\u{30b9 30ec 30c3 30c9}/) do
+      t.new {}
+    end
+  end
+
+  def test_thread_name
+    t = Thread.start {sleep}
+    sleep 0.001 until t.stop?
+    assert_nil t.name
+    s = t.inspect
+    t.name = 'foo'
+    assert_equal 'foo', t.name
+    t.name = nil
+    assert_nil t.name
+    assert_equal s, t.inspect
+  ensure
+    t.kill
+    t.join
+  end
+
+  def test_thread_invalid_name
+    bug11756 = '[ruby-core:71774] [Bug #11756]'
+    t = Thread.start {}
+    assert_raise(ArgumentError, bug11756) {t.name = "foo\0bar"}
+    assert_raise(ArgumentError, bug11756) {t.name = "foo".encode(Encoding::UTF_32BE)}
+  ensure
+    t.kill
+    t.join
+  end
+
+  def test_thread_invalid_object
+    bug11756 = '[ruby-core:71774] [Bug #11756]'
+    t = Thread.start {}
+    assert_raise(TypeError, bug11756) {t.name = []}
+  ensure
+    t.kill
+    t.join
+  end
+
+  def test_thread_setname_in_initialize
+    bug12290 = '[ruby-core:74963] [Bug #12290]'
+    c = Class.new(Thread) {def initialize() self.name = "foo"; super; end}
+    assert_equal("foo", c.new {Thread.current.name}.value)
+  end
 end

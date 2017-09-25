@@ -444,15 +444,25 @@
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>
-		<string>coreutils/sort</string>
+		<string>sort</string>
 		<key>OpenSourceVersion</key>
-		<string>coreutils-5.93</string>
+		<string>2016-09-08</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.gnu.org/software/coreutils/</string>
+		<string>https://svnweb.freebsd.org/base/head/usr.bin/sort/</string>
+		<key>OpenSourceSCM</key>
+		<string>svn co http://svn.freebsd.org/base/head/usr.bin/sort</string>
 		<key>OpenSourceImportDate</key>
-		<string>2006-02-01</string>
+		<string>2016-10-12</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>file.c: mmap portability</string>
+			<string>file.c: fix unreachable code warning</string>
+			<string>coll.c, sort.c, sort.h: md5 portability</string>
+			<string>sort.c: update version output</string>
+			<string>sort.c: conformance failure with -k (28745165)</string>
+		</array>
 		<key>OpenSourceLicense</key>
-		<string>GPL</string>
+		<string>bsd</string>
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>

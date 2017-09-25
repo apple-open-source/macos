@@ -8,6 +8,14 @@
 	<array>
 		<dict>
 			<key>TestName</key>
+			<string>security-sysdiagnose</string>
+			<key>Command</key>
+			<array>
+				<string>/usr/libexec/security-sysdiagnose</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>BackupNegativeTest</string>
 			<key>Command</key>
 			<array>
@@ -84,6 +92,50 @@
 				<string>-1</string>
 				<string>secd_35_keychain_migrate_inet</string>
 			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>keychainnetworkextensionsharing-1</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionstest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>keychainnetworkextensionsharing-2</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionsystemdaemontest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>keychainnetworkextensionsharing-3</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionunauthorizedaccesstest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>KCPairingTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/KeychainEntitledTestRunner</string>
+				<string>-t</string>
+				<string>KCPairingTests</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>AuthorizationTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/authdtest</string>
+			</array>
+			<key>EligibleResource</key>
+			<string>NOT (cpuArchitecture BEGINSWITH &apos;arm&apos;)</string>
 		</dict>
 	</array>
 </dict>

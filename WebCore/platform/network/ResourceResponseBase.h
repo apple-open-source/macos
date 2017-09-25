@@ -29,13 +29,16 @@
 #include "CacheValidation.h"
 #include "CertificateInfo.h"
 #include "HTTPHeaderMap.h"
-#include "NetworkLoadTiming.h"
+#include "NetworkLoadMetrics.h"
 #include "ParsedContentRange.h"
 #include "URL.h"
+#include <wtf/SHA1.h>
 
 namespace WebCore {
 
 class ResourceResponse;
+
+bool isScriptAllowedByNosniff(const ResourceResponse&);
 
 // Do not use this class directly, use the class ResponseResponse instead
 class ResourceResponseBase {
@@ -57,7 +60,7 @@ public:
         String httpStatusText;
         String httpVersion;
         HTTPHeaderMap httpHeaderFields;
-        NetworkLoadTiming networkLoadTiming;
+        NetworkLoadMetrics networkLoadMetrics;
         Type type;
         bool isRedirected;
     };
@@ -112,6 +115,7 @@ public:
     bool isMultipart() const { return mimeType() == "multipart/x-mixed-replace"; }
 
     WEBCORE_EXPORT bool isAttachment() const;
+    WEBCORE_EXPORT bool isAttachmentWithFilename() const;
     WEBCORE_EXPORT String suggestedFilename() const;
     WEBCORE_EXPORT static String sanitizeSuggestedFilename(const String&);
 
@@ -119,10 +123,10 @@ public:
     const std::optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
     
     // These functions return parsed values of the corresponding response headers.
-    // NaN means that the header was not present or had invalid value.
     WEBCORE_EXPORT bool cacheControlContainsNoCache() const;
     WEBCORE_EXPORT bool cacheControlContainsNoStore() const;
     WEBCORE_EXPORT bool cacheControlContainsMustRevalidate() const;
+    WEBCORE_EXPORT bool cacheControlContainsImmutable() const;
     WEBCORE_EXPORT bool hasCacheValidatorFields() const;
     WEBCORE_EXPORT std::optional<std::chrono::microseconds> cacheControlMaxAge() const;
     WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> date() const;
@@ -131,12 +135,17 @@ public:
     WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> lastModified() const;
     ParsedContentRange& contentRange() const;
 
-    // This is primarily for testing support. It is not necessarily accurate in all scenarios.
     enum class Source { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation };
     WEBCORE_EXPORT Source source() const;
-    WEBCORE_EXPORT void setSource(Source);
+    void setSource(Source source) { m_source = source; }
 
-    NetworkLoadTiming& networkLoadTiming() const { return m_networkLoadTiming; }
+    const std::optional<SHA1::Digest>& cacheBodyKey() const { return m_cacheBodyKey; }
+    void setCacheBodyKey(const SHA1::Digest& key) { m_cacheBodyKey = key; }
+
+    // FIXME: This should be eliminated from ResourceResponse.
+    // Network loading metrics should be delivered via didFinishLoad
+    // and should not be part of the ResourceResponse.
+    NetworkLoadMetrics& deprecatedNetworkLoadMetrics() const { return m_networkLoadMetrics; }
 
     // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
     unsigned memoryUsage() const
@@ -188,7 +197,7 @@ protected:
     AtomicString m_httpStatusText;
     AtomicString m_httpVersion;
     HTTPHeaderMap m_httpHeaderFields;
-    mutable NetworkLoadTiming m_networkLoadTiming;
+    mutable NetworkLoadMetrics m_networkLoadMetrics;
 
     mutable std::optional<CertificateInfo> m_certificateInfo;
 
@@ -210,6 +219,8 @@ private:
     mutable bool m_haveParsedContentRangeHeader { false };
 
     Source m_source { Source::Unknown };
+
+    std::optional<SHA1::Digest> m_cacheBodyKey;
 
     Type m_type { Type::Default };
     bool m_isRedirected { false };
@@ -234,14 +245,15 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder << m_httpVersion;
     encoder << m_httpHeaderFields;
 
-    // We don't want to put the networkLoadTiming info
+    // We don't want to put the networkLoadMetrics info
     // into the disk cache, because we will never use the old info.
     if (Encoder::isIPCEncoder)
-        encoder << m_networkLoadTiming;
+        encoder << m_networkLoadMetrics;
 
     encoder << m_httpStatusCode;
     encoder << m_certificateInfo;
     encoder.encodeEnum(m_source);
+    encoder << m_cacheBodyKey;
     encoder.encodeEnum(m_type);
     encoder << m_isRedirected;
 }
@@ -272,14 +284,16 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
         return false;
     if (!decoder.decode(response.m_httpHeaderFields))
         return false;
-    // The networkLoadTiming info is only send over IPC and not stored in disk cache.
-    if (Decoder::isIPCDecoder && !decoder.decode(response.m_networkLoadTiming))
+    // The networkLoadMetrics info is only send over IPC and not stored in disk cache.
+    if (Decoder::isIPCDecoder && !decoder.decode(response.m_networkLoadMetrics))
         return false;
     if (!decoder.decode(response.m_httpStatusCode))
         return false;
     if (!decoder.decode(response.m_certificateInfo))
         return false;
     if (!decoder.decodeEnum(response.m_source))
+        return false;
+    if (!decoder.decode(response.m_cacheBodyKey))
         return false;
     if (!decoder.decodeEnum(response.m_type))
         return false;

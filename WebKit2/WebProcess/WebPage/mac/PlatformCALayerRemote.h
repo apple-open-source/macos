@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PlatformCALayerRemote_h
-#define PlatformCALayerRemote_h
+#pragma once
 
 #include "RemoteLayerTreeTransaction.h"
 #include <WebCore/PlatformCALayer.h>
@@ -40,9 +39,9 @@ class RemoteLayerTreeContext;
 
 class PlatformCALayerRemote : public WebCore::PlatformCALayer {
 public:
-    static PassRefPtr<PlatformCALayerRemote> create(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
-    static PassRefPtr<PlatformCALayerRemote> create(PlatformLayer *, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
-    static PassRefPtr<PlatformCALayerRemote> create(const PlatformCALayerRemote&, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
+    static Ref<PlatformCALayerRemote> create(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
+    static Ref<PlatformCALayerRemote> create(PlatformLayer *, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
+    static Ref<PlatformCALayerRemote> create(const PlatformCALayerRemote&, WebCore::PlatformCALayerClient*, RemoteLayerTreeContext&);
 
     virtual ~PlatformCALayerRemote();
 
@@ -67,7 +66,7 @@ public:
 
     void addAnimationForKey(const String& key, WebCore::PlatformCAAnimation&) override;
     void removeAnimationForKey(const String& key) override;
-    PassRefPtr<WebCore::PlatformCAAnimation> animationForKey(const String& key) override;
+    RefPtr<WebCore::PlatformCAAnimation> animationForKey(const String& key) override;
     void animationStarted(const String& key, CFTimeInterval beginTime) override;
     void animationEnded(const String& key) override;
 
@@ -102,7 +101,6 @@ public:
 
     void setBackingStoreAttached(bool) override;
     bool backingStoreAttached() const override;
-    bool backingContributesToMemoryEstimate() const override { return backingStoreAttached(); }
 
     bool geometryFlipped() const override;
     void setGeometryFlipped(bool) override;
@@ -115,6 +113,12 @@ public:
 
     bool acceleratesDrawing() const override;
     void setAcceleratesDrawing(bool) override;
+
+    bool wantsDeepColorBackingStore() const override;
+    void setWantsDeepColorBackingStore(bool) override;
+
+    bool supportsSubpixelAntialiasedText() const override;
+    void setSupportsSubpixelAntialiasedText(bool) override;
 
     CFTypeRef contents() const override;
     void setContents(CFTypeRef) override;
@@ -170,9 +174,9 @@ public:
 
     WebCore::TiledBacking* tiledBacking() override { return nullptr; }
 
-    PassRefPtr<WebCore::PlatformCALayer> clone(WebCore::PlatformCALayerClient* owner) const override;
+    Ref<WebCore::PlatformCALayer> clone(WebCore::PlatformCALayerClient* owner) const override;
 
-    PassRefPtr<PlatformCALayer> createCompatibleLayer(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient*) const override;
+    Ref<PlatformCALayer> createCompatibleLayer(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient*) const override;
 
     void enumerateRectsBeingDrawn(CGContextRef, void (^block)(CGRect)) override;
 
@@ -208,10 +212,12 @@ private:
 
     RemoteLayerTreeTransaction::LayerProperties m_properties;
     WebCore::PlatformCALayerList m_children;
-    PlatformCALayerRemote* m_superlayer;
-    PlatformCALayerRemote* m_maskLayer;
+    PlatformCALayerRemote* m_superlayer { nullptr };
+    PlatformCALayerRemote* m_maskLayer { nullptr };
     HashMap<String, RefPtr<WebCore::PlatformCAAnimation>> m_animations;
-    bool m_acceleratesDrawing;
+
+    bool m_acceleratesDrawing { false };
+    bool m_wantsDeepColorBackingStore { false };
 
     RemoteLayerTreeContext* m_context;
 };
@@ -219,5 +225,3 @@ private:
 } // namespace WebKit
 
 SPECIALIZE_TYPE_TRAITS_PLATFORM_CALAYER(WebKit::PlatformCALayerRemote, isPlatformCALayerRemote())
-
-#endif // PlatformCALayerRemote_h

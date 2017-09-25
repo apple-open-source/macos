@@ -232,8 +232,14 @@ static OSStatus KeychainItemCopyAccountPassword(SecKeychainItemRef itemRef,
 			syslog(LOG_ERR, "%s: keychain username or password is too long!", __FUNCTION__);
 			result = ENAMETOOLONG;
 		} else {
-			(void)strlcpy(username, attr.data, user_size);
-			(void)strlcpy(password, outData, pass_size);
+			if (strlcpy(username, attr.data, attr.length) != attr.length) {
+				syslog(LOG_ERR, "%s: (strlcpy) username was not copied completely!", __FUNCTION__);
+				result = errSecParam;
+			}
+			if (strlcpy(password, outData, length) != length) {
+				syslog(LOG_ERR, "%s: (strlcpy) password was not copied completely!", __FUNCTION__);
+				result = errSecParam;
+			}
 		}
 		
 		(void) SecKeychainItemFreeContent(&attrList, outData);

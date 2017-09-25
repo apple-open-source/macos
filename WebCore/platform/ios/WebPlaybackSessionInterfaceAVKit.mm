@@ -32,6 +32,7 @@
 
 #import "AVKitSPI.h"
 #import "Logging.h"
+#import "MediaSelectionOption.h"
 #import "TimeRanges.h"
 #import "WebAVPlayerController.h"
 #import "WebPlaybackSessionModel.h"
@@ -59,7 +60,7 @@ WebPlaybackSessionInterfaceAVKit::WebPlaybackSessionInterfaceAVKit(WebPlaybackSe
     currentTimeChanged(model.currentTime(), [[NSProcessInfo processInfo] systemUptime]);
     bufferedTimeChanged(model.bufferedTime());
     rateChanged(model.isPlaying(), model.playbackRate());
-    seekableRangesChanged(model.seekableRanges());
+    seekableRangesChanged(model.seekableRanges(), model.seekableTimeRangesLastModifiedTime(), model.liveUpdateInterval());
     canPlayFastReverseChanged(model.canPlayFastReverse());
     audioMediaSelectionOptionsChanged(model.audioMediaSelectionOptions(), model.audioMediaSelectedIndex());
     legibleMediaSelectionOptionsChanged(model.legibleMediaSelectionOptions(), model.legibleMediaSelectedIndex());
@@ -77,42 +78,14 @@ WebPlaybackSessionInterfaceAVKit::~WebPlaybackSessionInterfaceAVKit()
 
 void WebPlaybackSessionInterfaceAVKit::resetMediaState()
 {
-    WebAVPlayerController* playerController = m_playerController.get();
-
-    playerController.contentDuration = 0;
-    playerController.maxTime = 0;
-    playerController.contentDurationWithinEndTimes = 0;
-    playerController.loadedTimeRanges = @[];
-
-    playerController.canPlay = NO;
-    playerController.canPause = NO;
-    playerController.canTogglePlayback = NO;
-    playerController.hasEnabledAudio = NO;
-    playerController.canSeek = NO;
-    playerController.minTime = 0;
-    playerController.status = AVPlayerControllerStatusUnknown;
-
-    playerController.timing = nil;
-    playerController.rate = 0;
-
-    playerController.seekableTimeRanges = [NSMutableArray array];
-
-    playerController.canScanBackward = NO;
-
-    playerController.audioMediaSelectionOptions = nil;
-    playerController.currentAudioMediaSelectionOption = nil;
-
-    playerController.legibleMediaSelectionOptions = nil;
-    playerController.currentLegibleMediaSelectionOption = nil;
+    [m_playerController resetMediaState];
 }
 
 void WebPlaybackSessionInterfaceAVKit::durationChanged(double duration)
 {
     WebAVPlayerController* playerController = m_playerController.get();
 
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=127017 use correct values instead of duration for all these
     playerController.contentDuration = duration;
-    playerController.maxTime = duration;
     playerController.contentDurationWithinEndTimes = duration;
 
     // FIXME: we take this as an indication that playback is ready.
@@ -121,7 +94,6 @@ void WebPlaybackSessionInterfaceAVKit::durationChanged(double duration)
     playerController.canTogglePlayback = YES;
     playerController.hasEnabledAudio = YES;
     playerController.canSeek = YES;
-    playerController.minTime = 0;
     playerController.status = AVPlayerControllerStatusReadyToPlay;
 }
 
@@ -151,7 +123,7 @@ void WebPlaybackSessionInterfaceAVKit::rateChanged(bool isPlaying, float playbac
     [m_playerController setRate:isPlaying ? playbackRate : 0.];
 }
 
-void WebPlaybackSessionInterfaceAVKit::seekableRangesChanged(const TimeRanges& timeRanges)
+void WebPlaybackSessionInterfaceAVKit::seekableRangesChanged(const TimeRanges& timeRanges, double lastModifiedTime, double liveUpdateInterval)
 {
     RetainPtr<NSMutableArray> seekableRanges = adoptNS([[NSMutableArray alloc] init]);
 
@@ -164,6 +136,8 @@ void WebPlaybackSessionInterfaceAVKit::seekableRangesChanged(const TimeRanges& t
     }
 
     [m_playerController setSeekableTimeRanges:seekableRanges.get()];
+    [m_playerController setSeekableTimeRangesLastModifiedTime: lastModifiedTime];
+    [m_playerController setLiveUpdateInterval:liveUpdateInterval];
 }
 
 void WebPlaybackSessionInterfaceAVKit::canPlayFastReverseChanged(bool canPlayFastReverse)
@@ -171,18 +145,18 @@ void WebPlaybackSessionInterfaceAVKit::canPlayFastReverseChanged(bool canPlayFas
     [m_playerController setCanScanBackward:canPlayFastReverse];
 }
 
-static RetainPtr<NSMutableArray> mediaSelectionOptions(const Vector<String>& options)
+static RetainPtr<NSMutableArray> mediaSelectionOptions(const Vector<MediaSelectionOption>& options)
 {
     RetainPtr<NSMutableArray> webOptions = adoptNS([[NSMutableArray alloc] initWithCapacity:options.size()]);
-    for (auto& name : options) {
+    for (auto& option : options) {
         RetainPtr<WebAVMediaSelectionOption> webOption = adoptNS([[WebAVMediaSelectionOption alloc] init]);
-        [webOption setLocalizedDisplayName:name];
+        [webOption setLocalizedDisplayName:option.displayName];
         [webOptions addObject:webOption.get()];
     }
     return webOptions;
 }
 
-void WebPlaybackSessionInterfaceAVKit::audioMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex)
+void WebPlaybackSessionInterfaceAVKit::audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
     RetainPtr<NSMutableArray> webOptions = mediaSelectionOptions(options);
     [m_playerController setAudioMediaSelectionOptions:webOptions.get()];
@@ -190,7 +164,7 @@ void WebPlaybackSessionInterfaceAVKit::audioMediaSelectionOptionsChanged(const V
         [m_playerController setCurrentAudioMediaSelectionOption:[webOptions objectAtIndex:static_cast<NSUInteger>(selectedIndex)]];
 }
 
-void WebPlaybackSessionInterfaceAVKit::legibleMediaSelectionOptionsChanged(const Vector<String>& options, uint64_t selectedIndex)
+void WebPlaybackSessionInterfaceAVKit::legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
     RetainPtr<NSMutableArray> webOptions = mediaSelectionOptions(options);
     [m_playerController setLegibleMediaSelectionOptions:webOptions.get()];
@@ -215,6 +189,11 @@ void WebPlaybackSessionInterfaceAVKit::externalPlaybackChanged(bool enabled, Web
 void WebPlaybackSessionInterfaceAVKit::wirelessVideoPlaybackDisabledChanged(bool disabled)
 {
     [m_playerController setAllowsExternalPlayback:!disabled];
+}
+
+void WebPlaybackSessionInterfaceAVKit::mutedChanged(bool muted)
+{
+    [m_playerController setMuted:muted];
 }
 
 void WebPlaybackSessionInterfaceAVKit::invalidate()

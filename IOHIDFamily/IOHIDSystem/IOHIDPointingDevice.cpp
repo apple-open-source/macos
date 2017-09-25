@@ -273,12 +273,16 @@ bool IOHIDPointingDevice::handleStart( IOService * provider )
         return false;
         
     _pointing = OSDynamicCast(IOHIPointing, provider);
+    if (!_pointing) {
+        return false;
+    }
     
     _report = IOBufferMemoryDescriptor::withCapacity(
         sizeof(GenericMouseReport), kIODirectionNone, true);
-                                        
-    bzero(_report->getBytesNoCopy(), sizeof(GenericMouseReport));
     
+    if (_report) {
+        bzero(_report->getBytesNoCopy(), sizeof(GenericMouseReport));
+    }
     return (_report) ? true : false;
 }
 

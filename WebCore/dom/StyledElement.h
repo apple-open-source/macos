@@ -36,8 +36,6 @@ class MutableStyleProperties;
 class PropertySetCSSStyleDeclaration;
 class StyleProperties;
 
-struct PresentationAttributeCacheKey;
-
 class StyledElement : public Element {
 public:
     virtual ~StyledElement();
@@ -57,12 +55,10 @@ public:
     static void synchronizeStyleAttributeInternal(StyledElement*);
     void synchronizeStyleAttributeInternal() const { StyledElement::synchronizeStyleAttributeInternal(const_cast<StyledElement*>(this)); }
     
-    CSSStyleDeclaration* cssomStyle() final;
+    WEBCORE_EXPORT CSSStyleDeclaration& cssomStyle();
 
     const StyleProperties* presentationAttributeStyle() const;
     virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) { }
-
-    static void clearPresentationAttributeCache();
 
 protected:
     StyledElement(const QualifiedName& name, Document& document, ConstructionType type)
@@ -88,7 +84,6 @@ private:
     void setInlineStyleFromString(const AtomicString&);
     MutableStyleProperties& ensureMutableInlineStyle();
 
-    void makePresentationAttributeCacheKey(PresentationAttributeCacheKey&) const;
     void rebuildPresentationAttributeStyle();
 };
 

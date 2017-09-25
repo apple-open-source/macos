@@ -63,8 +63,8 @@ enum
     kHIDDispatchOptionPhaseCanceled                     = (1<<7),
     kHIDDispatchOptionPhaseMayBegin                     = (1<<11),
     
-    kHIDDispatchOptionDeliveryNotificationForce         = (1<<30),
-    kHIDDispatchOptionDeliveryNotificationSuppress      = (1<<31)
+    kHIDDispatchOptionDeliveryNotificationForce         = (1<<12),
+    kHIDDispatchOptionDeliveryNotificationSuppress      = (1<<13)
 };
 
 enum 
@@ -111,13 +111,14 @@ class IOHIDEventService: public IOService
     friend class IOHIDConsumer;
     friend class AppleEmbeddedKeyboard;
     friend class IOHIDEventServiceUserClient;
+    friend class IOHIDEventServiceFastPathUserClient;
 
 private:
     IOHIDKeyboard *         _keyboardNub;
-    IOHIDPointing *         _pointingNub;
+    IOHIDPointing *         _pointingNub;     //unused, keep to maintain layout
     IOHIDConsumer *         _consumerNub;
 
-    IONotifier *            _publishNotify;
+    IONotifier *            _publishNotify;   //unused, keep to maintain layout
     IORecursiveLock *       _nubLock;
     
     void *                  _reserved0;
@@ -147,8 +148,11 @@ private:
             struct {
                 UInt32                  startMask;
                 UInt32                  mask;
-                UInt32                  nmiMask;
+                UInt32                  nmiHoldMask;
                 UInt32                  nmiDelay;
+                UInt32                  nmiTriplePressMask;
+                UInt32                  nmiPressCount;
+                UInt64                  nmiStartTime;
                 IOTimerEventSource *    nmiTimer;
                 UInt32                  stackshotHeld;
                 IOTimerEventSource *    stackshotTimer;
@@ -182,11 +186,12 @@ private:
         struct {
             UInt32                  buttonState;
         } absolutePointer;
-
+#ifdef POINTING_SHIM_SUPPORT
         int                   pointingShim;
+#endif
         int                   keyboardShim;
 #endif
-
+        UInt32                debugMask;
     };
 
 #if !TARGET_OS_EMBEDDED
@@ -195,13 +200,15 @@ private:
 #endif
 
     ExpansionData *         _reserved;
-    
+
+#ifdef POINTING_SHIM_SUPPORT
     IOHIDPointing *         newPointingShim (
                                 UInt32          buttonCount         = 1,
                                 IOFixed         pointerResolution   = (400 << 16),
                                 IOFixed         scrollResolution    = 0,
                                 IOOptionBits    options             = 0 );
-                                
+#endif
+    
     IOHIDKeyboard *         newKeyboardShim (
                                 UInt32          supportedModifiers  = 0,
                                 IOOptionBits    options             = 0 );
@@ -216,10 +223,10 @@ private:
 
     IOFixed                 determineResolution ( IOHIDElement * element );
                                     
-    static bool             _publishMatchingNotificationHandler(void * target, void * ref, IOService * newService, IONotifier * notifier);
-
 #if TARGET_OS_EMBEDDED
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
+    
+    void                    triggerDebugger();
 
     void                    stackshotTimerCallback(IOTimerEventSource *sender);
 #endif
@@ -785,11 +792,58 @@ protected:
                                                    IOHIDBiometricEventType      eventType,
                                                    IOOptionBits                 options = 0);
     
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 15);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 16);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 17);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 18);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 19);
+    /*!
+     @function copyEventForClient
+     @abstract Copy event/events for client
+     @dicussion function called NOT on service workloop. It is guaranteed that function call will not occur once service closed by this client
+     @param copySpec        Event copy spec (If copySpec is an OSData object, physical copy needs to be made if callee intends to retain data)
+     @param options         options
+     @param clientContext   client identifier
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 15);
+    virtual IOHIDEvent *   copyEventForClient (OSObject * copySpec, IOOptionBits options, void * clientContext);
+
+    /*!
+     @function copyPropertyForClient
+     @abstract Copy property for client
+     @dicussion function called on service workloop
+     @param aKey            property key
+     @param clientContext   client identifier
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 16);
+    virtual OSObject *     copyPropertyForClient  (const char * aKey, void * clientContext) const;
+
+    /*!
+     @function setPropertiesForClient
+     @abstract Set properties for client
+     @dicussion function called on service workloop
+     @param properties      properties object
+     @param clientContext   client identifier
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 17);
+    virtual IOReturn       setPropertiesForClient (OSObject * properties, void * clientContext);
+
+    /*!
+     @function openForClient
+     @abstract open service for client
+     @dicussion function called on service workloop
+     @param client          client service
+     @param options         options
+     @param property        client property
+     @param clientContext   client identifier should be provided  by callee, will be used for all subsequent ...Client calls. It is safe to release memory associated with parameter at close
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 18);
+    virtual bool           openForClient (IOService * client, IOOptionBits options, OSDictionary *property, void ** clientContext);
+
+    /*!
+     @function closeForClient
+     @abstract close service for client
+     @param clientContext   client identifier
+     @param options         options
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 19);
+    virtual void           closeForClient(IOService *client, void *context, IOOptionBits options = 0);
+    
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 20);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 21);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 22);

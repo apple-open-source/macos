@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 @class _WKProcessPoolConfiguration;
 @protocol _WKAutomationDelegate;
 @protocol _WKDownloadDelegate;
+@protocol _WKGeolocationCoreLocationProvider;
 
 @interface WKProcessPool ()
 - (instancetype)_initWithConfiguration:(_WKProcessPoolConfiguration *)configuration __attribute__((objc_method_family(init))) NS_DESIGNATED_INITIALIZER;
@@ -51,8 +52,17 @@
 // FIXME: This should be NSDictionary<NSString *, id <NSCopying, NSSecureCoding>>
 - (void)_setObjectsForBundleParametersWithDictionary:(NSDictionary *)dictionary WK_API_AVAILABLE(macosx(10.12), ios(10.0));
 
+#if !TARGET_OS_IPHONE
+- (void)_resetPluginLoadClientPolicies:(NSDictionary *)policies WK_API_AVAILABLE(macosx(WK_MAC_TBA));
+@property (nonatomic, readonly, copy) NSDictionary *_pluginLoadClientPolicies WK_API_AVAILABLE(macosx(WK_MAC_TBA));
+#endif
+
 @property (nonatomic, weak, setter=_setDownloadDelegate:) id <_WKDownloadDelegate> _downloadDelegate;
 @property (nonatomic, weak, setter=_setAutomationDelegate:) id <_WKAutomationDelegate> _automationDelegate WK_API_AVAILABLE(macosx(10.12), ios(10.0));
+
+#if TARGET_OS_IPHONE
+@property (nonatomic, setter=_setCoreLocationProvider:) id <_WKGeolocationCoreLocationProvider> _coreLocationProvider WK_API_AVAILABLE(ios(WK_IOS_TBA));
+#endif
 
 + (NSURL *)_websiteDataURLForContainerWithURL:(NSURL *)containerURL;
 + (NSURL *)_websiteDataURLForContainerWithURL:(NSURL *)containerURL bundleIdentifierIfNotInContainer:(NSString *)bundleIdentifier;
@@ -63,11 +73,19 @@
 
 // Test only. Should be called only while no web content processes are running.
 - (void)_terminateDatabaseProcess;
+- (void)_terminateNetworkProcess;
+
+// Test only.
+- (pid_t)_networkProcessIdentifier WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+// Test only.
+- (size_t)_webProcessCount WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_syncNetworkProcessCookies WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 // Test only. Should be called before any web content processes are launched.
-+ (void)_forceGameControllerFramework;
++ (void)_forceGameControllerFramework WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
 
-@property (nonatomic, getter=_isCookieStoragePartitioningEnabled, setter=_setCookieStoragePartitioningEnabled:) BOOL _cookieStoragePartitioningEnabled WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+@property (nonatomic, getter=_isCookieStoragePartitioningEnabled, setter=_setCookieStoragePartitioningEnabled:) BOOL _cookieStoragePartitioningEnabled WK_API_AVAILABLE(macosx(10.12.3), ios(10.3));
 
 @end
 

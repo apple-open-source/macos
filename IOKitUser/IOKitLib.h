@@ -167,6 +167,19 @@ mach_port_t
 IONotificationPortGetMachPort(
 	IONotificationPortRef	notify );
 
+/*! @function IONotificationPortSetImportanceReceiver
+    @abstract Configure a notification port to be an importance receiver.
+    @discussion Sets the MACH_PORT_IMPORTANCE_RECEIVER attribute on the underlying mach port.
+                Importance-donating messages sent to a notification port with this
+                attribute enabled will boost the importance of the receiving process for the
+                duration of the notification handler.
+    @param notify The notification object.
+    @result A kern_return_t error code. */
+
+kern_return_t
+IONotificationPortSetImportanceReceiver(
+	IONotificationPortRef	notify );
+
 /*! @function IONotificationPortSetDispatchQueue
     @abstract Sets a dispatch queue to be used to listen for notifications.
     @discussion A notification object may deliver notifications to a dispatch client.

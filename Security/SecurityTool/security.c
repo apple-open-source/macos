@@ -87,10 +87,6 @@ typedef struct command
 /* The default prompt. */
 const char *prompt_string = "security> ";
 
-/* The name of this program. */
-const char *prog_name;
-
-
 /* Forward declarations of static functions. */
 static int help(int argc, char * const *argv);
 
@@ -622,17 +618,28 @@ const command commands[] =
 	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
 	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
 	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, swUpdate, pkgSign,\n"
-	  "                                       eap, appleID, macappstore, timestamping); default is basic.\n"
-      "    -d date             Set date and time to use when verifying certificate,\n"
-      "                        provided in the form of YYYY-MM-DD-hh:mm:ss (time optional) in GMT.\n"
-      "                        e.g: 2016-04-25-15:59:59 for April 25, 2016 at 3:59:59 pm in GMT\n"
-	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
-	  "    -n                  No keychain search list.\n"
+	  "                        eap, appleID, macappstore, timestamping); default is basic.\n"
+	  "    -C                  Set client policy to true. Default is server policy. (ssl, IPSec, eap)\n"
+	  "    -d date             Set date and time to use when verifying certificate,\n"
+	  "                        provided in the form of YYYY-MM-DD-hh:mm:ss (time optional) in GMT.\n"
+	  "                        e.g: 2016-04-25-15:59:59 for April 25, 2016 at 3:59:59 pm in GMT\n"
+	  "    -k keychain         Keychain. Can be specified multiple times. Default is default search list.\n"
+	  "    -n name             Name to be verified. (ssl, IPSec, smime)\n"
+	  "    -N                  No keychain search list. (For backward compatibility, -n without a\n"
+	  "                        subsequent name argument is interpreted as equivalent to -N.)\n"
 	  "    -L                  Local certificates only (do not try to fetch missing CA certs from net).\n"
 	  "    -l                  Leaf cert is a CA (normally an error, unless this option is given).\n"
-	  "    -e emailAddress     Email address for smime policy.\n"
-	  "    -s sslHost          SSL host name for ssl policy.\n"
-	  "    -q                  Quiet.\n",
+	  "    -e emailAddress     Email address for smime policy. (Deprecated; use -n instead.)\n"
+	  "    -s sslHost          SSL host name for ssl policy. (Deprecated; use -n instead.)\n"
+	  "    -q                  Quiet.\n"
+	  "    -R revCheckOption   Perform revocation checking with one of the following options:\n"
+	  "                            ocsp     Check revocation status using OCSP method.\n"
+	  "                            crl      Check revocation status using CRL method.\n"
+	  "                            require  Require a positive response for successful verification.\n"
+	  "                            offline  Consult cached responses only (no network requests).\n"
+	  "                        Can be specified multiple times; e.g. to enable revocation checking\n"
+	  "                        via either OCSP or CRL methods and require a positive response, use\n"
+	  "                        \"-R ocsp -R crl -R require\".\n",
 	  "Verify certificate(s)." },
 
 	{ "authorize" , authorize,
@@ -898,7 +905,7 @@ usage(void)
 		"    -p    Set the prompt to \"prompt\" (implies -i).\n"
 		"    -q    Be less verbose.\n"
 		"    -v    Be more verbose about what's going on.\n"
-		"%s commands are:\n", prog_name, prog_name);
+		"%s commands are:\n", getprogname(), getprogname());
 	help(0, NULL);
 	return 2;
 }
@@ -978,7 +985,7 @@ sec_error(const char *msg, ...)
 {
     va_list args;
 
-    fprintf(stderr, "%s: ", prog_name);
+    fprintf(stderr, "%s: ", getprogname());
 
     va_start(args, msg);
     vfprintf(stderr, msg, args);
@@ -1002,10 +1009,6 @@ main(int argc, char * const *argv)
 	int do_leaks = 0;
 	int ch;
 
-
-	/* Remember my name. */
-	prog_name = strrchr(argv[0], '/');
-	prog_name = prog_name ? prog_name + 1 : argv[0];
 
 	/* Do getopt stuff for global options. */
 	optind = 1;

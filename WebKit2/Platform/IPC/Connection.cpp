@@ -39,6 +39,10 @@
 #include "MachMessage.h"
 #endif
 
+#if USE(UNIX_DOMAIN_SOCKETS)
+#include "UnixMessage.h"
+#endif
+
 namespace IPC {
 
 struct Connection::ReplyHandler {
@@ -375,7 +379,7 @@ bool Connection::sendMessage(std::unique_ptr<Encoder> encoder, OptionSet<SendOpt
     if (!isValid())
         return false;
 
-    if (m_inDispatchMessageMarkedToUseFullySynchronousModeForTesting && !encoder->isSyncMessage() && !(encoder->messageReceiverName() == "IPC")) {
+    if (RunLoop::isMain() && m_inDispatchMessageMarkedToUseFullySynchronousModeForTesting && !encoder->isSyncMessage() && !(encoder->messageReceiverName() == "IPC")) {
         uint64_t syncRequestID;
         auto wrappedMessage = createSyncMessageEncoder("IPC", "WrappedAsyncMessageForTesting", encoder->destinationID(), syncRequestID);
         wrappedMessage->setFullySynchronousModeForTesting();
@@ -671,7 +675,7 @@ void Connection::processIncomingMessage(std::unique_ptr<Decoder> message)
 
 #if HAVE(QOS_CLASSES)
     if (message->isSyncMessage() && m_shouldBoostMainThreadOnSyncMessage) {
-        pthread_override_t override = pthread_override_qos_class_start_np(m_mainThread, adjustedQOSClass(QOS_CLASS_USER_INTERACTIVE), 0);
+        pthread_override_t override = pthread_override_qos_class_start_np(m_mainThread, Thread::adjustedQOSClass(QOS_CLASS_USER_INTERACTIVE), 0);
         message->setQOSClassOverride(override);
     }
 #endif
@@ -713,7 +717,7 @@ void Connection::processIncomingMessage(std::unique_ptr<Decoder> message)
     enqueueIncomingMessage(WTFMove(message));
 }
 
-uint64_t Connection::installIncomingSyncMessageCallback(std::function<void ()> callback)
+uint64_t Connection::installIncomingSyncMessageCallback(WTF::Function<void ()>&& callback)
 {
     std::lock_guard<Lock> lock(m_incomingSyncMessageCallbackMutex);
 
@@ -722,7 +726,7 @@ uint64_t Connection::installIncomingSyncMessageCallback(std::function<void ()> c
     if (!m_incomingSyncMessageCallbackQueue)
         m_incomingSyncMessageCallbackQueue = WorkQueue::create("com.apple.WebKit.IPC.IncomingSyncMessageCallbackQueue");
 
-    m_incomingSyncMessageCallbacks.add(m_nextIncomingSyncMessageCallbackID, callback);
+    m_incomingSyncMessageCallbacks.add(m_nextIncomingSyncMessageCallbackID, WTFMove(callback));
 
     return m_nextIncomingSyncMessageCallbackID;
 }

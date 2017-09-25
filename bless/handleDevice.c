@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <paths.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/paths.h>
@@ -52,6 +53,7 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 	CFDataRef labeldata = NULL;
 	CFDataRef labeldata2 = NULL;
 	CFDataRef bootXdata = NULL;
+    io_object_t devMediaObj;
 	
     BLPreBootEnvType	preboot;
 	    
@@ -104,6 +106,23 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 							   actargs[kbootinfo].argument);
 		}
 	}
+    
+    
+    devMediaObj = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0,
+                                                                                      actargs[kdevice].argument + strlen(_PATH_DEV)));
+    if (!devMediaObj) {
+        blesscontextprintf(context, kBLLogLevelError, "Couldn't find I/O Registry information for device %s\n", actargs[kdevice].argument);
+        return 4;
+    }
+    if (IOObjectConformsTo(devMediaObj, "AppleAPFSVolume")) {
+        // This is an APFS volume.  We need to mess with the preboot volume.
+        ret = BlessPrebootVolume(context, actargs[kdevice].argument + strlen(_PATH_DEV), NULL, NULL, NULL);
+    }
+    IOObjectRelease(devMediaObj);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError, "Couldn't set bless data in preboot volume for device %s\n", actargs[kdevice].argument);
+        return 5;
+    }
     		
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {

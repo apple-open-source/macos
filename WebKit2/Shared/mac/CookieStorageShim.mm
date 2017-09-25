@@ -31,21 +31,18 @@
 #include "NetworkProcessConnection.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
+#include <WebCore/CFNetworkSPI.h>
 #include <WebCore/SessionID.h>
-#include <WebCore/SoftLinking.h>
 #include <WebCore/URL.h>
 #include <dlfcn.h>
 #include <wtf/MainThread.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/RunLoop.h>
+#include <wtf/SoftLinking.h>
 #include <wtf/text/WTFString.h>
 
 typedef const struct _CFURLRequest* CFURLRequestRef;
 @class NSURLSessionTask;
-
-SOFT_LINK_FRAMEWORK(CFNetwork)
-SOFT_LINK(CFNetwork, CFURLRequestGetURL, CFURLRef, (CFURLRequestRef request), (request))
-SOFT_LINK(CFNetwork, CFURLRequestShouldHandleHTTPCookies, Boolean, (CFURLRequestRef request), (request))
 
 using namespace WebCore;
 

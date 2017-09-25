@@ -29,17 +29,19 @@
 
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SCDynamicStorePrivate.h>
+#include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCDPlugin.h>
+#include <SystemConfiguration/SCDynamicStoreKey.h>
+
+
 
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPreferencesPrivate.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
-#include <SystemConfiguration/SCDPlugin.h>
-#if TARGET_OS_EMBEDDED
-#define __MACH_PORT_DEBUG(cond, str, port) do {} while(0)
-#endif
+
 #include <SystemConfiguration/SCPrivate.h>
 
 #include <IOKit/pwr_mgt/IOPM.h>
@@ -55,15 +57,14 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOReturn.h>
+#include <os/log.h>
 
 #include <dispatch/dispatch.h>
 #include "PMAssertions.h"
 #include "CommonLib.h"
 
-#if !TARGET_OS_EMBEDDED
   #define HAVE_CF_USER_NOTIFICATION     1
   #define HAVE_SMART_BATTERY            1
-#endif
 
 
 #define kProcNameBufLen                     (2*MAXCOMLEN)
@@ -82,22 +83,35 @@
 #define kIOPMDebugLogWakeRequests           0x08
 #define kIOPMDebugLogUserActivity           0x10
 #define kIOPMDebugEnableSpindumpOnFullwake  0x20
-#define kIOPMDebugLogAssertionActivity      0x40
+#define kIOPMDebugLogAssertionActivity      0x40  // Logs assertion data to log archive
 #define kIOPMDebugLogAssertionNameChange    0x80
 
 
+#define PM_LOG_SYSTEM       "powerd"
+#define SYSLOAD_LOG         "systemLoad"
+#define AGGD_REPORTS_LOG    "aggdReport"
+#define BATTERY_LOG         "battery"
+#define ASSERTIONS_LOG      "assertions"
+#define PMSETTINGS_LOG      "pmSettings"
+#define SLEEPWAKE_LOG       "sleepWake"
+#define ADAPTIVEDISPLAY_LOG "adaptiveDisplay"
+
+#ifndef LOG_STREAM
+#define LOG_STREAM OS_LOG_DEFAULT
+#endif
+
 #define INFO_LOG(fmt, args...) \
 { \
-    os_log(OS_LOG_DEFAULT, fmt, ##args); \
+    os_log(LOG_STREAM, fmt, ##args); \
 }
 #define DEBUG_LOG(fmt, args...) \
 { \
-    os_log_debug(OS_LOG_DEFAULT, fmt, ##args); \
+    os_log_debug(LOG_STREAM, fmt, ##args); \
 }
 
 #define ERROR_LOG(fmt, args...) \
 {  \
-    os_log_error(OS_LOG_DEFAULT, fmt, ##args); \
+    os_log_error(LOG_STREAM, fmt, ##args); \
 }
 
 
@@ -384,9 +398,7 @@ __private_extern__ void                 logASLMessagePMConnectionScheduledWakeEv
 
 __private_extern__ void                 logASLMessageExecutedWakeupEvent(CFStringRef requestedMaintenancesString);
 
-#if !TARGET_OS_EMBEDDED
 __private_extern__ void                 logASLMessageIgnoredDWTEmergency(void);
-#endif
 
 __private_extern__ void logASLMessageSleepCanceledAtLastCall( bool tcpka_active,
                                                               bool sys_active,
@@ -427,11 +439,9 @@ __private_extern__ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
                                                 boolean_t hasLowCapRatio,
                                                 time_t since);
 
-#if !TARGET_OS_EMBEDDED
 __private_extern__ CFUserNotificationRef _copyUPSWarning(void);
 __private_extern__ IOReturn              _smcWakeTimerPrimer(void);
 __private_extern__ IOReturn              _smcWakeTimerGetResults(uint16_t *mSec);
-#endif
 __private_extern__ bool                  smcSilentRunningSupport(void);
 
 __private_extern__ void                 _askNicelyThenShutdownSystem(void);
@@ -474,9 +484,15 @@ __private_extern__ void                 _oneOffHacksSetup(void);
 
 __private_extern__ IOReturn getNvramArgInt(char *key, int *value);
 __private_extern__ IOReturn getNvramArgStr(char *key, char *buf, size_t bufSize);
-
+__private_extern__ uint64_t             getMonotonicContinuousTime( );
 __private_extern__ uint64_t             getMonotonicTime( );
 __private_extern__ uint64_t             monotonicTS2Secs(uint64_t tsc);
 __private_extern__ void                 incrementSleepCnt();
+__private_extern__ const char *sleepType2String(int sleepType);
+__private_extern__ int getLastSleepType();
+__private_extern__ IOReturn _smcWriteKey( uint32_t key, uint8_t *outBuf, uint8_t outBufMax);
+__private_extern__ IOReturn _smcReadKey( uint32_t key, uint8_t *outBuf, uint8_t *outBufMax, bool byteSwap);
+
+
 #endif
 

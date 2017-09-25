@@ -925,6 +925,32 @@ generate_template(const Symbol *s)
 
     generate_template_type(s->gen_name, &dupname, s->name, s->gen_name, NULL, s->type, 0, 0, 1);
 
+    if (foundation_flag) {
+	fprintf(f,
+		"\n"
+		"int\n"
+		"nsheim_decode_%s(NSData *input, %s *data)\n"
+		"{\n"
+		"    size_t size;\n"
+		"    int ret;\n"
+#ifdef ASN1_CAPTURE_DATA
+		"    _asn1_capture_data(\"%s\", p, len);\n"
+#endif
+		"    ret = _asn1_decode_top(asn1_%s, 0|%s, [input bytes], [input length], data, &size);\n"
+		"    if (ret) return ret;\n"
+		"    if (size != [input length]) return ASN1_EXTRA_DATA;\n"
+		"    return 0;\n"
+		"}\n"
+		"\n",
+		s->gen_name,
+		s->gen_name,
+		dupname,
+#ifdef ASN1_CAPTURE_DATA
+		dupname,
+#endif
+		support_ber ? "A1_PF_ALLOW_BER" : "0");
+    }
+
     fprintf(f,
 	    "\n"
 	    "int\n"

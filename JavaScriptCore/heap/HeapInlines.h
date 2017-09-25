@@ -46,37 +46,21 @@ ALWAYS_INLINE VM* Heap::vm() const
 
 ALWAYS_INLINE Heap* Heap::heap(const HeapCell* cell)
 {
+    if (!cell)
+        return nullptr;
     return cell->heap();
 }
 
 inline Heap* Heap::heap(const JSValue v)
 {
     if (!v.isCell())
-        return 0;
+        return nullptr;
     return heap(v.asCell());
 }
 
 inline bool Heap::hasHeapAccess() const
 {
     return m_worldState.load() & hasAccessBit;
-}
-
-inline bool Heap::mutatorIsStopped() const
-{
-    unsigned state = m_worldState.load();
-    bool shouldStop = state & shouldStopBit;
-    bool stopped = state & stoppedBit;
-    // I only got it right when I considered all four configurations of shouldStop/stopped:
-    // !shouldStop, !stopped: The GC has not requested that we stop and we aren't stopped, so we
-    //     should return false.
-    // !shouldStop, stopped: The mutator is still stopped but the GC is done and the GC has requested
-    //     that we resume, so we should return false.
-    // shouldStop, !stopped: The GC called stopTheWorld() but the mutator hasn't hit a safepoint yet.
-    //     The mutator should be able to do whatever it wants in this state, as if we were not
-    //     stopped. So return false.
-    // shouldStop, stopped: The GC requested stop the world and the mutator obliged. The world is
-    //     stopped, so return true.
-    return shouldStop & stopped;
 }
 
 inline bool Heap::collectorBelievesThatTheWorldIsStopped() const
@@ -111,8 +95,8 @@ ALWAYS_INLINE bool Heap::testAndSetMarked(HeapVersion markingVersion, const void
     if (cell->isLargeAllocation())
         return cell->largeAllocation().testAndSetMarked();
     MarkedBlock& block = cell->markedBlock();
-    block.aboutToMark(markingVersion);
-    return block.testAndSetMarked(cell);
+    Dependency dependency = block.aboutToMark(markingVersion);
+    return block.testAndSetMarked(cell, dependency);
 }
 
 ALWAYS_INLINE size_t Heap::cellSize(const void* rawCell)
@@ -173,9 +157,9 @@ template<typename Functor> inline void Heap::forEachCodeBlock(const Functor& fun
     forEachCodeBlockImpl(scopedLambdaRef<bool(CodeBlock*)>(func));
 }
 
-template<typename Functor> inline void Heap::forEachCodeBlockIgnoringJITPlans(const Functor& func)
+template<typename Functor> inline void Heap::forEachCodeBlockIgnoringJITPlans(const AbstractLocker& codeBlockSetLocker, const Functor& func)
 {
-    forEachCodeBlockIgnoringJITPlansImpl(scopedLambdaRef<bool(CodeBlock*)>(func));
+    forEachCodeBlockIgnoringJITPlansImpl(codeBlockSetLocker, scopedLambdaRef<bool(CodeBlock*)>(func));
 }
 
 template<typename Functor> inline void Heap::forEachProtectedCell(const Functor& functor)

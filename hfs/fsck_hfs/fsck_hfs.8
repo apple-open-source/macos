@@ -229,7 +229,9 @@ No errors found, or successfully repaired.
 .It 3
 A quick-check (the
 .Fl n
-option) found a dirty filesystem; no repairs were made.
+option) found a dirty filesystem; no repairs were made.  There is a potential
+corruption in the filesystem, and either the journal could not be read, or a
+runtime corruption was present so the HFS Volume Inconsistent bit was set.
 .It 4
 During boot, the root filesystem was found to be dirty; repairs were
 made, and the filesystem was remounted.  The system should be rebooted.

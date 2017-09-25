@@ -35,6 +35,7 @@
 #include <WebCore/CacheValidation.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/HTTPHeaderNames.h>
+#include <WebCore/LowPowerModeNotifier.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PlatformCookieJar.h>
 #include <WebCore/ResourceRequest.h>
@@ -49,12 +50,14 @@
 #include <notify.h>
 #endif
 
+using namespace std::literals::chrono_literals;
+
 namespace WebKit {
 namespace NetworkCache {
 
 static const AtomicString& resourceType()
 {
-    ASSERT(WTF::isMainThread());
+    ASSERT(WTF::RunLoop::isMain());
     static NeverDestroyed<const AtomicString> resource("Resource", AtomicString::ConstructFromLiteral);
     return resource;
 }
@@ -72,16 +75,27 @@ static void dumpFileChanged(Cache* cache)
 }
 #endif
 
-bool Cache::initialize(const String& cachePath, const Parameters& parameters)
+bool Cache::initialize(const String& cachePath, OptionSet<Option> options)
 {
-    m_storage = Storage::open(cachePath);
+    m_storage = Storage::open(cachePath, options.contains(Option::TestingMode) ? Storage::Mode::Testing : Storage::Mode::Normal);
 
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    if (parameters.enableNetworkCacheSpeculativeRevalidation)
-        m_speculativeLoadManager = std::make_unique<SpeculativeLoadManager>(*m_storage);
+    if (options.contains(Option::SpeculativeRevalidation)) {
+        m_lowPowerModeNotifier = std::make_unique<WebCore::LowPowerModeNotifier>([this](bool isLowPowerModeEnabled) {
+            ASSERT(WTF::RunLoop::isMain());
+            if (isLowPowerModeEnabled)
+                m_speculativeLoadManager = nullptr;
+            else {
+                ASSERT(!m_speculativeLoadManager);
+                m_speculativeLoadManager = std::make_unique<SpeculativeLoadManager>(*m_storage);
+            }
+        });
+        if (!m_lowPowerModeNotifier->isLowPowerModeEnabled())
+            m_speculativeLoadManager = std::make_unique<SpeculativeLoadManager>(*m_storage);
+    }
 #endif
 
-    if (parameters.enableEfficacyLogging)
+    if (options.contains(Option::EfficacyLogging))
         m_statistics = Statistics::open(cachePath);
 
 #if PLATFORM(COCOA)
@@ -116,16 +130,10 @@ void Cache::setCapacity(size_t maximumSize)
 
 Key Cache::makeCacheKey(const WebCore::ResourceRequest& request)
 {
-#if ENABLE(CACHE_PARTITIONING)
-    String partition = request.cachePartition();
-#else
-    String partition;
-#endif
-
     // FIXME: This implements minimal Range header disk cache support. We don't parse
     // ranges so only the same exact range request will be served from the cache.
     String range = request.httpHeaderField(WebCore::HTTPHeaderName::Range);
-    return { partition, resourceType(), range, request.url().string(), m_storage->salt() };
+    return { request.cachePartition(), resourceType(), range, request.url().string(), m_storage->salt() };
 }
 
 static bool cachePolicyAllowsExpired(WebCore::ResourceRequestCachePolicy policy)
@@ -206,51 +214,10 @@ static RetrieveDecision makeRetrieveDecision(const WebCore::ResourceRequest& req
     // FIXME: Support HEAD requests.
     if (request.httpMethod() != "GET")
         return RetrieveDecision::NoDueToHTTPMethod;
-    if (request.requester() == WebCore::ResourceRequest::Requester::Media)
-        return RetrieveDecision::NoDueToStreamingMedia;
     if (request.cachePolicy() == WebCore::ReloadIgnoringCacheData && !request.isConditional())
         return RetrieveDecision::NoDueToReloadIgnoringCache;
 
     return RetrieveDecision::Yes;
-}
-
-// http://tools.ietf.org/html/rfc7231#page-48
-static bool isStatusCodeCacheableByDefault(int statusCode)
-{
-    switch (statusCode) {
-    case 200: // OK
-    case 203: // Non-Authoritative Information
-    case 204: // No Content
-    case 206: // Partial Content
-    case 300: // Multiple Choices
-    case 301: // Moved Permanently
-    case 404: // Not Found
-    case 405: // Method Not Allowed
-    case 410: // Gone
-    case 414: // URI Too Long
-    case 501: // Not Implemented
-        return true;
-    default:
-        return false;
-    }
-}
-
-static bool isStatusCodePotentiallyCacheable(int statusCode)
-{
-    switch (statusCode) {
-    case 201: // Created
-    case 202: // Accepted
-    case 205: // Reset Content
-    case 302: // Found
-    case 303: // See Other
-    case 307: // Temporary redirect
-    case 403: // Forbidden
-    case 406: // Not Acceptable
-    case 415: // Unsupported Media Type
-        return true;
-    default:
-        return false;
-    }
 }
 
 static bool isMediaMIMEType(const String& mimeType)
@@ -262,7 +229,34 @@ static bool isMediaMIMEType(const String& mimeType)
     return false;
 }
 
-static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalRequest, const WebCore::ResourceResponse& response)
+static std::optional<size_t> expectedTotalResourceSizeFromContentRange(const WebCore::ResourceResponse& response)
+{
+    ASSERT(response.httpStatusCode() == 206);
+
+    auto contentRange = response.httpHeaderField(WebCore::HTTPHeaderName::ContentRange);
+    if (contentRange.isNull())
+        return { };
+
+    if (!contentRange.startsWith("bytes "))
+        return { };
+
+    auto slashPosition = contentRange.find('/');
+    if (slashPosition == notFound)
+        return { };
+
+    auto sizeStringLength = contentRange.length() - slashPosition - 1;
+    if (!sizeStringLength)
+        return { };
+
+    bool isValid;
+    auto size = StringView(contentRange).right(sizeStringLength).toIntStrict(isValid);
+    if (!isValid)
+        return { };
+
+    return size;
+}
+
+static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalRequest, const WebCore::ResourceResponse& response, size_t bodySize)
 {
     if (!originalRequest.url().protocolIsInHTTPFamily() || !response.isHTTP())
         return StoreDecision::NoDueToProtocol;
@@ -277,10 +271,10 @@ static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalR
     if (response.cacheControlContainsNoStore())
         return StoreDecision::NoDueToNoStoreResponse;
 
-    if (!isStatusCodeCacheableByDefault(response.httpStatusCode())) {
+    if (!WebCore::isStatusCodeCacheableByDefault(response.httpStatusCode())) {
         // http://tools.ietf.org/html/rfc7234#section-4.3.2
         bool hasExpirationHeaders = response.expires() || response.cacheControlMaxAge();
-        bool expirationHeadersAllowCaching = isStatusCodePotentiallyCacheable(response.httpStatusCode()) && hasExpirationHeaders;
+        bool expirationHeadersAllowCaching = WebCore::isStatusCodePotentiallyCacheable(response.httpStatusCode()) && hasExpirationHeaders;
         if (!expirationHeadersAllowCaching)
             return StoreDecision::NoDueToHTTPStatusCode;
     }
@@ -296,20 +290,30 @@ static StoreDecision makeStoreDecision(const WebCore::ResourceRequest& originalR
             return StoreDecision::NoDueToUnlikelyToReuse;
     }
 
-    // Media loaded via XHR is likely being used for MSE streaming (YouTube and Netflix for example).
     // Streaming media fills the cache quickly and is unlikely to be reused.
     // FIXME: We should introduce a separate media cache partition that doesn't affect other resources.
     // FIXME: We should also make sure make the MSE paths are copy-free so we can use mapped buffers from disk effectively.
     auto requester = originalRequest.requester();
-    bool isDefinitelyStreamingMedia = requester == WebCore::ResourceRequest::Requester::Media;
+    bool isDefinitelyMedia = requester == WebCore::ResourceRequest::Requester::Media;
+    if (isDefinitelyMedia) {
+        // Allow caching of smaller media files if we know the total size.
+        const size_t maximumCacheableMediaSize = 5 * 1024 * 1024;
+        auto totalSize = response.httpStatusCode() == 206 ? expectedTotalResourceSizeFromContentRange(response) : bodySize;
+        if (!totalSize || *totalSize > maximumCacheableMediaSize)
+            return StoreDecision::NoDueToStreamingMedia;
+    }
+
     bool isLikelyStreamingMedia = requester == WebCore::ResourceRequest::Requester::XHR && isMediaMIMEType(response.mimeType());
-    if (isLikelyStreamingMedia || isDefinitelyStreamingMedia)
+    if (isLikelyStreamingMedia) {
+        // Media loaded via XHR is likely being used for MSE streaming (YouTube and Netflix for example).
+        // We have no way of knowing the total media size so disallow caching.
         return StoreDecision::NoDueToStreamingMedia;
+    }
 
     return StoreDecision::Yes;
 }
 
-void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameID& frameID, std::function<void (std::unique_ptr<Entry>)>&& completionHandler)
+void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameID& frameID, Function<void (std::unique_ptr<Entry>)>&& completionHandler)
 {
     ASSERT(isEnabled());
     ASSERT(request.url().protocolIsInHTTPFamily());
@@ -337,19 +341,21 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
     }
 
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    if (canUseSpeculativeRevalidation && m_speculativeLoadManager->retrieve(frameID, storageKey, request, [request, completionHandler](std::unique_ptr<Entry> entry) {
-        if (entry && WebCore::verifyVaryingRequestHeaders(entry->varyingRequestHeaders(), request))
-            completionHandler(WTFMove(entry));
-        else
-            completionHandler(nullptr);
-    }))
+    if (canUseSpeculativeRevalidation && m_speculativeLoadManager->canRetrieve(storageKey, request, frameID)) {
+        m_speculativeLoadManager->retrieve(storageKey, [request, completionHandler = WTFMove(completionHandler)](std::unique_ptr<Entry> entry) {
+            if (entry && WebCore::verifyVaryingRequestHeaders(entry->varyingRequestHeaders(), request))
+                completionHandler(WTFMove(entry));
+            else
+                completionHandler(nullptr);
+        });
         return;
+    }
 #endif
 
     auto startTime = std::chrono::system_clock::now();
     auto priority = static_cast<unsigned>(request.priority());
 
-    m_storage->retrieve(storageKey, priority, [this, request, completionHandler = WTFMove(completionHandler), startTime, storageKey, frameID](std::unique_ptr<Storage::Record> record) {
+    m_storage->retrieve(storageKey, priority, [this, request, completionHandler = WTFMove(completionHandler), startTime, storageKey, frameID](auto record) {
         if (!record) {
             LOG(NetworkCache, "(NetworkProcess) not found in storage");
 
@@ -378,6 +384,8 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
 #if !LOG_DISABLED
         auto elapsedMS = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime).count());
         LOG(NetworkCache, "(NetworkProcess) retrieve complete useDecision=%d priority=%d time=%" PRIi64 "ms", static_cast<int>(useDecision), static_cast<int>(request.priority()), elapsedMS);
+#else
+        UNUSED_PARAM(startTime);
 #endif
         completionHandler(WTFMove(entry));
 
@@ -387,6 +395,17 @@ void Cache::retrieve(const WebCore::ResourceRequest& request, const GlobalFrameI
     });
 }
 
+    
+std::unique_ptr<Entry> Cache::makeEntry(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response, RefPtr<WebCore::SharedBuffer>&& responseData)
+{
+    return std::make_unique<Entry>(makeCacheKey(request), response, WTFMove(responseData), WebCore::collectVaryingRequestHeaders(request, response));
+}
+
+std::unique_ptr<Entry> Cache::makeRedirectEntry(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest& redirectRequest)
+{
+    return std::make_unique<Entry>(makeCacheKey(request), response, redirectRequest, WebCore::collectVaryingRequestHeaders(request, response));
+}
+
 std::unique_ptr<Entry> Cache::store(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response, RefPtr<WebCore::SharedBuffer>&& responseData, Function<void (MappedBody&)>&& completionHandler)
 {
     ASSERT(isEnabled());
@@ -394,7 +413,7 @@ std::unique_ptr<Entry> Cache::store(const WebCore::ResourceRequest& request, con
 
     LOG(NetworkCache, "(NetworkProcess) storing %s, partition %s", request.url().string().latin1().data(), makeCacheKey(request).partition().latin1().data());
 
-    StoreDecision storeDecision = makeStoreDecision(request, response);
+    StoreDecision storeDecision = makeStoreDecision(request, response, responseData ? responseData->size() : 0);
     if (storeDecision != StoreDecision::Yes) {
         LOG(NetworkCache, "(NetworkProcess) didn't store, storeDecision=%d", static_cast<int>(storeDecision));
         auto key = makeCacheKey(request);
@@ -411,7 +430,7 @@ std::unique_ptr<Entry> Cache::store(const WebCore::ResourceRequest& request, con
         return nullptr;
     }
 
-    auto cacheEntry = std::make_unique<Entry>(makeCacheKey(request), response, WTFMove(responseData), WebCore::collectVaryingRequestHeaders(request, response));
+    auto cacheEntry = makeEntry(request, response, WTFMove(responseData));
     auto record = cacheEntry->encodeAsStorageRecord();
 
     m_storage->store(record, [this, completionHandler = WTFMove(completionHandler)](const Data& bodyData) {
@@ -438,7 +457,7 @@ std::unique_ptr<Entry> Cache::storeRedirect(const WebCore::ResourceRequest& requ
 
     LOG(NetworkCache, "(NetworkProcess) storing redirect %s -> %s", request.url().string().latin1().data(), redirectRequest.url().string().latin1().data());
 
-    StoreDecision storeDecision = makeStoreDecision(request, response);
+    StoreDecision storeDecision = makeStoreDecision(request, response, 0);
     if (storeDecision != StoreDecision::Yes) {
         LOG(NetworkCache, "(NetworkProcess) didn't store redirect, storeDecision=%d", static_cast<int>(storeDecision));
         auto key = makeCacheKey(request);
@@ -448,8 +467,7 @@ std::unique_ptr<Entry> Cache::storeRedirect(const WebCore::ResourceRequest& requ
         return nullptr;
     }
 
-    std::unique_ptr<Entry> cacheEntry = std::make_unique<Entry>(makeCacheKey(request), response, redirectRequest, WebCore::collectVaryingRequestHeaders(request, response));
-
+    auto cacheEntry = makeRedirectEntry(request, response, redirectRequest);
     auto record = cacheEntry->encodeAsStorageRecord();
 
     m_storage->store(record, nullptr);
@@ -485,6 +503,13 @@ void Cache::remove(const Key& key)
 void Cache::remove(const WebCore::ResourceRequest& request)
 {
     remove(makeCacheKey(request));
+}
+
+void Cache::remove(const Vector<Key>& keys, Function<void ()>&& completionHandler)
+{
+    ASSERT(isEnabled());
+
+    m_storage->remove(keys, WTFMove(completionHandler));
 }
 
 void Cache::traverse(Function<void (const TraversalEntry*)>&& traverseHandler)
@@ -588,7 +613,7 @@ void Cache::deleteDumpFile()
     });
 }
 
-void Cache::clear(std::chrono::system_clock::time_point modifiedSince, std::function<void ()>&& completionHandler)
+void Cache::clear(std::chrono::system_clock::time_point modifiedSince, Function<void ()>&& completionHandler)
 {
     LOG(NetworkCache, "(NetworkProcess) clearing cache");
 
@@ -613,6 +638,30 @@ void Cache::clear()
 String Cache::recordsPath() const
 {
     return m_storage ? m_storage->recordsPath() : String();
+}
+
+void Cache::retrieveData(const DataKey& dataKey, Function<void (const uint8_t* data, size_t size)> completionHandler)
+{
+    ASSERT(isEnabled());
+
+    Key key { dataKey, m_storage->salt() };
+    m_storage->retrieve(key, 4, [completionHandler = WTFMove(completionHandler)] (auto record) {
+        if (!record || !record->body.size()) {
+            completionHandler(nullptr, 0);
+            return true;
+        }
+        completionHandler(record->body.data(), record->body.size());
+        return true;
+    });
+}
+
+void Cache::storeData(const DataKey& dataKey, const uint8_t* data, size_t size)
+{
+    if (!m_storage)
+        return;
+    Key key { dataKey, m_storage->salt() };
+    Storage::Record record { key, std::chrono::system_clock::now(), { }, Data { data, size }, { } };
+    m_storage->store(record, { });
 }
 
 }

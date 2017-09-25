@@ -263,6 +263,7 @@ process_event(int tid)
 		status = notify_cancel(tid);
 		reg_delete(index);
 	}
+	fflush(stdout);
 	
 	if (reg_count == 0) exit(0);
 }

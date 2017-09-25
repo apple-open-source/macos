@@ -69,7 +69,7 @@ public:
 class UnixError : public CommonError {
 protected:
     UnixError();
-    UnixError(int err);
+    UnixError(int err, bool suppresslogging);
 public:
     const int error;
     virtual OSStatus osStatus() const;
@@ -78,6 +78,7 @@ public:
     
     static void check(int result)		{ if (result == -1) throwMe(); }
     static void throwMe(int err = errno) __attribute__((noreturn));
+    static void throwMeNoLogging(int err = errno) __attribute__((noreturn));
 
     // @@@ This is a hack for the Network protocol state machine
     static UnixError make(int err = errno) DEPRECATED_ATTRIBUTE;

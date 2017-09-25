@@ -381,6 +381,14 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
         goto scanErr;
     }
 
+    // publish the GPT disk GUID as an OSString
+    {
+        uuid_string_t uuid;
+        uuid_unswap( headerMap->hdr_uuid );
+        uuid_unparse( headerMap->hdr_uuid, uuid );
+        setProperty( kIOGUIDPartitionSchemeUUIDKey, uuid );
+    }
+
     // Allocate a buffer large enough to hold one map, rounded to a media block.
 
     buffer->release();
@@ -596,6 +604,9 @@ IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
             uuid_string_t uuid;
             uuid_unparse(partition->ent_uuid, uuid);
             newMedia->setProperty(kIOMediaUUIDKey, uuid);
+
+            UInt64 gptAttributes = OSSwapLittleToHostInt64( partition->ent_attr );
+            newMedia->setProperty(kIOMediaGPTPartitionAttributesKey, gptAttributes, 64);
         }
         else
         {

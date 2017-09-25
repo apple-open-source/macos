@@ -82,9 +82,10 @@
 #include <unistd.h>
 #include <utilities/fileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <utilities/SecCFRelease.h>
 
 /* r/w files as CFData */
-static CFDataRef readFileData(
+static CFDataRef CF_RETURNS_RETAINED readFileData(
 	const char *fileName)
 {
 	unsigned char *d;

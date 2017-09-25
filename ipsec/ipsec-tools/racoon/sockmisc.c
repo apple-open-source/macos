@@ -455,6 +455,7 @@ recvfromto(int s,
 	cm = (struct cmsghdr *)cmsgbuf;
 	m.msg_control = (caddr_t)cm;
 	m.msg_controllen = sizeof(cmsgbuf);
+	m.msg_flags = 0;
 	while ((len = recvmsg(s, &m, flags)) < 0) {
 		if (errno == EINTR)
 			continue;

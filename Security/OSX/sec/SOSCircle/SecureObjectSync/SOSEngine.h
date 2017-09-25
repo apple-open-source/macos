@@ -86,14 +86,14 @@ void SOSEngineCircleChanged(SOSEngineRef engine, CFStringRef myPeerID, CFArrayRe
 // Iterate over all peers.
 void SOSEngineForEachPeer(SOSEngineRef engine, void (^with)(SOSPeerRef peer));
 
-CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, CFSetRef /* CFStringRef */ peers, CFErrorRef *error);
+CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, CFSetRef /* CFStringRef */ peers, bool forceReset, CFErrorRef *error);
 
 // Don't call this unless you know what you are doing.  If you do then still don't call it.
 bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSMessageRef message,
                                    SOSTransactionRef txn, bool *commit, bool *somethingChanged, CFErrorRef *error);
 
 CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer,
-                                        CFErrorRef *error, SOSEnginePeerMessageSentBlock *sent);
+                                        CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageSentBlock *sent);
 
 // Return a SOSPeerRef for a given peer_id.
 SOSPeerRef SOSEngineCopyPeerWithID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *error);
@@ -110,7 +110,7 @@ bool SOSEngineInitializePeerCoder(SOSEngineRef engine, SOSFullPeerInfoRef myPeer
 // return a zero length CFDataRef if there is nothing to send.
 // If *ProposedManifest is set the caller is responsible for updating their
 // proposed manifest upon successful transmission of the message.
-CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, SOSEnginePeerMessageSentBlock *sentBlock, CFErrorRef *error);
+CFDataRef SOSEngineCreateMessageToSyncToPeer(SOSEngineRef engine, CFStringRef peerID, CFMutableArrayRef *attributeList, SOSEnginePeerMessageSentBlock *sentBlock, CFErrorRef *error);
 
 CFStringRef SOSEngineGetMyID(SOSEngineRef engine);
 bool SOSEnginePeerDidConnect(SOSEngineRef engine, CFStringRef peerID, CFErrorRef *error);
@@ -131,8 +131,11 @@ bool SOSTestEngineSaveWithDER(SOSEngineRef engine, CFDataRef derState, CFErrorRe
 bool SOSTestEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 bool SOSTestEngineLoad(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 CFMutableDictionaryRef derStateToDictionaryCopy(CFDataRef state, CFErrorRef *error);
-bool SOSTestEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
-bool TestSOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
+bool SOSTestEngineSaveCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error);
+bool TestSOSEngineLoadCoders(CFTypeRef engine, SOSTransactionRef txn, CFErrorRef *error);
+void TestSOSEngineDoOnQueue(CFTypeRef engine, dispatch_block_t action);
+bool TestSOSEngineDoTxnOnQueue(CFTypeRef engine, CFErrorRef *error, void(^transaction)(SOSTransactionRef txn, bool *commit));
+CFMutableDictionaryRef TestSOSEngineGetCoders(CFTypeRef engine);
 
 // MARK: Sync completion notification registration
 
@@ -153,6 +156,8 @@ extern CFStringRef kSOSEngineManifestCache;
 // Class A [kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
 extern CFStringRef kSOSEngineCoders;
 #define kSOSEngineProtectionDomainClassA kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+bool SOSEngineGetCodersNeedSaving(SOSEngineRef engine);
+void SOSEngineSetCodersNeedSaving(SOSEngineRef engine, bool saved);
 
 extern CFStringRef kSOSEngineStateVersionKey;
 

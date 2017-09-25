@@ -101,24 +101,44 @@ closed_dbm(void)
 }
 
 #define GetDBM(obj, dbmp) do {\
-    Data_Get_Struct((obj), struct dbmdata, (dbmp));\
+    TypedData_Get_Struct((obj), struct dbmdata, &dbm_type, (dbmp));\
     if ((dbmp) == 0) closed_dbm();\
     if ((dbmp)->di_dbm == 0) closed_dbm();\
 } while (0)
 
-#define GetDBM2(obj, data, dbm) {\
-    GetDBM((obj), (data));\
-    (dbm) = dbmp->di_dbm;\
-}
+#define GetDBM2(obj, dbmp, dbm) do {\
+    GetDBM((obj), (dbmp));\
+    (dbm) = (dbmp)->di_dbm;\
+} while (0)
 
 static void
-free_dbm(struct dbmdata *dbmp)
+free_dbm(void *ptr)
 {
+    struct dbmdata *dbmp = ptr;
     if (dbmp) {
         if (dbmp->di_dbm) gdbm_close(dbmp->di_dbm);
         xfree(dbmp);
     }
 }
+
+static size_t
+memsize_dbm(const void *ptr)
+{
+    size_t size = 0;
+    const struct dbmdata *dbmp = ptr;
+    if (dbmp) {
+	size += sizeof(*dbmp);
+	if (dbmp->di_dbm) size += DBM_SIZEOF_DBM;
+    }
+    return size;
+}
+
+static const rb_data_type_t dbm_type = {
+    "gdbm",
+    {0, free_dbm, memsize_dbm,},
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY,
+};
 
 /*
  * call-seq:
@@ -149,7 +169,7 @@ fgdbm_closed(VALUE obj)
 {
     struct dbmdata *dbmp;
 
-    Data_Get_Struct(obj, struct dbmdata, dbmp);
+    TypedData_Get_Struct(obj, struct dbmdata, &dbm_type, dbmp);
     if (dbmp == 0)
         return Qtrue;
     if (dbmp->di_dbm == 0)
@@ -161,7 +181,7 @@ fgdbm_closed(VALUE obj)
 static VALUE
 fgdbm_s_alloc(VALUE klass)
 {
-    return Data_Wrap_Struct(klass, 0, free_dbm, 0);
+    return TypedData_Wrap_Struct(klass, &dbm_type, 0);
 }
 
 /*
@@ -279,7 +299,7 @@ fgdbm_initialize(int argc, VALUE *argv, VALUE obj)
 static VALUE
 fgdbm_s_open(int argc, VALUE *argv, VALUE klass)
 {
-    VALUE obj = Data_Wrap_Struct(klass, 0, free_dbm, 0);
+    VALUE obj = fgdbm_s_alloc(klass);
 
     if (NIL_P(fgdbm_initialize(argc, argv, obj))) {
         return Qnil;
@@ -506,7 +526,6 @@ fgdbm_values_at(int argc, VALUE *argv, VALUE obj)
 static void
 rb_gdbm_modify(VALUE obj)
 {
-    rb_secure(4);
     if (OBJ_FROZEN(obj)) rb_error_frozen("GDBM");
 }
 
@@ -595,7 +614,8 @@ fgdbm_delete_if(VALUE obj)
     GDBM_FILE dbm;
     VALUE keystr, valstr;
     VALUE ret, ary = rb_ary_tmp_new(0);
-    int i, status = 0, n;
+    long i;
+    int status = 0, n;
 
     rb_gdbm_modify(obj);
     GetDBM2(obj, dbmp, dbm);
@@ -614,7 +634,7 @@ fgdbm_delete_if(VALUE obj)
     }
 
     for (i = 0; i < RARRAY_LEN(ary); i++)
-        rb_gdbm_delete(obj, RARRAY_PTR(ary)[i]);
+        rb_gdbm_delete(obj, RARRAY_AREF(ary, i));
     if (status) rb_jump_tag(status);
     if (n > 0) dbmp->di_size = n - (int)RARRAY_LEN(ary);
     rb_ary_clear(ary);
@@ -725,13 +745,15 @@ fgdbm_store(VALUE obj, VALUE keystr, VALUE valstr)
 }
 
 static VALUE
-update_i(VALUE pair, VALUE dbm)
+update_i(RB_BLOCK_CALL_FUNC_ARGLIST(pair, dbm))
 {
+    const VALUE *ptr;
     Check_Type(pair, T_ARRAY);
     if (RARRAY_LEN(pair) < 2) {
         rb_raise(rb_eArgError, "pair must be [key, value]");
     }
-    fgdbm_store(dbm, RARRAY_PTR(pair)[0], RARRAY_PTR(pair)[1]);
+    ptr = RARRAY_CONST_PTR(pair);
+    fgdbm_store(dbm, ptr[0], ptr[1]);
     return Qnil;
 }
 
@@ -879,7 +901,7 @@ fgdbm_each_key(VALUE obj)
  *      gdbm.each_pair { |key, value| block } -> gdbm
  *
  * Executes _block_ for each key in the database, passing the _key_ and the
- * correspoding _value_ as a parameter.
+ * corresponding _value_ as a parameter.
  */
 static VALUE
 fgdbm_each_pair(VALUE obj)
@@ -953,7 +975,9 @@ fgdbm_values(VALUE obj)
 
 /*
  * call-seq:
+ *      gdbm.include?(k) -> true or false
  *      gdbm.has_key?(k) -> true or false
+ *      gdbm.member?(k) -> true or false
  *      gdbm.key?(k) -> true or false
  *
  * Returns true if the given key _k_ exists within the database.
@@ -1061,7 +1085,7 @@ fgdbm_reorganize(VALUE obj)
  *     gdbm.sync -> gdbm
  *
  * Unless the _gdbm_ object has been opened with the *SYNC* flag, it is not
- * guarenteed that database modification operations are immediately applied to
+ * guaranteed that database modification operations are immediately applied to
  * the database file. This method ensures that all recent modifications
  * to the database are written to the file. Blocks until all writing operations
  * to the disk have been finished.

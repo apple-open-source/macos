@@ -1,21 +1,23 @@
 #--
+# frozen_string_literal: true
+#
 # set.rb - defines the Set class
 #++
-# Copyright (c) 2002-2008 Akinori MUSHA <knu@iDaemons.org>
+# Copyright (c) 2002-2013 Akinori MUSHA <knu@iDaemons.org>
 #
 # Documentation by Akinori MUSHA and Gavin Sinclair.
 #
 # All rights reserved.  You can redistribute and/or modify it under the same
 # terms as Ruby.
 #
-#   $Id: set.rb 37839 2012-11-24 18:51:45Z knu $
+#   $Id: set.rb 52593 2015-11-16 07:41:30Z knu $
 #
 # == Overview
 #
 # This library provides the Set class, which deals with a collection
 # of unordered values with no duplicates.  It is a hybrid of Array's
 # intuitive inter-operation facilities and Hash's fast lookup.  If you
-# need to keep values ordered, use the SortedSet class.
+# need to keep values sorted in some order, use the SortedSet class.
 #
 # The method +to_set+ is added to Enumerable for convenience.
 #
@@ -27,13 +29,20 @@
 # This is a hybrid of Array's intuitive inter-operation facilities and
 # Hash's fast lookup.
 #
-# The equality of each couple of elements is determined according to
-# Object#eql? and Object#hash, since Set uses Hash as storage.
-#
 # Set is easy to use with Enumerable objects (implementing +each+).
 # Most of the initializer methods and binary operators accept generic
 # Enumerable objects besides sets and arrays.  An Enumerable object
 # can be converted to Set using the +to_set+ method.
+#
+# Set uses Hash as storage, so you must note the following points:
+#
+# * Equality of elements is determined according to Object#eql? and
+#   Object#hash.
+# * Set assumes that the identity of each element does not change
+#   while it is stored.  Modifying an element of a set will render the
+#   set to an unreliable state.
+# * When a string is to be stored, a frozen copy of the string is
+#   stored instead unless the original string is already frozen.
 #
 # == Comparison
 #
@@ -49,7 +58,7 @@
 #   s2 = [1, 2].to_set                    # -> #<Set: {1, 2}>
 #   s1 == s2                              # -> true
 #   s1.add("foo")                         # -> #<Set: {1, 2, "foo"}>
-#   s1.merge([2, 6])                      # -> #<Set: {6, 1, 2, "foo"}>
+#   s1.merge([2, 6])                      # -> #<Set: {1, 2, "foo", 6}>
 #   s1.subset? s2                         # -> false
 #   s2.subset? s1                         # -> true
 #
@@ -71,7 +80,7 @@ class Set
   # If a block is given, the elements of enum are preprocessed by the
   # given block.
   def initialize(enum = nil, &block) # :yields: o
-    @hash ||= Hash.new
+    @hash ||= Hash.new(false)
 
     enum.nil? and return
 
@@ -84,36 +93,40 @@ class Set
 
   def do_with_enum(enum, &block) # :nodoc:
     if enum.respond_to?(:each_entry)
-      enum.each_entry(&block)
+      enum.each_entry(&block) if block
     elsif enum.respond_to?(:each)
-      enum.each(&block)
+      enum.each(&block) if block
     else
       raise ArgumentError, "value must be enumerable"
     end
   end
   private :do_with_enum
 
-  # Copy internal hash.
-  def initialize_copy(orig)
+  # Dup internal hash.
+  def initialize_dup(orig)
+    super
     @hash = orig.instance_variable_get(:@hash).dup
   end
 
-  def freeze    # :nodoc:
+  # Clone internal hash.
+  def initialize_clone(orig)
     super
+    @hash = orig.instance_variable_get(:@hash).clone
+  end
+
+  def freeze    # :nodoc:
     @hash.freeze
-    self
+    super
   end
 
   def taint     # :nodoc:
-    super
     @hash.taint
-    self
+    super
   end
 
   def untaint   # :nodoc:
-    super
     @hash.untaint
-    self
+    super
   end
 
   # Returns the number of elements.
@@ -138,17 +151,27 @@ class Set
   def replace(enum)
     if enum.instance_of?(self.class)
       @hash.replace(enum.instance_variable_get(:@hash))
+      self
     else
+      do_with_enum(enum)  # make sure enum is enumerable before calling clear
       clear
       merge(enum)
     end
-
-    self
   end
 
   # Converts the set to an array.  The order of elements is uncertain.
   def to_a
     @hash.keys
+  end
+
+  # Returns self if no arguments are given.  Otherwise, converts the
+  # set to another with klass.new(self, *args, &block).
+  #
+  # In subclasses, returns klass.new(self, *args, &block) unless
+  # overridden.
+  def to_set(klass = Set, *args, &block)
+    return self if instance_of?(Set) && klass == Set && block.nil? && args.empty?
+    klass.new(self, *args, &block)
   end
 
   def flatten_merge(set, seen = Set.new) # :nodoc:
@@ -179,56 +202,107 @@ class Set
   # Equivalent to Set#flatten, but replaces the receiver with the
   # result in place.  Returns nil if no modifications were made.
   def flatten!
-    if detect { |e| e.is_a?(Set) }
-      replace(flatten())
-    else
-      nil
-    end
+    replace(flatten()) if any? { |e| e.is_a?(Set) }
   end
 
   # Returns true if the set contains the given object.
+  #
+  # Note that <code>include?</code> and <code>member?</code> do not test member
+  # equality using <code>==</code> as do other Enumerables.
+  #
+  # See also Enumerable#include?
   def include?(o)
-    @hash.include?(o)
+    @hash[o]
   end
   alias member? include?
 
   # Returns true if the set is a superset of the given set.
   def superset?(set)
-    set.is_a?(Set) or raise ArgumentError, "value must be a set"
-    return false if size < set.size
-    set.all? { |o| include?(o) }
+    case
+    when set.instance_of?(self.class)
+      @hash >= set.instance_variable_get(:@hash)
+    when set.is_a?(Set)
+      size >= set.size && set.all? { |o| include?(o) }
+    else
+      raise ArgumentError, "value must be a set"
+    end
   end
   alias >= superset?
 
   # Returns true if the set is a proper superset of the given set.
   def proper_superset?(set)
-    set.is_a?(Set) or raise ArgumentError, "value must be a set"
-    return false if size <= set.size
-    set.all? { |o| include?(o) }
+    case
+    when set.instance_of?(self.class)
+      @hash > set.instance_variable_get(:@hash)
+    when set.is_a?(Set)
+      size > set.size && set.all? { |o| include?(o) }
+    else
+      raise ArgumentError, "value must be a set"
+    end
   end
   alias > proper_superset?
 
   # Returns true if the set is a subset of the given set.
   def subset?(set)
-    set.is_a?(Set) or raise ArgumentError, "value must be a set"
-    return false if set.size < size
-    all? { |o| set.include?(o) }
+    case
+    when set.instance_of?(self.class)
+      @hash <= set.instance_variable_get(:@hash)
+    when set.is_a?(Set)
+      size <= set.size && all? { |o| set.include?(o) }
+    else
+      raise ArgumentError, "value must be a set"
+    end
   end
   alias <= subset?
 
   # Returns true if the set is a proper subset of the given set.
   def proper_subset?(set)
-    set.is_a?(Set) or raise ArgumentError, "value must be a set"
-    return false if set.size <= size
-    all? { |o| set.include?(o) }
+    case
+    when set.instance_of?(self.class)
+      @hash < set.instance_variable_get(:@hash)
+    when set.is_a?(Set)
+      size < set.size && all? { |o| set.include?(o) }
+    else
+      raise ArgumentError, "value must be a set"
+    end
   end
   alias < proper_subset?
+
+  # Returns true if the set and the given set have at least one
+  # element in common.
+  #
+  # e.g.:
+  #
+  #   require 'set'
+  #   Set[1, 2, 3].intersect? Set[4, 5] # => false
+  #   Set[1, 2, 3].intersect? Set[3, 4] # => true
+  def intersect?(set)
+    set.is_a?(Set) or raise ArgumentError, "value must be a set"
+    if size < set.size
+      any? { |o| set.include?(o) }
+    else
+      set.any? { |o| include?(o) }
+    end
+  end
+
+  # Returns true if the set and the given set have no element in
+  # common.  This method is the opposite of +intersect?+.
+  #
+  # e.g.:
+  #
+  #   require 'set'
+  #   Set[1, 2, 3].disjoint? Set[3, 4] # => false
+  #   Set[1, 2, 3].disjoint? Set[4, 5] # => true
+
+  def disjoint?(set)
+    !intersect?(set)
+  end
 
   # Calls the given block once for each element in the set, passing
   # the element as parameter.  Returns an enumerator if no block is
   # given.
   def each(&block)
-    block or return enum_for(__method__)
+    block or return enum_for(__method__) { size }
     @hash.each_key(&block)
     self
   end
@@ -244,11 +318,7 @@ class Set
   # Adds the given object to the set and returns self.  If the
   # object is already in the set, returns nil.
   def add?(o)
-    if include?(o)
-      nil
-    else
-      add(o)
-    end
+    add(o) unless include?(o)
   end
 
   # Deletes the given object from the set and returns self.  Use +subtract+ to
@@ -261,18 +331,16 @@ class Set
   # Deletes the given object from the set and returns self.  If the
   # object is not in the set, returns nil.
   def delete?(o)
-    if include?(o)
-      delete(o)
-    else
-      nil
-    end
+    delete(o) if include?(o)
   end
 
   # Deletes every element of the set for which block evaluates to
   # true, and returns self.
   def delete_if
     block_given? or return enum_for(__method__)
-    to_a.each { |o| @hash.delete(o) if yield(o) }
+    # @hash.delete_if should be faster, but using it breaks the order
+    # of enumeration in subclasses.
+    select { |o| yield o }.each { |o| @hash.delete(o) }
     self
   end
 
@@ -280,16 +348,16 @@ class Set
   # false, and returns self.
   def keep_if
     block_given? or return enum_for(__method__)
-    to_a.each { |o| @hash.delete(o) unless yield(o) }
+    # @hash.keep_if should be faster, but using it breaks the order of
+    # enumeration in subclasses.
+    reject { |o| yield o }.each { |o| @hash.delete(o) }
     self
   end
 
   # Replaces the elements with ones returned by collect().
   def collect!
     block_given? or return enum_for(__method__)
-    set = self.class.new
-    each { |o| set << yield(o) }
-    replace(set)
+    replace(self.class.new(self) { |o| yield(o) })
   end
   alias map! collect!
 
@@ -299,7 +367,7 @@ class Set
     block or return enum_for(__method__)
     n = size
     delete_if(&block)
-    size == n ? nil : self
+    self if size != n
   end
 
   # Equivalent to Set#keep_if, but returns nil if no changes were
@@ -308,7 +376,7 @@ class Set
     block or return enum_for(__method__)
     n = size
     keep_if(&block)
-    size == n ? nil : self
+    self if size != n
   end
 
   # Merges the elements of the given enumerable object to the set and
@@ -359,7 +427,7 @@ class Set
   # ((set | enum) - (set & enum)).
   def ^(enum)
     n = Set.new(enum)
-    each { |o| if n.include?(o) then n.delete(o) else n.add(o) end }
+    each { |o| n.add(o) unless n.delete?(o) }
     n
   end
 
@@ -405,8 +473,7 @@ class Set
     h = {}
 
     each { |i|
-      x = yield(i)
-      (h[x] ||= self.class.new).add(i)
+      (h[yield(i)] ||= self.class.new).add(i)
     }
 
     h
@@ -469,8 +536,8 @@ class Set
       return sprintf('#<%s: {...}>', self.class.name)
     end
 
+    ids << object_id
     begin
-      ids << object_id
       return sprintf('#<%s: {%s}>', self.class, to_a.inspect[1..-2])
     ensure
       ids.pop
@@ -493,7 +560,7 @@ class Set
 end
 
 #
-# SortedSet implements a Set that guarantees that it's element are
+# SortedSet implements a Set that guarantees that its elements are
 # yielded in sorted order (according to the return values of their
 # #<=> methods) when iterating over them.
 #
@@ -539,7 +606,7 @@ class SortedSet < Set
       begin
         require 'rbtree'
 
-        module_eval %{
+        module_eval <<-END, __FILE__, __LINE__+1
           def initialize(*args)
             @hash = RBTree.new
             super
@@ -550,9 +617,9 @@ class SortedSet < Set
             super
           end
           alias << add
-        }
+        END
       rescue LoadError
-        module_eval %{
+        module_eval <<-END, __FILE__, __LINE__+1
           def initialize(*args)
             @keys = nil
             super
@@ -603,7 +670,7 @@ class SortedSet < Set
           end
 
           def each(&block)
-            block or return enum_for(__method__)
+            block or return enum_for(__method__) { size }
             to_a.each(&block)
             self
           end
@@ -612,7 +679,7 @@ class SortedSet < Set
             (@keys = @hash.keys).sort! unless @keys
             @keys
           end
-        }
+        END
       end
       module_eval {
         # a hack to shut up warning

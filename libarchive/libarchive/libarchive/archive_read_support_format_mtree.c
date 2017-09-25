@@ -423,11 +423,11 @@ read_mtree(struct archive_read *a, struct mtree *mtree)
 		if (*p != '/') {
 			r = process_add_entry(a, mtree, &global, p,
 			    &last_entry);
-		} else if (strncmp(p, "/set", 4) == 0) {
+		} else if (len > 4 && strncmp(p, "/set", 4) == 0) {
 			if (p[4] != ' ' && p[4] != '\t')
 				break;
 			r = process_global_set(a, &global, p);
-		} else if (strncmp(p, "/unset", 6) == 0) {
+		} else if (len > 6 && strncmp(p, "/unset", 6) == 0) {
 			if (p[6] != ' ' && p[6] != '\t')
 				break;
 			r = process_global_unset(a, &global, p);

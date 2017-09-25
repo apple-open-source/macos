@@ -1,8 +1,9 @@
+# frozen_string_literal: false
 # = uri/ftp.rb
 #
 # Author:: Akira Yamada <akira@ruby-lang.org>
 # License:: You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: ftp.rb 39014 2013-02-02 03:31:56Z zzak $
+# Revision:: $Id: ftp.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 # See URI for general documentation
 #
@@ -85,8 +86,8 @@ module URI
     #     require 'uri'
     #
     #     uri = URI::FTP.build(['user:password', 'ftp.example.com', nil,
-    #       '/path/file.> zip', 'i'])
-    #     puts uri.to_s  ->  ftp://user:password@ftp.example.com/%2Fpath/file.zip;type=a
+    #       '/path/file.zip', 'i'])
+    #     puts uri.to_s  ->  ftp://user:password@ftp.example.com/%2Fpath/file.zip;type=i
     #
     #     uri2 = URI::FTP.build({:host => 'ftp.example.com',
     #       :path => 'ruby/src'})
@@ -129,17 +130,24 @@ module URI
     # Arguments are +scheme+, +userinfo+, +host+, +port+, +registry+, +path+,
     # +opaque+, +query+ and +fragment+, in that order.
     #
-    def initialize(*arg)
-      raise InvalidURIError unless arg[5]
-      arg[5] = arg[5].sub(/^\//,'').sub(/^%2F/,'/')
-      super(*arg)
+    def initialize(scheme,
+                   userinfo, host, port, registry,
+                   path, opaque,
+                   query,
+                   fragment,
+                   parser = nil,
+                   arg_check = false)
+      raise InvalidURIError unless path
+      path = path.sub(/^\//,'')
+      path.sub!(/^%2F/,'/')
+      super(scheme, userinfo, host, port, registry, path, opaque,
+            query, fragment, parser, arg_check)
       @typecode = nil
-      tmp = @path.index(TYPECODE_PREFIX)
-      if tmp
+      if tmp = @path.index(TYPECODE_PREFIX)
         typecode = @path[tmp + TYPECODE_PREFIX.size..-1]
         @path = @path[0..tmp - 1]
 
-        if arg[-1]
+        if arg_check
           self.typecode = typecode
         else
           self.set_typecode(typecode)
@@ -165,7 +173,7 @@ module URI
     end
     private :check_typecode
 
-    # private setter for the typecode +v+
+    # Private setter for the typecode +v+
     #
     # see also URI::FTP.typecode=
     #
@@ -234,11 +242,13 @@ module URI
       return @path.sub(/^\//,'').sub(/^%2F/,'/')
     end
 
+    # Private setter for the path of the URI::FTP
     def set_path(v)
       super("/" + v.sub(/^\//, "%2F"))
     end
     protected :set_path
 
+    # Returns a String representation of the URI::FTP
     def to_s
       save_path = nil
       if @typecode

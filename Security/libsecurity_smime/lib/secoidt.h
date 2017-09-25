@@ -49,6 +49,9 @@ struct SECOidDataStr {
     SecAsn1Item            oid;
     SECOidTag          offset;
     const char *       desc;
+#if USE_CDSA_CRYPTO
+    SecAsn1AlgId    cssmAlgorithm;
+#endif
     SECSupportExtenTag supportedExtension;	
     				/* only used for x.509 v3 extensions, so
 				   that we can print the names of those

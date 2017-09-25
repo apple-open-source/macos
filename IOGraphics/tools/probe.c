@@ -23,6 +23,9 @@ int main(int argc, char * argv[])
     CFNumberRef         num;
     SInt32              value;
 
+    // usage: probe [options=kIOFBUserRequestProbe] [mask=0xffffffff]
+    // usage: rotate <degrees> [mask=0xffffffff]
+
     err = CGGetOnlineDisplayList(8, displayIDs, &max);
     if(err != kCGErrorSuccess)
         exit(1);
@@ -77,7 +80,7 @@ int main(int argc, char * argv[])
 
         value &= kIOScaleRotateFlags;
 
-        printf("Display %p: current transform: ", displayIDs[i]);
+        printf("Display %#x: current transform: ", displayIDs[i]);
 
         switch (value)
         {
@@ -107,12 +110,12 @@ int main(int argc, char * argv[])
           CFNumberGetValue( num, kCFNumberSInt32Type, (SInt32 *) &value );
         else
           value = 0;
-        printf("Display %p: does %ssupport kIOFBSetTransform\n", displayIDs[i], value & kIOFBSetTransform ? "" : "not ");
+        printf("Display %#x: does %ssupport kIOFBSetTransform\n", displayIDs[i], value & kIOFBSetTransform ? "" : "not ");
 
         if (value & kIOFBSetTransform)
         {
           err = IOServiceRequestProbe(service, options );
-          printf("Display %p: IOServiceRequestProbe(%d)\n", displayIDs[i], err);
+          printf("Display %#x: IOServiceRequestProbe(%d)\n", displayIDs[i], err);
         }
     }
     

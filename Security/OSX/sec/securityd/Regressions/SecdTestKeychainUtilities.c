@@ -24,7 +24,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecCFWrappers.h>
 #include <securityd/SecItemServer.h>

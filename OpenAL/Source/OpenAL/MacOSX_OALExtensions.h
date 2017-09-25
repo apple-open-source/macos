@@ -45,10 +45,10 @@ typedef ALvoid (*alMacOSXRenderChannelCountProcPtr) (ALint value);
 typedef ALvoid (*alcMacOSXMixerMaxiumumBussesProcPtr) (ALint value);
 typedef ALvoid (*alcMacOSXMixerOutputRateProcPtr) (ALdouble value);
 
-typedef ALint (*alcMacOSXGetRenderingQualityProcPtr) ();
-typedef ALint (*alMacOSXGetRenderChannelCountProcPtr) ();
-typedef ALint (*alcMacOSXGetMixerMaxiumumBussesProcPtr) ();
-typedef ALdouble (*alcMacOSXGetMixerOutputRateProcPtr) ();
+typedef ALint (*alcMacOSXGetRenderingQualityProcPtr) (void);
+typedef ALint (*alMacOSXGetRenderChannelCountProcPtr) (void);
+typedef ALint (*alcMacOSXGetMixerMaxiumumBussesProcPtr) (void);
+typedef ALdouble (*alcMacOSXGetMixerOutputRateProcPtr) (void);
 
 /* Render Quality. Used with alcMacOSXRenderingQuality() */
 	
@@ -301,21 +301,21 @@ typedef ALvoid AL_APIENTRY (*alcOutputCapturerPrepareProcPtr)   (ALCuint frequen
  
  Start capturing samples rendered by the current context to a maximum of the sample count specified when calling alcOutputCapturerPrepare.
  */
-typedef ALvoid AL_APIENTRY (*alcOutputCapturerStartProcPtr) ();
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerStartProcPtr) (void);
 
 /*
  API: alcOutputCapturerStop
  
  Stop capturing samples rendered by the context. This function resets the captured audio samples to 0.
  */
-typedef ALvoid AL_APIENTRY (*alcOutputCapturerStopProcPtr) ();
+typedef ALvoid AL_APIENTRY (*alcOutputCapturerStopProcPtr) (void);
 
 /*
  API: alcOutputCapturerAvailableSamples
  
  Get the number of captured samples currently available.
  */
-typedef ALint  AL_APIENTRY (*alcOutputCapturerAvailableSamplesProcPtr) ();
+typedef ALint  AL_APIENTRY (*alcOutputCapturerAvailableSamplesProcPtr) (void);
 
 /*
  API: alcOutputCapturerSamples

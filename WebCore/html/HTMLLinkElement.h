@@ -65,6 +65,8 @@ public:
 
     WEBCORE_EXPORT void setCrossOrigin(const AtomicString&);
     WEBCORE_EXPORT String crossOrigin() const;
+    WEBCORE_EXPORT void setAs(const AtomicString&);
+    WEBCORE_EXPORT String as() const;
 
     void dispatchPendingEvent(LinkEventSender*);
     static void dispatchPendingLoadEvents();
@@ -112,12 +114,7 @@ private:
     enum PendingSheetType { Unknown, ActiveSheet, InactiveSheet };
     void addPendingSheet(PendingSheetType);
 
-    enum RemovePendingSheetNotificationType {
-        RemovePendingSheetNotifyImmediately,
-        RemovePendingSheetNotifyLater
-    };
-
-    void removePendingSheet(RemovePendingSheetNotificationType = RemovePendingSheetNotifyImmediately);
+    void removePendingSheet();
 
     LinkLoader m_linkLoader;
     Style::Scope* m_styleScope { nullptr };
@@ -141,8 +138,9 @@ private:
     bool m_isHandlingBeforeLoad { false };
 
     PendingSheetType m_pendingSheetType;
+    String m_integrityMetadataForPendingSheetRequest;
 
     std::unique_ptr<DOMTokenList> m_relList;
 };
 
-} //namespace
+}

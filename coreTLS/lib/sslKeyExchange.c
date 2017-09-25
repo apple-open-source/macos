@@ -165,7 +165,7 @@ static size_t
 SSLEncodedEphemeralRsaKeyLen(tls_handshake_t ctx)
 {
     assert(ctx->isServer);
-    assert(ctx->rsaEncryptPubKey.rsa.pub != NULL);
+    assert(ctx->rsaEncryptPubKey.rsa != NULL);
 
     cc_size n = ccrsa_ctx_n(ctx->rsaEncryptPubKey.rsa);
 
@@ -905,7 +905,7 @@ SSLEncodeRSAKeyExchange(tls_buffer *keyExchange, tls_handshake_t ctx)
 
 	assert(!ctx->isServer);
 
-    if(!ctx->peerPubKey.isRSA || ctx->peerPubKey.rsa.pub == NULL) {
+    if(!ctx->peerPubKey.isRSA || ctx->peerPubKey.rsa == NULL) {
         sslErrorLog("SSLEncodeRSAKeyExchange: no RSA peer pub key\n");
         return errSSLCrypto;
     }
@@ -990,11 +990,11 @@ SSLGenServerDHParamsAndKey(
     /*
      * Obtain D-H parameters if we don't have them.
      */
-    if(ctx->dhParams.gp == NULL) {
+    if(ctx->dhParams == NULL) {
         /* TODO: Pick appropriate group based on cipher suite */
         gp = ccdh_gp_rfc5114_MODP_2048_256();
     } else {
-        gp._ncgp = ctx->dhParams;
+        gp = ctx->dhParams;
     }
 
     return sslDhCreateKey(gp, &ctx->dhContext);
@@ -1007,13 +1007,13 @@ static size_t
 SSLEncodedDHKeyParamsLen(tls_handshake_t ctx)
 {
     assert(ctx->isServer);
-    assert(ctx->dhContext._full != NULL);
+    assert(ctx->dhContext != NULL);
 
     ccdh_const_gp_t gp = ccdh_ctx_gp(ctx->dhContext);
     cc_size n = ccdh_gp_n(gp);
     size_t prime_len = ccn_write_uint_size(n, ccdh_gp_prime(gp));
     size_t generator_len = ccn_write_uint_size(n, ccdh_gp_g(gp));
-    size_t pub_len = ccdh_export_pub_size(ctx->dhContext);
+    size_t pub_len = ccdh_export_pub_size(ccdh_ctx_public(ctx->dhContext));
 
     size_t len = 2 + prime_len + 2 + generator_len + 2 + pub_len;
 
@@ -1028,13 +1028,13 @@ static int
 SSLEncodeDHKeyParams(tls_handshake_t ctx, uint8_t *p)
 {
     assert(ctx->isServer);
-    assert(ctx->dhContext._full != NULL);
+    assert(ctx->dhContext != NULL);
 
     ccdh_const_gp_t gp = ccdh_ctx_gp(ctx->dhContext);
     cc_size n = ccdh_gp_n(gp);
     size_t prime_len = ccn_write_uint_size(n, ccdh_gp_prime(gp));
     size_t generator_len = ccn_write_uint_size(n, ccdh_gp_g(gp));
-    size_t pub_len = ccdh_export_pub_size(ctx->dhContext);
+    size_t pub_len = ccdh_export_pub_size(ccdh_ctx_public(ctx->dhContext));
 
     p = SSLEncodeInt(p, prime_len, 2);
     ccn_write_uint(n, ccdh_gp_prime(gp), prime_len, p);
@@ -1045,7 +1045,7 @@ SSLEncodeDHKeyParams(tls_handshake_t ctx, uint8_t *p)
     p += generator_len;
 
     p = SSLEncodeInt(p, pub_len, 2);
-    ccdh_export_pub(ctx->dhContext, p);
+    ccdh_export_pub(ccdh_ctx_public(ctx->dhContext), p);
 
     return errSSLSuccess;
 }
@@ -1099,7 +1099,7 @@ SSLDecodeDHKeyParams(
 
     (*charPtr) += len;
 
-    sslFree(ctx->dhParams.gp);
+    sslFree(ctx->dhParams);
     err = sslEncodeDhParams(&ctx->dhParams, &prime, &generator);
     if(err) {
         return err;
@@ -1146,9 +1146,9 @@ SSLGenClientDHKeyAndExchange(tls_handshake_t ctx)
 	int            ortn;
 
     ortn=errSSLProtocol;
-    sslFree(ctx->dhContext._full);
+    sslFree(ctx->dhContext);
     SSLFreeBuffer(&ctx->preMasterSecret);
-    require(ctx->dhParams.gp, out);
+    require(ctx->dhParams, out);
 
     if(ccdh_gp_prime_bitlen(ctx->dhParams)<ctx->dhMinGroupSize) {
         return errSSLWeakPeerEphemeralDHKey;
@@ -1243,7 +1243,7 @@ SSLDecodeDHClientKeyExchange(tls_buffer keyExchange, tls_handshake_t ctx)
     unsigned int    publicLen;
 
 	assert(ctx->isServer);
-	if(ctx->dhContext._full == NULL) {
+	if(ctx->dhContext == NULL) {
 		/* should never happen */
 		assert(0);
 		return errSSLInternal;
@@ -1363,7 +1363,7 @@ SSLGenClientECDHKeyAndExchange(tls_handshake_t ctx)
 	}
 
     /* generate a new pair, using the curve from the pubkey */
-    sslFree(ctx->ecdhContext._full);
+    sslFree(ctx->ecdhContext);
     require_noerr((ortn = sslEcdhCreateKey(ccec_ctx_cp(ecdhePeerPubKey.ecc), &ctx->ecdhContext)), errOut);
 
 	/* do the exchange --> premaster secret */
@@ -1418,9 +1418,9 @@ static size_t
 SSLEncodedECDHKeyParamsLen(tls_handshake_t ctx)
 {
     assert(ctx->isServer);
-    assert(ctx->ecdhContext._full != NULL);
+    assert(ctx->ecdhContext != NULL);
 
-    size_t pub_len = ccec_export_pub_size(ctx->ecdhContext);
+    size_t pub_len = ccec_export_pub_size(ccec_ctx_pub(ctx->ecdhContext));
     size_t len = 1 + 2 + 1 + pub_len;
 
     return len;
@@ -1435,12 +1435,12 @@ SSLEncodeECDHKeyParams(tls_handshake_t ctx, uint8_t *p)
 {
     assert(ctx->isServer);
 
-    size_t pub_len = ccec_export_pub_size(ctx->ecdhContext);
+    size_t pub_len = ccec_export_pub_size(ccec_ctx_pub(ctx->ecdhContext));
 
     p = SSLEncodeInt(p, SSL_CurveTypeNamed, 1);
     p = SSLEncodeInt(p, ctx->ecdhPeerCurve, 2);
     p = SSLEncodeInt(p, pub_len, 1);
-    ccec_export_pub(ctx->ecdhContext, p);
+    ccec_export_pub(ccec_ctx_pub(ctx->ecdhContext), p);
 
     return errSSLSuccess;
 }
@@ -1538,7 +1538,7 @@ SSLEncodeECDHClientKeyExchange(tls_buffer *keyExchange, tls_handshake_t ctx)
 
     tls_buffer pubKey = {0,};
 
-    assert(ctx->ecdhContext.hdr);
+    assert(ctx->ecdhContext);
     sslEcdhExportPub(ctx->ecdhContext, &pubKey);
     outputLen = pubKey.length + 1;
 
@@ -1568,7 +1568,7 @@ SSLDecodeECDHClientKeyExchange(tls_buffer keyExchange, tls_handshake_t ctx)
     SSLPubKey ecdhePeerPubKey;
 
     assert(ctx->isServer);
-    if (ctx->ecdhContext._full == NULL) {
+    if (ctx->ecdhContext == NULL) {
         assert(0);
         return errSSLInternal;
     }
@@ -1591,7 +1591,7 @@ SSLDecodeECDHClientKeyExchange(tls_buffer keyExchange, tls_handshake_t ctx)
 
     /* DH Key exchange, result --> premaster secret */
     SSLFreeBuffer(&ctx->preMasterSecret);
-    require_noerr(err = sslEcdhKeyExchange(ctx->ecdhContext, ecdhePeerPubKey.ecc._pub, &ctx->preMasterSecret), fail);
+    require_noerr(err = sslEcdhKeyExchange(ctx->ecdhContext, ecdhePeerPubKey.ecc, &ctx->preMasterSecret), fail);
 
     dumpBuf("server peer pub", &ctx->ecdhPeerPublic);
     dumpBuf("server premaster", &ctx->ecpreMasterSecret);

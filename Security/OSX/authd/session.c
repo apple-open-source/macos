@@ -6,6 +6,8 @@
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+AUTHD_DEFINE_LOG
+
 struct _session_s {
     __AUTH_BASE_STRUCT_HEADER__;
     
@@ -22,14 +24,14 @@ _session_finalize(CFTypeRef value)
 {
     session_t session = (session_t)value;
     
-    LOGV("session: %i deallocated %p", session->auditinfo.ai_asid, session);
+    os_log_debug(AUTHD_LOG, "session: %i deallocated", session->auditinfo.ai_asid);
     
     // make sure queue is empty
     dispatch_barrier_sync(session->dispatch_queue, ^{});
     
     dispatch_release(session->dispatch_queue);
-    CFReleaseSafe(session->credentials);
-    CFReleaseSafe(session->processes);
+    CFReleaseNull(session->credentials);
+    CFReleaseNull(session->processes);
 }
 
 AUTH_TYPE_INSTANCE(session,
@@ -64,7 +66,7 @@ session_create(session_id_t sid)
     session->auditinfo.ai_asid = sid;
     
     if (!session_update(session)) {
-        LOGE("session: failed to get session info");
+        os_log_error(AUTHD_LOG, "session: failed to get session info");
     }
     
     session->dispatch_queue = dispatch_queue_create(NULL, DISPATCH_QUEUE_SERIAL);
@@ -73,7 +75,7 @@ session_create(session_id_t sid)
     session->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     session->processes = CFSetCreateMutable(kCFAllocatorDefault, 0, NULL);
     
-    LOGV("session: %i created (uid=%i) %p", session->auditinfo.ai_asid, session->auditinfo.ai_auid, session);
+    os_log_debug(AUTHD_LOG, "session: %i created (uid=%i)", session->auditinfo.ai_asid, session->auditinfo.ai_auid);
 
 done:
     return session;
@@ -96,7 +98,7 @@ static void _set_attributes(session_t session, uint64_t flags)
     session->auditinfo.ai_flags = flags;
     int32_t rc = setaudit_addr(&session->auditinfo, sizeof(session->auditinfo));
     if (rc != 0) {
-        LOGV("session: failed to update session info (%d)", rc);
+        os_log_debug(AUTHD_LOG, "session: failed to update session info (%d)", rc);
     }
 }
 

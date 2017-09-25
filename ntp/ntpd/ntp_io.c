@@ -524,13 +524,17 @@ io_open_sockets(void)
 /*
  * function to dump the contents of the interface structure
  * for debugging use only.
+ * We face a dilemma here -- sockets are FDs under POSIX and
+ * actually HANDLES under Windows. So we use '%lld' as format
+ * and cast the value to 'long long'; this should not hurt
+ * with UNIX-like systems and does not truncate values on Win64.
  */
 void
 interface_dump(const endpt *itf)
 {
 	printf("Dumping interface: %p\n", itf);
-	printf("fd = %d\n", itf->fd);
-	printf("bfd = %d\n", itf->bfd);
+	printf("fd = %lld\n", (long long)itf->fd);
+	printf("bfd = %lld\n", (long long)itf->bfd);
 	printf("sin = %s,\n", stoa(&itf->sin));
 	sockaddr_dump(&itf->sin);
 	printf("bcast = %s,\n", stoa(&itf->bcast));
@@ -578,11 +582,11 @@ sockaddr_dump(const sockaddr_u *psau)
 static void
 print_interface(const endpt *iface, const char *pfx, const char *sfx)
 {
-	printf("%sinterface #%d: fd=%d, bfd=%d, name=%s, flags=0x%x, ifindex=%u, sin=%s",
+	printf("%sinterface #%d: fd=%lld, bfd=%lld, name=%s, flags=0x%x, ifindex=%u, sin=%s",
 	       pfx,
 	       iface->ifnum,
-	       iface->fd,
-	       iface->bfd,
+	       (long long)iface->fd,
+	       (long long)iface->bfd,
 	       iface->name,
 	       iface->flags,
 	       iface->ifindex,
@@ -2630,7 +2634,7 @@ io_setbclient(void)
 {
 #ifdef OPEN_BCAST_SOCKET
 	struct interface *	interf;
-	int			nif;
+	unsigned int		nif;
 
 	nif = 0;
 	set_reuseaddr(1);
@@ -2707,11 +2711,10 @@ io_setbclient(void)
 		}
 	}
 	set_reuseaddr(0);
-	if (nif > 0) {
+	if (nif != 0) {
 		broadcast_client_enabled = ISC_TRUE;
 		DPRINTF(1, ("io_setbclient: listening to %d broadcast addresses\n", nif));
-	}
-	else if (!nif) {
+	} else {
 		broadcast_client_enabled = ISC_FALSE;
 		msyslog(LOG_ERR,
 			"Unable to listen for broadcasts, no broadcast interfaces available");
@@ -3919,7 +3922,6 @@ input_handler_scan(
 }
 #endif /* !HAVE_IO_COMPLETION_PORT */
 
-
 /*
  * find an interface suitable for the src address
  */
@@ -3982,6 +3984,7 @@ select_peerinterface(
 
 	return ep;
 }
+
 
 /*
  * findinterface - find local interface corresponding to address

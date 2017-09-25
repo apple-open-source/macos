@@ -64,14 +64,6 @@ void WEBPImageDecoder::clear()
     m_decoder = 0;
 }
 
-bool WEBPImageDecoder::isSizeAvailable()
-{
-    if (!ImageDecoder::isSizeAvailable())
-         decode(true);
-
-    return ImageDecoder::isSizeAvailable();
-}
-
 ImageFrame* WEBPImageDecoder::frameBufferAtIndex(size_t index)
 {
     if (index)
@@ -82,11 +74,11 @@ ImageFrame* WEBPImageDecoder::frameBufferAtIndex(size_t index)
 
     ImageFrame& frame = m_frameBufferCache[0];
     if (!frame.isComplete())
-        decode(false);
+        decode(false, isAllDataReceived());
     return &frame;
 }
 
-bool WEBPImageDecoder::decode(bool onlySize)
+bool WEBPImageDecoder::decode(bool onlySize, bool)
 {
     if (failed())
         return false;
@@ -94,7 +86,7 @@ bool WEBPImageDecoder::decode(bool onlySize)
     const uint8_t* dataBytes = reinterpret_cast<const uint8_t*>(m_data->data());
     const size_t dataSize = m_data->size();
 
-    if (!ImageDecoder::isSizeAvailable()) {
+    if (ImageDecoder::encodedDataStatus() < EncodedDataStatus::SizeAvailable) {
         static const size_t imageHeaderSize = 30;
         if (dataSize < imageHeaderSize)
             return false;
@@ -116,7 +108,7 @@ bool WEBPImageDecoder::decode(bool onlySize)
             return setFailed();
     }
 
-    ASSERT(ImageDecoder::isSizeAvailable());
+    ASSERT(ImageDecoder::encodedDataStatus() >= EncodedDataStatus::SizeAvailable);
     if (onlySize)
         return true;
 
@@ -124,10 +116,10 @@ bool WEBPImageDecoder::decode(bool onlySize)
     ImageFrame& buffer = m_frameBufferCache[0];
     ASSERT(!buffer.isComplete());
 
-    if (buffer.isEmpty()) {
+    if (buffer.isInvalid()) {
         if (!buffer.initialize(size(), m_premultiplyAlpha))
             return setFailed();
-        buffer.setDecoding(ImageFrame::Decoding::Partial);
+        buffer.setDecodingStatus(DecodingStatus::Partial);
         buffer.setHasAlpha(m_hasAlpha);
     }
 
@@ -145,13 +137,13 @@ bool WEBPImageDecoder::decode(bool onlySize)
 
     switch (WebPIUpdate(m_decoder, dataBytes, dataSize)) {
     case VP8_STATUS_OK:
-        buffer.setDecoding(ImageFrame::Decoding::Complete);
+        buffer.setDecodingStatus(DecodingStatus::Complete);
         clear();
         return true;
     case VP8_STATUS_SUSPENDED:
         return false;
     default:
-        clear();                         
+        clear();
         return setFailed();
     }
 }

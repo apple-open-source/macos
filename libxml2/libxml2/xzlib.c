@@ -107,15 +107,15 @@ xz_error(xz_statep state, int err, const char *msg)
     }
 
     /* construct error message with path */
-    if ((state->msg =
-         xmlMalloc(strlen(state->path) + strlen(msg) + 3)) == NULL) {
-        state->err = LZMA_MEM_ERROR;
-        state->msg = (char *) "out of memory";
-        return;
+    {
+        const size_t msgLength = strlen(state->path) + 2 + strlen(msg) + 1;
+        if ((state->msg = xmlMalloc(msgLength)) == NULL) {
+            state->err = LZMA_MEM_ERROR;
+            state->msg = (char *) "out of memory";
+            return;
+        }
+        snprintf(state->msg, msgLength, "%s: %s", state->path, msg);
     }
-    strcpy(state->msg, state->path);
-    strcat(state->msg, ": ");
-    strcat(state->msg, msg);
     return;
 }
 
@@ -138,6 +138,7 @@ xz_reset(xz_statep state)
 static xzFile
 xz_open(const char *path, int fd, const char *mode ATTRIBUTE_UNUSED)
 {
+    const size_t pathLength = strlen(path) + 1;
     xz_statep state;
 
     /* allocate xzFile structure to return */
@@ -150,12 +151,13 @@ xz_open(const char *path, int fd, const char *mode ATTRIBUTE_UNUSED)
     state->init = 0;            /* initialization of zlib data */
 
     /* save the path name for error messages */
-    state->path = xmlMalloc(strlen(path) + 1);
+    state->path = xmlMalloc(pathLength);
     if (state->path == NULL) {
         xmlFree(state);
         return NULL;
     }
-    strcpy(state->path, path);
+    strncpy(state->path, path, pathLength);
+    state->path[pathLength - 1] = '\0';
 
     /* open the file with the appropriate mode (or just use fd) */
     state->fd = fd != -1 ? fd : open(path,
@@ -220,10 +222,11 @@ __libxml2_xzdopen(int fd, const char *mode)
 {
     char *path;                 /* identifier for error messages */
     xzFile xz;
+    size_t pathLength = 7 + (3 * sizeof(int)) + 1;
 
-    if (fd == -1 || (path = xmlMalloc(7 + 3 * sizeof(int))) == NULL)
+    if (fd == -1 || (path = xmlMalloc(pathLength)) == NULL)
         return NULL;
-    sprintf(path, "<fd:%d>", fd);       /* for debugging */
+    snprintf(path, pathLength, "<fd:%d>", fd);       /* for debugging */
     xz = xz_open(path, fd, mode);
     xmlFree(path);
     return xz;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2002, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -86,6 +86,7 @@ struct cfg_printer {
 	void (*f)(void *closure, const char *text, int textlen);
 	void *closure;
 	int indent;
+	int flags;
 };
 
 /*% A clause definition. */
@@ -266,6 +267,7 @@ LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_uint64;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_qstring;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_astring;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_ustring;
+LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_sstring;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_sockaddr;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_bracketed_namesockaddrkeylist;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_namesockaddrkey;

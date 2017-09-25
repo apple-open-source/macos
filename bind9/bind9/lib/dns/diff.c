@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009, 2011, 2013-2015  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: diff.c,v 1.26 2011/03/25 23:53:02 each Exp $ */
 
 /*! \file */
 
@@ -73,12 +73,13 @@ dns_difftuple_create(isc_mem_t *mctx,
 	t = isc_mem_allocate(mctx, size);
 	if (t == NULL)
 		return (ISC_R_NOMEMORY);
-	t->mctx = mctx;
+	t->mctx = NULL;
+	isc_mem_attach(mctx, &t->mctx);
 	t->op = op;
 
 	datap = (unsigned char *)(t + 1);
 
-	memcpy(datap, name->ndata, name->length);
+	memmove(datap, name->ndata, name->length);
 	dns_name_init(&t->name, NULL);
 	dns_name_clone(name, &t->name);
 	t->name.ndata = datap;
@@ -86,7 +87,7 @@ dns_difftuple_create(isc_mem_t *mctx,
 
 	t->ttl = ttl;
 
-	memcpy(datap, rdata->data, rdata->length);
+	memmove(datap, rdata->data, rdata->length);
 	dns_rdata_init(&t->rdata);
 	dns_rdata_clone(rdata, &t->rdata);
 	t->rdata.data = datap;
@@ -105,10 +106,15 @@ dns_difftuple_create(isc_mem_t *mctx,
 void
 dns_difftuple_free(dns_difftuple_t **tp) {
 	dns_difftuple_t *t = *tp;
+	isc_mem_t *mctx;
+
 	REQUIRE(DNS_DIFFTUPLE_VALID(t));
+
 	dns_name_invalidate(&t->name);
 	t->magic = 0;
-	isc_mem_free(t->mctx, t);
+	mctx = t->mctx;
+	isc_mem_free(mctx, t);
+	isc_mem_detach(&mctx);
 	*tp = NULL;
 }
 
@@ -373,15 +379,6 @@ diff_apply(dns_diff_t *diff, dns_db_t *db, dns_dbversion_t *ver,
 							   diff->resign);
 					dns_db_setsigningtime(db, modified,
 							      resign);
-					if (diff->resign == 0 &&
-					    (op == DNS_DIFFOP_ADDRESIGN ||
-					     op == DNS_DIFFOP_DELRESIGN))
-						isc_log_write(
-							DIFF_COMMON_LOGARGS,
-							ISC_LOG_WARNING,
-							"resign requested "
-							"with 0 resign "
-							"interval");
 				}
 			} else if (result == DNS_R_UNCHANGED) {
 				/*
@@ -393,9 +390,6 @@ diff_apply(dns_diff_t *diff, dns_db_t *db, dns_dbversion_t *ver,
 				 * Issue a warning and continue.
 				 */
 				if (warn) {
-					char classbuf[DNS_RDATATYPE_FORMATSIZE];
-					char namebuf[DNS_NAME_FORMATSIZE];
-
 					dns_name_format(dns_db_origin(db),
 							namebuf,
 							sizeof(namebuf));

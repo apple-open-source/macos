@@ -45,7 +45,9 @@
                 remaining output data with CCCryptorFinal(). The CCCryptor is
                 disposed of via CCCryptorRelease(), or it can be reused (with
                 the same key data as provided to CCCryptorCreate()) by calling
-                CCCryptorReset(). 
+                CCCryptorReset(). The CCCryptorReset() function only works for
+                the CBC mode. In other block cipher modes, it returns error.
+ 
                 
                 CCCryptors can be dynamically allocated by this module, or 
                 their memory can be allocated by the caller. See discussion for
@@ -82,9 +84,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#ifndef KERNEL
 #include <stddef.h>
-#endif /* KERNEL */
 #include <Availability.h>
 
 #ifdef __cplusplus
@@ -275,7 +275,8 @@ enum {
                             kCCOptionECBMode bit in the options flags) and no 
                             IV is present, a NULL (all zeroes) IV will be used. 
                             This parameter is ignored if ECB mode is used or
-                            if a stream cipher algorithm is selected. 
+                            if a stream cipher algorithm is selected. For sound 
+                            encryption, always initialize iv with random data.
 
     @param      cryptorRef  A (required) pointer to the returned CCCryptorRef. 
 
@@ -317,9 +318,10 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
                             kCCOptionECBMode bit in the options flags) and no 
                             IV is present, a NULL (all zeroes) IV will be used. 
                             This parameter is ignored if ECB mode is used or
-                            if a stream cipher algorithm is selected. 
+                            if a stream cipher algorithm is selected. For sound
+                            encryption, always initialize iv with random data.
 
-    @param      data        A pointer to caller-supplied memory from which the 
+    @param      data        A pointer to caller-supplied memory from which the
                             CCCryptorRef will be created. 
                             
     @param      dataLength  The size of the caller-supplied memory in bytes. 
@@ -527,16 +529,18 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
     @function   CCCryptorReset
     @abstract   Reinitializes an existing CCCryptorRef with a (possibly)
                 new initialization vector. The CCCryptorRef's key is
-                unchanged. Not implemented for stream ciphers. 
+                unchanged. Use only for CBC mode.
                 
     @param      cryptorRef  A CCCryptorRef created via CCCryptorCreate() or
                             CCCryptorCreateFromData().
     @param      iv          Optional initialization vector; if present, must
                             be the same size as the current algorithm's block
-                            size. 
-                            
-    @result     The the only possible errors are kCCParamError and 
-                kCCUnimplemented.
+                            size. For sound encryption, always initialize iv with 
+                            random data.
+ 
+    @result     The only possible errors are kCCParamError and
+                kCCUnimplemented. On macOS 10.13, iOS 11, watchOS 4 and tvOS 11 returns kCCUnimplemented
+                for modes other than CBC. On prior SDKs, returns kCCSuccess to preserve compatibility
     
     @discussion This can be called on a CCCryptorRef with data pending (i.e.
                 in a padded mode operation before CCCryptFinal is called); 
@@ -577,7 +581,8 @@ CCCryptorStatus CCCryptorReset(
                                 the options flags) and no IV is present, a 
                                 NULL (all zeroes) IV will be used. This is 
                                 ignored if ECB mode is used or if a stream 
-                                cipher algorithm is selected. 
+                                cipher algorithm is selected. For sound encryption,
+                                always initialize IV with random data.
     
     @param      dataIn          Data to encrypt or decrypt, length dataInLength 
                                 bytes. 
@@ -711,8 +716,9 @@ typedef uint32_t CCModeOptions;
      
                             If present, must be the same length as the selected
                             algorithm's block size.  If no IV is present, a NULL
-                            (all zeroes) IV will be used. 
-     
+                            (all zeroes) IV will be used. For sound encryption, 
+                            always initialize iv with random data.
+ 
                             This parameter is ignored if ECB mode is used or
                             if a stream cipher algorithm is selected. 
      

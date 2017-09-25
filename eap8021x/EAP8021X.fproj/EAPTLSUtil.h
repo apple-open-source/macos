@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,7 +63,7 @@ typedef struct {
 } memoryIO, * memoryIORef;
 
 SSLContextRef
-EAPTLSMemIOContextCreate(bool is_server, memoryIORef mem_io, 
+EAPTLSMemIOContextCreate(CFDictionaryRef properties, bool is_server, memoryIORef mem_io,
 			 char * peername, OSStatus * ret_status);
 #if 0
 OSStatus

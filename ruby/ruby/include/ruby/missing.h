@@ -21,6 +21,9 @@ extern "C" {
 #include "ruby/config.h"
 #include <stddef.h>
 #include <math.h> /* for INFINITY and NAN */
+#ifdef RUBY_ALTERNATIVE_MALLOC_HEADER
+# include RUBY_ALTERNATIVE_MALLOC_HEADER
+#endif
 #ifdef RUBY_EXTCONF_H
 #include RUBY_EXTCONF_H
 #endif
@@ -32,6 +35,18 @@ extern "C" {
 #if defined(HAVE_SYS_TIME_H)
 # include <sys/time.h>
 #endif
+#endif
+
+#ifndef M_PI
+# define M_PI 3.14159265358979323846
+#endif
+#ifndef M_PI_2
+# define M_PI_2 (M_PI/2)
+#endif
+
+#ifndef RUBY_SYMBOL_EXPORT_BEGIN
+# define RUBY_SYMBOL_EXPORT_BEGIN /* begin */
+# define RUBY_SYMBOL_EXPORT_END   /* end */
 #endif
 
 #if !defined(HAVE_STRUCT_TIMEVAL)
@@ -62,9 +77,7 @@ struct timezone {
 #define RUBY_EXTERN extern
 #endif
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility push(default)
-#endif
+RUBY_SYMBOL_EXPORT_BEGIN
 
 #ifndef HAVE_ACOSH
 RUBY_EXTERN double acosh(double);
@@ -123,24 +136,20 @@ RUBY_EXTERN double lgamma_r(double, int *);
 RUBY_EXTERN double cbrt(double);
 #endif
 
-#if !defined(INFINITY) || !defined(NAN)
+#if !defined(HAVE_INFINITY) || !defined(HAVE_NAN)
 union bytesequence4_or_float {
   unsigned char bytesequence[4];
   float float_value;
 };
 #endif
 
-#ifdef INFINITY
-# define HAVE_INFINITY
-#else
+#ifndef INFINITY
 /** @internal */
 RUBY_EXTERN const union bytesequence4_or_float rb_infinity;
 # define INFINITY (rb_infinity.float_value)
 #endif
 
-#ifdef NAN
-# define HAVE_NAN
-#else
+#ifndef NAN
 /** @internal */
 RUBY_EXTERN const union bytesequence4_or_float rb_nan;
 # define NAN (rb_nan.float_value)
@@ -163,6 +172,17 @@ RUBY_EXTERN int isinf(double);
 # ifndef HAVE_ISNAN
 RUBY_EXTERN int isnan(double);
 # endif
+#endif
+
+#ifndef isfinite
+# ifndef HAVE_ISFINITE
+#   define HAVE_ISFINITE 1
+#   define isfinite(x) finite(x)
+# endif
+#endif
+
+#ifndef HAVE_NEXTAFTER
+RUBY_EXTERN double nextafter(double x, double y);
 #endif
 
 /*
@@ -229,9 +249,14 @@ RUBY_EXTERN int ruby_close(int);
 RUBY_EXTERN void setproctitle(const char *fmt, ...);
 #endif
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility pop
+#ifndef HAVE_EXPLICIT_BZERO
+RUBY_EXTERN void explicit_bzero(void *b, size_t len);
+# if defined SecureZeroMemory
+#   define explicit_bzero(b, len) SecureZeroMemory(b, len)
+# endif
 #endif
+
+RUBY_SYMBOL_EXPORT_END
 
 #if defined(__cplusplus)
 #if 0

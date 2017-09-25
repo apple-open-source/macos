@@ -40,7 +40,8 @@
 #include <err.h>
 #include <libutil.h>
 
-#include <ktrace.h>
+#include <ktrace/session.h>
+#include <System/sys/kdebug.h>
 #include <assert.h>
 
 #include <sys/disk.h>
@@ -126,6 +127,7 @@ void extend_syscall(uintptr_t thread, int type, ktrace_event_t event);
 /* printing routines */
 bool check_filter_mode(pid_t pid, th_info_t ti, unsigned long type, int error, int retval, char *sc_name);
 void format_print(th_info_t ti, char *sc_name, ktrace_event_t event, unsigned long type, int format, uint64_t now, uint64_t stime, int waited, const char *pathname, struct diskio *dio);
+int print_open(ktrace_event_t event, uintptr_t flags);
 
 /* metadata info hash routines */
 void meta_add_name(uint64_t blockno, const char *pathname);
@@ -717,7 +719,7 @@ main(int argc, char *argv[])
 	char ch;
 	int rv;
 	bool exclude_pids = false;
-	double time_limit = 0.0;
+	uint64_t time_limit_ns = 0;
 
 	get_screenwidth();
 
@@ -760,8 +762,12 @@ main(int argc, char *argv[])
 				break;
 
 			case 't':
-				time_limit = atof(optarg);
-
+				time_limit_ns = (uint64_t)(NSEC_PER_SEC * atof(optarg));
+				if (time_limit_ns == 0) {
+					fprintf(stderr, "ERROR: could not set time limit to %s\n",
+							optarg);
+					exit(1);
+				}
 				break;
 
 			case 'R':
@@ -789,16 +795,15 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (time_limit > 0.0) {
+	if (time_limit_ns > 0) {
 		if (RAW_flag) {
 			fprintf(stderr, "NOTE: time limit ignored when a raw file is specified\n");
 		} else {
-			stop_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
-			dispatch_source_set_timer(stop_timer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * time_limit), DISPATCH_TIME_FOREVER, 0);
-			dispatch_source_set_event_handler(stop_timer, ^{
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, time_limit_ns),
+					dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
+			^{
 				ktrace_end(s, 0);
 			});
-			dispatch_resume(stop_timer);
 		}
 	}
 
@@ -902,7 +907,7 @@ main(int argc, char *argv[])
 		if (!wideflag)
 			get_screenwidth();
 	});
-	dispatch_resume(sigwinch_source);
+	dispatch_activate(sigwinch_source);
 
 	init_shared_cache_mapping();
 
@@ -923,6 +928,8 @@ main(int argc, char *argv[])
 	ktrace_set_default_event_names_enabled(KTRACE_FEATURE_DISABLED);
 	ktrace_set_execnames_enabled(s, KTRACE_FEATURE_LAZY);
 	ktrace_set_vnode_paths_enabled(s, true);
+	/* no need to symbolicate addresses */
+	ktrace_set_uuid_map_enabled(s, KTRACE_FEATURE_DISABLED);
 
 	rv = ktrace_start(s, dispatch_get_main_queue());
 
@@ -1549,6 +1556,40 @@ check_filter_mode(pid_t pid, th_info_t ti, unsigned long type, int error, int re
 	}
 
 	return ret;
+}
+
+int
+print_open(ktrace_event_t event, uintptr_t flags)
+{
+	char mode[] = "______";
+
+	if (flags & O_RDWR) {
+		mode[0] = 'R';
+		mode[1] = 'W';
+	} else if (flags & O_WRONLY) {
+		mode[1] = 'W';
+	} else {
+		mode[0] = 'R';
+	}
+
+	if (flags & O_CREAT) {
+		mode[2] = 'C';
+	}
+	if (flags & O_APPEND) {
+		mode[3] = 'A';
+	}
+	if (flags & O_TRUNC) {
+		mode[4] = 'T';
+	}
+	if (flags & O_EXCL) {
+		mode[5] = 'E';
+	}
+
+	if (event->arg1) {
+		return printf("      [%3d] (%s) ", (int)event->arg1, mode);
+	} else {
+		return printf(" F=%-3d      (%s) ", (int)event->arg2, mode);
+	}
 }
 
 /*
@@ -2355,46 +2396,15 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				break;
 			}
 
-			case FMT_OPENAT:
 			case FMT_OPEN:
-			{
-				/*
-				 * open
-				 */
-				char mode[7];
-
-				memset(mode, '_', 6);
-				mode[6] = '\0';
-
-				if (ti->arg2 & O_RDWR) {
-					mode[0] = 'R';
-					mode[1] = 'W';
-				} else if (ti->arg2 & O_WRONLY) {
-					mode[1] = 'W';
-				} else {
-					mode[0] = 'R';
-				}
-
-				if (ti->arg2 & O_CREAT)
-					mode[2] = 'C';
-
-				if (ti->arg2 & O_APPEND)
-					mode[3] = 'A';
-
-				if (ti->arg2 & O_TRUNC)
-					mode[4] = 'T';
-
-				if (ti->arg2 & O_EXCL)
-					mode[5] = 'E';
-
-				if (event->arg1)
-					clen += printf("      [%3d] (%s) ", (int)event->arg1, mode);
-				else
-					clen += printf(" F=%-3d      (%s) ", (int)event->arg2, mode);
-
+				clen += print_open(event, ti->arg2);
 				nopadding = 1;
 				break;
-			}
+
+			case FMT_OPENAT:
+				clen += print_open(event, ti->arg3);
+				nopadding = 1;
+				break;
 
 			case FMT_SOCKET:
 			{

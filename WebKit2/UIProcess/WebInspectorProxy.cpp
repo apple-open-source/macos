@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 #include "WebAutomationSession.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebFrameProxy.h"
+#include "WebInspectorInterruptDispatcherMessages.h"
 #include "WebInspectorMessages.h"
 #include "WebInspectorProxyMessages.h"
 #include "WebInspectorUIMessages.h"
@@ -46,8 +47,8 @@
 #include <WebCore/NotImplemented.h>
 #include <wtf/NeverDestroyed.h>
 
-#if ENABLE(INSPECTOR_SERVER)
-#include "WebInspectorServer.h"
+#if PLATFORM(GTK)
+#include "WebInspectorProxyClient.h"
 #endif
 
 using namespace WebCore;
@@ -86,11 +87,6 @@ WebPreferences& WebInspectorProxy::inspectorPagePreferences() const
 
 void WebInspectorProxy::invalidate()
 {
-#if ENABLE(INSPECTOR_SERVER)
-    if (m_remoteInspectionPageId)
-        WebInspectorServer::singleton().unregisterPage(m_remoteInspectionPageId);
-#endif
-
     m_inspectedPage->process().removeMessageReceiver(Messages::WebInspectorProxy::messageReceiverName(), m_inspectedPage->pageID());
 
     didClose();
@@ -121,6 +117,7 @@ void WebInspectorProxy::connect()
 
     eagerlyCreateInspectorPage();
 
+    m_inspectedPage->process().send(Messages::WebInspectorInterruptDispatcher::NotifyNeedDebuggerBreak(), 0);
     m_inspectedPage->process().send(Messages::WebInspector::Show(), m_inspectedPage->pageID());
 }
 
@@ -217,6 +214,11 @@ void WebInspectorProxy::attachRight()
     attach(AttachmentSide::Right);
 }
 
+void WebInspectorProxy::attachLeft()
+{
+    attach(AttachmentSide::Left);
+}
+
 void WebInspectorProxy::attach(AttachmentSide side)
 {
     if (!m_inspectedPage || !canAttach())
@@ -239,6 +241,10 @@ void WebInspectorProxy::attach(AttachmentSide side)
 
     case AttachmentSide::Right:
         m_inspectorPage->process().send(Messages::WebInspectorUI::AttachedRight(), m_inspectorPage->pageID());
+        break;
+
+    case AttachmentSide::Left:
+        m_inspectorPage->process().send(Messages::WebInspectorUI::AttachedLeft(), m_inspectorPage->pageID());
         break;
     }
 
@@ -380,29 +386,6 @@ static void getContextMenuFromProposedMenu(WKPageRef pageRef, WKArrayRef propose
     *newMenuRef = menuItems;
 }
 
-#if ENABLE(INSPECTOR_SERVER)
-void WebInspectorProxy::enableRemoteInspection()
-{
-    if (!m_remoteInspectionPageId)
-        m_remoteInspectionPageId = WebInspectorServer::singleton().registerPage(this);
-}
-
-void WebInspectorProxy::remoteFrontendConnected()
-{
-    m_inspectedPage->process().send(Messages::WebInspector::RemoteFrontendConnected(), m_inspectedPage->pageID());
-}
-
-void WebInspectorProxy::remoteFrontendDisconnected()
-{
-    m_inspectedPage->process().send(Messages::WebInspector::RemoteFrontendDisconnected(), m_inspectedPage->pageID());
-}
-
-void WebInspectorProxy::dispatchMessageFromRemoteFrontend(const String& message)
-{
-    m_inspectedPage->process().send(Messages::WebInspector::SendMessageToBackend(message), m_inspectedPage->pageID());
-}
-#endif
-
 void WebInspectorProxy::eagerlyCreateInspectorPage()
 {
     if (m_inspectorPage)
@@ -490,6 +473,10 @@ void WebInspectorProxy::createInspectorPage(IPC::Attachment connectionIdentifier
 
             case AttachmentSide::Right:
                 m_inspectorPage->process().send(Messages::WebInspectorUI::AttachedRight(), m_inspectorPage->pageID());
+                break;
+
+            case AttachmentSide::Left:
+                m_inspectorPage->process().send(Messages::WebInspectorUI::AttachedLeft(), m_inspectorPage->pageID());
                 break;
             }
         } else
@@ -618,14 +605,6 @@ bool WebInspectorProxy::shouldOpenAttached()
 {
     return inspectorPagePreferences().inspectorStartsAttached() && canAttach();
 }
-
-#if ENABLE(INSPECTOR_SERVER)
-void WebInspectorProxy::sendMessageToRemoteFrontend(const String& message)
-{
-    ASSERT(m_remoteInspectionPageId);
-    WebInspectorServer::singleton().sendMessageOverConnection(m_remoteInspectionPageId, message);
-}
-#endif
 
 // Unsupported configurations can use the stubs provided here.
 

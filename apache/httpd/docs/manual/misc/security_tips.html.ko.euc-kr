@@ -34,7 +34,7 @@
     <p>웹서버를 운영할때 도움이 될 보안 관련 힌트와 팁이다.
     어떤 것은 일반적이고, 어떤 것은 아파치에만 해당하는 것이다.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#uptodate">최신판으로 유지하기</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#uptodate">최신판으로 유지하기</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#serverroot">ServerRoot 디렉토리 권한</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#ssi">Server Side Includes</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#cgi">일반적인 CGI</a></li>
@@ -364,7 +364,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/misc/security_tips.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

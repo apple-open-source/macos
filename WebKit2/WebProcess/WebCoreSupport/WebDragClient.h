@@ -44,10 +44,10 @@ public:
 private:
     void willPerformDragDestinationAction(WebCore::DragDestinationAction, const WebCore::DragData&) override;
     void willPerformDragSourceAction(WebCore::DragSourceAction, const WebCore::IntPoint&, WebCore::DataTransfer&) override;
-    WebCore::DragDestinationAction actionMaskForDrag(const WebCore::DragData&) override;
     WebCore::DragSourceAction dragSourceActionMaskForPoint(const WebCore::IntPoint& windowPoint) override;
 
-    void startDrag(WebCore::DragImageRef, const WebCore::IntPoint& dragImageOrigin, const WebCore::IntPoint& eventPos, WebCore::DataTransfer&, WebCore::Frame&, bool linkDrag = false) override;
+    void startDrag(WebCore::DragItem, WebCore::DataTransfer&, WebCore::Frame&) override;
+    void didConcludeEditDrag() override;
 
 #if PLATFORM(COCOA)
     void declareAndWriteDragImage(const String& pasteboardName, WebCore::Element&, const WebCore::URL&, const String&, WebCore::Frame*) override;

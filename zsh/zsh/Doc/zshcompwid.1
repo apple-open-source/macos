@@ -1,4 +1,4 @@
-.TH "ZSHCOMPWID" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHCOMPWID" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshcompwid \- zsh completion widgets
 .\" Yodl file: Zsh/compwid.yo
@@ -963,6 +963,13 @@ As \fBl\fP, \fBL\fP, \fBb\fP and \fBB\fP, with the difference that the command
 line and trial completion patterns are anchored on the right side\&.
 Here an empty \fIranchor\fP and the \fBe\fP and \fBE\fP forms force the
 match to the end of the command line or trial completion string\&.
+.TP
+\fBx:\fP
+This form is used to mark the end of matching specifications:
+subsequent specifications are ignored\&. In a single standalone list
+of specifications this has no use but where matching specifications
+are accumulated, such as from nested function calls, it can allow one
+function to override another\&.
 .PP
 Each \fIlpat\fP, \fItpat\fP or \fIanchor\fP is either an empty string or
 consists of a sequence of literal characters (which may be quoted with a

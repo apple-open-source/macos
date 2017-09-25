@@ -164,6 +164,12 @@ static void test_failed_noreturn() __attribute((analyzer_noreturn)) {
 #define plan_skip_all(REASON) test_plan_skip_all(REASON)
 #define plan_tests(COUNT) test_plan_tests(COUNT, __FILE__, __LINE__)
 
+#define test_IsTrue(THIS, ...) ok(THIS, __VA_ARGS__)
+#define test_IsEqual(THIS, THAT, ...) is(THIS, THAT, __VA_ARGS__)
+#define test_IsNotEqual(THIS, THAT, ...) isnt(THIS, THAT, __VA_ARGS__)
+#define test_Pass(...) pass(__VA_ARGS__)
+#define test_Fail(...) fail(__VA_ARGS__)
+
 #define ok_status(THIS, ...) \
 ({ \
 	OSStatus _this = THIS; \
@@ -214,7 +220,7 @@ extern const char *test_reason;
 
 void test_bail_out(const char *reason, const char *file, unsigned line);
 int test_diag(const char *directive, const char *reason,
-	const char *file, unsigned line, const char *fmt, ...);
+	const char *file, unsigned line, const char *fmt, ...) __attribute__((format(printf, 5, 6)));
 int test_ok(int passed, __attribute((cf_consumed)) CFStringRef description, const char *directive,
 	const char *reason, const char *file, unsigned line, const char *fmt, ...);
 void test_plan_skip_all(const char *reason);

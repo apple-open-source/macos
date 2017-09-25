@@ -7,22 +7,22 @@
 #include <Security/SecureObjectSync/SOSTransportKeyParameter.h>
 #include <Security/SecureObjectSync/SOSAccount.h>
 
-CF_RETURNS_RETAINED CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransactionRef txn, CFDictionaryRef updates, CFErrorRef *error);
+CF_RETURNS_RETAINED CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransaction* txn, CFDictionaryRef updates, CFErrorRef *error);
 
-void SOSRegisterTransportMessage(SOSTransportMessageRef additional);
-void SOSUnregisterTransportMessage(SOSTransportMessageRef removal);
+void SOSRegisterTransportMessage(SOSMessage* additional);
+void SOSUnregisterTransportMessage(SOSMessage* removal);
 
-void SOSRegisterTransportCircle(SOSTransportCircleRef additional);
-void SOSUnregisterTransportCircle(SOSTransportCircleRef removal);
+void SOSRegisterTransportCircle(SOSCircleStorageTransport* additional);
+void SOSUnregisterTransportCircle(SOSCircleStorageTransport* removal);
 
-void SOSRegisterTransportKeyParameter(SOSTransportKeyParameterRef additional);
-void SOSUnregisterTransportKeyParameter(SOSTransportKeyParameterRef removal);
+void SOSRegisterTransportKeyParameter(CKKeyParameter* additional);
+void SOSUnregisterTransportKeyParameter(CKKeyParameter* removal);
 void SOSUnregisterAllTransportMessages(void);
 void SOSUnregisterAllTransportCircles(void);
 void SOSUnregisterAllTransportKeyParameters(void);
 
 
-void SOSUpdateKeyInterest(SOSAccountRef account);
+void SOSUpdateKeyInterest(SOSAccount* account);
 
 enum TransportType{
     kUnknown = 0,
@@ -30,7 +30,21 @@ enum TransportType{
     kIDS = 2,
     kBackupPeer = 3,
     kIDSTest = 4,
-    kKVSTest = 5
+    kKVSTest = 5,
+    kCK = 6
 };
+
+static inline CFMutableDictionaryRef CFDictionaryEnsureCFDictionaryAndGetCurrentValue(CFMutableDictionaryRef dict, CFTypeRef key)
+{
+    CFMutableDictionaryRef result = (CFMutableDictionaryRef) CFDictionaryGetValue(dict, key);
+
+    if (!isDictionary(result)) {
+        result = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFDictionarySetValue(dict, key, result);
+        CFReleaseSafe(result);
+    }
+
+    return result;
+}
 
 #endif

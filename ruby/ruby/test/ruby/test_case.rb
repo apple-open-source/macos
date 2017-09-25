@@ -1,5 +1,5 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil.rb'
 
 class TestCase < Test::Unit::TestCase
   def test_case
@@ -102,5 +102,45 @@ class TestCase < Test::Unit::TestCase
     else
       assert(false)
     end
+  end
+
+  def test_method_missing
+    flag = false
+
+    case 1
+    when Class.new(BasicObject) { def method_missing(*) true end }.new
+      flag = true
+    end
+
+    assert(flag)
+  end
+
+  def test_nomethoderror
+    assert_raise(NoMethodError) {
+      case 1
+      when Class.new(BasicObject) { }.new
+      end
+    }
+  end
+
+  module NilEqq
+    refine NilClass do
+      def === other
+        false
+      end
+    end
+  end
+
+  class NilEqqClass
+    using NilEqq
+
+    def eqq(a)
+      case a; when nil then nil; else :not_nil; end
+    end
+  end
+
+
+  def test_deoptimize_nil
+    assert_equal :not_nil, NilEqqClass.new.eqq(nil)
   end
 end

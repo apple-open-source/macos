@@ -38,6 +38,7 @@ class ExecState;
 class JSGlobalObject;
 class JSInternalPromise;
 class JSModuleLoader;
+class SourceOrigin;
 
 }
 
@@ -54,9 +55,10 @@ public:
 
     Document& document() { return m_document; }
 
-    JSC::JSInternalPromise* resolve(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleName, JSC::JSValue importerModuleKey, JSC::JSValue initiator);
-    JSC::JSInternalPromise* fetch(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue initiator);
-    JSC::JSValue evaluate(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue moduleRecord, JSC::JSValue initiator);
+    JSC::JSInternalPromise* resolve(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleName, JSC::JSValue importerModuleKey, JSC::JSValue scriptFetcher);
+    JSC::JSInternalPromise* fetch(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue scriptFetcher);
+    JSC::JSValue evaluate(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue moduleRecord, JSC::JSValue scriptFetcher);
+    JSC::JSInternalPromise* importModule(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSString*, const JSC::SourceOrigin&);
 
 private:
     void notifyFinished(CachedModuleScriptLoader&, RefPtr<DeferredPromise>) final;

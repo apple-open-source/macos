@@ -26,11 +26,12 @@
 #include <stdint.h>
 #else
 #include <os/base.h>
+#include <os/availability.h>
 #include <os/base_private.h>
 #include <dispatch/dispatch.h>
 #endif
 
-#define OS_FIREHOSE_SPI_VERSION 20160318
+#define OS_FIREHOSE_SPI_VERSION 20170222
 
 /*!
  * @group Firehose SPI

@@ -26,8 +26,12 @@
 #import "config.h"
 #import "WebsiteDataStore.h"
 
+#import "CookieStorageUtilsCF.h"
 #import "StorageManager.h"
 #import "WebResourceLoadStatisticsStore.h"
+#import "WebsiteDataStoreParameters.h"
+#import <WebCore/CFNetworkSPI.h>
+#import <WebCore/FileSystem.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <wtf/NeverDestroyed.h>
 
@@ -44,6 +48,34 @@ static Vector<WebsiteDataStore*>& dataStoresWithStorageManagers()
     static NeverDestroyed<Vector<WebsiteDataStore*>> dataStoresWithStorageManagers;
 
     return dataStoresWithStorageManagers;
+}
+
+WebsiteDataStoreParameters WebsiteDataStore::parameters()
+{
+    resolveDirectoriesIfNecessary();
+
+    WebsiteDataStoreParameters parameters;
+    parameters.sessionID = m_sessionID;
+
+    auto cookieFile = resolvedCookieStorageFile();
+
+#if PLATFORM(COCOA)
+    if (m_uiProcessCookieStorageIdentifier.isEmpty()) {
+        auto utf8File = cookieFile.utf8();
+        auto url = adoptCF(CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)utf8File.data(), (CFIndex)utf8File.length(), true));
+        m_cfCookieStorage = adoptCF(CFHTTPCookieStorageCreateFromFile(kCFAllocatorDefault, url.get(), nullptr));
+        m_uiProcessCookieStorageIdentifier = identifyingDataFromCookieStorage(m_cfCookieStorage.get());
+    }
+
+    parameters.uiProcessCookieStorageIdentifier = m_uiProcessCookieStorageIdentifier;
+#endif
+
+    copyToVector(m_pendingCookies, parameters.pendingCookies);
+
+    if (!cookieFile.isEmpty())
+        SandboxExtension::createHandleForReadWriteDirectory(WebCore::directoryName(cookieFile), parameters.cookieStoragePathExtensionHandle);
+
+    return parameters;
 }
 
 void WebsiteDataStore::platformInitialize()
@@ -70,8 +102,6 @@ void WebsiteDataStore::platformInitialize()
 
     ASSERT(!dataStoresWithStorageManagers().contains(this));
     dataStoresWithStorageManagers().append(this);
-    if (m_resourceLoadStatistics)
-        m_resourceLoadStatistics->readDataFromDiskIfNeeded();
 }
 
 void WebsiteDataStore::platformDestroy()

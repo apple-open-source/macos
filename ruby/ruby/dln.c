@@ -47,6 +47,7 @@ void *xcalloc();
 void *xrealloc();
 #endif
 
+#undef free
 #define free(x) xfree(x)
 
 #include <stdio.h>
@@ -84,10 +85,6 @@ char *getenv();
 # endif
 #endif
 
-#if defined(__BEOS__) || defined(__HAIKU__)
-# include <image.h>
-#endif
-
 #ifndef dln_loaderror
 static void
 dln_loaderror(const char *format, ...)
@@ -105,13 +102,12 @@ dln_loaderror(const char *format, ...)
 # define USE_DLN_DLOPEN
 #endif
 
-#ifndef FUNCNAME_PATTERN
-# if defined(__hp9000s300) || ((defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)) && !defined(__ELF__)) || defined(__BORLANDC__) || defined(NeXT) || defined(__WATCOMC__) || defined(MACOSX_DYLD)
-#  define FUNCNAME_PREFIX "_Init_"
-# else
-#  define FUNCNAME_PREFIX "Init_"
-# endif
+#if defined(__hp9000s300) || ((defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)) && !defined(__ELF__)) || defined(NeXT) || defined(MACOSX_DYLD)
+# define EXTERNAL_PREFIX "_"
+#else
+# define EXTERNAL_PREFIX ""
 #endif
+#define FUNCNAME_PREFIX EXTERNAL_PREFIX"Init_"
 
 #if defined __CYGWIN__ || defined DOSISH
 #define isdirsep(x) ((x) == '/' || (x) == '\\')
@@ -1117,12 +1113,12 @@ dln_sym(const char *name)
 #endif
 #endif
 
-#if defined _WIN32 && !defined __CYGWIN__
+#ifdef _WIN32
 #include <windows.h>
 #include <imagehlp.h>
 #endif
 
-#if defined _WIN32 && !defined __CYGWIN__
+#ifdef _WIN32
 static const char *
 dln_strerror(char *message, size_t size)
 {
@@ -1178,25 +1174,26 @@ dln_strerror(void)
 static void
 aix_loaderror(const char *pathname)
 {
-  char *message[1024], errbuf[1024];
-  int i;
-#define ERRBUF_APPEND(s) strncat(errbuf, (s), sizeof(errbuf)-strlen(errbuf)-1)
-  snprintf(errbuf, sizeof(errbuf), "load failed - %s. ", pathname);
+    char *message[1024], errbuf[1024];
+    int i;
+#define ERRBUF_APPEND(s) strlcat(errbuf, (s), sizeof(errbuf))
+    snprintf(errbuf, sizeof(errbuf), "load failed - %s. ", pathname);
 
-  if (loadquery(L_GETMESSAGES, &message[0], sizeof(message)) != -1) {
-    ERRBUF_APPEND("Please issue below command for detailed reasons:\n\t");
-    ERRBUF_APPEND("/usr/sbin/execerror ruby ");
-    for (i=0; message[i]; i++) {
-      ERRBUF_APPEND("\"");
-      ERRBUF_APPEND(message[i]);
-      ERRBUF_APPEND("\" ");
+    if (loadquery(L_GETMESSAGES, &message[0], sizeof(message)) != -1) {
+	ERRBUF_APPEND("Please issue below command for detailed reasons:\n\t");
+	ERRBUF_APPEND("/usr/sbin/execerror ruby ");
+	for (i=0; message[i]; i++) {
+	    ERRBUF_APPEND("\"");
+	    ERRBUF_APPEND(message[i]);
+	    ERRBUF_APPEND("\" ");
+	}
+	ERRBUF_APPEND("\n");
     }
-    ERRBUF_APPEND("\n");
-  } else {
-    ERRBUF_APPEND(strerror(errno));
-    ERRBUF_APPEND("[loadquery failed]");
-  }
-  dln_loaderror("%s", errbuf);
+    else {
+	ERRBUF_APPEND(strerror(errno));
+	ERRBUF_APPEND("[loadquery failed]");
+    }
+    dln_loaderror("%s", errbuf);
 }
 #endif
 
@@ -1253,22 +1250,27 @@ dln_load(const char *file)
 #define DLN_ERROR() (error = dln_strerror(), strcpy(ALLOCA_N(char, strlen(error) + 1), error))
 #endif
 
-#if defined _WIN32 && !defined __CYGWIN__
+#if defined _WIN32
     HINSTANCE handle;
-    char winfile[MAXPATHLEN];
+    WCHAR *winfile;
     char message[1024];
     void (*init_fct)();
     char *buf;
 
-    if (strlen(file) >= MAXPATHLEN) dln_loaderror("filename too long");
-
     /* Load the file as an object one */
     init_funcname(&buf, file);
 
-    strlcpy(winfile, file, sizeof(winfile));
+    /* Convert the file path to wide char */
+    winfile = rb_w32_mbstr_to_wstr(CP_UTF8, file, -1, NULL);
+    if (!winfile) {
+	dln_memerror();
+    }
 
     /* Load file */
-    if ((handle = LoadLibrary(winfile)) == NULL) {
+    handle = LoadLibraryW(winfile);
+    free(winfile);
+
+    if (!handle) {
 	error = dln_strerror();
 	goto failed;
     }
@@ -1318,33 +1320,30 @@ dln_load(const char *file)
 # define RTLD_GLOBAL 0
 #endif
 
-#ifdef __native_client__
-	char* p, *orig;
-        if (file[0] == '.' && file[1] == '/') file+=2;
-	orig = strdup(file);
-	for (p = file; *p; ++p) {
-	    if (*p == '/') *p = '_';
-	}
-#endif
 	/* Load file */
 	if ((handle = (void*)dlopen(file, RTLD_LAZY|RTLD_GLOBAL)) == NULL) {
-#ifdef __native_client__
-            free(orig);
-#endif
 	    error = dln_strerror();
 	    goto failed;
 	}
+# if defined RUBY_EXPORT
+	{
+	    static const char incompatible[] = "incompatible library version";
+	    void *ex = dlsym(handle, EXTERNAL_PREFIX"ruby_xmalloc");
+	    if (ex && ex != ruby_xmalloc) {
+
+#   if defined __APPLE__
+		/* dlclose() segfaults */
+		rb_fatal("%s - %s", incompatible, file);
+#   else
+		dlclose(handle);
+		error = incompatible;
+		goto failed;
+#   endif
+	    }
+	}
+# endif
 
 	init_fct = (void(*)())(VALUE)dlsym(handle, buf);
-#ifdef __native_client__
-	strcpy(file, orig);
-	free(orig);
-#endif
-#if defined __SYMBIAN32__
-	if (init_fct == NULL) {
-	    init_fct = (void(*)())dlsym(handle, "1"); /* Some Symbian versions do not support symbol table in DLL, ordinal numbers only */
-	}
-#endif
 	if (init_fct == NULL) {
 	    error = DLN_ERROR();
 	    dlclose(handle);
@@ -1438,54 +1437,6 @@ dln_load(const char *file)
 	return (void*)init_fct;
     }
 #endif
-
-#if defined(__BEOS__) || defined(__HAIKU__)
-# define DLN_DEFINED
-    {
-      status_t err_stat;  /* BeOS error status code */
-      image_id img_id;    /* extension module unique id */
-      void (*init_fct)(); /* initialize function for extension module */
-
-      /* load extension module */
-      img_id = load_add_on(file);
-      if (img_id <= 0) {
-	dln_loaderror("Failed to load add_on %.200s error_code=%x",
-	  file, img_id);
-      }
-
-      /* find symbol for module initialize function. */
-      /* The Be Book KernelKit Images section described to use
-	 B_SYMBOL_TYPE_TEXT for symbol of function, not
-	 B_SYMBOL_TYPE_CODE. Why ? */
-      /* strcat(init_fct_symname, "__Fv"); */  /* parameter nothing. */
-      /* "__Fv" dont need! The Be Book Bug ? */
-      err_stat = get_image_symbol(img_id, buf,
-				  B_SYMBOL_TYPE_TEXT, (void **)&init_fct);
-
-      if (err_stat != B_NO_ERROR) {
-	char real_name[MAXPATHLEN];
-
-	strlcpy(real_name, buf, MAXPATHLEN);
-	strlcat(real_name, "__Fv", MAXPATHLEN);
-        err_stat = get_image_symbol(img_id, real_name,
-				    B_SYMBOL_TYPE_TEXT, (void **)&init_fct);
-      }
-
-      if ((B_BAD_IMAGE_ID == err_stat) || (B_BAD_INDEX == err_stat)) {
-	unload_add_on(img_id);
-	dln_loaderror("Failed to lookup Init function %.200s", file);
-      }
-      else if (B_NO_ERROR != err_stat) {
-	char errmsg[] = "Internal of BeOS version. %.200s (symbol_name = %s)";
-	unload_add_on(img_id);
-	dln_loaderror(errmsg, strerror(err_stat), buf);
-      }
-
-      /* call module initialize function. */
-      (*init_fct)();
-      return (void*)img_id;
-    }
-#endif /* __BEOS__ || __HAIKU__ */
 
 #ifndef DLN_DEFINED
     dln_notimplement();

@@ -61,7 +61,6 @@
 #include <unistd.h>
 #endif
 #include <ctype.h>
-#include <resolv.h>
 
 #include "var.h"
 #include "misc.h"

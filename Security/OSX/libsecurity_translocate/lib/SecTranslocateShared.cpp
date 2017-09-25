@@ -73,7 +73,9 @@ static void setMountPointQuarantineIfNecessary(const string &mountPoint, const s
 static string getMountpointFromAppPath(const string &appPath, const string &originalPath);
 
 static vector<struct statfs> getMountTableSnapshot();
-static string mountExistsForUser(const string &translationDirForUser, const string &originalPath, const string &destMount);
+static string mountExistsForUser(const string &translationDirForUser,
+                                 const TranslocationPath &originalPath,
+                                 const string &destMount);
 static void validateMountpoint(const string &mountpoint, bool owned=false);
 static string makeNewMountpoint(const string &translationDir);
 static string newAppPath (const string &mountPoint, const TranslocationPath &originalPath);
@@ -118,7 +120,8 @@ TranslocationPath::TranslocationPath(string originalPath)
 
     /* don't translocate if it already is */
     /* only consider translocation if the thing being asked about is marked for translocation */
-    if(!fd.isFileSystemType(NULLFS_FSTYPE) && fd.isQuarantined() && fd.shouldTranslocate())
+	/* Nullfs can't translocate other mount's roots so abort if its a mountpoint */
+    if(!fd.isFileSystemType(NULLFS_FSTYPE) && fd.isQuarantined() && fd.shouldTranslocate() && !fd.isMountPoint())
     {
         ExtendedAutoFileDesc &&outermost = findOuterMostCodeBundleForFD(fd);
 
@@ -139,6 +142,8 @@ TranslocationPath::TranslocationPath(string originalPath)
                               pathToTranslocate.c_str());
                 UnixError::throwMe(EINVAL);
             }
+
+            componentNameToTranslocate = toTranslocateComponents.back();
 
             for(size_t cnt = 0; cnt < originalComponents.size(); cnt++)
             {
@@ -455,7 +460,7 @@ static vector<struct statfs> getMountTableSnapshot()
  and an optional destination mountpoint path. Check the mount table to see if a mount point already
  user, for this app. If a destMountPoint is provided, make sure it is for this user, and that
  exists for this the mountpoint found in the mount table is the same as the one requested */
-static string mountExistsForUser(const string &translationDirForUser, const string &originalPath, const string &destMountPoint)
+static string mountExistsForUser(const string &translationDirForUser, const TranslocationPath &originalPath, const string &destMountPoint)
 {
     string result; // start empty
 
@@ -489,6 +494,18 @@ static string mountExistsForUser(const string &translationDirForUser, const stri
 
     vector <struct statfs> mntbuf = getMountTableSnapshot();
 
+    /* Save the untranslocated inode number*/
+    ExtendedAutoFileDesc::UnixStat untranslocatedStat;
+
+    if (stat(originalPath.getPathToTranslocate().c_str(), &untranslocatedStat))
+    {
+        errno_t err = errno;
+        Syslog::warning("SecTranslocate: failed to stat original path (%d): %s",
+                        err,
+                        originalPath.getPathToTranslocate().c_str());
+        UnixError::throwMe(err);
+    }
+
     for (auto &i : mntbuf)
     {
         string mountOnName = i.f_mntonname;
@@ -501,7 +518,7 @@ static string mountExistsForUser(const string &translationDirForUser, const stri
          also make sure that this is a nullfs mount and that the mount point name is longer than the
          translation directory with something other than / */
 
-        if (i.f_mntfromname == originalPath && //mount is for the requested path
+        if (i.f_mntfromname == originalPath.getPathToTranslocate() && //mount is for the requested path
             strcmp(i.f_fstypename, NULLFS_FSTYPE) == 0 && // mount is a nullfs mount
             lastNonSlashPos > translationDirForUser.length()-1 && // no shenanigans, there must be more directory here than just the translation dir
             strncmp(i.f_mntonname, translationDirForUser.c_str(), translationDirForUser.length()) == 0) //mount is inside the translocation dir
@@ -517,6 +534,29 @@ static string mountExistsForUser(const string &translationDirForUser, const stri
                     UnixError::throwMe(EEXIST);
                 }
             }
+            /*
+             find the inode number for mountOnName+/d/appname
+             */
+            string pathToTranslocatedApp = mountOnName+"/d/"+originalPath.getComponentNameToTranslocate();
+
+            ExtendedAutoFileDesc::UnixStat oldTranslocatedStat;
+
+            if (stat(pathToTranslocatedApp.c_str(), &oldTranslocatedStat))
+            {
+                /* We should have access to this path and it should be real so complain if thats not true. */
+                errno_t err = errno;
+                Syslog::warning("SecTranslocate: expected app not inside mountpoint: %s (error: %d)", pathToTranslocatedApp.c_str(), err);
+                UnixError::throwMe(err);
+            }
+
+            if(untranslocatedStat.st_ino != oldTranslocatedStat.st_ino)
+            {
+                /* We have two Apps with the same name at the same path but different inodes. This means that the
+                   translocated path is broken and should be removed */
+                destroyTranslocatedPathForUser(pathToTranslocatedApp);
+                continue;
+            }
+
             result = mountOnName;
             break;
         }
@@ -685,16 +725,8 @@ static void setMountPointQuarantineIfNecessary(const string &mountPoint, const s
  to the desired app in the new mountpoint, and sanity check that calculation */
 static string newAppPath (const string &mountPoint, const TranslocationPath &originalPath)
 {
-    vector<string> original = splitPath(originalPath.getPathToTranslocate());
-
-    if (original.size() == 0)
-    {
-        Syslog::error("SecTranslocate: Invalid originalPath: %s", originalPath.getPathToTranslocate().c_str());
-        UnixError::throwMe(EINVAL);
-    }
-
     string midPath = mountPoint+"/d";
-    string outPath = originalPath.getTranslocatedPathToOriginalPath(midPath+"/"+original.back());
+    string outPath = originalPath.getTranslocatedPathToOriginalPath(midPath+"/"+originalPath.getComponentNameToTranslocate());
 
     /* ExtendedAutoFileDesc will throw if one of these doesn't exist or isn't accessible */
     ExtendedAutoFileDesc mountFd(mountPoint);
@@ -756,7 +788,7 @@ string translocatePathForUser(const TranslocationPath &originalPath, const strin
             destMountPoint = getMountpointFromAppPath(destPath, toTranslocate); //throws or returns a mountpoint
         }
 
-        mountpoint = mountExistsForUser(baseDirForUser, toTranslocate, destMountPoint); //throws, detects invalid destMountPoint string
+        mountpoint = mountExistsForUser(baseDirForUser, originalPath, destMountPoint); //throws, detects invalid destMountPoint string
 
         if (!mountpoint.empty())
         {
@@ -954,14 +986,15 @@ bool destroyTranslocatedPathsForUserOnVolume(const string &volumePath)
     bool cleanupError = false;
     string baseDirForUser = translocationDirForUser();
     vector <struct statfs> mountTable = getMountTableSnapshot();
+    struct statfs sb;
     fsid_t unmountingFsid;
+    int haveUnmountingFsid = statfs(volumePath.c_str(), &sb);
+	int haveMntFromState = 0;
 
-    /* passing in an empty volume here will fail to open */
-    ExtendedAutoFileDesc volume(volumePath, O_RDONLY, FileDesc::modeMissingOk);
+	memset(&unmountingFsid, 0, sizeof(unmountingFsid));
 
-    if(volume.isOpen())
-    {
-        unmountingFsid = volume.getFsid();
+    if(haveUnmountingFsid == 0) {
+        unmountingFsid = sb.f_fsid;
     }
 
     for (auto &mnt : mountTable)
@@ -975,17 +1008,17 @@ bool destroyTranslocatedPathsForUserOnVolume(const string &volumePath)
         if (strcmp(mnt.f_fstypename, NULLFS_FSTYPE) == 0 &&
             strncmp(mnt.f_mntonname, baseDirForUser.c_str(), baseDirForUser.length()) == 0)
         {
-            ExtendedAutoFileDesc volumeToCheck(mnt.f_mntfromname, O_RDONLY, FileDesc::modeMissingOk);
+            haveMntFromState = statfs(mnt.f_mntfromname, &sb);
 
-            if (!volumeToCheck.isOpen())
+            if (haveMntFromState != 0)
             {
                 // In this case we are trying to unmount a translocation point that points to nothing. Force it.
                 // Not forcing it currently hangs in UBC cleanup.
                 (void)removeMountPoint(mnt.f_mntonname , true);
             }
-            else if (volume.isOpen())
+            else if (haveUnmountingFsid == 0)
             {
-                fsid_t toCheckFsid = volumeToCheck.getFsid();
+                fsid_t toCheckFsid = sb.f_fsid;
                 if( memcmp(&unmountingFsid, &toCheckFsid, sizeof(fsid_t)) == 0)
                 {
                     if(removeMountPoint(mnt.f_mntonname) != 0)
@@ -999,6 +1032,7 @@ bool destroyTranslocatedPathsForUserOnVolume(const string &volumePath)
 
     return !cleanupError;
 }
+
 /* This is intended to be used periodically to clean up translocation points that aren't used anymore */
 void tryToDestroyUnusedTranslocationMounts()
 {

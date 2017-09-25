@@ -606,7 +606,8 @@ OSStatus SecKeychainGetDLDBHandle(SecKeychainRef __nullable keychain, CSSM_DL_DB
     @param access On return, a pointer to the access reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainCopyAccess(SecKeychainRef __nullable keychain, SecAccessRef * __nonnull CF_RETURNS_RETAINED access);
+OSStatus SecKeychainCopyAccess(SecKeychainRef __nullable keychain, SecAccessRef * __nonnull CF_RETURNS_RETAINED access)
+	__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_13, __IPHONE_NA, __IPHONE_NA);
 
 /*!
 	@function SecKeychainSetAccess
@@ -615,7 +616,8 @@ OSStatus SecKeychainCopyAccess(SecKeychainRef __nullable keychain, SecAccessRef 
     @param access An access reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainSetAccess(SecKeychainRef __nullable keychain, SecAccessRef access);
+OSStatus SecKeychainSetAccess(SecKeychainRef __nullable keychain, SecAccessRef access)
+	__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_13, __IPHONE_NA, __IPHONE_NA);
 
 CF_ASSUME_NONNULL_END
 

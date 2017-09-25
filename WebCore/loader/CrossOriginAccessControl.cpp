@@ -45,32 +45,13 @@ bool isOnAccessControlSimpleRequestMethodWhitelist(const String& method)
     return method == "GET" || method == "HEAD" || method == "POST";
 }
 
-bool isOnAccessControlSimpleRequestHeaderWhitelist(HTTPHeaderName name, const String& value)
-{
-    switch (name) {
-    case HTTPHeaderName::Accept:
-    case HTTPHeaderName::AcceptLanguage:
-    case HTTPHeaderName::ContentLanguage:
-        return true;
-    case HTTPHeaderName::ContentType: {
-        // Preflight is required for MIME types that can not be sent via form submission.
-        String mimeType = extractMIMETypeFromMediaType(value);
-        return equalIgnoringASCIICase(mimeType, "application/x-www-form-urlencoded")
-            || equalIgnoringASCIICase(mimeType, "multipart/form-data")
-            || equalIgnoringASCIICase(mimeType, "text/plain");
-    }
-    default:
-        return false;
-    }
-}
-
 bool isSimpleCrossOriginAccessRequest(const String& method, const HTTPHeaderMap& headerMap)
 {
     if (!isOnAccessControlSimpleRequestMethodWhitelist(method))
         return false;
 
     for (const auto& header : headerMap) {
-        if (!header.keyAsHTTPHeaderName || !isOnAccessControlSimpleRequestHeaderWhitelist(header.keyAsHTTPHeaderName.value(), header.value))
+        if (!header.keyAsHTTPHeaderName || !isCrossOriginSafeRequestHeader(header.keyAsHTTPHeaderName.value(), header.value))
             return false;
     }
 
@@ -139,7 +120,8 @@ ResourceRequest createAccessControlPreflightRequest(const ResourceRequest& reque
 
             headerBuffer.append(headerField);
         }
-        preflightRequest.setHTTPHeaderField(HTTPHeaderName::AccessControlRequestHeaders, headerBuffer.toString());
+        if (!headerBuffer.isEmpty())
+            preflightRequest.setHTTPHeaderField(HTTPHeaderName::AccessControlRequestHeaders, headerBuffer.toString());
     }
 
     return preflightRequest;
@@ -171,12 +153,14 @@ bool passesAccessControlCheck(const ResourceResponse& response, StoredCredential
     if (accessControlOriginString == "*" && includeCredentials == DoNotAllowStoredCredentials)
         return true;
 
-    // FIXME: Access-Control-Allow-Origin can contain a list of origins.
-    if (accessControlOriginString != securityOrigin.toString()) {
+    String securityOriginString = securityOrigin.toString();
+    if (accessControlOriginString != securityOriginString) {
         if (accessControlOriginString == "*")
-            errorDescription = "Cannot use wildcard in Access-Control-Allow-Origin when credentials flag is true.";
+            errorDescription = ASCIILiteral("Cannot use wildcard in Access-Control-Allow-Origin when credentials flag is true.");
+        else if (accessControlOriginString.find(',') != notFound)
+            errorDescription = ASCIILiteral("Access-Control-Allow-Origin cannot contain more than one origin.");
         else
-            errorDescription =  "Origin " + securityOrigin.toString() + " is not allowed by Access-Control-Allow-Origin.";
+            errorDescription = makeString("Origin ", securityOriginString, " is not allowed by Access-Control-Allow-Origin.");
         return false;
     }
 

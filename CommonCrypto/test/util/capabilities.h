@@ -47,4 +47,5 @@
 #define CCHKDFTEST 1
 #define CCNISTKDFTEST 1
 #define CCNOPAD 1
+#define COMMONCPPTEST 1
 #endif /* __CAPABILITIES_H__ */

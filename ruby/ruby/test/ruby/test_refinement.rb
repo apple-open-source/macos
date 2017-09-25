@@ -1,14 +1,11 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
-
-# to supress warnings for future calls of Module#refine
-EnvUtil.suppress_warning do
-  Module.new {
-    refine(Object) {}
-  }
-end
 
 class TestRefinement < Test::Unit::TestCase
+  module Sandbox
+    BINDING = binding
+  end
+
   class Foo
     def x
       return "Foo#x"
@@ -73,7 +70,7 @@ class TestRefinement < Test::Unit::TestCase
     end
   end
 
-  eval <<-EOF, TOPLEVEL_BINDING
+  eval <<-EOF, Sandbox::BINDING
     using TestRefinement::FooExt
 
     class TestRefinement::FooExtClient
@@ -103,7 +100,7 @@ class TestRefinement < Test::Unit::TestCase
     end
   EOF
 
-  eval <<-EOF, TOPLEVEL_BINDING
+  eval <<-EOF, Sandbox::BINDING
     using TestRefinement::FooExt
     using TestRefinement::FooExt2
 
@@ -246,20 +243,20 @@ class TestRefinement < Test::Unit::TestCase
   module FixnumPlusExt
     refine Fixnum do
       def self.method_added(*args); end
-      def +(other) "overriden" end
+      def +(other) "overridden" end
     end
   end
 
   def test_override_builtin_method_with_method_added
     assert_equal(3, 1 + 2)
-    assert_equal("overriden", eval_using(FixnumPlusExt, "1 + 2"))
+    assert_equal("overridden", eval_using(FixnumPlusExt, "1 + 2"))
     assert_equal(3, 1 + 2)
   end
 
   def test_return_value_of_refine
     mod = nil
     result = nil
-    m = Module.new {
+    Module.new {
       result = refine(Object) {
         mod = self
       }
@@ -395,7 +392,7 @@ class TestRefinement < Test::Unit::TestCase
   end
 
   def test_main_using
-    assert_in_out_err([], <<-INPUT, %w(:C :M), /Refinements are experimental/)
+    assert_in_out_err([], <<-INPUT, %w(:C :M), [])
       class C
         def foo
           :C
@@ -419,7 +416,7 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_main_using_is_private
     assert_raise(NoMethodError) do
-      eval("self.using Module.new", TOPLEVEL_BINDING)
+      eval("self.using Module.new", Sandbox::BINDING)
     end
   end
 
@@ -429,32 +426,22 @@ class TestRefinement < Test::Unit::TestCase
     end
   end
 
-  def test_no_module_using
-    assert_raise(NoMethodError) do
-      Module.new {
-        using Module.new
-      }
-    end
-  end
-
   class UsingClass
   end
 
   def test_module_using_class
-    c = Class.new
     assert_raise(TypeError) do
-      eval("using TestRefinement::UsingClass", TOPLEVEL_BINDING)
+      eval("using TestRefinement::UsingClass", Sandbox::BINDING)
     end
   end
 
   def test_refine_without_block
     c1 = Class.new
-    e = assert_raise(ArgumentError) {
+    assert_raise_with_message(ArgumentError, "no block given") {
       Module.new do
         refine c1
       end
     }
-    assert_equal("no block given", e.message)
   end
 
   module Inspect
@@ -469,7 +456,7 @@ class TestRefinement < Test::Unit::TestCase
   end
 
   def test_using_method_cache
-    assert_in_out_err([], <<-INPUT, %w(:M1 :M2), /Refinements are experimental/)
+    assert_in_out_err([], <<-INPUT, %w(:M1 :M2), [])
       class C
         def foo
           "original"
@@ -605,7 +592,7 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_using_in_module
     assert_raise(RuntimeError) do
-      eval(<<-EOF, TOPLEVEL_BINDING)
+      eval(<<-EOF, Sandbox::BINDING)
         $main = self
         module M
         end
@@ -618,14 +605,16 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_using_in_method
     assert_raise(RuntimeError) do
-      eval(<<-EOF, TOPLEVEL_BINDING)
+      eval(<<-EOF, Sandbox::BINDING)
         $main = self
         module M
         end
-        def call_using_in_method
-          $main.send(:using, M)
+        class C
+          def call_using_in_method
+            $main.send(:using, M)
+          end
         end
-        call_using_in_method
+        C.new.call_using_in_method
       EOF
     end
   end
@@ -666,7 +655,7 @@ class TestRefinement < Test::Unit::TestCase
     end
   end
 
-  eval <<-EOF, TOPLEVEL_BINDING
+  eval <<-EOF, Sandbox::BINDING
     using TestRefinement::IncludeIntoRefinement::M
 
     module TestRefinement::IncludeIntoRefinement::User
@@ -729,7 +718,7 @@ class TestRefinement < Test::Unit::TestCase
     end
   end
 
-  eval <<-EOF, TOPLEVEL_BINDING
+  eval <<-EOF, Sandbox::BINDING
     using TestRefinement::PrependIntoRefinement::M
 
     module TestRefinement::PrependIntoRefinement::User
@@ -756,6 +745,7 @@ class TestRefinement < Test::Unit::TestCase
                  PrependIntoRefinement::User.invoke_baz_on(x))
   end
 
+  PrependAfterRefine_CODE = <<-EOC
   module PrependAfterRefine
     class C
       def foo
@@ -788,6 +778,21 @@ class TestRefinement < Test::Unit::TestCase
     class C
       prepend Mixin
     end
+  end
+  EOC
+  eval PrependAfterRefine_CODE
+
+  def test_prepend_after_refine_wb_miss
+    if /\A(arm|mips)/ =~ RUBY_PLATFORM
+      skip "too slow cpu"
+    end
+    assert_normal_exit %Q{
+      GC.stress = true
+      10.times{
+        #{PrependAfterRefine_CODE}
+        undef PrependAfterRefine
+      }
+    }
   end
 
   def test_prepend_after_refine
@@ -826,9 +831,152 @@ class TestRefinement < Test::Unit::TestCase
     assert_equal([:foo, :ref, bug7925], x, bug7925)
   end
 
+  module ModuleUsing
+    using FooExt
+
+    def self.invoke_x_on(foo)
+      return foo.x
+    end
+
+    def self.invoke_y_on(foo)
+      return foo.y
+    end
+
+    def self.invoke_z_on(foo)
+      return foo.z
+    end
+
+    def self.send_z_on(foo)
+      return foo.send(:z)
+    end
+
+    def self.method_z(foo)
+      return foo.method(:z)
+    end
+
+    def self.invoke_call_x_on(foo)
+      return foo.call_x
+    end
+  end
+
+  def test_module_using
+    foo = Foo.new
+    assert_equal("Foo#x", foo.x)
+    assert_equal("Foo#y", foo.y)
+    assert_raise(NoMethodError) { foo.z }
+    assert_equal("FooExt#x", ModuleUsing.invoke_x_on(foo))
+    assert_equal("FooExt#y Foo#y", ModuleUsing.invoke_y_on(foo))
+    assert_equal("FooExt#z", ModuleUsing.invoke_z_on(foo))
+    assert_equal("Foo#x", foo.x)
+    assert_equal("Foo#y", foo.y)
+    assert_raise(NoMethodError) { foo.z }
+  end
+
+  def test_module_using_in_method
+    assert_raise(RuntimeError) do
+      Module.new.send(:using, FooExt)
+    end
+  end
+
+  def test_module_using_invalid_self
+    assert_raise(RuntimeError) do
+      eval <<-EOF, Sandbox::BINDING
+        module TestRefinement::TestModuleUsingInvalidSelf
+          Module.new.send(:using, TestRefinement::FooExt)
+        end
+      EOF
+    end
+  end
+
+  class Bar
+  end
+
+  module BarExt
+    refine Bar do
+      def x
+        return "BarExt#x"
+      end
+    end
+  end
+
+  module FooBarExt
+    include FooExt
+    include BarExt
+  end
+
+  module FooBarExtClient
+    using FooBarExt
+
+    def self.invoke_x_on(foo)
+      return foo.x
+    end
+  end
+
+  def test_module_inclusion
+    foo = Foo.new
+    assert_equal("FooExt#x", FooBarExtClient.invoke_x_on(foo))
+    bar = Bar.new
+    assert_equal("BarExt#x", FooBarExtClient.invoke_x_on(bar))
+  end
+
+  module FooFoo2Ext
+    include FooExt
+    include FooExt2
+  end
+
+  module FooFoo2ExtClient
+    using FooFoo2Ext
+
+    def self.invoke_x_on(foo)
+      return foo.x
+    end
+
+    def self.invoke_y_on(foo)
+      return foo.y
+    end
+  end
+
+  def test_module_inclusion2
+    foo = Foo.new
+    assert_equal("FooExt2#x", FooFoo2ExtClient.invoke_x_on(foo))
+    assert_equal("FooExt2#y Foo#y", FooFoo2ExtClient.invoke_y_on(foo))
+  end
+
+  def test_eval_scoping
+    assert_in_out_err([], <<-INPUT, ["HELLO WORLD", "dlrow olleh", "HELLO WORLD"], [])
+      module M
+        refine String do
+          def upcase
+            reverse
+          end
+        end
+      end
+
+      puts "hello world".upcase
+      puts eval(%{using M; "hello world".upcase})
+      puts "hello world".upcase
+    INPUT
+  end
+
+  def test_eval_with_binding_scoping
+    assert_in_out_err([], <<-INPUT, ["HELLO WORLD", "dlrow olleh", "dlrow olleh"], [])
+      module M
+        refine String do
+          def upcase
+            reverse
+          end
+        end
+      end
+
+      puts "hello world".upcase
+      b = binding
+      puts eval(%{using M; "hello world".upcase}, b)
+      puts eval(%{"hello world".upcase}, b)
+    INPUT
+  end
+
   def test_case_dispatch_is_aware_of_refinements
     assert_in_out_err([], <<-RUBY, ["refinement used"], [])
-      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
       module RefineSymbol
         refine Symbol do
           def ===(other)
@@ -848,6 +996,29 @@ class TestRefinement < Test::Unit::TestCase
     RUBY
   end
 
+  def test_refine_after_using
+    assert_separately([], <<-"end;")
+      bug8880 = '[ruby-core:57079] [Bug #8880]'
+      module Test
+        refine(String) do
+        end
+      end
+      using Test
+      def t
+        'Refinements are broken!'.chop!
+      end
+      t
+      module Test
+        refine(String) do
+          def chop!
+            self.sub!(/broken/, 'fine')
+          end
+        end
+      end
+      assert_equal('Refinements are fine!', t, bug8880)
+    end;
+  end
+
   def test_instance_methods
     bug8881 = '[ruby-core:57080] [Bug #8881]'
     assert_not_include(Foo.instance_methods(false), :z, bug8881)
@@ -863,7 +1034,6 @@ class TestRefinement < Test::Unit::TestCase
     bug8966 = '[ruby-core:57466] [Bug #8966]'
 
     assert_in_out_err([], <<-INPUT, ["NameError"], [], bug8966)
-      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
       module Foo
         refine Object do
           def foo
@@ -884,7 +1054,6 @@ class TestRefinement < Test::Unit::TestCase
     INPUT
 
     assert_in_out_err([], <<-INPUT, ["NameError"], [], bug8966)
-      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
       module Foo
         refine Object do
           def foo
@@ -907,7 +1076,6 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_refine_undefed_method_and_call
     assert_in_out_err([], <<-INPUT, ["NoMethodError"], [])
-      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
       class Foo
         def foo
         end
@@ -932,7 +1100,6 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_refine_undefed_method_and_send
     assert_in_out_err([], <<-INPUT, ["NoMethodError"], [])
-      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
       class Foo
         def foo
         end
@@ -959,7 +1126,6 @@ class TestRefinement < Test::Unit::TestCase
     bug9452 = '[ruby-core:60111] [Bug #9452]'
 
     assert_in_out_err([], <<-INPUT, ["Success!", "NoMethodError"], [], bug9452)
-      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
       module R
         refine Object do
           def m
@@ -981,7 +1147,6 @@ class TestRefinement < Test::Unit::TestCase
     bug9452 = '[ruby-core:60111] [Bug #9452]'
 
     assert_in_out_err([], <<-INPUT, ["Success!", "Success!"], [], bug9452)
-        $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
         class Object
           private
           def m
@@ -1002,9 +1167,36 @@ class TestRefinement < Test::Unit::TestCase
     INPUT
   end
 
+  def test_refine_basic_object
+    assert_separately([], <<-"end;")
+    bug10106 = '[ruby-core:64166] [Bug #10106]'
+    module RefinementBug
+      refine BasicObject do
+        def foo
+          1
+        end
+      end
+    end
+
+    assert_raise(NoMethodError, bug10106) {Object.new.foo}
+    end;
+
+    assert_separately([], <<-"end;")
+    bug10707 = '[ruby-core:67389] [Bug #10707]'
+    module RefinementBug
+      refine BasicObject do
+        def foo
+        end
+      end
+    end
+
+    assert(methods, bug10707)
+    assert_raise(NameError, bug10707) {method(:foo)}
+    end;
+  end
+
   def test_change_refined_new_method_visibility
-    assert_separately([''], <<-"end;")
-    $VERBOSE = nil
+    assert_separately([], <<-"end;")
     bug10706 = '[ruby-core:67387] [Bug #10706]'
     module RefinementBug
       refine Object do
@@ -1018,8 +1210,7 @@ class TestRefinement < Test::Unit::TestCase
   end
 
   def test_alias_refined_method
-  assert_separately([''], <<-"end;")
-    $VERBOSE = nil
+    assert_separately([], <<-"end;")
     bug10731 = '[ruby-core:67523] [Bug #10731]'
 
     class C
@@ -1043,9 +1234,26 @@ class TestRefinement < Test::Unit::TestCase
     end;
   end
 
+  def test_singleton_method_should_not_use_refinements
+    assert_separately([], <<-"end;")
+    bug10744 = '[ruby-core:67603] [Bug #10744]'
+
+    class C
+    end
+
+    module RefinementBug
+      refine C.singleton_class do
+        def foo
+        end
+      end
+    end
+
+    assert_raise(NameError, bug10744) { C.singleton_method(:foo) }
+    end;
+  end
+
   def test_refined_method_defined
     assert_separately([], <<-"end;")
-    $VERBOSE = nil
     bug10753 = '[ruby-core:67656] [Bug #10753]'
 
     c = Class.new do
@@ -1088,7 +1296,6 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_undefined_refined_method_defined
     assert_separately([], <<-"end;")
-    $VERBOSE = nil
     bug10753 = '[ruby-core:67656] [Bug #10753]'
 
     c = Class.new
@@ -1122,7 +1329,6 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_remove_refined_method
     assert_separately([], <<-"end;")
-    $VERBOSE = nil
     bug10765 = '[ruby-core:67722] [Bug #10765]'
 
     class C
@@ -1151,7 +1357,6 @@ class TestRefinement < Test::Unit::TestCase
 
   def test_remove_undefined_refined_method
     assert_separately([], <<-"end;")
-    $VERBOSE = nil
     bug10765 = '[ruby-core:67722] [Bug #10765]'
 
     class C
@@ -1199,9 +1404,242 @@ class TestRefinement < Test::Unit::TestCase
                    :foo, bug10826)
   end
 
+  def test_undef_original_method
+    assert_in_out_err([], <<-INPUT, ["NoMethodError"], [])
+      module NoPlus
+        refine String do
+          undef +
+        end
+      end
+
+      using NoPlus
+      "a" + "b" rescue p($!.class)
+    INPUT
+  end
+
+  def test_call_refined_method_in_duplicate_module
+    bug10885 = '[ruby-dev:48878]'
+    assert_in_out_err([], <<-INPUT, [], [], bug10885)
+      module M
+        refine Object do
+          def raise
+            # do nothing
+          end
+        end
+
+        class << self
+          using M
+          def m0
+            raise
+          end
+        end
+
+        using M
+        def M.m1
+          raise
+        end
+      end
+
+      M.dup.m0
+      M.dup.m1
+    INPUT
+  end
+
+  def test_check_funcall_undefined
+    bug11117 = '[ruby-core:69064] [Bug #11117]'
+
+    x = Class.new
+    Module.new do
+      refine x do
+        def to_regexp
+          //
+        end
+      end
+    end
+
+    assert_nothing_raised(NoMethodError, bug11117) {
+      assert_nil(Regexp.try_convert(x.new))
+    }
+  end
+
+  def test_funcall_inherited
+    bug11117 = '[ruby-core:69064] [Bug #11117]'
+
+    Module.new {refine(Dir) {def to_s; end}}
+    x = Class.new(Dir).allocate
+    assert_nothing_raised(NoMethodError, bug11117) {
+      x.inspect
+    }
+  end
+
+  def test_alias_refined_method2
+    bug11182 = '[ruby-core:69360]'
+    assert_in_out_err([], <<-INPUT, ["C"], [], bug11182)
+      class C
+        def foo
+          puts "C"
+        end
+      end
+
+      module M
+        refine C do
+          def foo
+            puts "Refined C"
+          end
+        end
+      end
+
+      class D < C
+        alias bar foo
+      end
+
+      using M
+      D.new.bar
+    INPUT
+  end
+
+  def test_reopen_refinement_module
+    assert_separately([], <<-"end;")
+      $VERBOSE = nil
+      class C
+      end
+
+      module R
+        refine C do
+          def m
+            :foo
+          end
+        end
+      end
+
+      using R
+      assert_equal(:foo, C.new.m)
+
+      module R
+        refine C do
+          def m
+            :bar
+          end
+        end
+      end
+
+      assert_equal(:bar, C.new.m, "[ruby-core:71423] [Bug #11672]")
+    end;
+  end
+
+  module MixedUsing1
+    class C
+      def foo
+        :orig_foo
+      end
+    end
+
+    module R1
+      refine C do
+        def foo
+          [:R1, super]
+        end
+      end
+    end
+
+    module_function
+
+    def foo
+      [:foo, C.new.foo]
+    end
+
+    using R1
+
+    def bar
+      [:bar, C.new.foo]
+    end
+  end
+
+  module MixedUsing2
+    class C
+      def foo
+        :orig_foo
+      end
+    end
+
+    module R1
+      refine C do
+        def foo
+          [:R1_foo, super]
+        end
+      end
+    end
+
+    module R2
+      refine C do
+        def bar
+          [:R2_bar, C.new.foo]
+        end
+
+        using R1
+
+        def baz
+          [:R2_baz, C.new.foo]
+        end
+      end
+    end
+
+    using R2
+    module_function
+    def f1; C.new.bar; end
+    def f2; C.new.baz; end
+  end
+
+  def test_mixed_using
+    assert_equal([:foo, :orig_foo], MixedUsing1.foo)
+    assert_equal([:bar, [:R1, :orig_foo]], MixedUsing1.bar)
+
+    assert_equal([:R2_bar, :orig_foo], MixedUsing2.f1)
+    assert_equal([:R2_baz, [:R1_foo, :orig_foo]], MixedUsing2.f2)
+  end
+
+  module MethodMissing
+    class Foo
+    end
+
+    module Bar
+      refine Foo  do
+        def method_missing(mid, *args)
+          "method_missing refined"
+        end
+      end
+    end
+
+    using Bar
+
+    def self.call_undefined_method
+      Foo.new.foo
+    end
+  end
+
+  def test_method_missing
+    assert_raise(NoMethodError) do
+      MethodMissing.call_undefined_method
+    end
+  end
+
+  def test_refine_with_prepend
+    assert_separately([], "#{<<-"begin;"}\n#{<<-"end;"}")
+    begin;
+      bug = '[ruby-core:78073] [Bug #12920]'
+      Fixnum.prepend(Module.new)
+      Module.new do
+        refine Fixnum do
+          define_method(:+) {}
+        end
+      end
+      assert_kind_of(Time, Time.now, bug)
+    end;
+  end
+
   private
 
   def eval_using(mod, s)
-    eval("using #{mod}; #{s}", TOPLEVEL_BINDING)
+    eval("using #{mod}; #{s}", Sandbox::BINDING)
   end
 end

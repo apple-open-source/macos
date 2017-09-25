@@ -249,9 +249,16 @@ errOut:
 }
 
 static void SecCAIssuerCacheInit(void) {
+#if TARGET_OS_IPHONE
     WithPathInKeychainDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
         kSecCAIssuerCache = SecCAIssuerCacheCreate(utf8String);
     });
+#else
+    /* macOS caches should be in user cache dir */
+    WithPathInUserCacheDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
+        kSecCAIssuerCache = SecCAIssuerCacheCreate(utf8String);
+    });
+#endif
 
     if (kSecCAIssuerCache)
         atexit(SecCAIssuerCacheGC);

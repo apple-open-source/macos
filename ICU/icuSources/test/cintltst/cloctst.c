@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT:
  * Copyright (c) 1997-2016, International Business Machines Corporation and
@@ -50,8 +52,9 @@ static void TestDisplayNameBrackets(void);
 static void TestUnicodeDefines(void);
 
 static void TestIsRightToLeft(void);
-static void TestUldnNameVariants(void);
+static void TestBadLocaleIDs(void);
 
+static void TestUldnNameVariants(void);
 static void TestGetLanguagesForRegion(void);
 static void TestGetAppleParent(void);
 static void TestAppleLocalizationsToUse(void);
@@ -264,6 +267,7 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestToLegacyKey);
     TESTCASE(TestToUnicodeLocaleType);
     TESTCASE(TestToLegacyType);
+    TESTCASE(TestBadLocaleIDs);
     TESTCASE(TestUldnNameVariants);
     TESTCASE(TestGetLanguagesForRegion);
     TESTCASE(TestGetAppleParent);
@@ -1853,27 +1857,38 @@ static void TestKeywordVariantParsing(void)
     static const struct {
         const char *localeID;
         const char *keyword;
-        const char *expectedValue;
+        const char *expectedValue; /* NULL if failure is expected */
     } testCases[] = {
-        { "de_DE@  C o ll A t i o n   = Phonebook   ", "c o ll a t i o n", "Phonebook" },
+        { "de_DE@  C o ll A t i o n   = Phonebook   ", "c o ll a t i o n", NULL }, /* malformed key name */
         { "de_DE", "collation", ""},
         { "de_DE@collation=PHONEBOOK", "collation", "PHONEBOOK" },
         { "de_DE@currency = euro; CoLLaTion   = PHONEBOOk", "collatiON", "PHONEBOOk" },
     };
     
-    UErrorCode status = U_ZERO_ERROR;
-    
+    UErrorCode status;
     int32_t i = 0;
     int32_t resultLen = 0;
     char buffer[256];
     
     for(i = 0; i < UPRV_LENGTHOF(testCases); i++) {
         *buffer = 0;
+        status = U_ZERO_ERROR;
         resultLen = uloc_getKeywordValue(testCases[i].localeID, testCases[i].keyword, buffer, 256, &status);
         (void)resultLen;    /* Suppress set but not used warning. */
-        if(uprv_strcmp(testCases[i].expectedValue, buffer) != 0) {
-            log_err("Expected to extract \"%s\" from \"%s\" for keyword \"%s\". Got \"%s\" instead\n",
-                testCases[i].expectedValue, testCases[i].localeID, testCases[i].keyword, buffer);
+        if (testCases[i].expectedValue) {
+            /* expect success */
+            if (U_FAILURE(status)) {
+                log_err("Expected to extract \"%s\" from \"%s\" for keyword \"%s\". Instead got status %s\n",
+                    testCases[i].expectedValue, testCases[i].localeID, testCases[i].keyword, u_errorName(status));
+            } else if (uprv_strcmp(testCases[i].expectedValue, buffer) != 0) {
+                log_err("Expected to extract \"%s\" from \"%s\" for keyword \"%s\". Instead got \"%s\"\n",
+                    testCases[i].expectedValue, testCases[i].localeID, testCases[i].keyword, buffer);
+            }
+        } else if (U_SUCCESS(status)) {
+            /* expect failure */
+            log_err("Expected failure but got success from \"%s\" for keyword \"%s\". Got \"%s\"\n",
+                testCases[i].localeID, testCases[i].keyword, buffer);
+            
         }
     }
 }
@@ -1926,7 +1941,40 @@ static const struct {
   /* 4. removal of only item */
   { "de@collation=phonebook", "collation", NULL, "de" },
 #endif
-  { "de@collation=phonebook", "Currency", "CHF", "de@collation=phonebook;currency=CHF" }
+  { "de@collation=phonebook", "Currency", "CHF", "de@collation=phonebook;currency=CHF" },
+  /* cases with legal extra spacing */
+  /*31*/{ "en_US@ calendar = islamic", "calendar", "japanese", "en_US@calendar=japanese" },
+  /*32*/{ "en_US@ calendar = gregorian ; collation = phonebook", "calendar", "japanese", "en_US@calendar=japanese;collation=phonebook" },
+  /*33*/{ "en_US@ calendar = islamic", "currency", "CHF", "en_US@calendar=islamic;currency=CHF" },
+  /*34*/{ "en_US@ currency = CHF", "calendar", "japanese", "en_US@calendar=japanese;currency=CHF" },
+  /* cases in which setKeywordValue expected to fail (implied by NULL for expected); locale need not be canonical */
+  /*35*/{ "en_US@calendar=gregorian;", "calendar", "japanese", NULL },
+  /*36*/{ "en_US@calendar=gregorian;=", "calendar", "japanese", NULL },
+  /*37*/{ "en_US@calendar=gregorian;currency=", "calendar", "japanese", NULL },
+  /*38*/{ "en_US@=", "calendar", "japanese", NULL },
+  /*39*/{ "en_US@=;", "calendar", "japanese", NULL },
+  /*40*/{ "en_US@= ", "calendar", "japanese", NULL },
+  /*41*/{ "en_US@ =", "calendar", "japanese", NULL },
+  /*42*/{ "en_US@ = ", "calendar", "japanese", NULL },
+  /*43*/{ "en_US@=;calendar=gregorian", "calendar", "japanese", NULL },
+  /*44*/{ "en_US@= calen dar = gregorian", "calendar", "japanese", NULL },
+  /*45*/{ "en_US@= calendar = greg orian", "calendar", "japanese", NULL },
+  /*46*/{ "en_US@=;cal...endar=gregorian", "calendar", "japanese", NULL },
+  /*47*/{ "en_US@=;calendar=greg...orian", "calendar", "japanese", NULL },
+  /*48*/{ "en_US@calendar=gregorian", "cale ndar", "japanese", NULL },
+  /*49*/{ "en_US@calendar=gregorian", "calendar", "japa..nese", NULL },
+  /* cases in which getKeywordValue and setKeyword expected to fail (implied by NULL for value and expected) */
+  /*50*/{ "en_US@=", "calendar", NULL, NULL },
+  /*51*/{ "en_US@=;", "calendar", NULL, NULL },
+  /*52*/{ "en_US@= ", "calendar", NULL, NULL },
+  /*53*/{ "en_US@ =", "calendar", NULL, NULL },
+  /*54*/{ "en_US@ = ", "calendar", NULL, NULL },
+  /*55*/{ "en_US@=;calendar=gregorian", "calendar", NULL, NULL },
+  /*56*/{ "en_US@= calen dar = gregorian", "calendar", NULL, NULL },
+  /*57*/{ "en_US@= calendar = greg orian", "calendar", NULL, NULL },
+  /*58*/{ "en_US@=;cal...endar=gregorian", "calendar", NULL, NULL },
+  /*59*/{ "en_US@=;calendar=greg...orian", "calendar", NULL, NULL },
+  /*60*/{ "en_US@calendar=gregorian", "cale ndar", NULL, NULL },
 };
 
 
@@ -1939,31 +1987,59 @@ static void TestKeywordSet(void)
     char cbuffer[1024];
 
     for(i = 0; i < UPRV_LENGTHOF(kwSetTestCases); i++) {
-        UErrorCode status = U_ZERO_ERROR;
-        memset(buffer,'%',1023);
-        strcpy(buffer, kwSetTestCases[i].l);
+      UErrorCode status = U_ZERO_ERROR;
+      memset(buffer,'%',1023);
+      strcpy(buffer, kwSetTestCases[i].l);
 
+      if (kwSetTestCases[i].x != NULL) {
         uloc_canonicalize(kwSetTestCases[i].l, cbuffer, 1023, &status);
         if(strcmp(buffer,cbuffer)) {
           log_verbose("note: [%d] wasn't canonical, should be: '%s' not '%s'. Won't check for canonicity in output.\n", i, cbuffer, buffer);
         }
-          /* sanity check test case results for canonicity */
+        /* sanity check test case results for canonicity */
         uloc_canonicalize(kwSetTestCases[i].x, cbuffer, 1023, &status);
         if(strcmp(kwSetTestCases[i].x,cbuffer)) {
           log_err("%s:%d: ERROR: kwSetTestCases[%d].x = '%s', should be %s (must be canonical)\n", __FILE__, __LINE__, i, kwSetTestCases[i].x, cbuffer);
         }
 
+        status = U_ZERO_ERROR;
         resultLen = uloc_setKeywordValue(kwSetTestCases[i].k, kwSetTestCases[i].v, buffer, 1023, &status);
         if(U_FAILURE(status)) {
-          log_err("Err on test case %d: got error %s\n", i, u_errorName(status));
-          continue;
-        }
-        if(strcmp(buffer,kwSetTestCases[i].x) || ((int32_t)strlen(buffer)!=resultLen)) {
-          log_err("FAIL: #%d: %s + [%s=%s] -> %s (%d) expected %s (%d)\n", i, kwSetTestCases[i].l, kwSetTestCases[i].k,
+          log_err("Err on test case %d for setKeywordValue: got error %s\n", i, u_errorName(status));
+        } else if(strcmp(buffer,kwSetTestCases[i].x) || ((int32_t)strlen(buffer)!=resultLen)) {
+          log_err("FAIL: #%d setKeywordValue: %s + [%s=%s] -> %s (%d) expected %s (%d)\n", i, kwSetTestCases[i].l, kwSetTestCases[i].k,
                   kwSetTestCases[i].v, buffer, resultLen, kwSetTestCases[i].x, strlen(buffer));
         } else {
           log_verbose("pass: #%d: %s + [%s=%s] -> %s\n", i, kwSetTestCases[i].l, kwSetTestCases[i].k, kwSetTestCases[i].v,buffer);
         }
+
+        if (kwSetTestCases[i].v != NULL && kwSetTestCases[i].v[0] != 0) {
+          status = U_ZERO_ERROR;
+          resultLen = uloc_getKeywordValue(kwSetTestCases[i].x, kwSetTestCases[i].k, buffer, 1023, &status);
+          if(U_FAILURE(status)) {
+            log_err("Err on test case %d for getKeywordValue: got error %s\n", i, u_errorName(status));
+          } else if (resultLen != uprv_strlen(kwSetTestCases[i].v) || uprv_strcmp(buffer, kwSetTestCases[i].v) != 0) {
+            log_err("FAIL: #%d getKeywordValue: got %s (%d) expected %s (%d)\n", i, buffer, resultLen,
+                    kwSetTestCases[i].v, uprv_strlen(kwSetTestCases[i].v));
+          }
+        }
+      } else {
+        /* test cases expected to result in error */
+        status = U_ZERO_ERROR;
+        resultLen = uloc_setKeywordValue(kwSetTestCases[i].k, kwSetTestCases[i].v, buffer, 1023, &status);
+        if(U_SUCCESS(status)) {
+          log_err("Err on test case %d for setKeywordValue: expected to fail but succeeded, got %s (%d)\n", i, buffer, resultLen);
+        }
+
+        if (kwSetTestCases[i].v == NULL) {
+          status = U_ZERO_ERROR;
+          strcpy(cbuffer, kwSetTestCases[i].l);
+          resultLen = uloc_getKeywordValue(cbuffer, kwSetTestCases[i].k, buffer, 1023, &status);
+          if(U_SUCCESS(status)) {
+            log_err("Err on test case %d for getKeywordValue: expected to fail but succeeded\n", i);
+          }
+        }
+      }
     }
 }
 
@@ -2804,16 +2880,20 @@ static void TestAcceptLanguage(void) {
         const char *icuSet;    /**< ? */
         const char *expect;    /**< The expected locale result */
         UAcceptResult res;     /**< The expected error code */
+        UErrorCode expectStatus; /**< expected status */
     } tests[] = { 
-        /*0*/{ 0, NULL, "mt_MT", ULOC_ACCEPT_VALID },
-        /*1*/{ 1, NULL, "en", ULOC_ACCEPT_VALID },
-        /*2*/{ 2, NULL, "en", ULOC_ACCEPT_FALLBACK },
-        /*3*/{ 3, NULL, "", ULOC_ACCEPT_FAILED },
-        /*4*/{ 4, NULL, "es", ULOC_ACCEPT_VALID },
-        
-        /*5*/{ 5, NULL, "en", ULOC_ACCEPT_VALID },  /* XF */
-        /*6*/{ 6, NULL, "ja", ULOC_ACCEPT_FALLBACK },  /* XF */
-        /*7*/{ 7, NULL, "zh", ULOC_ACCEPT_FALLBACK },  /* XF */
+        /*0*/{ 0, NULL, "mt_MT", ULOC_ACCEPT_VALID, U_ZERO_ERROR},
+        /*1*/{ 1, NULL, "en", ULOC_ACCEPT_VALID, U_ZERO_ERROR},
+        /*2*/{ 2, NULL, "en", ULOC_ACCEPT_FALLBACK, U_ZERO_ERROR},
+        /*3*/{ 3, NULL, "", ULOC_ACCEPT_FAILED, U_ZERO_ERROR},
+        /*4*/{ 4, NULL, "es", ULOC_ACCEPT_VALID, U_ZERO_ERROR},
+        /*5*/{ 5, NULL, "en", ULOC_ACCEPT_VALID, U_ZERO_ERROR},  /* XF */
+        /*6*/{ 6, NULL, "ja", ULOC_ACCEPT_FALLBACK, U_ZERO_ERROR},  /* XF */
+        /*7*/{ 7, NULL, "zh", ULOC_ACCEPT_FALLBACK, U_ZERO_ERROR},  /* XF */
+        /*8*/{ 8, NULL, "", ULOC_ACCEPT_FAILED, U_ZERO_ERROR },  /*  */
+        /*9*/{ 9, NULL, "", ULOC_ACCEPT_FAILED, U_ZERO_ERROR },  /*  */
+       /*10*/{10, NULL, "", ULOC_ACCEPT_FAILED, U_BUFFER_OVERFLOW_ERROR },  /*  */
+       /*11*/{11, NULL, "", ULOC_ACCEPT_FAILED, U_BUFFER_OVERFLOW_ERROR },  /*  */
     };
     const int32_t numTests = UPRV_LENGTHOF(tests);
     static const char *http[] = {
@@ -2829,10 +2909,25 @@ static void TestAcceptLanguage(void) {
               "xxx-yyy;q=.01, xxx-yyy;q=.01, xxx-yyy;q=.01, xxx-yyy;q=.01, xxx-yyy;q=.01, "
               "xxx-yyy;q=.01, xxx-yyy;q=.01, xxx-yyy;q=.01, xx-yy;q=.1, "
               "es",
-              
         /*5*/ "zh-xx;q=0.9, en;q=0.6",
         /*6*/ "ja-JA",
         /*7*/ "zh-xx;q=0.9",
+       /*08*/ "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // 156
+       /*09*/ "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB", // 157 (this hits U_STRING_NOT_TERMINATED_WARNING )
+       /*10*/ "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABC", // 158
+       /*11*/ "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // 163 bytes
     };
 
     for(i=0;i<numTests;i++) {
@@ -2847,17 +2942,22 @@ static void TestAcceptLanguage(void) {
         (void)rc;    /* Suppress set but not used warning. */
         uenum_close(available);
         log_verbose(" got %s, %s [%s]\n", tmp[0]?tmp:"(EMPTY)", acceptResult(outResult), u_errorName(status));
-        if(outResult != tests[i].res) {
+        if(status != tests[i].expectStatus) {
+          log_err_status(status, "FAIL: expected status %s but got %s\n", u_errorName(tests[i].expectStatus), u_errorName(status));
+        } else if(U_SUCCESS(tests[i].expectStatus)) {
+            /* don't check content if expected failure */
+            if(outResult != tests[i].res) {
             log_err_status(status, "FAIL: #%d: expected outResult of %s but got %s\n", i, 
                 acceptResult( tests[i].res), 
                 acceptResult( outResult));
             log_info("test #%d: http[%s], ICU[%s], expect %s, %s\n", 
                 i, http[tests[i].httpSet], tests[i].icuSet, tests[i].expect,acceptResult(tests[i].res));
-        }
-        if((outResult>0)&&uprv_strcmp(tmp, tests[i].expect)) {
-            log_err_status(status, "FAIL: #%d: expected %s but got %s\n", i, tests[i].expect, tmp);
-            log_info("test #%d: http[%s], ICU[%s], expect %s, %s\n", 
-                i, http[tests[i].httpSet], tests[i].icuSet, tests[i].expect, acceptResult(tests[i].res));
+            }
+            if((outResult>0)&&uprv_strcmp(tmp, tests[i].expect)) {
+              log_err_status(status, "FAIL: #%d: expected %s but got %s\n", i, tests[i].expect, tmp);
+              log_info("test #%d: http[%s], ICU[%s], expect %s, %s\n", 
+                       i, http[tests[i].httpSet], tests[i].icuSet, tests[i].expect, acceptResult(tests[i].res));
+            }
         }
     }
 }
@@ -5249,6 +5349,10 @@ const char* const full_data[][3] = {
     "zh_Hans_AQ",
     "zh_AQ"
   }, {
+    "zh_MY",
+    "zh_Hans_MY",
+    "zh_MY"
+  }, {
     "zh_Zzzz",
     "zh_Hans_CN",
     "zh"
@@ -5827,6 +5931,13 @@ const char* const locale_to_langtag[][3] = {
     {"en@x=elmer",  "en-x-elmer",   "en-x-elmer"},
     {"@x=elmer;a=exta", "und-a-exta-x-elmer",   "und-a-exta-x-elmer"},
     {"en_US@attribute=attr1-attr2;calendar=gregorian", "en-US-u-attr1-attr2-ca-gregory", "en-US-u-attr1-attr2-ca-gregory"},
+    /* #12671 */
+    {"en@a=bar;attribute=baz",  "en-a-bar-u-baz",   "en-a-bar-u-baz"},
+    {"en@a=bar;attribute=baz;x=u-foo",  "en-a-bar-u-baz-x-u-foo",   "en-a-bar-u-baz-x-u-foo"},
+    {"en@attribute=baz",    "en-u-baz", "en-u-baz"},
+    {"en@attribute=baz;calendar=islamic-civil", "en-u-baz-ca-islamic-civil",    "en-u-baz-ca-islamic-civil"},
+    {"en@a=bar;calendar=islamic-civil;x=u-foo", "en-a-bar-u-ca-islamic-civil-x-u-foo",  "en-a-bar-u-ca-islamic-civil-x-u-foo"},
+    {"en@a=bar;attribute=baz;calendar=islamic-civil;x=u-foo",   "en-a-bar-u-baz-ca-islamic-civil-x-u-foo",  "en-a-bar-u-baz-ca-islamic-civil-x-u-foo"},
     {NULL,          NULL,           NULL}
 };
 
@@ -5892,7 +6003,6 @@ static const struct {
     const char  *locID;
     int32_t     len;
 } langtag_to_locale[] = {
-    {"ja-u-ijkl-efgh-abcd-ca-japanese-xx-yyy-zzz-kn",   "ja@attribute=abcd-efgh-ijkl;calendar=japanese;colnumeric=yes;xx=yyy-zzz",  FULL_LENGTH},
     {"en",                  "en",                   FULL_LENGTH},
     {"en-us",               "en_US",                FULL_LENGTH},
     {"und-US",              "_US",                  FULL_LENGTH},
@@ -5936,9 +6046,15 @@ static const struct {
     {"de-u-kn-co-phonebk",  "de@collation=phonebook;colnumeric=yes",    FULL_LENGTH},
     {"en-u-attr2-attr1-kn-kb",  "en@attribute=attr1-attr2;colbackwards=yes;colnumeric=yes", FULL_LENGTH},
     {"ja-u-ijkl-efgh-abcd-ca-japanese-xx-yyy-zzz-kn",   "ja@attribute=abcd-efgh-ijkl;calendar=japanese;colnumeric=yes;xx=yyy-zzz",  FULL_LENGTH},
-
     {"de-u-xc-xphonebk-co-phonebk-ca-buddhist-mo-very-lo-extensi-xd-that-de-should-vc-probably-xz-killthebuffer",
      "de@calendar=buddhist;collation=phonebook;de=should;lo=extensi;mo=very;vc=probably;xc=xphonebk;xd=that;xz=yes", 91},
+    /* #12761 */
+    {"en-a-bar-u-baz",      "en@a=bar;attribute=baz",   FULL_LENGTH},
+    {"en-a-bar-u-baz-x-u-foo",  "en@a=bar;attribute=baz;x=u-foo",   FULL_LENGTH},
+    {"en-u-baz",            "en@attribute=baz",     FULL_LENGTH},
+    {"en-u-baz-ca-islamic-civil",   "en@attribute=baz;calendar=islamic-civil",  FULL_LENGTH},
+    {"en-a-bar-u-ca-islamic-civil-x-u-foo", "en@a=bar;calendar=islamic-civil;x=u-foo",  FULL_LENGTH},
+    {"en-a-bar-u-baz-ca-islamic-civil-x-u-foo", "en@a=bar;attribute=baz;calendar=islamic-civil;x=u-foo",    FULL_LENGTH},
     {NULL,          NULL,           0}
 };
 
@@ -6150,6 +6266,8 @@ static void TestToLegacyType(void)
             }
         } else if (uprv_strcmp(legacyType, expected) != 0) {
             log_data_err("toLegacyType: keyword=%s, value=%s => %s, expected=%s\n", keyword, value, legacyType, expected);
+        } else {
+            log_verbose("toLegacyType: keyword=%s, value=%s => %s\n", keyword, value, legacyType);
         }
     }
 }
@@ -6181,6 +6299,43 @@ static void TestIsRightToLeft() {
     // API test only. More test cases in intltest/LocaleTest.
     if(uloc_isRightToLeft("root") || !uloc_isRightToLeft("EN-HEBR")) {
         log_err("uloc_isRightToLeft() failed");
+    }
+}
+
+typedef struct {
+    const char * badLocaleID;
+    const char * displayLocale;
+    const char * expectedName;
+    UErrorCode   expectedStatus;
+} BadLocaleItem;
+
+static const BadLocaleItem badLocaleItems[] = {
+    { "-9223372036854775808", "en", "9223372036854775808", U_USING_DEFAULT_WARNING },
+    /* add more in the future */
+    { NULL, NULL, NULL, U_ZERO_ERROR } /* terminator */
+};
+
+enum { kUBufDispNameMax = 128, kBBufDispNameMax = 256 };
+
+static void TestBadLocaleIDs() {
+    const BadLocaleItem* itemPtr;
+    for (itemPtr = badLocaleItems; itemPtr->badLocaleID != NULL; itemPtr++) {
+        UChar ubufExpect[kUBufDispNameMax], ubufGet[kUBufDispNameMax];
+        UErrorCode status = U_ZERO_ERROR;
+        int32_t ulenExpect = u_unescape(itemPtr->expectedName, ubufExpect, kUBufDispNameMax);
+        int32_t ulenGet = uloc_getDisplayName(itemPtr->badLocaleID, itemPtr->displayLocale, ubufGet, kUBufDispNameMax, &status);
+        if (status != itemPtr->expectedStatus ||
+                (U_SUCCESS(status) && (ulenGet != ulenExpect || u_strncmp(ubufGet, ubufExpect, ulenExpect) != 0))) {
+            char bbufExpect[kBBufDispNameMax], bbufGet[kBBufDispNameMax];
+            u_austrncpy(bbufExpect, ubufExpect, ulenExpect);
+            u_austrncpy(bbufGet, ubufGet, ulenGet);
+            log_err("FAIL: For localeID %s, displayLocale %s, calling uloc_getDisplayName:\n"
+                    "    expected status %-26s, name (len %2d): %s\n"
+                    "    got      status %-26s, name (len %2d): %s\n",
+                    itemPtr->badLocaleID, itemPtr->displayLocale,
+                    u_errorName(itemPtr->expectedStatus), ulenExpect, bbufExpect,
+                    u_errorName(status), ulenGet, bbufGet );
+        }
     }
 }
 
@@ -6302,7 +6457,7 @@ static const UldnItem en_DiaMidShrt[] = {
 static const UldnItem fr_StdMidLong[] = {
 	{ "en_US",                  TEST_ULDN_LOCALE, "anglais (\\u00C9.-U.)" },
 	{ "US",                     TEST_ULDN_REGION, "\\u00C9tats-Unis" },
-	{ "HK",                     TEST_ULDN_REGION, "R.A.S. chinoise de Hong Kong" },
+	{ "HK",                     TEST_ULDN_REGION, "Hong Kong (Chine)" },
 };
 
 static const UldnItem fr_StdMidShrt[] = {
@@ -6317,10 +6472,15 @@ static const UldnItem fr_StdBegLong[] = {
 
 static const UldnItem fr_StdLstLong[] = {
 	{ "en_US",                  TEST_ULDN_LOCALE, "Anglais (\\u00C9.-U.)" },
+	{ "PS",                     TEST_ULDN_REGION, "Territoires palestiniens" },
 };
 
 static const UldnItem fr_DiaMidLong[] = {
 	{ "en_US",                  TEST_ULDN_LOCALE, "anglais am\\u00E9ricain" },
+};
+
+static const UldnItem ca_StdLstLong[] = {
+	{ "PS",                     TEST_ULDN_REGION, "Territoris palestins" },
 };
 
 static const UldnLocAndOpts uldnLocAndOpts[] = {
@@ -6332,7 +6492,9 @@ static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "fr", optStdMidShrt, fr_StdMidShrt, UPRV_LENGTHOF(fr_StdMidShrt) },
     { "fr", optStdBegLong, fr_StdBegLong, UPRV_LENGTHOF(fr_StdBegLong) },
     { "fr", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
+    { "fr_CA", optStdLstLong, fr_StdLstLong, UPRV_LENGTHOF(fr_StdLstLong) },
     { "fr", optDiaMidLong, fr_DiaMidLong, UPRV_LENGTHOF(fr_DiaMidLong) },
+    { "ca", optStdLstLong, ca_StdLstLong, UPRV_LENGTHOF(ca_StdLstLong) },
     { NULL, NULL, NULL, 0 }
 };
 
@@ -6437,6 +6599,11 @@ static const char* localesAndAppleParent[] = {
     "es-AR",            "es_419",
     "es-BR",            "es_419",
     "es-BZ",            "es_419",
+    "es-AG",            "es_419",
+    "es-AW",            "es_419",
+    "es-CW",            "es_419",
+    "es-SX",            "es_419",
+    "es-TT",            "es_419",
     "fr",               "root",
     "fr-CA",            "fr",
     "fr-CH",            "fr",
@@ -6853,27 +7020,31 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "zh-MO",              { l1_zh_TW,       l2_zh_HKTW,     l3_zh_MOHKTW,   l2_zh_Hant_HK_, l1_zh_Hant,     l2_zh_Hant_HK_ } },
     { "en",                 { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
     { "en-US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
-    { "en-AU",              { l1_Eng,         l3_en_AUGB_,    l3_en_AUGB_,    l3_en_AUGB_,    l4_en_AUGB001_, l4_en_AUGB001_ } },
+    { "en_US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
+    { "en-JP",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-TR",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
+    { "en-001",             { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
     { "en-CA",              { l1_Eng,         l1_en,          l2_en_CA_,      l2_en_CA_,      l2_en_001_,     l2_en_001_     } },
+    { "en-IL",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
     { "en-GB",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-IN",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l3_en_INGB_,    l3_en_GB001_,   l3_en_GB001_   } },
-    { "en-US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
-    { "en_US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
-    { "en-FR",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
-    { "en-BE",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-BD",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-GG",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-HK",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-IE",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-JM",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-MO",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-MT",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
-    { "en-NZ",              { l1_Eng,         l3_en_AUGB_,    l3_en_AUGB_,    l3_en_AUGB_,    l4_en_AUGB001_, l4_en_AUGB001_ } },
     { "en-PK",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-SG",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-VG",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
-    { "en-IL",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
-    { "en-001",             { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
+    { "en-ZA",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-AU",              { l1_Eng,         l3_en_AUGB_,    l3_en_AUGB_,    l3_en_AUGB_,    l4_en_AUGB001_, l4_en_AUGB001_ } },
+    { "en-NZ",              { l1_Eng,         l3_en_AUGB_,    l3_en_AUGB_,    l3_en_AUGB_,    l4_en_AUGB001_, l4_en_AUGB001_ } },
+    { "en-WS",              { l1_Eng,         l3_en_AUGB_,    l3_en_AUGB_,    l3_en_AUGB_,    l4_en_AUGB001_, l4_en_AUGB001_ } },
     { "en-150",             { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-FR",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-BE",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
     { "en-Latn",            { l1_Eng,         l1_en,          l1_en,          l1_en,          l1_en,          l1_en          } },
     { "en-Latn-US",         { l1_Eng,         l1_en,          l1_en,          l1_en,/*TODO*/  l1_en,          l1_en          } },
     { "en-US-POSIX",        { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
@@ -6889,6 +7060,11 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "es-AR",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-BR",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-BZ",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-AG",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-AW",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-CW",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-SX",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
+    { "es-TT",              { l1_Spa,         l1_es,          l2_es_419_,     l2_es_419_,     l1_es,          l2_es_419_     } },
     { "es-Latn",            { l1_Spa,         l1_es,          l1_es,          l1_es,          l1_es,          l1_es          } },
     { "es-Latn-MX",         { l1_Spa,         l1_es,          l1_es,          l1_es,          l1_es,          l1_es          } },
     { "pt",                 { l1_Port,        l1_pt,          l1_pt,          l1_pt,          NULL,           NULL  } },
@@ -6896,6 +7072,7 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "pt-PT",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
     { "pt-MO",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
     { "pt-CH",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
+    { "pt-FR",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
     { "pt-GQ",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
     { "pt-LU",              { l1_Port,        l2_pt_PT_,      l2_pt_PT_,      l1_pt,          NULL,           NULL  } },
     { "fr",                 { l1_Fre,         l1_fr,          l1_fr,          l1_fr,          NULL,           NULL  } },
@@ -7147,6 +7324,47 @@ static const char * locsToUseMH[] = { "zh-CN" };
 static const char * appleLocsMI[] = { "unk", "en-US", "ar-SA" };
 static const char * prefLangsMI[] = { "ar-US" };
 static const char * locsToUseMI[] = { "ar-SA" };
+// Per <rdar://problem/30501523> - first for comparison with zh, then real test
+static const char * appleLocsMJ[] = { "zh-CN", "en-US" };
+static const char * prefLangsMJ[] = { "zh", "zh_AC" };
+static const char * locsToUseMJ[] = { "zh-CN" };
+static const char * appleLocsMK[] = { "yue-CN", "en-US" };
+static const char * prefLangsMK[] = { "yue", "yue_AC" };
+static const char * locsToUseMK[] = { "yue-CN" };
+// Per <rdar://problem/30433534>
+static const char * appleLocsML[] = { "nl_NL", "es_MX", "fr_FR", "zh_TW", "it_IT", "vi_VN", "fr_CH", "es_CL",
+                                      "en_ZA", "ko_KR", "ca_ES", "ro_RO", "en_PH", "en_CA", "en_SG", "en_IN",
+                                      "en_NZ", "it_CH", "fr_CA", "da_DK", "de_AT", "pt_BR", "yue_CN", "zh_CN",
+                                      "sv_SE", "es_ES", "ar_SA", "hu_HU", "fr_BE", "en_GB", "ja_JP", "zh_HK",
+                                      "fi_FI", "tr_TR", "nb_NO", "en_ID", "en_SA", "pl_PL", "ms_MY", "cs_CZ",
+                                      "el_GR", "id_ID", "hr_HR", "en_AE", "he_IL", "ru_RU", "wuu_CN", "de_DE",
+                                      "de_CH", "en_AU", "nl_BE", "th_TH", "pt_PT", "sk_SK", "en_US", "en_IE",
+                                      "es_CO", "uk_UA", "es_US" };
+static const char * prefLangsML[] = { "en-JP" };
+static const char * locsToUseML[] = { "en_US" };
+// Per <rdar://problem/32421203>
+static const char * appleLocsMM1[] = { "pt-PT" };
+static const char * appleLocsMM2[] = { "pt-BR" };
+static const char * appleLocsMM3[] = { "pt-PT", "pt-BR" };
+static const char * appleLocsMM4[] = { "en", "pt-PT" };
+static const char * appleLocsMM5[] = { "en", "pt-BR" };
+static const char * appleLocsMM6[] = { "en", "pt-PT", "pt-BR" };
+static const char * prefLangsMM1[] = { "pt-PT" };
+static const char * prefLangsMM2[] = { "pt-BR" };
+static const char * prefLangsMM3[] = { "pt" };
+static const char * prefLangsMM4[] = { "pt-PT", "en" };
+static const char * prefLangsMM5[] = { "pt-BR", "en" };
+static const char * prefLangsMM6[] = { "pt", "en" };
+static const char * locsToUseMMptPT[] = { "pt-PT" };
+static const char * locsToUseMMptBR[] = { "pt-BR" };
+static const char * locsToUseMMen[]   = { "en" };
+// Per <rdar://problem/32658828>
+static const char * appleLocsMN[]   = { "en-US", "en-GB" };
+static const char * prefLangsMN1[]  = { "en-KR" };
+static const char * prefLangsMN2[]  = { "en-SA" };
+static const char * prefLangsMN3[]  = { "en-TW" };
+static const char * prefLangsMN4[]  = { "en-JP" };
+static const char * locsToUseMN_U[] = { "en-US" };
 
 typedef struct {
     const char *  name;
@@ -7179,6 +7397,50 @@ static const MultiPrefTest multiTestSets[] = {
     { "MG",  appleLocsMG,  UPRV_LENGTHOF(appleLocsMG), prefLangsMG, UPRV_LENGTHOF(prefLangsMG), locsToUseMG, UPRV_LENGTHOF(locsToUseMG) },
     { "MH",  appleLocsMH,  UPRV_LENGTHOF(appleLocsMH), prefLangsMH, UPRV_LENGTHOF(prefLangsMH), locsToUseMH, UPRV_LENGTHOF(locsToUseMH) },
     { "MI",  appleLocsMI,  UPRV_LENGTHOF(appleLocsMI), prefLangsMI, UPRV_LENGTHOF(prefLangsMI), locsToUseMI, UPRV_LENGTHOF(locsToUseMI) },
+    { "MJ",  appleLocsMJ,  UPRV_LENGTHOF(appleLocsMJ), prefLangsMJ, UPRV_LENGTHOF(prefLangsMJ), locsToUseMJ, UPRV_LENGTHOF(locsToUseMJ) },
+    { "MK",  appleLocsMK,  UPRV_LENGTHOF(appleLocsMK), prefLangsMK, UPRV_LENGTHOF(prefLangsMK), locsToUseMK, UPRV_LENGTHOF(locsToUseMK) },
+    { "ML",  appleLocsML,  UPRV_LENGTHOF(appleLocsML), prefLangsML, UPRV_LENGTHOF(prefLangsML), locsToUseML, UPRV_LENGTHOF(locsToUseML) },
+    { "MM11",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM1, UPRV_LENGTHOF(prefLangsMM1), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM21",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM1, UPRV_LENGTHOF(prefLangsMM1), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM31",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM1, UPRV_LENGTHOF(prefLangsMM1), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM41",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM1, UPRV_LENGTHOF(prefLangsMM1), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM51",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM1, UPRV_LENGTHOF(prefLangsMM1), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM61",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM1, UPRV_LENGTHOF(prefLangsMM1), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM12",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM2, UPRV_LENGTHOF(prefLangsMM2), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM22",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM2, UPRV_LENGTHOF(prefLangsMM2), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM32",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM2, UPRV_LENGTHOF(prefLangsMM2), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM42",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM2, UPRV_LENGTHOF(prefLangsMM2), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM52",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM2, UPRV_LENGTHOF(prefLangsMM2), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM62",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM2, UPRV_LENGTHOF(prefLangsMM2), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM13",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM3, UPRV_LENGTHOF(prefLangsMM3), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM23",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM3, UPRV_LENGTHOF(prefLangsMM3), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM33",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM3, UPRV_LENGTHOF(prefLangsMM3), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM43",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM3, UPRV_LENGTHOF(prefLangsMM3), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM53",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM3, UPRV_LENGTHOF(prefLangsMM3), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM63",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM3, UPRV_LENGTHOF(prefLangsMM3), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM14",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM24",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM34",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM44",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM54",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMen,   UPRV_LENGTHOF(locsToUseMMen)   }, // want en, see <rdar://problem/22012864>
+    { "MM64",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM4, UPRV_LENGTHOF(prefLangsMM4), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM15",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM25",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM35",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM45",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM55",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM65",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM5, UPRV_LENGTHOF(prefLangsMM5), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM16",  appleLocsMM1,  UPRV_LENGTHOF(appleLocsMM1), prefLangsMM6, UPRV_LENGTHOF(prefLangsMM6), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM26",  appleLocsMM2,  UPRV_LENGTHOF(appleLocsMM2), prefLangsMM6, UPRV_LENGTHOF(prefLangsMM6), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM36",  appleLocsMM3,  UPRV_LENGTHOF(appleLocsMM3), prefLangsMM6, UPRV_LENGTHOF(prefLangsMM6), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM46",  appleLocsMM4,  UPRV_LENGTHOF(appleLocsMM4), prefLangsMM6, UPRV_LENGTHOF(prefLangsMM6), locsToUseMMptPT, UPRV_LENGTHOF(locsToUseMMptPT) },
+    { "MM56",  appleLocsMM5,  UPRV_LENGTHOF(appleLocsMM5), prefLangsMM6, UPRV_LENGTHOF(prefLangsMM6), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MM66",  appleLocsMM6,  UPRV_LENGTHOF(appleLocsMM6), prefLangsMM6, UPRV_LENGTHOF(prefLangsMM6), locsToUseMMptBR, UPRV_LENGTHOF(locsToUseMMptBR) },
+    { "MN1",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN1, UPRV_LENGTHOF(prefLangsMN1), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
+    { "MN2",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN2, UPRV_LENGTHOF(prefLangsMN2), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
+    { "MN3",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN3, UPRV_LENGTHOF(prefLangsMN3), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
+    { "MN4",   appleLocsMN,   UPRV_LENGTHOF(appleLocsMN),  prefLangsMN4, UPRV_LENGTHOF(prefLangsMN4), locsToUseMN_U,   UPRV_LENGTHOF(locsToUseMN_U) },
+
     { NULL, NULL, 0, NULL, 0, NULL, 0 }
 };
 
@@ -7290,3 +7552,4 @@ static void TestAppleLocalizationsToUse() {
         }
    }
 }
+

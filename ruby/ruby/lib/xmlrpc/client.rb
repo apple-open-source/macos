@@ -1,10 +1,11 @@
+# frozen_string_literal: false
 # xmlrpc/client.rb
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
 # Released under the same term of license as Ruby.
 #
 # History
-#   $Id: client.rb 46153 2014-05-27 02:46:43Z usa $
+#   $Id: client.rb 54359 2016-03-29 05:43:04Z naruse $
 #
 require "xmlrpc/parser"
 require "xmlrpc/create"
@@ -186,6 +187,13 @@ module XMLRPC # :nodoc:
     end
 
 
+    # Returns the Net::HTTP object for the client. If you want to
+    # change HTTP client options except header, cookie, timeout,
+    # user and password, use Net::HTTP directly.
+    #
+    # Since 2.1.0.
+    attr_reader :http
+
     # Add additional HTTP headers to the request
     attr_accessor :http_header_extra
 
@@ -238,7 +246,7 @@ module XMLRPC # :nodoc:
     # * Date, Time, XMLRPC::DateTime
     # * XMLRPC::Base64
     # * A Ruby object which class includes XMLRPC::Marshallable
-    #   (only if Config::ENABLE_MARSHALLABLE is +true+).
+    #   (only if Config::ENABLE_MARSHALLING is +true+).
     #   That object is converted into a hash, with one additional key/value
     #   pair <code>___class___</code> which contains the class name
     #   for restoring that object later.
@@ -425,6 +433,24 @@ module XMLRPC # :nodoc:
       Net::HTTP.new host, port, proxy_host, proxy_port
     end
 
+    def dup_net_http
+      http = net_http(@http.address,
+                      @http.port,
+                      @http.proxy_address,
+                      @http.proxy_port)
+      http.proxy_user = @http.proxy_user
+      http.proxy_pass = @http.proxy_pass
+      if @http.use_ssl?
+        http.use_ssl = true
+        Net::HTTP::SSL_ATTRIBUTES.each do |attribute|
+          http.__send__("#{attribute}=", @http.__send__(attribute))
+        end
+      end
+      http.read_timeout = @http.read_timeout
+      http.open_timeout = @http.open_timeout
+      http
+    end
+
     def set_auth
       if @user.nil?
         @auth = nil
@@ -456,10 +482,7 @@ module XMLRPC # :nodoc:
 
       if async
         # use a new HTTP object for each call
-        http = net_http(@host, @port, @proxy_host, @proxy_port)
-        http.use_ssl = @use_ssl if @use_ssl
-        http.read_timeout = @timeout
-        http.open_timeout = @timeout
+        http = dup_net_http
 
         # post request
         http.start {
@@ -467,7 +490,7 @@ module XMLRPC # :nodoc:
         }
       else
         # reuse the HTTP object for each call => connection alive is possible
-        # we must start connection explicitely first time so that http.request
+        # we must start connection explicitly first time so that http.request
         # does not assume that we don't want keepalive
         @http.start if not @http.started?
 
@@ -502,16 +525,25 @@ module XMLRPC # :nodoc:
         raise "Wrong size. Was #{data.bytesize}, should be #{expected}"
       end
 
-      set_cookies = resp.get_fields("Set-Cookie")
-      if set_cookies and !set_cookies.empty?
-        require 'webrick/cookie'
-        @cookie = set_cookies.collect do |set_cookie|
-          cookie = WEBrick::Cookie.parse_set_cookie(set_cookie)
-          WEBrick::Cookie.new(cookie.name, cookie.value).to_s
-        end.join("; ")
-      end
+      parse_set_cookies(resp.get_fields("Set-Cookie"))
 
       return data
+    end
+
+    def parse_set_cookies(set_cookies)
+      return if set_cookies.nil?
+      return if set_cookies.empty?
+      require 'webrick/cookie'
+      pairs = {}
+      set_cookies.each do |set_cookie|
+        cookie = WEBrick::Cookie.parse_set_cookie(set_cookie)
+        pairs.delete(cookie.name)
+        pairs[cookie.name] = cookie.value
+      end
+      cookies = pairs.collect do |name, value|
+        WEBrick::Cookie.new(name, value).to_s
+      end
+      @cookie = cookies.join("; ")
     end
 
     def gen_multicall(methods=[], async=false)
@@ -595,4 +627,3 @@ module XMLRPC # :nodoc:
   end # class Client
 
 end # module XMLRPC
-

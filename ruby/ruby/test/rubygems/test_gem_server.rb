@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/server'
 require 'stringio'
@@ -7,11 +8,16 @@ class Gem::Server
 end
 
 class TestGemServer < Gem::TestCase
+  def process_based_port
+    0
+  end
+
   def setup
     super
 
-    @a1 = quick_gem 'a', '1'
-    @a2 = quick_gem 'a', '2'
+    @a1   = quick_gem 'a', '1'
+    @a2   = quick_gem 'a', '2'
+    @a3_p = quick_gem 'a', '3.a'
 
     @server = Gem::Server.new Gem.dir, process_based_port, false
     @req = WEBrick::HTTPRequest.new :Logger => nil
@@ -89,7 +95,7 @@ class TestGemServer < Gem::TestCase
     data = StringIO.new "GET /latest_specs.#{Gem.marshal_version} HTTP/1.0\r\n\r\n"
     dir = "#{@gemhome}2"
 
-    spec = quick_spec 'z', 9
+    spec = util_spec 'z', 9
 
     specs_dir = File.join dir, 'specifications'
     FileUtils.mkdir_p specs_dir
@@ -144,6 +150,36 @@ class TestGemServer < Gem::TestCase
     assert_equal 2, @server.server.listeners.length
   end
 
+  def test_prerelease_specs
+    data = StringIO.new "GET /prerelease_specs.#{Gem.marshal_version} HTTP/1.0\r\n\r\n"
+    @req.parse data
+
+    Gem::Deprecate.skip_during do
+      @server.prerelease_specs @req, @res
+    end
+
+    assert_equal 200, @res.status, @res.body
+    assert_match %r| \d\d:\d\d:\d\d |, @res['date']
+    assert_equal 'application/octet-stream', @res['content-type']
+    assert_equal [['a', v('3.a'), Gem::Platform::RUBY]],
+                 Marshal.load(@res.body)
+  end
+
+  def test_prerelease_specs_gz
+    data = StringIO.new "GET /prerelease_specs.#{Gem.marshal_version}.gz HTTP/1.0\r\n\r\n"
+    @req.parse data
+
+    Gem::Deprecate.skip_during do
+      @server.prerelease_specs @req, @res
+    end
+
+    assert_equal 200, @res.status, @res.body
+    assert_match %r| \d\d:\d\d:\d\d |, @res['date']
+    assert_equal 'application/x-gzip', @res['content-type']
+    assert_equal [['a', v('3.a'), Gem::Platform::RUBY]],
+                 Marshal.load(Gem.gunzip(@res.body))
+  end
+
   def test_quick_gemdirs
     data = StringIO.new "GET /quick/Marshal.4.8/z-9.gemspec.rz HTTP/1.0\r\n\r\n"
     dir = "#{@gemhome}2"
@@ -156,7 +192,7 @@ class TestGemServer < Gem::TestCase
 
     assert_equal 404, @res.status
 
-    spec = quick_spec 'z', 9
+    spec = util_spec 'z', 9
 
     specs_dir = File.join dir, 'specifications'
 
@@ -223,6 +259,38 @@ class TestGemServer < Gem::TestCase
     assert_equal Gem::Platform.local, spec.platform
   end
 
+  def test_quick_marshal_a_3_a_gemspec_rz
+    data = StringIO.new "GET /quick/Marshal.#{Gem.marshal_version}/a-3.a.gemspec.rz HTTP/1.0\r\n\r\n"
+    @req.parse data
+
+    @server.quick @req, @res
+
+    assert_equal 200, @res.status, @res.body
+    assert @res['date']
+    assert_equal 'application/x-deflate', @res['content-type']
+
+    spec = Marshal.load Gem.inflate(@res.body)
+    assert_equal 'a', spec.name
+    assert_equal v('3.a'), spec.version
+  end
+
+  def test_quick_marshal_a_b_3_a_gemspec_rz
+    quick_gem 'a-b', '3.a'
+
+    data = StringIO.new "GET /quick/Marshal.#{Gem.marshal_version}/a-b-3.a.gemspec.rz HTTP/1.0\r\n\r\n"
+    @req.parse data
+
+    @server.quick @req, @res
+
+    assert_equal 200, @res.status, @res.body
+    assert @res['date']
+    assert_equal 'application/x-deflate', @res['content-type']
+
+    spec = Marshal.load Gem.inflate(@res.body)
+    assert_equal 'a-b', spec.name
+    assert_equal v('3.a'), spec.version
+  end
+
   def test_rdoc
     data = StringIO.new "GET /rdoc?q=a HTTP/1.0\r\n\r\n"
     @req.parse data
@@ -249,7 +317,7 @@ class TestGemServer < Gem::TestCase
     data = StringIO.new "GET / HTTP/1.0\r\n\r\n"
     dir = "#{@gemhome}2"
 
-    spec = quick_spec 'z', 9
+    spec = util_spec 'z', 9
 
     specs_dir = File.join dir, 'specifications'
     FileUtils.mkdir_p specs_dir
@@ -279,7 +347,8 @@ class TestGemServer < Gem::TestCase
     assert_equal 'application/octet-stream', @res['content-type']
 
     assert_equal [['a', Gem::Version.new(1), Gem::Platform::RUBY],
-                  ['a', Gem::Version.new(2), Gem::Platform::RUBY]],
+                  ['a', Gem::Version.new(2), Gem::Platform::RUBY],
+                  ['a', v('3.a'), Gem::Platform::RUBY]],
                  Marshal.load(@res.body)
   end
 
@@ -287,7 +356,7 @@ class TestGemServer < Gem::TestCase
     data = StringIO.new "GET /specs.#{Gem.marshal_version} HTTP/1.0\r\n\r\n"
     dir = "#{@gemhome}2"
 
-    spec = quick_spec 'z', 9
+    spec = util_spec 'z', 9
 
     specs_dir = File.join dir, 'specifications'
     FileUtils.mkdir_p specs_dir
@@ -318,7 +387,8 @@ class TestGemServer < Gem::TestCase
     assert_equal 'application/x-gzip', @res['content-type']
 
     assert_equal [['a', Gem::Version.new(1), Gem::Platform::RUBY],
-                  ['a', Gem::Version.new(2), Gem::Platform::RUBY]],
+                  ['a', Gem::Version.new(2), Gem::Platform::RUBY],
+                  ['a', v('3.a'), Gem::Platform::RUBY]],
                  Marshal.load(Gem.gunzip(@res.body))
   end
 

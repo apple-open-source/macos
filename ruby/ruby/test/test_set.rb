@@ -1,7 +1,11 @@
+# frozen_string_literal: false
 require 'test/unit'
 require 'set'
 
 class TC_Set < Test::Unit::TestCase
+  class Set2 < Set
+  end
+
   def test_aref
     assert_nothing_raised {
       Set[]
@@ -26,13 +30,13 @@ class TC_Set < Test::Unit::TestCase
       Set.new([1,2])
       Set.new('a'..'c')
     }
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       Set.new(false)
     }
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       Set.new(1)
     }
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       Set.new(1,2)
     }
 
@@ -98,6 +102,12 @@ class TC_Set < Test::Unit::TestCase
 
     assert_same(set, ret)
     assert_equal(Set['a','b','c'], set)
+
+    set = Set[1,2]
+    assert_raise(ArgumentError) {
+      set.replace(3)
+    }
+    assert_equal(Set[1,2], set)
   end
 
   def test_to_a
@@ -151,7 +161,7 @@ class TC_Set < Test::Unit::TestCase
     set1 = Set[1, set2]
     set2.add(set1)
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set1.flatten!
     }
 
@@ -193,108 +203,160 @@ class TC_Set < Test::Unit::TestCase
   def test_superset?
     set = Set[1,2,3]
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.superset?()
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.superset?(2)
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.superset?([2])
     }
 
-    assert_equal(true, set.superset?(Set[]))
-    assert_equal(true, set.superset?(Set[1,2]))
-    assert_equal(true, set.superset?(Set[1,2,3]))
-    assert_equal(false, set.superset?(Set[1,2,3,4]))
-    assert_equal(false, set.superset?(Set[1,4]))
+    [Set, Set2].each { |klass|
+      assert_equal(true, set.superset?(klass[]), klass.name)
+      assert_equal(true, set.superset?(klass[1,2]), klass.name)
+      assert_equal(true, set.superset?(klass[1,2,3]), klass.name)
+      assert_equal(false, set.superset?(klass[1,2,3,4]), klass.name)
+      assert_equal(false, set.superset?(klass[1,4]), klass.name)
 
-    assert_equal(true, set >= Set[1,2,3])
-    assert_equal(true, set >= Set[1,2])
+      assert_equal(true, set >= klass[1,2,3], klass.name)
+      assert_equal(true, set >= klass[1,2], klass.name)
 
-    assert_equal(true, Set[].superset?(Set[]))
+      assert_equal(true, Set[].superset?(klass[]), klass.name)
+    }
   end
 
   def test_proper_superset?
     set = Set[1,2,3]
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.proper_superset?()
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.proper_superset?(2)
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.proper_superset?([2])
     }
 
-    assert_equal(true, set.proper_superset?(Set[]))
-    assert_equal(true, set.proper_superset?(Set[1,2]))
-    assert_equal(false, set.proper_superset?(Set[1,2,3]))
-    assert_equal(false, set.proper_superset?(Set[1,2,3,4]))
-    assert_equal(false, set.proper_superset?(Set[1,4]))
+    [Set, Set2].each { |klass|
+      assert_equal(true, set.proper_superset?(klass[]), klass.name)
+      assert_equal(true, set.proper_superset?(klass[1,2]), klass.name)
+      assert_equal(false, set.proper_superset?(klass[1,2,3]), klass.name)
+      assert_equal(false, set.proper_superset?(klass[1,2,3,4]), klass.name)
+      assert_equal(false, set.proper_superset?(klass[1,4]), klass.name)
 
-    assert_equal(false, set > Set[1,2,3])
-    assert_equal(true, set > Set[1,2])
+      assert_equal(false, set > klass[1,2,3], klass.name)
+      assert_equal(true, set > klass[1,2], klass.name)
 
-    assert_equal(false, Set[].proper_superset?(Set[]))
+      assert_equal(false, Set[].proper_superset?(klass[]), klass.name)
+    }
   end
 
   def test_subset?
     set = Set[1,2,3]
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.subset?()
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.subset?(2)
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.subset?([2])
     }
 
-    assert_equal(true, set.subset?(Set[1,2,3,4]))
-    assert_equal(true, set.subset?(Set[1,2,3]))
-    assert_equal(false, set.subset?(Set[1,2]))
-    assert_equal(false, set.subset?(Set[]))
+    [Set, Set2].each { |klass|
+      assert_equal(true, set.subset?(klass[1,2,3,4]), klass.name)
+      assert_equal(true, set.subset?(klass[1,2,3]), klass.name)
+      assert_equal(false, set.subset?(klass[1,2]), klass.name)
+      assert_equal(false, set.subset?(klass[]), klass.name)
 
-    assert_equal(true, set <= Set[1,2,3])
-    assert_equal(true, set <= Set[1,2,3,4])
+      assert_equal(true, set <= klass[1,2,3], klass.name)
+      assert_equal(true, set <= klass[1,2,3,4], klass.name)
 
-    assert_equal(true, Set[].subset?(Set[1]))
-    assert_equal(true, Set[].subset?(Set[]))
+      assert_equal(true, Set[].subset?(klass[1]), klass.name)
+      assert_equal(true, Set[].subset?(klass[]), klass.name)
+    }
   end
 
   def test_proper_subset?
     set = Set[1,2,3]
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.proper_subset?()
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.proper_subset?(2)
     }
 
-    assert_raises(ArgumentError) {
+    assert_raise(ArgumentError) {
       set.proper_subset?([2])
     }
 
-    assert_equal(true, set.proper_subset?(Set[1,2,3,4]))
-    assert_equal(false, set.proper_subset?(Set[1,2,3]))
-    assert_equal(false, set.proper_subset?(Set[1,2]))
-    assert_equal(false, set.proper_subset?(Set[]))
+    [Set, Set2].each { |klass|
+      assert_equal(true, set.proper_subset?(klass[1,2,3,4]), klass.name)
+      assert_equal(false, set.proper_subset?(klass[1,2,3]), klass.name)
+      assert_equal(false, set.proper_subset?(klass[1,2]), klass.name)
+      assert_equal(false, set.proper_subset?(klass[]), klass.name)
 
-    assert_equal(false, set < Set[1,2,3])
-    assert_equal(true, set < Set[1,2,3,4])
+      assert_equal(false, set < klass[1,2,3], klass.name)
+      assert_equal(true, set < klass[1,2,3,4], klass.name)
 
-    assert_equal(false, Set[].proper_subset?(Set[]))
+      assert_equal(false, Set[].proper_subset?(klass[]), klass.name)
+    }
+  end
+
+  def assert_intersect(expected, set, other)
+    case expected
+    when true
+      assert_send([set, :intersect?, other])
+      assert_send([other, :intersect?, set])
+      assert_not_send([set, :disjoint?, other])
+      assert_not_send([other, :disjoint?, set])
+    when false
+      assert_not_send([set, :intersect?, other])
+      assert_not_send([other, :intersect?, set])
+      assert_send([set, :disjoint?, other])
+      assert_send([other, :disjoint?, set])
+    when Class
+      assert_raise(expected) {
+        set.intersect?(other)
+      }
+      assert_raise(expected) {
+        set.disjoint?(other)
+      }
+    else
+      raise ArgumentError, "%s: unsupported expected value: %s" % [__method__, expected.inspect]
+    end
+  end
+
+  def test_intersect?
+    set = Set[3,4,5]
+
+    assert_intersect(ArgumentError, set, 3)
+    assert_intersect(ArgumentError, set, [2,4,6])
+
+    assert_intersect(true, set, set)
+    assert_intersect(true, set, Set[2,4])
+    assert_intersect(true, set, Set[5,6,7])
+    assert_intersect(true, set, Set[1,2,6,8,4])
+
+    assert_intersect(false, set, Set[])
+    assert_intersect(false, set, Set[0,2])
+    assert_intersect(false, set, Set[0,2,6])
+    assert_intersect(false, set, Set[0,2,6,8,10])
+
+    # Make sure set hasn't changed
+    assert_equal(Set[3,4,5], set)
   end
 
   def test_each
@@ -314,6 +376,10 @@ class TC_Set < Test::Unit::TestCase
 
       ary.empty? or raise "forgotten elements: #{ary.join(', ')}"
     }
+
+    assert_equal(6, e.size)
+    set << 42
+    assert_equal(7, e.size)
   end
 
   def test_add
@@ -364,6 +430,18 @@ class TC_Set < Test::Unit::TestCase
 
     set = Set.new(1..10)
     ret = set.delete_if { |i| i % 3 == 0 }
+    assert_same(set, ret)
+    assert_equal(Set[1,2,4,5,7,8,10], set)
+  end
+
+  def test_keep_if
+    set = Set.new(1..10)
+    ret = set.keep_if { |i| i <= 10 }
+    assert_same(set, ret)
+    assert_equal(Set.new(1..10), set)
+
+    set = Set.new(1..10)
+    ret = set.keep_if { |i| i % 3 != 0 }
     assert_same(set, ret)
     assert_equal(Set[1,2,4,5,7,8,10], set)
   end
@@ -457,19 +535,11 @@ class TC_Set < Test::Unit::TestCase
     set2 = Set["a", "b", set1]
     set1 = set1.add(set1.clone)
 
-#    assert_equal(set1, set2)
-#    assert_equal(set2, set1)
     assert_equal(set2, set2.clone)
     assert_equal(set1.clone, set1)
 
     assert_not_equal(Set[Exception.new,nil], Set[Exception.new,Exception.new], "[ruby-dev:26127]")
   end
-
-  # def test_hash
-  # end
-
-  # def test_eql?
-  # end
 
   def test_classify
     set = Set.new(1..10)
@@ -516,6 +586,49 @@ class TC_Set < Test::Unit::TestCase
     }
   end
 
+  def test_taintness
+    orig = set = Set[1,2,3]
+    assert_equal false, set.tainted?
+    assert_same orig, set.taint
+    assert_equal true, set.tainted?
+    assert_same orig, set.untaint
+    assert_equal false, set.tainted?
+  end
+
+  def test_freeze
+    orig = set = Set[1,2,3]
+    assert_equal false, set.frozen?
+    set << 4
+    assert_same orig, set.freeze
+    assert_equal true, set.frozen?
+    assert_raise(RuntimeError) {
+      set << 5
+    }
+    assert_equal 4, set.size
+  end
+
+  def test_freeze_dup
+    set1 = Set[1,2,3]
+    set1.freeze
+    set2 = set1.dup
+
+    assert_not_predicate set2, :frozen?
+    assert_nothing_raised {
+      set2.add 4
+    }
+  end
+
+  def test_freeze_clone
+    set1 = Set[1,2,3]
+    set1.freeze
+    set2 = set1.clone
+
+    assert_predicate set2, :frozen?
+    assert_raise(RuntimeError) {
+      set2.add 5
+    }
+  end
+
   def test_inspect
     set1 = Set[1]
 
@@ -527,12 +640,6 @@ class TC_Set < Test::Unit::TestCase
     set1.add(set2)
     assert_equal(true, set1.inspect.include?('#<Set: {...}>'))
   end
-
-  # def test_pretty_print
-  # end
-
-  # def test_pretty_print_cycle
-  # end
 end
 
 class TC_SortedSet < Test::Unit::TestCase
@@ -578,6 +685,29 @@ class TC_SortedSet < Test::Unit::TestCase
     assert_equal(['four', 'one', 'three', 'two'], s.to_a)
     assert_equal(['four', 'one', 'three', 'two'], a)
   end
+
+  def test_each
+    ary = [1,3,5,7,10,20]
+    set = SortedSet.new(ary)
+
+    ret = set.each { |o| }
+    assert_same(set, ret)
+
+    e = set.each
+    assert_instance_of(Enumerator, e)
+
+    assert_nothing_raised {
+      set.each { |o|
+        ary.delete(o) or raise "unexpected element: #{o}"
+      }
+
+      ary.empty? or raise "forgotten elements: #{ary.join(', ')}"
+    }
+
+    assert_equal(6, e.size)
+    set << 42
+    assert_equal(7, e.size)
+  end
 end
 
 class TC_Enumerable < Test::Unit::TestCase
@@ -592,6 +722,9 @@ class TC_Enumerable < Test::Unit::TestCase
     assert_instance_of(Set, set)
     assert_equal([-10,-8,-6,-4,-2], set.sort)
 
+    assert_same set, set.to_set
+    assert_not_same set, set.to_set { |o| o }
+
     set = ary.to_set(SortedSet)
     assert_instance_of(SortedSet, set)
     assert_equal([1,2,3,4,5], set.to_a)
@@ -601,38 +734,3 @@ class TC_Enumerable < Test::Unit::TestCase
     assert_equal([-10,-8,-6,-4,-2], set.sort)
   end
 end
-
-# class TC_RestricedSet < Test::Unit::TestCase
-#   def test_s_new
-#     assert_raises(ArgumentError) { RestricedSet.new }
-#
-#     s = RestricedSet.new([-1,2,3]) { |o| o > 0 }
-#     assert_equal([2,3], s.sort)
-#   end
-#
-#   def test_restriction_proc
-#     s = RestricedSet.new([-1,2,3]) { |o| o > 0 }
-#
-#     f = s.restriction_proc
-#     assert_instance_of(Proc, f)
-#     assert(f[1])
-#     assert(!f[0])
-#   end
-#
-#   def test_replace
-#     s = RestricedSet.new(-3..3) { |o| o > 0 }
-#     assert_equal([1,2,3], s.sort)
-#
-#     s.replace([-2,0,3,4,5])
-#     assert_equal([3,4,5], s.sort)
-#   end
-#
-#   def test_merge
-#     s = RestricedSet.new { |o| o > 0 }
-#     s.merge(-5..5)
-#     assert_equal([1,2,3,4,5], s.sort)
-#
-#     s.merge([10,-10,-8,8])
-#     assert_equal([1,2,3,4,5,8,10], s.sort)
-#   end
-# end

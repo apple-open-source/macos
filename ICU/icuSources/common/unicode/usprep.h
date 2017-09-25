@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  *
@@ -6,7 +8,7 @@
  *
  *******************************************************************************
  *   file name:  usprep.h
- *   encoding:   US-ASCII
+ *   encoding:   UTF-8
  *   tab size:   8 (not used)
  *   indentation:4
  *
@@ -224,7 +226,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUStringPrepProfilePointer, UStringPrepProfile, 
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
  * Prepare the input buffer for use in applications with the given profile. This operation maps, normalizes(NFKC),

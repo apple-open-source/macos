@@ -26,9 +26,9 @@
 #pragma once
 
 #include "EventTrackingRegions.h"
-#include "IntRect.h"
 #include "LayoutRect.h"
 #include "PlatformWheelEvent.h"
+#include "ScrollSnapOffsetsInfo.h"
 #include "ScrollTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -51,6 +51,15 @@ typedef unsigned SynchronousScrollingReasons;
 typedef uint64_t ScrollingNodeID;
 
 enum ScrollingNodeType { FrameScrollingNode, OverflowScrollingNode, FixedNode, StickyNode };
+
+enum ScrollingStateTreeAsTextBehaviorFlags {
+    ScrollingStateTreeAsTextBehaviorNormal                  = 0,
+    ScrollingStateTreeAsTextBehaviorIncludeLayerIDs         = 1 << 0,
+    ScrollingStateTreeAsTextBehaviorIncludeNodeIDs          = 1 << 1,
+    ScrollingStateTreeAsTextBehaviorIncludeLayerPositions   = 1 << 2,
+    ScrollingStateTreeAsTextBehaviorDebug                   = ScrollingStateTreeAsTextBehaviorIncludeLayerIDs | ScrollingStateTreeAsTextBehaviorIncludeNodeIDs | ScrollingStateTreeAsTextBehaviorIncludeLayerPositions
+};
+typedef unsigned ScrollingStateTreeAsTextBehavior;
 
 class Document;
 class Frame;
@@ -103,6 +112,12 @@ struct ScrollableAreaParameters {
     }
 };
 
+enum class ViewportRectStability {
+    Stable,
+    Unstable,
+    ChangingObscuredInsetsInteractively // This implies Unstable.
+};
+
 class ScrollingCoordinator : public ThreadSafeRefCounted<ScrollingCoordinator> {
 public:
     static Ref<ScrollingCoordinator> create(Page*);
@@ -120,7 +135,7 @@ public:
     virtual void frameViewLayoutUpdated(FrameView&) { }
 
     using LayoutViewportOriginOrOverrideRect = WTF::Variant<std::optional<FloatPoint>, std::optional<FloatRect>>;
-    virtual void reconcileScrollingState(FrameView&, const FloatPoint&, const LayoutViewportOriginOrOverrideRect&, bool /* programmaticScroll */, bool /* inStableState*/, ScrollingLayerPositionAction) { }
+    virtual void reconcileScrollingState(FrameView&, const FloatPoint&, const LayoutViewportOriginOrOverrideRect&, bool /* programmaticScroll */, ViewportRectStability, ScrollingLayerPositionAction) { }
 
     // Should be called whenever the slow repaint objects counter changes between zero and one.
     void frameViewHasSlowRepaintObjectsDidChange(FrameView&);
@@ -134,18 +149,9 @@ public:
     // Should be called whenever the root layer for the given frame view changes.
     virtual void frameViewRootLayerDidChange(FrameView&);
 
-    // Return whether this scrolling coordinator can keep fixed position layers fixed to their
-    // containers while scrolling.
-    virtual bool supportsFixedPositionLayers() const { return false; }
-
 #if PLATFORM(COCOA)
     // Dispatched by the scrolling tree during handleWheelEvent. This is required as long as scrollbars are painted on the main thread.
     void handleWheelEventPhase(PlatformWheelEventPhase);
-#endif
-
-#if ENABLE(WEB_REPLAY)
-    // Called when the page transitions between executing normally and deterministically.
-    void replaySessionStateDidChange();
 #endif
 
     // Force all scroll layer position updates to happen on the main thread.
@@ -159,7 +165,9 @@ public:
     virtual ScrollingNodeID attachToStateTree(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID /*parentID*/) { return newNodeID; }
     virtual void detachFromStateTree(ScrollingNodeID) { }
     virtual void clearStateTree() { }
-    virtual void updateViewportConstrainedNode(ScrollingNodeID, const ViewportConstraints&, GraphicsLayer*) { }
+
+    virtual void updateNodeLayer(ScrollingNodeID, GraphicsLayer*) { }
+    virtual void updateNodeViewportConstraints(ScrollingNodeID, const ViewportConstraints&) { }
 
     struct ScrollingGeometry {
         FloatSize scrollableAreaSize;
@@ -170,6 +178,8 @@ public:
 #if ENABLE(CSS_SCROLL_SNAP)
         Vector<LayoutUnit> horizontalSnapOffsets;
         Vector<LayoutUnit> verticalSnapOffsets;
+        Vector<ScrollOffsetRange<LayoutUnit>> horizontalSnapOffsetRanges;
+        Vector<ScrollOffsetRange<LayoutUnit>> verticalSnapOffsetRanges;
         unsigned currentHorizontalSnapPointIndex;
         unsigned currentVerticalSnapPointIndex;
 #endif
@@ -178,7 +188,7 @@ public:
     virtual void updateFrameScrollingNode(ScrollingNodeID, GraphicsLayer* /*scrollLayer*/, GraphicsLayer* /*scrolledContentsLayer*/, GraphicsLayer* /*counterScrollingLayer*/, GraphicsLayer* /*insetClipLayer*/, const ScrollingGeometry* = nullptr) { }
     virtual void updateOverflowScrollingNode(ScrollingNodeID, GraphicsLayer* /*scrollLayer*/, GraphicsLayer* /*scrolledContentsLayer*/, const ScrollingGeometry* = nullptr) { }
     virtual void reconcileViewportConstrainedLayerPositions(const LayoutRect&, ScrollingLayerPositionAction) { }
-    virtual String scrollingStateTreeAsText() const;
+    virtual String scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal) const;
     virtual bool isRubberBandInProgress() const { return false; }
     virtual bool isScrollSnapInProgress() const { return false; }
     virtual void updateScrollSnapPropertiesWithFrameView(const FrameView&) { }
@@ -226,18 +236,21 @@ protected:
     Page* m_page; // FIXME: ideally this would be a reference but it gets nulled on async teardown.
 
 private:
-    virtual void setSynchronousScrollingReasons(SynchronousScrollingReasons) { }
+    virtual void setSynchronousScrollingReasons(FrameView&, SynchronousScrollingReasons) { }
 
     virtual bool hasVisibleSlowRepaintViewportConstrainedObjects(const FrameView&) const;
-    void updateSynchronousScrollingReasons(const FrameView&);
+    void updateSynchronousScrollingReasons(FrameView&);
+    void updateSynchronousScrollingReasonsForAllFrames();
 
     EventTrackingRegions absoluteEventTrackingRegionsForFrame(const Frame&) const;
-    
+
     bool m_forceSynchronousScrollLayerPositionUpdates { false };
 };
 
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, ScrollableAreaParameters);
 WEBCORE_EXPORT TextStream& operator<<(TextStream&, ScrollingNodeType);
 WEBCORE_EXPORT TextStream& operator<<(TextStream&, ScrollingLayerPositionAction);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, ViewportRectStability);
 
 } // namespace WebCore
 

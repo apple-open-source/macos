@@ -1,5 +1,7 @@
 perf/perf.launchtime.ksh
 perf/perf.fbt_probes.ksh
+perf/perf.overhead.exe
+perf/perf.probes.ksh
 begin/tst.begin.d
 begin/tst.multibegin.d
 end/tst.end.d
@@ -24,6 +26,10 @@ fbtprovider/tst.tailcall.d
 ## io/tst.fds.d									/* RADAR 4906214: Awaits translator for fileinfo_t */
 ## misc/tst.include.ksh							/* RADAR 4768973: "dtrace -C" is confused by, e.g. #include <stdio.h> */
 pid/tst.coverage.d
+pid/tst.oneshot.ksh
+pid/tst.oneshot_multithreaded.ksh
+pid/tst.oneshot_return.ksh
+pid/tst.return.d
 ## plockstat/tst.available.d						/* RADAR 4689416: Await Darwin plockstat provider. */
 ## plockstat/tst.libmap.d
 proc/tst.create.ksh

@@ -36,8 +36,6 @@
 #include <TargetConditionals.h>
 #include "SOSCloudKeychainConstants.h"
 #import <Security/SecureObjectSync/SOSInternal.h>
-
-#import "KeychainSyncingOverIDSProxy+Throttle.h"
 #import "KeychainSyncingOverIDSProxy+SendMessage.h"
 
 int idsproxymain(int argc, const char *argv[]);
@@ -84,6 +82,15 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         xpc_connection_send_message(peer, replyMessage);
         secdebug(PROXYXPCSCOPE, "Set our IDS Device ID message sent");
 
+    }
+    else if(operation && !strcmp(operation, kOperationGetIDSPerfCounters)){
+        NSDictionary *counters = [[KeychainSyncingOverIDSProxy idsProxy] collectStats];
+        xpc_object_t xMessages = _CFXPCCreateXPCObjectFromCFObject((__bridge CFDictionaryRef)(counters));
+
+        xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
+        xpc_dictionary_set_value(replyMessage, kMessageKeyValue, xMessages);
+        xpc_connection_send_message(peer, replyMessage);
+        secdebug(PROXYXPCSCOPE, "Retrieved counters");
     }
     else if (operation && !strcmp(operation, kOperationGetPendingMesages))
     {
@@ -138,12 +145,7 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         require_quiet(isPeerIDString, xit);
         require_quiet(isMessageDictionary, xit);
         
-        [[KeychainSyncingOverIDSProxy idsProxy] recordTimestampOfWriteToIDS: messageDictionary deviceName:deviceName peerID:peerID];
-        NSDictionary *safeValues = [[KeychainSyncingOverIDSProxy idsProxy] filterForWritableValues:messageDictionary];
-        
-        if(safeValues != nil && [safeValues count] > 0){
-            object = [[KeychainSyncingOverIDSProxy idsProxy] sendFragmentedIDSMessages:safeValues name:deviceName peer:peerID error:&error];
-        }
+        object = [[KeychainSyncingOverIDSProxy idsProxy] sendFragmentedIDSMessages:messageDictionary name:deviceName peer:peerID error:&error];
         
         xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
         xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, object);
@@ -165,7 +167,7 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         NSString *deviceName = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xDeviceName));
         NSString *peerID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xPeerID));
         NSDictionary *messageDictionary = (__bridge_transfer NSDictionary*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
-        NSError *error = NULL;
+        CFErrorRef error = NULL;
         bool isNameString = (CFGetTypeID((__bridge CFTypeRef)(deviceName)) == CFStringGetTypeID());
         bool isPeerIDString = (CFGetTypeID((__bridge CFTypeRef)(peerID)) == CFStringGetTypeID());
         bool isMessageDictionary = (CFGetTypeID((__bridge CFTypeRef)(messageDictionary)) == CFDictionaryGetTypeID());
@@ -174,37 +176,33 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         require_quiet(isPeerIDString, xit);
         require_quiet(isMessageDictionary, xit);
         
-        [[KeychainSyncingOverIDSProxy idsProxy] recordTimestampOfWriteToIDS: messageDictionary deviceName:deviceName peerID:peerID];
-        NSDictionary *safeValues = [[KeychainSyncingOverIDSProxy idsProxy] filterForWritableValues:messageDictionary];
-
-        if(safeValues != nil && [safeValues count] > 0){
-            NSString *localMessageIdentifier = [[NSUUID UUID] UUIDString];
-            NSMutableDictionary* safeValuesCopy = [NSMutableDictionary dictionaryWithDictionary:safeValues];
-
-            [safeValuesCopy setObject:localMessageIdentifier forKey:(__bridge NSString*)(kIDSMessageUniqueID)];
-
-            if([[KeychainSyncingOverIDSProxy idsProxy] sendIDSMessage:safeValuesCopy name:deviceName peer:peerID])
-            {
-                object = true;
-                NSString *useAckModel = [safeValuesCopy objectForKey:(__bridge NSString*)(kIDSMessageUsesAckModel)];
-                if(object && [useAckModel compare:@"YES"] == NSOrderedSame){
-                    secnotice("IDS Transport", "setting timer!");
-                    [[KeychainSyncingOverIDSProxy idsProxy] setMessageTimer:localMessageIdentifier deviceID:deviceName message:safeValuesCopy];
-                }
+        NSString *localMessageIdentifier = [[NSUUID UUID] UUIDString];
+        NSMutableDictionary* messageDictionaryCopy = [NSMutableDictionary dictionaryWithDictionary:messageDictionary];
+        
+        [messageDictionaryCopy setObject:localMessageIdentifier forKey:(__bridge NSString*)(kIDSMessageUniqueID)];
+        
+        if([[KeychainSyncingOverIDSProxy idsProxy] sendIDSMessage:messageDictionaryCopy name:deviceName peer:peerID])
+        {
+            object = true;
+            NSString *useAckModel = [messageDictionaryCopy objectForKey:(__bridge NSString*)(kIDSMessageUsesAckModel)];
+            if(object && [useAckModel compare:@"YES"] == NSOrderedSame){
+                secnotice("IDS Transport", "setting timer!");
+                [[KeychainSyncingOverIDSProxy idsProxy] setMessageTimer:localMessageIdentifier deviceID:deviceName message:messageDictionaryCopy];
             }
-            else{
-                secerror("Could not send message");
-            }
-
+        }
+        else{
+            SOSErrorCreate(kSecIDSErrorFailedToSend, &error, NULL, CFSTR("Failed to send keychain data message over IDS"));
+            secerror("Could not send message");
         }
 
         xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
         xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, object);
         
         if(error){
-            xpc_object_t xerrobj = SecCreateXPCObjectWithCFError((__bridge CFErrorRef)(error));
+            xpc_object_t xerrobj = SecCreateXPCObjectWithCFError(error);
             xpc_dictionary_set_value(replyMessage, kMessageKeyError, xerrobj);
         }
+        CFReleaseNull(error);
         xpc_connection_send_message(peer, replyMessage);
         secdebug(PROXYXPCSCOPE, "IDS message sent");
     }
@@ -228,7 +226,7 @@ static void idskeychainsyncingproxy_peer_event_handler(xpc_connection_t peer, xp
 	if (type == XPC_TYPE_ERROR) {
 		if (event == XPC_ERROR_CONNECTION_INVALID) {
 			// The client process on the other end of the connection has either
-			// crashed or cancelled the connection. After receiving this error,
+			// crashed or canceled the connection. After receiving this error,
 			// the connection is in an invalid state, and you do not need to
 			// call xpc_connection_cancel(). Just tear down any associated state
 			// here.
@@ -284,9 +282,9 @@ int idsproxymain(int argc, const char *argv[])
 
     [KeychainSyncingOverIDSProxy idsProxy];
 
-    if([[KeychainSyncingOverIDSProxy idsProxy].messagesInFlight count] > 0 &&
+    if([[KeychainSyncingOverIDSProxy idsProxy] haveMessagesInFlight] &&
        [KeychainSyncingOverIDSProxy idsProxy].isIDSInitDone &&
-       [KeychainSyncingOverIDSProxy idsProxy].sendRestoredMessages){
+       [KeychainSyncingOverIDSProxy idsProxy].sendRestoredMessages) {
         [[KeychainSyncingOverIDSProxy idsProxy] sendPersistedMessagesAgain];
         [KeychainSyncingOverIDSProxy idsProxy].sendRestoredMessages = false;
     }

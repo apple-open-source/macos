@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHMODULES" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -395,8 +395,8 @@ the default values will have no visible effect\&.  The \fBcolors\fP
 function from the contribution can be used to get associative arrays
 containing the codes for ANSI terminals (see
 the section `Other Functions\&' in \fIzshcontrib\fP(1))\&.  For example, after loading \fBcolors\fP, one could use
-`\fB$colors[red]\fP\&' to get the code for foreground color red and
-`\fB$colors[bg\-green]\fP\&' for the code for background color green\&.
+`\fB$color[red]\fP\&' to get the code for foreground color red and
+`\fB$color[bg\-green]\fP\&' for the code for background color green\&.
 .PP
 If the completion system invoked by compinit is used, these
 parameters should not be set directly because the system controls them 
@@ -918,7 +918,11 @@ Each \fIfg_col\fP\fB/\fP\fIbg_col\fP attribute (to be read as
 for character output\&.  The color \fBdefault\fP is sometimes available
 (in particular if the library is ncurses), specifying the foreground
 or background color with which the terminal started\&.  The color pair
-\fBdefault/default\fP is always available\&.
+\fBdefault/default\fP is always available\&. To use more than the 8 named
+colors (red, green, etc\&.) construct the \fIfg_col\fP\fB/\fP\fIbg_col\fP
+pairs where \fIfg_col\fP and \fIbg_col\fP are decimal integers, e\&.g
+\fB128/200\fP\&.  The maximum color value is 254 if the terminal supports
+256 colors\&.
 .PP
 \fBbg\fP overrides the color and other attributes of all characters in the
 window\&.  Its usual use is to set the background initially, but it will
@@ -1564,6 +1568,10 @@ that it is therefore only useful immediately after a call to \fBgamma\fP or
 \fBlgamma\fP\&.  Note also that `\fBsigngam()\fP\&' and `\fBsigngam\fP' are
 distinct expressions\&.
 .PP
+The functions \fBmin\fP, \fBmax\fP, and \fBsum\fP are defined not in this module
+but in the \fBzmathfunc\fP autoloadable function, described in
+the section `Mathematical Functions\&' in \fIzshcontrib\fP(1)\&.
+.PP
 The following functions take two floating point arguments: \fBcopysign\fP,
 \fBfmod\fP, \fBhypot\fP, \fBnextafter\fP\&.
 .PP
@@ -2155,6 +2163,11 @@ the shell to clear the command line before the event and redraw it
 afterwards\&.  This should be used with any scheduled event that produces
 visible output to the terminal; it is not needed, for example, with
 output that updates a terminal emulator\&'s title bar\&.
+.PP
+To effect changes to the editor buffer when an event executes, use the
+`\fBzle\fP\&' command with no arguments to test whether the editor is active,
+and if it is, then use `\fBzle \fP\fIwidget\fP\&' to access the editor via
+the named \fIwidget\fP\&.
 .PP
 The \fBsched\fP builtin is not made available by default when the shell
 starts in a mode emulating another shell\&.  It can be made available
@@ -3495,14 +3508,16 @@ used to access internal information of the Zsh Line Editor (see
 This array contains the names of the keymaps currently defined\&.
 .TP
 \fBwidgets\fP
-This associative array contains one entry per widget defined\&. The name 
+This associative array contains one entry per widget\&. The name 
 of the widget is the key and the value gives information about the
-widget\&. It is either the string `\fBbuiltin\fP\&' for builtin widgets, a
-string of the form `\fBuser:\fP\fIname\fP\&' for user\-defined widgets,
-where \fIname\fP is the name of the shell function implementing the
-widget, or it is a string of the form
-`\fBcompletion:\fP\fItype\fP\fB:\fP\fIname\fP\&', for completion widgets\&. In
-the last case \fItype\fP is the name of the builtin widgets the
+widget\&. It is either
+  the string `\fBbuiltin\fP\&' for builtin widgets,
+  a string of the form `\fBuser:\fP\fIname\fP\&' for user\-defined widgets,
+    where \fIname\fP is the name of the shell function implementing the widget,
+  a string of the form `\fBcompletion:\fP\fItype\fP\fB:\fP\fIname\fP\&'
+    for completion widgets,
+  or a null value if the widget is not yet fully defined\&.
+In the penultimate case, \fItype\fP is the name of the builtin widget the
 completion widget imitates in its behavior and \fIname\fP is the name
 of the shell function implementing the completion widget\&.
 .SH "THE ZSH/ZPROF MODULE"
@@ -3935,13 +3950,14 @@ The resulting strings are stored in the \fIarray\fP\&.
 \fBzregexparse\fP
 This implements some internals of the \fB_regex_arguments\fP function\&.
 .TP
-\fBzparseopts\fP [ \fB\-DKME\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] \fIspec\fP \&.\&.\&.
+\fBzparseopts\fP [ \fB\-D\fP \fB\-K\fP \fB\-M\fP \fB\-E\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] \fIspec\fP \&.\&.\&.
 This builtin simplifies the parsing of options in positional parameters,
 i\&.e\&. the set of arguments given by \fB$*\fP\&.  Each \fIspec\fP describes one
 option and must be of the form `\fIopt\fP[\fB=\fP\fIarray\fP]\&'\&.  If an option
 described by \fIopt\fP is found in the positional parameters it is copied
 into the \fIarray\fP specified with the \fB\-a\fP option; if the optional
-`\fB=\fP\fIarray\fP\&' is given, it is instead copied into that array\&.
+`\fB=\fP\fIarray\fP\&' is given, it is instead copied into that array, which
+should be declared as a normal array and never as an associative array\&.
 .RS
 .PP
 Note that it is an error to give any \fIspec\fP without an
@@ -4000,7 +4016,10 @@ A `\fB+\fP\&' as described above may appear between the \fIname\fP and the
 first colon\&.
 .RE
 .PP
-The options of \fBzparseopts\fP itself are:
+The options of \fBzparseopts\fP itself cannot be stacked because, for
+example, the stack `\fB\-DEK\fP\&' is indistinguishable from a \fIspec\fP for
+the GNU\-style long option `\fB\-\-DEK\fP\&'\&.  The options of \fBzparseopts\fP
+itself are:
 .PP
 .PD 0
 .TP

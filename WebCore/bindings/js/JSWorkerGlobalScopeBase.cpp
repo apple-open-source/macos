@@ -26,7 +26,6 @@
  */
 
 #include "config.h"
-
 #include "JSWorkerGlobalScopeBase.h"
 
 #include "DOMWrapperWorld.h"
@@ -45,7 +44,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSWorkerGlobalScopeBase::s_info = { "WorkerGlobalScope", &JSDOMGlobalObject::s_info, 0, CREATE_METHOD_TABLE(JSWorkerGlobalScopeBase) };
+const ClassInfo JSWorkerGlobalScopeBase::s_info = { "WorkerGlobalScope", &JSDOMGlobalObject::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSWorkerGlobalScopeBase) };
 
 const GlobalObjectMethodTable JSWorkerGlobalScopeBase::s_globalObjectMethodTable = {
     &supportsRichSourceInfo,
@@ -53,10 +52,12 @@ const GlobalObjectMethodTable JSWorkerGlobalScopeBase::s_globalObjectMethodTable
     &javaScriptRuntimeFlags,
     &queueTaskToEventLoop,
     &shouldInterruptScriptBeforeTimeout,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
+    nullptr, // moduleLoaderImportModule
+    nullptr, // moduleLoaderResolve
+    nullptr, // moduleLoaderFetch
+    nullptr, // moduleLoaderInstantiate
+    nullptr, // moduleLoaderEvaluate
+    nullptr, // promiseRejectionTracker
     &defaultLanguage
 };
 
@@ -71,7 +72,7 @@ void JSWorkerGlobalScopeBase::finishCreation(VM& vm, JSProxy* proxy)
     m_proxy.set(vm, this, proxy);
 
     Base::finishCreation(vm, m_proxy.get());
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
 }
 
 void JSWorkerGlobalScopeBase::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -113,10 +114,10 @@ RuntimeFlags JSWorkerGlobalScopeBase::javaScriptRuntimeFlags(const JSGlobalObjec
     return thisObject->m_wrapped->thread().runtimeFlags();
 }
 
-void JSWorkerGlobalScopeBase::queueTaskToEventLoop(const JSGlobalObject* object, Ref<JSC::Microtask>&& task)
+void JSWorkerGlobalScopeBase::queueTaskToEventLoop(JSGlobalObject& object, Ref<JSC::Microtask>&& task)
 {
-    const JSWorkerGlobalScopeBase* thisObject = static_cast<const JSWorkerGlobalScopeBase*>(object);
-    thisObject->scriptExecutionContext()->postTask(JSGlobalObjectTask((JSDOMGlobalObject*)thisObject, WTFMove(task)));
+    JSWorkerGlobalScopeBase& thisObject = static_cast<JSWorkerGlobalScopeBase&>(object);
+    thisObject.scriptExecutionContext()->postTask(JSGlobalObjectTask(thisObject, WTFMove(task)));
 }
 
 JSValue toJS(ExecState* exec, JSDOMGlobalObject*, WorkerGlobalScope& workerGlobalScope)
@@ -134,22 +135,22 @@ JSValue toJS(ExecState*, WorkerGlobalScope& workerGlobalScope)
     return contextWrapper->proxy();
 }
 
-JSDedicatedWorkerGlobalScope* toJSDedicatedWorkerGlobalScope(JSValue value)
+JSDedicatedWorkerGlobalScope* toJSDedicatedWorkerGlobalScope(VM& vm, JSValue value)
 {
     if (!value.isObject())
         return 0;
-    const ClassInfo* classInfo = asObject(value)->classInfo();
+    const ClassInfo* classInfo = asObject(value)->classInfo(vm);
     if (classInfo == JSDedicatedWorkerGlobalScope::info())
         return jsCast<JSDedicatedWorkerGlobalScope*>(asObject(value));
     if (classInfo == JSProxy::info())
-        return jsDynamicDowncast<JSDedicatedWorkerGlobalScope*>(jsCast<JSProxy*>(asObject(value))->target());
+        return jsDynamicDowncast<JSDedicatedWorkerGlobalScope*>(vm, jsCast<JSProxy*>(asObject(value))->target());
     return 0;
 }
 
 
-JSWorkerGlobalScope* toJSWorkerGlobalScope(JSValue value)
+JSWorkerGlobalScope* toJSWorkerGlobalScope(VM& vm, JSValue value)
 {
-    return toJSDedicatedWorkerGlobalScope(value);
+    return toJSDedicatedWorkerGlobalScope(vm, value);
 }
 
 } // namespace WebCore

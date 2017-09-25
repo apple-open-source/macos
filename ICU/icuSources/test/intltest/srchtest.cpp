@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *****************************************************************************
 * Copyright (C) 2001-2016, International Business Machines orporation  
@@ -642,7 +644,7 @@ void StringSearchTest::TestOpenClose()
     }
     delete result;
 
-    text.append(0, 0x1);
+    // No-op: text.append(0, 0x1); -- what was intended here?
     status = U_ZERO_ERROR;
     result = new StringSearch(pattern, text, NULL, NULL, status);
     if (U_SUCCESS(status)) {

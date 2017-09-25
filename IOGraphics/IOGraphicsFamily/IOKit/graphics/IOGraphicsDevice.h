@@ -25,6 +25,7 @@
 #define _IOKIT_IOGRAPHICSDEVICE_H
 
 #include <IOKit/IOService.h>
+
 #include <IOKit/graphics/IOGraphicsTypes.h>
 
 

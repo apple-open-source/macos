@@ -1,3 +1,14 @@
+.DS_Store
+
+# vim detritus
+*~
+*.swp
+
+# /
+/.remotebuild_credential
+/cscope.*
+/TAGS
+/tags
 
 # /
 /build

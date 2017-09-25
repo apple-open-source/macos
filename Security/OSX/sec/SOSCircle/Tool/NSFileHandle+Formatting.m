@@ -25,6 +25,10 @@
     va_end(args);
 
     [self writeString: formatted];
+// Remove with <rdar://problem/28925164> Enable ARC wherever possible in Security.framework
+#if !__has_feature(objc_arc)
+    [formatted release];
+#endif
 }
 
 @end

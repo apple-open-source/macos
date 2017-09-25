@@ -1,4 +1,106 @@
 =================
+WebKitGTK+ 2.17.4
+=================
+
+What's new in WebKitGTK+ 2.17.4?
+
+  - Add API to allow overriding popup menus.
+  - Add kinetic scrolling support.
+  - Improve theme rendering performance when using GTK+ >= 3.20.
+  - Improve error message when webkit_web_view_run_javascript() fails due to a JavaScript exception.
+  - Fix artifacts when rendering large images.
+  - Fix blob downloads.
+  - Fix web process deadlock when seeking youtube videos.
+  - Fix alpha premultiplying when using cairo to draw the video frames.
+  - Fix web process deadlock when closing the remote inspector frontend.
+  - Update several web inspector icons.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Spanish.
+
+=================
+WebKitGTK+ 2.17.3
+=================
+
+What's new in WebKitGTK+ 2.17.3?
+
+  - Add new API to create a WebKitContextMenuItem from a GAction.
+  - Fix graphics repaint hungs in accelerated compositing mode after a resize.
+  - Fix rendering glitches in HiDPI in long GitHub Gist pages when focusing the comments textarea.
+  - Remove Firefox user agent quirk for Google domains.
+  - Remove LATEST_RECORD_VERSION from GnuTLS priority string.
+  - Improve colors of inspector SVG icons.
+  - Fix several crashes and rendering issues.
+  - Translation updates: French.
+
+=================
+WebKitGTK+ 2.17.2
+=================
+
+What's new in WebKitGTK+ 2.17.2?
+
+  - Update user agent quirks to make Youtube and new Google login page work.
+  - Fix URL shown in the title of beforeunload dialogs.
+  - Focus first input field of HTTP authentication dialog.
+  - Fix rendering of PNG images when decoded in more than one chunk.
+  - Update several web inspector icons.
+  - Fix the build with OpenGL disabled.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.17.1
+=================
+
+What's new in WebKitGTK+ 2.17.1?
+
+  - Switch to use new remote inspector infraestructure instead of legacy Web Sockets based one.
+  - Add API to enable and handle Web Automation.
+  - Load large images asynchronously off the main theead.
+  - Use GtkFileChooserNative for open/save dialogs when available.
+  - Make file chooser run as modal by default if possible.
+  - Fix position of dropdown menus in Wayland.
+  - Keep URI fragments after a server redirection.
+  - Implement support for aria-haspopup and aria-autocomplete.
+  - Implement aria-value support for focusable separators.
+  - Fix playing of some live streams.
+
+=================
+WebKitGTK+ 2.15.4
+=================
+
+What's new in WebKitGTK+ 2.15.4?
+
+  - Make accelerating compositing mode on-demand again. By default it will only be used for websites
+    that require it, saving a lot of memory on websites that don't need it.
+  - Add API to manage hardware acceleration policy.
+  - Enable CSS Grid Layout by default.
+  - Add API to create ephemeral WebViews to replace the legacy private browsing setting that is now
+    deprecated.
+  - Handle HTTP authentication for downloads having a WebView associated.
+  - Add API to WebKitWebsiteDataManager to handle websites data.
+  - Fix BadDamage X errors happening when resizing the WebView.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.15.3
+=================
+
+What's new in WebKitGTK+ 2.15.3?
+
+  - Add API to set network proxy settings.
+  - Add API to set initial notification permissions.
+  - Add WebKitSecurityOrigin to the API.
+  - Add tag property to WebKitNotification.
+  - Create GLX OpenGL contexts using version 3.2 (core profile) when available to reduce the memory
+    consumption on Mesa based drivers.
+  - Improve memory pressure handler to reduce the CPU usage on memory pressure situations.
+  - Add support for key and code properties on keyboard events.
+  - More user agent string improvements to improve compatibility with several websites.
+  - Fix network process crashes when loading custom URI schemes.
+  - Fix web process crash when closing the web view in X11.
+  - Fix several crashes and rendering issues.
+  - Translation updates: German.
+
+=================
 WebKitGTK+ 2.15.2
 =================
 

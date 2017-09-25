@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #--
 # $Release Version: 0.3$
 # $Revision: 1.12 $
@@ -12,7 +13,7 @@ require "thread"
 #
 # == Example
 #
-# Consider the following ruby script
+# Consider the following Ruby script
 #
 #   class A
 #     def square(a)
@@ -155,16 +156,8 @@ class Tracer
     end
 
     unless list = SCRIPT_LINES__[file]
-      begin
-        f = File::open(file)
-        begin
-          SCRIPT_LINES__[file] = list = f.readlines
-        ensure
-          f.close
-        end
-      rescue
-        SCRIPT_LINES__[file] = list = []
-      end
+      list = File.readlines(file) rescue []
+      SCRIPT_LINES__[file] = list
     end
 
     if l = list[line - 1]

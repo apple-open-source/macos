@@ -113,9 +113,13 @@ OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anch
 	maker.put(opAnd);		// both of...
 	maker.infoKey("Application-Group", cfString(groupName));
 	if (anchorRef) {
+#if TARGET_OS_OSX
 		CSSM_DATA certData;
 		MacOSError::check(SecCertificateGetData(anchorRef, &certData));
 		maker.anchor(0, certData.Data, certData.Length);
+#else
+        maker.anchor(0, SecCertificateGetBytePtr(anchorRef), SecCertificateGetLength(anchorRef));
+#endif
 	} else {
 		maker.anchor();			// canonical Apple anchor
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2010 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
  * Copyright (C) 2009 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,19 +54,19 @@ void networkStateChanged(bool isOnLine)
 inline Worker::Worker(ScriptExecutionContext& context, JSC::RuntimeFlags runtimeFlags)
     : ActiveDOMObject(&context)
     , m_identifier("worker:" + Inspector::IdentifiersFactory::createIdentifier())
-    , m_contextProxy(WorkerGlobalScopeProxy::create(this))
+    , m_contextProxy(WorkerGlobalScopeProxy::create(*this))
     , m_runtimeFlags(runtimeFlags)
 {
     if (!allWorkers) {
         allWorkers = new HashSet<Worker*>;
-        networkStateNotifier().addNetworkStateChangeListener(networkStateChanged);
+        networkStateNotifier().addNetworkStateChangeListener(WTF::Function<void (bool)> { networkStateChanged });
     }
 
-    HashSet<Worker*>::AddResult addResult = allWorkers->add(this);
+    auto addResult = allWorkers->add(this);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
-ExceptionOr<Ref<Worker>> Worker::create(ScriptExecutionContext& context, const String& url, JSC::RuntimeFlags runtimeFlags)
+ExceptionOr<Ref<Worker>> Worker::create(ScriptExecutionContext& context, JSC::RuntimeFlags runtimeFlags, const String& url)
 {
     ASSERT(isMainThread());
 
@@ -87,6 +87,9 @@ ExceptionOr<Ref<Worker>> Worker::create(ScriptExecutionContext& context, const S
     // The worker context does not exist while loading, so we must ensure that the worker object is not collected, nor are its event listeners.
     worker->setPendingActivity(worker.ptr());
 
+    // https://html.spec.whatwg.org/multipage/workers.html#official-moment-of-creation
+    worker->m_workerCreationTime = MonotonicTime::now();
+
     worker->m_scriptLoader = WorkerScriptLoader::create();
     auto contentSecurityPolicyEnforcement = shouldBypassMainWorldContentSecurityPolicy ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceChildSrcDirective;
     worker->m_scriptLoader->loadAsynchronously(&context, scriptURL.releaseReturnValue(), FetchOptions::Mode::SameOrigin, contentSecurityPolicyEnforcement, worker->m_identifier, worker.ptr());
@@ -98,7 +101,7 @@ Worker::~Worker()
     ASSERT(isMainThread());
     ASSERT(scriptExecutionContext()); // The context is protected by worker context proxy, so it cannot be destroyed while a Worker exists.
     allWorkers->remove(this);
-    m_contextProxy->workerObjectDestroyed();
+    m_contextProxy.workerObjectDestroyed();
 }
 
 ExceptionOr<void> Worker::postMessage(JSC::ExecState& state, JSC::JSValue messageValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer)
@@ -112,13 +115,13 @@ ExceptionOr<void> Worker::postMessage(JSC::ExecState& state, JSC::JSValue messag
     auto channels = MessagePort::disentanglePorts(WTFMove(ports));
     if (channels.hasException())
         return channels.releaseException();
-    m_contextProxy->postMessageToWorkerGlobalScope(message.releaseReturnValue(), channels.releaseReturnValue());
+    m_contextProxy.postMessageToWorkerGlobalScope(message.releaseReturnValue(), channels.releaseReturnValue());
     return { };
 }
 
 void Worker::terminate()
 {
-    m_contextProxy->terminateWorkerGlobalScope();
+    m_contextProxy.terminateWorkerGlobalScope();
 }
 
 bool Worker::canSuspendForDocumentSuspension() const
@@ -139,12 +142,12 @@ void Worker::stop()
 
 bool Worker::hasPendingActivity() const
 {
-    return m_contextProxy->hasPendingActivity() || ActiveDOMObject::hasPendingActivity();
+    return m_contextProxy.hasPendingActivity() || ActiveDOMObject::hasPendingActivity();
 }
 
 void Worker::notifyNetworkStateChange(bool isOnLine)
 {
-    m_contextProxy->notifyNetworkStateChange(isOnLine);
+    m_contextProxy.notifyNetworkStateChange(isOnLine);
 }
 
 void Worker::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
@@ -161,7 +164,7 @@ void Worker::notifyFinished()
         dispatchEvent(Event::create(eventNames().errorEvent, false, true));
     else {
         const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders = m_contentSecurityPolicyResponseHeaders ? m_contentSecurityPolicyResponseHeaders.value() : scriptExecutionContext()->contentSecurityPolicy()->responseHeaders();
-        m_contextProxy->startWorkerGlobalScope(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script(), contentSecurityPolicyResponseHeaders, m_shouldBypassMainWorldContentSecurityPolicy, m_runtimeFlags);
+        m_contextProxy.startWorkerGlobalScope(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script(), contentSecurityPolicyResponseHeaders, m_shouldBypassMainWorldContentSecurityPolicy, m_workerCreationTime, m_runtimeFlags);
         InspectorInstrumentation::scriptImported(*scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
     }
     m_scriptLoader = nullptr;

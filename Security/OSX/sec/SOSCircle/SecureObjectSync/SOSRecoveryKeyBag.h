@@ -31,13 +31,12 @@
 
 #include <stdio.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecureObjectSync/SOSAccount.h>
 
+typedef struct __OpaqueSOSRecoveryKeyBag *SOSRecoveryKeyBagRef;
 
 CFTypeRef SOSRecoveryKeyBageGetTypeID(void);
-
-SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator, SOSAccountRef account, CFDataRef pubData, CFErrorRef *error);
-CFDataRef SOSRecoveryKeyCopyKeyForAccount(CFAllocatorRef allocator, SOSAccountRef account, SOSRecoveryKeyBagRef recoveryKeyBag, CFErrorRef *error);
+SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateForAccount(CFAllocatorRef allocator, CFTypeRef account, CFDataRef pubData, CFErrorRef *error);
+CFDataRef SOSRecoveryKeyCopyKeyForAccount(CFAllocatorRef allocator, CFTypeRef account, SOSRecoveryKeyBagRef recoveryKeyBag, CFErrorRef *error);
 
 CFDataRef SOSRecoveryKeyBagCopyEncoded(SOSRecoveryKeyBagRef RecoveryKeyBag, CFErrorRef* error);
 SOSRecoveryKeyBagRef SOSRecoveryKeyBagCreateFromData(CFAllocatorRef allocator, CFDataRef data, CFErrorRef *error);
@@ -53,5 +52,4 @@ const uint8_t* der_decode_RecoveryKeyBag(CFAllocatorRef allocator,
 size_t der_sizeof_RecoveryKeyBag(SOSRecoveryKeyBagRef RecoveryKeyBag, CFErrorRef *error);
 uint8_t* der_encode_RecoveryKeyBag(SOSRecoveryKeyBagRef RecoveryKeyBag, CFErrorRef *error,
                                       const uint8_t *der, uint8_t *der_end);
-
 #endif /* SOSRecoveryKeyBag_h */

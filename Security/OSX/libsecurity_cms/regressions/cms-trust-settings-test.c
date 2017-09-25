@@ -37,7 +37,7 @@
 
 #define kSystemLoginKeychainPath "/Library/Keychains/System.keychain"
 
-#include <test/testmore.h>
+#include "regressions/test/testmore.h"
 #include "cms-trust-settings-test.h"
 
 // See <rdar://problem/8115188>

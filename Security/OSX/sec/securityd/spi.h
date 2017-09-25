@@ -30,11 +30,14 @@
 __BEGIN_DECLS
 
 /* Calling this function initializes the spi interface in the library to call
-   directly into the backend. It uses home_dir for root of files if specified. */
+   directly into the backend. It uses home_dir for root of files if specified.
+   This function only initializes the trust spi interface if libtrustd is linked
+   by the caller and LIBTRUSTD=1 is specified.  */
 void securityd_init(CFURLRef home_dir);
 
-// Don't call this function unless you are really securityd
+// Don't call either of these functions unless you are really securityd
 void securityd_init_server(void);
+void securityd_init_local_spi(void);
 
 __END_DECLS
 

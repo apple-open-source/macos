@@ -48,7 +48,6 @@ class MachSendRight;
 namespace WebKit {
 
 class LayerTreeContext;
-class CoordinatedLayerTreeHostProxy;
 class UpdateInfo;
 class WebPageProxy;
 
@@ -68,12 +67,10 @@ public:
     virtual void waitForBackingStoreUpdateOnNextPaint() { }
 
     const WebCore::IntSize& size() const { return m_size; }
-    void setSize(const WebCore::IntSize&, const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
+    bool setSize(const WebCore::IntSize&, const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
 
     // The timeout we use when waiting for a DidUpdateGeometry message.
     static constexpr Seconds didUpdateBackingStoreStateTimeout() { return Seconds::fromMilliseconds(500); }
-
-    virtual void waitForPossibleGeometryUpdate(Seconds = didUpdateBackingStoreStateTimeout()) { }
 
     virtual void colorSpaceDidChange() { }
     virtual void minimumLayoutSizeDidChange() { }
@@ -91,7 +88,7 @@ public:
 
     virtual void waitForDidUpdateActivityState() { }
     
-    virtual void dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)>) { ASSERT_NOT_REACHED(); }
+    virtual void dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&&) { ASSERT_NOT_REACHED(); }
 
     // Hide the content until the currently pending update arrives.
     virtual void hideContentUntilPendingUpdate() { ASSERT_NOT_REACHED(); }

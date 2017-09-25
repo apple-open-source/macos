@@ -29,7 +29,8 @@
 
 #include "ContextDestructionObserver.h"
 #include "MediaKeySystemConfiguration.h"
-#include <functional>
+#include "SharedBuffer.h"
+#include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -39,9 +40,11 @@
 namespace WebCore {
 
 class CDM;
+class CDMInstance;
 class CDMPrivate;
 class Document;
 class ScriptExecutionContext;
+class SharedBuffer;
 
 struct MediaKeysRestrictions;
 
@@ -63,10 +66,23 @@ public:
     static Ref<CDM> create(Document&, const String& keySystem);
     ~CDM();
 
-    using SupportedConfigurationCallback = std::function<void(std::optional<MediaKeySystemConfiguration>)>;
+    using SupportedConfigurationCallback = WTF::Function<void(std::optional<MediaKeySystemConfiguration>)>;
     void getSupportedConfiguration(MediaKeySystemConfiguration&& candidateConfiguration, SupportedConfigurationCallback&&);
 
     const String& keySystem() const { return m_keySystem; }
+
+    void loadAndInitialize();
+    RefPtr<CDMInstance> createInstance();
+    bool supportsServerCertificates() const;
+    bool supportsSessions() const;
+    bool supportsInitDataType(const AtomicString&) const;
+
+    RefPtr<SharedBuffer> sanitizeInitData(const AtomicString& initDataType, const SharedBuffer&);
+    bool supportsInitData(const AtomicString& initDataType, const SharedBuffer&);
+
+    RefPtr<SharedBuffer> sanitizeResponse(const SharedBuffer&);
+
+    std::optional<String> sanitizeSessionId(const String& sessionId);
 
 private:
     CDM(Document&, const String& keySystem);
@@ -94,7 +110,7 @@ private:
 
     WeakPtr<CDM> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
 
-    using ConsentStatusCallback = std::function<void(ConsentStatus, MediaKeySystemConfiguration&&, MediaKeysRestrictions&&)>;
+    using ConsentStatusCallback = WTF::Function<void(ConsentStatus, MediaKeySystemConfiguration&&, MediaKeysRestrictions&&)>;
     void getConsentStatus(MediaKeySystemConfiguration&& accumulatedConfiguration, MediaKeysRestrictions&&, ConsentStatusCallback&&);
     String m_keySystem;
     std::unique_ptr<CDMPrivate> m_private;

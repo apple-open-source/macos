@@ -62,7 +62,7 @@ protected:
 /*! @function
     @abstract Free the IONetworkUserClient object. */
 
-    virtual void free(void);
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -80,28 +80,28 @@ public:
     and initialize the IOExternalMethod array.
     @result true on success, false otherwise. */
 
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 /*! @function clientClose
     @abstract Handle a client close.
     @discussion Close and detach from our owner (provider).
     @result kIOReturnSuccess. */
 
-    virtual IOReturn clientClose(void);
+    virtual IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
 
 /*! @function clientDied
     @abstract Handle client death.
     @discussion Close and detach from our owner (provider).
     @result kIOReturnSuccess. */
 
-    virtual IOReturn clientDied(void);
+    virtual IOReturn clientDied(void) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn externalMethod(
                         uint32_t selector,
                         IOExternalMethodArguments * arguments,
                         IOExternalMethodDispatch * dispatch = 0,
                         OSObject * target = 0,
-                        void * reference = 0 );
+                        void * reference = 0 ) APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -181,13 +181,13 @@ protected:
     @result The return value from the invocation of this method in our
     provider is returned. */
 
-    virtual IOReturn setProperties(OSObject * properties);
+    virtual IOReturn setProperties(OSObject * properties) APPLE_KEXT_OVERRIDE;
 
 /*! @function getService
     @abstract Get the IOService which is the provider of this user client.
     @result Returns the IONetworkInterface that created the user client. */
 
-    virtual IOService * getService();
+    virtual IOService * getService() APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* KERNEL */

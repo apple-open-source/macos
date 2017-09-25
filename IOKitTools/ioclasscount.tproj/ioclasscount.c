@@ -31,6 +31,7 @@ cc ioclasscount.c -o /tmp/ioclasscount -Wall -isysroot /Applications/Xcode.app/C
 #include <libproc.h>
 #include <malloc/malloc.h>
 #include <mach/mach_vm.h>
+#include <mach/vm_statistics.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Kernel/IOKit/IOKitDebug.h>
 #include <Kernel/libkern/OSKextLibPrivate.h>
@@ -133,12 +134,11 @@ finish:
 /*********************************************************************
 *********************************************************************/
 
-static bool
-StringForUUID(const CFUUIDBytes * uuidBytes, char * string, size_t size)
+static CFStringRef
+CreateStringForUUID(const CFUUIDBytes * uuidBytes)
 {
     CFUUIDRef   uuid  = 0;
     CFStringRef cfstr = 0;
-    bool        ok    = false;
 
     if (uuidBytes) uuid = CFUUIDCreateFromUUIDBytes(NULL, *uuidBytes);
     if (uuid)
@@ -146,25 +146,102 @@ StringForUUID(const CFUUIDBytes * uuidBytes, char * string, size_t size)
         cfstr = CFUUIDCreateString(kCFAllocatorDefault, uuid);
         CFRelease(uuid);
     }
-    if (cfstr)
-    {
-        ok = CFStringGetCString(cfstr, string, size, kCFStringEncodingUTF8);
-        CFRelease(cfstr);
+    return (cfstr);
+}
+
+#define kAddressKey CFSTR("Address")
+#define kNameKey CFSTR("Name")
+#define kPathKey CFSTR("Path")
+#define kSegmentsKey CFSTR("Segments")
+#define kSizeKey CFSTR("Size")
+#define kUuidKey CFSTR("UUID")
+
+static CFDictionaryRef
+CreateSymbolOwnerSummary(CSSymbolOwnerRef owner)
+{
+    CFMutableDictionaryRef summaryDict = CFDictionaryCreateMutable(NULL, 0,  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (summaryDict == NULL) {
+        return NULL;
     }
-    return (ok);
+    CFMutableDictionaryRef rval = NULL;
+    __block CSSegmentRef textSegment = kCSNull, textExecSegment = kCSNull;
+    CFStringRef path = NULL, name = NULL, uuidString = NULL;
+    /* This is released by  textSegment, textExecSegment, or
+     * CSSymbolOwnerForeachSegment
+     */
+    CSSegmentRef segment = kCSNull;
+    CSRange range;
+    CFNumberRef address = NULL, size = NULL;
+
+    uuidString = CreateStringForUUID(CSSymbolOwnerGetCFUUIDBytes(owner));
+    if (!uuidString) goto end;
+
+    CFDictionarySetValue(summaryDict, kUuidKey, uuidString);
+
+    path = CFStringCreateWithCString(kCFAllocatorDefault, CSSymbolOwnerGetPath(owner), kCFStringEncodingUTF8);
+    if (!path) goto end;
+    CFDictionarySetValue(summaryDict, kPathKey, path);
+
+    name = CFStringCreateWithCString(kCFAllocatorDefault, CSSymbolOwnerGetName(owner), kCFStringEncodingUTF8);
+    if (!name) goto end;
+    CFDictionarySetValue(summaryDict, kNameKey, name);
+
+    /*
+     * This assumes there is only one TEXT OR one TEXT_EXEC
+     * segment inside the symbol owner
+     */
+    CSSymbolOwnerForeachSegment(owner, ^(CSSegmentRef segment) {
+        if (strcmp(CSRegionGetName(segment), "__TEXT SEGMENT") == 0)
+        {
+            textSegment = segment;
+            CSRetain(textSegment);
+        }
+        else if (strcmp(CSRegionGetName(segment), "__TEXT_EXEC SEGMENT") == 0)
+        {
+            textExecSegment = segment;
+            CSRetain(textExecSegment);
+        }
+    });
+
+    segment = !CSIsNull(textExecSegment) ? textExecSegment : textSegment;
+    if (CSIsNull(segment)) goto end;
+
+    range = CSRegionGetRange(segment);
+
+    address = CFNumberCreate(NULL, kCFNumberLongLongType, &range.location);
+    if (address == NULL) goto end;
+    size = CFNumberCreate(NULL, kCFNumberLongLongType, &range.length);
+    if (size == NULL) goto end;
+    CFDictionarySetValue(summaryDict, kAddressKey, address);
+    CFDictionarySetValue(summaryDict, kSizeKey, size);
+
+    rval = summaryDict;
+
+end:
+    if (size) CFRelease(size);
+    if (address) CFRelease(address);
+    if (!CSIsNull(textExecSegment)) CSRelease(textExecSegment);
+    if (!CSIsNull(textSegment)) CSRelease(textSegment);
+    if (name) CFRelease(name);
+    if (path) CFRelease(path);
+    if (uuidString) CFRelease(uuidString);
+
+    if (!rval) CFRelease(summaryDict);
+
+    return rval;
 }
 
 static void
 GetBacktraceSymbols(CSSymbolicatorRef symbolicator, uint64_t addr,
-                const char ** pModuleName, const char ** pSymbolName, uint64_t * pOffset)
+                const char ** pModuleName, const char ** pSymbolName, uint64_t * pOffset, CFMutableDictionaryRef binaryImages)
 {
-    static char         unknownKernel[38];
-    static char         unknownKernelSymbol[38];
-    static char         _module[38];
-    const char        * symbolName;
-    CSSymbolOwnerRef    owner;
-    CSSymbolRef         symbol;
-    CSRange             range;
+    static char           unknownKernel[38];
+    static char           unknownKernelSymbol[38];
+    static char           _module[38];
+    const char          * symbolName;
+    CSSymbolOwnerRef       owner;
+    CSSymbolRef            symbol;
+    CSRange                range;
 
     owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(symbolicator, addr, kCSNow);
     if (CSIsNull(owner))
@@ -181,6 +258,7 @@ GetBacktraceSymbols(CSSymbolicatorRef symbolicator, uint64_t addr,
     }
     else
     {
+
         *pModuleName = CSSymbolOwnerGetName(owner);
         symbol       = CSSymbolOwnerGetSymbolWithAddress(owner, addr);
         if (!CSIsNull(symbol) && (symbolName = CSSymbolGetName(symbol)))
@@ -191,18 +269,66 @@ GetBacktraceSymbols(CSSymbolicatorRef symbolicator, uint64_t addr,
         }
         else
         {
-            if (StringForUUID(CSSymbolOwnerGetCFUUIDBytes(owner), _module, sizeof(_module))) *pModuleName = _module;
+            CFStringGetCString(kCFURLVolumeUUIDStringKey, _module, sizeof(_module), kCFStringEncodingUTF8);
+            *pModuleName = _module;
             symbolName   = CSSymbolOwnerGetName(owner);
             *pSymbolName = symbolName;
             *pOffset     = addr - CSSymbolOwnerGetBaseAddress(owner);
         }
+        if (CSSymbolicatorIsKernelSymbolicator(symbolicator))
+        {
+            CFStringRef uuidString = CreateStringForUUID(CSSymbolOwnerGetCFUUIDBytes(owner));
+            if (!CFDictionaryContainsKey(binaryImages, uuidString))
+            {
+                CFDictionaryRef summary = CreateSymbolOwnerSummary(owner);
+                if (summary != NULL) {
+                    CFDictionarySetValue(binaryImages, uuidString, summary);
+                    CFRelease(summary);
+                }
+            }
+            CFRelease(uuidString);
+        }
     }
+}
+
+#define NSITES_MAX 64
+
+static bool matchAnySearchString(const char *str, const char *searchStrings[NSITES_MAX])
+{
+    uint32_t i;
+    for (i = 0; searchStrings[i] != NULL && i < NSITES_MAX; i++) {
+        if (NULL != strnstr(str, searchStrings[i], strlen(str))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void
+ShowBinaryImage(const void *key, const void *value, void *context)
+{
+    char nameString[256] = {0}, uuidString[256] = {0}, pathString[256] = {0};
+    CFStringRef uuid = (CFStringRef)key;
+    CFStringGetCString(uuid, uuidString, sizeof(uuidString), kCFStringEncodingASCII);
+    CFDictionaryRef summary = (CFDictionaryRef)value;
+
+    CFStringRef name = CFDictionaryGetValue(summary, kNameKey);
+    CFStringGetCString(name, nameString, sizeof(nameString), kCFStringEncodingASCII);
+    CFStringRef path = CFDictionaryGetValue(summary, kPathKey);
+    CFStringGetCString(path, pathString, sizeof(pathString), kCFStringEncodingASCII);
+    CFNumberRef addressNumber = CFDictionaryGetValue(summary, kAddressKey);
+    CFNumberRef sizeNumber = CFDictionaryGetValue(summary, kSizeKey);
+    int64_t address, size;
+    CFNumberGetValue(addressNumber, kCFNumberSInt64Type, &address);
+    CFNumberGetValue(sizeNumber, kCFNumberSInt64Type, &size);
+
+    printf("%p - %p %s <%s> %s\n", (void*)address, (void*)address + size, nameString, uuidString, pathString);
 }
 
 /*********************************************************************
 *********************************************************************/
 static void
-ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggregate)
+ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * searchStrings[NSITES_MAX])
 {
     struct IOTrackingCallSiteInfo * sites;
     struct IOTrackingCallSiteInfo * site;
@@ -213,9 +339,12 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggr
     const char                    * moduleName;
     CSSymbolicatorRef               sym[2];
     CSSourceInfoRef                 sourceInfo;
+    CFMutableDictionaryRef          binaryImages;
     char                            procname[(2*MAXCOMLEN)+1];
     bool                            search, found;
     char                            line[1024];
+
+    binaryImages = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     sym[0] = CSSymbolicatorCreateWithMachKernel();
 
@@ -224,9 +353,9 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggr
     total = 0;
     for (printIdx = idx = 0; idx < num; idx++)
     {
-	search = (aggregate != 0);
+	search = (searchStrings[0] != NULL);
 	found  = false;
-	do 
+	do
 	{
 	    site = &sites[idx];
 	    if (!search)
@@ -265,21 +394,21 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggr
 		    mach_vm_address_t addr = site->bt[userBT][j];
 
 		    if (!addr) break;
-                    GetBacktraceSymbols(sym[userBT], addr, &moduleName, &symbolName, &offset);
+                    GetBacktraceSymbols(sym[userBT], addr, &moduleName, &symbolName, &offset, binaryImages);
 		    snprintf(line, sizeof(line), "%2d %-36s    %#018llx ", btIdx, moduleName, addr);
 		    if (!search) printf("%s", line);
 		    else
 		    {
-		    	found = (NULL != strnstr(line, aggregate, sizeof(line)));
-		    	if (found) break;
+			found = matchAnySearchString(line, searchStrings);
+		        if (found) break;
 		    }
 		    if (offset) snprintf(line, sizeof(line), "%s + 0x%llx", symbolName, offset);
 		    else        snprintf(line, sizeof(line), "%s", symbolName);
 		    if (!search) printf("%s", line);
 		    else
 		    {
-		    	found = (NULL != strnstr(line, aggregate, sizeof(line)));
-		    	if (found) break;
+			found = matchAnySearchString(line, searchStrings);
+			if (found) break;
 		    }
 
 		    sourceInfo = CSSymbolicatorGetSourceInfoWithAddressAtTime(sym[userBT], addr, kCSNow);
@@ -290,7 +419,7 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggr
 			if (!search) printf("%s", line);
 			else
 			{
-			    found = (NULL != strnstr(line, aggregate, sizeof(line)));
+			    found = matchAnySearchString(line, searchStrings);
 			    if (found) break;
 			}
 		    }
@@ -307,7 +436,37 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggr
     }
     printf("\n0x%qx bytes total\n", total);
 
+    if (CFDictionaryGetCount(binaryImages) > 0)
+    {
+        printf("\nBinary Images:\n");
+        CFDictionaryApplyFunction(binaryImages, ShowBinaryImage, NULL);
+    }
+    else
+    {
+        printf("No binary images\n");
+    }
+    CFRelease(binaryImages);
     CSRelease(sym[0]);
+}
+
+
+/*********************************************************************
+ *********************************************************************/
+void PrintLogHeader(int argc, char ** argv)
+{
+    int nc = 0;
+    nc += printf("kernel memory allocations ('");
+
+    for (int i = 0; i < argc; i++) {
+        nc += printf("%s", argv[i]);
+        if (i != argc - 1) nc += printf(" ");
+    }
+    nc += printf("')");
+    printf("\n");
+    while (nc--) {
+        printf("-");
+    }
+    printf("\n");
 }
 
 /*********************************************************************
@@ -316,8 +475,10 @@ void usage(void)
 {
     printf("usage: ioclasscount [--track] [--leaks] [--reset] [--start] [--stop]\n");
     printf("                    [--exclude] [--maps=PID] [--size=BYTES] [--capsize=BYTES]\n");
+    printf("                    [--tag=vmtag] [--zsize=BYTES]\n");
     printf("                    [classname] [...] \n");
 }
+
 
 /*********************************************************************
 *********************************************************************/
@@ -338,14 +499,18 @@ int main(int argc, char ** argv)
     int                    exclude;
     pid_t                  pid;
     size_t                 size;
+    uint32_t               tag;
+    uint32_t               zsize;
     size_t                 len;
-    const char           * aggregate;
+    const char           * sites[NSITES_MAX] = {NULL};
+    size_t                 nsites      = 0;
 
     command   = kIOTrackingInvalid;
     exclude   = false;
     size      = 0;
+    tag       = 0;
+    zsize     = 0;
     pid       = 0;
-    aggregate = NULL;
     
     /*static*/ struct option longopts[] = {
 	{ "track",   no_argument,       &command,  kIOTrackingGetTracking },
@@ -357,6 +522,8 @@ int main(int argc, char ** argv)
 	{ "site",    required_argument, NULL,      't' },
 	{ "maps",    required_argument, NULL,      'm' },
 	{ "size",    required_argument, NULL,      's' },
+	{ "tag",     required_argument, NULL,      'g' },
+	{ "zsize",   required_argument, NULL,      'z' },
 	{ "capsize", required_argument, NULL,      'c' },
 	{ NULL,      0,                 NULL,      0 }
     };
@@ -367,7 +534,9 @@ int main(int argc, char ** argv)
 	switch (c)
 	{
 	    case 's': size      = strtol(optarg, NULL, 0); break;
-	    case 't': aggregate = optarg; break;
+	    case 'g': tag       = atoi(optarg);            break;
+	    case 'z': zsize     = atoi(optarg);            break;
+	    case 't': if (nsites < NSITES_MAX) { sites[nsites++] = optarg; } break;
 	    case 'c': size      = strtol(optarg, NULL, 0); command = kIOTrackingSetMinCaptureSize; break;
 	    case 'm': pid       = (pid_t) strtol(optarg, NULL, 0); command = kIOTrackingGetMappings; break;
 	    default:
@@ -426,6 +595,8 @@ int main(int argc, char ** argv)
 
 	params->size  = size;
 	params->value = pid;
+	params->tag   = tag;
+	params->zsize = zsize;
 	if (exclude) params->options |= kIOTrackingExcludeNames;
 
 	err = IOConnectCallMethod(connect, command,
@@ -442,7 +613,8 @@ int main(int argc, char ** argv)
 
 	if (outputSize)
         {
-            ProcessBacktraces(output, outputSize, pid, aggregate);
+            PrintLogHeader(argc, argv);
+            ProcessBacktraces(output, outputSize, pid, sites);
         }
 
 	free(params);

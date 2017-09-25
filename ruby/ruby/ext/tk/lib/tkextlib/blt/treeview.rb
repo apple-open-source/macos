@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #  tkextlib/blt/treeview.rb
 #                               by Hidetoshi NAGAI (nagai@ai.kyutech.ac.jp)
@@ -339,7 +340,7 @@ class Tk::BLT::Treeview
       || tag.kind_of?(Tk::BLT::Treeview::Tag)
       tag.id
     else
-      tag  # maybe an Array of configure paramters
+      tag  # maybe an Array of configure parameters
     end
   end
   private :tagid

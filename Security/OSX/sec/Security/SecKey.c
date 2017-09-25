@@ -131,8 +131,8 @@ static CFDictionaryRef SecKeyCopyAttributeDictionaryWithLocalKey(SecKeyRef key,
 	DICT_ADDPAIR(kSecAttrCanWrap, privateBlob ? kCFBooleanFalse : kCFBooleanTrue);
 	DICT_ADDPAIR(kSecAttrCanUnwrap, privateBlob ? kCFBooleanTrue : kCFBooleanFalse);
 	DICT_ADDPAIR(kSecValueData, privateBlob ? privateBlob : pubKeyBlob);
-    dict = DICT_CREATE(allocator);
-
+    dict = CFDictionaryCreate(allocator, keys, values, numValues, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
 errOut:
 	// @@@ Zero out key material.
 	CFReleaseSafe(pubKeyDigest);
@@ -294,12 +294,13 @@ OSStatus SecKeyGeneratePair(CFDictionaryRef parameters,
 
     require_noerr_quiet(result, errOut);
 
-    /* Store the keys in the keychain if they are marked as permanent. */
+    // Store the keys in the keychain if they are marked as permanent. Governed by kSecAttrIsPermanent attribute, with default
+    // to 'false' (ephemeral keys), except private token-based keys, in which case the default is 'true' (permanent keys).
     if (getBoolForKey(pubParams, kSecAttrIsPermanent, false)) {
+        CFDictionaryRemoveValue(pubParams, kSecAttrTokenID);
         require_noerr_quiet(result = add_ref(pubKey, pubParams), errOut);
     }
-    /* Token-based private keys are automatically stored on the token. */
-    if (tokenID == NULL && getBoolForKey(privParams, kSecAttrIsPermanent, false)) {
+    if (getBoolForKey(privParams, kSecAttrIsPermanent, CFDictionaryContainsKey(privParams, kSecAttrTokenID))) {
         require_noerr_quiet(result = add_ref(privKey, privParams), errOut);
     }
 
@@ -469,7 +470,101 @@ SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator, CFD
 out:
 
     return NULL;
+}
 
+static const DERByte oidRSA[] = {
+    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+};
+static const DERByte oidECsecp256[] = {
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
+};
+static const DERByte oidECsecp384[] = {
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22,
+};
+static const DERByte oidECsecp521[] = {
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23,
+};
+
+
+CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key)
+{
+    CFMutableDataRef data = NULL;
+    CFDataRef publicKey = NULL;
+    CFDataRef dataret = NULL;
+    DERSubjPubKeyInfo spki;
+    DERReturn drtn;
+    size_t zeroPad = 0;
+
+    memset(&spki, 0, sizeof(spki));
+
+    /* encode the public key. */
+    require_noerr(SecKeyCopyPublicBytes(key, &publicKey), errOut);
+    require_quiet(publicKey, errOut);
+
+    require(CFDataGetLength(publicKey) != 0, errOut);
+
+    // Add prefix 00 is needed to avoid creating negative bit strings
+    if (((uint8_t *)CFDataGetBytePtr(publicKey))[0] & 0x80)
+        zeroPad = 1;
+
+
+    CFMutableDataRef paddedKey = CFDataCreateMutable(NULL, 0);
+    /* the bit strings bits used field first */
+    CFDataAppendBytes(paddedKey, (const UInt8 *)"\x00", 1);
+    if (zeroPad)
+        CFDataAppendBytes(paddedKey, (const UInt8 *)"\x00", 1);
+
+    CFDataAppendBytes(paddedKey, CFDataGetBytePtr(publicKey), CFDataGetLength(publicKey));
+    CFTransferRetained(publicKey, paddedKey);
+
+    spki.pubKey.data = (DERByte *)CFDataGetBytePtr(publicKey);
+    spki.pubKey.length = CFDataGetLength(publicKey);
+
+    // Encode algId according to algorithm used.
+    CFIndex algorithm = SecKeyGetAlgorithmIdentifier(key);
+    if (algorithm == kSecRSAAlgorithmID) {
+        spki.algId.data = (DERByte *)oidRSA;
+        spki.algId.length = sizeof(oidRSA);
+    } else if (algorithm == kSecECDSAAlgorithmID) {
+        SecECNamedCurve curve = SecECKeyGetNamedCurve(key);
+        switch(curve) {
+            case kSecECCurveSecp256r1:
+                spki.algId.data = (DERByte *)oidECsecp256;
+                spki.algId.length = sizeof(oidECsecp256);
+                break;
+            case kSecECCurveSecp384r1:
+                spki.algId.data = (DERByte *)oidECsecp384;
+                spki.algId.length = sizeof(oidECsecp384);
+                break;
+            case kSecECCurveSecp521r1:
+                spki.algId.data = (DERByte *)oidECsecp521;
+                spki.algId.length = sizeof(oidECsecp521);
+                break;
+            default:
+                goto errOut;
+        }
+    } else {
+        goto errOut;
+    }
+
+    DERSize size = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE, &spki,
+                                              DERNumSubjPubKeyInfoItemSpecs, DERSubjPubKeyInfoItemSpecs);
+    data = CFDataCreateMutable(kCFAllocatorDefault, size);
+    CFDataSetLength(data, size);
+
+    drtn = DEREncodeSequence(ASN1_CONSTR_SEQUENCE, &spki,
+                             DERNumSubjPubKeyInfoItemSpecs,
+                             DERSubjPubKeyInfoItemSpecs,
+                             CFDataGetMutableBytePtr(data), &size);
+    require(drtn == DR_Success, errOut);
+    CFDataSetLength(data, size);
+
+    dataret = CFRetain(data);
+errOut:
+    CFReleaseNull(data);
+    CFReleaseNull(publicKey);
+
+    return dataret;
 }
 
 
@@ -702,9 +797,7 @@ size_t SecKeyGetBlockSize(SecKeyRef key) {
 /* Private API functions. */
 
 CFDictionaryRef SecKeyCopyAttributeDictionary(SecKeyRef key) {
-    if (key->key_class->copyDictionary)
-        return key->key_class->copyDictionary(key);
-    return NULL;
+    return SecKeyCopyAttributes(key);
 }
 
 SecKeyRef SecKeyCreateFromAttributeDictionary(CFDictionaryRef refAttributes) {
@@ -1032,23 +1125,33 @@ _SecKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, C
     return NULL;
 }
 
-static SInt32 SecKeyParamsGetSInt32(CFTypeRef value, CFStringRef errName, CFErrorRef *error) {
-    SInt32 result = -1;
-    if (CFGetTypeID(value) == CFNumberGetTypeID()) {
-        if (!CFNumberGetValue(value, kCFNumberSInt32Type, &result) || result < 0) {
+static CFIndex SecKeyParamsGetCFIndex(CFTypeRef value, CFStringRef errName, CFErrorRef *error) {
+    CFIndex result = -1;
+    CFNumberRef localValue = NULL;
+    
+    if (isString(value)) {
+        CFNumberFormatterRef formatter = CFNumberFormatterCreate(kCFAllocatorDefault, CFLocaleGetSystem(), kCFNumberFormatterDecimalStyle);
+        localValue = CFNumberFormatterCreateNumberFromString(kCFAllocatorDefault, formatter, value, NULL, kCFNumberFormatterParseIntegersOnly);
+        CFReleaseSafe(formatter);
+    
+        if (localValue) {
+            CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%@"), localValue);
+            if (CFEqual(t, value)) {
+                value = localValue;
+            }
+            CFReleaseSafe(t);
+        }
+    }
+
+    if (value != NULL && CFGetTypeID(value) == CFNumberGetTypeID()) {
+        if (!CFNumberGetValue(value, kCFNumberCFIndexType, &result) || result < 0) {
             SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
         }
-    } else if (isString(value)) {
-        result = CFStringGetIntValue(value);
-        CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%ld"), (long) result);
-        if (!CFEqual(t, value) || result < 0) {
-            SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
-            result = -1;
-        }
-        CFReleaseSafe(t);
     } else {
         SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
     }
+    
+    CFReleaseSafe(localValue);
     return result;
 }
 
@@ -1057,13 +1160,15 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
     SecKeyRef key = NULL;
     CFAllocatorRef allocator = NULL;
 
+    if (CFDictionaryGetValue(parameters, kSecAttrTokenID) != NULL) {
+        return SecKeyCreateCTKKey(allocator, parameters, error);
+    }
     /* First figure out the key type (algorithm). */
-    SInt32 algorithm;
+    CFIndex algorithm, class;
     CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
-    require_quiet((algorithm = SecKeyParamsGetSInt32(ktype, CFSTR("key type"), error)) >= 0, out);
-    SInt32 class;
+    require_quiet((algorithm = SecKeyParamsGetCFIndex(ktype, CFSTR("key type"), error)) >= 0, out);
     CFTypeRef kclass = CFDictionaryGetValue(parameters, kSecAttrKeyClass);
-    require_quiet((class = SecKeyParamsGetSInt32(kclass, CFSTR("key class"), error)) >= 0, out);
+    require_quiet((class = SecKeyParamsGetCFIndex(kclass, CFSTR("key class"), error)) >= 0, out);
 
     switch (class) {
         case 0: // kSecAttrKeyClassPublic
@@ -1091,10 +1196,6 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
             };
             break;
         case 1: // kSecAttrKeyClassPrivate
-            if (CFDictionaryGetValue(parameters, kSecAttrTokenID) != NULL) {
-                key = SecKeyCreateCTKKey(allocator, parameters, error);
-                break;
-            }
             switch (algorithm) {
                 case 42: // kSecAlgorithmRSA
                     key = SecKeyCreateRSAPrivateKey(allocator,
@@ -1140,9 +1241,35 @@ CFDataRef SecKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
 }
 
 CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
-    if (key->key_class->copyDictionary)
+    if (key->key_class->copyDictionary) {
         return key->key_class->copyDictionary(key);
-    return NULL;
+    } else {
+        // Create dictionary with basic values derived from other known information of the key.
+        CFMutableDictionaryRef dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFIndex blockSize = SecKeyGetBlockSize(key) * 8;
+        if (blockSize > 0) {
+            CFNumberRef blockSizeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &blockSize);
+            CFDictionarySetValue(dict, kSecAttrKeySizeInBits, blockSizeRef);
+            CFRelease(blockSizeRef);
+        }
+
+        switch (SecKeyGetAlgorithmIdentifier(key)) {
+            case kSecRSAAlgorithmID:
+                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeRSA);
+                break;
+            case kSecECDSAAlgorithmID:
+                CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
+                break;
+        }
+
+        if (key->key_class->rawSign != NULL || key->key_class->decrypt != NULL) {
+            CFDictionarySetValue(dict, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+        } else if (key->key_class->rawVerify != NULL || key->key_class->encrypt != NULL) {
+            CFDictionarySetValue(dict, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+        }
+
+        return dict;
+    }
 }
 
 SecKeyRef SecKeyCopyPublicKey(SecKeyRef key) {

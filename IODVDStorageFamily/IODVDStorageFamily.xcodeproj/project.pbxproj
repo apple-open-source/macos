@@ -98,6 +98,7 @@
 		6058858007382A7900193F37 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		60BD23800736E82C00AC1192 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		60BD23810736E82C00AC1192 /* IODVDStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IODVDStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		727154081F16DD5C00103238 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -115,6 +116,7 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				727154081F16DD5C00103238 /* kext.xcconfig */,
 				60BD23800736E82C00AC1192 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
 			);
@@ -350,6 +352,7 @@
 		};
 		60218F94095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 727154081F16DD5C00103238 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				PRODUCT_NAME = IODVDStorageFamily;
@@ -360,6 +363,7 @@
 		};
 		60218F95095B74720026C3D8 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 727154081F16DD5C00103238 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				PRODUCT_NAME = IODVDStorageFamily;

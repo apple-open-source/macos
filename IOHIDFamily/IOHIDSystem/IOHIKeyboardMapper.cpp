@@ -242,7 +242,7 @@ bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
 
 	}
 
-	if ( !_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) )
+	if ( _delegate && !_delegate->doesKeyLock(NX_KEYTYPE_CAPS_LOCK) )
 	{
 		UInt32 myFlags = _delegate->deviceFlags();
 
@@ -1031,7 +1031,7 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 }
 
 
-void IOHIKeyboardMapper::setKeyboardTarget (IOService * keyboardTarget)
+void IOHIKeyboardMapper::setKeyboardTarget (IOService * keyboardTarget __unused)
 {
 	//_hidSystem = OSDynamicCast( IOHIDSystem, keyboardTarget );
 }
@@ -1056,18 +1056,13 @@ bool IOHIKeyboardMapper::updateProperties( void )
 	return( ok );
 }
 
-IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
+IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict  __unused)
 {
-	OSNumber *		number					= 0;
-	OSData *		data					= 0;
-	OSArray *		array					= 0;
 	IOReturn		err						= kIOReturnSuccess;
 	bool			updated					= false;
-	UInt32			value					= 0;
 	bool			issueFlagsChangedEvent	= false;
 	bool			alphaState				= false;
 	UInt32			myFlags					= _delegate->deviceFlags();
-	UInt32			ledStatus				= 0;
 
 	if ( issueFlagsChangedEvent )
 	{
@@ -1150,7 +1145,7 @@ void IOHIKeyboardMapper::keyEventPostProcess (void)
 }
 
 OSMetaClassDefineReservedUsed(IOHIKeyboardMapper,  0);
-IOReturn IOHIKeyboardMapper::message( UInt32 type, IOService * provider __unused, void * argument __unused )
+IOReturn IOHIKeyboardMapper::message( UInt32 type __unused, IOService * provider __unused, void * argument __unused )
 {
 
 	return kIOReturnSuccess;

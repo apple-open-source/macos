@@ -15,6 +15,8 @@
 #include <libgen.h>
 #include <sys/stat.h>
 
+AUTHD_DEFINE_LOG
+
 #define AUTHDB "/var/db/auth.db"
 #define AUTHDB_DATA "/System/Library/Security/authorization.plist"
 
@@ -117,7 +119,7 @@ _sqlite3_exec(sqlite3 * handle, const char * query)
     char * errmsg = NULL;
     rc = sqlite3_exec(handle, query, NULL, NULL, &errmsg);
     if (errmsg) {
-        LOGE("authdb: exec, (%i) %s", rc, errmsg);
+        os_log_error(AUTHD_LOG, "authdb: exec, (%i) %{public}s", rc, errmsg);
         sqlite3_free(errmsg);
     }
     
@@ -172,20 +174,6 @@ static int32_t _db_upgrade_from_version(authdb_connection_t dbconn, int32_t vers
     return s3e;
 }
 
-static void _printCFError(const char * errmsg, CFErrorRef err)
-{
-	if (err) {
-		CFStringRef errString = NULL;
-		errString = CFErrorCopyDescription(err);
-		char *tmp = _copy_cf_string(errString, NULL);
-		LOGV("%s, %s", errmsg, tmp);
-		free_safe(tmp);
-		CFReleaseSafe(errString);
-	} else {
-		LOGV("%s", errmsg);
-	}
-}
-
 static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
 {
     CFURLRef authURL = NULL;
@@ -199,10 +187,10 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
 	Boolean ok;
     
     authURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR(AUTHDB_DATA), kCFURLPOSIXPathStyle, false);
-    require_action(authURL != NULL, done, LOGE("authdb: file not found %s", AUTHDB_DATA));
+    require_action(authURL != NULL, done, os_log_error(AUTHD_LOG, "authdb: file not found %{public}s", AUTHDB_DATA));
     
 	ok = CFURLCopyResourcePropertyForKey(authURL, kCFURLContentModificationDateKey, &value, &err);
-    require_action(ok && value != NULL, done, _printCFError("authdb: failed to get modification date", err));
+    require_action(ok && value != NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to get modification date: %{public}@", err));
     
     if (CFGetTypeID(value) == CFDateGetTypeID()) {
         ts = CFDateGetAbsoluteTime(value);
@@ -216,15 +204,15 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
 	// Solution: always import plist and update db when time stamps don't match.
 	// After a successful import, old_ts = ts below.
     if (ts != old_ts) {
-        LOGV("authdb: %s modified old=%f, new=%f", AUTHDB_DATA, old_ts, ts);
+        os_log_debug(AUTHD_LOG, "authdb: %{public}s modified old=%f, new=%f", AUTHDB_DATA, old_ts, ts);
         CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, authURL, &data, NULL, NULL, (SInt32*)&rc);
-        require_noerr_action(rc, done, LOGE("authdb: failed to load %s", AUTHDB_DATA));
+        require_noerr_action(rc, done, os_log_error(AUTHD_LOG, "authdb: failed to load %{public}s", AUTHDB_DATA));
 
         plist = CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL, &err);
-        require_action(err == NULL, done, _printCFError("authdb: failed to read plist", err));
+        require_action(err == NULL, done, os_log_error(AUTHD_LOG, "authdb: failed to read plist: %{public}@", err));
         
         if (authdb_import_plist(dbconn, plist, true)) {
-            LOGD("authdb: updating data_ts");
+            os_log_debug(AUTHD_LOG, "authdb: updating data_ts");
             auth_items_t update = auth_items_create();
             auth_items_set_double(update, "data_ts", ts);
             authdb_set_key_value(dbconn, "config", update);
@@ -246,7 +234,7 @@ static bool _truncate_db(authdb_connection_t dbconn)
     int32_t flags = SQLITE_TRUNCATE_JOURNALMODE_WAL | SQLITE_TRUNCATE_AUTOVACUUM_FULL;
     rc = sqlite3_file_control(dbconn->handle, NULL, SQLITE_TRUNCATE_DATABASE, &flags);
     if (rc != SQLITE_OK) {
-        LOGV("Failed to delete db handle!  SQLite error %i.\n", rc);
+        os_log_debug(AUTHD_LOG, "Failed to delete db handle! SQLite error %i.", rc);
         if (rc == SQLITE_IOERR) {
             // Unable to recover successfully if we can't truncate
             abort();
@@ -270,9 +258,9 @@ static void _handle_corrupt_db(authdb_connection_t dbconn)
         
         rc = sqlite3_file_control(corrupt_db, NULL, SQLITE_REPLACE_DATABASE, (void *)dbconn->handle);
         if (SQLITE_OK == rc) {
-            LOGE("Database at path %s is corrupt. Copying it to %s for further investigation.", dbconn->db->db_path, buf);
+            os_log_error(AUTHD_LOG, "Database at path %{public}s is corrupt. Copying it to %{public}s for further investigation.", dbconn->db->db_path, buf);
         } else {
-            LOGE("Tried to copy corrupt database at path %s, but we failed with SQLite error %i.", dbconn->db->db_path, rc);
+            os_log_error(AUTHD_LOG, "Tried to copy corrupt database at path %{public}s, but we failed with SQLite error %i.", dbconn->db->db_path, rc);
         }
     }
 
@@ -295,18 +283,18 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
         
         // We don't have a config table
         if (NULL == config) {
-            LOGV("authdb: initializing database");
+            os_log_debug(AUTHD_LOG, "authdb: initializing database");
             s3e = _db_upgrade_from_version(dbconn, 0);
-            require_noerr_action(s3e, done, LOGE("authdb: failed to initialize database %i", s3e));
+            require_noerr_action(s3e, done, os_log_error(AUTHD_LOG, "authdb: failed to initialize database %i", s3e));
             
             s3e = authdb_get_key_value(dbconn, "config", true, &config);
-            require_noerr_action(s3e, done, LOGE("authdb: failed to get config %i", s3e));
+            require_noerr_action(s3e, done, os_log_error(AUTHD_LOG, "authdb: failed to get config %i", s3e));
         }
         
         int64_t currentVersion = auth_items_get_int64(config, "version");
-        LOGV("authdb: current db ver=%lli", currentVersion);
+        os_log_debug(AUTHD_LOG, "authdb: current db ver=%lli", currentVersion);
         if (currentVersion < AUTHDB_VERSION) {
-            LOGV("authdb: upgrading schema");
+            os_log_debug(AUTHD_LOG, "authdb: upgrading schema");
             s3e = _db_upgrade_from_version(dbconn, (int32_t)currentVersion);
             
             auth_items_set_int64(config, "version", AUTHDB_VERSION);
@@ -335,7 +323,7 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
 //    require(!rc, done);
 //    
 //    if (dispatch_semaphore_wait(semaphore, 5*NSEC_PER_SEC) != 0) {
-//        LOGV("authdb: timeout occurred!");
+//        os_log_debug(AUTHD_LOG, "authdb: timeout occurred!");
 //        sqlite3_unlock_notify(dbconn->handle, NULL, NULL);
 //        rc = SQLITE_LOCKED;
 //    } else if (stmt){
@@ -358,16 +346,16 @@ static void _checkResult(authdb_connection_t dbconn, int32_t rc, const char * fn
     
     if (isCorrupt) {
 		if (skip_maintenance) {
-			LOGV("authdb: corrupted db, skipping maintenance %s %s", fn_name, sqlite3_errmsg(dbconn->handle));
+			os_log_debug(AUTHD_LOG, "authdb: corrupted db, skipping maintenance %{public}s %{public}s", fn_name, sqlite3_errmsg(dbconn->handle));
 		} else {
         _handle_corrupt_db(dbconn);
         authdb_maintenance(dbconn);
 		}
     } else if (SQLITE_CONSTRAINT == rc || SQLITE_READONLY == rc) {
         if (stmt) {
-            LOGV("authdb: %s %s for %s", fn_name, sqlite3_errmsg(dbconn->handle), sqlite3_sql(stmt));
+            os_log_debug(AUTHD_LOG, "authdb: %{public}s %{public}s for %{public}s", fn_name, sqlite3_errmsg(dbconn->handle), sqlite3_sql(stmt));
         } else {
-            LOGV("authdb: %s %s", fn_name, sqlite3_errmsg(dbconn->handle));
+            os_log_debug(AUTHD_LOG, "authdb: %{public}s %{public}s", fn_name, sqlite3_errmsg(dbconn->handle));
         }
     }
 }
@@ -394,7 +382,7 @@ _authdb_finalize(CFTypeRef value)
 {
     authdb_t db = (authdb_t)value;
     
-    CFReleaseSafe(db->connections);
+    CFReleaseNull(db->connections);
     dispatch_release(db->queue);
     free_safe(db->db_path);
 }
@@ -432,7 +420,7 @@ authdb_create()
     db->connections = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
     
     if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
-        LOGV("authdb: running from installer");
+        os_log_debug(AUTHD_LOG, "authdb: running from installer");
         db->db_path = _copy_string("file::memory:?cache=shared");
     } else {
         db->db_path = _copy_string(AUTHDB);
@@ -457,7 +445,7 @@ authdb_connection_t authdb_connection_acquire(authdb_t db)
             dbconn = authdb_connection_create(db);
 #if DEBUG
             total++;
-            LOGV("authdb: no handles available total: %i", total);
+            os_log_debug(AUTHD_LOG, "authdb: no handles available total: %i", total);
 #endif
         }
     });
@@ -478,7 +466,7 @@ void authdb_connection_release(authdb_connection_t * dbconn)
         if (count <= AUTHDB_MAX_HANDLES) {
             CFArrayAppendValue(tmp->db->connections, tmp);
         } else {
-            LOGD("authdb: freeing extra connection");
+            os_log_debug(AUTHD_LOG, "authdb: freeing extra connection");
             CFRelease(tmp);
         }
     });
@@ -495,14 +483,14 @@ static bool _db_check_corrupted(authdb_connection_t dbconn)
     
     rc = sqlite3_prepare_v2(dbconn->handle, "PRAGMA integrity_check;", -1, &stmt, NULL);
     if (rc == SQLITE_LOCKED || rc == SQLITE_BUSY) {
-        LOGV("authdb: warning error %i when running integrity check", rc);
+        os_log_debug(AUTHD_LOG, "authdb: warning error %i when running integrity check", rc);
         isCorrupted = false;
         
     } else if (rc == SQLITE_OK) {
         rc = sqlite3_step(stmt);
         
         if (rc == SQLITE_LOCKED || rc == SQLITE_BUSY) {
-            LOGV("authdb: warning error %i when running integrity check", rc);
+            os_log_debug(AUTHD_LOG, "authdb: warning error %i when running integrity check", rc);
             isCorrupted = false;
         } else if (rc == SQLITE_ROW) {
             const char * result = (const char*)sqlite3_column_text(stmt, 0);
@@ -519,12 +507,12 @@ static bool _db_check_corrupted(authdb_connection_t dbconn)
 
 bool authdb_maintenance(authdb_connection_t dbconn)
 {
-    LOGD("authdb: starting maintenance");
+    os_log_debug(AUTHD_LOG, "authdb: starting maintenance");
     int32_t rc = SQLITE_ERROR;
     auth_items_t config = NULL;
     
     bool isCorrupted = _db_check_corrupted(dbconn);
-    LOGD("authdb: integrity check=%s", isCorrupted ? "fail" : "pass");
+    os_log_debug(AUTHD_LOG, "authdb: integrity check=%{public}s", isCorrupted ? "fail" : "pass");
     
     if (isCorrupted) {
         _handle_corrupt_db(dbconn);
@@ -534,18 +522,18 @@ bool authdb_maintenance(authdb_connection_t dbconn)
 		dbconn->handle = _create_handle(dbconn->db);
 	}
 
-	require_action(dbconn->handle, done, LOGE("authdb: maintenance cannot open database"));
+	require_action(dbconn->handle, done, os_log_error(AUTHD_LOG, "authdb: maintenance cannot open database"));
 
 	_db_maintenance(dbconn);
 
 	rc = authdb_get_key_value(dbconn, "config", true, &config);
-	require_noerr_action(rc, done, LOGV("authdb: maintenance failed %i", rc));
+	require_noerr_action(rc, done, os_log_debug(AUTHD_LOG, "authdb: maintenance failed %i", rc));
 
     _db_load_data(dbconn, config);
 
 done:
     CFReleaseSafe(config);
-    LOGD("authdb: finished maintenance");
+    os_log_debug(AUTHD_LOG, "authdb: finished maintenance");
     return rc == SQLITE_OK;
 }
 
@@ -571,7 +559,7 @@ static int32_t _prepare(authdb_connection_t dbconn, const char * sql, const bool
     require_action(out_stmt != NULL, done, rc = SQLITE_ERROR);
     
     rc = sqlite3_prepare_v2(dbconn->handle, sql, -1, &stmt, NULL);
-    require_noerr_action(rc, done, LOGV("authdb: prepare (%i) %s", rc, sqlite3_errmsg(dbconn->handle)));
+    require_noerr_action(rc, done, os_log_debug(AUTHD_LOG, "authdb: prepare (%i) %{public}s", rc, sqlite3_errmsg(dbconn->handle)));
     
     *out_stmt = stmt;
     
@@ -643,7 +631,7 @@ static int32_t _bindItemsAtIndex(sqlite3_stmt * stmt, int col, auth_items_t item
             break;
     }
     if (rc != SQLITE_OK) {
-        LOGV("authdb: auth_items bind failed (%i)", rc);
+        os_log_debug(AUTHD_LOG, "authdb: auth_items bind failed (%i)", rc);
     }
     return rc;
 }
@@ -674,7 +662,7 @@ int32_t authdb_get_key_value(authdb_connection_t dbconn, const char * table, con
                 if (_is_busy(rc)) {
                     sleep(AUTHDB_BUSY_DELAY);
                 } else {
-                    require_noerr_action(rc, done, LOGV("authdb: get_key_value (%i) %s", rc, sqlite3_errmsg(dbconn->handle)));
+                    require_noerr_action(rc, done, os_log_debug(AUTHD_LOG, "authdb: get_key_value (%i) %{public}s", rc, sqlite3_errmsg(dbconn->handle)));
                 }
                 break;
         }
@@ -715,7 +703,7 @@ int32_t authdb_set_key_value(authdb_connection_t dbconn, const char * table, aut
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
             _checkResult(dbconn, rc, __FUNCTION__, stmt, false);
-            LOGV("authdb: set_key_value, step (%i) %s", rc, sqlite3_errmsg(dbconn->handle));
+            os_log_debug(AUTHD_LOG, "authdb: set_key_value, step (%i) %{public}s", rc, sqlite3_errmsg(dbconn->handle));
         }
         
         return true;
@@ -734,7 +722,7 @@ static int32_t _begin_transaction_type(authdb_connection_t dbconn, AuthDBTransac
     const char * query = NULL;
     switch (type) {
         case AuthDBTransactionImmediate:
-            query = "BEGIN IMMEDATE;";
+            query = "BEGIN IMMEDIATE;";
             break;
         case AuthDBTransactionExclusive:
             query = "BEGIN EXCLUSIVE;";
@@ -770,12 +758,12 @@ bool authdb_transaction(authdb_connection_t dbconn, AuthDBTransactionType type, 
     bool commit = false;
 
     result = _begin_transaction_type(dbconn, type);
-    require_action(result == SQLITE_OK, done, LOGV("authdb: transaction begin failed %i", result));
+    require_action(result == SQLITE_OK, done, os_log_debug(AUTHD_LOG, "authdb: transaction begin failed %i", result));
 
     commit = t();
     
     result = _end_transaction(dbconn, commit);
-    require_action(result == SQLITE_OK, done, commit = false; LOGV("authdb: transaction end failed %i", result));
+    require_action(result == SQLITE_OK, done, commit = false; os_log_debug(AUTHD_LOG, "authdb: transaction end failed %i", result));
 
 done:
     return commit;
@@ -818,11 +806,11 @@ bool authdb_step(authdb_connection_t dbconn, const char * sql, void (^bind_stmt)
                 break;
             default:
                 if (_is_busy(rc)) {
-                    LOGV("authdb: %s", sqlite3_errmsg(dbconn->handle));
+                    os_log_debug(AUTHD_LOG, "authdb: %{public}s", sqlite3_errmsg(dbconn->handle));
                     sleep(AUTHDB_BUSY_DELAY);
                     sqlite3_reset(stmt);
                 } else {
-                    require_noerr_action(rc, done, LOGV("authdb: step (%i) %s", rc, sqlite3_errmsg(dbconn->handle)));
+                    require_noerr_action(rc, done, os_log_debug(AUTHD_LOG, "authdb: step (%i) %{public}s", rc, sqlite3_errmsg(dbconn->handle)));
                 }
                 break;
         }
@@ -838,7 +826,7 @@ void authdb_checkpoint(authdb_connection_t dbconn)
 {
     int32_t rc = sqlite3_wal_checkpoint(dbconn->handle, NULL);
     if (rc != SQLITE_OK) {
-        LOGV("authdb: checkpoit failed %i", rc);
+        os_log_debug(AUTHD_LOG, "authdb: checkpoit failed %i", rc);
     }
 }
 
@@ -904,7 +892,7 @@ _import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_
                         rule_sql_fetch(delegate, dbconn);
                     }
                     if (rule_get_id(delegate) == 0) {
-                        LOGD("authdb: delaying %s waiting for delegate %s", rule_get_name(rule), rule_get_name(delegate));
+                        os_log_debug(AUTHD_LOG, "authdb: delaying %{public}s waiting for delegate %{public}s", rule_get_name(rule), rule_get_name(delegate));
                         delayCommit = true;
                         return false;
                     }
@@ -917,7 +905,7 @@ _import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_
         
         if (!delayCommit) {
             bool success = rule_sql_commit(rule, dbconn, now, NULL);
-            LOGV("authdb: %s %s %s %s",
+            os_log_debug(AUTHD_LOG, "authdb: %{public}s %{public}s %{public}s %{public}s",
                  update ? "updating" : "importing",
                  rule_get_type(rule) == RT_RULE ? "rule" : "right",
                  rule_get_name(rule), success ? "success" : "FAIL");
@@ -938,7 +926,7 @@ authdb_import_plist(authdb_connection_t dbconn, CFDictionaryRef plist, bool vers
 {
     bool result = false;
     
-    LOGV("authdb: starting import");
+    os_log_debug(AUTHD_LOG, "authdb: starting import");
     
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     CFMutableArrayRef rights = NULL;
@@ -955,8 +943,8 @@ authdb_import_plist(authdb_connection_t dbconn, CFDictionaryRef plist, bool vers
         rules = _copy_rules_dict(RT_RULE, rulesDict, dbconn);
     }
 
-    LOGV("authdb: rights = %li", CFArrayGetCount(rights));
-    LOGV("authdb: rules = %li", CFArrayGetCount(rules));
+    os_log_debug(AUTHD_LOG, "authdb: rights = %li", CFArrayGetCount(rights));
+    os_log_debug(AUTHD_LOG, "authdb: rules = %li", CFArrayGetCount(rules));
     
     CFIndex count;
     // first pass import base rules without delegations
@@ -982,7 +970,7 @@ done:
     CFReleaseSafe(rights);
     CFReleaseSafe(rules);
     
-    LOGV("authdb: finished import, %s", result ? "succeeded" : "failed");
+    os_log_debug(AUTHD_LOG, "authdb: finished import, %{public}s", result ? "succeeded" : "failed");
     
     return result;
 }
@@ -1005,7 +993,7 @@ static bool _sql_profile_enabled(void)
             profile_enabled = CFBooleanGetValue((CFBooleanRef)profile);
         }
         
-        LOGV("authdb: sql profile: %s", profile_enabled ? "enabled" : "disabled");
+        os_log_debug(AUTHD_LOG, "authdb: sql profile: %{public}s", profile_enabled ? "enabled" : "disabled");
         
         CFReleaseSafe(profile);
     });
@@ -1015,7 +1003,7 @@ static bool _sql_profile_enabled(void)
 }
 
 static void _profile(void *context AUTH_UNUSED, const char *sql, sqlite3_uint64 ns) {
-    LOGV("==\nauthdb: %s\nTime: %llu ms\n", sql, ns >> 20);
+    os_log_debug(AUTHD_LOG, "==\nauthdb: %{private}s\nTime: %llu ms\n", sql, ns >> 20);
 }
 
 static sqlite3 * _create_handle(authdb_t db)
@@ -1025,7 +1013,7 @@ static sqlite3 * _create_handle(authdb_t db)
     int32_t rc = sqlite3_open_v2(db->db_path, &handle, SQLITE_OPEN_READWRITE, NULL);
     
     if (rc != SQLITE_OK) {
-		LOGE("authdb: open %s (%i) %s", db->db_path, rc, handle ? sqlite3_errmsg(handle) : "no memory for handle");
+		os_log_error(AUTHD_LOG, "authdb: open %{public}s (%i) %{public}s", db->db_path, rc, handle ? sqlite3_errmsg(handle) : "no memory for handle");
 		if (handle) {
 			sqlite3_close(handle);
 		}
@@ -1037,7 +1025,7 @@ static sqlite3 * _create_handle(authdb_t db)
 		dbcreated = true;
 
 		if (rc != SQLITE_OK) {
-			LOGE("authdb: create %s (%i) %s", db->db_path, rc, handle ? sqlite3_errmsg(handle) : "no memory for handle");
+			os_log_error(AUTHD_LOG, "authdb: create %{public}s (%i) %{public}s", db->db_path, rc, handle ? sqlite3_errmsg(handle) : "no memory for handle");
 			if (handle) {
 				sqlite3_close(handle);
 				handle = NULL;
@@ -1075,7 +1063,7 @@ _authdb_connection_finalize(CFTypeRef value)
     if (dbconn->handle) {
         sqlite3_close(dbconn->handle);
     }
-    CFReleaseSafe(dbconn->db);
+    CFReleaseNull(dbconn->db);
 }
 
 AUTH_TYPE_INSTANCE(authdb_connection,

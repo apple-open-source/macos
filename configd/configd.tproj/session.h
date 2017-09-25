@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -117,6 +117,7 @@ void			listSessions	(FILE		*f);
 Boolean			hasRootAccess	(serverSessionRef	session);
 
 Boolean			hasWriteAccess	(serverSessionRef	session,
+					 const char		*op,
 					 CFStringRef		key);
 
 Boolean			hasPathAccess	(serverSessionRef	session,

@@ -407,8 +407,7 @@ svctcp_recv(xprt, msg)
 	register XDR *xdrs = &(cd->xdrs);
 
 	xdrs->x_op = XDR_DECODE;
-	(void)xdrrec_skiprecord(xdrs);
-	if (xdr_callmsg(xdrs, msg)) {
+	if (xdrrec_skiprecord(xdrs) && xdr_callmsg(xdrs, msg)) {
 		cd->x_id = msg->rm_xid;
 		return (TRUE);
 	}

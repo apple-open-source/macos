@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # = uri/ldap.rb
 #
 # Author::
@@ -6,7 +7,7 @@
 # License::
 #   URI::LDAP is copyrighted free software by Takaaki Tateishi and Akira Yamada.
 #   You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: ldap.rb 31555 2011-05-13 20:03:21Z drbrain $
+# Revision:: $Id: ldap.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 # See URI for general documentation
 #

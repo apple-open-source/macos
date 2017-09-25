@@ -40,6 +40,8 @@
 #define WQOPS_QUEUE_REQTHREADS2    0x30	/* request a number of threads in a given priority bucket */
 #define WQOPS_THREAD_KEVENT_RETURN 0x40	/* parks the thread after delivering the passed kevent array */
 #define WQOPS_SET_EVENT_MANAGER_PRIORITY 0x80	/* max() in the provided priority in the the priority of the event manager */
+#define WQOPS_THREAD_WORKLOOP_RETURN 0x100	/* parks the thread after delivering the passed kevent array */
+#define WQOPS_SHOULD_NARROW 0x200	/* checks whether we should narrow our concurrency */
 
 /* flag values for upcall flags field, only 8 bits per struct threadlist */
 #define	WQ_FLAG_THREAD_PRIOMASK			0x0000ffff
@@ -50,8 +52,12 @@
 #define WQ_FLAG_THREAD_KEVENT			0x00080000  /* thread is response to kevent req */
 #define WQ_FLAG_THREAD_EVENT_MANAGER	0x00100000  /* event manager thread */
 #define WQ_FLAG_THREAD_TSD_BASE_SET		0x00200000  /* tsd base has already been set */
+#define WQ_FLAG_THREAD_WORKLOOP			0x00400000  /* workloop thread */
 
 #define WQ_THREAD_CLEANUP_QOS QOS_CLASS_DEFAULT
+
+#define WQ_KEVENT_LIST_LEN  16 // WORKQ_KEVENT_EVENT_BUFFER_LEN
+#define WQ_KEVENT_DATA_SIZE (32 * 1024)
 
 /* These definitions are only available to the kext, to avoid bleeding constants and types across the boundary to
  * the userspace library.
@@ -109,79 +115,92 @@ struct threadlist {
 	uint8_t th_priority;
 };
 
-#define TH_LIST_INITED 		0x01 /* Set at thread creation. */
-#define TH_LIST_RUNNING 	0x02 /* On thrunlist, not parked. */
-#define TH_LIST_KEVENT		0x04 /* Thread requested by kevent */
-#define TH_LIST_NEW			0x08 /* First return to userspace */
-#define TH_LIST_BUSY		0x10 /* Removed from idle list but not ready yet. */
-#define TH_LIST_KEVENT_BOUND	0x20 /* Thread bound to kqueues */
-#define TH_LIST_CONSTRAINED	0x40 /* Non-overcommit thread. */
-#define TH_LIST_EVENT_MGR_SCHED_PRI	0x80 /* Non-QoS Event Manager */
+#define TH_LIST_INITED		0x0001 /* Set at thread creation. */
+#define TH_LIST_RUNNING		0x0002 /* On thrunlist, not parked. */
+#define TH_LIST_KEVENT		0x0004 /* Thread requested by kevent */
+#define TH_LIST_NEW		0x0008 /* First return to userspace */
+#define TH_LIST_BUSY		0x0010 /* Removed from idle list but not ready yet. */
+#define TH_LIST_KEVENT_BOUND	0x0020 /* Thread bound to kqueues */
+#define TH_LIST_CONSTRAINED	0x0040 /* Non-overcommit thread. */
+#define TH_LIST_EVENT_MGR_SCHED_PRI	0x0080 /* Non-QoS Event Manager */
+#define TH_LIST_UNBINDING	0x0100 /* Thread is unbinding during park */
+#define TH_LIST_REMOVING_VOUCHER	0x0200 /* Thread is removing its voucher */
+#define TH_LIST_PACING		0x0400 /* Thread is participating in pacing */
+
+struct threadreq {
+	TAILQ_ENTRY(threadreq) tr_entry;
+	uint16_t tr_flags;
+	uint8_t tr_state;
+	uint8_t tr_priority;
+};
+TAILQ_HEAD(threadreq_head, threadreq);
+
+#define TR_STATE_NEW		0 /* Not yet enqueued */
+#define TR_STATE_WAITING	1 /* Waiting to be serviced - on reqlist */
+#define TR_STATE_COMPLETE	2 /* Request handled - for caller to free */
+#define TR_STATE_DEAD		3
+
+#define TR_FLAG_KEVENT		0x01
+#define TR_FLAG_OVERCOMMIT	0x02
+#define TR_FLAG_ONSTACK		0x04
+#define TR_FLAG_WORKLOOP	0x08
+#define TR_FLAG_NO_PACING	0x10
+
+#if defined(__LP64__)
+typedef unsigned __int128 wq_thactive_t;
+#else
+typedef uint64_t wq_thactive_t;
+#endif
 
 struct workqueue {
 	proc_t		wq_proc;
 	vm_map_t	wq_map;
 	task_t		wq_task;
 
-	_Atomic uint32_t	wq_flags;  // updated atomically
-	uint32_t	wq_lflags; // protected by wqueue lock
-
 	lck_spin_t	wq_lock;
-	boolean_t	wq_interrupt_state;
 
 	thread_call_t	wq_atimer_delayed_call;
 	thread_call_t	wq_atimer_immediate_call;
 
-	uint64_t	wq_thread_yielded_timestamp;
-	uint32_t	wq_thread_yielded_count;
+	uint32_t _Atomic wq_flags;
 	uint32_t	wq_timer_interval;
-	uint32_t	wq_max_concurrency;
 	uint32_t	wq_threads_scheduled;
 	uint32_t	wq_constrained_threads_scheduled;
 	uint32_t	wq_nthreads;
 	uint32_t	wq_thidlecount;
+	uint32_t	wq_event_manager_priority;
+	uint8_t		wq_lflags; // protected by wqueue lock
+	uint8_t		wq_paced; // protected by wqueue lock
+	uint16_t    __wq_unused;
 
 	TAILQ_HEAD(, threadlist) wq_thrunlist;
 	TAILQ_HEAD(, threadlist) wq_thidlelist;
 	TAILQ_HEAD(, threadlist) wq_thidlemgrlist;
 
-	/* Counters for how many requests we have outstanding.  The invariants here:
-	 *   - reqcount == SUM(requests) + (event manager ? 1 : 0)
-	 *   - SUM(ocrequests) + SUM(kevent_requests) + SUM(kevent_ocrequests) <= SUM(requests)
-	 *   - # of constrained requests is difference between quantities above
-	 * i.e. a kevent+overcommit request will increment reqcount, requests and
-	 * kevent_ocrequests only.
-	 */
-	uint32_t	wq_reqcount;
-	uint16_t	wq_requests[WORKQUEUE_NUM_BUCKETS];
-	uint16_t	wq_ocrequests[WORKQUEUE_NUM_BUCKETS];
-	uint16_t	wq_kevent_requests[WORKQUEUE_NUM_BUCKETS];
-	uint16_t	wq_kevent_ocrequests[WORKQUEUE_NUM_BUCKETS];
+	uint32_t	wq_reqcount;	/* number of elements on the following lists */
+	struct threadreq_head wq_overcommit_reqlist[WORKQUEUE_EVENT_MANAGER_BUCKET];
+	struct threadreq_head wq_reqlist[WORKQUEUE_EVENT_MANAGER_BUCKET];
+	struct threadreq wq_event_manager_threadreq;
 
-	uint16_t	wq_reqconc[WORKQUEUE_NUM_BUCKETS];	  		/* requested concurrency for each priority level */
+	struct threadreq *wq_cached_threadreq;
+
 	uint16_t	wq_thscheduled_count[WORKQUEUE_NUM_BUCKETS];
-	uint32_t	wq_thactive_count[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(4))); /* must be uint32_t since we OSAddAtomic on these */
-	uint64_t	wq_lastblocked_ts[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(8))); /* XXX: why per bucket? */
-
-	uint32_t	wq_event_manager_priority;
+	_Atomic wq_thactive_t wq_thactive;
+	_Atomic uint64_t wq_lastblocked_ts[WORKQUEUE_NUM_BUCKETS];
 };
-#define WQ_LIST_INITED		0x01
-#define WQ_EXITING		0x02
-#define WQ_ATIMER_DELAYED_RUNNING	0x04
-#define WQ_ATIMER_IMMEDIATE_RUNNING	0x08
-
-#define WQ_SETFLAG(wq, flag) __c11_atomic_fetch_or(&wq->wq_flags, flag, __ATOMIC_SEQ_CST)
-#define WQ_UNSETFLAG(wq, flag) __c11_atomic_fetch_and(&wq->wq_flags, ~flag, __ATOMIC_SEQ_CST)
+#define WQ_EXITING		0x01
+#define WQ_ATIMER_DELAYED_RUNNING	0x02
+#define WQ_ATIMER_IMMEDIATE_RUNNING	0x04
 
 #define WQL_ATIMER_BUSY		0x01
 #define WQL_ATIMER_WAITING	0x02
 
 #define WORKQUEUE_MAXTHREADS		512
-#define WQ_YIELDED_THRESHOLD		2000
-#define WQ_YIELDED_WINDOW_USECS		30000
 #define WQ_STALLED_WINDOW_USECS		200
 #define WQ_REDUCE_POOL_WINDOW_USECS	5000000
 #define	WQ_MAX_TIMER_INTERVAL_USECS	50000
+
+#define WQ_THREADLIST_EXITING_POISON (void *)~0ul
 
 #endif // KERNEL
 

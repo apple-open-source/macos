@@ -38,6 +38,7 @@ env -i \
 	LANG="${LANG}" \
 	HOME="${HOME}" \
 	$EXTRA_ARGS \
+	TOOLCHAINS="${TOOLCHAINS}" \
 	xcrun -sdk "${SDKROOT}" xcodebuild install \
 		-target file \
 		-sdk "macosx" \

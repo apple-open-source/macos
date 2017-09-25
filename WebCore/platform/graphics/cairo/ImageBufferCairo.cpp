@@ -50,6 +50,10 @@
 #if ENABLE(ACCELERATED_2D_CANVAS)
 #include "GLContext.h"
 #include "TextureMapperGL.h"
+
+#if USE(EGL) && USE(LIBEPOXY)
+#include <epoxy/egl.h>
+#endif
 #include <cairo-gl.h>
 
 #if USE(OPENGL_ES_2)
@@ -135,7 +139,7 @@ void ImageBufferData::swapBuffersIfNeeded()
     if (!m_compositorTexture) {
         createCompositorBuffer();
         LockHolder holder(m_platformLayerProxy->lock());
-        m_platformLayerProxy->pushNextBuffer(std::make_unique<TextureMapperPlatformLayerBuffer>(m_compositorTexture, m_size, TextureMapperGL::ShouldBlend));
+        m_platformLayerProxy->pushNextBuffer(std::make_unique<TextureMapperPlatformLayerBuffer>(m_compositorTexture, m_size, TextureMapperGL::ShouldBlend, GL_RGBA));
     }
 
     // It would be great if we could just swap the buffers here as we do with webgl, but that breaks the cases
@@ -218,7 +222,15 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpac
 #else
     ASSERT(m_data.m_renderingMode != Accelerated);
 #endif
-        m_data.m_surface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height()));
+    {
+        static cairo_user_data_key_t s_surfaceDataKey;
+
+        int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, m_size.width());
+        auto* surfaceData = fastZeroedMalloc(m_size.height() * stride);
+
+        m_data.m_surface = adoptRef(cairo_image_surface_create_for_data(static_cast<unsigned char*>(surfaceData), CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height(), stride));
+        cairo_surface_set_user_data(m_data.m_surface.get(), &s_surfaceDataKey, surfaceData, [](void* data) { fastFree(data); });
+    }
 
     if (cairo_surface_status(m_data.m_surface.get()) != CAIRO_STATUS_SUCCESS)
         return;  // create will notice we didn't set m_initialized and fail.
@@ -275,7 +287,7 @@ void ImageBuffer::draw(GraphicsContext& destinationContext, const FloatRect& des
 {
     BackingStoreCopy copyMode = &destinationContext == &context() ? CopyBackingStore : DontCopyBackingStore;
     RefPtr<Image> image = copyImage(copyMode);
-    destinationContext.drawImage(*image, destRect, srcRect, ImagePaintingOptions(op, blendMode, ImageOrientationDescription()));
+    destinationContext.drawImage(*image, destRect, srcRect, ImagePaintingOptions(op, blendMode, DecodingMode::Synchronous, ImageOrientationDescription()));
 }
 
 void ImageBuffer::drawPattern(GraphicsContext& context, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform,
@@ -325,7 +337,7 @@ RefPtr<cairo_surface_t> copySurfaceToImageAndAdjustRect(cairo_surface_t* surface
 template <Multiply multiplied>
 RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logicalRect, const ImageBufferData& data, const IntSize& size, const IntSize& logicalSize, float resolutionScale)
 {
-    RefPtr<Uint8ClampedArray> result = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
+    auto result = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
     if (!result)
         return nullptr;
 
@@ -402,7 +414,7 @@ RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logic
         destRows += destBytesPerRow;
     }
 
-    return result.release();
+    return result;
 }
 
 template<typename Unit>
@@ -425,17 +437,21 @@ inline Unit backingStoreUnit(const Unit& value, ImageBuffer::CoordinateSystem co
     return result;
 }
 
-RefPtr<Uint8ClampedArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect, CoordinateSystem coordinateSystem) const
+RefPtr<Uint8ClampedArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect, IntSize* pixelArrayDimensions, CoordinateSystem coordinateSystem) const
 {
     IntRect logicalRect = logicalUnit(rect, coordinateSystem, m_resolutionScale);
     IntRect backingStoreRect = backingStoreUnit(rect, coordinateSystem, m_resolutionScale);
+    if (pixelArrayDimensions)
+        *pixelArrayDimensions = backingStoreRect.size();
     return getImageData<Unmultiplied>(backingStoreRect, logicalRect, m_data, m_size, m_logicalSize, m_resolutionScale);
 }
 
-RefPtr<Uint8ClampedArray> ImageBuffer::getPremultipliedImageData(const IntRect& rect, CoordinateSystem coordinateSystem) const
+RefPtr<Uint8ClampedArray> ImageBuffer::getPremultipliedImageData(const IntRect& rect, IntSize* pixelArrayDimensions, CoordinateSystem coordinateSystem) const
 {
     IntRect logicalRect = logicalUnit(rect, coordinateSystem, m_resolutionScale);
     IntRect backingStoreRect = backingStoreUnit(rect, coordinateSystem, m_resolutionScale);
+    if (pixelArrayDimensions)
+        *pixelArrayDimensions = backingStoreRect.size();
     return getImageData<Premultiplied>(backingStoreRect, logicalRect, m_data, m_size, m_logicalSize, m_resolutionScale);
 }
 
@@ -528,36 +544,46 @@ void ImageBuffer::putByteArray(Multiply multiplied, Uint8ClampedArray* source, c
     }
 }
 
-#if !PLATFORM(GTK) && !PLATFORM(EFL)
+#if !PLATFORM(GTK)
 static cairo_status_t writeFunction(void* output, const unsigned char* data, unsigned int length)
 {
-    if (!reinterpret_cast<Vector<unsigned char>*>(output)->tryAppend(data, length))
+    if (!reinterpret_cast<Vector<uint8_t>*>(output)->tryAppend(data, length))
         return CAIRO_STATUS_WRITE_ERROR;
     return CAIRO_STATUS_SUCCESS;
 }
 
-static bool encodeImage(cairo_surface_t* image, const String& mimeType, Vector<char>* output)
+static bool encodeImage(cairo_surface_t* image, const String& mimeType, Vector<uint8_t>* output)
 {
     ASSERT_UNUSED(mimeType, mimeType == "image/png"); // Only PNG output is supported for now.
 
     return cairo_surface_write_to_png_stream(image, writeFunction, output) == CAIRO_STATUS_SUCCESS;
 }
 
-String ImageBuffer::toDataURL(const String& mimeType, std::optional<double>, CoordinateSystem) const
+String ImageBuffer::toDataURL(const String& mimeType, std::optional<double> quality, CoordinateSystem) const
+{
+    Vector<uint8_t> encodedImage = toData(mimeType, quality);
+    if (encodedImage.isEmpty())
+        return "data:,";
+
+    Vector<char> base64Data;
+    base64Encode(encodedImage.data(), encodedImage.size(), base64Data);
+
+    return "data:" + mimeType + ";base64," + base64Data;
+}
+
+Vector<uint8_t> ImageBuffer::toData(const String& mimeType, std::optional<double>) const
 {
     ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
 
     cairo_surface_t* image = cairo_get_target(context().platformContext()->cr());
 
-    Vector<char> encodedImage;
+    Vector<uint8_t> encodedImage;
     if (!image || !encodeImage(image, mimeType, &encodedImage))
-        return "data:,";
+        return { };
 
-    Vector<char> base64Data;
-    base64Encode(encodedImage, base64Data);
-
-    return "data:" + mimeType + ";base64," + base64Data;
+    return encodedImage;
 }
+
 #endif
 
 #if ENABLE(ACCELERATED_2D_CANVAS) && !USE(COORDINATED_GRAPHICS_THREADED)

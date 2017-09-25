@@ -1923,6 +1923,15 @@ journal_open(struct vnode *jvp,
 		goto bad_journal;
 	}
 
+	/* 
+	 * Check for a bad jhdr size after reading in the journal header.
+	 * The journal header length cannot be zero 
+	 */
+	if (jnl->jhdr->jhdr_size == 0) {
+		printf("jnl: %s: open: bad jhdr size (%d) \n", jdev_name, jnl->jhdr->jhdr_size);
+		goto bad_journal;
+	}
+
 	orig_checksum = jnl->jhdr->checksum;
 	jnl->jhdr->checksum = 0;
 
@@ -2013,6 +2022,13 @@ journal_open(struct vnode *jvp,
 	if ((jnl->jhdr->end % 512) != 0) {
 		printf("jnl: %s: open: journal end (0x%llx) not a multiple of block size (0x%x)?\n",
 		       jdev_name, jnl->jhdr->end, jnl->jhdr->jhdr_size);
+		goto bad_journal;
+	}
+
+	if (jnl->jhdr->blhdr_size < 0) {
+		//throw out invalid sizes
+		printf("jnl %s: open: blhdr size looks bogus! (%d) \n", 
+				jdev_name, jnl->jhdr->blhdr_size);
 		goto bad_journal;
 	}
 
@@ -4771,6 +4787,11 @@ int journal_relocate(journal *jnl, off_t offset, off_t journal_size, int32_t tbu
 	/*
 	 * Sanity check inputs, and adjust the size of the transaction buffer.
 	 */
+	if (jnl->jhdr->jhdr_size == 0) {
+		printf("jnl: %s: relocate: bad jhdr size (%d)\n", jnl->jdev_name, jnl->jhdr->jhdr_size);
+		return EINVAL;  
+	}
+
 	if ((offset % jnl->jhdr->jhdr_size) != 0) {
 		printf("jnl: %s: relocate: offset 0x%llx is not an even multiple of block size 0x%x\n",
 		       jnl->jdev_name, offset, jnl->jhdr->jhdr_size);

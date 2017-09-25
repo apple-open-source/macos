@@ -46,6 +46,9 @@
     || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE) \
     || (defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR))
 #define BPLATFORM_IOS 1
+#if (defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR)
+#define BPLATFORM_IOS_SIMULATOR 1
+#endif
 #elif BOS(DARWIN) && defined(TARGET_OS_MAC) && TARGET_OS_MAC
 #define BPLATFORM_MAC 1
 #endif
@@ -120,7 +123,8 @@
 || defined(__ARM_ARCH_7S__)
 #define BARM_ARCH_VERSION 7
 
-#elif defined(__ARM_ARCH_8__)
+#elif defined(__ARM_ARCH_8__) \
+|| defined(__ARM_ARCH_8A__)
 #define BARM_ARCH_VERSION 8
 
 /* MSVC sets _M_ARM */
@@ -191,6 +195,6 @@
 
 #define BATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(printf, formatStringArgument, extraArguments)))
 
-#if (BPLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || (BPLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000)
+#if (BPLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || BPLATFORM(IOS)
 #define BUSE_OS_LOG 1
 #endif

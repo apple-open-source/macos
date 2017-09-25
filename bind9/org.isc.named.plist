@@ -10,6 +10,12 @@
 	<string>org.isc.named</string>
 	<key>OnDemand</key>
 	<false/>
+<!--
+	The PreventsSleep key is valid ONLY when the service plist is
+	being managed by Server.
+-->
+	<key>PreventsSleep</key>
+	<true/>
 	<key>ProgramArguments</key>
 	<array>
 <!--
@@ -22,12 +28,10 @@
 <!--
 		<string>/usr/bin/sandbox-exec</string>
 		<string>-f</string>
-		<string>/usr/share/sandbox/named.sb</string>
+		<string>/Applications/Server.app/Contents/ServerRoot/usr/share/sandbox/named.sb</string>
 -->
-		<string>/usr/sbin/named</string>
+		<string>/Applications/Server.app/Contents/ServerRoot/usr/sbin/named</string>
 		<string>-f</string>
 	</array>
-	<key>ServiceIPC</key>
-	<false/>
 </dict>
 </plist>

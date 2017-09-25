@@ -2516,8 +2516,11 @@ void ppp_updatephase(struct service *serv, int phase, int ifunit)
 {
 
     /* check if update is received pppd has  exited */
-    if (serv->u.ppp.statusfd[READ] == -1)
+    if (serv->u.ppp.statusfd[READ] == -1) {
+        serv->u.ppp.phase = PPP_IDLE;
+        phase_changed(serv, serv->u.ppp.phase);
         return;
+    }
 
     /* check for new phase */
     if (phase == serv->u.ppp.phase)

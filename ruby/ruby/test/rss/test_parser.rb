@@ -1,6 +1,7 @@
+# frozen_string_literal: false
 require "tempfile"
 
-require "rss-testcase"
+require_relative "rss-testcase"
 
 require "rss/1.0"
 require "rss/dublincore"
@@ -18,7 +19,7 @@ EOR
       @rss_tmp = Tempfile.new(%w"rss10- .rdf")
       @rss_tmp.print(@rss10)
       @rss_tmp.close
-      @rss_file = @rss_tmp.path.untaint.trust
+      @rss_file = @rss_tmp.path.untaint
     end
 
     def teardown

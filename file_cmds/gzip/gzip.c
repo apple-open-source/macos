@@ -1,4 +1,4 @@
-/*	$NetBSD: gzip.c,v 1.105 2011/08/30 23:06:00 joerg Exp $	*/
+/*	$NetBSD: gzip.c,v 1.109 2015/10/27 07:36:18 mrg Exp $	*/
 
 /*-
  * Copyright (c) 1997, 1998, 2003, 2004, 2006 Matthew R. Green
@@ -31,7 +31,7 @@
 #ifndef lint
 __COPYRIGHT("@(#) Copyright (c) 1997, 1998, 2003, 2004, 2006\
  Matthew R. Green.  All rights reserved.");
-__FBSDID("$FreeBSD: src/usr.bin/gzip/gzip.c,v 1.25 2011/10/10 06:37:32 delphij Exp $");
+__FBSDID("$FreeBSD: head/usr.bin/gzip/gzip.c 290073 2015-10-27 21:26:05Z delphij $");
 #endif /* not lint */
 
 /*
@@ -69,6 +69,7 @@ __FBSDID("$FreeBSD: src/usr.bin/gzip/gzip.c,v 1.25 2011/10/10 06:37:32 delphij E
 #include <sys/attr.h>
 #include <copyfile.h>
 #include <get_compat.h>
+int futimens(int fd, const struct timespec times[2]);
 #endif /* __APPLE__ */
 
 /* what type of file are we dealing with */
@@ -167,7 +168,7 @@ static suffixes_t suffixes[] = {
 #ifdef __APPLE__
 static	const char	gzip_version[] = "Apple gzip " GZIP_APPLE_VERSION;
 #else
-static	const char	gzip_version[] = "FreeBSD gzip 20111009";
+static	const char	gzip_version[] = "FreeBSD gzip 20150413";
 #endif
 
 #ifndef SMALL
@@ -831,6 +832,7 @@ gz_uncompress(int in, int out, char *pre, size_t prelen, off_t *gsizep,
 				if (in_tot > 0) {
 					maybe_warnx("%s: trailing garbage "
 						    "ignored", filename);
+					exit_value = 2;
 					goto stop;
 				}
 				maybe_warnx("input not gziped (MAGIC0)");
@@ -1091,7 +1093,7 @@ out2:
 static void
 copymodes(int fd, const struct stat *sbp, const char *file)
 {
-	struct timeval times[2];
+	struct timespec times[2];
 	struct stat sb;
 
 	/*
@@ -1120,14 +1122,14 @@ copymodes(int fd, const struct stat *sbp, const char *file)
 		maybe_warn("couldn't fchmod: %s", file);
 
 #ifdef __APPLE__
-	TIMESPEC_TO_TIMEVAL(&times[0], &sb.st_atimespec);
-	TIMESPEC_TO_TIMEVAL(&times[1], &sb.st_mtimespec);
+	times[0] = sb.st_atimespec;
+	times[1] = sb.st_mtimespec;
 #else
-	TIMESPEC_TO_TIMEVAL(&times[0], &sb.st_atim);
-	TIMESPEC_TO_TIMEVAL(&times[1], &sb.st_mtim);
+	times[0] = sb.st_atim;
+	times[1] = sb.st_mtim;
 #endif
-	if (futimes(fd, times) < 0)
-		maybe_warn("couldn't utimes: %s", file);
+	if (futimens(fd, times) < 0)
+		maybe_warn("couldn't futimens: %s", file);
 
 	/* only try flags if they exist already */
         if (sb.st_flags != 0 && fchflags(fd, sb.st_flags) < 0)
@@ -1412,7 +1414,7 @@ file_uncompress(char *file, char *outfile, size_t outsize)
 #ifndef SMALL
 	ssize_t rv;
 	time_t timestamp = 0;
-	unsigned char name[PATH_MAX + 1];
+	char name[PATH_MAX + 1];
 #endif
 
 	/* gather the old name info */
@@ -1467,21 +1469,33 @@ file_uncompress(char *file, char *outfile, size_t outsize)
 		timestamp = ts[3] << 24 | ts[2] << 16 | ts[1] << 8 | ts[0];
 
 		if (header1[3] & ORIG_NAME) {
-			rbytes = pread(fd, name, sizeof name, GZIP_ORIGNAME);
+			rbytes = pread(fd, name, sizeof(name) - 1, GZIP_ORIGNAME);
 			if (rbytes < 0) {
 				maybe_warn("can't read %s", file);
 				goto lose;
 			}
-			if (name[0] != 0) {
+			if (name[0] != '\0') {
+				char *dp, *nf;
+
+				/* Make sure that name is NUL-terminated */
+				name[rbytes] = '\0';
+
+				/* strip saved directory name */
+				nf = strrchr(name, '/');
+				if (nf == NULL)
+					nf = name;
+				else
+					nf++;
+
 				/* preserve original directory name */
-				char *dp = strrchr(file, '/');
+				dp = strrchr(file, '/');
 				if (dp == NULL)
 					dp = file;
 				else
 					dp++;
 				snprintf(outfile, outsize, "%.*s%.*s",
 						(int) (dp - file), 
-						file, (int) rbytes, name);
+						file, (int) rbytes, nf);
 			}
 		}
 	}
@@ -1827,7 +1841,7 @@ handle_stdout(void)
 		return;
 	}
 #endif
-	/* If stdin is a file use it's mtime, otherwise use current time */
+	/* If stdin is a file use its mtime, otherwise use current time */
 	ret = fstat(STDIN_FILENO, &sb);
 
 #ifndef SMALL
@@ -2188,9 +2202,9 @@ display_license(void)
 {
 
 #ifdef __APPLE__
-	fprintf(stderr, "%s (based on FreeBSD gzip 20111009)\n", gzip_version);
+	fprintf(stderr, "%s (based on FreeBSD gzip 20150113)\n", gzip_version);
 #else
-	fprintf(stderr, "%s (based on NetBSD gzip 20111009)\n", gzip_version);
+	fprintf(stderr, "%s (based on NetBSD gzip 20150113)\n", gzip_version);
 #endif
 	fprintf(stderr, "%s\n", gzip_copyright);
 	exit(0);

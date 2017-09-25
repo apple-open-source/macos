@@ -1,22 +1,22 @@
+Steps to add a statistic
+========================
 
-o Steps to add a statistic
+1. Define an enum value in statistic.h, such as STATISTIC_FOO.
 
-Define an enum value in statistic.h, such as STATISTIC_FOO.
+2. In statistic.c add an entry to to the statistic_name_map.
 
-In statistic.c add a struct entry to to the statistic_name_map.
+3. In preferences.c add .array[N] = STATISTIC_FOO to .display_stats.
 
-In preferences.c add .array[N] = STATISTIC_FOO to .display_stats.
+4. In preferences.c add the symbolic name(s) for the statistic to stat_map.
 
-In preferences.c add the symbolic name(s) for the statistic to stat_map.
+5. Add the metric to the keys in the usage statement.
 
-In top.c you should add the type to the sort function, if needed.
+6. In top.c you should add the type to the sort function, if needed.
 
-Create or extend one of the .c files and add it to the Makefile.
-You could start by copying user.c and user.h.
+7. In the top.1 man page, add a description of the statistic.
 
-You should now be able to do: 
- -stats foo
+8. Create or extend one of the .c files and add it to the Xcode project.
 
-The foo statistic will also be inserted as necessary, depending
-on the ordering of the preferences .display_stat.array, and the
-available space.
+    You could start by copying user.c and user.h.
+
+9. Add a test for the statistic to the stats_option test in tests/test_top.c.

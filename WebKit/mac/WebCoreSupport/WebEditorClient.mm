@@ -38,6 +38,7 @@
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebArchive.h"
+#import "WebCreateFragmentInternal.h"
 #import "WebDataSourceInternal.h"
 #import "WebDelegateImplementationCaching.h"
 #import "WebDocument.h"
@@ -77,7 +78,7 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
-#import <wtf/PassRefPtr.h>
+#import <wtf/RefPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/text/WTFString.h>
 
@@ -102,9 +103,16 @@ using namespace HTMLNames;
 - (DOMDocumentFragment *)_documentFromRange:(NSRange)range document:(DOMDocument *)document documentAttributes:(NSDictionary *)attributes subresources:(NSArray **)subresources;
 @end
 
-static WebViewInsertAction kit(EditorInsertAction coreAction)
+static WebViewInsertAction kit(EditorInsertAction action)
 {
-    return static_cast<WebViewInsertAction>(coreAction);
+    switch (action) {
+    case EditorInsertAction::Typed:
+        return WebViewInsertActionTyped;
+    case EditorInsertAction::Pasted:
+        return WebViewInsertActionPasted;
+    case EditorInsertAction::Dropped:
+        return WebViewInsertActionDropped;
+    }
 }
 
 @interface WebUndoStep : NSObject
@@ -112,8 +120,8 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
     RefPtr<UndoStep> m_step;   
 }
 
-+ (WebUndoStep *)stepWithUndoStep:(PassRefPtr<UndoStep>)step;
-- (UndoStep *)step;
++ (WebUndoStep *)stepWithUndoStep:(UndoStep&)step;
+- (UndoStep&)step;
 
 @end
 
@@ -128,13 +136,12 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
 #endif
 }
 
-- (id)initWithUndoStep:(PassRefPtr<UndoStep>)step
+- (id)initWithUndoStep:(UndoStep&)step
 {
-    ASSERT(step);
     self = [super init];
     if (!self)
         return nil;
-    m_step = step;
+    m_step = &step;
     return self;
 }
 
@@ -146,14 +153,14 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
     [super dealloc];
 }
 
-+ (WebUndoStep *)stepWithUndoStep:(PassRefPtr<UndoStep>)step
++ (WebUndoStep *)stepWithUndoStep:(UndoStep&)step
 {
     return [[[WebUndoStep alloc] initWithUndoStep:step] autorelease];
 }
 
-- (UndoStep *)step
+- (UndoStep&)step
 {
-    return m_step.get();
+    return *m_step;
 }
 
 @end
@@ -170,13 +177,13 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
 - (void)undoEditing:(id)arg
 {
     ASSERT([arg isKindOfClass:[WebUndoStep class]]);
-    [arg step]->unapply();
+    [arg step].unapply();
 }
 
 - (void)redoEditing:(id)arg
 {
     ASSERT([arg isKindOfClass:[WebUndoStep class]]);
-    [arg step]->reapply();
+    [arg step].reapply();
 }
 
 @end
@@ -235,7 +242,7 @@ bool WebEditorClient::smartInsertDeleteEnabled()
     return page->settings().smartInsertDeleteEnabled();
 }
 
-bool WebEditorClient::isSelectTrailingWhitespaceEnabled()
+bool WebEditorClient::isSelectTrailingWhitespaceEnabled() const
 {
     Page* page = [m_webView page];
     if (!page)
@@ -247,7 +254,7 @@ bool WebEditorClient::shouldApplyStyle(StyleProperties* style, Range* range)
 {
     Ref<MutableStyleProperties> mutableStyle(style->isMutable() ? Ref<MutableStyleProperties>(static_cast<MutableStyleProperties&>(*style)) : style->mutableCopy());
     return [[m_webView _editingDelegateForwarder] webView:m_webView
-        shouldApplyStyle:kit(mutableStyle->ensureCSSStyleDeclaration()) toElementsInDOMRange:kit(range)];
+        shouldApplyStyle:kit(&mutableStyle->ensureCSSStyleDeclaration()) toElementsInDOMRange:kit(range)];
 }
 
 static void updateFontPanel(WebView *webView)
@@ -635,10 +642,8 @@ static NSString* undoNameForEditAction(EditAction editAction)
     return nil;
 }
 
-void WebEditorClient::registerUndoOrRedoStep(PassRefPtr<UndoStep> step, bool isRedo)
+void WebEditorClient::registerUndoOrRedoStep(UndoStep& step, bool isRedo)
 {
-    ASSERT(step);
-    
     NSUndoManager *undoManager = [m_webView undoManager];
 
 #if PLATFORM(IOS)
@@ -649,7 +654,7 @@ void WebEditorClient::registerUndoOrRedoStep(PassRefPtr<UndoStep> step, bool isR
         return;
 #endif
 
-    NSString *actionName = undoNameForEditAction(step->editingAction());
+    NSString *actionName = undoNameForEditAction(step.editingAction());
     WebUndoStep *webEntry = [WebUndoStep stepWithUndoStep:step];
     [undoManager registerUndoWithTarget:m_undoTarget.get() selector:(isRedo ? @selector(redoEditing:) : @selector(undoEditing:)) object:webEntry];
     if (actionName)
@@ -677,12 +682,12 @@ void WebEditorClient::updateEditorStateAfterLayoutIfEditabilityChanged()
         [m_webView updateTouchBar];
 }
 
-void WebEditorClient::registerUndoStep(PassRefPtr<UndoStep> cmd)
+void WebEditorClient::registerUndoStep(UndoStep& cmd)
 {
     registerUndoOrRedoStep(cmd, false);
 }
 
-void WebEditorClient::registerRedoStep(PassRefPtr<UndoStep> cmd)
+void WebEditorClient::registerRedoStep(UndoStep& cmd)
 {
     registerUndoOrRedoStep(cmd, true);
 }
@@ -918,6 +923,14 @@ bool WebEditorClient::performsTwoStepPaste(WebCore::DocumentFragment* fragment)
     return false;
 }
 
+bool WebEditorClient::performTwoStepDrop(DocumentFragment& fragment, Range& destination, bool isMove)
+{
+    if ([[m_webView _UIKitDelegateForwarder] respondsToSelector:@selector(performTwoStepDrop:atDestination:isMove:)])
+        return [[m_webView _UIKitDelegateForwarder] performTwoStepDrop:kit(&fragment) atDestination:kit(&destination) isMove:isMove];
+
+    return false;
+}
+
 int WebEditorClient::pasteboardChangeCount()
 {
     if ([[m_webView _UIKitDelegateForwarder] respondsToSelector:@selector(getPasteboardChangeCount)])
@@ -949,6 +962,11 @@ Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView stri
 #endif // PLATFORM(IOS)
 
 #if !PLATFORM(IOS)
+
+bool WebEditorClient::performTwoStepDrop(DocumentFragment&, Range&, bool)
+{
+    return false;
+}
 
 bool WebEditorClient::shouldEraseMarkersAfterChangeSelection(TextCheckingType type) const
 {
@@ -1246,9 +1264,13 @@ void WebEditorClient::handleRequestedCandidates(NSInteger sequenceNumber, NSArra
     selectedRange->absoluteTextQuads(quads);
     if (!quads.isEmpty())
         rectForSelectionCandidates = frame->view()->contentsToWindow(quads[0].enclosingBoundingBox());
+    else {
+        // Range::absoluteTextQuads() will be empty at the start of a paragraph.
+        if (selection.isCaret())
+            rectForSelectionCandidates = frame->view()->contentsToWindow(frame->selection().absoluteCaretBounds());
+    }
 
     [m_webView showCandidates:candidates forString:m_paragraphContextForCandidateRequest.get() inRect:rectForSelectionCandidates forSelectedRange:m_rangeForCandidates view:m_webView completionHandler:nil];
-
 }
 
 void WebEditorClient::handleAcceptedCandidateWithSoftSpaces(TextCheckingResult acceptedCandidate)
@@ -1317,11 +1339,11 @@ void WebEditorClient::didCheckSucceed(int sequence, NSArray* results)
 
 #endif
 
-void WebEditorClient::requestCheckingOfString(PassRefPtr<WebCore::TextCheckingRequest> request, const VisibleSelection& currentSelection)
+void WebEditorClient::requestCheckingOfString(WebCore::TextCheckingRequest& request, const VisibleSelection& currentSelection)
 {
 #if !PLATFORM(IOS)
     ASSERT(!m_textCheckingRequest);
-    m_textCheckingRequest = request;
+    m_textCheckingRequest = &request;
 
     int sequence = m_textCheckingRequest->data().sequence();
     NSRange range = NSMakeRange(0, m_textCheckingRequest->data().text().length());

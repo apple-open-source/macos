@@ -1,6 +1,6 @@
 --- Completion/Unix/Command/_subversion.orig	2007-03-19 06:02:49.000000000 -0700
 +++ Completion/Unix/Command/_subversion	2008-07-18 17:21:08.000000000 -0700
-@@ -100,7 +100,7 @@
+@@ -103,7 +103,7 @@
            ;;
            (commit)
              args=(
@@ -9,7 +9,7 @@
                '*:file:_files -g "*(e:_svn_status:)"'
              )
            ;;
-@@ -143,7 +143,7 @@
+@@ -146,7 +146,7 @@
  	  (propset)
  	    args=(
  	    ':propname:(svn:ignore svn:keywords svn:executable svn:eol-style svn:mime-type svn:externals svn:needs-lock)'

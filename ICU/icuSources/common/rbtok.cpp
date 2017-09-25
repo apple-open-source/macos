@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.                 *
+* Copyright (C) 2006-2008,2017 Apple Inc. All Rights Reserved.            *
 ***************************************************************************
 */
 
@@ -12,13 +12,17 @@
 #include "unicode/ustring.h"
 #include "unicode/utext.h"
 #include "rbbidata.h"
+#include "rbbirb.h"
+#include "uassert.h"
+
+#ifdef RBBI_DEBUG
+// The following is now static in rbbi.cpp, gets set dynamicaly.
+// For now duplicate here to build, and force to TRUE if desired.
+static UBool fTrace = FALSE;
+#endif
 
 U_NAMESPACE_BEGIN
 
-
-#if defined(__GNUC__) && (__GNUC__ >= 4)
-#pragma GCC optimization_level 3
-#endif
 
 static const int16_t START_STATE = 1;     // The state number of the starting state
 static const int16_t STOP_STATE  = 0;     // The state-transition value indicating "stop"
@@ -28,8 +32,8 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
     RuleBasedTokenRange *outTokenLimit = outTokenRanges + maxTokens;
     RuleBasedTokenRange *outTokenP = outTokenRanges;
     int32_t             state;
-    int16_t             category;
-    
+    uint16_t            category = 0;
+
     const RBBIStateTableRow  *row;
     const RBBIStateTableRow  *const startRow = fStartRow;
 
@@ -51,12 +55,13 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
 
     // if we're already at the end of the text, return DONE.
     prev = (signed long)UTEXT_GETNATIVEINDEX(text);
-    
+
     // loop until we reach the end of the text or transition to state 0
     //
-    const UTrie         *trie = &fData->fTrie;
+    const UTrie *trie = &fData->fTrie;
     while (outTokenP < outTokenLimit) {
-        c               = UTEXT_NEXT32(text);
+        // LookAheadResults lookAheadMatches; // added in RBBI, #12081/r38387
+        c = UTEXT_NEXT32(text);
         if (c == U_SENTINEL)
         {
             goto exitTokenizer;
@@ -64,7 +69,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
         //  Set the initial state for the state machine
         state = START_STATE;
         row = startRow;
-            
+
         // if we have cached break positions and we're still in the range
         // covered by them, just move one step forward in the cache
         if (fCachedBreakPositions != NULL) {
@@ -93,7 +98,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                     category = fLatin1Cat[c];
                 else
                     UTRIE_GET16(trie, c, category);
-    
+
                 // Check the dictionary bit in the character's category.
                 //    Counter is only used by dictionary based iterators (subclasses).
                 //    Chars that need to be handled by a dictionary have a flag bit set
@@ -104,10 +109,10 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                     //  And off the dictionary flag bit.
                     category &= ~0x4000;
                 }
-    
+
             #ifdef RBBI_DEBUG
                 if (fTrace) {
-                    RBBIDebugPrintf("             %4d   ", utext_getNativeIndex(fText));
+                    RBBIDebugPrintf("             %4lld   ", utext_getNativeIndex(fText));
                     if (0x20<=c && c<0x7f) {
                         RBBIDebugPrintf("\"%c\"  ", c);
                     } else {
@@ -116,12 +121,17 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                     RBBIDebugPrintf("%3d  %3d\n", state, category);
                 }
             #endif
-    
+
             // State Transition - move machine to its next state
             //
+
+            // Note: fNextState is defined as uint16_t[2], but we are casting
+            // a generated RBBI table to RBBIStateTableRow and some tables
+            // actually have more than 2 categories.
+            U_ASSERT(category<fData->fHeader->fCatCount);
             state = row->fNextState[category];
             row = (const RBBIStateTableRow *) (tableData + tableRowLen * state);
-    
+
             if (row->fAccepting == -1) {
                 // Match found, common case.
                     result = (signed long)UTEXT_GETNATIVEINDEX(text);
@@ -129,15 +139,18 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                 //lastStatusRow = row;
                 lastAcceptingState = state;
             }
-    
+
+            // rbbi has added code here to check lookAheadMatches and
+            // set lookAheadMatches, per open-source ICU #12081/r38387
+
             if (state == STOP_STATE) {
                 // This is the normal exit from the lookup state machine.
                 // We have advanced through the string until it is certain that no
                 //   longer match is possible, no matter what characters follow.
                 break;
             }
-            
-            // Advance to the next character.  
+
+            // Advance to the next character.
             // If this is a beginning-of-input loop iteration, don't advance
             //    the input position.  The next iteration will be processing the
             //    first real input character.
@@ -150,36 +163,50 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
 
 emitToken:
         // The state machine is done.  Check whether it found a match...
-    
+
+        // If the iterator failed to advance in the match engine, force it ahead by one.
+        //   (This really indicates a defect in the break rules.  They should always match
+        //    at least one character.). Added in open-source ICU r13469
+        UBool setFlagsZero = FALSE;
+        if (result == prev) {
+            UTEXT_SETNATIVEINDEX(text, prev);
+            UTEXT_NEXT32(text);
+            result = (int32_t)UTEXT_GETNATIVEINDEX(text);
+            setFlagsZero = TRUE;
+        }
+
         // Leave the iterator at our result position.
         UTEXT_SETNATIVEINDEX(text, result);
 
         RuleBasedTokenRange range = {(signed long)prev, (signed long) (result-prev)};
-        int32_t flags = fStateFlags[lastAcceptingState];
+        int32_t flags = (!setFlagsZero)? fStateFlags[lastAcceptingState]: 0;
 
-        if (flags == -1)
+        if (flags == -1) {
             goto skipToken;
+        }
 
+    #ifdef RBBI_DEBUG
+        if (fTrace) {
+            RBBIDebugPrintf("Emit location %3ld length %2ld flags %08X\n", range.location, range.length, flags);
+        }
+    #endif
         *outTokenP++ = range;
         if (outTokenFlags)
         {
             *outTokenFlags++ = (unsigned long) flags;
         }
 
-        if (flags & 0x40000000)
+        if (flags & 0x40000000) {
             goto exitTokenizer;
+        }
 
 skipToken:
         prev = result;
     }
-    
+
 exitTokenizer:
     return (outTokenP - outTokenRanges);
 }
-
-#if defined (__GNUC__) && (__GNUC__ >= 4)
-#pragma GCC optimization_level reset
-#endif
 
 void
 RuleBasedTokenizer::init()
@@ -190,7 +217,7 @@ RuleBasedTokenizer::init()
         (statetable->fTableData + (statetable->fRowLen * START_STATE));
     UChar i;
     const UTrie         *trie = &fData->fTrie;
-    int16_t category;
+    //int16_t category;
     fLatin1Cat = new int16_t[256];
     for (i = 0; i < 256; ++i)
     {
@@ -204,7 +231,7 @@ RuleBasedTokenizer::init()
         const RBBIStateTableRow *row = (const RBBIStateTableRow *)
             (statetable->fTableData + (statetable->fRowLen * i));
         int32_t flags = 0;
-        if (row->fAccepting == -1)
+        if (row->fAccepting == -1 && row->fTagIdx != 0)
         {
             const int32_t *vals = (fData->fRuleStatusTable) + (row->fTagIdx);
             const int32_t *valLimit = vals + 1;

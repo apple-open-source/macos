@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/bin/sh/tests/parser/alias15.0 261192 2014-01-26 21:19:33Z jilles $
 
 f_echoanddo() {
 	printf '%s\n' "$*"

@@ -108,6 +108,9 @@ auth_token_state_t auth_token_get_state(auth_token_t);
 AUTH_NONNULL_ALL
 bool auth_token_check_state(auth_token_t, auth_token_state_t);
 
+AUTH_NONNULL_ALL
+CFDataRef auth_token_get_encryption_key(auth_token_t auth);
+
 #if defined(__cplusplus)
 }
 #endif

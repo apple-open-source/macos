@@ -78,6 +78,9 @@ enum {
  *   Bits 0...4 => day (value 1-31; 5 bits)
  *   Bits 5...8 => month (value 1-12; 4 bits)
  *   Bits 9...15 => years since 1980 (value 0-127; 7 bits)
+ *
+ * Custom commands not specific to 'Smart Battery Data spec' are defined
+ * with lower 16-bits set to 0.
  */
 enum {
     kBManufacturerAccessCmd           = 0x00,     // READ/WRITE WORD
@@ -106,7 +109,7 @@ enum {
     kBReadCellVoltage1Cmd             = 0x3f,     // READ WORD
     kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
     kBDesignCycleCount9CCmd           = 0x9C,     // READ WORD
-    kBPackReserveCmd                  = 0x8B      // READ WORD
+    kBPackReserveCmd                  = 0x8B,     // READ WORD
 };
 
 
@@ -132,6 +135,95 @@ enum {
     kBFullyChargedStatusBit           = 0x0020,
     kBFullyDischargedStatusBit        = 0x0010
 };
+
+
+//=====================================
+
+/*
+ * Support for external transactions (from user space)
+ */
+enum {
+    kEXDefaultBatterySelector = 0,
+    kEXManagerSelector = 1
+};
+
+enum {
+    kEXReadWord     = 0,
+    kEXWriteWord    = 1,
+    kEXReadBlock    = 2,
+    kEXWriteBlock   = 3,
+    kEXReadByte     = 4,
+    kEXWriteByte    = 5,
+    kEXSendByte     = 6
+};
+
+enum {
+    kEXFlagRetry  = 1,
+    kEXFlagUsePEC = 2
+};
+
+#define MAX_SMBUS_DATA_SIZE     32
+
+// * WriteBlock note
+// rdar://5433060
+// For block writes, clients always increment inByteCount +1
+// greater than the actual byte count. (e.g. 32 bytes to write becomes a 33 byte count.)
+// Other types of transactions are not affected by this workaround.
+typedef struct {
+    uint8_t         flags;
+    uint8_t         type;
+    uint8_t         batterySelector;
+    uint8_t         address;
+    uint8_t         inByteCount;
+    uint8_t         inBuf[MAX_SMBUS_DATA_SIZE];
+} EXSMBUSInputStruct;
+
+typedef struct {
+    uint32_t        status;
+    uint32_t        outByteCount;
+    uint8_t        outBuf[MAX_SMBUS_DATA_SIZE];
+} EXSMBUSOutputStruct;
+
+typedef enum {
+    kASBMSMBUSReadWord = kEXReadWord,
+    kASBMSMBUSWriteWord = kEXWriteWord,
+    
+    kASBMSMBUSReadBlock = kEXReadBlock,
+    kASBMSMBUSWriteBlock = kEXWriteBlock,
+    
+    kASBMSMBUSReadByte = kEXReadByte,
+    kASBMSMBUSWriteByte = kEXWriteByte,
+    kASBMSMBUSSendByte = kEXSendByte,
+    
+    kASBMSMBUSExtendedReadWord,
+    kASBMSMCReadBytes,
+    kASBMSMCReadBool,
+    kASBMSMCReadDictionary,
+    kASBMInvalidOp
+} ASBMgrOpType;
+
+
+typedef uint8_t ASBMgrAddress;
+typedef uint8_t ASBMgrCmd;
+
+typedef void (*ASBMgrTransactionCompletion)(OSObject * target, void * ref,  IOReturn status, size_t bytes, uint8_t *data);
+
+
+typedef struct {
+    uint8_t     key;
+    uint32_t    data;
+} ASBMgrSmcTransaction;
+
+typedef struct {
+    ASBMgrOpType    opType;
+    IOSMBusAddress	address;
+    IOSMBusCommand	command;
+    IOByteCount     outSize;
+    uint8_t         *outData;
+    bool            fullyDischarged;
+    
+    ASBMgrTransactionCompletion completionHandler;
+} ASBMgrRequest;
 
 
 #endif

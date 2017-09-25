@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # The HTTPHeader module defines methods for reading and writing
 # HTTP headers.
 #
@@ -145,11 +146,11 @@ module Net::HTTPHeader
     @header.key?(key.downcase)
   end
 
-  # Returns a Hash consisting of header names and values.
+  # Returns a Hash consisting of header names and array of values.
   # e.g.
-  # {"cache-control" => "private",
-  #  "content-type" => "text/html",
-  #  "date" => "Wed, 22 Jun 2005 22:11:50 GMT"}
+  # {"cache-control" => ["private"],
+  #  "content-type" => ["text/html"],
+  #  "date" => ["Wed, 22 Jun 2005 22:11:50 GMT"]}
   def to_hash
     @header.dup
   end
@@ -169,7 +170,7 @@ module Net::HTTPHeader
   alias canonical_each each_capitalized
 
   def capitalize(name)
-    name.split(/-/).map {|s| s.capitalize }.join('-')
+    name.to_s.split(/-/).map {|s| s.capitalize }.join('-')
   end
   private :capitalize
 
@@ -237,7 +238,7 @@ module Net::HTTPHeader
       rangestr = (n > 0 ? "0-#{n-1}" : "-#{-n}")
     when Range
       first = r.first
-      last = r.last
+      last = r.end
       last -= 1 if r.exclude_end?
       if last == -1
         rangestr = (first > 0 ? "#{first}-" : "-#{-first}")
@@ -377,7 +378,7 @@ module Net::HTTPHeader
   # +params+ is the form data set; it is an Array of Arrays or a Hash
   # +enctype is the type to encode the form data set.
   # It is application/x-www-form-urlencoded or multipart/form-data.
-  # +formpot+ is an optional hash to specify the detail.
+  # +formopt+ is an optional hash to specify the detail.
   #
   # boundary:: the boundary of the multipart message
   # charset::  the charset of the message. All names and the values of

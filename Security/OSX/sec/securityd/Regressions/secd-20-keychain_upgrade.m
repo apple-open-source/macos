@@ -44,7 +44,18 @@
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 
+static int ckmirror_row_exists = 0;
+static int ckmirror_row_callback(void* unused, int count, char **data, char **columns)
+{
+    ckmirror_row_exists = 1;
+    for (int i = 0; i < count; i++) {
+        if(strcmp(columns[i], "ckzone") == 0) {
+            is(strcmp(data[i], "ckzone"), 0, "Data is expected 'ckzone'");
+        }
+    }
 
+    return 0;
+}
 
 static void
 keychain_upgrade(bool musr, const char *dbname)
@@ -81,17 +92,25 @@ keychain_upgrade(bool musr, const char *dbname)
     }, NULL);
     is(res, 0, "SecItemAdd(user)");
 
+    NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
+
+    // Add a row to a non-item table
+    /* Create a new keychain sqlite db */
+    sqlite3 *db = NULL;
+
+    is(sqlite3_open([keychain_path UTF8String], &db), SQLITE_OK, "open db");
+    is(sqlite3_exec(db, "INSERT into ckmirror VALUES(\"ckzone\", \"importantuuid\", \"keyuuid\", 0, \"asdf\", \"qwer\", \"ckrecord\", 0, 0, NULL, NULL, NULL);", NULL, NULL, NULL), SQLITE_OK, "row added to ckmirror table");
+    is(sqlite3_close(db), SQLITE_OK, "close db");
+
     SecKeychainDbReset(^{
-        NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
 
         /* Create a new keychain sqlite db */
         sqlite3 *db;
 
         is(sqlite3_open([keychain_path UTF8String], &db), SQLITE_OK, "create keychain");
-        is(sqlite3_exec(db, "UPDATE tversion SET version = version - 1", NULL, NULL, NULL), SQLITE_OK,
+        is(sqlite3_exec(db, "UPDATE tversion SET minor = minor - 1", NULL, NULL, NULL), SQLITE_OK,
            "\"downgrade\" keychain");
         is(sqlite3_close(db), SQLITE_OK, "close db");
-
     });
 
 #if TARGET_OS_IPHONE
@@ -108,6 +127,13 @@ keychain_upgrade(bool musr, const char *dbname)
         (id)kSecAttrAccount :  @"user-label-me",
     }, NULL);
     is(res, 0, "SecItemCopyMatching(user)");
+
+    char* err = NULL;
+
+    is(sqlite3_open([keychain_path UTF8String], &db), SQLITE_OK, "open db");
+    is(sqlite3_exec(db, "select * from ckmirror;", ckmirror_row_callback, NULL, &err), SQLITE_OK, "row added to ckmirror table");
+    is(sqlite3_close(db), SQLITE_OK, "close db");
+    is(ckmirror_row_exists, 1, "SQLite found a row in the ckmirror table");
 
 #if TARGET_OS_IOS
     if (musr)
@@ -127,7 +153,7 @@ secd_20_keychain_upgrade(int argc, char *const *argv)
 #define have_system_keychain_tests 0
 #endif
 
-    plan_tests((kSecdTestSetupTestCount + 5 + have_system_keychain_tests) * 2);
+    plan_tests((kSecdTestSetupTestCount + 5 + have_system_keychain_tests + 8) * 2);
 
     CFArrayRef currentACL = SecAccessGroupsGetCurrent();
 

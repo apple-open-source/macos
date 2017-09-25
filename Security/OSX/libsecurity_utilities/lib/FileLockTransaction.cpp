@@ -20,6 +20,8 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
 
 #include "FileLockTransaction.h"
 #include <Security/SecBasePriv.h>
@@ -74,3 +76,5 @@ void FileLockTransaction::finalize() {
     }
     mFinalized = true;
 }
+
+#endif //TARGET_OS_OSX

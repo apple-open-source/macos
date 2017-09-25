@@ -39,17 +39,6 @@
 
 #include <limits.h>
 
-void OTRExponentiate(cc_unit* res, const cc_unit* base, const cc_unit* exponent)
-{
-    ccdh_const_gp_t gp = ccdh_gp_rfc3526group05();
-    cczp_power(gp.zp, res, base, exponent);
-}
-
-void OTRGroupExponentiate(cc_unit* res, const cc_unit* exponent)
-{
-    OTRExponentiate(res, ccdh_gp_g(ccdh_gp_rfc3526group05()) , exponent);
-}
-
 //
 // Random Number Generation
 //

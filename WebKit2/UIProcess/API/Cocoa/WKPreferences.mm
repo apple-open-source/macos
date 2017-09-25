@@ -235,6 +235,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setFullScreenEnabled(fullScreenEnabled);
 }
 
+- (BOOL)_allowsPictureInPictureMediaPlayback
+{
+    return _preferences->allowsPictureInPictureMediaPlayback();
+}
+
+- (void)_setAllowsPictureInPictureMediaPlayback:(BOOL)allowed
+{
+    _preferences->setAllowsPictureInPictureMediaPlayback(allowed);
+}
+
 - (BOOL)_compositingBordersVisible
 {
     return _preferences->compositingBordersVisible();
@@ -283,6 +293,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setVisibleDebugOverlayRegions:(_WKDebugOverlayRegions)regionFlags
 {
     _preferences->setVisibleDebugOverlayRegions(regionFlags);
+}
+
+- (BOOL)_simpleLineLayoutEnabled
+{
+    return _preferences->simpleLineLayoutEnabled();
+}
+
+- (void)_setSimpleLineLayoutEnabled:(BOOL)simpleLineLayoutEnabled
+{
+    _preferences->setSimpleLineLayoutEnabled(simpleLineLayoutEnabled);
 }
 
 - (BOOL)_simpleLineLayoutDebugBordersEnabled
@@ -353,6 +373,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setTextAutosizingEnabled:(BOOL)enabled
 {
     _preferences->setTextAutosizingEnabled(enabled);
+}
+
+- (BOOL)_subpixelAntialiasedLayerTextEnabled
+{
+    return _preferences->subpixelAntialiasedLayerTextEnabled();
+}
+
+- (void)_setSubpixelAntialiasedLayerTextEnabled:(BOOL)enabled
+{
+    _preferences->setSubpixelAntialiasedLayerTextEnabled(enabled);
 }
 
 - (BOOL)_developerExtrasEnabled
@@ -515,6 +545,106 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setShouldSuppressKeyboardInputDuringProvisionalNavigation:(BOOL)shouldSuppress
 {
     _preferences->setShouldSuppressKeyboardInputDuringProvisionalNavigation(shouldSuppress);
+}
+
+- (BOOL)_loadsImagesAutomatically
+{
+    return _preferences->loadsImagesAutomatically();
+}
+
+- (void)_setLoadsImagesAutomatically:(BOOL)loadsImagesAutomatically
+{
+    _preferences->setLoadsImagesAutomatically(loadsImagesAutomatically);
+}
+
+- (BOOL)_mediaDevicesEnabled
+{
+    return _preferences->mediaDevicesEnabled();
+}
+
+- (void)_setMediaDevicesEnabled:(BOOL)enabled
+{
+    _preferences->setMediaDevicesEnabled(enabled);
+}
+
+- (BOOL)_mockCaptureDevicesEnabled
+{
+    return _preferences->mockCaptureDevicesEnabled();
+}
+
+- (void)_setMockCaptureDevicesEnabled:(BOOL)enabled
+{
+    _preferences->setMockCaptureDevicesEnabled(enabled);
+}
+
+- (BOOL)_mediaCaptureRequiresSecureConnection
+{
+    return _preferences->mediaCaptureRequiresSecureConnection();
+}
+
+- (void)_setMediaCaptureRequiresSecureConnection:(BOOL)requiresSecureConnection
+{
+    _preferences->setMediaCaptureRequiresSecureConnection(requiresSecureConnection);
+}
+
+- (BOOL)_enumeratingAllNetworkInterfacesEnabled
+{
+    return _preferences->enumeratingAllNetworkInterfacesEnabled();
+}
+
+- (void)_setEnumeratingAllNetworkInterfacesEnabled:(BOOL)enabled
+{
+    _preferences->setEnumeratingAllNetworkInterfacesEnabled(enabled);
+}
+
+- (BOOL)_iceCandidateFiltertingEnabled
+{
+    return _preferences->iceCandidateFilteringEnabled();
+}
+
+- (void)_setICECandidateFilteringEnabled:(BOOL)enabled
+{
+    _preferences->setICECandidateFilteringEnabled(enabled);
+}
+
+- (BOOL)_webRTCLegacyAPIEnabled
+{
+    return !_preferences->webRTCLegacyAPIDisabled();
+}
+
+- (void)_setWebRTCLegacyAPIEnabled:(BOOL)enabled
+{
+    _preferences->setWebRTCLegacyAPIDisabled(!enabled);
+}
+
+- (void)_setJavaScriptCanAccessClipboard:(BOOL)javaScriptCanAccessClipboard
+{
+    _preferences->setJavaScriptCanAccessClipboard(javaScriptCanAccessClipboard);
+}
+
+- (BOOL)_javaScriptCanAccessClipboard
+{
+    return _preferences->javaScriptCanAccessClipboard();
+}
+
+- (void)_setDOMPasteAllowed:(BOOL)domPasteAllowed
+{
+    _preferences->setDOMPasteAllowed(domPasteAllowed);
+}
+
+- (BOOL)_domPasteAllowed
+{
+    return _preferences->domPasteAllowed();
+}
+
+- (void)_setMediaDocumentEntersFullscreenAutomatically:(BOOL)mediaDocumentEntersFullscreenAutomatically
+{
+    _preferences->setMediaDocumentEntersFullscreenAutomatically(mediaDocumentEntersFullscreenAutomatically);
+}
+
+- (BOOL)_mediaDocumentEntersFullscreenAutomatically
+{
+    return _preferences->mediaDocumentEntersFullscreenAutomatically();
 }
 
 @end

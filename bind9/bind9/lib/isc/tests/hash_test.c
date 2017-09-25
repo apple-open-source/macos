@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2011, 2012, 2014, 2015  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,8 +13,6 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-
-/* $Id$ */
 
 /* ! \file */
 
@@ -39,9 +37,8 @@
 unsigned char digest[ISC_SHA512_DIGESTLENGTH];
 unsigned char buffer[1024];
 const char *s;
-char str[ISC_SHA512_DIGESTLENGTH];
+char str[2 * ISC_SHA512_DIGESTLENGTH + 1];
 unsigned char key[20];
-int i = 0;
 
 isc_result_t
 tohexstr(unsigned char *d, unsigned int len, char *out);
@@ -51,7 +48,7 @@ tohexstr(unsigned char *d, unsigned int len, char *out);
  * Postcondition: A String representation of the given hexadecimal number is
  *   placed into the array *out
  *
- * 'out' MUST point to an array of at least len / 2 + 1
+ * 'out' MUST point to an array of at least len * 2 + 1
  *
  * Return values: ISC_R_SUCCESS if the operation is sucessful
  */
@@ -94,6 +91,7 @@ ATF_TC_HEAD(isc_sha1, tc) {
 }
 ATF_TC_BODY(isc_sha1, tc) {
 	isc_sha1_t sha1;
+	int i;
 
 	UNUSED(tc);
 
@@ -216,13 +214,13 @@ ATF_TC_BODY(isc_sha1, tc) {
 	}
 }
 
-
 ATF_TC(isc_sha224);
 ATF_TC_HEAD(isc_sha224, tc) {
 	atf_tc_set_md_var(tc, "descr", "sha224 examples from RFC4634");
 }
 ATF_TC_BODY(isc_sha224, tc) {
 	isc_sha224_t sha224;
+	int i;
 
 	UNUSED(tc);
 
@@ -347,7 +345,6 @@ ATF_TC_BODY(isc_sha224, tc) {
 
 		testcase++;
 	}
-
 }
 
 ATF_TC(isc_sha256);
@@ -356,6 +353,7 @@ ATF_TC_HEAD(isc_sha256, tc) {
 }
 ATF_TC_BODY(isc_sha256, tc) {
 	isc_sha256_t sha256;
+	int i;
 
 	UNUSED(tc);
 
@@ -479,7 +477,6 @@ ATF_TC_BODY(isc_sha256, tc) {
 
 		testcase++;
 	}
-
 }
 
 ATF_TC(isc_sha384);
@@ -488,6 +485,7 @@ ATF_TC_HEAD(isc_sha384, tc) {
 }
 ATF_TC_BODY(isc_sha384, tc) {
 	isc_sha384_t sha384;
+	int i;
 
 	UNUSED(tc);
 
@@ -625,7 +623,6 @@ ATF_TC_BODY(isc_sha384, tc) {
 
 		testcase++;
 	}
-
 }
 
 ATF_TC(isc_sha512);
@@ -634,6 +631,7 @@ ATF_TC_HEAD(isc_sha512, tc) {
 }
 ATF_TC_BODY(isc_sha512, tc) {
 	isc_sha512_t sha512;
+	int i;
 
 	UNUSED(tc);
 
@@ -772,7 +770,6 @@ ATF_TC_BODY(isc_sha512, tc) {
 
 		testcase++;
 	}
-
 }
 
 ATF_TC(isc_md5);
@@ -781,6 +778,7 @@ ATF_TC_HEAD(isc_md5, tc) {
 }
 ATF_TC_BODY(isc_md5, tc) {
 	isc_md5_t md5;
+	int i;
 
 	UNUSED(tc);
 
@@ -963,7 +961,7 @@ ATF_TC_BODY(isc_hmacsha1, tc) {
 	hash_test_key_t *test_key = test_keys;
 
 	while (testcase->input != NULL && testcase->result != NULL) {
-		memcpy(buffer, test_key->key, test_key->len);
+		memmove(buffer, test_key->key, test_key->len);
 		isc_hmacsha1_init(&hmacsha1, buffer, test_key->len);
 		isc_hmacsha1_update(&hmacsha1,
 				    (const isc_uint8_t *) testcase->input,
@@ -1126,7 +1124,7 @@ ATF_TC_BODY(isc_hmacsha224, tc) {
 	hash_test_key_t *test_key = test_keys;
 
 	while (testcase->input != NULL && testcase->result != NULL) {
-		memcpy(buffer, test_key->key, test_key->len);
+		memmove(buffer, test_key->key, test_key->len);
 		isc_hmacsha224_init(&hmacsha224, buffer, test_key->len);
 		isc_hmacsha224_update(&hmacsha224,
 				      (const isc_uint8_t *) testcase->input,
@@ -1289,7 +1287,7 @@ ATF_TC_BODY(isc_hmacsha256, tc) {
 	hash_test_key_t *test_key = test_keys;
 
 	while (testcase->input != NULL && testcase->result != NULL) {
-		memcpy(buffer, test_key->key, test_key->len);
+		memmove(buffer, test_key->key, test_key->len);
 		isc_hmacsha256_init(&hmacsha256, buffer, test_key->len);
 		isc_hmacsha256_update(&hmacsha256,
 				      (const isc_uint8_t *) testcase->input,
@@ -1458,7 +1456,7 @@ ATF_TC_BODY(isc_hmacsha384, tc) {
 	hash_test_key_t *test_key = test_keys;
 
 	while (testcase->input != NULL && testcase->result != NULL) {
-		memcpy(buffer, test_key->key, test_key->len);
+		memmove(buffer, test_key->key, test_key->len);
 		isc_hmacsha384_init(&hmacsha384, buffer, test_key->len);
 		isc_hmacsha384_update(&hmacsha384,
 				      (const isc_uint8_t *) testcase->input,
@@ -1627,7 +1625,7 @@ ATF_TC_BODY(isc_hmacsha512, tc) {
 	hash_test_key_t *test_key = test_keys;
 
 	while (testcase->input != NULL && testcase->result != NULL) {
-		memcpy(buffer, test_key->key, test_key->len);
+		memmove(buffer, test_key->key, test_key->len);
 		isc_hmacsha512_init(&hmacsha512, buffer, test_key->len);
 		isc_hmacsha512_update(&hmacsha512,
 				      (const isc_uint8_t *) testcase->input,
@@ -1770,7 +1768,7 @@ ATF_TC_BODY(isc_hmacmd5, tc) {
 	hash_test_key_t *test_key = test_keys;
 
 	while (testcase->input != NULL && testcase->result != NULL) {
-		memcpy(buffer, test_key->key, test_key->len);
+		memmove(buffer, test_key->key, test_key->len);
 		isc_hmacmd5_init(&hmacmd5, buffer, test_key->len);
 		isc_hmacmd5_update(&hmacmd5,
 				   (const isc_uint8_t *) testcase->input,

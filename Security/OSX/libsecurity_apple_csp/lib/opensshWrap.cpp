@@ -30,7 +30,7 @@
 #include "AppleCSPContext.h"
 #include "AppleCSPUtils.h"
 #include "AppleCSPKeys.h"
-#include "RSA_DSA_Keys.h"
+#include "RSA_DSA_keys.h"
 #include "opensshCoding.h"
 #include "cspdebugging.h"
 #include <CommonCrypto/CommonDigest.h>
@@ -38,6 +38,7 @@
 #include <openssl/rsa_legacy.h>
 #include <openssl/bn_legacy.h>
 #include <security_utilities/devrandom.h>
+#include <utilities/SecCFRelease.h>
 
 static const char *authfile_id_string = "SSH PRIVATE KEY FILE FORMAT 1.1\n";
 
@@ -414,7 +415,10 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 	/* appended encrypted portion */
 	CFDataAppendBytes(cfOut, ctext, ctextLen);
 	*encodedKey = cfOut;
+    goto cleanup;
 errOut:
+    CFReleaseNull(cfOut);
+cleanup:
 	/* it would be proper to zero out ptext here, but we can't do that to a CFData */
 	CFRelease(ptext);
 	return ourRtn;
@@ -482,7 +486,7 @@ void AppleCSPSession::WrapKeyOpenSSH1(
 	CFIndex len = CFDataGetLength(cfOut);
 	setUpData(WrappedKey.KeyData, len, normAllocator);
 	memmove(WrappedKey.KeyData.Data, CFDataGetBytePtr(cfOut), len);
-	CFRelease(cfOut);
+	CFReleaseNull(cfOut);
 	
 	/* outgoing header */
 	WrappedKey.KeyHeader.BlobType = CSSM_KEYBLOB_WRAPPED;
@@ -708,6 +712,7 @@ void AppleCSPSession::UnwrapKeyOpenSSH1(
 	if(comment) {
 		setUpCssmData(DescriptiveData, commentLen, normAllocator);
 		memcpy(DescriptiveData.Data, comment, commentLen);
+        free(comment);
 	}
 
 	/* 

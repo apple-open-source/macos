@@ -224,6 +224,35 @@ SecCmsContentInfoSetContentEncryptedData(SecCmsContentInfoRef cinfo, SecCmsEncry
     return SecCmsContentInfoSetContent(cinfo, SEC_OID_PKCS7_ENCRYPTED_DATA, (void *)encd);
 }
 
+OSStatus
+SecCmsContentInfoSetContentOther(SecCmsContentInfoRef cinfo, SecAsn1Item *data, Boolean detached, const SecAsn1Oid *eContentType)
+{
+    SECStatus srtn;
+    SECOidData *tmpOidData;
+
+    /* just like SecCmsContentInfoSetContentData, except override the contentType and
+     * contentTypeTag. This OID is for encoding... */
+    srtn = SECITEM_CopyItem (cinfo->cmsg->poolp, &(cinfo->contentType), eContentType);
+    if (srtn != SECSuccess) {
+        return errSecAllocate;
+    }
+
+    /* this serves up a contentTypeTag with an empty OID */
+    tmpOidData = SECOID_FindOIDByTag(SEC_OID_OTHER);
+    /* but that's const: cook up a new one we can write to */
+    cinfo->contentTypeTag = (SECOidData *)PORT_ArenaZAlloc(cinfo->cmsg->poolp, sizeof(SECOidData));
+    *cinfo->contentTypeTag = *tmpOidData;
+    /* now fill in the OID */
+    srtn = SECITEM_CopyItem (cinfo->cmsg->poolp, &(cinfo->contentTypeTag->oid), eContentType);
+    if (srtn != SECSuccess) {
+        return errSecAllocate;
+    }
+    cinfo->content.pointer = data;
+    cinfo->rawContent = (detached) ? NULL : (data) ?
+                                data : SECITEM_AllocItem(cinfo->cmsg->poolp, NULL, 1);
+    return noErr;
+}
+
 /*
  * SecCmsContentInfoGetContent - get pointer to inner content
  *
@@ -365,11 +394,16 @@ SecCmsContentInfoSetContentEncAlgID(SecCmsContentInfoRef cinfo,
 void
 SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkkey)
 {
+#ifdef USE_CDSA_CRYPTO
+    const CSSM_KEY *cssmKey = NULL;
+#endif
     if (!bulkkey || !cinfo) return;
-    
     cinfo->bulkkey = bulkkey;
     CFRetain(cinfo->bulkkey);
-
+#ifdef USE_CDSA_CRYPTO
+    SecKeyGetCSSMKey(cinfo->bulkkey, &cssmKey);
+    cinfo->keysize = cssmKey ? cssmKey->KeyHeader.LogicalKeySizeInBits : 0;
+#else
     long long bulkKeySize = CFDataGetLength((CFDataRef)bulkkey) * 8;
     if (bulkKeySize < INT_MAX) {
         cinfo->keysize = (int)bulkKeySize;
@@ -378,6 +412,7 @@ SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkk
         cinfo->bulkkey = NULL;
         cinfo->keysize = 0;
     }
+#endif
 }
 
 SecSymmetricKeyRef

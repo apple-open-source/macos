@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -557,11 +557,10 @@ DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
     CFMutableArrayRef		array = NULL;
     DHCPv6OptionListRef 	options;
     CFMutableDictionaryRef	dict;
-    const struct in6_addr *	scan;
     const uint8_t *		search = NULL;
-    int				search_len;
+    int				search_len = 0;
     const uint8_t *		servers = NULL;
-    int				servers_len;
+    int				servers_len = 0;
     int				servers_count;
 
     if (info_p == NULL) {
@@ -571,6 +570,8 @@ DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
 	/* don't accept DNS server addresses from the network */
 	return (NULL);
     }
+
+    /* check DHCPv6 options */
     options = info_p->options;
     if (options != NULL) {
 	servers 
@@ -578,29 +579,35 @@ DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
 						     kDHCPv6OPTION_DNS_SERVERS,
 						     &servers_len, NULL);
 	if (servers != NULL) {
-	    if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_DOMAIN_LIST)) {
+	    /* retrieve the DNS server addresses */
+	    servers_count = servers_len / sizeof(struct in6_addr);
+	    if (servers_count == 0) {
+		servers = NULL;
+	    }
+	    else if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_DOMAIN_LIST)) {
+		/* check for DNS search domains */
 		search
 		    = DHCPv6OptionListGetOptionDataAndLength(options,
 							     kDHCPv6OPTION_DOMAIN_LIST,
 							     &search_len, NULL);
 	    }
-	    /* retrieve the DNS server addresses */
-	    servers_count = servers_len / sizeof(*scan);
-	    if (servers_count == 0) {
-		servers = NULL;
-	    }
 	}
     }
+
+    /* if no DNS server addresses, ignore DNS altogether */
     if (servers == NULL && info_p->dns_servers == NULL) {
-	/* no addresses, ignore everything else, it's irrelevant */
 	return (NULL);
     }
+
+    /* create the DNS server address list, merging DHCPv6 and RDNSS */
     array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (servers != NULL) {
+	/* add DHCPv6 addresses */
 	add_ipv6_addresses_to_array(array, servers,
 				    servers_count);
     }
     if (info_p->dns_servers != NULL) {
+	/* add RDNSS addresses */
 	add_ipv6_addresses_to_array(array, info_p->dns_servers,
 				    info_p->dns_servers_count);
     }
@@ -610,16 +617,48 @@ DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
     CFDictionarySetValue(dict, kSCPropNetDNSServerAddresses, array);
     CFRelease(array);
 
-    /* retrieve the DNS search list, if present */
-    if (search != NULL) {
-	CFArrayRef	dns_search_array;
+    if (search != NULL || info_p->dns_search_domains != NULL) {
+	CFArrayRef		search_list;
 
-	dns_search_array
-	    = DNSNameListCreateArray(search, search_len);
-	if (dns_search_array != NULL) {
+	/* DNS search list is present, merge DHCPv6/RDNS if necessary */
+	search_list = DNSNameListCreateArray(search, search_len);
+	if (search_list != NULL) {
+	    if (info_p->dns_search_domains == NULL) {
+		/* no merge required, just use DHCPv6 values */
+		CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains,
+				     search_list);
+	    }
+	    else {
+		/* both DHCPv6 and RDNSS present, need to merge */
+		CFIndex			count;
+		CFIndex			i;
+		CFMutableArrayRef	merge;
+		CFRange			r;
+
+		merge = CFArrayCreateMutableCopy(NULL, 0, search_list);
+		r.location = 0;
+		r.length = CFArrayGetCount(merge);
+
+		for (i = 0, count = CFArrayGetCount(info_p->dns_search_domains);
+		     i < count; i++) {
+		    CFStringRef		name;
+
+		    name = CFArrayGetValueAtIndex(info_p->dns_search_domains,
+						  i);
+		    if (!CFArrayContainsValue(merge, r, name)) {
+			CFArrayAppendValue(merge, name);
+			r.length++;
+		    }
+		}
+		CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains, merge);
+		CFRelease(merge);
+	    }
+	    CFRelease(search_list);
+	}
+	else if (info_p->dns_search_domains != NULL) {
+	    /* no merge required, just use RDNSS values */
 	    CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains,
-				 dns_search_array);
-	    CFRelease(dns_search_array);
+				 info_p->dns_search_domains);
 	}
     }
     return (dict);

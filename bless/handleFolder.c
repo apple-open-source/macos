@@ -52,14 +52,8 @@
 #include "bless_private.h"
 #include "protos.h"
 
-enum {
-  kIsInvisible                  = 0x4000, /* Files and folders */
-};
-
 
 static int isOFLabel(const char *data, int labelsize);
-static int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);
-static int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, struct clarg args[]);
 
 
 int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
@@ -210,7 +204,20 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelVerbose,  "No BootX creation requested\n" );
     }
 
-	/* If user gave options that require boot.efi creation, do it now. */
+    ret = BLIsMountHFS(context, actargs[kmount].argument, &isHFS);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
+        return 1;
+    }
+    
+    ret = BLIsMountAPFS(context, actargs[kmount].argument, &isAPFS);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
+        return 1;
+    }
+    
+
+    /* If user gave options that require boot.efi creation, do it now. */
     if(actargs[kbootefi].present) {
         if(!actargs[kbootefi].hasArg) {
 			// Let's see what OS we're on
@@ -223,18 +230,18 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			actargs[kbootefi].argument[0] = '\0';
 			if (osVersion.minor >= 11) {
 				// use bootdev.efi by default if it exists
-				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOTDEV_EFI);
+				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s%s", actargs[kmount].argument, kBL_PATH_I386_BOOTDEV_EFI);
 				if (access(actargs[kbootefi].argument, R_OK) != 0) {
 					actargs[kbootefi].argument[0] = '\0';
 				}
 			}
 			if (!actargs[kbootefi].argument[0]) {
-				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_BOOT_EFI);
+				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s%s", actargs[kmount].argument, kBL_PATH_I386_BOOT_EFI);
 			}
         }
 		
 		ret = BLLoadFile(context, actargs[kbootefi].argument, 0, &bootEFIdata);
-		if(ret) {
+		if (ret) {
 			blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load boot.efi data from %s\n",
 							   actargs[kbootefi].argument);
 		}
@@ -247,15 +254,15 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             
             ret = lstat(actargs[kfile].argument, &oldPresence);
             
-            if(ret == 0 && S_ISREG(oldPresence.st_mode)) {
+            if (ret == 0 && S_ISREG(oldPresence.st_mode)) {
                 ret = BLLoadFile(context, actargs[kfile].argument, 0, &oldEFIdata);                
             }
-            if((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, bootEFIdata)) {
+            if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, bootEFIdata)) {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
-                actargs[kfile].argument );
+                                   actargs[kfile].argument );
             } else {
-                ret = BLCreateFile(context, bootEFIdata, actargs[kfile].argument, 0, 0, 0);
-                if(ret) {
+                ret = BLCreateFileWithOptions(context, bootEFIdata, actargs[kfile].argument, 0, 0, 0, isAPFS ? kTryPreallocate : kMustPreallocate);
+                if (ret) {
                     blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", actargs[kfile].argument );
                     return 2;
                 } else {
@@ -264,7 +271,13 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
                 }                
             }
             
-            if(oldEFIdata) CFRelease(oldEFIdata);
+            if (oldEFIdata) CFRelease(oldEFIdata);
+            
+            ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument);
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError, "Can't copy img4 manifests for file %s\n", actargs[kfile].argument);
+                return 3;
+            }
             
         } else {
             blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
@@ -273,19 +286,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelVerbose,  "No boot.efi creation requested\n" );
     }
 	
-	
-    ret = BLIsMountHFS(context, actargs[kmount].argument, &isHFS);
-    if(ret) {
-		blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
-		return 1;
-    }
-    
-    ret = BLIsMountAPFS(context, actargs[kmount].argument, &isAPFS);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
-        return 1;
-    }
-
     if(0 != blsustatfs(actargs[kmount].argument, &sb)) {
         blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
                            actargs[kmount].argument);
@@ -320,9 +320,54 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         }
         CFRelease(apfsDriverData);
     }
-    
-    
-    if (shouldBless) {
+	
+	
+	if (actargs[klabel].present||actargs[klabelfile].present) {
+		int isLabel = 0;
+		
+		if(actargs[klabelfile].present) {
+			ret = BLLoadFile(context, actargs[klabelfile].argument, 0, &labeldata);
+			if(ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Can't load label '%s'\n",
+								   actargs[klabelfile].argument);
+				return 2;
+			}
+		} else {
+			ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_1x, &labeldata);
+			if (ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
+								   actargs[klabel].argument);
+				return 3;
+			}
+			ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_2x, &labeldata2);
+			if (ret) {
+				blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
+								   actargs[klabel].argument);
+				return 3;
+			}
+		}
+		
+		isLabel = isOFLabel((const char *)CFDataGetBytePtr(labeldata), CFDataGetLength(labeldata));
+		blesscontextprintf(context, kBLLogLevelVerbose,  "Scale 1 label data is valid: %s\n",
+						   isLabel ? "YES" : "NO");
+		
+		if (actargs[kfolder].present) {
+			char sysfolder[MAXPATHLEN];
+			
+			snprintf(sysfolder, sizeof sysfolder, "%s/.disk_label", actargs[kfolder].argument);
+			ret = WriteLabelFile(context, sysfolder, labeldata, isLabel && isHFS, kBitmapScale_1x);
+			if (ret) return 1;
+			
+			if (labeldata2) {
+				snprintf(sysfolder, sizeof sysfolder, "%s/.disk_label_2x", actargs[kfolder].argument);
+				ret = WriteLabelFile(context, sysfolder, labeldata2, 0, kBitmapScale_2x);
+				if (ret) return 1;
+			}
+		}
+	}
+	
+
+    if (shouldBless || isAPFS) {
         if (isHFS) {
             uint32_t oldwords[8];
             int useX = 1;
@@ -547,97 +592,104 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             uint64_t oldWords[2] = { 0, 0 };
             uint64_t folderInum = 0;
             uint64_t fileInum = 0;
+            uint16_t role;
+            char     *bootEFISource;
             
-            ret = BLGetAPFSBlessData(context, actargs[kmount].argument, oldWords);
-            if (ret && ret != ENOENT) {
-                blesscontextprintf(context, kBLLogLevelError,  "Error getting bless data for %s\n", actargs[kmount].argument);
-                return 1;
-            }
-
-            /* bless! bless */
-            
-            /* First get any directory IDs we need */
-            if (actargs[kfolder].present) {
-                ret = BLGetAPFSInodeNum(context, actargs[kfolder].argument, &folderInum);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting inum of %s\n", actargs[kfolder].argument);
-                } else {
-                    blesscontextprintf(context, kBLLogLevelVerbose,  "Got inum of %llu for %s\n",
-                                       folderInum, actargs[kfolder].argument );
-                }
-            }
-            
-            if (actargs[kfile].present) {
-                ret = BLGetAPFSInodeNum(context, actargs[kfile].argument, &fileInum);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting inum of %s. Ignoring...\n", actargs[kfile].argument );
-                    fileInum = 0;
-                } else {
-                    struct stat checkForFile;
-                    
-                    ret = lstat(actargs[kfile].argument, &checkForFile);
-                    if (ret || !S_ISREG(checkForFile.st_mode)) {
-                        blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
-                        fileInum = 0;
-                    } else {
-                        blesscontextprintf(context, kBLLogLevelVerbose,  "Got inum of %llu for %s\n",
-                                           fileInum, actargs[kfile].argument);
-                    }
+            if (shouldBless) {
+                if (APFSVolumeRole(sb.f_mntfromname + 5, &role, NULL)) {
+                    blesscontextprintf(context, kBLLogLevelError, "Couldn't get role for volume %s\n", actargs[kmount].argument);
+                    return 2;
                 }
                 
-            } else {
-                // no file given. we should try to verify the existing booter
-                if (oldWords[0]) {
-                    ret = BLLookupFileIDOnMount64(context, actargs[kmount].argument, oldWords[0], actargs[kfile].argument, sizeof actargs[kfile].argument);
-                    if (ret) {
-                        blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI blessed file ID %llu. Zeroing...\n",
-                                           oldWords[0] );
-                        oldWords[0] = 0;
-                    } else {
-                        struct stat checkForFile;
-                        
-                        ret = lstat(actargs[kfile].argument, &checkForFile);
-                        if(ret || !S_ISREG(checkForFile.st_mode)) {
-                            blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
-                            oldWords[0] = 0;
+                if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+                    ret = BLGetAPFSBlessData(context, actargs[kmount].argument, oldWords);
+                    if (ret && ret != ENOENT) {
+                        blesscontextprintf(context, kBLLogLevelError,  "Error getting bless data for %s\n", actargs[kmount].argument);
+                        return 1;
+                    }
+                    
+                    /* bless! bless */
+                    
+                    /* First get any directory IDs we need */
+                    if (actargs[kfolder].present) {
+                        ret = BLGetAPFSInodeNum(context, actargs[kfolder].argument, &folderInum);
+                        if (ret) {
+                            blesscontextprintf(context, kBLLogLevelError,  "Error while getting inum of %s\n", actargs[kfolder].argument);
                         } else {
-                            blesscontextprintf(context, kBLLogLevelVerbose,
-                                               "Preserving EFI blessed file ID %llu for %s\n",
-                                               oldWords[0], actargs[kfile].argument );
+                            blesscontextprintf(context, kBLLogLevelVerbose,  "Got inum of %llu for %s\n",
+                                               folderInum, actargs[kfolder].argument );
                         }
                     }
+                    
+                    if (actargs[kfile].present) {
+                        ret = BLGetAPFSInodeNum(context, actargs[kfile].argument, &fileInum);
+                        if (ret) {
+                            blesscontextprintf(context, kBLLogLevelError,  "Error while getting inum of %s. Ignoring...\n", actargs[kfile].argument );
+                            fileInum = 0;
+                        } else {
+                            struct stat checkForFile;
+                            
+                            ret = lstat(actargs[kfile].argument, &checkForFile);
+                            if (ret || !S_ISREG(checkForFile.st_mode)) {
+                                blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
+                                fileInum = 0;
+                            } else {
+                                blesscontextprintf(context, kBLLogLevelVerbose,  "Got inum of %llu for %s\n",
+                                                   fileInum, actargs[kfile].argument);
+                            }
+                        }
+                        
+                    } else {
+                        // no file given. we should try to verify the existing booter
+                        if (oldWords[0]) {
+                            ret = BLLookupFileIDOnMount64(context, actargs[kmount].argument, oldWords[0], actargs[kfile].argument, sizeof actargs[kfile].argument);
+                            if (ret) {
+                                blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI blessed file ID %llu. Zeroing...\n",
+                                                   oldWords[0] );
+                                oldWords[0] = 0;
+                            } else {
+                                struct stat checkForFile;
+                                
+                                ret = lstat(actargs[kfile].argument, &checkForFile);
+                                if(ret || !S_ISREG(checkForFile.st_mode)) {
+                                    blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
+                                    oldWords[0] = 0;
+                                } else {
+                                    blesscontextprintf(context, kBLLogLevelVerbose,
+                                                       "Preserving EFI blessed file ID %llu for %s\n",
+                                                       oldWords[0], actargs[kfile].argument );
+                                }
+                            }
+                        }
+                        
+                    }
+                    
+                    oldWords[0] = fileInum;
+                    oldWords[1] = folderInum;
+                    
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "blessed file = %lld\n", oldWords[0]);
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "blessed folder = %lld\n", oldWords[1]);
+                } else {
+                    oldWords[0] = oldWords[1] = 0;
+                    blesscontextprintf(context, kBLLogLevelVerbose, "clearing blessed file and folder data\n");
                 }
                 
+                
+                if (geteuid() != 0 && geteuid() != sb.f_owner) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
+                    return 1;
+                }
+                
+                
+                ret = BLSetAPFSBlessData(context,  actargs[kmount].argument, oldWords);
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
+                    return 2;
+                }
             }
             
-            
-            // reserved1 returns the f_fssubtype attribute. Right now, 0 == HFS+,
-            // 1 == HFS+J. Anything else is either HFS plain, or some form
-            // of HFSX. These filesystems we don't want blessed, because we don't
-            // want future versions of OF to list them as bootable, but rather
-            // prefer the Apple_Boot partition
-            //
-            // For EFI-based systems, it's OK to set finderinfo[0], and indeed
-            // a better user experience so that the EFI label shows up
-            oldWords[0] = fileInum;
-            oldWords[1] = folderInum;
-            
-            blesscontextprintf(context, kBLLogLevelVerbose,  "blessed file = %lld\n", oldWords[0]);
-            blesscontextprintf(context, kBLLogLevelVerbose,  "blessed folder = %lld\n", oldWords[1]);
-            
-            
-            if (geteuid() != 0 && geteuid() != sb.f_owner) {
-                blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
-                return 1;
-            }
-            
-            ret = BLSetAPFSBlessData(context,  actargs[kmount].argument, oldWords);
-            if (ret) {
-                blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
-                return 2;
-            }
-            
-            ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, actargs);
+            bootEFISource = (shouldBless && actargs[kbootefi].present) ? actargs[kbootefi].argument : NULL;
+            ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, bootEFISource, labeldata, labeldata2);
             if (ret) {
                 blesscontextprintf(context, kBLLogLevelError,  "Couldn't bless the APFS preboot volume for volume mounted at %s: %s\n",
                                    actargs[kmount].argument, strerror(errno));
@@ -646,50 +698,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         }
     }
     
-	if (actargs[klabel].present||actargs[klabelfile].present) {
-		int isLabel = 0;
-		
-		if(actargs[klabelfile].present) {
-			ret = BLLoadFile(context, actargs[klabelfile].argument, 0, &labeldata);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError, "Can't load label '%s'\n",
-								   actargs[klabelfile].argument);
-				return 2;
-			}
-		} else {
-			ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_1x, &labeldata);
-			if (ret) {
-				blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
-								   actargs[klabel].argument);
-				return 3;
-			}
-			ret = BLGenerateLabelData(context, actargs[klabel].argument, kBitmapScale_2x, &labeldata2);
-			if (ret) {
-				blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
-								   actargs[klabel].argument);
-				return 3;
-			}
-		}
-		
-		isLabel = isOFLabel((const char *)CFDataGetBytePtr(labeldata), CFDataGetLength(labeldata));
-		blesscontextprintf(context, kBLLogLevelVerbose,  "Scale 1 label data is valid: %s\n",
-                           isLabel ? "YES" : "NO");
-		
-		if (actargs[kfolder].present) {
-			char sysfolder[MAXPATHLEN];
-		
-			sprintf(sysfolder, "%s/.disk_label", actargs[kfolder].argument);
-			ret = WriteLabelFile(context, sysfolder, labeldata, isLabel, kBitmapScale_1x);
-			if (ret) return 1;
-            
-			if (labeldata2) {
-				sprintf(sysfolder, "%s/.disk_label_2x", actargs[kfolder].argument);
-				ret = WriteLabelFile(context, sysfolder, labeldata2, 0, kBitmapScale_2x);
-				if (ret) return 1;
-			}
-		}
-	}
-	
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
         if(preboot == kBLPreBootEnvType_EFI) {
@@ -757,188 +765,3 @@ static int isOFLabel(const char *data, int labelsize)
 
 
 
-static int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale)
-{
-    int ret;
-    
-    blesscontextprintf(context, kBLLogLevelVerbose,  "Putting scale %d label bitmap in %s\n", scale, path);
-    
-    ret = BLCreateFile(context, labeldata, path, 
-                       0,
-                       doTypeCreator ? kBL_OSTYPE_PPC_TYPE_OFLABEL : 0,
-                       doTypeCreator ? kBL_OSTYPE_PPC_CREATOR_CHRP : 0);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError,  "Could not write scale %d bitmap label file\n", scale);
-    } else {
-        blesscontextprintf(context, kBLLogLevelVerbose, "Scale %d label written\n", scale);
-    }
-    
-    if (!ret) {
-        ret = BLSetFinderFlag(context, path, kIsInvisible, 1);
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelError,  "Could not set invisibility for %s\n", path);
-        } else {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Invisibility set for %s\n", path);
-        }
-    }
-    return ret;
-}
-
-
-
-static int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, struct clarg args[])
-{
-    int             ret;
-    io_service_t    rootMedia = IO_OBJECT_NULL;
-    CFStringRef     rootUUID = NULL;
-    CFDictionaryRef booterDict = NULL;
-    CFArrayRef      prebootVols;
-    CFStringRef     prebootVol;
-    char            prebootBSD[MAXPATHLEN];
-    int             mntsize;
-    int             i;
-    struct statfs   *mnts;
-    char            prebootMountPoint[MAXPATHLEN];
-    char            prebootFolderPath[MAXPATHLEN];
-    bool            mustUnmount = false;
-    uint64_t        blessIDs[2];
-    CFDataRef       booterData;
-    struct stat     existingStat;
-    uint16_t        role;
-    
-    // Is this already a preboot or recovery volume?
-    if (APFSVolumeRole(rootBSD, &role, NULL)) {
-        ret = 8;
-        goto exit;
-    }
-    if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
-        // Nothing to do here.  See ya.
-        ret = 0;
-        goto exit;
-    }
-    
-    // First find the volume UUID
-    rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, rootBSD));
-    if (!rootMedia) {
-        ret = 1;
-        goto exit;
-    }
-    rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-    if (!rootUUID) {
-        ret = 2;
-        goto exit;
-    }
-    
-    // Now let's get the BSD name of the preboot volume.
-    ret = BLCreateBooterInformationDictionary(context, rootBSD, &booterDict);
-    if (ret) {
-        ret = 3;
-        goto exit;
-    }
-    prebootVols = CFDictionaryGetValue(booterDict, kBLAPFSPrebootVolumesKey);
-    if (!prebootVols || !CFArrayGetCount(prebootVols)) {
-        ret = 4;
-        goto exit;
-    }
-    prebootVol = CFArrayGetValueAtIndex(prebootVols, 0);
-    if (CFGetTypeID(prebootVol) != CFStringGetTypeID()) {
-        ret = 4;
-        goto exit;
-    }
-    CFStringGetCString(prebootVol, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
-    
-    // Check if the preboot volume is mounted.
-    mntsize = getmntinfo(&mnts, MNT_NOWAIT);
-    if (!mntsize) {
-        ret = 5;
-        goto exit;
-    }
-    for (i = 0; i < mntsize; i++) {
-        if (strcmp(mnts[i].f_mntfromname + 5, prebootBSD) == 0) break;
-    }
-    if (i < mntsize) {
-        strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
-    } else {
-        // The preboot volume isn't mounted right now.  We'll have to mount it.
-        ret = MountPrebootVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint);
-        if (ret) goto exit;
-        mustUnmount = true;
-    }
-    
-    // Find the appropriate UUID folder
-    snprintf(prebootFolderPath, sizeof prebootFolderPath, "%s/", prebootMountPoint);
-    CFStringGetCString(rootUUID, prebootFolderPath + strlen(prebootFolderPath),
-                       sizeof prebootFolderPath - strlen(prebootFolderPath), kCFStringEncodingUTF8);
-    strlcat(prebootFolderPath, "/System/Library/CoreServices", sizeof prebootFolderPath);
-    ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[1]);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError, "Preboot folder path \"%s\" doesn't exist.\n", prebootFolderPath);
-        ret = 6;
-        goto exit;
-    }
-    strlcat(prebootFolderPath, "/boot.efi", sizeof prebootFolderPath);
-    if (args[kbootefi].present) {
-        // The booter got written.  We'll have to rewrite it to the preboot volume.
-        ret = BLLoadFile(context, args[kbootefi].argument, 0, &booterData);
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load booter data from %s\n",
-                               args[kbootefi].argument);
-        }
-        
-        if (booterData) {
-            // check to see if needed
-            CFDataRef oldEFIdata = NULL;
-            
-            ret = lstat(prebootFolderPath, &existingStat);
-            
-            if (ret == 0 && S_ISREG(existingStat.st_mode)) {
-                ret = BLLoadFile(context, prebootFolderPath, 0, &oldEFIdata);
-            }
-            if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, booterData)) {
-                blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
-                                   prebootFolderPath);
-            } else {
-                ret = BLCreateFile(context, booterData, prebootFolderPath, 0, 0, 0);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", prebootFolderPath);
-                    ret = 7;
-                    goto exit;
-                } else {
-                    blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
-                                       prebootFolderPath);
-                }
-            }
-            if (oldEFIdata) CFRelease(oldEFIdata);
-        } else {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
-        }
-    } else {
-        ret = lstat(prebootFolderPath, &existingStat);
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelError, "Could not access boot.efi file at %s\n",
-                               prebootFolderPath);
-            ret = errno;
-            goto exit;
-        }
-    }
-    ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[0]);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError, "Preboot booter path \"%s\" doesn't exist.", prebootFolderPath);
-        ret = 6;
-        goto exit;
-    }
-    ret = BLSetAPFSBlessData(context,  prebootMountPoint, blessIDs);
-    if (ret) {
-        blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for preboot volume: %s\n", strerror(errno));
-        return 2;
-    }
-    
-exit:
-    if (rootMedia) IOObjectRelease(rootMedia);
-    if (rootUUID) CFRelease(rootUUID);
-    if (booterDict) CFRelease(booterDict);
-    if (mustUnmount) {
-        UnmountPrebootVolume(context, prebootMountPoint);
-    }
-    return ret;
-}

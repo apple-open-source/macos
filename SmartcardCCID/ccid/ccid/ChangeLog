@@ -1,4 +1,812 @@
-commit 3da71e26b368b39814618a83c2fc64e492941dc4 (HEAD -> master, tag: ccid-1.4.25, origin/master, origin/HEAD)
+commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (HEAD -> master, tag: ccid-1.4.27, origin/master, origin/HEAD, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 21 14:41:20 2017 +0200
+
+    Release 1.4.27
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README       | 29 +++++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 30 insertions(+), 1 deletion(-)
+
+commit 647fe54d8b66cabcd8bc13b68ae46fbc4bd05be5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 17 13:26:52 2017 +0200
+
+    ccid_serial: reformat reader detection code
+    
+    The Microchip SEC 1210 does not support the command 0x02 (get firmware
+    version):
+    "03 06 6B 01 00 00 00 00 00 00 00 00 02 6D"
+    returns
+    frame: "83 00 00 00 00 00 00 41 00 00" - "Command not supported."
+    
+    The command 0x06 returns a result, even if I, and Fabio Araujo, don't
+    know what this command does.
+    "03 06 6B 01 00 00 00 00 00 00 00 00 06 69"
+    we received
+    frame: "83 01 00 00 00 00 00 01 00 00 22", "Everything OK."
+
+ src/ccid_serial.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit ec652d249dc81c647bf80d5d3c21665ef00c6d8b
+Author: Fabio Araujo <fabio.araujo@transdatasmart.com.br>
+Date:   Mon May 15 09:09:26 2017 -0300
+
+    Add Microchip SEC1210 UART support.
+    
+    The Microchip SEC1210 can be connected on a serial port instead of USB.
+
+ src/ccid.h         |  1 +
+ src/ccid_serial.c  | 23 +++++++++++++++++++++++
+ src/reader.conf.in |  1 +
+ 3 files changed, 25 insertions(+)
+
+commit 582f882bd14b9a35f27348b0b80e571451a626b6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 5 20:03:58 2017 +0200
+
+    Add MK Technology KeyPass S1
+
+ readers/MK_Technology_KeyPass_S1.txt | 72 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        | 13 ++++---
+ 2 files changed, 80 insertions(+), 5 deletions(-)
+
+commit 5eac48f6c7a62b3820b190536d5390efeecb09d4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 18 18:37:12 2017 +0200
+
+    Add FT U2F CCID KB
+
+ readers/FT_U2F_CCID_KB.txt    | 56 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 57 insertions(+)
+
+commit f28ad399ec87a57efa06169599a7347f30df8a63
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 18 18:36:04 2017 +0200
+
+    Upgrade FT_U2F_CCID.txt
+    
+    New firmware.
+
+ readers/FT_U2F_CCID.txt       | 8 ++++----
+ readers/supported_readers.txt | 2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+commit 8f9a773149cf26aedc9beefb0bfabbd3213e4999
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 18 18:34:44 2017 +0200
+
+    Rename FT_U2F_CCID.txt
+
+ readers/{FT_U2F_CCID_KBOARD.txt => FT_U2F_CCID.txt} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+commit 0db790a5c6c5be9647fded4868e2d8b7bc99728d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 18 18:26:19 2017 +0200
+
+    Add FT CCID
+
+ readers/FT_CCID.txt           | 56 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 57 insertions(+)
+
+commit e7a7784cb17527458a2bc96fa16129097b1bb7fa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 18 18:24:50 2017 +0200
+
+    Add FT CCID KB
+
+ readers/FT_CCID_KB.txt        | 56 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+commit af00591a4a3c437045cc9923f6477e6f2e467bf4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 5 18:33:05 2017 +0200
+
+    configure.ac: fix error message for SCardEstablishContext
+    
+    Do not specify a version any more. pcsc-lite 1.2.9-beta9 was released in
+    February 2006.
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit c84acab1a27326edf5e833e94a25e5856e5726c1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 31 17:39:34 2017 +0200
+
+    Add InfoThink IT-102MU Reader
+
+ readers/InfoThink_IT-102MU_Reader.txt | 310 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |   5 +-
+ 2 files changed, 314 insertions(+), 1 deletion(-)
+
+commit 59380a8dd99357963b8842548131873d3427d6f9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 23 15:06:36 2017 +0100
+
+    scardcontrol: fix bmPINBlockString value
+    
+    The sample code uses a (default) maximum PIN size of 8 digits.
+    
+    bmPINBlockString is defined as "Defines the length in bytes of the PIN
+    block to present in the APDU command" so shoudl also be 8.
+    
+    Thanks to Martin Elshuber for the bug report
+    "[#315675] scardcontrol.c - bmPINBlockString - shouldn't it be 8?"
+    https://alioth.debian.org/tracker/?func=detail&atid=410085&aid=315675&group_id=30105
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 9f06f630ec4ce8502613fd18cffd28430478e8e1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 22 20:17:24 2017 +0100
+
+    Add ACS CryptoMate (T2)
+
+ readers/ACS_CryptoMate_(T2).txt | 54 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  3 ++-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit 7e20d8d978d92194e05ab5e6dd51a2d3415f4487
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 21 18:26:51 2017 +0100
+
+    ZLP: enable the patch only if --enable-zlp is used
+    
+    The Zero Length Packet patch has issues with some non-bogus readers. So
+    the patch is _disabled_ by default.
+    
+    If your Gemalto reader suffer from the ZLP problem then recompile the CCID
+    reader with:
+    $ ./configure --enable-zlp
+
+ configure.ac      | 9 +++++++++
+ src/ccid.c        | 2 ++
+ src/ccid.h        | 2 ++
+ src/ccid_serial.c | 2 ++
+ src/ccid_usb.c    | 4 ++++
+ 5 files changed, 19 insertions(+)
+
+commit 0b557087017e27e13356a6455cad1e94b9620a00
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 26 13:29:38 2017 +0100
+
+    Add Zero Length Packet (ZLP) support for Gemalto IDBridge CT30 and K30
+    
+    The Gemalto IDBridge CT30 and IDBridge K30 readers may send a ZLP after
+    some commands. Only the readers with firmware 2.00 have the problem.
+    
+    The solution is to use a short read before every USB write.
+    This patch uses a timeout of 10 ms instead of 1 ms in the original patch.
+
+ src/ccid.c        | 13 +++++++++++++
+ src/ccid.h        |  5 +++++
+ src/ccid_serial.c |  1 +
+ src/ccid_usb.c    | 11 +++++++++++
+ 4 files changed, 30 insertions(+)
+
+commit 467fe3681306ddcbb2fe131d370bf096e2ebf0e8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 21 18:12:46 2017 +0100
+
+    Add Kapsch TrafficCom USB SAM reader
+
+ readers/Kapsch_TrafficCom_USB_SAM_reader.txt | 45 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  5 +++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit 7a6f5af88a462ce3734a947734fda8e6b449e2ab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 17 18:22:33 2017 +0100
+
+    Add ACS ACR1255U-J1
+
+ readers/ACS_ACR1255U-J1.txt   | 48 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 50 insertions(+), 1 deletion(-)
+
+commit 2866e535d1bf01909b42d53fe8a29e827e5982d4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 16 21:42:58 2017 +0100
+
+    Add ANCUD CCID USB Reader & RNG
+
+ readers/ANCUD_CCID_USB_Reader_RNG.txt | 52 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |  5 +++-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit 120d81d2c4e4ca28889b352476cabf1f0884792a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 14 20:44:49 2017 +0100
+
+    Add Spyrus Inc PocketVault P-3X
+
+ readers/Spyrus_PocketVault_P-3X.txt | 49 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  5 +++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit b59ba6321c9dcafae2cb153ce3c8bee6d31b39f1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Mar 11 11:57:05 2017 +0100
+
+    Add HID Global OMNIKEY 5422 Smartcard Reader
+
+ readers/HID_OMNIKEY_5422.txt  | 322 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   3 +-
+ 2 files changed, 324 insertions(+), 1 deletion(-)
+
+commit b3f88d9596c6379f11e52119d931876539e012df
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 10 18:22:33 2017 +0100
+
+    Add support of HID Omnikey 5422 as multi slot
+    
+    The HID Omnikey 5422 device is a composite device with 2 CCID
+    interfaces.
+    This device can be seen as a multi-slot device if
+    USE_COMPOSITE_AS_MULTISLOT is used.
+
+ src/ccid.h       |  1 +
+ src/ccid_usb.c   | 13 ++++++++++++-
+ src/ifdhandler.c |  6 +++++-
+ 3 files changed, 18 insertions(+), 2 deletions(-)
+
+commit 4349e40dd8c2e37a19f2b85b59b98b4ec584695e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 10 17:58:55 2017 +0100
+
+    OpenUSBByName(): simplify USE_COMPOSITE_AS_MULTISLOT code
+    
+    The code do not hardcode the interface number of the first CCID interface.
+    The first CCID interface found will be used on the first call.
+    
+    The code to reset the interface number for the next reader is then much
+    simpler: set to -1.
+
+ src/ccid_usb.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+commit b15c8f96ca80005c3da024c031e9607051a9fe1a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 28 16:46:20 2017 +0100
+
+    CmdEscapeCheck(): signals buffer overflow
+    
+    If the RxBuffer[] buffer is too small to contain the reader response
+    then IFD_ERROR_INSUFFICIENT_BUFFER is returned.
+    
+    Before the patch the returned buffer was silently truncated and
+    IFD_SUCCESS was returned.
+    
+    Thanks to Maximilian Stein for the bug report
+    "[Pcsclite-muscle] libccid IFDHControl() / CmdEscape() might truncate reader response"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170213/000816.html
+
+ src/commands.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 8c57dcc5f73009359dcdaa0decba7f703172e9df
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 16 17:14:14 2017 +0100
+
+    OpenUSBByName(): the device bus & addr must match
+    
+    Patch similar to 8b9f6f33b16e808a5769dbc4193e5f107a09a693 but for
+    libusb-1.0 instead of libudev.
+    
+    "In Linux, before this change, if there were multiple card readers of
+    the same model connected, a new Reader could be initialized by opening
+    the wrong USB device."
+    
+    Thanks to Maximilian Stein for the patch
+    "[Pcsclite-muscle] Apply fix "OpenUSBByName(): the device bus & addr
+    must match" (8b9f6f33) for libusb"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170213/000812.html
+
+ src/ccid_usb.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+commit bf2b3f73c051e15be6bc5563766bb74c7dd66dcc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 15 16:05:16 2017 +0100
+
+    Makefile.am: do not display udev message in red
+    
+    The src/92_pcscd_ccid.rules file is not mandatory since pcscd is started
+    by systemd (pcsc-lite 1.8.0, November 2011).
+    
+    This udev file is now only used to enable selective suspend.
+
+ src/Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d7adceca5bfe2a5bd64163f9fac784ae323bf50a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 1 09:27:29 2017 +0100
+
+    Add Morpho ypsID Key E in the Disabled list
+    
+    This device is not a real CCID device. You need to patch my CCID driver.
+    Contact Morpho for support.
+
+ readers/Morpho_ypsID_Key_E.txt | 49 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  5 ++++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 3aff5f95ce6efc8d7f76f4194f4098e1da4638d0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jan 28 17:28:25 2017 +0100
+
+    Add FT U2F CCID KBOARD
+
+ readers/FT_U2F_CCID_KBOARD.txt | 56 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+commit 980e2afbeb2ec2b5daabb1b02dc4c58e6bd2d0cb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jan 21 15:42:11 2017 +0100
+
+    Add Regula RFID Reader
+
+ readers/Regula_RFID_Reader.txt | 50 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  | 13 ++++++-----
+ 2 files changed, 58 insertions(+), 5 deletions(-)
+
+commit cd1e76fa4ff44aa6f4240fa8990e78328b443a05
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 18 18:56:08 2017 +0100
+
+    ccid_usb.c: document CCID composite devices
+    
+    Document how the Gemalto Prox-DU/SU and Feitian R502 devices are
+    architectured. These devices are composite CCID devices (2 or 3 CCID
+    devices in the same USB device) and are simulated as a multi slot reader
+    if USE_COMPOSITE_AS_MULTISLOT is defined (macOS for example).
+
+ src/ccid_usb.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+commit fef7e851b81897d4e44fb887708daf4ca988de5b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 18 17:40:48 2017 +0100
+
+    scardcontrol.c: remove extra space at end of line
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 627f356e8800144f2661069de92195efcc7f2637
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jan 17 18:34:21 2017 +0100
+
+    Add Mulann PVT
+
+ readers/Mulann_PVT.txt        | 104 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 +-
+ 2 files changed, 108 insertions(+), 1 deletion(-)
+
+commit e5697f33cc8dfa89d562c8abf859024bfe9e95a8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 12 17:32:54 2017 +0100
+
+    InterruptRead(): return a valid IFDHandler code
+    
+    If libusb reports an error then return IFD_COMMUNICATION_ERROR instead
+    of the libusb error code.
+    
+    That should not be a problem since pcsc-lite only check for the value
+    IFD_SUCCESS and anything else, including a libusb error code, is an error.
+
+ src/ccid_usb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 09025bb4044f7992d9ad70483086a8c63d4d54d2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 11 16:58:55 2017 +0100
+
+    Add Unicept GmbH AirID USB
+
+ readers/Unicept_AirID_USB.txt | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 167dfa6b578ab8bebfff076cfbb7336a2a8b7621
+Author: Petr Vaněk <arkamar@atlas.cz>
+Date:   Tue Jan 10 15:00:06 2017 +0100
+
+    README: fix typos
+
+ README | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+commit 52f796f6e6882ae9791d5c578956f0077a8eb848
+Author: Petr Vaněk <arkamar@atlas.cz>
+Date:   Tue Jan 10 15:00:05 2017 +0100
+
+    README: fix links for USB CCID and ICCD documentation
+
+ README | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit b5870d85d891fab0445d8b9b1a150de1c44c2b33
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jan 10 17:55:09 2017 +0100
+
+    OMNIKEY 5321 CLi USB is NOT supported
+    
+    This reader is contactless only and is NOT A CCID DEVICE.
+
+ readers/OMNIKEY_5321_CLi_USB.txt | 172 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |   5 +-
+ 2 files changed, 176 insertions(+), 1 deletion(-)
+
+commit 569b257d64ccd50c6e6b60a2e74549e07c87d7dd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jan 9 10:27:36 2017 +0100
+
+    Add DUALi DE-620 Combi
+
+ readers/DUALi_DE-620_Combi.txt | 59 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit a421896644f6439a453fb313a8c3efaa8b7cbcc5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jan 7 16:04:17 2017 +0100
+
+    README: remove extra line
+
+ README | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 666a72c342f433fda1b77ff815fdfe728afc3ce7 (tag: ccid-1.4.26)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jan 7 15:44:45 2017 +0100
+
+    Release 1.4.26
+
+ README       | 19 +++++++++++++++++--
+ configure.ac |  2 +-
+ 2 files changed, 18 insertions(+), 3 deletions(-)
+
+commit 7f71007a47f77620b2ed50c9298c94fe01b6aaf1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 6 18:55:20 2017 +0100
+
+    Add appidkey GmbH ID60-USB
+
+ readers/appidkey_ID60-USB.txt | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit 62756a636c6991d9c9c36f01923823e7230de732
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 6 18:50:55 2017 +0100
+
+    Update appidkey ID100L-USB-SC-Reader firmware
+
+ readers/appidkey_ID100-USB_SC_Reader.txt | 4 ++--
+ readers/supported_readers.txt            | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+commit e05426c6c426fc46ef18c7bd17cfb7ad74cabd1c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 4 13:41:34 2017 +0100
+
+    FreeChannel(): release reader_index only after use
+    
+    Call ReleaseReaderIndex() to free the reader_index only after it is no
+    more used.
+    
+    It was not problematic since the complete code block is protected by the
+    ifdh_context_mutex, but this may change.
+
+ src/ifdhandler.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit d1a15209f818b5de139d691841e56613bbca9727
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 4 13:34:41 2017 +0100
+
+    ifdhandler: only GetNewReaderIndex() has to be thread protected
+    
+    Once a new reader_index has been attribuyed the functions are thread
+    safe. Only the call to GetNewReaderIndex() need to be protected.
+    
+    The mutex was introduced in 8c6ed32fa1649a3648eb768d7c692e0e1e67f2ed
+    "add support of thread safe (APDU multiplexing on different readers)" in
+    September 2003 and, at that time, GetNewReaderIndex() was not yet used
+    or implemented.
+
+ src/ifdhandler.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+commit eea7b5835a7b91cb26d52bf3b9548afc322e83d9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 16 10:35:35 2016 +0100
+
+    MacOSX/configure: check for UB only on Mavericks and less
+    
+    On Yosemite (10.10) and later we will provide only a 64-bit driver.
+    So no need to check if a Universal Binary libusb is available.
+    
+    Support of 32-bits computers has been droped with Lion 10.7.
+
+ MacOSX/configure | 30 +++++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
+
+commit 3a7f9b26418991ffff10fc61a8c56ddccbc901aa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 16 10:30:16 2016 +0100
+
+    MacOSX/configure: move definition of MAC_VERSION
+    
+    MAC_VERSION can now be used by the code checking Universal Binary.
+
+ MacOSX/configure | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit 2811a89260bbc4dfabd91dc87c2de991257df755
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 16 10:22:21 2016 +0100
+
+    MacOSX/configure: check static libusb will be used
+    
+    If a _dynamic_ version of libusb is present then it will be used by the
+    linker. This is problematic since we want to use the _static_ version of
+    libusb to avoid an external dependency.
+
+ MacOSX/configure | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+commit f66d361b0ad8346c68afb2e6351e7d1e444d561b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 16 09:37:17 2016 +0100
+
+    MacOSX/configure: remove reference to libusbx
+    
+    libusbx is a dead project and has been replaced by libusb.
+
+ MacOSX/configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 2f89a002a05b2576159e035b368feff3e34d5452
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 3 14:56:13 2016 +0100
+
+    Add Bit4id Digital DNA Key
+
+ readers/Bit4id_Digital_DNA_Key.txt | 54 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  1 +
+ 2 files changed, 55 insertions(+)
+
+commit 80f7c5300871c91639b3d50cb4b62e73bf7fce75
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 3 14:52:56 2016 +0100
+
+    Add Bit4id tokenME FIPS v3
+
+ readers/Bit4id_tokenME_FIPS_v3.txt | 54 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  3 ++-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit 683dd88400cece36da222f93bfa385624c473e52
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 18 17:50:28 2016 +0100
+
+    HID OMNIKEY 5021 CL is NOT supported
+    
+    This reader is contactless only and is NOT A CCID DEVICE.
+
+ readers/HID_5021_CL.txt       | 510 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 +-
+ 2 files changed, 514 insertions(+), 1 deletion(-)
+
+commit 05902a01bd9cdcd5a3eab8523d8dc5b85e86bac2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 22 22:12:55 2016 +0200
+
+    Add INGENICO Leo
+
+ readers/Ingenico_Leo.txt      | 76 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++-
+ 2 files changed, 80 insertions(+), 1 deletion(-)
+
+commit 9ed43b008894ad6984a06400aec4bb2c9b87bce2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 13 11:42:03 2016 +0200
+
+    INSTALL: update documentation for serial readers
+    
+    - Update the documentation
+    - add a reference about the IDBridge CR30 that should use the
+      "GemCoreSIMPro2" configuration argument.
+
+ INSTALL | 35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
+
+commit 33888a88cdcdf16e98c3d0d42593ebc743719e11
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 5 14:57:42 2016 +0200
+
+    Negociate maximum baud rate when bNumDataRatesSupported = 0
+    
+    From CCID 1.1 page 18:
+    " bNumDataRatesSupported
+    The number of data rates that are supported by the CCID.
+    If the value is 00h, all data rates between the default data rate
+    dwDataRate and the maximum data rate dwMaxDataRate are supported. "
+    
+    Before, if the card baud rate was greater than the reader dwMaxDataRate
+    then the driver used the default (lowest) baud rate.
+    
+    Now the driver tries to find the maximal baud rate supported by both the
+    card and the driver.
+    
+    The algorithm was already used when the reader reports a baud rate list
+    but not when the reader reports bNumDataRatesSupported = 0.
+    
+    Thanks to Abraham Macías Paredes for the bug report
+    "[Pcsclite-muscle] Bug in CCID library"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161003/000729.html
+    
+    Thanks to Godfrey Chung for the patch idea
+    "Fix the optimal baud rate problem in IFDHSetProtocolParameters()."
+    https://github.com/acshk/acsccid/commit/4a7631d014781d36a2d21210b0b8768c07ef8c6d
+
+ src/ifdhandler.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+commit 097436681d554999d125b9fe56bb4a5194a36f92
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 4 15:29:56 2016 +0200
+
+    PowerOn: default value comes from Info.plist
+    
+    The value set in ifdhandler.c is always overwritten by the value
+    extracted from the Info.plist file in init_driver().
+    
+    The change in ea7bedd2b3d30a884f43544c44f87ef779f011ef was useless and
+    had no effect.
+    
+    Since the default value of ifdDriverOptions for voltage selection is
+    0x00 the first voltage used is 5V.
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit df1173ee2f33ca0cf79090e4eb817b24a15c2d00
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 4 15:05:40 2016 +0200
+
+    PowerOn: always try every possible voltage values
+    
+    The default voltage value is 5V.
+    It is possible to change the driver configuration (ifdDriverOptions in
+    Info.plist) to start at 1.8V or 3V.
+    
+    The algorithms was to try:
+    5V then fail (default)
+    3V then 5V then fail
+    1.8V then 3V then 5V then fail
+    
+    Some cards do not support 5V (like the Coolkey cards, see "Coolkey cards
+    do not work in Fedora" https://bugzilla.redhat.com/show_bug.cgi?id=1380615)
+    It is possible to change the driver configuration to start at 3V or 1.8V
+    but then for cards that work only at 5V we will have 1 or 2 PowerOn
+    commands in error before the card returns the ATR.
+    
+    I made some tests and the SCardConnect() call can take 0.110129 ms when
+    starting at 5V and 0.216057 ms when starting at 1.8V and errors for 1.8V
+    and 3V. That is "speed" factor of x1.96.
+    
+    00000005 ifdhandler.c:1146:IFDHPowerICC() action: PowerUp,
+    usb:08e6/3437:libudev:0:/dev/bus/usb/001/041 (lun: 0)
+    00000007 -> 000000 62 00 00 00 00 00 08 03 00 00
+    00054697 <- 000000 80 00 00 00 00 00 08 41 FE 00
+    00000014 commands.c:249:CmdPowerOn Card absent or mute
+    00000005 commands.c:278:CmdPowerOn() Power up with 1.8V failed. Try with 3V.
+    00000006 -> 000000 62 00 00 00 00 00 09 02 00 00
+    00054723 <- 000000 80 00 00 00 00 00 09 41 FE 00
+    00000015 commands.c:249:CmdPowerOn Card absent or mute
+    00000004 commands.c:278:CmdPowerOn() Power up with 3V failed. Try with 5V.
+    00000006 -> 000000 62 00 00 00 00 00 0A 01 00 00
+    00037738 <- 000000 80 0C 00 00 00 00 0A 00 00 00 3B 29 00 80 72 A4 45 64 00 00 87 14
+    
+    The idea is to change the algotithm to start at 5V as that is the
+    standard voltage for a smart card (according to my card collection) but
+    be able to continue with 1.8V and 3V is power on failed at 5V.
+    
+    The default algorithm is now 5V then 1.8V then 3V then fail.
+    
+    It is still possible to change the initial voltage. Now, in any case, all
+    the values are tried before failing.
+    Other possible values are:
+    1.8V then 3V then 5V then fail
+    3V then 5V then 1.8V then fail
+    
+    Thanks to Robert Relyea for the patch, used by RedHat since 2013.
+    https://git.centos.org/commitdiff/rpms!pcsc-lite-ccid/3dd85f55c8aacfa0704849e7b6cf46d4970b747b
+
+ src/Info.plist.src |  4 ++--
+ src/ccid.h         | 11 +++--------
+ src/commands.c     | 15 ++++++++++++---
+ 3 files changed, 17 insertions(+), 13 deletions(-)
+
+commit a0815cfa7b70d96ae4b793285b92b70f2b95a487
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 4 14:56:45 2016 +0200
+
+    PowerOn: move from 1.8V to 5V if 1.8V is not supported
+    
+    If the reader does not support 1.8V we do not move to auto but to 5V and
+    check that 5V is supported by the reader.
+    The reader may not support Automatic Voltage Selection and may not
+    support 1.8V either.
+
+ src/commands.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit ea7bedd2b3d30a884f43544c44f87ef779f011ef
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 3 11:50:24 2016 +0200
+
+    PowerOn: change default voltage strategy
+    
+    The CCID 1.1 indicates page 105 in ch. "9.3 Voltage management" that the
+    driver should use growing voltage when supported by the reader.
+    
+    So the default is now to use the sequence 1.8V, 3V and 5V.
+    
+    ISO 7816-3 is not clear about this point. No specific order is given in
+    ch. 6.2.4 "Class selection" of ISO/IEC 7816-3:2006(E).
+    
+    This change should fix RedHat bug 1380615 "Coolkey cards do not work in
+    Fedora" and avoid the RedHat only patch described in RedHat bug 1033788
+    "Safenet SC650 smart cards are not detected"
+    
+    The RedHat patch is
+    https://git.centos.org/blob/rpms!pcsc-lite-ccid/3dd85f55c8aacfa0704849e7b6cf46d4970b747b/SOURCES!ccid-1.4.10-voltage.patch
+
+ src/ccid.h       | 7 ++++++-
+ src/ifdhandler.c | 2 +-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+commit 84966dfaae8c37702512774c5e4d510998b0e8b2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 3 11:37:25 2016 +0200
+
+    PowerOn: use automatic voltage selection when needed
+    
+    CCID standard 1.1, page 26, ch 6.1.1 PC_to_RDR_IccPowerOn
+    " For a CCID which features “automatic activation of ICC on inserting”,
+    the bPowerSelect field must be 00h (Automatic Voltage Selection) in the
+    first PC_to_RDR_IccPowerOn message received for a slot which was
+    previously inactive. "
+
+ src/ccid.h     | 1 +
+ src/commands.c | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+commit 64d6ed4a0c6196108f1044ccfd080fbdd9da62ae
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 30 10:48:43 2016 +0200
+
+    Fix spelling in log message
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 3da71e26b368b39814618a83c2fc64e492941dc4 (tag: ccid-1.4.25)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Sep 30 10:36:54 2016 +0200
 
@@ -362,7 +1170,7 @@ Date:   Sun Jun 26 11:05:11 2016 +0200
  readers/supported_readers.txt  |  5 +++-
  2 files changed, 66 insertions(+), 1 deletion(-)
 
-commit 8ea1815745692c38e1c07fc8d460aae85efe123a (github/master)
+commit 8ea1815745692c38e1c07fc8d460aae85efe123a
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 24 10:02:24 2016 +0200
 

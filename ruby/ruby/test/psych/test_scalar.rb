@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
+# frozen_string_literal: false
 
-require 'psych/helper'
+require_relative 'helper'
 
 module Psych
   class TestScalar < TestCase

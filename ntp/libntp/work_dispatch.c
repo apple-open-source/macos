@@ -55,14 +55,6 @@ cleanup_after_child(
 	}
 	c->resp_read_ctx = NULL;
 	c->reusable = TRUE;
-	if (c->sleep_sem) {
-		dispatch_release(c->sleep_sem);
-		c->sleep_sem = 0;
-	}
-	if (c->queue) {
-		dispatch_release(c->queue);
-		c->queue = 0;
-	}
 }
 
 int
@@ -192,22 +184,27 @@ send_blocking_resp_internal(
 	blocking_pipe_header *	resp
 	)
 {
-	long	octets;
+	long	octets, off = 0;
 	int	rc;
 
 	octets = resp->octets;
-	rc = write(c->resp_write_pipe, resp, octets);
+	do {
+		rc = write(c->resp_write_pipe, resp + off, octets - off);
+		if (rc < 0) {
+			if (errno != EINTR) {
+				TRACE(1, ("send_blocking_resp_internal: pipe write %m\n"));
+				return -1;
+			}
+		} else if (rc == 0 && off < octets) {
+			TRACE(1, ("send_blocking_resp_internal: short write %ld of %ld\n", off, octets));
+			return -1;
+		} else if (rc > 0) {
+			off += rc;
+		}
+	} while (off < octets);
 	free(resp);
         
-	if (octets == rc)
-		return 0;
-
-	if (rc < 0)
-		TRACE(1, ("send_blocking_resp_internal: pipe write %m\n"));
-	else
-		TRACE(1, ("send_blocking_resp_internal: short write %d of %ld\n", rc, octets));
-
-	return -1;
+	return 0;
 }
 
 blocking_pipe_header *
@@ -230,17 +227,32 @@ receive_blocking_resp_internal(
 	} else if (BLOCKING_RESP_MAGIC != hdr.magic_sig) {
 		TRACE(1, ("receive_blocking_resp_internal: header mismatch (0x%x)\n", hdr.magic_sig));
 	} else {
-		INSIST(sizeof(hdr) < hdr.octets && hdr.octets < 16 * 1024);
+		long off = 0;  // keep type in sync with octets
+		// Removed upper bound check per rdar://problem/27904221
+		INSIST(sizeof(hdr) < hdr.octets);
 		resp = emalloc(hdr.octets);
 		memcpy(resp, &hdr, sizeof(*resp));
 		octets = hdr.octets - sizeof(hdr);
-		rc = read(c->resp_read_pipe, (char *)resp + sizeof(*resp), octets);
-		if (rc < 0)
-			TRACE(1, ("receive_blocking_resp_internal: pipe data read %m\n"));
-		else if (rc < octets)
-			TRACE(1, ("receive_blocking_resp_internal: short read %d of %ld\n", rc, octets));
-		else
-			return resp;
+		do {
+			rc = read(c->resp_read_pipe, (char *)resp + sizeof(*resp) + off, octets - off);
+			if (rc < 0) {
+				if (errno != EINTR) {
+					TRACE(1, ("receive_blocking_resp_internal: pipe data read %m\n"));
+					free(resp);
+					cleanup_after_child(c);
+					return NULL;
+				}
+			} else if (rc == 0 && off < octets) {
+				TRACE(1, ("receive_blocking_resp_internal: short read %d of %ld\n", rc, octets));
+				free(resp);
+				cleanup_after_child(c);
+				return NULL;
+			} else if (rc > 0) {
+				off += rc;
+			}
+		} while (off < octets);
+
+		return resp;
 	}
 
 	cleanup_after_child(c);

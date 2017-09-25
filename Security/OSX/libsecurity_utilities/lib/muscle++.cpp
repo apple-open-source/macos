@@ -29,6 +29,7 @@
 #include "muscle++.h"
 #include <security_utilities/debugging.h>
 
+#if TARGET_OS_OSX
 
 namespace Security {
 namespace Muscle {
@@ -255,3 +256,5 @@ void Object::debugDump()
 
 }	// namespace Muscle
 }	// namespace Security
+
+#endif //TARGET_OS_OSX

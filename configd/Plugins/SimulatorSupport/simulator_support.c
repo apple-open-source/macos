@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -72,6 +72,7 @@ __log_SimulatorSupport()
 static void
 mirror(SCDynamicStoreRef store, CFArrayRef changes, void *info)
 {
+#pragma unused(store)
 	CFDictionaryRef	content_host;
 	CFDictionaryRef	content_sim;
 	CFIndex		i;
@@ -255,6 +256,7 @@ __private_extern__
 void
 load_SimulatorSupport(CFBundleRef bundle, Boolean bundleVerbose)
 {
+#pragma unused(bundleVerbose)
 	Boolean			ok;
 	CFMutableDictionaryRef	options;
 	CFRunLoopSourceRef	rls;

@@ -31,13 +31,16 @@
 #if ENABLE(ENCRYPTED_MEDIA)
 
 #include "ExceptionOr.h"
-#include "JSDOMPromise.h"
+#include "GenericTaskQueue.h"
+#include "JSDOMPromiseDeferred.h"
 #include "MediaKeySessionType.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
+class CDM;
+class CDMInstance;
 class BufferSource;
 class MediaKeySession;
 
@@ -45,19 +48,26 @@ class MediaKeys : public RefCounted<MediaKeys> {
 public:
     using KeySessionType = MediaKeySessionType;
 
-    static Ref<MediaKeys> create()
+    static Ref<MediaKeys> create(bool useDistinctiveIdentifier, bool persistentStateAllowed, const Vector<MediaKeySessionType>& supportedSessionTypes, Ref<CDM>&& implementation, Ref<CDMInstance>&& instance)
     {
-        return adoptRef(*new MediaKeys);
+        return adoptRef(*new MediaKeys(useDistinctiveIdentifier, persistentStateAllowed, supportedSessionTypes, WTFMove(implementation), WTFMove(instance)));
     }
 
-    virtual ~MediaKeys();
+    ~MediaKeys();
 
-    ExceptionOr<Ref<MediaKeySession>> createSession(MediaKeySessionType);
+    ExceptionOr<Ref<MediaKeySession>> createSession(ScriptExecutionContext&, MediaKeySessionType);
 
     void setServerCertificate(const BufferSource&, Ref<DeferredPromise>&&);
 
 protected:
-    MediaKeys();
+    MediaKeys(bool useDistinctiveIdentifier, bool persistentStateAllowed, const Vector<MediaKeySessionType>&, Ref<CDM>&&, Ref<CDMInstance>&&);
+
+    bool m_useDistinctiveIdentifier;
+    bool m_persistentStateAllowed;
+    Vector<MediaKeySessionType> m_supportedSessionTypes;
+    Ref<CDM> m_implementation;
+    Ref<CDMInstance> m_instance;
+    GenericTaskQueue<Timer> m_taskQueue;
 };
 
 } // namespace WebCore

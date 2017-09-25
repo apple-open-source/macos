@@ -21,9 +21,7 @@
 #include "config.h"
 #include "RenderProgress.h"
 
-#include "HTMLNames.h"
 #include "HTMLProgressElement.h"
-#include "PaintInfo.h"
 #include "RenderTheme.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/RefPtr.h>
@@ -34,7 +32,6 @@ RenderProgress::RenderProgress(HTMLElement& element, RenderStyle&& style)
     : RenderBlockFlow(element, WTFMove(style))
     , m_position(HTMLProgressElement::InvalidPosition)
     , m_animationStartTime(0)
-    , m_animationRepeatInterval(0)
     , m_animationDuration(0)
     , m_animating(false)
     , m_animationTimer(*this, &RenderProgress::animationTimerFired)

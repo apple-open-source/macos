@@ -1,0 +1,7 @@
+# Xcode
+project.xcworkspace
+xcuserdata
+
+# Autoconf build
+libxslt/compile
+libxslt/m4

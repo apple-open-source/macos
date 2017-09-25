@@ -1,6 +1,0 @@
-ChangeLog
-MANIFEST
-Makefile.PL
-README
-lib/Net/Telnet.pm
-t/select.t

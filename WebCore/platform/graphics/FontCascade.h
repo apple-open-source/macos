@@ -114,7 +114,7 @@ public:
 class FontCascade {
 public:
     WEBCORE_EXPORT FontCascade();
-    WEBCORE_EXPORT FontCascade(const FontCascadeDescription&, float letterSpacing, float wordSpacing);
+    WEBCORE_EXPORT FontCascade(const FontCascadeDescription&, float letterSpacing = 0, float wordSpacing = 0);
     // This constructor is only used if the platform wants to start with a native font.
     WEBCORE_EXPORT FontCascade(const FontPlatformData&, FontSmoothingMode = AutoSmoothing);
 
@@ -129,7 +129,7 @@ public:
     int pixelSize() const { return fontDescription().computedPixelSize(); }
     float size() const { return fontDescription().computedSize(); }
 
-    void update(RefPtr<FontSelector>&&) const;
+    WEBCORE_EXPORT void update(RefPtr<FontSelector>&& = nullptr) const;
 
     enum CustomFontNotReadyAction { DoNotPaintIfFontNotReady, UseFallbackIfFontNotReady };
     WEBCORE_EXPORT float drawText(GraphicsContext&, const TextRun&, const FloatPoint&, unsigned from = 0, std::optional<unsigned> to = std::nullopt, CustomFontNotReadyAction = DoNotPaintIfFontNotReady) const;
@@ -138,7 +138,9 @@ public:
 
     DashArray dashesForIntersectionsWithRect(const TextRun&, const FloatPoint& textOrigin, const FloatRect& lineExtents) const;
 
+    float widthOfTextRange(const TextRun&, unsigned from, unsigned to, HashSet<const Font*>* fallbackFonts = 0, float* outWidthBeforeRange = nullptr, float* outWidthAfterRange = nullptr) const;
     WEBCORE_EXPORT float width(const TextRun&, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
+    float widthForSimpleText(StringView text) const;
 
     std::unique_ptr<TextLayout, TextLayoutDeleter> createLayout(RenderText&, float xPos, bool collapseWhiteSpace) const;
     static float width(TextLayout&, unsigned from, unsigned len, HashSet<const Font*>* fallbackFonts = 0);
@@ -163,8 +165,8 @@ public:
     unsigned familyCount() const { return m_fontDescription.familyCount(); }
     const AtomicString& familyAt(unsigned i) const { return m_fontDescription.familyAt(i); }
 
-    FontItalic italic() const { return m_fontDescription.italic(); }
-    FontWeight weight() const { return m_fontDescription.weight(); }
+    FontSelectionValue italic() const { return m_fontDescription.italic(); }
+    FontSelectionValue weight() const { return m_fontDescription.weight(); }
     FontWidthVariant widthVariant() const { return m_fontDescription.widthVariant(); }
 
     bool isPlatformFont() const { return m_fonts->isForPlatformFont(); }
@@ -183,10 +185,8 @@ public:
     const Font& primaryFont() const;
     const FontRanges& fallbackRangesAt(unsigned) const;
     GlyphData glyphDataForCharacter(UChar32, bool mirror, FontVariant = AutoVariant) const;
-    
-#if PLATFORM(COCOA)
+
     const Font* fontForCombiningCharacterSequence(const UChar*, size_t length) const;
-#endif
 
     static bool isCJKIdeograph(UChar32);
     static bool isCJKIdeographOrSymbol(UChar32);
@@ -221,7 +221,7 @@ private:
     // Returns the initial in-stream advance.
     float getGlyphsAndAdvancesForSimpleText(const TextRun&, unsigned from, unsigned to, GlyphBuffer&, ForTextEmphasisOrNot = NotForTextEmphasis) const;
     void drawEmphasisMarksForSimpleText(GraphicsContext&, const TextRun&, const AtomicString& mark, const FloatPoint&, unsigned from, unsigned to) const;
-    void drawGlyphBuffer(GraphicsContext&, const GlyphBuffer&, FloatPoint&) const;
+    void drawGlyphBuffer(GraphicsContext&, const GlyphBuffer&, FloatPoint&, CustomFontNotReadyAction) const;
     void drawEmphasisMarks(GraphicsContext&, const GlyphBuffer&, const AtomicString&, const FloatPoint&) const;
     float floatWidthForSimpleText(const TextRun&, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
     int offsetForPositionForSimpleText(const TextRun&, float position, bool includePartialGlyphs) const;

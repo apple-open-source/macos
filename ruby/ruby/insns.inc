@@ -6,7 +6,7 @@
   DO NOT TOUCH!
 
   If you want to fix something, you must edit 'template/insns.inc.tmpl'
-  or insns2vm.rb
+  or tool/insns2vm.rb
  */
 
 
@@ -15,173 +15,96 @@
 
 enum ruby_vminsn_type {
   BIN(nop)                       = 0,
-
   BIN(getlocal)                  = 1,
-
   BIN(setlocal)                  = 2,
-
   BIN(getspecial)                = 3,
-
   BIN(setspecial)                = 4,
-
   BIN(getinstancevariable)       = 5,
-
   BIN(setinstancevariable)       = 6,
-
   BIN(getclassvariable)          = 7,
-
   BIN(setclassvariable)          = 8,
-
   BIN(getconstant)               = 9,
-
   BIN(setconstant)               = 10,
-
   BIN(getglobal)                 = 11,
-
   BIN(setglobal)                 = 12,
-
   BIN(putnil)                    = 13,
-
   BIN(putself)                   = 14,
-
   BIN(putobject)                 = 15,
-
   BIN(putspecialobject)          = 16,
-
   BIN(putiseq)                   = 17,
-
   BIN(putstring)                 = 18,
-
   BIN(concatstrings)             = 19,
-
   BIN(tostring)                  = 20,
-
-  BIN(toregexp)                  = 21,
-
-  BIN(newarray)                  = 22,
-
-  BIN(duparray)                  = 23,
-
-  BIN(expandarray)               = 24,
-
-  BIN(concatarray)               = 25,
-
-  BIN(splatarray)                = 26,
-
-  BIN(newhash)                   = 27,
-
-  BIN(newrange)                  = 28,
-
-  BIN(pop)                       = 29,
-
-  BIN(dup)                       = 30,
-
-  BIN(dupn)                      = 31,
-
-  BIN(swap)                      = 32,
-
-  BIN(reput)                     = 33,
-
-  BIN(topn)                      = 34,
-
-  BIN(setn)                      = 35,
-
-  BIN(adjuststack)               = 36,
-
-  BIN(defined)                   = 37,
-
-  BIN(checkmatch)                = 38,
-
-  BIN(trace)                     = 39,
-
-  BIN(defineclass)               = 40,
-
-  BIN(send)                      = 41,
-
-  BIN(opt_send_simple)           = 42,
-
-  BIN(invokesuper)               = 43,
-
-  BIN(invokeblock)               = 44,
-
-  BIN(leave)                     = 45,
-
-  BIN(throw)                     = 46,
-
-  BIN(jump)                      = 47,
-
-  BIN(branchif)                  = 48,
-
-  BIN(branchunless)              = 49,
-
-  BIN(getinlinecache)            = 50,
-
-  BIN(onceinlinecache)           = 51,
-
-  BIN(setinlinecache)            = 52,
-
-  BIN(opt_case_dispatch)         = 53,
-
-  BIN(opt_plus)                  = 54,
-
-  BIN(opt_minus)                 = 55,
-
-  BIN(opt_mult)                  = 56,
-
-  BIN(opt_div)                   = 57,
-
-  BIN(opt_mod)                   = 58,
-
-  BIN(opt_eq)                    = 59,
-
-  BIN(opt_neq)                   = 60,
-
-  BIN(opt_lt)                    = 61,
-
-  BIN(opt_le)                    = 62,
-
-  BIN(opt_gt)                    = 63,
-
-  BIN(opt_ge)                    = 64,
-
-  BIN(opt_ltlt)                  = 65,
-
-  BIN(opt_aref)                  = 66,
-
-  BIN(opt_aset)                  = 67,
-
-  BIN(opt_length)                = 68,
-
-  BIN(opt_size)                  = 69,
-
-  BIN(opt_empty_p)               = 70,
-
-  BIN(opt_succ)                  = 71,
-
-  BIN(opt_not)                   = 72,
-
-  BIN(opt_regexpmatch1)          = 73,
-
-  BIN(opt_regexpmatch2)          = 74,
-
-  BIN(opt_call_c_function)       = 75,
-
-  BIN(bitblt)                    = 76,
-
-  BIN(answer)                    = 77,
-
-  BIN(getlocal_OP__WC__0)        = 78,
-
-  BIN(getlocal_OP__WC__1)        = 79,
-
-  BIN(setlocal_OP__WC__0)        = 80,
-
-  BIN(setlocal_OP__WC__1)        = 81,
-
-  BIN(putobject_OP_INT2FIX_O_0_C_) = 82,
-
-  BIN(putobject_OP_INT2FIX_O_1_C_) = 83,
-
-  VM_INSTRUCTION_SIZE            = 84
+  BIN(freezestring)              = 21,
+  BIN(toregexp)                  = 22,
+  BIN(newarray)                  = 23,
+  BIN(duparray)                  = 24,
+  BIN(expandarray)               = 25,
+  BIN(concatarray)               = 26,
+  BIN(splatarray)                = 27,
+  BIN(newhash)                   = 28,
+  BIN(newrange)                  = 29,
+  BIN(pop)                       = 30,
+  BIN(dup)                       = 31,
+  BIN(dupn)                      = 32,
+  BIN(swap)                      = 33,
+  BIN(reverse)                   = 34,
+  BIN(reput)                     = 35,
+  BIN(topn)                      = 36,
+  BIN(setn)                      = 37,
+  BIN(adjuststack)               = 38,
+  BIN(defined)                   = 39,
+  BIN(checkmatch)                = 40,
+  BIN(checkkeyword)              = 41,
+  BIN(trace)                     = 42,
+  BIN(defineclass)               = 43,
+  BIN(send)                      = 44,
+  BIN(opt_str_freeze)            = 45,
+  BIN(opt_send_without_block)    = 46,
+  BIN(invokesuper)               = 47,
+  BIN(invokeblock)               = 48,
+  BIN(leave)                     = 49,
+  BIN(throw)                     = 50,
+  BIN(jump)                      = 51,
+  BIN(branchif)                  = 52,
+  BIN(branchunless)              = 53,
+  BIN(branchnil)                 = 54,
+  BIN(getinlinecache)            = 55,
+  BIN(setinlinecache)            = 56,
+  BIN(once)                      = 57,
+  BIN(opt_case_dispatch)         = 58,
+  BIN(opt_plus)                  = 59,
+  BIN(opt_minus)                 = 60,
+  BIN(opt_mult)                  = 61,
+  BIN(opt_div)                   = 62,
+  BIN(opt_mod)                   = 63,
+  BIN(opt_eq)                    = 64,
+  BIN(opt_neq)                   = 65,
+  BIN(opt_lt)                    = 66,
+  BIN(opt_le)                    = 67,
+  BIN(opt_gt)                    = 68,
+  BIN(opt_ge)                    = 69,
+  BIN(opt_ltlt)                  = 70,
+  BIN(opt_aref)                  = 71,
+  BIN(opt_aset)                  = 72,
+  BIN(opt_aset_with)             = 73,
+  BIN(opt_aref_with)             = 74,
+  BIN(opt_length)                = 75,
+  BIN(opt_size)                  = 76,
+  BIN(opt_empty_p)               = 77,
+  BIN(opt_succ)                  = 78,
+  BIN(opt_not)                   = 79,
+  BIN(opt_regexpmatch1)          = 80,
+  BIN(opt_regexpmatch2)          = 81,
+  BIN(opt_call_c_function)       = 82,
+  BIN(bitblt)                    = 83,
+  BIN(answer)                    = 84,
+  BIN(getlocal_OP__WC__0)        = 85,
+  BIN(getlocal_OP__WC__1)        = 86,
+  BIN(setlocal_OP__WC__0)        = 87,
+  BIN(setlocal_OP__WC__1)        = 88,
+  BIN(putobject_OP_INT2FIX_O_0_C_) = 89,
+  BIN(putobject_OP_INT2FIX_O_1_C_) = 90,
+  VM_INSTRUCTION_SIZE            = 91
 };
 

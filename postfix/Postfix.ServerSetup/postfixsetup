@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/usr/libexec/postfix/mk_postfix_spool.sh /
+/bin/rm -f /Library/LaunchDaemons/com.apple.postfixsetup.plist
+
+exit 0

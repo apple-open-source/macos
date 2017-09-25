@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -504,6 +504,39 @@ get_elapsed_time(DHCPv6ClientRef client)
 /**
  ** DHCPv6Client routines
  **/
+
+PRIVATE_EXTERN bool
+DHCPv6ClientIsActive(DHCPv6ClientRef client)
+{
+    return (DHCPv6SocketReceiveIsEnabled(client->sock));
+}
+
+PRIVATE_EXTERN bool
+DHCPv6ClientHasDNS(DHCPv6ClientRef client, bool * search_available)
+{
+    const uint8_t *	search;
+    int			search_len;
+    const uint8_t *	servers;
+    int			servers_len;
+
+    *search_available = FALSE;
+
+    /* check for DNSServers, DNSDomainList options */
+    if (client->saved.options == NULL) {
+	return (FALSE);
+    }
+    search = DHCPv6OptionListGetOptionDataAndLength(client->saved.options,
+						    kDHCPv6OPTION_DOMAIN_LIST,
+						    &search_len, NULL);
+    if (search != NULL && search_len > 0) {
+	*search_available = TRUE;
+    }
+    servers = DHCPv6OptionListGetOptionDataAndLength(client->saved.options,
+						     kDHCPv6OPTION_DNS_SERVERS,
+						     &servers_len, NULL);
+    return (servers != NULL && (servers_len / sizeof(struct in6_addr)) != 0);
+}
+
 STATIC void
 DHCPv6ClientSetState(DHCPv6ClientRef client, DHCPv6ClientState cstate)
 {
@@ -918,11 +951,15 @@ DHCPv6Client_Inform(DHCPv6ClientRef client, IFEventID_t event_id,
 	DHCPv6SocketEnableReceive(client->sock, (DHCPv6SocketReceiveFuncPtr)
 				  DHCPv6Client_Inform,
 				  client, (void *)IFEventID_data_e);
-	timer_callout_set(client->timer,
-			  random_double_in_range(0, DHCPv6_INF_MAX_DELAY),
-			  (timer_func_t *)DHCPv6Client_Inform, client,
-			  (void *)IFEventID_timeout_e, NULL);
-	break;
+
+	if (if_ift_type(if_p) != IFT_CELLULAR) {
+	    timer_callout_set(client->timer,
+			      random_double_in_range(0, DHCPv6_INF_MAX_DELAY),
+			      (timer_func_t *)DHCPv6Client_Inform, client,
+			      (void *)IFEventID_timeout_e, NULL);
+	    break;
+	}
+	/* FALL THROUGH */
     case IFEventID_timeout_e:
 	if (client->try == 0) {
 	    client->start_time = timer_get_current_time();

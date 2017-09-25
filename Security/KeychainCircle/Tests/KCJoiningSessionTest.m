@@ -21,12 +21,12 @@
 
 
 __unused static SOSFullPeerInfoRef SOSNSFullPeerInfoCreate(NSDictionary* gestalt,
-                                                  NSData* backupKey, SecKeyRef signingKey,
+                                                  NSData* backupKey, SecKeyRef signingKey, SecKeyRef octagonSigningKey,
                                                   NSError**error)
 {
     CFErrorRef errorRef = NULL;
 
-    SOSFullPeerInfoRef result = SOSFullPeerInfoCreate(NULL, (__bridge CFDictionaryRef) gestalt, (__bridge CFDataRef) backupKey, signingKey, &errorRef);
+    SOSFullPeerInfoRef result = SOSFullPeerInfoCreate(NULL, (__bridge CFDictionaryRef) gestalt, (__bridge CFDataRef) backupKey, signingKey, octagonSigningKey, &errorRef);
 
     if (errorRef && error) {
         *error = (__bridge_transfer NSError*) errorRef;
@@ -54,16 +54,21 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
 }
 
 
-__unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name, SecKeyRef* outSigningKey, NSError** error)
+__unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name, SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, NSError** error)
 {
-    if (outSigningKey == NULL)
+    if (outSigningKey == NULL || outOctagonSigningKey == NULL)
         return NULL;
 
     *outSigningKey = GenerateFullECKey(256, error);
     if (*outSigningKey == NULL)
         return NULL;
+    
+    *outOctagonSigningKey = GenerateFullECKey(384, error);
+    if (*outOctagonSigningKey == NULL) {
+        return NULL;
+    }
 
-    return SOSNSFullPeerInfoCreate(@{(__bridge NSString*)kPIUserDefinedDeviceNameKey:name}, nil, *outSigningKey, error);
+    return SOSNSFullPeerInfoCreate(@{(__bridge NSString*)kPIUserDefinedDeviceNameKey:name}, nil, *outSigningKey, *outOctagonSigningKey, error);
 }
 
 
@@ -86,7 +91,7 @@ __unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name,
 - (NSString*) secret;
 - (NSString*) verificationFailed: (bool) codeChanged;
 - (SOSPeerInfoRef) copyPeerInfoError: (NSError**) error;
-- (bool) processCircleJoinData: (NSData*) circleJoinData error: (NSError**)error ;
+- (bool) processCircleJoinData: (NSData*) circleJoinData version:(PiggyBackProtocolVersion)version error: (NSError**)error ;
 - (bool) processAccountCode: (NSString*) accountCode error: (NSError**)error;
 
 @end
@@ -114,8 +119,9 @@ __unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name,
     self = [super init];
 
     SecKeyRef signingKey = GenerateFullECKey(256, NULL);
+    SecKeyRef octagonSigningKey = GenerateFullECKey(384, NULL);
 
-    self.peerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, NULL);
+    self.peerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, NULL);
 
     if (self.peerInfo == NULL)
         return nil;
@@ -147,7 +153,7 @@ __unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name,
     return self.peerInfo;
 }
 
-- (bool) processCircleJoinData: (NSData*) circleJoinData error: (NSError**)error {
+- (bool) processCircleJoinData: (NSData*) circleJoinData version:(PiggyBackProtocolVersion)version error: (NSError**)error {
     self->_circleJoinData = circleJoinData;
     return true;
 }
@@ -249,6 +255,9 @@ __unused static SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(NSString* name,
     return [NSData dataWithBytes: joinDataBuffer length: sizeof(joinDataBuffer) ];
 }
 
+-(NSData*) circleGetInitialSyncViews: (NSError**) error{
+    return [NSData data];
+}
 
 @end
 

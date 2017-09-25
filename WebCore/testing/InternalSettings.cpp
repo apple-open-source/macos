@@ -30,12 +30,14 @@
 #include "CaptionUserPreferences.h"
 #include "Document.h"
 #include "ExceptionCode.h"
+#include "FontCache.h"
 #include "FrameView.h"
 #include "Language.h"
 #include "LocaleToScriptMapping.h"
 #include "MainFrame.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "RenderTheme.h"
 #include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "Supplementable.h"
@@ -43,6 +45,10 @@
 
 #if ENABLE(INPUT_TYPE_COLOR)
 #include "ColorChooser.h"
+#endif
+
+#if USE(SOUP)
+#include "SoupNetworkSession.h"
 #endif
 
 namespace WebCore {
@@ -56,10 +62,9 @@ InternalSettings::Backup::Backup(Settings& settings)
     , m_originalMediaTypeOverride(settings.mediaTypeOverride())
     , m_originalCanvasUsesAcceleratedDrawing(settings.canvasUsesAcceleratedDrawing())
     , m_originalMockScrollbarsEnabled(settings.mockScrollbarsEnabled())
-    , m_langAttributeAwareFormControlUIEnabled(RuntimeEnabledFeatures::sharedFeatures().langAttributeAwareFormControlUIEnabled())
     , m_imagesEnabled(settings.areImagesEnabled())
     , m_preferMIMETypeForImages(settings.preferMIMETypeForImages())
-    , m_minimumTimerInterval(settings.minimumDOMTimerInterval())
+    , m_minimumDOMTimerInterval(settings.minimumDOMTimerInterval())
 #if ENABLE(VIDEO_TRACK)
     , m_shouldDisplaySubtitles(settings.shouldDisplaySubtitles())
     , m_shouldDisplayCaptions(settings.shouldDisplayCaptions())
@@ -87,12 +92,6 @@ InternalSettings::Backup::Backup(Settings& settings)
     , m_allowsInlineMediaPlayback(settings.allowsInlineMediaPlayback())
     , m_allowsInlineMediaPlaybackAfterFullscreen(settings.allowsInlineMediaPlaybackAfterFullscreen())
     , m_inlineMediaPlaybackRequiresPlaysInlineAttribute(settings.inlineMediaPlaybackRequiresPlaysInlineAttribute())
-#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
-    , m_indexedDBWorkersEnabled(RuntimeEnabledFeatures::sharedFeatures().indexedDBWorkersEnabled())
-#endif
-#if ENABLE(VARIATION_FONTS)
-    , m_variationFontsEnabled(settings.variationFontsEnabled())
-#endif
     , m_deferredCSSParserEnabled(settings.deferredCSSParserEnabled())
     , m_inputEventsEnabled(settings.inputEventsEnabled())
     , m_userInterfaceDirectionPolicy(settings.userInterfaceDirectionPolicy())
@@ -101,6 +100,21 @@ InternalSettings::Backup::Backup(Settings& settings)
     , m_forcedColorsAreInvertedAccessibilityValue(settings.forcedColorsAreInvertedAccessibilityValue())
     , m_forcedDisplayIsMonochromeAccessibilityValue(settings.forcedDisplayIsMonochromeAccessibilityValue())
     , m_forcedPrefersReducedMotionAccessibilityValue(settings.forcedPrefersReducedMotionAccessibilityValue())
+    , m_frameFlattening(settings.frameFlattening())
+#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
+    , m_indexedDBWorkersEnabled(RuntimeEnabledFeatures::sharedFeatures().indexedDBWorkersEnabled())
+#endif
+    , m_cssGridLayoutEnabled(RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled())
+#if ENABLE(WEBGL2)
+    , m_webGL2Enabled(RuntimeEnabledFeatures::sharedFeatures().webGL2Enabled())
+#endif
+#if ENABLE(WEBGPU)
+    , m_webGPUEnabled(RuntimeEnabledFeatures::sharedFeatures().webGPUEnabled())
+#endif
+    , m_shouldMockBoldSystemFontForAccessibility(RenderTheme::singleton().shouldMockBoldSystemFontForAccessibility())
+#if USE(AUDIO_SESSION)
+    , m_shouldManageAudioSessionCategory(Settings::shouldManageAudioSessionCategory())
+#endif
 {
 }
 
@@ -142,10 +156,9 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
 #endif
     settings.setMediaTypeOverride(m_originalMediaTypeOverride);
     settings.setCanvasUsesAcceleratedDrawing(m_originalCanvasUsesAcceleratedDrawing);
-    RuntimeEnabledFeatures::sharedFeatures().setLangAttributeAwareFormControlUIEnabled(m_langAttributeAwareFormControlUIEnabled);
     settings.setImagesEnabled(m_imagesEnabled);
     settings.setPreferMIMETypeForImages(m_preferMIMETypeForImages);
-    settings.setMinimumDOMTimerInterval(m_minimumTimerInterval);
+    settings.setMinimumDOMTimerInterval(m_minimumDOMTimerInterval);
 #if ENABLE(VIDEO_TRACK)
     settings.setShouldDisplaySubtitles(m_shouldDisplaySubtitles);
     settings.setShouldDisplayCaptions(m_shouldDisplayCaptions);
@@ -170,12 +183,6 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
     settings.setInlineMediaPlaybackRequiresPlaysInlineAttribute(m_inlineMediaPlaybackRequiresPlaysInlineAttribute);
     settings.setQuickTimePluginReplacementEnabled(m_quickTimePluginReplacementEnabled);
     settings.setYouTubeFlashPluginReplacementEnabled(m_youTubeFlashPluginReplacementEnabled);
-#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
-    RuntimeEnabledFeatures::sharedFeatures().setIndexedDBWorkersEnabled(m_indexedDBWorkersEnabled);
-#endif
-#if ENABLE(VARIATION_FONTS)
-    settings.setVariationFontsEnabled(m_variationFontsEnabled);
-#endif
     settings.setDeferredCSSParserEnabled(m_deferredCSSParserEnabled);
     settings.setInputEventsEnabled(m_inputEventsEnabled);
     settings.setUserInterfaceDirectionPolicy(m_userInterfaceDirectionPolicy);
@@ -185,6 +192,24 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
     settings.setForcedDisplayIsMonochromeAccessibilityValue(m_forcedDisplayIsMonochromeAccessibilityValue);
     settings.setForcedPrefersReducedMotionAccessibilityValue(m_forcedPrefersReducedMotionAccessibilityValue);
     Settings::setAllowsAnySSLCertificate(false);
+    RenderTheme::singleton().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
+    FontCache::singleton().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
+    settings.setFrameFlattening(m_frameFlattening);
+
+#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
+    RuntimeEnabledFeatures::sharedFeatures().setIndexedDBWorkersEnabled(m_indexedDBWorkersEnabled);
+#endif
+    RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled(m_cssGridLayoutEnabled);
+#if ENABLE(WEBGL2)
+    RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(m_webGL2Enabled);
+#endif
+#if ENABLE(WEBGPU)
+    RuntimeEnabledFeatures::sharedFeatures().setWebGPUEnabled(m_webGPUEnabled);
+#endif
+
+#if USE(AUDIO_SESSION)
+    Settings::setShouldManageAudioSessionCategory(m_shouldManageAudioSessionCategory);
+#endif
 }
 
 class InternalSettingsWrapper : public Supplement<Page> {
@@ -496,11 +521,6 @@ ExceptionOr<void> InternalSettings::setStorageBlockingPolicy(const String& mode)
     return { };
 }
 
-void InternalSettings::setLangAttributeAwareFormControlUIEnabled(bool enabled)
-{
-    RuntimeEnabledFeatures::sharedFeatures().setLangAttributeAwareFormControlUIEnabled(enabled);
-}
-
 ExceptionOr<void> InternalSettings::setPreferMIMETypeForImages(bool preferMIMETypeForImages)
 {
     if (!m_page)
@@ -538,7 +558,7 @@ ExceptionOr<void> InternalSettings::setMinimumTimerInterval(double intervalInSec
 {
     if (!m_page)
         return Exception { INVALID_ACCESS_ERR };
-    settings().setMinimumDOMTimerInterval(std::chrono::milliseconds((std::chrono::milliseconds::rep)(intervalInSeconds * 1000)));
+    settings().setMinimumDOMTimerInterval(Seconds { intervalInSeconds });
     return { };
 }
 
@@ -562,7 +582,7 @@ ExceptionOr<void> InternalSettings::setTimeWithoutMouseMovementBeforeHidingContr
 {
     if (!m_page)
         return Exception { INVALID_ACCESS_ERR };
-    settings().setTimeWithoutMouseMovementBeforeHidingControls(time);
+    settings().setTimeWithoutMouseMovementBeforeHidingControls(Seconds { time });
     return { };
 }
 
@@ -671,10 +691,42 @@ ExceptionOr<void> InternalSettings::setInlineMediaPlaybackRequiresPlaysInlineAtt
     return { };
 }
 
+ExceptionOr<void> InternalSettings::setShouldMockBoldSystemFontForAccessibility(bool requires)
+{
+    if (!m_page)
+        return Exception { INVALID_ACCESS_ERR };
+    RenderTheme::singleton().setShouldMockBoldSystemFontForAccessibility(requires);
+    FontCache::singleton().setShouldMockBoldSystemFontForAccessibility(requires);
+    return { };
+}
+
 void InternalSettings::setIndexedDBWorkersEnabled(bool enabled)
 {
 #if ENABLE(INDEXED_DATABASE_IN_WORKERS)
     RuntimeEnabledFeatures::sharedFeatures().setIndexedDBWorkersEnabled(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void InternalSettings::setCSSGridLayoutEnabled(bool enabled)
+{
+    RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled(enabled);
+}
+
+void InternalSettings::setWebGL2Enabled(bool enabled)
+{
+#if ENABLE(WEBGL2)
+    RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void InternalSettings::setWebGPUEnabled(bool enabled)
+{
+#if ENABLE(WEBGPU)
+    RuntimeEnabledFeatures::sharedFeatures().setWebGPUEnabled(enabled);
 #else
     UNUSED_PARAM(enabled);
 #endif
@@ -738,32 +790,35 @@ ExceptionOr<void> InternalSettings::setSystemLayoutDirection(const String& direc
     return Exception { INVALID_ACCESS_ERR };
 }
 
+static FrameFlattening internalSettingsToWebCoreValue(InternalSettings::FrameFlatteningValue value)
+{
+    switch (value) {
+    case InternalSettings::FrameFlatteningValue::Disabled:
+        return FrameFlatteningDisabled;
+    case InternalSettings::FrameFlatteningValue::EnabledForNonFullScreenIFrames:
+        return FrameFlatteningEnabledForNonFullScreenIFrames;
+    case InternalSettings::FrameFlatteningValue::FullyEnabled:
+        return FrameFlatteningFullyEnabled;
+    }
+
+    ASSERT_NOT_REACHED();
+    return FrameFlatteningDisabled;
+}
+
+ExceptionOr<void> InternalSettings::setFrameFlattening(const FrameFlatteningValue& frameFlattening)
+{
+    if (!m_page)
+        return Exception { INVALID_ACCESS_ERR };
+    settings().setFrameFlattening(internalSettingsToWebCoreValue(frameFlattening));
+    return { };
+}
+
 void InternalSettings::setAllowsAnySSLCertificate(bool allowsAnyCertificate)
 {
     Settings::setAllowsAnySSLCertificate(allowsAnyCertificate);
-}
-
-ExceptionOr<bool> InternalSettings::variationFontsEnabled()
-{
-    if (!m_page)
-        return Exception { INVALID_ACCESS_ERR };
-#if ENABLE(VARIATION_FONTS)
-    return settings().variationFontsEnabled();
-#else
-    return false;
+#if USE(SOUP)
+    SoupNetworkSession::setShouldIgnoreTLSErrors(allowsAnyCertificate);
 #endif
-}
-
-ExceptionOr<void> InternalSettings::setVariationFontsEnabled(bool enabled)
-{
-    if (!m_page)
-        return Exception { INVALID_ACCESS_ERR };
-#if ENABLE(VARIATION_FONTS)
-    settings().setVariationFontsEnabled(enabled);
-#else
-    UNUSED_PARAM(enabled);
-#endif
-    return { };
 }
 
 ExceptionOr<bool> InternalSettings::deferredCSSParserEnabled()
@@ -779,6 +834,17 @@ ExceptionOr<void> InternalSettings::setDeferredCSSParserEnabled(bool enabled)
         return Exception { INVALID_ACCESS_ERR };
     settings().setDeferredCSSParserEnabled(enabled);
     return { };
+}
+
+ExceptionOr<void> InternalSettings::setShouldManageAudioSessionCategory(bool should)
+{
+#if USE(AUDIO_SESSION)
+    Settings::setShouldManageAudioSessionCategory(should);
+    return { };
+#else
+    UNUSED_PARAM(should);
+    return Exception { INVALID_ACCESS_ERR };
+#endif
 }
 
 static InternalSettings::ForcedAccessibilityValue settingsToInternalSettingsValue(Settings::ForcedAccessibilityValue value)

@@ -2,14 +2,6 @@
 #include <ruby/encoding.h>
 
 static VALUE
-printf_test_i(VALUE self, VALUE obj)
-{
-    char buf[256];
-    snprintf(buf, sizeof(buf), "<%"PRIsVALUE">", obj);
-    return rb_usascii_str_new2(buf);
-}
-
-static VALUE
 printf_test_s(VALUE self, VALUE obj)
 {
     return rb_enc_sprintf(rb_usascii_encoding(), "<%"PRIsVALUE">", obj);
@@ -28,7 +20,7 @@ printf_test_q(VALUE self, VALUE obj)
 }
 
 static char *
-utoa(char *p, char *e, unsigned int x)
+uint_to_str(char *p, char *e, unsigned int x)
 {
     char *e0 = e;
     if (e <= p) return p;
@@ -44,8 +36,8 @@ printf_test_call(int argc, VALUE *argv, VALUE self)
 {
     VALUE opt, type, num, result;
     char format[sizeof(int) * 6 + 8], *p = format, cnv;
-    int n;
-    const char *s;
+    int n = 0;
+    const char *s = 0;
 
     rb_scan_args(argc, argv, "2:", &type, &num, &opt);
     Check_Type(type, T_STRING);
@@ -79,12 +71,12 @@ printf_test_call(int argc, VALUE *argv, VALUE self)
 	    *p++ = '0';
 	}
 	if (!NIL_P(v = rb_hash_aref(opt, ID2SYM(rb_intern("width"))))) {
-	    p = utoa(p, format + sizeof(format), NUM2UINT(v));
+	    p = uint_to_str(p, format + sizeof(format), NUM2UINT(v));
 	}
 	if (!NIL_P(v = rb_hash_aref(opt, ID2SYM(rb_intern("prec"))))) {
 	    *p++ = '.';
 	    if (FIXNUM_P(v))
-		p = utoa(p, format + sizeof(format), NUM2UINT(v));
+		p = uint_to_str(p, format + sizeof(format), NUM2UINT(v));
 	}
     }
     *p++ = cnv;
@@ -102,9 +94,8 @@ void
 Init_printf(void)
 {
     VALUE m = rb_define_module_under(rb_define_module("Bug"), "Printf");
-    rb_define_singleton_method(m, "i", printf_test_i, 1);
     rb_define_singleton_method(m, "s", printf_test_s, 1);
     rb_define_singleton_method(m, "v", printf_test_v, 1);
-    rb_define_singleton_method(m, "call", printf_test_call, -1);
     rb_define_singleton_method(m, "q", printf_test_q, 1);
+    rb_define_singleton_method(m, "call", printf_test_call, -1);
 }

@@ -132,7 +132,7 @@ public:
     
 private:
     Value mValue;
-};
+} __attribute__((packed));
 
 
 }	// end namespace Security

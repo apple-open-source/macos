@@ -9,20 +9,29 @@ dnl The PCRE_PRERELEASE feature is for identifying release candidates. It might
 dnl be defined as -RC2, for example. For real releases, it should be empty.
 
 m4_define(pcre_major, [8])
-m4_define(pcre_minor, [02])
+m4_define(pcre_minor, [40])
 m4_define(pcre_prerelease, [])
-m4_define(pcre_date, [2010-03-19])
+m4_define(pcre_date, [2017-01-11])
+
+# NOTE: The CMakeLists.txt file searches for the above variables in the first
+# 50 lines of this file. Please update that if the variables above are moved.
 
 # Libtool shared library interface versions (current:revision:age)
-m4_define(libpcre_version, [0:1:0])
-m4_define(libpcreposix_version, [0:0:0])
-m4_define(libpcrecpp_version, [0:0:0])
+m4_define(libpcre_version, [3:8:2])
+m4_define(libpcre16_version, [2:8:2])
+m4_define(libpcre32_version, [0:8:0])
+m4_define(libpcreposix_version, [0:4:0])
+m4_define(libpcrecpp_version, [0:1:0])
 
 AC_PREREQ(2.57)
 AC_INIT(PCRE, pcre_major.pcre_minor[]pcre_prerelease, , pcre)
 AC_CONFIG_SRCDIR([pcre.h.in])
 AM_INIT_AUTOMAKE([dist-bzip2 dist-zip])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_CONFIG_HEADERS(config.h)
+
+# This is a new thing required to stop a warning from automake 1.12
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 
 # This was added at the suggestion of libtoolize (03-Jan-10)
 AC_CONFIG_MACRO_DIR([m4])
@@ -42,6 +51,7 @@ remember_set_CXXFLAGS="$CXXFLAGS"
 
 AC_PROG_CC
 AC_PROG_CXX
+AM_PROG_CC_C_O
 
 if test "x$remember_set_CFLAGS" = "x"
 then
@@ -68,7 +78,7 @@ fi
 # AC_PROG_CXX will return "g++" even if no c++ compiler is installed.
 # Check for that case, and just disable c++ code if g++ doesn't run.
 AC_LANG_PUSH(C++)
-AC_COMPILE_IFELSE(AC_LANG_PROGRAM([],[]),, CXX=""; CXXCP=""; CXXFLAGS="")
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])],, CXX=""; CXXCP=""; CXXFLAGS="")
 AC_LANG_POP
 
 # Check for a 64-bit integer type
@@ -76,8 +86,14 @@ AC_TYPE_INT64_T
 
 AC_PROG_INSTALL
 AC_LIBTOOL_WIN32_DLL
-AC_PROG_LIBTOOL
+LT_INIT
 AC_PROG_LN_S
+
+# Check for GCC visibility feature
+
+PCRE_VISIBILITY
+
+# Versioning
 
 PCRE_MAJOR="pcre_major"
 PCRE_MINOR="pcre_minor"
@@ -104,13 +120,46 @@ then
   htmldir='${docdir}/html'
 fi
 
+# Handle --disable-pcre8 (enabled by default)
+AC_ARG_ENABLE(pcre8,
+              AS_HELP_STRING([--disable-pcre8],
+                             [disable 8 bit character support]),
+              , enable_pcre8=unset)
+AC_SUBST(enable_pcre8)
+
+# Handle --enable-pcre16 (disabled by default)
+AC_ARG_ENABLE(pcre16,
+              AS_HELP_STRING([--enable-pcre16],
+                             [enable 16 bit character support]),
+              , enable_pcre16=unset)
+AC_SUBST(enable_pcre16)
+
+# Handle --enable-pcre32 (disabled by default)
+AC_ARG_ENABLE(pcre32,
+              AS_HELP_STRING([--enable-pcre32],
+                             [enable 32 bit character support]),
+              , enable_pcre32=unset)
+AC_SUBST(enable_pcre32)
+
 # Handle --disable-cpp. The substitution of enable_cpp is needed for use in
 # pcre-config.
 AC_ARG_ENABLE(cpp,
               AS_HELP_STRING([--disable-cpp],
                              [disable C++ support]),
-              , enable_cpp=yes)
+              , enable_cpp=unset)
 AC_SUBST(enable_cpp)
+
+# Handle --enable-jit (disabled by default)
+AC_ARG_ENABLE(jit,
+              AS_HELP_STRING([--enable-jit],
+                             [enable Just-In-Time compiling support]),
+              , enable_jit=no)
+
+# Handle --disable-pcregrep-jit (enabled by default)
+AC_ARG_ENABLE(pcregrep-jit,
+              AS_HELP_STRING([--disable-pcregrep-jit],
+                             [disable JIT support in pcregrep]),
+              , enable_pcregrep_jit=yes)
 
 # Handle --enable-rebuild-chartables
 AC_ARG_ENABLE(rebuild-chartables,
@@ -121,22 +170,22 @@ AC_ARG_ENABLE(rebuild-chartables,
 # Handle --enable-utf8 (disabled by default)
 AC_ARG_ENABLE(utf8,
               AS_HELP_STRING([--enable-utf8],
-                             [enable UTF-8 support (incompatible with --enable-ebcdic)]),
+                             [another name for --enable-utf. Kept only for compatibility reasons]),
               , enable_utf8=unset)
+
+# Handle --enable-utf (disabled by default)
+AC_ARG_ENABLE(utf,
+              AS_HELP_STRING([--enable-utf],
+                             [enable UTF-8/16/32 support (incompatible with --enable-ebcdic)]),
+              , enable_utf=unset)
 
 # Handle --enable-unicode-properties
 AC_ARG_ENABLE(unicode-properties,
               AS_HELP_STRING([--enable-unicode-properties],
-                             [enable Unicode properties support (implies --enable-utf8)]),
+                             [enable Unicode properties support (implies --enable-utf)]),
               , enable_unicode_properties=no)
 
-# Handle --enable-newline=NL
-dnl AC_ARG_ENABLE(newline,
-dnl               AS_HELP_STRING([--enable-newline=NL],
-dnl                              [use NL as newline (lf, cr, crlf, anycrlf, any; default=lf)]),
-dnl               , enable_newline=lf)
-
-# Separate newline options
+# Handle newline options
 ac_pcre_newline=lf
 AC_ARG_ENABLE(newline-is-cr,
               AS_HELP_STRING([--enable-newline-is-cr],
@@ -169,8 +218,14 @@ AC_ARG_ENABLE(bsr-anycrlf,
 # Handle --enable-ebcdic
 AC_ARG_ENABLE(ebcdic,
               AS_HELP_STRING([--enable-ebcdic],
-                             [assume EBCDIC coding rather than ASCII; incompatible with --enable-utf8; use only in (uncommon) EBCDIC environments; it implies --enable-rebuild-chartables]),
+                             [assume EBCDIC coding rather than ASCII; incompatible with --enable-utf; use only in (uncommon) EBCDIC environments; it implies --enable-rebuild-chartables]),
               , enable_ebcdic=no)
+
+# Handle --enable-ebcdic-nl25
+AC_ARG_ENABLE(ebcdic-nl25,
+              AS_HELP_STRING([--enable-ebcdic-nl25],
+                             [set EBCDIC code for NL to 0x25 instead of 0x15; it implies --enable-ebcdic]),
+              , enable_ebcdic_nl25=no)
 
 # Handle --disable-stack-for-recursion
 AC_ARG_ENABLE(stack-for-recursion,
@@ -190,6 +245,18 @@ AC_ARG_ENABLE(pcregrep-libbz2,
                              [link pcregrep with libbz2 to handle .bz2 files]),
               , enable_pcregrep_libbz2=no)
 
+# Handle --with-pcregrep-bufsize=N
+AC_ARG_WITH(pcregrep-bufsize,
+              AS_HELP_STRING([--with-pcregrep-bufsize=N],
+                             [pcregrep buffer size (default=20480, minimum=8192)]),
+              , with_pcregrep_bufsize=20480)
+
+# Handle --enable-pcretest-libedit
+AC_ARG_ENABLE(pcretest-libedit,
+              AS_HELP_STRING([--enable-pcretest-libedit],
+                             [link pcretest with libedit]),
+              , enable_pcretest_libedit=no)
+
 # Handle --enable-pcretest-libreadline
 AC_ARG_ENABLE(pcretest-libreadline,
               AS_HELP_STRING([--enable-pcretest-libreadline],
@@ -207,6 +274,12 @@ AC_ARG_WITH(link-size,
             AS_HELP_STRING([--with-link-size=N],
                            [internal link size (2, 3, or 4 allowed; default=2)]),
             , with_link_size=2)
+
+# Handle --with-parens-nest-limit=N
+AC_ARG_WITH(parens-nest-limit,
+            AS_HELP_STRING([--with-parens-nest-limit=N],
+                           [nested parentheses limit (default=250)]),
+            , with_parens_nest_limit=250)
 
 # Handle --with-match-limit=N
 AC_ARG_WITH(match-limit,
@@ -227,38 +300,87 @@ AC_ARG_WITH(match-limit-recursion,
                            [default limit on internal recursion (default=MATCH_LIMIT)]),
             , with_match_limit_recursion=MATCH_LIMIT)
 
-# Make sure that if enable_unicode_properties was set, that UTF-8 support
-# is enabled.
-#
+# Handle --enable-valgrind
+AC_ARG_ENABLE(valgrind,
+              AS_HELP_STRING([--enable-valgrind],
+                             [valgrind support]),
+              , enable_valgrind=no)
+
+# Enable code coverage reports using gcov
+AC_ARG_ENABLE(coverage,
+              AS_HELP_STRING([--enable-coverage],
+                             [enable code coverage reports using gcov]),
+              , enable_coverage=no)
+
+# Copy enable_utf8 value to enable_utf for compatibility reasons
+if test "x$enable_utf8" != "xunset"
+then
+  if test "x$enable_utf" != "xunset"
+  then
+    AC_MSG_ERROR([--enable/disable-utf8 is kept only for compatibility reasons and its value is copied to --enable/disable-utf. Newer code must use --enable/disable-utf alone.])
+  fi
+  enable_utf=$enable_utf8
+fi
+
+# Set the default value for pcre8
+if test "x$enable_pcre8" = "xunset"
+then
+  enable_pcre8=yes
+fi
+
+# Set the default value for pcre16
+if test "x$enable_pcre16" = "xunset"
+then
+  enable_pcre16=no
+fi
+
+# Set the default value for pcre32
+if test "x$enable_pcre32" = "xunset"
+then
+  enable_pcre32=no
+fi
+
+# Make sure enable_pcre8 or enable_pcre16 was set
+if test "x$enable_pcre8$enable_pcre16$enable_pcre32" = "xnonono"
+then
+  AC_MSG_ERROR([At least one of 8, 16 or 32 bit pcre library must be enabled])
+fi
+
+# Make sure that if enable_unicode_properties was set, that UTF support is enabled.
 if test "x$enable_unicode_properties" = "xyes"
 then
-  if test "x$enable_utf8" = "xno"
+  if test "x$enable_utf" = "xno"
   then
-    AC_MSG_ERROR([support for Unicode properties requires UTF-8 support])
+    AC_MSG_ERROR([support for Unicode properties requires UTF-8/16/32 support])
   fi
-  enable_utf8=yes
+  enable_utf=yes
 fi
 
-if test "x$enable_utf8" = "xunset"
+# enable_utf is disabled by default.
+if test "x$enable_utf" = "xunset"
 then
-  enable_utf8=no
+  enable_utf=no
 fi
 
-# Make sure that if enable_ebcdic is set, rebuild_chartables is also enabled.
-# Also check that UTF-8 support is not requested, because PCRE cannot handle
-# EBCDIC and UTF-8 in the same build. To do so it would need to use different
-# character constants depending on the mode.
-#
-if test "x$enable_ebcdic" = "xyes"
+# enable_cpp copies the value of enable_pcre8 by default
+if test "x$enable_cpp" = "xunset"
 then
-  enable_rebuild_chartables=yes
-  if test "x$enable_utf8" = "xyes"
+  enable_cpp=$enable_pcre8
+fi
+
+# Make sure that if enable_cpp was set, that enable_pcre8 support is enabled
+if test "x$enable_cpp" = "xyes"
+then
+  if test "x$enable_pcre8" = "xno"
   then
-    AC_MSG_ERROR([support for EBCDIC and UTF-8 cannot be enabled at the same time])
+    AC_MSG_ERROR([C++ library requires pcre library with 8 bit characters])
   fi
 fi
 
-# Convert the newline identifier into the appropriate integer value.
+# Convert the newline identifier into the appropriate integer value. The first
+# three are ASCII values 0x0a, 0x0d, and 0x0d0a, but if EBCDIC is enabled, they
+# are changed below.
+
 case "$enable_newline" in
   lf)      ac_pcre_newline_value=10   ;;
   cr)      ac_pcre_newline_value=13   ;;
@@ -270,6 +392,37 @@ case "$enable_newline" in
   ;;
 esac
 
+# --enable-ebcdic-nl25 implies --enable-ebcdic
+if test "x$enable_ebcdic_nl25" = "xyes"; then
+  enable_ebcdic=yes
+fi
+
+# Make sure that if enable_ebcdic is set, rebuild_chartables is also enabled,
+# and the newline value is adjusted appropriately (CR is still 13, but LF is
+# 21 or 37). Also check that UTF support is not requested, because PCRE cannot
+# handle EBCDIC and UTF in the same build. To do so it would need to use
+# different character constants depending on the mode.
+#
+if test "x$enable_ebcdic" = "xyes"; then
+  enable_rebuild_chartables=yes
+
+  if test "x$enable_utf" = "xyes"; then
+    AC_MSG_ERROR([support for EBCDIC and UTF-8/16/32 cannot be enabled at the same time])
+  fi
+
+  if test "x$enable_ebcdic_nl25" = "xno"; then
+    case "$ac_pcre_newline_value" in
+      10)   ac_pcre_newline_value=21 ;;
+      3338) ac_pcre_newline_value=3349 ;;
+    esac
+  else
+    case "$ac_pcre_newline_value" in
+      10)   ac_pcre_newline_value=37 ;;
+      3338) ac_pcre_newline_value=3365 ;;
+    esac
+  fi
+fi
+
 # Check argument to --with-link-size
 case "$with_link_size" in
   2|3|4) ;;
@@ -279,31 +432,46 @@ case "$with_link_size" in
 esac
 
 AH_TOP([
-/* On Unix-like systems config.h.in is converted by "configure" into config.h.
-Some other environments also support the use of "configure". PCRE is written in
-Standard C, but there are a few non-standard things it can cope with, allowing
-it to run on SunOS4 and other "close to standard" systems.
+/* PCRE is written in Standard C, but there are a few non-standard things it
+can cope with, allowing it to run on SunOS4 and other "close to standard"
+systems.
 
-If you are going to build PCRE "by hand" on a system without "configure" you
-should copy the distributed config.h.generic to config.h, and then set up the
-macro definitions the way you need them. You must then add -DHAVE_CONFIG_H to
-all of your compile commands, so that config.h is included at the start of
-every source.
+In environments that support the GNU autotools, config.h.in is converted into
+config.h by the "configure" script. In environments that use CMake,
+config-cmake.in is converted into config.h. If you are going to build PCRE "by
+hand" without using "configure" or CMake, you should copy the distributed
+config.h.generic to config.h, and edit the macro definitions to be the way you
+need them. You must then add -DHAVE_CONFIG_H to all of your compile commands,
+so that config.h is included at the start of every source.
 
 Alternatively, you can avoid editing by using -D on the compiler command line
-to set the macro values. In this case, you do not have to set -DHAVE_CONFIG_H.
+to set the macro values. In this case, you do not have to set -DHAVE_CONFIG_H,
+but if you do, default values will be taken from config.h for non-boolean
+macros that are not defined on the command line.
 
-PCRE uses memmove() if HAVE_MEMMOVE is set to 1; otherwise it uses bcopy() if
-HAVE_BCOPY is set to 1. If your system has neither bcopy() nor memmove(), set
-them both to 0; an emulation function will be used. */])
+Boolean macros such as HAVE_STDLIB_H and SUPPORT_PCRE8 should either be defined
+(conventionally to 1) for TRUE, and not defined at all for FALSE. All such
+macros are listed as a commented #undef in config.h.generic. Macros such as
+MATCH_LIMIT, whose actual value is relevant, have defaults defined, but are
+surrounded by #ifndef/#endif lines so that the value can be overridden by -D.
+
+PCRE uses memmove() if HAVE_MEMMOVE is defined; otherwise it uses bcopy() if
+HAVE_BCOPY is defined. If your system has neither bcopy() nor memmove(), make
+sure both macros are undefined; an emulation function will then be used. */])
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(limits.h sys/types.h sys/stat.h dirent.h windows.h)
+AC_CHECK_HEADERS(limits.h sys/types.h sys/stat.h dirent.h)
+AC_CHECK_HEADERS([windows.h], [HAVE_WINDOWS_H=1])
 
 # The files below are C++ header files.
 pcre_have_type_traits="0"
 pcre_have_bits_type_traits="0"
+
+if test "x$enable_cpp" = "xyes" -a -z "$CXX"; then
+   AC_MSG_ERROR([You need a C++ compiler for C++ support.])
+fi
+
 if test "x$enable_cpp" = "xyes" -a -n "$CXX"
 then
 AC_LANG_PUSH(C++)
@@ -320,11 +488,11 @@ for flag in "-alias,__ZN7pcrecpp2RE6no_argE,__ZN7pcrecpp6no_argE" \
   LDFLAGS="$OLD_LDFLAGS -Wl,$flag"
   # We try to run the linker with this new ld flag.  If the link fails,
   # we give up and remove the new flag from LDFLAGS.
-  AC_LINK_IFELSE(AC_LANG_PROGRAM([namespace pcrecpp {
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([namespace pcrecpp {
                                     class RE { static int no_arg; };
                                     int RE::no_arg;
                                   }],
-                                 []),
+                                 [])],
                  [AC_MSG_RESULT([yes]);
                   EXTRA_LIBPCRECPP_LDFLAGS="$EXTRA_LIBPCRECPP_LDFLAGS -Wl,$flag";
                   break;],
@@ -361,8 +529,8 @@ for fn in strtoq strtoll _strtoi64 strtoimax; do
   else
     include=stdlib.h
   fi
-  AC_COMPILE_IFELSE(AC_LANG_PROGRAM([#include <$include>],
-                                    [char* e; return $fn("100", &e, 10)]),
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <$include>],
+                                    [char* e; return $fn("100", &e, 10)])],
                     [AC_MSG_RESULT(yes)
                      AC_DEFINE_UNQUOTED(HAVE_`echo $fn | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ`, 1,
                                         [Define to 1 if you have `$fn'.])
@@ -392,8 +560,14 @@ AC_SUBST(pcre_have_type_traits)
 AC_SUBST(pcre_have_bits_type_traits)
 
 # Conditional compilation
+AM_CONDITIONAL(WITH_PCRE8, test "x$enable_pcre8" = "xyes")
+AM_CONDITIONAL(WITH_PCRE16, test "x$enable_pcre16" = "xyes")
+AM_CONDITIONAL(WITH_PCRE32, test "x$enable_pcre32" = "xyes")
 AM_CONDITIONAL(WITH_PCRE_CPP, test "x$enable_cpp" = "xyes")
 AM_CONDITIONAL(WITH_REBUILD_CHARTABLES, test "x$enable_rebuild_chartables" = "xyes")
+AM_CONDITIONAL(WITH_JIT, test "x$enable_jit" = "xyes")
+AM_CONDITIONAL(WITH_UTF, test "x$enable_utf" = "xyes")
+AM_CONDITIONAL(WITH_VALGRIND, test "x$enable_valgrind" = "xyes")
 
 # Checks for typedefs, structures, and compiler characteristics.
 
@@ -434,20 +608,56 @@ AC_CHECK_HEADERS([bzlib.h], [HAVE_BZLIB_H=1])
 AC_MSG_CHECKING([for libbz2])
 OLD_LIBS="$LIBS"
 LIBS="$LIBS -lbz2"
-AC_LINK_IFELSE( AC_LANG_PROGRAM([[
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #ifdef HAVE_BZLIB_H
 #include <bzlib.h>
 #endif]],
-[[return (int)BZ2_bzopen("conftest", "rb");]]),
+[[return (int)BZ2_bzopen("conftest", "rb");]])],
 [AC_MSG_RESULT([yes]);HAVE_LIBBZ2=1; break;],
 AC_MSG_RESULT([no]))
 LIBS="$OLD_LIBS"
 
 # Check for the availabiity of libreadline
 
-AC_CHECK_HEADERS([readline/readline.h], [HAVE_READLINE_H=1])
-AC_CHECK_HEADERS([readline/history.h], [HAVE_HISTORY_H=1])
-AC_CHECK_LIB([readline], [readline], [HAVE_LIB_READLINE=1])
+if test "$enable_pcretest_libreadline" = "yes"; then
+ AC_CHECK_HEADERS([readline/readline.h], [HAVE_READLINE_H=1])
+ AC_CHECK_HEADERS([readline/history.h], [HAVE_HISTORY_H=1])
+ AC_CHECK_LIB([readline], [readline], [LIBREADLINE="-lreadline"],
+   [unset ac_cv_lib_readline_readline;
+    AC_CHECK_LIB([readline], [readline], [LIBREADLINE="-ltinfo"],
+     [unset ac_cv_lib_readline_readline;
+      AC_CHECK_LIB([readline], [readline], [LIBREADLINE="-lcurses"],
+       [unset ac_cv_lib_readline_readline;
+        AC_CHECK_LIB([readline], [readline], [LIBREADLINE="-lncurses"],
+         [unset ac_cv_lib_readline_readline;
+	  AC_CHECK_LIB([readline], [readline], [LIBREADLINE="-lncursesw"],
+           [unset ac_cv_lib_readline_readline;
+	    AC_CHECK_LIB([readline], [readline], [LIBREADLINE="-ltermcap"],
+             [LIBREADLINE=""],
+             [-ltermcap])],
+           [-lncursesw])],
+         [-lncurses])],
+       [-lcurses])],
+     [-ltinfo])])
+ AC_SUBST(LIBREADLINE)
+ if test -n "$LIBREADLINE"; then
+   if test "$LIBREADLINE" != "-lreadline"; then
+     echo "-lreadline needs $LIBREADLINE"
+     LIBREADLINE="-lreadline $LIBREADLINE"
+   fi
+ fi
+fi
+
+
+# Check for the availability of libedit. Different distributions put its
+# headers in different places. Try to cover the most common ones.
+
+if test "$enable_pcretest_libedit" = "yes"; then
+  AC_CHECK_HEADERS([editline/readline.h], [HAVE_EDITLINE_READLINE_H=1],
+    [AC_CHECK_HEADERS([edit/readline/readline.h], [HAVE_READLINE_READLINE_H=1],
+      [AC_CHECK_HEADERS([readline/readline.h], [HAVE_READLINE_READLINE_H=1])])])
+  AC_CHECK_LIB([edit], [readline], [LIBEDIT="-ledit"])
+fi
 
 # This facilitates -ansi builds under Linux
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU extensions in glibc])
@@ -455,70 +665,123 @@ dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU extensions in glibc])
 PCRE_STATIC_CFLAG=""
 if test "x$enable_shared" = "xno" ; then
   AC_DEFINE([PCRE_STATIC], [1], [
-    Define if linking statically (TODO: make nice with Libtool)])
+    Define to any value if linking statically (TODO: make nice with Libtool)])
   PCRE_STATIC_CFLAG="-DPCRE_STATIC"
 fi
 AC_SUBST(PCRE_STATIC_CFLAG)
 
 # Here is where pcre specific defines are handled
 
-if test "$enable_utf8" = "yes"; then
-  AC_DEFINE([SUPPORT_UTF8], [], [
-    Define to enable support for the UTF-8 Unicode encoding. This will
-    work even in an EBCDIC environment, but it is incompatible with
-    the EBCDIC macro. That is, PCRE can support *either* EBCDIC code
-    *or* ASCII/UTF-8, but not both at once.])
+if test "$enable_pcre8" = "yes"; then
+  AC_DEFINE([SUPPORT_PCRE8], [], [
+    Define to any value to enable the 8 bit PCRE library.])
+fi
+
+if test "$enable_pcre16" = "yes"; then
+  AC_DEFINE([SUPPORT_PCRE16], [], [
+    Define to any value to enable the 16 bit PCRE library.])
+fi
+
+if test "$enable_pcre32" = "yes"; then
+  AC_DEFINE([SUPPORT_PCRE32], [], [
+    Define to any value to enable the 32 bit PCRE library.])
+fi
+
+# Unless running under Windows, JIT support requires pthreads.
+
+if test "$enable_jit" = "yes"; then
+  if test "$HAVE_WINDOWS_H" != "1"; then
+    AX_PTHREAD([], [AC_MSG_ERROR([JIT support requires pthreads])])
+    CC="$PTHREAD_CC"
+    CFLAGS="$PTHREAD_CFLAGS $CFLAGS"
+    LIBS="$PTHREAD_LIBS $LIBS"
+  fi
+  AC_DEFINE([SUPPORT_JIT], [], [
+    Define to any value to enable support for Just-In-Time compiling.])
+else
+  enable_pcregrep_jit="no"
+fi
+
+if test "$enable_pcregrep_jit" = "yes"; then
+  AC_DEFINE([SUPPORT_PCREGREP_JIT], [], [
+    Define to any value to enable JIT support in pcregrep.])
+fi
+
+if test "$enable_utf" = "yes"; then
+  AC_DEFINE([SUPPORT_UTF], [], [
+    Define to any value to enable support for the UTF-8/16/32 Unicode encoding.
+    This will work even in an EBCDIC environment, but it is incompatible
+    with the EBCDIC macro. That is, PCRE can support *either* EBCDIC
+    code *or* ASCII/UTF-8/16/32, but not both at once.])
 fi
 
 if test "$enable_unicode_properties" = "yes"; then
   AC_DEFINE([SUPPORT_UCP], [], [
-    Define to enable support for Unicode properties])
+    Define to any value to enable support for Unicode properties.])
 fi
 
 if test "$enable_stack_for_recursion" = "no"; then
   AC_DEFINE([NO_RECURSE], [], [
     PCRE uses recursive function calls to handle backtracking while
     matching. This can sometimes be a problem on systems that have
-    stacks of limited size. Define NO_RECURSE to get a version that
-    doesn't use recursion in the match() function; instead it creates
-    its own stack by steam using pcre_recurse_malloc() to obtain memory
-    from the heap. For more detail, see the comments and other stuff
-    just above the match() function. On systems that support it,
-    "configure" can be used to set this in the Makefile
-    (use --disable-stack-for-recursion).])
+    stacks of limited size. Define NO_RECURSE to any value to get a
+    version that doesn't use recursion in the match() function; instead
+    it creates its own stack by steam using pcre_recurse_malloc() to obtain
+    memory from the heap. For more detail, see the comments and other stuff
+    just above the match() function.])
 fi
 
 if test "$enable_pcregrep_libz" = "yes"; then
   AC_DEFINE([SUPPORT_LIBZ], [], [
-    Define to allow pcregrep to be linked with libz, so that it is
+    Define to any value to allow pcregrep to be linked with libz, so that it is
     able to handle .gz files.])
 fi
 
 if test "$enable_pcregrep_libbz2" = "yes"; then
   AC_DEFINE([SUPPORT_LIBBZ2], [], [
-    Define to allow pcregrep to be linked with libbz2, so that it is
-    able to handle .bz2 files.])
+    Define to any value to allow pcregrep to be linked with libbz2, so that it
+    is able to handle .bz2 files.])
 fi
 
-if test "$enable_pcretest_libreadline" = "yes"; then
+if test $with_pcregrep_bufsize -lt 8192 ; then
+  AC_MSG_WARN([$with_pcregrep_bufsize is too small for --with-pcregrep-bufsize; using 8192])
+  with_pcregrep_bufsize="8192"
+else
+  if test $? -gt 1 ; then
+  AC_MSG_ERROR([Bad value for  --with-pcregrep-bufsize])
+  fi
+fi
+
+AC_DEFINE_UNQUOTED([PCREGREP_BUFSIZE], [$with_pcregrep_bufsize], [
+  The value of PCREGREP_BUFSIZE determines the size of buffer used by pcregrep
+  to hold parts of the file it is searching. This is also the minimum value.
+  The actual amount of memory used by pcregrep is three times this number,
+  because it allows for the buffering of "before" and "after" lines.])
+
+if test "$enable_pcretest_libedit" = "yes"; then
+  AC_DEFINE([SUPPORT_LIBEDIT], [], [
+    Define to any value to allow pcretest to be linked with libedit.])
+  LIBREADLINE="$LIBEDIT"
+elif test "$enable_pcretest_libreadline" = "yes"; then
   AC_DEFINE([SUPPORT_LIBREADLINE], [], [
-    Define to allow pcretest to be linked with libreadline.])
+    Define to any value to allow pcretest to be linked with libreadline.])
 fi
 
 AC_DEFINE_UNQUOTED([NEWLINE], [$ac_pcre_newline_value], [
-  The value of NEWLINE determines the newline character sequence. On
-  systems that support it, "configure" can be used to override the
-  default, which is 10. The possible values are 10 (LF), 13 (CR),
-  3338 (CRLF), -1 (ANY), or -2 (ANYCRLF).])
+  The value of NEWLINE determines the default newline character sequence. PCRE
+  client programs can override this by selecting other values at run time. In
+  ASCII environments, the value can be 10 (LF), 13 (CR), or 3338 (CRLF); in
+  EBCDIC environments the value can be 21 or 37 (LF), 13 (CR), or 3349 or 3365
+  (CRLF) because there are two alternative codepoints (0x15 and 0x25) that are
+  used as the NL line terminator that is equivalent to ASCII LF. In both ASCII
+  and EBCDIC environments the value can also be -1 (ANY), or -2 (ANYCRLF).])
 
 if test "$enable_bsr_anycrlf" = "yes"; then
   AC_DEFINE([BSR_ANYCRLF], [], [
     By default, the \R escape sequence matches any Unicode line ending
-    character or sequence of characters. If BSR_ANYCRLF is defined, this is
-    changed so that backslash-R matches only CR, LF, or CRLF. The build-
-    time default can be overridden by the user of PCRE at runtime. On
-    systems that support it, "configure" can be used to override the
-    default.])
+    character or sequence of characters. If BSR_ANYCRLF is defined (to any
+    value), this is changed so that backslash-R matches only CR, LF, or CRLF.
+    The build-time default can be overridden by the user of PCRE at runtime.])
 fi
 
 AC_DEFINE_UNQUOTED([LINK_SIZE], [$with_link_size], [
@@ -526,8 +789,7 @@ AC_DEFINE_UNQUOTED([LINK_SIZE], [$with_link_size], [
   links as offsets within the compiled regex. The default is 2, which
   allows for compiled patterns up to 64K long. This covers the vast
   majority of cases. However, PCRE can also be compiled to use 3 or 4
-  bytes instead. This allows for longer patterns in extreme cases. On
-  systems that support it, "configure" can be used to override this default.])
+  bytes instead. This allows for longer patterns in extreme cases.])
 
 AC_DEFINE_UNQUOTED([POSIX_MALLOC_THRESHOLD], [$with_posix_malloc_threshold], [
   When calling PCRE via the POSIX interface, additional working storage
@@ -536,9 +798,12 @@ AC_DEFINE_UNQUOTED([POSIX_MALLOC_THRESHOLD], [$with_posix_malloc_threshold], [
   interface provides only two. If the number of expected substrings is
   small, the wrapper function uses space on the stack, because this is
   faster than using malloc() for each call. The threshold above which
-  the stack is no longer used is defined by POSIX_MALLOC_THRESHOLD. On
-  systems that support it, "configure" can be used to override this
-  default.])
+  the stack is no longer used is defined by POSIX_MALLOC_THRESHOLD.])
+
+AC_DEFINE_UNQUOTED([PARENS_NEST_LIMIT], [$with_parens_nest_limit], [
+  The value of PARENS_NEST_LIMIT specifies the maximum depth of nested
+  parentheses (of any kind) in a pattern. This limits the amount of system
+  stack that is used while compiling a pattern.])
 
 AC_DEFINE_UNQUOTED([MATCH_LIMIT], [$with_match_limit], [
   The value of MATCH_LIMIT determines the default number of times the
@@ -547,8 +812,7 @@ AC_DEFINE_UNQUOTED([MATCH_LIMIT], [$with_match_limit], [
   limit. The limit exists in order to catch runaway regular
   expressions that take for ever to determine that they do not match.
   The default is set very large so that it does not accidentally catch
-  legitimate cases. On systems that support it, "configure" can be
-  used to override this default default.])
+  legitimate cases.])
 
 AC_DEFINE_UNQUOTED([MATCH_LIMIT_RECURSION], [$with_match_limit_recursion], [
   The above limit applies to all calls of match(), whether or not they
@@ -559,8 +823,7 @@ AC_DEFINE_UNQUOTED([MATCH_LIMIT_RECURSION], [$with_match_limit_recursion], [
   MATCH_LIMIT_RECURSION applies only to recursive calls of match(). To
   have any useful effect, it must be less than the value of
   MATCH_LIMIT. The default is to use the same value as MATCH_LIMIT.
-  There is a runtime method for setting a different limit. On systems
-  that support it, "configure" can be used to override the default.])
+  There is a runtime method for setting a different limit.])
 
 AC_DEFINE([MAX_NAME_SIZE], [32], [
   This limit is parameterized just in case anybody ever wants to
@@ -576,23 +839,38 @@ AH_VERBATIM([PCRE_EXP_DEFN], [
 /* If you are compiling for a system other than a Unix-like system or
    Win32, and it needs some magic to be inserted before the definition
    of a function that is exported by the library, define this macro to
-   contain the relevant magic. If you do not define this macro, it
-   defaults to "extern" for a C compiler and "extern C" for a C++
-   compiler on non-Win32 systems. This macro apears at the start of
-   every exported function that is part of the external API. It does
-   not appear on functions that are "external" in the C sense, but
-   which are internal to the library. */
+   contain the relevant magic. If you do not define this macro, a suitable
+    __declspec value is used for Windows systems; in other environments
+   "extern" is used for a C compiler and "extern C" for a C++ compiler.
+   This macro apears at the start of every exported function that is part
+   of the external API. It does not appear on functions that are "external"
+   in the C sense, but which are internal to the library. */
 #undef PCRE_EXP_DEFN])
 
 if test "$enable_ebcdic" = "yes"; then
   AC_DEFINE_UNQUOTED([EBCDIC], [], [
     If you are compiling for a system that uses EBCDIC instead of ASCII
-    character codes, define this macro as 1. On systems that can use
-    "configure", this can be done via --enable-ebcdic. PCRE will then
-    assume that all input strings are in EBCDIC. If you do not define
-    this macro, PCRE will assume input strings are ASCII or UTF-8 Unicode.
-    It is not possible to build a version of PCRE that supports both
-    EBCDIC and UTF-8.])
+    character codes, define this macro to any value. You must also edit the
+    NEWLINE macro below to set a suitable EBCDIC newline, commonly 21 (0x15).
+    On systems that can use "configure" or CMake to set EBCDIC, NEWLINE is
+    automatically adjusted. When EBCDIC is set, PCRE assumes that all input
+    strings are in EBCDIC. If you do not define this macro, PCRE will assume
+    input strings are ASCII or UTF-8/16/32 Unicode. It is not possible to build
+    a version of PCRE that supports both EBCDIC and UTF-8/16/32.])
+fi
+
+if test "$enable_ebcdic_nl25" = "yes"; then
+  AC_DEFINE_UNQUOTED([EBCDIC_NL25], [], [
+    In an EBCDIC environment, define this macro to any value to arrange for
+    the NL character to be 0x25 instead of the default 0x15. NL plays the role
+    that LF does in an ASCII/Unicode environment. The value must also be set in
+    the NEWLINE macro below. On systems that can use "configure" or CMake to
+    set EBCDIC_NL25, the adjustment of NEWLINE is automatic.])
+fi
+
+if test "$enable_valgrind" = "yes"; then
+  AC_DEFINE_UNQUOTED([SUPPORT_VALGRIND], [], [
+     Define to any value for valgrind support to find invalid memory reads.])
 fi
 
 # Platform specific issues
@@ -613,6 +891,12 @@ esac
 EXTRA_LIBPCRE_LDFLAGS="$EXTRA_LIBPCRE_LDFLAGS \
                        $NO_UNDEFINED -version-info libpcre_version"
 
+EXTRA_LIBPCRE16_LDFLAGS="$EXTRA_LIBPCRE16_LDFLAGS \
+                       $NO_UNDEFINED -version-info libpcre16_version"
+
+EXTRA_LIBPCRE32_LDFLAGS="$EXTRA_LIBPCRE32_LDFLAGS \
+                       $NO_UNDEFINED -version-info libpcre32_version"
+
 EXTRA_LIBPCREPOSIX_LDFLAGS="$EXTRA_LIBPCREPOSIX_LDFLAGS \
                             $NO_UNDEFINED -version-info libpcreposix_version"
 
@@ -621,11 +905,14 @@ EXTRA_LIBPCRECPP_LDFLAGS="$EXTRA_LIBPCRECPP_LDFLAGS \
                           $EXPORT_ALL_SYMBOLS"
 
 AC_SUBST(EXTRA_LIBPCRE_LDFLAGS)
+AC_SUBST(EXTRA_LIBPCRE16_LDFLAGS)
+AC_SUBST(EXTRA_LIBPCRE32_LDFLAGS)
 AC_SUBST(EXTRA_LIBPCREPOSIX_LDFLAGS)
 AC_SUBST(EXTRA_LIBPCRECPP_LDFLAGS)
 
-# When we run 'make distcheck', use these arguments.
-DISTCHECK_CONFIGURE_FLAGS="--enable-cpp --enable-unicode-properties"
+# When we run 'make distcheck', use these arguments. Turning off compiler
+# optimization makes it run faster.
+DISTCHECK_CONFIGURE_FLAGS="CFLAGS='' CXXFLAGS='' --enable-pcre16 --enable-pcre32 --enable-jit --enable-cpp --enable-unicode-properties"
 AC_SUBST(DISTCHECK_CONFIGURE_FLAGS)
 
 # Check that, if --enable-pcregrep-libz or --enable-pcregrep-libbz2 is
@@ -659,6 +946,23 @@ AC_SUBST(LIBBZ2)
 
 # Similarly for --enable-pcretest-readline
 
+if test "$enable_pcretest_libedit" = "yes"; then
+  if test "$enable_pcretest_libreadline" = "yes"; then
+    echo "** Cannot use both --enable-pcretest-libedit and --enable-pcretest-readline"
+    exit 1
+  fi
+  if test "$HAVE_EDITLINE_READLINE_H" != "1" -a \
+          "$HAVE_READLINE_READLINE_H" != "1"; then
+    echo "** Cannot --enable-pcretest-libedit because neither editline/readline.h"
+    echo "** nor readline/readline.h was found."
+    exit 1
+  fi
+  if test -z "$LIBEDIT"; then
+    echo "** Cannot --enable-pcretest-libedit because libedit library was not found."
+    exit 1
+  fi
+fi
+
 if test "$enable_pcretest_libreadline" = "yes"; then
   if test "$HAVE_READLINE_H" != "1"; then
     echo "** Cannot --enable-pcretest-readline because readline/readline.h was not found."
@@ -668,15 +972,69 @@ if test "$enable_pcretest_libreadline" = "yes"; then
     echo "** Cannot --enable-pcretest-readline because readline/history.h was not found."
     exit 1
   fi
-  LIBREADLINE="-lreadline"
+  if test -z "$LIBREADLINE"; then
+    echo "** Cannot --enable-pcretest-readline because readline library was not found."
+    exit 1
+  fi
 fi
-AC_SUBST(LIBREADLINE)
+
+# Handle valgrind support
+
+if test "$enable_valgrind" = "yes"; then
+  m4_ifdef([PKG_CHECK_MODULES],
+           [PKG_CHECK_MODULES([VALGRIND],[valgrind])],
+           [AC_MSG_ERROR([pkg-config not supported])])
+fi
+
+# Handle code coverage reporting support
+if test "$enable_coverage" = "yes"; then
+  if test "x$GCC" != "xyes"; then
+    AC_MSG_ERROR([Code coverage reports can only be generated when using GCC])
+  fi
+
+  # ccache is incompatible with gcov
+  AC_PATH_PROG([SHTOOL],[shtool],[false])
+  case `$SHTOOL path $CC` in
+    *ccache*) cc_ccache=yes;;
+    *) cc_ccache=no;;
+  esac
+
+  if test "$cc_ccache" = "yes"; then
+    if test -z "$CCACHE_DISABLE" -o "$CCACHE_DISABLE" != "1"; then
+      AC_MSG_ERROR([must export CCACHE_DISABLE=1 to disable ccache for code coverage])
+    fi
+  fi
+
+  AC_ARG_VAR([LCOV],[the ltp lcov program])
+  AC_PATH_PROG([LCOV],[lcov],[false])
+  if test "x$LCOV" = "xfalse"; then
+    AC_MSG_ERROR([lcov not found])
+  fi
+
+  AC_ARG_VAR([GENHTML],[the ltp genhtml program])
+  AC_PATH_PROG([GENHTML],[genhtml],[false])
+  if test "x$GENHTML" = "xfalse"; then
+    AC_MSG_ERROR([genhtml not found])
+  fi
+
+  # Set flags needed for gcov
+  GCOV_CFLAGS="-O0 -ggdb3 -fprofile-arcs -ftest-coverage"
+  GCOV_CXXFLAGS="-O0 -ggdb3 -fprofile-arcs -ftest-coverage"
+  GCOV_LIBS="-lgcov"
+  AC_SUBST([GCOV_CFLAGS])
+  AC_SUBST([GCOV_CXXFLAGS])
+  AC_SUBST([GCOV_LIBS])
+fi # enable_coverage
+
+AM_CONDITIONAL([WITH_GCOV],[test "x$enable_coverage" = "xyes"])
 
 # Produce these files, in addition to config.h.
 AC_CONFIG_FILES(
 	Makefile
 	libpcre.pc
-        libpcreposix.pc
+	libpcre16.pc
+	libpcre32.pc
+	libpcreposix.pc
 	libpcrecpp.pc
 	pcre-config
 	pcre.h
@@ -693,8 +1051,15 @@ AC_CONFIG_COMMANDS([delete-old-chartables], [rm -f pcre_chartables.c])
 
 AC_OUTPUT
 
-# Print out a nice little message after configure is run displaying your
+# Print out a nice little message after configure is run displaying the
 # chosen options.
+
+ebcdic_nl_code=n/a
+if test "$enable_ebcdic_nl25" = "yes"; then
+  ebcdic_nl_code=0x25
+elif test "$enable_ebcdic" = "yes"; then
+  ebcdic_nl_code=0x15
+fi
 
 cat <<EOF
 
@@ -707,28 +1072,39 @@ $PACKAGE-$VERSION configuration summary:
     C++ compiler .................... : ${CXX}
     Linker .......................... : ${LD}
     C preprocessor flags ............ : ${CPPFLAGS}
-    C compiler flags ................ : ${CFLAGS}
-    C++ compiler flags .............. : ${CXXFLAGS}
+    C compiler flags ................ : ${CFLAGS} ${VISIBILITY_CFLAGS}
+    C++ compiler flags .............. : ${CXXFLAGS} ${VISIBILITY_CXXFLAGS}
     Linker flags .................... : ${LDFLAGS}
     Extra libraries ................. : ${LIBS}
 
+    Build 8 bit pcre library ........ : ${enable_pcre8}
+    Build 16 bit pcre library ....... : ${enable_pcre16}
+    Build 32 bit pcre library ....... : ${enable_pcre32}
     Build C++ library ............... : ${enable_cpp}
-    Enable UTF-8 support ............ : ${enable_utf8}
+    Enable JIT compiling support .... : ${enable_jit}
+    Enable UTF-8/16/32 support ...... : ${enable_utf}
     Unicode properties .............. : ${enable_unicode_properties}
     Newline char/sequence ........... : ${enable_newline}
     \R matches only ANYCRLF ......... : ${enable_bsr_anycrlf}
     EBCDIC coding ................... : ${enable_ebcdic}
+    EBCDIC code for NL .............. : ${ebcdic_nl_code}
     Rebuild char tables ............. : ${enable_rebuild_chartables}
     Use stack recursion ............. : ${enable_stack_for_recursion}
     POSIX mem threshold ............. : ${with_posix_malloc_threshold}
     Internal link size .............. : ${with_link_size}
+    Nested parentheses limit ........ : ${with_parens_nest_limit}
     Match limit ..................... : ${with_match_limit}
     Match limit recursion ........... : ${with_match_limit_recursion}
     Build shared libs ............... : ${enable_shared}
     Build static libs ............... : ${enable_static}
+    Use JIT in pcregrep ............. : ${enable_pcregrep_jit}
+    Buffer size for pcregrep ........ : ${with_pcregrep_bufsize}
     Link pcregrep with libz ......... : ${enable_pcregrep_libz}
     Link pcregrep with libbz2 ....... : ${enable_pcregrep_libbz2}
+    Link pcretest with libedit ...... : ${enable_pcretest_libedit}
     Link pcretest with libreadline .. : ${enable_pcretest_libreadline}
+    Valgrind support ................ : ${enable_valgrind}
+    Code coverage ................... : ${enable_coverage}
 
 EOF
 

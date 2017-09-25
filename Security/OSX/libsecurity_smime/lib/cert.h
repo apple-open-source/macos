@@ -91,10 +91,11 @@ SecCertificateRef CERT_FindCertByDERCert(SecKeychainRef keychainOrArray, const S
 // Generate a certificate key from the issuer and serialnumber, then look it up in the database.
 // Return the cert if found. "issuerAndSN" is the issuer and serial number to look for
 SecCertificateRef CERT_FindCertByIssuerAndSN (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, PRArenaPool *pl, const SecCmsIssuerAndSN *issuerAndSN);
+    CSSM_DATA_PTR *rawCerts, CFArrayRef certList,
+    PRArenaPool *pl, const SecCmsIssuerAndSN *issuerAndSN);
 
 SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray, 
-    CSSM_DATA_PTR *rawCerts, const SECItem *subjKeyID);
+    CSSM_DATA_PTR *rawCerts, CFArrayRef certList, const SECItem *subjKeyID);
 
 SecIdentityRef CERT_FindIdentityByIssuerAndSN (CFTypeRef keychainOrArray, const SecCmsIssuerAndSN *issuerAndSN);
 

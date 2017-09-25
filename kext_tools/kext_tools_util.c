@@ -1042,36 +1042,41 @@ int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t)
  *******************************************************************************/
 Boolean isSameFileDevAndIno(int the_fd,
                             const char * thePath,
+                            bool followSymlinks,
                             dev_t the_dev_t,
                             ino_t the_ino_t)
 {
     Boolean         my_result = FALSE;
     struct stat     my_stat_buf;
-    
+
     if (the_fd == -1) {
+        int ret;
+        if (followSymlinks) {
+            ret = stat(thePath, &my_stat_buf);
+        } else {
+            ret = lstat(thePath, &my_stat_buf);
+        }
         /* means we are passed a full path in thePath */
-        if (stat(thePath, &my_stat_buf) == 0) {
+        if (ret == 0) {
             if (the_dev_t == my_stat_buf.st_dev &&
                 the_ino_t == my_stat_buf.st_ino) {
                 my_result = TRUE;
             }
-        }
-        else if (errno == ENOENT && the_dev_t == 0 && the_ino_t == 0) {
+        } else if (errno == ENOENT && the_dev_t == 0 && the_ino_t == 0) {
             /* special case where thePath did not exist so it still should not
              * exist
              */
             my_result = TRUE;
         }
-    }
-    else {
+    } else {
         /* means we are passed a relative path from the_fd */
-        if (fstatat(the_fd, thePath, &my_stat_buf, 0) == 0) {
+        int flags = followSymlinks ? 0 : AT_SYMLINK_NOFOLLOW;
+        if (fstatat(the_fd, thePath, &my_stat_buf, flags) == 0) {
             if (the_dev_t == my_stat_buf.st_dev &&
                 the_ino_t == my_stat_buf.st_ino) {
                 my_result = TRUE;
             }
-        }
-        else if (errno == ENOENT && the_dev_t == 0 && the_ino_t == 0) {
+        } else if (errno == ENOENT && the_dev_t == 0 && the_ino_t == 0) {
             /* special case where thePath did not exist so it still should not
              * exist
              */

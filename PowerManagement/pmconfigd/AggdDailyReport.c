@@ -31,9 +31,20 @@
 
 #include "AggdDailyReport.h"
 
+os_log_t    aggd_log = NULL;
+
+#undef   LOG_STREAM
+#define  LOG_STREAM   aggd_log
+
+static IOReportSubscriptionRef IOReporter_subscription_init(CFMutableDictionaryRef *subscribed_channels);
+static void initializeDailySample(void);
+static void submitAggdDailyReport(void);
+static void Process_IOReporter_Sample(CFMutableDictionaryRef newSample);
+
 void initializeAggdDailyReport(void)
 {
     
+    aggd_log = os_log_create(PM_LOG_SYSTEM, AGGD_REPORTS_LOG);
     
     IOReporter_subscription =
     (struct IOReporter_client_subscription *)malloc(sizeof(struct IOReporter_client_subscription));

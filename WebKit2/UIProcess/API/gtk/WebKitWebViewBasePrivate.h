@@ -25,15 +25,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebKitWebViewBasePrivate_h
-#define WebKitWebViewBasePrivate_h
+#pragma once
 
 #include "APIPageConfiguration.h"
 #include "DragAndDropHandler.h"
 #include "GestureController.h"
 #include "WebContextMenuProxyGtk.h"
 #include "WebInspectorProxy.h"
-#include "WebKitPrivate.h"
 #include "WebKitWebViewBase.h"
 #include "WebPageProxy.h"
 
@@ -48,7 +46,7 @@ void webkitWebViewBaseForwardNextWheelEvent(WebKitWebViewBase*);
 void webkitWebViewBaseChildMoveResize(WebKitWebViewBase*, GtkWidget*, const WebCore::IntRect&);
 void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseExitFullScreen(WebKitWebViewBase*);
-void webkitWebViewBaseInitializeFullScreenClient(WebKitWebViewBase*, const WKFullScreenClientGtkBase*);
+bool webkitWebViewBaseIsFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseSetInspectorViewSize(WebKitWebViewBase*, unsigned size);
 void webkitWebViewBaseSetActiveContextMenuProxy(WebKitWebViewBase*, WebKit::WebContextMenuProxyGtk*);
 WebKit::WebContextMenuProxyGtk* webkitWebViewBaseGetActiveContextMenuProxy(WebKitWebViewBase*);
@@ -62,10 +60,6 @@ bool webkitWebViewBaseIsInWindowActive(WebKitWebViewBase*);
 bool webkitWebViewBaseIsFocused(WebKitWebViewBase*);
 bool webkitWebViewBaseIsVisible(WebKitWebViewBase*);
 bool webkitWebViewBaseIsInWindow(WebKitWebViewBase*);
-
-typedef void (*WebKitWebViewBaseDownloadRequestHandler) (WebKitWebViewBase*, WebKit::DownloadProxy*);
-void webkitWebViewBaseSetDownloadRequestHandler(WebKitWebViewBase*, WebKitWebViewBaseDownloadRequestHandler);
-void webkitWebViewBaseHandleDownloadRequest(WebKitWebViewBase*, WebKit::DownloadProxy*);
 
 void webkitWebViewBaseAddAuthenticationDialog(WebKitWebViewBase*, GtkWidget* authDialog);
 void webkitWebViewBaseCancelAuthenticationDialog(WebKitWebViewBase*);
@@ -84,5 +78,3 @@ WebKit::DragAndDropHandler& webkitWebViewBaseDragAndDropHandler(WebKitWebViewBas
 #if HAVE(GTK_GESTURES)
 WebKit::GestureController& webkitWebViewBaseGestureController(WebKitWebViewBase*);
 #endif
-
-#endif // WebKitWebViewBasePrivate_h

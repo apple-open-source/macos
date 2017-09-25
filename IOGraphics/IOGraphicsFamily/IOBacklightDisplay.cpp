@@ -20,17 +20,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#define IOFRAMEBUFFER_PRIVATE
+
 #include <IOKit/IOLib.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOTimerEventSource.h>
-
-#define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/IOHibernatePrivate.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
+#include <IOKit/pwr_mgt/IOPM.h>
+
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/graphics/IODisplay.h>
 #include <IOKit/ndrvsupport/IOMacOSVideo.h>
-#include <IOKit/pwr_mgt/RootDomain.h>
-#include <IOKit/pwr_mgt/IOPM.h>
+
+#include "IOGraphicsKTrace.h"
 
 /*
     We further divide the actual display panel brightness levels into four
@@ -106,23 +109,23 @@ protected:
 public:
 
     // IOService overrides
-    virtual IOService * probe( IOService *, SInt32 * );
-    virtual bool start( IOService * provider );
-    virtual void stop( IOService * provider );
+    virtual IOService * probe( IOService *, SInt32 * ) APPLE_KEXT_OVERRIDE;
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn setPowerState( unsigned long, IOService * );
-    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags );
-    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags );
-    virtual unsigned long powerStateForDomainState( IOPMPowerFlags );
+    virtual IOReturn setPowerState( unsigned long, IOService * ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long powerStateForDomainState( IOPMPowerFlags ) APPLE_KEXT_OVERRIDE;
 
     // IODisplay overrides
-    virtual void initPowerManagement( IOService * );
+    virtual void initPowerManagement( IOService * ) APPLE_KEXT_OVERRIDE;
     virtual bool doIntegerSet( OSDictionary * params,
-                               const OSSymbol * paramName, UInt32 value );
-    virtual bool doUpdate( void );
-    virtual void makeDisplayUsable( void );
+                               const OSSymbol * paramName, UInt32 value ) APPLE_KEXT_OVERRIDE;
+    virtual bool doUpdate( void ) APPLE_KEXT_OVERRIDE;
+    virtual void makeDisplayUsable( void ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn framebufferEvent( IOFramebuffer * framebuffer,
-                                       IOIndex event, void * info );
+                                       IOIndex event, void * info ) APPLE_KEXT_OVERRIDE;
 
 private:
 	bool updatePowerParam(void);
@@ -164,6 +167,7 @@ enum
 
 IOService * AppleBacklightDisplay::probe( IOService * provider, SInt32 * score )
 {
+    ABL_START(probe,0,0,0);
     IOFramebuffer *     framebuffer;
     IOService *         ret = 0;
     UInt32              displayType;
@@ -179,14 +183,22 @@ IOService * AppleBacklightDisplay::probe( IOService * provider, SInt32 * score )
 
         framebuffer = (IOFramebuffer *) getConnection()->getFramebuffer();
 
-        for (IOItemCount idx = 0; idx < framebuffer->getConnectionCount(); idx++)
+        FB_START(getConnectionCount,0,__LINE__,0);
+        IOItemCount fbCount = framebuffer->getConnectionCount();
+        FB_END(getConnectionCount,0,__LINE__,fbCount);
+        for (IOItemCount idx = 0; idx < fbCount; idx++)
         {
-            if (kIOReturnSuccess != framebuffer->getAttributeForConnection(idx,
-                    kConnectionFlags, &connectFlags))
+            FB_START(getAttributeForConnection,kConnectionFlags,__LINE__,0);
+            IOReturn err = framebuffer->getAttributeForConnection(idx, kConnectionFlags, &connectFlags);
+            FB_END(getAttributeForConnection,err,__LINE__,connectFlags);
+            if (kIOReturnSuccess != err)
                 continue;
             if (0 == (kIOConnectionBuiltIn & connectFlags))
                 continue;
-            if (kIOReturnSuccess != framebuffer->getAppleSense(idx, NULL, NULL, NULL, &displayType))
+            FB_START(getAppleSense,0,__LINE__,0);
+            IOReturn error = framebuffer->getAppleSense(idx, NULL, NULL, NULL, &displayType);
+            FB_END(getAppleSense,error,__LINE__,0);
+            if (kIOReturnSuccess != error)
                 continue;
             if ((kPanelTFTConnect != displayType)
                     && (kGenericLCD != displayType)
@@ -199,13 +211,19 @@ IOService * AppleBacklightDisplay::probe( IOService * provider, SInt32 * score )
     }
     while (false);
 
+    ABL_END(probe,0,0,0);
     return (ret);
 }
 
 bool AppleBacklightDisplay::start( IOService * provider )
 {
+    ABL_START(start,0,0,0);
     IOFramebuffer * fb;
-    if (!super::start(provider)) return (false);
+    if (!super::start(provider))
+    {
+        ABL_END(start,false,0,0);
+        return (false);
+    }
 
 	fClamshellSlept = gIOFBCurrentClamshellState;
     fb = getConnection()->getFramebuffer();
@@ -222,11 +240,13 @@ bool AppleBacklightDisplay::start( IOService * provider )
 
     fb->setProperty(kIOFBBuiltInKey, this, 0);
 
+    ABL_END(start,true,0,0);
     return (true);
 }
 
 void AppleBacklightDisplay::stop( IOService * provider )
 {
+    ABL_START(stop,0,0,0);
     if (fDeferredEvents)
     {
         getConnection()->getFramebuffer()->getControllerWorkLoop()->removeEventSource(fDeferredEvents);
@@ -237,13 +257,25 @@ void AppleBacklightDisplay::stop( IOService * provider )
     fadeAbort();
     if (fFadeTimer)
     {
+        // Don't want to be racing any notification events when we stop.  Should never be the case,
+        // but doesn't hurt to protect ourselves.
+        IOFramebuffer * framebuffer = (IOFramebuffer *) getConnection()->getFramebuffer();
+        if (framebuffer)
+            framebuffer->fbLock();
+
         fFadeTimer->disable();
-        getConnection()->getFramebuffer()->getControllerWorkLoop()->removeEventSource(fFadeTimer);
+        if (framebuffer)
+            framebuffer->getControllerWorkLoop()->removeEventSource(fFadeTimer);
         fFadeTimer->release();
 	    fFadeTimer = 0;
+
+        if (framebuffer)
+            framebuffer->fbUnlock();
     }
 
-    return (super::stop(provider));
+    super::stop(provider);
+    ABL_END(stop,0,0,0);
+    return;
 }
 
 
@@ -255,7 +287,8 @@ void AppleBacklightDisplay::stop( IOService * provider )
 
 void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 {
-    OSDictionary * displayParams;    
+    ABL_START(initPowerManagement,0,0,0);
+    OSDictionary * displayParams;
 	OSObject *     obj;
     OSNumber *     num;
 
@@ -278,7 +311,8 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 
 	fCurrentPowerState = -1U;
 
-    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    displayParams = OSDynamicCast(OSDictionary, paramProp);
     if (displayParams)
     {
 		SInt32 value, min, max;
@@ -306,8 +340,8 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 		setProperty(gIODisplayParametersKey, newParams);
 		newParams->release();
 #endif
-        displayParams->release();
     }
+    OSSafeReleaseNULL(paramProp);
 
     // initialize superclass variables
     PMinit();
@@ -316,6 +350,8 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 
     // register ourselves with policy-maker (us)
     registerPowerDriver(this, (IOPMPowerState *) ourPowerStates, kIODisplayNumPowerStates);
+
+    ABL_END(initPowerManagement,0,0,0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -327,11 +363,22 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
 
 IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
+    IOG_KTRACE(DBG_IOG_SET_POWER_STATE,
+               DBG_FUNC_NONE,
+               0, powerState,
+               0, DBG_IOG_SOURCE_APPLEBACKLIGHTDISPLAY,
+               0, 0,
+               0, 0);
+    ABL_START(setPowerState,powerState,0,0);
+
     IOReturn ret = IOPMAckImplied;
     UInt32   fromPowerState;
 
     if (powerState >= kIODisplayNumPowerStates)
+    {
+        ABL_END(setPowerState,IOPMAckImplied,__LINE__,0);
         return (IOPMAckImplied);
+    }
 
     IOFramebuffer * framebuffer = (IOFramebuffer *) getConnection()->getFramebuffer();
 
@@ -340,10 +387,11 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
     if (isInactive() || (fCurrentPowerState == powerState))
     {
         framebuffer->fbUnlock();
+        ABL_END(setPowerState,IOPMAckImplied,__LINE__,0);
         return (IOPMAckImplied);
     }
     fromPowerState = fCurrentPowerState;
-    fCurrentPowerState = powerState;
+    fCurrentPowerState = static_cast<UInt32>(powerState);
 	if (fCurrentPowerState) fProviderPower = true;
 
 	OSObject * obj;
@@ -353,14 +401,14 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 	}
 	else
 	{
-#if IOG_FADE
+#if !IOG_FADE
+        updatePowerParam();
+#else /* IOG_FADE */
         SInt32         current, min, max, steps;
-        OSDictionary * displayParams;
 		uint32_t       fadeTime;
 		uint32_t       dimFade;
 		bool           doFadeDown, doFadeGamma, doFadeBacklight;
 
-        displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
 		fadeTime        = 0;
 	    doFadeDown      = true;
 	    doFadeGamma     = false;
@@ -368,12 +416,17 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 
 		DEBGFADE("AppleBacklight: ps [%d->%ld]\n", fromPowerState, powerState);
 
-		if (gIOGFades
-			&& displayParams 
-			&& (getIntegerRange(displayParams, gIODisplayBrightnessFadeKey, NULL, &min, &max))
-			&& (getIntegerRange(displayParams, gIODisplayBrightnessKey, &current, NULL, NULL))
-			&& current
-			&& !fFadeAbort)
+        OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+        OSDictionary *displayParams = OSDynamicCast(OSDictionary, paramProp);
+        bool haveRanges = displayParams
+			&& getIntegerRange(displayParams, gIODisplayBrightnessFadeKey,
+                    /* value */ NULL, &min, &max)
+			&& getIntegerRange(displayParams, gIODisplayBrightnessKey,
+                    /* value */ &current, /* min */ NULL, /* max */ NULL)
+            && current;
+        OSSafeReleaseNULL(paramProp);
+
+		if (gIOGFades && haveRanges && !fFadeAbort)
 		{
 			if (current < ((kFadeMidLevel * max) / 1024)) dimFade = max;
 			else                                          dimFade = (kFadeDimLevel * max) / 1024;
@@ -420,7 +473,7 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 				 {
 					 // idle initiated -> off
 					 fadeTime    = gIODisplayFadeTime1*1000;
-					 doFadeBacklight = (dimFade != max);
+					 doFadeBacklight = (dimFade != static_cast<uint32_t>(max));
 					 if (doFadeBacklight) current = max - dimFade;
 					 doFadeGamma = true;
 				 }
@@ -449,7 +502,8 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 			fFadeStateFadeMin   = max - current;
 			fFadeStateFadeMax   = max;
 			fFadeStateFadeDelta = current;
-			if (steps > fFadeStateFadeDelta) steps = fFadeStateFadeDelta;
+			if (static_cast<uint32_t>(steps) > fFadeStateFadeDelta)
+                steps = static_cast<SInt32>(fFadeStateFadeDelta);
 
 			fFadeDown      = doFadeDown;
 			fFadeGamma     = doFadeGamma;
@@ -463,7 +517,15 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 			fFadeDeadline = mach_absolute_time();
 			fadeTime     /= steps;
 			fFadeStateEnd = (steps - 1);
-		    if (framebuffer->isWakingFromHibernateGfxOn()) fFadeState = fFadeStateEnd;
+            // <rdar://problem/30194186> PanicTracer: 486 panics at com.apple.iokit.IOGraphicsFamily : AppleBacklightDisplay::fadeWork :: com.apple.iokit.IOGraphicsFamily : AppleBacklightDisplay::setPowerState
+            //   Under hard to determine circumstances the fFadeStateEnd can be
+            //   0. The correct fix is to not even start fading in that
+            //   circumstance but that is too dangerous for a narrow bug fix.
+            //   Just turn off all fading and let the engine run to completion.
+            if (!fFadeStateEnd)
+                fFadeBacklight = fFadeGamma = false;
+		    if (framebuffer->isWakingFromHibernateGfxOn())
+                fFadeState = fFadeStateEnd;
 			clock_interval_to_absolutetime_interval(fadeTime, kMicrosecondScale, &fFadeInterval);
 			fadeWork(fFadeTimer);
 			if (fFadeDown)  ret = 20 * 1000 * 1000;
@@ -473,13 +535,12 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 			updatePowerParam();
 			fFadeAbort = false;
 		}
-#else
-        updatePowerParam();
 #endif
 	}
 
     framebuffer->fbUnlock();
 
+    ABL_END(setPowerState,ret,0,0);
     return (ret);
 }
 
@@ -487,100 +548,142 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 
 void AppleBacklightDisplay::fadeAbort(void)
 {
-    OSDictionary * displayParams;
+    ABL_START(fadeAbort,0,0,0);
+	if (kFadeIdle == fFadeState)
+    {
+        ABL_END(fadeAbort,0,__LINE__,0);
+        return;
+    }
 
-	if (kFadeIdle == fFadeState) return;
-	displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-	if (!displayParams) return;
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    OSDictionary *displayParams = OSDynamicCast(OSDictionary, paramProp);
+    if (!displayParams) goto bail;
 
-	// abort
-	DEBGFADE("AppleBacklight: fadeAbort\n");
-	doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, 0);
-	if (fFadeGamma)
-	{
-		doIntegerSet(displayParams, gIODisplayGammaScaleKey, 65536);
-		doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
-	}
-	displayParams->release();
-	if (fFadeDown)  acknowledgeSetPowerState();
-	fFadeState = kFadeIdle;
+    // abort
+    DEBGFADE("AppleBacklight: fadeAbort\n");
+    doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, 0);
+    if (fFadeGamma)
+    {
+        doIntegerSet(displayParams, gIODisplayGammaScaleKey, 65536);
+        doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+    }
+    if (fFadeDown)
+    {
+        IOG_KTRACE(DBG_IOG_ACK_POWER_STATE,
+                   DBG_FUNC_NONE,
+                   0, DBG_IOG_SOURCE_IODISPLAY,
+                   0, 0,
+                   0, 0,
+                   0, 0);
+        acknowledgeSetPowerState();
+    }
+    fFadeState = kFadeIdle;
+
+bail:
+    OSSafeReleaseNULL(paramProp);
+    ABL_END(fadeAbort,0,0,0);
 }
 
 void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
 {
-    OSDictionary * displayParams;
-    SInt32 fade, gamma, point;
+    ABL_START(fadeWork,0,0,0);
+	SInt32 fade, gamma, point;
+    
+	DEBGFADE("AppleBacklight: fadeWork(fFadeStateEnd %d, fFadeState %d, %d, fFadeStateEnd %d)\n", 
+			fFadeStateEnd, fFadeState & 0xffff, fFadeState >> 24, fFadeStateEnd);
 
-    DEBGFADE("AppleBacklight: fadeWork(fFadeStateEnd %d, fFadeState %d, %d, fFadeStateEnd %d)\n",
-             fFadeStateEnd, fFadeState & 0xffff, fFadeState >> 24, fFadeStateEnd);
+	if (kFadeIdle == fFadeState)
+    {
+        ABL_END(fadeWork,0,__LINE__,0);
+        return;
+    }
 
-    if (kFadeIdle == fFadeState) return;
-    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-    if (!displayParams) return;
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    OSDictionary *displayParams = OSDynamicCast(OSDictionary, paramProp);
+	if (!displayParams) goto bail;
 
     fFadeAbort = (fFadeDown && !fDisplayPMVars->displayIdle);
 
-    if (fFadeAbort) fadeAbort();
-    else if (fFadeState <= fFadeStateEnd)
+	if (fFadeAbort) fadeAbort();
+	else if (fFadeState <= fFadeStateEnd)
     {
-        point = fFadeState;
-        if (!fFadeDown) point = (fFadeStateEnd - point);
-        if (fFadeBacklight)
+        if ((kIOWSAA_DeferStart != fWSAADeferState) || fFadeDown)
         {
-            if (!fFadeDown && !point) fade = 0;
-            else if (fFadeStateFadeMax > 0x8000)
+            point = fFadeState;
+            if (!fFadeDown) point = (fFadeStateEnd - point);
+            if (fFadeBacklight)
             {
-                fade = fFadeDown ? fFadeStateFadeMax : 0;
-                fFadeBacklight = false;
+                if (!fFadeDown && !point) fade = 0;
+                else if (fFadeStateFadeMax > 0x8000)
+                {
+                    fade = fFadeDown ? fFadeStateFadeMax : 0;
+                    fFadeBacklight = false;
+                }
+                else
+                {
+                    fade = ((point * fFadeStateFadeDelta) / fFadeStateEnd);
+                    fade = fFadeStateFadeMin + fade;
+                }
+                DEBGFADE("AppleBacklight: backlight: %d\n", fade);
+                doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
             }
-            else
+            if (fFadeGamma)
             {
-                fade = ((point * fFadeStateFadeDelta) / fFadeStateEnd);
-                fade = fFadeStateFadeMin + fade;
+                gamma = 65536 - ((point * 65536) / fFadeStateEnd);
+                DEBGFADE("AppleBacklight: gamma: %d\n", gamma);
+                doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
+                doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
             }
-            DEBGFADE("AppleBacklight: backlight: %d\n", fade);
-            doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
-        }
-        if (fFadeGamma)
-        {
-            gamma = 65536 - ((point * 65536) / fFadeStateEnd);
-            DEBGFADE("AppleBacklight: gamma: %d\n", gamma);
-            doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
-            doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
-        }
 
-        fFadeState++;
-        if (fFadeState > fFadeStateEnd) 
-        {
-            if (fFadeDown) updatePowerParam();
-            fFadeState = kFadePostDelay;
-            clock_interval_to_absolutetime_interval(500, kMillisecondScale, &fFadeInterval);
+            fFadeState++;
+            if (fFadeState > fFadeStateEnd)
+            {
+                if (fFadeDown) updatePowerParam();
+                fFadeState = kFadePostDelay;
+                clock_interval_to_absolutetime_interval(500, kMillisecondScale, &fFadeInterval);
+            }
         }
-    }
-    else if (kFadePostDelay == fFadeState)
-    {
-        fFadeState = kFadeIdle;
-    }
+	}
+	else if (kFadePostDelay == fFadeState)
+	{
+		fFadeState = kFadeIdle;
+	}
 
-    if (kFadeIdle == fFadeState)
-    {
-        DEBGFADE("AppleBacklight: fadeWork ack\n");
-        if (fFadeDown)  acknowledgeSetPowerState();
-    }
-    else
-    {
-        ADD_ABSOLUTETIME(&fFadeDeadline, &fFadeInterval);
-        fFadeTimer->wakeAtTime(fFadeDeadline);
-    }
+	if (kFadeIdle == fFadeState)
+	{
+	    DEBGFADE("AppleBacklight: fadeWork ack\n");
+        if (fFadeDown)
+        {
+            IOG_KTRACE(DBG_IOG_ACK_POWER_STATE,
+                       DBG_FUNC_NONE,
+                       0, DBG_IOG_SOURCE_IODISPLAY,
+                       0, 0,
+                       0, 0,
+                       0, 0);
+            acknowledgeSetPowerState();
+        }
+	}
+	else
+	{
+		ADD_ABSOLUTETIME(&fFadeDeadline, &fFadeInterval);
+		fFadeTimer->wakeAtTime(fFadeDeadline);
+	}
+
+bail:
+    OSSafeReleaseNULL(paramProp);
+
+    ABL_END(fadeWork,0,0,0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 void AppleBacklightDisplay::makeDisplayUsable( void )
 {
+    ABL_START(makeDisplayUsable,0,0,0);
     if (kIODisplayMaxPowerState == fCurrentPowerState)
         setPowerState(fCurrentPowerState, this);
     super::makeDisplayUsable();
+    ABL_END(makeDisplayUsable,0,0,0);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -592,10 +695,12 @@ void AppleBacklightDisplay::makeDisplayUsable( void )
 
 unsigned long AppleBacklightDisplay::maxCapabilityForDomainState( IOPMPowerFlags domainState )
 {
+    ABL_START(maxCapabilityForDomainState,domainState,0,0);
+    unsigned long   ret = 0;
     if (domainState & IOPMPowerOn)
-        return (kIODisplayMaxPowerState);
-    else
-        return (0);
+        ret = (kIODisplayMaxPowerState);
+    ABL_END(maxCapabilityForDomainState,ret,0,0);
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -607,10 +712,12 @@ unsigned long AppleBacklightDisplay::maxCapabilityForDomainState( IOPMPowerFlags
 
 unsigned long AppleBacklightDisplay::initialPowerStateForDomainState( IOPMPowerFlags domainState )
 {
+    ABL_START(initialPowerStateForDomainState,domainState,0,0);
+    unsigned long   ret = 0;
     if (domainState & IOPMPowerOn)
-        return (kIODisplayMaxPowerState);
-    else
-        return (0);
+        ret = (kIODisplayMaxPowerState);
+    ABL_END(initialPowerStateForDomainState,ret,0,0);
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -622,10 +729,12 @@ unsigned long AppleBacklightDisplay::initialPowerStateForDomainState( IOPMPowerF
 
 unsigned long AppleBacklightDisplay::powerStateForDomainState( IOPMPowerFlags domainState )
 {
+    ABL_START(powerStateForDomainState,domainState,0,0);
+    unsigned long   ret = 0;
     if (domainState & IOPMPowerOn)
-        return (kIODisplayMaxPowerState);
-    else
-        return (0);
+        ret = (kIODisplayMaxPowerState);
+    ABL_END(powerStateForDomainState,ret,0,0);
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -635,9 +744,13 @@ unsigned long AppleBacklightDisplay::powerStateForDomainState( IOPMPowerFlags do
 bool AppleBacklightDisplay::doIntegerSet( OSDictionary * params,
                                        const OSSymbol * paramName, UInt32 value )
 {
-    if ((paramName == gIODisplayParametersCommitKey) 
+    ABL_START(doIntegerSet,value,0,0);
+    if ((paramName == gIODisplayParametersCommitKey)
         && (kIODisplayMaxPowerState != fCurrentPowerState))
+    {
+        ABL_END(doIntegerSet,true,0,0);
         return (true);
+    }
 
     if (paramName == gIODisplayBrightnessKey)
     {
@@ -649,25 +762,30 @@ bool AppleBacklightDisplay::doIntegerSet( OSDictionary * params,
 			value = 0;
     }
 
-	return (super::doIntegerSet(params, paramName, value));
+    bool b = super::doIntegerSet(params, paramName, value);
+    ABL_END(doIntegerSet,b,0,0);
+	return (b);
 }
 
 bool AppleBacklightDisplay::doUpdate( void )
 {
+    ABL_START(doUpdate,0,0,0);
     bool ok;
 
     ok = super::doUpdate();
 
 #if 0
-    OSDictionary * displayParams;
-    if (fDisplayPMVars
-        && (displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey))))
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    OSDictionary *displayParams = OSDynamicCast(OSDictionary, paramProp);
+    if (fDisplayPMVars && displayParams);
     {
         setParameter(displayParams, gIODisplayBrightnessKey, fCurrentUserBrightness);	
-        displayParams->release();
     }
+
+    OSSafeReleaseNULL(paramProp);
 #endif
 
+    ABL_END(doUpdate,ok,0,0);
     return (ok);
 }
 
@@ -675,7 +793,7 @@ bool AppleBacklightDisplay::doUpdate( void )
 
 bool AppleBacklightDisplay::updatePowerParam(void)
 {
-    OSDictionary * displayParams;
+    ABL_START(updatePowerParam,0,0,0);
 	SInt32 		   value, current;
 	bool	       ret;
 
@@ -688,11 +806,20 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 	DEBG1("B", " fProviderPower %d, fClamshellSlept %d, fCurrentPowerState %d\n", 
 			fProviderPower, fClamshellSlept, fCurrentPowerState);
 
-	if (!fProviderPower) return (false);
+	if (!fProviderPower)
+    {
+        ABL_END(updatePowerParam,false,__LINE__,0);
+        return (false);
+    }
 	if (!fCurrentPowerState) fProviderPower = false;
 
-    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-    if (!displayParams) return (false);
+    OSObject *paramProp = copyProperty(gIODisplayParametersKey);
+    OSDictionary *displayParams = OSDynamicCast(OSDictionary, paramProp);
+    if (!displayParams) {
+        OSSafeReleaseNULL(paramProp);
+        ABL_END(updatePowerParam,false,__LINE__,0);
+        return (false);
+    }
 
 	value = fClamshellSlept ? 0 : fCurrentPowerState;
 
@@ -747,6 +874,7 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 
     displayParams->release();
 
+    ABL_END(updatePowerParam,ret,0,0);
     return (ret);
 }
 
@@ -755,55 +883,80 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 void AppleBacklightDisplay::_deferredEvent( OSObject * target,
         IOInterruptEventSource * evtSrc, int intCount )
 {
+    ABL_START(_deferredEvent,intCount,0,0);
     AppleBacklightDisplay * self = (AppleBacklightDisplay *) target;
 
 	self->updatePowerParam();
+    ABL_END(_deferredEvent,0,0,0);
 }
 
 IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
         IOIndex event, void * info )
 {
-    if ((kIOFBNotifyDidWake == event) && (info))
+    ABL_START(framebufferEvent,event,0,0);
+    UInt8 newValue;
+
+    switch(event)
     {
-        fProviderPower = true;
-        //		fCurrentPowerState = kIODisplayMaxPowerState;
-        //		updatePowerParam();
-    }
-    else if (kIOFBNotifyClamshellChange == event)
-    {
-        if (kOSBooleanTrue == info)
-        {
+        case kIOFBNotifyDidWake:
+            if (info)
+            {
+                fProviderPower = true;
+                //		fCurrentPowerState = kIODisplayMaxPowerState;
+                //		updatePowerParam();
+            }
+            break;
+        case kIOFBNotifyClamshellChange:
+            if (kOSBooleanTrue == info)
+            {
 #if LCM_HWSLEEP
-            fConnection->getFramebuffer()->changePowerStateTo(0);
+                fConnection->getFramebuffer()->changePowerStateTo(0);
 #endif
-            fClamshellSlept = true;
-        }
-        else if (fClamshellSlept)
-        {
-            fClamshellSlept = false;
-        }
-        // may be in the right power state already, but wrong brightness because
-        // of the clamshell state at setPowerState time.
-        if (fDeferredEvents)
-            fDeferredEvents->interruptOccurred(0, 0, 0);
-    }
-    else if (kIOFBNotifyProbed == event)
-    {
-        if (fDeferredEvents)
-            fDeferredEvents->interruptOccurred(0, 0, 0);
-    }
-    else if (kIOFBNotifyDisplayDimsChange == event)
-    {
-        UInt8 newValue = (info != NULL);
-        if (newValue != fDisplayDims)
-        {
-            fDisplayDims = newValue;
+                fClamshellSlept = true;
+            }
+            else if (fClamshellSlept)
+            {
+                fClamshellSlept = false;
+            }
+            // may be in the right power state already, but wrong brightness because
+            // of the clamshell state at setPowerState time.
             if (fDeferredEvents)
                 fDeferredEvents->interruptOccurred(0, 0, 0);
-		}
+            break;
+        case kIOFBNotifyProbed:
+            if (fDeferredEvents)
+                fDeferredEvents->interruptOccurred(0, 0, 0);
+            break;
+        case kIOFBNotifyDisplayDimsChange:
+            newValue = (info != NULL);
+            if (newValue != fDisplayDims)
+            {
+                fDisplayDims = newValue;
+                if (fDeferredEvents)
+                    fDeferredEvents->interruptOccurred(0, 0, 0);
+            }
+            break;
+        case kIOFBNotifyWSAAWillEnterDefer:
+            DEBGFADE("AppleBacklight: disable fadeWork\n");
+            /* <rdar://problem/28283410> J80G ; EVT Sleep-Wake Bright Flash */
+            // If we haven't started a fade as indicated by fFadeState == kFadeIdle and the WSAA state is the deferred start state,
+            // disable the fade timer, else too bad, roll on with fade.  This means we started a fade prior to the deferred enter state notification and have no choice but to complete it.
+            if (fFadeTimer && (kFadeIdle == fFadeState))
+                fFadeTimer->disable();
+            break;
+        case kIOFBNotifyWSAADidExitDefer:
+            DEBGFADE("AppleBacklight: enable fadeWork\n");
+            if (fFadeTimer)
+                fFadeTimer->enable();
+            break;
+        default:
+            // defer to super
+            break;
     }
 
-    return (super::framebufferEvent( framebuffer, event, info ));
+    IOReturn err = super::framebufferEvent( framebuffer, event, info );
+    ABL_END(framebufferEvent,err,0,0);
+    return (err);
 }
 
 

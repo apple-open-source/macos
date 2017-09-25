@@ -1,57 +1,94 @@
 #ifndef SEC_SOSTransportTestTransports_h
 #define SEC_SOSTransportTestTransports_h
 
-typedef struct SOSTransportKeyParameterTest *SOSTransportKeyParameterTestRef;
-typedef struct SOSTransportCircleTest *SOSTransportCircleTestRef;
-typedef struct SOSTransportMessageTest *SOSTransportMessageTestRef;
-typedef struct SOSTransportMessageIDSTest *SOSTransportMessageIDSTestRef;
-
-CF_RETURNS_RETAINED
-CFDictionaryRef SOSTransportMessageTestHandleMessages(SOSTransportMessageTestRef transport, CFMutableDictionaryRef circle_peer_messages_table, CFErrorRef *error);
-
-void SOSAccountUpdateTestTransports(SOSAccountRef account, CFDictionaryRef gestalt);
-    
-SOSTransportKeyParameterTestRef SOSTransportTestCreateKeyParameter(SOSAccountRef account, CFStringRef name, CFStringRef circleName);
-SOSTransportCircleTestRef SOSTransportTestCreateCircle(SOSAccountRef account, CFStringRef name, CFStringRef circleName);
-SOSTransportMessageTestRef SOSTransportTestCreateMessage(SOSAccountRef account, CFStringRef name, CFStringRef circleName);
-bool SOSTransportCircleTestRemovePendingChange(SOSTransportCircleRef transport,  CFStringRef circleName, CFErrorRef *error);
+#import "Security/SecureObjectSync/SOSTransportCircleKVS.h"
+#import "Security/SecureObjectSync/SOSTransportMessageKVS.h"
+#import "Security/SecureObjectSync/SOSTransportMessageIDS.h"
 
 extern CFMutableArrayRef key_transports;
 extern CFMutableArrayRef circle_transports;
 extern CFMutableArrayRef message_transports;
 
-CFStringRef SOSTransportMessageTestGetName(SOSTransportMessageTestRef transport);
-CFStringRef SOSTransportCircleTestGetName(SOSTransportCircleTestRef transport);
-CFStringRef SOSTransportKeyParameterTestGetName(SOSTransportKeyParameterTestRef transport);
+void SOSAccountUpdateTestTransports(SOSAccount* account, CFDictionaryRef gestalt);
 
-void SOSTransportKeyParameterTestSetName(SOSTransportKeyParameterTestRef transport, CFStringRef accountName);
-void SOSTransportCircleTestSetName(SOSTransportCircleTestRef transport, CFStringRef accountName);
-void SOSTransportMessageTestSetName(SOSTransportMessageTestRef transport, CFStringRef accountName);
+@interface SOSMessageIDSTest : SOSMessageIDS
 
+@property (nonatomic) CFMutableDictionaryRef changes;
+@property (nonatomic) CFStringRef   accountName;
 
-CFMutableDictionaryRef SOSTransportMessageTestGetChanges(SOSTransportMessageTestRef transport);
-CFMutableDictionaryRef SOSTransportCircleTestGetChanges(SOSTransportCircleTestRef transport);
-CFMutableDictionaryRef SOSTransportKeyParameterTestGetChanges(SOSTransportKeyParameterTestRef transport);
+-(SOSMessageIDSTest*) initWithAccount:(SOSAccount*)acct andAccountName:(CFStringRef) aN andCircleName:(CFStringRef) cN err:(CFErrorRef *)error;
+-(CFIndex) SOSTransportMessageGetTransportType;
+-(CFStringRef) SOSTransportMessageGetCircleName;
+-(CFTypeRef) SOSTransportMessageGetEngine;
+-(SOSAccount*) SOSTransportMessageGetAccount;
+void SOSTransportMessageIDSTestSetName(SOSMessageIDSTest* transport, CFStringRef acctName);
+-(bool) SOSTransportMessageSendMessages:(SOSMessageIDSTest*) transport pm:(CFDictionaryRef) peer_messages err:(CFErrorRef *)error;
+-(bool) SOSTransportMessageIDSGetIDSDeviceID:(SOSAccount*)acct;
+-(CFDictionaryRef)CF_RETURNS_RETAINED SOSTransportMessageHandlePeerMessageReturnsHandledCopy:(SOSMessageIDSTest*) transport peerMessages:(CFMutableDictionaryRef)message err:(CFErrorRef *)error;
+-(HandleIDSMessageReason) SOSTransportMessageIDSHandleMessage:(SOSAccount*)acct m:(CFDictionaryRef) message err:(CFErrorRef *)error;
 
-SOSAccountRef SOSTransportMessageTestGetAccount(SOSTransportMessageRef transport);
-SOSAccountRef SOSTransportCircleTestGetAccount(SOSTransportCircleTestRef transport);
-SOSAccountRef SOSTransportKeyParameterTestGetAccount(SOSTransportKeyParameterTestRef transport);
+@end
 
-bool SOSAccountInflateTestTransportsForCircle(SOSAccountRef account, CFStringRef circleName, CFStringRef accountName, CFErrorRef *error);
-bool SOSAccountEnsureFactoryCirclesTest(SOSAccountRef a, CFStringRef accountName);
-void SOSTransportKeyParameterTestClearChanges(SOSTransportKeyParameterTestRef transport);
-void SOSTransportCircleTestClearChanges(SOSTransportCircleTestRef transport);
-void SOSTransportMessageTestClearChanges(SOSTransportMessageTestRef transport);
+@interface CKKeyParameterTest : CKKeyParameter
 
+@property (nonatomic) CFMutableDictionaryRef changes;
+@property (nonatomic) CFStringRef name;
+@property (nonatomic) CFStringRef circleName;
+-(id) initWithAccount:(SOSAccount*) acct andName:(CFStringRef) name andCircleName:(CFStringRef) circleName;
+-(bool) SOSTransportKeyParameterPublishCloudParameters:(CKKeyParameterTest*) transport data:(CFDataRef)newParameters err:(CFErrorRef*) error;
+-(bool) SOSTransportKeyParameterHandleKeyParameterChanges:(CKKeyParameter*) transport  data:(CFDataRef) data err:(CFErrorRef) error;
 
+@end
 
+@interface SOSMessageKVSTest : SOSMessageKVS
+@property (nonatomic) CFMutableDictionaryRef changes;
+@property (nonatomic) CFStringRef name;
 
-//Test IDS transport
-SOSTransportMessageIDSTestRef SOSTransportMessageIDSTestCreate(SOSAccountRef account, CFStringRef accountName, CFStringRef circleName, CFErrorRef *error);
-CFMutableDictionaryRef SOSTransportMessageIDSTestGetChanges(SOSTransportMessageRef transport);
-void SOSTransportMessageIDSTestSetName(SOSTransportMessageRef transport, CFStringRef accountName);
-CFStringRef SOSTransportMessageIDSTestGetName(SOSTransportMessageRef transport);
-void SOSTransportMessageIDSTestClearChanges(SOSTransportMessageRef transport);
+-(id) initWithAccount:(SOSAccount*) acct andName:(CFStringRef) name andCircleName:(CFStringRef) circleName;
+-(bool) SOSTransportMessageSendMessages:(SOSMessageKVSTest*) transport pm:(CFDictionaryRef) peer_messages err:(CFErrorRef *)error;
+-(CFIndex) SOSTransportMessageGetTransportType;
+-(CFStringRef) SOSTransportMessageGetCircleName;
+-(CFTypeRef) SOSTransportMessageGetEngine;
+-(SOSAccount*) SOSTransportMessageGetAccount;
+@end
 
+@interface SOSCircleStorageTransportTest : SOSKVSCircleStorageTransport
+{
+    NSString *accountName;
+}
+@property (nonatomic) NSString *accountName;
 
+-(id) init;
+-(id) initWithAccount:(SOSAccount*)account andWithAccountName:(CFStringRef)accountName andCircleName:(CFStringRef)circleName;
+
+bool SOSTransportCircleTestRemovePendingChange(SOSCircleStorageTransportTest* transport,  CFStringRef circleName, CFErrorRef *error);
+CFStringRef SOSTransportCircleTestGetName(SOSCircleStorageTransportTest* transport);
+bool SOSAccountEnsureFactoryCirclesTest(SOSAccount* a, CFStringRef accountName);
+SOSAccount* SOSTransportCircleTestGetAccount(SOSCircleStorageTransportTest* transport);
+void SOSTransportCircleTestClearChanges(SOSCircleStorageTransportTest* transport);
+void SOSTransportCircleTestSetName(SOSCircleStorageTransportTest* transport, CFStringRef accountName);
+bool SOSAccountInflateTestTransportsForCircle(SOSAccount* account, CFStringRef circleName, CFStringRef accountName, CFErrorRef *error);
+-(void) SOSTransportCircleTestAddBulkToChanges:(CFDictionaryRef) updates;
+-(void) testAddToChanges:(CFStringRef) message_key data:(CFDataRef)message_data;
+-(CFMutableDictionaryRef) SOSTransportCircleTestGetChanges;
+@end
+
+void SOSTransportMessageIDSTestSetName(SOSMessageIDSTest* transport, CFStringRef n);
+void SOSTransportMessageTestClearChanges(SOSMessageKVSTest* transport);
+
+void SOSTransportMessageKVSTestSetName(SOSMessageKVSTest* transport, CFStringRef n);
+CFMutableDictionaryRef SOSTransportMessageKVSTestGetChanges(SOSMessageKVSTest* transport);
+CFStringRef SOSTransportMessageKVSTestGetName(SOSMessageKVSTest* transport);
+
+CFStringRef SOSTransportKeyParameterTestGetName(CKKeyParameterTest* transport);
+CFMutableDictionaryRef SOSTransportKeyParameterTestGetChanges(CKKeyParameterTest* transport);
+void SOSTransportKeyParameterTestSetName(CKKeyParameterTest* transport, CFStringRef accountName);
+void SOSTransportKeyParameterTestClearChanges(CKKeyParameterTest* transport);
+SOSAccount* SOSTransportKeyParameterTestGetAccount(CKKeyParameterTest* transport);
+SOSAccount* SOSTransportMessageKVSTestGetAccount(SOSMessageKVSTest* transport);
+void SOSTransportMessageIDSTestClearChanges(SOSMessageIDSTest* transport);
+
+CFMutableDictionaryRef SOSTransportMessageIDSTestGetChanges(SOSMessageIDSTest* transport);
+SOSAccount* SOSTransportMessageIDSTestGetAccount(SOSMessageIDSTest* transport);
+CFStringRef SOSTransportMessageIDSTestGetName(SOSMessageIDSTest* transport);
 #endif

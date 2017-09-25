@@ -110,9 +110,11 @@ enum SOSDataSourceTransactionPhase {
 };
 typedef CFOptionFlags SOSDataSourceTransactionPhase;
 
+// These must match the values in SecDbTransactionSource
 enum SOSDataSourceTransactionSource {
-    kSOSDataSourceSOSTransaction,        // A remotely initated transaction.
-    kSOSDataSourceAPITransaction,        // A user initated transaction.
+    kSOSDataSourceSOSTransaction = 0,        // A remotely initated transaction.
+    kSOSDataSourceCKKSTransaction = 3,       // A transaction initiated by CKKS.
+    kSOSDataSourceAPITransaction = 1,        // A user initated transaction.
 };
 typedef CFOptionFlags SOSDataSourceTransactionSource;
 

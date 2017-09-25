@@ -47,11 +47,20 @@
 #include <ANGLE/ShaderLang.h>
 #endif
 
+#if USE(LIBEPOXY)
+#include <epoxy/gl.h>
+#elif !USE(OPENGL_ES_2)
+#include "OpenGLShims.h"
+#endif
+
 #if USE(OPENGL_ES_2)
 #include "Extensions3DOpenGLES.h"
 #else
 #include "Extensions3DOpenGL.h"
-#include "OpenGLShims.h"
+#endif
+
+#if USE(TEXTURE_MAPPER)
+#include "TextureMapperGC3DPlatformLayer.h"
 #endif
 
 namespace WebCore {
@@ -65,7 +74,7 @@ RefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3DAttributes 
     static bool initialized = false;
     static bool success = true;
     if (!initialized) {
-#if !USE(OPENGL_ES_2)
+#if !USE(OPENGL_ES_2) && !USE(LIBEPOXY)
         success = initializeOpenGLShims();
 #endif
         initialized = true;
@@ -77,22 +86,14 @@ RefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3DAttributes 
 }
 
 GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, HostWindow*, GraphicsContext3D::RenderStyle renderStyle)
-    : m_currentWidth(0)
-    , m_currentHeight(0)
-    , m_attrs(attributes)
-    , m_texture(0)
-    , m_compositorTexture(0)
-    , m_fbo(0)
-#if USE(COORDINATED_GRAPHICS_THREADED)
-    , m_intermediateTexture(0)
-#endif
-    , m_depthStencilBuffer(0)
-    , m_layerComposited(false)
-    , m_multisampleFBO(0)
-    , m_multisampleDepthStencilBuffer(0)
-    , m_multisampleColorBuffer(0)
-    , m_private(std::make_unique<GraphicsContext3DPrivate>(this, renderStyle))
+    : m_attrs(attributes)
 {
+#if USE(TEXTURE_MAPPER)
+    m_texmapLayer = std::make_unique<TextureMapperGC3DPlatformLayer>(*this, renderStyle);
+#else
+    m_private = std::make_unique<GraphicsContext3DPrivate>(this, renderStyle);
+#endif
+
     makeContextCurrent();
 
     validateAttributes();
@@ -129,9 +130,6 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
         ::glBindTexture(GL_TEXTURE_2D, 0);
 #endif
 
-        m_state.boundFBO = m_fbo;
-        if (!m_attrs.antialias && (m_attrs.stencil || m_attrs.depth))
-            ::glGenRenderbuffers(1, &m_depthStencilBuffer);
 
         // Create a multisample FBO.
         if (m_attrs.antialias) {
@@ -141,6 +139,18 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
             ::glGenRenderbuffers(1, &m_multisampleColorBuffer);
             if (m_attrs.stencil || m_attrs.depth)
                 ::glGenRenderbuffers(1, &m_multisampleDepthStencilBuffer);
+        } else {
+            // Bind canvas FBO.
+            glBindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_fbo);
+            m_state.boundFBO = m_fbo;
+#if USE(OPENGL_ES_2)
+            if (m_attrs.depth)
+                glGenRenderbuffers(1, &m_depthBuffer);
+            if (m_attrs.stencil)
+                glGenRenderbuffers(1, &m_stencilBuffer);
+#endif
+            if (m_attrs.stencil || m_attrs.depth)
+                glGenRenderbuffers(1, &m_depthStencilBuffer);
         }
     }
 
@@ -148,6 +158,8 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
     ::glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
     if (GLContext::current()->version() >= 320) {
+        m_usingCoreProfile = true;
+
         // From version 3.2 on we use the OpenGL Core profile, so request that ouput to the shader compiler.
         // OpenGL version 3.2 uses GLSL version 1.50.
         m_compiler = ANGLEWebKitBridge(SH_GLSL_150_CORE_OUTPUT);
@@ -174,7 +186,7 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
 
     // ANGLE initialization.
     ShBuiltInResources ANGLEResources;
-    ShInitBuiltInResources(&ANGLEResources);
+    sh::InitBuiltInResources(&ANGLEResources);
 
     getIntegerv(GraphicsContext3D::MAX_VERTEX_ATTRIBS, &ANGLEResources.MaxVertexAttribs);
     getIntegerv(GraphicsContext3D::MAX_VERTEX_UNIFORM_VECTORS, &ANGLEResources.MaxVertexUniformVectors);
@@ -198,22 +210,36 @@ GraphicsContext3D::GraphicsContext3D(GraphicsContext3DAttributes attributes, Hos
 
 GraphicsContext3D::~GraphicsContext3D()
 {
+#if USE(TEXTURE_MAPPER)
+    if (m_texmapLayer->renderStyle() == RenderToCurrentGLContext)
+        return;
+#else
     if (m_private->renderStyle() == RenderToCurrentGLContext)
         return;
+#endif
 
     makeContextCurrent();
     if (m_texture)
         ::glDeleteTextures(1, &m_texture);
+#if USE(COORDINATED_GRAPHICS_THREADED)
     if (m_compositorTexture)
         ::glDeleteTextures(1, &m_compositorTexture);
+#endif
 
     if (m_attrs.antialias) {
         ::glDeleteRenderbuffers(1, &m_multisampleColorBuffer);
         if (m_attrs.stencil || m_attrs.depth)
             ::glDeleteRenderbuffers(1, &m_multisampleDepthStencilBuffer);
         ::glDeleteFramebuffers(1, &m_multisampleFBO);
-    } else {
-        if (m_attrs.stencil || m_attrs.depth)
+    } else if (m_attrs.stencil || m_attrs.depth) {
+#if USE(OPENGL_ES_2)
+        if (m_depthBuffer)
+            glDeleteRenderbuffers(1, &m_depthBuffer);
+
+        if (m_stencilBuffer)
+            glDeleteRenderbuffers(1, &m_stencilBuffer);
+#endif
+        if (m_depthStencilBuffer)
             ::glDeleteRenderbuffers(1, &m_depthStencilBuffer);
     }
     ::glDeleteFramebuffers(1, &m_fbo);
@@ -336,18 +362,27 @@ void GraphicsContext3D::setErrorMessageCallback(std::unique_ptr<ErrorMessageCall
 
 bool GraphicsContext3D::makeContextCurrent()
 {
-    if (!m_private)
-        return false;
-    return m_private->makeContextCurrent();
+#if USE(TEXTURE_MAPPER)
+    if (m_texmapLayer)
+        return m_texmapLayer->makeContextCurrent();
+#else
+    if (m_private)
+        return m_private->makeContextCurrent();
+#endif
+    return false;
 }
 
-void GraphicsContext3D::checkGPUStatusIfNecessary()
+void GraphicsContext3D::checkGPUStatus()
 {
 }
 
 PlatformGraphicsContext3D GraphicsContext3D::platformGraphicsContext3D()
 {
+#if USE(TEXTURE_MAPPER)
+    return m_texmapLayer->platformContext();
+#else
     return m_private->platformContext();
+#endif
 }
 
 Platform3DObject GraphicsContext3D::platformTexture() const
@@ -366,7 +401,11 @@ bool GraphicsContext3D::isGLES2Compliant() const
 
 PlatformLayer* GraphicsContext3D::platformLayer() const
 {
+#if USE(TEXTURE_MAPPER)
+    return m_texmapLayer.get();
+#else
     return m_private.get();
+#endif
 }
 
 #if PLATFORM(GTK)

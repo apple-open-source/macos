@@ -29,6 +29,9 @@
 #undef __DARWIN_UNIX03
 #define __DARWIN_UNIX03 0
 
+#define _pthread_rwlock_lock_slow _pthread_rwlock_lock_legacy_slow
+#define _pthread_rwlock_unlock_slow _pthread_rwlock_unlock_legacy_slow
+
 #include "../pthread_rwlock.c"
 
 #endif

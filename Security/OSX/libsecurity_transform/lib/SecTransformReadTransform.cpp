@@ -91,7 +91,7 @@ static SecTransformInstanceBlock StreamTransformImplementation(CFStringRef name,
 				SecTransformCustomSetAttribute(ref, kSecTransformOutputAttributeName, kSecTransformMetaAttributeValue, value);
 				
 				// cleanup
-				CFRelease(value);
+				CFReleaseNull(value);
 				
 				bytesRead = CFReadStreamRead(input, buffer, blockSize);
 			}
@@ -142,7 +142,7 @@ SecTransformRef SecTransformCreateReadTransformWithReadStream(CFReadStreamRef in
 			// add the input to the transform
 			SecTransformSetAttribute(transform, kSecTransformInputAttributeName, arrayRef, &result);
 			
-			CFRelease(arrayRef);
+			CFReleaseNull(arrayRef);
 		}
 		
 		return transform;

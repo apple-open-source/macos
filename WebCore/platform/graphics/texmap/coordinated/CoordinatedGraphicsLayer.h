@@ -35,9 +35,6 @@
 #include "TiledBackingStore.h"
 #include "TiledBackingStoreClient.h"
 #include "TransformationMatrix.h"
-#if USE(GRAPHICS_SURFACE)
-#include "GraphicsSurfaceToken.h"
-#endif
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -49,7 +46,7 @@ class CoordinatedGraphicsLayerClient {
 public:
     virtual bool isFlushingLayerChanges() const = 0;
     virtual FloatRect visibleContentsRect() const = 0;
-    virtual Ref<CoordinatedImageBacking> createImageBackingIfNeeded(Image*) = 0;
+    virtual Ref<CoordinatedImageBacking> createImageBackingIfNeeded(Image&) = 0;
     virtual void detachLayer(CoordinatedGraphicsLayer*) = 0;
     virtual bool paintToSurface(const IntSize&, CoordinatedSurface::Flags, uint32_t& atlasID, IntPoint&, CoordinatedSurface::Client&) = 0;
 
@@ -151,20 +148,8 @@ public:
 private:
     bool isCoordinatedGraphicsLayer() const override { return true; }
 
-#if USE(GRAPHICS_SURFACE)
-    enum PendingPlatformLayerOperation {
-        None = 0x00,
-        CreatePlatformLayer = 0x01,
-        DestroyPlatformLayer = 0x02,
-        SyncPlatformLayer = 0x04,
-        CreateAndSyncPlatformLayer = CreatePlatformLayer | SyncPlatformLayer,
-        RecreatePlatformLayer = CreateAndSyncPlatformLayer | DestroyPlatformLayer
-    };
-
-    void destroyPlatformLayerIfNeeded();
-    void createPlatformLayerIfNeeded();
-#endif
     void syncPlatformLayer();
+    void updatePlatformLayer();
 #if USE(COORDINATED_GRAPHICS_THREADED)
     void platformLayerWillBeDestroyed() override;
     void setPlatformLayerNeedsDisplay() override;
@@ -231,12 +216,9 @@ private:
     bool m_movingVisibleRect : 1;
     bool m_pendingContentsScaleAdjustment : 1;
     bool m_pendingVisibleRectAdjustment : 1;
-#if USE(GRAPHICS_SURFACE)
-    bool m_isValidPlatformLayer : 1;
-    unsigned m_pendingPlatformLayerOperation : 3;
-#endif
 #if USE(COORDINATED_GRAPHICS_THREADED)
     bool m_shouldSyncPlatformLayer : 1;
+    bool m_shouldUpdatePlatformLayer : 1;
 #endif
 
     CoordinatedGraphicsLayerClient* m_coordinator;
@@ -248,13 +230,9 @@ private:
     RefPtr<CoordinatedImageBacking> m_coordinatedImageBacking;
 
     PlatformLayer* m_platformLayer;
-#if USE(GRAPHICS_SURFACE)
-    IntSize m_platformLayerSize;
-    GraphicsSurfaceToken m_platformLayerToken;
-#endif
     Timer m_animationStartedTimer;
     TextureMapperAnimations m_animations;
-    double m_lastAnimationStartTime;
+    double m_lastAnimationStartTime { 0.0 };
 
     ScrollableArea* m_scrollableArea;
 };

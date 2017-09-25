@@ -34,6 +34,7 @@
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
 #include <wtf/MainThread.h>
+#include <wtf/RunLoop.h>
 
 #if PLATFORM(COCOA)
 #include "NetworkDataTaskCocoa.h"
@@ -63,12 +64,13 @@ NetworkDataTask::NetworkDataTask(NetworkSession& session, NetworkDataTaskClient&
     : m_failureTimer(*this, &NetworkDataTask::failureTimerFired)
     , m_session(session)
     , m_client(&client)
+    , m_partition(requestWithCredentials.cachePartition())
     , m_storedCredentials(storedCredentials)
     , m_lastHTTPMethod(requestWithCredentials.httpMethod())
     , m_firstRequest(requestWithCredentials)
     , m_shouldClearReferrerOnHTTPSToHTTPRedirect(shouldClearReferrerOnHTTPSToHTTPRedirect)
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
 
     if (!requestWithCredentials.url().isValid()) {
         scheduleFailure(InvalidURLFailure);
@@ -83,7 +85,7 @@ NetworkDataTask::NetworkDataTask(NetworkSession& session, NetworkDataTaskClient&
 
 NetworkDataTask::~NetworkDataTask()
 {
-    ASSERT(isMainThread());
+    ASSERT(RunLoop::isMain());
     ASSERT(!m_client);
 }
 
@@ -91,7 +93,7 @@ void NetworkDataTask::scheduleFailure(FailureType type)
 {
     ASSERT(type != NoFailure);
     m_scheduledFailureType = type;
-    m_failureTimer.startOneShot(0);
+    m_failureTimer.startOneShot(0_s);
 }
 
 void NetworkDataTask::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
@@ -107,6 +109,11 @@ void NetworkDataTask::didReceiveResponse(ResourceResponse&& response, ResponseCo
         }
     }
     m_client->didReceiveResponseNetworkSession(WTFMove(response), WTFMove(completionHandler));
+}
+
+bool NetworkDataTask::shouldCaptureExtraNetworkLoadMetrics() const
+{
+    return m_client->shouldCaptureExtraNetworkLoadMetrics();
 }
 
 void NetworkDataTask::failureTimerFired()

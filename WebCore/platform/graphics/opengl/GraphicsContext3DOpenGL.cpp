@@ -58,7 +58,7 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/gl3.h>
 #undef GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
-#elif PLATFORM(GTK) || PLATFORM(EFL) || PLATFORM(WIN)
+#elif PLATFORM(GTK) || PLATFORM(WIN)
 #include "OpenGLShims.h"
 #endif
 
@@ -175,16 +175,16 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
     ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
     ::glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_texture, 0);
 
+#if USE(COORDINATED_GRAPHICS_THREADED)
     if (m_compositorTexture) {
         ::glBindTexture(GL_TEXTURE_2D, m_compositorTexture);
         ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
         ::glBindTexture(GL_TEXTURE_2D, 0);
-#if USE(COORDINATED_GRAPHICS_THREADED)
         ::glBindTexture(GL_TEXTURE_2D, m_intermediateTexture);
         ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
         ::glBindTexture(GL_TEXTURE_2D, 0);
-#endif
     }
+#endif
 #endif
 
     attachDepthAndStencilBufferIfNeeded(internalDepthStencilFormat, width, height);
@@ -227,8 +227,10 @@ void GraphicsContext3D::resolveMultisamplingIfNecessary(const IntRect& rect)
     TemporaryOpenGLSetting scopedDepth(GL_DEPTH_TEST, GL_FALSE);
     TemporaryOpenGLSetting scopedStencil(GL_STENCIL_TEST, GL_FALSE);
 
+#if PLATFORM(IOS)
     GLint boundFrameBuffer;
     ::glGetIntegerv(GL_FRAMEBUFFER_BINDING, &boundFrameBuffer);
+#endif
 
     ::glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
     ::glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
@@ -383,6 +385,16 @@ bool GraphicsContext3D::texImage2D(GC3Denum target, GC3Dint level, GC3Denum inte
     else if (format == Extensions3D::SRGB_EXT)
         openGLFormat = GL_RGB;
 #endif
+
+    if (m_usingCoreProfile && openGLInternalFormat == ALPHA) {
+        // We are using a core profile. This means that GL_ALPHA, which is a valid format in WebGL for texImage2D
+        // is not supported in OpenGL. It needs to be backed with a GL_RED plane. We change the formats to GL_RED
+        // (both need to be GL_ALPHA in WebGL) and instruct the texture to swizzle the red component values with
+        // the the alpha component values.
+        openGLInternalFormat = openGLFormat = RED;
+        texParameteri(target, TEXTURE_SWIZZLE_A, RED);
+    }
+
     texImage2DDirect(target, level, openGLInternalFormat, width, height, border, openGLFormat, type, pixels);
     return true;
 }

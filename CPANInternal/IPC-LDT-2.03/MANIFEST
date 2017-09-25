@@ -1,8 +1,0 @@
-LDT.pm
-README
-Makefile.PL
-t/ascii.t
-t/data.t
-t/mixed.t
-t/delay.t
-MANIFEST

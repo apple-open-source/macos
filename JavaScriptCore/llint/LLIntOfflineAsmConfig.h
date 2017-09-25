@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 
 #include "LLIntCommon.h"
 #include <wtf/Assertions.h>
-#include <wtf/InlineASM.h>
 
 #if !ENABLE(JIT)
 #define OFFLINE_ASM_C_LOOP 1
@@ -37,24 +36,24 @@
 #define OFFLINE_ASM_ARMv7 0
 #define OFFLINE_ASM_ARMv7_TRADITIONAL 0
 #define OFFLINE_ASM_ARM64 0
+#define OFFLINE_ASM_ARM64E 0
 #define OFFLINE_ASM_X86_64 0
 #define OFFLINE_ASM_X86_64_WIN 0
 #define OFFLINE_ASM_ARMv7k 0
 #define OFFLINE_ASM_ARMv7s 0
 #define OFFLINE_ASM_MIPS 0
-#define OFFLINE_ASM_SH4 0
 
 #else // ENABLE(JIT)
 
 #define OFFLINE_ASM_C_LOOP 0
 
-#if CPU(X86) && !PLATFORM(WIN)
+#if CPU(X86) && !COMPILER(MSVC)
 #define OFFLINE_ASM_X86 1
 #else
 #define OFFLINE_ASM_X86 0
 #endif
 
-#if CPU(X86) && PLATFORM(WIN)
+#if CPU(X86) && COMPILER(MSVC)
 #define OFFLINE_ASM_X86_WIN 1
 #else
 #define OFFLINE_ASM_X86_WIN 0
@@ -91,13 +90,13 @@
 #define OFFLINE_ASM_ARM 0
 #endif
 
-#if CPU(X86_64) && !PLATFORM(WIN)
+#if CPU(X86_64) && !COMPILER(MSVC)
 #define OFFLINE_ASM_X86_64 1
 #else
 #define OFFLINE_ASM_X86_64 0
 #endif
 
-#if CPU(X86_64) && PLATFORM(WIN)
+#if CPU(X86_64) && COMPILER(MSVC)
 #define OFFLINE_ASM_X86_64_WIN 1
 #else
 #define OFFLINE_ASM_X86_64_WIN 0
@@ -109,16 +108,16 @@
 #define OFFLINE_ASM_MIPS 0
 #endif
 
-#if CPU(SH4)
-#define OFFLINE_ASM_SH4 1
-#else
-#define OFFLINE_ASM_SH4 0
-#endif
-
 #if CPU(ARM64)
 #define OFFLINE_ASM_ARM64 1
 #else
 #define OFFLINE_ASM_ARM64 0
+#endif
+
+#if CPU(ARM64E)
+#define OFFLINE_ASM_ARM64E 1
+#else
+#define OFFLINE_ASM_ARM64E 0
 #endif
 
 #if CPU(MIPS)

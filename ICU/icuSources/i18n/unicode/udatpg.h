@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  udatpg.h
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -83,7 +85,13 @@ typedef enum UDateTimePatternField {
     UDATPG_FRACTIONAL_SECOND_FIELD,
     /** @stable ICU 3.8 */
     UDATPG_ZONE_FIELD,
-    /** @stable ICU 3.8 */
+
+    /* Do not conditionalize the following with #ifndef U_HIDE_DEPRECATED_API,
+     * it is needed for layout of DateTimePatternGenerator object. */
+    /**
+     * One more than the highest normal UDateTimePatternField value.
+     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     */
     UDATPG_FIELD_COUNT
 } UDateTimePatternField;
 
@@ -126,8 +134,13 @@ typedef enum UDateTimePatternConflict {
     UDATPG_BASE_CONFLICT,
     /** @stable ICU 3.8 */
     UDATPG_CONFLICT,
-    /** @stable ICU 3.8 */
+#ifndef U_HIDE_DEPRECATED_API
+    /**
+     * One more than the highest normal UDateTimePatternConflict value.
+     * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     */
     UDATPG_CONFLICT_COUNT
+#endif  // U_HIDE_DEPRECATED_API
 } UDateTimePatternConflict;
 
 /**
@@ -176,7 +189,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUDateTimePatternGeneratorPointer, UDateTimePatt
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
   * Create a copy pf a generator.

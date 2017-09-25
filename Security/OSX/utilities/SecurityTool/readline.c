@@ -139,6 +139,10 @@ read_file(const char *name, uint8_t **outData, size_t *outLength)
     
 	length = (size_t)off_end;
 	buffer = malloc(length);
+    if (buffer == NULL) {
+        result = -1;
+        goto loser;
+    }
     
 	do {
 		bytes_read = pread(fd, buffer, length, 0);

@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -456,6 +456,7 @@ cupsdCleanJobs(void)
       else if (job->file_time && job->file_time <= curtime)
       {
         cupsdLogJob(job, CUPSD_LOG_DEBUG, "Removing document files.");
+        cupsdLogJob(job, CUPSD_LOG_DEBUG2, "curtime=%ld, job->file_time=%ld", (long)curtime, (long)job->file_time);
         remove_job_files(job);
 
         cupsdMarkDirty(CUPSD_DIRTY_JOBS);
@@ -1743,6 +1744,8 @@ cupsdLoadJob(cupsd_job_t *job)		/* I - Job */
     else
       job->file_time = INT_MAX;
 
+    cupsdLogJob(job, CUPSD_LOG_DEBUG2, "cupsdLoadJob: job->file_time=%ld, time-at-completed=%ld, JobFiles=%d", (long)job->file_time, (long)attr->values[0].integer, JobFiles);
+
     if (job->file_time < JobHistoryUpdate || !JobHistoryUpdate)
       JobHistoryUpdate = job->file_time;
 
@@ -2876,12 +2879,14 @@ cupsdUpdateJobs(void)
       else
 	job->file_time = INT_MAX;
 
+      cupsdLogJob(job, CUPSD_LOG_DEBUG2, "cupsdUpdateJobs: job->file_time=%ld, time-at-completed=%ld, JobFiles=%d", (long)job->file_time, (long)attr->values[0].integer, JobFiles);
+
       if (job->file_time < JobHistoryUpdate || !JobHistoryUpdate)
 	JobHistoryUpdate = job->file_time;
     }
   }
 
-  cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdUpdateAllJobs: JobHistoryUpdate=%ld",
+  cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdUpdateJobs: JobHistoryUpdate=%ld",
                   (long)JobHistoryUpdate);
 }
 
@@ -3543,6 +3548,13 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
   }
 
   cupsArrayRemove(PrintingJobs, job);
+
+ /*
+  * Clear informational messages...
+  */
+
+  if (job->status_level > CUPSD_LOG_ERROR)
+    job->printer->state_message[0] = '\0';
 
  /*
   * Apply any PPD updates...
@@ -4594,7 +4606,7 @@ set_time(cupsd_job_t *job,		/* I - Job to update */
       JobHistoryUpdate = job->history_time;
 
     if (JobFiles < INT_MAX && attr)
-      job->file_time = attr->values[0].integer + JobFiles;
+      job->file_time = curtime + JobFiles;
     else
       job->file_time = INT_MAX;
 

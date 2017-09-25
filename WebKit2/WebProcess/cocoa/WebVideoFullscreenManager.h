@@ -22,8 +22,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef WebVideoFullscreenManager_h
-#define WebVideoFullscreenManager_h
+
+#pragma once
 
 #if (PLATFORM(IOS) && HAVE(AVKIT)) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
@@ -31,7 +31,6 @@
 #include <WebCore/EventListener.h>
 #include <WebCore/HTMLMediaElementEnums.h>
 #include <WebCore/PlatformCALayer.h>
-#include <WebCore/WebVideoFullscreenInterface.h>
 #include <WebCore/WebVideoFullscreenModelVideoElement.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
@@ -59,7 +58,6 @@ class WebVideoFullscreenManager;
 
 class WebVideoFullscreenInterfaceContext
     : public RefCounted<WebVideoFullscreenInterfaceContext>
-    , public WebCore::WebVideoFullscreenInterface
     , public WebCore::WebVideoFullscreenModelClient {
 public:
     static Ref<WebVideoFullscreenInterfaceContext> create(WebVideoFullscreenManager& manager, uint64_t contextId)
@@ -105,6 +103,8 @@ class WebVideoFullscreenManager : public RefCounted<WebVideoFullscreenManager>, 
 public:
     static Ref<WebVideoFullscreenManager> create(WebPage&, WebPlaybackSessionManager&);
     virtual ~WebVideoFullscreenManager();
+    
+    void invalidate();
     
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
@@ -155,4 +155,3 @@ protected:
 
 #endif // PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
-#endif // WebVideoFullscreenManager_h

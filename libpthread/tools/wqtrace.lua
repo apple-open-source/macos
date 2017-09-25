@@ -2,7 +2,7 @@
 
 trace_codename = function(codename, callback)
 	local debugid = trace.debugid(codename)
-	if debugid ~= 0 then 
+	if debugid ~= 0 then
 		trace.single(debugid,callback)
 	else
 		printf("WARNING: Cannot locate debugid for '%s'\n", codename)
@@ -47,22 +47,57 @@ parse_pthread_priority = function(pri)
 	end
 	local qos = (pri & 0x00ffff00) >> 8
 	if qos == 0x20 then
-		return string.format("UInter[%x]", pri);
+		return string.format("UI[%x]", pri);
 	elseif qos == 0x10 then
-		return string.format("UInit[%x]", pri);
+		return string.format("IN[%x]", pri);
 	elseif qos == 0x08 then
-		return string.format("Dflt[%x]", pri);
+		return string.format("DF[%x]", pri);
 	elseif qos == 0x04 then
-		return string.format("Util[%x]", pri);
+		return string.format("UT[%x]", pri);
 	elseif qos == 0x02 then
 		return string.format("BG[%x]", pri);
 	elseif qos == 0x01 then
-		return string.format("Maint[%x]", pri);
+		return string.format("MT[%x]", pri);
 	elseif qos == 0x00 then
-		return string.format("Unsp[%x]", pri);
+		return string.format("--[%x]", pri);
 	else
-		return string.format("Unkn[%x]", pri);
+		return string.format("??[%x]", pri);
 	end
+end
+
+parse_qos_bucket = function(pri)
+	if pri == 0 then
+		return string.format("UI[%x]", pri);
+	elseif pri == 1 then
+		return string.format("IN[%x]", pri);
+	elseif pri == 2 then
+		return string.format("DF[%x]", pri);
+	elseif pri == 3 then
+		return string.format("UT[%x]", pri);
+	elseif pri == 4 then
+		return string.format("BG[%x]", pri);
+	elseif pri == 5 then
+		return string.format("MT[%x]", pri);
+	elseif pri == 6 then
+		return string.format("MG[%x]", pri);
+	else
+		return string.format("??[%x]", pri);
+	end
+end
+
+parse_thactive_req_bucket = function(pri)
+    if pri ~= 6 then
+        return parse_qos_bucket(pri)
+    end
+    return "None"
+end
+
+get_thactive = function(low, high)
+    return string.format("req: %s, MG: %d, UI: %d, IN: %d, DE: %d, UT: %d, BG: %d, MT: %d",
+           parse_thactive_req_bucket(high >> (16 * 3)), (high >> (2 * 16)) & 0xffff,
+           (low  >> (0 * 16)) & 0xffff, (low  >> (1 * 16)) & 0xffff,
+           (low  >> (2 * 16)) & 0xffff, (low  >> (3 * 16)) & 0xffff,
+           (high >> (0 * 16)) & 0xffff, (high >> (1 * 16)) & 0xffff)
 end
 
 -- workqueue lifecycle
@@ -82,55 +117,6 @@ trace_codename("wq_workqueue_exit", function(buf)
 		printf("%s\tall threads have exited, cleaning up\n",prefix)
 	else
 		printf("%s\tclean up complete\n",prefix)
-	end
-end)
-
--- thread requests
-
-trace_codename("wq_kevent_req_threads", function(buf)
-	local prefix = get_prefix(buf)
-	if trace.debugid_is_start(buf.debugid) then
-		printf("%s\tkevent requesting threads (requests[] length = %d)\n", prefix, buf.arg2)
-	else
-		printf("%s\tkevent request complete (start_timer: %d)\n", prefix, buf.arg2)
-	end
-end)
-
-trace_codename("wq_req_threads", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\trecording %d constrained request(s) at %s, total %d requests\n",
-		prefix, buf.arg4, parse_pthread_priority(buf.arg2), buf.arg3)
-end)
-
-trace_codename("wq_req_octhreads", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\tattempting %d overcommit request(s) at %s, total %d requests\n",
-		prefix, buf.arg4, parse_pthread_priority(buf.arg2), buf.arg3)
-end)
-trace_codename("wq_delay_octhreads", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\trecording %d delayed overcommit request(s) at %s, total %d requests\n",
-		prefix, buf.arg4, parse_pthread_priority(buf.arg2), buf.arg3)
-end)
-
-trace_codename("wq_req_kevent_threads", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\trecording kevent constrained request at %s, total %d requests\n",
-		prefix, parse_pthread_priority(buf.arg2), buf.arg3)
-end)
-trace_codename("wq_req_kevent_octhreads", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\trecording kevent overcommit request at %s, total %d requests\n",
-		prefix, parse_pthread_priority(buf.arg2), buf.arg3)
-end)
-trace_codename("wq_req_event_manager", function(buf)
-	local prefix = get_prefix(buf)
-	if buf.arg2 == 1 then
-		printf("%s\tstarting event manager thread, existing at %d, %d added\n",
-			prefix, buf.arg3, buf.arg4)
-	else
-		printf("%s\trecording event manager request, existing at %d, %d added\n",
-			prefix, buf.arg3, buf.arg4)
 	end
 end)
 
@@ -155,45 +141,94 @@ trace_codename("wq_add_timer", function(buf)
 	end
 end)
 
-trace_codename("wq_overcommitted", function(buf)
-	local prefix = get_prefix(buf)
-	if buf.arg2 & 0x1000000 ~= 0 then
-		printf("%s\tworkqueue overcommitted @ %s, starting timer (thactive_count: %d, busycount; %d)\n",
-			prefix, parse_pthread_priority(buf.arg2), buf.arg3, buf.arg4)
-	else
-		printf("%s\tworkqueue overcommitted @ %s (thactive_count: %d, busycount; %d)\n",
-			prefix, parse_pthread_priority(buf.arg2), buf.arg3, buf.arg4)
-	end
-end)
-
-trace_codename("wq_stalled", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\tworkqueue stalled (nthreads: %d)\n", prefix, buf.arg3)
-end)
-
--- thread lifecycle
-
-trace_codename("wq_run_nextitem", function(buf)
+trace_codename("wq_run_threadreq", function(buf)
 	local prefix = get_prefix(buf)
 	if trace.debugid_is_start(buf.debugid) then
-		if buf.arg2 == 0 then
-			printf("%s\ttrying to run a request on an idle thread (idlecount: %d, reqcount: %d)\n",
-				prefix, buf.arg3, buf.arg4)
+		if buf[2] > 0 then
+			printf("%s\trun_threadreq: %x (priority: %s, flags: %d) on %x\n",
+					prefix, buf[2], parse_qos_bucket(buf[4] >> 16), buf[4] & 0xff, buf[3])
 		else
-			printf("%s\tthread %x looking for next request (idlecount: %d, reqcount: %d)\n",
-				prefix, buf.threadid, buf.arg3, buf.arg4)
+			printf("%s\trun_threadreq: <none> on %x\n",
+					prefix, buf[3])
 		end
 	else
-		if buf.arg4 == 1 then
-			printf("%s\tkicked off work on thread %x (overcommit: %d)\n", prefix, buf.arg2, buf.arg3)
-		elseif buf.arg4 == 3 then
-			printf("%s\tno work %x can currently do (start_timer: %d)\n", prefix, buf.arg2, buf.arg3)
-		elseif buf.arg4 == 4 then
-			printf("%s\treturning to run next item\n", prefix)
+		if buf[2] == 1 then
+			printf("%s\tpended event manager, already running\n", prefix)
+		elseif buf[2] == 2 then
+			printf("%s\tnothing to do\n", prefix)
+		elseif buf[2] == 3 then
+			printf("%s\tno eligible request found\n", prefix)
+		elseif buf[2] == 4 then
+			printf("%s\tadmission control failed\n", prefix)
+		elseif buf[2] == 5 then
+			printf("%s\tunable to add new thread (may_add_new_thread: %d, nthreads: %d)\n", prefix, buf[3], buf[4])
+		elseif buf[2] == 6 then
+			printf("%s\tthread creation failed\n", prefix)
+		elseif buf[2] == 0 then
+			printf("%s\tsuccess\n", prefix)
 		else
 			printf("%s\tWARNING: UNKNOWN END CODE:%d\n", prefix, buf.arg4)
 		end
 	end
+end)
+
+trace_codename("wq_run_threadreq_mgr_merge", function(buf)
+	local prefix = get_prefix(buf)
+	printf("%s\t\tmerging incoming manager request into existing\n", prefix)
+end)
+
+trace_codename("wq_run_threadreq_req_select", function(buf)
+	local prefix = get_prefix(buf)
+	if buf[3] == 1 then
+		printf("%s\t\tselected event manager request %x\n", prefix, buf[2])
+	elseif buf[3] == 2 then
+		printf("%s\t\tselected overcommit request %x\n", prefix, buf[2])
+	elseif buf[3] == 3 then
+		printf("%s\t\tselected constrained request %x\n", prefix, buf[2])
+	else
+		printf("%s\t\tWARNING: UNKNOWN DECISION CODE:%d\n", prefix, buf.arg[3])
+	end
+end)
+
+trace_codename("wq_run_threadreq_thread_select", function(buf)
+	local prefix = get_prefix(buf)
+	if buf[2] == 1 then
+		printf("%s\t\trunning on current thread %x\n", prefix, buf[3])
+	elseif buf[2] == 2 then
+		printf("%s\t\trunning on idle thread %x\n", prefix, buf[3])
+	elseif buf[2] == 3 then
+		printf("%s\t\tcreated new thread\n", prefix)
+	else
+		printf("%s\t\tWARNING: UNKNOWN DECISION CODE:%d\n", prefix, buf.arg[2])
+	end
+end)
+
+trace_codename("wq_thread_reset_priority", function(buf)
+	local prefix = get_prefix(buf)
+	local old_qos = buf[3] >> 16;
+	local new_qos = buf[3] & 0xff;
+	if buf[4] == 1 then
+		printf("%s\t\treset priority of %x from %s to %s\n", prefix, buf[2], parse_qos_bucket(old_qos), parse_qos_bucket(new_qos))
+	elseif buf[4] == 2 then
+		printf("%s\t\treset priority of %x from %s to %s for reserve manager\n", prefix, buf[2], parse_qos_bucket(old_qos), parse_qos_bucket(new_qos))
+	elseif buf[4] == 3 then
+		printf("%s\t\treset priority of %x from %s to %s for cleanup\n", prefix, buf[2], parse_qos_bucket(old_qos), parse_qos_bucket(new_qos))
+	end
+end)
+
+trace_codename("wq_thread_park", function(buf)
+	local prefix = get_prefix(buf)
+	if trace.debugid_is_start(buf.debugid) then
+		printf("%s\tthread parking\n", prefix)
+	else
+		printf("%s\tthread woken\n", prefix)
+	end
+end)
+
+trace_codename("wq_thread_squash", function(buf)
+	local prefix = get_prefix(buf)
+	printf("%s\tthread squashed from %s to %s\n", prefix,
+			parse_qos_bucket(buf[2]), parse_qos_bucket(buf[3]))
 end)
 
 trace.enable_thread_cputime()
@@ -205,7 +240,7 @@ trace_codename("wq_runitem", function(buf)
 		runitem_time_map[buf.threadid] = buf.timestamp;
 		runitem_cputime_map[buf.threadid] = trace.cputime_for_thread(buf.threadid);
 
-		printf("%s\tSTART running item\n", prefix)
+		printf("%s\tSTART running item @ %s\n", prefix, parse_qos_bucket(buf[3]))
 	elseif runitem_time_map[buf.threadid] then
 		local time = buf.timestamp - runitem_time_map[buf.threadid]
 		local cputime = trace.cputime_for_thread(buf.threadid) - runitem_cputime_map[buf.threadid]
@@ -213,109 +248,98 @@ trace_codename("wq_runitem", function(buf)
 		local time_ms = trace.convert_timestamp_to_nanoseconds(time) / 1000000
 		local cputime_ms = trace.convert_timestamp_to_nanoseconds(cputime) / 1000000
 
-		printf("%s\tDONE running item: time = %6.6f ms, cputime = %6.6f ms\n", prefix, time_ms, cputime_ms)
+		printf("%s\tDONE running item @ %s: time = %6.6f ms, cputime = %6.6f ms\n",
+				prefix, parse_qos_bucket(buf[2]), time_ms, cputime_ms)
 
 		runitem_time_map[buf.threadid] = 0
 		runitem_cputime_map[buf.threadid] = 0
 	else
-		printf("%s\tDONE running item\n", prefix)
+		printf("%s\tDONE running item @ %s\n", prefix, parse_qos_bucket(buf[2]))
 	end
 end)
 
-trace_codename("wq_thread_yielded", function(buf)
+trace_codename("wq_runthread", function(buf)
 	local prefix = get_prefix(buf)
 	if trace.debugid_is_start(buf.debugid) then
-		printf("%s\tthread_yielded called (yielded_count: %d, reqcount: %d)\n",
-			prefix, buf.arg2, buf.arg3)
-	else
-		if buf.arg4 == 1 then
-			printf("%s\tthread_yielded completed kicking thread (yielded_count: %d, reqcount: %d)\n",
-				prefix, buf.arg2, buf.arg3)
-		elseif buf.arg4 == 2 then
-			printf("%s\tthread_yielded completed (yielded_count: %d, reqcount: %d)\n",
-				prefix, buf.arg2, buf.arg3)
-		else
-			printf("%s\tthread_yielded completed unusually (yielded_count: %d, reqcount: %d)\n",
-				prefix, buf.arg2, buf.arg3)
-		end
+		printf("%s\tSTART running thread\n", prefix)
+	elseif trace.debugid_is_end(buf.debugid) then
+		printf("%s\tDONE running thread\n", prefix)
 	end
+end)
+
+trace_codename("wq_thactive_update", function(buf)
+    local prefix = get_prefix(buf)
+    local thactive = get_thactive(buf[2], buf[3])
+    if buf[1] == 1 then
+        printf("%s\tthactive constrained pre-post (%s)\n", prefix, thactive)
+    elseif buf[1] == 2 then
+        printf("%s\tthactive constrained run (%s)\n", prefix, thactive)
+    else
+        return
+    end
 end)
 
 trace_codename("wq_thread_block", function(buf)
 	local prefix = get_prefix(buf)
+        local req_pri = parse_thactive_req_bucket(buf[3] >> 8)
 	if trace.debugid_is_start(buf.debugid) then
-		printf("%s\tthread blocked (activecount: %d, prioritiy: %d, start_time: %d)\n",
-			prefix, buf.arg2, buf.arg3, buf.arg3)
+		printf("%s\tthread blocked (activecount: %d, priority: %s, req_pri: %s, reqcount: %d, start_timer: %d)\n",
+			prefix, buf[2], parse_qos_bucket(buf[3] & 0xff), req_pri, buf[4] >> 1, buf[4] & 0x1)
 	else
-		printf("%s\tthread unblocked (threads_scheduled: %d, priority: %d)\n",
-			prefix, buf.arg2, buf.arg3)
+		printf("%s\tthread unblocked (activecount: %d, priority: %s, req_pri: %s, threads_scheduled: %d)\n",
+			prefix, buf[2], parse_qos_bucket(buf[3] & 0xff), req_pri, buf[4])
 	end
-end)
-
-trace_codename("wq_thread_suspend", function(buf)
-	local prefix = get_prefix(buf)
-	if trace.debugid_is_start(buf.debugid) then
-		printf("%s\tcreated new suspended thread (nthreads:%d)\n",
-			prefix, buf.arg2)
-	else
-		if buf.arg4 == 0xdead then
-			printf("%s\tthread exited suspension to die (nthreads: %d)\n",
-				prefix, buf.arg3)
-		end
-	end
-end)
-
-trace_codename("wq_thread_park", function(buf)
-	local prefix = get_prefix(buf)
-	if trace.debugid_is_start(buf.debugid) then
-		printf("%s\tthread parked (threads_scheduled: %d, thidlecount: %d, us_to_wait: %d)\n",
-			prefix, buf.arg2, buf.arg3, buf.arg4)
-	else
-		if buf.arg4 == 0xdead then
-			printf("%s\tthread exited park to die (nthreads: %d)\n", prefix, buf.arg3)
-		end
-	end
-
-end)
-
-trace_codename("wq_thread_limit_exceeded", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\ttotal thread limit exceeded, %d threads, total %d max threads, (kern limit: %d)\n",
-		prefix, buf.arg2, buf.arg3, buf.arg4)
-end)
-
-trace_codename("wq_thread_constrained_maxed", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\tattempted to add thread at max constrained limit, total %d threads (limit: %d)\n",
-		prefix, buf.arg2, buf.arg3)
-end)
-
-trace_codename("wq_thread_add_during_exit", function(buf)
-	local prefix = get_prefix(buf)
-	printf("%s\tattempted to add thread during WQ_EXITING\n", prefix)
 end)
 
 trace_codename("wq_thread_create_failed", function(buf)
 	local prefix = get_prefix(buf)
-	if buf.arg3 == 0 then
+	if buf[3] == 0 then
 		printf("%s\tfailed to create new workqueue thread, kern_return: 0x%x\n",
-			prefix, buf.arg2)
-	elseif buf.arg3 == 1 then
-		printf("%s\tfailed to vm_map workq thread stack: 0x%x", prefix, buf.arg2)
-	elseif buf.arg3 == 2 then
-		printf("%s\tfailed to vm_protect workq thread guardsize: 0x%x", prefix, buf.arg2)
+			prefix, buf[2])
+	elseif buf[3] == 1 then
+		printf("%s\tfailed to vm_map workq thread stack: 0x%x\n", prefix, buf[2])
+	elseif buf[3] == 2 then
+		printf("%s\tfailed to vm_protect workq thread guardsize: 0x%x\n", prefix, buf[2])
 	end
 end)
 
 trace_codename("wq_thread_create", function(buf)
-	printf("%s\tcreateed new workqueue thread\n", get_prefix(buf))
+	printf("%s\tcreated new workqueue thread\n", get_prefix(buf))
 end)
 
-trace_codename("wq_manager_request", function(buf)
+trace_codename("wq_wqops_reqthreads", function(buf)
 	local prefix = get_prefix(buf)
-	printf("%s\tthread in bucket %d\n", prefix, buf.arg3)
+	printf("%s\tuserspace requested %d threads at %s\n", prefix, buf[2], parse_pthread_priority(buf[3]));
 end)
 
+trace_codename("wq_kevent_reqthreads", function(buf)
+	local prefix = get_prefix(buf)
+	if buf[4] == 0 then
+		printf("%s\tkevent requested a thread at %s\n", prefix, parse_pthread_priority(buf[3]));
+	elseif buf[4] == 1 then
+		printf("%s\tworkloop requested a thread for req %x at %s\n", prefix, buf[2], parse_pthread_priority(buf[3]));
+	elseif buf[4] == 2 then
+		printf("%s\tworkloop updated priority of req %x to %s\n", prefix, buf[2], parse_pthread_priority(buf[3]));
+	elseif buf[4] == 3 then
+		printf("%s\tworkloop canceled req %x\n", prefix, buf[2], parse_pthread_priority(buf[3]));
+	elseif buf[4] == 4 then
+		printf("%s\tworkloop redrove a thread request\n", prefix);
+	end
+end)
+
+trace_codename("wq_constrained_admission", function(buf)
+	local prefix = get_prefix(buf)
+	if buf[2] == 1 then
+		printf("fail: %s\twq_constrained_threads_scheduled=%d >= wq_max_constrained_threads=%d\n",
+                prefix, buf[3], buf[4])
+	elseif (buf[2] == 2) or (buf[2] == 3) then
+		local success = nil;
+		if buf[2] == 2 then success = "success"
+		else success = "fail" end
+		printf("%s: %s\tthactive_count=%d + busycount=%d >= wq->wq_max_concurrency\n",
+				prefix, success, buf[3], buf[4])
+	end
+end)
 
 -- The trace codes we need aren't enabled by default
 darwin.sysctlbyname("kern.pthread_debug_tracing", 1)

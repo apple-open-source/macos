@@ -52,7 +52,7 @@
 
 SECStatus
 CERT_VerifyCert(SecKeychainRef keychainOrArray __unused, CFArrayRef certs,
-		CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef)
+                CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef)
 {
     SecTrustRef trust = NULL;
     OSStatus rv;
@@ -65,34 +65,34 @@ CERT_VerifyCert(SecKeychainRef keychainOrArray __unused, CFArrayRef certs,
     rv = SecTrustSetVerifyDate(trust, verifyDate);
     CFRelease(verifyDate);
     if (rv)
-	goto loser;
+        goto loser;
 
     if (trustRef)
     {
-	*trustRef = trust;
+        *trustRef = trust;
     }
     else
     {
-	SecTrustResultType result;
-	/* The caller doesn't want a SecTrust object, so let's evaluate it for them. */
-	rv = SecTrustEvaluate(trust, &result);
-	if (rv)
-	    goto loser;
+        SecTrustResultType result;
+        /* The caller doesn't want a SecTrust object, so let's evaluate it for them. */
+        rv = SecTrustEvaluate(trust, &result);
+        if (rv)
+            goto loser;
 
-	switch (result)
-	{
-	case kSecTrustResultProceed:
-	case kSecTrustResultUnspecified:
-	    /* TP Verification succeeded and there was either a UserTurst entry
-	       telling us to procceed, or no user trust setting was specified. */
-	    CFRelease(trust);
-	    break;
-	default:
-	    PORT_SetError(SEC_ERROR_UNTRUSTED_CERT);
-	    rv = SECFailure;
-	    goto loser;
-	    break;
-	}
+        switch (result)
+        {
+            case kSecTrustResultProceed:
+            case kSecTrustResultUnspecified:
+                /* TP Verification succeeded and there was either a UserTurst entry
+                 telling us to procceed, or no user trust setting was specified. */
+                CFRelease(trust);
+                break;
+            default:
+                PORT_SetError(SEC_ERROR_UNTRUSTED_CERT);
+                rv = SECFailure;
+                goto loser;
+                break;
+        }
     }
 
     return SECSuccess;
@@ -170,10 +170,24 @@ CF_RETURNS_RETAINED CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SE
     if (SecTrustEvaluate(trust, &result))
         goto out;
     CFIndex idx, count = SecTrustGetCertificateCount(trust);
+
+    /* If we weren't able to build a chain to a self-signed cert, warn. */
+    Boolean isSelfSigned = false;
+    SecCertificateRef lastCert = SecTrustGetCertificateAtIndex(trust, count - 1);
+    if (lastCert && (0 == SecCertificateIsSelfSigned(lastCert, &isSelfSigned)) && !isSelfSigned) {
+        CFStringRef commonName = NULL;
+        (void)SecCertificateCopyCommonName(cert, &commonName);
+        fprintf(stderr, "Warning: unable to build chain to self-signed root for signer \"%s\"",
+                commonName ? CFStringGetCStringPtr(commonName, kCFStringEncodingUTF8) : "");
+        if (commonName) { CFRelease(commonName); }
+    }
+
+    /* We don't drop the root if there is only 1 certificate in the chain. */
+    if (!includeRoot && count > 1) { count--; }
     certs = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
     for(idx = 0; idx < count; idx++)
         CFArrayAppendValue(certs, SecTrustGetCertificateAtIndex(trust, idx));
-    
+
 out:
     if (trust) CFRelease(trust);
     if (policy) CFRelease(policy);
@@ -288,7 +302,7 @@ static CFTypeRef CERT_FindByIssuerAndSN (CFTypeRef keychainOrArray, CFTypeRef cl
             SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex((CFArrayRef)keychainOrArray, c);
             CFDataRef nic = (cert) ? SecCertificateGetNormalizedIssuerContent(cert) : NULL;
             if (nic && CFEqual(nic, issuer)) {
-                CFDataRef cert_serial = SecCertificateCopySerialNumber(cert);
+                CFDataRef cert_serial = SecCertificateCopySerialNumberData(cert, NULL);
                 if (cert_serial) {
                     bool found = CFEqual(cert_serial, serial);
                     CFRelease(cert_serial);
@@ -328,23 +342,50 @@ SecCertificateRef CERT_FindCertificateByIssuerAndSN (CFTypeRef keychainOrArray, 
     return (SecCertificateRef)CERT_FindByIssuerAndSN(keychainOrArray, kSecClassCertificate, issuerAndSN);
 }
 
-SecIdentityRef CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray __unused, const SecAsn1Item *subjKeyID)
+// Generate a certificate key from the Subject Key ID, then look it up in the database.
+// Return the cert if found. "subjKeyID" is the Subject Key ID to look for
+static CFTypeRef CERT_FindBySubjectKeyID (CFTypeRef keychainOrArray, CFTypeRef class, const SecAsn1Item *subjKeyID)
 {
-    SecIdentityRef ident = NULL;
-	CFDictionaryRef query = NULL;
+    CFTypeRef ident = NULL;
+    CFDictionaryRef query = NULL;
     CFDataRef subjectkeyid = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, subjKeyID->Data, subjKeyID->Length, kCFAllocatorNull);
 
-	const void *keys[] = { kSecClass, kSecAttrSubjectKeyID, kSecReturnRef };
-	const void *values[] = { kSecClassIdentity, subjectkeyid, kCFBooleanTrue };
-	query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys)/sizeof(*keys), NULL, NULL);
-	ident = (SecIdentityRef) CERT_FindItemInAllAvailableKeychains(query);
+    if (keychainOrArray && (CFGetTypeID(keychainOrArray) == CFArrayGetTypeID()) && CFEqual(class, kSecClassCertificate))
+    {
+        CFIndex c, count = CFArrayGetCount((CFArrayRef)keychainOrArray);
+        for (c = 0; c < count; c++) {
+            SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex((CFArrayRef)keychainOrArray, c);
+            CFDataRef skid = (cert) ? SecCertificateGetSubjectKeyID(cert) : NULL;
+            if (skid && CFEqual(skid, subjectkeyid)) {
+                CFRetain(cert);
+                ident = cert;
+                goto out;
+            }
+        }
+    }
 
+    const void *keys[] = { kSecClass, kSecAttrSubjectKeyID, kSecReturnRef };
+    const void *values[] = { class, subjectkeyid, kCFBooleanTrue };
+    query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys)/sizeof(*keys), NULL, NULL);
+    ident = CERT_FindItemInAllAvailableKeychains(query);
+
+out:
     if (query)
         CFRelease(query);
     if (subjectkeyid)
         CFRelease(subjectkeyid);
 
     return ident;
+}
+
+SecIdentityRef CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID)
+{
+    return (SecIdentityRef)CERT_FindBySubjectKeyID(keychainOrArray, kSecClassIdentity, subjKeyID);
+}
+
+SecCertificateRef CERT_FindCertificateBySubjectKeyID(CFTypeRef keychainOrArray, const SecAsn1Item *subjKeyID)
+{
+     return (SecCertificateRef)CERT_FindBySubjectKeyID(keychainOrArray, kSecClassCertificate, subjKeyID);
 }
 
 

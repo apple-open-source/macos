@@ -1071,7 +1071,7 @@ main(int argc, char **argv)
 		tmpname = mktmpname(outfile, ".ctf");
 	}
 	write_ctf(savetd, outfile, tmpname,
-		  CTF_COMPRESS | write_fuzzy_match | dynsym | keep_stabs | CTF_BYTESWAP /* swap as needed to target */ | (raw_ctf_file != NULL ? CTF_RAW_OUTPUT : 0));
+		  CTF_COMPRESS | write_fuzzy_match | dynsym | keep_stabs | (raw_ctf_file != NULL ? CTF_RAW_OUTPUT : 0));
 	if (!raw_ctf_file) {
 		if (rename(tmpname, outfile) != 0)
 			terminate("Couldn't rename output temp file %s", tmpname);

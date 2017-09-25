@@ -7,17 +7,25 @@ dtrace=/usr/sbin/dtrace
 #	is controlled and can hit a probe specified by module and function name
 #	with glob matching
 #
-#	This relies on the /usr/bin/true being on the file system and having a
-#	libSystem having a initializer named libSystem_initializer
+
+# NOTE:
+# We run this with '-Z', because at the time of evaluation, only
+# dyld is loaded.
 
 script()
 {
-	$dtrace -Z -xnolibs -xevaltime=preinit -c /usr/bin/true -qs /dev/stdin <<EOF
-	pid\$target:libSystem*:libSystem_initializer:entry
+	$dtrace -Z -xnolibs -xevaltime=preinit -c ./tst.has_initializers.exe -qs /dev/stdin <<EOF
+	pid\$target:test_lib*:function_called_by_initializer:entry
 	{
 		trace("Called");
 		exit(0);
 	}
+	pid\$target::main_binary_function:entry
+	{
+		trace("Library initializer not called or called after main");
+		exit(1);
+	}
+
 EOF
 }
 

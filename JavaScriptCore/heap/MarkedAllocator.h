@@ -28,8 +28,8 @@
 #include "AllocatorAttributes.h"
 #include "FreeList.h"
 #include "MarkedBlock.h"
+#include <wtf/DataLog.h>
 #include <wtf/FastBitVector.h>
-#include <wtf/SentinelLinkedList.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -42,7 +42,7 @@ class LLIntOffsetsExtractor;
 #define FOR_EACH_MARKED_ALLOCATOR_BIT(macro) \
     macro(live, Live) /* The set of block indices that have actual blocks. */\
     macro(empty, Empty) /* The set of all blocks that have no live objects and nothing to destroy. */ \
-    macro(allocated, Allocated) /* The set of allblocks that are full of live objects. */\
+    macro(allocated, Allocated) /* The set of all blocks that are full of live objects. */\
     macro(canAllocateButNotEmpty, CanAllocateButNotEmpty) /* The set of all blocks are neither empty nor retired (i.e. are more than minMarkedBlockUtilization full). */ \
     macro(eden, Eden) /* The set of all blocks that have new objects since the last GC. */\
     macro(unswept, Unswept) /* The set of all blocks that could be swept by the incremental sweeper. */\
@@ -155,13 +155,9 @@ public:
     void* allocate(GCDeferralContext* = nullptr);
     void* tryAllocate(GCDeferralContext* = nullptr);
     Heap* heap() { return m_heap; }
-    MarkedBlock::Handle* takeLastActiveBlock()
-    {
-        MarkedBlock::Handle* block = m_lastActiveBlock;
-        m_lastActiveBlock = 0;
-        return block;
-    }
-    
+
+    bool isFreeListedCell(const void* target) const;
+
     template<typename Functor> void forEachBlock(const Functor&);
     template<typename Functor> void forEachNotEmptyBlock(const Functor&);
     
@@ -213,6 +209,8 @@ public:
     Subspace* subspace() const { return m_subspace; }
     MarkedSpace& markedSpace() const;
     
+    const FreeList& freeList() const { return m_freeList; }
+    
     void dump(PrintStream&) const;
     void dumpBits(PrintStream& = WTF::dataFile());
     
@@ -230,8 +228,6 @@ private:
     void* tryAllocateIn(MarkedBlock::Handle*);
     void* allocateIn(MarkedBlock::Handle*);
     ALWAYS_INLINE void doTestCollectionsIfNeeded(GCDeferralContext*);
-    
-    void setFreeList(const FreeList&);
     
     FreeList m_freeList;
     

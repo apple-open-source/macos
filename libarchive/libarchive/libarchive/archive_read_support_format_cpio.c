@@ -225,7 +225,7 @@ archive_read_format_cpio_read_header(struct archive_read *a,
     struct archive_entry *entry)
 {
 	struct cpio *cpio;
-	const void *h;
+	const void *h, *hl;
 	size_t namelength;
 	size_t name_pad;
 	int r;
@@ -247,11 +247,11 @@ archive_read_format_cpio_read_header(struct archive_read *a,
 
 	/* If this is a symlink, read the link contents. */
 	if (archive_entry_filetype(entry) == AE_IFLNK) {
-		h = __archive_read_ahead(a, cpio->entry_bytes_remaining, NULL);
-		if (h == NULL)
+		hl = __archive_read_ahead(a, cpio->entry_bytes_remaining, NULL);
+		if (hl == NULL)
 			return (ARCHIVE_FATAL);
 		__archive_read_consume(a, cpio->entry_bytes_remaining);
-		archive_strncpy(&cpio->entry_linkname, (const char *)h,
+		archive_strncpy(&cpio->entry_linkname, (const char *)hl,
 		    cpio->entry_bytes_remaining);
 		archive_entry_set_symlink(entry, cpio->entry_linkname.s);
 		cpio->entry_bytes_remaining = 0;
@@ -263,7 +263,7 @@ archive_read_format_cpio_read_header(struct archive_read *a,
 	 * header.  XXX */
 
 	/* Compare name to "TRAILER!!!" to test for end-of-archive. */
-	if (namelength == 11 && strcmp((const char *)h, "TRAILER!!!") == 0) {
+	if (namelength == 11 && strncmp((const char *)h, "TRAILER!!!", 11) == 0) {
 	    /* TODO: Store file location of start of block. */
 	    archive_set_error(&a->archive, 0, NULL);
 	    return (ARCHIVE_EOF);

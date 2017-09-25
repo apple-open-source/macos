@@ -1,8 +1,10 @@
+# frozen_string_literal: false
 require 'test/unit'
 require "xmlrpc/create"
 require "xmlrpc/parser"
 require "xmlrpc/config"
 
+module TestXMLRPC
 class Test_Features < Test::Unit::TestCase
 
   def setup
@@ -15,11 +17,11 @@ class Test_Features < Test::Unit::TestCase
 
       XMLRPC::Config.module_eval {remove_const(:ENABLE_NIL_CREATE)}
       XMLRPC::Config.const_set(:ENABLE_NIL_CREATE, false)
-      assert_raise(RuntimeError) { str = c.methodCall("test", *@params) }
+      assert_raise(RuntimeError) { c.methodCall("test", *@params) }
 
       XMLRPC::Config.module_eval {remove_const(:ENABLE_NIL_CREATE)}
       XMLRPC::Config.const_set(:ENABLE_NIL_CREATE, true)
-      assert_nothing_raised { str = c.methodCall("test", *@params) }
+      assert_nothing_raised { c.methodCall("test", *@params) }
     end
   end
 
@@ -45,4 +47,5 @@ class Test_Features < Test::Unit::TestCase
     end
   end
 
+end
 end

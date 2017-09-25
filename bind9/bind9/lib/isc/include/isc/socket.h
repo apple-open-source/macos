@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -281,14 +281,22 @@ typedef struct isc_socketmethods {
 				unsigned int options);
 	isc_result_t	(*sendto)(isc_socket_t *sock, isc_region_t *region,
 				  isc_task_t *task, isc_taskaction_t action,
-				  const void *arg, isc_sockaddr_t *address,
+				  void *arg, isc_sockaddr_t *address,
 				  struct in6_pktinfo *pktinfo);
+	isc_result_t	(*sendto2)(isc_socket_t *sock, isc_region_t *region,
+				   isc_task_t *task, isc_sockaddr_t *address,
+				   struct in6_pktinfo *pktinfo,
+				   isc_socketevent_t *event,
+				   unsigned int flags);
 	isc_result_t	(*connect)(isc_socket_t *sock, isc_sockaddr_t *addr,
 				   isc_task_t *task, isc_taskaction_t action,
-				   const void *arg);
+				   void *arg);
 	isc_result_t	(*recv)(isc_socket_t *sock, isc_region_t *region,
 				unsigned int minimum, isc_task_t *task,
-				isc_taskaction_t action, const void *arg);
+				isc_taskaction_t action, void *arg);
+	isc_result_t	(*recv2)(isc_socket_t *sock, isc_region_t *region,
+				 unsigned int minimum, isc_task_t *task,
+				 isc_socketevent_t *event, unsigned int flags);
 	void		(*cancel)(isc_socket_t *sock, isc_task_t *task,
 				  unsigned int how);
 	isc_result_t	(*getsockname)(isc_socket_t *sock,
@@ -296,6 +304,9 @@ typedef struct isc_socketmethods {
 	isc_sockettype_t (*gettype)(isc_socket_t *sock);
 	void		(*ipv6only)(isc_socket_t *sock, isc_boolean_t yes);
 	isc_result_t    (*fdwatchpoke)(isc_socket_t *sock, int flags);
+	isc_result_t		(*dup)(isc_socket_t *socket,
+				  isc_socket_t **socketp);
+	int 		(*getfd)(isc_socket_t *socket);
 } isc_socketmethods_t;
 
 /*%
@@ -447,6 +458,12 @@ isc_socket_create(isc_socketmgr_t *manager,
  *\li	#ISC_R_NOMEMORY
  *\li	#ISC_R_NORESOURCES
  *\li	#ISC_R_UNEXPECTED
+ */
+
+isc_result_t
+isc_socket_dup(isc_socket_t *sock0, isc_socket_t **socketp);
+/*%<
+ * Duplicate an existing socket, reusing its file descriptor.
  */
 
 void
@@ -658,7 +675,7 @@ isc_socket_listen(isc_socket_t *sock, unsigned int backlog);
 
 isc_result_t
 isc_socket_accept(isc_socket_t *sock,
-		  isc_task_t *task, isc_taskaction_t action, const void *arg);
+		  isc_task_t *task, isc_taskaction_t action, void *arg);
 /*%<
  * Queue accept event.  When a new connection is received, the task will
  * get an ISC_SOCKEVENT_NEWCONN event with the sender set to the listen
@@ -682,7 +699,7 @@ isc_socket_accept(isc_socket_t *sock,
 isc_result_t
 isc_socket_connect(isc_socket_t *sock, isc_sockaddr_t *addressp,
 		   isc_task_t *task, isc_taskaction_t action,
-		   const void *arg);
+		   void *arg);
 /*%<
  * Connect 'socket' to peer with address *saddr.  When the connection
  * succeeds, or when an error occurs, a CONNECT event with action 'action'
@@ -749,11 +766,11 @@ isc_socket_getsockname(isc_socket_t *sock, isc_sockaddr_t *addressp);
 isc_result_t
 isc_socket_recv(isc_socket_t *sock, isc_region_t *region,
 		unsigned int minimum,
-		isc_task_t *task, isc_taskaction_t action, const void *arg);
+		isc_task_t *task, isc_taskaction_t action, void *arg);
 isc_result_t
 isc_socket_recvv(isc_socket_t *sock, isc_bufferlist_t *buflist,
 		 unsigned int minimum,
-		 isc_task_t *task, isc_taskaction_t action, const void *arg);
+		 isc_task_t *task, isc_taskaction_t action, void *arg);
 
 isc_result_t
 isc_socket_recv2(isc_socket_t *sock, isc_region_t *region,
@@ -836,18 +853,23 @@ isc_socket_recv2(isc_socket_t *sock, isc_region_t *region,
 /*@{*/
 isc_result_t
 isc_socket_send(isc_socket_t *sock, isc_region_t *region,
-		isc_task_t *task, isc_taskaction_t action, const void *arg);
+		isc_task_t *task, isc_taskaction_t action, void *arg);
 isc_result_t
 isc_socket_sendto(isc_socket_t *sock, isc_region_t *region,
-		  isc_task_t *task, isc_taskaction_t action, const void *arg,
+		  isc_task_t *task, isc_taskaction_t action, void *arg,
 		  isc_sockaddr_t *address, struct in6_pktinfo *pktinfo);
 isc_result_t
 isc_socket_sendv(isc_socket_t *sock, isc_bufferlist_t *buflist,
-		 isc_task_t *task, isc_taskaction_t action, const void *arg);
+		 isc_task_t *task, isc_taskaction_t action, void *arg);
 isc_result_t
 isc_socket_sendtov(isc_socket_t *sock, isc_bufferlist_t *buflist,
-		   isc_task_t *task, isc_taskaction_t action, const void *arg,
+		   isc_task_t *task, isc_taskaction_t action, void *arg,
 		   isc_sockaddr_t *address, struct in6_pktinfo *pktinfo);
+isc_result_t
+isc_socket_sendtov2(isc_socket_t *sock, isc_bufferlist_t *buflist,
+		    isc_task_t *task, isc_taskaction_t action, void *arg,
+		    isc_sockaddr_t *address, struct in6_pktinfo *pktinfo,
+		    unsigned int flags);
 isc_result_t
 isc_socket_sendto2(isc_socket_t *sock, isc_region_t *region,
 		   isc_task_t *task,
@@ -1102,6 +1124,11 @@ void *isc_socket_gettag(isc_socket_t *socket);
  * Get the tag associated with a socket, if any.
  */
 
+int isc_socket_getfd(isc_socket_t *socket);
+/*%<
+ * Get the file descriptor associated with a socket
+ */
+
 void
 isc__socketmgr_setreserved(isc_socketmgr_t *mgr, isc_uint32_t);
 /*%<
@@ -1116,7 +1143,7 @@ isc__socketmgr_maxudp(isc_socketmgr_t *mgr, int maxudp);
 
 #ifdef HAVE_LIBXML2
 
-void
+int
 isc_socketmgr_renderxml(isc_socketmgr_t *mgr, xmlTextWriterPtr writer);
 /*%<
  * Render internal statistics and other state into the XML document.

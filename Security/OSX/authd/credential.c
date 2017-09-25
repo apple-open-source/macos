@@ -32,7 +32,7 @@ _credential_finalize(CFTypeRef value)
     
     free_safe(cred->name);
     free_safe(cred->realName);
-    CFReleaseSafe(cred->cachedGroups);
+    CFReleaseNull(cred->cachedGroups);
 }
 
 static CFStringRef
@@ -123,7 +123,9 @@ credential_create(uid_t uid)
     struct passwd *pw = getpwuid(uid);
 	if (pw != NULL) {
         // avoid hinting a locked account
-		if ( (pw->pw_passwd == NULL) || strcmp(pw->pw_passwd, "*") ) {
+		// LibInfo started to return asterisk for system accounts in <rdar://problem/31633690> J93: 17a240: Hang during boot (opendirectoryd/powerd deadlock)
+		// so do not make this check for those system accounts
+		if ( (uid < 500) ||  (pw->pw_passwd == NULL) || strcmp(pw->pw_passwd, "*") ) {
             cred->uid = pw->pw_uid;
             cred->name = _copy_string(pw->pw_name);
             cred->realName = _copy_string(pw->pw_gecos);

@@ -32,8 +32,9 @@
 #include "filediskrep.h"
 #include "bundlediskrep.h"
 #include "slcrep.h"
+#if TARGET_OS_OSX
 #include "diskimagerep.h"
-
+#endif
 
 namespace Security {
 namespace CodeSigning {
@@ -110,8 +111,10 @@ DiskRep *DiskRep::bestGuess(const char *path, const Context *ctx)
 		AutoFileDesc fd(path, O_RDONLY);
 		if (MachORep::candidate(fd))
 			return new MachORep(path, ctx);
+#if TARGET_OS_OSX
 		if (DiskImageRep::candidate(fd))
 			return new DiskImageRep(path);
+#endif
 		if (DYLDCacheRep::candidate(fd))
 			return new DYLDCacheRep(path);
 
@@ -197,6 +200,11 @@ size_t DiskRep::signingBase()
 	return 0;		// whole file (start at beginning)
 }
 
+size_t DiskRep::execSegBase(const Architecture *)
+{
+	return 0;		// whole file (start at beginning)
+}
+    
 CFArrayRef DiskRep::modifiedFiles()
 {
 	// by default, claim (just) the main executable modified

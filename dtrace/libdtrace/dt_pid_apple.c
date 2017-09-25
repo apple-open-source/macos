@@ -66,7 +66,7 @@ int dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr, fasttrap_prob
 static int dt_pid_objc_filt(void *arg, const GElf_Sym *sym, const char *class_name, const char *method_name)
 {
 	dt_pid_probe_t *pp = arg;
-        
+
         // Handle the class name first.
 	if ((strisglob(pp->dpp_mod) && gmatch(class_name, pp->dpp_mod)) || (strcmp(class_name, pp->dpp_mod) == 0)) {
                 // Now check the method name.
@@ -76,28 +76,29 @@ static int dt_pid_objc_filt(void *arg, const GElf_Sym *sym, const char *class_na
                         return dt_pid_per_sym(pp, sym, method_name);
                 }
         }
-        
+
 	return (0);
 }
 
-int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr)
+int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
+    dt_pcb_t *pcb, dt_proc_t *dpr, dt_pr_t reason)
 {
 	dt_pid_probe_t pp;
 	int ret = 0;
-        
+
 	/*
 	 * Disable breakpoints so they don't interfere with our disassembly.
 	 */
 	dt_proc_bpdisable(dpr);
-        
+
 	pp.dpp_dtp = dtp;
 	pp.dpp_dpr = dpr;
 	pp.dpp_pr = dpr->dpr_proc;
 	pp.dpp_pcb = pcb;
-        
+
 	/*
 	 * We can only trace dynamically-linked executables (since we've
-	 * hidden some magic in ld.so.1 as well as libc.so.1).
+	 * hidden some magic in dyld).
 	 */
 	prmap_t thread_local_map;
 	if (Pname_to_map(pp.dpp_pr, PR_OBJ_LDSO, &thread_local_map) == NULL) {
@@ -105,31 +106,31 @@ int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb
 				     "process %s has no dyld, and cannot be instrumented",
 				     &pdp->dtpd_provider[3]));
 	}
-	        
+
 	pp.dpp_provider_type = DTFTP_PROVIDER_OBJC;
 	pp.dpp_mod = pdp->dtpd_mod[0] != '\0' ? pdp->dtpd_mod : "*";
 	pp.dpp_func = pdp->dtpd_func[0] != '\0' ? pdp->dtpd_func : "*";
 	pp.dpp_name = pdp->dtpd_name[0] != '\0' ? pdp->dtpd_name : "*";
 	pp.dpp_last_taken = 0;
-        
-        //
-        // We set up some default values that normally change per module.
-        //
+
+        /*
+         * We set up some default values that normally change per module.
+         */
         pp.dpp_lmid = LM_ID_BASE;
         pp.dpp_stret[0] = 0;
         pp.dpp_stret[1] = 0;
         pp.dpp_stret[2] = 0;
         pp.dpp_stret[3] = 0;
-        
+
         /*
          * We're working in the objc namespace, symbols are in "library, function" style.
          * We have to look at every symbol in every owner, even without globbing. 
          */
-        	
-        ret = Pobjc_method_iter(pp.dpp_pr, (proc_objc_f*)dt_pid_objc_filt, &pp);
-        
+	ret = dt_libproc_funcs[reason].objc_method_iter(pp.dpp_pr,
+		(proc_objc_f*)dt_pid_objc_filt, &pp);
+
 	dt_proc_bpenable(dpr);
-        
+
 	return (ret);
 }
 

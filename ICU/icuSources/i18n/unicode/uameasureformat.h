@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014-2016 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2017 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -131,6 +131,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT = (5 << 8) + 16, // (CLDR 26, ICU-541)
     UAMEASUNIT_LENGTH_PARSEC        = (5 << 8) + 17,    // (CLDR 26, ICU-541)
     UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN = (5 << 8) + 18, // (CLDR 28, ICU-561.3)
+    UAMEASUNIT_LENGTH_POINT         = (5 << 8) + 19,    // (CLDR 31, ICU-590)
     //
     UAMEASUNIT_MASS_GRAM            = (6 << 8) + 0,
     UAMEASUNIT_MASS_KILOGRAM        = (6 << 8) + 1,
@@ -322,7 +323,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUAMeasureFormatPointer, UAMeasureFormat, uameas
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 
 /**
@@ -568,8 +569,16 @@ uameasfmt_getMultipleUnitNames( const UAMeasureFormat* measfmt,
  * one some knowledge of the relevant CLDR keys. After more experience with
  * usage, enums for relevant usage values may be created.
  *
+ * This is sensitive to two locale keywords.
+ * If the "ms" keyword is present, then the measurement system specified by its
+ * value is used (except for certain categories like duration and concentr).
+ * Else if the "rg" keyword is present, then the region specified by its value
+ * determines the unit usage.
+ * Else if the locale has a region subtag, it determines the unit usage.
+ * Otherwise the likely region for the language determines the usage.
+ *
  * @param locale
- *          The locale.
+ *          The locale, which determines the usage as specified above.
  * @param category
  *          A string representing the CLDR category key for the desired usage,
  *          such as "length" or "mass". Must not be NULL.

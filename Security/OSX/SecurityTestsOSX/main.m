@@ -25,12 +25,12 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "test/testenv.h"
+#include "regressions/test/testenv.h"
 
 #include "testlist.h"
-#include <test/testlist_begin.h>
+#include <regressions/test/testlist_begin.h>
 #include "testlist.h"
-#include <test/testlist_end.h>
+#include <regressions/test/testlist_end.h>
 
 int main(int argc, char *argv[])
 {

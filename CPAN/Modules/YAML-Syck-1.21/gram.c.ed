@@ -1,4 +1,0 @@
-/Copy the second part of user declarations/+1a
-int sycklex( YYSTYPE *sycklval, SyckParser *parser );
-.
-w

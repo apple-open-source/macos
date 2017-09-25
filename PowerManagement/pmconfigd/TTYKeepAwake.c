@@ -59,7 +59,6 @@
 #include "PMSettings.h"
 #include "PMConnection.h"
 
-#if !TARGET_OS_EMBEDDED
 
 #ifndef DEVMAXPATHSIZE
 #define DEVMAXPATHSIZE 	128
@@ -385,19 +384,21 @@ static void release_assertion(void)
 
 static void rearm_timer(time_t time_to_idle)
 {
-    dispatch_async(s_tty_queue, ^{
-        dispatch_source_set_timer(s_timer_source,
-            dispatch_time(DISPATCH_TIME_NOW, time_to_idle * NSEC_PER_SEC),
-            DISPATCH_TIME_FOREVER, 1 * NSEC_PER_SEC);
-    });
+    if (s_timer_source){
+        dispatch_async(s_tty_queue, ^{
+            dispatch_source_set_timer(s_timer_source,
+                dispatch_time(DISPATCH_TIME_NOW, time_to_idle * NSEC_PER_SEC),
+                DISPATCH_TIME_FOREVER, 1 * NSEC_PER_SEC);
+        });
+    }
 }
 
 static void pause_timer(void)
 {
-    if (s_tty_queue) {
-        dispatch_async(s_tty_queue, ^{
-            dispatch_source_set_timer(s_timer_source, DISPATCH_TIME_FOREVER, 0, 0);
-        });
+    if (s_timer_source && s_tty_queue) {
+            dispatch_async(s_tty_queue, ^{
+                dispatch_source_set_timer(s_timer_source, DISPATCH_TIME_FOREVER, 0, 0);
+            });
     }
 }
 
@@ -423,4 +424,3 @@ static void cleanup_tty_tracking(void)
     }
 }
 
-#endif /* !TARGET_OS_EMBEDDED */

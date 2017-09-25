@@ -1,14 +1,14 @@
 /*
  * Printer routines for the CUPS scheduler.
  *
- * Copyright 2007-2016 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -756,11 +756,6 @@ cupsdDeletePrinter(
     * Remove any old PPD or script files...
     */
 
-    snprintf(filename, sizeof(filename), "%s/interfaces/%s", ServerRoot, p->name);
-    unlink(filename);
-    snprintf(filename, sizeof(filename), "%s/interfaces/%s.O", ServerRoot, p->name);
-    unlink(filename);
-
     snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot, p->name);
     unlink(filename);
     snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd.O", ServerRoot, p->name);
@@ -836,6 +831,32 @@ cupsdDeletePrinter(
   cupsArrayRestore(Printers);
 
   return (changed);
+}
+
+
+/*
+ * 'cupsdDeleteTemporaryPrinters()' - Delete unneeded temporary printers.
+ */
+
+void
+cupsdDeleteTemporaryPrinters(int force) /* I - Force deletion instead of auto? */
+{
+  cupsd_printer_t *p;                   /* Current printer */
+  time_t          unused_time;          /* Last time for printer state change */
+
+
+ /*
+  * Allow temporary printers to stick around for 60 seconds after the last job
+  * completes.
+  */
+
+  unused_time = time(NULL) - 60;
+
+  for (p = (cupsd_printer_t *)cupsArrayFirst(Printers); p; p = (cupsd_printer_t *)cupsArrayNext(Printers))
+  {
+    if (p->temporary && (force || p->state_time < unused_time))
+      cupsdDeletePrinter(p, 0);
+  }
 }
 
 
@@ -3802,7 +3823,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   ipp_attribute_t *attr;		/* Attribute data */
   _ipp_value_t	*val;			/* Attribute value */
   int		num_finishings,		/* Number of finishings */
-		finishings[5];		/* finishings-supported values */
+		finishings[100];	/* finishings-supported values */
   int		num_qualities,		/* Number of print-quality values */
 		qualities[3];		/* print-quality values */
   int		num_margins,		/* Number of media-*-margin-supported values */
@@ -4584,16 +4605,74 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     if (ppdFindOption(ppd, "Collate") != NULL)
       p->type |= CUPS_PRINTER_COLLATE;
 
-    if (ppdFindOption(ppd, "StapleLocation") != NULL)
+    if (p->pc && p->pc->finishings)
     {
-      p->type |= CUPS_PRINTER_STAPLE;
-      finishings[num_finishings++] = IPP_FINISHINGS_STAPLE;
-    }
+      _pwg_finishings_t	*fin;		/* Current finishing value */
 
-    if (ppdFindOption(ppd, "BindEdge") != NULL)
-    {
-      p->type |= CUPS_PRINTER_BIND;
-      finishings[num_finishings++] = IPP_FINISHINGS_BIND;
+      for (fin = (_pwg_finishings_t *)cupsArrayFirst(p->pc->finishings); fin; fin = (_pwg_finishings_t *)cupsArrayNext(p->pc->finishings))
+      {
+        if (num_finishings < (int)(sizeof(finishings) / sizeof(finishings[0])))
+          finishings[num_finishings++] = fin->value;
+
+        switch (fin->value)
+        {
+          case IPP_FINISHINGS_BIND :
+          case IPP_FINISHINGS_BIND_LEFT :
+          case IPP_FINISHINGS_BIND_TOP :
+          case IPP_FINISHINGS_BIND_RIGHT :
+          case IPP_FINISHINGS_BIND_BOTTOM :
+          case IPP_FINISHINGS_EDGE_STITCH :
+          case IPP_FINISHINGS_EDGE_STITCH_LEFT :
+          case IPP_FINISHINGS_EDGE_STITCH_TOP :
+          case IPP_FINISHINGS_EDGE_STITCH_RIGHT :
+          case IPP_FINISHINGS_EDGE_STITCH_BOTTOM :
+              p->type |= CUPS_PRINTER_BIND;
+              break;
+
+          case IPP_FINISHINGS_COVER :
+              p->type |= CUPS_PRINTER_COVER;
+              break;
+
+          case IPP_FINISHINGS_PUNCH :
+          case IPP_FINISHINGS_PUNCH_TOP_LEFT :
+          case IPP_FINISHINGS_PUNCH_BOTTOM_LEFT :
+          case IPP_FINISHINGS_PUNCH_TOP_RIGHT :
+          case IPP_FINISHINGS_PUNCH_BOTTOM_RIGHT :
+          case IPP_FINISHINGS_PUNCH_DUAL_LEFT :
+          case IPP_FINISHINGS_PUNCH_DUAL_TOP :
+          case IPP_FINISHINGS_PUNCH_DUAL_RIGHT :
+          case IPP_FINISHINGS_PUNCH_DUAL_BOTTOM :
+          case IPP_FINISHINGS_PUNCH_TRIPLE_LEFT :
+          case IPP_FINISHINGS_PUNCH_TRIPLE_TOP :
+          case IPP_FINISHINGS_PUNCH_TRIPLE_RIGHT :
+          case IPP_FINISHINGS_PUNCH_TRIPLE_BOTTOM :
+          case IPP_FINISHINGS_PUNCH_QUAD_LEFT :
+          case IPP_FINISHINGS_PUNCH_QUAD_TOP :
+          case IPP_FINISHINGS_PUNCH_QUAD_RIGHT :
+          case IPP_FINISHINGS_PUNCH_QUAD_BOTTOM :
+              p->type |= CUPS_PRINTER_PUNCH;
+              break;
+
+          case IPP_FINISHINGS_STAPLE :
+          case IPP_FINISHINGS_STAPLE_TOP_LEFT :
+          case IPP_FINISHINGS_STAPLE_BOTTOM_LEFT :
+          case IPP_FINISHINGS_STAPLE_TOP_RIGHT :
+          case IPP_FINISHINGS_STAPLE_BOTTOM_RIGHT :
+          case IPP_FINISHINGS_STAPLE_DUAL_LEFT :
+          case IPP_FINISHINGS_STAPLE_DUAL_TOP :
+          case IPP_FINISHINGS_STAPLE_DUAL_RIGHT :
+          case IPP_FINISHINGS_STAPLE_DUAL_BOTTOM :
+          case IPP_FINISHINGS_STAPLE_TRIPLE_LEFT :
+          case IPP_FINISHINGS_STAPLE_TRIPLE_TOP :
+          case IPP_FINISHINGS_STAPLE_TRIPLE_RIGHT :
+          case IPP_FINISHINGS_STAPLE_TRIPLE_BOTTOM :
+              p->type |= CUPS_PRINTER_STAPLE;
+              break;
+
+          default :
+              break;
+        }
+      }
     }
 
     for (i = 0; i < ppd->num_sizes; i ++)
@@ -4713,13 +4792,6 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
       ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		   "printer-commands", NULL, "none");
     }
-
-   /*
-    * 3D printer support...
-    */
-
-    if (ppdFindAttr(ppd, "cups3D", NULL))
-      p->type |= CUPS_PRINTER_3D;
 
    /*
     * Show current and available port monitors for this printer...
@@ -4926,31 +4998,6 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
       */
 
       p->type |= CUPS_PRINTER_REMOTE;
-
-     /*
-      * Point the printer-uri-supported attribute to the
-      * remote printer...
-      */
-
-      if (strchr(p->device_uri, '?'))
-      {
-       /*
-	* Strip trailing "?options" from URI...
-	*/
-
-	char	resource[HTTP_MAX_URI],	/* New URI */
-		*ptr;			/* Pointer into URI */
-
-	strlcpy(resource, p->device_uri, sizeof(resource));
-	if ((ptr = strchr(resource, '?')) != NULL)
-	  *ptr = '\0';
-
-	ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_URI,
-		     "printer-uri-supported", NULL, resource);
-      }
-      else
-	ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_URI,
-		     "printer-uri-supported", NULL, p->device_uri);
 
      /*
       * Then set the make-and-model accordingly...

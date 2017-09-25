@@ -240,6 +240,14 @@ struct __SecKey {
 };
 #endif
 
+/* Create a public key from a CFData containing a SubjectPublicKeyInfo in DER format. */
+SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator,
+                                                   CFDataRef subjectPublicKeyInfoData);
+
+/* Crete a SubjectPublicKeyInfo in DER format from a SecKey */
+CFDataRef SecKeyCopySubjectPublicKeyInfo(SecKeyRef key);
+
+
 #if SEC_OS_IPHONE
 /*!
     @function SecKeyCreate
@@ -259,10 +267,6 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
 SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
     const SecAsn1Oid *oid1, const SecAsn1Item *params,
     const SecAsn1Item *keyData);
-
-/* Create a public key from a CFData containing a SubjectPublicKeyInfo in DER format. */
-SecKeyRef SecKeyCreateFromSubjectPublicKeyInfoData(CFAllocatorRef allocator,
-    CFDataRef subjectPublicKeyInfoData);
 
 /* Create public key from private key */
 SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
@@ -769,6 +773,9 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
  */
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error)
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+extern const CFStringRef kSecKeyParameterSETokenAttestationNonce
+API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 
 /*!
  @function SecKeyCreateDuplicate

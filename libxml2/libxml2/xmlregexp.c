@@ -4089,8 +4089,9 @@ rollback:
 		    xmlFree(exec->errString);
 		exec->errString = xmlStrdup(value);
 		exec->errState = exec->state;
-		memcpy(exec->errCounts, exec->counts,
-		       exec->comp->nbCounters * sizeof(int));
+                if (exec->comp->nbCounters)
+                    memcpy(exec->errCounts, exec->counts,
+                           exec->comp->nbCounters * sizeof(int));
 	    }
 
 	    /*
@@ -4880,7 +4881,8 @@ xmlFAParseCharClassEsc(xmlRegParserCtxtPtr ctxt) {
 	}
 	NEXT;
 	xmlFAParseCharProp(ctxt);
-	ctxt->atom->neg = 1;
+        if (ctxt->atom != NULL)
+	    ctxt->atom->neg = 1;
 	if (CUR != '}') {
 	    ERROR("Expecting '}'");
 	    return;
@@ -5163,18 +5165,21 @@ xmlFAParseCharClass(xmlRegParserCtxtPtr ctxt) {
  */
 static int
 xmlFAParseQuantExact(xmlRegParserCtxtPtr ctxt) {
-    int ret = 0;
-    int ok = 0;
+    unsigned prev = 0;
+    unsigned ret = 0; /* unsigned for defined overflow behavior */
+    int i;
 
-    while ((CUR >= '0') && (CUR <= '9')) {
-	ret = ret * 10 + (CUR - '0');
-	ok = 1;
+    for (i = 0; (CUR >= '0') && (CUR <= '9'); ++i) {
+        ret = ret * 10 + (CUR - '0');
+        if (ret < prev || ret > INT_MAX)
+            return(-1);
+        prev = ret;
 	NEXT;
     }
-    if (ok != 1) {
+    if (i < 1) {
 	return(-1);
     }
-    return(ret);
+    return((int)ret);
 }
 
 /**

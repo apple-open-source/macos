@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems'
 
 ##
@@ -26,6 +27,16 @@ module Gem::Text
     result.join("\n").gsub(/^/, " " * indent)
   end
 
+  def min3 a, b, c # :nodoc:
+    if a < b && a < c then
+      a
+    elsif b < c then
+      b
+    else
+      c
+    end
+  end
+
   # This code is based directly on the Text gem implementation
   # Returns a value representing the "cost" of transforming str1 into str2
   def levenshtein_distance str1, str2
@@ -33,25 +44,23 @@ module Gem::Text
     t = str2
     n = s.length
     m = t.length
-    max = n/2
 
     return m if (0 == n)
     return n if (0 == m)
-    return n if (n - m).abs > max
 
     d = (0..m).to_a
     x = nil
 
-    n.times do |i|
+    str1.each_char.each_with_index do |char1,i|
       e = i+1
 
-      m.times do |j|
-        cost = (s[i] == t[j]) ? 0 : 1
-        x = [
+      str2.each_char.each_with_index do |char2,j|
+        cost = (char1 == char2) ? 0 : 1
+        x = min3(
              d[j+1] + 1, # insertion
              e + 1,      # deletion
              d[j] + cost # substitution
-            ].min
+            )
         d[j] = e
         e = x
       end
@@ -62,4 +71,3 @@ module Gem::Text
     return x
   end
 end
-

@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!DOCTYPE doc [
+<!ELEMENT doc (c)>
+<!ELEMENT a EMPTY>
+<!ELEMENT b EMPTY>
+<!ELEMENT c EMPTY>
+]>
+<doc><a/><b/><c/></doc>

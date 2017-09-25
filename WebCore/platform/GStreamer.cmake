@@ -16,6 +16,7 @@ if (ENABLE_MEDIA_STREAM)
 
         platform/mediastream/openwebrtc/MediaEndpointOwr.cpp
         platform/mediastream/openwebrtc/OpenWebRTCUtilities.cpp
+        platform/mediastream/openwebrtc/RealtimeMediaSourceOwr.cpp
         platform/mediastream/openwebrtc/RealtimeMediaSourceCenterOwr.cpp
     )
 endif ()
@@ -130,11 +131,17 @@ if (ENABLE_WEB_AUDIO)
     )
 endif ()
 
-if (ENABLE_LEGACY_ENCRYPTED_MEDIA)
+if (ENABLE_ENCRYPTED_MEDIA)
     list(APPEND WebCore_INCLUDE_DIRECTORIES
         ${LIBGCRYPT_INCLUDE_DIRS}
     )
     list(APPEND WebCore_LIBRARIES
         ${LIBGCRYPT_LIBRARIES} -lgpg-error
+    )
+endif ()
+
+if (USE_CAIRO)
+    list(APPEND WebCore_SOURCES
+        platform/graphics/gstreamer/ImageGStreamerCairo.cpp
     )
 endif ()

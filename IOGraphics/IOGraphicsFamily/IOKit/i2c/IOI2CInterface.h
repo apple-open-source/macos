@@ -23,6 +23,9 @@
 #ifndef _IOKIT_IOI2CINTERFACE_H
 #define _IOKIT_IOI2CINTERFACE_H
 
+#include <IOKit/IOTypes.h> /* IOOptionBits */
+#include <stdint.h> /* uint32_t */
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 typedef struct IOI2CRequest IOI2CRequest;
@@ -247,7 +250,7 @@ public:
     IOReturn newUserClient( task_t              owningTask,
                             void *              security_id,
                             UInt32              type,
-                            IOUserClient **     handler );
+                            IOUserClient **     handler ) APPLE_KEXT_OVERRIDE;
 
     bool registerI2C( UInt64 id );
 

@@ -23,19 +23,17 @@
 
 #include "AllocatorAttributes.h"
 #include "DestructionMode.h"
-#include "FreeList.h"
 #include "HeapCell.h"
 #include "IterationStatus.h"
 #include "WeakSet.h"
 #include <wtf/Atomics.h>
 #include <wtf/Bitmap.h>
-#include <wtf/DataLog.h>
-#include <wtf/DoublyLinkedList.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/StdLibExtras.h>
 
 namespace JSC {
     
+class FreeList;
 class Heap;
 class JSCell;
 class MarkedAllocator;
@@ -117,21 +115,22 @@ public:
         VM* vm() const;
         WeakSet& weakSet();
             
+        enum SweepMode { SweepOnly, SweepToFreeList };
+
         // Sweeping ensures that destructors get called and removes the block from the unswept
         // set. Sweeping to free list also removes the block from the empty set, if it was in that
         // set. Sweeping with SweepOnly may add this block to the empty set, if the block is found
-        // to be empty.
+        // to be empty. The free-list being null implies SweepOnly.
         //
         // Note that you need to make sure that the empty bit reflects reality. If it's not set
         // and the block is freshly created, then we'll make the mistake of running destructors in
         // the block. If it's not set and the block has nothing marked, then we'll make the
         // mistake of making a pop freelist rather than a bump freelist.
-        enum SweepMode { SweepOnly, SweepToFreeList };
-        FreeList sweep(SweepMode = SweepOnly);
+        void sweep(FreeList*);
         
         // This is to be called by Subspace.
         template<typename DestroyFunc>
-        FreeList finishSweepKnowingSubspace(SweepMode, const DestroyFunc&);
+        void finishSweepKnowingSubspace(FreeList*, const DestroyFunc&);
         
         void unsweepWithNoNewlyAllocated();
         
@@ -147,7 +146,7 @@ public:
         // of these functions:
         void didConsumeFreeList(); // Call this once you've allocated all the items in the free list.
         void stopAllocating(const FreeList&);
-        FreeList resumeAllocating(); // Call this if you canonicalized a block for some non-collection related purpose.
+        void resumeAllocating(FreeList&); // Call this if you canonicalized a block for some non-collection related purpose.
             
         size_t cellSize();
         inline unsigned cellsPerBlock();
@@ -165,6 +164,8 @@ public:
 
         bool isLive(const HeapCell*);
         bool isLiveCell(const void*);
+
+        bool isFreeListedCell(const void* target) const;
 
         bool isNewlyAllocated(const void*);
         void setNewlyAllocated(const void*);
@@ -213,10 +214,7 @@ public:
         MarksMode marksMode();
         
         template<bool, EmptyMode, SweepMode, SweepDestructionMode, ScribbleMode, NewlyAllocatedMode, MarksMode, typename DestroyFunc>
-        FreeList specializedSweep(EmptyMode, SweepMode, SweepDestructionMode, ScribbleMode, NewlyAllocatedMode, MarksMode, const DestroyFunc&);
-        
-        template<typename Func>
-        void forEachFreeCell(const FreeList&, const Func&);
+        void specializedSweep(FreeList*, EmptyMode, SweepMode, SweepDestructionMode, ScribbleMode, NewlyAllocatedMode, MarksMode, const DestroyFunc&);
         
         void setIsFreeListed();
         
@@ -258,7 +256,8 @@ public:
     bool isMarked(const void*);
     bool isMarked(HeapVersion markingVersion, const void*);
     bool isMarkedConcurrently(HeapVersion markingVersion, const void*);
-    bool testAndSetMarked(const void*);
+    bool isMarked(const void*, Dependency);
+    bool testAndSetMarked(const void*, Dependency);
         
     bool isAtom(const void*);
     void clearMarked(const void*);
@@ -278,15 +277,15 @@ public:
 
     JS_EXPORT_PRIVATE bool areMarksStale();
     bool areMarksStale(HeapVersion markingVersion);
-    struct MarksWithDependency {
-        bool areStale;
-        ConsumeDependency dependency;
-    };
-    MarksWithDependency areMarksStaleWithDependency(HeapVersion markingVersion);
+    DependencyWith<bool> areMarksStaleWithDependency(HeapVersion markingVersion);
     
-    void aboutToMark(HeapVersion markingVersion);
+    Dependency aboutToMark(HeapVersion markingVersion);
         
-    void assertMarksNotStale();
+#if ASSERT_DISABLED
+    void assertMarksNotStale() { }
+#else
+    JS_EXPORT_PRIVATE void assertMarksNotStale();
+#endif
         
     bool needsDestruction() const { return m_needsDestruction; }
     
@@ -297,7 +296,7 @@ public:
     
     bool isMarkedRaw(const void* p);
     HeapVersion markingVersion() const { return m_markingVersion; }
-    
+
 private:
     static const size_t atomAlignmentMask = atomSize - 1;
 
@@ -306,7 +305,7 @@ private:
     MarkedBlock(VM&, Handle&);
     Atom* atoms();
         
-    void aboutToMarkSlow(HeapVersion markingVersion);
+    JS_EXPORT_PRIVATE void aboutToMarkSlow(HeapVersion markingVersion);
     void clearHasAnyMarked();
     
     void noteMarkedSlow();
@@ -491,27 +490,19 @@ inline bool MarkedBlock::areMarksStale(HeapVersion markingVersion)
     return markingVersion != m_markingVersion;
 }
 
-ALWAYS_INLINE MarkedBlock::MarksWithDependency MarkedBlock::areMarksStaleWithDependency(HeapVersion markingVersion)
+ALWAYS_INLINE DependencyWith<bool> MarkedBlock::areMarksStaleWithDependency(HeapVersion markingVersion)
 {
-    auto consumed = consumeLoad(&m_markingVersion);
-    MarksWithDependency ret;
-    ret.areStale = consumed.value != markingVersion;
-    ret.dependency = consumed.dependency;
-    return ret;
+    HeapVersion version = m_markingVersion;
+    return dependencyWith(dependency(version), version != markingVersion);
 }
 
-inline void MarkedBlock::aboutToMark(HeapVersion markingVersion)
+inline Dependency MarkedBlock::aboutToMark(HeapVersion markingVersion)
 {
-    if (UNLIKELY(areMarksStale(markingVersion)))
+    auto result = areMarksStaleWithDependency(markingVersion);
+    if (UNLIKELY(result.value))
         aboutToMarkSlow(markingVersion);
-    WTF::loadLoadFence();
+    return result.dependency;
 }
-
-#if ASSERT_DISABLED
-inline void MarkedBlock::assertMarksNotStale()
-{
-}
-#endif // ASSERT_DISABLED
 
 inline void MarkedBlock::Handle::assertMarksNotStale()
 {
@@ -530,16 +521,22 @@ inline bool MarkedBlock::isMarked(HeapVersion markingVersion, const void* p)
 
 inline bool MarkedBlock::isMarkedConcurrently(HeapVersion markingVersion, const void* p)
 {
-    auto marksWithDependency = areMarksStaleWithDependency(markingVersion);
-    if (marksWithDependency.areStale)
+    auto result = areMarksStaleWithDependency(markingVersion);
+    if (result.value)
         return false;
-    return m_marks.get(atomNumber(p) + marksWithDependency.dependency);
+    return m_marks.get(atomNumber(p), result.dependency);
 }
 
-inline bool MarkedBlock::testAndSetMarked(const void* p)
+inline bool MarkedBlock::isMarked(const void* p, Dependency dependency)
 {
     assertMarksNotStale();
-    return m_marks.concurrentTestAndSet(atomNumber(p));
+    return m_marks.get(atomNumber(p), dependency);
+}
+
+inline bool MarkedBlock::testAndSetMarked(const void* p, Dependency dependency)
+{
+    assertMarksNotStale();
+    return m_marks.concurrentTestAndSet(atomNumber(p), dependency);
 }
 
 inline bool MarkedBlock::Handle::isNewlyAllocated(const void* p)

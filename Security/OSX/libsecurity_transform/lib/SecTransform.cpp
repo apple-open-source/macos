@@ -84,6 +84,7 @@ SecGroupTransformRef SecTransformConnectTransforms(SecTransformRef sourceTransfo
 
 	if (error)
 	{
+        CFRetainSafe(temp);
 		*error = temp;
 	}
 
@@ -133,14 +134,8 @@ Boolean SecTransformSetAttribute(SecTransformRef transformRef,
 	result = (temp == NULL);
 	if (error)
 	{
-		*error = temp;
-	}
-	else
-	{
-		if (temp)
-		{
-			CFRelease(temp);
-		}
+        CFRetainSafe(temp);
+        *error = temp;
 	}
 
 	return result;
@@ -159,7 +154,9 @@ CFTypeRef SecTransformGetAttribute(SecTransformRef transformRef,
 
 	Transform* transform = (Transform*) CoreFoundationHolder::ObjectFromCFType(transformRef);
 	if (transform->mIsActive) {
-		return CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "Can not get the value of attributes during execution (attempt to fetch %@/%@)", transform->GetName(), key);
+        CFErrorRef error = CreateSecTransformErrorRef(kSecTransformTransformIsExecuting, "Can not get the value of attributes during execution (attempt to fetch %@/%@)", transform->GetName(), key);
+        CFAutorelease(error);
+		return error;
 	}
 	return transform->GetAttribute(key);
 }
@@ -190,7 +187,7 @@ static CFTypeRef InternalSecTransformExecute(SecTransformRef transformRef,
 		}
 		else
 		{
-			CFRelease(localError);
+			CFReleaseNull(localError);
 		}
 
 		return (CFTypeRef)NULL;
@@ -263,12 +260,17 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 
 			releaseTheGroup = true;
 
+#ifdef __clang_analyzer__
+            // we've already asserted that collectTransform is non-NULL, but clang doesn't know that, we skip use of it for the analyzer
+            SecGroupTransformRef connectResult = NULL;
+#else
 			SecGroupTransformRef connectResult =
 				SecTransformConnectTransforms(transformRef,
 										  kSecTransformOutputAttributeName,
 										  collectTransform,
 										  kSecTransformInputAttributeName,
 										  theGroup, errorRef);
+#endif
 
 			if (NULL == connectResult)
 			{
@@ -312,6 +314,10 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 
 		SecTransformRef outputTransform = myGroup->FindLastTransform();
 
+#ifdef __clang_analyzer__
+        // we've already asserted that collectTransform is non-NULL, but clang doesn't know that, we skip use of it for the analyzer
+        SecGroupTransformRef connectResult = NULL;
+#else
 		SecGroupTransformRef connectResult =
 		SecTransformConnectTransforms(outputTransform,
 									  kSecTransformOutputAttributeName,
@@ -321,13 +327,14 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 
 		if (NULL == connectResult)
 		{
-			CFRelease(collectTransform);
+			CFReleaseNull(collectTransform);
 			if (releaseTheGroup)
 			{
-				CFRelease(theGroup);
+				CFReleaseNull(theGroup);
 			}
 			return (CFTypeRef)NULL;
 		}
+#endif // __clang_analyzer__
 	}
 
 	__block CFTypeRef myResult = NULL;
@@ -339,13 +346,13 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 		{
 			if (NULL != errorRef)
 			{
-				CFRetain(error);
+				CFRetainSafe(error);
 				*errorRef = error;
 			}
 
 			if (NULL != myResult)
 			{
-				CFRelease(myResult);
+				CFReleaseNull(myResult);
 				myResult = NULL;
 			}
 		}
@@ -353,7 +360,7 @@ CFTypeRef SecTransformExecute(SecTransformRef transformRef, CFErrorRef* errorRef
 		if (NULL != message)
 		{
 			myResult = message;
-			CFRetain(myResult);
+			CFRetainSafe(myResult);
 		}
 
 		if (isFinal)
@@ -477,6 +484,7 @@ SecTransformRef SecTransformCreateFromExternalRepresentation(
 				*error = CreateSecTransformErrorRef(kSecTransformErrorInvalidInputDictionary,
 							"Out of memory, or damaged input dictonary (duplicate label %@?)", xName);
 			}
+            CFSafeRelease(aTransform);
 			return NULL;
 		}
 	}

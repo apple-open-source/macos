@@ -603,7 +603,7 @@ pa_srp_validate(kdc_request_t r, const PA_DATA *pa)
 	    goto out;
 	}
 
-	ccsrp_ctx *srp = (ccsrp_ctx *)_krb5_srp_create(group);
+	struct ccsrp_ctx *srp = (struct ccsrp_ctx *)_krb5_srp_create(group);
 	if (srp == NULL) {
 	    free_KRB5_SRP_PA_INIT(&ci);
 	    ret = KRB5KDC_ERR_PREAUTH_FAILED;
@@ -619,7 +619,7 @@ pa_srp_validate(kdc_request_t r, const PA_DATA *pa)
 
 	kdc_log(r->context, r->config, 0, "ccsrp server start for user: %s", username);
 
-	ret = ccsrp_server_start_authentication(srp, ccDevRandomGetRngState(),
+	ret = ccsrp_server_start_authentication(srp, ccDRBGGetRngState(),
 						username,
 						spa->param.salt.length, spa->param.salt.data,
 						spa->verifier.data, ci.a.data, sc.data);

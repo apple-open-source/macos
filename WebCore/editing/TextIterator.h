@@ -45,6 +45,7 @@ class RunResolver;
 WEBCORE_EXPORT String plainText(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
 WEBCORE_EXPORT String plainTextReplacingNoBreakSpace(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
 Ref<Range> findPlainText(const Range&, const String&, FindOptions);
+WEBCORE_EXPORT Ref<Range> findClosestPlainText(const Range&, const String&, FindOptions, unsigned);
 
 // FIXME: Move this somewhere else in the editing directory. It doesn't belong here.
 bool isRendererReplacedElement(RenderObject*);
@@ -111,7 +112,7 @@ public:
     WEBCORE_EXPORT static int rangeLength(const Range*, bool spacesForReplacedElements = false);
     WEBCORE_EXPORT static RefPtr<Range> rangeFromLocationAndLength(ContainerNode* scope, int rangeLocation, int rangeLength, bool spacesForReplacedElements = false);
     WEBCORE_EXPORT static bool getLocationAndLengthFromRange(Node* scope, const Range*, size_t& location, size_t& length);
-    WEBCORE_EXPORT static Ref<Range> subrange(Range* entireRange, int characterOffset, int characterCount);
+    WEBCORE_EXPORT static Ref<Range> subrange(Range& entireRange, int characterOffset, int characterCount);
 
 private:
     void exitNode(Node*);

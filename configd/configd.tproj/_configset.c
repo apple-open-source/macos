@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -217,6 +217,7 @@ _configset(mach_port_t			server,
 	   int				*sc_status,
 	   audit_token_t		audit_token)
 {
+#pragma unused(oldInstance)
 	CFDataRef		data		= NULL;	/* data (un-serialized) */
 	CFStringRef		key		= NULL;	/* key  (un-serialized) */
 	serverSessionRef	mySession;
@@ -252,7 +253,7 @@ _configset(mach_port_t			server,
 		}
 	}
 
-	if (!hasWriteAccess(mySession, key)) {
+	if (!hasWriteAccess(mySession, "set", key)) {
 		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
@@ -452,7 +453,7 @@ _configset_m(mach_port_t		server,
 			CFStringRef	key;
 
 			key = (CFStringRef)keys[i];
-			if (!hasWriteAccess(mySession, key)) {
+			if (!hasWriteAccess(mySession, "set (multiple)", key)) {
 				writeOK = FALSE;
 				break;
 			}
@@ -475,7 +476,7 @@ _configset_m(mach_port_t		server,
 			CFStringRef	key;
 
 			key = CFArrayGetValueAtIndex(remove, i);
-			if (!hasWriteAccess(mySession, key)) {
+			if (!hasWriteAccess(mySession, "set/remove (multiple)", key)) {
 				*sc_status = kSCStatusAccessError;
 				goto done;
 			}
@@ -490,7 +491,7 @@ _configset_m(mach_port_t		server,
 			CFStringRef	key;
 
 			key = CFArrayGetValueAtIndex(notify, i);
-			if (!hasWriteAccess(mySession, key)) {
+			if (!hasWriteAccess(mySession, "set/notify (multiple)", key)) {
 				*sc_status = kSCStatusAccessError;
 				goto done;
 			}

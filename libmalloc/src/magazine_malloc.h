@@ -40,37 +40,13 @@ scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsign
 
 MALLOC_NOINLINE __printflike(5, 6)
 void
-szone_error(szone_t *szone, int is_corruption, const char *msg, const void *ptr, const char *fmt, ...);
+szone_error(uint32_t debug_flags, int is_corruption, const char *msg, const void *ptr, const char *fmt, ...);
 
 // MARK: magazine_malloc utility functions
 
 MALLOC_NOEXPORT
 extern const
 struct malloc_introspection_t szone_introspect;
-
-MALLOC_NOEXPORT
-void *
-allocate_pages(szone_t *szone, size_t size, unsigned char align, unsigned debug_flags, int vm_page_label);
-
-MALLOC_NOEXPORT
-void *
-allocate_pages_securely(szone_t *szone, size_t size, unsigned char align, int vm_page_label);
-
-MALLOC_NOEXPORT
-void
-deallocate_pages(szone_t *szone, void *addr, size_t size, unsigned debug_flags);
-
-MALLOC_NOEXPORT
-int
-madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last);
-
-MALLOC_NOEXPORT
-int
-madvise_reuse_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t phHi);
-
-MALLOC_NOEXPORT
-void
-protect(void *address, size_t size, unsigned protection, unsigned debug_flags);
 
 MALLOC_NOEXPORT
 void
@@ -128,31 +104,31 @@ szone_valloc(szone_t *szone, size_t size);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_check_region(szone_t *szone, region_t region);
+tiny_check_region(rack_t *rack, region_t region);
 
 MALLOC_NOEXPORT
 void
-tiny_finalize_region(szone_t *szone, magazine_t *tiny_mag_ptr);
+tiny_finalize_region(rack_t *rack, magazine_t *tiny_mag_ptr);
 
 MALLOC_NOEXPORT
 int
-tiny_free_detach_region(szone_t *szone, magazine_t *tiny_mag_ptr, region_t r);
+tiny_free_detach_region(rack_t *rack, magazine_t *tiny_mag_ptr, region_t r);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_free_list_check(szone_t *szone, grain_t slot);
+tiny_free_list_check(rack_t *rack, grain_t slot);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, void *ptr, msize_t msize);
+tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, void *ptr, msize_t msize);
 
 MALLOC_NOEXPORT
 size_t
-tiny_free_reattach_region(szone_t *szone, magazine_t *tiny_mag_ptr, region_t r);
+tiny_free_reattach_region(rack_t *rack, magazine_t *tiny_mag_ptr, region_t r);
 
 MALLOC_NOEXPORT
 void
-tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
+tiny_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r);
 
 MALLOC_NOEXPORT
 kern_return_t
@@ -161,11 +137,11 @@ tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *
 
 MALLOC_NOEXPORT
 void *
-tiny_malloc_from_free_list(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
+tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
 
 MALLOC_NOEXPORT
 void *
-tiny_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_requested);
+tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requested);
 
 MALLOC_NOEXPORT
 void *
@@ -173,19 +149,23 @@ tiny_memalign(szone_t *szone, size_t alignment, size_t size, size_t span);
 
 MALLOC_NOEXPORT
 void *
-tiny_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_good_size);
+tiny_try_shrink_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_good_size);
 
 MALLOC_NOEXPORT
 boolean_t
-tiny_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_size);
+tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_size);
 
 MALLOC_NOEXPORT
 void
-free_tiny(szone_t *szone, void *ptr, region_t tiny_region, size_t known_size);
+free_tiny(rack_t *rack, void *ptr, region_t tiny_region, size_t known_size);
+
+MALLOC_NOEXPORT
+size_t
+tiny_size(rack_t *rack, const void *ptr);
 
 MALLOC_NOEXPORT
 void
-print_tiny_free_list(szone_t *szone);
+print_tiny_free_list(rack_t *rack);
 
 MALLOC_NOEXPORT
 void
@@ -195,27 +175,27 @@ print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_start, siz
 
 MALLOC_NOEXPORT
 boolean_t
-small_check_region(szone_t *szone, region_t region);
+small_check_region(rack_t *rack, region_t region);
 
 MALLOC_NOEXPORT
 void
-small_finalize_region(szone_t *szone, magazine_t *small_mag_ptr);
+small_finalize_region(rack_t *rack, magazine_t *small_mag_ptr);
 
 MALLOC_NOEXPORT
 int
-small_free_detach_region(szone_t *szone, magazine_t *small_mag_ptr, region_t r);
+small_free_detach_region(rack_t *rack, magazine_t *small_mag_ptr, region_t r);
 
 MALLOC_NOEXPORT
 boolean_t
-small_free_list_check(szone_t *szone, grain_t slot);
+small_free_list_check(rack_t *rack, grain_t slot);
 
 MALLOC_NOEXPORT
 size_t
-small_free_reattach_region(szone_t *szone, magazine_t *small_mag_ptr, region_t r);
+small_free_reattach_region(rack_t *rack, magazine_t *small_mag_ptr, region_t r);
 
 MALLOC_NOEXPORT
 void
-small_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
+small_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r);
 
 MALLOC_NOEXPORT
 kern_return_t
@@ -224,7 +204,7 @@ small_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t 
 
 MALLOC_NOEXPORT
 void *
-small_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_requested);
+small_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requested);
 
 MALLOC_NOEXPORT
 void *
@@ -232,19 +212,23 @@ small_memalign(szone_t *szone, size_t alignment, size_t size, size_t span);
 
 MALLOC_NOEXPORT
 void *
-small_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_good_size);
+small_try_shrink_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_good_size);
 
 MALLOC_NOEXPORT
 boolean_t
-small_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_size);
+small_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_size);
 
 MALLOC_NOEXPORT
 void
-free_small(szone_t *szone, void *ptr, region_t small_region, size_t known_size);
+free_small(rack_t *rack, void *ptr, region_t small_region, size_t known_size);
+
+MALLOC_NOEXPORT
+size_t
+small_size(rack_t *rack, const void *ptr);
 
 MALLOC_NOEXPORT
 void
-print_small_free_list(szone_t *szone);
+print_small_free_list(rack_t *rack);
 
 MALLOC_NOEXPORT
 void

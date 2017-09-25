@@ -1,7 +1,7 @@
+# frozen_string_literal: false
 # date.rb: Written by Tadayoshi Funaba 1998-2011
 
 require 'date_core'
-require 'date/format'
 
 class Date
 
@@ -30,11 +30,11 @@ class Date
       when Infinity; return d <=> other.d
       when Numeric; return d
       else
-	begin
-	  l, r = other.coerce(self)
-	  return l <=> r
-	rescue NoMethodError
-	end
+        begin
+          l, r = other.coerce(self)
+          return l <=> r
+        rescue NoMethodError
+        end
       end
       nil
     end
@@ -43,16 +43,16 @@ class Date
       case other
       when Numeric; return -d, d
       else
-	super
+        super
       end
     end
 
     def to_f
       return 0 if @d == 0
       if @d > 0
-	Float::INFINITY
+        Float::INFINITY
       else
-	-Float::INFINITY
+        -Float::INFINITY
       end
     end
 

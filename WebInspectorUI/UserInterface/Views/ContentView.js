@@ -54,6 +54,12 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
         if (representedObject instanceof WebInspector.Script)
             return new WebInspector.ScriptContentView(representedObject, extraArguments);
 
+        if (representedObject instanceof WebInspector.CSSStyleSheet)
+            return new WebInspector.TextResourceContentView(representedObject, extraArguments);
+
+        if (representedObject instanceof WebInspector.Canvas)
+            return new WebInspector.CanvasContentView(representedObject, extraArguments);
+
         if (representedObject instanceof WebInspector.TimelineRecording)
             return new WebInspector.TimelineRecordingContentView(representedObject, extraArguments);
 
@@ -95,6 +101,9 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
         if (representedObject instanceof WebInspector.DatabaseObject)
             return new WebInspector.DatabaseContentView(representedObject, extraArguments);
 
+        if (representedObject instanceof WebInspector.IndexedDatabase)
+            return new WebInspector.IndexedDatabaseContentView(representedObject, extraArguments);
+
         if (representedObject instanceof WebInspector.IndexedDatabaseObjectStore)
             return new WebInspector.IndexedDatabaseObjectStoreContentView(representedObject, extraArguments);
 
@@ -111,6 +120,14 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
             var resultView = new WebInspector.FrameDOMTreeContentView(WebInspector.frameResourceManager.mainFrame.domTree, extraArguments);
             resultView.restoreFromCookie({nodeToSelect: representedObject.domNode});
             return resultView;
+        }
+
+        if (representedObject instanceof WebInspector.DOMNode) {
+            if (representedObject.frame) {
+                let resultView = WebInspector.ContentView.createFromRepresentedObject(representedObject.frame, extraArguments);
+                resultView.restoreFromCookie({nodeToSelect: representedObject});
+                return resultView;
+            }
         }
 
         if (representedObject instanceof WebInspector.SourceCodeSearchMatchObject) {
@@ -196,6 +213,16 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
                 return representedObject.sourceCodeLocation.displaySourceCode;
         }
 
+        if (representedObject instanceof WebInspector.DOMBreakpoint) {
+            if (representedObject.domNode)
+                return WebInspector.ContentView.resolvedRepresentedObjectForRepresentedObject(representedObject.domNode);
+        }
+
+        if (representedObject instanceof WebInspector.DOMNode) {
+            if (representedObject.frame)
+                return WebInspector.ContentView.resolvedRepresentedObjectForRepresentedObject(representedObject.frame);
+        }
+
         if (representedObject instanceof WebInspector.DOMSearchMatchObject)
             return WebInspector.frameResourceManager.mainFrame.domTree;
 
@@ -213,6 +240,10 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
             return true;
         if (representedObject instanceof WebInspector.Script)
             return true;
+        if (representedObject instanceof WebInspector.CSSStyleSheet)
+            return true;
+        if (representedObject instanceof WebInspector.Canvas)
+            return true;
         if (representedObject instanceof WebInspector.TimelineRecording)
             return true;
         if (representedObject instanceof WebInspector.Timeline)
@@ -226,6 +257,8 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
         if (representedObject instanceof WebInspector.DatabaseTableObject)
             return true;
         if (representedObject instanceof WebInspector.DatabaseObject)
+            return true;
+        if (representedObject instanceof WebInspector.IndexedDatabase)
             return true;
         if (representedObject instanceof WebInspector.IndexedDatabaseObjectStore)
             return true;
@@ -310,7 +343,7 @@ WebInspector.ContentView = class ContentView extends WebInspector.View
     get supportsSplitContentBrowser()
     {
         // Implemented by subclasses.
-        return true;
+        return WebInspector.dockedConfigurationSupportsSplitContentBrowser();
     }
 
     shown()

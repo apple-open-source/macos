@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SecurityOriginData.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/BlockPtr.h>
 
 namespace WebKit {
 
@@ -74,9 +75,7 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
 #endif
     m_diskCacheDirectory = parameters.diskCacheDirectory;
 
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     _CFNetworkSetATSContext(parameters.networkATSContext.get());
-#endif
 
     SessionTracker::setIdentifierBase(parameters.uiProcessBundleIdentifier);
 
@@ -84,6 +83,7 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
     NetworkSessionCocoa::setSourceApplicationAuditTokenData(sourceApplicationAuditData());
     NetworkSessionCocoa::setSourceApplicationBundleIdentifier(parameters.sourceApplicationBundleIdentifier);
     NetworkSessionCocoa::setSourceApplicationSecondaryIdentifier(parameters.sourceApplicationSecondaryIdentifier);
+    NetworkSessionCocoa::setAllowsCellularAccess(parameters.allowsCellularAccess);
 #if PLATFORM(IOS)
     NetworkSessionCocoa::setCTDataConnectionServiceType(parameters.ctDataConnectionServiceType);
 #endif
@@ -91,7 +91,7 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
 
     initializeNetworkSettings();
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+#if PLATFORM(MAC)
     setSharedHTTPCookieStorage(parameters.uiProcessCookieStorageIdentifier);
 #endif
 
@@ -108,13 +108,16 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
         SandboxExtension::consumePermanently(parameters.diskCacheDirectoryExtensionHandle);
 #if ENABLE(NETWORK_CACHE)
         if (parameters.shouldEnableNetworkCache) {
-            NetworkCache::Cache::Parameters cacheParameters = {
-                parameters.shouldEnableNetworkCacheEfficacyLogging
+            OptionSet<NetworkCache::Cache::Option> cacheOptions;
+            if (parameters.shouldEnableNetworkCacheEfficacyLogging)
+                cacheOptions |= NetworkCache::Cache::Option::EfficacyLogging;
+            if (parameters.shouldUseTestingNetworkSession)
+                cacheOptions |= NetworkCache::Cache::Option::TestingMode;
 #if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-                , parameters.shouldEnableNetworkCacheSpeculativeRevalidation
+            if (parameters.shouldEnableNetworkCacheSpeculativeRevalidation)
+                cacheOptions |= NetworkCache::Cache::Option::SpeculativeRevalidation;
 #endif
-            };
-            if (NetworkCache::singleton().initialize(m_diskCacheDirectory, cacheParameters)) {
+            if (NetworkCache::singleton().initialize(m_diskCacheDirectory, cacheOptions)) {
                 auto urlCache(adoptNS([[NSURLCache alloc] initWithMemoryCapacity:0 diskCapacity:0 diskPath:nil]));
                 [NSURLCache setSharedURLCache:urlCache.get()];
                 return;
@@ -163,42 +166,50 @@ void NetworkProcess::clearHSTSCache(WebCore::NetworkStorageSession& session, std
     _CFNetworkResetHSTSHostsSinceDate(session.platformSession(), (__bridge CFDateRef)date);
 }
 
-static void clearNSURLCache(dispatch_group_t group, std::chrono::system_clock::time_point modifiedSince, const std::function<void ()>& completionHandler)
+static void clearNSURLCache(dispatch_group_t group, std::chrono::system_clock::time_point modifiedSince, Function<void ()>&& completionHandler)
 {
-    dispatch_group_async(group, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [modifiedSince, completionHandler] {
+    dispatch_group_async(group, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), BlockPtr<void()>::fromCallable([modifiedSince, completionHandler = WTFMove(completionHandler)] () mutable {
         NSURLCache *cache = [NSURLCache sharedURLCache];
 
         NSTimeInterval timeInterval = std::chrono::duration_cast<std::chrono::duration<double>>(modifiedSince.time_since_epoch()).count();
         NSDate *date = [NSDate dateWithTimeIntervalSince1970:timeInterval];
         [cache removeCachedResponsesSinceDate:date];
 
-        dispatch_async(dispatch_get_main_queue(), [completionHandler] {
+        dispatch_async(dispatch_get_main_queue(), BlockPtr<void()>::fromCallable([completionHandler = WTFMove(completionHandler)] {
             completionHandler();
-        });
-    });
+        }).get());
+    }).get());
 }
 
-void NetworkProcess::clearDiskCache(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler)
+void NetworkProcess::clearDiskCache(std::chrono::system_clock::time_point modifiedSince, Function<void ()>&& completionHandler)
 {
     if (!m_clearCacheDispatchGroup)
         m_clearCacheDispatchGroup = dispatch_group_create();
 
 #if ENABLE(NETWORK_CACHE)
     auto group = m_clearCacheDispatchGroup;
-    dispatch_group_async(group, dispatch_get_main_queue(), [group, modifiedSince, completionHandler] {
-        NetworkCache::singleton().clear(modifiedSince, [group, modifiedSince, completionHandler] {
+    dispatch_group_async(group, dispatch_get_main_queue(), BlockPtr<void()>::fromCallable([group, modifiedSince, completionHandler = WTFMove(completionHandler)] () mutable {
+        NetworkCache::singleton().clear(modifiedSince, [group, modifiedSince, completionHandler = WTFMove(completionHandler)] () mutable {
             // FIXME: Probably not necessary.
-            clearNSURLCache(group, modifiedSince, completionHandler);
+            clearNSURLCache(group, modifiedSince, WTFMove(completionHandler));
         });
-    });
+    }).get());
 #else
-    clearNSURLCache(m_clearCacheDispatchGroup, modifiedSince, completionHandler);
+    clearNSURLCache(m_clearCacheDispatchGroup, modifiedSince, WTFMove(completionHandler));
 #endif
 }
 
 void NetworkProcess::setCookieStoragePartitioningEnabled(bool enabled)
 {
     WebCore::NetworkStorageSession::setCookieStoragePartitioningEnabled(enabled);
+}
+
+void NetworkProcess::syncAllCookies()
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    _CFHTTPCookieStorageFlushCookieStores();
+#pragma clang diagnostic pop
 }
 
 }

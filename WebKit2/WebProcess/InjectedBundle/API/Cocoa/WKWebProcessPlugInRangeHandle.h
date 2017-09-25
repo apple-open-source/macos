@@ -29,15 +29,21 @@
 
 #import <Foundation/Foundation.h>
 #import <JavaScriptCore/JavaScriptCore.h>
+#import <WebKit/WKDataDetectorTypes.h>
 
 @class WKWebProcessPlugInFrame;
 
-WK_CLASS_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA))
+WK_CLASS_AVAILABLE(macosx(10.12.3), ios(10.3))
 @interface WKWebProcessPlugInRangeHandle : NSObject
 
 + (WKWebProcessPlugInRangeHandle *)rangeHandleWithJSValue:(JSValue *)value inContext:(JSContext *)context;
 
 @property (nonatomic, readonly) WKWebProcessPlugInFrame *frame;
+@property (nonatomic, readonly, copy) NSString *text WK_API_AVAILABLE(macosx(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+#if TARGET_OS_IPHONE
+- (NSArray *)detectDataWithTypes:(WKDataDetectorTypes)types context:(NSDictionary *)context WK_API_AVAILABLE(ios(WK_IOS_TBA));
+#endif
 
 @end
 

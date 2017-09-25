@@ -1,6 +1,7 @@
+# frozen_string_literal: false
 require "cgi"
 
-require "rss-testcase"
+require_relative "rss-testcase"
 
 require "rss/1.0"
 require "rss/2.0"

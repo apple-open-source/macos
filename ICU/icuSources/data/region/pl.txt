@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/pl.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 pl{
     Countries{
         001{"świat"}
@@ -66,7 +60,7 @@ pl{
         BJ{"Benin"}
         BL{"Saint-Barthélemy"}
         BM{"Bermudy"}
-        BN{"Brunei Darussalam"}
+        BN{"Brunei"}
         BO{"Boliwia"}
         BQ{"Niderlandy Karaibskie"}
         BR{"Brazylia"}
@@ -137,7 +131,7 @@ pl{
         GU{"Guam"}
         GW{"Gwinea Bissau"}
         GY{"Gujana"}
-        HK{"SRA Hongkong (Chiny)"}
+        HK{"Hongkong (Chiny)"}
         HM{"Wyspy Heard i McDonalda"}
         HN{"Honduras"}
         HR{"Chorwacja"}
@@ -191,7 +185,7 @@ pl{
         ML{"Mali"}
         MM{"Mjanma (Birma)"}
         MN{"Mongolia"}
-        MO{"SRA Makau (Chiny)"}
+        MO{"Makau (Chiny)"}
         MP{"Mariany Północne"}
         MQ{"Martynika"}
         MR{"Mauretania"}
@@ -278,6 +272,7 @@ pl{
         UA{"Ukraina"}
         UG{"Uganda"}
         UM{"Dalekie Wyspy Stanów Zjednoczonych"}
+        UN{"Organizacja Narodów Zjednoczonych"}
         US{"Stany Zjednoczone"}
         UY{"Urugwaj"}
         UZ{"Uzbekistan"}
@@ -299,17 +294,20 @@ pl{
         ZZ{"Nieznany region"}
     }
     Countries%short{
-        GB{"GB"}
+        GB{"Wlk. Bryt."}
         HK{"Hongkong"}
         MO{"Makau"}
         PS{"Palestyna"}
+        UN{"ONZ"}
         US{"USA"}
     }
     Countries%variant{
         CG{"Republika Konga"}
         CI{"Wybrzeże Kości Słoniowej"}
+        CZ{"Republika Czeska"}
         FK{"Falklandy (Malwiny)"}
+        MK{"Była Jugosłowiańska Republika Macedonii"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
 }

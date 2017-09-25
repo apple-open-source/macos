@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -41,6 +41,13 @@
 #  ifdef HAVE_BSTRING_H
 #    include <bstring.h>
 #  endif /* HAVE_BSTRING_H */
+
+#  if defined(WIN32) && !defined(__CUPS_SSIZE_T_DEFINED)
+#    define __CUPS_SSIZE_T_DEFINED
+#    include <stddef.h>
+/* Windows does not support the ssize_t type, so map it to long... */
+typedef long ssize_t;			/* @private@ */
+#  endif /* WIN32 && !__CUPS_SSIZE_T_DEFINED */
 
 
 /*

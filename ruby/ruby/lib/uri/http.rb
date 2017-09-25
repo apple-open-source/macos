@@ -1,8 +1,9 @@
+# frozen_string_literal: false
 # = uri/http.rb
 #
 # Author:: Akira Yamada <akira@ruby-lang.org>
 # License:: You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: http.rb 37472 2012-11-05 01:19:09Z zzak $
+# Revision:: $Id: http.rb 54550 2016-04-12 05:27:20Z naruse $
 #
 # See URI for general documentation
 #
@@ -62,6 +63,7 @@ module URI
       return super(tmp)
     end
 
+=begin
     #
     # == Description
     #
@@ -74,8 +76,8 @@ module URI
     #
     # Example:
     #
-    #     uri = URI::HTTP.new('http', nil, "www.example.com", nil, "/path",
-    #       "query", 'fragment')
+    #     uri = URI::HTTP.new("http", nil, "www.example.com", nil, nil,
+    #                         "/path", nil, "query", "fragment")
     #
     #
     # See also URI::Generic.new
@@ -83,6 +85,7 @@ module URI
     def initialize(*arg)
       super(*arg)
     end
+=end
 
     #
     # == Description
@@ -93,12 +96,12 @@ module URI
     # Otherwise, the path is simply URI#path.
     #
     def request_uri
-      r = path_query
-      if r && r[0] != ?/
-        r = '/' + r
+      return nil unless @path
+      if @path.start_with?(?/.freeze)
+        @query ? "#@path?#@query" : @path.dup
+      else
+        @query ? "/#@path?#@query" : "/#@path"
       end
-
-      r
     end
   end
 

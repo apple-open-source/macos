@@ -219,6 +219,7 @@ writeFatFileWithValidation(
         /* check to make sure our target path has not changed */
         if (isSameFileDevAndIno(to_dir_fd,
                                 to_base_name_ptr,
+                                false, /* don't follow symlinks */
                                 file_dev_t,
                                 file_ino_t) == FALSE) {
             OSKextLog(/* kext */ NULL,

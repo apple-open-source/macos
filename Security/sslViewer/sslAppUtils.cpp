@@ -295,7 +295,7 @@ const char *sslGetSSLErrString(OSStatus err)
 		case errSSLPeerInternalError:
 			return "errSSLPeerInternalError";
 		case errSSLPeerUserCancelled:
-			return "errSSLPeerUserCancelled";
+			return "errSSLPeerUserCanceled";
 		case errSSLPeerNoRenegotiation:
 			return "errSSLPeerNoRenegotiation";
 		case errSSLHostNameMismatch:

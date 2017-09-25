@@ -27,7 +27,8 @@ main(int argc, char **argv)
 {
     xmlDocPtr doc = NULL;       /* document pointer */
     xmlNodePtr root_node = NULL, node = NULL, node1 = NULL;/* node pointers */
-    char buff[256];
+    const size_t buffLength = 256;
+    char buff[buffLength];
     int i, j;
 
     LIBXML_TEST_VERSION;
@@ -80,10 +81,10 @@ main(int argc, char **argv)
      * A simple loop that "automates" nodes creation 
      */
     for (i = 5; i < 7; i++) {
-        sprintf(buff, "node%d", i);
+        snprintf(buff, buffLength, "node%d", i);
         node = xmlNewChild(root_node, NULL, BAD_CAST buff, NULL);
         for (j = 1; j < 4; j++) {
-            sprintf(buff, "node%d%d", i, j);
+            snprintf(buff, buffLength, "node%d%d", i, j);
             node1 = xmlNewChild(node, NULL, BAD_CAST buff, NULL);
             xmlNewProp(node1, BAD_CAST "odd", BAD_CAST((j % 2) ? "no" : "yes"));
         }

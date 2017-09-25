@@ -47,104 +47,111 @@
 #include "bless_private.h"
 
 
-int BLCreateFile(BLContextPtr context, const CFDataRef data,
-                 const char * file, int setImmutable,
-				 uint32_t type, uint32_t creator) {
-
-
+int BLCreateFileWithOptions(BLContextPtr context, const CFDataRef data,
+                            const char * file, int setImmutable,
+                            uint32_t type, uint32_t creator, int shouldPreallocate)
+{
     int err;
     int mainfd;
-	struct stat sb;
+    struct stat sb;
     const char *rsrcpath = file;
-
-	
-	err = lstat(rsrcpath, &sb);
-	if(err == 0) {
-		if(!S_ISREG(sb.st_mode)) {
-			contextprintf(context, kBLLogLevelError, "%s is not a regular file\n",
-						  rsrcpath);					
-			return 1;
-		}
-		
-		if(sb.st_flags & UF_IMMUTABLE) {
-			uint32_t newflags = sb.st_flags & ~UF_IMMUTABLE;
-
-			contextprintf(context, kBLLogLevelVerbose, "Removing UF_IMMUTABLE from %s\n",
-						  rsrcpath);					
-			err = chflags(rsrcpath, newflags);
-			if(err) {
-				contextprintf(context, kBLLogLevelError, 
-							  "Can't remove UF_IMMUTABLE from %s: %s\n", rsrcpath,
-							  strerror(errno));		
-				return 1;				
-			}
-			
-		}
-		
-		
-		contextprintf(context, kBLLogLevelVerbose, "Deleting old %s\n",
-					  rsrcpath);					
-		err = unlink(rsrcpath);
-		if(err) {
-			contextprintf(context, kBLLogLevelError, 
-						  "Can't delete %s: %s\n", rsrcpath,
-						  strerror(errno));		
-			return 1;				
-		}
-		
-	} else if(errno != ENOENT) {
-		contextprintf(context, kBLLogLevelError,  "Can't access %s: %s\n", rsrcpath,
-					  strerror(errno));		
-		return 1;
-	} else {
-		// ENOENT is OK, we'll create the file now
-	}
-	
+    
+    err = lstat(rsrcpath, &sb);
+    if(err == 0) {
+        if(!S_ISREG(sb.st_mode)) {
+            contextprintf(context, kBLLogLevelError, "%s is not a regular file\n",
+                          rsrcpath);
+            return 1;
+        }
+        
+        if(sb.st_flags & UF_IMMUTABLE) {
+            uint32_t newflags = sb.st_flags & ~UF_IMMUTABLE;
+            
+            contextprintf(context, kBLLogLevelVerbose, "Removing UF_IMMUTABLE from %s\n",
+                          rsrcpath);
+            err = chflags(rsrcpath, newflags);
+            if(err) {
+                contextprintf(context, kBLLogLevelError,
+                              "Can't remove UF_IMMUTABLE from %s: %s\n", rsrcpath,
+                              strerror(errno));
+                return 1;
+            }
+            
+        }
+        
+        
+        contextprintf(context, kBLLogLevelVerbose, "Deleting old %s\n",
+                      rsrcpath);
+        err = unlink(rsrcpath);
+        if(err) {
+            contextprintf(context, kBLLogLevelError,
+                          "Can't delete %s: %s\n", rsrcpath,
+                          strerror(errno));
+            return 1;
+        }
+        
+    } else if(errno != ENOENT) {
+        contextprintf(context, kBLLogLevelError,  "Can't access %s: %s\n", rsrcpath,
+                      strerror(errno));
+        return 1;
+    } else {
+        // ENOENT is OK, we'll create the file now
+    }
+    
     mainfd = open(rsrcpath, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
     if(mainfd < 0) {
-      contextprintf(context, kBLLogLevelError,  "Could not touch %s\n", rsrcpath );
-      return 2;
+        contextprintf(context, kBLLogLevelError,  "Could not touch %s\n", rsrcpath );
+        return 2;
     }
     close(mainfd);
     
     if(data != NULL) {
-        err = BLCopyFileFromCFData(context, data, rsrcpath, 1);
+        err = BLCopyFileFromCFData(context, data, rsrcpath, shouldPreallocate);
         if(err) return 3;
     }
-
-	if (type || creator) {
-		err = BLSetTypeAndCreator(context, rsrcpath, type, creator);
-		if(err) {
-			contextprintf(context, kBLLogLevelError,
-						  "Error while setting type/creator for %s\n", rsrcpath );
-			return 4;
-		} else {
-			char printType[5], printCreator[5];
-			
-			contextprintf(context, kBLLogLevelVerbose, "Type/creator set to %4.4s/%4.4s for %s\n",
-						  blostype2string(type, printType),
-						  blostype2string(creator, printCreator), rsrcpath );
-		}
-	}
-	
-	if(setImmutable) {
-		contextprintf(context, kBLLogLevelVerbose, "Setting UF_IMMUTABLE on %s\n",
-					  rsrcpath);
-		err = stat(rsrcpath, &sb);
-		if(err) {
-			contextprintf(context, kBLLogLevelError, 
-						  "Can't stat %s: %s\n", rsrcpath,
-						  strerror(errno));
-			return 6;
-		}
-		err = chflags(rsrcpath, sb.st_flags | UF_IMMUTABLE);
-		if(err && errno != ENOTSUP) {
-			contextprintf(context, kBLLogLevelError, 
-						  "Can't set UF_IMMUTABLE on %s: %s\n", rsrcpath,
-						  strerror(errno));		
-			return 5;				
-		}
-	}
-	
+    
+    if (type || creator) {
+        err = BLSetTypeAndCreator(context, rsrcpath, type, creator);
+        if(err) {
+            contextprintf(context, kBLLogLevelError,
+                          "Error while setting type/creator for %s\n", rsrcpath );
+            return 4;
+        } else {
+            char printType[5], printCreator[5];
+            
+            contextprintf(context, kBLLogLevelVerbose, "Type/creator set to %4.4s/%4.4s for %s\n",
+                          blostype2string(type, printType),
+                          blostype2string(creator, printCreator), rsrcpath );
+        }
+    }
+    
+    if(setImmutable) {
+        contextprintf(context, kBLLogLevelVerbose, "Setting UF_IMMUTABLE on %s\n",
+                      rsrcpath);
+        err = stat(rsrcpath, &sb);
+        if(err) {
+            contextprintf(context, kBLLogLevelError,
+                          "Can't stat %s: %s\n", rsrcpath,
+                          strerror(errno));
+            return 6;
+        }
+        err = chflags(rsrcpath, sb.st_flags | UF_IMMUTABLE);
+        if(err && errno != ENOTSUP) {
+            contextprintf(context, kBLLogLevelError,
+                          "Can't set UF_IMMUTABLE on %s: %s\n", rsrcpath,
+                          strerror(errno));
+            return 5;
+        }
+    }
+    
     return 0;
+}
+
+
+
+int BLCreateFile(BLContextPtr context, const CFDataRef data,
+                 const char * file, int setImmutable,
+                 uint32_t type, uint32_t creator)
+{
+    return BLCreateFileWithOptions(context, data, file, setImmutable, type, creator, kMustPreallocate);
 }

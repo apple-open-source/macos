@@ -582,3 +582,107 @@
 >1 OK
 >2 OK
 >3 OK
+
+  [[ foo = 'f'\o"o" ]]
+0:Stripping of quotes from patterns (1)
+
+  [[ foo = 'f'('o'|'a')('o'|'b') ]]
+0:Stripping of quotes from patterns (2)
+
+  [[ fob = 'f'('o'|'a')('o'|'b') ]]
+0:Stripping of quotes from patterns (3)
+
+  [[ fab = 'f'('o'|'a')('o'|'b') ]]
+0:Stripping of quotes from patterns (4)
+
+  [[ fib != 'f'('o'|'a')('o'|'b') ]]
+0:Stripping of quotes from patterns (4)
+
+  [[ - != [a-z] ]]
+0:- is a special character in ranges
+
+  [[ - = ['a-z'] ]]
+0:- is not a special character in ranges if quoted
+
+  [[ b-1 = [a-z]-[0-9] ]]
+0:- untokenized following a bracketed subexpression
+
+  [[ b-1 = []a-z]-[]0-9] ]]
+0:- "]" after "[" is normal range character and - still works
+
+  headremove="bcdef"
+  print ${headremove#[a-z]}
+0:active - works in pattern in parameter
+>cdef
+
+  headremove="bcdef"
+  print ${headremove#['a-z']}
+  headremove="-cdef"
+  print ${headremove#['a-z']}
+0:quoted - works in pattern in parameter
+>bcdef
+>cdef
+
+  [[ a != [^a] ]]
+0:^ active in character class if not quoted
+
+  [[ a = ['^a'] ]]
+0:^ not active in character class if quoted
+
+  [[ a != [!a] ]]
+0:! active in character class if not quoted
+
+  [[ a = ['!a'] ]]
+0:! not active in character class if quoted
+
+  # Actually, we don't need the quoting here,
+  # c.f. the next test.  This just makes it look
+  # more standard.
+  cset="^a-z"
+  [[ "^" = ["$cset"] ]] || print Fail 1
+  [[ "a" = ["$cset"] ]] || print Fail 2
+  [[ "-" = ["$cset"] ]] || print Fail 3
+  [[ "z" = ["$cset"] ]] || print Fail 4
+  [[ "1" != ["$cset"] ]] || print Fail 5
+  [[ "b" != ["$cset"] ]] || print Fail 6
+0:character set specified as quoted variable
+
+  cset="^a-z"
+  [[ "^" = [$~cset] ]] || print Fail 1
+  [[ "a" != [$~cset] ]] || print Fail 2
+  [[ "-" = [$~cset] ]] || print Fail 3
+  [[ "z" != [$~cset] ]] || print Fail 4
+  [[ "1" = [$~cset] ]] || print Fail 5
+  [[ "b" != [$~cset] ]] || print Fail 6
+0:character set specified as active variable
+
+ () { print -l -- $@:a } / /..{,/} /1 /nonexistent/..{,/} /deeper/nonexistent/..{,/}
+0:modifier ':a' doesn't require existence
+>/
+>/
+>/
+>/1
+>/
+>/
+>/deeper
+>/deeper
+
+ () { set -- ${PWD}/$^@; print -l -- $@:A } glob.tmp/nonexistent/foo/bar/baz
+0:modifier ':A' doesn't require existence
+*>*/glob.tmp/nonexistent/foo/bar/baz
+
+ ln -s dir3/subdir glob.tmp/link
+ () {
+   print ${1:A} | grep glob.tmp
+ } glob.tmp/link/../../hello
+ rm glob.tmp/link
+0:modifier ':A' resolves '..' components before symlinks
+# There should be no output
+
+ ln -s dir3/subdir glob.tmp/link
+ () {
+   print ${1:P}
+ } glob.tmp/link/../../hello/world
+ rm glob.tmp/link
+0:modifier ':P' resolves symlinks before '..' components
+*>*glob.tmp/hello/world

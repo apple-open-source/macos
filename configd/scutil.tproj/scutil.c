@@ -391,6 +391,7 @@ usage(const char *command)
 static char *
 prompt(EditLine *el)
 {
+#pragma unused(el)
 #if	!TARGET_OS_SIMULATOR
 	return "> ";
 #else	// !TARGET_OS_SIMULATOR
@@ -431,7 +432,7 @@ main(int argc, char * const argv[])
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "dDvprt:w:W", longopts, &opti)) != -1)
+	while ((opt = getopt_long(argc, argv, "dDvprt:w:W", longopts, &opti)) != -1) {
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
@@ -518,6 +519,8 @@ main(int argc, char * const argv[])
 		default :
 			usage(prog);
 		}
+	}
+
 	argc -= optind;
 	argv += optind;
 
@@ -565,11 +568,7 @@ main(int argc, char * const argv[])
 	}
 
 	if (doSnap) {
-		if (!enablePrivateAPI
-#if	!TARGET_OS_SIMULATOR
-		    || (geteuid() != 0)
-#endif	// !TARGET_OS_SIMULATOR
-		   ) {
+		if (!enablePrivateAPI) {
 			usage(prog);
 		}
 

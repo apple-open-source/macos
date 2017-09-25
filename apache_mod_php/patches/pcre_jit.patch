@@ -1,0 +1,15 @@
+--- php/ext/pcre/php_pcre.c.orig	2016-12-20 14:14:44.000000000 -0800
++++ php/ext/pcre/php_pcre.c	2016-12-20 14:15:35.000000000 -0800
+@@ -109,9 +109,11 @@
+ 	pcre_cache_entry *pce = (pcre_cache_entry *) Z_PTR_P(data);
+ 	if (!pce) return;
+ 	pcre_free(pce->re);
++#ifdef HAVE_PCRE_JIT_SUPPORT
+ 	if (pce->extra) {
+ 		pcre_free_study(pce->extra);
+ 	}
++#endif
+ #if HAVE_SETLOCALE
+ 	if ((void*)pce->tables) pefree((void*)pce->tables, 1);
+ #endif
+

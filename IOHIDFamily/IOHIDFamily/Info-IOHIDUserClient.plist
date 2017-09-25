@@ -7,7 +7,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOHIDUserClient</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -80,12 +80,12 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOHIDFamily</key>
 		<string>1.5</string>
-		<key>com.apple.kpi.private</key>
-		<string>8.0.0</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0.0b2</string>
 		<key>com.apple.kpi.iokit</key>
@@ -94,10 +94,10 @@
 		<string>8.0.0b2</string>
 		<key>com.apple.kpi.mach</key>
 		<string>8.0.0b2</string>
+		<key>com.apple.kpi.private</key>
+		<string>8.0.0</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0b2</string>
 	</dict>
-	<key>NSHumanReadableCopyright</key>
-	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
 </dict>
 </plist>

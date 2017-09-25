@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
 *
@@ -27,6 +29,7 @@
  * \brief C++ API: String Character Iterator
  */
  
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 /**
  * A concrete subclass of CharacterIterator that iterates over the
@@ -173,7 +176,7 @@ protected:
    * @param newTextLength The length of the String
    * @stable ICU 2.0
    */
-  void setText(const UChar* newText, int32_t newTextLength);
+  void setText(const char16_t* newText, int32_t newTextLength);
 
   /**
    * Copy of the iterated string object.
@@ -184,4 +187,6 @@ protected:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
+
 #endif

@@ -25,6 +25,7 @@
 			buildPhases = (
 				596ED7400FD5A79F00CCB493 /* rsyncd.conf */,
 				596ED75B0FD5A86300CCB493 /* SysLibLD rsync.plist */,
+				2B4EC75D1ED372B100EA5042 /* enable all interfaces & ipv6 on bridgeOS */,
 				596ED7740FD5A9AB00CCB493 /* plutil & chmod */,
 			);
 			dependencies = (
@@ -698,6 +699,21 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2B4EC75D1ED372B100EA5042 /* enable all interfaces & ipv6 on bridgeOS */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "enable all interfaces & ipv6 on bridgeOS";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -xe\n# rdar:32306632\nif [ \"${RC_PLATFORM_NAME}\" == \"BridgeOS\" ]; then\n/usr/libexec/PlistBuddy -x \\\n    -c \"Delete :Sockets:Listeners:SockNodeName\" \\\n    -c \"Delete :Sockets:Listeners:SockFamily\" \\\n    ${DSTROOT}/System/Library/LaunchDaemons/rsync.plist\nfi";
+			showEnvVarsInLog = 0;
+		};
 		596ED6E20FD5A02900CCB493 /* gzip & chown */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;

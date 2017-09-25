@@ -100,7 +100,6 @@ javaScriptRuntimeFlags type=JSC::RuntimeFlags
 downloadableBinaryFontsEnabled initial=true
 
 xssAuditorEnabled initial=false
-unsafePluginPastingEnabled initial=true
 acceleratedCompositingForFixedPositionEnabled initial=defaultAcceleratedCompositingForFixedPositionEnabled
 acceleratedCompositingForOverflowScrollEnabled initial=false
 rubberBandingForSubScrollableRegionsEnabled initial=true, conditional=RUBBER_BANDING
@@ -108,11 +107,9 @@ rubberBandingForSubScrollableRegionsEnabled initial=true, conditional=RUBBER_BAN
 experimentalNotificationsEnabled initial=false
 webGLEnabled initial=false
 webGLErrorsToConsoleEnabled initial=true
-openGLMultisamplingEnabled initial=true
 forceSoftwareWebGLRendering initial=false
 forceWebGLUsesLowPower initial=false
 accelerated2dCanvasEnabled initial=false
-antialiased2dCanvasEnabled initial=true
 loadDeferringEnabled initial=true
 webAudioEnabled initial=false
 paginateDuringLayoutEnabled initial=false
@@ -134,6 +131,7 @@ requiresUserGestureToLoadVideo initial=defaultRequiresUserGestureToLoadVideo
 videoPlaybackRequiresUserGesture initial=defaultVideoPlaybackRequiresUserGesture
 audioPlaybackRequiresUserGesture initial=defaultAudioPlaybackRequiresUserGesture
 mainContentUserGestureOverrideEnabled initial=false
+mediaUserGestureInheritsFromDocument initial=false
 allowsInlineMediaPlayback initial=defaultAllowsInlineMediaPlayback
 allowsInlineMediaPlaybackAfterFullscreen initial=true
 inlineMediaPlaybackRequiresPlaysInlineAttribute initial=defaultInlineMediaPlaybackRequiresPlaysInlineAttribute
@@ -161,8 +159,6 @@ imageSubsamplingEnabled initial=defaultImageSubsamplingEnabled
 wantsBalancedSetDefersLoadingBehavior initial=false
 requestAnimationFrameEnabled initial=true
 
-fixedPositionCreatesStackingContext initial=defaultFixedPositionCreatesStackingContext
-syncXHRInDocumentsEnabled initial=true
 cookieEnabled initial=true
 mediaEnabled initial=true
 DOMPasteAllowed initial=false
@@ -179,9 +175,9 @@ snapshotAllPlugIns initial=false
 autostartOriginPlugInSnapshottingEnabled initial=true
 primaryPlugInSnapshotDetectionEnabled initial=true
 maximumPlugInSnapshotAttempts type=unsigned, initial=20
-frameFlatteningEnabled initial=false
+frameFlattening type=FrameFlattening, initial=FrameFlatteningDisabled
+asyncFrameScrollingEnabled initial=false
 
-allowCustomScrollbarInMainFrame initial=true
 webSecurityEnabled initial=true
 spatialNavigationEnabled initial=false
 
@@ -199,7 +195,6 @@ defaultVideoPosterURL type=String
 smartInsertDeleteEnabled initial=defaultSmartInsertDeleteEnabled
 selectTrailingWhitespaceEnabled initial=defaultSelectTrailingWhitespaceEnabled
 
-selectionIncludesAltImageText initial=true
 useLegacyBackgroundSizeShorthandBehavior initial=false
 fixedBackgroundsPaintRelativeToDocument initial=defaultFixedBackgroundsPaintRelativeToDocument
 
@@ -207,6 +202,7 @@ textAutosizingEnabled initial=defaultTextAutosizingEnabled(), setNeedsStyleRecal
 textAutosizingWindowSizeOverride type=IntSize, setNeedsStyleRecalcInAllFrames=1, conditional=TEXT_AUTOSIZING
 minimumZoomFontSize type=float, initial=defaultMinimumZoomFontSize(), conditional=TEXT_AUTOSIZING
 
+subpixelAntialiasedLayerTextEnabled initial=false, setNeedsStyleRecalcInAllFrames=1
 simpleLineLayoutEnabled initial=true, setNeedsStyleRecalcInAllFrames=1
 simpleLineLayoutDebugBordersEnabled initial=false, setNeedsStyleRecalcInAllFrames=1
 
@@ -220,6 +216,7 @@ mediaSourceEnabled initial=true, conditional=MEDIA_SOURCE
 allowMultiElementImplicitSubmission initial=false
 
 allowsAirPlayForMediaPlayback initial=true, conditional=WIRELESS_PLAYBACK_TARGET
+mediaDocumentEntersFullscreenAutomatically initial=false
 
 shouldConvertPositionStyleOnCopy initial=false
 
@@ -227,8 +224,6 @@ maxParseDuration type=double, initial=-1
 standalone initial=false
 telephoneNumberParsingEnabled initial=false
 mediaDataLoadsAutomatically initial=defaultMediaDataLoadsAutomatically
-shouldTransformsAffectOverflow initial=true
-shouldDispatchJavaScriptWindowOnErrorEvents initial=false
 alwaysUseAcceleratedOverflowScroll initial=false
 imageControlsEnabled initial=false, conditional=SERVICE_CONTROLS
 
@@ -252,7 +247,7 @@ attachmentElementEnabled initial=true, conditional=ATTACHMENT_ELEMENT
 
 newBlockInsideInlineModelEnabled initial=false, setNeedsStyleRecalcInAllFrames=1
 
-deferredCSSParserEnabled initial=true
+deferredCSSParserEnabled initial=false
 
 httpEquivEnabled initial=true
 
@@ -267,8 +262,6 @@ systemLayoutDirection type=TextDirection, initial=LTR
 
 allowContentSecurityPolicySourceStarToMatchAnyProtocol initial=false
 
-allowWindowOpenWithoutUserGesture initial=false
-
 selectionPaintingWithoutSelectionGapsEnabled initial=false
 
 shouldConvertInvalidURLsToBlank initial=true
@@ -277,7 +270,7 @@ springTimingFunctionEnabled initial=false
 
 treatIPAddressAsDomain initial=false
 
-variationFontsEnabled initial=true, setNeedsStyleRecalcInAllFrames=1, conditional=VARIATION_FONTS
+mediaPreloadingEnabled initial=false
 
 # Runtime-enabled features
 visualViewportEnabled initial=false, setNeedsStyleRecalcInAllFrames=1
@@ -293,9 +286,20 @@ forcedPrefersReducedMotionAccessibilityValue type=ForcedAccessibilityValue, init
 
 largeImageAsyncDecodingEnabled initial=true
 animatedImageAsyncDecodingEnabled initial=true
-
-es6ModulesEnabled initial=false
+webkitImageReadyEventEnabled initial=false
 
 shouldSuppressKeyboardInputDuringProvisionalNavigation initial=false
 
-allowsPageCacheWithWindowOpener initial=false
+langAttributeAwareFormControlUIEnabled initial=false
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101300) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED <= 110000)
+subresourceIntegrityEnabled initial=false
+#else
+subresourceIntegrityEnabled initial=true
+#endif
+
+constantPropertiesEnabled initial=false
+
+viewportFitEnabled initial=false
+
+allowMediaContentTypesRequiringHardwareSupportAsFallback initial=false

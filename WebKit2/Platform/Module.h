@@ -33,13 +33,8 @@
 #include <wtf/RetainPtr.h>
 #endif
 
-#if PLATFORM(GTK)
+#if USE(GLIB)
 typedef struct _GModule GModule;
-#endif
-
-#if PLATFORM(EFL)
-#include <Eina.h>
-#include <wtf/efl/UniquePtrEfl.h>
 #endif
 
 namespace WebKit {
@@ -74,10 +69,8 @@ private:
 #if !defined(__LP64__)
     CFBundleRefNum m_bundleResourceMap;
 #endif
-#elif PLATFORM(GTK)
+#elif USE(GLIB)
     GModule* m_handle;
-#elif PLATFORM(EFL)
-    EflUniquePtr<Eina_Module> m_module;
 #endif
 };
 

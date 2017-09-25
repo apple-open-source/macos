@@ -1,4 +1,5 @@
-require "rss-testcase"
+# frozen_string_literal: false
+require_relative "rss-testcase"
 
 require "rss/2.0"
 

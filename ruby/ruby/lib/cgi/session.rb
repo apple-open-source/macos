@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # cgi/session.rb - session support for cgi scripts
 #
@@ -62,7 +63,7 @@ class CGI
   #                           works with String data.  This is the default
   #                           storage type.
   # CGI::Session::MemoryStore:: stores data in an in-memory hash.  The data
-  #                             only persists for as long as the current ruby
+  #                             only persists for as long as the current Ruby
   #                             interpreter instance does.
   # CGI::Session::PStore:: stores data in Marshalled format.  Provided by
   #                        cgi/session/pstore.rb.  Supports data of any type,
@@ -163,24 +164,26 @@ class CGI
 
     # Create a new session id.
     #
-    # The session id is an MD5 hash based upon the time,
-    # a random number, and a constant string.  This routine
-    # is used internally for automatically generated
-    # session ids.
+    # The session id is a secure random number by SecureRandom
+    # if possible, otherwise an SHA512 hash based upon the time,
+    # a random number, and a constant string.  This routine is
+    # used internally for automatically generated session ids.
     def create_new_id
       require 'securerandom'
       begin
+        # by OpenSSL, or system provided entropy pool
         session_id = SecureRandom.hex(16)
       rescue NotImplementedError
-        require 'digest/md5'
-        md5 = Digest::MD5::new
+        # never happens on modern systems
+        require 'digest'
+        d = Digest('SHA512').new
         now = Time::now
-        md5.update(now.to_s)
-        md5.update(String(now.usec))
-        md5.update(String(rand(0)))
-        md5.update(String($$))
-        md5.update('foobar')
-        session_id = md5.hexdigest
+        d.update(now.to_s)
+        d.update(String(now.usec))
+        d.update(String(rand(0)))
+        d.update(String($$))
+        d.update('foobar')
+        session_id = d.hexdigest[0, 32]
       end
       session_id
     end
@@ -437,14 +440,14 @@ class CGI
       def delete
         File::unlink @path+".lock" rescue nil
         File::unlink @path+".new" rescue nil
-        File::unlink @path rescue Errno::ENOENT
+        File::unlink @path rescue nil
       end
     end
 
     # In-memory session storage class.
     #
     # Implements session storage as a global in-memory hash.  Session
-    # data will only persist for as long as the ruby interpreter
+    # data will only persist for as long as the Ruby interpreter
     # instance does.
     class MemoryStore
       GLOBAL_HASH_TABLE = {} #:nodoc:
@@ -453,7 +456,7 @@ class CGI
       #
       # +session+ is the session this instance is associated with.
       # +option+ is a list of initialisation options.  None are
-      # currently recognised.
+      # currently recognized.
       def initialize(session, option=nil)
         @session_id = session.session_id
         unless GLOBAL_HASH_TABLE.key?(@session_id)

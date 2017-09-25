@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009-2010,2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,17 +47,20 @@
 #define PRIstatus "ld"
 #endif
 
+static CFStringRef kUserAgent           = CFSTR("User-Agent");
+static CFStringRef kAppUserAgent        = CFSTR("com.apple.trustd/1.0");
+
 /* POST method has Content-Type header line equal to
    "application/ocsp-request" */
-static CFStringRef kContentType		= CFSTR("Content-Type");
-static CFStringRef kAppOcspRequest	= CFSTR("application/ocsp-request");
+static CFStringRef kContentType         = CFSTR("Content-Type");
+static CFStringRef kAppOcspRequest      = CFSTR("application/ocsp-request");
 
 /* SPI to specify timeout on CFReadStream */
 #define _kCFStreamPropertyReadTimeout   CFSTR("_kCFStreamPropertyReadTimeout")
-#define _kCFStreamPropertyWriteTimeout   CFSTR("_kCFStreamPropertyWriteTimeout")
+#define _kCFStreamPropertyWriteTimeout  CFSTR("_kCFStreamPropertyWriteTimeout")
 
 /* The timeout we set - 7 seconds */
-#define STREAM_TIMEOUT		(7 * NSEC_PER_SEC)
+#define STREAM_TIMEOUT (7 * NSEC_PER_SEC)
 
 #define POST_BUFSIZE   2048
 
@@ -408,8 +411,9 @@ void asynchttp_free(asynchttp_t *http) {
 bool asynchttp_request(CFHTTPMessageRef request, uint64_t timeout, asynchttp_t *http) {
     secdebug("http", "request %@", request);
     if (request) {
-        http->request = request;
-        CFRetain(request);
+        CFRetainAssign(http->request, request);
+        /* Set user agent. */
+        CFHTTPMessageSetHeaderFieldValue(request, kUserAgent, kAppUserAgent);
     }
 
     /* Create the stream for the request. */

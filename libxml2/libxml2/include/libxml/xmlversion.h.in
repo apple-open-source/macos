@@ -441,6 +441,7 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
 #  define LIBXML_ATTR_ALLOC_SIZE(x)
 # endif
 #else
+# undef LIBXML_ATTR_ALLOC_SIZE(x)
 # define LIBXML_ATTR_ALLOC_SIZE(x)
 #endif
 
@@ -457,7 +458,25 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
 #  define LIBXML_ATTR_FORMAT(fmt,args)
 # endif
 #else
+# undef LIBXML_ATTR_FORMAT(fmt,args)
 # define LIBXML_ATTR_FORMAT(fmt,args)
+#endif
+
+/**
+ * LIBXML_INTERNAL
+ *
+ * Macro used to limit symbol visibility.
+ */
+
+#ifndef LIBXML_INTERNAL
+# if ((__GNUC__ >= 4) && !defined(__CYGWIN__) && !defined(__MINGW32__))
+#  define LIBXML_INTERNAL __attribute__((visibility("hidden")))
+# else
+#  define LIBXML_INTERNAL
+# endif
+#else
+# undef LIBXML_INTERNAL
+# define LIBXML_INTERNAL
 #endif
 
 #else /* ! __GNUC__ */
@@ -479,6 +498,12 @@ XMLPUBFUN void XMLCALL xmlCheckVersion(int version);
  * Macro used to indicate to GCC the parameter are printf like
  */
 #define LIBXML_ATTR_FORMAT(fmt,args)
+/**
+ * LIBXML_INTERNAL
+ *
+ * Macro used to limit symbol visibility.
+ */
+#define LIBXML_INTERNAL
 #endif /* __GNUC__ */
 
 #ifdef __cplusplus

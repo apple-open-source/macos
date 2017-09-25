@@ -30,7 +30,6 @@
 #include "SVGRenderTreeAsText.h"
 
 #include "GraphicsTypes.h"
-#include "HTMLNames.h"
 #include "NodeRenderStyle.h"
 #include "RenderImage.h"
 #include "RenderIterator.h"
@@ -51,7 +50,6 @@
 #include "SVGEllipseElement.h"
 #include "SVGInlineTextBox.h"
 #include "SVGLineElement.h"
-#include "SVGNames.h"
 #include "SVGPathElement.h"
 #include "SVGPathUtilities.h"
 #include "SVGPolyElement.h"
@@ -189,7 +187,7 @@ static void writeStyle(TextStream& ts, const RenderElement& renderer)
 
             SVGLengthContext lengthContext(&shape.graphicsElement());
             double dashOffset = lengthContext.valueForLength(svgStyle.strokeDashOffset());
-            double strokeWidth = lengthContext.valueForLength(svgStyle.strokeWidth());
+            double strokeWidth = lengthContext.valueForLength(style.strokeWidth());
             const auto& dashes = svgStyle.strokeDashArray();
 
             DashArray dashArray;
@@ -198,9 +196,9 @@ static void writeStyle(TextStream& ts, const RenderElement& renderer)
 
             writeIfNotDefault(ts, "opacity", svgStyle.strokeOpacity(), 1.0f);
             writeIfNotDefault(ts, "stroke width", strokeWidth, 1.0);
-            writeIfNotDefault(ts, "miter limit", svgStyle.strokeMiterLimit(), 4.0f);
-            writeIfNotDefault(ts, "line cap", svgStyle.capStyle(), ButtCap);
-            writeIfNotDefault(ts, "line join", svgStyle.joinStyle(), MiterJoin);
+            writeIfNotDefault(ts, "miter limit", style.strokeMiterLimit(), 4.0f);
+            writeIfNotDefault(ts, "line cap", style.capStyle(), ButtCap);
+            writeIfNotDefault(ts, "line join", style.joinStyle(), MiterJoin);
             writeIfNotDefault(ts, "dash offset", dashOffset, 0.0);
             if (!dashArray.isEmpty())
                 writeNameValuePair(ts, "dash array", dashArray);

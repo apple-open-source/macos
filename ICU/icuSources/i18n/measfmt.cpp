@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (c) 2004-2016, International Business Machines
@@ -24,6 +26,7 @@
 #include "unicode/decimfmt.h"
 #include "uresimp.h"
 #include "unicode/ures.h"
+#include "unicode/ustring.h"
 #include "ureslocs.h"
 #include "cstring.h"
 #include "mutex.h"
@@ -41,7 +44,7 @@
 #include "standardplural.h"
 #include "unifiedcache.h"
 
-#define MEAS_UNIT_COUNT 134
+#define MEAS_UNIT_COUNT 135
 #define WIDTH_INDEX_COUNT (UMEASFMT_WIDTH_NARROW + 1)
 
 U_NAMESPACE_BEGIN
@@ -66,9 +69,9 @@ public:
             const UnicodeString &hm,
             const UnicodeString &ms,
             const UnicodeString &hms,
-            UErrorCode &status) :
+            UErrorCode &status) : 
             hourMinute(hm, status),
-            minuteSecond(ms, status),
+            minuteSecond(ms, status), 
             hourMinuteSecond(hms, status) {
         const TimeZone *gmt = TimeZone::getGMT();
         hourMinute.setTimeZone(*gmt);
@@ -110,8 +113,8 @@ public:
     UMeasureFormatWidth widthFallback[WIDTH_INDEX_COUNT];
     /** Measure unit -> format width -> array of patterns ("{0} meters") (plurals + PER_UNIT_INDEX) */
     SimpleFormatter *patterns[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT][PATTERN_COUNT];
+    const UChar* dnams[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT];
     SimpleFormatter perFormatters[WIDTH_INDEX_COUNT];
-    const UChar * displayNames[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT]; // Apple-specific for now
 
     MeasureFormatCacheData();
     virtual ~MeasureFormatCacheData();
@@ -143,19 +146,6 @@ public:
     const NumericDateFormatters *getNumericDateFormatters() const {
         return numericDateFormatters;
     }
-    void setDisplayName( // Apple=specific
-            int32_t unitIndex,
-            int32_t widthIndex,
-            const UChar *namePtr) {
-        if (widthIndex < WIDTH_INDEX_COUNT) {
-            displayNames[unitIndex][widthIndex] = namePtr;
-        }
-    }
-    const UChar * getDisplayName( // Apple=specific
-            int32_t unitIndex,
-            int32_t widthIndex) const {
-        return (widthIndex < WIDTH_INDEX_COUNT)? displayNames[unitIndex][widthIndex]: NULL;
-    }
 
 private:
     NumberFormat *currencyFormats[WIDTH_INDEX_COUNT];
@@ -173,14 +163,9 @@ MeasureFormatCacheData::MeasureFormatCacheData() {
         currencyFormats[i] = NULL;
     }
     uprv_memset(patterns, 0, sizeof(patterns));
+    uprv_memset(dnams, 0, sizeof(dnams));
     integerFormat = NULL;
     numericDateFormatters = NULL;
-    // Apple-specific for now:
-    for (int32_t i = 0; i < MEAS_UNIT_COUNT; ++i) {
-        for (int32_t j = 0; j < WIDTH_INDEX_COUNT; ++j) {
-            displayNames[i][j] = NULL;
-        }
-    }
 }
 
 MeasureFormatCacheData::~MeasureFormatCacheData() {
@@ -194,6 +179,7 @@ MeasureFormatCacheData::~MeasureFormatCacheData() {
             }
         }
     }
+    // Note: the contents of 'dnams' are pointers into the resource bundle
     delete integerFormat;
     delete numericDateFormatters;
 }
@@ -235,129 +221,135 @@ static const UChar gNarrow[] = { 0x4E, 0x61, 0x72, 0x72, 0x6F, 0x77 };
  * C++: Each inner sink class has a reference to the main outer sink.
  * Java: Use non-static inner classes instead.
  */
-struct UnitDataSink : public ResourceTableSink {
+struct UnitDataSink : public ResourceSink {
+
+    // Output data.
+    MeasureFormatCacheData &cacheData;
+
+    // Path to current data.
+    UMeasureFormatWidth width;
+    const char *type;
+    int32_t unitIndex;
+
+    UnitDataSink(MeasureFormatCacheData &outputData)
+            : cacheData(outputData),
+              width(UMEASFMT_WIDTH_COUNT), type(NULL), unitIndex(0) {}
+    ~UnitDataSink();
+
+    void setFormatterIfAbsent(int32_t index, const ResourceValue &value,
+                                int32_t minPlaceholders, UErrorCode &errorCode) {
+        SimpleFormatter **patterns = &cacheData.patterns[unitIndex][width][0];
+        if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
+            if (minPlaceholders >= 0) {
+                patterns[index] = new SimpleFormatter(
+                        value.getUnicodeString(errorCode), minPlaceholders, 1, errorCode);
+            }
+            if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
+                errorCode = U_MEMORY_ALLOCATION_ERROR;
+            }
+        }
+    }
+
+    void setDnamIfAbsent(const ResourceValue &value, UErrorCode& errorCode) {
+        if (cacheData.dnams[unitIndex][width] == NULL) {
+            int32_t length;
+            cacheData.dnams[unitIndex][width] = value.getString(length, errorCode);
+        }
+    }
+
     /**
-     * Sink for a table of display patterns. For example,
+     * Consume a display pattern. For example,
      * unitsShort/duration/hour contains other{"{0} hrs"}.
      */
-    struct UnitPatternSink : public ResourceTableSink {
-        UnitPatternSink(UnitDataSink &sink) : outer(sink) {}
-        ~UnitPatternSink();
-
-        void setFormatterIfAbsent(int32_t index, const ResourceValue &value,
-                                  int32_t minPlaceholders, UErrorCode &errorCode) {
-            SimpleFormatter **patterns =
-                &outer.cacheData.patterns[outer.unitIndex][outer.width][0];
-            if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
-                patterns[index] = new SimpleFormatter(
-                       value.getUnicodeString(errorCode), minPlaceholders, 1, errorCode);
-                if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
-                    errorCode = U_MEMORY_ALLOCATION_ERROR;
-                }
-            }
+    void consumePattern(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
+        if (U_FAILURE(errorCode)) { return; }
+        if (uprv_strcmp(key, "dnam") == 0) {
+            // The display name for the unit in the current width.
+            setDnamIfAbsent(value, errorCode);
+        } else if (uprv_strcmp(key, "per") == 0) {
+            // For example, "{0}/h".
+            setFormatterIfAbsent(MeasureFormatCacheData::PER_UNIT_INDEX, value, 1, errorCode);
+        } else {
+            // The key must be one of the plural form strings. For example:
+            // one{"{0} hr"}
+            // other{"{0} hrs"}
+            setFormatterIfAbsent(StandardPlural::indexFromString(key, errorCode), value, 0,
+                                    errorCode);
         }
-
-        // Apple-specific:
-        void setDisplayNameIfAbsent(const ResourceValue &value, UErrorCode &errorCode) {
-            if (U_SUCCESS(errorCode) && outer.width < WIDTH_INDEX_COUNT) {
-                const UChar ** displayName = &outer.cacheData.displayNames[outer.unitIndex][outer.width];
-                if (*displayName == NULL && value.getType() == URES_STRING) {
-                    int32_t nameLen = 0;
-                    *displayName =  value.getString(nameLen, errorCode);
-                }
-            }
-        }
-
-        virtual void put(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
-            if (U_FAILURE(errorCode)) { return; }
-            if (uprv_strcmp(key, "dnam") == 0) {
-                // Apple-specific for now, save name data
-                setDisplayNameIfAbsent(value, errorCode);
-            } else if (uprv_strcmp(key, "per") == 0) {
-                // For example, "{0}/h".
-                setFormatterIfAbsent(MeasureFormatCacheData::PER_UNIT_INDEX, value, 1, errorCode);
-            } else {
-                // The key must be one of the plural form strings. For example:
-                // one{"{0} hr"}
-                // other{"{0} hrs"}
-                setFormatterIfAbsent(StandardPlural::indexFromString(key, errorCode), value, 0,
-                                     errorCode);
-            }
-        }
-        UnitDataSink &outer;
-    } patternSink;
+    }
 
     /**
-     * Sink for a table of per-unit tables. For example,
+     * Consume a table of per-unit tables. For example,
      * unitsShort/duration contains tables for duration-unit subtypes day & hour.
      */
-    struct UnitSubtypeSink : public ResourceTableSink {
-        UnitSubtypeSink(UnitDataSink &sink) : outer(sink) {}
-        ~UnitSubtypeSink();
-        virtual ResourceTableSink *getOrCreateTableSink(
-                const char *key, int32_t /* initialSize */, UErrorCode &errorCode) {
-            if (U_FAILURE(errorCode)) { return NULL; }
-            outer.unitIndex = MeasureUnit::internalGetIndexForTypeAndSubtype(outer.type, key);
-            if (outer.unitIndex >= 0) {
-                return &outer.patternSink;
-            }
-            return NULL;
+    void consumeSubtypeTable(const char *key, ResourceValue &value, UErrorCode &errorCode) {
+        if (U_FAILURE(errorCode)) { return; }
+        unitIndex = MeasureUnit::internalGetIndexForTypeAndSubtype(type, key);
+        if (unitIndex < 0) {
+            // TODO: How to handle unexpected data?
+            // See http://bugs.icu-project.org/trac/ticket/12597
+            return;
         }
-        UnitDataSink &outer;
-    } subtypeSink;
+
+        // We no longer handle units like "coordinate" here (which do not have plural variants)
+        if (value.getType() == URES_TABLE) {
+            // Units that have plural variants
+            ResourceTable patternTableTable = value.getTable(errorCode);
+            if (U_FAILURE(errorCode)) { return; }
+            for (int i = 0; patternTableTable.getKeyAndValue(i, key, value); ++i) {
+                consumePattern(key, value, errorCode);
+            }
+        } else {
+            // TODO: How to handle unexpected data?
+            // See http://bugs.icu-project.org/trac/ticket/12597
+            return;
+        }
+    }
 
     /**
-     * Sink for compound x-per-y display pattern. For example,
+     * Consume compound x-per-y display pattern. For example,
      * unitsShort/compound/per may be "{0}/{1}".
      */
-    struct UnitCompoundSink : public ResourceTableSink {
-        UnitCompoundSink(UnitDataSink &sink) : outer(sink) {}
-        ~UnitCompoundSink();
-        virtual void put(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
-            if (U_SUCCESS(errorCode) && uprv_strcmp(key, "per") == 0) {
-                outer.cacheData.perFormatters[outer.width].
-                        applyPatternMinMaxArguments(value.getUnicodeString(errorCode), 2, 2, errorCode);
-            }
+    void consumeCompoundPattern(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
+        if (U_SUCCESS(errorCode) && uprv_strcmp(key, "per") == 0) {
+            cacheData.perFormatters[width].
+                    applyPatternMinMaxArguments(value.getUnicodeString(errorCode), 2, 2, errorCode);
         }
-        UnitDataSink &outer;
-    } compoundSink;
+    }
 
     /**
-     * Sink for a table of unit type tables. For example,
+     * Consume a table of unit type tables. For example,
      * unitsShort contains tables for area & duration.
      * It also contains a table for the compound/per pattern.
      */
-    struct UnitTypeSink : public ResourceTableSink {
-        UnitTypeSink(UnitDataSink &sink) : outer(sink) {}
-        ~UnitTypeSink();
-        virtual ResourceTableSink *getOrCreateTableSink(
-                const char *key, int32_t /* initialSize */, UErrorCode &errorCode) {
-            if (U_FAILURE(errorCode)) { return NULL; }
-            if (uprv_strcmp(key, "currency") == 0) {
-                // Skip.
-            } else if (uprv_strcmp(key, "compound") == 0) {
-                if (!outer.cacheData.hasPerFormatter(outer.width)) {
-                    return &outer.compoundSink;
+    void consumeUnitTypesTable(const char *key, ResourceValue &value, UErrorCode &errorCode) {
+        if (U_FAILURE(errorCode)) { return; }
+        if (uprv_strcmp(key, "currency") == 0) {
+            // Skip.
+        } else if (uprv_strcmp(key, "compound") == 0) {
+            if (!cacheData.hasPerFormatter(width)) {
+                ResourceTable compoundTable = value.getTable(errorCode);
+                if (U_FAILURE(errorCode)) { return; }
+                for (int i = 0; compoundTable.getKeyAndValue(i, key, value); ++i) {
+                    consumeCompoundPattern(key, value, errorCode);
                 }
-            } else {
-                outer.type = key;
-                return &outer.subtypeSink;
             }
-            return NULL;
+        } else if (uprv_strcmp(key, "coordinate") == 0) {
+            // special handling but we need to determine what that is
+        } else {
+            type = key;
+            ResourceTable subtypeTable = value.getTable(errorCode);
+            if (U_FAILURE(errorCode)) { return; }
+            for (int i = 0; subtypeTable.getKeyAndValue(i, key, value); ++i) {
+                consumeSubtypeTable(key, value, errorCode);
+            }
         }
-        UnitDataSink &outer;
-    } typeSink;
+    }
 
-    UnitDataSink(MeasureFormatCacheData &outputData)
-            : patternSink(*this), subtypeSink(*this), compoundSink(*this), typeSink(*this),
-              cacheData(outputData),
-              width(UMEASFMT_WIDTH_COUNT), type(NULL), unitIndex(0) {}
-    ~UnitDataSink();
-    virtual void put(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
+    void consumeAlias(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
         // Handle aliases like
         // units:alias{"/LOCALE/unitsShort"}
         // which should only occur in the root bundle.
-        if (U_FAILURE(errorCode) || value.getType() != URES_ALIAS) { return; }
         UMeasureFormatWidth sourceWidth = widthFromKey(key);
         if (sourceWidth == UMEASFMT_WIDTH_COUNT) {
             // Alias from something we don't care about.
@@ -376,12 +368,15 @@ struct UnitDataSink : public ResourceTableSink {
         }
         cacheData.widthFallback[sourceWidth] = targetWidth;
     }
-    virtual ResourceTableSink *getOrCreateTableSink(
-            const char *key, int32_t /* initialSize */, UErrorCode &errorCode) {
+
+    void consumeTable(const char *key, ResourceValue &value, UErrorCode &errorCode) {
         if (U_SUCCESS(errorCode) && (width = widthFromKey(key)) != UMEASFMT_WIDTH_COUNT) {
-            return &typeSink;
+            ResourceTable unitTypesTable = value.getTable(errorCode);
+            if (U_FAILURE(errorCode)) { return; }
+            for (int i = 0; unitTypesTable.getKeyAndValue(i, key, value); ++i) {
+                consumeUnitTypesTable(key, value, errorCode);
+            }
         }
-        return NULL;
     }
 
     static UMeasureFormatWidth widthFromKey(const char *key) {
@@ -416,20 +411,22 @@ struct UnitDataSink : public ResourceTableSink {
         return UMEASFMT_WIDTH_COUNT;
     }
 
-    // Output data.
-    MeasureFormatCacheData &cacheData;
-
-    // Path to current data.
-    UMeasureFormatWidth width;
-    const char *type;
-    int32_t unitIndex;
+    virtual void put(const char *key, ResourceValue &value, UBool /*noFallback*/,
+            UErrorCode &errorCode) {
+        // Main entry point to sink
+        ResourceTable widthsTable = value.getTable(errorCode);
+        if (U_FAILURE(errorCode)) { return; }
+        for (int i = 0; widthsTable.getKeyAndValue(i, key, value); ++i) {
+            if (value.getType() == URES_ALIAS) {
+                consumeAlias(key, value, errorCode);
+            } else {
+                consumeTable(key, value, errorCode);
+            }
+        }
+    }
 };
 
 // Virtual destructors must be defined out of line.
-UnitDataSink::UnitPatternSink::~UnitPatternSink() {}
-UnitDataSink::UnitSubtypeSink::~UnitSubtypeSink() {}
-UnitDataSink::UnitCompoundSink::~UnitCompoundSink() {}
-UnitDataSink::UnitTypeSink::~UnitTypeSink() {}
 UnitDataSink::~UnitDataSink() {}
 
 }  // namespace
@@ -513,63 +510,64 @@ static const UAMeasureUnit indexToUAMsasUnit[] = {
     UAMEASUNIT_LENGTH_NAUTICAL_MILE,                 // (5 << 8) + 13,   #    74
     UAMEASUNIT_LENGTH_PARSEC,                        // (5 << 8) + 17,   #    75
     UAMEASUNIT_LENGTH_PICOMETER,                     // (5 << 8) + 4,    #    76
-    UAMEASUNIT_LENGTH_YARD,                          // (5 << 8) + 8,    #    77
-    UAMEASUNIT_LIGHT_LUX,                            // (17 << 8) + 0,   #    78
-    UAMEASUNIT_MASS_CARAT,                           // (6 << 8) + 9,    #    79
-    UAMEASUNIT_MASS_GRAM,                            // (6 << 8) + 0,    #    80
-    UAMEASUNIT_MASS_KILOGRAM,                        // (6 << 8) + 1,    #    81
-    UAMEASUNIT_MASS_METRIC_TON,                      // (6 << 8) + 7,    #    82
-    UAMEASUNIT_MASS_MICROGRAM,                       // (6 << 8) + 5,    #    83
-    UAMEASUNIT_MASS_MILLIGRAM,                       // (6 << 8) + 6,    #    84
-    UAMEASUNIT_MASS_OUNCE,                           // (6 << 8) + 2,    #    85
-    UAMEASUNIT_MASS_OUNCE_TROY,                      // (6 << 8) + 10,   #    86
-    UAMEASUNIT_MASS_POUND,                           // (6 << 8) + 3,    #    87
-    UAMEASUNIT_MASS_STONE,                           // (6 << 8) + 4,    #    88
-    UAMEASUNIT_MASS_TON,                             // (6 << 8) + 8,    #    89
-    UAMEASUNIT_POWER_GIGAWATT,                       // (7 << 8) + 5,    #    90
-    UAMEASUNIT_POWER_HORSEPOWER,                     // (7 << 8) + 2,    #    91
-    UAMEASUNIT_POWER_KILOWATT,                       // (7 << 8) + 1,    #    92
-    UAMEASUNIT_POWER_MEGAWATT,                       // (7 << 8) + 4,    #    93
-    UAMEASUNIT_POWER_MILLIWATT,                      // (7 << 8) + 3,    #    94
-    UAMEASUNIT_POWER_WATT,                           // (7 << 8) + 0,    #    95
-    UAMEASUNIT_PRESSURE_HECTOPASCAL,                 // (8 << 8) + 0,    #    96
-    UAMEASUNIT_PRESSURE_INCH_HG,                     // (8 << 8) + 1,    #    97
-    UAMEASUNIT_PRESSURE_MILLIBAR,                    // (8 << 8) + 2,    #    98
-    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,       // (8 << 8) + 3,    #    99
-    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,       // (8 << 8) + 4,    #    100
-    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,             // (9 << 8) + 1,    #    101
-    UAMEASUNIT_SPEED_KNOT,                           // (9 << 8) + 3,    #    102
-    UAMEASUNIT_SPEED_METER_PER_SECOND,               // (9 << 8) + 0,    #    103
-    UAMEASUNIT_SPEED_MILE_PER_HOUR,                  // (9 << 8) + 2,    #    104
-    UAMEASUNIT_TEMPERATURE_CELSIUS,                  // (10 << 8) + 0,   #    105
-    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,               // (10 << 8) + 1,   #    106
-    UAMEASUNIT_TEMPERATURE_GENERIC,                  // (10 << 8) + 3,   #    107
-    UAMEASUNIT_TEMPERATURE_KELVIN,                   // (10 << 8) + 2,   #    108
-    UAMEASUNIT_VOLUME_ACRE_FOOT,                     // (11 << 8) + 13,  #    109
-    UAMEASUNIT_VOLUME_BUSHEL,                        // (11 << 8) + 14,  #    110
-    UAMEASUNIT_VOLUME_CENTILITER,                    // (11 << 8) + 4,   #    111
-    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,              // (11 << 8) + 8,   #    112
-    UAMEASUNIT_VOLUME_CUBIC_FOOT,                    // (11 << 8) + 11,  #    113
-    UAMEASUNIT_VOLUME_CUBIC_INCH,                    // (11 << 8) + 10,  #    114
-    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,               // (11 << 8) + 1,   #    115
-    UAMEASUNIT_VOLUME_CUBIC_METER,                   // (11 << 8) + 9,   #    116
-    UAMEASUNIT_VOLUME_CUBIC_MILE,                    // (11 << 8) + 2,   #    117
-    UAMEASUNIT_VOLUME_CUBIC_YARD,                    // (11 << 8) + 12,  #    118
-    UAMEASUNIT_VOLUME_CUP,                           // (11 << 8) + 18,  #    119
-    UAMEASUNIT_VOLUME_CUP_METRIC,                    // (11 << 8) + 22,  #    120
-    UAMEASUNIT_VOLUME_DECILITER,                     // (11 << 8) + 5,   #    121
-    UAMEASUNIT_VOLUME_FLUID_OUNCE,                   // (11 << 8) + 17,  #    122
-    UAMEASUNIT_VOLUME_GALLON,                        // (11 << 8) + 21,  #    123
-    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,               // (11 << 8) + 24,  #    124
-    UAMEASUNIT_VOLUME_HECTOLITER,                    // (11 << 8) + 6,   #    125
-    UAMEASUNIT_VOLUME_LITER,                         // (11 << 8) + 0,   #    126
-    UAMEASUNIT_VOLUME_MEGALITER,                     // (11 << 8) + 7,   #    127
-    UAMEASUNIT_VOLUME_MILLILITER,                    // (11 << 8) + 3,   #    128
-    UAMEASUNIT_VOLUME_PINT,                          // (11 << 8) + 19,  #    129
-    UAMEASUNIT_VOLUME_PINT_METRIC,                   // (11 << 8) + 23,  #    130
-    UAMEASUNIT_VOLUME_QUART,                         // (11 << 8) + 20,  #    131
-    UAMEASUNIT_VOLUME_TABLESPOON,                    // (11 << 8) + 16,  #    132
-    UAMEASUNIT_VOLUME_TEASPOON,                      // (11 << 8) + 15,  #    133
+    UAMEASUNIT_LENGTH_POINT,                         // (5 << 8) + 19,   #    77
+    UAMEASUNIT_LENGTH_YARD,                          // (5 << 8) + 8,    #    78
+    UAMEASUNIT_LIGHT_LUX,                            // (17 << 8) + 0,   #    79
+    UAMEASUNIT_MASS_CARAT,                           // (6 << 8) + 9,    #    80
+    UAMEASUNIT_MASS_GRAM,                            // (6 << 8) + 0,    #    81
+    UAMEASUNIT_MASS_KILOGRAM,                        // (6 << 8) + 1,    #    82
+    UAMEASUNIT_MASS_METRIC_TON,                      // (6 << 8) + 7,    #    83
+    UAMEASUNIT_MASS_MICROGRAM,                       // (6 << 8) + 5,    #    84
+    UAMEASUNIT_MASS_MILLIGRAM,                       // (6 << 8) + 6,    #    85
+    UAMEASUNIT_MASS_OUNCE,                           // (6 << 8) + 2,    #    86
+    UAMEASUNIT_MASS_OUNCE_TROY,                      // (6 << 8) + 10,   #    87
+    UAMEASUNIT_MASS_POUND,                           // (6 << 8) + 3,    #    88
+    UAMEASUNIT_MASS_STONE,                           // (6 << 8) + 4,    #    89
+    UAMEASUNIT_MASS_TON,                             // (6 << 8) + 8,    #    90
+    UAMEASUNIT_POWER_GIGAWATT,                       // (7 << 8) + 5,    #    91
+    UAMEASUNIT_POWER_HORSEPOWER,                     // (7 << 8) + 2,    #    92
+    UAMEASUNIT_POWER_KILOWATT,                       // (7 << 8) + 1,    #    93
+    UAMEASUNIT_POWER_MEGAWATT,                       // (7 << 8) + 4,    #    94
+    UAMEASUNIT_POWER_MILLIWATT,                      // (7 << 8) + 3,    #    95
+    UAMEASUNIT_POWER_WATT,                           // (7 << 8) + 0,    #    96
+    UAMEASUNIT_PRESSURE_HECTOPASCAL,                 // (8 << 8) + 0,    #    97
+    UAMEASUNIT_PRESSURE_INCH_HG,                     // (8 << 8) + 1,    #    98
+    UAMEASUNIT_PRESSURE_MILLIBAR,                    // (8 << 8) + 2,    #    99
+    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,       // (8 << 8) + 3,    #    100
+    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,       // (8 << 8) + 4,    #    101
+    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,             // (9 << 8) + 1,    #    102
+    UAMEASUNIT_SPEED_KNOT,                           // (9 << 8) + 3,    #    103
+    UAMEASUNIT_SPEED_METER_PER_SECOND,               // (9 << 8) + 0,    #    104
+    UAMEASUNIT_SPEED_MILE_PER_HOUR,                  // (9 << 8) + 2,    #    105
+    UAMEASUNIT_TEMPERATURE_CELSIUS,                  // (10 << 8) + 0,   #    106
+    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,               // (10 << 8) + 1,   #    107
+    UAMEASUNIT_TEMPERATURE_GENERIC,                  // (10 << 8) + 3,   #    108
+    UAMEASUNIT_TEMPERATURE_KELVIN,                   // (10 << 8) + 2,   #    109
+    UAMEASUNIT_VOLUME_ACRE_FOOT,                     // (11 << 8) + 13,  #    110
+    UAMEASUNIT_VOLUME_BUSHEL,                        // (11 << 8) + 14,  #    111
+    UAMEASUNIT_VOLUME_CENTILITER,                    // (11 << 8) + 4,   #    112
+    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,              // (11 << 8) + 8,   #    113
+    UAMEASUNIT_VOLUME_CUBIC_FOOT,                    // (11 << 8) + 11,  #    114
+    UAMEASUNIT_VOLUME_CUBIC_INCH,                    // (11 << 8) + 10,  #    115
+    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,               // (11 << 8) + 1,   #    116
+    UAMEASUNIT_VOLUME_CUBIC_METER,                   // (11 << 8) + 9,   #    117
+    UAMEASUNIT_VOLUME_CUBIC_MILE,                    // (11 << 8) + 2,   #    118
+    UAMEASUNIT_VOLUME_CUBIC_YARD,                    // (11 << 8) + 12,  #    119
+    UAMEASUNIT_VOLUME_CUP,                           // (11 << 8) + 18,  #    120
+    UAMEASUNIT_VOLUME_CUP_METRIC,                    // (11 << 8) + 22,  #    121
+    UAMEASUNIT_VOLUME_DECILITER,                     // (11 << 8) + 5,   #    122
+    UAMEASUNIT_VOLUME_FLUID_OUNCE,                   // (11 << 8) + 17,  #    123
+    UAMEASUNIT_VOLUME_GALLON,                        // (11 << 8) + 21,  #    124
+    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,               // (11 << 8) + 24,  #    125
+    UAMEASUNIT_VOLUME_HECTOLITER,                    // (11 << 8) + 6,   #    126
+    UAMEASUNIT_VOLUME_LITER,                         // (11 << 8) + 0,   #    127
+    UAMEASUNIT_VOLUME_MEGALITER,                     // (11 << 8) + 7,   #    128
+    UAMEASUNIT_VOLUME_MILLILITER,                    // (11 << 8) + 3,   #    129
+    UAMEASUNIT_VOLUME_PINT,                          // (11 << 8) + 19,  #    130
+    UAMEASUNIT_VOLUME_PINT_METRIC,                   // (11 << 8) + 23,  #    131
+    UAMEASUNIT_VOLUME_QUART,                         // (11 << 8) + 20,  #    132
+    UAMEASUNIT_VOLUME_TABLESPOON,                    // (11 << 8) + 16,  #    133
+    UAMEASUNIT_VOLUME_TEASPOON,                      // (11 << 8) + 15,  #    134
 };
 
 static UBool loadMeasureUnitData(
@@ -577,19 +575,7 @@ static UBool loadMeasureUnitData(
         MeasureFormatCacheData &cacheData,
         UErrorCode &status) {
     UnitDataSink sink(cacheData);
-    ures_getAllTableItemsWithFallback(resource, "", sink, status);
-    // Apple-specific, flesh out display names
-    for (int32_t unitIndex = 0; unitIndex < MEAS_UNIT_COUNT; ++unitIndex) {
-        if ( cacheData.getDisplayName(unitIndex, UMEASFMT_WIDTH_WIDE) == NULL ) {
-            cacheData.setDisplayName(unitIndex, UMEASFMT_WIDTH_WIDE, cacheData.getDisplayName(unitIndex, UMEASFMT_WIDTH_SHORT));
-        }
-        if ( cacheData.getDisplayName(unitIndex, UMEASFMT_WIDTH_SHORT) == NULL ) {
-            cacheData.setDisplayName(unitIndex, UMEASFMT_WIDTH_SHORT, cacheData.getDisplayName(unitIndex, UMEASFMT_WIDTH_WIDE));
-        }
-        if ( cacheData.getDisplayName(unitIndex, UMEASFMT_WIDTH_NARROW) == NULL ) {
-            cacheData.setDisplayName(unitIndex, UMEASFMT_WIDTH_NARROW, cacheData.getDisplayName(unitIndex, UMEASFMT_WIDTH_SHORT));
-        }
-    }
+    ures_getAllItemsWithFallback(resource, "", sink, status);
     return U_SUCCESS(status);
 }
 
@@ -668,8 +654,14 @@ const MeasureFormatCacheData *LocaleCacheKey<MeasureFormatCacheData>::createObje
     }
 
     for (int32_t i = 0; i < WIDTH_INDEX_COUNT; ++i) {
+        // NumberFormat::createInstance can erase warning codes from status, so pass it
+        // a separate status instance
+        UErrorCode localStatus = U_ZERO_ERROR;
         result->adoptCurrencyFormat(i, NumberFormat::createInstance(
-                localeId, currencyStyles[i], status));
+                localeId, currencyStyles[i], localStatus));
+        if (localStatus != U_ZERO_ERROR) {
+            status = localStatus;
+        }
         if (U_FAILURE(status)) {
             return NULL;
         }
@@ -771,7 +763,7 @@ MeasureFormat::MeasureFormat(
         const Locale &locale,
         UMeasureFormatWidth w,
         NumberFormat *nfToAdopt,
-        UErrorCode &status)
+        UErrorCode &status) 
         : cache(NULL),
           numberFormat(NULL),
           pluralRules(NULL),
@@ -1074,6 +1066,24 @@ UnicodeString &MeasureFormat::formatMeasures(
 }
 
 
+UnicodeString MeasureFormat::getUnitDisplayName(const MeasureUnit& unit, UErrorCode& /*status*/) const {
+    UMeasureFormatWidth width = getRegularWidth(this->width);
+    const UChar* const* styleToDnam = cache->dnams[unit.getIndex()];
+    const UChar* dnam = styleToDnam[width];
+    if (dnam == NULL) {
+        int32_t fallbackWidth = cache->widthFallback[width];
+        dnam = styleToDnam[fallbackWidth];
+    }
+
+    UnicodeString result;
+    if (dnam == NULL) {
+        result.setToBogus();
+    } else {
+        result.setTo(dnam, -1);
+    }
+    return result;
+}
+
 void MeasureFormat::initMeasureFormat(
         const Locale &locale,
         UMeasureFormatWidth w,
@@ -1150,7 +1160,7 @@ UBool MeasureFormat::setMeasureFormatLocale(const Locale &locale, UErrorCode &st
     }
     initMeasureFormat(locale, width, NULL, status);
     return U_SUCCESS(status);
-}
+} 
 
 // Apple-specific for now
 UMeasureFormatWidth MeasureFormat::getWidth() const {
@@ -1174,18 +1184,13 @@ const char *MeasureFormat::getLocaleID(UErrorCode &status) const {
 }
 
 // Apple=specific
+// now just re-implement using standard getUnitDisplayName
+// so we no longer use cache->getDisplayName
 UnicodeString &MeasureFormat::getUnitName(
         const MeasureUnit* unit,
         UnicodeString &result ) const {
-    const UChar * unitName = cache->getDisplayName( unit->getIndex(), getRegularWidth(width) );
-    if (unitName != NULL) {
-        int32_t unitNameLen = u_strlen(unitName);
-        if (unitNameLen <= 64) {
-            result.setTo(unitName, unitNameLen);
-            return result;
-        }
-    }
-    result.setToBogus();
+    UErrorCode status = U_ZERO_ERROR;
+    result = getUnitDisplayName(*unit, status); // does not use or set status
     return result;
 }
 
@@ -1290,7 +1295,7 @@ UnicodeString &MeasureFormat::formatNumeric(
     if (U_FAILURE(status)) {
         return appendTo;
     }
-    UDate millis =
+    UDate millis = 
         (UDate) (((uprv_trunc(hms[0].getDouble(status)) * 60.0
              + uprv_trunc(hms[1].getDouble(status))) * 60.0
                   + uprv_trunc(hms[2].getDouble(status))) * 1000.0);

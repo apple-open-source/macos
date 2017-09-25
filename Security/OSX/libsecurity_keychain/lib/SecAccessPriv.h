@@ -39,21 +39,8 @@
 extern "C" {
 #endif
 
-/*!
-	@function SecKeychainAddIToolsPassword
-	@abstract Creates a new iTools password using the access control list from iToolsTrustedApps.plist.
-    @param keychain A reference to the keychain to which to add the password. Pass NULL to add the password to the default keychain.
-	@param accountNameLength The length of the buffer pointed to by accountName.
-	@param accountName A pointer to a string containing the account name associated with this password.
-	@param passwordLength The length of the buffer pointed to by passwordData.
-	@param passwordData A pointer to a buffer containing the password data to be stored in the keychain.
-	@param itemRef On return, a reference to the new keychain item.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion The SecKeychainAddIToolsPassword function adds a new iTools password to the specified keychain with an ACL composed of a list of trusted applications. A required parameter to identify the password is the accountName, which is an application-defined string. The servicename will always be "iTools". SecKeychainAddIToolsPassword optionally returns a reference to the newly added item. 
-*/
-
 OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNameLength, const char *accountName,
-    UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef);
+    UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef) __deprecated_msg("iTools is no longer supported");
 
 /*!
 	@function SecAccessCreateWithTrustedApplications

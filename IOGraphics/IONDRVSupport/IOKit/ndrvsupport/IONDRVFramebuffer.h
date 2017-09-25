@@ -51,8 +51,8 @@ protected:
 
 protected:
 
-    IOService *                 nub;
-    class IONDRV *              ndrv;
+    IOService *                 fNub;
+    class IONDRV *              fNdrv;
 
     // current configuration
     IODisplayModeID             currentDisplayMode;
@@ -93,7 +93,7 @@ protected:
     unsigned int                supportsProbe:1;
     unsigned int                __reservedB:25;
 
-    IOService *                 device;
+    IOService *                 fDevice;
 
     UInt32                      __reservedA[29];
 
@@ -142,9 +142,9 @@ private:
 
     void initForPM ( void );
 
-    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags domainState );
-    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags domainState );
-    virtual unsigned long powerStateForDomainState( IOPMPowerFlags domainState );
+    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long powerStateForDomainState( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn checkDriver( void );
     virtual UInt32 iterateAllModes( IODisplayModeID * displayModeIDs );
@@ -193,110 +193,110 @@ public:
 public:
 
     virtual IOService * probe(  IOService *     provider,
-                                SInt32 *        score );
+                                SInt32 *        score ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool start( IOService * provider );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual void stop( IOService * provider );
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual void free( void );
+    virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn requestProbe( IOOptionBits options );
+    virtual IOReturn requestProbe( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn enableController( void );
+    virtual IOReturn enableController( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IODeviceMemory * makeSubRange( IOPhysicalAddress64 start,
                                            IOPhysicalLength64  length );
-    virtual IODeviceMemory * getApertureRange( IOPixelAperture aperture );
-    virtual IODeviceMemory * getVRAMRange( void );
+    virtual IODeviceMemory * getApertureRange( IOPixelAperture aperture ) APPLE_KEXT_OVERRIDE;
+    virtual IODeviceMemory * getVRAMRange( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IODeviceMemory * findVRAM( void );
 
-    virtual bool isConsoleDevice( void );
+    virtual bool isConsoleDevice( void ) APPLE_KEXT_OVERRIDE;
 
     virtual const IOTVector * undefinedSymbolHandler( const char * libraryName,
                                                       const char * symbolName );
 
-    virtual const char * getPixelFormats( void );
+    virtual const char * getPixelFormats( void ) APPLE_KEXT_OVERRIDE;
 
     // Array of supported display modes
-    virtual IOItemCount getDisplayModeCount( void );
-    virtual IOReturn getDisplayModes( IODisplayModeID * allDisplayModes );
+    virtual IOItemCount getDisplayModeCount( void ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn getDisplayModes( IODisplayModeID * allDisplayModes ) APPLE_KEXT_OVERRIDE;
 
     // Info about a display mode
     virtual IOReturn getInformationForDisplayMode( IODisplayModeID displayMode,
-                    IODisplayModeInformation * info );
+                    IODisplayModeInformation * info ) APPLE_KEXT_OVERRIDE;
 
     // Mask of pixel formats available in mode and depth
     virtual UInt64  getPixelFormatsForDisplayMode( IODisplayModeID displayMode,
-                    IOIndex depth );
+                    IOIndex depth ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getPixelInformation(
         IODisplayModeID displayMode, IOIndex depth,
-        IOPixelAperture aperture, IOPixelInformation * pixelInfo );
+        IOPixelAperture aperture, IOPixelInformation * pixelInfo ) APPLE_KEXT_OVERRIDE;
 
     // Framebuffer info
 
-    virtual IOReturn setupForCurrentConfig( void );
+    virtual IOReturn setupForCurrentConfig( void ) APPLE_KEXT_OVERRIDE;
 
     // Current display mode and depth
     virtual IOReturn getCurrentDisplayMode( IODisplayModeID * displayMode,
-                            IOIndex * depth );
+                            IOIndex * depth ) APPLE_KEXT_OVERRIDE;
 
     // Set display mode and depth
     virtual IOReturn setDisplayMode( IODisplayModeID displayMode,
-                            IOIndex depth );
+                            IOIndex depth ) APPLE_KEXT_OVERRIDE;
 
     // For pages
     virtual IOReturn setApertureEnable( IOPixelAperture aperture,
-                    IOOptionBits enable );
+                    IOOptionBits enable ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn setStartupDisplayMode( IODisplayModeID displayMode,
-                            IOIndex depth );
+                            IOIndex depth ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn getStartupDisplayMode( IODisplayModeID * displayMode,
-                            IOIndex * depth );
+                            IOIndex * depth ) APPLE_KEXT_OVERRIDE;
 
     //// CLUTs
 
     virtual IOReturn setCLUTWithEntries( IOColorEntry * colors, UInt32 index,
-                UInt32 numEntries, IOOptionBits options );
+                UInt32 numEntries, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     //// Gamma
 
     virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
-                                   UInt32 dataWidth, void * data, bool syncToVBL );
+                    UInt32 dataWidth, void * data, bool syncToVBL ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
-                    UInt32 dataWidth, void * data );
+                    UInt32 dataWidth, void * data ) APPLE_KEXT_OVERRIDE;
 
     //// Display mode timing information
 
     virtual IOReturn getTimingInfoForDisplayMode( IODisplayModeID displayMode,
-                IOTimingInformation * info );
+                IOTimingInformation * info ) APPLE_KEXT_OVERRIDE;
 
     //// Detailed timing information
 
     virtual IOReturn validateDetailedTiming(
-                    void * description, IOByteCount descripSize );
+                    void * description, IOByteCount descripSize ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn setDetailedTimings( OSArray * array );
+    virtual IOReturn setDetailedTimings( OSArray * array ) APPLE_KEXT_OVERRIDE;
 
     //// Controller attributes
 
-    virtual IOReturn setAttribute( IOSelect attribute, uintptr_t value );
-    virtual IOReturn getAttribute( IOSelect attribute, uintptr_t * value );
+    virtual IOReturn setAttribute( IOSelect attribute, uintptr_t value ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn getAttribute( IOSelect attribute, uintptr_t * value ) APPLE_KEXT_OVERRIDE;
 
     //// Connections
 
-    virtual IOItemCount getConnectionCount( void );
+    virtual IOItemCount getConnectionCount( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getAttributeForConnection( IOIndex connectIndex,
-                    IOSelect attribute, uintptr_t  * value );
+                    IOSelect attribute, uintptr_t  * value ) APPLE_KEXT_OVERRIDE;
     
     virtual IOReturn setAttributeForConnection( IOIndex connectIndex,
-                    IOSelect attribute, uintptr_t  info );
+                    IOSelect attribute, uintptr_t  info ) APPLE_KEXT_OVERRIDE;
 
     // Apple sensing
 
@@ -304,34 +304,34 @@ public:
             UInt32 * senseType,
             UInt32 * primary,
             UInt32 * extended,
-            UInt32 * displayType );
+            UInt32 * displayType ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn connectFlags( IOIndex connectIndex,
-                    IODisplayModeID displayMode, IOOptionBits * flags );
+                    IODisplayModeID displayMode, IOOptionBits * flags ) APPLE_KEXT_OVERRIDE;
 
     //// IOHighLevelDDCSense
 
-    virtual bool hasDDCConnect( IOIndex connectIndex );
+    virtual bool hasDDCConnect( IOIndex connectIndex ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn getDDCBlock( IOIndex connectIndex, UInt32 blockNumber,
                     IOSelect blockType, IOOptionBits options,
-                    UInt8 * data, IOByteCount * length );
+                    UInt8 * data, IOByteCount * length ) APPLE_KEXT_OVERRIDE;
 
     //// Interrupts
 
     virtual IOReturn registerForInterruptType( IOSelect interruptType,
                         IOFBInterruptProc proc, OSObject * target, void * ref,
-                        void ** interruptRef );
-    virtual IOReturn unregisterInterrupt( void * interruptRef );
-    virtual IOReturn setInterruptState( void * interruptRef, UInt32 state );
+                        void ** interruptRef ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn unregisterInterrupt( void * interruptRef ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setInterruptState( void * interruptRef, UInt32 state ) APPLE_KEXT_OVERRIDE;
 
     //// HW Cursors
 
-    virtual IOReturn setCursorImage( void * cursorImage );
-    virtual IOReturn setCursorState( SInt32 x, SInt32 y, bool visible );
+    virtual IOReturn setCursorImage( void * cursorImage ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setCursorState( SInt32 x, SInt32 y, bool visible ) APPLE_KEXT_OVERRIDE;
 
     //// I2C calls
 
-    virtual IOReturn doI2CRequest( UInt32 bus, IOI2CBusTiming * timing, IOI2CRequest * request );
+    virtual IOReturn doI2CRequest( UInt32 bus, IOI2CBusTiming * timing, IOI2CRequest * request ) APPLE_KEXT_OVERRIDE;
 
     //// VSL calls
 

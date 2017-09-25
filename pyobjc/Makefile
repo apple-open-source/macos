@@ -76,6 +76,7 @@ ifeq ($(AEP),YES)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/PyObjCTest/test_camediatiming.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_PyObjCTest_test_camediatiming.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/PyObjCTest/test_cgdisplayconfiguration.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_PyObjCTest_test_cgdisplayconfiguration.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-SystemConfiguration-*/PyObjCTest/test_SCDynamicStoreCopyDHCPInfo.py < '$(SRCROOT)/patches/pyobjc-framework-SystemConfiguration_PyObjCTest_test_SCDynamicStoreCopyDHCPInfo.py.ed'
+	patch -F0 $(SRCROOT)/$(Project)/pyobjc-framework-ExceptionHandling-*/Lib/PyObjCTools/Debugging.py '$(SRCROOT)/patches/pyobjc-framework-ExceptionHandling_Lib_PyObjCTools__Debugging.py.diff'
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \
 	    echo '#' > $$z || exit 1; \
 	done

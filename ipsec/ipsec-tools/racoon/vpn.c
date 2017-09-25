@@ -76,9 +76,6 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
 
 #include "var.h"
 #include "misc.h"
@@ -195,7 +192,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 	if (set_port(local, port) == NULL) 
 		goto out1;
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		"accept a request to establish IKE-SA: "
 		"%s\n", saddrwop2str((struct sockaddr *)remote));
 

@@ -25,6 +25,7 @@
 
 #include "CompositingCoordinator.h"
 #include "LayerTreeHost.h"
+#include "OptionalCallbackID.h"
 #include <wtf/RunLoop.h>
 
 namespace WebCore {
@@ -51,11 +52,13 @@ protected:
     void invalidate() override;
 
     void forceRepaint() override;
-    bool forceRepaintAsync(uint64_t callbackID) override;
+    bool forceRepaintAsync(CallbackID) override;
     void sizeDidChange(const WebCore::IntSize& newSize) override;
 
     void deviceOrPageScaleFactorChanged() override;
     void pageBackgroundTransparencyChanged() override;
+
+    void clearUpdateAtlases() override;
 
     void setVisibleContentsRect(const WebCore::FloatRect&, const WebCore::FloatPoint&);
     void renderNextFrame();
@@ -63,9 +66,7 @@ protected:
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
 
-#if ENABLE(REQUEST_ANIMATION_FRAME)
     void scheduleAnimation() override;
-#endif
 
     void setViewOverlayRootLayer(WebCore::GraphicsLayer*) override;
 
@@ -74,19 +75,20 @@ protected:
     void notifyFlushRequired() override { scheduleLayerFlush(); };
     void commitSceneState(const WebCore::CoordinatedGraphicsState&) override;
     void paintLayerContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::IntRect& clipRect) override;
+    void releaseUpdateAtlases(Vector<uint32_t>&&) override { };
 
 private:
     void layerFlushTimerFired();
-
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    void didReceiveCoordinatedLayerTreeHostMessage(IPC::Connection&, IPC::Decoder&) override;
-#endif
 
     static RefPtr<WebCore::CoordinatedSurface> createCoordinatedSurface(const WebCore::IntSize&, WebCore::CoordinatedSurface::Flags);
 
     CompositingCoordinator m_coordinator;
     bool m_isWaitingForRenderer { true };
-    uint64_t m_forceRepaintAsyncCallbackID { 0 };
+    bool m_scheduledWhileWaitingForRenderer { false };
+    struct {
+        OptionalCallbackID callbackID;
+        bool needsFreshFlush { false };
+    } m_forceRepaintAsync;
     RunLoop::Timer<CoordinatedLayerTreeHost> m_layerFlushTimer;
 };
 

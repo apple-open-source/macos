@@ -45,25 +45,45 @@ closed_dbm(void)
     rb_raise(rb_eDBMError, "closed DBM file");
 }
 
-#define GetDBM(obj, dbmp) {\
-    Data_Get_Struct((obj), struct dbmdata, (dbmp));\
+#define GetDBM(obj, dbmp) do {\
+    TypedData_Get_Struct((obj), struct dbmdata, &dbm_type, (dbmp));\
     if ((dbmp) == 0) closed_dbm();\
     if ((dbmp)->di_dbm == 0) closed_dbm();\
-}
+} while (0)
 
-#define GetDBM2(obj, data, dbm) {\
-    GetDBM((obj), (data));\
-    (dbm) = dbmp->di_dbm;\
-}
+#define GetDBM2(obj, dbmp, dbm) do {\
+    GetDBM((obj), (dbmp));\
+    (dbm) = (dbmp)->di_dbm;\
+} while (0)
 
 static void
-free_dbm(struct dbmdata *dbmp)
+free_dbm(void *ptr)
 {
+    struct dbmdata *dbmp = ptr;
     if (dbmp) {
 	if (dbmp->di_dbm) dbm_close(dbmp->di_dbm);
 	xfree(dbmp);
     }
 }
+
+static size_t
+memsize_dbm(const void *ptr)
+{
+    size_t size = 0;
+    const struct dbmdata *dbmp = ptr;
+    if (dbmp) {
+	size += sizeof(*dbmp);
+	if (dbmp->di_dbm) size += DBM_SIZEOF_DBM;
+    }
+    return size;
+}
+
+static const rb_data_type_t dbm_type = {
+    "dbm",
+    {0, free_dbm, memsize_dbm,},
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY,
+};
 
 /*
  * call-seq:
@@ -94,7 +114,7 @@ fdbm_closed(VALUE obj)
 {
     struct dbmdata *dbmp;
 
-    Data_Get_Struct(obj, struct dbmdata, dbmp);
+    TypedData_Get_Struct(obj, struct dbmdata, &dbm_type, dbmp);
     if (dbmp == 0)
 	return Qtrue;
     if (dbmp->di_dbm == 0)
@@ -106,7 +126,7 @@ fdbm_closed(VALUE obj)
 static VALUE
 fdbm_alloc(VALUE klass)
 {
-    return Data_Wrap_Struct(klass, 0, free_dbm, 0);
+    return TypedData_Wrap_Struct(klass, &dbm_type, 0);
 }
 
 /*
@@ -228,7 +248,7 @@ fdbm_initialize(int argc, VALUE *argv, VALUE obj)
 static VALUE
 fdbm_s_open(int argc, VALUE *argv, VALUE klass)
 {
-    VALUE obj = Data_Wrap_Struct(klass, 0, free_dbm, 0);
+    VALUE obj = fdbm_alloc(klass);
 
     if (NIL_P(fdbm_initialize(argc, argv, obj))) {
 	return Qnil;
@@ -259,8 +279,11 @@ fdbm_fetch(VALUE obj, VALUE keystr, VALUE ifnone)
     value = dbm_fetch(dbm, key);
     if (value.dptr == 0) {
       not_found:
-	if (ifnone == Qnil && rb_block_given_p())
-	    return rb_yield(rb_tainted_str_new(key.dptr, key.dsize));
+	if (NIL_P(ifnone) && rb_block_given_p()) {
+	    keystr = rb_str_dup(keystr);
+	    OBJ_TAINT(keystr);
+	    return rb_yield(keystr);
+	}
 	return ifnone;
     }
     return rb_tainted_str_new(value.dptr, value.dsize);
@@ -392,7 +415,6 @@ fdbm_values_at(int argc, VALUE *argv, VALUE obj)
 static void
 fdbm_modify(VALUE obj)
 {
-    rb_secure(4);
     if (OBJ_FROZEN(obj)) rb_error_frozen("DBM");
 }
 
@@ -486,8 +508,8 @@ fdbm_delete_if(VALUE obj)
     DBM *dbm;
     VALUE keystr, valstr;
     VALUE ret, ary = rb_ary_tmp_new(0);
-    int i, status = 0;
-    long n;
+    int status = 0;
+    long i, n;
 
     fdbm_modify(obj);
     GetDBM2(obj, dbmp, dbm);
@@ -506,7 +528,7 @@ fdbm_delete_if(VALUE obj)
     }
 
     for (i = 0; i < RARRAY_LEN(ary); i++) {
-	keystr = RARRAY_PTR(ary)[i];
+	keystr = RARRAY_AREF(ary, i);
 	key.dptr = RSTRING_PTR(keystr);
 	key.dsize = (DSIZE_TYPE)RSTRING_LEN(keystr);
 	if (dbm_delete(dbm, key)) {
@@ -575,13 +597,15 @@ fdbm_invert(VALUE obj)
 static VALUE fdbm_store(VALUE,VALUE,VALUE);
 
 static VALUE
-update_i(VALUE pair, VALUE dbm)
+update_i(RB_BLOCK_CALL_FUNC_ARGLIST(pair, dbm))
 {
+    const VALUE *ptr;
     Check_Type(pair, T_ARRAY);
     if (RARRAY_LEN(pair) < 2) {
 	rb_raise(rb_eArgError, "pair must be [key, value]");
     }
-    fdbm_store(dbm, RARRAY_PTR(pair)[0], RARRAY_PTR(pair)[1]);
+    ptr = RARRAY_CONST_PTR(pair);
+    fdbm_store(dbm, ptr[0], ptr[1]);
     return Qnil;
 }
 
@@ -655,6 +679,7 @@ fdbm_store(VALUE obj, VALUE keystr, VALUE valstr)
 /*
  * call-seq:
  *   dbm.length -> integer
+ *   dbm.size -> integer
  *
  * Returns the number of entries in the database.
  */
@@ -832,7 +857,10 @@ fdbm_values(VALUE obj)
 
 /*
  * call-seq:
+ *   dbm.include?(key) -> boolean
  *   dbm.has_key?(key) -> boolean
+ *   dbm.member?(key) -> boolean
+ *   dbm.key?(key) -> boolean
  *
  * Returns true if the database contains the specified key, false otherwise.
  */
@@ -859,6 +887,7 @@ fdbm_has_key(VALUE obj, VALUE keystr)
 /*
  * call-seq:
  *   dbm.has_value?(value) -> boolean
+ *   dbm.value?(value) -> boolean
  *
  * Returns true if the database contains the specified string value, false
  * otherwise.
@@ -953,8 +982,7 @@ fdbm_reject(VALUE obj)
 }
 
 /*
- * Documented by mathew meta@pobox.com.
- * = Introduction
+ * == Introduction
  *
  * The DBM class provides a wrapper to a Unix-style
  * {dbm}[http://en.wikipedia.org/wiki/Dbm] or Database Manager library.
@@ -980,7 +1008,7 @@ fdbm_reject(VALUE obj)
  * All of these dbm implementations have their own Ruby interfaces
  * available, which provide richer (but varying) APIs.
  *
- * = Cautions
+ * == Cautions
  *
  * Before you decide to use DBM, there are some issues you should consider:
  *
@@ -1005,10 +1033,10 @@ fdbm_reject(VALUE obj)
  * important data. It is probably best used as a fast and easy alternative
  * to a Hash for processing large amounts of data.
  *
- * = Example
+ * == Example
  *
  *  require 'dbm'
- *  db = DBM.open('rfcs', 666, DBM::CREATRW)
+ *  db = DBM.open('rfcs', 0666, DBM::WRCREAT)
  *  db['822'] = 'Standard for the Format of ARPA Internet Text Messages'
  *  db['1123'] = 'Requirements for Internet Hosts - Application and Support'
  *  db['3068'] = 'An Anycast Prefix for 6to4 Relay Routers'

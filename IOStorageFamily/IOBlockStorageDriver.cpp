@@ -647,6 +647,8 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     context->request.buffer->release();
 
     driver->deleteContext(context);
+
+    driver->release();
 }
 
 #if TARGET_OS_OSX && defined(__x86_64__)
@@ -1073,14 +1075,13 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
         io_rate_update(flags, 0, 1, 0, buffer->getLength());
     }
 
-#if TARGET_OS_EMBEDDED
     // This is where we adjust the offset for this access to the nand layer.
     // We already maintain this buffer's file offset in attributes.fileOffset
     if (!attributes) {
         attributes = &context->request.attributes;
     }
     attributes->adjustedOffset = ((SInt64)byteStart - (SInt64)context->request.byteStart);
-#endif /* TARGET_OS_EMBEDDED */
+
     result = getProvider()->doAsyncReadWrite(buffer,block,nblks,attributes,completion);
 
     if (result != kIOReturnSuccess) {		/* it failed to start */
@@ -3346,7 +3347,7 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
             return;
         }
 
-        if (attributes->reserved0032 || attributes->reserved0064 || attributes->reserved0128)
+        if (attributes->reserved0032 || attributes->reserved0064)
         {
             complete(completion, kIOReturnBadArgument);
             return;
@@ -3377,6 +3378,7 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
 
     clock_get_uptime(&context->timeStart);
 
+    retain();
     completionOut.target    = this;
     completionOut.action    = prepareRequestCompletion;
     completionOut.parameter = context;

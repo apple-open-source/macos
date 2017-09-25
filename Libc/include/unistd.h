@@ -839,10 +839,22 @@ int	 mkostemps(char *path, int slen, int oflags)
 int	 mkstemp_dprotected_np(char *path, int dpclass, int dpflags)
 		__OSX_UNAVAILABLE __IOS_AVAILABLE(10.0)
 		__TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+char   *mkdtempat_np(int dfd, char *path)
+		__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0)
+		__TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+int     mkstempsat_np(int dfd, char *path, int slen)
+		__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0)
+		__TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+int     mkostempsat_np(int dfd, char *path, int slen, int oflags)
+		__OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0)
+		__TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 int	 nfssvc(int, void *);
 int	 profil(char *, size_t, unsigned long, unsigned int);
+
+__deprecated_msg("Use of per-thread security contexts is error-prone and discouraged.")
 int	 pthread_setugid_np(uid_t, gid_t);
 int	 pthread_getugid_np( uid_t *, gid_t *);
+
 int	 reboot(int);
 int	 revoke(const char *);
 
@@ -950,7 +962,10 @@ int	setattrlist(const char*,void*,void*,size_t,unsigned long) __DARWIN_ALIAS(set
 int	setattrlist(const char*,void*,void*,size_t,unsigned long) LIBC_ALIAS(setattrlist);
 #endif /* !LIBC_ALIAS_SETATTRLIST */
 //End-Libc
-int exchangedata(const char*,const char*,unsigned long) __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
+int exchangedata(const char*,const char*,unsigned long)
+		__OSX_DEPRECATED(10.0, 10.13, "use renamex_np with the RENAME_SWAP flag")
+		__IOS_DEPRECATED(2.0, 11.0, "use renamex_np with the RENAME_SWAP flag")
+		__WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 int	getdirentriesattr(int,void*,void*,size_t,unsigned long*,unsigned long*,unsigned long*,unsigned long) __WATCHOS_PROHIBITED __TVOS_PROHIBITED;
 
 #endif /* __LP64__ */

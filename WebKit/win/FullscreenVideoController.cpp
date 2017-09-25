@@ -52,7 +52,7 @@
 using namespace std;
 using namespace WebCore;
 
-static const float timerInterval = 0.033;
+static const Seconds timerInterval { 33_ms };
 
 // HUD Size
 static const int windowHeight = 59;
@@ -187,7 +187,7 @@ private:
 
     virtual void platformCALayerAnimationStarted(CFTimeInterval beginTime) { }
     virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesBottomUp; }
-    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&) { }
+    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&, GraphicsLayerPaintBehavior) { }
     virtual bool platformCALayerShowDebugBorders() const { return false; }
     virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const { return false; }
     virtual int platformCALayerIncrementRepaintCount(PlatformCALayer*) { return 0; }
@@ -286,7 +286,7 @@ void FullscreenVideoController::enterFullscreen()
     ::ShowWindow(m_fullscreenWindow->hwnd(), SW_SHOW);
 
 #if USE(CA)
-    m_fullscreenWindow->setRootChildLayer(m_rootChild);
+    m_fullscreenWindow->setRootChildLayer(*m_rootChild);
 
     PlatformCALayer* videoLayer = PlatformCALayer::platformCALayer(m_videoElement->platformLayer());
     ASSERT(videoLayer);

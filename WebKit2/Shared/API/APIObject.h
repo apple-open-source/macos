@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #ifndef APIObject_h
 #define APIObject_h
 
-#include <functional>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -103,6 +102,8 @@ public:
         BackForwardListItem,
         CacheManager,
         ColorPickerResultListener,
+        ContentRuleList,
+        ContentRuleListStore,
         ContextMenuListener,
         CookieManager,
         Download,
@@ -114,6 +115,7 @@ public:
         FullScreenManager,
         GeolocationManager,
         GeolocationPermissionRequest,
+        HTTPCookieStore,
         HitTestResult,
         GeolocationPosition,
         GrammarDetail,
@@ -144,16 +146,15 @@ public:
         RunJavaScriptConfirmResultListener,
         RunJavaScriptPromptResultListener,
         TextChecker,
+        URLSchemeTask,
         UserContentController,
-        UserContentExtension,
-        UserContentExtensionStore,
         UserContentWorld,
         UserInitiatedAction,
         UserMediaPermissionCheck,
         UserMediaPermissionRequest,
-        Vibration,
         ViewportAttributes,
         VisitedLinkStore,
+        WebResourceLoadStatisticsManager,
         WebsiteDataRecord,
         WebsiteDataStore,
         WebsitePolicies,
@@ -190,13 +191,6 @@ public:
 #if USE(SOUP)
         SoupRequestManager,
         SoupCustomProtocolRequestManager,
-#endif
-#if PLATFORM(EFL)
-        PopupMenuItem,
-#if ENABLE(TOUCH_EVENTS)
-        TouchPoint,
-        TouchEvent,
-#endif
 #endif
     };
 

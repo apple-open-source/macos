@@ -219,15 +219,28 @@ noted.
 startitem()
 item(tt(a))(
 Turn a file name into an absolute path:  prepends the current directory,
-if necessary, and resolves any use of `tt(..)' and `tt(.)' in the path.
-Note that the transformation takes place even if the file or any
-intervening directories do not exist.
+if necessary; remove `tt(.)' path segments; and remove `tt(..)' path segments
+and the segments that immediately precede them.
+
+This transformation is agnostic about what is in the filesystem, i.e. is
+on the logical, not the physical directory.  It takes place in the same
+manner as when changing directories when neither of the options
+tt(CHASE_DOTS) or tt(CHASE_LINKS) is set.  For example,
+`tt(/before/here/../after)' is always transformed to
+`tt(/before/after)', regardless of whether `tt(/before/here)' exists or what
+kind of object (dir, file, symlink, etc.) it is.
 )
 item(tt(A))(
-As `tt(a)', but also resolve use of symbolic links where possible.
-Note that resolution of `tt(..)' occurs em(before) resolution of symbolic
-links.  This call is equivalent to tt(a) unless your system has the
-tt(realpath) system call (modern systems do).
+Turn a file name into an absolute path as the `tt(a)' modifier does, and
+em(then) pass the result through the tt(realpath+LPAR()3+RPAR()) library
+function to resolve symbolic links.
+
+Note: on systems that do not have a tt(realpath+LPAR()3+RPAR()) library
+function, symbolic links are not resolved, so on those systems `tt(a)' and
+`tt(A)' are equivalent.
+
+Note: tt(foo:A) and tt(realpath+LPAR()foo+RPAR()) are different on some inputs.
+For tt(realpath+LPAR()foo+RPAR()) semantics, see the `tt(P)` modifier.
 )
 item(tt(c))(
 Resolve a command name into an absolute path by searching the command
@@ -252,6 +265,14 @@ Convert the words to all lowercase.
 item(tt(p))(
 Print the new command but do not execute it.  Only works with history
 expansion.
+)
+item(tt(P))(
+Turn a file name into an absolute path, like tt(realpath+LPAR()3+RPAR()).
+The resulting path will be absolute, have neither `tt(.)' nor `tt(..)' components,
+and refer to the same directory entry as the input filename.
+
+Unlike tt(realpath+LPAR()3+RPAR()), non-existent trailing components are
+permitted and preserved.
 )
 item(tt(q))(
 Quote the substituted words, escaping further substitutions.  Works
@@ -551,6 +572,18 @@ noderef(Modifiers) in noderef(History Expansion) can be
 applied:  for example, tt(${i:s/foo/bar/}) performs string
 substitution on the expansion of parameter tt($i).
 
+In the following descriptions, `word' refers to a single word
+substituted on the command line, not necessarily a space delimited word.
+With default options, after the assignments:
+
+example(array=("first word" "second word")
+scalar="only word")
+
+then tt($array) substitutes two words, `tt(first word)' and `tt(second
+word)', and tt($scalar) substitutes a single word `tt(only word)'.  This
+may be modified by explicit or implicit word-splitting, however.  The
+full rules are complicated and are noted at the end.
+
 startitem()
 item(tt(${)var(name)tt(}))(
 The value, if any, of the parameter var(name) is substituted.
@@ -724,7 +757,7 @@ character of tt($foo) if the substitution would otherwise return a scalar,
 or the array starting at the fourth element if tt($foo) would return an
 array.  Note that with the option tt(KSH_ARRAYS) tt($foo) always returns
 a scalar (regardless of the use of the offset syntax) and a form
-such as tt($foo[*]:3) is required to extract elements of an array named
+such as tt(${foo[*]:3}) is required to extract elements of an array named
 tt(foo).
 
 If var(offset) is negative, the tt(-) may not appear immediately
@@ -740,8 +773,8 @@ expression tt(${var: offs}) does work, retrieving the offset from
 tt($offs).
 
 For further compatibility with other shells there is a special case
-for array offset 0.  This usually accesses to the
-first element of the array.  However, if the substitution refers the
+for array offset 0.  This usually accesses the
+first element of the array.  However, if the substitution refers to the
 positional parameter array, e.g. tt($@) or tt($*), then offset 0
 instead refers to tt($0), offset 1 refers to tt($1), and so on.  In
 other words, the positional parameter array is effectively extended by
@@ -749,12 +782,14 @@ prepending tt($0).  Hence tt(${*:0:1}) substitutes tt($0) and
 tt(${*:1:1}) substitutes tt($1).
 )
 xitem(tt(${)var(name)tt(/)var(pattern)tt(/)var(repl)tt(}))
-item(tt(${)var(name)tt(//)var(pattern)tt(/)var(repl)tt(}))(
+xitem(tt(${)var(name)tt(//)var(pattern)tt(/)var(repl)tt(}))
+item(tt(${)var(name)tt(:/)var(pattern)tt(/)var(repl)tt(}))(
 Replace the longest possible match of var(pattern) in the expansion of
 parameter var(name) by string var(repl).  The first form
-replaces just the first occurrence, the second form all occurrences.
+replaces just the first occurrence, the second form all occurrences,
+and the third form replaces only if var(pattern) matches the entire string.
 Both var(pattern) and var(repl) are subject to double-quoted substitution,
-so that expressions like tt(${name/$opat/$npat}) will work, but note the
+so that expressions like tt(${name/$opat/$npat}) will work, but obey the
 usual rule that pattern characters in tt($opat) are not treated specially
 unless either the option tt(GLOB_SUBST) is set, or tt($opat) is instead
 substituted as tt(${~opat}).
@@ -770,8 +805,8 @@ single backslash; this is not necessary if the
 `tt(%)' and `tt(#%) are not active if they occur inside a substituted
 parameter, even at the start.
 
-The first `tt(/)' may be preceded by a `tt(:)', in which case the match
-will only succeed if it matches the entire word.  Note also the
+If, after quoting rules apply, tt(${)var(name)tt(}) expands to an array,
+the replacements act on each element individually.  Note also the
 effect of the tt(I) and tt(S) parameter expansion flags below; however,
 the flags tt(M), tt(R), tt(B), tt(E) and tt(N) are not useful.
 
@@ -1067,6 +1102,11 @@ If a tt(q-) is given (only a single tt(q) may appear), a minimal
 form of single quoting is used that only quotes the string if needed to
 protect special characters.  Typically this form gives the most readable
 output.
+
+If a tt(q+) is given, an extended form of minmal quoting is used that
+causes unprintable characters to be rendered using tt($')var(...)tt(').
+This quoting is similar to that used by the output of values by the
+tt(typeset) family of commands.
 )
 item(tt(Q))(
 Remove one level of quotes from the resulting words.
@@ -1354,7 +1394,8 @@ item(tt(B))(
 Include the index of the beginning of the match in the result.
 )
 item(tt(E))(
-Include the index of the end of the match in the result.
+Include the index one character past the end of the match in the result
+(note this is inconsistent with other uses of parameter index).
 )
 item(tt(M))(
 Include the matched portion in the result.

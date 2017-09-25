@@ -107,7 +107,6 @@
 			buildPhases = (
 			);
 			dependencies = (
-				72C77D3B1484199C002D2577 /* PBXTargetDependency */,
 			);
 			name = network_cmds_libs;
 			productName = "network_cmds (Aggregate)";
@@ -174,8 +173,6 @@
 		713298CC1A93D3A0002359CF /* modstack.c in Sources */ = {isa = PBXBuildFile; fileRef = 713298C01A93D3A0002359CF /* modstack.c */; };
 		713298CD1A93D3A0002359CF /* outbound_list.c in Sources */ = {isa = PBXBuildFile; fileRef = 713298C21A93D3A0002359CF /* outbound_list.c */; };
 		713298CE1A93D3A0002359CF /* outside_network.c in Sources */ = {isa = PBXBuildFile; fileRef = 713298C41A93D3A0002359CF /* outside_network.c */; };
-		713298D01A93D452002359CF /* libssl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 713298CF1A93D452002359CF /* libssl.dylib */; };
-		713298D21A93D498002359CF /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 713298D11A93D498002359CF /* libcrypto.dylib */; };
 		713298D61A93D50A002359CF /* dns64.c in Sources */ = {isa = PBXBuildFile; fileRef = 713298D41A93D50A002359CF /* dns64.c */; };
 		713298EA1A93D567002359CF /* iter_delegpt.c in Sources */ = {isa = PBXBuildFile; fileRef = 713298D81A93D567002359CF /* iter_delegpt.c */; };
 		713298EB1A93D567002359CF /* iter_donotq.c in Sources */ = {isa = PBXBuildFile; fileRef = 713298DA1A93D567002359CF /* iter_donotq.c */; };
@@ -201,6 +198,7 @@
 		71D958BC1A9452DC00C9B286 /* unbound.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 71D958B41A9451D400C9B286 /* unbound.8 */; };
 		71D958BF1A9453C100C9B286 /* unbound.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 71D958BD1A94537000C9B286 /* unbound.conf */; };
 		7200F2FD1958A34D0033E22C /* packet_mangler.c in Sources */ = {isa = PBXBuildFile; fileRef = 7200F2FC1958A34D0033E22C /* packet_mangler.c */; };
+		721654C31EC52447005B17BA /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 721654C21EC52447005B17BA /* misc.c */; };
 		7216D24C0EE896F300AE70E4 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208B0EE86F4800AFED1B /* data.c */; };
 		7216D24D0EE896F300AE70E4 /* if.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208D0EE86F4800AFED1B /* if.c */; };
 		7216D24E0EE896F300AE70E4 /* inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208E0EE86F4800AFED1B /* inet.c */; };
@@ -254,22 +252,10 @@
 		724DABA70EE88FED008900D0 /* kdumpsubs.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120720EE86F2D00AFED1B /* kdumpsubs.c */; };
 		724DABAB0EE89006008900D0 /* kdumpd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120700EE86F2D00AFED1B /* kdumpd.8 */; };
 		724DABBC0EE8908A008900D0 /* com.apple.kdumpd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261206E0EE86F2D00AFED1B /* com.apple.kdumpd.plist */; };
-		724DABDF0EE89151008900D0 /* natd.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261207C0EE86F3600AFED1B /* natd.c */; };
-		724DABE00EE89155008900D0 /* icmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120790EE86F3600AFED1B /* icmp.c */; };
-		724DABE40EE8916B008900D0 /* natd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261207B0EE86F3600AFED1B /* natd.8 */; };
-		724DABF90EE89269008900D0 /* libalias.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7261210C0EE8707500AFED1B /* libalias.A.dylib */; };
 		724DAC120EE89423008900D0 /* ndp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120870EE86F4000AFED1B /* ndp.c */; };
 		724DAC3B0EE89555008900D0 /* ndp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120860EE86F4000AFED1B /* ndp.8 */; };
-		726121110EE870AB00AFED1B /* alias.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120390EE86EEB00AFED1B /* alias.c */; };
-		726121130EE870AB00AFED1B /* alias_cuseeme.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */; };
-		726121140EE870AB00AFED1B /* alias_db.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203C0EE86EEB00AFED1B /* alias_db.c */; };
-		726121150EE870AB00AFED1B /* alias_ftp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203D0EE86EEB00AFED1B /* alias_ftp.c */; };
-		726121160EE870AB00AFED1B /* alias_irc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203E0EE86EEB00AFED1B /* alias_irc.c */; };
-		726121180EE870AB00AFED1B /* alias_nbt.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120400EE86EEB00AFED1B /* alias_nbt.c */; };
-		726121190EE870AB00AFED1B /* alias_pptp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120410EE86EEB00AFED1B /* alias_pptp.c */; };
-		7261211A0EE870AB00AFED1B /* alias_proxy.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120420EE86EEB00AFED1B /* alias_proxy.c */; };
-		7261211B0EE870AB00AFED1B /* alias_smedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120430EE86EEB00AFED1B /* alias_smedia.c */; };
-		7261211C0EE870AB00AFED1B /* alias_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120440EE86EEB00AFED1B /* alias_util.c */; };
+		7255D4311E44036D008F4A32 /* libcrypto.35.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7255D4301E44036D008F4A32 /* libcrypto.35.dylib */; };
+		7255D4331E44037F008F4A32 /* libssl.35.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7255D4321E44037F008F4A32 /* libssl.35.dylib */; };
 		726121310EE8711E00AFED1B /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261204E0EE86EF900AFED1B /* arp.c */; };
 		726121350EE8713800AFED1B /* arp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261204D0EE86EF900AFED1B /* arp.8 */; };
 		7261215A0EE8883900AFED1B /* ifbond.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120550EE86F0900AFED1B /* ifbond.c */; };
@@ -309,6 +295,8 @@
 		72E650AA107BF2F000AAF325 /* ifbridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A5107BF2F000AAF325 /* ifbridge.c */; };
 		72E650AB107BF2F000AAF325 /* ifclone.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A6107BF2F000AAF325 /* ifclone.c */; };
 		E01AB0901368880F008C66FF /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E01AB08F1368880F008C66FF /* libutil.dylib */; };
+		F940359D1E2FF5A900283EB1 /* iffake.c in Sources */ = {isa = PBXBuildFile; fileRef = F940359C1E2FF58500283EB1 /* iffake.c */; };
+		F97F1E041E9C3FC8002355FF /* nexus.c in Sources */ = {isa = PBXBuildFile; fileRef = F97F1E031E9C3FBC002355FF /* nexus.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -768,13 +756,6 @@
 			remoteGlobalIDString = 72B732D91899B0380060E6D4;
 			remoteInfo = cfilutil;
 		};
-		72C77D3C1484199C002D2577 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7261210B0EE8707500AFED1B;
-			remoteInfo = alias;
-		};
 		72CD1D9B0EE8C47C005F825D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
@@ -1012,16 +993,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				724DABBC0EE8908A008900D0 /* com.apple.kdumpd.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		724DABE90EE891AD008900D0 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				724DABE40EE8916B008900D0 /* natd.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -1274,6 +1245,7 @@
 		7200F2FA1958A34D0033E22C /* pktmnglr */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pktmnglr; sourceTree = BUILT_PRODUCTS_DIR; };
 		7200F2FC1958A34D0033E22C /* packet_mangler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = packet_mangler.c; sourceTree = "<group>"; };
 		7211D9B2190713A60086EF20 /* network-client-server-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "network-client-server-entitlements.plist"; sourceTree = "<group>"; };
+		721654C21EC52447005B17BA /* misc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
 		7216D2460EE896C000AE70E4 /* netstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = netstat; sourceTree = BUILT_PRODUCTS_DIR; };
 		7216D27C0EE8980A00AE70E4 /* ping */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ping; sourceTree = BUILT_PRODUCTS_DIR; };
 		7216D29A0EE898BD00AE70E4 /* ping6 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ping6; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1294,18 +1266,9 @@
 		7247B83516165EDC00873B3C /* pktapctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = pktapctl.8; sourceTree = "<group>"; };
 		7247B83B16165F0100873B3C /* pktapctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pktapctl.c; sourceTree = "<group>"; };
 		724DABA20EE88FE3008900D0 /* kdumpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kdumpd; sourceTree = BUILT_PRODUCTS_DIR; };
-		724DABDB0EE8912D008900D0 /* natd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = natd; sourceTree = BUILT_PRODUCTS_DIR; };
 		724DAC0D0EE8940D008900D0 /* ndp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ndp; sourceTree = BUILT_PRODUCTS_DIR; };
-		726120390EE86EEB00AFED1B /* alias.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias.c; sourceTree = "<group>"; };
-		7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_cuseeme.c; sourceTree = "<group>"; };
-		7261203C0EE86EEB00AFED1B /* alias_db.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_db.c; sourceTree = "<group>"; };
-		7261203D0EE86EEB00AFED1B /* alias_ftp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_ftp.c; sourceTree = "<group>"; };
-		7261203E0EE86EEB00AFED1B /* alias_irc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_irc.c; sourceTree = "<group>"; };
-		726120400EE86EEB00AFED1B /* alias_nbt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_nbt.c; sourceTree = "<group>"; };
-		726120410EE86EEB00AFED1B /* alias_pptp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_pptp.c; sourceTree = "<group>"; };
-		726120420EE86EEB00AFED1B /* alias_proxy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_proxy.c; sourceTree = "<group>"; };
-		726120430EE86EEB00AFED1B /* alias_smedia.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_smedia.c; sourceTree = "<group>"; };
-		726120440EE86EEB00AFED1B /* alias_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_util.c; sourceTree = "<group>"; };
+		7255D4301E44036D008F4A32 /* libcrypto.35.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.35.dylib; path = usr/lib/libcrypto.35.dylib; sourceTree = SDKROOT; };
+		7255D4321E44037F008F4A32 /* libssl.35.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libssl.35.dylib; path = usr/lib/libssl.35.dylib; sourceTree = SDKROOT; };
 		7261204D0EE86EF900AFED1B /* arp.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arp.8; sourceTree = "<group>"; };
 		7261204E0EE86EF900AFED1B /* arp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = arp.c; sourceTree = "<group>"; };
 		7261204F0EE86EF900AFED1B /* arp4.4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arp4.4; sourceTree = "<group>"; };
@@ -1321,14 +1284,6 @@
 		726120710EE86F2D00AFED1B /* kdumpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kdumpd.c; sourceTree = "<group>"; };
 		726120720EE86F2D00AFED1B /* kdumpsubs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kdumpsubs.c; sourceTree = "<group>"; };
 		726120730EE86F2D00AFED1B /* kdumpsubs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kdumpsubs.h; sourceTree = "<group>"; };
-		726120780EE86F3600AFED1B /* HISTORY */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = HISTORY; sourceTree = "<group>"; };
-		726120790EE86F3600AFED1B /* icmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = icmp.c; sourceTree = "<group>"; };
-		7261207B0EE86F3600AFED1B /* natd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = natd.8; sourceTree = "<group>"; };
-		7261207C0EE86F3600AFED1B /* natd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = natd.c; sourceTree = "<group>"; };
-		7261207D0EE86F3600AFED1B /* natd.cf.sample */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = natd.cf.sample; sourceTree = "<group>"; };
-		7261207E0EE86F3600AFED1B /* natd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = natd.h; sourceTree = "<group>"; };
-		7261207F0EE86F3600AFED1B /* natd.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = natd.test; sourceTree = "<group>"; };
-		726120800EE86F3600AFED1B /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		726120840EE86F4000AFED1B /* gnuc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gnuc.h; sourceTree = "<group>"; };
 		726120860EE86F4000AFED1B /* ndp.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ndp.8; sourceTree = "<group>"; };
 		726120870EE86F4000AFED1B /* ndp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ndp.c; sourceTree = "<group>"; };
@@ -1404,10 +1359,6 @@
 		726120F30EE86FA700AFED1B /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = version.c; sourceTree = "<group>"; };
 		726120FA0EE86FB500AFED1B /* traceroute6.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = traceroute6.8; sourceTree = "<group>"; };
 		726120FB0EE86FB500AFED1B /* traceroute6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = traceroute6.c; sourceTree = "<group>"; };
-		7261210C0EE8707500AFED1B /* libalias.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libalias.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		726121220EE870D400AFED1B /* alias_local.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alias_local.h; sourceTree = "<group>"; };
-		726121230EE870D400AFED1B /* alias.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alias.h; sourceTree = "<group>"; };
-		726121240EE870D400AFED1B /* libalias.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = libalias.3; sourceTree = "<group>"; };
 		7261212D0EE8710B00AFED1B /* arp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arp; sourceTree = BUILT_PRODUCTS_DIR; };
 		726121540EE8881700AFED1B /* ifconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ifconfig; sourceTree = BUILT_PRODUCTS_DIR; };
 		7263724C1BCC718B00E4B026 /* frame_delay.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = frame_delay.8; sourceTree = "<group>"; };
@@ -1447,6 +1398,8 @@
 		72E650A5107BF2F000AAF325 /* ifbridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifbridge.c; sourceTree = "<group>"; };
 		72E650A6107BF2F000AAF325 /* ifclone.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifclone.c; sourceTree = "<group>"; };
 		E01AB08F1368880F008C66FF /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = $SDKROOT/usr/lib/libutil.dylib; sourceTree = "<group>"; };
+		F940359C1E2FF58500283EB1 /* iffake.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iffake.c; sourceTree = "<group>"; };
+		F97F1E031E9C3FBC002355FF /* nexus.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nexus.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1468,8 +1421,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				713298D21A93D498002359CF /* libcrypto.dylib in Frameworks */,
-				713298D01A93D452002359CF /* libssl.dylib in Frameworks */,
+				7255D4331E44037F008F4A32 /* libssl.35.dylib in Frameworks */,
+				7255D4311E44036D008F4A32 /* libcrypto.35.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1566,22 +1519,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		724DABD90EE8912D008900D0 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				724DABF90EE89269008900D0 /* libalias.A.dylib in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		724DAC0B0EE8940D008900D0 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7261210A0EE8707500AFED1B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1977,7 +1915,6 @@
 				72E42BA214B7CF37003AAE28 /* network_cmds.plist */,
 				7211D9B2190713A60086EF20 /* network-client-server-entitlements.plist */,
 				E01AB08F1368880F008C66FF /* libutil.dylib */,
-				726120380EE86EEB00AFED1B /* alias */,
 				7261204C0EE86EF900AFED1B /* arp.tproj */,
 				72B732DB1899B0380060E6D4 /* cfilutil */,
 				723C706A142BAFEA007C87E9 /* dnctl */,
@@ -1989,7 +1926,6 @@
 				56582591133920B5003E5FA5 /* mnc.tproj */,
 				72311F43194A349100EB4788 /* mptcp_client */,
 				690D973F12DE5A21004323A7 /* mtest.tproj */,
-				726120770EE86F3600AFED1B /* natd.tproj */,
 				726120830EE86F4000AFED1B /* ndp.tproj */,
 				7261208A0EE86F4800AFED1B /* netstat.tproj */,
 				7247B83216165EDC00873B3C /* pktapctl */,
@@ -2006,27 +1942,17 @@
 				713297F01A93C9CF002359CF /* unbound */,
 				72CD1DB50EE8C619005F825D /* libipsec.dylib */,
 				7261210D0EE8707500AFED1B /* Products */,
+				7255D42F1E44036D008F4A32 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
-		726120380EE86EEB00AFED1B /* alias */ = {
+		7255D42F1E44036D008F4A32 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				726121220EE870D400AFED1B /* alias_local.h */,
-				726121230EE870D400AFED1B /* alias.h */,
-				726121240EE870D400AFED1B /* libalias.3 */,
-				726120390EE86EEB00AFED1B /* alias.c */,
-				7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */,
-				7261203C0EE86EEB00AFED1B /* alias_db.c */,
-				7261203D0EE86EEB00AFED1B /* alias_ftp.c */,
-				7261203E0EE86EEB00AFED1B /* alias_irc.c */,
-				726120400EE86EEB00AFED1B /* alias_nbt.c */,
-				726120410EE86EEB00AFED1B /* alias_pptp.c */,
-				726120420EE86EEB00AFED1B /* alias_proxy.c */,
-				726120430EE86EEB00AFED1B /* alias_smedia.c */,
-				726120440EE86EEB00AFED1B /* alias_util.c */,
+				7255D4321E44037F008F4A32 /* libssl.35.dylib */,
+				7255D4301E44036D008F4A32 /* libcrypto.35.dylib */,
 			);
-			path = alias;
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		7261204C0EE86EF900AFED1B /* arp.tproj */ = {
@@ -2051,8 +1977,10 @@
 				726120560EE86F0900AFED1B /* ifconfig.8 */,
 				726120570EE86F0900AFED1B /* ifconfig.c */,
 				726120580EE86F0900AFED1B /* ifconfig.h */,
+				F940359C1E2FF58500283EB1 /* iffake.c */,
 				726120590EE86F0900AFED1B /* ifmedia.c */,
 				7261205A0EE86F0900AFED1B /* ifvlan.c */,
+				F97F1E031E9C3FBC002355FF /* nexus.c */,
 			);
 			path = ifconfig.tproj;
 			sourceTree = "<group>";
@@ -2068,21 +1996,6 @@
 				726120730EE86F2D00AFED1B /* kdumpsubs.h */,
 			);
 			path = kdumpd.tproj;
-			sourceTree = "<group>";
-		};
-		726120770EE86F3600AFED1B /* natd.tproj */ = {
-			isa = PBXGroup;
-			children = (
-				726120780EE86F3600AFED1B /* HISTORY */,
-				726120790EE86F3600AFED1B /* icmp.c */,
-				7261207B0EE86F3600AFED1B /* natd.8 */,
-				7261207C0EE86F3600AFED1B /* natd.c */,
-				7261207D0EE86F3600AFED1B /* natd.cf.sample */,
-				7261207E0EE86F3600AFED1B /* natd.h */,
-				7261207F0EE86F3600AFED1B /* natd.test */,
-				726120800EE86F3600AFED1B /* README */,
-			);
-			path = natd.tproj;
 			sourceTree = "<group>";
 		};
 		726120830EE86F4000AFED1B /* ndp.tproj */ = {
@@ -2114,6 +2027,7 @@
 				7261209A0EE86F4800AFED1B /* tp_astring.c */,
 				7261209B0EE86F4800AFED1B /* unix.c */,
 				7218B549191D4202001B7B52 /* systm.c */,
+				721654C21EC52447005B17BA /* misc.c */,
 			);
 			path = netstat.tproj;
 			sourceTree = "<group>";
@@ -2242,11 +2156,9 @@
 		7261210D0EE8707500AFED1B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7261210C0EE8707500AFED1B /* libalias.A.dylib */,
 				7261212D0EE8710B00AFED1B /* arp */,
 				726121540EE8881700AFED1B /* ifconfig */,
 				724DABA20EE88FE3008900D0 /* kdumpd */,
-				724DABDB0EE8912D008900D0 /* natd */,
 				724DAC0D0EE8940D008900D0 /* ndp */,
 				7216D2460EE896C000AE70E4 /* netstat */,
 				7216D27C0EE8980A00AE70E4 /* ping */,
@@ -2317,16 +2229,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
-
-/* Begin PBXHeadersBuildPhase section */
-		726121080EE8707500AFED1B /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		4D2B04F21208C2040004A3F3 /* ip6addrctl */ = {
@@ -2636,24 +2538,6 @@
 			productReference = 724DABA20EE88FE3008900D0 /* kdumpd */;
 			productType = "com.apple.product-type.tool";
 		};
-		724DABDA0EE8912D008900D0 /* natd */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 724DABEA0EE891AD008900D0 /* Build configuration list for PBXNativeTarget "natd" */;
-			buildPhases = (
-				724DABD80EE8912D008900D0 /* Sources */,
-				724DABD90EE8912D008900D0 /* Frameworks */,
-				724DABE90EE891AD008900D0 /* CopyFiles */,
-				724DABE80EE8917A008900D0 /* ShellScript */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = natd;
-			productName = natd;
-			productReference = 724DABDB0EE8912D008900D0 /* natd */;
-			productType = "com.apple.product-type.tool";
-		};
 		724DAC0C0EE8940D008900D0 /* ndp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 724DAC1E0EE894E8008900D0 /* Build configuration list for PBXNativeTarget "ndp" */;
@@ -2671,24 +2555,6 @@
 			productName = ndp;
 			productReference = 724DAC0D0EE8940D008900D0 /* ndp */;
 			productType = "com.apple.product-type.tool";
-		};
-		7261210B0EE8707500AFED1B /* alias */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 726121100EE8707600AFED1B /* Build configuration list for PBXNativeTarget "alias" */;
-			buildPhases = (
-				726121080EE8707500AFED1B /* Headers */,
-				726121090EE8707500AFED1B /* Sources */,
-				7261210A0EE8707500AFED1B /* Frameworks */,
-				7294F1510EE8BF2D0052EC88 /* ShellScript */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = alias;
-			productName = alias;
-			productReference = 7261210C0EE8707500AFED1B /* libalias.A.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
 		};
 		7261212C0EE8710B00AFED1B /* arp */ = {
 			isa = PBXNativeTarget;
@@ -2857,7 +2723,6 @@
 				72570DA20EE8EBF3000F4CFB /* All-Embedded */,
 				72ABD0811083D742008C721C /* All-EmbeddedOther */,
 				72C77D3A1484199C002D2577 /* network_cmds_libs */,
-				7261210B0EE8707500AFED1B /* alias */,
 				7261212C0EE8710B00AFED1B /* arp */,
 				72B732D91899B0380060E6D4 /* cfilutil */,
 				723C7067142BAFEA007C87E9 /* dnctl */,
@@ -2870,7 +2735,6 @@
 				72311F41194A349000EB4788 /* mptcp_client */,
 				690D978012DE6034004323A7 /* mtest */,
 				724DAC0C0EE8940D008900D0 /* ndp */,
-				724DABDA0EE8912D008900D0 /* natd */,
 				7216D2450EE896C000AE70E4 /* netstat */,
 				7247B83016165EDC00873B3C /* pktapctl */,
 				7200F2F91958A34D0033E22C /* pktmnglr */,
@@ -3048,19 +2912,6 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/spray.8";
 		};
-		724DABE80EE8917A008900D0 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/natd.8\t";
-		};
 		724DAC440EE89562008900D0 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -3099,19 +2950,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "/bin/chmod 0444 $DSTROOT/usr/share/man/man8/traceroute6.8";
-		};
-		7294F1510EE8BF2D0052EC88 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "/bin/ln -s libalias.A.dylib $DSTROOT/usr/lib/libalias.dylib";
 		};
 		72CD1DA00EE8C4EC005F825D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3271,6 +3109,7 @@
 				7216D2570EE896F300AE70E4 /* tp_astring.c in Sources */,
 				56B6B66816F79A1C00D8A7A9 /* mptcp.c in Sources */,
 				7216D2580EE896F300AE70E4 /* unix.c in Sources */,
+				721654C31EC52447005B17BA /* misc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3379,37 +3218,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		724DABD80EE8912D008900D0 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				724DABDF0EE89151008900D0 /* natd.c in Sources */,
-				724DABE00EE89155008900D0 /* icmp.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		724DAC0A0EE8940D008900D0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				724DAC120EE89423008900D0 /* ndp.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		726121090EE8707500AFED1B /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				726121110EE870AB00AFED1B /* alias.c in Sources */,
-				726121130EE870AB00AFED1B /* alias_cuseeme.c in Sources */,
-				726121140EE870AB00AFED1B /* alias_db.c in Sources */,
-				726121150EE870AB00AFED1B /* alias_ftp.c in Sources */,
-				726121160EE870AB00AFED1B /* alias_irc.c in Sources */,
-				726121180EE870AB00AFED1B /* alias_nbt.c in Sources */,
-				726121190EE870AB00AFED1B /* alias_pptp.c in Sources */,
-				7261211A0EE870AB00AFED1B /* alias_proxy.c in Sources */,
-				7261211B0EE870AB00AFED1B /* alias_smedia.c in Sources */,
-				7261211C0EE870AB00AFED1B /* alias_util.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3434,6 +3247,8 @@
 				72E650A9107BF2F000AAF325 /* af_link.c in Sources */,
 				72E650AA107BF2F000AAF325 /* ifbridge.c in Sources */,
 				72E650AB107BF2F000AAF325 /* ifclone.c in Sources */,
+				F940359D1E2FF5A900283EB1 /* iffake.c in Sources */,
+				F97F1E041E9C3FC8002355FF /* nexus.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3807,11 +3622,6 @@
 			target = 72B732D91899B0380060E6D4 /* cfilutil */;
 			targetProxy = 72B732EA1899B19A0060E6D4 /* PBXContainerItemProxy */;
 		};
-		72C77D3B1484199C002D2577 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7261210B0EE8707500AFED1B /* alias */;
-			targetProxy = 72C77D3C1484199C002D2577 /* PBXContainerItemProxy */;
-		};
 		72CD1D9C0EE8C47C005F825D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
@@ -3871,36 +3681,11 @@
 			};
 			name = "Ignore Me";
 		};
-		03B2DBE5100BE71D005349BC /* Ignore Me */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DYLIB_CURRENT_VERSION = 1;
-				EXECUTABLE_PREFIX = lib;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/lib;
-				PREBINDING = NO;
-				PRODUCT_NAME = alias.A;
-				ZERO_LINK = NO;
-			};
-			name = "Ignore Me";
-		};
 		03B2DBE6100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
 			};
@@ -3921,9 +3706,7 @@
 					USE_BONDS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
 				ZERO_LINK = NO;
@@ -3935,28 +3718,9 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = kdumpd;
-			};
-			name = "Ignore Me";
-		};
-		03B2DBEC100BE71D005349BC /* Ignore Me */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
-				HEADER_SEARCH_PATHS = ../alias;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = natd;
-				WARNING_CFLAGS = (
-					"$(inherited)",
-					"-Wno-deprecated-declarations",
-				);
 			};
 			name = "Ignore Me";
 		};
@@ -3970,9 +3734,7 @@
 					KAME_SCOPEID,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
 			};
@@ -3987,9 +3749,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
@@ -4001,9 +3761,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
 			};
@@ -4015,9 +3773,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
 			};
@@ -4033,9 +3789,7 @@
 					"$(inherited)",
 					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rarpd;
 			};
@@ -4050,9 +3804,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
 			};
@@ -4069,9 +3821,7 @@
 					HAVE_GETIFADDRS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
 				WARNING_CFLAGS = (
@@ -4094,9 +3844,7 @@
 					HAVE_GETIFADDRS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
 				WARNING_CFLAGS = (
@@ -4109,9 +3857,7 @@
 		03B2DBF5100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = spray;
 			};
@@ -4128,9 +3874,7 @@
 					HAVE_SOCKADDR_SA_LEN,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
 			};
@@ -4147,9 +3891,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
 			};
@@ -4158,18 +3900,14 @@
 		4D2B04F51208C2050004A3F3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALTERNATE_GROUP = wheel;
 				ALTERNATE_MODE = 0555;
-				ALTERNATE_OWNER = root;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = ip6addrctl;
@@ -4263,9 +4001,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = mtest;
@@ -4283,9 +4019,7 @@
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = mtest;
@@ -4302,9 +4036,7 @@
 				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = mtest;
@@ -4335,9 +4067,7 @@
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4368,9 +4098,7 @@
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4401,9 +4129,7 @@
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4522,9 +4248,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
@@ -4539,9 +4263,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
@@ -4559,9 +4281,7 @@
 					"DEBUG=1",
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
 			};
@@ -4573,9 +4293,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping;
 			};
@@ -4587,9 +4305,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
 			};
@@ -4601,9 +4317,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ping6;
 			};
@@ -4619,9 +4333,7 @@
 					"$(inherited)",
 					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rarpd;
 			};
@@ -4637,9 +4349,7 @@
 					"$(inherited)",
 					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rarpd;
 			};
@@ -4654,9 +4364,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
 			};
@@ -4671,9 +4379,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = route;
 			};
@@ -4690,9 +4396,7 @@
 					HAVE_GETIFADDRS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
 				WARNING_CFLAGS = (
@@ -4714,9 +4418,7 @@
 					HAVE_GETIFADDRS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = rtadvd;
 				WARNING_CFLAGS = (
@@ -4739,9 +4441,7 @@
 					HAVE_GETIFADDRS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
 				WARNING_CFLAGS = (
@@ -4763,9 +4463,7 @@
 					HAVE_GETIFADDRS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = rtsol;
 				WARNING_CFLAGS = (
@@ -4778,9 +4476,7 @@
 		7216D3A90EE8A3BB00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = spray;
 			};
@@ -4789,9 +4485,7 @@
 		7216D3AA0EE8A3BB00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = spray;
 			};
@@ -4915,9 +4609,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4931,9 +4623,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4947,9 +4637,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -4959,9 +4647,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -4970,9 +4656,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -4981,9 +4665,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = "Ignore Me";
@@ -5054,9 +4736,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = kdumpd;
 			};
@@ -5067,45 +4747,9 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/network-client-server-entitlements.plist";
 				CODE_SIGN_IDENTITY = "-";
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = kdumpd;
-			};
-			name = Release;
-		};
-		724DABDD0EE8912E008900D0 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
-				HEADER_SEARCH_PATHS = ../alias;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = natd;
-				WARNING_CFLAGS = (
-					"$(inherited)",
-					"-Wno-deprecated-declarations",
-				);
-			};
-			name = Debug;
-		};
-		724DABDE0EE8912E008900D0 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
-				HEADER_SEARCH_PATHS = ../alias;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = natd;
-				WARNING_CFLAGS = (
-					"$(inherited)",
-					"-Wno-deprecated-declarations",
-				);
 			};
 			name = Release;
 		};
@@ -5119,9 +4763,7 @@
 					KAME_SCOPEID,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
 			};
@@ -5137,9 +4779,7 @@
 					KAME_SCOPEID,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ndp;
 			};
@@ -5165,59 +4805,11 @@
 			};
 			name = Release;
 		};
-		7261210E0EE8707600AFED1B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				DYLIB_CURRENT_VERSION = 1;
-				EXECUTABLE_PREFIX = lib;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/lib;
-				PREBINDING = NO;
-				PRODUCT_NAME = alias.A;
-			};
-			name = Debug;
-		};
-		7261210F0EE8707600AFED1B /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DYLIB_CURRENT_VERSION = 1;
-				EXECUTABLE_PREFIX = lib;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/lib;
-				PREBINDING = NO;
-				PRODUCT_NAME = alias.A;
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
 		7261212F0EE8710B00AFED1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
 			};
@@ -5227,9 +4819,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = arp;
 			};
@@ -5271,9 +4861,7 @@
 					USE_BONDS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
 			};
@@ -5294,9 +4882,7 @@
 					USE_BONDS,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = ifconfig;
 				ZERO_LINK = NO;
@@ -5525,9 +5111,7 @@
 					HAVE_SOCKADDR_SA_LEN,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
 			};
@@ -5544,9 +5128,7 @@
 					HAVE_SOCKADDR_SA_LEN,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute;
 			};
@@ -5563,9 +5145,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
 			};
@@ -5582,9 +5162,7 @@
 					IPSEC,
 				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = traceroute6;
 			};
@@ -5659,9 +5237,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -5691,9 +5267,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -5723,9 +5297,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -5946,16 +5518,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		724DABEA0EE891AD008900D0 /* Build configuration list for PBXNativeTarget "natd" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				724DABDD0EE8912E008900D0 /* Debug */,
-				724DABDE0EE8912E008900D0 /* Release */,
-				03B2DBEC100BE71D005349BC /* Ignore Me */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		724DAC1E0EE894E8008900D0 /* Build configuration list for PBXNativeTarget "ndp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -5972,16 +5534,6 @@
 				72570DA30EE8EBF3000F4CFB /* Debug */,
 				72570DA40EE8EBF3000F4CFB /* Release */,
 				03B2DBE4100BE71D005349BC /* Ignore Me */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		726121100EE8707600AFED1B /* Build configuration list for PBXNativeTarget "alias" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				7261210E0EE8707600AFED1B /* Debug */,
-				7261210F0EE8707600AFED1B /* Release */,
-				03B2DBE5100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

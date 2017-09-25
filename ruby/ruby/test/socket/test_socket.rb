@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 begin
   require "socket"
   require "tmpdir"
   require "fcntl"
+  require "etc"
   require "test/unit"
 rescue LoadError
 end
@@ -67,6 +70,22 @@ class TestSocket < Test::Unit::TestCase
       addr = s.getsockname
       assert_nothing_raised { Socket.unpack_sockaddr_in(addr) }
       assert_raise(ArgumentError, NoMethodError) { Socket.unpack_sockaddr_un(addr) }
+    }
+  end
+
+  def test_bind
+    Socket.open(Socket::AF_INET, Socket::SOCK_STREAM, 0) {|bound|
+      bound.bind(Socket.sockaddr_in(0, "127.0.0.1"))
+      addr = bound.getsockname
+      port, = Socket.unpack_sockaddr_in(addr)
+
+      Socket.open(Socket::AF_INET, Socket::SOCK_STREAM, 0) {|s|
+        e = assert_raise(Errno::EADDRINUSE) do
+          s.bind(Socket.sockaddr_in(port, "127.0.0.1"))
+        end
+
+        assert_match "bind(2) for 127.0.0.1:#{port}", e.message
+      }
     }
   end
 
@@ -221,9 +240,12 @@ class TestSocket < Test::Unit::TestCase
           unix_server = Socket.unix_server_socket("#{tmpdir}/sock")
           tcp_servers.each {|s|
             addr = s.connect_address
-            assert_nothing_raised("connect to #{addr.inspect}") {
+            begin
               clients << addr.connect
-            }
+            rescue
+              # allow failure if the address is IPv6
+              raise unless addr.ipv6?
+            end
           }
           addr = unix_server.connect_address
           assert_nothing_raised("connect to #{addr.inspect}") {
@@ -300,9 +322,9 @@ class TestSocket < Test::Unit::TestCase
 
   def test_udp_server
     begin
-      ip_addrs = Socket.ip_address_list
+      ifaddrs = Socket.getifaddrs
     rescue NotImplementedError
-      skip "Socket.ip_address_list not implemented"
+      skip "Socket.getifaddrs not implemented"
     end
 
     ifconfig = nil
@@ -310,26 +332,29 @@ class TestSocket < Test::Unit::TestCase
       famlies = {}
       sockets.each {|s| famlies[s.local_address.afamily] = s }
       nd6 = {}
-      ip_addrs.reject! {|ai|
+      ifaddrs.reject! {|ifa|
+        ai = ifa.addr
+        next true unless ai
         s = famlies[ai.afamily]
         next true unless s
+        next true if ai.ipv6_linklocal? # IPv6 link-local address is too troublesome in this test.
         case RUBY_PLATFORM
         when /linux/
           if ai.ip_address.include?('%') and
-            (`uname -r`[/[0-9.]+/].split('.').map(&:to_i) <=> [2,6,18]) <= 0
+            (Etc.uname[:release][/[0-9.]+/].split('.').map(&:to_i) <=> [2,6,18]) <= 0
             # Cent OS 5.6 (2.6.18-238.19.1.el5xen) doesn't correctly work
             # sendmsg with pktinfo for link-local ipv6 addresses
             next true
           end
         when /freebsd/
-          if ifr_name = ai.ip_address[/%(.*)/, 1]
+          if ifa.addr.ipv6_linklocal?
             # FreeBSD 9.0 with default setting (ipv6_activate_all_interfaces
             # is not YES) sets IFDISABLED to interfaces which don't have
             # global IPv6 address.
             # Link-local IPv6 addresses on those interfaces don't work.
             ulSIOCGIFINFO_IN6 = 3225971052
             ulND6_IFF_IFDISABLED = 8
-            in6_ondireq = ifr_name
+            in6_ondireq = ifa.name
             s.ioctl(ulSIOCGIFINFO_IN6, in6_ondireq)
             flag = in6_ondireq.unpack('A16L6').last
             next true if flag & ulND6_IFF_IFDISABLED != 0
@@ -343,7 +368,6 @@ class TestSocket < Test::Unit::TestCase
             # Mac OS X may sets IFDISABLED as FreeBSD does
             ulSIOCGIFFLAGS = 3223349521
             ulSIOCGIFINFO_IN6 = 3224398156
-            ulSIOCGIFAFLAG_IN6 = 3240126793
             ulIFF_POINTOPOINT = 0x10
             ulND6_IFF_IFDISABLED = 8
             in6_ondireq = ifr_name
@@ -377,24 +401,25 @@ class TestSocket < Test::Unit::TestCase
           }
         }
 
-        ip_addrs.each {|ai|
+        ifaddrs.each {|ifa|
+          ai = ifa.addr
           Addrinfo.udp(ai.ip_address, port).connect {|s|
             ping_p = false
             msg1 = "<<<#{ai.inspect}>>>"
             s.sendmsg msg1
             unless IO.select([s], nil, nil, 10)
               nd6options = nd6.key?(ai) ? "nd6=%x " % nd6[ai] : ''
-              raise "no response from #{ai.inspect} #{nd6options}ping=#{ping_p}"
+              raise "no response from #{ifa.inspect} #{nd6options}ping=#{ping_p}"
             end
             msg2, addr = s.recvmsg
-            msg2, remote_address, local_address = Marshal.load(msg2)
+            msg2, _, _ = Marshal.load(msg2)
             assert_equal(msg1, msg2)
             assert_equal(ai.ip_address, addr.ip_address)
           }
         }
       rescue NotImplementedError, Errno::ENOSYS
         skipped = true
-        skip "need sendmsg and recvmsg"
+        skip "need sendmsg and recvmsg: #{$!}"
       ensure
         if th
           if skipped
@@ -431,14 +456,14 @@ class TestSocket < Test::Unit::TestCase
 
   def test_timestamp
     return if /linux|freebsd|netbsd|openbsd|solaris|darwin/ !~ RUBY_PLATFORM
-    return if !defined?(Socket::AncillaryData)
+    return if !defined?(Socket::AncillaryData) || !defined?(Socket::SO_TIMESTAMP)
     t1 = Time.now.strftime("%Y-%m-%d")
     stamp = nil
     Addrinfo.udp("127.0.0.1", 0).bind {|s1|
       Addrinfo.udp("127.0.0.1", 0).bind {|s2|
         s1.setsockopt(:SOCKET, :TIMESTAMP, true)
         s2.send "a", 0, s1.local_address
-        msg, addr, rflags, stamp = s1.recvmsg
+        msg, _, _, stamp = s1.recvmsg
         assert_equal("a", msg)
         assert(stamp.cmsg_is?(:SOCKET, :TIMESTAMP))
       }
@@ -465,7 +490,7 @@ class TestSocket < Test::Unit::TestCase
           return
         end
         s2.send "a", 0, s1.local_address
-        msg, addr, rflags, stamp = s1.recvmsg
+        msg, _, _, stamp = s1.recvmsg
         assert_equal("a", msg)
         assert(stamp.cmsg_is?(:SOCKET, :TIMESTAMPNS))
       }
@@ -487,7 +512,7 @@ class TestSocket < Test::Unit::TestCase
       Addrinfo.udp("127.0.0.1", 0).bind {|s2|
         s1.setsockopt(:SOCKET, :BINTIME, true)
         s2.send "a", 0, s1.local_address
-        msg, addr, rflags, stamp = s1.recvmsg
+        msg, _, _, stamp = s1.recvmsg
         assert_equal("a", msg)
         assert(stamp.cmsg_is?(:SOCKET, :BINTIME))
       }
@@ -518,6 +543,7 @@ class TestSocket < Test::Unit::TestCase
       assert_raise(IOError, bug4390) {client_thread.join}
     end
   ensure
+    serv_thread.value.close
     server.close
   end
 
@@ -535,7 +561,7 @@ class TestSocket < Test::Unit::TestCase
     # some platforms may not timeout when the listener queue overflows,
     # but we know Linux does with the default listen backlog of SOMAXCONN for
     # TCPServer.
-    assert_raises(Errno::ETIMEDOUT) do
+    assert_raise(Errno::ETIMEDOUT) do
       (Socket::SOMAXCONN*2).times do |i|
         sock = Socket.tcp(host, port, :connect_timeout => 0)
         assert_equal sock, IO.select(nil, [ sock ])[1][0],
@@ -547,6 +573,17 @@ class TestSocket < Test::Unit::TestCase
     server.close
     accepted.close if accepted
     sock.close if sock && ! sock.closed?
+  end
+
+  def test_getifaddrs
+    begin
+      list = Socket.getifaddrs
+    rescue NotImplementedError
+      return
+    end
+    list.each {|ifaddr|
+      assert_instance_of(Socket::Ifaddr, ifaddr)
+    }
   end
 
   def test_connect_in_rescue
@@ -617,6 +654,73 @@ class TestSocket < Test::Unit::TestCase
         s.close if !s.closed?
       }
     end
+  end
+
+  def test_recvmsg_udp_no_arg
+    n = 4097
+    s1 = Addrinfo.udp("127.0.0.1", 0).bind
+    s2 = s1.connect_address.connect
+    s2.send("a" * n, 0)
+    ret = s1.recvmsg
+    assert_equal n, ret[0].bytesize, '[ruby-core:71517] [Bug #11701]'
+
+    s2.send("a" * n, 0)
+    IO.select([s1])
+    ret = s1.recvmsg_nonblock
+    assert_equal n, ret[0].bytesize, 'non-blocking should also grow'
+  ensure
+    s1.close
+    s2.close
+  end
+
+  def test_udp_read_truncation
+    s1 = Addrinfo.udp("127.0.0.1", 0).bind
+    s2 = s1.connect_address.connect
+    s2.send("a" * 100, 0)
+    ret = s1.read(10)
+    assert_equal "a" * 10, ret
+    s2.send("b" * 100, 0)
+    ret = s1.read(10)
+    assert_equal "b" * 10, ret
+  ensure
+    s1.close
+    s2.close
+  end
+
+  def test_udp_recv_truncation
+    s1 = Addrinfo.udp("127.0.0.1", 0).bind
+    s2 = s1.connect_address.connect
+    s2.send("a" * 100, 0)
+    ret = s1.recv(10, Socket::MSG_PEEK)
+    assert_equal "a" * 10, ret
+    ret = s1.recv(10, 0)
+    assert_equal "a" * 10, ret
+    s2.send("b" * 100, 0)
+    ret = s1.recv(10, 0)
+    assert_equal "b" * 10, ret
+  ensure
+    s1.close
+    s2.close
+  end
+
+  def test_udp_recvmsg_truncation
+    s1 = Addrinfo.udp("127.0.0.1", 0).bind
+    s2 = s1.connect_address.connect
+    s2.send("a" * 100, 0)
+    ret, addr, rflags = s1.recvmsg(10, Socket::MSG_PEEK)
+    assert_equal "a" * 10, ret
+    # AIX does not set MSG_TRUNC for a message partially read with MSG_PEEK.
+    assert_equal Socket::MSG_TRUNC, rflags & Socket::MSG_TRUNC if !rflags.nil? && /aix/ !~ RUBY_PLATFORM
+    ret, addr, rflags = s1.recvmsg(10, 0)
+    assert_equal "a" * 10, ret
+    assert_equal Socket::MSG_TRUNC, rflags & Socket::MSG_TRUNC if !rflags.nil?
+    s2.send("b" * 100, 0)
+    ret, addr, rflags = s1.recvmsg(10, 0)
+    assert_equal "b" * 10, ret
+    assert_equal Socket::MSG_TRUNC, rflags & Socket::MSG_TRUNC if !rflags.nil?
+  ensure
+    s1.close
+    s2.close
   end
 
 end if defined?(Socket)

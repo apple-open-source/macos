@@ -43,7 +43,7 @@
      Aplicación de Consola</a> para obtener información
      sobre como controlar Apache en esas plataformas.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">Introducción</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">Introducción</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#term">Parar Apache</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#graceful">Reinicio Graceful</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#hup">Reiniciar Apache</a></li>
@@ -288,7 +288,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/stopping.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

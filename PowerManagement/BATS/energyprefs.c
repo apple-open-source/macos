@@ -9,10 +9,6 @@
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include "PMtests.h"
 
-#if TARGET_OS_EMBEDDED
-int main(int argc, const char * argv[]) { return 0; }
-
-#else
 static void testRegister(void);
 static void testCopy(void);
 static void testRevert(void);
@@ -303,11 +299,5 @@ static void testSystemPowerSettings(void)
         CFRelease(dict);
     }
     
-    ret = IOPMActivateSystemPowerSettings();
-    if (ret != kIOReturnSuccess) {
-        FAIL("IOPMActivateSystemPowerSettings failed (ret = 0x%x)\n", ret);
-    }
-    
     PASS("testSystemPowerSettings\n");
 }
-#endif

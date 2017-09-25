@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -151,6 +151,7 @@ public int bl_fg_color;		/* Color of blinking text */
 public int bl_bg_color;
 static int sy_fg_color;		/* Color of system text (before less) */
 static int sy_bg_color;
+public int sgr_mode;		/* Honor ANSI sequences rather than using above */
 
 #else
 
@@ -1125,6 +1126,7 @@ get_term()
 	so_bg_color = 9;
 	bl_fg_color = 15;
 	bl_bg_color = 0;
+	sgr_mode = 0;
 
 	/*
 	 * Get size of the screen.
@@ -1467,6 +1469,9 @@ _settextposition(int row, int col)
 	static void
 initcolor()
 {
+#if MSDOS_COMPILER==BORLANDC || MSDOS_COMPILER==DJGPPC
+	intensevideo();
+#endif
 	SETCOLORS(nm_fg_color, nm_bg_color);
 #if 0
 	/*
@@ -2451,7 +2456,16 @@ win32_kbhit(tty)
 			currentKey.scan = PCK_CTL_DELETE;
 			break;
 		}
+	} else if (ip.Event.KeyEvent.dwControlKeyState & SHIFT_PRESSED)
+	{
+		switch (currentKey.scan)
+		{
+		case PCK_SHIFT_TAB: /* tab */
+			currentKey.ascii = 0;
+			break;
+		}
 	}
+
 	return (TRUE);
 }
 

@@ -32,7 +32,7 @@ static uint64_t
 adler32_implementation(size_t len, const void *in, uint64_t __unused crc)
 {
     uint32_t a = 1, b = 0;
-    uint8_t *bytes = (uint8_t *) in;
+    const uint8_t *bytes = in;
     
     for (size_t i = 0; i < len; i++) {
         a = (a + bytes[i]) % adler_mod_value;

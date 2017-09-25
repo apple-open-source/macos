@@ -194,27 +194,16 @@ __unused static inline Pair query_match_at(const Query *q, CFIndex ix)
 
 const SecDbClass *kc_class_with_name(CFStringRef name) {
     if (isString(name)) {
-#if 0
-        // TODO Iterate kc_db_classes and look for name == class->name.
-        // Or get clever and switch on first letter of class name and compare to verify
-        static const void *kc_db_classes[] = {
-            &genp_class,
-            &inet_class,
-            &cert_class,
-            &keys_class,
-            &identity_class
-        };
-#endif
         if (CFEqual(name, kSecClassGenericPassword))
-            return &genp_class;
+            return genp_class();
         else if (CFEqual(name, kSecClassInternetPassword))
-            return &inet_class;
+            return inet_class();
         else if (CFEqual(name, kSecClassCertificate))
-            return &cert_class;
+            return cert_class();
         else if (CFEqual(name, kSecClassKey))
-            return &keys_class;
+            return keys_class();
         else if (CFEqual(name, kSecClassIdentity))
-            return &identity_class;
+            return identity_class();
     }
     return NULL;
 }
@@ -331,6 +320,11 @@ void query_add_attribute_with_desc(const SecDbAttr *desc, const void *value, Que
 
 void query_add_attribute(const void *key, const void *value, Query *q)
 {
+    if (CFEqual(key, kSecAttrDeriveSyncIDFromItemAttributes)) {
+        q->q_uuid_from_primary_key = CFBooleanGetValue(value);
+        return; /* skip the attribute so it isn't part of the search */
+    }
+
     const SecDbAttr *desc = SecDbAttrWithKey(q->q_class, key, &q->q_error);
     if (desc) {
         query_add_attribute_with_desc(desc, value, q);
@@ -534,7 +528,7 @@ static const SecDbClass *query_get_class(CFDictionaryRef query, CFErrorRef *erro
         value = CFDictionaryGetValue(query, kSecValuePersistentRef);
         if (isData(value)) {
             CFDataRef pref = value;
-            _SecItemParsePersistentRef(pref, &c_name, 0);
+            _SecItemParsePersistentRef(pref, &c_name, NULL, NULL);
         }
     }
 
@@ -665,6 +659,13 @@ static void query_set_data(const void *value, Query *q) {
     }
 }
 
+static void query_set_token_persistent_ref(Query *q, CFDictionaryRef token_persistent_ref) {
+    if (token_persistent_ref) {
+        query_add_attribute(kSecAttrTokenID, CFDictionaryGetValue(token_persistent_ref, kSecAttrTokenID), q);
+        CFRetainAssign(q->q_token_object_id, CFDictionaryGetValue(token_persistent_ref, kSecAttrTokenOID));
+    }
+}
+
 /* AUDIT[securityd](done):
  key (ok) is a caller provided, string starting with 'u'.
  value (ok) is a caller provided, non NULL CFTypeRef.
@@ -680,9 +681,12 @@ static void query_add_value(const void *key, const void *value, Query *q)
 #endif
     } else if (CFEqual(key, kSecValuePersistentRef)) {
         CFStringRef c_name;
-        if (_SecItemParsePersistentRef(value, &c_name, &q->q_row_id))
+        CFDictionaryRef token_persistent_ref = NULL;
+        if (_SecItemParsePersistentRef(value, &c_name, &q->q_row_id, &token_persistent_ref)) {
             query_set_class(q, c_name, &q->q_error);
-        else
+            query_set_token_persistent_ref(q, token_persistent_ref);
+            CFReleaseNull(token_persistent_ref);
+        } else
             SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_value: value %@ is not a valid persitent ref"), value);
     } else {
         SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_value: unknown key %@"), key);
@@ -760,11 +764,18 @@ static void query_applier(const void *key, const void *value, void *context)
          r: return like kSecReturnData
          u: use keys
          v: value
+         f: callbacks (ignored by the query applier)
          */
         if (key_len == 4) {
             /* attributes */
             query_add_attribute(key, value, q);
         } else if (key_len > 1) {
+            // We added a database column named 'persistref', which is returned as an attribute but doesn't comply with
+            // these matching rules. skip it for now, since it isn't filled in anyway.
+            if(CFEqualSafe(key, CFSTR("persistref"))) {
+                return;
+            }
+
             UniChar k_first_char = CFStringGetCharacterAtIndex(key, 0);
             switch (k_first_char)
             {
@@ -782,6 +793,8 @@ static void query_applier(const void *key, const void *value, void *context)
                     break;
                 case 'v': /* value */
                     query_add_value(key, value, q);
+                    break;
+                case 'f':
                     break;
                 default:
                     SecError(errSecItemInvalidKey, &q->q_error, CFSTR("applier: key %@ invalid"), key);
@@ -806,7 +819,7 @@ static CFStringRef query_infer_keyclass(Query *q, CFStringRef agrp) {
         return kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate;
     }
     /* All other certs or in the apple agrp is dk. */
-    if (q->q_class == &cert_class) {
+    if (q->q_class == cert_class()) {
         /* third party certs are always dk. */
         return kSecAttrAccessibleAlwaysPrivate;
     }
@@ -843,6 +856,7 @@ bool query_destroy(Query *q, CFErrorRef *error) {
     CFReleaseSafe(q->q_match_policy);
     CFReleaseSafe(q->q_match_valid_on_date);
     CFReleaseSafe(q->q_match_trusted_only);
+    CFReleaseSafe(q->q_token_object_id);
 
     free(q);
     return ok;
@@ -876,7 +890,7 @@ Query *query_create(const SecDbClass *qclass,
     CFIndex key_count = SecDbClassAttrCount(qclass);
     if (key_count == 0) {
         // Identities claim to have 0 attributes, but they really support any keys or cert attribute.
-        key_count = SecDbClassAttrCount(&cert_class) + SecDbClassAttrCount(&keys_class);
+        key_count = SecDbClassAttrCount(cert_class()) + SecDbClassAttrCount(keys_class());
     }
 
     if (query) {
@@ -905,6 +919,7 @@ Query *query_create(const SecDbClass *qclass,
 
     q->q_pairs_count = key_count;
     q->q_musrView = (CFDataRef)CFRetain(musr);
+    q->q_uuid_from_primary_key = false;
     q->q_keybag = KEYBAG_DEVICE;
     q->q_class = qclass;
     q->q_match_begin = q->q_match_end = key_count;
@@ -942,7 +957,7 @@ Query *query_create_with_limit(CFDictionaryRef query, CFDataRef musr, CFIndex li
             query_destroy(q, error);
             return NULL;
         }
-        if (!q->q_sync && !q->q_row_id) {
+        if (!q->q_sync && !q->q_row_id && !q->q_token_object_id) {
             /* query did not specify a kSecAttrSynchronizable attribute,
              * and did not contain a persistent reference. */
             query_add_attribute(kSecAttrSynchronizable, kCFBooleanFalse, q);

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *   Copyright (C) 1997-2011,2014-2015 International Business Machines
@@ -254,7 +256,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUTransliteratorPointer, UTransliterator, utrans
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
  * Return the programmatic identifier for this transliterator.

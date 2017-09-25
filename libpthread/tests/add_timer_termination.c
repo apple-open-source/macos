@@ -18,7 +18,7 @@
 
 #include <dispatch/dispatch.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 #include <darwintest_utils.h>
 
 extern void __exit(int) __attribute__((noreturn));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,6 +95,8 @@ typedef struct EAPClientPluginData_s {
 
     const uint8_t *		username;
     const uint32_t		username_length;
+
+    CFDataRef			encryptedEAPIdentity; /* used for privacy protection in EAP-SIM and EAP-AKA */
 
     const uint8_t *		password; 	/* may be NULL */
     const uint32_t		password_length;

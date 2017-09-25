@@ -302,6 +302,7 @@ IOReturn IOHIDQueueClass::create (IOOptionBits flags, uint32_t depth)
         
         if (elements)
         {
+            CFSetGetValues((CFSetRef)fElements, (const void**)elements);
             for (i=0; i<count; i++)
                 addElement(elements[i]);
          
@@ -327,10 +328,10 @@ IOReturn IOHIDQueueClass::dispose()
     mach_vm_address_t   mappedMem = (mach_vm_address_t)fQueueMappedMemory;
 #endif
 
-        ret = IOConnectUnmapMemory (fOwningDevice->fConnection, 
-                                    fQueueRef, 
-                                    mach_task_self(), 
-                                    mappedMem);
+        IOConnectUnmapMemory (fOwningDevice->fConnection,
+                              (uint32_t)fQueueRef,
+                              mach_task_self(),
+                              mappedMem);
         fQueueMappedMemory = NULL;
         fQueueMappedMemorySize = 0;
     }    
@@ -451,10 +452,10 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options __unused)
     // queue mapped memory
     if ( fQueueEntrySizeChanged && fQueueMappedMemory )
     {
-        ret = IOConnectUnmapMemory (fOwningDevice->fConnection, 
-                                    fQueueRef, 
-                                    mach_task_self(), 
-                                    (uintptr_t)fQueueMappedMemory);
+        IOConnectUnmapMemory (fOwningDevice->fConnection,
+                              (uint32_t)fQueueRef,
+                              mach_task_self(),
+                              (uintptr_t)fQueueMappedMemory);
         fQueueMappedMemory      = NULL;
         fQueueMappedMemorySize  = 0;
     }    
@@ -479,7 +480,7 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options __unused)
 #endif
 
         ret = IOConnectMapMemory (	fOwningDevice->fConnection, 
-                                    fQueueRef, 
+                                    (uint32_t)fQueueRef, 
                                     mach_task_self(), 
                                     &address, 
                                     &size, 
@@ -566,7 +567,7 @@ IOReturn IOHIDQueueClass::copyNextEventValue (IOHIDValueRef     *pEvent,
     }
     
     // dequeue the item
-    ret = IODataQueueDequeue(fQueueMappedMemory, NULL, &dataSize);
+    IODataQueueDequeue(fQueueMappedMemory, NULL, &dataSize);
     
     return ret;
 }
@@ -799,7 +800,7 @@ IOReturn IOHIDObsoleteQueueClass::getNextEvent (IOHIDEventStruct * pEventStruct,
         
         if ((ret==kIOReturnSuccess) && event)
         {
-            uint32_t length = _IOHIDElementGetLength(IOHIDValueGetElement(event));
+            uint32_t length = (uint32_t)_IOHIDElementGetLength(IOHIDValueGetElement(event));
             
             pEventStruct->type                  = IOHIDElementGetType(IOHIDValueGetElement(event));
             pEventStruct->elementCookie         = IOHIDElementGetCookie(IOHIDValueGetElement(event));
@@ -815,7 +816,7 @@ IOReturn IOHIDObsoleteQueueClass::getNextEvent (IOHIDEventStruct * pEventStruct,
             {
                 pEventStruct->longValueSize = 0;
                 pEventStruct->longValue     = NULL;
-                pEventStruct->value         = IOHIDValueGetIntegerValue(event);
+                pEventStruct->value         = (int32_t)IOHIDValueGetIntegerValue(event);
             }
             
             CFRelease(event);

@@ -1,0 +1,25 @@
+ 0x5238004   kHID_UserDev_Create                 
+ 0x5238008   kHID_UserDev_Release                
+ 0x523800c   kHID_UserDev_Start                  
+ 0x5238010   kHID_UserDev_AsyncSupport           
+ 0x5238014   kHID_UserDev_Unschedule             
+ 0x5238018   kHID_UserDev_ScheduleDispatch       
+ 0x523801c   kHID_UserDev_UnscheduleDispatch     
+ 0x5238020   kHID_UserDev_QueueCallback          
+ 0x5238024   kHID_UserDev_HandleReport           
+ 0x5238028   kHID_UserDev_HandleReportCallback   
+ 0x523802c   kHID_UserDev_SetReportCallback      
+ 0x5238040   kHID_ES_EventCallback               
+ 0x5238044   kHID_ES_FiltersClientsDone          
+ 0x5238048   kHID_ES_SystemFilterDone            
+ 0x523804c   kHID_ES_ClientsDone                 
+ 0x5238080   kHID_ES_Client_QueueCallback        
+ 0x52380c0   kHID_ES_Conn_DispatchEvent          
+ 0x5238100   kHID_ES_Service_Callback            
+ 0x5238104   kHID_ES_Service_Create              
+ 0x5238108   kHID_ES_Service_Open                
+ 0x523810c   kHID_ES_Service_FiltersDone         
+ 0x5238140   kHID_ES_Session_Callback            
+ 0x5238144   kHID_ES_Session_Dispatch            
+ 0x5238148   kHID_ES_Session_FiltersDone         
+

@@ -10,33 +10,24 @@ Entity: line 1: parser error : xmlParseEntityDecl: no name
 Entity: line 1: 
 <!ENTITY<?xxxx?>
         ^
+Entity: line 1: parser error : PEReference: expecting ';'
+ %x; 
+    ^
+Entity: line 1: 
+%z;<![INCLUDE[%zxxxxxNTDĳzz%zzzz;xxxx%z;
+                            ^
 Entity: line 1: parser warning : PEReference: %zzzz; not found
  %x; 
     ^
 Entity: line 1: 
 %z;<![INCLUDE[%zxxxxxNTDĳzz%zzzz;xxxx%z;
                                   ^
-Entity: line 1: parser error : PEReference: no name
+Entity: line 1: parser error : Content error in the external subset
  %x; 
     ^
 Entity: line 1: 
-<!ENTITY<?xxxx?>
-^
-Entity: line 1: parser error : Space required after '<!ENTITY'
- %x; 
-    ^
-Entity: line 1: 
-<!ENTITY<?xxxx?>
-        ^
-Entity: line 1: parser error : xmlParseEntityDecl: no name
- %x; 
-    ^
-Entity: line 1: 
-<!ENTITY<?xxxx?>
-        ^
-./test/errors/769855-2.xml:1: parser error : XML conditional section not closed
-;zxxxxxNTD&#307;zz&#37;zzzz;xxxx&#37;z;'><!ENTITY % z '&#60;!ENTITY<?xxxx?>'>%x;
-                                                                               ^
+%z;<![INCLUDE[%zxxxxxNTDĳzz%zzzz;xxxx%z;
+                                  ^
 ./test/errors/769855-2.xml:1: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
 
 ;zxxxxxNTD&#307;zz&#37;zzzz;xxxx&#37;z;'><!ENTITY % z '&#60;!ENTITY<?xxxx?>'>%x;

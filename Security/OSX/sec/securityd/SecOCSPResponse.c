@@ -220,7 +220,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
     CFStringRef hexResp = CFDataCopyHexString(this->data);
 
     if (this->producedAt > verifyTime + LEEWAY) {
-        ocspdErrorLog("OCSPResponse: producedAt more than 1:15 from now %@", hexResp);
+        secnotice("ocsp", "OCSPResponse: producedAt more than 1:15 from now");
         goto exit;
     }
 
@@ -233,7 +233,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 		/* thisUpdate later than 'now' invalidates the whole response. */
 		CFAbsoluteTime thisUpdate = genTimeToCFAbsTime(&resp->thisUpdate);
 		if (thisUpdate > verifyTime + LEEWAY) {
-			ocspdErrorLog("OCSPResponse: thisUpdate more than 1:15 from now %@", hexResp);
+			secnotice("ocsp","OCSPResponse: thisUpdate more than 1:15 from now");
             goto exit;
 		}
 
@@ -250,7 +250,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
                  response caching.  See Section 6 for additional
                  information on caching.
             */
-			ocspdErrorLog("OCSPResponse: nextUpdate not present %@", hexResp);
+			secnotice("ocsp", "OCSPResponse: nextUpdate not present");
 #ifdef STRICT_RFC5019
             goto exit;
 #endif
@@ -294,7 +294,7 @@ bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 		/* Absolute expire time = current time plus defaultTTL */
 		this->expireTime = verifyTime + defaultTTL;
 	} else if (this->latestNextUpdate < verifyTime - LEEWAY) {
-        ocspdErrorLog("OCSPResponse: latestNextUpdate more than 1:15 ago %@", hexResp);
+        secnotice("ocsp", "OCSPResponse: latestNextUpdate more than 1:15 ago");
         goto exit;
     } else if (maxAge > 0) {
         /* Beware of double overflows such as:
@@ -343,12 +343,12 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
     resp.Data = (uint8_t *)CFDataGetBytePtr(ocspResponse);
 	if (SecAsn1DecodeData(this->coder, &resp, kSecAsn1OCSPResponseTemplate,
         &topResp)) {
-		ocspdErrorLog("OCSPResponse: decode failure at top level %@", hexResp);
+		ocspdErrorLog("OCSPResponse: decode failure at top level");
 	}
 	/* remainder is valid only on RS_Success */
 	if ((topResp.responseStatus.Data == NULL) ||
 	   (topResp.responseStatus.Length == 0)) {
-		ocspdErrorLog("OCSPResponse: no responseStatus %@", hexResp);
+		ocspdErrorLog("OCSPResponse: no responseStatus");
         goto errOut;
 	}
     this->responseStatus = topResp.responseStatus.Data[0];
@@ -360,12 +360,12 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
 	}
 	if (topResp.responseBytes == NULL) {
 		/* I don't see how this can be legal on RS_Success */
-		ocspdErrorLog("OCSPResponse: empty responseBytes %@", hexResp);
+		ocspdErrorLog("OCSPResponse: empty responseBytes");
         goto errOut;
 	}
     if (!SecAsn1OidCompare(&topResp.responseBytes->responseType,
 			&OID_PKIX_OCSP_BASIC)) {
-		ocspdErrorLog("OCSPResponse: unknown responseType %@", hexResp);
+		ocspdErrorLog("OCSPResponse: unknown responseType");
         goto errOut;
 
 	}
@@ -373,7 +373,7 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
 	/* decode the SecAsn1OCSPBasicResponse */
 	if (SecAsn1DecodeData(this->coder, &topResp.responseBytes->response,
 			kSecAsn1OCSPBasicResponseTemplate, &this->basicResponse)) {
-		ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPBasicResponse %@", hexResp);
+		ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPBasicResponse");
         goto errOut;
 	}
 
@@ -382,17 +382,17 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
 	/* decode the SecAsn1OCSPResponseData */
 	if (SecAsn1DecodeData(this->coder, &this->basicResponse.tbsResponseData,
 			kSecAsn1OCSPResponseDataTemplate, &this->responseData)) {
-		ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPResponseData %@", hexResp);
+        ocspdErrorLog("OCSPResponse: decode failure at SecAsn1OCSPResponseData");
         goto errOut;
 	}
     this->producedAt = genTimeToCFAbsTime(&this->responseData.producedAt);
     if (this->producedAt == NULL_TIME) {
-		ocspdErrorLog("OCSPResponse: bad producedAt %@", hexResp);
+		ocspdErrorLog("OCSPResponse: bad producedAt");
         goto errOut;
     }
 
 	if (this->responseData.responderID.Data == NULL) {
-		ocspdErrorLog("OCSPResponse: bad responderID %@", hexResp);
+		ocspdErrorLog("OCSPResponse: bad responderID");
         goto errOut;
 	}
 
@@ -410,12 +410,12 @@ SecOCSPResponseRef SecOCSPResponseCreateWithID(CFDataRef ocspResponse, int64_t r
 			templ = kSecAsn1OCSPResponderIDAsKeyTemplate;
 			break;
 		default:
-			ocspdErrorLog("OCSPResponse: bad responderID tag %@", hexResp);
+			ocspdErrorLog("OCSPResponse: bad responderID tag");
             goto errOut;
 	}
 	if (SecAsn1DecodeData(this->coder, &this->responseData.responderID, templ,
         &this->responderID)) {
-		ocspdErrorLog("OCSPResponse: decode failure at responderID %@", hexResp);
+		ocspdErrorLog("OCSPResponse: decode failure at responderID");
         goto errOut;
 	}
 
@@ -423,6 +423,7 @@ fini:
     CFReleaseSafe(hexResp);
     return this;
 errOut:
+    secdebug("ocsp", "bad ocsp response: %@", hexResp);
     CFReleaseSafe(hexResp);
     if (this) {
         SecOCSPResponseFinalize(this);
@@ -518,6 +519,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
     SecOCSPResponseRef this, SecOCSPRequestRef request) {
     SecOCSPSingleResponseRef sr = NULL;
 
+    if (!request) { return sr; }
     CFDataRef issuer = SecCertificateCopyIssuerSequence(request->certificate);
     const DERItem *publicKey = SecCertificateGetPublicKeyData(request->issuer);
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
@@ -532,10 +534,10 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
 
     SecAsn1OCSPSingleResponse **responses;
     for (responses = this->responseData.responses; *responses; ++responses) {
-		SecAsn1OCSPSingleResponse *resp = *responses;
+        SecAsn1OCSPSingleResponse *resp = *responses;
         SecAsn1OCSPCertID *certId = &resp->certID;
         /* First check the easy part, serial number should match. */
-        if (certId->serialNumber.Length != (size_t)CFDataGetLength(serial) ||
+        if (!serial || certId->serialNumber.Length != (size_t)CFDataGetLength(serial) ||
             memcmp(CFDataGetBytePtr(serial), certId->serialNumber.Data,
                 certId->serialNumber.Length)) {
             /* Serial # mismatch, skip this singleResponse. */
@@ -581,7 +583,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
             }
         }
 
-	}
+    }
 
     CFReleaseSafe(issuerPubKeyHash);
     CFReleaseSafe(issuerNameHash);

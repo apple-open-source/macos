@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 *   Copyright (C) 1999-2016, International Business Machines
@@ -241,7 +243,8 @@ void TransliteratorTest::TestInstantiation() {
         if (t == 0) {
 #if UCONFIG_NO_BREAK_ITERATION
             // If UCONFIG_NO_BREAK_ITERATION is on, then only Thai should fail.
-            if (id.compare((UnicodeString)"Thai-Latin") != 0)
+            if (id.compare((UnicodeString)"Thai-Latn") != 0 &&
+                id.compare((UnicodeString)"Thai-Latin") != 0)
 #endif
                 dataerrln(UnicodeString("FAIL: Couldn't create ") + id +
                       /*", parse error " + parseError.code +*/
@@ -3572,12 +3575,22 @@ void TransliteratorTest::TestIncrementalProgress(void) {
                 _trans(*t, test, rev);
                 Transliterator *inv = t->createInverse(status);
                 if (U_FAILURE(status)) {
+                    // The following are forward-only, it is OK that creating an inverse will not work:
+                    // 1. Devanagari-Arabic
+                    // 2. Any-*/BGN
+                    // 3. Any-*/UNGEGN
+                    // If UCONFIG_NO_BREAK_ITERATION is on, Latin-Thai is also not expected to work.
+                    if (    id.compare((UnicodeString)"Devanagari-Arabic/") != 0
+                         && !(id.startsWith((UnicodeString)"Any-") &&
+                                (id.endsWith((UnicodeString)"/BGN") || id.endsWith((UnicodeString)"/UNGEGN") || id.endsWith((UnicodeString)"/MNS"))
+                             )
 #if UCONFIG_NO_BREAK_ITERATION
-                    // If UCONFIG_NO_BREAK_ITERATION is on, then only Thai should fail.
-                    if (id.compare((UnicodeString)"Latin-Thai/") != 0)
+                         && id.compare((UnicodeString)"Latin-Thai/") != 0
 #endif
+                       )
+                    {
                         errln((UnicodeString)"FAIL: Could not create inverse of " + id);
-
+                    }
                     delete t;
                     delete inv;
                     continue;
@@ -3862,6 +3875,21 @@ void TransliteratorTest::TestAnyX(void) {
            CharsToUnicodeString("greek:abkABK hiragana:abuku cyrillic:abc"));
 
     delete anyLatin;
+
+    status = U_ZERO_ERROR;
+    Transliterator* anyASCII =
+        Transliterator::createInstance("Any-Latin;Latin-ASCII", UTRANS_FORWARD, parseError, status);
+    if (U_FAILURE(status) || anyASCII==0) {
+        dataerrln("FAIL: createInstance returned NULL and/or set status %s", u_errorName(status));
+        delete anyASCII;
+        return;
+    }
+
+    expect(*anyASCII,
+           CharsToUnicodeString("ArabicDigits:\\u0660\\u0661\\u0664\\u0669 PersianDigits:\\u06F0\\u06F1\\u06F4\\u06F9"),
+           CharsToUnicodeString("ArabicDigits:0149 PersianDigits:0149"));
+
+    delete anyASCII;
 }
 
 /**

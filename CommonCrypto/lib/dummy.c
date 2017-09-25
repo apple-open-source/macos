@@ -22,3 +22,11 @@
  */
 
 // dummy.c - non-source for a header install compile step.
+// Define an empty function to avoid the warning "CommonCrypto.empty.a the table of contents is empty (no object file members in the library define global symbols)"
+void dummy(void);
+
+__attribute__((unused)) void dummy(void)  {
+
+    return;
+}
+

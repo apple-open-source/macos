@@ -157,13 +157,13 @@ mod_export Heapid last_heap_id;
  * Assumes old_heaps() will come along and restore it later
  * (outputs an error if old_heaps() is called out of sequence).
  */
-LinkList heaps_saved;
+static LinkList heaps_saved;
 
 /*
  * Debugging verbosity.  This must be set from a debugger.
  * An 'or' of bits from the enum heap_debug_verbosity.
  */
-volatile int heap_debug_verbosity;
+static volatile int heap_debug_verbosity;
 
 /*
  * Generate a heap identifier that's unique up to unsigned integer wrap.
@@ -497,7 +497,8 @@ popheap(void)
 		    continue;
 		}
 		h->next = NULL;
-	    }
+	    } else if (hl == h)	/* This is the last arena of all */
+		hl = NULL;
 #ifdef USE_MMAP
 	    munmap((void *) h, h->size);
 #else
@@ -903,27 +904,36 @@ memory_validate(Heapid heap_id)
 
     queue_signals();
     for (h = heaps; h; h = h->next) {
-	if (h->heap_id == heap_id)
+	if (h->heap_id == heap_id) {
+	    unqueue_signals();
 	    return 0;
+	}
 	for (hs = heaps->sp; hs; hs = hs->next) {
-	    if (hs->heap_id == heap_id)
+	    if (hs->heap_id == heap_id) {
+		unqueue_signals();
 		return 0;
+	    }
 	}
     }
 
     if (heaps_saved) {
 	for (node = firstnode(heaps_saved); node; incnode(node)) {
 	    for (h = (Heap)getdata(node); h; h = h->next) {
-		if (h->heap_id == heap_id)
+		if (h->heap_id == heap_id) {
+		    unqueue_signals();
 		    return 0;
+		}
 		for (hs = heaps->sp; hs; hs = hs->next) {
-		    if (hs->heap_id == heap_id)
+		    if (hs->heap_id == heap_id) {
+			unqueue_signals();
 			return 0;
+		    }
 		}
 	    }
 	}
     }
 
+    unqueue_signals();
     return 1;
 }
 /**/
@@ -966,18 +976,10 @@ zalloc(size_t size)
 mod_export void *
 zshcalloc(size_t size)
 {
-    void *ptr;
-
+    void *ptr = zalloc(size);
     if (!size)
 	size = 1;
-    queue_signals();
-    if (!(ptr = (void *) malloc(size))) {
-	zerr("fatal error: out of memory");
-	exit(1);
-    }
-    unqueue_signals();
     memset(ptr, 0, size);
-
     return ptr;
 }
 

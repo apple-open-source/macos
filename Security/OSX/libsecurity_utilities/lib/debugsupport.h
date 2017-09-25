@@ -111,10 +111,10 @@ public:
 	void configure(const char *options);	// from explicit string
 	
 public:
-	void message(const char *scope, const char *format, va_list args);
+	void message(const char *scope, const char *format, va_list args) __attribute__((format(printf, 3, 0)));
 	bool debugging(const char *scope);
-	void dump(const char *format, va_list args);
-	bool dump(const char *scope);
+    void dump(const char *format, va_list args) __attribute__((format(printf,2,0)));
+	bool dumping(const char *scope);
 	
 protected:
 	class Selector {

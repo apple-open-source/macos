@@ -70,6 +70,12 @@ public:
 	virtual Universal *mainExecutableImage();				// Mach-O image if Mach-O based [null]
 	virtual size_t signingBase();							// start offset of signed area in main executable [zero]
 	virtual size_t signingLimit() = 0;						// size of signed area in main executable
+
+	// The executable segment, if present, denotes which part of the image can be mapped
+	// into a virtual address space as executable. Not all platforms check this.
+	virtual size_t execSegBase(const Architecture *arch);			// start offset of executable segment in main executable [zero]
+	virtual size_t execSegLimit(const Architecture *arch) = 0;		// size of executable segment in main executable
+
 	virtual std::string format() = 0;						// human-readable type string
 	virtual CFArrayRef modifiedFiles();						// list of files modified by signing [main execcutable only]
 	virtual UnixPlusPlus::FileDesc &fd() = 0;				// a cached file descriptor for main executable file
@@ -219,6 +225,8 @@ public:
 	Universal *mainExecutableImage()		{ return mOriginal->mainExecutableImage(); }
 	size_t signingBase()					{ return mOriginal->signingBase(); }
 	size_t signingLimit()					{ return mOriginal->signingLimit(); }
+	size_t execSegBase(const Architecture *arch)					{ return mOriginal->execSegBase(arch); }
+	size_t execSegLimit(const Architecture *arch)					{ return mOriginal->execSegLimit(arch); }
 	std::string format()					{ return mOriginal->format(); }
 	CFArrayRef modifiedFiles()				{ return mOriginal->modifiedFiles(); }
 	UnixPlusPlus::FileDesc &fd()			{ return mOriginal->fd(); }

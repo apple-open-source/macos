@@ -61,6 +61,7 @@ _mdns_query(int call, const char *name, int class, int type, u_char *answer, int
 	int res = -1;
 	si_item_t *item;
 	uint32_t err;
+	int cpylen = 0;
 	
 	si_mod_t *dns = si_module_with_name("mdns");
 	if (dns == NULL) {
@@ -77,8 +78,14 @@ _mdns_query(int call, const char *name, int class, int type, u_char *answer, int
 		
 		res = p->dns_packet_len;
 		
-		// Truncate to destination buffer size.
-		memcpy(answer, p->dns_packet, MIN(res, anslen));
+		if (res >= 0 && anslen >= 0) {
+			// Truncate destination buffer size.
+			memcpy(answer, p->dns_packet, (cpylen = MIN(res, anslen)));
+		}
+		else {
+			h_errno = NO_RECOVERY;
+			res = -1;
+		}
 		
 		si_item_release(item);
 	} else {
@@ -86,7 +93,7 @@ _mdns_query(int call, const char *name, int class, int type, u_char *answer, int
 		res = -1;
 	}
 
-	if (MIN(res, anslen) >= sizeof(HEADER)) {
+	if (cpylen >= sizeof(HEADER)) {
 		HEADER *hp = (HEADER *)answer;
 		switch (hp->rcode) {
 			case NXDOMAIN:

@@ -1,3 +1,24 @@
+/read_e_script/i
+#ifndef OPEN_SOURCE
+#ifdef __APPLE__
+#include <rootless.h>
+#endif
+#endif
+
+.
+/Could remove this vestigial extra block/i
+#ifndef OPEN_SOURCE
+#ifdef __APPLE__
+	if (rootless_restricted_environment()) {
+		if (rootless_check_trusted(dir)) {
+			return;
+		}
+	}
+#endif
+#endif
+
+.
+1
 /^S_init_perllib(/-1i
 #if defined(PERL_PREPENDTOPATH) || defined(PERL_APPENDTOPATH)
 #define	_incpushfile(path)					\

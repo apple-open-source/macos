@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 153
+Submission	= 156
 
 
 #
@@ -28,12 +28,23 @@ Submission	= 153
 # Disabled while trying to get build stuff working
 ###
 
+###
+# Enable text-based stub generation per default.
+##
+GENERATE_TEXT_BASED_STUBS ?= YES
+GENERATE_TEXT_BASED_STUBS_UPPER := $(shell echo $(GENERATE_TEXT_BASED_STUBS) | tr a-z A-Z)
+ 
+STUBIFY = $(if $(filter 1 TRUE ON YES,$(GENERATE_TEXT_BASED_STUBS_UPPER)),YES,NO)
+$(info GENERATE_TEXT_BASED_STUBS=$(STUBIFY))
+
+
 ########################
 # Allow selecting the compiler to be used
 ########################
 SDKROOT ?=/
-CC = xcrun -sdk $(SDKROOT) cc
-CXX = xcrun -sdk $(SDKROOT) c++
+CC := $(shell xcrun -sdk $(SDKROOT) -f cc)
+CXX := $(shell xcrun -sdk $(SDKROOT) -f c++)
+TAPI := $(shell xcrun -sdk $(SDKROOT) -f tapi)
 CLFAGS += -isysroot $(SDKROOT)
 CXXFLAGS += -isysroot $(SDKROOT)
 ########################
@@ -105,7 +116,10 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 # used here to point to the project's headers instead of those already
 # installed on the system (which are out of date).
 Extra_Environment	= AR="$(SRCROOT)/ar.sh" INC="-I../../include -I../../../include"
-GnuAfterInstall		= install-macosx install-mibs install-compat 
+GnuAfterInstall		= install-macosx install-mibs install-compat
+ifeq ($(STUBIFY),YES)
+GnuAfterInstall	+= stubify
+endif
 #GnuAfterInstall         = install-macosx install-mibs	# do not include the compatibility libs
 
 # Temporarily set for development
@@ -145,7 +159,7 @@ AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			container.patch darwin-header.patch 10268440.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
 			lmsensors.patch darwin-sensors.patch \
-			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch 
+			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf
@@ -299,3 +313,9 @@ install-compat:
 	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.5.dylib
 	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.4.2.1.tar.gz
 	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.15.dylib
+
+stubify: install-macosx install-compat
+	@echo "Generating TBD files ..."
+	$(_v) $(TAPI) stubify $(DSTROOT)
+
+

@@ -41,7 +41,7 @@ mod_rewrite</a>.</div>
 
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#per-hostname">Serveurs virtuels pour des noms d'hôtes arbitraires</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#per-hostname">Serveurs virtuels pour des noms d'hôtes arbitraires</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#simple.rewrite">Configuration dynamique de serveurs
 virtuels via <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code></a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#xtra-conf">Utilisation d'un fichier de configuration
@@ -149,6 +149,7 @@ RewriteEngine On
 
 # un nom de serveur extrait d'un en-tête Host: peut être dans n'importe
 # quelle casse
+RewriteMap  lowercase  int:tolower
 
 ## on s'occupe tout d'abord des documents normaux :<br />
 # permet à Alias "/icons/" de fonctionner - répéter pour les autres
@@ -229,7 +230,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/vhosts.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

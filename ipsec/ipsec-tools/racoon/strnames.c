@@ -47,9 +47,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
 
 #include "var.h"
 #include "misc.h"

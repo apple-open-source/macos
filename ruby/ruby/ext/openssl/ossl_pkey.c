@@ -1,11 +1,10 @@
 /*
- * $Id: ossl_pkey.c 45868 2014-05-07 16:59:18Z usa $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
@@ -69,9 +68,23 @@ ossl_generate_cb_stop(void *ptr)
 }
 #endif
 
+static void
+ossl_evp_pkey_free(void *ptr)
+{
+    EVP_PKEY_free(ptr);
+}
+
 /*
  * Public
  */
+const rb_data_type_t ossl_evp_pkey_type = {
+    "OpenSSL/EVP_PKEY",
+    {
+	0, ossl_evp_pkey_free,
+    },
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
 VALUE
 ossl_pkey_new(EVP_PKEY *pkey)
 {
@@ -185,7 +198,7 @@ GetPrivPKeyPtr(VALUE obj)
 {
     EVP_PKEY *pkey;
 
-    if (rb_funcall(obj, id_private_q, 0, NULL) != Qtrue) {
+    if (rb_funcallv(obj, id_private_q, 0, NULL) != Qtrue) {
 	ossl_raise(rb_eArgError, "Private key is needed.");
     }
     SafeGetPKey(obj, pkey);
@@ -209,7 +222,7 @@ DupPrivPKeyPtr(VALUE obj)
 {
     EVP_PKEY *pkey;
 
-    if (rb_funcall(obj, id_private_q, 0, NULL) != Qtrue) {
+    if (rb_funcallv(obj, id_private_q, 0, NULL) != Qtrue) {
 	ossl_raise(rb_eArgError, "Private key is needed.");
     }
     SafeGetPKey(obj, pkey);
@@ -227,10 +240,11 @@ ossl_pkey_alloc(VALUE klass)
     EVP_PKEY *pkey;
     VALUE obj;
 
+    obj = NewPKey(klass);
     if (!(pkey = EVP_PKEY_new())) {
 	ossl_raise(ePKeyError, NULL);
     }
-    WrapPKey(klass, obj, pkey);
+    SetPKey(obj, pkey);
 
     return obj;
 }
@@ -275,8 +289,9 @@ ossl_pkey_sign(VALUE self, VALUE digest, VALUE data)
     EVP_MD_CTX ctx;
     unsigned int buf_len;
     VALUE str;
+    int result;
 
-    if (rb_funcall(self, id_private_q, 0, NULL) != Qtrue) {
+    if (rb_funcallv(self, id_private_q, 0, NULL) != Qtrue) {
 	ossl_raise(rb_eArgError, "Private key is needed.");
     }
     GetPKey(self, pkey);
@@ -284,7 +299,9 @@ ossl_pkey_sign(VALUE self, VALUE digest, VALUE data)
     StringValue(data);
     EVP_SignUpdate(&ctx, RSTRING_PTR(data), RSTRING_LEN(data));
     str = rb_str_new(0, EVP_PKEY_size(pkey)+16);
-    if (!EVP_SignFinal(&ctx, (unsigned char *)RSTRING_PTR(str), &buf_len, pkey))
+    result = EVP_SignFinal(&ctx, (unsigned char *)RSTRING_PTR(str), &buf_len, pkey);
+    EVP_MD_CTX_cleanup(&ctx);
+    if (!result)
 	ossl_raise(ePKeyError, NULL);
     assert((long)buf_len <= RSTRING_LEN(str));
     rb_str_set_len(str, buf_len);
@@ -342,7 +359,7 @@ ossl_pkey_verify(VALUE self, VALUE digest, VALUE sig, VALUE data)
  * INIT
  */
 void
-Init_ossl_pkey()
+Init_ossl_pkey(void)
 {
 #if 0
     mOSSL = rb_define_module("OpenSSL"); /* let rdoc know about mOSSL */
@@ -436,4 +453,3 @@ Init_ossl_pkey()
     Init_ossl_dh();
     Init_ossl_ec();
 }
-

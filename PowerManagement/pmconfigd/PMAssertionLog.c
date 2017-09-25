@@ -34,12 +34,11 @@
 #define DISPLAY_ON_ASSERTION_LOG_DELAY         (60LL)
 #define DISPLAY_OFF_ASSERTION_LOG_DELAY        (10LL)
 
-#ifdef TARGET_OS_EMBEDDED
 #define AA_MAX_ENTRIES             512
-#else
-#define AA_MAX_ENTRIES             64
-#endif
 
+extern os_log_t    assertions_log;
+#undef   LOG_STREAM
+#define  LOG_STREAM   assertions_log
 
 extern assertionType_t              gAssertionTypes[];
 extern CFMutableDictionaryRef       gProcessDict;
@@ -62,11 +61,7 @@ typedef struct {
 
 assertionActivity_t     activity;
 assertionAggregate_t    aggregate;
-#if TARGET_OS_EMBEDDED
-static  uint32_t        gActivityLogCnt = 1;  // Number of requests received to enable activity logging
-#else
 static  uint32_t        gActivityLogCnt = 0;  // Has to be explicity enabled on OSX
-#endif
 
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -92,46 +87,31 @@ static void logAssertionActivity(assertLogAction  action,
     case kACreateLog:
         logBT = true;
         actionStr = CFSTR(kPMASLAssertionActionCreate);
-        assertion->state |= kAssertionStateLogged;
         break;
 
     case kACreateRetain:
         logBT = true;
-        assertion->state |= kAssertionStateLogged;
         actionStr = CFSTR(kPMASLAssertionActionRetain);
         break;
 
     case kATurnOnLog:
         logBT = true;
         actionStr = CFSTR(kPMASLAssertionActionTurnOn);
-        assertion->state |= kAssertionStateLogged;
         break;
 
     case kAReleaseLog:
-        if ((assertion->state & kAssertionStateLogged) == 0) {
-            return;
-        }
         actionStr = CFSTR(kPMASLAssertionActionRelease);
         break;
 
     case kAClientDeathLog:
-        if ((assertion->state & kAssertionStateLogged) == 0) {
-            return;
-        }
         actionStr = CFSTR(kPMASLAssertionActionClientDeath);
         break;
 
     case kATimeoutLog:
-        if ((assertion->state & kAssertionStateLogged) == 0) {
-            return;
-        }
         actionStr = CFSTR(kPMASLAssertionActionTimeOut);
         break;
 
     case kATurnOffLog:
-        if ((assertion->state & kAssertionStateLogged) == 0) {
-            return;
-        }
         actionStr = CFSTR(kPMASLAssertionActionTurnOff);
         break;
 
@@ -227,7 +207,6 @@ static void logAssertionActivity(assertLogAction  action,
     }
 }
 
-#if !TARGET_OS_EMBEDDED
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type)
 {
@@ -301,13 +280,11 @@ static void logAssertionToASL(assertLogAction  action,
 {
     const int       kLongStringLen          = 200;
     const int       kShortStringLen         = 10;
-    aslmsg          m;
     CFStringRef     foundAssertionType      = NULL;
     CFStringRef     foundAssertionName      = NULL;
     CFDateRef       foundDate               = NULL;
     CFStringRef     procName                = NULL;
     char            proc_name_buf[kProcNameBufLen];
-    char            pid_buf[kShortStringLen];
     char            assertionTypeCString[kLongStringLen];
     char            assertionNameCString[kLongStringLen];
     char            ageString[kShortStringLen];
@@ -320,7 +297,7 @@ static void logAssertionToASL(assertLogAction  action,
 
 
     assertionTypeCString[0] = assertionNameCString[0] =
-        aslAssertionId[0] = proc_name_buf[0] = aslMessageString[0] =  0;
+        aslAssertionId[0] = proc_name_buf[0] = aslMessageString[0] =  ageString[0] = 0;
     if (assertion->state & kAssertionSkipLogging) return;
 
     if (!(gDebugFlags & kIOPMDebugLogAssertionSynchronous)) {
@@ -396,7 +373,6 @@ static void logAssertionToASL(assertLogAction  action,
 
     }
 
-    m = new_msg_pmset_log();
     assertionDictionary = assertion->props;
     if (assertionDictionary)
     {
@@ -407,14 +383,12 @@ static void logAssertionToASL(assertLogAction  action,
         if (foundAssertionType) {
             CFStringGetCString(foundAssertionType, assertionTypeCString, 
                                sizeof(assertionTypeCString), kCFStringEncodingUTF8);
-            asl_set(m, kPMASLAssertionTypeKey, assertionTypeCString);
         }
 
         foundAssertionName = CFDictionaryGetValue(assertionDictionary, kIOPMAssertionNameKey);
         if (foundAssertionName) {
             CFStringGetCString(foundAssertionName, assertionNameCString, 
                                sizeof(assertionNameCString), kCFStringEncodingUTF8);            
-            asl_set(m, kPMASLAssertionNameKey, assertionNameCString);
         }
 
         /*
@@ -428,44 +402,55 @@ static void logAssertionToASL(assertLogAction  action,
             int minutes                     = (createdSince / 60) % 60;
             int seconds                     = createdSince % 60;
             snprintf(ageString, sizeof(ageString), "%02d:%02d:%02d ", hours, minutes, seconds);
-            asl_set(m, kPMASLAssertionAgeKey, ageString);
         }
 
-        /*
-         * Retain count
-         */
-        int retainCount = assertion->retainCnt;
-        if (1 != retainCount) 
-        {
-            char    retainCountBuf[kShortStringLen];
-            snprintf(retainCountBuf, sizeof(retainCountBuf), "%d", retainCount);
-            asl_set(m, "RetainCount", retainCountBuf);
-        }
 
         if ((procName = CFDictionaryGetValue(assertionDictionary, kIOPMAssertionProcessNameKey)))
         {
             CFStringGetCString(procName, proc_name_buf, sizeof(proc_name_buf), kCFStringEncodingUTF8);
-            asl_set(m, kPMASLProcessNameKey, proc_name_buf);
         }
-
     }
     printAggregateAssertionsToBuf(assertionsBuf, sizeof(assertionsBuf), getKerAssertionBits());
 
-    pid_buf[0] = 0;
-    if (0 < snprintf(pid_buf, kShortStringLen, "%d", assertion->pinfo->pid)) {
-        asl_set(m, kPMASLPIDKey, pid_buf);
-    }
 
     snprintf(aslMessageString, sizeof(aslMessageString), "%s", assertionsBuf);
 
     snprintf(aslAssertionId, sizeof(aslAssertionId), "0x%llx", (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId));
 
-    asl_set(m, kPMASLAssertionIdKey, aslAssertionId );
-    asl_set(m, ASL_KEY_MSG, aslMessageString);
-    asl_set(m, kPMASLActionKey, assertionAction);
-    asl_set(m, kPMASLDomainKey, kPMASLDomainPMAssertions);
-    asl_send(NULL, m);
-    asl_free(m);
+    if (gDebugFlags & kIOPMDebugAssertionASLLog) {
+        char  pid_buf[kShortStringLen];
+        aslmsg m = new_msg_pmset_log();
+        asl_set(m, kPMASLAssertionTypeKey, assertionTypeCString);
+        asl_set(m, kPMASLAssertionNameKey, assertionNameCString);
+        asl_set(m, kPMASLAssertionAgeKey, ageString);
+
+        if (1 != assertion->retainCnt)
+        {
+            char    retainCountBuf[kShortStringLen];
+            snprintf(retainCountBuf, sizeof(retainCountBuf), "%d", assertion->retainCnt);
+            asl_set(m, "RetainCount", retainCountBuf);
+        }
+
+
+        asl_set(m, kPMASLProcessNameKey, proc_name_buf);
+        pid_buf[0] = 0;
+        if (0 < snprintf(pid_buf, kShortStringLen, "%d", assertion->pinfo->pid)) {
+            asl_set(m, kPMASLPIDKey, pid_buf);
+        }
+
+        asl_set(m, kPMASLAssertionIdKey, aslAssertionId );
+        asl_set(m, ASL_KEY_MSG, aslMessageString);
+        asl_set(m, kPMASLActionKey, assertionAction);
+        asl_set(m, kPMASLDomainKey, kPMASLDomainPMAssertions);
+        asl_send(NULL, m);
+        asl_free(m);
+    }
+
+    if (gDebugFlags & kIOPMDebugLogAssertionActivity) {
+        INFO_LOG("Process %{public}@.%d %{public}s %{public}@ \"%{public}@\" age:%{public}s id:%lld %{public}s",
+                procName, assertion->pinfo->pid, assertionAction, foundAssertionType, foundAssertionName, ageString,
+                (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId), assertionsBuf);
+    }
 
     if (isA_installEnvironment()) {
         syslog(LOG_INFO | LOG_INSTALL, "Assertion %s. Type:%s Name:\'%s\' Id:%s Process:%s %s\n",
@@ -476,7 +461,6 @@ static void logAssertionToASL(assertLogAction  action,
 
 void logASLAssertionsAggregate( )
 {
-    aslmsg m;
     char            aslMessageString[100];
     char            assertionsBuf[100];
     char            capacityBuf[64];
@@ -496,6 +480,7 @@ void logASLAssertionsAggregate( )
 
     printAggregateAssertionsToBuf(assertionsBuf, sizeof(assertionsBuf), getKerAssertionBits());
 
+
     if (battExists)
         snprintf(capacityBuf, sizeof(capacityBuf), "(Charge: %d)", capacity);
     else
@@ -506,35 +491,41 @@ void logASLAssertionsAggregate( )
              (pwrSrc == kBatteryPowered) ? "Batt" : "AC",
              capacityBuf);
 
-    m = new_msg_pmset_log();
-    asl_set(m, ASL_KEY_MSG, aslMessageString);
-    asl_set(m, kPMASLActionKey, kPMASLAssertionActionSummary);
-    asl_set(m, kPMASLDomainKey, kPMASLDomainPMAssertions);
-    asl_send(NULL, m);
-    asl_free(m);
+    if (gDebugFlags & kIOPMDebugAssertionASLLog) {
+        aslmsg m = new_msg_pmset_log();
+        asl_set(m, ASL_KEY_MSG, aslMessageString);
+        asl_set(m, kPMASLActionKey, kPMASLAssertionActionSummary);
+        asl_set(m, kPMASLDomainKey, kPMASLDomainPMAssertions);
+        asl_send(NULL, m);
+        asl_free(m);
+    }
+
     //
     //    for (int i=0; i<kIOPMNumAssertionTypes; i++) {
     //        logASLAssertionTypeSummary(gAssertionTypes[i].kassert);
     //    }
+    if (gDebugFlags & kIOPMDebugLogAssertionActivity) {
+        INFO_LOG("Summary- %{public}s\n", assertionsBuf);
+    }
 }
 
 void logASLAllAssertions( )
 {
     for (int i=0; i<kIOPMNumAssertionTypes; i++) {
+        if (i == kEnableIdleType) {
+            continue;
+        }
         logASLAssertionTypeSummary(gAssertionTypes[i].kassert);
     }
 }
 
-#endif // TARGET_OS_EMBEDDED
 
 void logAssertionEvent(assertLogAction  action,
                           assertion_t     *assertion)
 {
 
-#if !TARGET_OS_EMBEDDED
-    if (gDebugFlags & kIOPMDebugAssertionASLLog)
+    if (gDebugFlags & (kIOPMDebugAssertionASLLog|kIOPMDebugLogAssertionActivity))
         logAssertionToASL(action, assertion);
-#endif
 
     if (gActivityLogCnt)
         logAssertionActivity(action, assertion);
@@ -543,13 +534,11 @@ void logAssertionEvent(assertLogAction  action,
 
 void setAssertionActivityLog(int value)
 {
-#if !TARGET_OS_EMBEDDED
     // Enabled by default on embedded
     if (value)
         gActivityLogCnt++;
     else if (gActivityLogCnt)
         gActivityLogCnt--;
-#endif
 }
 
 kern_return_t _io_pm_assertion_activity_log (
@@ -578,7 +567,7 @@ kern_return_t _io_pm_assertion_activity_log (
 
  
     *rc = kIOReturnNotFound;
-    *log = NULL;
+    *log = 0;
     *logSize = 0;
     readFromIdx = *refCnt;
     writeToIdx = activity.idx;
@@ -739,7 +728,7 @@ void updateProcAssertionStats(ProcessInfo *pinfo, struct aggregateStats *aggStat
     }
 
     if (unitInfo == NULL) {
-        IOReportUnits unit = kIOReportUnit_s;
+        IOReportUnit unit = kIOReportUnit_s;
         unitInfo = CFDictionaryCreateMutable(NULL, 1, 
                                       &kCFTypeDictionaryKeyCallBacks,
                                       &kCFTypeDictionaryValueCallBacks);
@@ -888,12 +877,6 @@ kern_return_t _io_pm_assertion_activity_aggregate (
         vm_allocate(mach_task_self(), (vm_address_t *)statsData, *statsSize, TRUE);
         memcpy((void*)*statsData, CFDataGetBytePtr(serializedArray), *statsSize);
 
-#if TARGET_OS_EMBEDDED
-        // Clear up statsbuf of the dead processes after getting stats data for powerlog
-        if (auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging")))  {
-            releaseStatsBufForDeadProcs();
-        }
-#endif
     }
     else  {
         *rc = kIOReturnInternalError;

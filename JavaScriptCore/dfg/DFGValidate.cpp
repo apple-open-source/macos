@@ -313,6 +313,11 @@ public:
                     VALIDATE((node), !!m_graph.m_vm.hasOwnPropertyCache());
                     break;
                 }
+                case GetVectorLength: {
+                    Array::Type type = node->arrayMode().type();
+                    VALIDATE((node), type == Array::ArrayStorage || type == Array::SlowPutArrayStorage);
+                    break;
+                }
                 default:
                     break;
                 }
@@ -638,8 +643,7 @@ private:
 
             bool didSeeExitOK = false;
             
-            for (unsigned nodeIndex = 0; nodeIndex < block->size(); ++nodeIndex) {
-                Node* node = block->at(nodeIndex);
+            for (auto* node : *block) {
                 didSeeExitOK |= node->origin.exitOK;
                 switch (node->op()) {
                 case Phi:

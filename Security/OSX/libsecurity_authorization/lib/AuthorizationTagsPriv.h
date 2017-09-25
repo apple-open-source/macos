@@ -258,10 +258,13 @@
 #define AGENT_HINT_RETRY_REASON "reason"
 #define AGENT_HINT_AUTHORIZE_RULE "authorize-rule"
 #define AGENT_HINT_TOKEN_NAME "token-name"
-#define AGENT_HINT_PROCESS_SIGNED "process-apple-signed"
-#define AGENT_HINT_PROCESS_FROM_APPLE "process-firstparty-signed"
+#define AGENT_HINT_CLIENT_SIGNED "client-apple-signed"
+#define AGENT_HINT_CLIENT_FROM_APPLE "client-firstparty-signed"
+#define AGENT_HINT_CREATOR_SIGNED "creator-apple-signed"
+#define AGENT_HINT_CREATOR_FROM_APPLE "creator-firstparty-signed"
 #define AGENT_HINT_SHOW_RESET "show-reset"
 #define AGENT_HINT_PASSWORD_ONLY "password-only"
+#define AGENT_HINT_SHEET_CONTEXT "sheet-context"
 
 // Public Key Hash from certificate used for login
 #define AGENT_HINT_TOKEN_HASH "token-hash"

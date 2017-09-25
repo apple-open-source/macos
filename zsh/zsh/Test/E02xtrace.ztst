@@ -120,10 +120,29 @@
 ?+./fnfile:3> print This is fn.
 
  set -x
+ [[ 'f o' == 'f x'* || 'b r' != 'z o' && 'squashy sound' < 'squishy sound' ]]
  [[ 'f o' = 'f x'* || 'b r' != 'z o' && 'squashy sound' < 'squishy sound' ]]
  [[ -e nonexistentfile || ( -z '' && -t 3 ) ]]
  set +x
 0:Trace for conditions
 ?+(eval):2> [[ 'f o' == f\ x* || 'b r' != z\ o && 'squashy sound' < 'squishy sound' ]]
-?+(eval):3> [[ -e nonexistentfile || -z '' && -t 3 ]]
-?+(eval):4> set +x
+?+(eval):3> [[ 'f o' = f\ x* || 'b r' != z\ o && 'squashy sound' < 'squishy sound' ]]
+?+(eval):4> [[ -e nonexistentfile || -z '' && -t 3 ]]
+?+(eval):5> set +x
+
+  # Part 1: Recurses into nested anonymous functions
+  fn() {
+    () { () { true } }
+  }
+  functions -T fn
+  fn
+  # Part 2: Doesn't recurse into named functions
+  gn() { true }
+  fn() { gn }
+  functions -T fn
+  fn
+0:tracing recurses into anonymous functions
+?+fn:1> '(anon)'
+?+(anon):0> '(anon)'
+?+(anon):0> true
+?+fn:0> gn

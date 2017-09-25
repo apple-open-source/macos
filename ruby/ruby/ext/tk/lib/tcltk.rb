@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # tof
 
 #### tcltk library, more direct manipulation of tcl/tk
@@ -325,7 +326,7 @@ class TclTkCallback < TclTkObject
     TclTk._addcallback(self)
   end
 
-  # to_eval(): retuens string representation for @ip._eval_args
+  # to_eval(): returns string representation for @ip._eval_args
   def to_eval()
     if @arg
       # bind replaces %s before calling ruby_fmt, so %%s is used
@@ -349,7 +350,7 @@ class TclTkImage < TclTkCommand
 
   # initialize(interp, t, *args):
   #     generating image is done by TclTkImage.new()
-  #     destrying is done by image delete (inconsistent, sigh)
+  #     destroying is done by image delete (inconsistent, sigh)
   #   interp: interpreter(TclTkInterpreter)
   #   t: image type (photo, bitmap, etc.)
   #   *args: command argument

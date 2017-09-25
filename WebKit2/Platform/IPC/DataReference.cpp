@@ -47,13 +47,8 @@ void SharedBufferDataReference::encode(Encoder& encoder) const
     encoder.reserve(bufferSize + sizeof(uint64_t));
     encoder << bufferSize;
 
-    const char* partialData;
-    unsigned position = 0;
-    while (position < bufferSize) {
-        unsigned bytesToWrite = m_buffer->getSomeData(partialData, position);
-        encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(partialData), bytesToWrite, 1);
-        position += bytesToWrite;
-    }
+    for (const auto& element : *m_buffer)
+        encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(element.segment->data()), element.segment->size(), 1);
 }
 
 } // namespace IPC

@@ -61,11 +61,22 @@
     --text-color-gray-medium: hsl(0, 0%, 50%);
     --error-text-color: hsl(0, 86%, 47%);
 
+    --breakpoint-fill-color: hsl(212, 45%, 54%);
+    --breakpoint-stroke-color: hsl(212, 45%, 48%);
+    --breakpoint-disabled-fill-color: hsl(212, 40%, 84%);
+    --breakpoint-disabled-stroke-color: hsl(212, 40%, 78%);
+    --breakpoint-unresolved-fill-color: hsl(0, 0%, 60%);
+    --breakpoint-unresolved-stroke-color: hsl(0, 0%, 54%);
+    --breakpoint-unresolved-disabled-fill-color: hsl(0, 0%, 84%);
+    --breakpoint-unresolved-disabled-stroke-color: hsl(0, 0%, 78%);
+
     --syntax-highlight-number-color: hsl(248, 100%, 40%);
     --syntax-highlight-boolean-color: hsl(309, 85%, 35%);
     --syntax-highlight-string-color: hsl(1, 79%, 42%);
     --syntax-highlight-regexp-color: hsl(20, 100%, 44%);
     --syntax-highlight-symbol-color: hsl(172, 45%, 45%);
+
+    --syntax-highlight-regex-group-color: var(--text-color-gray-medium);
 
     --memory-javascript-fill-color: hsl(269, 65%, 75%);
     --memory-javascript-stroke-color: hsl(269, 33%, 50%);
@@ -85,7 +96,7 @@
     --tab-bar-height: 24px;
     --navigation-bar-height: 29px;
 
-    --style-declaration-section-header-padding: 4px 5px 3px 25px;
+    --slider-height: 11px;
 }
 
 body.window-inactive {

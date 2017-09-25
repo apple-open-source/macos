@@ -129,7 +129,7 @@ _make-findBasedir () {
   do
     if [[ $@[index] == -C ]]
     then
-      file=${~@[index+1]};
+      file=${~@[index+1]} 2>/dev/null
       if [[ -z $file ]]
       then
         # make returns with an error if an empty arg is given
@@ -184,9 +184,10 @@ _make() {
       '(-j --jobs)'{-j,--jobs=}'[allow N jobs at once; infinite jobs with no arg]:number of jobs'
       '(-k --keep-going)'{-k,--keep-going}"[keep going when some targets can't be made]"
       '(-l --load-average --max-load)'{-l,--load-average=,--max-load}"[don't start multiple jobs unless load is below N]:load"
-      '(-L --check-symlik-times)'{-L,--check-symlink-times}'[use the latest mtime between symlinks and target]'
+      '(-L --check-symlink-times)'{-L,--check-symlink-times}'[use the latest mtime between symlinks and target]'
       '(-n --just-print --dry-run --recon)'{-n,--just-print,--dry-run,--recon}"[don't actually run any recipe; just print them]"
-      '*'{-o,--old-file=,--assume-old=}"[consider FILE to be very old and don't remake it]:file not to remake:->file"
+      '*'{-o,--old-file=,--assume-old=}"[consider specified file to be old and don't remake it]:file not to remake:->file"
+      '(-O --output-sync)'{-O-,--output-sync=-}'[synchronize output of parallel jobs]::granularity for grouping output:compadd -E 0 none line target recurse'
       '(-p --print-data-base)'{-p,--print-data-base}'[print makes internal database]'
       '(-q --question)'{-q,--question}'[run no recipe; exit status says if up to date]'
       '(-r --no-builtin-rules)'{-r,--no-builtin-rules}'[disable the built-in implicit rules]'
@@ -262,17 +263,20 @@ _make() {
 
     if [[ -n "$file" ]]
     then
-      if [[ $is_gnu == gnu ]] && zstyle -t ":completion:${curcontext}:targets" call-command
+      if [[ $is_gnu == gnu ]] 
       then
-        _make-parseMakefile $PWD < <(_call_program targets "$words[1]" -nsp --no-print-directory -f "$file" .PHONY 2> /dev/null)
-      else
-        case "$OSTYPE" in
-          freebsd*)
-          _make-parseMakefile $PWD < <(_call_program targets "$words[1]" -nsp -f "$file" .PHONY 2> /dev/null)
-    ;;
-    *)
+        if zstyle -t ":completion:${curcontext}:targets" call-command; then
+          _make-parseMakefile $PWD < <(_call_program targets "$words[1]" -nsp --no-print-directory -f "$file" .PHONY 2> /dev/null)
+        else
           _make-parseMakefile $PWD < $file
-        esac
+        fi
+      else
+        if [[ $OSTYPE == (freebsd|dragonfly|netbsd)* || /$words[1] == */bmake* ]]; then
+          TARGETS+=(${=${(f)"$(_call_program targets "$words[1]" -s -f "$file" -V.ALLTARGETS 2> /dev/null)"}})
+          _make-parseMakefile $PWD < <(_call_program targets "$words[1]" -nsdg1Fstdout -f "$file" .PHONY 2> /dev/null)
+        else
+          _make-parseMakefile $PWD < $file
+        fi
       fi
     fi
 

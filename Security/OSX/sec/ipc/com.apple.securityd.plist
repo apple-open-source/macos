@@ -21,6 +21,8 @@
 	<dict>
 		<key>com.apple.securityd</key>
 		<true/>
+		<key>com.apple.securityd.aps</key>
+		<true/>
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
@@ -36,6 +38,16 @@
 	<true/>
 	<key>LaunchEvents</key>
 	<dict>
+		<key>com.apple.xpc.activity</key>
+		<dict>
+			<key>com.apple.securityd.daily</key>
+			<dict>
+				<key>Priority</key>
+				<string>Utility</string>
+				<key>Interval</key>
+				<real>86400</real>
+			</dict>
+		</dict>
 		<key>com.apple.notifyd.matching</key>
 		<dict>
 			<key>kSOSCCHoldLockForInitialSync</key>

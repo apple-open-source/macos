@@ -1,2 +1,14 @@
 g/RC_CFLAGS/s/\\\$RC_CFLAGS //
+.
+1
+/^LTCC=/c
+LTCC="xcrun cc"
+.
+/^CC=/c
+CC="xcrun cc"
+.
+/^LD=/c
+LD="xcrun ld"
+.
+w
 w

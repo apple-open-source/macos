@@ -3,9 +3,6 @@ require 'test/unit'
 
 require 'tmpdir'
 require 'tempfile'
-require 'pathname'
-
-require_relative 'envutil'
 
 class TestRubyOptions < Test::Unit::TestCase
   def write_file(filename, content)
@@ -16,7 +13,7 @@ class TestRubyOptions < Test::Unit::TestCase
 
   def with_tmpchdir
     Dir.mktmpdir {|d|
-      d = Pathname.new(d).realpath.to_s
+      d = File.realpath(d)
       Dir.chdir(d) {
         yield d
       }
@@ -88,8 +85,8 @@ class TestRubyOptions < Test::Unit::TestCase
 
   def test_verbose
     assert_in_out_err(["-vve", ""]) do |r, e|
-      assert_match(/^ruby #{RUBY_VERSION}(?:[p ]|dev).*? \[#{RUBY_PLATFORM}\]$/, r.join)
-      assert_equal RUBY_DESCRIPTION, r.join.chomp
+      assert_match(/^ruby #{RUBY_VERSION}(?:[p ]|dev|rc).*? \[#{RUBY_PLATFORM}\]$/, r[0])
+      assert_equal(RUBY_DESCRIPTION, r[0])
       assert_equal([], e)
     end
 
@@ -142,8 +139,8 @@ class TestRubyOptions < Test::Unit::TestCase
 
   def test_version
     assert_in_out_err(%w(--version)) do |r, e|
-      assert_match(/^ruby #{RUBY_VERSION}(?:[p ]|dev).*? \[#{RUBY_PLATFORM}\]$/, r.join)
-      assert_equal RUBY_DESCRIPTION, r.join.chomp
+      assert_match(/^ruby #{RUBY_VERSION}(?:[p ]|dev|rc).*? \[#{RUBY_PLATFORM}\]$/, r[0])
+      assert_equal(RUBY_DESCRIPTION, r[0])
       assert_equal([], e)
     end
   end
@@ -187,20 +184,20 @@ class TestRubyOptions < Test::Unit::TestCase
 
     d = Dir.tmpdir
     assert_in_out_err(["-C", d, "-e", "puts Dir.pwd"]) do |r, e|
-      assert(File.identical?(r.join, d))
+      assert_file.identical?(r.join, d)
       assert_equal([], e)
     end
   end
 
   def test_yydebug
     assert_in_out_err(["-ye", ""]) do |r, e|
-      assert_equal([], r)
-      assert_not_equal([], e)
+      assert_not_equal([], r)
+      assert_equal([], e)
     end
 
     assert_in_out_err(%w(--yydebug -e) + [""]) do |r, e|
-      assert_equal([], r)
-      assert_not_equal([], e)
+      assert_not_equal([], r)
+      assert_equal([], e)
     end
   end
 
@@ -210,10 +207,12 @@ class TestRubyOptions < Test::Unit::TestCase
     assert_in_out_err(%w(--encoding test_ruby_test_rubyoptions_foobarbazqux), "", [],
                       /unknown encoding name - test_ruby_test_rubyoptions_foobarbazqux \(RuntimeError\)/)
 
-    if /mswin|mingw/ =~ RUBY_PLATFORM &&
+    if /mswin|mingw|aix/ =~ RUBY_PLATFORM &&
       (str = "\u3042".force_encoding(Encoding.find("locale"))).valid_encoding?
       # This result depends on locale because LANG=C doesn't affect locale
       # on Windows.
+      # On AIX, the source encoding of stdin with LANG=C is ISO-8859-1,
+      # which allows \u3042.
       out, err = [str], []
     else
       out, err = [], /invalid multibyte char/
@@ -271,20 +270,21 @@ class TestRubyOptions < Test::Unit::TestCase
     rubypath_orig = ENV['RUBYPATH']
     path_orig = ENV['PATH']
 
-    t = Tempfile.new(["test_ruby_test_rubyoption", ".rb"])
-    t.puts "p 1"
-    t.close
+    Tempfile.create(["test_ruby_test_rubyoption", ".rb"]) {|t|
+      t.puts "p 1"
+      t.close
 
-    @verbose = $VERBOSE
-    $VERBOSE = nil
+      @verbose = $VERBOSE
+      $VERBOSE = nil
 
-    ENV['PATH'] = File.dirname(t.path)
+      ENV['PATH'] = File.dirname(t.path)
 
-    assert_in_out_err(%w(-S) + [File.basename(t.path)], "", %w(1), [])
+      assert_in_out_err(%w(-S) + [File.basename(t.path)], "", %w(1), [])
 
-    ENV['RUBYPATH'] = File.dirname(t.path)
+      ENV['RUBYPATH'] = File.dirname(t.path)
 
-    assert_in_out_err(%w(-S) + [File.basename(t.path)], "", %w(1), [])
+      assert_in_out_err(%w(-S) + [File.basename(t.path)], "", %w(1), [])
+    }
 
   ensure
     if rubypath_orig
@@ -297,7 +297,6 @@ class TestRubyOptions < Test::Unit::TestCase
     else
       ENV.delete('PATH')
     end
-    t.close(true) if t
     $VERBOSE = @verbose
   end
 
@@ -333,86 +332,86 @@ class TestRubyOptions < Test::Unit::TestCase
   end
 
   def test_assignment_in_conditional
-    t = Tempfile.new(["test_ruby_test_rubyoption", ".rb"])
-    t.puts "if a = 1"
-    t.puts "end"
-    t.puts "0.times do"
-    t.puts "  if b = 2"
-    t.puts "    a += b"
-    t.puts "  end"
-    t.puts "end"
-    t.close
-    warning = ' warning: found = in conditional, should be =='
-    err = ["#{t.path}:1:#{warning}",
-           "#{t.path}:4:#{warning}",
-          ]
-    bug2136 = '[ruby-dev:39363]'
-    assert_in_out_err(["-w", t.path], "", [], err, bug2136)
-    assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err, bug2136)
+    Tempfile.create(["test_ruby_test_rubyoption", ".rb"]) {|t|
+      t.puts "if a = 1"
+      t.puts "end"
+      t.puts "0.times do"
+      t.puts "  if b = 2"
+      t.puts "    a += b"
+      t.puts "  end"
+      t.puts "end"
+      t.flush
+      warning = ' warning: found = in conditional, should be =='
+      err = ["#{t.path}:1:#{warning}",
+             "#{t.path}:4:#{warning}",
+            ]
+      bug2136 = '[ruby-dev:39363]'
+      assert_in_out_err(["-w", t.path], "", [], err, bug2136)
+      assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err, bug2136)
 
-    t.open
-    t.truncate(0)
-    t.puts "if a = ''; end"
-    t.puts "if a = []; end"
-    t.puts "if a = [1]; end"
-    t.puts "if a = [a]; end"
-    t.puts "if a = {}; end"
-    t.puts "if a = {1=>2}; end"
-    t.puts "if a = {3=>a}; end"
-    t.close
-    err = ["#{t.path}:1:#{warning}",
-           "#{t.path}:2:#{warning}",
-           "#{t.path}:3:#{warning}",
-           "#{t.path}:5:#{warning}",
-           "#{t.path}:6:#{warning}",
-          ]
-    feature4299 = '[ruby-dev:43083]'
-    assert_in_out_err(["-w", t.path], "", [], err, feature4299)
-    assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err, feature4299)
-  ensure
-    t.close(true) if t
+      t.rewind
+      t.truncate(0)
+      t.puts "if a = ''; end"
+      t.puts "if a = []; end"
+      t.puts "if a = [1]; end"
+      t.puts "if a = [a]; end"
+      t.puts "if a = {}; end"
+      t.puts "if a = {1=>2}; end"
+      t.puts "if a = {3=>a}; end"
+      t.flush
+      err = ["#{t.path}:1:#{warning}",
+             "#{t.path}:2:#{warning}",
+             "#{t.path}:3:#{warning}",
+             "#{t.path}:5:#{warning}",
+             "#{t.path}:6:#{warning}",
+            ]
+      feature4299 = '[ruby-dev:43083]'
+      assert_in_out_err(["-w", t.path], "", [], err, feature4299)
+      assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err, feature4299)
+    }
   end
 
   def test_indentation_check
-    t = Tempfile.new(["test_ruby_test_rubyoption", ".rb"])
-    t.puts "begin"
-    t.puts " end"
-    t.close
-    err = ["#{t.path}:2: warning: mismatched indentations at 'end' with 'begin' at 1"]
-    assert_in_out_err(["-w", t.path], "", [], err)
-    assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err)
+    Tempfile.create(["test_ruby_test_rubyoption", ".rb"]) {|t|
+      t.puts "begin"
+      t.puts " end"
+      t.flush
+      err = ["#{t.path}:2: warning: mismatched indentations at 'end' with 'begin' at 1"]
+      assert_in_out_err(["-w", t.path], "", [], err)
+      assert_in_out_err(["-wr", t.path, "-e", ""], "", [], err)
 
-    t.open
-    t.puts "# -*- warn-indent: false -*-"
-    t.puts "begin"
-    t.puts " end"
-    t.close
-    assert_in_out_err(["-w", t.path], "", [], [], '[ruby-core:25442]')
+      t.rewind
+      t.puts "# -*- warn-indent: false -*-"
+      t.puts "begin"
+      t.puts " end"
+      t.flush
+      assert_in_out_err(["-w", t.path], "", [], [], '[ruby-core:25442]')
 
-    err = ["#{t.path}:4: warning: mismatched indentations at 'end' with 'begin' at 3"]
-    t.open
-    t.puts "# -*- warn-indent: false -*-"
-    t.puts "# -*- warn-indent: true -*-"
-    t.puts "begin"
-    t.puts " end"
-    t.close
-    assert_in_out_err(["-w", t.path], "", [], err, '[ruby-core:25442]')
+      err = ["#{t.path}:4: warning: mismatched indentations at 'end' with 'begin' at 3"]
+      t.rewind
+      t.puts "# -*- warn-indent: false -*-"
+      t.puts "# -*- warn-indent: true -*-"
+      t.puts "begin"
+      t.puts " end"
+      t.flush
+      assert_in_out_err(["-w", t.path], "", [], err, '[ruby-core:25442]')
 
-    err = ["#{t.path}:4: warning: mismatched indentations at 'end' with 'begin' at 2"]
-    t.open
-    t.puts "# -*- warn-indent: true -*-"
-    t.puts "begin"
-    t.puts "# -*- warn-indent: false -*-"
-    t.puts " end"
-    t.close
-    assert_in_out_err(["-w", t.path], "", [], [], '[ruby-core:25442]')
-  ensure
-    t.close(true) if t
+      err = ["#{t.path}:4: warning: mismatched indentations at 'end' with 'begin' at 2"]
+      t.rewind
+      t.puts "# -*- warn-indent: true -*-"
+      t.puts "begin"
+      t.puts "# -*- warn-indent: false -*-"
+      t.puts " end"
+      t.flush
+      assert_in_out_err(["-w", t.path], "", [], [], '[ruby-core:25442]')
+    }
   end
 
   def test_notfound
     notexist = "./notexist.rb"
-    rubybin = Regexp.quote(EnvUtil.rubybin)
+    rubybin = EnvUtil.rubybin.dup
+    rubybin.gsub!(%r(/), '\\') if /mswin|mingw/ =~ RUBY_PLATFORM
+    rubybin = Regexp.quote(rubybin)
     pat = Regexp.quote(notexist)
     bug1573 = '[ruby-core:23717]'
     assert_file.not_exist?(notexist)
@@ -438,10 +437,14 @@ class TestRubyOptions < Test::Unit::TestCase
       }
       if File.respond_to? :symlink
         n2 = File.join(d, 't2')
-        File.symlink(n1, n2)
-        IO.popen([ruby, n2]) {|f|
-          assert_equal(n2, f.read)
-        }
+        begin
+          File.symlink(n1, n2)
+        rescue Errno::EACCES
+        else
+          IO.popen([ruby, n2]) {|f|
+            assert_equal(n2, f.read)
+          }
+        end
       end
       Dir.chdir(d) {
         n3 = '-e'
@@ -459,86 +462,140 @@ class TestRubyOptions < Test::Unit::TestCase
     }
   end
 
+  if /linux|freebsd|netbsd|openbsd|darwin/ =~ RUBY_PLATFORM
+    PSCMD = EnvUtil.find_executable("ps", "-o", "command", "-p", $$.to_s) {|out| /ruby/=~out}
+    PSCMD.pop if PSCMD
+  end
+
   def test_set_program_name
-    skip "platform dependent feature" if /linux|freebsd|netbsd|openbsd|darwin/ !~ RUBY_PLATFORM
+    skip "platform dependent feature" unless defined?(PSCMD) and PSCMD
 
     with_tmpchdir do
-      write_file("test-script", "$0 = 'hello world'; sleep 60")
+      write_file("test-script", "$0 = 'hello world'; /test-script/ =~ Process.argv0 or $0 = 'Process.argv0 changed!'; sleep 60")
 
       pid = spawn(EnvUtil.rubybin, "test-script")
-      sleep 0.1
-      ps = `ps -p #{pid} -o command`
+      ps = nil
+      10.times do
+        sleep 0.1
+        ps = `#{PSCMD.join(' ')} #{pid}`
+        break if /hello world/ =~ ps
+      end
       assert_match(/hello world/, ps)
       Process.kill :KILL, pid
+      Process.wait(pid)
     end
+  end
+
+  def test_setproctitle
+    skip "platform dependent feature" unless defined?(PSCMD) and PSCMD
+
+    with_tmpchdir do
+      write_file("test-script", "$_0 = $0.dup; Process.setproctitle('hello world'); $0 == $_0 or Process.setproctitle('$0 changed!'); sleep 60")
+
+      pid = spawn(EnvUtil.rubybin, "test-script")
+      ps = nil
+      10.times do
+        sleep 0.1
+        ps = `#{PSCMD.join(' ')} #{pid}`
+        break if /hello world/ =~ ps
+      end
+      assert_match(/hello world/, ps)
+      Process.kill :KILL, pid
+      Process.wait(pid)
+    end
+  end
+
+  module SEGVTest
+    opts = {}
+    if /mswin|mingw/ =~ RUBY_PLATFORM
+      additional = /[\s\w\.\']*/
+    else
+      opts[:rlimit_core] = 0
+      additional = nil
+    end
+    ExecOptions = opts.freeze
+
+    ExpectedStderrList = [
+      %r(
+        -e:(?:1:)?\s\[BUG\]\sSegmentation\sfault.*\n
+      )x,
+      %r(
+        #{ Regexp.quote(RUBY_DESCRIPTION) }\n\n
+      )x,
+      %r(
+        (?:--\s(?:.+\n)*\n)?
+        --\sControl\sframe\sinformation\s-+\n
+        (?:c:.*\n)*
+      )x,
+      %r(
+        (?:
+        --\sRuby\slevel\sbacktrace\sinformation\s----------------------------------------\n
+        -e:1:in\s\`<main>\'\n
+        -e:1:in\s\`kill\'\n
+        )?
+      )x,
+      %r(
+        (?:
+          --\sC\slevel\sbacktrace\sinformation\s-------------------------------------------\n
+          (?:(?:.*\s)?\[0x\h+\]\n)*\n
+        )?
+      )x,
+      :*,
+      %r(
+        \[NOTE\]\n
+        You\smay\shave\sencountered\sa\sbug\sin\sthe\sRuby\sinterpreter\sor\sextension\slibraries.\n
+        Bug\sreports\sare\swelcome.\n
+        (?:.*\n)?
+        For\sdetails:\shttp:\/\/.*\.ruby-lang\.org/.*\n
+        \n
+      )x,
+    ]
+    ExpectedStderrList << additional if additional
+  end
+
+  def assert_segv(args, message=nil)
+    test_stdin = ""
+    opt = SEGVTest::ExecOptions.dup
+    list = SEGVTest::ExpectedStderrList
+
+    assert_in_out_err(args, test_stdin, //, list, encoding: "ASCII-8BIT", **opt)
   end
 
   def test_segv_test
-    opts = {}
-    if /mswin|mingw/ =~ RUBY_PLATFORM
-      additional = '[\s\w\.\']*'
-    else
-      opts[:rlimit_core] = 0
-      additional = ""
-    end
-    expected_stderr =
-      %r(\A
-      -e:(?:1:)?\s\[BUG\]\sSegmentation\sfault\n
-      #{ Regexp.quote(RUBY_DESCRIPTION) }\n\n
-      (?:--\s(?:.+\n)*\n)?
-      --\sControl\sframe\sinformation\s-+\n
-      (?:c:.*\n)*
-      (?:
-      --\sRuby\slevel\sbacktrace\sinformation\s----------------------------------------\n
-      -e:1:in\s\`<main>\'\n
-      -e:1:in\s\`kill\'\n
-      )?
-      \n
-      (?:
-        --\sC\slevel\sbacktrace\sinformation\s-------------------------------------------\n
-        (?:(?:.*\s)?\[0x\h+\]\n)*\n
-      )?
-      (?m:.*)
-      \[NOTE\]\n
-      You\smay\shave\sencountered\sa\sbug\sin\sthe\sRuby\sinterpreter\sor\sextension\slibraries.\n
-      Bug\sreports\sare\swelcome.\n
-      (?:.*\n)?
-      For\sdetails:\shttp:\/\/.*\.ruby-lang\.org/.*\n
-      \n
-      (?:#{additional})
-      \z
-      )x
-    assert_in_out_err(["-e", "Process.kill :SEGV, $$"], "", [], expected_stderr, nil, opts)
+    assert_segv(["--disable-gems", "-e", "Process.kill :SEGV, $$"])
+  end
 
+  def test_segv_loaded_features
     bug7402 = '[ruby-core:49573]'
-    status = assert_in_out_err(['-e', 'class Bogus; def to_str; exit true; end; end',
-                                '-e', '$".unshift Bogus.new',
-                                '-e', 'Process.kill :SEGV, $$'],
-                               "", //, /#<Bogus:/,
-                               nil,
-                               opts)
-    assert_not_predicate(status, :success?, "segv but success #{bug7402}")
 
+    status = assert_segv(['-e', 'END {Process.kill :SEGV, $$}',
+                          '-e', 'class Bogus; def to_str; exit true; end; end',
+                          '-e', '$".clear',
+                          '-e', '$".unshift Bogus.new',
+                          '-e', '(p $"; abort) unless $".size == 1',
+                         ])
+    assert_not_predicate(status, :success?, "segv but success #{bug7402}")
+  end
+
+  def test_segv_setproctitle
     bug7597 = '[ruby-dev:46786]'
-    t = Tempfile.new(["test_ruby_test_bug7597", ".rb"])
-    t.write "f" * 100
-    t.flush
-    assert_in_out_err(["-e", "$0=ARGV[0]; Process.kill :SEGV, $$", t.path],
-                      "", [], expected_stderr, bug7597, opts)
-    t.close(true)
+    Tempfile.create(["test_ruby_test_bug7597", ".rb"]) {|t|
+      t.write "f" * 100
+      t.flush
+      assert_segv(["--disable-gems", "-e", "$0=ARGV[0]; Process.kill :SEGV, $$", t.path], bug7597)
+    }
   end
 
   def test_DATA
-    t = Tempfile.new(["test_ruby_test_rubyoption", ".rb"])
-    t.puts "puts DATA.read.inspect"
-    t.puts "__END__"
-    t.puts "foo"
-    t.puts "bar"
-    t.puts "baz"
-    t.close
-    assert_in_out_err([t.path], "", %w("foo\\nbar\\nbaz\\n"), [])
-  ensure
-    t.close(true) if t
+    Tempfile.create(["test_ruby_test_rubyoption", ".rb"]) {|t|
+      t.puts "puts DATA.read.inspect"
+      t.puts "__END__"
+      t.puts "foo"
+      t.puts "bar"
+      t.puts "baz"
+      t.flush
+      assert_in_out_err([t.path], "", %w("foo\\nbar\\nbaz\\n"), [])
+    }
   end
 
   def test_unused_variable
@@ -624,6 +681,64 @@ class TestRubyOptions < Test::Unit::TestCase
     end
   end
 
+  case RUBY_PLATFORM
+  when /mswin|mingw/
+    def test_command_line_glob_nonascii
+      bug10555 = '[ruby-dev:48752] [Bug #10555]'
+      name = "\u{3042}.txt"
+      expected = name.encode("locale") rescue "?.txt"
+      with_tmpchdir do |dir|
+        open(name, "w") {}
+        assert_in_out_err(["-e", "puts ARGV", "?.txt"], "", [expected], [],
+                          bug10555, encoding: "locale")
+      end
+    end
+
+    def test_command_line_progname_nonascii
+      bug10555 = '[ruby-dev:48752] [Bug #10555]'
+      name = expected = nil
+      unless (0x80..0x10000).any? {|c|
+               name = c.chr(Encoding::UTF_8)
+               expected = name.encode("locale") rescue nil
+             }
+        skip "can't make locale name"
+      end
+      name << ".rb"
+      expected << ".rb"
+      with_tmpchdir do |dir|
+        open(name, "w") {|f| f.puts "puts File.basename($0)"}
+        assert_in_out_err([name], "", [expected], [],
+                          bug10555, encoding: "locale")
+      end
+    end
+
+    def test_command_line_glob_with_dir
+      bug10941 = '[ruby-core:68430] [Bug #10941]'
+      with_tmpchdir do |dir|
+        Dir.mkdir('test')
+        assert_in_out_err(["-e", "", "test/*"], "", [], [], bug10941)
+      end
+    end
+
+    Ougai = %W[\u{68ee}O\u{5916}.txt \u{68ee 9d0e 5916}.txt \u{68ee 9dd7 5916}.txt]
+    def test_command_line_glob_noncodepage
+      with_tmpchdir do |dir|
+        Ougai.each {|f| open(f, "w") {}}
+        assert_in_out_err(["-Eutf-8", "-e", "puts ARGV", "*"], "", Ougai, encoding: "utf-8")
+        ougai = Ougai.map {|f| f.encode("locale", replace: "?")}
+        assert_in_out_err(["-e", "puts ARGV", "*.txt"], "", ougai)
+      end
+    end
+  when /cygwin/
+    def test_command_line_non_ascii
+      assert_separately([{"LC_ALL"=>"ja_JP.SJIS"}, "-", "\u{3042}".encode("SJIS")], <<-"end;")
+        bug12184 = '[ruby-dev:49519] [Bug #12184]'
+        a = ARGV[0]
+        assert_equal([Encoding::SJIS, 130, 160], [a.encoding, *a.bytes], bug12184)
+      end;
+    end
+  end
+
   def test_script_is_directory
     feature2408 = '[ruby-core:26925]'
     assert_in_out_err(%w[.], "", [], /Is a directory -- \./, feature2408)
@@ -637,5 +752,88 @@ class TestRubyOptions < Test::Unit::TestCase
   def test_pflag_sub
     bug7157 = '[ruby-core:47967]'
     assert_in_out_err(['-p', '-e', 'sub(/t.*/){"TEST"}'], %[test], %w[TEST], [], bug7157)
+  end
+
+  def assert_norun_with_rflag(opt)
+    bug10435 = "[ruby-dev:48712] [Bug #10435]: should not run with #{opt} option"
+    stderr = []
+    Tempfile.create(%w"bug10435- .rb") do |script|
+      dir, base = File.split(script.path)
+      script.puts "abort ':run'"
+      script.close
+      opts = ['-C', dir, '-r', "./#{base}", opt]
+      assert_in_out_err([*opts, '-ep']) do |_, e|
+        stderr.concat(e)
+      end
+      stderr << "---"
+      assert_in_out_err([*opts, base]) do |_, e|
+        stderr.concat(e)
+      end
+    end
+    assert_not_include(stderr, ":run", bug10435)
+  end
+
+  def test_dump_syntax_with_rflag
+    assert_norun_with_rflag('-c')
+    assert_norun_with_rflag('--dump=syntax')
+  end
+
+  def test_dump_yydebug_with_rflag
+    assert_norun_with_rflag('-y')
+    assert_norun_with_rflag('--dump=yydebug')
+  end
+
+  def test_dump_parsetree_with_rflag
+    assert_norun_with_rflag('--dump=parsetree')
+  end
+
+  def test_dump_insns_with_rflag
+    assert_norun_with_rflag('--dump=insns')
+  end
+
+  def test_frozen_string_literal
+    all_assertions do |a|
+      [["disable", "false"], ["enable", "true"]].each do |opt, exp|
+        %W[frozen_string_literal frozen-string-literal].each do |arg|
+          key = "#{opt}=#{arg}"
+          a.for(key) do
+            assert_in_out_err(["--disable=gems", "--#{key}"], 'p("foo".frozen?)', [exp])
+          end
+        end
+      end
+      %W"disable enable".product(%W[false true]) do |opt, exp|
+        a.for("#{opt}=>#{exp}") do
+          assert_in_out_err(["-w", "--disable=gems", "--#{opt}=frozen-string-literal"], <<-"end;", [exp])
+            #-*- frozen-string-literal: #{exp} -*-
+            p("foo".frozen?)
+          end;
+        end
+      end
+    end
+  end
+
+  def test_frozen_string_literal_debug
+    with_debug_pat = /created at/
+    wo_debug_pat = /can\'t modify frozen String \(RuntimeError\)\n\z/
+    frozen = [
+      ["--enable-frozen-string-literal", true],
+      ["--disable-frozen-string-literal", false],
+      [nil, false],
+    ]
+    debug = [
+      ["--debug-frozen-string-literal", true],
+      ["--debug=frozen-string-literal", true],
+      ["--debug", true],
+      [nil, false],
+    ]
+    opts = ["--disable=gems"]
+    frozen.product(debug) do |(opt1, freeze), (opt2, debug)|
+      opt = opts + [opt1, opt2].compact
+      err = !freeze ? [] : debug ? with_debug_pat : wo_debug_pat
+      assert_in_out_err(opt, '"foo" << "bar"', [], err)
+      if freeze
+        assert_in_out_err(opt, '"foo#{123}bar" << "bar"', [], err)
+      end
+    end
   end
 end

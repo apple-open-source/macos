@@ -15,6 +15,8 @@
        (subpath (param "TMP_DIR")))
 
 (allow mach-lookup
+       (global-name "com.apple.CoreAuthentication.agent.libxpc")
+       (global-name "com.apple.CoreAuthentication.daemon.libxpc")
        (global-name "com.apple.CoreServices.coreservicesd")
        (global-name "com.apple.PowerManagement.control")
        (global-name "com.apple.security.agent")

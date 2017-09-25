@@ -58,7 +58,7 @@ protected:
                             const OSMetaClassBase * obj2,
                             void *                  ref );
 
-    virtual void        free( void );
+    virtual void        free( void ) APPLE_KEXT_OVERRIDE;
 
     bool                interfacePublished(
                             void *          refCon,
@@ -99,10 +99,10 @@ protected:
                             void * messageArgument, vm_size_t argSize );
 
 public:
-    virtual bool        start( IOService * provider );
-    virtual void        stop( IOService * provider );
-    virtual bool        didTerminate( IOService *, IOOptionBits, bool * );
-    virtual IOReturn    setProperties( OSObject * properties );
+    virtual bool        start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void        stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual bool        didTerminate( IOService *, IOOptionBits, bool * ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn    setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* KERNEL */

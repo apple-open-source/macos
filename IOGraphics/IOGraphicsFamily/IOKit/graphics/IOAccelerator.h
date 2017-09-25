@@ -24,6 +24,7 @@
 #define _IO_ACCELERATOR_H
 
 #include <IOKit/IOService.h>
+
 #include <IOKit/graphics/IOAccelTypes.h>
 
 class IOAccelerator : public IOService

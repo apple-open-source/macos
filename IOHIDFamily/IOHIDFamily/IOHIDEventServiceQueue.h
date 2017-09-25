@@ -55,6 +55,8 @@ public:
 
     virtual IOMemoryDescriptor *getMemoryDescriptor();
     virtual void setNotificationPort(mach_port_t port);
+    virtual bool serialize(OSSerialize * serializer) const;
+
 };
 
 //---------------------------------------------------------------------------

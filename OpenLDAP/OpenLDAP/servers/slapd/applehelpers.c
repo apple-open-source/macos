@@ -1,3 +1,8 @@
+//temporary definition to allow corecrypto removing transparent union structures
+//It can be removed after corecrypto makes the switch
+
+#define CORECRYPTO_DONOT_USE_TRANSPARENT_UNION 1
+
 #include "portable.h"
 
 #include <ac/string.h>
@@ -1840,7 +1845,7 @@ int odusers_set_password(struct berval *dn, char *password, int isChangingOwnPas
         ccsrp_const_gp_t gp = ccsrp_gp_rfc5054_4096();
         CFDictionarySetValue(record, CFSTR("gp"), CFSTR("rfc5054_4096"));
 
-        ccsrp_ctx *srp = malloc(cc_ctx_sizeof(ccsrp_ctx, ccsrp_sizeof_srp(md, gp)));
+        struct ccsrp_ctx *srp = malloc(cc_ctx_sizeof(struct ccsrp_ctx, ccsrp_sizeof_srp(md, gp)));
         ccsrp_ctx_init(srp, md, gp);
 
         size_t v_buf_len = ccsrp_ctx_sizeof_n(srp);

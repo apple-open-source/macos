@@ -91,7 +91,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		720B78961A2D29B900AFBFEA /* libcorecrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 720B78951A2D29B900AFBFEA /* libcorecrypto.a */; };
 		720B789E1A2FD03000AFBFEA /* CoreUtils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 720B789D1A2FD03000AFBFEA /* CoreUtils.framework */; };
 		7266BBD11A6EF2640086EC52 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F970A6C37610095EF75 /* libsasl2.dylib */; };
 		7266BBE21A6EF2E80086EC52 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266BBDB1A6EF2E80086EC52 /* common.c */; };
@@ -513,7 +512,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		720B78951A2D29B900AFBFEA /* libcorecrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcorecrypto.a; path = ../../../usr/local/lib/libcorecrypto.a; sourceTree = "<group>"; };
 		720B789D1A2FD03000AFBFEA /* CoreUtils.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreUtils.framework; path = ../../../System/Library/PrivateFrameworks/CoreUtils.framework; sourceTree = "<group>"; };
 		7266BBB81A6EF2400086EC52 /* sample-client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "sample-client"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7266BBD81A6EF2640086EC52 /* sample-server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "sample-server"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -764,7 +762,6 @@
 			files = (
 				720B789E1A2FD03000AFBFEA /* CoreUtils.framework in Frameworks */,
 				72C289EF1A1A873A0094D54A /* CoreFoundation.framework in Frameworks */,
-				720B78961A2D29B900AFBFEA /* libcorecrypto.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -994,7 +991,6 @@
 			children = (
 				8446CA0A1A6EF7D40082B731 /* libreadline.dylib */,
 				720B789D1A2FD03000AFBFEA /* CoreUtils.framework */,
-				720B78951A2D29B900AFBFEA /* libcorecrypto.a */,
 				72C289EE1A1A873A0094D54A /* CoreFoundation.framework */,
 				72C289EC1A16C6630094D54A /* libcrypto.0.9.8.dylib */,
 				8458FD04182468870011CC38 /* GSS.framework */,

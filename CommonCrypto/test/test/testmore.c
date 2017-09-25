@@ -321,7 +321,7 @@ int run_one_test(struct one_test_s *test, int argc, char * const *argv)
     test_plan_exit();
     
     return test->failed_tests;
-};
+}
 
 
 

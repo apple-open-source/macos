@@ -1,9 +1,24 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestEnv < Test::Unit::TestCase
   IGNORE_CASE = /bccwin|mswin|mingw/ =~ RUBY_PLATFORM
   PATH_ENV = "PATH"
+  INVALID_ENVVARS = [
+    "foo\0bar",
+    "\xa1\xa1".force_encoding(Encoding::UTF_16LE),
+    "foo".force_encoding(Encoding::ISO_2022_JP),
+  ]
+
+  def assert_invalid_env(msg = nil)
+    all_assertions(msg) do |a|
+      INVALID_ENVVARS.each do |v|
+        a.for(v) do
+          assert_raise(ArgumentError) {yield v}
+        end
+      end
+    end
+  end
 
   def setup
     @verbose = $VERBOSE
@@ -88,13 +103,13 @@ class TestEnv < Test::Unit::TestCase
   end
 
   def test_delete
-    assert_raise(ArgumentError) { ENV.delete("foo\0bar") }
+    assert_invalid_env {|v| ENV.delete(v)}
     assert_nil(ENV.delete("TEST"))
     assert_nothing_raised { ENV.delete(PATH_ENV) }
   end
 
   def test_getenv
-    assert_raise(ArgumentError) { ENV["foo\0bar"] }
+    assert_invalid_env {|v| ENV[v]}
     ENV[PATH_ENV] = ""
     assert_equal("", ENV[PATH_ENV])
     assert_nil(ENV[""])
@@ -104,27 +119,24 @@ class TestEnv < Test::Unit::TestCase
     ENV["test"] = "foo"
     assert_equal("foo", ENV.fetch("test"))
     ENV.delete("test")
-    assert_raise(KeyError) { ENV.fetch("test") }
+    feature8649 = '[ruby-core:56062] [Feature #8649]'
+    assert_raise_with_message(KeyError, 'key not found: "test"', feature8649) do
+      ENV.fetch("test")
+    end
     assert_equal("foo", ENV.fetch("test", "foo"))
     assert_equal("bar", ENV.fetch("test") { "bar" })
     assert_equal("bar", ENV.fetch("test", "foo") { "bar" })
-    assert_raise(ArgumentError) { ENV.fetch("foo\0bar") }
+    assert_invalid_env {|v| ENV.fetch(v)}
     assert_nothing_raised { ENV.fetch(PATH_ENV, "foo") }
     ENV[PATH_ENV] = ""
     assert_equal("", ENV.fetch(PATH_ENV))
   end
 
   def test_aset
-    assert_raise(SecurityError) do
-      Thread.new do
-        $SAFE = 4
-        ENV["test"] = "foo"
-      end.join
-    end
     assert_nothing_raised { ENV["test"] = nil }
     assert_equal(nil, ENV["test"])
-    assert_raise(ArgumentError) { ENV["foo\0bar"] = "test" }
-    assert_raise(ArgumentError) { ENV["test"] = "foo\0bar" }
+    assert_invalid_env {|v| ENV[v] = "test"}
+    assert_invalid_env {|v| ENV["test"] = v}
 
     begin
       # setenv(3) allowed the name includes '=',
@@ -271,16 +283,16 @@ class TestEnv < Test::Unit::TestCase
 
   def test_empty_p
     ENV.clear
-    assert(ENV.empty?)
+    assert_predicate(ENV, :empty?)
     ENV["test"] = "foo"
-    assert(!ENV.empty?)
+    assert_not_predicate(ENV, :empty?)
   end
 
   def test_has_key
-    assert(!ENV.has_key?("test"))
+    assert_not_send([ENV, :has_key?, "test"])
     ENV["test"] = "foo"
-    assert(ENV.has_key?("test"))
-    assert_raise(ArgumentError) { ENV.has_key?("foo\0bar") }
+    assert_send([ENV, :has_key?, "test"])
+    assert_invalid_env {|v| ENV.has_key?(v)}
   end
 
   def test_assoc
@@ -294,14 +306,14 @@ class TestEnv < Test::Unit::TestCase
       assert_equal("test", k)
       assert_equal("foo", v)
     end
-    assert_raise(ArgumentError) { ENV.assoc("foo\0bar") }
+    assert_invalid_env {|v| ENV.assoc(v)}
   end
 
   def test_has_value2
     ENV.clear
-    assert(!ENV.has_value?("foo"))
+    assert_not_send([ENV, :has_value?, "foo"])
     ENV["test"] = "foo"
-    assert(ENV.has_value?("foo"))
+    assert_send([ENV, :has_value?, "foo"])
   end
 
   def test_rassoc
@@ -397,13 +409,37 @@ class TestEnv < Test::Unit::TestCase
 
   if /mswin|mingw/ =~ RUBY_PLATFORM
     def test_win32_blocksize
-      len = 32767 - ENV.to_a.flatten.inject(0) {|r,e| r + e.size + 2 }
+      keys = []
+      len = 32767 - ENV.to_a.flatten.inject(0) {|r,e| r + e.bytesize + 1}
       val = "bar" * 1000
       key = nil
+      while (len -= val.size + (key="foo#{len}").size + 2) > 0
+        keys << key
+        ENV[key] = val
+      end
       1.upto(12) {|i|
-        ENV[key] = val while (len -= val.size + (key="foo#{len}").size + 2) > 0
         assert_raise(Errno::EINVAL) { ENV[key] = val }
       }
+    ensure
+      keys.each {|k| ENV.delete(k)}
+    end
+  end
+
+  def test_frozen
+    ENV[PATH_ENV] = "/"
+    ENV.each do |k, v|
+      assert_predicate(k, :frozen?)
+      assert_predicate(v, :frozen?)
+    end
+    ENV.each_key do |k|
+      assert_predicate(k, :frozen?)
+    end
+    ENV.each_value do |v|
+      assert_predicate(v, :frozen?)
+    end
+    ENV.each_key do |k|
+      assert_predicate(ENV[k], :frozen?, "[#{k.dump}]")
+      assert_predicate(ENV.fetch(k), :frozen?, "fetch(#{k.dump})")
     end
   end
 
@@ -447,86 +483,16 @@ class TestEnv < Test::Unit::TestCase
         500.times(&doit)
       end;
     end
-  end
 
-  def test_taint_aref
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV["FOO".taint]
-      end.call
-    end
-  end
-
-  def test_taint_fetch
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV.fetch("FOO".taint)
-      end.call
-    end
-  end
-
-  def test_taint_assoc
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV.assoc("FOO".taint)
-      end.call
-    end
-  end
-
-  def test_taint_rassoc
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV.rassoc("FOO".taint)
-      end.call
-    end
-  end
-
-  def test_taint_key
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV.key("FOO".taint)
-      end.call
-    end
-  end
-
-  def test_taint_key_p
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV.key?("FOO".taint)
-      end.call
-    end
-  end
-
-  def test_taint_value_p
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV.value?("FOO".taint)
-      end.call
-    end
-  end
-
-  def test_taint_aset_value
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV["FOO"] = "BAR".taint
-      end.call
-    end
-  end
-
-  def test_taint_aset_key
-    assert_raise(SecurityError) do
-      proc do
-        $SAFE = 2
-        ENV["FOO".taint] = "BAR"
-      end.call
+    if Encoding.find("locale") == Encoding::UTF_8
+      def test_utf8
+        text = "testing \u{e5 e1 e2 e4 e3 101 3042}"
+        test = ENV["test"]
+        ENV["test"] = text
+        assert_equal text, ENV["test"]
+      ensure
+        ENV["test"] = test
+      end
     end
   end
 end

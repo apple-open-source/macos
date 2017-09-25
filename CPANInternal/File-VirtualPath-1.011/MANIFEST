@@ -1,6 +1,0 @@
-ChangeLog
-lib/File/VirtualPath.pm
-Makefile.PL
-MANIFEST
-ReadMe
-t/File-VirtualPath.t

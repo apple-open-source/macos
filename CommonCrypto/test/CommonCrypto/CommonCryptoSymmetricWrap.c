@@ -39,9 +39,10 @@ wrapTest(char *kekstr, char *keystr, char *wrapped_keystr)
     if(wrapped_keystr) {
         bb = bytesToBytes(wrapped, wrapped_size);
         if(!strcmp(wrapped_keystr, "")) printByteBuffer(bb, "Result: ");
-        ok(bytesAreEqual(bb, wrapped_key), "Equal to expected wrapping");
-        // printByteBuffer(bb, "Result: ");
-        // printByteBuffer(wrapped_key, "Expected: ");
+        if (!ok(bytesAreEqual(bb, wrapped_key), "Equal to expected wrapping")) {
+            printByteBuffer(bb, "Result: ");
+            printByteBuffer(wrapped_key, "Expected: ");
+        }
         free(bb);
     }
         
@@ -51,7 +52,6 @@ wrapTest(char *kekstr, char *keystr, char *wrapped_keystr)
     ok(CCSymmetricKeyUnwrap(kCCWRAPAES, iv, ivLen, kek->bytes, kek->len, wrapped, wrapped_size, unwrapped, &unwrapped_size) == 0, "function is successful");
     bb = bytesToBytes(unwrapped, unwrapped_size);
     ok(bytesAreEqual(bb, key), "Equal to original key");
-    
     
     ok(CCSymmetricKeyUnwrap(kCCWRAPAES, iv, ivLen, kek->bytes, kek->len-1, wrapped, wrapped_size, unwrapped, &unwrapped_size) == kCCParamError, "kek length is wrong, function should fail");
     kek->bytes[0] ^=1;
@@ -68,9 +68,7 @@ wrapTest(char *kekstr, char *keystr, char *wrapped_keystr)
 
 
 
-
-
-static int kTestTestCount = 35;
+static int kSymmetricWrapTestCount = 53;
 
 int
 CommonSymmetricWrap(int __unused argc, char *const * __unused argv)
@@ -78,8 +76,8 @@ CommonSymmetricWrap(int __unused argc, char *const * __unused argv)
     char *kek, *key, *wrapped_key;
     int accum = 0;
     int verbose = 0;
-	plan_tests(kTestTestCount);
-    
+	plan_tests(kSymmetricWrapTestCount);
+
     if(verbose) diag("Test 1");
     kek = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
     key = "00112233445566778899aabbccddeeff000102030405060708090a0b0c0d0e0f";
@@ -88,7 +86,7 @@ CommonSymmetricWrap(int __unused argc, char *const * __unused argv)
     
     if(verbose) diag("Test 2");
     kek = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-    key = "00112233445566778899aabbccddeeff00010203040506070";
+    key =         "00112233445566778899aabbccddeeff0001020304050607";
     wrapped_key = "a8f9bc1612c68b3ff6e6f4fbe30e71e4769c8b80a32cb8958cd5d17d6b254da1";
     accum |= wrapTest(kek, key, wrapped_key);
 

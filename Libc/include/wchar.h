@@ -211,6 +211,7 @@ int     wcsncasecmp(const wchar_t *, const wchar_t *, size_t n) __OSX_AVAILABLE_
 size_t  wcsnlen(const wchar_t *, size_t) __pure __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 size_t  wcsnrtombs(char * __restrict, const wchar_t ** __restrict, size_t,
             size_t, mbstate_t * __restrict);
+FILE *open_wmemstream(wchar_t ** __bufp, size_t * __sizep) __API_AVAILABLE(macos(10.13), ios(11.0), tvos(11.0), watchos(4.0));
 __END_DECLS
 #endif /* __DARWIN_C_LEVEL >= 200809L */
 

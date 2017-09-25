@@ -166,6 +166,7 @@ static const OnigPairCaseFoldCodes CaseFoldMap[] = {
  { 0xab, 0xbb },
  { 0xac, 0xbc },
  { 0xae, 0xbe },
+ { 0xbd, 0xbf },
 
  { 0xc0, 0xe0 },
  { 0xc1, 0xe1 },
@@ -206,7 +207,7 @@ apply_all_case_fold(OnigCaseFoldType flag,
 		    OnigEncoding enc ARG_UNUSED)
 {
   return onigenc_apply_all_case_fold_with_map(
-             sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 1,
+             numberof(CaseFoldMap), CaseFoldMap, 1,
              flag, f, arg);
 }
 
@@ -217,7 +218,7 @@ get_case_fold_codes_by_str(OnigCaseFoldType flag,
 			   OnigEncoding enc ARG_UNUSED)
 {
   return onigenc_get_case_fold_codes_by_str_with_map(
-	     sizeof(CaseFoldMap)/sizeof(OnigPairCaseFoldCodes), CaseFoldMap, 1,
+	     numberof(CaseFoldMap), CaseFoldMap, 1,
 	     flag, p, end, items);
 }
 

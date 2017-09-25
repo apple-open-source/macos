@@ -818,9 +818,11 @@ event_base_free_(struct event_base *base, int run_finalizers)
 		}
 	}
 	{
-		struct event_callback *evcb;
-		while ((evcb = TAILQ_FIRST(&base->active_later_queue))) {
+		struct event_callback *evcb, *next;
+        for (evcb = TAILQ_FIRST(&base->active_later_queue); evcb; ) {
+            next = TAILQ_NEXT(evcb, evcb_active_next);
 			n_deleted += event_base_cancel_single_callback_(base, evcb, run_finalizers);
+            evcb = next;
 		}
 	}
 

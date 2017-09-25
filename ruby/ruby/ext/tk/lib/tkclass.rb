@@ -1,9 +1,10 @@
+# frozen_string_literal: false
 #
 #               tkclass.rb - Tk classes
 #                       Date: 2000/11/27 09:23:36
 #                       by Yukihiro Matsumoto <matz@caelum.co.jp>
 #
-#                       $Id: tkclass.rb 25189 2009-10-02 12:04:37Z akr $
+#                       $Id: tkclass.rb 53143 2015-12-16 05:31:54Z naruse $
 
 require "tk"
 

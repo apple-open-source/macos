@@ -18,7 +18,7 @@ set(JavaScriptCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/dfg"
     "${JAVASCRIPTCORE_DIR}/disassembler"
     "${JAVASCRIPTCORE_DIR}/disassembler/udis86"
-    "${JAVASCRIPTCORE_DIR}/disassembler/arm64"
+    "${JAVASCRIPTCORE_DIR}/disassembler/ARM64"
     "${JAVASCRIPTCORE_DIR}/domjit"
     "${JAVASCRIPTCORE_DIR}/ftl"
     "${JAVASCRIPTCORE_DIR}/heap"
@@ -32,13 +32,12 @@ set(JavaScriptCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/llint"
     "${JAVASCRIPTCORE_DIR}/parser"
     "${JAVASCRIPTCORE_DIR}/profiler"
-    "${JAVASCRIPTCORE_DIR}/replay"
     "${JAVASCRIPTCORE_DIR}/runtime"
     "${JAVASCRIPTCORE_DIR}/tools"
     "${JAVASCRIPTCORE_DIR}/wasm"
     "${JAVASCRIPTCORE_DIR}/wasm/js"
     "${JAVASCRIPTCORE_DIR}/yarr"
-    "${DERIVED_SOURCES_DIR}/ForwardingHeaders"
+    "${FORWARDING_HEADERS_DIR}"
     "${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}"
     "${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/inspector"
 )
@@ -55,15 +54,19 @@ set(JavaScriptCore_SOURCES
     API/JSCallbackObject.cpp
     API/JSClassRef.cpp
     API/JSContextRef.cpp
+    API/JSHeapFinalizerPrivate.cpp
+    API/JSMarkingConstraintPrivate.cpp
     API/JSObjectRef.cpp
     API/JSTypedArray.cpp
     API/JSScriptRef.cpp
     API/JSStringRef.cpp
     API/JSValueRef.cpp
     API/JSWeakObjectMapRefPrivate.cpp
+    API/JSWeakPrivate.cpp
     API/OpaqueJSString.cpp
 
     assembler/ARMAssembler.cpp
+    assembler/AbstractMacroAssembler.cpp
     assembler/LinkBuffer.cpp
     assembler/MacroAssembler.cpp
     assembler/MacroAssemblerARM.cpp
@@ -71,37 +74,46 @@ set(JavaScriptCore_SOURCES
     assembler/MacroAssemblerCodeRef.cpp
     assembler/MacroAssemblerPrinter.cpp
     assembler/MacroAssemblerX86Common.cpp
+    assembler/Printer.cpp
 
-    b3/air/AirAllocateStack.cpp
+    b3/air/AirAllocateRegistersAndStackByLinearScan.cpp
+    b3/air/AirAllocateRegistersByGraphColoring.cpp
+    b3/air/AirAllocateStackByGraphColoring.cpp
     b3/air/AirArg.cpp
     b3/air/AirBasicBlock.cpp
+    b3/air/AirBlockInsertionSet.cpp
+    b3/air/AirBreakCriticalEdges.cpp
     b3/air/AirCCallSpecial.cpp
     b3/air/AirCCallingConvention.cpp
     b3/air/AirCode.cpp
     b3/air/AirCustom.cpp
-    b3/air/AirDumpAsJS.cpp
+    b3/air/AirDisassembler.cpp
     b3/air/AirEliminateDeadCode.cpp
     b3/air/AirEmitShuffle.cpp
     b3/air/AirFixObviousSpills.cpp
     b3/air/AirFixPartialRegisterStalls.cpp
+    b3/air/AirFixSpillsAfterTerminals.cpp
     b3/air/AirGenerate.cpp
     b3/air/AirGenerated.cpp
     b3/air/AirHandleCalleeSaves.cpp
     b3/air/AirInsertionSet.cpp
     b3/air/AirInst.cpp
-    b3/air/AirIteratedRegisterCoalescing.cpp
     b3/air/AirKind.cpp
     b3/air/AirLogRegisterPressure.cpp
     b3/air/AirLowerAfterRegAlloc.cpp
     b3/air/AirLowerEntrySwitch.cpp
     b3/air/AirLowerMacros.cpp
+    b3/air/AirLowerStackArgs.cpp
     b3/air/AirOptimizeBlockOrder.cpp
     b3/air/AirPadInterference.cpp
+    b3/air/AirPhaseInsertionSet.cpp
     b3/air/AirPhaseScope.cpp
+    b3/air/AirPrintSpecial.cpp
+    b3/air/AirRegLiveness.cpp
     b3/air/AirReportUsedRegisters.cpp
     b3/air/AirSimplifyCFG.cpp
     b3/air/AirSpecial.cpp
-    b3/air/AirSpillEverything.cpp
+    b3/air/AirStackAllocation.cpp
     b3/air/AirStackSlot.cpp
     b3/air/AirStackSlotKind.cpp
     b3/air/AirTmp.cpp
@@ -109,6 +121,8 @@ set(JavaScriptCore_SOURCES
     b3/air/AirValidate.cpp
 
     b3/B3ArgumentRegValue.cpp
+    b3/B3AtomicValue.cpp
+    b3/B3Bank.cpp
     b3/B3BasicBlock.cpp
     b3/B3BlockInsertionSet.cpp
     b3/B3BreakCriticalEdges.cpp
@@ -134,7 +148,6 @@ set(JavaScriptCore_SOURCES
     b3/B3FoldPathConstants.cpp
     b3/B3FrequencyClass.cpp
     b3/B3Generate.cpp
-    b3/B3HeapRange.cpp
     b3/B3InferSwitches.cpp
     b3/B3InsertionSet.cpp
     b3/B3Kind.cpp
@@ -174,9 +187,11 @@ set(JavaScriptCore_SOURCES
     b3/B3ValueKey.cpp
     b3/B3ValueRep.cpp
     b3/B3Variable.cpp
+    b3/B3VariableLiveness.cpp
     b3/B3VariableValue.cpp
     b3/B3WasmAddressValue.cpp
     b3/B3WasmBoundsCheckValue.cpp
+    b3/B3Width.cpp
 
     bindings/ScriptFunctionCall.cpp
     bindings/ScriptObject.cpp
@@ -185,11 +200,14 @@ set(JavaScriptCore_SOURCES
     builtins/BuiltinExecutables.cpp
     builtins/BuiltinExecutableCreator.cpp
 
+    bytecode/AccessCase.cpp
+    bytecode/AccessCaseSnippetParams.cpp
     bytecode/AdaptiveInferredPropertyValueWatchpointBase.cpp
     bytecode/ArithProfile.cpp
     bytecode/ArrayAllocationProfile.cpp
     bytecode/ArrayProfile.cpp
     bytecode/BytecodeBasicBlock.cpp
+    bytecode/BytecodeDumper.cpp
     bytecode/BytecodeGeneratorification.cpp
     bytecode/BytecodeIntrinsicRegistry.cpp
     bytecode/BytecodeLivenessAnalysis.cpp
@@ -206,7 +224,6 @@ set(JavaScriptCore_SOURCES
     bytecode/CodeType.cpp
     bytecode/ComplexGetStatus.cpp
     bytecode/DFGExitProfile.cpp
-    bytecode/DOMJITAccessCasePatchpointParams.cpp
     bytecode/DataFormat.cpp
     bytecode/DeferredCompilationCallback.cpp
     bytecode/DeferredSourceDump.cpp
@@ -215,16 +232,20 @@ set(JavaScriptCore_SOURCES
     bytecode/ExecutionCounter.cpp
     bytecode/ExitKind.cpp
     bytecode/ExitingJITType.cpp
+    bytecode/FullCodeOrigin.cpp
     bytecode/FunctionCodeBlock.cpp
     bytecode/GetByIdStatus.cpp
     bytecode/GetByIdVariant.cpp
+    bytecode/GetterSetterAccessCase.cpp
     bytecode/InlineAccess.cpp
     bytecode/InlineCallFrame.cpp
     bytecode/InlineCallFrameSet.cpp
+    bytecode/IntrinsicGetterAccessCase.cpp
     bytecode/JumpTable.cpp
     bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.cpp
     bytecode/LazyOperandValueProfile.cpp
     bytecode/MethodOfGettingAValueProfile.cpp
+    bytecode/ModuleNamespaceAccessCase.cpp
     bytecode/ModuleProgramCodeBlock.cpp
     bytecode/ObjectPropertyCondition.cpp
     bytecode/ObjectPropertyConditionSet.cpp
@@ -233,6 +254,7 @@ set(JavaScriptCore_SOURCES
     bytecode/PreciseJumpTargets.cpp
     bytecode/ProgramCodeBlock.cpp
     bytecode/PropertyCondition.cpp
+    bytecode/ProxyableAccessCase.cpp
     bytecode/PutByIdFlags.cpp
     bytecode/PutByIdStatus.cpp
     bytecode/PutByIdVariant.cpp
@@ -300,7 +322,6 @@ set(JavaScriptCore_SOURCES
     dfg/DFGConstantHoistingPhase.cpp
     dfg/DFGCriticalEdgeBreakingPhase.cpp
     dfg/DFGDCEPhase.cpp
-    dfg/DFGDOMJITPatchpointParams.cpp
     dfg/DFGDesiredIdentifiers.cpp
     dfg/DFGDesiredTransitions.cpp
     dfg/DFGDesiredWatchpoints.cpp
@@ -335,7 +356,6 @@ set(JavaScriptCore_SOURCES
     dfg/DFGLazyJSValue.cpp
     dfg/DFGLazyNode.cpp
     dfg/DFGLivenessAnalysisPhase.cpp
-    dfg/DFGLongLivedState.cpp
     dfg/DFGLoopPreHeaderCreationPhase.cpp
     dfg/DFGMaximalFlushInsertionPhase.cpp
     dfg/DFGMayExit.cpp
@@ -379,6 +399,7 @@ set(JavaScriptCore_SOURCES
     dfg/DFGSSAConversionPhase.cpp
     dfg/DFGSSALoweringPhase.cpp
     dfg/DFGSafepoint.cpp
+    dfg/DFGSnippetParams.cpp
     dfg/DFGSpeculativeJIT.cpp
     dfg/DFGSpeculativeJIT32_64.cpp
     dfg/DFGSpeculativeJIT64.cpp
@@ -436,7 +457,6 @@ set(JavaScriptCore_SOURCES
     ftl/FTLCapabilities.cpp
     ftl/FTLCommonValues.cpp
     ftl/FTLCompile.cpp
-    ftl/FTLDOMJITPatchpointParams.cpp
     ftl/FTLExceptionTarget.cpp
     ftl/FTLExitArgument.cpp
     ftl/FTLExitArgumentForOperand.cpp
@@ -462,6 +482,7 @@ set(JavaScriptCore_SOURCES
     ftl/FTLSaveRestore.cpp
     ftl/FTLSlowPathCall.cpp
     ftl/FTLSlowPathCallKey.cpp
+    ftl/FTLSnippetParams.cpp
     ftl/FTLState.cpp
     ftl/FTLThunks.cpp
     ftl/FTLValueRange.cpp
@@ -470,6 +491,7 @@ set(JavaScriptCore_SOURCES
     heap/CellContainer.cpp
     heap/CodeBlockSet.cpp
     heap/CollectionScope.cpp
+    heap/CollectorPhase.cpp
     heap/ConservativeRoots.cpp
     heap/DeferGC.cpp
     heap/DestructionMode.cpp
@@ -477,22 +499,21 @@ set(JavaScriptCore_SOURCES
     heap/FullGCActivityCallback.cpp
     heap/FreeList.cpp
     heap/GCActivityCallback.cpp
+    heap/GCConductor.cpp
     heap/GCLogging.cpp
+    heap/GCRequest.cpp
     heap/HandleSet.cpp
     heap/HandleStack.cpp
     heap/Heap.cpp
     heap/HeapCell.cpp
+    heap/HeapFinalizerCallback.cpp
     heap/HeapHelperPool.cpp
     heap/HeapProfiler.cpp
     heap/HeapSnapshot.cpp
     heap/HeapSnapshotBuilder.cpp
-    heap/HeapStatistics.cpp
-    heap/HeapTimer.cpp
-    heap/HeapVerifier.cpp
     heap/IncrementalSweeper.cpp
     heap/JITStubRoutineSet.cpp
     heap/LargeAllocation.cpp
-    heap/LiveObjectList.cpp
     heap/MachineStackMarker.cpp
     heap/MarkStack.cpp
     heap/MarkedAllocator.cpp
@@ -508,6 +529,7 @@ set(JavaScriptCore_SOURCES
     heap/StopIfNecessaryTimer.cpp
     heap/Subspace.cpp
     heap/SynchronousStopTheWorldMutatorScheduler.cpp
+    heap/Synchronousness.cpp
     heap/VisitRaceKey.cpp
     heap/Weak.cpp
     heap/WeakBlock.cpp
@@ -572,7 +594,6 @@ set(JavaScriptCore_SOURCES
     jit/CallFrameShuffler64.cpp
     jit/ExecutableAllocationFuzz.cpp
     jit/ExecutableAllocator.cpp
-    jit/ExecutableAllocatorFixedVMPool.cpp
     jit/GCAwareJITStubRoutine.cpp
     jit/GPRInfo.cpp
     jit/HostCallReturnValue.cpp
@@ -661,7 +682,6 @@ set(JavaScriptCore_SOURCES
     runtime/ArrayBufferView.cpp
     runtime/ArrayConstructor.cpp
     runtime/ArrayConventions.cpp
-    runtime/ArrayIteratorAdaptiveWatchpoint.cpp
     runtime/ArrayIteratorPrototype.cpp
     runtime/ArrayPrototype.cpp
     runtime/AtomicsObject.cpp
@@ -673,6 +693,7 @@ set(JavaScriptCore_SOURCES
     runtime/BooleanPrototype.cpp
     runtime/CallData.cpp
     runtime/CatchScope.cpp
+    runtime/ClassInfo.cpp
     runtime/ClonedArguments.cpp
     runtime/CodeCache.cpp
     runtime/CodeSpecializationKind.cpp
@@ -681,6 +702,7 @@ set(JavaScriptCore_SOURCES
     runtime/CommonSlowPathsExceptions.cpp
     runtime/CompilationResult.cpp
     runtime/Completion.cpp
+    runtime/ConfigFile.cpp
     runtime/ConsoleClient.cpp
     runtime/ConsoleObject.cpp
     runtime/ConstantMode.cpp
@@ -695,6 +717,7 @@ set(JavaScriptCore_SOURCES
     runtime/DirectArguments.cpp
     runtime/DirectArgumentsOffset.cpp
     runtime/DirectEvalExecutable.cpp
+    runtime/DisallowVMReentry.cpp
     runtime/DumpContext.cpp
     runtime/ECMAScriptSpecInternalFunctions.cpp
     runtime/Error.cpp
@@ -729,6 +752,7 @@ set(JavaScriptCore_SOURCES
     runtime/InitializeThreading.cpp
     runtime/InspectorInstrumentationObject.cpp
     runtime/InternalFunction.cpp
+    runtime/Intrinsic.cpp
     runtime/IntlCollator.cpp
     runtime/IntlCollatorConstructor.cpp
     runtime/IntlCollatorPrototype.cpp
@@ -786,12 +810,15 @@ set(JavaScriptCore_SOURCES
     runtime/JSPromiseDeferred.cpp
     runtime/JSPromisePrototype.cpp
     runtime/JSPropertyNameEnumerator.cpp
-    runtime/JSPropertyNameIterator.cpp
     runtime/JSProxy.cpp
+    runtime/JSRunLoopTimer.cpp
     runtime/JSScope.cpp
+    runtime/JSScriptFetcher.cpp
     runtime/JSSegmentedVariableObject.cpp
+    runtime/JSSegmentedVariableObjectSubspace.cpp
     runtime/JSSet.cpp
     runtime/JSSetIterator.cpp
+    runtime/JSSourceCode.cpp
     runtime/JSString.cpp
     runtime/JSStringIterator.cpp
     runtime/JSStringJoiner.cpp
@@ -810,7 +837,6 @@ set(JavaScriptCore_SOURCES
     runtime/LazyClassStructure.cpp
     runtime/LiteralParser.cpp
     runtime/Lookup.cpp
-    runtime/MapBase.cpp
     runtime/MapConstructor.cpp
     runtime/MapIteratorPrototype.cpp
     runtime/MapPrototype.cpp
@@ -830,10 +856,12 @@ set(JavaScriptCore_SOURCES
     runtime/NumberObject.cpp
     runtime/NumberPrototype.cpp
     runtime/ObjectConstructor.cpp
+    runtime/ObjectInitializationScope.cpp
     runtime/ObjectPrototype.cpp
     runtime/Operations.cpp
     runtime/Options.cpp
     runtime/ProgramExecutable.cpp
+    runtime/PromiseDeferredTimer.cpp
     runtime/PropertyDescriptor.cpp
     runtime/PropertySlot.cpp
     runtime/PropertyTable.cpp
@@ -892,6 +920,7 @@ set(JavaScriptCore_SOURCES
     runtime/TypeofType.cpp
     runtime/VM.cpp
     runtime/VMEntryScope.cpp
+    runtime/VMTraps.cpp
     runtime/VarOffset.cpp
     runtime/Watchdog.cpp
     runtime/WeakMapConstructor.cpp
@@ -900,10 +929,12 @@ set(JavaScriptCore_SOURCES
     runtime/WeakSetConstructor.cpp
     runtime/WeakSetPrototype.cpp
 
+    tools/CellList.cpp
     tools/CodeProfile.cpp
     tools/CodeProfiling.cpp
     tools/FunctionOverrides.cpp
     tools/FunctionWhitelist.cpp
+    tools/HeapVerifier.cpp
     tools/JSDollarVM.cpp
     tools/JSDollarVMPrototype.cpp
     tools/SigillCrashAnalyzer.cpp
@@ -911,18 +942,36 @@ set(JavaScriptCore_SOURCES
 
     wasm/JSWebAssembly.cpp
     wasm/WasmB3IRGenerator.cpp
+    wasm/WasmBBQPlan.cpp
     wasm/WasmBinding.cpp
+    wasm/WasmCallee.cpp
     wasm/WasmCallingConvention.cpp
+    wasm/WasmCodeBlock.cpp
+    wasm/WasmContext.cpp
+    wasm/WasmFaultSignalHandler.cpp
     wasm/WasmFormat.cpp
+    wasm/WasmIndexOrName.cpp
+    wasm/WasmMachineThreads.cpp
     wasm/WasmMemory.cpp
     wasm/WasmMemoryInformation.cpp
+    wasm/WasmModule.cpp
+    wasm/WasmModuleInformation.cpp
     wasm/WasmModuleParser.cpp
+    wasm/WasmNameSectionParser.cpp
+    wasm/WasmOMGPlan.cpp
+    wasm/WasmOpcodeOrigin.cpp
+    wasm/WasmPageCount.cpp
     wasm/WasmPlan.cpp
+    wasm/WasmSignature.cpp
+    wasm/WasmThunks.cpp
     wasm/WasmValidate.cpp
+    wasm/WasmWorklist.cpp
 
-    wasm/js/JSWebAssemblyCallee.cpp
+    wasm/js/JSWebAssemblyCodeBlock.cpp
+    wasm/js/JSWebAssemblyCodeBlockSubspace.cpp
     wasm/js/JSWebAssemblyCompileError.cpp
     wasm/js/JSWebAssemblyInstance.cpp
+    wasm/js/JSWebAssemblyLinkError.cpp
     wasm/js/JSWebAssemblyMemory.cpp
     wasm/js/JSWebAssemblyModule.cpp
     wasm/js/JSWebAssemblyRuntimeError.cpp
@@ -930,8 +979,11 @@ set(JavaScriptCore_SOURCES
     wasm/js/WebAssemblyCompileErrorConstructor.cpp
     wasm/js/WebAssemblyCompileErrorPrototype.cpp
     wasm/js/WebAssemblyFunction.cpp
+    wasm/js/WebAssemblyFunctionBase.cpp
     wasm/js/WebAssemblyInstanceConstructor.cpp
     wasm/js/WebAssemblyInstancePrototype.cpp
+    wasm/js/WebAssemblyLinkErrorConstructor.cpp
+    wasm/js/WebAssemblyLinkErrorPrototype.cpp
     wasm/js/WebAssemblyMemoryConstructor.cpp
     wasm/js/WebAssemblyMemoryPrototype.cpp
     wasm/js/WebAssemblyModuleConstructor.cpp
@@ -943,6 +995,7 @@ set(JavaScriptCore_SOURCES
     wasm/js/WebAssemblyTableConstructor.cpp
     wasm/js/WebAssemblyTablePrototype.cpp
     wasm/js/WebAssemblyToJSCallee.cpp
+    wasm/js/WebAssemblyWrapperFunction.cpp
 
     yarr/RegularExpression.cpp
     yarr/YarrCanonicalizeUCS2.cpp
@@ -999,6 +1052,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     wasm/js/WebAssemblyCompileErrorPrototype.cpp
     wasm/js/WebAssemblyInstanceConstructor.cpp
     wasm/js/WebAssemblyInstancePrototype.cpp
+    wasm/js/WebAssemblyLinkErrorConstructor.cpp
+    wasm/js/WebAssemblyLinkErrorPrototype.cpp
     wasm/js/WebAssemblyMemoryConstructor.cpp
     wasm/js/WebAssemblyMemoryPrototype.cpp
     wasm/js/WebAssemblyModuleConstructor.cpp
@@ -1028,7 +1083,7 @@ set(JavaScriptCore_SCRIPTS_SOURCES_PATHS
 )
 
 # Force JavaScriptCore to run scripts from the same staging path as WebCore.
-set(JavaScriptCore_SCRIPTS_DIR "${DERIVED_SOURCES_DIR}/ForwardingHeaders/JavaScriptCore/Scripts")
+set(JavaScriptCore_SCRIPTS_DIR "${FORWARDING_HEADERS_DIR}/JavaScriptCore/Scripts")
 
 file(MAKE_DIRECTORY ${JavaScriptCore_SCRIPTS_DIR})
 
@@ -1084,7 +1139,6 @@ set(OFFLINE_ASM
     offlineasm/risc.rb
     offlineasm/self_hash.rb
     offlineasm/settings.rb
-    offlineasm/sh4.rb
     offlineasm/transform.rb
     offlineasm/x86.rb
 )
@@ -1150,15 +1204,20 @@ add_custom_command(
 # since it is used in the add_library() call at the end of this file.
 if (MSVC)
     enable_language(ASM_MASM)
-    list(APPEND JavaScriptCore_SOURCES
-        ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.asm
-    )
-    # Win32 needs /safeseh with assembly, but Win64 does not.
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set_source_files_properties(${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.asm
-            PROPERTIES COMPILE_FLAGS  "/safeseh"
-        )
+        # Win32 needs /safeseh with assembly, but Win64 does not.
+        set(MASM_EXECUTABLE ml)
+        set(LLINT_MASM_FLAGS /safeseh /c /Fo)
+    else ()
+        set(MASM_EXECUTABLE ml64)
+        set(LLINT_MASM_FLAGS /c /Fo)
     endif ()
+    add_custom_command(
+        OUTPUT ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.obj
+        DEPENDS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.asm
+        COMMAND ${MASM_EXECUTABLE} ${LLINT_MASM_FLAGS} ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.obj ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.asm
+        VERBATIM)
+    list(APPEND JavaScriptCore_SOURCES ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LowLevelInterpreterWin.obj)
 else ()
     list(APPEND JavaScriptCore_HEADERS
         ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LLIntAssembly.h
@@ -1167,19 +1226,19 @@ endif ()
 
 # WebAssembly generator
 
-macro(GENERATE_PYTHON _generator _input _output)
+macro(GENERATE_PYTHON _generator _additional_deps _input _output)
     add_custom_command(
         OUTPUT ${_output}
         MAIN_DEPENDENCY ${_generator}
-        DEPENDS ${_input}
+        DEPENDS ${_input} ${_additional_deps}
         COMMAND ${PYTHON_EXECUTABLE} ${_generator} ${_input} ${_output}
         VERBATIM)
     list(APPEND JavaScriptCore_HEADERS ${_output})
     ADD_SOURCE_DEPENDENCIES(${_input} ${_output})
 endmacro()
-GENERATE_PYTHON(${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasmOpsHeader.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/wasm.json ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WasmOps.h)
-GENERATE_PYTHON(${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasmValidateInlinesHeader.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/wasm.json ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WasmValidateInlines.h)
-GENERATE_PYTHON(${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasmB3IRGeneratorInlinesHeader.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/wasm.json ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WasmB3IRGeneratorInlines.h)
+GENERATE_PYTHON(${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasmOpsHeader.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasm.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/wasm.json ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WasmOps.h)
+GENERATE_PYTHON(${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasmValidateInlinesHeader.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasm.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/wasm.json ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WasmValidateInlines.h)
+GENERATE_PYTHON(${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasmB3IRGeneratorInlinesHeader.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/generateWasm.py ${CMAKE_CURRENT_SOURCE_DIR}/wasm/wasm.json ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/WasmB3IRGeneratorInlines.h)
 
 # LUT generator
 
@@ -1219,8 +1278,8 @@ set(JavaScriptCore_FORWARDING_HEADERS_DIRECTORIES
     llint
     parser
     profiler
-    replay
     runtime
+    wasm
     yarr
 
     collector/handles
@@ -1228,6 +1287,8 @@ set(JavaScriptCore_FORWARDING_HEADERS_DIRECTORIES
     inspector/agents
     inspector/augmentable
     inspector/remote
+
+    wasm/js
 )
 
 # GENERATOR 1-B: particular LUT creator (for 1 file only)
@@ -1286,6 +1347,7 @@ set(JavaScriptCore_INSPECTOR_PROTOCOL_SCRIPTS
 set(JavaScriptCore_INSPECTOR_DOMAINS
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/ApplicationCache.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/CSS.json
+    ${JAVASCRIPTCORE_DIR}/inspector/protocol/Canvas.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Console.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/DOM.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/DOMDebugger.json
@@ -1314,12 +1376,6 @@ endif ()
 if (ENABLE_RESOURCE_USAGE)
     list(APPEND JavaScriptCore_INSPECTOR_DOMAINS
         ${JAVASCRIPTCORE_DIR}/inspector/protocol/Memory.json
-    )
-endif ()
-
-if (ENABLE_WEB_REPLAY)
-    list(APPEND JavaScriptCore_INSPECTOR_DOMAINS
-        ${JAVASCRIPTCORE_DIR}/inspector/protocol/Replay.json
     )
 endif ()
 
@@ -1442,23 +1498,6 @@ add_custom_command(
 
 list(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.h)
 
-# Web Replay inputs generator
-if (ENABLE_WEB_REPLAY)
-    set(JavaScript_WEB_REPLAY_INPUTS ${CMAKE_CURRENT_SOURCE_DIR}/replay/JSInputs.json)
-    add_custom_command(
-        OUTPUT ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/JSReplayInputs.h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/JSReplayInputs.cpp
-        MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/replay/scripts/CodeGeneratorReplayInputs.py
-        DEPENDS ${JavaScript_WEB_REPLAY_INPUTS}
-        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/replay/scripts/CodeGeneratorReplayInputs.py --outputDir ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/ --framework JavaScriptCore ${JavaScript_WEB_REPLAY_INPUTS}
-        VERBATIM)
-
-    list(APPEND JavaScriptCore_SOURCES
-        replay/EncodedValue.cpp
-        ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/JSReplayInputs.cpp
-    )
-    list(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/JSReplayInputs.h)
-endif ()
-
 if (WTF_CPU_ARM)
 elseif (WTF_CPU_ARM64)
 elseif (WTF_CPU_HPPA)
@@ -1484,7 +1523,7 @@ else ()
     message(FATAL_ERROR "Unknown CPU")
 endif ()
 
-
+WEBKIT_FRAMEWORK_DECLARE(JavaScriptCore)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
 WEBKIT_CREATE_FORWARDING_HEADERS(JavaScriptCore DIRECTORIES ${JavaScriptCore_FORWARDING_HEADERS_DIRECTORIES} FILES ${JavaScriptCore_FORWARDING_HEADERS_FILES})

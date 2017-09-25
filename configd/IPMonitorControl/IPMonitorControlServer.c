@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -168,6 +168,8 @@ GenerateNotification(void)
 STATIC void
 AddChangedInterface(const void * key, const void * value, void * context)
 {
+#pragma unused(value)
+#pragma unused(context)
     InterfaceChangedListAddInterface((CFStringRef)key);
     return;
 }
@@ -311,6 +313,7 @@ IPMonitorControlServerHandleSetInterfaceRank(xpc_connection_t connection,
 					     xpc_object_t request,
 					     xpc_object_t reply)
 {
+#pragma unused(reply)
     const char *		ifname;
     SCNetworkServicePrimaryRank	rank;
     ControlSessionRef		session;
@@ -505,6 +508,7 @@ PRIVATE_EXTERN Boolean
 IPMonitorControlServerStart(CFRunLoopRef runloop, CFRunLoopSourceRef rls,
 			    Boolean * verbose)
 {
+#pragma unused(verbose)
     dispatch_queue_t	q;
     xpc_connection_t	connection;
 

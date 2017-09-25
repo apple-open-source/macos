@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2001 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2001 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -108,7 +108,7 @@ OSStatus HIDCheckReport(HIDReportType reportType, HIDPreparsedDataRef preparsedD
 		default:
 			return kHIDInvalidReportTypeErr;
 	}
-	if (iExpectedLength > iReportLength)
+	if (iExpectedLength > (int)iReportLength)
 		return kHIDInvalidReportLengthErr;
 	return kHIDSuccess;
 }

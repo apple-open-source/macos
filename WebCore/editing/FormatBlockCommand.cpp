@@ -27,12 +27,12 @@
 #include "FormatBlockCommand.h"
 
 #include "Document.h"
+#include "Editing.h"
 #include "Element.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "Range.h"
 #include "VisibleUnits.h"
-#include "htmlediting.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -64,7 +64,8 @@ void FormatBlockCommand::formatSelection(const VisiblePosition& startOfSelection
 void FormatBlockCommand::formatRange(const Position& start, const Position& end, const Position& endOfSelection, RefPtr<Element>& blockNode)
 {
     Node* nodeToSplitTo = enclosingBlockToSplitTreeTo(start.deprecatedNode());
-    RefPtr<Node> outerBlock = (start.deprecatedNode() == nodeToSplitTo) ? start.deprecatedNode() : splitTreeToNode(start.deprecatedNode(), nodeToSplitTo);
+    ASSERT(nodeToSplitTo);
+    RefPtr<Node> outerBlock = (start.deprecatedNode() == nodeToSplitTo) ? start.deprecatedNode() : splitTreeToNode(*start.deprecatedNode(), *nodeToSplitTo);
     RefPtr<Node> nodeAfterInsertionPosition = outerBlock;
 
     RefPtr<Range> range = Range::create(document(), start, endOfSelection);
@@ -86,7 +87,7 @@ void FormatBlockCommand::formatRange(const Position& start, const Position& end,
         // Create a new blockquote and insert it as a child of the root editable element. We accomplish
         // this by splitting all parents of the current paragraph up to that point.
         blockNode = createBlockElement();
-        insertNodeBefore(blockNode, nodeAfterInsertionPosition);
+        insertNodeBefore(*blockNode, *nodeAfterInsertionPosition);
     }
 
     Position lastParagraphInBlockNode = blockNode->lastChild() ? positionAfterNode(blockNode->lastChild()) : Position();

@@ -29,19 +29,19 @@
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)
 
 #import "AVFoundationSPI.h"
-#import "LegacyCDM.h"
 #import "CDMPrivateMediaSourceAVFObjC.h"
 #import "FileSystem.h"
+#import "LegacyCDM.h"
 #import "Logging.h"
 #import "MediaPlayer.h"
-#import "SoftLinking.h"
 #import "SourceBufferPrivateAVFObjC.h"
-#import "UUID.h"
 #import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVError.h>
 #import <CoreMedia/CMBase.h>
 #import <objc/objc-runtime.h>
 #import <runtime/TypedArrayInlines.h>
+#import <wtf/SoftLinking.h>
+#import <wtf/UUID.h>
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
 SOFT_LINK_CLASS(AVFoundation, AVStreamDataParser);
@@ -142,11 +142,12 @@ void CDMSessionAVStreamSession::releaseKeys()
         if (!m_certificate)
             return;
 
-        if (![getAVStreamSessionClass() respondsToSelector:@selector(pendingExpiredSessionReportsWithAppIdentifier:storageDirectoryAtURL:)])
+        String storagePath = this->storagePath();
+        if (storagePath.isEmpty() || ![getAVStreamSessionClass() respondsToSelector:@selector(pendingExpiredSessionReportsWithAppIdentifier:storageDirectoryAtURL:)])
             return;
 
         RetainPtr<NSData> certificateData = adoptNS([[NSData alloc] initWithBytes:m_certificate->data() length:m_certificate->length()]);
-        NSArray* expiredSessions = [getAVStreamSessionClass() pendingExpiredSessionReportsWithAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath()]];
+        NSArray* expiredSessions = [getAVStreamSessionClass() pendingExpiredSessionReportsWithAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath]];
         for (NSData* expiredSessionData in expiredSessions) {
             NSDictionary *expiredSession = [NSPropertyListSerialization propertyListWithData:expiredSessionData options:kCFPropertyListImmutable format:nullptr error:nullptr];
             NSString *playbackSessionIdValue = (NSString *)[expiredSession objectForKey:PlaybackSessionIdKey];
@@ -198,8 +199,9 @@ bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& next
 
         RetainPtr<NSData> certificateData = adoptNS([[NSData alloc] initWithBytes:m_certificate->data() length:m_certificate->length()]);
 
-        if ([getAVStreamSessionClass() respondsToSelector:@selector(removePendingExpiredSessionReports:withAppIdentifier:storageDirectoryAtURL:)])
-            [getAVStreamSessionClass() removePendingExpiredSessionReports:@[m_expiredSession.get()] withAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath()]];
+        String storagePath = this->storagePath();
+        if (!storagePath.isEmpty() && [getAVStreamSessionClass() respondsToSelector:@selector(removePendingExpiredSessionReports:withAppIdentifier:storageDirectoryAtURL:)])
+            [getAVStreamSessionClass() removePendingExpiredSessionReports:@[m_expiredSession.get()] withAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath]];
         m_expiredSession = nullptr;
         return true;
     }
@@ -307,19 +309,20 @@ void CDMSessionAVStreamSession::removeParser(AVStreamDataParser* parser)
         [m_streamSession removeStreamDataParser:parser];
 }
 
-PassRefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyReleaseMessage(unsigned short& errorCode, uint32_t& systemCode)
+RefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyReleaseMessage(unsigned short& errorCode, uint32_t& systemCode)
 {
     ASSERT(m_mode == KeyRelease);
     m_certificate = m_initData;
     RetainPtr<NSData> certificateData = adoptNS([[NSData alloc] initWithBytes:m_certificate->data() length:m_certificate->length()]);
 
-    if (![getAVStreamSessionClass() respondsToSelector:@selector(pendingExpiredSessionReportsWithAppIdentifier:storageDirectoryAtURL:)]) {
+    String storagePath = this->storagePath();
+    if (storagePath.isEmpty() || ![getAVStreamSessionClass() respondsToSelector:@selector(pendingExpiredSessionReportsWithAppIdentifier:storageDirectoryAtURL:)]) {
         errorCode = MediaPlayer::KeySystemNotSupported;
         systemCode = '!mor';
         return nullptr;
     }
 
-    NSArray* expiredSessions = [getAVStreamSessionClass() pendingExpiredSessionReportsWithAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath()]];
+    NSArray* expiredSessions = [getAVStreamSessionClass() pendingExpiredSessionReportsWithAppIdentifier:certificateData.get() storageDirectoryAtURL:[NSURL fileURLWithPath:storagePath]];
     if (![expiredSessions count]) {
         LOG(Media, "CDMSessionAVStreamSession::generateKeyReleaseMessage(%p) - no expired sessions found", this);
 

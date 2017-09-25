@@ -26,6 +26,7 @@
 #import "config.h"
 #import "WKWebProcessPlugInNodeHandleInternal.h"
 
+#import "WKSharedAPICast.h"
 #import "WKWebProcessPlugInFrameInternal.h"
 #import <WebCore/IntRect.h>
 #import <WebKit/WebImage.h>
@@ -67,22 +68,40 @@ using namespace WebKit;
 #if PLATFORM(IOS)
 - (UIImage *)renderedImageWithOptions:(WKSnapshotOptions)options
 {
-    RefPtr<WebImage> image = _nodeHandle->renderedImage(options);
-    if (!image || !image->bitmap())
+    return [self renderedImageWithOptions:options width:nil];
+}
+
+- (UIImage *)renderedImageWithOptions:(WKSnapshotOptions)options width:(NSNumber *)width
+{
+    std::optional<float> optionalWidth;
+    if (width)
+        optionalWidth = width.floatValue;
+
+    RefPtr<WebImage> image = _nodeHandle->renderedImage(toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
+    if (!image)
         return nil;
 
-    return [[[UIImage alloc] initWithCGImage:image->bitmap()->makeCGImage().get()] autorelease];
+    return [[[UIImage alloc] initWithCGImage:image->bitmap().makeCGImage().get()] autorelease];
 }
 #endif
 
 #if PLATFORM(MAC)
 - (NSImage *)renderedImageWithOptions:(WKSnapshotOptions)options
 {
-    RefPtr<WebImage> image = _nodeHandle->renderedImage(options);
-    if (!image || !image->bitmap())
+    return [self renderedImageWithOptions:options width:nil];
+}
+
+- (NSImage *)renderedImageWithOptions:(WKSnapshotOptions)options width:(NSNumber *)width
+{
+    std::optional<float> optionalWidth;
+    if (width)
+        optionalWidth = width.floatValue;
+
+    RefPtr<WebImage> image = _nodeHandle->renderedImage(toSnapshotOptions(options), options & kWKSnapshotOptionsExcludeOverflow, optionalWidth);
+    if (!image)
         return nil;
 
-    return [[[NSImage alloc] initWithCGImage:image->bitmap()->makeCGImage().get() size:NSZeroSize] autorelease];
+    return [[[NSImage alloc] initWithCGImage:image->bitmap().makeCGImage().get() size:NSZeroSize] autorelease];
 }
 #endif
 

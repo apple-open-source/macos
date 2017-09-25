@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/installer'
 
@@ -56,11 +57,6 @@ class Gem::Installer
   ##
   # Available through requiring rubygems/installer_test_case
 
-  attr_writer :spec
-
-  ##
-  # Available through requiring rubygems/installer_test_case
-
   attr_writer :wrappers
 end
 
@@ -106,6 +102,8 @@ class Gem::InstallerTestCase < Gem::TestCase
 
     @installer      = util_installer @spec, @gemhome
     @user_installer = util_installer @user_spec, Gem.user_dir, :user
+
+    Gem::Installer.path_warning = false
   end
 
   def util_gem_bindir spec = @spec # :nodoc:
@@ -179,7 +177,7 @@ class Gem::InstallerTestCase < Gem::TestCase
       end
     end
 
-    @installer = Gem::Installer.new @gem
+    @installer = Gem::Installer.at @gem
   end
 
   ##
@@ -187,7 +185,7 @@ class Gem::InstallerTestCase < Gem::TestCase
   # +user+ is true a user-install will be performed.
 
   def util_installer(spec, gem_home, user=false)
-    Gem::Installer.new(spec.cache_file,
+    Gem::Installer.at(spec.cache_file,
                        :install_dir => gem_home,
                        :user_install => user)
   end

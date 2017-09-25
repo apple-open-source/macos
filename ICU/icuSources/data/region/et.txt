@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/et.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 et{
     Countries{
         001{"maailm"}
@@ -47,7 +41,7 @@ et{
         AL{"Albaania"}
         AM{"Armeenia"}
         AO{"Angola"}
-        AQ{"Antarktis"}
+        AQ{"Antarktika"}
         AR{"Argentina"}
         AS{"Ameerika Samoa"}
         AT{"Austria"}
@@ -95,7 +89,7 @@ et{
         CW{"Curaçao"}
         CX{"Jõulusaar"}
         CY{"Küpros"}
-        CZ{"Tšehhi"}
+        CZ{"Tšehhia"}
         DE{"Saksamaa"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -278,6 +272,7 @@ et{
         UA{"Ukraina"}
         UG{"Uganda"}
         UM{"Ühendriikide hajasaared"}
+        UN{"Ühendatud Rahvaste Organisatsioon"}
         US{"Ameerika Ühendriigid"}
         UY{"Uruguay"}
         UZ{"Usbekistan"}
@@ -303,15 +298,17 @@ et{
         HK{"Hongkong"}
         MO{"Macau"}
         PS{"Palestiina"}
+        UN{"ÜRO"}
         US{"USA"}
     }
     Countries%variant{
         CD{"Kongo-Kinshasa"}
         CG{"Kongo-Brazzaville"}
         CI{"Elevandiluurannik"}
+        CZ{"Tšehhi"}
         FK{"Malviini saared"}
         MK{"Makedoonia Vabariik"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
 }

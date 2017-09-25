@@ -7,6 +7,7 @@
 #import <KeychainCircle/KCSRPContext.h>
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
+#include <Security/SecureObjectSync/SOSCloudCircle.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -24,10 +25,13 @@ NS_ASSUME_NONNULL_BEGIN
 
  @parameter circleJoinData
  Data the acceptor made to allow us to join the circle.
+ 
+ @parameter version
+ Piggybacking protocol version, let's secd know to expect more data
 
  */
-- (bool) processCircleJoinData: (NSData*) circleJoinData error: (NSError**)error;
-
+- (bool) processCircleJoinData: (NSData*) circleJoinData version:(PiggyBackProtocolVersion) version error: (NSError**)error;
+    
 @end
 
 @protocol KCJoiningRequestSecretDelegate
@@ -116,6 +120,15 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (NSData*) circleJoinDataFor: (SOSPeerInfoRef) peer
                         error: (NSError**) error;
+
+/*!
+ Retrieves initial sync data from the following initial sync views: backupV0, iCloud identity, and ckks tlk
+ @param error
+ Error returns an error if encoding the initial sync data was successful or not
+ @result
+ Data blob contains tlks, icloud identities, and backupv0
+ */
+-(NSData*) circleGetInitialSyncViews: (NSError**) error;
 @end
 
 typedef enum {

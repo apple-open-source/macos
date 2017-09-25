@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -208,6 +208,7 @@ main(int  argc,				/* I - Number of command-line args */
     errors += do_raster_tests(CUPS_RASTER_WRITE);
     errors += do_raster_tests(CUPS_RASTER_WRITE_COMPRESSED);
     errors += do_raster_tests(CUPS_RASTER_WRITE_PWG);
+    errors += do_raster_tests(CUPS_RASTER_WRITE_APPLE);
   }
   else
   {
@@ -526,8 +527,9 @@ do_raster_tests(cups_mode_t mode)	/* O - Write mode */
 
   printf("cupsRasterOpen(%s): ",
          mode == CUPS_RASTER_WRITE ? "CUPS_RASTER_WRITE" :
-	     mode == CUPS_RASTER_WRITE ? "CUPS_RASTER_WRITE_COMPRESSED" :
-	                                 "CUPS_RASTER_WRITE_PWG");
+	     mode == CUPS_RASTER_WRITE_COMPRESSED ? "CUPS_RASTER_WRITE_COMPRESSED" :
+	     mode == CUPS_RASTER_WRITE_PWG ? "CUPS_RASTER_WRITE_PWG" :
+				             "CUPS_RASTER_WRITE_APPLE");
   fflush(stdout);
 
   if ((fp = fopen("test.raster", "wb")) == NULL)
@@ -551,18 +553,24 @@ do_raster_tests(cups_mode_t mode)	/* O - Write mode */
     header.cupsWidth        = 256;
     header.cupsHeight       = 256;
     header.cupsBytesPerLine = 256;
+    header.HWResolution[0]  = 64;
+    header.HWResolution[1]  = 64;
+    header.PageSize[0]      = 288;
+    header.PageSize[1]      = 288;
+    header.cupsPageSize[0]  = 288.0f;
+    header.cupsPageSize[1]  = 288.0f;
 
     if (page & 1)
     {
-      header.cupsBytesPerLine *= 2;
+      header.cupsBytesPerLine *= 4;
       header.cupsColorSpace = CUPS_CSPACE_CMYK;
       header.cupsColorOrder = CUPS_ORDER_CHUNKED;
       header.cupsNumColors  = 4;
     }
     else
     {
-      header.cupsColorSpace = CUPS_CSPACE_K;
-      header.cupsColorOrder = CUPS_ORDER_BANDED;
+      header.cupsColorSpace = CUPS_CSPACE_W;
+      header.cupsColorOrder = CUPS_ORDER_CHUNKED;
       header.cupsNumColors  = 1;
     }
 
@@ -677,8 +685,18 @@ do_raster_tests(cups_mode_t mode)	/* O - Write mode */
     expected.cupsWidth        = 256;
     expected.cupsHeight       = 256;
     expected.cupsBytesPerLine = 256;
+    expected.HWResolution[0]  = 64;
+    expected.HWResolution[1]  = 64;
+    expected.PageSize[0]      = 288;
+    expected.PageSize[1]      = 288;
 
-    if (mode == CUPS_RASTER_WRITE_PWG)
+    if (mode != CUPS_RASTER_WRITE_PWG)
+    {
+      expected.cupsPageSize[0] = 288.0f;
+      expected.cupsPageSize[1] = 288.0f;
+    }
+
+    if (mode >= CUPS_RASTER_WRITE_PWG)
     {
       strlcpy(expected.MediaClass, "PwgRaster", sizeof(expected.MediaClass));
       expected.cupsInteger[7] = 0xffffff;
@@ -686,15 +704,15 @@ do_raster_tests(cups_mode_t mode)	/* O - Write mode */
 
     if (page & 1)
     {
-      expected.cupsBytesPerLine *= 2;
+      expected.cupsBytesPerLine *= 4;
       expected.cupsColorSpace = CUPS_CSPACE_CMYK;
       expected.cupsColorOrder = CUPS_ORDER_CHUNKED;
       expected.cupsNumColors  = 4;
     }
     else
     {
-      expected.cupsColorSpace = CUPS_CSPACE_K;
-      expected.cupsColorOrder = CUPS_ORDER_BANDED;
+      expected.cupsColorSpace = CUPS_CSPACE_W;
+      expected.cupsColorOrder = CUPS_ORDER_CHUNKED;
       expected.cupsNumColors  = 1;
     }
 

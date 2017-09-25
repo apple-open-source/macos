@@ -1,3 +1,21 @@
+# frozen_string_literal: false
+# configure option:
+#   --with-dbm-type=COMMA-SEPARATED-NDBM-TYPES
+#
+# ndbm type:
+#   libc        ndbm compatible library in libc.
+#   db          Berkeley DB (libdb)
+#   db2         Berkeley DB (libdb2)
+#   db1         Berkeley DB (libdb1)
+#   db5         Berkeley DB (libdb5)
+#   db4         Berkeley DB (libdb4)
+#   db3         Berkeley DB (libdb3)
+#   gdbm_compat GDBM since 1.8.1 (libgdbm_compat)
+#   gdbm        GDBM until 1.8.0 (libgdbm)
+#   qdbm        QDBM (libqdbm)
+#   ndbm        Some legacy OS may have libndbm.
+
+# :stopdoc:
 require 'mkmf'
 
 dir_config("dbm")
@@ -250,5 +268,23 @@ if dblib.any? {|db| headers.fetch(db, ["ndbm.h"]).any? {|hdr| headers.db_check(d
   have_func("dbm_pagfno((DBM *)0)", headers.found, headers.defs)
   have_func("dbm_dirfno((DBM *)0)", headers.found, headers.defs)
   convertible_int("datum.dsize", headers.found, headers.defs)
+  checking_for("sizeof(DBM) is available") {
+    if try_compile(<<SRC)
+#ifdef HAVE_CDEFS_H
+# include <cdefs.h>
+#endif
+#ifdef HAVE_SYS_CDEFS_H
+# include <sys/cdefs.h>
+#endif
+#include DBM_HDR
+
+const int sizeof_DBM = (int)sizeof(DBM);
+SRC
+      $defs << '-DDBM_SIZEOF_DBM=sizeof(DBM)'
+    else
+      $defs << '-DDBM_SIZEOF_DBM=0'
+    end
+  }
   create_makefile("dbm")
 end
+# :startdoc:

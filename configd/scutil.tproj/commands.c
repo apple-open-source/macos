@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2014, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -140,8 +140,8 @@ const cmdInfo commands_store[] = {
 	{ "n.cancel",	0,	1,	do_notify_cancel,	5,	0,
 		" n.cancel                      : cancel notification requests"			},
 
-	{ "snapshot",	0,	0,	do_snapshot,		99,	2,
-		" snapshot                      : save snapshot of store and session data"	}
+	{ "snapshot",	0,	1,	do_snapshot,		99,	2,
+		" snapshot [file]               : save snapshot of store and session data"	}
 };
 __private_extern__
 const int nCommands_store = (sizeof(commands_store)/sizeof(cmdInfo));
@@ -354,6 +354,8 @@ __private_extern__
 void
 do_help(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	int	g = -1;		/* current group */
 	int	i;
 
@@ -386,6 +388,7 @@ __private_extern__
 void
 do_readFile(int argc, char **argv)
 {
+#pragma unused(argc)
 	InputRef		src;
 
 	/* allocate command input stream */
@@ -424,6 +427,8 @@ __private_extern__
 void
 do_quit(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	termRequested = TRUE;
 	return;
 }

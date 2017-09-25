@@ -1,3 +1,5 @@
+include(platform/Cairo.cmake)
+include(platform/FreeType.cmake)
 include(platform/GStreamer.cmake)
 include(platform/ImageDecoders.cmake)
 include(platform/Linux.cmake)
@@ -14,19 +16,14 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atk"
     "${WEBCORE_DIR}/editing/atk"
     "${WEBCORE_DIR}/page/gtk"
-    "${WEBCORE_DIR}/platform/cairo"
     "${WEBCORE_DIR}/platform/gamepad"
     "${WEBCORE_DIR}/platform/gamepad/deprecated"
     "${WEBCORE_DIR}/platform/gamepad/glib"
     "${WEBCORE_DIR}/platform/geoclue"
     "${WEBCORE_DIR}/platform/gtk"
-    "${WEBCORE_DIR}/platform/graphics/cairo"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/glx"
     "${WEBCORE_DIR}/platform/graphics/gtk"
-    "${WEBCORE_DIR}/platform/graphics/freetype"
-    "${WEBCORE_DIR}/platform/graphics/harfbuzz/"
-    "${WEBCORE_DIR}/platform/graphics/harfbuzz/ng"
     "${WEBCORE_DIR}/platform/graphics/opengl"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/graphics/wayland"
@@ -62,13 +59,14 @@ list(APPEND WebCore_SOURCES
     loader/soup/CachedRawResourceSoup.cpp
     loader/soup/SubresourceLoaderSoup.cpp
 
-    platform/KillRingNone.cpp
+    page/linux/ResourceUsageOverlayLinux.cpp
+    page/linux/ResourceUsageThreadLinux.cpp
+
+    platform/ScrollAnimationKinetic.cpp
     platform/StaticPasteboard.cpp
     platform/UserAgentQuirks.cpp
 
     platform/audio/glib/AudioBusGLib.cpp
-
-    platform/crypto/gcrypt/CryptoDigestGCrypt.cpp
 
     platform/gamepad/glib/GamepadsGlib.cpp
 
@@ -80,47 +78,21 @@ list(APPEND WebCore_SOURCES
     platform/glib/KeyedDecoderGlib.cpp
     platform/glib/KeyedEncoderGlib.cpp
     platform/glib/MainThreadSharedTimerGLib.cpp
+    platform/glib/SSLKeyGeneratorGLib.cpp
     platform/glib/SharedBufferGlib.cpp
 
     platform/graphics/GLContext.cpp
     platform/graphics/GraphicsContext3DPrivate.cpp
 
-    platform/graphics/cairo/BackingStoreBackendCairoImpl.cpp
     platform/graphics/cairo/BackingStoreBackendCairoX11.cpp
-    platform/graphics/cairo/CairoUtilities.cpp
-    platform/graphics/cairo/FloatRectCairo.cpp
-    platform/graphics/cairo/FontCairo.cpp
-    platform/graphics/cairo/FontCairoHarfbuzzNG.cpp
-    platform/graphics/cairo/GradientCairo.cpp
-    platform/graphics/cairo/GraphicsContext3DCairo.cpp
-    platform/graphics/cairo/GraphicsContextCairo.cpp
-    platform/graphics/cairo/ImageBufferCairo.cpp
-    platform/graphics/cairo/ImageCairo.cpp
-    platform/graphics/cairo/IntRectCairo.cpp
-    platform/graphics/cairo/NativeImageCairo.cpp
-    platform/graphics/cairo/PathCairo.cpp
-    platform/graphics/cairo/PatternCairo.cpp
-    platform/graphics/cairo/PlatformContextCairo.cpp
-    platform/graphics/cairo/PlatformPathCairo.cpp
-    platform/graphics/cairo/RefPtrCairo.cpp
-    platform/graphics/cairo/TransformationMatrixCairo.cpp
 
     platform/graphics/egl/GLContextEGL.cpp
     platform/graphics/egl/GLContextEGLWayland.cpp
     platform/graphics/egl/GLContextEGLX11.cpp
 
-    platform/graphics/freetype/FontCacheFreeType.cpp
-    platform/graphics/freetype/FontCustomPlatformDataFreeType.cpp
-    platform/graphics/freetype/GlyphPageTreeNodeFreeType.cpp
-    platform/graphics/freetype/SimpleFontDataFreeType.cpp
-
     platform/graphics/glx/GLContextGLX.cpp
 
     platform/graphics/gstreamer/ImageGStreamerCairo.cpp
-
-    platform/graphics/harfbuzz/HarfBuzzFace.cpp
-    platform/graphics/harfbuzz/HarfBuzzFaceCairo.cpp
-    platform/graphics/harfbuzz/HarfBuzzShaper.cpp
 
     platform/graphics/opengl/Extensions3DOpenGLCommon.cpp
     platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp
@@ -135,15 +107,11 @@ list(APPEND WebCore_SOURCES
     platform/graphics/x11/XUniqueResource.cpp
 
     platform/gtk/DragDataGtk.cpp
-    platform/gtk/ErrorsGtk.cpp
-    platform/gtk/MIMETypeRegistryGtk.cpp
+    platform/gtk/LocalizedStringsGtk.cpp
     platform/gtk/PasteboardGtk.cpp
     platform/gtk/ScrollAnimatorGtk.cpp
     platform/gtk/SelectionData.cpp
-    platform/gtk/TemporaryLinkStubs.cpp
     platform/gtk/UserAgentGtk.cpp
-
-    platform/image-decoders/cairo/ImageBackingStoreCairo.cpp
 
     platform/network/soup/AuthenticationChallengeSoup.cpp
     platform/network/soup/CertificateInfo.cpp
@@ -175,6 +143,8 @@ list(APPEND WebCore_SOURCES
     platform/text/hyphen/HyphenationLibHyphen.cpp
 
     platform/unix/LoggingUnix.cpp
+
+    platform/xdg/MIMETypeRegistryXdg.cpp
 )
 
 list(APPEND WebCorePlatformGTK_SOURCES
@@ -184,8 +154,6 @@ list(APPEND WebCorePlatformGTK_SOURCES
     page/gtk/EventHandlerGtk.cpp
 
     platform/graphics/PlatformDisplay.cpp
-
-    platform/graphics/freetype/FontPlatformDataFreeType.cpp
 
     platform/graphics/gtk/ColorGtk.cpp
     platform/graphics/gtk/GdkCairoUtilities.cpp
@@ -198,7 +166,6 @@ list(APPEND WebCorePlatformGTK_SOURCES
     platform/gtk/GRefPtrGtk.cpp
     platform/gtk/GtkUtilities.cpp
     platform/gtk/GtkVersioning.c
-    platform/gtk/LocalizedStringsGtk.cpp
     platform/gtk/PasteboardHelper.cpp
     platform/gtk/PlatformKeyboardEventGtk.cpp
     platform/gtk/PlatformMouseEventGtk.cpp
@@ -206,8 +173,8 @@ list(APPEND WebCorePlatformGTK_SOURCES
     platform/gtk/PlatformScreenGtk.cpp
     platform/gtk/PlatformWheelEventGtk.cpp
     platform/gtk/RenderThemeGadget.cpp
+    platform/gtk/RenderThemeWidget.cpp
     platform/gtk/ScrollbarThemeGtk.cpp
-    platform/gtk/SoundGtk.cpp
     platform/gtk/WidgetGtk.cpp
 
     rendering/RenderThemeGtk.cpp
@@ -241,18 +208,16 @@ list(APPEND WebCore_LIBRARIES
     ${ATK_LIBRARIES}
     ${CAIRO_LIBRARIES}
     ${ENCHANT_LIBRARIES}
-    ${FONTCONFIG_LIBRARIES}
-    ${FREETYPE2_LIBRARIES}
     ${GEOCLUE_LIBRARIES}
     ${GLIB_GIO_LIBRARIES}
     ${GLIB_GMODULE_LIBRARIES}
     ${GLIB_GOBJECT_LIBRARIES}
     ${GLIB_LIBRARIES}
     ${GUDEV_LIBRARIES}
-    ${HARFBUZZ_LIBRARIES}
     ${LIBGCRYPT_LIBRARIES}
     ${LIBSECRET_LIBRARIES}
     ${LIBSOUP_LIBRARIES}
+    ${LIBTASN1_LIBRARIES}
     ${LIBXML2_LIBRARIES}
     ${LIBXSLT_LIBRARIES}
     ${HYPHEN_LIBRARIES}
@@ -272,15 +237,14 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ATK_INCLUDE_DIRS}
     ${CAIRO_INCLUDE_DIRS}
     ${ENCHANT_INCLUDE_DIRS}
-    ${FREETYPE2_INCLUDE_DIRS}
     ${GEOCLUE_INCLUDE_DIRS}
     ${GIO_UNIX_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
     ${GUDEV_INCLUDE_DIRS}
-    ${HARFBUZZ_INCLUDE_DIRS}
     ${LIBGCRYPT_INCLUDE_DIRS}
     ${LIBSECRET_INCLUDE_DIRS}
     ${LIBSOUP_INCLUDE_DIRS}
+    ${LIBTASN1_INCLUDE_DIRS}
     ${LIBXML2_INCLUDE_DIR}
     ${LIBXSLT_INCLUDE_DIR}
     ${SQLITE_INCLUDE_DIR}
@@ -381,33 +345,51 @@ if (ENABLE_SUBTLE_CRYPTO)
         crypto/WebKitSubtleCrypto.cpp
 
         crypto/algorithms/CryptoAlgorithmAES_CBC.cpp
+        crypto/algorithms/CryptoAlgorithmAES_CFB.cpp
+        crypto/algorithms/CryptoAlgorithmAES_CTR.cpp
+        crypto/algorithms/CryptoAlgorithmAES_GCM.cpp
         crypto/algorithms/CryptoAlgorithmAES_KW.cpp
+        crypto/algorithms/CryptoAlgorithmECDH.cpp
+        crypto/algorithms/CryptoAlgorithmECDSA.cpp
+        crypto/algorithms/CryptoAlgorithmHKDF.cpp
         crypto/algorithms/CryptoAlgorithmHMAC.cpp
+        crypto/algorithms/CryptoAlgorithmPBKDF2.cpp
         crypto/algorithms/CryptoAlgorithmRSAES_PKCS1_v1_5.cpp
         crypto/algorithms/CryptoAlgorithmRSASSA_PKCS1_v1_5.cpp
         crypto/algorithms/CryptoAlgorithmRSA_OAEP.cpp
+        crypto/algorithms/CryptoAlgorithmRSA_PSS.cpp
         crypto/algorithms/CryptoAlgorithmSHA1.cpp
         crypto/algorithms/CryptoAlgorithmSHA224.cpp
         crypto/algorithms/CryptoAlgorithmSHA256.cpp
         crypto/algorithms/CryptoAlgorithmSHA384.cpp
         crypto/algorithms/CryptoAlgorithmSHA512.cpp
 
+        crypto/gcrypt/CryptoAlgorithmAES_CBCGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmAES_CFBGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmAES_CTRGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmAES_GCMGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmAES_KWGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmECDHGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmECDSAGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmHKDFGCrypt.cpp
         crypto/gcrypt/CryptoAlgorithmHMACGCrypt.cpp
-
-        crypto/gnutls/CryptoAlgorithmAES_CBCGnuTLS.cpp
-        crypto/gnutls/CryptoAlgorithmAES_KWGnuTLS.cpp
-        crypto/gnutls/CryptoAlgorithmRSAES_PKCS1_v1_5GnuTLS.cpp
-        crypto/gnutls/CryptoAlgorithmRSASSA_PKCS1_v1_5GnuTLS.cpp
-        crypto/gnutls/CryptoAlgorithmRSA_OAEPGnuTLS.cpp
-        crypto/gnutls/CryptoAlgorithmRegistryGnuTLS.cpp
-        crypto/gnutls/CryptoKeyRSAGnuTLS.cpp
-        crypto/gnutls/SerializedCryptoKeyWrapGnuTLS.cpp
+        crypto/gcrypt/CryptoAlgorithmPBKDF2GCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmRSAES_PKCS1_v1_5GCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmRSASSA_PKCS1_v1_5GCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmRSA_OAEPGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmRSA_PSSGCrypt.cpp
+        crypto/gcrypt/CryptoAlgorithmRegistryGCrypt.cpp
+        crypto/gcrypt/CryptoKeyECGCrypt.cpp
+        crypto/gcrypt/CryptoKeyRSAGCrypt.cpp
+        crypto/gcrypt/SerializedCryptoKeyWrapGCrypt.cpp
 
         crypto/keys/CryptoKeyAES.cpp
         crypto/keys/CryptoKeyDataOctetSequence.cpp
         crypto/keys/CryptoKeyDataRSAComponents.cpp
+        crypto/keys/CryptoKeyEC.cpp
         crypto/keys/CryptoKeyHMAC.cpp
         crypto/keys/CryptoKeyRSA.cpp
+        crypto/keys/CryptoKeyRaw.cpp
         crypto/keys/CryptoKeySerializationRaw.cpp
     )
 endif ()

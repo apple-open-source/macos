@@ -155,13 +155,14 @@ vtd_rbsize_compare(struct vtd_rblock *node, struct vtd_rblock *parent)
 	return (-1);
 }
 
+
 RB_PROTOTYPE_SC(static, vtd_rbaddr_list, vtd_rblock, address_link, vtd_rbaddr_compare);
 RB_PROTOTYPE_SC(static, vtd_rbsize_list, vtd_rblock, size_link, vtd_rbsize_compare);
 
 RB_GENERATE(vtd_rbaddr_list, vtd_rblock, address_link, vtd_rbaddr_compare);
 RB_GENERATE(vtd_rbsize_list, vtd_rblock, size_link, vtd_rbsize_compare);
 
-static void
+static void __unused
 vtd_rblog(vtd_space_t * bf)
 {
 	struct vtd_rblock * elem;
@@ -174,23 +175,44 @@ vtd_rblog(vtd_space_t * bf)
 	{
 		VTLOG("S[0x%x, 0x%x)\n", elem->start, elem->end);
 	}
+
+	if (!elem) vtd_rbaddr_list_RB_FIND(NULL, NULL);
+	if (!elem) vtd_rbsize_list_RB_FIND(NULL, NULL);
+
 	VTLOG("\n");
 }
 
+static vtd_rbaddr_t __unused
+vtd_rbtotal(vtd_space_t * bf)
+{
+	struct vtd_rblock * elem;
+	vtd_rbaddr_t alistsize;
+	vtd_rbaddr_t slistsize;
+
+	vtd_rblog(bf);
+
+	alistsize = slistsize = 0;
+	RB_FOREACH(elem, vtd_rbaddr_list, &bf->rbaddr_list)
+	{
+		alistsize += elem->end - elem->start;
+	}
+	RB_FOREACH(elem, vtd_rbsize_list, &bf->rbsize_list)
+	{
+		slistsize += elem->end - elem->start;
+	}
+
+	if (alistsize != slistsize) panic("rblists mismatch");
+
+	return (alistsize);
+}
+
 static void
-vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size, vtd_rbaddr_t maxround)
+vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 {
 	struct vtd_rblock * next = RB_ROOT(&bf->rbaddr_list);
 	struct vtd_rblock * prior = NULL;
-	vtd_rbaddr_t        hwalign;
-	vtd_rbaddr_t        end = addr + size;
+	vtd_rbaddr_t        end;
 
-	hwalign = vtd_log2up(size);
-	if (hwalign > maxround) hwalign = maxround;
-	hwalign = (1 << hwalign);
-	hwalign--;
-
-	size = (size + hwalign) & ~hwalign;
 	end = addr + size;
 
 	while (next)
@@ -268,25 +290,16 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size, vtd_rbaddr_t 
 }
 
 static vtd_rbaddr_t 
-vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t pages, vtd_rbaddr_t align, vtd_rbaddr_t maxround, 
+vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t size, vtd_rbaddr_t align,
 		    uint32_t mapOptions, const upl_page_info_t * pageList)
 {
 	vtd_rbaddr_t        addr = 0;
 	vtd_rbaddr_t        end, head, tail;
-	vtd_rbaddr_t        size, hwalign;
 	struct vtd_rblock * next = RB_ROOT(&bf->rbsize_list);
 	struct vtd_rblock * prior = NULL;
 
 	vtassert(align);
-
-	hwalign = vtd_log2up(pages);
-	if (hwalign > maxround) hwalign = maxround;
-	hwalign = (1 << hwalign);
-	hwalign--;
-	size = (pages + hwalign) & ~hwalign;
-
 	align--;
-	if (align < hwalign) align = hwalign;
 
 	while (next)
 	{
@@ -429,8 +442,8 @@ vtd_rballocator_init(vtd_space_t * bf, ppnum_t start, ppnum_t size)
 	RB_INIT(&bf->rbaddr_list);
 	RB_INIT(&bf->rbsize_list);
 
-	vtd_rbfree(bf, 0, 0, 0);
-	vtd_rbfree(bf, start, size, 0);
+	vtd_rbfree(bf, 0, 0);
+	vtd_rbfree(bf, start, size);
 }
 
 static void

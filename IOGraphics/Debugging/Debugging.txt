@@ -1,0 +1,77 @@
+Debugging IOGraphics
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Tool                  : KDEBUG Tracing
+Introduction OS       : Lobo/10.13
+Requires Special Build: No
+Notes                 : See IOGraphicsTypesPrivate.h DBG_IOG_... definition comments for code and parameter details
+Instructions          : 
+
+Initialize Tracing:
+	sudo trace -i
+Start Recording Events:
+	sudo trace -e -c 5 -s 50
+Stop Recording:
+	sudo trace -d
+Dump Trace:
+	stdout: sudo trace -t
+	rawout: sudo trace -l FILENAME
+Terminate Tracing:
+	sudo trace -r
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Tool                  : Ariadne Tracing
+Introduction OS       : Lobo/10.13
+Requires Special Build: Yes
+Notes                 : Definitions in IOGraphicsKTrace.h, Ariadne sign posts in IOGraphicsSignPosts.plist
+Instructions          : 
+
+Enable tracing:
+	Build with ENABLE_TELEMENTRY = 1.
+Load Custom Sign Posts:
+	Include IOGraphicsSignPosts.plist in Ariadne custom sign posts (preferences).
+Start Recording Events:
+	sudo artrace
+Stop Recording:
+	CTRL-C
+Viewing Trace:
+	Load trace in Ariadne application.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Tool                  : DTrace Tracing
+Introduction OS       : Fuji/10.12
+Requires Special Build: No
+Notes                 : 
+Instructions          : 
+
+Enable Private Probes:
+	sudo sysctl kern.dtrace.provide_private_probes=1
+Start Recording Events:
+	Run desired IOGraphics .trace script from Terminal.
+Stop Recording:
+	CTRL-C for terminal
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Tool                  : kprintf/IOLog logging
+Introduction OS       : Pre-Fuji
+Requires Special Build: Yes
+Notes                 : Logging Macros and Enablers in IOGraphicsPrivate.h (DEBG, DEBG1, DEBG2)
+Instructions          : 
+
+View Logs Via:
+	standard system logs
+	serial logging
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Tool                  : Instruments Application
+Introduction OS       : Fuji/10.12
+Requires Special Build: No
+Notes                 : 
+Instructions          : Load Instruments, select Custom Template, navigate to and load IOGraphics.instruments
+
+---------------------------------------------------------------------------------------------------------------------------

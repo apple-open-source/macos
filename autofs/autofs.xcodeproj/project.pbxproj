@@ -540,6 +540,7 @@
 		EBF9E7520A06BF4A00D84B8F /* umount_by_fsid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = umount_by_fsid.c; sourceTree = "<group>"; };
 		EBF9E7590A06BFA900D84B8F /* sysctl_fsid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sysctl_fsid.h; path = automountlib/sysctl_fsid.h; sourceTree = "<group>"; };
 		EBF9E75A0A06BFA900D84B8F /* sysctl_fsid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sysctl_fsid.c; sourceTree = "<group>"; };
+		F90F23571F1896EA00DE59E4 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -650,6 +651,7 @@
 		C10DA65705E2C60D000E258E = {
 			isa = PBXGroup;
 			children = (
+				F90F23571F1896EA00DE59E4 /* kext.xcconfig */,
 				806695921798C7C50092E0B9 /* ServerInformation.framework */,
 				80A86956144F88030007668B /* oncrpc.framework */,
 				80DDE5CF12EE5AD0000A3287 /* APPLE_LICENSE */,
@@ -1141,7 +1143,7 @@
 		C10DA65B05E2C60D000E258E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0830;
 			};
 			buildConfigurationList = EB0024B809776024002F9164 /* Build configuration list for PBXProject "autofs" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1512,8 +1514,27 @@
 		C626F0831CEFBFC6004F8D89 /* DebugCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fprofile-instr-generate",
@@ -1575,6 +1596,7 @@
 					"$(inherited)",
 				);
 				OTHER_LDFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.autofs;
 				PRODUCT_NAME = autofs;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2119,6 +2141,7 @@
 				);
 				OTHER_LDFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/Triggers;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kext.triggers;
 				PRODUCT_NAME = triggers;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2143,6 +2166,7 @@
 		};
 		EB0024A909776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F90F23571F1896EA00DE59E4 /* kext.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
@@ -2179,6 +2203,7 @@
 					"-D__MigKernelSpecificCode",
 					"-D__MigTypeCheck=1",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.autofs;
 				PRODUCT_NAME = autofs;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2194,6 +2219,7 @@
 		};
 		EB0024AA09776024002F9164 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F90F23571F1896EA00DE59E4 /* kext.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
@@ -2229,6 +2255,7 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.filesystems.autofs;
 				PRODUCT_NAME = autofs;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2346,8 +2373,27 @@
 		EB0024B909776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx.internal;
 			};
@@ -2356,7 +2402,25 @@
 		EB0024BA09776024002F9164 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Release;
@@ -3120,6 +3184,7 @@
 		};
 		EBE7B73E10F844F300F4474C /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F90F23571F1896EA00DE59E4 /* kext.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
@@ -3158,6 +3223,7 @@
 					"-D__MigTypeCheck=1",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/Triggers;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kext.triggers;
 				PRODUCT_NAME = triggers;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -3172,6 +3238,7 @@
 		};
 		EBE7B73F10F844F300F4474C /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F90F23571F1896EA00DE59E4 /* kext.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
@@ -3208,6 +3275,7 @@
 					"-D__MigTypeCheck=1",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/Triggers;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kext.triggers;
 				PRODUCT_NAME = triggers;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (

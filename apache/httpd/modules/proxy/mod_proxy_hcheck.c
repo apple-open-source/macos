@@ -54,40 +54,40 @@ typedef struct {
     apr_bucket_alloc_t *ba;
     apr_array_header_t *templates;
     apr_table_t *conditions;
-    ap_watchdog_t *watchdog;
     apr_hash_t *hcworkers;
-    apr_thread_pool_t *hctp;
-    int tpsize;
     server_rec *s;
 } sctx_t;
 
 /* Used in the HC worker via the context field */
 typedef struct {
-    char *path;      /* The path of the original worker URL */
-    char *req;       /* pre-formatted HTTP/AJP request */
-    proxy_worker *w; /* Pointer to the actual worker */
+    const char *path;   /* The path of the original worker URL */
+    const char *method; /* Method string for the HTTP/AJP request */
+    const char *req;    /* pre-formatted HTTP/AJP request */
+    proxy_worker *w;    /* Pointer to the actual worker */
 } wctx_t;
 
 typedef struct {
     apr_pool_t *ptemp;
     sctx_t *ctx;
     proxy_worker *worker;
+    proxy_worker *hc;
     apr_time_t now;
 } baton_t;
 
 static void *hc_create_config(apr_pool_t *p, server_rec *s)
 {
-    sctx_t *ctx = (sctx_t *) apr_palloc(p, sizeof(sctx_t));
+    sctx_t *ctx = apr_pcalloc(p, sizeof(sctx_t));
+    ctx->s = s;
     apr_pool_create(&ctx->p, p);
     ctx->ba = apr_bucket_alloc_create(p);
     ctx->templates = apr_array_make(p, 10, sizeof(hc_template_t));
     ctx->conditions = apr_table_make(p, 10);
     ctx->hcworkers = apr_hash_make(p);
-    ctx->tpsize = HC_THREADPOOL_SIZE;
-    ctx->s = s;
-
     return ctx;
 }
+
+static ap_watchdog_t *watchdog;
+static int tpsize = HC_THREADPOOL_SIZE;
 
 /*
  * This serves double duty by not only validating (and creating)
@@ -255,7 +255,6 @@ static const char *set_hc_condition(cmd_parms *cmd, void *dummy, const char *arg
     if (*expr) {
         return "error: extra parameter(s)";
     }
-
     return NULL;
 }
 
@@ -303,23 +302,18 @@ static const char *set_hc_template(cmd_parms *cmd, void *dummy, const char *arg)
         }
         /* No error means we have a valid template */
     }
-
     return NULL;
 }
 
 #if HC_USE_THREADS
 static const char *set_hc_tpsize (cmd_parms *cmd, void *dummy, const char *arg)
 {
-    sctx_t *ctx;
-
-    const char *err = ap_check_cmd_context(cmd, NOT_IN_HTACCESS);
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
     if (err)
         return err;
-    ctx = (sctx_t *) ap_get_module_config(cmd->server->module_config,
-                                          &proxy_hcheck_module);
 
-    ctx->tpsize = atoi(arg);
-    if (ctx->tpsize < 0)
+    tpsize = atoi(arg);
+    if (tpsize < 0)
         return "Invalid ProxyHCTPsize parameter. Parameter must be "
                ">= 0";
     return NULL;
@@ -328,15 +322,13 @@ static const char *set_hc_tpsize (cmd_parms *cmd, void *dummy, const char *arg)
 
 /*
  * Create a dummy request rec, simply so we can use ap_expr.
- * Use our short-lived poll for bucket_alloc
+ * Use our short-lived pool for bucket_alloc so that we can simply move
+ * buckets and use them after the backend connection is released.
  */
-static request_rec *create_request_rec(apr_pool_t *p1, conn_rec *conn, const char *method)
+static request_rec *create_request_rec(apr_pool_t *p, conn_rec *conn, const char *method)
 {
     request_rec *r;
-    apr_pool_t *p;
     apr_bucket_alloc_t *ba;
-    apr_pool_create(&p, p1);
-    apr_pool_tag(p, "request");
     r = apr_pcalloc(p, sizeof(request_rec));
     ba = apr_bucket_alloc_create(p);
     r->pool            = p;
@@ -344,17 +336,19 @@ static request_rec *create_request_rec(apr_pool_t *p1, conn_rec *conn, const cha
     r->connection->bucket_alloc = ba;
     r->server          = conn->base_server;
 
+    r->proxyreq        = PROXYREQ_RESPONSE;
+
     r->user            = NULL;
     r->ap_auth_type    = NULL;
 
     r->allowed_methods = ap_make_method_list(p, 2);
 
-    r->headers_in      = apr_table_make(r->pool, 25);
-    r->trailers_in     = apr_table_make(r->pool, 5);
+    r->headers_in      = apr_table_make(r->pool, 1);
+    r->trailers_in     = apr_table_make(r->pool, 1);
     r->subprocess_env  = apr_table_make(r->pool, 25);
     r->headers_out     = apr_table_make(r->pool, 12);
     r->err_headers_out = apr_table_make(r->pool, 5);
-    r->trailers_out    = apr_table_make(r->pool, 5);
+    r->trailers_out    = apr_table_make(r->pool, 1);
     r->notes           = apr_table_make(r->pool, 5);
 
     r->kept_body       = apr_brigade_create(r->pool, r->connection->bucket_alloc);
@@ -373,7 +367,6 @@ static request_rec *create_request_rec(apr_pool_t *p1, conn_rec *conn, const cha
     r->read_body       = REQUEST_NO_BODY;
 
     r->status          = HTTP_OK;  /* Until further notice */
-    r->header_only     = 1;
     r->the_request     = NULL;
 
     /* Begin by presuming any module can make its own path_info assumptions,
@@ -389,7 +382,11 @@ static request_rec *create_request_rec(apr_pool_t *p1, conn_rec *conn, const cha
     r->method = method;
     /* Provide quick information about the request method as soon as known */
     r->method_number = ap_method_number_of(r->method);
-    if (r->method_number == M_GET && r->method[0] == 'G') {
+    if (r->method_number == M_OPTIONS
+            || (r->method_number == M_GET && r->method[0] == 'H')) {
+        r->header_only = 1;
+    }
+    else {
         r->header_only = 0;
     }
 
@@ -401,29 +398,68 @@ static request_rec *create_request_rec(apr_pool_t *p1, conn_rec *conn, const cha
     return r;
 }
 
+static void create_hcheck_req(wctx_t *wctx, proxy_worker *hc,
+                              apr_pool_t *p)
+{
+    char *req = NULL;
+    const char *method = NULL;
+    switch (hc->s->method) {
+        case OPTIONS:
+            method = "OPTIONS";
+            req = apr_psprintf(p,
+                               "OPTIONS * HTTP/1.0\r\n"
+                               "Host: %s:%d\r\n"
+                               "\r\n",
+                               hc->s->hostname, (int)hc->s->port);
+            break;
+
+        case HEAD:
+            method = "HEAD";
+            /* fallthru */
+        case GET:
+            if (!method) { /* did we fall thru? If not, we are GET */
+                method = "GET";
+            }
+            req = apr_psprintf(p,
+                               "%s %s%s%s HTTP/1.0\r\n"
+                               "Host: %s:%d\r\n"
+                               "\r\n",
+                               method,
+                               (wctx->path ? wctx->path : ""),
+                               (wctx->path && *hc->s->hcuri ? "/" : "" ),
+                               (*hc->s->hcuri ? hc->s->hcuri : ""),
+                               hc->s->hostname, (int)hc->s->port);
+            break;
+
+        default:
+            break;
+    }
+    wctx->req = req;
+    wctx->method = method;
+}
+
 static proxy_worker *hc_get_hcworker(sctx_t *ctx, proxy_worker *worker,
                                      apr_pool_t *p)
 {
     proxy_worker *hc = NULL;
-    const char* wptr;
     apr_port_t port;
 
-    wptr = apr_psprintf(ctx->p, "%pp", worker);
-    hc = (proxy_worker *)apr_hash_get(ctx->hcworkers, wptr, APR_HASH_KEY_STRING);
-    port = (worker->s->port ? worker->s->port : ap_proxy_port_of_scheme(worker->s->scheme));
+    hc = (proxy_worker *)apr_hash_get(ctx->hcworkers, &worker, sizeof worker);
     if (!hc) {
         apr_uri_t uri;
         apr_status_t rv;
         const char *url = worker->s->name;
         wctx_t *wctx = apr_pcalloc(ctx->p, sizeof(wctx_t));
 
+        port = (worker->s->port ? worker->s->port
+                                : ap_proxy_port_of_scheme(worker->s->scheme));
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ctx->s, APLOGNO(03248)
-                     "Creating hc worker %s for %s://%s:%d",
-                     wptr, worker->s->scheme, worker->s->hostname,
+                     "Creating hc worker %pp for %s://%s:%d",
+                     worker, worker->s->scheme, worker->s->hostname,
                      (int)port);
 
         ap_proxy_define_worker(ctx->p, &hc, NULL, NULL, worker->s->name, 0);
-        PROXY_STRNCPY(hc->s->name,     wptr);
+        apr_snprintf(hc->s->name, sizeof hc->s->name, "%pp", worker);
         PROXY_STRNCPY(hc->s->hostname, worker->s->hostname);
         PROXY_STRNCPY(hc->s->scheme,   worker->s->scheme);
         PROXY_STRNCPY(hc->s->hcuri,    worker->s->hcuri);
@@ -444,33 +480,41 @@ static proxy_worker *hc_get_hcworker(sctx_t *ctx, proxy_worker *worker,
             wctx->path = apr_pstrdup(ctx->p, uri.path);
         }
         wctx->w = worker;
+        create_hcheck_req(wctx, hc, ctx->p);
         hc->context = wctx;
-        apr_hash_set(ctx->hcworkers, wptr, APR_HASH_KEY_STRING, hc);
+        apr_hash_set(ctx->hcworkers, &worker, sizeof worker, hc);
     }
     /* This *could* have changed via the Balancer Manager */
     /* TODO */
     if (hc->s->method != worker->s->method) {
+        wctx_t *wctx = hc->context;
+        port = (worker->s->port ? worker->s->port
+                                : ap_proxy_port_of_scheme(worker->s->scheme));
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ctx->s, APLOGNO(03311)
-                     "Updating hc worker %s for %s://%s:%d",
-                     wptr, worker->s->scheme, worker->s->hostname,
+                     "Updating hc worker %pp for %s://%s:%d",
+                     worker, worker->s->scheme, worker->s->hostname,
                      (int)port);
         hc->s->method = worker->s->method;
-        apr_hash_set(ctx->hcworkers, wptr, APR_HASH_KEY_STRING, hc);
+        create_hcheck_req(wctx, hc, ctx->p);
     }
     return hc;
 }
 
-static int hc_determine_connection(sctx_t *ctx, proxy_worker *worker) {
+static int hc_determine_connection(sctx_t *ctx, proxy_worker *worker,
+                                   apr_sockaddr_t **addr, apr_pool_t *p)
+{
     apr_status_t rv = APR_SUCCESS;
-    int will_reuse = worker->s->is_address_reusable && !worker->s->disablereuse;
     /*
      * normally, this is done in ap_proxy_determine_connection().
      * TODO: Look at using ap_proxy_determine_connection() with a
      * fake request_rec
      */
-    if (!worker->cp->addr || !will_reuse) {
-        rv = apr_sockaddr_info_get(&(worker->cp->addr), worker->s->hostname, APR_UNSPEC,
-                                   worker->s->port, 0, ctx->p);
+    if (worker->cp->addr) {
+        *addr = worker->cp->addr;
+    }
+    else {
+        rv = apr_sockaddr_info_get(addr, worker->s->hostname,
+                                   APR_UNSPEC, worker->s->port, 0, p);
         if (rv != APR_SUCCESS) {
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ctx->s, APLOGNO(03249)
                          "DNS lookup failure for: %s:%d",
@@ -480,7 +524,8 @@ static int hc_determine_connection(sctx_t *ctx, proxy_worker *worker) {
     return (rv == APR_SUCCESS ? OK : !OK);
 }
 
-static apr_status_t hc_init_worker(sctx_t *ctx, proxy_worker *worker) {
+static apr_status_t hc_init_worker(sctx_t *ctx, proxy_worker *worker)
+{
     apr_status_t rv = APR_SUCCESS;
     /*
      * Since this is the watchdog, workers never actually handle a
@@ -494,7 +539,11 @@ static apr_status_t hc_init_worker(sctx_t *ctx, proxy_worker *worker) {
             ap_log_error(APLOG_MARK, APLOG_EMERG, rv, ctx->s, APLOGNO(03250) "Cannot init worker");
             return rv;
         }
-        rv = (hc_determine_connection(ctx, worker) == OK ? APR_SUCCESS : APR_EGENERAL);
+        if (worker->s->is_address_reusable && !worker->s->disablereuse &&
+                hc_determine_connection(ctx, worker, &worker->cp->addr,
+                                        worker->cp->pool) != OK) {
+            rv = APR_EGENERAL;
+        }
     }
     return rv;
 }
@@ -518,13 +567,12 @@ static apr_status_t backend_cleanup(const char *proxy_function, proxy_conn_rec *
 }
 
 static int hc_get_backend(const char *proxy_function, proxy_conn_rec **backend,
-                          proxy_worker *hc, sctx_t *ctx)
+                          proxy_worker *hc, sctx_t *ctx, apr_pool_t *ptemp)
 {
     int status;
     status = ap_proxy_acquire_connection(proxy_function, backend, hc, ctx->s);
     if (status == OK) {
         (*backend)->addr = hc->cp->addr;
-        (*backend)->pool = ctx->p;
         (*backend)->hostname = hc->s->hostname;
         if (strcmp(hc->s->scheme, "https") == 0) {
             if (!ap_proxy_ssl_enable(NULL)) {
@@ -536,22 +584,17 @@ static int hc_get_backend(const char *proxy_function, proxy_conn_rec **backend,
         }
 
     }
-    status = hc_determine_connection(ctx, hc);
-    if (status == OK) {
-        (*backend)->addr = hc->cp->addr;
-    }
-    return status;
+    return hc_determine_connection(ctx, hc, &(*backend)->addr, ptemp);
 }
 
-static apr_status_t hc_check_tcp(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *worker)
+static apr_status_t hc_check_tcp(baton_t *baton)
 {
     int status;
+    sctx_t *ctx = baton->ctx;
+    proxy_worker *hc = baton->hc;
     proxy_conn_rec *backend = NULL;
-    proxy_worker *hc;
 
-    hc = hc_get_hcworker(ctx, worker, ptemp);
-
-    status = hc_get_backend("HCTCP", &backend, hc, ctx);
+    status = hc_get_backend("HCTCP", &backend, hc, ctx, baton->ptemp);
     if (status == OK) {
         backend->addr = hc->cp->addr;
         status = ap_proxy_connect_backend("HCTCP", backend, hc, ctx->s);
@@ -560,18 +603,21 @@ static apr_status_t hc_check_tcp(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *w
     return backend_cleanup("HCTCP", backend, ctx->s, status);
 }
 
-static void hc_send(sctx_t *ctx, apr_pool_t *ptemp, const char *out, proxy_conn_rec *backend)
+static int hc_send(request_rec *r, const char *out, apr_bucket_brigade *bb)
 {
-    apr_bucket_brigade *tmp_bb = apr_brigade_create(ptemp, ctx->ba);
-    ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, ctx->s, "%s", out);
-    APR_BRIGADE_INSERT_TAIL(tmp_bb, apr_bucket_pool_create(out, strlen(out), ptemp,
-                            ctx->ba));
-    APR_BRIGADE_INSERT_TAIL(tmp_bb, apr_bucket_flush_create(ctx->ba));
-    ap_pass_brigade(backend->connection->output_filters, tmp_bb);
-    apr_brigade_destroy(tmp_bb);
+    apr_status_t rv;
+    conn_rec *c = r->connection;
+    apr_bucket_alloc_t *ba = c->bucket_alloc;
+    ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, r->server, "%s", out);
+    APR_BRIGADE_INSERT_TAIL(bb, apr_bucket_pool_create(out, strlen(out),
+                                                       r->pool, ba));
+    APR_BRIGADE_INSERT_TAIL(bb, apr_bucket_flush_create(ba));
+    rv = ap_pass_brigade(c->output_filters, bb);
+    apr_brigade_cleanup(bb);
+    return (rv) ? !OK : OK;
 }
 
-static int hc_read_headers(sctx_t *ctx, request_rec *r)
+static int hc_read_headers(request_rec *r)
 {
     char buffer[HUGE_STRING_LEN];
     int len;
@@ -580,8 +626,8 @@ static int hc_read_headers(sctx_t *ctx, request_rec *r)
     if (len <= 0) {
         return !OK;
     }
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ctx->s, APLOGNO(03254)
-            "%s", buffer);
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, APLOGNO(03254)
+                 "%.*s", len, buffer);
     /* for the below, see ap_proxy_http_process_response() */
     if (apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
         int major;
@@ -612,10 +658,11 @@ static int hc_read_headers(sctx_t *ctx, request_rec *r)
     /* OK, 1st line is OK... scarf in the headers */
     while ((len = ap_getline(buffer, sizeof(buffer), r, 1)) > 0) {
         char *value, *end;
+        ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, r->server, "%.*s",
+                     len, buffer);
         if (!(value = strchr(buffer, ':'))) {
             return !OK;
         }
-        ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, ctx->s, "%s", buffer);
         *value = '\0';
         ++value;
         while (apr_isspace(*value))
@@ -627,50 +674,44 @@ static int hc_read_headers(sctx_t *ctx, request_rec *r)
     return OK;
 }
 
-static int hc_read_body (sctx_t *ctx, request_rec *r)
+static int hc_read_body(request_rec *r, apr_bucket_brigade *bb)
 {
     apr_status_t rv = APR_SUCCESS;
-    apr_bucket_brigade *bb;
     int seen_eos = 0;
 
-    bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
     do {
-        apr_bucket *bucket, *cpy;
         apr_size_t len = HUGE_STRING_LEN;
 
+        apr_brigade_cleanup(bb);
         rv = ap_get_brigade(r->proto_input_filters, bb, AP_MODE_READBYTES,
                             APR_BLOCK_READ, len);
 
         if (rv != APR_SUCCESS) {
-            if (APR_STATUS_IS_TIMEUP(rv) || APR_STATUS_IS_EOF(rv)) {
+            if (APR_STATUS_IS_EOF(rv)) {
                 rv = APR_SUCCESS;
                 break;
             }
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, ctx->s, APLOGNO(03300)
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, r->server, APLOGNO(03300)
                           "Error reading response body");
             break;
         }
 
-        for (bucket = APR_BRIGADE_FIRST(bb);
-             bucket != APR_BRIGADE_SENTINEL(bb);
-             bucket = APR_BUCKET_NEXT(bucket))
-        {
+        while (!APR_BRIGADE_EMPTY(bb)) {
+            apr_bucket *bucket = APR_BRIGADE_FIRST(bb);
             if (APR_BUCKET_IS_EOS(bucket)) {
                 seen_eos = 1;
                 break;
             }
             if (APR_BUCKET_IS_FLUSH(bucket)) {
+                apr_bucket_delete(bucket);
                 continue;
             }
-            rv =  apr_bucket_copy(bucket, &cpy);
-            if (rv != APR_SUCCESS) {
-                break;
-            }
-            APR_BRIGADE_INSERT_TAIL(r->kept_body, cpy);
+            APR_BUCKET_REMOVE(bucket);
+            APR_BRIGADE_INSERT_TAIL(r->kept_body, bucket);
         }
-        apr_brigade_cleanup(bb);
     }
     while (!seen_eos);
+    apr_brigade_cleanup(bb);
     return (rv == APR_SUCCESS ? OK : !OK);
 }
 
@@ -680,21 +721,25 @@ static int hc_read_body (sctx_t *ctx, request_rec *r)
  * then apply those to the resulting response, otherwise
  * any status code 2xx or 3xx is considered "passing"
  */
-static apr_status_t hc_check_http(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *worker)
+static apr_status_t hc_check_http(baton_t *baton)
 {
     int status;
     proxy_conn_rec *backend = NULL;
-    proxy_worker *hc;
-    conn_rec c;
+    sctx_t *ctx = baton->ctx;
+    proxy_worker *hc = baton->hc;
+    proxy_worker *worker = baton->worker;
+    apr_pool_t *ptemp = baton->ptemp;
     request_rec *r;
     wctx_t *wctx;
     hc_condition_t *cond;
-    const char *method = NULL;
+    apr_bucket_brigade *bb;
 
-    hc = hc_get_hcworker(ctx, worker, ptemp);
     wctx = (wctx_t *)hc->context;
+    if (!wctx->req || !wctx->method) {
+        return APR_ENOTIMPL;
+    }
 
-    if ((status = hc_get_backend("HCOH", &backend, hc, ctx)) != OK) {
+    if ((status = hc_get_backend("HCOH", &backend, hc, ctx, ptemp)) != OK) {
         return backend_cleanup("HCOH", backend, ctx->s, status);
     }
     if ((status = ap_proxy_connect_backend("HCOH", backend, hc, ctx->s)) != OK) {
@@ -702,53 +747,30 @@ static apr_status_t hc_check_http(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *
     }
 
     if (!backend->connection) {
-        if ((status = ap_proxy_connection_create("HCOH", backend, &c, ctx->s)) != OK) {
+        if ((status = ap_proxy_connection_create("HCOH", backend, NULL, ctx->s)) != OK) {
             return backend_cleanup("HCOH", backend, ctx->s, status);
         }
     }
-    switch (hc->s->method) {
-        case OPTIONS:
-            if (!wctx->req) {
-                wctx->req = apr_psprintf(ctx->p,
-                                   "OPTIONS * HTTP/1.0\r\nHost: %s:%d\r\n\r\n",
-                                    hc->s->hostname, (int)hc->s->port);
-            }
-            method = "OPTIONS";
-            break;
 
-        case HEAD:
-            method = "HEAD";
-            /* fallthru */
-        case GET:
-            if (!method) { /* did we fall thru? If not, we are GET */
-                method = "GET";
-            }
-            if (!wctx->req) {
-                wctx->req = apr_psprintf(ctx->p,
-                                   "%s %s%s%s HTTP/1.0\r\nHost: %s:%d\r\n\r\n",
-                                   method,
-                                   (wctx->path ? wctx->path : ""),
-                                   (wctx->path && *hc->s->hcuri ? "/" : "" ),
-                                   (*hc->s->hcuri ? hc->s->hcuri : ""),
-                                   hc->s->hostname, (int)hc->s->port);
-            }
-            break;
+    r = create_request_rec(ptemp, backend->connection, wctx->method);
+    bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
-        default:
-            return backend_cleanup("HCOH", backend, ctx->s, !OK);
-            break;
-    }
-
-    hc_send(ctx, ptemp, wctx->req, backend);
-
-    r = create_request_rec(ptemp, backend->connection, method);
-    if ((status = hc_read_headers(ctx, r)) != OK) {
+    if ((status = hc_send(r, wctx->req, bb)) != OK) {
         return backend_cleanup("HCOH", backend, ctx->s, status);
     }
-    if (hc->s->method == GET) {
-        if ((status = hc_read_body(ctx, r)) != OK) {
+    if ((status = hc_read_headers(r)) != OK) {
+        return backend_cleanup("HCOH", backend, ctx->s, status);
+    }
+    if (!r->header_only) {
+        apr_table_t *saved_headers_in = r->headers_in;
+        r->headers_in = apr_table_copy(r->pool, r->headers_out);
+        ap_proxy_pre_http_request(backend->connection, r);
+        status = hc_read_body(r, bb);
+        r->headers_in = saved_headers_in;
+        if (status != OK) {
             return backend_cleanup("HCOH", backend, ctx->s, status);
         }
+        r->trailers_out = apr_table_copy(r->pool, r->trailers_in);
     }
 
     if (*worker->s->hcexpr &&
@@ -756,15 +778,14 @@ static apr_status_t hc_check_http(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *
         const char *err;
         int ok = ap_expr_exec(r, cond->pexpr, &err);
         if (ok > 0) {
-            status = OK;
             ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, ctx->s,
                          "Condition %s for %s (%s): passed", worker->s->hcexpr,
                          hc->s->name, worker->s->name);
         } else if (ok < 0 || err) {
-            status = !OK;
             ap_log_error(APLOG_MARK, APLOG_INFO, 0, ctx->s, APLOGNO(03301)
                          "Error on checking condition %s for %s (%s): %s", worker->s->hcexpr,
                          hc->s->name, worker->s->name, err);
+            status = !OK;
         } else {
             ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, ctx->s,
                          "Condition %s for %s (%s) : failed", worker->s->hcexpr,
@@ -772,6 +793,9 @@ static apr_status_t hc_check_http(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *
             status = !OK;
         }
     } else if (r->status < 200 || r->status > 399) {
+        ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, ctx->s,
+                     "Response status %i for %s (%s): failed", r->status,
+                     hc->s->name, worker->s->name);
         status = !OK;
     }
     return backend_cleanup("HCOH", backend, ctx->s, status);
@@ -780,35 +804,27 @@ static apr_status_t hc_check_http(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *
 static void * APR_THREAD_FUNC hc_check(apr_thread_t *thread, void *b)
 {
     baton_t *baton = (baton_t *)b;
-    sctx_t *ctx = baton->ctx;
-    apr_time_t now = baton->now;
+    server_rec *s = baton->ctx->s;
     proxy_worker *worker = baton->worker;
-    apr_pool_t *ptemp = baton->ptemp;
-    server_rec *s = ctx->s;
+    proxy_worker *hc = baton->hc;
+    apr_time_t now = baton->now;
     apr_status_t rv;
+
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(03256)
-                 "%sHealth checking %s", (thread ? "Threaded " : ""), worker->s->name);
+                 "%sHealth checking %s", (thread ? "Threaded " : ""),
+                 worker->s->name);
 
-    switch (worker->s->method) {
-        case TCP:
-            rv = hc_check_tcp(ctx, ptemp, worker);
-            break;
-
-        case OPTIONS:
-        case HEAD:
-        case GET:
-             rv = hc_check_http(ctx, ptemp, worker);
-             break;
-
-        default:
-            rv = APR_ENOTIMPL;
-            break;
+    if (hc->s->method == TCP) {
+        rv = hc_check_tcp(baton);
+    }
+    else {
+        rv = hc_check_http(baton);
     }
     if (rv == APR_ENOTIMPL) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(03257)
                          "Somehow tried to use unimplemented hcheck method: %d",
-                         (int)worker->s->method);
-        apr_pool_destroy(ptemp);
+                         (int)hc->s->method);
+        apr_pool_destroy(baton->ptemp);
         return NULL;
     }
     /* what state are we in ? */
@@ -839,7 +855,7 @@ static void * APR_THREAD_FUNC hc_check(apr_thread_t *thread, void *b)
         }
     }
     worker->s->updated = now;
-    apr_pool_destroy(ptemp);
+    apr_pool_destroy(baton->ptemp);
     return NULL;
 }
 
@@ -852,30 +868,32 @@ static apr_status_t hc_watchdog_callback(int state, void *data,
     sctx_t *ctx = (sctx_t *)data;
     server_rec *s = ctx->s;
     proxy_server_conf *conf;
+    static apr_thread_pool_t *hctp = NULL;
+
     switch (state) {
         case AP_WATCHDOG_STATE_STARTING:
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(03258)
                          "%s watchdog started.",
                          HCHECK_WATHCHDOG_NAME);
 #if HC_USE_THREADS
-            if (ctx->tpsize) {
-                rv =  apr_thread_pool_create(&ctx->hctp, ctx->tpsize,
-                                             ctx->tpsize, ctx->p);
+            if (tpsize && hctp == NULL) {
+                rv =  apr_thread_pool_create(&hctp, tpsize,
+                                             tpsize, ctx->p);
                 if (rv != APR_SUCCESS) {
                     ap_log_error(APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(03312)
                                  "apr_thread_pool_create() with %d threads failed",
-                                 ctx->tpsize);
+                                 tpsize);
                     /* we can continue on without the threadpools */
-                    ctx->hctp = NULL;
+                    hctp = NULL;
                 } else {
                     ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(03313)
                                  "apr_thread_pool_create() with %d threads succeeded",
-                                 ctx->tpsize);
+                                 tpsize);
                 }
             } else {
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, rv, s, APLOGNO(03314)
                              "Skipping apr_thread_pool_create()");
-                ctx->hctp = NULL;
+                hctp = NULL;
             }
 
 #endif
@@ -883,13 +901,14 @@ static apr_status_t hc_watchdog_callback(int state, void *data,
 
         case AP_WATCHDOG_STATE_RUNNING:
             /* loop thru all workers */
-            ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s,
+            ap_log_error(APLOG_MARK, APLOG_TRACE5, 0, s,
                          "Run of %s watchdog.",
                          HCHECK_WATHCHDOG_NAME);
             if (s) {
                 int i;
                 conf = (proxy_server_conf *) ap_get_module_config(s->module_config, &proxy_module);
                 balancer = (proxy_balancer *)conf->balancers->elts;
+                ctx->s = s;
                 for (i = 0; i < conf->balancers->nelts; i++, balancer++) {
                     int n;
                     proxy_worker **workers;
@@ -903,28 +922,30 @@ static apr_status_t hc_watchdog_callback(int state, void *data,
                            (worker->s->method != NONE) &&
                            (now > worker->s->updated + worker->s->interval)) {
                             baton_t *baton;
-                            /* This pool must last the lifetime of the (possible) thread */
                             apr_pool_t *ptemp;
-                            apr_pool_create(&ptemp, ctx->p);
-                            ap_log_error(APLOG_MARK, APLOG_TRACE2, 0, s,
+                            ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s,
                                          "Checking %s worker: %s  [%d] (%pp)", balancer->s->name,
                                          worker->s->name, worker->s->method, worker);
 
                             if ((rv = hc_init_worker(ctx, worker)) != APR_SUCCESS) {
                                 return rv;
                             }
+                            /* This pool must last the lifetime of the (possible) thread */
+                            apr_pool_create(&ptemp, ctx->p);
+                            apr_pool_tag(ptemp, "hc_request");
                             baton = apr_palloc(ptemp, sizeof(baton_t));
                             baton->ctx = ctx;
                             baton->now = now;
                             baton->worker = worker;
                             baton->ptemp = ptemp;
+                            baton->hc = hc_get_hcworker(ctx, worker, ptemp);
 
-                            if (!ctx->hctp) {
+                            if (!hctp) {
                                 hc_check(NULL, baton);
                             }
 #if HC_USE_THREADS
                             else {
-                                rv = apr_thread_pool_push(ctx->hctp, hc_check, (void *)baton,
+                                rv = apr_thread_pool_push(hctp, hc_check, (void *)baton,
                                                           APR_THREAD_TASK_PRIORITY_NORMAL, NULL);
                             }
 #endif
@@ -932,7 +953,6 @@ static apr_status_t hc_watchdog_callback(int state, void *data,
                         workers++;
                     }
                 }
-                /* s = s->next; */
             }
             break;
 
@@ -941,27 +961,37 @@ static apr_status_t hc_watchdog_callback(int state, void *data,
                          "stopping %s watchdog.",
                          HCHECK_WATHCHDOG_NAME);
 #if HC_USE_THREADS
-            rv =  apr_thread_pool_destroy(ctx->hctp);
-            if (rv != APR_SUCCESS) {
-                ap_log_error(APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(03315)
-                             "apr_thread_pool_destroy() failed");
+            if (hctp) {
+                rv =  apr_thread_pool_destroy(hctp);
+                if (rv != APR_SUCCESS) {
+                    ap_log_error(APLOG_MARK, APLOG_INFO, rv, s, APLOGNO(03315)
+                                 "apr_thread_pool_destroy() failed");
+                }
             }
 #endif
-            ctx->hctp = NULL;
+            hctp = NULL;
             break;
     }
     return rv;
 }
-
+static int hc_pre_config(apr_pool_t *pconf, apr_pool_t *plog,
+                         apr_pool_t *ptemp)
+{
+    tpsize = HC_THREADPOOL_SIZE;
+    return OK;
+}
 static int hc_post_config(apr_pool_t *p, apr_pool_t *plog,
-                       apr_pool_t *ptemp, server_rec *s)
+                       apr_pool_t *ptemp, server_rec *main_s)
 {
     apr_status_t rv;
-    sctx_t *ctx;
+    server_rec *s = main_s;
 
     APR_OPTIONAL_FN_TYPE(ap_watchdog_get_instance) *hc_watchdog_get_instance;
     APR_OPTIONAL_FN_TYPE(ap_watchdog_register_callback) *hc_watchdog_register_callback;
 
+    if (ap_state_query(AP_SQ_MAIN_STATE) == AP_SQ_MS_CREATE_PRE_CONFIG) {
+        return OK;
+    }
     hc_watchdog_get_instance = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_get_instance);
     hc_watchdog_register_callback = APR_RETRIEVE_OPTIONAL_FN(ap_watchdog_register_callback);
     if (!hc_watchdog_get_instance || !hc_watchdog_register_callback) {
@@ -969,10 +999,7 @@ static int hc_post_config(apr_pool_t *p, apr_pool_t *plog,
                      "mod_watchdog is required");
         return !OK;
     }
-    ctx = (sctx_t *) ap_get_module_config(s->module_config,
-                                          &proxy_hcheck_module);
-
-    rv = hc_watchdog_get_instance(&ctx->watchdog,
+    rv = hc_watchdog_get_instance(&watchdog,
                                   HCHECK_WATHCHDOG_NAME,
                                   0, 1, p);
     if (rv) {
@@ -981,18 +1008,31 @@ static int hc_post_config(apr_pool_t *p, apr_pool_t *plog,
                      HCHECK_WATHCHDOG_NAME);
         return !OK;
     }
-    rv = hc_watchdog_register_callback(ctx->watchdog,
-            apr_time_from_sec(HCHECK_WATHCHDOG_INTERVAL),
-            ctx,
-            hc_watchdog_callback);
-    if (rv) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(03264)
-                     "Failed to register watchdog callback (%s)",
-                     HCHECK_WATHCHDOG_NAME);
-        return !OK;
+    while (s) {
+        sctx_t *ctx = ap_get_module_config(s->module_config,
+                                           &proxy_hcheck_module);
+
+        if (s != ctx->s) {
+            ap_log_error(APLOG_MARK, APLOG_TRACE4, 0, s, APLOGNO(10019)
+                         "Missing unique per-server context: %s (%pp:%pp) (no hchecks)",
+                         s->server_hostname, s, ctx->s);
+            s = s->next;
+            continue;
+        }
+        rv = hc_watchdog_register_callback(watchdog,
+                apr_time_from_sec(HCHECK_WATHCHDOG_INTERVAL),
+                ctx,
+                hc_watchdog_callback);
+        if (rv) {
+            ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s, APLOGNO(03264)
+                         "Failed to register watchdog callback (%s)",
+                         HCHECK_WATHCHDOG_NAME);
+            return !OK;
+        }
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(03265)
+                     "watchdog callback registered (%s for %s)", HCHECK_WATHCHDOG_NAME, s->server_hostname);
+        s = s->next;
     }
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(03265)
-                 "watchdog callback registered (%s)", HCHECK_WATHCHDOG_NAME);
     return OK;
 }
 
@@ -1145,7 +1185,7 @@ static const command_rec command_table[] = {
     AP_INIT_RAW_ARGS("ProxyHCExpr", set_hc_condition, NULL, OR_FILEINFO,
                      "Define a health check condition ruleset expression"),
 #if HC_USE_THREADS
-    AP_INIT_TAKE1("ProxyHCTPsize", set_hc_tpsize, NULL, OR_FILEINFO,
+    AP_INIT_TAKE1("ProxyHCTPsize", set_hc_tpsize, NULL, RSRC_CONF,
                      "Set size of health check thread pool"),
 #endif
     { NULL }
@@ -1159,6 +1199,7 @@ static void hc_register_hooks(apr_pool_t *p)
     APR_REGISTER_OPTIONAL_FN(hc_show_exprs);
     APR_REGISTER_OPTIONAL_FN(hc_select_exprs);
     APR_REGISTER_OPTIONAL_FN(hc_valid_expr);
+    ap_hook_pre_config(hc_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_post_config(hc_post_config, aszPre, aszSucc, APR_HOOK_LAST);
     ap_hook_expr_lookup(hc_expr_lookup, NULL, NULL, APR_HOOK_MIDDLE);
 }

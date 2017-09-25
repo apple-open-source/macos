@@ -40,8 +40,9 @@ class AppleSmartBatteryManager;
 typedef struct {
     uint32_t cmd;
     int addr;
-    int protocol;
+    ASBMgrOpType opType;
     uint32_t smcKey;
+    int nbytes;
     const OSSymbol *setItAndForgetItSym;
     int pathBits;
 } CommandStruct;
@@ -50,6 +51,20 @@ typedef struct {
     CommandStruct   *table;
     int             count;
 } CommandTable;
+
+enum {
+    kUseLastPath    = 0,
+    kBoot           = 1,
+    kFull           = 2,
+    kUserVis        = 4,
+};
+
+typedef struct {
+    const OSSymbol    *regKey;
+    SMCKey      key;
+    int32_t     byteCnt;
+} smcToRegistry;
+
 
 class AppleSmartBattery : public IOPMPowerSource {
     OSDeclareDefaultStructors(AppleSmartBattery)
@@ -61,7 +76,6 @@ protected:
     bool                        fStalledByUserClient;
     bool                        fCancelPolling;
     bool                        fPollingNow;
-    IOSMBusTransaction          fTransaction;
     uint16_t                    fMachinePath;
     bool                        fRebootPolling;
     uint8_t                     fReadingExtendedCmd;
@@ -70,10 +84,10 @@ protected:
     uint16_t                    fRemainingCapacity;
     uint16_t                    fFullChargeCapacity;
     bool                        fCapacityOverride;
+    bool                        fMaxCapacityOverride;
     
     uint8_t                     fInitialPollCountdown;
     uint8_t                     fIncompleteReadRetries;
-    int                         fRetryAttempts;
 
     IOService *                 fPowerServiceToAck;
     bool                        fSystemSleeping;
@@ -90,8 +104,8 @@ protected:
     uint64_t                    acAttach_ts; 
 
     CommandTable                cmdTable;
+    bool                        fDisplayKeys;
 
-    IOACPIPlatformDevice        *fACPIProvider;
 
     
 
@@ -116,11 +130,9 @@ protected:
     void    setInstantAmperage(int mA);
 
     // Time remaining estimate - 1 minute average
-    void    setAverageTimeToEmpty(int seconds);
     int     averageTimeToEmpty(void);
 
     // Time remaining until full estimate - 1 minute average
-    void    setAverageTimeToFull(int seconds);
     int     averageTimeToFull(void);
     
     void    setManufactureDate(int date);
@@ -141,30 +153,31 @@ protected:
     
     CommandStruct *commandForState(uint32_t state);
     void    initializeCommands(void);
-    bool    initiateTransaction(const CommandStruct *cs, bool retry);
+    bool    initiateTransaction(const CommandStruct *cs);
     bool    initiateNextTransaction(uint32_t state);
     bool    retryCurrentTransaction(uint32_t state);
     bool    handleSetItAndForgetIt(int state, int val16,
-                                   const uint8_t *str32, uint32_t len);
+                                   const uint8_t *str32, IOByteCount len);
 
 public:
     static AppleSmartBattery *smartBattery(void);
-    virtual bool init(void);
-    virtual bool start(IOService *provider);
+    virtual bool init(void) APPLE_KEXT_OVERRIDE;
+    virtual bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
     bool    pollBatteryState(int path);
     void    handleBatteryInserted(void);
     void    handleBatteryRemoved(void);
     void    handleInflowDisabled(bool inflow_state);
     void    handleChargeInhibited(bool charge_state);
     void    handleExclusiveAccess(bool exclusive);
-    void    handleSetOverrideCapacity(uint16_t value);
+    void    handleSetOverrideCapacity(uint16_t value, bool sticky);
     void    handleSwitchToTrueCapacity(void);
     IOReturn handleSystemSleepWake(IOService * powerService, bool isSystemSleep);
+
     
 protected:
     void    logReadError( const char *error_type, 
                           uint16_t additional_error,
-                          IOSMBusTransaction *t);
+                          uint32_t cmd);
 
     void    clearBatteryState(bool do_update);
     
@@ -172,9 +185,8 @@ protected:
 
     void    rebuildLegacyIOBatteryInfo(void);
 
-    bool        transactionCompletion(void *ref, IOSMBusTransaction *transaction);
-    uint32_t    transactionCompletion_requiresRetryGetMicroSec(IOSMBusTransaction *transaction);
-    bool        transactionCompletion_shouldAbortTransactions(IOSMBusTransaction *transaction);
+    void        transactionCompletion(void *ref, IOReturn status, IOByteCount inCount, uint8_t *inData);
+
     void        handlePollingFinished(bool visitedEntirePath);
 
     IOReturn readWordAsync(uint32_t refnum, uint8_t address, uint8_t cmd);

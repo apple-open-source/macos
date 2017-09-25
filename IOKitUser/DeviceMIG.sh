@@ -67,6 +67,9 @@ for a in $ARCHS; do
 	*64)
 	    ARCHS64="$ARCHS64 $a"
 	    ;;
+	*64?)
+	    ARCHS64="$ARCHS64 $a"
+	    ;;
 	*)
 	    ARCHS32="$ARCHS32 $a"
 	    ;;

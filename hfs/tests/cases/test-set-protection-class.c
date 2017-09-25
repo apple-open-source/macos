@@ -158,9 +158,13 @@ int run_set_protection_class(__unused test_ctx_t *ctx)
 		assert_no_err(close(fd));
 		if (fd2 != -1)
 			assert_no_err(close(fd2));
+
+		assert_no_err(munmap(p, size));
 	}
 
 	unlink(path);
+	free(buf);
+	free(buf2);
 
 	return 0;
 }

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebUserContentControllerProxy_h
-#define WebUserContentControllerProxy_h
+#pragma once
 
 #include "APIObject.h"
 #include "MessageReceiver.h"
@@ -38,8 +37,8 @@
 
 namespace API {
 class Array;
+class ContentRuleList;
 class UserContentWorld;
-class UserContentExtension;
 class UserScript;
 class UserStyleSheet;
 }
@@ -57,6 +56,7 @@ namespace WebKit {
 class WebProcessProxy;
 class WebScriptMessageHandler;
 struct FrameInfoData;
+struct WebPageCreationParameters;
 
 class WebUserContentControllerProxy : public API::ObjectImpl<API::Object::Type::UserContentController>, private IPC::MessageReceiver {
 public:
@@ -69,7 +69,7 @@ public:
 
     uint64_t identifier() const { return m_identifier; }
 
-    void addProcess(WebProcessProxy&);
+    void addProcess(WebProcessProxy&, WebPageCreationParameters&);
     void removeProcess(WebProcessProxy&);
 
     API::Array& userScripts() { return m_userScripts.get(); }
@@ -92,9 +92,9 @@ public:
     void removeAllUserMessageHandlers(API::UserContentWorld&);
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    void addUserContentExtension(API::UserContentExtension&);
-    void removeUserContentExtension(const String&);
-    void removeAllUserContentExtensions();
+    void addContentRuleList(API::ContentRuleList&);
+    void removeContentRuleList(const String&);
+    void removeAllContentRuleLists();
 #endif
 
 private:
@@ -116,10 +116,8 @@ private:
     HashCountedSet<RefPtr<API::UserContentWorld>> m_userContentWorlds;
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    HashMap<String, RefPtr<API::UserContentExtension>> m_userContentExtensions;
+    HashMap<String, RefPtr<API::ContentRuleList>> m_contentRuleLists;
 #endif
 };
 
 } // namespace WebKit
-
-#endif // WebUserContentControllerProxy_h

@@ -61,6 +61,10 @@ typedef uint64_t        uint_fast64_t;
 /* 7.18.2 Limits of specified-width integer types:
  *   These #defines specify the minimum and maximum limits
  *   of each of the types declared above.
+ *
+ *   They must have "the same type as would an expression that is an
+ *   object of the corresponding type converted according to the integer
+ *   promotion".
  */
 
 
@@ -121,17 +125,16 @@ typedef uint64_t        uint_fast64_t;
 /* 7.18.2.4 Limits of integer types capable of holding object pointers */
 
 #if __WORDSIZE == 64
-#define INTPTR_MIN	  INT64_MIN
-#define INTPTR_MAX	  INT64_MAX
+#define INTPTR_MAX        9223372036854775807L
 #else
-#define INTPTR_MIN        INT32_MIN
-#define INTPTR_MAX        INT32_MAX
+#define INTPTR_MAX        2147483647L
 #endif
+#define INTPTR_MIN        (-INTPTR_MAX-1)
 
 #if __WORDSIZE == 64
-#define UINTPTR_MAX	  UINT64_MAX
+#define UINTPTR_MAX       18446744073709551615UL
 #else
-#define UINTPTR_MAX       UINT32_MAX
+#define UINTPTR_MAX       4294967295UL
 #endif
 
 /* 7.18.2.5 Limits of greatest-width integer types */
@@ -149,11 +152,7 @@ typedef uint64_t        uint_fast64_t;
 #define PTRDIFF_MAX       INT32_MAX
 #endif
 
-#if __WORDSIZE == 64
-#define SIZE_MAX	  UINT64_MAX
-#else
-#define SIZE_MAX          UINT32_MAX
-#endif
+#define SIZE_MAX          UINTPTR_MAX
 
 #if defined(__STDC_WANT_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__ >= 1
 #define RSIZE_MAX         (SIZE_MAX >> 1)
@@ -191,8 +190,8 @@ typedef uint64_t        uint_fast64_t;
 #define INT32_C(v)   (v)
 #define INT64_C(v)   (v ## LL)
 
-#define UINT8_C(v)   (v ## U)
-#define UINT16_C(v)  (v ## U)
+#define UINT8_C(v)   (v)
+#define UINT16_C(v)  (v)
 #define UINT32_C(v)  (v ## U)
 #define UINT64_C(v)  (v ## ULL)
 

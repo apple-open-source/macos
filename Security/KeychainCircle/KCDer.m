@@ -8,6 +8,7 @@
 
 #include <KeychainCircle/KCDer.h>
 #import <KeychainCircle/KCError.h>
+#import <os/overflow.h>
 
 // These should probably be shared with security, but we don't export our der'izing functions yet.
 
@@ -22,7 +23,12 @@ static const uint8_t* kcder_decode_data_internal(NSData** data, bool copy,
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_OCTET_STRING, &payload_size, der, der_end);
 
-    if (NULL == payload || payload + payload_size > der_end) {
+    uintptr_t payload_end_computed = 0;
+    if(os_add_overflow((uintptr_t)payload, payload_size, &payload_end_computed)) {
+        KCJoiningErrorCreate(kDERUnknownEncoding, error, @"Bad payload size");
+        return NULL;
+    }
+    if (NULL == payload || payload_end_computed > (uintptr_t) der_end) {
         KCJoiningErrorCreate(kDERUnknownEncoding, error, @"Unknown data encoding");
         return NULL;
     }
@@ -85,7 +91,12 @@ const uint8_t* kcder_decode_string(NSString** string, NSError**error,
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_UTF8_STRING, &payload_size, der, der_end);
 
-    if (NULL == payload || payload + payload_size > der_end) {
+    uintptr_t payload_end_computed = 0;
+    if(os_add_overflow((uintptr_t)payload, payload_size, &payload_end_computed)) {
+        KCJoiningErrorCreate(kDERUnknownEncoding, error, @"Bad payload size");
+        return NULL;
+    }
+    if (NULL == payload || payload_end_computed > (uintptr_t) der_end) {
         KCJoiningErrorCreate(kDERUnknownEncoding, error, @"Unknown string encoding");
         return NULL;
     }

@@ -53,7 +53,9 @@ typedef enum {
     kBRUCachesAnyRoot       = 1 << 6,   // non-default B!=R configs okay
 
     // copy files opts
+
     // kBRAnyBootStamps = 0x10000 (1<<16) // in bootroot.h
+    // kBRUseStagingDir = 0x20000 (1<<17) // in bootroot.h
 } BRUpdateOpts_t;
 
 // in update_boot.c

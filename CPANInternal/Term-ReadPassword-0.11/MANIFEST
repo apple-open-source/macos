@@ -1,8 +1,0 @@
-README
-Changes
-MANIFEST
-Makefile.PL
-ReadPassword.pm
-t/1_basics.t
-t/2_interactive.t
-META.yml

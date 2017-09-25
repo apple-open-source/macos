@@ -69,7 +69,10 @@ protected:
 
 	void populate(DiskRep::Writer &writer);		// global
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
-		InternalRequirements &ireqs, size_t offset, size_t length, unsigned alternateDigestCount);	// per-architecture
+				  InternalRequirements &ireqs,
+				  size_t offset, size_t length,
+				  bool mainBinary, size_t execSegBase, size_t execSegLimit,
+				  unsigned alternateDigestCount);	// per-architecture
 	CFDataRef signCodeDirectory(const CodeDirectory *cd, CFDataRef hashBag);
 
 	uint32_t cdTextFlags(std::string text);		// convert text CodeDirectory flags
@@ -83,6 +86,9 @@ protected:
 private:
 	void considerTeamID(const PreSigningContext& context);
 	std::vector<Endian<uint32_t> > topSlots(CodeDirectory::Builder &builder) const;
+
+	static bool booleanEntitlement(CFDictionaryRef entDict, CFStringRef key);
+	static uint64_t entitlementsToExecSegFlags(CFDataRef entitlements);
 
 protected:
 	void buildResources(std::string root, std::string relBase, CFDictionaryRef rules);

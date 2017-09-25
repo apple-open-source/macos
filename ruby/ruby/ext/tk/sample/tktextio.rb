@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: false
 #
 #  TkTextIO class :: handling I/O stream on a TkText widget
 #                             by Hidetoshi NAGAI (nagai@ai.kyutech.ac.jp)
@@ -935,7 +936,7 @@ if __FILE__ == $0
   $stdout = tio
   $stderr = tio
 
-  STDOUT.print("\n========= TkTextIO#gets for inital text ========\n\n")
+  STDOUT.print("\n========= TkTextIO#gets for initial text ========\n\n")
 
   while(s = gets)
     STDOUT.print(s)

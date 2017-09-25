@@ -179,12 +179,17 @@ void RemoteWebInspectorProxy::platformSave(const String& suggestedURL, const Str
 
     NSSavePanel *panel = [NSSavePanel savePanel];
     panel.nameFieldStringValue = platformURL.lastPathComponent;
-    panel.directoryURL = [platformURL URLByDeletingLastPathComponent];
+
+    // If we have a file URL we've already saved this file to a path and
+    // can provide a good directory to show. Otherwise, use the system's
+    // default behavior for the initial directory to show in the dialog.
+    if (platformURL.isFileURL)
+        panel.directoryURL = [platformURL URLByDeletingLastPathComponent];
 
     auto completionHandler = ^(NSInteger result) {
-        if (result == NSFileHandlingPanelCancelButton)
+        if (result == NSModalResponseCancel)
             return;
-        ASSERT(result == NSFileHandlingPanelOKButton);
+        ASSERT(result == NSModalResponseOK);
         saveToURL(panel.URL);
     };
 
@@ -216,9 +221,7 @@ void RemoteWebInspectorProxy::platformAppend(const String& suggestedURL, const S
 
 void RemoteWebInspectorProxy::platformStartWindowDrag()
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
     m_webView->_page->startWindowDrag();
-#endif
 }
 
 void RemoteWebInspectorProxy::platformOpenInNewTab(const String& url)

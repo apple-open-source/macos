@@ -55,7 +55,7 @@ class IOGraphicsDevice;
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
-#include <IOKit/IODataQueue.h>
+#include <IOKit/IOSharedDataQueue.h>
 #include <IOKit/hidsystem/ev_keymap.h>		/* For NX_NUM_SCANNED_SPECIALKEYS */
 
 // The following messages should be unique across the entire system
@@ -219,6 +219,7 @@ private:
   bool genericNotificationHandler(void * ref, IOService * newService, IONotifier * notifier );
 
   static bool handlePublishNotification( void * target, IOService * newService );
+  static bool handleTerminationNotification( void * target, IOService * newService );
 
   static void makeNumberParamProperty( OSDictionary * dict, const char * key,
                             unsigned long long number, unsigned int bits );
@@ -299,11 +300,11 @@ public:
   /* Create the shared memory area */
   virtual IOReturn createShmem(void*,void*,void*,void*,void*,void*);
 
-  /* register the IODataQueue for the new user events */
-  virtual IOReturn registerEventQueue(IODataQueue * queue);
+  /* register the IOSharedDataQueue for the new user events */
+  virtual IOReturn registerEventQueue(IOSharedDataQueue * queue);
 
-  /* Unregister the IODataQueue for the new user events */
-  virtual IOReturn unregisterEventQueue(IODataQueue * queue);
+  /* Unregister the IOSharedDataQueue for the new user events */
+  virtual IOReturn unregisterEventQueue(IOSharedDataQueue * queue);
 
 public:
 
@@ -493,8 +494,8 @@ void updateEventFlags(unsigned flags, OSObject * sender);
 static	IOReturn	doEvClose (IOHIDSystem *self);
         IOReturn	evCloseGated (void);
 
-static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0, void *arg1);
-        IOReturn	unregisterScreenGated (int index, bool internal);
+static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0);
+        IOReturn	unregisterScreenGated (int index);
 
 static	IOReturn	doSetDisplayBounds (IOHIDSystem *self, void * arg0, void * arg1);
         IOReturn	setDisplayBoundsGated (UInt32 index, IOGBounds *bounds);
@@ -502,11 +503,11 @@ static	IOReturn	doSetDisplayBounds (IOHIDSystem *self, void * arg0, void * arg1)
 static	IOReturn	doCreateShmem (IOHIDSystem *self, void * arg0);
         IOReturn	createShmemGated (void * p1);
 
-static	IOReturn	doRegisterEventQueue (IOHIDSystem *self, void * arg0);
-        IOReturn	registerEventQueueGated (void * p1);
+static    IOReturn    doRegisterEventQueue (IOHIDSystem *self, void * arg0);
+        IOReturn    registerEventQueueGated (void * p1);
 
-static	IOReturn	doUnregisterEventQueue (IOHIDSystem *self, void * arg0);
-        IOReturn	unregisterEventQueueGated (void * p1);
+static    IOReturn    doUnregisterEventQueue (IOHIDSystem *self, void * arg0);
+        IOReturn    unregisterEventQueueGated (void * p1);
 
 
 static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);

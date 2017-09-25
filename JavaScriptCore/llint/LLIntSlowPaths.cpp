@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,11 +35,12 @@
 #include "EvalCodeBlock.h"
 #include "Exception.h"
 #include "ExceptionFuzz.h"
+#include "FrameTracers.h"
 #include "FunctionCodeBlock.h"
 #include "FunctionWhitelist.h"
 #include "GetterSetter.h"
 #include "HostCallReturnValue.h"
-#include "Interpreter.h"
+#include "InterpreterInlines.h"
 #include "IteratorOperations.h"
 #include "JIT.h"
 #include "JITExceptions.h"
@@ -192,7 +193,7 @@ extern "C" SlowPathReturnType llint_trace_operand(ExecState* exec, Instruction* 
             exec->codeBlock(),
             exec,
             static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
-            exec->vm().interpreter->getOpcodeID(pc[0].u.opcode),
+            Interpreter::getOpcodeID(pc[0].u.opcode),
             fromWhere,
             operand,
             pc[operand].u.operand);
@@ -215,7 +216,7 @@ extern "C" SlowPathReturnType llint_trace_value(ExecState* exec, Instruction* pc
         exec->codeBlock(),
         exec,
         static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
-        exec->vm().interpreter->getOpcodeID(pc[0].u.opcode),
+        Interpreter::getOpcodeID(pc[0].u.opcode),
         fromWhere,
         operand,
         pc[operand].u.operand,
@@ -227,7 +228,8 @@ extern "C" SlowPathReturnType llint_trace_value(ExecState* exec, Instruction* pc
 
 LLINT_SLOW_PATH_DECL(trace_prologue)
 {
-    dataLogF("%p / %p: in prologue.\n", exec->codeBlock(), exec);
+    dataLogF("%p / %p: in prologue of ", exec->codeBlock(), exec);
+    dataLog(*exec->codeBlock(), "\n");
     LLINT_END_IMPL();
 }
 
@@ -236,10 +238,10 @@ static void traceFunctionPrologue(ExecState* exec, const char* comment, CodeSpec
     JSFunction* callee = jsCast<JSFunction*>(exec->jsCallee());
     FunctionExecutable* executable = callee->jsExecutable();
     CodeBlock* codeBlock = executable->codeBlockFor(kind);
-    dataLogF("%p / %p: in %s of function %p, executable %p; numVars = %u, numParameters = %u, numCalleeLocals = %u, caller = %p.\n",
-            codeBlock, exec, comment, callee, executable,
-            codeBlock->m_numVars, codeBlock->numParameters(), codeBlock->m_numCalleeLocals,
-            exec->callerFrame());
+    dataLogF("%p / %p: in %s of ", codeBlock, exec, comment);
+    dataLog(*codeBlock);
+    dataLogF(" function %p, executable %p; numVars = %u, numParameters = %u, numCalleeLocals = %u, caller = %p.\n",
+        callee, executable, codeBlock->m_numVars, codeBlock->numParameters(), codeBlock->m_numCalleeLocals, exec->callerFrame());
 }
 
 LLINT_SLOW_PATH_DECL(trace_prologue_function_for_call)
@@ -268,16 +270,17 @@ LLINT_SLOW_PATH_DECL(trace_arityCheck_for_construct)
 
 LLINT_SLOW_PATH_DECL(trace)
 {
+    OpcodeID opcodeID = Interpreter::getOpcodeID(pc[0].u.opcode);
     dataLogF("%p / %p: executing bc#%zu, %s, pc = %p\n",
             exec->codeBlock(),
             exec,
             static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
-            opcodeNames[exec->vm().interpreter->getOpcodeID(pc[0].u.opcode)], pc);
-    if (exec->vm().interpreter->getOpcodeID(pc[0].u.opcode) == op_enter) {
+            opcodeNames[opcodeID], pc);
+    if (opcodeID == op_enter) {
         dataLogF("Frame will eventually return to %p\n", exec->returnPC().value());
         *bitwise_cast<volatile char*>(exec->returnPC().value());
     }
-    if (exec->vm().interpreter->getOpcodeID(pc[0].u.opcode) == op_ret) {
+    if (opcodeID == op_ret) {
         dataLogF("Will be returning to %p\n", exec->returnPC().value());
         dataLogF("The new cfr will be %p\n", exec->callerFrame());
     }
@@ -290,7 +293,7 @@ LLINT_SLOW_PATH_DECL(special_trace)
             exec->codeBlock(),
             exec,
             static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
-            exec->vm().interpreter->getOpcodeID(pc[0].u.opcode),
+            Interpreter::getOpcodeID(pc[0].u.opcode),
             exec->returnPC().value());
     LLINT_END_IMPL();
 }
@@ -315,8 +318,7 @@ inline bool shouldJIT(ExecState* exec, CodeBlock* codeBlock)
         || !ensureGlobalJITWhitelist().contains(codeBlock))
         return false;
 
-    // You can modify this to turn off JITting without rebuilding the world.
-    return exec->vm().canUseJIT();
+    return exec->vm().canUseJIT() && Options::useBaselineJIT();
 }
 
 // Returns true if we should try to OSR.
@@ -490,7 +492,7 @@ LLINT_SLOW_PATH_DECL(stack_check)
 
 #if LLINT_SLOW_PATH_TRACING
     dataLogF("Checking stack height with exec = %p.\n", exec);
-    dataLogF("CodeBlock = %p.\n", exec->codeBlock());
+    dataLog("CodeBlock = ", *exec->codeBlock(), "\n");
     dataLogF("Num callee registers = %u.\n", exec->codeBlock()->m_numCalleeLocals);
     dataLogF("Num vars = %u.\n", exec->codeBlock()->m_numVars);
 
@@ -508,9 +510,12 @@ LLINT_SLOW_PATH_DECL(stack_check)
     // Hence, if we get here, then we know a stack overflow is imminent. So, just
     // throw the StackOverflowError unconditionally.
 #if !ENABLE(JIT)
-    ASSERT(!vm.interpreter->cloopStack().containsAddress(exec->topOfFrame()));
-    if (LIKELY(vm.ensureStackCapacityFor(exec->topOfFrame())))
-        LLINT_RETURN_TWO(pc, 0);
+    Register* topOfFrame = exec->topOfFrame();
+    if (LIKELY(topOfFrame < reinterpret_cast<Register*>(exec))) {
+        ASSERT(!vm.interpreter->cloopStack().containsAddress(topOfFrame));
+        if (LIKELY(vm.ensureStackCapacityFor(topOfFrame)))
+            LLINT_RETURN_TWO(pc, 0);
+    }
 #endif
 
     ErrorHandlingScope errorScope(vm);
@@ -672,7 +677,8 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
             // Prevent the prototype cache from ever happening.
             pc[7].u.operand = 0;
         
-            if (structure->propertyAccessesAreCacheable()) {
+            if (structure->propertyAccessesAreCacheable()
+                && !structure->needImpurePropertyWatchpoint()) {
                 vm.heap.writeBarrier(codeBlock);
                 
                 ConcurrentJSLocker locker(codeBlock->m_lock);
@@ -1492,13 +1498,13 @@ LLINT_SLOW_PATH_DECL(slow_path_throw)
     LLINT_THROW(LLINT_OP_C(1).jsValue());
 }
 
-LLINT_SLOW_PATH_DECL(slow_path_handle_watchdog_timer)
+LLINT_SLOW_PATH_DECL(slow_path_handle_traps)
 {
     LLINT_BEGIN_NO_SET_PC();
-    ASSERT(vm.watchdog());
-    if (UNLIKELY(vm.shouldTriggerTermination(exec)))
-        LLINT_THROW(createTerminatedExecutionException(&vm));
-    LLINT_RETURN_TWO(0, exec);
+    ASSERT(vm.needTrapHandling());
+    vm.handleTraps(exec);
+    UNUSED_PARAM(pc);
+    LLINT_RETURN_TWO(throwScope.exception(), exec);
 }
 
 LLINT_SLOW_PATH_DECL(slow_path_debug)
@@ -1600,7 +1606,7 @@ LLINT_SLOW_PATH_DECL(slow_path_check_if_exception_is_uncatchable_and_notify_prof
     LLINT_BEGIN();
     RELEASE_ASSERT(!!throwScope.exception());
 
-    if (isTerminatedExecutionException(throwScope.exception()))
+    if (isTerminatedExecutionException(vm, throwScope.exception()))
         LLINT_RETURN_TWO(pc, bitwise_cast<void*>(static_cast<uintptr_t>(1)));
     LLINT_RETURN_TWO(pc, 0);
 }
@@ -1666,14 +1672,14 @@ extern "C" NO_RETURN_DUE_TO_CRASH void llint_crash()
 
 LLINT_SLOW_PATH_DECL(count_opcode)
 {
-    OpcodeID opcodeID = exec->vm().interpreter->getOpcodeID(pc[0].u.opcode);
+    OpcodeID opcodeID = Interpreter::getOpcodeID(pc[0].u.opcode);
     Data::opcodeStats(opcodeID).count++;
     LLINT_END_IMPL();
 }
 
 LLINT_SLOW_PATH_DECL(count_opcode_slow_path)
 {
-    OpcodeID opcodeID = exec->vm().interpreter->getOpcodeID(pc[0].u.opcode);
+    OpcodeID opcodeID = Interpreter::getOpcodeID(pc[0].u.opcode);
     Data::opcodeStats(opcodeID).slowPathCount++;
     LLINT_END_IMPL();
 }

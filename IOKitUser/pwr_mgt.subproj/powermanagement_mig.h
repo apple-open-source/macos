@@ -91,4 +91,6 @@ enum {
 #define kAssertionCheckTokenKey     "assertionCheckToken"
 #define kAssertionCheckCountKey     "assertionCheckCount"
 
+#define kPSAdapterDetails           "adapterDetails"
+
 #endif

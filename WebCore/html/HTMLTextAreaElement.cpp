@@ -32,7 +32,6 @@
 #include "Editor.h"
 #include "ElementChildIterator.h"
 #include "Event.h"
-#include "EventHandler.h"
 #include "EventNames.h"
 #include "FormController.h"
 #include "FormDataList.h"
@@ -203,13 +202,13 @@ void HTMLTextAreaElement::parseAttribute(const QualifiedName& name, const Atomic
 
 void HTMLTextAreaElement::maxLengthAttributeChanged(const AtomicString& newValue)
 {
-    internalSetMaxLength(parseHTMLNonNegativeInteger(newValue).value_or(-1));
+    internalSetMaxLength(parseHTMLNonNegativeInteger(newValue).valueOr(-1));
     updateValidity();
 }
 
 void HTMLTextAreaElement::minLengthAttributeChanged(const AtomicString& newValue)
 {
-    internalSetMinLength(parseHTMLNonNegativeInteger(newValue).value_or(-1));
+    internalSetMinLength(parseHTMLNonNegativeInteger(newValue).valueOr(-1));
     updateValidity();
 }
 

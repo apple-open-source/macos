@@ -30,7 +30,7 @@ static void testRecoveryKey(void)
 {
     SecRecoveryKey *recoveryKey = NULL;
 
-    recoveryKey = SecRKCreateRecoveryKey(@"AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAGW");
+    recoveryKey = SecRKCreateRecoveryKeyWithError(@"AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAGW", NULL);
     ok(recoveryKey, "got recovery key");
 
     NSData *publicKey = SecRKCopyBackupPublicKey(recoveryKey);

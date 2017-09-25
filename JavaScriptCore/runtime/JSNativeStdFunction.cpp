@@ -35,7 +35,7 @@
 
 namespace JSC {
 
-const ClassInfo JSNativeStdFunction::s_info = { "Function", &Base::s_info, nullptr, CREATE_METHOD_TABLE(JSNativeStdFunction) };
+const ClassInfo JSNativeStdFunction::s_info = { "Function", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSNativeStdFunction) };
 
 JSNativeStdFunction::JSNativeStdFunction(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     : Base(vm, globalObject, structure)
@@ -53,7 +53,7 @@ void JSNativeStdFunction::visitChildren(JSCell* cell, SlotVisitor& visitor)
 void JSNativeStdFunction::finishCreation(VM& vm, NativeExecutable* executable, int length, const String& name, NativeStdFunctionCell* functionCell)
 {
     Base::finishCreation(vm, executable, length, name);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     m_functionCell.set(vm, this, functionCell);
 }
 

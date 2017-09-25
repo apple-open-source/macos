@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google, Inc. All Rights Reserved.
- * Copyright (C) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #include "HTMLDocumentParser.h"
 
 #include "DocumentFragment.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLParserScheduler.h"
@@ -36,6 +37,9 @@
 #include "HTMLTreeBuilder.h"
 #include "HTMLUnknownElement.h"
 #include "JSCustomElementInterface.h"
+#include "LinkLoader.h"
+#include "NavigationScheduler.h"
+#include "ScriptElement.h"
 
 namespace WebCore {
 
@@ -86,7 +90,7 @@ HTMLDocumentParser::~HTMLDocumentParser()
 
 void HTMLDocumentParser::detach()
 {
-    DocumentParser::detach();
+    ScriptableDocumentParser::detach();
 
     if (m_scriptRunner)
         m_scriptRunner->detach();
@@ -205,7 +209,7 @@ void HTMLDocumentParser::runScriptsForPausedTreeBuilder()
         ASSERT(!m_treeBuilder->hasParserBlockingScriptWork());
         // We will not have a scriptRunner when parsing a DocumentFragment.
         if (m_scriptRunner)
-            m_scriptRunner->execute(WTFMove(scriptElement), scriptStartPosition);
+            m_scriptRunner->execute(scriptElement.releaseNonNull(), scriptStartPosition);
     }
 }
 
@@ -294,6 +298,9 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
         }
         m_preloadScanner->scan(*m_preloader, *document());
     }
+    // The viewport definition is known here, so we can load link preloads with media attributes.
+    if (document()->loader())
+        LinkLoader::loadLinksFromHeader(document()->loader()->response().httpHeaderField(HTTPHeaderName::Link), document()->url(), *document(), LinkLoader::MediaAttributeCheck::MediaAttributeNotEmpty);
 }
 
 void HTMLDocumentParser::constructTreeFromHTMLToken(HTMLTokenizer::TokenPtr& rawToken)
@@ -500,7 +507,7 @@ void HTMLDocumentParser::watchForLoad(PendingScript& pendingScript)
     // setClient would call notifyFinished if the load were complete.
     // Callers do not expect to be re-entered from this call, so they should
     // not an already-loaded PendingScript.
-    pendingScript.setClient(this);
+    pendingScript.setClient(*this);
 }
 
 void HTMLDocumentParser::stopWatchingForLoad(PendingScript& pendingScript)
@@ -535,6 +542,11 @@ void HTMLDocumentParser::notifyFinished(PendingScript& pendingScript)
     m_scriptRunner->executeScriptsWaitingForLoad(pendingScript);
     if (!isWaitingForScripts())
         resumeParsingAfterScriptExecution();
+}
+
+bool HTMLDocumentParser::hasScriptsWaitingForStylesheets() const
+{
+    return m_scriptRunner && m_scriptRunner->hasScriptsWaitingForStylesheets();
 }
 
 void HTMLDocumentParser::executeScriptsWaitingForStylesheets()

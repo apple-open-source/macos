@@ -440,6 +440,9 @@
 /* Define if you want to include NetBeans integration. */
 #define FEAT_NETBEANS_INTG 1
 
+/* Define if you want to include process communication. */
+#define FEAT_JOB_CHANNEL 1
+
 /* Define default global runtime path */
 /* #undef RUNTIME_GLOBAL */
 
@@ -466,3 +469,18 @@
 
 /* Define if there is a copyfile.h */
 #define HAVE_COPYFILE_H 1
+
+/* Define if GResource is used to load icons */
+/* #undef USE_GRESOURCE */
+
+/* Define if GTK+ GUI is to be linked against GTK+ 3 */
+/* #undef USE_GTK3 */
+
+/* Define if we have isinf() */
+#define HAVE_ISINF 1
+
+/* Define if we have isnan() */
+#define HAVE_ISNAN 1
+
+/* Define to inline symbol or empty */
+/* #undef inline */

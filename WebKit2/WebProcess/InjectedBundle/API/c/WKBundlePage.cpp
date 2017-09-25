@@ -35,6 +35,8 @@
 #include "InjectedBundleNodeHandle.h"
 #include "InjectedBundlePageEditorClient.h"
 #include "InjectedBundlePageFormClient.h"
+#include "InjectedBundlePageLoaderClient.h"
+#include "InjectedBundlePageResourceLoadClient.h"
 #include "InjectedBundlePageUIClient.h"
 #include "PageBanner.h"
 #include "WKAPICast.h"
@@ -94,12 +96,12 @@ void WKBundlePageSetFormClient(WKBundlePageRef pageRef, WKBundlePageFormClientBa
 
 void WKBundlePageSetPageLoaderClient(WKBundlePageRef pageRef, WKBundlePageLoaderClientBase* wkClient)
 {
-    toImpl(pageRef)->initializeInjectedBundleLoaderClient(wkClient);
+    toImpl(pageRef)->setInjectedBundlePageLoaderClient(std::make_unique<InjectedBundlePageLoaderClient>(wkClient));
 }
 
 void WKBundlePageSetResourceLoadClient(WKBundlePageRef pageRef, WKBundlePageResourceLoadClientBase* wkClient)
 {
-    toImpl(pageRef)->initializeInjectedBundleResourceLoadClient(wkClient);
+    toImpl(pageRef)->setInjectedBundleResourceLoadClient(std::make_unique<InjectedBundlePageResourceLoadClient>(wkClient));
 }
 
 void WKBundlePageSetPolicyClient(WKBundlePageRef pageRef, WKBundlePagePolicyClientBase* wkClient)
@@ -158,11 +160,6 @@ void WKBundlePageDidExitFullScreen(WKBundlePageRef pageRef)
 #endif
 }
 
-void WKBundlePageSetDiagnosticLoggingClient(WKBundlePageRef pageRef, WKBundlePageDiagnosticLoggingClientBase* client)
-{
-    toImpl(pageRef)->initializeInjectedBundleDiagnosticLoggingClient(client);
-}
-
 WKBundlePageGroupRef WKBundlePageGetPageGroup(WKBundlePageRef pageRef)
 {
     return toAPI(toImpl(pageRef)->pageGroup());
@@ -184,7 +181,7 @@ void WKBundlePageClickMenuItem(WKBundlePageRef pageRef, WKContextMenuItemRef ite
 }
 
 #if ENABLE(CONTEXT_MENUS)
-static PassRefPtr<API::Array> contextMenuItems(const WebContextMenu& contextMenu)
+static Ref<API::Array> contextMenuItems(const WebContextMenu& contextMenu)
 {
     auto items = contextMenu.items();
 
@@ -203,7 +200,7 @@ WKArrayRef WKBundlePageCopyContextMenuItems(WKBundlePageRef pageRef)
 #if ENABLE(CONTEXT_MENUS)
     WebContextMenu* contextMenu = toImpl(pageRef)->contextMenu();
 
-    return toAPI(contextMenuItems(*contextMenu).leakRef());
+    return toAPI(&contextMenuItems(*contextMenu).leakRef());
 #else
     UNUSED_PARAM(pageRef);
     return nullptr;
@@ -217,7 +214,7 @@ WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef pageRef, W
     if (!contextMenu)
         return nullptr;
 
-    return toAPI(contextMenuItems(*contextMenu).leakRef());
+    return toAPI(&contextMenuItems(*contextMenu).leakRef());
 #else
     UNUSED_PARAM(pageRef);
     UNUSED_PARAM(point);
@@ -368,22 +365,22 @@ WKBundleBackForwardListRef WKBundlePageGetBackForwardList(WKBundlePageRef pageRe
 
 void WKBundlePageInstallPageOverlay(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().installPageOverlay(toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
+    toImpl(pageRef)->mainFrame()->pageOverlayController().installPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
 }
 
 void WKBundlePageUninstallPageOverlay(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().uninstallPageOverlay(toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
+    toImpl(pageRef)->mainFrame()->pageOverlayController().uninstallPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::DoNotFade);
 }
 
 void WKBundlePageInstallPageOverlayWithAnimation(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().installPageOverlay(toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
+    toImpl(pageRef)->mainFrame()->pageOverlayController().installPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
 }
 
 void WKBundlePageUninstallPageOverlayWithAnimation(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->mainFrame()->pageOverlayController().uninstallPageOverlay(toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
+    toImpl(pageRef)->mainFrame()->pageOverlayController().uninstallPageOverlay(*toImpl(pageOverlayRef)->coreOverlay(), WebCore::PageOverlay::FadeMode::Fade);
 }
 
 void WKBundlePageSetTopOverhangImage(WKBundlePageRef pageRef, WKImageRef imageRef)

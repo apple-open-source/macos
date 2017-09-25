@@ -1,9 +1,5 @@
 # encoding: utf-8
-######################################################################
-# This file is imported from the minitest project.
-# DO NOT make modifications in this repo. They _will_ be reverted!
-# File a patch instead and assign it to Ryan Davis.
-######################################################################
+# frozen_string_literal: false
 
 require 'tempfile'
 require 'stringio'
@@ -62,12 +58,13 @@ class MetaMetaMetaTestCase < MiniTest::Unit::TestCase
   def with_output
     synchronize do
       begin
+        save = MiniTest::Unit.output
         @output = StringIO.new("")
         MiniTest::Unit.output = @output
 
         yield
       ensure
-        MiniTest::Unit.output = STDOUT
+        MiniTest::Unit.output = save
       end
     end
   end

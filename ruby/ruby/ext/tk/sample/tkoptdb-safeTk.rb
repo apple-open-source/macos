@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: false
 
 require 'multi-tk'
 
@@ -31,7 +32,7 @@ file = File.expand_path('tkoptdb.rb', File.dirname(__FILE__))
 
 ip = MultiTkIp.new_safeTk{
   # When a block is given to 'new_safeTk' method,
-  # the block is evaluated on $SAFE==4.
+  # the block is evaluated on $SAFE==1.
   ent.each{|pat, val| Tk.tk_call('option', 'add', pat, val)}
 }
 

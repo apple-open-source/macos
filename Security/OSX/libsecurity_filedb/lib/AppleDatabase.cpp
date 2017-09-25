@@ -1687,7 +1687,7 @@ DbModifier::commit()
         return;
     try
     {
-        secnotice("integrity", "committing to %s", mAtomicFile.path().c_str());
+        secinfo("integrity", "committing to %s", mAtomicFile.path().c_str());
 
 		WriteSection aHeaderSection(Allocator::standard(), size_t(HeaderSize));
 		// Set aHeaderSection to the correct size.
@@ -2294,40 +2294,6 @@ AppleDatabase::dataDelete(DbContext &inDbContext,
 {
     try
     {
-		// syslog if it's the .Mac password
-		CSSM_DB_RECORD_ATTRIBUTE_DATA attrData;
-		// we have to do this in two phases -- the first to get the record type, and the second to actually read the attributes.  Otherwise, we might get
-		// an exception.
-		memset(&attrData, 0, sizeof(attrData));
-		dataGetFromUniqueRecordId(inDbContext, inUniqueRecord, &attrData, NULL);
-
-		if (attrData.DataRecordType == CSSM_DL_DB_RECORD_GENERIC_PASSWORD)
-		{
-			CSSM_DB_ATTRIBUTE_DATA attributes;
-
-			// setup some attributes and see if we are indeed the .Mac password
-			attributes.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER;
-			attributes.Info.Label.AttributeID = 'svce';
-			attributes.Info.AttributeFormat = 0;
-			attributes.NumberOfValues = 1;
-			attributes.Value = NULL;
-
-			attrData.NumberOfAttributes = 1;
-			attrData.AttributeData = &attributes;
-
-			dataGetFromUniqueRecordId(inDbContext, inUniqueRecord, &attrData, NULL);
-
-			// now check the results
-			std::string dataString((const char*) attrData.AttributeData[0].Value[0].Data, attrData.AttributeData[0].Value[0].Length);
-			if (dataString == "iTools")
-			{
-				syslog(LOG_WARNING, "Warning: Removed .Me password");
-			}
-
-			free(attrData.AttributeData[0].Value[0].Data);
-			free(attrData.AttributeData[0].Value);
-		}
-
 		StLock<Mutex> _(mWriteLock);
 		Table::Id aTableId;
 		const RecordId aRecordId(parseUniqueRecord(inUniqueRecord, aTableId));

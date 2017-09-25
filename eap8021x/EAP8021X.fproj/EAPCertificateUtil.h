@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,6 +136,18 @@ EAPCFDataArrayCreateSecCertificateArray(CFArrayRef certs);
 
 CFTypeRef
 isA_SecCertificate(CFTypeRef obj);
+
+CFTypeRef
+isA_SecIdentity(CFTypeRef obj);
+
+/*
+ * Function: EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs
+ * Purpose:
+ *   Create client's certificate trust chain using configuration passed
+ *   by NEHotspotConfiguration application.
+ */
+OSStatus
+EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef chain, CFArrayRef * ret_array);
 
 /*
  * EAPSecCertificateAttribute dictionary keys:

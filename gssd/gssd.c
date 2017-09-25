@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,7 +47,6 @@
 
 #include <bsm/audit.h>
 #include <bsm/libbsm.h>
-#include <libkern/OSAtomic.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <mach/mach.h>
@@ -56,8 +55,6 @@
 #include <uuid/uuid.h>
 
 #include <bootstrap_priv.h>
-#include <asl.h>
-#include <asl_private.h>
 #include <ctype.h>
 #include <errno.h>
 #include <grp.h>
@@ -67,6 +64,7 @@
 #include <pthread.h>
 #include <pwd.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,15 +109,15 @@ static uint32_t uid_to_gss_name(uint32_t *, uid_t, gss_OID, gss_name_t *);
 static char *	get_next_kerb_component(char *);
 static uint32_t gss_name_to_ucred(uint32_t *, gss_name_t, uid_t *, gid_t *, uint32_t *);
 static char *	lowercase(char *);
-static char *	canonicalize_host(const char *, char **);
-static uint32_t str_to_svc_names(uint32_t *, const char *, gss_name_t *, uint32_t *);
+static char *	canonicalize_host(const char *);
+static const char *get_local_host_name(void);
+static uint32_t str_to_svc_name(uint32_t *, const char *, gss_name_t *);
 static void	gssd_init(void);
 static void *	receive_message(void *);
 static void	new_worker_thread(void);
 static void	end_worker_thread(void);
 static void	compute_new_timeout(struct timespec *);
 static void *	shutdown_thread(void *);
-static void	disable_timeout(int);
 static void *	timeout_thread(void *);
 static void	vm_alloc_buffer(gss_buffer_t, uint8_t **, uint32_t *);
 static uint32_t GetSessionKey(uint32_t *, gss_OID mech, gss_ctx_id_t, gssd_byte_buffer *,
@@ -147,11 +145,11 @@ static	pthread_t timeout_thr;		/* Thread sees if we've been inactive and exits *
 static pthread_t shutdown_thr;		/* Thread to handle signals */
 
 /* Counters used in debugging for init and accept context */
-static volatile int32_t initCnt = 0;
-static volatile int32_t initErr = 0;
+static atomic_int initCnt = 0;
+static atomic_int initErr = 0;
 
-static volatile int32_t acceptCnt = 0;
-static volatile int32_t acceptErr = 0;
+static atomic_int acceptCnt = 0;
+static atomic_int acceptErr = 0;
 
 uid_t NobodyUid = NOBODY;
 gid_t NobodyGid = NOBODY;
@@ -464,8 +462,6 @@ int main(int argc, char *argv[])
 	(void) pthread_attr_init(attr);
 	(void) pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
 
-	/* Allow set_debug_level to disable our timeout */
-	set_debug_level_init(disable_timeout);
 	/* Set initial debug_level */
 	set_debug_level(debug_opt);
 	/* Check to see if the master asl filter is set */
@@ -473,7 +469,6 @@ int main(int argc, char *argv[])
 
 	/* Set our session and uid if needed */
 	set_identity();
-
 
 	gssd_init();
 
@@ -518,9 +513,9 @@ int main(int argc, char *argv[])
 
 	pthread_attr_destroy(attr);
 
-	DEBUG(2, "Total %d init_sec_context errors out of %d calls\n", initErr, initCnt);
-	DEBUG(2, "Total %d accept_sec_context errors out of %d calls\n", acceptErr, acceptCnt);
-	DEBUG(2, "Total entries left = %d\n", ctx_counter);
+	Debug("Total %d init_sec_context errors out of %d calls\n", initErr, initCnt);
+	Debug("Total %d accept_sec_context errors out of %d calls\n", acceptErr, acceptCnt);
+	Debug("Total entries left = %d\n", ctx_counter);
 #ifdef VDEBUG
 	DEBUG(3, "exiting with transaction count = %lu, "
 		"standby count = %lu\n",
@@ -602,7 +597,9 @@ uid_to_gss_name(uint32_t *minor, uid_t uid, gss_OID oid, gss_name_t *name)
 	realmlen = default_realm ? strlen(default_realm)  : 0;
 	len = strlen(pwd->pw_name) + 1 + realmlen + 1;
 	len = maximum(len, 10);  /* max string rep for uids */
-	len = maximum(len, 5 + strlen(local_host) + 1 + realmlen + 1);
+	if ((pwd->pw_uid == 0 && gss_oid_equal(oid, GSS_KRB5_NT_PRINCIPAL_NAME)) ||
+	    gss_oid_equal(oid, GSS_C_NT_HOSTBASED_SERVICE))
+		len = maximum(len, 5 + strlen(get_local_host_name()) + 1 + realmlen + 1);
 	if ((princ_str = malloc(len)) == NULL) {
 		free_local_realms(realms);
 		return (GSS_S_FAILURE);
@@ -612,9 +609,9 @@ uid_to_gss_name(uint32_t *minor, uid_t uid, gss_OID oid, gss_name_t *name)
 			/* use the host principal */
 			if (default_realm)
 				snprintf(princ_str, len,
-					 "host/%s@%s", local_host, default_realm);
+					 "host/%s@%s", get_local_host_name(), default_realm);
 			else
-				snprintf(princ_str, len, "host/%s", local_host);
+				snprintf(princ_str, len, "host/%s", get_local_host_name());
 		} else {
 			if (default_realm)
 				snprintf(princ_str, len,
@@ -630,7 +627,7 @@ uid_to_gss_name(uint32_t *minor, uid_t uid, gss_OID oid, gss_name_t *name)
 	else if (gss_oid_equal(oid, GSS_C_NT_MACHINE_UID_NAME))
 		memcpy(princ_str, &pwd->pw_uid, sizeof(pwd->pw_uid));
 	else if (gss_oid_equal(oid, GSS_C_NT_HOSTBASED_SERVICE) && pwd->pw_uid == 0)
-		snprintf(princ_str, len, "host@%s", local_host);
+		snprintf(princ_str, len, "host@%s", get_local_host_name());
 	else {
 		free(princ_str);
 		free_local_realms(realms);
@@ -639,7 +636,7 @@ uid_to_gss_name(uint32_t *minor, uid_t uid, gss_OID oid, gss_name_t *name)
 
 	str_to_buf(princ_str, &buf_name);
 
-	DEBUG(2, "importing name %s\n", princ_str);
+	Debug("importing name %s\n", princ_str);
 
 	major = gss_import_name(minor, &buf_name, oid, name);
 
@@ -780,7 +777,7 @@ out:
 
 	/*
 	 * If we could not find a mapping for the principal then they are mapped to nobody.
-	 * This is important for service principals that probably don't have a mapping. Particularly during 
+	 * This is important for service principals that probably don't have a mapping. Particularly during
 	 * mounting.
 	 */
 	return (GSS_S_COMPLETE);
@@ -812,7 +809,7 @@ gss_name_to_ucred(uint32_t *min, gss_name_t name,
 	(void) gss_release_buffer(&ms, &xname);
 
 	if (ret) {
-		DEBUG(2, "mbr_identifier_to_uid: failed to map export name to uuid: reason %d\n", ret);
+		Debug("mbr_identifier_to_uid: failed to map export name to uuid: reason %d\n", ret);
 		return (gss_name_to_ucred_1(min, name, uid, gids, ngroups));
 	}
 
@@ -854,52 +851,68 @@ lowercase(char *s)
 }
 
 /*
- * Turn a hostname into a FQDN if we can. Optionally do the reverse lookup
- * and return it as well in the rfqdn parameter if it is different from the
- * forward  lookup. If that parameter is NULL,  don't try the reverse lookup.
- * at all. If the foward lookup fails we return NULL.
- * If we succeed it is the caller's responsibility to free the results.
+ * Turn a hostname into a FQDN if we can.
+ *
+ * N.B. In our current normal operation this routine  should never be called.
  */
 static char *
-canonicalize_host(const char *host, char **rfqdn)
+canonicalize_host(const char *host)
 {
-	struct hostent *hp, *rhp;
-	int h_err;
+	struct addrinfo ai, *res;
+	int error;
 	char *fqdn;
+	static volatile atomic_flag called = ATOMIC_FLAG_INIT;
 
-	if (rfqdn)
-		*rfqdn = NULL;
-
-	hp = getipnodebyname(host, AF_INET6, AI_DEFAULT, &h_err);
-	if (hp == NULL) {
-		DEBUG(2, "host look up for %s returned %d\n", host, h_err);
+	if (!atomic_flag_test_and_set(&called))
+	       Log("Canonicalized_host called");
+	memset(&ai, 0, sizeof(struct addrinfo));
+	ai.ai_flags = AI_ADDRCONFIG | AI_CANONNAME;
+	ai.ai_family = PF_UNSPEC;
+	error = getaddrinfo(host, NULL, &ai, &res);
+	if (error) {
+		Info("Could not lookup host %s error = %s\n", host, gai_strerror(error));
 		return (NULL);
 	}
-	fqdn = strdup(lowercase(hp->h_name));
+	fqdn = strdup(lowercase(res->ai_canonname));
 	if (fqdn == NULL) {
-		Log("Could not allocat hostname in canonicalize_host\n");
+		Log("Could not allocate hostname in canonicalize_host\n");
 		return (NULL);
 	}
-
-	if (rfqdn) {
-		DEBUG(2, "Trying reverse lookup\n");
-		rhp = getipnodebyaddr(hp->h_addr_list[0], hp->h_length, AF_INET6, &h_err);
-		if (rhp) {
-			if (strncmp(fqdn, lowercase(rhp->h_name), MAXHOSTNAMELEN) != 0) {
-				*rfqdn = strdup(rhp->h_name);
-				if (*rfqdn == NULL)
-					Log("Could not allocat hostname in canonicalize_host\n");
-			}
-			freehostent(rhp);
-		}
-		else {
-			DEBUG(2, "reversed host look up for %s returned %d\n", host, h_err);
-		}
-	}
-
-	freehostent(hp);
+	freeaddrinfo(res);
 
 	return (fqdn);
+}
+
+/*
+ * get_local_host_name
+ *
+ * Return the FQDN, lowercase of our host name
+ * N.B.: In normal operation we should never need to call this routine.
+ */
+static void
+get_local_host_name_really(void)
+{
+	char hostbuf[MAXHOSTNAMELEN];
+
+	Log("Calling get_local_host_name");
+	gethostname(hostbuf, MAXHOSTNAMELEN);
+	local_host = canonicalize_host(hostbuf);
+	if ( local_host == NULL) {
+		Info("Could not canonicalize our host name in gssd_init\n");
+		local_host = strdup(lowercase(hostbuf));
+	}
+}
+
+static pthread_once_t gethostonce = PTHREAD_ONCE_INIT;
+
+static const char *
+get_local_host_name(void)
+{
+	if (pthread_once(&gethostonce, get_local_host_name_really)) {
+		Log("Could not get local host name!");
+		return (NULL);
+	}
+	return (local_host);
 }
 
 /*
@@ -963,7 +976,7 @@ construct_hostbased_service_name(uint32_t *minor, const char *service, const cha
 
 	major = gss_import_name(minor, &name_buf, GSS_C_NT_HOSTBASED_SERVICE, svcname);
 
-	DEBUG(2, "gss_import_name returned %#K", major);
+	Debug("gss_import_name returned %#K", major);
 
 	free(s);
 	return (major);
@@ -971,46 +984,32 @@ construct_hostbased_service_name(uint32_t *minor, const char *service, const cha
 
 /*
  * str_to_svc_name: Given a string representation of a service name, convert it
- * into a set of  gss service names of name type GSS_KRB5_NT_PRINCIPAL_NAME.
+ * into a  gss service name of name type GSS_KRB5_NT_PRINCIPAL_NAME.
  *
- * We get up to three names, lowercase of the forward canonicalization of the
- * host name, lowercase of the host name itself, and the lowercase of the reverse
- * canonicalization of the host name.
- *
- * name_count is an in/out parameter that says what the size is of the svcname
- * array coming in and the number of gss names found coming out.
- * if name_count is one, no canonicalization is done
- * if name_count is two, return the lowercase of the forward canonicalization
- *	followed by the non canonicalized host name
- * if name_count is three, the two elements above followed by the lowercase of
- *	the reverse lookup.
- *
- * We return GSS_S_COMPLETE if we can produce at least one service name.
+ * We return GSS_S_COMPLETE if we can produce the  service name.
  */
 
 #define LKDCPREFIX "LKDC:"
 
 static uint32_t
-str_to_svc_names(uint32_t *minor, const char *svcstr,
-	gss_name_t *svcname, uint32_t *name_count)
+str_to_svc_name(uint32_t *minor, const char *svcstr, gss_name_t *svcname)
 {
-	uint32_t major __unused /* To make the static analyser happy */, first_major;
+	uint32_t major __unused /* To make the static analyser happy */;
 	char *realm = NULL /* default_realm */, *host;
+	char lhost[MAXHOSTNAMELEN+1];
 	char *s, *p, *service;
-	char *fqdn = NULL, *rfqdn = NULL;
-	uint32_t count = *name_count;
+	char *fqdn = NULL;
 	int is_lkdc;
 	krb5_realm *realms = NULL;
 
 	*minor = 0;
 	major = GSS_S_FAILURE;
-	*name_count = 0;
 
 	if (svcstr == NULL) {
 		Log("Null service name string\n");
 		return (GSS_S_FAILURE);
 	}
-	DEBUG(3, "%s count = %d\n", svcstr, count);
+	DEBUG(3, "%s\n", svcstr);
 	service = strdup(svcstr);
 	if (service == NULL) {
 		Log("Out of memory\n");
@@ -1027,8 +1026,8 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		 * We only have the service name so we (this host)
 		 * must be our instance.
 		 */
-		host = local_host;
-
+		strlcpy(lhost, get_local_host_name(), sizeof(lhost));
+		host = lhost;
 	} else if (*p == '@') {
 		/* Have a host based service name */
 		/* Terminate service part of name */
@@ -1041,8 +1040,7 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 			return (GSS_S_BAD_NAME);
 		}
 		major = construct_hostbased_service_name(minor, service, host, svcname);
-		if (major == GSS_S_COMPLETE)
-			*name_count = 1;
+
 		return (major);
 	} else if (*p == '/') {
 		/* We have a kerberos instance thus a kerberos principal type */
@@ -1073,7 +1071,6 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		 */
 		major = construct_hostbased_service_name(minor, service, host, svcname);
 		if (major == GSS_S_COMPLETE) {
-			*name_count = 1;
 			free(service);
 			return (major);
 		}
@@ -1091,44 +1088,29 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		return (GSS_S_BAD_NAME);
 	}
 
+	/*
+	 * At this point we have a service, host, and realm.
+	 * We should try and canonicalize the host instance.
+	 * N.B. In practice we should not get here. For NFS there
+	 * is no realm part. Service name is construted from the
+	 * mount on part from the mount structure in the kernel.
+	 * SMB does not go through this routine at all.
+	 */
 
 	is_lkdc = (strncmp(realm, LKDCPREFIX, strlen(LKDCPREFIX)) == 0);
+	if (!is_lkdc) {
+		fqdn = canonicalize_host(host);
+		if (fqdn)
+			host = fqdn;
+	}
+
 	/* Don't lowercase an LKDC instance */
-	major = construct_service_name(minor, service, host, realm, !is_lkdc, &svcname[*name_count]);
-	if (major == GSS_S_COMPLETE)
-		*name_count += 1;
-	first_major = major;
+	major = construct_service_name(minor, service, host, realm, !is_lkdc, svcname);
 
-	/* Don't waste time trying to canonicalize local KDCs */
-	if (count == 1 || is_lkdc)
-		goto done;
-
-	fqdn = canonicalize_host(host, (count == 3) ? &rfqdn : NULL);
-	if (fqdn) {
-		if (strncmp(fqdn, host, MAXHOSTNAMELEN) != 0) {
-			major = construct_service_name(minor, service, fqdn, realm, true, &svcname[*name_count]);
-			if (major == GSS_S_COMPLETE)
-				*name_count += 1;
-		} else {
-			free(fqdn);
-		}
-	}
-
-	if (rfqdn) {
-		if (*name_count < count) {
-			major = construct_service_name(minor, service, rfqdn, realm, true, &svcname[*name_count]);
-			if (major == GSS_S_COMPLETE)
-				*name_count += 1;
-		} else {
-			free(rfqdn);
-		}
-	}
-
-done:
 	free(service);
 	free_local_realms(realms);
 
-	return (*name_count ? GSS_S_COMPLETE : first_major);
+	return (major);
 }
 
 /*
@@ -1212,16 +1194,15 @@ blob_to_name(uint32_t *min, gssd_nametype nt, gssd_byte_buffer name, uint32_t si
 }
 
 static uint32_t
-blob_to_svcnames(uint32_t *min, gssd_nametype nt, gssd_byte_buffer svc_princ, uint32_t size,
-	gssd_mechtype mech, gss_name_t *svcname, uint32_t *name_count)
+blob_to_svcname(uint32_t *min, gssd_nametype nt, gssd_byte_buffer svc_princ, uint32_t size,
+		gssd_mechtype mech, gss_name_t *svcname)
 {
 	*min = GSS_S_COMPLETE;
 
 	switch (nt) {
 	case GSSD_STRING_NAME:
-		return (str_to_svc_names(min, (char *)svc_princ, svcname, name_count));
+		return (str_to_svc_name(min, (char *)svc_princ, svcname));
 	default:
-		*name_count = 1;
 		return (blob_to_name(min, nt, svc_princ, size, &mech, NULL, NULL, svcname));
 	}
 }
@@ -1235,7 +1216,6 @@ gssd_init(void)
 {
 	struct passwd *pwent;
 	struct group *grent;
-	char hostbuf[MAXHOSTNAMELEN];
 
 	/* Set up mech table */
 	mechtab[GSSD_KRB5_MECH] = GSS_KRB5_MECHANISM;
@@ -1255,26 +1235,19 @@ gssd_init(void)
 	grent = getgrnam("nobody");
 	NobodyGid = grent ? grent->gr_gid : NOBODY;
 
-	gethostname(hostbuf, MAXHOSTNAMELEN);
-	local_host = canonicalize_host(hostbuf, NULL);
-	if ( local_host == NULL) {
-		Info("Could not canonicalize our host name in gssd_init\n");
-		local_host = strdup(lowercase(hostbuf));
-	}
-
 	/* Figure out how big a buffer we need for getting pwd entries */
 	GetPWMaxRSz = sysconf(_SC_GETPW_R_SIZE_MAX);
 	GetPWMaxRSz = (GetPWMaxRSz == -1) ? 512 : GetPWMaxRSz;
 
-	DEBUG(2, "Starting with pid = %d\n\n\n", getpid());
+	Debug("Starting with pid = %d\n\n\n", getpid());
 	if (get_debug_level()) {
 		krb5_realm *realms = NULL;
 		krb5_realm drealm = NULL;
 
 		if (get_local_realms(&realms))
 			drealm = *realms;
-		Info("Kerberos default realm is %s for %s\n\n",
-			     drealm ? drealm : "No realm", local_host);
+		Info("Kerberos default realm is %s\n\n",
+		     drealm ? drealm : "No realm");
 		free_local_realms(realms);
 	}
 }
@@ -1396,43 +1369,20 @@ static void*
 shutdown_thread(void *arg __attribute__((unused)))
 {
 	int sig;
-	int status;
-	int remote_token;
-	int master_token;
 	sigset_t quitset[1];
-	char *notify_name = asl_remote_notify_name();
 
 	pthread_setname_np("Signal thread");
 
 	sigemptyset(quitset);
 	sigaddset(quitset, SIGQUIT);
 
-	status = notify_register_signal(notify_name, SIGUSR2, &remote_token);
-	if (status != NOTIFY_STATUS_OK)
-		Log("Could not register for asl notifications: %s\n", asl_remote_notify_name());
-	status = notify_register_signal(NOTIFY_SYSTEM_MASTER, SIGUSR2, &master_token);
-	if (status != NOTIFY_STATUS_OK)
-		Log("Could not register for asl notifications: %s\n", NOTIFY_SYSTEM_MASTER);
-
-	/*
-	 * N.B.  From the man page: "A true indication is returned the first time notify_check
-	 * is called for a token.  Subsequent calls give a true indication when notifications have
-	 * been posted for the name associated with the notification token."
-	 *
-	 * So we do a notify_check here for the above tokens to get the true status when processing
-	 * SIGUSR2 below.
-	 */
-	(void)notify_check(remote_token, &status);
-	(void)notify_check(master_token, &status);
-
 	do {
-		int asl_notification = 0;
 		int debug_level = get_debug_level();
 
 		if (sigwait(waitset, &sig))
 			Log("sigwait failed %s", strerror(errno));
 
-		DEBUG(2, "Received signal %d\n", sig);
+		Debug("Received signal %d\n", sig);
 		switch (sig) {
 		case SIGQUIT:
 			if (get_debug_level() > 1)
@@ -1446,30 +1396,14 @@ shutdown_thread(void *arg __attribute__((unused)))
 			debug_level++;
 			break;
 		case SIGUSR2:
-			status = notify_check(master_token, &asl_notification);
-			if (status != NOTIFY_STATUS_OK)
-				Log("Could not retreive notification for %s", NOTIFY_SYSTEM_MASTER);
-			if (asl_notification == 0) {
-				status = notify_check(remote_token, &asl_notification);
-				if (status != NOTIFY_STATUS_OK )
-					Log("Could not retreive notification for %s", asl_remote_notify_name());
-				if (asl_notification == 0) {
-					if (debug_level)
-						debug_level--;
-				}
-			}
+			if (debug_level)
+				debug_level--;
 			break;
 		case SIGHUP:
 			debug_level = !debug_level;
 			break;
 		}
-		if (asl_notification) {
-			set_debug_level(-1);
-			Info("Debug set to %d by syslog\n", get_debug_level());
-		} else {
-			set_debug_level(debug_level);
-			Info("Debug level set to %d", get_debug_level());
-		}
+		set_debug_level(debug_level);
 	} while (sigismember(contset, sig) || sig == 0);
 
 	pthread_mutex_lock(numthreads_lock);
@@ -1483,7 +1417,6 @@ shutdown_thread(void *arg __attribute__((unused)))
 	 */
 	pthread_cond_broadcast(numthreads_cv);
 	pthread_mutex_unlock(numthreads_lock);
-	free(notify_name);
 
 	return (NULL);
 }
@@ -1496,16 +1429,6 @@ compute_new_timeout(struct timespec *new)
 	gettimeofday(&current, NULL);
 	new->tv_sec = current.tv_sec + timeout;
 	new->tv_nsec = 1000 * current.tv_usec;
-}
-
-static int no_timeout;
-
-static void
-disable_timeout(int disable)
-{
-	pthread_mutex_lock(numthreads_lock);
-	no_timeout = disable;
-	pthread_mutex_unlock(numthreads_lock);
 }
 
 static void*
@@ -1522,7 +1445,7 @@ timeout_thread(void *arg __attribute__((unused)))
 	 * the first of which was started in main. Hence we have the test below for
 	 * greater than one instead of zero.
 	 */
-	while (bye ? (rv == 0 && numthreads > 1) : (rv == 0 || no_timeout || numthreads > 1)) {
+	while (bye ? (rv == 0 && numthreads > 1) : (rv == 0 || get_debug_level() || numthreads > 1)) {
 		if (bye < 2)
 			compute_new_timeout(&exittime);
 		/*
@@ -1536,6 +1459,8 @@ timeout_thread(void *arg __attribute__((unused)))
 			bye++;
 		rv = pthread_cond_timedwait(numthreads_cv,
 					numthreads_lock, &exittime);
+
+		set_debug_level(-1);
 
 		DEBUG(4, "timeout_thread: rv = %s %d\n",
 			rv ? strerror(rv) : "signaled", numthreads);
@@ -2014,7 +1939,7 @@ find_realm_principal(uint32_t *minor, gss_name_t sname,  char **name, size_t *si
 	major = gss_name_to_kprinc(minor, sname, &sprinc, kctx);
 	if (major != GSS_S_COMPLETE) {
 		krb5_free_context(kctx);
-		DEBUG(2, "Could not convert gss name to kerberos principal %#K %#k\n", major, GSS_KRB5_MECHANISM, *minor);
+		Debug("Could not convert gss name to kerberos principal %#K %#k\n", major, GSS_KRB5_MECHANISM, *minor);
 		return (major);
 	}
 
@@ -2241,30 +2166,8 @@ done:
 
 /*
  * gssd_context type and routines to hold the underlying gss context as well
- * as the service name
- *
- * The reason we do this is on the initial call to gss_init_sec_context is that the
- * service name can generate up to two extra service names to try.
- * See str_to_svc_names above. Now we need to store the found name
- * where we can retrieve it on the next call if we return CONTINUE_NEEDED and
- * an easy way to do that is to construct our own context data structure to wrap
- * the real gss context and the service name used.
- *
- * You might be wondering why not just call str_to_svc_names again and not
- * worry about another level of context wrapping. Apart from the added work
- * of generating the candidate names and finding the "right" name again when we go
- * through the loop calling gss_init_sec_context, it won't work unless the first
- * name is the chosen name. When we pass in the address of the context to
- * gss_init_sec_context, on error gss will happily delete the context and set
- * our context now to be GSS_C_NO_CONTEXT.
- *
- * So let us say we generate 3 candidate service names and the second one will actually
- * work. The first time around gss_init_sec_context will fail and set our passed
- * in context to GSS_C_NO_CONTEXT  and on the second call succeed, but
- * gss_init_sec_context will think this is an initial context (since the context
- * is NULL) and create a new one and return to the caller CONTINUE_NEEDED. Oops
- * we're in an infinite loop at this point, since the server will receive a valid
- * initial token and around we go.
+ * as the service name and the vproc_transaction handle. The latter keeps
+ * gssd "dirty" when we have an oustanding context setup.
  */
 typedef struct {
 	gss_ctx_id_t gss_cntx;
@@ -2311,8 +2214,6 @@ gssd_get_context(gssd_ctx ctx, gss_name_t *svc_name)
 	return (gss_context);
 }
 
-#define MAX_SVC_NAMES 3
-
 static uint32_t
 svc_mach_gss_init_sec_context_common(
 				     gssd_mechtype mech,
@@ -2337,17 +2238,17 @@ svc_mach_gss_init_sec_context_common(
 	uint32_t major, minor;
 	int  lucid = ((*gssd_flags & GSSD_LUCID_CONTEXT) == GSSD_LUCID_CONTEXT);
 
-	DEBUG(2, "Using mech = %d\n", mech);
+	Debug("Using mech = %d\n", mech);
 	DEBUG(3, "\tcred_handle = %p\n", cred_handle);
 	DEBUG(3, "\tgss_context = %p\n", context);
 
 	if (!context)
 		return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_CALL_INACCESSIBLE_WRITE);
 	DEBUG(3, "\t*gss_context = %p\n", (void *)*context);
-	DEBUG(2, "itokenCnt = %d\n", itokenCnt);
+	Debug("itokenCnt = %d\n", itokenCnt);
 	HEXDUMP(2, (char *)itoken, (itokenCnt > 80) ? 80 : itokenCnt);
 	if (die) {
-		DEBUG(2, "Forced server death\n");
+		Debug("Forced server death\n");
 		_exit(0);
 	}
 
@@ -2414,18 +2315,18 @@ svc_mach_gss_init_sec_context_common(
 		major_stat = GetSessionKey(minor_stat, mech_oid, *context,
 					   skey, skeyCnt, lucid);
 
-		DEBUG(2, "Client key: length = %d\n", *skeyCnt);
+		Debug("Client key: length = %d\n", *skeyCnt);
 		HEXDUMP(2, (char *) *skey, *skeyCnt);
 	}
 
 
-	OSAtomicIncrement32(&initCnt);
+	initCnt++;
 	if (major_stat != GSS_S_CONTINUE_NEEDED && major_stat != GSS_S_COMPLETE)
-		OSAtomicIncrement32(&initErr);
+		initErr++;
 
 	DEBUG(3, "cred = %p\n", cred_handle);
 	DEBUG(3, "\tgss_context = %p\n", context ? *context : NULL);
-	DEBUG(2, "%sotokenCnt = %d\n", get_debug_level() > 2 ? "\t" : "", *otokenCnt);
+	Debug("%sotokenCnt = %d\n", get_debug_level() > 2 ? "\t" : "", *otokenCnt);
 	HEXDUMP(2, (char *)*otoken, (*otokenCnt > 80) ? 80 : *otokenCnt);
 	DEBUG(3, "Returning from init %d errors out of a total %d calls\n", initErr, initCnt);
 
@@ -2567,13 +2468,13 @@ svc_mach_gss_init_sec_context_v3(
 	uint32_t *major_stat,
 	uint32_t *minor_stat)
 {
-	gss_name_t svc_gss_name[MAX_SVC_NAMES];
+	gss_name_t svc_gss_name;
 	gss_ctx_id_t g_cntx = GSS_C_NO_CONTEXT;
-	uint32_t i, gnames = MAX_SVC_NAMES, name_index = MAX_SVC_NAMES;
+	uint32_t i;
 	uint32_t mstat;   /* Minor status for cleaning up. */
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
-	DEBUG(2, "Enter flags = %8.0x", *gssd_flags);
+	Debug("Enter uid = %d flags = %8.0x", uid, *gssd_flags);
 
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
@@ -2588,14 +2489,12 @@ svc_mach_gss_init_sec_context_v3(
 	*major_stat = GSS_S_COMPLETE;
 	*minor_stat = 0;
 
-	*svc_gss_name = GSS_C_NO_NAME;
+	svc_gss_name = GSS_C_NO_NAME;
 
 	if (!check_audit(atok, FALSE)) {
 		kr = KERN_NO_ACCESS;
 		goto out;
 	}
-
-	krb5_set_home_dir_access(NULL, (*gssd_flags & GSSD_HOME_ACCESS_OK) ? 1 : 0);
 
 	if (displayname)
 		*displayname = '\0';
@@ -2611,11 +2510,8 @@ svc_mach_gss_init_sec_context_v3(
 		kr = KERN_SUCCESS;
 		goto out;
 	}
-	if (*gss_context) {
-		g_cntx = gssd_get_context(*gss_context, svc_gss_name);
-		if (*svc_gss_name)
-			gnames = 1;
-	}
+	if (*gss_context)
+		g_cntx = gssd_get_context(*gss_context, &svc_gss_name);
 
 	/*
 	 * Below currently doesn't do anything since the mach defs file has
@@ -2644,59 +2540,49 @@ svc_mach_gss_init_sec_context_v3(
 		}
 	}
 
-	if (*svc_gss_name == GSS_C_NO_NAME) {
-		if (no_canon || (*gssd_flags & GSSD_NO_CANON))
-			gnames = 1;
-		*major_stat = blob_to_svcnames(minor_stat, svc_nt, svc_princ, svc_princCnt,
-			mech, svc_gss_name, &gnames);
+	if (svc_gss_name == GSS_C_NO_NAME) {
+		char *dname;
+		gss_buffer_desc bufname;
+		uint32_t maj, min;
+		gss_OID oid;
+		char *oname;
+
+		*major_stat = blob_to_svcname(minor_stat, svc_nt, svc_princ, svc_princCnt,
+			mech, &svc_gss_name);
 
 		if (*major_stat != GSS_S_COMPLETE) {
 			Info("Could not determine service principal name: %#K", *major_stat);
 			goto done;
 		}
 
-		if (gnames > 1)
-			Info("Trying the following server principal names:");
-		for (i = 0; i < gnames; i++) {
-			char *dname;
-			gss_buffer_desc bufname;
-			uint32_t maj, min;
-			gss_OID oid;
-			char *oname;
-
-			maj = gss_display_name(&min, svc_gss_name[i], &bufname, &oid);
-			if (maj != GSS_S_COMPLETE)
-				Info("Cannot determine target name: %K", maj);
-			else {
-				dname = buf_to_str(&bufname);
-				oname = oid_name(oid);
-				Info("%s %s as %s", (gnames > 1)? "\t" : "Server principal name", dname, oname);
-				free(dname);
-				free(oname);
-			}
+		maj = gss_display_name(&min, svc_gss_name, &bufname, &oid);
+		if (maj != GSS_S_COMPLETE)
+			Info("Cannot determine target name: %K", maj);
+		else {
+			dname = buf_to_str(&bufname);
+			oname = oid_name(oid);
+			Info("Server principal name %s as %s", dname, oname);
+			free(dname);
+			free(oname);
 		}
 	}
 	if (CAST(gss_cred_id_t, *cred_handle) == GSS_C_NO_CREDENTIAL) {
 		if (clnt_nt == GSSD_STRING_NAME)
 			*major_stat = do_acquire_cred_v1(minor_stat, (char *)clnt_princ, mech,
-							 *svc_gss_name, uid, (gss_cred_id_t *)cred_handle, *gssd_flags);
+							 svc_gss_name, uid, (gss_cred_id_t *)cred_handle, *gssd_flags);
 		else {
 			*major_stat = do_acquire_cred(minor_stat, clnt_nt,
 						      clnt_princ, clnt_princCnt,
 						      mech, (gss_cred_id_t *) cred_handle);
 		}
 		if (*major_stat != GSS_S_COMPLETE) {
-			/* 
-			 * Release the names here. Note name_index is currently MAX_SVC_NAME
-			 * and we may have more than one name to free at this point.
-			 */
-			for (i = 0; i < gnames; i++)
-				(void)gss_release_name(&mstat, &svc_gss_name[i]);
+			/* Release the name here. */
+			(void)gss_release_name(&mstat, &svc_gss_name);
 			goto done;
 		}
 
 		/*
-		 * if the service supplies an array of kerberos etypes then limit the 
+		 * if the service supplies an array of kerberos etypes then limit the
 		 * etypes for kerberos to that set. Only NFS uses this currently.
 		 */
 		Debug("enctypes count = %d\n", etypesCnt);
@@ -2715,7 +2601,7 @@ svc_mach_gss_init_sec_context_v3(
 				}
 				Debug("enctypes:%s\n", buf);
 			}
-			*major_stat = gssd_set_allowable_keytypes(minor_stat, *(gss_cred_id_t *)cred_handle, *svc_gss_name,
+			*major_stat = gssd_set_allowable_keytypes(minor_stat, *(gss_cred_id_t *)cred_handle, svc_gss_name,
 								  etypesCnt, etypes);
 			if (*major_stat != GSS_S_COMPLETE) {
 				Log("Could not set enctypes for serive %K %#k\n", *major_stat, mechtab[mech], *minor_stat);
@@ -2727,38 +2613,27 @@ svc_mach_gss_init_sec_context_v3(
 	}
 
 	*major_stat = GSS_S_BAD_NAME;
-	for (i = 0; i < gnames; i++) {
 
-		*major_stat = svc_mach_gss_init_sec_context_common(
-								   mech,
-								   itoken,
-								   itokenCnt,
-								   svc_gss_name[i],
-								   flags,
-								   gssd_flags,
-								   &g_cntx,
-								   CAST(gss_cred_id_t, *cred_handle),
-								   ret_flags,
-								   skey,
-								   skeyCnt,
-								   otoken,
-								   otokenCnt,
-								   displayname,
-								   minor_stat);
+	*major_stat = svc_mach_gss_init_sec_context_common(
+		mech,
+		itoken,
+		itokenCnt,
+		svc_gss_name,
+		flags,
+		gssd_flags,
+		&g_cntx,
+		CAST(gss_cred_id_t, *cred_handle),
+		ret_flags,
+		skey,
+		skeyCnt,
+		otoken,
+		otokenCnt,
+		displayname,
+		minor_stat);
 
-		if (*major_stat == GSS_S_COMPLETE ||
-		    *major_stat == GSS_S_CONTINUE_NEEDED)
-			break;
-	}
-	name_index = i;
-
-	/* Done with the names */
-	for (i = 0; i < gnames; i++)
-		if (i != name_index)
-			(void)gss_release_name(&mstat, &svc_gss_name[i]);
 
 	if (*major_stat == GSS_S_CONTINUE_NEEDED) {
-		*gss_context = gssd_set_context(g_cntx, svc_gss_name[name_index]);
+		*gss_context = gssd_set_context(g_cntx, svc_gss_name);
 		if (*gss_context == 0)
 			*major_stat = GSS_S_FAILURE;
 	}
@@ -2771,8 +2646,7 @@ done:
 		(void) gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
 		if (g_cntx != GSS_C_NO_CONTEXT)
 			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
-		if (name_index < gnames)
-			(void)gss_release_name(&mstat, &svc_gss_name[name_index]);
+		(void)gss_release_name(&mstat, &svc_gss_name);
 		*gss_context = (gssd_ctx)GSS_C_NO_CONTEXT;
 	}
 
@@ -2780,7 +2654,7 @@ out:
 	end_worker_thread();
 	vproc_transaction_end(NULL, gssd_vproc_handle);
 
-	DEBUG(2, "Exit");
+	Debug("Exit");
 
 	return (kr);
 
@@ -2861,7 +2735,7 @@ svc_mach_gss_accept_sec_context_v2(
 	kern_return_t kr = KERN_SUCCESS;
 	vproc_transaction_t gssd_vproc_handle;
 
-	DEBUG(2, "Enter");
+	Debug("Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
@@ -2870,15 +2744,13 @@ svc_mach_gss_accept_sec_context_v2(
 		goto out;
 	}
 
-	krb5_set_home_dir_access(NULL, ((*inout_gssd_flags) & GSSD_HOME_ACCESS_OK) ? 1 : 0);
-
 	*inout_gssd_flags = 0;
 
 	/* Set the uid to nobody to be safe */
 	*uid = NobodyUid;
 
 	if (die) {
-		DEBUG(2, "Forced server death\n");
+		Debug("Forced server death\n");
 		_exit(0);
 	}
 
@@ -2938,7 +2810,7 @@ svc_mach_gss_accept_sec_context_v2(
 		*major_stat = GetSessionKey(minor_stat, oid, g_cntx,
 					    skey, skeyCnt, 1);
 
-		DEBUG(2, "Server key length = %d\n", *skeyCnt);
+		Debug("Server key length = %d\n", *skeyCnt);
 		HEXDUMP(2, (char *) *skey, *skeyCnt);
 	} else if (*major_stat == GSS_S_CONTINUE_NEEDED) {
 		*gss_context = gssd_set_context(g_cntx, NULL);
@@ -2963,9 +2835,9 @@ done:
 			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
 	}
 
-	OSAtomicIncrement32(&acceptCnt);
+	acceptCnt++;
 	if (*major_stat != GSS_S_CONTINUE_NEEDED && *major_stat != GSS_S_COMPLETE)
-		OSAtomicIncrement32(&acceptErr);
+		acceptErr++;
 	DEBUG(3, "Returning from accept %d erros of of %d total calls\n", acceptErr, acceptCnt);
 
 	Info("gss_accept_sec_context %K; %#k", *major_stat, oid, *minor_stat);
@@ -2973,7 +2845,7 @@ out:
 	end_worker_thread();
 	vproc_transaction_end(NULL, gssd_vproc_handle);
 
-	DEBUG(2, "Exit");
+	Debug("Exit");
 
 	return (kr);
 }
@@ -3012,7 +2884,7 @@ svc_mach_gss_log_error(
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
 
-	DEBUG(2, "Enter");
+	Debug("Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
@@ -3089,7 +2961,7 @@ svc_mach_gss_hold_cred(mach_port_t server __unused,
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
 
-	DEBUG(2, "Enter");
+	Debug("Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
@@ -3126,7 +2998,7 @@ svc_mach_gss_unhold_cred(mach_port_t server __unused,
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
 
-	DEBUG(2, "Enter");
+	Debug("Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
@@ -3159,7 +3031,7 @@ svc_mach_gss_lookup(mach_port_t server,
 	uuid_string_t uuidstr;
 	vproc_transaction_t gssd_vproc_handle;
 
-	DEBUG(2, "Enter");
+	Debug("Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
@@ -3174,13 +3046,13 @@ svc_mach_gss_lookup(mach_port_t server,
 	} else {
 		sessioninfo2uuid((uid_t)uid, (au_asid_t)asid, uuid);
 		uuid_unparse(uuid, uuidstr);
-		DEBUG(2, "Looking up %s for %d %d as instance %s", bname, uid, asid, uuidstr);
+		Debug("Looking up %s for %d %d as instance %s", bname, uid, asid, uuidstr);
 
 		kr = bootstrap_look_up3(bootstrap_port, bname, gssd_port, 0, uuid, BOOTSTRAP_SPECIFIC_INSTANCE);
 		if (kr != KERN_SUCCESS)
 			Log("Could not lookup per instance port %d: %s", kr, bootstrap_strerror(kr));
 
-		DEBUG(2, "bootstap_look_up3 = %d port = %d,  server port = %d", kr, *gssd_port, server);
+		Debug("bootstap_look_up3 = %d port = %d,  server port = %d", kr, *gssd_port, server);
 	}
 out:
 	end_worker_thread();

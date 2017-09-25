@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 5                                                        |
+   | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -35,49 +35,30 @@ static zend_object_handlers Collator_handlers;
  * Auxiliary functions needed by objects of 'Collator' class
  */
 
-/* {{{ Collator_objects_dtor */
-static void Collator_objects_dtor(
-	void *object,
-	zend_object_handle handle TSRMLS_DC )
-{
-	zend_objects_destroy_object( object, handle TSRMLS_CC );
-}
-/* }}} */
-
 /* {{{ Collator_objects_free */
-void Collator_objects_free( zend_object *object TSRMLS_DC )
+void Collator_objects_free(zend_object *object )
 {
-	Collator_object* co = (Collator_object*)object;
+	Collator_object* co = php_intl_collator_fetch_object(object);
 
-	zend_object_std_dtor( &co->zo TSRMLS_CC );
+	zend_object_std_dtor(&co->zo );
 
-	collator_object_destroy( co TSRMLS_CC );
-
-	efree( co );
+	collator_object_destroy(co );
 }
 /* }}} */
 
 /* {{{ Collator_object_create */
-zend_object_value Collator_object_create(
-	zend_class_entry *ce TSRMLS_DC )
+zend_object *Collator_object_create(zend_class_entry *ce )
 {
-	zend_object_value    retval;
 	Collator_object*     intern;
 
-	intern = ecalloc( 1, sizeof(Collator_object) );
-	intl_error_init( COLLATOR_ERROR_P( intern ) TSRMLS_CC );
-	zend_object_std_init( &intern->zo, ce TSRMLS_CC );
+	intern = ecalloc(1, sizeof(Collator_object) + zend_object_properties_size(ce));
+	intl_error_init(COLLATOR_ERROR_P(intern));
+	zend_object_std_init(&intern->zo, ce );
 	object_properties_init(&intern->zo, ce);
 
-	retval.handle = zend_objects_store_put(
-		intern,
-		Collator_objects_dtor,
-		(zend_objects_free_object_storage_t)Collator_objects_free,
-		NULL TSRMLS_CC );
+	intern->zo.handlers = &Collator_handlers;
 
-	retval.handlers = &Collator_handlers;
-
-	return retval;
+	return &intern->zo;
 }
 /* }}} */
 
@@ -107,6 +88,10 @@ ZEND_BEGIN_ARG_INFO_EX( collator_sort_args, 0, 0, 1 )
 	ZEND_ARG_INFO( 0, flags )
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX( collator_sort_with_sort_keys_args, 0, 0, 1 )
+	ZEND_ARG_ARRAY_INFO( 1, arr, 0 )
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /* {{{ Collator_class_functions
@@ -118,7 +103,7 @@ zend_function_entry Collator_class_functions[] = {
 	ZEND_FENTRY( create, ZEND_FN( collator_create ), collator_1_arg, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC )
 	PHP_NAMED_FE( compare, ZEND_FN( collator_compare ), collator_2_args )
 	PHP_NAMED_FE( sort, ZEND_FN( collator_sort ), collator_sort_args )
-	PHP_NAMED_FE( sortWithSortKeys, ZEND_FN( collator_sort_with_sort_keys ), collator_sort_args )
+	PHP_NAMED_FE( sortWithSortKeys, ZEND_FN( collator_sort_with_sort_keys ), collator_sort_with_sort_keys_args )
 	PHP_NAMED_FE( asort, ZEND_FN( collator_asort ), collator_sort_args )
 	PHP_NAMED_FE( getAttribute, ZEND_FN( collator_get_attribute ), collator_1_arg )
 	PHP_NAMED_FE( setAttribute, ZEND_FN( collator_set_attribute ), collator_2_args )
@@ -127,7 +112,7 @@ zend_function_entry Collator_class_functions[] = {
 	PHP_NAMED_FE( getLocale, ZEND_FN( collator_get_locale ), collator_1_arg )
 	PHP_NAMED_FE( getErrorCode, ZEND_FN( collator_get_error_code ), collator_0_args )
 	PHP_NAMED_FE( getErrorMessage, ZEND_FN( collator_get_error_message ), collator_0_args )
-	PHP_NAMED_FE( getSortKey, ZEND_FN( collator_get_sort_key ), collator_2_args )
+	PHP_NAMED_FE( getSortKey, ZEND_FN( collator_get_sort_key ), collator_1_arg )
 	PHP_FE_END
 };
 /* }}} */
@@ -135,20 +120,22 @@ zend_function_entry Collator_class_functions[] = {
 /* {{{ collator_register_Collator_class
  * Initialize 'Collator' class
  */
-void collator_register_Collator_class( TSRMLS_D )
+void collator_register_Collator_class( void )
 {
 	zend_class_entry ce;
 
 	/* Create and register 'Collator' class. */
 	INIT_CLASS_ENTRY( ce, "Collator", Collator_class_functions );
 	ce.create_object = Collator_object_create;
-	Collator_ce_ptr = zend_register_internal_class( &ce TSRMLS_CC );
+	Collator_ce_ptr = zend_register_internal_class( &ce );
 
 	memcpy(&Collator_handlers, zend_get_std_object_handlers(),
 		sizeof Collator_handlers);
-	/* Collator has no usable clone semantics - ucol_cloneBinary/ucol_openBinary require binary buffer 
-	   for which we don't have the place to keep */	
-	Collator_handlers.clone_obj = NULL; 
+	/* Collator has no usable clone semantics - ucol_cloneBinary/ucol_openBinary require binary buffer
+	   for which we don't have the place to keep */
+	Collator_handlers.offset = XtOffsetOf(Collator_object, zo);
+	Collator_handlers.clone_obj = NULL;
+	Collator_handlers.free_obj = Collator_objects_free;
 
 	/* Declare 'Collator' class properties. */
 	if( !Collator_ce_ptr )
@@ -165,19 +152,19 @@ void collator_register_Collator_class( TSRMLS_D )
  * Initialize internals of Collator_object.
  * Must be called before any other call to 'collator_object_...' functions.
  */
-void collator_object_init( Collator_object* co TSRMLS_DC )
+void collator_object_init( Collator_object* co )
 {
 	if( !co )
 		return;
 
-	intl_error_init( COLLATOR_ERROR_P( co ) TSRMLS_CC );
+	intl_error_init( COLLATOR_ERROR_P( co ) );
 }
 /* }}} */
 
 /* {{{ void collator_object_destroy( Collator_object* co )
  * Clean up mem allocted by internals of Collator_object
  */
-void collator_object_destroy( Collator_object* co TSRMLS_DC )
+void collator_object_destroy( Collator_object* co )
 {
 	if( !co )
 		return;
@@ -188,7 +175,7 @@ void collator_object_destroy( Collator_object* co TSRMLS_DC )
 		co->ucoll = NULL;
 	}
 
-	intl_error_reset( COLLATOR_ERROR_P( co ) TSRMLS_CC );
+	intl_error_reset( COLLATOR_ERROR_P( co ) );
 }
 /* }}} */
 

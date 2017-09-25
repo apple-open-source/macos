@@ -148,7 +148,11 @@ static void doCertificateSearchForEmailAddress(SecKeychainRef kc, const char *em
             }
 
             // Set this certificate as preferred for this email address
-            ok_status(SecCertificateSetPreferred((SecCertificateRef)itemRef, emailStr, 0), "%s: SecCertificateSetPreferred", testName);
+            if(emailStr) {
+                ok_status(SecCertificateSetPreferred((SecCertificateRef)itemRef, emailStr, 0), "%s: SecCertificateSetPreferred", testName);
+            } else {
+                fail("No email for SecCertificateSetPreferred");
+            }
 
             CFRelease(itemRef);
         }
@@ -158,7 +162,11 @@ static void doCertificateSearchForEmailAddress(SecKeychainRef kc, const char *em
     }
 
     // Check that our certificate is new preferred
-    status = SecCertificateCopyPreference(emailStr, (CSSM_KEYUSE) 0, &preferredCert);
+    if(emailStr) {
+        status = SecCertificateCopyPreference(emailStr, (CSSM_KEYUSE) 0, &preferredCert);
+    } else {
+        status = errSecParam;
+    }
     ok_status(status, "%s: SecCertificateCopyPreference", testName);
 
     if (preferredCert)

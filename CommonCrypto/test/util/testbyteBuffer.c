@@ -92,24 +92,27 @@ nibbleFromChar(char c)
 byteBuffer
 hexStringToBytes(const char *inhex)
 {
-	byteBuffer retval;
-	const uint8_t *p;
-	int len, i;
-    
-    if(!inhex) len = 0;
-	else len = (int) strlen(inhex) / 2;
-    
-	if((retval = mallocByteBuffer(len)) == NULL) return NULL;
+    byteBuffer retval;
+    const uint8_t *p;
+    int len,inhex_len, i=0;
 
-    if(inhex) {
-        for(i=0, p = (const uint8_t *) inhex; i<len; i++) {
-            retval->bytes[i] = (uint8_t)(nibbleFromChar(*p) << 4) | nibbleFromChar(*(p+1));
-            p += 2;
-        }
-        retval->bytes[len] = 0;
-    } else
-        retval->bytes = NULL;
-	return retval;
+    if(!inhex) inhex = "";
+    inhex_len=(int)strlen(inhex);
+
+    len = (inhex_len+1) / 2;
+    if((retval = mallocByteBuffer(len)) == NULL) return NULL;
+
+    // Special for odd length strings
+    if ((inhex_len & 1) && len) {
+        retval->bytes[i++] = nibbleFromChar(*(inhex));
+        inhex++;
+    }
+    for(p = (const uint8_t *) inhex; i<len; i++) {
+        retval->bytes[i] = (uint8_t)(nibbleFromChar(*p) << 4) | nibbleFromChar(*(p+1));
+        p += 2;
+    }
+    retval->bytes[len] = 0;
+    return retval;
 }
 
 

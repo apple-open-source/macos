@@ -31,6 +31,7 @@
 #include <mach/vm_map.h>
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include "IOSystemConfiguration.h"
 #include "IOPSKeys.h"
 #include "IOPowerSources.h"
@@ -38,18 +39,16 @@
 #include "powermanagement.h"
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <notify.h>
+#include <xpc/xpc.h>
+#include <os/log.h>
 
-#ifndef kIOPSDynamicStorePathKey
-#define kIOPSDynamicStorePathKey kIOPSDynamicStorePath
-#endif
 
 #ifndef kIOPSDynamicStoreLowBattPathKey
 #define kIOPSDynamicStoreLowBattPathKey "/IOKit/LowBatteryWarning"
 #endif
 
-#ifndef kIOPSDynamicStorePowerAdapterKey
-#define kIOPSDynamicStorePowerAdapterKey "/IOKit/PowerAdapter"
-#endif
+dispatch_queue_t  getPMQueue();
+#define POWERD_XPC_ID   "com.apple.iokit.powerdxpc"
 
 IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
 {
@@ -222,36 +221,54 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
 
 CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
 {
-    SCDynamicStoreRef   store = NULL;
-    CFStringRef         key = NULL;
+    xpc_object_t        connection = NULL;
+    xpc_object_t        msg = NULL;
+    xpc_object_t        respData = NULL;
     CFDictionaryRef     ret_dict = NULL;
+    dispatch_queue_t    pmQueue = getPMQueue();
 
-    store = SCDynamicStoreCreate(kCFAllocatorDefault, 
-                            CFSTR("IOKit Power Source Copy"), NULL, NULL);
-    if (!store) 
-        goto SAD_EXIT;
-
-    key = SCDynamicStoreKeyCreate(
-                            kCFAllocatorDefault, 
-                            CFSTR("%@%@"),
-                            _io_kSCDynamicStoreDomainState, 
-                            CFSTR(kIOPSDynamicStorePowerAdapterKey));
-    if (!key)
-        goto SAD_EXIT;
-        
-    ret_dict = SCDynamicStoreCopyValue(store, key);
-    if(ret_dict)
-    {
-        if(!isA_CFDictionary(ret_dict)) {
-            CFRelease(ret_dict);
-            ret_dict = NULL;
-        }
+    if (!pmQueue) {
+        return NULL;
+    }
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID, pmQueue, 0);
+    if (!connection) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to create connection\n");
+        goto exit;
+    }
+    xpc_connection_set_target_queue(connection, pmQueue);
+    xpc_connection_set_event_handler(connection,
+            ^(xpc_object_t e ) {
+            os_log_error(OS_LOG_DEFAULT, "Event handler is called %@\n", e);
+            });
+    xpc_connection_resume(connection);
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to create message\n");
+        goto exit;
     }
 
-SAD_EXIT:
-    if (store) CFRelease(store);
-    if (key) CFRelease(key);
+    xpc_dictionary_set_string(msg, kPSAdapterDetails, "true");
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(connection, msg);
+
+    if ((xpc_get_type(reply) == XPC_TYPE_DICTIONARY) &&
+            (respData = xpc_dictionary_get_value(reply, kPSAdapterDetails))) {
+        ret_dict = _CFXPCCreateCFObjectFromXPCObject(respData);
+    }
+
+exit:
+    if (reply) {
+        xpc_release(reply);
+    }
+    if (msg) {
+        xpc_release(msg);
+    }
+    if (connection) {
+        xpc_release(connection);
+    }
+
+
     return ret_dict;
+
 }
 
 

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2004,2011-2012,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2004,2011-2012,2014-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -253,34 +253,13 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 {
 	numAdded = 0;
 
-	/* any per-user prefs? */
-	Dictionary* pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_User, true);
-	if (pd)
-	{
-		if (!pd->dict()) {
-			delete pd;
-			pd = NULL;
-		}
+	Dictionary* pd = NULL;
+	CFDictionaryRef tempDict = defaultRevocationSettings();
+	if (tempDict == NULL) {
+		return NULL;
 	}
-
-	if(pd == NULL)
-	{
-		pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_System, true);
-		if (!pd->dict()) {
-			delete pd;
-			pd = NULL;
-		}
-	}
-
-    if(pd == NULL)
-    {
-        CFDictionaryRef tempDict = defaultRevocationSettings();
-        if (tempDict == NULL)
-            return NULL;
-
-        pd = new Dictionary(tempDict);
-        CFRelease(tempDict);
-    }
+	pd = new Dictionary(tempDict);
+	CFRelease(tempDict);
 
 	auto_ptr<Dictionary> prefsDict(pd);
 
@@ -534,18 +513,6 @@ void Trust::orderRevocationPolicies(
 	}
 	/* check revocation prefs to determine which policy goes first */
 	CFBooleanRef ocspFirst = kCFBooleanTrue;
-	Dictionary* pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_User, true);
-	if (pd) {
-		if (!pd->dict()) {
-			delete pd;
-		} else {
-			auto_ptr<Dictionary> prefsDict(pd);
-			CFStringRef val = prefsDict->getStringValue(kSecRevocationWhichFirst);
-			if((val != NULL) && CFEqual(val, kSecRevocationCrlFirst)) {
-				ocspFirst = kCFBooleanFalse;
-			}
-		}
-	}
 #if POLICIES_DEBUG
 	CFShow(policies); // before sort
 	CFArraySortValues(policies, CFRangeMake(0, CFArrayGetCount(policies)), compareRevocationPolicies, (void*)ocspFirst);
@@ -665,40 +632,6 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 		opts.Version = CSSM_APPLE_TP_OCSP_OPTS_VERSION;
 		opts.Flags = ocspFlags;
 
-		/* Check prefs dict for local responder info */
-		Dictionary *prefsDict = NULL;
-		try { /* per-user prefs */
-			prefsDict = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_User, true);
-			if (!prefsDict->dict()) {
-				delete prefsDict;
-				prefsDict = NULL;
-			}
-		}
-		catch(...) {}
-		if(prefsDict == NULL) {
-			try { /* system prefs */
-				prefsDict = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_System, true);
-				if (!prefsDict->dict()) {
-					delete prefsDict;
-					prefsDict = NULL;
-				}
-			}
-			catch(...) {}
-		}
-		if(prefsDict != NULL) {
-			CFStringRef val = prefsDict->getStringValue(kSecOCSPLocalResponder);
-			if(val != NULL) {
-				CFDataRef cfData = CFStringCreateExternalRepresentation(NULL,
-					val, kCFStringEncodingUTF8, 0);
-				CFIndex len = CFDataGetLength(cfData);
-				opts.LocalResponder = (CSSM_DATA_PTR)alloc.malloc(sizeof(CSSM_DATA));
-				opts.LocalResponder->Data = (uint8 *)alloc.malloc(len);
-				opts.LocalResponder->Length = len;
-				memmove(opts.LocalResponder->Data, CFDataGetBytePtr(cfData), len);
-				CFRelease(cfData);
-			}
-		}
-
 		/* Policy manages its own copy of the options data */
 		CSSM_DATA optData = {sizeof(opts), (uint8 *)&opts};
 		ocspPolicy->value() = optData;
@@ -706,9 +639,6 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 		/* Policies array retains the Policy object */
 		CFArrayAppendValue(policies, ocspPolicy->handle(false));
 		numAdded++;
-
-		if(prefsDict != NULL)
-			delete prefsDict;
 	}
 
 	if(!hasCrlPolicy && crlEnabled) {

@@ -37,6 +37,17 @@
 >o→b
 >→
 
+  unset match mend
+  s=$'\u00a0'
+  [[ $s =~ '^.$' ]] && print OK
+  [[ A${s}B =~ .(.). && $match[1] == $s ]] && print OK
+  [[ A${s}${s}B =~ A([^[:ascii:]]*)B && $mend[1] == 3 ]] && print OK
+  unset s
+0:Raw IMETA characters in input string
+>OK
+>OK
+>OK
+
   [[ foo =~ f.+ ]] ; print $?
   [[ foo =~ x.+ ]] ; print $?
   [[ ! foo =~ f.+ ]] ; print $?
@@ -119,3 +130,10 @@
 0:pcre_match -b and pcre_match -n
 >78884; ZPCRE_OP: 25 30
 >90210; ZPCRE_OP: 31 36
+
+# Subshell because crash on failure
+  ( setopt re_match_pcre
+    [[ test.txt =~ '^(.*_)?(test)' ]]
+    echo $match[2] )
+0:regression for segmentation fault, workers/38307
+>test

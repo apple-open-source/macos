@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2011, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,6 +182,7 @@ _processDeferredRemovals()
 static void
 _cleanupRemovedSessionKeys(const void *value, void *context)
 {
+#pragma unused(context)
 	CFStringRef		removedKey = (CFStringRef)value;
 	CFRange			dRange;
 	CFStringRef		sessionKey;

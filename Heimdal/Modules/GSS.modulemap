@@ -1,28 +1,22 @@
 framework module GSS [extern_c] {
   export *
   header "gssapi.h"
+  // The headers below are all included from gssapi.h
+  // and aren't standalone (depend on defs from gssapi.h).
+  // Include them textually and re-export general content
+  // in the matching submodules.
+  textual header "gssapi_oid.h"
+  textual header "gssapi_protos.h"
+  textual header "gssapi_apple.h"
 
   module apple {
-    header "gssapi_apple.h"
-    export *
+    export GSS
   }
   
   explicit module krb5 {
     header "gssapi_krb5.h"
     export *
   }
-
-
-  explicit module netlogon {
-    header "gssapi_netlogon.h"
-    export *
-  }
-
-  explicit module ntlm {
-    header "gssapi_ntlm.h"
-    export *
-  }
-
 
   module oid {
     header "gssapi_oid.h"

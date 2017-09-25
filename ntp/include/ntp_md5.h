@@ -8,6 +8,7 @@
 
 #ifdef OPENSSL
 # include "openssl/evp.h"
+# include "libssl_compat.h"
 #else	/* !OPENSSL follows */
 /*
  * Provide OpenSSL-alike MD5 API if we're not using OpenSSL
@@ -31,6 +32,9 @@
 # endif
 
   typedef MD5_CTX			EVP_MD_CTX;
+
+# define EVP_MD_CTX_free(c)		free(c)
+# define EVP_MD_CTX_new()		calloc(1, sizeof(MD5_CTX))
 # define EVP_get_digestbynid(t)		(t)
 # define EVP_md5()			NULL
 # define EVP_MD_CTX_init(c)

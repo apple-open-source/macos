@@ -2991,15 +2991,17 @@ dump_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 #ifndef __APPLE__
 	pcap_dump(user, h, sp);
-#else
-	if (dump_info->dumper_func(dump_info, h, sp) == 1)
-		packets_captured++;
-#endif /* __APPLE__ */
-
 #ifdef HAVE_PCAP_DUMP_FLUSH
 	if (Uflag)
 		pcap_dump_flush((pcap_dumper_t *)user);
 #endif
+#else
+	if (dump_info->dumper_func(dump_info, h, sp) == 1)
+		packets_captured++;
+	if (Uflag)
+		pcap_dump_flush(dump_info->p);
+#endif /* __APPLE__ */
+
 
 	--infodelay;
 	if (infoprint)

@@ -137,10 +137,18 @@ typedef struct
 	 * Gemalto extra features, if any
 	 */
 	struct GEMALTO_FIRMWARE_FEATURES *gemalto_firmware_features;
+
+#ifdef ENABLE_ZLP
+	/*
+	 * Zero Length Packet fixup (boolean)
+	 */
+	char zlp;
+#endif
 } _ccid_descriptor;
 
 /* Features from dwFeatures */
 #define CCID_CLASS_AUTO_CONF_ATR	0x00000002
+#define CCID_CLASS_AUTO_ACTIVATION	0x00000004
 #define CCID_CLASS_AUTO_VOLTAGE		0x00000008
 #define CCID_CLASS_AUTO_BAUD		0x00000020
 #define CCID_CLASS_AUTO_PPS_PROP	0x00000040
@@ -186,6 +194,7 @@ typedef struct
 #define SCR331DI	0x04E65111
 #define SCR331DINTTCOM	0x04E65120
 #define SDI010		0x04E65121
+#define SEC1210	0x04241202
 #define CHERRYXX33	0x046A0005
 #define CHERRYST2000	0x046A003E
 #define OZ776		0x0B977762
@@ -212,6 +221,7 @@ typedef struct
 #define ElatecTWN4	0x09D80427
 #define SCM_SCL011 0x04E65293
 #define HID_AVIATOR	0x076B3A21
+#define HID_OMNIKEY_5422 0x076B5422
 
 #define VENDOR_GEMALTO 0x08E6
 #define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)
@@ -230,12 +240,12 @@ typedef struct
 /*
  * Possible values :
  * 3 -> 1.8V, 3V, 5V
- * 2 -> 3V, 5V
- * 1 -> 5V only
+ * 2 -> 3V, 5V, 1.8V
+ * 1 -> 5V, 1.8V, 3V
  * 0 -> automatic (selection made by the reader)
  */
 /*
- * To be safe we default to 5V
+ * The default is to start at 5V
  * otherwise we would have to parse the ATR and get the value of TAi (i>2) when
  * in T=15
  */

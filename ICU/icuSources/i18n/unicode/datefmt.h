@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  ********************************************************************************
  *   Copyright (C) 1997-2016, International Business Machines
@@ -36,6 +38,7 @@
  * \brief C++ API: Abstract class for converting dates.
  */
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class TimeZone;
@@ -943,6 +946,7 @@ public:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

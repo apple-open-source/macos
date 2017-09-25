@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   irb/lc/error.rb -
 #   	$Release Version: 0.9.6$
-#   	$Revision: 38600 $
+#   	$Revision: 53141 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --

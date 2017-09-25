@@ -570,7 +570,7 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 		}
 		piece			   |= kPieceMoved;
 		if (!move->fVictim && Piece(piece) == PAWN && 
-			abs(Row(fromSquare)-Row(toSquare))==2
+			labs(Row(fromSquare)-Row(toSquare))==2
 		)
 			fCurPos.fEnPassant	= Square(Col(fromSquare), 
 										 (Row(fromSquare)+Row(toSquare))/2);

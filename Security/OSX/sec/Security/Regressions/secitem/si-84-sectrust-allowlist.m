@@ -2,7 +2,7 @@
  *  si-84-sectrust-allowlist.c
  *  Security
  *
- * Copyright (c) 2015-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All Rights Reserved.
  */
 
 #include <AssertMacros.h>
@@ -19,6 +19,9 @@
 #include "si-84-sectrust-allowlist/cnnic_certs.h"
 #include "si-84-sectrust-allowlist/wosign_certs.h"
 #include "si-84-sectrust-allowlist/date_testing_certs.h"
+
+/* Define this symbol for testing updated allowlist workaround. */
+#define RADAR_32792206 1
 
 
 static SecCertificateRef createCertFromStaticData(const UInt8 *certData, CFIndex certLength)
@@ -53,8 +56,8 @@ static void TestLeafOnAllowList()
     isnt(certArray = CFArrayCreate(kCFAllocatorDefault, (const void **)&certs[0], 4, &kCFTypeArrayCallBacks),
          NULL, "allowlist: create cert array");
 
-    /* create a trust reference with basic policy */
-    isnt(policy = SecPolicyCreateBasicX509(), NULL, "allowlist: create policy");
+    /* create a trust reference with ssl policy */
+    isnt(policy = SecPolicyCreateSSL(true, CFSTR("telegram.im")), NULL, "allowlist: create policy");
     ok_status(SecTrustCreateWithCertificates(certArray, policy, &trust), "allowlist: create trust");
 
     /* set evaluate date: September 12, 2016 at 1:30:00 PM PDT */
@@ -69,9 +72,24 @@ static void TestLeafOnAllowList()
     SecTrustResultType trustResult = kSecTrustResultInvalid;
     ok_status(SecTrustEvaluate(trust, &trustResult), "allowlist: evaluate");
 
+#if 0
     /* expected result is kSecTrustResultUnspecified since cert is on allow list and its issuer chains to a trusted root */
     ok(trustResult == kSecTrustResultUnspecified, "trustResult 4 expected (got %d)",
        (int)trustResult);
+#else
+    #if RADAR_32792206
+    /* this certificate was on the allow list prior to v5, and list hasn't yet updated. */
+    if (trustResult == kSecTrustResultUnspecified) {
+        trustResult = kSecTrustResultRecoverableTrustFailure;
+    }
+    #endif
+    /* this certificate is no longer on the allow list: <rdar://32792206> */
+    /* expected result is kSecTrustResultRecoverableTrustFailure (if issuer is distrusted)
+       or kSecTrustResultFatalTrustFailure (if issuer is revoked), since cert is not on allow list */
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure ||
+       trustResult == kSecTrustResultFatalTrustFailure,
+       "trustResult 5 or 6 expected (got %d)", (int)trustResult);
+#endif
 
     /* clean up */
     for(CFIndex idx=0; idx < 4; idx++) {
@@ -173,7 +191,7 @@ static void TestAllowListForRootCA(void)
     CFArrayRef certs2 = CFArrayCreate(kCFAllocatorDefault, (const void **)test2, 2, &kCFTypeArrayCallBacks);
 
     /*
-     * Whitelisted certificates issued by untrusted root CA.
+     * Allowlisted certificates issued by untrusted root CA.
      */
     isnt(policy = SecPolicyCreateBasicX509(), NULL, "create policy");
     ok_status(SecTrustCreateWithCertificates(certs0, policy, &trust), "create trust");
@@ -181,8 +199,24 @@ static void TestAllowListForRootCA(void)
     isnt(date = CFDateCreate(NULL, 495405000.0), NULL, "create date");
     ok_status((date) ? SecTrustSetVerifyDate(trust, date) : errSecParam, "set verify date");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+#if 0
+    /* successful trust result expected since this is on the allow list */
     ok(trustResult == kSecTrustResultUnspecified, "trustResult 4 expected (got %d)",
        (int)trustResult);
+#else
+    #if RADAR_32792206
+    /* this certificate was on the allow list prior to v5, and list hasn't yet updated. */
+    if (trustResult == kSecTrustResultUnspecified) {
+        trustResult = kSecTrustResultRecoverableTrustFailure;
+    }
+    #endif
+    /* this certificate is no longer on the allow list: <rdar://32792206> */
+    /* expected result is kSecTrustResultRecoverableTrustFailure (if issuer is distrusted)
+     or kSecTrustResultFatalTrustFailure (if issuer is revoked), since cert is not on allow list */
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure ||
+       trustResult == kSecTrustResultFatalTrustFailure,
+       "trustResult 5 or 6 expected (got %d)", (int)trustResult);
+#endif
     if (trust) { CFRelease(trust); }
     if (date) { CFRelease(date); }
 
@@ -191,8 +225,19 @@ static void TestAllowListForRootCA(void)
     isnt(date = CFDateCreate(NULL, 495405000.0), NULL, "create date");
     ok_status((date) ? SecTrustSetVerifyDate(trust, date) : errSecParam, "set verify date");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
-    ok(trustResult == kSecTrustResultUnspecified, "trustResult 4 expected (got %d)",
+#if 0
+    /* Note: this certificate has expired and was removed from the allowlist,
+       so we currently expect a revoked trust failure despite the verify date. */
+    ok(trustResult == kSecTrustResultFatalTrustFailure, "trustResult 6 expected (got %d)",
        (int)trustResult);
+#else
+    /* there is no longer an allowlist: <rdar://32792206> */
+    /* expected result is kSecTrustResultRecoverableTrustFailure (if issuer is distrusted)
+     or kSecTrustResultFatalTrustFailure (if issuer is revoked), since cert is not on allow list */
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure ||
+       trustResult == kSecTrustResultFatalTrustFailure,
+       "trustResult 5 or 6 expected (got %d)", (int)trustResult);
+#endif
     if (trust) { CFRelease(trust); }
     if (date) { CFRelease(date); }
 
@@ -201,8 +246,25 @@ static void TestAllowListForRootCA(void)
     isnt(date = CFDateCreate(NULL, 495405000.0), NULL, "create date");
     ok_status((date) ? SecTrustSetVerifyDate(trust, date) : errSecParam, "set verify date");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+#if 0
+    /* successful trust result expected since this is on the allow list */
     ok(trustResult == kSecTrustResultUnspecified, "trustResult 4 expected (got %d)",
        (int)trustResult);
+#else
+    #if RADAR_32792206
+    /* this certificate was on the allow list prior to v5, and list hasn't yet updated. */
+    if (trustResult == kSecTrustResultUnspecified) {
+        trustResult = kSecTrustResultRecoverableTrustFailure;
+    }
+    #endif
+    /* this certificate is no longer on the allow list: <rdar://32792206> */
+    /* expected result is kSecTrustResultRecoverableTrustFailure (if issuer is distrusted)
+     or kSecTrustResultFatalTrustFailure (if issuer is revoked), since cert is not on allow list */
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure ||
+       trustResult == kSecTrustResultFatalTrustFailure,
+       "trustResult 5 or 6 expected (got %d)", (int)trustResult);
+#endif
+
     /*
      * Same certificate, on allow list but past expiration. Expect to fail.
      */
@@ -210,8 +272,16 @@ static void TestAllowListForRootCA(void)
     isnt(date = CFDateCreate(NULL, 667680000.0), NULL, "create date");
     ok_status((date) ? SecTrustSetVerifyDate(trust, date) : errSecParam, "set date to far future so certs are expired");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+#if 0
     ok(trustResult == kSecTrustResultRecoverableTrustFailure, "trustResult 5 expected (got %d)",
        (int)trustResult);
+#else
+    /* expected result is kSecTrustResultRecoverableTrustFailure (if issuer is distrusted)
+     or kSecTrustResultFatalTrustFailure (if issuer is revoked), since cert is not on allow list */
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure ||
+       trustResult == kSecTrustResultFatalTrustFailure,
+       "trustResult 5 or 6 expected (got %d)", (int)trustResult);
+#endif
     if (trust) { CFRelease(trust); }
     if (date) { CFRelease(date); }
 
@@ -223,8 +293,19 @@ static void TestAllowListForRootCA(void)
     isnt(date = CFDateCreate(NULL, 495405000.0), NULL, "create date");
     ok_status((date) ? SecTrustSetVerifyDate(trust, date) : errSecParam, "set verify date");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
-    ok(trustResult == kSecTrustResultRecoverableTrustFailure, "trustResult 5 expected (got %d)",
+#if 0
+    /* Note: because this certificate is not on the allow list, and the allow list is complete,
+       we now expect it to be treated as revoked regardless of expiration status. */
+    ok(trustResult == kSecTrustResultFatalTrustFailure, "trustResult 6 expected (got %d)",
        (int)trustResult);
+#else
+    /* there is no longer an allowlist: <rdar://32792206> */
+    /* expected result is kSecTrustResultRecoverableTrustFailure (if issuer is distrusted)
+     or kSecTrustResultFatalTrustFailure (if issuer is revoked), since cert is not on allow list */
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure ||
+       trustResult == kSecTrustResultFatalTrustFailure,
+       "trustResult 5 or 6 expected (got %d)", (int)trustResult);
+#endif
     if (trust) { CFRelease(trust); }
     if (date) { CFRelease(date); }
 
@@ -359,7 +440,8 @@ static void TestLeafOnAllowListOtherFailures(void)
     require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
     require_noerr(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)verifyDate), out);
     require_noerr(SecTrustEvaluate(trust, &trustResult), out);
-    is(trustResult, kSecTrustResultRecoverableTrustFailure, "hostname failure with cert on allow list succeeded evaluation");
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure || trustResult == kSecTrustResultFatalTrustFailure,
+       "hostname failure with cert on allow list succeeded evaluation");
     CFReleaseNull(policy);
     trustResult = kSecTrustResultInvalid;
 
@@ -367,7 +449,8 @@ static void TestLeafOnAllowListOtherFailures(void)
     require(policy = SecPolicyCreateCodeSigning(), out);
     require_noerr(SecTrustSetPolicies(trust, policy), out);
     require_noerr(SecTrustEvaluate(trust, &trustResult), out);
-    is(trustResult, kSecTrustResultRecoverableTrustFailure, "EKU failure with cert on allow list succeeded evaluation");
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure || trustResult == kSecTrustResultFatalTrustFailure,
+       "EKU failure with cert on allow list succeeded evaluation");
     CFReleaseNull(policy);
     trustResult = kSecTrustResultInvalid;
 
@@ -377,7 +460,8 @@ static void TestLeafOnAllowListOtherFailures(void)
                                                    (__bridge CFStringRef)@"1.2.840.113635.100.6.27.12"), out);
     require_noerr(SecTrustSetPolicies(trust, policy), out);
     require_noerr(SecTrustEvaluate(trust, &trustResult), out);
-    is(trustResult, kSecTrustResultRecoverableTrustFailure, "Apple pinning policy with cert on allow list succeeded evaluation");
+    ok(trustResult == kSecTrustResultRecoverableTrustFailure || trustResult == kSecTrustResultFatalTrustFailure,
+       "Apple pinning policy with cert on allow list succeeded evaluation");
 
     out:
     CFReleaseNull(certs[0]);

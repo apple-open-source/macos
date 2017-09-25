@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHOPTIONS" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -1000,7 +1000,7 @@ skipped\&.  The option is restored after the trap exits\&.
 .PP
 Exiting due to \fBERR_EXIT\fP has certain interactions with asynchronous
 jobs noted in
-the section JOBS in in \fIzshmisc\fP(1)\&.
+the section JOBS in \fIzshmisc\fP(1)\&.
 .RE
 .TP
 \fBERR_RETURN\fP
@@ -1207,7 +1207,8 @@ Emulate \fBksh\fP array handling as closely as possible\&.  If this option
 is set, array elements are numbered from zero, an array parameter
 without subscript refers to the first element instead of the whole array,
 and braces are required to delimit a subscript (`\fB${path[2]}\fP\&' rather
-than just `\fB$path[2]\fP\&')\&.
+than just `\fB$path[2]\fP\&') or to apply modifiers to any parameter
+(`\fB${PWD:h}\fP\&' rather than `\fB$PWD:h\fP')\&.
 .TP
 \fBKSH_AUTOLOAD\fP <K> <S>
 Emulate \fBksh\fP function autoloading\&.  This means that when a function is
@@ -1356,6 +1357,12 @@ the parameter \fB$#\fP even if followed by a valid parameter name\&.
 When it is unset, zsh allows expressions of the form \fB$#\fP\fIname\fP
 to refer to the length of \fB$\fP\fIname\fP, even for special variables,
 for example in expressions such as \fB$#\-\fP and \fB$#*\fP\&.
+.PP
+Another difference is that with the option set assignment to an
+unset variable in arithmetic context causes the variable to be created
+as a scalar rather than a numeric type\&.  So after `\fBunset t; (( t = 3
+))\fP\&'\&. without \fBPOSIX_IDENTIFIERS\fP set \fBt\fP has integer type, while with
+it set it has scalar type\&.
 .PP
 When the option is unset and multibyte character support is enabled (i\&.e\&. it
 is compiled in and the option \fBMULTIBYTE\fP is set), then additionally any

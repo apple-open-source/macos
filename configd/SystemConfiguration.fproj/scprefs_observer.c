@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -225,6 +225,7 @@ _prefs_observer_init()
 					  &token,
 					  prefs_observer_queue,
 					  ^(int token) {
+#pragma unused(token)
 						  prefs_observer_handle_notifications();
 					  });
 	if (status != NOTIFY_STATUS_OK) {
@@ -303,18 +304,18 @@ int main()
 	dispatch_queue_t q1 = dispatch_queue_create("com.apple.SystemConfiguration.PrefsObserver.testQ1", NULL);
 
 	dispatch_block_t b1 = ^{
-	printf("Block 1 executed \n");
+	printf("Block 1 executed\n");
 	};
 
 	dispatch_queue_t q2 = dispatch_queue_create("com.apple.SystemConfiguration.PrefsObserver.testQ2", NULL);
 	dispatch_block_t b2  = ^{
-	printf("Block 2 executed \n");
+	printf("Block 2 executed\n");
 	};
 
 	dispatch_queue_t q3 =  dispatch_queue_create("com.apple.SystemConfiguration.PrefsObserver.testQ2", NULL);
 
 	dispatch_block_t b3 = ^{
-	printf("Block 3 executed \n");
+	printf("Block 3 executed\n");
 	};
 
 	__block scprefs_observer_t observer1 = _scprefs_observer_watch(scprefs_observer_type_mcx, "com.apple.SystemConfiguration", q1, b1);

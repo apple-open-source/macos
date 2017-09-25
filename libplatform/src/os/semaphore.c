@@ -41,11 +41,9 @@ _os_semaphore_create(void)
 {
 	semaphore_t s4;
 	kern_return_t kr;
-	while (unlikely(kr = semaphore_create(mach_task_self(), &s4,
-			SYNC_POLICY_FIFO, 0))) {
-		OS_VERIFY_MIG(kr, "Allocating semaphore failed with MIG_REPLY_MISMATCH");
-		thread_switch(MACH_PORT_NULL, SWITCH_OPTION_WAIT, 100);
-	}
+	kr = semaphore_create(mach_task_self(), &s4, SYNC_POLICY_FIFO, 0);
+	OS_VERIFY_MIG(kr, "Allocating semaphore failed with MIG_REPLY_MISMATCH");
+	OS_SEMAPHORE_VERIFY_KR(kr, "Creating semaphore failed, possible port leak");
 	return (os_semaphore_t)s4;
 }
 

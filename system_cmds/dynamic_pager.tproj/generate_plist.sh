@@ -4,7 +4,7 @@ set -x
 
 cp "${SCRIPT_INPUT_FILE_0}" "${SCRIPT_OUTPUT_FILE_0}"
 case "$PLATFORM_NAME" in
-iphone*|appletv*|watch*)
+iphone*|appletv*|watch*|bridge*)
     /usr/libexec/PlistBuddy -c "Add :LaunchOnlyOnce bool true" "${SCRIPT_OUTPUT_FILE_0}"
     ;;
 macosx)

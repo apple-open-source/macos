@@ -51,7 +51,6 @@ CLEAN :
 !ENDIF 
 	-@erase "$(INTDIR)\h2_alt_svc.obj"
 	-@erase "$(INTDIR)\h2_bucket_beam.obj"
-	-@erase "$(INTDIR)\h2_bucket_eoc.obj"
 	-@erase "$(INTDIR)\h2_bucket_eos.obj"
 	-@erase "$(INTDIR)\h2_config.obj"
 	-@erase "$(INTDIR)\h2_conn.obj"
@@ -70,7 +69,6 @@ CLEAN :
 	-@erase "$(INTDIR)\h2_switch.obj"
 	-@erase "$(INTDIR)\h2_task.obj"
 	-@erase "$(INTDIR)\h2_util.obj"
-	-@erase "$(INTDIR)\h2_worker.obj"
 	-@erase "$(INTDIR)\h2_workers.obj"
 	-@erase "$(INTDIR)\mod_http2.obj"
 	-@erase "$(INTDIR)\mod_http2.res"
@@ -130,7 +128,6 @@ LINK32_FLAGS=kernel32.lib nghttp2.lib /nologo /subsystem:windows /dll /increment
 LINK32_OBJS= \
 	"$(INTDIR)\h2_alt_svc.obj" \
 	"$(INTDIR)\h2_bucket_beam.obj" \
-	"$(INTDIR)\h2_bucket_eoc.obj" \
 	"$(INTDIR)\h2_bucket_eos.obj" \
 	"$(INTDIR)\h2_config.obj" \
 	"$(INTDIR)\h2_conn.obj" \
@@ -149,7 +146,6 @@ LINK32_OBJS= \
 	"$(INTDIR)\h2_switch.obj" \
 	"$(INTDIR)\h2_task.obj" \
 	"$(INTDIR)\h2_util.obj" \
-	"$(INTDIR)\h2_worker.obj" \
 	"$(INTDIR)\h2_workers.obj" \
 	"$(INTDIR)\mod_http2.obj" \
 	"$(INTDIR)\mod_http2.res" \
@@ -201,7 +197,6 @@ CLEAN :
 !ENDIF 
 	-@erase "$(INTDIR)\h2_alt_svc.obj"
 	-@erase "$(INTDIR)\h2_bucket_beam.obj"
-	-@erase "$(INTDIR)\h2_bucket_eoc.obj"
 	-@erase "$(INTDIR)\h2_bucket_eos.obj"
 	-@erase "$(INTDIR)\h2_config.obj"
 	-@erase "$(INTDIR)\h2_conn.obj"
@@ -220,7 +215,6 @@ CLEAN :
 	-@erase "$(INTDIR)\h2_switch.obj"
 	-@erase "$(INTDIR)\h2_task.obj"
 	-@erase "$(INTDIR)\h2_util.obj"
-	-@erase "$(INTDIR)\h2_worker.obj"
 	-@erase "$(INTDIR)\h2_workers.obj"
 	-@erase "$(INTDIR)\mod_http2.obj"
 	-@erase "$(INTDIR)\mod_http2.res"
@@ -280,7 +274,6 @@ LINK32_FLAGS=kernel32.lib nghttp2d.lib /nologo /subsystem:windows /dll /incremen
 LINK32_OBJS= \
 	"$(INTDIR)\h2_alt_svc.obj" \
 	"$(INTDIR)\h2_bucket_beam.obj" \
-	"$(INTDIR)\h2_bucket_eoc.obj" \
 	"$(INTDIR)\h2_bucket_eos.obj" \
 	"$(INTDIR)\h2_config.obj" \
 	"$(INTDIR)\h2_conn.obj" \
@@ -299,7 +292,6 @@ LINK32_OBJS= \
 	"$(INTDIR)\h2_switch.obj" \
 	"$(INTDIR)\h2_task.obj" \
 	"$(INTDIR)\h2_util.obj" \
-	"$(INTDIR)\h2_worker.obj" \
 	"$(INTDIR)\h2_workers.obj" \
 	"$(INTDIR)\mod_http2.obj" \
 	"$(INTDIR)\mod_http2.res" \
@@ -427,11 +419,6 @@ SOURCE=./h2_bucket_beam.c
 "$(INTDIR)/h2_bucket_beam.obj" : $(SOURCE) "$(INTDIR)"
 
 
-SOURCE=./h2_bucket_eoc.c
-
-"$(INTDIR)\h2_bucket_eoc.obj" : $(SOURCE) "$(INTDIR)"
-
-
 SOURCE=./h2_bucket_eos.c
 
 "$(INTDIR)\h2_bucket_eos.obj" : $(SOURCE) "$(INTDIR)"
@@ -520,11 +507,6 @@ SOURCE=./h2_task.c
 SOURCE=./h2_util.c
 
 "$(INTDIR)\h2_util.obj" : $(SOURCE) "$(INTDIR)"
-
-
-SOURCE=./h2_worker.c
-
-"$(INTDIR)\h2_worker.obj" : $(SOURCE) "$(INTDIR)"
 
 
 SOURCE=./h2_workers.c

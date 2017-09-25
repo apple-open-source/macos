@@ -37,9 +37,9 @@
 
 #if defined(__x86_64)
 #define NANO_SIGNATURE_BITS		20
-#define NANOZONE_SIGNATURE		0x00006ULL			// 0x00006nnnnnnnnnnn the address range devoted to us.
-#define NANO_MAG_BITS			5
-#define NANO_BAND_BITS			18
+#define NANOZONE_SIGNATURE		0x6ULL // (0x6 << 44) == 0x00006nnnnnnnnnnn the 4096gb address range devoted to us.
+#define NANO_MAG_BITS			6
+#define NANO_BAND_BITS			17
 #define NANO_SLOT_BITS			4
 #define NANO_OFFSET_BITS		17
 
@@ -52,7 +52,7 @@
 #if defined(__BIG_ENDIAN__)
 struct nano_blk_addr_s {
     uint64_t
-	nano_signature:NANO_SIGNATURE_BITS,	// 0x00006nnnnnnnnnnn the address range devoted to us.
+	nano_signature:NANO_SIGNATURE_BITS,	// the address range devoted to us.
 	nano_mag_index:NANO_MAG_BITS,		// the core that allocated this block
 	nano_band:NANO_BAND_BITS,
 	nano_slot:NANO_SLOT_BITS,		// bucket of homogenous quanta-multiple blocks
@@ -66,7 +66,7 @@ struct nano_blk_addr_s {
 	nano_slot:NANO_SLOT_BITS,		// bucket of homogenous quanta-multiple blocks
 	nano_band:NANO_BAND_BITS,
 	nano_mag_index:NANO_MAG_BITS,		// the core that allocated this block
-	nano_signature:NANO_SIGNATURE_BITS;	// 0x00006nnnnnnnnnnn the address range devoted to us.
+	nano_signature:NANO_SIGNATURE_BITS;	// the address range devoted to us.
 };
 #endif
 // clang-format on
@@ -86,6 +86,8 @@ typedef union  {
 #define BAND_SIZE 		(1 << (NANO_SLOT_BITS + NANO_OFFSET_BITS)) /*  == Number of bytes covered by a page table entry */
 #define NANO_MAG_SIZE 		(1 << NANO_MAG_BITS)
 #define NANO_SLOT_SIZE 		(1 << NANO_SLOT_BITS)
+
+#ifdef __INTERNAL_H
 
 /****************************** zone itself ***********************************/
 
@@ -145,6 +147,8 @@ typedef struct nanozone_s {
 } nanozone_t;
 
 #define NANOZONE_PAGED_SIZE	((sizeof(nanozone_t) + vm_page_size - 1) & ~ (vm_page_size - 1))
+
+#endif // __INTERNAL_H
 
 #endif // CONFIG_NANOZONE
 

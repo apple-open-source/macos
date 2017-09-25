@@ -12,19 +12,28 @@
 typedef int (MainFunction)(int, char**);
 
 @interface Libxml2XCTests : XCTestCase
+@property (readonly) NSBundle *bundle;
 - (int)_invokeMainForTestCommand:(NSString *)command;
 - (void)_printOutputFile:(NSString *)file;
 @end
 
 @implementation Libxml2XCTests
 
+- (NSBundle *)bundle
+{
+    static NSBundle *bundle = nil;
+    if (!bundle) {
+        bundle = [NSBundle bundleForClass:[self class]];
+        XCTAssertNotNil(bundle, @"bundle should not be nil for class %@", [self class]);
+    }
+    return bundle;
+}
+
 - (int)_invokeMainForTestCommand:(NSString *)command
 {
     // Get path to binary from NSBundle.
-    NSBundle *bundle = [NSBundle bundleForClass:[self class]];
-    XCTAssertNotNil(bundle, @"bundle should not be nil for class %@", [self class]);
     NSString *resourceName = [NSString stringWithFormat:@"libxml2_%@.dylib", command];
-    NSString *binaryPath = [bundle pathForResource:resourceName ofType:nil];
+    NSString *binaryPath = [self.bundle pathForResource:resourceName ofType:nil];
     XCTAssertNotNil(binaryPath, @"binaryPath should not be nil for %@", resourceName);
 
     // Use dyld to load 'main' symbol from binary.
@@ -45,8 +54,7 @@ typedef int (MainFunction)(int, char**);
 
 - (void)_printOutputFile:(NSString *)file
 {
-    NSBundle *bundle = [NSBundle bundleForClass:[self class]];
-    NSString *path = [[bundle resourcePath] stringByAppendingPathComponent:file];
+    NSString *path = [[self.bundle resourcePath] stringByAppendingPathComponent:file];
     fprintf(stderr, "\n------- Begin %s\n", [file UTF8String]);
     NSError *error;
     fprintf(stderr, "%s", [[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:&error] UTF8String]);

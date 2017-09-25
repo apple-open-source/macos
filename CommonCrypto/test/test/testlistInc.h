@@ -4,6 +4,7 @@
 ONE_TEST(CommonRandom)
 
 // No particular sequence
+ONE_TEST(CommonCPP)
 ONE_TEST(CommonCryptoSymECB)
 ONE_TEST(CommonCryptoSymCBC)
 ONE_TEST(CommonCryptoSymOFB)
@@ -39,3 +40,4 @@ ONE_TEST(CommonEC)
 ONE_TEST(CommonRSA)
 ONE_TEST(CommonHMacClone)
 ONE_TEST(CommonCMac)
+

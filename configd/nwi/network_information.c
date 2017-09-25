@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,7 +28,9 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <dispatch/dispatch.h>
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 #include <os/activity.h>
+#endif	// VERBOSE_ACTIVITY_LOGGING
 #include <os/log.h>
 #include <xpc/xpc.h>
 
@@ -60,6 +62,7 @@ static int			nwi_active	= 0;
 static libSC_info_client_t	*nwi_client	= NULL;
 
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 static os_activity_t
 __nwi_client_activity()
 {
@@ -74,6 +77,7 @@ __nwi_client_activity()
 
 	return activity;
 }
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 
 static dispatch_queue_t
@@ -229,8 +233,10 @@ _nwi_state_copy_data()
 		return NULL;
 	}
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	// scope NWI activity
 	os_activity_scope(__nwi_client_activity());
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	// create message
 	reqdict = xpc_dictionary_create(NULL, NULL, 0);
@@ -291,8 +297,10 @@ _nwi_config_agent_copy_data(const struct netagent *agent, uint64_t *length)
 
 	_nwi_client_init();
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	// scope NWI activity
 	os_activity_scope(__nwi_client_activity());
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	reqdict = xpc_dictionary_create(NULL, NULL, 0);
 
@@ -399,6 +407,7 @@ nwi_state_copy(void)
 void
 _nwi_state_ack(nwi_state_t state, const char *bundle_id)
 {
+#pragma unused(bundle_id)
 	xpc_object_t	reqdict;
 
 	if (state == NULL) {

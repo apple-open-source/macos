@@ -2189,11 +2189,11 @@ pfkey_setsadbipsecif(caddr_t buf, caddr_t lim, char *internal_if, char *outgoing
 	p->sadb_x_ipsecif_exttype = SADB_X_EXT_IPSECIF;
     
     if (internal_if != NULL)
-        strncpy(p->sadb_x_ipsecif_internal_if, internal_if, sizeof(p->sadb_x_ipsecif_internal_if));
+		strncpy(p->sadb_x_ipsecif_internal_if, internal_if, sizeof(p->sadb_x_ipsecif_internal_if) - 1);
     if (outgoing_if != NULL)
-        strncpy(p->sadb_x_ipsecif_outgoing_if, outgoing_if, sizeof(p->sadb_x_ipsecif_outgoing_if));
+		strncpy(p->sadb_x_ipsecif_outgoing_if, outgoing_if, sizeof(p->sadb_x_ipsecif_outgoing_if) - 1);
     if (ipsec_if != NULL)
-        strncpy(p->sadb_x_ipsecif_ipsec_if, ipsec_if, sizeof(p->sadb_x_ipsecif_ipsec_if));
+		strncpy(p->sadb_x_ipsecif_ipsec_if, ipsec_if, sizeof(p->sadb_x_ipsecif_ipsec_if) - 1);
     
 	p->sadb_x_ipsecif_init_disabled = init_disabled;
     

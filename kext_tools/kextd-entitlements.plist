@@ -4,7 +4,9 @@
 <dict>
 	<key>com.apple.private.kernel.get-kext-info</key>
 	<true/>
-    <key>com.apple.rootless.kext-management</key>
-    <true/>
+	<key>com.apple.rootless.kext-management</key>
+	<true/>
+	<key>com.apple.rootless.storage.KernelExtensionManagement</key>
+	<true/>
 </dict>
 </plist>

@@ -266,6 +266,19 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	xc = i;
 	nc++;
 
+#if defined(__APPLE__)
+	/*
+	 * Try userspace data if the kernel could not provide argument types
+	 * for fbt probes
+	 */
+	if (xc == 0 && nc == 0 &&
+		strcmp(pvp->pv_desc.dtvd_name, "fbt") == 0) {
+		nc = adc;
+		dt_module_get_types(dtp, pdp, adv, &nc);
+		xc = nc;
+	}
+#endif /* !defined(__APPLE__) */
+
 	/*
 	 * Now that we have discovered the number of native and translated
 	 * arguments from the argument descriptions, allocate a new probe ident

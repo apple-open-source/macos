@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1222,8 +1222,8 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 		printf("%c%scallback", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCALLBACK) ? "no" : ""), SEP;
 	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NONEGNAMECACHE))
 		printf("%c%snegnamecache", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : ""), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NONAMEDATTR))
-		printf("%c%snamedattr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NONAMEDATTR) ? "no" : ""), SEP;
+	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NAMEDATTR))
+		printf("%c%snamedattr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no"), SEP;
 	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOACL))
 		printf("%c%sacl", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOACL) ? "no" : ""), SEP;
 	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_ACLONLY))

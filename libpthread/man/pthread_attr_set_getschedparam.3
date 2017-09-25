@@ -38,7 +38,11 @@ The
 .Fa sched_priority
 field of
 .Fa struct sched_param
-can be set to SCHED_OTHER, SCHED_FIFO and SCHED_RR.
+must be within the range returned by the
+.Xr sched_get_priority_min 2
+and
+.Xr sched_get_priority_max 2
+system calls.
 .Sh RETURN VALUES
 If successful, these functions return 0.
 Otherwise, an error number is returned to indicate the error.

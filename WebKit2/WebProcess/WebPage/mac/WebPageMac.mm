@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,7 @@
 #import <WebCore/BackForwardController.h>
 #import <WebCore/DataDetection.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/Editing.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
@@ -73,6 +74,7 @@
 #import <WebCore/MainFrame.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NetworkingContext.h>
+#import <WebCore/NodeRenderStyle.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageOverlayController.h>
 #import <WebCore/PlatformKeyboardEvent.h>
@@ -82,18 +84,18 @@
 #import <WebCore/RenderStyle.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/ResourceHandle.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/StyleInheritedData.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WindowsKeyboardCodes.h>
-#import <WebCore/htmlediting.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/SetForScope.h>
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-#include <WebCore/MediaPlaybackTargetMac.h>
-#include <WebCore/MediaPlaybackTargetMock.h>
+#import <WebCore/MediaPlaybackTargetMac.h>
+#import <WebCore/MediaPlaybackTargetMock.h>
 #endif
 
 using namespace WebCore;
@@ -105,7 +107,7 @@ void WebPage::platformInitialize()
     WKAccessibilityWebPageObject* mockAccessibilityElement = [[[WKAccessibilityWebPageObject alloc] init] autorelease];
 
     // Get the pid for the starting process.
-    pid_t pid = WebProcess::singleton().presenterApplicationPid();
+    pid_t pid = WebCore::presentingApplicationPID();
     WKAXInitializeElementWithPresenterPid(mockAccessibilityElement, pid);
     [mockAccessibilityElement setWebPage:this];
     
@@ -149,6 +151,11 @@ void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePost
     selectedRange->absoluteTextQuads(quads);
     if (!quads.isEmpty())
         postLayoutData.selectionClipRect = frame.view()->contentsToWindow(quads[0].enclosingBoundingBox());
+    else {
+        // Range::absoluteTextQuads() will be empty at the start of a paragraph.
+        if (selection.isCaret())
+            postLayoutData.selectionClipRect = frame.view()->contentsToWindow(frame.selection().absoluteCaretBounds());
+    }
 }
 
 void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandidate)
@@ -327,7 +334,7 @@ void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& re
     frame.editor().insertDictatedText(text, dictationAlternativeLocations, nullptr);
 }
 
-void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& editingRange, uint64_t callbackID)
+void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& editingRange, CallbackID callbackID)
 {
     AttributedString result;
 
@@ -368,7 +375,7 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
     send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback(result, rangeToSend, callbackID));
 }
 
-void WebPage::fontAtSelection(uint64_t callbackID)
+void WebPage::fontAtSelection(CallbackID callbackID)
 {
     String fontName;
     double fontSize = 0;
@@ -429,9 +436,6 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame* frame, Range& ra
         editor.setIsGettingDictionaryPopupInfo(false);
         return dictionaryPopupInfo;
     }
-    
-    RenderObject* renderer = range.startContainer().renderer();
-    const RenderStyle& style = renderer->style();
 
     Vector<FloatQuad> quads;
     range.absoluteTextQuads(quads);
@@ -442,7 +446,9 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame* frame, Range& ra
 
     IntRect rangeRect = frame->view()->contentsToWindow(quads[0].enclosingBoundingBox());
 
-    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y() + (style.fontMetrics().ascent() * pageScaleFactor()));
+    const RenderStyle* style = range.startContainer().renderStyle();
+    float scaledAscent = style ? style->fontMetrics().ascent() * pageScaleFactor() : 0;
+    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y() + scaledAscent);
     dictionaryPopupInfo.options = *options;
 
     NSAttributedString *nsAttributedString = editingAttributedStringFromRange(range, IncludeImagesInAttributedString::No);
@@ -707,9 +713,9 @@ String WebPage::cachedResponseMIMETypeForURL(const URL& url)
     return [[cachedResponseForURL(this, url) response] MIMEType];
 }
 
-PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL& url)
+RefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const URL& url)
 {
-    return SharedBuffer::wrapNSData([cachedResponseForURL(this, url) data]);
+    return SharedBuffer::create([cachedResponseForURL(this, url) data]);
 }
 
 bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
@@ -756,37 +762,33 @@ void WebPage::acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent& ev
         result = !!hitResult.scrollbar();
 }
 
-void WebPage::setTopOverhangImage(PassRefPtr<WebImage> image)
+void WebPage::setTopOverhangImage(WebImage* image)
 {
-    FrameView* frameView = m_mainFrame->coreFrame()->view();
+    auto* frameView = m_mainFrame->coreFrame()->view();
     if (!frameView)
         return;
 
-    GraphicsLayer* layer = frameView->setWantsLayerForTopOverHangArea(image.get());
+    auto* layer = frameView->setWantsLayerForTopOverHangArea(image);
     if (!layer)
         return;
 
     layer->setSize(image->size());
     layer->setPosition(FloatPoint(0, -image->size().height()));
-
-    RetainPtr<CGImageRef> cgImage = image->bitmap()->makeCGImageCopy();
-    layer->platformLayer().contents = (id)cgImage.get();
+    layer->platformLayer().contents = (id)image->bitmap().makeCGImageCopy().get();
 }
 
-void WebPage::setBottomOverhangImage(PassRefPtr<WebImage> image)
+void WebPage::setBottomOverhangImage(WebImage* image)
 {
-    FrameView* frameView = m_mainFrame->coreFrame()->view();
+    auto* frameView = m_mainFrame->coreFrame()->view();
     if (!frameView)
         return;
 
-    GraphicsLayer* layer = frameView->setWantsLayerForBottomOverHangArea(image.get());
+    auto* layer = frameView->setWantsLayerForBottomOverHangArea(image);
     if (!layer)
         return;
 
     layer->setSize(image->size());
-    
-    RetainPtr<CGImageRef> cgImage = image->bitmap()->makeCGImageCopy();
-    layer->platformLayer().contents = (id)cgImage.get();
+    layer->platformLayer().contents = (id)image->bitmap().makeCGImageCopy().get();
 }
 
 void WebPage::updateHeaderAndFooterLayersForDeviceScaleChange(float scaleFactor)

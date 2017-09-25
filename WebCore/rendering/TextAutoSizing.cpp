@@ -30,6 +30,7 @@
 
 #include "CSSFontSelector.h"
 #include "Document.h"
+#include "FontCascade.h"
 #include "Logging.h"
 #include "RenderListMarker.h"
 #include "RenderText.h"
@@ -133,7 +134,7 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
 
         // Resize the line height of the parent.
         auto& parentStyle = parentRenderer->style();
-        Length lineHeightLength = parentStyle.specifiedLineHeight();
+        auto& lineHeightLength = parentStyle.specifiedLineHeight();
 
         int specifiedLineHeight;
         if (lineHeightLength.isPercent())
@@ -141,13 +142,14 @@ auto TextAutoSizingValue::adjustTextNodeSizes() -> StillHasNodes
         else
             specifiedLineHeight = lineHeightLength.value();
 
+        // This calculation matches the line-height computed size calculation in StyleBuilderCustom::applyValueLineHeight().
         int lineHeight = specifiedLineHeight * scaleChange;
         if (lineHeightLength.isFixed() && lineHeightLength.value() == lineHeight)
             continue;
 
         auto newParentStyle = cloneRenderStyleWithState(parentStyle);
         newParentStyle.setLineHeight(Length(lineHeight, Fixed));
-        newParentStyle.setSpecifiedLineHeight(lineHeightLength);
+        newParentStyle.setSpecifiedLineHeight(Length { lineHeightLength });
         newParentStyle.setFontDescription(fontDescription);
         newParentStyle.fontCascade().update(&node->document().fontSelector());
         parentRenderer->setStyle(WTFMove(newParentStyle));
@@ -188,12 +190,12 @@ void TextAutoSizingValue::reset()
             parentRenderer = parentRenderer->parent();
 
         auto& parentStyle = parentRenderer->style();
-        Length originalLineHeight = parentStyle.specifiedLineHeight();
+        auto& originalLineHeight = parentStyle.specifiedLineHeight();
         if (originalLineHeight == parentStyle.lineHeight())
             continue;
 
         auto newParentStyle = cloneRenderStyleWithState(parentStyle);
-        newParentStyle.setLineHeight(originalLineHeight);
+        newParentStyle.setLineHeight(Length { originalLineHeight });
         newParentStyle.setFontDescription(fontDescription);
         newParentStyle.fontCascade().update(&node->document().fontSelector());
         parentRenderer->setStyle(WTFMove(newParentStyle));

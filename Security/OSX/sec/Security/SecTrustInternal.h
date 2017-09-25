@@ -51,6 +51,8 @@ __BEGIN_DECLS
 #define kSecTrustResultKey "result"
 #define kSecTrustInfoKey "info"
 
+extern const CFStringRef kSecCertificateDetailSHA1Digest;
+
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
 SecKeyRef SecTrustCopyPublicKey_ios(SecTrustRef trust);
 CFArrayRef SecTrustCopyProperties_ios(SecTrustRef trust);

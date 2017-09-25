@@ -21,13 +21,15 @@
 #include <malloc/malloc.h>
 #endif
 
+AUTHD_DEFINE_LOG
+
 static void
 security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
 {
     __block OSStatus status = errAuthorizationDenied;
     
     connection_t conn = (connection_t)xpc_connection_get_context(connection);
-    require_action(conn != NULL, done, LOGE("xpc[%i]: process context not found", xpc_connection_get_pid(connection)));
+    require_action(conn != NULL, done, os_log_error(AUTHD_LOG, "xpc: process context not found"));
 
     CFRetainSafe(conn);
 
@@ -36,15 +38,15 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
 	if (type == XPC_TYPE_ERROR) {
 		if (event == XPC_ERROR_CONNECTION_INVALID) {
 			// The client process on the other end of the connection has either
-			// crashed or cancelled the connection. After receiving this error,
+			// crashed or canceled the connection. After receiving this error,
 			// the connection is in an invalid state, and you do not need to
 			// call xpc_connection_cancel(). Just tear down any associated state
 			// here.
-            LOGV("xpc[%i]: client disconnected", xpc_connection_get_pid(connection));
+            os_log_debug(AUTHD_LOG, "xpc: client disconnected PID %d", xpc_connection_get_pid(connection));
             connection_destroy_agents(conn);
 		} else if (event == XPC_ERROR_TERMINATION_IMMINENT) {
 			// Handle per-connection termination cleanup.
-            LOGD("xpc[%i]: per-connection termination", xpc_connection_get_pid(connection));
+            os_log_debug(AUTHD_LOG, "xpc: per-connection termination PID %d", xpc_connection_get_pid(connection));
 		}
 	} else {
 		assert(type == XPC_TYPE_DICTIONARY);
@@ -53,7 +55,7 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
         require(reply != NULL, done);
         
         uint64_t auth_type = xpc_dictionary_get_uint64(event, AUTH_XPC_TYPE);
-        LOGV("xpc[%i]: received message type=%llu", connection_get_pid(conn), auth_type);
+        os_log_debug(AUTHD_LOG, "xpc: received message PID %d, type=%llu", connection_get_pid(conn), auth_type);
         
         switch (auth_type) {
             case AUTHORIZATION_CREATE:
@@ -107,6 +109,9 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
                 }
                 status = errAuthorizationSuccess;
                 break;
+			case AUTHORIZATION_PREAUTHORIZE_CREDENTIALS:
+				status = authorization_preauthorize_credentials(conn,event,reply);
+				break;
 #if DEBUG
             case AUTHORIZATION_DEV:
                 server_dev();
@@ -128,7 +133,7 @@ done:
 static void
 connection_finalizer(void * conn)
 {
-    LOGD("xpc[%i]: connection_finalizer", connection_get_pid(conn));
+    os_log_debug(AUTHD_LOG, "xpc: connection_finalizer for PID %d", connection_get_pid(conn));
     server_unregister_connection(conn);
 
 //#if DEBUG
@@ -158,7 +163,7 @@ security_auth_event_handler(xpc_connection_t xpc_conn)
         xpc_connection_resume(xpc_conn);
 
     } else {
-        LOGE("xpc[%i]: failed to register connection", xpc_connection_get_pid(xpc_conn));
+        os_log_error(AUTHD_LOG, "xpc: failed to register connection (PID %d)", xpc_connection_get_pid(xpc_conn));
         xpc_connection_cancel(xpc_conn);
     }
 }
@@ -171,7 +176,7 @@ static void sandbox(const char *tmpdir)
 
 	rc = sandbox_init_with_parameters(SECURITY_AUTH_NAME, SANDBOX_NAMED, sandbox_params, &errorbuf);
     if (rc) {
-        LOGE("server: sandbox_init failed %s (%i)", errorbuf, rc);
+        os_log_error(AUTHD_LOG, "server: sandbox_init failed %{public}s (%i)", errorbuf, rc);
         sandbox_free_error(errorbuf);
 #ifndef DEBUG
         abort();
@@ -186,20 +191,20 @@ int main(int argc AUTH_UNUSED, const char *argv[] AUTH_UNUSED)
 //    malloc_zone_print(malloc_default_zone(), false);
 //#endif
 
-	LOGV("starting");
+	os_log_debug(AUTHD_LOG, "starting");
 
 	// <rdar://problem/20900280> authd needs to provide a writeable temp dir for SQLite
 	// <rdar://problem/21223798> Insecure temporary directory in authd (/tmp/authd)
 	char	darwin_tmp[PATH_MAX];
 	size_t	len = confstr(_CS_DARWIN_USER_TEMP_DIR, darwin_tmp, sizeof(darwin_tmp));
 	if (len == 0 || len >= PATH_MAX) {
-		LOGE("Invalid _CS_DARWIN_USER_TEMP_DIR");
+		os_log_error(AUTHD_LOG, "Invalid _CS_DARWIN_USER_TEMP_DIR");
 		return errAuthorizationInternal;
 	}
 
 	char *real_tmp = realpath(darwin_tmp, NULL);
 	if (real_tmp == NULL) {
-		LOGE("realpath( %s ) FAILED", darwin_tmp);
+		os_log_error(AUTHD_LOG, "realpath( %{public}s ) FAILED", darwin_tmp);
 		return errAuthorizationInternal;
 	}
 
@@ -208,7 +213,7 @@ int main(int argc AUTH_UNUSED, const char *argv[] AUTH_UNUSED)
 	free(real_tmp);
 
     if (server_init() != errAuthorizationSuccess) {
-        LOGE("auth: server_init() failed");
+        os_log_error(AUTHD_LOG, "auth: server_init() failed");
         return errAuthorizationInternal;
     }
         

@@ -56,8 +56,10 @@ __END_DECLS
 
 #define PFM64_SIZE    (2ULL*GB)
 #define MAX_BAR_SIZE  (1ULL*GB)
-// NPHYSMAP
-// #define PFM64_MAX     (100ULL*GB)
+// NPHYSMAP; unfortunately this is too low to decode to PCI on some machines
+// #define PFM64_MAX  (512LL*GB)
+// cap to 32b page number max address
+#define PFM64_MAX     (1ULL<<44)
 
 
 #if !DEVELOPMENT && !defined(__x86_64__)
@@ -373,7 +375,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #if ACPI_SUPPORT
-void CLASS::removeFixedRanges(IORegistryEntry * root)
+void CLASS::removeFixedRanges(IOPCIConfigEntry * bridge)
 {
 	IORegistryIterator * iter;
 	IOService *          service;
@@ -386,7 +388,7 @@ void CLASS::removeFixedRanges(IORegistryEntry * root)
 	bool                 ok;
 
 	range = NULL;
-	iter = IORegistryIterator::iterateOver(root, gIOPCIACPIPlane, kIORegistryIterateRecursively);
+	iter = IORegistryIterator::iterateOver(bridge->acpiDevice, gIOPCIACPIPlane, kIORegistryIterateRecursively);
 	if (iter)
 	{
 		all = iter->iterateAll();
@@ -418,7 +420,7 @@ void CLASS::removeFixedRanges(IORegistryEntry * root)
 					if (!range)
 						range = IOPCIRangeAlloc();
 					IOPCIRangeInit(range, type, start, size, 1);
-					ok = IOPCIRangeListAllocateSubRange(fRoot->ranges[BRN(type)], range);
+					ok = IOPCIRangeListAllocateSubRange(bridge->ranges[BRN(type)], range);
 					DLOG("%s: %sfixed alloc type %d, 0x%llx len 0x%llx\n", 
 							service->getName(), ok ? "" : "!", type, start, size);
 					if (ok)
@@ -436,9 +438,6 @@ void CLASS::removeFixedRanges(IORegistryEntry * root)
 bool CLASS::createRoot(void)
 {
     IOPCIConfigEntry * root;
-    IOPCIRange *       range;
-    uint64_t           start, size;
-	uint32_t           cpuPhysBits;
 
     root = IONew(IOPCIConfigEntry, 1);
     if (!root) return (false);
@@ -451,33 +450,8 @@ bool CLASS::createRoot(void)
 
     root->secBusNum    = 0xff;
 
-#if defined(__i386__) || defined(__x86_64__)
-	cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
-    size  = PFM64_SIZE;
-	if (cpuPhysBits > 44) cpuPhysBits = 44;
-	start = (1ULL << cpuPhysBits);
-//	if (start > PFM64_MAX) start = PFM64_MAX;
-#if PLX8680
-	if (cpuPhysBits >= 36) size *= 16; // 32GB
-#endif
-	start -= size;
-	IOLog("pci (build %s %s), flags 0x%x, pfm64 (%d cpu) 0x%llx, 0x%llx\n",
-			__TIME__, __DATE__, gIOPCIFlags, cpuPhysBits, start, size);
-	kprintf("pci (build %s %s), flags 0x%x, pfm64 (%d cpu) 0x%llx, 0x%llx\n",
-			__TIME__, __DATE__, gIOPCIFlags, cpuPhysBits, start, size);
-	if (cpuPhysBits > 32)
-	{
-		range = IOPCIRangeAlloc();
-		IOPCIRangeInitAlloc(range, kIOPCIResourceTypeMemory, start, size, 1);
-		root->ranges[kIOPCIRangeBridgeMemory] = range;
-	}
-
-#else /* defined(__i386__) || defined(__x86_64__) */
-
 	IOLog  ("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
 	kprintf("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
-
-#endif /* !defined(__i386__) || defined(__x86_64__) */
 
     root->deviceState |= kPCIDeviceStateScanned | kPCIDeviceStateConfigurationDone;
     fRoot = root;
@@ -491,6 +465,7 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
 	IOPCIAddressSpace  space;
     IOPCIRange *       range;
     uint64_t           start, size;
+    bool               ok, hasHostMemory, hasHost64;
 
     bridge = IONew(IOPCIConfigEntry, 1);
     if (!bridge) return (kIOReturnNoMemory);
@@ -545,31 +520,53 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
         "ok", gPCIResourceTypeName[kIOPCIResourceTypeBusNumber], 
         range->start, range->size);
 
-    for (int type = 0; type < kIOPCIResourceTypeCount; type++)
+    for (int type = hasHostMemory = hasHost64 = 0; type < kIOPCIResourceTypeCount; type++)
     {
         IOPCIRange * thisRange;
         for (thisRange = hostBridge->reserved->rangeLists[type];
 			 thisRange;
 			 thisRange = thisRange->next)
         {
-            bool ok;
 			start = thisRange->start;
 			size  = thisRange->size;
             DLOG("reported host bridge resource %s 0x%llx len 0x%llx\n", 
                 gPCIResourceTypeName[type], 
                 start, size);
-            ok = IOPCIRangeListAddRange(&fRoot->ranges[BRN(type)],
+            ok = IOPCIRangeListAddRange(&bridge->ranges[BRN(type)],
                                         type, start, size);
             DLOG("added(%s) host bridge resource %s 0x%llx len 0x%llx\n", 
                 ok ? "ok" : "!", gPCIResourceTypeName[type], 
                 start, size);
+            if (!ok) continue;
+            if ((kIOPCIResourceTypeMemory == type) || (kIOPCIResourceTypePrefetchMemory == type))
+            {
+				hasHostMemory = true;
+				hasHost64 |= (0 != (start >> 32));
+            }
         }
     }
 
 #if ACPI_SUPPORT
 	if (bridge->acpiDevice)
-		removeFixedRanges(bridge->acpiDevice);
-#endif
+		removeFixedRanges(bridge);
+
+	if (hasHostMemory && !hasHost64 && !fAddedHost64)
+	{
+		uint64_t  start, size;
+		uint32_t  cpuPhysBits;
+
+		cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
+		size  = PFM64_SIZE;
+		start = (1ULL << cpuPhysBits);
+		if (start > PFM64_MAX) start = PFM64_MAX;
+		start -= size;
+		ok = IOPCIRangeListAddRange(&bridge->ranges[kIOPCIRangeBridgeMemory],
+									kIOPCIResourceTypeMemory, start, size);
+		DLOG("added(%s) host bridge pfm64 (%d cpu) 0x%llx, 0x%llx\n",
+			ok ? "ok" : "!", cpuPhysBits, start, size);
+		fAddedHost64 = ok;
+	}
+#endif /* ACPI_SUPPORT */
 
     bridge->deviceState |= kPCIDeviceStateConfigurationDone;
 
@@ -881,15 +878,6 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 		else if (!(kPCIDeviceStateNoLink & device->deviceState))
 			propTable->setObject(kIOPCIOnlineKey, kOSBooleanTrue);
 	}
-
-#if PLX8680
-    if (device->plxAperture
-        && (num = OSNumber::withNumber(device->plxAperture, 64)))
-	{
-		propTable->setObject("IODMAAddressAperture", num);
-		num->release();
-	}
-#endif /* PLX8680 */
 
     return (propTable);
 }
@@ -1248,8 +1236,7 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				child->rangeSizeChanges |= (1 << BRN(childRange->type));
 			}
 			else if (child->linkInterrupts 
-				&& (kPCIStatic != (kPCIHPTypeMask & child->supportsHotPlug))
-			    && (!(kIOPCIConfiguratorNoSplay & fFlags)))
+				&& (kPCIStatic != (kPCIHPTypeMask & child->supportsHotPlug)))
 			{
 				childRange->flags |= kIOPCIRangeFlagSplay;
 			}
@@ -2008,83 +1995,6 @@ void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device,
 #endif
     }
 
-#if PLX8680
-	do
-	{
-		IOPCIRange *        range;
-		uint16_t            command;
-		volatile uint32_t * regs;
-		uint32_t            reg32, lut;
-		IOPCIConfigEntry *  parent;
-	
-		if (0x868010b5 != device->vendorProduct) break;
-	
-		command = configRead16(device, kIOPCIConfigCommand);
-		configWrite16(device, kIOPCIConfigCommand, (command | kIOPCICommandMemorySpace | kIOPCICommandBusMaster));
-	
-		range = device->ranges[kIOPCIRangeBAR0];
-		if (!range) break;
-		if (0x40000 != range->proposedSize) break;
-		if (kIOPCIResourceTypeMemory != range->type) break;
-		if (kPCIHeaderType1 != device->headerType) break;
-	
-		parent = device;
-		do { regs = parent->plx; } while (!regs && (parent = parent->parent));
-		if (regs) break;
-	
-		IOMemoryDescriptor *
-		md = IOMemoryDescriptor::withAddressRange(range->start, range->proposedSize, kIODirectionOutIn | kIOMemoryMapperNone, TASK_NULL);
-		if (!md) break;
-		IOMemoryMap *
-		map = md->map();
-		if (!map) break;
-		regs = (uint32_t *) map->getAddress();
-		
-		reg32 = regs[0];
-		IOLog("PLX regs 0x%x, 0x%x\n", (int) range->start, reg32);
-		if (0x868010b5 != reg32) break;
-	
-		reg32 = regs[(0x3e000 + 0xd4) / 4];
-		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
-		reg32 = regs[(0x3e000 + 0xd8) / 4];
-		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
-	   
-		for (lut = 0; lut < 8; lut++) regs[((0x3e000 + 0xd94) / 4) + lut] = 0;
-		
-		regs[(0x3e000 + 0xd4) / 4] = 0x0000000c;
-		regs[(0x3e000 + 0xd8) / 4] = 0xfffffffc;
-	
-		regs[(0x3e000 + 0xc3c) / 4] = 0x00000000;
-		regs[(0x3e000 + 0xc40) / 4] = 0x00000000;
-	
-		reg32 = regs[(0x3e000 + 0xd4) / 4];
-		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
-		reg32 = regs[(0x3e000 + 0xd8) / 4];
-		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
-	
-		for (barNum = 0; barNum <= lastBarNum; barNum++)
-		{
-			IOPCIRangeInit(device->ranges[barNum], 0, 0, 0);
-		}
-	
-		{
-			BARProbeParam param;
-			param.target     = this;
-			param.device     = device;
-			param.lastBarNum = lastBarNum;
-			param.resetMask  = resetMask;
-			mp_rendezvous_no_intrs(&safeProbeCallback, &param);
-		}
-	
-		reg32 = regs[(0x3e000 + 0xd4) / 4];
-		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
-		reg32 = regs[(0x3e000 + 0xd8) / 4];
-		IOLog("PLX bar1 0x%x, 0x%x\n", (int) range->start, reg32);
-		device->plx = regs;
-	}
-	while (false);
-#endif /* PLX8680 */
-
     for (barNum = 0; barNum <= lastBarNum; barNum++)
     {
         if (!device->ranges[barNum]->proposedSize)
@@ -2692,9 +2602,10 @@ void CLASS::configure(uint32_t options)
 #if defined(__i386__) || defined(__x86_64__)
     if (bootConfig)
     {
+        IOService::getPlatform()->getConsoleInfo(&consoleInfo);
+
         if (!fPFMConsole)
         {
-            IOService::getPlatform()->getConsoleInfo(&consoleInfo);
             fPFMConsole  = consoleInfo.v_baseAddr;
 #ifndef __LP64__
             fPFMConsole |= (((uint64_t) consoleInfo.v_baseAddrHigh) << 32);
@@ -2756,11 +2667,6 @@ IOPCIRange * CLASS::bridgeGetRange(IOPCIConfigEntry * bridge, uint32_t type)
 {
     IOPCIRange * range;
 
-    if (bridge->isHostBridge && (type != kIOPCIResourceTypeBusNumber))
-    {
-        // use global host ranges
-        bridge = fRoot;
-    }
     switch (type)
     {
         case kIOPCIResourceTypePrefetchMemory:
@@ -3877,45 +3783,6 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 		bridge->deviceState &= ~kPCIDeviceStateChildAdded;
 		markChanged(bridge);
 	}
-
-#if PLX8680
-	do
-	{
-		volatile uint32_t * regs;
-		uint32_t            reg32, lut;
-		IOPCIConfigEntry *  parent;
-	
-		parent = bridge;
-		do { regs = parent->plx; } while (!regs && (parent = parent->parent));
-		if (!regs) break;
-
-		FOREACH_CHILD(bridge, child)
-		{
-		    if (kPCIHeaderType0 != child->headerType) continue;
-            if (0x868010b5 == child->vendorProduct)   continue;
-
-			reg32 = (child->space.s.busNum << 8);
-//			reg32 |= (child->space.s.deviceNum << 3);
-//			reg32 |= (child->space.s.functionNum << 0);
-			reg32 |= 0x80000000;
-
-            regs += ((0x3e000 + 0xd98) / 4);
-			for (lut = 0; lut < 7; lut++)
-			{
-				if (reg32 == regs[lut]) break;
-				if (0x80000000 & regs[lut]) continue;
-                regs[lut] = reg32;
-                DLOG("PLX LUT[0x%x] == 0x%x\n", &regs[lut], reg32);
-                if (lut && parent->ranges[kIOPCIRangeBridgePFMemory])
-                {
-                    child->plxAperture = parent->ranges[kIOPCIRangeBridgePFMemory]->start;
-                }
-                break;
-			}
-		}
-	}
-	while (false);
-#endif /* PLX8680 */
 
 	return (bridgeConstructDeviceTree(unused, bridge));
 }

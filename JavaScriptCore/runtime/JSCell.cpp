@@ -28,7 +28,6 @@
 #include "JSFunction.h"
 #include "JSString.h"
 #include "JSObject.h"
-#include "JSWebAssemblyCallee.h"
 #include "NumberObject.h"
 #include "WebAssemblyToJSCallee.h"
 #include <wtf/MathExtras.h>
@@ -50,7 +49,7 @@ void JSCell::dump(PrintStream& out) const
 
 void JSCell::dumpToStream(const JSCell* cell, PrintStream& out)
 {
-    out.printf("<%p, %s>", cell, cell->className());
+    out.printf("<%p, %s>", cell, cell->className(*cell->vm()));
 }
 
 size_t JSCell::estimatedSizeInBytes() const
@@ -225,9 +224,9 @@ String JSCell::toStringName(const JSObject*, ExecState*)
     return String();
 }
 
-const char* JSCell::className() const
+const char* JSCell::className(VM& vm) const
 {
-    return classInfo()->className;
+    return classInfo(vm)->className;
 }
 
 void JSCell::getPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode)
@@ -250,13 +249,13 @@ bool JSCell::defineOwnProperty(JSObject*, ExecState*, PropertyName, const Proper
 ArrayBuffer* JSCell::slowDownAndWasteMemory(JSArrayBufferView*)
 {
     RELEASE_ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
-PassRefPtr<ArrayBufferView> JSCell::getTypedArrayImpl(JSArrayBufferView*)
+RefPtr<ArrayBufferView> JSCell::getTypedArrayImpl(JSArrayBufferView*)
 {
     RELEASE_ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 uint32_t JSCell::getEnumerableLength(ExecState*, JSObject*)
@@ -293,16 +292,6 @@ bool JSCell::setPrototype(JSObject*, ExecState*, JSValue, bool)
 JSValue JSCell::getPrototype(JSObject*, ExecState*)
 {
     RELEASE_ASSERT_NOT_REACHED();
-}
-
-bool JSCell::isAnyWasmCallee() const
-{
-#if ENABLE(WEBASSEMBLY)
-    return inherits(JSWebAssemblyCallee::info()) || inherits(WebAssemblyToJSCallee::info());
-#else
-    return false;
-#endif
-
 }
 
 } // namespace JSC

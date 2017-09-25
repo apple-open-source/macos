@@ -24,6 +24,7 @@
 #define _IOKIT_IODISPLAY_H
 
 #include <IOKit/IOService.h>
+
 #include <IOKit/graphics/IOFramebuffer.h>
 
 extern const OSSymbol * gIODisplayParametersKey;
@@ -120,7 +121,7 @@ public:
     virtual IOIndex getConnection( void );
     virtual IOReturn getAttributeForConnection( IOSelect selector, uintptr_t * value );
     virtual IOReturn setAttributeForConnection( IOSelect selector, uintptr_t value );
-    virtual void joinPMtree ( IOService * driver );
+    virtual void joinPMtree ( IOService * driver ) APPLE_KEXT_OVERRIDE;
 };
 
 class IODisplay : public IOService
@@ -140,16 +141,19 @@ protected:
     // pointer to protected instance variables for power management
     struct IODisplayPMVars *              fDisplayPMVars;
 
+public:
+    uintptr_t                           fWSAADeferState;
+protected:
     // reserved for future expansion
-    void *                              _IODisplay_reserved[32];
+    void *                              _IODisplay_reserved[31];
 
 public:
     virtual IOService * probe(  IOService *     provider,
-                                SInt32 *        score );
+                                SInt32 *        score ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool start( IOService * provider );
-    virtual void stop( IOService * provider );
-    virtual void free();
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
     virtual IODisplayConnect * getConnection( void );
 
@@ -167,7 +171,7 @@ public:
                                         IOIndex event, void * info );
 
     // parameter setting
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
     virtual bool setForKey( OSDictionary * params, const OSSymbol * key,
                             SInt32 value, SInt32 min, SInt32 max );
 
@@ -183,10 +187,10 @@ public:
     virtual bool doUpdate( void );
 
     // power management methods
-    virtual IOReturn setPowerState( unsigned long, IOService * );
-    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags );
-    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags );
-    virtual unsigned long powerStateForDomainState( IOPMPowerFlags );
+    virtual IOReturn setPowerState( unsigned long, IOService * ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags ) APPLE_KEXT_OVERRIDE;
+    virtual unsigned long powerStateForDomainState( IOPMPowerFlags ) APPLE_KEXT_OVERRIDE;
 
     // 
     virtual void initPowerManagement( IOService * provider);

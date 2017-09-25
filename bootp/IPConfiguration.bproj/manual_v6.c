@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,7 +107,11 @@ manual_v6_set_address(ServiceRef service_p)
     ServiceGetRequestedIPv6Address(service_p, &addr, &prefix_length);
 
     /* set the new address */
-    flags = (if_ift_type(if_p) == IFT_CELLULAR) ? IN6_IFF_OPTIMISTIC : 0;
+    if (if_ift_type(if_p) == IFT_CELLULAR && ServiceDADIsEnabled(service_p)) {
+	    flags = IN6_IFF_OPTIMISTIC;
+    } else {
+	    flags = 0;
+    }
     ServiceSetIPv6Address(service_p, &addr, prefix_length, flags,
 			  ND6_INFINITE_LIFETIME, ND6_INFINITE_LIFETIME);
     return;

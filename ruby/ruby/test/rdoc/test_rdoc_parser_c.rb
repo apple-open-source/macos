@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 =begin
@@ -58,7 +59,7 @@ class TestRDocParserC < RDoc::TestCase
   def teardown
     super
 
-    @tempfile.close
+    @tempfile.close!
   end
 
   def test_class_can_parse
@@ -534,10 +535,6 @@ void Init_curses(){
   def test_do_constants_file
     content = <<-EOF
 void Init_File(void) {
-  rb_cFile = rb_define_class("File", rb_cIO);
-  rb_mFConst = rb_define_module_under(rb_cFile, "Constants");
-  rb_include_module(rb_cIO, rb_mFConst);
-
   /*  Document-const: LOCK_SH
    *
    *  Shared lock
@@ -738,6 +735,47 @@ rb_define_alias(C, "[]", "index");
     comment = parser.find_alias_comment 'C', '[]', 'index'
 
     assert_equal "/*\n * comment\n */\n\n", comment.text
+  end
+
+  def test_find_attr_comment_document_attr
+    parser= util_parser <<-C
+/*
+ * Document-attr: y
+ * comment
+ */
+    C
+
+    comment = parser.find_attr_comment nil, 'y'
+
+    assert_equal "/*\n * \n * comment\n */", comment.text
+  end
+
+  def test_find_attr_comment_document_attr_oneline
+    parser= util_parser <<-C
+/* Document-attr: y
+ * comment
+ */
+    C
+
+    comment = parser.find_attr_comment nil, 'y'
+
+    assert_equal "/* \n * comment\n */", comment.text
+  end
+
+  def test_find_attr_comment_document_attr_overlap
+    parser= util_parser <<-C
+/* Document-attr: x
+ * comment
+ */
+
+/* Document-attr: y
+ * comment
+ */
+    C
+
+    comment = parser.find_attr_comment nil, 'y'
+
+    assert_equal "/* \n * comment\n */", comment.text
   end
 
   def test_find_class_comment
@@ -1000,6 +1038,36 @@ init_gi_repository (void)
     assert_equal 2, klass.method_list.length
   end
 
+  def test_find_body_cast
+    content = <<-EOF
+/*
+ * a comment for other_function
+ */
+VALUE
+other_function() {
+}
+
+void
+Init_Foo(void) {
+    VALUE foo = rb_define_class("Foo", rb_cObject);
+
+    rb_define_method(foo, "my_method", (METHOD)other_function, 0);
+}
+    EOF
+
+    klass = util_get_class content, 'foo'
+    other_function = klass.method_list.first
+
+    assert_equal 'my_method', other_function.name
+    assert_equal "a comment for other_function",
+                 other_function.comment.text
+    assert_equal '()', other_function.params
+
+    code = other_function.token_stream.first.text
+
+    assert_equal "VALUE\nother_function() {\n}", code
+  end
+
   def test_find_body_define
     content = <<-EOF
 #define something something_else
@@ -1177,6 +1245,36 @@ Init_Foo(void) {
     bar = methods.last
     assert_equal 'Foo#bar', bar.full_name
     assert_equal "a comment for Foo#bar", bar.comment.text
+  end
+
+  def test_find_body_macro
+    content = <<-EOF
+/*
+ * a comment for other_function
+ */
+DLL_LOCAL VALUE
+other_function() {
+}
+
+void
+Init_Foo(void) {
+    VALUE foo = rb_define_class("Foo", rb_cObject);
+
+    rb_define_method(foo, "my_method", other_function, 0);
+}
+    EOF
+
+    klass = util_get_class content, 'foo'
+    other_function = klass.method_list.first
+
+    assert_equal 'my_method', other_function.name
+    assert_equal "a comment for other_function",
+                 other_function.comment.text
+    assert_equal '()', other_function.params
+
+    code = other_function.token_stream.first.text
+
+    assert_equal "DLL_LOCAL VALUE\nother_function() {\n}", code
   end
 
   def test_find_modifiers_call_seq
@@ -1667,6 +1765,96 @@ void Init(void) {
       @fn => {
         'sC' => 'C' } }
     assert_equal expected, @store.c_singleton_class_variables
+  end
+
+  def test_scan_method_copy
+    parser = util_parser <<-C
+/*
+ *  call-seq:
+ *    pathname.to_s    -> string
+ *    pathname.to_path -> string
+ *
+ *  Return the path as a String.
+ *
+ *  to_path is implemented so Pathname objects are usable with File.open, etc.
+ */
+static VALUE
+path_to_s(VALUE self) { }
+
+/*
+ *  call-seq:
+ *     str[index]               -> new_str or nil
+ *     str[start, length]       -> new_str or nil
+ *     str.slice(index)         -> new_str or nil
+ *     str.slice(start, length) -> new_str or nil
+ */
+static VALUE
+path_aref_m(int argc, VALUE *argv, VALUE str) { }
+
+/*
+ *  call-seq:
+ *     string <=> other_string   -> -1, 0, +1 or nil
+ */
+static VALUE
+path_cmp_m(VALUE str1, VALUE str2) { }
+
+/*
+ *  call-seq:
+ *     str == obj    -> true or false
+ *     str === obj   -> true or false
+ */
+VALUE
+rb_str_equal(VALUE str1, VALUE str2) { }
+
+Init_pathname()
+{
+    rb_cPathname = rb_define_class("Pathname", rb_cObject);
+
+    rb_define_method(rb_cPathname, "to_s",    path_to_s, 0);
+    rb_define_method(rb_cPathname, "to_path", path_to_s, 0);
+    rb_define_method(rb_cPathname, "[]",      path_aref_m, -1);
+    rb_define_method(rb_cPathname, "slice",   path_aref_m, -1);
+    rb_define_method(rb_cPathname, "<=>",     path_cmp_m, 1);
+    rb_define_method(rb_cPathname, "==",      rb_str_equal), 2);
+    rb_define_method(rb_cPathname, "===",     rb_str_equal), 2);
+}
+    C
+
+    parser.scan
+
+    pathname = @store.classes_hash['Pathname']
+
+    to_path = pathname.method_list.find { |m| m.name == 'to_path' }
+    assert_equal "pathname.to_path -> string", to_path.call_seq
+
+    to_s = pathname.method_list.find { |m| m.name == 'to_s' }
+    assert_equal "pathname.to_s    -> string", to_s.call_seq
+
+    index_expected = <<-EXPECTED.chomp
+str[index]               -> new_str or nil
+str[start, length]       -> new_str or nil
+    EXPECTED
+
+    index = pathname.method_list.find { |m| m.name == '[]' }
+    assert_equal index_expected, index.call_seq, '[]'
+
+    slice_expected = <<-EXPECTED.chomp
+str.slice(index)         -> new_str or nil
+str.slice(start, length) -> new_str or nil
+    EXPECTED
+
+    slice = pathname.method_list.find { |m| m.name == 'slice' }
+    assert_equal slice_expected, slice.call_seq
+
+    spaceship = pathname.method_list.find { |m| m.name == '<=>' }
+    assert_equal "string <=> other_string   -> -1, 0, +1 or nil",
+                 spaceship.call_seq
+
+    equals2 = pathname.method_list.find { |m| m.name == '==' }
+    assert_match 'str == obj', equals2.call_seq
+
+    equals3 = pathname.method_list.find { |m| m.name == '===' }
+    assert_match 'str === obj', equals3.call_seq
   end
 
   def test_scan_order_dependent

@@ -45,6 +45,11 @@ const CFStringRef kSecImportItemTrust = CFSTR("trust");
 const CFStringRef kSecImportItemCertChain = CFSTR("chain");
 const CFStringRef kSecImportItemIdentity = CFSTR("identity");
 
+typedef struct {
+    CFMutableArrayRef certs;
+    p12_error *status;
+} collect_certs_context;
+
 
 static void collect_certs(const void *key, const void *value, void *context)
 {
@@ -52,11 +57,14 @@ static void collect_certs(const void *key, const void *value, void *context)
         CFDataRef cert_bytes = CFDictionaryGetValue(value, CFSTR("cert"));
         if (!cert_bytes)
             return;
+        collect_certs_context *a_collect_certs_context = (collect_certs_context *)context;
         SecCertificateRef cert = 
             SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes);
-        if (!cert)
+        if (!cert)  {
+            *a_collect_certs_context->status = p12_decodeErr;
             return;
-        CFMutableArrayRef cert_array = (CFMutableArrayRef)context;
+        }
+        CFMutableArrayRef cert_array = a_collect_certs_context->certs;
         CFArrayAppendValue(cert_array, cert);
         CFRelease(cert);
     }
@@ -65,6 +73,7 @@ static void collect_certs(const void *key, const void *value, void *context)
 typedef struct {
     CFMutableArrayRef identities;
     CFArrayRef certs;
+    p12_error *status;
 } build_trust_chains_context;
 
 static void build_trust_chains(const void *key, const void *value, 
@@ -97,11 +106,14 @@ static void build_trust_chains(const void *key, const void *value,
                                                          CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
                                                          kSecKeyEncodingPkcs1), out);
     } else {
+        *a_build_trust_chains_context->status = p12_decodeErr;
         goto out;
     }
 
-    require(cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes), out);
-    require(identity = SecIdentityCreate(kCFAllocatorDefault, cert, private_key), out);
+    require_action(cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes), out,
+                   *a_build_trust_chains_context->status = p12_decodeErr);
+    require_action(identity = SecIdentityCreate(kCFAllocatorDefault, cert, private_key), out,
+                   *a_build_trust_chains_context->status = p12_decodeErr);
     CFDictionarySetValue(identity_dict, kSecImportItemIdentity, identity);
     
     eval_chain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -143,19 +155,21 @@ OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArray
         context.passphrase = CFDictionaryGetValue(options, kSecImportExportPassphrase);
     context.items = CFDictionaryCreateMutable(kCFAllocatorDefault, 
         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    int status = p12decode(&context, pkcs12_data);
+    p12_error status = p12decode(&context, pkcs12_data);
     if (!status) {
         CFMutableArrayRef certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-        CFDictionaryApplyFunction(context.items, collect_certs, certs);
+        collect_certs_context a_collect_certs_context = { certs, &status };
+        CFDictionaryApplyFunction(context.items, collect_certs, &a_collect_certs_context);
 
-        CFMutableArrayRef identities = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-        build_trust_chains_context a_build_trust_chains_context = { identities, certs };
-        CFDictionaryApplyFunction(context.items, build_trust_chains, &a_build_trust_chains_context);
-        CFReleaseSafe(certs);
-        
-        /* ignoring certs that weren't picked up as part of the certchain for found keys */
-        
-        *items = identities;
+        if (!status) {
+            CFMutableArrayRef identities = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+            build_trust_chains_context a_build_trust_chains_context = { identities, certs, &status };
+            CFDictionaryApplyFunction(context.items, build_trust_chains, &a_build_trust_chains_context);
+            CFReleaseSafe(certs);
+
+            /* ignoring certs that weren't picked up as part of the certchain for found keys */
+            *items = identities;
+        }
     }
 
     CFReleaseSafe(context.items);

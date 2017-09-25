@@ -49,6 +49,9 @@ int run_sparse_dev(__unused test_ctx_t *ctx)
 
 	assert(sfs.f_bfree * sfs.f_bsize < 64 * 1024 * 1024);
 
+
+	assert_no_err (close(fd));
+
 	return 0;
 }
 

@@ -44,7 +44,7 @@ namespace NetworkCache {
 class SpeculativeLoad final : public NetworkLoadClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    typedef std::function<void (std::unique_ptr<NetworkCache::Entry>)> RevalidationCompletionHandler;
+    typedef Function<void (std::unique_ptr<NetworkCache::Entry>)> RevalidationCompletionHandler;
     SpeculativeLoad(const GlobalFrameID&, const WebCore::ResourceRequest&, std::unique_ptr<NetworkCache::Entry>, RevalidationCompletionHandler&&);
 
     virtual ~SpeculativeLoad();
@@ -61,10 +61,9 @@ private:
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse) override;
     ShouldContinueDidReceiveResponse didReceiveResponse(WebCore::ResourceResponse&&) override;
     void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) override;
-    void didFinishLoading(double finishTime) override;
+    void didFinishLoading(const WebCore::NetworkLoadMetrics&) override;
     void didFailLoading(const WebCore::ResourceError&) override;
 
-    void abort();
     void didComplete();
 
     GlobalFrameID m_frameID;
@@ -76,7 +75,8 @@ private:
     WebCore::ResourceResponse m_response;
 
     RefPtr<WebCore::SharedBuffer> m_bufferedDataForCache;
-    std::unique_ptr<NetworkCache::Entry> m_cacheEntryForValidation;
+    std::unique_ptr<NetworkCache::Entry> m_cacheEntry;
+    bool m_didComplete { false };
 };
 
 } // namespace NetworkCache

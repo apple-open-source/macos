@@ -69,6 +69,9 @@ enum {
 
 #define kOptNameMaxSliceSize            "max-slice-size"
 
+#define kOptNamePLists                  "plists"
+#define kOptNameLoadList                "load-list"
+
 /* Misc flags.
  */
 #define kOptNameNoAuthentication        "no-authentication"
@@ -99,6 +102,8 @@ enum {
 #define kLongOptNoLinkFailures           (-12)
 #define kLongOptStripSymbols             (-13)
 #define kLongOptMaxSliceSize             (-14)
+#define kLongOptPLists                   (-15)
+#define kLongOptLoadList                 (-16)
 
 #define kOptChars                ":a:b:c:ehK:lLnNqsStvz"
 
@@ -127,6 +132,9 @@ struct option sOptInfo[] = {
 
     { kOptNameMaxSliceSize,             required_argument,  &longopt, kLongOptMaxSliceSize },
 
+    { kOptNamePLists,                   required_argument,  &longopt, kLongOptPLists },
+    { kOptNameLoadList,                 required_argument,  &longopt, kLongOptLoadList },
+
     /* Always on for kcgen; can be removed at some point. */
     { kOptNameAllPersonalities,         no_argument,        &longopt, kLongOptAllPersonalities },
     { kOptNameNoLinkFailures,           no_argument,        &longopt, kLongOptNoLinkFailures },
@@ -150,6 +158,9 @@ typedef struct {
     CFDataRef kernelFile;    // contents of kernelURL
     CFURLRef  symbolDirURL;  // -s option;
     CFURLRef  volumeRootURL;
+
+    char    * plistsPath;
+    char    * loadListPath;
 
     CFMutableSetRef    kextIDs;          // -b; must release
     CFMutableSetRef    optionalKextIDs;  // -optional-bundle-id; must release
@@ -228,6 +239,9 @@ ExitStatus compressPrelinkedKernel(
 void logUsedKexts(
     KcgenArgs       * toolArgs,
     CFArrayRef        prelinkKexts);
+ExitStatus
+loadList(
+    KcgenArgs     * toolArgs);
 
 void usage(UsageLevel usageLevel);
 

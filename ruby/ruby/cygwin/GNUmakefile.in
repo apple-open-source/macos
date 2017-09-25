@@ -33,7 +33,7 @@ WPROGRAM = $(RUBYW_INSTALL_NAME)$(EXEEXT)
 -include uncommon.mk
 
 SOLIBS := $(DLL_BASE_NAME).res.@OBJEXT@ $(SOLIBS)
-EXTOBJS += $(if $(filter-out $(RUBYW_INSTALL_NAME),$(@:$(EXEEXT)=)),$(RUBY_INSTALL_NAME),$(@:$(EXEEXT)=)).res.$(OBJEXT)
+override EXTOBJS += $(if $(filter-out $(RUBYW_INSTALL_NAME),$(@:$(EXEEXT)=)),$(RUBY_INSTALL_NAME),$(@:$(EXEEXT)=)).res.$(OBJEXT)
 RCFILES = $(RUBY_INSTALL_NAME).rc $(RUBYW_INSTALL_NAME).rc $(DLL_BASE_NAME).rc
 RUBYDEF = $(DLL_BASE_NAME).def
 
@@ -67,11 +67,11 @@ $(WPROGRAM): $(RUBYW_INSTALL_NAME).res.@OBJEXT@
 	$(ECHO) linking $@
 	$(Q) $(PURIFY) $(CC) -mwindows -e $(SYMBOL_PREFIX)mainCRTStartup $(LDFLAGS) $(XLDFLAGS) \
 	  $(MAINOBJ) $(EXTOBJS) $(LIBRUBYARG) $(LIBS) -o $@
-$(STUBPROGRAM): $(RUBY_INSTALL_NAME).res.@OBJEXT@ stub.@OBJEXT@
+$(STUBPROGRAM): $(RUBY_INSTALL_NAME).res.@OBJEXT@ win32/stub.@OBJEXT@
 	@rm -f $@
 	$(ECHO) linking $@
 	$(Q) $(PURIFY) $(CC) $(LDFLAGS) $(XLDFLAGS) \
-	  stub.@OBJEXT@ $(EXTOBJS) $(LIBRUBYARG) $(LIBS) -o $@
+	  win32/stub.@OBJEXT@ $(EXTOBJS) $(LIBRUBYARG) $(LIBS) -o $@
 
 $(RUBY_EXP): $(LIBRUBY_A)
 	$(ECHO) creating $@
@@ -86,7 +86,15 @@ GNUmakefile:	$(srcdir)/cygwin/GNUmakefile.in
 ifeq (@target_os@,mingw32)
 $(OBJS) $(MAINOBJ): win32.h
 
-dir.$(OBJEXT) win32.$(OBJEXT): win32/dir.h
+dir.$(OBJEXT) win32/win32.$(OBJEXT): win32/dir.h
+file.$(OBJEXT) win32/win32.$(OBJEXT): win32/file.h
+
+MSYS2_ARG_CONV_EXCL_PARAM = --exclude=;--name=
+
+yes-test-ruby:	 export MSYS2_ARG_CONV_EXCL=$(MSYS2_ARG_CONV_EXCL_PARAM)
+yes-test-all:	 export MSYS2_ARG_CONV_EXCL=$(MSYS2_ARG_CONV_EXCL_PARAM)
+yes-test-almost: export MSYS2_ARG_CONV_EXCL=$(MSYS2_ARG_CONV_EXCL_PARAM)
+
 endif
 
 $(LIBRUBY_SO): $(RUBYDEF)

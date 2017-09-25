@@ -2,4 +2,36 @@
           sysroot = os.environ.get('SDKROOT')
           if sysroot is None:
 .
+1
+/static_lib_format = shared_lib_format = dylib_lib_format/i
+    tbd_lib_extension = ".tbd"
+    api_lib_extension = ".api"
+    spi_lib_extension = ".spi"
+.
+/static_lib_format = shared_lib_format = dylib_lib_format/c
+    static_lib_format = shared_lib_format = dylib_lib_format = tbd_lib_format = api_lib_format = spi_lib_format = "lib%s%s"
+.
+/dylib_f = self.library_filename/a
+        tbd_f = self.library_filename(lib, lib_type='tbd')
+        api_f = self.library_filename(lib, lib_type='api')
+        spi_f = self.library_filename(lib, lib_type='spi')
+.
+/dylib = os.path.join/a
+            tbd = os.path.join(dir, tbd_f)
+            api = os.path.join(dir, api_f)
+            spi = os.path.join(dir, spi_f)
+.
+/dylib = os.path.join(sysroot/a
+                tbd = os.path.join(sysroot, dir[1:], tbd_f)
+                api = os.path.join(sysroot, dir[1:], api_f)
+                spi = os.path.join(sysroot, dir[1:], spi_f)
+.
+/if os.path.exists(dylib)/i
+            if os.path.exists(tbd):
+                return tbd
+            if os.path.exists(api):
+                return api
+            if os.path.exists(spi):
+                return spi
+.
 w

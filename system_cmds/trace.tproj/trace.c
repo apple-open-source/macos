@@ -1057,6 +1057,7 @@ void read_trace(void)
 			debugid = kdp->debugid;
 			debugid_base = debugid & DBG_FUNC_MASK;
 			now = kdp->timestamp & KDBG_TIMESTAMP_MASK;
+			cpunum = kdbg_get_cpu(kdp);
 
 			/*
 			 * Is this event from an IOP? If so, there will be no
@@ -1085,7 +1086,6 @@ void read_trace(void)
 				bias = now;
 			now -= bias;
 
-			cpunum = kdbg_get_cpu(kdp);
 			thread = kdp->arg5;
 
 			if (lines == 64 || firsttime)

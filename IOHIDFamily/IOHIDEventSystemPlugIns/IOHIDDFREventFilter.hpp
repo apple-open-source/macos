@@ -18,6 +18,7 @@
 
 #include "CF.h"
 #include "IOHIDUtility.h"
+#include <queue>
 
 class IOHIDDFREventFilter
 {

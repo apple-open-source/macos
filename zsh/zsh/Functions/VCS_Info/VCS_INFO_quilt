@@ -80,6 +80,10 @@ function VCS_INFO_quilt-dirfind() {
     return ${ret}
 }
 
+function VCS_INFO_quilt-patch2subject() {
+    VCS_INFO_patch2subject "$@"
+}
+
 function VCS_INFO_quilt() {
     emulate -L zsh
     setopt extendedglob
@@ -119,7 +123,7 @@ function VCS_INFO_quilt() {
             applied=()
         fi
         patches=$(<$pc/.quilt_patches)
-        patches=`builtin cd -q "${pc:h}" && print -r - ${patches:A}`
+        patches=`builtin cd -q "${pc:h}" && print -r - ${patches:P}`
     fi
     if zstyle -t "${context}" get-unapplied; then
         # This zstyle call needs to be moved further up if `quilt' needs
@@ -147,27 +151,19 @@ function VCS_INFO_quilt() {
 
     if [[ -n $patches ]]; then
       () {
-        local i line
+        local i
         for ((i=1; i<=$#applied; i++)); do
-          if [[ -f "$patches/$applied[$i]" ]] &&
-             read -r line < "$patches/$applied[$i]" &&
-             [[ $line != (#b)(---|Index:)* ]] &&
-             true
-            ;
+          if VCS_INFO_quilt-patch2subject "$patches/$applied[$i]" && (( $+REPLY ))
           then
-            applied[$i]+=" $line"
+            applied[$i]+=" $REPLY"
           else
             applied[$i]+=" ?"
           fi
         done
         for ((i=1; i<=$#unapplied; i++)); do
-          if [[ -f "$patches/$unapplied[$i]" ]] &&
-             read -r line < "$patches/$unapplied[$i]" &&
-             [[ $line != (#b)(---|Index:)* ]] &&
-             true
-            ;
+          if VCS_INFO_quilt-patch2subject "$patches/$unapplied[$i]" && (( $+REPLY ))
           then
-            unapplied[$i]+=" $line"
+            unapplied[$i]+=" $REPLY"
           else
             unapplied[$i]+=" ?"
           fi

@@ -1,5 +1,5 @@
 /*
-    $Id: strscan.c 44659 2014-01-19 16:28:53Z nagachika $
+    $Id: strscan.c 56331 2016-10-03 17:26:16Z nagachika $
 
     Copyright (c) 1999-2006 Minero Aoki
 
@@ -38,6 +38,9 @@ struct strscanner
 
     /* the regexp register; legal only when MATCHED_P(s) */
     struct re_registers regs;
+
+    /* regexp used for last scan */
+    VALUE regex;
 };
 
 #define MATCHED_P(s)          ((s)->flags & FLAG_MATCHED)
@@ -61,6 +64,7 @@ struct strscanner
                             Function Prototypes
    ======================================================================= */
 
+static inline long minl _((const long n, const long x));
 static VALUE infect _((VALUE str, struct strscanner *p));
 static VALUE extract_range _((struct strscanner *p, long beg_i, long end_i));
 static VALUE extract_beg_len _((struct strscanner *p, long beg_i, long len));
@@ -137,12 +141,17 @@ str_new(struct strscanner *p, const char *ptr, long len)
     return str;
 }
 
+static inline long
+minl(const long x, const long y)
+{
+    return (x < y) ? x : y;
+}
+
 static VALUE
 extract_range(struct strscanner *p, long beg_i, long end_i)
 {
     if (beg_i > S_LEN(p)) return Qnil;
-    if (end_i > S_LEN(p))
-        end_i = S_LEN(p);
+    end_i = minl(end_i, S_LEN(p));
     return infect(str_new(p, S_PBEG(p) + beg_i, end_i - beg_i), p);
 }
 
@@ -150,8 +159,7 @@ static VALUE
 extract_beg_len(struct strscanner *p, long beg_i, long len)
 {
     if (beg_i > S_LEN(p)) return Qnil;
-    if (beg_i + len > S_LEN(p))
-        len = S_LEN(p) - beg_i;
+    len = minl(len, S_LEN(p) - beg_i);
     return infect(str_new(p, S_PBEG(p) + beg_i, len), p);
 }
 
@@ -178,29 +186,25 @@ static size_t
 strscan_memsize(const void *ptr)
 {
     const struct strscanner *p = ptr;
-    size_t size = 0;
-    if (p) {
-	size = sizeof(*p) - sizeof(p->regs) + onig_region_memsize(&p->regs);
-    }
-    return size;
+    return sizeof(*p) - sizeof(p->regs) + onig_region_memsize(&p->regs);
 }
 
 static const rb_data_type_t strscanner_type = {
     "StringScanner",
-    {strscan_mark, strscan_free, strscan_memsize}
+    {strscan_mark, strscan_free, strscan_memsize},
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY
 };
 
 static VALUE
 strscan_s_allocate(VALUE klass)
 {
     struct strscanner *p;
+    VALUE obj = TypedData_Make_Struct(klass, struct strscanner, &strscanner_type, p);
 
-    p = ALLOC(struct strscanner);
-    MEMZERO(p, struct strscanner, 1);
     CLEAR_MATCH_STATUS(p);
     onig_region_init(&(p->regs));
     p->str = Qnil;
-    return TypedData_Wrap_Struct(klass, &strscanner_type, p);
+    return obj;
 }
 
 /*
@@ -248,7 +252,9 @@ strscan_init_copy(VALUE vself, VALUE vorig)
 	self->str = orig->str;
 	self->prev = orig->prev;
 	self->curr = orig->curr;
-	onig_region_copy(&self->regs, &orig->regs);
+	if (rb_reg_region_copy(&self->regs, &orig->regs))
+	    rb_memerror();
+	RB_GC_GUARD(vorig);
     }
 
     return vself;
@@ -456,6 +462,8 @@ strscan_do_scan(VALUE self, VALUE regex, int succptr, int getstr, int headonly)
     if (S_RESTLEN(p) < 0) {
         return Qnil;
     }
+
+    p->regex = regex;
     re = rb_reg_prepare_re(regex, p->str);
     tmpreg = re != RREGEXP(regex)->ptr;
     if (!tmpreg) RREGEXP(regex)->usecnt++;
@@ -725,9 +733,7 @@ strscan_getch(VALUE self)
         return Qnil;
 
     len = rb_enc_mbclen(CURPTR(p), S_PEND(p), rb_enc_get(p->str));
-    if (p->curr + len > S_LEN(p)) {
-        len = S_LEN(p) - p->curr;
-    }
+    len = minl(len, S_RESTLEN(p));
     p->prev = p->curr;
     p->curr += len;
     MATCHED(p);
@@ -804,8 +810,7 @@ strscan_peek(VALUE self, VALUE vlen)
     if (EOS_P(p))
         return infect(str_new(p, "", 0), p);
 
-    if (p->curr + len > S_LEN(p))
-        len = S_LEN(p) - p->curr;
+    len = minl(len, S_RESTLEN(p));
     return extract_beg_len(p, p->curr, len);
 }
 
@@ -970,6 +975,24 @@ strscan_matched_size(VALUE self)
     return INT2NUM(p->regs.end[0] - p->regs.beg[0]);
 }
 
+static int
+name_to_backref_number(struct re_registers *regs, VALUE regexp, const char* name, const char* name_end, rb_encoding *enc)
+{
+    int num;
+
+    num = onig_name_to_backref_number(RREGEXP(regexp)->ptr,
+	(const unsigned char* )name, (const unsigned char* )name_end, regs);
+    if (num >= 1) {
+	return num;
+    }
+    else {
+	rb_enc_raise(enc, rb_eIndexError, "undefined group name reference: %.*s",
+					  rb_long2int(name_end - name), name);
+    }
+
+    UNREACHABLE;
+}
+
 /*
  * call-seq: [](n)
  *
@@ -983,17 +1006,41 @@ strscan_matched_size(VALUE self)
  *   s[3]                               # -> "12"
  *   s.post_match                       # -> "1975 14:39"
  *   s.pre_match                        # -> ""
+ *
+ *   s.reset
+ *   s.scan(/(?<wday>\w+) (?<month>\w+) (?<day>\d+) /)       # -> "Fri Dec 12 "
+ *   s[0]                               # -> "Fri Dec 12 "
+ *   s[1]                               # -> "Fri"
+ *   s[2]                               # -> "Dec"
+ *   s[3]                               # -> "12"
+ *   s[:wday]                           # -> "Fri"
+ *   s[:month]                          # -> "Dec"
+ *   s[:day]                            # -> "12"
+ *   s.post_match                       # -> "1975 14:39"
+ *   s.pre_match                        # -> ""
  */
 static VALUE
 strscan_aref(VALUE self, VALUE idx)
 {
+    const char *name;
     struct strscanner *p;
     long i;
 
     GET_SCANNER(self, p);
     if (! MATCHED_P(p))        return Qnil;
 
-    i = NUM2LONG(idx);
+    switch (TYPE(idx)) {
+        case T_SYMBOL:
+            idx = rb_sym2str(idx);
+            /* fall through */
+        case T_STRING:
+            RSTRING_GETMEM(idx, name, i);
+            i = name_to_backref_number(&(p->regs), p->regex, name, name + i, rb_enc_get(idx));
+            break;
+        default:
+            i = NUM2LONG(idx);
+    }
+
     if (i < 0)
         i += p->regs.num_regs;
     if (i < 0)                 return Qnil;
@@ -1071,7 +1118,7 @@ strscan_rest_size(VALUE self)
     if (EOS_P(p)) {
         return INT2FIX(0);
     }
-    i = S_LEN(p) - p->curr;
+    i = S_RESTLEN(p);
     return INT2FIX(i);
 }
 
@@ -1087,7 +1134,6 @@ strscan_restsize(VALUE self)
 }
 
 #define INSPECT_LENGTH 5
-#define BUFSIZE 256
 
 /*
  * Returns a string that represents the StringScanner object, showing:
@@ -1158,7 +1204,7 @@ inspect2(struct strscanner *p)
     long len;
 
     if (EOS_P(p)) return rb_str_new2("");
-    len = S_LEN(p) - p->curr;
+    len = S_RESTLEN(p);
     if (len > INSPECT_LENGTH) {
 	str = rb_str_new(CURPTR(p), INSPECT_LENGTH);
 	rb_str_cat2(str, "...");
@@ -1277,7 +1323,7 @@ inspect2(struct strscanner *p)
  * There are aliases to several of the methods.
  */
 void
-Init_strscan()
+Init_strscan(void)
 {
     ID id_scanerr = rb_intern("ScanError");
     VALUE tmp;
@@ -1292,7 +1338,7 @@ Init_strscan()
     tmp = rb_str_new2(STRSCAN_VERSION);
     rb_obj_freeze(tmp);
     rb_const_set(StringScanner, rb_intern("Version"), tmp);
-    tmp = rb_str_new2("$Id: strscan.c 44659 2014-01-19 16:28:53Z nagachika $");
+    tmp = rb_str_new2("$Id: strscan.c 56331 2016-10-03 17:26:16Z nagachika $");
     rb_obj_freeze(tmp);
     rb_const_set(StringScanner, rb_intern("Id"), tmp);
 

@@ -1,8 +1,19 @@
+# frozen_string_literal: false
 require 'test/unit'
 require "-test-/symbol"
 
 module Test_Symbol
   class TestType < Test::Unit::TestCase
+    def test_id2str_fstring_bug9171
+      fstr = eval("# encoding: us-ascii
+        'foobar'.freeze")
+      assert_same fstr, Bug::Symbol.id2str(:foobar)
+
+      fstr = eval("# encoding: us-ascii
+        '>'.freeze")
+      assert_same fstr, Bug::Symbol.id2str(:>)
+    end
+
     def assert_symtype(sym, pred, msg = nil)
       assert_send([Bug::Symbol, pred, sym], msg)
     end
@@ -109,6 +120,24 @@ module Test_Symbol
       assert_equal(:"foo?=", Bug::Symbol.attrset(:foo?))
       assert_symtype(Bug::Symbol.attrset("foo!="), :attrset?)
       assert_equal(:"foo!=", Bug::Symbol.attrset(:foo!))
+    end
+
+    def test_check_id_invalid_type
+      EnvUtil.with_default_external(Encoding::UTF_8) do
+        cx = EnvUtil.labeled_class("X\u{1f431}")
+        assert_raise_with_message(TypeError, /X\u{1F431}/) {
+          Bug::Symbol.pinneddown?(cx)
+        }
+      end
+    end
+
+    def test_check_symbol_invalid_type
+      EnvUtil.with_default_external(Encoding::UTF_8) do
+        cx = EnvUtil.labeled_class("X\u{1f431}")
+        assert_raise_with_message(TypeError, /X\u{1F431}/) {
+          Bug::Symbol.find(cx)
+        }
+      end
     end
   end
 end

@@ -33,6 +33,31 @@
 			name = World;
 			productName = World;
 		};
+		FC8588A61EEF247C009EDD68 /* Executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FC8588AA1EEF247C009EDD68 /* Build configuration list for PBXAggregateTarget "Executables" */;
+			buildPhases = (
+				FC8588B81EEF3D47009EDD68 /* ShellScript */,
+			);
+			dependencies = (
+				FC8588B51EEF25A3009EDD68 /* PBXTargetDependency */,
+				FC8588B31EEF25A0009EDD68 /* PBXTargetDependency */,
+				FC8588B11EEF259D009EDD68 /* PBXTargetDependency */,
+			);
+			name = Executables;
+			productName = Executables;
+		};
+		FC8588AB1EEF248D009EDD68 /* Libraries */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FC8588AC1EEF248D009EDD68 /* Build configuration list for PBXAggregateTarget "Libraries" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FC8588B71EEF25AE009EDD68 /* PBXTargetDependency */,
+			);
+			name = Libraries;
+			productName = Libraries;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -157,12 +182,15 @@
 		C6EC4C870A2E4A9300B20CD0 /* BLGetCStringRepresentation.c in Sources */ = {isa = PBXBuildFile; fileRef = C67DDCA00A2D08AC00E1B16A /* BLGetCStringRepresentation.c */; };
 		C6F84089088471CD0017C96C /* BLGetPreBootEnvironmentType.c in Sources */ = {isa = PBXBuildFile; fileRef = C6F84087088471CD0017C96C /* BLGetPreBootEnvironmentType.c */; };
 		C6F8408B088471CD0017C96C /* BLGetPreBootEnvironmentType.c in Sources */ = {isa = PBXBuildFile; fileRef = C6F84087088471CD0017C96C /* BLGetPreBootEnvironmentType.c */; };
+		FC424F971E8387170088DAEE /* manifests.m in Sources */ = {isa = PBXBuildFile; fileRef = FC424F961E8387170088DAEE /* manifests.m */; };
 		FC4375FA1DFD29E60018A727 /* BLAPFSUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = FC4375F81DFD29E60018A727 /* BLAPFSUtilities.c */; };
 		FC4375FC1DFD2A4F0018A727 /* BLIsMountAPFS.c in Sources */ = {isa = PBXBuildFile; fileRef = FCA377641D9210F5009EF117 /* BLIsMountAPFS.c */; };
 		FC4375FD1DFD2A530018A727 /* BLHandleAPFSBlessData.c in Sources */ = {isa = PBXBuildFile; fileRef = FCA377661D92FD58009EF117 /* BLHandleAPFSBlessData.c */; };
 		FC4375FE1DFD2A570018A727 /* BLGetAPFSInodeNum.c in Sources */ = {isa = PBXBuildFile; fileRef = FCA377681D930568009EF117 /* BLGetAPFSInodeNum.c */; };
 		FC4376001DFD3E4C0018A727 /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC4375FF1DFD3E020018A727 /* APFS.framework */; };
+		FC48D0091F01B66500462641 /* blessUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = FC48D0081F01B66500462641 /* blessUtilities.c */; };
 		FC4A2ABA1B0A6DE0005044BB /* BLGetOSVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA42D71B0A4AB60044E800 /* BLGetOSVersion.c */; };
+		FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -216,6 +244,34 @@
 			remoteInfo = firmwarefontd;
 		};
 		C68F28650CC13D5900E3CD6A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617599A057E749600252FAB;
+			remoteInfo = libbless;
+		};
+		FC8588B01EEF259D009EDD68 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617596D057E749600252FAB;
+			remoteInfo = bless;
+		};
+		FC8588B21EEF25A0009EDD68 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C61759CB057E749600252FAB;
+			remoteInfo = setOFLabel;
+		};
+		FC8588B41EEF25A3009EDD68 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C68F27320CC13BCF00E3CD6A;
+			remoteInfo = firmwaresyncd;
+		};
+		FC8588B61EEF25AE009EDD68 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
@@ -376,8 +432,11 @@
 		F685CA39020DA1FC01F502C1 /* handleInfo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = handleInfo.c; sourceTree = "<group>"; };
 		F685CA4C020DA5DD01F502C1 /* BLGetDeviceForOpenFirmwarePath.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetDeviceForOpenFirmwarePath.c; sourceTree = "<group>"; };
 		F6A1C7E4020DFEFB01F50364 /* BLCreateFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLCreateFile.c; sourceTree = "<group>"; };
+		FC424F961E8387170088DAEE /* manifests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = manifests.m; sourceTree = "<group>"; };
 		FC4375F81DFD29E60018A727 /* BLAPFSUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLAPFSUtilities.c; sourceTree = "<group>"; };
 		FC4375FF1DFD3E020018A727 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = /System/Library/PrivateFrameworks/APFS.framework; sourceTree = "<absolute>"; };
+		FC48D0081F01B66500462641 /* blessUtilities.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = blessUtilities.c; sourceTree = "<group>"; };
+		FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSPersonalization.framework; path = ../../../System/Library/PrivateFrameworks/OSPersonalization.framework; sourceTree = "<group>"; };
 		FCA377641D9210F5009EF117 /* BLIsMountAPFS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsMountAPFS.c; sourceTree = "<group>"; };
 		FCA377661D92FD58009EF117 /* BLHandleAPFSBlessData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLHandleAPFSBlessData.c; sourceTree = "<group>"; };
 		FCA377681D930568009EF117 /* BLGetAPFSInodeNum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetAPFSInodeNum.c; sourceTree = "<group>"; };
@@ -402,6 +461,7 @@
 				C617597D057E749600252FAB /* CoreFoundation.framework in Frameworks */,
 				C617597E057E749600252FAB /* IOKit.framework in Frameworks */,
 				C6175A1F057E749700252FAB /* libbless.a in Frameworks */,
+				FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -475,6 +535,8 @@
 				C6B77507079876D70037F14C /* setboot.c */,
 				BA92249A03A7F164000BA4D4 /* setOFLabel.c */,
 				BAA914300429422700B0AD74 /* extractBootBlocks.c */,
+				FC424F961E8387170088DAEE /* manifests.m */,
+				FC48D0081F01B66500462641 /* blessUtilities.c */,
 				BA3A398B04C8AB2200E2414C /* test */,
 				BA10D77D04FADE430070B3E0 /* minibless.c */,
 				BA3D8141086C4E5000484376 /* unbless.c */,
@@ -655,6 +717,7 @@
 				F521EBA90228ED9201F502C1 /* ApplicationServices.framework */,
 				F52AF8160278542701F502C1 /* MediaKit.framework */,
 				BA92249E03A7F27A000BA4D4 /* CoreServices.framework */,
+				FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -882,6 +945,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 0730;
+				TargetAttributes = {
+					FC8588A61EEF247C009EDD68 = {
+						CreatedOnToolsVersion = 9.0;
+					};
+					FC8588AB1EEF248D009EDD68 = {
+						CreatedOnToolsVersion = 9.0;
+					};
+				};
 			};
 			buildConfigurationList = BA7EB3FA086BD01A000A41C1 /* Build configuration list for PBXProject "bless" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -894,6 +965,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				FC8588A61EEF247C009EDD68 /* Executables */,
+				FC8588AB1EEF248D009EDD68 /* Libraries */,
 				C6175968057E749600252FAB /* World */,
 				C617596D057E749600252FAB /* bless */,
 				C6175988057E749600252FAB /* minibless */,
@@ -938,6 +1011,23 @@
 		};
 /* End PBXRezBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		FC8588B81EEF3D47009EDD68 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "rm -r $DSTROOT/usr/local/include\nrm -r $DSTROOT/usr/local/lib\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		BA3D8156086C4E7D00484376 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -955,7 +1045,9 @@
 				C6175977057E749600252FAB /* usage.c in Sources */,
 				C6175978057E749600252FAB /* handleDevice.c in Sources */,
 				C6175979057E749600252FAB /* handleFolder.c in Sources */,
+				FC424F971E8387170088DAEE /* manifests.m in Sources */,
 				C617597A057E749600252FAB /* handleInfo.c in Sources */,
+				FC48D0091F01B66500462641 /* blessUtilities.c in Sources */,
 				C617597B057E749600252FAB /* output.c in Sources */,
 				C6B77508079876D70037F14C /* setboot.c in Sources */,
 				BA1C89FC07CBCBA4005CE20C /* modeFirmware.c in Sources */,
@@ -1133,13 +1225,33 @@
 			target = C617599A057E749600252FAB /* libbless */;
 			targetProxy = C68F28650CC13D5900E3CD6A /* PBXContainerItemProxy */;
 		};
+		FC8588B11EEF259D009EDD68 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617596D057E749600252FAB /* bless */;
+			targetProxy = FC8588B01EEF259D009EDD68 /* PBXContainerItemProxy */;
+		};
+		FC8588B31EEF25A0009EDD68 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C61759CB057E749600252FAB /* setOFLabel */;
+			targetProxy = FC8588B21EEF25A0009EDD68 /* PBXContainerItemProxy */;
+		};
+		FC8588B51EEF25A3009EDD68 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C68F27320CC13BCF00E3CD6A /* firmwaresyncd */;
+			targetProxy = FC8588B41EEF25A3009EDD68 /* PBXContainerItemProxy */;
+		};
+		FC8588B71EEF25AE009EDD68 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617599A057E749600252FAB /* libbless */;
+			targetProxy = FC8588B61EEF25AE009EDD68 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BA3D815C086C4E9C00484376 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1152,7 +1264,7 @@
 		BA3D815D086C4E9C00484376 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1190,7 +1302,7 @@
 		BA4E13E70C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					/System/Library/PrivateFrameworks,
@@ -1208,7 +1320,7 @@
 		BA4E13E80C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1231,7 +1343,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1249,7 +1361,7 @@
 		BA4E13EA0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
 				INSTALL_PATH = /usr/local/bin;
@@ -1262,7 +1374,7 @@
 		BA4E13EC0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1280,7 +1392,7 @@
 		BA4E13ED0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1295,7 +1407,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1316,7 +1428,7 @@
 		BA7EB3D1086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					/System/Library/PrivateFrameworks,
@@ -1344,7 +1456,7 @@
 		BA7EB3D6086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1365,7 +1477,7 @@
 		BA7EB3DB086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(value)",
@@ -1391,7 +1503,7 @@
 		BA7EB3E5086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1428,7 +1540,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1449,7 +1561,7 @@
 		BA7EB485086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					/System/Library/PrivateFrameworks,
@@ -1478,7 +1590,7 @@
 		BA7EB486086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1499,7 +1611,7 @@
 		BA7EB487086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(value)",
@@ -1525,7 +1637,7 @@
 		BA7EB489086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1583,7 +1695,7 @@
 		C68F27350CC13BCF00E3CD6A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1599,7 +1711,7 @@
 		C68F27360CC13BCF00E3CD6A /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
@@ -1612,7 +1724,7 @@
 		C68F27370CC13BCF00E3CD6A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 134;
+				CURRENT_PROJECT_VERSION = 152;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -1622,6 +1734,48 @@
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = firmwaresyncd;
 				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		FC8588A71EEF247C009EDD68 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FC8588A81EEF247C009EDD68 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Embedded;
+		};
+		FC8588A91EEF247C009EDD68 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		FC8588AD1EEF248D009EDD68 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FC8588AE1EEF248D009EDD68 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Embedded;
+		};
+		FC8588AF1EEF248D009EDD68 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
@@ -1724,6 +1878,26 @@
 				C68F27350CC13BCF00E3CD6A /* Release */,
 				C68F27360CC13BCF00E3CD6A /* Embedded */,
 				C68F27370CC13BCF00E3CD6A /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC8588AA1EEF247C009EDD68 /* Build configuration list for PBXAggregateTarget "Executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC8588A71EEF247C009EDD68 /* Release */,
+				FC8588A81EEF247C009EDD68 /* Embedded */,
+				FC8588A91EEF247C009EDD68 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC8588AC1EEF248D009EDD68 /* Build configuration list for PBXAggregateTarget "Libraries" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC8588AD1EEF248D009EDD68 /* Release */,
+				FC8588AE1EEF248D009EDD68 /* Embedded */,
+				FC8588AF1EEF248D009EDD68 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

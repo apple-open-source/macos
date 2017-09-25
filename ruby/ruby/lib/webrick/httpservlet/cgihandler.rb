@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # cgihandler.rb -- CGIHandler Class
 #
@@ -41,9 +42,6 @@ module WEBrick
       # :stopdoc:
 
       def do_GET(req, res)
-        data = nil
-        status = -1
-
         cgi_in = IO::popen(@cgicmd, "wb")
         cgi_out = Tempfile.new("webrick.cgiout.", @tempdir, mode: IO::BINARY)
         cgi_out.set_encoding("ASCII-8BIT")
@@ -54,6 +52,7 @@ module WEBrick
           meta = req.meta_vars
           meta["SCRIPT_FILENAME"] = @script_filename
           meta["PATH"] = @config[:CGIPathEnv]
+          meta.delete("HTTP_PROXY")
           if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
             meta["SystemRoot"] = ENV["SystemRoot"]
           end

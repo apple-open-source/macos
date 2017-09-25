@@ -51,10 +51,6 @@
 #include "debug.h"
 #include "fsm.h"
 
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
-
 #include "schedule.h"
 #include "grabmyaddr.h"
 #include "algorithm.h"
@@ -319,7 +315,7 @@ ike_session_newph1(unsigned int version)
 	iph1->ping_sched = NULL;
 #endif
 	iph1->is_dying = 0;
-    plog(ASL_LEVEL_DEBUG, "*** New Phase 1\n");
+    plog(ASL_LEVEL_NOTICE, "New Phase 1\n");
 	return iph1;
 }
 
@@ -432,7 +428,7 @@ ike_session_flush_all_phase1_for_session(ike_session_t *session, int ignore_esta
 		
     LIST_FOREACH_SAFE(p, &session->ph1tree, ph1ofsession_chain, next) {
         if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "Skipping Phase 1 %s that's asserted...\n",
                  isakmp_pindex(&p->index, 0));
             continue;
@@ -442,13 +438,13 @@ ike_session_flush_all_phase1_for_session(ike_session_t *session, int ignore_esta
         if (FSM_STATE_IS_ESTABLISHED(p->status)) {
             if (ignore_estab_or_assert_handles &&
                 (ike_session_has_negoing_ph2(p->parent_session) || ike_session_has_established_ph2(p->parent_session))) {
-                plog(ASL_LEVEL_DEBUG,
+                plog(ASL_LEVEL_NOTICE,
                      "Skipping Phase 1 %s that's established... because it's needed by children Phase 2s\n",
                      isakmp_pindex(&p->index, 0));
                 continue;
             }
             /* send delete information */
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "Got a Phase 1 %s to flush...\n",
                  isakmp_pindex(&p->index, 0));
             isakmp_info_send_d1(p);
@@ -470,7 +466,7 @@ ike_session_flush_all_phase1(int ignore_estab_or_assert_handles)
     ike_session_t *session = NULL;
     ike_session_t *next_session = NULL;
 	
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		 "Flushing Phase 1 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
     
     LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
@@ -575,7 +571,7 @@ ike_session_getph2byid(struct sockaddr_storage *src, struct sockaddr_storage *ds
                    p->retry_counter == 0
                    && p->sce == 0 && p->scr == 0 &&
                    p->retry_checkph1 == 0){
-                    plog(ASL_LEVEL_DEBUG,
+                    plog(ASL_LEVEL_NOTICE,
                          "Zombie ph2 found, expiring it\n");
                     isakmp_ph2expire(p);
                 }else
@@ -701,7 +697,7 @@ ike_session_newph2(unsigned int version, int type)
     iph2->phase2_type = type;
 	iph2->is_dying = 0;
     
-    plog(ASL_LEVEL_DEBUG, "*** New Phase 2\n");
+    plog(ASL_LEVEL_NOTICE, "New Phase 2\n");
 	return iph2;
 }
 
@@ -819,22 +815,22 @@ ike_session_flush_all_phase2_for_session(ike_session_t *session, int ignore_esta
             continue;
         }
         if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "skipping phase2 handle that's asserted...\n");
             continue;
         }
         if (FSM_STATE_IS_ESTABLISHED(p->status)){
             if (ignore_estab_or_assert_handles) {
-                plog(ASL_LEVEL_DEBUG,
+                plog(ASL_LEVEL_NOTICE,
                      "skipping ph2 handler that's established...\n");
                 continue;
             }
             /* send delete information */
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "got an established ph2 handler to flush...\n");
             isakmp_info_send_d2(p);
         }else{
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "got a ph2 handler to flush (state %d)\n", p->status);
         }
         
@@ -851,7 +847,7 @@ ike_session_flush_all_phase2(int ignore_estab_or_assert_handles)
     ike_session_t *session = NULL;
     ike_session_t *next_session = NULL;
     
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		 "flushing ph2 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
     
     LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
@@ -900,7 +896,7 @@ ike_session_deleteallph2(struct sockaddr_storage *src, struct sockaddr_storage *
             }
             continue;
         zap_it:
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "deleteallph2: got a ph2 handler...\n");
             if (FSM_STATE_IS_ESTABLISHED(iph2->status))
                 isakmp_info_send_d2(iph2);
@@ -928,7 +924,7 @@ ike_session_deleteallph1(struct sockaddr_storage *src, struct sockaddr_storage *
                 cmpsaddrwop(dst, iph1->remote) != 0) {
                 continue;
             }
-            plog(ASL_LEVEL_DEBUG,
+            plog(ASL_LEVEL_NOTICE,
                  "deleteallph1: got a ph1 handler...\n");
             if (FSM_STATE_IS_ESTABLISHED(iph1->status))
                 isakmp_info_send_d1(iph1);
@@ -1116,7 +1112,7 @@ vchar_t *rbuf;
 	if (r->retry_counter <= 0) {
 		ike_session_rem_recvdpkt(r);
 		ike_session_del_recvdpkt(r);
-		plog(ASL_LEVEL_DEBUG,
+		plog(ASL_LEVEL_NOTICE,
              "deleted the retransmission packet to %s.\n",
              saddr2str((struct sockaddr *)remote));
 	} else {
@@ -1363,7 +1359,7 @@ ike_session_purgephXbydstaddrwop(struct sockaddr_storage *remote)
 			continue;
 		}
             if (cmpsaddrwop(remote, p2->dst) == 0) {
-                plog(ASL_LEVEL_DEBUG,
+                plog(ASL_LEVEL_NOTICE,
                      "in %s... purging Phase 2 structures\n", __FUNCTION__);
                 if (FSM_STATE_IS_ESTABLISHED(p2->status))
                     isakmp_info_send_d2(p2);
@@ -1377,7 +1373,7 @@ ike_session_purgephXbydstaddrwop(struct sockaddr_storage *remote)
 			continue;
 		}
             if (cmpsaddrwop(remote, p->remote) == 0) {
-                plog(ASL_LEVEL_DEBUG,
+                plog(ASL_LEVEL_NOTICE,
                      "in %s... purging Phase 1 and related Phase 2 structures\n", __FUNCTION__);
                 ike_session_purge_ph2s_by_ph1(p);
                 if (FSM_STATE_IS_ESTABLISHED(p->status))
@@ -1457,13 +1453,13 @@ ike_session_ph1_force_dpd (struct sockaddr_storage *remote)
                         isakmp_info_send_r_u(p);
                         status = 0;
                     } else {
-                        plog(ASL_LEVEL_DEBUG, "Skipping forced-DPD for Phase 1 (dpd already in progress).\n");
+                        plog(ASL_LEVEL_NOTICE, "Skipping forced-DPD for Phase 1 (dpd already in progress).\n");
                     }
                     if (p->parent_session) {
                         p->parent_session->controller_awaiting_peer_resp = 1;
                     }
                 } else {
-                    plog(ASL_LEVEL_DEBUG, "Skipping forced-DPD for Phase 1 (status %d, dying %d, dpd-support %d, dpd-interval %d).\n",
+                    plog(ASL_LEVEL_NOTICE, "Skipping forced-DPD for Phase 1 (status %d, dying %d, dpd-support %d, dpd-interval %d).\n",
                          p->status, p->is_dying, p->dpd_support, p->rmconf->dpd_interval);
                 }
             }
@@ -1488,12 +1484,12 @@ sweep_sleepwake(void)
         // do the ph1s.
         LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
             if (iph1->parent_session && iph1->parent_session->is_asserted) {
-                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 1 %s because it's been asserted.\n",
+                plog(ASL_LEVEL_NOTICE, "Skipping sweep of Phase 1 %s because it's been asserted.\n",
                      isakmp_pindex(&iph1->index, 0));
                 continue;
             }
             if (iph1->is_dying || FSM_STATE_IS_EXPIRED(iph1->status)) {
-                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 1 %s because it's already expired.\n",
+                plog(ASL_LEVEL_NOTICE, "Skipping sweep of Phase 1 %s because it's already expired.\n",
                      isakmp_pindex(&iph1->index, 0));
                 continue;
             }
@@ -1507,7 +1503,7 @@ sweep_sleepwake(void)
                         fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_EXPIRED);
                         ike_session_update_ph1_ph2tree(iph1); // move unbind/rebind ph2s to from current ph1
                         iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
-                        plog(ASL_LEVEL_DEBUG, "Phase 1 %s expired while sleeping: quick deletion.\n",
+                        plog(ASL_LEVEL_NOTICE, "Phase 1 %s expired while sleeping: quick deletion.\n",
                              isakmp_pindex(&iph1->index, 0));
                     }
                 }
@@ -1543,11 +1539,11 @@ sweep_sleepwake(void)
         // do ph2's next
         LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, next_iph2) {
             if (iph2->parent_session && iph2->parent_session->is_asserted) {
-                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 2 because it's been asserted.\n");
+                plog(ASL_LEVEL_NOTICE, "Skipping sweep of Phase 2 because it's been asserted.\n");
                 continue;
             }
             if (iph2->is_dying || FSM_STATE_IS_EXPIRED(iph2->status)) {
-                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 2 because it's already expired.\n");
+                plog(ASL_LEVEL_NOTICE, "Skipping sweep of Phase 2 because it's already expired.\n");
                 continue;
             }
             if (iph2->sce) {
@@ -1559,7 +1555,7 @@ sweep_sleepwake(void)
                         isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
                         ike_session_stopped_by_controller(iph2->parent_session,
                                                       ike_session_stopped_by_sleepwake);
-                        plog(ASL_LEVEL_DEBUG, "Phase 2 expired while sleeping: quick deletion.\n");
+                        plog(ASL_LEVEL_NOTICE, "Phase 2 expired while sleeping: quick deletion.\n");
                     }
                 }
             }

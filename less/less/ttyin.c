@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -151,8 +151,8 @@ getchr()
 #if 0 /* allow entering arbitrary hex chars for testing */
 		/* ctrl-A followed by two hex chars makes a byte */
 	{
-		int hex_in = 0;
-		int hex_value = 0;
+		static int hex_in = 0;
+		static int hex_value = 0;
 		if (c == CONTROL('A'))
 		{
 			hex_in = 2;

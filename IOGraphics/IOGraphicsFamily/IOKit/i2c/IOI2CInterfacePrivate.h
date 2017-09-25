@@ -26,6 +26,7 @@
 #ifdef KERNEL
 #include <IOKit/IOLib.h>
 #include <IOKit/IOUserClient.h>
+
 #include <IOKit/ndrvsupport/IONDRVFramebuffer.h>
 #endif /* KERNEL */
 
@@ -85,15 +86,23 @@ protected:
 
 public:
     // IOUserClient methods
-    virtual IOReturn clientClose( void );
+    virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOService * getService( void );
+    virtual IOService * getService( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOExternalMethod * getTargetAndMethodForIndex(
-                                        IOService ** targetP, UInt32 index );
+                                        IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
     static IOI2CInterfaceUserClient * withTask( task_t owningTask );
-    virtual bool start( IOService * provider );
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
+
+    virtual bool willTerminate(IOService *provider, IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer) APPLE_KEXT_OVERRIDE;
+    virtual bool requestTerminate(IOService *provider, IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual bool terminate(IOOptionBits options = 0) APPLE_KEXT_OVERRIDE;
+    virtual bool finalize(IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual void stop(IOService *provider) APPLE_KEXT_OVERRIDE;
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
     // others
 

@@ -155,7 +155,7 @@ sdbm_open(register char *file, register int flags, register int mode)
 	if (file == NULL || !*file)
 		return errno = EINVAL, (DBM *) NULL;
 /*
- * need space for two seperate filenames
+ * need space for two separate filenames
  */
 	n = strlen(file) * 2 + strlen(DIRFEXT) + strlen(PAGFEXT) + 2;
 
@@ -372,7 +372,7 @@ makroom(register DBM *db, long int hash, int need)
 {
 	long newp;
 	char twin[PBLKSIZ];
-#if defined _WIN32 && !defined __CYGWIN__
+#if defined _WIN32
 	char zer[PBLKSIZ];
 	long oldtail;
 #endif
@@ -391,7 +391,7 @@ makroom(register DBM *db, long int hash, int need)
 		newp = (hash & db->hmask) | (db->hmask + 1);
 		debug(("newp: %ld\n", newp));
 /*
- * write delay, read avoidence/cache shuffle:
+ * write delay, read avoidance/cache shuffle:
  * select the page for incoming pair: if key is to go to the new page,
  * write out the previous one, and copy the new one over, thus making
  * it the current page. If not, simply write the new page, and we are
@@ -399,7 +399,7 @@ makroom(register DBM *db, long int hash, int need)
  * here, as sdbm_store will do so, after it inserts the incoming pair.
  */
 
-#if defined _WIN32 && !defined __CYGWIN__
+#if defined _WIN32
 	/*
 	 * Fill hole with 0 if made it.
 	 * (hole is NOT read as 0)
@@ -506,7 +506,7 @@ getpage(register DBM *db, register long int hash)
 	while (dbit < db->maxbno && getdbit(db, dbit))
 		dbit = 2 * dbit + ((hash & ((long) 1 << hbit++)) ? 2 : 1);
 
-	debug(("dbit: %d...", dbit));
+	debug(("dbit: %ld...", dbit));
 
 	db->curbit = dbit;
 	db->hmask = masks[hbit];
@@ -531,7 +531,7 @@ getpage(register DBM *db, register long int hash)
 		}
 		db->pagbno = pagb;
 
-		debug(("pag read: %d\n", pagb));
+		debug(("pag read: %ld\n", pagb));
 	}
 	return 1;
 }
@@ -551,7 +551,7 @@ getdbit(register DBM *db, register long int dbit)
 			return 0;
 		db->dirbno = dirb;
 
-		debug(("dir read: %d\n", dirb));
+		debug(("dir read: %ld\n", dirb));
 	}
 
 	return db->dirbuf[c % DBLKSIZ] & (1 << (dbit % BYTESIZ));
@@ -572,7 +572,7 @@ setdbit(register DBM *db, register long int dbit)
 			return 0;
 		db->dirbno = dirb;
 
-		debug(("dir read: %d\n", dirb));
+		debug(("dir read: %ld\n", dirb));
 	}
 
 	db->dirbuf[c % DBLKSIZ] |= (1 << (dbit % BYTESIZ));

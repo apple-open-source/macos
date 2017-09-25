@@ -35,9 +35,16 @@ public:
     void removeUserMediaPermissionRequestManagerProxy(UserMediaPermissionRequestManagerProxy&);
 
     void willCreateMediaStream(UserMediaPermissionRequestManagerProxy&, bool withAudio, bool withVideo);
+    void muteCaptureMediaStreamsExceptIn(WebPageProxy&);
 
     void startedCaptureSession(UserMediaPermissionRequestManagerProxy&);
     void endedCaptureSession(UserMediaPermissionRequestManagerProxy&);
+
+    void setCaptureEnabled(bool);
+    bool captureEnabled() const { return m_captureEnabled; }
+
+private:
+    bool m_captureEnabled { true };
 };
 
 } // namespace WebKit

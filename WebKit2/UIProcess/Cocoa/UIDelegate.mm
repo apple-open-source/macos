@@ -28,6 +28,7 @@
 
 #if WK_API_ENABLED
 
+#import "APIFrameInfo.h"
 #import "CompletionHandlerCallChecker.h"
 #import "NavigationActionData.h"
 #import "UserMediaPermissionCheckProxy.h"
@@ -51,7 +52,7 @@
 #if PLATFORM(IOS)
 #import <AVFoundation/AVCaptureDevice.h>
 #import <AVFoundation/AVMediaFormat.h>
-#import <WebCore/SoftLinking.h>
+#import <wtf/SoftLinking.h>
 
 SOFT_LINK_FRAMEWORK(AVFoundation);
 SOFT_LINK_CLASS(AVFoundation, AVCaptureDevice);
@@ -92,9 +93,11 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegate = delegate;
 
     m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeatures = [delegate respondsToSelector:@selector(webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:)];
+    m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeaturesAsync = [delegate respondsToSelector:@selector(_webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:completionHandler:)];
     m_delegateMethods.webViewRunJavaScriptAlertPanelWithMessageInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:)];
     m_delegateMethods.webViewRunJavaScriptConfirmPanelWithMessageInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:)];
     m_delegateMethods.webViewRunJavaScriptTextInputPanelWithPromptDefaultTextInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:completionHandler:)];
+    m_delegateMethods.webViewRunBeforeUnloadConfirmPanelWithMessageInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(_webView:runBeforeUnloadConfirmPanelWithMessage:initiatedByFrame:completionHandler:)];
 
 #if PLATFORM(MAC)
     m_delegateMethods.webViewRunOpenPanelWithParametersInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)];
@@ -114,12 +117,11 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 #endif
     m_delegateMethods.webViewActionsForElementDefaultActions = [delegate respondsToSelector:@selector(_webView:actionsForElement:defaultActions:)];
     m_delegateMethods.webViewDidNotHandleTapAsClickAtPoint = [delegate respondsToSelector:@selector(_webView:didNotHandleTapAsClickAtPoint:)];
-    m_delegateMethods.webViewRequestUserMediaAuthorizationForMicrophoneCameraURLMainFrameURLDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestUserMediaAuthorizationForMicrophone:camera:url:mainFrameURL:decisionHandler:)];
-    m_delegateMethods.webViewCheckUserMediaPermissionForURLMainFrameURLFrameIdentifierDecisionHandler = [delegate respondsToSelector:@selector(_webView:checkUserMediaPermissionForURL:mainFrameURL:frameIdentifier:decisionHandler:)];
-    m_delegateMethods.webViewDidBeginCaptureSession = [delegate respondsToSelector:@selector(_webViewDidBeginCaptureSession:)];
-    m_delegateMethods.webViewDidEndCaptureSession = [delegate respondsToSelector:@selector(_webViewDidEndCaptureSession:)];
     m_delegateMethods.presentingViewControllerForWebView = [delegate respondsToSelector:@selector(_presentingViewControllerForWebView:)];
 #endif
+    m_delegateMethods.webViewRequestUserMediaAuthorizationForDevicesURLMainFrameURLDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestUserMediaAuthorizationForDevices:url:mainFrameURL:decisionHandler:)];
+    m_delegateMethods.webViewCheckUserMediaPermissionForURLMainFrameURLFrameIdentifierDecisionHandler = [delegate respondsToSelector:@selector(_webView:checkUserMediaPermissionForURL:mainFrameURL:frameIdentifier:decisionHandler:)];
+    m_delegateMethods.webViewMediaCaptureStateDidChange = [delegate respondsToSelector:@selector(_webView:mediaCaptureStateDidChange:)];
     m_delegateMethods.dataDetectionContextForWebView = [delegate respondsToSelector:@selector(_dataDetectionContextForWebView:)];
     m_delegateMethods.webViewImageOrMediaDocumentSizeChanged = [delegate respondsToSelector:@selector(_webView:imageOrMediaDocumentSizeChanged:)];
 
@@ -131,6 +133,8 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewContextMenuForElement = [delegate respondsToSelector:@selector(_webView:contextMenu:forElement:)];
     m_delegateMethods.webViewContextMenuForElementUserInfo = [delegate respondsToSelector:@selector(_webView:contextMenu:forElement:userInfo:)];
 #endif
+    
+    m_delegateMethods.webViewHasVideoInPictureInPictureDidChange = [delegate respondsToSelector:@selector(_webView:hasVideoInPictureInPictureDidChange:)];
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -170,25 +174,41 @@ UIDelegate::UIClient::~UIClient()
 {
 }
 
-PassRefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy* page, WebKit::WebFrameProxy* initiatingFrame, const WebCore::SecurityOriginData& securityOriginData, const WebCore::ResourceRequest& request, const WebCore::WindowFeatures& windowFeatures, const WebKit::NavigationActionData& navigationActionData)
+RefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPageCommon(WebKit::WebPageProxy* page, API::FrameInfo& sourceFrameInfo, const WebCore::ResourceRequest& request, const WebCore::WindowFeatures& windowFeatures, const WebKit::NavigationActionData& navigationActionData, WTF::Function<void (RefPtr<WebKit::WebPageProxy>)>&& completionHandler)
 {
-    if (!m_uiDelegate.m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeatures)
-        return nullptr;
-
     auto delegate = m_uiDelegate.m_delegate.get();
-    if (!delegate)
-        return nullptr;
+    ASSERT(delegate);
 
     auto configuration = adoptNS([m_uiDelegate.m_webView->_configuration copy]);
     [configuration _setRelatedWebView:m_uiDelegate.m_webView];
 
-    auto sourceFrameInfo = API::FrameInfo::create(*initiatingFrame, securityOriginData.securityOrigin());
-
     auto userInitiatedActivity = page->process().userInitiatedActivity(navigationActionData.userGestureTokenIdentifier);
-    bool shouldOpenAppLinks = !hostsAreEqual(WebCore::URL(WebCore::ParsedURLString, initiatingFrame->url()), request.url());
-    auto apiNavigationAction = API::NavigationAction::create(navigationActionData, sourceFrameInfo.ptr(), nullptr, request, WebCore::URL(), shouldOpenAppLinks, userInitiatedActivity);
+    bool shouldOpenAppLinks = !hostsAreEqual(sourceFrameInfo.request().url(), request.url());
+    auto apiNavigationAction = API::NavigationAction::create(navigationActionData, &sourceFrameInfo, nullptr, request, WebCore::URL(), shouldOpenAppLinks, userInitiatedActivity);
 
     auto apiWindowFeatures = API::WindowFeatures::create(windowFeatures);
+
+    if (completionHandler) {
+        RefPtr<CompletionHandlerCallChecker> checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:completionHandler:));
+
+        [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate.m_webView createWebViewWithConfiguration:configuration.get() forNavigationAction:wrapper(apiNavigationAction) windowFeatures:wrapper(apiWindowFeatures) completionHandler:BlockPtr<void (WKWebView *)>::fromCallable([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker), relatedWebView = RetainPtr<WKWebView>(m_uiDelegate.m_webView)](WKWebView *webView) {
+            if (checker->completionHandlerHasBeenCalled())
+                return;
+            checker->didCallCompletionHandler();
+
+            if (!webView) {
+                completionHandler(nullptr);
+                return;
+            }
+
+            if ([webView->_configuration _relatedWebView] != relatedWebView.get())
+                [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
+
+            completionHandler(webView->_page.get());
+        }).get()];
+
+        return nullptr;
+    }
 
     RetainPtr<WKWebView> webView = [delegate webView:m_uiDelegate.m_webView createWebViewWithConfiguration:configuration.get() forNavigationAction:wrapper(apiNavigationAction) windowFeatures:wrapper(apiWindowFeatures)];
 
@@ -199,6 +219,32 @@ PassRefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::Web
         [NSException raise:NSInternalInconsistencyException format:@"Returned WKWebView was not created with the given configuration."];
 
     return webView->_page.get();
+}
+
+RefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy* page, API::FrameInfo& originatingFrameInfo, const WebCore::ResourceRequest& request, const WebCore::WindowFeatures& windowFeatures, const WebKit::NavigationActionData& navigationActionData)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeatures)
+        return nullptr;
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return nullptr;
+
+    return createNewPageCommon(page, originatingFrameInfo, request, windowFeatures, navigationActionData, nullptr);
+}
+
+bool UIDelegate::UIClient::createNewPageAsync(WebKit::WebPageProxy* page, API::FrameInfo& originatingFrameInfo, const WebCore::ResourceRequest& request, const WebCore::WindowFeatures& windowFeatures, const WebKit::NavigationActionData& navigationActionData, WTF::Function<void (RefPtr<WebKit::WebPageProxy>)>&& completionHandler)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeaturesAsync)
+        return false;
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return false;
+
+    createNewPageCommon(page, originatingFrameInfo, request, windowFeatures, navigationActionData, WTFMove(completionHandler));
+
+    return true;
 }
 
 void UIDelegate::UIClient::runJavaScriptAlert(WebKit::WebPageProxy*, const WTF::String& message, WebKit::WebFrameProxy* webFrameProxy, const WebCore::SecurityOriginData& securityOriginData, Function<void ()>&& completionHandler)
@@ -267,6 +313,33 @@ void UIDelegate::UIClient::runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF:
     }).get()];
 }
 
+bool UIDelegate::UIClient::canRunBeforeUnloadConfirmPanel() const
+{
+    return m_uiDelegate.m_delegateMethods.webViewRunBeforeUnloadConfirmPanelWithMessageInitiatedByFrameCompletionHandler;
+}
+
+void UIDelegate::UIClient::runBeforeUnloadConfirmPanel(WebKit::WebPageProxy*, const WTF::String& message, WebKit::WebFrameProxy* webFrameProxy, const WebCore::SecurityOriginData& securityOriginData, Function<void (bool)>&& completionHandler)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewRunBeforeUnloadConfirmPanelWithMessageInitiatedByFrameCompletionHandler) {
+        completionHandler(false);
+        return;
+    }
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate) {
+        completionHandler(false);
+        return;
+    }
+
+    RefPtr<CompletionHandlerCallChecker> checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:runBeforeUnloadConfirmPanelWithMessage:initiatedByFrame:completionHandler:));
+    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate.m_webView runBeforeUnloadConfirmPanelWithMessage:message initiatedByFrame:wrapper(API::FrameInfo::create(*webFrameProxy, securityOriginData.securityOrigin())) completionHandler:BlockPtr<void (BOOL)>::fromCallable([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)](BOOL result) {
+        if (checker->completionHandlerHasBeenCalled())
+            return;
+        completionHandler(result);
+        checker->didCallCompletionHandler();
+    }).get()];
+}
+
 void UIDelegate::UIClient::exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin* securityOrigin, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, Function<void (unsigned long long)>&& completionHandler)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewDecideDatabaseQuotaForSecurityOriginCurrentQuotaCurrentOriginUsageCurrentDatabaseUsageExpectedUsageDecisionHandler) {
@@ -321,7 +394,7 @@ bool UIDelegate::UIClient::runOpenPanel(WebPageProxy*, WebFrameProxy* webFramePr
 
         Vector<String> filenames;
         for (NSURL *url in URLs)
-            filenames.append(url.fileSystemRepresentation);
+            filenames.append(url.path);
 
         resultListener->chooseFiles(filenames);
     }];
@@ -330,10 +403,36 @@ bool UIDelegate::UIClient::runOpenPanel(WebPageProxy*, WebFrameProxy* webFramePr
 }
 #endif
 
+static void requestUserMediaAuthorizationForDevices(const WebKit::WebFrameProxy& frame, WebKit::UserMediaPermissionRequestProxy& request, id <WKUIDelegatePrivate> delegate, WKWebView& webView)
+{
+    auto decisionHandler = BlockPtr<void(BOOL)>::fromCallable([protectedRequest = makeRef(request)](BOOL authorized) {
+        if (!authorized) {
+            protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
+            return;
+        }
+        const String& videoDeviceUID = protectedRequest->requiresVideo() ? protectedRequest->videoDeviceUIDs().first() : String();
+        const String& audioDeviceUID = protectedRequest->requiresAudio() ? protectedRequest->audioDeviceUIDs().first() : String();
+        protectedRequest->allow(audioDeviceUID, videoDeviceUID);
+    });
+
+    const WebFrameProxy* mainFrame = frame.page()->mainFrame();
+    WebCore::URL requestFrameURL(WebCore::URL(), frame.url());
+    WebCore::URL mainFrameURL(WebCore::URL(), mainFrame->url());
+
+    _WKCaptureDevices devices = 0;
+    if (request.requiresAudio())
+        devices |= _WKCaptureDeviceMicrophone;
+    if (request.requiresVideo())
+        devices |= _WKCaptureDeviceCamera;
+
+    auto protectedWebView = RetainPtr<WKWebView>(&webView);
+    [delegate _webView:protectedWebView.get() requestUserMediaAuthorizationForDevices:devices url:requestFrameURL mainFrameURL:mainFrameURL decisionHandler:decisionHandler.get()];
+}
+
 bool UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest(WebKit::WebPageProxy& page, WebKit::WebFrameProxy& frame, API::SecurityOrigin& userMediaOrigin, API::SecurityOrigin& topLevelOrigin, WebKit::UserMediaPermissionRequestProxy& request)
 {
     auto delegate = m_uiDelegate.m_delegate.get();
-    if (!delegate || !m_uiDelegate.m_delegateMethods.webViewRequestUserMediaAuthorizationForMicrophoneCameraURLMainFrameURLDecisionHandler) {
+    if (!delegate || !m_uiDelegate.m_delegateMethods.webViewRequestUserMediaAuthorizationForDevicesURLMainFrameURLDecisionHandler) {
         request.deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::UserMediaDisabled);
         return true;
     }
@@ -345,71 +444,62 @@ bool UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest(WebKit::Web
         return true;
     }
 
-    __block WKWebView *webView = m_uiDelegate.m_webView;
-    void (^uiDelegateAuthorizationBlock)(void) = ^ {
-        const WebFrameProxy* mainFrame = frame.page()->mainFrame();
-        WebCore::URL requestFrameURL(WebCore::URL(), frame.url());
-        WebCore::URL mainFrameURL(WebCore::URL(), mainFrame->url());
-
-        [(id <WKUIDelegatePrivate>)delegate _webView:webView requestUserMediaAuthorizationForMicrophone:requiresAudio camera:requiresVideo url:requestFrameURL mainFrameURL:mainFrameURL decisionHandler:^(BOOL authorizedMicrophone, BOOL authorizedCamera) {
-            if ((requiresAudio != authorizedMicrophone) || (requiresVideo != authorizedCamera)) {
-                request.deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
-                return;
-            }
-            const String& videoDeviceUID = requiresVideo ? request.videoDeviceUIDs().first() : String();
-            const String& audioDeviceUID = requiresAudio ? request.audioDeviceUIDs().first() : String();
-            request.allow(audioDeviceUID, videoDeviceUID);
-        }];
-    };
-
 #if PLATFORM(IOS)
-    void (^cameraAuthorizationBlock)(void) = ^ {
-        if (requiresVideo) {
-            AVAuthorizationStatus cameraAuthorizationStatus = [getAVCaptureDeviceClass() authorizationStatusForMediaType:getAVMediaTypeVideo()];
-            switch (cameraAuthorizationStatus) {
-            case AVAuthorizationStatusDenied:
-            case AVAuthorizationStatusRestricted:
-                request.deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
-                return;
-            case AVAuthorizationStatusNotDetermined:
-                [getAVCaptureDeviceClass() requestAccessForMediaType:getAVMediaTypeVideo() completionHandler:^(BOOL authorized) {
-                    if (!authorized) {
-                        request.deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
-                        return;
-                    }
-                    uiDelegateAuthorizationBlock();
-                }];
-                break;
-            default:
-                uiDelegateAuthorizationBlock();
-            }
-        } else
-            uiDelegateAuthorizationBlock();
-    };
+    auto requestCameraAuthorization = BlockPtr<void()>::fromCallable([this, &frame, protectedRequest = makeRef(request), webView = RetainPtr<WKWebView>(m_uiDelegate.m_webView)]() {
+
+        if (!protectedRequest->requiresVideo()) {
+            requestUserMediaAuthorizationForDevices(frame, protectedRequest, (id <WKUIDelegatePrivate>)m_uiDelegate.m_delegate.get(), *webView.get());
+            return;
+        }
+        AVAuthorizationStatus cameraAuthorizationStatus = [getAVCaptureDeviceClass() authorizationStatusForMediaType:getAVMediaTypeVideo()];
+        switch (cameraAuthorizationStatus) {
+        case AVAuthorizationStatusAuthorized:
+            requestUserMediaAuthorizationForDevices(frame, protectedRequest, (id <WKUIDelegatePrivate>)m_uiDelegate.m_delegate.get(), *webView.get());
+            break;
+        case AVAuthorizationStatusDenied:
+        case AVAuthorizationStatusRestricted:
+            protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
+            return;
+        case AVAuthorizationStatusNotDetermined:
+            auto decisionHandler = BlockPtr<void(BOOL)>::fromCallable([this, &frame, protectedRequest = makeRef(protectedRequest.get()), webView = RetainPtr<WKWebView>(m_uiDelegate.m_webView)](BOOL authorized) {
+                if (!authorized) {
+                    protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
+                    return;
+                }
+                requestUserMediaAuthorizationForDevices(frame, protectedRequest, (id <WKUIDelegatePrivate>)m_uiDelegate.m_delegate.get(), *webView.get());
+            });
+
+            [getAVCaptureDeviceClass() requestAccessForMediaType:getAVMediaTypeVideo() completionHandler:decisionHandler.get()];
+            break;
+        }
+    });
 
     if (requiresAudio) {
         AVAuthorizationStatus microphoneAuthorizationStatus = [getAVCaptureDeviceClass() authorizationStatusForMediaType:getAVMediaTypeAudio()];
         switch (microphoneAuthorizationStatus) {
+        case AVAuthorizationStatusAuthorized:
+            requestCameraAuthorization();
+            break;
         case AVAuthorizationStatusDenied:
         case AVAuthorizationStatusRestricted:
             request.deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
             return true;
         case AVAuthorizationStatusNotDetermined:
-            [getAVCaptureDeviceClass() requestAccessForMediaType:getAVMediaTypeAudio() completionHandler:^(BOOL authorized) {
+            auto decisionHandler = BlockPtr<void(BOOL)>::fromCallable([protectedRequest = makeRef(request), requestCameraAuthorization](BOOL authorized) {
                 if (!authorized) {
-                    request.deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
+                    protectedRequest->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
                     return;
                 }
-                cameraAuthorizationBlock();
-            }];
+                requestCameraAuthorization();
+            });
+
+            [getAVCaptureDeviceClass() requestAccessForMediaType:getAVMediaTypeAudio() completionHandler:decisionHandler.get()];
             break;
-        default:
-            cameraAuthorizationBlock();
         }
     } else
-        cameraAuthorizationBlock();
+        requestCameraAuthorization();
 #else
-    uiDelegateAuthorizationBlock();
+    requestUserMediaAuthorizationForDevices(frame, request, (id <WKUIDelegatePrivate>)m_uiDelegate.m_delegate.get(), *m_uiDelegate.m_webView);
 #endif
 
     return true;
@@ -428,29 +518,33 @@ bool UIDelegate::UIClient::checkUserMediaPermissionForOrigin(WebKit::WebPageProx
     WebCore::URL requestFrameURL(WebCore::URL(), frame.url());
     WebCore::URL mainFrameURL(WebCore::URL(), mainFrame->url());
 
-    [(id <WKUIDelegatePrivate>)delegate _webView:webView checkUserMediaPermissionForURL:requestFrameURL mainFrameURL:mainFrameURL frameIdentifier:frame.frameID() decisionHandler:^(NSString *salt, BOOL authorized) {
-        request.setUserMediaAccessInfo(String(salt), authorized);
-    }];
+    auto decisionHandler = BlockPtr<void(NSString *, BOOL)>::fromCallable([protectedRequest = makeRef(request)](NSString *salt, BOOL authorized) {
+        protectedRequest->setUserMediaAccessInfo(String(salt), authorized);
+    });
+
+    [(id <WKUIDelegatePrivate>)delegate _webView:webView checkUserMediaPermissionForURL:requestFrameURL mainFrameURL:mainFrameURL frameIdentifier:frame.frameID() decisionHandler:decisionHandler.get()];
 
     return true;
 }
 
-void UIDelegate::UIClient::didBeginCaptureSession()
+void UIDelegate::UIClient::mediaCaptureStateDidChange(WebCore::MediaProducer::MediaStateFlags state)
 {
+    WKWebView *webView = m_uiDelegate.m_webView;
     auto delegate = m_uiDelegate.m_delegate.get();
-    if (!delegate || !m_uiDelegate.m_delegateMethods.webViewDidBeginCaptureSession)
+    if (!delegate || !m_uiDelegate.m_delegateMethods.webViewMediaCaptureStateDidChange)
         return;
 
-    [(id <WKUIDelegatePrivate>)delegate _webViewDidBeginCaptureSession:m_uiDelegate.m_webView];
-}
+    _WKMediaCaptureState mediaCaptureState = _WKMediaCaptureStateNone;
+    if (state & WebCore::MediaProducer::HasActiveAudioCaptureDevice)
+        mediaCaptureState |= _WKMediaCaptureStateActiveMicrophone;
+    if (state & WebCore::MediaProducer::HasActiveVideoCaptureDevice)
+        mediaCaptureState |= _WKMediaCaptureStateActiveCamera;
+    if (state & WebCore::MediaProducer::HasMutedAudioCaptureDevice)
+        mediaCaptureState |= _WKMediaCaptureStateMutedMicrophone;
+    if (state & WebCore::MediaProducer::HasMutedVideoCaptureDevice)
+        mediaCaptureState |= _WKMediaCaptureStateMutedCamera;
 
-void UIDelegate::UIClient::didEndCaptureSession()
-{
-    auto delegate = m_uiDelegate.m_delegate.get();
-    if (!delegate || !m_uiDelegate.m_delegateMethods.webViewDidEndCaptureSession)
-        return;
-
-    [(id <WKUIDelegatePrivate>)delegate _webViewDidEndCaptureSession:m_uiDelegate.m_webView];
+    [(id <WKUIDelegatePrivate>)delegate _webView:webView mediaCaptureStateDidChange:mediaCaptureState];
 }
 
 void UIDelegate::UIClient::reachedApplicationCacheOriginQuota(WebPageProxy*, const WebCore::SecurityOrigin& securityOrigin, uint64_t currentQuota, uint64_t totalBytesNeeded, Function<void (unsigned long long)>&& completionHandler)
@@ -640,6 +734,18 @@ void UIDelegate::UIClient::didLosePointerLock(WebKit::WebPageProxy*)
 }
 
 #endif
+    
+void UIDelegate::UIClient::hasVideoInPictureInPictureDidChange(WebKit::WebPageProxy*, bool hasVideoInPictureInPicture)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewHasVideoInPictureInPictureDidChange)
+        return;
+    
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return;
+    
+    [static_cast<id <WKUIDelegatePrivate>>(delegate) _webView:m_uiDelegate.m_webView hasVideoInPictureInPictureDidChange:hasVideoInPictureInPicture];
+}
 
 void UIDelegate::UIClient::imageOrMediaDocumentSizeChanged(const WebCore::IntSize& newSize)
 {

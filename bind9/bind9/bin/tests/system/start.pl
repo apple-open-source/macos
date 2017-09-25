@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# Copyright (C) 2004-2008, 2010-2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004-2008, 2010-2014  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -104,14 +104,28 @@ if ($server) {
 sub check_ports {
 	my $server = shift;
 	my $options = "";
+	my $port = 5300;
+	my $file = "";
+
+	$file = $testdir . "/" . $server . "/named.port" if ($server);
 
 	if ($server && $server =~ /(\d+)$/) {
 		$options = "-i $1";
 	}
 
+	if ($file ne "" && -e $file) {
+		open(FH, "<", $file);
+		while(my $line=<FH>) {
+			chomp $line;
+			$port = $line;
+			last;
+		}
+		close FH;
+	}
+
 	my $tries = 0;
 	while (1) {
-		my $return = system("$PERL $topdir/testsock.pl -p 5300 $options");
+		my $return = system("$PERL $topdir/testsock.pl -p $port $options");
 		last if ($return == 0);
 		if (++$tries > 4) {
 			print "$0: could not bind to server addresses, still running?\n";
@@ -161,8 +175,12 @@ sub start_server {
 				if (-e "$testdir/$server/named.nosoa");
 			$command .= "-T noaa " 
 				if (-e "$testdir/$server/named.noaa");
-			$command .= "-c named.conf -d 99 -g";
+			$command .= "-T dropedns "
+				if (-e "$testdir/$server/named.dropedns");
+			$command .= "-c named.conf -d 99 -g -U 4";
 		}
+		$command .= " -T notcp"
+			if (-e "$testdir/$server/named.notcp");
 		if ($restart) {
 			$command .= " >>named.run 2>&1 &";
 		} else {
@@ -177,7 +195,7 @@ sub start_server {
 		} else {
 			$command .= "-m record,size,mctx ";
 			$command .= "-T clienttest ";
-			$command .= "-C resolv.conf -d 99 -g ";
+			$command .= "-C resolv.conf -d 99 -g -U 4 ";
 			$command .= "-i lwresd.pid -P 9210 -p 5300";
 		}
 		if ($restart) {
@@ -224,7 +242,7 @@ sub start_server {
 
 	# start the server
 	my $child = `$command`;
-	chomp($child);
+	$child =~ s/\s+$//g;
 
 	# wait up to 14 seconds for the server to start and to write the
 	# pid file otherwise kill this server and any others that have
@@ -249,11 +267,26 @@ sub start_server {
 sub verify_server {
 	my $server = shift;
 	my $n = $server;
+	my $port = 5300;
+	my $tcp = "+tcp";
+
 	$n =~ s/^ns//;
+
+	if (-e "$testdir/$server/named.port") {
+		open(FH, "<", "$testdir/$server/named.port");
+		while(my $line=<FH>) {
+			chomp $line;
+			$port = $line;
+			last;
+		}
+		close FH;
+	}
+
+	$tcp = "" if (-e "$testdir/$server/named.notcp");
 
 	my $tries = 0;
 	while (1) {
-		my $return = system("$DIG +tcp +noadd +nosea +nostat +noquest +nocomm +nocmd -p 5300 version.bind. chaos txt \@10.53.0.$n > dig.out");
+		my $return = system("$DIG $tcp +noadd +nosea +nostat +noquest +nocomm +nocmd +noedns -p $port version.bind. chaos txt \@10.53.0.$n > dig.out");
 		last if ($return == 0);
 		if (++$tries >= 30) {
 			print `grep ";" dig.out > /dev/null`;

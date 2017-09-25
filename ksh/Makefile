@@ -14,7 +14,9 @@ Patches = \
 	src__lib__libast__features__common.diff \
 	src__cmd__ksh93__jobs.c.diff \
 	src__cmd__ksh93__parse.c.diff \
-	src__cmd__ksh93__sh__array.c.diff
+	src__cmd__ksh93__sh__array.c.diff \
+	src__lib__libast__sfio__sfvprintf.c.diff \
+	ksh-20120801-subshell-leak.patch
 
 #find ksh overrides before libSystem
 EXTRA_LDFLAGS = -Wl,-search_paths_first
@@ -34,7 +36,7 @@ PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other) -DSHOPT_SPAWN=0 -D_ast_int
 ARCH_CCFLAGS = $(CC_Archs)
 
 build:: shadow_source
-	cd $(BuildDirectory) && LDFLAGS="$(EXTRA_LDFLAGS)" CCFLAGS="$(PASS_CCFLAGS) $(EXTRA_CCFLAGS)" ARCH_CCFLAGS="$(ARCH_CCFLAGS)" ./bin/package make SHELL=$(SHELL)
+	cd $(BuildDirectory) && LDFLAGS="$(EXTRA_LDFLAGS)" CCFLAGS="$(PASS_CCFLAGS) $(EXTRA_CCFLAGS)" ARCH_CCFLAGS="$(ARCH_CCFLAGS) $(CC_Debug) $(CC_Optimize)" ./bin/package make SHELL=$(SHELL)
 	@fgrep '*** exit code' $(OBJROOT)/arch/$(shell $(BuildDirectory)/bin/package)/lib/package/gen/make.out && exit 1 || exit 0
 	cd $(BuildDirectory) && ./bin/package results SHELL=$(SHELL)
 

@@ -216,11 +216,13 @@ public extension DispatchQueue {
 	{
 		var result: T?
 		var error: Swift.Error?
-		fn {
-			do {
-				result = try work()
-			} catch let e {
-				error = e
+		withoutActuallyEscaping(work) { _work in
+			fn {
+				do {
+					result = try _work()
+				} catch let e {
+					error = e
+				}
 			}
 		}
 		if let e = error {
@@ -324,12 +326,21 @@ public extension DispatchQueue {
 		return nil
 	}
 
-	public func setSpecific<T>(key: DispatchSpecificKey<T>, value: T) {
-		let v = _DispatchSpecificValue(value: value)
+	public func setSpecific<T>(key: DispatchSpecificKey<T>, value: T?) {
 		let k = Unmanaged.passUnretained(key).toOpaque()
-		let p = Unmanaged.passRetained(v).toOpaque()
+		let v = value.flatMap { _DispatchSpecificValue(value: $0) }
+		let p = v.flatMap { Unmanaged.passRetained($0).toOpaque() }
 		dispatch_queue_set_specific(self.__wrapped, k, p, _destructDispatchSpecificValue)
 	}
+
+	#if os(Android)
+	@_silgen_name("_dispatch_install_thread_detach_callback")
+	private static func _dispatch_install_thread_detach_callback(_ cb: @escaping @convention(c) () -> Void)
+
+	public static func setThreadDetachCallback(_ cb: @escaping @convention(c) () -> Void) {
+		_dispatch_install_thread_detach_callback(cb)
+	}
+	#endif
 }
 
 private func _destructDispatchSpecificValue(ptr: UnsafeMutableRawPointer?) {
@@ -343,9 +354,6 @@ internal func _swift_dispatch_queue_concurrent() -> dispatch_queue_attr_t
 
 @_silgen_name("_swift_dispatch_get_main_queue")
 internal func _swift_dispatch_get_main_queue() -> dispatch_queue_t
-
-@_silgen_name("_swift_dispatch_apply_current_root_queue")
-internal func _swift_dispatch_apply_current_root_queue() -> dispatch_queue_t
 
 @_silgen_name("_swift_dispatch_apply_current")
 internal func _swift_dispatch_apply_current(_ iterations: Int, _ block: @convention(block) (Int) -> Void)

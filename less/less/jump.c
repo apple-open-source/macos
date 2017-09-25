@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -62,6 +62,24 @@ jump_forw()
 }
 
 /*
+ * Jump to the last buffered line in the file.
+ */
+	public void
+jump_forw_buffered()
+{
+	POSITION end;
+
+	if (ch_end_buffer_seek())
+	{
+		error("Cannot seek to end of buffers", NULL_PARG);
+		return;
+	}
+	end = ch_tell();
+	if (end != NULL_POSITION && end > 0)
+		jump_line_loc(end-1, sc_height-1);
+}
+
+/*
  * Jump to line n in the file.
  */
 	public void
@@ -107,7 +125,11 @@ repaint()
 	 */
 	get_scrpos(&scrpos);
 	pos_clear();
-	jump_loc(scrpos.pos, scrpos.ln);
+	if (scrpos.pos == NULL_POSITION)
+		/* Screen hasn't been drawn yet. */
+		jump_loc(0, 0);
+	else
+		jump_loc(scrpos.pos, scrpos.ln);
 }
 
 /*
@@ -282,6 +304,9 @@ jump_loc(pos, sline)
 				 */
 				break;
 			}
+#if HILITE_SEARCH
+			pos = next_unfiltered(pos);
+#endif
 			if (pos >= tpos)
 			{
 				/* 

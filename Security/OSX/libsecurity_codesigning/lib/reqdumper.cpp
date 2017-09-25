@@ -25,7 +25,9 @@
 // reqdumper - Requirement un-parsing (disassembly)
 //
 #include "reqdumper.h"
+#if TARGET_OS_OSX
 #include <security_cdsa_utilities/cssmdata.h>	// OID encoder
+#endif
 #include <cstdarg>
 
 namespace Security {
@@ -199,20 +201,24 @@ void Dumper::expr(SyntaxLevel level)
 		break;
 	case opCertGeneric:
 		print("certificate"); certSlot(); print("[");
+#if TARGET_OS_OSX
 		{
 			const unsigned char *data; size_t length;
 			getData(data, length);
 			print("field.%s", CssmOid((unsigned char *)data, length).toOid().c_str());
 		}
+#endif
 		print("]"); match();
 		break;
 	case opCertPolicy:
 		print("certificate"); certSlot(); print("[");
+#if TARGET_OS_OSX
 		{
 			const unsigned char *data; size_t length;
 			getData(data, length);
 			print("policy.%s", CssmOid((unsigned char *)data, length).toOid().c_str());
 		}
+#endif
 		print("]"); match();
 		break;
 	case opTrustedCert:
@@ -331,7 +337,7 @@ void Dumper::data(PrintMode bestMode /* = isSimple */, bool dotOkay /* = false *
 		
 	switch (bestMode) {
 	case isSimple:
-		print("%.*s", length, data);
+		print("%.*s", (int)length, data);
 		break;
 	case isPrintable:
 		print("\"");

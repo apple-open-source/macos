@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,84 +27,17 @@
 #include "InspectorHeapAgent.h"
 
 #include "HeapProfiler.h"
+#include "HeapSnapshot.h"
 #include "InjectedScript.h"
 #include "InjectedScriptManager.h"
 #include "InspectorEnvironment.h"
 #include "JSCInlines.h"
 #include "VM.h"
-#include <wtf/RunLoop.h>
 #include <wtf/Stopwatch.h>
 
 using namespace JSC;
 
 namespace Inspector {
-
-struct GarbageCollectionData {
-    Inspector::Protocol::Heap::GarbageCollection::Type type;
-    double startTime;
-    double endTime;
-};
-
-class SendGarbageCollectionEventsTask {
-public:
-    SendGarbageCollectionEventsTask(HeapFrontendDispatcher&);
-    void addGarbageCollection(GarbageCollectionData&);
-    void reset();
-private:
-    void timerFired();
-
-    HeapFrontendDispatcher& m_frontendDispatcher;
-    Vector<GarbageCollectionData> m_collections;
-    RunLoop::Timer<SendGarbageCollectionEventsTask> m_timer;
-    Lock m_mutex;
-};
-
-SendGarbageCollectionEventsTask::SendGarbageCollectionEventsTask(HeapFrontendDispatcher& frontendDispatcher)
-    : m_frontendDispatcher(frontendDispatcher)
-    , m_timer(RunLoop::current(), this, &SendGarbageCollectionEventsTask::timerFired)
-{
-}
-
-void SendGarbageCollectionEventsTask::addGarbageCollection(GarbageCollectionData& collection)
-{
-    {
-        std::lock_guard<Lock> lock(m_mutex);
-        m_collections.append(collection);
-    }
-
-    if (!m_timer.isActive())
-        m_timer.startOneShot(0);
-}
-
-void SendGarbageCollectionEventsTask::reset()
-{
-    {
-        std::lock_guard<Lock> lock(m_mutex);
-        m_collections.clear();
-    }
-
-    m_timer.stop();
-}
-
-void SendGarbageCollectionEventsTask::timerFired()
-{
-    Vector<GarbageCollectionData> collectionsToSend;
-
-    {
-        std::lock_guard<Lock> lock(m_mutex);
-        m_collections.swap(collectionsToSend);
-    }
-
-    // The timer is stopped on agent destruction, so this method will never be called after agent has been destroyed.
-    for (auto& collection : collectionsToSend) {
-        auto protocolObject = Inspector::Protocol::Heap::GarbageCollection::create()
-            .setType(collection.type)
-            .setStartTime(collection.startTime)
-            .setEndTime(collection.endTime)
-            .release();
-        m_frontendDispatcher.garbageCollected(WTFMove(protocolObject));
-    }
-}
 
 InspectorHeapAgent::InspectorHeapAgent(AgentContext& context)
     : InspectorAgentBase(ASCIILiteral("Heap"))
@@ -112,13 +45,11 @@ InspectorHeapAgent::InspectorHeapAgent(AgentContext& context)
     , m_frontendDispatcher(std::make_unique<HeapFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(HeapBackendDispatcher::create(context.backendDispatcher, this))
     , m_environment(context.environment)
-    , m_sendGarbageCollectionEventsTask(std::make_unique<SendGarbageCollectionEventsTask>(*m_frontendDispatcher))
 {
 }
 
 InspectorHeapAgent::~InspectorHeapAgent()
 {
-    m_sendGarbageCollectionEventsTask->reset();
 }
 
 void InspectorHeapAgent::didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*)
@@ -152,7 +83,6 @@ void InspectorHeapAgent::disable(ErrorString&)
     m_enabled = false;
 
     m_environment.vm().heap.removeObserver(this);
-    m_sendGarbageCollectionEventsTask->reset();
 
     clearHeapSnapshots();
 }
@@ -162,7 +92,7 @@ void InspectorHeapAgent::gc(ErrorString&)
     VM& vm = m_environment.vm();
     JSLockHolder lock(vm);
     sanitizeStackForVM(&vm);
-    vm.heap.collectAllGarbage();
+    vm.heap.collectNow(Sync, CollectionScope::Full);
 }
 
 void InspectorHeapAgent::snapshot(ErrorString&, double* timestamp, String* snapshotData)
@@ -276,7 +206,7 @@ void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, 
     }
 
     // Function preview.
-    if (cell->inherits(JSFunction::info())) {
+    if (cell->inherits(vm, JSFunction::info())) {
         injectedScript.functionDetails(errorString, cell, &functionDetails);
         return;
     }
@@ -285,7 +215,7 @@ void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, 
     objectPreview = injectedScript.previewValue(cell);
 }
 
-void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjectId, const String* optionalObjectGroup, RefPtr<Inspector::Protocol::Runtime::RemoteObject>& result)
+void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjectId, const String* const optionalObjectGroup, RefPtr<Inspector::Protocol::Runtime::RemoteObject>& result)
 {
     // Prevent the cell from getting collected as we look it up.
     VM& vm = m_environment.vm();
@@ -354,19 +284,8 @@ void InspectorHeapAgent::didGarbageCollect(CollectionScope scope)
 
     // FIXME: Include number of bytes freed by collection.
 
-    // Dispatch the event asynchronously because this method may be
-    // called between collection and sweeping and we don't want to
-    // create unexpected JavaScript allocations that the Sweeper does
-    // not expect to encounter. JavaScript allocations could happen
-    // with WebKitLegacy's in process inspector which shares the same
-    // VM as the inspected page.
-
-    GarbageCollectionData data;
-    data.type = protocolTypeForHeapOperation(scope);
-    data.startTime = m_gcStartTime;
-    data.endTime = m_environment.executionStopwatch()->elapsedTime();
-
-    m_sendGarbageCollectionEventsTask->addGarbageCollection(data);
+    double endTime = m_environment.executionStopwatch()->elapsedTime();
+    dispatchGarbageCollectedEvent(protocolTypeForHeapOperation(scope), m_gcStartTime, endTime);
 
     m_gcStartTime = NAN;
 }
@@ -380,6 +299,17 @@ void InspectorHeapAgent::clearHeapSnapshots()
         heapProfiler->clearSnapshots();
         HeapSnapshotBuilder::resetNextAvailableObjectIdentifier();
     }
+}
+
+void InspectorHeapAgent::dispatchGarbageCollectedEvent(Inspector::Protocol::Heap::GarbageCollection::Type type, double startTime, double endTime)
+{
+    auto protocolObject = Inspector::Protocol::Heap::GarbageCollection::create()
+        .setType(type)
+        .setStartTime(startTime)
+        .setEndTime(endTime)
+        .release();
+
+    m_frontendDispatcher->garbageCollected(WTFMove(protocolObject));
 }
 
 } // namespace Inspector

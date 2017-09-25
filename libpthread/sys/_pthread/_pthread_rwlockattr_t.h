@@ -27,5 +27,6 @@
  */
 #ifndef _PTHREAD_RWLOCKATTR_T
 #define _PTHREAD_RWLOCKATTR_T
+#include <sys/_pthread/_pthread_types.h> /* __darwin_pthread_rwlockattr_t */
 typedef __darwin_pthread_rwlockattr_t pthread_rwlockattr_t;
 #endif /* _PTHREAD_RWLOCKATTR_T */

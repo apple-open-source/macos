@@ -31,15 +31,21 @@
 /*
  * bsd/sys/event.h
  */
-#define KN_ACTIVE     0x01
-#define KN_QUEUED     0x02
-#define KN_DISABLED   0x04
-#define KN_DROPPING   0x08
-#define KN_USEWAIT    0x10
-#define KN_ATTACHING  0x20
-#define KN_STAYQUEUED 0x40
-#define KN_DEFERDROP  0x80
-#define KN_TOUCH      0x100
+#define KN_ACTIVE          0x0001
+#define KN_QUEUED          0x0002
+#define KN_DISABLED        0x0004
+#define KN_DROPPING        0x0008
+#define KN_USEWAIT         0x0010
+#define KN_ATTACHING       0x0020
+#define KN_STAYACTIVE      0x0040
+#define KN_DEFERDELETE     0x0080
+#define KN_ATTACHED        0x0100
+#define KN_DISPATCH        0x0200
+#define KN_UDATA_SPECIFIC  0x0400
+#define KN_SUPPRESSED      0x0800
+#define KN_STOLENDROP      0x1000
+#define KN_REQVANISH       0x2000
+#define KN_VANISHED        0x4000
 
 
 /*
@@ -50,6 +56,8 @@
 #define KQ_KEV32      0x08
 #define KQ_KEV64      0x10
 #define KQ_KEV_QOS    0x20
+#define KQ_WORKQ      0x40
+#define KQ_WORKLOOP   0x80
 
 /*
  * bsd/sys/signal.h
@@ -110,6 +118,9 @@ filt_strs[] = {
 	"VM",
 	"SOCK",
 	"MEMSTATUS",
+	"EXCEPT",
+	"CHANNEL",
+	"WORKLOOP",
 };
 
 /*
@@ -125,6 +136,10 @@ fdtype_strs[] = {
 	"KQUEUE",
 	"PIPE",
 	"FSEVENTS",
+	"ATALK",
+	"POLICY",
+	"CHANNEL",
+	"NEXUS",
 };
 
 #endif /* _LSKQ_COMMON_H_ */

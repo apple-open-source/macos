@@ -74,6 +74,8 @@
 	return "NODE_FCALL";
       case NODE_VCALL:
 	return "NODE_VCALL";
+      case NODE_QCALL:
+	return "NODE_QCALL";
       case NODE_SUPER:
 	return "NODE_SUPER";
       case NODE_ZSUPER:
@@ -170,8 +172,6 @@
 	return "NODE_COLON2";
       case NODE_COLON3:
 	return "NODE_COLON3";
-      case NODE_CREF:
-	return "NODE_CREF";
       case NODE_DOT2:
 	return "NODE_DOT2";
       case NODE_DOT3:
@@ -198,10 +198,6 @@
 	return "NODE_ALLOCA";
       case NODE_BMETHOD:
 	return "NODE_BMETHOD";
-      case NODE_MEMO:
-	return "NODE_MEMO";
-      case NODE_IFUNC:
-	return "NODE_IFUNC";
       case NODE_DSYM:
 	return "NODE_DSYM";
       case NODE_ATTRASGN:

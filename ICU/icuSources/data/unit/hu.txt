@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/hu.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 hu{
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -85,6 +79,7 @@ hu{
                 dnam{"négyzetkilométer"}
                 one{"{0} négyzetkilométer"}
                 other{"{0} négyzetkilométer"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"négyzetméter"}
@@ -96,6 +91,7 @@ hu{
                 dnam{"négyzetmérföld"}
                 one{"{0} négyzetmérföld"}
                 other{"{0} négyzetmérföld"}
+                per{"{0}/négyzetmérföld"}
             }
             square-yard{
                 dnam{"négyzetyard"}
@@ -111,6 +107,21 @@ hu{
                 dnam{"karát"}
                 one{"{0} karát"}
                 other{"{0} karát"}
+            }
+            milligram-per-deciliter{
+                dnam{"milligramm/deciliter"}
+                one{"{0} milligramm/deciliter"}
+                other{"{0} milligramm/deciliter"}
+            }
+            millimole-per-liter{
+                dnam{"millimól/liter"}
+                one{"{0} millimól/liter"}
+                other{"{0} millimól/liter"}
+            }
+            part-per-million{
+                dnam{"részecske/millió"}
+                one{"{0} részecske/millió"}
+                other{"{0} részecske/millió"}
             }
         }
         consumption{
@@ -128,6 +139,11 @@ hu{
                 dnam{"mérföld per gallon"}
                 one{"{0} mérföld per gallon"}
                 other{"{0} mérföld per gallon"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"mérföld/birodalmi gallon"}
+                one{"{0} mérföld/birodalmi gallon"}
+                other{"{0} mérföld/birodalmi gallon"}
             }
         }
         coordinate{
@@ -414,6 +430,11 @@ hu{
                 one{"{0} pikométer"}
                 other{"{0} pikométer"}
             }
+            point{
+                dnam{"pont"}
+                one{"{0} pont"}
+                other{"{0} pont"}
+            }
             yard{
                 dnam{"yard"}
                 one{"{0} yard"}
@@ -660,6 +681,12 @@ hu{
                 other{"{0} gallon"}
                 per{"{0}/gallon"}
             }
+            gallon-imperial{
+                dnam{"birodalmi gallon"}
+                one{"{0} birodalmi gallon"}
+                other{"{0} birodalmi gallon"}
+                per{"{0}/birodalmi gallon"}
+            }
             hectoliter{
                 dnam{"hektoliter"}
                 one{"{0} hektoliter"}
@@ -854,6 +881,10 @@ hu{
                 one{"{0} pm"}
                 other{"{0} pm"}
             }
+            point{
+                one{"{0}p."}
+                other{"{0}p."}
+            }
             yard{
                 one{"{0} yd"}
                 other{"{0} yd"}
@@ -1021,6 +1052,7 @@ hu{
                 dnam{"km²"}
                 one{"{0} km²"}
                 other{"{0} km²"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"m²"}
@@ -1029,9 +1061,10 @@ hu{
                 per{"{0}/m²"}
             }
             square-mile{
-                dnam{"mf²"}
-                one{"{0} mf²"}
-                other{"{0} mf²"}
+                dnam{"mi²"}
+                one{"{0} mi²"}
+                other{"{0} mi²"}
+                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yd²"}
@@ -1047,6 +1080,21 @@ hu{
                 dnam{"kt"}
                 one{"{0} kt"}
                 other{"{0} kt"}
+            }
+            milligram-per-deciliter{
+                dnam{"mg/dl"}
+                one{"{0} mg/dl"}
+                other{"{0} mg/dl"}
+            }
+            millimole-per-liter{
+                dnam{"millimól/liter"}
+                one{"{0} mmol/l"}
+                other{"{0} mmol/l"}
+            }
+            part-per-million{
+                dnam{"részecske/millió"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
             }
         }
         consumption{
@@ -1064,6 +1112,11 @@ hu{
                 dnam{"mpg"}
                 one{"{0} mpg"}
                 other{"{0} mpg"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"mérföld/bir. gallon"}
+                one{"{0} mpg bir."}
+                other{"{0} mpg bir."}
             }
         }
         coordinate{
@@ -1350,6 +1403,11 @@ hu{
                 one{"{0} pm"}
                 other{"{0} pm"}
             }
+            point{
+                dnam{"pont"}
+                one{"{0} p."}
+                other{"{0} p."}
+            }
             yard{
                 dnam{"yd"}
                 one{"{0} yd"}
@@ -1595,6 +1653,12 @@ hu{
                 one{"{0} gal"}
                 other{"{0} gal"}
                 per{"{0}/gal"}
+            }
+            gallon-imperial{
+                dnam{"bir. gal"}
+                one{"{0} bir. gal"}
+                other{"{0} bir. gal"}
+                per{"{0}/bir. gal"}
             }
             hectoliter{
                 dnam{"hl"}

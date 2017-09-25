@@ -1,14 +1,14 @@
 /*
  * PPD file routines for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * PostScript is a trademark of Adobe Systems, Inc.
  *
@@ -579,12 +579,28 @@ _ppdOpen(
 
    /*
     * <rdar://problem/22130168>
+    * <rdar://problem/27245567>
     *
     * Need to use a different base language for some locales...
     */
 
     if (!strcmp(lang->language, "zh_HK"))
-      strlcpy(ll, "zh_TW.", sizeof(ll));
+    {					/* Traditional Chinese + variants */
+      strlcpy(ll_CC, "zh_TW.", sizeof(ll_CC));
+      strlcpy(ll, "zh_", sizeof(ll));
+    }
+    else if (!strncmp(lang->language, "zh", 2))
+      strlcpy(ll, "zh_", sizeof(ll));	/* Any Chinese variant */
+    else if (!strncmp(lang->language, "jp", 2))
+    {					/* Any Japanese variant */
+      strlcpy(ll_CC, "ja", sizeof(ll_CC));
+      strlcpy(ll, "jp", sizeof(ll));
+    }
+    else if (!strncmp(lang->language, "nb", 2) || !strncmp(lang->language, "no", 2))
+    {					/* Any Norwegian variant */
+      strlcpy(ll_CC, "nb", sizeof(ll_CC));
+      strlcpy(ll, "no", sizeof(ll));
+    }
     else
       snprintf(ll, sizeof(ll), "%2.2s.", lang->language);
 

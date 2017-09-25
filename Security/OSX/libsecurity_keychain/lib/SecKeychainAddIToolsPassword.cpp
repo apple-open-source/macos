@@ -32,74 +32,15 @@
 #include <Security/SecAccessPriv.h>
 #include <Security/SecTrustedApplicationPriv.h>
 #include <Security/SecACL.h>
-#include "SecBridge.h"
 #include <CoreFoundation/CoreFoundation.h>
-#include <security_utilities/cfutilities.h>
 
 
-OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNameLength, const char *accountName,
-    UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef)
+OSStatus SecKeychainAddIToolsPassword(SecKeychainRef __unused keychain,
+                                      UInt32 __unused accountNameLength,
+                                      const char * __unused accountName,
+                                      UInt32 __unused passwordLength,
+                                      const void * __unused passwordData,
+                                      SecKeychainItemRef * __unused itemRef)
 {
-	BEGIN_SECAPI
-
-    const char *serviceUTF8 = "iTools";
-	
-	// create the initial ACL label string (use the account name, not "iTools")
-	CFRef<CFStringRef> itemLabel = CFStringCreateWithBytes(kCFAllocatorDefault,
-		(const UInt8 *)accountName, accountNameLength, kCFStringEncodingUTF8, FALSE);
-
-	// accumulate applications in this list
-	CFRef<CFMutableArrayRef> apps = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	
-	// add entries for application groups
-	CFRef<SecTrustedApplicationRef> dotMacGroup, accountsGroup;
-	MacOSError::check(SecTrustedApplicationCreateApplicationGroup("dot-mac", NULL, &dotMacGroup.aref()));
-	CFArrayAppendValue(apps, dotMacGroup);
-	MacOSError::check(SecTrustedApplicationCreateApplicationGroup("InternetAccounts", NULL, &accountsGroup.aref()));
-	CFArrayAppendValue(apps, accountsGroup);
-
-	// now add "myself" as an ordinary application
-	CFRef<SecTrustedApplicationRef> myself;
-	MacOSError::check(SecTrustedApplicationCreateFromPath(NULL, &myself.aref()));
-	CFArrayAppendValue(apps, myself);
-
-	// now add the pre-cooked list of .Mac applications for systems that don't understand the group semantics
-	if (CFRef<CFBundleRef> myBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")))
-		if (CFRef<CFURLRef> url = CFBundleCopyResourceURL(myBundle,
-				CFSTR("iToolsTrustedApps"), CFSTR("plist"), NULL)) {
-			CFRef<CFDataRef> data;
-			if (CFURLCreateDataAndPropertiesFromResource(NULL, url, &data.aref(), NULL, NULL, NULL))
-				if (CFRef<CFArrayRef> list = 
-					CFArrayRef(CFPropertyListCreateFromXMLData(NULL, data, kCFPropertyListImmutable, NULL))) {
-					CFIndex size = CFArrayGetCount(list);
-					for (CFIndex n = 0; n < size; n++) {
-						CFStringRef path = (CFStringRef)CFArrayGetValueAtIndex(list, n);
-						CFRef<SecTrustedApplicationRef> app;
-						if (SecTrustedApplicationCreateFromPath(cfString(path).c_str(), &app.aref()) == errSecSuccess)
-							CFArrayAppendValue(apps, app);
-					}
-				}
-		}
-    
-	// form a SecAccess from this
-	CFRef<SecAccessRef> access;
-	MacOSError::check(SecAccessCreate(itemLabel, (CFArrayRef)apps, &access.aref()));
-	
-	// set up attribute vector (each attribute consists of {tag, length, pointer})
-	SecKeychainAttribute attrs[] = {
-		{ kSecLabelItemAttr, accountNameLength, (char *)accountName },	// use the account name as the label for display purposes [3787371]
-		{ kSecAccountItemAttr, accountNameLength, (char *)accountName },
-		{ kSecServiceItemAttr, (UInt32)strlen(serviceUTF8), (char *)serviceUTF8 }
-	};
-	SecKeychainAttributeList attributes = { sizeof(attrs) / sizeof(attrs[0]), attrs };
-
-	return SecKeychainItemCreateFromContent(kSecGenericPasswordItemClass,
-		&attributes,
-		passwordLength,
-		(const char *)passwordData,
-		keychain,
-		access,
-		itemRef);
-	
-	END_SECAPI
+    return errSecParam;
 }

@@ -27,6 +27,7 @@
 
 - (void)pushWrites;
 - (BOOL)pullUpdates:(NSError**) failure;
+- (void)addOneToOutGoing;
 
 
 - (void)remoteSetObject:(id)obj forKey:(NSString*)key;

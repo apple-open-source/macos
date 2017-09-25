@@ -1,28 +1,32 @@
 # coding: US-ASCII
+# frozen_string_literal: false
 require 'test/unit'
 require 'tmpdir'
 require "fcntl"
 require 'io/nonblock'
+require 'pathname'
 require 'socket'
 require 'stringio'
 require 'timeout'
 require 'tempfile'
 require 'weakref'
-require_relative 'envutil'
 
 class TestIO < Test::Unit::TestCase
-  def have_close_on_exec?
-    begin
+  module Feature
+    def have_close_on_exec?
       $stdin.close_on_exec?
       true
     rescue NotImplementedError
       false
     end
+
+    def have_nonblock?
+      IO.method_defined?("nonblock=")
+    end
   end
 
-  def have_nonblock?
-    IO.method_defined?("nonblock=")
-  end
+  include Feature
+  extend Feature
 
   def pipe(wp, rp)
     re, we = nil, nil
@@ -119,13 +123,13 @@ class TestIO < Test::Unit::TestCase
           assert_equal("abc", r.read)
         end
       ].each{|thr| thr.join}
-      assert(!r.closed?)
-      assert(w.closed?)
+      assert_not_predicate(r, :closed?)
+      assert_predicate(w, :closed?)
       :foooo
     }
     assert_equal(:foooo, ret)
-    assert(x[0].closed?)
-    assert(x[1].closed?)
+    assert_predicate(x[0], :closed?)
+    assert_predicate(x[1], :closed?)
   end
 
   def test_pipe_block_close
@@ -136,8 +140,8 @@ class TestIO < Test::Unit::TestCase
         r.close if (i&1) == 0
         w.close if (i&2) == 0
       }
-      assert(x[0].closed?)
-      assert(x[1].closed?)
+      assert_predicate(x[0], :closed?)
+      assert_predicate(x[1], :closed?)
     }
   end
 
@@ -282,63 +286,100 @@ class TestIO < Test::Unit::TestCase
     end
   end
 
-  def test_copy_stream
+  def with_srccontent(content = "baz")
+    src = "src"
     mkcdtmpdir {
+      File.open(src, "w") {|f| f << content }
+      yield src, content
+    }
+  end
 
-      content = "foobar"
-      File.open("src", "w") {|f| f << content }
-      ret = IO.copy_stream("src", "dst")
+  def test_copy_stream_small
+    with_srccontent("foobar") {|src, content|
+      ret = IO.copy_stream(src, "dst")
       assert_equal(content.bytesize, ret)
       assert_equal(content, File.read("dst"))
+    }
+  end
+
+  def test_copy_stream_smaller
+    with_srccontent {|src, content|
 
       # overwrite by smaller file.
-      content = "baz"
-      File.open("src", "w") {|f| f << content }
-      ret = IO.copy_stream("src", "dst")
+      dst = "dst"
+      File.open(dst, "w") {|f| f << "foobar"}
+
+      ret = IO.copy_stream(src, dst)
       assert_equal(content.bytesize, ret)
-      assert_equal(content, File.read("dst"))
+      assert_equal(content, File.read(dst))
 
-      ret = IO.copy_stream("src", "dst", 2)
+      ret = IO.copy_stream(src, dst, 2)
       assert_equal(2, ret)
-      assert_equal(content[0,2], File.read("dst"))
+      assert_equal(content[0,2], File.read(dst))
 
-      ret = IO.copy_stream("src", "dst", 0)
+      ret = IO.copy_stream(src, dst, 0)
       assert_equal(0, ret)
-      assert_equal("", File.read("dst"))
+      assert_equal("", File.read(dst))
 
-      ret = IO.copy_stream("src", "dst", nil, 1)
+      ret = IO.copy_stream(src, dst, nil, 1)
       assert_equal(content.bytesize-1, ret)
-      assert_equal(content[1..-1], File.read("dst"))
+      assert_equal(content[1..-1], File.read(dst))
+    }
+  end
 
+  def test_copy_stream_noent
+    with_srccontent {|src, content|
       assert_raise(Errno::ENOENT) {
         IO.copy_stream("nodir/foo", "dst")
       }
 
       assert_raise(Errno::ENOENT) {
-        IO.copy_stream("src", "nodir/bar")
+        IO.copy_stream(src, "nodir/bar")
       }
+    }
+  end
 
+  def test_copy_stream_pipe
+    with_srccontent {|src, content|
       pipe(proc do |w|
-        ret = IO.copy_stream("src", w)
+        ret = IO.copy_stream(src, w)
         assert_equal(content.bytesize, ret)
         w.close
       end, proc do |r|
         assert_equal(content, r.read)
       end)
+    }
+  end
 
+  def test_copy_stream_write_pipe
+    with_srccontent {|src, content|
       with_pipe {|r, w|
         w.close
-        assert_raise(IOError) { IO.copy_stream("src", w) }
+        assert_raise(IOError) { IO.copy_stream(src, w) }
       }
+    }
+  end
 
-      pipe_content = "abc"
+  def with_pipecontent
+    mkcdtmpdir {
+      yield "abc"
+    }
+  end
+
+  def test_copy_stream_pipe_to_file
+    with_pipecontent {|pipe_content|
+      dst = "dst"
       with_read_pipe(pipe_content) {|r|
-        ret = IO.copy_stream(r, "dst")
+        ret = IO.copy_stream(r, dst)
         assert_equal(pipe_content.bytesize, ret)
-        assert_equal(pipe_content, File.read("dst"))
+        assert_equal(pipe_content, File.read(dst))
       }
+    }
+  end
 
-      with_read_pipe("abc") {|r1|
+  def test_copy_stream_read_pipe
+    with_pipecontent {|pipe_content|
+      with_read_pipe(pipe_content) {|r1|
         assert_equal("a", r1.getc)
         pipe(proc do |w2|
           w2.sync = false
@@ -351,7 +392,7 @@ class TestIO < Test::Unit::TestCase
         end)
       }
 
-      with_read_pipe("abc") {|r1|
+      with_read_pipe(pipe_content) {|r1|
         assert_equal("a", r1.getc)
         pipe(proc do |w2|
           w2.sync = false
@@ -364,7 +405,7 @@ class TestIO < Test::Unit::TestCase
         end)
       }
 
-      with_read_pipe("abc") {|r1|
+      with_read_pipe(pipe_content) {|r1|
         assert_equal("a", r1.getc)
         pipe(proc do |w2|
           ret = IO.copy_stream(r1, w2)
@@ -375,7 +416,7 @@ class TestIO < Test::Unit::TestCase
         end)
       }
 
-      with_read_pipe("abc") {|r1|
+      with_read_pipe(pipe_content) {|r1|
         assert_equal("a", r1.getc)
         pipe(proc do |w2|
           ret = IO.copy_stream(r1, w2, 1)
@@ -386,7 +427,7 @@ class TestIO < Test::Unit::TestCase
         end)
       }
 
-      with_read_pipe("abc") {|r1|
+      with_read_pipe(pipe_content) {|r1|
         assert_equal("a", r1.getc)
         pipe(proc do |w2|
           ret = IO.copy_stream(r1, w2, 0)
@@ -411,16 +452,24 @@ class TestIO < Test::Unit::TestCase
           assert_equal("bcdef", r2.read)
         end)
       end)
+    }
+  end
 
+  def test_copy_stream_file_to_pipe
+    with_srccontent {|src, content|
       pipe(proc do |w|
-        ret = IO.copy_stream("src", w, 1, 1)
+        ret = IO.copy_stream(src, w, 1, 1)
         assert_equal(1, ret)
         w.close
       end, proc do |r|
         assert_equal(content[1,1], r.read)
       end)
+    }
+  end
 
-      if have_nonblock?
+  if have_nonblock?
+    def test_copy_stream_pipe_nonblock
+      mkcdtmpdir {
         with_read_pipe("abc") {|r1|
           assert_equal("a", r1.getc)
           with_pipe {|r2, w2|
@@ -438,25 +487,51 @@ class TestIO < Test::Unit::TestCase
             assert_equal("a" * s + "bc", t.value)
           }
         }
-      end
+      }
+    end
+  end
 
-      bigcontent = "abc" * 123456
-      File.open("bigsrc", "w") {|f| f << bigcontent }
-      ret = IO.copy_stream("bigsrc", "bigdst")
+  def with_bigcontent
+    yield "abc" * 123456
+  end
+
+  def with_bigsrc
+    mkcdtmpdir {
+      with_bigcontent {|bigcontent|
+        bigsrc = "bigsrc"
+        File.open("bigsrc", "w") {|f| f << bigcontent }
+        yield bigsrc, bigcontent
+      }
+    }
+  end
+
+  def test_copy_stream_bigcontent
+    with_bigsrc {|bigsrc, bigcontent|
+      ret = IO.copy_stream(bigsrc, "bigdst")
       assert_equal(bigcontent.bytesize, ret)
       assert_equal(bigcontent, File.read("bigdst"))
+    }
+  end
 
-      File.unlink("bigdst")
-      ret = IO.copy_stream("bigsrc", "bigdst", nil, 100)
+  def test_copy_stream_bigcontent_chop
+    with_bigsrc {|bigsrc, bigcontent|
+      ret = IO.copy_stream(bigsrc, "bigdst", nil, 100)
       assert_equal(bigcontent.bytesize-100, ret)
       assert_equal(bigcontent[100..-1], File.read("bigdst"))
+    }
+  end
 
-      File.unlink("bigdst")
-      ret = IO.copy_stream("bigsrc", "bigdst", 30000, 100)
+  def test_copy_stream_bigcontent_mid
+    with_bigsrc {|bigsrc, bigcontent|
+      ret = IO.copy_stream(bigsrc, "bigdst", 30000, 100)
       assert_equal(30000, ret)
       assert_equal(bigcontent[100, 30000], File.read("bigdst"))
+    }
+  end
 
-      File.open("bigsrc") {|f|
+  def test_copy_stream_bigcontent_fpos
+    with_bigsrc {|bigsrc, bigcontent|
+      File.open(bigsrc) {|f|
         begin
           assert_equal(0, f.pos)
           ret = IO.copy_stream(f, "bigdst", nil, 10)
@@ -471,16 +546,35 @@ class TestIO < Test::Unit::TestCase
           #skip "pread(2) is not implemtented."
         end
       }
+    }
+  end
 
+  def test_copy_stream_closed_pipe
+    with_srccontent {|src,|
       with_pipe {|r, w|
         w.close
-        assert_raise(IOError) { IO.copy_stream("src", w) }
+        assert_raise(IOError) { IO.copy_stream(src, w) }
       }
+    }
+  end
 
-      megacontent = "abc" * 1234567
-      File.open("megasrc", "w") {|f| f << megacontent }
+  def with_megacontent
+    yield "abc" * 1234567
+  end
 
-      if have_nonblock?
+  def with_megasrc
+    mkcdtmpdir {
+      with_megacontent {|megacontent|
+        megasrc = "megasrc"
+        File.open(megasrc, "w") {|f| f << megacontent }
+        yield megasrc, megacontent
+      }
+    }
+  end
+
+  if have_nonblock?
+    def test_copy_stream_megacontent_nonblock
+      with_megacontent {|megacontent|
         with_pipe {|r1, w1|
           with_pipe {|r2, w2|
             begin
@@ -491,33 +585,48 @@ class TestIO < Test::Unit::TestCase
             end
             t1 = Thread.new { w1 << megacontent; w1.close }
             t2 = Thread.new { r2.read }
-            ret = IO.copy_stream(r1, w2)
-            assert_equal(megacontent.bytesize, ret)
-            w2.close
-            t1.join
-            assert_equal(megacontent, t2.value)
+            t3 = Thread.new {
+              ret = IO.copy_stream(r1, w2)
+              assert_equal(megacontent.bytesize, ret)
+              w2.close
+            }
+            _, t2_value, _ = assert_join_threads([t1, t2, t3])
+            assert_equal(megacontent, t2_value)
           }
         }
-      end
+      }
+    end
+  end
 
+  def test_copy_stream_megacontent_pipe_to_file
+    with_megasrc {|megasrc, megacontent|
       with_pipe {|r1, w1|
         with_pipe {|r2, w2|
           t1 = Thread.new { w1 << megacontent; w1.close }
           t2 = Thread.new { r2.read }
-          ret = IO.copy_stream(r1, w2)
-          assert_equal(megacontent.bytesize, ret)
-          w2.close
-          t1.join
-          assert_equal(megacontent, t2.value)
+          t3 = Thread.new {
+            ret = IO.copy_stream(r1, w2)
+            assert_equal(megacontent.bytesize, ret)
+            w2.close
+          }
+          _, t2_value, _ = assert_join_threads([t1, t2, t3])
+          assert_equal(megacontent, t2_value)
         }
       }
+    }
+  end
 
+  def test_copy_stream_megacontent_file_to_pipe
+    with_megasrc {|megasrc, megacontent|
       with_pipe {|r, w|
-        t = Thread.new { r.read }
-        ret = IO.copy_stream("megasrc", w)
-        assert_equal(megacontent.bytesize, ret)
-        w.close
-        assert_equal(megacontent, t.value)
+        t1 = Thread.new { r.read }
+        t2 = Thread.new {
+          ret = IO.copy_stream(megasrc, w)
+          assert_equal(megacontent.bytesize, ret)
+          w.close
+        }
+        t1_value, _ = assert_join_threads([t1, t2])
+        assert_equal(megacontent, t1_value)
       }
     }
   end
@@ -552,12 +661,9 @@ class TestIO < Test::Unit::TestCase
   end
 
   def test_copy_stream_socket1
-    mkcdtmpdir {
-      content = "foobar"
-      File.open("src", "w") {|f| f << content }
-
+    with_srccontent("foobar") {|src, content|
       with_socketpair {|s1, s2|
-        ret = IO.copy_stream("src", s1)
+        ret = IO.copy_stream(src, s1)
         assert_equal(content.bytesize, ret)
         s1.close
         assert_equal(content, s2.read)
@@ -566,51 +672,48 @@ class TestIO < Test::Unit::TestCase
   end if defined? UNIXSocket
 
   def test_copy_stream_socket2
-    mkcdtmpdir {
-      bigcontent = "abc" * 123456
-      File.open("bigsrc", "w") {|f| f << bigcontent }
-
+    with_bigsrc {|bigsrc, bigcontent|
       with_socketpair {|s1, s2|
-        t = Thread.new { s2.read }
-        ret = IO.copy_stream("bigsrc", s1)
-        assert_equal(bigcontent.bytesize, ret)
-        s1.close
-        result = t.value
+        t1 = Thread.new { s2.read }
+        t2 = Thread.new {
+          ret = IO.copy_stream(bigsrc, s1)
+          assert_equal(bigcontent.bytesize, ret)
+          s1.close
+        }
+        result, _ = assert_join_threads([t1, t2])
         assert_equal(bigcontent, result)
       }
     }
   end if defined? UNIXSocket
 
   def test_copy_stream_socket3
-    mkcdtmpdir {
-      bigcontent = "abc" * 123456
-      File.open("bigsrc", "w") {|f| f << bigcontent }
-
+    with_bigsrc {|bigsrc, bigcontent|
       with_socketpair {|s1, s2|
-        t = Thread.new { s2.read }
-        ret = IO.copy_stream("bigsrc", s1, 10000)
-        assert_equal(10000, ret)
-        s1.close
-        result = t.value
+        t1 = Thread.new { s2.read }
+        t2 = Thread.new {
+          ret = IO.copy_stream(bigsrc, s1, 10000)
+          assert_equal(10000, ret)
+          s1.close
+        }
+        result, _ = assert_join_threads([t1, t2])
         assert_equal(bigcontent[0,10000], result)
       }
     }
   end if defined? UNIXSocket
 
   def test_copy_stream_socket4
-    mkcdtmpdir {
-      bigcontent = "abc" * 123456
-      File.open("bigsrc", "w") {|f| f << bigcontent }
-
-      File.open("bigsrc") {|f|
+    with_bigsrc {|bigsrc, bigcontent|
+      File.open(bigsrc) {|f|
         assert_equal(0, f.pos)
         with_socketpair {|s1, s2|
-          t = Thread.new { s2.read }
-          ret = IO.copy_stream(f, s1, nil, 100)
-          assert_equal(bigcontent.bytesize-100, ret)
-          assert_equal(0, f.pos)
-          s1.close
-          result = t.value
+          t1 = Thread.new { s2.read }
+          t2 = Thread.new {
+            ret = IO.copy_stream(f, s1, nil, 100)
+            assert_equal(bigcontent.bytesize-100, ret)
+            assert_equal(0, f.pos)
+            s1.close
+          }
+          result, _ = assert_join_threads([t1, t2])
           assert_equal(bigcontent[100..-1], result)
         }
       }
@@ -618,20 +721,19 @@ class TestIO < Test::Unit::TestCase
   end if defined? UNIXSocket
 
   def test_copy_stream_socket5
-    mkcdtmpdir {
-      bigcontent = "abc" * 123456
-      File.open("bigsrc", "w") {|f| f << bigcontent }
-
-      File.open("bigsrc") {|f|
+    with_bigsrc {|bigsrc, bigcontent|
+      File.open(bigsrc) {|f|
         assert_equal(bigcontent[0,100], f.read(100))
         assert_equal(100, f.pos)
         with_socketpair {|s1, s2|
-          t = Thread.new { s2.read }
-          ret = IO.copy_stream(f, s1)
-          assert_equal(bigcontent.bytesize-100, ret)
-          assert_equal(bigcontent.length, f.pos)
-          s1.close
-          result = t.value
+          t1 = Thread.new { s2.read }
+          t2 = Thread.new {
+            ret = IO.copy_stream(f, s1)
+            assert_equal(bigcontent.bytesize-100, ret)
+            assert_equal(bigcontent.length, f.pos)
+            s1.close
+          }
+          result, _ = assert_join_threads([t1, t2])
           assert_equal(bigcontent[100..-1], result)
         }
       }
@@ -649,17 +751,20 @@ class TestIO < Test::Unit::TestCase
         rescue Errno::EBADF
           skip "nonblocking IO for pipe is not implemented"
         end
-        t = Thread.new { s2.read }
-        ret = IO.copy_stream("megasrc", s1)
-        assert_equal(megacontent.bytesize, ret)
-        s1.close
-        result = t.value
+        t1 = Thread.new { s2.read }
+        t2 = Thread.new {
+          ret = IO.copy_stream("megasrc", s1)
+          assert_equal(megacontent.bytesize, ret)
+          s1.close
+        }
+        result, _ = assert_join_threads([t1, t2])
         assert_equal(megacontent, result)
       }
     }
   end if defined? UNIXSocket
 
   def test_copy_stream_socket7
+    GC.start
     mkcdtmpdir {
       megacontent = "abc" * 1234567
       File.open("megasrc", "w") {|f| f << megacontent }
@@ -688,7 +793,7 @@ class TestIO < Test::Unit::TestCase
             s1.close
             _, status = Process.waitpid2(pid) if pid
           end
-          assert status.success?, status.inspect
+          assert_predicate(status, :success?)
         end
       }
     }
@@ -767,6 +872,32 @@ class TestIO < Test::Unit::TestCase
       assert_equal(3, ret)
       assert_equal("abc", File.read("baz"))
       assert_equal(3, src.pos)
+    }
+  end
+
+  def test_copy_stream_strio_to_tempfile
+    bug11015 = '[ruby-core:68676] [Bug #11015]'
+    # StringIO to Tempfile
+    src = StringIO.new("abcd")
+    dst = Tempfile.new("baz")
+    ret = IO.copy_stream(src, dst)
+    assert_equal(4, ret)
+    pos = dst.pos
+    dst.rewind
+    assert_equal("abcd", dst.read)
+    assert_equal(4, pos, bug11015)
+  ensure
+    dst.close!
+  end
+
+  def test_copy_stream_pathname_to_pathname
+    bug11199 = '[ruby-dev:49008] [Bug #11199]'
+    mkcdtmpdir {
+      File.open("src", "w") {|f| f << "ok" }
+      src = Pathname.new("src")
+      dst = Pathname.new("dst")
+      IO.copy_stream(src, dst)
+      assert_equal("ok", IO.read("dst"), bug11199)
     }
   end
 
@@ -880,11 +1011,12 @@ class TestIO < Test::Unit::TestCase
       w.write "zz"
       src = StringIO.new("abcd")
       IO.copy_stream(src, w)
-      t = Thread.new {
+      t1 = Thread.new {
         w.close
       }
-      assert_equal("zzabcd", r.read)
-      t.join
+      t2 = Thread.new { r.read }
+      _, result = assert_join_threads([t1, t2])
+      assert_equal("zzabcd", result)
     }
   end
 
@@ -958,24 +1090,35 @@ class TestIO < Test::Unit::TestCase
     }
   end
 
-  def safe_4
-    t = Thread.new do
-      $SAFE = 4
-      yield
-    end
-    unless t.join(10)
-      t.kill
-      flunk("timeout in safe_4")
-    end
+  def test_copy_stream_to_duplex_io
+    result = IO.pipe {|a,w|
+      Thread.start {w.puts "yes"; w.close}
+      IO.popen([EnvUtil.rubybin, '-pe$_="#$.:#$_"'], "r+") {|b|
+        IO.copy_stream(a, b)
+        b.close_write
+        b.read
+      }
+    }
+    assert_equal("1:yes\n", result)
   end
 
   def ruby(*args)
     args = ['-e', '$>.write($<.read)'] if args.empty?
     ruby = EnvUtil.rubybin
-    f = IO.popen([ruby] + args, 'r+')
+    opts = {}
+    if defined?(Process::RLIMIT_NPROC)
+      lim = Process.getrlimit(Process::RLIMIT_NPROC)[1]
+      opts[:rlimit_nproc] = [lim, 1024].min
+    end
+    f = IO.popen([ruby] + args, 'r+', opts)
+    pid = f.pid
     yield(f)
   ensure
     f.close unless !f || f.closed?
+    begin
+      Process.wait(pid)
+    rescue Errno::ECHILD, Errno::ESRCH
+    end
   end
 
   def test_try_convert
@@ -1006,44 +1149,37 @@ class TestIO < Test::Unit::TestCase
 
   def test_dup
     ruby do |f|
-      f2 = f.dup
-      f.puts "foo"
-      f2.puts "bar"
-      f.close_write
-      f2.close_write
-      assert_equal("foo\nbar\n", f.read)
-      assert_equal("", f2.read)
+      begin
+        f2 = f.dup
+        f.puts "foo"
+        f2.puts "bar"
+        f.close_write
+        f2.close_write
+        assert_equal("foo\nbar\n", f.read)
+        assert_equal("", f2.read)
+      ensure
+        f2.close
+      end
     end
   end
 
   def test_dup_many
-    ruby('-e', <<-'End') {|f|
-      ok = 0
+    opts = {}
+    opts[:rlimit_nofile] = 1024 if defined?(Process::RLIMIT_NOFILE)
+    assert_separately([], <<-'End', opts)
       a = []
-      begin
+      assert_raise(Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM) do
         loop {a << IO.pipe}
-      rescue Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM
-        ok += 1
       end
-      print "no" if ok != 1
-      begin
+      assert_raise(Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM) do
         loop {a << [a[-1][0].dup, a[-1][1].dup]}
-      rescue Errno::EMFILE, Errno::ENFILE, Errno::ENOMEM
-        ok += 1
       end
-      print "no" if ok != 2
-      print "ok"
     End
-      assert_equal("ok", f.read)
-    }
   end
 
   def test_inspect
     with_pipe do |r, w|
       assert_match(/^#<IO:fd \d+>$/, r.inspect)
-      assert_raise(SecurityError) do
-        safe_4 { r.inspect }
-      end
       r.freeze
       assert_match(/^#<IO:fd \d+>$/, r.inspect)
     end
@@ -1159,7 +1295,6 @@ class TestIO < Test::Unit::TestCase
   end
 
   def test_write_nonblock
-    skip "IO#write_nonblock is not supported on file/pipe." if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
     pipe(proc do |w|
       w.write_nonblock(1)
       w.close
@@ -1169,7 +1304,6 @@ class TestIO < Test::Unit::TestCase
   end
 
   def test_read_nonblock_with_not_empty_buffer
-    skip "IO#read_nonblock is not supported on file/pipe." if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
     with_pipe {|r, w|
       w.write "foob"
       w.close
@@ -1178,9 +1312,16 @@ class TestIO < Test::Unit::TestCase
     }
   end
 
+  def test_write_nonblock_simple_no_exceptions
+    pipe(proc do |w|
+      w.write_nonblock('1', exception: false)
+      w.close
+    end, proc do |r|
+      assert_equal("1", r.read)
+    end)
+  end
+
   def test_read_nonblock_error
-    return if !have_nonblock?
-    skip "IO#read_nonblock is not supported on file/pipe." if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
     with_pipe {|r, w|
       begin
         r.read_nonblock 4096
@@ -1188,11 +1329,40 @@ class TestIO < Test::Unit::TestCase
         assert_kind_of(IO::WaitReadable, $!)
       end
     }
-  end
+
+    with_pipe {|r, w|
+      begin
+        r.read_nonblock 4096, ""
+      rescue Errno::EWOULDBLOCK
+        assert_kind_of(IO::WaitReadable, $!)
+      end
+    }
+  end if have_nonblock?
+
+  def test_read_nonblock_no_exceptions
+    with_pipe {|r, w|
+      assert_equal :wait_readable, r.read_nonblock(4096, exception: false)
+      w.puts "HI!"
+      assert_equal "HI!\n", r.read_nonblock(4096, exception: false)
+      w.close
+      assert_equal nil, r.read_nonblock(4096, exception: false)
+    }
+  end if have_nonblock?
+
+  def test_read_nonblock_with_buffer_no_exceptions
+    with_pipe {|r, w|
+      assert_equal :wait_readable, r.read_nonblock(4096, "", exception: false)
+      w.puts "HI!"
+      buf = "buf"
+      value = r.read_nonblock(4096, buf, exception: false)
+      assert_equal value, "HI!\n"
+      assert_same(buf, value)
+      w.close
+      assert_equal nil, r.read_nonblock(4096, "", exception: false)
+    }
+  end if have_nonblock?
 
   def test_write_nonblock_error
-    return if !have_nonblock?
-    skip "IO#write_nonblock is not supported on file/pipe." if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
     with_pipe {|r, w|
       begin
         loop {
@@ -1202,7 +1372,19 @@ class TestIO < Test::Unit::TestCase
         assert_kind_of(IO::WaitWritable, $!)
       end
     }
-  end
+  end if have_nonblock?
+
+  def test_write_nonblock_no_exceptions
+    with_pipe {|r, w|
+      loop {
+        ret = w.write_nonblock("a"*100000, exception: false)
+        if ret.is_a?(Symbol)
+          assert_equal :wait_writable, ret
+          break
+        end
+      }
+    }
+  end if have_nonblock?
 
   def test_gets
     pipe(proc do |w|
@@ -1219,6 +1401,9 @@ class TestIO < Test::Unit::TestCase
       f.close_read
       f.write "foobarbaz"
       assert_raise(IOError) { f.read }
+      assert_nothing_raised(IOError) {f.close_read}
+      assert_nothing_raised(IOError) {f.close}
+      assert_nothing_raised(IOError) {f.close_read}
     end
   end
 
@@ -1226,15 +1411,21 @@ class TestIO < Test::Unit::TestCase
     with_pipe do |r, w|
       r.close_read
       assert_raise(Errno::EPIPE) { w.write "foobarbaz" }
+      assert_nothing_raised(IOError) {r.close_read}
+      assert_nothing_raised(IOError) {r.close}
+      assert_nothing_raised(IOError) {r.close_read}
     end
   end
 
-  def test_close_read_security_error
-    with_pipe do |r, w|
-      assert_raise(SecurityError) do
-        safe_4 { r.close_read }
-      end
-    end
+  def test_write_epipe_nosync
+    assert_separately([], <<-"end;")
+      r, w = IO.pipe
+      r.close
+      w.sync = false
+      assert_raise(Errno::EPIPE) {
+        loop { w.write "a" }
+      }
+    end;
   end
 
   def test_close_read_non_readable
@@ -1250,14 +1441,9 @@ class TestIO < Test::Unit::TestCase
       f.write "foobarbaz"
       f.close_write
       assert_equal("foobarbaz", f.read)
-    end
-  end
-
-  def test_close_write_security_error
-    with_pipe do |r, w|
-      assert_raise(SecurityError) do
-        safe_4 { r.close_write }
-      end
+      assert_nothing_raised(IOError) {f.close_write}
+      assert_nothing_raised(IOError) {f.close}
+      assert_nothing_raised(IOError) {f.close_write}
     end
   end
 
@@ -1283,24 +1469,28 @@ class TestIO < Test::Unit::TestCase
   end
 
   def test_pid
-    r, w = IO.pipe
-    assert_equal(nil, r.pid)
-    assert_equal(nil, w.pid)
+    IO.pipe {|r, w|
+      assert_equal(nil, r.pid)
+      assert_equal(nil, w.pid)
+    }
 
-    pipe = IO.popen(EnvUtil.rubybin, "r+")
-    pid1 = pipe.pid
-    pipe.puts "p $$"
-    pipe.close_write
-    pid2 = pipe.read.chomp.to_i
-    assert_equal(pid2, pid1)
-    assert_equal(pid2, pipe.pid)
-    pipe.close
+    begin
+      pipe = IO.popen(EnvUtil.rubybin, "r+")
+      pid1 = pipe.pid
+      pipe.puts "p $$"
+      pipe.close_write
+      pid2 = pipe.read.chomp.to_i
+      assert_equal(pid2, pid1)
+      assert_equal(pid2, pipe.pid)
+    ensure
+      pipe.close
+    end
     assert_raise(IOError) { pipe.pid }
   end
 
-  def tesst_pid_after_close_read
+  def test_pid_after_close_read
     pid1 = pid2 = nil
-    IO.popen(["echo", ""], "r+") do |io|
+    IO.popen("exit ;", "r+") do |io|
       pid1 = io.pid
       io.close_read
       pid2 = io.pid
@@ -1329,23 +1519,21 @@ class TestIO < Test::Unit::TestCase
 
   def test_set_lineno
     make_tempfile {|t|
-      ruby("-e", <<-SRC, t.path) do |f|
+      assert_separately(["-", t.path], <<-SRC)
         open(ARGV[0]) do |f|
-          p $.
-          f.gets; p $.
-          f.gets; p $.
-          f.lineno = 1000; p $.
-          f.gets; p $.
-          f.gets; p $.
-          f.rewind; p $.
-          f.gets; p $.
-          f.gets; p $.
-          f.gets; p $.
-          f.gets; p $.
+          assert_equal(0, $.)
+          f.gets; assert_equal(1, $.)
+          f.gets; assert_equal(2, $.)
+          f.lineno = 1000; assert_equal(2, $.)
+          f.gets; assert_equal(1001, $.)
+          f.gets; assert_equal(1001, $.)
+          f.rewind; assert_equal(1001, $.)
+          f.gets; assert_equal(1, $.)
+          f.gets; assert_equal(2, $.)
+          f.gets; assert_equal(3, $.)
+          f.gets; assert_equal(3, $.)
         end
       SRC
-        assert_equal("0,1,2,2,1001,1001,1001,1,2,3,3", f.read.chomp.gsub("\n", ","))
-      end
 
       pipe(proc do |w|
         w.puts "foo"
@@ -1485,7 +1673,6 @@ class TestIO < Test::Unit::TestCase
   end
 
   def test_close_on_exec
-    skip "IO\#close_on_exec is not implemented." unless have_close_on_exec?
     ruby do |f|
       assert_equal(true, f.close_on_exec?)
       f.close_on_exec = false
@@ -1513,15 +1700,7 @@ class TestIO < Test::Unit::TestCase
       w.close_on_exec = false
       assert_equal(false, w.close_on_exec?)
     end
-  end
-
-  def test_close_security_error
-    with_pipe do |r, w|
-      assert_raise(SecurityError) do
-        safe_4 { r.close }
-      end
-    end
-  end
+  end if have_close_on_exec?
 
   def test_pos
     make_tempfile {|t|
@@ -1540,7 +1719,7 @@ class TestIO < Test::Unit::TestCase
   end
 
   def test_pos_with_getc
-    bug6179 = '[ruby-core:43497]'
+    _bug6179 = '[ruby-core:43497]'
     make_tempfile {|t|
       ["", "t", "b"].each do |mode|
         open(t.path, "w#{mode}") do |f|
@@ -1563,6 +1742,25 @@ class TestIO < Test::Unit::TestCase
     }
   end
 
+  def can_seek_data(f)
+    if /linux/ =~ RUBY_PLATFORM
+      require "-test-/file"
+      # lseek(2)
+      case Bug::File::Fs.fsname(f.path)
+      when "btrfs"
+        return true if (Etc.uname[:release].split('.').map(&:to_i) <=> [3,1]) >= 0
+      when "ocfs"
+        return true if (Etc.uname[:release].split('.').map(&:to_i) <=> [3,2]) >= 0
+      when "xfs"
+        return true if (Etc.uname[:release].split('.').map(&:to_i) <=> [3,5]) >= 0
+      when "ext4"
+        return true if (Etc.uname[:release].split('.').map(&:to_i) <=> [3,8]) >= 0
+      when "tmpfs"
+        return true if (Etc.uname[:release].split('.').map(&:to_i) <=> [3,8]) >= 0
+      end
+    end
+    false
+  end
 
   def test_seek
     make_tempfile {|t|
@@ -1586,6 +1784,82 @@ class TestIO < Test::Unit::TestCase
         f.seek(2, IO::SEEK_CUR)
         assert_equal("r\nbaz\n", f.read)
       }
+
+      if defined?(IO::SEEK_DATA)
+        open(t.path) { |f|
+          break unless can_seek_data(f)
+          assert_equal("foo\n", f.gets)
+          f.seek(0, IO::SEEK_DATA)
+          assert_equal("foo\nbar\nbaz\n", f.read)
+        }
+        open(t.path, 'r+') { |f|
+          break unless can_seek_data(f)
+          f.seek(100*1024, IO::SEEK_SET)
+          f.print("zot\n")
+          f.seek(50*1024, IO::SEEK_DATA)
+          assert_operator(f.pos, :>=, 50*1024)
+          assert_match(/\A\0*zot\n\z/, f.read)
+        }
+      end
+
+      if defined?(IO::SEEK_HOLE)
+        open(t.path) { |f|
+          break unless can_seek_data(f)
+          assert_equal("foo\n", f.gets)
+          f.seek(0, IO::SEEK_HOLE)
+          assert_operator(f.pos, :>, 20)
+          f.seek(100*1024, IO::SEEK_HOLE)
+          assert_equal("", f.read)
+        }
+      end
+    }
+  end
+
+  def test_seek_symwhence
+    make_tempfile {|t|
+      open(t.path) { |f|
+        f.seek(9, :SET)
+        assert_equal("az\n", f.read)
+      }
+
+      open(t.path) { |f|
+        f.seek(-4, :END)
+        assert_equal("baz\n", f.read)
+      }
+
+      open(t.path) { |f|
+        assert_equal("foo\n", f.gets)
+        f.seek(2, :CUR)
+        assert_equal("r\nbaz\n", f.read)
+      }
+
+      if defined?(IO::SEEK_DATA)
+        open(t.path) { |f|
+          break unless can_seek_data(f)
+          assert_equal("foo\n", f.gets)
+          f.seek(0, :DATA)
+          assert_equal("foo\nbar\nbaz\n", f.read)
+        }
+        open(t.path, 'r+') { |f|
+          break unless can_seek_data(f)
+          f.seek(100*1024, :SET)
+          f.print("zot\n")
+          f.seek(50*1024, :DATA)
+          assert_operator(f.pos, :>=, 50*1024)
+          assert_match(/\A\0*zot\n\z/, f.read)
+        }
+      end
+
+      if defined?(IO::SEEK_HOLE)
+        open(t.path) { |f|
+          break unless can_seek_data(f)
+          assert_equal("foo\n", f.gets)
+          f.seek(0, :HOLE)
+          assert_operator(f.pos, :>, 20)
+          f.seek(100*1024, :HOLE)
+          assert_equal("", f.read)
+        }
+      end
     }
   end
 
@@ -1724,7 +1998,7 @@ class TestIO < Test::Unit::TestCase
       assert_raise(Errno::EBADF, feature2250) {t.close}
     end
   ensure
-    t.unlink
+    t.close!
   end
 
   def test_autoclose_false_closed_by_finalizer
@@ -1740,7 +2014,7 @@ class TestIO < Test::Unit::TestCase
       assert_nothing_raised(Errno::EBADF, feature2250) {t.close}
     end
   ensure
-    t.unlink
+    t.close!
   end
 
   def test_open_redirect
@@ -1764,12 +2038,6 @@ class TestIO < Test::Unit::TestCase
 
   def test_reopen
     make_tempfile {|t|
-      with_pipe do |r, w|
-        assert_raise(SecurityError) do
-          safe_4 { r.reopen(t.path) }
-        end
-      end
-
       open(__FILE__) do |f|
         f.gets
         assert_nothing_raised {
@@ -1817,6 +2085,15 @@ class TestIO < Test::Unit::TestCase
         system(#{EnvUtil.rubybin.dump}, '-e', 'STDERR.print "err"')
 End
       assert_equal("outerr", File.read("out"))
+    }
+  end
+
+  def test_reopen_stdio
+    mkcdtmpdir {
+      fname = 'bug11319'
+      File.write(fname, 'hello')
+      system(EnvUtil.rubybin, '-e', "STDOUT.reopen('#{fname}', 'w+')")
+      assert_equal('', File.read(fname))
     }
   end
 
@@ -1907,6 +2184,26 @@ End
     }
   end
 
+  bug11320 = '[ruby-core:69780] [Bug #11320]'
+  ["UTF-8", "EUC-JP", "Shift_JIS"].each do |enc|
+    define_method("test_reopen_nonascii(#{enc})") do
+      mkcdtmpdir do
+        fname = "\u{30eb 30d3 30fc}".encode(enc)
+        File.write(fname, '')
+        assert_file.exist?(fname)
+        stdin = $stdin.dup
+        begin
+          assert_nothing_raised(Errno::ENOENT, enc) {
+            $stdin.reopen(fname, 'r')
+          }
+        ensure
+          $stdin.reopen(stdin)
+          stdin.close
+        end
+      end
+    end
+  end
+
   def test_foreach
     a = []
     IO.foreach("|" + EnvUtil.rubybin + " -e 'puts :foo; puts :bar; puts :baz'") {|x| a << x }
@@ -1949,8 +2246,9 @@ End
       assert_equal(["foo\n", "bar\n", "baz\n"], a, bug)
 
       bug6054 = '[ruby-dev:45267]'
-      e = assert_raise(IOError, bug6054) {IO.foreach(t.path, mode:"w").next}
-      assert_match(/not opened for reading/, e.message, bug6054)
+      assert_raise_with_message(IOError, /not opened for reading/, bug6054) do
+        IO.foreach(t.path, mode:"w").next
+      end
     }
   end
 
@@ -2037,6 +2335,14 @@ End
     assert_raise(TypeError) { $> = Object.new }
 
     assert_in_out_err([], "$> = $stderr\nputs 'foo'", [], %w(foo))
+
+    assert_separately(%w[-Eutf-8], <<-"end;") #    do
+      alias $\u{6a19 6e96 51fa 529b} $stdout
+      x = eval("class X\u{307b 3052}; self; end".encode("euc-jp"))
+      assert_raise_with_message(TypeError, /\\$\u{6a19 6e96 51fa 529b} must.*, X\u{307b 3052} given/) do
+        $\u{6a19 6e96 51fa 529b} = x.new
+      end
+    end;
   end
 
   def test_initialize
@@ -2071,7 +2377,16 @@ End
   end
 
   def test_new_with_block
-    assert_in_out_err([], "r, w = IO.pipe; IO.new(r) {}", [], /^.+$/)
+    assert_in_out_err([], "r, w = IO.pipe; r.autoclose=false; IO.new(r.fileno) {}.close", [], /^.+$/)
+    n = "IO\u{5165 51fa 529b}"
+    c = eval("class #{n} < IO; self; end")
+    IO.pipe do |r, w|
+      assert_warning(/#{n}/) {
+        r.autoclose=false
+        io = c.new(r.fileno) {}
+        io.close
+      }
+    end
   end
 
   def test_readline2
@@ -2106,8 +2421,6 @@ End
 
   def test_nofollow
     # O_NOFOLLOW is not standard.
-    return if /freebsd|linux/ !~ RUBY_PLATFORM
-    return unless defined? File::NOFOLLOW
     mkcdtmpdir {
       open("file", "w") {|f| f << "content" }
       begin
@@ -2122,12 +2435,12 @@ End
         File.foreach("slnk", :open_args=>[File::RDONLY|File::NOFOLLOW]) {}
       }
     }
-  end
+  end if /freebsd|linux/ =~ RUBY_PLATFORM and defined? File::NOFOLLOW
 
   def test_tainted
     make_tempfile {|t|
-      assert(File.read(t.path, 4).tainted?, '[ruby-dev:38826]')
-      assert(File.open(t.path) {|f| f.read(4)}.tainted?, '[ruby-dev:38826]')
+      assert_predicate(File.read(t.path, 4), :tainted?, '[ruby-dev:38826]')
+      assert_predicate(File.open(t.path) {|f| f.read(4)}, :tainted?, '[ruby-dev:38826]')
     }
   end
 
@@ -2156,21 +2469,27 @@ End
   def test_flush_in_finalizer1
     require 'tempfile'
     bug3910 = '[ruby-dev:42341]'
-    Tempfile.open("bug3910") {|t|
+    t = Tempfile.open("bug3910") {|t|
       path = t.path
       t.close
       fds = []
       assert_nothing_raised(TypeError, bug3910) do
         500.times {
           f = File.open(path, "w")
+          f.instance_variable_set(:@test_flush_in_finalizer1, true)
           fds << f.fileno
           f.print "hoge"
         }
       end
-      t.unlink
+      t
     }
   ensure
-    GC.start
+    ObjectSpace.each_object(File) {|f|
+      if f.instance_variables.include?(:@test_flush_in_finalizer1)
+        f.close
+      end
+    }
+    t.close!
   end
 
   def test_flush_in_finalizer2
@@ -2179,14 +2498,23 @@ End
     Tempfile.open("bug3910") {|t|
       path = t.path
       t.close
-      1.times do
-        io = open(path,"w")
-        io.print "hoge"
+      begin
+        1.times do
+          io = open(path,"w")
+          io.instance_variable_set(:@test_flush_in_finalizer2, true)
+          io.print "hoge"
+        end
+        assert_nothing_raised(TypeError, bug3910) do
+          GC.start
+        end
+      ensure
+        ObjectSpace.each_object(File) {|f|
+          if f.instance_variables.include?(:@test_flush_in_finalizer2)
+            f.close
+          end
+        }
       end
-      assert_nothing_raised(TypeError, bug3910) do
-        GC.start
-      end
-      t.unlink
+      t.close!
     }
   end
 
@@ -2212,13 +2540,56 @@ End
     }
   end
 
+  def os_and_fs(path)
+    uname = Etc.uname
+    os = "#{uname[:sysname]} #{uname[:release]}"
+
+    fs = nil
+    if uname[:sysname] == 'Linux'
+      # [ruby-dev:45703] Old Linux's fadvise() doesn't work on tmpfs.
+      mount = `mount`
+      mountpoints = []
+      mount.scan(/ on (\S+) type (\S+) /) {
+        mountpoints << [$1, $2]
+      }
+      mountpoints.sort_by {|mountpoint, fstype| mountpoint.length }.reverse_each {|mountpoint, fstype|
+        if path == mountpoint
+          fs = fstype
+          break
+        end
+        mountpoint += "/" if %r{/\z} !~ mountpoint
+        if path.start_with?(mountpoint)
+          fs = fstype
+          break
+        end
+      }
+    end
+
+    if fs
+      "#{fs} on #{os}"
+    else
+      os
+    end
+  end
+
   def test_advise
     make_tempfile {|tf|
       assert_raise(ArgumentError, "no arguments") { tf.advise }
       %w{normal random sequential willneed dontneed noreuse}.map(&:to_sym).each do |adv|
         [[0,0], [0, 20], [400, 2]].each do |offset, len|
           open(tf.path) do |t|
-            assert_equal(t.advise(adv, offset, len), nil)
+            ret = assert_nothing_raised(lambda { os_and_fs(tf.path) }) {
+              begin
+                t.advise(adv, offset, len)
+              rescue Errno::EINVAL => e
+                if /linux/ =~ RUBY_PLATFORM && (Etc.uname[:release].split('.').map(&:to_i) <=> [3,6]) < 0
+                  next # [ruby-core:65355] tmpfs is not supported
+                else
+                  raise e
+                end
+              end
+            }
+            assert_nil(ret)
             assert_raise(ArgumentError, "superfluous arguments") do
               t.advise(adv, offset, len, offset)
             end
@@ -2245,10 +2616,10 @@ End
   def test_invalid_advise
     feature4204 = '[ruby-dev:42887]'
     make_tempfile {|tf|
-      %w{Normal rand glark will_need zzzzzzzzzzzz \u2609}.map(&:to_sym).each do |adv|
+      %W{Normal rand glark will_need zzzzzzzzzzzz \u2609}.map(&:to_sym).each do |adv|
         [[0,0], [0, 20], [400, 2]].each do |offset, len|
           open(tf.path) do |t|
-            assert_raise(NotImplementedError, feature4204) { t.advise(adv, offset, len) }
+            assert_raise_with_message(NotImplementedError, /#{Regexp.quote(adv.inspect)}/, feature4204) { t.advise(adv, offset, len) }
           end
         end
       end
@@ -2256,10 +2627,8 @@ End
   end
 
   def test_fcntl_lock_linux
-    return if /x86_64-linux/ !~ RUBY_PLATFORM # A binary form of struct flock depend on platform
-
     pad=0
-    Tempfile.open(self.class.name) do |f|
+    Tempfile.create(self.class.name) do |f|
       r, w = IO.pipe
       pid = fork do
         r.close
@@ -2285,17 +2654,15 @@ End
 
       Process.kill :TERM, pid
       Process.waitpid2(pid)
-      f.close(true)
     end
-  end
+  end if /x86_64-linux/ =~ RUBY_PLATFORM and # A binary form of struct flock depend on platform
+    [nil].pack("p").bytesize == 8 # unless x32 platform.
 
   def test_fcntl_lock_freebsd
-    return if /freebsd/ !~ RUBY_PLATFORM # A binary form of struct flock depend on platform
-
     start = 12
     len = 34
     sysid = 0
-    Tempfile.open(self.class.name) do |f|
+    Tempfile.create(self.class.name) do |f|
       r, w = IO.pipe
       pid = fork do
         r.close
@@ -2322,22 +2689,20 @@ End
       Process.kill :TERM, pid
       Process.waitpid2(pid)
     end
-  end
+  end if /freebsd/ =~ RUBY_PLATFORM # A binary form of struct flock depend on platform
 
   def test_fcntl_dupfd
-    Tempfile.open(self.class.name) do |f|
+    Tempfile.create(self.class.name) do |f|
       fd = f.fcntl(Fcntl::F_DUPFD, 63)
       begin
         assert_operator(fd, :>=, 63)
       ensure
         IO.for_fd(fd).close
       end
-      f.unlink
     end
   end
 
   def test_cross_thread_close_fd
-    skip "cross thread close causes hung-up if pipe." if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
     with_pipe do |r,w|
       read_thread = Thread.new do
         begin
@@ -2355,25 +2720,18 @@ End
   end
 
   def test_cross_thread_close_stdio
-    with_pipe do |r,w|
-      pid = fork do
+    assert_separately([], <<-'end;')
+      IO.pipe do |r,w|
         $stdin.reopen(r)
         r.close
         read_thread = Thread.new do
-          begin
-            $stdin.read(1)
-          rescue => e
-            e
-          end
+          $stdin.read(1)
         end
         sleep(0.1) until read_thread.stop?
         $stdin.close
-        read_thread.join
-        exit(IOError === read_thread.value)
+        assert_raise(IOError) {read_thread.join}
       end
-      assert Process.waitpid2(pid)[1].success?
-    end
-    rescue NotImplementedError
+    end;
   end
 
   def test_open_mode
@@ -2424,7 +2782,14 @@ End
       assert_equal("\00f", File.read(path))
       assert_equal(1, File.write(path, "f", 0, encoding: "UTF-8"))
       assert_equal("ff", File.read(path))
+      assert_raise(TypeError) {
+        File.write(path, "foo", Object.new => Object.new)
+      }
     end
+  end
+
+  def test_s_binread_does_not_leak_with_invalid_offset
+    assert_raise(Errno::EINVAL) { IO.binread(__FILE__, 0, -1) }
   end
 
   def test_s_binwrite
@@ -2451,73 +2816,69 @@ End
   end
 
   def test_race_between_read
-    file = Tempfile.new("test")
-    path = file.path
-    file.close
-    write_file = File.open(path, "wt")
-    read_file = File.open(path, "rt")
+    Tempfile.create("test") {|file|
+      begin
+        path = file.path
+        file.close
+        write_file = File.open(path, "wt")
+        read_file = File.open(path, "rt")
 
-    threads = []
-    10.times do |i|
-      threads << Thread.new {write_file.print(i)}
-      threads << Thread.new {read_file.read}
-    end
-    threads.each {|t| t.join}
-    assert(true, "[ruby-core:37197]")
-  ensure
-    read_file.close
-    write_file.close
-    file.close!
+        threads = []
+        10.times do |i|
+          threads << Thread.new {write_file.print(i)}
+          threads << Thread.new {read_file.read}
+        end
+        assert_join_threads(threads)
+        assert(true, "[ruby-core:37197]")
+      ensure
+        read_file.close
+        write_file.close
+      end
+    }
   end
 
   def test_warn
-    stderr = EnvUtil.verbose_warning do
+    assert_warning "warning\n" do
       warn "warning"
     end
-    assert_equal("warning\n", stderr)
 
-    stderr = EnvUtil.verbose_warning do
+    assert_warning '' do
       warn
     end
-    assert_equal("", stderr)
 
-    stderr = EnvUtil.verbose_warning do
+    assert_warning "[Feature #5029]\n[ruby-core:38070]\n" do
       warn "[Feature #5029]", "[ruby-core:38070]"
     end
-    assert_equal("[Feature #5029]\n[ruby-core:38070]\n", stderr)
   end
 
   def test_cloexec
     return unless defined? Fcntl::FD_CLOEXEC
     open(__FILE__) {|f|
-      assert(f.close_on_exec?)
+      assert_predicate(f, :close_on_exec?)
       g = f.dup
       begin
-        assert(g.close_on_exec?)
+        assert_predicate(g, :close_on_exec?)
         f.reopen(g)
-        assert(f.close_on_exec?)
+        assert_predicate(f, :close_on_exec?)
       ensure
         g.close
       end
       g = IO.new(f.fcntl(Fcntl::F_DUPFD))
       begin
-        assert(g.close_on_exec?)
+        assert_predicate(g, :close_on_exec?)
       ensure
         g.close
       end
     }
     IO.pipe {|r,w|
-      assert(r.close_on_exec?)
-      assert(w.close_on_exec?)
+      assert_predicate(r, :close_on_exec?)
+      assert_predicate(w, :close_on_exec?)
     }
   end
 
   def test_ioctl_linux
-    return if /linux/ !~ RUBY_PLATFORM
     # Alpha, mips, sparc and ppc have an another ioctl request number scheme.
     # So, hardcoded 0x80045200 may fail.
-    return if /^i.?86|^x86_64/ !~ RUBY_PLATFORM
-
     assert_nothing_raised do
       File.open('/dev/urandom'){|f1|
         entropy_count = ""
@@ -2534,13 +2895,10 @@ End
       }
     end
     assert_equal(File.size(__FILE__), buf.unpack('i!')[0])
-  end
+  end if /^(?:i.?86|x86_64)-linux/ =~ RUBY_PLATFORM
 
   def test_ioctl_linux2
-    return if /linux/ !~ RUBY_PLATFORM
-    return if /^i.?86|^x86_64/ !~ RUBY_PLATFORM
-
-    return unless system('tty', '-s') # stdin is not a terminal
+    return unless STDIN.tty? # stdin is not a terminal
     File.open('/dev/tty') { |f|
       tiocgwinsz=0x5413
       winsize=""
@@ -2548,7 +2906,7 @@ End
         f.ioctl(tiocgwinsz, winsize)
       }
     }
-  end
+  end if /^(?:i.?86|x86_64)-linux/ =~ RUBY_PLATFORM
 
   def test_setpos
     mkcdtmpdir {
@@ -2631,33 +2989,46 @@ End
   end
 
   def test_readpartial_locktmp
-    skip "nonblocking mode is not supported for pipe on this platform" if /mswin|bccwin|mingw/ =~ RUBY_PLATFORM
     bug6099 = '[ruby-dev:45297]'
     buf = " " * 100
     data = "a" * 100
+    th = nil
     with_pipe do |r,w|
-      r.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
+      r.nonblock = true
       th = Thread.new {r.readpartial(100, buf)}
+
       Thread.pass until th.stop?
-      buf.replace("")
+
+      assert_equal 100, buf.bytesize
+
+      begin
+        buf.replace("")
+      rescue RuntimeError => e
+        assert_match(/can't modify string; temporarily locked/, e.message)
+        Thread.pass
+      end until buf.empty?
+
       assert_empty(buf, bug6099)
+      assert_predicate(th, :alive?)
       w.write(data)
       Thread.pass while th.alive?
       th.join
     end
     assert_equal(data, buf, bug6099)
-  rescue RuntimeError # can't modify string; temporarily locked
   end
 
   def test_advise_pipe
     # we don't know if other platforms have a real posix_fadvise()
-    return if /linux/ !~ RUBY_PLATFORM
     with_pipe do |r,w|
       # Linux 2.6.15 and earlier returned EINVAL instead of ESPIPE
-      assert_raise(Errno::ESPIPE, Errno::EINVAL) { r.advise(:willneed) }
-      assert_raise(Errno::ESPIPE, Errno::EINVAL) { w.advise(:willneed) }
+      assert_raise(Errno::ESPIPE, Errno::EINVAL) {
+        r.advise(:willneed) or skip "fadvise(2) is not implemented"
+      }
+      assert_raise(Errno::ESPIPE, Errno::EINVAL) {
+        w.advise(:willneed) or skip "fadvise(2) is not implemented"
+      }
     end
-  end
+  end if /linux/ =~ RUBY_PLATFORM
 
   def assert_buffer_not_raise_shared_string_error
     bug6764 = '[ruby-core:46586]'
@@ -2725,14 +3096,13 @@ End
     assert_normal_exit %q{
       require "tempfile"
 
-      # try to raise RLIM_NOFILE to >FD_SETSIZE
-      # Unfortunately, ruby export FD_SETSIZE. then we assume it's 1024.
+      # Unfortunately, ruby doesn't export FD_SETSIZE. then we assume it's 1024.
       fd_setsize = 1024
 
+      # try to raise RLIM_NOFILE to >FD_SETSIZE
       begin
-        Process.setrlimit(Process::RLIMIT_NOFILE, fd_setsize+10)
-      rescue =>e
-        # Process::RLIMIT_NOFILE couldn't be raised. skip the test
+        Process.setrlimit(Process::RLIMIT_NOFILE, fd_setsize+20)
+      rescue Errno::EPERM
         exit 0
       end
 
@@ -2743,7 +3113,7 @@ End
 
       IO.select(tempfiles)
     }, bug8080, timeout: 30
-  end
+  end if defined?(Process::RLIMIT_NOFILE)
 
   def test_read_32bit_boundary
     bug8431 = '[ruby-core:55098] [Bug #8431]'
@@ -2804,42 +3174,53 @@ End
     bug8669 = '[ruby-core:56121] [Bug #8669]'
 
     str = ""
-    r, = IO.pipe
-    t = Thread.new { r.read(nil, str) }
-    sleep 0.1 until t.stop?
-    t.raise
-    sleep 0.1 while t.alive?
-    assert_nothing_raised(RuntimeError, bug8669) { str.clear }
-  ensure
-    t.kill
+    IO.pipe {|r,|
+      t = Thread.new { r.read(nil, str) }
+      sleep 0.1 until t.stop?
+      t.raise
+      sleep 0.1 while t.alive?
+      assert_nothing_raised(RuntimeError, bug8669) { str.clear }
+      assert_raise(RuntimeError) { t.join }
+    }
   end
 
   def test_readpartial_unlocktmp_ensure
     bug8669 = '[ruby-core:56121] [Bug #8669]'
 
     str = ""
-    r, = IO.pipe
-    t = Thread.new { r.readpartial(4096, str) }
-    sleep 0.1 until t.stop?
-    t.raise
-    sleep 0.1 while t.alive?
-    assert_nothing_raised(RuntimeError, bug8669) { str.clear }
-  ensure
-    t.kill
+    IO.pipe {|r, w|
+      t = Thread.new { r.readpartial(4096, str) }
+      sleep 0.1 until t.stop?
+      t.raise
+      sleep 0.1 while t.alive?
+      assert_nothing_raised(RuntimeError, bug8669) { str.clear }
+      assert_raise(RuntimeError) { t.join }
+    }
+  end
+
+  def test_readpartial_bad_args
+    IO.pipe do |r, w|
+      w.write '.'
+      buf = String.new
+      assert_raise(ArgumentError) { r.readpartial(1, buf, exception: false) }
+      assert_raise(TypeError) { r.readpartial(1, exception: false) }
+      assert_equal [[r],[],[]], IO.select([r], nil, nil, 1)
+      assert_equal '.', r.readpartial(1)
+    end
   end
 
   def test_sysread_unlocktmp_ensure
     bug8669 = '[ruby-core:56121] [Bug #8669]'
 
     str = ""
-    r, = IO.pipe
-    t = Thread.new { r.sysread(4096, str) }
-    sleep 0.1 until t.stop?
-    t.raise
-    sleep 0.1 while t.alive?
-    assert_nothing_raised(RuntimeError, bug8669) { str.clear }
-  ensure
-    t.kill
+    IO.pipe {|r, w|
+      t = Thread.new { r.sysread(4096, str) }
+      sleep 0.1 until t.stop?
+      t.raise
+      sleep 0.1 while t.alive?
+      assert_nothing_raised(RuntimeError, bug8669) { str.clear }
+      assert_raise(RuntimeError) { t.join }
+    }
   end
 
   def test_exception_at_close
@@ -2850,4 +3231,58 @@ End
       end
     end
   end
+
+  def test_close_twice
+    open(__FILE__) {|f|
+      assert_equal(nil, f.close)
+      assert_equal(nil, f.close)
+    }
+  end
+
+  def test_close_uninitialized
+    io = IO.allocate
+    assert_raise(IOError) { io.close }
+  end
+
+  def test_open_fifo_does_not_block_other_threads
+    mkcdtmpdir {
+      File.mkfifo("fifo")
+      assert_separately([], <<-'EOS')
+        t1 = Thread.new {
+          open("fifo", "r") {|r|
+            r.read
+          }
+        }
+        t2 = Thread.new {
+          open("fifo", "w") {|w|
+            w.write "foo"
+          }
+        }
+        t1_value, _ = assert_join_threads([t1, t2])
+        assert_equal("foo", t1_value)
+      EOS
+    }
+  end if /mswin|mingw|bccwin/ !~ RUBY_PLATFORM
+
+  def test_open_flag
+    make_tempfile do |t|
+      assert_raise(Errno::EEXIST){ open(t.path, File::WRONLY|File::CREAT, flags: File::EXCL){} }
+      assert_raise(Errno::EEXIST){ open(t.path, 'w', flags: File::EXCL){} }
+      assert_raise(Errno::EEXIST){ open(t.path, mode: 'w', flags: File::EXCL){} }
+    end
+  end
+
+  def test_open_flag_binary
+    make_tempfile do |t|
+      open(t.path, File::RDONLY, flags: File::BINARY) do |f|
+        assert_equal true, f.binmode?
+      end
+      open(t.path, 'r', flags: File::BINARY) do |f|
+        assert_equal true, f.binmode?
+      end
+      open(t.path, mode: 'r', flags: File::BINARY) do |f|
+        assert_equal true, f.binmode?
+      end
+    end
+  end if File::BINARY != 0
 end

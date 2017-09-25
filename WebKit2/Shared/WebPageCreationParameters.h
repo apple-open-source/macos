@@ -23,15 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebPageCreationParameters_h
-#define WebPageCreationParameters_h
+#pragma once
 
 #include "DrawingAreaInfo.h"
 #include "LayerTreeContext.h"
 #include "SessionState.h"
+#include "WebCompiledContentRuleListData.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPageGroupData.h"
 #include "WebPreferencesStore.h"
+#include "WebUserContentControllerDataTypes.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
 #include <WebCore/FloatSize.h>
@@ -42,6 +43,7 @@
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/SessionID.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
+#include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
@@ -106,6 +108,7 @@ struct WebPageCreationParameters {
 
     WebCore::IntSize minimumLayoutSize;
     bool autoSizingShouldExpandToViewHeight;
+    std::optional<WebCore::IntSize> viewportSizeForCSSViewportUnits;
     
     WebCore::ScrollPinningBehavior scrollPinningBehavior;
 
@@ -134,6 +137,10 @@ struct WebPageCreationParameters {
     WebCore::FloatSize availableScreenSize;
     float textAutosizingWidth;
     bool ignoresViewportScaleLimits;
+    bool allowsBlockSelection;
+#endif
+#if PLATFORM(COCOA)
+    bool smartInsertDeleteEnabled;
 #endif
     bool appleMailPaginationQuirkEnabled;
     bool shouldScaleViewToFitDocument;
@@ -142,8 +149,22 @@ struct WebPageCreationParameters {
     WebCore::LayoutMilestones observedLayoutMilestones;
 
     String overrideContentSecurityPolicy;
+    std::optional<double> cpuLimit;
+
+    HashMap<String, uint64_t> urlSchemeHandlers;
+
+    // WebRTC members.
+    bool iceCandidateFilteringEnabled { true };
+    bool enumeratingAllNetworkInterfacesEnabled { false };
+
+    // UserContentController members
+    Vector<std::pair<uint64_t, String>> userContentWorlds;
+    Vector<WebUserScriptData> userScripts;
+    Vector<WebUserStyleSheetData> userStyleSheets;
+    Vector<WebScriptMessageHandlerData> messageHandlers;
+#if ENABLE(CONTENT_EXTENSIONS)
+    Vector<std::pair<String, WebCompiledContentRuleListData>> contentRuleLists;
+#endif
 };
 
 } // namespace WebKit
-
-#endif // WebPageCreationParameters_h

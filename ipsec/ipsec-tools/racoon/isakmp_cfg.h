@@ -35,7 +35,6 @@
 
 
 #include "racoon_types.h"
-#include <resolv.h>
 
 
 
@@ -61,6 +60,10 @@
 
 /* For the wins servers -- XXX find the value somewhere ? */
 #define MAXWINS 4
+
+#ifndef MAXNS
+#define MAXNS 3
+#endif
 
 /* 
  * Global configuration for ISAKMP mode confiration address allocation 

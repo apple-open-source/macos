@@ -63,6 +63,12 @@ int isnewlin;
 /**/
 int infor;
 
+/* != 0 if we are after a repeat keyword; if it's nonzero it's a 1-based index
+ * of the current token from the last-seen command position */
+
+/**/
+int inrepeat_; /* trailing underscore because of name clash with Zle/zle_vi.c */
+
 /* != 0 if parsing arguments of typeset etc. */
 
 /**/
@@ -271,6 +277,7 @@ parse_context_save(struct parse_stack *ps, int toplevel)
     ps->incasepat = incasepat;
     ps->isnewlin = isnewlin;
     ps->infor = infor;
+    ps->inrepeat_ = inrepeat_;
     ps->intypeset = intypeset;
 
     ps->hdocs = hdocs;
@@ -302,9 +309,9 @@ parse_context_restore(const struct parse_stack *ps, int toplevel)
     incond = ps->incond;
     inredir = ps->inredir;
     incasepat = ps->incasepat;
-    incasepat = ps->incasepat;
     isnewlin = ps->isnewlin;
     infor = ps->infor;
+    inrepeat_ = ps->inrepeat_;
     intypeset = ps->intypeset;
 
     hdocs = ps->hdocs;
@@ -447,6 +454,7 @@ init_parse_status(void)
      * using the lexical analyser for strings as well as here.
      */
     incasepat = incond = inredir = infor = intypeset = 0;
+    inrepeat_ = 0;
     incmdpos = 1;
 }
 
@@ -586,7 +594,7 @@ par_event(int endtok)
     if (tok == ENDINPUT)
 	return 0;
     if (tok == endtok)
-	return 0;
+	return 1;
 
     p = ecadd(0);
 
@@ -709,7 +717,7 @@ set_sublist_code(int p, int type, int flags, int skip, int cmplx)
  */
 
 /**/
-static int
+static void
 par_list(int *cmplx)
 {
     int p, lp = -1, c;
@@ -738,19 +746,15 @@ par_list(int *cmplx)
 	    goto rec;
 	} else
 	    set_list_code(p, (Z_SYNC | Z_END), c);
-	return 1;
     } else {
 	ecused--;
-	if (lp >= 0) {
+	if (lp >= 0)
 	    ecbuf[lp] |= wc_bdata(Z_END);
-	    return 1;
-	}
-	return 0;
     }
 }
 
 /**/
-static int
+static void
 par_list1(int *cmplx)
 {
     int p = ecadd(0), c = 0;
@@ -758,11 +762,8 @@ par_list1(int *cmplx)
     if (par_sublist(&c)) {
 	set_list_code(p, (Z_SYNC | Z_END), c);
 	*cmplx |= c;
-	return 1;
-    } else {
+    } else
 	ecused--;
-	return 0;
-    }
 }
 
 /*
@@ -1404,7 +1405,7 @@ par_if(int *cmplx)
 	}
     }
     cmdpop();
-    if (xtok == ELSE) {
+    if (xtok == ELSE || tok == ELSE) {
 	pp = ecadd(0);
 	cmdpush(CS_ELSE);
 	while (tok == SEPER)
@@ -1482,6 +1483,7 @@ par_while(int *cmplx)
 static void
 par_repeat(int *cmplx)
 {
+    /* ### what to do about inrepeat_ here? */
     int oecused = ecused, p;
 
     p = ecadd(0);
@@ -2252,6 +2254,8 @@ void (*condlex) _((void)) = zshlex;
  * cond	: cond_1 { SEPER } [ DBAR { SEPER } cond ]
  */
 
+#define COND_SEP() (tok == SEPER && condlex != testlex && *zshlextext != ';')
+
 /**/
 static int
 par_cond(void)
@@ -2259,11 +2263,11 @@ par_cond(void)
     int p = ecused, r;
 
     r = par_cond_1();
-    while (tok == SEPER)
+    while (COND_SEP())
 	condlex();
     if (tok == DBAR) {
 	condlex();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	ecispace(p, 1);
 	par_cond();
@@ -2284,11 +2288,11 @@ par_cond_1(void)
     int r, p = ecused;
 
     r = par_cond_2();
-    while (tok == SEPER)
+    while (COND_SEP())
 	condlex();
     if (tok == DAMPER) {
 	condlex();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	ecispace(p, 1);
 	par_cond_1();
@@ -2348,7 +2352,9 @@ par_cond_2(void)
 	 * We fall through here on any non-numeric infix operator
 	 * or any other time there are at least two arguments.
 	 */
-    }
+    } else
+	while (COND_SEP())
+	    condlex();
     if (tok == BANG) {
 	/*
 	 * In "test" compatibility mode, "! -a ..." and "! -o ..."
@@ -2366,10 +2372,10 @@ par_cond_2(void)
 	int r;
 
 	condlex();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	r = par_cond();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	if (tok != OUTPAR)
 	    YYERROR(ecused);
@@ -2379,13 +2385,13 @@ par_cond_2(void)
     s1 = tokstr;
     dble = (s1 && *s1 == '-'
 	    && (!n_testargs
-		|| strspn(s1+1, "abcdefghknoprstuwxzLONGS") == 1)
+		|| strspn(s1+1, "abcdefghknoprstuvwxzLONGS") == 1)
 	    && !s1[2]);
     if (tok != STRING) {
 	/* Check first argument for [[ STRING ]] re-interpretation */
 	if (s1 /* tok != DOUTBRACK && tok != DAMPER && tok != DBAR */
 	    && tok != LEXERR && (!dble || n_testargs)) {
-	    condlex();
+	    do condlex(); while (COND_SEP());
 	    return par_cond_double(dupstring("-n"), s1);
 	} else
 	    YYERROR(ecused);
@@ -2398,14 +2404,16 @@ par_cond_2(void)
 	 * checked it does have a string representation).
 	 */
 	tok = STRING;
-    }
+    } else
+	while (COND_SEP())
+	    condlex();
     if (tok == INANG || tok == OUTANG) {
 	enum lextok xtok = tok;
-	condlex();
+	do condlex(); while (COND_SEP());
 	if (tok != STRING)
 	    YYERROR(ecused);
 	s3 = tokstr;
-	condlex();
+	do condlex(); while (COND_SEP());
 	ecadd(WCB_COND((xtok == INANG ? COND_STRLT : COND_STRGTR), 0));
 	ecstr(s1);
 	ecstr(s3);
@@ -2428,11 +2436,11 @@ par_cond_2(void)
     if (!n_testargs)
 	dble = (s2 && *s2 == '-' && !s2[2]);
     incond++;			/* parentheses do globbing */
-    condlex();
+    do condlex(); while (COND_SEP());
     incond--;			/* parentheses do grouping */
     if (tok == STRING && !dble) {
 	s3 = tokstr;
-	condlex();
+	do condlex(); while (COND_SEP());
 	if (tok == STRING) {
 	    LinkList l = newlinklist();
 
@@ -2441,7 +2449,7 @@ par_cond_2(void)
 
 	    while (tok == STRING) {
 		addlinknode(l, tokstr);
-		condlex();
+		do condlex(); while (COND_SEP());
 	    }
 	    return par_cond_multi(s1, l);
 	} else
@@ -2456,7 +2464,7 @@ par_cond_double(char *a, char *b)
 {
     if (a[0] != '-' || !a[1])
 	COND_ERROR("parse error: condition expected: %s", a);
-    else if (!a[2] && strspn(a+1, "abcdefgknoprstuwxzhLONGS") == 1) {
+    else if (!a[2] && strspn(a+1, "abcdefgknoprstuvwxzhLONGS") == 1) {
 	ecadd(WCB_COND(a[1], 0));
 	ecstr(b);
     } else {
@@ -2489,9 +2497,14 @@ par_cond_triple(char *a, char *b, char *c)
 {
     int t0;
 
-    if ((b[0] == Equals || b[0] == '=') &&
-	(!b[1] || ((b[1] == Equals || b[1] == '=') && !b[2]))) {
+    if ((b[0] == Equals || b[0] == '=') && !b[1]) {
 	ecadd(WCB_COND(COND_STREQ, 0));
+	ecstr(a);
+	ecstr(c);
+	ecadd(ecnpats++);
+    } else if ((b[0] == Equals || b[0] == '=') &&
+	       (b[1] == Equals || b[1] == '=') && !b[2]) {
+	ecadd(WCB_COND(COND_STRDEQ, 0));
 	ecstr(a);
 	ecstr(c);
 	ecadd(ecnpats++);

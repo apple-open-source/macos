@@ -158,7 +158,7 @@ public class DispatchSource : DispatchObject,
 	DispatchSourceProtocol,	DispatchSourceRead,
 	DispatchSourceSignal, DispatchSourceTimer,
 	DispatchSourceUserDataAdd, DispatchSourceUserDataOr,
-	DispatchSourceWrite {
+	DispatchSourceUserDataReplace, DispatchSourceWrite {
 	internal let __wrapped:dispatch_source_t
 
 	final internal override func wrapped() -> dispatch_object_t {
@@ -180,7 +180,7 @@ extension DispatchSource : DispatchSourceMachSend,
 }
 #endif
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 extension DispatchSource : DispatchSourceProcess,
 	DispatchSourceFileSystemObject {
 }
@@ -188,7 +188,6 @@ extension DispatchSource : DispatchSourceProcess,
 
 internal class __DispatchData : DispatchObject {
 	internal let __wrapped:dispatch_data_t
-	internal let __owned:Bool
 
 	final internal override func wrapped() -> dispatch_object_t {
 		return unsafeBitCast(__wrapped, to: dispatch_object_t.self)
@@ -196,13 +195,13 @@ internal class __DispatchData : DispatchObject {
 
 	internal init(data:dispatch_data_t, owned:Bool) {
 		__wrapped = data
-		__owned = owned
+		if !owned {
+			_swift_dispatch_retain(unsafeBitCast(data, to: dispatch_object_t.self))
+		}
 	}
 
 	deinit {
-		if __owned {
-			_swift_dispatch_release(wrapped())
-		}
+		_swift_dispatch_release(wrapped())
 	}
 }
 
@@ -244,6 +243,10 @@ public protocol DispatchSourceUserDataOr : DispatchSourceProtocol {
 	func or(data: UInt)
 }
 
+public protocol DispatchSourceUserDataReplace : DispatchSourceProtocol {
+	func replace(data: UInt)
+}
+
 #if HAVE_MACH
 public protocol DispatchSourceMachSend : DispatchSourceProtocol {
 	public var handle: mach_port_t { get }
@@ -268,7 +271,7 @@ public protocol DispatchSourceMemoryPressure : DispatchSourceProtocol {
 }
 #endif
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 public protocol DispatchSourceProcess : DispatchSourceProtocol {
 	var handle: pid_t { get }
 
@@ -298,7 +301,7 @@ public protocol DispatchSourceTimer : DispatchSourceProtocol {
 	func scheduleRepeating(wallDeadline: DispatchWallTime, interval: Double, leeway: DispatchTimeInterval)
 }
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 public protocol DispatchSourceFileSystemObject : DispatchSourceProtocol {
 	var handle: Int32 { get }
 
@@ -335,3 +338,6 @@ internal enum _OSQoSClass : UInt32  {
 
 @_silgen_name("_swift_dispatch_release")
 internal func _swift_dispatch_release(_ obj: dispatch_object_t) -> Void
+
+@_silgen_name("_swift_dispatch_retain")
+internal func _swift_dispatch_retain(_ obj: dispatch_object_t) -> Void

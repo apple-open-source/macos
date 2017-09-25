@@ -61,6 +61,7 @@ void IOFramebuffer::StdFBDisplayCursor555(
                 int width,
                 int height )
 {
+    IOFB_START(StdFBDisplayCursor555,0,0,0);
     int i, j;
     volatile unsigned short *cursPtr;
     volatile unsigned short *savePtr;
@@ -70,7 +71,11 @@ void IOFramebuffer::StdFBDisplayCursor555(
     int frame;
 
 	frame = shmem->frame;
-	if (frame >= inst->__private->numCursorFrames) return;
+    if (static_cast<UInt32>(frame) >= inst->__private->numCursorFrames)
+    {
+        IOFB_END(StdFBDisplayCursor555,0,__LINE__,0);
+        return;
+    }
 
     savePtr = (volatile unsigned short *) inst->cursorSave;
     cursPtr = (volatile unsigned short *) inst->__private->cursorImages[ frame ];
@@ -106,6 +111,7 @@ void IOFramebuffer::StdFBDisplayCursor555(
         cursPtr += cursRow; /* starting point of next cursor line */
         vramPtr += vramRow; /* starting point of next screen line */
     }
+    IOFB_END(StdFBDisplayCursor555,0,0,0);
 }
 
 static inline unsigned int MUL32(unsigned int a, unsigned int b)
@@ -145,6 +151,7 @@ void IOFramebuffer::StdFBDisplayCursor8P(
                 int width,
                 int height )
 {
+    IOFB_START(StdFBDisplayCursor8P,0,0,0);
     int i, j;
     volatile unsigned char *savePtr;    /* saved screen data pointer */
     volatile unsigned char *cursPtr;
@@ -158,7 +165,11 @@ void IOFramebuffer::StdFBDisplayCursor8P(
     int frame;
 
 	frame = shmem->frame;
-	if (frame >= inst->__private->numCursorFrames) return;
+    if (static_cast<UInt32>(frame) >= inst->__private->numCursorFrames)
+    {
+        IOFB_END(StdFBDisplayCursor8P,0,__LINE__,0);
+        return;
+    }
 
     savePtr = (volatile unsigned char *) inst->cursorSave;
     cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ frame ];
@@ -186,6 +197,7 @@ void IOFramebuffer::StdFBDisplayCursor8P(
         maskPtr += cursRow;
         vramPtr += vramRow; /* starting point of next screen line */
     }
+    IOFB_END(StdFBDisplayCursor8P,0,0,0);
 }
 
 
@@ -199,6 +211,7 @@ void IOFramebuffer::StdFBDisplayCursor8G(
                                  int width,
                                  int height )
 {
+    IOFB_START(StdFBDisplayCursor8G,0,0,0);
     int i, j;
     volatile unsigned char *savePtr;    /* saved screen data pointer */
     unsigned short s, d, a;
@@ -207,7 +220,11 @@ void IOFramebuffer::StdFBDisplayCursor8G(
     int frame;
 
 	frame = shmem->frame;
-	if (frame >= inst->__private->numCursorFrames) return;
+    if (static_cast<UInt32>(frame) >= inst->__private->numCursorFrames)
+    {
+        IOFB_END(StdFBDisplayCursor8G,0,__LINE__,0);
+        return;
+    }
 
     savePtr = (volatile unsigned char *) inst->cursorSave;
     cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ frame ];
@@ -232,6 +249,7 @@ void IOFramebuffer::StdFBDisplayCursor8G(
         maskPtr += cursRow;
         vramPtr += vramRow; /* starting point of next screen line */
     }
+    IOFB_END(StdFBDisplayCursor8G,0,0,0);
 }
 
 void IOFramebuffer::StdFBDisplayCursor30Axxx(
@@ -244,6 +262,7 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
                                  int width,
                                  int height )
 {
+    IOFB_START(StdFBDisplayCursor30Axxx,0,0,0);
     int i, j;
     volatile unsigned int *savePtr;     /* saved screen data pointer */
     unsigned long long s, d;
@@ -252,7 +271,11 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
     int frame;
 
 	frame = shmem->frame;
-	if (frame >= inst->__private->numCursorFrames) return;
+    if (static_cast<UInt32>(frame) >= inst->__private->numCursorFrames)
+    {
+        IOFB_END(StdFBDisplayCursor30Axxx,0,__LINE__,0);
+        return;
+    }
 
     savePtr = (volatile unsigned int *) inst->cursorSave;
     cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ frame ];
@@ -263,21 +286,21 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
         for (j = width; --j >= 0; ) {
             d = *savePtr++ = *vramPtr;
             s = *cursPtr++;
-            f = s >> 24;
+            f = static_cast<unsigned int>(s >> 24);
             s = ((s&0x000000FF)<<2)|((s&0x0000FF00)<<4)|((s&0x00FF0000)<<6);
             if (f) {
                 if (f == 0xFF)          // Opaque pixel
-                    *vramPtr++ = s;
+                    *vramPtr++ = static_cast<unsigned int>(s);
                 else {                  // SOVER the cursor pixel
                     s <<= 10;  d <<= 10;   /* Now pixels are xxxA */
                     f ^= 0xFF;
                     d = s+(((((d&0xFFC00FFC00ULL)>>8)*f+0x0FF000FF) & 0xFFC00FFC00ULL)
                         | ((((d & 0x3FF003FF)*f+0x0FF000FF)>>8) & 0x3FF003FF));
-                    *vramPtr++ = (d>>10) | 0xC0000000;
+                    *vramPtr++ = static_cast<unsigned int>((d>>10) | 0xC0000000);
                 }
             } else if (s) {
                 // Transparent non black cursor pixel.  xor it.
-                *vramPtr++ = d ^ s;
+                *vramPtr++ = static_cast<unsigned int>(d ^ s);
                 continue;
             } else                      // Transparent cursor pixel
                 vramPtr++;
@@ -285,6 +308,7 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
         cursPtr += cursRow; /* starting point of next cursor line */
         vramPtr += vramRow; /* starting point of next screen line */
     }
+    IOFB_END(StdFBDisplayCursor30Axxx,0,0,0);
 }
 
 void IOFramebuffer::StdFBDisplayCursor32Axxx(
@@ -297,6 +321,7 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
                                  int width,
                                  int height )
 {
+    IOFB_START(StdFBDisplayCursor32Axxx,0,0,0);
     int i, j;
     volatile unsigned int *savePtr;     /* saved screen data pointer */
     unsigned int s, d, f;
@@ -304,7 +329,11 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
     int frame;
 
 	frame = shmem->frame;
-	if (frame >= inst->__private->numCursorFrames) return;
+    if (static_cast<UInt32>(frame) >= inst->__private->numCursorFrames)
+    {
+        IOFB_END(StdFBDisplayCursor32Axxx,0,__LINE__,0);
+        return;
+    }
 
     savePtr = (volatile unsigned int *) inst->cursorSave;
     cursPtr = (volatile unsigned int *) inst->__private->cursorImages[ frame ];
@@ -337,6 +366,7 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
         cursPtr += cursRow; /* starting point of next cursor line */
         vramPtr += vramRow; /* starting point of next screen line */
     }
+    IOFB_END(StdFBDisplayCursor32Axxx,0,0,0);
 }
 
 void IOFramebuffer::StdFBRemoveCursor16(
@@ -347,6 +377,7 @@ void IOFramebuffer::StdFBRemoveCursor16(
                                 int width,
                                 int height )
 {
+    IOFB_START(StdFBRemoveCursor16,0,0,0);
     int i, j;
     volatile unsigned short *savePtr;
 
@@ -357,6 +388,7 @@ void IOFramebuffer::StdFBRemoveCursor16(
             *vramPtr++ = *savePtr++;
         vramPtr += vramRow;
     }
+    IOFB_END(StdFBRemoveCursor16,0,0,0);
 }
 
 void IOFramebuffer::StdFBRemoveCursor8(
@@ -367,6 +399,7 @@ void IOFramebuffer::StdFBRemoveCursor8(
                                int width,
                                int height )
 {
+    IOFB_START(StdFBRemoveCursor8,0,0,0);
     int i, j;
     volatile unsigned char *savePtr;
 
@@ -377,6 +410,7 @@ void IOFramebuffer::StdFBRemoveCursor8(
             *vramPtr++ = *savePtr++;
         vramPtr += vramRow;
     }
+    IOFB_END(StdFBRemoveCursor8,0,0,0);
 }
 
 void IOFramebuffer::StdFBRemoveCursor32(
@@ -387,6 +421,7 @@ void IOFramebuffer::StdFBRemoveCursor32(
                                 int width,
                                 int height )
 {
+    IOFB_START(StdFBRemoveCursor32,0,0,0);
     int i, j;
     volatile unsigned int *savePtr;
 
@@ -397,4 +432,5 @@ void IOFramebuffer::StdFBRemoveCursor32(
             *vramPtr++ = *savePtr++;
         vramPtr += vramRow;
     }
+    IOFB_END(StdFBRemoveCursor32,0,0,0);
 }

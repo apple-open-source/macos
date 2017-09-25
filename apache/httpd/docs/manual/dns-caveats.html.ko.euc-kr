@@ -39,7 +39,7 @@
     가로채는 것을 포함하여) 서비스도둑(theft of service) 공격에
     시달릴 수 있다.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#example">간단한 예제</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#example">간단한 예제</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#denial">서비스거부 (Denial of Service)</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#main">"주서버" 주소</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#tips">이 문제를 피하기위한 팁</a></li>
@@ -244,7 +244,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/dns-caveats.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">모듈</a> | <a href="./mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">용어</a> | <a href="./sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

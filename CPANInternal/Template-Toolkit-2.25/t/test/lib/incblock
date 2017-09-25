@@ -1,7 +1,0 @@
-[% BLOCK first_block -%]
-this is my first block, a is set to '[% a %]'
-[%- END -%]
-[% BLOCK second_block; DEFAULT b = 99 m = 98 -%]
-this is my second block, a is initially set to '[% a %]' and 
-then set to [% a = s %]'[% a %]'  b is $b  m is $m
-[%- END -%]

@@ -2,7 +2,7 @@
 
   transcode_data.h -
 
-  $Author: yugui $
+  $Author: nobu $
   created at: Mon 10 Dec 2007 14:01:47 JST 2007
 
   Copyright (C) 2007 Martin Duerst
@@ -14,9 +14,7 @@
 #ifndef RUBY_TRANSCODE_DATA_H
 #define RUBY_TRANSCODE_DATA_H 1
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility push(default)
-#endif
+RUBY_SYMBOL_EXPORT_BEGIN
 
 #define WORDINDEX_SHIFT_BITS 2
 #define WORDINDEX2INFO(widx)      ((widx) << WORDINDEX_SHIFT_BITS)
@@ -48,10 +46,26 @@
 #define makeSTR1LEN(len) ((len)-4)
 
 #define o1(b1)		(PType((((unsigned char)(b1))<<8)|ONEbt))
-#define o2(b1,b2)	(PType((((unsigned char)(b1))<<8)|(((unsigned char)(b2))<<16)|TWObt))
-#define o3(b1,b2,b3)	(PType(((((unsigned char)(b1))<<8)|(((unsigned char)(b2))<<16)|(((unsigned int)(unsigned char)(b3))<<24)|THREEbt)&0xffffffffU))
-#define o4(b0,b1,b2,b3)	(PType(((((unsigned char)(b1))<<8)|(((unsigned char)(b2))<<16)|(((unsigned char)(b3))<<24)|((((unsigned char)(b0))&0x07)<<5)|FOURbt)&0xffffffffU))
-#define g4(b0,b1,b2,b3) (PType(((((unsigned char)(b0))<<8)|(((unsigned char)(b2))<<16)|((((unsigned char)(b1))&0x0f)<<24)|((((unsigned int)(unsigned char)(b3))&0x0f)<<28)|GB4bt)&0xffffffffU))
+#define o2(b1,b2)	(PType((((unsigned char)(b1))<<8)|\
+			       (((unsigned char)(b2))<<16)|\
+			       TWObt))
+#define o3(b1,b2,b3)	(PType(((((unsigned char)(b1))<<8)|\
+				(((unsigned char)(b2))<<16)|\
+				(((unsigned int)(unsigned char)(b3))<<24)|\
+				THREEbt)&\
+			       0xffffffffU))
+#define o4(b0,b1,b2,b3)	(PType(((((unsigned char)(b1))<<8)|\
+				(((unsigned char)(b2))<<16)|\
+				(((unsigned int)(unsigned char)(b3))<<24)|\
+				((((unsigned char)(b0))&0x07)<<5)|\
+				FOURbt)&\
+			       0xffffffffU))
+#define g4(b0,b1,b2,b3) (PType(((((unsigned char)(b0))<<8)|\
+				(((unsigned char)(b2))<<16)|\
+				((((unsigned char)(b1))&0x0f)<<24)|\
+				((((unsigned int)(unsigned char)(b3))&0x0f)<<28)|\
+				GB4bt)&\
+			       0xffffffffU))
 #define funsio(diff)	(PType((((unsigned int)(diff))<<8)|FUNsio))
 
 #define getBT1(a)	((unsigned char)((a)>> 8))
@@ -72,9 +86,9 @@
 #define THREETRAIL     /* legal but undefined if three more trailing UTF-8 */
 
 typedef enum {
-  asciicompat_converter,        /* ASCII-compatible -> ASCII-compatible */
-  asciicompat_decoder,          /* ASCII-incompatible -> ASCII-compatible */
-  asciicompat_encoder           /* ASCII-compatible -> ASCII-incompatible */
+    asciicompat_converter,        /* ASCII-compatible -> ASCII-compatible */
+    asciicompat_decoder,          /* ASCII-incompatible -> ASCII-compatible */
+    asciicompat_encoder           /* ASCII-compatible -> ASCII-incompatible */
   /* ASCII-incompatible -> ASCII-incompatible is intentionally omitted. */
 } rb_transcoder_asciicompat_type_t;
 
@@ -120,8 +134,6 @@ void rb_register_transcoder(const rb_transcoder *);
 # define TRANS_INIT(name) void Init_ ## name(void)
 #endif
 
-#if defined __GNUC__ && __GNUC__ >= 4
-#pragma GCC visibility pop
-#endif
+RUBY_SYMBOL_EXPORT_END
 
 #endif /* RUBY_TRANSCODE_DATA_H */

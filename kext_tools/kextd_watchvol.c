@@ -1202,8 +1202,38 @@ is_dadisk_busy(DADiskRef disk, void *ctx)
         vol_appeared(disk, NULL);
         watched = (void*)CFDictionaryGetValue(sFsysWatchDict, volUUID);
     }
+
     // 5537105 don't prevent unlocked non-BootRoot volumes from unmounting
     if (watched) {
+        // 30381691 - file may have been removed as part of APFS update. Don't prevent unmount in that case.
+        struct stat    sb;
+        CFURLRef url = NULL;
+        char *path = NULL;
+        char mntonname[PATH_MAX];
+
+        result = -1;
+
+        url = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumePathKey);
+        if (url && CFURLGetFileSystemRepresentation(url, true, (UInt8 *)mntonname, sizeof(mntonname))) {
+            result = asprintf(&path, "%s%s", mntonname, "/usr/standalone/bootcaches.plist");
+        }
+
+        if (result != -1) {
+            result = stat(path, &sb);
+            if(result == -1) {
+               result = errno;
+            }
+        }
+
+        if (path) {
+            free (path);
+        }
+
+        // Check for ENOENT. We expect this if the installer removes the file as part of APFS conversion.
+        if (result == ENOENT) {
+            goto finish;
+        }
+
         // once 5736801 is fixed, we'll be able to kill kextcache
         if (watched->lock || (watched->isBootRoot && check_vol_busy(watched))) {
             // since we log this, count it as an error so future successes are logged

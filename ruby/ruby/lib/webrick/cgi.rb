@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # cgi.rb -- Yet another CGI library
 #
@@ -5,7 +6,7 @@
 # Copyright (c) 2003 Internet Programming with Ruby writers. All rights
 # reserved.
 #
-# $Id: cgi.rb 38945 2013-01-26 01:12:54Z drbrain $
+# $Id: cgi.rb 53141 2015-12-16 05:07:31Z naruse $
 
 require "webrick/httprequest"
 require "webrick/httpresponse"

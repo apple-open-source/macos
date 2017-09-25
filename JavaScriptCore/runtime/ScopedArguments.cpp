@@ -33,7 +33,7 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(ScopedArguments);
 
-const ClassInfo ScopedArguments::s_info = { "Arguments", &Base::s_info, 0, CREATE_METHOD_TABLE(ScopedArguments) };
+const ClassInfo ScopedArguments::s_info = { "Arguments", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(ScopedArguments) };
 
 ScopedArguments::ScopedArguments(VM& vm, Structure* structure, unsigned totalLength)
     : GenericArguments(vm, structure)
@@ -111,6 +111,8 @@ void ScopedArguments::visitChildren(JSCell* cell, SlotVisitor& visitor)
         visitor.appendValues(
             thisObject->overflowStorage(), thisObject->m_totalLength - thisObject->m_table->length());
     }
+
+    GenericArguments<ScopedArguments>::visitChildren(cell, visitor);
 }
 
 Structure* ScopedArguments::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -135,7 +137,7 @@ void ScopedArguments::overrideThingsIfNecessary(VM& vm)
         overrideThings(vm);
 }
 
-void ScopedArguments::overrideArgument(VM& vm, uint32_t i)
+void ScopedArguments::unmapArgument(VM& vm, uint32_t i)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(i < m_totalLength);
     unsigned namedLength = m_table->length();

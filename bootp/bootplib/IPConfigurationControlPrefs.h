@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,5 +53,25 @@ IPConfigurationControlPrefsGetVerbose(void);
 
 Boolean
 IPConfigurationControlPrefsSetVerbose(Boolean verbose);
+
+typedef CF_ENUM(uint32_t, IPConfigurationInterfaceTypes) {
+    kIPConfigurationInterfaceTypesUnspecified = 0,
+    kIPConfigurationInterfaceTypesNone = 1,
+    kIPConfigurationInterfaceTypesCellular = 2,
+    kIPConfigurationInterfaceTypesAll = 3,
+};
+
+IPConfigurationInterfaceTypes
+IPConfigurationInterfaceTypesFromString(CFStringRef str);
+
+CFStringRef
+IPConfigurationInterfaceTypesToString(IPConfigurationInterfaceTypes types);
+
+Boolean
+IPConfigurationControlPrefsSetAWDReportInterfaceTypes(IPConfigurationInterfaceTypes
+						      types);
+
+IPConfigurationInterfaceTypes
+IPConfigurationControlPrefsGetAWDReportInterfaceTypes(void);
 
 #endif /* _S_IPCONFIGURATIONCONTROLPREFS_H */

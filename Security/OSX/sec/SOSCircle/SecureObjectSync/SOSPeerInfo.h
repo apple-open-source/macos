@@ -61,13 +61,13 @@ static inline SOSPeerInfoRef asSOSPeerInfo(CFTypeRef obj) {
     return isSOSPeerInfo(obj) ? (SOSPeerInfoRef) obj : NULL;
 }
 
-SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, CFErrorRef* error);
+SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
                                                       CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS,
-                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey, CFErrorRef* error);
+                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error);
 
-SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error);
+SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, SecKeyRef octagonSigningKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCreateCurrentCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy,
@@ -172,6 +172,7 @@ CFStringRef SOSPeerGestaltGetName(CFDictionaryRef gestalt);
 CFTypeRef SOSPeerGestaltGetAnswer(CFDictionaryRef gestalt, CFStringRef question);
 
 SecKeyRef SOSPeerInfoCopyPubKey(SOSPeerInfoRef peer, CFErrorRef *error);
+SecKeyRef SOSPeerInfoCopyOctagonPubKey(SOSPeerInfoRef peer, CFErrorRef* error);
 
 CFDataRef SOSPeerInfoGetAutoAcceptInfo(SOSPeerInfoRef peer);
 
@@ -219,6 +220,10 @@ bool SOSPeerInfoHasDeviceID(SOSPeerInfoRef peer);
 CFStringRef SOSPeerInfoCopyDeviceID(SOSPeerInfoRef peer);
 SOSPeerInfoRef SOSPeerInfoSetDeviceID(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef IDS, SecKeyRef signingKey, CFErrorRef *error);
 
+CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
+CFStringRef SOSPeerInfoCopyOSVersion(SOSPeerInfoRef pi);
+
+
 bool SOSPeerInfoShouldUseIDSTransport(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
 bool SOSPeerInfoShouldUseIDSMessageFragmentation(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
 bool SOSPeerInfoShouldUseACKModel(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
@@ -236,7 +241,6 @@ enum {
 typedef uint32_t SOSPeerInfoDeviceClass;
 
 SOSPeerInfoDeviceClass SOSPeerInfoGetClass(SOSPeerInfoRef pi);
-
 
 __END_DECLS
 

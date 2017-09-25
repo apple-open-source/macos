@@ -22,6 +22,7 @@
  */
 
 #include "SecEncryptTransform.h"
+#include "SecTransformInternal.h"
 #include "EncryptTransform.h"
 
 /* --------------------------------------------------------------------------
@@ -61,7 +62,7 @@ SecTransformRef SecEncryptTransformCreate(SecKeyRef keyRef, CFErrorRef* error)
 	else
 	{
 		
-		CFRelease(etRef);
+		CFReleaseNull(etRef);
 		return NULL;
 	}
 }
@@ -83,7 +84,7 @@ SecTransformRef SecDecryptTransformCreate(SecKeyRef keyRef, CFErrorRef* error)
 	}
 	else
 	{
-		CFRelease(dtRef);
+		CFReleaseNull(dtRef);
 		return NULL;
 	}
 }

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/commands/specification_command'
 
@@ -10,7 +11,7 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute
-    foo = quick_spec 'foo'
+    foo = util_spec 'foo'
 
     install_specs foo
 
@@ -26,8 +27,8 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_all
-    quick_spec 'foo', '0.0.1'
-    quick_spec 'foo', '0.0.2'
+    install_specs util_spec 'foo', '0.0.1'
+    install_specs util_spec 'foo', '0.0.2'
 
     @cmd.options[:args] = %w[foo]
     @cmd.options[:all] = true
@@ -44,8 +45,8 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_all_conflicts_with_version
-    quick_spec 'foo', '0.0.1'
-    quick_spec 'foo', '0.0.2'
+    util_spec 'foo', '0.0.1'
+    util_spec 'foo', '0.0.2'
 
     @cmd.options[:args] = %w[foo]
     @cmd.options[:all] = true
@@ -89,8 +90,8 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_exact_match
-    quick_spec 'foo'
-    quick_spec 'foo_bar'
+    install_specs util_spec 'foo'
+    install_specs util_spec 'foo_bar'
 
     @cmd.options[:args] = %w[foo]
 
@@ -118,7 +119,7 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_file
-    foo = quick_spec 'foo' do |s|
+    foo = util_spec 'foo' do |s|
       s.files = %w[lib/code.rb]
     end
 
@@ -152,14 +153,9 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_remote
-    foo = quick_gem 'foo'
-
-    @fetcher = Gem::FakeFetcher.new
-    Gem::RemoteFetcher.fetcher = @fetcher
-
-    util_setup_spec_fetcher foo
-
-    FileUtils.rm File.join(@gemhome, 'specifications', foo.spec_name)
+    spec_fetcher do |fetcher|
+      fetcher.spec 'foo', 1
+    end
 
     @cmd.options[:args] = %w[foo]
     @cmd.options[:domain] = :remote
@@ -173,16 +169,10 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_remote_with_version
-    foo1 = quick_gem 'foo', "1"
-    foo2 = quick_gem 'foo', "2"
-
-    @fetcher = Gem::FakeFetcher.new
-    Gem::RemoteFetcher.fetcher = @fetcher
-
-    util_setup_spec_fetcher foo1, foo2
-
-    FileUtils.rm File.join(@gemhome, 'specifications', foo1.spec_name)
-    FileUtils.rm File.join(@gemhome, 'specifications', foo2.spec_name)
+    spec_fetcher do |fetcher|
+      fetcher.spec 'foo', "1"
+      fetcher.spec 'foo', "2"
+    end
 
     @cmd.options[:args] = %w[foo]
     @cmd.options[:version] = "1"
@@ -198,16 +188,10 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_remote_without_prerelease
-    foo = new_spec 'foo', '2.0.0'
-    foo_pre = new_spec 'foo', '2.0.1.pre'
-
-    install_specs foo, foo_pre
-
-    @fetcher = Gem::FakeFetcher.new
-    Gem::RemoteFetcher.fetcher = @fetcher
-
-    util_setup_spec_fetcher foo
-    util_setup_spec_fetcher foo_pre
+    spec_fetcher do |fetcher|
+      fetcher.spec 'foo', '2.0.0'
+      fetcher.spec 'foo', '2.0.1.pre'
+    end
 
     @cmd.options[:args] = %w[foo]
     @cmd.options[:domain] = :remote
@@ -225,16 +209,10 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_remote_with_prerelease
-    foo = new_spec 'foo', '2.0.0'
-    foo_pre = new_spec 'foo', '2.0.1.pre'
-
-    install_specs foo, foo_pre
-
-    @fetcher = Gem::FakeFetcher.new
-    Gem::RemoteFetcher.fetcher = @fetcher
-
-    util_setup_spec_fetcher foo
-    util_setup_spec_fetcher foo_pre
+    spec_fetcher do |fetcher|
+      fetcher.spec 'foo', '2.0.0'
+      fetcher.spec 'foo', '2.0.1.pre'
+    end
 
     @cmd.options[:args] = %w[foo]
     @cmd.options[:domain] = :remote
@@ -253,7 +231,7 @@ class TestGemCommandsSpecificationCommand < Gem::TestCase
   end
 
   def test_execute_ruby
-    foo = quick_spec 'foo'
+    foo = util_spec 'foo'
 
     install_specs foo
 

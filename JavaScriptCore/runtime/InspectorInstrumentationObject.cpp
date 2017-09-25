@@ -42,7 +42,7 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(InspectorInstrumentationObject);
 
-const ClassInfo InspectorInstrumentationObject::s_info = { "InspectorInstrumentation", &Base::s_info, &inspectorInstrumentationObjectTable, CREATE_METHOD_TABLE(InspectorInstrumentationObject) };
+const ClassInfo InspectorInstrumentationObject::s_info = { "InspectorInstrumentation", &Base::s_info, &inspectorInstrumentationObjectTable, nullptr, CREATE_METHOD_TABLE(InspectorInstrumentationObject) };
 
 /* Source for InspectorInstrumentationObject.lut.h
 @begin inspectorInstrumentationObjectTable
@@ -60,7 +60,7 @@ InspectorInstrumentationObject::InspectorInstrumentationObject(VM& vm, Structure
 void InspectorInstrumentationObject::finishCreation(VM& vm, JSGlobalObject*)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     putDirectWithoutTransition(vm, vm.propertyNames->isEnabled, jsBoolean(false));
 }
 

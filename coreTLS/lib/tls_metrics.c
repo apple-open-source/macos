@@ -401,7 +401,7 @@ void tls_metric_client_finished(tls_handshake_t hdsk)
 
     KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(hdsk->selectedCipher);
 
-    if(kem==SSL_DHE_RSA && hdsk->dhParams.gp) {
+    if(kem==SSL_DHE_RSA && hdsk->dhParams!=NULL) {
         size_t dhlen=ccdh_gp_prime_bitlen(hdsk->dhParams);
         if(dhlen<512) dhe_bucket = 1;
         else if(dhlen<768) dhe_bucket = 2;
@@ -457,7 +457,7 @@ void tls_metric_client_finished(tls_handshake_t hdsk)
             break;
     }
 
-    if(hdsk->peerPubKey.rsa.pub!=NULL) {
+    if(hdsk->peerPubKey.rsa!=NULL) {
         if(hdsk->peerPubKey.isRSA) {
             key_type = "rsa";
         } else {

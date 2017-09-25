@@ -1,23 +1,24 @@
 /*
- * $Id: ossl_x509name.c 38268 2012-12-08 00:26:56Z drbrain $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
 
-#define WrapX509Name(klass, obj, name) do { \
+#define NewX509Name(klass) \
+    TypedData_Wrap_Struct((klass), &ossl_x509name_type, 0)
+#define SetX509Name(obj, name) do { \
     if (!(name)) { \
 	ossl_raise(rb_eRuntimeError, "Name wasn't initialized."); \
     } \
-    (obj) = Data_Wrap_Struct((klass), 0, X509_NAME_free, (name)); \
+    RTYPEDDATA_DATA(obj) = (name); \
 } while (0)
 #define GetX509Name(obj, name) do { \
-    Data_Get_Struct((obj), X509_NAME, (name)); \
+    TypedData_Get_Struct((obj), X509_NAME, &ossl_x509name_type, (name)); \
     if (!(name)) { \
 	ossl_raise(rb_eRuntimeError, "Name wasn't initialized."); \
     } \
@@ -38,6 +39,20 @@
 VALUE cX509Name;
 VALUE eX509NameError;
 
+static void
+ossl_x509name_free(void *ptr)
+{
+    X509_NAME_free(ptr);
+}
+
+static const rb_data_type_t ossl_x509name_type = {
+    "OpenSSL/X509/NAME",
+    {
+	0, ossl_x509name_free,
+    },
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY,
+};
+
 /*
  * Public
  */
@@ -47,6 +62,7 @@ ossl_x509name_new(X509_NAME *name)
     X509_NAME *new;
     VALUE obj;
 
+    obj = NewX509Name(cX509Name);
     if (!name) {
 	new = X509_NAME_new();
     } else {
@@ -55,7 +71,7 @@ ossl_x509name_new(X509_NAME *name)
     if (!new) {
 	ossl_raise(eX509NameError, NULL);
     }
-    WrapX509Name(cX509Name, obj, new);
+    SetX509Name(obj, new);
 
     return obj;
 }
@@ -79,10 +95,11 @@ ossl_x509name_alloc(VALUE klass)
     X509_NAME *name;
     VALUE obj;
 
+    obj = NewX509Name(klass);
     if (!(name = X509_NAME_new())) {
 	ossl_raise(eX509NameError, NULL);
     }
-    WrapX509Name(klass, obj, name);
+    SetX509Name(obj, name);
 
     return obj;
 }
@@ -92,7 +109,7 @@ static VALUE ossl_x509name_add_entry(int, VALUE*, VALUE);
 #define rb_aref(obj, key) rb_funcall((obj), id_aref, 1, (key))
 
 static VALUE
-ossl_x509name_init_i(VALUE i, VALUE args)
+ossl_x509name_init_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
 {
     VALUE self = rb_ary_entry(args, 0);
     VALUE template = rb_ary_entry(args, 1);
@@ -183,13 +200,14 @@ VALUE ossl_x509name_add_entry(int argc, VALUE *argv, VALUE self)
 {
     X509_NAME *name;
     VALUE oid, value, type;
+    const char *oid_name;
 
     rb_scan_args(argc, argv, "21", &oid, &value, &type);
-    StringValue(oid);
+    oid_name = StringValueCStr(oid);
     StringValue(value);
     if(NIL_P(type)) type = rb_aref(OBJECT_TYPE_TEMPLATE, oid);
     GetX509Name(self, name);
-    if (!X509_NAME_add_entry_by_txt(name, RSTRING_PTR(oid), NUM2INT(type),
+    if (!X509_NAME_add_entry_by_txt(name, oid_name, NUM2INT(type),
 		(const unsigned char *)RSTRING_PTR(value), RSTRING_LENINT(value), -1, 0)) {
 	ossl_raise(eX509NameError, NULL);
     }
@@ -425,7 +443,7 @@ ossl_x509name_to_der(VALUE self)
  */
 
 void
-Init_ossl_x509name()
+Init_ossl_x509name(void)
 {
     VALUE utf8str, ptrstr, ia5str, hash;
 
@@ -459,7 +477,7 @@ Init_ossl_x509name()
      */
     rb_define_const(cX509Name, "DEFAULT_OBJECT_TYPE", utf8str);
     hash = rb_hash_new();
-    RHASH(hash)->ifnone = utf8str;
+    RHASH_SET_IFNONE(hash, utf8str);
     rb_hash_aset(hash, rb_str_new2("C"), ptrstr);
     rb_hash_aset(hash, rb_str_new2("countryName"), ptrstr);
     rb_hash_aset(hash, rb_str_new2("serialNumber"), ptrstr);

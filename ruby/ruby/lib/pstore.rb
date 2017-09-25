@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # = PStore -- Transactional File Storage for Ruby Objects
 #
 # pstore.rb -
@@ -189,7 +190,7 @@ class PStore
   #  store.transaction do  # begin transaction
   #    # load some data into the store...
   #    store[:single_object] = "My data..."
-  #    store[:obj_heirarchy] = { "Kev Jackson" => ["rational.rb", "pstore.rb"],
+  #    store[:obj_hierarchy] = { "Kev Jackson" => ["rational.rb", "pstore.rb"],
   #                              "James Gray"  => ["erb.rb", "pstore.rb"] }
   #  end                   # commit changes to data store file
   #
@@ -480,27 +481,5 @@ class PStore
   end
   def empty_marshal_checksum
     EMPTY_MARSHAL_CHECKSUM
-  end
-end
-
-# :enddoc:
-
-if __FILE__ == $0
-  db = PStore.new("/tmp/foo")
-  db.transaction do
-    p db.roots
-    ary = db["root"] = [1,2,3,4]
-    ary[1] = [1,1.5]
-  end
-
-  1000.times do
-    db.transaction do
-      db["root"][0] += 1
-      p db["root"][0]
-    end
-  end
-
-  db.transaction(true) do
-    p db["root"]
   end
 end

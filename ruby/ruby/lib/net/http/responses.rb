@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # :stopdoc:
 class Net::HTTPUnknownResponse < Net::HTTPResponse
   HAS_BODY = true
@@ -57,7 +58,9 @@ class Net::HTTPMultiStatus < Net::HTTPSuccess                   # 207 - RFC 4918
   HAS_BODY = true
 end
 # 208 Already Reported - RFC 5842; experimental
-# 226 IM Used - RFC 3229; no famous implementation known
+class Net::HTTPIMUsed < Net::HTTPSuccess                        # 226 - RFC 3229
+  HAS_BODY = true
+end
 
 class Net::HTTPMultipleChoices < Net::HTTPRedirection    # 300
   HAS_BODY = true
@@ -83,7 +86,9 @@ end
 class Net::HTTPTemporaryRedirect < Net::HTTPRedirection  # 307
   HAS_BODY = true
 end
-# 308 Permanent Redirect - in draft
+class Net::HTTPPermanentRedirect < Net::HTTPRedirection  # 308
+  HAS_BODY = true
+end
 
 class Net::HTTPBadRequest < Net::HTTPClientError                    # 400
   HAS_BODY = true
@@ -218,6 +223,7 @@ class Net::HTTPResponse
     '205' => Net::HTTPResetContent,
     '206' => Net::HTTPPartialContent,
     '207' => Net::HTTPMultiStatus,
+    '226' => Net::HTTPIMUsed,
 
     '300' => Net::HTTPMultipleChoices,
     '301' => Net::HTTPMovedPermanently,
@@ -226,6 +232,7 @@ class Net::HTTPResponse
     '304' => Net::HTTPNotModified,
     '305' => Net::HTTPUseProxy,
     '307' => Net::HTTPTemporaryRedirect,
+    '308' => Net::HTTPPermanentRedirect,
 
     '400' => Net::HTTPBadRequest,
     '401' => Net::HTTPUnauthorized,

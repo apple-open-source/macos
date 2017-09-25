@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010, 2013, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010, 2013, 2014, 2016, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -490,6 +490,7 @@ __private_extern__
 void
 select_service(int argc, char **argv)
 {
+#pragma unused(argc)
 	SCNetworkInterfaceRef	interface;
 	SCNetworkServiceRef	service;
 	CFStringRef		serviceName;
@@ -789,7 +790,7 @@ __show_service_protocols(SCNetworkServiceRef service, const char *prefix, Boolea
 		sorted = CFArrayCreateMutableCopy(NULL, 0, protocols);
 		CFArraySortValues(sorted,
 				  CFRangeMake(0, n),
-				  _compare_protocols,
+				  _SCNetworkProtocolCompare,
 				  NULL);
 		CFRelease(protocols);
 		protocols = sorted;
@@ -858,16 +859,16 @@ show_service(int argc, char **argv)
 			// nothing to report
 			break;
 		case kSCNetworkServicePrimaryRankFirst :
-			SCPrint(TRUE, stdout, CFSTR("primary rank         = FIRST\n"));
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = %@\n"), kSCValNetServicePrimaryRankFirst);
 			break;
 		case kSCNetworkServicePrimaryRankLast :
-			SCPrint(TRUE, stdout, CFSTR("primary rank         = LAST\n"));
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = %@\n"), kSCValNetServicePrimaryRankLast);
 			break;
 		case kSCNetworkServicePrimaryRankNever :
-			SCPrint(TRUE, stdout, CFSTR("primary rank         = NEVER\n"));
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = %@\n"), kSCValNetServicePrimaryRankNever);
 			break;
 		case kSCNetworkServicePrimaryRankScoped :
-			SCPrint(TRUE, stdout, CFSTR("primary rank         = SCOPED\n"));
+			SCPrint(TRUE, stdout, CFSTR("primary rank         = %@\n"), kSCValNetServicePrimaryRankScoped);
 			break;
 		default :
 			SCPrint(TRUE, stdout, CFSTR("primary rank         = %d\n"), serviceRank);
@@ -903,7 +904,7 @@ show_service(int argc, char **argv)
 			sorted = CFArrayCreateMutableCopy(NULL, 0, protocols);
 			CFArraySortValues(sorted,
 					  CFRangeMake(0, n),
-					  _compare_protocols,
+					  _SCNetworkProtocolCompare,
 					  NULL);
 			CFRelease(protocols);
 			protocols = sorted;
@@ -943,6 +944,7 @@ __private_extern__
 void
 show_services(int argc, char **argv)
 {
+#pragma unused(argv)
 	CFIndex	i;
 	CFIndex	n;
 

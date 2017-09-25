@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT:
  * Copyright (c) 2007-2016, International Business Machines Corporation and
@@ -13,6 +15,7 @@
 #include "unicode/ulocdata.h"
 #include "unicode/ucnv.h"
 #include "unicode/unistr.h"
+#include "cstr.h"
 
 /*
 To add a new enum type
@@ -348,8 +351,10 @@ int32_t udbg_enumByName(UDebugEnumType type, const char *value) {
  */
 U_CAPI const char *udbg_getPlatform(void)
 {
-#if U_PLATFORM_HAS_WIN32_API
+#if U_PLATFORM_USES_ONLY_WIN32_API
     return "Windows";
+#elif U_PLATFORM == U_PF_CYGWIN
+    return "Cygwin";
 #elif U_PLATFORM == U_PF_UNKNOWN
     return "unknown";
 #elif U_PLATFORM == U_PF_DARWIN
@@ -610,40 +615,6 @@ U_CAPI char *udbg_knownIssueURLFrom(const char *ticket, char *buf) {
 }
 
 
-#if !U_HAVE_STD_STRING
-const char *warning = "WARNING: Don't have std::string (STL) - known issue logs will be deficient.";
-
-U_CAPI void *udbg_knownIssue_openU(void *ptr, const char *ticket, char *where, const UChar *msg, UBool *firstForTicket,
-                                   UBool *firstForWhere) {
-  if(ptr==NULL) {
-    puts(warning);
-  }
-  printf("%s\tKnown Issue #%s\n", where, ticket);
-
-  return (void*)warning;
-}
-
-U_CAPI void *udbg_knownIssue_open(void *ptr, const char *ticket, char *where, const char *msg, UBool *firstForTicket,
-                                   UBool *firstForWhere) {
-  if(ptr==NULL) {
-    puts(warning);
-  }
-  if(msg==NULL) msg = "";
-  printf("%s\tKnown Issue #%s  \"%s\n", where, ticket, msg);
-
-  return (void*)warning;
-}
-
-U_CAPI UBool udbg_knownIssue_print(void *ptr) {
-  puts(warning);
-  return FALSE;
-}
-
-U_CAPI void udbg_knownIssue_close(void *ptr) {
-  // nothing to do
-}
-#else
-
 #include <set>
 #include <map>
 #include <string>
@@ -689,8 +660,9 @@ void KnownIssues::add(const char *ticket, const char *where, const UChar *msg, U
   }
   if(msg==NULL || !*msg) return;
 
-  std::string str;
-  fTable[ticket][where].insert(icu::UnicodeString(msg).toUTF8String(str));
+  const icu::UnicodeString ustr(msg);
+
+  fTable[ticket][where].insert(std::string(icu::CStr(ustr)()));
 }
 
 void KnownIssues::add(const char *ticket, const char *where, const char *msg, UBool *firstForTicket, UBool *firstForWhere)
@@ -781,5 +753,3 @@ U_CAPI void udbg_knownIssue_close(void *ptr) {
   KnownIssues *t = static_cast<KnownIssues*>(ptr);
   delete t;
 }
-
-#endif

@@ -3,25 +3,40 @@
 #ifndef sec_SOSTransportCircleKVS_h
 #define sec_SOSTransportCircleKVS_h
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#import "SOSTransportCircle.h"
+@class SOSCircleStorageTransport;
 
-typedef struct __OpaqueSOSTransportCircleKVS * SOSTransportCircleKVSRef;
+@interface SOSKVSCircleStorageTransport : SOSCircleStorageTransport
+{
+    NSMutableDictionary *pending_changes;
+    NSString            *circleName;
+}
 
-SOSTransportCircleKVSRef SOSTransportCircleKVSCreate(SOSAccountRef account, CFStringRef circleName, CFErrorRef *error);
-SOSTransportKeyParameterRef SOSTransportKeyParameterCreateForSubclass(size_t size, SOSAccountRef account, CFErrorRef *error);
-
-bool SOSTransportCircleKVSAppendKeyInterest(SOSTransportCircleKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *error);
-
-void SOSTransportCircleKVSAddToPendingChanges(SOSTransportCircleKVSRef transport, CFStringRef message_key, CFDataRef message_data);
-bool SOSTransportCircleKVSSendPendingChanges(SOSTransportCircleKVSRef transport, CFErrorRef *error);
-bool SOSTransportCircleKVSAppendPeerInfoKeyInterest(SOSTransportCircleKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *error);
-bool SOSTransportCircleKVSAppendRingKeyInterest(SOSTransportCircleKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *error);
-
-bool SOSTransportCircleKVSAppendDebugKeyInterest(SOSTransportCircleKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *error);
-
-CFArrayRef SOSTransportCircleKVSHandlePeerInfoV2Messages(SOSTransportCircleRef transport, CFMutableDictionaryRef peer_info_message_table, CFErrorRef *error);
+@property (retain, nonatomic)   NSMutableDictionary *pending_changes;
+@property (retain, nonatomic)   NSString            *circleName;
 
 
+-(id)init;
+-(id)initWithAccount:(SOSAccount*)acct andCircleName:(NSString*)name;
+-(NSString*) getCircleName;
+-(bool) flushChanges:(CFErrorRef *)error;
 
+-(void)kvsAddToPendingChanges:(CFStringRef) message_key data:(CFDataRef)message_data;
+-(bool)kvsSendPendingChanges:(CFErrorRef *)error;
+
+-(bool)kvsAppendKeyInterest:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef) afterFirstUnlockKeys unlocked:(CFMutableArrayRef)unlockedKeys err:(CFErrorRef *)error;
+-(bool)kvsAppendRingKeyInterest:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef)afterFirstUnlockKeys unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)error;
+-(bool)kvsAppendDebugKeyInterest:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef)afterFirstUnlockKeys unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)error;
+-(bool)kvsAppendConfigKeyInterest:(CFMutableArrayRef) alwaysKeys firstUnlock:(CFMutableArrayRef)afterFirstUnlockKeys unlocked:(CFMutableArrayRef) unlockedKeys err:(CFErrorRef *)error;
+
+-(bool) kvsRingFlushChanges:(CFErrorRef*) error;
+-(bool) kvsRingPostRing:(CFStringRef) ringName ring:(CFDataRef) ring err:(CFErrorRef *)error;
+
+-(bool) kvssendDebugInfo:(CFStringRef) type debug:(CFTypeRef) debugInfo  err:(CFErrorRef *)error;
+-(bool) kvsSendOfficialDSID:(CFStringRef) dsid err:(CFErrorRef *)error;
+
+-(bool) kvsSendAccountChangedWithDSID:(CFStringRef) dsid err:(CFErrorRef *)error;
+
+@end;
 
 #endif

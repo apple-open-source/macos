@@ -24,6 +24,7 @@
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP サーバ</a> &gt; <a href="http://httpd.apache.org/docs/">ドキュメンテーション</a> &gt; <a href="../">バージョン 2.4</a> &gt; <a href="./">How-To / チュートリアル</a></div><div id="page-content"><div id="preamble"><h1>Apache チュートリアル: .htaccess ファイル</h1>
 <div class="toplang">
 <p><span>翻訳済み言語: </span><a href="../en/howto/htaccess.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/htaccess.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/htaccess.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/htaccess.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/htaccess.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -37,7 +38,7 @@
 <p><code>.htaccess</code> ファイルはディレクトリ毎に設定を変更する方法を
 提供します。</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">.htaccess ファイル</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">.htaccess ファイル</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#what">.htaccess ファイルとは何か/その使い方</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#when">いつ .htaccess ファイルを使う(使わない)か。</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#how">ディレクティブの適用のされ方</a></li>
@@ -384,6 +385,7 @@ Options +IncludesNoExec -ExecCGI<br />
 </div></div>
 <div class="bottomlang">
 <p><span>翻訳済み言語: </span><a href="../en/howto/htaccess.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/htaccess.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/htaccess.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/htaccess.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/htaccess.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -406,7 +408,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/htaccess.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

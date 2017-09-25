@@ -447,6 +447,16 @@ size_t BundleDiskRep::signingLimit()
 	return mExecRep->signingLimit();
 }
 
+size_t BundleDiskRep::execSegBase(const Architecture *arch)
+{
+	return mExecRep->execSegBase(arch);
+}
+
+size_t BundleDiskRep::execSegLimit(const Architecture *arch)
+{
+	return mExecRep->execSegLimit(arch);
+}
+
 string BundleDiskRep::format()
 {
 	return mFormat;

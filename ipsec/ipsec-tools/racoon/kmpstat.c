@@ -60,8 +60,7 @@
 #include <unistd.h>
 #endif
 #include <err.h>
-#include <sys/ioctl.h> 
-#include <resolv.h>
+#include <sys/ioctl.h>
 
 #include "libpfkey.h"
 

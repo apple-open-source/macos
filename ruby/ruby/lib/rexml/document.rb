@@ -1,3 +1,5 @@
+# frozen_string_literal: false
+require "rexml/security"
 require "rexml/element"
 require "rexml/xmldecl"
 require "rexml/source"
@@ -122,7 +124,7 @@ module REXML
     def xml_decl
       rv = @children[0]
       return rv if rv.kind_of? XMLDecl
-      rv = @children.unshift(XMLDecl.default)[0]
+      @children.unshift(XMLDecl.default)[0]
     end
 
     # @return the XMLDecl version of this document as a String.
@@ -194,11 +196,8 @@ module REXML
     #   the absolute *value* of the document -- that is, it leaves the value
     #   and number of Text nodes in the document unchanged.
     # ie_hack::
-    #   Internet Explorer is the worst piece of crap to have ever been
-    #   written, with the possible exception of Windows itself.  Since IE is
-    #   unable to parse proper XML, we have to provide a hack to generate XML
-    #   that IE's limited abilities can handle.  This hack inserts a space
-    #   before the /> on empty tags.  Defaults to false
+    #   This hack inserts a space before the /> on empty tags to address
+    #   a limitation of Internet Explorer.  Defaults to false
     # encoding::
     #   Encoding name as String. Change output encoding to specified encoding
     #   instead of encoding in XML declaration.
@@ -243,37 +242,39 @@ module REXML
       Parsers::StreamParser.new( source, listener ).parse
     end
 
-    @@entity_expansion_limit = 10_000
-
     # Set the entity expansion limit. By default the limit is set to 10000.
+    #
+    # Deprecated. Use REXML::Security.entity_expansion_limit= instead.
     def Document::entity_expansion_limit=( val )
-      @@entity_expansion_limit = val
+      Security.entity_expansion_limit = val
     end
 
     # Get the entity expansion limit. By default the limit is set to 10000.
+    #
+    # Deprecated. Use REXML::Security.entity_expansion_limit= instead.
     def Document::entity_expansion_limit
-      return @@entity_expansion_limit
+      return Security.entity_expansion_limit
     end
 
     # Set the entity expansion limit. By default the limit is set to 10240.
     #
-    # Deprecated. Use REXML.entity_expansion_text_limit= instead.
+    # Deprecated. Use REXML::Security.entity_expansion_text_limit= instead.
     def Document::entity_expansion_text_limit=( val )
-      REXML.entity_expansion_text_limit = val
+      Security.entity_expansion_text_limit = val
     end
 
     # Get the entity expansion limit. By default the limit is set to 10240.
     #
-    # Deprecated. Use REXML.entity_expansion_text_limit instead.
+    # Deprecated. Use REXML::Security.entity_expansion_text_limit instead.
     def Document::entity_expansion_text_limit
-      return REXML.entity_expansion_text_limit
+      return Security.entity_expansion_text_limit
     end
 
     attr_reader :entity_expansion_count
 
     def record_entity_expansion
       @entity_expansion_count += 1
-      if @entity_expansion_count > @@entity_expansion_limit
+      if @entity_expansion_count > Security.entity_expansion_limit
         raise "number of entity expansions exceeded, processing aborted."
       end
     end

@@ -12,19 +12,19 @@ var_dump($di);
 ?>
 ==DONE==
 --EXPECTF--
-object(DateInterval)#%d (15) {
+object(DateInterval)#%d (16) {
   ["y"]=>
-  int(-1)
+  int(2)
   ["m"]=>
-  int(-1)
+  int(0)
   ["d"]=>
-  int(-1)
+  int(0)
   ["h"]=>
-  int(-1)
+  int(6)
   ["i"]=>
-  int(-1)
+  int(8)
   ["s"]=>
-  int(-1)
+  int(0)
   ["weekday"]=>
   int(10)
   ["weekday_behavior"]=>
@@ -43,5 +43,7 @@ object(DateInterval)#%d (15) {
   int(9)
   ["have_special_relative"]=>
   int(0)
+  ["f"]=>
+  float(-1)
 }
 ==DONE==

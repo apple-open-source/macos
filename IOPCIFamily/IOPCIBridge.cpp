@@ -442,6 +442,7 @@ IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result, 
 
 #if ACPI_SUPPORT
 	    if (version_major < 17) IOPCIPlatformInitialize();
+	    AppleVTD::installInterrupts();
 #endif /* ACPI_SUPPORT */
 
 	    getPMRootDomain()->registerInterest(gIOPriorityPowerStateInterest, &systemPowerChange, 0, 0);
@@ -738,6 +739,19 @@ void IOPCIBridge::free( void )
     super::free();
 }
 
+IOReturn IOPCIBridge::setDeviceCLKREQBits(IOPCIDevice * device, uint32_t bits)
+{
+    if (!device->reserved->expressCapability) return (kIOReturnUnsupported);
+
+    uint16_t control;
+    control = device->configRead16(device->reserved->expressCapability + 0x10);
+    control &= ~kIOPCIExpressClkReq;
+    control |= (kIOPCIExpressClkReq & bits);
+    device->configWrite16(device->reserved->expressCapability + 0x10, control);
+
+    return (kIOReturnSuccess);
+}
+
 IOReturn IOPCIBridge::setDeviceASPMBits(IOPCIDevice * device, uint32_t bits)
 {
     if (!device->reserved->expressCapability) return (kIOReturnUnsupported);
@@ -810,11 +824,11 @@ IOReturn IOPCI2PCIBridge::setDeviceASPMState(IOPCIDevice * device,
 		// L1 and L0s need to be supported on both ends to enable
 		aspmBits = (state
 				   & fBridgeDevice->reserved->aspmCaps
-				   & device->reserved->aspmCaps
-				   & (kIOPCIExpressASPML0s | kIOPCIExpressASPML1));
+				   & device->reserved->aspmCaps);
 
         setDeviceASPMBits(fBridgeDevice, aspmBits);
         setDeviceASPMBits(device,        aspmBits);
+        setDeviceCLKREQBits(device, device->reserved->aspmCaps & device->reserved->expressASPMDefault);
     }
     else 
     {
@@ -879,9 +893,11 @@ IOPCI2PCIBridge::setTunnelL1Enable(IOPCIDevice * device, IOService * client, boo
 		if (device == shadow->sharedRoot)
 		{
 			IOOptionBits state = 0;
-			if (now) state |= kIOPCIExpressASPML1;
+			if (now && !(kIOPCIConfiguratorNoL1 & gIOPCIFlags)) state |= kIOPCIExpressASPML1;
 			DLOG("set tunnel ASPM %s -> %d\n", device->getName(), state);
-			ret = device->setASPMState(this, state);
+            shadow->sharedRootASPMState = state;
+            ret = (kIOPCIDeviceOnState == device->reserved->pmState)
+                ? device->setASPMState(this, state) : kIOReturnSuccess;
 		}
 		else
 		{
@@ -1007,7 +1023,7 @@ static void IOPCILogDevice(const char * log, IOPCIDevice * device, bool dump)
 		}
 	}
 	pos += snprintf(string + pos, slen - pos, "\n");
-	DLOG(string);
+	DLOG("%s", string);
 	IODelete(string, char, slen);
 }
 
@@ -1185,7 +1201,7 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
      && (!(kIOPCIConfigShadowPermanent & options)))
 	{
 		configOp(device, kConfigOpShadowed, &shadow->configSave.savedConfig[0]);
-		restoreQEnter(device);
+		if (!device->isInactive()) restoreQEnter(device);
 	}
 
     return (ret);
@@ -1225,13 +1241,16 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 		DLOG("%s::configHandler(kIOMessageDeviceWillPowerOn) %lld ms\n", device->getName(), time / 1000000ULL);
     }
 
+    data = 0xEEEEEEEE;
     dead = device->reserved->dead;
 	if (!dead)
 	{
-		if (kIOReturnSuccess != device->parent->checkLink(kCheckLinkParents))
+		ret = device->parent->checkLink(kCheckLinkParents);
+		if (kIOReturnSuccess != ret)
         {
             DLOG("%s: pci restore no link\n", device->getName());
 			dead = true;
+			data = ret;
         }
 	}
 
@@ -1269,7 +1288,16 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
         }
     }
 
-	if (!dead)
+	if (dead)
+	{
+		if ((kPCIHotPlugTunnelRoot == shadow->hpType)
+		 || (kPCIStaticTunnel == shadow->hpType)
+		 || (kPCIStaticShared == shadow->hpType))
+		 {
+			 panic("%s: thunderbolt power on failed 0x%08x\n", device->getName(), (int)data);
+		 }
+	}
+	else
 	{
 		if (kIOPCIConfiguratorLogSaveRestore & gIOPCIFlags)
 			IOPCILogDevice("before restore", device, true);
@@ -1673,6 +1701,12 @@ IOReturn IOPCIBridge::_restoreDeviceDependents(IOPCIDevice * device, IOOptionBit
 
             if (didTunnelController)
             {
+				IOOptionBits state;
+
+				state = configShadow(device)->sharedRootASPMState;
+				DLOG("wake tunnel ASPM %s -> %d\n", device->getName(), state);
+				device->setASPMState(this, state);
+
                 IOLockLock(gIOPCIWakeReasonLock);
                 gIOPCITunnelSleep--;
                 if (gIOPCITunnelWait && !--gIOPCITunnelWait)
@@ -1785,19 +1819,6 @@ SInt64 IOPCIBridge::compareAddressCell( UInt32 /* cellCount */, UInt32 cleft[], 
     return IOPhysical32(left->physMid, left->physLo) - IOPhysical32(right->physMid, right->physLo);
 }
 #endif
-
-void IOPCIBridge::nvLocation( IORegistryEntry * entry,
-                              UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum )
-{
-    IOPCIDevice *       nub;
-
-    nub = OSDynamicCast( IOPCIDevice, entry );
-    assert( nub );
-
-    *busNum             = nub->space.s.busNum;
-    *deviceNum          = nub->space.s.deviceNum;
-    *functionNum        = nub->space.s.functionNum;
-}
 
 void IOPCIBridge::spaceFromProperties( OSDictionary * propTable,
                                        IOPCIAddressSpace * space )
@@ -2186,7 +2207,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
         return;
     }
 
-    IODTSetResolving(provider, &compareAddressCell, &nvLocation);
+    IODTSetResolving(provider, &compareAddressCell, NULL);
 
     kidsIter = provider->getChildIterator( gIODTPlane );
 
@@ -2242,23 +2263,27 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
                 }
 
                 capa = 0;
-                if (nub->extendedFindPCICapability(kIOPCIPCIExpressCapability, &capa)) {
+                if (nub->extendedFindPCICapability(kIOPCIPCIExpressCapability, &capa))
+                {
                     nub->reserved->expressCapability = capa;
                     nub->reserved->expressCapabilities = nub->configRead16(capa + 0x02);
-                    nub->reserved->aspmCaps = (3 & (nub->configRead32(capa + 0xc) >> 10));
+                    uint32_t linkCaps = nub->configRead32(capa + 0xc);
+                    nub->reserved->aspmCaps = ((kIOPCIExpressASPML0s|kIOPCIExpressASPML1)
+                                            & (linkCaps >> 10));
+                    if ((1 << 18) & linkCaps) nub->reserved->aspmCaps |= kIOPCIExpressClkReq;
 #if ACPI_SUPPORT
                     // current aspm mode
-                    nub->reserved->expressASPMDefault = (3 & (nub->configRead16(capa + 0x10)));
+                    nub->reserved->expressASPMDefault = ((kIOPCIExpressClkReq|kIOPCIExpressASPML0s|kIOPCIExpressASPML1)
+                                                        & (nub->configRead16(capa + 0x10)));
 #else
-                    nub->reserved->expressASPMDefault = nub->reserved->aspmCaps;
+                    nub->reserved->expressASPMDefault = nub->reserved->aspmCaps & ~kIOPCIExpressClkReq;
 #endif
-		}
-
+                }
 				if (nub->reserved->expressCapability && nub->reserved->latencyToleranceCapability
 				 && (data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressMaxLatencyKey, gIODTPlane))))
 				{
 					nub->extendedConfigWrite32(nub->reserved->latencyToleranceCapability + 0x04, 
-												*((uint32_t *) data->getBytesNoCopy()));
+                                                 *((uint32_t *) data->getBytesNoCopy()));
 					enableLTR(nub, true);
 				}
 
@@ -3259,7 +3284,10 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
 		{
         	fHotPlugInts = true;
 		}
-		fIsAERRoot = (fBridgeDevice->reserved->rootPort && fBridgeDevice->reserved->aerCapability);
+		fIsAERRoot = ((kIOPCIConfiguratorAER & gIOPCIFlags)
+			        && (kPCIStatic == configShadow(fBridgeDevice)->hpType)
+		            && fBridgeDevice->reserved->rootPort
+		            && fBridgeDevice->reserved->aerCapability);
 		if (fHotPlugInts || fIsAERRoot)
 		{
 			allocateBridgeInterrupts(provider);

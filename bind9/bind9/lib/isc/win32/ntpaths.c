@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2009, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -50,7 +50,7 @@ static DWORD baseLen = MAX_PATH;
 static BOOL Initialized = FALSE;
 
 void
-isc_ntpaths_init() {
+isc_ntpaths_init(void) {
 	HKEY hKey;
 	BOOL keyFound = TRUE;
 

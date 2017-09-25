@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 #   sync.rb - 2 phase lock with counter
 #       $Release Version: 1.0$
-#       $Revision: 38577 $
+#       $Revision: 53141 $
 #       by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -315,7 +316,7 @@ end
 Synchronizer_m = Sync_m
 
 ##
-# A class that providesa two-phase lock with a counter.  See Sync_m for
+# A class that provides two-phase lock with a counter.  See Sync_m for
 # details.
 
 class Sync

@@ -85,7 +85,7 @@ void DatabaseProcessProxy::didReceiveMessage(IPC::Connection& connection, IPC::D
     }
 }
 
-void DatabaseProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::function<void (WebsiteData)> completionHandler)
+void DatabaseProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, WTF::Function<void (WebsiteData)>&& completionHandler)
 {
     ASSERT(canSendMessage());
 
@@ -95,7 +95,7 @@ void DatabaseProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<Websi
     send(Messages::DatabaseProcess::FetchWebsiteData(sessionID, dataTypes, callbackID), 0);
 }
 
-void DatabaseProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::chrono::system_clock::time_point modifiedSince,  std::function<void ()> completionHandler)
+void DatabaseProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::chrono::system_clock::time_point modifiedSince, WTF::Function<void ()>&& completionHandler)
 {
     auto callbackID = generateCallbackID();
 
@@ -103,7 +103,7 @@ void DatabaseProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, Optio
     send(Messages::DatabaseProcess::DeleteWebsiteData(sessionID, dataTypes, modifiedSince, callbackID), 0);
 }
 
-void DatabaseProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, const Vector<WebCore::SecurityOriginData>& origins, std::function<void()> completionHandler)
+void DatabaseProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, const Vector<WebCore::SecurityOriginData>& origins, WTF::Function<void()>&& completionHandler)
 {
     ASSERT(canSendMessage());
 
@@ -113,16 +113,16 @@ void DatabaseProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, Opti
     send(Messages::DatabaseProcess::DeleteWebsiteDataForOrigins(sessionID, dataTypes, origins, callbackID), 0);
 }
 
-void DatabaseProcessProxy::getDatabaseProcessConnection(PassRefPtr<Messages::WebProcessProxy::GetDatabaseProcessConnection::DelayedReply> reply)
+void DatabaseProcessProxy::getDatabaseProcessConnection(Ref<Messages::WebProcessProxy::GetDatabaseProcessConnection::DelayedReply>&& reply)
 {
-    m_pendingConnectionReplies.append(reply);
+    m_pendingConnectionReplies.append(WTFMove(reply));
 
     if (state() == State::Launching) {
         m_numPendingConnectionRequests++;
         return;
     }
 
-    connection()->send(Messages::DatabaseProcess::CreateDatabaseToWebProcessConnection(), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    send(Messages::DatabaseProcess::CreateDatabaseToWebProcessConnection(), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 void DatabaseProcessProxy::didClose(IPC::Connection&)
@@ -217,7 +217,7 @@ void DatabaseProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Co
     }
 
     for (unsigned i = 0; i < m_numPendingConnectionRequests; ++i)
-        connection()->send(Messages::DatabaseProcess::CreateDatabaseToWebProcessConnection(), 0);
+        send(Messages::DatabaseProcess::CreateDatabaseToWebProcessConnection(), 0);
     
     m_numPendingConnectionRequests = 0;
 }

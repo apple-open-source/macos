@@ -25,6 +25,7 @@
 #define system_cmds_common_h
 
 #include <mach/mach.h>
+#include "json.h"
 
 #define PROC_NAME_LEN 100
 #define BUFSTR_LEN 30
@@ -37,6 +38,7 @@ struct prog_configs {
     boolean_t verbose;
     int       voucher_detail_length;
     pid_t     pid; /* if user focusing only one pid */
+    JSON_t    json_output;
 };
 
 extern struct prog_configs lsmp_config;
@@ -136,30 +138,47 @@ typedef struct my_per_task_info {
 #define IKOT_UNKNOWN              39	/* magic catchall	*/
 #define IKOT_MAX_TYPE             (IKOT_UNKNOWN+1)	/* # of IKOT_ types	*/
 
+
+#define PORT_FLAG_TO_INDEX(flag) ( __builtin_ctz(flag) ) /* count trailing zeros */
+#define INDEX_TO_PORT_FLAG(idx) ( 1 << idx )
+typedef struct port_status_flag_info {
+    natural_t flag; /* MACH_PORT_STATUS_FLAG_* */
+    const char *compact_name; /* Single character name for compact representation */
+    const char *name; /* human readable long name */
+} port_status_flag_info_t;
+
+/*
+ * list of names for possible MACH_PORT_STATUS_FLAG_*
+ * indexed by PORT_FLAG_TO_INDEX(MACH_PORT_STATUS_FLAG_*)
+ */
+extern const port_status_flag_info_t port_status_flags[];
+
+#define _SHOW_PORT_STATUS_FLAG(flags, flag) \
+  (flags & flag) ? port_status_flags[PORT_FLAG_TO_INDEX(flag)].compact_name : "-"
 #define SHOW_PORT_STATUS_FLAGS(flags) \
-  (flags & MACH_PORT_STATUS_FLAG_TEMPOWNER)	?"T":"-", \
-  (flags & MACH_PORT_STATUS_FLAG_GUARDED)		?"G":"-", \
-  (flags & MACH_PORT_STATUS_FLAG_STRICT_GUARD)	?"S":"-", \
-  (flags & MACH_PORT_STATUS_FLAG_IMP_DONATION)	?"I":"-", \
-  (flags & MACH_PORT_STATUS_FLAG_REVIVE)		?"R":"-", \
-  (flags & MACH_PORT_STATUS_FLAG_TASKPTR)		?"P":"-"
+  _SHOW_PORT_STATUS_FLAG(flags, MACH_PORT_STATUS_FLAG_TEMPOWNER), \
+  _SHOW_PORT_STATUS_FLAG(flags, MACH_PORT_STATUS_FLAG_GUARDED), \
+  _SHOW_PORT_STATUS_FLAG(flags, MACH_PORT_STATUS_FLAG_STRICT_GUARD), \
+  _SHOW_PORT_STATUS_FLAG(flags, MACH_PORT_STATUS_FLAG_IMP_DONATION), \
+  _SHOW_PORT_STATUS_FLAG(flags, MACH_PORT_STATUS_FLAG_REVIVE), \
+  _SHOW_PORT_STATUS_FLAG(flags, MACH_PORT_STATUS_FLAG_TASKPTR)
 
 
-uint32_t show_recipe_detail(mach_voucher_attr_recipe_t recipe, char * voucher_outstr, uint32_t maxlen);
-char *copy_voucher_detail(mach_port_t task, mach_port_name_t voucher);
+uint32_t show_recipe_detail(mach_voucher_attr_recipe_t recipe, char * voucher_outstr, uint32_t maxlen, JSON_t json);
+char *copy_voucher_detail(mach_port_t task, mach_port_name_t voucher, JSON_t json);
 
 /* mach port related functions */
 const char * kobject_name(natural_t kotype);
 void get_receive_port_context(task_t taskp, mach_port_name_t portname, mach_port_context_t *context);
 int get_recieve_port_status(task_t taskp, mach_port_name_t portname, mach_port_info_ext_t *info);
-void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_per_task_info_t *allTaskInfos);
+void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_per_task_info_t *allTaskInfos, JSON_t json);
 
 /* task and thread related helper functions */
 kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_task);
 my_per_task_info_t * allocate_taskinfo_memory(uint32_t taskCount);
 void deallocate_taskinfo_memory(my_per_task_info_t *data);
-kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo);
-kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo);
+kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo, JSON_t json);
+kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo, JSON_t json);
 my_per_task_info_t * get_taskinfo_by_kobject(natural_t kobj);
 
 void get_exc_behavior_string(exception_behavior_t b, char *out_string, size_t len);

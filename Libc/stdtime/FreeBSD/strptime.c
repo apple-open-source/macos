@@ -319,10 +319,11 @@ label:
 			 * XXX This is bogus if parsed before hour-related
 			 * specifiers.
 			 */
+			if (tm->tm_hour > 12)
+				return (NULL);
+
 			len = strlen(tptr->am);
 			if (strncasecmp_l(buf, tptr->am, len, locale) == 0) {
-				if (tm->tm_hour > 12)
-					return (NULL);
 				if (tm->tm_hour == 12)
 					tm->tm_hour = 0;
 				buf += len;
@@ -331,8 +332,6 @@ label:
 
 			len = strlen(tptr->pm);
 			if (strncasecmp_l(buf, tptr->pm, len, locale) == 0) {
-				if (tm->tm_hour > 12)
-					return (NULL);
 				if (tm->tm_hour != 12)
 					tm->tm_hour += 12;
 				buf += len;
@@ -391,12 +390,11 @@ label:
 				return (NULL);
 
 			i = *buf - '0';
-			if (i > 6 + (c == 'u'))
+			if (i < 0 || i > 7 || (c == 'u' && i < 1) ||
+			    (c == 'w' && i > 6))
 				return (NULL);
-			if (i == 7)
-				i = 0;
 
-			tm->tm_wday = i;
+			tm->tm_wday = i % 7;
 			flags |= FLAG_WDAY;
 			buf++;
 
@@ -698,35 +696,46 @@ label:
 			    TM_YEAR_BASE)][tm->tm_mon] + (tm->tm_mday - 1);
 			flags |= FLAG_YDAY;
 		} else if (flags & FLAG_WEEK){
+			int day_offset = week_kind == WEEK_U ? TM_SUNDAY : TM_MONDAY;
+			int fwo = first_wday_of(tm->tm_year + TM_YEAR_BASE);
+
+			/* No incomplete week (week 0). */
+			if (week_number == 0 && fwo == day_offset)
+				return (NULL);
+
 			if (!(flags & FLAG_WDAY)) {
-				tm->tm_wday = week_kind == WEEK_U ? TM_SUNDAY : TM_MONDAY;
+				/*
+				 * Set the date to the first Sunday (or Monday)
+				 * of the specified week of the year.
+				 */
+				tm->tm_wday = day_offset;
 				flags |= FLAG_WDAY;
 			}
 
-			struct tm t = {0};
-			t.tm_mday = week_kind == WEEK_V ? 4 : 1;
-			t.tm_hour = 12; /* avoid any DST effects */
-			t.tm_year = tm->tm_year;
-			if (timegm(&t) == (time_t)-1) return 0;
+			/*
+			 * Start our yday at the first day of the relevant week type.
+			 */
+			int tmpyday = (7 - fwo + day_offset) % 7;
 
-			int off = t.tm_wday;
-			int wday = tm->tm_wday;
-
-			if (week_kind != WEEK_U) {
-				off = (off + 6) % 7;
-				wday = (wday + 6) % 7;
+			/*
+			 * ISO Weeks start counting from the first week with at least
+			 * four days.  If our first week had that, subtract off a week.
+			 */
+			if (week_kind == WEEK_V && fwo > TM_MONDAY && fwo <= TM_THURSDAY) {
+				tmpyday -= 7;
 			}
+			/* Advance the relevant number of weeks */
+			tmpyday += (week_number - 1) * 7;
+			/* And go to the right day of week */
+			tmpyday += (tm->tm_wday - day_offset + 7) % 7;
 
-			if (week_kind == WEEK_V) {
-				t.tm_mday = 7 * week_number + wday - off - 3;
-			} else {
-				if(off == 0) off = 7;
-				t.tm_mday = 7 * week_number + wday - off + 1;
+			/* Impossible yday for incomplete week (week 0). */
+			if (tmpyday < 0) {
+				if (flags & FLAG_WDAY)
+					return (NULL);
+				tmpyday = 0;
 			}
-			if (timegm(&t) == (time_t)-1) return 0;
-
-			tm->tm_yday = t.tm_yday;
-
+			tm->tm_yday = tmpyday;
 			flags |= FLAG_YDAY;
 		}
 	}
@@ -755,13 +764,8 @@ label:
 			flags |= FLAG_MDAY;
 		}
 		if (!(flags & FLAG_WDAY)) {
-			i = 0;
-			wday_offset = first_wday_of(tm->tm_year);
-			while (i++ <= tm->tm_yday) {
-				if (wday_offset++ >= 6)
-					wday_offset = 0;
-			}
-			tm->tm_wday = wday_offset;
+			wday_offset = first_wday_of(tm->tm_year + TM_YEAR_BASE);
+			tm->tm_wday = (wday_offset + tm->tm_yday) % 7;
 			flags |= FLAG_WDAY;
 		}
 	}

@@ -42,7 +42,6 @@
 #include "Logging.h"
 #include "MainFrame.h"
 #include "MemoryCache.h"
-#include "Page.h"
 #include "PlatformStrategies.h"
 #include "ResourceHandle.h"
 #include "SchemeRegistry.h"
@@ -71,14 +70,15 @@ ResourceLoadPriority CachedResource::defaultPriorityForResourceType(Type type)
     case CachedResource::MainResource:
         return ResourceLoadPriority::VeryHigh;
     case CachedResource::CSSStyleSheet:
-        return ResourceLoadPriority::High;
     case CachedResource::Script:
+        return ResourceLoadPriority::High;
 #if ENABLE(SVG_FONTS)
     case CachedResource::SVGFontResource:
 #endif
     case CachedResource::MediaResource:
     case CachedResource::FontResource:
     case CachedResource::RawResource:
+    case CachedResource::Icon:
         return ResourceLoadPriority::Medium;
     case CachedResource::ImageResource:
         return ResourceLoadPriority::Low;
@@ -103,10 +103,10 @@ ResourceLoadPriority CachedResource::defaultPriorityForResourceType(Type type)
     return ResourceLoadPriority::Low;
 }
 
-static std::chrono::milliseconds deadDecodedDataDeletionIntervalForResourceType(CachedResource::Type type)
+static Seconds deadDecodedDataDeletionIntervalForResourceType(CachedResource::Type type)
 {
     if (type == CachedResource::Script)
-        return std::chrono::milliseconds { 0 };
+        return 0_s;
 
     return MemoryCache::singleton().deadDecodedDataDeletionInterval();
 }
@@ -122,6 +122,9 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, Sessi
     , m_responseTimestamp(std::chrono::system_clock::now())
     , m_fragmentIdentifierForRequest(request.releaseFragmentIdentifier())
     , m_origin(request.releaseOrigin())
+    , m_initiatorName(request.initiatorName())
+    , m_isLinkPreload(request.isLinkPreload())
+    , m_hasUnknownEncoding(request.isLinkPreload())
     , m_type(type)
 {
     ASSERT(sessionID.isValid());
@@ -215,16 +218,6 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
 
     m_loading = true;
 
-#if USE(QUICK_LOOK)
-    if (!m_resourceRequest.isNull() && m_resourceRequest.url().protocolIs(QLPreviewProtocol())) {
-        // When QuickLook is invoked to convert a document, it returns a unique URL in the
-        // NSURLReponse for the main document. To make safeQLURLForDocumentURLAndResourceURL()
-        // work, we need to use the QL URL not the original URL.
-        const URL& documentURL = frameLoader.documentLoader()->response().url();
-        m_resourceRequest.setURL(safeQLURLForDocumentURLAndResourceURL(documentURL, url()));
-    }
-#endif
-
     if (isCacheValidator()) {
         CachedResource* resourceToRevalidate = m_resourceToRevalidate;
         ASSERT(resourceToRevalidate->canUseCacheValidator());
@@ -232,8 +225,8 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         const String& lastModified = resourceToRevalidate->response().httpHeaderField(HTTPHeaderName::LastModified);
         const String& eTag = resourceToRevalidate->response().httpHeaderField(HTTPHeaderName::ETag);
         if (!lastModified.isEmpty() || !eTag.isEmpty()) {
-            ASSERT(cachedResourceLoader.cachePolicy(type()) != CachePolicyReload);
-            if (cachedResourceLoader.cachePolicy(type()) == CachePolicyRevalidate)
+            ASSERT(cachedResourceLoader.cachePolicy(type(), url()) != CachePolicyReload);
+            if (cachedResourceLoader.cachePolicy(type(), url()) == CachePolicyRevalidate)
                 m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::CacheControl, "max-age=0");
             if (!lastModified.isEmpty())
                 m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::IfModifiedSince, lastModified);
@@ -403,6 +396,8 @@ static inline bool shouldCacheSchemeIndefinitely(StringView scheme)
 
 std::chrono::microseconds CachedResource::freshnessLifetime(const ResourceResponse& response) const
 {
+    using namespace std::literals::chrono_literals;
+
     if (!response.url().protocolIsInHTTPFamily()) {
         StringView protocol = response.url().protocol();
         if (!shouldCacheSchemeIndefinitely(protocol)) {
@@ -473,7 +468,7 @@ void CachedResource::didAddClient(CachedResourceClient& client)
 
 bool CachedResource::addClientToSet(CachedResourceClient& client)
 {
-    if (m_preloadResult == PreloadNotReferenced) {
+    if (m_preloadResult == PreloadNotReferenced && client.shouldMarkAsReferenced()) {
         if (isLoaded())
             m_preloadResult = PreloadReferencedWhileComplete;
         else if (m_requestedFromNetworkingLayer)
@@ -545,7 +540,7 @@ void CachedResource::destroyDecodedDataIfNeeded()
 {
     if (!m_decodedSize)
         return;
-    if (!MemoryCache::singleton().deadDecodedDataDeletionInterval().count())
+    if (!MemoryCache::singleton().deadDecodedDataDeletionInterval())
         return;
     m_decodedDataDeletionTimer.restart();
 }
@@ -759,7 +754,14 @@ CachedResource::RevalidationDecision CachedResource::makeRevalidationDecision(Ca
         return RevalidationDecision::No;
 
     case CachePolicyReload:
+        return RevalidationDecision::YesDueToCachePolicy;
+
     case CachePolicyRevalidate:
+        if (m_response.cacheControlContainsImmutable() && m_response.url().protocolIs("https")) {
+            if (isExpired())
+                return RevalidationDecision::YesDueToExpired;
+            return RevalidationDecision::No;
+        }
         return RevalidationDecision::YesDueToCachePolicy;
 
     case CachePolicyVerify:
@@ -822,7 +824,7 @@ inline CachedResource::Callback::Callback(CachedResource& resource, CachedResour
     , m_client(client)
     , m_timer(*this, &Callback::timerFired)
 {
-    m_timer.startOneShot(0);
+    m_timer.startOneShot(0_s);
 }
 
 inline void CachedResource::Callback::cancel()
@@ -852,8 +854,9 @@ void CachedResource::tryReplaceEncodedData(SharedBuffer& newBuffer)
     if (m_data->size() != newBuffer.size() || memcmp(m_data->data(), newBuffer.data(), m_data->size()))
         return;
 
-    if (m_data->tryReplaceContentsWithPlatformBuffer(newBuffer))
-        didReplaceSharedBufferContents();
+    m_data->clear();
+    m_data->append(newBuffer);
+    didReplaceSharedBufferContents();
 }
 
 #endif

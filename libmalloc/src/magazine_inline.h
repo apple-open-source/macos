@@ -49,14 +49,13 @@
 #pragma mark forward decls
 
 static MALLOC_INLINE uintptr_t free_list_gen_checksum(uintptr_t ptr) MALLOC_ALWAYS_INLINE;
-static MALLOC_INLINE uintptr_t free_list_checksum_ptr(szone_t *szone, void *p) MALLOC_ALWAYS_INLINE;
-static MALLOC_INLINE void *free_list_unchecksum_ptr(szone_t *szone, inplace_union *ptr) MALLOC_ALWAYS_INLINE;
-static MALLOC_INLINE unsigned free_list_count(szone_t *szone, free_list_t ptr);
+static MALLOC_INLINE uintptr_t free_list_checksum_ptr(rack_t *rack, void *p) MALLOC_ALWAYS_INLINE;
+static MALLOC_INLINE void *free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr) MALLOC_ALWAYS_INLINE;
+static MALLOC_INLINE unsigned free_list_count(rack_t *rack, free_list_t ptr);
 
-static MALLOC_INLINE void recirc_list_extract(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
-static MALLOC_INLINE void recirc_list_splice_last(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
-static MALLOC_INLINE void
-recirc_list_splice_first(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
+static MALLOC_INLINE void recirc_list_extract(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
+static MALLOC_INLINE void recirc_list_splice_last(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
+static MALLOC_INLINE void recirc_list_splice_first(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node) MALLOC_ALWAYS_INLINE;
 
 static MALLOC_INLINE void
 yield(void)
@@ -69,6 +68,34 @@ _szone_default_reader(task_t task, vm_address_t address, vm_size_t size, void **
 {
 	*ptr = (void *)address;
 	return 0;
+}
+
+#pragma mark helpers
+
+static MALLOC_INLINE MALLOC_ALWAYS_INLINE
+uint64_t
+platform_hw_memsize(void)
+{
+#if CONFIG_HAS_COMMPAGE_MEMSIZE
+	return *(uint64_t *)(uintptr_t)_COMM_PAGE_MEMORY_SIZE;
+#else
+	uint64_t hw_memsize = 0;
+	size_t uint64_t_size = sizeof(hw_memsize);
+	// hw_memsize was always 0 if sysctlbyname failed, so preserve that behaviour
+	(void)sysctlbyname("hw.memsize", &hw_memsize, &uint64_t_size, 0, 0);
+	return hw_memsize;
+#endif
+}
+
+static MALLOC_INLINE MALLOC_ALWAYS_INLINE
+uint32_t
+platform_cpu_count(void)
+{
+#if CONFIG_HAS_COMMPAGE_NCPUS
+	return *(uint8_t *)(uintptr_t)_COMM_PAGE_NCPUS;
+#else
+	return sysconf(_SC_NPROCESSORS_CONF);
+#endif
 }
 
 #pragma mark szone locking
@@ -98,25 +125,25 @@ SZONE_REINIT_LOCK(szone_t *szone)
 }
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE void
-SZONE_MAGAZINE_PTR_LOCK(szone_t *szone, magazine_t *mag_ptr)
+SZONE_MAGAZINE_PTR_LOCK(magazine_t *mag_ptr)
 {
 	_malloc_lock_lock(&mag_ptr->magazine_lock);
 }
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE void
-SZONE_MAGAZINE_PTR_UNLOCK(szone_t *szone, magazine_t *mag_ptr)
+SZONE_MAGAZINE_PTR_UNLOCK(magazine_t *mag_ptr)
 {
 	_malloc_lock_unlock(&mag_ptr->magazine_lock);
 }
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE bool
-SZONE_MAGAZINE_PTR_TRY_LOCK(szone_t *szone, magazine_t *mag_ptr)
+SZONE_MAGAZINE_PTR_TRY_LOCK(magazine_t *mag_ptr)
 {
 	return _malloc_lock_trylock(&mag_ptr->magazine_lock);
 }
 
 static MALLOC_INLINE MALLOC_ALWAYS_INLINE void
-SZONE_MAGAZINE_PTR_REINIT_LOCK(szone_t *szone, magazine_t *mag_ptr)
+SZONE_MAGAZINE_PTR_REINIT_LOCK(magazine_t *mag_ptr)
 {
 	_malloc_lock_init(&mag_ptr->magazine_lock);
 }
@@ -124,9 +151,9 @@ SZONE_MAGAZINE_PTR_REINIT_LOCK(szone_t *szone, magazine_t *mag_ptr)
 #pragma mark free list
 
 static MALLOC_NOINLINE void
-free_list_checksum_botch(szone_t *szone, void *ptr)
+free_list_checksum_botch(rack_t *rack, void *ptr)
 {
-	szone_error(szone, 1,
+	szone_error(rack->debug_flags, 1,
 				"incorrect checksum for freed object "
 				"- object was probably modified after being freed.",
 				ptr, NULL);
@@ -152,13 +179,13 @@ free_list_gen_checksum(uintptr_t ptr)
 }
 
 static unsigned
-free_list_count(szone_t *szone, free_list_t ptr)
+free_list_count(rack_t *rack, free_list_t ptr)
 {
 	unsigned count = 0;
 
 	while (ptr.p) {
 		count++;
-		ptr.p = free_list_unchecksum_ptr(szone, &ptr.inplace->next);
+		ptr.p = free_list_unchecksum_ptr(rack, &ptr.inplace->next);
 	}
 	return count;
 }
@@ -171,14 +198,14 @@ free_list_count(szone_t *szone, free_list_t ptr)
 #endif
 
 static MALLOC_INLINE uintptr_t
-free_list_checksum_ptr(szone_t *szone, void *ptr)
+free_list_checksum_ptr(rack_t *rack, void *ptr)
 {
 	uintptr_t p = (uintptr_t)ptr;
-	return (p >> NYBBLE) | (free_list_gen_checksum(p ^ szone->cookie) << ANTI_NYBBLE); // compiles to rotate instruction
+	return (p >> NYBBLE) | (free_list_gen_checksum(p ^ rack->cookie) << ANTI_NYBBLE); // compiles to rotate instruction
 }
 
 static MALLOC_INLINE void *
-free_list_unchecksum_ptr(szone_t *szone, inplace_union *ptr)
+free_list_unchecksum_ptr(rack_t *rack, inplace_union *ptr)
 {
 	inplace_union p;
 	uintptr_t t = ptr->u;
@@ -186,8 +213,8 @@ free_list_unchecksum_ptr(szone_t *szone, inplace_union *ptr)
 	t = (t << NYBBLE) | (t >> ANTI_NYBBLE); // compiles to rotate instruction
 	p.u = t & ~(uintptr_t)0xF;
 
-	if ((t & (uintptr_t)0xF) != free_list_gen_checksum(p.u ^ szone->cookie)) {
-		free_list_checksum_botch(szone, ptr);
+	if ((t & (uintptr_t)0xF) != free_list_gen_checksum(p.u ^ rack->cookie)) {
+		free_list_checksum_botch(rack, ptr);
 		__builtin_trap();
 	}
 	return p.p;
@@ -199,7 +226,7 @@ free_list_unchecksum_ptr(szone_t *szone, inplace_union *ptr)
 #pragma mark recirc helpers
 
 static MALLOC_INLINE void
-recirc_list_extract(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node)
+recirc_list_extract(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node)
 {
 	// excise node from list
 	if (NULL == node->prev) {
@@ -218,7 +245,7 @@ recirc_list_extract(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node)
 }
 
 static MALLOC_INLINE void
-recirc_list_splice_last(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node)
+recirc_list_splice_last(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node)
 {
 	if (NULL == mag_ptr->lastNode) {
 		mag_ptr->firstNode = node;
@@ -234,7 +261,7 @@ recirc_list_splice_last(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *n
 }
 
 static MALLOC_INLINE void
-recirc_list_splice_first(szone_t *szone, magazine_t *mag_ptr, region_trailer_t *node)
+recirc_list_splice_first(rack_t *rack, magazine_t *mag_ptr, region_trailer_t *node)
 {
 	if (NULL == mag_ptr->firstNode) {
 		mag_ptr->lastNode = node;
@@ -333,11 +360,10 @@ hash_region_insert_no_lock(region_t *regions, size_t num_entries, size_t shift, 
  * regions.
  */
 static region_t *
-hash_regions_alloc_no_lock(szone_t *szone, size_t num_entries)
+hash_regions_alloc_no_lock(size_t num_entries)
 {
 	size_t size = num_entries * sizeof(region_t);
-
-	return allocate_pages(szone, round_page_quanta(size), 0, 0, VM_MEMORY_MALLOC);
+	return mvm_allocate_pages(round_page_quanta(size), 0, 0, VM_MEMORY_MALLOC);
 }
 
 /*
@@ -346,12 +372,12 @@ hash_regions_alloc_no_lock(szone_t *szone, size_t num_entries)
  * the old entries since someone may still be allocating them.
  */
 static MALLOC_INLINE region_t *
-hash_regions_grow_no_lock(szone_t *szone, region_t *regions, size_t old_size, size_t *mutable_shift, size_t *new_size)
+hash_regions_grow_no_lock(region_t *regions, size_t old_size, size_t *mutable_shift, size_t *new_size)
 {
 	// double in size and allocate memory for the regions
 	*new_size = old_size + old_size;
 	*mutable_shift = *mutable_shift + 1;
-	region_t *new_regions = hash_regions_alloc_no_lock(szone, *new_size);
+	region_t *new_regions = hash_regions_alloc_no_lock(*new_size);
 
 	// rehash the entries into the new list
 	size_t index;
@@ -371,31 +397,32 @@ hash_regions_grow_no_lock(szone_t *szone, region_t *regions, size_t old_size, si
  * of the calling processor assuming no pre-emption occurs.
  */
 
-static MALLOC_INLINE mag_index_t
-mag_get_thread_index(szone_t *szone)
+static MALLOC_INLINE MALLOC_ALWAYS_INLINE
+mag_index_t
+mag_get_thread_index(void)
 {
 	return _os_cpu_number() & (TINY_MAX_MAGAZINES - 1);
 }
 
 static MALLOC_INLINE magazine_t *
-mag_lock_zine_for_region_trailer(szone_t *szone, magazine_t *magazines, region_trailer_t *trailer, mag_index_t mag_index)
+mag_lock_zine_for_region_trailer(magazine_t *magazines, region_trailer_t *trailer, mag_index_t mag_index)
 {
 	mag_index_t refreshed_index;
 	magazine_t *mag_ptr = &(magazines[mag_index]);
 
 	// Take the lock  on entry.
-	SZONE_MAGAZINE_PTR_LOCK(szone, mag_ptr);
+	SZONE_MAGAZINE_PTR_LOCK(mag_ptr);
 
 	// Now in the time it took to acquire the lock, the region may have migrated
 	// from one magazine to another. In which case the magazine lock we obtained
 	// (namely magazines[mag_index].mag_lock) is stale. If so, keep on tryin' ...
 	while (mag_index != (refreshed_index = trailer->mag_index)) { // Note assignment
 
-		SZONE_MAGAZINE_PTR_UNLOCK(szone, mag_ptr);
+		SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
 
 		mag_index = refreshed_index;
 		mag_ptr = &(magazines[mag_index]);
-		SZONE_MAGAZINE_PTR_LOCK(szone, mag_ptr);
+		SZONE_MAGAZINE_PTR_LOCK(mag_ptr);
 	}
 
 	return mag_ptr;
@@ -408,11 +435,13 @@ mag_lock_zine_for_region_trailer(szone_t *szone, magazine_t *magazines, region_t
  * or NULL if not found.
  */
 static MALLOC_INLINE region_t
-tiny_region_for_ptr_no_lock(szone_t *szone, const void *ptr)
+tiny_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
 {
-	rgnhdl_t r = hash_lookup_region_no_lock(szone->tiny_region_generation->hashed_regions,
-			szone->tiny_region_generation->num_regions_allocated, szone->tiny_region_generation->num_regions_allocated_shift,
+	rgnhdl_t r = hash_lookup_region_no_lock(rack->region_generation->hashed_regions,
+			rack->region_generation->num_regions_allocated,
+			rack->region_generation->num_regions_allocated_shift,
 			TINY_REGION_FOR_PTR(ptr));
+
 	return r ? *r : r;
 }
 
@@ -493,10 +522,10 @@ get_tiny_meta_header(const void *ptr, boolean_t *is_free)
  * or NULL if not found.
  */
 static MALLOC_INLINE region_t
-small_region_for_ptr_no_lock(szone_t *szone, const void *ptr)
+small_region_for_ptr_no_lock(rack_t *rack, const void *ptr)
 {
-	rgnhdl_t r = hash_lookup_region_no_lock(szone->small_region_generation->hashed_regions,
-			szone->small_region_generation->num_regions_allocated, szone->small_region_generation->num_regions_allocated_shift,
+	rgnhdl_t r = hash_lookup_region_no_lock(rack->region_generation->hashed_regions,
+			rack->region_generation->num_regions_allocated, rack->region_generation->num_regions_allocated_shift,
 			SMALL_REGION_FOR_PTR(ptr));
 	return r ? *r : r;
 }

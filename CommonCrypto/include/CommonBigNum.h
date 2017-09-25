@@ -179,7 +179,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
   
 	@param      status  A pointer to a CCStatus for return codes. 
 	@param      bn The BigNum. 
-	@param      s - the pointer to the data area.
+	@param      to - the pointer to the data area.
     			You can use CCBigNumByteCount() to
                 determine the size of the data area
                 to provide. 

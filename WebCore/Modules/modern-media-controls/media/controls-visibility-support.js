@@ -45,7 +45,12 @@ class ControlsVisibilitySupport extends MediaControllerSupport
 
     get mediaEvents()
     {
-        return ["loadedmetadata", "play", "pause"];
+        return ["loadedmetadata", "play", "pause", "webkitcurrentplaybacktargetiswirelesschanged", this.mediaController.fullscreenChangeEventType];
+    }
+
+    get tracksToMonitor()
+    {
+        return [this.mediaController.media.videoTracks];
     }
 
     handleEvent()
@@ -58,15 +63,13 @@ class ControlsVisibilitySupport extends MediaControllerSupport
     _updateControls()
     {
         const media = this.mediaController.media;
-        const isVideo = media instanceof HTMLVideoElement;
-        let shouldShowControls = this.mediaController.media.controls;
-        if (isVideo)
-            shouldShowControls = shouldShowControls && media.readyState > HTMLMediaElement.HAVE_NOTHING;
+        const host = this.mediaController.host;
+        const shouldShowControls = !!(media.controls || (host && host.shouldForceControlsDisplay) || this.mediaController.isFullscreen);
+        const isVideo = media instanceof HTMLVideoElement && media.videoTracks.length > 0;
 
         const controls = this.mediaController.controls;
-        controls.startButton.visible = shouldShowControls;
-        controls.controlsBar.visible = shouldShowControls;
-        controls.controlsBar.fadesWhileIdle = isVideo ? !media.paused : false;
+        controls.visible = shouldShowControls;
+        controls.autoHideController.fadesWhileIdle = isVideo ? !media.paused && !media.webkitCurrentPlaybackTargetIsWireless : false;
     }
 
 }

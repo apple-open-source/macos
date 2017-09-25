@@ -82,6 +82,11 @@
 >wasnull2d
 >wasnull2d
 
+  unset array
+  print ${#${(A)=array=word}}
+0:${#${(A)=array=word}} counts array elements
+>1
+
   (print ${set1:?okhere}; print ${unset1:?exiting1}; print not reached;)
   (print ${null1?okhere}; print ${null1:?exiting2}; print not reached;)
 1:${...:?...}, ${...?...}
@@ -89,6 +94,21 @@
 >
 ?(eval):1: unset1: exiting1
 ?(eval):2: null1: exiting2
+
+  PROMPT="" $ZTST_testdir/../Src/zsh -fis <<<'
+  unsetopt PROMPT_SP
+  PS1="" PS2="" PS3="" PS4="" RPS1="" RPS2=""
+  exec 2>&1
+  foo() {
+      print ${1:?no arguments given}
+      print not reached
+  }
+  foo
+  print reached
+  ' 2>/dev/null
+0:interactive shell returns to top level on ${...?...} error
+*>*foo:1: 1: no arguments given
+>reached
 
   print ${set1:+word1} ${set1+word2} ${null1:+word3} ${null1+word4}
   print ${unset1:+word5} ${unset1+word6}
@@ -396,7 +416,7 @@
 >Instead Here I Am Stuck By The Computer
 
   foo=$'\x7f\x00'
-  print ${(V)foo}
+  print -r -- ${(V)foo}
 0:${(V)...}
 >^?^@
 
@@ -479,6 +499,11 @@
     '(( 3 + 1 == 8 / 2 ))'
     'for (( i = 1 ; i < 10 ; i++ ))'
     '((0.25542 * 60) - 15)*60'
+    'repeat 3 (x)'
+    'repeat 3 (echo foo; echo bar)'
+    'repeat $(( 2 + 4 )) (x)'
+    'repeat $( : foo bar; echo 4) (x)'
+    'repeat "1"'\''2'\''$(( 3 + 0 ))$((echo 4);)\ 5 (x)'
   )
   for string in $strings; do
     array=(${(z)string})
@@ -514,6 +539,35 @@
 >8:15:
 >9:):
 >10:*60:
+>1:repeat:
+>2:3:
+>3:(:
+>4:x:
+>5:):
+>1:repeat:
+>2:3:
+>3:(:
+>4:echo:
+>5:foo:
+>6:;:
+>7:echo:
+>8:bar:
+>9:):
+>1:repeat:
+>2:$(( 2 + 4 )):
+>3:(:
+>4:x:
+>5:):
+>1:repeat:
+>2:$( : foo bar; echo 4):
+>3:(:
+>4:x:
+>5:):
+>1:repeat:
+>2:"1"'2'$(( 3 + 0 ))$((echo 4);)\ 5:
+>3:(:
+>4:x:
+>5:):
 
 
   line=$'A line with # someone\'s comment\nanother line # (1 more\nanother one'
@@ -577,6 +631,14 @@
 >:
 >;
 >(( echo 42 
+
+  # From parse error on it's not possible to split.
+  # Just check we get the complete string.
+  foo='echo $(|||) bar'
+  print -rl ${(z)foo}
+0:$($(z)} with parse error in command substitution.
+>echo
+>$(|||) bar
 
   psvar=(dog)
   setopt promptsubst
@@ -791,6 +853,7 @@
   foo='b* e*'
   print ${(e)~foo}
   print ${(e)~=foo}
+  setopt nomatch
 0:Rule 10: Re-Evaluation
 >b* e*
 >boringfile evenmoreboringfile
@@ -1679,6 +1742,26 @@
 >2
 >2
 
+  # SHLVL is incremented twice and decremented once in between.
+  SHLVL=1
+  $ZTST_testdir/../Src/zsh -fc $ZTST_testdir/../Src/zsh' -fc "echo \$SHLVL"'
+  $ZTST_testdir/../Src/zsh -fc '('$ZTST_testdir/../Src/zsh' -fc "echo \$SHLVL")'
+  $ZTST_testdir/../Src/zsh -fc '( ('$ZTST_testdir/../Src/zsh' -fc "echo \$SHLVL"))'
+0:SHLVL decremented upon implicit exec optimisation
+>2
+>2
+>2
+
+  # SHLVL is incremented twice with no decrement in between.
+  SHLVL=1
+  $ZTST_testdir/../Src/zsh -fc '('$ZTST_testdir/../Src/zsh' -fc "echo \$SHLVL"); exit'
+  $ZTST_testdir/../Src/zsh -fc '(exec '$ZTST_testdir/../Src/zsh' -fc "echo \$SHLVL"); exit'
+  $ZTST_testdir/../Src/zsh -fc '( ('$ZTST_testdir/../Src/zsh' -fc "echo \$SHLVL"); exit)'
+0:SHLVL not decremented upon exec in subshells
+>3
+>3
+>3
+
 # The following tests the return behaviour of parsestr/parsestrnoerr
   alias param-test-alias='print $'\''\x45xpanded in substitution'\' 
   param='$(param-test-alias)'
@@ -1866,3 +1949,110 @@
 >0
 >1 /somewhere
 >2 /random /value
+
+  print -r -- ${(q+):-}
+  print -r -- ${(q+)IFS}
+  print -r -- ${(q+):-oneword}
+  print -r -- ${(q+):-two words}
+  print -r -- ${(q+):-three so-called \'words\'}
+  (setopt rcquotes; print -r -- ${(q+):-three so-called \'words\'})
+0:${(q+)...}
+>''
+>$' \t\n\C-@'
+>oneword
+>'two words'
+>'three so-called '\''words'\'
+>'three so-called ''words'''
+
+  array=(one two three)
+  array[1]=${nonexistent:-foo}
+  print $array
+0:"-" works after "[" in same expression (Dash problem)
+>foo two three
+
+  (
+  setopt shwordsplit
+  set -- whim:wham:whom
+  IFS=:
+  print -l $@
+  )
+0:Splitting of $@ on IFS: single element
+>whim
+>wham
+>whom
+
+  (
+  setopt shwordsplit
+  set -- one:two bucklemy:shoe
+  IFS=:
+  print -l $@
+  )
+0:Splitting of $@ on IFS: multiple elements
+# No forced joining in this case
+>one
+>two
+>bucklemy
+>shoe
+
+  (
+  set -- one:two bucklemy:shoe
+  print -l ${(s.:.)@}
+  )
+0:Splitting of $@ on (s): multiple elements
+# Forced joining in this case
+>one
+>two bucklemy
+>shoe
+
+  (
+  set -- one:two bucklemy:shoe
+  print -l ${(@s.:.)@}
+  )
+0:Splitting of $@ on (@s): multiple elements
+# Forced non-joining in this case
+>one
+>two
+>bucklemy
+>shoe
+
+  (
+  set -- one:two bucklemy:shoe
+  IFS=
+  setopt shwordsplit
+  print -l ${@} ${(s.:.)*} ${(s.:.j.-.)*}
+  )
+0:Joining of $@ does not happen when IFS is empty, but splitting $* does
+>one:two
+>bucklemy:shoe
+>one
+>twobucklemy
+>shoe
+>one
+>two-bucklemy
+>shoe
+
+  (
+  set -- "one two" "bucklemy shoe"
+  IFS=
+  setopt shwordsplit rcexpandparam
+  print -l "X${(@j.-.)*}"
+  )
+0:Use of @ does not prevent forced join with j
+>Xone two-bucklemy shoe
+
+  () { print -r -- "${(q)1}" "${(b)1}" "${(qq)1}" } '=foo'
+0:(q) and (b) quoting deal with the EQUALS option
+>\=foo =foo '=foo'
+
+  args() { print $#; }
+  a=(foo)
+  args "${a[3,-1]}"
+  args "${(@)a[3,-1]}"
+0:Out-of-range multiple array subscripts with quoting, with and without (@)
+>1
+>0
+
+  a='~-/'; echo $~a
+0:Regression: "-" became Dash in workers/37689, breaking ~- expansion
+*>*
+F:We do not care what $OLDPWD is, as long as it doesn't cause an error

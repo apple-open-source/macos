@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/private/etc/ntp.conf</key>
+			<true/>
+		</dict>
+	</dict>
+	<key>Label</key>
+	<string>org.ntp.ntpd-legacy</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/ntpd-wrapper</string>
+	</array>
+	<key>Disabled</key>
+	<true/>
+</dict>
+</plist>

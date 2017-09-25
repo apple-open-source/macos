@@ -28,10 +28,13 @@
 #if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoKey.h"
+#include "ExceptionOr.h"
 #include <wtf/Function.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
+
+class CryptoAlgorithmParameters;
 
 struct JsonWebKey;
 
@@ -64,7 +67,7 @@ public:
 
     static RefPtr<CryptoKeyHMAC> generate(size_t lengthBits, CryptoAlgorithmIdentifier hash, bool extractable, CryptoKeyUsageBitmap);
     static RefPtr<CryptoKeyHMAC> importRaw(size_t lengthBits, CryptoAlgorithmIdentifier hash, Vector<uint8_t>&& keyData, bool extractable, CryptoKeyUsageBitmap);
-    using CheckAlgCallback = WTF::Function<bool(CryptoAlgorithmIdentifier, const std::optional<String>&)>;
+    using CheckAlgCallback = Function<bool(CryptoAlgorithmIdentifier, const String&)>;
     static RefPtr<CryptoKeyHMAC> importJwk(size_t lengthBits, CryptoAlgorithmIdentifier hash, JsonWebKey&&, bool extractable, CryptoKeyUsageBitmap, CheckAlgCallback&&);
 
     CryptoKeyClass keyClass() const final { return CryptoKeyClass::HMAC; }
@@ -73,6 +76,8 @@ public:
     JsonWebKey exportJwk() const;
 
     CryptoAlgorithmIdentifier hashAlgorithmIdentifier() const { return m_hash; }
+
+    static ExceptionOr<size_t> getKeyLength(const CryptoAlgorithmParameters&);
 
 private:
     CryptoKeyHMAC(const Vector<uint8_t>& key, CryptoAlgorithmIdentifier hash, bool extractable, CryptoKeyUsageBitmap);

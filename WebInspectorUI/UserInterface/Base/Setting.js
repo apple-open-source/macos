@@ -103,10 +103,25 @@ WebInspector.Setting.Event = {
 };
 
 WebInspector.settings = {
+    autoLogProtocolMessages: new WebInspector.Setting("auto-collect-protocol-messages", false),
+    autoLogTimeStats: new WebInspector.Setting("auto-collect-time-stats", false),
+    enableUncaughtExceptionReporter: new WebInspector.Setting("enable-uncaught-exception-reporter", true),
     enableLineWrapping: new WebInspector.Setting("enable-line-wrapping", false),
     indentUnit: new WebInspector.Setting("indent-unit", 4),
     tabSize: new WebInspector.Setting("tab-size", 4),
     indentWithTabs: new WebInspector.Setting("indent-with-tabs", false),
     showWhitespaceCharacters: new WebInspector.Setting("show-whitespace-characters", false),
     showInvalidCharacters: new WebInspector.Setting("show-invalid-characters", false),
+    clearLogOnNavigate: new WebInspector.Setting("clear-log-on-navigate", true),
+    clearNetworkOnNavigate: new WebInspector.Setting("clear-network-on-navigate", true),
+    zoomFactor: new WebInspector.Setting("zoom-factor", 1),
+    layoutDirection: new WebInspector.Setting("layout-direction-override", "system"),
+    stylesShowInlineWarnings: new WebInspector.Setting("styles-show-inline-warning", true),
+    stylesInsertNewline: new WebInspector.Setting("styles-insert-newline", true),
+    stylesSelectOnFirstClick: new WebInspector.Setting("styles-select-on-first-click", true),
+    showScopeChainOnPause: new WebInspector.Setting("show-scope-chain-sidebar", true),
+    showImageGrid: new WebInspector.Setting("show-image-grid", false),
+
+    // Experimental
+    experimentalShowCanvasContextsInResources: new WebInspector.Setting("experimental-show-canvas-contexts-in-resources", false),
 };

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/local_remote_options'
 require 'rubygems/command'
@@ -40,7 +41,7 @@ class TestGemLocalRemoteOptions < Gem::TestCase
   end
 
   def test_clear_sources_option_idiot_proof
-    util_setup_fake_fetcher
+    spec_fetcher
 
     @cmd.add_local_remote_options
     @cmd.handle_options %W[--clear-sources]
@@ -86,6 +87,19 @@ class TestGemLocalRemoteOptions < Gem::TestCase
     original_sources << s1.to_s
     original_sources << s2.to_s
     original_sources << "#{s3}/"
+
+    assert_equal original_sources, Gem.sources
+  end
+
+  def test_short_source_option
+    @cmd.add_source_option
+
+    original_sources = Gem.sources.dup
+
+    source = URI.parse 'http://more-gems.example.com/'
+    @cmd.handle_options %W[-s #{source}]
+
+    original_sources << source
 
     assert_equal original_sources, Gem.sources
   end

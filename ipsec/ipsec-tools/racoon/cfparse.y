@@ -85,7 +85,6 @@
 #include "isakmp_frag.h"
 #include "session.h"
 #ifdef ENABLE_HYBRID
-#include "resolv.h"
 #include "isakmp_unity.h"
 #include "isakmp_xauth.h"
 #include "isakmp_cfg.h"
@@ -711,7 +710,7 @@ addrdns
 #ifdef ENABLE_HYBRID
 			struct isakmp_cfg_config *icc = &isakmp_cfg_config;
 
-			if (icc->dns4_index > MAXNS) {
+			if (icc->dns4_index >= MAXNS) {
 				racoon_yyerror("No more than %d DNS", MAXNS);
                 return -1;
             }

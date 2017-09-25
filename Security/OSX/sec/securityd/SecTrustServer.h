@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2009,2012-2014,2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,15 +30,33 @@
 
 #include <CoreFoundation/CFString.h>
 
-#include <Security/SecCertificatePath.h>
 #include <Security/SecTrust.h>
 #include <Security/SecBasePriv.h> /* For errSecWaitForCallback. */
+#include <Security/SecCertificatePath.h>
+#include <securityd/SecCertificateServer.h>
+#include <securityd/SecCertificateSource.h>
 #include <mach/port.h>
 
 
 __BEGIN_DECLS
 
 typedef struct SecPathBuilder *SecPathBuilderRef;
+
+typedef struct OpaqueSecPVC *SecPVCRef;
+
+struct OpaqueSecPVC {
+    SecPathBuilderRef builder;
+    CFArrayRef policies;
+    CFDictionaryRef callbacks;
+    CFIndex policyIX;
+    bool require_revocation_response;
+
+    CFArrayRef leafDetails;
+    SecTrustResultType leafResult;
+
+    CFArrayRef details;
+    SecTrustResultType result;
+};
 
 /* Completion callback.  You should call SecTrustSessionDestroy from this. */
 typedef void(*SecPathBuilderCompleted)(const void *userData,
@@ -50,7 +68,7 @@ SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
     CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
     bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponse,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
-    CFAbsoluteTime verifyTime, CFArrayRef accessGroups,
+    CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
     SecPathBuilderCompleted completed, const void *userData);
 
 /* Returns true if it's ok to perform network operations for this builder. */
@@ -64,6 +82,42 @@ void SecPathBuilderSetCanAccessNetwork(SecPathBuilderRef builder, bool allow);
 CFArrayRef SecPathBuilderCopySignedCertificateTimestamps(SecPathBuilderRef builder);
 CFArrayRef SecPathBuilderCopyOCSPResponses(SecPathBuilderRef builder);
 CFArrayRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder);
+
+SecCertificatePathVCRef SecPathBuilderGetPath(SecPathBuilderRef builder);
+SecCertificatePathVCRef SecPathBuilderGetBestPath(SecPathBuilderRef builder);
+CFAbsoluteTime SecPathBuilderGetVerifyTime(SecPathBuilderRef builder);
+CFIndex SecPathBuilderGetCertificateCount(SecPathBuilderRef builder);
+SecCertificateRef SecPathBuilderGetCertificateAtIndex(SecPathBuilderRef builder, CFIndex ix);
+CFArrayRef SecPathBuilderGetExceptions(SecPathBuilderRef builder);
+
+/* Returns the isAnchored status of the path. The path builder sets isAnchored
+ * based solely on whether the terminating cert has some sort of trust setting
+ * on it. This check does NOT reflect whether that anchor is actually trusted,
+ * as trust in an anchor is contextual to the policy being validated. */
+bool SecPathBuilderIsAnchored(SecPathBuilderRef builder);
+bool SecPathBuilderIsAnchorSource(SecPathBuilderRef builder, SecCertificateSourceRef source);
+
+
+CFIndex SecPathBuilderGetPVCCount(SecPathBuilderRef builder);
+SecPVCRef SecPathBuilderGetPVCAtIndex(SecPathBuilderRef builder, CFIndex ix);
+
+void SecPathBuilderSetResultInPVCs(SecPathBuilderRef builder, CFStringRef key,
+                                   CFIndex ix, CFTypeRef result, bool force,
+                                   SecTrustResultType resultType);
+
+/* This is a pre-decrement operation */
+unsigned int SecPathBuilderDecrementAsyncJobCount(SecPathBuilderRef builder);
+void SecPathBuilderSetAsyncJobCount(SecPathBuilderRef builder, unsigned int jobCount);
+
+CFMutableDictionaryRef SecPathBuilderGetInfo(SecPathBuilderRef builder);
+
+/* Enable revocation checking if the rest of the policy checks succeed. */
+CFStringRef SecPathBuilderGetRevocationMethod(SecPathBuilderRef builder);
+void SecPathBuilderSetRevocationMethod(SecPathBuilderRef builder, CFStringRef method);
+
+/* Require a online revocation response for the chain. */
+bool SecPathBuilderGetCheckRevocationOnline(SecPathBuilderRef builder);
+void SecPathBuilderSetCheckRevocationOnline(SecPathBuilderRef builder);
 
 /* Core of the trust evaluation engine, this will invoke the completed
    callback and return false if the evaluation completed, or return true if
@@ -79,15 +133,12 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 
 /* Evaluate trust and call evaluated when done. */
-void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error));
+void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error));
 
 /* Synchronously invoke SecTrustServerEvaluateBlock. */
-SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
 
 void InitializeAnchorTable(void);
-
-/* Return the current best chain */
-SecCertificatePathRef SecPathBuilderGetBestPath(SecPathBuilderRef builder);
 
 __END_DECLS
 

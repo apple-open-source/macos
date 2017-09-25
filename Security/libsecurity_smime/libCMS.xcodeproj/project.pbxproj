@@ -11,7 +11,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = D447C4DE1D31C9DD0082FC1D /* Build configuration list for PBXAggregateTarget "libCMSInstall" */;
 			buildPhases = (
-				D447C4E11D31C9F20082FC1D /* Copy Headers */,
 			);
 			dependencies = (
 				D447C4E01D31C9E80082FC1D /* PBXTargetDependency */,
@@ -106,7 +105,15 @@
 		79DC33800D4E6F170039E4BC /* secoid.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C8E166C0438EEE700CA2E66 /* secoid.c */; };
 		79DC33810D4E6F170039E4BC /* smimeutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27420F03E9FC5B00A80181 /* smimeutil.c */; };
 		79DC33820D4E6F170039E4BC /* cmsmessage.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2741FE03E9FC5B00A80181 /* cmsmessage.c */; };
-		D447C4E21D31CA360082FC1D /* SecSMIME.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C7183470637153700230DDE /* SecSMIME.h */; };
+		D4FBBD511DD660E9004408F7 /* CMSUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = D4FBBD4B1DD660E9004408F7 /* CMSUtils.h */; };
+		D4FBBD521DD660E9004408F7 /* CMSUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = D4FBBD4C1DD660E9004408F7 /* CMSUtils.c */; };
+		D4FBBD531DD660E9004408F7 /* CMSEncoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D4FBBD4D1DD660E9004408F7 /* CMSEncoder.h */; };
+		D4FBBD541DD660E9004408F7 /* CMSEncoder.c in Sources */ = {isa = PBXBuildFile; fileRef = D4FBBD4E1DD660E9004408F7 /* CMSEncoder.c */; };
+		D4FBBD551DD660E9004408F7 /* CMSDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = D4FBBD4F1DD660E9004408F7 /* CMSDecoder.h */; };
+		D4FBBD561DD660E9004408F7 /* CMSDecoder.c in Sources */ = {isa = PBXBuildFile; fileRef = D4FBBD501DD660E9004408F7 /* CMSDecoder.c */; };
+		D4FBBD641DD661E7004408F7 /* CMSUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = D4FBBD4C1DD660E9004408F7 /* CMSUtils.c */; };
+		D4FBBD651DD661E7004408F7 /* CMSEncoder.c in Sources */ = {isa = PBXBuildFile; fileRef = D4FBBD4E1DD660E9004408F7 /* CMSEncoder.c */; };
+		D4FBBD661DD661E7004408F7 /* CMSDecoder.c in Sources */ = {isa = PBXBuildFile; fileRef = D4FBBD501DD660E9004408F7 /* CMSDecoder.c */; };
 		F64399010420118A01CA2DCC /* cert.h in Headers */ = {isa = PBXBuildFile; fileRef = F64398FF0420118A01CA2DCC /* cert.h */; };
 		F64399020420118A01CA2DCC /* cert.c in Sources */ = {isa = PBXBuildFile; fileRef = F64399000420118A01CA2DCC /* cert.c */; };
 /* End PBXBuildFile section */
@@ -178,17 +185,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D447C4E11D31C9F20082FC1D /* Copy Headers */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/local/include/Security;
-			dstSubfolderSpec = 0;
-			files = (
-				D447C4E21D31CA360082FC1D /* SecSMIME.h in Copy Headers */,
-			);
-			name = "Copy Headers";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -243,6 +239,12 @@
 		4CEDC82006371B1700B7E254 /* SecCmsEncryptedData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCmsEncryptedData.h; sourceTree = "<group>"; };
 		79BDD29B0D60C75D000D84D3 /* crypto-embedded.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "crypto-embedded.c"; sourceTree = "<group>"; };
 		79DC33620D4E6EEA0039E4BC /* libCMS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCMS.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		D4FBBD4B1DD660E9004408F7 /* CMSUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CMSUtils.h; sourceTree = "<group>"; };
+		D4FBBD4C1DD660E9004408F7 /* CMSUtils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CMSUtils.c; sourceTree = "<group>"; };
+		D4FBBD4D1DD660E9004408F7 /* CMSEncoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CMSEncoder.h; sourceTree = "<group>"; };
+		D4FBBD4E1DD660E9004408F7 /* CMSEncoder.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CMSEncoder.c; sourceTree = "<group>"; };
+		D4FBBD4F1DD660E9004408F7 /* CMSDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CMSDecoder.h; sourceTree = "<group>"; };
+		D4FBBD501DD660E9004408F7 /* CMSDecoder.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CMSDecoder.c; sourceTree = "<group>"; };
 		F64398FF0420118A01CA2DCC /* cert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cert.h; sourceTree = "<group>"; tabWidth = 8; };
 		F64399000420118A01CA2DCC /* cert.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cert.c; sourceTree = "<group>"; tabWidth = 8; };
 /* End PBXFileReference section */
@@ -337,6 +339,12 @@
 			children = (
 				F64399000420118A01CA2DCC /* cert.c */,
 				F64398FF0420118A01CA2DCC /* cert.h */,
+				D4FBBD4B1DD660E9004408F7 /* CMSUtils.h */,
+				D4FBBD4C1DD660E9004408F7 /* CMSUtils.c */,
+				D4FBBD4D1DD660E9004408F7 /* CMSEncoder.h */,
+				D4FBBD4E1DD660E9004408F7 /* CMSEncoder.c */,
+				D4FBBD4F1DD660E9004408F7 /* CMSDecoder.h */,
+				D4FBBD501DD660E9004408F7 /* CMSDecoder.c */,
 				4C2741F203E9FC5B00A80181 /* cmsarray.c */,
 				4C2741F303E9FC5B00A80181 /* cmsasn1.c */,
 				4C2741F403E9FC5B00A80181 /* cmsattr.c */,
@@ -405,9 +413,11 @@
 				4C8E16750438EF5700CA2E66 /* plhash.h in Headers */,
 				4CCC260E0635F1A200CBF0D4 /* SecCmsBase.h in Headers */,
 				4CCC260F0635F1A200CBF0D4 /* SecCmsContentInfo.h in Headers */,
+				D4FBBD551DD660E9004408F7 /* CMSDecoder.h in Headers */,
 				4CCC26100635F1A200CBF0D4 /* SecCmsDecoder.h in Headers */,
 				4CCC26110635F1A200CBF0D4 /* SecCmsDigestContext.h in Headers */,
 				4CCC26120635F1A200CBF0D4 /* SecCmsDigestedData.h in Headers */,
+				D4FBBD511DD660E9004408F7 /* CMSUtils.h in Headers */,
 				4CCC26130635F1A200CBF0D4 /* SecCmsEncoder.h in Headers */,
 				4CEDC82106371B1700B7E254 /* SecCmsEncryptedData.h in Headers */,
 				4CCC26140635F1A200CBF0D4 /* SecCmsEnvelopedData.h in Headers */,
@@ -416,6 +426,7 @@
 				4CCC26170635F1A200CBF0D4 /* SecCmsSignedData.h in Headers */,
 				4CCC26180635F1A200CBF0D4 /* SecCmsSignerInfo.h in Headers */,
 				4C8E167A0438EFD700CA2E66 /* SecAsn1Item.h in Headers */,
+				D4FBBD531DD660E9004408F7 /* CMSEncoder.h in Headers */,
 				4C8E16700438EEE700CA2E66 /* secoid.h in Headers */,
 				4C7183480637153700230DDE /* SecSMIME.h in Headers */,
 				4C424BE8063F28F600E9831A /* SecSMIMEPriv.h in Headers */,
@@ -476,7 +487,7 @@
 		4C2741E803E9FBAF00A80181 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0810;
+				LastUpgradeCheck = 0830;
 				TargetAttributes = {
 					D447C4DB1D31C9DD0082FC1D = {
 						CreatedOnToolsVersion = 8.0;
@@ -540,6 +551,7 @@
 				4C27421503E9FC6C00A80181 /* cmscinfo.c in Sources */,
 				4CDA0D5E04200AD600CA2E66 /* cmscipher.c in Sources */,
 				4C27421703E9FC6D00A80181 /* cmsdecode.c in Sources */,
+				D4FBBD541DD660E9004408F7 /* CMSEncoder.c in Sources */,
 				4C14208F0415845900CA2E66 /* cmsdigdata.c in Sources */,
 				4CDA0D6104200AD800CA2E66 /* cmsdigest.c in Sources */,
 				4CDA0D6004200AD800CA2E66 /* cmsencdata.c in Sources */,
@@ -554,9 +566,11 @@
 				4CB42E340421212D00CA2E66 /* cryptohi.c in Sources */,
 				4C8E16740438EF5700CA2E66 /* plhash.c in Sources */,
 				4CB6AADA040DA84D00CA2E66 /* secalgid.c in Sources */,
+				D4FBBD521DD660E9004408F7 /* CMSUtils.c in Sources */,
 				4C8E16790438EFD700CA2E66 /* SecAsn1Item.c in Sources */,
 				4C8E166F0438EEE700CA2E66 /* secoid.c in Sources */,
 				4CDA0D6704200B0F00CA2E66 /* smimeutil.c in Sources */,
+				D4FBBD561DD660E9004408F7 /* CMSDecoder.c in Sources */,
 				79DC32240D4949720039E4BC /* cmsmessage.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -565,6 +579,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4FBBD641DD661E7004408F7 /* CMSUtils.c in Sources */,
+				D4FBBD651DD661E7004408F7 /* CMSEncoder.c in Sources */,
+				D4FBBD661DD661E7004408F7 /* CMSDecoder.c in Sources */,
 				79DC336B0D4E6F170039E4BC /* cmsarray.c in Sources */,
 				79DC336C0D4E6F170039E4BC /* cmsasn1.c in Sources */,
 				79DC336D0D4E6F170039E4BC /* cmsattr.c in Sources */,
@@ -611,8 +628,20 @@
 		79BDD2AE0D60CA06000D84D3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -626,12 +655,14 @@
 				GCC_WARN_MISSING_PARENTHESES = YES;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fconstant-cfstrings",
 					"-fno-inline",
@@ -712,6 +743,7 @@
 					"$(PROJECT_DIR)/../OSX/sec",
 					"$(PROJECT_DIR)/../OSX/libsecurity_keychain/libDER",
 					"$(PROJECT_DIR)/../OSX/libsecurity_asn1",
+					"$(PROJECT_DIR)/../header_symlinks/iOS/",
 					"$(PROJECT_DIR)/../header_symlinks/",
 					"$(BUILT_PRODUCTS_DIR)/usr/local/include",
 					"$(DSTROOT)/usr/local/include",
@@ -727,7 +759,19 @@
 		79BDD2BA0D60CA0A000D84D3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = "NDEBUG=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -741,6 +785,7 @@
 				GCC_WARN_MISSING_PARENTHESES = YES;
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -824,6 +869,7 @@
 					"$(PROJECT_DIR)/../OSX/sec",
 					"$(PROJECT_DIR)/../OSX/libsecurity_keychain/libDER",
 					"$(PROJECT_DIR)/../OSX/libsecurity_asn1",
+					"$(PROJECT_DIR)/../header_symlinks/iOS/",
 					"$(PROJECT_DIR)/../header_symlinks/",
 					"$(BUILT_PRODUCTS_DIR)/usr/local/include",
 					"$(DSTROOT)/usr/local/include",

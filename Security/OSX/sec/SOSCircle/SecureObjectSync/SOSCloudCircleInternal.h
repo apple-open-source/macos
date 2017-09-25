@@ -30,7 +30,6 @@
 
 #include <xpc/xpc.h>
 #include <Security/SecKey.h>
-//#include <Security/SecureObjectSync/SOSRing.h>    // only included for SOSRingStatus, see rdar://problem/20831215 before uncommenting
 
 __BEGIN_DECLS
 
@@ -55,6 +54,7 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo(CFErrorRef* error);
 bool SOSCCPurgeUserCredentials(CFErrorRef* error);
 
 CFStringRef SOSCCGetStatusDescription(SOSCCStatus status);
+CFStringRef SOSCCGetViewResultDescription(SOSViewResultCode vrc);
 bool SOSCCAccountHasPublicKey(CFErrorRef *error);
 bool SOSCCAccountIsNew(CFErrorRef *error);
 
@@ -91,6 +91,7 @@ bool SOSCCWithdrawlFromARing(CFStringRef ringName, CFErrorRef* error);
 int SOSCCRingStatus(CFStringRef ringName, CFErrorRef* error);   // TODO: this returns SOSRingStatus
 bool SOSCCEnableRing(CFStringRef ringName, CFErrorRef* error);
 
+bool SOSCCCleanupKVSKeys(CFErrorRef *error);
 
 
 /*!
@@ -146,7 +147,9 @@ bool SOSCCClearPeerMessageKeyInKVS(CFStringRef peerID, CFErrorRef *error);
 CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error);
 CFDictionaryRef SOSCCCopyBackupInformation(CFErrorRef *error);
 bool SOSCCRequestSyncWithPeerOverKVSUsingIDOnly(CFStringRef peerID, CFErrorRef *error);
-
+bool SOSCCTestPopulateKVSWithBadKeys(CFErrorRef *error);
+CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error);
+    
 char *SOSCCSysdiagnose(const char *directoryname);
 
 void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString));

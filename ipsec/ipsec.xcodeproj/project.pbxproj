@@ -29,6 +29,7 @@
 				72B3C21E16850D1E004E4548 /* CopyFiles */,
 			);
 			dependencies = (
+				69983DBD1E7B3D30007683BF /* PBXTargetDependency */,
 				72B3C2101684F5E1004E4548 /* PBXTargetDependency */,
 				72B3C20E1684F5DE004E4548 /* PBXTargetDependency */,
 			);
@@ -75,6 +76,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				69983DBF1E7B4DE4007683BF /* PBXTargetDependency */,
 				812531110D3FEA28006BDF4F /* PBXTargetDependency */,
 				81DDFDD90D622C4E00C5CB87 /* PBXTargetDependency */,
 				81DDFDF10D627DE300C5CB87 /* PBXTargetDependency */,
@@ -104,8 +106,6 @@
 		25DC9ED509DB16F800C89F86 /* isakmp_unity.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E10988657000D15623 /* isakmp_unity.c */; };
 		25DC9ED609DB16FA00C89F86 /* isakmp_xauth.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258E40988657000D15623 /* isakmp_xauth.c */; };
 		25DE2DE90A8BD40E0010A46D /* vpn_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 25DE2DE60A8BD40E0010A46D /* vpn_control.c */; };
-		25EAE84809D879700042CC7F /* libssl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE84709D879700042CC7F /* libssl.dylib */; };
-		25EAE84B09D879DE0042CC7F /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE84A09D879DE0042CC7F /* libcrypto.dylib */; };
 		25EAE87709D87A770042CC7F /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE87609D87A770042CC7F /* libiconv.dylib */; };
 		25EAE8C109D87B080042CC7F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 25EAE8C009D87B080042CC7F /* CoreFoundation.framework */; };
 		25EAE8C609D87B990042CC7F /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 25D949A209A6AAD700CA0F24 /* pfkey.c */; };
@@ -149,11 +149,19 @@
 		25F259610988657000D15623 /* throttle.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259210988657000D15623 /* throttle.c */; };
 		25F259620988657000D15623 /* vendorid.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259240988657000D15623 /* vendorid.c */; };
 		25F259630988657000D15623 /* vmbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259260988657000D15623 /* vmbuf.c */; };
+		6912CB6E1E78D94B00631D9A /* crypto_cssm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B70988657000D15623 /* crypto_cssm.c */; };
+		6912CB701E78D96900631D9A /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6912CB6F1E78D96900631D9A /* Security.framework */; };
+		6912CB721E78D97200631D9A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6912CB711E78D97200631D9A /* CoreFoundation.framework */; };
+		6912CB731E78D9A900631D9A /* vmbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F259260988657000D15623 /* vmbuf.c */; };
+		6912CB741E78D9D800631D9A /* plog.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FD0988657000D15623 /* plog.c */; };
+		6912CB761E78DD7100631D9A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6912CB751E78DD7100631D9A /* SystemConfiguration.framework */; };
+		6912CB771E78DD8800631D9A /* Preferences.c in Sources */ = {isa = PBXBuildFile; fileRef = BACD8C681496A50C0042DEA1 /* Preferences.c */; };
 		72265DDC0F818F9300730A7D /* ipsec.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72265DDB0F818F9300730A7D /* ipsec.plist */; };
 		723B6A30162F7BE300895EE5 /* xpc_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 723B6A2F162F7BE300895EE5 /* xpc_racoon.c */; };
 		723B6A31162F7BE300895EE5 /* xpc_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 723B6A2F162F7BE300895EE5 /* xpc_racoon.c */; };
 		724ED87916851AAC008F2EBD /* ipsec.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BACBF18B10290AE000BBFC85 /* ipsec.txt */; };
 		724ED87A16851AB6008F2EBD /* ipsec.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72265DDB0F818F9300730A7D /* ipsec.plist */; };
+		7253CC651E7B3F4600B2DDF5 /* racoon_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 7253CC611E7B3EAB00B2DDF5 /* racoon_test.c */; };
 		72B433770E3677D800D67508 /* com.apple.racoon.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724F99500E3672FD00C56897 /* com.apple.racoon.plist */; };
 		72F5C72E1607A1AE004C192F /* api_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F5C72D1607A1AE004C192F /* api_support.c */; };
 		72F5C72F1607A1AE004C192F /* api_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F5C72D1607A1AE004C192F /* api_support.c */; };
@@ -267,6 +275,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		69983DBC1E7B3D30007683BF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 69BB7E331E777E3C009EE2BA;
+			remoteInfo = racoon_test;
+		};
+		69983DBE1E7B4DE4007683BF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 69BB7E331E777E3C009EE2BA;
+			remoteInfo = racoon_test;
+		};
 		724ED875168515A7008F2EBD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 23D2D790087071FC00C51098 /* Project object */;
@@ -398,6 +420,15 @@
 			files = (
 				818710410D5BE22B00C7B441 /* psk.txt in CopyFiles */,
 				818710420D5BE22F00C7B441 /* racoon.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		69BB7E321E777E3C009EE2BA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -678,10 +709,20 @@
 		25F259270988657000D15623 /* vmbuf.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = vmbuf.h; sourceTree = "<group>"; };
 		25F777B909ABE3E100C99783 /* key_debug.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = key_debug.c; path = Common/key_debug.c; sourceTree = "<group>"; };
 		25F777ED09ABE58400C99783 /* pfkey_dump.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pfkey_dump.c; path = Common/pfkey_dump.c; sourceTree = "<group>"; };
+		6912CB6F1E78D96900631D9A /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		6912CB711E78D97200631D9A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		6912CB751E78DD7100631D9A /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		69BB7E341E777E3C009EE2BA /* racoon_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = racoon_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		69BB7E351E777E3D009EE2BA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		72265DDB0F818F9300730A7D /* ipsec.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = ipsec.plist; sourceTree = "<group>"; };
 		723B6A2F162F7BE300895EE5 /* xpc_racoon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xpc_racoon.c; sourceTree = "<group>"; };
 		723B6A33162F7C1100895EE5 /* ipsec_xpc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ipsec_xpc.h; sourceTree = "<group>"; };
 		724F99500E3672FD00C56897 /* com.apple.racoon.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.racoon.plist; sourceTree = "<group>"; };
+		7253CC601E7B3EAB00B2DDF5 /* racoon_certs_data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = racoon_certs_data.h; path = "ipsec-tools/racoon_test/racoon_certs_data.h"; sourceTree = SOURCE_ROOT; };
+		7253CC611E7B3EAB00B2DDF5 /* racoon_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = racoon_test.c; path = "ipsec-tools/racoon_test/racoon_test.c"; sourceTree = SOURCE_ROOT; };
+		7253CC621E7B3EB700B2DDF5 /* future_cert.der */ = {isa = PBXFileReference; lastKnownFileType = file; name = future_cert.der; path = "ipsec-tools/racoon_test/future_cert.der"; sourceTree = SOURCE_ROOT; };
+		7253CC631E7B3EB700B2DDF5 /* past_cert.der */ = {isa = PBXFileReference; lastKnownFileType = file; name = past_cert.der; path = "ipsec-tools/racoon_test/past_cert.der"; sourceTree = SOURCE_ROOT; };
+		7253CC641E7B3EB700B2DDF5 /* valid_cert.der */ = {isa = PBXFileReference; lastKnownFileType = file; name = valid_cert.der; path = "ipsec-tools/racoon_test/valid_cert.der"; sourceTree = SOURCE_ROOT; };
 		72F5C72D1607A1AE004C192F /* api_support.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = api_support.c; sourceTree = "<group>"; };
 		72F5C7311607A1DD004C192F /* api_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = api_support.h; sourceTree = "<group>"; };
 		7822D11D188DB07300874E91 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = ../../../../../System/Library/Frameworks/NetworkExtension.framework; sourceTree = "<group>"; };
@@ -742,8 +783,6 @@
 				25EAE8C109D87B080042CC7F /* CoreFoundation.framework in Frameworks */,
 				8D5B16750E5F7F4E00E72675 /* libresolv.dylib in Frameworks */,
 				2537A1C709E49D0600D0ECDA /* libipsec.A.dylib in Frameworks */,
-				25EAE84809D879700042CC7F /* libssl.dylib in Frameworks */,
-				25EAE84B09D879DE0042CC7F /* libcrypto.dylib in Frameworks */,
 				25EAE87709D87A770042CC7F /* libiconv.dylib in Frameworks */,
 				81C9645F0DA2CC2D00257BC8 /* SystemConfiguration.framework in Frameworks */,
 				BA486225109C2BF500545E19 /* IOKit.framework in Frameworks */,
@@ -755,6 +794,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				2537A1C109E494B300D0ECDA /* libipsec.A.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		69BB7E311E777E3C009EE2BA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6912CB761E78DD7100631D9A /* SystemConfiguration.framework in Frameworks */,
+				6912CB721E78D97200631D9A /* CoreFoundation.framework in Frameworks */,
+				6912CB701E78D96900631D9A /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -814,6 +863,7 @@
 				8125310A0D3FE9DC006BDF4F /* racoon */,
 				81DDFDAA0D622C1700C5CB87 /* setkey */,
 				81DDFDCD0D622C2700C5CB87 /* libipsec.A.dylib */,
+				69BB7E341E777E3C009EE2BA /* racoon_test */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -853,6 +903,9 @@
 		25D3DB4C098998230025F703 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6912CB751E78DD7100631D9A /* SystemConfiguration.framework */,
+				6912CB711E78D97200631D9A /* CoreFoundation.framework */,
+				6912CB6F1E78D96900631D9A /* Security.framework */,
 				7822D11F188DB07C00874E91 /* NetworkExtension.framework */,
 				7822D11D188DB07300874E91 /* NetworkExtension.framework */,
 				81C964580DA2CBEF00257BC8 /* SystemConfiguration.framework */,
@@ -862,6 +915,7 @@
 				25EAE83709D875BF0042CC7F /* DirectoryService.framework */,
 				25EAE8C009D87B080042CC7F /* CoreFoundation.framework */,
 				BA48611B109C2BBA00545E19 /* IOKit.framework */,
+				69BB7E351E777E3D009EE2BA /* Foundation.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -886,6 +940,7 @@
 				25D3DB1B098996310025F703 /* libipsec */,
 				25F258000987FB1600D15623 /* racoon */,
 				25F257FF0987FB0E00D15623 /* setkey */,
+				69BB7E2F1E777DEB009EE2BA /* Tests */,
 			);
 			path = "ipsec-tools";
 			sourceTree = "<group>";
@@ -1042,6 +1097,43 @@
 			path = Sample;
 			sourceTree = "<group>";
 		};
+		69983DB81E7B1BC6007683BF /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				7253CC601E7B3EAB00B2DDF5 /* racoon_certs_data.h */,
+				7253CC611E7B3EAB00B2DDF5 /* racoon_test.c */,
+			);
+			path = Source;
+			sourceTree = "<group>";
+		};
+		69983DB91E7B1BCE007683BF /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				7253CC621E7B3EB700B2DDF5 /* future_cert.der */,
+				7253CC631E7B3EB700B2DDF5 /* past_cert.der */,
+				7253CC641E7B3EB700B2DDF5 /* valid_cert.der */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		69BB7E2F1E777DEB009EE2BA /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				69BB7E371E777E3D009EE2BA /* racoon_test */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		69BB7E371E777E3D009EE2BA /* racoon_test */ = {
+			isa = PBXGroup;
+			children = (
+				69983DB81E7B1BC6007683BF /* Source */,
+				69983DB91E7B1BCE007683BF /* Support */,
+			);
+			name = racoon_test;
+			path = ../../racoon_test;
+			sourceTree = "<group>";
+		};
 		818710380D5BE15400C7B441 /* Sample */ = {
 			isa = PBXGroup;
 			children = (
@@ -1144,6 +1236,23 @@
 			productReference = 25F2580A0987FC1500D15623 /* setkey */;
 			productType = "com.apple.product-type.tool";
 		};
+		69BB7E331E777E3C009EE2BA /* racoon_test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 69BB7E3C1E777E3D009EE2BA /* Build configuration list for PBXNativeTarget "racoon_test" */;
+			buildPhases = (
+				69BB7E301E777E3C009EE2BA /* Sources */,
+				69BB7E311E777E3C009EE2BA /* Frameworks */,
+				69BB7E321E777E3C009EE2BA /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = racoon_test;
+			productName = racoon_test;
+			productReference = 69BB7E341E777E3C009EE2BA /* racoon_test */;
+			productType = "com.apple.product-type.tool";
+		};
 		812530BA0D3FE9DC006BDF4F /* racoon Embedded */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 812531050D3FE9DC006BDF4F /* Build configuration list for PBXNativeTarget "racoon Embedded" */;
@@ -1211,6 +1320,12 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0430;
+				TargetAttributes = {
+					69BB7E331E777E3C009EE2BA = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 25D3DACC098952B20025F703 /* Build configuration list for PBXProject "ipsec" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1239,6 +1354,7 @@
 				812530BA0D3FE9DC006BDF4F /* racoon Embedded */,
 				81DDFD970D622C1700C5CB87 /* setkey Embedded */,
 				81DDFDB80D622C2700C5CB87 /* libipsec Embedded */,
+				69BB7E331E777E3C009EE2BA /* racoon_test */,
 			);
 		};
 /* End PBXProject section */
@@ -1410,6 +1526,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		69BB7E301E777E3C009EE2BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7253CC651E7B3F4600B2DDF5 /* racoon_test.c in Sources */,
+				6912CB771E78DD8800631D9A /* Preferences.c in Sources */,
+				6912CB741E78D9D800631D9A /* plog.c in Sources */,
+				6912CB731E78D9A900631D9A /* vmbuf.c in Sources */,
+				6912CB6E1E78D94B00631D9A /* crypto_cssm.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		812530BF0D3FE9DC006BDF4F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1497,6 +1625,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		69983DBD1E7B3D30007683BF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 69BB7E331E777E3C009EE2BA /* racoon_test */;
+			targetProxy = 69983DBC1E7B3D30007683BF /* PBXContainerItemProxy */;
+		};
+		69983DBF1E7B4DE4007683BF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 69BB7E331E777E3C009EE2BA /* racoon_test */;
+			targetProxy = 69983DBE1E7B4DE4007683BF /* PBXContainerItemProxy */;
+		};
 		724ED876168515A7008F2EBD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72B3C21116850B87004E4548 /* ipsec_libraries */;
@@ -2002,6 +2140,165 @@
 					/System/Library/PrivateFrameworks/SecureNetworking.framework/Headers,
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Default;
+		};
+		69BB7E3D1E777E3D009EE2BA /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos appletvos appletvsimulator";
+				TVOS_DEPLOYMENT_TARGET = 11.0;
+				VALID_ARCHS = "arm64 arm64_32 arm64e armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s xscale x86_64h x86_64 i386";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Development;
+		};
+		69BB7E3E1E777E3D009EE2BA /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos appletvos appletvsimulator";
+				TVOS_DEPLOYMENT_TARGET = 11.0;
+				VALIDATE_PRODUCT = YES;
+				VALID_ARCHS = "arm64 arm64_32 arm64e armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s xscale x86_64h x86_64 i386";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Deployment;
+		};
+		69BB7E3F1E777E3D009EE2BA /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos appletvos appletvsimulator";
+				TVOS_DEPLOYMENT_TARGET = 11.0;
+				VALIDATE_PRODUCT = YES;
+				VALID_ARCHS = "arm64 arm64_32 arm64e armv4t armv5 armv6 armv6m armv7 armv7em armv7f armv7k armv7m armv7s xscale x86_64h x86_64 i386";
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Default;
 		};
@@ -2610,6 +2907,16 @@
 				25D3DACD098952B20025F703 /* Development */,
 				25D3DACE098952B20025F703 /* Deployment */,
 				25D3DACF098952B20025F703 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		69BB7E3C1E777E3D009EE2BA /* Build configuration list for PBXNativeTarget "racoon_test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				69BB7E3D1E777E3D009EE2BA /* Development */,
+				69BB7E3E1E777E3D009EE2BA /* Deployment */,
+				69BB7E3F1E777E3D009EE2BA /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

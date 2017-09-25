@@ -211,7 +211,18 @@ hfs_readdirattr_internal(struct vnode *dvp, struct attrlist *alist,
 	int lockflags;
 	u_int32_t dirchg = 0;
 	int reachedeof = 0;
-
+	int internal_actualcount;
+	int internal_eofflag;
+	
+	/* Lets makse sure we have something assign to actualcount always, min change required */
+	if (actualcount == NULL) {
+		actualcount = &internal_actualcount;
+	}
+	/* Lets makse sure we have something assign to eofflag always, min change required */
+	if (eofflag == NULL) {
+		eofflag = &internal_eofflag;
+	}
+	
 	*(actualcount) = 0;
 	*(eofflag) = 0;
 
@@ -1128,9 +1139,10 @@ hfs_attrblksize(struct attrlist *attrlist)
 
 	hfs_assert((attrlist->fileattr & ~ATTR_FILE_VALIDMASK) == 0);
 
-	// disable this for build machines
-	// it's not useful and will break every time we add new _CMNEXT_ bits
-	// hfs_assert((attrlist->forkattr & ~ATTR_FORK_VALIDMASK) == 0);
+	// disable this because it will break the simulator/build machines each
+	// time a new _CMNEXT_ bit is added
+	// hfs_assert(((attrlist->forkattr & ~ATTR_FORK_VALIDMASK) == 0) ||
+	// 	((attrlist->forkattr & ~ATTR_CMNEXT_VALIDMASK) == 0));
 
 	size = 0;
 	
@@ -1272,9 +1284,10 @@ get_vattr_data_for_attrs(struct attrlist *alp, struct vnode_attr *vap,
     struct cat_attr *atrp, struct cat_fork *datafork, struct cat_fork *rsrcfork,
     vfs_context_t ctx)
 {
-	if (alp->commonattr)
+	if (alp->commonattr || alp->forkattr) {
 		vattr_data_for_common_attrs(alp, vap, hfsmp, vp, descp, atrp,
-		ctx);
+		    ctx);
+	}
 
 	if (alp->dirattr && S_ISDIR(atrp->ca_mode))
 		vattr_data_for_dir_attrs(alp, vap, hfsmp, vp, descp, atrp);
@@ -1386,9 +1399,11 @@ vattr_data_for_common_attrs( struct attrlist *alp, struct vnode_attr *vap,
 	 * The stat call (getattr) will always return the c_fileid
 	 * and Carbon APIs, which are hardlink-ignorant, will always
 	 * receive the c_cnid (from getattrlist).
+	 *
+	 * Forkattrs are now repurposed for Common Extended Attributes.
 	 */
-	if ((ATTR_CMN_OBJID & attr) ||
-	    (ATTR_CMN_OBJPERMANENTID & attr)) {
+	if ((ATTR_CMN_OBJID & attr) || (ATTR_CMN_OBJPERMANENTID & attr) ||
+	    alp->forkattr & ATTR_CMNEXT_LINKID) {
 		vap->va_linkid = cdp->cd_cnid;
 		VATTR_SET_SUPPORTED(vap, va_linkid);
 	}

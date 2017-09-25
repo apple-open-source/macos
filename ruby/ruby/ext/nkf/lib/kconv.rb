@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #
 # kconv.rb - Kanji Converter.
 #
-# $Id: kconv.rb 30112 2010-12-07 11:47:39Z naruse $
+# $Id: kconv.rb 53143 2015-12-16 05:31:54Z naruse $
 #
 # ----
 #

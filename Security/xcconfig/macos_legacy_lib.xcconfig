@@ -15,7 +15,7 @@ GCC_GENERATE_DEBUGGING_SYMBOLS = YES
 CODE_SIGN_IDENTITY =
 
 SKIP_INSTALL = YES
-PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/$(TARGET_NAME
+PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/$(TARGET_NAME)
 
 
 // Code is ugly. Turn off some warnings.

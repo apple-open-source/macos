@@ -30,30 +30,12 @@
 
 #include "CommonCryptoUtilities.h"
 #include "CryptoAlgorithmRsaSsaParamsDeprecated.h"
-#include "CryptoDigest.h"
+#include "CryptoDigestAlgorithm.h"
 #include "CryptoKeyRSA.h"
 #include "ExceptionCode.h"
 #include "ScriptExecutionContext.h"
 
 namespace WebCore {
-
-inline std::optional<CryptoDigest::Algorithm> cryptoDigestAlgorithm(CryptoAlgorithmIdentifier hashFunction)
-{
-    switch (hashFunction) {
-    case CryptoAlgorithmIdentifier::SHA_1:
-        return CryptoDigest::Algorithm::SHA_1;
-    case CryptoAlgorithmIdentifier::SHA_224:
-        return CryptoDigest::Algorithm::SHA_224;
-    case CryptoAlgorithmIdentifier::SHA_256:
-        return CryptoDigest::Algorithm::SHA_256;
-    case CryptoAlgorithmIdentifier::SHA_384:
-        return CryptoDigest::Algorithm::SHA_384;
-    case CryptoAlgorithmIdentifier::SHA_512:
-        return CryptoDigest::Algorithm::SHA_512;
-    default:
-        return std::nullopt;
-    }
-}
 
 // FIXME: We should change data to Vector<uint8_t> type once WebKitSubtleCrypto is deprecated.
 // https://bugs.webkit.org/show_bug.cgi?id=164939
@@ -66,7 +48,7 @@ static ExceptionOr<Vector<uint8_t>> signRSASSA_PKCS1_v1_5(CryptoAlgorithmIdentif
     auto cryptoDigestAlgorithm = WebCore::cryptoDigestAlgorithm(hash);
     if (!cryptoDigestAlgorithm)
         return Exception { OperationError };
-    auto digest = CryptoDigest::create(*cryptoDigestAlgorithm);
+    auto digest = PAL::CryptoDigest::create(*cryptoDigestAlgorithm);
     if (!digest)
         return Exception { OperationError };
     digest->addBytes(data, dataLength);
@@ -93,7 +75,7 @@ static ExceptionOr<bool> verifyRSASSA_PKCS1_v1_5(CryptoAlgorithmIdentifier hash,
     auto cryptoDigestAlgorithm = WebCore::cryptoDigestAlgorithm(hash);
     if (!cryptoDigestAlgorithm)
         return Exception { OperationError };
-    auto digest = CryptoDigest::create(*cryptoDigestAlgorithm);
+    auto digest = PAL::CryptoDigest::create(*cryptoDigestAlgorithm);
     if (!digest)
         return Exception { OperationError };
     digest->addBytes(data, dataLength);

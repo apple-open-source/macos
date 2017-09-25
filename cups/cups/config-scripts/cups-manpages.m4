@@ -1,14 +1,14 @@
 dnl
 dnl Manpage stuff for CUPS.
 dnl
-dnl Copyright 2007-2016 by Apple Inc.
+dnl Copyright 2007-2017 by Apple Inc.
 dnl Copyright 1997-2006 by Easy Software Products, all rights reserved.
 dnl
 dnl These coded instructions, statements, and computer programs are the
 dnl property of Apple Inc. and are protected by Federal copyright
 dnl law.  Distribution and use rights are outlined in the file "LICENSE.txt"
 dnl which should have been included with this file.  If this file is
-dnl file is missing or damaged, see the license at "http://www.cups.org/".
+dnl missing or damaged, see the license at "http://www.cups.org/".
 dnl
 
 dnl Fix "mandir" variable...
@@ -19,8 +19,8 @@ if test "$mandir" = "\${datarootdir}/man" -a "$prefix" = "/"; then
 fi
 
 if test "$mandir" = "\${prefix}/man" -a "$prefix" = "/"; then
-	case "$uname" in
-        	Darwin* | Linux | GNU | *BSD*)
+	case "$host_os_name" in
+        	darwin* | linux* | gnu* | *bsd*)
         		# Darwin, macOS, Linux, GNU HURD, and *BSD
         		mandir="/usr/share/man"
         		AMANDIR="/usr/share/man"
@@ -42,8 +42,8 @@ AC_SUBST(AMANDIR)
 AC_SUBST(PMANDIR)
 
 dnl Setup manpage extensions...
-case "$uname" in
-	SunOS*)
+case "$host_os_name" in
+	sunos*)
 		# Solaris
 		MAN1EXT=1
 		MAN5EXT=5
@@ -51,7 +51,7 @@ case "$uname" in
 		MAN8EXT=1m
 		MAN8DIR=1m
 		;;
-	Linux* | GNU* | Darwin*)
+	linux* | gnu* | darwin*)
 		# Linux, GNU Hurd, and macOS
 		MAN1EXT=1.gz
 		MAN5EXT=5.gz

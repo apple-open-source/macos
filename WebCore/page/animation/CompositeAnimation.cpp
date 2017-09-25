@@ -29,7 +29,7 @@
 #include "config.h"
 #include "CompositeAnimation.h"
 
-#include "AnimationControllerPrivate.h"
+#include "CSSAnimationControllerPrivate.h"
 #include "CSSPropertyAnimation.h"
 #include "CSSPropertyNames.h"
 #include "ImplicitAnimation.h"
@@ -42,7 +42,7 @@
 
 namespace WebCore {
 
-CompositeAnimation::CompositeAnimation(AnimationControllerPrivate& animationController)
+CompositeAnimation::CompositeAnimation(CSSAnimationControllerPrivate& animationController)
     : m_animationController(animationController)
 {
     m_suspended = m_animationController.isSuspended() && !m_animationController.allowsNewAnimationsWhileSuspended();
@@ -94,10 +94,10 @@ void CompositeAnimation::updateTransitions(RenderElement* renderer, const Render
     if (targetStyle->transitions()) {
         for (size_t i = 0; i < targetStyle->transitions()->size(); ++i) {
             auto& animation = targetStyle->transitions()->animation(i);
-            bool isActiveTransition = !m_suspended && (animation.duration() || animation.delay() > 0);
+            bool isActiveTransition = animation.duration() || animation.delay() > 0;
 
             Animation::AnimationMode mode = animation.animationMode();
-            if (mode == Animation::AnimateNone)
+            if (mode == Animation::AnimateNone || mode == Animation::AnimateUnknownProperty)
                 continue;
 
             CSSPropertyID prop = animation.property();
@@ -121,8 +121,8 @@ void CompositeAnimation::updateTransitions(RenderElement* renderer, const Render
                 // If there is a running animation for this property, the transition is overridden
                 // and we have to use the unanimatedStyle from the animation. We do the test
                 // against the unanimated style here, but we "override" the transition later.
-                RefPtr<KeyframeAnimation> keyframeAnim = getAnimationForProperty(prop);
-                auto* fromStyle = keyframeAnim ? keyframeAnim->unanimatedStyle() : currentStyle;
+                auto* keyframeAnimation = animationForProperty(prop);
+                auto* fromStyle = keyframeAnimation ? keyframeAnimation->unanimatedStyle() : currentStyle;
 
                 // See if there is a current transition for this prop
                 ImplicitAnimation* implAnim = m_transitions.get(prop);
@@ -169,10 +169,13 @@ void CompositeAnimation::updateTransitions(RenderElement* renderer, const Render
                 if (!equal && isActiveTransition) {
                     // Add the new transition
                     auto implicitAnimation = ImplicitAnimation::create(animation, prop, renderer, this, modifiedCurrentStyle ? modifiedCurrentStyle.get() : fromStyle);
+                    if (m_suspended && implicitAnimation->hasStyle())
+                        implicitAnimation->updatePlayState(AnimPlayStatePaused);
+
                     LOG(Animations, "Created ImplicitAnimation %p on renderer %p for property %s duration %.2f delay %.2f", implicitAnimation.ptr(), renderer, getPropertyName(prop), animation.duration(), animation.delay());
                     m_transitions.set(prop, WTFMove(implicitAnimation));
                 }
-                
+
                 // We only need one pass for the single prop case
                 if (!all)
                     break;
@@ -300,7 +303,7 @@ bool CompositeAnimation::animate(RenderElement& renderer, const RenderStyle* cur
         bool checkForStackingContext = false;
         for (auto& transition : m_transitions.values()) {
             bool didBlendStyle = false;
-            if (transition->animate(this, &renderer, currentStyle, &targetStyle, blendedStyle, didBlendStyle))
+            if (transition->animate(*this, &renderer, currentStyle, targetStyle, blendedStyle, didBlendStyle))
                 animationStateChanged = true;
 
             if (didBlendStyle)
@@ -330,10 +333,11 @@ bool CompositeAnimation::animate(RenderElement& renderer, const RenderStyle* cur
         RefPtr<KeyframeAnimation> keyframeAnim = m_keyframeAnimations.get(name);
         if (keyframeAnim) {
             bool didBlendStyle = false;
-            if (keyframeAnim->animate(this, &renderer, currentStyle, &targetStyle, blendedStyle, didBlendStyle))
+            if (keyframeAnim->animate(*this, &renderer, currentStyle, targetStyle, blendedStyle, didBlendStyle))
                 animationStateChanged = true;
 
             forceStackingContext |= didBlendStyle && keyframeAnim->triggersStackingContext();
+            m_hasAnimationThatDependsOnLayout |= keyframeAnim->dependsOnLayout();
         }
     }
 
@@ -366,54 +370,54 @@ std::unique_ptr<RenderStyle> CompositeAnimation::getAnimatedStyle() const
     return resultStyle;
 }
 
-double CompositeAnimation::timeToNextService() const
+std::optional<Seconds> CompositeAnimation::timeToNextService() const
 {
-    // Returns the time at which next service is required. -1 means no service is required. 0 means 
+    // Returns the time at which next service is required. std::nullopt means no service is required. 0 means
     // service is required now, and > 0 means service is required that many seconds in the future.
-    double minT = -1;
+    std::optional<Seconds> minT;
     
     if (!m_transitions.isEmpty()) {
         for (auto& transition : m_transitions.values()) {
-            double t = transition->timeToNextService();
-            if (t == -1)
+            std::optional<Seconds> t = transition->timeToNextService();
+            if (!t)
                 continue;
-            if (t < minT || minT == -1)
-                minT = t;
-            if (minT == 0)
-                return 0;
+            if (!minT || t.value() < minT.value())
+                minT = t.value();
+            if (minT.value() == 0_s)
+                return 0_s;
         }
     }
     if (!m_keyframeAnimations.isEmpty()) {
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values()) {
-            double t = animation->timeToNextService();
-            if (t == -1)
+            std::optional<Seconds> t = animation->timeToNextService();
+            if (!t)
                 continue;
-            if (t < minT || minT == -1)
-                minT = t;
-            if (minT == 0)
-                return 0;
+            if (!minT || t.value() < minT.value())
+                minT = t.value();
+            if (minT.value() == 0_s)
+                return 0_s;
         }
     }
 
     return minT;
 }
 
-PassRefPtr<KeyframeAnimation> CompositeAnimation::getAnimationForProperty(CSSPropertyID property) const
+KeyframeAnimation* CompositeAnimation::animationForProperty(CSSPropertyID property) const
 {
-    RefPtr<KeyframeAnimation> retval;
-    
+    KeyframeAnimation* result = nullptr;
+
     // We want to send back the last animation with the property if there are multiples.
     // So we need to iterate through all animations
     if (!m_keyframeAnimations.isEmpty()) {
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values()) {
             if (animation->hasAnimationForProperty(property))
-                retval = animation;
+                result = animation.get();
         }
     }
-    
-    return retval;
+
+    return result;
 }
 
 bool CompositeAnimation::computeExtentOfTransformAnimation(LayoutRect& bounds) const

@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include "SecurityTool/SecurityTool.h"
 
-static inline const char *
+static const char *
 sec_errstr(int err)
 {
     const char *errString;
@@ -51,12 +51,15 @@ sec_errstr(int err)
     return errString;
 }
 
-static inline void
+static void
+sec_error(const char *msg, ...) __attribute__((format(printf, 1, 2)));
+
+static void
 sec_error(const char *msg, ...)
 {
     va_list args;
     
-    fprintf(stderr, "%s: ", prog_name);
+    fprintf(stderr, "%s: ", getprogname());
     
     va_start(args, msg);
     vfprintf(stderr, msg, args);

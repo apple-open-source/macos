@@ -23,10 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && ENABLE(DATA_DETECTION)
 
 #import <UIKit/UIKit.h>
-#import <WebCore/SoftLinking.h>
+#import <wtf/SoftLinking.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -34,6 +34,8 @@
 #import <DataDetectorsUI/DDDetectionController.h>
 
 #else
+
+#import <WebCore/DataDetectorsCoreSPI.h>
 
 @interface DDAction : NSObject
 @end
@@ -54,14 +56,11 @@
 + (DDDetectionController *)sharedController;
 + (NSArray *)tapAndHoldSchemes;
 - (void)performAction:(DDAction *)action fromAlertController:(UIAlertController *)alertController interactionDelegate:(id <DDDetectionControllerInteractionDelegate>)interactionDelegate;
+- (NSArray *)actionsForURL:(NSURL *)url identifier:(NSString *)identifier selectedText:(NSString *)selectedText results:(NSArray *)results context:(NSDictionary *)context;
+- (DDResultRef)resultForURL:(NSURL *)url identifier:(NSString *)identifier selectedText:(NSString *)selectedText results:(NSArray *)results context:(NSDictionary *)context extendedContext:(NSDictionary **)extendedContext;
 @end
 
 #endif
-
-@interface DDDetectionController (DetailsToBeRemoved)
-// FIXME: This will be removed as soon as <rdar://problem/16346913> is fixed.
-- (NSArray *)actionsForAnchor:(id)anchor url:(NSURL *)targetURL forFrame:(id)frame;
-@end
 
 SOFT_LINK_PRIVATE_FRAMEWORK(DataDetectorsUI)
 SOFT_LINK_CLASS(DataDetectorsUI, DDDetectionController)

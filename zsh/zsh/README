@@ -5,10 +5,10 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is version 5.2 of the shell.  This is a stable release.  There are
-a few visible improvements since 5.1.1 as well as many bugfixes.  Note
+This is version 5.3 of the shell.  This is a stable release.  There are
+a few visible improvements since 5.2 as well as many bugfixes.  Note
 in particular the changs highlighted under "Incompatibilites
-between 5.1 and 5.2" below.  See NEWS for more information.
+between 5.2 and 5.3" below.  See NEWS for more information.
 
 Installing Zsh
 --------------
@@ -29,16 +29,144 @@ Zsh is a shell with lots of features.  For a list of some of these, see the
 file FEATURES, and for the latest changes see NEWS.  For more
 details, see the documentation.
 
-Incompatibilities between 5.1 and 5.2
+Incompatibilities between 5.2 and 5.3
 -------------------------------------
+
+1) In character classes delimited by "[" and "]" within patterns, whether
+used for filename generation (globbing) or other forms of pattern
+matching, it used not to be possible to quote "-" when used for a range,
+or "^" and "!" when used for negating a character set.  The characters can
+now be quoted by any of the standard shell means, but note that
+the "[" and "]" must not be quoted.  For example,
+
+  [[ $a = ['a-z'] ]]
+
+matches if the variable a contains just one of the characters "a", "-"
+or "z" only.  Previously this would have matched any lower case ASCII
+letter.  Note therefore the useful fact that
+
+  [[ $a = ["$cset"] ]]
+
+matches any character contained in the variable "cset".  A consequence
+of this change is that variables that should have active ranges need
+(with default zsh options) to be indicated explicitly, e.g.
+
+  cset="a-z"
+  [[ b = [${~cset}] ]]
+
+The "~" causes the "-" character to be active.  In sh emulation the
+"~" is unncessary in this example and double quotes must be used to
+suppress the range behaviour of the "-".
+
+2) The first argument to 'repeat' is now evaluated as an arithmetic
+expression.  It was always documented to be an arithmetic expression, but
+until now the decimal integer at the start of the value was used and the
+remainder of the value discarded.  This could lead to different behaviour
+if the argument contains non-numeric characters, or if the argument has
+leading zeroes and the OCTAL_ZEROES option is set.
+
+3) For some time the shell has had a POSIX_TRAPS option which determines
+whether the EXIT trap has POSIX behaviour (the trap is only run at shell
+exit) or traditional zsh behaviour (the trap is run once and discarded
+when the enclosing fuction or shell exits, whichever happens first).
+The use of this option has now been made "sticky" on the EXIT trap ---
+in other words, the setting of the option at the point where the trap is
+set now determines whether the trap has POSIX or traditional zsh
+behaviour.  This means that changing the option after the trap was set
+no longer has any effect.
+
+Other aspects of EXIT trap handling have not changed --- there is still
+only one EXIT trap at any point in a programme, so it is not generally
+useful to combine POSIX and non-POSIX behaviour in the same script.
+
+4) There was an undocumented feature dating from the early days of zsh
+that glob qualifiers consisting only of the digits 0 to 7 were treated
+as an octal file mode to "and" with the modes of files being tested.
+This has been removed in order to be more sensitive to syntax errors.
+The "f" qualifier has for many years been the documented way of testing
+file modes; it allows the "and" test ("*(f+1)" is the documented
+equivalent of "*(1)") as well as many other forms.
+
+5) The completion helper function _arguments now escapes both backslashes
+and colons in the values of option arguments when populating the $opt_args
+associative array.  Previously, colons were escaped with a backslash but
+backslashes were not themselves escaped with a backslash, which lead to
+ambiguity: '-x foo\:bar' (one argument with a backslashed colon) and
+'-x foo\\ bar' (two arguments, and the first one ends in a backslash) would
+both set $opt_args[-x] to the same value.  This example assumes the -x
+option's spec declared two arguments, as in:
+    _arguments : -x:foo:${action}:bar:$action
+
+For the more common case of non-repeatable options that take a single
+argument, completion functions now have to unescape not only colons but
+also backslashes when obtaining the option's argument from $opt_args.
+
+6) Previously, if the function command_not_found_handler was run
+in place of a command-not-found error, and the function returned
+non-zero status, zsh set the status to 127 and printed an error message
+anyway.  Now, the status from the handler is retained and no additional
+message is printed.  The main reasons for this change are that it was not
+possible to return a non-zero status to the parent shell from a command
+executed as a replacement, and the new implementation is more consistent
+with other shells.
+
+7) The output of "typeset -p" (and synonyms) now takes into account the
+function scope and export state of each parameter.  Exported parameters
+are output as "export" commands unless the parameter is also local, and
+other parameters not local to the scope are output with the "-g" option.
+Previously, only "typeset" commands were output, never using "-g".
+
+8) At spelling-correction prompt ($SPROMPT), where the choices offered are
+[nyae], previously <Enter> would be accepted to mean [N] and <Space> and
+<Tab> would be accepted to mean [Y].  Now <Space> and <Tab> are invalid
+choices: typing either of them remains at the prompt.
+
+9) The $ary[i,j] subscript syntax to take a slice of an array behaves
+differently when both i and j are larger than the number of elements in
+the array.  When i == j, such a slice always yields an empty array, and
+when i < j it always yields an array of one empty string element.  The
+following example illustrates how this differs from past versions.
+
+     nargs() { print $# }
+     a=(one two)
+     for i in 1 2 3 4; do
+      for j in 1 2 3 4 5; do
+       print -n "$i $j => "
+       nargs "${(@)a[i,j]}"
+      done
+     done
+     
+     5.2       |  5.3 **
+     ----------+----------
+     1 1 => 1  |  1 1 => 1
+     1 2 => 2  |  1 2 => 2
+     1 3 => 2  |  1 3 => 2
+     1 4 => 2  |  1 4 => 2
+     1 5 => 2  |  1 5 => 2
+     2 1 => 0  |  2 1 => 0
+     2 2 => 1  |  2 2 => 1
+     2 3 => 1  |  2 3 => 1
+     2 4 => 1  |  2 4 => 1
+     2 5 => 1  |  2 5 => 1
+     3 1 => 0  |  3 1 => 0
+     3 2 => 0  |  3 2 => 0
+     3 3 => 0  |  3 3 => 0
+     3 4 => 0  |  3 4 => 1   **
+     3 5 => 0  |  3 5 => 1   **
+     4 1 => 0  |  4 1 => 0
+     4 2 => 0  |  4 2 => 0
+     4 3 => 0  |  4 3 => 0
+     4 4 => 1  |  4 4 => 0   **
+     4 5 => 1  |  4 5 => 1
+
+
+Incompatibilities between 5.0.8 and 5.2
+---------------------------------------
 
 The behaviour of the parameter flag (P) has changed when it appears
 in a nested parameter group, in order to make it more useful in
 such cases.  A (P) in the outermost parameter group behaves as
 before.  See NEWS for more.
-
-Incompatibilities between 5.0.8 and 5.1
----------------------------------------
 
 The default behaviour when text is pasted into an X Windows terminal has
 changed significantly (unless you are using a very old terminal emulator

@@ -28,7 +28,6 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGAbstractValue.h"
-#include "DFGBranchDirection.h"
 #include "DFGGraph.h"
 #include "DFGNode.h"
 #include "DFGNodeFlowProjection.h"
@@ -197,6 +196,7 @@ private:
     
     CodeBlock* m_codeBlock;
     Graph& m_graph;
+    VM& m_vm;
     AbstractStateType& m_state;
     std::unique_ptr<PhiChildren> m_phiChildren;
 };

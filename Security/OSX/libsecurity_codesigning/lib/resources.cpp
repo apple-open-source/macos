@@ -260,6 +260,13 @@ ResourceBuilder::Rule *ResourceBuilder::findRule(string path) const
 			}
 			if (!bestRule || rule->weight > bestRule->weight)
 				bestRule = rule;
+
+
+#if TARGET_OS_WATCH
+/* rdar://problem/30517969 */
+			if (bestRule && bestRule->weight == rule->weight && !(bestRule->flags & omitted) && (rule->flags & omitted))
+				bestRule = rule;
+#endif
 		}
 	}
 	secinfo("rscan", "choosing %s (%d,0x%x)",

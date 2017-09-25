@@ -39,7 +39,7 @@
 #include "php.h"
 
 /* This just seems unessacary */
-#if PHP_WIN32
+#ifdef PHP_WIN32
 #define ENABLE_GD_TTF
 #else
 #include <php_config.h>
@@ -97,7 +97,7 @@ gdCacheGet( gdCache_head_t *head, void *keydata )
 	elem = head->mru;
 	if (elem == NULL) {
 		return NULL;
-		
+
 	}
 
 	while(elem) {

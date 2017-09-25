@@ -87,6 +87,7 @@ static void test(id returnKeyName) {
     ok_status(SecItemCopyMatching( (__bridge CFDictionaryRef)@{ (id)kSecClass : (id)kSecClassCertificate,
                                                                 (id)kSecMatchLimit : (id)kSecMatchLimitAll,
                                                                 (id)kSecMatchPolicy : (__bridge id)policy,
+                                                                (id)kSecMatchValidOnDate : validDate,
                                                                 returnKeyName : @YES }, &result));
     ok(result && CFArrayGetCount(result) == 2);
     CFReleaseNull(policy);
@@ -101,6 +102,7 @@ static void test(id returnKeyName) {
     ok_status(SecItemCopyMatching( (__bridge CFDictionaryRef)@{ (id)kSecClass : (id)kSecClassCertificate,
                                                                 (id)kSecMatchLimit : (id)kSecMatchLimitAll,
                                                                 (id)kSecMatchPolicy : (__bridge id)policy,
+                                                                (id)kSecMatchValidOnDate : validDate,
                                                                 returnKeyName : @YES }, &result));
     ok(result && CFArrayGetCount(result) == 1);
     CFReleaseNull(result);
@@ -135,6 +137,7 @@ static void test(id returnKeyName) {
     ok_status(SecItemCopyMatching( (__bridge CFDictionaryRef)@{ (id)kSecClass : (id)kSecClassCertificate,
                                                                 (id)kSecMatchLimit : (id)kSecMatchLimitAll,
                                                                 (id)kSecMatchPolicy : (__bridge id)policy,
+                                                                (id)kSecMatchValidOnDate : validDate,
                                                                 returnKeyName : @YES }, &result));
     ok(result && CFArrayGetCount(result) == 2);
     CFReleaseNull(policy);
@@ -149,6 +152,7 @@ static void test(id returnKeyName) {
     ok_status(SecItemCopyMatching( (__bridge CFDictionaryRef)@{ (id)kSecClass : (id)kSecClassCertificate,
                                                                 (id)kSecMatchLimit : (id)kSecMatchLimitAll,
                                                                 (id)kSecMatchPolicy : (__bridge id)policy,
+                                                                (id)kSecMatchValidOnDate : validDate,
                                                                 returnKeyName : @YES }, &result));
     ok(result && CFArrayGetCount(result) == 1);
     CFReleaseNull(result);
@@ -185,6 +189,7 @@ static void test(id returnKeyName) {
     ok_status(SecItemCopyMatching( (__bridge CFDictionaryRef)@{ (id)kSecClass : (id)kSecClassCertificate,
                                                                 (id)kSecMatchLimit : (id)kSecMatchLimitAll,
                                                                 (id)kSecMatchPolicy : (__bridge id)policy,
+                                                                (id)kSecMatchValidOnDate : validDate,
                                                                 returnKeyName : @YES }, &result));
     ok(result && CFArrayGetCount(result) == 2);
     CFReleaseNull(result);

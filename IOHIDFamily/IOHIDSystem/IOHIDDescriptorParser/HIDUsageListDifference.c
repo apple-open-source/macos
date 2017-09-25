@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -95,7 +95,7 @@ OSStatus HIDUsageListDifference(HIDUsage *piPreviousUL, HIDUsage *piCurrentUL, H
 	HIDUsage usage;
 	int iBreakLength=0;
 	int iMakeLength=0;
-	for (i = 0; i < iUsageListLength; i++)
+	for (i = 0; i < (int)iUsageListLength; i++)
 	{
 /*
  *		If in Current but not Previous then it's a Make
@@ -115,9 +115,9 @@ OSStatus HIDUsageListDifference(HIDUsage *piPreviousUL, HIDUsage *piCurrentUL, H
 /*
  *	Clear the rest of the usage Lists
 */
-	while (iMakeLength < iUsageListLength)
+	while (iMakeLength < (int)iUsageListLength)
 		piMakeUL[iMakeLength++] = 0;
-	while (iBreakLength < iUsageListLength)
+	while (iBreakLength < (int)iUsageListLength)
 		piBreakUL[iBreakLength++] = 0;
 	return kHIDSuccess;
 }

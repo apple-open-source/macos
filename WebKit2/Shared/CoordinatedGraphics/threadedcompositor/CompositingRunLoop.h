@@ -28,6 +28,7 @@
 
 #if USE(COORDINATED_GRAPHICS_THREADED)
 
+#include <wtf/Atomics.h>
 #include <wtf/Condition.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Function.h>
@@ -41,29 +42,32 @@ class CompositingRunLoop {
     WTF_MAKE_NONCOPYABLE(CompositingRunLoop);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum UpdateTiming {
-        Immediate,
-        WaitUntilNextFrame,
-    };
-
-    CompositingRunLoop(std::function<void ()>&&);
+    CompositingRunLoop(Function<void ()>&&);
     ~CompositingRunLoop();
 
     void performTask(Function<void ()>&&);
     void performTaskSync(Function<void ()>&&);
 
-    void startUpdateTimer(UpdateTiming = Immediate);
-    void stopUpdateTimer();
+    bool isActive();
+    void scheduleUpdate();
+    void stopUpdates();
+
+    void updateCompleted();
 
 private:
+    enum class UpdateState {
+        Completed,
+        InProgress,
+        PendingAfterCompletion,
+    };
+
     void updateTimerFired();
 
     RunLoop::Timer<CompositingRunLoop> m_updateTimer;
-    std::function<void ()> m_updateFunction;
+    Function<void ()> m_updateFunction;
+    Atomic<UpdateState> m_updateState;
     Lock m_dispatchSyncConditionMutex;
     Condition m_dispatchSyncCondition;
-
-    double m_lastUpdateTime { 0 };
 };
 
 } // namespace WebKit

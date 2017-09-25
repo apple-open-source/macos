@@ -28,6 +28,7 @@
 #include "BitmapTexturePool.h"
 #include "Extensions3D.h"
 #include "FilterOperations.h"
+#include "FloatQuad.h"
 #include "GraphicsContext.h"
 #include "Image.h"
 #include "LengthFunctions.h"
@@ -36,7 +37,7 @@
 #include "Timer.h"
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/SetForScope.h>
 
@@ -246,9 +247,15 @@ void TextureMapperGL::drawNumber(int number, const Color& color, const FloatPoin
     cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     cairo_t* cr = cairo_create(surface);
 
-    float r, g, b, a;
-    color.getRGBA(r, g, b, a);
-    cairo_set_source_rgba(cr, b, g, r, a); // Since we won't swap R+B when uploading a texture, paint with the swapped R+B color.
+    // Since we won't swap R+B when uploading a texture, paint with the swapped R+B color.
+    if (color.isExtended())
+        cairo_set_source_rgba(cr, color.asExtended().blue(), color.asExtended().green(), color.asExtended().red(), color.asExtended().alpha());
+    else {
+        float r, g, b, a;
+        color.getRGBA(r, g, b, a);
+        cairo_set_source_rgba(cr, b, g, r, a);
+    }
+
     cairo_rectangle(cr, 0, 0, width, height);
     cairo_fill(cr);
 
@@ -403,6 +410,18 @@ static void prepareFilterProgram(TextureMapperShaderProgram& program, const Filt
     }
 }
 
+static TransformationMatrix colorSpaceMatrixForFlags(TextureMapperGL::Flags flags)
+{
+    // The matrix is initially the identity one, which means no color conversion.
+    TransformationMatrix matrix;
+    if (flags & TextureMapperGL::ShouldConvertTextureBGRAToRGBA)
+        matrix.setMatrix(0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    else if (flags & TextureMapperGL::ShouldConvertTextureARGBToRGBA)
+        matrix.setMatrix(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0);
+
+    return matrix;
+}
+
 void TextureMapperGL::drawTexture(const BitmapTexture& texture, const FloatRect& targetRect, const TransformationMatrix& matrix, float opacity, unsigned exposedEdges)
 {
     if (!texture.isValid())
@@ -415,6 +434,16 @@ void TextureMapperGL::drawTexture(const BitmapTexture& texture, const FloatRect&
     SetForScope<const BitmapTextureGL::FilterInfo*> filterInfo(data().filterInfo, textureGL.filterInfo());
 
     drawTexture(textureGL.id(), textureGL.isOpaque() ? 0 : ShouldBlend, textureGL.size(), targetRect, matrix, opacity, exposedEdges);
+}
+
+static bool driverSupportsNPOTTextures(GraphicsContext3D& context)
+{
+    if (context.isGLES2Compliant()) {
+        static bool supportsNPOTTextures = context.getExtensions().supports("GL_OES_texture_npot");
+        return supportsNPOTTextures;
+    }
+
+    return true;
 }
 
 void TextureMapperGL::drawTexture(Platform3DObject texture, Flags flags, const IntSize& textureSize, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, unsigned exposedEdges)
@@ -433,6 +462,8 @@ void TextureMapperGL::drawTexture(Platform3DObject texture, Flags flags, const I
         options |= TextureMapperShaderProgram::Antialiasing;
         flags |= ShouldAntialias;
     }
+    if (wrapMode() == RepeatWrap && !driverSupportsNPOTTextures(*m_context3D))
+        options |= TextureMapperShaderProgram::ManualRepeat;
 
     RefPtr<FilterOperation> filter = data().filterInfo ? data().filterInfo->filter: 0;
     GC3Duint filterContentTextureID = 0;
@@ -554,7 +585,7 @@ void TextureMapperGL::drawTexturedQuadWithProgram(TextureMapperShaderProgram& pr
     GC3Denum target = flags & ShouldUseARBTextureRect ? GC3Denum(Extensions3D::TEXTURE_RECTANGLE_ARB) : GC3Denum(GraphicsContext3D::TEXTURE_2D);
     m_context3D->bindTexture(target, texture);
     m_context3D->uniform1i(program.samplerLocation(), 0);
-    if (wrapMode() == RepeatWrap) {
+    if (wrapMode() == RepeatWrap && driverSupportsNPOTTextures(*m_context3D)) {
         m_context3D->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::REPEAT);
         m_context3D->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::REPEAT);
     }
@@ -580,6 +611,7 @@ void TextureMapperGL::drawTexturedQuadWithProgram(TextureMapperShaderProgram& pr
         patternTransform.translate(0, -1);
 
     program.setMatrix(program.textureSpaceMatrixLocation(), patternTransform);
+    program.setMatrix(program.textureColorSpaceMatrixLocation(), colorSpaceMatrixForFlags(flags));
     m_context3D->uniform1f(program.opacityLocation(), opacity);
 
     if (opacity < 1)
@@ -676,7 +708,9 @@ void TextureMapperGL::beginClip(const TransformationMatrix& modelViewMatrix, con
     m_context3D->useProgram(program->programID());
     m_context3D->enableVertexAttribArray(program->vertexLocation());
     const GC3Dfloat unitRect[] = {0, 0, 1, 0, 1, 1, 0, 1};
-    m_context3D->vertexAttribPointer(program->vertexLocation(), 2, GraphicsContext3D::FLOAT, false, 0, GC3Dintptr(unitRect));
+    Platform3DObject vbo = data().getStaticVBO(GraphicsContext3D::ARRAY_BUFFER, sizeof(GC3Dfloat) * 8, unitRect);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, vbo);
+    m_context3D->vertexAttribPointer(program->vertexLocation(), 2, GraphicsContext3D::FLOAT, false, 0, 0);
 
     TransformationMatrix matrix(modelViewMatrix);
     matrix.multiply(TransformationMatrix::rectToRect(FloatRect(0, 0, 1, 1), targetRect));
@@ -706,6 +740,7 @@ void TextureMapperGL::beginClip(const TransformationMatrix& modelViewMatrix, con
     m_context3D->drawArrays(GraphicsContext3D::TRIANGLE_FAN, 0, 4);
 
     // Clear the state.
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, 0);
     m_context3D->disableVertexAttribArray(program->vertexLocation());
     m_context3D->stencilMask(0);
 
@@ -725,10 +760,9 @@ IntRect TextureMapperGL::clipBounds()
     return clipStack().current().scissorBox;
 }
 
-PassRefPtr<BitmapTexture> TextureMapperGL::createTexture()
+Ref<BitmapTexture> TextureMapperGL::createTexture(GC3Dint internalFormat)
 {
-    BitmapTextureGL* texture = new BitmapTextureGL(m_context3D);
-    return adoptRef(texture);
+    return BitmapTextureGL::create(*m_context3D, internalFormat);
 }
 
 std::unique_ptr<TextureMapper> TextureMapper::platformCreateAccelerated()

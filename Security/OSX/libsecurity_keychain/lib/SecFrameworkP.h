@@ -39,7 +39,7 @@ extern "C" {
 #endif
 
 CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
-    CFStringRef tableName);
+    CFStringRef tableName) CF_FORMAT_ARGUMENT(1);
 
 CFURLRef SecFrameworkCopyResourceURL(CFStringRef resourceName,
 	CFStringRef resourceType, CFStringRef subDirName);

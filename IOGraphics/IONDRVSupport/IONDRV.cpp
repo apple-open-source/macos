@@ -25,13 +25,14 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IOHibernatePrivate.h>
-#include <IOKit/graphics/IOGraphicsPrivate.h>
 
 extern "C"
 {
 #include <pexpert/pexpert.h>
 #include <mach/kmod.h>
 };
+
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 
 #include "IONDRV.h"
 

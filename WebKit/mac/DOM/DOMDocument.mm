@@ -37,7 +37,6 @@
 #import "DOMCSSStyleDeclarationInternal.h"
 #import "DOMCommentInternal.h"
 #import "DOMCustomXPathNSResolver.h"
-#import "DOMDOMImplementationInternal.h"
 #import "DOMDocumentFragmentInternal.h"
 #import "DOMDocumentTypeInternal.h"
 #import "DOMElementInternal.h"
@@ -46,6 +45,7 @@
 #import "DOMHTMLElementInternal.h"
 #import "DOMHTMLHeadElementInternal.h"
 #import "DOMHTMLScriptElementInternal.h"
+#import "DOMImplementationInternal.h"
 #import "DOMInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMNodeIteratorInternal.h"
@@ -305,7 +305,17 @@
 - (NSString *)readyState
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->readyState();
+    auto readyState = IMPL->readyState();
+    switch (readyState) {
+    case WebCore::Document::Loading:
+        return @"loading";
+    case WebCore::Document::Interactive:
+        return @"interactive";
+    case WebCore::Document::Complete:
+        return @"complete";
+    }
+    ASSERT_NOT_REACHED();
+    return @"complete";
 }
 
 - (NSString *)characterSet

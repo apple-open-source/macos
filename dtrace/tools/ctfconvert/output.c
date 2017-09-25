@@ -1196,11 +1196,7 @@ make_ctf_data(tdata_t *td, Elf *elf, const char *file, size_t *lenp, int flags)
 
 	iiburst = sort_iidescs(elf, file, td, flags & CTF_FUZZY_MATCH,
 	    flags & CTF_USE_DYNSYM);
-#if !defined(__APPLE__)
 	data = ctf_gen(iiburst, lenp, flags & CTF_COMPRESS);
-#else
-	data = ctf_gen(iiburst, lenp, flags & (CTF_COMPRESS | CTF_BYTESWAP));
-#endif /* __APPLE__ */
 
 	iiburst_free(iiburst);
 
@@ -1230,15 +1226,8 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 		elfterminate(curname, "Cannot write");
 
 #if defined(__APPLE__)
-	/*
-	 * If the caller has advised CTF_BYTESWAP but the target is the same
-	 * byte order as this processor then clear CTF_BYTESWAP. Otherwise CTF_BYTESWAP
-	 * stays lit and the output (typically from ctfmerge) is swapped to final form.
-	 */
 	if (ELFCLASS32 == elf->ed_class) {
 		struct mach_header *mh = (struct mach_header *)elf->ed_image;
-		if ((flags & CTF_BYTESWAP) && (MH_CIGAM != mh->magic))
-			flags &= ~CTF_BYTESWAP;
 
 		data = make_ctf_data(td, elf, curname, &len, flags);
 		if (flags & CTF_RAW_OUTPUT) {
@@ -1251,8 +1240,6 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 		}
 	} else if (ELFCLASS64 == elf->ed_class) {
 		struct mach_header_64 *mh_64 = (struct mach_header_64 *)elf->ed_image;
-		if ((flags & CTF_BYTESWAP) && (MH_CIGAM_64 != mh_64->magic))
-			flags &= ~CTF_BYTESWAP;
 
 		data = make_ctf_data(td, elf, curname, &len, flags);
 		if (flags & CTF_RAW_OUTPUT) {

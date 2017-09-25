@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -158,14 +158,14 @@ OSStatus HIDProcessGlobalItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
  *			Look for the Report ID in the table
 */
 			reportIndex = 0;
-			while ((reportIndex < ptPreparsedData->reportCount)
-				&& (ptPreparsedData->reports[reportIndex].reportID != ptItem->unsignedValue))
+			while ((reportIndex < (int)ptPreparsedData->reportCount)
+				&& (ptPreparsedData->reports[reportIndex].reportID != (SInt32)ptItem->unsignedValue))
 				reportIndex++;
 /*
  *			Initialize the entry if it's new and there's room for it
  *			  Start with 8 bits for the Report ID
 */
-			if (reportIndex == ptPreparsedData->reportCount)
+			if (reportIndex == (int)ptPreparsedData->reportCount)
 			{
 				ptReport = &ptPreparsedData->reports[ptPreparsedData->reportCount++];
 				ptReport->reportID = ptItem->unsignedValue;

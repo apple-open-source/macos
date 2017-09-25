@@ -1,7 +1,7 @@
 /*
  * Authentication functions for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * This file contains Kerberos support code, copyright 2006 by
@@ -11,7 +11,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -54,7 +54,7 @@ extern const char *cssmErrorString(int error);
 #    else
 #      define GSS_AUTH_IDENTITY_TYPE_1 1
 #      define gss_acquire_cred_ex_f __ApplePrivate_gss_acquire_cred_ex_f
-typedef struct gss_auth_identity
+typedef struct gss_auth_identity /* @private@ */
 {
   uint32_t type;
   uint32_t flags;
@@ -386,10 +386,7 @@ _cupsSetNegotiateAuthString(
 
     if (data.sem)
     {
-      major_status = gss_acquire_cred_ex_f(NULL, GSS_C_NO_NAME, 0,
-				           GSS_C_INDEFINITE, GSS_KRB5_MECHANISM,
-					   GSS_C_INITIATE, &identity, &data,
-					   cups_gss_acquire);
+      major_status = gss_acquire_cred_ex_f(NULL, GSS_C_NO_NAME, 0, GSS_C_INDEFINITE, GSS_KRB5_MECHANISM, GSS_C_INITIATE, (gss_auth_identity_t)&identity, &data, cups_gss_acquire);
 
       if (major_status == GSS_S_COMPLETE)
       {

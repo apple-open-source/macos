@@ -23,11 +23,10 @@
 
 #ifndef PowerManagement_Platform_h
 #define PowerManagement_Platform_h
+#include "XCTest_FunctionDefinitions.h"
 #include "PrivateLib.h"
 
-#if !TARGET_OS_EMBEDDED
 #define TCPKEEPALIVE 1
-#endif
 
 #define kTCPKeepAliveExpireSecs (12*60*60) // 12 hours
 
@@ -41,7 +40,7 @@ typedef enum {
 typedef struct {
     long                overrideSec;
     tcpKeepAliveStates_et   state;
-    dispatch_source_t   expiration;
+    XCT_UNSAFE_UNRETAINED dispatch_source_t   expiration;
     CFAbsoluteTime      ts_turnoff; // Time at which Keep Aive will be turned off
 } TCPKeepAliveStruct;
 

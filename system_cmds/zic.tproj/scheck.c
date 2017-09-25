@@ -1,31 +1,36 @@
+/*
+** This file is in the public domain, so clarified as of
+** 2006-07-17 by Arthur David Olson.
+*/
+
 #ifndef lint
 #ifndef NOID
-#include <sys/cdefs.h>
-__unused static const char	elsieid[] = "@(#)scheck.c	8.15";
+static const char	elsieid[] = "@(#)scheck.c	8.19";
 #endif /* !defined lint */
 #endif /* !defined NOID */
 
 #ifndef lint
-__unused static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/zic/scheck.c,v 1.7 2001/07/18 11:27:04 dd Exp $";
+static const char rcsid[] =
+  "$FreeBSD: head/contrib/tzcode/zic/scheck.c 192625 2009-05-23 06:31:50Z edwin $";
 #endif /* not lint */
 
 /*LINTLIBRARY*/
 
 #include "private.h"
 
-char *
-scheck(const char * const string, const char * const format)
+const char *
+scheck(string, format)
+const char * const	string;
+const char * const	format;
 {
-	char *		fbuf;
-	const char *	fp;
-	char *		tp;
-	int		c;
-	char *		result;
-	char		dummy;
-	static char	nada;
+	register char *		fbuf;
+	register const char *	fp;
+	register char *		tp;
+	register int		c;
+	register const char *	result;
+	char			dummy;
 
-	result = &nada;
+	result = "";
 	if (string == NULL || format == NULL)
 		return result;
 	fbuf = imalloc((int) (2 * strlen(format) + 4));

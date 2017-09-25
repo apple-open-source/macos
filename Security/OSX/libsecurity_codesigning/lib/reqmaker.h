@@ -27,7 +27,7 @@
 #ifndef _H_REQMAKER
 #define _H_REQMAKER
 
-#include <security_codesigning/requirement.h>
+#include "requirement.h"
 
 namespace Security {
 namespace CodeSigning {

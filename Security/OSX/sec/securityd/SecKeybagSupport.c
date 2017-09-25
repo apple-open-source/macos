@@ -41,6 +41,8 @@
 #if TARGET_OS_EMBEDDED
 #include <MobileKeyBag/MobileKeyBag.h>
 #endif
+#else /* !USE_KEYSTORE */
+#include <utilities/SecInternalReleasePriv.h>
 #endif /* USE_KEYSTORE */
 
 #include <CommonCrypto/CommonCryptor.h>
@@ -100,7 +102,7 @@ static bool hwaes_key_available(void)
         /* TODO: Remove this once the kext runs the daemon on demand if
          there is no system keybag. */
         int kb_state = MKBGetDeviceLockState(NULL);
-        asl_log(NULL, NULL, ASL_LEVEL_INFO, "AppleKeyStore lock state: %d", kb_state);
+        secinfo("aks", "AppleKeyStore lock state: %d", kb_state);
 #endif
     }
     return true;
@@ -137,11 +139,13 @@ bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
         if ((kernResult == kIOReturnNotPermitted) || (kernResult == kIOReturnNotPrivileged)) {
             const char *substatus = "";
             if (keyclass == key_class_ck || keyclass == key_class_cku)
-                substatus = " (hiberation ?)";
+                substatus = " (hibernation?)";
             /* Access to item attempted while keychain is locked. */
             return SecError(errSecInteractionNotAllowed, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Access to item attempted while keychain is locked%s."),
                             kernResult, operation, keyclass, keybag, substatus);
-        } else if (kernResult == kIOReturnError) {
+        } else if (kernResult == kIOReturnNotFound) {
+            return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") No key available for class."), kernResult, operation, keyclass, keybag);
+        } else if (kernResult == kIOReturnError || kernResult == kAKSReturnDecodeError) {
             /* Item can't be decrypted on this device, ever, so drop the item. */
             return SecError(errSecDecode, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
                             kernResult, operation, keyclass, keybag);
@@ -154,6 +158,7 @@ bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
         CFDataSetLength(dest, dest_len);    
     return true;
 #else /* !USE_KEYSTORE */
+
     uint32_t dest_len = (uint32_t)CFDataGetLength(dest);
     if (CFEqual(operation, kAKSKeyOpEncrypt)) {
         /* The no encryption case. */
@@ -280,7 +285,8 @@ static bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_
                            aks_return, operation_string, keyclass, keybag);
     } else if (aks_return == kAKSReturnPolicyError || aks_return == kAKSReturnBadPassword) {
         if (aks_return == kAKSReturnBadPassword) {
-            ACMContextRef acm_context_ref = ACMContextCreateWithExternalForm(CFDataGetBytePtr(acm_context_data), CFDataGetLength(acm_context_data));
+            ACMContextRef acm_context_ref = NULL;
+            acm_context_ref = ACMContextCreateWithExternalForm(CFDataGetBytePtr(acm_context_data), CFDataGetLength(acm_context_data));
             if (acm_context_ref) {
                 ACMContextRemovePassphraseCredentialsByPurposeAndScope(acm_context_ref, kACMPassphrasePurposeGeneral, kACMScopeContext);
                 ACMContextDelete(acm_context_ref, false);
@@ -289,10 +295,13 @@ static bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_
 
         /* Item needed authentication. */
         ks_access_control_needed_error(error, access_control_data, operation);
-    } else if (aks_return == kAKSReturnError || aks_return == kAKSReturnPolicyInvalid) {
+    } else if (aks_return == kAKSReturnError || aks_return == kAKSReturnPolicyInvalid || aks_return == kAKSReturnDecodeError) {
         /* Item can't be decrypted on this device, ever, so drop the item. */
         SecError(errSecDecode, error, CFSTR("aks_ref_key: %x failed to '%s' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
                           aks_return, operation_string, keyclass, keybag);
+
+    } else if (aks_return == kIOReturnNotFound) {
+        return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") No key available for class."), aks_return, operation, keyclass, keybag);
     } else {
         SecError(errSecNotAvailable, error, CFSTR("aks_ref_key: %x failed to '%s' item (class %"PRId32", bag: %"PRId32")"),
                           aks_return, operation_string, keyclass, keybag);
@@ -439,9 +448,9 @@ bool use_hwaes(void) {
     dispatch_once(&check_once, ^{
         use_hwaes = hwaes_key_available();
         if (use_hwaes) {
-            asl_log(NULL, NULL, ASL_LEVEL_INFO, "using hwaes key");
+            secinfo("aks", "using hwaes key");
         } else {
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "unable to access hwaes key");
+            secerror("unable to access hwaes key");
         }
     });
     return use_hwaes;

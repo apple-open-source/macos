@@ -80,6 +80,7 @@ enum {
     kSecDbInAuthenticatedDataFlag = (1 << 13), // attr is in authenticated data
     kSecDbSyncPrimaryKeyV0  = (1 << 14),
     kSecDbSyncPrimaryKeyV2  = (1 << 15),
+    kSecDbSyncFlag          = (1 << 16),
 };
 
 #define SecVersionDbFlag(v) ((v & 0xFF) << 8)
@@ -104,6 +105,7 @@ struct SecDbAttr {
 
 typedef struct SecDbClass {
     CFStringRef name;
+    bool itemclass; // true if keychain items are stored in this class, false otherwise
     const SecDbAttr *attrs[];
 } SecDbClass;
 
@@ -208,6 +210,9 @@ SecDbItemRef SecDbItemCopyWithUpdates(SecDbItemRef item, CFDictionaryRef updates
 
 bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error, void(^duplicate)(SecDbItemRef item, SecDbItemRef *replace));
 
+// SecDbItemInsertOrReplace returns an error even when it succeeds; use this to determine if it's spurious
+bool SecErrorIsSqliteDuplicateItemError(CFErrorRef error);
+
 bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error);
 
 bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, CFErrorRef *error);
@@ -218,7 +223,7 @@ bool SecDbItemDoDeleteSilently(SecDbItemRef item, SecDbConnectionRef dbconn, CFE
 bool SecDbItemDoUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFErrorRef *error, bool (^use_attr_in_where)(const SecDbAttr *attr));
 
 // High level update, will replace tombstones and create them if needed.
-bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, CFErrorRef *error);
+bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool uuid_from_primary_key, CFErrorRef *error);
 
 
 // MARK: -
@@ -253,6 +258,9 @@ bool SecErrorPropagate(CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) 
 // TODO: Hack
 bool SecDbItemInV2(SecDbItemRef item);
 bool SecDbItemInV2AlsoInV0(SecDbItemRef item);
+
+// For debug output filtering
+bool SecDbItemIsEngineInternalState(SecDbItemRef itemObject);
 
 __END_DECLS
 

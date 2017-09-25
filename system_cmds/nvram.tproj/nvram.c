@@ -586,6 +586,26 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   long		length;
   CFTypeID      typeID;
 
+  if (gUseXML) {
+    CFDataRef data;
+    CFDictionaryRef dict = CFDictionaryCreate(kCFAllocatorDefault, &key, &value, 1,
+                                              &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (dict == NULL) {
+      errx(1, "Error creating dictionary for variable value");
+    }
+
+    data = CFPropertyListCreateData( kCFAllocatorDefault, dict, kCFPropertyListXMLFormat_v1_0, 0, NULL );
+    if (data == NULL) {
+      errx(1, "Error creating xml plist for variable");
+    }
+
+    fwrite(CFDataGetBytePtr(data), sizeof(UInt8), CFDataGetLength(data), stdout);
+
+    CFRelease(dict);
+    CFRelease(data);
+    return;
+  }
+
   // Get the OF variable's name.
   nameLen = CFStringGetLength(key) + 1;
   nameBuffer = malloc(nameLen);

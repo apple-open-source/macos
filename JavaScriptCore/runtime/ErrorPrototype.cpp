@@ -41,7 +41,7 @@ static EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(ExecState*);
 
 namespace JSC {
 
-const ClassInfo ErrorPrototype::s_info = { "Object", &Base::s_info, &errorPrototypeTable, CREATE_METHOD_TABLE(ErrorPrototype) };
+const ClassInfo ErrorPrototype::s_info = { "Object", &Base::s_info, &errorPrototypeTable, nullptr, CREATE_METHOD_TABLE(ErrorPrototype) };
 
 /* Source for ErrorPrototype.lut.h
 @begin errorPrototypeTable
@@ -57,7 +57,7 @@ ErrorPrototype::ErrorPrototype(VM& vm, Structure* structure)
 void ErrorPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
-    ASSERT(inherits(info()));
+    ASSERT(inherits(vm, info()));
     putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("Error"))), DontEnum);
     putDirect(vm, vm.propertyNames->message, jsEmptyString(&vm), DontEnum);
 }

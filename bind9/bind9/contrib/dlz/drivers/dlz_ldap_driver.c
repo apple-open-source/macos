@@ -439,18 +439,17 @@ ldap_process_results(LDAP *dbc, LDAPMessage *msg, char ** attrs,
 				break;
 			case 2:
 				j++;
-				if (allnodes == isc_boolean_true) {
+				if (allnodes)
 					host = isc_mem_strdup(ns_g_mctx,
 							      vals[0]);
-				} else {
+				else
 					strcpy(data, vals[0]);
-				}
 				break;
 			case 3:
 				j++;
-				if (allnodes == isc_boolean_true) {
+				if (allnodes)
 					strcpy(data, vals[0]);
-				} else {
+				else {
 					strcat(data, " ");
 					strcat(data, vals[0]);
 				}
@@ -487,7 +486,7 @@ ldap_process_results(LDAP *dbc, LDAPMessage *msg, char ** attrs,
 			goto cleanup;
 		}
 
-		if (allnodes == isc_boolean_true) {
+		if (allnodes && host != NULL) {
 			if (strcasecmp(host, "~") == 0)
 				result = dns_sdlz_putnamedrr(
 						(dns_sdlzallnodes_t *) ptr,
@@ -913,10 +912,14 @@ dlz_ldap_findzone(void *driverarg, void *dbdata, const char *name) {
 
 static isc_result_t
 dlz_ldap_lookup(const char *zone, const char *name, void *driverarg,
-		void *dbdata, dns_sdlzlookup_t *lookup)
+		void *dbdata, dns_sdlzlookup_t *lookup,
+		dns_clientinfomethods_t *methods, dns_clientinfo_t *clientinfo)
 {
 	isc_result_t result;
+
 	UNUSED(driverarg);
+	UNUSED(methods);
+	UNUSED(clientinfo);
 
 	if (strcmp(name, "*") == 0)
 		result = ldap_get_results(zone, "~", NULL, LOOKUP,

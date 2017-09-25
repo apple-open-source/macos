@@ -30,7 +30,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)trap.h	8.3 (Berkeley) 6/5/95
- * $FreeBSD$
+ * $FreeBSD: head/bin/sh/trap.h 276038 2014-12-21 23:09:59Z jilles $
  */
 
 extern volatile sig_atomic_t pendingsig;

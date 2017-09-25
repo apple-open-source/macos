@@ -20,17 +20,21 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+    friend struct IOFBController;
+
     void setupCursor(void);
     void stopCursor( void );
     IOReturn doSetup( bool full );
     void setVBLTiming(void);
-    void findConsole(void);
+    static void findConsole(void);
     IOReturn createSharedCursor( int shmemVersion,
                                         int maxWidth, int maxHeight );
     IOReturn setBoundingRect( IOGBounds * bounds );
     IOReturn setUserRanges( void );
     IOReturn getConnectFlagsForDisplayMode(
                     IODisplayModeID mode, IOIndex connection, UInt32 * flags );
+    void setPlatformConsole(PE_Video *consoleInfo, unsigned op,
+                            const uint64_t where);
 
     static inline void StdFBDisplayCursor( IOFramebuffer * inst );
     static inline void StdFBRemoveCursor( IOFramebuffer * inst );
@@ -128,21 +132,12 @@
 
     static void systemWork(OSObject * owner,
                                         IOInterruptEventSource * evtSrc, int intCount);
-	static void controllerAsyncWork(OSObject * owner,
-                                        IOInterruptEventSource * evtSrc, int intCount);
-	static void startControllerThread(struct IOFBController * controller);
-	static void controllerDidWork(IOFBController * controller, IOOptionBits work);
-    static void startAsync(IOFBController * controller, uint32_t asyncWork);
-    static IOFBController * aliasController(IOFBController * controller);
 	static void serverAckTimeout(OSObject * owner, IOTimerEventSource * sender);
 
-	static uint32_t controllerState(IOFBController * controller);
-
-    static IOOptionBits checkPowerWork(IOFBController * controller, IOOptionBits state);
-    static IOOptionBits checkConnectionWork(IOFBController * controller, 
-                                                IOOptionBits state );
     IOOptionBits checkPowerWork(IOOptionBits state);
 
+    IOFBController *copyController(int controllerCreateFlag);
+    bool copyDisplayConfig(IOFramebuffer *from);
     void checkDeferredCLUTSet( void );
     void updateCursorForCLUTSet( void );
     IOReturn updateGammaTable(  UInt32 channelCount, UInt32 dataCount,
@@ -155,7 +150,7 @@
         
 
     static void delayedEvent(thread_call_param_t p0, thread_call_param_t p1);
-    static void resetClamshell(uint32_t delay);
+    static void resetClamshell(uint32_t delay, uint32_t where);
 
     static void deferredVBLDisable(OSObject * owner,
                                    IOInterruptEventSource * evtSrc, int intCount);
@@ -171,17 +166,13 @@
     void setDimDisable( bool dimDisable );
     bool getDimDisable( void );
     IOReturn notifyServer( UInt8 state );
-    IOReturn _extEntry(bool system, bool allowOffline, const char * where);
-    void     _extExit(bool system, IOReturn result, const char * where);
+    IOReturn _extEntry(bool system, bool allowOffline, uint32_t apibit, const char * where);
+    void     _extExit(bool system, IOReturn result, uint32_t apibit, const char * where);
     bool getIsUsable(void);
 	void initFB(void);
     IOReturn postOpen(void);
     IOReturn postWake(void);
-    static void checkConnectionChange(IOFBController * controller );
-    static void messageConnectionChange(IOFBController * controller );
-    static IOReturn processConnectChange(IOFBController * controller, IOOptionBits mode);
 	IOReturn matchFramebuffer(void);
-    static IOReturn matchController(IOFBController * controller);
 
     IOReturn extProcessConnectionChange(void);
     IOReturn extEndConnectionChange(void);
@@ -212,7 +203,7 @@
 
     static bool clamshellHandler( void * target, void * ref,
                                        IOService * resourceService, IONotifier * notifier );
-    static void readClamshellState(void);
+    static void readClamshellState(uint64_t where);
 
     static IOReturn probeAll( IOOptionBits options );
 
@@ -230,9 +221,12 @@
     IOReturn doSetDisplayMode(IODisplayModeID displayMode, IOIndex depth);
 	OSData * getConfigMode(IODisplayModeID mode, const OSSymbol * sym);
 
+    void assignGLIndex(void);
+    IOReturn probeAccelerator(void);
+
 	static void saveGammaTables(void);
 
-    // --
+    // -- user client support
 
     static IOReturn extCreateSharedCursor(OSObject * target, void * reference, IOExternalMethodArguments * args);
     static IOReturn extGetPixelInformation(OSObject * target, void * reference, IOExternalMethodArguments * args);
@@ -258,7 +252,39 @@
     static IOReturn extValidateDetailedTiming(OSObject * target, void * reference, IOExternalMethodArguments * args);
 	void serverAcknowledgeNotification(void);
     static IOReturn extAcknowledgeNotification(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    IOReturn extCopySharedCursor(IOMemoryDescriptor **cursorH);
+    IOReturn newDiagnosticUserClient(IOUserClient **clientH);
+    static IOReturn extSetHibernateGammaTable(OSObject * target, void * reference, IOExternalMethodArguments * args);
 
+private:
+    /*
+     New for IOGraphics diagnose
+     extReservedB() through extReservedE() reserved for future use.
+     */
+    static IOReturn extDiagnose(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extReservedB(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extReservedC(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extReservedD(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    static IOReturn extReservedE(OSObject * target, void * reference, IOExternalMethodArguments * args);
+
+    IOReturn __Report( uintptr_t * r );
+
+    /* New for addFramebufferNotificationWithOptions */
+    static SInt32 osNotifyOrderFunction( const OSMetaClassBase *obj1, const OSMetaClassBase *obj2, void *context);
+    inline int32_t groupIDToIndex( IOSelect group );
+    inline IOSelect eventToMask( IOIndex event );
+    void deliverGroupNotification( int32_t targetIndex, IOSelect eventMask, bool bForward, IOIndex event, void * info );
+    void disableNotifiers( void );
+    void cleanupNotifiers(void);
+    bool initNotifiers(void);
+
+    bool isVendorDevicePresent(unsigned int type, bool bMatchInteralOnly);
+    bool fillFramebufferBlack( void );
+
+    void setLimitState(const uint64_t limit);
+    uint64_t getLimitState(void) const;
+
+protected:
     // --
 
     IOReturn extSetProperties( OSDictionary * dict );
@@ -297,6 +323,8 @@ public:
 
     IODeviceMemory * getApertureRangeWithLength( IOPixelAperture aperture, IOByteCount requiredLength );
 
+    IOReturn waitQuietController(void);
+
 protected:
 
     IOReturn stopDDC1SendCommand(IOIndex bus, IOI2CBusTiming * timing);
@@ -320,3 +348,4 @@ protected:
     void i2cSend9Stops(IOIndex bus, IOI2CBusTiming * timing);
 
     // retired: serverPendingAck, configPending, connectChange
+

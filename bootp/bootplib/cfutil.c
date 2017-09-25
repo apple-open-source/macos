@@ -43,7 +43,6 @@
 #include <sys/param.h>
 #include <arpa/inet.h>
 #include <net/ethernet.h>
-#include <SystemConfiguration/SCValidation.h>
 #include <CoreFoundation/CFData.h>
 #include "util.h"
 #include "cfutil.h"
@@ -545,4 +544,15 @@ my_CFUUIDStringCreate(CFAllocatorRef alloc)
     uuid_str = CFUUIDCreateString(alloc, uuid);
     CFRelease(uuid);
     return (uuid_str);
+}
+
+PRIVATE_EXTERN void
+my_CFStringPrint(FILE * f, CFStringRef str)
+{
+    char *		cstr;
+
+    cstr = my_CFStringToCString(str, kCFStringEncodingUTF8);
+    fprintf(f, "%s", cstr);
+    free(cstr);
+    return;
 }

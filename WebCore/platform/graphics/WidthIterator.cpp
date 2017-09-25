@@ -162,16 +162,15 @@ static inline std::pair<bool, bool> expansionLocation(bool ideograph, bool treat
     return std::make_pair(expandLeft, expandRight);
 }
 
-static bool characterMustDrawSomething(UChar32 character)
+static inline bool characterMustDrawSomething(UChar32 character)
 {
-    // u_hasBinaryProperty(character, UCHAR_EMOJI) would be better to use, but many OSes which
-    // WebKit runs on only have ICU version 55.1 or earlier. UCHAR_EMOJI was added in ICU 57.
-    return character >= 0x1F900 && character <= 0x1F9FF;
+    return !u_hasBinaryProperty(character, UCHAR_DEFAULT_IGNORABLE_CODE_POINT);
 }
 
 template <typename TextIterator>
 inline unsigned WidthIterator::advanceInternal(TextIterator& textIterator, GlyphBuffer* glyphBuffer)
 {
+    // The core logic here needs to match SimpleLineLayout::widthForSimpleText()
     bool rtl = m_run.rtl();
     bool hasExtraSpacing = (m_font->letterSpacing() || m_font->wordSpacing() || m_expansion) && !m_run.spacingDisabled();
 

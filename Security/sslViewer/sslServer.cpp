@@ -473,8 +473,7 @@ static OSStatus sslServe(
 	SSLGetNegotiatedCipher(ctx, negCipher);
 	SSLGetNegotiatedProtocolVersion(ctx, negVersion);
 	*sessionIDLength = MAX_SESSION_ID_LENGTH;
-	SSLGetResumableSessionInfo(ctx, sessionWasResumed, sessionID,
-		sessionIDLength);
+	ortn = SSLGetResumableSessionInfo(ctx, sessionWasResumed, sessionID, sessionIDLength);
 	
 	if(!silent) {
 		printf("\n");

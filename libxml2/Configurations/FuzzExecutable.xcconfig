@@ -1,0 +1,17 @@
+PRODUCT_NAME = $(TARGET_NAME);
+INSTALL_PATH = /usr/local/libexec/libxml2;
+
+DEAD_CODE_STRIPPING = NO;
+
+PRODUCTION_ROOT[sdk=iphone*] = $(SDKROOT);
+PRODUCTION_ROOT[sdk=macosx*] = $(NEXT_ROOT);
+
+// Please override LIBFUZZER_STATIC_LIBRARY when buliding until this is fixed:
+// <rdar://problem/30923642> Make libFuzzer available within Xcode internal toolchains
+LIBFUZZER_STATIC_LIBRARY = $(TOOLCHAIN_DIR)/usr/local/lib/libFuzzer.a;
+
+LIBXML2_STATIC_LIBRARY = $(LIBXML2_STATIC_LIBRARY_$(CONFIGURATION));
+LIBXML2_STATIC_LIBRARY_Debug = $(BUILT_PRODUCTS_DIR)/libxml2.a;
+LIBXML2_STATIC_LIBRARY_Release = $(BUILT_PRODUCTS_DIR)/libxml2.a;
+LIBXML2_STATIC_LIBRARY_Production = $(PRODUCTION_ROOT)/usr/local/lib/libxml2/libxml2.a;
+OTHER_LDFLAGS = $(inherited) $(LIBXML2_STATIC_LIBRARY) $(LIBFUZZER_STATIC_LIBRARY) -licucore -lz;

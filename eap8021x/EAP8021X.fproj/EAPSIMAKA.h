@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include <stdbool.h>
 #include <sys/param.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <CoreFoundation/CFString.h>
 #include "EAP.h"
 
 typedef struct {
@@ -302,6 +303,7 @@ typedef struct AT_NOTIFICATION_s {
 enum {
     kATNotificationCodeGeneralFailureAfterAuthentication = 0,
     kATNotificationCodeGeneralFailureBeforeAuthentication = 16384,
+    kATNotificationCodeIdentityDecryptionFailureBeforeAuthentication = 16385,
     kATNotificationCodeSuccess = 32768,
     kATNotificationCodeTemporarilyDeniedAccess = 1026,
     kATNotificationCodeNotSubscribed = 1031,
@@ -396,6 +398,11 @@ typedef union {
     } s;
     uint8_t	key[EAPSIMAKA_KEY_SIZE];
 } EAPSIMAKAKeyInfo, * EAPSIMAKAKeyInfoRef;
+
+typedef struct {
+    CFStringRef		anonymous_identity;
+    CFDataRef		encrypted_identity;
+} EAPSIMAKAEncryptedIdentityInfo, *EAPSIMAKAEncryptedIdentityInfoRef;
 
 #define PSEUDONYM_MIN_LIFETIME_HOURS 24 /* default age of pseudonym in conservative peer mode */
 

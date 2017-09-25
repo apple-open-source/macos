@@ -52,7 +52,6 @@ SecCFTypes::SecCFTypes() :
 	Access("SecAccess"),
 	ACL("SecACL"),
 	Certificate("SecCertificate"),
-	CertificateRequest("SecCertificateRequest"),
 	Identity("SecIdentity"),
 	IdentityCursor("SecIdentitySearch"),
 	ItemImpl("SecKeychainItem"),

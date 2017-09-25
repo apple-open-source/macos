@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2014, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,9 @@ includes
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include "sys/syslog.h"
+#include <sys/syslog.h>
+#include <os/log.h>
+#include <os/log_private.h>
 #include <paths.h>
 #include <net/if.h>
 #include <net/if_media.h>
@@ -164,6 +166,8 @@ static void uninstall_mode_config(struct service *serv, Boolean uninstallPolicie
 static int unassert_mode_config(struct service *serv);
 static int ask_user_xauth(struct service *serv, char* message);
 static boolean_t checkpassword(struct service *serv, int must_prompt);
+static void write_packet(int sock, const uint8_t *buffer, size_t len);
+
 int readn(int ref, void *data, int len);
 int writen(int ref, void *data, int len);
 
@@ -179,7 +183,17 @@ ipsec_log(int level, CFStringRef format, ...)
 		va_list args;
 		va_start(args, format);
 		if (!ne_sm_bridge_logv(level, format, args)) {
-			SCLoggerVLog(NULL, level, format, args);
+			const char	*format_c;
+
+			format_c = CFStringGetCStringPtr(format, kCFStringEncodingUTF8);
+			if (format_c != NULL) {
+				os_log_type_t	type = _SC_syslog_os_log_mapping(level);
+				os_log_with_args(OS_LOG_DEFAULT,
+						 type,
+						 format_c,
+						 args,
+						 __builtin_return_address(0));
+			}
 		}
 		va_end(args);
 	}
@@ -724,7 +738,7 @@ static CFStringRef copy_decrypted_password(struct service *serv)
 				if (passworddata) {
 					CFIndex passworddatalen = CFDataGetLength(passworddata);
 					if ((decryptedpasswd = CFStringCreateWithBytes(NULL, CFDataGetBytePtr(passworddata), passworddatalen, kCFStringEncodingUTF8, FALSE)))
-						ipsec_log(LOG_INFO, CFSTR("IPSec Controller: decrypted password %s"),  decryptedpasswd ? (CFStringGetCStringPtr(decryptedpasswd,kCFStringEncodingMacRoman)) : "NULL");
+						ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: decrypted password %s"),  decryptedpasswd ? (CFStringGetCStringPtr(decryptedpasswd,kCFStringEncodingMacRoman)) : "NULL");
 					else
 						ipsec_log(LOG_ERR, CFSTR("IPSec Controller: cannot decrypt password"));
 					CFRelease(passworddata);
@@ -1114,14 +1128,14 @@ static void print_racoon_msg(struct service *serv)
 	printf("\n");
 #endif
 	
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ===================================================="));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Process Message:"));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	msg_type = 0x%x (%s)"), ntohs(serv->u.ipsec.msghdr.msg_type), ipsec_msgtype_to_str(ntohs(serv->u.ipsec.msghdr.msg_type)));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	flags = 0x%x %s"), ntohs(serv->u.ipsec.msghdr.flags), (ntohs(serv->u.ipsec.msghdr.flags) & VPNCTL_FLAG_MODECFG_USED) ? "MODE CONFIG USED" : "");
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	cookie = 0x%x"), ntohl(serv->u.ipsec.msghdr.cookie));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	reserved = 0x%x"), ntohl(serv->u.ipsec.msghdr.reserved));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	result = 0x%x"), ntohs(serv->u.ipsec.msghdr.result));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	len = %d"), ntohs(serv->u.ipsec.msghdr.len));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: ===================================================="));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: Process Message:"));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	msg_type = 0x%x (%s)"), ntohs(serv->u.ipsec.msghdr.msg_type), ipsec_msgtype_to_str(ntohs(serv->u.ipsec.msghdr.msg_type)));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	flags = 0x%x %s"), ntohs(serv->u.ipsec.msghdr.flags), (ntohs(serv->u.ipsec.msghdr.flags) & VPNCTL_FLAG_MODECFG_USED) ? "MODE CONFIG USED" : "");
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	cookie = 0x%x"), ntohl(serv->u.ipsec.msghdr.cookie));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	reserved = 0x%x"), ntohl(serv->u.ipsec.msghdr.reserved));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	result = 0x%x"), ntohs(serv->u.ipsec.msghdr.result));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	len = %d"), ntohs(serv->u.ipsec.msghdr.len));
 
 
 	switch (ntohs(serv->u.ipsec.msghdr.msg_type)) {
@@ -1132,30 +1146,30 @@ static void print_racoon_msg(struct service *serv)
 			case VPNCTL_CMD_RECONNECT:
 			case VPNCTL_CMD_DISCONNECT:
 				cmd_bind = ALIGNED_CAST(struct vpnctl_cmd_bind *)serv->u.ipsec.msg; 
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_bind->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				break;
 
 			case VPNCTL_CMD_XAUTH_INFO:
 				cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_xauth_info->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				break;
 
 			case VPNCTL_STATUS_IKE_FAILED:
 				failed_status = ALIGNED_CAST(struct vpnctl_status_failed *)serv->u.ipsec.msg;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = failed_status->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ike_code = %d 0x%x (%s)"), ntohs(failed_status->ike_code), ntohs(failed_status->ike_code), ipsec_error_to_str(ntohs(failed_status->ike_code)));
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	from = %d"), ntohs(failed_status->from));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ike_code = %d 0x%x (%s)"), ntohs(failed_status->ike_code), ntohs(failed_status->ike_code), ipsec_error_to_str(ntohs(failed_status->ike_code)));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	from = %d"), ntohs(failed_status->from));
 
 				switch (ntohs(failed_status->ike_code)) {
 					case VPNCTL_NTYPE_LOAD_BALANCE:		
 						addr.s_addr = *ALIGNED_CAST(u_int32_t*)failed_status->data;
-						ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	redirect address = %s"), inet_ntoa(addr));
+						ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	redirect address = %s"), inet_ntoa(addr));
 						break;
 				}
 
@@ -1170,16 +1184,16 @@ static void print_racoon_msg(struct service *serv)
 			case VPNCTL_STATUS_PH1_ESTABLISHED:
 				phase_change_status = ALIGNED_CAST(struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
 				addr.s_addr = phase_change_status->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				if (ntohs(phase_change_status->hdr.flags) & VPNCTL_FLAG_MODECFG_USED) {
 					char *modecfg_data = (char*)serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change) + sizeof(struct vpnctl_modecfg_params);
 					int modecfg_data_len = ntohs(serv->u.ipsec.msghdr.len) - ((sizeof(struct vpnctl_status_phase_change) + sizeof(struct vpnctl_modecfg_params)) -  sizeof(struct vpnctl_hdr));
 					struct vpnctl_modecfg_params *modecfg = ALIGNED_CAST(struct vpnctl_modecfg_params *)(void*)(serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change));
 					addr.s_addr = modecfg->outer_local_addr;
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	outer_local_addr = %s"), inet_ntoa(addr));
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	outer_remote_port = %d"), ntohs(modecfg->outer_remote_port));
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	outer_local_port = %d"), ntohs(modecfg->outer_local_port));
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ifname = %s"), modecfg->ifname);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	outer_local_addr = %s"), inet_ntoa(addr));
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	outer_remote_port = %d"), ntohs(modecfg->outer_remote_port));
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	outer_local_port = %d"), ntohs(modecfg->outer_local_port));
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ifname = %s"), modecfg->ifname);
 
 					int tlen = modecfg_data_len;
 					char	*dataptr = modecfg_data;
@@ -1194,15 +1208,15 @@ static void print_racoon_msg(struct service *serv)
 						type = ntohs(attr.type) & 0x7FFF;
 						tlv = (type ==  ntohs(attr.type));
 
-						ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Type = %d (%s)"), type, ipsec_modecfgtype_to_str(type));
+						ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ModeConfig Attribute Type = %d (%s)"), type, ipsec_modecfgtype_to_str(type));
 						if (tlv) {
-							ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Length = %d Value = ..."), ntohs(attr.lorv));
+							ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ModeConfig Attribute Length = %d Value = ..."), ntohs(attr.lorv));
 
 							tlen -= ntohs(attr.lorv);
 							dataptr += ntohs(attr.lorv);
 						}
 						else {
-							ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Value = %d"), ntohs(attr.lorv));
+							ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ModeConfig Attribute Value = %d"), ntohs(attr.lorv));
 						}
 						
 						tlen -= sizeof(u_int32_t);
@@ -1223,9 +1237,9 @@ static void print_racoon_msg(struct service *serv)
 			case VPNCTL_STATUS_NEED_REAUTHINFO:
 #endif /* !TARGET_OS_EMBEDDED */
 				cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_xauth_info->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				
 				char *xauth_data = (char*)serv->u.ipsec.msg + sizeof(struct vpnctl_cmd_xauth_info); 
 				int xauth_data_len = ntohs(serv->u.ipsec.msghdr.len) - (sizeof(struct vpnctl_cmd_xauth_info) -  sizeof(struct vpnctl_hdr));
@@ -1243,25 +1257,25 @@ static void print_racoon_msg(struct service *serv)
 					type = ntohs(attr.type) & 0x7FFF;
 					tlv = (type ==  ntohs(attr.type));
 
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Type = %d (%s)"), type, ipsec_xauthtype_to_str(type));
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	XAuth Attribute Type = %d (%s)"), type, ipsec_xauthtype_to_str(type));
 					if (tlv) {
 						if (type == XAUTH_MESSAGE) {
 							char *message = malloc(ntohs(attr.lorv) + 1);
 							if (message) {
 								bcopy(dataptr + sizeof(u_int32_t), message, ntohs(attr.lorv));
 								message[ntohs(attr.lorv)] = 0;
-								ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Value = %s"), message);
+								ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	XAuth Attribute Value = %s"), message);
 								free(message);
 							}
 						}
 						else 
-							ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Length = %d Value = ..."), ntohs(attr.lorv));
+							ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	XAuth Attribute Length = %d Value = ..."), ntohs(attr.lorv));
 
 						tlen -= ntohs(attr.lorv);
 						dataptr += ntohs(attr.lorv);
 					}
 					else {
-						ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Value = %d"), ntohs(attr.lorv));
+						ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	XAuth Attribute Value = %d"), ntohs(attr.lorv));
 					}
 					
 					tlen -= sizeof(u_int32_t);
@@ -1272,10 +1286,10 @@ static void print_racoon_msg(struct service *serv)
 
 			case VPNCTL_STATUS_PEER_RESP:
 				peer_resp = ALIGNED_CAST(__typeof__(peer_resp))serv->u.ipsec.msg;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = peer_resp->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	response from address = %s"), inet_ntoa(addr));
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ike_code = %d"), ntohs(peer_resp->ike_code));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	response from address = %s"), inet_ntoa(addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ike_code = %d"), ntohs(peer_resp->ike_code));
 				break;
 
 			default:
@@ -1283,7 +1297,7 @@ static void print_racoon_msg(struct service *serv)
 				break;
 	}
 
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ===================================================="));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: ===================================================="));
 
 }
 
@@ -1314,12 +1328,12 @@ static void process_racoon_msg(struct service *serv)
 						redirect_addr.sin_family = AF_INET;
 						redirect_addr.sin_port = htons(0);
 						redirect_addr.sin_addr.s_addr = *ALIGNED_CAST(u_int32_t*)failed_status->data;
-						ipsec_log(LOG_INFO, CFSTR("IPSec Controller: connection redirected to server '%s'..."), inet_ntoa(redirect_addr.sin_addr));
+						ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: connection redirected to server '%s'..."), inet_ntoa(redirect_addr.sin_addr));
 						racoon_restart_cisco_ipsec(serv, &redirect_addr, &serv->u.ipsec.nat64_prefix, 0);
 						break;
 
 					default:	
-						ipsec_log(LOG_INFO, CFSTR("IPSec Controller: connection failed <IKE Error %d (0x%x) %s>"), ntohs(failed_status->ike_code), ntohs(failed_status->ike_code), ipsec_error_to_str(ntohs(failed_status->ike_code)));
+						ipsec_log(LOG_ERR, CFSTR("IPSec Controller: connection failed <IKE Error %d (0x%x) %s>"), ntohs(failed_status->ike_code), ntohs(failed_status->ike_code), ipsec_error_to_str(ntohs(failed_status->ike_code)));
 						serv->u.ipsec.laststatus = ipsec_error_to_status(serv, ntohs(failed_status->from), ntohs(failed_status->ike_code));
 						
 						/* after phase 2, an authenticaion error is because the peer is disconnecting us */
@@ -1332,7 +1346,7 @@ static void process_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PH1_START_US:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: PH1 STARTUS. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PH1 STARTUS. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase == IPSEC_INITIALIZE) {
 					ipsec_updatephase(serv, IPSEC_CONTACT);
 				} else if (IPSEC_IS_ASSERTED_IDLE(serv->u.ipsec) ||
@@ -1345,7 +1359,7 @@ static void process_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PH1_START_PEER:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: PH1 STARTPEER. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PH1 STARTPEER. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_CONTACT && !IPSEC_IS_ASSERTED_CONTACT(serv->u.ipsec))
 					break;
 				if (serv->u.ipsec.timerref) {
@@ -1359,7 +1373,7 @@ static void process_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_NEED_AUTHINFO:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: AUTHINFO. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: AUTHINFO. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_PHASE1 && !IPSEC_IS_ASSERTED_PHASE1(serv->u.ipsec))
 					break;
 				if (serv->u.ipsec.phase == IPSEC_PHASE1) {
@@ -1384,7 +1398,7 @@ static void process_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PH1_ESTABLISHED:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: PH1 ESTABLISHED. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PH1 ESTABLISHED. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_PHASE1 && !IPSEC_IS_ASSERTED_PHASE1(serv->u.ipsec))
 					break;
 				if (serv->u.ipsec.phase == IPSEC_PHASE1) {
@@ -1423,7 +1437,7 @@ static void process_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PH2_START:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: PH2 START. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PH2 START. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_PHASE1 && !IPSEC_IS_ASSERTED_PHASE1(serv->u.ipsec))
 					break;
 				if (serv->u.ipsec.phase == IPSEC_PHASE1) {
@@ -1437,7 +1451,7 @@ static void process_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PH2_ESTABLISHED:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: PH2 ESTABLISHED. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PH2 ESTABLISHED. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_PHASE2 && !IPSEC_IS_ASSERTED_PHASE2(serv->u.ipsec))
 					break;
 				if (serv->u.ipsec.timerref) {
@@ -1459,7 +1473,7 @@ static void process_racoon_msg(struct service *serv)
 
 #if !TARGET_OS_EMBEDDED
 			case VPNCTL_STATUS_NEED_REAUTHINFO:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: REAUTHINFO. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: REAUTHINFO. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_RUNNING && !IPSEC_IS_ASSERTED_PHASE1(serv->u.ipsec))
 					break;
 
@@ -1477,12 +1491,12 @@ static void process_racoon_msg(struct service *serv)
 #endif /* !TARGET_OS_EMBEDDED */
 
 			case VPNCTL_STATUS_PEER_RESP:
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: PEER RESP. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PEER RESP. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				peer_resp = ALIGNED_CAST(__typeof__(peer_resp))serv->u.ipsec.msg;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				peer_addr.s_addr = peer_resp->address;
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	response from address = %s"), inet_ntoa(peer_addr));
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller:	ike_code = %d"), ntohs(peer_resp->ike_code));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	response from address = %s"), inet_ntoa(peer_addr));
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	ike_code = %d"), ntohs(peer_resp->ike_code));
 				if (!serv->u.ipsec.awaiting_peer_resp) {
 					ipsec_log(LOG_ERR, CFSTR("IPSec Controller: unsolicited peer response notification"));					
 				}
@@ -2265,8 +2279,8 @@ int racoon_send_cmd_reconnect(int fd, u_int32_t address)
 	cmd_reconnect->hdr.len = htons(sizeof(*cmd_reconnect) - sizeof(cmd_reconnect->hdr));
 	cmd_reconnect->hdr.msg_type = htons(VPNCTL_CMD_RECONNECT);
 	cmd_reconnect->address = address;
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending RECONNECT to racoon control socket"));
-	write(fd, cmd_reconnect, sizeof(*cmd_reconnect));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending RECONNECT to racoon control socket"));
+	write_packet(fd, cmd_reconnect, sizeof(*cmd_reconnect));
 	return 0;
 }
 
@@ -2281,7 +2295,7 @@ void racoon_timer(CFRunLoopTimerRef timer, void *info)
 	CFDictionaryRef	dictref;
 	nw_nat64_prefix_t prefix;
 	
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_timer expired"));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_timer expired"));
 	
 	/* if no contact, try next server */
 	if (serv->u.ipsec.phase == IPSEC_INITIALIZE || serv->u.ipsec.phase == IPSEC_CONTACT) {
@@ -2314,7 +2328,7 @@ void racoon_timer(CFRunLoopTimerRef timer, void *info)
 				}
 			}
 
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_timer call racoon_restart_cisco_ipsec"));
+			ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_timer call racoon_restart_cisco_ipsec"));
 			racoon_restart_cisco_ipsec(serv, &address, &prefix, 0);
 			return;
 		}
@@ -2374,7 +2388,7 @@ static u_int32_t get_interface_timeout (u_int32_t interface_media, uint32_t flag
 		}
 #endif /* !iPhone */
 	}
-    ipsec_log(LOG_INFO, CFSTR("getting interface (media %x) timeout for ipsec: %d secs"), interface_media, scaled_interface_timeout);
+    ipsec_log(LOG_NOTICE, CFSTR("getting interface (media %x) timeout for ipsec: %d secs"), interface_media, scaled_interface_timeout);
     return scaled_interface_timeout;
 }
 
@@ -2385,7 +2399,7 @@ void event_timer(CFRunLoopTimerRef timer, void *info)
 {
 	struct service *serv = info;
 	
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Network change event timer expired"));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: Network change event timer expired"));
 
 	if (serv->u.ipsec.our_address.ss_family == AF_INET) {
 		IPSecLogVPNInterfaceAddressEvent(__FUNCTION__, NULL, serv->u.ipsec.timeout_lower_interface_change, serv->u.ipsec.lower_interface, &((struct sockaddr_in *)&serv->u.ipsec.our_address)->sin_addr);
@@ -2413,7 +2427,7 @@ void racoon_callback(CFSocketRef inref, CFSocketCallBackType type,
         n = readn(s, &((u_int8_t *)&serv->u.ipsec.msghdr)[serv->u.ipsec.msglen], sizeof(struct vpnctl_hdr) - serv->u.ipsec.msglen);
         switch (n) {
             case -1:
-//	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback, failed to read header, closing"));
+//	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback, failed to read header, closing"));
                 action = do_close;
                 break;
             default:
@@ -2430,13 +2444,13 @@ void racoon_callback(CFSocketRef inref, CFSocketCallBackType type,
                         serv->u.ipsec.msg[serv->u.ipsec.msgtotallen] = 0;
                     }
 #if 0
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback, header ="));
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback,   msg_type = 0x%x"), serv->u.ipsec.msghdr.msg_type);
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback,   flags = 0x%x"), serv->u.ipsec.msghdr.flags);
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback,   cookie = 0x%x"), serv->u.ipsec.msghdr.cookie);
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback,   reserved = 0x%x"), serv->u.ipsec.msghdr.reserved);
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback,   result = 0x%x"), serv->u.ipsec.msghdr.result);
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback,   len = %d"), serv->u.ipsec.msghdr.len);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback, header ="));
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback,   msg_type = 0x%x"), serv->u.ipsec.msghdr.msg_type);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback,   flags = 0x%x"), serv->u.ipsec.msghdr.flags);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback,   cookie = 0x%x"), serv->u.ipsec.msghdr.cookie);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback,   reserved = 0x%x"), serv->u.ipsec.msghdr.reserved);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback,   result = 0x%x"), serv->u.ipsec.msghdr.result);
+					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback,   len = %d"), serv->u.ipsec.msghdr.len);
 #endif
               }
         }
@@ -2444,12 +2458,12 @@ void racoon_callback(CFSocketRef inref, CFSocketCallBackType type,
 
     /* first read the data part of the message */
     if (serv->u.ipsec.msglen >= sizeof(struct vpnctl_hdr)) {
-//	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback, len to read = %d"), serv->u.ipsec.msgtotallen - serv->u.ipsec.msglen);
+//	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback, len to read = %d"), serv->u.ipsec.msgtotallen - serv->u.ipsec.msglen);
 
         n = readn(s, &serv->u.ipsec.msg[serv->u.ipsec.msglen], serv->u.ipsec.msgtotallen - serv->u.ipsec.msglen);
         switch (n) {
             case -1:
- //	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_callback, failed to read payload, closing"));
+ //	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_callback, failed to read payload, closing"));
                action = do_close;
                 break;
             default:
@@ -2467,7 +2481,7 @@ void racoon_callback(CFSocketRef inref, CFSocketCallBackType type,
         case do_error:
         case do_close:
             /* connection closed by client */
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: connection closed by client, call ipsec_stop"));
+			ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: connection closed by client, call ipsec_stop"));
 			serv->u.ipsec.laststatus = IPSEC_GENERIC_ERROR;	
 			ipsec_stop(serv, 0);
             break;
@@ -2520,7 +2534,7 @@ IPSecCheckVPNInterfaceOrServiceUnrecoverable (SCDynamicStoreRef dynamicStoreRef,
 												 kCFAllocatorNull);
 		if (!vpn_if) {
 			// if we could not initialize interface CFString
-			syslog(LOG_NOTICE, "%s: failed to initialize interface CFString", location);
+			syslog(LOG_ERR, "%s: failed to initialize interface CFString", location);
 			goto done;
 		}
 		
@@ -2560,14 +2574,14 @@ IPSecCheckVPNInterfaceOrServiceUnrecoverable (SCDynamicStoreRef dynamicStoreRef,
 		
 		if (!dict) {
 			// if we could not access the SCDynamicStore
-			syslog(LOG_NOTICE, "%s: failed to initialize SCDynamicStore dictionary", location);
+			syslog(LOG_ERR, "%s: failed to initialize SCDynamicStore dictionary", location);
 			CFRelease(vpn_if);
 			goto done;
 		}
 		// look for the service which matches the provided prefixes
 		n = CFDictionaryGetCount(dict);
 		if (n <= 0) {
-			syslog(LOG_NOTICE, "%s: empty SCDynamicStore dictionary", location);
+			syslog(LOG_ERR, "%s: empty SCDynamicStore dictionary", location);
 			CFRelease(vpn_if);
 			goto done;
 		}
@@ -2725,7 +2739,7 @@ ipsec_network_event(struct service *serv, struct kern_event_msg *ev_msg)
 		Boolean hasPrimaryInterface = FALSE;
 		Boolean isCellular = primary_interface_is_cellular(&hasPrimaryInterface);
 		if (hasPrimaryInterface && !isCellular) {
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Disconnecting tunnel over cellular in favor of better interface"));
+			ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: Disconnecting tunnel over cellular in favor of better interface"));
 			serv->u.ipsec.laststatus = IPSEC_NETWORKCHANGE_ERROR;
 			ipsec_stop(serv, 0);
 			return;
@@ -2741,7 +2755,7 @@ ipsec_network_event(struct service *serv, struct kern_event_msg *ev_msg)
 			if (!strncmp(ev_if, serv->u.ipsec.lower_interface, sizeof(serv->u.ipsec.lower_interface))) {
 				if (inetdata->link_data.if_family == APPLE_IF_FAM_PPP) {
 					// disconnect immediately
-					ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Network changed on underlying PPP interface"));
+					ipsec_log(LOG_ERR, CFSTR("IPSec Controller: Network changed on underlying PPP interface"));
 					serv->u.ipsec.laststatus = IPSEC_NETWORKCHANGE_ERROR;	
 					ipsec_stop(serv, 0);
 				}
@@ -2782,7 +2796,7 @@ ipsec_network_event(struct service *serv, struct kern_event_msg *ev_msg)
 								racoon_send_cmd_start_dpd(serv->u.ipsec.controlfd, serv->u.ipsec.peer_address.sin_addr.s_addr);
 								serv->u.ipsec.awaiting_peer_resp = 1;
 							} else {
-								ipsec_log(LOG_INFO, CFSTR("IPSec Controller: asserting connection"));
+								ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: asserting connection"));
 								racoon_send_cmd_assert(serv);
 							}
 						}
@@ -3045,21 +3059,21 @@ void dns_start_query_callback(int32_t status, struct addrinfo *res, void *contex
 		ipsec_log(LOG_DEBUG, CFSTR("IPSec Controller: dns reply: resolvedAddress %@"), serv->u.ipsec.resolvedAddress);
 
 		if (!CFArrayGetCount(serv->u.ipsec.resolvedAddress)) {
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: no IPv4 address in reply"));
+			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: dns reply: no IPv4 address in reply"));
 			goto fail;
 		}
         
 		/* get the first address and start racoon */
 		dictref = CFArrayGetValueAtIndex(serv->u.ipsec.resolvedAddress, 0);
 		if (dictref == NULL) {
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: failed to get elem %d from addr array"),
+			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: dns reply: failed to get elem %d from addr array"),
 					  serv->u.ipsec.next_address);
 			goto fail;
 		}
 
 		dataref = CFDictionaryGetValue(dictref, kIPSecRemoteAddress);
 		if (!dataref || CFDataGetLength(dataref) < sizeof(address)) {
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: failed to get elem %d from addr array"),
+			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: dns reply: failed to get elem %d from addr array"),
 			      serv->u.ipsec.next_address);
 			goto fail;
 		}
@@ -3071,7 +3085,7 @@ void dns_start_query_callback(int32_t status, struct addrinfo *res, void *contex
 		nat64prefixref = CFDictionaryGetValue(dictref, kIPSecRemoteAddressNAT64Prefix);
 		if (nat64prefixref != NULL) {
 			if (CFDataGetLength(nat64prefixref) != sizeof(nw_nat64_prefix_t)) {
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: failed to get elem %d from nat64 array"),
+				ipsec_log(LOG_ERR, CFSTR("IPSec Controller: dns reply: failed to get elem %d from nat64 array"),
 						  serv->u.ipsec.next_address);
 				goto fail;
 			} else {
@@ -3084,12 +3098,12 @@ void dns_start_query_callback(int32_t status, struct addrinfo *res, void *contex
 	}
 	else {
 		
-		ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: getaddrinfo() failed: %s"), gai_strerror(status));
+		ipsec_log(LOG_ERR, CFSTR("IPSec Controller: dns reply: getaddrinfo() failed: %s"), gai_strerror(status));
 		goto fail;
 	}
     
 fail:
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: Stopping service"));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: dns reply: Stopping service"));
 	serv->u.ipsec.laststatus = IPSEC_RESOLVEADDRESS_ERROR;
 	ipsec_stop(serv, 0);
 	/* save the error associated with the attempt to resolve the name */
@@ -3185,7 +3199,7 @@ int racoon_send_cmd_xauthinfo(int fd, u_int32_t address, struct isakmp_xauth *is
 		}
 	}
 
-	write(fd, data, totlen);
+	write_packet(fd, data, totlen);
 
 	IPSECLOGASLMSG("IPSec sending Extended Authentication.\n");
 
@@ -3205,8 +3219,8 @@ int racoon_send_cmd_connect(int fd, u_int32_t address)
 	cmd_connect->hdr.len = htons(sizeof(struct vpnctl_cmd_connect) - sizeof(struct vpnctl_hdr));
 	cmd_connect->hdr.msg_type = htons(VPNCTL_CMD_CONNECT);
 	cmd_connect->address = address;
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending CONNECT to racoon control socket"));
-	write(fd, cmd_connect, sizeof(struct vpnctl_cmd_connect));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending CONNECT to racoon control socket"));
+	write_packet(fd, cmd_connect, sizeof(struct vpnctl_cmd_connect));
 	IPSECLOGASLMSG("IPSec Phase1 starting.\n"); // connect command triggers phase1
 	return 0;
 }
@@ -3222,8 +3236,8 @@ int racoon_send_cmd_disconnect(int fd, u_int32_t address)
 	cmd_connect->hdr.len = htons(sizeof(struct vpnctl_cmd_connect) - sizeof(struct vpnctl_hdr));
 	cmd_connect->hdr.msg_type = htons(VPNCTL_CMD_DISCONNECT);
 	cmd_connect->address = address;
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending DISCONNECT to racoon control socket, address 0x%x"), ntohl(address));
-	write(fd, cmd_connect, sizeof(struct vpnctl_cmd_connect));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending DISCONNECT to racoon control socket, address 0x%x"), ntohl(address));
+	write_packet(fd, cmd_connect, sizeof(struct vpnctl_cmd_connect));
 	return 0;
 }
 
@@ -3238,8 +3252,8 @@ int racoon_send_cmd_start_dpd(int fd, u_int32_t address)
 	cmd_start_dpd->hdr.len = htons(sizeof(struct vpnctl_cmd_start_dpd) - sizeof(struct vpnctl_hdr));
 	cmd_start_dpd->hdr.msg_type = htons(VPNCTL_CMD_START_DPD);
 	cmd_start_dpd->address = address;
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending START_DPD to racoon control socket"));
-	write(fd, cmd_start_dpd, sizeof(struct vpnctl_cmd_start_dpd));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending START_DPD to racoon control socket"));
+	write_packet(fd, cmd_start_dpd, sizeof(struct vpnctl_cmd_start_dpd));
 	return 0;
 }
 
@@ -3260,10 +3274,10 @@ int racoon_send_cmd_bind(int fd, u_int32_t address, char *version)
 	cmd_bind->hdr.msg_type = htons(VPNCTL_CMD_BIND);
 	cmd_bind->address = address;
 	cmd_bind->vers_len = htons(vers_len);
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending BIND to racoon control socket"));
-	write(fd, cmd_bind, sizeof(struct vpnctl_cmd_bind));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending BIND to racoon control socket"));
+	write_packet(fd, cmd_bind, sizeof(struct vpnctl_cmd_bind));
 	if (vers_len)
-		write(fd, version, vers_len);
+		write_packet(fd, version, vers_len);
 	return 0;
 }
 
@@ -3278,8 +3292,8 @@ int racoon_send_cmd_set_nat64_prefix(int fd, nw_nat64_prefix_t *nat64_prefix)
 	cmd_nat64->hdr.len = htons(sizeof(struct vpnctl_cmd_set_nat64_prefix) - sizeof(struct vpnctl_hdr));
 	cmd_nat64->hdr.msg_type = htons(VPNCTL_CMD_SET_NAT64_PREFIX);
 	memcpy(&cmd_nat64->nat64_prefix, nat64_prefix, sizeof(cmd_nat64->nat64_prefix));
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending SET_NAT64_PREFIX to racoon control socket"));
-	write(fd, cmd_nat64, sizeof(struct vpnctl_cmd_set_nat64_prefix));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending SET_NAT64_PREFIX to racoon control socket"));
+	write_packet(fd, cmd_nat64, sizeof(struct vpnctl_cmd_set_nat64_prefix));
 	return 0;
 }
 
@@ -3294,8 +3308,8 @@ int racoon_send_cmd_unbind(int fd, u_int32_t address)
 	cmd_unbind->hdr.len = htons(sizeof(struct vpnctl_cmd_unbind) - sizeof(struct vpnctl_hdr));
 	cmd_unbind->hdr.msg_type = htons(VPNCTL_CMD_UNBIND);
 	cmd_unbind->address = address;
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending UNBIND to racoon control socket"));
-	write(fd, cmd_unbind, sizeof(struct vpnctl_cmd_unbind));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending UNBIND to racoon control socket"));
+	write_packet(fd, cmd_unbind, sizeof(struct vpnctl_cmd_unbind));
 	return 0;
 }
 
@@ -3548,8 +3562,8 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 					(NB_ALGOS * sizeof(struct vpnctl_algo));
 	cmd_start_ph2->hdr.len = htons(msglen - sizeof(struct vpnctl_hdr));
 
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: sending START_PH2 to racoon control socket"));
-	write(fd, cmd_start_ph2, msglen);
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending START_PH2 to racoon control socket"));
+	write_packet(fd, cmd_start_ph2, msglen);
 	IPSECLOGASLMSG("IPSec Phase2 starting.\n");
 
 	free(cmd_start_ph2);
@@ -3560,6 +3574,73 @@ fail:
 	if (cmd_start_ph2)
 		free(cmd_start_ph2);
 	return -1;
+}
+
+int
+write_barrier(int sock)
+{
+	dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+	dispatch_source_t write_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE,
+															(uintptr_t)sock,
+															0,
+															NULL);
+
+	dispatch_source_set_event_handler(write_source, ^{
+		dispatch_semaphore_signal(sem);
+	});
+
+	// This begs ARC
+	dispatch_retain(write_source);
+	dispatch_retain(sem);
+	dispatch_source_set_cancel_handler(write_source, ^{
+		dispatch_release(sem);
+		dispatch_release(write_source);
+	});
+
+	dispatch_activate(write_source);
+
+	int retval = dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC));
+	dispatch_source_cancel(write_source);
+	dispatch_release(write_source);
+	dispatch_release(sem);
+
+	return retval;
+}
+
+// Use write_packet to send vpn_control commands to racoon
+static void
+write_packet(int sock, const uint8_t *buffer, size_t len)
+{
+	int total_sent = 0;
+	while (total_sent < len) {
+		int sent = write(sock, buffer + total_sent, len - total_sent);
+		if (sent > 0) {
+			total_sent += sent;
+		} else {
+			int write_error = errno;
+			if (write_error == EINTR) {
+				ipsec_log(LOG_NOTICE, CFSTR("Received write error %s"), strerror(write_error));
+				continue;
+			} else if (write_error == EAGAIN) {
+				ipsec_log(LOG_ERR, CFSTR("Received write error %s"), strerror(write_error));
+				// We need to wait for a writeable event
+				if (write_barrier(sock) != 0) {
+					// Our barrier timed out. Too bad...
+					// TODO: Add retries?
+					ipsec_log(LOG_ERR, CFSTR("Failed to write packet"));
+					break;
+				} else {
+					ipsec_log(LOG_INFO, CFSTR("Received writeable event"));
+				}
+			} else {
+				ipsec_log(LOG_ERR, CFSTR("Received write error %s"), strerror(write_error));
+				// All other errors are non-avoidable
+				break;
+			}
+		}
+	}
+
+	ipsec_log(LOG_NOTICE, CFSTR("Sent %d/%zu bytes"), total_sent, len);
 }
 
 /* -----------------------------------------------------------------------------
@@ -3577,7 +3658,7 @@ int racoon_send_cmd_assert (struct service *serv)
 	msg.dst_address = serv->u.ipsec.peer_address.sin_addr.s_addr;
 	msg.hdr.len = htons(sizeof(msg) - sizeof(msg.hdr));;
 
-	write(serv->u.ipsec.controlfd, &msg, sizeof(msg));
+	write_packet(serv->u.ipsec.controlfd, &msg, sizeof(msg));
 	serv->u.ipsec.ping_count = 0;
 
 	IPSEC_ASSERT_IDLE(serv->u.ipsec);
@@ -3591,7 +3672,7 @@ int racoon_send_cmd_assert (struct service *serv)
 	} else {
 		CFRunLoopTimerSetNextFireDate(serv->u.ipsec.timerref, CFAbsoluteTimeGetCurrent() + TIMEOUT_ASSERT_IDLE);
 	}
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: wait for %d secs before forcing SAs to rekey"), TIMEOUT_ASSERT_IDLE);
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: wait for %d secs before forcing SAs to rekey"), TIMEOUT_ASSERT_IDLE);
 	return 0;
 
 fail:
@@ -3616,18 +3697,18 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 	Boolean			using_temp_xauth_name = FALSE;
 	CFTypeRef		value;
 
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_restart_cisco_ipsec..."));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: racoon_restart_cisco_ipsec..."));
 
 	if (prefix != NULL && prefix->length != 0) {
 		memcpy(&serv->u.ipsec.nat64_prefix, prefix, sizeof(serv->u.ipsec.nat64_prefix));
-		ipsec_log(LOG_INFO, CFSTR("IPSec Controller: NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
+		ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
 	} else {
 		nw_nat64_prefix_t *prefixes = NULL;
 		int nat64_result = nw_nat64_copy_prefixes(NULL, &prefixes);
 		if (nat64_result > 0 && prefixes != NULL) {
 			memcpy(&serv->u.ipsec.nat64_prefix, &prefixes[0], sizeof(serv->u.ipsec.nat64_prefix));
 			free(prefixes);
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Found NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
+			ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: Found NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
 		} else {
 			memset(&serv->u.ipsec.nat64_prefix, 0, sizeof(serv->u.ipsec.nat64_prefix));
 		}
@@ -3697,7 +3778,7 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 	if (serv->u.ipsec.lower_interface[0]) {
 		// Mark interface as cellular based on NWI
 		serv->u.ipsec.lower_interface_cellular = interface_is_cellular(serv->u.ipsec.lower_interface);
-		ipsec_log(LOG_INFO, CFSTR("IPSec Controller: lower interface (%s) is%s cellular"), serv->u.ipsec.lower_interface, serv->u.ipsec.lower_interface_cellular ? "" : " not");
+		ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: lower interface (%s) is%s cellular"), serv->u.ipsec.lower_interface, serv->u.ipsec.lower_interface_cellular ? "" : " not");
 	} else {
 		SCNetworkReachabilityRef ref;
 		SCNetworkConnectionFlags flags;
@@ -3715,7 +3796,7 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 		Boolean hasPrimaryInterface = FALSE;
 		Boolean isCellular = primary_interface_is_cellular(&hasPrimaryInterface);
 		if (hasPrimaryInterface && !isCellular) {
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Skipping tunnel creation over cellular in favor of better interface"));
+			ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: Skipping tunnel creation over cellular in favor of better interface"));
 			goto fail;
 		}
 	}
@@ -4043,7 +4124,7 @@ int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t 
 		return serv->u.ipsec.laststatus;
 	}
 
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ipsec_start, ondemand flag = %d"), onDemand);
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: ipsec_start, ondemand flag = %d"), onDemand);
 	
     switch (serv->u.ipsec.phase) {
         case IPSEC_IDLE:
@@ -4161,7 +4242,7 @@ int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t 
 					need_cellular = TRUE;
 				}
 
-				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ipsec_start reachability flags = 0x%x, need_cellular = %d"), flags, need_cellular);
+				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: ipsec_start reachability flags = 0x%x, need_cellular = %d"), flags, need_cellular);
 			}
 			CFRelease(ref);
 		}
@@ -4343,7 +4424,7 @@ int ipsec_stop(struct service *serv, int signal)
 	int				error;
 	u_int32_t		flags = 0;
 
-	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ipsec_stop"));
+	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: ipsec_stop"));
 
     STOP_TRACKING_VPN_LOCATION(serv);
 
@@ -4572,7 +4653,7 @@ int ipsec_getstatus(struct service *serv)
 	}
 
 	if (gSCNCVerbose) {
-		ipsec_log(LOG_INFO, CFSTR("IPSec Controller: ipsec_getstatus = %s"), 
+		ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: ipsec_getstatus = %s"), 
 			status == kSCNetworkConnectionDisconnected ? "Disconnected" :
 			(status == kSCNetworkConnectionConnecting ? "Connecting" :
 			(status == kSCNetworkConnectionDisconnecting ? "Disconnecting" :

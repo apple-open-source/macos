@@ -66,7 +66,7 @@ struct _CMSDecoder {
 	SecArenaPoolRef		arena;				/* the decoder's arena */
 	SecCmsDecoderRef	decoder;
 	CFDataRef			detachedContent;
-	CFTypeRef			keychainOrArray;	/* from CMSDecoderSetSearchKeychain() */
+	CFTypeRef			keychainOrArray;	/* unused */
 	
 	/*
 	 * The following are valid (and quiescent) after CMSDecoderFinalizeMessage().
@@ -383,24 +383,14 @@ OSStatus CMSDecoderCopyDetachedContent(
 }
 
 /*
- * Optionally specify a SecKeychainRef, or an array of them, containing
- * intermediate certs to be used in verifying a signed message's signer
- * certs. By default, the default keychain search list is used for this.
- * Specify an empty CFArrayRef to search *no* keychains for intermediate
- * certs.
- * IF this is called, it must be called before CMSDecoderCopySignerStatus().
+ * Beginning in 10.12, this function stopped affecting the behavior of the
+ * CMS Decoder. Its only use was in SecTrustSetKeychains which is a no-op.
+ * Please discontinue use.
  */
 OSStatus CMSDecoderSetSearchKeychain(
                                      CMSDecoderRef		cmsDecoder,
                                      CFTypeRef			keychainOrArray)
 {
-	if(cmsDecoder == NULL) {
-		return errSecParam;
-	}
-	cmsDecoder->keychainOrArray = keychainOrArray;
-	if(keychainOrArray) {
-		CFRetain(keychainOrArray);
-	}
 	return errSecSuccess;
 }
 
@@ -474,11 +464,7 @@ OSStatus CMSDecoderCopySignerStatus(
 	SecTrustRef theTrust = NULL;
 	OSStatus vfyRtn = SecCmsSignedDataVerifySignerInfo(cmsDecoder->signedData,
                                                        (int)signerIndex,
-                                                       /*
-                                                        * FIXME this cast should not be necessary, but libsecurity_smime
-                                                        * declares this argument as a SecKeychainRef
-                                                        */
-                                                       (SecKeychainRef)cmsDecoder->keychainOrArray,
+                                                       NULL,
                                                        policyOrArray,
                                                        &theTrust);
 
@@ -537,10 +523,6 @@ OSStatus CMSDecoderCopySignerStatus(
 				break;
 			case kSecTrustResultDeny:
 				tpVfyStatus = CSSMERR_APPLETP_TRUST_SETTING_DENY;
-				break;
-			case kSecTrustResultConfirm:
-				dprintf("SecTrustEvaluate reported confirm\n");
-				tpVfyStatus = CSSMERR_TP_NOT_TRUSTED;
 				break;
 			default:
 			{

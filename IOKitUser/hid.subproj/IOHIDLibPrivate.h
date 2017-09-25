@@ -30,6 +30,8 @@
 #include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <Availability.h>
 #include <os/log.h>
+#include "IOHIDEvent.h"
+#include <CoreFoundation/CFRuntime.h>
 
 __BEGIN_DECLS
 
@@ -56,22 +58,17 @@ typedef enum {
     kIOHIDLogCategoryTrace,
     kIOHIDLogCategoryProperty,
     kIOHIDLogCategoryActivity,
+    kIOHIDLogCategoryFastPath,
     kIOHIDLogCategoryCount
 } IOHIDLogCategory;
 
-extern uint32_t gIOHIDLogLevel;
+extern uint32_t gIOHIDDebugConfig;
 
 #define kIOHIDLogSubsytem   "com.apple.iohid"
 
 #define IOHIDLog(fmt, ...)        os_log(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
 #define IOHIDLogError(fmt, ...)   os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
 #define IOHIDLogDebug(fmt, ...)   os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
-
-#define IOHIDLogTrace(fmt, ...) do {                                            \
-    if (gIOHIDLogLevel >= kIOHIDLogLevelTypeTrace) {                            \
-        os_log(_IOHIDLogCategory(kIOHIDLogCategoryTrace), fmt, ##__VA_ARGS__);  \
-    }                                                                           \
-} while (0)
 
 extern void _IOObjectCFRelease(CFAllocatorRef _Nullable allocator, const void * value);
 
@@ -131,16 +128,72 @@ kern_return_t IOHIDSetFixedMouseLocation(io_connect_t connect,
                                          int32_t x, int32_t y)                                      AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CF_EXPORT
-CFStringRef _IOHIDCreateTimeString(struct timeval *tv);
+CFStringRef _IOHIDCreateTimeString(CFAllocatorRef _Nullable allocator, struct timeval *tv);
 
 CF_EXPORT
 uint64_t  _IOHIDGetMonotonicTime ();
+
+CF_EXPORT
+uint64_t _IOHIDGetTimestampDelta(uint64_t timestampA, uint64_t timestampB, uint32_t scaleFactor);
 
 CF_EXPORT
 kern_return_t IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds );
 
 CF_EXPORT
 kern_return_t IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds );
+
+CF_EXPORT
+void _IOHIDDebugTrace(uint32_t code, uint32_t func, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
+
+void _IOHIDDebugEventAddPerfData(IOHIDEventRef event, int timepoint, uint64_t timestamp);
+
+
+typedef CFDataRef IOHIDSimpleQueueRef;
+
+typedef void (^IOHIDSimpleQueueBlock) (void * entry, void * _Nullable ctx);
+
+CF_EXPORT
+IOHIDSimpleQueueRef _IOHIDSimpleQueueCreate (CFAllocatorRef _Nullable allocator, size_t entrySize, size_t count);
+
+CF_EXPORT
+IOReturn  _IOHIDSimpleQueueEnqueue (IOHIDSimpleQueueRef buffer, void * entry, boolean_t doOverride);
+
+CF_EXPORT
+boolean_t  _IOHIDSimpleQueueDequeue (IOHIDSimpleQueueRef buffer, void * _Nullable entry);
+
+CF_EXPORT
+void * _Nullable _IOHIDSimpleQueuePeek (IOHIDSimpleQueueRef buffer);
+
+CF_EXPORT
+void _IOHIDSimpleQueueApplyBlock (IOHIDSimpleQueueRef buffer, IOHIDSimpleQueueBlock applier, void * _Nullable ctx);
+
+CF_EXPORT
+void _IOHIDDictionaryAddSInt32 (CFMutableDictionaryRef dict, CFStringRef key, SInt32 value);
+
+CF_EXPORT
+void _IOHIDDictionaryAddSInt64 (CFMutableDictionaryRef dict, CFStringRef key, SInt64 value);
+
+typedef struct {
+    CFRuntimeBase               cfBase;
+    uint32_t                    extRetainCount;
+    uint32_t                    intRetainCount;
+} IOHIDObjectBase;
+
+typedef struct {
+    CFRuntimeClass              cfClass;
+    uint32_t (*intRetainCount)(intptr_t op, CFTypeRef cf);
+    void (*intFinalize)(CFTypeRef cf);
+} IOHIDObjectClass;
+
+CF_EXPORT
+CFTypeRef _IOHIDObjectInternalRetain (CFTypeRef cf);
+
+CF_EXPORT
+void _IOHIDObjectInternalRelease (CFTypeRef cf);
+
+uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isInternal);
+
+CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * _Nullable category);
 
 
 CF_IMPLICIT_BRIDGING_DISABLED

@@ -32,6 +32,7 @@
 #include "DFGCommon.h"
 #include "DFGJITCode.h"
 #include "DFGOSRExitPreparation.h"
+#include "DFGOperations.h"
 #include "LinkBuffer.h"
 #include "OperandsInlines.h"
 #include "JSCInlines.h"
@@ -146,13 +147,13 @@ void compileOSRExit(ExecState* exec)
         recovery = &codeBlock->jitCode()->dfg()->speculationRecovery[exit.m_recoveryIndex];
 
     {
-        CCallHelpers jit(vm, codeBlock);
+        CCallHelpers jit(codeBlock);
         OSRExitCompiler exitCompiler(jit);
 
         if (exit.m_kind == GenericUnwind) {
             // We are acting as a defacto op_catch because we arrive here from genericUnwind().
             // So, we must restore our call frame and stack pointer.
-            jit.restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer();
+            jit.restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer(*vm);
             jit.loadPtr(vm->addressOfCallFrameForCatch(), GPRInfo::callFrameRegister);
         }
         jit.addPtr(
@@ -171,11 +172,11 @@ void compileOSRExit(ExecState* exec)
             jit.add64(CCallHelpers::TrustedImm32(1), CCallHelpers::AbsoluteAddress(profilerExit->counterAddress()));
         }
 
-        exitCompiler.compileExit(exit, operands, recovery);
+        exitCompiler.compileExit(*vm, exit, operands, recovery);
         
-        LinkBuffer patchBuffer(*vm, jit, codeBlock);
+        LinkBuffer patchBuffer(jit, codeBlock);
         exit.m_code = FINALIZE_CODE_IF(
-            shouldDumpDisassembly() || Options::verboseOSR(),
+            shouldDumpDisassembly() || Options::verboseOSR() || Options::verboseDFGOSRExit(),
             patchBuffer,
             ("DFG OSR exit #%u (%s, %s) from %s, with operands = %s",
                 exitIndex, toCString(exit.m_codeOrigin).data(),

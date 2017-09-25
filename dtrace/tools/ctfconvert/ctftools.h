@@ -393,7 +393,6 @@ void merge_into_master(tdata_t *, tdata_t *, tdata_t *, int);
 #define	CTF_KEEP_STABS	0x8 /* keep .stabs sections */
 #if defined(__APPLE__)
 #define CTF_RAW_OUTPUT	(1<<30) /* output raw CTF data only, no segment/section data, and do not copy original file */
-#define CTF_BYTESWAP	(1<<31) /* output CTF for use by opposite endianness CPU */
 #endif /* __APPLE__ */
 
 void write_ctf(tdata_t *, const char *, const char *, int);

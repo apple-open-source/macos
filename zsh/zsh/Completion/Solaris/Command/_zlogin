@@ -2,6 +2,7 @@
 # Synced with the Nevada build 162 man page
 
 _zlogin() {
+        local -a _comp_priv_prefix
 	_arguments -s \
 		'-E[Disable escape character]' \
 		'-e[Specify escape character]:character:' \

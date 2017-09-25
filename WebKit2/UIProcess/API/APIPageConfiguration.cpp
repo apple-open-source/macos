@@ -33,6 +33,7 @@
 #include "WebProcessPool.h"
 #include "WebUserContentControllerProxy.h"
 
+using namespace WebCore;
 using namespace WebKit;
 
 namespace API {
@@ -68,6 +69,7 @@ Ref<PageConfiguration> PageConfiguration::copy() const
     copy->m_alwaysRunsAtForegroundPriority = this->m_alwaysRunsAtForegroundPriority;
 #endif
     copy->m_initialCapitalizationEnabled = this->m_initialCapitalizationEnabled;
+    copy->m_cpuLimit = this->m_cpuLimit;
     copy->m_controlledByAutomation = this->m_controlledByAutomation;
     copy->m_overrideContentSecurityPolicy = this->m_overrideContentSecurityPolicy;
 
@@ -153,6 +155,8 @@ void PageConfiguration::setWebsiteDataStore(API::WebsiteDataStore* websiteDataSt
 
 WebCore::SessionID PageConfiguration::sessionID()
 {
+    ASSERT(!m_websiteDataStore || m_websiteDataStore->websiteDataStore().sessionID() == m_sessionID || m_sessionID == SessionID::legacyPrivateSessionID());
+
     return m_sessionID;
 }
 

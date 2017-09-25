@@ -564,8 +564,11 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
 	result = paramErr;
 	break;
     }
-    if (result)
+
+    if (result) {
+        PORT_Free(p7ecx);
         goto loser;
+    }
 
     /* Initialize the BER encoder.
      * Note that this will not encode anything until the first call to SEC_ASN1EncoderUpdate */
@@ -573,7 +576,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
                                       nss_cms_encoder_out, &(p7ecx->output));
     if (p7ecx->ecx == NULL) {
         result = PORT_GetError();
-	PORT_Free (p7ecx);
+	PORT_Free(p7ecx);
         goto loser;
     }
     p7ecx->ecxupdated = PR_FALSE;
@@ -594,7 +597,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
      * a child encoder). */
     if (SEC_ASN1EncoderUpdate(p7ecx->ecx, NULL, 0) != SECSuccess) {
         result = PORT_GetError();
-	PORT_Free (p7ecx);
+	PORT_Free(p7ecx);
         goto loser;
     }
 

@@ -5,12 +5,7 @@ dtrace=/usr/sbin/dtrace
 # ASSERTION:
 #	To verify that a binary launched with dtrace -c with -xevaltime=exec
 #	(which starts tracing after intiializers are run)
-#	is controlled and can start tracing correctly.
-#
-#	This relies on the /usr/bin/true being on the file system and the binary
-#	calling the libSystem_initializer function. This is very
-#	implementation-specific and might break if the name of the libSystem
-#	initializer function changes.
+#	is controlled and can start tracing correctly initializers.
 
 # NOTE:
 # We run this with '-Z', because at the time of evaluation, only
@@ -19,12 +14,18 @@ dtrace=/usr/sbin/dtrace
 
 script()
 {
-	$dtrace -xnolibs -Z -c /usr/bin/true -xevaltime=exec -qs /dev/stdin <<EOF
-	pid\$target::libSystem_initializer:entry
+	$dtrace -xnolibs -Z -c ./tst.has_initializers.exe -xevaltime=exec -qs /dev/stdin <<EOF
+	pid\$target::function_called_by_initializer:entry
 	{
 		trace("Called");
 		exit(0);
 	}
+	pid\$target::main_binary_function:entry
+	{
+		trace("Library initializer not called or called after main");
+		exit(1);
+	}
+
 EOF
 }
 

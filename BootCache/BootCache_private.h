@@ -1,4 +1,14 @@
 #include <uuid/uuid.h>
+#include <sys/syslimits.h>
+#ifndef KERNEL
+#include <sys/time.h> /* Cause the apfs_fsctl.h doesn't include it */
+#include <apfs/apfs_fsctl.h>
+#include <stdio.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * Files.
@@ -18,13 +28,6 @@
 #define BC_BUNDLE_ID		"com.apple.BootCache"
 
 /*
- * Files we read in during every boot.
- */
-#define BC_DYLD_SHARED_CACHE    "/var/db/dyld/dyld_shared_cache_x86_64"
-#define BC_DYLD_SHARED_CACHE_H  "/var/db/dyld/dyld_shared_cache_x86_64h"
-#define BC_DYLD_SHARED_CACHE_32 "/var/db/dyld/dyld_shared_cache_i386"
-
-/*
  * If defined, entries/extents are sorted by their location on disk
  * (rather than chronologically or some other sorting).
  */
@@ -40,7 +43,8 @@ struct BC_command {
 #define	BC_MAGIC_1	0x10102021	/* all disk addresses in bytes */
 #define	BC_MAGIC_2	0x10102021	/* added flags field to playlist entry */
 #define	BC_MAGIC_3	0x10102022	/* major restructure, added mounts */
-#define	BC_MAGIC	0x10102023	/* add pid/shared flag to history */
+#define	BC_MAGIC_4	0x10102023	/* add pid/shared flag to history */
+#define	BC_MAGIC	0x10102024	/* added crypto offset extents */
 
 	/* opcode determines function of this command */
 	int	bc_opcode;
@@ -52,6 +56,7 @@ struct BC_command {
 #define BC_OP_JETTISON 0x06
 #define BC_OP_MOUNT    0x07
 #define BC_OP_TEST     0x08
+#define BC_OP_SET_USER_STATS 0x09
 	
 	/* user-space data buffers, use varies with opcode */
 	unsigned int bc_data1_size;
@@ -81,31 +86,59 @@ struct BC_playlist_header {
 #define PH_MAGIC_1	0xa1b2c3d5	/* blocksize, offsets in bytes */
 #define PH_MAGIC_2	0xa1b2c3d6	/* added flags field */
 #define PH_MAGIC_3	0xa1b2c3d7	/* added non-root mounts */
-#define PH_MAGIC	0xa1b2c3d8	/* added low-priority extents */
-	int	ph_nmounts;
-	int ph_nentries;
+#define PH_MAGIC_4	0xa1b2c3d8	/* added low-priority extents */
+#define PH_MAGIC_5	0xa1b2c3d9	/* added crypto offset extents */
+#define PH_MAGIC    0xa1b2c3e2  /* added OMAPs */
+	uint ph_nmounts;
+	uint ph_nentries;
+	uint ph_nomaps;
 };
+
+/*
+ * filesystem flags
+ */
+#define BC_FS_APFS           (1<<0)    /* mount is apfs */
+#define BC_FS_ENCRYPTED      (1<<1)    /* mount volume I/O is encrypted (non-CoreStorage) */
+#define BC_FS_ENC_ROLLING    (1<<2)    /* mount volume in transition to/from encrypted */
+#define BC_FS_APFS_CONTAINER (1<<3)    /* mount is an apfs container (vs a volume) */
 
 /*
  * Playlist mounts represent mount points to be cached.
  */
 struct BC_playlist_mount {
 	uuid_t pm_uuid;         /* The UUID of the mount */
-	int    pm_nentries;     /* The number of playlist entries that refer to this mount */
+	uint   pm_fs_flags;     /* filesystem flags */
+	uint   pm_nentries;     /* The number of playlist entries that refer to this mount */
+	uint   pm_nomaps;       /* Number of omap records that refer to this mount */
 };
 
 /*
  * Playlist entries represent regions of the mount points to be cached.
  */
 struct BC_playlist_entry {
-	u_int64_t	pe_offset;    /* block address */
-	u_int64_t	pe_length;    /* size */
+	u_int64_t	pe_offset;    /* byte address */
+	u_int64_t	pe_length;    /* size in bytes */
 	u_int16_t	pe_batch;     /* batch number */
 	u_int16_t	pe_flags;     /* flags */
 #define BC_PE_LOWPRIORITY 0x1
 #define BC_PE_SHARED      0x2
-	u_int32_t   pe_mount_idx; /* index of mount in mount array */
+	u_int32_t	pe_mount_idx; /* index of mount in mount array */
+	u_int64_t	pe_crypto_offset; /* opaque crypto offset */
 };
+
+#ifndef KERNEL
+
+struct BC_playlist_omap {
+	apfs_omap_track_record_t po_omap;      /* apfs omap track record */
+	uint32_t                 po_mount_idx;  /* index of mount in mount array */
+	
+	/* XXX: For low pri metadata
+	 *
+	 * uint32_t                po_flags;
+	 */
+};
+
+#endif
 
 /* number of entries we copyin at a time */
 #define BC_PLC_CHUNK	512
@@ -143,7 +176,8 @@ struct BC_playlist_entry {
  */
 struct BC_history_mount {
 	uuid_t hm_uuid;         /* The UUID of the mount */
-	int hm_nentries;        /* The number of history entries that refer to this mount */
+	uint   hm_fs_flags;     /* filesystem flags */
+	uint   hm_nentries;     /* The number of history entries that refer to this mount */
 };
 
 struct BC_history_entry {
@@ -156,6 +190,7 @@ struct BC_history_entry {
 #define BC_HE_TAG    0x4		  /* userland-set tag */
 #define BC_HE_SHARED 0x8		  /* IO was from the shared cache */
 	u_int16_t   he_mount_idx; /* index of the mount this read was on */
+	u_int64_t	he_crypto_offset; /* opaque crypto offset */
 };
 
 
@@ -171,153 +206,244 @@ struct BC_history_entry {
  * the BC_statictics structure at bc_data1
  */
 struct BC_statistics {
-	/* readahead */
-	u_int   ss_readahead_threads; /* number of readahead threads */
-	u_int	ss_initiated_reads;	/* read operations we initiated */
-	u_int	ss_read_blocks;		/* number of blocks read */
-	u_int	ss_read_bytes;		/* number of bytes read */
-	u_int	ss_read_errors;		/* read errors encountered */
-	u_int	ss_read_errors_bytes;	/* bytes discarded due to read errors */
-	u_int	ss_batch_bytes[STAT_DISKMAX][STAT_BATCHMAX+1];	/* number of bytes in read per batch, +1 for sum of extra batches */
-	u_int	ss_batch_late_bytes[STAT_DISKMAX][STAT_BATCHMAX+1];	/* number of bytes read during this batch
-																	that were scheduled for an earlier batch */
-	u_int	ss_batch_initiated_reads[STAT_DISKMAX][STAT_BATCHMAX+1];	/* read operations we initiated per batch */
-	u_int	ss_batch_time[STAT_DISKMAX][STAT_BATCHMAX+1];	/* msecs per batch, +1 for sum of extra batches */
+	/* userspace readahead, filled in by BootCacheControl */
+	struct BC_userspace_statistics {
+		u_int64_t	ssup_launch_timestamp;	/* machabstime when userspace process launched */
+		u_int64_t	ssup_oid_timestamp;		/* machabstime when userspace process OID lookup started */
+	} userspace_statistics;
+
+	struct stat_numbers {
+		/* readahead */
+		u_int	ss_initiated_reads;	/* read operations we initiated */
+		u_int	ss_read_blocks;		/* number of blocks read */
+		u_int	ss_read_bytes;		/* number of bytes read */
+		u_int	ss_read_errors;		/* read errors encountered */
+		u_int	ss_read_errors_bytes;	/* bytes discarded due to read errors */
+		u_int	ss_batch_bytes[STAT_DISKMAX][STAT_BATCHMAX+1];	/* number of bytes in read per batch, +1 for sum of extra batches */
+		u_int	ss_batch_late_bytes[STAT_DISKMAX][STAT_BATCHMAX+1];	/* number of bytes read during this batch
+																	 that were scheduled for an earlier batch */
+		u_int	ss_batch_initiated_reads[STAT_DISKMAX][STAT_BATCHMAX+1];	/* read operations we initiated per batch */
+		uint64_t	ss_batch_time[STAT_DISKMAX][STAT_BATCHMAX+1];	/* machabstime per batch, +1 for sum of extra batches */
+		
+		u_int	ss_read_bytes_lowpri;                         /* number of bytes read */
+		u_int	ss_batch_bytes_lowpri[STAT_DISKMAX];          /* number of bytes in read per disk */
+		uint64_t	ss_batch_time_lowpri[STAT_DISKMAX];           /* machabs per disk */
+		u_int	ss_batch_initiated_reads_lowpri[STAT_DISKMAX]; /* read operations we initiated per disk */
+		
+		/* inbound strategy calls (while we're recording) */
+		u_int	ss_strategy_calls;			/* total strategy calls we received */
+		u_int	ss_strategy_bypassed;		/* strategy calls we bypassed */
+		u_int	ss_strategy_nonread;		/* strategy calls that were not reads */
+		u_int	ss_strategy_throttled;		/* strategy calls marked low priority */
+		u_int	ss_strategy_noncached_mount;	/* strategy calls from non-cached mounts */
+		u_int	ss_strategy_unready_mount;	/* strategy calls from non-ready mounts */
+		u_int	ss_strategy_unknown;		/* strategy calls that were unidentifiable */
+		u_int	ss_strategy_unknown_bytes;	/* bytes of unidentifiable strategy calls */
+		u_int	ss_strategy_nonblocksize;	/* strategy calls of non-blocksize-multiple size */
+		
+		/* non-cached IOs */
+		u_int	ss_strategy_hit_nocache;	/* cache hits that were IOs we won't cache for next boot */
+		u_int	ss_strategy_bypass_nocache;	/* cache misses that were IOs we won't cache for next boot */
+		u_int	ss_strategy_bypass_duringio_nocache;	/* cache misses that were IOs we won't cache for next boot */
+		u_int	ss_hit_nocache_bytes;		/* bytes hit by IOs we won't cache for next boot */
+		u_int	ss_bypass_nocache_bytes;	/* bytes missed by IOs we won't cache for next boot */
+		u_int	ss_bypass_nocache_discards;	/* bytes discarded by IOs we won't cache for next boot */
+		u_int	ss_bypass_nocache_unread;	/* bytes unread because of IOs we won't cache for next boot */
+		
+		/* io during readahead */
+		u_int	ss_strategy_duringio;			/* total strategy calls */
+		u_int	ss_strategy_bypass_duringio;	/* strategy calls we bypassed */
+		u_int	ss_strategy_bypass_duringio_rootdisk_read;		/* read strategy calls we missed for the root disk */
+		u_int	ss_strategy_bypass_duringio_rootdisk_read_crypto_mismatch;		/* read strategy calls we missed due to crypto mismatch */
+		u_int	ss_strategy_bypass_duringio_rootdisk_read_partial_hits;		/* read strategy calls we missed due to only partial intersection */
+		u_int	ss_strategy_bypass_duringio_rootdisk_failure;	/* read strategy calls we hit but failed to fulfill for the root disk */
+		u_int	ss_strategy_bypass_duringio_rootdisk_nonread;	/* nonread strategy calls we bypassed for the root disk */
+		u_int	ss_strategy_forced_throttled;			/* strategy calls we forced to throttle due to cutting through our readahead */
+		u_int	ss_strategy_nonthrottled;				/* strategy calls that cut through our readahead but we did not throttle */
+		u_int	ss_hit_duringio;				/* cache hits during active readahead */
+		u_int   ss_strategy_bypass_duringio_unfilled;           /* strategy calls that hit an unfilled extent (for SSDs) */
+		u_int   ss_strategy_unfilled_lowpri;    /* strategy calls that hit an unfilled low priority extent */
+		u_int	ss_strategy_blocked;			/* strategy calls that blocked on future readhead */
+		u_int	ss_strategy_timedout;			/* strategy calls that timed out */
+		u_int	ss_strategy_time_longest_blocked;		/* longest time a strategy calls spent blocked on our cache (in milliseconds) */
+		u_int	ss_strategy_time_blocked;		/* milliseconds strategy calls spent blocked on our cache */
+		
+		/* extents */
+		u_int	ss_total_extents;	/* number of extents in the cache */
+		u_int	ss_extents_clipped;	/* number of extents clipped due to page boundaries */
+		u_int	ss_extent_lookups;	/* number of extents searched for */
+		u_int	ss_extent_crypto_mismatches;		/* number of extents missed due to crypto mismatch */
+		u_int	ss_extent_partial_hits;		/* number of extents missed due to only partial intersection */
+		u_int	ss_extent_hits;		/* number of extents matched (cache hits) */
+		u_int	ss_hit_multiple;	/* cache hits that touched more than one extent */
+		u_int	ss_hit_aborted;		/* cache hits not filled due to aborted extents */
+		u_int	ss_hit_blkmissing;	/* cache hits not filled due to missing blocks */
+		u_int	ss_hit_stolen;		/* cache hits not filled due to stolen pages */
+		u_int	ss_hit_failure;		/* cache hits not filled due to other failures */
+		
+		/* byte/page activity */
+		u_int	ss_requested_bytes;
+		u_int   ss_requested_bytes_m[STAT_MOUNTMAX];
+		u_int	ss_hit_bytes;		/* number of bytes vacated due to read hits */
+		u_int	ss_hit_bytes_m[STAT_MOUNTMAX];		/* number of bytes vacated due to read hits */
+		u_int	ss_stolen_discards;		/* number of bytes lost to pageout or contig mem */
+		u_int	ss_write_discards;	/* bytes discarded due to overwriting */
+		u_int	ss_read_discards;	/* bytes discarded due to incoming reads */
+		u_int	ss_error_discards;	/* bytes discarded due to error satisfying the I/O */
+		u_int	ss_close_discards;	/* bytes discarded due to mount being closed */
+		u_int	ss_lowpri_discards;	/* lowpri bytes discarded due to incomplete request */
+		u_int	ss_unable_to_discard_bytes;	/* bytes not discarded due to lock contention (high estimate) */
+		u_int	ss_unable_to_discard_count;	/* number of cut-through IOs with bytes not discarded due to lock contention */
+		u_int	ss_spurious_discards;	/* number of bytes read but not consumed */
+		u_int	ss_hit_bytes_afterhistory;		/* bytes fulfilled after history recording was complete */
+		u_int	ss_lost_bytes_afterhistory;	/* bytes lost after history recording was complete */
+		
+		/* cache size and bytes not read in */
+		u_int	ss_cache_bytes;		/* number of bytes total in cache (not necessarily read in) */
+		u_int	ss_cache_oversize;	/* number of bytes not added to cache due to size limit */
+		u_int	ss_write_unread;	/* bytes unread due to overwriting */
+		u_int	ss_read_unread;		/* bytes unread due to incoming reads */
+		u_int	ss_stolen_unread;		/* number of bytes lost to pageout or contig mem */
+		u_int	ss_readerror_unread;	/* bytes unread due to failure to read it */
+		u_int	ss_extenterror_unread;	/* bytes unread due to failure to setup/fill in extent */
+		u_int	ss_close_unread;	/* bytes unread due to mount being closed */
+		u_int	ss_error_unread;	/* bytes unread due to error satisfying I/O */
+		u_int	ss_lowpri_unread;	/* lowpri bytes unread due to request before it was available */
+		u_int	ss_spurious_unread;	/* number of bytes unread and not consumed */
+		u_int	ss_badreader_unread;/* bytes unread due to mount unable to start reader thread */
+		u_int	ss_mounterror_unread;	/* bytes unread due to failure to setup/fill in mount */
+		u_int	ss_nonroot_unread;	/* bytes unread due to not being on the root disk */
+		u_int	ss_unsupported_unread;	/* bytes unread due to unsupported configuration */
+
+		/* history activity */
+		u_int	ss_history_bytes;			/* number of bytes contained in the history we've seen for this boot */
+		u_int	ss_history_reads;			/* number of reads we saw during initial boot */
+		u_int	ss_history_writes;			/* number of writes we saw during initial boot */
+		u_int	ss_history_entries;			/* number of history entries we've created this boot */
+		u_int	ss_history_unknown;			/* history calls we couldn't find a mount for */
+		u_int	ss_history_unknown_bytes;	/* bytes history calls we couldn't find a mount for */
+		u_int	ss_history_no_blocksize;	/* history calls with 0 blocksize mounts */
+		u_int	ss_history_no_blocksize_bytes;	/* bytes history calls with 0 blocksize mounts */
+	} ss_nonsharedcache; // Just non-shared cache
+
+	struct stat_numbers ss_sharedcache;
+	
 	u_int	ss_cache_time;		/* msecs cache was alive */
-	u_int	ss_preload_time;	/* msecs after kext load before cache started */
-	u_int64_t	ss_start_time;	/* machabstime when cache started */
+	u_int64_t	ss_load_timestamp;	/* machabstime when kext was loaded */
+	u_int64_t	ss_bc_start_timestamp;	/* machabstime when BC_OP_START was issued */
+	u_int64_t	ss_start_timestamp;	/* machabstime when cache started */
 
-	u_int	ss_read_bytes_lowpri;                         /* number of bytes read */
-	u_int	ss_batch_bytes_lowpri[STAT_DISKMAX];          /* number of bytes in read per disk */
-	u_int	ss_batch_time_lowpri[STAT_DISKMAX];           /* msecs per disk */
-	u_int	ss_batch_initiated_reads_lowpri[STAT_DISKMAX]; /* read operations we initiated per disk */
+	u_int   ss_readahead_threads; /* number of readahead threads */
+	uint64_t	ss_batch_time[STAT_DISKMAX][STAT_BATCHMAX+1];	/* machabs per batch, +1 for sum of extra batches */
+	uint64_t	ss_batch_time_lowpri[STAT_DISKMAX];           /* machabs per disk */
 
-	/* inbound strategy calls (while we're recording) */
-	u_int	ss_strategy_calls;			/* total strategy calls we received */
-	u_int	ss_strategy_bypassed;		/* strategy calls we bypassed */
-	u_int	ss_strategy_nonread;		/* strategy calls that were not reads */
-	u_int	ss_strategy_throttled;		/* strategy calls marked low priority */
-	u_int	ss_strategy_noncached_mount;	/* strategy calls from non-cached mounts */
-	u_int	ss_strategy_unknown;		/* strategy calls that were unidentifiable */
-	u_int	ss_strategy_unknown_bytes;	/* bytes of unidentifiable strategy calls */
-	u_int	ss_strategy_nonblocksize;	/* strategy calls of non-blocksize-multiple size */
-	
-	/* non-cached IOs */
-	u_int	ss_strategy_hit_nocache;	/* cache hits that were IOs we won't cache for next boot */
-	u_int	ss_strategy_bypass_nocache;	/* cache misses that were IOs we won't cache for next boot */
-	u_int	ss_strategy_bypass_duringio_nocache;	/* cache misses that were IOs we won't cache for next boot */
-	u_int	ss_hit_nocache_bytes;		/* bytes hit by IOs we won't cache for next boot */
-	u_int	ss_bypass_nocache_bytes;	/* bytes missed by IOs we won't cache for next boot */
-	u_int	ss_bypass_nocache_discards;	/* bytes discarded by IOs we won't cache for next boot */
-
-	/* io during readahead */
-	u_int	ss_strategy_duringio;			/* total strategy calls */
-	u_int	ss_strategy_bypass_duringio;	/* strategy calls we bypassed */
-	u_int	ss_strategy_bypass_duringio_rootdisk_read;		/* read strategy calls we missed for the root disk */
-	u_int	ss_strategy_bypass_duringio_rootdisk_failure;	/* read strategy calls we hit but failed to fulfil for the root disk */
-	u_int	ss_strategy_bypass_duringio_rootdisk_nonread;	/* nonread strategy calls we bypassed for the root disk */
-	u_int	ss_strategy_forced_throttled;			/* strategy calls we forced to throttle due to cutting through our readahead */
-	u_int	ss_strategy_nonthrottled;				/* strategy calls that cut through our readahead but we did not throttle */
-	u_int	ss_hit_duringio;				/* cache hits during active readahead */
-	u_int   ss_strategy_bypass_duringio_unfilled;           /* strategy calls that hit an unfilled extent (for SSDs) */
-	u_int   ss_strategy_unfilled_lowpri;    /* strategy calls that hit an unfilled low priority extent */
-	u_int	ss_strategy_blocked;			/* strategy calls that blocked on future readhead */
-	u_int	ss_strategy_timedout;			/* strategy calls that timed out */
-	u_int	ss_strategy_time_longest_blocked;		/* longest time a strategy calls spent blocked on our cache (in milliseconds) */
-	u_int	ss_strategy_time_blocked;		/* milliseconds strategy calls spent blocked on our cache */
-	
-	/* extents */
-	u_int	ss_total_extents;	/* number of extents in the cache */
-	u_int	ss_extents_clipped;	/* number of extents clipped due to page boundaries */
-	u_int	ss_extent_lookups;	/* number of extents searched for */
-	u_int	ss_extent_hits;		/* number of extents matched (cache hits) */
-	u_int	ss_hit_multiple;	/* cache hits that touched more than one extent */
-	u_int	ss_hit_aborted;		/* cache hits not filled due to aborted extents */
-	u_int	ss_hit_blkmissing;	/* cache hits not filled due to missing blocks */
-	u_int	ss_hit_stolen;		/* cache hits not filled due to stolen pages */
-	u_int	ss_hit_failure;		/* cache hits not filled due to other failures */
+	u_int	ss_cache_size;		/* the amount of memory allocated for the playback buffer */
 
 	/* mounts */
+	u_int	ss_total_extents;	/* number of extents in the cache */
 	u_int	ss_total_mounts;	/* number of mounts in the cache */
 	u_int	ss_history_mount_no_uuid;	/* number of mounts seen without a uuid */
-	
-	/* byte/page activity */
-	u_int	ss_requested_bytes;
-	u_int   ss_requested_bytes_m[STAT_MOUNTMAX];
-	u_int	ss_hit_bytes;		/* number of bytes vacated due to read hits */
-	u_int	ss_hit_bytes_m[STAT_MOUNTMAX];		/* number of bytes vacated due to read hits */
-	u_int	ss_shared_bytes;		/* number of bytes read from the shared cache */
-	u_int	ss_hit_shared_bytes;	/* number of bytes hit IOs in the shared cache */
-	u_int	ss_stolen_bytes;		/* number of bytes lost to pageout or contig mem */
-	u_int	ss_write_discards;	/* bytes discarded due to overwriting */
-	u_int	ss_read_discards;	/* bytes discarded due to incoming reads */
-	u_int	ss_error_discards;	/* bytes discarded due to failure to fulfil a cache hit */
-	u_int	ss_unable_to_discard_bytes;	/* bytes not discarded due to lock contention (high estimate) */
-	u_int	ss_unable_to_discard_count;	/* number of cut-through IOs with bytes not discarded due to lock contention */
-	u_int	ss_spurious_bytes;	/* number of btyes not consumed */
-	u_int	ss_hit_bytes_afterhistory;		/* bytes fulfilled after history recording was complete */
-	u_int	ss_lost_bytes_afterhistory;	/* bytes lost after history recording was complete */
+	u_int	ss_history_mount_no_blocksize;	/* number of mounts seen without a blocksize */
 
-	/* history activity */
-	u_int	ss_history_bytes;			/* number of bytes contained in the history we've seen for this boot */
 	u_int	ss_history_time;			/* msecs hisotry was active */
-	u_int	ss_history_reads;			/* number of reads we saw during initial boot */
-	u_int	ss_history_writes;			/* number of writes we saw during initial boot */
-	u_int	ss_history_entries;			/* number of history entries we've created this boot */
-	u_int	ss_history_mounts;			/* number of allocated history mounts we had for the last recording */
-	u_int	ss_history_unknown;			/* history calls we couldn't find a mount for */
-	u_int	ss_history_unknown_bytes;	/* bytes history calls we couldn't find a mount for */
 	u_int	ss_history_num_recordings;	/* number of recordings we've has this boot */
+	u_int	ss_history_mounts;			/* number of allocated history mounts we had for the last recording */
 
 	/* current status */
 	u_int	ss_cache_flags;		/* current cache flags */
 };
 
+#ifndef KERNEL
+
 /*
- * In-memory BootCache playlist structure
+ * In-memory BootCache playlist structure for userspace
  */
 struct BC_playlist {
-	int                       p_nmounts;  /* number of mounts */
-	int                       p_nentries; /* number of entries */
-	struct BC_playlist_mount *p_mounts;   /* array of mounts */
-	struct BC_playlist_entry *p_entries;  /* array of entries */
+	uint                           p_nmounts;  /* number of mounts */
+	uint                           p_nentries; /* number of entries */
+	uint                           p_nomaps;   /* number of omap records */
+	struct BC_playlist_mount      *p_mounts;   /* array of mounts */
+	struct BC_playlist_entry      *p_entries;  /* array of entries */
+	struct BC_playlist_omap       *p_omaps;    /* array of omap records */
 };
 
 /*
  * In-memory BootCache history structure
  */
 struct BC_history {
-	int                      h_nmounts;  /* number of mounts */
-	int                      h_nentries; /* number of entries */
+	uint                     h_nmounts;  /* number of mounts */
+	uint                     h_nentries; /* number of entries */
 	struct BC_history_mount *h_mounts;   /* array of mounts */
 	struct BC_history_entry *h_entries;  /* array of entries */
 };
 
-#ifndef KERNEL
+/*
+ * In-memory OMAP history structure
+ */
+struct BC_omap_history_mount {
+	uuid_t                    ohm_uuid;
+	
+	uint                      ohm_nomaps;
+	apfs_omap_track_record_t *ohm_omaps; /* All the omaps here point to the same mount above */
+};
+	
+struct BC_omap_history {
+	uint                          oh_nmounts;
+	struct BC_omap_history_mount* oh_mounts; /* Array of mounts */
+};
+
+// Is the native shared cache explicitly added as high priority (vs low priority)
+#define BC_ADD_SHARED_CACHE_AT_HIGH_PRIORITY 0
+
 /*
  * Support library functions.
  */
+
+/* For BC_playlist_for_file_extents */
+struct bc_file_extent {
+	off_t offset;    /* offset into file to start of extent, in bytes */
+	off_t length;    /* length of the extent in bytes */
+	u_int16_t flags; /* same as pe_flags */
+};
+	
+// If NULL, log messages go to os_log
+// If non-NULL, log messages go to the stream provided
+// Defaults to NULL (os_log)
+extern FILE* bc_log_stream;
+	
 extern int	BC_read_playlist(const char *, struct BC_playlist **);
 extern int	BC_write_playlist(const char *, const struct BC_playlist *);
 extern int	BC_merge_playlists(struct BC_playlist *, const struct BC_playlist *);
-extern void	BC_sort_playlist(struct BC_playlist *);
-extern int	BC_coalesce_playlist(struct BC_playlist *);
+extern int  BC_playlists_intersect(const struct BC_playlist*, const struct BC_playlist*);
 extern int	BC_playlist_for_file(int fd, struct BC_playlist** ppc);
 extern int  BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_playlist** ppc);
-extern int	BC_verify_playlist(const struct BC_playlist *);
+extern int  BC_playlist_for_file_extents(int fd, uint nextents, const struct bc_file_extent* extents, struct BC_playlist** ppc);
+extern int  BC_verify_playlist(const struct BC_playlist *);
+extern struct BC_playlist *BC_allocate_playlist(uint nmounts, uint nentries, uint nomaps);
+extern void BC_reset_playlist(struct BC_playlist *);
+extern struct BC_playlist *BC_copy_playlist(const struct BC_playlist *);
 extern void BC_free_playlist(struct BC_playlist *);
 #define PC_FREE_ZERO(pc) do { if (pc) { BC_free_playlist(pc); (pc) = NULL; } } while (0)
 extern void BC_free_history(struct BC_history *);
 #define HC_FREE_ZERO(hc) do { if (hc) { BC_free_history(hc); (hc) = NULL; } } while (0)
+extern void BC_free_omap_history(struct BC_omap_history *);
+#define OH_FREE_ZERO(oh) do { if (oh) { BC_free_omap_history(oh); (oh) = NULL; } } while (0)
 extern int	BC_fetch_statistics(struct BC_statistics **);
-extern int	BC_convert_history(const struct BC_history *, struct BC_playlist **);
-extern int	BC_start(struct BC_playlist *);
-extern int	BC_stop(struct BC_history **);
+extern int	BC_set_userspace_statistics(const struct BC_userspace_statistics *);
+extern int BC_convert_history_and_omaps(const struct BC_history *, const struct BC_omap_history *, struct BC_playlist **);
+extern int BC_start(const struct BC_playlist *);
+extern int BC_stop_and_fetch(struct BC_history **, struct BC_omap_history **);
+#define BC_stop(hc) BC_stop_and_fetch(hc, NULL)
 extern int	BC_notify_mount(void);
 extern int	BC_test(void);
 extern int	BC_jettison(void);
-extern int	BC_print_statistics(char *, struct BC_statistics *);
-extern int	BC_print_history(char *, struct BC_history *);
+extern int	BC_print_statistics(char *, const struct BC_statistics *);
+extern int	BC_print_history(char *, const struct BC_history *);
+extern int	BC_print_playlist(const struct BC_playlist *);
 extern int	BC_tag_history(void);
 extern int	BC_unload(void);
+#endif // ifndef KERNEL
+
+#ifdef __cplusplus
+}
 #endif

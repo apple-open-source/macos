@@ -21,12 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * This is to fool os services to not provide the Keychain manager
- * interface tht doens't work since we don't have unified headers
- * between iOS and OS X. rdar://23405418/
- */
-#define __KEYCHAINCORE__ 1
 #import <Foundation/Foundation.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -100,7 +94,7 @@ static void test_item_add(void) {
             phase++;
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
@@ -144,7 +138,6 @@ static void test_item_add(void) {
     CFRelease(valueData);
     CFRelease(oidData);
 }
-static const int kItemAddTestCount = 31;
 
 static void test_item_query() {
     static const UInt8 oid[] = { 0x05, 0x06, 0x07, 0x08 };
@@ -223,7 +216,6 @@ static void test_item_query() {
     CFRelease(valueData2);
     CFRelease(oidData);
 }
-static const int kItemQueryTestCount = 21;
 
 static void test_item_update() {
     static const UInt8 data[] = { 0x01, 0x02, 0x03, 0x04 };
@@ -252,7 +244,7 @@ static void test_item_update() {
             phase++;
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
@@ -317,7 +309,6 @@ static void test_item_update() {
     CFRelease(attrs);
     CFRelease(valueData2);
 }
-static const int kItemUpdateTestCount = 26;
 
 static void test_item_delete(void) {
 
@@ -334,7 +325,7 @@ static void test_item_delete(void) {
             phase++;
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
@@ -390,105 +381,147 @@ static void test_item_delete(void) {
     CFRelease(query);
     CFReleaseSafe(deleteError);
 }
-#if LA_CONTEXT_IMPLEMENTED
-static const int kItemDeleteTestCount = 15;
-#else
-static const int kItemDeleteTestCount = 14;
-#endif
 
-static void test_key_generate(void) {
-
+static void test_key_generate(int globalPersistence, int privatePersistence, int publicPersistence,
+                              bool privateIsPersistent, bool publicIsPersistent) {
     __block int phase = 0;
     TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
-        phase++;
+        phase |= 0x01;
 
         blocks->createOrUpdateObject = ^CFDataRef(CFDataRef objectID, CFMutableDictionaryRef at, CFErrorRef *error) {
-            phase++;
-            is(objectID, NULL);
+            id privateKey;
+            CFTypeRef keyClass = CFDictionaryGetValue(at, kSecAttrKeyClass) ?: kSecAttrKeyClassPrivate;
+            eq_cf(keyClass, kSecAttrKeyClassPrivate, "only private keys can be created on token");
+            NSDictionary *params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate };
+            if (objectID != NULL) {
+                phase |= 0x20;
+                privateKey = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)objectID, (CFDictionaryRef)params, NULL));
+            } else {
+                phase |= 0x02;
+                privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, error));
+            }
+            NSDictionary *privKeyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)privateKey));
             CFDictionarySetValue(at, kSecClass, kSecClassKey);
-            SecKeyRef publicKey = NULL, privateKey = NULL;
-            CFMutableDictionaryRef params = CFDictionaryCreateMutableForCFTypesWith(NULL,
-                                                                                    kSecAttrKeyType, kSecAttrKeyTypeEC,
-                                                                                    kSecAttrKeySizeInBits, CFSTR("256"),
-                                                                                    NULL);
-            ok_status(SecKeyGeneratePair(params, &publicKey, &privateKey));
-            CFDictionaryRef privKeyAttrs = SecKeyCopyAttributeDictionary(privateKey);
-            CFRelease(privateKey);
-            CFRelease(publicKey);
-            CFRelease(params);
-            CFDataRef oid = CFRetainSafe(CFDictionaryGetValue(privKeyAttrs, kSecValueData));
-            CFRelease(privKeyAttrs);
-            return oid;
+            CFDictionarySetValue(at, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
+            CFDictionarySetValue(at, kSecAttrKeySizeInBits, CFSTR("256"));
+            CFDictionarySetValue(at, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+            return CFBridgingRetain(privKeyAttrs[(id)kSecValueData]);
         };
 
         blocks->copyObjectAccessControl = ^CFDataRef(CFDataRef oid, CFErrorRef *error) {
-            phase++;
+            phase |= 0x04;
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
         };
 
         blocks->copyPublicKeyData = ^CFDataRef(CFDataRef objectID, CFErrorRef *error) {
-            phase++;
+            phase |= 0x08;
             SecKeyRef privKey = SecKeyCreateECPrivateKey(NULL, CFDataGetBytePtr(objectID), CFDataGetLength(objectID), kSecKeyEncodingBytes);
             CFDataRef publicData;
-            ok_status(SecKeyCopyPublicBytes(privKey, &publicData));
+            SecKeyCopyPublicBytes(privKey, &publicData);
             CFRelease(privKey);
             return publicData;
         };
 
         blocks->copyObjectData = ^CFTypeRef(CFDataRef oid, CFErrorRef *error) {
-            phase++;
+            phase |= 0x10;
             return kCFNull;
         };
     });
 
-    CFDictionaryRef prk_params = CFDictionaryCreateForCFTypes(NULL,
-                                                              kSecAttrIsPermanent, kCFBooleanTrue,
-                                                              NULL);
+    NSMutableDictionary *params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeEC,
+                                     (id)kSecAttrKeySizeInBits: @"256",
+                                     (id)kSecAttrTokenID: @"tokenid",
+                                     }.mutableCopy;
+    if (globalPersistence >= 0) {
+        params[(id)kSecAttrIsPermanent] = globalPersistence ? @YES : @NO;
+    }
+    if (publicPersistence >= 0) {
+        params[(id)kSecPublicKeyAttrs] = @{ (id)kSecAttrIsPermanent: publicPersistence ? @YES : @NO };
+    }
+    if (privatePersistence >= 0) {
+        params[(id)kSecPrivateKeyAttrs] = @{ (id)kSecAttrIsPermanent: privatePersistence ? @YES : @NO };
+    }
 
-    CFMutableDictionaryRef params = CFDictionaryCreateMutableForCFTypesWith(NULL,
-                                                                            kSecAttrKeyType, kSecAttrKeyTypeEC,
-                                                                            kSecAttrKeySizeInBits, CFSTR("256"),
-                                                                            kSecAttrTokenID, CFSTR("tokenid"),
-                                                                            kSecPrivateKeyAttrs, prk_params,
-                                                                            NULL);
-    CFRelease(prk_params);
-
-    SecKeyRef publicKey = NULL, privateKey = NULL;
+    NSError *error;
     phase = 0;
-    ok_status(SecKeyGeneratePair(params, &publicKey, &privateKey));
-    is(phase, 6);
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    isnt(privateKey, nil, "failed to generate token key, error %@", error);
+    is(phase, privateIsPersistent ? 0x3f : 0x1f);
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    isnt(publicKey, nil, "failed to get public key from private key");
 
-    CFDictionaryRef query = CFDictionaryCreateForCFTypes(NULL,
-                                                         kSecValueRef, privateKey,
-                                                         kSecReturnAttributes, kCFBooleanTrue,
-                                                         kSecReturnRef, kCFBooleanTrue,
-                                                         kSecReturnData, kCFBooleanTrue,
-                                                         NULL);
+    NSDictionary *query = @{ (id)kSecValueRef: privateKey,
+                             (id)kSecReturnAttributes: @YES,
+                             (id)kSecReturnRef: @YES,
+                             (id)kSecReturnData: @YES };
     phase = 0;
-    CFDictionaryRef result = NULL, keyAttrs = NULL;
-    ok_status(SecItemCopyMatching(query, (CFTypeRef *)&result));
-    is(phase, 3);
-    is(CFDictionaryGetValue(result, kSecValueData), NULL);
-    eq_cf(CFDictionaryGetValue(result, kSecAttrTokenID), CFSTR("tokenid"));
-    keyAttrs = SecKeyCopyAttributeDictionary((SecKeyRef)CFDictionaryGetValue(result, kSecValueRef));
-    eq_cf(CFDictionaryGetValue(keyAttrs, kSecAttrApplicationLabel), CFDictionaryGetValue(result, kSecAttrApplicationLabel));
-    CFAssignRetained(keyAttrs, SecKeyCopyAttributeDictionary(publicKey));
-    eq_cf(CFDictionaryGetValue(keyAttrs, kSecAttrApplicationLabel), CFDictionaryGetValue(result, kSecAttrApplicationLabel));
+    NSDictionary *result;
+    if (privateIsPersistent) {
+        ok_status(SecItemCopyMatching((CFDictionaryRef)query, (void *)&result), "persistent private key not found in kc");
+        is(phase, 0x19);
+        is(result[(id)kSecValueData], nil);
+        eq_cf((__bridge CFTypeRef)result[(id)kSecAttrTokenID], @"tokenid");
+        NSDictionary *keyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)result[(id)kSecValueRef]));
+        eq_cf((__bridge CFTypeRef)keyAttrs[(id)kSecAttrApplicationLabel], (__bridge CFTypeRef)result[(id)kSecAttrApplicationLabel]);
+        keyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)publicKey));
+        eq_cf((__bridge CFTypeRef)keyAttrs[(id)kSecAttrApplicationLabel], (__bridge CFTypeRef)result[(id)kSecAttrApplicationLabel]);
+    } else {
+        is_status(SecItemCopyMatching((CFDictionaryRef)query, (void *)&result), errSecItemNotFound, "ephemeral private key found in kc");
+        is(phase, 0x08);
 
-    CFRelease(result);
-    CFRelease(keyAttrs);
-    CFRelease(publicKey);
-    CFRelease(privateKey);
+        // Balancing test count from the branch above
+        ok(true);
+        ok(true);
+        ok(true);
+        ok(true);
+    }
 
-    CFRelease(query);
-    CFRelease(params);
+    query = @{ (id)kSecValueRef: publicKey,
+               (id)kSecReturnAttributes: @YES,
+               (id)kSecReturnRef: @YES,
+               (id)kSecReturnData: @YES };
+    phase = 0;
+    result = nil;
+    if (publicIsPersistent) {
+        ok_status(SecItemCopyMatching((CFDictionaryRef)query, (void *)&result), "persistent public key not found in kc");
+        NSDictionary *keyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)publicKey));
+        eq_cf((__bridge CFTypeRef)keyAttrs[(id)kSecAttrApplicationLabel], (__bridge CFTypeRef)result[(id)kSecAttrApplicationLabel]);
+    } else {
+        is_status(SecItemCopyMatching((CFDictionaryRef)query, (void *)&result), errSecItemNotFound, "ephemeral public key found in kc");
+
+        // Balancing test count from the branch above
+        ok(true);
+    }
+
+    // Get OID from the private key and try to create duplicate of the key using its OID and attributes.
+    NSDictionary *attrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)privateKey));
+    NSData *oid = attrs[(id)kSecAttrTokenOID];
+    ok(oid != nil, "private key attributes need OID");
+    phase = 0;
+    id copyKey = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)[NSData data],
+                                                        (CFDictionaryRef)@{ (id)kSecAttrTokenID: @"tokenid", (id)kSecAttrTokenOID: oid },
+                                                        (void *)&error));
+    ok(copyKey != nil, "copied key is created");
+    is(phase, 0x21);
+    attrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)copyKey));
+    is(phase, 0x29);
+    phase = 0;
+    eq_cf((__bridge CFTypeRef)attrs[(id)kSecClass], kSecClassKey);
+    eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrKeyClass], kSecAttrKeyClassPrivate);
+    eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrKeyType], kSecAttrKeyTypeECSECPrimeRandom);
+    eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrKeySizeInBits], CFSTR("256"));
+    eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrTokenID], CFSTR("tokenid"));
+    id copyPublicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)copyKey));
+    ok(copyPublicKey != nil);
+    is(phase, 0x08);
+    NSDictionary *pubAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)copyPublicKey));
+    eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrApplicationLabel], (__bridge CFTypeRef)pubAttrs[(id)kSecAttrApplicationLabel]);
 }
-static const int kKeyGenerateTestCount = 14;
 
 static void test_key_sign(void) {
 
@@ -515,7 +548,7 @@ static void test_key_sign(void) {
             phase++;
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
@@ -616,12 +649,6 @@ static void test_key_sign(void) {
     CFRelease(privateKey);
 }
 
-#if LA_CONTEXT_IMPLEMENTED
-static const int kKeySignTestCount = 20;
-#else
-static const int kKeySignTestCount = 15;
-#endif
-
 static void test_key_generate_with_params(void) {
 
     const UInt8 data[] = "foo";
@@ -657,7 +684,6 @@ static void test_key_generate_with_params(void) {
 
     SecKeyRef publicKey = NULL, privateKey = NULL;
     phase = 0;
-    diag("This will produce an internal assert - on purpose");
     is_status(SecKeyGeneratePair(params, &publicKey, &privateKey), errSecUserCanceled);
     is(phase, 2);
 
@@ -666,7 +692,6 @@ static void test_key_generate_with_params(void) {
     CFRelease(params);
     CFRelease(cred_ref);
 }
-static const int kKeyGenerateWithParamsTestCount = 5;
 
 static void test_error_codes(void) {
 
@@ -694,7 +719,6 @@ static void test_error_codes(void) {
 
     CFRelease(attrs);
 }
-static const int kErrorCodesCount = 3;
 
 static CFDataRef copy_certificate_data(const char *base64Cert)
 {
@@ -920,15 +944,13 @@ static void test_propagate_token_items()
     CFReleaseNull(queryResult);
     CFRelease(query);
 }
-static const int kPropagateCount = 66;
 
 static void test_identity_on_two_tokens() {
     CFStringRef cert3OID = CFSTR("oid1");
     TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
 
         blocks->createOrUpdateObject = ^CFDataRef(CFDataRef objectID, CFMutableDictionaryRef at, CFErrorRef *error) {
-            is(objectID, NULL);
-            return (__bridge_retained CFDataRef)[[NSData alloc] initWithBase64EncodedString:@"BAcrF9iBupEeZOE+c73JBfkqsv8Q9rp1lTnZbKzmALf8yTR02310uGlZuUBVp4HOSiziO43dzFuegH0ywLhu+gtJj81RD8Rt+nLR6oTARkL+0l2/fzrIouleaEYpYmEp0A==" options:NSDataBase64DecodingIgnoreUnknownCharacters];
+            return CFBridgingRetain([[NSData alloc] initWithBase64EncodedString:@"BAcrF9iBupEeZOE+c73JBfkqsv8Q9rp1lTnZbKzmALf8yTR02310uGlZuUBVp4HOSiziO43dzFuegH0ywLhu+gtJj81RD8Rt+nLR6oTARkL+0l2/fzrIouleaEYpYmEp0A==" options:NSDataBase64DecodingIgnoreUnknownCharacters]);
         };
 
         blocks->copyPublicKeyData = ^CFDataRef(CFDataRef objectID, CFErrorRef *error) {
@@ -950,7 +972,7 @@ static void test_identity_on_two_tokens() {
         blocks->copyObjectAccessControl = ^CFDataRef(CFDataRef oid, CFErrorRef *error) {
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
@@ -1003,13 +1025,11 @@ static void test_identity_on_two_tokens() {
         CFReleaseSafe(resultRef);
     }
 }
-static const int kIdentityonTwoTokensCount = 20;
 
 static void test_ies(SecKeyRef privateKey, SecKeyAlgorithm algorithm) {
     TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
 
         blocks->createOrUpdateObject = ^CFDataRef(CFDataRef objectID, CFMutableDictionaryRef at, CFErrorRef *error) {
-            is(objectID, NULL);
             return CFBridgingRetain([@"oid" dataUsingEncoding:NSUTF8StringEncoding]);
         };
 
@@ -1027,7 +1047,7 @@ static void test_ies(SecKeyRef privateKey, SecKeyAlgorithm algorithm) {
         blocks->copyObjectAccessControl = ^CFDataRef(CFDataRef oid, CFErrorRef *error) {
             SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
             SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
-            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            test_IsTrue(SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
             CFDataRef acData = SecAccessControlCopyData(ac);
             CFRelease(ac);
             return acData;
@@ -1093,7 +1113,6 @@ static void test_ies(SecKeyRef privateKey, SecKeyAlgorithm algorithm) {
     CFReleaseNull(tokenKey);
     CFReleaseNull(tokenPublicKey);
 }
-static const int kIESCount = 4;
 
 static void test_ecies() {
     NSError *error;
@@ -1104,7 +1123,6 @@ static void test_ecies() {
 
     CFReleaseNull(privateKey);
 }
-static const int kECIESCount = kIESCount + 1;
 
 static void test_rsawrap() {
     NSError *error;
@@ -1115,7 +1133,6 @@ static void test_rsawrap() {
 
     CFReleaseNull(privateKey);
 }
-static const int kRSAWrapCount = kIESCount + 1;
 
 static void tests(void) {
     /* custom keychain dir */
@@ -1125,7 +1142,18 @@ static void tests(void) {
     test_item_query();
     test_item_update();
     test_item_delete();
-    test_key_generate();
+
+    // params: int globalPersistence, int privatePersistence, int publicPersistence, bool privateIsPersistent, bool publicIsPersistent
+    test_key_generate(-1, -1, -1, true, false);
+    test_key_generate(0, -1, -1, false, false);
+    test_key_generate(1, -1, -1, true, true);
+    test_key_generate(-1, 0, 0, false, false);
+    test_key_generate(-1, 1, 0, true, false);
+    test_key_generate(-1, 0, 1, false, true);
+    test_key_generate(-1, 1, 1, true, true);
+    test_key_generate(0, 1, 1, true, true);
+    test_key_generate(1, 1, 1, true, true);
+
     test_key_sign();
     test_key_generate_with_params();
     test_error_codes();
@@ -1136,19 +1164,7 @@ static void tests(void) {
 }
 
 int secd_33_keychain_ctk(int argc, char *const *argv) {
-    plan_tests(kItemAddTestCount +
-               kItemQueryTestCount +
-               kItemUpdateTestCount +
-               kItemDeleteTestCount +
-               kKeyGenerateTestCount +
-               kKeySignTestCount +
-               kKeyGenerateWithParamsTestCount +
-               kErrorCodesCount +
-               kPropagateCount +
-               kIdentityonTwoTokensCount +
-               kECIESCount +
-               kRSAWrapCount +
-               kSecdTestSetupTestCount);
+    plan_tests(484);
     tests();
 
     return 0;

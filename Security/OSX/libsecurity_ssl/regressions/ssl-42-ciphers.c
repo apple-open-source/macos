@@ -354,7 +354,6 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
     require_noerr(SecTrustEvaluate(*trust, &trust_result), out);
 
     CFIndex n_certs = SecTrustGetCertificateCount(*trust);
-    /* fprintf(stderr, "%ld certs; trust_eval: %d\n", n_certs, trust_result); */
 
     peer_cert_array = CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
     orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, n_certs, ssl->peer_certs);
@@ -373,14 +372,6 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
     CFReleaseNull(orig_peer_cert_array);
     CFReleaseNull(peer_cert_array);
 
-    /*
-     CFStringRef cert_name = SecCertificateCopySubjectSummary(cert);
-     char cert_name_buffer[1024];
-     require(CFStringGetFileSystemRepresentation(cert_name,
-     cert_name_buffer, sizeof(cert_name_buffer)), out);
-     fprintf(stderr, "cert name: %s\n", cert_name_buffer);
-     CFRelease(trust);
-     */
     return true;
 out:
     CFReleaseNull(orig_peer_cert_array);
@@ -412,7 +403,6 @@ static void *securetransport_ssl_thread(void *arg)
     require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
     require_action(ssl_state==kSSLIdle, out, ortn = -1);
 
-    //uint64_t start = mach_absolute_time();
     do {
         ortn = SSLHandshake(ctx);
         require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
@@ -473,21 +463,13 @@ static void *securetransport_ssl_thread(void *arg)
         require_string(!got_server_auth, out, "got server auth during resumption??");
         require_string(check_peer_cert(ctx, ssl, &trust), out, "Certificate check failed (resumption case)");
     }
-    //uint64_t elapsed = mach_absolute_time() - start;
-    //fprintf(stderr, "setr elapsed: %lld\n", elapsed);
-
-    /*
-    SSLProtocol proto = kSSLProtocolUnknown;
-    require_noerr_quiet(SSLGetNegotiatedProtocolVersion(ctx, &proto), out); */
 
     SSLCipherSuite cipherSuite;
     require_noerr_quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
-    //fprintf(stderr, "st negotiated %s\n", sslcipher_itoa(cipherSuite));
 
     if(ssl->is_dtls) {
         size_t sz;
         SSLGetDatagramWriteSize(ctx, &sz);
-        //fprintf(stderr, "Max Write Size = %ld\n", sz);
     }
 
 	Boolean	sessionWasResumed = false;
@@ -495,8 +477,6 @@ static void *securetransport_ssl_thread(void *arg)
     size_t session_id_length = sizeof(session_id_data);
     require_noerr_quiet(ortn = SSLGetResumableSessionInfo(ctx, &sessionWasResumed, session_id_data, &session_id_length), out);
     require_action(ssl->dh_anonymous || (ssl->is_session_resume == sessionWasResumed), out, ortn = -1);
-    // if (sessionWasResumed) fprintf(stderr, "st resumed session\n");
-    //hexdump(session_id_data, session_id_length);
 
 #define BUFSIZE (8*1024)
     unsigned char ibuf[BUFSIZE], obuf[BUFSIZE];
@@ -505,7 +485,6 @@ static void *securetransport_ssl_thread(void *arg)
         size_t len;
         if (ssl->is_server) {
             memset(obuf, i, BUFSIZE);
-            // SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf);
             require_noerr(ortn = SSLWrite(ctx, obuf, BUFSIZE, &len), out);
             require_action(len == BUFSIZE, out, ortn = -1);
 
@@ -518,10 +497,7 @@ static void *securetransport_ssl_thread(void *arg)
             size_t l=len;
             ortn = SSLRead(ctx, ibuf+len, BUFSIZE-len, &l);
             len+=l;
-            //printf("SSLRead [%p] %d, l=%zd len=%zd\n", ctx, (int)ortn, l, len);
         }
-
-        //printf("SSLRead [%p] done\n", ctx);
 
         require_noerr(ortn, out);
         require_action(len == BUFSIZE, out, ortn = -1);
@@ -577,14 +553,10 @@ tests(void)
     CFArrayRef server_rsa_certs = server_chain();
     CFArrayRef server_ec_certs = server_ec_chain();
     CFArrayRef client_certs = trusted_client_chain();
-    ok(server_rsa_certs, "got rsa server cert chain");
-    ok(server_ec_certs, "got ec server cert chain");
-    ok(client_certs, "got rsa client cert chain");
+    require(server_rsa_certs != NULL, end);
+    require(server_ec_certs != NULL, end);
+    require(client_certs != NULL, end);
 
-/* Enable this if you want to test a specific d/i/k/l/m/p combination */
-#if 0
-    int i=0, l=0, k=0, p=0; { {
-#else
     int i,k,l, p;
 
     for (p=0; p<nprotos; p++)
@@ -596,7 +568,6 @@ tests(void)
 
         for (i=0; i<SupportedCipherSuitesCount; i++)
         for (l = 0; l<2; l++) { /* resumption or not */
-#endif
             uint16_t cs = (uint16_t)(SupportedCipherSuites[i]);
             KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(cs);
             SSL_CipherAlgorithm cipher = sslCipherSuiteGetSymmetricCipherAlgorithm(cs);
@@ -640,7 +611,9 @@ tests(void)
                 skip("This ciphersuite is not supported for this protocol version", 1, version_ok);
 
                 int sp[2];
-                if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
+                if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) {
+                    exit(errno);
+                }
                 fcntl(sp[0], F_SETNOSIGPIPE, 1);
                 fcntl(sp[1], F_SETNOSIGPIPE, 1);
 
@@ -651,7 +624,6 @@ tests(void)
                 SSLAuthenticate client_side_auth = k;
 
                 uint32_t session_id = (p<<24) | (k<<16) | (i+1);
-                //fprintf(stderr, "session_id: %d\n", session_id);
                 server = ssl_test_handle_create(session_id, (l == 1), true /*server*/,
                                                 client_side_auth, dh_anonymous, dtls,
                                                 sp[0], server_certs, client_certs, protos[p]);
@@ -676,7 +648,7 @@ tests(void)
                 pthread_create(&client_thread, NULL, securetransport_ssl_thread, client);
                 pthread_create(&server_thread, NULL, securetransport_ssl_thread, server);
 
-                int server_err, client_err;
+                intptr_t server_err, client_err;
                 pthread_join(client_thread, (void*)&client_err);
                 pthread_join(server_thread, (void*)&server_err);
 
@@ -703,17 +675,16 @@ out:
     } /* all configs */
 
 
+end:
+    CFReleaseSafe(client_certs);
     CFReleaseSafe(server_ec_certs);
     CFReleaseSafe(server_rsa_certs);
-    CFReleaseSafe(client_certs);
-
 }
 
 int ssl_42_ciphers(int argc, char *const *argv)
 {
 
-    plan_tests(3 * 2 * nprotos * SupportedCipherSuitesCount /* client auth 0/1/2 * #resumptions * #protos * #ciphers */
-                + 3 /*cert*/);
+    plan_tests(3 * 2 * nprotos * SupportedCipherSuitesCount /* client auth 0/1/2 * #resumptions * #protos * #ciphers */);
 
     tests();
 

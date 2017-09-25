@@ -26,8 +26,13 @@ typedef struct drbgrng_t {
     struct ccdrbg_state *drbg_state;
 } drbg_context;
 
+typedef enum {
+    rng_default=1,  // Cryptographic rng from corecrypto
+    rng_created=99
+}rng_type_t;
+
 typedef struct __CCRandom {
-    uint32_t rngtype;
+    rng_type_t rngtype;
     uint32_t drbgtype;
     struct ccrng_state  *rng;   // Handle to a corecrypto random
     drbg_custom         custom; // DRBG custom

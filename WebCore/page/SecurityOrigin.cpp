@@ -99,10 +99,54 @@ static bool shouldTreatAsUniqueOrigin(const URL& url)
     return false;
 }
 
+static bool isLoopbackIPAddress(const URL& url)
+{
+    ASSERT(url.isValid());
+    auto host = url.host();
+    if (host == "[::1]")
+        return true;
+
+    // Check to see if it's a valid IPv4 address that has the form 127.*.*.*.
+    if (!host.startsWith("127."))
+        return false;
+    size_t dotsFound = 0;
+    for (size_t i = 0; i < host.length(); ++i) {
+        if (host[i] == '.') {
+            dotsFound++;
+            continue;
+        }
+        if (!isASCIIDigit(host[i]))
+            return false;
+    }
+    return dotsFound == 3;
+}
+
+// https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy (Editor's Draft, 17 November 2016)
+static bool shouldTreatAsPotentionallyTrustworthy(const URL& url)
+{
+    if (!url.isValid())
+        return false;
+
+    if (SchemeRegistry::shouldTreatURLSchemeAsSecure(url.protocol().toStringWithoutCopying()))
+        return true;
+
+    if (isLoopbackIPAddress(url))
+        return true;
+
+    // FIXME: Ensure that localhost resolves to the loopback address.
+    if (equalLettersIgnoringASCIICase(url.host(), "localhost"))
+        return true;
+
+    if (SchemeRegistry::shouldTreatURLSchemeAsLocal(url.protocol().toStringWithoutCopying()))
+        return true;
+
+    return false;
+}
+
 SecurityOrigin::SecurityOrigin(const URL& url)
-    : m_protocol(url.protocol().isNull() ? emptyString() : url.protocol().toString().convertToASCIILowercase())
-    , m_host(url.host().isNull() ? emptyString() : url.host().convertToASCIILowercase())
-    , m_port(url.port())
+    : m_protocol { url.protocol().isNull() ? emptyString() : url.protocol().toString().convertToASCIILowercase() }
+    , m_host { url.host().isNull() ? emptyString() : url.host().convertToASCIILowercase() }
+    , m_port { url.port() }
 {
     // document.domain starts as m_host, but can be set by the DOM.
     m_domain = m_host;
@@ -115,29 +159,33 @@ SecurityOrigin::SecurityOrigin(const URL& url)
 
     if (m_canLoadLocalResources)
         m_filePath = url.fileSystemPath(); // In case enforceFilePathSeparation() is called.
+
+    m_isPotentionallyTrustworthy = shouldTreatAsPotentionallyTrustworthy(url);
 }
 
 SecurityOrigin::SecurityOrigin()
-    : m_protocol(emptyString())
-    , m_host(emptyString())
-    , m_domain(emptyString())
-    , m_isUnique(true)
+    : m_protocol { emptyString() }
+    , m_host { emptyString() }
+    , m_domain { emptyString() }
+    , m_isUnique { true }
+    , m_isPotentionallyTrustworthy { true }
 {
 }
 
 SecurityOrigin::SecurityOrigin(const SecurityOrigin* other)
-    : m_protocol(other->m_protocol.isolatedCopy())
-    , m_host(other->m_host.isolatedCopy())
-    , m_domain(other->m_domain.isolatedCopy())
-    , m_filePath(other->m_filePath.isolatedCopy())
-    , m_port(other->m_port)
-    , m_isUnique(other->m_isUnique)
-    , m_universalAccess(other->m_universalAccess)
-    , m_domainWasSetInDOM(other->m_domainWasSetInDOM)
-    , m_canLoadLocalResources(other->m_canLoadLocalResources)
-    , m_storageBlockingPolicy(other->m_storageBlockingPolicy)
-    , m_enforceFilePathSeparation(other->m_enforceFilePathSeparation)
-    , m_needsStorageAccessFromFileURLsQuirk(other->m_needsStorageAccessFromFileURLsQuirk)
+    : m_protocol { other->m_protocol.isolatedCopy() }
+    , m_host { other->m_host.isolatedCopy() }
+    , m_domain { other->m_domain.isolatedCopy() }
+    , m_filePath { other->m_filePath.isolatedCopy() }
+    , m_port { other->m_port }
+    , m_isUnique { other->m_isUnique }
+    , m_universalAccess { other->m_universalAccess }
+    , m_domainWasSetInDOM { other->m_domainWasSetInDOM }
+    , m_canLoadLocalResources { other->m_canLoadLocalResources }
+    , m_storageBlockingPolicy { other->m_storageBlockingPolicy }
+    , m_enforceFilePathSeparation { other->m_enforceFilePathSeparation }
+    , m_needsStorageAccessFromFileURLsQuirk { other->m_needsStorageAccessFromFileURLsQuirk }
+    , m_isPotentionallyTrustworthy { other->m_isPotentionallyTrustworthy }
 {
 }
 
@@ -186,15 +234,15 @@ bool SecurityOrigin::isSecure(const URL& url)
     return false;
 }
 
-bool SecurityOrigin::canAccess(const SecurityOrigin* other) const
+bool SecurityOrigin::canAccess(const SecurityOrigin& other) const
 {
     if (m_universalAccess)
         return true;
 
-    if (this == other)
+    if (this == &other)
         return true;
 
-    if (isUnique() || other->isUnique())
+    if (isUnique() || other.isUnique())
         return false;
 
     // Here are two cases where we should permit access:
@@ -218,18 +266,18 @@ bool SecurityOrigin::canAccess(const SecurityOrigin* other) const
     // this is a security vulnerability.
 
     bool canAccess = false;
-    if (m_protocol == other->m_protocol) {
-        if (!m_domainWasSetInDOM && !other->m_domainWasSetInDOM) {
-            if (m_host == other->m_host && m_port == other->m_port)
+    if (m_protocol == other.m_protocol) {
+        if (!m_domainWasSetInDOM && !other.m_domainWasSetInDOM) {
+            if (m_host == other.m_host && m_port == other.m_port)
                 canAccess = true;
-        } else if (m_domainWasSetInDOM && other->m_domainWasSetInDOM) {
-            if (m_domain == other->m_domain)
+        } else if (m_domainWasSetInDOM && other.m_domainWasSetInDOM) {
+            if (m_domain == other.m_domain)
                 canAccess = true;
         }
     }
 
     if (canAccess && isLocal())
-        canAccess = passesFileCheck(*other);
+        canAccess = passesFileCheck(other);
 
     return canAccess;
 }
@@ -262,7 +310,7 @@ bool SecurityOrigin::canRequest(const URL& url) const
 
     // We call isSameSchemeHostPort here instead of canAccess because we want
     // to ignore document.domain effects.
-    if (isSameSchemeHostPort(&targetOrigin.get()))
+    if (isSameSchemeHostPort(targetOrigin.get()))
         return true;
 
     if (SecurityPolicy::isAccessWhiteListed(this, &targetOrigin.get()))
@@ -271,9 +319,9 @@ bool SecurityOrigin::canRequest(const URL& url) const
     return false;
 }
 
-bool SecurityOrigin::canReceiveDragData(const SecurityOrigin* dragInitiator) const
+bool SecurityOrigin::canReceiveDragData(const SecurityOrigin& dragInitiator) const
 {
-    if (this == dragInitiator)
+    if (this == &dragInitiator)
         return true;
 
     return canAccess(dragInitiator);
@@ -350,7 +398,7 @@ bool SecurityOrigin::canAccessStorage(const SecurityOrigin* topOrigin, ShouldAll
     if (m_universalAccess)
         return true;
 
-    if ((m_storageBlockingPolicy == BlockThirdPartyStorage || topOrigin->m_storageBlockingPolicy == BlockThirdPartyStorage) && !topOrigin->isSameOriginAs(this))
+    if ((m_storageBlockingPolicy == BlockThirdPartyStorage || topOrigin->m_storageBlockingPolicy == BlockThirdPartyStorage) && !topOrigin->isSameOriginAs(*this))
         return false;
 
     return true;
@@ -365,12 +413,12 @@ SecurityOrigin::Policy SecurityOrigin::canShowNotifications() const
     return Ask;
 }
 
-bool SecurityOrigin::isSameOriginAs(const SecurityOrigin* other) const
+bool SecurityOrigin::isSameOriginAs(const SecurityOrigin& other) const
 {
-    if (this == other)
+    if (this == &other)
         return true;
 
-    if (isUnique() || other->isUnique())
+    if (isUnique() || other.isUnique())
         return false;
 
     return isSameSchemeHostPort(other);
@@ -395,11 +443,10 @@ void SecurityOrigin::grantStorageAccessFromFileURLsQuirk()
     m_needsStorageAccessFromFileURLsQuirk = true;
 }
 
-#if ENABLE(CACHE_PARTITIONING)
 String SecurityOrigin::domainForCachePartition() const
 {
     if (m_storageBlockingPolicy != BlockThirdPartyStorage)
-        return String();
+        return emptyString();
 
     if (isHTTPFamily())
         return host();
@@ -407,9 +454,8 @@ String SecurityOrigin::domainForCachePartition() const
     if (SchemeRegistry::shouldPartitionCacheForURLScheme(m_protocol))
         return host();
 
-    return String();
+    return emptyString();
 }
-#endif
 
 void SecurityOrigin::enforceFilePathSeparation()
 {
@@ -495,7 +541,8 @@ Ref<SecurityOrigin> SecurityOrigin::create(const String& protocol, const String&
 {
     String decodedHost = decodeURLEscapeSequences(host);
     auto origin = create(URL(URL(), protocol + "://" + host + "/"));
-    origin->m_port = port;
+    if (port && !isDefaultPortForProtocol(*port, protocol))
+        origin->m_port = port;
     return origin;
 }
 
@@ -504,7 +551,7 @@ bool SecurityOrigin::equal(const SecurityOrigin* other) const
     if (other == this)
         return true;
     
-    if (!isSameSchemeHostPort(other))
+    if (!isSameSchemeHostPort(*other))
         return false;
 
     if (m_domainWasSetInDOM != other->m_domainWasSetInDOM)
@@ -516,18 +563,18 @@ bool SecurityOrigin::equal(const SecurityOrigin* other) const
     return true;
 }
 
-bool SecurityOrigin::isSameSchemeHostPort(const SecurityOrigin* other) const 
+bool SecurityOrigin::isSameSchemeHostPort(const SecurityOrigin& other) const
 {
-    if (m_host != other->m_host)
+    if (m_host != other.m_host)
         return false;
 
-    if (m_protocol != other->m_protocol)
+    if (m_protocol != other.m_protocol)
         return false;
 
-    if (m_port != other->m_port)
+    if (m_port != other.m_port)
         return false;
 
-    if (isLocal() && !passesFileCheck(*other))
+    if (isLocal() && !passesFileCheck(other))
         return false;
 
     return true;
@@ -536,7 +583,7 @@ bool SecurityOrigin::isSameSchemeHostPort(const SecurityOrigin* other) const
 URL SecurityOrigin::urlWithUniqueSecurityOrigin()
 {
     ASSERT(isMainThread());
-    static NeverDestroyed<URL> uniqueSecurityOriginURL(ParsedURLString, ASCIILiteral("data:,"));
+    static NeverDestroyed<URL> uniqueSecurityOriginURL(ParsedURLString, MAKE_STATIC_STRING_IMPL("data:,"));
     return uniqueSecurityOriginURL;
 }
 

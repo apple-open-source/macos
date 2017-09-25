@@ -140,6 +140,8 @@ OSReturn _OSKextSendResource(
     CFDictionaryRef request,
     OSReturn        requestResult,
     CFDataRef       resource);
+CFURLRef OSKextGetExecutableURL(OSKextRef aKext);
+CFStringRef OSKextCopyExecutableName(OSKextRef aKext);
 
 #if PRAGMA_MARK
 /********************************************************************/
@@ -159,6 +161,31 @@ CFStringRef _CFURLCopyAbsolutePath(CFURLRef anURL);
  * This must be called when no kexts are opened.
  */
 void _OSKextSetStrictRecordingByLastOpened(Boolean flag);
+
+/* Used to determine if authentication checks should be performed
+ * when doing dependency resolution, ensuring load lists reflect
+ * only kexts that would pass authentication checks during linking.
+ */
+void _OSKextSetStrictAuthentication(Boolean flag);
+
+/* Used to enable clients to provide custom authentication logic.
+ * Ideally this should be called before kexts are opened, or at least
+ * before they are processed, to ensure the authentic bit means the
+ * same level of authentication on all OSKext objects in a client.
+ *
+ * The authentication function will be called with an OSKextRef to
+ * authenticate and a context, provided when the function was registered.
+ * It should return whether the kext passes authentication, and this
+ * decision will be cached on the OSKext objects.
+ */
+typedef Boolean (*OSKextAuthFnPtr)(OSKextRef, void *);
+void _OSKextSetAuthenticationFunction(OSKextAuthFnPtr authFn, void *context);
+
+/* The basic filesystem authentication checks historically performed
+ * by the OSKext API, exposed for use by custom authentication methods.
+ */
+Boolean
+_OSKextBasicFilesystemAuthentication(OSKextRef aKext, __unused void *context);
 
 
 #if PRAGMA_MARK

@@ -1,4 +1,5 @@
 # coding: utf-8
+# frozen_string_literal: false
 
 require 'rdoc/test_case'
 
@@ -10,13 +11,6 @@ class TestRDocMarkupParser < RDoc::TestCase
     @have_byteslice = ''.respond_to? :byteslice
 
     @RMP = @RM::Parser
-  end
-
-  def mu_pp(obj)
-    s = ''
-    s = PP.pp obj, s
-    s = s.force_encoding(Encoding.default_external) if @have_encoding
-    s.chomp
   end
 
   def test_build_heading

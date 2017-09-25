@@ -43,6 +43,7 @@
 
 typedef struct piStuff_t {
     SecKeyRef signingKey;
+    SecKeyRef octagonSigningKey;
     SOSFullPeerInfoRef fpi;
     SOSPeerInfoRef pi;
     SOSPeerInfoRef resignation_ticket;
@@ -54,7 +55,7 @@ static piStuff *makeSimplePeer(char *name) {
     if(!pi) return NULL;
     pi->signingKey = NULL;
     CFStringRef cfName = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingMacRoman);
-    pi->fpi = SOSCreateFullPeerInfoFromName(cfName, &pi->signingKey, NULL);
+    pi->fpi = SOSCreateFullPeerInfoFromName(cfName, &pi->signingKey, &pi->octagonSigningKey, NULL);
     CFReleaseSafe(cfName);
     pi->pi = SOSFullPeerInfoGetPeerInfo(pi->fpi);
     pi->resignation_ticket = SOSPeerInfoCreateRetirementTicket(kCFAllocatorDefault, pi->signingKey, pi->pi, NULL);
@@ -65,6 +66,7 @@ static void freeSimplePeer(piStuff *pi)
 {
     CFReleaseSafe(pi->fpi);
     CFReleaseSafe(pi->signingKey);
+    CFReleaseSafe(pi->octagonSigningKey);
     CFReleaseSafe(pi->resignation_ticket);
     free(pi);
 }

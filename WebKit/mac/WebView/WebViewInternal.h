@@ -40,6 +40,7 @@
 #import <WebCore/HTMLMediaElementEnums.h>
 #import <WebCore/LayoutMilestones.h>
 #import <WebCore/TextAlternativeWithRange.h>
+#import <WebCore/TextIndicator.h>
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 #import <functional>
@@ -61,6 +62,12 @@ class URL;
 struct DictationAlternative;
 struct DictionaryPopupInfo;
 }
+
+#if PLATFORM(IOS) && ENABLE(DRAG_SUPPORT)
+namespace WebCore {
+struct DragItem;
+}
+#endif
 
 class WebMediaPlaybackTargetPicker;
 class WebSelectionServiceController;
@@ -89,6 +96,13 @@ WebLayoutMilestones kitLayoutMilestones(WebCore::LayoutMilestones);
 OBJC_CLASS NSTextAlternatives;
 #endif
 
+#if ENABLE(DATA_INTERACTION) && defined(__cplusplus)
+@interface WebUITextIndicatorData (WebUITextIndicatorInternal)
+- (WebUITextIndicatorData *)initWithImage:(CGImageRef)image textIndicatorData:(const WebCore::TextIndicatorData&)indicatorData scale:(CGFloat)scale;
+- (WebUITextIndicatorData *)initWithImage:(CGImageRef)image scale:(CGFloat)scale;
+@end
+#endif
+
 @interface WebView (WebViewEditingExtras)
 - (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag;
 @end
@@ -111,11 +125,6 @@ OBJC_CLASS NSTextAlternatives;
 - (WebCore::KeyboardUIMode)_keyboardUIMode;
 
 - (BOOL)_becomingFirstResponderFromOutside;
-
-#if ENABLE(ICONDATABASE)
-- (void)_registerForIconNotification:(BOOL)listen;
-- (void)_dispatchDidReceiveIconFromWebFrame:(WebFrame *)webFrame;
-#endif
 
 - (BOOL)_needsOneShotDrawingSynchronization;
 - (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
@@ -246,6 +255,15 @@ OBJC_CLASS NSTextAlternatives;
 
 - (void)_documentScaleChanged;
 - (BOOL)_fetchCustomFixedPositionLayoutRect:(NSRect*)rect;
+#if ENABLE(ORIENTATION_EVENTS)
+- (void)_setDeviceOrientation:(NSUInteger)orientation;
+- (NSUInteger)_deviceOrientation;
+#endif
+#endif
+
+#if ENABLE(DATA_INTERACTION) && defined(__cplusplus)
+- (void)_startDrag:(const WebCore::DragItem&)dragItem;
+- (void)_didConcludeEditDataInteraction;
 #endif
 
 - (void)_preferencesChanged:(WebPreferences *)preferences;
@@ -303,4 +321,7 @@ OBJC_CLASS NSTextAlternatives;
 - (void)showFormValidationMessage:(NSString *)message withAnchorRect:(NSRect)anchorRect;
 - (void)hideFormValidationMessage;
 
+#if !PLATFORM(IOS)
+- (void)_setMainFrameIcon:(NSImage *)icon;
+#endif
 @end

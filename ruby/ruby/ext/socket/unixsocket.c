@@ -34,19 +34,19 @@ rsock_init_unixsock(VALUE sock, VALUE path, int server)
     rb_io_t *fptr;
 
     SafeStringValue(path);
-    fd = rsock_socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-	rb_sys_fail("socket(2)");
-    }
 
-    MEMZERO(&sockaddr, struct sockaddr_un, 1);
-    sockaddr.sun_family = AF_UNIX;
+    INIT_SOCKADDR_UN(&sockaddr, sizeof(struct sockaddr_un));
     if (sizeof(sockaddr.sun_path) < (size_t)RSTRING_LEN(path)) {
         rb_raise(rb_eArgError, "too long unix socket path (%ldbytes given but %dbytes max)",
             RSTRING_LEN(path), (int)sizeof(sockaddr.sun_path));
     }
     memcpy(sockaddr.sun_path, RSTRING_PTR(path), RSTRING_LEN(path));
     sockaddrlen = rsock_unix_sockaddr_len(path);
+
+    fd = rsock_socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) {
+	rsock_sys_fail_path("socket(2)", path);
+    }
 
     if (server) {
         status = bind(fd, (struct sockaddr*)&sockaddr, sockaddrlen);
@@ -65,14 +65,16 @@ rsock_init_unixsock(VALUE sock, VALUE path, int server)
     }
 
     if (status < 0) {
+	int e = errno;
 	close(fd);
-	rb_sys_fail_str(rb_inspect(path));
+	rsock_syserr_fail_path(e, "connect(2)", path);
     }
 
     if (server) {
 	if (listen(fd, SOMAXCONN) < 0) {
+	    int e = errno;
 	    close(fd);
-	    rb_sys_fail("listen(2)");
+	    rsock_syserr_fail_path(e, "listen(2)", path);
 	}
     }
 
@@ -122,7 +124,7 @@ unix_path(VALUE sock)
 	socklen_t len = (socklen_t)sizeof(addr);
 	socklen_t len0 = len;
 	if (getsockname(fptr->fd, (struct sockaddr*)&addr, &len) < 0)
-	    rb_sys_fail(0);
+            rsock_sys_fail_path("getsockname(2)", fptr->pathv);
         if (len0 < len) len = len0;
 	fptr->pathv = rb_obj_freeze(rsock_unixpath_str(&addr, len));
     }
@@ -131,13 +133,16 @@ unix_path(VALUE sock)
 
 /*
  * call-seq:
- *   unixsocket.recvfrom(maxlen [, flags]) => [mesg, unixaddress]
+ *   unixsocket.recvfrom(maxlen [, flags[, outbuf]]) => [mesg, unixaddress]
  *
  * Receives a message via _unixsocket_.
  *
  * _maxlen_ is the maximum number of bytes to receive.
  *
  * _flags_ should be a bitwise OR of Socket::MSG_* constants.
+ *
+ * _outbuf_ will contain only the received data after the method call
+ * even if it is not empty at the beginning.
  *
  *   s1 = Socket.new(:UNIX, :DGRAM, 0)
  *   s1_ai = Addrinfo.unix("/tmp/sock1")
@@ -158,13 +163,13 @@ unix_recvfrom(int argc, VALUE *argv, VALUE sock)
     return rsock_s_recvfrom(sock, argc, argv, RECV_UNIX);
 }
 
-#if defined(HAVE_ST_MSG_CONTROL) && defined(SCM_RIGHTS)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL) && defined(SCM_RIGHTS)
 #define FD_PASSING_BY_MSG_CONTROL 1
 #else
 #define FD_PASSING_BY_MSG_CONTROL 0
 #endif
 
-#if defined(HAVE_ST_MSG_ACCRIGHTS)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_ACCRIGHTS)
 #define FD_PASSING_BY_MSG_ACCRIGHTS 1
 #else
 #define FD_PASSING_BY_MSG_ACCRIGHTS 0
@@ -198,6 +203,8 @@ sendmsg_blocking(void *data)
  *   p stdout.fileno #=> 6
  *
  *   stdout.puts "hello" # outputs "hello\n" to standard output.
+ *
+ * _io_ may be any kind of IO object or integer file descriptor.
  */
 static VALUE
 unix_send_io(VALUE sock, VALUE val)
@@ -209,9 +216,9 @@ unix_send_io(VALUE sock, VALUE val)
     char buf[1];
 
 #if FD_PASSING_BY_MSG_CONTROL
-    struct {
+    union {
 	struct cmsghdr hdr;
-	char pad[8+sizeof(int)+8];
+	char pad[sizeof(struct cmsghdr)+8+sizeof(int)+8];
     } cmsg;
 #endif
 
@@ -256,7 +263,7 @@ unix_send_io(VALUE sock, VALUE val)
     arg.fd = fptr->fd;
     while ((int)BLOCKING_REGION_FD(sendmsg_blocking, &arg) == -1) {
 	if (!rb_io_wait_writable(arg.fd))
-	    rb_sys_fail("sendmsg(2)");
+	    rsock_sys_fail_path("sendmsg(2)", fptr->pathv);
     }
 
     return Qnil;
@@ -278,6 +285,8 @@ recvmsg_blocking(void *data)
  * call-seq:
  *   unixsocket.recv_io([klass [, mode]]) => io
  *
+ * Example
+ *
  *   UNIXServer.open("/tmp/sock") {|serv|
  *     UNIXSocket.open("/tmp/sock") {|c|
  *       s = serv.accept
@@ -292,6 +301,11 @@ recvmsg_blocking(void *data)
  *     }
  *   }
  *
+ * _klass_ will determine the class of _io_ returned (using the
+ * IO.for_fd singleton method or similar).
+ * If _klass_ is +nil+, an integer file descriptor is returned.
+ *
+ * _mode_ is the same as the argument passed to IO.for_fd
  */
 static VALUE
 unix_recv_io(int argc, VALUE *argv, VALUE sock)
@@ -304,9 +318,9 @@ unix_recv_io(int argc, VALUE *argv, VALUE sock)
 
     int fd;
 #if FD_PASSING_BY_MSG_CONTROL
-    struct {
+    union {
 	struct cmsghdr hdr;
-	char pad[8+sizeof(int)+8];
+	char pad[sizeof(struct cmsghdr)+8+sizeof(int)+8];
     } cmsg;
 #endif
 
@@ -344,7 +358,7 @@ unix_recv_io(int argc, VALUE *argv, VALUE sock)
     arg.fd = fptr->fd;
     while ((int)BLOCKING_REGION_FD(recvmsg_blocking, &arg) == -1) {
 	if (!rb_io_wait_readable(arg.fd))
-	    rb_sys_fail("recvmsg(2)");
+	    rsock_sys_fail_path("recvmsg(2)", fptr->pathv);
     }
 
 #if FD_PASSING_BY_MSG_CONTROL
@@ -382,7 +396,7 @@ unix_recv_io(int argc, VALUE *argv, VALUE sock)
 #else
     if (arg.msg.msg_accrightslen != sizeof(fd)) {
 	rb_raise(rb_eSocket,
-		 "file descriptor was not passed (accrightslen) : %d != %d",
+		 "file descriptor was not passed (accrightslen=%d, %d expected)",
 		 arg.msg.msg_accrightslen, (int)sizeof(fd));
     }
 #endif
@@ -390,7 +404,13 @@ unix_recv_io(int argc, VALUE *argv, VALUE sock)
 #if FD_PASSING_BY_MSG_CONTROL
     memcpy(&fd, CMSG_DATA(&cmsg.hdr), sizeof(int));
 #endif
-    rb_fd_fix_cloexec(fd);
+
+    rb_update_max_fd(fd);
+
+    if (rsock_cmsg_cloexec_state < 0)
+	rsock_cmsg_cloexec_state = rsock_detect_cloexec(fd);
+    if (rsock_cmsg_cloexec_state == 0 || fd <= 2)
+	rb_maygvl_fd_fix_cloexec(fd);
 
     if (klass == Qnil)
 	return INT2FIX(fd);
@@ -431,7 +451,7 @@ unix_addr(VALUE sock)
     GetOpenFile(sock, fptr);
 
     if (getsockname(fptr->fd, (struct sockaddr*)&addr, &len) < 0)
-	rb_sys_fail("getsockname(2)");
+        rsock_sys_fail_path("getsockname(2)", fptr->pathv);
     if (len0 < len) len = len0;
     return rsock_unixaddr(&addr, len);
 }
@@ -459,7 +479,7 @@ unix_peeraddr(VALUE sock)
     GetOpenFile(sock, fptr);
 
     if (getpeername(fptr->fd, (struct sockaddr*)&addr, &len) < 0)
-	rb_sys_fail("getpeername(2)");
+        rsock_sys_fail_path("getpeername(2)", fptr->pathv);
     if (len0 < len) len = len0;
     return rsock_unixaddr(&addr, len);
 }
@@ -469,7 +489,7 @@ unix_peeraddr(VALUE sock)
  *   UNIXSocket.pair([type [, protocol]])       => [unixsocket1, unixsocket2]
  *   UNIXSocket.socketpair([type [, protocol]]) => [unixsocket1, unixsocket2]
  *
- * Creates a pair of sockets connected each other.
+ * Creates a pair of sockets connected to each other.
  *
  * _socktype_ should be a socket type such as: :STREAM, :DGRAM, :RAW, etc.
  *

@@ -23,7 +23,7 @@ void GroupTransform::FinalizePhase2()
     dispatch_group_notify(mPendingStartupActivity, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
         if (mMembers) {
             this->mMembers = NULL;
-            CFRelease(members);
+            CFReleaseSafe(members);
         }
     });
     
@@ -404,7 +404,7 @@ void GroupTransform::RecurseForAllNodes(dispatch_group_t group, CFErrorRef *err_
     void (^set_error)(CFErrorRef new_err) = ^(CFErrorRef new_err) {
         if (new_err) {
 	    if (!OSAtomicCompareAndSwapPtrBarrier(NULL, (void *)new_err, (void**)err)) {
-                CFRelease(new_err);
+                CFReleaseNull(new_err);
             }
         }
     };
@@ -467,7 +467,7 @@ CFStringRef GroupTransform::DotForDebugging()
         __block CFMutableStringRef group_connections_out = CFStringCreateMutable(NULL, 0);
         CFStringRef line_out = CFStringCreateWithFormat(NULL, NULL, CFSTR("\tsubgraph \"cluster_%@\" {\n"), name);
         CFStringAppend(group_nodes_out, line_out);
-        CFRelease(line_out);
+        CFReleaseNull(line_out);
         line_out = NULL;
         
         CFIndex n_attributes = t->GetAttributeCount();
@@ -491,32 +491,37 @@ CFStringRef GroupTransform::DotForDebugging()
             }
             line_out = CFStringCreateWithFormat(NULL, NULL, CFSTR("\t\t%@ [shape=plaintext, label=\"%@\"]\n"), dot_node_name, label);
             CFStringAppend(group_nodes_out, line_out);
-            CFRelease(line_out);
+            CFReleaseNull(line_out);
             line_out = NULL;
-            CFRelease(label);
+            CFReleaseNull(label);
             
             CFIndex n_connections = attributes[i]->connections ? CFArrayGetCount(attributes[i]->connections) : 0;
             for(int j = 0; j < n_connections; j++) {
                 transform_attribute *connected_to = ah2ta(CFArrayGetValueAtIndex(attributes[i]->connections, j));
                 line_out = CFStringCreateWithFormat(NULL, NULL, CFSTR("\t%@ -> \"%@#%@\"\n"), dot_node_name, connected_to->transform->GetName(), connected_to->name);
                 CFStringAppend(group_connections_out, line_out);
-                CFRelease(line_out);
+                CFReleaseNull(line_out);
             }
+            
+            CFSafeRelease(dot_node_name);
         }
         
-        line_out = CFStringCreateWithFormat(NULL, NULL, CFSTR("\t\t\"%@#NAME\" -> { %@ } [style=invis]\n\t}\n"), name, CFStringCreateByCombiningStrings(NULL, most_dot_names, CFSTR(" ")));
+        CFStringRef combinedString = CFStringCreateByCombiningStrings(NULL, most_dot_names, CFSTR(" "));
+        line_out = CFStringCreateWithFormat(NULL, NULL, CFSTR("\t\t\"%@#NAME\" -> { %@ } [style=invis]\n\t}\n"), name, combinedString);
         CFStringAppend(group_nodes_out, line_out);
-        CFRelease(line_out);
+        CFReleaseNull(line_out);
+        CFSafeRelease(most_dot_names);
+        CFSafeRelease(combinedString);
         if (t->mGroup) {
             line_out = CFStringCreateWithFormat(NULL, NULL, CFSTR("\t\"%@#NAME\" -> \"%@#NAME\" [style=dotted,weight=5]\n"), name, t->mGroup->GetName());
             CFStringAppend(group_connections_out, line_out);
-            CFRelease(line_out);
+            CFReleaseNull(line_out);
         }
         line_out = NULL;
         
         dispatch_async(collect_nodes, ^(void) {
             CFStringAppend(result, group_nodes_out);
-            CFRelease(group_nodes_out);
+            CFReleaseNull(group_nodes_out);
         });
         dispatch_group_async(complete_connections, collect_connections, ^(void) {
             // We don't really need to append to result on the collect_nodes queue
@@ -524,7 +529,7 @@ CFStringRef GroupTransform::DotForDebugging()
             // queue, but if that ever changed we would have a hard to track down bug...
             dispatch_async(collect_nodes, ^(void) {
                 CFStringAppend(result, group_connections_out);
-                CFRelease(group_connections_out);
+                CFReleaseNull(group_connections_out);
             });
         });
     });

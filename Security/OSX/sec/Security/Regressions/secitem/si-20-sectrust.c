@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010,2012-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010,2012-2017 Apple Inc. All Rights Reserved.
  */
 
 #include <AssertMacros.h>
@@ -8,11 +8,13 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecTrust.h>
 #include <Security/SecItem.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <Security/SecTrustSettings.h>
 
 #if TARGET_OS_IPHONE
 #include <Security/SecInternal.h>
@@ -82,7 +84,7 @@ SKIP: {
     SecKeyRef pubKey = NULL;
     ok(pubKey = SecTrustCopyPublicKey(trust), "copy public key without securityd running");
     CFReleaseNull(pubKey);
-    SecServerSetMachServiceName(NULL);
+    SecServerSetMachServiceName("com.apple.trustd");
     // End of Restore OS environment tests
 }
 #endif
@@ -112,7 +114,13 @@ SKIP: {
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 	is(SecTrustGetCertificateCount(trust), 2, "cert count is 2");
-
+#if TARGET_OS_OSX
+    CFArrayRef certArray;
+	ok_status(SecTrustCopyAnchorCertificates(&certArray), "copy anchors");
+    CFReleaseSafe(certArray);
+	ok_status(SecTrustSettingsCopyCertificates(kSecTrustSettingsDomainSystem, &certArray), "copy certificates");
+    CFReleaseSafe(certArray);
+#endif
 	CFReleaseNull(anchors);
     anchors = CFArrayCreate(NULL, NULL, 0, NULL);
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set empty anchors list");
@@ -448,7 +456,7 @@ static bool test_chain_of_three(uint8_t *cert0, size_t cert0len,
     if (failureReason && should_succeed && !did_succeed) {
         *failureReason = SecTrustCopyFailureDescription(trust);
     } else if (failureReason && !should_succeed && did_succeed) {
-        *failureReason = CFSTR("expected kSecTrustResultRecoverableTrustFailure");
+        *failureReason = CFSTR("expected kSecTrustResultFatalTrustFailure");
     }
 
     if ((should_succeed && did_succeed) || (!should_succeed && !did_succeed)) {
@@ -585,15 +593,69 @@ errOut:
     CFReleaseNull(date);
 }
 
+static void test_expired_only() {
+    SecCertificateRef cert0 = NULL, cert1 = NULL, cert2 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certificates = NULL, roots = NULL;
+    CFDateRef date = NULL;
+
+    require(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut);
+    require(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut);
+    require(cert2 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut);
+
+    const void *v_certs[] = {
+        cert0,
+        cert1
+    };
+    certificates = CFArrayCreate(NULL, v_certs,
+                                 array_size(v_certs),
+                                 &kCFTypeArrayCallBacks);
+
+    const void *v_roots[] = {
+        cert2
+    };
+    roots = CFArrayCreate(NULL, v_roots,
+                          array_size(v_roots),
+                          &kCFTypeArrayCallBacks);
+
+    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.badssl.com")), errOut);
+    require_noerr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
+    require_noerr(SecTrustSetAnchorCertificates(trust, roots), errOut);
+
+    /* Mar 21 2017 (cert expired in 2015, so this will cause a validity error.) */
+    require(date = CFDateCreateForGregorianZuluMoment(NULL, 2017, 3, 21, 12, 0, 0), errOut);
+    require_noerr(SecTrustSetVerifyDate(trust, date), errOut);
+
+    /* SecTrustIsExpiredOnly implicitly evaluates the trust */
+    ok(SecTrustIsExpiredOnly(trust), "REGRESSION: has new error as well as expiration");
+
+    CFReleaseNull(policy);
+    require(policy = SecPolicyCreateSSL(true, CFSTR("expired.terriblessl.com")), errOut);
+    require_noerr(SecTrustSetPolicies(trust, policy), errOut);
+    /* expect a hostname mismatch as well as expiration */
+    ok(!SecTrustIsExpiredOnly(trust), "REGRESSION: should have found multiple errors");
+
+errOut:
+    CFReleaseNull(trust);
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(cert2);
+    CFReleaseNull(policy);
+    CFReleaseNull(certificates);
+    CFReleaseNull(roots);
+    CFReleaseNull(date);
+}
+
 int si_20_sectrust(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-	plan_tests(101+9+(8*13)+9+1);
+    plan_tests(101+9+(8*13)+9+1+2);
 #else
-    plan_tests(97+9+(8*13)+9+1);
+    plan_tests(97+9+(8*13)+9+1+2+2);
 #endif
 
-	basic_tests();
+    basic_tests();
     negative_integer_tests();
     rsa8k_tests();
     date_tests();
@@ -601,6 +663,7 @@ int si_20_sectrust(int argc, char *const *argv)
     ec_key_size_tests();
     test_input_certificates();
     test_async_trust();
+    test_expired_only();
 
-	return 0;
+    return 0;
 }

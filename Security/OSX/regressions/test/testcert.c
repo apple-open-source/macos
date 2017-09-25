@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009,2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,8 +24,6 @@
  */
 
 #include <TargetConditionals.h>
-
-#if TARGET_OS_IPHONE
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecIdentityPriv.h>
@@ -170,5 +168,3 @@ test_cert_generate_key(uint32_t key_size_in_bits, CFTypeRef sec_attr_key_type,
 
 	return SecKeyGeneratePair(parameters, public_key, private_key);
 }
-
-#endif /* TARGET_OS_IPHONE */

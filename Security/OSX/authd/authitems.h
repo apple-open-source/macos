@@ -83,11 +83,17 @@ AUTH_NONNULL_ALL
 void auth_items_copy(auth_items_t, auth_items_t src);
     
 AUTH_NONNULL_ALL
+void auth_items_content_copy(auth_items_t items, auth_items_t src);
+
+AUTH_NONNULL_ALL
 void auth_items_copy_xpc(auth_items_t, const xpc_object_t src);
 
 AUTH_NONNULL_ALL    
 void auth_items_copy_with_flags(auth_items_t, auth_items_t src, uint32_t flags);
     
+AUTH_NONNULL_ALL
+void auth_items_content_copy_with_flags(auth_items_t items, auth_items_t src, uint32_t flags);
+
 AUTH_NONNULL_ALL    
 bool auth_items_iterate(auth_items_t, auth_items_iterator_t iter);
     
@@ -150,6 +156,12 @@ size_t auth_items_get_length(auth_items_t, const char *key);
 
 AUTH_NONNULL_ALL
 void auth_items_set_value(auth_items_t, const char *key, uint32_t type, uint32_t flags, const void *value, size_t len);
+
+AUTH_NONNULL_ALL
+void auth_items_encrypt(auth_items_t items, CFDataRef encryption_key);
+
+AUTH_NONNULL_ALL
+void auth_items_decrypt(auth_items_t items, CFDataRef encryption_key);
 
 #pragma mark -
 #pragma mark auth_rights_t

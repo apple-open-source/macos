@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2016 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2017 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -136,6 +136,7 @@ macro doVMEntry(makeCall)
     addp CallFrameHeaderSlots, t4, t4
     lshiftp 3, t4
     subp sp, t4, t3
+    bqbeq sp, t3, .throwStackOverflow
 
     # Ensure that we have enough additional stack capacity for the incoming args,
     # and the frame for the JS code we're executing. We need to do this check
@@ -160,6 +161,7 @@ macro doVMEntry(makeCall)
         move t5, vm
     end
 
+.throwStackOverflow:
     move vm, a0
     move protoCallFrame, a1
     cCall2(_llint_throw_stack_overflow_error)
@@ -347,12 +349,12 @@ macro callCallSlowPath(slowPath, action)
     action(r0, r1)
 end
 
-macro callWatchdogTimerHandler(throwHandler)
+macro callTrapHandler(throwHandler)
     storei PC, ArgumentCount + TagOffset[cfr]
     prepareStateForCCall()
     move cfr, a0
     move PC, a1
-    cCall2(_llint_slow_path_handle_watchdog_timer)
+    cCall2(_llint_slow_path_handle_traps)
     btpnz r0, throwHandler
     loadi ArgumentCount + TagOffset[cfr], PC
 end
@@ -525,6 +527,10 @@ macro functionArityCheck(doneLabel, slowPath)
     move cfr, t3
     subp CalleeSaveSpaceAsVirtualRegisters * 8, t3
     addi CalleeSaveSpaceAsVirtualRegisters, t2
+    move t1, t0
+    lshiftp 3, t0
+    addp t0, cfr
+    addp t0, sp
 .copyLoop:
     loadq [t3], t0
     storeq t0, [t3, t1, 8]
@@ -538,10 +544,6 @@ macro functionArityCheck(doneLabel, slowPath)
     storeq t0, [t3, t1, 8]
     addp 8, t3
     baddinz 1, t2, .fillLoop
-
-    lshiftp 3, t1
-    addp t1, cfr
-    addp t1, sp
 
 .continue:
     # Reload CodeBlock and reset PC, since the slow_path clobbered them.

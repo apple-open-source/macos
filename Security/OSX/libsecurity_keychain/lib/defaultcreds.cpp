@@ -77,6 +77,9 @@ bool DefaultCredentials::operator () (Db database)
 					case CSSM_APPLE_UNLOCK_TYPE_WRAPPED_PRIVATE:
 						keyReferral(**it);
 						break;
+					case CSSM_APPLE_UNLOCK_TYPE_KEYBAG:
+						keybagReferral(**it);
+						break;
 					default:
 						secinfo("kcreferral", "referral type %lu (to %s) not supported",
 							(unsigned long)(*it)->type(), (*it)->dbName().c_str());
@@ -97,7 +100,7 @@ bool DefaultCredentials::operator () (Db database)
 
 //
 // Process a single referral record. This will handle all known types
-// of referrals.
+// of referrals, other than keybag (see keybagReferral).
 //
 void DefaultCredentials::keyReferral(const UnlockReferralRecord &ref)
 {
@@ -170,6 +173,21 @@ bool DefaultCredentials::unlockKey(const UnlockReferralRecord &ref, const Keycha
 	return foundSome;
 }
 
+void
+DefaultCredentials::keybagReferral(const UnlockReferralRecord &ref)
+{
+	secinfo("kcreferral", "processing type %ld referral", (long)ref.type());
+
+	try {
+		// assemble and add CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK item
+		append(TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
+			new(allocator) ListElement(CSSM_WORDID_KEYBAG_KEY),
+			new(allocator) ListElement(allocator, CssmData::wrap(ref.dbGuid())),
+			new(allocator) ListElement(allocator, ref.get())
+			));
+	} catch (...) {
+	}
+}
 
 //
 // Take the official keychain search list, and return those keychains whose

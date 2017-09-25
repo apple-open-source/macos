@@ -6,7 +6,7 @@ DSTROOT ?= /tmp/tcl/Release
 OBJROOT ?= /tmp/tcl/Objects
 SYMROOT ?= /tmp/tcl/Symbols
 export DSTROOT OBJROOT SYMROOT
-PARTS = 1 2 3
+PARTS = 1 2
 TESTOK := -f $(shell echo $(foreach p,$(PARTS),"$(OBJROOT)/.ok$(p)") | sed 's/ / -a -f /g')
 
 install::
@@ -41,6 +41,7 @@ merge:
 	for p in $(PARTS); do \
 	    ditto "$(OBJROOT)/DSTROOT$$p" "$(DSTROOT)" || exit 1; \
 	done
+	ln -sf Versions/Current/Modules $(DSTROOT)/System/Library/Frameworks/Tcl.framework/Modules
 
 .DEFAULT:
 	@$(MAKE) -f Makefile $@

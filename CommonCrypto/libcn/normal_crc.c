@@ -74,22 +74,15 @@ crc_normal_update(crcInfoPtr crc, uint8_t *p, size_t len, uint64_t current)
 uint64_t
 crc_normal_final(crcInfoPtr crc, uint64_t current)
 {
-    return current ^ (crc->descriptor->def.parms.final_xor & descmaskfunc(crc->descriptor));
+    current = (current ^ crc->descriptor->def.parms.final_xor) & descmaskfunc(crc->descriptor);
+    return current;
 }
 
-uint64_t
-crc_normal_oneshot(crcInfoPtr crc, uint8_t *p, size_t len)
-{
-    cc_dispatch_once(&crc->table_init, crc, gen_std_crc_table);
-    uint64_t current = crc->descriptor->def.parms.initial_value;
-    while (len--) {
-        switch (crc->descriptor->def.parms.width) {
-            case 1: current = crc_table_value8(crc->table.bytes, *p, (uint8_t) current); break;
-            case 2: current = crc_table_value16(crc->table.b16, *p, (uint16_t) current); break;
-            case 4: current = crc_table_value32(crc->table.b32, *p, (uint32_t) current); break;
-            case 8: current = crc_table_value64(crc->table.b64, *p, current); break;
-        }
-        p++;
-    }
-    return current ^ crc->descriptor->def.parms.final_xor;
-}
+ uint64_t
+ crc_normal_oneshot(crcInfoPtr crc, uint8_t *p, size_t len)
+ {
+     uint64_t current  = crc_normal_init(crc);
+     current = crc_normal_update(crc, p, len, current);
+     return crc_normal_final(crc, current);
+ }
+

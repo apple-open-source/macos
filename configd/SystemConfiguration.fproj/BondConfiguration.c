@@ -502,7 +502,7 @@ _SCBondInterfaceCopyActive(void)
 SCBondInterfaceRef
 SCBondInterfaceCreate(SCPreferencesRef prefs)
 {
-	CFAllocatorRef		allocator;
+	CFAllocatorRef 		allocator;
 	SCBondInterfaceRef	bond		= NULL;
 	CFIndex			i;
 
@@ -1062,7 +1062,7 @@ static pthread_once_t	bondStatus_init		= PTHREAD_ONCE_INIT;
 static CFStringRef
 __SCBondStatusCopyDescription(CFTypeRef cf)
 {
-	CFAllocatorRef		allocator	= CFGetAllocator(cf);
+	CFAllocatorRef 		allocator	= CFGetAllocator(cf);
 	CFMutableStringRef	result;
 	SCBondStatusPrivateRef	statusPrivate	= (SCBondStatusPrivateRef)cf;
 
@@ -1123,10 +1123,10 @@ __SCBondStatusInitialize(void)
 
 
 static SCBondStatusRef
-__SCBondStatusCreatePrivate(CFAllocatorRef	allocator,
-			    SCBondInterfaceRef	bond,
-			    CFDictionaryRef	status_bond,
-			    CFDictionaryRef	status_interfaces)
+__SCBondStatusCreatePrivate(CFAllocatorRef __nullable	allocator,
+			    SCBondInterfaceRef		bond,
+			    CFDictionaryRef		status_bond,
+			    CFDictionaryRef		status_interfaces)
 {
 	SCBondStatusPrivateRef	statusPrivate;
 	uint32_t		size;
@@ -1638,7 +1638,7 @@ _SCBondInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 			a_bond            = CFArrayGetValueAtIndex(active, j);
 			a_bond_if         = SCNetworkInterfaceGetBSDName(a_bond);
 			a_bond_interfaces = SCBondInterfaceGetMemberInterfaces(a_bond);
-			a_bond_mode		  = SCBondInterfaceGetMode(a_bond);
+			a_bond_mode       = SCBondInterfaceGetMode(a_bond);
 			a_count           = (a_bond_interfaces != NULL) ? CFArrayGetCount(a_bond_interfaces) : 0;
 
 			if (CFEqual(c_bond_if, a_bond_if)) {

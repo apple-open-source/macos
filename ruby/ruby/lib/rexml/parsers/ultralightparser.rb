@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rexml/parsers/streamparser'
 require 'rexml/parsers/baseparser'
 
@@ -27,7 +28,7 @@ module REXML
             break
           when :end_doctype
             context = context[1]
-          when :start_element, :doctype
+          when :start_element, :start_doctype
             context << event
             event[1,0] = [context]
             context = event

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2011, 2012, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@ __BEGIN_DECLS
 	@function SCNetworkSignatureCopyActiveIdentifiers
 	@discussion Find all currently active networks and return a list of
 		(string) identifiers, one for each network.
-	@param allocator The CFAllocator that should be used to allocate
+	@param alloc The CFAllocator that should be used to allocate
 		memory for the local dynamic store object.
 		This parameter may be NULL in which case the current
 		default CFAllocator is used. If this reference is not
@@ -62,7 +62,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)			__OSX_AVAILABLE_
 	@discussion Find the one active network associated with the specified
 		address and return the unique (string) identifier that
 		represents it.
-	@param allocator The CFAllocator that should be used to allocate
+	@param alloc The CFAllocator that should be used to allocate
 		memory for the local dynamic store object.
 		This parameter may be NULL in which case the current
 		default CFAllocator is used. If this reference is not
@@ -81,7 +81,7 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 	@function SCNetworkSignatureCopyIdentifierForConnectedSocket
 	@discussion Find the identifier for the given file descriptor
 		corresponding to a connected socket.
-	@param allocator The CFAllocator that should be used to allocate
+	@param alloc The CFAllocator that should be used to allocate
 		memory for the local dynamic store object.
 		This parameter may be NULL in which case the current
 		default CFAllocator is used. If this reference is not

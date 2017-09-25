@@ -26,3 +26,15 @@ done
 
 # rdar://problem/11542731
 ln -s libncurses.${ver}.dylib "$DSTROOT"/usr/lib/libncurses.5.dylib
+
+# Create symlinks for TBD files.
+TBD_UPPER=`echo ${GENERATE_TEXT_BASED_STUBS} | tr a-z A-Z`
+if [ ${TBD_UPPER} = "YES" ] || [ ${TBD_UPPER} = "TRUE" ] || [ ${TBD_UPPER} = "1" ]; then
+  for link in libform.tbd libmenu.tbd libncurses.tbd libpanel.tbd ; do
+    ln -s $(basename -s .tbd $link).${ver}.tbd "$DSTROOT/usr/lib/$link"
+  done
+  for link in libcurses.tbd libtermcap.tbd ; do
+    ln -s libncurses.${ver}.tbd $DSTROOT/usr/lib/$link
+  done
+  ln -s libncurses.${ver}.tbd "$DSTROOT"/usr/lib/libncurses.5.tbd
+fi

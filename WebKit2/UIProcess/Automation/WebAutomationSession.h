@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016, 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,8 +52,12 @@ class IntRect;
 struct Cookie;
 }
 
-#if USE(APPKIT)
+#if PLATFORM(COCOA)
 OBJC_CLASS NSArray;
+typedef unsigned short unichar;
+#endif
+
+#if USE(APPKIT)
 OBJC_CLASS NSEvent;
 #endif
 
@@ -74,7 +78,7 @@ public:
     WebAutomationSession();
     ~WebAutomationSession();
 
-    void setClient(std::unique_ptr<API::AutomationSessionClient>);
+    void setClient(std::unique_ptr<API::AutomationSessionClient>&&);
 
     void setSessionIdentifier(const String& sessionIdentifier) { m_sessionIdentifier = sessionIdentifier; }
     String sessionIdentifier() const { return m_sessionIdentifier; }
@@ -90,12 +94,16 @@ public:
     // Inspector::RemoteAutomationTarget API
     String name() const override { return m_sessionIdentifier; }
     void dispatchMessageFromRemote(const String& message) override;
-    void connect(Inspector::FrontendChannel*, bool isAutomaticConnection = false) override;
+    void connect(Inspector::FrontendChannel*, bool isAutomaticConnection = false, bool immediatelyPause = false) override;
     void disconnect(Inspector::FrontendChannel*) override;
 #endif
     void terminate();
 
     // Inspector::AutomationBackendDispatcherHandler API
+    // NOTE: the set of declarations included in this interface depend on the "platform" property in Automation.json
+    // and the --platform argument passed to the protocol bindings generator.
+
+    // Platform: Generic
     void getBrowsingContexts(Inspector::ErrorString&, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Automation::BrowsingContext>>&) override;
     void getBrowsingContext(Inspector::ErrorString&, const String&, RefPtr<Inspector::Protocol::Automation::BrowsingContext>&) override;
     void createBrowsingContext(Inspector::ErrorString&, String*) override;
@@ -107,7 +115,6 @@ public:
     void goBackInBrowsingContext(Inspector::ErrorString&, const String&, Ref<GoBackInBrowsingContextCallback>&&) override;
     void goForwardInBrowsingContext(Inspector::ErrorString&, const String&, Ref<GoForwardInBrowsingContextCallback>&&) override;
     void reloadBrowsingContext(Inspector::ErrorString&, const String&, Ref<ReloadBrowsingContextCallback>&&) override;
-    void inspectBrowsingContext(Inspector::ErrorString&, const String&, const bool* optionalEnableAutoCapturing, Ref<InspectBrowsingContextCallback>&&) override;
     void evaluateJavaScriptFunction(Inspector::ErrorString&, const String& browsingContextHandle, const String* optionalFrameHandle, const String& function, const Inspector::InspectorArray& arguments, const bool* optionalExpectsImplicitCallbackArgument, const int* optionalCallbackTimeout, Ref<Inspector::AutomationBackendDispatcherHandler::EvaluateJavaScriptFunctionCallback>&&) override;
     void performMouseInteraction(Inspector::ErrorString&, const String& handle, const Inspector::InspectorObject& requestedPosition, const String& mouseButton, const String& mouseInteraction, const Inspector::InspectorArray& keyModifiers, RefPtr<Inspector::Protocol::Automation::Point>& updatedPosition) override;
     void performKeyboardInteractions(Inspector::ErrorString&, const String& handle, const Inspector::InspectorArray& interactions, Ref<PerformKeyboardInteractionsCallback>&&) override;
@@ -124,7 +131,14 @@ public:
     void deleteSingleCookie(Inspector::ErrorString&, const String& browsingContextHandle, const String& cookieName, Ref<DeleteSingleCookieCallback>&&) override;
     void addSingleCookie(Inspector::ErrorString&, const String& browsingContextHandle, const Inspector::InspectorObject& cookie, Ref<AddSingleCookieCallback>&&) override;
     void deleteAllCookies(Inspector::ErrorString&, const String& browsingContextHandle) override;
-#if USE(APPKIT)
+
+    // Platform: macOS
+#if PLATFORM(MAC)
+    void inspectBrowsingContext(Inspector::ErrorString&, const String&, const bool* optionalEnableAutoCapturing, Ref<InspectBrowsingContextCallback>&&) override;
+#endif
+
+    // Event Simulation Support.
+#if PLATFORM(MAC)
     bool wasEventSynthesizedForAutomation(NSEvent *);
     void markEventAsSynthesizedForAutomation(NSEvent *);
 #endif
@@ -138,10 +152,10 @@ private:
     String handleForWebFrameID(uint64_t frameID);
     String handleForWebFrameProxy(const WebFrameProxy&);
 
-    // Implemented in generated WebAutomationSessionMessageReceiver.cpp
+    // Implemented in generated WebAutomationSessionMessageReceiver.cpp.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
-    // Called by WebAutomationSession messages
+    // Called by WebAutomationSession messages.
     void didEvaluateJavaScriptFunction(uint64_t callbackID, const String& result, const String& errorType);
     void didResolveChildFrame(uint64_t callbackID, uint64_t frameID, const String& errorType);
     void didResolveParentFrame(uint64_t callbackID, uint64_t frameID, const String& errorType);
@@ -150,17 +164,21 @@ private:
     void didGetCookiesForFrame(uint64_t callbackID, Vector<WebCore::Cookie>, const String& errorType);
     void didDeleteCookie(uint64_t callbackID, const String& errorType);
 
-    // Platform-specific helper methods.
+    // Platform-dependent implementations.
     void platformSimulateMouseInteraction(WebPageProxy&, const WebCore::IntPoint& viewPosition, Inspector::Protocol::Automation::MouseInteraction, Inspector::Protocol::Automation::MouseButton, WebEvent::Modifiers);
     // Simulates a single virtual key being pressed, such as Control, F-keys, Numpad keys, etc. as allowed by the protocol.
     void platformSimulateKeyStroke(WebPageProxy&, Inspector::Protocol::Automation::KeyboardInteractionType, Inspector::Protocol::Automation::VirtualKey);
     // Simulates key presses to produce the codepoints in a string. One or more code points are delivered atomically at grapheme cluster boundaries.
     void platformSimulateKeySequence(WebPageProxy&, const String&);
     // Get base64 encoded PNG data from a bitmap.
-    String platformGetBase64EncodedPNGData(const ShareableBitmap::Handle&);
+    std::optional<String> platformGetBase64EncodedPNGData(const ShareableBitmap::Handle&);
 
-#if USE(APPKIT)
+#if PLATFORM(COCOA)
+    // The type parameter of the NSArray argument is platform-dependent.
     void sendSynthesizedEventsToPage(WebPageProxy&, NSArray *eventsToSend);
+
+    std::optional<unichar> charCodeForVirtualKey(Inspector::Protocol::Automation::VirtualKey) const;
+    std::optional<unichar> charCodeIgnoringModifiersForVirtualKey(Inspector::Protocol::Automation::VirtualKey) const;
 #endif
 
     WebProcessPool* m_processPool { nullptr };
@@ -205,6 +223,13 @@ private:
 
 #if ENABLE(REMOTE_INSPECTOR)
     Inspector::FrontendChannel* m_remoteChannel { nullptr };
+#endif
+
+#if PLATFORM(IOS) || PLATFORM(GTK)
+    // Keep track of currently active modifiers across multiple keystrokes.
+    // We don't synthesize platform keyboard events on iOS, so we need to track it ourselves.
+    // GTK+ doesn't keep track of the active modifiers when using synthesized events.
+    unsigned m_currentModifiers { 0 };
 #endif
 };
 

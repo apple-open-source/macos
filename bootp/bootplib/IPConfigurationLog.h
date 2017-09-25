@@ -36,10 +36,53 @@
  * - created
  */
 
+#include <os/log.h>
+#include <sys/syslog.h>
+
+#if NO_SYSTEMCONFIGURATION
+static inline os_log_type_t
+__level_to_type(int level)
+{
+    os_log_type_t	t;
+    if (level < 0) {
+	level = ~level;
+    }
+
+    switch (level) {
+    case LOG_DEBUG :
+	t = OS_LOG_TYPE_DEBUG;
+	break;
+    case LOG_EMERG:
+    case LOG_ALERT:
+    case LOG_CRIT:
+	t = OS_LOG_TYPE_ERROR;
+	break;
+    case LOG_INFO:
+	t = OS_LOG_TYPE_INFO;
+	break;
+    default:
+	t = OS_LOG_TYPE_DEFAULT;
+	break;
+    }
+    return (t);
+};
+
+#define	SC_log(__level, __format, ...)					\
+    do {								\
+	os_log_type_t	__type;						\
+									\
+	__type = __level_to_type(__level);				\
+	os_log_with_type(IPConfigLogGetHandle(), __type,		\
+			 __format, ## __VA_ARGS__);			\
+    } while (0)
+#else /* NO_SYSTEMCONFIGURATION */
+
 #ifndef SC_LOG_HANDLE
 #define SC_LOG_HANDLE	IPConfigLogGetHandle()
 #endif
+
 #include <SystemConfiguration/SCPrivate.h>
+#endif /* !NO_SYSTEMCONFIGURATION */
 
 #define kIPConfigurationLogSubsystem	"com.apple.IPConfiguration"
 

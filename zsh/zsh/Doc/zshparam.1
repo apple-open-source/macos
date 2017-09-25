@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "December 2, 2015" "zsh 5\&.2"
+.TH "ZSHPARAM" "1" "December 11, 2016" "zsh 5\&.3"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -951,6 +951,16 @@ Code executed as an action by the \fBzregexparse\fP command from the
 \fBzsh/zutil\fP module\&.
 .RE
 .TP
+\fBZSH_ARGZERO\fP
+If zsh was invoked to run a script, this is the name of the script\&.
+Otherwise, it is the name used to invoke the current shell\&.  This is
+the same as the value of \fB$0\fP when the \fBPOSIX_ARGZERO\fP option is
+set, but is always available\&.
+.TP
+\fBZSH_EXECUTION_STRING\fP
+If the shell was started with the option \fB\-c\fP, this contains
+the argument passed to the option\&.  Otherwise it is not set\&.
+.TP
 \fBZSH_NAME\fP
 Expands to the basename of the command used to invoke this instance
 of zsh\&.
@@ -964,6 +974,10 @@ hence most users should not use it and should instead rely on
 .TP
 \fBzsh_scheduled_events\fP
 See the section `The zsh/sched Module\&' in \fIzshmodules\fP(1)\&.
+.TP
+\fBZSH_SCRIPT\fP
+If zsh was invoked to run a script, this is the name of the script,
+otherwise it is unset\&.
 .TP
 \fBZSH_SUBSHELL\fP
 Readonly integer\&.  Initially zero, incremented each time the shell forks
@@ -1044,7 +1058,8 @@ If the \fBENV\fP environment variable is set when zsh is invoked as \fBsh\fP
 or \fBksh\fP, \fB$ENV\fP is sourced after the profile scripts\&.  The value of
 \fBENV\fP is subjected to parameter expansion, command substitution, and
 arithmetic expansion before being interpreted as a pathname\&.  Note that
-\fBENV\fP is \fInot\fP used unless zsh is emulating \fBsh\fP or \fBksh\fP\&.
+\fBENV\fP is \fInot\fP used unless the shell is interactive and zsh is
+emulating \fBsh\fP or \fBksh\fP\&.
 .TP
 \fBFCEDIT\fP
 The default editor for the \fBfc\fP builtin\&.  If \fBFCEDIT\fP is not set,
@@ -1353,6 +1368,19 @@ vice versa\&.
 The command name to assume if a single input redirection
 is specified with no command\&.  Defaults to \fBmore\fP\&.
 .TP
+\fBREPORTMEMORY\fP
+If nonnegative, commands whose maximum resident set size (roughly
+speaking, main memory usage) in megabytes is greater than this
+value have timing statistics reported\&.  The format used to output
+statistics is the value of the \fBTIMEFMT\fP parameter, which is the same
+as for the \fBREPORTTIME\fP variable and the \fBtime\fP builtin; note that
+by default this does not output memory usage\&.  Appending
+\fB" max RSS %M"\fP to the value of \fBTIMEFMT\fP causes it to output the
+value that triggered the report\&.  If \fBREPORTTIME\fP is also in use,
+at most a single report is printed for both triggers\&.  This feature
+requires the \fBgetrusage()\fP system call, commonly supported by
+modern Unix\-like systems\&.
+.TP
 \fBREPORTTIME\fP
 If nonnegative, commands whose combined user and system execution times
 (measured in seconds) are greater than this value have timing
@@ -1405,6 +1433,24 @@ The prompt used for spelling correction\&.  The sequence
 `\fB%R\fP\&' expands to the string which presumably needs spelling
 correction, and `\fB%r\fP\&' expands to the proposed correction\&.
 All other prompt escapes are also allowed\&.
+.RS
+.PP
+The actions available at the prompt are \fB[nyae]\fP:
+.PD 0
+.TP
+\fBn\fP (`no\&') (default)
+Discard the correction and run the command\&.
+.TP
+\fBy\fP (`yes\&')
+Make the correction and run the command\&.
+.TP
+\fBa\fP (`abort\&')
+Discard the entire command line without running it\&.
+.TP
+\fBe\fP (`edit\&')
+Resume editing the command line\&.
+.PD
+.RE
 .TP
 \fBSTTY\fP
 If this parameter is set in a command\&'s environment, the shell runs the
@@ -1429,10 +1475,19 @@ definition database or terminal type in order for the new settings to
 take effect\&.
 .TP
 \fBTERMINFO\fP <S>
-A reference to a compiled description of the terminal, used by the
-`terminfo\&' library when the system has it; see \fIterminfo\fP(5)\&.
-If set, this causes the shell to reinitialise the terminal, making
-the workaround `\fBTERM=$TERM\fP\&' unnecessary\&.
+A reference to your terminfo database, used by the `terminfo\&' library when the
+system has it; see \fIterminfo\fP(5)\&.
+If set, this causes the shell to reinitialise the terminal, making the
+workaround `\fBTERM=$TERM\fP\&' unnecessary\&.
+.TP
+\fBTERMINFO_DIRS\fP <S>
+A colon\-seprarated list of terminfo databases, used by the `terminfo\&' library
+when the system has it; see \fIterminfo\fP(5)\&. This variable is only
+used by certain terminal libraries, in particular ncurses; see
+\fIterminfo\fP(5) to check support on your system\&.  If set, this
+causes the shell to reinitialise the terminal, making the workaround
+`\fBTERM=$TERM\fP\&' unnecessary\&.  Note that unlike other colon\-separated
+arrays this is not tied to a zsh array\&.
 .TP
 \fBTIMEFMT\fP
 The format of process time reports with the \fBtime\fP keyword\&.
@@ -1529,6 +1584,14 @@ scheduled to \fBTMOUT\fP seconds after the last keypress\&.
 A pathname prefix which the shell will use for all temporary files\&.
 Note that this should include an initial part for the file name as
 well as any directory names\&.  The default is `\fB/tmp/zsh\fP\&'\&.
+.TP
+\fBTMPSUFFIX\fP
+A filename suffix which the shell will use for temporary files created
+by process substitutions (e\&.g\&., `\fB=(\fIlist\fP)\fP\&')\&.
+Note that the value should include a leading dot `\fB\&.\fP\&' if intended
+to be interpreted as a file extension\&.  The default is not to append
+any suffix, thus this parameter should be assigned only when needed
+and then unset again\&.
 .TP
 \fBwatch\fP <S> <Z> (\fBWATCH\fP <S>)
 An array (colon\-separated list) of login/logout events to report\&.

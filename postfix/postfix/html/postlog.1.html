@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
 <title> Postfix manual - postlog(1) </title>
 </head> <body> <pre>
-POSTLOG(1)                  General Commands Manual                 POSTLOG(1)
+POSTLOG(1)                                                          POSTLOG(1)
 
 <b>NAME</b>
        postlog - Postfix-compatible logging utility
@@ -59,13 +59,17 @@ POSTLOG(1)                  General Commands Manual                 POSTLOG(1)
               The default location of the Postfix <a href="postconf.5.html">main.cf</a> and  <a href="master.5.html">master.cf</a>  con-
               figuration files.
 
+       <b><a href="postconf.5.html#import_environment">import_environment</a> (see 'postconf -d' output)</b>
+              The  list  of  environment  parameters that a privileged Postfix
+              process will  import  from  a  non-Postfix  parent  process,  or
+              name=value environment overrides.
+
        <b><a href="postconf.5.html#syslog_facility">syslog_facility</a> (mail)</b>
               The syslog facility of Postfix logging.
 
        <b><a href="postconf.5.html#syslog_name">syslog_name</a> (see 'postconf -d' output)</b>
-              The  mail  system  name that is prepended to the process name in
-              syslog records, so that "smtpd"  becomes,  for  example,  "post-
-              fix/smtpd".
+              A  prefix  that  is  prepended  to  the  process  name in syslog
+              records, so that, for example, "smtpd" becomes "prefix/smtpd".
 
 <b>SEE ALSO</b>
        <a href="postconf.5.html">postconf(5)</a>, configuration parameters

@@ -500,7 +500,7 @@ void DecodedExtensions::addExtension(
 		mSizeofExtensions = mNumExtensions ?
 			(2 * mNumExtensions) : MIN_EXTENSIONS;
 		mExtensions = (DecodedExten **)mAlloc.realloc(
-			mExtensions, mSizeofExtensions * sizeof(DecodedExten));
+			mExtensions, mSizeofExtensions * sizeof(DecodedExten*));
 	}
 	mExtensions[mNumExtensions++] = new DecodedExten(extnId,
 		critical, nssObj, berEncoded, templ, mCoder, rawExtn);

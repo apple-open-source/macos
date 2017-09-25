@@ -1,0 +1,3 @@
+./test/recover-huge/xml/apple29588172.xml:7: parser error : Detected an entity reference loop
+<meta http-equiv="&gamma;"/>
+                         ^

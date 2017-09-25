@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2006-2008 Apple Inc. All Rights Reserved.
+* Copyright (C) 2006-2008, 2017 Apple Inc. All Rights Reserved.
 ******************************************************************************
 */
 
@@ -15,6 +15,12 @@
 #include "unicode/ubrk.h"
 #include "unicode/parseerr.h"
 
+/**
+ * The interfaces here are meant to extend the functionality of the standard
+ * ubrk_* interfaces in ubrk.h to allow for faster batch tokenization. This
+ * was primarily intended for Spotlight and related processes. Note that
+ * urbtok_tokenize here does not fully support all features of ICU break rules.
+ */
 
 typedef struct RuleBasedTokenRange {
     signed long location;
@@ -90,6 +96,12 @@ urbtok_getBinaryRules(UBreakIterator      *bi,
 
 /**
  * Tokenize text using a rule-based tokenizer.
+ * This is primarily intended for speedy batch tokenization using very simple rules.
+ * It does not currently implement support for all of the features of ICU break rules
+ * (adding that would reduce performance). If you need support for all of the ICU rule
+ * features, please use the standard ubrk_* interfaces; instead of urbtok_tokenize,
+ * use a loop with ubrk_next and ubrk_getRuleStatus.
+ *
  * @param bi The tokenizer to use.
  * @param maxTokens The maximum number of tokens to return.
  * @param outTokens An array of RuleBasedTokenRange to fill in with the tokens.

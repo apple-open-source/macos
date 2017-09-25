@@ -43,8 +43,8 @@ public:
 	// what happens if this object gets destroyed?
 	enum Outcome {
 		successful,						// succeeds as set
-		cancelled,						// cancelled (rolled back)
-		conditional						// succeeds normally, cancelled on exception
+		canceled,						// canceled (rolled back)
+		conditional						// succeeds normally, canceled on exception
 	};
 	
 public:
@@ -84,7 +84,7 @@ public:
 		case successful:
 			this->commitAction();
 			break;
-		case cancelled:
+		case canceled:
 			this->cancelAction();
 			break;
 		default:

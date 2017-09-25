@@ -208,7 +208,8 @@ bool DatabaseCryptoCore::validateKey(const CssmClient::Key& master) {
 	cryptor.mode(CSSM_ALGMODE_CBCPadIV8);
 	cryptor.padding(CSSM_PADDING_PKCS1);
 	uint8 iv[8];	// leave uninitialized; pseudo-random is cool
-	cryptor.initVector(CssmData::wrap(iv));
+    CssmData ivData = CssmData::wrap(iv);
+	cryptor.initVector(ivData);
 	
 	cryptor.key(master);
 	CssmAutoData cipher1(Server::csp().allocator());

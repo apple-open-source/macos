@@ -37,6 +37,7 @@ extern const void * kSecCMSAdditionalCerts;
 extern const void * kSecCMSSignedAttributes;
 extern const void * kSecCMSSignDate;
 extern const void * kSecCMSAllCerts;
+extern const void * kSecCMSHashAgility;
 
 extern const void * kSecCMSHashingAlgorithmSHA1;
 extern const void * kSecCMSHashingAlgorithmSHA256;
@@ -94,6 +95,35 @@ OSStatus SecCMSVerify(CFDataRef message, CFDataRef detached_contents,
 OSStatus SecCMSVerifySignedData(CFDataRef message, CFDataRef detached_contents,
                                 CFTypeRef policy, SecTrustRef *trustref, CFArrayRef additional_certificates,
                                 CFDataRef *attached_contents, CFDictionaryRef *message_attributes);
+
+/*!
+ @function SecCMSSignDataAndAttributes
+ @abstract create a signed data cms blob.
+ @param identity signer
+ @param data message to be signed
+ @param detached sign detached or not
+ @param signed_data (output) return signed message.
+ @param signed_attributes (input/optional) signed attributes to insert
+ as a CFDictionary from oids (CFData) to value (CFData).
+ @result A result code.  See "Security Error Codes" (SecBase.h).
+ errSecParam garbage in, garbage out.
+ */
+OSStatus SecCMSSignDataAndAttributes(SecIdentityRef identity, CFDataRef data,
+                                     bool detached, CFMutableDataRef signed_data, CFDictionaryRef signed_attributes);
+
+/*!
+ @function SecCMSSignDigestAndAttributes
+ @abstract create a detached signed data cms blob for a SHA-1 hash.
+ @param identity signer
+ @param digest SHA-1 digest of message to be signed
+ @param signed_data (output) return signed message.
+ @param signed_attributes (input/optional) signed attributes to insert
+ as a CFDictionary from oids (CFData) to value (CFData).
+ @result A result code.  See "Security Error Codes" (SecBase.h).
+ errSecParam garbage in, garbage out.
+ */
+OSStatus SecCMSSignDigestAndAttributes(SecIdentityRef identity, CFDataRef digest,
+                                       CFMutableDataRef signed_data, CFDictionaryRef signed_attributes);
 
 /*!
 	@function SecCMSCreateSignedData

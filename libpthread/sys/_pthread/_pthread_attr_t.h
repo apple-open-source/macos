@@ -27,5 +27,6 @@
  */
 #ifndef _PTHREAD_ATTR_T 
 #define _PTHREAD_ATTR_T 
+#include <sys/_pthread/_pthread_types.h> /* __darwin_pthread_attr_t */
 typedef __darwin_pthread_attr_t pthread_attr_t;
 #endif  /* _PTHREAD_ATTR_T */

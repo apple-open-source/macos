@@ -1,7 +1,9 @@
+# frozen_string_literal: false
+$extmk = true
+
 require 'test/unit'
 require 'mkmf'
 require 'tmpdir'
-require_relative '../ruby/envutil'
 
 $extout = '$(topdir)/'+RbConfig::CONFIG["EXTOUT"]
 RbConfig::CONFIG['topdir'] = CONFIG['topdir'] = File.expand_path(CONFIG['topdir'])
@@ -10,10 +12,10 @@ $INCFLAGS << " -I."
 $extout_prefix = "$(extout)$(target_prefix)/"
 
 class TestMkmf < Test::Unit::TestCase
+end
+
+module TestMkmf::Base
   MKMFLOG = proc {File.read("mkmf.log") rescue ""}
-  class << MKMFLOG
-    alias to_s call
-  end
 
   class Capture
     attr_accessor :origin
@@ -48,20 +50,18 @@ class TestMkmf < Test::Unit::TestCase
       @filter = block
     end
     def write(s)
-      @buffer << s if @out
+      if @out
+        @buffer << s
+      elsif @origin
+        @origin << s
+      end
     end
   end
-end
 
-module TestMkmf::Base
   attr_reader :stdout
 
   def mkmflog(msg)
-    log = proc {MKMFLOG[] << msg}
-    class << log
-      alias to_s call
-    end
-    log
+    proc {MKMFLOG[] << msg}
   end
 
   def setup
@@ -92,7 +92,7 @@ module TestMkmf::Base
     @tmpdir = Dir.mktmpdir
     @curdir = Dir.pwd
     @mkmfobj = Object.new
-    @stdout = TestMkmf::Capture.new
+    @stdout = Capture.new
     Dir.chdir(@tmpdir)
     @quiet, Logging.quiet = Logging.quiet, true
     init_mkmf
@@ -140,6 +140,6 @@ class TestMkmf
   include TestMkmf::Base
 
   def assert_separately(args, src, *rest)
-    super(args + ["-r#{__FILE__}"], "extend TestMkmf::Base; setup\n#{src}", *rest)
+    super(args + ["-r#{__FILE__}"], "extend TestMkmf::Base; setup\nEND{teardown}\n#{src}", *rest)
   end
 end

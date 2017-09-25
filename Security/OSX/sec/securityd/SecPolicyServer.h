@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2010,2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,55 +30,19 @@
 #ifndef _SECURITY_SECPOLICYSERVER_H_
 #define _SECURITY_SECPOLICYSERVER_H_
 
+#include <Security/SecTrust.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecTrustSettings.h>
 
-#include <securityd/policytree.h>
 #include <securityd/SecTrustServer.h>
+#include <securityd/SecCertificateServer.h>
 
 __BEGIN_DECLS
 
-typedef struct OpaqueSecPVC *SecPVCRef;
-
-struct OpaqueSecPVC {
-    SecPathBuilderRef builder;
-
-    /* @@@ Duplicated from builder, remove. */
-	CFArrayRef policies;
-	CFAbsoluteTime verifyTime;
-
-    SecCertificatePathRef path;
-    CFArrayRef details;
-    CFMutableDictionaryRef info;
-    policy_tree_t valid_policy_tree;
-    CFDictionaryRef callbacks;
-    CFIndex policyIX;
-
-    void *rvcs;
-    unsigned int asyncJobCount;
-
-    CFStringRef check_revocation;
-    bool response_required;
-    bool online_revocation;
-    bool optionally_ev;
-    bool is_ev;
-    bool is_ct;
-    bool is_ct_whitelisted;
-    bool is_allowlisted;
-    bool result;
-};
-
-void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies,
-    CFAbsoluteTime verifyTime);
+void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies);
 void SecPVCDelete(SecPVCRef pvc);
-void SecPVCSetPath(SecPVCRef pvc, SecCertificatePathRef path,
-    CF_CONSUMED CFArrayRef details);
+void SecPVCSetPath(SecPVCRef pvc, SecCertificatePathVCRef path);
 SecPolicyRef SecPVCGetPolicy(SecPVCRef pv);
-CFAbsoluteTime SecPVCGetVerifyTime(SecPVCRef pv);
-CFIndex SecPVCGetCertificateCount(SecPVCRef pv);
-SecCertificateRef SecPVCGetCertificateAtIndex(SecPVCRef pv, CFIndex ix);
-bool SecPVCIsCertificateAtIndexSelfIssued(SecPVCRef pvc, CFIndex ix);
-bool SecPVCIsAnchored(SecPVCRef pvc);
 
 /* Set the string result as the reason for the sub policy check key
    failing.  The policy check function should continue processing if
@@ -87,38 +51,29 @@ bool SecPVCSetResult(SecPVCRef pv, CFStringRef key, CFIndex ix,
 	CFTypeRef result);
 bool SecPVCSetResultForced(SecPVCRef pvc,
 	CFStringRef key, CFIndex ix, CFTypeRef result, bool force);
+bool SecPVCIsOkResult(SecPVCRef pvc);
 
-/* Enable revocation checking if the rest of the policy checks succeed. */
-void SecPVCSetCheckRevocation(SecPVCRef pvc, CFStringRef method);
+/* Is the current result considered successful. */
+bool SecPVCIsOkResult(SecPVCRef pvc);
 
-/* Require a revocation response for the leaf certificate. */
-void SecPVCSetCheckRevocationResponseRequired(SecPVCRef pvc);
-
-/* Require a online revocation response for the chain. */
-void SecPVCSetCheckRevocationOnline(SecPVCRef pvc);
+/* Compute details */
+void SecPVCComputeDetails(SecPVCRef pvc, SecCertificatePathVCRef path);
 
 /* Run static leaf checks on the path in pvc. */
-bool SecPVCLeafChecks(SecPVCRef pvc);
+SecTrustResultType SecPVCLeafChecks(SecPVCRef pvc);
 
 /* Run static parent checks on the path in pvc. */
 bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix);
-
-/* Check whether an intermediate certificates key has been blacklisted. */
-bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix);
-
-/* Check whether an intermediate certificates key has been gray listed. */
-bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix);
 
 /* Run dynamic checks on the complete path in pvc.  Return true if the
    operation is complete, returns false if an async backgroup request was
    scheduled.  Upon completion of the async background job
    SecPathBuilderStep() should be called. */
-bool SecPVCPathChecks(SecPVCRef pvc);
+void SecPVCPathChecks(SecPVCRef pvc);
 
-/* Return 0 if any certs revocation checking failed, the earliest date on
-   which one of the used revocation validation tokens (ocsp response or
-   crl) expires.  */
-CFAbsoluteTime SecPVCGetEarliestNextUpdate(SecPVCRef pvc);
+/* Check whether revocation was required for any cert but revocation
+ * check failed. */
+void SecPVCPathCheckRevocationRequired(SecPVCRef pvc);
 
 typedef void (*SecPolicyCheckFunction)(SecPVCRef pv, CFStringRef key);
 
@@ -128,18 +83,11 @@ typedef void (*SecPolicyCheckFunction)(SecPVCRef pv, CFStringRef key);
 */
 bool SecPolicyValidate(SecPolicyRef policy, SecPVCRef pvc, CFStringRef key);
 
-void SecPolicyServerInitalize(void);
+void SecPolicyServerInitialize(void);
 
-/* True iff certificate could be an extended validation (EV) certificate. */
-bool SecPolicySubscriberCertificateCouldBeEV(SecCertificateRef certificate);
-
-void SecEVPolicyToAnchorDigestsInit(void);
+bool SecPolicyIsEVPolicy(const DERItem *policyOID);
 
 SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints);
-
-bool SecPVCCheckUsageConstraints(SecPVCRef pvc);
-
-bool SecPVCCheckIssuerDateConstraints(SecPVCRef pvc);
 
 __END_DECLS
 

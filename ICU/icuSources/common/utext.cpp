@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  utext.cpp
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -856,7 +858,6 @@ U_CDECL_END
 //     rather than obsolete lead bytes. But that is not compatible with the utf-8 access macros.
 //
 enum { UTF8_TEXT_CHUNK_SIZE=32 };
-enum { MAP_TO_UCHARS_SIZE=UTF8_TEXT_CHUNK_SIZE*6+6 };
 
 //
 // UTF8Buf  Two of these structs will be set up in the UText's extra allocated space.
@@ -894,8 +895,8 @@ struct UTF8Buf {
                                                      //  Requires two extra slots,
                                                      //    one for a supplementary starting in the last normal position,
                                                      //    and one for an entry for the buffer limit position.
-    uint8_t   mapToUChars[MAP_TO_UCHARS_SIZE];       // Map native offset from bufNativeStart to
-                                                     //   corresponding offset in filled part of buf.
+    uint8_t   mapToUChars[UTF8_TEXT_CHUNK_SIZE*6+6]; // Map native offset from bufNativeStart to
+                                                     //   correspoding offset in filled part of buf.
     int32_t   align;
 };
 
@@ -1037,7 +1038,7 @@ utf8TextAccess(UText *ut, int64_t index, UBool forward) {
             // Requested index is in this buffer.
             u8b = (UTF8Buf *)ut->p;   // the current buffer
             mapIndex = ix - u8b->toUCharsMapStart;
-            U_ASSERT(mapIndex < MAP_TO_UCHARS_SIZE);
+            U_ASSERT(mapIndex < (int32_t)sizeof(UTF8Buf::mapToUChars));
             ut->chunkOffset = u8b->mapToUChars[mapIndex] - u8b->bufStartIdx;
             return TRUE;
 
@@ -1321,7 +1322,7 @@ fillReverse:
         UChar   *buf = u8b->buf;
         uint8_t *mapToNative = u8b->mapToNative;
         uint8_t *mapToUChars = u8b->mapToUChars;
-        int32_t  toUCharsMapStart = ix - MAP_TO_UCHARS_SIZE + 1;
+        int32_t  toUCharsMapStart = ix - sizeof(UTF8Buf::mapToUChars) + 1;
         // Note that toUCharsMapStart can be negative. Happens when the remaining
         // text from current position to the beginning is less than the buffer size.
         // + 1 because mapToUChars must have a slot at the end for the bufNativeLimit entry.
@@ -1556,7 +1557,7 @@ utf8TextMapIndexToUTF16(const UText *ut, int64_t index64) {
     U_ASSERT(index>=ut->chunkNativeStart+ut->nativeIndexingLimit);
     U_ASSERT(index<=ut->chunkNativeLimit);
     int32_t mapIndex = index - u8b->toUCharsMapStart;
-    U_ASSERT(mapIndex < MAP_TO_UCHARS_SIZE);
+    U_ASSERT(mapIndex < (int32_t)sizeof(UTF8Buf::mapToUChars));
     int32_t offset = u8b->mapToUChars[mapIndex] - u8b->bufStartIdx;
     U_ASSERT(offset>=0 && offset<=ut->chunkLength);
     return offset;
@@ -2241,13 +2242,13 @@ unistrTextCopy(UText *ut,
     }
 
     if(move) {
-        // move: copy to destIndex, then replace original with nothing
+        // move: copy to destIndex, then remove original
         int32_t segLength=limit32-start32;
         us->copy(start32, limit32, destIndex32);
         if(destIndex32<start32) {
             start32+=segLength;
         }
-        us->replace(start32, segLength, NULL, 0);
+        us->remove(start32, segLength);
     } else {
         // copy
         us->copy(start32, limit32, destIndex32);

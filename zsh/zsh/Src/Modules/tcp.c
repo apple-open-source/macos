@@ -208,7 +208,7 @@ freehostent(UNUSED(struct hostent *ptr))
 /**/
 #endif /* !HAVE_GETIPNODEBYNAME */
 
-LinkList ztcp_sessions;
+static LinkList ztcp_sessions;
 
 /* "allocate" a tcp_session */
 static Tcp_session
@@ -732,7 +732,7 @@ enables_(Module m, int **enables)
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     ztcp_sessions = znewlinklist();
     return 0;

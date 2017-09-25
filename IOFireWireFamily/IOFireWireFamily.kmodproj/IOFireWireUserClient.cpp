@@ -785,8 +785,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             
 		case kCycleTime:
 		{
-			UInt32 cycleTime;
-			UInt64 upTime;
+			UInt32 cycleTime = 0;
+			UInt64 upTime = 0;
             IOFireWireController * fw_controller = OSDynamicCast( IOFireWireController, targetObject );
             if( fw_controller )
             {
@@ -803,8 +803,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             
 		case kGetGenerationAndNodeID:
 		{
-			UInt32 outGeneration;
-			UInt32 outNodeID;
+			UInt32 outGeneration = 0;
+			UInt32 outNodeID = 0;
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
@@ -821,7 +821,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             
 		case kGetLocalNodeID:
 		{
-			UInt32 outLocalNodeID;
+			UInt32 outLocalNodeID = 0;
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
@@ -864,7 +864,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             
 		case kGetOSStringData:
 		{
-			UInt32 outTextLength;
+			UInt32 outTextLength = 0;
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
@@ -883,7 +883,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 		
 		case kGetOSDataData:
 		{
-			IOByteCount outDataLen;
+			IOByteCount outDataLen = 0;
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
@@ -902,7 +902,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 		
 		case kLocalConfigDirectory_Create:
 		{
-			UserObjectHandle outDir;
+			UserObjectHandle outDir = 0;
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
@@ -1054,7 +1054,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outAddressSpaceHandle;
+                UserObjectHandle outAddressSpaceHandle = 0;
                 result = fw_uc->physicalAddressSpace_Create((mach_vm_size_t)arguments->scalarInput[0],
                                                             (mach_vm_address_t)arguments->scalarInput[1],
                                                             (UInt32)arguments->scalarInput[2],
@@ -1073,7 +1073,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFWUserPhysicalAddressSpace * fw_phys_space = OSDynamicCast( IOFWUserPhysicalAddressSpace, targetObject );
             if( fw_phys_space )
             {
-                UInt32 outSegmentCount;
+                UInt32 outSegmentCount = 0;
                 result = fw_phys_space->getSegmentCount(&outSegmentCount);
                 arguments->scalarOutput[0] = outSegmentCount;
             }
@@ -1089,7 +1089,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outSegmentCount;
+                UInt32 outSegmentCount = 0;
                 result = fw_uc->physicalAddressSpace_GetSegments((UserObjectHandle)arguments->scalarInput[0],
                                                                                  (UInt32)arguments->scalarInput[1],
                                                                                  (mach_vm_address_t)arguments->scalarInput[2],
@@ -1108,7 +1108,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outDirRef;
+                UserObjectHandle outDirRef = 0;
                 result = fw_uc->configDirectory_Create(&outDirRef);
                 arguments->scalarOutput[0] = (uint64_t) outDirRef;
             }
@@ -1124,7 +1124,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                IOConfigKeyType outType;
+                IOConfigKeyType outType = kConfigImmediateKeyType;
                 result = fw_uc->configDirectory_GetKeyType((UserObjectHandle)arguments->scalarInput[0],
                                                                         (int)arguments->scalarInput[1],
                                                                         &outType);
@@ -1142,9 +1142,9 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outValue;
-                UserObjectHandle outTextHandle; 
-                UInt32 outTextLength;
+                UInt32 outValue = 0;
+                UserObjectHandle outTextHandle = 0;
+                UInt32 outTextLength = 0;
                 result = fw_uc->configDirectory_GetKeyValue_UInt32((UserObjectHandle)arguments->scalarInput[0],
                                                                     (int)arguments->scalarInput[1],
                                                                     (UInt32)arguments->scalarInput[2],
@@ -1184,9 +1184,9 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outDirHandle;
-                UserObjectHandle outTextHandle; 
-                UInt32 outTextLength;
+                UserObjectHandle outDirHandle = 0;
+                UserObjectHandle outTextHandle = 0;
+                UInt32 outTextLength = 0;
                 result = fw_uc->configDirectory_GetKeyValue_ConfigDirectory((UserObjectHandle)arguments->scalarInput[0],
                                                                                          (int)arguments->scalarInput[1],
                                                                                          (UInt32)arguments->scalarInput[2],
@@ -1226,7 +1226,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                IOConfigKeyType outType;
+                IOConfigKeyType outType = kConfigImmediateKeyType;
                 result = fw_uc->configDirectory_GetIndexType((UserObjectHandle)arguments->scalarInput[0],
                                                                           (int)arguments->scalarInput[1],
                                                                           &outType);
@@ -1245,7 +1245,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                int outKey;
+                int outKey = 0;
                 result = fw_uc->configDirectory_GetIndexKey((UserObjectHandle)arguments->scalarInput[0],
                                                                                               (int)arguments->scalarInput[1],
                                                                                               &outKey);
@@ -1264,7 +1264,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outKey;
+                UInt32 outKey = 0;
                 result = fw_uc->configDirectory_GetIndexValue_UInt32((UserObjectHandle)arguments->scalarInput[0],
                                                                                  (int)arguments->scalarInput[1],
                                                                                  &outKey);
@@ -1282,8 +1282,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outDataHandle;
-                IOByteCount outDataLen;
+                UserObjectHandle outDataHandle  = 0;
+                IOByteCount outDataLen = 0;
                 result = fw_uc->configDirectory_GetIndexValue_Data((UserObjectHandle)arguments->scalarInput[0],
                                                                                 (int)arguments->scalarInput[1],
                                                                                 &outDataHandle,
@@ -1303,8 +1303,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outTextHandle;
-                UInt32 outTextLength;
+                UserObjectHandle outTextHandle = 0;
+                UInt32 outTextLength = 0;
                 result = fw_uc->configDirectory_GetIndexValue_String((UserObjectHandle)arguments->scalarInput[0],
                                                                             (int)arguments->scalarInput[1],
                                                                             &outTextHandle,
@@ -1324,7 +1324,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outDirHandle;
+                UserObjectHandle outDirHandle = 0;
                 result = fw_uc->configDirectory_GetIndexValue_ConfigDirectory((UserObjectHandle)arguments->scalarInput[0],
                                                                             (int)arguments->scalarInput[1],
                                                                             &outDirHandle);
@@ -1358,7 +1358,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outValue;
+                UInt32 outValue = 0;
                 result = fw_uc->configDirectory_GetIndexOffset_UInt32((UserObjectHandle)arguments->scalarInput[0],
                                                                             (int)arguments->scalarInput[1],
                                                                             &outValue);
@@ -1376,7 +1376,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outValue;
+                UInt32 outValue = 0;
                 result = fw_uc->configDirectory_GetIndexEntry((UserObjectHandle)arguments->scalarInput[0],
                                                                             (int)arguments->scalarInput[1],
                                                                             &outValue);
@@ -1394,7 +1394,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outIteratorHandle;
+                UserObjectHandle outIteratorHandle = 0;
                 result = fw_uc->configDirectory_GetSubdirectories((UserObjectHandle)arguments->scalarInput[0],
                                                                             &outIteratorHandle);
                 arguments->scalarOutput[0] = (uint64_t) outIteratorHandle;
@@ -1411,7 +1411,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outIteratorHandle;
+                UserObjectHandle outIteratorHandle = 0;
                 result = fw_uc->configDirectory_GetKeySubdirectories((UserObjectHandle)arguments->scalarInput[0],
                                                                             (int)arguments->scalarInput[1],
                                                                             &outIteratorHandle);
@@ -1429,7 +1429,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                int outType;
+                int outType = 0;
                 result = fw_uc->configDirectory_GetType((UserObjectHandle)arguments->scalarInput[0],&outType);
                 arguments->scalarOutput[0] = outType;
             }
@@ -1445,7 +1445,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                int outNumEntries;
+                int outNumEntries = 0;
                 result = fw_uc->configDirectory_GetNumEntries((UserObjectHandle)arguments->scalarInput[0],&outNumEntries);
                 arguments->scalarOutput[0] = outNumEntries;
             }
@@ -1461,9 +1461,9 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                IOFWSpeed outMaxSpeed;
-                UInt32 outChanSupportedHi;
-                UInt32 outChanSupportedLo;
+                IOFWSpeed outMaxSpeed = kFWSpeed100MBit;
+                UInt32 outChanSupportedHi = 0;
+                UInt32 outChanSupportedLo = 0;
                 result = fw_uc->localIsochPort_GetSupported((UserObjectHandle)arguments->scalarInput[0],
                                                                             &outMaxSpeed,
                                                                             &outChanSupportedHi,
@@ -1655,7 +1655,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outChannelHandle;
+                UserObjectHandle outChannelHandle = 0;
                 result = fw_uc->isochChannel_Create((bool)arguments->scalarInput[0],
                                                     (UInt32)arguments->scalarInput[1],
                                                     (IOFWSpeed)arguments->scalarInput[2],
@@ -1674,8 +1674,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outSpeed;
-                UInt32 outChannel;
+                UInt32 outSpeed = 0;
+                UInt32 outChannel = 0;
                 result = fw_uc->
                                                 isochChannel_AllocateChannelBegin((UserObjectHandle)arguments->scalarInput[0],
                                                                         (UInt32)arguments->scalarInput[1],
@@ -1754,8 +1754,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireBus * fw_bus = OSDynamicCast( IOFireWireBus, targetObject );
             if( fw_bus )
             {
-                UInt32 busTime;
-                UInt32 cycleTime;
+                UInt32 busTime = 0;
+                UInt32 cycleTime = 0;
                 result = fw_bus->getBusCycleTime(busTime,cycleTime);
                 arguments->scalarOutput[0] = busTime;
                 arguments->scalarOutput[1] = cycleTime;
@@ -1772,7 +1772,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outGeneration;
+                UInt32 outGeneration = 0;
                 result = fw_uc->getBusGeneration(&outGeneration);
                 arguments->scalarOutput[0] = outGeneration;
             }
@@ -1788,7 +1788,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outLocalNodeID;
+                UInt32 outLocalNodeID = 0;
                 result = fw_uc->getLocalNodeIDWithGeneration((UInt32)arguments->scalarInput[0],&outLocalNodeID);
                 arguments->scalarOutput[0] = outLocalNodeID;
             }
@@ -1804,7 +1804,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outRemoteNodeID;
+                UInt32 outRemoteNodeID = 0;
                 result = fw_uc->getRemoteNodeID((UInt32)arguments->scalarInput[0],&outRemoteNodeID);
                 arguments->scalarOutput[0] = outRemoteNodeID;
             }
@@ -1820,7 +1820,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outSpeed;
+                UInt32 outSpeed = 0;
                 result = fw_uc->getSpeedToNode((UInt32)arguments->scalarInput[0],&outSpeed);
                 arguments->scalarOutput[0] = outSpeed;
             }
@@ -1836,7 +1836,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outSpeed;
+                UInt32 outSpeed = 0;
                 result = fw_uc->getSpeedBetweenNodes((UInt32)arguments->scalarInput[0],
                                                     (UInt32)arguments->scalarInput[1],
                                                     (UInt32)arguments->scalarInput[2],
@@ -1855,7 +1855,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 irmNodeID;
+                UInt32 irmNodeID = 0;
                 result = fw_uc->getIRMNodeID((UInt32)arguments->scalarInput[0],&irmNodeID);
                 arguments->scalarOutput[0] = irmNodeID;
             }
@@ -2032,7 +2032,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt32 outFlags;
+                UInt32 outFlags = 0;
                 result = fw_uc->asyncStreamListener_GetFlags((UserObjectHandle)arguments->scalarInput[0], &outFlags);
                 arguments->scalarOutput[0] = outFlags;
             }
@@ -2251,7 +2251,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UserObjectHandle outDataHandle;
+                UserObjectHandle outDataHandle = 0;
                 result = fw_uc->irmAllocation_Create(arguments->scalarInput[0],&outDataHandle);
                 arguments->scalarOutput[0] = (uint64_t) outDataHandle;
             }
@@ -2298,8 +2298,8 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-                UInt8 isochChannel;
-                UInt32 bandwidthUnits;
+                UInt8 isochChannel = 0;
+                UInt32 bandwidthUnits = 0;
                 result = fw_uc->irmAllocation_areResourcesAllocated((UserObjectHandle)arguments->scalarInput[0], &isochChannel , &bandwidthUnits);
                 arguments->scalarOutput[1] = (uint64_t) isochChannel;
                 arguments->scalarOutput[2] = (uint64_t) bandwidthUnits;
@@ -2411,7 +2411,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
             if( fw_uc )
             {
-				UserObjectHandle kernel_ref;
+				UserObjectHandle kernel_ref = 0;
 				result = fw_uc->createPHYPacketListener( (mach_vm_address_t)arguments->scalarInput[0],
 																						  &kernel_ref );
 				arguments->scalarOutput[0] = (uint64_t)kernel_ref;

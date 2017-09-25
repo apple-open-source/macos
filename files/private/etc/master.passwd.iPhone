@@ -23,3 +23,5 @@ _ondemand:*:249:249::0:0:On Demand Resource Daemon:/var/db/ondemand:/usr/bin/fal
 _findmydevice:*:254:254::0:0:Find My Device Daemon:/var/db/findmydevice:/usr/bin/false
 _datadetectors:*:257:257::0:0:DataDetectors:/var/db/datadetectors:/usr/bin/false
 _captiveagent:*:258:258::0:0:captiveagent:/var/empty:/usr/bin/false
+_analyticsd:*:263:263::0:0:Analytics Daemon:/var/db/analyticsd:/usr/bin/false
+_timed:*:266:266::0:0:Time Sync Daemon:/var/db/timed:/usr/bin/false

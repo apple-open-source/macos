@@ -2546,6 +2546,13 @@ htmlParseNameComplex(xmlParserCtxtPtr ctxt) {
 	}
     }
 
+    if (ctxt->input->cur - ctxt->input->base < len) {
+        /* Sanity check */
+	htmlParseErr(ctxt, XML_ERR_INTERNAL_ERROR,
+                     "unexpected change of input buffer", NULL, NULL);
+        return (NULL);
+    }
+
     return(xmlDictLookup(ctxt->dict, ctxt->input->cur - len, len));
 }
 
@@ -4469,7 +4476,7 @@ static void
 htmlParseElementInternal(htmlParserCtxtPtr ctxt) {
     const xmlChar *name;
     const htmlElemDesc * info;
-    htmlParserNodeInfo node_info = { 0, };
+    htmlParserNodeInfo node_info = { NULL, 0, 0, 0, 0 };
     int failed;
 
     if ((ctxt == NULL) || (ctxt->input == NULL)) {
@@ -4976,6 +4983,7 @@ htmlInitParserCtxt(htmlParserCtxtPtr ctxt)
     ctxt->wellFormed = 1;
     ctxt->replaceEntities = 0;
     ctxt->linenumbers = xmlLineNumbersDefaultValue;
+    ctxt->keepBlanks = xmlKeepBlanksDefaultValue;
     ctxt->html = 1;
     ctxt->vctxt.finishDtd = XML_CTXT_FINISH_DTD_0;
     ctxt->vctxt.userData = ctxt;
@@ -6323,7 +6331,8 @@ htmlCreatePushParserCtxt(htmlSAXHandlerPtr sax, void *user_data,
  */
 
 htmlDocPtr
-htmlSAXParseDoc(xmlChar *cur, const char *encoding, htmlSAXHandlerPtr sax, void *userData) {
+htmlSAXParseDoc(const xmlChar *cur, const char *encoding,
+                htmlSAXHandlerPtr sax, void *userData) {
     htmlDocPtr ret;
     htmlParserCtxtPtr ctxt;
 
@@ -6362,7 +6371,7 @@ htmlSAXParseDoc(xmlChar *cur, const char *encoding, htmlSAXHandlerPtr sax, void 
  */
 
 htmlDocPtr
-htmlParseDoc(xmlChar *cur, const char *encoding) {
+htmlParseDoc(const xmlChar *cur, const char *encoding) {
     return(htmlSAXParseDoc(cur, encoding, NULL, NULL));
 }
 
@@ -6416,13 +6425,13 @@ htmlCreateFileParserCtxt(const char *filename, const char *encoding)
 
     /* set encoding */
     if (encoding) {
-        size_t l = strlen(encoding);
+        size_t encodingLength = strlen(encoding);
 
-	if (l < 1000) {
-	    content = xmlMallocAtomic (xmlStrlen(content_line) + l + 1);
+	if (encodingLength < 1000) {
+	    const size_t contentLength = xmlStrlen(content_line) + encodingLength + 1;
+	    content = xmlMallocAtomic(contentLength);
 	    if (content) {
-		strcpy ((char *)content, (char *)content_line);
-		strcat ((char *)content, (char *)encoding);
+		snprintf((char *)content, contentLength, "%s%s", (char *)content_line, (char *)encoding);
 		htmlCheckEncoding (ctxt, content);
 		xmlFree (content);
 	    }

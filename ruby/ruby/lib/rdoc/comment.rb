@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 ##
 # A comment holds the text comment for a RDoc::CodeObject and provides a
 # unified way of cleaning it up and parsing it into an RDoc::Markup::Document.
@@ -118,9 +119,6 @@ class RDoc::Comment
       seq.gsub!(/^\s*/, '')
       method.call_seq = seq
     end
-    #elsif @text.sub!(/\A\/\*\s*call-seq:(.*?)\*\/\Z/, '') then
-    #  method.call_seq = $1.strip
-    #end
 
     method
   end

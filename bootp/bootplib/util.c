@@ -37,7 +37,6 @@
 #include <mach/boolean.h>
 #include <string.h>
 #include <ctype.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "util.h"
 #include "cfutil.h"
 #include "symbol_scope.h"
@@ -225,7 +224,7 @@ fprint_data(FILE * out_f, const uint8_t * data_p, int n_bytes)
 
     str = CFStringCreateMutable(NULL, 0);
     print_data_cfstr(str, data_p, n_bytes);
-    SCPrint(TRUE, out_f, CFSTR("%@"), str);
+    my_CFStringPrint(out_f, str);
     CFRelease(str);
     fflush(out_f);
     return;
@@ -280,7 +279,7 @@ fprint_bytes_sep(FILE * out_f, uint8_t * data_p, int n_bytes, char separator)
 
     str = CFStringCreateMutable(NULL, 0);
     print_bytes_sep_cfstr(str, data_p, n_bytes, separator);
-    SCPrint(TRUE, out_f, CFSTR("%@"), str);
+    my_CFStringPrint(out_f, str);
     CFRelease(str);
     fflush(out_f);
     return;

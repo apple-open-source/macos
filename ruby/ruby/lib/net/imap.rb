@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # = net/imap.rb
 #
@@ -37,7 +38,7 @@ module Net
   # arranged in an hierarchical namespace, and each of which
   # contains zero or more messages.  How this is implemented on
   # the server is implementation-dependent; on a UNIX server, it
-  # will frequently be implemented as a files in mailbox format
+  # will frequently be implemented as files in mailbox format
   # within a hierarchy of directories.
   #
   # To work on the messages within a mailbox, the client must
@@ -48,12 +49,12 @@ module Net
   # related commands implicitly operate.
   #
   # Messages have two sorts of identifiers: message sequence
-  # numbers, and UIDs.
+  # numbers and UIDs.
   #
-  # Message sequence numbers number messages within a mail box
-  # from 1 up to the number of items in the mail box.  If new
+  # Message sequence numbers number messages within a mailbox
+  # from 1 up to the number of items in the mailbox.  If a new
   # message arrives during a session, it receives a sequence
-  # number equal to the new size of the mail box.  If messages
+  # number equal to the new size of the mailbox.  If messages
   # are expunged from the mailbox, remaining messages have their
   # sequence numbers "shuffled down" to fill the gaps.
   #
@@ -63,7 +64,7 @@ module Net
   # be assigned in ascending (but not necessarily sequential)
   # order within a mailbox; this means that if a non-IMAP client
   # rearranges the order of mailitems within a mailbox, the
-  # UIDs have to be reassigned.  An IMAP client cannot thus
+  # UIDs have to be reassigned.  An IMAP client thus cannot
   # rearrange message orders.
   #
   # == Examples of Usage
@@ -113,7 +114,7 @@ module Net
   #
   # NO:: the attempted command could not be successfully completed.  For
   #      instance, the username/password used for logging in are incorrect;
-  #      the selected mailbox does not exists; etc.
+  #      the selected mailbox does not exist; etc.
   #
   # BAD:: the request from the client does not follow the server's
   #       understanding of the IMAP protocol.  This includes attempting
@@ -125,7 +126,7 @@ module Net
   # BYE:: the server is saying goodbye.  This can be part of a normal
   #       logout sequence, and can be used as part of a login sequence
   #       to indicate that the server is (for some reason) unwilling
-  #       to accept our connection.  As a response to any other command,
+  #       to accept your connection.  As a response to any other command,
   #       it indicates either that the server is shutting down, or that
   #       the server is timing out the client connection due to inactivity.
   #
@@ -223,14 +224,14 @@ module Net
     # The thread to receive exceptions.
     attr_accessor :client_thread
 
-    # Flag indicating a message has been seen
+    # Flag indicating a message has been seen.
     SEEN = :Seen
 
-    # Flag indicating a message has been answered
+    # Flag indicating a message has been answered.
     ANSWERED = :Answered
 
     # Flag indicating a message has been flagged for special or urgent
-    # attention
+    # attention.
     FLAGGED = :Flagged
 
     # Flag indicating a message has been marked for deletion.  This
@@ -240,7 +241,7 @@ module Net
     # Flag indicating a message is only a draft or work-in-progress version.
     DRAFT = :Draft
 
-    # Flag indicating that the message is "recent", meaning that this
+    # Flag indicating that the message is "recent," meaning that this
     # session is the first session in which the client has been notified
     # of this message.
     RECENT = :Recent
@@ -386,7 +387,7 @@ module Net
     # Sends an AUTHENTICATE command to authenticate the client.
     # The +auth_type+ parameter is a string that represents
     # the authentication mechanism to be used. Currently Net::IMAP
-    # supports authentication mechanisms:
+    # supports the authentication mechanisms:
     #
     #   LOGIN:: login using cleartext user and password.
     #   CRAM-MD5:: login with cleartext user and encrypted password
@@ -394,8 +395,8 @@ module Net
     #              mechanism requires that the server have the user's
     #              password stored in clear-text password.
     #
-    # For both these mechanisms, there should be two +args+: username
-    # and (cleartext) password.  A server may not support one or other
+    # For both of these mechanisms, there should be two +args+: username
+    # and (cleartext) password.  A server may not support one or the other
     # of these mechanisms; check #capability() for a capability of
     # the form "AUTH=LOGIN" or "AUTH=CRAM-MD5".
     #
@@ -500,7 +501,7 @@ module Net
     # by #lsub().
     #
     # A Net::IMAP::NoResponseError is raised if +mailbox+ cannot be
-    # subscribed to, for instance because it does not exist.
+    # subscribed to; for instance, because it does not exist.
     def subscribe(mailbox)
       send_command("SUBSCRIBE", mailbox)
     end
@@ -509,7 +510,7 @@ module Net
     # from the server's set of "active" or "subscribed" mailboxes.
     #
     # A Net::IMAP::NoResponseError is raised if +mailbox+ cannot be
-    # unsubscribed from, for instance because the client is not currently
+    # unsubscribed from; for instance, because the client is not currently
     # subscribed to it.
     def unsubscribe(mailbox)
       send_command("UNSUBSCRIBE", mailbox)
@@ -576,9 +577,9 @@ module Net
       end
     end
 
-    # Sends the GETQUOTAROOT command along with specified +mailbox+.
+    # Sends the GETQUOTAROOT command along with the specified +mailbox+.
     # This command is generally available to both admin and user.
-    # If mailbox exists, returns an array containing objects of
+    # If this mailbox exists, it returns an array containing objects of type
     # Net::IMAP::MailboxQuotaRoot and Net::IMAP::MailboxQuota.
     def getquotaroot(mailbox)
       synchronize do
@@ -593,7 +594,7 @@ module Net
     # Sends the GETQUOTA command along with specified +mailbox+.
     # If this mailbox exists, then an array containing a
     # Net::IMAP::MailboxQuota object is returned.  This
-    # command generally is only available to server admin.
+    # command is generally only available to server admin.
     def getquota(mailbox)
       synchronize do
         send_command("GETQUOTA", mailbox)
@@ -602,8 +603,8 @@ module Net
     end
 
     # Sends a SETQUOTA command along with the specified +mailbox+ and
-    # +quota+.  If +quota+ is nil, then quota will be unset for that
-    # mailbox.  Typically one needs to be logged in as server admin
+    # +quota+.  If +quota+ is nil, then +quota+ will be unset for that
+    # mailbox.  Typically one needs to be logged in as a server admin
     # for this to work.  The IMAP quota commands are described in
     # [RFC-2087].
     def setquota(mailbox, quota)
@@ -627,7 +628,7 @@ module Net
       end
     end
 
-    # Send the GETACL command along with specified +mailbox+.
+    # Send the GETACL command along with a specified +mailbox+.
     # If this mailbox exists, an array containing objects of
     # Net::IMAP::MailboxACLItem will be returned.
     def getacl(mailbox)
@@ -639,7 +640,7 @@ module Net
 
     # Sends a LSUB command, and returns a subset of names from the set
     # of names that the user has declared as being "active" or
-    # "subscribed".  +refname+ and +mailbox+ are interpreted as
+    # "subscribed."  +refname+ and +mailbox+ are interpreted as
     # for #list().
     # The return value is an array of +Net::IMAP::MailboxList+.
     def lsub(refname, mailbox)
@@ -650,8 +651,8 @@ module Net
     end
 
     # Sends a STATUS command, and returns the status of the indicated
-    # +mailbox+. +attr+ is a list of one or more attributes that
-    # we are request the status of.  Supported attributes include:
+    # +mailbox+. +attr+ is a list of one or more attributes whose
+    # statuses are to be requested.  Supported attributes include:
     #
     #   MESSAGES:: the number of messages in the mailbox.
     #   RECENT:: the number of recent messages in the mailbox.
@@ -663,7 +664,7 @@ module Net
     #   #=> {"RECENT"=>0, "MESSAGES"=>44}
     #
     # A Net::IMAP::NoResponseError is raised if status values
-    # for +mailbox+ cannot be returned, for instance because it
+    # for +mailbox+ cannot be returned; for instance, because it
     # does not exist.
     def status(mailbox, attr)
       synchronize do
@@ -674,7 +675,7 @@ module Net
 
     # Sends a APPEND command to append the +message+ to the end of
     # the +mailbox+. The optional +flags+ argument is an array of
-    # flags to initially passing to the new message.  The optional
+    # flags initially passed to the new message.  The optional
     # +date_time+ argument specifies the creation time to assign to the
     # new message; it defaults to the current time.
     # For example:
@@ -702,7 +703,7 @@ module Net
 
     # Sends a CHECK command to request a checkpoint of the currently
     # selected mailbox.  This performs implementation-specific
-    # housekeeping, for instance, reconciling the mailbox's
+    # housekeeping; for instance, reconciling the mailbox's
     # in-memory and on-disk state.
     def check
       send_command("CHECK")
@@ -768,18 +769,30 @@ module Net
       return search_internal("SEARCH", keys, charset)
     end
 
-    # As for #search(), but returns unique identifiers.
+    # Similar to #search(), but returns unique identifiers.
     def uid_search(keys, charset = nil)
       return search_internal("UID SEARCH", keys, charset)
     end
 
     # Sends a FETCH command to retrieve data associated with a message
-    # in the mailbox. The +set+ parameter is a number or an array of
-    # numbers or a Range object. The number is a message sequence
-    # number.  +attr+ is a list of attributes to fetch; see the
-    # documentation for Net::IMAP::FetchData for a list of valid
-    # attributes.
-    # The return value is an array of Net::IMAP::FetchData. For example:
+    # in the mailbox.
+    #
+    # The +set+ parameter is a number or a range between two numbers,
+    # or an array of those.  The number is a message sequence number,
+    # where -1 represents a '*' for use in range notation like 100..-1
+    # being interpreted as '100:*'.  Beware that the +exclude_end?+
+    # property of a Range object is ignored, and the contents of a
+    # range are independent of the order of the range endpoints as per
+    # the protocol specification, so 1...5, 5..1 and 5...1 are all
+    # equivalent to 1..5.
+    #
+    # +attr+ is a list of attributes to fetch; see the documentation
+    # for Net::IMAP::FetchData for a list of valid attributes.
+    #
+    # The return value is an array of Net::IMAP::FetchData or nil
+    # (instead of an empty array) if there is no matching message.
+    #
+    # For example:
     #
     #   p imap.fetch(6..8, "UID")
     #   #=> [#<Net::IMAP::FetchData seqno=6, attr={"UID"=>98}>, \\
@@ -800,18 +813,18 @@ module Net
       return fetch_internal("FETCH", set, attr)
     end
 
-    # As for #fetch(), but +set+ contains unique identifiers.
+    # Similar to #fetch(), but +set+ contains unique identifiers.
     def uid_fetch(set, attr)
       return fetch_internal("UID FETCH", set, attr)
     end
 
     # Sends a STORE command to alter data associated with messages
     # in the mailbox, in particular their flags. The +set+ parameter
-    # is a number or an array of numbers or a Range object. Each number
+    # is a number, an array of numbers, or a Range object. Each number
     # is a message sequence number.  +attr+ is the name of a data item
-    # to store: 'FLAGS' means to replace the message's flag list
-    # with the provided one; '+FLAGS' means to add the provided flags;
-    # and '-FLAGS' means to remove them.  +flags+ is a list of flags.
+    # to store: 'FLAGS' will replace the message's flag list
+    # with the provided one, '+FLAGS' will add the provided flags,
+    # and '-FLAGS' will remove them.  +flags+ is a list of flags.
     #
     # The return value is an array of Net::IMAP::FetchData. For example:
     #
@@ -823,22 +836,36 @@ module Net
       return store_internal("STORE", set, attr, flags)
     end
 
-    # As for #store(), but +set+ contains unique identifiers.
+    # Similar to #store(), but +set+ contains unique identifiers.
     def uid_store(set, attr, flags)
       return store_internal("UID STORE", set, attr, flags)
     end
 
     # Sends a COPY command to copy the specified message(s) to the end
     # of the specified destination +mailbox+. The +set+ parameter is
-    # a number or an array of numbers or a Range object. The number is
+    # a number, an array of numbers, or a Range object. The number is
     # a message sequence number.
     def copy(set, mailbox)
       copy_internal("COPY", set, mailbox)
     end
 
-    # As for #copy(), but +set+ contains unique identifiers.
+    # Similar to #copy(), but +set+ contains unique identifiers.
     def uid_copy(set, mailbox)
       copy_internal("UID COPY", set, mailbox)
+    end
+
+    # Sends a MOVE command to move the specified message(s) to the end
+    # of the specified destination +mailbox+. The +set+ parameter is
+    # a number, an array of numbers, or a Range object. The number is
+    # a message sequence number.
+    # The IMAP MOVE extension is described in [RFC-6851].
+    def move(set, mailbox)
+      copy_internal("MOVE", set, mailbox)
+    end
+
+    # Similar to #move(), but +set+ contains unique identifiers.
+    def uid_move(set, mailbox)
+      copy_internal("UID MOVE", set, mailbox)
     end
 
     # Sends a SORT command to sort messages in the mailbox.
@@ -854,16 +881,16 @@ module Net
       return sort_internal("SORT", sort_keys, search_keys, charset)
     end
 
-    # As for #sort(), but returns an array of unique identifiers.
+    # Similar to #sort(), but returns an array of unique identifiers.
     def uid_sort(sort_keys, search_keys, charset)
       return sort_internal("UID SORT", sort_keys, search_keys, charset)
     end
 
     # Adds a response handler. For example, to detect when
-    # the server sends us a new EXISTS response (which normally
-    # indicates new messages being added to the mail box),
-    # you could add the following handler after selecting the
-    # mailbox.
+    # the server sends a new EXISTS response (which normally
+    # indicates new messages being added to the mailbox),
+    # add the following handler after selecting the
+    # mailbox:
     #
     #   imap.add_response_handler { |resp|
     #     if resp.kind_of?(Net::IMAP::UntaggedResponse) and resp.name == "EXISTS"
@@ -880,7 +907,7 @@ module Net
       @response_handlers.delete(handler)
     end
 
-    # As for #search(), but returns message sequence numbers in threaded
+    # Similar to #search(), but returns message sequence numbers in threaded
     # format, as a Net::IMAP::ThreadMember tree.  The supported algorithms
     # are:
     #
@@ -897,7 +924,7 @@ module Net
       return thread_internal("THREAD", algorithm, search_keys, charset)
     end
 
-    # As for #thread(), but returns unique identifiers instead of
+    # Similar to #thread(), but returns unique identifiers instead of
     # message sequence numbers.
     def uid_thread(algorithm, search_keys, charset)
       return thread_internal("UID THREAD", algorithm, search_keys, charset)
@@ -907,7 +934,17 @@ module Net
     # messages.  Yields responses from the server during the IDLE.
     #
     # Use #idle_done() to leave IDLE.
-    def idle(&response_handler)
+    #
+    # If +timeout+ is given, this method returns after +timeout+ seconds passed.
+    # +timeout+ can be used for keep-alive.  For example, the following code
+    # checks the connection for each 60 seconds.
+    #
+    #   loop do
+    #     imap.idle(60) do |res|
+    #       ...
+    #     end
+    #   end
+    def idle(timeout = nil, &response_handler)
       raise LocalJumpError, "no block given" unless response_handler
 
       response = nil
@@ -919,7 +956,7 @@ module Net
         begin
           add_response_handler(response_handler)
           @idle_done_cond = new_cond
-          @idle_done_cond.wait
+          @idle_done_cond.wait(timeout)
           @idle_done_cond = nil
           if @receiver_thread_terminating
             raise Net::IMAP::Error, "connection closed"
@@ -953,7 +990,7 @@ module Net
     # containing non-ASCII characters; see [IMAP] section 5.1.3.
     #
     # Net::IMAP does _not_ automatically encode and decode
-    # mailbox names to and from utf7.
+    # mailbox names to and from UTF-7.
     def self.decode_utf7(s)
       return s.gsub(/&([^-]+)?-/n) {
         if $1
@@ -1006,24 +1043,24 @@ module Net
     #
     # The available options are:
     #
-    # port::  port number (default value is 143 for imap, or 993 for imaps)
-    # ssl::   if options[:ssl] is true, then an attempt will be made
+    # port::  Port number (default value is 143 for imap, or 993 for imaps)
+    # ssl::   If options[:ssl] is true, then an attempt will be made
     #         to use SSL (now TLS) to connect to the server.  For this to work
     #         OpenSSL [OSSL] and the Ruby OpenSSL [RSSL] extensions need to
     #         be installed.
-    #         if options[:ssl] is a hash, it's passed to
+    #         If options[:ssl] is a hash, it's passed to
     #         OpenSSL::SSL::SSLContext#set_params as parameters.
     #
     # The most common errors are:
     #
-    # Errno::ECONNREFUSED:: connection refused by +host+ or an intervening
+    # Errno::ECONNREFUSED:: Connection refused by +host+ or an intervening
     #                       firewall.
-    # Errno::ETIMEDOUT:: connection timed out (possibly due to packets
+    # Errno::ETIMEDOUT:: Connection timed out (possibly due to packets
     #                    being dropped by an intervening firewall).
-    # Errno::ENETUNREACH:: there is no route to that network.
-    # SocketError:: hostname not known or other socket error.
-    # Net::IMAP::ByeResponseError:: we connected to the host, but they
-    #                               immediately said goodbye to us.
+    # Errno::ENETUNREACH:: There is no route to that network.
+    # SocketError:: Hostname not known or other socket error.
+    # Net::IMAP::ByeResponseError:: The connected to the host was successful, but
+    #                               it immediately said goodbye.
     def initialize(host, port_or_options = {},
                    usessl = false, certs = nil, verify = true)
       super()
@@ -1043,40 +1080,43 @@ module Net
       @tagno = 0
       @parser = ResponseParser.new
       @sock = TCPSocket.open(@host, @port)
-      if options[:ssl]
-        start_tls_session(options[:ssl])
-        @usessl = true
-      else
-        @usessl = false
-      end
-      @responses = Hash.new([].freeze)
-      @tagged_responses = {}
-      @response_handlers = []
-      @tagged_response_arrival = new_cond
-      @continuation_request_arrival = new_cond
-      @idle_done_cond = nil
-      @logout_command_tag = nil
-      @debug_output_bol = true
-      @exception = nil
-
-      @greeting = get_response
-      if @greeting.nil?
-        @sock.close
-        raise Error, "connection closed"
-      end
-      if @greeting.name == "BYE"
-        @sock.close
-        raise ByeResponseError, @greeting
-      end
-
-      @client_thread = Thread.current
-      @receiver_thread = Thread.start {
-        begin
-          receive_responses
-        rescue Exception
+      begin
+        if options[:ssl]
+          start_tls_session(options[:ssl])
+          @usessl = true
+        else
+          @usessl = false
         end
-      }
-      @receiver_thread_terminating = false
+        @responses = Hash.new([].freeze)
+        @tagged_responses = {}
+        @response_handlers = []
+        @tagged_response_arrival = new_cond
+        @continuation_request_arrival = new_cond
+        @idle_done_cond = nil
+        @logout_command_tag = nil
+        @debug_output_bol = true
+        @exception = nil
+
+        @greeting = get_response
+        if @greeting.nil?
+          raise Error, "connection closed"
+        end
+        if @greeting.name == "BYE"
+          raise ByeResponseError, @greeting
+        end
+
+        @client_thread = Thread.current
+        @receiver_thread = Thread.start {
+          begin
+            receive_responses
+          rescue Exception
+          end
+        }
+        @receiver_thread_terminating = false
+      rescue Exception
+        @sock.close
+        raise
+      end
     end
 
     def receive_responses
@@ -1162,7 +1202,7 @@ module Net
     end
 
     def get_response
-      buff = ""
+      buff = String.new
       while true
         s = @sock.gets(CRLF)
         break unless s
@@ -1241,9 +1281,7 @@ module Net
       when nil
       when String
       when Integer
-        if data < 0 || data >= 4294967296
-          raise DataFormatError, num.to_s
-        end
+        NumValidator.ensure_number(data)
       when Array
         data.each do |i|
           validate_data(i)
@@ -1557,7 +1595,7 @@ module Net
         case data
         when "*"
         when Integer
-          ensure_nz_number(data)
+          NumValidator.ensure_nz_number(data)
         when Range
         when Array
           data.each do |i|
@@ -1571,11 +1609,42 @@ module Net
           raise DataFormatError, data.inspect
         end
       end
+    end
 
-      def ensure_nz_number(num)
-        if num < -1 || num == 0 || num >= 4294967296
-          msg = "nz_number must be non-zero unsigned 32-bit integer: " +
-                num.inspect
+    # Common validators of number and nz_number types
+    module NumValidator # :nodoc
+      class << self
+        # Check is passed argument valid 'number' in RFC 3501 terminology
+        def valid_number?(num)
+          # [RFC 3501]
+          # number          = 1*DIGIT
+          #                    ; Unsigned 32-bit integer
+          #                    ; (0 <= n < 4,294,967,296)
+          num >= 0 && num < 4294967296
+        end
+
+        # Check is passed argument valid 'nz_number' in RFC 3501 terminology
+        def valid_nz_number?(num)
+          # [RFC 3501]
+          # nz-number       = digit-nz *DIGIT
+          #                    ; Non-zero unsigned 32-bit integer
+          #                    ; (0 < n < 4,294,967,296)
+          num != 0 && valid_number?(num)
+        end
+
+        # Ensure argument is 'number' or raise DataFormatError
+        def ensure_number(num)
+          return if valid_number?(num)
+
+          msg = "number must be unsigned 32-bit integer: #{num}"
+          raise DataFormatError, msg
+        end
+
+        # Ensure argument is 'nz_number' or raise DataFormatError
+        def ensure_nz_number(num)
+          return if valid_nz_number?(num)
+
+          msg = "nz_number must be non-zero unsigned 32-bit integer: #{num}"
           raise DataFormatError, msg
         end
       end
@@ -1608,10 +1677,10 @@ module Net
     #
     # ==== Fields:
     #
-    # name:: Returns the name such as "FLAGS", "LIST", "FETCH"....
+    # name:: Returns the name, such as "FLAGS", "LIST", or "FETCH".
     #
     # data:: Returns the data such as an array of flag symbols,
-    #         a ((<Net::IMAP::MailboxList>)) object....
+    #        a ((<Net::IMAP::MailboxList>)) object.
     #
     # raw_data:: Returns the raw data string.
     UntaggedResponse = Struct.new(:name, :data, :raw_data)
@@ -1632,7 +1701,7 @@ module Net
     #
     # tag:: Returns the tag.
     #
-    # name:: Returns the name. the name is one of "OK", "NO", "BAD".
+    # name:: Returns the name, one of "OK", "NO", or "BAD".
     #
     # data:: Returns the data. See ((<Net::IMAP::ResponseText>)).
     #
@@ -1654,7 +1723,6 @@ module Net
     #
     ResponseText = Struct.new(:code, :text)
 
-    #
     # Net::IMAP::ResponseCode represents response codes.
     #
     #   resp_text_code  ::= "ALERT" / "PARSE" /
@@ -1666,9 +1734,9 @@ module Net
     #
     # ==== Fields:
     #
-    # name:: Returns the name such as "ALERT", "PERMANENTFLAGS", "UIDVALIDITY"....
+    # name:: Returns the name, such as "ALERT", "PERMANENTFLAGS", or "UIDVALIDITY".
     #
-    # data:: Returns the data if it exists.
+    # data:: Returns the data, if it exists.
     #
     ResponseCode = Struct.new(:name, :data)
 
@@ -1683,7 +1751,7 @@ module Net
     # attr:: Returns the name attributes. Each name attribute is a symbol
     #        capitalized by String#capitalize, such as :Noselect (not :NoSelect).
     #
-    # delim:: Returns the hierarchy delimiter
+    # delim:: Returns the hierarchy delimiter.
     #
     # name:: Returns the mailbox name.
     #
@@ -1704,9 +1772,9 @@ module Net
     #
     # mailbox:: The mailbox with the associated quota.
     #
-    # usage:: Current storage usage of mailbox.
+    # usage:: Current storage usage of the mailbox.
     #
-    # quota:: Quota limit imposed on mailbox.
+    # quota:: Quota limit imposed on the mailbox.
     #
     MailboxQuota = Struct.new(:mailbox, :usage, :quota)
 
@@ -1719,12 +1787,12 @@ module Net
     #
     # mailbox:: The mailbox with the associated quota.
     #
-    # quotaroots:: Zero or more quotaroots that effect the quota on the
+    # quotaroots:: Zero or more quotaroots that affect the quota on the
     #              specified mailbox.
     #
     MailboxQuotaRoot = Struct.new(:mailbox, :quotaroots)
 
-    # Net::IMAP::MailboxACLItem represents response from GETACL.
+    # Net::IMAP::MailboxACLItem represents the response from GETACL.
     #
     #    acl_data        ::= "ACL" SPACE mailbox *(SPACE identifier SPACE rights)
     #
@@ -1742,7 +1810,7 @@ module Net
     #
     MailboxACLItem = Struct.new(:user, :rights, :mailbox)
 
-    # Net::IMAP::StatusData represents contents of the STATUS response.
+    # Net::IMAP::StatusData represents the contents of the STATUS response.
     #
     # ==== Fields:
     #
@@ -1753,7 +1821,7 @@ module Net
     #
     StatusData = Struct.new(:mailbox, :attr)
 
-    # Net::IMAP::FetchData represents contents of the FETCH response.
+    # Net::IMAP::FetchData represents the contents of the FETCH response.
     #
     # ==== Fields:
     #
@@ -1777,7 +1845,7 @@ module Net
     #           A Net::IMAP::Envelope object that describes the envelope
     #           structure of a message.
     #        [FLAGS]
-    #           A array of flag symbols that are set for this message. flag symbols
+    #           A array of flag symbols that are set for this message. Flag symbols
     #           are capitalized by String#capitalize.
     #        [INTERNALDATE]
     #           A string representing the internal date of the message.
@@ -1832,7 +1900,7 @@ module Net
     #
     # mailbox:: nil indicates end of [RFC-822] group.
     #           If non-nil and host is nil, returns [RFC-822] group name.
-    #           Otherwise, returns [RFC-822] local-part
+    #           Otherwise, returns [RFC-822] local-part.
     #
     # host:: nil indicates [RFC-822] group syntax.
     #        Otherwise, returns [RFC-822] domain name.
@@ -1852,14 +1920,14 @@ module Net
     ContentDisposition = Struct.new(:dsp_type, :param)
 
     # Net::IMAP::ThreadMember represents a thread-node returned
-    # by Net::IMAP#thread
+    # by Net::IMAP#thread.
     #
     # ==== Fields:
     #
     # seqno:: The sequence number of this message.
     #
-    # children:: an array of Net::IMAP::ThreadMember objects for mail
-    # items that are children of this in the thread.
+    # children:: An array of Net::IMAP::ThreadMember objects for mail
+    #            items that are children of this in the thread.
     #
     ThreadMember = Struct.new(:seqno, :children)
 
@@ -2086,9 +2154,9 @@ module Net
 
       BEG_REGEXP = /\G(?:\
 (?# 1:  SPACE   )( +)|\
-(?# 2:  NIL     )(NIL)(?=[\x80-\xff(){ \x00-\x1f\x7f%*#{'"'}\\\[\]+])|\
-(?# 3:  NUMBER  )(\d+)(?=[\x80-\xff(){ \x00-\x1f\x7f%*#{'"'}\\\[\]+])|\
-(?# 4:  ATOM    )([^\x80-\xff(){ \x00-\x1f\x7f%*#{'"'}\\\[\]+]+)|\
+(?# 2:  NIL     )(NIL)(?=[\x80-\xff(){ \x00-\x1f\x7f%*"\\\[\]+])|\
+(?# 3:  NUMBER  )(\d+)(?=[\x80-\xff(){ \x00-\x1f\x7f%*"\\\[\]+])|\
+(?# 4:  ATOM    )([^\x80-\xff(){ \x00-\x1f\x7f%*"\\\[\]+]+)|\
 (?# 5:  QUOTED  )"((?:[^\x00\r\n"\\]|\\["\\])*)"|\
 (?# 6:  LPAR    )(\()|\
 (?# 7:  RPAR    )(\))|\
@@ -2582,7 +2650,13 @@ module Net
           return param
         end
         disposition = body_fld_dsp
-        match(T_SPACE)
+
+        token = lookahead
+        if token.symbol == T_SPACE
+          shift_token
+        else
+          return param, disposition
+        end
         language = body_fld_lang
 
         token = lookahead
@@ -2666,7 +2740,7 @@ module Net
       end
 
       def section
-        str = ""
+        str = String.new
         token = match(T_LBRA)
         str.concat(token.value)
         token = match(T_ATOM, T_NUMBER, T_RBRA)
@@ -2851,8 +2925,15 @@ module Net
               break
             when T_SPACE
               shift_token
-            else
+            when T_NUMBER
               data.push(number)
+            when T_LPAR
+              # TODO: include the MODSEQ value in a response
+              shift_token
+              match(T_ATOM)
+              match(T_SPACE)
+              match(T_NUMBER)
+              match(T_RPAR)
             end
           end
         else
@@ -3070,39 +3151,6 @@ module Net
         return Address.new(name, route, mailbox, host)
       end
 
-#        def flag_list
-#       result = []
-#       match(T_LPAR)
-#       while true
-#         token = lookahead
-#         case token.symbol
-#         when T_RPAR
-#           shift_token
-#           break
-#         when T_SPACE
-#           shift_token
-#         end
-#         result.push(flag)
-#       end
-#       return result
-#        end
-
-#        def flag
-#       token = lookahead
-#       if token.symbol == T_BSLASH
-#         shift_token
-#         token = lookahead
-#         if token.symbol == T_STAR
-#           shift_token
-#           return token.value.intern
-#         else
-#           return atom.intern
-#         end
-#       else
-#         return atom
-#       end
-#        end
-
       FLAG_REGEXP = /\
 (?# FLAG        )\\([^\x80-\xff(){ \x00-\x1f\x7f%"\\]+)|\
 (?# ATOM        )([^\x80-\xff(){ \x00-\x1f\x7f%*"\\]+)/n
@@ -3173,7 +3221,7 @@ module Net
       end
 
       def atom
-        result = ""
+        result = String.new
         while true
           token = lookahead
           if atom_token?(token)
@@ -3597,174 +3645,3 @@ module Net
     end
   end
 end
-
-if __FILE__ == $0
-  # :enddoc:
-  require "getoptlong"
-
-  $stdout.sync = true
-  $port = nil
-  $user = ENV["USER"] || ENV["LOGNAME"]
-  $auth = "login"
-  $ssl = false
-  $starttls = false
-
-  def usage
-    <<EOF
-usage: #{$0} [options] <host>
-
-  --help                        print this message
-  --port=PORT                   specifies port
-  --user=USER                   specifies user
-  --auth=AUTH                   specifies auth type
-  --starttls                    use starttls
-  --ssl                         use ssl
-EOF
-  end
-
-  begin
-    require 'io/console'
-  rescue LoadError
-    def _noecho(&block)
-      system("stty", "-echo")
-      begin
-        yield STDIN
-      ensure
-        system("stty", "echo")
-      end
-    end
-  else
-    def _noecho(&block)
-      STDIN.noecho(&block)
-    end
-  end
-
-  def get_password
-    print "password: "
-    begin
-      return _noecho(&:gets).chomp
-    ensure
-      puts
-    end
-  end
-
-  def get_command
-    printf("%s@%s> ", $user, $host)
-    if line = gets
-      return line.strip.split(/\s+/)
-    else
-      return nil
-    end
-  end
-
-  parser = GetoptLong.new
-  parser.set_options(['--debug', GetoptLong::NO_ARGUMENT],
-                     ['--help', GetoptLong::NO_ARGUMENT],
-                     ['--port', GetoptLong::REQUIRED_ARGUMENT],
-                     ['--user', GetoptLong::REQUIRED_ARGUMENT],
-                     ['--auth', GetoptLong::REQUIRED_ARGUMENT],
-                     ['--starttls', GetoptLong::NO_ARGUMENT],
-                     ['--ssl', GetoptLong::NO_ARGUMENT])
-  begin
-    parser.each_option do |name, arg|
-      case name
-      when "--port"
-        $port = arg
-      when "--user"
-        $user = arg
-      when "--auth"
-        $auth = arg
-      when "--ssl"
-        $ssl = true
-      when "--starttls"
-        $starttls = true
-      when "--debug"
-        Net::IMAP.debug = true
-      when "--help"
-        usage
-        exit
-      end
-    end
-  rescue
-    abort usage
-  end
-
-  $host = ARGV.shift
-  unless $host
-    abort usage
-  end
-
-  imap = Net::IMAP.new($host, :port => $port, :ssl => $ssl)
-  begin
-    imap.starttls if $starttls
-    class << password = method(:get_password)
-      alias to_str call
-    end
-    imap.authenticate($auth, $user, password)
-    while true
-      cmd, *args = get_command
-      break unless cmd
-      begin
-        case cmd
-        when "list"
-          for mbox in imap.list("", args[0] || "*")
-            if mbox.attr.include?(Net::IMAP::NOSELECT)
-              prefix = "!"
-            elsif mbox.attr.include?(Net::IMAP::MARKED)
-              prefix = "*"
-            else
-              prefix = " "
-            end
-            print prefix, mbox.name, "\n"
-          end
-        when "select"
-          imap.select(args[0] || "inbox")
-          print "ok\n"
-        when "close"
-          imap.close
-          print "ok\n"
-        when "summary"
-          unless messages = imap.responses["EXISTS"][-1]
-            puts "not selected"
-            next
-          end
-          if messages > 0
-            for data in imap.fetch(1..-1, ["ENVELOPE"])
-              print data.seqno, ": ", data.attr["ENVELOPE"].subject, "\n"
-            end
-          else
-            puts "no message"
-          end
-        when "fetch"
-          if args[0]
-            data = imap.fetch(args[0].to_i, ["RFC822.HEADER", "RFC822.TEXT"])[0]
-            puts data.attr["RFC822.HEADER"]
-            puts data.attr["RFC822.TEXT"]
-          else
-            puts "missing argument"
-          end
-        when "logout", "exit", "quit"
-          break
-        when "help", "?"
-          print <<EOF
-list [pattern]                  list mailboxes
-select [mailbox]                select mailbox
-close                           close mailbox
-summary                         display summary
-fetch [msgno]                   display message
-logout                          logout
-help, ?                         display help message
-EOF
-        else
-          print "unknown command: ", cmd, "\n"
-        end
-      rescue Net::IMAP::Error
-        puts $!
-      end
-    end
-  ensure
-    imap.logout
-    imap.disconnect
-  end
-end
-

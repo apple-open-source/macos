@@ -249,7 +249,7 @@ void *io_routine(void *arg)
 
 	io_thread_id = (int)arg;
 	if (user_specified_file)
-		strncpy(test_filename, user_fname, MAX_FILENAME);
+		strlcpy(test_filename, user_fname, MAX_FILENAME);
 	else
 		snprintf(test_filename, MAX_FILENAME, "iosim-%d-%d", (int)getpid(), io_thread_id);
 

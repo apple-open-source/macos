@@ -76,7 +76,7 @@ int DERDecodeTimeStampResponse(
 	size_t			*numUsedBytes)      /* RETURNED */
 {
     DERReturn drtn = DR_ParamErr;
-    DERDecodedInfo decodedPackage;
+    DERDecodedInfo decodedPackage = {};
 
     if (contents)
     {
@@ -114,7 +114,7 @@ int DERDecodeTimeStampResponse(
 badResponse:
     if (numUsedBytes)
         *numUsedBytes = decodedPackage.content.length +
-            decodedPackage.content.data - contents->Data;
+            decodedPackage.content.data - (contents ? contents->Data : 0);
 
     return drtn;
 }

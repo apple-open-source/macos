@@ -14,6 +14,7 @@
 #include "unicode/uloc.h"
 #include "unicode/ures.h"
 #include "unicode/putil.h"
+#include "unicode/ustring.h"
 #include "cstring.h"
 #include "cmemory.h"
 #include "uhash.h"
@@ -49,6 +50,48 @@ static int compareLangEntries(const void * entry1, const void * entry2) {
     if (fraction1 < fraction2) return 1;
     // userFractions the same, sort by languageCode
     return uprv_strcmp(((const UALanguageEntry *)entry1)->languageCode,((const UALanguageEntry *)entry2)->languageCode);
+}
+
+// language codes to version with default script
+// must be sorted by language code
+static const char * langToDefaultScript[] = {
+    "az",   "az_Latn",
+    "bs",   "bs_Latn",
+    "iu",   "iu_Cans",
+    "kk",   "kk_Arab",
+    "ks",   "ks_Arab",
+    "ku",   "ku_Latn",
+    "ky",   "ky_Cyrl",
+    "mn",   "mn_Cyrl",
+    "ms",   "ms_Latn",
+    "pa",   "pa_Guru",
+    "rif",  "rif_Tfng",
+    "shi",  "shi_Tfng",
+    "sr",   "sr_Cyrl",
+    "tg",   "tg_Cyrl",
+    "tk",   "tk_Latn",
+    "ug",   "ug_Arab",
+    "uz",   "uz_Latn",
+    "vai",  "vai_Vaii",
+    "yue",  "yue_Hant",
+    "zh",   "zh_Hans",
+    NULL
+};
+
+static const char * langCodeWithScriptIfAmbig(const char * langCode) {
+	const char ** langToDefScriptPtr = langToDefaultScript;
+	const char * testCurLoc;
+	while ( (testCurLoc = *langToDefScriptPtr++) != NULL ) {
+		int cmp = uprv_strcmp(langCode, testCurLoc);
+		if (cmp <= 0) {
+			if (cmp == 0) {
+			    return *langToDefScriptPtr;
+			}
+			break;
+		}
+		langToDefScriptPtr++;
+	}
+    return langCode;
 }
 
 static const UChar ustrLangStatusDefacto[]  = {0x64,0x65,0x5F,0x66,0x61,0x63,0x74,0x6F,0x5F,0x6F,0x66,0x66,0x69,0x63,0x69,0x61,0x6C,0}; //"de_facto_official"
@@ -149,7 +192,7 @@ ualoc_getLanguagesForRegion(const char *regionID, double minimumFraction,
                 }
                 langEntriesMax = newMax;
             }
-            uprv_strcpy(langEntries[entryCount].languageCode, langCode);
+            uprv_strcpy(langEntries[entryCount].languageCode, langCodeWithScriptIfAmbig(langCode));
             langEntries[entryCount].userFraction = userFraction;
             langEntries[entryCount].status = langStatus;
         }
@@ -202,6 +245,11 @@ static const char * forceParent[] = {
     "en_SG",   "en_GB",
     "en_SH",   "en_GB",
     "en_VG",   "en_GB",
+    "yue",     "yue_CN", // yue_CN has 71M users (5.2% of 1.37G), yue_HK has 6.5M (90% of 7.17M)
+    "yue_CN",  "root",
+    "yue_HK",  "root",
+    "yue_Hans","yue_CN",
+    "yue_Hant","yue_HK",
     "zh",      "zh_CN",
     "zh_CN",   "root",
     "zh_Hant", "zh_TW",
@@ -366,6 +414,7 @@ static const char * appleAliasMap[][2] = {
     { "swedish",    "sv"      },    // T2
     { "thai",       "th"      },    // T2
     { "turkish",    "tr"      },    // T2
+    { "yue",        "yue_Hans"},    // special
     { "zh",         "zh_Hans" },    // special
 };
 enum { kAppleAliasMapCount = UPRV_LENGTHOF(appleAliasMap) };
@@ -373,26 +422,42 @@ enum { kAppleAliasMapCount = UPRV_LENGTHOF(appleAliasMap) };
 static const char * appleParentMap[][2] = {
     { "en_150",     "en_GB"   },    // Apple custom parent
     { "en_AD",      "en_150"  },    // Apple locale addition
+    { "en_AG",      "en_GB"   },    // Antigua & Barbuda
+    { "en_AI",      "en_GB"   },    // Anguilla
     { "en_AL",      "en_150"  },    // Apple locale addition
     { "en_AT",      "en_150"  },    // Apple locale addition
     { "en_AU",      "en_GB"   },    // Apple custom parent
     { "en_BA",      "en_150"  },    // Apple locale addition
+    { "en_BB",      "en_GB"   },    // Barbados
     { "en_BD",      "en_GB"   },    // Apple custom parent
     { "en_BE",      "en_150"  },    // Apple custom parent
+    { "en_BM",      "en_GB"   },    // Bermuda
+    { "en_BS",      "en_GB"   },    // Bahamas
+    { "en_BW",      "en_GB"   },    // Botswana
+    { "en_BZ",      "en_GB"   },    // Belize
+    { "en_CC",      "en_AU"   },    // Cocos (Keeling) Islands
     { "en_CH",      "en_150"  },    // Apple locale addition
+    { "en_CK",      "en_AU"   },    // Cook Islands (maybe to en_NZ instead?)
+    { "en_CX",      "en_AU"   },    // Christmas Island
     { "en_CY",      "en_150"  },    // Apple locale addition
     { "en_CZ",      "en_150"  },    // Apple locale addition
     { "en_DE",      "en_150"  },    // Apple locale addition
     { "en_DG",      "en_GB"   },
     { "en_DK",      "en_150"  },    // Apple locale addition
+    { "en_DM",      "en_GB"   },    // Dominica
     { "en_EE",      "en_150"  },    // Apple locale addition
     { "en_ES",      "en_150"  },    // Apple locale addition
     { "en_FI",      "en_150"  },    // Apple locale addition
+    { "en_FJ",      "en_GB"   },    // Fiji
     { "en_FK",      "en_GB"   },
     { "en_FR",      "en_150"  },    // Apple locale addition
+    { "en_GD",      "en_GB"   },    // Grenada
     { "en_GG",      "en_GB"   },
+    { "en_GH",      "en_GB"   },    // Ghana
     { "en_GI",      "en_GB"   },
+    { "en_GM",      "en_GB"   },    // Gambia
     { "en_GR",      "en_150"  },    // Apple locale addition
+    { "en_GY",      "en_GB"   },    // Guyana
     { "en_HK",      "en_GB"   },    // Apple custom parent
     { "en_HR",      "en_150"  },    // Apple locale addition
     { "en_HU",      "en_150"  },    // Apple locale addition
@@ -405,29 +470,62 @@ static const char * appleParentMap[][2] = {
     { "en_IT",      "en_150"  },    // Apple locale addition
     { "en_JE",      "en_GB"   },
     { "en_JM",      "en_GB"   },
+    { "en_KE",      "en_GB"   },    // Kenya
+    { "en_KI",      "en_GB"   },    // Kiribati
+    { "en_KN",      "en_GB"   },    // St. Kitts & Nevis
+    { "en_KY",      "en_GB"   },    // Cayman Islands
+    { "en_LC",      "en_GB"   },    // St. Lucia
+    { "en_LS",      "en_GB"   },    // Lesotho
     { "en_LT",      "en_150"  },    // Apple locale addition
     { "en_LU",      "en_150"  },    // Apple locale addition
     { "en_LV",      "en_150"  },    // Apple locale addition
     { "en_ME",      "en_150"  },    // Apple locale addition
     { "en_MO",      "en_GB"   },
+    { "en_MS",      "en_GB"   },    // Montserrat
     { "en_MT",      "en_GB"   },
+    { "en_MU",      "en_GB"   },    // Mauritius
     { "en_MV",      "en_GB"   },
+    { "en_MW",      "en_GB"   },    // Malawi
     { "en_MY",      "en_GB"   },    // Apple custom parent
+    { "en_NA",      "en_GB"   },    // Namibia
+    { "en_NF",      "en_AU"   },    // Norfolk Island
+    { "en_NG",      "en_GB"   },    // Nigeria
     { "en_NL",      "en_150"  },    // Apple locale addition
     { "en_NO",      "en_150"  },    // Apple locale addition
+    { "en_NR",      "en_AU"   },    // Nauru
+    { "en_NU",      "en_AU"   },    // Niue (maybe to en_NZ instead?)
     { "en_NZ",      "en_AU"   },
+    { "en_PG",      "en_AU"   },    // Papua New Guinea
     { "en_PK",      "en_GB"   },    // Apple custom parent
     { "en_PL",      "en_150"  },    // Apple locale addition
+    { "en_PN",      "en_GB"   },    // Pitcairn Islands
     { "en_PT",      "en_150"  },    // Apple locale addition
     { "en_RO",      "en_150"  },    // Apple locale addition
     { "en_RU",      "en_150"  },    // Apple locale addition
+    { "en_SB",      "en_GB"   },    // Solomon Islands
+    { "en_SC",      "en_GB"   },    // Seychelles
+    { "en_SD",      "en_GB"   },    // Sudan
     { "en_SE",      "en_150"  },    // Apple locale addition
     { "en_SG",      "en_GB"   },
     { "en_SH",      "en_GB"   },
     { "en_SI",      "en_150"  },    // Apple locale addition
     { "en_SK",      "en_150"  },    // Apple locale addition
-    { "en_TR",      "en_150"  },    // Apple locale addition
+    { "en_SL",      "en_GB"   },    // Sierra Leone
+    { "en_SS",      "en_GB"   },    // South Sudan
+    { "en_SZ",      "en_GB"   },    // Swaziland
+    { "en_TC",      "en_GB"   },    // Tristan da Cunha
+    { "en_TO",      "en_GB"   },    // Tonga
+    { "en_TT",      "en_GB"   },    // Trinidad & Tobago
+    { "en_TV",      "en_GB"   },    // Tuvalu
+    { "en_TZ",      "en_GB"   },    // Tanzania
+    { "en_UG",      "en_GB"   },    // Uganda
+    { "en_VC",      "en_GB"   },    // St. Vincent & Grenadines
     { "en_VG",      "en_GB"   },
+    { "en_VU",      "en_GB"   },    // Vanuatu
+    { "en_WS",      "en_AU"   },    // Samoa (maybe to en_NZ instead?)
+    { "en_ZA",      "en_GB"   },    // South Africa
+    { "en_ZM",      "en_GB"   },    // Zambia
+    { "en_ZW",      "en_GB"   },    // Zimbabwe
 };
 enum { kAppleParentMapCount = UPRV_LENGTHOF(appleParentMap) };
 
@@ -442,13 +540,16 @@ static LocParentAndDistance locParentMap[] = {
     // normalized form (e.g. zh_CN -> zh_Hans_CN, etc.).
     // The distance is a rough measure of distance from
     // the localization to its parent, used as a weight.
-    { "en_100",     "en",      2 },
+    { "en_001",     "en",      2 },
     { "en_150",     "en_GB",   1 },
     { "en_AU",      "en_GB",   1 },
-    { "en_GB",      "en_100",  0 },
+    { "en_GB",      "en_001",  0 },
+    { "en_US",      "en",      0 },
     { "es_419",     "es",      2 },
     { "es_MX",      "es_419",  0 },
     { "pt_PT",      "pt",      2 },
+    { "yue_Hans_CN","yue_Hans",0 },
+    { "yue_Hant_HK","yue_Hant",0 },
     { "zh_Hans_CN", "zh_Hans", 0 },
     { "zh_Hant_HK", "zh_Hant", 1 },
     { "zh_Hant_TW", "zh_Hant", 0 },
@@ -456,8 +557,8 @@ static LocParentAndDistance locParentMap[] = {
 enum { kLocParentMapCount = UPRV_LENGTHOF(locParentMap), kMaxParentDistance = 8 };
 
 enum {
-    kStringsAllocSize = 4096, // cannot expand; current actual usage 3610
-    kParentMapInitCount = 161 // can expand; current actual usage 161
+    kStringsAllocSize = 4480, // cannot expand; current actual usage 4150
+    kParentMapInitCount = 205 // can expand; current actual usage 205
 };
 
 U_CDECL_BEGIN
@@ -691,6 +792,13 @@ static const char * getLocParent(const char *locale, int32_t* distance)
             return locParentMap[locParentIndex].parent;
         }
     }
+    if (gMapDataState > 0) {
+        const char *replacement = (const char *)uhash_get(gParentMap, locale);
+        if (replacement) {
+            *distance = 1;
+            return replacement;
+        }
+    }
     return NULL;
 }
 
@@ -735,6 +843,7 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
     char (*availLocBase)[kLangScriptRegMaxLen + 1] = NULL;
     char (*availLocNorm)[kLangScriptRegMaxLen + 1] = NULL;
     UBool foundMatch = FALSE;
+    UBool backupMatchPrefLang_pt_PT = FALSE;
 
 #if DEBUG_UALOC
     if (preferredLanguagesCount > 0 && availableLocalizationsCount > 0) {
@@ -951,6 +1060,7 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
                                             availLocIndexBackup = availLocIndex; // records where the match occurred
                                             backupMatchPrefLangIndex = prefLangIndex;
                                             minDistance = 1;
+                                            backupMatchPrefLang_pt_PT = (uprv_strcmp(prefLangNormName, "pt_PT") == 0);
 #if DEBUG_UALOC
                                             printf("    # BACKUP: LocNoRegParent matched prefLangNormName with distance 1\n");
 #endif
@@ -1001,7 +1111,7 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
 #if DEBUG_UALOC
             printf(" # no main match, have backup => use availLocIndexBackup %d\n", availLocIndexBackup);
 #endif
-        } else if (backupMatchPrefLangIndex < foundMatchPrefLangIndex && uprv_strncmp(availLocNorm[availLocIndexBackup], "pt_BR", ULOC_LANG_CAPACITY) != 0) {
+        } else if (backupMatchPrefLangIndex < foundMatchPrefLangIndex && (!backupMatchPrefLang_pt_PT || uprv_strcmp(availLocNorm[availLocIndexBackup], "pt_BR") != 0)) {
             // have a main match but backup match was higher in the prefs, use it if for a different language
 #if DEBUG_UALOC
             printf(" # have backup match higher in prefs, comparing its language and script to main match\n");

@@ -54,7 +54,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/system.c,v 1.11 2007/01/09 00:28:10 imp 
 #if __DARWIN_UNIX03
 #include <pthread.h>
 
+#if !(TARGET_OS_IPHONE && (TARGET_OS_SIMULATOR || !TARGET_OS_IOS))
 static pthread_mutex_t __systemfn_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 extern int __unix_conforming;
 #endif /* __DARWIN_UNIX03 */
 

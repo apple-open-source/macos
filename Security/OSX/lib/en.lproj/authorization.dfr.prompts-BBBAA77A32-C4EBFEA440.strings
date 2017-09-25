@@ -108,7 +108,7 @@
 
 "system.preferences" = "Touch ID to Modify Your System Settings.";
 
-"com.apple.SoftwareUpdate.modify-settings" = "Touch ID to Unlock the App Store Preferences.";
+"com.apple.SoftwareUpdate.modify-settings" = "Touch ID to Unlock the App Store preferences.";
 
 "com.apple.uninstalld.uninstall" = "Touch ID to Delete an Application.";
 
@@ -124,7 +124,7 @@
 
 "com.apple.server.admin.streaming" = "Touch ID to Modify the QuickTime Streaming Server Settings.";
 
-"system.preferences.softwareupdate" = "Touch ID to Unlock the App Store Preferences.";
+"system.preferences.softwareupdate" = "Touch ID to Unlock the App Store preferences.";
 
 "system.keychain.modify" = "Touch ID to Modify the System Keychain.";
 

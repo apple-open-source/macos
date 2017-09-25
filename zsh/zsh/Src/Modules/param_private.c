@@ -42,19 +42,19 @@ struct gsu_closure {
     void *g;
 };
 
-const struct gsu_scalar scalar_private_gsu =
+static const struct gsu_scalar scalar_private_gsu =
 { pps_getfn, pps_setfn, pps_unsetfn };
 
-const struct gsu_integer integer_private_gsu =
+static const struct gsu_integer integer_private_gsu =
 { ppi_getfn, ppi_setfn, ppi_unsetfn };
 
-const struct gsu_float float_private_gsu =
+static const struct gsu_float float_private_gsu =
 { ppf_getfn, ppf_setfn, ppf_unsetfn };
 
-const struct gsu_array array_private_gsu =
+static const struct gsu_array array_private_gsu =
 { ppa_getfn, ppa_setfn, ppa_unsetfn };
 
-const struct gsu_hash hash_private_gsu =
+static const struct gsu_hash hash_private_gsu =
 { pph_getfn, pph_setfn, pph_unsetfn };
 
 /*
@@ -490,7 +490,7 @@ wrap_private(Eprog prog, FuncWrap w, char *name)
     return 1;
 }
 
-static HashNode (*getparamnode) _((HashTable, const char *));
+static GetNodeFunc getparamnode;
 
 /**/
 static HashNode
@@ -567,6 +567,8 @@ static struct features module_features = {
 };
 
 static struct builtin save_local;
+static GetNodeFunc save_getnode2;
+static ScanFunc save_printnode;
 static struct reswd reswd_private = {{NULL, "private", 0}, TYPESET};
 
 /**/
@@ -577,6 +579,8 @@ setup_(UNUSED(Module m))
 
     /* Horrible, horrible hack */
     getparamnode = realparamtab->getnode;
+    save_getnode2 = realparamtab->getnode2;
+    save_printnode = realparamtab->printnode;
     realparamtab->getnode = getprivatenode;
     realparamtab->getnode2 = getprivatenode2;
     realparamtab->printnode = printprivatenode;
@@ -624,8 +628,8 @@ cleanup_(Module m)
     removehashnode(reswdtab, "private");
     
     realparamtab->getnode = getparamnode;
-    realparamtab->getnode2 = gethashnode2;
-    realparamtab->printnode = printparamnode;
+    realparamtab->getnode2 = save_getnode2;
+    realparamtab->printnode = save_printnode;
 
     deletewrapper(m, wrapper);
     return setfeatureenables(m, &module_features, NULL);

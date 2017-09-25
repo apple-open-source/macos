@@ -63,6 +63,18 @@ CF_EXPORT
 IOHIDUserDeviceRef IOHIDUserDeviceCreate(CFAllocatorRef _Nullable allocator, CFDictionaryRef properties);
 
 /*!
+     @function   IOHIDUserDeviceCopyService
+     @abstract   Returns the io_service_t for an IOHIDUserDevice, if it has one.
+     @discussion If the IOHIDUserDevice references an object in the kernel, this is
+                 used to get the io_service_t for that object.
+     @param      device Reference to an IOHIDUserDevice.
+     @result     Returns the io_service_t if the IOHIDUserDevice has one, or
+                 MACH_PORT_NULL if it does not. Object handle should be released with released with IOObjectRelease.
+ */
+CF_EXPORT
+io_service_t IOHIDUserDeviceCopyService(IOHIDUserDeviceRef device);
+
+/*!
  @function   IOHIDUserDeviceCreateWithOptions
  @abstract   Creates an virtual IOHIDDevice in the kernel.
  @discussion The io_service_t passed in this method must reference an object

@@ -960,7 +960,8 @@ enum
     kHIDUsage_Csmr_ALOnlineActivityBrowswer= 0x1C5, /* Selector */
     kHIDUsage_Csmr_ALResearchOrSearchBrowswer   = 0x1C6, /* Selector */
     kHIDUsage_Csmr_ALAudioPlayer= 0x1C7, /* Selector */
-    /* 0x1C8 - 0x1FF Reserved */
+    kHIDUsage_Csmr_ALNavigation = 0x1C8, /* Selector */
+    /* 0x1C9 - 0x1FF Reserved */
     kHIDUsage_Csmr_GenericGUIApplicationControls    = 0x200,    /* Named Array */
     kHIDUsage_Csmr_ACNew    = 0x201,    /* Selector */
     kHIDUsage_Csmr_ACOpen    = 0x202,    /* Selector */
@@ -1103,7 +1104,8 @@ enum
     kHIDUsage_Csmr_ACDistributeH    = 0x29B,    /* Selector */
     kHIDUsage_Csmr_ACDistributeV    = 0x29C,    /* Selector */
     kHIDUsage_Csmr_ACKeyboardLayoutSelect   = 0x29D,    /* One-Shot Control */
-    /* 0x29E - 0xFFFF Reserved */
+    kHIDUsage_Csmr_ACNavigationGuidance     = 0x29E,    /* Selector */
+    /* 0x29F - 0xFFFF Reserved */
     kHIDUsage_Csmr_Reserved = 0xFFFF
 };
 
@@ -1574,7 +1576,8 @@ enum
     kHIDUsage_PD_ChangedStatus = 0x03,            /* CA- Power Device Changed Status */
     kHIDUsage_PD_UPS = 0x04,                    /* CA- Uninterruptible Power Supply */
     kHIDUsage_PD_PowerSupply = 0x05,            /* CA- Power Supply */
-    /* Reserved 0x06 - 0x0F */
+    kHIDUsage_PD_PeripheralDevice = 0x06,       /* CA- Perpheral Device */
+    /* Reserved 0x07 - 0x0F */
     kHIDUsage_PD_BatterySystem = 0x10,            /* CP- Battery System power module */
     kHIDUsage_PD_BatterySystemID = 0x11,        /* SV IF- Battery System ID */
     kHIDUsage_PD_Battery = 0x12,                /* CP- Battery */

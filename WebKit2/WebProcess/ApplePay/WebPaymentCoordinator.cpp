@@ -29,6 +29,7 @@
 #if ENABLE(APPLE_PAY)
 
 #include "DataReference.h"
+#include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebPaymentCoordinatorMessages.h"
 #include "WebPaymentCoordinatorProxyMessages.h"
@@ -54,10 +55,13 @@ bool WebPaymentCoordinator::supportsVersion(unsigned version)
 {
     ASSERT(version > 0);
 
-    if (version <= 2)
-        return true;
+#if !ENABLE(APPLE_PAY_SESSION_V3)
+    static const unsigned currentVersion = 2;
+#else
+    static const unsigned currentVersion = 3;
+#endif
 
-    return false;
+    return version <= currentVersion;
 }
 
 bool WebPaymentCoordinator::canMakePayments()
@@ -76,7 +80,7 @@ static uint64_t generateCanMakePaymentsWithActiveCardReplyID()
     return ++canMakePaymentsWithActiveCardReplyID;
 }
 
-void WebPaymentCoordinator::canMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler)
+void WebPaymentCoordinator::canMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, WTF::Function<void (bool)>&& completionHandler)
 {
     auto replyID = generateCanMakePaymentsWithActiveCardReplyID();
 
@@ -91,7 +95,7 @@ static uint64_t generateOpenPaymentSetupReplyID()
     return ++openPaymentSetupReplyID;
 }
 
-void WebPaymentCoordinator::openPaymentSetup(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler)
+void WebPaymentCoordinator::openPaymentSetup(const String& merchantIdentifier, const String& domainName, WTF::Function<void (bool)>&& completionHandler)
 {
     auto replyID = generateOpenPaymentSetupReplyID();
 
@@ -117,29 +121,34 @@ void WebPaymentCoordinator::completeMerchantValidation(const WebCore::PaymentMer
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteMerchantValidation(paymentMerchantSession));
 }
 
-void WebPaymentCoordinator::completeShippingMethodSelection(WebCore::PaymentAuthorizationStatus status, std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems)
+void WebPaymentCoordinator::completeShippingMethodSelection(std::optional<WebCore::ShippingMethodUpdate>&& update)
 {
-    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteShippingMethodSelection(static_cast<uint32_t>(status), newTotalAndItems));
+    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteShippingMethodSelection(update));
 }
 
-void WebPaymentCoordinator::completeShippingContactSelection(WebCore::PaymentAuthorizationStatus status, const Vector<WebCore::PaymentRequest::ShippingMethod>& newShippingMethods, std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems)
+void WebPaymentCoordinator::completeShippingContactSelection(std::optional<WebCore::ShippingContactUpdate>&& update)
 {
-    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteShippingContactSelection(static_cast<uint32_t>(status), newShippingMethods, newTotalAndItems));
+    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompleteShippingContactSelection(update));
 }
 
-void WebPaymentCoordinator::completePaymentMethodSelection(std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems)
+void WebPaymentCoordinator::completePaymentMethodSelection(std::optional<WebCore::PaymentMethodUpdate>&& update)
 {
-    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompletePaymentMethodSelection(newTotalAndItems));
+    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompletePaymentMethodSelection(update));
 }
 
-void WebPaymentCoordinator::completePaymentSession(WebCore::PaymentAuthorizationStatus status)
+void WebPaymentCoordinator::completePaymentSession(std::optional<WebCore::PaymentAuthorizationResult>&& result)
 {
-    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompletePaymentSession(static_cast<uint32_t>(status)));
+    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CompletePaymentSession(result));
 }
 
 void WebPaymentCoordinator::abortPaymentSession()
 {
     m_webPage.send(Messages::WebPaymentCoordinatorProxy::AbortPaymentSession());
+}
+
+void WebPaymentCoordinator::cancelPaymentSession()
+{
+    m_webPage.send(Messages::WebPaymentCoordinatorProxy::CancelPaymentSession());
 }
 
 void WebPaymentCoordinator::paymentCoordinatorDestroyed()
@@ -172,9 +181,9 @@ void WebPaymentCoordinator::didSelectPaymentMethod(const WebCore::PaymentMethod&
     paymentCoordinator().didSelectPaymentMethod(paymentMethod);
 }
 
-void WebPaymentCoordinator::didCancelPayment()
+void WebPaymentCoordinator::didCancelPaymentSession()
 {
-    paymentCoordinator().didCancelPayment();
+    paymentCoordinator().didCancelPaymentSession();
 }
 
 void WebPaymentCoordinator::canMakePaymentsWithActiveCardReply(uint64_t requestID, bool canMakePayments)

@@ -9,7 +9,7 @@
  * Test courtesy of Roel Standaert
  * Source: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=209907 
  */
-T_DECL(PR_26556792, "wcsrtombs neglects to set src pointer on EILSEQ error")
+T_DECL(wchar_PR_26556792, "wcsrtombs neglects to set src pointer on EILSEQ error")
 {
     char out[64];
     wchar_t *in = L"Hello! \x20AC Hello!";
@@ -21,7 +21,7 @@ T_DECL(PR_26556792, "wcsrtombs neglects to set src pointer on EILSEQ error")
 }
 
 
-T_DECL(PR_26828480, "double free in __vfwprintf")
+T_DECL(wchar_PR_26828480, "double free in __vfwprintf")
 {
     wchar_t *test;
     int ret;

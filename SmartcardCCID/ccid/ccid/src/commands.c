@@ -104,6 +104,7 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 	status_t res;
 	int length, count = 1;
 	unsigned int atr_len;
+	int init_voltage;
 	RESPONSECODE return_value = IFD_SUCCESS;
 	_ccid_descriptor *ccid_descriptor = get_ccid_descriptor(reader_index);
 
@@ -190,12 +191,14 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 	/* store length of buffer[] */
 	length = *nlength;
 
-	if (ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_VOLTAGE)
+	if ((ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_VOLTAGE)
+		|| (ccid_descriptor->dwFeatures & CCID_CLASS_AUTO_ACTIVATION))
 		voltage = 0;	/* automatic voltage selection */
 	else
 	{
 		int bVoltageSupport = ccid_descriptor->bVoltageSupport;
 
+check_again:
 		if ((1 == voltage) && !(bVoltageSupport & 1))
 		{
 			DEBUG_INFO1("5V requested but not support by reader");
@@ -211,9 +214,11 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 		if ((3 == voltage) && !(bVoltageSupport & 4))
 		{
 			DEBUG_INFO1("1.8V requested but not support by reader");
-			voltage = 0;	/* auto */
+			voltage = 1;	/* 5V */
+			goto check_again;
 		}
 	}
+	init_voltage = voltage;
 
 again:
 	cmd[0] = 0x62; /* IccPowerOn */
@@ -262,8 +267,8 @@ again:
 				DEBUG_CRITICAL("Can't set reader in ISO mode");
 		}
 
-		/* continue with 3 volts and 5 volts */
-		if (voltage > 1)
+		/* continue with other voltage values */
+		if (voltage)
 		{
 #ifndef NO_LOG
 			const char *voltage_code[] = { "auto", "5V", "3V", "1.8V" };
@@ -272,7 +277,14 @@ again:
 			DEBUG_INFO3("Power up with %s failed. Try with %s.",
 				voltage_code[voltage], voltage_code[voltage-1]);
 			voltage--;
-			goto again;
+
+			/* loop from 5V to 1.8V */
+			if (0 == voltage)
+				voltage = 3;
+
+			/* continue until we tried every values */
+			if (voltage != init_voltage)
+				goto again;
 		}
 
 		return IFD_COMMUNICATION_ERROR;
@@ -996,7 +1008,10 @@ time_request:
 	/* copy the response */
 	length_out = dw2i(cmd_out, 1);
 	if (length_out > *RxLength)
+	{
 		length_out = *RxLength;
+		return_value = IFD_ERROR_INSUFFICIENT_BUFFER;
+	}
 	*RxLength = length_out;
 	memcpy(RxBuffer, &cmd_out[10], length_out);
 

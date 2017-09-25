@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocParserChangeLog < RDoc::TestCase
@@ -12,14 +13,7 @@ class TestRDocParserChangeLog < RDoc::TestCase
   end
 
   def teardown
-    @tempfile.close
-  end
-
-  def mu_pp obj
-    s = ''
-    s = PP.pp obj, s
-    s = s.force_encoding Encoding.default_external if defined? Encoding
-    s.chomp
+    @tempfile.close!
   end
 
   def test_class_can_parse

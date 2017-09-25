@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2011, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -114,6 +114,7 @@ cache_SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 static void
 cache_SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
+#pragma unused (store)
 	CFIndex	i;
 
 	i = CFArrayGetFirstIndexOfValue(cached_removals,
@@ -132,6 +133,7 @@ cache_SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropert
 static void
 cache_SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 {
+#pragma unused (store)
 	CFDictionaryRemoveValue(cached_set, key);
 
 	if (!CFArrayContainsValue(cached_removals,
@@ -147,6 +149,7 @@ cache_SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key)
 static void
 cache_SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key)
 {
+#pragma unused (store)
 	if (!CFArrayContainsValue(cached_notifys,
 				  CFRangeMake(0, CFArrayGetCount(cached_notifys)),
 				  key)) {
@@ -258,7 +261,9 @@ do_block(int argc, char **argv)
 
 
 static CFComparisonResult
-sort_keys(const void *p1, const void *p2, void *context) {
+sort_keys(const void *p1, const void *p2, void *context)
+{
+#pragma unused(context)
 	CFStringRef key1 = (CFStringRef)p1;
 	CFStringRef key2 = (CFStringRef)p2;
 	return CFStringCompare(key1, key2, 0);
@@ -401,6 +406,7 @@ __private_extern__
 void
 do_get(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFStringRef		key;
 	CFPropertyListRef	newValue;
 
@@ -429,6 +435,7 @@ __private_extern__
 void
 do_set(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFStringRef	key;
 
 	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
@@ -518,6 +525,7 @@ __private_extern__
 void
 do_remove(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFStringRef	key;
 
 	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
@@ -537,6 +545,7 @@ __private_extern__
 void
 do_notify(int argc, char **argv)
 {
+#pragma unused(argc)
 	CFStringRef	key;
 
 	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);

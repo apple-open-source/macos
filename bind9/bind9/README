@@ -48,112 +48,123 @@ BIND 9
 	For a detailed list of user-visible changes from
 	previous releases, see the CHANGES file.
 
-        For up-to-date release notes and errata, see
-        http://www.isc.org/software/bind9/releasenotes
+	For up-to-date release notes and errata, see
+	http://www.isc.org/software/bind9/releasenotes
 
-BIND 9.8.3
+BIND 9.9.7-P3
 
-	BIND 9.8.3 is a maintenance release.
+	BIND 9.9.7-P3 is a security release addressing the flaws
+	described in CVE-2015-5722 and CVE-2015-5986.
 
-BIND 9.8.2
+BIND 9.9.7-P2
 
-	BIND 9.8.2 includes a number of bug fixes and prevents a security
-	problem described in CVE-2011-4313
+       BIND 9.9.7-P2 is a security release addressing the flaw
+       described in CVE-2015-5477.
 
-BIND 9.8.1
+BIND 9.9.7-P1
 
-        BIND 9.8.1 includes a number of bug fixes and enhancements from
-	BIND 9.8 and earlier releases.  New features include:
+       BIND 9.9.7-P1 is a security release addressing the flaw
+       described in CVE-2015-4620.
 
-	- The DLZ "dlopen" driver is now built by default.
-	- Added a new include file with function typedefs
-          for the DLZ "dlopen" driver.
-	- Made "--with-gssapi" default.
-	- More verbose error reporting from DLZ LDAP.
+BIND 9.9.7
 
-BIND 9.8.0
+	BIND 9.9.7 is a maintenance release and addresses bugs
+	found in BIND 9.9.6 and earlier, as well as the security
+	flaws described in CVE-2014-8500 and CVE-2015-1349.
 
-        BIND 9.8.0 includes a number of changes from BIND 9.7 and earlier
-        releases.  New features include:
+BIND 9.9.6
 
-        - Built-in trust anchor for the root zone, which can be
-          switched on via "dnssec-validation auto;"
-        - Support for DNS64.
-        - Support for response policy zones (RPZ).
-        - Support for writable DLZ zones.
-        - Improved ease of configuration of GSS/TSIG for
-          interoperability with Active Directory
-        - Support for GOST signing algorithm for DNSSEC.
-        - Removed RTT Banding from server selection algorithm.
-        - New "static-stub" zone type.
-        - Allow configuration of resolver timeouts via
-          "resolver-query-timeout" option.
+	BIND 9.9.6 is a maintenance release, and also includes
+	the following new functionality.
 
-BIND 9.7.0
+	 - The former behavior with respect to capitalization of names
+	   (prior to BIND 9.9.5) can be restored for specific clients via
+	   the new "no-case-compress" ACL.
 
-	BIND 9.7.0 includes a number of changes from BIND 9.6 and earlier
-	releases.  Most are intended to simplify DNSSEC configuration.
+BIND 9.9.5
 
-	New features include:
+	BIND 9.9.5 is a maintenance release, and patches the security
+	flaws described in CVE-2013-6320 and CVE-2014-0591.  It also
+	includes the following functional enhancements:
 
-	- Fully automatic signing of zones by "named".
-	- Simplified configuration of DNSSEC Lookaside Validation (DLV).
-	- Simplified configuration of Dynamic DNS, using the "ddns-confgen"
-	  command line tool or the "local" update-policy option.  (As a side
-	  effect, this also makes it easier to configure automatic zone
-	  re-signing.)
-	- New named option "attach-cache" that allows multiple views to
-	  share a single cache.
-	- DNS rebinding attack prevention.
-	- New default values for dnssec-keygen parameters.
-	- Support for RFC 5011 automated trust anchor maintenance
-	- Smart signing: simplified tools for zone signing and key
-	  maintenance.
-	- The "statistics-channels" option is now available on Windows.
-	- A new DNSSEC-aware libdns API for use by non-BIND9 applications
-	- On some platforms, named and other binaries can now print out
-	  a stack backtrace on assertion failure, to aid in debugging.
-	- A "tools only" installation mode on Windows, which only installs
-	  dig, host, nslookup and nsupdate.
-	- Improved PKCS#11 support, including Keyper support and explicit
-	  OpenSSL engine selection.
+	 - "named" now preserves the capitalization of names when
+	   responding to queries.
+	 - new "dnssec-importkey" command allows the use of offline
+	   DNSSEC keys with automatic DNSKEY management.
+	 - When re-signing a zone, the new "dnssec-signzone -Q" option
+	   drops signatures from keys that are still published but are
+	   no longer active.
+	 - "named-checkconf -px" will print the contents of configuration
+	   files with the shared secrets obscured, making it easier to
+	   share configuration (e.g. when submitting a bug report)
+	   without revealing private information.
 
-	Known issues in this release:
+BIND 9.9.4
 
-	- In rare cases, DNSSEC validation can leak memory.  When this 
-	  happens, it will cause an assertion failure when named exits,
-	  but is otherwise harmless.  A fix exists, but was too late for
-	  this release; it will be included in BIND 9.7.1.
+	BIND 9.9.4 is a maintenance release, and patches the security
+	flaws described in CVE-2013-3919 and CVE-2013-4854. It also
+	introduces DNS Response Rate Limiting (DNS RRL) as a
+	compile-time option. To use this feature, configure with
+	the "--enable-rrl" option.
 
-	Compatibility notes:
+BIND 9.9.3
 
-	- If you had built BIND 9.6 with any of ALLOW_NSEC3PARAM_UPDATE,
-	  ALLOW_SECURE_TO_INSECURE or ALLOW_INSECURE_TO_SECURE defined, then
-	  you should ensure that all changes that are in progress have
-	  completed prior to upgrading to BIND 9.7.  BIND 9.7 implements
-	  those features in a way which is not backwards compatible.
+	BIND 9.9.3 is a maintenance release and patches the security
+	flaws described in CVE-2012-5688, CVE-2012-5689 and CVE-2013-2266.
 
-	- Prior releases had a bug which caused HMAC-SHA* keys with long
-	  secrets to be used incorrectly.  Fixing this bug means that older
-	  versions of BIND 9 may fail to interoperate with this version
-	  when using TSIG keys.  If this occurs, the new "isc-hmac-fixup"
-	  tool will convert a key with a long secret into a form that works
-	  correctly with all versions of BIND 9.  See the "isc-hmac-fixup"
-	  man page for additional details.
+BIND 9.9.2
 
-	- Revoking a DNSSEC key with "dnssec-revoke" changes its key ID.
-	  It is possible for the new key ID to collide with that of a
-	  different key.  Newly generated keys will not have this problem,
-	  as "dnssec-keygen" looks for potential collisions before
-	  generating keys, but exercise caution if using key revokation
-	  with keys that were generated by older versions of BIND 9.  See
-	  the Administrator's Reference Manual, section 4.10 ("Dynamic
-	  Trust Anchor Management") for more details.
+	BIND 9.9.2 is a maintenance release and patches the security
+	flaw described in CVE-2012-4244.
 
-	- A bug was fixed in which a key's scheduled inactivity date was
-	  stored incorectly.  Users who participated in the 9.7.0 BETA test
-	  and had DNSSEC keys with scheduled inactivity dates will need to
-	  reset those keys' dates using "dnssec-settime -I".
+BIND 9.9.1
+
+	BIND 9.9.1 is a maintenance release.
+
+BIND 9.9.0
+
+	BIND 9.9.0 includes a number of changes from BIND 9.8 and earlier
+	releases.  New features include:
+
+	- Inline signing, allowing automatic DNSSEC signing of
+	  master zones without modification of the zonefile, or 
+	  "bump in the wire" signing in slaves.
+	- NXDOMAIN redirection.
+	- New 'rndc flushtree' command clears all data under a given
+	  name from the DNS cache.
+	- New 'rndc sync' command dumps pending changes in a dynamic
+	  zone to disk without a freeze/thaw cycle.
+	- New 'rndc signing' command displays or clears signing status
+	  records in 'auto-dnssec' zones.
+	- NSEC3 parameters for 'auto-dnssec' zones can now be set prior
+	  to signing, eliminating the need to initially sign with NSEC.
+	- Startup time improvements on large authoritative servers.
+	- Slave zones are now saved in raw format by default.
+	- Several improvements to response policy zones (RPZ).
+	- Improved hardware scalability by using multiple threads
+	  to listen for queries and using finer-grained client locking
+	- The 'also-notify' option now takes the same syntax as
+	  'masters', so it can used named masterlists and TSIG keys.
+	- 'dnssec-signzone -D' writes an output file containing only DNSSEC
+	  data, which can be included by the primary zone file.
+	- 'dnssec-signzone -R' forces removal of signatures that are
+	  not expired but were created by a key which no longer exists.
+	- 'dnssec-signzone -X' allows a separate expiration date to
+	  be specified for DNSKEY signatures from other signatures.
+	- New '-L' option to dnssec-keygen, dnssec-settime, and
+	  dnssec-keyfromlabel sets the default TTL for the key.
+	- dnssec-dsfromkey now supports reading from standard input,
+	  to make it easier to convert DNSKEY to DS.
+	- RFC 1918 reverse zones have been added to the empty-zones
+	  table per RFC 6303.
+	- Dynamic updates can now optionally set the zone's SOA serial
+	  number to the current UNIX time.
+	- DLZ modules can now retrieve the source IP address of
+	  the querying client.
+	- 'request-ixfr' option can now be set at the per-zone level.
+	- 'dig +rrcomments' turns on comments about DNSKEY records,
+	  indicating their key ID, algorithm and function
+	- Simplified nsupdate syntax and added readline support
 
 Building
 
@@ -173,9 +184,9 @@ Building
 		Ubuntu 7.04, 7.10
 		Windows XP/2003/2008
 
-        NOTE:  As of BIND 9.5.1, 9.4.3, and 9.3.6, older versions of
-        Windows, including Windows NT and Windows 2000, are no longer
-        supported.
+	NOTE:  As of BIND 9.5.1, 9.4.3, and 9.3.6, older versions of
+	Windows, including Windows NT and Windows 2000, are no longer
+	supported.
 
 	We have recent reports from the user community that a supported
 	version of BIND will build and run on the following systems:
@@ -183,12 +194,12 @@ Building
 		AIX 4.3, 5L
 		CentOS 4, 4.5, 5
 		Darwin 9.0.0d1/ARM
-		Debian 4
-		Fedora Core 5, 7
-		FreeBSD 6.1
+		Debian 4, 5, 6
+		Fedora Core 5, 7, 8
+		FreeBSD 6, 7, 8
 		HP-UX 11.23 PA
-		MacOS X 10.4, 10.5
-		Red Hat Enterprise Linux 4, 5
+		MacOS X 10.5, 10.6, 10.7
+		Red Hat Enterprise Linux 4, 5, 6
 		SCO OpenServer 5.0.6
 		Slackware 9, 10
 		SuSE 9, 10
@@ -209,7 +220,8 @@ Building
 
 	    CFLAGS
 		C compiler flags.  Defaults to include -g and/or -O2
-		as supported by the compiler.  
+		as supported by the compiler.  Please include '-g'
+		if you need to set CFLAGS.
 
 	    STD_CINCLUDES
 		System header file directories.	 Can be used to specify
@@ -228,7 +240,7 @@ Building
 				    -DDIG_SIGCHASE_BU=1)
 		Disable dropping queries from particular well known ports.
 		  -DNS_CLIENT_DROPPORT=0
-	        Sibling glue checking in named-checkzone is enabled by default.
+		Sibling glue checking in named-checkzone is enabled by default.
 		To disable the default check set.  -DCHECK_SIBLING=0
 		named-checkzone checks out-of-zone addresses by default.
 		To disable this default set.  -DCHECK_LOCAL=0
@@ -275,10 +287,10 @@ Building
 	on the configure command line.  The default is operating
 	system dependent.
 
-        Support for the "fixed" rrset-order option can be enabled
-        or disabled by specifying "--enable-fixed-rrset" or
-        "--disable-fixed-rrset" on the configure command line.
-        The default is "disabled", to reduce memory footprint.
+	Support for the "fixed" rrset-order option can be enabled
+	or disabled by specifying "--enable-fixed-rrset" or
+	"--disable-fixed-rrset" on the configure command line.
+	The default is "disabled", to reduce memory footprint.
 
 	If your operating system has integrated support for IPv6, it
 	will be used automatically.  If you have installed KAME IPv6
@@ -326,6 +338,10 @@ Building
 	libraries.  sh-utils-1.16 provides a "printf" which compiles
 	on SunOS 4.
 
+Known limitations
+
+	Linux requires kernel build 2.6.39 or later to get the
+	performance benefits from using multiple sockets.
 
 Documentation
 
@@ -345,8 +361,8 @@ Documentation
 	Frequently asked questions and their answers can be found in
 	FAQ.
 
-        Additional information on various subjects can be found
-        in the other README files.
+	Additional information on various subjects can be found
+	in the other README files.
 
 
 Change Log
@@ -363,7 +379,7 @@ Change Log
 	   [security]	  Fix for a significant security flaw
 
 	   [experimental] Used for new features when the syntax
-	   		  or other aspects of the design are still
+			  or other aspects of the design are still
 			  in flux and may change
 
 	   [port]	  Portability enhancement
@@ -372,17 +388,25 @@ Change Log
 			  server addresses and keys
 
 	   [tuning]	  Changes to built-in configuration defaults
-	   		  and constants to improve performanceo
+			  and constants to improve performanceo
 
 	   [protocol]	  Updates to the DNS protocol such as new
 			  RR types
 
-           [test]         Changes to the automatic tests, not
-                          affecting server functionality
+	   [test]         Changes to the automatic tests, not
+			  affecting server functionality
 
-           [cleanup]      Minor corrections and refactoring
+	   [cleanup]      Minor corrections and refactoring
 
 	   [doc]	  Documentation
+
+	   [contrib]	  Changes to the contributed tools and
+			  libraries in the 'contrib' subdirectory
+
+	   [placeholder]  Used in the master development branch to
+			  reserve change numbers for use in other
+			  branches, e.g. when fixing a bug that only
+			  exists in older releases
 
 	In general, [func] and [experimental] tags will only appear
 	in new-feature releases (i.e., those with version numbers
@@ -393,22 +417,28 @@ Change Log
 
 Bug Reports and Mailing Lists
 
-	Bugs reports should be sent to
+	Bug reports should be sent to:
 
 		bind9-bugs@isc.org
 
-	To join the BIND Users mailing list, send mail to
+	Feature requests can be sent to:
 
-		bind-users-request@isc.org
+		bind-suggest@isc.org
 
-	archives of which can be found via
+	To join or view the archives of the BIND Users mailing list,
+	visit:
 
-		http://www.isc.org/ops/lists/
+		https://lists.isc.org/mailman/listinfo/bind-users
 
 	If you're planning on making changes to the BIND 9 source
-	code, you might want to join the BIND Workers mailing list.
-	Send mail to
+	code, you may also want to join the BIND Workers mailing
+	list:
 
-		bind-workers-request@isc.org
+		https://lists.isc.org/mailman/listinfo/bind-workers
+
+	Information on read-only Git access, coding style and developer
+	guidelines can be found at:
+
+		http://www.isc.org/git/
 
 

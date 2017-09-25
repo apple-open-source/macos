@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems/commands/list_command'
 
@@ -8,9 +9,9 @@ class TestGemCommandsListCommand < Gem::TestCase
 
     @cmd = Gem::Commands::ListCommand.new
 
-    util_setup_fake_fetcher
-
-    @si = util_setup_spec_fetcher @a1, @a2, @pl1
+    spec_fetcher do |fetcher|
+      fetcher.spec 'c', 1
+    end
 
     @fetcher.data["#{@gem_repo}Marshal.#{Gem.marshal_version}"] = proc do
       raise Gem::RemoteFetcher::FetchError

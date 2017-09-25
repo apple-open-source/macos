@@ -16,6 +16,11 @@
 	<dict>
 		<key>com.apple.notifyd.matching</key>
 		<dict>
+			<key>kPublicKeyAvailable</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.security.publickeyavailable</string>
+			</dict>
 			<key>com.apple.mobile.keybagd.lock_status</key>
 			<dict>
 				<key>Notification</key>

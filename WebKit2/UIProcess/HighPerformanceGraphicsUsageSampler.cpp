@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HighPerformanceGraphicsUsageSampler.h"
 
+#include "WebPageProxy.h"
 #include "WebProcessPool.h"
 #include <WebCore/DiagnosticLoggingKeys.h>
 
@@ -33,7 +34,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-static const std::chrono::minutes samplingInterval { 10 };
+static const Seconds samplingInterval { 10_min };
 
 HighPerformanceGraphicsUsageSampler::HighPerformanceGraphicsUsageSampler(WebProcessPool& webProcessPool)
     : m_webProcessPool(webProcessPool)
@@ -72,7 +73,7 @@ void HighPerformanceGraphicsUsageSampler::timerFired()
     else if (isUsingHighPerformanceWebGL)
         state = DiagnosticLoggingKeys::activeInBackgroundTabOnlyKey();
 
-    firstPage->logDiagnosticMessage(DiagnosticLoggingKeys::webGLStateKey(), state, false);
+    firstPage->logDiagnosticMessage(DiagnosticLoggingKeys::webGLStateKey(), state, ShouldSample::No);
 }
 
 } // namespace WebKit

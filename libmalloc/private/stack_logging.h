@@ -21,8 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <stdbool.h>
 #import <malloc/malloc.h>
 #import <mach/vm_statistics.h>
+#import <sys/cdefs.h>
+#import <os/availability.h>
 
 #define STACK_LOGGING_MAX_STACK_SIZE 512
 
@@ -65,6 +68,12 @@ typedef enum {
 extern boolean_t turn_on_stack_logging(stack_logging_mode_type mode);
 extern void turn_off_stack_logging();
 
+/* constants for enabling/disabling malloc stack logging via the memorystatus_vm_pressure_send sysctl */
+#define	MEMORYSTATUS_ENABLE_MSL_MALLOC	0x10000000
+#define MEMORYSTATUS_ENABLE_MSL_VM		0x20000000
+#define MEMORYSTATUS_ENABLE_MSL_LITE	0x40000000
+#define MEMORYSTATUS_DISABLE_MSL		0x80000000
+
 extern void __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_t size, uintptr_t ptr_arg, uintptr_t return_val, uint32_t num_hot_to_skip);
 	/* Fits as the malloc_logger; logs malloc/free/realloc events and can log custom events if called directly */
 
@@ -99,8 +108,17 @@ extern kern_return_t __mach_stack_logging_get_frames(task_t task, mach_vm_addres
 extern kern_return_t __mach_stack_logging_enumerate_records(task_t task, mach_vm_address_t address, void enumerator(mach_stack_logging_record_t, void *), void *context);
     /* Applies enumerator to all records involving address sending context as enumerator's second parameter; if !address, applies enumerator to all records */
 
-extern kern_return_t __mach_stack_logging_frames_for_uniqued_stack(task_t task, uint64_t stack_identifier, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count);
-    /* Given a uniqued_stack fills stack_frames_buffer */
+extern kern_return_t __mach_stack_logging_frames_for_uniqued_stack(task_t task, uint64_t stack_identifier, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count)
+	API_DEPRECATED("use __mach_stack_logging_get_frames_for_stackid instead", macos(10.9, 10.13), ios(7.0, 11.0), watchos(1.0, 4.0), tvos(9.0, 11.0));
+    /* Given a uniqued_stack fills stack_frames_buffer. */
+
+extern kern_return_t __mach_stack_logging_get_frames_for_stackid(task_t task, uint64_t stack_identifier, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count,
+                                                                     bool *last_frame_is_threadid)
+	API_AVAILABLE(macos(10.13), ios(11.0), watchos(4.0), tvos(11.0));
+    /* Given a uniqued_stack fills stack_frames_buffer. */
+
+extern uint64_t __mach_stack_logging_stackid_for_vm_region(task_t task, mach_vm_address_t address);
+	/* given the address of a vm region, lookup it's stackid */
 
 
 struct backtrace_uniquing_table;

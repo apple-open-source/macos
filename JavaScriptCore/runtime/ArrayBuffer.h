@@ -31,9 +31,11 @@
 #include <wtf/Function.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
+class VM;
 class ArrayBuffer;
 class ArrayBufferView;
 class JSArrayBuffer;
@@ -109,7 +111,7 @@ public:
     JS_EXPORT_PRIVATE static RefPtr<ArrayBuffer> tryCreate(ArrayBuffer&);
     JS_EXPORT_PRIVATE static RefPtr<ArrayBuffer> tryCreate(const void* source, unsigned byteLength);
 
-    // Only for use by Uint8ClampedArray::createUninitialized and SharedBuffer::createArrayBuffer.
+    // Only for use by Uint8ClampedArray::createUninitialized and SharedBuffer::tryCreateArrayBuffer.
     JS_EXPORT_PRIVATE static Ref<ArrayBuffer> createUninitialized(unsigned numElements, unsigned elementByteSize);
     JS_EXPORT_PRIVATE static RefPtr<ArrayBuffer> tryCreateUninitialized(unsigned numElements, unsigned elementByteSize);
 
@@ -121,7 +123,7 @@ public:
     void setSharingMode(ArrayBufferSharingMode);
     inline bool isShared() const;
     inline ArrayBufferSharingMode sharingMode() const { return isShared() ? ArrayBufferSharingMode::Shared : ArrayBufferSharingMode::Default; }
-    
+
     inline size_t gcSizeEstimateInBytes() const;
 
     JS_EXPORT_PRIVATE RefPtr<ArrayBuffer> slice(int begin, int end) const;
@@ -130,11 +132,17 @@ public:
     inline void pin();
     inline void unpin();
     inline void pinAndLock();
+    inline bool isLocked();
 
-    JS_EXPORT_PRIVATE bool transferTo(ArrayBufferContents&);
+    void makeWasmMemory();
+    inline bool isWasmMemory();
+
+    JS_EXPORT_PRIVATE bool transferTo(VM&, ArrayBufferContents&);
     JS_EXPORT_PRIVATE bool shareWith(ArrayBufferContents&);
+
+    void neuter(VM&);
     bool isNeutered() { return !m_contents.m_data; }
-    
+
     static ptrdiff_t offsetOfData() { return OBJECT_OFFSETOF(ArrayBuffer, m_contents) + OBJECT_OFFSETOF(ArrayBufferContents, m_data); }
 
     ~ArrayBuffer() { }
@@ -148,9 +156,14 @@ private:
     inline unsigned clampIndex(int index) const;
     static inline int clampValue(int x, int left, int right);
 
+    void notifyIncommingReferencesOfTransfer(VM&);
+
     ArrayBufferContents m_contents;
-    unsigned m_pinCount : 31;
-    bool m_locked : 1; // m_locked == true means that some API user fetched m_contents directly from a TypedArray object.
+    unsigned m_pinCount : 30;
+    bool m_isWasmMemory : 1;
+    // m_locked == true means that some API user fetched m_contents directly from a TypedArray object,
+    // the buffer is backed by a WebAssembly.Memory, or is a SharedArrayBuffer.
+    bool m_locked : 1;
 
 public:
     Weak<JSArrayBuffer> m_wrapper;
@@ -214,6 +227,18 @@ void ArrayBuffer::pinAndLock()
 {
     m_locked = true;
 }
+
+bool ArrayBuffer::isLocked()
+{
+    return m_locked;
+}
+
+bool ArrayBuffer::isWasmMemory()
+{
+    return m_isWasmMemory;
+}
+
+JS_EXPORT_PRIVATE ASCIILiteral errorMesasgeForTransfer(ArrayBuffer*);
 
 } // namespace JSC
 

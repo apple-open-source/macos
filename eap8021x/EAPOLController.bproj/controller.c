@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -137,6 +137,8 @@ typedef struct eapolClient_s {
     CFDictionaryRef		loginwindow_config;
     CFSocketRef			eapol_sock;
     int				eapol_fd;
+    boolean_t			using_global_system_profile;
+    boolean_t			autodetect_can_start_system_mode;
 #define BAD_IDENTIFIER		(-1)
     int				packet_identifier;
     struct ether_addr		authenticator_mac;
@@ -391,6 +393,7 @@ eapolClientAdd(const char * if_name, boolean_t is_wifi)
 #if ! TARGET_OS_EMBEDDED
     client->eapol_fd = -1;
     client->packet_identifier = BAD_IDENTIFIER;
+    client->autodetect_can_start_system_mode = !is_wifi;
 #endif /* ! TARGET_OS_EMBEDDED */
     LIST_INSERT_HEAD(S_clientHead_p, client, link);
     return (client);
@@ -423,6 +426,7 @@ eapolClientInvalidate(eapolClientRef client)
     client->ports_provided = FALSE;
 #if ! TARGET_OS_EMBEDDED
     client->packet_identifier = BAD_IDENTIFIER;
+    client->using_global_system_profile = FALSE;
 #endif /* ! TARGET_OS_EMBEDDED */
     my_CFRelease(&client->notification_key);
     my_CFRelease(&client->force_renew_key);
@@ -589,7 +593,32 @@ S_if_get_link_active(const char * if_name)
 static void
 handle_config_changed(boolean_t start_system_mode);
 
+static int
+eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
+		 CFDictionaryRef config_dict, mach_port_t bootstrap,
+		 mach_port_t au_session);
+
 #define RECV_SIZE	1600
+
+static CFDictionaryRef
+copy_system_ethernet_configuration(void)
+{
+    EAPOLClientConfigurationRef eap_client_cfg = EAPOLClientConfigurationCreate(NULL);
+    CFDictionaryRef		profile_config = NULL;
+    EAPOLClientProfileRef	profile = NULL;
+
+    if (eap_client_cfg == NULL) {
+	return NULL;
+    }
+    profile = EAPOLClientConfigurationGetSystemEthernetProfile(eap_client_cfg);
+    if (profile == NULL) {
+	goto done;
+    }
+    profile_config = S_profile_copy_itemID_dict(profile);
+done:
+    my_CFRelease(&eap_client_cfg);
+    return profile_config;
+}
 
 static void
 monitoring_callback(CFSocketRef s, CFSocketCallBackType type, 
@@ -631,6 +660,20 @@ monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
     if (S_store != NULL) {
 	SCDynamicStoreNotifyValue(S_store, 
 				  kEAPOLControlAutoDetectInformationNotifyKey);
+    }
+    /* check if we can start system mode */
+    if (client->autodetect_can_start_system_mode == TRUE) {
+	CFDictionaryRef system_eth_config = copy_system_ethernet_configuration();
+	if (system_eth_config != NULL && client->state == kEAPOLControlStateIdle) {
+	    EAPLOG(LOG_DEBUG, "starting 802.1X authentication with system ethernet profile");
+	    int status = eapolClientStart(client, 0, 0, system_eth_config, MACH_PORT_NULL, MACH_PORT_NULL);
+	    if (status != 0) {
+		EAPLOG(LOG_ERR, " eapolClientStart (%s) failed %d", client->if_name, status);
+	    } else {
+		client->using_global_system_profile = TRUE;
+	    }
+	}
+	my_CFRelease(&system_eth_config);
     }
     return;
 }
@@ -1151,6 +1194,10 @@ ControllerStop(if_name_t if_name, uid_t uid, gid_t gid)
 					   CFSTR("AllowStop"), TRUE))
 		&& (uid == login_window_uid() || is_console_user(uid))) {
 		/* allow the change */
+		if (is_console_user(uid)) {
+		    /* console user stopped us, don't automatically start system mode */
+		    client->autodetect_can_start_system_mode = FALSE;
+		}
 	    }
 	    else {
 		status = EPERM;
@@ -1348,6 +1395,7 @@ ControllerStartSystem(if_name_t if_name, uid_t uid, gid_t gid,
 	}
     }
     /* start system mode over the specific interface */
+    client->using_global_system_profile = FALSE;
     status = eapolClientStart(client, 0, 0, dict, MACH_PORT_NULL,
 			      MACH_PORT_NULL);
 
@@ -1823,46 +1871,49 @@ handle_wifi_device_attach(WiFiManagerClientRef manager,
     EAPLOG_FL(LOG_DEBUG, "Wi-Fi device attached.");
     S_wifi_power_state = WiFiDeviceClientGetPower(device);
     WiFiDeviceClientRegisterPowerCallback(device, handle_wifi_switch_toggle, NULL);
+    /* schedule the invocation of the callback on the configd plugin thread runloop */
+    WiFiManagerClientScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    return;
+}
+
+static void
+register_wifi_device_attachment(WiFiManagerClientRef manager)
+{
+    WiFiManagerClientRegisterDeviceAttachmentCallback(manager,
+						      handle_wifi_device_attach,
+						      NULL);
+    WiFiManagerClientScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
     return;
 }
 
 static void
 register_wifi_toggle(void)
 {
-    WiFiManagerClientRef manager;
-    int i;
+    WiFiManagerClientRef manager = NULL;;
+    CFArrayRef wifi_devices = NULL;
     CFIndex count;
 
     manager = get_wifi_manager_client();
     if (manager == NULL) {
 	return;
     }
-
-    CFArrayRef wifi_devices = WiFiManagerClientCopyDevices(manager);
+    wifi_devices = WiFiManagerClientCopyDevices(manager);
     if (wifi_devices == NULL) {
-	goto wait_for_device;
+	register_wifi_device_attachment(manager);
+	return;
     }
     count = CFArrayGetCount(wifi_devices);
-    if (count <= 0) {
-	goto wait_for_device;
-    }
-    for (i = 0; i < count; i++) {
+    for (CFIndex i = 0; i < count; i++) {
 	WiFiDeviceClientRef wifi_device = (WiFiDeviceClientRef)CFArrayGetValueAtIndex(wifi_devices, i);
 	if (wifi_device) {
 	    S_wifi_power_state = WiFiDeviceClientGetPower(wifi_device);
 	    WiFiDeviceClientRegisterPowerCallback(wifi_device, handle_wifi_switch_toggle, NULL);
+	    /* schedule the invocation of the callback on the configd plugin thread runloop */
 	    WiFiManagerClientScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 	    break;
 	}
     }
-    return;
-
-wait_for_device:
-    WiFiManagerClientRegisterDeviceAttachmentCallback(manager,
-						      handle_wifi_device_attach,
-						      NULL);
-    WiFiManagerClientScheduleWithRunLoop(manager, CFRunLoopGetCurrent(),
-					 kCFRunLoopDefaultMode);
+    my_CFRelease(&wifi_devices);
     return;
 }
 
@@ -1903,10 +1954,18 @@ console_user_changed()
 		/* user logged out or fast-user switch */
 		(void)eapolClientStop(scan);
 		clear_loginwindow_config(scan);
+		if (user == NULL && !scan->is_wifi) {
+		    /* enable the global system mode in absence of console user */
+		    scan->autodetect_can_start_system_mode = TRUE;
+		}
 	    }
 	}
 	else if (user == NULL) {
 	    clear_loginwindow_config(scan);
+	    if (!scan->is_wifi) {
+		/* enable the global system mode in absence of console user */
+		scan->autodetect_can_start_system_mode = TRUE;
+	    }
 	}
     }
     my_CFRelease(&user);
@@ -2159,12 +2218,14 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 		continue;
 	    }
 	    if (this_config == NULL) {
-		/* interface is no longer in System mode */
-		status = eapolClientStop(scan);
-		if (status != 0) {
-		    EAPLOG(LOG_NOTICE, "EAPOLController handle_config_changed:"
-			   " eapolClientStop (%s) failed %d", 
-			   scan->if_name, status);
+		if (scan->using_global_system_profile == FALSE) {
+		    /* interface is no longer in System mode */
+		    status = eapolClientStop(scan);
+		    if (status != 0) {
+			EAPLOG(LOG_NOTICE, "EAPOLController handle_config_changed:"
+			       " eapolClientStop (%s) failed %d",
+			       scan->if_name, status);
+		    }
 		}
 	    }
 	    else {
@@ -2175,6 +2236,8 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 			       "EAPOLController handle_config_changed: "
 			       "eapolClientUpdate (%s) failed %d",
 			       scan->if_name, status);
+		    } else {
+			scan->using_global_system_profile = FALSE;
 		    }
 		}
 	    }
@@ -2226,6 +2289,8 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 			   "EAPOLController handle_config_changed:"
 			   " eapolClientStart (%s) failed %d",
 			   client->if_name, status);
+		} else {
+		    client->using_global_system_profile = FALSE;
 		}
 	    }
 	    free(if_name);
@@ -2418,12 +2483,15 @@ handle_link_changed(CFStringRef if_name)
 	   link_active ? "" : "in");
     if (link_active == FALSE) {
 	client->packet_identifier = BAD_IDENTIFIER;
-    }
+    } else {
+	if (!client->is_wifi) {
+	    /* enable the global system mode as the ethernet link is active */
+	    client->autodetect_can_start_system_mode = TRUE;
+	}
 #ifdef SEND_EAPOL_START
-    else {
 	eapolClientTransmitStart(client);
-    }
 #endif /* SEND_EAPOL_START */
+    }
     return;
 }
 
@@ -2573,6 +2641,111 @@ ControllerThread(void * arg)
     return (arg);
 }
 
+STATIC void
+handle_system_ethernet_config_change(Boolean uninstalled)
+{
+    if (uninstalled == TRUE) {
+	eapolClientRef	scan;
+	/* should stop the eapolclient */
+	LIST_FOREACH(scan, S_clientHead_p, link) {
+	    if (scan->mode == kEAPOLControlModeSystem &&
+		scan->using_global_system_profile == TRUE) {
+		scan->using_global_system_profile = FALSE;
+		(void)eapolClientStop(scan);
+	    }
+	}
+    } else {
+	eapolClientRef			scan;
+	EAPOLClientConfigurationRef	eapol_client_cfg = NULL;
+	EAPOLClientProfileRef		profile = NULL;
+	CFDictionaryRef			config = NULL;
+
+	eapol_client_cfg = EAPOLClientConfigurationCreate(NULL);
+	if (eapol_client_cfg == NULL) {
+	    return;
+	}
+	profile = EAPOLClientConfigurationGetSystemEthernetProfile(eapol_client_cfg);
+	if (profile == NULL) {
+	    return;
+	}
+	config = S_profile_copy_itemID_dict(profile);
+	if (config == NULL) {
+	    return;
+	}
+	LIST_FOREACH(scan, S_clientHead_p, link) {
+	    if (scan->state == kEAPOLControlStateIdle
+		&& scan->eapol_fd != -1
+		&& scan->packet_identifier != BAD_IDENTIFIER) {
+		int status = eapolClientStart(scan, 0, 0, config, MACH_PORT_NULL, MACH_PORT_NULL);
+		if (status != 0) {
+		    EAPLOG(LOG_NOTICE, " eapolClientStart (%s) failed %d", scan->if_name, status);
+		} else {
+		    scan->using_global_system_profile = TRUE;
+		}
+	    }
+	}
+	my_CFRelease(&eapol_client_cfg);
+	my_CFRelease(&config);
+    }
+    return;
+}
+
+static CFStringRef S_global_system_profile_id = NULL;
+static SCPreferencesRef S_eap_prefs = NULL;
+
+STATIC void
+system_ethernet_prefs_changed(SCPreferencesRef prefs, SCPreferencesNotification type,
+			      void * info)
+{
+    EAPOLClientConfigurationRef	    cfg = NULL;
+    EAPOLClientProfileRef	    profile = NULL;
+
+    cfg = EAPOLClientConfigurationCreate(NULL);
+    if (cfg == NULL) {
+	return;
+    }
+    profile = EAPOLClientConfigurationGetSystemEthernetProfile(cfg);
+    if (profile == NULL) {
+	if (S_global_system_profile_id != NULL) {
+	    my_CFRelease(&S_global_system_profile_id);
+	    EAPLOG(LOG_DEBUG, "system ethernet profile was uninstalled.");
+	    handle_system_ethernet_config_change(TRUE);
+	}
+	goto done;
+    }
+    CFStringRef profile_id = EAPOLClientProfileGetID(profile);
+    if (S_global_system_profile_id == NULL || my_CFEqual(profile_id, S_global_system_profile_id) == FALSE) {
+	/* global system ethernet profile changed */
+	EAPLOG(LOG_DEBUG, "global system ethernet profile %s", S_global_system_profile_id != NULL ? "changed" : "first time installed");
+	my_CFRelease(&S_global_system_profile_id);
+	S_global_system_profile_id = CFStringCreateCopy(NULL, profile_id);
+	handle_system_ethernet_config_change(FALSE);
+    }
+done:
+    my_CFRelease(&cfg);
+    return;
+}
+
+static void
+register_system_ethernet_prefs_change(void)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+
+    cfg = EAPOLClientConfigurationCreate(NULL);
+    if (cfg != NULL) {
+	EAPOLClientProfileRef profile = EAPOLClientConfigurationGetSystemEthernetProfile(cfg);
+	if (profile != NULL) {
+	    S_global_system_profile_id = EAPOLClientProfileGetID(profile);
+	}
+	my_CFRelease(&cfg);
+    }
+#define kPrefsName			    CFSTR("EAPOLController")
+#define kEAPOLClientConfigurationPrefsID    CFSTR("com.apple.network.eapolclient.configuration.plist")
+    S_eap_prefs = SCPreferencesCreate(NULL, kPrefsName, kEAPOLClientConfigurationPrefsID);
+    SCPreferencesSetCallback(S_eap_prefs, system_ethernet_prefs_changed, NULL);
+    SCPreferencesScheduleWithRunLoop(S_eap_prefs, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
+}
+
 #endif /* TARGET_OS_EMBEDDED */
 
 
@@ -2663,7 +2836,8 @@ start(const char *bundleName, const char *bundleDir)
     S_store = dynamic_store_create();
 #if TARGET_OS_EMBEDDED
     register_sim_removal();
-    register_wifi_toggle();
+#else
+    register_system_ethernet_prefs_change();
 #endif
     return;
 }
@@ -2675,5 +2849,8 @@ prime()
 	return;
     }
     ControllerBegin();
+#if TARGET_OS_EMBEDDED
+    register_wifi_toggle();
+#endif
     return;
 }

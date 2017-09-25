@@ -36,6 +36,7 @@
 #import "WebProcessProxy.h"
 #import <WebCore/MachSendRight.h>
 #import <WebCore/QuartzCoreSPI.h>
+#import <wtf/BlockPtr.h>
 
 using namespace IPC;
 using namespace WebCore;
@@ -68,19 +69,6 @@ void TiledCoreAnimationDrawingAreaProxy::sizeDidChange()
         return;
 
     sendUpdateGeometry();
-}
-
-void TiledCoreAnimationDrawingAreaProxy::waitForPossibleGeometryUpdate(Seconds timeout)
-{
-#if !HAVE(COREANIMATION_FENCES)
-    if (!m_isWaitingForDidUpdateGeometry)
-        return;
-
-    if (m_webPageProxy.process().state() != WebProcessProxy::State::Running)
-        return;
-
-    m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::DrawingAreaProxy::DidUpdateGeometry>(m_webPageProxy.pageID(), timeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
-#endif
 }
 
 void TiledCoreAnimationDrawingAreaProxy::colorSpaceDidChange()
@@ -152,7 +140,6 @@ void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
 
 MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
 {
-#if HAVE(COREANIMATION_FENCES)
     if (!m_webPageProxy.isValid())
         return MachSendRight();
 
@@ -177,8 +164,7 @@ MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
     // Invalidate the fence if a synchronous message arrives while it's installed,
     // because we won't be able to reply during the fence-wait.
     uint64_t callbackID = m_webPageProxy.process().connection()->installIncomingSyncMessageCallback([rootLayerContext] {
-        if ([rootLayerContext respondsToSelector:@selector(invalidateFences)])
-            [rootLayerContext invalidateFences];
+        [rootLayerContext invalidateFences];
     });
     RefPtr<WebPageProxy> retainedPage = &m_webPageProxy;
     [CATransaction addCommitHandler:[callbackID, retainedPage] {
@@ -189,9 +175,6 @@ MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
     } forPhase:kCATransactionPhasePostCommit];
 
     return fencePort;
-#else
-    return MachSendRight();
-#endif
 }
 
 void TiledCoreAnimationDrawingAreaProxy::sendUpdateGeometry()
@@ -212,12 +195,12 @@ void TiledCoreAnimationDrawingAreaProxy::commitTransientZoom(double scale, Float
     m_webPageProxy.process().send(Messages::DrawingArea::CommitTransientZoom(scale, origin), m_webPageProxy.pageID());
 }
 
-void TiledCoreAnimationDrawingAreaProxy::dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)> callback)
+void TiledCoreAnimationDrawingAreaProxy::dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&& callback)
 {
     // This callback is primarily used for testing in RemoteLayerTreeDrawingArea. We could in theory wait for a CA commit here.
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(dispatch_get_main_queue(), BlockPtr<void ()>::fromCallable([callback = WTFMove(callback)] {
         callback(CallbackBase::Error::None);
-    });
+    }).get());
 }
 
 } // namespace WebKit

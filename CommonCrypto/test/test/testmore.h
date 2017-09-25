@@ -23,7 +23,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 #define TM_UNUSED CC_UNUSED
     
     /* This is included here, because its already included by all the test case */
@@ -62,7 +62,15 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wshadow"
     
 #define diag_linereturn() fputs("\n", stderr);
-    
+
+#define cc_print(label, count, s) { \
+printf("%s { %zu, ",(const char*)label, (size_t)count); \
+for (size_t ix=0; ix<(size_t)count ; ix++) { \
+printf("%.02x", ((const unsigned char*)s)[ix]); \
+} \
+printf("}\n"); \
+}\
+
 #define ok(THIS, args...) \
 test_ok(!!(THIS), NULL, test_directive, test_reason, \
 __FILE__, __LINE__, args)

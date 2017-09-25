@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -105,7 +105,7 @@ OSStatus HIDGetData(void * report, IOByteCount iReportLength,
 		// 					1					7			(x % 8)
 		//			     0000 0100			1 0000 0000		(1 << (x + 1))
 		//				 0000 0011			0 1111 1111		(x - 1)
-		if (iCurrentByte == iLastByte)
+		if (iCurrentByte == (int)iLastByte)
 			iMask = ((1 << (((unsigned) iLastBit % 8) + 1)) - 1);
 
         data |= (unsigned) psReport[iCurrentByte] & iMask;

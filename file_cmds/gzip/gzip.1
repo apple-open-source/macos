@@ -1,4 +1,4 @@
-.\"	$NetBSD: gzip.1,v 1.21 2011/06/19 02:22:36 christos Exp $
+.\"	$NetBSD: gzip.1,v 1.26 2015/10/27 07:36:18 mrg Exp $
 .\"
 .\" Copyright (c) 1997, 2003, 2004 Matthew R. Green
 .\" All rights reserved.
@@ -24,8 +24,8 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/gzip/gzip.1,v 1.11 2011/10/10 06:37:32 delphij Exp $
-.Dd October 9, 2011
+.\" $FreeBSD: head/usr.bin/gzip/gzip.1 290073 2015-10-27 21:26:05Z delphij $
+.Dd October 26, 2015
 .Dt GZIP 1
 .Os
 .Sh NAME
@@ -101,17 +101,14 @@ then both the
 and
 .Fl d
 options are enabled.
-When invoked as
-.Nm zcat ,
-.Dq .Z
-will be appended to all filenames that do not have that suffix.
 .Pp
 This version of
 .Nm
 is also capable of decompressing files compressed using
-.Xr compress 1
+.Xr compress 1 ,
+.Xr bzip2 1 ,
 or
-.Xr bzip2 1 .
+.Xr xz 1 .
 .Sh OPTIONS
 The following options are available:
 .Bl -tag -width XXrXXXrecursiveX
@@ -139,7 +136,7 @@ option, allowing non-compressed data to pass through unchanged.
 .It Fl h , -help
 This option prints a usage summary and exits.
 .It Fl k , -keep
-Keep (don't delete) input files during compression
+Keep (do not delete) input files during compression
 or decompression.
 .It Fl L , -license
 This option prints
@@ -186,13 +183,18 @@ is set, it is parsed as a white-space separated list of options
 handled before any options on the command line.
 Options on the command line will override anything in
 .Ev GZIP .
+.Sh EXIT STATUS
+The
+.Nm
+utility exits 0 on success,
+1 on errors,
+and 2 if a warning occurs.
 .Sh SEE ALSO
 .Xr bzip2 1 ,
 .Xr compress 1 ,
 .Xr xz 1 ,
 .Xr fts 3 ,
-.Xr zlib 3 ,
-.Xr compat 5
+.Xr zlib 3
 .Sh HISTORY
 The
 .Nm
@@ -219,12 +221,12 @@ and first appeared in
 This implementation of
 .Nm
 was written by
-.An Matthew R. Green Aq mrg@eterna.com.au
+.An Matthew R. Green Aq Mt mrg@eterna.com.au
 with unpack support written by
-.An Xin LI Aq delphij@FreeBSD.org .
+.An Xin LI Aq Mt delphij@FreeBSD.org .
 .Sh BUGS
 According to RFC 1952, the recorded file size is stored in a 32-bit
-integer, therefore, it can not represent files larger than 4GB.
+integer, therefore, it cannot represent files larger than 4GB.
 This limitation also applies to
 .Fl l
 option of

@@ -53,18 +53,18 @@ namespace WebKit {
 // The plug-in that we're currently calling NPP_New for.
 static NetscapePlugin* currentNPPNewPlugin;
 
-RefPtr<NetscapePlugin> NetscapePlugin::create(PassRefPtr<NetscapePluginModule> pluginModule)
+RefPtr<NetscapePlugin> NetscapePlugin::create(RefPtr<NetscapePluginModule>&& pluginModule)
 {
     if (!pluginModule)
         return nullptr;
 
-    return adoptRef(*new NetscapePlugin(pluginModule));
+    return adoptRef(*new NetscapePlugin(pluginModule.releaseNonNull()));
 }
     
-NetscapePlugin::NetscapePlugin(PassRefPtr<NetscapePluginModule> pluginModule)
+NetscapePlugin::NetscapePlugin(Ref<NetscapePluginModule>&& pluginModule)
     : Plugin(NetscapePluginType)
     , m_nextRequestID(0)
-    , m_pluginModule(pluginModule)
+    , m_pluginModule(WTFMove(pluginModule))
     , m_npWindow()
     , m_isStarted(false)
 #if PLATFORM(COCOA)
@@ -169,7 +169,7 @@ void NetscapePlugin::loadURL(const String& method, const String& urlString, cons
 
     if (target.isNull()) {
         // The browser is going to send the data in a stream, create a plug-in stream.
-        auto pluginStream = NetscapePluginStream::create(this, requestID, urlString, sendNotification, notificationData);
+        auto pluginStream = NetscapePluginStream::create(*this, requestID, urlString, sendNotification, notificationData);
         ASSERT(!m_streams.contains(requestID));
 
         m_streams.set(requestID, WTFMove(pluginStream));
@@ -326,7 +326,7 @@ NetscapePlugin::Timer::~Timer()
 
 void NetscapePlugin::Timer::start()
 {
-    double timeInterval = m_interval / 1000.0;
+    Seconds timeInterval = 1_ms * m_interval;
 
     if (m_repeat)
         m_timer.startRepeating(timeInterval);
@@ -897,7 +897,7 @@ void NetscapePlugin::manualStreamDidReceiveResponse(const URL& responseURL, uint
     ASSERT(m_shouldUseManualLoader);
     ASSERT(!m_manualStream);
     
-    m_manualStream = NetscapePluginStream::create(this, 0, responseURL.string(), false, 0);
+    m_manualStream = NetscapePluginStream::create(*this, 0, responseURL.string(), false, 0);
     m_manualStream->didReceiveResponse(responseURL, streamLength, lastModifiedTime, mimeType, headers);
 }
 
@@ -1102,7 +1102,7 @@ Scrollbar* NetscapePlugin::verticalScrollbar()
 bool NetscapePlugin::supportsSnapshotting() const
 {
 #if PLATFORM(COCOA)
-    return m_pluginModule && m_pluginModule->pluginQuirks().contains(PluginQuirks::SupportsSnapshotting);
+    return m_pluginModule->pluginQuirks().contains(PluginQuirks::SupportsSnapshotting);
 #endif
     return false;
 }

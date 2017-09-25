@@ -64,6 +64,8 @@ public:
 	void prepareForSigning(SigningContext &context);
 	size_t signingBase();
 	size_t signingLimit();
+	size_t execSegBase(const Architecture *arch);
+	size_t execSegLimit(const Architecture *arch);
 	std::string format();
 	CFArrayRef modifiedFiles();
 	UnixPlusPlus::FileDesc &fd();

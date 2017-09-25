@@ -29,8 +29,6 @@
 #include "config.h"
 #include "DatabaseTracker.h"
 
-#include "Chrome.h"
-#include "ChromeClient.h"
 #include "Database.h"
 #include "DatabaseContext.h"
 #include "DatabaseManager.h"
@@ -40,16 +38,15 @@
 #include "FileSystem.h"
 #include "Logging.h"
 #include "OriginLock.h"
-#include "Page.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginData.h"
 #include "SecurityOriginHash.h"
 #include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
-#include "UUID.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/UUID.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -779,25 +776,28 @@ void DatabaseTracker::deleteAllDatabasesImmediately()
 void DatabaseTracker::deleteDatabasesModifiedSince(std::chrono::system_clock::time_point time)
 {
     for (auto& origin : origins()) {
-        bool deletedAll = true;
-        for (auto& databaseName : databaseNames(origin)) {
+        Vector<String> databaseNames = this->databaseNames(origin);
+        Vector<String> databaseNamesToDelete;
+        databaseNamesToDelete.reserveInitialCapacity(databaseNames.size());
+        for (const auto& databaseName : databaseNames) {
             auto fullPath = fullPathForDatabase(origin, databaseName, false);
 
             time_t modificationTime;
-            if (!getFileModificationTime(fullPath, modificationTime)) {
-                deletedAll = false;
+            if (!getFileModificationTime(fullPath, modificationTime))
                 continue;
-            }
 
-            if (modificationTime < std::chrono::system_clock::to_time_t(time)) {
-                deletedAll = false;
+            if (modificationTime < std::chrono::system_clock::to_time_t(time))
                 continue;
-            }
 
-            deleteDatabase(origin, databaseName);
+            databaseNamesToDelete.uncheckedAppend(databaseName);
         }
-        if (deletedAll)
+
+        if (databaseNames.size() == databaseNamesToDelete.size())
             deleteOrigin(origin);
+        else {
+            for (const auto& databaseName : databaseNamesToDelete)
+                deleteDatabase(origin, databaseName);
+        }
     }
 }
 
@@ -1216,7 +1216,7 @@ bool DatabaseTracker::deleteDatabaseFileIfEmpty(const String& path)
     if (!database.open(path))
         return false;
     
-    // Specify that we want the exclusive locking mode, so after the next read,
+    // Specify that we want the exclusive locking mode, so after the next write,
     // we'll be holding the lock to this database file.
     SQLiteStatement lockStatement(database, "PRAGMA locking_mode=EXCLUSIVE;");
     if (lockStatement.prepare() != SQLITE_OK)
@@ -1226,21 +1226,18 @@ bool DatabaseTracker::deleteDatabaseFileIfEmpty(const String& path)
         return false;
     lockStatement.finalize();
 
-    // Every sqlite database has a sqlite_master table that contains the schema for the database.
-    // http://www.sqlite.org/faq.html#q7
-    SQLiteStatement readStatement(database, "SELECT * FROM sqlite_master LIMIT 1;");    
-    if (readStatement.prepare() != SQLITE_OK)
+    if (!database.executeCommand("BEGIN EXCLUSIVE TRANSACTION;"))
         return false;
-    // We shouldn't expect any result.
-    if (readStatement.step() != SQLITE_DONE)
+
+    // At this point, we hold the exclusive lock to this file.
+    // Check that the database doesn't contain any tables.
+    if (!database.executeCommand("SELECT name FROM sqlite_master WHERE type='table';"))
         return false;
-    readStatement.finalize();
-    
-    // At this point, we hold the exclusive lock to this file.  Double-check again to make sure
-    // it's still zero bytes.
-    if (!isZeroByteFile(path))
-        return false;
-    
+
+    database.executeCommand("COMMIT TRANSACTION;");
+
+    database.close();
+
     return SQLiteFileSystem::deleteDatabaseFile(path);
 }
 

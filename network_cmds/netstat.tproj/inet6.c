@@ -364,12 +364,11 @@ static const char *srcrulenames[IP6S_SRCRULE_COUNT] = {
 	"avoid deprecated addresses",	// IP6S_SRCRULE_3
 	"prefer home addresses",	// IP6S_SRCRULE_4
 	"prefer outgoing interface",	// IP6S_SRCRULE_5
-	"prefer addresses in a prefix advertised by the next-hop",
-					// IP6S_SRCRULE_5_5
 	"prefer matching label",	// IP6S_SRCRULE_6
 	"prefer temporary addresses",	// IP6S_SRCRULE_7
 	"prefer addresses on alive interfaces",	// IP6S_SRCRULE_7x
 	"use longest matching prefix",	// IP6S_SRCRULE_8
+	NULL,
 	NULL,
 	NULL,
 	NULL,
@@ -485,6 +484,7 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p(ip6s_ofragments, "\t\t%llu fragment%s created\n");
 	p(ip6s_cantfrag, "\t\t%llu datagram%s that can't be fragmented\n");
 	p(ip6s_badscope, "\t\t%llu packet%s that violated scope rules\n");
+	p(ip6s_necp_policy_drop, "\t\t%llu packet%s dropped due to NECP policy\n");
 
 #define OUTPERFDIFF(f) (out_net_perf.f - pout_net_perf.f)
 	if (OUTPERFDIFF(np_total_pkts) > 0 && out_net_perf.np_total_usecs > 0) {
@@ -692,6 +692,10 @@ ip6_ifstats(char *ifname)
 	p(ifs6_in_mcast, "\t%llu multicast datagram%s received\n");
 	p(ifs6_out_mcast, "\t%llu multicast datagram%s sent\n");
 
+	p(ifs6_cantfoward_icmp6, "\t%llu ICMPv6 packet%s received for unreachable destination\n");
+	p(ifs6_addr_expiry_cnt, "\t%llu address expiry event%s reported\n");
+	p(ifs6_pfx_expiry_cnt, "\t%llu prefix expiry event%s reported\n");
+	p(ifs6_defrtr_expiry_cnt, "\t%llu default router expiry event%s reported\n");
   end:
 	close(s);
 

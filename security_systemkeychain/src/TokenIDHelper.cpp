@@ -226,8 +226,6 @@ int unlockToken(const char *password)
 	{
 		SecKeychainRef keychainRef = (SecKeychainRef)CFArrayGetValueAtIndex(searchList, 0);	// only first dynamic keychain!
 		status = SecKeychainUnlock(keychainRef, (UInt32)strlen(password), password, 1);
-		if (keychainRef)
-			CFRelease(keychainRef);
 	}
 	else
 		status = errSecNoSuchKeychain;
@@ -306,7 +304,7 @@ bool encryptionEnabled(SecKeyRef privateKeyRef)
 		break;
 	}
 
-	status = SecKeychainItemFreeAttributesAndData(attrList, NULL);
+	(void)SecKeychainItemFreeAttributesAndData(attrList, NULL);
 	return canEncrypt;
 }
 

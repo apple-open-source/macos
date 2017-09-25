@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
  * COPYRIGHT: 
  * Copyright (c) 2004-2015, International Business Machines Corporation and
@@ -160,6 +162,7 @@ static void TestUTextAPI(void);
 static void TestRefreshInput(void);
 static void TestBug8421(void);
 static void TestBug10815(void);
+static void TestMatchStartLineWithEmptyText(void);
 
 void addURegexTest(TestNode** root);
 
@@ -171,6 +174,7 @@ void addURegexTest(TestNode** root)
     addTest(root, &TestRefreshInput, "regex/TestRefreshInput");
     addTest(root, &TestBug8421,   "regex/TestBug8421");
     addTest(root, &TestBug10815,   "regex/TestBug10815");
+    addTest(root, &TestMatchStartLineWithEmptyText,   "regex/TestMatchStartLineWithEmptyText");
 }
 
 /*
@@ -2303,5 +2307,26 @@ static void TestBug10815() {
     uregex_close(re);
 }
 
+static const UChar startLinePattern[] = { 0x5E, 0x78, 0 }; // "^x"
+
+static void TestMatchStartLineWithEmptyText() {
+    UErrorCode status = U_ZERO_ERROR;
+    UText* ut = utext_openUChars(NULL, NULL, 0, &status);
+    TEST_ASSERT_SUCCESS(status);
+    if (U_SUCCESS(status)) {
+        URegularExpression *re = uregex_open(startLinePattern, -1, 0, NULL, &status);
+        TEST_ASSERT_SUCCESS(status);
+        if (U_SUCCESS(status)) {
+            uregex_setUText(re, ut, &status);
+            TEST_ASSERT(U_SUCCESS(status));
+            if (U_SUCCESS(status)) {
+                UBool found = uregex_findNext(re, &status);
+                TEST_ASSERT(U_SUCCESS(status) && !found);
+            }
+            uregex_close(re);
+        }
+        utext_close(ut);
+    }
+}
     
 #endif   /*  !UCONFIG_NO_REGULAR_EXPRESSIONS */

@@ -1436,7 +1436,7 @@ dtrace_update(dtrace_hdl_t *dtp)
 
 	/*
 	 * If this is the first time we are initializing the module list,
-	 * remove the module for genunix from the module list and then move it
+	 * remove the module for mach_kernel from the module list and then move it
 	 * to the front of the module list.  We do this so that type and symbol
 	 * queries encounter genunix and thereby optimize for the common case
 	 * in dtrace_lookup_by_name() and dtrace_lookup_by_type(), below.

@@ -18,7 +18,7 @@
 #include <corecrypto/ccrng.h>
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccdh_gp.h>
-
+#include <utilities/debugging.h>
 #include <CommonCrypto/CommonRandomSPI.h>
 
 typedef enum {
@@ -36,6 +36,8 @@ typedef enum {
 @property (readonly) KCAESGCMDuplexSession* session;
 @property (readonly) KCJoiningAcceptSessionState state;
 @property (readwrite) NSData* startMessage;
+@property (readwrite) NSString *piggy_uuid;
+@property (readwrite) PiggyBackProtocolVersion piggy_version;
 @end
 
 @implementation KCJoiningAcceptSession
@@ -92,6 +94,8 @@ typedef enum {
     self->_circleDelegate = circleDelegate;
     self->_state = kExpectingA;
     self->_dsid = dsid;
+    self->_piggy_uuid = nil;
+    self->_piggy_version = kPiggyV1;
     
     return self;
 }
@@ -122,7 +126,13 @@ typedef enum {
 }
 
 - (NSData*) processInitialMessage: (NSData*) initialMessage error: (NSError**) error {
-    self.startMessage = extractStartFromInitialMessage(initialMessage, error);
+    uint64_t version = 0;
+    NSString *uuid = nil;
+    
+    self.startMessage = extractStartFromInitialMessage(initialMessage, &version, &uuid, error);
+    self.piggy_uuid = uuid;
+    self.piggy_version = (PiggyBackProtocolVersion)version;
+    
     if (self.startMessage == nil) return nil;
 
     NSData* srpMessage = [self copyChallengeMessage: error];
@@ -182,7 +192,6 @@ typedef enum {
                                         error:error] der];
 }
 
-
 - (NSData*) processApplication: (KCJoiningMessage*) message error:(NSError**) error {
     if ([message type] != kPeerInfo) {
         KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected peerInfo!");
@@ -202,10 +211,19 @@ typedef enum {
 
     NSData* joinData = [self.circleDelegate circleJoinDataFor:ref error:error];
     if (joinData == nil) return nil;
-
+    
+    if(self->_piggy_version == kPiggyV1){
+        //grab iCloud Identity, TLK, BackupV0 thing
+        secnotice("acceptor", "piggy version is 1");
+        NSData* initialSyncData = [self.circleDelegate circleGetInitialSyncViews:error];
+        NSMutableData* growPacket = [[NSMutableData alloc] initWithData:joinData];
+        [growPacket appendData:initialSyncData];
+        joinData = growPacket;
+    }
+    
     NSData* encryptedOutgoing = [self.session encrypt:joinData error:error];
     if (encryptedOutgoing == nil) return nil;
-
+    
     self->_state = kAcceptDone;
 
     return [[KCJoiningMessage messageWithType:kCircleBlob

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1501,7 +1501,7 @@ handle_mntopts(char *opts)
 	if (altflags & ALTF_MUTEJUKEBOX)
 		SETFLAG(NFS_MFLAG_MUTEJUKEBOX, 1);
 	if (altflags & ALTF_NAMEDATTR)
-		SETFLAG(NFS_MFLAG_NONAMEDATTR, 0);
+		SETFLAG(NFS_MFLAG_NAMEDATTR, 1);
 	if (altflags & ALTF_NEGNAMECACHE)
 		SETFLAG(NFS_MFLAG_NONEGNAMECACHE, 0);
 	if (altflags & ALTF_NFC)
@@ -1575,7 +1575,7 @@ handle_mntopts(char *opts)
 	if (altflags & ALTF_MUTEJUKEBOX)
 		SETFLAG(NFS_MFLAG_MUTEJUKEBOX, 0);
 	if (altflags & ALTF_NAMEDATTR)
-		SETFLAG(NFS_MFLAG_NONAMEDATTR, 1);
+		SETFLAG(NFS_MFLAG_NAMEDATTR, 1);
 	if (altflags & ALTF_NEGNAMECACHE)
 		SETFLAG(NFS_MFLAG_NONEGNAMECACHE, 1);
 	if (altflags & ALTF_NFC)
@@ -2350,8 +2350,8 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 		printf(",%scallback", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOCALLBACK) ? "no" : "");
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NONEGNAMECACHE) || (verbose > 1))
 		printf(",%snegnamecache", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : "");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NONAMEDATTR) || (verbose > 1))
-		printf(",%snamedattr", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NONAMEDATTR) ? "no" : "");
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NAMEDATTR) || (verbose > 1))
+		printf(",%snamedattr", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no");
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOACL) || (verbose > 1))
 		printf(",%sacl", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOACL) ? "no" : "");
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_ACLONLY) || (verbose > 1))

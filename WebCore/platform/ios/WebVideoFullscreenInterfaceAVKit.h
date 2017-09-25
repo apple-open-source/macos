@@ -24,23 +24,21 @@
  */
 
 
-#ifndef WebVideoFullscreenInterfaceAVKit_h
-#define WebVideoFullscreenInterfaceAVKit_h
+#pragma once
 
 #if PLATFORM(IOS)
 
 #include "EventListener.h"
 #include "HTMLMediaElementEnums.h"
 #include "PlatformLayer.h"
-#include "Timer.h"
 #include "WebPlaybackSessionInterfaceAVKit.h"
-#include "WebVideoFullscreenInterface.h"
 #include "WebVideoFullscreenModel.h"
-#include <functional>
 #include <objc/objc.h>
+#include <wtf/Function.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/RunLoop.h>
 
 OBJC_CLASS AVPlayerViewController;
 OBJC_CLASS UIViewController;
@@ -63,8 +61,7 @@ class WebVideoFullscreenModel;
 class WebVideoFullscreenChangeObserver;
     
 class WEBCORE_EXPORT WebVideoFullscreenInterfaceAVKit final
-    : public WebVideoFullscreenInterface
-    , public WebVideoFullscreenModelClient
+    : public WebVideoFullscreenModelClient
     , public WebPlaybackSessionModelClient
     , public ThreadSafeRefCounted<WebVideoFullscreenInterfaceAVKit> {
 
@@ -103,7 +100,7 @@ public:
     HTMLMediaElementEnums::VideoFullscreenMode mode() const { return m_mode; }
     bool allowsPictureInPicturePlayback() const { return m_allowsPictureInPicturePlayback; }
     WEBCORE_EXPORT bool mayAutomaticallyShowVideoPictureInPicture() const;
-    void fullscreenMayReturnToInline(std::function<void(bool)> callback);
+    void fullscreenMayReturnToInline(WTF::Function<void(bool)>&& callback);
     bool wirelessVideoPlaybackDisabled() const;
     void applicationDidBecomeActive();
 
@@ -140,8 +137,8 @@ protected:
     RetainPtr<UIWindow> m_parentWindow;
     RetainPtr<WebAVPlayerLayerView> m_playerLayerView;
     HTMLMediaElementEnums::VideoFullscreenMode m_mode { HTMLMediaElementEnums::VideoFullscreenModeNone };
-    std::function<void(bool)> m_prepareToInlineCallback;
-    Timer m_watchdogTimer;
+    WTF::Function<void(bool)> m_prepareToInlineCallback;
+    RunLoop::Timer<WebVideoFullscreenInterfaceAVKit> m_watchdogTimer;
     bool m_allowsPictureInPicturePlayback { false };
     bool m_exitRequested { false };
     bool m_exitCompleted { false };
@@ -149,6 +146,7 @@ protected:
     bool m_wirelessVideoPlaybackDisabled { true };
     bool m_shouldReturnToFullscreenWhenStoppingPiP { false };
     bool m_shouldReturnToFullscreenAfterEnteringForeground { false };
+    bool m_restoringFullscreenForPictureInPictureStop { false };
 
     void doEnterFullscreen();
 };
@@ -157,4 +155,3 @@ protected:
 
 #endif
 
-#endif

@@ -112,7 +112,7 @@ int gdAlphaBlend(int dest, int src);
 
  *  GD_BELL				 - Bell
  *  GD_BESSEL			 - Bessel
- *  GD_BILINEAR_FIXED 	 - fixed point bilinear 
+ *  GD_BILINEAR_FIXED 	 - fixed point bilinear
  *  GD_BICUBIC 			 - Bicubic
  *  GD_BICUBIC_FIXED 	 - fixed point bicubic integer
  *  GD_BLACKMAN			 - Blackman
@@ -693,8 +693,6 @@ void gdImageCopyResampled(gdImagePtr dst, gdImagePtr src, int dstX, int dstY, in
 gdImagePtr gdImageRotate90(gdImagePtr src, int ignoretransparent);
 gdImagePtr gdImageRotate180(gdImagePtr src, int ignoretransparent);
 gdImagePtr gdImageRotate270(gdImagePtr src, int ignoretransparent);
-gdImagePtr gdImageRotate45(gdImagePtr src, double dAngle, int clrBack, int ignoretransparent);
-gdImagePtr gdImageRotate (gdImagePtr src, double dAngle, int clrBack, int ignoretransparent);
 gdImagePtr gdImageRotateInterpolated(const gdImagePtr src, const float angle, int bgcolor);
 
 void gdImageSetBrush(gdImagePtr im, gdImagePtr brush);

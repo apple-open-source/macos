@@ -3,14 +3,14 @@
  *
  * This set of APIs abstracts enumeration of directory entries.
  *
- * Copyright 2007-2012 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -338,10 +338,6 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory pointer */
 {
   struct dirent	*entry;			/* Pointer to entry */
   char		filename[1024];		/* Full filename */
-#  ifdef HAVE_PTHREAD_H
-  char		buffer[sizeof(struct dirent) + 1024];
-					/* Directory entry buffer */
-#  endif /* HAVE_PTHREAD_H */
 
 
   DEBUG_printf(("2cupsDirRead(dp=%p)", (void *)dp));
@@ -359,29 +355,8 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory pointer */
 
   for (;;)
   {
-#  ifdef HAVE_PTHREAD_H
    /*
-    * Read the next entry using the reentrant version of readdir...
-    */
-
-    if (readdir_r(dp->dir, (struct dirent *)buffer, &entry))
-    {
-      DEBUG_printf(("3cupsDirRead: readdir_r() failed - %s\n", strerror(errno)));
-      return (NULL);
-    }
-
-    if (!entry)
-    {
-      DEBUG_puts("3cupsDirRead: readdir_r() returned a NULL pointer!");
-      return (NULL);
-    }
-
-    DEBUG_printf(("4cupsDirRead: readdir_r() returned \"%s\"...",
-                  entry->d_name));
-
-#  else
-   /*
-    * Read the next entry using the original version of readdir...
+    * Read the next entry...
     */
 
     if ((entry = readdir(dp->dir)) == NULL)
@@ -391,8 +366,6 @@ cupsDirRead(cups_dir_t *dp)		/* I - Directory pointer */
     }
 
     DEBUG_printf(("4cupsDirRead: readdir() returned \"%s\"...", entry->d_name));
-
-#  endif /* HAVE_PTHREAD_H */
 
    /*
     * Skip "." and ".."...

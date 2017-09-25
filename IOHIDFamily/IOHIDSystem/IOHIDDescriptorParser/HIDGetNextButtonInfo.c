@@ -28,7 +28,7 @@
 
 	Version:	1.0d1
 
-	Copyright:	© 2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -106,7 +106,7 @@ OSStatus HIDGetNextButtonInfo
 	// ptPreparsedData->collections[iCollection]->reportItemCount. Since we want to 
 	// find the NEXT collection as well, we need to cycle through all of the reports.
 
-	for (iR = 0; iR < ptPreparsedData->reportItemCount; iR++)
+	for (iR = 0; iR < (int)ptPreparsedData->reportItemCount; iR++)
 	{
 		SInt32 minUsage;
 		SInt32 maxUsage;
@@ -129,11 +129,11 @@ OSStatus HIDGetNextButtonInfo
 
 		if (ptReportItem->reportType == reportType &&
 			(usagePage == 0 || ptReportItem->globals.usagePage == usagePage) &&
-			(usage >= minUsage && usage <= maxUsage) &&
-			ptReportItem->parent > iCollection &&
+			(usage >= (HIDUsage)minUsage && usage <= (HIDUsage)maxUsage) &&
+			ptReportItem->parent > (SInt32)iCollection &&
 			HIDIsButton(ptReportItem, preparsedDataRef))
 		{
-			if (ptReportItem->parent < newCollection)
+			if (ptReportItem->parent < (SInt32)newCollection)
 			{
 				newCollection = ptReportItem->parent;
 				newReportID = iR;

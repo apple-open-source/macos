@@ -288,7 +288,7 @@ void GraphicsLayerTextureMapper::setContentsToImage(Image* image)
     if (image) {
         // Make the decision about whether the image has changed.
         // This code makes the assumption that pointer equality on a NativeImagePtr is a valid way to tell if the image is changed.
-        // This assumption is true in Qt, GTK and EFL.
+        // This assumption is true for the GTK+ port.
         NativeImagePtr newNativeImagePtr = image->nativeImageForCurrentFrame();
         if (!newNativeImagePtr)
             return;
@@ -468,7 +468,7 @@ void GraphicsLayerTextureMapper::commitLayerChanges()
         m_layer.setFilters(filters());
 
     if (m_changeMask & BackingStoreChange)
-        m_layer.setBackingStore(m_backingStore);
+        m_layer.setBackingStore(m_backingStore.copyRef());
 
     if (m_changeMask & DebugVisualsChange)
         m_layer.setDebugVisuals(isShowingDebugBorder(), debugBorderColor(), debugBorderWidth(), isShowingRepaintCounter());

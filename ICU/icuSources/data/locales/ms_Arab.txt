@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ms_Arab.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ms_Arab{
     %%Parent{"root"}
     AuxExemplarCharacters{"[ڬ ۑ]"}
@@ -82,7 +76,7 @@ ms_Arab{
             }
         }
     }
-    Version{"2.1.19.29"}
+    Version{"2.1.27.40"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -175,19 +169,6 @@ ms_Arab{
                 yMd{"d/M/y"}
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
-            }
-            dayNames{
-                format{
-                    wide{
-                        "احد",
-                        "اثنين",
-                        "ثلاث",
-                        "رابو",
-                        "خميس",
-                        "جمعة",
-                        "سبتو",
-                    }
-                }
             }
             intervalFormats{
                 H{
@@ -282,36 +263,6 @@ ms_Arab{
                     M{"d/M/y – d/M/y"}
                     d{"d/M/y – d/M/y"}
                     y{"d/M/y – d/M/y"}
-                }
-            }
-            quarters{
-                format{
-                    abbreviated{
-                        "سوکو 1",
-                        "سوکو ک-2",
-                        "سوکو ک-3",
-                        "سوکو ک-4",
-                    }
-                    wide{
-                        "سوکو ڤرتام",
-                        "سوکو ک-2",
-                        "سوکو ک-3",
-                        "سوکو ک-4",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "سوکو 1",
-                        "سوکو ک-2",
-                        "سوکو ک-3",
-                        "سوکو ک-4",
-                    }
-                    wide{
-                        "سوکو ڤرتام",
-                        "سوکو ک-2",
-                        "سوکو ک-3",
-                        "سوکو ک-4",
-                    }
                 }
             }
         }

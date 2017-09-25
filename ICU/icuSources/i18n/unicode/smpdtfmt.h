@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 * Copyright (C) 1997-2016, International Business Machines Corporation and
 * others. All Rights Reserved.
@@ -38,6 +40,7 @@
 #include "unicode/tzfmt.h"  /* for UTimeZoneFormatTimeType */
 #include "unicode/brkiter.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class DateFormatSymbols;
@@ -651,7 +654,7 @@ class SimpleDateFormatMutableNFs;
  *         = new SimpleDateFormat ("yyyy.MM.dd G 'at' hh:mm:ss a zzz", success );
  *     GregorianCalendar cal(success);
  *     UDate currentTime_1 = cal.getTime(success);
- *     FieldPosition fp(0);
+ *     FieldPosition fp(FieldPosition::DONT_CARE);
  *     UnicodeString dateString;
  *     formatter->format( currentTime_1, dateString, fp );
  *     cout << "result: " << dateString << endl;
@@ -999,6 +1002,12 @@ public:
      * (Presumably, letters that would be more mnemonic in that locale's
      * language.)  This function would produce a pattern using those
      * letters.
+     * <p>
+     * <b>Note:</b> This implementation depends on DateFormatSymbols::getLocalPatternChars()
+     * to get localized format pattern characters. ICU does not include
+     * localized pattern character data, therefore, unless user sets localized
+     * pattern characters manually, this method returns the same result as
+     * toPattern().
      *
      * @param result    Receives the localized pattern.
      * @param status    Output param set to success/failure code on
@@ -1162,7 +1171,7 @@ public:
      * @param field The UDateFormatField to get
      * @stable ICU 54
      */
-    const NumberFormat * getNumberFormatForField(UChar field) const;
+    const NumberFormat * getNumberFormatForField(char16_t field) const;
 
 #ifndef U_HIDE_INTERNAL_API
     /**
@@ -1266,7 +1275,7 @@ private:
      *                  succeeds.
      */
     void subFormat(UnicodeString &appendTo,
-                   UChar ch,
+                   char16_t ch,
                    int32_t count,
                    UDisplayContext capitalizationContext,
                    int32_t fieldNum,
@@ -1298,7 +1307,7 @@ private:
      * Return true if the given format character, occuring count
      * times, represents a numeric field.
      */
-    static UBool isNumeric(UChar formatChar, int32_t count);
+    static UBool isNumeric(char16_t formatChar, int32_t count);
 
     /**
      * Returns TRUE if the patternOffset is at the start of a numeric field.
@@ -1416,7 +1425,7 @@ private:
      * @return the new start position if matching succeeded; a negative number
      * indicating matching failure, otherwise.
      */
-    int32_t subParse(const UnicodeString& text, int32_t& start, UChar ch, int32_t count,
+    int32_t subParse(const UnicodeString& text, int32_t& start, char16_t ch, int32_t count,
                      UBool obeyCount, UBool allowNegative, UBool ambiguousYear[], int32_t& saveHebrewMonth, Calendar& cal,
                      int32_t patLoc, MessageFormat * numericLeapMonthFormatter, UTimeZoneFormatTimeType *tzTimeType, SimpleDateFormatMutableNFs &mutableNFs,
                      int32_t *dayPeriod=NULL) const;
@@ -1527,12 +1536,12 @@ private:
     /**
      * Map calendar field letter into calendar field level.
      */
-    static int32_t getLevelFromChar(UChar ch);
+    static int32_t getLevelFromChar(char16_t ch);
 
     /**
      * Tell if a character can be used to define a field in a format string.
      */
-    static UBool isSyntaxChar(UChar ch);
+    static UBool isSyntaxChar(char16_t ch);
 
     /**
      * The formatting pattern for this formatter.
@@ -1623,6 +1632,7 @@ SimpleDateFormat::getCapitalizationBrkIter() const
 }
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

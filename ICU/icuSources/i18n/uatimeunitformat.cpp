@@ -18,6 +18,7 @@
 #include "unicode/unistr.h"
 #include "unicode/unum.h"
 #include "unicode/ures.h"
+#include "unicode/ustring.h"
 #include "ureslocs.h"
 #include "uresimp.h"
 #include "ustr_imp.h"

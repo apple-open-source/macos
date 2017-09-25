@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2011, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: pgsqldb.c,v 1.17 2011/10/11 23:46:45 tbox Exp $ */
 
 #include <config.h>
 
@@ -111,9 +111,16 @@ maybe_reconnect(struct dbinfo *dbi) {
  * Queries are converted into SQL queries and issued synchronously.  Errors
  * are handled really badly.
  */
+#ifdef DNS_CLIENTINFO_VERSION
+static isc_result_t
+pgsqldb_lookup(const char *zone, const char *name, void *dbdata,
+	       dns_sdblookup_t *lookup, dns_clientinfomethods_t *methods,
+	       dns_clientinfo_t *clientinfo)
+#else
 static isc_result_t
 pgsqldb_lookup(const char *zone, const char *name, void *dbdata,
 	       dns_sdblookup_t *lookup)
+#endif /* DNS_CLIENTINFO_VERSION */
 {
 	isc_result_t result;
 	struct dbinfo *dbi = dbdata;
@@ -123,6 +130,10 @@ pgsqldb_lookup(const char *zone, const char *name, void *dbdata,
 	int i;
 
 	UNUSED(zone);
+#ifdef DNS_CLIENTINFO_VERSION
+	UNUSED(methods);
+	UNUSED(clientinfo);
+#endif /* DNS_CLIENTINFO_VERSION */
 
 	canonname = isc_mem_get(ns_g_mctx, strlen(name) * 2 + 1);
 	if (canonname == NULL)
@@ -324,7 +335,8 @@ static dns_sdbmethods_t pgsqldb_methods = {
 	NULL, /* authority */
 	pgsqldb_allnodes,
 	pgsqldb_create,
-	pgsqldb_destroy
+	pgsqldb_destroy,
+	NULL /* lookup2 */
 };
 
 /*

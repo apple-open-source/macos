@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -787,27 +787,45 @@ in6_netaddr(struct in6_addr * addr, int len)
     return;
 }
 
+STATIC char *
+inet6_prefix_list_copy(size_t * ret_buf_len)
+{
+    char *		buf = NULL;
+    size_t 		buf_len;
+    int 		mib[] = {
+	CTL_NET, PF_INET6, IPPROTO_ICMPV6, ICMPV6CTL_ND6_PRLIST
+    };
+
+    *ret_buf_len = 0;
+    if (sysctl(mib, sizeof(mib) / sizeof(mib[0]), NULL, &buf_len, NULL, 0)
+	< 0) {
+	return (NULL);
+    }
+    buf_len += 1024;
+    buf = malloc(buf_len);
+    if (sysctl(mib, sizeof(mib) / sizeof(mib[0]), buf, &buf_len, NULL, 0)
+	< 0) {
+	free(buf);
+	buf = NULL;
+    }
+    else {
+	*ret_buf_len = buf_len;
+    }
+    return (buf);
+}
+
 PRIVATE_EXTERN int
 inet6_get_prefix_length(const struct in6_addr * addr, int if_index)
 {
     char *		buf = NULL;
     size_t 		buf_len;
     struct in6_prefix *	end;
-    int 		mib[] = {
-	CTL_NET, PF_INET6, IPPROTO_ICMPV6, ICMPV6CTL_ND6_PRLIST
-    };
     struct in6_prefix *	next;
     int			prefix_length = 0;
     struct in6_prefix *	scan;
 
-    if (sysctl(mib, sizeof(mib) / sizeof(mib[0]), NULL, &buf_len, NULL, 0)
-	< 0) {
-	goto done;
-    }
-    buf_len += 1024;
-    buf = malloc(buf_len);
-    if (sysctl(mib, sizeof(mib) / sizeof(mib[0]), buf, &buf_len, NULL, 0)
-	< 0) {
+    buf = inet6_prefix_list_copy(&buf_len);
+    if (buf == NULL) {
 	goto done;
     }
 
@@ -836,6 +854,47 @@ inet6_get_prefix_length(const struct in6_addr * addr, int if_index)
 	free(buf);
     }
     return (prefix_length);
+}
+
+PRIVATE_EXTERN int
+inet6_router_and_prefix_count(int if_index, int * ret_prefix_count)
+{
+    char *		buf = NULL;
+    size_t 		buf_len;
+    struct in6_prefix *	end;
+    struct in6_prefix *	next;
+    int			prefix_count = 0;
+    int			router_count = 0;
+    struct in6_prefix *	scan;
+
+    buf = inet6_prefix_list_copy(&buf_len);
+    if (buf == NULL) {
+	goto done;
+    }
+
+    /* ALIGN: buf is aligned (from malloc), cast ok. */
+    end = (struct in6_prefix *)(void *)(buf + buf_len);
+    for (scan = (struct in6_prefix *)(void *)buf; scan < end; scan = next) {
+	struct sockaddr_in6 *	advrtr;
+
+	advrtr = (struct sockaddr_in6 *)(scan + 1);
+	next = (struct in6_prefix *)&advrtr[scan->advrtrs];
+	if (if_index != 0 && if_index != scan->if_index) {
+	    continue;
+	}
+	if (scan->advrtrs == 0) {
+	    continue;
+	}
+	router_count += scan->advrtrs;
+	prefix_count++;
+    }
+
+ done:
+    if (buf != NULL) {
+	free(buf);
+    }
+    *ret_prefix_count = prefix_count;
+    return (router_count);
 }
 
 PRIVATE_EXTERN int
@@ -936,13 +995,43 @@ inet6_forwarding_is_enabled(void)
     return (enabled != 0);
 }
 
+PRIVATE_EXTERN int
+inet6_ifstat(const char * if_name, struct in6_ifstat * stat)
+{
+    struct in6_ifreq 	ifr;
+    int 		ret;
+    int 		s;
+
+    bzero(&ifr, sizeof(ifr));
+    s = inet6_dgram_socket();
+    if (s < 0) {
+	ret = errno;
+	my_log(LOG_ERR, "socket(%s) failed, %s", if_name, strerror(errno));
+	goto done;
+    }
+    strncpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name));
+    if (ioctl(s, SIOCGIFSTAT_IN6, (char *)&ifr) < 0) {
+	ret = errno;
+	my_log(LOG_ERR, "SIOCGIFSTAT_IN6(%s) failed, %s",
+	       if_name, strerror(errno));
+	goto done;
+    }
+    ret = 0;
+
+ done:
+    *stat = ifr.ifr_ifru.ifru_stat;
+    if (s >= 0) {
+	close(s);
+    }
+    return (ret);
+}
 
 /**
  ** inet6_addrlist_*
  **/
 
 STATIC char *
-get_if_info(int if_index, int af, int * ret_len_p)
+copy_if_info(int if_index, int af, int * ret_len_p)
 {
     char *			buf = NULL;
     size_t			buf_len = 0;
@@ -974,6 +1063,68 @@ get_if_info(int if_index, int af, int * ret_len_p)
     return (buf);
 }
 
+PRIVATE_EXTERN boolean_t
+inet6_get_linklocal_address(int if_index, struct in6_addr * ret_addr)
+{
+    char *			buf = NULL;
+    char *			buf_end;
+    int				buf_len;
+    boolean_t			found = FALSE;
+    char *			scan;
+    struct rt_msghdr *		rtm;
+
+    bzero(ret_addr, sizeof(*ret_addr));
+    buf = copy_if_info(if_index, AF_INET6, &buf_len);
+    if (buf == NULL) {
+	goto done;
+    }
+    buf_end = buf + buf_len;
+    for (scan = buf; scan < buf_end; scan += rtm->rtm_msglen) {
+	struct ifa_msghdr *	ifam;
+	struct rt_addrinfo	info;
+
+	/* ALIGN: buf aligned (from calling copy_if_info), scan aligned,
+	 * cast ok. */
+	rtm = (struct rt_msghdr *)(void *)scan;
+	if (rtm->rtm_version != RTM_VERSION) {
+	    continue;
+	}
+	if (rtm->rtm_type == RTM_NEWADDR) {
+	    errno_t			error;
+	    struct sockaddr_in6 *	sin6_p;
+
+	    ifam = (struct ifa_msghdr *)rtm;
+	    info.rti_addrs = ifam->ifam_addrs;
+	    error = rt_xaddrs((char *)(ifam + 1),
+			      ((char *)ifam) + ifam->ifam_msglen,
+			      &info);
+	    if (error) {
+		fprintf(stderr, "couldn't extract rt_addrinfo %s (%d)\n",
+			strerror(error), error);
+		goto done;
+	    }
+	    /* ALIGN: info.rti_info aligned (sockaddr), cast ok. */
+	    sin6_p = (struct sockaddr_in6 *)(void *)info.rti_info[RTAX_IFA];
+	    if (sin6_p == NULL
+		|| sin6_p->sin6_len < sizeof(struct sockaddr_in6)) {
+		continue;
+	    }
+	    if (IN6_IS_ADDR_LINKLOCAL(&sin6_p->sin6_addr)) {
+		*ret_addr = sin6_p->sin6_addr;
+		ret_addr->s6_addr16[1] = 0; /* mask scope id */
+		found = TRUE;
+		break;
+	    }
+	}
+    }
+
+ done:
+    if (buf != NULL) {
+	free(buf);
+    }
+    return (found);
+}
+
 PRIVATE_EXTERN void
 inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 {
@@ -991,7 +1142,7 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
     struct rt_msghdr *		rtm;
     int				s = -1;
 
-    buf = get_if_info(if_index, AF_INET6, &buf_len);
+    buf = copy_if_info(if_index, AF_INET6, &buf_len);
     if (buf == NULL) {
 	goto done;
     }
@@ -1003,7 +1154,7 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
     for (scan = buf; scan < buf_end; scan += rtm->rtm_msglen) {
 	struct if_msghdr * 	ifm;
 	
-	/* ALIGN: buf aligned (from calling get_if_info), scan aligned, 
+	/* ALIGN: buf aligned (from calling copy_if_info), scan aligned,
 	 * cast ok. */
 	rtm = (struct rt_msghdr *)(void *)scan;
 	if (rtm->rtm_version != RTM_VERSION) {
@@ -1353,3 +1504,68 @@ main(int argc, char * argv[])
 }
 
 #endif /* TEST_IPV6_LL */
+
+#if TEST_IPV6_LINKLOCAL_ADDRESS
+boolean_t G_is_netboot;
+
+int
+main(int argc, char * argv[])
+{
+    struct in6_addr	addr;
+    int			if_index;
+    char 		ntopbuf[INET6_ADDRSTRLEN];
+
+    if (argc < 2) {
+	fprintf(stderr, "you must specify the interface\n");
+	exit(1);
+    }
+    if_index = if_nametoindex(argv[1]);
+    if (if_index == 0) {
+	fprintf(stderr, "No such interface '%s'\n", argv[1]);
+	exit(2);
+    }
+    if (!inet6_get_linklocal_address(if_index, &addr)) {
+	fprintf(stderr, "Interface '%s' has no linklocal address\n",
+		argv[1]);
+	exit(2);
+    }
+    printf("%s\n", inet_ntop(AF_INET6, &addr, ntopbuf, sizeof(ntopbuf)));
+    if (argc > 2) {
+	printf("my pid is %d\n", getpid());
+	sleep(60);
+    }
+    exit(0);
+    return(0);
+}
+#endif /* TEST_IPV6_LINKLOCAL_ADDRESS */
+
+#if TEST_IPV6_ROUTER_PREFIX_COUNT
+boolean_t G_is_netboot;
+
+int
+main(int argc, char * argv[])
+{
+    int			if_index;
+    int			prefix_count = 0;
+    int			router_count = 0;
+
+    if (argc < 2) {
+	fprintf(stderr, "you must specify the interface\n");
+	exit(1);
+    }
+    if_index = if_nametoindex(argv[1]);
+    if (if_index == 0) {
+	fprintf(stderr, "No such interface '%s'\n", argv[1]);
+	exit(2);
+    }
+
+    router_count = inet6_router_and_prefix_count(if_index, &prefix_count);
+    printf("%s prefixes %d routers %d\n", argv[1], prefix_count, router_count);
+    if (argc > 2) {
+	printf("my pid is %d\n", getpid());
+	sleep(60);
+    }
+    exit(0);
+    return(0);
+}
+#endif /* TEST_IPV6_ROUTER_PREFIX_COUNT */

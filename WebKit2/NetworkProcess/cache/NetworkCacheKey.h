@@ -30,13 +30,27 @@
 
 #include "NetworkCacheData.h"
 #include <wtf/SHA1.h>
+#include <wtf/persistence/Coder.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
 namespace NetworkCache {
 
-class Encoder;
-class Decoder;
+struct DataKey {
+    String partition;
+    String type;
+    SHA1::Digest identifier;
+
+    template <class Encoder> void encode(Encoder& encoder) const
+    {
+        encoder << partition << type << identifier;
+    }
+
+    template <class Decoder> static bool decode(Decoder& decoder, DataKey& dataKey)
+    {
+        return decoder.decode(dataKey.partition) && decoder.decode(dataKey.type) && decoder.decode(dataKey.identifier);
+    }
+};
 
 class Key {
 public:
@@ -46,6 +60,7 @@ public:
     Key(const Key&);
     Key(Key&&) = default;
     Key(const String& partition, const String& type, const String& range, const String& identifier, const Salt&);
+    Key(const DataKey&, const Salt&);
 
     Key& operator=(const Key&);
     Key& operator=(Key&&) = default;
@@ -69,8 +84,8 @@ public:
     String hashAsString() const { return hashAsString(m_hash); }
     String partitionHashAsString() const { return hashAsString(m_partitionHash); }
 
-    void encode(Encoder&) const;
-    static bool decode(Decoder&, Key&);
+    void encode(WTF::Persistence::Encoder&) const;
+    static bool decode(WTF::Persistence::Decoder&, Key&);
 
     bool operator==(const Key&) const;
     bool operator!=(const Key& other) const { return !(*this == other); }

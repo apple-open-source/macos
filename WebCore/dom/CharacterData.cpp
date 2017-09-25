@@ -22,6 +22,7 @@
 #include "config.h"
 #include "CharacterData.h"
 
+#include "Attr.h"
 #include "ElementTraversal.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
@@ -208,8 +209,6 @@ void CharacterData::setDataAndUpdate(const String& newData, unsigned offsetOfRep
 
 void CharacterData::notifyParentAfterChange(ContainerNode::ChildChangeSource source)
 {
-    NoEventDispatchAssertion assertNoEventDispatch;
-
     document().incDOMTreeVersion();
 
     if (!parentNode())
@@ -221,12 +220,13 @@ void CharacterData::notifyParentAfterChange(ContainerNode::ChildChangeSource sou
         ElementTraversal::nextSibling(*this),
         source
     };
+
     parentNode()->childrenChanged(change);
 }
 
 void CharacterData::dispatchModifiedEvent(const String& oldData)
 {
-    if (std::unique_ptr<MutationObserverInterestGroup> mutationRecipients = MutationObserverInterestGroup::createForCharacterDataMutation(*this))
+    if (auto mutationRecipients = MutationObserverInterestGroup::createForCharacterDataMutation(*this))
         mutationRecipients->enqueueMutationRecord(MutationRecord::createCharacterData(*this, oldData));
 
     if (!isInShadowTree()) {

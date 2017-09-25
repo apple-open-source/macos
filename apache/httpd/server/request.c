@@ -129,6 +129,8 @@ static int decl_die(int status, const char *phase, request_rec *r)
 AP_DECLARE(int) ap_some_authn_required(request_rec *r)
 {
     int access_status;
+    char *olduser = r->user;
+    int rv = FALSE;
 
     switch (ap_satisfies(r)) {
     case SATISFY_ALL:
@@ -139,7 +141,7 @@ AP_DECLARE(int) ap_some_authn_required(request_rec *r)
 
         access_status = ap_run_access_checker_ex(r);
         if (access_status == DECLINED) {
-            return TRUE;
+            rv = TRUE;
         }
 
         break;
@@ -150,13 +152,14 @@ AP_DECLARE(int) ap_some_authn_required(request_rec *r)
 
         access_status = ap_run_access_checker_ex(r);
         if (access_status == DECLINED) {
-            return TRUE;
+            rv = TRUE;
         }
 
         break;
     }
 
-    return FALSE;
+    r->user = olduser;
+    return rv;
 }
 
 /* This is the master logic for processing requests.  Do NOT duplicate
@@ -264,6 +267,14 @@ AP_DECLARE(int) ap_process_request_internal(request_rec *r)
         r->ap_auth_type = r->main->ap_auth_type;
     }
     else {
+        /* A module using a confusing API (ap_get_basic_auth_pw) caused
+        ** r->user to be filled out prior to check_authn hook. We treat
+        ** it is inadvertent.
+        */
+        if (r->user && apr_table_get(r->notes, AP_GET_BASIC_AUTH_PW_NOTE)) { 
+            r->user = NULL;
+        }
+
         switch (ap_satisfies(r)) {
         case SATISFY_ALL:
         case SATISFY_NOSPEC:
@@ -1676,9 +1687,6 @@ AP_DECLARE(int) ap_file_walk(request_rec *r)
         return OK;
     }
 
-    cache = prep_walk_cache(AP_NOTE_FILE_WALK, r);
-    cached = (cache->cached != NULL);
-
     /* No tricks here, there are just no <Files > to parse in this context.
      * We won't destroy the cache, just in case _this_ redirect is later
      * redirected again to a context containing the same or similar <Files >.
@@ -1686,6 +1694,9 @@ AP_DECLARE(int) ap_file_walk(request_rec *r)
     if (!num_sec) {
         return OK;
     }
+
+    cache = prep_walk_cache(AP_NOTE_FILE_WALK, r);
+    cached = (cache->cached != NULL);
 
     /* Get the basename .. and copy for the cache just
      * in case r->filename is munged by another module
@@ -1858,10 +1869,9 @@ AP_DECLARE(int) ap_file_walk(request_rec *r)
     return OK;
 }
 
-AP_DECLARE(int) ap_if_walk(request_rec *r)
+static int ap_if_walk_sub(request_rec *r, core_dir_config* dconf)
 {
     ap_conf_vector_t *now_merged = NULL;
-    core_dir_config *dconf = ap_get_core_module_config(r->per_dir_config);
     ap_conf_vector_t **sec_ent = NULL;
     int num_sec = 0;
     walk_cache_t *cache;
@@ -1872,7 +1882,7 @@ AP_DECLARE(int) ap_if_walk(request_rec *r)
     int prev_result = -1;
     walk_walked_t *last_walk;
 
-    if (dconf->sec_if) {
+    if (dconf && dconf->sec_if) {
         sec_ent = (ap_conf_vector_t **)dconf->sec_if->elts;
         num_sec = dconf->sec_if->nelts;
     }
@@ -1987,7 +1997,23 @@ AP_DECLARE(int) ap_if_walk(request_rec *r)
     }
     cache->per_dir_result = r->per_dir_config;
 
+    if (now_merged) {
+        core_dir_config *dconf_merged = ap_get_core_module_config(now_merged);
+
+        /* Allow nested <If>s and their configs to get merged
+         * with the current one.
+         */
+        return ap_if_walk_sub(r, dconf_merged);
+    }
+
     return OK;
+}
+
+AP_DECLARE(int) ap_if_walk(request_rec *r)
+{
+    core_dir_config *dconf = ap_get_core_module_config(r->per_dir_config);
+    int status = ap_if_walk_sub(r, dconf);
+    return status;
 }
 
 /*****************************************************************

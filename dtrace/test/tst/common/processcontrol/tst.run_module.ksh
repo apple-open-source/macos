@@ -11,12 +11,18 @@ dtrace=/usr/sbin/dtrace
 
 script()
 {
-	$dtrace -Z -xnolibs -xevaltime=preinit -c /usr/bin/true -qs /dev/stdin <<EOF
-	pid\$target:libSystem.B.dylib:libSystem_initializer:entry
+	$dtrace -Z -xnolibs -xevaltime=preinit -c ./tst.has_initializers.exe -qs /dev/stdin <<EOF
+	pid\$target:test_lib.dylib:function_called_by_initializer:entry
 	{
 		trace("Called");
 		exit(0);
 	}
+	pid\$target::main_binary_function:entry
+	{
+		trace("Library initializer not called or called after main");
+		exit(1);
+	}
+
 EOF
 }
 

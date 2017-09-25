@@ -25,6 +25,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <paths.h>
+#include <sys/disk.h>
+#include <sys/ioctl.h>
+#include <sys/param.h>
 #include <fsproperties.h>
 
 #include <IOKit/storage/IOMedia.h>
@@ -185,7 +188,7 @@ done:
 				}
 				if (NULL != FSNameDict) {
 					CFStringRef tempName = CFDictionaryGetValue(FSNameDict, (const void *)KEY_FS_NAME);
-					CFStringRef encrName = CFDictionaryGetValue(FSNameDict, CFSTR(kFSCoreStorageEncryptNameKey));
+					CFStringRef encrName = CFDictionaryGetValue(FSNameDict, CFSTR(kFSEncryptNameKey));
 					if (tempName) {
 						if (encrName) {
 							formatName = (void*)CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -252,13 +255,13 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
     uint8_t buffer[MAXPATHLEN + 1];
 
     if ((NULL != url) && CFURLGetFileSystemRepresentation(url, true, buffer, MAXPATHLEN)) {
-	struct statfs fsInfo;
-	bool encrypted = false;
+		struct statfs fsInfo;
+		bool encrypted = false;
 
         if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
 
-	    encrypted = IsEncrypted(fsInfo.f_mntfromname);
+			encrypted = IsEncrypted(fsInfo.f_mntfromname);
 #ifdef _DARWIN_FEATURE_64_BIT_INODE
             formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, true, encrypted);
 #else
@@ -266,7 +269,7 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
 #endif
 
             CFRelease(fsType);
-        }
+		}
     }
 
     return formatName;
@@ -282,9 +285,9 @@ CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url)
 
         if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
-	    bool encrypted = false;
-
-	    encrypted = IsEncrypted(fsInfo.f_mntfromname);
+			bool encrypted = false;
+			
+			encrypted = IsEncrypted(fsInfo.f_mntfromname);
 
 #ifdef _DARWIN_FEATURE_64_BIT_INODE
             formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, false, encrypted);
@@ -313,7 +316,7 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtNode(CFStringRef devnode)
 		encrypted = IsEncrypted(devnodename);
 
 		/* get fsname and fssubtype */
-		memset(fsname, MAX_FSNAME, 0);
+		memset(fsname, 0, MAX_FSNAME);
 		if (getfstype(devnodename, fsname, &fssubtype) == true) {
 		
 			/* get unlocalized string */
@@ -336,9 +339,9 @@ CFStringRef _FSCopyNameForVolumeFormatAtNode(CFStringRef devnode)
 	if (true == CFStringGetCString(devnode, devnodename, MAXPATHLEN + 1, kCFStringEncodingUTF8)) {
 		bool encrypted;
 
-		encrypted = IsEncrypted(devnodename);	
+		encrypted = IsEncrypted(devnodename);
 		/* get fsname and fssubtype */
-		memset(fsname, MAX_FSNAME, 0);
+		memset(fsname, 0, MAX_FSNAME);
 		if (getfstype(devnodename, fsname, &fssubtype) == true) {
 		
 			/* get unlocalized string */
@@ -353,12 +356,18 @@ CFStringRef _FSCopyNameForVolumeFormatAtNode(CFStringRef devnode)
 /* Return the fsname and subtype number for devnode */
 bool getfstype(char *devnode, char *fsname, int *fssubtype)
 {
+	/* Check if APFS */
+	if (is_apfs(devnode, fssubtype) == true) {
+		strcpy(fsname, APFS_NAME);
+		return true;
+	}
+
 	/* Check if HFS */
 	if (is_hfs(devnode, fssubtype) == true) {
 		strcpy(fsname, HFS_NAME); 
 		return true;
 	}
-		
+
 	/* Check if MSDOS */
 	if (is_msdos(devnode, fssubtype) == true) {
 		strcpy(fsname, MSDOS_NAME);
@@ -368,6 +377,56 @@ bool getfstype(char *devnode, char *fsname, int *fssubtype)
 	return false;
 }
 
+/*
+ * Check if the disk is APFS disk and return its subtypes
+ * (unless pointer is NULL, in which case wil only determine
+ * if disk is APFS).
+ */
+bool is_apfs(char *devnode, int *fssubtype)
+{
+	bool result = false;
+	io_object_t ioObj = IO_OBJECT_NULL;
+	char * bsdName = NULL;
+
+	if (!strncmp(devnode, "/dev/r", 6)) {
+		// Strip off the /dev/r from /dev/rdiskX
+		bsdName = &devnode[6];
+	} else if (!strncmp(devnode, "/dev/", 5)) {
+		// Strip off the /dev/r from /dev/rdiskX
+		bsdName = &devnode[5];
+	} else {
+		bsdName = devnode;
+	}
+
+	ioObj = IOServiceGetMatchingService (
+		kIOMasterPortDefault,
+		IOBSDNameMatching ( kIOMasterPortDefault, 0, bsdName ) );
+
+	if (ioObj != IO_OBJECT_NULL) {
+		if (IOObjectConformsTo(ioObj, "AppleAPFSVolume")) {
+			if (NULL != fssubtype)
+				*fssubtype = kAPFSSubType;
+			result = true;
+			// Check if we have sensitivity info in IOReg
+			CFBooleanRef sensitivity = ( CFBooleanRef ) IORegistryEntrySearchCFProperty (
+				ioObj,
+				kIOServicePlane,
+				CASE_SENSITIVE,
+				kCFAllocatorDefault,
+				0 );
+			if (sensitivity) {
+				if (CFEqual(sensitivity, kCFBooleanTrue) && (NULL != fssubtype)) {
+					*fssubtype = kAPFSXSubType;
+				}
+				CFRelease(sensitivity);
+			}
+		}
+		IOObjectRelease(ioObj);
+	}
+
+	return result;
+}
+
 #define SW16(x)	OSSwapBigToHostInt16(x)
 #define SW32(x)	OSSwapBigToHostInt32(x)
 
@@ -375,39 +434,55 @@ bool getfstype(char *devnode, char *fsname, int *fssubtype)
 bool is_hfs(char *devnode, int *fssubtype)
 {
 	HFSPlusVolumeHeader *vhp;
-	off_t offset = 0;
+	off_t hfs_plus_data_offset = 0;
 	char *buffer = NULL;
 	int fd = 0;
 	bool retval = false;
-		
+	size_t block_size = 0;
+
 	/* default fssubtype to non-existing value */
 	*fssubtype = -1;
-	
-	buffer = (char *)malloc(MAX_HFS_BLOCK_READ);
-	if (!buffer) {
-		goto out;
-	}
-	
-	/* open the device */	
+
+	/* open the device */
 	fd = open(devnode, O_RDONLY | O_NDELAY, 0);
 	if (fd <= 0) {
 		goto out;
 	}
-	
-	/* read volume header (512 bytes, block 2) from the device */
-	if (getblk(fd, 2, MAX_HFS_BLOCK_READ, buffer) < MAX_HFS_BLOCK_READ) {
+
+	// Try to find the block size of this device.
+	if (ioctl(fd, DKIOCGETBLOCKSIZE, &block_size) == -1) {
+		block_size = DEV_BSIZE; // Assume an overwhelmingly common disk block size.
+	}
+
+	if (block_size > MAX_HFS_BLOCKSIZE) {
 		goto out;
 	}
-	
-	/* Check if it is a HFS volume */
-	if (getwrapper((HFSMasterDirectoryBlock *)buffer, &offset)) {
-		if (getblk(fd, 2 + (offset/MAX_HFS_BLOCK_READ), MAX_HFS_BLOCK_READ, buffer) < MAX_HFS_BLOCK_READ) {
+
+	buffer = (char *)malloc(block_size);
+	if (!buffer) {
+		goto out;
+	}
+
+	/* attempt to read volume header (512 bytes, at disk offset 1024) from the device */
+	if (readdisk(fd, 1024, sizeof(HFSPlusVolumeHeader), block_size, buffer)
+		< sizeof(HFSPlusVolumeHeader)) {
+		goto out;
+	}
+
+	/*
+	 * Check if the volume header is actually a master directory block.
+	 * This is used in HFS and the HFS wrapper for HFS+.
+	 */
+	if (getwrapper((HFSMasterDirectoryBlock *)buffer, &hfs_plus_data_offset)) {
+		// Make sure we can actually get the HFS+ data.
+		off_t volume_header_offset = 1024 + hfs_plus_data_offset;
+		if (readdisk(fd, volume_header_offset, sizeof(HFSPlusVolumeHeader), block_size, buffer)
+			< sizeof(HFSPlusVolumeHeader)) {
 			goto out;
 		}
 	}
-	
+
 	vhp = (HFSPlusVolumeHeader *)buffer;
-	
 	/* Validate signature */
 	switch (SW16(vhp->signature)) {
 		case kHFSPlusSigWord: {
@@ -420,7 +495,7 @@ bool is_hfs(char *devnode, int *fssubtype)
 		case kHFSXSigWord: {
 			if (SW16(vhp->version) != kHFSXVersion) {
 				goto out;
-			} 
+			}
 			break;
 		}
 
@@ -430,7 +505,7 @@ bool is_hfs(char *devnode, int *fssubtype)
 			retval = true;
 			goto out;
 		}
-		
+
 		default: {
 			goto out;
 		}
@@ -442,14 +517,15 @@ bool is_hfs(char *devnode, int *fssubtype)
 	}
 
 	if (SW16(vhp->signature) == kHFSXSigWord) {
-		BTHeaderRec *  bthp;
-		off_t  foffset;
-	
+		BTHeaderRec * bthp;
+		off_t foffset;
+
 		foffset = (off_t)SW32(vhp->catalogFile.extents[0].startBlock) * (off_t)SW32(vhp->blockSize);
-		if (getblk(fd, (offset/MAX_HFS_BLOCK_READ) + (foffset/MAX_HFS_BLOCK_READ) , MAX_HFS_BLOCK_READ, buffer) < MAX_HFS_BLOCK_READ) {
+		if (readdisk(fd, hfs_plus_data_offset + foffset, sizeof(BTHeaderRec) + sizeof(BTNodeDescriptor), block_size, buffer)
+			< sizeof(BTHeaderRec) + sizeof(BTNodeDescriptor)) {
 			goto out;
 		}
-		
+
 		bthp = (BTHeaderRec *)&buffer[sizeof(BTNodeDescriptor)];
 
 		if ((SW16(bthp->maxKeyLength) == kHFSPlusCatalogKeyMaximumLength) &&
@@ -457,10 +533,10 @@ bool is_hfs(char *devnode, int *fssubtype)
 			/* HFSX */
 			if (*fssubtype == kHFSJSubType) {
 				/* Journaled HFSX */
-				*fssubtype = kHFSXJSubType;    
+				*fssubtype = kHFSXJSubType;
 			} else {
 				/* HFSX */
-				*fssubtype = kHFSXSubType;    
+				*fssubtype = kHFSXSubType;
 			}
 		}
 	}
@@ -469,7 +545,7 @@ bool is_hfs(char *devnode, int *fssubtype)
 		/* default HFS Plus */
 		*fssubtype = kHFSPlusSubType;
 	}
-        
+
 	retval = true;
 
 out:
@@ -494,6 +570,7 @@ bool is_msdos(char *devnode, int *fssubtype)
 	u_int32_t RootDirSectors;
     u_int16_t BytesPerSector;
     u_int8_t SectorsPerCluster;
+    size_t block_size = 0;
 	char *buffer = NULL;
 	int fd = 0;
 	bool retval = false;
@@ -511,13 +588,22 @@ bool is_msdos(char *devnode, int *fssubtype)
 	if (fd <= 0) {
 		goto out;
 	}
-	
-	/* read the block */
-	if (getblk(fd, 0, MAX_DOS_BLOCKSIZE, buffer) < MAX_DOS_BLOCKSIZE) {
+
+    // Try to find the block size of this device.
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &block_size) == -1) {
+        block_size = DEV_BSIZE; // Assume an overwhelmingly common disk block size.
+    }
+
+    if (block_size > MAX_DOS_BLOCKSIZE) {
+        goto out;
+    }
+
+	/* read the 'bootsector' */
+	if (readdisk(fd, 0, sizeof(union bootsector), block_size, buffer) < sizeof(union bootsector)) {
 		goto out;
 	}
-	
-	bsp = (union bootsector *)buffer;
+
+    bsp = (union bootsector *)buffer;
     b710 = (struct byte_bpb710 *)bsp->bs710.bsBPB;
    
 	/* The first three bytes are an Intel x86 jump instruction.  It should be one
@@ -599,6 +685,45 @@ static int getblk(int fd, unsigned long blknum, int blksize, char* buf)
 	return (bytes_read);
 }
 
+/* read data from an arbitrary disk address */
+ssize_t readdisk(int fd, off_t startaddr, size_t length, size_t blocksize, char* buf)
+{
+    ssize_t bytes_read = 0;
+
+    // Find the starting block of this read and the number of blocks this read will take.
+    size_t start_block = startaddr / blocksize;
+    size_t num_blocks_to_read = ((startaddr + length) / blocksize) - start_block + 1;
+
+    // Allocate a temporary buffer to copy those blocks into.
+    void* tmpbuf = malloc(num_blocks_to_read * blocksize);
+
+    void* bufaddr = tmpbuf;
+    ssize_t block_bytes_read;
+    // Read each block into our temporary buffer.
+    // If we fail to read any of the data, exit.
+    for (size_t i = 0; i < num_blocks_to_read; i++, bufaddr += blocksize) {
+        block_bytes_read = getblk(fd, i + start_block, blocksize, bufaddr);
+        if (block_bytes_read != blocksize) {
+            goto cleanup;
+        }
+
+        bytes_read += block_bytes_read;
+    }
+
+    /*
+     * We've read all the blocks that contain data requested:
+     * Copy only the relevant portions into the buf provided.
+     * Here we get subtract the first address of the block that
+     * startaddr is in from startaddr.
+     */
+    size_t tmpbuf_offset = startaddr - ((startaddr / blocksize) * blocksize);
+    memcpy(buf, tmpbuf + tmpbuf_offset, length);
+
+cleanup:
+    free(tmpbuf);
+    return bytes_read;
+}
+
 /* get HFS wrapper information */
 static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset)
 {
@@ -616,7 +741,7 @@ static bool
 IsEncrypted(const char *bsdname)
 {
 	bool retval = false;
-	const char *diskname = NULL;
+	const char *diskname = bsdname;
 	CFMutableDictionaryRef ioMatch; //IOServiceGetMatchingService() releases:!
 	io_object_t ioObj = IO_OBJECT_NULL;
 	CFBooleanRef	lvfIsEncr = NULL;
@@ -646,11 +771,18 @@ IsEncrypted(const char *bsdname)
 	if (ioObj == IO_OBJECT_NULL) {
 		goto finish;
 	}
-	lvfIsEncr = IORegistryEntryCreateCFProperty(ioObj, CFSTR(kCoreStorageIsEncryptedKey), nil, 0);
-	if (lvfIsEncr == NULL)
+
+	if (is_apfs((char*)diskname, NULL)) {
+		lvfIsEncr = IORegistryEntryCreateCFProperty(ioObj, CFSTR(kAPFSEncryptedKey), kCFAllocatorDefault, 0);
+	} else {
+		lvfIsEncr = IORegistryEntryCreateCFProperty(ioObj, CFSTR(kCoreStorageIsEncryptedKey), nil, 0);
+	}
+
+	if (lvfIsEncr == NULL) {
 		retval = false;
-	else
+	} else {
 		retval = CFBooleanGetValue(lvfIsEncr);
+	}
 
 finish:
 	if (lvfIsEncr)

@@ -34,26 +34,38 @@
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
 #import <WebCore/CachedImage.h>
+#import <WebCore/Document.h>
 #import <WebCore/DragController.h>
+#import <WebCore/Editor.h>
+#import <WebCore/Element.h>
 #import <WebCore/Frame.h>
+#import <WebCore/FrameDestructionObserver.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MainFrame.h>
-#import <WebCore/WebCoreNSURLExtras.h>
+#import <WebCore/NotImplemented.h>
 #import <WebCore/Page.h>
+#import <WebCore/Pasteboard.h>
 #import <WebCore/RenderImage.h>
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/StringTruncator.h>
+#import <WebCore/WebCoreNSURLExtras.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/StdLibExtras.h>
+
+#if PLATFORM(IOS)
+#import "UIKitSPI.h"
+#endif
 
 using namespace WebCore;
 using namespace WebKit;
 
 namespace WebKit {
 
-static PassRefPtr<ShareableBitmap> convertImageToBitmap(NSImage *image, const IntSize& size, Frame& frame)
+#if PLATFORM(MAC)
+
+static RefPtr<ShareableBitmap> convertImageToBitmap(NSImage *image, const IntSize& size, Frame& frame)
 {
     ShareableBitmap::Flags flags = ShareableBitmap::SupportsAlpha;
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
@@ -73,21 +85,24 @@ static PassRefPtr<ShareableBitmap> convertImageToBitmap(NSImage *image, const In
 
     [NSGraphicsContext setCurrentContext:savedContext.get()];
 
-    return WTFMove(bitmap);
+    return bitmap;
 }
 
-void WebDragClient::startDrag(RetainPtr<NSImage> image, const IntPoint& point, const IntPoint&, DataTransfer&, Frame& frame, bool linkDrag)
+void WebDragClient::didConcludeEditDrag()
 {
-    IntSize bitmapSize([image size]);
-    RefPtr<ShareableBitmap> bitmap = convertImageToBitmap(image.get(), bitmapSize, frame);
+}
+
+void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame)
+{
+    auto& image = dragItem.image;
+    IntSize bitmapSize([image.get() size]);
+    RefPtr<ShareableBitmap> bitmap = convertImageToBitmap(image.get().get(), bitmapSize, frame);
     ShareableBitmap::Handle handle;
     if (!bitmap || !bitmap->createHandle(handle))
         return;
 
     m_page->willStartDrag();
-
-    // FIXME: Seems this message should be named StartDrag, not SetDragImage.
-    m_page->send(Messages::WebPageProxy::SetDragImage(frame.view()->contentsToWindow(point), handle, linkDrag));
+    m_page->send(Messages::WebPageProxy::StartDrag(dragItem, handle));
 }
 
 static WebCore::CachedImage* cachedImage(Element& element)
@@ -104,7 +119,10 @@ static WebCore::CachedImage* cachedImage(Element& element)
 #if ENABLE(ATTACHMENT_ELEMENT)
 void WebDragClient::declareAndWriteAttachment(const String& pasteboardName, Element& element, const URL& url, const String& path, WebCore::Frame* frame)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ASSERT(pasteboardName == String(NSDragPboard));
+#pragma clang diagnostic pop
     
     NSURL* nsURL = (NSURL *)url;
     m_page->send(Messages::WebPageProxy::SetPromisedDataForAttachment(pasteboardName, String(nsURL.lastPathComponent), String(nsURL.pathExtension), path, String(nsURL.absoluteString), userVisibleString(nsURL)));
@@ -113,7 +131,10 @@ void WebDragClient::declareAndWriteAttachment(const String& pasteboardName, Elem
 
 void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Element& element, const URL& url, const String& label, Frame*)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ASSERT(pasteboardName == String(NSDragPboard));
+#pragma clang diagnostic pop
 
     WebCore::CachedImage* image = cachedImage(element);
 
@@ -149,7 +170,7 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
     SharedMemory::Handle archiveHandle;
     size_t archiveSize = 0;
     if (data) {
-        RefPtr<SharedBuffer> archiveBuffer = SharedBuffer::wrapNSData((NSData *)data.get());
+        RefPtr<SharedBuffer> archiveBuffer = SharedBuffer::create((NSData *)data.get());
         RefPtr<SharedMemory> archiveSharedMemoryBuffer = SharedMemory::allocate(archiveBuffer->size());
         if (!archiveSharedMemoryBuffer)
             return;
@@ -157,8 +178,69 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
         memcpy(archiveSharedMemoryBuffer->data(), archiveBuffer->data(), archiveSize);
         archiveSharedMemoryBuffer->createHandle(archiveHandle, SharedMemory::Protection::ReadOnly);
     }
-    m_page->send(Messages::WebPageProxy::SetPromisedDataForImage(pasteboardName, imageHandle, imageSize, String([response suggestedFilename]), extension, title, String([[response URL] absoluteString]), userVisibleString((NSURL *)url), archiveHandle, archiveSize));
+
+    String filename = String([response suggestedFilename]);
+    if (m_page->isInspectorPage()) {
+        String downloadFilename = ResourceResponseBase::sanitizeSuggestedFilename(element.attributeWithoutSynchronization(HTMLNames::filenameAttr));
+        if (!downloadFilename.isEmpty())
+            filename = downloadFilename;
+    }
+
+    m_page->send(Messages::WebPageProxy::SetPromisedDataForImage(pasteboardName, imageHandle, imageSize, filename, extension, title, String([[response URL] absoluteString]), userVisibleString((NSURL *)url), archiveHandle, archiveSize));
 }
+
+#endif // PLATFORM(MAC)
+
+#if PLATFORM(IOS)
+
+static RefPtr<ShareableBitmap> convertCGImageToBitmap(CGImageRef image, const IntSize& size, Frame& frame)
+{
+    auto bitmap = ShareableBitmap::createShareable(size, ShareableBitmap::SupportsAlpha | ShareableBitmap::SupportsExtendedColor);
+    if (!bitmap)
+        return nullptr;
+
+    auto graphicsContext = bitmap->createGraphicsContext();
+    UIGraphicsPushContext(graphicsContext->platformContext());
+    CGContextDrawImage(graphicsContext->platformContext(), CGRectMake(0, 0, size.width(), size.height()), image);
+    UIGraphicsPopContext();
+    return bitmap;
+}
+
+void WebDragClient::startDrag(DragItem dragItem, DataTransfer& dataTransfer, Frame& frame)
+{
+    auto& image = dragItem.image;
+
+    IntSize bitmapSize(CGImageGetWidth(image.get().get()), CGImageGetHeight(image.get().get()));
+    auto bitmap = convertCGImageToBitmap(image.get().get(), bitmapSize, frame);
+    ShareableBitmap::Handle handle;
+    if (!bitmap || !bitmap->createHandle(handle))
+        return;
+
+    m_page->willStartDrag();
+    m_page->send(Messages::WebPageProxy::StartDrag(dragItem, handle));
+}
+
+void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Element& element, const URL& url, const String& label, Frame*)
+{
+    if (auto frame = element.document().frame())
+        frame->editor().writeImageToPasteboard(*Pasteboard::createForDragAndDrop(), element, url, label);
+}
+
+void WebDragClient::didConcludeEditDrag()
+{
+    m_page->didConcludeEditDataInteraction();
+}
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+void WebDragClient::declareAndWriteAttachment(const String&, Element&, const URL&, const String&, Frame*)
+{
+    notImplemented();
+}
+
+#endif
+
+#endif // PLATFORM(IOS)
 
 } // namespace WebKit
 

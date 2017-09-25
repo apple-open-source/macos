@@ -164,3 +164,41 @@ CFDataRef SOSCircleCopyEncodedData(SOSCircleRef circle, CFAllocatorRef allocator
         return SOSCircleEncodeToDER(circle, error, buffer, (uint8_t *) buffer + size);
     });
 }
+
+//
+// Encodes data or a zero length data
+//
+size_t der_sizeof_data_or_null(CFDataRef data, CFErrorRef* error)
+{
+    if (data) {
+        return der_sizeof_data(data, error);
+    } else {
+        return der_sizeof_null(kCFNull, error);
+    }
+}
+
+uint8_t* der_encode_data_or_null(CFDataRef data, CFErrorRef* error, const uint8_t* der, uint8_t* der_end)
+{
+    if (data) {
+        return der_encode_data(data, error, der, der_end);
+    } else {
+        return der_encode_null(kCFNull, error, der, der_end);
+    }
+}
+
+
+const uint8_t* der_decode_data_or_null(CFAllocatorRef allocator, CFDataRef* data,
+                                       CFErrorRef* error,
+                                       const uint8_t* der, const uint8_t* der_end)
+{
+    CFTypeRef value = NULL;
+    der = der_decode_plist(allocator, 0, &value, error, der, der_end);
+    if (value && CFGetTypeID(value) != CFDataGetTypeID()) {
+        CFReleaseNull(value);
+    }
+    if (data) {
+        *data = value;
+    }
+    return der;
+}
+

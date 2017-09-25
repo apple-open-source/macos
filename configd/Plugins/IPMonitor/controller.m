@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,7 @@
 
 #import "controller.h"
 #import <SystemConfiguration/SCPrivate.h>
+#import "ip_plugin.h"
 
 #define numberToNSNumber(x)	[NSNumber numberWithUnsignedInteger:x]
 
@@ -174,56 +175,7 @@ typedef struct resolverList {
 
 - (NEPolicySession *)createPolicySession
 {
-	NEPolicySession *session = nil;
-#if !TARGET_OS_IPHONE
-	/* On OS X, since we cannot have entitlements, we open a kernel control
-	 * socket and use it to create a policy session
-	 */
-
-	/* Create kernel control socket */
-	int sock = -1;
-	struct ctl_info kernctl_info;
-	struct sockaddr_ctl kernctl_addr;
-	const char *controlName = NECP_CONTROL_NAME;
-
-	if ((sock = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL)) < 0)
-	{
-		SC_log(LOG_NOTICE, "Cannot create kernel control socket (errno = %d)\n", errno);
-		return nil;
-	}
-
-	bzero(&kernctl_info, sizeof(kernctl_info));
-	strlcpy(kernctl_info.ctl_name, controlName, sizeof(kernctl_info.ctl_name));
-	if (ioctl(sock, CTLIOCGINFO, &kernctl_info))
-	{
-		SC_log(LOG_NOTICE, "ioctl failed on kernel control socket (errno = %d)\n", errno);
-		close(sock);
-		return nil;
-	}
-
-	bzero(&kernctl_addr, sizeof(kernctl_addr));
-	kernctl_addr.sc_len = sizeof(kernctl_addr);
-	kernctl_addr.sc_family = AF_SYSTEM;
-	kernctl_addr.ss_sysaddr = AF_SYS_CONTROL;
-	kernctl_addr.sc_id = kernctl_info.ctl_id;
-	kernctl_addr.sc_unit = 0;
-	if (connect(sock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr)))
-	{
-		SC_log(LOG_NOTICE, "connect failed on kernel control socket (errno = %d)\n", errno);
-		close(sock);
-		return nil;
-	}
-
-	/* Create policy session */
-	session = [[NEPolicySession alloc] initWithSocket:sock];
-	if (session == nil) {
-		close(sock);
-	}
-#else	//!TARGET_OS_IPHONE
-	session = [[NEPolicySession alloc] init];
-#endif	//!TARGET_OS_IPHONE
-
-	return session;
+	return [[NEPolicySession alloc] init];
 }
 
 - (BOOL)isControllerReady
@@ -816,9 +768,9 @@ typedef struct resolverList {
 	resolver_list_t	*resolvers	= NULL;
 
 	if ((dns_config->n_resolver > 0) && (dns_config->resolver != NULL)) {
-		int	a	= 0;
-		int	b	= 0;
-		int	c	= 0;
+		uint32_t	a	= 0;
+		uint32_t	b	= 0;
+		uint32_t	c	= 0;
 
 		resolvers = calloc(1, sizeof(resolver_list_t));
 		for (int i = 0; i < dns_config->n_resolver; i++) {
@@ -1208,7 +1160,7 @@ typedef struct resolverList {
 
 		// For default resolvers, their name will be '_defaultDNS', '_defaultDNS #2' so on...
 		if (resolvers->n_default_resolvers > 0 && resolvers->default_resolvers != NULL) {
-			for (int i = 0; i < resolvers->n_default_resolvers; i++) {
+			for (uint32_t i = 0; i < resolvers->n_default_resolvers; i++) {
 				dns_resolver_t *default_resolver = resolvers->default_resolvers[i];
 				NSData	*	data;
 				id		dnsAgent;
@@ -1252,7 +1204,7 @@ typedef struct resolverList {
 								    agentSubType:kAgentSubTypeMulticast];
 
 		if (resolvers->n_multicast_resolvers > 0 && resolvers->multicast_resolvers != NULL) {
-			for (int i = 0; i < resolvers->n_multicast_resolvers; i++) {
+			for (uint32_t i = 0; i < resolvers->n_multicast_resolvers; i++) {
 				dns_resolver_t * multicast_resolver = resolvers->multicast_resolvers[i];
 				id		 dnsAgent;
 				NSString *	 resolverName;
@@ -1296,7 +1248,7 @@ typedef struct resolverList {
 								  agentSubType:kAgentSubTypePrivate];
 
 		if (resolvers->n_private_resolvers > 0 && resolvers->private_resolvers != NULL) {
-			for (int i = 0; i < resolvers->n_private_resolvers; i++) {
+			for (uint32_t i = 0; i < resolvers->n_private_resolvers; i++) {
 				dns_resolver_t * private_resolver = resolvers->private_resolvers[i];
 				id		 dnsAgent;
 				NSString *	 resolverName;
@@ -1337,7 +1289,7 @@ typedef struct resolverList {
 	[self freeResolverList:resolvers];
 }
 
-- (void)processScopedDNSResolvers:(dns_config_t *)dns_config;
+- (void)processScopedDNSResolvers:(dns_config_t *)dns_config
 {
 	NSMutableArray	*	old_intf_list;
 	old_intf_list = [self getAgentList:self.floatingDNSAgentList
@@ -1350,13 +1302,13 @@ typedef struct resolverList {
 			NSData		*	data;
 			id			dnsAgent;
 			NSUInteger		idx;
-			char		*	if_name;
+			const char	*	if_name;
 			NSString	*	ns_if_name;
 			NSString	*	ns_if_name_with_prefix;
 			dns_resolver_t	*	resolver;
 
 			resolver = dns_config->scoped_resolver[i];
-			if_name = if_indextoname(resolver->if_index, buf);
+			if_name = my_if_indextoname(resolver->if_index, buf);
 			if (if_name) {
 				ns_if_name = @(if_name);
 				ns_if_name_with_prefix = [NSString stringWithFormat:@"%s%@", prefixForInterfaceName, ns_if_name];
@@ -1395,7 +1347,7 @@ typedef struct resolverList {
 	[self deleteAgentList:self.floatingDNSAgentList list:old_intf_list];
 }
 
-- (void)processServiceSpecificDNSResolvers:(dns_config_t *)dns_config;
+- (void)processServiceSpecificDNSResolvers:(dns_config_t *)dns_config
 {
 	NSMutableArray	*	old_service_list;
 	old_service_list = [self getAgentList:self.floatingDNSAgentList
@@ -1949,7 +1901,7 @@ done:
 	/* Add a policy if there is a valid type. If POLICY_TYPE_NO_POLICY, then ignore policies.
 	 * POLICY_TYPE_NO_POLICY will be set for service-specific agents, in which case we rely on
 	 * service owners to install custom policies to point at the agents. */
-	if (policyType >= NEPolicyResultTypeNone) {
+	if (policyType >= NEPolicyConditionTypeNone) {
 		BOOL useControlPolicySession = NO;
 		if (subtype == kAgentSubTypeGlobal) {
 			/* Policies for a Global scoped agents are at "control" level */
@@ -2125,8 +2077,16 @@ done:
 
 			if ([globalProxyAgentList count] == 0 &&
 			    [globalDNSAgentList count] == 0) {
-				[self.controlPolicySession removeAllPolicies];
-				[self.controlPolicySession apply];
+				ok = [self.controlPolicySession removeAllPolicies];
+				if (!ok) {
+					SC_log(LOG_ERR, "Could not remove policies for agent %@", [agent getAgentName]);
+				}
+
+				ok = [self.controlPolicySession apply];
+				if (!ok) {
+					SC_log(LOG_ERR, "Could not apply policy change for agent %@", [agent getAgentName]);
+				}
+
 				self.controlPolicySession = nil;
 				SC_log(LOG_NOTICE, "Closed control policy session");
 			}

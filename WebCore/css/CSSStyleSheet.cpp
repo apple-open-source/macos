@@ -21,30 +21,22 @@
 #include "config.h"
 #include "CSSStyleSheet.h"
 
-#include "CSSFontFaceRule.h"
 #include "CSSImportRule.h"
 #include "CSSKeyframesRule.h"
 #include "CSSParser.h"
 #include "CSSRuleList.h"
-#include "CSSStyleRule.h"
-#include "CachedCSSStyleSheet.h"
 #include "Document.h"
 #include "ExceptionCode.h"
-#include "ExtensionStyleSheets.h"
 #include "HTMLLinkElement.h"
-#include "HTMLNames.h"
 #include "HTMLStyleElement.h"
 #include "MediaList.h"
 #include "Node.h"
-#include "SVGNames.h"
 #include "SVGStyleElement.h"
 #include "SecurityOrigin.h"
-#include "ShadowRoot.h"
 #include "StyleResolver.h"
 #include "StyleRule.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
-
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -260,7 +252,7 @@ bool CSSStyleSheet::canAccessRules() const
     Document* document = ownerDocument();
     if (!document)
         return true;
-    return document->securityOrigin()->canRequest(baseURL);
+    return document->securityOrigin().canRequest(baseURL);
 }
 
 RefPtr<CSSRuleList> CSSStyleSheet::rules()
@@ -273,14 +265,6 @@ RefPtr<CSSRuleList> CSSStyleSheet::rules()
     for (unsigned i = 0; i < ruleCount; ++i)
         ruleList->rules().append(item(i));
     return ruleList;
-}
-
-ExceptionOr<unsigned> CSSStyleSheet::deprecatedInsertRule(const String& ruleString)
-{
-    if (auto* document = ownerDocument())
-        document->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, ASCIILiteral("Calling CSSStyleSheet.insertRule() with one argument is deprecated. Please pass the index argument as well: insertRule(x, 0)."));
-
-    return insertRule(ruleString, 0);
 }
 
 ExceptionOr<unsigned> CSSStyleSheet::insertRule(const String& ruleString, unsigned index)

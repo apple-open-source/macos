@@ -150,7 +150,6 @@ parse_replica(char *special, int *count)
 				list[*count-1].host = strdup(proot);
 				if (!list[*count-1].host)
 					goto bad;
-				proot = root;
 
 			}
 			for (i = scount; i < *count; i++) {

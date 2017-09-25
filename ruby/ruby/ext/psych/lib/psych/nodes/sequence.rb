@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 module Psych
   module Nodes
     ###
@@ -56,7 +57,7 @@ module Psych
       # Is this sequence started implicitly?
       attr_accessor :implicit
 
-      # The sequece style used
+      # The sequence style used
       attr_accessor :style
 
       ###

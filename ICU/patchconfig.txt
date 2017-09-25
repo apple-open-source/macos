@@ -1,6 +1,6 @@
---- ./common/unicode/uconfig.h	2016-03-19 21:18:39.000000000 -0700
-+++ ./common/unicode/uconfig.h	2016-03-29 15:23:56.000000000 -0700
-@@ -87,7 +87,7 @@
+--- ./common/unicode/uconfig.h	2017-04-18 11:33:51.000000000 -0700
++++ ./common/unicode/uconfig.h	2017-04-30 10:35:22.000000000 -0700
+@@ -89,7 +89,7 @@
   * @internal
   */
  #ifndef U_DISABLE_RENAMING
@@ -9,7 +9,7 @@
  #endif
  
  /**
-@@ -413,7 +413,7 @@
+@@ -415,7 +415,7 @@
   * @stable ICU 3.2
   */
  #ifndef UCONFIG_NO_SERVICE
@@ -18,9 +18,9 @@
  #endif
  
  /**
---- ./common/unicode/utypes.h	2016-04-20 14:47:56.000000000 -0700
-+++ ./common/unicode/utypes.h	2016-04-20 14:52:41.000000000 -0700
-@@ -61,7 +61,7 @@
+--- ./common/unicode/utypes.h	2017-04-27 17:14:50.000000000 -0700
++++ ./common/unicode/utypes.h	2017-04-30 10:36:14.000000000 -0700
+@@ -63,7 +63,7 @@
   */
  #ifdef __cplusplus
  #   ifndef U_SHOW_CPLUSPLUS_API

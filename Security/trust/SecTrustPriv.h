@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -61,7 +61,13 @@ extern const CFStringRef kSecTrustInfoCompanyNameKey;
 extern const CFStringRef kSecTrustInfoRevocationKey;
 extern const CFStringRef kSecTrustInfoRevocationValidUntilKey;
 extern const CFStringRef kSecTrustInfoCertificateTransparencyKey;
-extern const CFStringRef kSecTrustInfoCertificateTransparencyWhiteListKey;
+
+/* Constants used as keys in the certificate details dictionary.
+ An array of per-certificate details is returned by SecTrustCopyResult
+ as the value of the kSecTrustResultDetails key.
+*/
+extern const CFStringRef kSecCertificateDetailStatusCodes;
+    /*__OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);*/
 
 /*!
  @enum Trust Result Constants
@@ -218,6 +224,23 @@ CFArrayRef SecTrustGetDetails(SecTrustRef trust);
 __nullable CF_RETURNS_RETAINED
 CFArrayRef SecTrustCopyFilteredDetails(SecTrustRef trust);
 
+/*!
+ @function SecTrustIsExpiredOnly
+ @abstract Determine whether expiration is the only problem with a certificate chain.
+ @param trust A reference to a trust object.
+ @result A boolean value indicating whether expiration is the only problem found
+ with the certificate chain in the given trust reference.
+ @discussion Returns true if one or more certificates in the chain have expired,
+ expiration is an error (i.e. it is not being ignored by existing trust settings),
+ and it is the only error encountered. Returns false if the certificate(s) have not
+ expired, or are expired but have trust settings to override their expiration,
+ or if the trust chain has other errors beside expiration. Your code should call
+ this function after SecTrustEvaluate has returned a recoverable trust failure,
+ so you can distinguish this case from other possible errors.
+ */
+Boolean SecTrustIsExpiredOnly(SecTrustRef trust)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
 /* For debugging purposes. */
 __nullable CF_RETURNS_RETAINED
 CFStringRef SecTrustCopyFailureDescription(SecTrustRef trust);
@@ -256,11 +279,11 @@ OSStatus SecTrustSetTrustedLogs(SecTrustRef trust, CFArrayRef trustedLogs);
     -network-fetched issuers
  User must provide all necessary certificates in the input certificates and/or anchors. */
 OSStatus SecTrustSetKeychainsAllowed(SecTrustRef trust, Boolean allowed)
-    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /* Get the keychain search policy for the trust object. */
 OSStatus SecTrustGetKeychainsAllowed(SecTrustRef trust, Boolean * __nonnull allowed)
-    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
  @function SecTrustEvaluateLeafOnly
@@ -274,7 +297,7 @@ OSStatus SecTrustGetKeychainsAllowed(SecTrustRef trust, Boolean * __nonnull allo
  any set exceptions or usage constraints.
  */
 OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType * __nonnull result)
-    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
  @function SecTrustSerialize
@@ -288,7 +311,7 @@ OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType * __nonn
  */
 __nullable CF_RETURNS_RETAINED
 CFDataRef SecTrustSerialize(SecTrustRef trust, CFErrorRef *error)
-    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
  @function SecTrustDeserialize
@@ -302,7 +325,7 @@ CFDataRef SecTrustSerialize(SecTrustRef trust, CFErrorRef *error)
  */
 __nullable CF_RETURNS_RETAINED
 SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *error)
-    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
  @function SecTrustGetTrustExceptionsArray
@@ -314,7 +337,7 @@ SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *error)
  exceptions which could be set using SecTrustSetExceptions.
  */
 __nullable CFArrayRef SecTrustGetTrustExceptionsArray(SecTrustRef trust)
-    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+    __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
  @function SecTrustCopyInputCertificates
@@ -337,6 +360,32 @@ __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.3) __TVOS_AVAILABLE(10.2) __WATCHOS_
  */
 OSStatus SecTrustAddToInputCertificates(SecTrustRef trust, CFTypeRef _Nonnull certificates)
     __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.3) __TVOS_AVAILABLE(10.2) __WATCHOS_AVAILABLE(3.2);
+
+/*!
+ @function SecTrustSetPinningPolicyName
+ @abstract Set the policy name to be used during the trust evaluation.
+ @param trust A reference to the trust object
+ @param policyName A string representing the name of the pinning policy to be used.
+ @result A result code. See "Security Error Codes" (SecBase.h)
+ @discussion This function permits the caller to enable the dynamic lookup of the
+ pinning policy using a built-in database as an alternative to using a SecPolicyCreate function
+ with the pinning rules and calling SecTrustCreateWithCertificates or SecTrustSetPolicies.
+ */
+OSStatus SecTrustSetPinningPolicyName(SecTrustRef trust, CFStringRef policyName)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
+
+/*!
+ @function SecTrustSetPinningException
+ @abstract Remove pinning requirement from this trust evaluation
+ @param trust A reference to the trust object
+ @result A result code. See "Security Error Codes" (SecBase.h)
+ @discussion This function provides an exception for this particular trust for a bundle that
+ otherwise requires pinning for all connections. Bundles use the SecTrustPinningRequired key
+ with boolean value of true in their info plist to indicate that all SSL connections from the
+ bundle must be pinned.
+ */
+OSStatus SecTrustSetPinningException(SecTrustRef trust)
+    __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

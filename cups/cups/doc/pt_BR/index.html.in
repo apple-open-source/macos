@@ -14,7 +14,7 @@
       <ul>
 	<li><a href="http://www.cups.org/" target="_blank">CUPS.org</a></li>
 	<li><a class="active" href="/">In&iacute;cio</a></li>
-	<li><a href="/admin">Administra&ccedil;&atilde;o</a></li>
+	<li><a href="/admin">Administrar&ccedil;&atilde;o</a></li>
 	<li><a href="/classes/">Classes</a></li>
 	<li><a href="/help/">Ajuda</a></li>
 	<li><a href="/jobs/">Trabalhos</a></li>
@@ -51,6 +51,6 @@
 	</div>
       </div>
     </div>
-    <div class="footer">CUPS e o logo do CUPS s&atilde;o marcas registradas da <a href="http://www.apple.com">Apple Inc.</a> Copyright &copy; 2007-2015 Apple Inc. Todos os direitos reservados.</div>
+    <div class="footer">CUPS e o logo do CUPS s&atilde;o marcas registradas da <a href="http://www.apple.com">Apple Inc.</a> Copyright &copy; 2007-2017 Apple Inc. Todos os direitos reservados.</div>
   </body>
 </html>

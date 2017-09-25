@@ -126,11 +126,12 @@ inline void JSCell::visitOutputConstraints(JSCell*, SlotVisitor&)
 
 ALWAYS_INLINE VM& ExecState::vm() const
 {
-    ASSERT(callee());
-    ASSERT(callee()->vm());
-    ASSERT(!callee()->isLargeAllocation());
+    JSCell* callee = this->callee().asCell();
+    ASSERT(callee);
+    ASSERT(callee->vm());
+    ASSERT(!callee->isLargeAllocation());
     // This is an important optimization since we access this so often.
-    return *callee()->markedBlock().vm();
+    return *callee->markedBlock().vm();
 }
 
 template<typename CellType>
@@ -141,45 +142,55 @@ Subspace* JSCell::subspaceFor(VM& vm)
     return &vm.cellSpace;
 }
 
+template<typename T, AllocationFailureMode mode, GCDeferralContextArgPresense deferralContextArgPresence>
+ALWAYS_INLINE void* tryAllocateCellHelper(Heap& heap, GCDeferralContext* deferralContext, size_t size)
+{
+    ASSERT(deferralContext || !DisallowGC::isInEffectOnCurrentThread());
+    ASSERT(size >= sizeof(T));
+    JSCell* result;
+    if (mode == AllocationFailureMode::ShouldAssertOnFailure) {
+        result = (deferralContextArgPresence == GCDeferralContextArgPresense::HasArg)
+            ? static_cast<JSCell*>(subspaceFor<T>(*heap.vm())->allocate(deferralContext, size))
+            : static_cast<JSCell*>(subspaceFor<T>(*heap.vm())->allocate(size));
+    } else {
+        result = (deferralContextArgPresence == GCDeferralContextArgPresense::HasArg)
+            ? static_cast<JSCell*>(subspaceFor<T>(*heap.vm())->tryAllocate(deferralContext, size))
+            : static_cast<JSCell*>(subspaceFor<T>(*heap.vm())->tryAllocate(size));
+        if (UNLIKELY(!result))
+            return nullptr;
+    }
+#if ENABLE(GC_VALIDATION)
+    ASSERT(!heap.vm()->isInitializingObject());
+    heap.vm()->setInitializingObjectClass(T::info());
+#endif
+    result->clearStructure();
+    return result;
+}
+
 template<typename T>
 void* allocateCell(Heap& heap, size_t size)
 {
-    ASSERT(!DisallowGC::isGCDisallowedOnCurrentThread());
-    ASSERT(size >= sizeof(T));
-    JSCell* result = static_cast<JSCell*>(subspaceFor<T>(*heap.vm())->allocate(size));
-#if ENABLE(GC_VALIDATION)
-    ASSERT(!heap.vm()->isInitializingObject());
-    heap.vm()->setInitializingObjectClass(T::info());
-#endif
-    result->clearStructure();
-    return result;
+    return tryAllocateCellHelper<T, AllocationFailureMode::ShouldAssertOnFailure, GCDeferralContextArgPresense::DoesNotHaveArg>(heap, nullptr, size);
 }
-    
+
 template<typename T>
-void* allocateCell(Heap& heap)
+void* tryAllocateCell(Heap& heap, size_t size)
 {
-    return allocateCell<T>(heap, sizeof(T));
+    return tryAllocateCellHelper<T, AllocationFailureMode::ShouldNotAssertOnFailure, GCDeferralContextArgPresense::DoesNotHaveArg>(heap, nullptr, size);
 }
-    
+
 template<typename T>
 void* allocateCell(Heap& heap, GCDeferralContext* deferralContext, size_t size)
 {
-    ASSERT(size >= sizeof(T));
-    JSCell* result = static_cast<JSCell*>(subspaceFor<T>(*heap.vm())->allocate(deferralContext, size));
-#if ENABLE(GC_VALIDATION)
-    ASSERT(!heap.vm()->isInitializingObject());
-    heap.vm()->setInitializingObjectClass(T::info());
-#endif
-    result->clearStructure();
-    return result;
+    return tryAllocateCellHelper<T, AllocationFailureMode::ShouldAssertOnFailure, GCDeferralContextArgPresense::HasArg>(heap, deferralContext, size);
 }
-    
+
 template<typename T>
-void* allocateCell(Heap& heap, GCDeferralContext* deferralContext)
+void* tryAllocateCell(Heap& heap, GCDeferralContext* deferralContext, size_t size)
 {
-    return allocateCell<T>(heap, deferralContext, sizeof(T));
+    return tryAllocateCellHelper<T, AllocationFailureMode::ShouldNotAssertOnFailure, GCDeferralContextArgPresense::HasArg>(heap, deferralContext, size);
 }
-    
+
 inline bool JSCell::isObject() const
 {
     return TypeInfo::isObject(m_type);
@@ -240,25 +251,21 @@ ALWAYS_INLINE void JSCell::setStructure(VM& vm, Structure* structure)
 inline const MethodTable* JSCell::methodTable() const
 {
     VM& vm = *Heap::heap(this)->vm();
-    Structure* structure = this->structure(vm);
-    if (Structure* rootStructure = structure->structure(vm))
-        RELEASE_ASSERT(rootStructure == rootStructure->structure(vm));
-
-    return &structure->classInfo()->methodTable;
+    return methodTable(vm);
 }
 
 inline const MethodTable* JSCell::methodTable(VM& vm) const
 {
     Structure* structure = this->structure(vm);
     if (Structure* rootStructure = structure->structure(vm))
-        RELEASE_ASSERT(rootStructure == rootStructure->structure(vm));
+        ASSERT_UNUSED(rootStructure, rootStructure == rootStructure->structure(vm));
 
     return &structure->classInfo()->methodTable;
 }
 
-inline bool JSCell::inherits(const ClassInfo* info) const
+inline bool JSCell::inherits(VM& vm, const ClassInfo* info) const
 {
-    return classInfo()->isSubClassOf(info);
+    return classInfo(vm)->isSubClassOf(info);
 }
 
 ALWAYS_INLINE JSValue JSCell::fastGetOwnProperty(VM& vm, Structure& structure, PropertyName name)
@@ -277,15 +284,15 @@ inline bool JSCell::canUseFastGetOwnProperty(const Structure& structure)
         && !structure.typeInfo().overridesGetOwnPropertySlot();
 }
 
-ALWAYS_INLINE const ClassInfo* JSCell::classInfo() const
+ALWAYS_INLINE const ClassInfo* JSCell::classInfo(VM& vm) const
 {
-    VM* vm;
-    if (isLargeAllocation())
-        vm = largeAllocation().vm();
-    else
-        vm = markedBlock().vm();
-    ASSERT(vm->heap.mutatorState() == MutatorState::Running || vm->apiLock().ownerThread() != std::this_thread::get_id());
-    return structure(*vm)->classInfo();
+    // What we really want to assert here is that we're not currently destructing this object (which makes its classInfo
+    // invalid). If mutatorState() == MutatorState::Running, then we're not currently sweeping, and therefore cannot be
+    // destructing the object. The GC thread or JIT threads, unlike the mutator thread, are able to access classInfo
+    // independent of whether the mutator thread is sweeping or not. Hence, we also check for !currentThreadIsHoldingAPILock()
+    // to allow the GC thread or JIT threads to pass this assertion.
+    ASSERT(vm.heap.mutatorState() != MutatorState::Sweeping || !vm.currentThreadIsHoldingAPILock());
+    return structure(vm)->classInfo();
 }
 
 inline bool JSCell::toBoolean(ExecState* exec) const
@@ -348,6 +355,19 @@ inline JSObject* JSCell::toObject(ExecState* exec, JSGlobalObject* globalObject)
     if (isObject())
         return jsCast<JSObject*>(const_cast<JSCell*>(this));
     return toObjectSlow(exec, globalObject);
+}
+
+ALWAYS_INLINE bool JSCell::putInline(ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
+{
+    auto putMethod = methodTable(exec->vm())->put;
+    if (LIKELY(putMethod == JSObject::put))
+        return JSObject::putInlineForJSObject(asObject(this), exec, propertyName, value, slot);
+    return putMethod(this, exec, propertyName, value, slot);
+}
+
+inline bool isWebAssemblyToJSCallee(const JSCell* cell)
+{
+    return cell->type() == WebAssemblyToJSCalleeType;
 }
 
 } // namespace JSC

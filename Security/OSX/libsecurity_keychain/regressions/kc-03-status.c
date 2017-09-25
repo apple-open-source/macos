@@ -15,7 +15,7 @@ static void tests(void)
 	if (!home || strlen(home) > 200)
 		plan_skip_all("home too big");
 
-	sprintf(kcname1, "%s/kctests/kc1/kc1", home);
+	snprintf(kcname1, sizeof(kcname1), "%s/kctests/kc1/kc1", home);
 	SecKeychainRef kc1 = NULL, kc2 = NULL;
     kc1 = createNewKeychainAt(kcname1, "test");
 
@@ -34,7 +34,7 @@ static void tests(void)
 
 	/* Make keychain non writable. */
 	char kcdir1[256];
-	sprintf(kcdir1, "%s/kctests/kc1", home);
+	snprintf(kcdir1, sizeof(kcdir1), "%s/kctests/kc1", home);
 	ok_unix(chmod(kcdir1, 0555), "chmod kcdir1 0555");
 
 	ok_status(SecKeychainGetStatus(kc1, &status1), "get kc1 status");
@@ -62,7 +62,7 @@ static void tests(void)
 			"status unlocked readable");
 	}
 
-	sprintf(kcname2, "%s/kctests/kc2/kc2", home);
+	snprintf(kcname2, sizeof(kcname2), "%s/kctests/kc2/kc2", home);
     kc2 = createNewKeychainAt(kcname2, "test");
 	ok_unix(chmod(kcname2, 0444), "chmod kc2 0444");
 	ok_status(SecKeychainGetStatus(kc2, &status2), "get kc2 status");

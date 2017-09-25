@@ -254,7 +254,8 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 //
 struct IOHIDReportHandler
 {
-    IOHIDElementPrivate * head[ kIOHIDReportTypeCount ];
+    IOHIDElementPrivate * head[kIOHIDReportTypeCount];
+    boolean_t             variableSizeReport[kIOHIDReportTypeCount];
 };
 
 #define GetHeadElement(slot, type)  _reportHandlers[slot].head[type]
@@ -648,6 +649,11 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
     SET_PROP_FROM_VALUE(    kIOHIDPrimaryUsagePageKey,  newPrimaryUsagePageNumber() );
     SET_PROP_FROM_VALUE(    kIOHIDReportIntervalKey,    newReportIntervalNumber()   );
     SET_PROP_FROM_VALUE(    kIOHIDDeviceUsagePairsKey,  newDeviceUsagePairs()       );
+    SET_PROP_FROM_VALUE(    kIOHIDMaxInputReportSizeKey,    copyProperty(kIOHIDMaxInputReportSizeKey));
+    SET_PROP_FROM_VALUE(    kIOHIDMaxOutputReportSizeKey,   copyProperty(kIOHIDMaxOutputReportSizeKey));
+    SET_PROP_FROM_VALUE(    kIOHIDMaxFeatureReportSizeKey,  copyProperty(kIOHIDMaxFeatureReportSizeKey));
+    SET_PROP_FROM_VALUE(    kIOHIDRelaySupportKey,          copyProperty(kIOHIDRelaySupportKey, gIOServicePlane));
+    SET_PROP_FROM_VALUE(    kIOHIDReportDescriptorKey,      copyProperty(kIOHIDReportDescriptorKey));
 
     if ( getProvider() )
     {
@@ -820,7 +826,7 @@ bool IOHIDDevice::handleOpen(IOService      *client,
 //---------------------------------------------------------------------------
 // Handle a client close on the interface.
 
-void IOHIDDevice::handleClose(IOService * client, IOOptionBits options)
+void IOHIDDevice::handleClose(IOService * client, IOOptionBits options __unused)
 {
     // Remove the object from the client OSSet.
 
@@ -875,7 +881,6 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
     // default hid clients to ensure that at least connect to our correct client.
     if ( type == kIOHIDLibUserClientConnectManager ) {
         if ( isInactive() ) {
-            HIDLogError( "called on an inactive device" );
             *handler = NULL;
             return kIOReturnNotReady;
         }
@@ -924,14 +929,19 @@ IOReturn IOHIDDevice::newUserClientInternal( task_t          owningTask,
 
 IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argument )
 {
-    if ((type == kIOMessageDeviceSignaledWakeup) && _performWakeTickle)
+    if ((kIOMessageDeviceSignaledWakeup == type) && _performWakeTickle)
     {
         IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this); // not a real event. tickle is not maskable.
         return kIOReturnSuccess;
     }
-    if (type == kIOHIDMessageOpenedByEventSystem) {
+    if (kIOHIDMessageOpenedByEventSystem == type && provider == _interfaceNub) {
         bool msgArg = (argument == kOSBooleanTrue);
         setProperty(kIOHIDDeviceOpenedByEventSystemKey, msgArg ? kOSBooleanTrue : kOSBooleanFalse);
+        messageClients(type, (void *)(uintptr_t)msgArg);
+        return kIOReturnSuccess;
+    } else if (kIOHIDMessageRelayServiceInterfaceActive == type && provider == _interfaceNub) {
+        bool msgArg = (argument == kOSBooleanTrue);
+        setProperty(kIOHIDRelayServiceInterfaceActiveKey, msgArg ? kOSBooleanTrue : kOSBooleanFalse);
         messageClients(type, (void *)(uintptr_t)msgArg);
         return kIOReturnSuccess;
     }
@@ -1144,9 +1154,9 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
              (long)caps.numberOutputValueCaps,
              (long)caps.numberFeatureValueCaps);
 
-        _maxInputReportSize    = caps.inputReportByteLength;
-        _maxOutputReportSize   = caps.outputReportByteLength;
-        _maxFeatureReportSize  = caps.featureReportByteLength;
+        _maxInputReportSize    = (UInt32)caps.inputReportByteLength;
+        _maxOutputReportSize   = (UInt32)caps.outputReportByteLength;
+        _maxFeatureReportSize  = (UInt32)caps.featureReportByteLength;
 
         // RY: These values are useful to the subclasses.  Post them.
         setProperty(kIOHIDMaxInputReportSizeKey, _maxInputReportSize, 32);
@@ -1683,8 +1693,14 @@ bool IOHIDDevice::registerElement( IOHIDElementPrivate * element,
         {
             element->setNextReportHandler( reportHandler->head[reportType] );
         }
+      
         reportHandler->head[reportType] = element;
-
+      
+        if (element->isVariableSize())
+        {
+            reportHandler->variableSizeReport[reportType] = true;
+        }
+      
         if ( element->getUsagePage() == kHIDPage_KeyboardOrKeypad )
         {
             UInt32 usage = element->getUsage();
@@ -1723,7 +1739,7 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
         for ( UInt32 type = 0; type < kIOHIDReportTypeCount; type++ ) {
             element = GetHeadElement(slot, type);
             while ( element ) {
-                UInt32 remaining = ULONG_MAX - capacity;
+                UInt32 remaining = (UInt32)ULONG_MAX - capacity;
 
                 if ( element->getElementValueSize() > remaining )
                     return NULL;
@@ -1886,7 +1902,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
     IOMemoryDescriptor *	report = NULL;
     IOHIDElementPrivate *		element = NULL;
     IOHIDReportType		reportType;
-    IOByteCount			maxReportLength;
+    UInt32			maxReportLength;
     UInt8			reportID;
     UInt32			index;
     IOReturn			ret = kIOReturnError;
@@ -1896,7 +1912,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
 
     // Allocate a mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem discriptor
-    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone);
+    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionIn);
 
     if (report == NULL)
         return kIOReturnNoMemory;
@@ -1960,16 +1976,16 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
 OSMetaClassDefineReservedUsed(IOHIDDevice,  1);
 IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount)
 {
-    IOBufferMemoryDescriptor	*report = NULL;
-    IOHIDElementPrivate 		*element = NULL;
-    IOHIDElementPrivate 		*cookieElement = NULL;
-    UInt8			*reportData = NULL;
-    UInt32			maxReportLength = 0;
-    UInt32			reportLength = 0;
-    IOHIDReportType		reportType;
-    UInt8			reportID = 0;
-    UInt32 			index;
-    IOReturn			ret = kIOReturnError;
+    IOBufferMemoryDescriptor    *report = NULL;
+    IOHIDElementPrivate         *element = NULL;
+    IOHIDElementPrivate         *cookieElement = NULL;
+    UInt8                       *reportData = NULL;
+    IOByteCount                 maxReportLength = 0;
+    UInt32                      reportLength = 0;
+    IOHIDReportType             reportType;
+    UInt8                       reportID = 0;
+    UInt32                      index;
+    IOReturn                    ret = kIOReturnError;
 
     // Return an error if no cookies are being set
     if (cookieCount == 0)
@@ -1981,7 +1997,7 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
 
     // Allocate a buffer mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem buffer.
-    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone);
+    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionOut);
 
     if ( report == NULL )
         return kIOReturnNoMemory;
@@ -2180,14 +2196,19 @@ IOReturn IOHIDDevice::handleReportWithTime(
 
     if ( _readyForInputReports ) {
         IOHIDElementPrivate * element;
+        IOHIDReportHandler  * reportHandler;
 
         // The first byte in the report, may be the report ID.
         // XXX - Do we need to advance the start of the report data?
 
         reportID = ( _reportCount > 1 ) ? *((UInt8 *) reportData) : 0;
 
-        // Get the first element in the report handler chain.
+        // Get report handler
 
+        reportHandler = &_reportHandlers[GetReportHandlerSlot(reportID)];
+
+        // Get the first element in the report handler chain.
+      
         element = GetHeadElement( GetReportHandlerSlot(reportID),
                                   reportType);
 
@@ -2195,10 +2216,11 @@ IOReturn IOHIDDevice::handleReportWithTime(
             shouldTickle |= element->shouldTickleActivity();
             changed |= element->processReport( reportID,
                                                reportData,
-                                               reportLength << 3,
+                                               (UInt32)reportLength << 3,
                                                &timeStamp,
                                                &element,
-                                               options );
+                                               reportHandler->variableSizeReport[reportType] ? (options | kIOHIDReportOptionVariableSize) : options
+                                               );
         }
 
         ret = kIOReturnSuccess;

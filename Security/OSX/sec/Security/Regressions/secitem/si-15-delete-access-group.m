@@ -16,7 +16,7 @@
 
 int si_15_delete_access_group(int argc, char *const *argv)
 {
-    plan_tests(4);
+    plan_tests(11);
 
     @autoreleasepool {
         NSDictionary *query = NULL, *item = NULL;

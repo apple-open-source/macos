@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "Base64Utilities.h"
 #include "EventTarget.h"
 #include "ScriptExecutionContext.h"
+#include "Supplementable.h"
 #include "URL.h"
 #include "WorkerEventQueue.h"
 #include "WorkerScriptController.h"
@@ -39,6 +40,7 @@ namespace WebCore {
 
 class ContentSecurityPolicyResponseHeaders;
 class Crypto;
+class Performance;
 class ScheduledAction;
 class WorkerInspectorController;
 class WorkerLocation;
@@ -56,6 +58,7 @@ public:
     virtual bool isDedicatedWorkerGlobalScope() const { return false; }
 
     const URL& url() const final { return m_url; }
+    String origin() const;
 
 #if ENABLE(INDEXED_DATABASE)
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
@@ -86,6 +89,7 @@ public:
     void clearInterval(int timeoutId);
 
     bool isContextThread() const final;
+    bool isSecureContext() const final;
 
     WorkerNavigator* optionalNavigator() const { return m_navigator.get(); }
     WorkerLocation* optionalLocation() const { return m_location.get(); }
@@ -95,12 +99,18 @@ public:
 
     bool isClosing() { return m_closing; }
 
-    void addConsoleMessage(std::unique_ptr<Inspector::ConsoleMessage>&&);
+    void addConsoleMessage(std::unique_ptr<Inspector::ConsoleMessage>&&) final;
 
     Crypto& crypto();
 
+#if ENABLE(WEB_TIMING)
+    Performance& performance() const;
+#endif
+
+    void removeAllEventListeners() final;
+
 protected:
-    WorkerGlobalScope(const URL&, const String& identifier, const String& userAgent, WorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, RefPtr<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
+    WorkerGlobalScope(const URL&, const String& identifier, const String& userAgent, WorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
 
     void applyContentSecurityPolicyResponseHeaders(const ContentSecurityPolicyResponseHeaders&);
 
@@ -112,6 +122,9 @@ private:
     void derefEventTarget() final { deref(); }
 
     void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, RefPtr<Inspector::ScriptCallStack>&&) final;
+
+    // The following addMessage and addConsoleMessage functions are deprecated.
+    // Callers should try to create the ConsoleMessage themselves.
     void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, RefPtr<Inspector::ScriptCallStack>&&, JSC::ExecState*, unsigned long requestIdentifier) final;
     void addConsoleMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier) final;
 
@@ -121,6 +134,7 @@ private:
     URL completeURL(const String&) const final;
     String userAgent(const URL&) const final;
     void disableEval(const String& errorMessage) final;
+    void disableWebAssembly(const String& errorMessage) final;
     EventTarget* errorEventTarget() final;
     WorkerEventQueue& eventQueue() const final;
     String resourceRequestIdentifier() const final { return m_identifier; }
@@ -131,7 +145,7 @@ private:
 
     bool shouldBypassMainWorldContentSecurityPolicy() const final { return m_shouldBypassMainWorldContentSecurityPolicy; }
     bool isJSExecutionForbidden() const final;
-    SecurityOrigin* topOrigin() const final { return m_topOrigin.get(); }
+    SecurityOrigin& topOrigin() const final { return m_topOrigin.get(); }
 
 #if ENABLE(SUBTLE_CRYPTO)
     // The following two functions are side effects of providing extra protection to serialized
@@ -161,7 +175,7 @@ private:
 
     mutable WorkerEventQueue m_eventQueue;
 
-    RefPtr<SecurityOrigin> m_topOrigin;
+    Ref<SecurityOrigin> m_topOrigin;
 
 #if ENABLE(INDEXED_DATABASE)
     RefPtr<IDBClient::IDBConnectionProxy> m_connectionProxy;
@@ -169,6 +183,10 @@ private:
 
 #if ENABLE(WEB_SOCKETS)
     RefPtr<SocketProvider> m_socketProvider;
+#endif
+
+#if ENABLE(WEB_TIMING)
+    RefPtr<Performance> m_performance;
 #endif
 
     mutable RefPtr<Crypto> m_crypto;

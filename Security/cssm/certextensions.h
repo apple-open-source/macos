@@ -31,6 +31,7 @@
 #if SEC_OS_OSX
 
 #include <Security/cssmtype.h>
+#include <Security/x509defs.h> /* CSSM_X509_RDN_PTR */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 

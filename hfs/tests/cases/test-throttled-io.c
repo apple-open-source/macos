@@ -135,7 +135,6 @@ static void test2_thread(void)
 	} while (!done);
 	
 	assert_no_err (close(fd));
-	
 }
 
 static int run_test2(void)
@@ -194,6 +193,7 @@ static bool clean_up(void)
 
 int run_throttled_io(__unused test_ctx_t *ctx)
 {
+	
 	gDI = disk_image_get();
 	
 	asprintf(&gFile1, "%s/throttled_io.1", gDI->mount_point);
@@ -203,11 +203,11 @@ int run_throttled_io(__unused test_ctx_t *ctx)
 	test_cleanup(^ bool {
 		return clean_up();
 	});
-	
+
 	int res = run_test1();
 	if (res)
 		return res;
-	
+
 	res = run_test2();
 	if (res)
 		return res;

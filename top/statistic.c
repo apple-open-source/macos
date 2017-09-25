@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <mach/mach_time.h>
@@ -49,49 +50,61 @@
 #include "power.h"
 
 struct statistic_name_map statistic_name_map[] = {
-    /*The order of this must match the enum in statistic.h. */
-    {STATISTIC_PID, top_pid_create, "PID"},
-    {STATISTIC_COMMAND, top_command_create, "COMMAND"},
-    {STATISTIC_CPU, top_cpu_create, "%CPU"},
-    {STATISTIC_CPU_ME, top_cpu_me_create, "%CPU_ME"},
-    {STATISTIC_CPU_OTHERS, top_cpu_others_create, "%CPU_OTHRS"},
-    {STATISTIC_BOOSTS, top_boosts_create, "BOOSTS"},
-    {STATISTIC_TIME, top_time_create, "TIME"},
-    {STATISTIC_THREADS, top_threadcount_create, "#TH"},
-    {STATISTIC_PORTS, top_ports_create, "#PORTS"},
-    {STATISTIC_MREGION, top_mregion_create, "#MREGS"},
+#define SNAME(STAT, FN, NAME) \
+    [(STAT)] = { (STAT), (FN), (NAME) }
+
+    SNAME(STATISTIC_PID, top_pid_create, "PID"),
+    SNAME(STATISTIC_COMMAND, top_command_create, "COMMAND"),
+    SNAME(STATISTIC_CPU, top_cpu_create, "%CPU"),
+    SNAME(STATISTIC_CPU_ME, top_cpu_me_create, "%CPU_ME"),
+    SNAME(STATISTIC_CPU_OTHERS, top_cpu_others_create, "%CPU_OTHRS"),
+    SNAME(STATISTIC_BOOSTS, top_boosts_create, "BOOSTS"),
+    SNAME(STATISTIC_TIME, top_time_create, "TIME"),
+    SNAME(STATISTIC_THREADS, top_threadcount_create, "#TH"),
+    SNAME(STATISTIC_PORTS, top_ports_create, "#PORTS"),
+    SNAME(STATISTIC_MREGION, top_mregion_create, "#MREGS"),
+
 #ifdef TOP_ANONYMOUS_MEMORY
-    {STATISTIC_RMEM, top_rmem_create, "MEM"},
-    {STATISTIC_RPRVT, top_rprvt_create, "RPRVT"},
-    {STATISTIC_PURG, top_purg_create, "PURG"},
-    {STATISTIC_COMPRESSED, top_compressed_create, "CMPRS"},
-#else
-    {STATISTIC_RPRVT, top_rprvt_create, "RPRVT"},
-    {STATISTIC_RSHRD, top_rshrd_create, "RSHRD"}, 
-    {STATISTIC_RSIZE, top_rsize_create, "RSIZE"},
-#endif
-    {STATISTIC_VSIZE, top_vsize_create, "VSIZE"},
-    {STATISTIC_VPRVT, top_vprvt_create, "VPRVT"},
-    {STATISTIC_PGRP, top_pgrp_create, "PGRP"},
-    {STATISTIC_PPID, top_ppid_create, "PPID"},
-    {STATISTIC_PSTATE, top_pstate_create, "STATE"},
-    {STATISTIC_UID, top_uid_create, "UID"},
-    {STATISTIC_WORKQUEUE, top_workqueue_create, "#WQ"},
-    {STATISTIC_FAULTS, top_faults_create, "FAULTS"},
-    {STATISTIC_COW_FAULTS, top_cow_faults_create, "COW"},
-    {STATISTIC_MESSAGES_SENT, top_messages_sent_create, "MSGSENT"},
-    {STATISTIC_MESSAGES_RECEIVED, top_messages_received_create, "MSGRECV"},
-    {STATISTIC_SYSBSD, top_sysbsd_create, "SYSBSD"},
-    {STATISTIC_SYSMACH, top_sysmach_create, "SYSMACH"},
-    {STATISTIC_CSW, top_csw_create, "CSW"},
-    {STATISTIC_PAGEINS, top_pageins_create, "PAGEINS"},
-    {STATISTIC_KPRVT, top_kprvt_create, "KPRVT"},
-    {STATISTIC_KSHRD, top_kshrd_create, "KSHRD"},
-    {STATISTIC_IDLEWAKE, top_idlewake_create, "IDLEW"},
-    {STATISTIC_POWERSCORE, top_powerscore_create, "POWER"},
-    {STATISTIC_USER, top_user_create, "USER"},
-    {0, NULL, NULL}
+    SNAME(STATISTIC_RMEM, top_rmem_create, "MEM"),
+    SNAME(STATISTIC_RPRVT, top_rprvt_create, "RPRVT"),
+    SNAME(STATISTIC_PURG, top_purg_create, "PURG"),
+    SNAME(STATISTIC_COMPRESSED, top_compressed_create, "CMPRS"),
+#else /* defined(TOP_ANONYMOUS_MEMORY) */
+    SNAME(STATISTIC_RPRVT, top_rprvt_create, "RPRVT"),
+    SNAME(STATISTIC_RSHRD, top_rshrd_create, "RSHRD"),
+    SNAME(STATISTIC_RSIZE, top_rsize_create, "RSIZE"),
+#endif /* !defined(TOP_ANONYMOUS_MEMORY) */
+
+    SNAME(STATISTIC_VSIZE, top_vsize_create, "VSIZE"),
+    SNAME(STATISTIC_VPRVT, top_vprvt_create, "VPRVT"),
+    SNAME(STATISTIC_INSTRS, top_instrs_create, "INSTRS"),
+    SNAME(STATISTIC_CYCLES, top_cycles_create, "CYCLES"),
+    SNAME(STATISTIC_PGRP, top_pgrp_create, "PGRP"),
+    SNAME(STATISTIC_PPID, top_ppid_create, "PPID"),
+    SNAME(STATISTIC_PSTATE, top_pstate_create, "STATE"),
+    SNAME(STATISTIC_UID, top_uid_create, "UID"),
+    SNAME(STATISTIC_WORKQUEUE, top_workqueue_create, "#WQ"),
+    SNAME(STATISTIC_FAULTS, top_faults_create, "FAULTS"),
+    SNAME(STATISTIC_COW_FAULTS, top_cow_faults_create, "COW"),
+    SNAME(STATISTIC_MESSAGES_SENT, top_messages_sent_create, "MSGSENT"),
+    SNAME(STATISTIC_MESSAGES_RECEIVED, top_messages_received_create, "MSGRECV"),
+    SNAME(STATISTIC_SYSBSD, top_sysbsd_create, "SYSBSD"),
+    SNAME(STATISTIC_SYSMACH, top_sysmach_create, "SYSMACH"),
+    SNAME(STATISTIC_CSW, top_csw_create, "CSW"),
+    SNAME(STATISTIC_PAGEINS, top_pageins_create, "PAGEINS"),
+    SNAME(STATISTIC_KPRVT, top_kprvt_create, "KPRVT"),
+    SNAME(STATISTIC_KSHRD, top_kshrd_create, "KSHRD"),
+    SNAME(STATISTIC_IDLEWAKE, top_idlewake_create, "IDLEW"),
+    SNAME(STATISTIC_POWERSCORE, top_powerscore_create, "POWER"),
+    SNAME(STATISTIC_USER, top_user_create, "USER"),
+
+    { 0, NULL, NULL }
+
+#undef SNAME
 };
+
+static_assert((sizeof(statistic_name_map) / sizeof(statistic_name_map[0])) == NUM_STATISTICS + 1,
+    "all statistics should be present in the statistic name map");
 
 static void reset_insertion(struct statistics_controller *c) {
     struct statistic *s;
@@ -187,7 +200,7 @@ struct statistics_controller *create_statistics_controller(WINDOW *parent) {
    
     c->parent = parent;
 
-    for(i = 0; i < STATISTIC_TOTAL; ++i) {
+    for(i = 0; i < NUM_STATISTICS; ++i) {
 	c->state[i].type = i;
 	c->state[i].instance = NULL;
 	c->state[i].create_statistic = NULL;

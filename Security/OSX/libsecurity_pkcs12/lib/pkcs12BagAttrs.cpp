@@ -118,6 +118,7 @@ void P12BagAttrs::getAttr(
 	for(unsigned dex=0; dex<numVals; dex++) {
 		CFDataRef val = p12CssmDataToCf(*attr->attrValue[dex]);
 		CFArrayAppendValue(vals, val);
+        CFRelease(val);
 	}
 	*attrValues = vals;
 }

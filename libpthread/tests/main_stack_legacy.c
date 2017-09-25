@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <pthread.h>
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 #include <machine/vmparam.h>
 
 T_DECL(main_stack_legacy, "tests the reported values for a custom main thread stack",

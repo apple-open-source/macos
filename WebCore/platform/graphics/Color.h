@@ -65,7 +65,7 @@ typedef unsigned RGBA32; // Deprecated: Type for an RGBA quadruplet. Use RGBA cl
 WEBCORE_EXPORT RGBA32 makeRGB(int r, int g, int b);
 WEBCORE_EXPORT RGBA32 makeRGBA(int r, int g, int b, int a);
 
-RGBA32 makePremultipliedRGBA(int r, int g, int b, int a);
+RGBA32 makePremultipliedRGBA(int r, int g, int b, int a, bool ceiling = true);
 RGBA32 makeUnPremultipliedRGBA(int r, int g, int b, int a);
 
 WEBCORE_EXPORT RGBA32 colorWithOverrideAlpha(RGBA32 color, float overrideAlpha);
@@ -213,6 +213,8 @@ public:
     // should be identical, since the respective pointer will be different.
     unsigned hash() const { return WTF::intHash(m_colorData.rgbaAndFlags); }
 
+    // FIXME: ExtendedColor - these should be renamed (to be clear about their parameter types, or
+    // replaced with alternative accessors.
     WEBCORE_EXPORT void getRGBA(float& r, float& g, float& b, float& a) const;
     WEBCORE_EXPORT void getRGBA(double& r, double& g, double& b, double& a) const;
     WEBCORE_EXPORT void getHSL(double& h, double& s, double& l) const;

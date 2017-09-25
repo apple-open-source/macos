@@ -41,6 +41,7 @@
 #include <Security/oidsalg.h>
 #include <Security/oidsattr.h>
 #include <limits.h>
+#include <utilities/SecCFRelease.h>
 
 #include "srCdsaUtils.h"
 
@@ -73,7 +74,6 @@ OSStatus generateKeyPair(CSSM_CSP_HANDLE cspHand, CSSM_DL_DB_HANDLE dlDbHand, CS
 OSStatus createRootCert(CSSM_TP_HANDLE tpHand, CSSM_CL_HANDLE clHand, CSSM_CSP_HANDLE cspHand,
     CSSM_KEY_PTR subjPubKey, CSSM_KEY_PTR signerPrivKey, const char *hostName, const char *userName,
     CSSM_ALGORITHMS sigAlg, const CSSM_OID *sigOid, CSSM_DATA_PTR certData);
-void randUint32(uint32 *u);
 
 static char *secCopyCString(CFStringRef theString);
 
@@ -117,6 +117,7 @@ OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPas
     CFDataRef certData = NULL;
     printf("Generating a %d bit key pair; this may take several minutes\n", keySizeInBits);
     status = createPair(hostName,userName,*keychainRef,keySizeInBits, &certData);
+    CFReleaseNull(userName);
     if (status)
         sec_error("Error in createPair: %s", sec_errstr(status));
     if (certData)
@@ -311,7 +312,7 @@ OSStatus createRootCert(
 	/* certReq */
 	certReq.cspHand = cspHand;
 	certReq.clHand = clHand;
-	randUint32(&certReq.serialNumber);		// random serial number
+    certReq.serialNumber = arc4random();
 	certReq.numSubjectNames = 2;
 	certReq.subjectNames = subjectNames;
 
@@ -647,18 +648,6 @@ OSStatus generateKeyPair(
 	*privKeyPtr = privKey;
 	return noErr;
 }
-
-//	Fill a uint32 with random data
-void randUint32(uint32 *u)
-{
-	int dev = open("/dev/random", O_RDONLY);
-	if(dev < 0) {
-		return;
-	}
-	read(dev, u, sizeof(*u));
-	close(dev);
-}
-
 
 //==========================================================================
 

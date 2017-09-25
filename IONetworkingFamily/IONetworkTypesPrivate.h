@@ -170,4 +170,16 @@ struct IONetworkInterfaceAddressChangeParameters
 #define kIONetworkTxStatusNoResources \
         iokit_family_msg(sub_iokit_networking, 0x20d)
 
+/*! @defined kIONetworkLinkStateActive
+ @discussion Link state is now active.
+ */
+#define kIONetworkLinkStateActive \
+iokit_family_msg(sub_iokit_networking, 0x300)
+
+/*! @defined kIONetworkLinkStateInactive
+ @discussion Link state is now inactive.
+ */
+#define kIONetworkLinkStateInactive \
+iokit_family_msg(sub_iokit_networking, 0x301)
+
 #endif /* !_IONETWORKTYPESPRIVATE_H */

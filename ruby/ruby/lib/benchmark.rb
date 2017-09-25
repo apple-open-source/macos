@@ -1,7 +1,8 @@
+# frozen_string_literal: false
 #--
 # benchmark.rb - a performance benchmarking library
 #
-# $Id: benchmark.rb 36427 2012-07-18 03:56:58Z naruse $
+# $Id: benchmark.rb 53261 2015-12-23 03:43:23Z a_matsuda $
 #
 # Created by Gotoken (gotoken@notwork.org).
 #
@@ -19,15 +20,15 @@
 # used to execute Ruby code.
 #
 # * Measure the time to construct the string given by the expression
-#   <code>"a"*1_000_000</code>:
+#   <code>"a"*1_000_000_000</code>:
 #
 #       require 'benchmark'
 #
-#       puts Benchmark.measure { "a"*1_000_000 }
+#       puts Benchmark.measure { "a"*1_000_000_000 }
 #
-#   On my machine (FreeBSD 3.2 on P5, 100MHz) this generates:
+#   On my machine (OSX 10.8.3 on i5 1.7 GHz) this generates:
 #
-#       1.166667   0.050000   1.216667 (  0.571355)
+#       0.350000   0.400000   0.750000 (  0.835234)
 #
 #   This report shows the user CPU time, system CPU time, the sum of
 #   the user and system CPU times, and the elapsed real time. The unit
@@ -37,7 +38,7 @@
 #
 #       require 'benchmark'
 #
-#       n = 50000
+#       n = 5000000
 #       Benchmark.bm do |x|
 #         x.report { for i in 1..n; a = "1"; end }
 #         x.report { n.times do   ; a = "1"; end }
@@ -47,15 +48,15 @@
 #   The result:
 #
 #              user     system      total        real
-#          1.033333   0.016667   1.016667 (  0.492106)
-#          1.483333   0.000000   1.483333 (  0.694605)
-#          1.516667   0.000000   1.516667 (  0.711077)
+#          1.010000   0.000000   1.010000 (  1.014479)
+#          1.000000   0.000000   1.000000 (  0.998261)
+#          0.980000   0.000000   0.980000 (  0.981335)
 #
 # * Continuing the previous example, put a label in each report:
 #
 #       require 'benchmark'
 #
-#       n = 50000
+#       n = 5000000
 #       Benchmark.bm(7) do |x|
 #         x.report("for:")   { for i in 1..n; a = "1"; end }
 #         x.report("times:") { n.times do   ; a = "1"; end }
@@ -65,10 +66,9 @@
 # The result:
 #
 #                     user     system      total        real
-#        for:     1.050000   0.000000   1.050000 (  0.503462)
-#        times:   1.533333   0.016667   1.550000 (  0.735473)
-#        upto:    1.500000   0.016667   1.516667 (  0.711239)
-#
+#       for:      1.010000   0.000000   1.010000 (  1.015688)
+#       times:    1.000000   0.000000   1.000000 (  1.003611)
+#       upto:     1.030000   0.000000   1.030000 (  1.028098)
 #
 # * The times for some benchmarks depend on the order in which items
 #   are run.  These differences are due to the cost of memory
@@ -88,14 +88,13 @@
 #   The result:
 #
 #        Rehearsal -----------------------------------------
-#        sort!  11.928000   0.010000  11.938000 ( 12.756000)
-#        sort   13.048000   0.020000  13.068000 ( 13.857000)
-#        ------------------------------- total: 25.006000sec
+#        sort!   1.490000   0.010000   1.500000 (  1.490520)
+#        sort    1.460000   0.000000   1.460000 (  1.463025)
+#        -------------------------------- total: 2.960000sec
 #
 #                    user     system      total        real
-#        sort!  12.959000   0.010000  12.969000 ( 13.793000)
-#        sort   12.007000   0.000000  12.007000 ( 12.791000)
-#
+#        sort!   1.460000   0.000000   1.460000 (  1.460465)
+#        sort    1.450000   0.010000   1.460000 (  1.448327)
 #
 # * Report statistics of sequential experiments with unique labels,
 #   using the #benchmark method:
@@ -103,7 +102,7 @@
 #       require 'benchmark'
 #       include Benchmark         # we need the CAPTION and FORMAT constants
 #
-#       n = 50000
+#       n = 5000000
 #       Benchmark.benchmark(CAPTION, 7, FORMAT, ">total:", ">avg:") do |x|
 #         tf = x.report("for:")   { for i in 1..n; a = "1"; end }
 #         tt = x.report("times:") { n.times do   ; a = "1"; end }
@@ -114,11 +113,11 @@
 #   The result:
 #
 #                     user     system      total        real
-#        for:     1.016667   0.016667   1.033333 (  0.485749)
-#        times:   1.450000   0.016667   1.466667 (  0.681367)
-#        upto:    1.533333   0.000000   1.533333 (  0.722166)
-#        >total:  4.000000   0.033333   4.033333 (  1.889282)
-#        >avg:    1.333333   0.011111   1.344444 (  0.629761)
+#        for:      0.950000   0.000000   0.950000 (  0.952039)
+#        times:    0.980000   0.000000   0.980000 (  0.984938)
+#        upto:     0.950000   0.000000   0.950000 (  0.946787)
+#        >total:   2.880000   0.000000   2.880000 (  2.883764)
+#        >avg:     0.960000   0.000000   0.960000 (  0.961255)
 
 module Benchmark
 
@@ -133,7 +132,7 @@ module Benchmark
   #
   # If the block returns an array of
   # Benchmark::Tms objects, these will be used to format
-  # additional lines of output. If +label+ parameters are
+  # additional lines of output. If +labels+ parameter are
   # given, these are used to label these extra lines.
   #
   # _Note_: Other methods provide a simpler interface to this one, and are
@@ -145,7 +144,7 @@ module Benchmark
   #     require 'benchmark'
   #     include Benchmark          # we need the CAPTION and FORMAT constants
   #
-  #     n = 50000
+  #     n = 5000000
   #     Benchmark.benchmark(CAPTION, 7, FORMAT, ">total:", ">avg:") do |x|
   #       tf = x.report("for:")   { for i in 1..n; a = "1"; end }
   #       tt = x.report("times:") { n.times do   ; a = "1"; end }
@@ -156,11 +155,11 @@ module Benchmark
   # Generates:
   #
   #                     user     system      total        real
-  #        for:     1.016667   0.016667   1.033333 (  0.485749)
-  #        times:   1.450000   0.016667   1.466667 (  0.681367)
-  #        upto:    1.533333   0.000000   1.533333 (  0.722166)
-  #        >total:  4.000000   0.033333   4.033333 (  1.889282)
-  #        >avg:    1.333333   0.011111   1.344444 (  0.629761)
+  #       for:      0.970000   0.000000   0.970000 (  0.970493)
+  #       times:    0.990000   0.000000   0.990000 (  0.989542)
+  #       upto:     0.970000   0.000000   0.970000 (  0.972854)
+  #       >total:   2.930000   0.000000   2.930000 (  2.932889)
+  #       >avg:     0.976667   0.000000   0.976667 (  0.977630)
   #
 
   def benchmark(caption = "", label_width = nil, format = nil, *labels) # :yield: report
@@ -181,13 +180,13 @@ module Benchmark
   end
 
 
-  # A simple interface to the #benchmark method, #bm is generates sequential
-  # reports with labels.  The parameters have the same meaning as for
-  # #benchmark.
+  # A simple interface to the #benchmark method, #bm generates sequential
+  # reports with labels. +label_width+ and +labels+ parameters have the same
+  # meaning as for #benchmark.
   #
   #     require 'benchmark'
   #
-  #     n = 50000
+  #     n = 5000000
   #     Benchmark.bm(7) do |x|
   #       x.report("for:")   { for i in 1..n; a = "1"; end }
   #       x.report("times:") { n.times do   ; a = "1"; end }
@@ -197,9 +196,9 @@ module Benchmark
   # Generates:
   #
   #                     user     system      total        real
-  #        for:     1.050000   0.000000   1.050000 (  0.503462)
-  #        times:   1.533333   0.016667   1.550000 (  0.735473)
-  #        upto:    1.500000   0.016667   1.516667 (  0.711239)
+  #       for:      0.960000   0.000000   0.960000 (  0.957966)
+  #       times:    0.960000   0.000000   0.960000 (  0.960423)
+  #       upto:     0.950000   0.000000   0.950000 (  0.954864)
   #
 
   def bm(label_width = 0, *labels, &blk) # :yield: report
@@ -233,13 +232,13 @@ module Benchmark
   # Generates:
   #
   #        Rehearsal -----------------------------------------
-  #        sort!  11.928000   0.010000  11.938000 ( 12.756000)
-  #        sort   13.048000   0.020000  13.068000 ( 13.857000)
-  #        ------------------------------- total: 25.006000sec
+  #        sort!   1.440000   0.010000   1.450000 (  1.446833)
+  #        sort    1.440000   0.000000   1.440000 (  1.448257)
+  #        -------------------------------- total: 2.890000sec
   #
   #                    user     system      total        real
-  #        sort!  12.959000   0.010000  12.969000 ( 13.793000)
-  #        sort   12.007000   0.000000  12.007000 ( 12.791000)
+  #        sort!   1.460000   0.000000   1.460000 (  1.458065)
+  #        sort    1.450000   0.000000   1.450000 (  1.455963)
   #
   # #bmbm yields a Benchmark::Job object and returns an array of
   # Benchmark::Tms objects.
@@ -274,12 +273,25 @@ module Benchmark
 
   #
   # Returns the time used to execute the given block as a
-  # Benchmark::Tms object.
+  # Benchmark::Tms object. Takes +label+ option.
+  #
+  #       require 'benchmark'
+  #
+  #       n = 1000000
+  #
+  #       time = Benchmark.measure do
+  #         n.times { a = "1" }
+  #       end
+  #       puts time
+  #
+  # Generates:
+  #
+  #        0.220000   0.000000   0.220000 (  0.227313)
   #
   def measure(label = "") # :yield:
-    t0, r0 = Process.times, Time.now
+    t0, r0 = Process.times, Process.clock_gettime(Process::CLOCK_MONOTONIC)
     yield
-    t1, r1 = Process.times, Time.now
+    t1, r1 = Process.times, Process.clock_gettime(Process::CLOCK_MONOTONIC)
     Benchmark::Tms.new(t1.utime  - t0.utime,
                        t1.stime  - t0.stime,
                        t1.cutime - t0.cutime,
@@ -292,9 +304,9 @@ module Benchmark
   # Returns the elapsed real time used to execute the given block.
   #
   def realtime # :yield:
-    r0 = Time.now
+    r0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     yield
-    Time.now - r0
+    Process.clock_gettime(Process::CLOCK_MONOTONIC) - r0
   end
 
   module_function :benchmark, :measure, :realtime, :bm, :bmbm
@@ -468,7 +480,7 @@ module Benchmark
 
     #
     # Returns the contents of this Tms object as
-    # a formatted string, according to a format string
+    # a formatted string, according to a +format+ string
     # like that passed to Kernel.format. In addition, #format
     # accepts the following extensions:
     #
@@ -480,7 +492,7 @@ module Benchmark
     # <tt>%r</tt>::     Replaced by the elapsed real time, as reported by Tms#real
     # <tt>%n</tt>::     Replaced by the label string, as reported by Tms#label (Mnemonic: n of "*n*ame")
     #
-    # If _format_ is not given, FORMAT is used as default value, detailing the
+    # If +format+ is not given, FORMAT is used as default value, detailing the
     # user, system and real elapsed time.
     #
     def format(format = nil, *args)
@@ -547,24 +559,4 @@ module Benchmark
 
   # The default format string used to display times.  See also Benchmark::Tms#format.
   FORMAT = Benchmark::Tms::FORMAT
-end
-
-if __FILE__ == $0
-  include Benchmark
-
-  n = ARGV[0].to_i.nonzero? || 50000
-  puts %Q([#{n} times iterations of `a = "1"'])
-  benchmark(CAPTION, 7, FORMAT) do |x|
-    x.report("for:")   {for _ in 1..n; _ = "1"; end} # Benchmark.measure
-    x.report("times:") {n.times do   ; _ = "1"; end}
-    x.report("upto:")  {1.upto(n) do ; _ = "1"; end}
-  end
-
-  benchmark do
-    [
-      measure{for _ in 1..n; _ = "1"; end},  # Benchmark.measure
-      measure{n.times do   ; _ = "1"; end},
-      measure{1.upto(n) do ; _ = "1"; end}
-    ]
-  end
 end

@@ -216,7 +216,7 @@ enum {
 #include <corecrypto/ccrng_system.h>
 
 struct ccrng_state *ccDevRandomGetRngState(void)
-__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_8,__MAC_10_12,__IPHONE_6_0,__IPHONE_10_0);
+__OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_8,__MAC_10_12,__IPHONE_6_0,__IPHONE_10_0, "use ccDRBGGetRngState");
 
 struct ccrng_state *ccDRBGGetRngState(void)
 __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);

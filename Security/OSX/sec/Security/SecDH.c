@@ -43,22 +43,36 @@
 #define DH_DEBUG  1
 #endif
 
+/* SecDHContext memory layout
++-----------------+
+| ccdh_gp         |
++-----------------+
+| ccdh_full_ctx   |
++-----------------+
+*/
+
 static inline ccdh_gp_t SecDH_gp(SecDHContext dh)
 {
-    ccdh_gp_t gp;
-    gp.gp  = (ccdh_gp *)dh;
-    return gp;
+    return  (ccdh_gp_t)dh;
 }
 
 static inline ccdh_full_ctx_t SecDH_priv(SecDHContext dh)
 {
-    void *p = dh;
-    cczp_t zp;
-    zp.zp = (struct cczp *) dh;
-    cc_size s = ccn_sizeof_n(cczp_n(zp));
-    ccdh_full_ctx_t priv = { .hdr = (struct ccdh_ctx_header *)(p+ccdh_gp_size(s)) };
+    ccdh_gp_t gp = SecDH_gp(dh);
+    cc_size s = ccn_sizeof_n(ccdh_gp_n(gp));
+    ccdh_full_ctx_t priv = (ccdh_full_ctx_t)((char *) dh + ccdh_gp_size(s));
+ 
     return priv;
 }
+
+size_t SecDHGetMaxKeyLength(SecDHContext dh) {
+
+    ccdh_gp_t gp = SecDH_gp(dh);
+    cc_size s = ccn_sizeof_n(ccdh_gp_n(gp));
+
+    return s;
+}
+
 
 static inline size_t SecDH_context_size(size_t p_len)
 {
@@ -102,10 +116,10 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
     cc_size n = ccn_nof_size(p_len);
     size_t context_size = SecDH_context_size(p_len);
     void *context = malloc(context_size);
-    bzero(context, context_size);
+    cc_clear(context_size, context);
 
     ccdh_gp_t gp;
-    gp.gp = context;
+    gp  = context;
 
     CCDH_GP_N(gp) = n;
     CCDH_GP_L(gp) = l;
@@ -115,9 +129,9 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
     if(recip) {
         if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), recip_len, recip))
             goto errOut;
-        CCZP_MOD_PRIME(gp.zp) = cczp_mod;
+        CCZP_MOD_PRIME(CCDH_GP_ZP(gp)) = cczp_mod;
     } else {
-        cczp_init(gp.zp);
+        cczp_init(CCDH_GP_ZP(gp));
     };
     ccn_seti(n, CCDH_GP_G(gp), g);
 
@@ -203,8 +217,7 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
 
     bzero(context, context_size);
 
-    ccdh_gp_t gp;
-    gp.gp = context;
+    ccdh_gp_t gp = context;
 
     CCDH_GP_N(gp) = n;
     CCDH_GP_L(gp) = l;
@@ -214,9 +227,9 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
     if(decodedParams.recip.length) {
         if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), decodedParams.recip.length, decodedParams.recip.data))
             goto errOut;
-        CCZP_MOD_PRIME(gp.zp) = cczp_mod;
+        CCZP_MOD_PRIME(CCDH_GP_ZP(gp)) = cczp_mod;
     } else {
-        cczp_init(gp.zp);
+        cczp_init(CCDH_GP_ZP(gp));
     };
 
     if(ccn_read_uint(n, CCDH_GP_G(gp), decodedParams.g.length, decodedParams.g.data))
@@ -248,14 +261,6 @@ OSStatus SecDHCreateFromAlgorithmId(const uint8_t *alg, size_t alg_len,
     return SecDHCreateFromParameters(algorithmId.params.data,
 		algorithmId.params.length, pdh);
 }
-
-size_t SecDHGetMaxKeyLength(SecDHContext dh) {
-    cczp_const_t zp;
-    zp.u = (cc_unit *)dh;
-
-    return ccn_sizeof_n(cczp_n(zp));
-}
-
 
 OSStatus SecDHGenerateKeypair(SecDHContext dh, uint8_t *pub_key,
 	size_t *pub_key_len)
@@ -290,6 +295,7 @@ OSStatus SecDHComputeKey(SecDHContext dh,
     if(ccdh_import_pub(gp, pub_key_len, pub_key, pub))
         return errSecInvalidKey;
 
+    //ccdh_compute_shared_secret() cannot be used directly, because it doesn't allow truncated output. Buffering is needed.
     if(ccdh_compute_key(priv, pub, r))
         return errSecInvalidKey;
 
@@ -307,7 +313,7 @@ void SecDHDestroy(SecDHContext dh) {
     cc_size p_len = ccn_sizeof_n(ccdh_gp_n(gp));
     size_t context_size = SecDH_context_size(p_len);
 
-    bzero(dh, context_size);
+    cc_clear(context_size, dh);
     free(dh);
 }
 

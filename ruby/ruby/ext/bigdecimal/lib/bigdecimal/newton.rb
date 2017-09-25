@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require "bigdecimal/ludcmp"
 require "bigdecimal/jacobian"
 
@@ -30,7 +31,7 @@ module Newton
   include Jacobian
   module_function
 
-  def norm(fv,zero=0.0)
+  def norm(fv,zero=0.0) # :nodoc:
     s = zero
     n = fv.size
     for i in 0...n do
@@ -39,6 +40,7 @@ module Newton
     s
   end
 
+  # See also Newton
   def nlsolve(f,x)
     nRetry = 0
     n = x.size

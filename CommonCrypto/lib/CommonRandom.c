@@ -34,14 +34,6 @@
 #include "ccdebug.h"
 
 /*
- The types of refs including "undefined" and "user created".
-*/
-
-// static const uint32_t rng_undefined = 0;
-static const uint32_t rng_default = 1;      // Cryptographic rng from corecrypto
-static const uint32_t rng_created = 99;
-
-/*
  These are the two internal structures for a DRBG and /dev/random
  based accessor.
 */

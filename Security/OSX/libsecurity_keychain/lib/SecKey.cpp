@@ -521,14 +521,14 @@ static SecKeyRef SecCDSAKeyCopyPublicKey(SecKeyRef privateKey) {
     }
 
     if (result == NULL && key->publicKey()) {
-        KeyItem *publicKey = new KeyItem(key->publicKey());
+        SecPointer<KeyItem> publicKey(new KeyItem(key->publicKey()));
         result = reinterpret_cast<SecKeyRef>(publicKey->handle());
     }
 
     END_SECKEYAPI
 }
 
-static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
+static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType &operation, SecKeyAlgorithm algorithm,
                                             CSSM_ALGORITHMS &baseAlgorithm, CSSM_ALGORITHMS &secondaryAlgorithm,
                                             CSSM_ALGORITHMS &paddingAlgorithm, CFIndex &inputSizeLimit) {
     KeyItem *keyItem = key->key;
@@ -586,6 +586,14 @@ static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType o
                 } else {
                     return NULL;
                 }
+            } else if (keyClass == CSSM_KEYCLASS_PUBLIC_KEY && operation == kSecKeyOperationTypeDecrypt &&
+                       CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRaw)) {
+                // Raw RSA decryption is identical to raw RSA encryption, so lets use encryption instead of decryption,
+                // because CDSA keys refuses to perform decrypt using public key.
+                operation = kSecKeyOperationTypeEncrypt;
+                secondaryAlgorithm = CSSM_ALGID_NONE;
+                paddingAlgorithm = CSSM_PADDING_NONE;
+                inputSizeLimit = 0;
             } else {
                 return NULL;
             }
@@ -850,13 +858,10 @@ static OSStatus SecKeyCreatePairInternal(
     SecPointer<KeyItem> pubItem, privItem;
     if (((publicKeyAttr | privateKeyAttr) & CSSM_KEYATTR_PERMANENT) != 0) {
         keychain = Keychain::optional(keychainRef);
-        StLock<Mutex> _(*keychain->getKeychainMutex());
-        KeyItem::createPair(keychain, algorithm, keySizeInBits, contextHandle, publicKeyUsage, publicKeyAttr,
-                            privateKeyUsage, privateKeyAttr, theAccess, pubItem, privItem);
-    } else {
-        KeyItem::createPair(keychain, algorithm, keySizeInBits, contextHandle, publicKeyUsage, publicKeyAttr,
-                            privateKeyUsage, privateKeyAttr, theAccess, pubItem, privItem);
     }
+    StMaybeLock<Mutex> _(keychain ? keychain->getKeychainMutex() : NULL);
+    KeyItem::createPair(keychain, algorithm, keySizeInBits, contextHandle, publicKeyUsage, publicKeyAttr,
+                        privateKeyUsage, privateKeyAttr, theAccess, pubItem, privItem);
 
 	// Return the generated keys.
 	if (publicKeyRef)
@@ -904,13 +909,24 @@ SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey)
 // Private APIs
 //
 
+static ModuleNexus<Mutex> gSecReturnedKeyCSPsMutex;
+static std::set<CssmClient::CSP> gSecReturnedKeyCSPs;
+
 OSStatus
 SecKeyGetCSPHandle(SecKeyRef keyRef, CSSM_CSP_HANDLE *cspHandle)
 {
     BEGIN_SECAPI
 
 	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
-	Required(cspHandle) = keyItem->csp()->handle();
+
+    // Once we vend this handle, we can no longer delete this CSP object via RAII (and thus call CSSM_ModuleDetach on the CSP).
+    // Keep a global pointer to it to force the CSP to stay live forever.
+    CssmClient::CSP returnedKeyCSP = keyItem->csp();
+    {
+        StLock<Mutex> _(gSecReturnedKeyCSPsMutex());
+        gSecReturnedKeyCSPs.insert(returnedKeyCSP);
+    }
+	Required(cspHandle) = returnedKeyCSP->handle();
 
 	END_SECAPI
 }
@@ -1076,13 +1092,19 @@ static u_int32_t ConvertCFStringToInteger(CFStringRef ref)
 
 	// figure out the size of the string
 	CFIndex numChars = CFStringGetMaximumSizeForEncoding(CFStringGetLength(ref), kCFStringEncodingUTF8);
-	char buffer[numChars];
+	char *buffer = (char *)malloc(numChars);
+    if (NULL == buffer) {
+        UnixError::throwMe(ENOMEM);
+    }
 	if (!CFStringGetCString(ref, buffer, numChars, kCFStringEncodingUTF8))
 	{
+        free(buffer);
 		MacOSError::throwMe(errSecParam);
 	}
 
-	return atoi(buffer);
+    u_int32_t result = atoi(buffer);
+    free(buffer);
+    return result;
 }
 
 
@@ -1439,6 +1461,7 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 	SecKeychainAttribute attributes[numToModify];
 
 	int i = 0;
+    void *data = NULL;
 
 	if (label != NULL)
 	{
@@ -1448,11 +1471,12 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 			attributes[i].data = (void*) CFStringGetCStringPtr(label_string, kCFStringEncodingUTF8);
 			if (NULL == attributes[i].data) {
 				CFIndex buffer_length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(label_string), kCFStringEncodingUTF8);
-				attributes[i].data = alloca((size_t)buffer_length);
+				data = attributes[i].data = malloc((size_t)buffer_length);
 				if (NULL == attributes[i].data) {
 					UnixError::throwMe(ENOMEM);
 				}
 				if (!CFStringGetCString(label_string, static_cast<char *>(attributes[i].data), buffer_length, kCFStringEncodingUTF8)) {
+                    free(data);
 					MacOSError::throwMe(errSecParam);
 				}
 			}
@@ -1479,8 +1503,14 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 
 	attrList.count = numToModify;
 	attrList.attr = attributes;
-
-	return SecKeychainItemModifyAttributesAndData((SecKeychainItemRef) keyRef, &attrList, 0, NULL);
+    
+	OSStatus result = SecKeychainItemModifyAttributesAndData((SecKeychainItemRef) keyRef, &attrList, 0, NULL);
+    if (data)
+    {
+        free(data);
+    }
+    
+    return result;
 }
 
 
@@ -1823,18 +1853,18 @@ SecKeyGenerateSymmetric(CFDictionaryRef parameters, CFErrorRef *error)
 	}
 	else {
 		// we can set the label attributes on the generated key if it's a keychain item
-		size_t labelBufLen = (label) ? (size_t)CFStringGetMaximumSizeForEncoding(CFStringGetLength(label), kCFStringEncodingUTF8) + 1 : 0;
+		size_t labelBufLen = (label) ? (size_t)CFStringGetMaximumSizeForEncoding(CFStringGetLength(label), kCFStringEncodingUTF8) + 1 : 1;
 		char *labelBuf = (char *)malloc(labelBufLen);
-		size_t appLabelBufLen = (appLabel) ? (size_t)CFStringGetMaximumSizeForEncoding(CFStringGetLength(appLabel), kCFStringEncodingUTF8) + 1 : 0;
+		size_t appLabelBufLen = (appLabel) ? (size_t)CFStringGetMaximumSizeForEncoding(CFStringGetLength(appLabel), kCFStringEncodingUTF8) + 1 : 1;
 		char *appLabelBuf = (char *)malloc(appLabelBufLen);
-		size_t appTagBufLen = (appTag) ? (size_t)CFStringGetMaximumSizeForEncoding(CFStringGetLength(appTag), kCFStringEncodingUTF8) + 1 : 0;
+		size_t appTagBufLen = (appTag) ? (size_t)CFStringGetMaximumSizeForEncoding(CFStringGetLength(appTag), kCFStringEncodingUTF8) + 1 : 1;
 		char *appTagBuf = (char *)malloc(appTagBufLen);
 
-		if (label && !CFStringGetCString(label, labelBuf, labelBufLen-1, kCFStringEncodingUTF8))
+		if (!label || !CFStringGetCString(label, labelBuf, labelBufLen-1, kCFStringEncodingUTF8))
 			labelBuf[0]=0;
-		if (appLabel && !CFStringGetCString(appLabel, appLabelBuf, appLabelBufLen-1, kCFStringEncodingUTF8))
+		if (!appLabel || !CFStringGetCString(appLabel, appLabelBuf, appLabelBufLen-1, kCFStringEncodingUTF8))
 			appLabelBuf[0]=0;
-		if (appTag && !CFStringGetCString(appTag, appTagBuf, appTagBufLen-1, kCFStringEncodingUTF8))
+		if (!appTag || !CFStringGetCString(appTag, appTagBuf, appTagBufLen-1, kCFStringEncodingUTF8))
 			appTagBuf[0]=0;
 
 		SecKeychainAttribute attrs[] = {
@@ -1918,6 +1948,7 @@ SecKeyCreateFromData(CFDictionaryRef parameters, CFDataRef keyData, CFErrorRef *
 		CFRelease(ka);
 		return sk;
 	} else {
+        CFRelease(ka);
 		if (error) {
 			*error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, crtn ? crtn : CSSM_ERRCODE_INTERNAL_ERROR, NULL);
 		}
@@ -1979,7 +2010,9 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
     /* Pick Values from parameters */
 
     if((saltDictValue = (CFDataRef) CFDictionaryGetValue(parameters, kSecAttrSalt)) == NULL) {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecMissingAlgorithmParms, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecMissingAlgorithmParms, NULL);
+        }
         goto errOut;
     }
 
@@ -1995,7 +2028,9 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
 
     saltLen = CFDataGetLength(saltDictValue);
     if((salt = (uint8_t *) malloc(saltLen)) == NULL) {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecAllocate, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecAllocate, NULL);
+        }
         goto errOut;
     }
 
@@ -2003,13 +2038,17 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
 
     passwordLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(password), kCFStringEncodingUTF8) + 1;
     if((thePassword = (char *) malloc(passwordLen)) == NULL) {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecAllocate, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecAllocate, NULL);
+        }
         goto errOut;
     }
     CFStringGetBytes(password, CFRangeMake(0, CFStringGetLength(password)), kCFStringEncodingUTF8, '?', FALSE, (UInt8*)thePassword, passwordLen, &passwordLen);
 
     if((derivedKey = (uint8_t *) malloc(derivedKeyLen)) == NULL) {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecAllocate, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecAllocate, NULL);
+        }
         goto errOut;
     }
 
@@ -2037,7 +2076,9 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
     }
 
     if(CCKeyDerivationPBKDF(kCCPBKDF2, thePassword, passwordLen, salt, saltLen, algorithm, rounds, derivedKey, derivedKeyLen)) {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInternalError, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInternalError, NULL);
+        }
         goto errOut;
     }
 

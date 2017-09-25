@@ -317,8 +317,8 @@ uudecode_bidder_bid(struct archive_read_filter_bidder *self,
 		b += nl;
 		if (avail && uuchar[*b])
 			return (firstline+30);
-	}
-	if (l == 13) {
+	} else if (l == 13) {
+		/* "begin-base64 " */
 		while (len-nl > 0) {
 			if (!base64[*b++])
 				return (0);

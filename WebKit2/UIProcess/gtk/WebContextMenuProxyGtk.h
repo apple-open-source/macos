@@ -28,7 +28,7 @@
 
 #if ENABLE(CONTEXT_MENUS)
 
-#include "WebContextMenuItemGtk.h"
+#include "WebContextMenuItemGlib.h"
 #include "WebContextMenuProxy.h"
 #include <WebCore/IntPoint.h>
 #include <wtf/HashMap.h>
@@ -44,17 +44,21 @@ class WebPageProxy;
 
 class WebContextMenuProxyGtk : public WebContextMenuProxy {
 public:
-    WebContextMenuProxyGtk(GtkWidget*, WebPageProxy&, const ContextMenuContextData&, const UserData&);
+    static auto create(GtkWidget* widget, WebPageProxy& page, const ContextMenuContextData& context, const UserData& userData)
+    {
+        return adoptRef(*new WebContextMenuProxyGtk(widget, page, context, userData));
+    }
     ~WebContextMenuProxyGtk();
 
-    void populate(const Vector<WebContextMenuItemGtk>&);
+    void populate(const Vector<WebContextMenuItemGlib>&);
     GtkMenu* gtkMenu() const { return m_menu; }
 
 private:
+    WebContextMenuProxyGtk(GtkWidget*, WebPageProxy&, const ContextMenuContextData&, const UserData&);
     void show() override;
     void showContextMenuWithItems(const Vector<WebContextMenuItemData>&) override;
-    void append(GMenu*, const WebContextMenuItemGtk&);
-    GRefPtr<GMenu> buildMenu(const Vector<WebContextMenuItemGtk>&);
+    void append(GMenu*, const WebContextMenuItemGlib&);
+    GRefPtr<GMenu> buildMenu(const Vector<WebContextMenuItemGlib>&);
     void populate(const Vector<RefPtr<WebContextMenuItem>>&);
     static void menuPositionFunction(GtkMenu*, gint*, gint*, gboolean*, WebContextMenuProxyGtk*);
 

@@ -4,23 +4,17 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-if BUILD_OWN_PTHREAD_WORKQUEUES
-  MAYBE_PTHREAD_WORKQUEUES = libpwq
-endif
-
-if BUILD_OWN_KQUEUES
-  MAYBE_KQUEUES = libkqueue
+if BUILD_TESTS
+  MAYBE_TESTS = tests
 endif
 
 SUBDIRS=						\
 	dispatch					\
-	$(MAYBE_PTHREAD_WORKQUEUES)	\
-	$(MAYBE_KQUEUES)			\
 	man							\
 	os							\
 	private						\
 	src							\
-	tests
+	$(MAYBE_TESTS)
 
 EXTRA_DIST=					\
 	README.md				\

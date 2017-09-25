@@ -65,6 +65,7 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 
 #include "kextcache_main.h"
+#include "kext_tools_util.h"
 #if !NO_BOOT_ROOT
 #include "bootcaches.h"
 #include "bootroot_internal.h"
@@ -72,6 +73,8 @@
 //#include "mkext1_file.h"
 #include "compression.h"
 #include "security.h"
+#include "syspolicy.h"
+#include "staging.h"
 
 #if __has_include(<prelink.h>)
 /* take prelink.h from host side tools SDK */
@@ -92,16 +95,23 @@
 #define kOSKextSystemLoadPauseTime      (30)
 
 #define kOSKextPrelinkedKernelSuffixedName _kOSKextPrelinkedKernelFileName "."
+/*
+ * The path to _kOSKextPrelinkedKernelsPath from _kOSKextCachesRootFolder.
+ *
+ * This is used to make a backwards-compatible symlink (so older systems
+ * can see / boot into newer systems). This symlink path is also used by
+ * older versions of utilities such as Network Image Utility.
+ * This can go away once we move everything to apfs because older systems
+ * won't even be able to see those partitions.
+ */
+#define kPLKDirSymlinkPrefix "../../../PrelinkedKernels/"
 
 /*******************************************************************************
 * Program Globals
 *******************************************************************************/
 const char * progname = "(unknown)";
 
-CFMutableDictionaryRef       sNoLoadKextAlertDict = NULL;
-CFMutableDictionaryRef       sInvalidSignedKextAlertDict = NULL;
 CFMutableDictionaryRef       sExcludedKextAlertDict = NULL;
-CFMutableDictionaryRef       sRevokedKextAlertDict = NULL;
 
 /*******************************************************************************
 * Utility and callback functions.
@@ -125,7 +135,8 @@ static Boolean isRootVolURL(CFURLRef theURL);
 static bool isValidPLKFile(KextcacheArgs *toolArgs);
 static bool isSystemPLKPath(KextcacheArgs *toolArgs);
 static bool isSystemKernelPath(KextcacheArgs *toolArgs);
-
+static bool isProbablyProtectedPLK(KextcacheArgs *toolArgs);
+static bool isProtectedPLK(int prelinkedKernel_fd);
 
 /*******************************************************************************
 *******************************************************************************/
@@ -220,6 +231,29 @@ int main(int argc, char * const * argv)
         goto finish;
     }
 
+    /*
+     * Now that toolArgs is validated, determine what level of authentication checks necessary.
+     *
+     * Any security sensitive checks should also have safety nets in the output path
+     * that ensures they are enabled for SIP protected output prelinked kernels.
+     *
+     * Since volumeRootURL is controlled by the caller and may point to an insecure location,
+     * we must determine if we want to enforce kext signing for the volume once and refer
+     * to this value in the future.  If this function is used again directly, the return value
+     * may change and make any security checks susceptible to TOCTOU issues.
+     */
+    bool targetsRunningSystem = isProbablyProtectedPLK(&toolArgs);
+
+    toolArgs.authenticationOptions.allowNetwork = isKextdRunning();
+    toolArgs.authenticationOptions.isCacheLoad = true;
+    toolArgs.authenticationOptions.performFilesystemValidation = !toolArgs.skipAuthentication;
+    toolArgs.authenticationOptions.performSignatureValidation = !toolArgs.skipAuthentication && isValidKextSigningTargetVolume(toolArgs.volumeRootURL);
+    toolArgs.authenticationOptions.requireSecureLocation = !toolArgs.skipAuthentication && targetsRunningSystem;
+    toolArgs.authenticationOptions.respectSystemPolicy = !toolArgs.skipAuthentication;
+
+    _OSKextSetAuthenticationFunction(&authenticateKext, &toolArgs.authenticationOptions);
+    _OSKextSetStrictAuthentication(true);
+
    /* From here on out the default exit status is ok.
     */
     result = EX_OK;
@@ -232,7 +266,7 @@ int main(int argc, char * const * argv)
             "Running in low-priority background mode.");
 
         setpriority(PRIO_PROCESS, getpid(), 20); // run at really low priority
-        setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_THROTTLE);
+        setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_UTILITY);
 
         /* When building the prelinked kernel, we try to wait for a good time
          * to do work.
@@ -300,7 +334,23 @@ int main(int argc, char * const * argv)
     if (toolArgs.printTestResults) {
         OSKextSetRecordsDiagnostics(kOSKextDiagnosticsFlagAll);
     }
-    toolArgs.allKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault, toolArgs.argURLs);
+
+    /* If a secure location is required, ensure all kext scans return staged variants.
+     * Otherwise, just load them directly from the URLs provided.
+     */
+    if (toolArgs.authenticationOptions.requireSecureLocation) {
+        toolArgs.allKexts = createStagedKextsFromURLs(toolArgs.argURLs, true);
+        toolArgs.repositoryKexts = createStagedKextsFromURLs(toolArgs.repositoryURLs, true);
+        toolArgs.namedKexts = createStagedKextsFromURLs(toolArgs.namedKextURLs, true);
+    } else {
+        toolArgs.allKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
+                                                      toolArgs.argURLs);
+        toolArgs.repositoryKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
+                                                             toolArgs.repositoryURLs);
+        toolArgs.namedKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
+                                                        toolArgs.namedKextURLs);
+    }
+
     if (!toolArgs.allKexts || !CFArrayGetCount(toolArgs.allKexts)) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -309,10 +359,6 @@ int main(int argc, char * const * argv)
         goto finish;
     }
 
-    toolArgs.repositoryKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
-        toolArgs.repositoryURLs);
-    toolArgs.namedKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
-        toolArgs.namedKextURLs);
     if (!toolArgs.repositoryKexts || !toolArgs.namedKexts) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -352,13 +398,6 @@ int main(int argc, char * const * argv)
             result = EX_OSERR;
             goto finish;
         }
-
-        /* Since volumeRootURL is controlled by the caller and may point to an insecure location,
-         * we must determine if we want to enforce kext signing for the volume once and refer
-         * to this value in the future.  If this function is used again directly, the return value
-         * may change and make any security checks susceptible to TOCTOU issues.
-         */
-        toolArgs.enforceKextSigningPolicy = isValidKextSigningTargetVolume(toolArgs.volumeRootURL);
 
        /* Create/update the prelinked kernel as explicitly requested, or
         * for the running kernel.
@@ -1079,6 +1118,16 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
         goto finish;
     }
     strlcpy(toolArgs->prelinkedKernelDirname, _kOSKextPrelinkedKernelsPath, PATH_MAX);
+
+    // Default prelinked kernel is targeted at the root volume
+    if (!toolArgs->volumeRootURL) {
+        toolArgs->volumeRootURL = CFURLCreateWithFileSystemPath(NULL, CFSTR("/"), kCFURLPOSIXPathStyle, true);
+        if (!toolArgs->volumeRootURL) {
+            OSKextLogMemError();
+            goto finish;
+        }
+    }
+
     result = TRUE;
 
 finish:
@@ -1608,6 +1657,20 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
         }
     }
 
+    /* This is best-effort check to present nice error messages to users.  Since a static check
+     * up-front is vulnerable to race conditions, these conditions will be validated again later
+     * when it can make a race-free check on the actual file descriptor (that isn't available here).
+     */
+    if (isProbablyProtectedPLK(toolArgs)) {
+        if (toolArgs->skipAuthentication) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Cannot create a prelinked kernel in a SIP protected location without authentication!");
+            result = EX_NOPERM;
+            goto finish;
+        }
+    }
+
     result = EX_OK;
 
 finish:
@@ -1949,7 +2012,7 @@ ExitStatus filterKextsForCache(
         goto finish;
     }
 
-    /*****
+   /*****
     * Apply filters to select the kexts.
     *
     * If kexts have been specified by identifier, those are the only kexts we are going to use.
@@ -2067,8 +2130,8 @@ ExitStatus filterKextsForCache(
         isInStrictExceptionList(NULL, NULL, false); // prime the strict exception list cache
         isInExceptionList(NULL, NULL, false); // prime the exception list cache
         for (i = count - 1; i >= 0; i--) {
-            OSStatus  sigResult;
             char kextPath[PATH_MAX];
+            OSKextRef ownedKext = NULL;
             OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
                     firstPassArray, i);
 
@@ -2085,7 +2148,7 @@ ExitStatus filterKextsForCache(
                     kOSKextLogStepLevel | kOSKextLogArchiveFlag,
                     "%s doesn't support architecture '%s'; skipping.", kextPath,
                     arch->name);
-                continue;
+                goto loop_continue;
             }
 
             if (!OSKextIsValid(theKext)) {
@@ -2097,35 +2160,64 @@ ExitStatus filterKextsForCache(
                 if (toolArgs->printTestResults) {
                     OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
                 }
-                continue;
+                goto loop_continue;
             }
 
-            if (!toolArgs->skipAuthentication && !OSKextIsAuthentic(theKext)) {
-                OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                    kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag, 
-                    "%s has incorrect permissions; omitting.", kextPath);
-                if (toolArgs->printTestResults) {
-                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+            /*
+             * Perform staging to ensure all kexts are in SIP protected locations.
+             *
+             * Allow the user to skip staging if a secure location is not required, since
+             * the final output check will not let the prelinked kernel be written to a
+             * SIP protected location if skip authentication was enabled.
+             */
+            if (toolArgs->authenticationOptions.requireSecureLocation) {
+                theKext = createStagedKext(theKext);
+                if (!theKext) {
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                              "%s could not be staged properly; omitting.", kextPath);
+                    if (toolArgs->printTestResults) {
+                        OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                    }
+                    goto loop_continue;
                 }
-                continue;
+
+                // theKext returned by staging must be released, but in normal cases theKext is
+                // not owned or released.  Save theKext off to the side so it can be released
+                // at the end of the loop.
+                ownedKext = theKext;
             }
 
+            // Later security checks would catch kexts in the exclude list and reject them,
+            // but since kextcache has the special requirement to post a notification
+            // to the user, it continues to check the condition explicitly.
             if (OSKextIsInExcludeList(theKext, true)) {
-                /* send alert about kext and message trace it
-                 */
                 addKextToAlertDict(&sExcludedKextAlertDict, theKext);
                 messageTraceExcludedKext(theKext);
                 OSKextLog(/* kext */ NULL,
                           kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag, 
-                          "%s is in exclude list; omitting.", kextPath);
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                          "%s is in the exclude list; omitting.", kextPath);
                 if (toolArgs->printTestResults) {
                     OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
                 }
-                continue;
+                goto loop_continue;
             }
 
+            // Authentication now performs all security checks.
+            if (!OSKextIsAuthentic(theKext)) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag,
+                          "%s does not authenticate; omitting.", kextPath);
+                if (toolArgs->printTestResults) {
+                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                }
+                goto loop_continue;
+            }
+
+            // Resolving dependencies ensures authenticated dependencies can be found.
             if (!OSKextResolveDependencies(theKext)) {
                 OSKextLog(/* kext */ NULL,
                         kOSKextLogWarningLevel | kOSKextLogArchiveFlag |
@@ -2135,45 +2227,43 @@ ExitStatus filterKextsForCache(
                 if (toolArgs->printTestResults) {
                     OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
                 }
+                goto loop_continue;
             }
- 
-            if (toolArgs->enforceKextSigningPolicy
-                && (sigResult = checkKextSignature(theKext, true, earlyBoot)) != 0 ) {
-                
-                if (isInvalidSignatureAllowed()) {
-                    OSKextLogCFString(NULL,
-                                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                                      CFSTR("kext-dev-mode allowing invalid signature %ld 0x%02lX for kext %s"),
-                                      (long)sigResult, (long)sigResult, kextPath);
-                }
-                else {
-                    OSKextLog(/* kext */ NULL,
-                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                              kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag,
-                              "%s has invalid signature; omitting.",
-                              kextPath);
-                    if (toolArgs->printTestResults) {
-                        OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
-                    }
-                    continue;
-                }
-            }
-
-#if HAVE_DANGERZONE
-            dzRecordKextCacheAdd(theKext);
-            if (! dzAllowKextLoad(theKext)) {
-                if (toolArgs->printTestResults) {
-                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
-                }
-                continue;
-            }
-#endif // HAVE_DANGERZONE
 
             if (!CFArrayContainsValue(kextArray, RANGE_ALL(kextArray), theKext)) {
                 CFArrayAppendValue(kextArray, theKext);
             }
+
+        loop_continue:
+            SAFE_RELEASE(ownedKext);
         } // for loop...
     } // count > 0
+
+#if HAVE_DANGERZONE
+    // First, check the volume root url to determine if this kextcache is intended for the
+    // currently running system. We will not notify DZ for caches generated for other systems.
+    if (isRootVolURL(toolArgs->volumeRootURL)) {
+        CFArrayRef loadList = OSKextCopyLoadListForKexts(kextArray, false);
+
+        // First, record all kexts that wound up in the load list because they will all be in the cache.
+        count = CFArrayGetCount(loadList);
+        for (i = count - 1; i >= 0; i--) {
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(loadList, i);
+            dzRecordKextCacheAdd(theKext, true);
+        }
+
+        // Second, look for any kexts in the initial first pass array that didn't end up in the load
+        // list.  Each of those are kexts that were rejected for some reason and were not allowed.
+        count = CFArrayGetCount(firstPassArray);
+        CFRange loadListRangeAll = RANGE_ALL(loadList);
+        for (i = count - 1; i >= 0; i--) {
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(firstPassArray, i);
+            if (!CFArrayContainsValue(loadList, loadListRangeAll, theKext)) {
+                dzRecordKextCacheAdd(theKext, false);
+            }
+        }
+    }
+#endif // HAVE_DANGERZONE
 
     if (CFArrayGetCount(kextArray)) {
         if (earlyBoot == false) {
@@ -2280,7 +2370,7 @@ static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
         }
     } else {
         // A NULL volume root url implies the system root.
-        strcpy(volRoot, "/");
+        strlcpy(volRoot, "/", PATH_MAX);
     }
 
     caches = readBootCaches(volRoot, kBROptsNone);
@@ -2471,6 +2561,47 @@ compare_paths:
     return false;
 }
 
+static bool isProtectedPLK(int prelinkedKernel_fd)
+{
+    bool sip_enabled = csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0;
+    bool protected_fd = rootless_check_trusted_fd(prelinkedKernel_fd) == 0;
+
+    return sip_enabled && protected_fd;
+}
+
+static bool isProbablyProtectedPLK(KextcacheArgs *toolArgs)
+{
+    /* Note that this is simply a best effort check since it will be based
+     * off a static path.  Should only used for non-security critical
+     * decisions, with any actual security checks performed after a file
+     * descriptor has been created using isProtectedPLK.
+     */
+    bool sip_enabled = csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0;
+
+    if (toolArgs->prelinkedKernelPath == NULL) {
+        // Since this is called unconditionally during setup, an empty path
+        // indicates this isn't going to do any real work (ex. it will just
+        // be spinning off children to do work), so assume unprotected.
+        return false;
+    }
+
+    if (sip_enabled) {
+        bool file_exists = access(toolArgs->prelinkedKernelPath, F_OK) == 0;
+        if (file_exists) {
+            // If the file exists, use rootless to check if it's protected.
+            return rootless_check_trusted(toolArgs->prelinkedKernelPath) == 0;
+        } else {
+            char *parent_directory = dirname(toolArgs->prelinkedKernelPath);
+            if (!parent_directory) {
+                return false;
+            }
+            return rootless_check_trusted(parent_directory) == 0;
+        }
+    }
+
+    // If SIP is disabled, it's never protected.
+    return false;
+}
 
 /* Make sure target volume can support fast (lzvn) compression, as well as current runtime library environment */
 
@@ -2483,10 +2614,15 @@ static Boolean wantsFastLibCompressionForTargetVolume(CFURLRef theVolRootURL)
     CFDictionaryRef     postBootPathsDict = NULL;   // do not release
     CFDictionaryRef     kernelCacheDict   = NULL;   // do not release
     
-    if (!CFURLGetFileSystemRepresentation(theVolRootURL, /* resolve */ true,
-                                          (UInt8*)volRoot, sizeof(volRoot))) {
-        OSKextLogStringError(NULL);
-        goto finish;
+    if (theVolRootURL) {
+        if (!CFURLGetFileSystemRepresentation(theVolRootURL, /* resolve */ true,
+                                              (UInt8*)volRoot, sizeof(volRoot))) {
+            OSKextLogStringError(NULL);
+            goto finish;
+        }
+    } else {
+        // A NULL volume root url implies the system root.
+        strlcpy(volRoot, "/", PATH_MAX);
     }
     caches = readBootCaches(volRoot, kBROptsNone);
     if (!caches)                goto finish;
@@ -2720,7 +2856,7 @@ createPrelinkedKernel(
      * 18862985, 20349389, 20693294
      */
     toolArgs->prelinkedKernel_fd = openat(toolArgs->prelinkedKernelDir_fd,
-                                          plk_filename, O_RDONLY);
+                                          plk_filename, O_RDONLY | O_SYMLINK);
     if (toolArgs->prelinkedKernel_fd != -1) {
         plk_result = getFileDevAndInoWith_fd(toolArgs->prelinkedKernel_fd, &plk_dev_t, &plk_ino_t);
         if (plk_result == 0) {
@@ -2771,12 +2907,42 @@ createPrelinkedKernel(
      * Is the target prelinked kernel file in a SIP protected location?
      * 23382956 - use rootless_check_trusted_fd
      */
-    if (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0 &&
-        rootless_check_trusted_fd(toolArgs->prelinkedKernel_fd) == 0) {
+    if (isProtectedPLK(toolArgs->prelinkedKernel_fd)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogDebugLevel  | kOSKextLogGeneralFlag,
                   "Creating SIP-protected prelinked kernel: %s",
                   toolArgs->prelinkedKernelPath);
+
+        /*
+         * Never allow a SIP-protected prelinked kernel to be created that
+         * bypasses full authentication in any way, either via the flags
+         * or with tricks based on the prelinked kernel path.
+         */
+        if (toolArgs->skipAuthentication ||
+            !toolArgs->authenticationOptions.respectSystemPolicy ||
+            !toolArgs->authenticationOptions.requireSecureLocation) {
+            result = EX_NOPERM;
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                      "Invalid to create a prelinked kernel without authentication at path '%s'",
+                      toolArgs->prelinkedKernelPath);
+            goto finish;
+        }
+
+        /*
+         * Never allow a SIP-protected prelinked kernel to be created that
+         * does not enforce kext signing.  Since this is derived from the volume root,
+         * we call it out specifically.  Other authentication issues would be caught above.
+         */
+        if (!toolArgs->authenticationOptions.performSignatureValidation) {
+            result = EX_NOPERM;
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                              CFSTR("Invalid to create a prelinked kernel without signature enforcement on volume: %@"),
+                              toolArgs->volumeRootURL);
+            goto finish;
+        }
+
         /*
          * Validate that when we create a prelinked kernel on a SIP protected
          * volume in a SIP protected location, we only create a SIP protected
@@ -2813,17 +2979,6 @@ createPrelinkedKernel(
                       kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
                       "Invalid kernel path '%s': only kernels from /System/Library/Kernels can be used when writing SIP-protected prelinked kernels",
                       toolArgs->kernelPath);
-            goto finish;
-        }
-        /*
-         * Codesigning must be enforced if we are writing to a protected location.
-         */
-        if (!toolArgs->enforceKextSigningPolicy) {
-            result = EX_NOPERM;
-            OSKextLogCFString(/* kext */ NULL,
-                              kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
-                              CFSTR("Invalid to write to a protected prelinked kernel without codesigning enforced on volume: %@"),
-                              toolArgs->volumeRootURL);
             goto finish;
         }
     } else {
@@ -2991,85 +3146,82 @@ createPrelinkedKernel(
      * 10.11 has both -> /System/Library/Caches/com.apple.kext.caches/Startup/kernelcache
      *                  and prelinkedkernel
      */
-    char *  myPtr;
-
-    myPtr = strnstr(toolArgs->prelinkedKernelPath, _kOSKextPrelinkedKernelsPath, strlen(toolArgs->prelinkedKernelPath));
-    if (myPtr) {
+    char *sptr;
+    sptr = strnstr(toolArgs->prelinkedKernelPath, _kOSKextPrelinkedKernelsPath, strlen(toolArgs->prelinkedKernelPath));
+    if (sptr) {
         long        prefixSize = 0;
-        long        tmpBufRemaining = PATH_MAX;
         char        tmpBuffer[PATH_MAX];
+        char        plkRelPath[PATH_MAX];
 
-        memset(tmpBuffer, 0, PATH_MAX);
-        prefixSize = myPtr - toolArgs->prelinkedKernelPath;
+        /*
+         * None of this is fatal if it fails...
+         */
 
-        /* copy "/Volumes/FooVol" like prefix (if any) */
-        if (prefixSize && prefixSize < sizeof(tmpBuffer)) {
-            strncpy(tmpBuffer, toolArgs->prelinkedKernelPath, prefixSize);
-            tmpBufRemaining -= prefixSize;
+        prefixSize = sptr - toolArgs->prelinkedKernelPath;
+        if (prefixSize >= sizeof(tmpBuffer))
+            goto finish;
+
+        /* copy the {volume} prefix, e.g., "/Volumes/Some HD" */
+        strlcpy(tmpBuffer, toolArgs->prelinkedKernelPath, prefixSize + 1);
+
+        /*
+         * Copy the old-style kernelcache name at the old location.
+         * The path should now look something like:
+         * /Volumes/Some HD/System/Library/Caches/com.apple.kext.caches/Startup/kernelcache
+         */
+        PATHCAT(tmpBuffer, _kOSKextCachesRootFolder "/Startup/kernelcache", dontlink);
+
+        /* locate the "prelinkedkernel" in the path */
+        sptr = strnstr(toolArgs->prelinkedKernelPath, _kOSKextPrelinkedKernelFileName,
+                       strlen(toolArgs->prelinkedKernelPath));
+        if (!sptr) {
+            goto dontlink;
         }
 
-        /* copy the old sytle kernelcache name at the old location */
-        if (strlen(_kOSKextCachesRootFolder "/Startup/kernelcache") + 1 <= tmpBufRemaining) {
-            strncat(tmpBuffer, _kOSKextCachesRootFolder "/Startup/kernelcache", tmpBufRemaining - 1);
-            tmpBufRemaining -= strlen(_kOSKextCachesRootFolder "/kernelcache");
+        /* construct a relative path to the prelinked kernel */
+        PATHCPY(plkRelPath, kPLKDirSymlinkPrefix, dontlink);
+        PATHCAT(plkRelPath, sptr, dontlink);
+
+        /* add suffix (if any) to the old kernelcache location name */
+        if (sptr && strlen(sptr) > strlen(_kOSKextPrelinkedKernelFileName)) {
+            PATHCAT(tmpBuffer, sptr + strlen(_kOSKextPrelinkedKernelFileName), dontlink);
         }
 
-        /* add suffix (if any) */
-        myPtr = strnstr(toolArgs->prelinkedKernelPath, _kOSKextPrelinkedKernelFileName ".",
-                        strlen(toolArgs->prelinkedKernelPath));
-        if (myPtr) {
-            long suffixSize = 0;
+        /* strip away any {Volume} prefix (the symlink exists on the same volume!) */
+        OSKextLog(NULL, kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
+                  "Symlink \"%s\" -> \"%s\"",
+                  tmpBuffer, plkRelPath);
 
-            suffixSize = strlen(myPtr + strlen(_kOSKextPrelinkedKernelFileName));
-            if (suffixSize && suffixSize + 1 <= tmpBufRemaining) {
-                strncat(tmpBuffer, (myPtr + strlen(_kOSKextPrelinkedKernelFileName)),
-                        tmpBufRemaining - 1);
-                tmpBufRemaining -= suffixSize;
+        /* force a symlink (this symlink target was incorrect in the past) */
+        struct stat sb;
+        if (lstat(tmpBuffer, &sb) == 0) {
+            if (S_ISLNK(sb.st_mode)) {
+                /* remove the old symlink */
+                unlink(tmpBuffer);
             }
         }
 
-        /* None of this is fatal if it fails...
-         */
-        OSKextLog(NULL, kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
-                  "Symlink \"%s\" -> \"%s\"",
-                  tmpBuffer, toolArgs->prelinkedKernelPath);
-        if (symlink(toolArgs->prelinkedKernelPath, tmpBuffer) < 0) {
+        if (symlink(plkRelPath, tmpBuffer) < 0) {
             if (errno != EEXIST) {
                 OSKextLog(NULL,  kOSKextLogGeneralFlag | kOSKextLogWarningLevel,
                           "symlink(\"%s\", \"%s\") failed %d (%s)",
-                          toolArgs->prelinkedKernelPath, tmpBuffer,
+                          plkRelPath, tmpBuffer,
                           errno, strerror(errno));
             }
         }
-   }
+
+        goto finish;
+
+dontlink:
+        OSKextLog(NULL, kOSKextLogGeneralFlag | kOSKextLogBasicLevel,
+                  "Skipping com.apple.kext.caches symlink to: \"%s\"",
+                  toolArgs->prelinkedKernelPath);
+    } /* if (sptr), i.e. prelinkedKernelPath contained  _kOSKextPrelinkedKernelsPath */
 
 finish:
     if (isKextdRunning() && isRootVolURL(toolArgs->volumeRootURL)) {
         // <rdar://problem/20688847> only post notifications if kextcache was
         // targeting the root volume
-        if (sNoLoadKextAlertDict) {
-            /* notify kextd that we have some nonsigned kexts going into the
-             * kernel cache.
-             */
-            postNoteAboutKexts(CFSTR("No Load Kext Notification"),
-                               sNoLoadKextAlertDict );
-        }
-        
-        if (sRevokedKextAlertDict) {
-            /* notify kextd that we have some kexts with revoked certificate.
-             */
-            postNoteAboutKexts(CFSTR("Revoked Cert Kext Notification"),
-                               sRevokedKextAlertDict );
-        }
-        
-        if (sInvalidSignedKextAlertDict) {
-            /* notify kextd that we have some invalid signed kexts going into the
-             * kernel cache.
-             */
-            postNoteAboutKexts(CFSTR("Invalid Signature Kext Notification"),
-                               sInvalidSignedKextAlertDict);
-        }
-        
         if (sExcludedKextAlertDict) {
             /* notify kextd that we have some excluded kexts going into the
              * kernel cache.
@@ -3126,7 +3278,8 @@ static Boolean isRootVolURL(CFURLRef theURL)
 {
     Boolean     result = false;
     char        volRootBuf[PATH_MAX];
-    
+    char        realPathBuf[PATH_MAX];
+
     if (theURL == NULL) {
         result = true;
         goto finish;
@@ -3140,10 +3293,16 @@ static Boolean isRootVolURL(CFURLRef theURL)
         // this should not happen, but just in case...
         volRootBuf[0] = 0x00;
     }
-    if (strlen(volRootBuf) < 2) {
-        // will count a null string also as root vole
-        if (volRootBuf[0] == 0x00 || volRootBuf[0] == '/') {
-            result = true;
+
+    if (volRootBuf[0] == 0x00) {
+        // will count a null string also as root volume
+        result = true;
+    } else {
+        // anything other than a null volume url should be resolved via realpath
+        if (realpath(volRootBuf, realPathBuf)) {
+            if (strlen(realPathBuf) == 1 && realPathBuf[0] == '/') {
+                result = true;
+            }
         }
     }
 
@@ -3214,6 +3373,21 @@ ExitStatus createPrelinkedKernelForArch(
         goto finish;
     }
 
+    // Only perform GPU bundle staging when building a kextcache for the currently running system.
+    if (isRootVolURL(toolArgs->volumeRootURL)) {
+        // Iterate all kernel extensions chosen for inclusion and stage any non-SIP protected
+        // companion usermode GPU bundles into a SIP protected location.
+        for (int i = 0; i < CFArrayGetCount(prelinkKexts); i++) {
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(prelinkKexts, i);
+            if (needsGPUBundlesStaged(theKext)) {
+                // Errors are ignored for GPU bundle staging because it is all best-effort,
+                // and nothing is logged here because the functions themselves already log
+                // any errors for debugging or awareness.
+                stageGPUBundles(theKext);
+            }
+        }
+    }
+
     result = EX_OSERR;
 
     if (!CFArrayGetCount(prelinkKexts)) {
@@ -3224,10 +3398,8 @@ ExitStatus createPrelinkedKernelForArch(
         goto finish;
     }
 
-   /* Create the prelinked kernel from the given kernel and kexts */
-
+   /* Create the prelinked kernel from the given kernel and kexts. */
     flags |= (toolArgs->noLinkFailures) ? kOSKextKernelcacheNeedAllFlag : 0;
-    flags |= (toolArgs->skipAuthentication) ? kOSKextKernelcacheSkipAuthenticationFlag : 0;
     flags |= (toolArgs->printTestResults) ? kOSKextKernelcachePrintDiagnosticsFlag : 0;
     flags |= (toolArgs->includeAllPersonalities) ? kOSKextKernelcacheIncludeAllPersonalitiesFlag : 0;
     flags |= (toolArgs->stripSymbols) ? kOSKextKernelcacheStripSymbolsFlag : 0;
@@ -3240,7 +3412,7 @@ ExitStatus createPrelinkedKernelForArch(
     if (kernelSupportsKASLR) {
         flags |= kOSKextKernelcacheKASLRFlag;
     }
-  
+
     prelinkedKernel = OSKextCreatePrelinkedKernel(kernelImage, prelinkKexts,
         toolArgs->volumeRootURL, flags, prelinkedSymbolsOut);
     if (!prelinkedKernel) {
@@ -3473,7 +3645,6 @@ finish:
 }
 
 #pragma mark Boot!=Root
-
 
 /*******************************************************************************
 * usage()

@@ -90,9 +90,9 @@ static char gKextLoadPath[] = "/System/Library/Extensions/autofs.kext";
  * The following are needed because they're used in auto_subr.c and
  * we link with it. Should avoid this.
  */
-pthread_mutex_t cleanup_lock;
-pthread_cond_t cleanup_start_cv;
-pthread_cond_t cleanup_done_cv;
+pthread_mutex_t cleanup_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cleanup_start_cv = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cleanup_done_cv = PTHREAD_COND_INITIALIZER;
 
 int
 main(int argc, char *argv[])

@@ -79,6 +79,18 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
         let fetchedInlineStylesPromise = new WebInspector.WrappedPromise;
         let fetchedComputedStylesPromise = new WebInspector.WrappedPromise;
 
+        // Ensure we resolve these promises even in the case of an error.
+        function wrap(func, promise) {
+            return (...args) => {
+                try {
+                    func.apply(this, args);
+                } catch (e) {
+                    console.error(e);
+                    promise.resolve();
+                }
+            };
+        }
+
         function parseRuleMatchArrayPayload(matchArray, node, inherited)
         {
             var result = [];
@@ -239,9 +251,9 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
         // FIXME: Convert to pushing StyleSheet information to the frontend. <rdar://problem/13213680>
         WebInspector.cssStyleManager.fetchStyleSheetsIfNeeded();
 
-        CSSAgent.getMatchedStylesForNode.invoke({nodeId: this._node.id, includePseudo: true, includeInherited: true}, fetchedMatchedStyles.bind(this));
-        CSSAgent.getInlineStylesForNode.invoke({nodeId: this._node.id}, fetchedInlineStyles.bind(this));
-        CSSAgent.getComputedStyleForNode.invoke({nodeId: this._node.id}, fetchedComputedStyle.bind(this));
+        CSSAgent.getMatchedStylesForNode.invoke({nodeId: this._node.id, includePseudo: true, includeInherited: true}, wrap.call(this, fetchedMatchedStyles, fetchedMatchedStylesPromise));
+        CSSAgent.getInlineStylesForNode.invoke({nodeId: this._node.id}, wrap.call(this, fetchedInlineStyles, fetchedInlineStylesPromise));
+        CSSAgent.getComputedStyleForNode.invoke({nodeId: this._node.id}, wrap.call(this, fetchedComputedStyle, fetchedComputedStylesPromise));
 
         this._pendingRefreshTask = Promise.all([fetchedMatchedStylesPromise.promise, fetchedInlineStylesPromise.promise, fetchedComputedStylesPromise.promise])
         .then(() => {
@@ -251,7 +263,7 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
         return this._pendingRefreshTask;
     }
 
-    addRule(selector, text)
+    addRule(selector, text, styleSheetId)
     {
         selector = selector || this._node.appropriateSelectorFor(true);
 
@@ -290,10 +302,16 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
 
         function inspectorStyleSheetAvailable(styleSheet)
         {
+            if (!styleSheet)
+                return;
+
             CSSAgent.addRule(styleSheet.id, selector, addedRule.bind(this));
         }
 
-        WebInspector.cssStyleManager.preferredInspectorStyleSheetForFrame(this._node.frame, inspectorStyleSheetAvailable.bind(this));
+        if (styleSheetId)
+            inspectorStyleSheetAvailable.call(this, WebInspector.cssStyleManager.styleSheetForIdentifier(styleSheetId));
+        else
+            WebInspector.cssStyleManager.preferredInspectorStyleSheetForFrame(this._node.frame, inspectorStyleSheetAvailable.bind(this));
     }
 
     rulesForSelector(selector)
@@ -753,8 +771,12 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
             sourceCodeLocation = this._createSourceCodeLocation(payload.sourceURL, payload.sourceLine);
         }
 
-        if (styleSheet)
+        if (styleSheet) {
+            if (!sourceCodeLocation && styleSheet.isInspectorStyleSheet())
+                sourceCodeLocation = styleSheet.createSourceCodeLocation(sourceRange.startLine, sourceRange.startColumn)
+
             sourceCodeLocation = styleSheet.offsetSourceCodeLocation(sourceCodeLocation);
+        }
 
         var mediaList = [];
         for (var i = 0; payload.media && i < payload.media.length; ++i) {

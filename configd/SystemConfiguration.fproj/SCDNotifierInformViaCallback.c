@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -55,6 +55,7 @@ notifyMPCopyDescription(const void *info)
 static void
 rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+#pragma unused(size)
 	mach_no_senders_notification_t	*buf		= msg;
 	mach_msg_id_t			msgid		= buf->not_header.msgh_id;
 	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
@@ -127,7 +128,7 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 		bzero(&opts, sizeof(opts));
 		opts.flags = MPO_CONTEXT_AS_GUARD|MPO_INSERT_SEND_RIGHT;
 
-		kr = mach_port_construct(mach_task_self(), &opts, store, &port);
+		kr = mach_port_construct(mach_task_self(), &opts, (mach_port_context_t)store, &port);
 #else	// HAVE_MACHPORT_GUARDS
 		kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
 #endif	// HAVE_MACHPORT_GUARDS
@@ -184,7 +185,9 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 		SC_log(LOG_DEBUG, "  establish notification request with SCDynamicStore server");
 #endif	/* DEBUG */
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 		os_activity_scope(storePrivate->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	    retry :
 
@@ -206,7 +209,7 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 			/* remove our receive right  */
 #ifdef	HAVE_MACHPORT_GUARDS
-			(void) mach_port_destruct(mach_task_self(), port, 0, store);
+			(void) mach_port_destruct(mach_task_self(), port, 0, (mach_port_context_t)store);
 #else	// HAVE_MACHPORT_GUARDS
 			(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
 #endif	// HAVE_MACHPORT_GUARDS
@@ -216,7 +219,7 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 		if (sc_status != kSCStatusOK) {
 			/* something [else] didn't work, remove our receive right  */
 #ifdef	HAVE_MACHPORT_GUARDS
-			(void) mach_port_destruct(mach_task_self(), port, 0, store);
+			(void) mach_port_destruct(mach_task_self(), port, 0, (mach_port_context_t)store);
 #else	// HAVE_MACHPORT_GUARDS
 			(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
 #endif	// HAVE_MACHPORT_GUARDS
@@ -327,7 +330,7 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 			/* and, finally, remove our receive right  */
 #ifdef	HAVE_MACHPORT_GUARDS
-			(void) mach_port_destruct(mach_task_self(), mp, 0, store);
+			(void) mach_port_destruct(mach_task_self(), mp, 0, (mach_port_context_t)store);
 #else	// HAVE_MACHPORT_GUARDS
 			(void) mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
 #endif	// HAVE_MACHPORT_GUARDS
@@ -337,7 +340,9 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 		SC_log(LOG_DEBUG, "  cancel notification request with SCDynamicStore server");
 #endif	/* DEBUG */
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 		os_activity_scope(storePrivate->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 		if (storePrivate->server != MACH_PORT_NULL) {
 			kr = notifycancel(storePrivate->server, (int *)&sc_status);

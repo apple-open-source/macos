@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 # Profile provides a way to Profile your Ruby application.
 #
 # Profiling your program is a way of determining which methods are called and
@@ -96,6 +97,9 @@ module Profiler__
     end
   }
 module_function
+  # Starts the profiler.
+  #
+  # See Profiler__ for more information.
   def start_profile
     @@start = Process.times[0]
     @@stacks = {}
@@ -103,10 +107,16 @@ module_function
     PROFILE_CALL_PROC.enable
     PROFILE_RETURN_PROC.enable
   end
+  # Stops the profiler.
+  #
+  # See Profiler__ for more information.
   def stop_profile
     PROFILE_CALL_PROC.disable
     PROFILE_RETURN_PROC.disable
   end
+  # Outputs the results from the profiler.
+  #
+  # See Profiler__ for more information.
   def print_profile(f)
     stop_profile
     total = Process.times[0] - @@start

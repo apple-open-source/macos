@@ -167,6 +167,7 @@ const SecAsn1Template kSecAsn1TSAPKIStatusInfoTemplateRFC3161[] = {
     { 0 }
 };
 
+#if 0
 const SecAsn1Template kSecAsn1TSATimeStampRespTemplate[] = {
     { SEC_ASN1_SEQUENCE,
 	  0, NULL, sizeof(SecAsn1TimeStampResp) },
@@ -176,6 +177,7 @@ const SecAsn1Template kSecAsn1TSATimeStampRespTemplate[] = {
         SecCmsContentInfoTemplate },
     { 0 }
 };
+#endif
 
 // Decode the status but not the TimeStampToken
 const SecAsn1Template kSecAsn1TSATimeStampRespTemplateDER[] = {

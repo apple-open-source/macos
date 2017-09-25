@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ******************************************************************************
 * Copyright (C) 1996-2016, International Business Machines Corporation and
@@ -69,6 +71,7 @@
 #include "unicode/uiter.h"
 #include "unicode/ucol.h"
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 struct CollationCacheEntry;
@@ -306,8 +309,8 @@ public:
     * than target
     * @stable ICU 2.6
     */
-    virtual UCollationResult compare(const UChar* source, int32_t sourceLength,
-                                     const UChar* target, int32_t targetLength,
+    virtual UCollationResult compare(const char16_t* source, int32_t sourceLength,
+                                     const char16_t* target, int32_t targetLength,
                                      UErrorCode &status) const;
 
     /**
@@ -375,7 +378,7 @@ public:
      * @see CollationKey
      * @stable ICU 2.0
      */
-    virtual CollationKey& getCollationKey(const UChar *source,
+    virtual CollationKey& getCollationKey(const char16_t *source,
                                           int32_t sourceLength,
                                           CollationKey& key,
                                           UErrorCode& status) const;
@@ -550,7 +553,7 @@ public:
      * the top of one of the supported reordering groups,
      * and it must not be beyond the last of those groups.
      * See setMaxVariable().
-     * @param varTop one or more (if contraction) UChars to which the variable top should be set
+     * @param varTop one or more (if contraction) char16_ts to which the variable top should be set
      * @param len length of variable top string. If -1 it is considered to be zero terminated.
      * @param status error code. If error code is set, the return value is undefined. Errors set by this function are: <br>
      *    U_CE_NOT_FOUND_ERROR if more than one character was passed and there is no such contraction<br>
@@ -559,7 +562,7 @@ public:
      * @return variable top primary weight
      * @deprecated ICU 53 Call setMaxVariable() instead.
      */
-    virtual uint32_t setVariableTop(const UChar *varTop, int32_t len, UErrorCode &status);
+    virtual uint32_t setVariableTop(const char16_t *varTop, int32_t len, UErrorCode &status);
 
     /**
      * Sets the variable top to the primary weight of the specified string.
@@ -568,7 +571,7 @@ public:
      * the top of one of the supported reordering groups,
      * and it must not be beyond the last of those groups.
      * See setMaxVariable().
-     * @param varTop a UnicodeString size 1 or more (if contraction) of UChars to which the variable top should be set
+     * @param varTop a UnicodeString size 1 or more (if contraction) of char16_ts to which the variable top should be set
      * @param status error code. If error code is set, the return value is undefined. Errors set by this function are: <br>
      *    U_CE_NOT_FOUND_ERROR if more than one character was passed and there is no such contraction<br>
      *    U_ILLEGAL_ARGUMENT_ERROR if the variable top is beyond
@@ -629,7 +632,7 @@ public:
                                int32_t resultLength) const;
 
     /**
-     * Get the sort key as an array of bytes from a UChar buffer.
+     * Get the sort key as an array of bytes from a char16_t buffer.
      *
      * Note that sort keys are often less efficient than simply doing comparison.
      * For more details, see the ICU User Guide.
@@ -644,7 +647,7 @@ public:
      * @return Number of bytes needed for storing the sort key
      * @stable ICU 2.2
      */
-    virtual int32_t getSortKey(const UChar *source, int32_t sourceLength,
+    virtual int32_t getSortKey(const char16_t *source, int32_t sourceLength,
                                uint8_t *result, int32_t resultLength) const;
 
     /**
@@ -819,17 +822,17 @@ private:
     void adoptTailoring(CollationTailoring *t, UErrorCode &errorCode);
 
     // Both lengths must be <0 or else both must be >=0.
-    UCollationResult doCompare(const UChar *left, int32_t leftLength,
-                               const UChar *right, int32_t rightLength,
+    UCollationResult doCompare(const char16_t *left, int32_t leftLength,
+                               const char16_t *right, int32_t rightLength,
                                UErrorCode &errorCode) const;
     UCollationResult doCompare(const uint8_t *left, int32_t leftLength,
                                const uint8_t *right, int32_t rightLength,
                                UErrorCode &errorCode) const;
 
-    void writeSortKey(const UChar *s, int32_t length,
+    void writeSortKey(const char16_t *s, int32_t length,
                       SortKeyByteSink &sink, UErrorCode &errorCode) const;
 
-    void writeIdenticalLevel(const UChar *s, const UChar *limit,
+    void writeIdenticalLevel(const char16_t *s, const char16_t *limit,
                              SortKeyByteSink &sink, UErrorCode &errorCode) const;
 
     const CollationSettings &getDefaultSettings() const;
@@ -854,7 +857,7 @@ private:
      */
     UBool isUnsafe(UChar32 c) const;
 
-    static void computeMaxExpansions(const CollationTailoring *t, UErrorCode &errorCode);
+    static void U_CALLCONV computeMaxExpansions(const CollationTailoring *t, UErrorCode &errorCode);
     UBool initMaxExpansions(UErrorCode &errorCode) const;
 
     void setFastLatinOptions(CollationSettings &ownedSettings) const;
@@ -870,6 +873,7 @@ private:
 };
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // !UCONFIG_NO_COLLATION
 #endif  // TBLCOLL_H

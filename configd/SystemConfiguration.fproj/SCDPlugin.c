@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006, 2013, 2015 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2013, 2015, 2017 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -110,6 +110,7 @@ unblockSignal()
 static void
 reaper(int sigraised)
 {
+#pragma unused(sigraised)
 	/*
 	 * block additional SIGCHLD's until current children have
 	 * been reaped.
@@ -129,6 +130,10 @@ reaper(int sigraised)
 static void
 childrenReaped(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
+#pragma unused(port)
+#pragma unused(msg)
+#pragma unused(size)
+#pragma unused(info)
 	pid_t		pid		= 0;
 	childInfoRef	reapedChildren	= NULL;
 
@@ -214,6 +219,7 @@ childrenReaped(CFMachPortRef port, void *msg, CFIndex size, void *info)
 static CFStringRef
 childReapedMPCopyDescription(const void *info)
 {
+#pragma unused(info)
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGCHLD MP>"));
 }
 

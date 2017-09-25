@@ -61,8 +61,8 @@ bool testClearAll(dispatch_queue_t processQueue, dispatch_group_t dgroup);
 
 CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name);
 
-SOSPeerInfoRef SOSCreatePeerInfoFromName(CFStringRef name, SecKeyRef* outSigningKey, CFErrorRef *error);
-SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name, SecKeyRef* outSigningKey, CFErrorRef *error);
+SOSPeerInfoRef SOSCreatePeerInfoFromName(CFStringRef name, SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, CFErrorRef *error);
+SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name, SecKeyRef* outSigningKey, SecKeyRef* outOctagonSigningKey, CFErrorRef *error);
 
 __END_DECLS
 

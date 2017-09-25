@@ -251,7 +251,7 @@ const struct option long_options[] =
 	{ "apple-nowakefromsleep",	no_argument,	&nowakefromsleep_flag, 1 },
 	{ "apple-ecn",		required_argument,	&ecn_mode_flag, 1 },
 	{ "apple-kao",		required_argument,	&kao_flag, 1 },
-	{ "apple-sockev",	no_argument, 		&sockev, 1},
+	{ "apple-sockev",	no_argument,		&sockev, 1},
 	{ "apple-notify-ack",	no_argument,		&notify_ack, 1},
 	{ "apple-netsvctype",	required_argument,	&netsvctype_flag, 1},
 	{ NULL,			0,			NULL,	0 }
@@ -526,7 +526,7 @@ main(int argc, char *argv[])
 	}
 	if (kao_optarg != NULL) {
 		kao = strtol(kao_optarg, &endp, 0);
-		if (kao < 0 || kao > UINT_MAX || *endp != '\0')
+		if (kao < 0 || *endp != '\0')
 			errx(1, "invalid kao value");
 	}
 
@@ -969,22 +969,6 @@ remote_connectx(const char *host, const char *port, struct addrinfo hints)
 			if (vflag)
 				showmpinfo(s);
 			break;
-		} else if (errno == EPROTO) {	/* PF_MULTIPATH specific */
-			int ps;
-			warn("connectx to %s port %s (%s) succeded without "
-			    "multipath association (connid %d)",
-			    host, port, uflag ? "udp" : "tcp", cid);
-			if (vflag)
-				showmpinfo(s);
-			ps = peeloff(s, SAE_ASSOCID_ANY);
-			if (ps != -1) {
-				close(s);
-				s = ps;
-				if (oflag)
-					set_common_sockopts(s, res0->ai_family);
-				break;
-			}
-			warn("peeloff failed for connid %d", cid);
 		} else if (vflag) {
 			warn("connectx to %s port %s (%s) failed", host, port,
 			    (uflag ? "udp" : (Mflag ? "mptcp" : "tcp")));
@@ -1226,14 +1210,13 @@ atelnet(int nfd, unsigned char *buf, unsigned int size)
 			obuf[1] = DONT;
 		if ((*p == DO) || (*p == DONT))
 			obuf[1] = WONT;
-		if (obuf) {
-			p++;
-			obuf[2] = *p;
-			obuf[3] = '\0';
-			if (atomicio(vwrite, nfd, obuf, 3) != 3)
-				warn("Write Error!");
-			obuf[0] = '\0';
-		}
+
+		p++;
+		obuf[2] = *p;
+		obuf[3] = '\0';
+		if (atomicio(vwrite, nfd, obuf, 3) != 3)
+			warn("Write Error!");
+		obuf[0] = '\0';
 	}
 }
 
@@ -1737,26 +1720,25 @@ fprintb(FILE *stream, const char *s, unsigned v, const char *bits)
 	int i, any = 0;
 	char c;
 
-	if (bits && *bits == 8)
+	if (*bits == 8)
 		fprintf(stderr, "%s=%o", s, v);
 	else
 		fprintf(stderr, "%s=%x", s, v);
 	bits++;
-	if (bits) {
-		putc('<', stream);
-		while ((i = *bits++) != '\0') {
-			if (v & (1 << (i-1))) {
-				if (any)
-					putc(',', stream);
-				any = 1;
-				for (; (c = *bits) > 32; bits++)
-					putc(c, stream);
-			} else
-				for (; *bits > 32; bits++)
-					;
-		}
-		putc('>', stream);
+
+	putc('<', stream);
+	while ((i = *bits++) != '\0') {
+		if (v & (1 << (i-1))) {
+			if (any)
+				putc(',', stream);
+			any = 1;
+			for (; (c = *bits) > 32; bits++)
+				putc(c, stream);
+		} else
+			for (; *bits > 32; bits++)
+				;
 	}
+	putc('>', stream);
 }
 
 #define	CIF_BITS	\

@@ -187,7 +187,7 @@ protected:
 	DigestTransform();
 
 public:
-	static CFTypeRef Make();
+	static CFTypeRef Make() CF_RETURNS_RETAINED;
 	virtual ~DigestTransform();
 
 	CFErrorRef Setup(CFTypeRef digestType, CFIndex length);

@@ -22,8 +22,6 @@
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
 #include <Security/SecureObjectSync/SOSPeerInfoPriv.h>
 #include <Security/SecureObjectSync/SOSRingTypes.h>
-#include <Security/SecureObjectSync/SOSAccount.h>
-#include <Security/SecureObjectSync/SOSAccountPriv.h>
 
 SOSRingStatus SOSPeerInfoGetRingState(SOSPeerInfoRef pi, CFStringRef ringname, CFErrorRef *error);
 

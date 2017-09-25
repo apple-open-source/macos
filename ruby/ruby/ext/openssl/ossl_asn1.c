@@ -1,11 +1,10 @@
 /*
- * $Id: ossl_asn1.c 46200 2014-05-28 04:22:15Z usa $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
  */
 /*
- * This program is licenced under the same licence as Ruby.
+ * This program is licensed under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
@@ -495,7 +494,7 @@ typedef struct {
     VALUE *klass;
 } ossl_asn1_info_t;
 
-static ossl_asn1_info_t ossl_asn1_info[] = {
+static const ossl_asn1_info_t ossl_asn1_info[] = {
     { "EOC",               &cASN1EndOfContent,    },  /*  0 */
     { "BOOLEAN",           &cASN1Boolean,         },  /*  1 */
     { "INTEGER",           &cASN1Integer,         },  /*  2 */
@@ -529,7 +528,7 @@ static ossl_asn1_info_t ossl_asn1_info[] = {
     { "BMPSTRING",         &cASN1BMPString,       },  /* 30 */
 };
 
-int ossl_asn1_info_size = (sizeof(ossl_asn1_info)/sizeof(ossl_asn1_info[0]));
+enum {ossl_asn1_info_size = (sizeof(ossl_asn1_info)/sizeof(ossl_asn1_info[0]))};
 
 static VALUE class_tag_map;
 
@@ -733,7 +732,7 @@ ossl_asn1data_initialize(VALUE self, VALUE value, VALUE tag, VALUE tag_class)
 }
 
 static VALUE
-join_der_i(VALUE i, VALUE str)
+join_der_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, str))
 {
     i = ossl_to_der_if_possible(i);
     StringValue(i);
@@ -1029,7 +1028,7 @@ static VALUE
 ossl_asn1_traverse(VALUE self, VALUE obj)
 {
     unsigned char *p;
-    volatile VALUE tmp;
+    VALUE tmp;
     long len, read = 0, offset = 0;
 
     obj = ossl_to_der_if_possible(obj);
@@ -1037,6 +1036,7 @@ ossl_asn1_traverse(VALUE self, VALUE obj)
     p = (unsigned char *)RSTRING_PTR(tmp);
     len = RSTRING_LEN(tmp);
     ossl_asn1_decode0(&p, len, &offset, 0, 1, &read);
+    RB_GC_GUARD(tmp);
     int_ossl_decode_sanity_check(len, read, offset);
     return Qnil;
 }
@@ -1058,7 +1058,7 @@ ossl_asn1_decode(VALUE self, VALUE obj)
 {
     VALUE ret;
     unsigned char *p;
-    volatile VALUE tmp;
+    VALUE tmp;
     long len, read = 0, offset = 0;
 
     obj = ossl_to_der_if_possible(obj);
@@ -1066,6 +1066,7 @@ ossl_asn1_decode(VALUE self, VALUE obj)
     p = (unsigned char *)RSTRING_PTR(tmp);
     len = RSTRING_LEN(tmp);
     ret = ossl_asn1_decode0(&p, len, &offset, 0, 0, &read);
+    RB_GC_GUARD(tmp);
     int_ossl_decode_sanity_check(len, read, offset);
     return ret;
 }
@@ -1089,7 +1090,7 @@ ossl_asn1_decode_all(VALUE self, VALUE obj)
     VALUE ary, val;
     unsigned char *p;
     long len, tmp_len = 0, read = 0, offset = 0;
-    volatile VALUE tmp;
+    VALUE tmp;
 
     obj = ossl_to_der_if_possible(obj);
     tmp = rb_str_new4(StringValue(obj));
@@ -1104,6 +1105,7 @@ ossl_asn1_decode_all(VALUE self, VALUE obj)
 	read += tmp_read;
 	tmp_len -= tmp_read;
     }
+    RB_GC_GUARD(tmp);
     int_ossl_decode_sanity_check(len, read, offset);
     return ary;
 }
@@ -1358,6 +1360,17 @@ ossl_asn1cons_each(VALUE self)
     return self;
 }
 
+/*
+ * call-seq:
+ *    OpenSSL::ASN1::ObjectId.register(object_id, short_name, long_name)
+ *
+ * This adds a new ObjectId to the internal tables. Where +object_id+ is the
+ * numerical form, +short_name+ is the short name, and +long_name+ is the long
+ * name.
+ *
+ * Returns +true+ if successful. Raises an OpenSSL::ASN1::ASN1Error if it fails.
+ *
+ */
 static VALUE
 ossl_asn1obj_s_register(VALUE self, VALUE oid, VALUE sn, VALUE ln)
 {
@@ -1371,6 +1384,14 @@ ossl_asn1obj_s_register(VALUE self, VALUE oid, VALUE sn, VALUE ln)
     return Qtrue;
 }
 
+/* Document-method: OpenSSL::ASN1::ObjectId#sn
+ *
+ * The short name of the ObjectId, as defined in <openssl/objects.h>.
+ */
+/* Document-method: OpenSSL::ASN1::ObjectId#short_name
+ *
+ * +short_name+ is an alias to +sn+
+ */
 static VALUE
 ossl_asn1obj_get_sn(VALUE self)
 {
@@ -1384,6 +1405,14 @@ ossl_asn1obj_get_sn(VALUE self)
     return ret;
 }
 
+/* Document-method: OpenSSL::ASN1::ObjectId#ln
+ *
+ * The long name of the ObjectId, as defined in <openssl/objects.h>.
+ */
+/* Document-method: OpenSSL::ASN1::ObjectId#long_name
+ *
+ * +long_name+ is an alias to +ln+
+ */
 static VALUE
 ossl_asn1obj_get_ln(VALUE self)
 {
@@ -1397,6 +1426,10 @@ ossl_asn1obj_get_ln(VALUE self)
     return ret;
 }
 
+/* Document-method: OpenSSL::ASN1::ObjectId#oid
+ *
+ * The object identifier as a +String+, e.g. "1.2.3.4.5"
+ */
 static VALUE
 ossl_asn1obj_get_oid(VALUE self)
 {
@@ -1441,7 +1474,7 @@ OSSL_ASN1_IMPL_FACTORY_METHOD(Set)
 OSSL_ASN1_IMPL_FACTORY_METHOD(EndOfContent)
 
 void
-Init_ossl_asn1()
+Init_ossl_asn1(void)
 {
     VALUE ary;
     int i;
@@ -1778,6 +1811,14 @@ Init_ossl_asn1()
      *
      * == OpenSSL::ASN1::ObjectId
      *
+     * NOTE: While OpenSSL::ASN1::ObjectId.new will allocate a new ObjectId,
+     * it is not typically allocated this way, but rather that are received from
+     * parsed ASN1 encodings.
+     *
+     * While OpenSSL::ASN1::ObjectId.new will allocate a new ObjectId, it is
+     * not typically allocated this way, but rather that are received from
+     * parsed ASN1 encodings.
+     *
      * === Additional attributes
      * * +sn+: the short name as defined in <openssl/objects.h>.
      * * +ln+: the long name as defined in <openssl/objects.h>.
@@ -1917,6 +1958,10 @@ do{\
     OSSL_ASN1_DEFINE_CLASS(EndOfContent, Data);
 
 
+    /* Document-class: OpenSSL::ASN1::ObjectId
+     *
+     * Represents the primitive object id for OpenSSL::ASN1
+     */
 #if 0
     cASN1ObjectId = rb_define_class_under(mASN1, "ObjectId", cASN1Primitive);  /* let rdoc know */
 #endif

@@ -1,7 +1,7 @@
 diff -ur a/src/global/mail_params.c b/postfix/src/global/mail_params.c
 --- a/src/global/mail_params.c	2015-06-13 08:16:29.000000000 -0600
 +++ b/postfix/src/global/mail_params.c	2015-06-12 21:49:25.000000000 -0600
-@@ -232,6 +232,7 @@
+@@ -239,6 +239,7 @@
  char   *var_daemon_dir;
  char   *var_data_dir;
  char   *var_command_dir;
@@ -9,7 +9,7 @@ diff -ur a/src/global/mail_params.c b/postfix/src/global/mail_params.c
  char   *var_meta_dir;
  char   *var_queue_dir;
  char   *var_shlib_dir;
-@@ -670,6 +671,7 @@
+@@ -679,6 +680,7 @@
  	VAR_DAEMON_DIR, DEF_DAEMON_DIR, &var_daemon_dir, 1, 0,
  	VAR_DATA_DIR, DEF_DATA_DIR, &var_data_dir, 1, 0,
  	VAR_COMMAND_DIR, DEF_COMMAND_DIR, &var_command_dir, 1, 0,
@@ -20,7 +20,7 @@ diff -ur a/src/global/mail_params.c b/postfix/src/global/mail_params.c
 diff -ur a/src/global/mail_params.h b/postfix/src/global/mail_params.h
 --- a/src/global/mail_params.h	2015-06-13 08:16:29.000000000 -0600
 +++ b/postfix/src/global/mail_params.h	2015-06-12 21:57:24.000000000 -0600
-@@ -265,6 +265,13 @@
+@@ -270,6 +270,13 @@
  #define DEF_LMTP_MXSESS_LIMIT	2
  extern int var_smtp_mxsess_limit;
  
@@ -37,23 +37,24 @@ diff -ur a/src/global/mail_params.h b/postfix/src/global/mail_params.h
 diff -ur a/src/sendmail/sendmail.c b/postfix/src/sendmail/sendmail.c
 --- a/src/sendmail/sendmail.c	2015-06-13 08:16:37.000000000 -0600
 +++ b/postfix/src/sendmail/sendmail.c	2015-06-13 07:55:00.000000000 -0600
-@@ -1012,6 +1012,19 @@
+@@ -1037,6 +1037,19 @@
      for ( /* void */ ; fd < 100; fd++)
  	(void) close(fd);
  
 +    /* Apple: Set CONF_ENV_PATH to server config if Server is installed */
 +    mail_conf_read();
 +    if ( strcmp(var_server_config_dir, "disabled") != 0 ) {
-+	mail_conf_flush();
++       mail_conf_flush();
 +
-+	VSTRING *buf = vstring_alloc(1);
-+	if ( setenv(CONF_ENV_PATH,
-+	     strcmp(sane_basename(buf, var_server_config_dir), MAIN_CONF_FILE) == 0 ?
-+	     sane_dirname(buf, var_server_config_dir) : var_server_config_dir, 1) < 0)
-+		msg_fatal_status(EX_UNAVAILABLE, "out of memory");
-+	vstring_free(buf);
++       VSTRING *buf = vstring_alloc(1);
++       if ( setenv(CONF_ENV_PATH,
++            strcmp(sane_basename(buf, var_server_config_dir), MAIN_CONF_FILE) == 0 ?
++            sane_dirname(buf, var_server_config_dir) : var_server_config_dir, 1) < 0)
++               msg_fatal_status(EX_UNAVAILABLE, "out of memory");
++       vstring_free(buf);
 +    }
 +
      /*
       * Process environment options as early as we can. We might be called
       * from a set-uid (set-gid) program, so be careful with importing
+

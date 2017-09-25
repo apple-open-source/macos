@@ -27,6 +27,7 @@
 #include "config.h"
 #include "TreeScope.h"
 
+#include "Attr.h"
 #include "DOMWindow.h"
 #include "ElementIterator.h"
 #include "FocusController.h"
@@ -38,12 +39,12 @@
 #include "HTMLMapElement.h"
 #include "HitTestResult.h"
 #include "IdTargetObserverRegistry.h"
+#include "NodeRareData.h"
 #include "Page.h"
 #include "PointerLockController.h"
 #include "RenderView.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ShadowRoot.h"
-#include "TreeScopeAdopter.h"
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -109,6 +110,17 @@ Element* TreeScope::getElementById(const String& elementId) const
         return nullptr;
 
     if (RefPtr<AtomicStringImpl> atomicElementId = AtomicStringImpl::lookUp(elementId.impl()))
+        return m_elementsById->getElementById(*atomicElementId, *this);
+
+    return nullptr;
+}
+
+Element* TreeScope::getElementById(StringView elementId) const
+{
+    if (!m_elementsById)
+        return nullptr;
+
+    if (auto atomicElementId = elementId.toExistingAtomicString())
         return m_elementsById->getElementById(*atomicElementId, *this);
 
     return nullptr;
@@ -313,7 +325,7 @@ Node* TreeScope::nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoint* loca
     return result.innerNode();
 }
 
-Element* TreeScope::elementFromPoint(int x, int y)
+Element* TreeScope::elementFromPoint(double x, double y)
 {
     Document& document = documentScope();
     if (!document.hasLivingRenderTree())
@@ -354,15 +366,6 @@ Element* TreeScope::findAnchor(const String& name)
         }
     }
     return nullptr;
-}
-
-void TreeScope::adoptIfNeeded(Node& node)
-{
-    ASSERT(!node.isDocumentNode());
-    ASSERT(!node.m_deletionHasBegun);
-    TreeScopeAdopter adopter(node, *this);
-    if (adopter.needsScopeChange())
-        adopter.execute();
 }
 
 static Element* focusedFrameOwnerElement(Frame* focusedFrame, Frame* currentFrame)

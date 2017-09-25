@@ -278,3 +278,102 @@ static struct statistic_callbacks callbacks3 = {
 struct statistic *top_boosts_create(WINDOW *parent, const char *name) {
 	return create_statistic(STATISTIC_BOOSTS, parent, NULL, &callbacks3, name);
 }
+
+static bool instrs_insert_cell(struct statistic *s, const void *sample) {
+	const libtop_psamp_t *psamp = sample;
+	char buf[GENERIC_INT_SIZE];
+	uint64_t value;
+
+	if (psamp->p_seq == 0) {
+		if (snprintf(buf, sizeof(buf), "%" PRIu64, 0) == -1) {
+			return true;
+		}
+
+		return generic_insert_cell(s, buf);
+	}
+
+	switch(top_prefs_get_mode()) {
+	case STATMODE_ACCUM:
+		value = psamp->instructions - psamp->b_instructions;
+		break;
+
+	case STATMODE_EVENT: /* FALLTHROUGH */
+	case STATMODE_DELTA: /* FALLTHROUGH */
+	case STATMODE_NON_EVENT:
+		value = psamp->instructions - psamp->p_instructions;
+		break;
+
+	default:
+		fprintf(stderr, "unhandled STATMOMDE in %s\n", __func__);
+		abort();
+	}
+
+	if (snprintf(buf, sizeof(buf), "%" PRIu64, value) == -1) {
+		return true;
+	}
+
+	return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks instrs_callbacks = {
+	.draw = generic_draw,
+	.resize_cells = generic_resize_cells,
+	.move_cells = generic_move_cells,
+	.get_request_size = generic_get_request_size,
+	.get_minimum_size = generic_get_minimum_size,
+	.insert_cell = instrs_insert_cell,
+	.reset_insertion = generic_reset_insertion,
+};
+
+struct statistic *top_instrs_create(WINDOW *parent, const char *name) {
+	return create_statistic(STATISTIC_INSTRS, parent, NULL, &instrs_callbacks, name);
+}
+
+static bool cycles_insert_cell(struct statistic *s, const void *sample) {
+	const libtop_psamp_t *psamp = sample;
+	char buf[GENERIC_INT_SIZE];
+	uint64_t value;
+
+	if (psamp->p_seq == 0) {
+		buf[0] = '0'; buf[1] = '\0';
+		return generic_insert_cell(s, buf);
+	}
+
+	switch(top_prefs_get_mode()) {
+	case STATMODE_ACCUM:
+		value = psamp->cycles - psamp->b_cycles;
+		break;
+
+	case STATMODE_EVENT: /* FALLTHROUGH */
+	case STATMODE_DELTA: /* FALLTHROUGH */
+	case STATMODE_NON_EVENT:
+		value = psamp->cycles - psamp->p_cycles;
+		break;
+
+	default:
+		fprintf(stderr, "unhandled STATMODE in %s\n", __func__);
+		abort();
+	}
+
+	if (snprintf(buf, sizeof(buf), "%" PRIu64, value) == -1) {
+		return true;
+	}
+
+	top_log("command %s whole %llu\n", psamp->command, value);
+
+	return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks cycles_callbacks = {
+	.draw = generic_draw,
+	.resize_cells = generic_resize_cells,
+	.move_cells = generic_move_cells,
+	.get_request_size = generic_get_request_size,
+	.get_minimum_size = generic_get_minimum_size,
+	.insert_cell = cycles_insert_cell,
+	.reset_insertion = generic_reset_insertion,
+};
+
+struct statistic *top_cycles_create(WINDOW *parent, const char *name) {
+	return create_statistic(STATISTIC_CYCLES, parent, NULL, &cycles_callbacks, name);
+}

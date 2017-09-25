@@ -143,15 +143,20 @@
 
 /*!
  * @define      kIOPSLowWarnLevelKey 
+ * @abstract    Specifies the battery capacity percentage at which device is considered to be low on power.
+ *              Typically used to show initial warning to the user.
  *
- * @abstract    Key for the "Warning" UPS low power trigger-level. Default is 50%.
+ *              Holds a CFNumber, with possible values between 0-100.
 */
 #define kIOPSLowWarnLevelKey           "Low Warn Level"
 
 /*!
  * @define      kIOPSDeadWarnLevelKey 
+ * @abstract    Specifies the battery capacity percentage at which device is considered to be very low on power and
+ *              soon will not be functional. Typically used to show final warning to the user.
  *
- * @abstract    Key for the "Shutdown System" low power trigger-level. Default is 20%.
+ *              Holds a CFNumber, with possible values between 0-100.
+ *
  */
 #define kIOPSDeadWarnLevelKey          "Shutdown Level"
 

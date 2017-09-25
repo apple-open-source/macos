@@ -4,6 +4,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <Security/SecBase.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
@@ -58,6 +59,7 @@ static void tests(void)
     ok_status(SecItemCopyMatching(query2, &results), "find internet password, return attributes");
     CFReleaseNull(query2);
     query2 = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, results);
+    CFDictionaryRemoveValue(query2, kSecAttrSHA1),
     CFDictionarySetValue(query2, kSecClass, kSecClassInternetPassword);
     CFDictionarySetValue(query2, kSecReturnData, kCFBooleanTrue);
     ok_status(SecItemCopyMatching(query2, &results), "find internet password using returned attributes");

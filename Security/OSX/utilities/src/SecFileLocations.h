@@ -42,10 +42,13 @@ CFURLRef SecCopyURLForFileInRevocationInfoDirectory(CFStringRef fileName);
 
 void WithPathInKeychainDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 void WithPathInRevocationInfoDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
+void WithPathInUserCacheDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 
 void SetCustomHomePath(const char* path);
 void SetCustomHomeURLString(CFStringRef path);
 void SetCustomHomeURL(CFURLRef url);
+
+CFURLRef SecCopyHomeURL(void);
 
 __END_DECLS
 

@@ -25,14 +25,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ThreadedCoordinatedLayerTreeHost_h
-#define ThreadedCoordinatedLayerTreeHost_h
+#pragma once
 
 #if USE(COORDINATED_GRAPHICS_THREADED)
 
+#include "AcceleratedSurface.h"
 #include "CoordinatedLayerTreeHost.h"
 #include "SimpleViewportController.h"
 #include "ThreadedCompositor.h"
+#include <wtf/OptionSet.h>
 
 namespace WebCore {
 class GraphicsContext;
@@ -42,10 +43,9 @@ struct CoordinatedGraphicsState;
 
 namespace WebKit {
 
-class AcceleratedSurface;
 class WebPage;
 
-class ThreadedCoordinatedLayerTreeHost final : public CoordinatedLayerTreeHost {
+class ThreadedCoordinatedLayerTreeHost final : public CoordinatedLayerTreeHost, public AcceleratedSurface::Client {
 public:
     static Ref<ThreadedCoordinatedLayerTreeHost> create(WebPage&);
     virtual ~ThreadedCoordinatedLayerTreeHost();
@@ -59,12 +59,13 @@ private:
     void pageBackgroundTransparencyChanged() override;
 
     void contentsSizeChanged(const WebCore::IntSize&) override;
-    void didChangeViewportProperties(const WebCore::ViewportAttributes&) override;
+    void didChangeViewportAttributes(WebCore::ViewportAttributes&&) override;
 
     void invalidate() override;
 
     void forceRepaint() override;
-    bool forceRepaintAsync(uint64_t callbackID) override { return false; }
+
+    void setIsDiscardable(bool) override;
 
 #if PLATFORM(GTK) && PLATFORM(X11) &&  !USE(REDIRECTED_XCOMPOSITE_WINDOW)
     void setNativeSurfaceHandleForCompositing(uint64_t) override;
@@ -89,6 +90,26 @@ private:
             m_layerTreeHost.commitScrollOffset(layerID, offset);
         }
 
+        uint64_t nativeSurfaceHandleForCompositing() override
+        {
+            return m_layerTreeHost.nativeSurfaceHandleForCompositing();
+        }
+
+        void didDestroyGLContext() override
+        {
+            m_layerTreeHost.didDestroyGLContext();
+        }
+
+        void willRenderFrame() override
+        {
+            m_layerTreeHost.willRenderFrame();
+        }
+
+        void didRenderFrame() override
+        {
+            m_layerTreeHost.didRenderFrame();
+        }
+
         ThreadedCoordinatedLayerTreeHost& m_layerTreeHost;
     };
 
@@ -97,6 +118,26 @@ private:
     // CompositingCoordinator::Client
     void didFlushRootLayer(const WebCore::FloatRect&) override { }
     void commitSceneState(const WebCore::CoordinatedGraphicsState&) override;
+    void releaseUpdateAtlases(Vector<uint32_t>&&) override;
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) override;
+#endif
+
+    // AcceleratedSurface::Client
+    void frameComplete() override;
+
+    uint64_t nativeSurfaceHandleForCompositing();
+    void didDestroyGLContext();
+    void willRenderFrame();
+    void didRenderFrame();
+
+    enum class DiscardableSyncActions {
+        UpdateSize = 1 << 1,
+        UpdateViewport = 1 << 2,
+        UpdateScale = 1 << 3,
+        UpdateBackground = 1 << 4
+    };
 
     CompositorClient m_compositorClient;
     std::unique_ptr<AcceleratedSurface> m_surface;
@@ -104,10 +145,10 @@ private:
     SimpleViewportController m_viewportController;
     float m_lastPageScaleFactor { 1 };
     WebCore::IntPoint m_lastScrollPosition;
+    bool m_isDiscardable { false };
+    OptionSet<DiscardableSyncActions> m_discardableSyncActions;
 };
 
 } // namespace WebKit
 
 #endif // USE(COORDINATED_GRAPHICS_THREADED)
-
-#endif // ThreadedCoordinatedLayerTreeHost_h

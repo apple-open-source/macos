@@ -276,13 +276,11 @@ void FTPDirectoryDocumentParser::parseAndAppendOneLine(const String& inputLine)
     appendEntry(filename, processFilesizeString(result.fileSize, result.type == FTPDirectoryEntry), processFileDateString(result.modifiedTime), result.type == FTPDirectoryEntry);
 }
 
-static inline RefPtr<SharedBuffer> createTemplateDocumentData(Settings* settings)
+static inline RefPtr<SharedBuffer> createTemplateDocumentData(const Settings& settings)
 {
-    RefPtr<SharedBuffer> buffer;
-    if (settings)
-        buffer = SharedBuffer::createWithContentsOfFile(settings->ftpDirectoryTemplatePath());
+    RefPtr<SharedBuffer> buffer = SharedBuffer::createWithContentsOfFile(settings.ftpDirectoryTemplatePath());
     if (buffer)
-        LOG(FTP, "Loaded FTPDirectoryTemplate of length %i\n", buffer->size());
+        LOG(FTP, "Loaded FTPDirectoryTemplate of length %zu\n", buffer->size());
     return buffer;
 }
     

@@ -54,12 +54,12 @@ int main(int argc, char * argv[])
 	pid_t pid = 0;
     posix_spawnattr_t attr;
     extern char **environ;
-	bool flagx = false, flagX = false, flagb = false, flagB = false;
+	bool flagx = false, flagX = false, flagb = false, flagB = false, flaga = false;
 	int flagd = -1, flagg = -1;
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
     uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
 
-	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:")) != -1) {
+	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:a")) != -1) {
 		switch (ch) {
 			case 'x':
 				flagx = true;
@@ -114,6 +114,9 @@ int main(int argc, char * argv[])
 					warnx("Invalid pid '%s' specified", optarg);
 					usage();
 				}
+				break;
+			case 'a':
+				flaga = true;
 				break;
 			case '?':
 			default:
@@ -221,6 +224,14 @@ int main(int argc, char * argv[])
         if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_qos_clamp_np");
     }
 
+	if (flaga) {
+		ret = posix_spawnattr_setprocesstype_np(&attr, POSIX_SPAWN_PROC_TYPE_APP_DEFAULT);
+		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setprocesstype_np");
+
+		ret = posix_spawnattr_set_darwin_role_np(&attr, PRIO_DARWIN_ROLE_UI);
+		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_darwin_role_np");
+	}
+
     ret = posix_spawnp(&pid, argv[0], NULL, &attr, argv, environ);
     if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawn");
 
@@ -230,7 +241,7 @@ int main(int argc, char * argv[])
 static void usage(void)
 {
 	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g policy] [-c clamp] [-b] [-t <tier>]\n"
-                    "                  [-l <tier>] <program> [<pargs> [...]]\n", getprogname());
+                    "                  [-l <tier>] [-a] <program> [<pargs> [...]]\n", getprogname());
 	fprintf(stderr, "       %s [-b|-B] [-t <tier>] [-l <tier>] -p pid\n", getprogname());
 	exit(EX_USAGE);
 }

@@ -50,7 +50,7 @@ static const CGFloat horizontalPadding = 5;
 static const CGFloat verticalPadding = 5;
 static const CGFloat maxLabelWidth = 300;
 
-ValidationBubble::ValidationBubble(NSView* view, const String& message)
+ValidationBubble::ValidationBubble(NSView* view, const String& message, const Settings& settings)
     : m_view(view)
     , m_message(message)
 {
@@ -64,9 +64,9 @@ ValidationBubble::ValidationBubble(NSView* view, const String& message)
     [label setDrawsBackground:NO];
     [label setBordered:NO];
     [label setStringValue:message];
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+    m_fontSize = std::max(settings.minimumFontSize, 13.0);
+    [label setFont:[NSFont systemFontOfSize:m_fontSize]];
     [label setMaximumNumberOfLines:4];
-#endif
     [[label cell] setTruncatesLastVisibleLine:YES];
     [popoverView addSubview:label.get()];
     NSSize labelSize = [label sizeThatFits:NSMakeSize(maxLabelWidth, CGFLOAT_MAX)];

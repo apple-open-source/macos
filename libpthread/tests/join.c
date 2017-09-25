@@ -3,9 +3,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <mach/mach.h>
+#include <libkern/OSAtomicQueue.h>
 
-#include <darwintest.h>
+#include "darwintest_defaults.h"
 
 #define WAITTIME (100 * 1000)
 
@@ -116,4 +118,82 @@ T_DECL(pthread_join_stress, "pthread_join in a loop")
 		}
 	}
 	T_PASS("Success!");
+}
+
+static pthread_mutex_t join3way_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t join3way_cond = PTHREAD_COND_INITIALIZER;
+static OSQueueHead join3way_queue = OS_ATOMIC_QUEUE_INIT;
+
+struct join3way_item {
+    pthread_t th;
+    struct join3way_item *next;
+};
+
+static void *
+join3way_joiner(__unused void *arg)
+{
+    pthread_mutex_lock(&join3way_mutex);
+    while (1) {
+        pthread_cond_wait(&join3way_cond, &join3way_mutex);
+        struct join3way_item *item = OSAtomicDequeue(&join3way_queue,
+                offsetof(struct join3way_item, next));
+        pthread_join(item->th, NULL);
+        free(item);
+    }
+    return NULL;
+}
+
+static void *
+join3way_child(__unused void *arg)
+{
+    struct join3way_item *item = malloc(sizeof(struct join3way_item));
+    item->th = pthread_self();
+    item->next = NULL;
+    OSAtomicEnqueue(&join3way_queue, item,
+            offsetof(struct join3way_item, next));
+    pthread_cond_signal(&join3way_cond);
+    return NULL;
+}
+
+static void *
+join3way_creator(__unused void *arg)
+{
+    pthread_attr_t attr;
+    T_QUIET; T_ASSERT_POSIX_ZERO(pthread_attr_init(&attr), "pthread_attr_init");
+    T_ASSERT_POSIX_ZERO(pthread_attr_set_qos_class_np(&attr,
+            QOS_CLASS_USER_INTERACTIVE, 0), "pthread_attr_set_qos_class_np (child)");
+
+    int n = 1000;
+    while (--n > 0) {
+        pthread_t t;
+        T_QUIET; T_ASSERT_POSIX_SUCCESS(pthread_create(&t, &attr,
+                join3way_child, NULL), "create thread");
+    }
+    T_ASSERT_EQ_INT(n, 0, "created all child threads");
+    return NULL;
+}
+
+T_DECL(pthread_join_3way, "pthread_join from non-parent with priority inversion")
+{
+    pthread_attr_t joinerattr;
+    T_QUIET; T_ASSERT_POSIX_ZERO(pthread_attr_init(&joinerattr),
+            "pthread_attr_init");
+    T_ASSERT_POSIX_ZERO(pthread_attr_set_qos_class_np(&joinerattr,
+            QOS_CLASS_USER_INTERACTIVE, 0), "pthread_attr_set_qos_class_np");
+
+    pthread_t joiner;
+    T_ASSERT_POSIX_SUCCESS(pthread_create(&joiner, &joinerattr, join3way_joiner,
+            NULL), "create joiner thread");
+
+    pthread_attr_t creatorattr;
+    T_QUIET; T_ASSERT_POSIX_ZERO(pthread_attr_init(&creatorattr),
+            "pthread_attr_init");
+    T_ASSERT_POSIX_ZERO(pthread_attr_set_qos_class_np(&joinerattr,
+            QOS_CLASS_BACKGROUND, 0), "pthread_attr_set_qos_class_np (creator)");
+
+    pthread_t creator;
+    T_ASSERT_POSIX_SUCCESS(pthread_create(&creator, &creatorattr,
+            join3way_creator, NULL), "create creator thread");
+
+    pthread_join(creator, NULL);
 }

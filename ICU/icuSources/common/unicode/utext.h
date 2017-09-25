@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *
@@ -6,7 +8,7 @@
 *
 *******************************************************************************
 *   file name:  utext.h
-*   encoding:   US-ASCII
+*   encoding:   UTF-8
 *   tab size:   8 (not used)
 *   indentation:4
 *
@@ -142,7 +144,7 @@
 #include "unicode/rep.h"
 #include "unicode/unistr.h"
 #include "unicode/chariter.h"
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 
 U_CDECL_BEGIN
@@ -198,7 +200,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUTextPointer, UText, utext_close);
 
 U_NAMESPACE_END
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 /**
  * Open a read-only UText implementation for UTF-8 strings.
@@ -306,7 +308,7 @@ utext_openReplaceable(UText *ut, icu::Replaceable *rep, UErrorCode *status);
 U_STABLE UText * U_EXPORT2
 utext_openCharacterIterator(UText *ut, icu::CharacterIterator *ci, UErrorCode *status);
 
-#endif
+#endif // U_SHOW_CPLUSPLUS_API
 
 
 /**

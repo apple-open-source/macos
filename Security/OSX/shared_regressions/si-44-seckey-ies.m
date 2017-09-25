@@ -25,7 +25,7 @@
 #import <Foundation/Foundation.h>
 #import <Security/SecItemPriv.h>
 
-#import <corecrypto/ccrng_system.h>
+#import <corecrypto/ccrng.h>
 #import <corecrypto/ccsha1.h>
 #import <corecrypto/ccsha2.h>
 #import <corecrypto/ccec.h>
@@ -33,12 +33,8 @@
 
 #include "shared_regressions.h"
 
-static struct ccrng_system_state ccrng_system_state_seckey_ies_test;
-
-static void test_ies_run(CFStringRef keyType, id keySize, SecKeyAlgorithm algorithm) {
+static void test_ies_run(id privateKey, SecKeyAlgorithm algorithm) {
     NSError *error = nil;
-    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (__bridge id)keyType, (id)kSecAttrKeySizeInBits: keySize}, (void *)&error));
-    ok(privateKey, "key properly generated");
     id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
     ok(publicKey, "public key retrieved");
 
@@ -94,48 +90,80 @@ static void test_ies_run(CFStringRef keyType, id keySize, SecKeyAlgorithm algori
     decrypted = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privateKey, algorithm, (CFDataRef)badEncrypted, (void *)&error));
     ok(decrypted == nil, "broken encrypted message failed to decrypt (pubkey data breakage)");
 }
-static const int TestCountIESRun = 13;
+static const int TestCountIESRun = 12;
 
 static void test_ecies() {
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(192), kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
+    NSError *error;
+    id privateKey;
 
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(256), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA1AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(256), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA224AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(256), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(256), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(256), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM);
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @192}, (void *)&error));
+    ok(privateKey, "key generation error %@", error);
+    error = nil;
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
 
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(521), kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(521), kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(521), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(521), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM);
-    test_ies_run(kSecAttrKeyTypeECSECPrimeRandom, @(521), kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
+
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256}, (void *)&error));
+    ok(privateKey, "key generation error %@", error);
+    error = nil;
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA1AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM);
+
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
+
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @521}, (void *)&error));
+    ok(privateKey, "key generation error %@", error);
+    error = nil;
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM);
+
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
 }
-static const int TestCountECIES = TestCountIESRun * 5 * 3;
+static const int TestCountECIES = TestCountIESRun * 9 * 3 + 3;
 
 static void test_rsawrap() {
-    test_ies_run(kSecAttrKeyTypeRSA, @(1024), kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM);
-    test_ies_run(kSecAttrKeyTypeRSA, @(1024), kSecKeyAlgorithmRSAEncryptionOAEPSHA224AESGCM);
-    test_ies_run(kSecAttrKeyTypeRSA, @(1024), kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM);
-    test_ies_run(kSecAttrKeyTypeRSA, @(1024), kSecKeyAlgorithmRSAEncryptionOAEPSHA384AESGCM);
-    test_ies_run(kSecAttrKeyTypeRSA, @(4096), kSecKeyAlgorithmRSAEncryptionOAEPSHA512AESGCM);
-}
-static const int TestCountRSAWRAP = TestCountIESRun * 5;
+    NSError *error;
+    id privateKey;
 
-static void test_ies_against_corecrypto(id keySize, ccec_const_cp_t cp, const struct ccdigest_info *di, uint32_t ccKeySize, SecKeyAlgorithm algorithm) {
-    // Generate SecKey and import it as corecrypto fullkey.
-    NSError *error = nil;
-    NSDictionary *params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: keySize,
-                             (id)kSecAttrNoLegacy: @YES};
-    id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
-    ok(privKey != nil, "create key (error %@)", error);
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @1024}, (void *)&error));
+    ok(privateKey, "key generation error %@", error);
     error = nil;
+    test_ies_run(privateKey, kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmRSAEncryptionOAEPSHA224AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM);
+    test_ies_run(privateKey, kSecKeyAlgorithmRSAEncryptionOAEPSHA384AESGCM);
+
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @4096}, (void *)&error));
+    ok(privateKey, "key generation error %@", error);
+    error = nil;
+    test_ies_run(privateKey, kSecKeyAlgorithmRSAEncryptionOAEPSHA512AESGCM);
+}
+static const int TestCountRSAWRAP = TestCountIESRun * 5 + 2;
+
+static void test_ies_against_corecrypto(id privKey, ccec_const_cp_t cp, const struct ccdigest_info *di, uint32_t ccKeySize, bool secureIV, SecKeyAlgorithm algorithm) {
+    // Generate SecKey and import it as corecrypto fullkey.
+    NSError *error;
     NSData *privKeyData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)privKey, (void *)&error));
-    ok(privKey != nil, "export key (error %@)", error);
+    ok(privKeyData != nil, "export key (error %@)", error);
     ccec_full_ctx_decl_cp(cp, fullkey);
     ok(ccec_x963_import_priv(cp, privKeyData.length, privKeyData.bytes, fullkey) == 0, "error importing cc ec key");
 
@@ -147,7 +175,8 @@ static void test_ies_against_corecrypto(id keySize, ccec_const_cp_t cp, const st
     NSData *ciphertext = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)publicKey, algorithm, (CFDataRef)plaintext, (void *)&error));
     ok(ciphertext != nil, "encrypt data with SecKey (error %@)", error);
     struct ccecies_gcm ecies_dec;
-    ccecies_decrypt_gcm_setup(&ecies_dec, di, ccaes_gcm_decrypt_mode(), ccKeySize, 16, ECIES_EPH_PUBKEY_IN_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD);
+    ccecies_decrypt_gcm_setup(&ecies_dec, di, ccaes_gcm_decrypt_mode(), ccKeySize, 16,
+                              ECIES_EPH_PUBKEY_IN_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD | (secureIV ? 0 : ECIES_LEGACY_IV));
     size_t decryptedLength = plaintext.length;
     NSMutableData *decrypted = [NSMutableData dataWithLength:decryptedLength];
     if (ciphertext != nil) {
@@ -159,54 +188,84 @@ static void test_ies_against_corecrypto(id keySize, ccec_const_cp_t cp, const st
 
     // cc encrypt -> SecKey decrypt
     struct ccecies_gcm ecies_enc;
-    ccecies_encrypt_gcm_setup(&ecies_enc, di, (struct ccrng_state *)&ccrng_system_state_seckey_ies_test,
-                              ccaes_gcm_encrypt_mode(), ccKeySize, 16, ECIES_EPH_PUBKEY_IN_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD);
-    size_t encryptedLength = ccecies_encrypt_gcm_ciphertext_size(fullkey, &ecies_enc, sizeof(knownPlaintext));
+    ccecies_encrypt_gcm_setup(&ecies_enc, di, ccrng(NULL), ccaes_gcm_encrypt_mode(), ccKeySize, 16,
+                              ECIES_EPH_PUBKEY_IN_SHAREDINFO1 | ECIES_EXPORT_PUB_STANDARD | (secureIV ? 0 : ECIES_LEGACY_IV));
+    size_t encryptedLength = ccecies_encrypt_gcm_ciphertext_size(ccec_ctx_pub(fullkey), &ecies_enc, sizeof(knownPlaintext));
     NSMutableData *encrypted = [NSMutableData dataWithLength:encryptedLength];
-    ok(ccecies_encrypt_gcm(fullkey, &ecies_enc, sizeof(knownPlaintext), knownPlaintext, 0, NULL, 0, NULL, &encryptedLength, encrypted.mutableBytes) == 0, "encrypt data with cc failed");
+    ok(ccecies_encrypt_gcm(ccec_ctx_pub(fullkey), &ecies_enc, sizeof(knownPlaintext), knownPlaintext, 0, NULL, 0, NULL, &encryptedLength, encrypted.mutableBytes) == 0, "encrypt data with cc failed");
     error = nil;
     NSData *decryptedPlaintext = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privKey, algorithm, (CFDataRef)encrypted, (void *)&error));
     ok(decryptedPlaintext != nil, "decrypt data with SecKey (error %@)", error);
     ok([plaintext isEqualToData:decryptedPlaintext], "SecKey decrypted data are the same");
 }
-static const int TestCountIESAgainstCoreCryptoRun = 10;
+static const int TestCountIESAgainstCoreCryptoRun = 9;
 
 static void test_against_corecrypto() {
+    id privKey;
+    NSDictionary *params;
+    NSError *error;
 
-    // Tests ifdefed-out by this define fail because of
-    // <rdar://problem/26855537> ccecies is broken when AES keysize > KDF hash output size
-#define CC_HAS_BUG_26855537 1
+    params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @192, (id)kSecAttrNoLegacy: @YES};
+    privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privKey != nil, "create key (error %@)", error);
+    error = nil;
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha1_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha224_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha256_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha384_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha512_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
 
-    test_ies_against_corecrypto(@(192), ccec_cp_192(), ccsha1_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
-    test_ies_against_corecrypto(@(192), ccec_cp_192(), ccsha224_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
-    test_ies_against_corecrypto(@(192), ccec_cp_192(), ccsha256_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
-    test_ies_against_corecrypto(@(192), ccec_cp_192(), ccsha384_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
-    test_ies_against_corecrypto(@(192), ccec_cp_192(), ccsha512_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
-    test_ies_against_corecrypto(@(256), ccec_cp_256(), ccsha1_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
-    test_ies_against_corecrypto(@(256), ccec_cp_256(), ccsha224_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
-    test_ies_against_corecrypto(@(256), ccec_cp_256(), ccsha256_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
-    test_ies_against_corecrypto(@(256), ccec_cp_256(), ccsha384_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
-    test_ies_against_corecrypto(@(256), ccec_cp_256(), ccsha512_di(), 16, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
-#if !CC_HAS_BUG_26855537
-    test_ies_against_corecrypto(@(384), ccec_cp_384(), ccsha1_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
-    test_ies_against_corecrypto(@(384), ccec_cp_384(), ccsha224_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
-#endif
-    test_ies_against_corecrypto(@(384), ccec_cp_384(), ccsha256_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
-    test_ies_against_corecrypto(@(384), ccec_cp_384(), ccsha384_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
-    test_ies_against_corecrypto(@(384), ccec_cp_384(), ccsha512_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
-#if !CC_HAS_BUG_26855537
-    test_ies_against_corecrypto(@(521), ccec_cp_521(), ccsha1_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
-    test_ies_against_corecrypto(@(521), ccec_cp_521(), ccsha224_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
-#endif
-    test_ies_against_corecrypto(@(521), ccec_cp_521(), ccsha256_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
-    test_ies_against_corecrypto(@(521), ccec_cp_521(), ccsha384_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
-    test_ies_against_corecrypto(@(521), ccec_cp_521(), ccsha512_di(), 32, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha224_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha256_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha384_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_192(), ccsha512_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
+
+    params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256, (id)kSecAttrNoLegacy: @YES};
+    privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privKey != nil, "create key (error %@)", error);
+    error = nil;
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha1_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha224_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha256_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha384_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha512_di(), 16, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
+
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha224_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha256_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha384_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_256(), ccsha512_di(), 16, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
+
+    params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @384, (id)kSecAttrNoLegacy: @YES};
+    privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privKey != nil, "create key (error %@)", error);
+    error = nil;
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha1_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha224_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha256_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha384_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha512_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
+
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha224_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha256_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha384_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_384(), ccsha512_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
+
+    params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @521, (id)kSecAttrNoLegacy: @YES};
+    privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privKey != nil, "create key (error %@)", error);
+    error = nil;
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha1_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha224_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha256_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha384_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha512_di(), 32, false, kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM);
+
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha224_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA224AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha256_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA256AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha384_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA384AESGCM);
+    test_ies_against_corecrypto(privKey, ccec_cp_521(), ccsha512_di(), 32, true, kSecKeyAlgorithmECIESEncryptionStandardVariableIVX963SHA512AESGCM);
 }
-#if !CC_HAS_BUG_26855537
-static const int TestCountAgainstCoreCrypto = TestCountIESAgainstCoreCryptoRun * 20;
-#else
-static const int TestCountAgainstCoreCrypto = TestCountIESAgainstCoreCryptoRun * 16;
-#endif
+static const int TestCountAgainstCoreCrypto = TestCountIESAgainstCoreCryptoRun * 36 + 4;
 
 static void test_ies_known_ciphertext(CFStringRef keyType, id keySize, SecKeyAlgorithm algorithm, NSString *privKeyData, NSString *ciphertext) {
 #define GENERATE_VECTORS 0
@@ -277,8 +336,6 @@ int si_44_seckey_ies(int argc, char *const *argv) {
     plan_tests(TestCount);
     
     @autoreleasepool {
-        ccrng_system_init(&ccrng_system_state_seckey_ies_test);
-
         test_ecies();
         test_rsawrap();
         test_against_corecrypto();

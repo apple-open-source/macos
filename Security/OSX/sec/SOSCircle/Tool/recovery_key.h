@@ -30,5 +30,6 @@ SECURITY_COMMAND(
                  "Recovery Key\n"
                  "    -s <string turned into recovery key> //Set the recovery key\n"
                  "    -g                                   //Get the recovery key\n"
-                 "    -c                                   //Clear the recovery key\n",
+                 "    -c                                   //Clear the recovery key\n"
+                 "    -V                                   //Create Verifier Dictionary (printout)\n",
                  "Recovery Key." )

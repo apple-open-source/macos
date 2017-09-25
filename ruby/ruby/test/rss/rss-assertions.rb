@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'erb'
 
 module RSS
@@ -332,7 +333,7 @@ EOA
       _wrap_assertion do
         [nil, "text", "html"].each do |type|
           attr = ""
-          attr = " type=\"#{type}\""if type
+          attr = " type=\"#{type}\"" if type
           assert_parse(generator.call(<<-EOA), :nothing_raised)
   <#{tag_name}#{attr}/>
 EOA
@@ -1070,7 +1071,7 @@ EOA
             target.uri = "http://example.com/~me/"
             target.email = "me@example.com"
 
-            target = targets.new_child
+            targets.new_child
           end
         end
       end

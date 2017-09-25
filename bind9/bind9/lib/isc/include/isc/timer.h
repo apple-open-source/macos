@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2012, 2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -108,11 +108,11 @@ typedef struct {
 	void		(*destroy)(isc_timermgr_t **managerp);
 	isc_result_t	(*timercreate)(isc_timermgr_t *manager,
 				       isc_timertype_t type,
-				       isc_time_t *expires,
-				       isc_interval_t *interval,
+				       const isc_time_t *expires,
+				       const isc_interval_t *interval,
 				       isc_task_t *task,
 				       isc_taskaction_t action,
-				       const void *arg,
+				       void *arg,
 				       isc_timer_t **timerp);
 } isc_timermgrmethods_t;
 
@@ -120,7 +120,8 @@ typedef struct {
 	void		(*attach)(isc_timer_t *timer, isc_timer_t **timerp);
 	void		(*detach)(isc_timer_t **timerp);
 	isc_result_t	(*reset)(isc_timer_t *timer, isc_timertype_t type,
-				 isc_time_t *expires, isc_interval_t *interval,
+				 const isc_time_t *expires,
+				 const isc_interval_t *interval,
 				 isc_boolean_t purge);
 	isc_result_t	(*touch)(isc_timer_t *timer);
 } isc_timermethods_t;
@@ -168,11 +169,11 @@ struct isc_timer {
 isc_result_t
 isc_timer_create(isc_timermgr_t *manager,
 		 isc_timertype_t type,
-		 isc_time_t *expires,
-		 isc_interval_t *interval,
+		 const isc_time_t *expires,
+		 const isc_interval_t *interval,
 		 isc_task_t *task,
 		 isc_taskaction_t action,
-		 const void *arg,
+		 void *arg,
 		 isc_timer_t **timerp);
 /*%<
  * Create a new 'type' timer managed by 'manager'.  The timers parameters
@@ -232,8 +233,8 @@ isc_timer_create(isc_timermgr_t *manager,
 isc_result_t
 isc_timer_reset(isc_timer_t *timer,
 		isc_timertype_t type,
-		isc_time_t *expires,
-		isc_interval_t *interval,
+		const isc_time_t *expires,
+		const isc_interval_t *interval,
 		isc_boolean_t purge);
 /*%<
  * Change the timer's type, expires, and interval values to the given

@@ -33,11 +33,13 @@ typedef struct _GstBus GstBus;
 typedef struct _GstElementFactory GstElementFactory;
 typedef struct _GstBuffer GstBuffer;
 typedef struct _GstBufferList GstBufferList;
+typedef struct _GstBufferPool GstBufferPool;
 typedef struct _GstSample GstSample;
 typedef struct _GstTagList GstTagList;
 typedef struct _GstEvent GstEvent;
 typedef struct _GstToc GstToc;
 typedef struct _GstMessage GstMessage;
+typedef struct _GstQuery GstQuery;
 typedef struct _WebKitVideoSink WebKitVideoSink;
 typedef struct _WebKitWebSrc WebKitWebSrc;
 
@@ -83,6 +85,10 @@ template<> GRefPtr<GstBufferList> adoptGRef(GstBufferList*);
 template<> GstBufferList* refGPtr<GstBufferList>(GstBufferList*);
 template<> void derefGPtr<GstBufferList>(GstBufferList*);
 
+template<> GRefPtr<GstBufferPool> adoptGRef(GstBufferPool*);
+template<> GstBufferPool* refGPtr<GstBufferPool>(GstBufferPool*);
+template<> void derefGPtr<GstBufferPool>(GstBufferPool*);
+
 template<> GRefPtr<GstSample> adoptGRef(GstSample* ptr);
 template<> GstSample* refGPtr<GstSample>(GstSample* ptr);
 template<> void derefGPtr<GstSample>(GstSample* ptr);
@@ -102,6 +108,10 @@ template<> void derefGPtr<GstToc>(GstToc* ptr);
 template<> GRefPtr<GstMessage> adoptGRef(GstMessage*);
 template<> GstMessage* refGPtr<GstMessage>(GstMessage*);
 template<> void derefGPtr<GstMessage>(GstMessage*);
+
+template<> GRefPtr<GstQuery> adoptGRef(GstQuery* ptr);
+template<> GstQuery* refGPtr<GstQuery>(GstQuery* ptr);
+template<> void derefGPtr<GstQuery>(GstQuery* ptr);
 
 template<> GRefPtr<WebKitVideoSink> adoptGRef(WebKitVideoSink* ptr);
 template<> WebKitVideoSink* refGPtr<WebKitVideoSink>(WebKitVideoSink* ptr);

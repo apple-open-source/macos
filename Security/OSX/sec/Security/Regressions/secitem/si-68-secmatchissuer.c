@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
 #include <Security/SecInternal.h>
 #include <utilities/array_size.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 #include <test/testcert.h>
 
 /*
@@ -114,7 +114,7 @@ static void tests(void)
 // MARK: generate certificate hierarchy
 
 	SecKeyRef public_key = NULL, private_key = NULL;
-    ok_status(test_cert_generate_key(512, kSecAttrKeyTypeRSA, &private_key, &public_key), "generate keypair");
+    ok_status(test_cert_generate_key(2048, kSecAttrKeyTypeRSA, &private_key, &public_key), "generate keypair");
 	// make organization random uuid to avoid previous run to spoil the fun
 
     CFUUIDRef UUID = CFUUIDCreate(kCFAllocatorDefault);
@@ -171,9 +171,11 @@ static void tests(void)
         ok_status(SecItemCopyMatching(all_identities_query, &all_matching_identities), "find all identities matching");
         CFReleaseNull(all_identities_query);
         ok(((CFArrayGetTypeID() == CFGetTypeID(all_matching_identities)) && (CFArrayGetCount(all_matching_identities) == 2)), "return 2");
+        CFReleaseNull(all_matching_identities);
         //CFShow(all_matching_identities);
     }
 
+#if TARGET_OS_IPHONE
     {
         int limit = 0x7fff; // To regress-test <rdar://problem/14603111>
         CFNumberRef cfLimit = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &limit);
@@ -186,7 +188,23 @@ static void tests(void)
         ok(((CFArrayGetTypeID() == CFGetTypeID(all_matching_certificates)) && (CFArrayGetCount(all_matching_certificates) == 2)), "return 2");
         //CFShow(all_matching_certificates);
         CFReleaseSafe(cfLimit);
+        CFReleaseNull(all_matching_certificates);
     }
+#else
+    /* On macOS, we don't allow kSecMatchIssuers to be used with kSecClassCertificate because performance is bad. */
+    {
+        int limit = 0x7fff; // To regress-test <rdar://problem/14603111>
+        CFNumberRef cfLimit = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &limit);
+        const void *keys[] = { kSecClass, kSecReturnRef, kSecMatchLimit, kSecMatchIssuers };
+        const void *vals[] = { kSecClassCertificate, kCFBooleanTrue, cfLimit, all_distinguished_names };
+        CFDictionaryRef all_identities_query = CFDictionaryCreate(kCFAllocatorDefault, keys, vals, array_size(keys), NULL, NULL);
+        CFTypeRef all_matching_certificates = NULL;
+        is(errSecParam, SecItemCopyMatching(all_identities_query, &all_matching_certificates), "find all certificates matching");
+        CFReleaseNull(all_identities_query);
+        CFReleaseSafe(cfLimit);
+        CFReleaseNull(all_matching_certificates);
+    }
+#endif
 
     remove_item(leaf_identity);
     CFRelease(leaf_identity);
@@ -206,7 +224,11 @@ static void tests(void)
 
 int si_68_secmatchissuer(int argc, char *const *argv)
 {
+#if TARGET_OS_IPHONE
 	plan_tests(10);
+#else
+    plan_tests(9);
+#endif
     
 	tests();
     

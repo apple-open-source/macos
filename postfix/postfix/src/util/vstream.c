@@ -365,7 +365,7 @@
 /*	vstream_feof() returns non-zero when a previous operation on the
 /*	specified stream caused an end-of-file condition.
 /*	Although further read requests after EOF may complete
-/*	succesfully, vstream_feof() will keep returning non-zero
+/*	successfully, vstream_feof() will keep returning non-zero
 /*	until vstream_clearerr() is called for that stream.
 /*
 /*	vstream_ferror() returns non-zero when a previous operation on the
@@ -1600,8 +1600,8 @@ static void copy_line(ssize_t bufsize)
 {
     int     c;
 
-    vstream_control(VSTREAM_IN, VSTREAM_CTL_BUFSIZE(bufsize), VSTREAM_CTL_END);
-    vstream_control(VSTREAM_OUT, VSTREAM_CTL_BUFSIZE(bufsize), VSTREAM_CTL_END);
+    vstream_control(VSTREAM_IN, CA_VSTREAM_CTL_BUFSIZE(bufsize), VSTREAM_CTL_END);
+    vstream_control(VSTREAM_OUT, CA_VSTREAM_CTL_BUFSIZE(bufsize), VSTREAM_CTL_END);
     while ((c = VSTREAM_GETC(VSTREAM_IN)) != VSTREAM_EOF) {
 	VSTREAM_PUTC(c, VSTREAM_OUT);
 	if (c == '\n')

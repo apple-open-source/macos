@@ -31,7 +31,7 @@
 #include "WebFrameListenerProxy.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <wtf/Forward.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Function.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(CONTENT_FILTERING)
@@ -58,9 +58,9 @@ typedef GenericCallback<API::Data*> DataCallback;
 
 class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame> {
 public:
-    static PassRefPtr<WebFrameProxy> create(WebPageProxy* page, uint64_t frameID)
+    static Ref<WebFrameProxy> create(WebPageProxy* page, uint64_t frameID)
     {
-        return adoptRef(new WebFrameProxy(page, frameID));
+        return adoptRef(*new WebFrameProxy(page, frameID));
     }
 
     virtual ~WebFrameProxy();
@@ -101,9 +101,9 @@ public:
     bool isDisplayingMarkupDocument() const;
     bool isDisplayingPDFDocument() const;
 
-    void getWebArchive(std::function<void (API::Data*, CallbackBase::Error)>);
-    void getMainResourceData(std::function<void (API::Data*, CallbackBase::Error)>);
-    void getResourceData(API::URL*, std::function<void (API::Data*, CallbackBase::Error)>);
+    void getWebArchive(Function<void (API::Data*, CallbackBase::Error)>&&);
+    void getMainResourceData(Function<void (API::Data*, CallbackBase::Error)>&&);
+    void getResourceData(API::URL*, Function<void (API::Data*, CallbackBase::Error)>&&);
 
     void didStartProvisionalLoad(const String& url);
     void didReceiveServerRedirectForProvisionalLoad(const String& url);

@@ -34,6 +34,7 @@
 #include <Security/SecBase.h>
 
 
+extern cert_status_t crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef);
 extern int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname, SecKeyRef *publicKeyRef);
 extern int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature, Boolean useSHA1);
 extern SecCertificateRef crypto_cssm_x509cert_CreateSecCertificateRef (vchar_t *cert);

@@ -27,11 +27,18 @@
 #include "NetworkProcessConnection.h"
 
 #include "DataReference.h"
+#include "LibWebRTCNetwork.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebLoaderStrategy.h"
 #include "WebProcess.h"
+#include "WebRTCMonitor.h"
+#include "WebRTCMonitorMessages.h"
+#include "WebRTCResolverMessages.h"
+#include "WebRTCSocketMessages.h"
 #include "WebResourceLoaderMessages.h"
+#include "WebSocketStream.h"
+#include "WebSocketStreamMessages.h"
 #include <WebCore/CachedResource.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/SessionID.h>
@@ -54,11 +61,30 @@ NetworkProcessConnection::~NetworkProcessConnection()
 void NetworkProcessConnection::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     if (decoder.messageReceiverName() == Messages::WebResourceLoader::messageReceiverName()) {
-        if (WebResourceLoader* webResourceLoader = WebProcess::singleton().webLoaderStrategy().webResourceLoaderForIdentifier(decoder.destinationID()))
+        if (auto* webResourceLoader = WebProcess::singleton().webLoaderStrategy().webResourceLoaderForIdentifier(decoder.destinationID()))
             webResourceLoader->didReceiveWebResourceLoaderMessage(connection, decoder);
-        
         return;
     }
+    if (decoder.messageReceiverName() == Messages::WebSocketStream::messageReceiverName()) {
+        if (auto* stream = WebSocketStream::streamWithIdentifier(decoder.destinationID()))
+            stream->didReceiveMessage(connection, decoder);
+        return;
+    }
+
+#if USE(LIBWEBRTC)
+    if (decoder.messageReceiverName() == Messages::WebRTCSocket::messageReceiverName()) {
+        WebProcess::singleton().libWebRTCNetwork().socket(decoder.destinationID()).didReceiveMessage(connection, decoder);
+        return;
+    }
+    if (decoder.messageReceiverName() == Messages::WebRTCMonitor::messageReceiverName()) {
+        WebProcess::singleton().libWebRTCNetwork().monitor().didReceiveMessage(connection, decoder);
+        return;
+    }
+    if (decoder.messageReceiverName() == Messages::WebRTCResolver::messageReceiverName()) {
+        WebProcess::singleton().libWebRTCNetwork().resolver(decoder.destinationID()).didReceiveMessage(connection, decoder);
+        return;
+    }
+#endif
 
     didReceiveNetworkProcessConnectionMessage(connection, decoder);
 }

@@ -24,6 +24,10 @@
 
 #import <Foundation/Foundation.h>
 
+#import <corecrypto/ccsha1.h>
+#import <corecrypto/ccsha2.h>
+#import <corecrypto/ccec.h>
+
 #include "shared_regressions.h"
 
 static void test_export_import_run(int size) {
@@ -69,12 +73,94 @@ static void test_export_import() {
 }
 static const int TestExportImport = TestExportImportRun * 3;
 
-static const int TestCount = TestExportImport;
+static void test_sign_digest_run(id privKey, ccec_const_cp_t cp, SecKeyAlgorithm algorithm, const struct ccdigest_info *di) {
+    ok(SecKeyIsAlgorithmSupported((SecKeyRef)privKey, kSecKeyOperationTypeSign, algorithm), "algorithm %@ should be supported", algorithm);
+
+    NSError *error;
+    NSData *digest = [NSMutableData dataWithLength:di ? di->output_size : 50];
+
+    error = nil;
+    NSData *signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)digest, (void *)&error));
+    ok(signature != nil, "signing failed: %@", error);
+
+    error = nil;
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+    NSData *pubKeyData = CFBridgingRelease(SecKeyCopyExternalRepresentation((SecKeyRef)publicKey, (void *)&error));
+    ok(pubKeyData, "export public key: %@", error);
+    ccec_pub_ctx_decl_cp(cp, pubkey);
+    ok(ccec_x963_import_pub(cp, pubKeyData.length, pubKeyData.bytes, pubkey) == 0, "error importing cc ec key");
+    bool valid = false;
+    is(ccec_verify(pubkey, digest.length, digest.bytes, signature.length, signature.bytes, &valid), 0, "ccec_verify");
+    is(valid, true, "ccec_verify detected bad signature");
+
+    if (di != NULL) {
+        error = nil;
+        digest = [NSMutableData dataWithLength:di->output_size + 1];
+        signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)digest, (void *)&error));
+        is(signature, nil, "signing long digest fails");
+        is(error.code, errSecParam, "wrong error for long digest: %@", error);
+
+        error = nil;
+        digest = [NSMutableData dataWithLength:di->output_size - 1];
+        signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)digest, (void *)&error));
+        is(signature, nil, "signing short digest fails");
+        is(error.code, errSecParam, "wrong error for short digest: %@", error);
+    } else {
+        // Balance count of tests
+        ok(true);
+        ok(true);
+        ok(true);
+        ok(true);
+    }
+}
+static const int TestSignDigestRun = 10;
+
+static void test_sign_digest() {
+
+    NSError *error = nil;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @192}, (void *)&error));
+    ok(privateKey, "key properly generated: %@", error);
+
+    test_sign_digest_run(privateKey, ccec_cp_192(), kSecKeyAlgorithmECDSASignatureDigestX962, NULL);
+    test_sign_digest_run(privateKey, ccec_cp_192(), kSecKeyAlgorithmECDSASignatureDigestX962SHA1, ccsha1_di());
+    test_sign_digest_run(privateKey, ccec_cp_192(), kSecKeyAlgorithmECDSASignatureDigestX962SHA224, ccsha224_di());
+    test_sign_digest_run(privateKey, ccec_cp_192(), kSecKeyAlgorithmECDSASignatureDigestX962SHA256, ccsha256_di());
+    test_sign_digest_run(privateKey, ccec_cp_192(), kSecKeyAlgorithmECDSASignatureDigestX962SHA384, ccsha384_di());
+    test_sign_digest_run(privateKey, ccec_cp_192(), kSecKeyAlgorithmECDSASignatureDigestX962SHA512, ccsha512_di());
+
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256}, (void *)&error));
+    ok(privateKey, "key properly generated: %@", error);
+
+    test_sign_digest_run(privateKey, ccec_cp_256(), kSecKeyAlgorithmECDSASignatureDigestX962, NULL);
+    test_sign_digest_run(privateKey, ccec_cp_256(), kSecKeyAlgorithmECDSASignatureDigestX962SHA1, ccsha1_di());
+    test_sign_digest_run(privateKey, ccec_cp_256(), kSecKeyAlgorithmECDSASignatureDigestX962SHA224, ccsha224_di());
+    test_sign_digest_run(privateKey, ccec_cp_256(), kSecKeyAlgorithmECDSASignatureDigestX962SHA256, ccsha256_di());
+    test_sign_digest_run(privateKey, ccec_cp_256(), kSecKeyAlgorithmECDSASignatureDigestX962SHA384, ccsha384_di());
+    test_sign_digest_run(privateKey, ccec_cp_256(), kSecKeyAlgorithmECDSASignatureDigestX962SHA512, ccsha512_di());
+
+
+    privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @521}, (void *)&error));
+    ok(privateKey, "key properly generated: %@", error);
+
+    test_sign_digest_run(privateKey, ccec_cp_521(), kSecKeyAlgorithmECDSASignatureDigestX962, NULL);
+    test_sign_digest_run(privateKey, ccec_cp_521(), kSecKeyAlgorithmECDSASignatureDigestX962SHA1, ccsha1_di());
+    test_sign_digest_run(privateKey, ccec_cp_521(), kSecKeyAlgorithmECDSASignatureDigestX962SHA224, ccsha224_di());
+    test_sign_digest_run(privateKey, ccec_cp_521(), kSecKeyAlgorithmECDSASignatureDigestX962SHA256, ccsha256_di());
+    test_sign_digest_run(privateKey, ccec_cp_521(), kSecKeyAlgorithmECDSASignatureDigestX962SHA384, ccsha384_di());
+    test_sign_digest_run(privateKey, ccec_cp_521(), kSecKeyAlgorithmECDSASignatureDigestX962SHA512, ccsha512_di());
+}
+static const int TestSignDigest = TestSignDigestRun * 18 + 3;
+
+static const int TestCount =
+TestExportImport +
+TestSignDigest;
+
 int si_44_seckey_ec(int argc, char *const *argv) {
     plan_tests(TestCount);
 
     @autoreleasepool {
         test_export_import();
+        test_sign_digest();
     }
     
     return 0;

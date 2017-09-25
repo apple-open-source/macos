@@ -20,7 +20,7 @@ int writeFile(
 	int 	fd;
 	
 	fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if(fd <= 0) {
+	if(fd == -1) {
 		return errno;
 	}
 	rtn = (int)write(fd, bytes, (size_t)numBytes);
@@ -54,7 +54,7 @@ int readFile(
 	*numBytes = 0;
 	*bytes = NULL;
 	fd = open(fileName, O_RDONLY, 0);
-	if(fd <= 0) {
+    if(fd == -1) {
 		return errno;
 	}
 	rtn = fstat(fd, &sb);

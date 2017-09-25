@@ -1,5 +1,45 @@
---- configure.old	2008-12-18 16:10:31.000000000 -0800
-+++ configure	2008-12-18 16:34:43.000000000 -0800
+--- configure.old	2017-05-05 16:03:04.000000000 -0700
++++ configure	2017-05-05 16:12:14.000000000 -0700
+@@ -7342,9 +7342,9 @@
+ echo "${ECHO_T}$lt_cv_ld_exported_symbols_list" >&6; }
+     case $host_os in
+     rhapsody* | darwin1.[0123])
+-      _lt_dar_allow_undefined='${wl}-undefined ${wl}suppress' ;;
++      _lt_dar_allow_undefined='' ;;
+     darwin1.*)
+-     _lt_dar_allow_undefined='${wl}-flat_namespace ${wl}-undefined ${wl}suppress' ;;
++     _lt_dar_allow_undefined='' ;;
+     darwin*)
+       # if running on 10.5 or later, the deployment target defaults
+       # to the OS version, if on x86, and 10.4, the deployment
+@@ -7353,7 +7353,7 @@
+    10.0,*86*-darwin8*|10.0,*-darwin[91]*)
+      _lt_dar_allow_undefined='${wl}-undefined ${wl}dynamic_lookup' ;;
+    10.[012]*)
+-     _lt_dar_allow_undefined='${wl}-flat_namespace ${wl}-undefined ${wl}suppress' ;;
++     _lt_dar_allow_undefined='' ;;
+    10.*)
+      _lt_dar_allow_undefined='${wl}-undefined ${wl}dynamic_lookup' ;;
+       esac
+@@ -8499,15 +8499,15 @@
+     darwin* | rhapsody*)
+       case $host_os in
+         rhapsody* | darwin1.[012])
+-         allow_undefined_flag='${wl}-undefined ${wl}suppress'
++         allow_undefined_flag=''
+          ;;
+        *) # Darwin 1.3 on
+          if test -z ${MACOSX_DEPLOYMENT_TARGET} ; then
+-           allow_undefined_flag='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
++           allow_undefined_flag=''
+          else
+            case ${MACOSX_DEPLOYMENT_TARGET} in
+              10.[012])
+-               allow_undefined_flag='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
++               allow_undefined_flag=''
+                ;;
+              10.*)
+                allow_undefined_flag='${wl}-undefined ${wl}dynamic_lookup'
 @@ -8524,10 +8524,10 @@
        link_all_deplibs=yes
      if test "$GCC" = yes ; then
@@ -44,3 +84,41 @@
        ;;
      *djgpp*)
        # DJGPP does not support shared libraries at all
+@@ -15163,15 +15163,15 @@
+     darwin* | rhapsody*)
+       case $host_os in
+         rhapsody* | darwin1.[012])
+-         allow_undefined_flag_F77='${wl}-undefined ${wl}suppress'
++         allow_undefined_flag_F77=''
+          ;;
+        *) # Darwin 1.3 on
+          if test -z ${MACOSX_DEPLOYMENT_TARGET} ; then
+-           allow_undefined_flag_F77='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
++           allow_undefined_flag_F77=''
+          else
+            case ${MACOSX_DEPLOYMENT_TARGET} in
+              10.[012])
+-               allow_undefined_flag_F77='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
++               allow_undefined_flag_F77=''
+                ;;
+              10.*)
+                allow_undefined_flag_F77='${wl}-undefined ${wl}dynamic_lookup'
+@@ -17797,15 +17797,15 @@
+     darwin* | rhapsody*)
+       case $host_os in
+         rhapsody* | darwin1.[012])
+-         allow_undefined_flag_GCJ='${wl}-undefined ${wl}suppress'
++         allow_undefined_flag_GCJ=''
+          ;;
+        *) # Darwin 1.3 on
+          if test -z ${MACOSX_DEPLOYMENT_TARGET} ; then
+-           allow_undefined_flag_GCJ='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
++           allow_undefined_flag_GCJ=''
+          else
+            case ${MACOSX_DEPLOYMENT_TARGET} in
+              10.[012])
+-               allow_undefined_flag_GCJ='${wl}-flat_namespace ${wl}-undefined ${wl}suppress'
++               allow_undefined_flag_GCJ=''
+                ;;
+              10.*)
+                allow_undefined_flag_GCJ='${wl}-undefined ${wl}dynamic_lookup'

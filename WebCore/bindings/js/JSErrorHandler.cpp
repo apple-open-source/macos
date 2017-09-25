@@ -35,7 +35,8 @@
 #include "Document.h"
 #include "ErrorEvent.h"
 #include "Event.h"
-#include "EventNames.h"
+#include "JSDOMConvertNumbers.h"
+#include "JSDOMConvertStrings.h"
 #include "JSEvent.h"
 #include "JSMainThreadExecState.h"
 #include "JSMainThreadExecStateInstrumentation.h"
@@ -58,7 +59,6 @@ JSErrorHandler::~JSErrorHandler()
 
 void JSErrorHandler::handleEvent(ScriptExecutionContext* scriptExecutionContext, Event* event)
 {
-
     if (!is<ErrorEvent>(*event))
         return JSEventListener::handleEvent(scriptExecutionContext, event);
 
@@ -90,11 +90,11 @@ void JSErrorHandler::handleEvent(ScriptExecutionContext* scriptExecutionContext,
         globalObject->setCurrentEvent(event);
 
         MarkedArgumentBuffer args;
-        args.append(jsStringWithCache(exec, errorEvent.message()));
-        args.append(jsStringWithCache(exec, errorEvent.filename()));
-        args.append(jsNumber(errorEvent.lineno()));
-        args.append(jsNumber(errorEvent.colno()));
-        args.append(errorEvent.sanitizedErrorValue(*exec, *globalObject));
+        args.append(toJS<IDLDOMString>(*exec, errorEvent.message()));
+        args.append(toJS<IDLUSVString>(*exec, errorEvent.filename()));
+        args.append(toJS<IDLUnsignedLong>(errorEvent.lineno()));
+        args.append(toJS<IDLUnsignedLong>(errorEvent.colno()));
+        args.append(errorEvent.error(*exec, *globalObject));
 
         VM& vm = globalObject->vm();
         VMEntryScope entryScope(vm, vm.entryScope ? vm.entryScope->globalObject() : globalObject);

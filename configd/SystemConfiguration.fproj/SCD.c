@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,6 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
-#include <asl.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <os/log.h>
@@ -44,18 +43,13 @@
 #include "SCD.h"
 #include "config.h"		/* MiG generated file */
 
-// asl logging
-#define INSTALL_FACILITY	"install"
 #define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
-
-// LIBASL SPI
-extern asl_object_t	_asl_server_control_query(void);
 
 /* framework variables */
 int	_sc_debug	= FALSE;	/* non-zero if debugging enabled */
 int	_sc_verbose	= FALSE;	/* non-zero if verbose logging enabled */
 int	_sc_log		= TRUE;		/* 0 if SC messages should be written to stdout/stderr,
-					 1 if SC messages should be logged w/asl(3),
+					 1 if SC messages should be logged w/os_log(3),
 					 2 if SC messages should be written to stdout/stderr AND logged */
 
 
@@ -73,7 +67,6 @@ __SCThreadSpecificDataFinalize(void *arg)
 	__SCThreadSpecificDataRef	tsd = (__SCThreadSpecificDataRef)arg;
 
 	if (tsd != NULL) {
-		if (tsd->_asl != NULL) asl_release(tsd->_asl);
 		if (tsd->_sc_store != NULL) CFRelease(tsd->_sc_store);
 		CFAllocatorDeallocate(kCFAllocatorSystemDefault, tsd);
 	}
@@ -99,7 +92,6 @@ __SCGetThreadSpecificData()
 	tsd = pthread_getspecific(tsDataKey);
 	if (tsd == NULL) {
 		tsd = CFAllocatorAllocate(kCFAllocatorSystemDefault, sizeof(__SCThreadSpecificData), 0);
-		tsd->_asl = NULL;
 		tsd->_sc_error = kSCStatusOK;
 		tsd->_sc_store = NULL;
 		pthread_setspecific(tsDataKey, tsd);
@@ -437,82 +429,13 @@ _SC_syslog_os_log_mapping(int level)
 };
 
 static void
-__SCLog(asl_object_t asl, asl_object_t msg, int level, void *ret_addr, CFStringRef formatString, va_list formatArguments)
+__SCLog(void *ret_addr, os_log_type_t type, const char *formatString, va_list formatArguments)
 {
-	char		*line;
-	CFArrayRef	lines;
-	CFStringRef	str;
-
-	if ((asl == NULL) && (level >= 0)) {
-		const char	*__format;
-
-		__format = CFStringGetCStringPtr(formatString, kCFStringEncodingUTF8);
-		if (__format != NULL) {
-			os_log_type_t	__type;
-
-			__type = _SC_syslog_os_log_mapping(level);
-			os_log_with_args(_SC_LOG_DEFAULT(),
-					 __type,
-					 __format,
-					 formatArguments,
-					 ret_addr);
-			return;
-		}
-	}
-
-	if (asl == NULL) {
-		__SCThreadSpecificDataRef	tsd;
-
-		tsd = __SCGetThreadSpecificData();
-		if (tsd->_asl == NULL) {
-			tsd->_asl = asl_open(NULL, (_SC_isInstallEnvironment() ? INSTALL_FACILITY : NULL), 0);
-			asl_set_filter(tsd->_asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
-		}
-		asl = tsd->_asl;
-	}
-
-#ifdef	ENABLE_SC_FORMATTING
-	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
-						       _SCCopyDescription,
-						       NULL,
-						       formatString,
-						       formatArguments);
-#else	/* ENABLE_SC_FORMATTING */
-	str =  CFStringCreateWithFormatAndArguments   (NULL,
-						       NULL,
-						       formatString,
-						       formatArguments);
-#endif	/* !ENABLE_SC_FORMATTING */
-
-	if (level >= 0) {
-		lines = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR("\n"));
-		if (lines != NULL) {
-			CFIndex	i;
-			CFIndex	n	= CFArrayGetCount(lines);
-
-			for (i = 0; i < n; i++) {
-				line =_SC_cfstring_to_cstring_ext(CFArrayGetValueAtIndex(lines, i),
-								  NULL,
-								  0,
-								  kCFStringEncodingUTF8,
-								  (UInt8)'?',
-								  NULL);
-				asl_log(asl, msg, level, "%s", line);
-				CFAllocatorDeallocate(NULL, line);
-			}
-			CFRelease(lines);
-		}
-	} else {
-		line =_SC_cfstring_to_cstring_ext(str,
-						  NULL,
-						  0,
-						  kCFStringEncodingUTF8,
-						  (UInt8)'?',
-						  NULL);
-		asl_log(asl, msg, ~level, "%s", line);
-		CFAllocatorDeallocate(NULL, line);
-	}
-	CFRelease(str);
+	os_log_with_args(_SC_LOG_DEFAULT(),
+			 type,
+			 formatString,
+			 formatArguments,
+			 ret_addr);
 	return;
 }
 
@@ -571,6 +494,58 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 
 
 void
+__SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, const char *format, ...)
+{
+#pragma unused(level)
+	Boolean		do_log		= FALSE;
+	Boolean		do_print	= FALSE;
+	va_list		args_log;
+	va_list		args_print;
+
+	/*
+	 * Note: The following are the expected values for _sc_log
+	 *
+	 * 0 if SC messages should be written to stdout/stderr
+	 * 1 if SC messages should be logged w/os_log(3)
+	 * 2 if SC messages should be written to stdout/stderr AND logged
+	 */
+
+	if (_sc_log > 0) {
+		do_log = TRUE;			// log requested
+		va_start(args_log, format);
+
+		if (_sc_log > 1) {
+			do_print = TRUE;	// log AND print requested
+			va_copy(args_print, args_log);
+		}
+	} else {
+		do_print = TRUE;		// print requested
+		va_start(args_print, format);
+	}
+
+	if (do_log) {
+		os_log_with_args(log,
+				 type,
+				 format,
+				 args_log,
+				 __builtin_return_address(0));
+		va_end(args_log);
+	}
+
+	if (do_print) {
+		__SCPrint(stdout,
+			  format_CF,
+			  args_print,
+			  (_sc_log > 0),	// trace
+			  TRUE);		// add newline
+		va_end(args_print);
+	}
+
+	return;
+}
+
+
+void
 SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 {
 	va_list		formatArguments;
@@ -586,7 +561,7 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	 * Note: The following are the expected values for _sc_log
 	 *
 	 * 0 if SC messages should be written to stdout/stderr
-	 * 1 if SC messages should be logged w/asl(3)
+	 * 1 if SC messages should be logged w/os_log(3)
 	 * 2 if SC messages should be written to stdout/stderr AND logged
 	 */
 
@@ -604,124 +579,20 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	}
 
 	if (log) {
-		__SCLog(NULL, NULL, level, __builtin_return_address(0), formatString, formatArguments);
+		const char	*__format;
+
+		__format = CFStringGetCStringPtr(formatString, kCFStringEncodingUTF8);
+		if (__format != NULL) {
+			os_log_type_t	__type;
+
+			__type = _SC_syslog_os_log_mapping(level);
+			__SCLog(__builtin_return_address(0), __type, __format, formatArguments);
+		}
 		va_end(formatArguments);
 	}
 
 	if (print) {
 		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
-			  formatString,
-			  formatArguments_print,
-			  (_sc_log > 0),	// trace
-			  TRUE);		// add newline
-		va_end(formatArguments_print);
-	}
-
-	return;
-}
-
-
-void
-__SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, const char *format, ...)
-{
-	Boolean		do_log		= FALSE;
-	Boolean		do_print	= FALSE;
-	va_list		args_log;
-	va_list		args_print;
-
-	/*
-	 * Note: The following are the expected values for _sc_log
-	 *
-	 * 0 if SC messages should be written to stdout/stderr
-	 * 1 if SC messages should be logged w/asl(3)
-	 * 2 if SC messages should be written to stdout/stderr AND logged
-	 */
-
-	if (_sc_log > 0) {
-		log = TRUE;		// log requested
-		va_start(args_log, format);
-
-		if (_sc_log > 1) {
-			do_print = TRUE;	// log AND print requested
-			va_copy(args_print, args_log);
-		}
-	} else {
-		do_print = TRUE;		// print requested
-		va_start(args_print, format);
-	}
-
-	if (do_log) {
-		if (level >= 0) {
-			os_log_with_args(log,
-					 type,
-					 format,
-					 args_log,
-					 __builtin_return_address(0));
-		} else {
-			// if we need to break apart a multi-line message
-			__SCLog(NULL,
-				NULL,
-				level,
-				__builtin_return_address(0),
-				format_CF,
-				args_log);
-		}
-		va_end(args_log);
-	}
-
-	if (do_print) {
-		__SCPrint(stdout,
-			  format_CF,
-			  args_print,
-			  (_sc_log > 0),	// trace
-			  TRUE);		// add newline
-		va_end(args_print);
-	}
-
-	return;
-
-}
-
-
-void
-SCLOG(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString, ...)
-{
-	va_list		formatArguments;
-	va_list		formatArguments_print;
-	Boolean		log	= FALSE;
-	Boolean		print	= FALSE;
-
-	/*
-	 * Note: The following are the expected values for _sc_log
-	 *
-	 * 0 if SC messages should be written to stdout/stderr
-	 * 1 if SC messages should be logged w/asl(3)
-	 * 2 if SC messages should be written to stdout/stderr AND logged
-	 */
-
-	if (_sc_log > 0) {
-		log = TRUE;		// log requested
-		va_start(formatArguments, formatString);
-
-		if (_sc_log > 1) {
-			print = TRUE;	// log AND print requested
-			va_copy(formatArguments_print, formatArguments);
-		}
-	} else {
-		print = TRUE;		// print requested
-		va_start(formatArguments_print, formatString);
-	}
-
-	if (log) {
-		__SCLog(asl, msg, level, __builtin_return_address(0), formatString, formatArguments);
-		va_end(formatArguments);
-	}
-
-	if (print) {
-		if (level < 0) {
-			level = ~level;
-		}
-		__SCPrint((level > ASL_LEVEL_NOTICE) ? stderr : stdout,
 			  formatString,
 			  formatArguments_print,
 			  (_sc_log > 0),	// trace
@@ -746,349 +617,6 @@ SCPrint(Boolean condition, FILE *stream, CFStringRef formatString, ...)
 	__SCPrint(stream, formatString, formatArguments, FALSE, FALSE);
 	va_end(formatArguments);
 
-	return;
-}
-
-
-#pragma mark -
-#pragma mark ASL Functions
-
-
-static CFTypeID __kSCLoggerTypeID = _kCFRuntimeNotATypeID;
-
-typedef  enum {
-	kModuleStatusEnabled,
-	kModuleStatusDisabled,
-	kModuleStatusDoesNotExist
-} ModuleStatus;
-
-struct SCLogger
-{
-	CFRuntimeBase		cf_base;
-
-	char *			loggerID;	// LoggerID
-	SCLoggerFlags		flags;
-	asl_object_t		aslc;
-	asl_object_t		aslm;
-	ModuleStatus		module_status;
-	pthread_mutex_t		lock;
-};
-
-
-static void __SCLoggerDeallocate(CFTypeRef cf);
-static const CFRuntimeClass __SCLoggerClass = {
-	0,				/* version */
-	"SCLogger",			/* className */
-	NULL,				/* init */
-	NULL,				/* copy */
-	__SCLoggerDeallocate,		/* deallocate */
-	NULL,				/* equal */
-	NULL,				/* hash */
-	NULL,				/* copyFormattingDesc */
-	NULL				/* copyDebugDesc */
-};
-
-
-#define		DATETIMEBUFFERSIZE	32
-
-
-static pthread_once_t	registerLoggerOnce = PTHREAD_ONCE_INIT;
-static pthread_once_t	defaultLoggerOnce = PTHREAD_ONCE_INIT;
-
-typedef enum {
-	kLoggerASLControlEnableModule,
-	kLoggerASLControlDisableModule,
-	kLoggerASLControlLogFileCheckpoint
-} LoggerASLControl;
-
-static SCLoggerRef	defaultLogger = NULL;
-static SCLoggerRef	__SCLoggerCreate(void);
-static void		__SCLoggerDefaultLoggerInit();
-static SCLoggerRef	SCLoggerGetDefaultLogger();
-static void		SCLoggerSetLoggerID(SCLoggerRef logger, CFStringRef loggerID);
-static void		SCLoggerSendMessageToModuleOnly(SCLoggerRef logger, Boolean isPrivate);
-static void		SCLoggerSendASLControl(SCLoggerRef logger, LoggerASLControl control);
-static ModuleStatus	GetModuleStatus(const char * loggerID);
-
-static void
-__SCLoggerRegisterClass(void)
-{
-	if (__kSCLoggerTypeID == _kCFRuntimeNotATypeID) {
-		__kSCLoggerTypeID = _CFRuntimeRegisterClass(&__SCLoggerClass);
-	}
-	return;
-}
-
-static SCLoggerRef
-__SCLoggerAllocate(CFAllocatorRef allocator)
-{
-	SCLoggerRef state;
-	int size;
-
-	pthread_once(&registerLoggerOnce, __SCLoggerRegisterClass);
-
-	size = sizeof(*state) - sizeof(CFRuntimeBase);
-	state = (SCLoggerRef) _CFRuntimeCreateInstance(allocator,
-						       __kSCLoggerTypeID,
-						       size,
-						       NULL);
-	return (state);
-}
-
-static void
-__SCLoggerDeallocate(CFTypeRef cf)
-{
-	SCLoggerRef logger = (SCLoggerRef)cf;
-
-	if (logger != NULL) {
-		// Rotate on close behavior
-		if (logger->module_status != kModuleStatusDoesNotExist) {
-			SCLoggerSendASLControl(logger,
-					       kLoggerASLControlLogFileCheckpoint);
-		}
-		if (logger->loggerID != NULL) {
-			CFAllocatorDeallocate(NULL, logger->loggerID);
-			logger->loggerID = NULL;
-		}
-		if (logger->aslm != NULL) {
-			asl_release(logger->aslm);
-			logger->aslm = NULL;
-		}
-		if (logger->aslc != NULL) {
-			asl_release(logger->aslc);
-			logger->aslc = NULL;
-		}
-	}
-}
-
-static SCLoggerRef
-__SCLoggerCreate(void)
-{
-	SCLoggerRef tempLogger = NULL;
-
-	tempLogger = __SCLoggerAllocate(kCFAllocatorDefault);
-	tempLogger->loggerID = NULL;
-	tempLogger->flags = kSCLoggerFlagsDefault;
-	tempLogger->aslc = asl_open(NULL, (_SC_isInstallEnvironment() ? INSTALL_FACILITY : NULL), ASL_OPT_NO_DELAY);
-	tempLogger->aslm = asl_new(ASL_TYPE_MSG);
-	pthread_mutex_init(&(tempLogger->lock), NULL);
-	tempLogger->module_status = kModuleStatusDoesNotExist;
-
-	return tempLogger;
-}
-
-SCLoggerFlags
-SCLoggerGetFlags(SCLoggerRef logger)
-{
-	return logger->flags;
-}
-
-void
-SCLoggerSetFlags(SCLoggerRef logger, SCLoggerFlags flags)
-{
-	if (logger == defaultLogger) {
-		return;
-	}
-	pthread_mutex_lock(&(logger->lock));
-	if (flags != kSCLoggerFlagsNone) {
-		logger->module_status = GetModuleStatus(logger->loggerID);
-		if (logger->module_status == kModuleStatusDoesNotExist) {
-			goto done;
-		}
-		if ((flags & kSCLoggerFlagsFile) != 0) {
-			if ((logger->flags & kSCLoggerFlagsFile) == 0) {
-				// Enable the module if disabled
-				if (logger->module_status == kModuleStatusDisabled) {
-					SCLoggerSendASLControl(logger, kLoggerASLControlEnableModule);
-				}
-				// Setting ASL Filter level to debug
-				asl_set_filter(logger->aslc, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
-				if (logger->loggerID != NULL) {
-					asl_set(logger->aslm, kLoggerID,
-						logger->loggerID);
-				}
-			}
-		}
-		else if ((logger->flags & kSCLoggerFlagsFile) != 0) {
-			asl_unset(logger->aslm, kLoggerID);
-			asl_set_filter(logger->aslc, ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE));
-			SCLoggerSendMessageToModuleOnly(logger, false);
-		}
-		if ((flags & kSCLoggerFlagsDefault) != 0) {
-			if ((logger->flags & kSCLoggerFlagsDefault) == 0) {
-				SCLoggerSendMessageToModuleOnly(logger, false);
-			}
-		}
-		else if ((logger->flags & kSCLoggerFlagsDefault) != 0) {
-			SCLoggerSendMessageToModuleOnly(logger, true);
-		}
-	}
-	logger->flags = flags;
-   done:
-	pthread_mutex_unlock(&(logger->lock));
-}
-
-
-static void
-SCLoggerSetLoggerID(SCLoggerRef logger, CFStringRef loggerID)
-{
-	logger->loggerID
-		= _SC_cfstring_to_cstring(loggerID, NULL, 0,
-					  kCFStringEncodingUTF8);
-	// Enable the module if disabled
-	logger->module_status = GetModuleStatus(logger->loggerID);
-	if (logger->module_status == kModuleStatusDisabled) {
-		SCLoggerSendASLControl(logger, kLoggerASLControlEnableModule);
-	}
-}
-
-static ModuleStatus
-GetModuleStatus(const char * loggerID)
-{
-	ModuleStatus	moduleStatus	= kModuleStatusDoesNotExist;
-	asl_object_t	response	= NULL;
-	const char*	value		= NULL;
-
-	if (loggerID != NULL) {
-		response = _asl_server_control_query();
-		if (response == NULL) {
-			goto done;
-		}
-		value = asl_get(response, loggerID);
-		if (value == NULL) {
-			moduleStatus = kModuleStatusDoesNotExist;
-			goto done;
-		}
-
-		if (strcmp(value, "enabled") == 0) {
-			moduleStatus = kModuleStatusEnabled;
-		}
-		else {
-			moduleStatus = kModuleStatusDisabled;
-		}
-	}
-done:
-	asl_release(response);
-
-	return moduleStatus;
-}
-
-static void
-SCLoggerSendMessageToModuleOnly(SCLoggerRef logger, Boolean isPrivate)
-{
-	if (isPrivate) {
-		asl_set(logger->aslm, kASLModule, logger->loggerID);
-	}
-	else {
-		if (asl_get(logger->aslm, kASLModule) != NULL) {
-			asl_unset(logger->aslm, kASLModule);
-		}
-	}
-}
-
-static void
-SCLoggerSendASLControl(SCLoggerRef logger, LoggerASLControl control)
-{
-	SCLoggerRef defLogger = SCLoggerGetDefaultLogger();
-	pthread_mutex_lock(&(defLogger->lock));
-
-	// this next line turns the asl_log()'s that follow into control messages
-	asl_set(defLogger->aslm, kASLOption, "control");
-
-	switch (control) {
-		case kLoggerASLControlEnableModule:
-			asl_log(defLogger->aslc, defLogger->aslm,
-				ASL_LEVEL_NOTICE, "@ %s enable 1",
-				logger->loggerID);
-			break;
-		case kLoggerASLControlDisableModule:
-			asl_log(defLogger->aslc, defLogger->aslm,
-				ASL_LEVEL_NOTICE, "@ %s enable 0",
-				logger->loggerID);
-			break;
-		case kLoggerASLControlLogFileCheckpoint:
-			asl_log(defLogger->aslc, defLogger->aslm,
-				ASL_LEVEL_NOTICE, "@ %s checkpoint",
-				logger->loggerID);
-			break;
-		default:
-			break;
-	}
-
-	// turn off control mode
-	asl_unset(defLogger->aslm, kASLOption);
-	pthread_mutex_unlock(&defLogger->lock);
-	return;
-}
-
-SCLoggerRef
-SCLoggerCreate(CFStringRef loggerID)
-{
-	SCLoggerRef logger = NULL;
-
-	logger = __SCLoggerCreate();
-	if (loggerID != NULL) {
-		SCLoggerSetLoggerID(logger, loggerID);
-	}
-	SCLoggerSetFlags(logger, kSCLoggerFlagsDefault);
-	return logger;
-}
-
-static void
-__SCLoggerDefaultLoggerInit()
-{
-	if (defaultLogger == NULL) {
-		defaultLogger = __SCLoggerCreate();
-		defaultLogger->flags = kSCLoggerFlagsDefault;
-	}
-}
-
-static SCLoggerRef
-SCLoggerGetDefaultLogger()
-{
-	pthread_once(&defaultLoggerOnce, __SCLoggerDefaultLoggerInit);
-	return defaultLogger;
-}
-
-static void
-SCLoggerVLogInternal(SCLoggerRef logger, int loglevel, void *ret_addr,
-		     CFStringRef formatString, va_list args)
-{
-	asl_object_t	aslc;
-	asl_object_t	aslm;
-
-	if (logger == NULL
-	    || logger->module_status == kModuleStatusDoesNotExist) {
-		logger = SCLoggerGetDefaultLogger();
-	}
-	pthread_mutex_lock(&(logger->lock));
-	if (logger->flags == kSCLoggerFlagsNone) {
-		pthread_mutex_unlock(&(logger->lock));
-		return;
-	}
-	aslc = logger->aslc;
-	aslm = logger->aslm;
-	__SCLog(aslc, aslm, loglevel, ret_addr, formatString, args);
-	pthread_mutex_unlock(&(logger->lock));
-	return;
-}
-
-void
-SCLoggerLog(SCLoggerRef logger, int loglevel, CFStringRef formatString, ...)
-{
-	va_list	args;
-
-	va_start(args, formatString);
-	SCLoggerVLogInternal(logger, loglevel, __builtin_return_address(0), formatString, args);
-	va_end(args);
-
-	return;
-}
-
-void
-SCLoggerVLog(SCLoggerRef logger, int loglevel, CFStringRef formatString, va_list args)
-{
-	SCLoggerVLogInternal(logger, loglevel, __builtin_return_address(0), formatString, args);
 	return;
 }
 

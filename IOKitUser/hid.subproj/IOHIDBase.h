@@ -25,6 +25,8 @@
 #define _IOKIT_HID_IOHIDBASE_H_
 
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/IOTypes.h> /* IOOptionBits */
+#include <stdint.h> /* uint32_t */
 
 __BEGIN_DECLS
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,10 +30,37 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "WasmMemory.h"
+#include <wtf/FastMalloc.h>
 
 namespace JSC { namespace Wasm {
 
-JS_EXPORT_PRIVATE ModuleInformation::~ModuleInformation() { }
+Segment* Segment::create(I32InitExpr offset, uint32_t sizeInBytes)
+{
+    auto allocated = tryFastCalloc(sizeof(Segment) + sizeInBytes, 1);
+    Segment* segment;
+    if (!allocated.getValue(segment))
+        return nullptr;
+    segment->offset = offset;
+    segment->sizeInBytes = sizeInBytes;
+    return segment;
+}
+
+void Segment::destroy(Segment *segment)
+{
+    fastFree(segment);
+}
+
+Segment::Ptr Segment::adoptPtr(Segment* segment)
+{
+    return Ptr(segment, &Segment::destroy);
+}
+
+String makeString(const Name& characters)
+{
+    String result = String::fromUTF8(characters);
+    ASSERT(result);
+    return result;
+}
 
 } } // namespace JSC::Wasm
 

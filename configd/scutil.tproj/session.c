@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2010, 2011, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,8 @@
 static void
 reconnected(SCDynamicStoreRef store, void *info)
 {
+#pragma unused(store)
+#pragma unused(info)
 	SCPrint(TRUE, stdout, CFSTR("SCDynamicStore server restarted, session reconnected\n"));
 	return;
 }
@@ -49,6 +51,7 @@ __private_extern__
 void
 do_open(int argc, char **argv)
 {
+#pragma unused(argv)
 	if (store) {
 		CFRelease(store);
 		CFRelease(watchedKeys);
@@ -92,6 +95,8 @@ __private_extern__
 void
 do_close(int argc, char **argv)
 {
+#pragma unused(argc)
+#pragma unused(argv)
 	if (notifyRls != NULL) {
 		if (doDispatch) {
 			(void) SCDynamicStoreSetDispatchQueue(store, NULL);

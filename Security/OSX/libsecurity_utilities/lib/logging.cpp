@@ -52,6 +52,10 @@ void open(const char *ident, int facility, int options /*= 0*/)
 //
 // General output method
 //
+
+static void output(int priority, const char *format, va_list args) __attribute__((format(printf, 2, 0)));
+
+
 static void output(int priority, const char *format, va_list args)
 {
 	::vsyslog(priority, format, args);

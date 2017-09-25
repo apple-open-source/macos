@@ -7,7 +7,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOHIDFamily</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -22,20 +22,31 @@
 	<string>$(IOHIDFAMILY_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>IOHIDResource</key>
+		<key>HID Game Controller Pointing Driver</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>DeviceUsagePairs</key>
+			<array>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>5</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>4</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
+			</array>
+			<key>HIDDefaultBehavior</key>
+			<string></string>
 			<key>IOClass</key>
-			<string>IOHIDResource</string>
-			<key>IOMatchCategory</key>
-			<string>IOHIDResource</string>
+			<string>IOHIDEventDriver</string>
 			<key>IOProviderClass</key>
-			<string>IOResources</string>
-			<key>IOResourceMatch</key>
-			<string>IOBSD</string>
-			<key>IOUserClientClass</key>
-			<string>IOHIDResourceDeviceUserClient</string>
+			<string>IOHIDInterface</string>
 		</dict>
 		<key>IOHIDEventServiceUserClient</key>
 		<dict>
@@ -74,8 +85,8 @@
 			<dict>
 				<key>IOCFPlugInTypes</key>
 				<dict>
-                    <key>40A57A4E-26A0-11D8-9295-000A958A2C78</key>
-                    <string>IOHIDFamily.kext/PlugIns/IOHIDLib.plugin</string>
+					<key>40A57A4E-26A0-11D8-9295-000A958A2C78</key>
+					<string>IOHIDFamily.kext/PlugIns/IOHIDLib.plugin</string>
 					<key>7DDEECA8-A7B4-11DA-8A0E-0014519758EF</key>
 					<string>IOHIDFamily.kext/PlugIns/IOHIDLib.plugin</string>
 					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
@@ -85,84 +96,23 @@
 				<string>IOHIDLibUserClient</string>
 			</dict>
 		</dict>
-		<key>StarkPorscheWheel</key>
+		<key>IOHIDResource</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOHIDFamily</string>
 			<key>IOClass</key>
-			<string>IOHIDEventOverrideDriver</string>
+			<string>IOHIDResource</string>
+			<key>IOMatchCategory</key>
+			<string>IOHIDResource</string>
 			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>3767</integer>
-			<key>ProductID</key>
-			<integer>407</integer>
-			<key>ButtonMaps</key>
-			<array>
-				<dict>
-					<key>ButtonNumber</key>
-					<integer>1</integer>
-					<key>EventType</key>
-					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>12</integer>
-					<key>Usage</key>
-					<integer>207</integer>
-				</dict>
-				<dict>
-					<key>ButtonNumber</key>
-					<integer>3</integer>
-					<key>EventType</key>
-					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>12</integer>
-					<key>Usage</key>
-					<integer>182</integer>
-				</dict>
-				<dict>
-					<key>ButtonNumber</key>
-					<integer>4</integer>
-					<key>EventType</key>
-					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>12</integer>
-					<key>Usage</key>
-					<integer>181</integer>
-				</dict>
-				<dict>
-					<key>ButtonNumber</key>
-					<integer>8</integer>
-					<key>EventType</key>
-					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>11</integer>
-					<key>Usage</key>
-					<integer>32</integer>
-				</dict>
-				<dict>
-					<key>ButtonNumber</key>
-					<integer>12</integer>
-					<key>EventType</key>
-					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>11</integer>
-					<key>Usage</key>
-					<integer>38</integer>
-				</dict>
-			</array>
+			<string>IOResources</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
+			<key>IOUserClientClass</key>
+			<string>IOHIDResourceDeviceUserClient</string>
 		</dict>
 		<key>ShuttleExpress</key>
 		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDEventOverrideDriver</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>2867</integer>
-			<key>ProductID</key>
-			<integer>32</integer>
 			<key>ButtonMaps</key>
 			<array>
 				<dict>
@@ -178,78 +128,128 @@
 					<integer>6</integer>
 					<key>EventType</key>
 					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>12</integer>
 					<key>Usage</key>
 					<integer>548</integer>
+					<key>UsagePage</key>
+					<integer>12</integer>
 				</dict>
 				<dict>
 					<key>ButtonNumber</key>
 					<integer>7</integer>
 					<key>EventType</key>
 					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>12</integer>
 					<key>Usage</key>
 					<integer>207</integer>
+					<key>UsagePage</key>
+					<integer>12</integer>
 				</dict>
 				<dict>
 					<key>ButtonNumber</key>
 					<integer>8</integer>
 					<key>EventType</key>
 					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>12</integer>
 					<key>Usage</key>
 					<integer>547</integer>
+					<key>UsagePage</key>
+					<integer>12</integer>
 				</dict>
 				<dict>
 					<key>ButtonNumber</key>
 					<integer>9</integer>
 					<key>EventType</key>
 					<integer>3</integer>
-					<key>UsagePage</key>
-					<integer>11</integer>
 					<key>Usage</key>
 					<integer>33</integer>
+					<key>UsagePage</key>
+					<integer>11</integer>
 				</dict>
 			</array>
-		</dict>
-		<key>HID Game Controller Pointing Driver</key>
-		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>DeviceUsagePairs</key>
-			<array>
-				<dict>
-					<key>DeviceUsage</key>
-					<integer>5</integer>
-					<key>DeviceUsagePage</key>
-					<integer>1</integer>
-				</dict>
-				<dict>
-					<key>DeviceUsage</key>
-					<integer>4</integer>
-					<key>DeviceUsagePage</key>
-					<integer>1</integer>
-				</dict>
-			</array>
-			<key>HIDDefaultBehavior</key>
-			<string></string>
 			<key>IOClass</key>
-			<string>IOHIDEventDriver</string>
+			<string>IOHIDEventOverrideDriver</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDInterface</string>
+			<key>ProductID</key>
+			<integer>32</integer>
+			<key>VendorID</key>
+			<integer>2867</integer>
+		</dict>
+		<key>StarkPorscheWheel</key>
+		<dict>
+			<key>ButtonMaps</key>
+			<array>
+				<dict>
+					<key>ButtonNumber</key>
+					<integer>1</integer>
+					<key>EventType</key>
+					<integer>3</integer>
+					<key>Usage</key>
+					<integer>207</integer>
+					<key>UsagePage</key>
+					<integer>12</integer>
+				</dict>
+				<dict>
+					<key>ButtonNumber</key>
+					<integer>3</integer>
+					<key>EventType</key>
+					<integer>3</integer>
+					<key>Usage</key>
+					<integer>182</integer>
+					<key>UsagePage</key>
+					<integer>12</integer>
+				</dict>
+				<dict>
+					<key>ButtonNumber</key>
+					<integer>4</integer>
+					<key>EventType</key>
+					<integer>3</integer>
+					<key>Usage</key>
+					<integer>181</integer>
+					<key>UsagePage</key>
+					<integer>12</integer>
+				</dict>
+				<dict>
+					<key>ButtonNumber</key>
+					<integer>8</integer>
+					<key>EventType</key>
+					<integer>3</integer>
+					<key>Usage</key>
+					<integer>32</integer>
+					<key>UsagePage</key>
+					<integer>11</integer>
+				</dict>
+				<dict>
+					<key>ButtonNumber</key>
+					<integer>12</integer>
+					<key>EventType</key>
+					<integer>3</integer>
+					<key>Usage</key>
+					<integer>38</integer>
+					<key>UsagePage</key>
+					<integer>11</integer>
+				</dict>
+			</array>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDEventOverrideDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>ProductID</key>
+			<integer>407</integer>
+			<key>VendorID</key>
+			<integer>3767</integer>
 		</dict>
 	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.AppleMobileFileIntegrity</key>
 		<string>1.0.2</string>
-		<key>com.apple.kpi.private</key>
-		<string>8.0.0</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0.0b2</string>
 		<key>com.apple.kpi.iokit</key>
@@ -258,12 +258,12 @@
 		<string>8.0.0b2</string>
 		<key>com.apple.kpi.mach</key>
 		<string>8.0.0b2</string>
+		<key>com.apple.kpi.private</key>
+		<string>8.0.0</string>
 		<key>com.apple.kpi.unsupported</key>
 		<string>8.0.0b2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
-	<key>NSHumanReadableCopyright</key>
-	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
 </dict>
 </plist>

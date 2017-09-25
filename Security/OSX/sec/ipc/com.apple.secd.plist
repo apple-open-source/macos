@@ -18,6 +18,8 @@
 		<true/>
 		<key>com.apple.securityd.xpc</key>
 		<true/>
+		<key>com.apple.securityd.aps</key>
+		<true/>
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
@@ -31,6 +33,19 @@
 		<string>-policy-node,policy-set,policy,alloc,trust,bind,profile,trace,dbconn,OTR,serverxpc,sqlite3,error_thee_well,ringSigning</string>
 		<key>WAIT4DEBUGGER</key>
 		<string>NO</string>
+	</dict>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.xpc.activity</key>
+		<dict>
+			<key>com.apple.securityd.daily</key>
+			<dict>
+				<key>Priority</key>
+				<string>Utility</string>
+				<key>Interval</key>
+				<real>86400</real>
+			</dict>
+		</dict>
 	</dict>
 </dict>
 </plist>

@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
-* Copyright (C) 1997-2016, International Business Machines Corporation and
+* Copyright (C) 1997-2015, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -421,11 +423,15 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
             char lwKeyValue[kKeyValueLenMax] = {0};
             UErrorCode kvStatus = U_ZERO_ERROR;
             int32_t kLen = loc.getKeywordValue("lw", lwKeyValue, kKeyValueLenMax, kvStatus);
-            result->setKeepAll(U_SUCCESS(kvStatus) && kLen > 0 && uprv_strcmp(lwKeyValue,"keepall")==0);
+            UBool keepAll = (U_SUCCESS(kvStatus) && kLen > 0)?
+                (uprv_strcmp(lwKeyValue,"keepall")==0): // if keyword specified, depends on keyword
+                (uprv_strcmp(loc.getLanguage(),"ko")==0); // otherwise for "ko", default is keepall per rdar://23224717
+            result->setKeepAll(keepAll);
         }
         break;
     case UBRK_SENTENCE:
         result = BreakIterator::buildInstance(loc, "sentence", kind, status);
+#if !UCONFIG_NO_FILTERED_BREAK_ITERATION
         {
             char ssKeyValue[kKeyValueLenMax] = {0};
             UErrorCode kvStatus = U_ZERO_ERROR;
@@ -438,6 +444,7 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
                 }
             }
         }
+#endif
         break;
     case UBRK_TITLE:
         result = BreakIterator::buildInstance(loc, "title", kind, status);

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 1997-2015, International Business Machines Corporation and
@@ -450,7 +452,7 @@ NumberFormat::format(int64_t number,
 //       XXXFormat::format(double
 
 UnicodeString&
-NumberFormat::format(const StringPiece &decimalNum,
+NumberFormat::format(StringPiece decimalNum,
                      UnicodeString& toAppendTo,
                      FieldPositionIterator* fpi,
                      UErrorCode& status) const
@@ -527,7 +529,7 @@ UnicodeString& NumberFormat::format(const DigitList &number,
                       FieldPositionIterator* posIter,
                       UErrorCode& status) const {
     // DecimalFormat overrides this function, and handles DigitList based big decimals.
-    // Other subclasses (ChoiceFormat, RuleBasedNumberFormat) do not (yet) handle DigitLists,
+    // Other subclasses (ChoiceFormat) do not (yet) handle DigitLists,
     // so this default implementation falls back to formatting decimal numbers as doubles.
     if (U_FAILURE(status)) {
         return appendTo;
@@ -545,7 +547,7 @@ NumberFormat::format(const DigitList &number,
                      FieldPosition& pos,
                      UErrorCode &status) const { 
     // DecimalFormat overrides this function, and handles DigitList based big decimals.
-    // Other subclasses (ChoiceFormat, RuleBasedNumberFormat) do not (yet) handle DigitLists,
+    // Other subclasses (ChoiceFormat) do not (yet) handle DigitLists,
     // so this default implementation falls back to formatting decimal numbers as doubles.
     if (U_FAILURE(status)) {
         return appendTo;
@@ -683,7 +685,7 @@ NumberFormat::parseObject(const UnicodeString& source,
 UnicodeString&
 NumberFormat::format(double number, UnicodeString& appendTo) const
 {
-    FieldPosition pos(0);
+    FieldPosition pos(FieldPosition::DONT_CARE);
     return format(number, appendTo, pos);
 }
 
@@ -693,7 +695,7 @@ NumberFormat::format(double number, UnicodeString& appendTo) const
 UnicodeString&
 NumberFormat::format(int32_t number, UnicodeString& appendTo) const
 {
-    FieldPosition pos(0);
+    FieldPosition pos(FieldPosition::DONT_CARE);
     return format(number, appendTo, pos);
 }
 
@@ -703,7 +705,7 @@ NumberFormat::format(int32_t number, UnicodeString& appendTo) const
 UnicodeString&
 NumberFormat::format(int64_t number, UnicodeString& appendTo) const
 {
-    FieldPosition pos(0);
+    FieldPosition pos(FieldPosition::DONT_CARE);
     return format(number, appendTo, pos);
 }
 
@@ -1186,7 +1188,7 @@ void NumberFormat::setCurrency(const UChar* theCurrency, UErrorCode& ec) {
     }
 }
 
-const UChar* NumberFormat::getCurrency() const {
+const char16_t* NumberFormat::getCurrency() const {
     return fCurrency;
 }
 

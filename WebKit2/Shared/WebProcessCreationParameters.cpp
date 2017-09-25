@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,20 +35,6 @@
 namespace WebKit {
 
 WebProcessCreationParameters::WebProcessCreationParameters()
-    : shouldAlwaysUseComplexTextCodePath(false)
-    , shouldEnableMemoryPressureReliefLogging(false)
-    , shouldUseFontSmoothing(true)
-    , defaultRequestTimeoutInterval(INT_MAX)
-#if PLATFORM(COCOA)
-    , shouldEnableJIT(false)
-    , shouldEnableFTLJIT(false)
-#endif
-    , memoryCacheDisabled(false)
-#if ENABLE(SERVICE_CONTROLS)
-    , hasImageServices(false)
-    , hasSelectionServices(false)
-    , hasRichContentServices(false)
-#endif
 {
 }
 
@@ -60,6 +46,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 {
     encoder << injectedBundlePath;
     encoder << injectedBundlePathExtensionHandle;
+    encoder << additionalSandboxExtensionHandles;
     encoder << initializationUserData;
     encoder << applicationCacheDirectory;
     encoder << applicationCacheFlatFileSubdirectoryName;
@@ -68,7 +55,9 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << webSQLDatabaseDirectoryExtensionHandle;
     encoder << mediaCacheDirectory;
     encoder << mediaCacheDirectoryExtensionHandle;
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+    encoder << javaScriptConfigurationDirectory;
+    encoder << javaScriptConfigurationDirectoryExtensionHandle;
+#if PLATFORM(MAC)
     encoder << uiProcessCookieStorageIdentifier;
 #endif
 #if PLATFORM(IOS)
@@ -78,6 +67,10 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
     encoder << mediaKeyStorageDirectory;
     encoder << mediaKeyStorageDirectoryExtensionHandle;
+#if ENABLE(MEDIA_STREAM)
+    encoder << audioCaptureExtensionHandle;
+    encoder << shouldCaptureAudioInUIProcess;
+#endif
     encoder << shouldUseTestingNetworkSession;
     encoder << urlSchemesRegisteredAsEmptyDocument;
     encoder << urlSchemesRegisteredAsSecure;
@@ -88,9 +81,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << urlSchemesRegisteredAsDisplayIsolated;
     encoder << urlSchemesRegisteredAsCORSEnabled;
     encoder << urlSchemesRegisteredAsAlwaysRevalidated;
-#if ENABLE(CACHE_PARTITIONING)
     encoder << urlSchemesRegisteredAsCachePartitioned;
-#endif
     encoder.encodeEnum(cacheModel);
     encoder << shouldAlwaysUseComplexTextCodePath;
     encoder << shouldEnableMemoryPressureReliefLogging;
@@ -107,21 +98,20 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(COCOA) || USE(CFURLCONNECTION)
     encoder << uiProcessBundleIdentifier;
 #endif
+    encoder << presentingApplicationPID;
 #if PLATFORM(COCOA)
-    encoder << presenterApplicationPid;
     encoder << accessibilityEnhancedUserInterfaceEnabled;
     encoder << acceleratedCompositingPort;
     encoder << uiProcessBundleResourcePath;
     encoder << uiProcessBundleResourcePathExtensionHandle;
     encoder << shouldEnableJIT;
     encoder << shouldEnableFTLJIT;
-    encoder << urlParserEnabled;
     encoder << !!bundleParameterData;
     if (bundleParameterData)
         encoder << bundleParameterData->dataReference();
 #endif
 
-#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS)
     encoder << notificationPermissions;
 #endif
 
@@ -139,7 +129,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << pluginLoadClientPolicies;
 #endif
 
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if PLATFORM(COCOA)
     IPC::encode(encoder, networkATSContext.get());
 #endif
 
@@ -150,6 +140,10 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(WAYLAND)
     encoder << waylandCompositorDisplayName;
 #endif
+
+#if USE(SOUP)
+    encoder << proxySettings;
+#endif
 }
 
 bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreationParameters& parameters)
@@ -157,6 +151,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.injectedBundlePath))
         return false;
     if (!decoder.decode(parameters.injectedBundlePathExtensionHandle))
+        return false;
+    if (!decoder.decode(parameters.additionalSandboxExtensionHandles))
         return false;
     if (!decoder.decode(parameters.initializationUserData))
         return false;
@@ -174,7 +170,11 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.mediaCacheDirectoryExtensionHandle))
         return false;
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
+    if (!decoder.decode(parameters.javaScriptConfigurationDirectory))
+        return false;
+    if (!decoder.decode(parameters.javaScriptConfigurationDirectoryExtensionHandle))
+        return false;
+#if PLATFORM(MAC)
     if (!decoder.decode(parameters.uiProcessCookieStorageIdentifier))
         return false;
 #endif
@@ -190,6 +190,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.mediaKeyStorageDirectoryExtensionHandle))
         return false;
+#if ENABLE(MEDIA_STREAM)
+    if (!decoder.decode(parameters.audioCaptureExtensionHandle))
+        return false;
+    if (!decoder.decode(parameters.shouldCaptureAudioInUIProcess))
+        return false;
+#endif
     if (!decoder.decode(parameters.shouldUseTestingNetworkSession))
         return false;
     if (!decoder.decode(parameters.urlSchemesRegisteredAsEmptyDocument))
@@ -210,10 +216,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.urlSchemesRegisteredAsAlwaysRevalidated))
         return false;
-#if ENABLE(CACHE_PARTITIONING)
     if (!decoder.decode(parameters.urlSchemesRegisteredAsCachePartitioned))
         return false;
-#endif
     if (!decoder.decodeEnum(parameters.cacheModel))
         return false;
     if (!decoder.decode(parameters.shouldAlwaysUseComplexTextCodePath))
@@ -244,10 +248,9 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.uiProcessBundleIdentifier))
         return false;
 #endif
-
-#if PLATFORM(COCOA)
-    if (!decoder.decode(parameters.presenterApplicationPid))
+    if (!decoder.decode(parameters.presentingApplicationPID))
         return false;
+#if PLATFORM(COCOA)
     if (!decoder.decode(parameters.accessibilityEnhancedUserInterfaceEnabled))
         return false;
     if (!decoder.decode(parameters.acceleratedCompositingPort))
@@ -259,8 +262,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.shouldEnableJIT))
         return false;
     if (!decoder.decode(parameters.shouldEnableFTLJIT))
-        return false;
-    if (!decoder.decode(parameters.urlParserEnabled))
         return false;
 
     bool hasBundleParameterData;
@@ -276,7 +277,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     }
 #endif
 
-#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS)
     if (!decoder.decode(parameters.notificationPermissions))
         return false;
 #endif
@@ -302,7 +303,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if PLATFORM(COCOA)
     if (!IPC::decode(decoder, parameters.networkATSContext))
         return false;
 #endif
@@ -314,6 +315,11 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 
 #if PLATFORM(WAYLAND)
     if (!decoder.decode(parameters.waylandCompositorDisplayName))
+        return false;
+#endif
+
+#if USE(SOUP)
+    if (!decoder.decode(parameters.proxySettings))
         return false;
 #endif
 

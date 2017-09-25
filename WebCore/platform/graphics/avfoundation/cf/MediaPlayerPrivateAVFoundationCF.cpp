@@ -220,7 +220,7 @@ private:
 
     virtual void platformCALayerAnimationStarted(CFTimeInterval beginTime) { }
     virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesBottomUp; }
-    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&) { }
+    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&, GraphicsLayerPaintBehavior) { }
     virtual bool platformCALayerShowDebugBorders() const { return false; }
     virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const { return false; }
     virtual int platformCALayerIncrementRepaintCount(PlatformCALayer*) { return 0; }
@@ -912,23 +912,25 @@ void MediaPlayerPrivateAVFoundationCF::getSupportedTypes(HashSet<String, ASCIICa
 
 MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationCF::supportsType(const MediaEngineSupportParameters& parameters)
 {
-    if (isUnsupportedMIMEType(parameters.type))
+    auto containerType = parameters.type.containerType();
+    if (isUnsupportedMIMEType(containerType))
         return MediaPlayer::IsNotSupported;
 
-    if (!staticMIMETypeList().contains(parameters.type) && !avfMIMETypes().contains(parameters.type))
+    if (!staticMIMETypeList().contains(containerType) && !avfMIMETypes().contains(containerType))
         return MediaPlayer::IsNotSupported;
 
+    auto codecs = parameters.type.parameter(ContentType::codecsParameter());
 #if HAVE(AVCFURL_PLAYABLE_MIMETYPE)
     // The spec says:
     // "Implementors are encouraged to return "maybe" unless the type can be confidently established as being supported or not."
-    if (parameters.codecs.isEmpty())
+    if (codecs.isEmpty())
         return MediaPlayer::MayBeSupported;
 
-    String typeString = parameters.type + "; codecs=\"" + parameters.codecs + "\"";
+    String typeString = containerType + "; codecs=\"" + codecs + "\"";
     return AVCFURLAssetIsPlayableExtendedMIMEType(typeString.createCFString().get()) ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;
 #else
-    if (avfMIMETypes().contains(parameters.type))
-        return parameters.codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported;
+    if (avfMIMETypes().contains(containerType))
+        return codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported;
     return MediaPlayer::IsNotSupported;
 #endif
 }
@@ -1122,6 +1124,7 @@ bool MediaPlayerPrivateAVFoundationCF::requiresImmediateCompositing() const
 }
 
 #if HAVE(AVFOUNDATION_LOADER_DELEGATE) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
+
 RetainPtr<AVCFAssetResourceLoadingRequestRef> MediaPlayerPrivateAVFoundationCF::takeRequestForKeyURI(const String& keyURI)
 {
     if (!m_avfWrapper)
@@ -1135,13 +1138,16 @@ std::unique_ptr<CDMSession> MediaPlayerPrivateAVFoundationCF::createSession(cons
     if (!keySystemIsSupported(keySystem))
         return nullptr;
 
-    return std::make_unique<CDMSessionAVFoundationCF>(this, client);
+    return std::make_unique<CDMSessionAVFoundationCF>(*this, client);
 }
+
 #elif ENABLE(LEGACY_ENCRYPTED_MEDIA)
-std::unique_ptr<CDMSession> MediaPlayerPrivateAVFoundationCF::createSession(const String& keySystem, , CDMSessionClient*)
+
+std::unique_ptr<CDMSession> MediaPlayerPrivateAVFoundationCF::createSession(const String& keySystem, CDMSessionClient*)
 {
     return nullptr;
 }
+
 #endif
 
 long MediaPlayerPrivateAVFoundationCF::assetErrorCode() const
@@ -1355,7 +1361,7 @@ bool MediaPlayerPrivateAVFoundationCF::hasSingleSecurityOrigin() const
 
     Ref<SecurityOrigin> resolvedOrigin(SecurityOrigin::create(resolvedURL()));
     Ref<SecurityOrigin> requestedOrigin(SecurityOrigin::createFromString(assetURL()));
-    return resolvedOrigin.get().isSameSchemeHostPort(&requestedOrigin.get());
+    return resolvedOrigin->isSameSchemeHostPort(requestedOrigin.get());
 }
 
 AVFWrapper::AVFWrapper(MediaPlayerPrivateAVFoundationCF* owner)
@@ -1907,13 +1913,14 @@ bool AVFWrapper::shouldWaitForLoadingOfResource(AVCFAssetResourceLoadingRequestR
         // [4 bytes: keyURI size], [keyURI size bytes: keyURI]
         unsigned keyURISize = keyURI.length() * sizeof(UChar);
         RefPtr<ArrayBuffer> initDataBuffer = ArrayBuffer::create(4 + keyURISize, 1);
-        RefPtr<JSC::DataView> initDataView = JSC::DataView::create(initDataBuffer, 0, initDataBuffer->byteLength());
+        RefPtr<JSC::DataView> initDataView = JSC::DataView::create(initDataBuffer.copyRef(), 0, initDataBuffer->byteLength());
         initDataView->set<uint32_t>(0, keyURISize, true);
 
-        RefPtr<Uint16Array> keyURIArray = Uint16Array::create(initDataBuffer, 4, keyURI.length());
+        RefPtr<Uint16Array> keyURIArray = Uint16Array::create(initDataBuffer.copyRef(), 4, keyURI.length());
         keyURIArray->setRange(reinterpret_cast<const uint16_t*>(StringView(keyURI).upconvertedCharacters().get()), keyURI.length() / sizeof(unsigned char), 0);
 
-        RefPtr<Uint8Array> initData = Uint8Array::create(initDataBuffer, 0, initDataBuffer->byteLength());
+        unsigned byteLength = initDataBuffer->byteLength();
+        RefPtr<Uint8Array> initData = Uint8Array::create(WTFMove(initDataBuffer), 0, byteLength);
         if (!m_owner->player()->keyNeeded(initData.get()))
             return false;
 

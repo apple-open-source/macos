@@ -61,6 +61,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <os/overflow.h>
 
 #include "ext.h"
 #include "fsutil.h"
@@ -72,13 +73,14 @@ readboot(dosfs, boot)
 {
 	u_char block[MAX_SECTOR_SIZE];
 	u_char fsinfo[MAX_SECTOR_SIZE];
+    u_int32_t result = 0;
 	int ret = FSOK;
 	
-        /*
-         * [2734381] Some devices have sector sizes greater than 512 bytes.  These devices
-         * tend to return errors if you try to read less than a sector, so we try reading
-         * the maximum sector size (which may end up reading more than one sector).
-         */
+	/*
+	 * [2734381] Some devices have sector sizes greater than 512 bytes.  These devices
+	 * tend to return errors if you try to read less than a sector, so we try reading
+	 * the maximum sector size (which may end up reading more than one sector).
+	 */
 	if (read(dosfs, block, MAX_SECTOR_SIZE) != MAX_SECTOR_SIZE) {
 		perr("could not read boot block");
 		return FSFATAL;
@@ -153,6 +155,7 @@ readboot(dosfs, boot)
 	if (boot->flags & FAT32) {
 		boot->FATsecs = block[36] + (block[37] << 8)
 				+ (block[38] << 16) + (block[39] << 24);
+
 		if (block[40] & 0x80)
 			boot->ValidFat = block[40] & 0x0f;
 
@@ -214,26 +217,38 @@ readboot(dosfs, boot)
 		}
 	}
 
+	/* sanity check the FATs and FATsecs */
+	if (os_mul_overflow(boot->FATs, boot->FATsecs, &result)) {
+		pfatal("Invalid boot->FATs or boot->FATsecs\n");
+		return FSFATAL;
+	}
+
 	boot->ClusterOffset = (boot->RootDirEnts * 32 + boot->BytesPerSec - 1)
 	    / boot->BytesPerSec
 	    + boot->ResSectors
-	    + boot->FATs * boot->FATsecs;
+	    + result;
 
 	if (boot->Sectors) {
 		boot->HugeSectors = 0;
 		boot->NumSectors = boot->Sectors;
 	} else
 		boot->NumSectors = boot->HugeSectors;
-        
-        /*
-         * Note: NumClusters isn't actually the *number* (or count) of clusters.  It is really
-         * the maximum cluster number plus one (which is the number of clusters plus two;
-         * it is also the number of valid FAT entries).  It is meant to be used
-         * for looping over cluster numbers, or range checking cluster numbers.
-         */
+
+    /* Ensure NumSectors isn't zero and >= ClusterOffset */
+    if ((boot->NumSectors == 0) || (boot->NumSectors < boot->ClusterOffset)) {
+		pfatal("Filesystem has invalid NumSectors %u\n", boot->NumSectors);
+		return FSFATAL;
+	}
+
+	/*
+	 * Note: NumClusters isn't actually the *number* (or count) of clusters.  It is really
+	 * the maximum cluster number plus one (which is the number of clusters plus two;
+	 * it is also the number of valid FAT entries).  It is meant to be used
+	 * for looping over cluster numbers, or range checking cluster numbers.
+	 */
 	boot->NumClusters = CLUST_FIRST + (boot->NumSectors - boot->ClusterOffset) / boot->SecPerClust;
 
-        /* Since NumClusters is off by two, use constants that are off by two also. */
+    /* Since NumClusters is off by two, use constants that are off by two also. */
 	if (boot->flags&FAT32)
 		boot->ClustMask = CLUST32_MASK;
 	else if (boot->NumClusters < (4085+2))
@@ -246,16 +261,31 @@ readboot(dosfs, boot)
 		return FSFATAL;
 	}
 
+	result = 0;
+
+	/* sanity check FATsecs and BytesPerSec */
+	if (os_mul_overflow(boot->FATsecs, boot->BytesPerSec, &result)) {
+		pfatal("Invalid boot->FATsecs or boot->BytesPerSec\n");
+		return FSFATAL;
+	}
+
 	switch (boot->ClustMask) {
 	case CLUST32_MASK:
-		boot->NumFatEntries = (boot->FATsecs * boot->BytesPerSec) / 4;
+		boot->NumFatEntries = result / 4;
 		break;
 	case CLUST16_MASK:
-		boot->NumFatEntries = (boot->FATsecs * boot->BytesPerSec) / 2;
+		boot->NumFatEntries = result / 2;
 		break;
 	default:
-		boot->NumFatEntries = (boot->FATsecs * boot->BytesPerSec * 2) / 3;
-		break;
+        {
+            u_int32_t mul2 = 0;
+            if (os_mul_overflow(result, 2, &mul2)) {
+                pfatal("Invalid boot->FATsecs or boot->BytesPerSec for FAT12\n");
+                return FSFATAL;
+            }
+            boot->NumFatEntries = mul2 / 3;
+            break;
+        }
 	}
 
 	/*

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,12 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebPlaybackSessionManagerProxy_h
-#define WebPlaybackSessionManagerProxy_h
+#pragma once
+
 #if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #include "MessageReceiver.h"
 #include <WebCore/GraphicsLayer.h>
+#include <WebCore/MediaSelectionOption.h>
 #include <WebCore/PlatformView.h>
 #include <WebCore/TimeRanges.h>
 #include <WebCore/WebPlaybackSessionModel.h>
@@ -69,17 +70,20 @@ public:
     void addClient(WebCore::WebPlaybackSessionModelClient&) final;
     void removeClient(WebCore::WebPlaybackSessionModelClient&)final;
 
-    void setDuration(double);
-    void setCurrentTime(double);
-    void setBufferedTime(double);
-    void setPlaybackStartedTime(double);
-    void setRate(bool isPlaying, float playbackRate);
-    void setSeekableRanges(WebCore::TimeRanges&);
-    void setCanPlayFastReverse(bool);
-    void setAudioMediaSelectionOptions(const Vector<WTF::String>& options, uint64_t index);
-    void setLegibleMediaSelectionOptions(const Vector<WTF::String>& options, uint64_t index);
-    void setExternalPlayback(bool, WebPlaybackSessionModel::ExternalPlaybackTargetType, const String&);
-    void setWirelessVideoPlaybackDisabled(bool);
+    void durationChanged(double);
+    void currentTimeChanged(double);
+    void bufferedTimeChanged(double);
+    void playbackStartedTimeChanged(double);
+    void rateChanged(bool isPlaying, float playbackRate);
+    void seekableRangesChanged(WebCore::TimeRanges&, double lastModifiedTime, double liveUpdateInterval);
+    void canPlayFastReverseChanged(bool);
+    void audioMediaSelectionOptionsChanged(const Vector<WebCore::MediaSelectionOption>& options, uint64_t index);
+    void legibleMediaSelectionOptionsChanged(const Vector<WebCore::MediaSelectionOption>& options, uint64_t index);
+    void audioMediaSelectionIndexChanged(uint64_t selectedIndex);
+    void legibleMediaSelectionIndexChanged(uint64_t selectedIndex);
+    void externalPlaybackChanged(bool, WebPlaybackSessionModel::ExternalPlaybackTargetType, const String&);
+    void wirelessVideoPlaybackDisabledChanged(bool);
+    void mutedChanged(bool);
 
 private:
     friend class WebVideoFullscreenModelContext;
@@ -103,6 +107,9 @@ private:
     void endScanning() final;
     void selectAudioMediaOption(uint64_t) final;
     void selectLegibleMediaOption(uint64_t) final;
+    void togglePictureInPicture() final;
+    void toggleMuted() final;
+    void setMuted(bool) final;
 
     double playbackStartedTime() const final { return m_playbackStartedTime; }
     double duration() const final { return m_duration; }
@@ -112,15 +119,18 @@ private:
     bool isScrubbing() const final { return m_isScrubbing; }
     float playbackRate() const final { return m_playbackRate; }
     Ref<WebCore::TimeRanges> seekableRanges() const final { return m_seekableRanges.copyRef(); }
+    double seekableTimeRangesLastModifiedTime() const final { return m_seekableTimeRangesLastModifiedTime; }
+    double liveUpdateInterval() const { return m_liveUpdateInterval; }
     bool canPlayFastReverse() const final { return m_canPlayFastReverse; }
-    Vector<WTF::String> audioMediaSelectionOptions() const final { return m_audioMediaSelectionOptions; }
+    Vector<WebCore::MediaSelectionOption> audioMediaSelectionOptions() const final { return m_audioMediaSelectionOptions; }
     uint64_t audioMediaSelectedIndex() const final { return m_audioMediaSelectedIndex; }
-    Vector<WTF::String> legibleMediaSelectionOptions() const final { return m_legibleMediaSelectionOptions; }
+    Vector<WebCore::MediaSelectionOption> legibleMediaSelectionOptions() const final { return m_legibleMediaSelectionOptions; }
     uint64_t legibleMediaSelectedIndex() const final { return m_legibleMediaSelectedIndex; }
     bool externalPlaybackEnabled() const final { return m_externalPlaybackEnabled; }
     WebPlaybackSessionModel::ExternalPlaybackTargetType externalPlaybackTargetType() const final { return m_externalPlaybackTargetType; }
     String externalPlaybackLocalizedDeviceName() const final { return m_externalPlaybackLocalizedDeviceName; }
     bool wirelessVideoPlaybackDisabled() const final { return m_wirelessVideoPlaybackDisabled; }
+    bool isMuted() const final { return m_muted; }
 
     WebPlaybackSessionManagerProxy* m_manager;
     uint64_t m_contextId;
@@ -134,15 +144,18 @@ private:
     bool m_isScrubbing { false };
     float m_playbackRate { 0 };
     Ref<WebCore::TimeRanges> m_seekableRanges { WebCore::TimeRanges::create() };
+    double m_seekableTimeRangesLastModifiedTime { 0 };
+    double m_liveUpdateInterval { 0 };
     bool m_canPlayFastReverse { false };
-    Vector<WTF::String> m_audioMediaSelectionOptions;
+    Vector<WebCore::MediaSelectionOption> m_audioMediaSelectionOptions;
     uint64_t m_audioMediaSelectedIndex { 0 };
-    Vector<WTF::String> m_legibleMediaSelectionOptions;
+    Vector<WebCore::MediaSelectionOption> m_legibleMediaSelectionOptions;
     uint64_t m_legibleMediaSelectedIndex { 0 };
     bool m_externalPlaybackEnabled { false };
     WebPlaybackSessionModel::ExternalPlaybackTargetType m_externalPlaybackTargetType { WebPlaybackSessionModel::TargetTypeNone };
     String m_externalPlaybackLocalizedDeviceName;
     bool m_wirelessVideoPlaybackDisabled { false };
+    bool m_muted { false };
 };
 
 class WebPlaybackSessionManagerProxy : public RefCounted<WebPlaybackSessionManagerProxy>, private IPC::MessageReceiver {
@@ -174,18 +187,21 @@ private:
     void setUpPlaybackControlsManagerWithID(uint64_t contextId);
     void clearPlaybackControlsManager();
     void resetMediaState(uint64_t contextId);
-    void setCurrentTime(uint64_t contextId, double currentTime, double hostTime);
-    void setBufferedTime(uint64_t contextId, double bufferedTime);
-    void setSeekableRangesVector(uint64_t contextId, Vector<std::pair<double, double>> ranges);
-    void setCanPlayFastReverse(uint64_t contextId, bool value);
-    void setAudioMediaSelectionOptions(uint64_t contextId, Vector<String> options, uint64_t selectedIndex);
-    void setLegibleMediaSelectionOptions(uint64_t contextId, Vector<String> options, uint64_t selectedIndex);
-    void setExternalPlaybackProperties(uint64_t contextId, bool enabled, uint32_t targetType, String localizedDeviceName);
-    void setWirelessVideoPlaybackDisabled(uint64_t contextId, bool);
-    void setDuration(uint64_t contextId, double duration);
-    void setPlaybackStartedTime(uint64_t contextId, double playbackStartedTime);
-    void setRate(uint64_t contextId, bool isPlaying, double rate);
+    void currentTimeChanged(uint64_t contextId, double currentTime, double hostTime);
+    void bufferedTimeChanged(uint64_t contextId, double bufferedTime);
+    void seekableRangesVectorChanged(uint64_t contextId, Vector<std::pair<double, double>> ranges, double lastModifiedTime, double liveUpdateInterval);
+    void canPlayFastReverseChanged(uint64_t contextId, bool value);
+    void audioMediaSelectionOptionsChanged(uint64_t contextId, Vector<WebCore::MediaSelectionOption> options, uint64_t selectedIndex);
+    void legibleMediaSelectionOptionsChanged(uint64_t contextId, Vector<WebCore::MediaSelectionOption> options, uint64_t selectedIndex);
+    void audioMediaSelectionIndexChanged(uint64_t contextId, uint64_t selectedIndex);
+    void legibleMediaSelectionIndexChanged(uint64_t contextId, uint64_t selectedIndex);
+    void externalPlaybackPropertiesChanged(uint64_t contextId, bool enabled, uint32_t targetType, String localizedDeviceName);
+    void wirelessVideoPlaybackDisabledChanged(uint64_t contextId, bool);
+    void durationChanged(uint64_t contextId, double duration);
+    void playbackStartedTimeChanged(uint64_t contextId, double playbackStartedTime);
+    void rateChanged(uint64_t contextId, bool isPlaying, double rate);
     void handleControlledElementIDResponse(uint64_t, String) const;
+    void mutedChanged(uint64_t contextId, bool muted);
 
     // Messages to WebPlaybackSessionManager
     void play(uint64_t contextId);
@@ -200,6 +216,9 @@ private:
     void endScanning(uint64_t contextId);
     void selectAudioMediaOption(uint64_t contextId, uint64_t index);
     void selectLegibleMediaOption(uint64_t contextId, uint64_t index);
+    void togglePictureInPicture(uint64_t contextId);
+    void toggleMuted(uint64_t contextId);
+    void setMuted(uint64_t contextId, bool);
 
     WebPageProxy* m_page;
     HashMap<uint64_t, ModelInterfaceTuple> m_contextMap;
@@ -210,5 +229,3 @@ private:
 } // namespace WebKit
 
 #endif // PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-
-#endif // WebPlaybackSessionManagerProxy_h

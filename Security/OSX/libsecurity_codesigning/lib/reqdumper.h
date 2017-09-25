@@ -83,7 +83,7 @@ protected:
 	void certSlot();	// symbolic certificate slot indicator (explicit)
 	void match();		// a match suffix (op + value)
 	
-	void print(const char *format, ...);
+	void print(const char *format, ...) __attribute((format(printf,2,3)));
 
 private:
 	void printBytes(const Byte *data, size_t length); // just write hex bytes

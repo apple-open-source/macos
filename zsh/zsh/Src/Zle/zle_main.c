@@ -357,6 +357,21 @@ ungetbytes(char *s, int len)
 	ungetbyte(*--s);
 }
 
+/**/
+void
+ungetbytes_unmeta(char *s, int len)
+{
+    s += len;
+    while (len--) {
+	if (len && s[-2] == Meta) {
+	    ungetbyte(*--s ^ 32);
+	    len--;
+	    s--;
+	} else
+	    ungetbyte(*--s);
+    }
+}
+
 #if defined(pyr) && defined(HAVE_SELECT)
 static int
 breakread(int fd, char *buf, int n)
@@ -456,7 +471,7 @@ calc_timeout(struct ztmout *tmoutp, long do_keytmout)
 
 	    tfdat = (Timedfn)getdata(tfnode);
 	    diff = tfdat->when - time(NULL);
-	    if (diff < 0) {
+	    if (diff <= 0) {
 		/* Already due; call it and rescan. */
 		tfdat->func();
 		continue;
@@ -909,13 +924,13 @@ getbyte(long do_keytmout, int *timeout)
 	ret = STOUC(cc);
     }
     /*
-     * vichgbuf is raw bytes, not wide characters, so is dealt
+     * curvichg.buf is raw bytes, not wide characters, so is dealt
      * with here.
      */
     if (vichgflag) {
-	if (vichgbufptr == vichgbufsz)
-	    vichgbuf = realloc(vichgbuf, vichgbufsz *= 2);
-	vichgbuf[vichgbufptr++] = ret;
+	if (curvichg.bufptr == curvichg.bufsz)
+	    curvichg.buf = realloc(curvichg.buf, curvichg.bufsz *= 2);
+	curvichg.buf[curvichg.bufptr++] = ret;
     }
     errno = old_errno;
     return lastchar = ret;
@@ -1025,6 +1040,47 @@ getrestchar(int inchar, char *outstr, int *outcount)
 /**/
 #endif
 
+/**/
+void
+redrawhook(void)
+{
+    Thingy initthingy;
+    if ((initthingy = rthingy_nocreate("zle-line-pre-redraw"))) {
+	/* Duplicating most of zlecallhook() to save additional state */
+	int saverrflag = errflag, savretflag = retflag;
+	int lastcmd_prev = lastcmd;
+	int old_incompfunc = incompfunc;
+	char *args[2];
+	Thingy lbindk_save = lbindk, bindk_save = bindk;
+
+	refthingy(lbindk_save);
+	refthingy(bindk_save);
+	args[0] = initthingy->nam;
+	args[1] = NULL;
+
+	/* The generic redraw hook cannot be a completion function, so
+	 * temporarily reset state for special variable handling etc.
+	 */
+	incompfunc = 0;
+	execzlefunc(initthingy, args, 1);
+	incompfunc = old_incompfunc;
+
+	/* Restore errflag and retflag as zlecallhook() does */
+	errflag = saverrflag | (errflag & ERRFLAG_INT);
+	retflag = savretflag;
+
+	unrefthingy(initthingy);
+	unrefthingy(lbindk);
+	unrefthingy(bindk);
+	lbindk = lbindk_save;
+	bindk = bindk_save;
+
+	/* we can't set ZLE_NOTCOMMAND since it's not a legit widget, so
+	 * restore lastcmd manually so that we don't mess up the global state
+	 */
+	lastcmd = lastcmd_prev;
+    }
+}
 
 /**/
 void
@@ -1084,6 +1140,8 @@ zlecore(void)
 	    errflag |= ERRFLAG_ERROR;
 	    break;
 	}
+
+	redrawhook();
 #ifdef HAVE_POLL
 	if (baud && !(lastcmd & ZLE_MENUCMP)) {
 	    struct pollfd pfd;
@@ -1113,13 +1171,22 @@ zlecore(void)
 		zrefresh();
 
 	freeheap();
+
     }
 
-    region_active = 0;
     popheap();
 }
 
-/* Read a line.  It is returned metafied. */
+/* Read a line.  It is returned metafied.
+ *
+ * Parameters:
+ * - lp: left prompt, e.g., $PS1
+ * - rp: right prompt, e.g., $RPS1
+ * - flags: ZLRF_* flags (I think), see zlereadflags
+ * - context: ZLCON_* flags (I think), see zlecontext
+ * - init: "zle-line-init"
+ * - finish: "zle-line-finish"
+ */
 
 /**/
 char *
@@ -1191,8 +1258,9 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     vistartchange = -1;
     zleline = (ZLE_STRING_T)zalloc(((linesz = 256) + 2) * ZLE_CHAR_SIZE);
     *zleline = ZWC('\0');
-    virangeflag = lastcmd = done = zlecs = zlell = mark = 0;
+    virangeflag = lastcmd = done = zlecs = zlell = mark = yankb = yanke = 0;
     vichgflag = 0;
+    viinrepeat = 0;
     viinsbegin = 0;
     statusline = NULL;
     selectkeymap("main", 1);
@@ -1248,12 +1316,16 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     lastcol = -1;
     initmodifier(&zmod);
     prefixflag = 0;
+    region_active = 0;
 
     zrefresh();
 
     unqueue_signals();	/* Should now be safe to acknowledge SIGWINCH */
 
     zlecallhook(init, NULL);
+
+    if (zleline && *zleline)
+	redrawhook();
 
     if ((bracket = getaparam("zle_bracketed_paste")) && arrlen(bracket) == 2)
 	fputs(*bracket, shout);
@@ -1297,6 +1369,16 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     return s;
 }
 
+/**/
+static int
+execimmortal(Thingy func, char **args)
+{
+    Thingy immortal = rthingy_nocreate(dyncat(".", func->nam));
+    if (immortal)
+	return execzlefunc(immortal, args, 0);
+    return 1;
+}
+
 /*
  * Execute a widget.  The third argument indicates that the global
  * variable bindk should be set temporarily so that WIDGET etc.
@@ -1308,6 +1390,8 @@ int
 execzlefunc(Thingy func, char **args, int set_bindk)
 {
     int r = 0, ret = 0, remetafy = 0;
+    int nestedvichg = vichgflag;
+    int isrepeat = (viinrepeat == 3);
     Widget w;
     Thingy save_bindk = bindk;
 
@@ -1317,8 +1401,10 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	unmetafy_line();
 	remetafy = 1;
     }
+    if (isrepeat)
+	viinrepeat = 2;
 
-    if(func->flags & DISABLED) {
+    if (func->flags & DISABLED) {
 	/* this thingy is not the name of a widget */
 	char *nm = nicedup(func->nam, 0);
 	char *msg = tricat("No such widget `", nm, "'");
@@ -1326,7 +1412,7 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	zsfree(nm);
 	showmsg(msg);
 	zsfree(msg);
-	ret = 1;
+	ret = execimmortal(func, args);
     } else if((w = func->widget)->flags & (WIDGET_INT|WIDGET_NCOMP)) {
 	int wflags = w->flags;
 
@@ -1344,6 +1430,8 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	    eofsent = 1;
 	    ret = 1;
 	} else {
+	    int inuse = wflags & WIDGET_INUSE;
+	    w->flags |= WIDGET_INUSE;
 	    if(!(wflags & ZLE_KEEPSUFFIX))
 		removesuffix();
 	    if(!(wflags & ZLE_MENUCMP)) {
@@ -1367,6 +1455,12 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 		ret = w->u.fn(args);
 		unqueue_signals();
 	    }
+	    if (!inuse) {
+		if (w->flags & WIDGET_FREE)
+		    freewidget(w);
+		else
+		    w->flags &= ~WIDGET_INUSE;
+	    }
 	    if (!(wflags & ZLE_NOTCOMMAND))
 		lastcmd = wflags;
 	}
@@ -1382,11 +1476,13 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	    zsfree(nm);
 	    showmsg(msg);
 	    zsfree(msg);
-	    ret = 1;
+	    ret = execimmortal(func, args);
 	} else {
 	    int osc = sfcontext, osi = movefd(0);
 	    int oxt = isset(XTRACE);
 	    LinkList largs = NULL;
+	    int inuse = w->flags & WIDGET_INUSE;
+	    w->flags |= WIDGET_INUSE;
 
 	    if (*args) {
 		largs = newlinklist();
@@ -1402,8 +1498,21 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	    opts[XTRACE] = oxt;
 	    sfcontext = osc;
 	    endparamscope();
-	    lastcmd = w->flags;
-	    w->flags = 0;
+	    if (errflag == ERRFLAG_ERROR) {
+		int saverr = errflag;
+		errflag &= ~ERRFLAG_ERROR;
+		if ((ret = execimmortal(func, args)) != 0)
+		    errflag |= saverr;
+	    }
+	    lastcmd = w->flags & ~(WIDGET_INUSE|WIDGET_FREE);
+	    if (inuse) {
+		w->flags &= WIDGET_INUSE|WIDGET_FREE;
+	    } else {
+		if (w->flags & WIDGET_FREE)
+		    freewidget(w);
+		else
+		    w->flags = 0;
+	    }
 	    r = 1;
 	    redup(osi, 0);
 	}
@@ -1423,6 +1532,25 @@ execzlefunc(Thingy func, char **args, int set_bindk)
     CCRIGHT();
     if (remetafy)
 	metafy_line();
+
+    /* if this widget constituted the vi change, end it */
+    if (vichgflag == 2 && !nestedvichg) {
+	if (invicmdmode()) {
+	    if (ret) {
+		free(curvichg.buf);
+	    } else {
+		if (lastvichg.buf)
+		    free(lastvichg.buf);
+		lastvichg = curvichg;
+	    }
+	    vichgflag = 0;
+	    curvichg.buf = NULL;
+	} else
+	    vichgflag = 1; /* vi change continues while in insert mode */
+    }
+    if (isrepeat)
+        viinrepeat = !invicmdmode();
+
     return ret;
 }
 
@@ -1558,6 +1686,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	return 1;
     } else if (v) {
 	if (*s) {
+	    unqueue_signals();
 	    zwarnnam(name, "not an identifier: `%s'", args[0]);
 	    return 1;
 	}
@@ -1794,9 +1923,16 @@ int
 recursiveedit(UNUSED(char **args))
 {
     int locerror;
+    int q = queue_signal_level();
 
+    /* zlecore() expects to be entered with signal queue disabled */
+    dont_queue_signals();
+
+    redrawhook();
     zrefresh();
     zlecore();
+
+    restore_queue_signals(q);
 
     locerror = errflag ? 1 : 0;
     errflag = done = eofsent = 0;
@@ -1809,6 +1945,7 @@ void
 reexpandprompt(void)
 {
     static int reexpanding;
+    static int looping;
 
     if (!reexpanding++) {
 	/*
@@ -1819,15 +1956,33 @@ reexpandprompt(void)
 	int local_lastval = lastval;
 	lastval = pre_zle_status;
 
-	free(lpromptbuf);
-	lpromptbuf = promptexpand(raw_lp ? *raw_lp : NULL, 1, NULL, NULL,
-				  &pmpt_attr);
-	rpmpt_attr = pmpt_attr;
-	free(rpromptbuf);
-	rpromptbuf = promptexpand(raw_rp ? *raw_rp : NULL, 1, NULL, NULL,
-				  &rpmpt_attr);
+	do {
+	    /* A new SIGWINCH may arrive while in promptexpand(), causing
+	     * looping to increment.  This only happens when a command
+	     * substitution is used in a PROMPT_SUBST prompt, but
+	     * nevertheless keep trying until we see no more changes.
+	     */
+	    char *new_lprompt, *new_rprompt;
+	    looping = reexpanding;
+
+	    new_lprompt = promptexpand(raw_lp ? *raw_lp : NULL, 1, NULL, NULL,
+				       &pmpt_attr);
+	    free(lpromptbuf);
+	    lpromptbuf = new_lprompt;
+
+	    if (looping != reexpanding)
+		continue;
+
+	    rpmpt_attr = pmpt_attr;
+	    new_rprompt = promptexpand(raw_rp ? *raw_rp : NULL, 1, NULL, NULL,
+				       &rpmpt_attr);
+	    free(rpromptbuf);
+	    rpromptbuf = new_rprompt;
+	} while (looping != reexpanding);
+
 	lastval = local_lastval;
-    }
+    } else
+	looping = reexpanding;
     reexpanding--;
 }
 
@@ -2103,7 +2258,7 @@ finish_(UNUSED(Module m))
     cleanup_keymaps();
     deletehashtable(thingytab);
 
-    zfree(vichgbuf, vichgbufsz);
+    zfree(lastvichg.buf, lastvichg.bufsz);
     zfree(kungetbuf, kungetsz);
     free_isrch_spots();
     if (rdstrs)

@@ -40,7 +40,6 @@
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginData.h"
-#include "Settings.h"
 
 namespace WebCore {
 
@@ -191,7 +190,7 @@ bool DatabaseContext::allowDatabaseAccess() const
 {
     if (is<Document>(*m_scriptExecutionContext)) {
         Document& document = downcast<Document>(*m_scriptExecutionContext);
-        if (!document.page() || (document.page()->usesEphemeralSession() && !SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(document.securityOrigin()->protocol())))
+        if (!document.page() || (document.page()->usesEphemeralSession() && !SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(document.securityOrigin().protocol())))
             return false;
         return true;
     }
@@ -205,7 +204,7 @@ void DatabaseContext::databaseExceededQuota(const String& name, DatabaseDetails 
     if (is<Document>(*m_scriptExecutionContext)) {
         Document& document = downcast<Document>(*m_scriptExecutionContext);
         if (Page* page = document.page())
-            page->chrome().client().exceededDatabaseQuota(document.frame(), name, details);
+            page->chrome().client().exceededDatabaseQuota(*document.frame(), name, details);
         return;
     }
     ASSERT(m_scriptExecutionContext->isWorkerGlobalScope());

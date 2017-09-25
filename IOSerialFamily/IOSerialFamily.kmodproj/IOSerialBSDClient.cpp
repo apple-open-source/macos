@@ -74,17 +74,12 @@ __END_DECLS
 
 OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 
-/*
- * Debugging assertions for tty locks
- */
-#define TTY_DEBUG 1
-#if TTY_DEBUG
-#define	TTY_LOCK_OWNED(tp) do {lck_mtx_assert(&tp->t_lock, LCK_MTX_ASSERT_OWNED); } while (0)
-#define	TTY_LOCK_NOTOWNED(tp) do {lck_mtx_assert(&tp->t_lock, LCK_MTX_ASSERT_NOTOWNED); } while (0)
-#else
-#define TTY_LOCK_OWNED(tp)
-#define TTY_LOCK_NOTOWNED(tp)
-#endif
+// TODO Move to xnu:bsd/kern/tty.c
+static boolean_t
+tty_trylock(struct tty *tp)
+{
+	return lck_mtx_try_lock(&tp->t_lock);
+}
 
 /*
  * enable/disable kprint debugging
@@ -1047,11 +1042,17 @@ willTerminate(IOService *provider, IOOptionBits options)
 #if JLOG
         kprintf("IOSerialBSDClient::willTerminate: we still have a session around...\n");
 #endif
-        // Enforce a zombie and unconnected state on the discipline
-        tty_lock(tp);
-        CLR(tp->t_cflag, CLOCAL);		// Fake up a carrier drop
-        (void) bsdld_modem(tp, false);
-        tty_unlock(tp);
+        // Enforce a zombie and unconnected state on the discipline (best effort)
+        for (int j = 9; j-->0;) {
+            if (tty_trylock(tp)) {
+                CLR(tp->t_cflag, CLOCAL);	// Fake up a carrier drop
+                bsdld_modem(tp, false);
+                tty_unlock(tp);
+                break;
+            } else {
+                thread_block(0);
+            }
+        }
     }
     fActiveSession = 0;
     

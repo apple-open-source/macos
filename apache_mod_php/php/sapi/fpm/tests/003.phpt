@@ -1,7 +1,10 @@
 --TEST--
 FPM: Test IPv6 support
 --SKIPIF--
-<?php include "skipif.inc"; ?>
+<?php include "skipif.inc";
+      @stream_socket_client('tcp://[::1]:0', $errno);
+      if ($errno != 111) die('skip IPv6 not supported.');
+?>
 --FILE--
 <?php
 
@@ -26,8 +29,8 @@ $fpm = run_fpm($cfg, $tail);
 if (is_resource($fpm)) {
     fpm_display_log($tail, 2);
     $i = 0;
-    while (($i++ < 30) && !($fp = fsockopen('[::1]', $port))) {
-        usleep(10000);
+    while (($i++ < 60) && !($fp = fsockopen('[::1]', $port))) {
+        usleep(50000);
     }
     if ($fp) {
         echo "Done\n";

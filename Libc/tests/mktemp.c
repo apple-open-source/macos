@@ -18,7 +18,7 @@ static const char template[] = TEMPLATE_BASE TEMPLATE_XS;
 
 static void test_mkostemp(int oflags);
 
-T_DECL(test_mkstemp, "basic mkstemp test")
+T_DECL(mkstemp, "basic mkstemp test")
 {
 	char path[sizeof(template)];
 	struct stat path_stat;
@@ -89,7 +89,7 @@ T_DECL(two_mkstemp_calls, "two mkstemp calls return different paths and fds")
 			"close must succeed for the second fd");
 }
 
-T_DECL(test_mktemp, "basic mktemp test")
+T_DECL(mktemp, "basic mktemp test")
 {
 	char path[sizeof(template)];
 
@@ -103,7 +103,7 @@ T_DECL(test_mktemp, "basic mktemp test")
 			template, path);
 }
 
-T_DECL(test_mkdtemp, "basic mkdtemp test")
+T_DECL(mkdtemp, "basic mkdtemp test")
 {
 	char path[sizeof(template)];
 	struct stat dstat;
@@ -198,7 +198,7 @@ test_mkostemp(int oflags)
 // always does T_SKIP on OS X yields another issue. The compiler starts
 // demanding to mark the test function definition as noreturn. Just
 // don't compile the testcase for OS X.
-T_DECL(test_mkstemp_dprotected_np, "basic mkstemp_dprotected_np test")
+T_DECL(mkstemp_dprotected_np, "basic mkstemp_dprotected_np test")
 {
 	char path[sizeof(template)];
 	int fd;

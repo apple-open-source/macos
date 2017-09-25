@@ -424,15 +424,16 @@ CF_ENUM(uint32_t) {
 	kSecCSSigningInformation = 1 << 1,
 	kSecCSRequirementInformation = 1 << 2,
 	kSecCSDynamicInformation = 1 << 3,
-	kSecCSContentInformation = 1 << 4
+	kSecCSContentInformation = 1 << 4,
+    kSecCSSkipResourceDirectory = 1 << 5
 };
 													/* flag required to get this value */
 extern const CFStringRef kSecCodeInfoCertificates;	/* Signing */
 extern const CFStringRef kSecCodeInfoChangedFiles;	/* Content */
 extern const CFStringRef kSecCodeInfoCMS;			/* Signing */
 extern const CFStringRef kSecCodeInfoDesignatedRequirement; /* Requirement */
-extern const CFStringRef kSecCodeInfoEntitlements;	/* Requirement */
-extern const CFStringRef kSecCodeInfoEntitlementsDict; /* Requirement */
+extern const CFStringRef kSecCodeInfoEntitlements;	/* generic */
+extern const CFStringRef kSecCodeInfoEntitlementsDict; /* generic */
 extern const CFStringRef kSecCodeInfoFlags;		/* generic */
 extern const CFStringRef kSecCodeInfoFormat;		/* generic */
 extern const CFStringRef kSecCodeInfoDigestAlgorithm; /* generic */

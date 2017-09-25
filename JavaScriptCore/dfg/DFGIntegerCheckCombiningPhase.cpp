@@ -201,8 +201,7 @@ private:
         // First we collect Ranges. If operations within the range have enough redundancy,
         // we hoist. And then we remove additions and checks that fall within the max range.
         
-        for (unsigned nodeIndex = 0; nodeIndex < block->size(); ++nodeIndex) {
-            Node* node = block->at(nodeIndex);
+        for (auto* node : *block) {
             RangeKeyAndAddend data = rangeKeyAndAddend(node);
             if (verbose)
                 dataLog("For ", node, ": ", data, "\n");
@@ -397,7 +396,7 @@ private:
                 nodeIndex, origin, jsNumber(addend), source.useKind()));
     }
     
-    typedef std::unordered_map<RangeKey, Range, HashMethod<RangeKey>> RangeMap;
+    using RangeMap = std::unordered_map<RangeKey, Range, HashMethod<RangeKey>, std::equal_to<RangeKey>, FastAllocator<std::pair<const RangeKey, Range>>>;
     RangeMap m_map;
     
     InsertionSet m_insertionSet;

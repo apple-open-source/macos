@@ -19,6 +19,7 @@
 		1A224C3FFF42367911CA2CB7 /* AppleFileSystemDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleFileSystemDriver.cpp; sourceTree = "<group>"; };
 		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		32D94FD00562CBF700B6AF17 /* AppleFileSystemDriver.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleFileSystemDriver.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		72528E4D1F16D79E0027A8FF /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		C6061BFB0E07185E0017A7C8 /* setbootuuid */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = setbootuuid; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6061C020E0718850017A7C8 /* setbootuuid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = setbootuuid.c; sourceTree = "<group>"; };
@@ -62,6 +63,7 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				72528E4D1F16D79E0027A8FF /* kext.xcconfig */,
 				32D94FCF0562CBF700B6AF17 /* Info.plist */,
 			);
 			name = Resources;
@@ -202,6 +204,7 @@
 /* Begin XCBuildConfiguration section */
 		1DEB91DA08733DB10010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72528E4D1F16D79E0027A8FF /* kext.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1.1.0;
@@ -218,6 +221,7 @@
 		};
 		1DEB91DB08733DB10010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72528E4D1F16D79E0027A8FF /* kext.xcconfig */;
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 2.0;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";

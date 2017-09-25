@@ -242,6 +242,19 @@ typedef struct tiny_region {
  */
 #define TINY_INDEX_FOR_PTR(_p) (((uintptr_t)(_p) >> SHIFT_TINY_QUANTUM) & (NUM_TINY_CEIL_BLOCKS - 1))
 
+/*
+ * Offset back to an szone_t given prior knowledge that this rack_t
+ * is contained within an szone_t.
+ *
+ * Note: the only place this is used, the dtrace probes, only occurs
+ *       when the rack has been set up inside a scalable zone. Should
+ *       this ever be used somewhere that this does not hold true
+ *       (say, the test cases) then the pointer returned will be junk.
+ */
+#define TINY_SZONE_FROM_RACK(_r) \
+		(szone_t *)((uintptr_t)(_r) - offsetof(struct szone_s, tiny_rack))
+
+
 #if !CONFIG_TINY_CACHE
 #warning CONFIG_TINY_CACHE turned off
 #endif
@@ -344,6 +357,26 @@ typedef struct tiny_region {
 #define SMALL_PREVIOUS_MSIZE(ptr) (*SMALL_METADATA_FOR_PTR(ptr - 1) & ~SMALL_IS_FREE)
 
 /*
+ * Convert from msize unit to free list slot.
+ */
+#define SMALL_FREE_SLOT_COUNT(_r) \
+		(((_r)->debug_flags & MALLOC_EXTENDED_SMALL_SLOTS) ? NUM_SMALL_SLOTS_LARGEMEM : NUM_SMALL_SLOTS)
+#define SMALL_FREE_SLOT_FOR_MSIZE(_r, _m) \
+		(((_m) <= SMALL_FREE_SLOT_COUNT(_r)) ? ((_m) - 1) : (SMALL_FREE_SLOT_COUNT(_r) - 1))
+
+/*
+ * Offset back to an szone_t given prior knowledge that this rack_t
+ * is contained within an szone_t.
+ *
+ * Note: the only place this is used, the dtrace probes, only occurs
+ *       when the rack has been set up inside a scalable zone. Should
+ *       this ever be used somewhere that this does not hold true
+ *       (say, the test cases) then the pointer returned will be junk.
+ */
+#define SMALL_SZONE_FROM_RACK(_r) \
+		(szone_t *)((uintptr_t)(_r) - offsetof(struct szone_s, small_rack))
+
+/*
  * Layout of a small region
  */
 typedef uint32_t small_block_t[SMALL_QUANTUM / sizeof(uint32_t)];
@@ -413,27 +446,6 @@ typedef struct large_entry_s {
 #if !CONFIG_LARGE_CACHE && DEBUG_MALLOC
 #warning CONFIG_LARGE_CACHE turned off
 #endif
-
-
-/*******************************************************************************
- * Definitions for region hash
- ******************************************************************************/
-
-typedef void *region_t;
-typedef region_t *rgnhdl_t; /* A pointer into hashed_regions array. */
-
-#define INITIAL_NUM_REGIONS_SHIFT 6							 // log2(INITIAL_NUM_REGIONS)
-#define INITIAL_NUM_REGIONS (1 << INITIAL_NUM_REGIONS_SHIFT) // Must be a power of 2!
-#define HASHRING_OPEN_ENTRY ((region_t)0)					 // Initial value and sentinel marking end of collision chain
-#define HASHRING_REGION_DEALLOCATED ((region_t)-1)			 // Region at this slot reclaimed by OS
-#define HASH_BLOCKS_ALIGN TINY_BLOCKS_ALIGN					 // MIN( TINY_BLOCKS_ALIGN, SMALL_BLOCKS_ALIGN, ... )
-
-typedef struct region_hash_generation {
-	size_t num_regions_allocated;
-	size_t num_regions_allocated_shift; // log2(num_regions_allocated)
-	region_t *hashed_regions;			// hashed by location
-	struct region_hash_generation *nextgen;
-} region_hash_generation_t;
 
 /*******************************************************************************
  * Per-processor magazine for tiny and small allocators
@@ -507,35 +519,9 @@ typedef struct szone_s {	  // vm_allocate()'d, so page-aligned to begin with.
 	unsigned debug_flags;
 	void *log_address;
 
-	/* Regions for tiny objects */
-	_malloc_lock_s tiny_regions_lock MALLOC_CACHE_ALIGN;
-	size_t num_tiny_regions;
-	size_t num_tiny_regions_dealloc;
-	region_hash_generation_t *tiny_region_generation;
-	region_hash_generation_t trg[2];
-
-	int num_tiny_magazines;
-	unsigned num_tiny_magazines_mask;
-	int num_tiny_magazines_mask_shift;
-	magazine_t *tiny_magazines; // array of per-processor magazines
-
-	uintptr_t last_tiny_advise;
-
-	/* Regions for small objects */
-	_malloc_lock_s small_regions_lock MALLOC_CACHE_ALIGN;
-	size_t num_small_regions;
-	size_t num_small_regions_dealloc;
-	region_hash_generation_t *small_region_generation;
-	region_hash_generation_t srg[2];
-
-	unsigned num_small_slots; // determined by physmem size
-
-	int num_small_magazines;
-	unsigned num_small_magazines_mask;
-	int num_small_magazines_mask_shift;
-	magazine_t *small_magazines; // array of per-processor magazines
-
-	uintptr_t last_small_advise;
+	/* Allocation racks per allocator type. */
+	struct rack_s tiny_rack;
+	struct rack_s small_rack;
 
 	/* large objects: all the rest */
 	_malloc_lock_s large_szone_lock MALLOC_CACHE_ALIGN; // One customer at a time for large
@@ -562,10 +548,6 @@ typedef struct szone_s {	  // vm_allocate()'d, so page-aligned to begin with.
 
 	/* security cookie */
 	uintptr_t cookie;
-
-	/* Initial region list */
-	region_t initial_tiny_regions[INITIAL_NUM_REGIONS];
-	region_t initial_small_regions[INITIAL_NUM_REGIONS];
 
 	/* The purgeable zone constructed by create_purgeable_zone() would like to hand off tiny and small
 	 * allocations to the default scalable zone. Record the latter as the "helper" zone here. */

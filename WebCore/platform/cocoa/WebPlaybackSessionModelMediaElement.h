@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebPlaybackSessionModelMediaElement_h
-#define WebPlaybackSessionModelMediaElement_h
+#pragma once
+
 #if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #include "EventListener.h"
@@ -35,6 +35,7 @@
 #include <wtf/Vector.h>
 
 namespace WebCore {
+
 class AudioTrack;
 class HTMLMediaElement;
 class TextTrack;
@@ -68,6 +69,9 @@ public:
     WEBCORE_EXPORT void endScanning() final;
     WEBCORE_EXPORT void selectAudioMediaOption(uint64_t index) final;
     WEBCORE_EXPORT void selectLegibleMediaOption(uint64_t index) final;
+    WEBCORE_EXPORT void togglePictureInPicture() final;
+    WEBCORE_EXPORT void toggleMuted() final;
+    WEBCORE_EXPORT void setMuted(bool) final;
 
     double duration() const final;
     double currentTime() const final;
@@ -76,20 +80,24 @@ public:
     bool isScrubbing() const final { return false; }
     float playbackRate() const final;
     Ref<TimeRanges> seekableRanges() const final;
+    double seekableTimeRangesLastModifiedTime() const final;
+    double liveUpdateInterval() const final;
     bool canPlayFastReverse() const final;
-    Vector<WTF::String> audioMediaSelectionOptions() const final;
+    Vector<MediaSelectionOption> audioMediaSelectionOptions() const final;
     uint64_t audioMediaSelectedIndex() const final;
-    Vector<WTF::String> legibleMediaSelectionOptions() const final;
+    Vector<MediaSelectionOption> legibleMediaSelectionOptions() const final;
     uint64_t legibleMediaSelectedIndex() const final;
     bool externalPlaybackEnabled() const final;
     ExternalPlaybackTargetType externalPlaybackTargetType() const final;
     String externalPlaybackLocalizedDeviceName() const final;
     bool wirelessVideoPlaybackDisabled() const final;
+    bool isMuted() const final;
 
 protected:
     WEBCORE_EXPORT WebPlaybackSessionModelMediaElement();
 
 private:
+    void progressEventTimerFired();
     static const Vector<WTF::AtomicString>& observedEventNames();
     const WTF::AtomicString& eventNameAll();
 
@@ -98,13 +106,12 @@ private:
     HashSet<WebPlaybackSessionModelClient*> m_clients;
     Vector<RefPtr<TextTrack>> m_legibleTracksForMenu;
     Vector<RefPtr<AudioTrack>> m_audioTracksForMenu;
-    
-    double playbackStartedTime() const;
-    void updateLegibleOptions();
-};
-    
-}
 
-#endif
+    double playbackStartedTime() const;
+    void updateMediaSelectionOptions();
+    void updateMediaSelectionIndices();
+};
+
+}
 
 #endif

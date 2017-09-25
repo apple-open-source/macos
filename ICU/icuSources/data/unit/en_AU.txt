@@ -1,21 +1,9 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/en_AU.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_AU{
     %%Parent{"en_001"}
-    Version{"2.1.24.13"}
+    Version{"2.1.32.62"}
     units{
-        coordinate{
-            east{"{0} east"}
-            north{"{0} north"}
-            south{"{0} south"}
-            west{"{0} west"}
-        }
         energy{
             kilowatt-hour{
                 dnam{"kilowatt hours"}
@@ -24,18 +12,16 @@ en_AU{
             }
         }
         length{
-            centimeter{
-                per{"{0} centimetre"}
-            }
-            decimeter{
-                one{"decimetre"}
-                other{"{0} decimetres"}
-            }
             kilometer{
                 dnam{"kilometre"}
+                one{"{0} kilometre"}
+                other{"{0} kilometres"}
+                per{"{0} per kilometre"}
             }
             micrometer{
                 dnam{"micrometres"}
+                one{"{0} micrometre"}
+                other{"{0} micrometres"}
             }
         }
         mass{
@@ -78,6 +64,23 @@ en_AU{
                 other{"{0}L/km"}
             }
         }
+        duration{
+            millisecond{
+                dnam{"msec."}
+                one{"{0} ms"}
+                other{"{0} ms"}
+            }
+            minute{
+                dnam{"min."}
+                one{"{0} min."}
+                other{"{0} min."}
+            }
+            second{
+                dnam{"sec."}
+                one{"{0} s."}
+                other{"{0} s."}
+            }
+        }
         length{
             meter{
                 dnam{"metre"}
@@ -105,6 +108,7 @@ en_AU{
         }
         volume{
             bushel{
+                dnam{"bushel"}
                 one{"{0} bus."}
                 other{"{0} bus."}
             }
@@ -127,6 +131,7 @@ en_AU{
                 dnam{"litre"}
                 one{"{0}L"}
                 other{"{0}L"}
+                per{"{0}/L"}
             }
             megaliter{
                 dnam{"ML"}
@@ -153,6 +158,7 @@ en_AU{
                 other{"{0} arcsec."}
             }
             degree{
+                dnam{"degrees"}
                 one{"{0} deg."}
                 other{"{0} deg."}
             }
@@ -172,6 +178,7 @@ en_AU{
                 other{"{0} mg/dL"}
             }
             millimole-per-liter{
+                dnam{"millimol/litre"}
                 one{"{0} mmol/L"}
                 other{"{0} mmol/L"}
             }
@@ -183,6 +190,7 @@ en_AU{
                 other{"{0} L/100 km"}
             }
             liter-per-kilometer{
+                dnam{"litres/km"}
                 one{"{0} L/km"}
                 other{"{0} L/km"}
             }
@@ -226,8 +234,10 @@ en_AU{
                 per{"{0}/min."}
             }
             month{
+                dnam{"months"}
                 one{"{0} m."}
                 other{"{0} m."}
+                per{"{0}/m"}
             }
             nanosecond{
                 dnam{"nanosec."}
@@ -255,16 +265,19 @@ en_AU{
                 other{"{0} AU"}
             }
             fathom{
+                dnam{"fathoms"}
                 one{"{0} fm"}
                 other{"{0} fm"}
             }
             light-year{
+                dnam{"light yrs"}
                 one{"{0} l.y."}
                 other{"{0} l.y."}
             }
         }
         mass{
             carat{
+                dnam{"carats"}
                 one{"{0} CM"}
                 other{"{0} CM"}
             }
@@ -278,6 +291,7 @@ en_AU{
         }
         speed{
             kilometer-per-hour{
+                dnam{"km/hour"}
                 one{"{0} km/h"}
                 other{"{0} km/h"}
             }
@@ -287,17 +301,14 @@ en_AU{
                 other{"{0} m/s."}
             }
             mile-per-hour{
+                dnam{"miles/hour"}
                 one{"{0} m.p.h."}
                 other{"{0} m.p.h."}
             }
         }
-        temperature{
-            generic{
-                dnam{"deg."}
-            }
-        }
         volume{
             bushel{
+                dnam{"bushels"}
                 one{"{0} bus."}
                 other{"{0} bus."}
             }
@@ -320,6 +331,7 @@ en_AU{
                 dnam{"litres"}
                 one{"{0} L"}
                 other{"{0} L"}
+                per{"{0}/L"}
             }
             megaliter{
                 dnam{"ML"}

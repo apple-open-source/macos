@@ -41,6 +41,8 @@
 #include <WebCore/FileSystem.h>
 #include <WebCore/FontCascade.h>
 #include <WebCore/LocalizedStrings.h>
+#include <WebCore/NetworkStorageSession.h>
+#include <WebCore/PlatformCookieJar.h>
 #include <limits>
 #include <shlobj.h>
 #include <wchar.h>
@@ -262,7 +264,6 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebGrammarCheckingEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(AllowContinuousSpellCheckingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitUsesPageCachePreferenceKey), kCFBooleanTrue);
-    CFDictionaryAddValue(defaults, CFSTR(WebKitAllowsPageCacheWithWindowOpenerKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageDatabasePathPreferenceKey), CFSTR(""));
 
     RetainPtr<CFStringRef> cacheModelRef = adoptCF(CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebCacheModelDocumentViewer));
@@ -304,6 +305,18 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitShadowDOMEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitCustomElementsEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitWebAnimationsEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitUserTimingEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitResourceTimingEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitLinkPreloadEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitMediaPreloadingEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitIsSecureContextAttributeEnabledPreferenceKey), kCFBooleanFalse);
 
     defaultSettings = defaults;
 }
@@ -550,6 +563,8 @@ HRESULT WebPreferences::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppv
         *ppvObject = static_cast<IWebPreferencesPrivate3*>(this);
     else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate4))
         *ppvObject = static_cast<IWebPreferencesPrivate4*>(this);
+    else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate5))
+        *ppvObject = static_cast<IWebPreferencesPrivate5*>(this);
     else if (IsEqualGUID(riid, CLSID_WebPreferences))
         *ppvObject = this;
     else
@@ -1605,20 +1620,6 @@ HRESULT WebPreferences::experimentalNotificationsEnabled(_Out_ BOOL* enabled)
     return S_OK;
 }
 
-HRESULT WebPreferences::setAllowsPageCacheWithWindowOpener(BOOL value)
-{
-    setBoolValue(WebKitAllowsPageCacheWithWindowOpenerKey, value);
-    return S_OK;
-}
-
-HRESULT WebPreferences::allowsPageCacheWithWindowOpener(_Out_ BOOL* enabled)
-{
-    if (!enabled)
-        return E_POINTER;
-    *enabled = boolValueForKey(WebKitAllowsPageCacheWithWindowOpenerKey);
-    return S_OK;
-}
-
 HRESULT WebPreferences::setZoomsTextOnly(BOOL zoomsTextOnly)
 {
     setBoolValue(WebKitZoomsTextOnlyPreferenceKey, zoomsTextOnly);
@@ -2004,22 +2005,104 @@ HRESULT WebPreferences::modernMediaControlsEnabled(_Out_ BOOL* enabled)
     return S_OK;
 }
 
-HRESULT WebPreferences::setES6ModulesEnabled(BOOL enabled)
+HRESULT WebPreferences::setLinkPreloadEnabled(BOOL enabled)
 {
-    setBoolValue(WebKitES6ModulesEnabledPreferenceKey, enabled);
+    setBoolValue(WebKitLinkPreloadEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
-HRESULT WebPreferences::es6ModulesEnabled(_Out_ BOOL* enabled)
+HRESULT WebPreferences::linkPreloadEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
         return E_POINTER;
-    *enabled = boolValueForKey(WebKitES6ModulesEnabledPreferenceKey);
+    *enabled = boolValueForKey(WebKitLinkPreloadEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setMediaPreloadingEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitMediaPreloadingEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::mediaPreloadingEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitMediaPreloadingEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::clearNetworkLoaderSession()
+{
+    WebCore::deleteAllCookies(NetworkStorageSession::defaultStorageSession());
+    return S_OK;
+}
+
+HRESULT WebPreferences::switchNetworkLoaderToNewTestingSession()
+{
+    NetworkStorageSession::switchToNewTestingSession();
+    return S_OK;
+}
+
+HRESULT WebPreferences::setIsSecureContextAttributeEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitIsSecureContextAttributeEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::isSecureContextAttributeEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitIsSecureContextAttributeEnabledPreferenceKey);
     return S_OK;
 }
 
 HRESULT WebPreferences::setApplicationId(BSTR applicationId)
 {
     m_applicationId = String(applicationId).createCFString();
+    return S_OK;
+}
+
+HRESULT WebPreferences::setWebAnimationsEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitWebAnimationsEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::webAnimationsEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitWebAnimationsEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setUserTimingEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitUserTimingEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::userTimingEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitUserTimingEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setResourceTimingEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitResourceTimingEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::resourceTimingEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitResourceTimingEnabledPreferenceKey);
     return S_OK;
 }

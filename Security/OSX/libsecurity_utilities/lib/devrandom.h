@@ -37,14 +37,12 @@ namespace Security {
 
 
 //
-// This RNG uses /dev/random.
-// It is not repeatable. AddEntropy() contributes random entropy to a global pool (only).
+// This RNG doesn't use /dev/random for reading, it uses CommonCrypto
+// (same as SecRandom does).  It is not repeatable.
+//
+// AddEntropy() contributes random entropy to a global pool (only).
 //
 class DevRandomGenerator {
-	struct Readonly : public UnixPlusPlus::FileDesc {
-		Readonly() { open("/dev/random", O_RDONLY); }
-	};
-	
 	struct Writable : public UnixPlusPlus::FileDesc {
 		Writable() { open("/dev/random", O_RDWR); }
 	};
@@ -56,7 +54,6 @@ public:
     void addEntropy(const void *data, size_t length);
 
 private:
-    static ModuleNexus<Readonly> mReader;
 	static ModuleNexus<Writable> mWriter;
 };
 

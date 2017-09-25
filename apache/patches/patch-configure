@@ -23,17 +23,6 @@
        fi
        ;;
 --- configure.orig	2015-12-15 21:28:52.000000000 -0800
-+++ configure	2015-12-17 20:46:11.000000000 -0800
-@@ -24802,7 +24802,7 @@
- rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
- 
-     if test "x$ac_cv_openssl" = "xyes"; then
--      ap_openssl_libs="${ap_openssl_libs:--lssl -lcrypto} `$apr_config --libs`"
-+      ap_openssl_libs="${ap_openssl_libs:--lssl.35 -lcrypto.35} `$apr_config --libs`"
- 
-   if test "x$MOD_LDFLAGS" = "x"; then
-     test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_openssl_libs\""
---- configure.orig	2015-12-15 21:28:52.000000000 -0800
 +++ configure	2015-12-15 21:29:14.000000000 -0800
 @@ -24885,7 +24885,7 @@
  fi

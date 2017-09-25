@@ -293,9 +293,10 @@ SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef ide
 
         dict = createUserSearchKey(candidate);
         isNonRepu = isNonRepudiated(candidate);
-        CFRelease(candidate);
+		status = SecKeychainItemCopyKeychain((SecKeychainItemRef)candidate, &keychain);
+		CFReleaseNull(candidate);
 
-        if (dict)
+        if (status == errSecSuccess && dict)
         {
             // find user for this pair
             CFStringRef expectedValue = (CFStringRef) CFDictionaryGetValue(dict, kCACUserIDTargetSearchString);
@@ -303,10 +304,9 @@ SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef ide
             CFStringRef value = NULL;
             int res = od_record_attribute_create_cfstring(odRecord, attributeName, &value);
             bool match = (res == 0) && (value) && (CFStringCompare(expectedValue, value, 0) == kCFCompareEqualTo);
-            status = SecKeychainItemCopyKeychain((SecKeychainItemRef)candidate, &keychain);
             CFRelease(dict);
 
-            if (status == errSecSuccess && match == true)
+            if (match == true)
             {
                 // check if this certificate is non-repudiated
                 // if so, keep it as a candidate for the case we won't find better one
@@ -332,8 +332,8 @@ SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef ide
                     }
                 }
             }
-            CFReleaseNull(keychain);
         }
+		CFReleaseNull(keychain);
     }
 
     // if we got here, all available certificates were either non-repu or non-matching

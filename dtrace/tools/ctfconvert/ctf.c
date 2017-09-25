@@ -48,7 +48,6 @@
 #define SWAP32(v)		v = OSSwapInt32(v)
 #define SWAP64(v)		v = OSSwapInt64(v)
 
-static int needSwap;
 #endif /* __APPLE__ */
 
 /*
@@ -148,13 +147,6 @@ write_label(labelent_t *le, ctf_buf_t *b)
 
 	ctl.ctl_label = strtab_insert(&b->ctb_strtab, le->le_name);
 	ctl.ctl_typeidx = le->le_idx;
-	
-#if defined(__APPLE__)
-	if (needSwap) {
-		SWAP32(ctl.ctl_label);
-		SWAP32(ctl.ctl_typeidx);
-	}
-#endif /* __APPLE__ */
 
 	ctf_buf_write(b, &ctl, sizeof (ctl));
 
@@ -165,12 +157,6 @@ static void
 write_objects(iidesc_t *idp, ctf_buf_t *b)
 {
 	ushort_t id = (idp ? idp->ii_dtype->t_id : 0);
-
-#if defined(__APPLE__)
-	if (needSwap) {
-		SWAP16(id);
-	}
-#endif /* __APPLE__ */
 
 	ctf_buf_write(b, &id, sizeof (id));
 
@@ -197,24 +183,10 @@ write_functions(iidesc_t *idp, ctf_buf_t *b)
 	fdata[0] = CTF_TYPE_INFO(CTF_K_FUNCTION, 1, nargs);
 	fdata[1] = idp->ii_dtype->t_id;
 
-#if defined(__APPLE__)
-	if (needSwap) {
-		SWAP16(fdata[0]);
-		SWAP16(fdata[1]);
-	}
-#endif /* __APPLE__ */
-
 	ctf_buf_write(b, fdata, sizeof (fdata));
 
 	for (i = 0; i < idp->ii_nargs; i++) {
 		id = idp->ii_args[i]->t_id;
-
-#if defined(__APPLE__)
-		if (needSwap) {
-			SWAP16(id);
-		}
-#endif /* __APPLE__ */
-
 		ctf_buf_write(b, &id, sizeof (id));
 	}
 
@@ -239,43 +211,19 @@ write_sized_type_rec(ctf_buf_t *b, ctf_type_t *ctt, size_t size)
 		ctt->ctt_size = CTF_LSIZE_SENT;
 		ctt->ctt_lsizehi = CTF_SIZE_TO_LSIZE_HI(size);
 		ctt->ctt_lsizelo = CTF_SIZE_TO_LSIZE_LO(size);
-#if defined(__APPLE__)
-		if (needSwap) {
-			SWAP32(ctt->ctt_name);
-			SWAP16(ctt->ctt_info);
-			SWAP16(ctt->ctt_size);
-			SWAP32(ctt->ctt_lsizehi);
-			SWAP32(ctt->ctt_lsizelo);
-		}
-#endif /* __APPLE__ */
 		ctf_buf_write(b, ctt, sizeof (*ctt));
 	} else {
 		ctf_stype_t *cts = (ctf_stype_t *)ctt;
 
 		cts->ctt_size = (ushort_t)size;
-#if defined(__APPLE__)
-		if (needSwap) {
-			SWAP32(cts->ctt_name);
-			SWAP16(cts->ctt_info);
-			SWAP16(cts->ctt_size);
-		}
-#endif /* __APPLE__ */
 		ctf_buf_write(b, cts, sizeof (*cts));
 	}
 }
 
-static void
+	static void
 write_unsized_type_rec(ctf_buf_t *b, ctf_type_t *ctt)
 {
 	ctf_stype_t *cts = (ctf_stype_t *)ctt;
-
-#if defined(__APPLE__)
-	if (needSwap) {
-		SWAP32(cts->ctt_name);
-		SWAP16(cts->ctt_info);
-		SWAP16(cts->ctt_size);
-	}
-#endif /* __APPLE__ */
 	ctf_buf_write(b, cts, sizeof (*cts));
 }
 
@@ -348,11 +296,6 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 			encoding = ip->intr_fformat;
 
 		data = CTF_INT_DATA(encoding, ip->intr_offset, ip->intr_nbits);
-#if defined(__APPLE__)
-		if (needSwap) {
-			SWAP32(data);
-		}
-#endif /* __APPLE__ */
 		ctf_buf_write(b, &data, sizeof (data));
 		break;
 
@@ -369,13 +312,6 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 		cta.cta_contents = tp->t_ardef->ad_contents->t_id;
 		cta.cta_index = tp->t_ardef->ad_idxtype->t_id;
 		cta.cta_nelems = tp->t_ardef->ad_nelems;
-#if defined(__APPLE__)
-		if (needSwap) {
-			SWAP16(cta.cta_contents);
-			SWAP16(cta.cta_index);
-			SWAP32(cta.cta_nelems);
-		}
-#endif /* __APPLE__ */
 		ctf_buf_write(b, &cta, sizeof (cta));
 		break;
 
@@ -400,13 +336,6 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 				    offset);
 				ctm.ctm_type = mp->ml_type->t_id;
 				ctm.ctm_offset = mp->ml_offset;
-#if defined(__APPLE__)
-				if (needSwap) {
-					SWAP32(ctm.ctm_name);
-					SWAP16(ctm.ctm_type);
-					SWAP16(ctm.ctm_offset);
-				}
-#endif /* __APPLE__ */
 				ctf_buf_write(b, &ctm, sizeof (ctm));
 			}
 		} else {
@@ -421,14 +350,6 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 				    CTF_OFFSET_TO_LMEMHI(mp->ml_offset);
 				ctlm.ctlm_offsetlo =
 				    CTF_OFFSET_TO_LMEMLO(mp->ml_offset);
-#if defined(__APPLE__)
-				if (needSwap) {
-					SWAP32(ctlm.ctlm_name);
-					SWAP16(ctlm.ctlm_type);
-					SWAP32(ctlm.ctlm_offsethi);
-					SWAP32(ctlm.ctlm_offsetlo);
-				}
-#endif /* __APPLE__ */
 				ctf_buf_write(b, &ctlm, sizeof (ctlm));
 			}
 		}
@@ -445,12 +366,6 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 			offset = strtab_insert(&b->ctb_strtab, ep->el_name);
 			cte.cte_name = CTF_TYPE_NAME(CTF_STRTAB_0, offset);
 			cte.cte_value = ep->el_number;
-#if defined(__APPLE__)
-			if (needSwap) {
-				SWAP32(cte.cte_name);
-				SWAP32(cte.cte_value);
-			}
-#endif /* __APPLE__ */
 			ctf_buf_write(b, &cte, sizeof (cte));
 		}
 		break;
@@ -487,11 +402,6 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 
 		for (i = 0; i < tp->t_fndef->fn_nargs; i++) {
 			id = tp->t_fndef->fn_args[i]->t_id;
-#if defined(__APPLE__)
-			if (needSwap) {
-				SWAP16(id);
-			}
-#endif /* __APPLE__ */
 			ctf_buf_write(b, &id, sizeof (id));
 		}
 
@@ -684,11 +594,6 @@ ctf_gen(iiburst_t *iiburst, size_t *resszp, int do_compress)
 	caddr_t outbuf;
 
 	int i;
-	
-#if defined(__APPLE__)
-	needSwap = (do_compress & CTF_BYTESWAP);
-	do_compress &= ~CTF_BYTESWAP;
-#endif /* __APPLE__ */
 
 	/*
 	 * Prepare the header, and create the CTF output buffers.  The data
@@ -725,20 +630,6 @@ ctf_gen(iiburst_t *iiburst, size_t *resszp, int do_compress)
 
 	h.cth_stroff = ctf_buf_cur(buf);
 	h.cth_strlen = strtab_size(&buf->ctb_strtab);
-	
-#if defined(__APPLE__)
-	if (needSwap) {
-		SWAP16(h.cth_preamble.ctp_magic);
-		SWAP32(h.cth_parlabel);	/* ref to name of parent lbl uniq'd against */
-		SWAP32(h.cth_parname);	/* ref to basename of parent */
-		SWAP32(h.cth_lbloff);	/* offset of label section */
-		SWAP32(h.cth_objtoff);	/* offset of object section */
-		SWAP32(h.cth_funcoff);	/* offset of function section */
-		SWAP32(h.cth_typeoff);	/* offset of type section */
-		SWAP32(h.cth_stroff);	/* offset of string section */
-		SWAP32(h.cth_strlen);	/* length of string section in bytes */
-	}
-#endif /* __APPLE__ */
 
 	/*
 	 * We only do compression for ctfmerge, as ctfconvert is only

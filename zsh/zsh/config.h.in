@@ -96,6 +96,9 @@
 /* Define to 1 if multiple modules defining the same symbol are OK. */
 #undef DYNAMIC_NAME_CLASH_OK
 
+/* Define to 1 if you want use unicode9 character widths. */
+#undef ENABLE_UNICODE9
+
 /* Define to 1 if getcwd() calls malloc to allocate memory. */
 #undef GETCWD_CALLS_MALLOC
 
@@ -574,6 +577,9 @@
 /* Define to 1 if there is a prototype defined for sbrk() on your system. */
 #undef HAVE_SBRK_PROTO
 
+/* Define to 1 if you have the `scalbn' function. */
+#undef HAVE_SCALBN
+
 /* Define to 1 if you have the `select' function. */
 #undef HAVE_SELECT
 
@@ -642,6 +648,9 @@
 
 /* Define to 1 if you have the `sigsetmask' function. */
 #undef HAVE_SIGSETMASK
+
+/* Define to 1 if you have the `srand_deterministic' function. */
+#undef HAVE_SRAND_DETERMINISTIC
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #undef HAVE_STDARG_H

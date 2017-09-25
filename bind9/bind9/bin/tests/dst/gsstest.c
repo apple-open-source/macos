@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2009-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2006, 2007, 2009-2011, 2013, 2014  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: gsstest.c,v 1.14.12.5 2011/11/30 00:51:38 marka Exp $ */
+/* $Id: gsstest.c,v 1.19 2011/11/30 00:48:51 marka Exp $ */
 
 #include <config.h>
 
@@ -27,6 +27,7 @@
 #include <isc/entropy.h>
 #include <isc/log.h>
 #include <isc/mem.h>
+#include <isc/print.h>
 #include <isc/sockaddr.h>
 #include <isc/socket.h>
 #include <isc/task.h>
@@ -71,9 +72,6 @@ struct dst_context {
 	} \
 }
 
-static char contextname[512];
-static char gssid[512];
-static char serveraddress[512];
 static dns_fixedname_t servername, gssname;
 
 static isc_mem_t *mctx;
@@ -106,7 +104,7 @@ console(isc_task_t *task, isc_event_t *event)
 
 	for (;;) {
 		printf("\nCommand => ");
-		c = scanf("%s", buf);
+		c = scanf("%31s", buf);
 
 		if (c == EOF || strcmp(buf, "quit") == 0) {
 			isc_app_shutdown();
@@ -209,7 +207,7 @@ sendquery(isc_task_t *task, isc_event_t *event)
 	isc_event_free(&event);
 
 	printf("Query => ");
-	c = scanf("%s", host);
+	c = scanf("%255s", host);
 	if (c == EOF)
 		return;
 
@@ -350,6 +348,8 @@ initctx2(isc_task_t *task, isc_event_t *event) {
 
 static void
 initctx1(isc_task_t *task, isc_event_t *event) {
+	char gssid[512];
+	char contextname[512];
 	isc_result_t result;
 	isc_buffer_t buf;
 	dns_message_t *query;
@@ -359,11 +359,12 @@ initctx1(isc_task_t *task, isc_event_t *event) {
 	isc_event_free(&event);
 
 	printf("Initctx - GSS name => ");
-	c = scanf("%s", gssid);
+	c = scanf("%511s", gssid);
 	if (c == EOF)
 		return;
 
-	sprintf(contextname, "gsstest.context.%d.", (int)time(NULL));
+	snprintf(contextname, sizeof(contextname),
+		 "gsstest.context.%d.", (int)time(NULL));
 
 	printf("Initctx - context name we're using: %s\n", contextname);
 
@@ -417,12 +418,13 @@ initctx1(isc_task_t *task, isc_event_t *event) {
 static void
 setup(void)
 {
-	struct in_addr inaddr;
-	int c;
-
 	for (;;) {
+		char serveraddress[512];
+		struct in_addr inaddr;
+		int c;
+
 		printf("Server IP => ");
-		c = scanf("%s", serveraddress);
+		c = scanf("%511s", serveraddress);
 
 		if (c == EOF || strcmp(serveraddress, "quit") == 0) {
 			isc_app_shutdown();

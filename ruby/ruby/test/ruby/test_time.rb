@@ -1,9 +1,8 @@
+# frozen_string_literal: false
 require 'test/unit'
-require 'rational'
 require 'delegate'
 require 'timeout'
 require 'delegate'
-require_relative 'envutil'
 
 class TestTime < Test::Unit::TestCase
   def setup
@@ -47,6 +46,7 @@ class TestTime < Test::Unit::TestCase
     tm = [2001,2,28,23,59,30]
     t = Time.new(*tm, "-12:00")
     assert_equal([2001,2,28,23,59,30,-43200], [t.year, t.month, t.mday, t.hour, t.min, t.sec, t.gmt_offset], bug4090)
+    assert_raise(ArgumentError) { Time.new(2000,1,1, 0,0,0, "+01:60") }
   end
 
   def test_time_add()
@@ -56,14 +56,14 @@ class TestTime < Test::Unit::TestCase
                  Time.utc(2000, 3, 21, 0, 30))
     assert_equal(0, (Time.at(1.1) + 0.9).usec)
 
-    assert((Time.utc(2000, 4, 1) + 24).utc?)
-    assert(!(Time.local(2000, 4, 1) + 24).utc?)
+    assert_predicate((Time.utc(2000, 4, 1) + 24), :utc?)
+    assert_not_predicate((Time.local(2000, 4, 1) + 24), :utc?)
 
     t = Time.new(2000, 4, 1, 0, 0, 0, "+01:00") + 24
-    assert(!t.utc?)
+    assert_not_predicate(t, :utc?)
     assert_equal(3600, t.utc_offset)
     t = Time.new(2000, 4, 1, 0, 0, 0, "+02:00") + 24
-    assert(!t.utc?)
+    assert_not_predicate(t, :utc?)
     assert_equal(7200, t.utc_offset)
   end
 
@@ -172,6 +172,7 @@ class TestTime < Test::Unit::TestCase
     assert_equal(100000, Time.at(0.0001).nsec)
     assert_equal(10000, Time.at(0.00001).nsec)
     assert_equal(3000, Time.at(0.000003).nsec)
+    assert_equal(200, Time.at(0.0000002r).nsec)
     assert_equal(199, Time.at(0.0000002).nsec)
     assert_equal(10, Time.at(0.00000001).nsec)
     assert_equal(1, Time.at(0.000000001).nsec)
@@ -333,16 +334,6 @@ class TestTime < Test::Unit::TestCase
       "[ruby-dev:44827] [Bug #5586]")
   end
 
-  def test_security_error
-    assert_raise(SecurityError) do
-      Thread.new do
-        t = Time.gm(2000)
-        $SAFE = 4
-        t.localtime
-      end.join
-    end
-  end
-
   Bug8795 = '[ruby-core:56648] [Bug #8795]'
 
   def test_marshal_broken_offset
@@ -427,11 +418,22 @@ class TestTime < Test::Unit::TestCase
       }
     }
     assert_raise(ArgumentError) { m.sleep(-1) }
+    assert_raise(TypeError) { m.sleep("") }
+    assert_raise(TypeError) { sleep("") }
+    obj = eval("class C\u{1f5ff}; self; end").new
+    assert_raise_with_message(TypeError, /C\u{1f5ff}/) {m.sleep(obj)}
+    assert_raise_with_message(TypeError, /C\u{1f5ff}/) {sleep(obj)}
   end
 
   def test_to_f
     t2000 = Time.at(946684800).gmtime
     assert_equal(946684800.0, t2000.to_f)
+  end
+
+  def test_to_f_accuracy
+    # https://bugs.ruby-lang.org/issues/10135#note-1
+    f = 1381089302.195
+    assert_equal(f, Time.at(f).to_f, "[ruby-core:64373] [Bug #10135] note-1")
   end
 
   def test_cmp
@@ -443,14 +445,14 @@ class TestTime < Test::Unit::TestCase
 
   def test_eql
     t2000 = get_t2000
-    assert(t2000.eql?(t2000))
-    assert(!t2000.eql?(Time.gm(2001)))
+    assert_operator(t2000, :eql?, t2000)
+    assert_not_operator(t2000, :eql?, Time.gm(2001))
   end
 
   def test_utc_p
-    assert(Time.gm(2000).gmt?)
-    assert(!Time.local(2000).gmt?)
-    assert(!Time.at(0).gmt?)
+    assert_predicate(Time.gm(2000), :gmt?)
+    assert_not_predicate(Time.local(2000), :gmt?)
+    assert_not_predicate(Time.at(0), :gmt?)
   end
 
   def test_hash
@@ -478,15 +480,15 @@ class TestTime < Test::Unit::TestCase
   def test_localtime_gmtime
     assert_nothing_raised do
       t = Time.gm(2000)
-      assert(t.gmt?)
+      assert_predicate(t, :gmt?)
       t.localtime
-      assert(!t.gmt?)
+      assert_not_predicate(t, :gmt?)
       t.localtime
-      assert(!t.gmt?)
+      assert_not_predicate(t, :gmt?)
       t.gmtime
-      assert(t.gmt?)
+      assert_predicate(t, :gmt?)
       t.gmtime
-      assert(t.gmt?)
+      assert_predicate(t, :gmt?)
     end
 
     t1 = Time.gm(2000)
@@ -495,6 +497,7 @@ class TestTime < Test::Unit::TestCase
     t3 = t1.getlocal("-02:00")
     assert_equal(t1, t3)
     assert_equal(-7200, t3.utc_offset)
+    assert_equal([1999, 12, 31, 22, 0, 0], [t3.year, t3.mon, t3.mday, t3.hour, t3.min, t3.sec])
     t1.localtime
     assert_equal(t1, t2)
     assert_equal(t1.gmt?, t2.gmt?)
@@ -527,8 +530,19 @@ class TestTime < Test::Unit::TestCase
     assert_equal(Time.at(946684800).getlocal.to_s, Time.at(946684800).to_s)
   end
 
+  def assert_zone_encoding(time)
+    zone = time.zone
+    assert_predicate(zone, :valid_encoding?)
+    if zone.ascii_only?
+      assert_equal(Encoding::US_ASCII, zone.encoding)
+    else
+      enc = Encoding.default_internal || Encoding.find('locale')
+      assert_equal(enc, zone.encoding)
+    end
+  end
+
   def test_zone
-    assert_equal(Encoding.find('locale'), Time.now.zone.encoding)
+    assert_zone_encoding Time.now
   end
 
   def test_plus_minus_succ
@@ -577,15 +591,15 @@ class TestTime < Test::Unit::TestCase
     assert_equal(1, t2000.yday)
     assert_equal(false, t2000.isdst)
     assert_equal("UTC", t2000.zone)
-    assert_equal(Encoding.find("locale"), t2000.zone.encoding)
+    assert_zone_encoding(t2000)
     assert_equal(0, t2000.gmt_offset)
-    assert(!t2000.sunday?)
-    assert(!t2000.monday?)
-    assert(!t2000.tuesday?)
-    assert(!t2000.wednesday?)
-    assert(!t2000.thursday?)
-    assert(!t2000.friday?)
-    assert(t2000.saturday?)
+    assert_not_predicate(t2000, :sunday?)
+    assert_not_predicate(t2000, :monday?)
+    assert_not_predicate(t2000, :tuesday?)
+    assert_not_predicate(t2000, :wednesday?)
+    assert_not_predicate(t2000, :thursday?)
+    assert_not_predicate(t2000, :friday?)
+    assert_predicate(t2000, :saturday?)
     assert_equal([0, 0, 0, 1, 1, 2000, 6, 1, false, "UTC"], t2000.to_a)
 
     t = Time.at(946684800).getlocal
@@ -599,7 +613,7 @@ class TestTime < Test::Unit::TestCase
     assert_equal(t.yday, Time.at(946684800).yday)
     assert_equal(t.isdst, Time.at(946684800).isdst)
     assert_equal(t.zone, Time.at(946684800).zone)
-    assert_equal(Encoding.find("locale"), Time.at(946684800).zone.encoding)
+    assert_zone_encoding(Time.at(946684800))
     assert_equal(t.gmt_offset, Time.at(946684800).gmt_offset)
     assert_equal(t.sunday?, Time.at(946684800).sunday?)
     assert_equal(t.monday?, Time.at(946684800).monday?)
@@ -933,20 +947,6 @@ class TestTime < Test::Unit::TestCase
     assert_raise(NoMethodError, bug5012) { t1.m }
   end
 
-  def test_time_subclass
-    bug5036 = '[ruby-dev:44122]'
-    tc = Class.new(Time)
-    tc.inspect
-    t = tc.now
-    error = assert_raise(SecurityError) do
-      proc do
-        $SAFE = 4
-        t.gmtime
-      end.call
-    end
-    assert_equal("Insecure: can't modify #{tc}", error.message, bug5036)
-  end
-
   def test_sec_str
     bug6193 = '[ruby-core:43569]'
     t = nil
@@ -1041,4 +1041,15 @@ class TestTime < Test::Unit::TestCase
     }
   end
 
+  def test_getlocal_nil
+    now = Time.now
+    now2 = nil
+    now3 = nil
+    assert_nothing_raised {
+      now2 = now.getlocal
+      now3 = now.getlocal(nil)
+    }
+    assert_equal now2, now3
+    assert_equal now2.zone, now3.zone
+  end
 end

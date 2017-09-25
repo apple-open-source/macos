@@ -248,6 +248,14 @@ struct libtop_psamp_s {
 	struct timeval		b_total_time;
 	struct timeval		p_total_time;
 
+	/* Performance counters. */
+	uint64_t instructions;
+	uint64_t b_instructions;
+	uint64_t p_instructions;
+	uint64_t cycles;
+	uint64_t b_cycles;
+	uint64_t p_cycles;
+
 	/* Total on behalf cpu time. */
 	uint64_t 	cpu_billed_to_me;
 	uint64_t	cpu_billed_to_others;

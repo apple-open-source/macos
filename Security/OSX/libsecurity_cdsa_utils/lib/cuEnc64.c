@@ -258,6 +258,10 @@ unsigned char *cuDec64(const unsigned char *inbuf,
 	bp = news;
 
 	obuflen = (inlen / 4) * 3;
+    if(obuflen == 0) {
+        free(news);
+        return NULL;
+    }
 	outbuf = (unsigned char*)malloc(obuflen);
 	outp = outbuf;
 

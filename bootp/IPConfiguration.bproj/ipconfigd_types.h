@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -199,6 +199,7 @@ typedef struct {
     struct in6_addr		addr;
     const struct in6_addr *	dns_servers;
     int				dns_servers_count;
+    CFArrayRef			dns_search_domains;
 } dhcpv6_info_t;
 
 typedef struct {
@@ -206,4 +207,8 @@ typedef struct {
     boolean_t			supported;
 } active_during_sleep_t;
 
+typedef struct {
+    int				prefix_count;
+    int				router_count;
+} ipv6_router_prefix_counts_t;
 #endif /* _S_IPCONFIGD_TYPES_H */

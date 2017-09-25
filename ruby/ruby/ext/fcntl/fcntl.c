@@ -2,7 +2,7 @@
 
   fcntl.c -
 
-  $Author: akr $
+  $Author: nobu $
   created at: Mon Apr  7 18:53:05 JST 1997
 
   Copyright (C) 1997-2001 Yukihiro Matsumoto
@@ -62,7 +62,7 @@ pack up your own arguments to pass as args for locking functions, etc.
  *
  */
 void
-Init_fcntl()
+Init_fcntl(void)
 {
     VALUE mFcntl = rb_define_module("Fcntl");
 #ifdef F_DUPFD

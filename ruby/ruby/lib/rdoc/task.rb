@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #--
 # Copyright (c) 2003, 2004 Jim Weirich, 2009 Eric Hodel
 #
@@ -291,7 +292,7 @@ class RDoc::Task < Rake::TaskLib
   private
 
   def rdoc_target
-    "#{rdoc_dir}/index.html"
+    "#{rdoc_dir}/created.rid"
   end
 
   def rdoc_task_name

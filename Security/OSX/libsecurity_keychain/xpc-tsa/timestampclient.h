@@ -39,7 +39,7 @@ void sendTSARequest(CFDataRef tsaReq, const char *tsaURL, TSARequestCompletionBl
     NSURL *url;
     NSMutableURLRequest *urlRequest;
 }
-@property (retain) id delegate;
+@property (weak) id delegate;
 @property (retain) id url;
 @property (retain) id urlRequest;
 

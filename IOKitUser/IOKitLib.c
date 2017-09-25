@@ -909,6 +909,17 @@ IONotificationPortGetMachPort(
     return( notify->wakePort );
 }
 
+kern_return_t
+IONotificationPortSetImportanceReceiver(IONotificationPortRef notify)
+{
+	kern_return_t kr;
+
+	kr = mach_port_set_attributes(mach_task_self(), notify->wakePort, MACH_PORT_IMPORTANCE_RECEIVER, (mach_port_info_t)NULL, 0);
+	assert(kr == KERN_SUCCESS);
+
+	return (kr);
+}
+
 boolean_t _IODispatchCalloutWithDispatch(mach_msg_header_t *msg, mach_msg_header_t *reply)
 {
     mig_reply_setup(msg, reply);

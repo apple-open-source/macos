@@ -27,13 +27,14 @@
 #include "NetworkProcessProxy.h"
 
 #include "AuthenticationChallengeProxy.h"
-#include "CustomProtocolManagerProxyMessages.h"
 #include "DatabaseProcessMessages.h"
 #include "DownloadProxyMessages.h"
+#include "LegacyCustomProtocolManagerProxyMessages.h"
 #include "Logging.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
 #include "SandboxExtension.h"
+#include "WebPageProxy.h"
 #include "WebProcessMessages.h"
 #include "WebProcessPool.h"
 #include "WebsiteData.h"
@@ -68,8 +69,8 @@ NetworkProcessProxy::NetworkProcessProxy(WebProcessPool& processPool)
     : ChildProcessProxy(processPool.alwaysRunsAtBackgroundPriority())
     , m_processPool(processPool)
     , m_numPendingConnectionRequests(0)
-    , m_customProtocolManagerProxy(this, processPool)
-    , m_throttler(*this)
+    , m_customProtocolManagerProxy(*this)
+    , m_throttler(*this, processPool.shouldTakeUIBackgroundAssertion())
 {
     connect();
 }
@@ -101,9 +102,9 @@ void NetworkProcessProxy::processWillShutDown(IPC::Connection& connection)
     ASSERT_UNUSED(connection, this->connection() == &connection);
 }
 
-void NetworkProcessProxy::getNetworkProcessConnection(RefPtr<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>&& reply)
+void NetworkProcessProxy::getNetworkProcessConnection(Ref<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>&& reply)
 {
-    m_pendingConnectionReplies.append(reply);
+    m_pendingConnectionReplies.append(WTFMove(reply));
 
     if (state() == State::Launching) {
         m_numPendingConnectionRequests++;
@@ -121,15 +122,14 @@ DownloadProxy* NetworkProcessProxy::createDownloadProxy(const ResourceRequest& r
     return m_downloadProxyMap->createDownloadProxy(m_processPool, resourceRequest);
 }
 
-void NetworkProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, OptionSet<WebsiteDataFetchOption> fetchOptions, std::function<void (WebsiteData)> completionHandler)
+void NetworkProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, OptionSet<WebsiteDataFetchOption> fetchOptions, WTF::Function<void (WebsiteData)>&& completionHandler)
 {
     ASSERT(canSendMessage());
 
     uint64_t callbackID = generateCallbackID();
-    auto token = throttler().backgroundActivityToken();
     RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because the Network process is fetching Website data", this);
 
-    m_pendingFetchWebsiteDataCallbacks.add(callbackID, [this, token, completionHandler, sessionID](WebsiteData websiteData) {
+    m_pendingFetchWebsiteDataCallbacks.add(callbackID, [this, token = throttler().backgroundActivityToken(), completionHandler = WTFMove(completionHandler), sessionID](WebsiteData websiteData) {
         completionHandler(WTFMove(websiteData));
         RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is releasing a background assertion because the Network process is done fetching Website data", this);
     });
@@ -137,28 +137,26 @@ void NetworkProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<Websit
     send(Messages::NetworkProcess::FetchWebsiteData(sessionID, dataTypes, fetchOptions, callbackID), 0);
 }
 
-void NetworkProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::chrono::system_clock::time_point modifiedSince,  std::function<void ()> completionHandler)
+void NetworkProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::chrono::system_clock::time_point modifiedSince, WTF::Function<void ()>&& completionHandler)
 {
     auto callbackID = generateCallbackID();
-    auto token = throttler().backgroundActivityToken();
     RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because the Network process is deleting Website data", this);
 
-    m_pendingDeleteWebsiteDataCallbacks.add(callbackID, [this, token, completionHandler, sessionID] {
+    m_pendingDeleteWebsiteDataCallbacks.add(callbackID, [this, token = throttler().backgroundActivityToken(), completionHandler = WTFMove(completionHandler), sessionID] {
         completionHandler();
         RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is releasing a background assertion because the Network process is done deleting Website data", this);
     });
     send(Messages::NetworkProcess::DeleteWebsiteData(sessionID, dataTypes, modifiedSince, callbackID), 0);
 }
 
-void NetworkProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, std::function<void()> completionHandler)
+void NetworkProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, WTF::Function<void()>&& completionHandler)
 {
     ASSERT(canSendMessage());
 
     uint64_t callbackID = generateCallbackID();
-    auto token = throttler().backgroundActivityToken();
     RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because the Network process is deleting Website data for several origins", this);
 
-    m_pendingDeleteWebsiteDataForOriginsCallbacks.add(callbackID, [this, token, completionHandler, sessionID] {
+    m_pendingDeleteWebsiteDataForOriginsCallbacks.add(callbackID, [this, token = throttler().backgroundActivityToken(), completionHandler = WTFMove(completionHandler), sessionID] {
         completionHandler();
         RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is releasing a background assertion because the Network process is done deleting Website data for several origins", this);
     });
@@ -166,11 +164,24 @@ void NetworkProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, Optio
     send(Messages::NetworkProcess::DeleteWebsiteDataForOrigins(sessionID, dataTypes, origins, cookieHostNames, callbackID), 0);
 }
 
-void NetworkProcessProxy::networkProcessCrashedOrFailedToLaunch()
+void NetworkProcessProxy::networkProcessCrashed()
+{
+    clearCallbackStates();
+
+    Vector<Ref<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>> pendingReplies;
+    pendingReplies.reserveInitialCapacity(m_pendingConnectionReplies.size());
+    for (auto& reply : m_pendingConnectionReplies)
+        pendingReplies.append(WTFMove(reply));
+
+    // Tell the network process manager to forget about this network process proxy. This may cause us to be deleted.
+    m_processPool.networkProcessCrashed(*this, WTFMove(pendingReplies));
+}
+
+void NetworkProcessProxy::networkProcessFailedToLaunch()
 {
     // The network process must have crashed or exited, send any pending sync replies we might have.
     while (!m_pendingConnectionReplies.isEmpty()) {
-        RefPtr<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
+        Ref<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
 
 #if USE(UNIX_DOMAIN_SOCKETS)
         reply->send(IPC::Attachment());
@@ -180,7 +191,13 @@ void NetworkProcessProxy::networkProcessCrashedOrFailedToLaunch()
         notImplemented();
 #endif
     }
+    clearCallbackStates();
+    // Tell the network process manager to forget about this network process proxy. This may cause us to be deleted.
+    m_processPool.networkProcessFailedToLaunch(*this);
+}
 
+void NetworkProcessProxy::clearCallbackStates()
+{
     for (const auto& callback : m_pendingFetchWebsiteDataCallbacks.values())
         callback(WebsiteData());
     m_pendingFetchWebsiteDataCallbacks.clear();
@@ -192,9 +209,6 @@ void NetworkProcessProxy::networkProcessCrashedOrFailedToLaunch()
     for (const auto& callback : m_pendingDeleteWebsiteDataForOriginsCallbacks.values())
         callback();
     m_pendingDeleteWebsiteDataForOriginsCallbacks.clear();
-
-    // Tell the network process manager to forget about this network process proxy. This may cause us to be deleted.
-    m_processPool.networkProcessCrashed(this);
 }
 
 void NetworkProcessProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
@@ -220,12 +234,12 @@ void NetworkProcessProxy::didClose(IPC::Connection&)
 {
     if (m_downloadProxyMap)
         m_downloadProxyMap->processDidClose();
-    m_customProtocolManagerProxy.processDidClose();
+    m_customProtocolManagerProxy.invalidate();
 
     m_tokenForHoldingLockedFiles = nullptr;
 
     // This may cause us to be deleted.
-    networkProcessCrashedOrFailedToLaunch();
+    networkProcessCrashed();
 }
 
 void NetworkProcessProxy::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference)
@@ -297,7 +311,7 @@ void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Con
     ChildProcessProxy::didFinishLaunching(launcher, connectionIdentifier);
 
     if (IPC::Connection::identifierIsNull(connectionIdentifier)) {
-        networkProcessCrashedOrFailedToLaunch();
+        networkProcessFailedToLaunch();
         return;
     }
 
@@ -317,7 +331,7 @@ void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Con
 #endif
 }
 
-void NetworkProcessProxy::logSampledDiagnosticMessage(uint64_t pageID, const String& message, const String& description)
+void NetworkProcessProxy::logDiagnosticMessage(uint64_t pageID, const String& message, const String& description, WebCore::ShouldSample shouldSample)
 {
     WebPageProxy* page = WebProcessProxy::webPage(pageID);
     // FIXME: We do this null-check because by the time the decision to log is made, the page may be gone. We should refactor to avoid this,
@@ -325,10 +339,10 @@ void NetworkProcessProxy::logSampledDiagnosticMessage(uint64_t pageID, const Str
     if (!page)
         return;
 
-    page->logSampledDiagnosticMessage(message, description);
+    page->logDiagnosticMessage(message, description, shouldSample);
 }
 
-void NetworkProcessProxy::logSampledDiagnosticMessageWithResult(uint64_t pageID, const String& message, const String& description, uint32_t result)
+void NetworkProcessProxy::logDiagnosticMessageWithResult(uint64_t pageID, const String& message, const String& description, uint32_t result, WebCore::ShouldSample shouldSample)
 {
     WebPageProxy* page = WebProcessProxy::webPage(pageID);
     // FIXME: We do this null-check because by the time the decision to log is made, the page may be gone. We should refactor to avoid this,
@@ -336,10 +350,10 @@ void NetworkProcessProxy::logSampledDiagnosticMessageWithResult(uint64_t pageID,
     if (!page)
         return;
 
-    page->logSampledDiagnosticMessageWithResult(message, description, result);
+    page->logDiagnosticMessageWithResult(message, description, result, shouldSample);
 }
 
-void NetworkProcessProxy::logSampledDiagnosticMessageWithValue(uint64_t pageID, const String& message, const String& description, const String& value)
+void NetworkProcessProxy::logDiagnosticMessageWithValue(uint64_t pageID, const String& message, const String& description, double value, unsigned significantFigures, WebCore::ShouldSample shouldSample)
 {
     WebPageProxy* page = WebProcessProxy::webPage(pageID);
     // FIXME: We do this null-check because by the time the decision to log is made, the page may be gone. We should refactor to avoid this,
@@ -347,17 +361,26 @@ void NetworkProcessProxy::logSampledDiagnosticMessageWithValue(uint64_t pageID, 
     if (!page)
         return;
 
-    page->logSampledDiagnosticMessageWithValue(message, description, value);
+    page->logDiagnosticMessageWithValue(message, description, value, significantFigures, shouldSample);
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 void NetworkProcessProxy::canAuthenticateAgainstProtectionSpace(uint64_t loaderID, uint64_t pageID, uint64_t frameID, const WebCore::ProtectionSpace& protectionSpace)
 {
-    WebPageProxy* page = WebProcessProxy::webPage(pageID);
-    if (!page)
-        return;
+    // NetworkProcess state cannot asynchronously be kept in sync with these objects
+    // like we expect WebProcess <-> UIProcess state to be kept in sync.
+    // So there's no guarantee the messaged WebPageProxy or WebFrameProxy exist here in the UIProcess.
+    // We need to validate both the page and the frame up front.
+    if (auto* page = WebProcessProxy::webPage(pageID)) {
+        if (page->process().webFrame(frameID)) {
+            page->canAuthenticateAgainstProtectionSpace(loaderID, frameID, protectionSpace);
+            return;
+        }
+    }
     
-    page->canAuthenticateAgainstProtectionSpace(loaderID, frameID, protectionSpace);
+    // In the case where we will not be able to reply to this message with a client reply,
+    // we should message back a default to the Networking process.
+    send(Messages::NetworkProcess::ContinueCanAuthenticateAgainstProtectionSpace(loaderID, false), 0);
 }
 #endif
 

@@ -46,6 +46,27 @@ typedef enum HandleIDSMessageReason {
     kHandleIDSmessageDeviceIDMismatch
 } HandleIDSMessageReason;
 
+/*
+ * Piggy backing codes
+ */
+
+typedef enum{
+    kPiggyV0 = 0,
+    kPiggyV1 = 1,
+} PiggyBackProtocolVersion;
+
+typedef enum{
+    kPiggyTLKs = 0,
+    kPiggyiCloudIdentities = 1
+} PiggybackKeyTypes;
+
+typedef enum {
+    kTLKUnknown = 0,
+    kTLKManatee = 1,
+    kTLKEngram = 2,
+    kTLKAutoUnlock = 3,
+    kTLKHealth = 4,
+} kTLKTypes;
 
 /*
  View Result Codes
@@ -95,6 +116,40 @@ enum {
     kSOSCCSecurityPropertyQuery           = 3,
 };
 typedef int SOSSecurityPropertyActionCode;
+
+#if __OBJC__
+
+#import <Foundation/Foundation.h>
+
+#define SOSControlInitialSyncFlagTLK           1
+#define SOSControlInitialSyncFlagPCS           2
+#define SOSControlInitialSyncFlagPCSNonCurrent 4
+
+@protocol SOSControlProtocol
+- (void)userPublicKey:(void ((^))(BOOL trusted, NSData *spki, NSError *error))complete;
+- (void)kvsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
+- (void)idsPerformanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
+- (void)rateLimitingPerformanceCounters:(void(^)(NSDictionary <NSString *, NSString *> *))reply;
+
+- (void)stashedCredentialPublicKey:(void(^)(NSData *, NSError *error))complete;
+- (void)assertStashedAccountCredential:(void(^)(BOOL result, NSError *error))complete;
+- (void)validatedStashedAccountCredential:(void(^)(NSData *credential, NSError *error))complete;
+- (void)stashAccountCredential:(NSData *)credential complete:(void(^)(bool success, NSError *error))complete;
+
+- (void)myPeerInfo:(void (^)(NSData *, NSError *))complete;
+- (void)circleJoiningBlob:(NSData *)applicant complete:(void (^)(NSData *blob, NSError *))complete;
+- (void)joinCircleWithBlob:(NSData *)blob version:(PiggyBackProtocolVersion)version complete:(void (^)(bool success, NSError *))complete;
+- (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete;
+- (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete;
+
+- (void)triggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete;
+
+- (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete;
+- (void)setWatchdogParmeters:(NSDictionary*)parameters complete:(void (^)(NSError* error))complete;
+
+@end
+#endif
+
 
 __END_DECLS
 

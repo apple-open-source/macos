@@ -30,7 +30,7 @@
 <a href="../tr/vhosts/ip-based.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#explanation">IP'ye dayalı sanal konak desteği nedir</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#explanation">IP'ye dayalı sanal konak desteği nedir</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#requirements">Sistem gereksinimleri</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#howto">Apache nasıl ayarlanır?</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#multiple">Çok sayıda sürecin yapılandırılması</a></li>
@@ -164,7 +164,7 @@
     <p>Süreç oluşturmayı denetleyen yönergeler ve bir kaç başka yönerge dışında
       hemen hemen tüm yapılandırma yönergeleri <code class="directive"><a href="../mod/core.html#virtualhost">VirtualHost</a></code> bölümleri içinde kullanılabilir.
       Bir yönergenin <code class="directive"><a href="../mod/core.html#virtualhost">VirtualHost</a></code>
-      bölümlerinde kullanılıp kullanılmayacağını öğrenmek için <a href="../mod/directives.html">yönerge dizinini</a> kullanarak yönergenin
+      bölümlerinde kullanılıp kullanılmayacağını öğrenmek için <a href="../mod/quickreference.html">yönerge dizinini</a> kullanarak yönergenin
       <a href="../mod/directive-dict.html#Context">Bağlam</a>’ına bakınız.</p>
 
     <p><a href="../suexec.html">suEXEC sarmalayıcısı</a> kullanıldığı takdirde
@@ -202,7 +202,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/vhosts/ip-based.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

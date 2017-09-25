@@ -56,6 +56,7 @@
 #include <AssertMacros.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/SecPolicyPriv.h>
+#include <Security/SecItem.h>
 
 #include "tsaSupport.h"
 #include "tsaSupportPriv.h"
@@ -213,11 +214,21 @@ SecCmsSignerInfoCreate(SecCmsMessageRef cmsg, SecIdentityRef identity, SECOidTag
     SecCmsSignerInfoRef signerInfo = NULL;
     SecCertificateRef cert = NULL;
     SecPrivateKeyRef signingKey = NULL;
+    CFDictionaryRef keyAttrs = NULL;
 
     if (SecIdentityCopyCertificate(identity, &cert))
 	goto loser;
     if (SecIdentityCopyPrivateKey(identity, &signingKey))
 	goto loser;
+
+    /* In some situations, the "Private Key" in the identity is actually a public key. */
+    keyAttrs = SecKeyCopyAttributes(signingKey);
+    if (!keyAttrs)
+        goto loser;
+    CFTypeRef class = CFDictionaryGetValue(keyAttrs, kSecAttrKeyClass);
+    if (!class || (CFGetTypeID(class) != CFStringGetTypeID()) || !CFEqual(class, kSecAttrKeyClassPrivate))
+        goto loser;
+
 
     signerInfo = nss_cmssignerinfo_create(cmsg, SecCmsSignerIDIssuerSN, cert, NULL, NULL, signingKey, digestalgtag);
 
@@ -226,6 +237,8 @@ loser:
 	CFRelease(cert);
     if (signingKey)
 	CFRelease(signingKey);
+    if (keyAttrs)
+        CFRelease(keyAttrs);
 
     return signerInfo;
 }
@@ -588,11 +601,11 @@ OSStatus
 SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeStampPolicy, CSSM_DATA_PTR digest, CSSM_DATA_PTR contentType)
 {
     SecPublicKeyRef publickey = NULL;
-    SecCmsAttribute *attr;
+    SecCmsAttribute *attr = NULL;
     CSSM_DATA encoded_attrs;
-    SecCertificateRef cert;
+    SecCertificateRef cert = NULL;
     SecCmsVerificationStatus vs = SecCmsVSUnverified;
-    PLArenaPool *poolp;
+    PLArenaPool *poolp = NULL;
     SECOidTag digestAlgTag, digestEncAlgTag;
     
     if (signerinfo == NULL)
@@ -993,11 +1006,11 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
     sid = &signerinfo->signerIdentifier;
     switch (sid->identifierType) {
     case SecCmsSignerIDIssuerSN:
-	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, rawCerts, signerinfo->cmsg->poolp,
+	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, rawCerts, signerinfo->sigd->certs, signerinfo->cmsg->poolp,
 	    sid->id.issuerAndSN);
 	break;
     case SecCmsSignerIDSubjectKeyID:
-	cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, sid->id.subjectKeyID);
+	cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, signerinfo->sigd->certs, sid->id.subjectKeyID);
 	break;
     default:
 	cert = NULL;
@@ -1030,7 +1043,9 @@ SecCmsSignerInfoGetSignerCommonName(SecCmsSignerInfoRef sinfo)
     if ((signercert = SecCmsSignerInfoGetSigningCertificate(sinfo, NULL)) == NULL)
 	return NULL;
 
-    SecCertificateCopyCommonName(signercert, &commonName);
+    if (errSecSuccess != SecCertificateCopyCommonName(signercert, &commonName)) {
+        return NULL;
+    }
 
     return commonName;
 }
@@ -1399,6 +1414,36 @@ loser:
     return status;
 }
 
+SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSignerInfoRef signerinfo) {
+    SecCertificateRef cert = NULL;
+    SecCmsAttribute *attr;
+    CSSM_DATA_PTR ekp;
+    SecKeychainRef keychainOrArray;
+
+    (void)SecKeychainCopyDefault(&keychainOrArray);
+
+    /* sanity check - see if verification status is ok (unverified does not count...) */
+    if (signerinfo->verificationStatus != SecCmsVSGoodSignature)
+        return NULL;
+
+    /* find preferred encryption cert */
+    if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr) &&
+        (attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr,
+                                                     SEC_OID_SMIME_ENCRYPTION_KEY_PREFERENCE, PR_TRUE)) != NULL)
+    { /* we have a SMIME_ENCRYPTION_KEY_PREFERENCE attribute! Find the cert. */
+        ekp = SecCmsAttributeGetValue(attr);
+        if (ekp == NULL)
+            return NULL;
+
+        CSSM_DATA_PTR *rawCerts = NULL;
+        if (signerinfo->sigd) {
+            rawCerts = signerinfo->sigd->rawCerts;
+        }
+        cert = SecSMIMEGetCertFromEncryptionKeyPreference(keychainOrArray, rawCerts, ekp);
+    }
+    return cert;
+}
+
 /*
  * XXXX the following needs to be done in the S/MIME layer code
  * after signature of a signerinfo is verified
@@ -1434,7 +1479,7 @@ SecCmsSignerInfoSaveSMIMEProfile(SecCmsSignerInfoRef signerinfo)
 
 	/* we assume that all certs coming with the message have been imported to the */
 	/* temporary database */
-	cert = SecSMIMEGetCertFromEncryptionKeyPreference(keychainOrArray, ekp);
+	cert = SecSMIMEGetCertFromEncryptionKeyPreference(keychainOrArray, NULL, ekp);
 	if (cert == NULL)
 	    return SECFailure;
 	must_free_cert = PR_TRUE;

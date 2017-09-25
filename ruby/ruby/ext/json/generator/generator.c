@@ -273,7 +273,18 @@ static void convert_UTF8_to_JSON(FBuffer *buffer, VALUE string)
                     escape_len = 2;
                     break;
                 default:
-                    end++;
+                    {
+                        unsigned short clen = trailingBytesForUTF8[c] + 1;
+                        if (end + clen > len) {
+                            rb_raise(rb_path2class("JSON::GeneratorError"),
+                                    "partial character in source, but hit end");
+                        }
+                        if (!isLegalUTF8((UTF8 *) p, clen)) {
+                            rb_raise(rb_path2class("JSON::GeneratorError"),
+                                    "source sequence is illegal/malformed utf-8");
+                        }
+                        end += clen;
+                    }
                     continue;
                     break;
             }
@@ -475,8 +486,9 @@ static VALUE mObject_to_json(int argc, VALUE *argv, VALUE self)
     return cState_partial_generate(state, string);
 }
 
-static void State_free(JSON_Generator_State *state)
+static void State_free(void *ptr)
 {
+    JSON_Generator_State *state = ptr;
     if (state->indent) ruby_xfree(state->indent);
     if (state->space) ruby_xfree(state->space);
     if (state->space_before) ruby_xfree(state->space_before);
@@ -488,17 +500,37 @@ static void State_free(JSON_Generator_State *state)
     ruby_xfree(state);
 }
 
-static JSON_Generator_State *State_allocate()
+static size_t State_memsize(const void *ptr)
 {
-    JSON_Generator_State *state = ALLOC(JSON_Generator_State);
-    MEMZERO(state, JSON_Generator_State, 1);
-    return state;
+    const JSON_Generator_State *state = ptr;
+    size_t size = sizeof(*state);
+    if (state->indent) size += state->indent_len + 1;
+    if (state->space) size += state->space_len + 1;
+    if (state->space_before) size += state->space_before_len + 1;
+    if (state->object_nl) size += state->object_nl_len + 1;
+    if (state->array_nl) size += state->array_nl_len + 1;
+    if (state->array_delim) size += FBUFFER_CAPA(state->array_delim);
+    if (state->object_delim) size += FBUFFER_CAPA(state->object_delim);
+    if (state->object_delim2) size += FBUFFER_CAPA(state->object_delim2);
+    return size;
 }
+
+#ifdef NEW_TYPEDDATA_WRAPPER
+static const rb_data_type_t JSON_Generator_State_type = {
+    "JSON/Generator/State",
+    {NULL, State_free, State_memsize,},
+#ifdef RUBY_TYPED_FREE_IMMEDIATELY
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY,
+#endif
+};
+#endif
 
 static VALUE cState_s_allocate(VALUE klass)
 {
-    JSON_Generator_State *state = State_allocate();
-    return Data_Wrap_Struct(klass, NULL, State_free, state);
+    JSON_Generator_State *state;
+    return TypedData_Make_Struct(klass, JSON_Generator_State,
+				 &JSON_Generator_State_type, state);
 }
 
 /*
@@ -511,11 +543,8 @@ static VALUE cState_configure(VALUE self, VALUE opts)
 {
     VALUE tmp;
     GET_STATE(self);
-    tmp = rb_convert_type(opts, T_HASH, "Hash", "to_hash");
+    tmp = rb_check_convert_type(opts, T_HASH, "Hash", "to_hash");
     if (NIL_P(tmp)) tmp = rb_convert_type(opts, T_HASH, "Hash", "to_h");
-    if (NIL_P(tmp)) {
-        rb_raise(rb_eArgError, "opts has to be hash like or convertable into a hash");
-    }
     opts = tmp;
     tmp = rb_hash_aref(opts, ID2SYM(i_indent));
     if (RTEST(tmp)) {
@@ -638,7 +667,7 @@ static VALUE cState_to_h(VALUE self)
 /*
 * call-seq: [](name)
 *
-* Return the value returned by method +name+.
+* Returns the value returned by method +name+.
 */
 static VALUE cState_aref(VALUE self, VALUE name)
 {
@@ -653,7 +682,7 @@ static VALUE cState_aref(VALUE self, VALUE name)
 /*
 * call-seq: []=(name, value)
 *
-* Set the attribute name to value.
+* Sets the attribute name to value.
 */
 static VALUE cState_aset(VALUE self, VALUE name, VALUE value)
 {
@@ -842,7 +871,7 @@ static void generate_json(FBuffer *buffer, VALUE Vstate, JSON_Generator_State *s
     } else {
         tmp = rb_funcall(obj, i_to_s, 0);
         Check_Type(tmp, T_STRING);
-        generate_json(buffer, Vstate, state, tmp);
+        generate_json_string(buffer, Vstate, state, tmp);
     }
 }
 
@@ -863,6 +892,7 @@ static FBuffer *cState_prepare_buffer(VALUE self)
     } else {
         state->object_delim2 = fbuffer_alloc(16);
     }
+    if (state->space_before) fbuffer_append(state->object_delim2, state->space_before, state->space_before_len);
     fbuffer_append_char(state->object_delim2, ':');
     if (state->space) fbuffer_append(state->object_delim2, state->space, state->space_len);
 
@@ -894,8 +924,8 @@ static int isArrayOrObject(VALUE string)
     long string_len = RSTRING_LEN(string);
     char *p = RSTRING_PTR(string), *q = p + string_len - 1;
     if (string_len < 2) return 0;
-    for (; p < q && isspace(*p); p++);
-    for (; q > p && isspace(*q); q--);
+    for (; p < q && isspace((unsigned char)*p); p++);
+    for (; q > p && isspace((unsigned char)*q); q--);
     return (*p == '[' && *q == ']') || (*p == '{' && *q == '}');
 }
 
@@ -950,7 +980,7 @@ static VALUE cState_initialize(int argc, VALUE *argv, VALUE self)
 /*
  * call-seq: initialize_copy(orig)
  *
- * Initializes this object from orig if it to be duplicated/cloned and returns
+ * Initializes this object from orig if it can be duplicated/cloned and returns
  * it.
 */
 static VALUE cState_init_copy(VALUE obj, VALUE orig)
@@ -958,8 +988,8 @@ static VALUE cState_init_copy(VALUE obj, VALUE orig)
     JSON_Generator_State *objState, *origState;
 
     if (obj == orig) return obj;
-    Data_Get_Struct(obj, JSON_Generator_State, objState);
-    Data_Get_Struct(orig, JSON_Generator_State, origState);
+    GET_STATE_TO(obj, objState);
+    GET_STATE_TO(orig, origState);
     if (!objState) rb_raise(rb_eArgError, "unallocated JSON::State");
 
     MEMCPY(objState, origState, JSON_Generator_State, 1);
@@ -998,7 +1028,7 @@ static VALUE cState_from_state_s(VALUE self, VALUE opts)
 /*
  * call-seq: indent()
  *
- * This string is used to indent levels in the JSON text.
+ * Returns the string that is used to indent levels in the JSON text.
  */
 static VALUE cState_indent(VALUE self)
 {
@@ -1009,7 +1039,7 @@ static VALUE cState_indent(VALUE self)
 /*
  * call-seq: indent=(indent)
  *
- * This string is used to indent levels in the JSON text.
+ * Sets the string that is used to indent levels in the JSON text.
  */
 static VALUE cState_indent_set(VALUE self, VALUE indent)
 {
@@ -1034,7 +1064,7 @@ static VALUE cState_indent_set(VALUE self, VALUE indent)
 /*
  * call-seq: space()
  *
- * This string is used to insert a space between the tokens in a JSON
+ * Returns the string that is used to insert a space between the tokens in a JSON
  * string.
  */
 static VALUE cState_space(VALUE self)
@@ -1046,7 +1076,7 @@ static VALUE cState_space(VALUE self)
 /*
  * call-seq: space=(space)
  *
- * This string is used to insert a space between the tokens in a JSON
+ * Sets _space_ to the string that is used to insert a space between the tokens in a JSON
  * string.
  */
 static VALUE cState_space_set(VALUE self, VALUE space)
@@ -1072,7 +1102,7 @@ static VALUE cState_space_set(VALUE self, VALUE space)
 /*
  * call-seq: space_before()
  *
- * This string is used to insert a space before the ':' in JSON objects.
+ * Returns the string that is used to insert a space before the ':' in JSON objects.
  */
 static VALUE cState_space_before(VALUE self)
 {
@@ -1083,7 +1113,7 @@ static VALUE cState_space_before(VALUE self)
 /*
  * call-seq: space_before=(space_before)
  *
- * This string is used to insert a space before the ':' in JSON objects.
+ * Sets the string that is used to insert a space before the ':' in JSON objects.
  */
 static VALUE cState_space_before_set(VALUE self, VALUE space_before)
 {
@@ -1290,7 +1320,7 @@ static VALUE cState_depth_set(VALUE self, VALUE depth)
 /*
  * call-seq: buffer_initial_length
  *
- * This integer returns the current inital length of the buffer.
+ * This integer returns the current initial length of the buffer.
  */
 static VALUE cState_buffer_initial_length(VALUE self)
 {
@@ -1319,7 +1349,7 @@ static VALUE cState_buffer_initial_length_set(VALUE self, VALUE buffer_initial_l
 /*
  *
  */
-void Init_generator()
+void Init_generator(void)
 {
     rb_require("json/common");
 

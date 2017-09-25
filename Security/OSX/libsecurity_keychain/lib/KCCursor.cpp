@@ -224,9 +224,6 @@ KCCursorImpl::next(Item &item)
 
             Keychain &kc = *mCurrent;
 
-            // Grab a read lock on the keychain
-            StReadWriteLock __(*(kc->getKeychainReadWriteLock()), StReadWriteLock::Read);
-
             Mutex* mutex = kc->getKeychainMutex();
             StLock<Mutex> _(*mutex);
 

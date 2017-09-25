@@ -128,7 +128,7 @@ makerunning(Job jn)
     Process pn;
 
     jn->stat &= ~STAT_STOPPED;
-    for (pn = jn->procs; pn; pn = pn->next)
+    for (pn = jn->procs; pn; pn = pn->next) {
 #if 0
 	if (WIFSTOPPED(pn->status) && 
 	    (!(jn->stat & STAT_SUPERJOB) || pn->next))
@@ -136,6 +136,7 @@ makerunning(Job jn)
 #endif
         if (WIFSTOPPED(pn->status))
 	    pn->status = SP_RUNNING;
+    }
 
     if (jn->stat & STAT_SUPERJOB)
 	makerunning(jobtab + jn->other);
@@ -231,12 +232,13 @@ super_job(int sub)
 static int
 handle_sub(int job, int fg)
 {
+    /* job: superjob; sj: subjob. */
     Job jn = jobtab + job, sj = jobtab + jn->other;
 
     if ((sj->stat & STAT_DONE) || (!sj->procs && !sj->auxprocs)) {
 	struct process *p;
-		    
-	for (p = sj->procs; p; p = p->next)
+
+	for (p = sj->procs; p; p = p->next) {
 	    if (WIFSIGNALED(p->status)) {
 		if (jn->gleader != mypgrp && jn->procs->next)
 		    killpg(jn->gleader, WTERMSIG(p->status));
@@ -246,6 +248,7 @@ handle_sub(int job, int fg)
 		kill(sj->other, WTERMSIG(p->status));
 		break;
 	    }
+	}
 	if (!p) {
 	    int cp;
 
@@ -884,37 +887,62 @@ should_report_time(Job j)
     struct value vbuf;
     Value v;
     char *s = "REPORTTIME";
-    zlong reporttime;
+    zlong reporttime = -1;
+#ifdef HAVE_GETRUSAGE
+    char *sm = "REPORTMEMORY";
+    zlong reportmemory = -1;
+#endif
 
     /* if the time keyword was used */
     if (j->stat & STAT_TIMED)
 	return 1;
 
     queue_signals();
-    if (!(v = getvalue(&vbuf, &s, 0)) ||
-	(reporttime = getintvalue(v)) < 0) {
-	unqueue_signals();
-	return 0;
-    }
+    if ((v = getvalue(&vbuf, &s, 0)))
+	reporttime = getintvalue(v);
+#ifdef HAVE_GETRUSAGE
+    if ((v = getvalue(&vbuf, &sm, 0)))
+	reportmemory = getintvalue(v);
+#endif
     unqueue_signals();
+    if (reporttime < 0
+#ifdef HAVE_GETRUSAGE
+	&& reportmemory < 0
+#endif
+	)
+	return 0;
     /* can this ever happen? */
     if (!j->procs)
 	return 0;
     if (zleactive)
 	return 0;
 
-#ifdef HAVE_GETRUSAGE
-    reporttime -= j->procs->ti.ru_utime.tv_sec + j->procs->ti.ru_stime.tv_sec;
-    if (j->procs->ti.ru_utime.tv_usec +
-	j->procs->ti.ru_stime.tv_usec >= 1000000)
-	reporttime--;
-    return reporttime <= 0;
-#else
+    if (reporttime >= 0)
     {
-	clktck = get_clktck();
-	return ((j->procs->ti.ut + j->procs->ti.st) / clktck >= reporttime);
-    }
+#ifdef HAVE_GETRUSAGE
+	reporttime -= j->procs->ti.ru_utime.tv_sec +
+	    j->procs->ti.ru_stime.tv_sec;
+	if (j->procs->ti.ru_utime.tv_usec +
+	    j->procs->ti.ru_stime.tv_usec >= 1000000)
+	    reporttime--;
+	if (reporttime <= 0)
+	    return 1;
+#else
+	{
+	    clktck = get_clktck();
+	    if ((j->procs->ti.ut + j->procs->ti.st) / clktck >= reporttime)
+		return 1;
+	}
 #endif
+    }
+
+#ifdef HAVE_GETRUSAGE
+    if (reportmemory >= 0 &&
+	j->procs->ti.ru_maxrss / 1024 > reportmemory)
+	return 1;
+#endif
+
+    return 0;
 }
 
 /* !(lng & 3) means jobs    *
@@ -1291,6 +1319,11 @@ deletejob(Job jn, int disowning)
 	attachtty(mypgrp);
 	adjustwinsize(0);
     }
+    if (jn->stat & STAT_SUPERJOB) {
+	Job jno = jobtab + jn->other;
+	if (jno->stat & STAT_SUBJOB)
+	    jno->stat |= STAT_SUBJOB_ORPHANED;
+    }
 
     freejob(jn, 1);
 }
@@ -1447,7 +1480,7 @@ zwaitjob(int job, int wait_cmd)
 	     */
 	    pipecleanfilelist(jn->filelist, 0);
 	}
-	while (!errflag && jn->stat &&
+	while (!(errflag & ERRFLAG_ERROR) && jn->stat &&
 	       !(jn->stat & STAT_DONE) &&
 	       !(interact && (jn->stat & STAT_STOPPED))) {
 	    signal_suspend(SIGCHLD, wait_cmd);
@@ -1468,6 +1501,13 @@ zwaitjob(int job, int wait_cmd)
 	      to remove ERRFLAG_ERROR and leave ERRFLAG_INT set, since
 	      that's the one related to ^C.  But that doesn't work.
 	      There's something more here we don't understand.  --pws
+
+	      The change above to ignore ERRFLAG_INT in the loop test
+	      solves a problem wherein child processes that ignore the
+	      INT signal were never waited-for.  Clearing the flag here
+	      still seems the wrong thing, but perhaps ERRFLAG_INT
+	      should be saved and restored around signal_suspend() to
+	      prevent it being lost within a signal trap?  --Bart
 
            errflag = 0; */
 
@@ -1970,9 +2010,9 @@ struct bgstatus {
 };
 typedef struct bgstatus *Bgstatus;
 /* The list of those entries */
-LinkList bgstatus_list;
+static LinkList bgstatus_list;
 /* Count of entries.  Reaches value of _SC_CHILD_MAX and stops. */
-long bgstatus_count;
+static long bgstatus_count;
 
 /*
  * Remove and free a bgstatus entry.
@@ -2372,7 +2412,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
     return retval;
 }
 
-const struct {
+static const struct {
     const char *name;
     int num;
 } alt_sigs[] = {
@@ -2526,6 +2566,10 @@ bin_kill(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 	}
 	argv++;
     }
+
+    /* Discard the standard "-" and "--" option breaks */
+    if (*argv && (*argv)[0] == '-' && (!(*argv)[1] || (*argv)[1] == '-'))
+	argv++;
 
     if (!*argv) {
     	zwarnnam(nam, "not enough arguments");

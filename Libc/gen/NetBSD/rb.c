@@ -1,4 +1,4 @@
-/*	$NetBSD: rb.c,v 1.11 2011/06/20 09:11:16 mrg Exp $	*/
+/*	$NetBSD: rb.c,v 1.13 2014/08/22 17:19:48 matt Exp $	*/
 
 /*-
  * Copyright (c) 2001 The NetBSD Foundation, Inc.

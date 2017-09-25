@@ -604,10 +604,10 @@
 /* #undef HAVE_NLIST */
 
 /* Define to 1 if you have the `ntp_adjtime' function. */
-/* #undef HAVE_NTP_ADJTIME */
+#define HAVE_NTP_ADJTIME 1
 
 /* Define to 1 if you have the `ntp_gettime' function. */
-/* #undef HAVE_NTP_GETTIME */
+#define HAVE_NTP_GETTIME 1
 
 /* Do we want support for Samba's signing daemon? */
 /* #undef HAVE_NTP_SIGND */
@@ -834,10 +834,10 @@
 #define HAVE_STRTOLL 1
 
 /* Do we have struct ntptimeval? */
-/* #undef HAVE_STRUCT_NTPTIMEVAL */
+#define HAVE_STRUCT_NTPTIMEVAL 1
 
 /* Define to 1 if `time.tv_nsec' is a member of `struct ntptimeval'. */
-/* #undef HAVE_STRUCT_NTPTIMEVAL_TIME_TV_NSEC */
+#define HAVE_STRUCT_NTPTIMEVAL_TIME_TV_NSEC 1
 
 /* Does a system header define struct ppsclockev? */
 /* #undef HAVE_STRUCT_PPSCLOCKEV */
@@ -1033,7 +1033,7 @@
 /* #undef HAVE_TIMER_SETTIME */
 
 /* Define to 1 if you have the <timex.h> header file. */
-/* #undef HAVE_TIMEX_H */
+#define HAVE_SYS_TIMEX_H 1
 
 /* Define to 1 if you have the <time.h> header file. */
 #define HAVE_TIME_H 1
@@ -1235,7 +1235,7 @@
 /* #undef KERNEL_FLL_BUG */
 
 /* Does the kernel support precision time discipline? */
-/* #undef KERNEL_PLL */
+#define KERNEL_PLL 1
 
 /* What is (probably) the name of DOSYNCTODR in the kernel? */
 #define K_DOSYNCTODR_NAME "_dosynctodr"
@@ -1310,7 +1310,7 @@
 /* #undef NTP_SIGND_PATH */
 
 /* Do we have ntp_{adj,get}time in libc? */
-/* #undef NTP_SYSCALLS_LIBC */
+#define NTP_SYSCALLS_LIBC 1
 
 /* Do we have ntp_{adj,get}time in the kernel? */
 /* #undef NTP_SYSCALLS_STD */
@@ -1344,7 +1344,7 @@
 #define PACKAGE_NAME "ntp"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "ntp 4.2.8p5"
+#define PACKAGE_STRING "ntp 4.2.8p10"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "ntp"
@@ -1353,7 +1353,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.2.8p5"
+#define PACKAGE_VERSION "4.2.8p10"
 
 /* Do we have the ppsclock streams module? */
 /* #undef PPS */
@@ -1506,7 +1506,7 @@ typedef unsigned int	uintptr_t;
 /* #undef USE_UDP_SIGPOLL */
 
 /* Version number of package */
-#define VERSION "4.2.8p5"
+#define VERSION "4.2.8p10"
 
 /* configure --enable-ipv6 */
 #define WANT_IPV6 /**/

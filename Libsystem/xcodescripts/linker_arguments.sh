@@ -47,11 +47,15 @@ for arch in ${ARCHS}; do
 
 	# Strip away variant information to do presence checks
 	# non-normal variants can always link against normal clients
-	cd ${LSYS} && ls lib*.dylib | sed -E -e 's/_(debug|profile|static)\././' | while read l; do
-	    xcrun -sdk "${SDKROOT}" lipo "${LSYS}/${l}" -verify_arch "${arch}" 2>/dev/null
-	    if [ $? -eq 0 ]; then
-		echo "${l}"
-	    fi
+	cd ${LSYS} && ls lib*.{dylib,tbd,api,spi} | sed -E -e 's/_(debug|profile|static)\././' | while read l; do
+		if [ "${l: -6}" == ".dylib" ]; then
+			xcrun -sdk "${SDKROOT}" lipo "${LSYS}/${l}" -verify_arch "${arch}" 2>/dev/null
+		else
+			xcrun -sdk "${SDKROOT}" tapi archive "${LSYS}/${l}" --verify-arch "${arch}" 2>/dev/null
+		fi
+		if [ $? -eq 0 ]; then
+			  echo "${l}"
+		fi
 	done | sed -E -e 's/^lib//' -e 's/\..*$$//'  | sort -u > ${INUSRLIBSYSTEM}
 	cd ${LIBSYS} && ls lib*.a | sed -E -e 's/_(debug|profile|static)\././' | while read l; do
 	    xcrun -sdk "${SDKROOT}" lipo "${LIBSYS}/${l}" -verify_arch "${arch}" 2>/dev/null
@@ -68,6 +72,7 @@ for arch in ${ARCHS}; do
 
 	while read line ; do
 	    for lib in ${line} ; do
+		egrep -q "^${lib}$" ${INUSRLIBSYSTEM} && break
 		egrep "^${lib}$" ${INUSRLOCALLIBSYSTEM} && break
 	    done
 	done < ${ALLLIBS} > ${POSSIBLEUSRLOCALLIBSYSTEM}

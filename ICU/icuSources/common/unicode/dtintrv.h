@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 2008-2009, International Business Machines Corporation and
@@ -21,6 +23,7 @@
  */
 
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 
@@ -154,5 +157,6 @@ DateInterval::operator!=(const DateInterval& other) const {
 
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif

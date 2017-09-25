@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,12 +34,12 @@
 #include <WebKit/WKBaseGtk.h>
 #endif
 
-#if defined(BUILDING_EFL__)
-#include <WebKit/WKBaseEfl.h>
-#endif
-
 #if defined(__APPLE__) && !defined(BUILDING_GTK__)
 #include <WebKit/WKBaseMac.h>
+#endif
+
+#if defined(BUILDING_WPE__)
+#include <WebKit/WKBaseWPE.h>
 #endif
 
 /* WebKit2 shared types */
@@ -127,6 +127,7 @@ typedef const struct OpaqueWKPageRunBeforeUnloadConfirmPanelResultListener* WKPa
 typedef const struct OpaqueWKPageRunJavaScriptAlertResultListener* WKPageRunJavaScriptAlertResultListenerRef;
 typedef const struct OpaqueWKPageRunJavaScriptConfirmResultListener* WKPageRunJavaScriptConfirmResultListenerRef;
 typedef const struct OpaqueWKPageRunJavaScriptPromptResultListener* WKPageRunJavaScriptPromptResultListenerRef;
+typedef const struct OpaqueWKResourceLoadStatisticsManager* WKResourceLoadStatisticsManagerRef;
 typedef const struct OpaqueWKTextChecker* WKTextCheckerRef;
 typedef const struct OpaqueWKSession* WKSessionRef;
 typedef const struct OpaqueWKSessionState* WKSessionStateRef;
@@ -136,7 +137,6 @@ typedef const struct OpaqueWKUserContentFilter* WKUserContentFilterRef;
 typedef const struct OpaqueWKUserMediaPermissionCheck* WKUserMediaPermissionCheckRef;
 typedef const struct OpaqueWKUserMediaPermissionRequest* WKUserMediaPermissionRequestRef;
 typedef const struct OpaqueWKUserScript* WKUserScriptRef;
-typedef const struct OpaqueWKVibration* WKVibrationRef;
 typedef const struct OpaqueWKViewportAttributes* WKViewportAttributesRef;
 typedef const struct OpaqueWKWebsiteDataStore* WKWebsiteDataStoreRef;
 typedef const struct OpaqueWKWebsitePolicies* WKWebsitePoliciesRef;

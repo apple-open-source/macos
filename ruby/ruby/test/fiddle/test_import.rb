@@ -1,4 +1,5 @@
 # coding: US-ASCII
+# frozen_string_literal: false
 begin
   require_relative 'helper'
   require 'fiddle/import'
@@ -63,6 +64,7 @@ module Fiddle
       assert_equal(SIZEOF_VOIDP, LIBC.sizeof("FILE*"))
       assert_equal(LIBC::MyStruct.size(), LIBC.sizeof(LIBC::MyStruct))
       assert_equal(LIBC::MyStruct.size(), LIBC.sizeof(LIBC::MyStruct.malloc()))
+      assert_equal(SIZEOF_LONG_LONG, LIBC.sizeof("long long"))
     end
 
     Fiddle.constants.grep(/\ATYPE_(?!VOID\z)(.*)/) do

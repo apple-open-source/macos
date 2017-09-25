@@ -24,6 +24,7 @@
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Servidor HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentação</a> &gt; <a href="../">Versão 2.4</a> &gt; <a href="./">How-To / Tutoriais</a></div><div id="page-content"><div id="preamble"><h1>Tutorial do Apache: arquivos .htaccess</h1>
 <div class="toplang">
 <p><span>Línguas Disponíveis: </span><a href="../en/howto/htaccess.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/htaccess.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/htaccess.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/htaccess.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/htaccess.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -35,7 +36,7 @@
 <p>Arquivos <code>.htaccess</code> oferecem um meio de fazer mudanças
  nas configurações por-diretório.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Arquivos .htaccess </a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Arquivos .htaccess </a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#what">O que eles são/Como usá-los</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#when">Quando (não) usar arquivos .htaccess</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#how">Como as diretrizes são aplicadas</a></li>
@@ -374,6 +375,7 @@
 </div></div>
 <div class="bottomlang">
 <p><span>Línguas Disponíveis: </span><a href="../en/howto/htaccess.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../es/howto/htaccess.html" hreflang="es" rel="alternate" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/htaccess.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/howto/htaccess.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/htaccess.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
@@ -396,7 +398,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/htaccess.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licenciado sob a <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licenciado sob a <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Diretrizes</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossário</a> | <a href="../sitemap.html">Mapa do site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

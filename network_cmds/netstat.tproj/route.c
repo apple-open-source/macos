@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -702,6 +702,8 @@ rt_stats(void)
 	p(rts_newgateway, "\t%u new gateway%s due to redirects\n");
 	p(rts_unreach, "\t%u destination%s found unreachable\n");
 	p(rts_wildcard, "\t%u use%s of a wildcard route\n");
+	p(rts_badrtgwroute, "\t%u lookup%s returned indirect "
+	    "routes pointing to indirect gateway route\n");
 #undef p
 
 	if (rttrash || sflag <= 1)

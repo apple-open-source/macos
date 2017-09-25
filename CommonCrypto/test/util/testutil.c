@@ -10,7 +10,8 @@
 #include "testutil.h"
 
 int expectedEqualsComputed(char *label, byteBuffer expected, byteBuffer computed) {
-    int retval = 0;
+    int retval;
+    
     if(expected == NULL) {
         printf("%s >>> Computed Results = \"%s\"\n", label, bytesToHexString(computed));
         retval = 1;
@@ -18,6 +19,7 @@ int expectedEqualsComputed(char *label, byteBuffer expected, byteBuffer computed
         diag(label);
         printByteBuffer(expected, "Expected: ");
         printByteBuffer(computed, "  Result: ");
+        retval=0;
     } else {
         retval = 1;
     }

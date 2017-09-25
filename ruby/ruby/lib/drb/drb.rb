@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 # = drb/drb.rb
 #
@@ -47,7 +48,7 @@
 
 require 'socket'
 require 'thread'
-require 'fcntl'
+require 'io/wait'
 require 'drb/eq'
 
 #
@@ -177,6 +178,9 @@ require 'drb/eq'
 #   # Not necessary for this small example, but will be required
 #   # as soon as we pass a non-marshallable object as an argument
 #   # to a dRuby call.
+#   #
+#   # Note: this must be called at least once per process to take any effect.
+#   # This is particularly important if your application forks.
 #   DRb.start_service
 #
 #   timeserver = DRbObject.new_with_uri(SERVER_URI)
@@ -231,7 +235,7 @@ require 'drb/eq'
 #       def get_logger(name)
 #           if !@loggers.has_key? name
 #               # make the filename safe, then declare it to be so
-#               fname = name.gsub(/[.\/]/, "_").untaint
+#               fname = name.gsub(/[.\/\\\:]/, "_").untaint
 #               @loggers[name] = Logger.new(name, @basedir + "/" + fname)
 #           end
 #           return @loggers[name]
@@ -742,7 +746,7 @@ module DRb
         end
       end
       if first && (config[:auto_load] != false)
-        auto_load(uri, config)
+        auto_load(uri)
         return open(uri, config, false)
       end
       raise DRbBadURI, 'can\'t parse uri:' + uri
@@ -766,7 +770,7 @@ module DRb
         end
       end
       if first && (config[:auto_load] != false)
-        auto_load(uri, config)
+        auto_load(uri)
         return open_server(uri, config, false)
       end
       raise DRbBadURI, 'can\'t parse uri:' + uri
@@ -789,14 +793,14 @@ module DRb
         end
       end
       if first && (config[:auto_load] != false)
-        auto_load(uri, config)
+        auto_load(uri)
         return uri_option(uri, config, false)
       end
       raise DRbBadURI, 'can\'t parse uri:' + uri
     end
     module_function :uri_option
 
-    def auto_load(uri, config)  # :nodoc:
+    def auto_load(uri)  # :nodoc:
       if uri =~ /^drb([a-z0-9]+):/
         require("drb/#{$1}") rescue nil
       end
@@ -902,6 +906,7 @@ module DRb
       @acl = config[:tcp_acl]
       @msg = DRbMessage.new(config)
       set_sockopt(@socket)
+      @shutdown_pipe_r, @shutdown_pipe_w = IO.pipe
     end
 
     # Get the URI that we are connected to.
@@ -949,14 +954,28 @@ module DRb
         @socket.close
         @socket = nil
       end
+      close_shutdown_pipe
     end
+
+    def close_shutdown_pipe
+      if @shutdown_pipe_r && !@shutdown_pipe_r.closed?
+        @shutdown_pipe_r.close
+        @shutdown_pipe_r = nil
+      end
+      if @shutdown_pipe_w && !@shutdown_pipe_w.closed?
+        @shutdown_pipe_w.close
+        @shutdown_pipe_w = nil
+      end
+    end
+    private :close_shutdown_pipe
 
     # On the server side, for an instance returned by #open_server,
     # accept a client connection and return a new instance to handle
     # the server's side of this client-server session.
     def accept
       while true
-        s = @socket.accept
+        s = accept_or_shutdown
+        return nil unless s
         break if (@acl ? @acl.allow_socket?(s) : true)
         s.close
       end
@@ -968,10 +987,24 @@ module DRb
       self.class.new(uri, s, @config)
     end
 
+    def accept_or_shutdown
+      readables, = IO.select([@socket, @shutdown_pipe_r])
+      if readables.include? @shutdown_pipe_r
+        return nil
+      end
+      @socket.accept
+    end
+    private :accept_or_shutdown
+
+    # Graceful shutdown
+    def shutdown
+      @shutdown_pipe_w.close if @shutdown_pipe_w && !@shutdown_pipe_w.closed?
+    end
+
     # Check to see if this connection is alive.
     def alive?
       return false unless @socket
-      if IO.select([@socket], nil, nil, 0)
+      if @socket.to_io.wait_readable(0)
         close
         return false
       end
@@ -980,7 +1013,6 @@ module DRb
 
     def set_sockopt(soc) # :nodoc:
       soc.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
-      soc.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) if defined? Fcntl::FD_CLOEXEC
     end
   end
 
@@ -992,7 +1024,7 @@ module DRb
     def initialize(option)
       @option = option.to_s
     end
-    attr :option
+    attr_reader :option
     def to_s; @option; end
 
     def ==(other)
@@ -1435,7 +1467,12 @@ module DRb
       if  Thread.current['DRb'] && Thread.current['DRb']['server'] == self
         Thread.current['DRb']['stop_service'] = true
       else
-        @thread.kill.join
+        if @protocol.respond_to? :shutdown
+          @protocol.shutdown
+        else
+          [@thread, *@grp.list].each {|thread| thread.kill} # xxx: Thread#kill
+        end
+        @thread.join
       end
     end
 
@@ -1460,8 +1497,7 @@ module DRb
     def run
       Thread.start do
         begin
-          while true
-            main_loop
+          while main_loop
           end
         ensure
           @protocol.close if @protocol
@@ -1591,16 +1627,9 @@ module DRb
 
     end
 
-    if RUBY_VERSION >= '1.8'
-      require 'drb/invokemethod'
-      class InvokeMethod
-        include InvokeMethod18Mixin
-      end
-    else
-      require 'drb/invokemethod16'
-      class InvokeMethod
-        include InvokeMethod16Mixin
-      end
+    require 'drb/invokemethod'
+    class InvokeMethod
+      include InvokeMethod18Mixin
     end
 
     # The main loop performed by a DRbServer's internal thread.
@@ -1611,7 +1640,9 @@ module DRb
     # returning responses, until the client closes the connection
     # or a local method call fails.
     def main_loop
-      Thread.start(@protocol.accept) do |client|
+      client0 = @protocol.accept
+      return nil if !client0
+      Thread.start(client0) do |client|
         @grp.add Thread.current
         Thread.current['DRb'] = { 'client' => client ,
                                   'server' => self }

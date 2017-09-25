@@ -9,14 +9,15 @@
 #include <IOKit/IOKitLib.h>
 #include <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
 #include <xpc/event_private.h>
+#include <os/log.h>
 
 static void aksNotificationCallback(void *refcon,io_service_t service, natural_t messageType, void *messageArgument)
 {
 	if(messageType == kAppleKeyStoreLockStateChangeMessage) {
-//        syslog(LOG_ERR, "KeyStoreNotifier - %s posting notification: %s\n", __func__, kAppleKeyStoreLockStatusNotificationID);
+        os_log(OS_LOG_DEFAULT, "KeyStoreNotifier posting lockstate change");
 		notify_post(kAppleKeyStoreLockStatusNotificationID);
 	} else if (messageType == kAppleKeyStoreFirstUnlockMessage) {
-//        syslog(LOG_ERR, "KeyStoreNotifier - %s posting notification: %s\n", __func__, kAppleKeyStoreFirstUnlockNotificationID);
+        os_log(OS_LOG_DEFAULT, "KeyStoreNotifier posting first unlock");
 		notify_post(kAppleKeyStoreFirstUnlockNotificationID);
     }
 }

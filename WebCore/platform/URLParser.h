@@ -27,6 +27,7 @@
 
 #include "TextEncoding.h"
 #include "URL.h"
+#include <wtf/Expected.h>
 #include <wtf/Forward.h>
 
 struct UIDNA;
@@ -42,15 +43,15 @@ public:
 
     WEBCORE_EXPORT static bool allValuesEqual(const URL&, const URL&);
     WEBCORE_EXPORT static bool internalValuesConsistent(const URL&);
-
-    WEBCORE_EXPORT static bool enabled();
-    WEBCORE_EXPORT static void setEnabled(bool);
     
-    typedef Vector<std::pair<String, String>> URLEncodedForm;
+    typedef Vector<WTF::KeyValuePair<String, String>> URLEncodedForm;
     WEBCORE_EXPORT static URLEncodedForm parseURLEncodedForm(StringView);
     static String serialize(const URLEncodedForm&);
 
     static const UIDNA& internationalDomainNameTranscoder();
+
+    WEBCORE_EXPORT static bool isSpecialScheme(const String& scheme);
+    WEBCORE_EXPORT static std::optional<String> maybeCanonicalizeScheme(const String& scheme);
 
 private:
     static std::optional<uint16_t> defaultPortForProtocol(StringView);
@@ -59,6 +60,7 @@ private:
     URL m_url;
     Vector<LChar> m_asciiBuffer;
     bool m_urlIsSpecial { false };
+    bool m_urlIsFile { false };
     bool m_hostHasPercentOrNonASCII { false };
     String m_inputString;
     const void* m_inputBegin { nullptr };
@@ -98,20 +100,23 @@ private:
     template<typename CharacterType> Vector<LChar, defaultInlineBufferSize> percentDecode(const LChar*, size_t, const CodePointIterator<CharacterType>& iteratorForSyntaxViolationPosition);
     static Vector<LChar, defaultInlineBufferSize> percentDecode(const LChar*, size_t);
     static std::optional<String> formURLDecode(StringView input);
-    static bool hasInvalidDomainCharacter(const Vector<LChar, defaultInlineBufferSize>&);
+    static bool hasForbiddenHostCodePoint(const Vector<LChar, defaultInlineBufferSize>&);
     void percentEncodeByte(uint8_t);
     void appendToASCIIBuffer(UChar32);
     void appendToASCIIBuffer(const char*, size_t);
     void appendToASCIIBuffer(const LChar* characters, size_t size) { appendToASCIIBuffer(reinterpret_cast<const char*>(characters), size); }
     template<typename CharacterType> void encodeQuery(const Vector<UChar>& source, const TextEncoding&, CodePointIterator<CharacterType>);
     void copyASCIIStringUntil(const String&, size_t length);
+    bool copyBaseWindowsDriveLetter(const URL&);
     StringView parsedDataView(size_t start, size_t length);
     UChar parsedDataView(size_t position);
 
     using IPv4Address = uint32_t;
     void serializeIPv4(IPv4Address);
-    template<typename CharacterTypeForSyntaxViolation, typename CharacterType> std::optional<IPv4Address> parseIPv4Host(const CodePointIterator<CharacterTypeForSyntaxViolation>&, CodePointIterator<CharacterType>);
-    template<typename CharacterType> std::optional<uint32_t> parseIPv4Piece(CodePointIterator<CharacterType>&, bool& syntaxViolation);
+    enum class IPv4ParsingError;
+    enum class IPv4PieceParsingError;
+    template<typename CharacterTypeForSyntaxViolation, typename CharacterType> Expected<IPv4Address, IPv4ParsingError> parseIPv4Host(const CodePointIterator<CharacterTypeForSyntaxViolation>&, CodePointIterator<CharacterType>);
+    template<typename CharacterType> Expected<uint32_t, URLParser::IPv4PieceParsingError> parseIPv4Piece(CodePointIterator<CharacterType>&, bool& syntaxViolation);
     using IPv6Address = std::array<uint16_t, 8>;
     template<typename CharacterType> std::optional<IPv6Address> parseIPv6Host(CodePointIterator<CharacterType>);
     template<typename CharacterType> std::optional<uint32_t> parseIPv4PieceInsideIPv6(CodePointIterator<CharacterType>&);
@@ -123,6 +128,7 @@ private:
     template<typename CharacterType> void copyURLPartsUntil(const URL& base, URLPart, const CodePointIterator<CharacterType>&, bool& isUTF8Encoding);
     static size_t urlLengthUntilPart(const URL&, URLPart);
     void popPath();
+    bool shouldPopPath(unsigned);
 };
 
 }

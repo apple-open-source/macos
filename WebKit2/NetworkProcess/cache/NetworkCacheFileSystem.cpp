@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <wtf/Assertions.h>
+#include <wtf/Function.h>
 #include <wtf/text/CString.h>
 
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
@@ -62,7 +63,7 @@ static DirectoryEntryType directoryEntryType(uint8_t dtype)
     }
 }
 
-void traverseDirectory(const String& path, const std::function<void (const String&, DirectoryEntryType)>& function)
+void traverseDirectory(const String& path, const Function<void (const String&, DirectoryEntryType)>& function)
 {
     DIR* dir = opendir(WebCore::fileSystemRepresentation(path).data());
     if (!dir)

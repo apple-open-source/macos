@@ -30,6 +30,7 @@
 #include "pkcs12Utils.h"
 #include "pkcs12Debug.h"
 #include "pkcs12Crypto.h"
+#include "SecCFRelease.h"
 #include <Security/cssmerr.h>
 #include <security_cdsa_utils/cuDbUtils.h>			// cuAddCrlToDb()
 #include <security_asn1/nssUtils.h>
@@ -305,11 +306,13 @@ void P12Coder::addSecKey(
 	for(unsigned i=0; i<attrList->count; i++) {
 		SecKeychainAttribute *attr = &attrList->attr[i];
 		if(attr->tag == printNameTag) {
+            CFReleaseNull(friendName);
 			friendName = CFStringCreateWithBytes(NULL, 
 				(UInt8 *)attr->data, attr->length, 
 				kCFStringEncodingUTF8,	false);
 		}
 		else if(attr->tag == labelHashTag) {
+            CFReleaseNull(localKeyId);
 			localKeyId = CFDataCreate(NULL, (UInt8 *)attr->data, attr->length);
 		}
 		else {
@@ -401,15 +404,20 @@ void P12Coder::addSecCert(
 		SecKeychainAttribute *attr = &attrList->attr[i];
 		switch(attr->tag) {
 			case kSecPublicKeyHashItemAttr:
+                CFReleaseNull(localKeyId);
 				localKeyId = CFDataCreate(NULL, (UInt8 *)attr->data, attr->length);
 				break;
 			case kSecLabelItemAttr:
+                CFReleaseNull(friendName);
 				/* FIXME: always in UTF8? */
 				friendName = CFStringCreateWithBytes(NULL, 
 					(UInt8 *)attr->data, attr->length, kCFStringEncodingUTF8,
 					false);
 				break;
 			default:
+                SecKeychainItemFreeAttributesAndData(attrList, certData);
+                CFReleaseNull(friendName);
+                CFReleaseNull(localKeyId);
 				p12ErrorLog("addSecCert: unexpected attr tag\n");
 				MacOSError::throwMe(errSecParam);		
 			

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -119,7 +119,13 @@ updateStore(const void *key, const void *value, void *context)
 			SC_log(LOG_DEBUG, "Update interface configuration: %@: %@", key, newDict);
 			cache_SCDynamicStoreSetValue(store, key, newDict);
 		} else if (dict) {
-			SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
+			CFDictionaryRef		oldDict;
+
+			oldDict = cache_SCDynamicStoreCopyValue(store, key);
+			if (oldDict != NULL) {
+				SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
+				CFRelease(oldDict);
+			}
 			cache_SCDynamicStoreRemoveValue(store, key);
 		}
 		network_changed = TRUE;

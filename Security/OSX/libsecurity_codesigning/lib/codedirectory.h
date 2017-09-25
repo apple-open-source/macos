@@ -198,16 +198,20 @@ public:
 	Endian<uint32_t> teamIDOffset;	// offset of optional teamID string
 	Endian<uint32_t> spare3;		// unused (most be zero)
 	Endian<uint64_t> codeLimit64;	// limit to main image signature range, 64 bits
-	
+	Endian<uint64_t> execSegBase;	// offset of executable segment
+	Endian<uint64_t> execSegLimit;	// limit of executable segment
+	Endian<uint64_t> execSegFlags;	// exec segment flags
+
 	// works with the version field; see comments above
-	static const uint32_t currentVersion = 0x20300;		// "version 2.3"
+	static const uint32_t currentVersion = 0x20400;		// "version 2.4"
 	static const uint32_t compatibilityLimit = 0x2F000;	// "version 3 with wiggle room"
 	
 	static const uint32_t earliestVersion = 0x20001;	// earliest supported version
 	static const uint32_t supportsScatter = 0x20100;	// first version to support scatter option
 	static const uint32_t supportsTeamID = 0x20200;		// first version to support team ID option
 	static const uint32_t supportsCodeLimit64 = 0x20300; // first version to support codeLimit64
-	
+	static const uint32_t supportsExecSegment = 0x20400; // first version to support exec base and limit
+
 	void checkIntegrity() const;	// throws if inconsistent or unsupported version
 
 	typedef uint32_t HashAlgorithm;	// types of internal glue hashes
@@ -257,7 +261,11 @@ public:
 
 	const char *teamID() const { return version >= supportsTeamID && teamIDOffset ? at<const char>(teamIDOffset) : NULL; }
 	char *teamID() { return version >= supportsTeamID && teamIDOffset ? at<char>(teamIDOffset) : NULL; }
-    
+
+	uint64_t execSegmentBase() const { return (version >= supportsExecSegment) ? execSegBase.get() : 0; }
+	uint64_t execSegmentLimit() const { return (version >= supportsExecSegment) ? execSegLimit.get() : 0; }
+	uint64_t execSegmentFlags() const { return (version >= supportsExecSegment) ? execSegFlags.get() : 0; }
+
 public:
 	bool validateSlot(const void *data, size_t size, Slot slot) const;			// validate memory buffer against page slot
 	bool validateSlot(UnixPlusPlus::FileDesc fd, size_t size, Slot slot) const;	// read and validate file

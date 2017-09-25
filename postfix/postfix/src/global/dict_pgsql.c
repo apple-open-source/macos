@@ -64,7 +64,7 @@
 /*	List of domains the queries should be restricted to.  If
 /*	specified, only FQDN addresses whose domain parts matching this
 /*	list will be queried against the SQL database.  Lookups for
-/*	partial addresses are also supressed.  This can significantly
+/*	partial addresses are also suppressed.  This can significantly
 /*	reduce the query load on the server.
 /* .IP result_format
 /*	The format used to expand results from queries.  Substitutions
@@ -241,7 +241,7 @@ static void dict_pgsql_quote(DICT *dict, const char *name, VSTRING *result)
     HOST   *active_host = dict_pgsql->active_host;
     char   *myname = "dict_pgsql_quote";
     size_t  len = strlen(name);
-    size_t  buflen = 2 * len + 1;
+    size_t  buflen;
     int     err = 1;
 
     if (active_host == 0)
@@ -251,9 +251,11 @@ static void dict_pgsql_quote(DICT *dict, const char *name, VSTRING *result)
      * We won't get arithmetic overflows in 2*len + 1, because Postfix input
      * keys have reasonable size limits, better safe than sorry.
      */
-    if (buflen <= len)
-	msg_panic("%s: arithmetic overflow in 2*%lu+1",
-		  myname, (unsigned long) len);
+    if (len > (SSIZE_T_MAX - VSTRING_LEN(result) - 1) / 2)
+	msg_panic("%s: arithmetic overflow in %lu+2*%lu+1",
+		  myname, (unsigned long) VSTRING_LEN(result),
+		  (unsigned long) len);
+    buflen = 2 * len + 1;
 
     /*
      * XXX Workaround: stop further processing when PQescapeStringConn()
@@ -776,12 +778,12 @@ DICT   *dict_pgsql_open(const char *name, int open_flags, int dict_flags)
     dict_pgsql->active_host = 0;
     dict_pgsql->pldb = plpgsql_init(dict_pgsql->hosts);
     if (dict_pgsql->pldb == NULL)
-	msg_fatal("couldn't intialize pldb!\n");
+	msg_fatal("couldn't initialize pldb!\n");
     dict_pgsql->dict.owner = cfg_get_owner(dict_pgsql->parser);
     return (DICT_DEBUG (&dict_pgsql->dict));
 }
 
-/* plpgsql_init - initalize a PGSQL database */
+/* plpgsql_init - initialize a PGSQL database */
 
 static PLPGSQL *plpgsql_init(ARGV *hosts)
 {

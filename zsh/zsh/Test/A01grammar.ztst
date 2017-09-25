@@ -113,6 +113,16 @@
 <External command cat executed
 >External command cat executed
 
+  command -pv cat
+  command -pv echo
+  command -p -V cat
+  command -p -V -- echo
+0:command -p in combination
+*>*/cat
+>echo
+>cat is /*/cat
+>echo is a shell builtin
+
   cd() { echo Not cd at all; }
   builtin cd . && unfunction cd
 0:`builtin' precommand modifier
@@ -282,6 +292,14 @@
 >1
 >2
 >3
+
+  case whatever in
+  (*) print yeah, right ;&
+  esac
+  print but well
+0:'case', redundant final ";&"
+>yeah, right
+>but well
 
 ## Select now reads from stdin if the shell is not interactive.
 ## Its own output goes to stderr.
@@ -738,3 +756,35 @@
 >	print Stuff here
 >}
 >Stuff here
+
+  (exit 37)
+  case $? in
+    (37) echo $?
+    ;;
+  esac
+0:case retains exit status for execution of cases
+>37
+
+  false
+  case stuff in
+    (nomatch) foo
+    ;;
+  esac
+  echo $?
+0:case sets exit status to zero if no patterns are matched
+>0
+
+  case match in
+    (match) true; false; (exit 37)
+    ;;
+  esac
+  echo $?
+0:case keeps exit status of last command executed in compound-list
+>37
+
+  x=1
+  x=2 | echo $x
+  echo $x
+0:Assignment-only current shell commands in LHS of pipelin
+>1
+>1

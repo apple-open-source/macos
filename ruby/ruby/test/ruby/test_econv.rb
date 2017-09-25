@@ -1,15 +1,11 @@
+# frozen_string_literal: false
 require 'test/unit'
-require_relative 'envutil'
 
 class TestEncodingConverter < Test::Unit::TestCase
   def check_ec(edst, esrc, eres, dst, src, ec, off, len, opts=nil)
     res = ec.primitive_convert(src, dst, off, len, opts)
-    assert_equal([edst.dup.force_encoding("ASCII-8BIT"),
-                  esrc.dup.force_encoding("ASCII-8BIT"),
-                  eres],
-                 [dst.dup.force_encoding("ASCII-8BIT"),
-                  src.dup.force_encoding("ASCII-8BIT"),
-                  res])
+    assert_equal([edst.b, esrc.b, eres],
+                 [dst.b,  src.b,  res])
   end
 
   def assert_econv(converted, eres, obuf_bytesize, ec, consumed, rest, opts=nil)
@@ -23,8 +19,8 @@ class TestEncodingConverter < Test::Unit::TestCase
 
   def assert_errinfo(e_res, e_enc1, e_enc2, e_error_bytes, e_readagain_bytes, ec)
     assert_equal([e_res, e_enc1, e_enc2,
-                  e_error_bytes && e_error_bytes.dup.force_encoding("ASCII-8BIT"),
-                  e_readagain_bytes && e_readagain_bytes.dup.force_encoding("ASCII-8BIT")],
+                  e_error_bytes&.b,
+                  e_readagain_bytes&.b],
                  ec.primitive_errinfo)
   end
 
@@ -86,8 +82,8 @@ class TestEncodingConverter < Test::Unit::TestCase
     }
 
     encoding_list = Encoding.list.map {|e| e.name }
-    assert(!encoding_list.include?(name1))
-    assert(!encoding_list.include?(name2))
+    assert_not_include(encoding_list, name1)
+    assert_not_include(encoding_list, name2)
   end
 
   def test_newline_converter_with_ascii_incompatible
@@ -684,6 +680,7 @@ class TestEncodingConverter < Test::Unit::TestCase
     ec = Encoding::Converter.new("utf-8", "euc-jp")
     assert_raise(Encoding::InvalidByteSequenceError) { ec.convert("a\x80") }
     assert_raise(Encoding::UndefinedConversionError) { ec.convert("\ufffd") }
+    assert_predicate(ec.convert("abc".taint), :tainted?)
     ret = ec.primitive_convert(nil, "", nil, nil)
     assert_equal(:finished, ret)
     assert_raise(ArgumentError) { ec.convert("a") }
@@ -908,24 +905,20 @@ class TestEncodingConverter < Test::Unit::TestCase
     ec1 = Encoding::Converter.new("", "", universal_newline: true)
     ec2 = Encoding::Converter.new("", "", newline: :universal)
     assert_equal(ec1, ec2)
+    assert_raise_with_message(ArgumentError, /\u{3042}/) {
+      Encoding::Converter.new("", "", newline: "\u{3042}".to_sym)
+    }
   end
 
   def test_default_external
-    cmd = <<EOS
+    Encoding.list.grep(->(enc) {/\AISO-8859-\d+\z/i =~ enc.name}) do |enc|
+      assert_separately(%W[--disable=gems -d - #{enc.name}], <<-EOS, ignore_stderr: true)
     Encoding.default_external = ext = ARGV[0]
     Encoding.default_internal = int ='utf-8'
-    begin
+    assert_nothing_raised do
       Encoding::Converter.new(ext, int)
-    ensure
-      Marshal.dump($!, STDOUT)
-      STDOUT.flush
     end
-EOS
-    Encoding.list.grep(->(enc) {/\AISO-8859-\d+\z/i =~ enc.name}) do |enc|
-      error = IO.popen([EnvUtil.rubybin, "-e", cmd, enc.name, err: File::NULL]) do |child|
-        Marshal.load(child)
-      end
-      assert_nil(error)
+    EOS
     end
   end
 end

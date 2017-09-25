@@ -36,7 +36,7 @@ serveur HTTP Apache</h1>
   <a href="new_features_2_2.html">Nouvelles fonctionnalités
   de la version 2.2</a>.</p>
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#core">Améliorations du noyau</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#core">Améliorations du noyau</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#newmods">Nouveau modules</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#module">Améliorations des modules</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#programs">Améliorations des programmes</a></li>
@@ -211,6 +211,10 @@ serveur HTTP Apache</h1>
 
       <dt><code class="module"><a href="./mod/mod_http2.html">mod_http2</a></code> (disponible à partir de la version 2.4.17)</dt>
       <dd>Support de la couche transport HTTP/2.</dd>
+
+      <dt><code class="module"><a href="./mod/mod_proxy_hcheck.html">mod_proxy_hcheck</a></code> (disponible à partir de la version 2.4.21)</dt>
+      <dd>Support d'un bilan de santé dynamique indépendant pour les serveurs
+      d'arrière-plan mandatés distants.</dd>
 
     </dl>
   </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -491,7 +495,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/new_features_2_4.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

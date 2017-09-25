@@ -681,6 +681,8 @@ xmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
 	    if (!IS_CHAR(val)) {
 	        xmlErrEncodingInt(ctxt, XML_ERR_INVALID_CHAR,
 				  "Char 0x%X out of allowed range\n", val);
+                if (ctxt->instate == XML_PARSER_EOF)
+                    goto encoding_error;
 	    }
 	    return(val);
 	} else {
@@ -692,6 +694,8 @@ xmlCurrentChar(xmlParserCtxtPtr ctxt, int *len) {
 	        (ctxt->input->end > ctxt->input->cur)) {
 	        xmlErrEncodingInt(ctxt, XML_ERR_INVALID_CHAR,
 				  "Char 0x0 out of allowed range\n", 0);
+                if (ctxt->instate == XML_PARSER_EOF)
+                    goto encoding_error;
 	    }
 	    if (*ctxt->input->cur == 0xD) {
 		if (ctxt->input->cur[1] == 0xA) {
@@ -1110,8 +1114,10 @@ xmlSwitchEncoding(xmlParserCtxtPtr ctxt, xmlCharEncoding enc)
 	        break;
 	}
     }
-    if (handler == NULL)
+    if (handler == NULL) {
+        xmlStopParser(ctxt);
 	return(-1);
+    }
     ctxt->charset = XML_CHAR_ENCODING_UTF8;
     ret = xmlSwitchToEncodingInt(ctxt, handler, len);
     if (((ret < 0) || (ctxt->errNo == XML_I18N_CONV_FAILED)) && !(ctxt->html)) {

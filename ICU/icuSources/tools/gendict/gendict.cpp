@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 *   Copyright (C) 2002-2016, International Business Machines
@@ -20,6 +22,7 @@
 #include "unicode/ucharstrie.h"
 #include "unicode/bytestrie.h"
 #include "unicode/ucnv.h"
+#include "unicode/ustring.h"
 #include "unicode/utf16.h"
 
 #include "charstr.h"

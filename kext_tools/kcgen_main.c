@@ -176,13 +176,15 @@ int main(int argc, char * const * argv)
     if (result != EX_OK) {
         goto finish;
     }
-    
+
     if (toolArgs.prelinkedKernelPath) {
         result = createPrelinkedKernel(&toolArgs);
         if (result != EX_OK) {
             goto finish;
         }
-
+    }
+    if (toolArgs.plistsPath || toolArgs.loadListPath) {
+        result = loadList(&toolArgs);
     }
 
 finish:
@@ -430,6 +432,14 @@ ExitStatus readArgs(
                         }
 
                         toolArgs->volumeRootURL = CFRetain(scratchURL);
+                        break;
+
+                    case kLongOptPLists:
+                        toolArgs->plistsPath = optarg;
+                        break;
+
+                    case kLongOptLoadList:
+                        toolArgs->loadListPath = optarg;
                         break;
 
                     case kLongOptAllPersonalities:
@@ -689,7 +699,7 @@ ExitStatus checkArgs(KcgenArgs * toolArgs)
 {
     ExitStatus  result  = EX_USAGE;
 
-    if (!toolArgs->prelinkedKernelPath) 
+    if (!toolArgs->prelinkedKernelPath && !toolArgs->loadListPath && !toolArgs->plistsPath)
     {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -792,6 +802,8 @@ ExitStatus checkKextForProblems(
 {
     ExitStatus          result        = EX_SOFTWARE;
     char                kextPath[PATH_MAX];
+    CFURLRef            moduleURL, checkURL;
+    boolean_t           present;
 
     if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
                               /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) 
@@ -819,7 +831,7 @@ ExitStatus checkKextForProblems(
         }
         goto finish;
     }
-    
+
     if (!OSKextResolveDependencies(theKext)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogWarningLevel | kOSKextLogArchiveFlag |
@@ -1121,7 +1133,7 @@ ExitStatus createPrelinkedKernelForArch(
     /* Set suffix for kext executables from kernel path
      */
     OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
-    
+
     /* Set the architecture in the OSKext library */
 
     if (!OSKextSetArchitecture(archInfo)) {
@@ -1132,12 +1144,12 @@ ExitStatus createPrelinkedKernelForArch(
             result = EX_OSERR;
             goto finish;
     }
-    
+
    /*****
     * Figure out which kexts we're actually archiving.
     * This uses toolArgs->allKexts, which must already be created.
     */
-    prelinkKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0, 
+    prelinkKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
         &kCFTypeArrayCallBacks);
     if (!prelinkKexts) {
         OSKextLogMemError();
@@ -1310,6 +1322,211 @@ finish:
     return result;
 }
 
+/*********************************************************************
+ *********************************************************************/
+
+ExitStatus
+loadList(
+    KcgenArgs     * toolArgs)
+{
+    ExitStatus             result           = EX_OSERR;
+    CFMutableArrayRef      prelinkArchs     = NULL;  // must release
+    const NXArchInfo     * targetArch       = NULL;  // do not free
+    CFMutableArrayRef      prelinkKexts     = NULL;  // must release
+    CFMutableArrayRef      loadList         = NULL;  // must release
+    Boolean                needAllFlag      = TRUE;
+    OSKextLogSpec          logLevel         = needAllFlag ? kOSKextLogErrorLevel :
+                                                 kOSKextLogWarningLevel;
+    CFMutableArrayRef      bundleList       = NULL;
+    CFArrayRef             deps             = NULL;
+    CFMutableDictionaryRef prelinkDict      = NULL;
+    CFMutableDictionaryRef infoDict         = NULL;
+    CFStringRef            executable       = NULL;
+    CFURLRef               moduleURL        = NULL;
+    CFDataRef              data             = NULL;
+    CFNumberRef            num              = NULL;
+    FILE                 * f                = NULL;
+    Boolean                fatalOut         = FALSE;
+    CFIndex                idx, kmodIdx, depIdx, count;
+    char                   path[PATH_MAX];
+    char                   kextPath[PATH_MAX];
+    u_int                  numArchs;
+
+    result = createPrelinkedKernelArchs(toolArgs, &prelinkArchs);
+    if (result != EX_OK) {
+        goto finish;
+    }
+    numArchs = (u_int)CFArrayGetCount(prelinkArchs);
+    if (1 != numArchs) {
+        result = EX_USAGE;
+        goto finish;
+    }
+
+    targetArch = CFArrayGetValueAtIndex(prelinkArchs, 0);
+
+    /* Set suffix for kext executables from kernel path */
+    OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
+
+    /* Set the architecture in the OSKext library */
+    if (!OSKextSetArchitecture(targetArch)) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Error - can't set architecture %s to create prelinked kernel.",
+                      targetArch->name);
+            result = EX_OSERR;
+            goto finish;
+    }
+
+   /*****
+    * Figure out which kexts we're actually archiving.
+    * This uses toolArgs->allKexts, which must already be created.
+    */
+    prelinkKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+                                        &kCFTypeArrayCallBacks);
+    if (!prelinkKexts) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    result = filterKextsForCache(toolArgs, prelinkKexts,
+            targetArch, &fatalOut);
+    if (result != EX_OK || fatalOut) {
+        goto finish;
+    }
+
+    result = EX_OSERR;
+
+    if (!CFArrayGetCount(prelinkKexts)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "Error - no kexts found for architecture %s.",
+            targetArch->name);
+        goto finish;
+    }
+    needAllFlag = TRUE;
+    loadList = OSKextCopyLoadListForKexts(prelinkKexts, needAllFlag);
+    if (!loadList)
+    {
+        OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel,
+            "Can't resolve dependencies amongst kexts for prelinked kernel.");
+        goto finish;
+    }
+
+    f = fopen(toolArgs->loadListPath, "w");
+    if (!f) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "%s not writable.",
+            toolArgs->loadListPath);
+        result = EX_OSFILE;
+        goto finish;
+    }
+
+    prelinkDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    bundleList  = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+
+    for (kmodIdx = idx = 0; idx < CFArrayGetCount(loadList); idx++)
+    {
+        OSKextRef aKext = (OSKextRef) CFArrayGetValueAtIndex(loadList, idx);
+        bool ok;
+
+        ok = CFURLGetFileSystemRepresentation(OSKextGetURL(aKext),
+                                /* resolveToBase */ TRUE, (UInt8 *)kextPath, PATH_MAX);
+        if (!ok){
+            OSKextLog(aKext, logLevel | kOSKextLogArchiveFlag, "%s no path.", kextPath);
+            result = EX_OSERR;
+            goto finish;
+        }
+        infoDict = OSKextCopyInfoDictionary(aKext);
+        if (!infoDict) {
+            OSKextLog(aKext, logLevel | kOSKextLogArchiveFlag, "%s no info. ", kextPath);
+            result = EX_OSFILE;
+            goto finish;
+        }
+
+        CFArrayAppendValue(bundleList, infoDict);
+        CFRelease(infoDict);
+
+        if (!OSKextIsInterface(aKext) && (moduleURL = OSKextGetExecutableURL(aKext)))
+        {
+            if (!CFURLGetFileSystemRepresentation(moduleURL, true, (UInt8 *)path, PATH_MAX))
+            {
+                OSKextLog(aKext, logLevel | kOSKextLogArchiveFlag, "%s no module path. ", kextPath);
+                result = EX_OSFILE;
+                goto finish;
+            }
+            num = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &kmodIdx);
+            CFDictionarySetValue(infoDict, CFSTR("ModuleIndex"), num);
+            CFRelease(num);
+            kmodIdx++;
+            fprintf(f, "%s", path);
+            deps = OSKextCopyDeclaredDependencies(aKext, TRUE /* needAll */);
+            if (deps)
+            {
+                for (depIdx = 0; depIdx < CFArrayGetCount(deps); depIdx++)
+                {
+                    OSKextRef depKext = (OSKextRef) CFArrayGetValueAtIndex(deps, depIdx);
+                    executable = OSKextCopyExecutableName(depKext);
+                    if (executable && CFStringGetCString(executable, path, PATH_MAX, kCFStringEncodingUTF8))
+                    {
+                        fprintf(f, ":%s", path);
+                    }
+                    SAFE_RELEASE(executable);
+                }
+                SAFE_RELEASE(deps);
+            }
+            fprintf(f, "\n");
+        }
+    }
+    if (ferror(f)) {
+        result = EX_OSFILE;
+        goto finish;
+    }
+    fclose(f);
+    f = NULL;
+
+    if (toolArgs->plistsPath)
+    {
+        CFDictionarySetValue(prelinkDict, CFSTR("_PrelinkInfoDictionary"), bundleList);
+        data = IOCFSerialize(prelinkDict, kNilOptions);
+        if (!data) {
+            OSKextLog(NULL,
+                logLevel | kOSKextLogArchiveFlag,
+                "IOCFSerialize.");
+            result = EX_OSERR;
+            goto finish;
+        }
+        f = fopen(toolArgs->plistsPath, "w+");
+        if (!f) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "%s not writable.",
+                toolArgs->plistsPath);
+            result = EX_OSFILE;
+            goto finish;
+        }
+        fwrite(CFDataGetBytePtr(data), sizeof(UInt8), CFDataGetLength(data), f);
+        fwrite("\0", sizeof(UInt8), 1, f);
+    }
+    if (ferror(f)) {
+        result = EX_OSFILE;
+        goto finish;
+    }
+    result = EX_OK;
+
+finish:
+    if (f) fclose(f);
+    SAFE_RELEASE(bundleList);
+    SAFE_RELEASE(prelinkDict);
+    SAFE_RELEASE(data);
+    SAFE_RELEASE(prelinkArchs);
+    SAFE_RELEASE(loadList);
+    SAFE_RELEASE(prelinkKexts);
+
+    return result;
+}
 
 /*******************************************************************************
 * usage()
@@ -1333,6 +1550,14 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s <filename> (-%c):\n"
         "        create/update prelinked kernel\n",
         kOptNamePrelinkedKernel, kOptPrelinkedKernel);
+
+    fprintf(stderr, "-%s <filename>:\n"
+        "        create load list of modules and dependencies\n",
+        kOptNameLoadList);
+
+    fprintf(stderr, "-%s <filename>:\n"
+        "        create serialized property lists\n",
+        kOptNamePLists);
 
     fprintf(stderr, "\n");
 

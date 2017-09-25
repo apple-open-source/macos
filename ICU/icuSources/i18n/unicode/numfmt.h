@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 ********************************************************************************
 * Copyright (C) 1997-2016, International Business Machines Corporation and others.
@@ -41,6 +43,7 @@
 
 class NumberFormatTest;
 
+#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class SharedNumberFormat;
@@ -266,7 +269,7 @@ public:
      *                  NULL.
      * @param status    Output param filled with success/failure status.
      * @return          Reference to 'appendTo' parameter.
-     * @stable 4.4
+     * @stable ICU 4.4
      */
     virtual UnicodeString& format(const Formattable& obj,
                                   UnicodeString& appendTo,
@@ -389,7 +392,7 @@ public:
      *                  Can be NULL.
      * @param status    Output param filled with success/failure status.
      * @return          Reference to 'appendTo' parameter.
-     * @stable 4.4
+     * @stable ICU 4.4
      */
     virtual UnicodeString& format(double number,
                                   UnicodeString& appendTo,
@@ -441,7 +444,7 @@ public:
      *                  Can be NULL.
      * @param status    Output param filled with success/failure status.
      * @return          Reference to 'appendTo' parameter.
-     * @stable 4.4
+     * @stable ICU 4.4
      */
     virtual UnicodeString& format(int32_t number,
                                   UnicodeString& appendTo,
@@ -494,7 +497,7 @@ public:
      *                  Can be NULL.
      * @param status    Output param filled with success/failure status.
      * @return          Reference to 'appendTo' parameter.
-     * @stable 4.4
+     * @stable ICU 4.4
      */
     virtual UnicodeString& format(int64_t number,
                                   UnicodeString& appendTo,
@@ -515,9 +518,9 @@ public:
      *                  Can be NULL.
      * @param status    Output param filled with success/failure status.
      * @return          Reference to 'appendTo' parameter.
-     * @stable 4.4
+     * @stable ICU 4.4
      */
-    virtual UnicodeString& format(const StringPiece &number,
+    virtual UnicodeString& format(StringPiece number,
                                   UnicodeString& appendTo,
                                   FieldPositionIterator* posIter,
                                   UErrorCode& status) const;
@@ -929,7 +932,7 @@ public:
      * @param ec input-output error code
      * @stable ICU 3.0
      */
-    virtual void setCurrency(const UChar* theCurrency, UErrorCode& ec);
+    virtual void setCurrency(const char16_t* theCurrency, UErrorCode& ec);
 
     /**
      * Gets the currency used to display currency
@@ -938,7 +941,7 @@ public:
      * the currency in use, or a pointer to the empty string.
      * @stable ICU 2.6
      */
-    const UChar* getCurrency() const;
+    const char16_t* getCurrency() const;
 	
     /**
      * Set a particular UDisplayContext value in the formatter, such as
@@ -1016,7 +1019,7 @@ protected:
      * have a capacity of at least 4
      * @internal
      */
-    virtual void getEffectiveCurrency(UChar* result, UErrorCode& ec) const;
+    virtual void getEffectiveCurrency(char16_t* result, UErrorCode& ec) const;
 
 #ifndef U_HIDE_INTERNAL_API
     /**
@@ -1063,7 +1066,7 @@ private:
     UBool      fLenient; // TRUE => lenient parse is enabled
 
     // ISO currency code
-    UChar      fCurrency[4];
+    char16_t      fCurrency[4];
 
     UDisplayContext fCapitalizationContext;
 
@@ -1171,6 +1174,7 @@ NumberFormat::isLenient() const
 }
 
 U_NAMESPACE_END
+#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

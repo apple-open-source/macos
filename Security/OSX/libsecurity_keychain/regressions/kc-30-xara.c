@@ -297,8 +297,8 @@ static void testKeychainUpgrade() {
     UInt32 len = 400;
 
     // To test multi-threading, we want the upgrade to take a while. Add a bunch of passwords...
-    char oldkcFile[100];
-    sprintf(oldkcFile, "%s/Library/test.keychain", getenv("HOME"));
+    char oldkcFile[MAXPATHLEN];
+    snprintf(oldkcFile, sizeof(oldkcFile), "%s/Library/test.keychain", getenv("HOME"));
     unlink(oldkcFile);
     writeOldKeychain(name, oldkcFile);
 
@@ -820,6 +820,7 @@ static void testUidAccess() {
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
+    CFReleaseNull(query);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
 
     SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
@@ -924,6 +925,7 @@ static void testMultipleUidAccess() {
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
+    CFReleaseNull(query);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
 
     checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
@@ -938,7 +940,13 @@ static void testRootUidAccess() {
     sprintf(name, "testRootUidAccess");
     secnotice("integrity", "************************************* %s", name);
 
-    SecAccessRef access = SecAccessCreateWithOwnerAndACL(getuid(), 0, (kSecUseOnlyUID | kSecHonorRoot), NULL, NULL);
+    CFErrorRef error = NULL;
+
+    SecAccessRef access = SecAccessCreateWithOwnerAndACL(getuid(), 0, (kSecUseOnlyUID | kSecHonorRoot), NULL, &error);
+    ok(access, "%s: SecAccessCreateWithOwnerAndACL returned an access", name);
+    CFStringRef errorDesc = error ? CFErrorCopyDescription(error) : NULL;
+    is(error, NULL, "%s: SecAccessCreateWithOwnerAndACL did not return an error: %@", name, errorDesc ? errorDesc : CFSTR("no error"));
+    CFReleaseNull(errorDesc);
 
     SecKeychainRef kc = newKeychain(name);
     CFMutableDictionaryRef query = createAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
@@ -946,6 +954,7 @@ static void testRootUidAccess() {
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
+    CFReleaseNull(query);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
 
     query = createQueryItemDictionary(kc, kSecClassGenericPassword);
@@ -959,7 +968,7 @@ static void testRootUidAccess() {
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
 }
-#define testRootUidAccessTests (newKeychainTests + checkNTests + 4 + checkNTests)
+#define testRootUidAccessTests (newKeychainTests + 2 + checkNTests + 4 + checkNTests)
 
 static void testBadACL() {
     char name[100];
@@ -1093,6 +1102,17 @@ static void tests(void)
 {
     initializeKeychainTests("kc-30-xara");
 
+    testKeychainUpgrade();
+    testKeychainCreateOver();
+    testKeychainDowngrade();
+    testKeychainWrongFile256();
+    testKeychainWrongFile512();
+    testUidAccess();
+    testMultipleUidAccess();
+    testRootUidAccess();
+    testBadACL();
+    testIterateLockedKeychain();
+
     testAddItem(kSecClassGenericPassword,  CFSTR("265438ea6807b509c9c6962df3f5033fd1af118f76c5f550e3ed90cb0d3ffce4"));
     testAddItem(kSecClassInternetPassword, CFSTR("be34c4562153063ce9cdefc2c34451d5e6e98a447f293d68a67349c1b5d1164f"));
 
@@ -1131,17 +1151,6 @@ static void tests(void)
     testAddAfterCorruptItem(dldbHandle);
     testAddAfterCorruptKey(dldbHandle);
     unloadDL(&dldbHandle);
-
-    testKeychainUpgrade();
-    testKeychainCreateOver();
-    testKeychainDowngrade();
-    testKeychainWrongFile256();
-    testKeychainWrongFile512();
-    testUidAccess();
-    testMultipleUidAccess();
-    testRootUidAccess();
-    testBadACL();
-    testIterateLockedKeychain();
 
     //makeOldKeychainBlob();
 }

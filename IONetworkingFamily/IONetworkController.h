@@ -378,7 +378,7 @@ public:
     @result Returns true on success, false otherwise. 
 */ 
 
-    virtual bool init(OSDictionary * properties);
+    virtual bool init(OSDictionary * properties) APPLE_KEXT_OVERRIDE;
 
 /*! @function start
     @abstract Starts the network controller.
@@ -400,7 +400,7 @@ public:
     @result Returns true on success, false otherwise. 
 */
 
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 /*! @function stop
     @abstract Stops the network controller.
@@ -412,7 +412,7 @@ public:
     @param provider The provider that the controller was matched
     (and attached) to. */
 
-    virtual void stop(IOService * provider);
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 /*! @function message
     @abstract Receives messages delivered from an attached provider.
@@ -425,7 +425,7 @@ public:
 */
 
     virtual IOReturn message(
-        UInt32 type, IOService * provider, void * argument );
+        UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
 
 /*! @typedef IONetworkController::Action
     @discussion Definition of a C function that can be called
@@ -493,7 +493,7 @@ public:
     @result Returns a return code defined by the caller. 
 */
 
-    virtual UInt32 outputPacket(mbuf_t, void * param);
+    virtual UInt32 outputPacket(mbuf_t m, void * param);
 
 /*! @function getFeatures
     @abstract Reports generic features supported by the controller and/or
@@ -1101,12 +1101,12 @@ public:
     @see //apple_ref/cpp/instm/IOService/systemWillShutdown/void/(IOOptionBits) IOService::systemWillShutdown
 */
 
-    virtual void systemWillShutdown( IOOptionBits specifier );
+    virtual void systemWillShutdown( IOOptionBits specifier ) APPLE_KEXT_OVERRIDE;
 
     /* Override IOService::setAggressiveness() */
 
     virtual IOReturn setAggressiveness(
-            unsigned long type, unsigned long newLevel );
+            unsigned long type, unsigned long newLevel ) APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -1116,7 +1116,7 @@ protected:
     allocated resources, followed by a call to super::free(). 
 */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 /*! @function registerWithPolicyMaker
     @abstract Implemented by controller drivers to register with
@@ -1200,7 +1200,7 @@ protected:
 
     virtual bool handleOpen(IOService *  client,
                             IOOptionBits options,
-                            void *       argument);
+                            void *       argument) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleClose
     @abstract Handles a client close.
@@ -1211,7 +1211,7 @@ protected:
     @param options Not used. See IOService. 
 */
 
-    virtual void handleClose(IOService * client, IOOptionBits options);
+    virtual void handleClose(IOService * client, IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleIsOpen
     @abstract Queries whether a client has an open on the controller.
@@ -1221,7 +1221,7 @@ protected:
     specified, presently has an open on this object. 
 */
 
-    virtual bool handleIsOpen(const IOService * client) const;
+    virtual bool handleIsOpen(const IOService * client) const APPLE_KEXT_OVERRIDE;
 
 /*! @function enable
     @abstract A request from an interface client to enable the controller.

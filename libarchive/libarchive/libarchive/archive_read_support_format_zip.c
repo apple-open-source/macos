@@ -135,7 +135,7 @@ static int	zip_read_data_none(struct archive_read *a, const void **buff,
 static int	zip_read_file_header(struct archive_read *a,
 		    struct archive_entry *entry, struct zip *zip);
 static time_t	zip_time(const char *);
-static void process_extra(const void* extra, struct zip* zip);
+static int	process_extra(struct archive_read *a, const void* extra, struct zip* zip);
 
 int
 archive_read_support_format_zip(struct archive *_a)
@@ -436,7 +436,9 @@ zip_read_file_header(struct archive_read *a, struct archive_entry *entry,
 		    "Truncated ZIP file header");
 		return (ARCHIVE_FATAL);
 	}
-	process_extra(h, zip);
+	if (ARCHIVE_OK != process_extra(a, h, zip)) {
+		return ARCHIVE_FATAL;
+	}
 	__archive_read_consume(a, zip->extra_length);
 
 	/* Populate some additional entry fields: */
@@ -816,18 +818,32 @@ archive_read_format_zip_cleanup(struct archive_read *a)
  *	id1+size1+data1 + id2+size2+data2 ...
  *  triplets.  id and size are 2 bytes each.
  */
-static void
-process_extra(const void* extra, struct zip* zip)
+static int
+process_extra(struct archive_read *a, const void* extra, struct zip* zip)
 {
 	int offset = 0;
 	const char *p = (const char *)extra;
-	while (offset < zip->extra_length - 4)
+
+	if (zip->extra_length == 0) {
+		return ARCHIVE_OK;
+	}
+
+	if (zip->extra_length < 4) {
+		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
+		    "Too-small extra data: Need at least 4 bytes, but only found %d bytes", (int)zip->extra_length);
+		return ARCHIVE_FAILED;
+	}
+	while (offset <= zip->extra_length - 4)
 	{
 		unsigned short headerid = archive_le16dec(p + offset);
 		unsigned short datasize = archive_le16dec(p + offset + 2);
 		offset += 4;
-		if (offset + datasize > zip->extra_length)
-			break;
+		if (offset + datasize > zip->extra_length) {
+			archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
+			    "Extra data overflow: Need %d bytes but only found %d bytes",
+			    (int)datasize, (int)(zip->extra_length - offset));
+			return ARCHIVE_FAILED;
+		}
 #ifdef DEBUG
 		fprintf(stderr, "Header id 0x%04x, length %d\n",
 		    headerid, datasize);
@@ -895,11 +911,11 @@ process_extra(const void* extra, struct zip* zip)
 		}
 		offset += datasize;
 	}
-#ifdef DEBUG
-	if (offset != zip->extra_length)
-	{
-		fprintf(stderr,
-		    "Extra data field contents do not match reported size!");
+	if (offset != zip->extra_length) {
+		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
+		    "Malformed extra data: Consumed %d bytes of %d bytes",
+		    (int)offset, (int)zip->extra_length);
+		return ARCHIVE_FAILED;
 	}
-#endif
+	return ARCHIVE_OK;
 }

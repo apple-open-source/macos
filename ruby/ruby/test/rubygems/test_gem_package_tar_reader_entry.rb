@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/package/tar_test_case'
 require 'rubygems/package'
 
@@ -8,12 +9,21 @@ class TestGemPackageTarReaderEntry < Gem::Package::TarTestCase
 
     @contents = ('a'..'z').to_a.join * 100
 
-    @tar = ''
-    @tar << tar_file_header("lib/foo", "", 0, @contents.size)
+    @tar = String.new
+    @tar << tar_file_header("lib/foo", "", 0, @contents.size, Time.now)
     @tar << @contents
     @tar << "\0" * (512 - (@tar.size % 512))
 
     @entry = util_entry @tar
+  end
+
+  def teardown
+    close_util_entry(@entry)
+    super
+  end
+
+  def close_util_entry(entry)
+    entry.instance_variable_get(:@io).close!
   end
 
   def test_bytes_read
@@ -77,12 +87,26 @@ class TestGemPackageTarReaderEntry < Gem::Package::TarTestCase
 
   def test_directory_eh
     assert_equal false, @entry.directory?
-    assert_equal true, util_dir_entry.directory?
+    dir_ent = util_dir_entry
+    assert_equal true, dir_ent.directory?
+  ensure
+    close_util_entry(dir_ent) if dir_ent
+  end
+
+  def test_symlink_eh
+    assert_equal false, @entry.symlink?
+    symlink_ent = util_symlink_entry
+    assert_equal true, symlink_ent.symlink?
+  ensure
+    close_util_entry(symlink_ent) if symlink_ent
   end
 
   def test_file_eh
     assert_equal true, @entry.file?
-    assert_equal false, util_dir_entry.file?
+    dir_ent = util_dir_entry
+    assert_equal false, dir_ent.file?
+  ensure
+    close_util_entry(dir_ent) if dir_ent
   end
 
   def test_pos
@@ -116,4 +140,3 @@ class TestGemPackageTarReaderEntry < Gem::Package::TarTestCase
   end
 
 end
-

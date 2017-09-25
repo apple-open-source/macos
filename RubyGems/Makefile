@@ -17,7 +17,7 @@ MKMFFLAGS=--ignore-dependencies \
 	--with-xslt-include=$(SDKROOTUSR)/include \
 	--with-xslt-lib=$(SDKROOTUSR)/lib
 
-GEMDIR=/System/Library/Frameworks/Ruby.framework/Versions/2.0/usr/lib/ruby/gems/2.0.0
+GEMDIR=$(shell ruby -rubygems -e "puts Gem.path.last")
 GEMS= gems/*.gem
 
 build::
@@ -27,11 +27,15 @@ build::
 	done
 	$(INSTALL_FILE) $(SRCROOT)/RubyGems.plist $(OSV)
 	for g in $(GEMS); do \
-		GEM_HOME=$(DSTROOT)$(GEMDIR) gem install -V --local $$g -- $(MKMFFLAGS) || exit 1; \
+		GEM_HOME="$(DSTROOT)$(GEMDIR)" gem install -V --local $$g -- $(MKMFFLAGS) || exit 1; \
 	done
 	$(FIND) $(DSTROOT) \( -name script -or -name test \) -print | xargs -t rm -rf
 	$(FIND) $(DSTROOT) -type f \( -name '*.[ch]' -o -name '*.txt' \) -perm -a+x | xargs -t chmod a-x
 	rsync -irptgoD --include='*/' --include='*.bundle' --exclude='*' $(DSTROOT)/ $(SYMROOT)/
 	$(FIND) $(SYMROOT) -type f -perm -a+x | xargs -t -n 1 dsymutil
+	## Needed by rubygems in 2.3.1
+	for f in $$($(FIND) $(DSTROOT) -name gem.build_complete -print); do \
+		date >> $$f; \
+	done
 	$(FIND) $(DSTROOT) \( -name .gemtest -or -name .RUBYARCHDIR.time -or -name '*.o' -or -name script -or -name test -or -empty \) -print -delete
 	

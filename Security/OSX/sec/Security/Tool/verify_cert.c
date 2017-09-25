@@ -29,6 +29,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecPolicy.h>
+#include <Security/SecPolicyPriv.h>
 #include <utilities/fileIo.h>
 
 #include <sys/stat.h>
@@ -114,105 +115,135 @@ CFStringRef policyToConstant(const char *policy) {
     }
 }
 
+static CFOptionFlags revCheckOptionStringToFlags(
+	const char *revCheckOption)
+{
+	CFOptionFlags result = 0;
+	if(revCheckOption == NULL) {
+		return result;
+	}
+	else if(!strcmp(revCheckOption, "ocsp")) {
+		result |= kSecRevocationOCSPMethod;
+	}
+	else if(!strcmp(revCheckOption, "crl")) {
+		result |= kSecRevocationCRLMethod;
+	}
+	else if(!strcmp(revCheckOption, "require")) {
+		result |= kSecRevocationRequirePositiveResponse;
+	}
+	else if(!strcmp(revCheckOption, "offline")) {
+		result |= kSecRevocationNetworkAccessDisabled;
+	}
+	else if(!strcmp(revCheckOption, "online")) {
+		result |= kSecRevocationOnlineCheck;
+	}
+	return result;
+}
+
 int verify_cert(int argc, char * const *argv) {
-	extern char	*optarg;
+	extern char *optarg;
 	extern int optind;
-	int	arg;
+	int arg;
 
 	CFMutableArrayRef certs = NULL;
 	CFMutableArrayRef roots = NULL;
+	CFMutableArrayRef policies = NULL;
 
-    CFMutableDictionaryRef dict = NULL;
-    CFStringRef name = NULL;
-    CFBooleanRef client = kCFBooleanFalse;
+	CFMutableDictionaryRef dict = NULL;
+	CFStringRef name = NULL;
+	CFBooleanRef client = kCFBooleanFalse;
+	CFOptionFlags revOptions = 0;
 
-    OSStatus ortn;
-	int	ourRtn = 0;
+	OSStatus ortn;
+	int ourRtn = 0;
 	bool quiet = false;
 
-    struct tm time;
-    CFGregorianDate gregorianDate;
-    CFDateRef dateRef = NULL;
+	struct tm time;
+	CFGregorianDate gregorianDate;
+	CFDateRef dateRef = NULL;
 
-    CFStringRef policy = NULL;
+	CFStringRef policy = NULL;
 	SecPolicyRef policyRef = NULL;
-    Boolean fetch = true;
-	SecTrustRef	trustRef = NULL;
+	SecPolicyRef revPolicyRef = NULL;
+	Boolean fetch = true;
+	SecTrustRef trustRef = NULL;
 	SecTrustResultType resultType;
 
 	if (argc < 2) {
-        /* Return 2 triggers usage message. */
+		/* Return 2 triggers usage message. */
 		return 2;
 	}
 
 	optind = 1;
 
-	while ((arg = getopt(argc, argv, "c:r:p:d:n:LqC")) != -1) {
+	while ((arg = getopt(argc, argv, "Cc:r:p:d:n:LqR:")) != -1) {
 		switch (arg) {
 			case 'c':
 				/* Can be specified multiple times */
 				if (addCertFile(optarg, &certs)) {
-                    fprintf(stderr, "Cert file error\n");
-                    ourRtn = 1;
+					fprintf(stderr, "Cert file error\n");
+					ourRtn = 1;
 					goto errOut;
 				}
 				break;
 			case 'r':
 				/* Can be specified multiple times */
 				if (addCertFile(optarg, &roots)) {
-                    fprintf(stderr, "Root file error\n");
+					fprintf(stderr, "Root file error\n");
 					ourRtn = 1;
-                    goto errOut;
+					goto errOut;
 				}
 				break;
 			case 'p':
-                policy = policyToConstant(optarg);
+				policy = policyToConstant(optarg);
 				if (policy == NULL) {
-                    fprintf(stderr, "Policy processing error\n");
-                    ourRtn = 2;
+					fprintf(stderr, "Policy processing error\n");
+					ourRtn = 2;
 					goto errOut;
 				}
 				break;
 			case 'L':
-                /* Force no network fetch of certs */
-                fetch = false;
+				/* Force no network fetch of certs */
+				fetch = false;
 				break;
 			case 'n':
-                if (name == NULL) {
-                    name = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
-                }
+				if (name == NULL) {
+					name = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+				}
 				break;
 			case 'q':
 				quiet = true;
 				break;
-            case 'C':
-                /* Set to client */
-                client = kCFBooleanTrue;
-                break;
-            case 'd':
-                memset(&time, 0, sizeof(struct tm));
-                if (strptime(optarg, "%Y-%m-%d-%H:%M:%S", &time) == NULL) {
-                    if (strptime(optarg, "%Y-%m-%d", &time) == NULL) {
-                        fprintf(stderr, "Date processing error\n");
-                        ourRtn = 2;
-                        goto errOut;
-                    }
-                }
+			case 'C':
+				/* Set to client */
+				client = kCFBooleanTrue;
+				break;
+			case 'd':
+				memset(&time, 0, sizeof(struct tm));
+				if (strptime(optarg, "%Y-%m-%d-%H:%M:%S", &time) == NULL) {
+					if (strptime(optarg, "%Y-%m-%d", &time) == NULL) {
+						fprintf(stderr, "Date processing error\n");
+						ourRtn = 2;
+						goto errOut;
+					}
+				}
+				gregorianDate.second = time.tm_sec;
+				gregorianDate.minute = time.tm_min;
+				gregorianDate.hour = time.tm_hour;
+				gregorianDate.day = time.tm_mday;
+				gregorianDate.month = time.tm_mon + 1;
+				gregorianDate.year = time.tm_year + 1900;
 
-                gregorianDate.second = time.tm_sec;
-                gregorianDate.minute = time.tm_min;
-                gregorianDate.hour = time.tm_hour;
-                gregorianDate.day = time.tm_mday;
-                gregorianDate.month = time.tm_mon + 1;
-                gregorianDate.year = time.tm_year + 1900;
-
-                if (dateRef == NULL) {
-                    dateRef = CFDateCreate(NULL, CFGregorianDateGetAbsoluteTime(gregorianDate, NULL));
-                }
-                break;
+				if (dateRef == NULL) {
+					dateRef = CFDateCreate(NULL, CFGregorianDateGetAbsoluteTime(gregorianDate, NULL));
+				}
+				break;
+			case 'R':
+				revOptions |= revCheckOptionStringToFlags(optarg);
+				break;
 			default:
-                fprintf(stderr, "Usage error\n");
-                ourRtn = 2;
+				fprintf(stderr, "Usage error\n");
+				ourRtn = 2;
 				goto errOut;
 		}
 	}
@@ -222,18 +253,18 @@ int verify_cert(int argc, char * const *argv) {
 		goto errOut;
 	}
 
-    if (policy == NULL) {
-        policy = kSecPolicyAppleX509Basic;
-    }
+	if (policy == NULL) {
+		policy = kSecPolicyAppleX509Basic;
+	}
 
 	if (certs == NULL) {
-        if (roots == NULL) {
-			fprintf(stderr, "No certs specified.\n");
+		if (roots == NULL) {
+			fprintf(stderr, "No certificates specified.\n");
 			ourRtn = 2;
 			goto errOut;
 		}
 		if (CFArrayGetCount(roots) != 1) {
-			fprintf(stderr, "Multiple roots and no certs not allowed.\n");
+			fprintf(stderr, "Multiple roots and no certificates not allowed.\n");
 			ourRtn = 2;
 			goto errOut;
 		}
@@ -243,40 +274,49 @@ int verify_cert(int argc, char * const *argv) {
 		CFArrayAppendValue(certs, CFArrayGetValueAtIndex(roots, 0));
 	}
 
-    /* Per-policy options */
-    if (!CFStringCompare(policy, kSecPolicyAppleSSL, 0) || !CFStringCompare(policy, kSecPolicyAppleIPsec, 0)) {
-        dict = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	/* Per-policy options */
+	if (!CFStringCompare(policy, kSecPolicyAppleSSL, 0) || !CFStringCompare(policy, kSecPolicyAppleIPsec, 0)) {
+		dict = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-        if (name == NULL) {
-            fprintf(stderr, "Name not specified for IPsec or SSL policy. '-n' is a required option for these policies.");
-            ourRtn = 2;
-            goto errOut;
-        }
-        CFDictionaryAddValue(dict, kSecPolicyName, name);
-        CFDictionaryAddValue(dict, kSecPolicyClient, client);
-    }
-    else if (!CFStringCompare(policy, kSecPolicyAppleEAP, 0)) {
-        dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (name == NULL) {
+			fprintf(stderr, "Name not specified for IPsec or SSL policy. '-n' is a required option for these policies.");
+			ourRtn = 2;
+			goto errOut;
+		}
+		CFDictionaryAddValue(dict, kSecPolicyName, name);
+		CFDictionaryAddValue(dict, kSecPolicyClient, client);
+	}
+	else if (!CFStringCompare(policy, kSecPolicyAppleEAP, 0)) {
+		dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-        CFDictionaryAddValue(dict, kSecPolicyClient, client);
-    }
-    else if (!CFStringCompare(policy, kSecPolicyAppleSMIME, 0)) {
-        dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionaryAddValue(dict, kSecPolicyClient, client);
+	}
+	else if (!CFStringCompare(policy, kSecPolicyAppleSMIME, 0)) {
+		dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-        if (name == NULL) {
-            fprintf(stderr, "Name not specified for SMIME policy. '-n' is a required option for this policy.");
-            ourRtn = 2;
-            goto errOut;
-        }
-        CFDictionaryAddValue(dict, kSecPolicyName, name);
-    }
+		if (name == NULL) {
+			fprintf(stderr, "Name not specified for SMIME policy. '-n' is a required option for this policy.");
+			ourRtn = 2;
+			goto errOut;
+		}
+		CFDictionaryAddValue(dict, kSecPolicyName, name);
+	}
 
-    policyRef = SecPolicyCreateWithProperties(policy, dict);
+	policyRef = SecPolicyCreateWithProperties(policy, dict);
 
-	/* Now create a SecTrustRef and set its options */
-	ortn = SecTrustCreateWithCertificates(certs, policyRef, &trustRef);
+	/* create policies array */
+	policies = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(policies, policyRef);
+	/* add optional SecPolicyRef for revocation, if specified */
+	if(revOptions != 0) {
+		revPolicyRef = SecPolicyCreateRevocation(revOptions);
+		CFArrayAppendValue(policies, revPolicyRef);
+	}
+
+	/* create trust reference from certs and policies */
+	ortn = SecTrustCreateWithCertificates(certs, policies, &trustRef);
 	if (ortn) {
-        fprintf(stderr, "SecTrustCreateWithCertificates\n");
+		fprintf(stderr, "SecTrustCreateWithCertificates\n");
 		ourRtn = 1;
 		goto errOut;
 	}
@@ -285,35 +325,35 @@ int verify_cert(int argc, char * const *argv) {
 	if (roots != NULL) {
 		ortn = SecTrustSetAnchorCertificates(trustRef, roots);
 		if (ortn) {
-            fprintf(stderr, "SecTrustSetAnchorCertificates\n");
+			fprintf(stderr, "SecTrustSetAnchorCertificates\n");
 			ourRtn = 1;
 			goto errOut;
 		}
 	}
-    if (fetch == false) {
-        ortn = SecTrustSetNetworkFetchAllowed(trustRef, fetch);
-        if (ortn) {
-            fprintf(stderr, "SecTrustSetNetworkFetchAllowed\n");
-            ourRtn = 1;
-            goto errOut;
-        }
-    }
+	if (fetch == false) {
+		ortn = SecTrustSetNetworkFetchAllowed(trustRef, fetch);
+		if (ortn) {
+			fprintf(stderr, "SecTrustSetNetworkFetchAllowed\n");
+			ourRtn = 1;
+			goto errOut;
+		}
+	}
 
-    /* Set verification time for trust object */
-    if (dateRef != NULL) {
-        ortn = SecTrustSetVerifyDate(trustRef, dateRef);
-        if (ortn) {
-            fprintf(stderr, "SecTrustSetVerifyDate\n");
-            ourRtn = 1;
-            goto errOut;
-        }
-    }
+	/* Set verification time for trust object */
+	if (dateRef != NULL) {
+		ortn = SecTrustSetVerifyDate(trustRef, dateRef);
+		if (ortn) {
+			fprintf(stderr, "SecTrustSetVerifyDate\n");
+			ourRtn = 1;
+			goto errOut;
+		}
+	}
 
 	/* Evaluate certs */
 	ortn = SecTrustEvaluate(trustRef, &resultType);
 	if (ortn) {
 		/* Should never fail - error doesn't mean the cert verified badly */
-        fprintf(stderr, "SecTrustEvaluate\n");
+		fprintf(stderr, "SecTrustEvaluate\n");
 		ourRtn = 1;
 		goto errOut;
 	}
@@ -324,54 +364,46 @@ int verify_cert(int argc, char * const *argv) {
 			/* Cert chain valid AND user explicitly trusts this */
 			break;
 		case kSecTrustResultDeny:
-            /* User-configured denial */
+			/* User-configured denial */
 			if (!quiet) {
 				fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultDeny\n");
 			}
 			ourRtn = 1;
 			break;
-		case kSecTrustResultConfirm:
-			/* Cert chain may well have verified OK, but user has flagged
-			 one of these certs as untrustable. */
+		case kSecTrustResultInvalid:
+			/* SecTrustEvaluate not called yet */
 			if (!quiet) {
-				fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultConfirm\n");
+				fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultInvalid\n");
 			}
 			ourRtn = 1;
 			break;
-        case kSecTrustResultInvalid:
-            /* SecTrustEvaluate not called yet */
-            if (!quiet) {
-                fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultInvalid\n");
-            }
-            ourRtn = 1;
-            break;
-        case kSecTrustResultRecoverableTrustFailure:
-            /* Failure, can be user-overridden */
-            if (!quiet) {
-                fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultRecoverableTrustFailure\n");
-            }
-            ourRtn = 1;
-            break;
-        case kSecTrustResultFatalTrustFailure:
-            /* Complete failure */
-            if (!quiet) {
-                fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultFatalTrustFailure\n");
-            }
-            ourRtn = 1;
-            break;
-        case kSecTrustResultOtherError:
-            /* Failure unrelated to trust evaluation */
-            if (!quiet) {
-                fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultOtherError\n");
-            }
-            ourRtn = 1;
-            break;
+		case kSecTrustResultRecoverableTrustFailure:
+			/* Failure, can be user-overridden */
+			if (!quiet) {
+				fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultRecoverableTrustFailure\n");
+			}
+			ourRtn = 1;
+			break;
+		case kSecTrustResultFatalTrustFailure:
+			/* Complete failure */
+			if (!quiet) {
+				fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultFatalTrustFailure\n");
+			}
+			ourRtn = 1;
+			break;
+		case kSecTrustResultOtherError:
+			/* Failure unrelated to trust evaluation */
+			if (!quiet) {
+				fprintf(stderr, "SecTrustEvaluate result: kSecTrustResultOtherError\n");
+			}
+			ourRtn = 1;
+			break;
 		default:
-            /* Error is not a defined SecTrustResultType */
+			/* Error is not a defined SecTrustResultType */
 			if (!quiet) {
 				fprintf(stderr, "Cert Verify Result: %u\n", resultType);
 			}
-            ourRtn = 1;
+			ourRtn = 1;
 			break;
 	}
 
@@ -382,10 +414,12 @@ errOut:
 	/* Cleanup */
 	CFRELEASE(certs);
 	CFRELEASE(roots);
-    CFRELEASE(dateRef);
-    CFRELEASE(dict);
+	CFRELEASE(dateRef);
+	CFRELEASE(dict);
+	CFRELEASE(policies);
+	CFRELEASE(revPolicyRef);
 	CFRELEASE(policyRef);
 	CFRELEASE(trustRef);
-    CFRELEASE(name);
+	CFRELEASE(name);
 	return ourRtn;
 }

@@ -32,7 +32,6 @@
 #include <GSS/gssapi.h>
 #include <GSS/gssapi_spi.h>
 #include <GSS/gssapi_spnego.h>
-#include <GSS/spnego_asn1.h>
 
 #include <Carbon/Carbon.h>
 #include <CoreServices/CoreServices.h>
@@ -49,6 +48,7 @@
 #include <os/log.h>
 
 #include "DeconstructServiceName.h"
+#include "spnego_asn1.h"
 #include "utils.h"
 
 int

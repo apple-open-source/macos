@@ -40,7 +40,7 @@
 <table class="module"><tr><th><a href="module-dict.html#Description">Descripción:</a></th><td>Funcionalides básicas del Servidor HTTP Apache que siempre están presentes.</td></tr>
 <tr><th><a href="module-dict.html#Status">Estado:</a></th><td>Core</td></tr></table>
 </div>
-<div id="quickview"><h3 class="directives">Directivas</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3 class="directives">Directivas</h3>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#acceptfilter">AcceptFilter</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#acceptpathinfo">AcceptPathInfo</a></li>
@@ -933,6 +933,7 @@ satisfied by a request at runtime</td></tr>
 <tr><th><a href="directive-dict.html#Override">Prevalece sobre:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Estado:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Módulo:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilidad:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table><p>La Documentación para esta directiva 
         	no ha sido traducida aún. Por favor use la versión en inglés 
         	mientras tanto.
@@ -961,6 +962,7 @@ satisfied</td></tr>
 <tr><th><a href="directive-dict.html#Override">Prevalece sobre:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Estado:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Módulo:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilidad:</a></th><td>Nested conditions are evaluated in 2.4.26 and later</td></tr>
 </table><p>La Documentación para esta directiva 
         	no ha sido traducida aún. Por favor use la versión en inglés 
         	mientras tanto.
@@ -4455,7 +4457,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

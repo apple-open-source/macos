@@ -72,7 +72,7 @@ public:
     URL(const URL& base, const String& relative, const TextEncoding&);
 
     static URL fakeURLWithRelativePart(const String&);
-    static URL fileURLWithFileSystemPath(const String&);
+    WEBCORE_EXPORT static URL fileURLWithFileSystemPath(const String&);
 
     String strippedForUseAsReferrer() const;
 
@@ -104,6 +104,7 @@ public:
     WEBCORE_EXPORT String host() const;
     WEBCORE_EXPORT std::optional<uint16_t> port() const;
     WEBCORE_EXPORT String hostAndPort() const;
+    WEBCORE_EXPORT String protocolHostAndPort() const;
     WEBCORE_EXPORT String user() const;
     WEBCORE_EXPORT String pass() const;
     WEBCORE_EXPORT String path() const;
@@ -134,7 +135,8 @@ public:
     bool protocolIsData() const { return protocolIs("data"); }
     bool protocolIsInHTTPFamily() const;
     WEBCORE_EXPORT bool isLocalFile() const;
-    bool isBlankURL() const;
+    WEBCORE_EXPORT bool isBlankURL() const;
+    bool cannotBeABaseURL() const { return m_cannotBeABaseURL; }
 
     WEBCORE_EXPORT bool setProtocol(const String&);
     void setHost(const String&);
@@ -157,7 +159,7 @@ public:
     // URL (with nothing after it). To clear the query, pass a null string.
     void setQuery(const String&);
 
-    void setFragmentIdentifier(const String&);
+    void setFragmentIdentifier(StringView);
     void removeFragmentIdentifier();
 
     WEBCORE_EXPORT friend bool equalIgnoringFragmentIdentifier(const URL&, const URL&);
@@ -229,7 +231,6 @@ private:
     unsigned m_pathAfterLastSlash;
     unsigned m_pathEnd;
     unsigned m_queryEnd;
-    unsigned m_fragmentEnd;
 };
 
 template <class Encoder>
@@ -249,7 +250,6 @@ void URL::encode(Encoder& encoder) const
     encoder << m_pathAfterLastSlash;
     encoder << m_pathEnd;
     encoder << m_queryEnd;
-    encoder << m_fragmentEnd;
 }
 
 template <class Decoder>
@@ -285,8 +285,6 @@ bool URL::decode(Decoder& decoder, URL& url)
         return false;
     if (!decoder.decode(url.m_queryEnd))
         return false;
-    if (!decoder.decode(url.m_fragmentEnd))
-        return false;
     return true;
 }
 
@@ -310,6 +308,7 @@ WEBCORE_EXPORT const URL& blankURL();
 
 WEBCORE_EXPORT bool protocolIs(const String& url, const char* protocol);
 WEBCORE_EXPORT bool protocolIsJavaScript(const String& url);
+bool protocolIsJavaScript(StringView url);
 WEBCORE_EXPORT bool protocolIsInHTTPFamily(const String& url);
 
 std::optional<uint16_t> defaultPortForProtocol(StringView protocol);
@@ -409,7 +408,7 @@ inline bool URL::hasQuery() const
 
 inline bool URL::hasFragment() const
 {
-    return m_fragmentEnd > m_queryEnd;
+    return m_isValid && m_string.length() > m_queryEnd;
 }
 
 inline bool URL::protocolIsInHTTPFamily() const

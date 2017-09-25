@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -449,7 +449,7 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 Boolean
 _SC_stringIsValidDNSName(const char *name)
 {
-	int		i;
+	size_t		i;
 	size_t		len	= strlen(name);
 	char		prev	= '\0';
 	const char	*scan;

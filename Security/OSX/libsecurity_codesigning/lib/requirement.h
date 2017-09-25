@@ -84,8 +84,9 @@ public:
 	
     // canonical (source) names of Requirement types (matched to SecRequirementType in CSCommon.h)
     static const char *const typeNames[];
-	
+#if TARGET_OS_OSX
 	IFDUMP(void dump() const);
+#endif
 
 private:
 	Endian<uint32_t> mKind;			// expression kind

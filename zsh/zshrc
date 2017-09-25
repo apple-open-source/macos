@@ -4,3 +4,5 @@ if [ "$TERM_PROGRAM" = "Apple_Terminal" ]; then
 fi
 
 disable log
+
+[ -r "/etc/zshrc_$TERM_PROGRAM" ] && . "/etc/zshrc_$TERM_PROGRAM"

@@ -179,7 +179,7 @@
 		5946B5F011BDD14300B8FDFD /* ntpd.sb in ntpd.sb */ = {isa = PBXBuildFile; fileRef = 5946B5EE11BDC0C500B8FDFD /* ntpd.sb */; };
 		5946B60E11BEB99500B8FDFD /* ntp.plist in Version */ = {isa = PBXBuildFile; fileRef = 5946B5E711BDBF2300B8FDFD /* ntp.plist */; };
 		5946B61011BEB9D400B8FDFD /* ntp.txt in License */ = {isa = PBXBuildFile; fileRef = 5946B5EA11BDBF7D00B8FDFD /* ntp.txt */; };
-		5946B61A11BEBB5000B8FDFD /* org.ntp.ntpd.plist in launchd */ = {isa = PBXBuildFile; fileRef = 5946B61911BEBB5000B8FDFD /* org.ntp.ntpd.plist */; };
+		5946B61A11BEBB5000B8FDFD /* org.ntp.ntpd-legacy.plist in launchd */ = {isa = PBXBuildFile; fileRef = 5946B61911BEBB5000B8FDFD /* org.ntp.ntpd-legacy.plist */; };
 		5946B65D11BEDFD000B8FDFD /* ntpd-wrapper.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5946B65911BEDF7E00B8FDFD /* ntpd-wrapper.8 */; };
 		5946B66211BEE8F800B8FDFD /* ntpd-wrapper in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */; };
 		638D02461900D09000FB7C6E /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 638D02451900D09000FB7C6E /* libCrashReporterClient.a */; };
@@ -662,7 +662,7 @@
 			dstSubfolderSpec = 0;
 			files = (
 				3EC5B0A91C4869C30060653C /* version.c in launchd */,
-				5946B61A11BEBB5000B8FDFD /* org.ntp.ntpd.plist in launchd */,
+				5946B61A11BEBB5000B8FDFD /* org.ntp.ntpd-legacy.plist in launchd */,
 				3E0746DB1CCFDEF300EE8ADC /* tsmemcmp.c in launchd */,
 			);
 			name = launchd;
@@ -845,7 +845,7 @@
 		5946B5E711BDBF2300B8FDFD /* ntp.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = ntp.plist; sourceTree = "<group>"; };
 		5946B5EA11BDBF7D00B8FDFD /* ntp.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ntp.txt; sourceTree = "<group>"; };
 		5946B5EE11BDC0C500B8FDFD /* ntpd.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ntpd.sb; sourceTree = "<group>"; };
-		5946B61911BEBB5000B8FDFD /* org.ntp.ntpd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = org.ntp.ntpd.plist; sourceTree = "<group>"; };
+		5946B61911BEBB5000B8FDFD /* org.ntp.ntpd-legacy.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "org.ntp.ntpd-legacy.plist"; sourceTree = "<group>"; };
 		5946B65911BEDF7E00B8FDFD /* ntpd-wrapper.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "ntpd-wrapper.8"; sourceTree = "<group>"; };
 		5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "ntpd-wrapper"; sourceTree = "<group>"; };
 		59488FE419019B5F00D4DD6E /* atomic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = atomic.h; sourceTree = "<group>"; };
@@ -1434,7 +1434,7 @@
 			children = (
 				635C26D111C037C500D7E740 /* BSD.xcconfig */,
 				5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */,
-				5946B61911BEBB5000B8FDFD /* org.ntp.ntpd.plist */,
+				5946B61911BEBB5000B8FDFD /* org.ntp.ntpd-legacy.plist */,
 				5946B5EE11BDC0C500B8FDFD /* ntpd.sb */,
 				5946B5EA11BDBF7D00B8FDFD /* ntp.txt */,
 				5946B5E711BDBF2300B8FDFD /* ntp.plist */,
@@ -3115,7 +3115,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0900;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "ntp" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -3612,12 +3612,29 @@
 			baseConfigurationReference = 635C26D111C037C500D7E740 /* BSD.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_MODEL_TUNING = "";
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/include",

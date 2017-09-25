@@ -127,6 +127,8 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 #define _subType                    _reserved->subType
 #define _txStartDelayQueueLength    _reserved->txStartDelayQueueLength
 #define _txStartDelayTimeout        _reserved->txStartDelayTimeout
+#define _clientBehavior             _reserved->clientBehavior
+#define _inputEventThreadCall       _reserved->inputEventThreadCall
 
 
 #define kRemoteNMI                  "remote_nmi"
@@ -196,6 +198,10 @@ bool IONetworkInterface::init( IONetworkController * controller )
     // Initialize the fields in the ExpansionData structure.
 
     bzero(_reserved, sizeof(ExpansionData));
+
+    _inputEventThreadCall = thread_call_allocate( handleNetworkInputEvent, this );
+    if ( !_inputEventThreadCall )
+        goto fail;
 
 	_privateLock = IOLockAlloc();
 	if ( _privateLock == 0)
@@ -357,6 +363,12 @@ void IONetworkInterface::free( void )
 
     if ( _reserved )
     {
+        if (_inputEventThreadCall)
+        {
+            thread_call_free(_inputEventThreadCall);
+            _inputEventThreadCall = 0;
+        }
+
         if ( _publicLock )
         {
             IORecursiveLockFree(_publicLock);
@@ -1012,7 +1024,13 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
                 strncpy(&event.if_name[0], ifnet_name(_backingIfnet), IFNAMSIZ);
 
                 ifnet_event(_backingIfnet, &event.header);
-            }            
+
+                retain();
+                if (thread_call_enter1(_inputEventThreadCall, (thread_call_param_t)type) == TRUE)
+                {
+                    release();
+                }
+            }
             break;
 
         // Deliver a raw kernel event to DLIL.
@@ -2330,6 +2348,18 @@ void IONetworkInterface::reportDataTransferRates(
 }
 
 //------------------------------------------------------------------------------
+// Driver Client behavior model
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::configureClientBehavior(
+    IOOptionBits options /*=0*/ )
+{
+    _clientBehavior = options;
+
+    return kIOReturnSuccess;
+}
+
+//------------------------------------------------------------------------------
 // Driver-pull output model
 //------------------------------------------------------------------------------
 
@@ -3391,6 +3421,24 @@ void IONetworkInterface::notifyDriver( uint32_t notifyType, void * data )
 {
     if (_driver)
         _driver->networkInterfaceNotification(this, notifyType, data);
+}
+
+void IONetworkInterface::handleNetworkInputEvent( thread_call_param_t param0, thread_call_param_t param1 )
+{
+    IONetworkInterface *me = (IONetworkInterface *) param0;
+    UInt32 type = (UInt32)(size_t)param1;
+
+    if (me)
+    {
+        if ((me->_clientBehavior & kIONetworkClientBehaviorLinkStateActiveRegister) && (type == kIONetworkEventTypeLinkUp)){
+            me->registerService();
+        }
+
+        if (me->_clientBehavior & kIONetworkClientBehaviorLinkStateChangeMessage) {
+            me->messageClients((type == kIONetworkEventTypeLinkUp) ? kIONetworkLinkStateActive : kIONetworkLinkStateInactive);
+        }
+        me->release();
+    }
 }
 
 //------------------------------------------------------------------------------

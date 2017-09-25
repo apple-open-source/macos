@@ -33,7 +33,10 @@
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextGroupInternal.h"
 #import "WKConnectionInternal.h"
+#import "WKContentRuleListInternal.h"
+#import "WKContentRuleListStoreInternal.h"
 #import "WKFrameInfoInternal.h"
+#import "WKHTTPCookieStoreInternal.h"
 #import "WKNSArray.h"
 #import "WKNSData.h"
 #import "WKNSDictionary.h"
@@ -51,6 +54,7 @@
 #import "WKPreferencesInternal.h"
 #import "WKProcessPoolInternal.h"
 #import "WKSecurityOriginInternal.h"
+#import "WKURLSchemeTaskInternal.h"
 #import "WKUserContentControllerInternal.h"
 #import "WKUserScriptInternal.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
@@ -68,10 +72,9 @@
 #import "_WKDownloadInternal.h"
 #import "_WKExperimentalFeatureInternal.h"
 #import "_WKFrameHandleInternal.h"
+#import "_WKGeolocationPositionInternal.h"
 #import "_WKHitTestResultInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
-#import "_WKUserContentExtensionStoreInternal.h"
-#import "_WKUserContentFilterInternal.h"
 #import "_WKUserContentWorldInternal.h"
 #import "_WKUserInitiatedActionInternal.h"
 #import "_WKUserStyleSheetInternal.h"
@@ -177,6 +180,16 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKFrameInfo alloc];
         break;
 
+#if PLATFORM(IOS)
+    case Type::GeolocationPosition:
+        wrapper = [_WKGeolocationPosition alloc];
+        break;
+#endif
+
+    case Type::HTTPCookieStore:
+        wrapper = [WKHTTPCookieStore alloc];
+        break;
+
 #if PLATFORM(MAC)
     case Type::HitTestResult:
         wrapper = [_WKHitTestResult alloc];
@@ -225,16 +238,20 @@ void* Object::newObject(size_t size, Type type)
         wrapper = NSAllocateObject([WKNSURLRequest class], size, nullptr);
         break;
 
+    case Type::URLSchemeTask:
+        wrapper = [WKURLSchemeTaskImpl alloc];
+        break;
+
     case Type::UserContentController:
         wrapper = [WKUserContentController alloc];
         break;
 
-    case Type::UserContentExtension:
-        wrapper = [_WKUserContentFilter alloc];
+    case Type::ContentRuleList:
+        wrapper = [WKContentRuleList alloc];
         break;
 
-    case Type::UserContentExtensionStore:
-        wrapper = [_WKUserContentExtensionStore alloc];
+    case Type::ContentRuleListStore:
+        wrapper = [WKContentRuleListStore alloc];
         break;
 
     case Type::UserContentWorld:
@@ -316,9 +333,6 @@ API::Object* Object::unwrap(void* object)
 {
     if (!object)
         return nullptr;
-
-    ASSERT([(id)object conformsToProtocol:@protocol(WKObject)]);
-    ASSERT([(id)object respondsToSelector:@selector(_apiObject)]);
 
     return &static_cast<id <WKObject>>(object)._apiObject;
 }

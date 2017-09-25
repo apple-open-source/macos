@@ -70,7 +70,7 @@ TransformFactory* TransformFactory::FindTransformFactoryByType(CFStringRef name)
 
 
 
-SecTransformRef TransformFactory::MakeTransformWithType(CFStringRef type, CFErrorRef* baseError)
+SecTransformRef TransformFactory::MakeTransformWithType(CFStringRef type, CFErrorRef* baseError) CF_RETURNS_RETAINED
 {
 	TransformFactory* tf = FindTransformFactoryByType(type);
 	if (!tf)

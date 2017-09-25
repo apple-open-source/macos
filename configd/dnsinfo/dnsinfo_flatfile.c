@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2009, 2011, 2012, 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011, 2012, 2014, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,6 +34,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#ifdef	MAIN
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
+#endif	// MAIN
 
 #include "dnsinfo.h"
 #include "dnsinfo_private.h"
@@ -293,7 +297,6 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 	if (f == NULL) return NULL;
 
 	while ((buf = fgetln(f, &len)) != NULL) {
-		int	i;
 		char	*lineptr;
 		int	max_count;
 		int	token;
@@ -321,7 +324,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
 		// translate config token to enumerated value
 		token = -1;
-		for (i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
+		for (size_t i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++) {
 			if (strcasecmp(word, tokens[i].name) == 0) {
 				token     = tokens[i].token;
 				max_count = tokens[i].max_count;
@@ -389,7 +392,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
 				if_index = if_nametoindex(word);
 				if (if_index > 0) {
-					_dns_resolver_set_if_index(&res, if_index);
+					_dns_resolver_set_if_index(&res, if_index, word);
 				}
 				break;
 			}
@@ -562,31 +565,44 @@ _dnsinfo_flatfile_add_resolvers(dns_create_config_t *config)
 #ifdef	MAIN
 #undef	MAIN
 
+#include "dnsinfo_logging.h"
 #include "dnsinfo_copy.c"
 
 int
 main(int argc, char **argv)
 {
-	uint8_t			*buf;
-	dns_config_t		*config;
-	dns_create_config_t	create_config;
-	_dns_config_buf_t	*config_buf;
-	uint32_t		n_config;
-	uint32_t		n_padding;
-	dns_create_resolver_t	resolver;
+	dns_config_t		*dns_config	= NULL;
+	_dns_config_buf_t	*dns_config_buf	= NULL;
+	dns_create_config_t	dns_create_config;
+	dns_create_resolver_t	dns_create_resolver;
 
-	resolver = _dnsinfo_flatfile_create_resolver(NULL, _PATH_RESCONF);
+	dns_create_resolver = _dnsinfo_flatfile_create_resolver(NULL, _PATH_RESCONF);
+	_dns_resolver_free(&dns_create_resolver);
 
-	create_config = _dns_configuration_create();
-	_dnsinfo_flatfile_add_resolvers(&create_config);
+	dns_create_config = _dns_configuration_create();
+	if (dns_create_config != NULL) {
+		size_t		n;
 
-	config_buf = (_dns_config_buf_t *)create_config;
-	n_config  = sizeof(_dns_config_buf_t) + ntohl(config_buf->n_attribute);
-	n_padding = ntohl(config_buf->n_padding);
-	buf = malloc(n_config + n_padding);
-	bcopy((void *)config_buf, buf, n_config);
-	bzero(&buf[n_config], n_padding);
-	config = _dns_configuration_expand_config((_dns_config_buf_t *)buf);
+		_dnsinfo_flatfile_add_resolvers(&dns_create_config);
+
+		n = sizeof(_dns_config_buf_t);
+		n += ntohl(((_dns_config_buf_t *)dns_create_config)->n_attribute);
+		dns_config_buf = _dns_configuration_buffer_create((void *)dns_create_config, n);
+		_dns_configuration_free(&dns_create_config);
+	}
+
+	if (dns_config_buf != NULL) {
+		dns_config = _dns_configuration_buffer_expand(dns_config_buf);
+		if (dns_config == NULL) {
+			// if we were unable to expand the configuration
+			_dns_configuration_buffer_free(&dns_config_buf);
+		}
+	}
+
+	if (dns_config != NULL) {
+		_dns_configuration_log(dns_config, TRUE, NULL);
+		free(dns_config);
+	}
 
 	return 0;
 }

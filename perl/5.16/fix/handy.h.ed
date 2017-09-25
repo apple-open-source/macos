@@ -1,5 +1,0 @@
-/^#ifdef __GNUG__/c
-#if 1 /* always on Mac OS X */
-#  include <stdbool.h>
-.
-w

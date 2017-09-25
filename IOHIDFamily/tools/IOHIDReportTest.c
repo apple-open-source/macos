@@ -1,6 +1,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDLib.h>
 #include "IOHIDReportDescriptorParser.h"
+#include <sys/time.h>
 
 static CFTimeInterval   gPollInterval       = 0.0;
 static bool             gReport             = TRUE;
@@ -25,11 +26,13 @@ static char * getReportTypeString(IOHIDReportType type)
     }
 }
 
-static void __deviceReportCallback(void * context, IOReturn result, void * sender, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength)
+static void __deviceReportCallback(void * context __unused, IOReturn result, void * sender, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength)
 {
     int index;
+    struct timeval time;
     
-    printf("IOHIDDeviceRef[%p]: result=0x%08x reportType=%s reportID=%d reportLength=%ld: ", sender, result, getReportTypeString(type), reportID, reportLength);
+    gettimeofday(&time, NULL);
+    printf("%ld.%06u IOHIDDeviceRef[%p]: result=0x%08x reportType=%s reportID=%d reportLength=%ld: ", time.tv_sec, time.tv_usec, sender, result, getReportTypeString(type), reportID, reportLength);
     for (index=0; result==kIOReturnSuccess && index<reportLength; index++)
         printf("%02x ", report[index]);
     printf("\n");
@@ -47,11 +50,11 @@ static void __deviceReportCallback(void * context, IOReturn result, void * sende
             transaction = IOHIDTransactionCreate(kCFAllocatorDefault, (IOHIDDeviceRef)sender, kIOHIDTransactionDirectionTypeOutput, 0);
             if ( transaction ) {
                 IOReturn    ret;
-                CFIndex     index, count;
+                CFIndex     idx, count;
                 
-                for ( index=0, count = CFArrayGetCount(outputElements); index<count; index++) {
+                for ( idx=0, count = CFArrayGetCount(outputElements); idx<count; idx++) {
                     
-                    IOHIDElementRef element     = (IOHIDElementRef)CFArrayGetValueAtIndex(outputElements, index);
+                    IOHIDElementRef element     = (IOHIDElementRef)CFArrayGetValueAtIndex(outputElements, idx);
                     IOHIDValueRef   hidValue    = 0;
                     
                     if ( !element )
@@ -85,14 +88,14 @@ static void __deviceReportCallback(void * context, IOReturn result, void * sende
     }
 }
 
-void __deviceValueCallback (void * context, IOReturn result, void * sender, IOHIDValueRef value)
+static void __deviceValueCallback (void * context __unused, IOReturn result __unused, void * sender, IOHIDValueRef value)
 {
     IOHIDElementRef element = IOHIDValueGetElement(value);
     
     printf("IOHIDDeviceRef[%p]: value=%p timestamp=%lld cookie=%d usagePage=0x%02X usage=0x%02X intValue=%ld\n", sender, value, IOHIDValueGetTimeStamp(value), (uint32_t)IOHIDElementGetCookie(element), IOHIDElementGetUsagePage(element), IOHIDElementGetUsage(element), IOHIDValueGetIntegerValue(value));
 }
 
-static void __timerCallback(CFRunLoopTimerRef timer, void *info)
+static void __timerCallback(CFRunLoopTimerRef timer __unused, void *info)
 {
     IOHIDDeviceRef  device = (IOHIDDeviceRef)info;
     
@@ -115,7 +118,7 @@ static void __timerCallback(CFRunLoopTimerRef timer, void *info)
     __deviceReportCallback(NULL, result, device, kIOHIDReportTypeInput, 0, report, reportSize);
 }
 
-static void __deviceCallback(void * context, IOReturn result, void * sender, IOHIDDeviceRef device)
+static void __deviceCallback(void * context, IOReturn result __unused, void * sender __unused, IOHIDDeviceRef device)
 {
     boolean_t   terminated  = context == 0;
     CFStringRef debugString = CFCopyDescription(device);
@@ -165,13 +168,13 @@ static void __deviceCallback(void * context, IOReturn result, void * sender, IOH
             
             descriptor = IOHIDDeviceGetProperty(device, CFSTR(kIOHIDReportDescriptorKey));
             if ( descriptor ) {
-                PrintHIDDescriptor(CFDataGetBytePtr(descriptor), CFDataGetLength(descriptor));
+                PrintHIDDescriptor(CFDataGetBytePtr(descriptor), (uint32_t)CFDataGetLength(descriptor));
             }
         }
         
         if ( gPollInterval != 0.0 ) {
-            CFRunLoopTimerContext   context = {.info=device};
-            CFRunLoopTimerRef       timer   = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent(), gPollInterval, 0, 0, __timerCallback, &context);
+            CFRunLoopTimerContext   timerContext = {.info=device};
+            CFRunLoopTimerRef       timer   = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent(), gPollInterval, 0, 0, __timerCallback, &timerContext);
             
             CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopCommonModes);
             
@@ -296,7 +299,7 @@ int main (int argc, const char * argv[]) {
         }
         else {
             printHelp();
-            return 0;
+            goto exit;
         }
     }
     
@@ -321,8 +324,12 @@ int main (int argc, const char * argv[]) {
     
     CFRunLoopRun();
     
+exit:
     if ( matching )
         CFRelease(matching);
+    if (manager) {
+        CFRelease(manager);
+    }
     
     return 0;
 }

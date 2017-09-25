@@ -1,0 +1,38 @@
+SAX.setDocumentLocator()
+SAX.startDocument()
+SAX.internalSubset(html, -//W3C//DTD XHTML 1.0 Transitional//EN, http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd)
+SAX.externalSubset(html, -//W3C//DTD XHTML 1.0 Transitional//EN, http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd)
+SAX.startElementNs(html, NULL, 'http://www.w3.org/1999/xhtml', 1, xmlns='http://www.w3.org/1999/xhtml', 2, 0, lang='ja" ...', 2, xml:lang='ja" ...', 2)
+SAX.characters(
+, 1)
+SAX.startElementNs(head, NULL, 'http://www.w3.org/1999/xhtml', 0, 0, 0)
+SAX.characters(
+, 1)
+SAX.startElementNs(meta, NULL, 'http://www.w3.org/1999/xhtml', 0, 2, 0, http-equiv='cont...', 12, content='text...', 28)
+SAX.endElementNs(meta, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.startElementNs(meta, NULL, 'http://www.w3.org/1999/xhtml', 0, 2, 0, http-equiv='cont...', 18, content='text...', 8)
+SAX.endElementNs(meta, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.startElementNs(meta, NULL, 'http://www.w3.org/1999/xhtml', 0, 2, 0, http-equiv='cont...', 19, content='text...', 15)
+SAX.endElementNs(meta, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.startElementNs(title, NULL, 'http://www.w3.org/1999/xhtml', 0, 0, 0)
+SAX.characters(ソフトバンクWi-Fiスポ�, 35)
+SAX.endElementNs(title, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.endElementNs(head, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.startElementNs(body, NULL, 'http://www.w3.org/1999/xhtml', 0, 0, 0)
+SAX.characters(
+, 1)
+SAX.endElementNs(body, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.endElementNs(html, NULL, 'http://www.w3.org/1999/xhtml')
+SAX.endDocument()

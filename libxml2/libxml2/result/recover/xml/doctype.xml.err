@@ -1,0 +1,3 @@
+./test/recover/xml/doctype.xml:2: parser error : Start tag expected, '<' not found
+
+^

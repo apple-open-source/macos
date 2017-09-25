@@ -38,8 +38,7 @@
 
 #if TARGET_OS_IPHONE
 #include <CoreFoundation/CFUserNotification.h>
-#endif
-#if !TARGET_OS_IPHONE
+#else
 #include <CoreFoundation/CFUserNotificationPriv.h>
 #endif
 
@@ -55,7 +54,6 @@
 typedef WBSAutoFillDataClasses (*WBUAutoFillGetEnabledDataClasses_f)(void);
 #endif
 
-#include <asl.h>
 #include <syslog.h>
 #include <bsm/libbsm.h>
 #include <utilities/SecIOFormat.h>
@@ -74,14 +72,7 @@ typedef WBSAutoFillDataClasses (*WBUAutoFillGetEnabledDataClasses_f)(void);
 #include <utilities/SecCFError.h>
 #include <utilities/SecXPCError.h>
 
-// TODO: Make this include work on both platforms.
-#if TARGET_OS_EMBEDDED
 #include <Security/SecEntitlements.h>
-#else
-/* defines from <Security/SecEntitlements.h> */
-#define kSecEntitlementAssociatedDomains CFSTR("com.apple.developer.associated-domains")
-#define kSecEntitlementPrivateAssociatedDomains CFSTR("com.apple.private.associated-domains")
-#endif
 
 #include <Security/SecuritydXPC.h>
 
@@ -90,13 +81,10 @@ typedef WBSAutoFillDataClasses (*WBUAutoFillGetEnabledDataClasses_f)(void);
 #include <xpc/connection_private.h>
 #include <AssertMacros.h>
 
-#if TARGET_IPHONE_SIMULATOR
-#define CHECK_ENTITLEMENTS 0
-#else
-#define CHECK_ENTITLEMENTS 0 /* %%% TODO: re-enable when entitlements are available */
-#endif
+#import <LocalAuthentication/LocalAuthentication.h>
 
-#if CHECK_ENTITLEMENTS
+static NSString *swca_string_table = @"SharedWebCredentials";
+
 static bool SecTaskGetBooleanValueForEntitlement(SecTaskRef task, CFStringRef entitlement)
 {
     CFStringRef canModify = (CFStringRef)SecTaskCopyValueForEntitlement(task, entitlement, NULL);
@@ -132,9 +120,6 @@ static CFArrayRef SecTaskCopyArrayOfStringsForEntitlement(SecTaskRef task, CFStr
     return value;
 }
 
-#endif /* CHECK_ENTITLEMENTS */
-
-
 /* Identify a client */
 enum {
 	CLIENT_TYPE_BUNDLE_IDENTIFIER,
@@ -169,7 +154,7 @@ static Client *identify_client(pid_t pid)
 #else
 	size_t path_len = sizeof(path_buf);
 	if (responsibility_get_responsible_for_pid(pid, NULL, NULL, &path_len, path_buf) != 0) {
-		asl_log(NULL, NULL, ASL_LEVEL_NOTICE, "Refusing client without path (pid %d)", pid);
+		secnotice("swcagent", "Refusing client without path (pid %d)", pid);
 		[client release];
 		return nil;
 	}
@@ -226,37 +211,28 @@ static Client *identify_client(pid_t pid)
 struct __SecTask {
     CFRuntimeBase base;
 
-    pid_t pid_self;
     audit_token_t token;
 
     /* Track whether we've loaded entitlements independently since after the
      * load, entitlements may legitimately be NULL */
     Boolean entitlementsLoaded;
     CFDictionaryRef entitlements;
+    
+    /* for debugging only, shown by debugDescription */
+    int lastFailure;
 };
 
 static Client* SecTaskCopyClient(SecTaskRef task)
 {
     // SecTaskCopyDebugDescription is not sufficient to get the localized client name
     pid_t pid;
-    if (task->pid_self==-1) {
-        audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
-    } else {
-        pid = task->pid_self;
-    }
+    audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
     Client *client = identify_client(pid);
-
     return client;
 }
 
 static CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task) {
-#if CHECK_ENTITLEMENTS
-    CFArrayRef groups = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementAssociatedDomains);
-#else
-    CFArrayRef groups = SecAccessGroupsGetCurrent();
-    CFRetainSafe(groups);
-#endif
-    return groups;
+    return SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementAssociatedDomains);
 }
 
 // Local function declarations
@@ -331,13 +307,24 @@ static bool SWCAIsAutofillEnabled(void)
 #endif
 }
 
+static NSBundle* swca_get_security_bundle()
+{
+    static NSBundle *security_bundle;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *security_path = @"/System/Library/Frameworks/Security.framework";
+#if TARGET_IPHONE_SIMULATOR
+        security_path = [NSString stringWithFormat:@"%s%@", getenv("IPHONE_SIMULATOR_ROOT"), security_path];
+#endif
+        security_bundle = [NSBundle bundleWithPath:security_path];
+    });
+    return security_bundle;
+}
+
 static CFOptionFlags swca_handle_request(enum SWCAXPCOperation operation, Client* client, CFArrayRef domains)
 {
     CFUserNotificationRef notification = NULL;
     NSMutableDictionary *notification_dictionary = NULL;
-    NSString *security_path = @"/System/Library/Frameworks/Security.framework";
-    NSString *swc_table = @"SharedWebCredentials";
-    NSBundle *security_bundle;
     NSString *request_key;
     NSString *request_format;
     NSString *default_button_key;
@@ -366,16 +353,12 @@ check_database:
 		alert_sem_held = YES;
 		if (dispatch_semaphore_wait(alert_sem, DISPATCH_TIME_NOW)) {
 			/* Wait for the active alert, then recheck the database in case both alerts are for the same client. */
-			//asl_log(NULL, NULL, ASL_LEVEL_NOTICE, "Delaying prompt for pid %d", pid);
+			//secnotice("swcagent", "Delaying prompt for pid %d", pid);
 			dispatch_semaphore_wait(alert_sem, DISPATCH_TIME_FOREVER);
 			goto check_database;
 		}
 	}
 
-#if TARGET_IPHONE_SIMULATOR
-    security_path = [NSString stringWithFormat:@"%s%@", getenv("IPHONE_SIMULATOR_ROOT"), security_path];
-#endif
-    security_bundle = [NSBundle bundleWithPath:security_path];
     notification_dictionary = [NSMutableDictionary dictionary];
     domain = nil;
     if (1 == [(__bridge NSArray *)domains count]) {
@@ -402,21 +385,24 @@ check_database:
         goto out;
     }
     request_key = [NSString stringWithFormat:@"SWC_REQUEST_%s", op];
-    request_format = NSLocalizedStringFromTableInBundle(request_key, swc_table, security_bundle, nil);
+    request_format = NSLocalizedStringFromTableInBundle(request_key, swca_string_table, swca_get_security_bundle(), nil);
     alternate_button_key = (op) ? [NSString stringWithFormat:@"SWC_ALLOW_%s", op] : nil;
     default_button_key = @"SWC_NEVER";
     other_button_key = @"SWC_DENY";
     info_message_key = @"SWC_INFO_MESSAGE";
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertHeaderKey] = [NSString stringWithFormat:request_format, client.client_name, domain];
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertMessageKey] = NSLocalizedStringFromTableInBundle(info_message_key, swc_table, security_bundle, nil);
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationDefaultButtonTitleKey] = NSLocalizedStringFromTableInBundle(default_button_key, swc_table, security_bundle, nil);
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlternateButtonTitleKey] = NSLocalizedStringFromTableInBundle(alternate_button_key, swc_table, security_bundle, nil);
+#pragma clang diagnostic pop
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertMessageKey] = NSLocalizedStringFromTableInBundle(info_message_key, swca_string_table, swca_get_security_bundle(), nil);
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationDefaultButtonTitleKey] = NSLocalizedStringFromTableInBundle(default_button_key, swca_string_table, swca_get_security_bundle(), nil);
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlternateButtonTitleKey] = NSLocalizedStringFromTableInBundle(alternate_button_key, swca_string_table, swca_get_security_bundle(), nil);
 
     if (other_button_key) {
     // notification_dictionary[(__bridge NSString *)kCFUserNotificationOtherButtonTitleKey] = NSLocalizedStringFromTableInBundle(other_button_key, swc_table, security_bundle, nil);
     }
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationLocalizationURLKey] = [security_bundle bundleURL];
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationLocalizationURLKey] = [swca_get_security_bundle() bundleURL];
     notification_dictionary[(__bridge NSString *)SBUserNotificationAllowedApplicationsKey] = client.client;
 
 	SInt32 error;
@@ -478,9 +464,6 @@ static bool swca_select_item(CFArrayRef items, Client* client, CFArrayRef access
 {
     CFUserNotificationRef notification = NULL;
     NSMutableDictionary *notification_dictionary = NULL;
-    NSString *security_path = @"/System/Library/Frameworks/Security.framework";
-    NSString *swc_table = @"SharedWebCredentials";
-    NSBundle *security_bundle;
     NSString *request_title_format;
     NSString *info_message_key;
     NSString *default_button_key;
@@ -519,23 +502,21 @@ entry:
     //gActiveItem = CFArrayGetValueAtIndex(items, 0);
     //CFRetainSafe(gActiveItem);
 
-#if TARGET_IPHONE_SIMULATOR
-    security_path = [NSString stringWithFormat:@"%s%@", getenv("IPHONE_SIMULATOR_ROOT"), security_path];
-#endif
-    security_bundle = [NSBundle bundleWithPath:security_path];
     notification_dictionary = [NSMutableDictionary dictionary];
-
-    request_title_format = NSLocalizedStringFromTableInBundle(@"SWC_ALERT_TITLE", swc_table, security_bundle, nil);
+    request_title_format = NSLocalizedStringFromTableInBundle(@"SWC_ALERT_TITLE", swca_string_table, swca_get_security_bundle(), nil);
     default_button_key = @"SWC_ALLOW_USE";
     alternate_button_key = @"SWC_CANCEL";
     info_message_key = @"SWC_INFO_MESSAGE";
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertHeaderKey] = [NSString stringWithFormat: request_title_format, client.client_name];
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertMessageKey] = NSLocalizedStringFromTableInBundle(info_message_key, swc_table, security_bundle, nil);
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationDefaultButtonTitleKey] = NSLocalizedStringFromTableInBundle(default_button_key, swc_table, security_bundle, nil);
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlternateButtonTitleKey] = NSLocalizedStringFromTableInBundle(alternate_button_key, swc_table, security_bundle, nil);
+#pragma clang diagnostic pop
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertMessageKey] = NSLocalizedStringFromTableInBundle(info_message_key, swca_string_table, swca_get_security_bundle(), nil);
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationDefaultButtonTitleKey] = NSLocalizedStringFromTableInBundle(default_button_key, swca_string_table, swca_get_security_bundle(), nil);
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationAlternateButtonTitleKey] = NSLocalizedStringFromTableInBundle(alternate_button_key, swca_string_table, swca_get_security_bundle(), nil);
 
-    notification_dictionary[(__bridge NSString *)kCFUserNotificationLocalizationURLKey] = [security_bundle bundleURL];
+    notification_dictionary[(__bridge NSString *)kCFUserNotificationLocalizationURLKey] = [swca_get_security_bundle() bundleURL];
     notification_dictionary[(__bridge NSString *)kCFUserNotificationAlertTopMostKey] = [NSNumber numberWithBool:YES];
 
     // additional keys for remote view controller
@@ -569,6 +550,50 @@ out:
     return (result && *result);
 }
 
+/*
+ * Return a SecTaskRef iff orignal client have the entitlement kSecEntitlementAssociatedDomains
+ */
+
+static SecTaskRef
+swcaCopyClientFromMessage(xpc_object_t event, CFErrorRef *error)
+{
+    SecTaskRef clientTask = NULL;
+    audit_token_t auditToken = {};
+
+    // fetch audit token for process which called securityd
+    size_t length = 0;
+    const uint8_t *bytes = xpc_dictionary_get_data(event, kSecXPCKeyClientToken, &length);
+    if (length != sizeof(audit_token_t)) {
+        SecError(errSecMissingEntitlement, error, CFSTR("swcagent_xpc - wrong length for client id"));
+        return NULL;
+    }
+
+    memcpy(&auditToken, bytes, sizeof(audit_token_t));
+
+    // identify original client
+    clientTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
+    if (clientTask == NULL) {
+        pid_t pid = 0;
+        audit_token_to_au32(auditToken, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+        SecError(errSecMissingEntitlement, error, CFSTR("can't get entitlement of original client pid %d"), (int)pid);
+        return NULL;
+    }
+
+
+    // check for presence of original client's shared credential entitlement
+    CFArrayRef domains = SecTaskCopyArrayOfStringsForEntitlement(clientTask, kSecEntitlementAssociatedDomains);
+    if (domains == NULL) {
+        SecError(errSecMissingEntitlement, error, CFSTR("%@ lacks entitlement %@"),
+                 clientTask, kSecEntitlementAssociatedDomains);
+        CFReleaseNull(clientTask);
+        return NULL;
+    } else {
+        CFReleaseNull(domains);
+    }
+
+    return clientTask;
+}
+
 
 static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
 	xpc_type_t type = xpc_get_type(event);
@@ -581,58 +606,33 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
 
     secdebug("swcagent_xpc", "entering");
     if (type == XPC_TYPE_DICTIONARY) {
+        bool entitlementOK = false;
         replyMessage = xpc_dictionary_create_reply(event);
 
         uint64_t operation = xpc_dictionary_get_uint64(event, kSecXPCKeyOperation);
-        secdebug("swcagent_xpc", "operation: %@ (%" PRIu64 ")", SWCAGetOperationDescription((enum SWCAXPCOperation)operation), operation);
+        secinfo("swcagent_xpc", "operation: %@ (%" PRIu64 ")", SWCAGetOperationDescription((enum SWCAXPCOperation)operation), operation);
 
-        bool hasEntitlement;
-        audit_token_t auditToken = {};
-#if !CHECK_ENTITLEMENTS
-        hasEntitlement = true;
-#else
-        // check our caller's private entitlement to invoke swcagent
-        // TODO: on iOS it's enough to have the entitlement; will need to check code requirement on OS X
-        xpc_connection_get_audit_token(connection, &auditToken);
-        clientTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
-        hasEntitlement = (clientTask && SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementPrivateAssociatedDomains));
-        if (!hasEntitlement) {
-            CFErrorRef entitlementError = NULL;
-            SecError(errSecMissingEntitlement, &entitlementError, CFSTR("%@: %@ lacks entitlement %@"), SOSCCGetOperationDescription((enum SWCAXPCOperation)operation), clientTask, kSecEntitlementPrivateAssociatedDomains);
-            CFReleaseSafe(entitlementError);
-        }
-        CFReleaseNull(clientTask);
-#endif
 
-        if (hasEntitlement) {
-            // fetch audit token for process which called securityd
-            size_t length = 0;
-            const uint8_t *bytes = xpc_dictionary_get_data(event, kSecXPCKeyClientToken, &length);
-            if (length == sizeof(audit_token_t)) {
-                memcpy(&auditToken, bytes, sizeof(audit_token_t));
-            } else {
-                secerror("swcagent_xpc - wrong length for client id");
-                hasEntitlement = false;
+        if (operation == swca_copy_pairs_request_id || operation == swca_set_selection_request_id) {
+            /* check entitlement */
+            xpc_object_t ent = xpc_connection_copy_entitlement_value(connection, "com.apple.private.associated-domains");
+            if (ent)
+                entitlementOK = true;
+
+        } else {
+            clientTask = swcaCopyClientFromMessage(event, &error);
+            if (clientTask) {
+                accessGroups = SecTaskCopyAccessGroups(clientTask);
+                client = SecTaskCopyClient(clientTask);
+                CFReleaseNull(clientTask);
             }
-        }
-        if (hasEntitlement) {
-            // identify original client
-            clientTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
-            accessGroups = SecTaskCopyAccessGroups(clientTask);
-            client = SecTaskCopyClient(clientTask);
-#if CHECK_ENTITLEMENTS
-            // check for presence of original client's shared credential entitlement
-            hasEntitlement = (clientTask && SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementAssociatedDomains));
-            if (!hasEntitlement) {
-                CFErrorRef entitlementError = NULL;
-                SecError(errSecMissingEntitlement, &entitlementError, CFSTR("%@: %@ lacks entitlement %@"), SOSCCGetOperationDescription((enum SWCAXPCOperation)operation), clientTask, kSecEntitlementAssociatedDomains);
-                CFReleaseSafe(entitlementError);
-            }
-#endif
-            CFReleaseNull(clientTask);
+
+            if (accessGroups && client)
+                entitlementOK = true;
+
         }
 
-        if (hasEntitlement) {
+        if (entitlementOK) {
             switch (operation)
             {
             case swca_add_request_id:
@@ -703,7 +703,15 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
                     CFTypeRef result = NULL;
                     // select a dictionary from an input array of dictionaries
                     if (swca_select_item(items, client, accessGroups, &result, &error) && result) {
-                        SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                        LAContext *ctx = [LAContext new];
+                        NSString *subTitle = NSLocalizedStringFromTableInBundle(@"SWC_FILLPWD", swca_string_table, swca_get_security_bundle(), nil);
+                        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+                        [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:subTitle reply:^(BOOL success, NSError * _Nullable laError) {
+                            if (success || ([laError.domain isEqual:LAErrorDomain] && laError.code == LAErrorPasscodeNotSet))
+                                SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                            dispatch_semaphore_signal(sema);
+                        }];
+                        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
                         CFRelease(result);
                     }
                     CFRelease(items);
@@ -781,6 +789,29 @@ static void swca_xpc_init()
 
     xpc_connection_set_event_handler(swclistener, ^(xpc_object_t connection) {
         if (xpc_get_type(connection) == XPC_TYPE_CONNECTION) {
+            audit_token_t auditToken = {};
+            SecTaskRef clientTask = NULL;
+
+            /*
+             * check that our caller have the private entitlement to invoke swcagent
+             */
+
+            xpc_connection_get_audit_token(connection, &auditToken);
+            clientTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
+            if (clientTask == NULL) {
+                secerror("can't get sectask of connection %@", connection);
+                xpc_connection_cancel(connection);
+                return;
+            }
+
+            if (!SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementPrivateAssociatedDomains)) {
+                secerror("client %@ lacks entitlement %@", clientTask, kSecEntitlementPrivateAssociatedDomains);
+                CFReleaseNull(clientTask);
+                xpc_connection_cancel(connection);
+                return;
+            }
+            CFReleaseNull(clientTask);
+
             xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
                 if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{

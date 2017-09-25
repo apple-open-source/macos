@@ -37,6 +37,10 @@
 #include <WebCore/Page.h>
 #include <WebCore/Settings.h>
 
+#if USE(GLIB_EVENT_LOOP)
+#include <wtf/glib/RunLoopSourcePriority.h>
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -49,6 +53,9 @@ DrawingAreaImpl::DrawingAreaImpl(WebPage& webPage, const WebPageCreationParamete
     : AcceleratedDrawingArea(webPage, parameters)
     , m_displayTimer(RunLoop::main(), this, &DrawingAreaImpl::displayTimerFired)
 {
+#if USE(GLIB_EVENT_LOOP)
+    m_displayTimer.setPriority(RunLoopSourcePriority::NonAcceleratedDrawingTimer);
+#endif
 }
 
 void DrawingAreaImpl::setNeedsDisplay()
@@ -97,6 +104,9 @@ void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollDel
 
     if (scrollRect.isEmpty())
         return;
+
+    if (m_previousLayerTreeHost)
+        m_previousLayerTreeHost->scrollNonCompositedContents(scrollRect);
 
     if (!m_scrollRect.isEmpty() && scrollRect != m_scrollRect) {
         unsigned scrollArea = scrollRect.width() * scrollRect.height();
@@ -152,20 +162,11 @@ void DrawingAreaImpl::forceRepaint()
         return;
     }
 
-    setNeedsDisplay();
-    m_webPage.layoutIfNeeded();
     m_isWaitingForDidUpdate = false;
-    display();
-}
-
-void DrawingAreaImpl::mainFrameContentSizeChanged(const WebCore::IntSize& newSize)
-{
-#if USE(COORDINATED_GRAPHICS_THREADED)
-    if (m_layerTreeHost)
-        m_layerTreeHost->contentsSizeChanged(newSize);
-#else
-    UNUSED_PARAM(newSize);
-#endif
+    if (m_isPaintingEnabled) {
+        m_dirtyRegion = m_webPage.bounds();
+        display();
+    }
 }
 
 void DrawingAreaImpl::updatePreferences(const WebPreferencesStore& store)
@@ -176,8 +177,7 @@ void DrawingAreaImpl::updatePreferences(const WebPreferencesStore& store)
 #if USE(COORDINATED_GRAPHICS_THREADED)
     // Fixed position elements need to be composited and create stacking contexts
     // in order to be scrolled by the ScrollingCoordinator.
-    settings.setAcceleratedCompositingForFixedPositionEnabled(true);
-    settings.setFixedPositionCreatesStackingContext(true);
+    settings.setAcceleratedCompositingForFixedPositionEnabled(settings.acceleratedCompositingEnabled());
 #endif
 
     m_alwaysUseCompositing = settings.acceleratedCompositingEnabled() && settings.forceCompositingMode();
@@ -288,15 +288,7 @@ void DrawingAreaImpl::exitAcceleratedCompositingMode()
     if (m_alwaysUseCompositing)
         return;
 
-    ASSERT(!m_layerTreeStateIsFrozen);
-
-    m_exitCompositingTimer.stop();
-    m_wantsToExitAcceleratedCompositingMode = false;
-
-    ASSERT(m_layerTreeHost);
-
-    m_layerTreeHost->invalidate();
-    m_layerTreeHost = nullptr;
+    AcceleratedDrawingArea::exitAcceleratedCompositingModeNow();
     m_dirtyRegion = m_webPage.bounds();
 
     if (m_inUpdateBackingStoreState)
@@ -342,7 +334,7 @@ void DrawingAreaImpl::scheduleDisplay()
     if (m_displayTimer.isActive())
         return;
 
-    m_displayTimer.startOneShot(0);
+    m_displayTimer.startOneShot(0_s);
 }
 
 void DrawingAreaImpl::displayTimerFired()

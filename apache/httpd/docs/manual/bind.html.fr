@@ -34,7 +34,7 @@
     <p>Configuration du serveur HTTP Apache pour l'écoute
     sur un port et une adresse IP spécifiques.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Vue d'ensemble</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#overview">Vue d'ensemble</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#ipv6">Remarques spécifiques à IPv6</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#protocol">Spécification du protocole avec Listen</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#virtualhost">Comment tout ceci fonctionne-t-il avec les hôtes virtuels</a></li>
@@ -219,7 +219,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/bind.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

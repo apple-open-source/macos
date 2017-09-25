@@ -252,13 +252,21 @@ WK_EXPORT bool WKPreferencesGetQTKitEnabled(WKPreferencesRef preferencesRef);
 WK_EXPORT void WKPreferencesSetAsynchronousSpellCheckingEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetAsynchronousSpellCheckingEnabled(WKPreferencesRef preferencesRef);
 
-// Defaults to false
+// Defaults to true
 WK_EXPORT void WKPreferencesSetMediaStreamEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetMediaStreamEnabled(WKPreferencesRef preferencesRef);
 
 // Defaults to false
+WK_EXPORT void WKPreferencesSetMediaDevicesEnabled(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetMediaDevicesEnabled(WKPreferencesRef preferencesRef);
+
+// Defaults to true
 WK_EXPORT void WKPreferencesSetPeerConnectionEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetPeerConnectionEnabled(WKPreferencesRef preferencesRef);
+
+// Should default to false
+WK_EXPORT void WKPreferencesSetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef);
 
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled);
@@ -287,6 +295,14 @@ WK_EXPORT void WKPreferencesSetApplePayEnabled(WKPreferencesRef preferencesRef, 
 // Defaults to true.
 WK_EXPORT bool WKPreferencesGetApplePayCapabilityDisclosureAllowed(WKPreferencesRef preferencesRef);
 WK_EXPORT void WKPreferencesSetApplePayCapabilityDisclosureAllowed(WKPreferencesRef preferencesRef, bool allowed);
+
+// Defaults to true.
+WK_EXPORT bool WKPreferencesGetLegacyEncryptedMediaAPIEnabled(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetLegacyEncryptedMediaAPIEnabled(WKPreferencesRef preferencesRef, bool enabled);
+
+// Defaults to true.
+WK_EXPORT bool WKPreferencesGetAllowMediaContentTypesRequiringHardwareSupportAsFallback(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetAllowMediaContentTypesRequiringHardwareSupportAsFallback(WKPreferencesRef preferencesRef, bool allow);
 
 #ifdef __cplusplus
 }

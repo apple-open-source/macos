@@ -567,12 +567,15 @@ CustomTransformFactory::CustomTransformFactory(CFStringRef uniqueName, SecTransf
     RegisterTransform(this, kSecCustom);
 }
 
-CFTypeRef CustomTransformFactory::Make() 
+// clang cannot possibly reason about the way in which we turn Transforms into CFRefs, and it just looks like a leak
+#ifndef __clang_analyzer__
+CFTypeRef CustomTransformFactory::Make() CF_RETURNS_RETAINED
 {
 	CustomTransform *ct = new CustomTransform(this->GetTypename(), createFuncPtr);
 	ct->Create();
 	return ct->get_ref();
 }
+#endif
 
 #pragma mark MISC
 
@@ -590,12 +593,12 @@ extern "C" {
 															  null_allowed ? CFSTR(" either") : CFSTR(""),
 															  expected_type_name,
 															  null_allowed ? CFSTR(" or a NULL") : CFSTR(""));
-				CFRelease(value_type_name);
+				CFReleaseNull(value_type_name);
 			} else {
 				error = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "%@ received NULL value, expected a %@",
 												   attr, expected_type_name);
 			}
-			CFRelease(expected_type_name);
+			CFReleaseNull(expected_type_name);
 			
 			return error;
 		};
@@ -621,6 +624,8 @@ extern "C" {
 	}
 }
 
+// clang cannot reason about this business of creating an object for the side-effects of doing so
+#ifndef __clang_analyzer__
 Boolean SecTransformRegister(CFStringRef uniqueName, SecTransformCreateFP createFP, CFErrorRef *caller_error) 
 {
 	CFErrorRef error = NULL;
@@ -640,6 +645,7 @@ Boolean SecTransformRegister(CFStringRef uniqueName, SecTransformCreateFP create
 		return TRUE;
 	}
 }
+#endif
 
 SecTransformRef SecTransformCreate(CFStringRef name, CFErrorRef *error) 
 {
@@ -750,12 +756,15 @@ void CustomTransform::AttributeChanged(SecTransformAttributeRef ah, CFTypeRef va
 	if (vr) {
 			if (CFGetTypeID(vr) == CFErrorGetTypeID()) {
 					SendAttribute(AbortAH, vr);
-					CFRelease(vr);
+					CFReleaseNull(vr);
 			} else {
-					CFErrorRef e = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "Invalid return type from a validate action, expected a CFErrorRef got a %@ (%@)", CFCopyTypeIDDescription(CFGetTypeID(vr)), vr);
+                    CFStringRef idDescription = CFCopyTypeIDDescription(CFGetTypeID(vr));
+					CFErrorRef e = CreateSecTransformErrorRef(kSecTransformErrorInvalidType, "Invalid return type from a validate action, expected a CFErrorRef got a %@ (%@)", idDescription, vr);
 					SendAttribute(AbortAH, e);
-					CFRelease(vr);
-					// XXX: this causes a core dump -- I think AbortAH doesn't take it's own reference!!   CFRelease(e);
+					CFReleaseNull(vr);
+                    CFReleaseNull(e);
+                    CFReleaseNull(idDescription);
+					// XXX: this causes a core dump -- I think AbortAH doesn't take it's own reference!!   CFReleaseNull(e);
 			}
 			return;
 	}
@@ -779,7 +788,7 @@ void CustomTransform::AttributeChanged(SecTransformAttributeRef ah, CFTypeRef va
 
                 if (output != value && output != NULL)
                 {
-                    CFRelease(output);
+                    CFReleaseNull(output);
                 }
 			}
 		} 
@@ -838,7 +847,7 @@ CFTypeRef CustomTransform::rebind_data_action(CFStringRef action,
         char *utf8_message = utf8(msg);
         syslog(LOG_ERR, "%s", utf8_message);
         free(utf8_message);
-        CFRelease(msg);
+        CFReleaseNull(msg);
 	}
 	return result;
 }
@@ -1022,7 +1031,7 @@ CFDictionaryRef CustomTransform::GetCustomExternalData()
 	if (CFGetTypeID(result) == CFErrorGetTypeID())
 	{
 		// Ouch!  we should deal with this
-		CFRelease(result);
+		CFReleaseNull(result);
 		return NULL;
 	}
 	
@@ -1031,7 +1040,7 @@ CFDictionaryRef CustomTransform::GetCustomExternalData()
 		return (CFDictionaryRef)result;
 	}
 	
-	CFRelease(result);
+	CFReleaseNull(result);
 	result = NULL;
 	return (CFDictionaryRef)result;
 }
@@ -1053,9 +1062,9 @@ CFErrorRef SecTransformSetAttributeAction(SecTransformImplementationRef ref,
 {
 	if (NULL == ref)
 	{
-		 CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, 
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput,
 			"SecTransformSetAttributeNotificationAction called with a NULL SecTransformImplementationRef ref");
-			
+        CFAutorelease(result);
 		return result;
 	}
 	
@@ -1068,9 +1077,9 @@ CFErrorRef SecTransformSetDataAction(SecTransformImplementationRef ref,
 {
 	if (NULL == ref)
 	{
-		 CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, 
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput,
 			"SecTransformSetAttributeNotificationAction called with a NULL SecTransformImplementationRef ref");
-			
+        CFAutorelease(result);
 		return result;
 	}
 	
@@ -1083,9 +1092,9 @@ CFErrorRef SecTransformSetTransformAction(SecTransformImplementationRef ref,
 {
 	if (NULL == ref)
 	{
-		 CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, 
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput,
 			"SecTransformSetAttributeNotificationAction called with a NULL SecTransformImplementationRef ref");
-			
+        CFAutorelease(result);
 		return result;
 	}
 	
@@ -1100,7 +1109,7 @@ CFTypeRef SecTranformCustomGetAttribute(SecTransformImplementationRef ref,
 	{
         CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, 
                                                        "SecTransformCustomGetAttribute called with a NULL SecTransformImplementationRef ref");
-        
+        CFAutorelease(result);
 		return result;
 	}
 	
@@ -1114,9 +1123,9 @@ CFTypeRef SecTransformCustomSetAttribute(SecTransformImplementationRef ref,
 {
 	if (NULL == ref)
 	{
-		 CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, 
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput,
 			"SecTransformCustomSetAttribute called with a NULL SecTransformImplementationRef ref");
-			
+        CFAutorelease(result);
 		return result;
 	}
 	
@@ -1130,9 +1139,9 @@ CFTypeRef SecTransformPushbackAttribute(SecTransformImplementationRef ref,
 {
 	if (NULL == ref)
 	{
-		 CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, 
+        CFErrorRef result = CreateSecTransformErrorRef(kSecTransformErrorInvalidInput,
 			"SecTransformPushbackAttribute called with a NULL SecTransformImplementationRef ref");
-			
+        CFAutorelease(result);
 		return (CFTypeRef)result;
 	}
 	

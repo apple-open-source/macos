@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2014, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,9 +35,11 @@
 #include <stdint.h>
 
 #define CHECK_DATASIZE_OF(datasize) ASSERT(datasize == 32 || datasize == 64)
+#define CHECK_MEMOPSIZE_OF(size) ASSERT(size == 8 || size == 16 || size == 32 || size == 64 || size == 128);
 #define DATASIZE_OF(datasize) ((datasize == 64) ? Datasize_64 : Datasize_32)
 #define MEMOPSIZE_OF(datasize) ((datasize == 8 || datasize == 128) ? MemOpSize_8_or_128 : (datasize == 16) ? MemOpSize_16 : (datasize == 32) ? MemOpSize_32 : MemOpSize_64)
 #define CHECK_DATASIZE() CHECK_DATASIZE_OF(datasize)
+#define CHECK_MEMOPSIZE() CHECK_MEMOPSIZE_OF(datasize)
 #define CHECK_VECTOR_DATASIZE() ASSERT(datasize == 64 || datasize == 128)
 #define DATASIZE DATASIZE_OF(datasize)
 #define MEMOPSIZE MEMOPSIZE_OF(datasize)
@@ -621,7 +623,19 @@ private:
     };
 
     enum SIMD3Same {
-        SIMD_LogicalOp_AND = 0x03
+        SIMD_LogicalOp = 0x03
+    };
+
+    enum SIMD3SameLogical {
+        // This includes both the U bit and the "size" / opc for convience.
+        SIMD_LogicalOp_AND = 0x00,
+        SIMD_LogicalOp_BIC = 0x01,
+        SIMD_LogicalOp_ORR = 0x02,
+        SIMD_LogicalOp_ORN = 0x03,
+        SIMD_LogacalOp_EOR = 0x80,
+        SIMD_LogicalOp_BSL = 0x81,
+        SIMD_LogicalOp_BIT = 0x82,
+        SIMD_LogicalOp_BIF = 0x83,
     };
 
     enum FPIntConvOp {
@@ -681,6 +695,21 @@ private:
         LdrLiteralOp_64BIT = 1,
         LdrLiteralOp_LDRSW = 2,
         LdrLiteralOp_128BIT = 2
+    };
+    
+    enum ExoticLoadFence {
+        ExoticLoadFence_None,
+        ExoticLoadFence_Acquire
+    };
+    
+    enum ExoticLoadAtomic {
+        ExoticLoadAtomic_Link,
+        ExoticLoadAtomic_None
+    };
+
+    enum ExoticStoreFence {
+        ExoticStoreFence_None,
+        ExoticStoreFence_Release,
     };
 
     static unsigned memPairOffsetShift(bool V, MemPairOpSize size)
@@ -856,6 +885,14 @@ public:
         insn(excepnGeneration(ExcepnOp_BREAKPOINT, imm, 0));
     }
     
+    ALWAYS_INLINE static bool isBrk(void* address)
+    {
+        int expected = excepnGeneration(ExcepnOp_BREAKPOINT, 0, 0);
+        int immediateMask = excepnGenerationImmMask();
+        int candidateInstruction = *reinterpret_cast<int*>(address);
+        return (candidateInstruction & ~immediateMask) == expected;
+    }
+
     template<int datasize>
     ALWAYS_INLINE void cbnz(RegisterID rt, int32_t offset = 0)
     {
@@ -1511,6 +1548,55 @@ public:
     {
         insn(0xd5033abf);
     }
+    
+    template<int datasize>
+    void ldar(RegisterID dst, RegisterID src)
+    {
+        CHECK_MEMOPSIZE();
+        insn(exoticLoad(MEMOPSIZE, ExoticLoadFence_Acquire, ExoticLoadAtomic_None, dst, src));
+    }
+
+    template<int datasize>
+    void ldxr(RegisterID dst, RegisterID src)
+    {
+        CHECK_MEMOPSIZE();
+        insn(exoticLoad(MEMOPSIZE, ExoticLoadFence_None, ExoticLoadAtomic_Link, dst, src));
+    }
+
+    template<int datasize>
+    void ldaxr(RegisterID dst, RegisterID src)
+    {
+        CHECK_MEMOPSIZE();
+        insn(exoticLoad(MEMOPSIZE, ExoticLoadFence_Acquire, ExoticLoadAtomic_Link, dst, src));
+    }
+    
+    template<int datasize>
+    void stxr(RegisterID result, RegisterID src, RegisterID dst)
+    {
+        CHECK_MEMOPSIZE();
+        insn(exoticStore(MEMOPSIZE, ExoticStoreFence_None, result, src, dst));
+    }
+
+    template<int datasize>
+    void stlr(RegisterID src, RegisterID dst)
+    {
+        CHECK_MEMOPSIZE();
+        insn(storeRelease(MEMOPSIZE, src, dst));
+    }
+
+    template<int datasize>
+    void stlxr(RegisterID result, RegisterID src, RegisterID dst)
+    {
+        CHECK_MEMOPSIZE();
+        insn(exoticStore(MEMOPSIZE, ExoticStoreFence_Release, result, src, dst));
+    }
+    
+#if ENABLE(FAST_TLS_JIT)
+    void mrs_TPIDRRO_EL0(RegisterID dst)
+    {
+        insn(0xd53bd060 | dst); // Thanks, otool -t!
+    }
+#endif
 
     template<int datasize>
     ALWAYS_INLINE void orn(RegisterID rd, RegisterID rn, RegisterID rm)
@@ -2228,7 +2314,14 @@ public:
     ALWAYS_INLINE void vand(FPRegisterID vd, FPRegisterID vn, FPRegisterID vm)
     {
         CHECK_VECTOR_DATASIZE();
-        insn(vectorDataProcessing2Source(SIMD_LogicalOp_AND, vm, vn, vd));
+        insn(vectorDataProcessingLogical(SIMD_LogicalOp_AND, vm, vn, vd));
+    }
+
+    template<int datasize>
+    ALWAYS_INLINE void vorr(FPRegisterID vd, FPRegisterID vn, FPRegisterID vm)
+    {
+        CHECK_VECTOR_DATASIZE();
+        insn(vectorDataProcessingLogical(SIMD_LogicalOp_ORR, vm, vn, vd));
     }
 
     template<int datasize>
@@ -2507,6 +2600,14 @@ public:
     static void linkPointer(void* code, AssemblerLabel where, void* valuePtr)
     {
         linkPointer(addressOf(code, where), valuePtr);
+    }
+
+    static void replaceWithVMHalt(void* where)
+    {
+        // This should try to write to null which should always Segfault.
+        int insn = dataCacheZeroVirtualAddress(ARM64Registers::zr);
+        performJITMemcpy(where, &insn, sizeof(int));
+        cacheFlush(where, sizeof(int));
     }
 
     static void replaceWithJump(void* where, void* to)
@@ -3263,6 +3364,11 @@ private:
         const int op2 = 0;
         return (0xd4000000 | opc << 21 | imm16 << 5 | op2 << 2 | LL);
     }
+    ALWAYS_INLINE static int excepnGenerationImmMask()
+    {
+        uint16_t imm16 =  std::numeric_limits<uint16_t>::max();
+        return (static_cast<int>(imm16) << 5);
+    }
 
     ALWAYS_INLINE static int extract(Datasize sf, RegisterID rm, int imms, RegisterID rn, RegisterID rd)
     {
@@ -3334,17 +3440,11 @@ private:
         return (0x1e200800 | M << 31 | S << 29 | type << 22 | rm << 16 | opcode << 12 | rn << 5 | rd);
     }
 
-    ALWAYS_INLINE static int vectorDataProcessing2Source(SIMD3Same opcode, unsigned size, FPRegisterID vm, FPRegisterID vn, FPRegisterID vd)
+    ALWAYS_INLINE static int vectorDataProcessingLogical(SIMD3SameLogical uAndSize, FPRegisterID vm, FPRegisterID vn, FPRegisterID vd)
     {
         const int Q = 0;
-        return (0xe201c00 | Q << 30 | size << 22 | vm << 16 | opcode << 11 | vn << 5 | vd);
+        return (0xe200400 | Q << 30 | uAndSize << 22 | vm << 16 | SIMD_LogicalOp << 11 | vn << 5 | vd);
     }
-
-    ALWAYS_INLINE static int vectorDataProcessing2Source(SIMD3Same opcode, FPRegisterID vm, FPRegisterID vn, FPRegisterID vd)
-    {
-        return vectorDataProcessing2Source(opcode, 0, vm, vn, vd);
-    }
-
 
     // 'o1' means negate
     ALWAYS_INLINE static int floatingPointDataProcessing3Source(Datasize type, bool o1, FPRegisterID rm, AddOp o2, FPRegisterID ra, FPRegisterID rn, FPRegisterID rd)
@@ -3556,6 +3656,11 @@ private:
     {
         return hintPseudo(0);
     }
+
+    ALWAYS_INLINE static int dataCacheZeroVirtualAddress(RegisterID rt)
+    {
+        return system(0, 1, 0x3, 0x7, 0x4, 0x1, rt);
+    }
     
     // 'op' means negate
     ALWAYS_INLINE static int testAndBranchImmediate(bool op, int b50, int imm14, RegisterID rt)
@@ -3575,7 +3680,22 @@ private:
         const int op4 = 0;
         return (0xd6000000 | opc << 21 | op2 << 16 | op3 << 10 | xOrZr(rn) << 5 | op4);
     }
-
+    
+    static int exoticLoad(MemOpSize size, ExoticLoadFence fence, ExoticLoadAtomic atomic, RegisterID dst, RegisterID src)
+    {
+        return 0x085f7c00 | size << 30 | fence << 15 | atomic << 23 | src << 5 | dst;
+    }
+    
+    static int storeRelease(MemOpSize size, RegisterID src, RegisterID dst)
+    {
+        return 0x089ffc00 | size << 30 | dst << 5 | src;
+    }
+    
+    static int exoticStore(MemOpSize size, ExoticStoreFence fence, RegisterID result, RegisterID src, RegisterID dst)
+    {
+        return 0x08007c00 | size << 30 | result << 16 | fence << 15 | dst << 5 | src;
+    }
+    
     // Workaround for Cortex-A53 erratum (835769). Emit an extra nop if the
     // last instruction in the buffer is a load, store or prefetch. Needed
     // before 64-bit multiply-accumulate instructions.

@@ -75,7 +75,6 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#define	SC_LOG_HANDLE	__log_InterfaceNamer()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDPlugin.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -120,7 +119,7 @@ enum {
 #define WAIT_STACK_TIMEOUT_DEFAULT	300.0
 
 #define WAIT_QUIET_TIMEOUT_KEY		"WaitQuietTimeout"
-#define WAIT_QUIET_TIMEOUT_DEFAULT	60.0
+#define WAIT_QUIET_TIMEOUT_DEFAULT	240.0
 
 /*
  * S_connect
@@ -216,7 +215,8 @@ static CFArrayRef		S_vlans			= NULL;
 /*
  * Logging
  */
-static os_log_t
+__private_extern__
+os_log_t
 __log_InterfaceNamer()
 {
     static os_log_t	log = NULL;
@@ -248,6 +248,7 @@ addTimestamp(CFMutableDictionaryRef dict, CFStringRef key)
 static CFComparisonResult
 if_unit_compare(const void *val1, const void *val2, void *context)
 {
+#pragma unused(context)
     CFComparisonResult	res;
     CFNumberRef		type1;
     CFNumberRef		type2;
@@ -556,6 +557,7 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 					   SCPreferencesNotification	notificationType,
 					   void				*info)
 {
+#pragma unused(info)
     os_activity_t   activity;
 
     if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
@@ -603,6 +605,7 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 static void
 updateBTPANInformation(const void *value, void *context)
 {
+#pragma unused(context)
     CFDataRef		addr;
     CFDictionaryRef	dict    = (CFDictionaryRef)value;
     CFStringRef		if_name;
@@ -1873,11 +1876,15 @@ updateNetworkConfiguration(CFArrayRef if_list)
 
     set = SCNetworkSetCopyCurrent(prefs);
     if (set == NULL) {
-	SC_log(LOG_INFO, "No current set");
-	goto done;
+	SC_log(LOG_INFO, "No current set, adding default");
+	set = _SCNetworkSetCreateDefault(prefs);
+	if (set == NULL) {
+	    SC_log(LOG_NOTICE, "_SCNetworkSetCreateDefault() failed: %s", SCErrorString(SCError()));
+	    goto done;
+	}
     }
 
-    n = CFArrayGetCount(if_list);
+    n = (if_list != NULL) ? CFArrayGetCount(if_list) : 0;
     for (i = 0; i < n; i++) {
 	SCNetworkInterfaceRef	interface;
 
@@ -2076,6 +2083,7 @@ updateInterfaces()
 static void
 interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 {
+#pragma unused(refcon)
     os_activity_t	activity;
     io_object_t		obj;
 
@@ -2117,6 +2125,7 @@ interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 static void
 stackCallback(void *refcon, io_iterator_t iter)
 {
+#pragma unused(refcon)
     os_activity_t	activity;
     kern_return_t	kr;
     io_object_t		stack;
@@ -2172,6 +2181,8 @@ quietCallback(void		*refcon,
 	      natural_t		messageType,
 	      void		*messageArgument)
 {
+#pragma unused(refcon)
+#pragma unused(service)
     os_activity_t	activity;
 
     if (messageArgument != NULL) {
@@ -2347,6 +2358,8 @@ captureBusy()
 static void
 timerCallback(CFRunLoopTimerRef	timer, void *info)
 {
+#pragma unused(timer)
+#pragma unused(info)
     os_activity_t	activity;
 
     activity = os_activity_create("process IOKit timer",
@@ -2375,6 +2388,7 @@ timerCallback(CFRunLoopTimerRef	timer, void *info)
 static Boolean
 setup_IOKit(CFBundleRef bundle)
 {
+#pragma unused(bundle)
     uint32_t		busy;
     kern_return_t	kr;
     mach_port_t		masterPort	= MACH_PORT_NULL;
@@ -2541,6 +2555,7 @@ setup_IOKit(CFBundleRef bundle)
 static Boolean
 setup_Virtual(CFBundleRef bundle)
 {
+#pragma unused(bundle)
     // open a SCPreferences session
     S_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME), NULL);
     if (S_prefs == NULL) {
@@ -2658,6 +2673,7 @@ __private_extern__
 void
 load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
 {
+#pragma unused(bundleVerbose)
     pthread_attr_t  tattr;
     pthread_t	    tid;
 

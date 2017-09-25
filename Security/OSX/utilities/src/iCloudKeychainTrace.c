@@ -45,11 +45,14 @@ static const char* gTopLevelKeyForiCloudKeychainTracing = "com.apple.icdp.Keycha
 #endif
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
-#include <asl.h>
+#include <msgtracer_client.h>
+
+struct msgtracer_instance {
+    msgtracer_msg_t message;
+    msgtracer_domain_t domain;
+};
 
 static const char* gMessageTracerSetPrefix = "com.apple.message.";
-
-static const char* gMessageTracerDomainField = "com.apple.message.domain";
 
 /* --------------------------------------------------------------------------
 	Function:		OSX_BeginCloudKeychainLoggingTransaction
@@ -60,24 +63,27 @@ static const char* gMessageTracerDomainField = "com.apple.message.domain";
 					all of the transactions items into a single log making
 					the message tracer folks happy.
 					
-					The work of this function is to create the aslmsg context
-					and set the domain field and then return the aslmsg
-					context as a void*
+                    The work of this function is to ask msgtracer for a domain,
+                    create a message and return the pair as a void *.
    -------------------------------------------------------------------------- */					
-static void* OSX_BeginCloudKeychainLoggingTransaction()
+static void *OSX_BeginCloudKeychainLoggingTransaction()
 {
-	void* result = NULL;	
-	aslmsg mAsl = NULL;
-	mAsl = asl_new(ASL_TYPE_MSG);
-	if (NULL == mAsl)
-	{
-		return result;
-	}
-	
-	asl_set(mAsl, gMessageTracerDomainField, gTopLevelKeyForiCloudKeychainTracing);
-	
-	result = (void *)mAsl;
-	return result;
+    
+    struct msgtracer_instance *instance = calloc(1, sizeof *instance);
+    if (!instance) {
+        return NULL;
+    }
+
+    instance->domain = msgtracer_domain_new(gTopLevelKeyForiCloudKeychainTracing);
+    if (instance->domain) {
+        instance->message = msgtracer_msg_new(instance->domain);
+        if (instance->message) {
+            return (void *)instance;
+        }
+        msgtracer_domain_free(instance->domain);
+    }
+    free(instance);
+    return NULL;
 }
 
 /* --------------------------------------------------------------------------
@@ -89,16 +95,17 @@ static void* OSX_BeginCloudKeychainLoggingTransaction()
 					
 					NOTE: The key should be a simple key such as 
 					"numberOfPeers".  This is because this function will 
-					apptend the required prefix of "com.apple.message."
+					prepend the required prefix of "com.apple.message."
    -------------------------------------------------------------------------- */
-static bool OSX_AddKeyValuePairToKeychainLoggingTransaction(void* token, CFStringRef key, int64_t value)
+static bool OSX_AddKeyValuePairToKeychainLoggingTransaction(void *token, CFStringRef key, int64_t value)
 {
 	if (NULL == token || NULL == key)
 	{
 		return false;
 	}
-		
-	aslmsg mAsl = (aslmsg)token;
+
+    struct msgtracer_instance *instance = (struct msgtracer_instance *)token;
+	msgtracer_msg_t msg = instance->message;
 	
 	// Fix up the key
 	CFStringRef real_key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s%@"), gMessageTracerSetPrefix, key);
@@ -110,7 +117,7 @@ static bool OSX_AddKeyValuePairToKeychainLoggingTransaction(void* token, CFStrin
 	CFIndex key_length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(real_key), kCFStringEncodingUTF8);
     key_length += 1; // For null
     char key_buffer[key_length];
-    memset(key_buffer, 0,key_length);
+    memset(key_buffer, 0, key_length);
     if (!CFStringGetCString(real_key, key_buffer, key_length, kCFStringEncodingUTF8))
     {
         CFRelease(real_key);
@@ -135,7 +142,7 @@ static bool OSX_AddKeyValuePairToKeychainLoggingTransaction(void* token, CFStrin
     }
     CFRelease(value_str);
 
-	asl_set(mAsl, key_buffer, value_buffer);
+    msgtracer_set(msg, key_buffer, value_buffer);
 	return true;	
 }
 
@@ -147,13 +154,15 @@ static bool OSX_AddKeyValuePairToKeychainLoggingTransaction(void* token, CFStrin
 					"bunch" of items being logged, this function will do the
 					real logging and free the aslmsg context.
    -------------------------------------------------------------------------- */
-static void OSX_CloseCloudKeychainLoggingTransaction(void* token)
+static void OSX_CloseCloudKeychainLoggingTransaction(void *token)
 {
 	if (NULL != token)
 	{
-		aslmsg mAsl = (aslmsg)token;
-		asl_log(NULL, mAsl, ASL_LEVEL_NOTICE, "");
-		asl_free(mAsl);
+        struct msgtracer_instance *instance = (struct msgtracer_instance *)token;
+        msgtracer_log(instance->message, ASL_LEVEL_NOTICE, "");
+        msgtracer_msg_free(instance->message);
+        msgtracer_domain_free(instance->domain);
+        free(instance);
 	}
 }
 
@@ -174,15 +183,21 @@ static bool OSX_SetCloudKeychainTraceValueForKey(CFStringRef key, int64_t value)
 	{
 		return result;
 	}
-	
-	aslmsg mAsl = NULL;
-	mAsl = asl_new(ASL_TYPE_MSG);
-	if (NULL == mAsl)
-	{
-		return result;
-	}
-	
-	// Fix up the key
+
+    msgtracer_msg_t message = NULL;
+    msgtracer_domain_t domain = msgtracer_domain_new(gTopLevelKeyForiCloudKeychainTracing);
+
+    if (NULL == domain) {
+        return result;
+    }
+
+    message = msgtracer_msg_new(domain);
+    if (NULL == message) {
+        msgtracer_domain_free(domain);
+        return result;
+    }
+
+    // Fix up the key
 	CFStringRef real_key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s%@"), gMessageTracerSetPrefix, key);
 	if (NULL == real_key)
 	{
@@ -204,7 +219,7 @@ static bool OSX_SetCloudKeychainTraceValueForKey(CFStringRef key, int64_t value)
 	CFStringRef value_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%lld"), value);
     if (NULL == value_str)
     {
-        asl_free(mAsl);
+        msgtracer_msg_free(message);
         return result;
     }
    
@@ -214,17 +229,16 @@ static bool OSX_SetCloudKeychainTraceValueForKey(CFStringRef key, int64_t value)
     memset(value_buffer, 0, value_str_numBytes);
     if (!CFStringGetCString(value_str, value_buffer, value_str_numBytes, kCFStringEncodingUTF8))
     {
-        asl_free(mAsl);
+        msgtracer_msg_free(message);
         CFRelease(value_str);
         return result;
     }
     CFRelease(value_str);
-	
-    asl_set(mAsl, gMessageTracerDomainField, gTopLevelKeyForiCloudKeychainTracing);
-	
-	asl_set(mAsl, key_buffer, value_buffer);
-	asl_log(NULL, mAsl, ASL_LEVEL_NOTICE, "%s is %lld", key_buffer, value);
-	asl_free(mAsl);
+
+    msgtracer_set(message, key_buffer, value_buffer);
+	msgtracer_log(message, ASL_LEVEL_NOTICE, "%s is %lld", key_buffer, value);
+    msgtracer_msg_free(message);
+    msgtracer_domain_free(domain);
 	return true;
 	
 }

@@ -60,6 +60,7 @@
 #import "_WKRenderingProgressEventsInternal.h"
 #import "_WKSameDocumentNavigationTypeInternal.h"
 #import <WebCore/Document.h>
+#import <WebCore/DocumentFragment.h>
 #import <WebCore/Frame.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLInputElement.h>
@@ -254,7 +255,7 @@ static void setUpPageLoaderClient(WKWebProcessPlugInBrowserContextController *co
     client.didLayoutForFrame = didLayoutForFrame;
     client.didLayout = didReachLayoutMilestone;
 
-    page.initializeInjectedBundleLoaderClient(&client.base);
+    WKBundlePageSetPageLoaderClient(toAPI(&page), &client.base);
 }
 
 static WKURLRequestRef willSendRequestForFrame(WKBundlePageRef, WKBundleFrameRef frame, uint64_t resourceIdentifier, WKURLRequestRef request, WKURLResponseRef redirectResponse, const void* clientInfo)
@@ -332,7 +333,7 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
     client.didFinishLoadForResource = didFinishLoadForResource;
     client.didFailLoadForResource = didFailLoadForResource;
 
-    page.initializeInjectedBundleResourceLoadClient(&client.base);
+    WKBundlePageSetResourceLoadClient(toAPI(&page), &client.base);
 }
 
 - (id <WKWebProcessPlugInLoadDelegate>)loadDelegate
@@ -348,8 +349,8 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
         setUpPageLoaderClient(self, *_page);
         setUpResourceLoadClient(self, *_page);
     } else {
-        _page->initializeInjectedBundleLoaderClient(nullptr);
-        _page->initializeInjectedBundleResourceLoadClient(nullptr);
+        WKBundlePageSetPageLoaderClient(toAPI(_page.get()), nullptr);
+        WKBundlePageSetResourceLoadClient(toAPI(_page.get()), nullptr);
     }
 }
 
@@ -576,11 +577,11 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
 static inline WKEditorInsertAction toWK(EditorInsertAction action)
 {
     switch (action) {
-    case EditorInsertActionTyped:
+    case EditorInsertAction::Typed:
         return WKEditorInsertActionTyped;
-    case EditorInsertActionPasted:
+    case EditorInsertAction::Pasted:
         return WKEditorInsertActionPasted;
-    case EditorInsertActionDropped:
+    case EditorInsertAction::Dropped:
         return WKEditorInsertActionDropped;
     }
 }
@@ -606,6 +607,30 @@ static inline WKEditorInsertAction toWK(EditorInsertAction action)
             return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller shouldInsertText:String(text) replacingRange:wrapper(*InjectedBundleRangeHandle::getOrCreate(rangeToReplace)) givenAction:toWK(action)];
         }
 
+        bool shouldChangeSelectedRange(WebPage&, Range* fromRange, Range* toRange, EAffinity affinity, bool stillSelecting) final
+        {
+            if (!m_delegateMethods.shouldChangeSelectedRange)
+                return true;
+
+            auto apiFromRange = fromRange ? adoptNS([[WKDOMRange alloc] _initWithImpl:fromRange]) : nil;
+            auto apiToRange = toRange ? adoptNS([[WKDOMRange alloc] _initWithImpl:toRange]) : nil;
+#if PLATFORM(IOS)
+            UITextStorageDirection apiAffinity = affinity == UPSTREAM ? UITextStorageDirectionBackward : UITextStorageDirectionForward;
+#else
+            NSSelectionAffinity apiAffinity = affinity == UPSTREAM ? NSSelectionAffinityUpstream : NSSelectionAffinityDownstream;
+#endif
+
+            return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller shouldChangeSelectedRange:apiFromRange.get() toRange:apiToRange.get() affinity:apiAffinity stillSelecting:stillSelecting];
+        }
+
+        void didChange(WebKit::WebPage&, StringImpl*) final
+        {
+            if (!m_delegateMethods.didChange)
+                return;
+
+            [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextControllerDidChangeByEditing:m_controller];
+        }
+
         void willWriteToPasteboard(WebKit::WebPage&, WebCore::Range* range) final
         {
             if (!m_delegateMethods.willWriteToPasteboard)
@@ -622,7 +647,7 @@ static inline WKEditorInsertAction toWK(EditorInsertAction action)
             auto dataByType = [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller pasteboardDataForRange:wrapper(*InjectedBundleRangeHandle::getOrCreate(range).get())];
             for (NSString *type in dataByType) {
                 pasteboardTypes.append(type);
-                pasteboardData.append(SharedBuffer::wrapNSData(dataByType[type]));
+                pasteboardData.append(SharedBuffer::create(dataByType[type]));
             };
         }
 
@@ -634,20 +659,36 @@ static inline WKEditorInsertAction toWK(EditorInsertAction action)
             [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextControllerDidWriteToPasteboard:m_controller];
         }
 
+        bool performTwoStepDrop(WebKit::WebPage&, WebCore::DocumentFragment& fragment, WebCore::Range& range, bool isMove) final
+        {
+            if (!m_delegateMethods.performTwoStepDrop)
+                return false;
+
+            auto rangeHandle = InjectedBundleRangeHandle::getOrCreate(&range);
+            auto nodeHandle = InjectedBundleNodeHandle::getOrCreate(&fragment);
+            return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller performTwoStepDrop:wrapper(*nodeHandle) atDestination:wrapper(*rangeHandle) isMove:isMove];
+        }
+
         WKWebProcessPlugInBrowserContextController *m_controller;
         const struct DelegateMethods {
             DelegateMethods(RetainPtr<id <WKWebProcessPlugInEditingDelegate>> delegate)
                 : shouldInsertText([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:shouldInsertText:replacingRange:givenAction:)])
+                , shouldChangeSelectedRange([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:shouldChangeSelectedRange:toRange:affinity:stillSelecting:)])
+                , didChange([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextControllerDidChangeByEditing:)])
                 , willWriteToPasteboard([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:willWriteRangeToPasteboard:)])
                 , getPasteboardDataForRange([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:pasteboardDataForRange:)])
                 , didWriteToPasteboard([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextControllerDidWriteToPasteboard:)])
+                , performTwoStepDrop([delegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:performTwoStepDrop:atDestination:isMove:)])
             {
             }
 
             bool shouldInsertText;
+            bool shouldChangeSelectedRange;
+            bool didChange;
             bool willWriteToPasteboard;
             bool getPasteboardDataForRange;
             bool didWriteToPasteboard;
+            bool performTwoStepDrop;
         } m_delegateMethods;
     };
 

@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/ca.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 ca{
     Countries{
         001{"Món"}
@@ -95,7 +89,7 @@ ca{
         CW{"Curaçao"}
         CX{"Illa Christmas"}
         CY{"Xipre"}
-        CZ{"República Txeca"}
+        CZ{"Txèquia"}
         DE{"Alemanya"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -137,7 +131,7 @@ ca{
         GU{"Guam"}
         GW{"Guinea Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong (RAE Xina)"}
+        HK{"Hong Kong (Xina)"}
         HM{"Illa Heard i Illes McDonald"}
         HN{"Hondures"}
         HR{"Croàcia"}
@@ -191,7 +185,7 @@ ca{
         ML{"Mali"}
         MM{"Myanmar (Birmània)"}
         MN{"Mongòlia"}
-        MO{"Macau (RAE Xina)"}
+        MO{"Macau (Xina)"}
         MP{"Illes Mariannes del Nord"}
         MQ{"Martinica"}
         MR{"Mauritània"}
@@ -226,7 +220,7 @@ ca{
         PM{"Saint-Pierre-et-Miquelon"}
         PN{"Illes Pitcairn"}
         PR{"Puerto Rico"}
-        PS{"Palestina"}
+        PS{"territoris palestins"}
         PT{"Portugal"}
         PW{"Palau"}
         PY{"Paraguai"}
@@ -278,6 +272,7 @@ ca{
         UA{"Ucraïna"}
         UG{"Uganda"}
         UM{"Illes Perifèriques Menors dels EUA"}
+        UN{"Nacions Unides"}
         US{"Estats Units"}
         UY{"Uruguai"}
         UZ{"Uzbekistan"}
@@ -299,17 +294,19 @@ ca{
         ZZ{"Regió desconeguda"}
     }
     Countries%short{
-        GB{"GB"}
+        GB{"RU"}
         HK{"Hong Kong"}
         MO{"Macau"}
         PS{"Palestina"}
+        UN{"ONU"}
         US{"EUA"}
     }
     Countries%variant{
         CD{"Congo (República Democràtica del Congo)"}
         CG{"Congo (República del Congo)"}
+        CZ{"República Txeca"}
         FK{"Illes Malvines (Illes Falkland)"}
         MK{"Macedònia (Antiga República Iugoslava de Macedònia)"}
     }
-    Version{"2.1.22.93"}
+    Version{"2.1.32.59"}
 }

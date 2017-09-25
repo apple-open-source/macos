@@ -38,13 +38,13 @@
 
 #if defined(_WIN32)
     #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 0
+#elif __has_include(<os/alloc_once_private.h>)
+        #include <os/alloc_once_private.h>
+        #if defined(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO)
+            #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 1
+        #endif
 #else
-    #if __has_include(<os/alloc_once_private.h>)
-    #include <os/alloc_once_private.h>
-    #if defined(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO) && !defined(KERNEL)
-    #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 1
-    #endif
-    #endif
+    #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 0
 #endif
 
 #define CN_SUPPORTED_CRCS kCN_CRC_64_ECMA_182+1

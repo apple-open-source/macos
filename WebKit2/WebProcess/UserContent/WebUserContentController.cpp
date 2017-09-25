@@ -29,7 +29,7 @@
 #include "DataReference.h"
 #include "FrameInfoData.h"
 #include "InjectedBundleScriptWorld.h"
-#include "WebCompiledContentExtension.h"
+#include "WebCompiledContentRuleList.h"
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebProcess.h"
@@ -61,7 +61,7 @@ typedef HashMap<uint64_t, std::pair<RefPtr<InjectedBundleScriptWorld>, unsigned>
 
 static WorldMap& worldMap()
 {
-    static NeverDestroyed<WorldMap> map(std::initializer_list<WorldMap::KeyValuePairType> { { 1, std::make_pair(InjectedBundleScriptWorld::normalWorld(), 1) } });
+    static NeverDestroyed<WorldMap> map(std::initializer_list<WorldMap::KeyValuePairType> { { 1, std::make_pair(&InjectedBundleScriptWorld::normalWorld(), 1) } });
 
     return map;
 }
@@ -208,9 +208,9 @@ void WebUserContentController::removeAllUserStyleSheets(const Vector<uint64_t>& 
 #if ENABLE(USER_MESSAGE_HANDLERS)
 class WebUserMessageHandlerDescriptorProxy : public WebCore::UserMessageHandlerDescriptor {
 public:
-    static PassRefPtr<WebUserMessageHandlerDescriptorProxy> create(WebUserContentController* controller, const String& name, InjectedBundleScriptWorld& world, uint64_t identifier)
+    static Ref<WebUserMessageHandlerDescriptorProxy> create(WebUserContentController* controller, const String& name, InjectedBundleScriptWorld& world, uint64_t identifier)
     {
-        return adoptRef(new WebUserMessageHandlerDescriptorProxy(controller, name, world, identifier));
+        return adoptRef(*new WebUserMessageHandlerDescriptorProxy(controller, name, world, identifier));
     }
 
     virtual ~WebUserMessageHandlerDescriptorProxy()
@@ -339,22 +339,22 @@ void WebUserContentController::removeUserScriptMessageHandlerInternal(InjectedBu
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-void WebUserContentController::addUserContentExtensions(const Vector<std::pair<String, WebCompiledContentExtensionData>>& userContentExtensions)
+void WebUserContentController::addContentRuleLists(const Vector<std::pair<String, WebCompiledContentRuleListData>>& contentRuleLists)
 {
-    for (const auto& userContentExtension : userContentExtensions) {
-        WebCompiledContentExtensionData contentExtensionData = userContentExtension.second;
-        RefPtr<WebCompiledContentExtension> compiledContentExtension = WebCompiledContentExtension::create(WTFMove(contentExtensionData));
+    for (const auto& contentRuleList : contentRuleLists) {
+        WebCompiledContentRuleListData contentRuleListData = contentRuleList.second;
+        RefPtr<WebCompiledContentRuleList> compiledContentRuleList = WebCompiledContentRuleList::create(WTFMove(contentRuleListData));
 
-        m_contentExtensionBackend.addContentExtension(userContentExtension.first, WTFMove(compiledContentExtension));
+        m_contentExtensionBackend.addContentExtension(contentRuleList.first, WTFMove(compiledContentRuleList));
     }
 }
 
-void WebUserContentController::removeUserContentExtension(const String& name)
+void WebUserContentController::removeContentRuleList(const String& name)
 {
     m_contentExtensionBackend.removeContentExtension(name);
 }
 
-void WebUserContentController::removeAllUserContentExtensions()
+void WebUserContentController::removeAllContentRuleLists()
 {
     m_contentExtensionBackend.removeAllContentExtensions();
 }
@@ -488,7 +488,7 @@ void WebUserContentController::removeAllUserContent()
     }
 }
 
-void WebUserContentController::forEachUserScript(const std::function<void(WebCore::DOMWrapperWorld&, const WebCore::UserScript&)>& functor) const
+void WebUserContentController::forEachUserScript(Function<void(WebCore::DOMWrapperWorld&, const WebCore::UserScript&)>&& functor) const
 {
     for (const auto& worldAndUserScriptVector : m_userScripts) {
         auto& world = worldAndUserScriptVector.key->coreWorld();
@@ -497,7 +497,7 @@ void WebUserContentController::forEachUserScript(const std::function<void(WebCor
     }
 }
 
-void WebUserContentController::forEachUserStyleSheet(const std::function<void(const WebCore::UserStyleSheet&)>& functor) const
+void WebUserContentController::forEachUserStyleSheet(Function<void(const WebCore::UserStyleSheet&)>&& functor) const
 {
     for (auto& styleSheetVector : m_userStyleSheets.values()) {
         for (const auto& identifierUserStyleSheetPair : styleSheetVector)
@@ -506,7 +506,7 @@ void WebUserContentController::forEachUserStyleSheet(const std::function<void(co
 }
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
-void WebUserContentController::forEachUserMessageHandler(const std::function<void(const WebCore::UserMessageHandlerDescriptor&)>& functor) const
+void WebUserContentController::forEachUserMessageHandler(Function<void(const WebCore::UserMessageHandlerDescriptor&)>&& functor) const
 {
     for (const auto& userMessageHandlerVector : m_userMessageHandlers.values()) {
         for (const auto& userMessageHandler : userMessageHandlerVector)

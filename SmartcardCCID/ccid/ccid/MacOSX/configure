@@ -46,31 +46,50 @@ fi
 PCSC_CFLAGS=${PCSC_CFLAGS:--I$(pwd)/MacOSX}
 PCSC_LIBS=${PCSC_LIBS:--framework PCSC}
 
-# use libusb-1.0 (or libusbx-1.0)
-LIBUSB_ARCHIVE=$(pkg-config --variable=libdir libusb-1.0)/libusb-1.0.a
+# use libusb-1.0
+LIBUSB_DIR=$(pkg-config --variable=libdir libusb-1.0)
+LIBUSB_ARCHIVE="$LIBUSB_DIR"/libusb-1.0.a
 LIBUSB_CFLAGS=$(pkg-config --cflags --static libusb-1.0)
 LIBUSB_LIBS=$(pkg-config --libs --static libusb-1.0)
+
+if ls "$LIBUSB_DIR"/*.dylib 2> /dev/null
+then
+	echo -en $RED
+	echo "*****************************"
+	echo "Dynamic library libusb found in $LIBUSB_DIR"
+	echo "*****************************"
+	echo -en $NORMAL
+	echo "Rename it to force a static link"
+	exit
+fi
 
 # RESPONSECODE is already defined by PCSC/wintypes.h
 # define needed here to compile examples/scardcontrol.c since config.h is
 # not included
 CFLAGS="$CFLAGS -DRESPONSECODE_DEFINED_IN_WINTYPES_H"
 
-# Build a Universal Binary
-UB=$(file $LIBUSB_ARCHIVE | grep "Mach-O universal binary")
-echo $UB
-if [ -z "$UB" ]
+# get the Mac OS X major version. Example: El Capitan 10.11 -> 10011
+MAC_VERSION=$(sw_vers -productVersion | awk -F '.' '{print $1 * 1000 + $2}')
+
+# check for Universal Binary only on macOS Mavericks 10.9 and earlier
+if [ $MAC_VERSION -le 10009 ]
 then
-	echo -en $RED
-	echo "*************************"
-	echo "No Universal Binary build"
-	echo "*************************"
-	echo -en $NORMAL
-else
-	echo "Universal Binary build"
-	CFLAGS="$CFLAGS -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk -arch i386 -arch x86_64"
+	# Build a Universal Binary?
+	UB=$(file $LIBUSB_ARCHIVE | grep "Mach-O universal binary")
+	echo $UB
+	if [ -z "$UB" ]
+	then
+		echo -en $RED
+		echo "*************************"
+		echo "No Universal Binary build"
+		echo "*************************"
+		echo -en $NORMAL
+	else
+		echo "Universal Binary build"
+		CFLAGS="$CFLAGS -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk -arch i386 -arch x86_64"
+	fi
+	echo
 fi
-echo
 
 CONFIGURE_ARGS="--disable-dependency-tracking"
 
@@ -81,9 +100,7 @@ then
 	CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-syslog"
 fi
 
-# get the Mac OS X major version. Example: El Capitan 10.11 -> 10011
-MAC_VERSION=$(sw_vers -productVersion | awk -F '.' '{print $1 * 1000 + $2}')
-
+# Check where to install the driver
 if [ 10011 -gt $MAC_VERSION ]
 then
 	# Mac OS X < 10.11

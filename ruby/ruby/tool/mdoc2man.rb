@@ -39,7 +39,7 @@
 ###  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 ###  SUCH DAMAGE.
 ###
-### $Id: mdoc2man.rb 31573 2011-05-15 11:55:52Z nobu $
+### $Id: mdoc2man.rb 52411 2015-10-31 06:22:46Z nobu $
 ###
 
 class Mdoc2Man
@@ -92,6 +92,7 @@ class Mdoc2Man
     while word = words.shift
       case word
       when RE_PUNCT
+        next retval << word if word == ':'
 	while q = quote.pop
 	  case q
 	  when OPTION
@@ -235,6 +236,13 @@ class Mdoc2Man
       when 'Ux'
 	retval << "UNIX"
 	next
+      when 'Bro'
+        retval << '{'
+        @nospace = 1 if @nospace == 0
+        next
+      when 'Brc'
+        retval.sub!(/ *\z/, '}')
+        next
       end
 
       if @reference

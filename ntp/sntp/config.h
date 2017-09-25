@@ -751,7 +751,7 @@
 #define PACKAGE_NAME "sntp"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "sntp 4.2.8p5"
+#define PACKAGE_STRING "sntp 4.2.8p10"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "sntp"
@@ -760,7 +760,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.2.8p5"
+#define PACKAGE_VERSION "4.2.8p10"
 
 /* define to a working POSIX compliant shell */
 #define POSIX_SHELL "/bin/bash"
@@ -846,7 +846,7 @@ typedef unsigned int	uintptr_t;
 /* #undef USE_UDP_SIGPOLL */
 
 /* Version number of package */
-#define VERSION "4.2.8p5"
+#define VERSION "4.2.8p10"
 
 /* vsnprintf expands "%m" to strerror(errno) */
 /* #undef VSNPRINTF_PERCENT_M */

@@ -11,7 +11,6 @@
 0755	root	wheel	System/Library/LaunchDaemons
 0755	root	wheel	System/Library/Preferences
 0755	root	wheel	System/Library/Preferences/Logging
-0755	root	wheel	System/Library/Preferences/Logging/Events
 0755	root	wheel	System/Library/Preferences/Logging/Processes
 0755	root	wheel	System/Library/Preferences/Logging/Subsystems
 0755	root	wheel	System/Library/StartupItems

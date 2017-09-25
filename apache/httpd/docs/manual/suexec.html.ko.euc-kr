@@ -44,7 +44,7 @@
     프로그램과 이런 프로그램의 보안 문제에 생소하다면 suEXEC를
     사용하지않길 진심으로 바란다.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#before">시작하기 전에</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#before">시작하기 전에</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#model">suEXEC 보안모델</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#install">suEXEC 구성과 설치</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#enable">suEXEC 키고 끄기</a></li>
@@ -555,7 +555,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/suexec.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">모듈</a> | <a href="./mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">용어</a> | <a href="./sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

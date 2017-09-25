@@ -149,10 +149,13 @@ void DYLDCacheRep::Writer::flush()
 
 
 //
-// The discretionary additions insert a Scatter vector describing the file's mapping table.
+// The discretionary additions insert a Scatter vector describing the file's mapping table,
+// and fills out the executable segment.
 //
 void DYLDCacheRep::Writer::addDiscretionary(CodeDirectory::Builder &builder)
 {
+	bool execSegmentProcessed = false;
+
 	unsigned count = rep->mCache.mappingCount();
 	builder.scatter(count);
 	for (unsigned n = 0; n < count; n++) {
@@ -163,6 +166,14 @@ void DYLDCacheRep::Writer::addDiscretionary(CodeDirectory::Builder &builder)
 		assert(dmap.offset() % segmentedPageSize == 0);
 		scatter->count = (uint32_t)(dmap.size() / segmentedPageSize);
 		assert(dmap.size() % segmentedPageSize == 0);
+
+		if (dmap.maxProt() & VM_PROT_EXECUTE) {
+			if (execSegmentProcessed) {
+				CSError::throwMe(errSecMultipleExecSegments);
+			}
+
+			builder.execSeg(dmap.offset(), dmap.limit()-dmap.address(), 0);
+		}
 	}
 }
 

@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'socket'
 require 'drb/drb'
 require 'tmpdir'
@@ -98,15 +99,17 @@ module DRb
       @socket.close
       File.unlink(path) if @server_mode
       @socket = nil
+      close_shutdown_pipe
     end
 
     def accept
-      s = @socket.accept
+      s = accept_or_shutdown
+      return nil unless s
       self.class.new(nil, s, @config)
     end
 
     def set_sockopt(soc)
-      soc.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) if defined? Fcntl::FD_CLOEXEC
+      # no-op for now
     end
   end
 

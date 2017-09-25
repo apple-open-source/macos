@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,6 +50,8 @@ typedef struct {
     bool				managed_bit;
     bool				other_bit;
     struct in6_addr			router;
+    const uint8_t *			dns_search_domains;
+    int					dns_search_domains_len;
 } RTADVSocketReceiveData, * RTADVSocketReceiveDataRef;
 
 /*
@@ -83,5 +85,17 @@ RTADVSocketDisableReceive(RTADVSocketRef sock);
 
 int
 RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok);
+
+bool
+RTADVSocketRouterLifetimeIsZero(RTADVSocketRef sock);
+
+bool
+RTADVSocketRouterLifetimeIsMaximum(RTADVSocketRef sock);
+
+bool
+RTADVSocketPrefixLifetimeIsInfinite(RTADVSocketRef sock);
+
+bool
+RTADVSocketRouterSourceAddressCollision(RTADVSocketRef sock);
 
 #endif /* _S_RTADVSOCKET_H */

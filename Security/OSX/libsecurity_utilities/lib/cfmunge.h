@@ -40,8 +40,11 @@ namespace Security {
 //
 class CFMunge {
 public:
-	CFMunge(const char *fmt, va_list arg);
-	~CFMunge();
+    // Initialize a CFMunge. We start out with the default CFAllocator, and
+    // we do not throw errors.
+    // CFMunge consumes the va_list, the caller should call va_copy if necessary.
+    CFMunge(const char *fmt, va_list *args)
+        : format(fmt), args(args), allocator(NULL), error(errSecSuccess) { }
 
 protected:
 	char next();
@@ -51,7 +54,7 @@ protected:
 	
 protected:
 	const char *format;
-	va_list args;
+	va_list *args;
 	CFAllocatorRef allocator;
 	OSStatus error;
 };
@@ -62,7 +65,7 @@ protected:
 //
 class CFMake : public CFMunge {
 public:
-	CFMake(const char *fmt, va_list arg) : CFMunge(fmt, arg) { }
+	CFMake(const char *fmt, va_list *args) : CFMunge(fmt, args) { }
 	
 	CFTypeRef make();
 	CFDictionaryRef addto(CFMutableDictionaryRef dict);
@@ -83,14 +86,14 @@ protected:
 // Make a CF object following a general recipe
 //
 CFTypeRef cfmake(const char *format, ...);
-CFTypeRef vcfmake(const char *format, va_list args);
+CFTypeRef vcfmake(const char *format, va_list *args);
 
 template <class CFType>
 CFType cfmake(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	CFType result = CFType(vcfmake(format, args));
+	CFType result = CFType(vcfmake(format, &args));
 	va_end(args);
 	return result;
 }
@@ -103,17 +106,17 @@ CFDictionaryRef cfadd(CFMutableDictionaryRef dict, const char *format, ...);
 // Cfscan returns false on error; cfget throws.
 //
 bool cfscan(CFTypeRef source, const char *format, ...);
-bool vcfscan(CFTypeRef source, const char *format, va_list args);
+bool vcfscan(CFTypeRef source, const char *format, va_list *args);
 
 CFTypeRef cfget(CFTypeRef source, const char *format, ...);
-CFTypeRef vcfget(CFTypeRef source, const char *format, va_list args);
+CFTypeRef vcfget(CFTypeRef source, const char *format, va_list *args);
 
 template <class CFType>
 CFType cfget(CFTypeRef source, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	CFType result = CFType(vcfget(source, format, args));
+	CFType result = CFType(vcfget(source, format, &args));
 	va_end(args);
 	return (result && CFTraits<CFType>::check(result)) ? result : NULL;
 }
@@ -125,7 +128,7 @@ public:
 	{
 		va_list args;
 		va_start(args, format);
-		this->take(CFType(vcfmake(format, args)));
+		this->take(CFType(vcfmake(format, &args)));
 		va_end(args);
 	}
 };

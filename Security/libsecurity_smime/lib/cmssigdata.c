@@ -51,7 +51,9 @@
 #include <security_asn1/secerr.h>
 #include <security_asn1/secport.h>
 
+#if !USE_CDSA_CRYPTO
 #include <Security/SecCertificatePriv.h>
+#endif
 
 SecCmsSignedDataRef
 SecCmsSignedDataCreate(SecCmsMessageRef cmsg)
@@ -323,10 +325,14 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 		signerinfo = signerinfos[si];
 		for (ci = 0; ci < CFArrayGetCount(signerinfo->certList); ci++) {
 		    sigd->rawCerts[rci] = PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
-                    SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->certList, ci);
+		    SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->certList, ci);
+#if USE_CDSA_CRYPTO    
+		    SecCertificateGetData(cert, sigd->rawCerts[rci++]);
+#else
                     SecAsn1Item cert_data = { SecCertificateGetLength(cert),
                         (uint8_t *)SecCertificateGetBytePtr(cert) };
                     *(sigd->rawCerts[rci++]) = cert_data;
+#endif
 		}
 	    }
 	}
@@ -335,9 +341,13 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
 	    for (ci = 0; ci < CFArrayGetCount(sigd->certs); ci++) {
 		sigd->rawCerts[rci] = PORT_ArenaZAlloc(poolp, sizeof(SecAsn1Item));
 		SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(sigd->certs, ci);
+#if USE_CDSA_CRYPTO    
+                SecCertificateGetData(cert, sigd->rawCerts[rci++]);
+#else
                     SecAsn1Item cert_data = { SecCertificateGetLength(cert),
                         (uint8_t *)SecCertificateGetBytePtr(cert) };
                     *(sigd->rawCerts[rci++]) = cert_data;
+#endif
 	    }
 	}
 
@@ -475,6 +485,22 @@ SecCmsSignedDataImportCerts(SecCmsSignedDataRef sigd, SecKeychainRef keychain,
 				SECCertUsage certusage, Boolean keepcerts)
 {
     OSStatus rv = -1;
+
+#if USE_CDSA_CRYPTO
+    int ix, certcount = SecCmsArrayCount((void **)sigd->rawCerts);
+    rv = CERT_ImportCerts(keychain, certusage, certcount, sigd->rawCerts, NULL,
+			  keepcerts, PR_FALSE, NULL);
+    /* XXX CRL handling */
+
+    if (sigd->signerInfos != NULL) {
+	/* fill in all signerinfo's certs */
+	for (ix = 0; sigd->signerInfos[ix] != NULL; i++)
+	    (void)SecCmsSignerInfoGetSigningCertificate(sigd->signerInfos[ix], keychain);
+    }
+#else
+    // XXX we should only ever import certs for a cert only data blob
+#endif
+
     return rv;
 }
 
@@ -547,6 +573,45 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     return status;
 }
 
+#if USE_CDSA_CRYPTO
+
+/*
+ * SecCmsSignedDataVerifyCertsOnly - verify the certs in a certs-only message
+ */
+OSStatus
+SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd, 
+                                  SecKeychainRef keychainOrArray, 
+                                  CFTypeRef policies)
+{
+    SecCertificateRef cert;
+    OSStatus rv = SECSuccess;
+    int i;
+    int count;
+
+    if (!sigd || !keychainOrArray || !sigd->rawCerts) {
+	PORT_SetError(SEC_ERROR_INVALID_ARGS);
+	return SECFailure;
+    }
+
+    count = SecCmsArrayCount((void**)sigd->rawCerts);
+    for (i=0; i < count; i++) {
+	if (sigd->certs && CFArrayGetCount(sigd->certs) > i) {
+	    cert = (SecCertificateRef)CFArrayGetValueAtIndex(sigd->certs, i);
+	    CFRetain(cert);
+	} else {
+	    cert = CERT_FindCertByDERCert(keychainOrArray, sigd->rawCerts[i]);
+	    if (!cert) {
+		rv = SECFailure;
+		break;
+	    }
+	}
+	rv |= CERT_VerifyCert(keychainOrArray, cert, policies, CFAbsoluteTimeGetCurrent(), NULL);
+	CFRelease(cert);
+    }
+
+    return rv;
+}
+#else
 OSStatus
 SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd, 
                                   SecKeychainRef keychainOrArray, 
@@ -575,6 +640,7 @@ SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd,
 
     return rv;
 }
+#endif
 
 /*
  * SecCmsSignedDataHasDigests - see if we have digests in place

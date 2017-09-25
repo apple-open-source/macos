@@ -59,10 +59,10 @@ static void startTest(const char* thisTestName) {
 
 static void initializeKeychainTests(const char* thisTestName) {
     const char *home_dir = getenv("HOME");
-    sprintf(keychainName, "test-%s.asdf", thisTestName);
-    sprintf(keychainFile, "%s/Library/Keychains/%s", home_dir, keychainName);
-    sprintf(keychainDbFile, "%s/Library/Keychains/%s-db", home_dir, keychainName);
-    sprintf(keychainTempFile, "%s/Library/Keychains/test_temp", home_dir);
+    snprintf(keychainName, sizeof(keychainName), "test-%s.asdf", thisTestName);
+    snprintf(keychainFile, sizeof(keychainFile), "%s/Library/Keychains/%s", home_dir, keychainName);
+    snprintf(keychainDbFile, sizeof(keychainDbFile), "%s/Library/Keychains/%s-db", home_dir, keychainName);
+    snprintf(keychainTempFile, sizeof(keychainTempFile), "%s/Library/Keychains/test_temp", home_dir);
 
     deleteKeychainFiles(keychainFile);
 

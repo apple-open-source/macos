@@ -56,8 +56,8 @@ CCAESCmacCreate(const void *key, size_t keyLength)
     if(!retval) return NULL;
 
     const struct ccmode_cbc *cbc = ccaes_cbc_encrypt_mode();
-    retval->ctxptr.b = CC_XMALLOC(cccmac_ctx_size(cbc));
-    if(!retval->ctxptr.b) {
+    retval->ctxptr = CC_XMALLOC(cccmac_ctx_size(cbc));
+    if(retval->ctxptr == NULL) {
         CC_XFREE(retval, sizeof(struct CCCmacContext));
         return NULL;
     }
@@ -66,7 +66,7 @@ CCAESCmacCreate(const void *key, size_t keyLength)
     if (key==NULL
         || cccmac_init(cbc, retval->ctxptr,
                     keyLength, key)!=0) {
-        CC_XFREE(retval->ctxptr.b, sizeof(cccmac_ctx_size(cbc)));
+        CC_XFREE(retval->ctxptr, sizeof(cccmac_ctx_size(cbc)));
         CC_XFREE(retval, sizeof(struct CCCmacContext));
         return NULL;
     }
@@ -84,7 +84,7 @@ void CCAESCmacFinal(CCCmacContextPtr ctx, void *macOut) {
 
 void CCAESCmacDestroy(CCCmacContextPtr ctx) {
     if(ctx) {
-        CC_XFREE(ctx->ctxptr.b, cccmac_ctx_size(retval->cbc));
+        CC_XFREE(ctx->ctxptr, cccmac_ctx_size(retval->cbc));
         CC_XFREE(ctx, sizeof(struct CCCmacContext));
     }
 }

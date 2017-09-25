@@ -1,6 +1,7 @@
+# frozen_string_literal: false
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: parser.rb 37688 2012-11-16 16:55:29Z marcandre $
+# $Id: parser.rb 53141 2015-12-16 05:07:31Z naruse $
 #
 
 
@@ -814,12 +815,44 @@ module XMLRPC # :nodoc:
       end
     end
 
+    class LibXMLStreamParser < AbstractStreamParser
+      def initialize
+        require 'libxml'
+        @parser_class = LibXMLStreamListener
+      end
+
+      class LibXMLStreamListener
+        include StreamParserMixin
+
+        def on_start_element_ns(name, attributes, prefix, uri, namespaces)
+          startElement(name)
+        end
+
+        def on_end_element_ns(name, prefix, uri)
+          endElement(name)
+        end
+
+        alias :on_characters :character
+        alias :on_cdata_block :character
+
+        def method_missing(*a)
+        end
+
+        def parse(str)
+          parser = LibXML::XML::SaxParser.string(str)
+          parser.callbacks = self
+          parser.parse()
+        end
+      end
+    end
+
     XMLParser   = XMLTreeParser
     NQXMLParser = NQXMLTreeParser
 
     Classes = [XMLStreamParser, XMLTreeParser,
                NQXMLStreamParser, NQXMLTreeParser,
-               REXMLStreamParser, XMLScanStreamParser]
+               REXMLStreamParser, XMLScanStreamParser,
+               LibXMLStreamParser]
 
     # yields an instance of each installed parser
     def self.each_installed_parser

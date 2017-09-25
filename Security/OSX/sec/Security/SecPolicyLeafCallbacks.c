@@ -133,22 +133,20 @@ bool SecPolicyCheckCertExtendedKeyUsage(SecCertificateRef cert, CFTypeRef pvcVal
     return match;
 }
 
-static bool SecPolicyCheckCertNonEmptySubject(SecCertificateRef cert, CFTypeRef pvcValue) {
+bool SecPolicyCheckCertNonEmptySubject(SecCertificateRef cert, CFTypeRef __unused pvcValue) {
     /* If the certificate has a subject, or
-     if it doesn't, and it's the leaf and not self signed,
+     if it doesn't, and it's the leaf and not a CA,
      and also has a critical subjectAltName extension it's valid. */
     if (!SecCertificateHasSubject(cert)) {
-        Boolean isSelfSigned = true;
-        SecCertificateIsSelfSigned(cert, &isSelfSigned);
-        if (!isSelfSigned) {
+        if (SecCertificateIsCA(cert)) {
+            /* CA certificate has empty subject. */
+            return false;
+        } else {
             if (!SecCertificateHasCriticalSubjectAltName(cert)) {
                 /* Leaf certificate with empty subject does not have
                  a critical subject alt name extension. */
                 return false;
             }
-        } else {
-            /* CA certificate has empty subject. */
-            return false;
         }
     }
     return true;

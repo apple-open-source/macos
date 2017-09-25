@@ -63,6 +63,8 @@ private:
 	void keyReferral(const CssmClient::UnlockReferralRecord &ref);
 	bool unlockKey(const CssmClient::UnlockReferralRecord &ref, const KeychainList &list);
 	
+	void keybagReferral(const CssmClient::UnlockReferralRecord &ref);
+
 	KeychainList fallbackSearchList(const DLDbIdentifier &ident);
 	
 private:

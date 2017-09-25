@@ -25,29 +25,23 @@
 
 #pragma once
 
-#include "BytecodeConventions.h"
 #include "CodeSpecializationKind.h"
-#include "CodeType.h"
 #include "ConstructAbility.h"
 #include "ExecutableInfo.h"
 #include "ExpressionRangeInfo.h"
-#include "HandlerInfo.h"
 #include "Identifier.h"
 #include "Intrinsic.h"
 #include "JSCell.h"
-#include "JSString.h"
 #include "ParserModes.h"
 #include "RegExp.h"
-#include "SpecialPointer.h"
+#include "SourceCode.h"
 #include "VariableEnvironment.h"
-#include "VirtualRegister.h"
 
 namespace JSC {
 
 class FunctionMetadataNode;
 class FunctionExecutable;
 class ParserError;
-class SourceCode;
 class SourceProvider;
 class UnlinkedFunctionCodeBlock;
 
@@ -77,7 +71,6 @@ public:
     void setEcmaName(const Identifier& name) { m_ecmaName = name; }
     const Identifier& inferredName() const { return m_inferredName; }
     unsigned parameterCount() const { return m_parameterCount; }; // Excluding 'this'!
-    unsigned functionLength() const { return m_functionLength; }
     SourceParseMode parseMode() const { return static_cast<SourceParseMode>(m_sourceParseMode); };
 
     const SourceCode& classSource() const { return m_classSource; };
@@ -159,7 +152,6 @@ private:
     unsigned m_typeProfilingStartOffset;
     unsigned m_typeProfilingEndOffset;
     unsigned m_parameterCount;
-    unsigned m_functionLength;
     CodeFeatures m_features;
     SourceParseMode m_sourceParseMode;
     unsigned m_isInStrictContext : 1;

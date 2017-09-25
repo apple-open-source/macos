@@ -171,7 +171,7 @@ OSStatus HIDGetSpecificButtonCaps(HIDReportType reportType,
 /*
  *					  Only copy if there's room
 */
-					  if (*piButtonCapsLength >= iMaxCaps)
+					  if (*piButtonCapsLength >= (UInt32)iMaxCaps)
 						  return kHIDBufferTooSmallErr;
 					  ptCapability = &buttonCaps[(*piButtonCapsLength)++];
 /*
@@ -386,7 +386,7 @@ OSStatus HIDGetSpecificButtonCapabilities(HIDReportType reportType,
 /*
  *					  Only copy if there's room
 */
-					  if (*piButtonCapsLength >= iMaxCaps)
+					  if (*piButtonCapsLength >= (UInt32)iMaxCaps)
 						  return kHIDBufferTooSmallErr;
 					  ptCapability = &buttonCaps[(*piButtonCapsLength)++];
 /*
@@ -410,7 +410,7 @@ OSStatus HIDGetSpecificButtonCapabilities(HIDReportType reportType,
                                             // gain access to the report Size and report Count
                                             // for array items.  Trust me this makes sense
                                             // becuase these fields are not used by an array.
-                                            ptCapability->unitExponent = ptReportItem->globals.reportSize;
+                                            ptCapability->unitExponent = (SInt32)ptReportItem->globals.reportSize;
                                             ptCapability->units = ptReportItem->globals.reportCount;
                                             
                                             // RY: For array items, we need to know the logical

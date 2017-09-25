@@ -52,6 +52,8 @@
 #include "hostcheck.h"
 #include "curl_printf.h"
 
+#include <CommonCrypto/CommonDigest.h>
+
 #include <openssl/ssl.h>
 #include <openssl/rand.h>
 #include <openssl/x509v3.h>
@@ -206,6 +208,15 @@ static char *ossl_strerror(unsigned long error, char *buf, size_t size)
 {
   ERR_error_string_n(error, buf, size);
   return buf;
+}
+
+#define IF_SSL_MISSING_RETURN(...) if (!have_openssl()) return __VA_ARGS__
+extern void OPENSSL_load_builtin_modules(void) __attribute__((weak_import));
+extern void SSL_load_error_strings(void) __attribute__((weak_import));
+static bool have_openssl(void)
+{
+  /* Check both libcrypto and libssl. */
+  return (OPENSSL_load_builtin_modules != NULL && SSL_load_error_strings != NULL) ? TRUE : FALSE;
 }
 
 static int passwd_callback(char *buf, int num, int encrypting,
@@ -725,6 +736,8 @@ static int x509_name_oneline(X509_NAME *a, char *buf, size_t size)
  */
 int Curl_ossl_init(void)
 {
+  IF_SSL_MISSING_RETURN(1);
+
   OPENSSL_load_builtin_modules();
 
 #ifdef HAVE_ENGINE_LOAD_BUILTIN_ENGINES
@@ -767,6 +780,8 @@ int Curl_ossl_init(void)
 /* Global cleanup */
 void Curl_ossl_cleanup(void)
 {
+  IF_SSL_MISSING_RETURN();
+
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L) && \
     !defined(LIBRESSL_VERSION_NUMBER)
   /* OpenSSL 1.1 deprecates all these cleanup functions and
@@ -809,6 +824,8 @@ void Curl_ossl_cleanup(void)
  */
 int Curl_ossl_check_cxn(struct connectdata *conn)
 {
+  IF_SSL_MISSING_RETURN(0);
+
   /* SSL_peek takes data out of the raw recv buffer without peeking so we use
      recv MSG_PEEK instead. Bug #795 */
 #ifdef MSG_PEEK
@@ -855,6 +872,8 @@ int Curl_ossl_check_cxn(struct connectdata *conn)
  */
 CURLcode Curl_ossl_set_engine(struct Curl_easy *data, const char *engine)
 {
+  IF_SSL_MISSING_RETURN(CURLE_NOT_BUILT_IN);
+
 #if defined(USE_OPENSSL) && defined(HAVE_OPENSSL_ENGINE_H)
   ENGINE *e;
 
@@ -900,6 +919,8 @@ CURLcode Curl_ossl_set_engine(struct Curl_easy *data, const char *engine)
  */
 CURLcode Curl_ossl_set_engine_default(struct Curl_easy *data)
 {
+  IF_SSL_MISSING_RETURN(CURLE_NOT_BUILT_IN);
+
 #ifdef HAVE_OPENSSL_ENGINE_H
   if(data->state.engine) {
     if(ENGINE_set_default(data->state.engine, ENGINE_METHOD_ALL) > 0) {
@@ -922,6 +943,8 @@ CURLcode Curl_ossl_set_engine_default(struct Curl_easy *data)
  */
 struct curl_slist *Curl_ossl_engines_list(struct Curl_easy *data)
 {
+  IF_SSL_MISSING_RETURN(NULL);
+
   struct curl_slist *list = NULL;
 #if defined(USE_OPENSSL) && defined(HAVE_OPENSSL_ENGINE_H)
   struct curl_slist *beg;
@@ -961,6 +984,7 @@ static void ossl_close(struct ssl_connect_data *connssl)
  */
 void Curl_ossl_close(struct connectdata *conn, int sockindex)
 {
+  IF_SSL_MISSING_RETURN();
   ossl_close(&conn->ssl[sockindex]);
   ossl_close(&conn->proxy_ssl[sockindex]);
 }
@@ -971,6 +995,8 @@ void Curl_ossl_close(struct connectdata *conn, int sockindex)
  */
 int Curl_ossl_shutdown(struct connectdata *conn, int sockindex)
 {
+  IF_SSL_MISSING_RETURN(CURLE_NOT_BUILT_IN);
+
   int retval = 0;
   struct ssl_connect_data *connssl = &conn->ssl[sockindex];
   struct Curl_easy *data = conn->data;
@@ -1070,6 +1096,8 @@ int Curl_ossl_shutdown(struct connectdata *conn, int sockindex)
 
 void Curl_ossl_session_free(void *ptr)
 {
+  IF_SSL_MISSING_RETURN();
+
   /* free the ID */
   SSL_SESSION_free(ptr);
 }
@@ -1080,6 +1108,8 @@ void Curl_ossl_session_free(void *ptr)
  */
 void Curl_ossl_close_all(struct Curl_easy *data)
 {
+  IF_SSL_MISSING_RETURN();
+
 #ifdef HAVE_OPENSSL_ENGINE_H
   if(data->state.engine) {
     ENGINE_finish(data->state.engine);
@@ -3139,11 +3169,15 @@ CURLcode Curl_ossl_connect_nonblocking(struct connectdata *conn,
                                        int sockindex,
                                        bool *done)
 {
+  IF_SSL_MISSING_RETURN(CURLE_NOT_BUILT_IN);
+
   return ossl_connect_common(conn, sockindex, TRUE, done);
 }
 
 CURLcode Curl_ossl_connect(struct connectdata *conn, int sockindex)
 {
+  IF_SSL_MISSING_RETURN(CURLE_NOT_BUILT_IN);
+
   CURLcode result;
   bool done = FALSE;
 
@@ -3158,6 +3192,8 @@ CURLcode Curl_ossl_connect(struct connectdata *conn, int sockindex)
 
 bool Curl_ossl_data_pending(const struct connectdata *conn, int connindex)
 {
+  IF_SSL_MISSING_RETURN(FALSE);
+
   if(conn->ssl[connindex].handle)
     /* SSL is in use */
     return (0 != SSL_pending(conn->ssl[connindex].handle) ||
@@ -3282,6 +3318,8 @@ static ssize_t ossl_recv(struct connectdata *conn, /* connection data */
 
 size_t Curl_ossl_version(char *buffer, size_t size)
 {
+  IF_SSL_MISSING_RETURN(0);
+
 #ifdef OPENSSL_IS_BORINGSSL
   return snprintf(buffer, size, OSSL_PACKAGE);
 #else /* OPENSSL_IS_BORINGSSL */
@@ -3324,6 +3362,7 @@ CURLcode Curl_ossl_random(struct Curl_easy *data, unsigned char *entropy,
                           size_t length)
 {
   int rc;
+  IF_SSL_MISSING_RETURN(CURLE_NOT_BUILT_IN);
   if(data) {
     if(Curl_ossl_seed(data)) /* Initiate the seed if not already done */
       return CURLE_FAILED_INIT; /* couldn't seed for some reason */
@@ -3342,11 +3381,11 @@ void Curl_ossl_md5sum(unsigned char *tmp, /* input */
                       unsigned char *md5sum /* output */,
                       size_t unused)
 {
-  MD5_CTX MD5pw;
+  CC_MD5_CTX MD5pw;
   (void)unused;
-  MD5_Init(&MD5pw);
-  MD5_Update(&MD5pw, tmp, tmplen);
-  MD5_Final(md5sum, &MD5pw);
+  CC_MD5_Init(&MD5pw);
+  CC_MD5_Update(&MD5pw, tmp, tmplen);
+  CC_MD5_Final(md5sum, &MD5pw);
 }
 
 #if (OPENSSL_VERSION_NUMBER >= 0x0090800fL) && !defined(OPENSSL_NO_SHA256)
@@ -3355,16 +3394,18 @@ void Curl_ossl_sha256sum(const unsigned char *tmp, /* input */
                       unsigned char *sha256sum /* output */,
                       size_t unused)
 {
-  SHA256_CTX SHA256pw;
+  CC_SHA256_CTX SHA256pw;
   (void)unused;
-  SHA256_Init(&SHA256pw);
-  SHA256_Update(&SHA256pw, tmp, tmplen);
-  SHA256_Final(sha256sum, &SHA256pw);
+  CC_SHA256_Init(&SHA256pw);
+  CC_SHA256_Update(&SHA256pw, tmp, tmplen);
+  CC_SHA256_Final(sha256sum, &SHA256pw);
 }
 #endif
 
 bool Curl_ossl_cert_status_request(void)
 {
+  IF_SSL_MISSING_RETURN(FALSE);
+
 #if (OPENSSL_VERSION_NUMBER >= 0x0090808fL) && !defined(OPENSSL_NO_TLSEXT) && \
     !defined(OPENSSL_NO_OCSP)
   return TRUE;

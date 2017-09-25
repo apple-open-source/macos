@@ -66,6 +66,7 @@ main(int argc, char **argv)
 	CFStringRef mountdir_CFString;
 	CFMutableDictionaryRef open_options, mount_options;
 	CFDictionaryRef mount_info;
+	CFNumberRef mount_options_flags;
 	int res;
 
 	flags = altflags = 0;
@@ -173,9 +174,9 @@ main(int argc, char **argv)
 	/*
 	 * Add the mount flags.
 	 */
-	CFDictionaryAddValue(mount_options, kNetFSMountFlagsKey,
-	    CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type,
-	      &flags));
+	mount_options_flags = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &flags);
+	CFDictionaryAddValue(mount_options, kNetFSMountFlagsKey, mount_options_flags);
+	CFRelease(mount_options_flags);
 	/*
 	 * Add the soft mount flag.
 	 */
@@ -197,7 +198,7 @@ main(int argc, char **argv)
 	 * mountinfo says where it's mounted".  In those cases, a
 	 * directory of mount information was returned; release it.
 	 */
-	if (res == 0 || res == EEXIST)
+	if ((res == 0 || res == EEXIST) && (mount_info != NULL))
 		CFRelease(mount_info);
 	CFRelease(mount_options);
 	CFRelease(open_options);

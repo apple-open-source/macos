@@ -166,6 +166,10 @@ struct protox ipcprotox[] = {
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
+struct protox kernprotox[] = {
+	{ NULL,		print_net_api_stats,	NULL,	"net_api", 0 },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
+};
 
 struct protox *protoprotox[] = {
 	protox,
@@ -178,6 +182,7 @@ struct protox *protoprotox[] = {
 	systmprotox,
 	nstatprotox,
 	ipcprotox,
+	kernprotox,
 	NULL
 };
 
@@ -453,6 +458,11 @@ main(argc, argv)
 	if (af == AF_UNSPEC && !Lflag)
 		for (tp = ipcprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
+
+	if (af == AF_UNSPEC && !Lflag)
+		for (tp = kernprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+
 
 #ifdef SRVCACHE
 	_serv_cache_close();

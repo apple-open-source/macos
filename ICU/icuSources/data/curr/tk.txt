@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/tk.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 tk{
     Currencies{
         AED{
@@ -100,9 +94,13 @@ tk{
             "BWP",
             "Botswana pulasy",
         }
+        BYN{
+            "BYN",
+            "Belorus rubly",
+        }
         BYR{
             "BYR",
-            "Belorus rubly",
+            "Belorus rubly (2000–2016)",
         }
         BZD{
             "BZD",
@@ -426,7 +424,7 @@ tk{
         }
         PEN{
             "PEN",
-            "Täze peru soly",
+            "Peru soly",
         }
         PGK{
             "PGK",
@@ -642,7 +640,7 @@ tk{
         BRL{"R$"}
         BSD{"$"}
         BWP{"P"}
-        BYR{"р."}
+        BYN{"р."}
         BZD{"$"}
         CAD{"$"}
         CLP{"$"}
@@ -820,9 +818,13 @@ tk{
             one{"botswana pulasy"}
             other{"botswana pulasy"}
         }
-        BYR{
+        BYN{
             one{"belorus rubly"}
             other{"belorus rubly"}
+        }
+        BYR{
+            one{"belorus rubly (2000–2016)"}
+            other{"belorus rubly (2000–2016)"}
         }
         BZD{
             one{"beliz dollary"}
@@ -969,8 +971,8 @@ tk{
             other{"indoneziýa rupiýasy"}
         }
         ILS{
-            one{"täze ysraýyl şekeli"}
-            other{"täze ysraýl şekeli"}
+            one{"Täze Ysraýyl şekeli"}
+            other{"Täze Ysraýyl şekeli"}
         }
         INR{
             one{"hindi rupiýasy"}
@@ -1145,8 +1147,8 @@ tk{
             other{"panama balboasy"}
         }
         PEN{
-            one{"täze peru soly"}
-            other{"täze peru soly"}
+            one{"Peru soly"}
+            other{"Peru soly"}
         }
         PGK{
             one{"papua — täze gwineýa kinasy"}
@@ -1353,5 +1355,5 @@ tk{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.19.77"}
+    Version{"2.1.31.86"}
 }

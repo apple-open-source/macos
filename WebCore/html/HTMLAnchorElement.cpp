@@ -129,7 +129,7 @@ bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent& event) const
     if (!document().frame())
         return false;
 
-    if (!document().frame()->eventHandler().tabsToLinks(&event))
+    if (!document().frame()->eventHandler().tabsToLinks(event))
         return false;
 
     if (!renderer() && ancestorsOfType<HTMLCanvasElement>(*this).first())
@@ -201,9 +201,7 @@ void HTMLAnchorElement::defaultEventHandler(Event& event)
 void HTMLAnchorElement::setActive(bool down, bool pause)
 {
     if (hasEditableStyle()) {
-        EditableLinkBehavior editableLinkBehavior = EditableLinkDefaultBehavior;
-        if (Settings* settings = document().settings())
-            editableLinkBehavior = settings->editableLinkBehavior();
+        EditableLinkBehavior editableLinkBehavior = document().settings().editableLinkBehavior();
             
         switch (editableLinkBehavior) {
             default:
@@ -353,7 +351,10 @@ bool HTMLAnchorElement::isLiveLink() const
 
 void HTMLAnchorElement::sendPings(const URL& destinationURL)
 {
-    if (!hasAttributeWithoutSynchronization(pingAttr) || !document().settings() || !document().settings()->hyperlinkAuditingEnabled())
+    if (!document().frame())
+        return;
+
+    if (!hasAttributeWithoutSynchronization(pingAttr) || !document().settings().hyperlinkAuditingEnabled())
         return;
 
     SpaceSplitString pingURLs(attributeWithoutSynchronization(pingAttr), false);
@@ -369,9 +370,6 @@ void HTMLAnchorElement::handleClick(Event& event)
     if (!frame)
         return;
 
-    if (document().pageCacheState() != Document::NotInPageCache)
-        return;
-
     StringBuilder url;
     url.append(stripLeadingAndTrailingHTMLSpaces(attributeWithoutSynchronization(hrefAttr)));
     appendServerMapMousePosition(url, event);
@@ -381,7 +379,7 @@ void HTMLAnchorElement::handleClick(Event& event)
 #if ENABLE(DOWNLOAD_ATTRIBUTE)
     if (RuntimeEnabledFeatures::sharedFeatures().downloadAttributeEnabled()) {
         // Ignore the download attribute completely if the href URL is cross origin.
-        bool isSameOrigin = completedURL.protocolIsData() || document().securityOrigin()->canRequest(completedURL);
+        bool isSameOrigin = completedURL.protocolIsData() || document().securityOrigin().canRequest(completedURL);
         if (isSameOrigin)
             downloadAttribute = ResourceResponse::sanitizeSuggestedFilename(attributeWithoutSynchronization(downloadAttr));
         else if (hasAttributeWithoutSynchronization(downloadAttr))
@@ -408,11 +406,7 @@ bool HTMLAnchorElement::treatLinkAsLiveForEventType(EventType eventType) const
     if (!hasEditableStyle())
         return true;
 
-    Settings* settings = document().settings();
-    if (!settings)
-        return true;
-
-    switch (settings->editableLinkBehavior()) {
+    switch (document().settings().editableLinkBehavior()) {
     case EditableLinkDefaultBehavior:
     case EditableLinkAlwaysLive:
         return true;

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -103,10 +103,10 @@ nwi_state_add_to_if_list(nwi_state_t state, nwi_ifstate_t ifstate)
 	for (i = 0, scan = nwi_state_if_list(state);
 	     i < state->if_list_count;
 	     i++, scan++) {
-		nwi_ifstate_t	this;
-		
-		this = state->ifstate_list + *scan;
-		if (strcmp(this->ifname, ifstate->ifname) == 0) {
+		nwi_ifstate_t	this_ifstate;
+
+		this_ifstate = state->ifstate_list + *scan;
+		if (strcmp(this_ifstate->ifname, ifstate->ifname) == 0) {
 			/* it's already in the list */
 			return;
 		}
@@ -124,15 +124,15 @@ nwi_state_set_if_list(nwi_state_t state)
 	nwi_ifstate_t	scan_v6;
 	int		v4;
 	int		v6;
-	
+
 	v4 = 0;
 	v6 = 0;
 	state->if_list_count = 0;
 	scan_v4 = nwi_state_get_ifstate_with_index(state, AF_INET, v4);
 	scan_v6 = nwi_state_get_ifstate_with_index(state, AF_INET6, v6);
 	while (scan_v4 != NULL || scan_v6 != NULL) {
-		bool	add_v4 = FALSE;
-		
+		boolean_t	add_v4 = FALSE;
+
 		if (scan_v4 != NULL && scan_v6 != NULL) {
 			/* add the higher rank of v4 or v6 */
 			if (scan_v4->rank <= scan_v6->rank) {
@@ -173,7 +173,7 @@ nwi_state_make_copy(nwi_state_t src)
 		return dest;
 	}
 	size = nwi_state_size(src);
-	dest = malloc(size);
+	dest = (nwi_state_t)malloc(size);
 
 	if (dest != NULL) {
 		bcopy(src, dest, size);
@@ -200,7 +200,7 @@ nwi_state_new(nwi_state_t old_state, int max_if_count)
 		}
 	}
 	size = nwi_state_compute_size(max_if_count);
-	state = malloc(size);
+	state = (nwi_state_t)malloc(size);
 	bzero(state, size);
 	state->max_if_count = max_if_count;
 	state->version = NWI_STATE_VERSION;
@@ -274,7 +274,7 @@ nwi_state_add_ifstate_alias(nwi_state_t state, nwi_ifstate_t ifstate)
 {
 	nwi_ifstate_t	alias;
 
-	alias = nwi_state_get_ifstate_with_name(state, 
+	alias = nwi_state_get_ifstate_with_name(state,
 						nwi_other_af(ifstate->af),
 						ifstate->ifname);
 	if (alias == NULL) {
@@ -332,7 +332,7 @@ nwi_state_add_ifstate(nwi_state_t state,
 		/* this is the new last ifstate */
 		ifstate->flags |= NWI_IFSTATE_FLAGS_LAST_ITEM;
 		(*count_p)++;
-		
+
 		/* add the alias */
 		nwi_state_add_ifstate_alias(state, ifstate);
 	}
@@ -457,8 +457,8 @@ nwi_ifstate_has_changed(nwi_ifstate_t ifstate1, nwi_ifstate_t ifstate2)
 static inline nwi_ifstate_t
 nwi_state_diff_append(nwi_state_t state, nwi_ifstate_t scan)
 {
-	nwi_ifstate_t 	new_ifstate = NULL;
 	nwi_ifindex_t *	last;
+	nwi_ifstate_t 	new_ifstate = NULL;
 
 	new_ifstate = nwi_state_get_last_ifstate(state, scan->af, &last);
 	memcpy(new_ifstate, scan, sizeof(*scan));
@@ -476,32 +476,32 @@ nwi_ifstate_set_diff(nwi_ifstate_t ifstate, uint8_t diff)
 }
 
 static void
-nwi_state_diff_add_change(nwi_state_t diff, nwi_state_t old, 
+nwi_state_diff_add_change(nwi_state_t diff, nwi_state_t old_ifstate,
 			  nwi_ifstate_t ifstate)
 {
 	nwi_ifstate_t 	existing;
-	nwi_ifstate_t 	new;
+	nwi_ifstate_t 	new_ifstate;
 
-	existing = nwi_state_get_ifstate_with_name(old,
+	existing = nwi_state_get_ifstate_with_name(old_ifstate,
 						   ifstate->af,
 						   nwi_ifstate_get_ifname(ifstate));
-	new = nwi_state_diff_append(diff, ifstate);
+	new_ifstate = nwi_state_diff_append(diff, ifstate);
 	if (existing != NULL) {
-		if (nwi_ifstate_has_changed(existing, new)) {
-			nwi_ifstate_set_diff(new,
+		if (nwi_ifstate_has_changed(existing, new_ifstate)) {
+			nwi_ifstate_set_diff(new_ifstate,
 					     NWI_IFSTATE_DIFF_CHANGED);
-		} else if (existing->rank < new->rank) {
-			nwi_ifstate_set_diff(new,
+		} else if (existing->rank < new_ifstate->rank) {
+			nwi_ifstate_set_diff(new_ifstate,
 					     NWI_IFSTATE_DIFF_RANK_DOWN);
-		} else if (existing->rank > new->rank) {
-			nwi_ifstate_set_diff(new,
+		} else if (existing->rank > new_ifstate->rank) {
+			nwi_ifstate_set_diff(new_ifstate,
 					     NWI_IFSTATE_DIFF_RANK_UP);
 		} else {
-			nwi_ifstate_set_diff(new,
+			nwi_ifstate_set_diff(new_ifstate,
 					     NWI_IFSTATE_DIFF_UNCHANGED);
 		}
 	} else {
-		nwi_ifstate_set_diff(new, NWI_IFSTATE_DIFF_ADDED);
+		nwi_ifstate_set_diff(new_ifstate, NWI_IFSTATE_DIFF_ADDED);
 	}
 	return;
 }
@@ -524,39 +524,39 @@ nwi_state_diff_remove(nwi_state_t state, nwi_ifstate_t ifstate)
 }
 
 static void
-nwi_state_diff_populate(nwi_state_t diff, nwi_state_t old, nwi_state_t new)
+nwi_state_diff_populate(nwi_state_t diff, nwi_state_t old_ifstate, nwi_state_t new_ifstate)
 {
 	int i;
 	nwi_ifstate_t scan;
 
-	if (new != NULL) {
+	if (new_ifstate != NULL) {
 		/* check for adds/changes */
-		if (new->ipv4_count) {
-			for (i = 0, scan = new->ifstate_list;
-			     i < new->ipv4_count; i++, scan++) {
-				nwi_state_diff_add_change(diff, old, scan);
+		if (new_ifstate->ipv4_count) {
+			for (i = 0, scan = new_ifstate->ifstate_list;
+			     i < new_ifstate->ipv4_count; i++, scan++) {
+				nwi_state_diff_add_change(diff, old_ifstate, scan);
 			}
 		}
-		if (new->ipv6_count) {
-			scan = new->ifstate_list + new->max_if_count;
+		if (new_ifstate->ipv6_count) {
+			scan = new_ifstate->ifstate_list + new_ifstate->max_if_count;
 			for (i = 0;
-			     i < new->ipv6_count; i++, scan++) {
-				nwi_state_diff_add_change(diff, old, scan);
+			     i < new_ifstate->ipv6_count; i++, scan++) {
+				nwi_state_diff_add_change(diff, old_ifstate, scan);
 			}
 		}
 	}
-	if (old != NULL) {
+	if (old_ifstate != NULL) {
 		/* check for removes */
-		if (old->ipv4_count) {
-			for (i = 0, scan = old->ifstate_list;
-			     i < old->ipv4_count; i++, scan++) {
+		if (old_ifstate->ipv4_count) {
+			for (i = 0, scan = old_ifstate->ifstate_list;
+			     i < old_ifstate->ipv4_count; i++, scan++) {
 				nwi_state_diff_remove(diff, scan);
 			}
 		}
-		if (old->ipv6_count) {
-			scan = old->ifstate_list + old->max_if_count;
+		if (old_ifstate->ipv6_count) {
+			scan = old_ifstate->ifstate_list + old_ifstate->max_if_count;
 			for (i = 0;
-			     i < old->ipv6_count; i++, scan++) {
+			     i < old_ifstate->ipv6_count; i++, scan++) {
 				nwi_state_diff_remove(diff, scan);
 			}
 		}
@@ -574,7 +574,7 @@ nwi_state_max_af_count(nwi_state_t state)
 }
 
 __private_extern__ nwi_state_t
-nwi_state_diff(nwi_state_t old, nwi_state_t new)
+nwi_state_diff(nwi_state_t old_ifstate, nwi_state_t new_ifstate)
 {
 	nwi_state_t	diff;
 	int		total_count = 0;
@@ -586,18 +586,18 @@ nwi_state_diff(nwi_state_t old, nwi_state_t new)
 	 * Worst case assumes that the old and new share none of the
 	 * same interfaces.
 	 */
-	if (old != NULL) {
-		total_count += nwi_state_max_af_count(old);
+	if (old_ifstate != NULL) {
+		total_count += nwi_state_max_af_count(old_ifstate);
 	}
-	if (new != NULL) {
-		total_count += nwi_state_max_af_count(new);
+	if (new_ifstate != NULL) {
+		total_count += nwi_state_max_af_count(new_ifstate);
 	}
 	if (total_count == 0) {
 		return NULL;
 	}
 
 	diff = nwi_state_new(NULL, total_count);
-	nwi_state_diff_populate(diff, old, new);
+	nwi_state_diff_populate(diff, old_ifstate, new_ifstate);
 
 	/* diff consists of a nwi_state_t with diff flags on each ifstate */
 	return diff;
@@ -662,12 +662,12 @@ _nwi_state_update_interface_generations(nwi_state_t old_state, nwi_state_t state
 			_nwi_ifstate_set_generation(scan, generation_count);
 		} else {
 			nwi_ifstate_t old_ifstate;
-			
+
 			old_ifstate = nwi_state_get_ifstate_with_name(old_state,
 								      AF_INET,
 								      scan->ifname);
 			assert(old_ifstate != NULL);
-			
+
 			/* Set the current generation count */
 			_nwi_ifstate_set_generation(scan,
 						    old_ifstate->if_generation_count);
@@ -686,12 +686,12 @@ _nwi_state_update_interface_generations(nwi_state_t old_state, nwi_state_t state
 			_nwi_ifstate_set_generation(scan, generation_count);
 		} else {
 			nwi_ifstate_t old_ifstate;
-			
+
 			old_ifstate = nwi_state_get_ifstate_with_name(old_state,
 								      AF_INET6,
 								      scan->ifname);
 			assert(old_ifstate != NULL);
-			
+
 			/* Set the current generation count */
 			_nwi_ifstate_set_generation(scan,
 						    old_ifstate->if_generation_count);

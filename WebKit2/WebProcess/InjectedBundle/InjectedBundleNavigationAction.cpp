@@ -68,6 +68,17 @@ static WebMouseEvent::SyntheticClickType syntheticClickTypeForMouseEvent(const M
     
     return static_cast<WebMouseEvent::SyntheticClickType>(mouseEvent->syntheticClickType());
 }
+    
+static FloatPoint clickLocationInRootViewCoordinatesForMouseEvent(const MouseEvent* mouseEvent)
+{
+    if (!mouseEvent)
+        return { };
+    
+    if (!mouseEvent->buttonDown() || !mouseEvent->isTrusted())
+        return { };
+    
+    return mouseEvent->locationInRootViewCoordinates();
+}
 
 WebEvent::Modifiers InjectedBundleNavigationAction::modifiersForNavigationAction(const NavigationAction& navigationAction)
 {
@@ -96,13 +107,18 @@ WebMouseEvent::SyntheticClickType InjectedBundleNavigationAction::syntheticClick
 {
     return syntheticClickTypeForMouseEvent(mouseEventForNavigationAction(navigationAction));
 }
-
-Ref<InjectedBundleNavigationAction> InjectedBundleNavigationAction::create(WebFrame* frame, const NavigationAction& action, PassRefPtr<FormState> formState)
+    
+FloatPoint InjectedBundleNavigationAction::clickLocationInRootViewCoordinatesForNavigationAction(const NavigationAction& navigationAction)
 {
-    return adoptRef(*new InjectedBundleNavigationAction(frame, action, formState));
+    return clickLocationInRootViewCoordinatesForMouseEvent(mouseEventForNavigationAction(navigationAction));
 }
 
-InjectedBundleNavigationAction::InjectedBundleNavigationAction(WebFrame* frame, const NavigationAction& navigationAction, PassRefPtr<FormState> prpFormState)
+Ref<InjectedBundleNavigationAction> InjectedBundleNavigationAction::create(WebFrame* frame, const NavigationAction& action, RefPtr<FormState>&& formState)
+{
+    return adoptRef(*new InjectedBundleNavigationAction(frame, action, WTFMove(formState)));
+}
+
+InjectedBundleNavigationAction::InjectedBundleNavigationAction(WebFrame* frame, const NavigationAction& navigationAction, RefPtr<FormState>&& formState)
     : m_navigationType(navigationAction.type())
     , m_modifiers(modifiersForNavigationAction(navigationAction))
     , m_mouseButton(WebMouseEvent::NoButton)
@@ -114,13 +130,11 @@ InjectedBundleNavigationAction::InjectedBundleNavigationAction(WebFrame* frame, 
         m_hitTestResult = InjectedBundleHitTestResult::create(frame->coreFrame()->eventHandler().hitTestResultAtPoint(mouseEvent->absoluteLocation()));
         m_mouseButton   = mouseButtonForMouseEvent(mouseEvent);
         m_syntheticClickType = syntheticClickTypeForNavigationAction(navigationAction);
+        m_clickLocationInRootViewCoordinates = clickLocationInRootViewCoordinatesForNavigationAction(navigationAction);
     }
 
-    RefPtr<FormState> formState = prpFormState;
-    if (formState) {
-        ASSERT(formState->form());
-        m_formElement   = InjectedBundleNodeHandle::getOrCreate(formState->form());
-    }
+    if (formState)
+        m_formElement = InjectedBundleNodeHandle::getOrCreate(formState->form());
 }
 
 } // namespace WebKit

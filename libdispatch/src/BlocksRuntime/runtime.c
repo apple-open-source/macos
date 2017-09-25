@@ -12,8 +12,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#if HAVE_OBJC
 #define __USE_GNU
 #include <dlfcn.h>
+#endif
 #if __has_include(<os/assumes.h>)
 #include <os/assumes.h>
 #else
@@ -51,9 +53,11 @@ static __inline bool OSAtomicCompareAndSwapInt(int oldi, int newi, int volatile 
 Globals
 ************************/
 
+#if HAVE_OBJC
 static void *_Block_copy_class = _NSConcreteMallocBlock;
 static void *_Block_copy_finalizing_class = _NSConcreteMallocBlock;
 static int _Block_copy_flag = BLOCK_NEEDS_FREE;
+#endif
 static int _Byref_flag_initial_value = BLOCK_BYREF_NEEDS_FREE | 4;  // logical 2
 
 static bool isGC = false;
@@ -144,6 +148,8 @@ GC support stub routines
 
 
 static void *_Block_alloc_default(const unsigned long size, const bool initialCountIsOne, const bool isObject) {
+	(void)initialCountIsOne;
+	(void)isObject;
     return malloc(size);
 }
 
@@ -152,14 +158,20 @@ static void _Block_assign_default(void *value, void **destptr) {
 }
 
 static void _Block_setHasRefcount_default(const void *ptr, const bool hasRefcount) {
+	(void)ptr;
+	(void)hasRefcount;
 }
 
+#if HAVE_OBJC
 static void _Block_do_nothing(const void *aBlock) { }
+#endif
 
 static void _Block_retain_object_default(const void *ptr) {
+	(void)ptr;
 }
 
 static void _Block_release_object_default(const void *ptr) {
+	(void)ptr;
 }
 
 static void _Block_assign_weak_default(const void *ptr, void *dest) {
@@ -174,6 +186,7 @@ static void _Block_memmove_default(void *dst, void *src, unsigned long size) {
     memmove(dst, src, (size_t)size);
 }
 
+#if HAVE_OBJC
 static void _Block_memmove_gc_broken(void *dest, void *src, unsigned long size) {
     void **destp = (void **)dest;
     void **srcp = (void **)src;
@@ -184,8 +197,11 @@ static void _Block_memmove_gc_broken(void *dest, void *src, unsigned long size) 
         size -= sizeof(void *);
     }
 }
+#endif
 
-static void _Block_destructInstance_default(const void *aBlock) {}
+static void _Block_destructInstance_default(const void *aBlock) {
+	(void)aBlock;
+}
 
 /**************************************************************************
 GC support callout functions - initially set to stub routines
@@ -202,6 +218,7 @@ static void (*_Block_memmove)(void *dest, void *src, unsigned long size) = _Bloc
 static void (*_Block_destructInstance) (const void *aBlock) = _Block_destructInstance_default;
 
 
+#if HAVE_OBJC
 /**************************************************************************
 GC support SPI functions - called from ObjC runtime and CoreFoundation
 ***************************************************************************/
@@ -252,6 +269,7 @@ void _Block_use_RR( void (*retain)(const void *),
     _Block_release_object = release;
     _Block_destructInstance = dlsym(RTLD_DEFAULT, "objc_destructInstance");
 }
+#endif // HAVE_OBJC
 
 // Called from CF to indicate MRR. Newer version uses a versioned structure, so we can add more functions
 // without defining a new entry point.

@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		09F36E6C1D8B731E0044E1A1 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 09F36E6B1D8B731E0044E1A1 /* main.c */; };
+		09F36E731D8B739C0044E1A1 /* test_harness.h in Headers */ = {isa = PBXBuildFile; fileRef = 09F36E711D8B739C0044E1A1 /* test_harness.h */; };
+		09F36E741D8B73EC0044E1A1 /* FSFormatName.c in Sources */ = {isa = PBXBuildFile; fileRef = A9A1F2DC0754F05D008B2629 /* FSFormatName.c */; };
+		09F36E761D8B757A0044E1A1 /* readdisk_testfile.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 09F36E751D8B75560044E1A1 /* readdisk_testfile.txt */; };
+		09F36E771D8B770A0044E1A1 /* test_harness.c in Sources */ = {isa = PBXBuildFile; fileRef = 09F36E701D8B739C0044E1A1 /* test_harness.c */; };
+		09F36EA01D8CC5F90044E1A1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09F36E9F1D8CC5F90044E1A1 /* CoreFoundation.framework */; };
+		09F36EA21D8CC5FD0044E1A1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09F36EA11D8CC5FD0044E1A1 /* IOKit.framework */; };
 		A979227D076FA9E50006C07C /* FSFormatName.h in Headers */ = {isa = PBXBuildFile; fileRef = A979227C076FA9E50006C07C /* FSFormatName.h */; };
 		A9A1F2DE0754F05E008B2629 /* FSFormatName.c in Sources */ = {isa = PBXBuildFile; fileRef = A9A1F2DC0754F05D008B2629 /* FSFormatName.c */; };
 		A9A1F2DF0754F05E008B2629 /* FSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A9A1F2DD0754F05E008B2629 /* FSPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -14,9 +21,29 @@
 		A9F3306E076FD15200026204 /* bpb.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F3306D076FD15200026204 /* bpb.h */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		09F36E671D8B731E0044E1A1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 16;
+			files = (
+				09F36E761D8B757A0044E1A1 /* readdisk_testfile.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		09F36E691D8B731E0044E1A1 /* test-libfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-libfs"; sourceTree = BUILT_PRODUCTS_DIR; };
+		09F36E6B1D8B731E0044E1A1 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		09F36E701D8B739C0044E1A1 /* test_harness.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_harness.c; sourceTree = "<group>"; };
+		09F36E711D8B739C0044E1A1 /* test_harness.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_harness.h; sourceTree = "<group>"; };
+		09F36E751D8B75560044E1A1 /* readdisk_testfile.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = readdisk_testfile.txt; sourceTree = "<group>"; };
+		09F36E9F1D8CC5F90044E1A1 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		09F36EA11D8CC5FD0044E1A1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		A979227C076FA9E50006C07C /* FSFormatName.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FSFormatName.h; sourceTree = "<group>"; };
-		A9A1F2DC0754F05D008B2629 /* FSFormatName.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = FSFormatName.c; sourceTree = "<group>"; };
+		A9A1F2DC0754F05D008B2629 /* FSFormatName.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = FSFormatName.c; sourceTree = "<group>"; usesTabs = 1; };
 		A9A1F2DD0754F05E008B2629 /* FSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FSPrivate.h; sourceTree = "<group>"; };
 		A9DD4A2C076FB7750075BCC0 /* bootsect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootsect.h; sourceTree = "<group>"; };
 		A9F3306D076FD15200026204 /* bpb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bpb.h; sourceTree = "<group>"; };
@@ -24,6 +51,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		09F36E661D8B731E0044E1A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				09F36EA21D8CC5FD0044E1A1 /* IOKit.framework in Frameworks */,
+				09F36EA01D8CC5F90044E1A1 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D289987405E68DCB004EDB86 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -40,7 +76,9 @@
 				A9DD4A2E076FB7830075BCC0 /* Headers */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
+				09F36E6A1D8B731E0044E1A1 /* Tests */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				09F36E9E1D8CC5F90044E1A1 /* Frameworks */,
 			);
 			name = libfilesystem;
 			sourceTree = "<group>";
@@ -53,10 +91,33 @@
 			name = Source;
 			sourceTree = "<group>";
 		};
+		09F36E6A1D8B731E0044E1A1 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				09F36E751D8B75560044E1A1 /* readdisk_testfile.txt */,
+				09F36E701D8B739C0044E1A1 /* test_harness.c */,
+				09F36E711D8B739C0044E1A1 /* test_harness.h */,
+				09F36E6B1D8B731E0044E1A1 /* main.c */,
+			);
+			name = Tests;
+			path = "test-libfs";
+			sourceTree = "<group>";
+			usesTabs = 1;
+		};
+		09F36E9E1D8CC5F90044E1A1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				09F36EA11D8CC5FD0044E1A1 /* IOKit.framework */,
+				09F36E9F1D8CC5F90044E1A1 /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				D2AAC046055464E500DB518D /* libfs.a */,
+				09F36E691D8B731E0044E1A1 /* test-libfs */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -88,6 +149,7 @@
 			files = (
 				A9A1F2DF0754F05E008B2629 /* FSPrivate.h in Headers */,
 				A979227D076FA9E50006C07C /* FSFormatName.h in Headers */,
+				09F36E731D8B739C0044E1A1 /* test_harness.h in Headers */,
 				A9DD4A2D076FB7750075BCC0 /* bootsect.h in Headers */,
 				A9F3306E076FD15200026204 /* bpb.h in Headers */,
 			);
@@ -96,6 +158,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		09F36E681D8B731E0044E1A1 /* test-libfs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 09F36E6D1D8B731E0044E1A1 /* Build configuration list for PBXNativeTarget "test-libfs" */;
+			buildPhases = (
+				09F36E651D8B731E0044E1A1 /* Sources */,
+				09F36E661D8B731E0044E1A1 /* Frameworks */,
+				09F36E671D8B731E0044E1A1 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "test-libfs";
+			productName = "test-libfs";
+			productReference = 09F36E691D8B731E0044E1A1 /* test-libfs */;
+			productType = "com.apple.product-type.tool";
+		};
 		D2AAC045055464E500DB518D /* libfs */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4D386FCF12B2A7D60023DA29 /* Build configuration list for PBXNativeTarget "libfs" */;
@@ -118,6 +197,14 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				TargetAttributes = {
+					09F36E681D8B731E0044E1A1 = {
+						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
 			buildConfigurationList = 4D386FCE12B2A7D60023DA29 /* Build configuration list for PBXProject "libfs" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
@@ -133,11 +220,22 @@
 			projectRoot = "";
 			targets = (
 				D2AAC045055464E500DB518D /* libfs */,
+				09F36E681D8B731E0044E1A1 /* test-libfs */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		09F36E651D8B731E0044E1A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				09F36E771D8B770A0044E1A1 /* test_harness.c in Sources */,
+				09F36E741D8B73EC0044E1A1 /* FSFormatName.c in Sources */,
+				09F36E6C1D8B731E0044E1A1 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D2AAC044055464E500DB518D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -149,6 +247,25 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		09F36E9C1D8CC5E20044E1A1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = "test-libfs";
+			};
+			name = Debug;
+		};
+		09F36E9D1D8CC5E20044E1A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "test-libfs";
+			};
+			name = Release;
+		};
 		4D386FC812B2A7D60023DA29 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -176,6 +293,7 @@
 				OTHER_CFLAGS = (
 					"-Wall",
 					"-Werror",
+					"-Wno-deprecated-declarations",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = fs;
@@ -195,6 +313,7 @@
 				OTHER_CFLAGS = (
 					"-Wall",
 					"-Werror",
+					"-Wno-deprecated-declarations",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = fs;
@@ -206,6 +325,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		09F36E6D1D8B731E0044E1A1 /* Build configuration list for PBXNativeTarget "test-libfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				09F36E9C1D8CC5E20044E1A1 /* Debug */,
+				09F36E9D1D8CC5E20044E1A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4D386FCE12B2A7D60023DA29 /* Build configuration list for PBXProject "libfs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

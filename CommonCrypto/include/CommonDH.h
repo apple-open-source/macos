@@ -94,7 +94,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
     @param		peerPubKeyLen Length of peer public key.
 	@param      ref  The Diffie-Hellman context to clear and deallocate.
 
-	@param      returns the length of the shared key.
+	@returns    length of the shared key.
                             
 */
 

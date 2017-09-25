@@ -44,6 +44,9 @@ public:
 	Key key() const							{ return mKey; }
 	void key(const Key &k);
 	const CssmData &initVector() const		{ return *mInitVector; }
+    // The following function is invalid: you cannot save a pointer to an object passed in by reference.
+    // Fixing this error leads to corrupted mutexes everywhere; I cannot figure out why.
+    // To use the Crypt class, you must ensure that the CssmData object you pass in here lives for the lifetime of Crypt.
 	void initVector(const CssmData &v)		{ mInitVector = &v; set(CSSM_ATTRIBUTE_INIT_VECTOR, v); }
 	CSSM_PADDING padding() const			{ return mPadding; }
 	void padding(CSSM_PADDING p)			{ mPadding = p; set(CSSM_ATTRIBUTE_PADDING, p); }

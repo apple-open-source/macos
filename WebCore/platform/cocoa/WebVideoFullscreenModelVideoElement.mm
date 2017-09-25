@@ -33,7 +33,6 @@
 #import "Logging.h"
 #import "MediaControlsHost.h"
 #import "WebPlaybackSessionModelMediaElement.h"
-#import "WebVideoFullscreenInterface.h"
 #import <QuartzCore/CoreAnimation.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventListener.h>
@@ -41,12 +40,10 @@
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLVideoElement.h>
 #import <WebCore/Page.h>
-#import <WebCore/PageGroup.h>
-#import <WebCore/SoftLinking.h>
 #import <WebCore/TextTrackList.h>
 #import <WebCore/TimeRanges.h>
 #import <wtf/NeverDestroyed.h>
-
+#import <wtf/SoftLinking.h>
 
 using namespace WebCore;
 
@@ -103,7 +100,7 @@ void WebVideoFullscreenModelVideoElement::updateForEventName(const WTF::AtomicSt
     }
 }
 
-void WebVideoFullscreenModelVideoElement::setVideoFullscreenLayer(PlatformLayer* videoLayer, std::function<void()> completionHandler)
+void WebVideoFullscreenModelVideoElement::setVideoFullscreenLayer(PlatformLayer* videoLayer, WTF::Function<void()>&& completionHandler)
 {
     if (m_videoFullscreenLayer == videoLayer) {
         completionHandler();
@@ -123,17 +120,17 @@ void WebVideoFullscreenModelVideoElement::setVideoFullscreenLayer(PlatformLayer*
         return;
     }
 
-    m_videoElement->setVideoFullscreenLayer(m_videoFullscreenLayer.get(), completionHandler);
+    m_videoElement->setVideoFullscreenLayer(m_videoFullscreenLayer.get(), WTFMove(completionHandler));
 }
 
-void WebVideoFullscreenModelVideoElement::waitForPreparedForInlineThen(std::function<void()> completionHandler)
+void WebVideoFullscreenModelVideoElement::waitForPreparedForInlineThen(WTF::Function<void()>&& completionHandler)
 {
     if (!m_videoElement) {
         completionHandler();
         return;
     }
 
-    m_videoElement->waitForPreparedForInlineThen(completionHandler);
+    m_videoElement->waitForPreparedForInlineThen(WTFMove(completionHandler));
 }
 
 void WebVideoFullscreenModelVideoElement::requestFullscreenMode(HTMLMediaElementEnums::VideoFullscreenMode mode, bool finishedWithMedia)

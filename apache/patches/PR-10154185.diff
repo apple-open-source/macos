@@ -55,7 +55,7 @@
 
 --- modules/ssl/ssl_engine_init.c.orig	2014-03-27 16:56:41.000000000 -0700
 +++ modules/ssl/ssl_engine_init.c	2014-03-27 17:12:40.000000000 -0700
-@@ -144,6 +144,9 @@
+@@ -254,6 +254,9 @@
              sc->fips = FALSE;
          }
  #endif
@@ -64,8 +64,8 @@
 +
      }
  
- #if APR_HAS_THREADS
-@@ -436,6 +439,10 @@
+ #if APR_HAS_THREADS && OPENSSL_VERSION_NUMBER < 0x10100000L
+@@ -583,6 +583,10 @@
  
      SSL_CTX_set_options(ctx, SSL_OP_ALL);
  
@@ -73,9 +73,9 @@
 +        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
 +    }
 +
+ #if OPENSSL_VERSION_NUMBER < 0x10100000L
      /* always disable SSLv2, as per RFC 6176 */
      SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
- 
 --- modules/ssl/ssl_private.h.orig	2014-03-27 16:57:27.000000000 -0700
 +++ modules/ssl/ssl_private.h	2014-03-28 14:13:32.000000000 -0700
 @@ -625,6 +625,7 @@

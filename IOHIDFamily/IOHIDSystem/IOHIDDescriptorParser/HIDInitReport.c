@@ -27,7 +27,7 @@
 
 	Version:	1.0d1
 
-	Copyright:	© 2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -106,14 +106,14 @@ OSStatus HIDInitReport
 	
 	// Default initialization is to zero out all values.
 	
-	for (iR = 1; iR < reportLength; iR++)
+	for (iR = 1; iR < (int)reportLength; iR++)
 	{
 		*iPtr++ = 0;
 	}
 
 	// Search through all report items to see if they belong in this report.
 	
-	for (iR = 0; iR < ptPreparsedData->reportItemCount; iR++)
+	for (iR = 0; iR < (int)ptPreparsedData->reportItemCount; iR++)
 	{
 		ptReportItem = &ptPreparsedData->reportItems[iR];
 		
@@ -150,7 +150,7 @@ OSStatus HIDInitReport
 			// The mininimum 8 bit value would be 0x80 (-128). To be -128 in UInt32 = 0xFFFFFF80.
 			// This just happens to also set the high order bit that we need to test in the
 			// maximum value using the high order bit, such as 64, 0x80.
-			bitSize = ptReportItem->globals.reportSize;
+			bitSize = (SInt32)ptReportItem->globals.reportSize;
 			bitwiseMin = -1 << (bitSize - 1);
 			
 			// Logical max should not have any bit set higher than the high order bit of our
@@ -210,10 +210,10 @@ OSStatus HIDInitReport
 				// For a reportItem, there can be multiple identical usages.
 				for (lR = 0; lR < ptReportItem->usageItemCount; lR++)
 				{
-					iStart = ptReportItem->startBit
-						  + (ptReportItem->globals.reportSize * lR);
+					iStart = (SInt32)(ptReportItem->startBit
+						  + (ptReportItem->globals.reportSize * lR));
 					tempStatus = HIDPutData(report, reportLength, iStart,
-										   ptReportItem->globals.reportSize, nullValue);
+										   (UInt32)ptReportItem->globals.reportSize, nullValue);
 					if (tempStatus)
 						iStatus = tempStatus;	// Pass on any bad news.
 				}

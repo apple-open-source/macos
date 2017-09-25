@@ -28,7 +28,6 @@
 
 #include "ApplicationCacheHost.h"
 #include "BackForwardController.h"
-#include "MemoryCache.h"
 #include "CachedPage.h"
 #include "DOMWindow.h"
 #include "DeviceMotionController.h"
@@ -45,12 +44,11 @@
 #include "IgnoreOpensDuringUnloadCountIncrementer.h"
 #include "Logging.h"
 #include "MainFrame.h"
-#include "MemoryPressureHandler.h"
 #include "NoEventDispatchAssertion.h"
 #include "Page.h"
 #include "Settings.h"
 #include "SubframeLoader.h"
-#include <wtf/CurrentTime.h>
+#include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
 #include <wtf/text/CString.h>
@@ -66,7 +64,7 @@ namespace WebCore {
 
 static inline void logPageCacheFailureDiagnosticMessage(DiagnosticLoggingClient& client, const String& reason)
 {
-    client.logDiagnosticMessageWithValue(DiagnosticLoggingKeys::pageCacheKey(), DiagnosticLoggingKeys::failureKey(), reason, ShouldSample::Yes);
+    client.logDiagnosticMessage(DiagnosticLoggingKeys::pageCacheFailureKey(), reason, ShouldSample::Yes);
 }
 
 static inline void logPageCacheFailureDiagnosticMessage(Page* page, const String& reason)
@@ -156,7 +154,7 @@ static bool canCacheFrame(Frame& frame, DiagnosticLoggingClient& diagnosticLoggi
         PCLOG("   -The document cannot suspend its active DOM Objects");
         for (auto* activeDOMObject : unsuspendableObjects) {
             PCLOG("    - Unsuspendable: ", activeDOMObject->activeDOMObjectName());
-            diagnosticLoggingClient.logDiagnosticMessageWithValue(DiagnosticLoggingKeys::pageCacheKey(), DiagnosticLoggingKeys::unsuspendableDOMObjectKey(), activeDOMObject->activeDOMObjectName(), ShouldSample::Yes);
+            diagnosticLoggingClient.logDiagnosticMessage(DiagnosticLoggingKeys::unsuspendableDOMObjectKey(), activeDOMObject->activeDOMObjectName(), ShouldSample::Yes);
             UNUSED_PARAM(activeDOMObject);
         }
         logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::cannotSuspendActiveDOMObjectsKey());
@@ -164,7 +162,7 @@ static bool canCacheFrame(Frame& frame, DiagnosticLoggingClient& diagnosticLoggi
     }
     // FIXME: We should investigating caching frames that have an associated
     // application cache. <rdar://problem/5917899> tracks that work.
-    if (!documentLoader->applicationCacheHost()->canCacheInPageCache()) {
+    if (!documentLoader->applicationCacheHost().canCacheInPageCache()) {
         PCLOG("   -The DocumentLoader uses an application cache");
         logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::applicationCacheKey());
         isCacheable = false;
@@ -193,19 +191,6 @@ static bool canCachePage(Page& page)
 
     DiagnosticLoggingClient& diagnosticLoggingClient = page.diagnosticLoggingClient();
     bool isCacheable = canCacheFrame(page.mainFrame(), diagnosticLoggingClient, indentLevel + 1);
-
-    if (page.openedByWindowOpen() && !page.settings().allowsPageCacheWithWindowOpener()) {
-        PCLOG("   -Page has been opened via window.open()");
-        logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::hasOpenerKey());
-        isCacheable = false;
-    }
-
-    auto* topDocument = page.mainFrame().document();
-    if (topDocument && topDocument->hasEverCalledWindowOpen()) {
-        PCLOG("   -Page has called window.open()");
-        logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::hasCalledWindowOpenKey());
-        isCacheable = false;
-    }
     
     if (!page.settings().usesPageCache() || page.isResourceCachingDisabled()) {
         PCLOG("   -Page settings says b/f cache disabled");
@@ -261,6 +246,13 @@ static bool canCachePage(Page& page)
         // No point writing to the cache on a reload, since we will just write over it again when we leave that page.
         PCLOG("   -Load type is: ReloadFromOrigin");
         logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::reloadFromOriginKey());
+        isCacheable = false;
+        break;
+    }
+    case FrameLoadType::ReloadExpiredOnly: {
+        // No point writing to the cache on a reload, since we will just write over it again when we leave that page.
+        PCLOG("   -Load type is: ReloadRevalidatingExpired");
+        logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::reloadRevalidatingExpiredKey());
         isCacheable = false;
         break;
     }
@@ -377,6 +369,20 @@ static void setPageCacheState(Page& page, Document::PageCacheState pageCacheStat
     }
 }
 
+// When entering page cache, tear down the render tree before setting the in-cache flag.
+// This maintains the invariant that render trees are never present in the page cache.
+// Note that destruction happens bottom-up so that the main frame's tree dies last.
+static void destroyRenderTree(MainFrame& mainFrame)
+{
+    for (Frame* frame = mainFrame.tree().traversePrevious(CanWrap::Yes); frame; frame = frame->tree().traversePrevious(CanWrap::No)) {
+        if (!frame->document())
+            continue;
+        auto& document = *frame->document();
+        if (document.hasLivingRenderTree())
+            document.destroyRenderTree();
+    }
+}
+
 static void firePageHideEventRecursively(Frame& frame)
 {
     auto* document = frame.document();
@@ -403,6 +409,8 @@ void PageCache::addIfCacheable(HistoryItem& item, Page* page)
     if (!page || !canCache(*page))
         return;
 
+    ASSERT_WITH_MESSAGE(!page->isUtilityPage(), "Utility pages such as SVGImage pages should never go into PageCache");
+
     setPageCacheState(*page, Document::AboutToEnterPageCache);
 
     // Focus the main frame, defocusing a focused subframe (if we have one). We do this here,
@@ -419,6 +427,8 @@ void PageCache::addIfCacheable(HistoryItem& item, Page* page)
         setPageCacheState(*page, Document::NotInPageCache);
         return;
     }
+
+    destroyRenderTree(page->mainFrame());
 
     setPageCacheState(*page, Document::InPageCache);
 
@@ -454,6 +464,11 @@ std::unique_ptr<CachedPage> PageCache::take(HistoryItem& item, Page* page)
 
 void PageCache::removeAllItemsForPage(Page& page)
 {
+#if !ASSERT_DISABLED
+    ASSERT_WITH_MESSAGE(!m_isInRemoveAllItemsForPage, "We should not reenter this method");
+    SetForScope<bool> inRemoveAllItemsForPageScope { m_isInRemoveAllItemsForPage, true };
+#endif
+
     for (auto it = m_items.begin(); it != m_items.end();) {
         // Increment iterator first so it stays valid after the removal.
         auto current = it;

@@ -106,6 +106,7 @@
 		6033BF0C0738279600FC5AD5 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6033BF0D0738279600FC5AD5 /* IOCDStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOCDStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		6033BF2E07382A2900FC5AD5 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		72D6B2571F16DB7F00F4FD94 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -123,6 +124,7 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				72D6B2571F16DB7F00F4FD94 /* kext.xcconfig */,
 				6033BF0C0738279600FC5AD5 /* Info.plist */,
 				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
 			);
@@ -362,6 +364,7 @@
 		};
 		60218FA5095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72D6B2571F16DB7F00F4FD94 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				PRODUCT_NAME = IOCDStorageFamily;
@@ -372,6 +375,7 @@
 		};
 		60218FA6095B74720026C3D8 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72D6B2571F16DB7F00F4FD94 /* kext.xcconfig */;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
 				PRODUCT_NAME = IOCDStorageFamily;

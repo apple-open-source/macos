@@ -231,6 +231,7 @@ foreach $file (@files) {
 	
 	$dir = dirname($file);
 	$isksh = 0;
+	$isbinary = 0;
 	$tag = 0;
 	$droptag = 0;
 	$perftest = 0;
@@ -243,6 +244,7 @@ foreach $file (@files) {
 		$status = 0;
 	} elsif ($name =~ /^perf\./) {
 		$isksh = ($ext eq 'ksh');
+		$isbinary = ($ext eq 'exe');
 		$status = 0;
 		$perftest = 1;
 	} elsif ($name =~ /^err\.(D_[A-Z0-9_]+)\./) {
@@ -262,7 +264,7 @@ foreach $file (@files) {
 	$exe = "$dir/$base.exe";
 	$exe_pid = -1;
 
-	if (!$isksh && -x $exe) {
+	if (!($isksh || $isbinary) && -x $exe) {
 		if (($exe_pid = fork()) == -1) {
 			errmsg("[FAIL] failed to fork to run $exe: $!\n");
 			next;
@@ -298,13 +300,14 @@ foreach $file (@files) {
 		push(@dtrace_argv, '-xdroptags') if ($droptag);
 ##		push(@dtrace_argv, $exe_pid) if ($exe_pid != -1);
 
-		if ($isksh) {
+		if ($isbinary and -x $name) {
+			exec('./' . $name);
+		}
+		elsif ($isksh) {
 			exit(123) unless open(STDIN, "<$name");
 			exec($ksh_path);
-		} elsif (-x $name) {
-		        warn "[FAIL] $name is executable\n";
-			exit(1);
-		} else {
+		}
+		else {
 			if ($tag == 0 && $status == $0 && $opt_a) {
 				push(@dtrace_argv, '-A');
 			}

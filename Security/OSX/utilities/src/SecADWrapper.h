@@ -27,11 +27,9 @@
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#if TARGET_OS_EMBEDDED
 extern void SecADClearScalarKey(CFStringRef key);
 extern void SecADSetValueForScalarKey(CFStringRef key, int64_t value);
 extern void SecADAddValueForScalarKey(CFStringRef key, int64_t value);
 extern void SecADClientPushValueForDistributionKey(CFStringRef key, int64_t value);
-#endif
 
 #endif /* SecADWrapper_h */

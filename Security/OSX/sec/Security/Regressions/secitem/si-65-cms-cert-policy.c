@@ -27,7 +27,7 @@
 #include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <CommonCrypto/CommonDigest.h>
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 
 const uint8_t root_ca[] = {

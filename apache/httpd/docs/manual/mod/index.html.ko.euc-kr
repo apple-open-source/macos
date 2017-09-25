@@ -101,7 +101,9 @@ address)</dd>
 <dt><a href="mod_authz_user.html">mod_authz_user</a></dt><dd>사용자 권한부여</dd>
 <dt><a href="mod_autoindex.html">mod_autoindex</a></dt><dd>자동으로 유닉스의 <code>ls</code> 명령어나 Win32의
     <code>dir</code> 쉘명령어와 유사한 디렉토리 목록을 만든다</dd>
-<dt><a href="mod_buffer.html" id="B" name="B">mod_buffer</a></dt><dd>Support for request buffering</dd>
+<dt><a href="mod_brotli.html" id="B" name="B">mod_brotli</a></dt><dd>Compress content via Brotli before it is delivered to the
+client</dd>
+<dt><a href="mod_buffer.html">mod_buffer</a></dt><dd>Support for request buffering</dd>
 <dt><a href="mod_cache.html" id="C" name="C">mod_cache</a></dt><dd>URI를 키로 사용하여 내용을 캐쉬한다.</dd>
 <dt><a href="mod_cache_disk.html">mod_cache_disk</a></dt><dd>Content cache storage manager keyed to URIs</dd>
 <dt><a href="mod_cache_socache.html">mod_cache_socache</a></dt><dd>Shared object cache (socache) based storage module for the
@@ -245,7 +247,7 @@ filter modules</dd>
 <a href="../tr/mod/" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/mod/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -27,9 +27,9 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 .\" OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/which/which.1,v 1.25 2005/02/10 16:04:22 ru Exp $
+.\" $FreeBSD: head/usr.bin/which/which.1 267773 2014-06-23 08:23:05Z bapt $
 .\"
-.Dd June 21, 2002
+.Dd December 13, 2006
 .Dt WHICH 1
 .Os
 .Sh NAME
@@ -52,8 +52,8 @@ The following options are available:
 List all instances of executables found (instead of just the first one
 of each).
 .It Fl s
-No output, just return 0 if any of the executables are found, or 1 if
-none are found.
+No output, just return 0 if all of the executables are found, or 1 if
+some were not found.
 .El
 .Pp
 Some shells may provide a builtin
@@ -78,8 +78,8 @@ command first appeared in
 The
 .Nm
 utility was originally written in Perl and was contributed by
-.An Wolfram Schneider Aq wosch@FreeBSD.org .
+.An Wolfram Schneider Aq Mt wosch@FreeBSD.org .
 The current version of
 .Nm
 was rewritten in C by
-.An Daniel Papasian Aq dpapasia@andrew.cmu.edu .
+.An Daniel Papasian Aq Mt dpapasia@andrew.cmu.edu .

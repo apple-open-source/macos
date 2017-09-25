@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009-2014  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: builtin.c,v 1.20.14.3 2012/01/11 20:19:40 ckb Exp $ */
+/* $Id: builtin.c,v 1.26 2012/01/21 19:44:18 each Exp $ */
 
 /*! \file
  * \brief
@@ -99,9 +99,9 @@ static size_t
 dns64_rdata(unsigned char *v, size_t start, unsigned char *rdata) {
 	size_t i, j = 0;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 4U; i++) {
 		unsigned char c = v[start++];
-		if (start == 7)
+		if (start == 7U)
 			start++;
 		if (c > 99) {
 			rdata[j++] = 3;
@@ -117,7 +117,7 @@ dns64_rdata(unsigned char *v, size_t start, unsigned char *rdata) {
 			rdata[j++] = decimal[c];
 		}
 	}
-	memcpy(&rdata[j], "\07in-addr\04arpa", 14);
+	memmove(&rdata[j], "\07in-addr\04arpa", 14);
 	return (j + 14);
 }
 
@@ -164,7 +164,7 @@ dns64_cname(const dns_name_t *zone, const dns_name_t *name,
 	i = (nlen % 4) == 2U ? 1 : 0;
 	j = nlen;
 	memset(v, 0, sizeof(v));
-	while (j != 0) {
+	while (j != 0U) {
 		INSIST((i/2) < sizeof(v));
 		if (ndata[0] != 1)
 			return (ISC_R_NOTFOUND);
@@ -276,16 +276,20 @@ dns64_cname(const dns_name_t *zone, const dns_name_t *name,
 		 */
 		return (ISC_R_NOTFOUND);
 	}
-	return (dns_sdb_putrdata(lookup, dns_rdatatype_cname, 600, rdata, len));
+	return (dns_sdb_putrdata(lookup, dns_rdatatype_cname, 600,
+				 rdata, (unsigned int)len));
 }
 
 static isc_result_t
 builtin_lookup(const char *zone, const char *name, void *dbdata,
-	       dns_sdblookup_t *lookup)
+	       dns_sdblookup_t *lookup, dns_clientinfomethods_t *methods,
+	       dns_clientinfo_t *clientinfo)
 {
 	builtin_t *b = (builtin_t *) dbdata;
 
 	UNUSED(zone);
+	UNUSED(methods);
+	UNUSED(clientinfo);
 
 	if (strcmp(name, "@") == 0)
 		return (b->do_lookup(lookup));
@@ -295,9 +299,13 @@ builtin_lookup(const char *zone, const char *name, void *dbdata,
 
 static isc_result_t
 dns64_lookup(const dns_name_t *zone, const dns_name_t *name, void *dbdata,
-	     dns_sdblookup_t *lookup)
+	     dns_sdblookup_t *lookup, dns_clientinfomethods_t *methods,
+	     dns_clientinfo_t *clientinfo)
 {
 	builtin_t *b = (builtin_t *) dbdata;
+
+	UNUSED(methods);
+	UNUSED(clientinfo);
 
 	if (name->labels == 0 && name->length == 0)
 		return (b->do_lookup(lookup));
@@ -312,7 +320,7 @@ put_txt(dns_sdblookup_t *lookup, const char *text) {
 	if (len > 255)
 		len = 255; /* Silently truncate */
 	buf[0] = len;
-	memcpy(&buf[1], text, len);
+	memmove(&buf[1], text, len);
 	return (dns_sdb_putrdata(lookup, dns_rdatatype_txt, 0, buf, len + 1));
 }
 
@@ -353,6 +361,8 @@ do_authors_lookup(dns_sdblookup_t *lookup) {
 		"Curtis Blackburn",
 		"James Brister",
 		"Ben Cottrell",
+		"John H. DuBois III",
+		"Francis Dupont",
 		"Michael Graff",
 		"Andreas Gustafsson",
 		"Bob Halley",
@@ -492,11 +502,11 @@ builtin_create(const char *zone, int argc, char **argv,
 				isc_mem_put(ns_g_mctx, empty, sizeof (*empty));
 		} else {
 			if (strcmp(argv[0], "empty") == 0)
-				memcpy(empty, &empty_builtin,
-				       sizeof (empty_builtin));
+				memmove(empty, &empty_builtin,
+					sizeof (empty_builtin));
 			else
-				memcpy(empty, &dns64_builtin,
-				       sizeof (empty_builtin));
+				memmove(empty, &dns64_builtin,
+					sizeof (empty_builtin));
 			empty->server = server;
 			empty->contact = contact;
 			*dbdata = empty;

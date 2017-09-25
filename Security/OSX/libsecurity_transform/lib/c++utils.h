@@ -5,7 +5,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 std::string StringFromCFString(CFStringRef theString);
-CFStringRef CFStringFromString(std::string theString);
+CFStringRef CFStringFromString(std::string theString) CF_RETURNS_RETAINED;
 
 // class to automatically manage the lifetime of a CFObject
 

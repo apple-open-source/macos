@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+# frozen_string_literal: false
 #--
 # Copyright (c) 2001,2003 Akinori MUSHA <knu@iDaemons.org>
 #
@@ -7,47 +7,50 @@
 #
 # $Idaemons: /home/cvs/rb/abbrev.rb,v 1.2 2001/05/30 09:37:45 knu Exp $
 # $RoughId: abbrev.rb,v 1.4 2003/10/14 19:45:42 knu Exp $
-# $Id: abbrev.rb 39458 2013-02-24 05:06:42Z zzak $
+# $Id: abbrev.rb 53141 2015-12-16 05:07:31Z naruse $
 #++
 
 ##
-# Calculates the set of unique abbreviations for a given set of strings.
+# Calculates the set of unambiguous abbreviations for a given set of strings.
 #
 #   require 'abbrev'
 #   require 'pp'
 #
-#   pp Abbrev.abbrev(['ruby', 'rules'])
+#   pp Abbrev.abbrev(['ruby'])
+#   #=>  {"ruby"=>"ruby", "rub"=>"ruby", "ru"=>"ruby", "r"=>"ruby"}
 #
-# Generates:
+#   pp Abbrev.abbrev(%w{ ruby rules })
 #
-#   { "rub"   =>  "ruby",
-#     "ruby"  =>  "ruby",
-#     "rul"   =>  "rules",
+# _Generates:_
+#   { "ruby"  =>  "ruby",
+#     "rub"   =>  "ruby",
+#     "rules" =>  "rules",
 #     "rule"  =>  "rules",
-#     "rules" =>  "rules" }
+#     "rul"   =>  "rules" }
 #
 # It also provides an array core extension, Array#abbrev.
 #
-#   pp %w{summer winter}.abbrev
-#   #=> {"summe"=>"summer",
-#        "summ"=>"summer",
-#        "sum"=>"summer",
-#        "su"=>"summer",
-#        "s"=>"summer",
-#        "winte"=>"winter",
-#        "wint"=>"winter",
-#        "win"=>"winter",
-#        "wi"=>"winter",
-#        "w"=>"winter",
-#        "summer"=>"summer",
-#        "winter"=>"winter"}
+#   pp %w{ summer winter }.abbrev
+#
+# _Generates:_
+#   { "summer"  => "summer",
+#     "summe"   => "summer",
+#     "summ"    => "summer",
+#     "sum"     => "summer",
+#     "su"      => "summer",
+#     "s"       => "summer",
+#     "winter"  => "winter",
+#     "winte"   => "winter",
+#     "wint"    => "winter",
+#     "win"     => "winter",
+#     "wi"      => "winter",
+#     "w"       => "winter" }
 
 module Abbrev
 
-  # Given a set of strings, calculate the set of unambiguous
-  # abbreviations for those strings, and return a hash where the keys
-  # are all the possible abbreviations and the values are the full
-  # strings.
+  # Given a set of strings, calculate the set of unambiguous abbreviations for
+  # those strings, and return a hash where the keys are all the possible
+  # abbreviations and the values are the full strings.
   #
   # Thus, given +words+ is "car" and "cone", the keys pointing to "car" would
   # be "ca" and "car", while those pointing to "cone" would be "co", "con", and
@@ -55,15 +58,18 @@ module Abbrev
   #
   #   require 'abbrev'
   #
-  #   Abbrev.abbrev(['car', 'cone'])
+  #   Abbrev.abbrev(%w{ car cone })
   #   #=> {"ca"=>"car", "con"=>"cone", "co"=>"cone", "car"=>"car", "cone"=>"cone"}
   #
-  # The optional +pattern+ parameter is a pattern or a string. Only
-  # input strings that match the pattern or start with the string
-  # are included in the output hash.
+  # The optional +pattern+ parameter is a pattern or a string. Only input
+  # strings that match the pattern or start with the string are included in the
+  # output hash.
   #
-  #   Abbrev.abbrev(%w{car box cone}, /b/)
-  #   #=> {"bo"=>"box", "b"=>"box", "box"=>"box"}
+  #   Abbrev.abbrev(%w{car box cone crab}, /b/)
+  #   #=> {"box"=>"box", "bo"=>"box", "b"=>"box", "crab" => "crab"}
+  #
+  #   Abbrev.abbrev(%w{car box cone}, 'ca')
+  #   #=> {"car"=>"car", "ca"=>"car"}
   def abbrev(words, pattern = nil)
     table = {}
     seen = Hash.new(0)
@@ -103,34 +109,24 @@ module Abbrev
 end
 
 class Array
-  # Calculates the set of unambiguous abbreviations for the strings in
-  # +self+.
+  # Calculates the set of unambiguous abbreviations for the strings in +self+.
   #
   #   require 'abbrev'
   #   %w{ car cone }.abbrev
-  #   #=> {"ca" => "car", "con"=>"cone", "co" => "cone",
-  #        "car"=>"car", "cone" => "cone"}
+  #   #=> {"car"=>"car", "ca"=>"car", "cone"=>"cone", "con"=>"cone", "co"=>"cone"}
   #
-  # The optional +pattern+ parameter is a pattern or a string. Only
-  # input strings that match the pattern or start with the string
-  # are included in the output hash.
+  # The optional +pattern+ parameter is a pattern or a string. Only input
+  # strings that match the pattern or start with the string are included in the
+  # output hash.
   #
   #   %w{ fast boat day }.abbrev(/^.a/)
-  #   #=> {"fas"=>"fast", "fa"=>"fast", "da"=>"day",
-  #        "fast"=>"fast", "day"=>"day"}
+  #   #=> {"fast"=>"fast", "fas"=>"fast", "fa"=>"fast", "day"=>"day", "da"=>"day"}
+  #
+  #   Abbrev.abbrev(%w{car box cone}, "ca")
+  #   #=> {"car"=>"car", "ca"=>"car"}
   #
   # See also Abbrev.abbrev
   def abbrev(pattern = nil)
     Abbrev::abbrev(self, pattern)
-  end
-end
-
-if $0 == __FILE__
-  while line = gets
-    hash = line.split.abbrev
-
-    hash.sort.each do |k, v|
-      puts "#{k} => #{v}"
-    end
   end
 end

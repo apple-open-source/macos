@@ -63,7 +63,7 @@ règles permettant de réécrire les URLs des requêtes
       <a href="../rewrite/">documentation détaillée
       sur mod_rewrite</a>.</p>
 </div>
-<div id="quickview"><h3>Sujets</h3>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Sujets</h3>
 <ul id="topics">
 <li><img alt="" src="../images/down.gif" /> <a href="#logging">Journalisation</a></li>
 </ul><h3 class="directives">Directives</h3>
@@ -1086,6 +1086,24 @@ pour le moteur de réécriture</td></tr>
       version 2.4.16 du serveur HTTP Apache.</p>
       </dd>
 
+      <dt><code>LegacyPrefixDocRoot</code></dt>
+      <dd>
+
+      <p>Avant la version 2.4.26, si une substitution était une URL absolue qui
+      correspondait au serveur virtuel courant, l'URL pouvait être tout d'abord
+      réduite à sa partie chemin, puis enfin en chemin local. Comme l'URL peut
+      être réduite en chemin local, le chemin doit être préfixé par la
+      valeur de la directive DocumentRoot, ce qui permet d'interdire l'accès à
+      un fichier tel que /tmp/myfile suite à une requête pour
+      http://host/file/myfile avec la <code class="directive"><a href="#rewriterule">RewriteRule</a></code> suivante :</p>
+      <pre class="prettyprint lang-config">RewriteRule /file/(.*) http://localhost/tmp/$1</pre>
+
+      <p>Cette option permet de restaurer l'ancien comportement lorsqu'un chemin
+      local obtenu à partir de la réduction d'une URL n'est pas préfixé par la
+      valeur de la directive DocumentRoot. Disponible à partir de la version
+      2.4.26 du serveur HTTP Apache.</p>
+      </dd>
+
       </dl>
 
 </div>
@@ -1639,7 +1657,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_rewrite.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

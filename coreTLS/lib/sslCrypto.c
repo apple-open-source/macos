@@ -80,14 +80,14 @@ int sslEncodeDhParams(ccdh_gp_t         *params,		/* data mallocd and RETURNED -
     cc_size n = ccn_nof_size(prime->length);
     ccdh_gp_t gp;
 
-    gp.gp = sslMalloc(ccdh_gp_size(ccn_sizeof_n(n)));
-    if(!gp.gp)
+    gp = sslMalloc(ccdh_gp_size(ccn_sizeof_n(n)));
+    if(gp == NULL)
         return errSSLAllocate;
-    bzero(gp.gp,ccdh_gp_size(ccn_sizeof_n(n)));
+    bzero(gp, ccdh_gp_size(ccn_sizeof_n(n)));
 
     CCDH_GP_N(gp) = n;
     require_noerr(ortn=ccn_read_uint(n, CCDH_GP_PRIME(gp), prime->length, prime->data), errOut);
-    cczp_init(gp.zp);
+    cczp_init(CCDH_GP_ZP(gp));
     CCDH_GP_L(gp) = 0;
     require_noerr(ortn=ccn_read_uint(n, CCDH_GP_G(gp),generator->length, generator->data), errOut);
 
@@ -95,14 +95,14 @@ int sslEncodeDhParams(ccdh_gp_t         *params,		/* data mallocd and RETURNED -
     return errSSLSuccess;
 
 errOut:
-    sslFree(gp.gp);
+    sslFree(gp);
     return ortn;
 
 }
 
 int sslDhCreateKey(ccdh_const_gp_t gp, ccdh_full_ctx_t *dhKey)
 {
-    ccdh_full_ctx *dhContext = NULL;
+    ccdh_full_ctx_t dhContext = NULL;
     int ortn;
 
     dhContext = sslMalloc(ccdh_full_ctx_size(ccdh_ccn_size(gp)));
@@ -116,7 +116,7 @@ int sslDhCreateKey(ccdh_const_gp_t gp, ccdh_full_ctx_t *dhKey)
 
     require_noerr((ortn=ccdh_generate_key(gp, rng, dhContext)), errOut);
 
-    dhKey->_full = dhContext;
+    *dhKey = dhContext;
     return errSSLSuccess;
 
 errOut:
@@ -128,11 +128,11 @@ int sslDhExportPub(ccdh_full_ctx_t dhKey, tls_buffer *pubKey)
 {
     int ortn = errSSLSuccess;
 
-    size_t pub_size = ccdh_export_pub_size(dhKey);
+    size_t pub_size = ccdh_export_pub_size(ccdh_ctx_public(dhKey));
 
     require_noerr(ortn = SSLAllocBuffer(pubKey, pub_size), errOut);
 
-    ccdh_export_pub(dhKey, pubKey->data);
+    ccdh_export_pub(ccdh_ctx_public(dhKey), pubKey->data);
 
 errOut:
     return ortn;
@@ -184,7 +184,7 @@ errOut:
  */
 int sslEcdhCreateKey(ccec_const_cp_t cp, ccec_full_ctx_t *ecdhKey)
 {
-    ccec_full_ctx *ecdhContext = NULL;
+    ccec_full_ctx_t ecdhContext = NULL;
     int ortn;
 
     ecdhContext = sslMalloc(ccec_full_ctx_size(ccec_ccn_size(cp)));
@@ -198,7 +198,7 @@ int sslEcdhCreateKey(ccec_const_cp_t cp, ccec_full_ctx_t *ecdhKey)
 
     require_noerr((ortn=ccec_generate_key(cp, rng, ecdhContext)), errOut);
 
-    ecdhKey->_full = ecdhContext;
+    *ecdhKey = ecdhContext;
     return errSSLSuccess;
 
 errOut:
@@ -210,10 +210,10 @@ int sslEcdhExportPub(ccec_full_ctx_t ecdhKey, tls_buffer *pubKey)
 {
     int ortn = errSSLSuccess;
 
-    size_t pub_size = ccec_export_pub_size(ecdhKey);
+    size_t pub_size = ccec_export_pub_size(ccec_ctx_pub(ecdhKey));
 
     require_noerr(ortn = SSLAllocBuffer(pubKey, pub_size), errOut);
-    ccec_export_pub(ecdhKey, pubKey->data);
+    ccec_export_pub(ccec_ctx_pub(ecdhKey), pubKey->data);
 
 errOut:
     return ortn;
@@ -232,7 +232,7 @@ int sslEcdhKeyExchange(const ccec_full_ctx_t ecdhKey, const ccec_pub_ctx_t ecdhP
 {
     int ortn = errSSLSuccess;
 
-    size_t len = 1 + 2 * ccec_ccn_size(ccec_ctx_cp(ecdhKey._full));
+    size_t len = 1 + 2 * ccec_ccn_size(ccec_ctx_cp(ecdhKey));
 
     ortn = SSLAllocBuffer(preMasterSecret, len);
     require_noerr(ortn, errOut);
@@ -268,10 +268,10 @@ int sslRand(tls_buffer *buf)
 int sslFreePubKey(SSLPubKey *pubKey)
 {
     if (pubKey) {
-        sslFree(pubKey->rsa.pub);
-        pubKey->rsa.pub = NULL;
-        sslFree(pubKey->ecc.pub);
-        pubKey->ecc.pub = NULL;
+        sslFree(pubKey->rsa);
+        pubKey->rsa=NULL;
+        sslFree(pubKey->ecc);
+        pubKey->ecc = NULL;
     }
     return errSSLSuccess;
 }
@@ -405,7 +405,7 @@ int sslRawRsaVerify(
     const uint8_t *oid = NULL;
     bool valid;
 
-    if(!pubKey->isRSA || pubKey->rsa.pub==NULL) {
+    if(!pubKey->isRSA || pubKey->rsa==NULL) {
         sslErrorLog("Internal Error: Invalid RSA public key\n");
         return errSSLInternal;
     }
@@ -434,7 +434,7 @@ int sslRawEccVerify(
     int status = errSSLCrypto;
     bool valid;
 
-    if (pubKey->isRSA || pubKey->ecc.pub==NULL) {
+    if(pubKey->isRSA || pubKey->ecc==NULL) {
         sslErrorLog("Internal Error: Invalid EC public key\n");
         return errSSLInternal;
     }
@@ -502,7 +502,7 @@ int sslRsaVerify(
     const uint8_t *oid = ccoidForSSLHash(hash);
     bool valid;
 
-    if(!pubKey->isRSA || pubKey->rsa.pub==NULL) {
+    if(!pubKey->isRSA || pubKey->rsa==NULL) {
         sslErrorLog("Internal Error: Invalid RSA public key\n");
         return errSSLInternal;
     }
@@ -539,7 +539,7 @@ int sslRsaEncrypt(
 
     assert(actualBytes != NULL);
 
-    if(!pubKey->isRSA || pubKey->rsa.pub==NULL) {
+    if(!pubKey->isRSA || pubKey->rsa==NULL) {
         sslErrorLog("Internal Error: Invalid RSA public key\n");
         return errSSLInternal;
     }
@@ -707,7 +707,7 @@ int sslGetPubKeyFromBits(
     require_noerr(ccn_read_uint(n, exp, exponent->length, exponent->data), errOut);
     require((ccn_bitlen(n, exp) > 1), errOut);
 
-    require((pub.pub = sslMalloc(ccrsa_pub_ctx_size(ccn_sizeof_n(n)))), errOut);
+    require((pub = sslMalloc(ccrsa_pub_ctx_size(ccn_sizeof_n(n)))), errOut);
 
     ccrsa_ctx_n(pub) = n;
     ccrsa_init_pub(pub, mod, exp);
@@ -727,9 +727,9 @@ int sslGetEcPubKeyFromBits(
                            const tls_buffer     *pubKeyBits,
                            SSLPubKey           *pubKey)
 {
-    ccec_pub_ctx_t ecpub = pubKey->ecc;
-    
+    ccec_pub_ctx_t ecpub;
     ccec_const_cp_t cp;
+
     switch (namedCurve) {
         case tls_curve_secp256r1:
             cp = ccec_cp_256();
@@ -746,9 +746,9 @@ int sslGetEcPubKeyFromBits(
                         (unsigned)namedCurve);
             return errSSLParam;
     }
-    
-    ecpub.pub = sslMalloc(ccec_pub_ctx_size(ccec_ccn_size(cp)));
-    if(!ecpub.pub)
+
+    ecpub = sslMalloc(ccec_pub_ctx_size(ccec_ccn_size(cp)));
+    if(ecpub==NULL)
         return errSSLAllocate;
     
     require_noerr(ccec_import_pub(cp, pubKeyBits->length, pubKeyBits->data, ecpub), errOut);
@@ -758,6 +758,6 @@ int sslGetEcPubKeyFromBits(
     
     return errSSLSuccess;
 errOut:
-    sslFree(ecpub.pub);
+    sslFree(ecpub);
     return errSSLCrypto;
 }

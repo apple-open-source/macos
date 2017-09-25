@@ -76,6 +76,7 @@ CFTypeRef kSecCMSAdditionalCerts = CFSTR("kSecCMSAdditionalCerts");
 CFTypeRef kSecCMSSignedAttributes = CFSTR("kSecCMSSignedAttributes");
 CFTypeRef kSecCMSSignDate = CFSTR("kSecCMSSignDate");
 CFTypeRef kSecCMSAllCerts = CFSTR("kSecCMSAllCerts");
+CFTypeRef kSecCMSHashAgility = CFSTR("kSecCMSHashAgility");
 
 CFTypeRef kSecCMSBulkEncryptionAlgorithm = CFSTR("kSecCMSBulkEncryptionAlgorithm");
 CFTypeRef kSecCMSEncryptionAlgorithmDESCBC = CFSTR("kSecCMSEncryptionAlgorithmDESCBC");
@@ -502,6 +503,13 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
             if (signing_date){
                 CFDictionarySetValue(attrs, kSecCMSSignDate, signing_date);
                 CFReleaseSafe(signing_date);
+            }
+        }
+
+        CFDataRef hash_agility_value = NULL;
+        if (errSecSuccess == SecCmsSignerInfoGetAppleCodesigningHashAgility(sigd->signerInfos[0], &hash_agility_value)) {
+            if (hash_agility_value) {
+                CFDictionarySetValue(attrs, kSecCMSHashAgility, hash_agility_value);
             }
         }
 

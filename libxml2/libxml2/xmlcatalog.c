@@ -76,7 +76,7 @@ xmlShellReadline(const char *prompt) {
 #else
     char line_read[501];
     char *ret;
-    int len;
+    size_t len;
 
     if (prompt != NULL)
 	fprintf(stdout, "%s", prompt);
@@ -111,7 +111,6 @@ static void usershell(void) {
 	 * Parse the command itself
 	 */
 	cur = cmdline;
-	nbargs = 0;
 	while ((*cur == ' ') || (*cur == '\t')) cur++;
 	i = 0;
 	while ((*cur != ' ') && (*cur != '\t') &&
@@ -416,8 +415,13 @@ int main(int argc, char **argv) {
 	break;
     }
 
-    if (convert)
+    if (convert) {
         ret = xmlCatalogConvert();
+        if (ret == -1) {
+            fprintf(stderr, "Failed to convert SGML catalog entries into XML\n");
+            exit_value = 1;
+        }
+    }
 
     if ((add) || (del)) {
 	for (i = 1; i < argc ; i++) {

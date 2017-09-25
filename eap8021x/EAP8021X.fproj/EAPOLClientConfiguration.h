@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -497,6 +497,45 @@ Boolean
 EAPOLClientConfigurationSetSystemProfile(EAPOLClientConfigurationRef cfg,
 					 CFStringRef if_name,
 					 EAPOLClientProfileRef profile);
+
+/*
+ * Function: EAPOLClientConfigurationGetSystemEthernetProfile
+ *
+ * Purpose:
+ *   Returns the System profile for Ethernet interfaces. If there is no
+ *   interface-specific System profile, this profile is used for
+ *   any Ethernet interface that requires 802.1X authentication.
+ *
+ *
+ * Returns:
+ *   NULL if no such profile is defined, non-NULL profile otherwise.
+ */
+EAPOLClientProfileRef
+EAPOLClientConfigurationGetSystemEthernetProfile(EAPOLClientConfigurationRef cfg);
+
+/*
+ * Function: EAPOLClientConfigurationSetSystemEthernetProfile
+ *
+ * Purpose:
+ *   Set a System profile for Ethernet interfaces.
+ *
+ *   Pass NULL for the "profile" argument to remove the System Ethernet
+ *   profile.
+ *
+ * Note:
+ * 1. There will be only one System Ethernet profile installed on the system.
+ *     Every call of this function would replace the old System Ethernet profile
+ *     with the one passed in the function.
+ * 2. If there is NO interface-specific System profile found then available
+ *     System Ethernet profile will be used for 802.1X authentication on
+ *     that interface.
+ *
+ * Returns:
+ *    TRUE if the configuration was set, FALSE otherwise.
+ */
+Boolean
+EAPOLClientConfigurationSetSystemEthernetProfile(EAPOLClientConfigurationRef cfg,
+						 EAPOLClientProfileRef profile);
 
 /*
  * Function: EAPOLClientConfigurationCopyAllSystemProfiles

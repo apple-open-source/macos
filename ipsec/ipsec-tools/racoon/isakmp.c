@@ -70,9 +70,6 @@
 #include <unistd.h>
 #endif
 #include <ctype.h>
-#ifdef ENABLE_HYBRID
-#include <resolv.h>
-#endif
 
 #include "var.h"
 #include "misc.h"
@@ -170,7 +167,7 @@ isakmp_handler(int so_isakmp)
 	int error = -1;
 
 	if (slept_at || woke_at) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_DEBUG, /* this log is high volume */
 			 "ignoring isakmp port until power-mgmt event is handled.\n");
 		return;
 	}
@@ -423,7 +420,7 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
         session = ike_session_get_session(local, remote, 1, NULL);
     }
     if (!session) {
-        plog (ASL_LEVEL_INFO, "failed to allocate or find ike session.\n");
+        plog (ASL_LEVEL_NOTICE, "failed to allocate or find ike session.\n");
         fatal_error(-1);
     }
         
@@ -436,7 +433,7 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
 									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
 									CONSTSTR("Malformed or unexpected cookie"),
 									CONSTSTR("Failed to process packet (malformed/unexpected cookie)"));
-			plog(ASL_LEVEL_DEBUG, 
+			plog(ASL_LEVEL_NOTICE,
 				"Malformed cookie received or "
 				"the initiator's cookies collide.\n");
 			return;
@@ -483,7 +480,7 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
 			iph1->natt_flags |= NAT_PORTS_CHANGED | NAT_ADD_NON_ESP_MARKER;
 			
 			/* print some neat info */
-			plog (ASL_LEVEL_INFO, 
+			plog (ASL_LEVEL_NOTICE,
 			      "NAT-T: ports changed to: %s\n",
 			      saddr2str_fromto("%s<->%s", (struct sockaddr *)iph1->remote, (struct sockaddr *)iph1->local));
 		}
@@ -543,7 +540,7 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
                         if (memcmp(&isakmp->r_ck, r_ck0,
                                    sizeof(cookie_t)) != 0) {
                             
-                            plog(ASL_LEVEL_DEBUG, "Malformed cookie received "
+                            plog(ASL_LEVEL_NOTICE, "Malformed cookie received "
                                  "or the spi expired.\n");
                             return;
                         }
@@ -726,7 +723,7 @@ ikev1_ph1begin_i(ike_session_t *session, struct remoteconf *rmconf, struct socka
     if (session == NULL) {
         session = ike_session_get_session(local, remote, 1, NULL);
         if (!session) {
-            plog (ASL_LEVEL_INFO, "failed to allocate or find ike session.\n");
+            plog (ASL_LEVEL_NOTICE, "failed to allocate or find ike session.\n");
             fatal_error(-1);
         }
     }
@@ -771,7 +768,7 @@ ikev1_ph1begin_i(ike_session_t *session, struct remoteconf *rmconf, struct socka
 	}
 
 	if (ike_session_link_phase1(session, iph1) != 0) {
-		plog(ASL_LEVEL_DEBUG, "Failed to link ph1 to session\n");
+		plog(ASL_LEVEL_NOTICE, "Failed to link ph1 to session\n");
 		ike_session_delph1(iph1);
 		return -1;
 	}
@@ -799,12 +796,12 @@ ikev1_ph1begin_i(ike_session_t *session, struct remoteconf *rmconf, struct socka
 	a = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
 	STRDUP_FATAL(a);
 
-	plog(ASL_LEVEL_INFO,
+	plog(ASL_LEVEL_NOTICE,
 		"initiate new phase 1 negotiation: %s<=>%s\n",
 		a, saddr2str((struct sockaddr *)iph1->remote));
 	racoon_free(a);
     }
-	plog(ASL_LEVEL_INFO,
+	plog(ASL_LEVEL_NOTICE,
 		"begin %s mode.\n",
 		s_isakmp_etype(iph1->etype));
 
@@ -881,12 +878,14 @@ ikev1_ph1begin_r(ike_session_t *session, vchar_t *msg, struct sockaddr_storage *
 	iph1->version = isakmp->v;
 	iph1->msgid = 0;
     
-    if (iph1->etype == ISAKMP_ETYPE_IDENT)
+	if (iph1->etype == ISAKMP_ETYPE_IDENT) {
         fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_START);
-    else if (iph1->etype == ISAKMP_ETYPE_AGG)
+	} else if (iph1->etype == ISAKMP_ETYPE_AGG) {
         fsm_set_state(&iph1->status, IKEV1_STATE_AGG_R_START);
-    else
+	} else {
+		ike_session_delph1(iph1);
         return -1;
+	}
 
 
 #ifdef ENABLE_HYBRID
@@ -927,12 +926,12 @@ ikev1_ph1begin_r(ike_session_t *session, vchar_t *msg, struct sockaddr_storage *
 	a = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
 	STRDUP_FATAL(a);
 
-	plog(ASL_LEVEL_INFO,
+	plog(ASL_LEVEL_NOTICE,
 		"respond new phase 1 negotiation: %s<=>%s\n",
 		a, saddr2str((struct sockaddr *)iph1->remote));
 	racoon_free(a);
     }
-	plog(ASL_LEVEL_INFO,
+	plog(ASL_LEVEL_NOTICE,
 		"begin %s mode.\n", s_isakmp_etype(etype));
 
 #ifdef ENABLE_STATS
@@ -970,7 +969,7 @@ ikev1_ph2begin_i(phase1_handle_t *iph1, phase2_handle_t *iph2)
 	a = racoon_strdup(saddr2str((struct sockaddr *)iph2->src));
 	STRDUP_FATAL(a);
 
-	plog(ASL_LEVEL_INFO,
+	plog(ASL_LEVEL_NOTICE,
 		"initiate new phase 2 negotiation: %s<=>%s\n",
 		a, saddr2str((struct sockaddr *)iph2->dst));
 	racoon_free(a);
@@ -1093,7 +1092,7 @@ ikev1_ph2begin_r(phase1_handle_t *iph1, vchar_t *msg)
 	a = racoon_strdup(saddr2str((struct sockaddr *)iph2->src));
 	STRDUP_FATAL(a);
 
-	plog(ASL_LEVEL_INFO,
+	plog(ASL_LEVEL_NOTICE,
 		"respond new phase 2 negotiation: %s<=>%s\n",
 		a, saddr2str((struct sockaddr *)iph2->dst));
 	racoon_free(a);
@@ -1147,7 +1146,7 @@ ikev1_phase1_established(phase1_handle_t *iph1)
                 } else {
                     memcpy(raddr->v, &addr->redirect_address, sizeof(u_int32_t));
                     (void)isakmp_info_send_n1(iph1, ISAKMP_NTYPE_LOAD_BALANCE, raddr);
-                    plog(ASL_LEVEL_DEBUG, "sent redirect notification - address = %x.\n", ntohl(addr->redirect_address));
+                    plog(ASL_LEVEL_NOTICE, "sent redirect notification - address = %x.\n", ntohl(addr->redirect_address));
                     vfree(raddr);
                     if (addr->force) {
                         (void)ike_session_update_ph1_ph2tree(iph1);
@@ -1281,19 +1280,19 @@ isakmp_parsewoh(np0, gen, len)
 		if (tlen <= sizeof(struct isakmp_gen)) {
 			/* don't send information, see isakmp_ident_r1() */
 			plog(ASL_LEVEL_ERR, 
-				"invalid length of payload\n");
+				"isakmp_parsewoh invalid length of payload (1)\n");
 			vfree(result);
 			return NULL;
 		}
 
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"seen nptype=%u(%s)\n", np, s_isakmp_nptype(np));
 
 		p->type = np;
 		p->len = ntohs(gen->len);
 		if (p->len < sizeof(struct isakmp_gen) || p->len > tlen) {
-			plog(ASL_LEVEL_DEBUG, 
-				"invalid length of payload\n");
+			plog(ASL_LEVEL_NOTICE,
+				"isakmp_parsewoh invalid length of payload (2)\n");
 			vfree(result);
 			return NULL;
 		}
@@ -1305,7 +1304,7 @@ isakmp_parsewoh(np0, gen, len)
 			off = p - ALIGNED_CAST(struct isakmp_parse_t *)result->v;
 			result = vrealloc(result, result->l * 2);
 			if (result == NULL) {
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					"failed to realloc buffer.\n");
 				vfree(result);
 				return NULL;
@@ -1461,7 +1460,7 @@ isakmp_open(void)
 		    IN6_IS_ADDR_MULTICAST(&((struct sockaddr_in6 *)
 					    p->addr)->sin6_addr))
 		{
-			plog(ASL_LEVEL_DEBUG, 
+			plog(ASL_LEVEL_NOTICE,
 				"Ignoring multicast address %s\n",
 				saddr2str((struct sockaddr *)p->addr));
 				racoon_free(p->addr);
@@ -1633,7 +1632,7 @@ isakmp_open(void)
                                                dispatch_release(the_source);
                                            });        dispatch_resume(p->source);
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 			"%s used as isakmp port (fd=%d)\n",
 			saddr2str((struct sockaddr *)p->addr), p->sock);
 		continue;
@@ -1879,7 +1878,7 @@ isakmp_ph1resend(iph1)
 								CONSTSTR(NULL));
 	}
 
-	plog(ASL_LEVEL_DEBUG,
+	plog(ASL_LEVEL_NOTICE,
 		"Resend Phase 1 packet %s\n",
 		isakmp_pindex(&iph1->index, iph1->msgid));
 
@@ -1965,7 +1964,7 @@ isakmp_ph2resend(iph2)
 								CONSTSTR(NULL));
 	}
 
-	plog(ASL_LEVEL_DEBUG, 
+	plog(ASL_LEVEL_NOTICE,
 		"Resend Phase 2 packet %s\n",
 		isakmp_pindex(&iph2->ph1->index, iph2->msgid));
 
@@ -2012,7 +2011,7 @@ isakmp_ph1expire(iph1)
 		STRDUP_FATAL(src);
 		STRDUP_FATAL(dst);
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 			 "ISAKMP-SA expired %s-%s spi:%s\n",
 			 src, dst,
 			 isakmp_pindex(&iph1->index, 0));
@@ -2071,7 +2070,7 @@ int               ignore_sess_drop_policy;
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		 "ISAKMP-SA rekey-timer expired %s-%s spi:%s\n",
 		 src, dst,
 		 isakmp_pindex(&iph1->index, 0));
@@ -2084,7 +2083,7 @@ int               ignore_sess_drop_policy;
 
 	// exit if there is another ph1 that is established (with a pending rekey timer)
 	if (ike_session_has_other_established_ph1(iph1->parent_session, iph1)) {
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 			 "Request for ISAKMP-SA rekey was ignored "
 			 "due to another established ph1.\n");
 		return;
@@ -2106,11 +2105,11 @@ int               ignore_sess_drop_policy;
 
     if (rmconf) {
         /* begin quick mode */
-        plog(ASL_LEVEL_DEBUG, "Begin Phase 1 rekey.\n");
+        plog(ASL_LEVEL_NOTICE, "Begin Phase 1 rekey.\n");
 
 		/* start phase 1 negotiation as a initiator. */
 		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0, &iph1->nat64_prefix) < 0) {
-			plog(ASL_LEVEL_DEBUG, "Phase 1 rekey Failed.\n");
+			plog(ASL_LEVEL_NOTICE, "Phase 1 rekey Failed.\n");
 		}
 		iph1->is_rekey = TRUE;
 	} else {
@@ -2143,7 +2142,7 @@ phase1_handle_t *iph1;
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		 "ISAKMP-SA rekey failed... retrying %s-%s spi:%s\n",
 		 src, dst,
 		 isakmp_pindex(&iph1->index, 0));
@@ -2151,7 +2150,7 @@ phase1_handle_t *iph1;
 	racoon_free(dst);
 
 	if (ike_session_drop_rekey(iph1->parent_session, IKE_SESSION_REKEY_TYPE_PH1)) {
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 			 "request for ISAKMP-SA rekey was ignored "
 			 "due to idleness.\n");
 		return 0;
@@ -2159,7 +2158,7 @@ phase1_handle_t *iph1;
 
 	// exit if there is another ph1 that is established (with a pending rekey timer)
 	if (ike_session_has_other_established_ph1(iph1->parent_session, iph1)) {
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 			 "request to retry ISAKMP-SA rekey was ignored "
 			 "due to another established ph1.\n");
 		return -1;
@@ -2176,11 +2175,11 @@ phase1_handle_t *iph1;
 	rmconf = getrmconf(iph1->remote);
 	if (rmconf) {
 		/* begin quick mode */
-		plog(ASL_LEVEL_DEBUG, "begin Phase 1 rekey retry.\n");
+		plog(ASL_LEVEL_NOTICE, "begin Phase 1 rekey retry.\n");
 
 		/* start phase 1 negotiation as a initiator. */
 		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0, &iph1->nat64_prefix) < 0) {
-			plog(ASL_LEVEL_DEBUG, "Phase 1 rekey retry Failed.\n");
+			plog(ASL_LEVEL_NOTICE, "Phase 1 rekey retry Failed.\n");
 			return -1;
 		}
 		iph1->is_rekey = TRUE;
@@ -2228,7 +2227,10 @@ isakmp_ph1delete(iph1)
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
+		 "ISAKMP-SA deleted spi:%s\n",
+		 isakmp_pindex(&iph1->index, 0));
+	plog(ASL_LEVEL_DEBUG,
 		"ISAKMP-SA deleted %s-%s spi:%s\n",
 		src, dst, isakmp_pindex(&iph1->index, 0));
 	racoon_free(src);
@@ -2270,7 +2272,7 @@ isakmp_ph2expire(iph2)
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		"Phase 2 sa expired %s-%s\n", src, dst);
 	racoon_free(src);
 	racoon_free(dst);
@@ -2317,7 +2319,7 @@ isakmp_ph2delete(iph2)
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		"Phase 2 sa deleted %s-%s\n", src, dst);
 	racoon_free(src);
 	racoon_free(dst);
@@ -2352,7 +2354,7 @@ isakmp_post_acquire(phase2_handle_t *iph2)
 	}
 	/* if passive mode, ignore the acquire message */
 	if (rmconf->passive) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"Because of passive mode, ignore the acquire message for %s.\n",
 			saddrwop2str((struct sockaddr *)iph2->dst));
 		return 0;
@@ -2362,7 +2364,7 @@ isakmp_post_acquire(phase2_handle_t *iph2)
     // what if there is another ph2 that is negotiating
     if (ike_session_has_other_negoing_ph2(iph2->parent_session, iph2)) {
         // TODO: postpone this rekey for a second later
-        plog(ASL_LEVEL_INFO,
+        plog(ASL_LEVEL_NOTICE,
              "Request for establishing IPsec-SA was ignored due to another negoing ph2.\n");
         return -1;
     }
@@ -2382,19 +2384,19 @@ isakmp_post_acquire(phase2_handle_t *iph2)
 		/* start phase 1 negotiation as a initiator. */
 		sched_new(1, isakmp_chkph1there_stub, iph2);
 		
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 			 "IPsec-SA request for %s queued due to no Phase 1 found.\n",
 			 saddrwop2str((struct sockaddr *)iph2->dst));
 		
 		// exit if there is another ph1 that is established (with a pending rekey timer)
 		if (ike_session_has_negoing_ph1(iph2->parent_session)) {
-			plog(ASL_LEVEL_INFO,
+			plog(ASL_LEVEL_NOTICE,
 				 "Request for Phase 1 was ignored due to another negotiating Phase 1.\n");
 			return 0;
 		}
 		
 		if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0, &iph2->nat64_prefix) < 0) {
-			plog(ASL_LEVEL_INFO,
+			plog(ASL_LEVEL_NOTICE,
 				 "Request for Phase 1 failed. Will try later.\n");
 		}
 		return 0;
@@ -2405,7 +2407,7 @@ isakmp_post_acquire(phase2_handle_t *iph2)
 	if (!FSM_STATE_IS_ESTABLISHED(iph1->status)) {
 		iph2->retry_checkph1 = lcconf->retry_checkph1;
 		sched_new(1, isakmp_chkph1there_stub, iph2);
-		plog(ASL_LEVEL_INFO,
+		plog(ASL_LEVEL_NOTICE,
 			"Request for establishing IPsec-SA was queued due to no phase1 found.\n");
 		return 0;
 		/*NOTREACHED*/
@@ -2416,7 +2418,7 @@ isakmp_post_acquire(phase2_handle_t *iph2)
 	/* found ISAKMP-SA. */
 
 	/* begin quick mode */
-	plog(ASL_LEVEL_DEBUG, "Begin QUICK mode.\n");
+	plog(ASL_LEVEL_NOTICE, "Begin QUICK mode.\n");
 	if (ikev1_ph2begin_i(iph1, iph2))
 		return -1;
 	return 0;
@@ -2484,7 +2486,7 @@ isakmp_chkph1there(iph2)
 
 	if ((iph2->version == ISAKMP_VERSION_NUMBER_IKEV1 && iph2->status != IKEV1_STATE_QUICK_I_START) ||
 	    iph2->is_dying) {
-		plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: ph2 handle has advanced too far (status %d, START %d, dying %d)... ignoring\n", iph2->status, IKEV1_STATE_QUICK_I_START, iph2->is_dying);
+		plog(ASL_LEVEL_NOTICE, "CHKPH1THERE: ph2 handle has advanced too far (status %d, START %d, dying %d)... ignoring\n", iph2->status, IKEV1_STATE_QUICK_I_START, iph2->is_dying);
 		return;
 	}
 
@@ -2505,7 +2507,7 @@ isakmp_chkph1there(iph2)
 				 sadbsecas2str(iph2->dst, iph2->src,
 							   iph2->satype, 0, 0));
 		}
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 			"delete Phase 2 handler.\n");
 
 		/* send acquire to kernel as error */
@@ -2545,14 +2547,14 @@ isakmp_chkph1there(iph2)
 		/* start phase 1 negotiation as a initiator. */
 		if (rmconf) {
 			if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0, iph1 != NULL ? &iph1->nat64_prefix : NULL) < 0) {
-				plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no established/negoing ph1 handler found... failed to initiate new one\n");
+				plog(ASL_LEVEL_NOTICE, "CHKPH1THERE: no established/negoing ph1 handler found... failed to initiate new one\n");
 			}
 		} else if (rmconf == NULL) {
-			plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no remoteconf found... failed to initiate new one\n");
+			plog(ASL_LEVEL_NOTICE, "CHKPH1THERE: no remoteconf found... failed to initiate new one\n");
 		}
 	}
 
-	plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no established ph1 handler found\n");
+	plog(ASL_LEVEL_NOTICE, "CHKPH1THERE: no established ph1 handler found\n");
 
 	/* no isakmp-sa found */
 	sched_new(1, isakmp_chkph1there_stub, iph2);
@@ -3121,7 +3123,7 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 	}
 #ifdef ENABLE_NATT
 	if ( port != NULL && *port == htons(lcconf->port_isakmp_natt) ) {
-	    plog (ASL_LEVEL_DEBUG, "Marking ports as changed\n");
+	    plog (ASL_LEVEL_NOTICE, "Marking ports as changed\n");
 	    iph1->natt_flags |= NAT_ADD_NON_ESP_MARKER;
 	}
 #endif
@@ -3140,10 +3142,13 @@ log_ph1established(iph1)
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
-	plog(ASL_LEVEL_INFO, 
-		"ISAKMP-SA established %s-%s spi:%s\n",
-		src, dst,
+	plog(ASL_LEVEL_NOTICE,
+		"ISAKMP-SA established spi:%s\n",
 		isakmp_pindex(&iph1->index, 0));
+	plog(ASL_LEVEL_DEBUG,
+		 "ISAKMP-SA established %s-%s spi:%s\n",
+		 src, dst,
+		 isakmp_pindex(&iph1->index, 0));
 
 	racoon_free(src);
 	racoon_free(dst);
@@ -3274,7 +3279,7 @@ purge_remote(iph1)
 	phase2_handle_t *iph2;
 	phase1_handle_t *new_iph1;
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		 "purging ISAKMP-SA spi=%s.\n",
 		 isakmp_pindex(&(iph1->index), iph1->msgid));
 
@@ -3289,7 +3294,7 @@ purge_remote(iph1)
 	 */
 	buf = pfkey_dump_sadb(SADB_SATYPE_UNSPEC);
 	if (buf == NULL) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			"pfkey_dump_sadb returned nothing.\n");
 		return;
 	}
@@ -3349,7 +3354,7 @@ purge_remote(iph1)
 
 			if (iph2 == NULL) {
 				/* No handler... still send a pfkey_delete message, but log this !*/
-				plog(ASL_LEVEL_INFO, 
+				plog(ASL_LEVEL_NOTICE,
 					"Unknown IPsec-SA spi=%u, hmmmm?\n",
 					ntohl(sa->sadb_sa_spi));
 			}else{
@@ -3366,7 +3371,7 @@ purge_remote(iph1)
 				/* If the ph2handle is established, do not purge IPsec-SA */
 				if (FSM_STATE_IS_ESTABLISHED_OR_EXPIRED(iph2->status)) {
 					
-					plog(ASL_LEVEL_INFO, 
+					plog(ASL_LEVEL_NOTICE,
 						 "keeping IPsec-SA spi=%u - found valid ISAKMP-SA spi=%s.\n",
 						 ntohl(sa->sadb_sa_spi),
 						 isakmp_pindex(&(new_iph1->index), new_iph1->msgid));
@@ -3388,7 +3393,7 @@ purge_remote(iph1)
 			ike_session_unlink_phase2(iph2);
 		}
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 			 "purged IPsec-SA spi=%u.\n",
 			 ntohl(sa->sadb_sa_spi));
 
@@ -3399,7 +3404,7 @@ purge_remote(iph1)
 		vfree(buf);
 
 	/* Mark the phase1 handler as EXPIRED */
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
 		 "purged ISAKMP-SA spi=%s.\n",
 		 isakmp_pindex(&(iph1->index), iph1->msgid));
 
@@ -3429,7 +3434,7 @@ delete_spd(iph2)
 		int error;
 		int idi2type = 0;/* switch whether copy IDs into id[src,dst]. */
 
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE,
 			 "generated policy, deleting it.\n");
 		
 		memset(&u.spidx, 0, sizeof(u.spidx));
@@ -3482,7 +3487,7 @@ delete_spd(iph2)
 			
 		} else {
 			
-			plog(ASL_LEVEL_DEBUG, 
+			plog(ASL_LEVEL_NOTICE,
 				 "Get a destination address of SP index "
 				 "from Phase 1 address "
 				 "due to no ID payloads found "
@@ -3546,7 +3551,7 @@ delete_spd(iph2)
 			}
 
 		} else {
-			plog(ASL_LEVEL_DEBUG, 
+			plog(ASL_LEVEL_NOTICE,
 				 "Get a source address of SP index "
 				 "from Phase 1 address "
 				 "due to no ID payloads found "
@@ -3573,12 +3578,16 @@ delete_spd(iph2)
 
 #undef _XIDT
 
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
+			 "get src/dst address from ID payload "
+			 "prefixlen=%u ul_proto=%u\n",
+			 u.spidx.prefs, u.spidx.ul_proto);
+		plog(ASL_LEVEL_DEBUG,
 			 "get a src address from ID payload "
 			 "%s prefixlen=%u ul_proto=%u\n",
 			 saddr2str((struct sockaddr *)&u.spidx.src),
 			 u.spidx.prefs, u.spidx.ul_proto);
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_DEBUG,
 			 "get dst address from ID payload "
 			 "%s prefixlen=%u ul_proto=%u\n",
 			 saddr2str((struct sockaddr *)&u.spidx.dst),
@@ -3600,7 +3609,7 @@ delete_spd(iph2)
 			plog(ASL_LEVEL_ERR, 
 				 "pfkey spddelete(inbound) failed.\n");
 		}else{
-			plog(ASL_LEVEL_DEBUG, 
+			plog(ASL_LEVEL_NOTICE,
 				 "pfkey spddelete(inbound) sent.\n");
 		}
 
@@ -3612,7 +3621,7 @@ delete_spd(iph2)
 				plog(ASL_LEVEL_ERR, 
 					 "pfkey spddelete(forward) failed.\n");
 			}else{
-				plog(ASL_LEVEL_DEBUG, 
+				plog(ASL_LEVEL_NOTICE,
 					 "pfkey spddelete(forward) sent.\n");
 			}
 		}
@@ -3633,7 +3642,7 @@ delete_spd(iph2)
 			plog(ASL_LEVEL_ERR, 
 				 "pfkey spddelete(outbound) failed.\n");
 		}else{
-			plog(ASL_LEVEL_DEBUG, 
+			plog(ASL_LEVEL_NOTICE,
 				 "pfkey spddelete(outbound) sent.\n");
 		}
 purge:
@@ -3696,7 +3705,7 @@ isakmp_plist_append_initial_contact (iph1, plist)
 			cptr = notp_ini->v + sizeof(struct isakmp_pl_n) - sizeof(struct isakmp_gen);
 			memcpy(cptr, &iph1->index, sizeof(isakmp_index));
 			plist = isakmp_plist_append(plist, notp_ini, ISAKMP_NPTYPE_N);
-			plog(ASL_LEVEL_DEBUG,
+			plog(ASL_LEVEL_NOTICE,
 				 "added initial-contact payload.\n");
 			
 			/* insert a node into contacted list. */
@@ -3712,7 +3721,7 @@ isakmp_plist_append_initial_contact (iph1, plist)
 			return NULL;
 		}
 	} else {
-		plog(ASL_LEVEL_DEBUG, "failed to add initial-contact payload: rekey %d, ini-contact %d, contacted %d.\n",
+		plog(ASL_LEVEL_NOTICE, "failed to add initial-contact payload: rekey %d, ini-contact %d, contacted %d.\n",
 			 iph1->is_rekey? 1:0, iph1->rmconf->ini_contact, ike_session_getcontacted(iph1->remote)? 1:0);
 	}
 	return NULL;

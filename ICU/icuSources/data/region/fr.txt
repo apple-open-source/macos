@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/fr.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 fr{
     Countries{
         001{"Monde"}
@@ -95,7 +89,7 @@ fr{
         CW{"Curaçao"}
         CX{"Île Christmas"}
         CY{"Chypre"}
-        CZ{"République tchèque"}
+        CZ{"Tchéquie"}
         DE{"Allemagne"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -137,7 +131,7 @@ fr{
         GU{"Guam"}
         GW{"Guinée-Bissau"}
         GY{"Guyana"}
-        HK{"R.A.S. chinoise de Hong Kong"}
+        HK{"Hong Kong (Chine)"}
         HM{"Îles Heard et McDonald"}
         HN{"Honduras"}
         HR{"Croatie"}
@@ -191,7 +185,7 @@ fr{
         ML{"Mali"}
         MM{"Myanmar (Birmanie)"}
         MN{"Mongolie"}
-        MO{"R.A.S. chinoise de Macao"}
+        MO{"Macao (Chine)"}
         MP{"Îles Mariannes du Nord"}
         MQ{"Martinique"}
         MR{"Mauritanie"}
@@ -278,6 +272,7 @@ fr{
         UA{"Ukraine"}
         UG{"Ouganda"}
         UM{"Îles mineures éloignées des É.-U."}
+        UN{"Nations Unies"}
         US{"États-Unis"}
         UY{"Uruguay"}
         UZ{"Ouzbékistan"}
@@ -303,14 +298,16 @@ fr{
         HK{"Hong Kong"}
         MO{"Macao"}
         PS{"Palestine"}
+        UN{"NU"}
         US{"É.-U."}
     }
     Countries%variant{
         CD{"Congo (RDC)"}
         CG{"République du Congo"}
+        CZ{"République tchèque"}
         FK{"Îles Falkland"}
         MK{"Macédoine (ARYM)"}
         TL{"Timor-Oriental"}
     }
-    Version{"2.1.23.79"}
+    Version{"2.1.32.59"}
 }

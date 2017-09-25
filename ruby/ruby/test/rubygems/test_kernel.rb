@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 
 class TestKernel < Gem::TestCase
@@ -21,6 +22,30 @@ class TestKernel < Gem::TestCase
     assert $:.any? { |p| %r{a-1/lib} =~ p }
   end
 
+  def test_gem_default
+    assert gem('a', '>= 0')
+
+    assert_equal @a2, Gem.loaded_specs['a']
+  end
+
+  def test_gem_default_re_gem
+    assert gem('a', '=1')
+
+    refute gem('a', '>= 0')
+
+    assert_equal @a1, Gem.loaded_specs['a']
+  end
+
+  def test_gem_re_gem_mismatch
+    assert gem('a', '=1')
+
+    assert_raises Gem::LoadError do
+      gem('a', '= 2')
+    end
+
+    assert_equal @a1, Gem.loaded_specs['a']
+  end
+
   def test_gem_redundant
     assert gem('a', '= 1'), "Should load"
     refute gem('a', '= 1'), "Should not load"
@@ -31,6 +56,12 @@ class TestKernel < Gem::TestCase
     assert gem('a', '= 1'), "Should load"
     refute gem('a', '>= 1'), "Should not load"
     assert_equal 1, $:.select { |p| %r{a-1/lib} =~ p }.size
+  end
+
+  def test_gem_prerelease
+    quick_gem 'd', '1.1.a'
+    refute gem('d', '>= 1'),   'release requirement must not load prerelease'
+    assert gem('d', '>= 1.a'), 'prerelease requirement may load prerelease'
   end
 
   def test_gem_conflicting

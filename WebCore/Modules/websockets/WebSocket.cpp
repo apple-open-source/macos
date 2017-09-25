@@ -45,6 +45,7 @@
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "Logging.h"
 #include "MessageEvent.h"
 #include "ResourceLoadObserver.h"
@@ -58,6 +59,7 @@
 #include <runtime/ArrayBuffer.h>
 #include <runtime/ArrayBufferView.h>
 #include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
@@ -151,10 +153,19 @@ WebSocket::WebSocket(ScriptExecutionContext& context)
     , m_extensions(emptyString())
     , m_resumeTimer(*this, &WebSocket::resumeTimerFired)
 {
+    LockHolder lock(allActiveWebSocketsMutex());
+
+    allActiveWebSockets(lock).add(this);
 }
 
 WebSocket::~WebSocket()
 {
+    {
+        LockHolder lock(allActiveWebSocketsMutex());
+
+        allActiveWebSockets(lock).remove(this);
+    }
+
     if (m_channel)
         m_channel->disconnect();
 }
@@ -182,6 +193,18 @@ ExceptionOr<Ref<WebSocket>> WebSocket::create(ScriptExecutionContext& context, c
 ExceptionOr<Ref<WebSocket>> WebSocket::create(ScriptExecutionContext& context, const String& url, const String& protocol)
 {
     return create(context, url, Vector<String> { 1, protocol });
+}
+
+HashSet<WebSocket*>& WebSocket::allActiveWebSockets(const LockHolder&)
+{
+    static NeverDestroyed<HashSet<WebSocket*>> activeWebSockets;
+    return activeWebSockets;
+}
+
+StaticLock& WebSocket::allActiveWebSocketsMutex()
+{
+    static StaticLock mutex;
+    return mutex;
 }
 
 ExceptionOr<void> WebSocket::connect(const String& url)
@@ -274,7 +297,8 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
 
     if (is<Document>(context)) {
         Document& document = downcast<Document>(context);
-        if (!document.frame()->loader().mixedContentChecker().canRunInsecureContent(document.securityOrigin(), m_url)) {
+        RefPtr<Frame> frame = document.frame();
+        if (!frame || !frame->loader().mixedContentChecker().canRunInsecureContent(document.securityOrigin(), m_url)) {
             // Balanced by the call to ActiveDOMObject::unsetPendingActivity() in WebSocket::stop().
             ActiveDOMObject::setPendingActivity(this);
 
@@ -298,8 +322,8 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
             });
 #endif
             return { };
-        } else
-            ResourceLoadObserver::sharedObserver().logWebSocketLoading(document.frame(), m_url);
+        }
+        ResourceLoadObserver::shared().logWebSocketLoading(frame.get(), m_url);
     }
 
     String protocolString;
@@ -407,6 +431,11 @@ ExceptionOr<void> WebSocket::close(std::optional<unsigned short> optionalCode, c
     return { };
 }
 
+RefPtr<ThreadableWebSocketChannel> WebSocket::channel() const
+{
+    return m_channel;
+}
+
 const URL& WebSocket::url() const
 {
     return m_url;
@@ -503,7 +532,7 @@ void WebSocket::resume()
         m_channel->resume();
     else if (!m_pendingEvents.isEmpty() && !m_resumeTimer.isActive()) {
         // Fire the pending events in a timer as we are not allowed to execute arbitrary JS from resume().
-        m_resumeTimer.startOneShot(0);
+        m_resumeTimer.startOneShot(0_s);
     }
 
     m_shouldDelayEventFiring = false;

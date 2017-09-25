@@ -44,12 +44,12 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
                 this.addTabBarItem(tabBarItem);
         }
 
-        this.addTabBarItem(WebInspector.settingsTabContentView.tabBarItem, true);
+        this.addTabBarItem(WebInspector.settingsTabContentView.tabBarItem, {suppressAnimations: true});
 
         this._newTabTabBarItem = new WebInspector.PinnedTabBarItem("Images/NewTabPlus.svg", WebInspector.UIString("Create a new tab"));
         this._newTabTabBarItem.element.addEventListener("mouseenter", this._handleNewTabMouseEnter.bind(this));
         this._newTabTabBarItem.element.addEventListener("click", this._handleNewTabClick.bind(this));
-        this.addTabBarItem(this._newTabTabBarItem, true);
+        this.addTabBarItem(this._newTabTabBarItem, {suppressAnimations: true});
     }
 
     // Public
@@ -62,26 +62,26 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         this._newTabTabBarItem.disabled = newTabExists;
     }
 
-    addTabBarItem(tabBarItem, doNotAnimate)
+    addTabBarItem(tabBarItem, options = {})
     {
-        return this.insertTabBarItem(tabBarItem, this._tabBarItems.length, doNotAnimate);
+        return this.insertTabBarItem(tabBarItem, this._tabBarItems.length, options);
     }
 
-    insertTabBarItem(tabBarItem, index, doNotAnimate)
+    insertTabBarItem(tabBarItem, index, options = {})
     {
         console.assert(tabBarItem instanceof WebInspector.TabBarItem);
         if (!(tabBarItem instanceof WebInspector.TabBarItem))
             return null;
 
         if (tabBarItem.parentTabBar === this)
-            return;
+            return null;
 
         if (this._tabAnimatedClosedSinceMouseEnter) {
             // Delay adding the new tab until we can expand the tabs after a closed tab.
             this._finishExpandingTabsAfterClose().then(() => {
-                this.insertTabBarItem(tabBarItem, index, doNotAnimate);
+                this.insertTabBarItem(tabBarItem, index, options);
             });
-            return;
+            return null;
         }
 
         if (tabBarItem.parentTabBar)
@@ -93,11 +93,11 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
         if (this.element.classList.contains("animating")) {
             requestAnimationFrame(removeStyles.bind(this));
-            doNotAnimate = true;
+            options.suppressAnimations = true;
         }
 
         var beforeTabSizesAndPositions;
-        if (!doNotAnimate)
+        if (!options.suppressAnimations)
             beforeTabSizesAndPositions = this._recordTabBarItemSizesAndPositions();
 
         this._tabBarItems.splice(index, 0, tabBarItem);
@@ -138,13 +138,14 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
             this.element.removeEventListener("webkitTransitionEnd", removeStylesListener);
         }
 
-        if (!doNotAnimate) {
+        if (!options.suppressAnimations) {
             var afterTabSizesAndPositions = this._recordTabBarItemSizesAndPositions();
 
             this.updateLayout();
 
-            var previousTabBarItem = this._tabBarItems[this._tabBarItems.indexOf(tabBarItem) - 1] || null;
-            var previousTabBarItemSizeAndPosition = previousTabBarItem ? beforeTabSizesAndPositions.get(previousTabBarItem) : null;
+            let tabBarItems = this._tabBarItemsFromLeftToRight();
+            let previousTabBarItem = tabBarItems[tabBarItems.indexOf(tabBarItem) - 1] || null;
+            let previousTabBarItemSizeAndPosition = previousTabBarItem ? beforeTabSizesAndPositions.get(previousTabBarItem) : null;
 
             if (previousTabBarItemSizeAndPosition)
                 beforeTabSizesAndPositions.set(tabBarItem, {left: previousTabBarItemSizeAndPosition.left + previousTabBarItemSizeAndPosition.width, width: 0});
@@ -170,7 +171,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         return tabBarItem;
     }
 
-    removeTabBarItem(tabBarItemOrIndex, doNotAnimate, doNotExpand)
+    removeTabBarItem(tabBarItemOrIndex, options = {})
     {
         let tabBarItem = this._findTabBarItem(tabBarItemOrIndex);
         if (!tabBarItem || tabBarItem instanceof WebInspector.PinnedTabBarItem)
@@ -189,11 +190,11 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
         if (this.element.classList.contains("animating")) {
             requestAnimationFrame(removeStyles.bind(this));
-            doNotAnimate = true;
+            options.suppressAnimations = true;
         }
 
         var beforeTabSizesAndPositions;
-        if (!doNotAnimate)
+        if (!options.suppressAnimations)
             beforeTabSizesAndPositions = this._recordTabBarItemSizesAndPositions();
 
         // Subtract 1 from normalTabCount since arrays begin indexing at 0.
@@ -207,10 +208,10 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
         const shouldOpenDefaultTab = !tabBarItem.isDefaultTab && !this.normalTabCount;
         if (shouldOpenDefaultTab)
-            doNotAnimate = true;
+            options.suppressAnimations = true;
 
-        if (!hasMoreThanOneNormalTab || wasLastNormalTab || !doNotExpand) {
-            if (!doNotAnimate) {
+        if (!hasMoreThanOneNormalTab || wasLastNormalTab || !options.suppressExpansion) {
+            if (!options.suppressAnimations) {
                 this._tabAnimatedClosedSinceMouseEnter = true;
                 this._finishExpandingTabsAfterClose(beforeTabSizesAndPositions);
             } else
@@ -233,12 +234,22 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
             this.element.classList.add("animating");
             this.element.classList.add("closing-tab");
 
-            var left = 0;
-            for (var currentTabBarItem of this._tabBarItems) {
-                var sizeAndPosition = beforeTabSizesAndPositions.get(currentTabBarItem);
+            // For RTL, we need to place extra space between pinned tab and first normal tab.
+            // From left to right there is pinned tabs, extra space, then normal tabs. Compute
+            // how much extra space we need to additionally add for normal tab items.
+            let extraSpaceBetweenNormalAndPinnedTabs = 0;
+            if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL) {
+                extraSpaceBetweenNormalAndPinnedTabs = this.element.getBoundingClientRect().width;
+                for (let currentTabBarItem of this._tabBarItemsFromLeftToRight())
+                    extraSpaceBetweenNormalAndPinnedTabs -= currentTabBarItem.element.getBoundingClientRect().width;
+            }
+
+            let left = 0;
+            for (let currentTabBarItem of this._tabBarItemsFromLeftToRight()) {
+                let sizeAndPosition = beforeTabSizesAndPositions.get(currentTabBarItem);
 
                 if (!(currentTabBarItem instanceof WebInspector.PinnedTabBarItem)) {
-                    currentTabBarItem.element.style.left = left + "px";
+                    currentTabBarItem.element.style.left = extraSpaceBetweenNormalAndPinnedTabs + left + "px";
                     left += sizeAndPosition.width;
                     lastNormalTabBarItem = currentTabBarItem;
                 } else
@@ -269,7 +280,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
             this.element.removeEventListener("webkitTransitionEnd", removeStylesListener);
         }
 
-        if (!doNotAnimate) {
+        if (!options.suppressAnimations) {
             this.element.classList.add("static-layout");
 
             this._tabAnimatedClosedSinceMouseEnter = true;
@@ -409,6 +420,11 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
     }
 
     // Private
+
+    _tabBarItemsFromLeftToRight()
+    {
+        return WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.LTR ? this._tabBarItems : this._tabBarItems.slice().reverse();
+    }
 
     _findTabBarItem(tabBarItemOrIndex)
     {
@@ -598,7 +614,17 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
             if (tabBarItem.isDefaultTab && this.element.classList.contains("single-tab"))
                 return;
 
-            this.removeTabBarItem(tabBarItem, false, true);
+            if (!event.altKey) {
+                this.removeTabBarItem(tabBarItem, {suppressExpansion: true});
+                return;
+            }
+
+            for (let i = this._tabBarItems.length - 1; i >= 0; --i) {
+                let item = this._tabBarItems[i];
+                if (item === tabBarItem || item instanceof WebInspector.PinnedTabBarItem)
+                    continue;
+                this.removeTabBarItem(item);
+            }
         }
     }
 
@@ -665,7 +691,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         // FIXME: Animate the tabs that move to make room for the selected tab. This was causing me trouble when I tried.
 
         let left = 0;
-        for (let tabBarItem of this._tabBarItems) {
+        for (let tabBarItem of this._tabBarItemsFromLeftToRight()) {
             if (tabBarItem !== this._selectedTabBarItem && tabBarItem !== this._newTabTabBarItem && parseFloat(tabBarItem.element.style.left) !== left)
                 tabBarItem.element.style.left = left + "px";
             left += parseFloat(tabBarItem.element.style.width);
@@ -685,8 +711,8 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
             this.element.classList.remove("static-layout");
             this._clearTabBarItemSizesAndPositions();
         } else {
-            var left = 0;
-            for (var tabBarItem of this._tabBarItems) {
+            let left = 0;
+            for (let tabBarItem of this._tabBarItemsFromLeftToRight()) {
                 if (tabBarItem === this._selectedTabBarItem)
                     tabBarItem.element.style.left = left + "px";
                 left += parseFloat(tabBarItem.element.style.width);
@@ -726,8 +752,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
     _handleNewTabClick(event)
     {
-        const shouldAnimate = true;
-        WebInspector.showNewTabTab(shouldAnimate);
+        WebInspector.showNewTabTab();
     }
 
     _handleNewTabMouseEnter(event)

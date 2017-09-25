@@ -177,7 +177,7 @@ void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(uint64_t transactionID
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction)
 {
-    TraceScope tracingScope(RAFCommitLayerTreeStart, RAFCommitLayerTreeEnd);
+    TraceScope tracingScope(CommitLayerTreeStart, CommitLayerTreeEnd);
 
     LOG(RemoteLayerTree, "%s", layerTreeTransaction.description().data());
     LOG(RemoteLayerTree, "%s", scrollingTreeTransaction.description().data());
@@ -269,8 +269,8 @@ FloatPoint RemoteLayerTreeDrawingAreaProxy::indicatorLocation() const
 {
     if (m_webPageProxy.delegatesScrolling()) {
 #if PLATFORM(IOS)
-        FloatPoint tiledMapLocation = m_webPageProxy.unobscuredContentRect().location();
-        tiledMapLocation = tiledMapLocation.expandedTo(m_webPageProxy.exposedContentRect().location() + FloatSize(0, 60));
+        FloatPoint tiledMapLocation = m_webPageProxy.unobscuredContentRect().location().expandedTo(FloatPoint());
+        tiledMapLocation = tiledMapLocation.expandedTo(m_webPageProxy.exposedContentRect().location());
 
         float absoluteInset = indicatorInset / m_webPageProxy.displayedContentScale();
         tiledMapLocation += FloatSize(absoluteInset, absoluteInset);
@@ -410,8 +410,6 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay()
     
     m_didUpdateMessageState = DoesNotNeedDidUpdate;
 
-    TraceScope tracingScope(RAFDidRefreshDisplayStart, RAFDidRefreshDisplayEnd);
-
     // Waiting for CA to commit is insufficient, because the render server can still be
     // using our backing store. We can improve this by waiting for the render server to commit
     // if we find API to do so, but for now we will make extra buffers if need be.
@@ -442,7 +440,7 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState()
     m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(m_webPageProxy.pageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
-void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)> callbackFunction)
+void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(WTF::Function<void (CallbackBase::Error)>&& callbackFunction)
 {
     if (!m_webPageProxy.isValid()) {
         callbackFunction(CallbackBase::Error::OwnerWasInvalidated);
@@ -476,6 +474,11 @@ bool RemoteLayerTreeDrawingAreaProxy::hasVisibleContent() const
 bool RemoteLayerTreeDrawingAreaProxy::isAlwaysOnLoggingAllowed() const
 {
     return m_webPageProxy.isAlwaysOnLoggingAllowed();
+}
+
+LayerOrView* RemoteLayerTreeDrawingAreaProxy::layerWithIDForTesting(uint64_t layerID) const
+{
+    return m_remoteLayerTreeHost.layerWithIDForTesting(layerID);
 }
 
 } // namespace WebKit

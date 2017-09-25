@@ -218,11 +218,6 @@ static OSStatus sslEvaluateTrust(
 				res = "kSecTrustResultInvalid"; break;
 			case kSecTrustResultProceed:
 				res = "kSecTrustResultProceed"; break;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            case kSecTrustResultConfirm:
-#pragma clang diagnostic pop
-				res = "kSecTrustResultConfirm"; break;
 			case kSecTrustResultDeny:
 				res = "kSecTrustResultDeny"; break;
 			case kSecTrustResultUnspecified:
@@ -254,6 +249,25 @@ static OSStatus sslEvaluateTrust(
 
 	*peerCerts = NULL;
 
+#ifdef USE_CDSA_CRYPTO
+	/* one more thing - get peer certs in the form of an evidence chain */
+	CSSM_TP_APPLE_EVIDENCE_INFO *dummyEv;
+	OSStatus thisRtn = SecTrustGetResult(secTrust, &secTrustResult,
+		peerCerts, &dummyEv);
+	if(thisRtn) {
+		printSslErrStr("SecTrustGetResult", thisRtn);
+	}
+	else {
+		/* workaround for the fact that SSLGetPeerCertificates()
+		 * leaves a retain count on each element in the returned array,
+		 * requiring us to do a release on each cert.
+		 */
+		CFIndex numCerts = CFArrayGetCount(*peerCerts);
+		for(CFIndex dex=0; dex<numCerts; dex++) {
+			CFRetain(CFArrayGetValueAtIndex(*peerCerts, dex));
+		}
+	}
+#endif
 	return ortn;
 }
 
@@ -388,53 +402,33 @@ static OSStatus sslPing(
 	 * SecureTransport options.
 	 */
 	if(pargs->acceptedProts) {
-		ortn = SSLSetProtocolVersionEnabled(ctx, kSSLProtocolAll, false);
 		if(ortn) {
 			printSslErrStr("SSLSetProtocolVersionEnabled(all off)", ortn);
 			goto cleanup;
 		}
 		for(const char *cp = pargs->acceptedProts; *cp; cp++) {
-			SSLProtocol prot;
 			switch(*cp) {
 				case '2':
-					prot = kSSLProtocol2;
+                    ortn = SSLSetProtocolVersionMax(ctx, kSSLProtocol2);
 					break;
 				case '3':
-					prot = kSSLProtocol3;
+                    ortn = SSLSetProtocolVersionMax(ctx, kSSLProtocol3);
 					break;
 				case 't':
-					prot = kTLSProtocol12;
+                    ortn = SSLSetProtocolVersionMax(ctx, kTLSProtocol12);
 					break;
 				default:
 					usage(pargs->argv);
 			}
-			ortn = SSLSetProtocolVersionEnabled(ctx, prot, true);
 			if(ortn) {
-				printSslErrStr("SSLSetProtocolVersionEnabled", ortn);
+				printSslErrStr("SSLSetProtocolVersionMax", ortn);
 				goto cleanup;
 			}
 		}
+	} else {
+        SSLSetProtocolVersionMax(ctx, pargs->tryVersion);
 	}
-	else {
-		ortn = SSLSetProtocolVersion(ctx, pargs->tryVersion);
-		if(ortn) {
-			printSslErrStr("SSLSetProtocolVersion", ortn);
-			goto cleanup;
-		}
-		SSLProtocol getVers;
-		ortn = SSLGetProtocolVersion(ctx, &getVers);
-		if(ortn) {
-			printSslErrStr("SSLGetProtocolVersion", ortn);
-			goto cleanup;
-		}
-		if(getVers != pargs->tryVersion) {
-			printf("***SSLGetProtocolVersion screwup: try %s  get %s\n",
-				sslGetProtocolVersionString(pargs->tryVersion),
-				sslGetProtocolVersionString(getVers));
-			ortn = errSecParam;
-			goto cleanup;
-		}
-	}
+
 	if(pargs->resumableEnable) {
 		const void *rtnId = NULL;
 		size_t rtnIdLen = 0;
@@ -1338,6 +1332,16 @@ int main(int argc, char **argv)
 		if(pargs.clientCerts == nil) {
 			exit(1);
 		}
+#ifdef USE_CDSA_CRYPTO
+		if(pargs.password) {
+			OSStatus ortn = SecKeychainUnlock(serverKc,
+				strlen(pargs.password), pargs.password, true);
+			if(ortn) {
+				printf("SecKeychainUnlock returned %d\n", (int)ortn);
+				/* oh well */
+			}
+		}
+#endif
 	}
 
     {

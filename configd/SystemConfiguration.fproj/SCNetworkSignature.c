@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011-2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,9 +89,9 @@ create_ipv6_services_pattern(void)
 }
 
 static CFDictionaryRef
-copy_services_for_address_family(CFAllocatorRef alloc,
-				 int af)
+copy_services_for_address_family(CFAllocatorRef alloc, int af)
 {
+#pragma unused(alloc)
 	CFDictionaryRef info;
 	CFArrayRef      patterns;
 	CFStringRef     pattern;
@@ -134,6 +134,7 @@ CFStringRef
 SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 						 const struct sockaddr * addr)
 {
+#pragma unused(alloc)
 	CFStringRef		ident	= NULL;
 	CFDictionaryRef		info = NULL;
 	CFStringRef		global_state_v4_key = NULL;
@@ -235,6 +236,7 @@ done:
 CFArrayRef /* of CFStringRef's */
 SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 {
+#pragma unused(alloc)
 	CFMutableArrayRef	active = NULL;
 	CFIndex			count = 0;
 	CFStringRef		global_setup_v4_key = NULL;

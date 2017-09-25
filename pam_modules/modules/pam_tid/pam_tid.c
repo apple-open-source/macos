@@ -145,7 +145,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		AuthorizationRights *authorizedRights = NULL;
 		AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights;
 		status = AuthorizationCopyRights(authorizationRef, &myRights, kAuthorizationEmptyEnvironment, flags, &authorizedRights);
-		os_log_debug(PAM_LOG, "Authorization result: %d", status);
+		os_log_debug(PAM_LOG, "Authorization result: %d", (int)status);
 		if (authorizedRights)
 			AuthorizationFreeItemSet(authorizedRights);
 		AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);

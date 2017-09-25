@@ -2,7 +2,10 @@
 
 #include <time.h>
 
-#if defined(HAVE_ST_MSG_CONTROL)
+int rsock_cmsg_cloexec_state = -1; /* <0: unknown, 0: ignored, >0: working */
+static VALUE sym_wait_readable, sym_wait_writable;
+
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
 static VALUE rb_cAncillaryData;
 
 static VALUE
@@ -204,7 +207,7 @@ ancillary_s_unix_rights(int argc, VALUE *argv, VALUE klass)
     str = rb_str_buf_new(sizeof(int) * argc);
 
     for (i = 0 ; i < argc; i++) {
-        VALUE obj = RARRAY_PTR(ary)[i];
+        VALUE obj = RARRAY_AREF(ary, i);
         rb_io_t *fptr;
         int fd;
         GetOpenFile(obj, fptr);
@@ -276,8 +279,8 @@ ancillary_unix_rights(VALUE self)
  * returns the timestamp as a time object.
  *
  * _ancillarydata_ should be one of following type:
- * - SOL_SOCKET/SCM_TIMESTAMP (micro second) GNU/Linux, FreeBSD, NetBSD, OpenBSD, Solaris, MacOS X
- * - SOL_SOCKET/SCM_TIMESTAMPNS (nano second) GNU/Linux
+ * - SOL_SOCKET/SCM_TIMESTAMP (microsecond) GNU/Linux, FreeBSD, NetBSD, OpenBSD, Solaris, MacOS X
+ * - SOL_SOCKET/SCM_TIMESTAMPNS (nanosecond) GNU/Linux
  * - SOL_SOCKET/SCM_BINTIME (2**(-64) second) FreeBSD
  *
  *   Addrinfo.udp("127.0.0.1", 0).bind {|s1|
@@ -573,9 +576,7 @@ extract_ipv6_pktinfo(VALUE self, struct in6_pktinfo *pktinfo_ptr, struct sockadd
 
     memcpy(pktinfo_ptr, RSTRING_PTR(data), sizeof(*pktinfo_ptr));
 
-    memset(sa_ptr, 0, sizeof(*sa_ptr));
-    SET_SA_LEN((struct sockaddr *)sa_ptr, sizeof(struct sockaddr_in6));
-    sa_ptr->sin6_family = AF_INET6;
+    INIT_SOCKADDR((struct sockaddr *)sa_ptr, AF_INET6, sizeof(*sa_ptr));
     memcpy(&sa_ptr->sin6_addr, &pktinfo_ptr->ipi6_addr, sizeof(sa_ptr->sin6_addr));
     if (IN6_IS_ADDR_LINKLOCAL(&sa_ptr->sin6_addr))
         sa_ptr->sin6_scope_id = pktinfo_ptr->ipi6_ifindex;
@@ -989,7 +990,7 @@ ancillary_inspect(VALUE self)
 
         vtype = ip_cmsg_type_to_sym(level, type);
         if (SYMBOL_P(vtype))
-            rb_str_catf(ret, " %s", rb_id2name(SYM2ID(vtype)));
+            rb_str_catf(ret, " %"PRIsVALUE, rb_sym2str(vtype));
         else
             rb_str_catf(ret, " cmsg_type:%d", type);
     }
@@ -1054,7 +1055,7 @@ ancillary_inspect(VALUE self)
 #        if defined(IPPROTO_IPV6)
           case IPPROTO_IPV6:
             switch (type) {
-#            if defined(IPV6_PKTINFO) /* RFC 3542 */
+#            if defined(IPV6_PKTINFO) && defined(HAVE_TYPE_STRUCT_IN6_PKTINFO) /* RFC 3542 */
               case IPV6_PKTINFO: inspected = anc_inspect_ipv6_pktinfo(level, type, data, ret); break;
 #            endif
             }
@@ -1105,8 +1106,8 @@ ancillary_cmsg_is_p(VALUE self, VALUE vlevel, VALUE vtype)
 #if defined(HAVE_SENDMSG)
 struct sendmsg_args_struct {
     int fd;
-    const struct msghdr *msg;
     int flags;
+    const struct msghdr *msg;
 };
 
 static void *
@@ -1127,42 +1128,38 @@ rb_sendmsg(int fd, const struct msghdr *msg, int flags)
 }
 
 static VALUE
-bsock_sendmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
+bsock_sendmsg_internal(VALUE sock, VALUE data, VALUE vflags,
+		       VALUE dest_sockaddr, VALUE controls, VALUE ex,
+		       int nonblock)
 {
     rb_io_t *fptr;
-    VALUE data, vflags, dest_sockaddr;
-    VALUE *controls_ptr;
-    int controls_num;
     struct msghdr mh;
     struct iovec iov;
-#if defined(HAVE_ST_MSG_CONTROL)
-    volatile VALUE controls_str = 0;
+    int controls_num;
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    VALUE controls_str = 0;
+    int family;
 #endif
     int flags;
     ssize_t ss;
-    int family;
 
-    rb_secure(4);
     GetOpenFile(sock, fptr);
-    family = rsock_getfamily(fptr->fd);
-
-    data = vflags = dest_sockaddr = Qnil;
-    controls_ptr = NULL;
-    controls_num = 0;
-
-    if (argc == 0)
-        rb_raise(rb_eArgError, "mesg argument required");
-    data = argv[0];
-    if (1 < argc) vflags = argv[1];
-    if (2 < argc) dest_sockaddr = argv[2];
-    if (3 < argc) { controls_ptr = &argv[3]; controls_num = argc - 3; }
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    family = rsock_getfamily(fptr);
+#endif
 
     StringValue(data);
 
+    if (!RB_TYPE_P(controls, T_ARRAY)) {
+	controls = rb_ary_new();
+    }
+    controls_num = RARRAY_LENINT(controls);
+
     if (controls_num) {
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
 	int i;
 	size_t last_pad = 0;
+	const VALUE *controls_ptr = RARRAY_CONST_PTR(controls);
 #if defined(__NetBSD__)
         int last_level = 0;
         int last_type = 0;
@@ -1237,6 +1234,7 @@ bsock_sendmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
                 rb_str_set_len(controls_str, RSTRING_LEN(controls_str)-last_pad);
 #endif
 	}
+	RB_GC_GUARD(controls);
 #else
 	rb_raise(rb_eNotImpError, "control message for sendmsg is unimplemented");
 #endif
@@ -1257,117 +1255,90 @@ bsock_sendmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
     memset(&mh, 0, sizeof(mh));
     if (!NIL_P(dest_sockaddr)) {
         mh.msg_name = RSTRING_PTR(dest_sockaddr);
-        mh.msg_namelen = RSTRING_LENINT(dest_sockaddr);
+        mh.msg_namelen = RSTRING_SOCKLEN(dest_sockaddr);
     }
     mh.msg_iovlen = 1;
     mh.msg_iov = &iov;
     iov.iov_base = RSTRING_PTR(data);
     iov.iov_len = RSTRING_LEN(data);
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     if (controls_str) {
         mh.msg_control = RSTRING_PTR(controls_str);
-        mh.msg_controllen = RSTRING_LENINT(controls_str);
-    }
-    else {
-        mh.msg_control = NULL;
-        mh.msg_controllen = 0;
+        mh.msg_controllen = RSTRING_SOCKLEN(controls_str);
     }
 #endif
 
     rb_io_check_closed(fptr);
-    if (nonblock)
+    if (nonblock && !MSG_DONTWAIT_RELIABLE)
         rb_io_set_nonblock(fptr);
 
     ss = rb_sendmsg(fptr->fd, &mh, flags);
 
     if (ss == -1) {
+	int e;
         if (!nonblock && rb_io_wait_writable(fptr->fd)) {
             rb_io_check_closed(fptr);
             goto retry;
         }
-        if (nonblock && (errno == EWOULDBLOCK || errno == EAGAIN))
-            rb_mod_sys_fail(rb_mWaitWritable, "sendmsg(2) would block");
-	rb_sys_fail("sendmsg(2)");
+	e = errno;
+	if (nonblock && (e == EWOULDBLOCK || e == EAGAIN)) {
+	    if (ex == Qfalse) {
+		return sym_wait_writable;
+	    }
+	    rb_readwrite_syserr_fail(RB_IO_WAIT_WRITABLE, e,
+				     "sendmsg(2) would block");
+	}
+	rb_syserr_fail(e, "sendmsg(2)");
     }
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    RB_GC_GUARD(controls_str);
+#endif
 
     return SSIZET2NUM(ss);
 }
 #endif
 
 #if defined(HAVE_SENDMSG)
-/*
- * call-seq:
- *    basicsocket.sendmsg(mesg, flags=0, dest_sockaddr=nil, *controls) => numbytes_sent
- *
- * sendmsg sends a message using sendmsg(2) system call in blocking manner.
- *
- * _mesg_ is a string to send.
- *
- * _flags_ is bitwise OR of MSG_* constants such as Socket::MSG_OOB.
- *
- * _dest_sockaddr_ is a destination socket address for connection-less socket.
- * It should be a sockaddr such as a result of Socket.sockaddr_in.
- * An Addrinfo object can be used too.
- *
- * _controls_ is a list of ancillary data.
- * The element of _controls_ should be Socket::AncillaryData or
- * 3-elements array.
- * The 3-element array should contains cmsg_level, cmsg_type and data.
- *
- * The return value, _numbytes_sent_ is an integer which is the number of bytes sent.
- *
- * sendmsg can be used to implement send_io as follows:
- *
- *   # use Socket::AncillaryData.
- *   ancdata = Socket::AncillaryData.int(:UNIX, :SOCKET, :RIGHTS, io.fileno)
- *   sock.sendmsg("a", 0, nil, ancdata)
- *
- *   # use 3-element array.
- *   ancdata = [:SOCKET, :RIGHTS, [io.fileno].pack("i!")]
- *   sock.sendmsg("\0", 0, nil, ancdata)
- *
- */
 VALUE
-rsock_bsock_sendmsg(int argc, VALUE *argv, VALUE sock)
+rsock_bsock_sendmsg(VALUE sock, VALUE data, VALUE flags, VALUE dest_sockaddr,
+		    VALUE controls)
 {
-    return bsock_sendmsg_internal(argc, argv, sock, 0);
+    return bsock_sendmsg_internal(sock, data, flags, dest_sockaddr, controls,
+				  Qtrue, 0);
 }
 #endif
 
 #if defined(HAVE_SENDMSG)
-/*
- * call-seq:
- *    basicsocket.sendmsg_nonblock(mesg, flags=0, dest_sockaddr=nil, *controls) => numbytes_sent
- *
- * sendmsg_nonblock sends a message using sendmsg(2) system call in non-blocking manner.
- *
- * It is similar to BasicSocket#sendmsg
- * but the non-blocking flag is set before the system call
- * and it doesn't retry the system call.
- *
- */
 VALUE
-rsock_bsock_sendmsg_nonblock(int argc, VALUE *argv, VALUE sock)
+rsock_bsock_sendmsg_nonblock(VALUE sock, VALUE data, VALUE flags,
+			     VALUE dest_sockaddr, VALUE controls, VALUE ex)
 {
-    return bsock_sendmsg_internal(argc, argv, sock, 1);
+    return bsock_sendmsg_internal(sock, data, flags, dest_sockaddr,
+				  controls, ex, 1);
 }
 #endif
 
 #if defined(HAVE_RECVMSG)
 struct recvmsg_args_struct {
     int fd;
-    struct msghdr *msg;
     int flags;
+    struct msghdr *msg;
 };
 
 ssize_t
 rsock_recvmsg(int socket, struct msghdr *message, int flags)
 {
+    ssize_t ret;
+    socklen_t len0;
 #ifdef MSG_CMSG_CLOEXEC
     /* MSG_CMSG_CLOEXEC is available since Linux 2.6.23.  Linux 2.6.18 silently ignore it. */
     flags |= MSG_CMSG_CLOEXEC;
 #endif
-    return recvmsg(socket, message, flags);
+    len0 = message->msg_namelen;
+    ret = recvmsg(socket, message, flags);
+    if (ret != -1 && len0 < message->msg_namelen)
+        message->msg_namelen = len0;
+    return ret;
 }
 
 static void *
@@ -1388,7 +1359,7 @@ rb_recvmsg(int fd, struct msghdr *msg, int flags)
     return (ssize_t)rb_thread_call_without_gvl(nogvl_recvmsg_func, &args, RUBY_UBF_IO, 0);
 }
 
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
 static void
 discard_cmsg(struct cmsghdr *cmh, char *msg_end, int msg_peek_p)
 {
@@ -1409,7 +1380,7 @@ discard_cmsg(struct cmsghdr *cmh, char *msg_end, int msg_peek_p)
         int *end = (int *)((char *)cmh + cmh->cmsg_len);
         while ((char *)fdp + sizeof(int) <= (char *)end &&
                (char *)fdp + sizeof(int) <= msg_end) {
-            rb_fd_fix_cloexec(*fdp);
+            rb_update_max_fd(*fdp);
             close(*fdp);
             fdp++;
         }
@@ -1420,7 +1391,7 @@ discard_cmsg(struct cmsghdr *cmh, char *msg_end, int msg_peek_p)
 void
 rsock_discard_cmsg_resource(struct msghdr *mh, int msg_peek_p)
 {
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     struct cmsghdr *cmh;
     char *msg_end;
 
@@ -1435,7 +1406,7 @@ rsock_discard_cmsg_resource(struct msghdr *mh, int msg_peek_p)
 #endif
 }
 
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
 static void
 make_io_for_unix_rights(VALUE ctl, struct cmsghdr *cmh, char *msg_end)
 {
@@ -1452,7 +1423,11 @@ make_io_for_unix_rights(VALUE ctl, struct cmsghdr *cmh, char *msg_end)
             VALUE io;
             if (fstat(fd, &stbuf) == -1)
                 rb_raise(rb_eSocket, "invalid fd in SCM_RIGHTS");
-            rb_fd_fix_cloexec(fd);
+            rb_update_max_fd(fd);
+            if (rsock_cmsg_cloexec_state < 0)
+                rsock_cmsg_cloexec_state = rsock_detect_cloexec(fd);
+            if (rsock_cmsg_cloexec_state == 0 || fd <= 2)
+                rb_maygvl_fd_fix_cloexec(fd);
             if (S_ISSOCK(stbuf.st_mode))
                 io = rsock_init_sock(rb_obj_alloc(rb_cSocket), fd);
             else
@@ -1467,50 +1442,39 @@ make_io_for_unix_rights(VALUE ctl, struct cmsghdr *cmh, char *msg_end)
 #endif
 
 static VALUE
-bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
+bsock_recvmsg_internal(VALUE sock,
+		VALUE vmaxdatlen, VALUE vflags, VALUE vmaxctllen,
+		VALUE scm_rights, VALUE ex, int nonblock)
 {
     rb_io_t *fptr;
-    VALUE vmaxdatlen, vmaxctllen, vflags, vopts;
     int grow_buffer;
     size_t maxdatlen;
     int flags, orig_flags;
-    int request_scm_rights;
     struct msghdr mh;
     struct iovec iov;
-    struct sockaddr_storage namebuf;
-    char datbuf0[4096], *datbuf;
+    union_sockaddr namebuf;
+    char *datbuf;
     VALUE dat_str = Qnil;
     VALUE ret;
     ssize_t ss;
-#if defined(HAVE_ST_MSG_CONTROL)
+    int request_scm_rights;
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     struct cmsghdr *cmh;
     size_t maxctllen;
-    union {
-        char bytes[4096];
-        struct cmsghdr align;
-    } ctlbuf0;
     char *ctlbuf;
     VALUE ctl_str = Qnil;
     int family;
     int gc_done = 0;
 #endif
 
-    rb_secure(4);
-
-    vopts = Qnil;
-    if (0 < argc && RB_TYPE_P(argv[argc-1], T_HASH))
-        vopts = argv[--argc];
-
-    rb_scan_args(argc, argv, "03", &vmaxdatlen, &vflags, &vmaxctllen);
-
-    maxdatlen = NIL_P(vmaxdatlen) ? sizeof(datbuf0) : NUM2SIZET(vmaxdatlen);
-#if defined(HAVE_ST_MSG_CONTROL)
-    maxctllen = NIL_P(vmaxctllen) ? sizeof(ctlbuf0) : NUM2SIZET(vmaxctllen);
+    maxdatlen = NIL_P(vmaxdatlen) ? 4096 : NUM2SIZET(vmaxdatlen);
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    maxctllen = NIL_P(vmaxctllen) ? 4096 : NUM2SIZET(vmaxctllen);
 #else
     if (!NIL_P(vmaxctllen))
         rb_raise(rb_eArgError, "control message not supported");
 #endif
-    flags = NIL_P(vflags) ? 0 : NUM2INT(vflags);
+    flags = NUM2INT(vflags);
 #ifdef MSG_DONTWAIT
     if (nonblock)
         flags |= MSG_DONTWAIT;
@@ -1520,15 +1484,19 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
     grow_buffer = NIL_P(vmaxdatlen) || NIL_P(vmaxctllen);
 
     request_scm_rights = 0;
-    if (!NIL_P(vopts) && RTEST(rb_hash_aref(vopts, ID2SYM(rb_intern("scm_rights")))))
+    if (RTEST(scm_rights))
         request_scm_rights = 1;
+#if !defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    if (request_scm_rights)
+        rb_raise(rb_eNotImpError, "control message for recvmsg is unimplemented");
+#endif
 
     GetOpenFile(sock, fptr);
     if (rb_io_read_pending(fptr)) {
         rb_raise(rb_eIOError, "recvmsg for buffered IO");
     }
 
-#if !defined(HAVE_ST_MSG_CONTROL)
+#if !defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     if (grow_buffer) {
 	int socktype;
 	socklen_t optlen = (socklen_t)sizeof(socktype);
@@ -1541,32 +1509,24 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
 #endif
 
   retry:
-    if (maxdatlen <= sizeof(datbuf0))
-        datbuf = datbuf0;
-    else {
-        if (NIL_P(dat_str))
-            dat_str = rb_str_tmp_new(maxdatlen);
-        else
-            rb_str_resize(dat_str, maxdatlen);
-        datbuf = RSTRING_PTR(dat_str);
-    }
+    if (NIL_P(dat_str))
+	dat_str = rb_str_tmp_new(maxdatlen);
+    else
+	rb_str_resize(dat_str, maxdatlen);
+    datbuf = RSTRING_PTR(dat_str);
 
-#if defined(HAVE_ST_MSG_CONTROL)
-    if (maxctllen <= sizeof(ctlbuf0))
-        ctlbuf = ctlbuf0.bytes;
-    else {
-        if (NIL_P(ctl_str))
-            ctl_str = rb_str_tmp_new(maxctllen);
-        else
-            rb_str_resize(ctl_str, maxctllen);
-        ctlbuf = RSTRING_PTR(ctl_str);
-    }
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    if (NIL_P(ctl_str))
+	ctl_str = rb_str_tmp_new(maxctllen);
+    else
+	rb_str_resize(ctl_str, maxctllen);
+    ctlbuf = RSTRING_PTR(ctl_str);
 #endif
 
     memset(&mh, 0, sizeof(mh));
 
     memset(&namebuf, 0, sizeof(namebuf));
-    mh.msg_name = (struct sockaddr *)&namebuf;
+    mh.msg_name = &namebuf.addr;
     mh.msg_namelen = (socklen_t)sizeof(namebuf);
 
     mh.msg_iov = &iov;
@@ -1574,7 +1534,7 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
     iov.iov_base = datbuf;
     iov.iov_len = maxdatlen;
 
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     mh.msg_control = ctlbuf;
     mh.msg_controllen = (socklen_t)maxctllen;
 #endif
@@ -1583,20 +1543,26 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
         flags |= MSG_PEEK;
 
     rb_io_check_closed(fptr);
-    if (nonblock)
+    if (nonblock && !MSG_DONTWAIT_RELIABLE)
         rb_io_set_nonblock(fptr);
 
     ss = rb_recvmsg(fptr->fd, &mh, flags);
 
     if (ss == -1) {
+	int e;
         if (!nonblock && rb_io_wait_readable(fptr->fd)) {
             rb_io_check_closed(fptr);
             goto retry;
         }
-        if (nonblock && (errno == EWOULDBLOCK || errno == EAGAIN))
-            rb_mod_sys_fail(rb_mWaitReadable, "recvmsg(2) would block");
-#if defined(HAVE_ST_MSG_CONTROL)
-        if (!gc_done && (errno == EMFILE || errno == EMSGSIZE)) {
+	e = errno;
+	if (nonblock && (e == EWOULDBLOCK || e == EAGAIN)) {
+            if (ex == Qfalse) {
+                return sym_wait_readable;
+            }
+	    rb_readwrite_syserr_fail(RB_IO_WAIT_READABLE, e, "recvmsg(2) would block");
+        }
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+	if (!gc_done && (e == EMFILE || e == EMSGSIZE)) {
           /*
            * When SCM_RIGHTS hit the file descriptors limit:
            * - Linux 2.6.18 causes success with MSG_CTRUNC
@@ -1608,23 +1574,27 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
             gc_done = 1;
 	    goto retry;
         }
+#else
+	if (NIL_P(vmaxdatlen) && grow_buffer && e == EMSGSIZE)
+	    ss = (ssize_t)iov.iov_len;
+	else
 #endif
-	rb_sys_fail("recvmsg(2)");
+	rb_syserr_fail(e, "recvmsg(2)");
     }
 
     if (grow_buffer) {
 	int grown = 0;
-#if defined(HAVE_ST_MSG_CONTROL)
-        if (NIL_P(vmaxdatlen) && (mh.msg_flags & MSG_TRUNC)) {
+	if (NIL_P(vmaxdatlen) && ss != -1 && ss == (ssize_t)iov.iov_len) {
             if (SIZE_MAX/2 < maxdatlen)
                 rb_raise(rb_eArgError, "max data length too big");
 	    maxdatlen *= 2;
 	    grown = 1;
 	}
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
         if (NIL_P(vmaxctllen) && (mh.msg_flags & MSG_CTRUNC)) {
 #define BIG_ENOUGH_SPACE 65536
             if (BIG_ENOUGH_SPACE < maxctllen &&
-                mh.msg_controllen < (socklen_t)(maxctllen - BIG_ENOUGH_SPACE)) {
+                (socklen_t)mh.msg_controllen < (socklen_t)(maxctllen - BIG_ENOUGH_SPACE)) {
                 /* there are big space bug truncated.
                  * file descriptors limit? */
                 if (!gc_done) {
@@ -1639,13 +1609,6 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
                 grown = 1;
             }
 #undef BIG_ENOUGH_SPACE
-	}
-#else
-	if (NIL_P(vmaxdatlen) && ss != -1 && ss == (ssize_t)iov.iov_len) {
-            if (SIZE_MAX/2 < maxdatlen)
-                rb_raise(rb_eArgError, "max data length too big");
-	    maxdatlen *= 2;
-	    grown = 1;
 	}
 #endif
 	if (grown) {
@@ -1667,20 +1630,20 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
     else {
         rb_str_resize(dat_str, ss);
         OBJ_TAINT(dat_str);
-        RBASIC(dat_str)->klass = rb_cString;
+	rb_obj_reveal(dat_str, rb_cString);
     }
 
     ret = rb_ary_new3(3, dat_str,
                          rsock_io_socket_addrinfo(sock, mh.msg_name, mh.msg_namelen),
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
 			 INT2NUM(mh.msg_flags)
 #else
 			 Qnil
 #endif
 			 );
 
-#if defined(HAVE_ST_MSG_CONTROL)
-    family = rsock_getfamily(fptr->fd);
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
+    family = rsock_getfamily(fptr);
     if (mh.msg_controllen) {
 	char *msg_end = (char *)mh.msg_control + mh.msg_controllen;
         for (cmh = CMSG_FIRSTHDR(&mh); cmh != NULL; cmh = CMSG_NXTHDR(&mh, cmh)) {
@@ -1699,6 +1662,7 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
                 discard_cmsg(cmh, msg_end, (flags & MSG_PEEK) != 0);
             rb_ary_push(ret, ctl);
         }
+        RB_GC_GUARD(ctl_str);
     }
 #endif
 
@@ -1707,89 +1671,28 @@ bsock_recvmsg_internal(int argc, VALUE *argv, VALUE sock, int nonblock)
 #endif
 
 #if defined(HAVE_RECVMSG)
-/*
- * call-seq:
- *    basicsocket.recvmsg(maxmesglen=nil, flags=0, maxcontrollen=nil, opts={}) => [mesg, sender_addrinfo, rflags, *controls]
- *
- * recvmsg receives a message using recvmsg(2) system call in blocking manner.
- *
- * _maxmesglen_ is the maximum length of mesg to receive.
- *
- * _flags_ is bitwise OR of MSG_* constants such as Socket::MSG_PEEK.
- *
- * _maxcontrollen_ is the maximum length of controls (ancillary data) to receive.
- *
- * _opts_ is option hash.
- * Currently :scm_rights=>bool is the only option.
- *
- * :scm_rights option specifies that application expects SCM_RIGHTS control message.
- * If the value is nil or false, application don't expects SCM_RIGHTS control message.
- * In this case, recvmsg closes the passed file descriptors immediately.
- * This is the default behavior.
- *
- * If :scm_rights value is neither nil nor false, application expects SCM_RIGHTS control message.
- * In this case, recvmsg creates IO objects for each file descriptors for
- * Socket::AncillaryData#unix_rights method.
- *
- * The return value is 4-elements array.
- *
- * _mesg_ is a string of the received message.
- *
- * _sender_addrinfo_ is a sender socket address for connection-less socket.
- * It is an Addrinfo object.
- * For connection-oriented socket such as TCP, sender_addrinfo is platform dependent.
- *
- * _rflags_ is a flags on the received message which is bitwise OR of MSG_* constants such as Socket::MSG_TRUNC.
- * It will be nil if the system uses 4.3BSD style old recvmsg system call.
- *
- * _controls_ is ancillary data which is an array of Socket::AncillaryData objects such as:
- *
- *   #<Socket::AncillaryData: AF_UNIX SOCKET RIGHTS 7>
- *
- * _maxmesglen_ and _maxcontrollen_ can be nil.
- * In that case, the buffer will be grown until the message is not truncated.
- * Internally, MSG_PEEK is used and MSG_TRUNC/MSG_CTRUNC are checked.
- *
- * recvmsg can be used to implement recv_io as follows:
- *
- *   mesg, sender_sockaddr, rflags, *controls = sock.recvmsg(:scm_rights=>true)
- *   controls.each {|ancdata|
- *     if ancdata.cmsg_is?(:SOCKET, :RIGHTS)
- *       return ancdata.unix_rights[0]
- *     end
- *   }
- *
- */
 VALUE
-rsock_bsock_recvmsg(int argc, VALUE *argv, VALUE sock)
+rsock_bsock_recvmsg(VALUE sock, VALUE dlen, VALUE flags, VALUE clen,
+		    VALUE scm_rights)
 {
-    return bsock_recvmsg_internal(argc, argv, sock, 0);
+    VALUE ex = Qtrue;
+    return bsock_recvmsg_internal(sock, dlen, flags, clen, scm_rights, ex, 0);
 }
 #endif
 
 #if defined(HAVE_RECVMSG)
-/*
- * call-seq:
- *    basicsocket.recvmsg_nonblock(maxdatalen=nil, flags=0, maxcontrollen=nil, opts={}) => [data, sender_addrinfo, rflags, *controls]
- *
- * recvmsg receives a message using recvmsg(2) system call in non-blocking manner.
- *
- * It is similar to BasicSocket#recvmsg
- * but non-blocking flag is set before the system call
- * and it doesn't retry the system call.
- *
- */
 VALUE
-rsock_bsock_recvmsg_nonblock(int argc, VALUE *argv, VALUE sock)
+rsock_bsock_recvmsg_nonblock(VALUE sock, VALUE dlen, VALUE flags, VALUE clen,
+			     VALUE scm_rights, VALUE ex)
 {
-    return bsock_recvmsg_internal(argc, argv, sock, 1);
+    return bsock_recvmsg_internal(sock, dlen, flags, clen, scm_rights, ex, 1);
 }
 #endif
 
 void
 rsock_init_ancdata(void)
 {
-#if defined(HAVE_ST_MSG_CONTROL)
+#if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     /*
      * Document-class: Socket::AncillaryData
      *
@@ -1823,4 +1726,7 @@ rsock_init_ancdata(void)
     rb_define_method(rb_cAncillaryData, "ipv6_pktinfo_addr", ancillary_ipv6_pktinfo_addr, 0);
     rb_define_method(rb_cAncillaryData, "ipv6_pktinfo_ifindex", ancillary_ipv6_pktinfo_ifindex, 0);
 #endif
+#undef rb_intern
+    sym_wait_readable = ID2SYM(rb_intern("wait_readable"));
+    sym_wait_writable = ID2SYM(rb_intern("wait_writable"));
 }

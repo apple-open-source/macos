@@ -121,97 +121,97 @@ en_HU{
             }
             intervalFormats{
                 H{
-                    H{"H–H"}
+                    H{"H – H"}
                 }
                 Hm{
-                    H{"H:mm–H:mm"}
-                    m{"H:mm–H:mm"}
+                    H{"H:mm – H:mm"}
+                    m{"H:mm – H:mm"}
                 }
                 Hmv{
-                    H{"H:mm–H:mm v"}
-                    m{"H:mm–H:mm v"}
+                    H{"H:mm – H:mm v"}
+                    m{"H:mm – H:mm v"}
                 }
                 Hv{
-                    H{"H–H v"}
+                    H{"H – H v"}
                 }
                 M{
-                    M{"M–M."}
+                    M{"M – M."}
                 }
                 MEd{
-                    M{"M. d., E – M. d., E"}
-                    d{"M. dd., E – M. d., E"}
+                    M{"M. d., E – M. d., E"}
+                    d{"M. d., E – M. d., E"}
                 }
                 MMM{
-                    M{"MMM–MMM"}
+                    M{"MMM – MMM"}
                 }
                 MMMEd{
-                    M{"MMM d., E – MMM d., E"}
-                    d{"MMM d., E – d., E"}
+                    M{"MMM d., E – MMM d., E"}
+                    d{"MMM d., E – d., E"}
                 }
                 MMMd{
-                    M{"MMM d. – MMM d."}
-                    d{"MMM d–d."}
+                    M{"MMM d. – MMM d."}
+                    d{"MMM d – d."}
                 }
                 Md{
-                    M{"M. d. – M. d."}
-                    d{"M. d–d."}
+                    M{"M. d. – M. d."}
+                    d{"M. d – d."}
                 }
                 d{
-                    d{"d–d."}
+                    d{"d – d."}
                 }
-                fallback{"{0} – {1}"}
+                fallback{"{0} – {1}"}
                 h{
-                    a{"a h – a h"}
-                    h{"a h–h"}
+                    a{"a h – a h"}
+                    h{"a h – h"}
                 }
                 hm{
-                    a{"a h:mm – a h:mm"}
-                    h{"a h:mm–h:mm"}
-                    m{"a h:mm–h:mm"}
+                    a{"a h:mm – a h:mm"}
+                    h{"a h:mm – h:mm"}
+                    m{"a h:mm – h:mm"}
                 }
                 hmv{
-                    a{"a h:mm – a h:mm v"}
-                    h{"a h:mm–h:mm v"}
-                    m{"a h:mm–h:mm v"}
+                    a{"a h:mm – a h:mm v"}
+                    h{"a h:mm – h:mm v"}
+                    m{"a h:mm – h:mm v"}
                 }
                 hv{
-                    a{"a h – a h v"}
-                    h{"a h–h v"}
+                    a{"a h – a h v"}
+                    h{"a h – h v"}
                 }
                 y{
-                    y{"y–y"}
+                    y{"y – y"}
                 }
                 yM{
-                    M{"y. MM–MM."}
-                    y{"y. MM. – y. MM."}
+                    M{"y. MM – MM."}
+                    y{"y. MM. – y. MM."}
                 }
                 yMEd{
-                    M{"y. MM. dd., E – MM. dd., E"}
-                    d{"y. MM. dd., E – dd., E"}
-                    y{"y. MM. dd., E – y. MM. dd., E"}
+                    M{"y. MM. dd., E – MM. dd., E"}
+                    d{"y. MM. dd., E – dd., E"}
+                    y{"y. MM. dd., E – y. MM. dd., E"}
                 }
                 yMMM{
-                    M{"y. MMM–MMM"}
-                    y{"y. MMM – y. MMM"}
+                    M{"y. MMM – MMM"}
+                    y{"y. MMM – y. MMM"}
                 }
                 yMMMEd{
-                    M{"y. MMM d., E – MMM d., E"}
-                    d{"y. MMM d., E – d., E"}
-                    y{"y. MMM d., E – y. MMM d., E"}
+                    M{"y. MMM d., E – MMM d., E"}
+                    d{"y. MMM d., E – d., E"}
+                    y{"y. MMM d., E – y. MMM d., E"}
                 }
                 yMMMM{
-                    M{"y. MMMM–MMMM"}
-                    y{"y. MMMM – y. MMMM"}
+                    M{"y. MMMM – MMMM"}
+                    y{"y. MMMM – y. MMMM"}
                 }
                 yMMMd{
-                    M{"y. MMM d. – MMM d."}
-                    d{"y. MMM d–d."}
-                    y{"y. MMM d. – y. MMM d."}
+                    M{"y. MMM d. – MMM d."}
+                    d{"y. MMM d – d."}
+                    y{"y. MMM d. – y. MMM d."}
                 }
                 yMd{
-                    M{"y. MM. dd. – MM. dd."}
-                    d{"y. MM. dd–dd."}
-                    y{"y. MM. dd. – y. MM. dd."}
+                    M{"y. MM. dd. – MM. dd."}
+                    d{"y. MM. dd – dd."}
+                    y{"y. MM. dd. – y. MM. dd."}
                 }
             }
         }

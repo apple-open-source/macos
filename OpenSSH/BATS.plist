@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>OpenSSH</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>regress</string>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/libexec/openssh/regression-tests/runtests.sh</string>
+			</array>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/private/tmp/ssh_regression_tests_.*/.*log</string>
+			</array>
+            <key>Timeout</key>
+            <integer>1200</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

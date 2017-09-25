@@ -48,7 +48,8 @@ class IOChannel;
 class Storage {
     WTF_MAKE_NONCOPYABLE(Storage);
 public:
-    static std::unique_ptr<Storage> open(const String& cachePath);
+    enum class Mode { Normal, Testing };
+    static std::unique_ptr<Storage> open(const String& cachePath, Mode);
 
     struct Record {
         WTF_MAKE_FAST_ALLOCATED;
@@ -57,16 +58,18 @@ public:
         std::chrono::system_clock::time_point timeStamp;
         Data header;
         Data body;
+        std::optional<SHA1::Digest> bodyHash;
     };
     // This may call completion handler synchronously on failure.
-    typedef std::function<bool (std::unique_ptr<Record>)> RetrieveCompletionHandler;
+    typedef Function<bool (std::unique_ptr<Record>)> RetrieveCompletionHandler;
     void retrieve(const Key&, unsigned priority, RetrieveCompletionHandler&&);
 
     typedef Function<void (const Data& mappedBody)> MappedBodyHandler;
     void store(const Record&, MappedBodyHandler&&);
 
     void remove(const Key&);
-    void clear(const String& type, std::chrono::system_clock::time_point modifiedSinceTime, std::function<void ()>&& completionHandler);
+    void remove(const Vector<Key>&, Function<void ()>&&);
+    void clear(const String& type, std::chrono::system_clock::time_point modifiedSinceTime, Function<void ()>&& completionHandler);
 
     struct RecordInfo {
         size_t bodySize;
@@ -104,7 +107,7 @@ public:
     ~Storage();
 
 private:
-    Storage(const String& directoryPath, Salt);
+    Storage(const String& directoryPath, Mode, Salt);
 
     String recordDirectoryPathForKey(const Key&) const;
     String recordPathForKey(const Key&) const;
@@ -141,12 +144,13 @@ private:
     bool mayContainBlob(const Key&) const;
 
     void addToRecordFilter(const Key&);
+    void deleteFiles(const Key&);
 
     const String m_basePath;
     const String m_recordsPath;
-
+    
+    const Mode m_mode;
     const Salt m_salt;
-
     const bool m_canUseSharedMemoryForBodyData;
 
     size_t m_capacity { std::numeric_limits<size_t>::max() };
@@ -183,7 +187,7 @@ private:
 };
 
 // FIXME: Remove, used by NetworkCacheStatistics only.
-using RecordFileTraverseFunction = std::function<void (const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath)>;
+using RecordFileTraverseFunction = Function<void (const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath)>;
 void traverseRecordsFiles(const String& recordsPath, const String& type, const RecordFileTraverseFunction&);
 
 }

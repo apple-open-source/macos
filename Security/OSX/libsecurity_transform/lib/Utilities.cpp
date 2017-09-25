@@ -49,13 +49,13 @@ static CFErrorRef CreateErrorRefCore(CFStringRef domain, int errorCode, const ch
 	CFStringRef fmt = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
 	CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, fmt, ap);
 	va_end(ap);
-	CFRelease(fmt);
+	CFReleaseNull(fmt);
 	
 	CFStringRef keys[] = {kCFErrorDescriptionKey};
 	CFStringRef values[] = {str};
 	
 	CFErrorRef result = CFErrorCreateWithUserInfoKeysAndValues(NULL, domain, errorCode, (const void**) keys, (const void**) values, 1);
-	CFRelease(str);
+	CFReleaseNull(str);
 	
 	return result;
 }
@@ -95,7 +95,7 @@ CFTypeRef gAnnotatedRef = NULL;
 
 CFTypeRef DebugRetain(const void* owner, CFTypeRef type)
 {
-	CFTypeRef result = CFRetain(type);
+	CFTypeRef result = CFRetainSafe(type);
 	if (type == gAnnotatedRef)
 	{
 		fprintf(stderr, "Object %p was retained by object %p, count = %ld\n", type, owner, CFGetRetainCount(type));
@@ -113,7 +113,7 @@ void DebugRelease(const void* owner, CFTypeRef type)
 		fprintf(stderr, "Object %p was released by object %p, count = %ld\n", type, owner, CFGetRetainCount(type) - 1);
 	}
 	
-	CFRelease(type);
+	CFReleaseNull(type);
 }
 
 // Cribbed from _dispatch_bug and altered a bit

@@ -10,7 +10,7 @@
 **********************************************************************/
 
 /*
- * This file incldue two parts:
+ * This file include two parts:
  *
  * (1) set_trace_func internal mechanisms
  *     and C level API
@@ -21,11 +21,9 @@
  *
  */
 
-#include "ruby/ruby.h"
-#include "ruby/debug.h"
-#include "ruby/encoding.h"
-
 #include "internal.h"
+#include "ruby/debug.h"
+
 #include "vm_core.h"
 #include "eval_intern.h"
 
@@ -48,7 +46,7 @@ static int ruby_event_flag_count[MAX_EVENT_NUM] = {0};
 /* called from vm.c */
 
 void
-vm_trace_mark_event_hooks(rb_hook_list_t *hooks)
+rb_vm_trace_mark_event_hooks(rb_hook_list_t *hooks)
 {
     rb_event_hook_t *hook = hooks->hooks;
 
@@ -67,11 +65,13 @@ recalc_add_ruby_vm_event_flags(rb_event_flag_t events)
     ruby_vm_event_flags = 0;
 
     for (i=0; i<MAX_EVENT_NUM; i++) {
-	if (events & (1 << i)) {
+	if (events & ((rb_event_flag_t)1 << i)) {
 	    ruby_event_flag_count[i]++;
 	}
 	ruby_vm_event_flags |= ruby_event_flag_count[i] ? (1<<i) : 0;
     }
+
+    rb_objspace_set_event_hook(ruby_vm_event_flags);
 }
 
 static void
@@ -86,6 +86,8 @@ recalc_remove_ruby_vm_event_flags(rb_event_flag_t events)
 	}
 	ruby_vm_event_flags |= ruby_event_flag_count[i] ? (1<<i) : 0;
     }
+
+    rb_objspace_set_event_hook(ruby_vm_event_flags);
 }
 
 /* add/remove hooks */
@@ -101,7 +103,13 @@ thval2thread_t(VALUE thval)
 static rb_event_hook_t *
 alloc_event_hook(rb_event_hook_func_t func, rb_event_flag_t events, VALUE data, rb_event_hook_flag_t hook_flags)
 {
-    rb_event_hook_t *hook = ALLOC(rb_event_hook_t);
+    rb_event_hook_t *hook;
+
+    if ((events & RUBY_INTERNAL_EVENT_MASK) && (events & ~RUBY_INTERNAL_EVENT_MASK)) {
+	rb_raise(rb_eTypeError, "Can not specify normal event and internal event simultaneously.");
+    }
+
+    hook = ALLOC(rb_event_hook_t);
     hook->hook_flags = hook_flags;
     hook->events = events;
     hook->func = func;
@@ -163,7 +171,7 @@ remove_event_hook(rb_hook_list_t *list, rb_event_hook_func_t func, VALUE data)
 	    if (data == Qundef || hook->data == data) {
 		hook->hook_flags |= RUBY_EVENT_HOOK_FLAG_DELETED;
 		ret+=1;
-		list->need_clean++;
+		list->need_clean = TRUE;
 	    }
 	}
 	hook = hook->next;
@@ -202,19 +210,15 @@ rb_remove_event_hook_with_data(rb_event_hook_func_t func, VALUE data)
     return remove_event_hook(&GET_VM()->event_hooks, func, data);
 }
 
-static int
-clear_trace_func_i(st_data_t key, st_data_t val, st_data_t flag)
-{
-    rb_thread_t *th;
-    GetThreadPtr((VALUE)key, th);
-    rb_threadptr_remove_event_hook(th, 0, Qundef);
-    return ST_CONTINUE;
-}
-
 void
 rb_clear_trace_func(void)
 {
-    st_foreach(GET_VM()->living_threads, clear_trace_func_i, (st_data_t) 0);
+    rb_vm_t *vm = GET_VM();
+    rb_thread_t *th = 0;
+
+    list_for_each(&vm->living_threads, th, vmlt_node) {
+	rb_threadptr_remove_event_hook(th, 0, Qundef);
+    }
     rb_remove_event_hook(0);
 }
 
@@ -226,7 +230,7 @@ clean_hooks(rb_hook_list_t *list)
     rb_event_hook_t *hook, **nextp = &list->hooks;
 
     list->events = 0;
-    list->need_clean = 0;
+    list->need_clean = FALSE;
 
     while ((hook = *nextp) != 0) {
 	if (hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED) {
@@ -241,15 +245,49 @@ clean_hooks(rb_hook_list_t *list)
     }
 }
 
+static void
+exec_hooks_body(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *trace_arg)
+{
+    rb_event_hook_t *hook;
+
+    for (hook = list->hooks; hook; hook = hook->next) {
+	if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED) && (trace_arg->event & hook->events)) {
+	    if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_RAW_ARG)) {
+		(*hook->func)(trace_arg->event, hook->data, trace_arg->self, trace_arg->id, trace_arg->klass);
+	    }
+	    else {
+		(*((rb_event_hook_raw_arg_func_t)hook->func))(hook->data, trace_arg);
+	    }
+	}
+    }
+}
+
 static int
-exec_hooks(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *trace_arg, int can_clean_hooks)
+exec_hooks_precheck(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *trace_arg)
+{
+    if (UNLIKELY(list->need_clean != FALSE)) {
+	if (th->vm->trace_running <= 1) { /* only running this hooks */
+	    clean_hooks(list);
+	}
+    }
+
+    return (list->events & trace_arg->event) != 0;
+}
+
+static void
+exec_hooks_unprotected(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *trace_arg)
+{
+    if (exec_hooks_precheck(th, list, trace_arg) == 0) return;
+    exec_hooks_body(th, list, trace_arg);
+}
+
+static int
+exec_hooks_protected(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *trace_arg)
 {
     int state;
     volatile int raised;
 
-    if (UNLIKELY(list->need_clean > 0) && can_clean_hooks) {
-	clean_hooks(list);
-    }
+    if (exec_hooks_precheck(th, list, trace_arg) == 0) return 0;
 
     raised = rb_threadptr_reset_raised(th);
 
@@ -257,18 +295,7 @@ exec_hooks(rb_thread_t *th, rb_hook_list_t *list, const rb_trace_arg_t *trace_ar
 
     TH_PUSH_TAG(th);
     if ((state = TH_EXEC_TAG()) == 0) {
-	rb_event_hook_t *hook;
-
-	for (hook = list->hooks; hook; hook = hook->next) {
-	    if (LIKELY(!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED)) && (trace_arg->event & hook->events)) {
-		if (!(hook->hook_flags & RUBY_EVENT_HOOK_FLAG_RAW_ARG)) {
-		    (*hook->func)(trace_arg->event, hook->data, trace_arg->self, trace_arg->id, trace_arg->klass);
-		}
-		else {
-		    (*((rb_event_hook_raw_arg_func_t)hook->func))(hook->data, trace_arg);
-		}
-	    }
-	}
+	exec_hooks_body(th, list, trace_arg);
     }
     TH_POP_TAG();
 
@@ -283,49 +310,64 @@ static void
 rb_threadptr_exec_event_hooks_orig(rb_trace_arg_t *trace_arg, int pop_p)
 {
     rb_thread_t *th = trace_arg->th;
-    if (th->trace_arg == 0 &&
-	trace_arg->self != rb_mRubyVMFrozenCore /* skip special methods. TODO: remove it. */) {
-	const int vm_tracing = th->vm->trace_running;
-	const VALUE errinfo = th->errinfo;
-	const int outer_state = th->state;
-	int state = 0;
-	th->state = 0;
-	th->errinfo = Qnil;
 
-	th->vm->trace_running++;
-	th->trace_arg = trace_arg;
-	{
-	    rb_hook_list_t *list;
-
-	    /* thread local traces */
-	    list = &th->event_hooks;
-	    if (list->events & trace_arg->event) {
-		state = exec_hooks(th, list, trace_arg, TRUE);
-		if (state) goto terminate;
-	    }
-
-	    /* vm global traces */
-	    list = &th->vm->event_hooks;
-	    if (list->events & trace_arg->event) {
-		state = exec_hooks(th, list, trace_arg, !vm_tracing);
-		if (state) goto terminate;
-	    }
-	    th->errinfo = errinfo;
+    if (trace_arg->event & RUBY_INTERNAL_EVENT_MASK) {
+	if (th->trace_arg && (th->trace_arg->event & RUBY_INTERNAL_EVENT_MASK)) {
+	    /* skip hooks because this thread doing INTERNAL_EVENT */
 	}
-      terminate:
-	th->trace_arg = 0;
-	th->vm->trace_running--;
+	else {
+	    rb_trace_arg_t *prev_trace_arg = th->trace_arg;
+	    th->vm->trace_running++;
+	    th->trace_arg = trace_arg;
+	    exec_hooks_unprotected(th, &th->event_hooks, trace_arg);
+	    exec_hooks_unprotected(th, &th->vm->event_hooks, trace_arg);
+	    th->trace_arg = prev_trace_arg;
+	    th->vm->trace_running--;
+	}
+    }
+    else {
+	if (th->trace_arg == 0 && /* check reentrant */
+	    trace_arg->self != rb_mRubyVMFrozenCore /* skip special methods. TODO: remove it. */) {
+	    const VALUE errinfo = th->errinfo;
+	    const int outer_state = th->state;
+	    const VALUE old_recursive = th->local_storage_recursive_hash;
+	    int state = 0;
 
-	if (state) {
-	    if (pop_p) {
-		if (VM_FRAME_TYPE_FINISH_P(th->cfp)) {
-		    th->tag = th->tag->prev;
+	    th->local_storage_recursive_hash = th->local_storage_recursive_hash_for_trace;
+	    th->state = 0;
+	    th->errinfo = Qnil;
+
+	    th->vm->trace_running++;
+	    th->trace_arg = trace_arg;
+	    {
+		/* thread local traces */
+		state = exec_hooks_protected(th, &th->event_hooks, trace_arg);
+		if (state) goto terminate;
+
+		/* vm global traces */
+		state = exec_hooks_protected(th, &th->vm->event_hooks, trace_arg);
+		if (state) goto terminate;
+
+		th->errinfo = errinfo;
+	    }
+	  terminate:
+	    th->trace_arg = 0;
+	    th->vm->trace_running--;
+
+	    th->local_storage_recursive_hash_for_trace = th->local_storage_recursive_hash;
+	    th->local_storage_recursive_hash = old_recursive;
+
+	    if (state) {
+		if (pop_p) {
+		    if (VM_FRAME_TYPE_FINISH_P(th->cfp)) {
+			th->tag = th->tag->prev;
+		    }
+		    th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
 		}
-		th->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(th->cfp);
+		TH_JUMP_TAG(th, state);
 	    }
-	    TH_JUMP_TAG(th, state);
+	    th->state = outer_state;
 	}
-	th->state = outer_state;
     }
 }
 
@@ -351,6 +393,7 @@ rb_suppress_tracing(VALUE (*func)(VALUE), VALUE arg)
     int state;
     const int tracing = th->trace_arg ? 1 : 0;
     rb_trace_arg_t dummy_trace_arg;
+    dummy_trace_arg.event = 0;
 
     if (!tracing) th->vm->trace_running++;
     if (!th->trace_arg) th->trace_arg = &dummy_trace_arg;
@@ -391,6 +434,8 @@ static void call_trace_func(rb_event_flag_t, VALUE data, VALUE self, ID id, VALU
  *
  *  Establishes _proc_ as the handler for tracing, or disables
  *  tracing if the parameter is +nil+.
+ *
+ *  *Note:* this method is obsolete, please use TracePoint instead.
  *
  *  _proc_ takes up to six parameters:
  *
@@ -444,7 +489,6 @@ static void call_trace_func(rb_event_flag_t, VALUE data, VALUE self, ID id, VALU
 static VALUE
 set_trace_func(VALUE obj, VALUE trace)
 {
-    rb_secure(4);
 
     rb_remove_event_hook(call_trace_func);
 
@@ -475,7 +519,8 @@ thread_add_trace_func(rb_thread_t *th, VALUE trace)
  *     thr.add_trace_func(proc)    -> proc
  *
  *  Adds _proc_ as a handler for tracing.
- *  See <code>Thread#set_trace_func</code> and +set_trace_func+.
+ *
+ *  See Thread#set_trace_func and Kernel#set_trace_func.
  */
 
 static VALUE
@@ -483,7 +528,6 @@ thread_add_trace_func_m(VALUE obj, VALUE trace)
 {
     rb_thread_t *th;
 
-    rb_secure(4);
     GetThreadPtr(obj, th);
     thread_add_trace_func(th, trace);
     return trace;
@@ -496,7 +540,8 @@ thread_add_trace_func_m(VALUE obj, VALUE trace)
  *
  *  Establishes _proc_ on _thr_ as the handler for tracing, or
  *  disables tracing if the parameter is +nil+.
- *  See +set_trace_func+.
+ *
+ *  See Kernel#set_trace_func.
  */
 
 static VALUE
@@ -504,7 +549,6 @@ thread_set_trace_func_m(VALUE obj, VALUE trace)
 {
     rb_thread_t *th;
 
-    rb_secure(4);
     GetThreadPtr(obj, th);
     rb_threadptr_remove_event_hook(th, call_trace_func, Qundef);
 
@@ -552,6 +596,7 @@ get_event_id(rb_event_flag_t event)
 	C(b_return, B_RETURN);
 	C(thread_begin, THREAD_BEGIN);
 	C(thread_end, THREAD_END);
+	C(fiber_switch, FIBER_SWITCH);
 	C(specified_line, SPECIFIED_LINE);
       case RUBY_EVENT_LINE | RUBY_EVENT_SPECIFIED_LINE: CONST_ID(id, "line"); return id;
 #undef C
@@ -563,11 +608,11 @@ get_event_id(rb_event_flag_t event)
 static void
 call_trace_func(rb_event_flag_t event, VALUE proc, VALUE self, ID id, VALUE klass)
 {
-    const char *srcfile = rb_sourcefile();
+    int line;
+    const char *srcfile = rb_source_loc(&line);
     VALUE eventname = rb_str_new2(get_event_name(event));
     VALUE filename = srcfile ? rb_str_new2(srcfile) : Qnil;
     VALUE argv[6];
-    int line = rb_sourceline();
     rb_thread_t *th = GET_THREAD();
 
     if (!klass) {
@@ -579,7 +624,7 @@ call_trace_func(rb_event_flag_t event, VALUE proc, VALUE self, ID id, VALUE klas
 	    klass = RBASIC(klass)->klass;
 	}
 	else if (FL_TEST(klass, FL_SINGLETON)) {
-	    klass = rb_iv_get(klass, "__attached__");
+	    klass = rb_ivar_get(klass, id__attached__);
 	}
     }
 
@@ -599,28 +644,20 @@ static VALUE rb_cTracePoint;
 
 typedef struct rb_tp_struct {
     rb_event_flag_t events;
+    int tracing; /* bool */
     rb_thread_t *target_th;
     void (*func)(VALUE tpval, void *data);
     void *data;
     VALUE proc;
-    int tracing;
     VALUE self;
 } rb_tp_t;
 
 static void
 tp_mark(void *ptr)
 {
-    if (ptr) {
-	rb_tp_t *tp = (rb_tp_t *)ptr;
-	rb_gc_mark(tp->proc);
-	if (tp->target_th) rb_gc_mark(tp->target_th->self);
-    }
-}
-
-static void
-tp_free(void *ptr)
-{
-    /* do nothing */
+    rb_tp_t *tp = ptr;
+    rb_gc_mark(tp->proc);
+    if (tp->target_th) rb_gc_mark(tp->target_th->self);
 }
 
 static size_t
@@ -631,7 +668,8 @@ tp_memsize(const void *ptr)
 
 static const rb_data_type_t tp_data_type = {
     "tracepoint",
-    {tp_mark, tp_free, tp_memsize,},
+    {tp_mark, RUBY_TYPED_NEVER_FREE, tp_memsize,},
+    0, 0, RUBY_TYPED_FREE_IMMEDIATELY
 };
 
 static VALUE
@@ -644,8 +682,12 @@ tp_alloc(VALUE klass)
 static rb_event_flag_t
 symbol2event_flag(VALUE v)
 {
-    static ID id;
+    ID id;
     VALUE sym = rb_convert_type(v, T_SYMBOL, "Symbol", "to_sym");
+    const rb_event_flag_t RUBY_EVENT_A_CALL =
+	RUBY_EVENT_CALL | RUBY_EVENT_B_CALL | RUBY_EVENT_C_CALL;
+    const rb_event_flag_t RUBY_EVENT_A_RETURN =
+	RUBY_EVENT_RETURN | RUBY_EVENT_B_RETURN | RUBY_EVENT_C_RETURN;
 
 #define C(name, NAME) CONST_ID(id, #name); if (sym == ID2SYM(id)) return RUBY_EVENT_##NAME
     C(line, LINE);
@@ -660,9 +702,12 @@ symbol2event_flag(VALUE v)
     C(b_return, B_RETURN);
     C(thread_begin, THREAD_BEGIN);
     C(thread_end, THREAD_END);
+    C(fiber_switch, FIBER_SWITCH);
     C(specified_line, SPECIFIED_LINE);
+    C(a_call, A_CALL);
+    C(a_return, A_RETURN);
 #undef C
-    rb_raise(rb_eArgError, "unknown event: %s", rb_id2name(SYM2ID(sym)));
+    rb_raise(rb_eArgError, "unknown event: %"PRIsVALUE, rb_sym2str(sym));
 }
 
 static rb_tp_t *
@@ -689,6 +734,12 @@ rb_tracearg_from_tracepoint(VALUE tpval)
     return get_trace_arg();
 }
 
+rb_event_flag_t
+rb_tracearg_event_flag(rb_trace_arg_t *trace_arg)
+{
+    return trace_arg->event;
+}
+
 VALUE
 rb_tracearg_event(rb_trace_arg_t *trace_arg)
 {
@@ -702,7 +753,7 @@ fill_path_and_lineno(rb_trace_arg_t *trace_arg)
 	rb_control_frame_t *cfp = rb_vm_get_ruby_level_next_cfp(trace_arg->th, trace_arg->cfp);
 
 	if (cfp) {
-	    trace_arg->path = cfp->iseq->location.path;
+	    trace_arg->path = cfp->iseq->body->location.path;
 	    trace_arg->lineno = rb_vm_get_sourceline(cfp);
 	}
 	else {
@@ -767,7 +818,7 @@ rb_tracearg_binding(rb_trace_arg_t *trace_arg)
     cfp = rb_vm_get_binding_creatable_next_cfp(trace_arg->th, trace_arg->cfp);
 
     if (cfp) {
-	return rb_binding_new_with_cfp(trace_arg->th, cfp);
+	return rb_vm_make_binding(trace_arg->th, cfp);
     }
     else {
 	return Qnil;
@@ -799,6 +850,21 @@ VALUE
 rb_tracearg_raised_exception(rb_trace_arg_t *trace_arg)
 {
     if (trace_arg->event & (RUBY_EVENT_RAISE)) {
+	/* ok */
+    }
+    else {
+	rb_raise(rb_eRuntimeError, "not supported by this event");
+    }
+    if (trace_arg->data == Qundef) {
+	rb_bug("tp_attr_raised_exception_m: unreachable");
+    }
+    return trace_arg->data;
+}
+
+VALUE
+rb_tracearg_object(rb_trace_arg_t *trace_arg)
+{
+    if (trace_arg->event & (RUBY_INTERNAL_EVENT_NEWOBJ | RUBY_INTERNAL_EVENT_FREEOBJ)) {
 	/* ok */
     }
     else {
@@ -945,7 +1011,6 @@ rb_tracepoint_enable(VALUE tpval)
 {
     rb_tp_t *tp;
 
-    rb_secure(4);
     tp = tpptr(tpval);
 
     if (tp->target_th) {
@@ -965,7 +1030,6 @@ rb_tracepoint_disable(VALUE tpval)
 {
     rb_tp_t *tp;
 
-    rb_secure(4);
     tp = tpptr(tpval);
 
     if (tp->target_th) {
@@ -1112,6 +1176,36 @@ tracepoint_new(VALUE klass, rb_thread_t *target_th, rb_event_flag_t events, void
     return tpval;
 }
 
+/*
+ * Creates a tracepoint by registering a callback function for one or more
+ * tracepoint events. Once the tracepoint is created, you can use
+ * rb_tracepoint_enable to enable the tracepoint.
+ *
+ * Parameters:
+ *   1. VALUE target_thval - Meant for picking the thread in which the tracepoint
+ *      is to be created. However, current implementation ignore this parameter,
+ *      tracepoint is created for all threads. Simply specify Qnil.
+ *   2. rb_event_flag_t events - Event(s) to listen to.
+ *   3. void (*func)(VALUE, void *) - A callback function.
+ *   4. void *data - Void pointer that will be passed to the callback function.
+ *
+ * When the callback function is called, it will be passed 2 parameters:
+ *   1)VALUE tpval - the TracePoint object from which trace args can be extracted.
+ *   2)void *data - A void pointer which helps to share scope with the callback function.
+ *
+ * It is important to note that you cannot register callbacks for normal events and internal events
+ * simultaneously because they are different purpose.
+ * You can use any Ruby APIs (calling methods and so on) on normal event hooks.
+ * However, in internal events, you can not use any Ruby APIs (even object creations).
+ * This is why we can't specify internal events by TracePoint directly.
+ * Limitations are MRI version specific.
+ *
+ * Example:
+ *   rb_tracepoint_new(Qnil, RUBY_INTERNAL_EVENT_NEWOBJ | RUBY_INTERNAL_EVENT_FREEOBJ, obj_event_i, data);
+ *
+ *   In this example, a callback function obj_event_i will be registered for
+ *   internal events RUBY_INTERNAL_EVENT_NEWOBJ and RUBY_INTERNAL_EVENT_FREEOBJ.
+ */
 VALUE
 rb_tracepoint_new(VALUE target_thval, rb_event_flag_t events, void (*func)(VALUE, void *), void *data)
 {
@@ -1136,10 +1230,10 @@ rb_tracepoint_new(VALUE target_thval, rb_event_flag_t events, void (*func)(VALUE
  *	trace = TracePoint.new(:call) do |tp|
  *	    p [tp.lineno, tp.defined_class, tp.method_id, tp.event]
  *	end
- *	#=> #<TracePoint:0x007f17372cdb20>
+ *	#=> #<TracePoint:disabled>
  *
  *	trace.enable
- *	#=> #<TracePoint:0x007f17372cdb20>
+ *	#=> false
  *
  *	puts "Hello, TracePoint!"
  *	# ...
@@ -1223,7 +1317,7 @@ tracepoint_inspect(VALUE self)
 	    {
 		VALUE sym = rb_tracearg_method_id(trace_arg);
 		if (NIL_P(sym))
-		  goto default_inspect;
+		    goto default_inspect;
 		return rb_sprintf("#<TracePoint:%"PRIsVALUE"@%"PRIsVALUE":%d in `%"PRIsVALUE"'>",
 				  rb_tracearg_event(trace_arg),
 				  rb_tracearg_path(trace_arg),
@@ -1257,6 +1351,50 @@ tracepoint_inspect(VALUE self)
     }
 }
 
+static void
+tracepoint_stat_event_hooks(VALUE hash, VALUE key, rb_event_hook_t *hook)
+{
+    int active = 0, deleted = 0;
+
+    while (hook) {
+	if (hook->hook_flags & RUBY_EVENT_HOOK_FLAG_DELETED) {
+	    deleted++;
+	}
+	else {
+	    active++;
+	}
+	hook = hook->next;
+    }
+
+    rb_hash_aset(hash, key, rb_ary_new3(2, INT2FIX(active), INT2FIX(deleted)));
+}
+
+/*
+ * call-seq:
+ *	TracePoint.stat -> obj
+ *
+ *  Returns internal information of TracePoint.
+ *
+ *  The contents of the returned value are implementation specific.
+ *  It may be changed in future.
+ *
+ *  This method is only for debugging TracePoint itself.
+ */
+
+static VALUE
+tracepoint_stat_s(VALUE self)
+{
+    rb_vm_t *vm = GET_VM();
+    VALUE stat = rb_hash_new();
+
+    tracepoint_stat_event_hooks(stat, vm->self, vm->event_hooks.hooks);
+    /* TODO: thread local hooks */
+
+    return stat;
+}
+
+static void Init_postponed_job(void);
+
 /* This function is called from inits.c */
 void
 Init_vm_trace(void)
@@ -1279,10 +1417,10 @@ Init_vm_trace(void)
      *	    trace = TracePoint.new(:raise) do |tp|
      *		p [tp.lineno, tp.event, tp.raised_exception]
      *	    end
-     *	    #=> #<TracePoint:0x007f786a452448>
+     *	    #=> #<TracePoint:disabled>
      *
      *	    trace.enable
-     *	    #=> #<TracePoint:0x007f786a452448>
+     *	    #=> false
      *
      *	    0 / 0
      *	    #=> [5, :raise, #<ZeroDivisionError: divided by 0>]
@@ -1310,11 +1448,11 @@ Init_vm_trace(void)
      * +:b_return+:: event hook at block ending
      * +:thread_begin+:: event hook at thread beginning
      * +:thread_end+:: event hook at thread ending
+     * +:fiber_switch+:: event hook at fiber switch
      *
      */
     rb_cTracePoint = rb_define_class("TracePoint", rb_cObject);
     rb_undef_alloc_func(rb_cTracePoint);
-    rb_undef_method(CLASS_OF(rb_cTracePoint), "new");
     rb_define_singleton_method(rb_cTracePoint, "new", tracepoint_new_s, -1);
     /*
      * Document-method: trace
@@ -1326,7 +1464,7 @@ Init_vm_trace(void)
      *  automatically.
      *
      *	    trace = TracePoint.trace(:call) { |tp| [tp.lineno, tp.event] }
-     *	    #=> #<TracePoint:0x007f786a452448>
+     *	    #=> #<TracePoint:enabled>
      *
      *	    trace.enabled? #=> true
      */
@@ -1347,5 +1485,132 @@ Init_vm_trace(void)
     rb_define_method(rb_cTracePoint, "self", tracepoint_attr_self, 0);
     rb_define_method(rb_cTracePoint, "return_value", tracepoint_attr_return_value, 0);
     rb_define_method(rb_cTracePoint, "raised_exception", tracepoint_attr_raised_exception, 0);
+
+    rb_define_singleton_method(rb_cTracePoint, "stat", tracepoint_stat_s, 0);
+
+    /* initialized for postponed job */
+
+    Init_postponed_job();
 }
 
+typedef struct rb_postponed_job_struct {
+    unsigned long flags; /* reserved */
+    struct rb_thread_struct *th; /* created thread, reserved */
+    rb_postponed_job_func_t func;
+    void *data;
+} rb_postponed_job_t;
+
+#define MAX_POSTPONED_JOB                  1000
+#define MAX_POSTPONED_JOB_SPECIAL_ADDITION   24
+
+static void
+Init_postponed_job(void)
+{
+    rb_vm_t *vm = GET_VM();
+    vm->postponed_job_buffer = ALLOC_N(rb_postponed_job_t, MAX_POSTPONED_JOB);
+    vm->postponed_job_index = 0;
+}
+
+enum postponed_job_register_result {
+    PJRR_SUCESS      = 0,
+    PJRR_FULL        = 1,
+    PJRR_INTERRUPTED = 2
+};
+
+static enum postponed_job_register_result
+postponed_job_register(rb_thread_t *th, rb_vm_t *vm,
+		       unsigned int flags, rb_postponed_job_func_t func, void *data, int max, int expected_index)
+{
+    rb_postponed_job_t *pjob;
+
+    if (expected_index >= max) return PJRR_FULL; /* failed */
+
+    if (ATOMIC_CAS(vm->postponed_job_index, expected_index, expected_index+1) == expected_index) {
+	pjob = &vm->postponed_job_buffer[expected_index];
+    }
+    else {
+	return PJRR_INTERRUPTED;
+    }
+
+    pjob->flags = flags;
+    pjob->th = th;
+    pjob->func = func;
+    pjob->data = data;
+
+    RUBY_VM_SET_POSTPONED_JOB_INTERRUPT(th);
+
+    return PJRR_SUCESS;
+}
+
+
+/* return 0 if job buffer is full */
+int
+rb_postponed_job_register(unsigned int flags, rb_postponed_job_func_t func, void *data)
+{
+    rb_thread_t *th = GET_THREAD();
+    rb_vm_t *vm = th->vm;
+
+  begin:
+    switch (postponed_job_register(th, vm, flags, func, data, MAX_POSTPONED_JOB, vm->postponed_job_index)) {
+      case PJRR_SUCESS     : return 1;
+      case PJRR_FULL       : return 0;
+      case PJRR_INTERRUPTED: goto begin;
+      default: rb_bug("unreachable\n");
+    }
+}
+
+/* return 0 if job buffer is full */
+int
+rb_postponed_job_register_one(unsigned int flags, rb_postponed_job_func_t func, void *data)
+{
+    rb_thread_t *th = GET_THREAD();
+    rb_vm_t *vm = th->vm;
+    rb_postponed_job_t *pjob;
+    int i, index;
+
+  begin:
+    index = vm->postponed_job_index;
+    for (i=0; i<index; i++) {
+	pjob = &vm->postponed_job_buffer[i];
+	if (pjob->func == func) {
+	    RUBY_VM_SET_POSTPONED_JOB_INTERRUPT(th);
+	    return 2;
+	}
+    }
+    switch (postponed_job_register(th, vm, flags, func, data, MAX_POSTPONED_JOB + MAX_POSTPONED_JOB_SPECIAL_ADDITION, index)) {
+      case PJRR_SUCESS     : return 1;
+      case PJRR_FULL       : return 0;
+      case PJRR_INTERRUPTED: goto begin;
+      default: rb_bug("unreachable\n");
+    }
+}
+
+void
+rb_postponed_job_flush(rb_vm_t *vm)
+{
+    rb_thread_t *th = GET_THREAD();
+    const unsigned long block_mask = POSTPONED_JOB_INTERRUPT_MASK|TRAP_INTERRUPT_MASK;
+    unsigned long saved_mask = th->interrupt_mask & block_mask;
+    VALUE saved_errno = th->errinfo;
+
+    th->errinfo = Qnil;
+    /* mask POSTPONED_JOB dispatch */
+    th->interrupt_mask |= block_mask;
+    {
+	TH_PUSH_TAG(th);
+	EXEC_TAG();
+	{
+	    int index;
+	    while ((index = vm->postponed_job_index) > 0) {
+		if (ATOMIC_CAS(vm->postponed_job_index, index, index-1) == index) {
+		    rb_postponed_job_t *pjob = &vm->postponed_job_buffer[index-1];
+		    (*pjob->func)(pjob->data);
+		}
+	    }
+	}
+	TH_POP_TAG();
+    }
+    /* restore POSTPONED_JOB mask */
+    th->interrupt_mask &= ~(saved_mask ^ block_mask);
+    th->errinfo = saved_errno;
+}

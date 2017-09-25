@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,8 @@
 #import "config.h"
 #import "WebProcessPool.h"
 
+#import "CookieStorageUtilsCF.h"
+#import "LegacyCustomProtocolManagerClient.h"
 #import "NetworkProcessCreationParameters.h"
 #import "NetworkProcessMessages.h"
 #import "NetworkProcessProxy.h"
@@ -85,8 +87,6 @@ static NSString * const WebKitNetworkCacheEfficacyLoggingEnabledDefaultsKey = @"
 static NSString * const WebKitSuppressMemoryPressureHandlerDefaultsKey = @"WebKitSuppressMemoryPressureHandler";
 static NSString * const WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey = @"WebKitNetworkLoadThrottleLatencyMilliseconds";
 
-static NSString * const WebKitVariationFontsEnabledDefaultsKey = @"ExperimentalVariationFontsEnabled";
-
 #if ENABLE(NETWORK_CAPTURE)
 static NSString * const WebKitRecordReplayModeDefaultsKey = @"WebKitRecordReplayMode";
 static NSString * const WebKitRecordReplayCacheLocationDefaultsKey = @"WebKitRecordReplayCacheLocation";
@@ -106,15 +106,13 @@ static void registerUserDefaultsIfNeeded()
     didRegister = true;
     NSMutableDictionary *registrationDictionary = [NSMutableDictionary dictionary];
     
-    [registrationDictionary setObject:[NSNumber numberWithBool:YES] forKey:WebKitJSCJITEnabledDefaultsKey];
-    [registrationDictionary setObject:[NSNumber numberWithBool:YES] forKey:WebKitJSCFTLJITEnabledDefaultsKey];
+    [registrationDictionary setObject:@YES forKey:WebKitJSCJITEnabledDefaultsKey];
+    [registrationDictionary setObject:@YES forKey:WebKitJSCFTLJITEnabledDefaultsKey];
 
 #if ENABLE(NETWORK_CACHE)
-    [registrationDictionary setObject:[NSNumber numberWithBool:YES] forKey:WebKitNetworkCacheEnabledDefaultsKey];
-    [registrationDictionary setObject:[NSNumber numberWithBool:NO] forKey:WebKitNetworkCacheEfficacyLoggingEnabledDefaultsKey];
+    [registrationDictionary setObject:@YES forKey:WebKitNetworkCacheEnabledDefaultsKey];
+    [registrationDictionary setObject:@NO forKey:WebKitNetworkCacheEfficacyLoggingEnabledDefaultsKey];
 #endif
-
-    [registrationDictionary setObject:[NSNumber numberWithBool:YES] forKey:WebKitVariationFontsEnabledDefaultsKey];
 
     [[NSUserDefaults standardUserDefaults] registerDefaults:registrationDictionary];
 }
@@ -149,6 +147,8 @@ void WebProcessPool::platformInitialize()
     IPC::setAllowsDecodingSecKeyRef(true);
     WebKit::WebMemoryPressureHandler::singleton();
 #endif
+
+    setLegacyCustomProtocolManagerClient(std::make_unique<LegacyCustomProtocolManagerClient>());
 }
 
 #if PLATFORM(IOS)
@@ -177,8 +177,6 @@ void WebProcessPool::platformResolvePathsForSandboxExtensions()
 
 void WebProcessPool::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
-    parameters.presenterApplicationPid = getpid();
-
 #if PLATFORM(MAC)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -237,14 +235,31 @@ void WebProcessPool::platformInitializeWebProcess(WebProcessCreationParameters& 
             [(NSData *)data release];
         }, data.leakRef());
     }
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
+
+#if PLATFORM(MAC)
+    ASSERT(parameters.uiProcessCookieStorageIdentifier.isEmpty());
+    parameters.uiProcessCookieStorageIdentifier = identifyingDataFromCookieStorage([[NSHTTPCookieStorage sharedHTTPCookieStorage] _cookieStorage]);
+#endif
+#if ENABLE(MEDIA_STREAM)
+    // Allow microphone access if either preference is set because WebRTC requires microphone access.
+    bool mediaDevicesEnabled = m_defaultPageGroup->preferences().mediaDevicesEnabled();
+    bool webRTCEnabled = m_defaultPageGroup->preferences().peerConnectionEnabled();
+    if ([defaults objectForKey:@"ExperimentalPeerConnectionEnabled"])
+        webRTCEnabled = [defaults boolForKey:@"ExperimentalPeerConnectionEnabled"];
+
+    bool isSafari = false;
+#if PLATFORM(IOS)
+    if (WebCore::IOSApplication::isMobileSafari())
+        isSafari = true;
+#elif PLATFORM(MAC)
+    if (WebCore::MacApplication::isSafari())
+        isSafari = true;
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
-    RetainPtr<CFDataRef> cookieStorageData = adoptCF(CFHTTPCookieStorageCreateIdentifyingData(kCFAllocatorDefault, [[NSHTTPCookieStorage sharedHTTPCookieStorage] _cookieStorage]));
-    ASSERT(parameters.uiProcessCookieStorageIdentifier.isEmpty());
-    parameters.uiProcessCookieStorageIdentifier.append(CFDataGetBytePtr(cookieStorageData.get()), CFDataGetLength(cookieStorageData.get()));
+    // FIXME: Remove this and related parameter when <rdar://problem/29448368> is fixed.
+    if (isSafari && !parameters.shouldCaptureAudioInUIProcess && mediaDevicesEnabled)
+        SandboxExtension::createHandleForGenericExtension("com.apple.webkit.microphone", parameters.audioCaptureExtensionHandle);
 #endif
 }
 
@@ -257,16 +272,11 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     parameters.parentProcessName = [[NSProcessInfo processInfo] processName];
     parameters.uiProcessBundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
 
-    for (const auto& scheme : globalURLSchemesWithCustomProtocolHandlers())
-        parameters.urlSchemesRegisteredForCustomProtocols.append(scheme);
-
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 
     parameters.httpProxy = [defaults stringForKey:WebKit2HTTPProxyDefaultsKey];
     parameters.httpsProxy = [defaults stringForKey:WebKit2HTTPSProxyDefaultsKey];
-#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
-#endif
 
 #if ENABLE(NETWORK_CACHE)
     parameters.shouldEnableNetworkCache = isNetworkCacheEnabled();
@@ -280,12 +290,11 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
 #endif
 
     parameters.shouldSuppressMemoryPressureHandler = [defaults boolForKey:WebKitSuppressMemoryPressureHandlerDefaultsKey];
-    parameters.loadThrottleLatency = std::chrono::milliseconds([defaults integerForKey:WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey]);
+    parameters.loadThrottleLatency = Seconds { [defaults integerForKey:WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey] / 1000. };
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
-    RetainPtr<CFDataRef> cookieStorageData = adoptCF(CFHTTPCookieStorageCreateIdentifyingData(kCFAllocatorDefault, [[NSHTTPCookieStorage sharedHTTPCookieStorage] _cookieStorage]));
+#if PLATFORM(MAC)
     ASSERT(parameters.uiProcessCookieStorageIdentifier.isEmpty());
-    parameters.uiProcessCookieStorageIdentifier.append(CFDataGetBytePtr(cookieStorageData.get()), CFDataGetLength(cookieStorageData.get()));
+    parameters.uiProcessCookieStorageIdentifier = identifyingDataFromCookieStorage([[NSHTTPCookieStorage sharedHTTPCookieStorage] _cookieStorage]);
 #endif
 
     parameters.cookieStoragePartitioningEnabled = cookieStoragePartitioningEnabled();
@@ -321,7 +330,7 @@ String WebProcessPool::networkingCachesDirectory() const
     NSError *error = nil;
     NSString* nsPath = path;
     if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath withIntermediateDirectories:YES attributes:nil error:&error]) {
-        NSLog(@"could not create \"%@\", error %@", nsPath, error);
+        NSLog(@"could not create networking caches directory \"%@\", error %@", nsPath, error);
         return String();
     }
 
@@ -340,7 +349,7 @@ String WebProcessPool::webContentCachesDirectory() const
     NSError *error = nil;
     NSString* nsPath = path;
     if (![[NSFileManager defaultManager] createDirectoryAtPath:nsPath withIntermediateDirectories:YES attributes:nil error:&error]) {
-        NSLog(@"could not create \"%@\", error %@", nsPath, error);
+        NSLog(@"could not create web content caches directory \"%@\", error %@", nsPath, error);
         return String();
     }
 
@@ -454,6 +463,33 @@ String WebProcessPool::legacyPlatformDefaultNetworkCacheDirectory()
     return stringByResolvingSymlinksInPath([cachePath stringByStandardizingPath]);
 }
 
+String WebProcessPool::legacyPlatformDefaultJavaScriptConfigurationDirectory()
+{
+#if PLATFORM(IOS)
+    String path = pathForProcessContainer();
+    if (path.isEmpty())
+        path = NSHomeDirectory();
+    
+    path = path + "/Library/WebKit/JavaScriptCoreDebug";
+    path = stringByResolvingSymlinksInPath(path);
+
+    return path;
+#else
+    RetainPtr<NSString> javaScriptConfigPath = @"~/Library/WebKit/JavaScriptCoreDebug";
+    
+    return stringByResolvingSymlinksInPath([javaScriptConfigPath stringByStandardizingPath]);
+#endif
+}
+
+#if PLATFORM(IOS)
+void WebProcessPool::setJavaScriptConfigurationFileEnabledFromDefaults()
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+
+    setJavaScriptConfigurationFileEnabled([defaults boolForKey:@"WebKitJavaScriptCoreUseConfigFile"]);
+}
+#endif
+
 bool WebProcessPool::isNetworkCacheEnabled()
 {
 #if ENABLE(NETWORK_CACHE)
@@ -556,9 +592,7 @@ void WebProcessPool::resetHSTSHostsAddedAfterDate(double startDateIntervalSince1
 {
     NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:startDateIntervalSince1970];
     _CFNetworkResetHSTSHostsSinceDate(nullptr, (__bridge CFDateRef)startDate);
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     _CFNetworkResetHSTSHostsSinceDate(privateBrowsingSession(), (__bridge CFDateRef)startDate);
-#endif
 }
 
 void WebProcessPool::setCookieStoragePartitioningEnabled(bool enabled)

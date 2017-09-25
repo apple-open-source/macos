@@ -27,6 +27,7 @@
 #define _CSSMKRSPI_H_  1
 
 #include <Security/cssmtype.h>
+#include <Security/cssmkrapi.h> /* CSSM_KRSP_HANDLE */
 
 #ifdef __cplusplus
 extern "C" {

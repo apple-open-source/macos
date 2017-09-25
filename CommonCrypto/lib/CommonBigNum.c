@@ -53,7 +53,7 @@ cc_realloc(void *ctx CC_UNUSED, size_t oldsize,
     return r;
 }
 
-static const struct ccz_class ccz_c = {
+static struct ccz_class ccz_c = {
 	.ctx = 0,
 	.ccz_alloc = cc_alloc,
 	.ccz_realloc = cc_realloc,

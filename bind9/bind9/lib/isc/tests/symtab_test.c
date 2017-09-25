@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2011-2013  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -55,7 +55,7 @@ ATF_TC_BODY(symtab_grow, tc) {
 
 	UNUSED(tc);
 
-	result = isc_test_begin(NULL);
+	result = isc_test_begin(NULL, ISC_TRUE);
 	ATF_REQUIRE_EQ(result, ISC_R_SUCCESS);
 
 	result = isc_symtab_create(mctx, 3, undefine, NULL, ISC_FALSE, &st);
@@ -107,7 +107,7 @@ ATF_TC_BODY(symtab_grow, tc) {
 		snprintf(str, sizeof(str), "%04x", i);
 		result = isc_symtab_lookup(st, str, 0, &value);
 		ATF_CHECK_EQ(result, ISC_R_SUCCESS);
-		ATF_CHECK_STREQ(str, value.as_pointer);
+		ATF_CHECK_STREQ(str, (char *)value.as_pointer);
 	}
 
 	/*

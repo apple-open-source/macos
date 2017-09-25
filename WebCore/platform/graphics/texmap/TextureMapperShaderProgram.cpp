@@ -144,6 +144,7 @@ static const char* fragmentTemplate =
     STRINGIFY(
         precision TextureSpaceMatrixPrecision float;
         uniform mat4 u_textureSpaceMatrix;
+        uniform mat4 u_textureColorSpaceMatrix;
         precision mediump float;
         uniform SamplerType s_sampler;
         uniform sampler2D s_contentTexture;
@@ -159,6 +160,7 @@ static const char* fragmentTemplate =
 
         void noop(inout vec4 dummyParameter) { }
         void noop(inout vec4 dummyParameter, vec2 texCoord) { }
+        void noop(inout vec2 dummyParameter) { }
 
         float antialias() { return smoothstep(0., 1., v_antialias); }
 
@@ -170,7 +172,9 @@ static const char* fragmentTemplate =
 
         vec2 vertexTransformTexCoord() { return v_transformedTexCoord; }
 
-        void applyTexture(inout vec4 color, vec2 texCoord) { color = SamplerFunction(s_sampler, texCoord); }
+        void applyManualRepeat(inout vec2 pos) { pos = fract(pos); }
+
+        void applyTexture(inout vec4 color, vec2 texCoord) { color = u_textureColorSpaceMatrix * SamplerFunction(s_sampler, texCoord); }
         void applyOpacity(inout vec4 color) { color *= u_opacity; }
         void applyAntialiasing(inout vec4 color) { color *= antialias(); }
 
@@ -281,6 +285,7 @@ static const char* fragmentTemplate =
         {
             vec4 color = vec4(1., 1., 1., 1.);
             vec2 texCoord = transformTexCoord();
+            applyManualRepeatIfNeeded(texCoord);
             applyTextureIfNeeded(color, texCoord);
             applySolidColorIfNeeded(color);
             applyAntialiasingIfNeeded(color);
@@ -323,6 +328,7 @@ Ref<TextureMapperShaderProgram> TextureMapperShaderProgram::create(Ref<GraphicsC
     SET_APPLIER_FROM_OPTIONS(BlurFilter);
     SET_APPLIER_FROM_OPTIONS(AlphaBlur);
     SET_APPLIER_FROM_OPTIONS(ContentTexture);
+    SET_APPLIER_FROM_OPTIONS(ManualRepeat);
 
     StringBuilder vertexShaderBuilder;
     vertexShaderBuilder.append(optionsApplierBuilder.toString());

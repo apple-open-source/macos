@@ -25,36 +25,46 @@
 
 #pragma once
 
-#include "CachedModuleScript.h"
-#include "CachedModuleScriptClient.h"
 #include "LoadableScript.h"
 #include <wtf/TypeCasts.h>
 
 namespace WebCore {
 
-class LoadableModuleScript final : public LoadableScript, private CachedModuleScriptClient {
+class ScriptSourceCode;
+
+class LoadableModuleScript final : public LoadableScript {
 public:
     virtual ~LoadableModuleScript();
 
-    static Ref<LoadableModuleScript> create(CachedModuleScript&);
+    static Ref<LoadableModuleScript> create(const String& nonce, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree);
 
     bool isLoaded() const final;
     std::optional<Error> error() const final;
     bool wasCanceled() const final;
 
-    CachedModuleScript& moduleScript() { return m_moduleScript.get(); }
+    bool isClassicScript() const final { return false; }
     bool isModuleScript() const final { return true; }
 
     void execute(ScriptElement&) final;
 
     void setError(Error&&);
 
+    void load(Document&, const URL& rootURL);
+    void load(Document&, const ScriptSourceCode&);
+
+    void notifyLoadCompleted(UniquedStringImpl&);
+    void notifyLoadFailed(LoadableScript::Error&&);
+    void notifyLoadWasCanceled();
+
+    UniquedStringImpl* moduleKey() const { return m_moduleKey.get(); }
+
 private:
-    LoadableModuleScript(CachedModuleScript&);
+    LoadableModuleScript(const String& nonce, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree);
 
-    void notifyFinished(CachedModuleScript&) final;
-
-    Ref<CachedModuleScript> m_moduleScript;
+    RefPtr<UniquedStringImpl> m_moduleKey;
+    std::optional<LoadableScript::Error> m_error;
+    bool m_wasCanceled { false };
+    bool m_isLoaded { false };
 };
 
 }

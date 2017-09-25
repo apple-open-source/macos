@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 #
 #               tk/text.rb - Tk text classes
 #                       by Yukihiro Matsumoto <matz@caelum.co.jp>
@@ -352,7 +353,7 @@ class Tk::Text<TkTextWin
       || tag.kind_of?(TkTextWindow)
       tag.id
     else
-      tag  # maybe an Array of configure paramters
+      tag  # maybe an Array of configure parameters
     end
   end
   private :tagid

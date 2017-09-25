@@ -158,6 +158,11 @@
 <li><a href="mod_proxy.html#balancerinherit">BalancerInherit</a></li>
 <li><a href="mod_proxy.html#balancermember">BalancerMember</a></li>
 <li><a href="mod_proxy.html#balancerpersist">BalancerPersist</a></li>
+<li><a href="mod_brotli.html#brotlialteretag">BrotliAlterETag</a></li>
+<li><a href="mod_brotli.html#brotlicompressionmaxinputblock">BrotliCompressionMaxInputBlock</a></li>
+<li><a href="mod_brotli.html#brotlicompressionquality">BrotliCompressionQuality</a></li>
+<li><a href="mod_brotli.html#brotlicompressionwindow">BrotliCompressionWindow</a></li>
+<li><a href="mod_brotli.html#brotlifilternote">BrotliFilterNote</a></li>
 <li><a href="mod_setenvif.html#browsermatch">BrowserMatch</a></li>
 <li><a href="mod_setenvif.html#browsermatchnocase">BrowserMatchNoCase</a></li>
 <li><a href="mod_log_config.html#bufferedlogs">BufferedLogs</a></li>
@@ -300,7 +305,6 @@
 <li><a href="mod_http2.html#h2pushpriority">H2PushPriority</a></li>
 <li><a href="mod_http2.html#h2pushresource">H2PushResource</a></li>
 <li><a href="mod_http2.html#h2serializeheaders">H2SerializeHeaders</a></li>
-<li><a href="mod_http2.html#h2sessionextrafiles">H2SessionExtraFiles</a></li>
 <li><a href="mod_http2.html#h2streammaxmemsize">H2StreamMaxMemSize</a></li>
 <li><a href="mod_http2.html#h2tlscooldownsecs">H2TLSCoolDownSecs</a></li>
 <li><a href="mod_http2.html#h2tlswarmupsize">H2TLSWarmUpSize</a></li>
@@ -447,6 +451,8 @@
 <li><a href="mod_proxy_express.html#proxyexpressdbmfile">ProxyExpressDBMFile</a></li>
 <li><a href="mod_proxy_express.html#proxyexpressdbmtype">ProxyExpressDBMType</a></li>
 <li><a href="mod_proxy_express.html#proxyexpressenable">ProxyExpressEnable</a></li>
+<li><a href="mod_proxy_fcgi.html#proxyfcgibackendtype">ProxyFCGIBackendType</a></li>
+<li><a href="mod_proxy_fcgi.html#proxyfcgisetenvif">ProxyFCGISetEnvIf</a></li>
 <li><a href="mod_proxy_ftp.html#proxyftpdircharset">ProxyFtpDirCharset</a></li>
 <li><a href="mod_proxy_ftp.html#proxyftpescapewildcards">ProxyFtpEscapeWildcards</a></li>
 <li><a href="mod_proxy_ftp.html#proxyftplistonwildcard">ProxyFtpListOnWildcard</a></li>
@@ -600,8 +606,10 @@
 <li><a href="mod_ssl.html#sslinsecurerenegotiation">SSLInsecureRenegotiation</a></li>
 <li><a href="mod_ssl.html#sslocspdefaultresponder">SSLOCSPDefaultResponder</a></li>
 <li><a href="mod_ssl.html#sslocspenable">SSLOCSPEnable</a></li>
+<li><a href="mod_ssl.html#sslocspnoverify">SSLOCSPNoverify</a></li>
 <li><a href="mod_ssl.html#sslocspoverrideresponder">SSLOCSPOverrideResponder</a></li>
 <li><a href="mod_ssl.html#sslocspproxyurl">SSLOCSPProxyURL</a></li>
+<li><a href="mod_ssl.html#sslocsprespondercertificatefile">SSLOCSPResponderCertificateFile</a></li>
 <li><a href="mod_ssl.html#sslocsprespondertimeout">SSLOCSPResponderTimeout</a></li>
 <li><a href="mod_ssl.html#sslocspresponsemaxage">SSLOCSPResponseMaxAge</a></li>
 <li><a href="mod_ssl.html#sslocspresponsetimeskew">SSLOCSPResponseTimeSkew</a></li>
@@ -716,7 +724,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/directives.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

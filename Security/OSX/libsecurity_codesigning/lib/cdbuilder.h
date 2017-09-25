@@ -59,7 +59,11 @@ public:
 	
 	Scatter *scatter(unsigned count);			// allocate that many scatter elements (w/o sentinel)
 	Scatter *scatter() { return mScatter; }		// return already allocated scatter vector
-	
+
+	void execSeg(uint64_t base, uint64_t limit, uint64_t flags) {
+		mExecSegOffset = base; mExecSegLimit = limit; mExecSegFlags = flags; }
+	void addExecSegFlags(uint64_t flags) { mExecSegFlags |= flags; }
+
 	size_t size(const uint32_t version);		// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
     size_t fixedSize(const uint32_t version);	// calculate fixed size of the CodeDirectory
@@ -93,7 +97,11 @@ private:
 	
 	Scatter *mScatter;							// scatter vector
 	size_t mScatterSize;						// number of scatter elements allocated (incl. sentinel)
-	
+
+	uint64_t mExecSegOffset;					// starting offset of executable segment
+	uint64_t mExecSegLimit;						// limit of executable segment
+	uint64_t mExecSegFlags;						// executable segment flags
+
 	CodeDirectory *mDir;						// what we're building
 };
 

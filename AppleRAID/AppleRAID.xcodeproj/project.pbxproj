@@ -137,6 +137,7 @@
 		59CD7BE00634F4FC00F84FF8 /* AppleRAID.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleRAID.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDStripeSet.cpp; sourceTree = "<group>"; };
 		59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDStripeSet.h; sourceTree = "<group>"; };
+		72ED1B9B1F16D53200E3AF97 /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -212,6 +213,7 @@
 		59532CBC0682611E00CA9D0A /* Driver */ = {
 			isa = PBXGroup;
 			children = (
+				72ED1B9B1F16D53200E3AF97 /* kext.xcconfig */,
 				59CD7BDF0634F4FC00F84FF8 /* AppleRAID-Info.plist */,
 				594BF75606EE6F2000C2FDA0 /* AppleRAID */,
 				594BF76C06EE6FF500C2FDA0 /* RAID Plugins */,
@@ -484,6 +486,7 @@
 /* Begin XCBuildConfiguration section */
 		591B6A9608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72ED1B9B1F16D53200E3AF97 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -521,6 +524,7 @@
 		};
 		591B6A9708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72ED1B9B1F16D53200E3AF97 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
@@ -556,6 +560,7 @@
 		};
 		591B6A9808980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72ED1B9B1F16D53200E3AF97 /* kext.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";

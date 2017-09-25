@@ -41,7 +41,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
 
 /*!
     @typedef SecRandomRef
-    @abstract Reference to a (psuedo) random number generator.
+    @abstract Reference to a (pseudo) random number generator.
 */
 typedef const struct __SecRandom * SecRandomRef;
 
@@ -54,10 +54,9 @@ extern const SecRandomRef kSecRandomDefault
      @function SecRandomCopyBytes
      @abstract Return count random bytes in *bytes, allocated by the caller.
         It is critical to check the return value for error
-     @result Return 0 on success or -1 if something went wrong, check errno
-     to find out the real error.
+     @result Return 0 on success, any other value on failure.
 */
-int SecRandomCopyBytes(SecRandomRef __nullable rnd, size_t count, uint8_t *bytes)
+int SecRandomCopyBytes(SecRandomRef __nullable rnd, size_t count, void *bytes)
     __attribute__ ((warn_unused_result))
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 

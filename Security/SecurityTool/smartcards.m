@@ -11,9 +11,8 @@ const CFStringRef kTKDisabledTokensPreferencesKey  = CFSTR("DisabledTokens");
 
 static void listDisabledTokens() {
     id value = (__bridge_transfer id)CFPreferencesCopyValue(kTKDisabledTokensPreferencesKey, kTKSmartCardPreferencesDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (![value isKindOfClass:NSArray.class])
+    if (value && ![value isKindOfClass:NSArray.class])
         return;
-
     NSArray *disabledTokens = (NSArray*)value;
     for (id tokenName in disabledTokens) {
         if ([tokenName isKindOfClass:NSString.class]) {
@@ -24,7 +23,7 @@ static void listDisabledTokens() {
 
 static void disable(const char *tokenToDisable) {
     id value = (__bridge_transfer id)CFPreferencesCopyValue(kTKDisabledTokensPreferencesKey, kTKSmartCardPreferencesDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (![value isKindOfClass:NSArray.class])
+    if (value && ![value isKindOfClass:NSArray.class])
         return;
     NSMutableArray *disabledTokens = [NSMutableArray arrayWithArray:value];
     NSString *tokenName = [NSString stringWithUTF8String:tokenToDisable];
@@ -40,9 +39,8 @@ static void disable(const char *tokenToDisable) {
 
 static void enable(const char *tokenToEnable) {
     id value = (__bridge_transfer id)CFPreferencesCopyValue(kTKDisabledTokensPreferencesKey, kTKSmartCardPreferencesDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (![value isKindOfClass:NSArray.class])
+    if (value && ![value isKindOfClass:NSArray.class])
         return;
-
     NSString *tokenName = [NSString stringWithUTF8String:tokenToEnable];
     NSMutableArray *disabledTokens = [NSMutableArray arrayWithArray:value];
     if ([disabledTokens containsObject:tokenName]) {

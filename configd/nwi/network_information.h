@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,8 @@ __BEGIN_DECLS
 /*
  * Function: nwi_state_copy
  * Purpose:
- *   Returns the current network state information.
+ *   Returns the current network state information; NULL if no state
+ *	information is currently available.
  *   Release after use by calling nwi_state_release().
  */
 nwi_state_t

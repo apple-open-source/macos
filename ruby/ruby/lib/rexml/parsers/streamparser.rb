@@ -1,3 +1,6 @@
+# frozen_string_literal: false
+require "rexml/parsers/baseparser"
+
 module REXML
   module Parsers
     class StreamParser
@@ -38,6 +41,10 @@ module REXML
             @listener.send( event[0].to_s, *event[1..-1] )
           when :entitydecl, :notationdecl
             @listener.send( event[0].to_s, event[1..-1] )
+          when :externalentity
+            entity_reference = event[1]
+            content = entity_reference.gsub(/\A%|;\z/, "")
+            @listener.entity(content)
           end
         end
       end

@@ -275,7 +275,7 @@ void ItemImpl::fillDbAttributesFromSchema(DbAttributes& dbAttributes, CSSM_DB_RE
     SecKeychainAttributeInfo* infos;
     keychain->getAttributeInfoForItemID(recordType, &infos);
 
-    secnotice("integrity", "filling %u attributes for type %u", (unsigned int)infos->count, recordType);
+    secinfo("integrity", "filling %u attributes for type %u", (unsigned int)infos->count, recordType);
 
     for (uint32 i = 0; i < infos->count; i++) {
         CSSM_DB_ATTRIBUTE_INFO info;
@@ -293,7 +293,7 @@ void ItemImpl::fillDbAttributesFromSchema(DbAttributes& dbAttributes, CSSM_DB_RE
 
 DbAttributes* ItemImpl::getCurrentAttributes() {
     DbAttributes* dbAttributes;
-    secnotice("integrity", "getting current attributes...");
+    secinfo("integrity", "getting current attributes...");
 
     if(mUniqueId.get()) {
         // If we have a unique id, there's an item in the database backing us. Ask for its attributes.
@@ -303,7 +303,7 @@ DbAttributes* ItemImpl::getCurrentAttributes() {
 
         // and fold in any updates.
         if(mDbAttributes.get()) {
-            secnotice("integrity", "adding %d attributes from mDbAttributes", mDbAttributes->size());
+            secinfo("integrity", "adding %d attributes from mDbAttributes", mDbAttributes->size());
             dbAttributes->updateWithDbAttributes(&(*mDbAttributes.get()));
         }
     } else if (mDbAttributes.get()) {
@@ -335,7 +335,7 @@ void ItemImpl::encodeAttributesFromDictionary(CssmOwnedData &attributeBlob, DbAt
     CFRef<CFMutableDictionaryRef> attributes;
     attributes.take(CFDictionaryCreateMutable(NULL, dbAttributes->size(), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-    secnotice("integrity", "looking at %d attributes", dbAttributes->size());
+    secinfo("integrity", "looking at %d attributes", dbAttributes->size());
     // TODO: include record type and semantic information?
 
     for(int i = 0; i < dbAttributes->size(); i++) {
@@ -461,7 +461,7 @@ void ItemImpl::computeDigestFromDictionary(CssmOwnedData &sha2, DbAttributes* db
 
         sha2.length(CC_SHA256_DIGEST_LENGTH);
         CC_SHA256(attributeBlob.get().data(), static_cast<CC_LONG>(attributeBlob.get().length()), sha2);
-        secnotice("integrity", "finished: %s", sha2.get().toHex().c_str());
+        secinfo("integrity", "finished: %s", sha2.get().toHex().c_str());
     } catch (MacOSError mose) {
         secnotice("integrity", "MacOSError: %d", (int)mose.osStatus());
     } catch (...) {
@@ -471,7 +471,7 @@ void ItemImpl::computeDigestFromDictionary(CssmOwnedData &sha2, DbAttributes* db
 
 void ItemImpl::addIntegrity(Access &access, bool force) {
     if(!force && (!mKeychain || !mKeychain->hasIntegrityProtection())) {
-        secnotice("integrity", "skipping integrity add due to keychain version\n");
+        secinfo("integrity", "skipping integrity add due to keychain version\n");
         return;
     }
 
@@ -486,7 +486,7 @@ void ItemImpl::addIntegrity(Access &access, bool force) {
     if(acls.size() >= 1) {
         // Use the existing ACL
         acl = acls[0];
-        secnotice("integrity", "previous integrity acl exists; setting integrity");
+        secinfo("integrity", "previous integrity acl exists; setting integrity");
         acl->setIntegrity(digest.get());
 
         // Delete all extra ACLs
@@ -566,7 +566,7 @@ bool ItemImpl::checkIntegrity() {
     }
 
     if(!mKeychain || !mKeychain->hasIntegrityProtection()) {
-        secnotice("integrity", "skipping integrity check due to keychain version");
+        secinfo("integrity", "skipping integrity check due to keychain version");
         return true;
     }
 
@@ -583,7 +583,7 @@ bool ItemImpl::checkIntegrity() {
 
 bool ItemImpl::checkIntegrity(AclBearer& aclBearer) {
     if(!mKeychain || !mKeychain->hasIntegrityProtection()) {
-        secnotice("integrity", "skipping integrity check due to keychain version");
+        secinfo("integrity", "skipping integrity check due to keychain version");
         return true;
     }
 
@@ -731,6 +731,7 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 
     try {
         mKeychain = keychain;
+        StLock<Mutex>_(*(mKeychain->getKeychainMutex())); // must hold this mutex before calling db->insert
 
         Db db(keychain->database());
         if (mDoNotEncrypt)
@@ -818,6 +819,9 @@ ItemImpl::update()
 	if (!isModified())
 		return;
 
+    // Hold this before modifying the db below
+    StLock<Mutex>__(*(mKeychain->getKeychainMutex()));
+
 	CSSM_DB_RECORDTYPE aRecordType = recordType();
 	KeychainSchema schema = mKeychain->keychainSchema();
 
@@ -896,7 +900,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
     // If there aren't any attributes, make up some blank ones.
     if (!mDbAttributes.get())
     {
-        secnotice("integrity", "making new dbattributes");
+        secinfo("integrity", "making new dbattributes");
         mDbAttributes.reset(new DbAttributes());
         mDbAttributes->recordType(mPrimaryKey->recordType());
     }
@@ -914,7 +918,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
 
     if ((!access) && (haveOldUniqueId)) {
         // Copy the ACL from the old group.
-        secnotice("integrity", "copying old ACL");
+        secinfo("integrity", "copying old ACL");
         access = new Access(*(ssGroup));
 
         // We can't copy these over to the new item; they're going to be reset.
@@ -922,27 +926,13 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
         access->removeAclsForRight(CSSM_ACL_AUTHORIZATION_PARTITION_ID);
         access->removeAclsForRight(CSSM_ACL_AUTHORIZATION_INTEGRITY);
     } else if (!access) {
-        secnotice("integrity", "setting up new ACL");
+        secinfo("integrity", "setting up new ACL");
         // create default access controls for the new item
         CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr));
         string printName = data ? CssmData::overlay(data->Value[0]).toString() : "keychain item";
         access = new Access(printName);
-
-        // special case for "iTools" password - allow anyone to decrypt the item
-        if (recordType == CSSM_DL_DB_RECORD_GENERIC_PASSWORD)
-        {
-            CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecServiceItemAttr));
-            if (data && data->Value[0].Length == 6 && !memcmp("iTools", data->Value[0].Data, 6))
-            {
-                typedef vector<SecPointer<ACL> > AclSet;
-                AclSet acls;
-                access->findAclsForRight(CSSM_ACL_AUTHORIZATION_DECRYPT, acls);
-                for (AclSet::const_iterator it = acls.begin(); it != acls.end(); it++)
-                    (*it)->form(ACL::allowAllForm);
-            }
-        }
     } else {
-        secnotice("integrity", "passed an Access, use it");
+        secinfo("integrity", "passed an Access, use it");
         // Access is non-null. Do nothing.
     }
 
@@ -962,17 +952,17 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
     maker.initialOwner(prototype, nullCred);
 
     if(saveToNewSSGroup) {
-        secnotice("integrity", "saving to a new SSGroup");
+        secinfo("integrity", "saving to a new SSGroup");
 
         // If we're updating an item, it has an old group and possibly an
         // old mUniqueId. Delete these from the database, so we can insert
         // new ones.
         if(haveOldUniqueId) {
-            secnotice("integrity", "deleting old mUniqueId");
+            secinfo("integrity", "deleting old mUniqueId");
             mUniqueId->deleteRecord();
             mUniqueId.release();
         } else {
-            secnotice("integrity", "no old mUniqueId");
+            secinfo("integrity", "no old mUniqueId");
         }
 
         // Create a new SSGroup with temporary access controls
@@ -1016,7 +1006,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
         }
     } else {
         // Modify the old SSGroup
-        secnotice("integrity", "modifying the existing SSGroup");
+        secinfo("integrity", "modifying the existing SSGroup");
 
         try {
             doChange(keychain, recordType, ^{
@@ -1088,7 +1078,7 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
 
             // Only check for corrupt items if the keychain supports them
             if((!kc) || !kc->hasIntegrityProtection()) {
-                secnotice("integrity", "skipping integrity check for corrupt items due to keychain support");
+                secinfo("integrity", "skipping integrity check for corrupt items due to keychain support");
                 throw;
             } else {
                 primaryKeyAttrs.reset(getCurrentAttributes());
@@ -1109,7 +1099,7 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
                     // Our keychain doesn't know about any item with this primary key, so maybe
                     // we have a corrupt item in the database. Let's check.
 
-                    secnotice("integrity", "making a cursor from primary key");
+                    secinfo("integrity", "making a cursor from primary key");
                     CssmClient::DbCursor cursor = pk->createCursor(kc);
                     DbUniqueRecord uniqueId;
 
@@ -1123,7 +1113,7 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
                     // Occasionally this cursor won't return the item attributes (for an unknown reason).
                     // However, we know the attributes any item with this primary key should have, so use those instead.
                     while (cursor->next(dbDupAttributes.get(), NULL, uniqueId)) {
-                        secnotice("integrity", "got an item...");
+                        secinfo("integrity", "got an item...");
 
                         SSGroup group = safer_cast<SSDbUniqueRecordImpl &>(*uniqueId).group();
                         if(!ItemImpl::checkIntegrityFromDictionary(*group, dbDupAttributes.get())) {
@@ -1227,7 +1217,7 @@ ItemImpl::dbUniqueRecord()
     // Check that our Db still matches our keychain's db. If not, find this item again in the new Db.
     // Why silly !(x == y) construction? Compiler calls operator bool() on each pointer otherwise.
     if(!(mUniqueId->database() == keychain()->database())) {
-        secnotice("integrity", "updating db of mUniqueRecord");
+        secinfo("integrity", "updating db of mUniqueRecord");
 
         DbCursor cursor(mPrimaryKey->createCursor(mKeychain));
         if (!cursor->next(NULL, NULL, mUniqueId))
@@ -1314,7 +1304,7 @@ void
 ItemImpl::modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLength, const void *inData)
 {
 	StLock<Mutex>_(mMutex);
-    unique_ptr<StReadWriteLock> __(mKeychain == NULL ? NULL : new StReadWriteLock(*(mKeychain->getKeychainReadWriteLock()), StReadWriteLock::Write));
+    StMaybeLock<Mutex>__ (mKeychain == NULL ? NULL : mKeychain->getKeychainMutex());
 
 	if (!mDbAttributes.get())
 	{
@@ -1536,29 +1526,35 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 	if (info && attrList)
 	{
 		SecKeychainAttributeList *theList=reinterpret_cast<SecKeychainAttributeList *>(malloc(sizeof(SecKeychainAttributeList)));
-		SecKeychainAttribute *attr=reinterpret_cast<SecKeychainAttribute *>(malloc(sizeof(SecKeychainAttribute)*attrCount));
-		theList->count=attrCount;
-		theList->attr=attr;
 
-		for (UInt32 ix = 0; ix < attrCount; ++ix)
-		{
-			attr[ix].tag=info->tag[ix];
+        if(attrCount == 0) {
+            theList->count = 0;
+            theList->attr = NULL;
+        } else {
+            SecKeychainAttribute *attr=reinterpret_cast<SecKeychainAttribute *>(malloc(sizeof(SecKeychainAttribute)*attrCount));
+            theList->count=attrCount;
+            theList->attr=attr;
 
-			if (dbAttributes.at(ix).NumberOfValues > 0)
-			{
-				attr[ix].data = dbAttributes.at(ix).Value[0].Data;
-				attr[ix].length = (UInt32)dbAttributes.at(ix).Value[0].Length;
+            for (UInt32 ix = 0; ix < attrCount; ++ix)
+            {
+                attr[ix].tag=info->tag[ix];
 
-				// We don't want the data released, it is up the client
-				dbAttributes.at(ix).Value[0].Data = NULL;
-				dbAttributes.at(ix).Value[0].Length = 0;
-			}
-			else
-			{
-				attr[ix].data = NULL;
-				attr[ix].length = 0;
-			}
-		}
+                if (dbAttributes.at(ix).NumberOfValues > 0)
+                {
+                    attr[ix].data = dbAttributes.at(ix).Value[0].Data;
+                    attr[ix].length = (UInt32)dbAttributes.at(ix).Value[0].Length;
+
+                    // We don't want the data released, it is up the client
+                    dbAttributes.at(ix).Value[0].Data = NULL;
+                    dbAttributes.at(ix).Value[0].Length = 0;
+                }
+                else
+                {
+                    attr[ix].data = NULL;
+                    attr[ix].length = 0;
+                }
+            }
+        }
 		*attrList=theList;
 	}
 

@@ -338,9 +338,9 @@ zle_set_highlight(void)
 	for (; *atrs; atrs++) {
 	    if (!strcmp(*atrs, "none")) {
 		/* reset attributes for consistency... usually unnecessary */
-		special_atr_on = default_atr_on =
-		    paste_atr_on_set = 0;
-		special_atr_on_set = region_atr_on_set =
+		special_atr_on = default_atr_on = 0;
+		special_atr_on_set = 1;
+		paste_atr_on_set = region_atr_on_set =
 		    isearch_atr_on_set = suffix_atr_on_set = 1;
 	    } else if (strpfx("default:", *atrs)) {
 		match_highlight(*atrs + 8, &default_atr_on);
@@ -946,7 +946,7 @@ addmultiword(REFRESH_ELEMENT *base, ZLE_STRING_T tptr, int ichars)
 
 /*
  * Swap the old and new video buffers, plus any associated multiword
- * buffers.  The new buffer becomes the old one; the new new buffer
+ * buffers.  The new buffer becomes the old one; the new buffer
  * will be filled with the command line next time.
  */
 static void
@@ -1143,8 +1143,7 @@ zrefresh(void)
 	tsetcap(TCALLATTRSOFF, 0);
 	tsetcap(TCSTANDOUTEND, 0);
 	tsetcap(TCUNDERLINEEND, 0);
-	/* cheat on attribute unset */
-	txtunset(TXTBOLDFACE|TXTSTANDOUT|TXTUNDERLINE);
+	txtattrmask = 0;
 
 	if (trashedzle && !clearflag)
 	    reexpandprompt(); 
@@ -2424,6 +2423,7 @@ clearscreen(UNUSED(char **args))
     tcoutclear(TCCLEARSCREEN);
     resetneeded = 1;
     clearflag = 0;
+    reexpandprompt();
     return 0;
 }
 
@@ -2434,8 +2434,8 @@ redisplay(UNUSED(char **args))
     moveto(0, 0);
     zputc(&zr_cr);		/* extra care */
     tc_upcurs(lprompth - 1);
-    resetneeded = 1;
-    clearflag = 0;
+    resetneeded = !showinglist;
+    clearflag = showinglist;
     return 0;
 }
 

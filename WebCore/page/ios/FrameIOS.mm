@@ -27,7 +27,7 @@
 
 #if PLATFORM(IOS)
 
-#import "AnimationController.h"
+#import "CSSAnimationController.h"
 #import "CommonVM.h"
 #import "DOMWindow.h"
 #import "Document.h"
@@ -79,7 +79,7 @@ namespace WebCore {
 // Create <html><body (style="...")></body></html> doing minimal amount of work.
 void Frame::initWithSimpleHTMLDocument(const String& style, const URL& url)
 {
-    m_loader.initForSynthesizedDocument(url);
+    m_loader->initForSynthesizedDocument(url);
 
     RefPtr<HTMLDocument> document = HTMLDocument::createSynthesizedDocument(this, url);
     document->setCompatibilityMode(DocumentCompatibilityMode::LimitedQuirksMode);
@@ -510,7 +510,7 @@ void Frame::updateLayout() const
         view->adjustViewSize();
 }
 
-NSRect Frame::caretRect() const
+NSRect Frame::caretRect()
 {
     VisibleSelection visibleSelection = selection().selection();
     if (visibleSelection.isNone())
@@ -518,7 +518,7 @@ NSRect Frame::caretRect() const
     return visibleSelection.isCaret() ? selection().absoluteCaretBounds() : VisiblePosition(visibleSelection.end()).absoluteCaretBounds();
 }
 
-NSRect Frame::rectForScrollToVisible() const
+NSRect Frame::rectForScrollToVisible()
 {
     VisibleSelection selection(this->selection().selection());
 
@@ -629,13 +629,13 @@ NSArray *Frame::interpretationsForCurrentRoot() const
 
     auto* root = selection().selection().selectionType() == VisibleSelection::NoSelection ? document()->bodyOrFrameset() : selection().selection().rootEditableElement();
     unsigned rootChildCount = root->countChildNodes();
-    RefPtr<Range> rangeOfRootContents = Range::create(*document(), createLegacyEditingPosition(root, 0), createLegacyEditingPosition(root, rootChildCount));
+    auto rangeOfRootContents = Range::create(*document(), createLegacyEditingPosition(root, 0), createLegacyEditingPosition(root, rootChildCount));
 
-    auto markersInRoot = document()->markers().markersInRange(rangeOfRootContents.get(), DocumentMarker::DictationPhraseWithAlternatives);
+    auto markersInRoot = document()->markers().markersInRange(rangeOfRootContents, DocumentMarker::DictationPhraseWithAlternatives);
 
     // There are no phrases with alternatives, so there is just one interpretation.
     if (markersInRoot.isEmpty())
-        return [NSArray arrayWithObject:plainText(rangeOfRootContents.get())];
+        return [NSArray arrayWithObject:plainText(rangeOfRootContents.ptr())];
 
     // The number of interpretations will be i1 * i2 * ... * iN, where iX is the number of interpretations for the Xth phrase with alternatives.
     size_t interpretationsCount = 1;

@@ -1,0 +1,3 @@
+module libDER [extern_c] {
+    header "libDER.h"
+}

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 * Copyright (C) 2012-2015, International Business Machines
@@ -479,7 +481,6 @@ void CollationTest::TestFCD() {
     CodePointIterator cpi(cp, UPRV_LENGTHOF(cp));
     checkFCD("FCDUTF16CollationIterator", u16ci, cpi);
 
-#if U_HAVE_STD_STRING
     cpi.resetToStart();
     std::string utf8;
     UnicodeString(s).toUTF8String(utf8);
@@ -489,7 +490,6 @@ void CollationTest::TestFCD() {
         return;
     }
     checkFCD("FCDUTF8CollationIterator", u8ci, cpi);
-#endif
 
     cpi.resetToStart();
     UCharIterator iter;
@@ -1115,7 +1115,7 @@ void CollationTest::parseAndSetAttribute(IcuTestErrorCode &errorCode) {
     // Parse attributes even if the Collator could not be created,
     // in order to report syntax errors.
     int32_t start = skipSpaces(1);
-    int32_t equalPos = fileLine.indexOf(0x3d);
+    int32_t equalPos = fileLine.indexOf((UChar)0x3d);
     if(equalPos < 0) {
         if(fileLine.compare(start, 7, UNICODE_STRING("reorder", 7)) == 0) {
             parseAndSetReorderCodes(start + 7, errorCode);
@@ -1605,7 +1605,6 @@ UBool CollationTest::checkCompareTwo(const char *norm, const UnicodeString &prev
         }
     }
 
-#if U_HAVE_STD_STRING
     // compare(UTF-16) treats unpaired surrogates like unassigned code points.
     // Unpaired surrogates cannot be converted to UTF-8.
     // Create valid UTF-16 strings if necessary, and use those for
@@ -1670,7 +1669,6 @@ UBool CollationTest::checkCompareTwo(const char *norm, const UnicodeString &prev
             return FALSE;
         }
     }
-#endif
 
     UCharIterator leftIter;
     UCharIterator rightIter;

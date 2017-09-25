@@ -36,7 +36,7 @@
       yanlış yapılandırmalardan kaçınarak Apache HTTPD sunucusunun önbellekleme
       özelliklerinin nasıl kullanılacağı açıklanmıştır.</p>
   </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">Giriş</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">Giriş</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#http-caching">Üç durumlu RFC2616 HTTP önbelleklemesi</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#examples">Önbellek Ayarlama Örnekleri</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#socache-caching">Genel İki durumlu Anahtar/Değer Paylaşımlı Nesne Önbellekleme</a></li>
@@ -876,7 +876,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/caching.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="./mod/">Modüller</a> | <a href="./mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="./glossary.html">Terimler</a> | <a href="./sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

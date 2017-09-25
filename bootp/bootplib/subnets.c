@@ -63,8 +63,7 @@
 #include "cfutil.h"
 #include "DNSNameList.h"
 #include "IPv4ClasslessRoute.h"
-
-#include <SystemConfiguration/SCValidation.h>
+#include "cfutil.h"
 
 #ifdef TEST_SUBNETS
 #define my_log(level, format, ...)					\

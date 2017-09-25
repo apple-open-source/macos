@@ -1,11 +1,12 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: false
 require 'tk'
 
 begin
   # try to use Img extension
   require 'tkextlib/tkimg'
 rescue Exception
-  # cannot use Img extention --> ignore
+  # cannot use Img extension --> ignore
 end
 
 
@@ -300,7 +301,7 @@ end
 def open_file(canvas, fname)
   if canvas.modified?
     ret = Tk.messageBox(:icon=>'warning',:type=>'okcancel',:default=>'cancel',
-                        :message=>'Canvas may be modified. Realy erase? ')
+                        :message=>'Canvas may be modified. Really erase? ')
     return if ret == 'cancel'
   end
 

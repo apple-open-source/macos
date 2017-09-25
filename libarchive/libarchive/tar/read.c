@@ -245,6 +245,7 @@ read_archive(struct bsdtar *bsdtar, char mode)
 
 	for (;;) {
 		/* Support --fast-read option */
+		const char *p;
 		if (bsdtar->option_fast_read &&
 		    lafe_unmatched_inclusions(bsdtar->matching) == 0)
 			break;
@@ -266,6 +267,12 @@ read_archive(struct bsdtar *bsdtar, char mode)
 		}
 		if (r == ARCHIVE_FATAL)
 			break;
+		p = archive_entry_pathname(entry);
+		if (p == NULL || p[0] == '\0') {
+			lafe_warnc(0, "Archive entry has empty or unreadable filename ... skipping.");
+			bsdtar->return_value = 1;
+			continue;
+		}
 
 		if (bsdtar->option_numeric_owner) {
 			archive_entry_set_uname(entry, NULL);
@@ -456,6 +463,9 @@ list_item_verbose(struct bsdtar *bsdtar, FILE *out, struct archive_entry *entry)
 	const char		*fmt;
 	time_t			 tim;
 	static time_t		 now;
+#ifdef __APPLE__
+	struct tm		*lt;
+#endif
 
 	/*
 	 * We avoid collecting the entire list in memory at once by
@@ -527,7 +537,16 @@ list_item_verbose(struct bsdtar *bsdtar, FILE *out, struct archive_entry *entry)
 		fmt = bsdtar->day_first ? DAY_FMT " %b  %Y" : "%b " DAY_FMT "  %Y";
 	else
 		fmt = bsdtar->day_first ? DAY_FMT " %b %H:%M" : "%b " DAY_FMT " %H:%M";
+#ifdef __APPLE__
+	lt = localtime(&tim);
+	if (lt == NULL) {
+		tim = 0;
+		lt = localtime(&tim);
+	}
+	strftime(tmp, sizeof(tmp), fmt, lt);
+#else
 	strftime(tmp, sizeof(tmp), fmt, localtime(&tim));
+#endif
 	fprintf(out, " %s ", tmp);
 	safe_fprintf(out, "%s", archive_entry_pathname(entry));
 

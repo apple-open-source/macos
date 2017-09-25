@@ -16,7 +16,7 @@ bool operator< (const ACCEL_POINT &lhs, const ACCEL_POINT &rhs);
 bool operator==(const ACCEL_POINT &lhs, const ACCEL_POINT &rhs);
 /*
 
-PA Asseleration alrorythm
+PA Acceleration algorythm
 
   Parametric acceleration curve in general form contain 3 segment
   
@@ -24,7 +24,7 @@ PA Asseleration alrorythm
   
     use function  f_1(x) = GainLinear*x + GainParabolic * x^2 + GainCubic * x^3 + GainQudratic * x^4;
   
-  2) second segment [HIDAccelTangentSpeedLinear  -> HIDAccelTangentSpeedParabolicRoot] 
+  2) second segment [HIDAccelTangentSpeedLinear .. HIDAccelTangentSpeedParabolicRoot]
   
     use function f_2(x) = m0*x + b0 (f_2 is the tangent line to the function f_1 at x == HIDAccelTangentSpeedLinear)
     
@@ -269,6 +269,7 @@ void IOHIDParametricAcceleration::serialize(CFMutableDictionaryRef dict) const {
 bool operator< (const ACCEL_POINT &lhs, const ACCEL_POINT &rhs) {
     return (lhs.x < rhs.x);
 }
+
 bool operator==(const ACCEL_POINT &lhs, const ACCEL_POINT &rhs) {
     return (lhs.x == rhs.x);
 }
@@ -302,6 +303,7 @@ ACCEL_POINT IOHIDTableAcceleration::InterpolatePoint( const ACCEL_POINT &p, cons
     result.x = p.x;
     return result;
 }
+
 void  IOHIDTableAcceleration::InterpolateFunction (const ACCEL_TABLE_ENTRY *lo, const ACCEL_TABLE_ENTRY *hi, double ratio, std::set<ACCEL_POINT> &result) {
   uint32_t hindex = 0;
   ACCEL_POINT  ph0 = {0,0};
@@ -531,6 +533,7 @@ IOHIDTableAcceleration * IOHIDTableAcceleration::CreateOriginalWithTable (CFData
 
     return self;
 }
+
 double IOHIDTableAcceleration::multiplier (double value) {
   auto iter = segments_.begin();
   auto curve = iter;
@@ -544,7 +547,6 @@ double IOHIDTableAcceleration::multiplier (double value) {
  
   return curve->m * value + curve->b;
 }
-
 
 void IOHIDTableAcceleration::serialize(CFMutableDictionaryRef dict) const {
   CFMutableDictionaryRefWrap serializer (dict);

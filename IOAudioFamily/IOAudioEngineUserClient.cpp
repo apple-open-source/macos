@@ -37,6 +37,7 @@
 #include <sys/random.h>
 
 #include <AssertMacros.h>
+#include <IOKit/audio/AudioTracepoints.h>
 
 // <rdar://8518215>
 enum
@@ -186,6 +187,7 @@ void IOAudioClientBufferSet::freeWatchdogTimer()
 void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
 {
 	bool				result;
+    UInt64 nanos;
 
     if (watchdogThreadCall == NULL) {
         // allocate it here
@@ -204,6 +206,9 @@ void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
     
     timerPending = true;
 
+    absolutetime_to_nanoseconds(outputTimeout, &nanos);
+    AudioTrace(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientSetWatchdogTimeout, (uintptr_t)this, generationCount, (nanos/1000), outputTimeout);
+    
     result = thread_call_enter1_delayed(watchdogThreadCall, (thread_call_param_t)(uintptr_t)generationCount, outputTimeout);
 	if (result) {
 		release();		// canceled the previous call
@@ -214,6 +219,9 @@ void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
 
 void IOAudioClientBufferSet::cancelWatchdogTimer()
 {
+    audioDebugIOLog(4, "+- IOAudioClientBufferSet[%p]::cancelWatchdogTimer()\n", this);
+    AudioTrace_Start(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, NULL, NULL);
+
 	if (NULL != userClient) {
 		userClient->retain();
 		userClient->lockBuffers();
@@ -226,7 +234,7 @@ void IOAudioClientBufferSet::cancelWatchdogTimer()
 		userClient->release();
 	}
 	
-    audioDebugIOLog(4, "+- IOAudioClientBufferSet[%p]::cancelWatchdogTimer()\n", this);
+        AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, NULL, NULL);
 	return;
 }
 
@@ -237,6 +245,7 @@ void IOAudioClientBufferSet::watchdogTimerFired(IOAudioClientBufferSet *clientBu
 	assert(clientBufferSet);
     assert(clientBufferSet->userClient);
 
+    AudioTrace(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientWatchdogTimerFired, (uintptr_t)0x1111, generationCount, clientBufferSet->nextOutputPosition.fLoopCount, clientBufferSet->nextOutputPosition.fSampleFrame);
 	if (clientBufferSet) {
 #ifdef DEBUG
 		AbsoluteTime now;
@@ -1938,6 +1947,8 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
 	assert(audioEngine != NULL);
 	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
 
+    AudioTrace_Start(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientPerformClientOutput, (uintptr_t)this, firstSampleFrame, loopCount, sampleIntervalHi);
+    
     // <rdar://10145205,15277619> Sanity check the loop count
 	if ( ( loopCount >= audioEngine->status->fCurrentLoopCount ) &&
          ( loopCount <= audioEngine->status->fCurrentLoopCount + kLoopCountMaximumDifference ) )
@@ -2111,6 +2122,7 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
 	}
 
 Exit:
+    AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientPerformClientOutput, (uintptr_t)this, sampleIntervalLo, result, result);
 	// <rdar://9725460>
 	audioDebugIOLog ( 4, "- IOAudioEngineUserClient[%p]::performClientOutput ( firstSampleFrame %ld, loopCount %ld,  bufferSet %p, sampleIntervalHi %ld, sampleIntervalLo %ld ) returns 0x%lX\n", 
 					this,
@@ -2271,6 +2283,8 @@ void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clie
 						(long unsigned int)clientBufferSet->nextOutputPosition.fLoopCount, 
 						(long unsigned int)clientBufferSet->nextOutputPosition.fSampleFrame);
 
+    AudioTrace_Start(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientPerformWatchdogOutput, (uintptr_t)this, generationCount, clientBufferSet->nextOutputPosition.fLoopCount, clientBufferSet->nextOutputPosition.fSampleFrame);
+    
     lockBuffers();
     
     if (audioEngine && !isInactive() && isOnline()) {
@@ -2387,7 +2401,7 @@ void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clie
     }
     
     unlockBuffers();
-	
+    AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientPerformWatchdogOutput, (uintptr_t)this, generationCount, clientBufferSet->nextOutputPosition.fLoopCount, clientBufferSet->nextOutputPosition.fSampleFrame);
 	audioDebugIOLog(3, "- IOAudioEngineUserClient[%p]::performWatchdogOutput(%p, %ld) - (%lx,%lx)\n", 
 						this, clientBufferSet, 
 						(long int)generationCount, 

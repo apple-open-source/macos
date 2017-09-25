@@ -8,7 +8,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -695,10 +695,11 @@ _cups_strlcat(char       *dst,		/* O - Destination string */
   */
 
   dstlen = strlen(dst);
-  size   -= dstlen + 1;
 
-  if (!size)
-    return (dstlen);		/* No room, return immediately... */
+  if (size < (dstlen + 1))
+    return (dstlen);		        /* No room, return immediately... */
+
+  size -= dstlen + 1;
 
  /*
   * Figure out how much room is needed...

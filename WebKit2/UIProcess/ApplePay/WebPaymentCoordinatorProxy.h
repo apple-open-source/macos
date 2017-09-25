@@ -60,7 +60,7 @@ public:
     explicit WebPaymentCoordinatorProxy(WebPageProxy&);
     ~WebPaymentCoordinatorProxy();
 
-    void didCancelPayment();
+    void didCancelPaymentSession();
     void validateMerchant(const WebCore::URL&);
     void didAuthorizePayment(const WebCore::Payment&);
     void didSelectShippingMethod(const WebCore::PaymentRequest::ShippingMethod&);
@@ -80,11 +80,12 @@ private:
     void openPaymentSetup(const String& merchantIdentifier, const String& domainName, uint64_t requestID);
     void showPaymentUI(const String& originatingURLString, const Vector<String>& linkIconURLStrings, const WebCore::PaymentRequest&, bool& result);
     void completeMerchantValidation(const WebCore::PaymentMerchantSession&);
-    void completeShippingMethodSelection(uint32_t opaqueStatus, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>&);
-    void completeShippingContactSelection(uint32_t opaqueStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>& newShippingMethods, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>&);
-    void completePaymentMethodSelection(const std::optional<WebCore::PaymentRequest::TotalAndLineItems>&);
-    void completePaymentSession(uint32_t opaqueStatus);
+    void completeShippingMethodSelection(const std::optional<WebCore::ShippingMethodUpdate>&);
+    void completeShippingContactSelection(const std::optional<WebCore::ShippingContactUpdate>&);
+    void completePaymentMethodSelection(const std::optional<WebCore::PaymentMethodUpdate>&);
+    void completePaymentSession(const std::optional<WebCore::PaymentAuthorizationResult>&);
     void abortPaymentSession();
+    void cancelPaymentSession();
 
     bool canBegin() const;
     bool canCancel() const;
@@ -94,14 +95,14 @@ private:
     void didReachFinalState();
 
     bool platformCanMakePayments();
-    void platformCanMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler);
-    void platformOpenPaymentSetup(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler);
-    void platformShowPaymentUI(const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::PaymentRequest&, std::function<void (bool)> completionHandler);
+    void platformCanMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, WTF::Function<void (bool)>&& completionHandler);
+    void platformOpenPaymentSetup(const String& merchantIdentifier, const String& domainName, WTF::Function<void (bool)>&& completionHandler);
+    void platformShowPaymentUI(const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::PaymentRequest&, WTF::Function<void (bool)>&& completionHandler);
     void platformCompleteMerchantValidation(const WebCore::PaymentMerchantSession&);
-    void platformCompleteShippingMethodSelection(WebCore::PaymentAuthorizationStatus, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>&);
-    void platformCompleteShippingContactSelection(WebCore::PaymentAuthorizationStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>& newShippingMethods, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>&);
-    void platformCompletePaymentMethodSelection(const std::optional<WebCore::PaymentRequest::TotalAndLineItems>&);
-    void platformCompletePaymentSession(WebCore::PaymentAuthorizationStatus);
+    void platformCompleteShippingMethodSelection(const std::optional<WebCore::ShippingMethodUpdate>&);
+    void platformCompleteShippingContactSelection(const std::optional<WebCore::ShippingContactUpdate>&);
+    void platformCompletePaymentMethodSelection(const std::optional<WebCore::PaymentMethodUpdate>&);
+    void platformCompletePaymentSession(const std::optional<WebCore::PaymentAuthorizationResult>&);
 
     WebPageProxy& m_webPageProxy;
     WeakPtrFactory<WebPaymentCoordinatorProxy> m_weakPtrFactory;

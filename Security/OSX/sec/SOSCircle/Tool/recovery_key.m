@@ -58,16 +58,19 @@ recovery_key(int argc, char * const *argv)
     };
     int option_index = 0;
 
-    while ((ch = getopt_long(argc, argv, "FG:Rs:gc", long_options, &option_index)) != -1)
+    while ((ch = getopt_long(argc, argv, "FG:Rs:gcV:", long_options, &option_index)) != -1)
         switch  (ch) {
             case 'G': {
+                NSError *nserror = NULL;
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 if(testString == nil)
                     return 2;
 
-                SecRecoveryKey *rk = SecRKCreateRecoveryKey(testString);
-                if(rk == nil)
+                SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
+                if(rk == nil) {
+                    printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
                     return 2;
+                }
                 NSData *publicKey = SecRKCopyBackupPublicKey(rk);
                 if(publicKey == nil)
                     return 2;
@@ -86,13 +89,16 @@ recovery_key(int argc, char * const *argv)
             }
             case 's':
             {
+                NSError *nserror = NULL;
                 NSString *testString = [NSString stringWithUTF8String:optarg];
                 if(testString == nil)
                     return 2;
 
-                SecRecoveryKey *rk = SecRKCreateRecoveryKey(testString);
-                if(rk == nil)
+                SecRecoveryKey *rk = SecRKCreateRecoveryKeyWithError(testString, &nserror);
+                if(rk == nil) {
+                    printmsg(CFSTR("SecRKCreateRecoveryKeyWithError: %@\n"), nserror);
                     return 2;
+                }
 
                 NSData *publicKey = SecRKCopyBackupPublicKey(rk);
                 if(publicKey == nil)
@@ -112,9 +118,7 @@ recovery_key(int argc, char * const *argv)
             }
             case 'c':
             {
-                CFDataRef empty = CFDataCreate(kCFAllocatorDefault, 0, 0);
-                hadError = SOSCCRegisterRecoveryPublicKey(empty, &error) != true;
-                CFReleaseNull(empty);
+                hadError = SOSCCRegisterRecoveryPublicKey(NULL, &error) != true;
                 break;
             }
             case 'F':
@@ -134,6 +138,27 @@ recovery_key(int argc, char * const *argv)
                 }
                 break;
             }
+            case 'V': {
+                NSError *localError = nil;
+                NSString *testString = [NSString stringWithUTF8String:optarg];
+                NSString *fileName = [NSString stringWithFormat:@"%@.plist", testString];
+                if(testString == nil)
+                    return 2;
+                
+                NSDictionary *ver = SecRKCopyAccountRecoveryVerifier(testString, &localError);
+                if(ver == nil) {
+                    printmsg(CFSTR("Failed to make verifier dictionary: %@\n"), localError);
+                    return 2;
+                }
+                
+                printmsg(CFSTR("Verifier Dictionary: %@\n\n"), ver);
+                printmsg(CFSTR("Writing plist to %@\n"), (__bridge CFStringRef) fileName);
+
+                [ver writeToFile:fileName atomically:YES];
+
+                }
+                break;
+
             case '?':
             default:
             {

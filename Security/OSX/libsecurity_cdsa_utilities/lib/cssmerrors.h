@@ -41,7 +41,7 @@ namespace Security
 //
 class CssmError : public CommonError {
 protected:
-    CssmError(CSSM_RETURN err);
+    CssmError(CSSM_RETURN err, bool suppresslogging);
 public:
     const CSSM_RETURN error;
     virtual OSStatus osStatus() const;
@@ -52,6 +52,7 @@ public:
     
 	static void check(CSSM_RETURN error)	{ if (error != CSSM_OK) throwMe(error); }
     static void throwMe(CSSM_RETURN error) __attribute__((noreturn));
+    static void throwMeNoLogging(CSSM_RETURN err) __attribute__((noreturn));
 
 	//
 	// Obtain a CSSM_RETURN from any CommonError

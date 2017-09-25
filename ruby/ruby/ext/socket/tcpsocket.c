@@ -32,7 +32,7 @@ tcp_init(int argc, VALUE *argv, VALUE sock)
 }
 
 static VALUE
-tcp_sockaddr(struct sockaddr *addr, size_t len)
+tcp_sockaddr(struct sockaddr *addr, socklen_t len)
 {
     return rsock_make_ipaddr(addr, len);
 }
@@ -50,9 +50,9 @@ tcp_sockaddr(struct sockaddr *addr, size_t len)
 static VALUE
 tcp_s_gethostbyname(VALUE obj, VALUE host)
 {
-    rb_secure(3);
-    return rsock_make_hostent(host, rsock_addrinfo(host, Qnil, SOCK_STREAM, AI_CANONNAME),
-			tcp_sockaddr);
+    struct rb_addrinfo *res =
+	rsock_addrinfo(host, Qnil, AF_UNSPEC, SOCK_STREAM, AI_CANONNAME);
+    return rsock_make_hostent(host, res, tcp_sockaddr);
 }
 
 void

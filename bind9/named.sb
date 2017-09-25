@@ -24,7 +24,7 @@
          "^/Library/Logs/named\\.log$"))
 
 (allow file-read-data file-read-metadata
-  (regex "^(/private)?/etc/rndc\\.key$"
+  (regex "^/Library/Server/named/rndc\\.key$"
          "^(/private)?/etc/resolv\\.conf$"
-         "^(/private)?/etc/named\\.conf$"
-         "^(/private)?/var/named/"))
+         "^/Library/Server/named/named\\.conf$"
+         "^/Library/Server/named/"))

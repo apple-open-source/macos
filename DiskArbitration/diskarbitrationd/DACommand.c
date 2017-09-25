@@ -106,14 +106,21 @@ static void __DACommandExecute( char * const *           argv,
     if ( executablePID == 0 )
     {
         int fd;
+        int rt_val;
 
         /*
          * Prepare the post-fork execution environment.
          */
 
-        setgid( userGID );
-        setuid( userUID );
+        rt_val = setgid( userGID );
+        if (rt_val != -1) {
+            rt_val = setuid( userUID );
+        }
 
+        if (rt_val == -1) {
+            _exit( EX_NOPERM );
+        }
+        
         for ( fd = getdtablesize() - 1; fd > -1; fd-- )
         {
             if ( fd != outputPipe[1] )

@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -136,7 +136,7 @@ OSStatus HIDProcessLocalItem(HIDReportDescriptor *ptDescriptor,
                     ptUsageItem->usagePage = ptDescriptor->globals.usagePage;
                     ptUsageItem->usageMinimum = ptItem->unsignedValue;
                 }
-                if (ptUsageItem->usagePage != ptDescriptor->rangeUsagePage)
+                if (ptUsageItem->usagePage != (HIDUsage)ptDescriptor->rangeUsagePage)
                     return kHIDInvalidRangePageErr;
                 ptUsageItem->usageMaximum = ptDescriptor->usageMaximum;
                 if (ptUsageItem->usageMaximum < ptUsageItem->usageMinimum)
@@ -183,7 +183,7 @@ OSStatus HIDProcessLocalItem(HIDReportDescriptor *ptDescriptor,
                     ptUsageItem->usagePage = ptDescriptor->globals.usagePage;
                     ptUsageItem->usageMaximum = ptItem->unsignedValue;
                 }
-                if (ptUsageItem->usagePage != ptDescriptor->rangeUsagePage)
+                if (ptUsageItem->usagePage != (HIDUsage)ptDescriptor->rangeUsagePage)
                     return kHIDInvalidRangePageErr;
                 ptUsageItem->usageMinimum = ptDescriptor->usageMinimum;
                 if (ptUsageItem->usageMaximum < ptUsageItem->usageMinimum)

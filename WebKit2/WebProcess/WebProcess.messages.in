@@ -36,9 +36,7 @@ messages -> WebProcess LegacyReceiver {
     RegisterURLSchemeAsNoAccess(String scheme)
     RegisterURLSchemeAsDisplayIsolated(String scheme)
     RegisterURLSchemeAsCORSEnabled(String scheme)
-#if ENABLE(CACHE_PARTITIONING)
     RegisterURLSchemeAsCachePartitioned(String scheme)
-#endif
     SetDefaultRequestTimeoutInterval(double timeoutInterval)
     SetAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     SetShouldUseFontSmoothing(bool useFontSmoothing)
@@ -48,15 +46,16 @@ messages -> WebProcess LegacyReceiver {
 
     ClearCachedCredentials()
 
-    // Legacy private browsing session is per process. Individual pages or page groups may use the private session or the default one as appropriate.
     EnsurePrivateBrowsingSession(WebCore::SessionID sessionID)
-    DestroyPrivateBrowsingSession(WebCore::SessionID sessionID)
+    AddWebsiteDataStore(struct WebKit::WebsiteDataStoreParameters websiteDataStoreParameters);
+    DestroySession(WebCore::SessionID sessionID)
 
     # Plug-ins.
     DidAddPlugInAutoStartOriginHash(uint32_t hash, double expirationTime, WebCore::SessionID sessionID)
     ResetPlugInAutoStartOriginDefaultHashes(HashMap<uint32_t,double> hashes)
     ResetPlugInAutoStartOriginHashes(HashMap<WebCore::SessionID, HashMap<uint32_t,double>> hashes)
     SetPluginLoadClientPolicy(uint8_t policy, String host, String bundleIdentifier, String versionString)
+    ResetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, uint8_t>>> pluginLoadClientPolicies)
     ClearPluginClientPolicies()
     RefreshPlugins()
 
@@ -81,7 +80,7 @@ messages -> WebProcess LegacyReceiver {
     DeleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, std::chrono::system_clock::time_point modifiedSince) -> ()
     DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins) -> ()
 
-    SetHiddenPageTimerThrottlingIncreaseLimit(int milliseconds)
+    SetHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds)
     SetProcessSuppressionEnabled(bool flag)
 #if PLATFORM(COCOA)
     SetQOS(int latencyQOS, int throughputQOS)
@@ -102,10 +101,15 @@ messages -> WebProcess LegacyReceiver {
     ProcessDidResume()
 
     MainThreadPing()
+    BackgroundResponsivenessPing()
 
 #if ENABLE(GAMEPAD)
     SetInitialGamepads(Vector<WebKit::GamepadData> gamepadDatas)
     GamepadConnected(WebKit::GamepadData gamepadData)
     GamepadDisconnected(unsigned index)
+#endif
+
+#if USE(SOUP)
+    SetNetworkProxySettings(struct WebCore::SoupNetworkProxySettings settings)
 #endif
 }

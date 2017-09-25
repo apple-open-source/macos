@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -517,6 +517,12 @@ DHCPv6SocketEnableReceive(DHCPv6SocketRef sock,
 	       if_name(sock->if_p));
     }
     return;
+}
+
+PRIVATE_EXTERN bool
+DHCPv6SocketReceiveIsEnabled(DHCPv6SocketRef sock)
+{
+    return (sock->receive_func != NULL);
 }
 
 PRIVATE_EXTERN void

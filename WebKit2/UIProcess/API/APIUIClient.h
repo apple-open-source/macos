@@ -23,16 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef APIUIClient_h
-#define APIUIClient_h
+#pragma once
 
 #include "WKPage.h"
 #include "WebEvent.h"
 #include "WebHitTestResultData.h"
 #include "WebPageProxy.h"
 #include <WebCore/FloatRect.h>
-#include <functional>
-#include <wtf/PassRefPtr.h>
 
 #if PLATFORM(IOS)
 OBJC_CLASS NSArray;
@@ -75,11 +72,13 @@ class UIClient {
 public:
     virtual ~UIClient() { }
 
-    virtual PassRefPtr<WebKit::WebPageProxy> createNewPage(WebKit::WebPageProxy*, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, const WebCore::ResourceRequest&, const WebCore::WindowFeatures&, const WebKit::NavigationActionData&) { return nullptr; }
+    virtual RefPtr<WebKit::WebPageProxy> createNewPage(WebKit::WebPageProxy*, API::FrameInfo&, const WebCore::ResourceRequest&, const WebCore::WindowFeatures&, const WebKit::NavigationActionData&) { return nullptr; }
+    virtual bool createNewPageAsync(WebKit::WebPageProxy*, API::FrameInfo&, const WebCore::ResourceRequest&, const WebCore::WindowFeatures&, const WebKit::NavigationActionData&, WTF::Function<void (RefPtr<WebKit::WebPageProxy>)>&& completionHandler) { return false; }
     virtual void showPage(WebKit::WebPageProxy*) { }
     virtual void fullscreenMayReturnToInline(WebKit::WebPageProxy*) { }
     virtual void didEnterFullscreen(WebKit::WebPageProxy*) { }
     virtual void didExitFullscreen(WebKit::WebPageProxy*) { }
+    virtual void hasVideoInPictureInPictureDidChange(WebKit::WebPageProxy*, bool) { }
     virtual void close(WebKit::WebPageProxy*) { }
 
     virtual void takeFocus(WebKit::WebPageProxy*, WKFocusDirection) { }
@@ -115,7 +114,7 @@ public:
     virtual WebCore::FloatRect windowFrame(WebKit::WebPageProxy*) { return WebCore::FloatRect(); }
 
     virtual bool canRunBeforeUnloadConfirmPanel() const { return false; }
-    virtual void runBeforeUnloadConfirmPanel(WebKit::WebPageProxy*, const WTF::String&, WebKit::WebFrameProxy*, Function<void (bool)>&& completionHandler) { completionHandler(true); }
+    virtual void runBeforeUnloadConfirmPanel(WebKit::WebPageProxy*, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void (bool)>&& completionHandler) { completionHandler(true); }
 
     virtual void pageDidScroll(WebKit::WebPageProxy*) { }
 
@@ -150,8 +149,8 @@ public:
     virtual void pinnedStateDidChange(WebKit::WebPageProxy&) { }
 
     virtual void isPlayingAudioDidChange(WebKit::WebPageProxy&) { }
-    virtual void didBeginCaptureSession() { }
-    virtual void didEndCaptureSession() { }
+    virtual void mediaCaptureStateDidChange(WebCore::MediaProducer::MediaStateFlags) { }
+    virtual void handleAutoplayEvent(WebKit::WebPageProxy&, WebCore::AutoplayEvent, OptionSet<WebCore::AutoplayEventFlags>) { }
 
 #if ENABLE(MEDIA_SESSION)
     virtual void mediaSessionMetadataDidChange(WebKit::WebPageProxy&, WebKit::WebMediaSessionMetadata*) { }
@@ -177,8 +176,8 @@ public:
     virtual void didClickAutoFillButton(WebKit::WebPageProxy&, API::Object*) { }
 
     virtual void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&) { }
+
+    virtual void didExceedBackgroundResourceLimitWhileInForeground(WebKit::WebPageProxy&, WKResourceLimit) { }
 };
 
 } // namespace API
-
-#endif // APIUIClient_h

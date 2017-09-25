@@ -76,10 +76,14 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
             data.statusCode = resource.statusCode;
             data.cached = resource.cached;
             data.size = resource.size;
-            data.transferSize = resource.transferSize;
+            data.transferSize = !isNaN(resource.networkTotalTransferSize) ? resource.networkTotalTransferSize : resource.estimatedTotalTransferSize;
             data.requestSent = resource.requestSentTimestamp - zeroTime;
             data.duration = resource.receiveDuration;
             data.latency = resource.latency;
+            data.protocol = resource.protocol;
+            data.priority = resource.priority;
+            data.remoteAddress = resource.remoteAddress;
+            data.connectionIdentifier = resource.connectionIdentifier;
         }
 
         data.graph = this._record.startTime;
@@ -90,12 +94,12 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
 
     createCellContent(columnIdentifier, cell)
     {
-        var resource = this._resource;
+        let resource = this._resource;
 
-        if (resource.failed || resource.canceled || resource.statusCode >= 400)
+        if (resource.hadLoadingError())
             cell.classList.add("error");
 
-        var value = this.data[columnIdentifier];
+        let value = this.data[columnIdentifier];
 
         switch (columnIdentifier) {
         case "name":
@@ -105,26 +109,53 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
             return this._createNameCellDocumentFragment();
 
         case "type":
-            return WebInspector.Resource.displayNameForType(value);
+            var text = WebInspector.Resource.displayNameForType(value);
+            cell.title = text;
+            return text;
 
         case "statusCode":
             cell.title = resource.statusText || "";
             return value || emDash;
 
         case "cached":
-            return value ? WebInspector.UIString("Yes") : WebInspector.UIString("No");
-
-        case "domain":
-            return value || emDash;
+            var fragment = this._cachedCellContent();
+            cell.title = fragment.textContent;
+            return fragment;
 
         case "size":
         case "transferSize":
-            return isNaN(value) ? emDash : Number.bytesToString(value, true);
+            var text = emDash;
+            if (!isNaN(value)) {
+                text = Number.bytesToString(value, true);
+                cell.title = text;
+            }
+            return text;
 
         case "requestSent":
         case "latency":
         case "duration":
-            return isNaN(value) ? emDash : Number.secondsToString(value, true);
+            var text = emDash;
+            if (!isNaN(value)) {
+                text = Number.secondsToString(value, true);
+                cell.title = text;
+            }
+            return text;
+
+        case "domain":
+        case "method":
+        case "scheme":
+        case "protocol":
+        case "remoteAddress":
+        case "connectionIdentifier":
+            if (value)
+                cell.title = value;
+            return value || emDash;
+
+        case "priority":
+            var title = WebInspector.Resource.displayNameForPriority(value);
+            if (title)
+                cell.title = title;
+            return title || emDash;
         }
 
         return super.createCellContent(columnIdentifier, cell);
@@ -219,6 +250,27 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
         return fragment;
     }
 
+    _cachedCellContent()
+    {
+        if (!this._resource.hasResponse())
+            return emDash;
+
+        let responseSource = this._resource.responseSource;
+        if (responseSource === WebInspector.Resource.ResponseSource.MemoryCache || responseSource === WebInspector.Resource.ResponseSource.DiskCache) {
+            console.assert(this._resource.cached, "This resource has a cache responseSource it should also be marked as cached", this._resource);
+            let span = document.createElement("span");
+            let cacheType = document.createElement("span");
+            cacheType.classList = "cache-type";
+            cacheType.textContent = responseSource === WebInspector.Resource.ResponseSource.MemoryCache ? WebInspector.UIString("(Memory)") : WebInspector.UIString("(Disk)");
+            span.append(WebInspector.UIString("Yes"), " ", cacheType);
+            return span;
+        }
+
+        let fragment = document.createDocumentFragment();
+        fragment.append(this._resource.cached ? WebInspector.UIString("Yes") : WebInspector.UIString("No"));
+        return fragment;
+    }
+
     _needsRefresh()
     {
         if (this.dataGrid instanceof WebInspector.TimelineDataGrid) {
@@ -240,7 +292,11 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
 
     _dataGridNodeGoToArrowClicked()
     {
-        WebInspector.showSourceCode(this._resource);
+        const options = {
+            ignoreNetworkTab: true,
+            ignoreSearchTab: true,
+        };
+        WebInspector.showSourceCode(this._resource, options);
     }
 
     _updateStatus(cell)
@@ -306,7 +362,7 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
             if (resource.failed)
                 descriptionElement.textContent = WebInspector.UIString("Resource failed to load.");
             else if (resource.urlComponents.scheme === "data")
-                descriptionElement.textContent = WebInspector.UIString("Resource was loaded with the 'data' scheme.");
+                descriptionElement.textContent = WebInspector.UIString("Resource was loaded with the “data“ scheme.");
             else
                 descriptionElement.textContent = WebInspector.UIString("Resource was served from the cache.");
             popoverContentElement.appendChild(descriptionElement);
@@ -376,7 +432,11 @@ WebInspector.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode e
         recordBar.element.addEventListener("mouseleave", () => {
             if (!this.dataGrid)
                 return;
-            this.dataGrid._dismissPopoverTimeout = setTimeout(() => this.dataGrid._popover.dismiss(), WebInspector.ResourceTimelineDataGridNode.DelayedPopoverDismissalTimeout);
+
+            this.dataGrid._dismissPopoverTimeout = setTimeout(() => {
+                if (this.dataGrid)
+                    this.dataGrid._popover.dismiss();
+            }, WebInspector.ResourceTimelineDataGridNode.DelayedPopoverDismissalTimeout);
         }, {once: true});
 
         this.dataGrid._popover.presentNewContentWithFrame(popoverContentElement, targetFrame.pad(2), preferredEdges);

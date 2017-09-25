@@ -49,9 +49,9 @@
  * Machine specific support for thread initialization
  */
 
-
 #include "internal.h"
 #include <platform/string.h>
+
 
 /*
  * Set up the initial state of a MACH thread
@@ -64,15 +64,15 @@ _pthread_setup(pthread_t thread,
 	       int needresume)
 {
 #if defined(__i386__)
-	i386_thread_state_t state = {0};
+	i386_thread_state_t state = { };
 	thread_state_flavor_t flavor = x86_THREAD_STATE32;
 	mach_msg_type_number_t count = i386_THREAD_STATE_COUNT;
 #elif defined(__x86_64__)
-	x86_thread_state64_t state = {0};
+	x86_thread_state64_t state = { };
 	thread_state_flavor_t flavor = x86_THREAD_STATE64;
 	mach_msg_type_number_t count = x86_THREAD_STATE64_COUNT;
 #elif defined(__arm__)
-	arm_thread_state_t state = {0};
+	arm_thread_state_t state = { };
 	thread_state_flavor_t flavor = ARM_THREAD_STATE;
 	mach_msg_type_number_t count = ARM_THREAD_STATE_COUNT;
 #else

@@ -42,18 +42,40 @@ namespace SecurityServer {
 #define UCSP_ARGS	mGlobal().serverPort, mGlobal().thread().replyPort, &securitydCreds, &rcode
 
 // common invocation profile (don't use directly)
-#define IPCSTART(statement) \
-	CSSM_RETURN rcode; security_token_t securitydCreds; check(statement)
-#define IPCEND \
+#define IPCSTART \
+	CSSM_RETURN rcode = CSSM_ERRCODE_INTERNAL_ERROR; security_token_t securitydCreds = {};
+#define IPCEVAL(statement) check(statement)
+#define IPCEVALRESET(statement) { \
+    kern_return_t r = statement; \
+    if(r == MACH_SEND_INVALID_DEST) { \
+        ClientSession::reset(); \
+    } \
+    check(r); \
+}
+
+#define IPC_CHECK_VALIDITY \
 	if (securitydCreds.val[0] != 0   IFDEBUG( && !getenv("SECURITYSERVER_NONROOT"))) \
 		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE)
-#define IPCEND_CHECK	IPCEND; if (rcode != CSSM_OK) CssmError::throwMe(rcode);
+#define IPC_CHECK_RETCODE	if (rcode != CSSM_OK) CssmError::throwMe(rcode);
+
+#define IPCBASIC(statement) { \
+    IPCSTART \
+	IPCEVAL(statement); \
+    IPC_CHECK_VALIDITY; \
+    IPC_CHECK_RETCODE;  \
+}
 #define IPCN(statement) { \
-	IPCSTART(statement); IPCEND_CHECK;  \
-	}
+    IPCSTART \
+    IPCEVALRESET(statement); \
+    IPC_CHECK_VALIDITY; \
+    IPC_CHECK_RETCODE;  \
+}
 #define IPC(statement)	{ activate(); IPCN(statement); }
 #define IPCKEY(statement, key, tag) { \
-	activate(); IPCSTART(statement); IPCEND; \
+    IPCSTART \
+    activate(); \
+    IPCEVALRESET(statement); \
+    IPC_CHECK_VALIDITY; \
 	switch (rcode) { \
 	case CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT: \
 		notifyAclChange(key, tag); \

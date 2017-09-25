@@ -283,6 +283,8 @@ protected:
 	bool interactiveUnlock();
 	
 	CssmClient::Key keyFromCreds(const TypedList &sample, unsigned int requiredLength);
+	CssmClient::Key keyFromKeybag(const TypedList &sample);
+	CssmClient::Key makeRawKey(void *data, size_t length, CSSM_ALGORITHMS algid, CSSM_KEYUSE usage);
 	
 	void encode();									// (re)generate mBlob if needed
 

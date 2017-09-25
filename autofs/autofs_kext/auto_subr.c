@@ -1333,7 +1333,6 @@ auto_makefnnode(
 {
 	int namelen;
 	fnnode_t *fnp;
-	struct fninfo *fnip;
 	errno_t error;
 	struct vnode_trigger_param vnt;
 	vnode_t vp;
@@ -1347,8 +1346,6 @@ auto_makefnnode(
 #ifdef DEBUG
 	lck_attr_t *lckattr;
 #endif
-
-	fnip = vfstofni(mp);
 
 	if (cnp != NULL) {
 		name = cnp->cn_nameptr;

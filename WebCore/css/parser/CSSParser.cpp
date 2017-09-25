@@ -40,7 +40,6 @@
 #include "CSSVariableReferenceValue.h"
 #include "Document.h"
 #include "Element.h"
-#include "Page.h"
 #include "RenderTheme.h"
 #include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
@@ -63,9 +62,7 @@ const CSSParserContext& strictCSSParserContext()
 CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
     : baseURL(baseURL)
     , mode(mode)
-#if ENABLE(CSS_GRID_LAYOUT)
     , cssGridLayoutEnabled(RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled())
-#endif
 {
 #if PLATFORM(IOS)
     // FIXME: Force the site specific quirk below to work on iOS. Investigating other site specific quirks
@@ -80,24 +77,17 @@ CSSParserContext::CSSParserContext(Document& document, const URL& baseURL, const
     , charset(charset)
     , mode(document.inQuirksMode() ? HTMLQuirksMode : HTMLStandardMode)
     , isHTMLDocument(document.isHTMLDocument())
-#if ENABLE(CSS_GRID_LAYOUT)
     , cssGridLayoutEnabled(document.isCSSGridLayoutEnabled())
-#endif
 {
-    if (Settings* settings = document.settings()) {
-        needsSiteSpecificQuirks = settings->needsSiteSpecificQuirks();
-        enforcesCSSMIMETypeInNoQuirksMode = settings->enforceCSSMIMETypeInNoQuirksMode();
-        useLegacyBackgroundSizeShorthandBehavior = settings->useLegacyBackgroundSizeShorthandBehavior();
+    needsSiteSpecificQuirks = document.settings().needsSiteSpecificQuirks();
+    enforcesCSSMIMETypeInNoQuirksMode = document.settings().enforceCSSMIMETypeInNoQuirksMode();
+    useLegacyBackgroundSizeShorthandBehavior = document.settings().useLegacyBackgroundSizeShorthandBehavior();
 #if ENABLE(TEXT_AUTOSIZING)
-        textAutosizingEnabled = settings->textAutosizingEnabled();
+    textAutosizingEnabled = document.settings().textAutosizingEnabled();
 #endif
-        springTimingFunctionEnabled = settings->springTimingFunctionEnabled();
-
-#if ENABLE(VARIATION_FONTS)
-        variationFontsEnabled = settings->variationFontsEnabled();
-#endif
-        deferredCSSParserEnabled = settings->deferredCSSParserEnabled();
-    }
+    springTimingFunctionEnabled = document.settings().springTimingFunctionEnabled();
+    constantPropertiesEnabled = document.settings().constantPropertiesEnabled();
+    deferredCSSParserEnabled = document.settings().deferredCSSParserEnabled();
 
 #if PLATFORM(IOS)
     // FIXME: Force the site specific quirk below to work on iOS. Investigating other site specific quirks
@@ -113,16 +103,12 @@ bool operator==(const CSSParserContext& a, const CSSParserContext& b)
         && a.charset == b.charset
         && a.mode == b.mode
         && a.isHTMLDocument == b.isHTMLDocument
-#if ENABLE(CSS_GRID_LAYOUT)
         && a.cssGridLayoutEnabled == b.cssGridLayoutEnabled
-#endif
         && a.needsSiteSpecificQuirks == b.needsSiteSpecificQuirks
         && a.enforcesCSSMIMETypeInNoQuirksMode == b.enforcesCSSMIMETypeInNoQuirksMode
         && a.useLegacyBackgroundSizeShorthandBehavior == b.useLegacyBackgroundSizeShorthandBehavior
-#if ENABLE(VARIATION_FONTS)
-        && a.variationFontsEnabled == b.variationFontsEnabled
-#endif
         && a.springTimingFunctionEnabled == b.springTimingFunctionEnabled
+        && a.constantPropertiesEnabled == b.constantPropertiesEnabled
         && a.deferredCSSParserEnabled == b.deferredCSSParserEnabled;
 }
 
@@ -159,7 +145,7 @@ RefPtr<StyleRuleKeyframe> CSSParser::parseKeyframeRule(const String& string)
 bool CSSParser::parseSupportsCondition(const String& condition)
 {
     CSSParserImpl parser(m_context, condition);
-    return CSSSupportsParser::supportsCondition(parser.tokenizer()->tokenRange(), parser) == CSSSupportsParser::Supported;
+    return CSSSupportsParser::supportsCondition(parser.tokenizer()->tokenRange(), parser, CSSSupportsParser::ForWindowCSS) == CSSSupportsParser::Supported;
 }
 
 Color CSSParser::parseColor(const String& string, bool strict)
@@ -186,16 +172,13 @@ Color CSSParser::parseColor(const String& string, bool strict)
     return primitiveValue.color();
 }
 
-Color CSSParser::parseSystemColor(const String& string, Document* document)
+Color CSSParser::parseSystemColor(const String& string)
 {
-    if (!document || !document->page())
-        return Color();
-    
     CSSValueID id = cssValueKeywordID(string);
     if (!StyleColor::isSystemColor(id))
         return Color();
     
-    return document->page()->theme().systemColor(id);
+    return RenderTheme::singleton().systemColor(id);
 }
 
 RefPtr<CSSValue> CSSParser::parseSingleValue(CSSPropertyID propertyID, const String& string, const CSSParserContext& context)
@@ -205,7 +188,7 @@ RefPtr<CSSValue> CSSParser::parseSingleValue(CSSPropertyID propertyID, const Str
     if (RefPtr<CSSValue> value = CSSParserFastPaths::maybeParseValue(propertyID, string, context.mode))
         return value;
     CSSTokenizer tokenizer(string);
-    return CSSPropertyParser::parseSingleValue(propertyID, tokenizer.tokenRange(), context, nullptr);
+    return CSSPropertyParser::parseSingleValue(propertyID, tokenizer.tokenRange(), context);
 }
 
 CSSParser::ParseResult CSSParser::parseValue(MutableStyleProperties& declaration, CSSPropertyID propertyID, const String& string, bool important, const CSSParserContext& context)
@@ -270,7 +253,7 @@ RefPtr<CSSValue> CSSParser::parseValueWithVariableReferences(CSSPropertyID propI
             return nullptr;
         
         ParsedPropertyVector parsedProperties;
-        if (!CSSPropertyParser::parseValue(shorthandID, false, resolvedTokens, m_context, nullptr, parsedProperties, StyleRule::Style))
+        if (!CSSPropertyParser::parseValue(shorthandID, false, resolvedTokens, m_context, parsedProperties, StyleRule::Style))
             return nullptr;
         
         for (auto& property : parsedProperties) {
@@ -290,7 +273,7 @@ RefPtr<CSSValue> CSSParser::parseValueWithVariableReferences(CSSPropertyID propI
         if (!variableData->resolveTokenRange(customProperties, variableData->tokens(), resolvedTokens))
             return nullptr;
         
-        return CSSPropertyParser::parseSingleValue(propID, resolvedTokens, m_context, nullptr);
+        return CSSPropertyParser::parseSingleValue(propID, resolvedTokens, m_context);
     }
     
     return nullptr;
@@ -304,11 +287,11 @@ std::unique_ptr<Vector<double>> CSSParser::parseKeyframeKeyList(const String& se
 RefPtr<CSSValue> CSSParser::parseFontFaceDescriptor(CSSPropertyID propertyID, const String& propertyValue, const CSSParserContext& context)
 {
     StringBuilder builder;
-    builder.append("@font-face { ");
+    builder.appendLiteral("@font-face { ");
     builder.append(getPropertyNameString(propertyID));
-    builder.append(" : ");
+    builder.appendLiteral(" : ");
     builder.append(propertyValue);
-    builder.append("; }");
+    builder.appendLiteral("; }");
     RefPtr<StyleRuleBase> rule = parseRule(context, nullptr, builder.toString());
     if (!rule || !rule->isFontFaceRule())
         return nullptr;

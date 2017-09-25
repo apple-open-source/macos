@@ -1,13 +1,14 @@
+# frozen_string_literal: true
 #
 # tmpdir - retrieve temporary directory path
 #
-# $Id: tmpdir.rb 38348 2012-12-12 12:40:51Z nobu $
+# $Id: tmpdir.rb 52526 2015-11-10 11:48:14Z akr $
 #
 
 require 'fileutils'
 begin
   require 'etc.so'
-rescue LoadError
+rescue LoadError # rescue LoadError for miniruby
 end
 
 class Dir
@@ -17,12 +18,12 @@ class Dir
   ##
   # Returns the operating system's temporary file path.
 
-  def Dir::tmpdir
+  def self.tmpdir
     if $SAFE > 0
-      tmp = @@systmpdir
+      @@systmpdir.dup
     else
       tmp = nil
-      for dir in [ENV['TMPDIR'], ENV['TMP'], ENV['TEMP'], @@systmpdir, '/tmp', '.']
+      [ENV['TMPDIR'], ENV['TMP'], ENV['TEMP'], @@systmpdir, '/tmp', '.'].each do |dir|
         next if !dir
         dir = File.expand_path(dir)
         if stat = File.stat(dir) and stat.directory? and stat.writable? and
@@ -31,7 +32,7 @@ class Dir
           break
         end rescue nil
       end
-      raise ArgumentError, "could not find a temporary directory" if !tmp
+      raise ArgumentError, "could not find a temporary directory" unless tmp
       tmp
     end
   end
@@ -39,7 +40,7 @@ class Dir
   # Dir.mktmpdir creates a temporary directory.
   #
   # The directory is created with 0700 permission.
-  # Application should not change the permission to make the temporary directory accesible from other users.
+  # Application should not change the permission to make the temporary directory accessible from other users.
   #
   # The prefix and suffix of the name of the directory is specified by
   # the optional first argument, <i>prefix_suffix</i>.
@@ -105,32 +106,19 @@ class Dir
       Dir.tmpdir
     end
 
-    def make_tmpname(prefix_suffix, n)
-      case prefix_suffix
-      when String
-        prefix = prefix_suffix
-        suffix = ""
-      when Array
-        prefix = prefix_suffix[0]
-        suffix = prefix_suffix[1]
-      else
-        raise ArgumentError, "unexpected prefix_suffix: #{prefix_suffix.inspect}"
-      end
+    def make_tmpname((prefix, suffix), n)
+      prefix = (String.try_convert(prefix) or
+                raise ArgumentError, "unexpected prefix: #{prefix.inspect}")
+      suffix &&= (String.try_convert(suffix) or
+                  raise ArgumentError, "unexpected suffix: #{suffix.inspect}")
       t = Time.now.strftime("%Y%m%d")
-      path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}"
+      path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}".dup
       path << "-#{n}" if n
-      path << suffix
+      path << suffix if suffix
+      path
     end
 
-    def create(basename, *rest)
-      if opts = Hash.try_convert(rest[-1])
-        opts = opts.dup if rest.pop.equal?(opts)
-        max_try = opts.delete(:max_try)
-        opts = [opts]
-      else
-        opts = []
-      end
-      tmpdir, = *rest
+    def create(basename, tmpdir=nil, max_try: nil, **opts)
       if $SAFE > 0 and tmpdir.tainted?
         tmpdir = '/tmp'
       else
@@ -139,7 +127,7 @@ class Dir
       n = nil
       begin
         path = File.join(tmpdir, make_tmpname(basename, n))
-        yield(path, n, *opts)
+        yield(path, n, opts)
       rescue Errno::EEXIST
         n ||= 0
         n += 1

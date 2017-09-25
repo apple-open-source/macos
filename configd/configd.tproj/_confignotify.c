@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -106,7 +106,7 @@ _confignotify(mach_port_t 		server,
 		}
 	}
 
-	if (!hasWriteAccess(mySession, key)) {
+	if (!hasWriteAccess(mySession, "notify", key)) {
 		*sc_status = kSCStatusAccessError;
 		goto done;
 	}

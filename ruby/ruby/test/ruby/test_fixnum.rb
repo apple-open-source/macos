@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'test/unit'
 
 class TestFixnum < Test::Unit::TestCase
@@ -74,6 +75,7 @@ class TestFixnum < Test::Unit::TestCase
     assert_equal(-0x4000000000000001, 0xc000000000000003/(-3))
     assert_equal(0x40000000, (-0x40000000)/(-1), "[ruby-dev:31210]")
     assert_equal(0x4000000000000000, (-0x4000000000000000)/(-1))
+    assert_raise(FloatDomainError) { 2.div(Float::NAN).nan? }
   end
 
   def test_mod
@@ -87,14 +89,21 @@ class TestFixnum < Test::Unit::TestCase
         next if b == 0
         q, r = a.divmod(b)
         assert_equal(a, b*q+r)
-        assert(r.abs < b.abs)
-        assert(0 < b ? (0 <= r && r < b) : (b < r && r <= 0))
+        assert_operator(r.abs, :<, b.abs)
+        if 0 < b
+          assert_operator(r, :>=, 0)
+          assert_operator(r, :<, b)
+        else
+          assert_operator(r, :>, b)
+          assert_operator(r, :<=, 0)
+        end
         assert_equal(q, a/b)
         assert_equal(q, a.div(b))
         assert_equal(r, a%b)
         assert_equal(r, a.modulo(b))
       }
     }
+    assert_raise(FloatDomainError) { 2.divmod(Float::NAN) }
   end
 
   def test_not
@@ -157,6 +166,7 @@ class TestFixnum < Test::Unit::TestCase
     assert_equal(0, 1 / (2**32))
     assert_equal(0, 1.div(2**32))
 
+    assert_kind_of(Float, 1.quo(2.0))
     assert_equal(0.5, 1.quo(2.0))
     assert_equal(0.5, 1 / 2.0)
     assert_equal(0, 1.div(2.0))
@@ -194,40 +204,40 @@ class TestFixnum < Test::Unit::TestCase
   end
 
   def test_cmp
-    assert(1 != nil)
+    assert_operator(1, :!=, nil)
 
     assert_equal(0, 1 <=> 1)
     assert_equal(-1, 1 <=> 4294967296)
     assert_equal(0, 1 <=> 1.0)
     assert_nil(1 <=> nil)
 
-    assert(1.send(:>, 0))
-    assert(!(1.send(:>, 1)))
-    assert(!(1.send(:>, 2)))
-    assert(!(1.send(:>, 4294967296)))
-    assert(1.send(:>, 0.0))
-    assert_raise(ArgumentError) { 1.send(:>, nil) }
+    assert_operator(1, :>, 0)
+    assert_not_operator(1, :>, 1)
+    assert_not_operator(1, :>, 2)
+    assert_not_operator(1, :>, 4294967296)
+    assert_operator(1, :>, 0.0)
+    assert_raise(ArgumentError) { 1 > nil }
 
-    assert(1.send(:>=, 0))
-    assert(1.send(:>=, 1))
-    assert(!(1.send(:>=, 2)))
-    assert(!(1.send(:>=, 4294967296)))
-    assert(1.send(:>=, 0.0))
-    assert_raise(ArgumentError) { 1.send(:>=, nil) }
+    assert_operator(1, :>=, 0)
+    assert_operator(1, :>=, 1)
+    assert_not_operator(1, :>=, 2)
+    assert_not_operator(1, :>=, 4294967296)
+    assert_operator(1, :>=, 0.0)
+    assert_raise(ArgumentError) { 1 >= nil }
 
-    assert(!(1.send(:<, 0)))
-    assert(!(1.send(:<, 1)))
-    assert(1.send(:<, 2))
-    assert(1.send(:<, 4294967296))
-    assert(!(1.send(:<, 0.0)))
-    assert_raise(ArgumentError) { 1.send(:<, nil) }
+    assert_not_operator(1, :<, 0)
+    assert_not_operator(1, :<, 1)
+    assert_operator(1, :<, 2)
+    assert_operator(1, :<, 4294967296)
+    assert_not_operator(1, :<, 0.0)
+    assert_raise(ArgumentError) { 1 < nil }
 
-    assert(!(1.send(:<=, 0)))
-    assert(1.send(:<=, 1))
-    assert(1.send(:<=, 2))
-    assert(1.send(:<=, 4294967296))
-    assert(!(1.send(:<=, 0.0)))
-    assert_raise(ArgumentError) { 1.send(:<=, nil) }
+    assert_not_operator(1, :<=, 0)
+    assert_operator(1, :<=, 1)
+    assert_operator(1, :<=, 2)
+    assert_operator(1, :<=, 4294967296)
+    assert_not_operator(1, :<=, 0.0)
+    assert_raise(ArgumentError) { 1 <= nil }
   end
 
   class DummyNumeric < Numeric
@@ -297,5 +307,27 @@ class TestFixnum < Test::Unit::TestCase
     big = 1 << 66
     assert_raise(ZeroDivisionError, bug5713) { 0 ** -big }
     assert_raise(ZeroDivisionError, bug5713) { 0 ** Rational(-2,3) }
+  end
+
+  def test_remainder
+    assert_equal(1, 5.remainder(4))
+    assert_predicate(4.remainder(Float::NAN), :nan?)
+  end
+
+  def test_zero_p
+    assert_predicate(0, :zero?)
+    assert_not_predicate(1, :zero?)
+  end
+
+  def test_positive_p
+    assert_predicate(1, :positive?)
+    assert_not_predicate(0, :positive?)
+    assert_not_predicate(-1, :positive?)
+  end
+
+  def test_negative_p
+    assert_predicate(-1, :negative?)
+    assert_not_predicate(0, :negative?)
+    assert_not_predicate(1, :negative?)
   end
 end

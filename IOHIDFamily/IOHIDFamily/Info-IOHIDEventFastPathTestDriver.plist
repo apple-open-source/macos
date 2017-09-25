@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(IOHIDFAMILY_VERSION)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(IOHIDFAMILY_VERSION)</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOHIDEventFastPathDriver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.IOHIDEventFastPathDriver</string>
+			<key>IOCFPlugInTypes</key>
+			<dict>
+				<key>0516B563-B15B-11DA-96EB-0014519758EF</key>
+				<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+				<key>0B842ADD-C395-4352-95F6-6585EB515623</key>
+				<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+				<key>7DDEECA8-A7B4-11DA-8A0E-0014519758EF</key>
+				<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+				<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>
+				<string>IOHIDFamily.kext/Contents/PlugIns/IOHIDLib.plugin</string>
+			</dict>
+			<key>IOClass</key>
+			<string>IOHIDEventFastPathDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>Product</key>
+			<string>10318C6F-6C4F-4B62-A8AB-4E706E9B50E0</string>
+			<key>ProductID</key>
+			<integer>65280</integer>
+			<key>VendorID</key>
+			<integer>65280</integer>
+		</dict>
+	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOHIDFamily</key>
+		<string>1.5</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.private</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b2</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>

@@ -1288,14 +1288,20 @@ See remaining rules for examples.
 		<dict>
 			<key>allow-root</key>
 			<true/>
+			<key>authenticate-user</key>
+			<true/>
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
 			<string>For making Directory Services changes.</string>
 			<key>group</key>
 			<string>admin</string>
+			<key>session-owner</key>
+			<false/>
 			<key>shared</key>
 			<false/>
+			<key>version</key>
+			<integer>2</integer>
 		</dict>
 		<key>system.services.networkextension.filtering</key>
 		<dict>
@@ -1513,17 +1519,6 @@ See remaining rules for examples.
 				<string>authenticate-session-owner</string>
 			</array>
 		</dict>		
-		<key>system.localauthentication.ui</key>
-		<dict>
-			<key>class</key>
-			<string>evaluate-mechanisms</string>
-			<key>comment</key>
-			<string>Used by LocalAuthentication to display its UI.</string>
-			<key>mechanisms</key>
-			<array>
-				<string>LocalAuthentication:UI</string>
-			</array>
-		</dict>
 		<key>system.preferences.continuity</key>
 		<dict>
 			<key>class</key>
@@ -1535,18 +1530,33 @@ See remaining rules for examples.
 				<string>authenticate-staff-extract-context</string>
 			</array>
 		</dict>
+		<key>com.apple.configurationprofiles.userprofile.trustcert</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Install user configuration profile with certificate requiring trust change.</string>
+			<key>rule</key>
+			<array>
+				<string>authenticate-session-owner-or-admin</string>
+			</array>
+		</dict>
 		<key>com.apple.safaridriver.allow</key>
 		<dict>
 			<key>comment</key>
 			<string>This right is used by safaridriver to allow running it.</string>
 			<key>class</key>
-			<string>user</string>
-			<key>group</key>
-			<string>admin</string>
-			<key>allow-root</key>
-			<true/>
-			<key>shared</key>
-			<true/>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-admin</string>
+				<string>is-webdeveloper</string>
+				<string>authenticate-webdeveloper</string>
+			</array>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 	</dict>
 	<key>rules</key>
@@ -2098,6 +2108,31 @@ See remaining rules for examples.
 				<string>LocalAuthentication:context</string>
 			</array>
 		</dict>
+		<key>is-webdeveloper</key>
+		<dict>
+			<key>authenticate-user</key>
+			<false/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Verify that the user asking for authorization is a web developer.</string>
+			<key>group</key>
+			<string>_webdeveloper</string>
+		</dict>
+		<key>authenticate-webdeveloper</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Authenticate as a web developer.</string>
+			<key>group</key>
+			<string>_webdeveloper</string>
+			<key>shared</key>
+			<true/>
+			<key>timeout</key>
+			<integer>36000</integer>
+		</dict>		
 	</dict>
 </dict>
 </plist>
+

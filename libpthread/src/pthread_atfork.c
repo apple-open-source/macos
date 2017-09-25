@@ -2,14 +2,14 @@
  * Copyright (c) 1999, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,19 +17,15 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include "internal.h"
 
-#include <libkern/OSAtomic.h>
 #include <mach/mach_init.h>
 #include <mach/mach_vm.h>
 #include <platform/compat.h>
-
-PTHREAD_NOEXPORT void pthread_workqueue_atfork_child(void);
-PTHREAD_NOEXPORT void __pthread_fork_child_internal(pthread_t);
 
 int
 pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
@@ -37,7 +33,7 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 	int res = 0;
 	size_t idx;
 	pthread_globals_t globals = _pthread_globals();
-	
+
 	_PTHREAD_LOCK(globals->pthread_atfork_lock);
 	idx = globals->atfork_count++;
 
@@ -79,7 +75,7 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 	} else if (idx >= PTHREAD_ATFORK_MAX) {
 		res = ENOMEM;
 	}
- 
+
 	if (res == 0) {
 		struct pthread_atfork_entry *e = &globals->atfork[idx];
 		e->prepare = prepare;
@@ -159,9 +155,9 @@ _pthread_atfork_child(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 	_PTHREAD_LOCK_INIT(globals->psaved_self_global_lock);
-	__pthread_fork_child_internal(globals->psaved_self);
 	__is_threaded = 0;
-	pthread_workqueue_atfork_child();
+	_pthread_main_thread_init(globals->psaved_self);
+	_pthread_bsdthread_init();
 }
 
 // Iterate pthread_atfork child handlers.

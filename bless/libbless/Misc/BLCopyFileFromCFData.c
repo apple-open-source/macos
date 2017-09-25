@@ -59,19 +59,21 @@ int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
         contextprintf(context, kBLLogLevelVerbose,  "Opened dest at %s for writing\n", dest );
     }
 	
-    if(shouldPreallocate) {
+    if (shouldPreallocate > kNoPreallocate) {
 		preall.fst_length = CFDataGetLength(theData);
 		preall.fst_offset = 0;
 		preall.fst_flags = F_ALLOCATECONTIG;
 		preall.fst_posmode = F_PEOFPOSMODE;
 		
 		err = fcntl(fdw, F_PREALLOCATE, &preall);
-		if(err == -1 && errno == ENOTSUP) {
+		if (err == -1 && errno == ENOTSUP) {
 			contextprintf(context, kBLLogLevelVerbose,  "preallocation not supported on this filesystem for %s\n", dest );
-		} else if(err == -1) {
+		} else if (err == -1) {
 			contextprintf(context, kBLLogLevelError,  "preallocation of %s failed\n", dest );
-			close(fdw);
-			return 3;
+            if (shouldPreallocate == kMustPreallocate) {
+                close(fdw);
+                return 3;
+            }
 		} else {
 			contextprintf(context, kBLLogLevelVerbose,  "0x%08X bytes preallocated for %s\n", (unsigned int)preall.fst_bytesalloc, dest );
 		}

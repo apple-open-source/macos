@@ -46,7 +46,7 @@ CFErrorRef GetNoMemoryError()
 
 CFErrorRef GetNoMemoryErrorAndRetain()
 {
-	return (CFErrorRef) CFRetain(gNoMemory);
+	return (CFErrorRef) CFRetainSafe(gNoMemory);
 }
 
 
@@ -164,7 +164,7 @@ static CFHashCode MakeHash(CFTypeRef typeRef)
 
 
 
-static CFStringRef MakeFormattingDescription(CFTypeRef typeRef, CFDictionaryRef formatOptions)
+static CFStringRef MakeFormattingDescription(CFTypeRef typeRef, CFDictionaryRef formatOptions) CF_RETURNS_RETAINED
 {
 	// get the string
 	CoreFoundationHolder* tr = (CoreFoundationHolder*) typeRef;
@@ -180,7 +180,7 @@ static CFStringRef MakeFormattingDescription(CFTypeRef typeRef, CFDictionaryRef 
 }
 
 
-static CFStringRef MakeDebugDescription(CFTypeRef typeRef)
+static CFStringRef MakeDebugDescription(CFTypeRef typeRef) CF_RETURNS_RETAINED
 {
 	// get the string
 	CoreFoundationHolder* tr = (CoreFoundationHolder*) typeRef;

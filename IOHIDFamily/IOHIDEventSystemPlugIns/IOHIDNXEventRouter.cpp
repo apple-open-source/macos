@@ -332,8 +332,6 @@ IOReturn IOHIDNXEventRouter::probe(CFDictionaryRef propertyTable __unused, io_se
 IOReturn IOHIDNXEventRouter::start(CFDictionaryRef propertyTable __unused, io_service_t service)
 {
     IOReturn                ret             = kIOReturnError;
-    HRESULT                 plugInResult    = S_OK;
-    SInt32                  score           = 0;
     CFMutableDictionaryRef  serviceProps    = NULL;
   
     do {
@@ -352,22 +350,10 @@ IOReturn IOHIDNXEventRouter::start(CFDictionaryRef propertyTable __unused, io_se
         if ( !serviceProps )
             break;
             
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDTransportKey), _serviceProperties, CFSTR(kIOHIDServiceTransportKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVendorIDKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVendorIDSourceKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDSourceKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDProductIDKey), _serviceProperties, CFSTR(kIOHIDServiceProductIDKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVersionNumberKey), _serviceProperties, CFSTR(kIOHIDServiceVersionNumberKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDManufacturerKey), _serviceProperties, CFSTR(kIOHIDServiceManufacturerKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDProductKey), _serviceProperties, CFSTR(kIOHIDServiceProductKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDSerialNumberKey), _serviceProperties, CFSTR(kIOHIDServiceSerialNumberKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDCountryCodeKey), _serviceProperties, CFSTR(kIOHIDServiceCountryCodeKey));
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDLocationIDKey), _serviceProperties, CFSTR(kIOHIDServiceLocationIDKey));
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDServiceGlobalModifiersUsageKey), _serviceProperties, CFSTR(kIOHIDServiceGlobalModifiersUsageKey));
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsagePageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsagePageKey));
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsageKey));
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDDeviceUsagePairsKey), _serviceProperties, CFSTR(kIOHIDServiceDeviceUsagePairsKey));
-// This should be considered a dymanic property
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDReportIntervalKey), _serviceProperties, CFSTR(kIOHIDServiceReportIntervalKey));
 
         CFRelease(serviceProps);
         
@@ -400,7 +386,7 @@ IOReturn IOHIDNXEventRouter::stop()
 //---------------------------------------------------------------------------
 // IOHIDNXEventRouter::open
 //---------------------------------------------------------------------------
-boolean_t IOHIDNXEventRouter::open(IOOptionBits options)
+boolean_t IOHIDNXEventRouter::open(IOOptionBits options __unused)
 {
  
     bool     ret = true;
@@ -416,7 +402,7 @@ boolean_t IOHIDNXEventRouter::open(IOOptionBits options)
 //---------------------------------------------------------------------------
 // IOHIDNXEventRouter::close
 //---------------------------------------------------------------------------
-void IOHIDNXEventRouter::close(IOOptionBits options)
+void IOHIDNXEventRouter::close(IOOptionBits options __unused)
 {
   
     if ( _isOpen ) {
@@ -461,7 +447,7 @@ boolean_t IOHIDNXEventRouter::setProperty(CFStringRef key, CFTypeRef property)
 //---------------------------------------------------------------------------
 // IOHIDNXEventRouter::copyEvent
 //---------------------------------------------------------------------------
-IOHIDEventRef IOHIDNXEventRouter::copyEvent(IOHIDEventType eventType, IOHIDEventRef matching, IOOptionBits options)
+IOHIDEventRef IOHIDNXEventRouter::copyEvent(IOHIDEventType eventType __unused, IOHIDEventRef matching __unused, IOOptionBits options __unused)
 {
     IOHIDEventRef       event           = NULL;
     return event;
@@ -470,7 +456,7 @@ IOHIDEventRef IOHIDNXEventRouter::copyEvent(IOHIDEventType eventType, IOHIDEvent
 //---------------------------------------------------------------------------
 // IOHIDNXEventRouter::setOutputEvent
 //---------------------------------------------------------------------------
-IOReturn IOHIDNXEventRouter::setOutputEvent(IOHIDEventRef event)
+IOReturn IOHIDNXEventRouter::setOutputEvent(IOHIDEventRef event __unused)
 {
     IOReturn result = kIOReturnUnsupported;
     return result;
@@ -535,7 +521,6 @@ void IOHIDNXEventRouter::unscheduleFromDispatchQueue(dispatch_queue_t queue __un
 //---------------------------------------------------------------------------
 void IOHIDNXEventRouter::_queueCallback(void * info)
 {
-    IOHIDEventQueueRef          queue;
     IOHIDEventRef               event;
     IOHIDNXEventRouter *self = (IOHIDNXEventRouter*)info;
     if ( !info )

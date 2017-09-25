@@ -30,10 +30,11 @@
 #include "zsh.mdh"
 #include "cond.pro"
 
-int tracingcond;
+/**/
+int tracingcond;    /* updated by execcond() in exec.c */
 
 static char *condstr[COND_MOD] = {
-    "!", "&&", "||", "==", "!=", "<", ">", "-nt", "-ot", "-ef", "-eq",
+    "!", "&&", "||", "=", "==", "!=", "<", ">", "-nt", "-ot", "-ef", "-eq",
     "-ne", "-lt", "-gt", "-le", "-ge", "=~"
 };
 
@@ -195,7 +196,8 @@ evalcond(Estate state, char *fromtest)
 	cond_subst(&left, !fromtest);
 	untokenize(left);
     }
-    if (ctype <= COND_GE && ctype != COND_STREQ && ctype != COND_STRNEQ) {
+    if (ctype <= COND_GE && ctype != COND_STREQ && ctype != COND_STRDEQ &&
+	ctype != COND_STRNEQ) {
 	right = ecgetstr(state, EC_DUPTOK, &htok);
 	if (htok) {
 	    cond_subst(&right, !fromtest);
@@ -207,7 +209,8 @@ evalcond(Estate state, char *fromtest)
 	    fputc(' ',xtrerr);
 	    quotedzputs(left, xtrerr);
 	    fprintf(xtrerr, " %s ", condstr[ctype]);
-	    if (ctype == COND_STREQ || ctype == COND_STRNEQ) {
+	    if (ctype == COND_STREQ || ctype == COND_STRDEQ ||
+		ctype == COND_STRNEQ) {
 		char *rt = dupstring(ecrawstr(state->prog, state->pc, NULL));
 		cond_subst(&rt, !fromtest);
 		quote_tokenized_output(rt, xtrerr);
@@ -286,6 +289,7 @@ evalcond(Estate state, char *fromtest)
 
     switch (ctype) {
     case COND_STREQ:
+    case COND_STRDEQ:
     case COND_STRNEQ:
 	{
 	    int test, npat = state->pc[1];
@@ -312,7 +316,7 @@ evalcond(Estate state, char *fromtest)
 	    state->pc += 2;
 	    test = (pprog && pattry(pprog, left));
 
-	    return !(ctype == COND_STREQ ? test : !test);
+	    return !(ctype == COND_STRNEQ ? !test : test);
 	}
     case COND_STRLT:
 	return !(strcmp(left, right) < 0);
@@ -347,6 +351,8 @@ evalcond(Estate state, char *fromtest)
 	return (!S_ISSOCK(dostat(left)));
     case 'u':
 	return (!(dostat(left) & S_ISUID));
+    case 'v':
+	return (!issetvar(left));
     case 'w':
 	return (!doaccess(left, W_OK));
     case 'x':

@@ -1047,7 +1047,6 @@ void gshiftleft(int bits, giant g) {
     if(!size) return;
     if((size+digits) > (int)g->capacity) {
         CKRaise("gshiftleft overflow");
-        return;
     }
     k = size - 1 + digits;	// (MSD of result + 1)
     carry = 0;

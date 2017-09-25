@@ -30,6 +30,7 @@
 
 #include "GamepadData.h"
 #include "UIGamepad.h"
+#include "WebPageProxy.h"
 #include "WebProcessPool.h"
 #include <WebCore/MockGamepadProvider.h>
 #include <WebCore/PlatformGamepad.h>
@@ -39,7 +40,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static const double maximumGamepadUpdateInterval = 1 / 120.0;
+static const Seconds maximumGamepadUpdateInterval { 1_s / 120. };
 
 UIGamepadProvider& UIGamepadProvider::singleton()
 {

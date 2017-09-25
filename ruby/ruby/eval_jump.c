@@ -93,53 +93,46 @@ rb_mark_end_proc(void)
     }
 }
 
+static void
+exec_end_procs_chain(struct end_proc_data *volatile *procs, VALUE *errp)
+{
+    struct end_proc_data volatile endproc;
+    struct end_proc_data *link;
+    VALUE errinfo = *errp;
+
+    while ((link = *procs) != 0) {
+	*procs = link->next;
+	endproc = *link;
+	xfree(link);
+	rb_set_safe_level_force(endproc.safe);
+	(*endproc.func) (endproc.data);
+	*errp = errinfo;
+    }
+}
+
 void
 rb_exec_end_proc(void)
 {
-    struct end_proc_data volatile endproc;
-    struct end_proc_data volatile *link;
     int status;
     volatile int safe = rb_safe_level();
     rb_thread_t *th = GET_THREAD();
     volatile VALUE errinfo = th->errinfo;
 
-    while (ephemeral_end_procs) {
-	link = ephemeral_end_procs;
-	ephemeral_end_procs = link->next;
-	endproc = *link;
-	xfree((void *)link);
-	link = &endproc;
-
-	PUSH_TAG();
-	if ((status = EXEC_TAG()) == 0) {
-	    rb_set_safe_level_force(link->safe);
-	    (*link->func) (link->data);
-	}
-	POP_TAG();
-	if (status) {
-	    error_handle(status);
-	    if (!NIL_P(th->errinfo)) errinfo = th->errinfo;
-	}
+    TH_PUSH_TAG(th);
+    if ((status = EXEC_TAG()) == 0) {
+      again:
+	exec_end_procs_chain(&ephemeral_end_procs, &th->errinfo);
+	exec_end_procs_chain(&end_procs, &th->errinfo);
     }
-
-    while (end_procs) {
-	link = end_procs;
-	end_procs = link->next;
-	endproc = *link;
-	xfree((void *)link);
-	link = &endproc;
-
-	PUSH_TAG();
-	if ((status = EXEC_TAG()) == 0) {
-	    rb_set_safe_level_force(link->safe);
-	    (*link->func) (link->data);
-	}
-	POP_TAG();
-	if (status) {
-	    error_handle(status);
-	    if (!NIL_P(th->errinfo)) errinfo = th->errinfo;
-	}
+    else {
+	VAR_INITIALIZED(th);
+	TH_TMPPOP_TAG();
+	error_handle(status);
+	if (!NIL_P(th->errinfo)) errinfo = th->errinfo;
+	TH_REPUSH_TAG();
+	goto again;
     }
+    TH_POP_TAG();
 
     rb_set_safe_level_force(safe);
     th->errinfo = errinfo;

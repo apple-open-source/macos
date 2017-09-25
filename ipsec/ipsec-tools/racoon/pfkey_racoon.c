@@ -223,7 +223,7 @@ pfkey_process(msg)
 		/* when SPD is empty, treat the state as no error. */
 		if (msg->sadb_msg_type == SADB_X_SPDDUMP &&
 		    msg->sadb_msg_errno == ENOENT)
-			pri = ASL_LEVEL_DEBUG;
+			pri = ASL_LEVEL_NOTICE;
 		else
 			pri = ASL_LEVEL_ERR;
 
@@ -243,7 +243,7 @@ pfkey_process(msg)
 	}
 
 	if (pkrecvf[msg->sadb_msg_type] == NULL) {
-		plog(ASL_LEVEL_INFO, 
+		plog(ASL_LEVEL_NOTICE, 
 			"unsupported PF_KEY message %s\n",
 			s_pfkey_type(msg->sadb_msg_type));
 		goto end;
@@ -273,7 +273,7 @@ pfkey_handler(void *unused)
 	ssize_t len;
 
 	if (slept_at || woke_at) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_DEBUG,
 			 "ignoring pfkey port until power-mgmt event is handled.\n");
 		return;
 	}
@@ -290,7 +290,7 @@ pfkey_handler(void *unused)
 			return;			
 		} else {
 			/* short message - msg not ready */
-			plog(ASL_LEVEL_DEBUG, "recv short message from pfkey\n");
+			plog(ASL_LEVEL_NOTICE, "recv short message from pfkey\n");
 			return;
 		}
 	}
@@ -304,7 +304,7 @@ pfkey_post_handler()
 	struct saved_msg_elem *elem_tmp = NULL;
 
 	if (slept_at || woke_at) {
-		plog(ASL_LEVEL_DEBUG, 
+		plog(ASL_LEVEL_NOTICE,
 			 "ignoring (saved) pfkey messages until power-mgmt event is handled.\n");
 		return;
 	}
@@ -1327,11 +1327,14 @@ pk_recvupdate(mhp)
 				    sa->sadb_sa_spi,
 				    sa_mode));
 
-			plog(ASL_LEVEL_INFO, 
-				"IPsec-SA established: %s\n",
-				sadbsecas2str(iph2->dst, iph2->src,
-					msg->sadb_msg_satype, sa->sadb_sa_spi,
-					sa_mode));
+			plog(ASL_LEVEL_NOTICE, 
+				 "IPsec-SA established (update): satype=%u spi=%#x mode=%u\n",
+				 msg->sadb_msg_satype, ntohl(sa->sadb_sa_spi), sa_mode);
+			plog(ASL_LEVEL_DEBUG,
+				 "IPsec-SA established (update): %s\n",
+				 sadbsecas2str(iph2->dst, iph2->src,
+							   msg->sadb_msg_satype, sa->sadb_sa_spi,
+							   sa_mode));
 		}
 
 		if (pr->ok == 0)
@@ -1609,8 +1612,11 @@ pk_recvadd(mhp)
 	 * because they must be updated by SADB_UPDATE message
 	 */
 
-	plog(ASL_LEVEL_INFO, 
-		"IPsec-SA established: %s\n",
+	plog(ASL_LEVEL_NOTICE,
+		 "IPsec-SA established (add): satype=%u spi=%#x mode=%u\n",
+		 msg->sadb_msg_satype, ntohl(sa->sadb_sa_spi), sa_mode);
+	plog(ASL_LEVEL_DEBUG,
+		"IPsec-SA established (add): %s\n",
 		sadbsecas2str(iph2->src, iph2->dst,
 			msg->sadb_msg_satype, sa->sadb_sa_spi, sa_mode));
 			
@@ -1663,7 +1669,10 @@ pk_recvexpire(mhp)
 		return -1;
 	}
 
-	plog(ASL_LEVEL_INFO, 
+	plog(ASL_LEVEL_NOTICE,
+		 "IPsec-SA expired: satype=%u spi=%#x mode=%u\n",
+		 msg->sadb_msg_satype, ntohl(sa->sadb_sa_spi), sa_mode);
+	plog(ASL_LEVEL_DEBUG,
 		"IPsec-SA expired: %s\n",
 		sadbsecas2str(src, dst,
 			msg->sadb_msg_satype, sa->sadb_sa_spi, sa_mode));
@@ -3076,6 +3085,7 @@ addnewsp(mhp)
 	default:
 		plog(ASL_LEVEL_ERR, 
 			"invalid policy type.\n");
+		delsp(new);
 		return -1;
 	}
 

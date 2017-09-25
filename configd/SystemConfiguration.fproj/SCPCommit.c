@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -197,6 +197,9 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		int		fd;
 		CFDataRef	newPrefs;
 		CFIndex		pathLen;
+#if	TARGET_OS_EMBEDDED
+		CFStringRef	protectionClass;
+#endif	// TARGET_OS_EMBEDDED
 		char *		thePath;
 
 		if (stat(prefsPrivate->path, &statBuf) == -1) {
@@ -217,7 +220,29 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		thePath = CFAllocatorAllocate(NULL, pathLen, 0);
 		snprintf(thePath, pathLen, "%s-new", path);
 
+#if	TARGET_OS_EMBEDDED
+		if ((prefsPrivate->options != NULL) &&
+		    CFDictionaryGetValueIfPresent(prefsPrivate->options,
+						  kSCPreferencesOptionProtectionClass,
+						  (const void **)&protectionClass)) {
+			int		pc;
+			const char	*str;
+
+			if (!isA_CFString(protectionClass) ||
+			    (CFStringGetLength(protectionClass) != 1) ||
+			    ((str = CFStringGetCStringPtr(protectionClass, kCFStringEncodingASCII)) == NULL) ||
+			    (str[0] < 'A') || (str[0] > 'F')
+			    ) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				goto done;
+			}
+
+			pc = str[0] - 'A' + 1;	// PROTECTION_CLASS_[ABCDEF]
+			fd = open_dprotected_np(thePath, O_WRONLY|O_CREAT, pc, 0, statBuf.st_mode);
+		} else
+#endif	// TARGET_OS_EMBEDDED
 		fd = open(thePath, O_WRONLY|O_CREAT, statBuf.st_mode);
+
 		if (fd == -1) {
 			_SCErrorSet(errno);
 			SC_log(LOG_INFO, "open() failed: %s", strerror(errno));

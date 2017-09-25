@@ -133,6 +133,8 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 		pwrite(fd, "hello", 5, i * ps * 2);
 	}
 
+	assert_no_err(munmap(p, o + 2 * ps));
+
 	// OK, that should have created 1024 invalid ranges.  Sync the data.
 	p = mmap(NULL, 1024 * ps * 2, PROT_READ | PROT_WRITE, MAP_SHARED,
 			 fd, 0);
@@ -146,6 +148,8 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 	assert_no_err(close(fd));
 
 	assert_no_err(unlink(file));
+
+	assert_no_err(munmap(p, 1024 * ps * 2));
 
 #if !TARGET_OS_EMBEDDED
 	disk_image_t *di2 = disk_image_create(DISK_IMAGE, &(disk_image_opts_t){
@@ -295,6 +299,7 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 	char *fsync_path;
 	asprintf(&fsync_path, "%s/fsync", di->mount_point);
 
+	assert_no_err(close(fd));
 	fd = open(fsync_path, O_CREAT | O_RDWR | O_TRUNC, 0666);
 
 	assert_with_errno(fd >= 0);
@@ -315,13 +320,14 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 	// Attach to the disk image again
 	assert(!systemx("/usr/bin/hdiutil", SYSTEMX_QUIET, "attach", DISK_IMAGE, NULL));
 
+	assert_no_err(close(fd));
 	assert_with_errno((fd = open(path, O_RDWR)) >= 0);
 
 	// Either the file should be short, or there should be zeroes
 	ssize_t amount = pread(fd, buf, block_size, block_size);
 	assert_with_errno(amount >= 0);
 
-	assert(!memcmp(buf, zero, amount));
+	assert(!memcmp(buf, zero, (amount > 1000) ? 1000 : amount));
 
 	assert_no_err(close(fd));
 
@@ -346,6 +352,10 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 	check_io(pread(fd, buf3, 0x100000, 0x100000), 0x100000);
 	assert(!memcmp(buf2, buf3, 0x100000));
 
+	free(buf3);
+	free(buf2);
+	free(buf);
+	free(zero);
 	assert_no_err(close(fd));
 	assert_no_err(unlink(file));
 

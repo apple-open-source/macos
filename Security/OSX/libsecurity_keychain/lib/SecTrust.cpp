@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,6 +29,7 @@
 #include "SecInternal.h"
 #include "SecTrustSettings.h"
 #include "SecTrustSettingsPriv.h"
+#include "SecTrustStatusCodes.h"
 #include "SecCertificatePriv.h"
 #include "SecCertificateP.h"
 #include "SecCertificatePrivP.h"
@@ -59,284 +60,9 @@ const CFStringRef kSecTrustRevocationReason         = CFSTR("TrustRevocationReas
 const CFStringRef kSecTrustRevocationValidUntilDate = CFSTR("TrustExpirationDate");
 const CFStringRef kSecTrustResultDetails            = CFSTR("TrustResultDetails");
 
-// Policy check string to CSSM_RETURN mapping
-
-struct resultmap_entry_s {
-	const CFStringRef checkstr;
-	const CSSM_RETURN resultcode;
-};
-typedef struct resultmap_entry_s resultmap_entry_t;
-
-const resultmap_entry_t cssmresultmap[] = {
-    { CFSTR("SSLHostname"), CSSMERR_APPLETP_HOSTNAME_MISMATCH },
-    { CFSTR("email"), CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND },
-    { CFSTR("IssuerCommonName"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("SubjectCommonName"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("SubjectCommonNamePrefix"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("SubjectCommonNameTEST"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("SubjectOrganization"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("SubjectOrganizationalUnit"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("EAPTrustedServerNames"), CSSMERR_APPLETP_HOSTNAME_MISMATCH },
-    { CFSTR("CertificatePolicy"), CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION },
-    { CFSTR("KeyUsage"), CSSMERR_APPLETP_INVALID_KEY_USAGE },
-    { CFSTR("ExtendedKeyUsage"), CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE },
-    { CFSTR("BasicConstraints"), CSSMERR_APPLETP_NO_BASIC_CONSTRAINTS },
-    { CFSTR("QualifiedCertStatements"), CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT },
-    { CFSTR("IntermediateSPKISHA256"), CSSMERR_APPLETP_IDENTIFIER_MISSING },
-    { CFSTR("IntermediateEKU"), CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE },
-    { CFSTR("AnchorSHA1"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("AnchorSHA256"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("AnchorTrusted"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("AnchorApple"), CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH },
-    { CFSTR("NonEmptySubject"), CSSMERR_APPLETP_INVALID_EMPTY_SUBJECT },
-    { CFSTR("IdLinkage"), CSSMERR_APPLETP_INVALID_AUTHORITY_ID },
-    { CFSTR("WeakIntermediates"), CSSMERR_TP_INVALID_CERTIFICATE },
-    { CFSTR("WeakLeaf"), CSSMERR_TP_INVALID_CERTIFICATE },
-    { CFSTR("WeakRoot"), CSSMERR_TP_INVALID_CERTIFICATE },
-    { CFSTR("KeySize"), CSSMERR_CSP_UNSUPPORTED_KEY_SIZE },
-    { CFSTR("SignatureHashAlgorithms"), CSSMERR_CSP_ALGID_MISMATCH },
-    { CFSTR("SystemTrustedWeakHash"), CSSMERR_CSP_INVALID_DIGEST_ALGORITHM },
-    { CFSTR("CriticalExtensions"), CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN },
-    { CFSTR("ChainLength"), CSSMERR_APPLETP_PATH_LEN_CONSTRAINT },
-    { CFSTR("BasicCertificateProcessing"), CSSMERR_TP_INVALID_CERTIFICATE },
-    { CFSTR("ExtendedValidation"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("Revocation"), CSSMERR_TP_CERT_REVOKED },
-    { CFSTR("RevocationResponseRequired"), CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK },
-    { CFSTR("CertificateTransparency"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("BlackListedLeaf"), CSSMERR_TP_CERT_REVOKED },
-    { CFSTR("GrayListedLeaf"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("GrayListedKey"), CSSMERR_TP_NOT_TRUSTED },
-    { CFSTR("BlackListedKey"), CSSMERR_TP_CERT_REVOKED },
-    { CFSTR("CheckLeafMarkerOid"), CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION },
-    { CFSTR("CheckLeafMarkerOidNoValueCheck"), CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION },
-    { CFSTR("CheckIntermediateMarkerOid"), CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION },
-    { CFSTR("UsageConstraints"), CSSMERR_APPLETP_TRUST_SETTING_DENY },
-    { CFSTR("NotValidBefore"), CSSMERR_TP_CERT_NOT_VALID_YET },
-    { CFSTR("ValidIntermediates"), CSSMERR_TP_CERT_EXPIRED },
-    { CFSTR("ValidLeaf"), CSSMERR_TP_CERT_EXPIRED },
-    { CFSTR("ValidRoot"), CSSMERR_TP_CERT_EXPIRED },
-//  { CFSTR("AnchorAppleTestRoots"),  },
-//  { CFSTR("AnchorAppleTestRootsOnProduction"),  },
-//  { CFSTR("NoNetworkAccess"),  },
-};
-
-
 //
 // Sec* API bridge functions
 //
-typedef struct {
-	SecTrustOptionFlags flags;
-	CFIndex certIX;
-	SecTrustRef trustRef;
-	CFMutableDictionaryRef filteredException;
-	CFDictionaryRef oldException;
-} SecExceptionFilterContext;
-
-// inline function from SecCFWrappers.h
-static inline char *CFStringToCString(CFStringRef inStr)
-{
-    if (!inStr)
-        return (char *)strdup("");
-    CFRetain(inStr);        // compensate for release on exit
-
-    // need to extract into buffer
-    CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
-    size_t len = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8);
-    char *buffer = (char *)malloc(len);                 // pessimistic
-    if (!CFStringGetCString(inStr, buffer, len, kCFStringEncodingUTF8))
-        buffer[0] = 0;
-
-    CFRelease(inStr);
-    return buffer;
-}
-
-static void
-filter_exception(const void *key, const void *value, void *context)
-{
-	SecExceptionFilterContext *ctx = (SecExceptionFilterContext *)context;
-	if (!ctx) { return; }
-
-	SecTrustOptionFlags options = ctx->flags;
-	CFMutableDictionaryRef filteredException = ctx->filteredException;
-	CFStringRef keystr = (CFStringRef)key;
-
-	if (ctx->oldException && CFDictionaryContainsKey(ctx->oldException, key)) {
-		// Keep existing exception in filtered dictionary, regardless of options
-		CFDictionaryAddValue(filteredException, key, CFDictionaryGetValue(ctx->oldException, key));
-		return;
-	}
-
-	bool allowed = false;
-
-	if (CFEqual(keystr, CFSTR("SHA1Digest"))) {
-		allowed = true; // this key is informational and always permitted
-	}
-	else if (CFEqual(keystr, CFSTR("NotValidBefore"))) {
-		allowed = ((options & kSecTrustOptionAllowExpired) != 0);
-	}
-	else if (CFEqual(keystr, CFSTR("ValidLeaf"))) {
-		allowed = ((options & kSecTrustOptionAllowExpired) != 0);
-	}
-	else if (CFEqual(keystr, CFSTR("ValidIntermediates"))) {
-		allowed = ((options & kSecTrustOptionAllowExpired) != 0);
-	}
-	else if (CFEqual(keystr, CFSTR("ValidRoot"))) {
-        if (((options & kSecTrustOptionAllowExpired) != 0) ||
-            ((options & kSecTrustOptionAllowExpiredRoot) != 0)) {
-            allowed = true;
-        }
-	}
-	else if (CFEqual(keystr, CFSTR("AnchorTrusted"))) {
-		bool implicitAnchors = ((options & kSecTrustOptionImplicitAnchors) != 0);
-		// Implicit anchors option only filters exceptions for self-signed certs
-		if (implicitAnchors && ctx->trustRef &&
-		    (ctx->certIX < SecTrustGetCertificateCount(ctx->trustRef))) {
-			Boolean isSelfSigned = false;
-			SecCertificateRef cert = SecTrustGetCertificateAtIndex(ctx->trustRef, ctx->certIX);
-			if (cert && (errSecSuccess == SecCertificateIsSelfSigned(cert, &isSelfSigned)) &&
-			    isSelfSigned) {
-				allowed = true;
-			}
-		}
-	}
-	else if (CFEqual(keystr, CFSTR("KeyUsage")) ||
-	         CFEqual(keystr, CFSTR("ExtendedKeyUsage")) ||
-	         CFEqual(keystr, CFSTR("BasicConstraints")) ||
-	         CFEqual(keystr, CFSTR("NonEmptySubject")) ||
-	         CFEqual(keystr, CFSTR("IdLinkage"))) {
-		// Cannot override these exceptions
-		allowed = false;
-	}
-	else {
-		// Unhandled exceptions should not be overridden,
-		// but we want to know which ones we're missing
-		char *cstr = CFStringToCString(keystr);
-		syslog(LOG_ERR, "Unfiltered exception: %s", (cstr) ? cstr : "<NULL>");
-		if (cstr) { free(cstr); }
-		allowed = false;
-	}
-
-	if (allowed) {
-		CFDictionaryAddValue(filteredException, key, value);
-	}
-}
-
-/* OS X only: __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA) */
-OSStatus
-SecTrustSetOptions(SecTrustRef trustRef, SecTrustOptionFlags options)
-{
-	/* bridge to support API functionality for legacy callers */
-	OSStatus status = errSecSuccess;
-	CFDataRef encodedExceptions = SecTrustCopyExceptions(trustRef);
-	CFArrayRef exceptions = NULL,
-            oldExceptions = SecTrustGetTrustExceptionsArray(trustRef);
-
-	if (encodedExceptions) {
-		exceptions = (CFArrayRef)CFPropertyListCreateWithData(kCFAllocatorDefault,
-			encodedExceptions, kCFPropertyListImmutable, NULL, NULL);
-		CFRelease(encodedExceptions);
-		encodedExceptions = NULL;
-	}
-
-	if (exceptions && CFGetTypeID(exceptions) != CFArrayGetTypeID()) {
-		CFRelease(exceptions);
-		exceptions = NULL;
-	}
-
-	if (oldExceptions && exceptions &&
-		CFArrayGetCount(oldExceptions) > CFArrayGetCount(exceptions)) {
-		oldExceptions = NULL;
-	}
-
-	/* verify both exceptions are for the same leaf */
-	if (oldExceptions && exceptions && CFArrayGetCount(oldExceptions) > 0) {
-		CFDictionaryRef oldLeafExceptions = (CFDictionaryRef)CFArrayGetValueAtIndex(oldExceptions, 0);
-		CFDictionaryRef leafExceptions = (CFDictionaryRef)CFArrayGetValueAtIndex(exceptions, 0);
-		CFDataRef oldDigest = (CFDataRef)CFDictionaryGetValue(oldLeafExceptions, CFSTR("SHA1Digest"));
-		CFDataRef digest = (CFDataRef)CFDictionaryGetValue(leafExceptions, CFSTR("SHA1Digest"));
-		if (!oldDigest || !digest || !CFEqual(oldDigest, digest)) {
-			oldExceptions = NULL;
-		}
-	}
-
-	/* add only those exceptions which are allowed by the supplied options */
-	if (exceptions) {
-		CFMutableArrayRef filteredExceptions = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		CFIndex i, exceptionCount = (filteredExceptions) ? CFArrayGetCount(exceptions) : 0;
-
-		for (i = 0; i < exceptionCount; ++i) {
-			CFDictionaryRef exception = (CFDictionaryRef)CFArrayGetValueAtIndex(exceptions, i);
-			CFDictionaryRef oldException = NULL;
-			if (oldExceptions && i < CFArrayGetCount(oldExceptions)) {
-				oldException = (CFDictionaryRef)CFArrayGetValueAtIndex(oldExceptions, i);
-			}
-			CFMutableDictionaryRef filteredException = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
-																				 &kCFTypeDictionaryValueCallBacks);
-			if (exception && filteredException) {
-				SecExceptionFilterContext filterContext = { options, i, trustRef, filteredException, oldException };
-				CFDictionaryApplyFunction(exception, filter_exception, &filterContext);
-				CFArrayAppendValue(filteredExceptions, filteredException);
-				CFRelease(filteredException);
-			}
-		}
-
-		if (filteredExceptions) {
-			CFIndex filteredCount = CFArrayGetCount(filteredExceptions);
-			/* remove empty trailing entries to match iOS behavior */
-			for (i = filteredCount; i-- > 1;) {
-				CFDictionaryRef exception = (CFDictionaryRef)CFArrayGetValueAtIndex(filteredExceptions, i);
-				if (CFDictionaryGetCount(exception) == 0) {
-					CFArrayRemoveValueAtIndex(filteredExceptions, i);
-				} else {
-					break;
-				}
-			}
-			encodedExceptions = CFPropertyListCreateData(kCFAllocatorDefault,
-				filteredExceptions, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
-			CFRelease(filteredExceptions);
-
-			SecTrustSetExceptions(trustRef, encodedExceptions);
-			CFRelease(encodedExceptions);
-		}
-		CFRelease(exceptions);
-	}
-
-#if SECTRUST_DEPRECATION_WARNINGS
-	bool displayModifyMsg = false;
-	bool displayNetworkMsg = false;
-	bool displayPolicyMsg = false;
-	const char *baseMsg = "WARNING: SecTrustSetOptions called with";
-	const char *modifyMsg = "Use SecTrustSetExceptions and SecTrustCopyExceptions to modify default trust results.";
-	const char *networkMsg = "Use SecTrustSetNetworkFetchAllowed to specify whether missing certificates can be fetched from the network.";
-	const char *policyMsg = "Use SecPolicyCreateRevocation to specify revocation policy requirements.";
-
-	if (options & kSecTrustOptionAllowExpired) {
-		syslog(LOG_ERR, "%s %s.", baseMsg, "kSecTrustOptionAllowExpired");
-		displayModifyMsg = true;
-	}
-	if (options & kSecTrustOptionAllowExpiredRoot) {
-		syslog(LOG_ERR, "%s %s.", baseMsg, "kSecTrustOptionAllowExpiredRoot");
-		displayModifyMsg = true;
-	}
-	if (options & kSecTrustOptionFetchIssuerFromNet) {
-		syslog(LOG_ERR, "%s %s.", baseMsg, "kSecTrustOptionFetchIssuerFromNet");
-		displayNetworkMsg = true;
-	}
-	if (options & kSecTrustOptionRequireRevPerCert) {
-		syslog(LOG_ERR, "%s %s.", baseMsg, "kSecTrustOptionRequireRevPerCert");
-		displayPolicyMsg = true;
-	}
-	if (displayModifyMsg || displayNetworkMsg || displayPolicyMsg) {
-		syslog(LOG_ERR, "%s %s %s",
-			(displayModifyMsg) ? modifyMsg : "",
-			(displayNetworkMsg) ? networkMsg : "",
-			(displayPolicyMsg) ? policyMsg : "");
-	}
-#endif
-
-	return status;
-}
-
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus SecTrustSetParameters(
     SecTrustRef trustRef,
@@ -437,65 +163,6 @@ OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_
 		*result = NULL;
 	}
 	return errSecServiceNotAvailable;
-}
-
-//
-// Returns a malloced array of CSSM_RETURN values, with the length in numStatusCodes,
-// for the certificate specified by chain index in the given SecTrustRef.
-//
-// To match legacy behavior, the array actually allocates one element more than the
-// value of numStatusCodes; if the certificate is revoked, the additional element
-// at the end contains the CrlReason value.
-//
-// Caller must free the returned pointer.
-//
-static CSSM_RETURN *copyCssmStatusCodes(SecTrustRef trust,
-	unsigned int index, unsigned int *numStatusCodes)
-{
-	if (!trust || !numStatusCodes) {
-		return NULL;
-	}
-	*numStatusCodes = 0;
-	CFArrayRef details = SecTrustCopyFilteredDetails(trust);
-	CFIndex chainLength = (details) ? CFArrayGetCount(details) : 0;
-	if (!(index < chainLength)) {
-		CFReleaseSafe(details);
-		return NULL;
-	}
-	CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, index);
-	CFIndex ix, detailCount = CFDictionaryGetCount(detail);
-	*numStatusCodes = (unsigned int)detailCount;
-
-	// Allocate one more entry than we need; this is used to store a CrlReason
-	// at the end of the array.
-	CSSM_RETURN *statusCodes = (CSSM_RETURN*)malloc((detailCount+1) * sizeof(CSSM_RETURN));
-	statusCodes[*numStatusCodes] = 0;
-
-	const unsigned int resultmaplen = sizeof(cssmresultmap) / sizeof(resultmap_entry_t);
-	const void *keys[detailCount];
-	CFDictionaryGetKeysAndValues(detail, &keys[0], NULL);
-	for (ix = 0; ix < detailCount; ix++) {
-		CFStringRef key = (CFStringRef)keys[ix];
-		CSSM_RETURN statusCode = CSSM_OK;
-		for (unsigned int mapix = 0; mapix < resultmaplen; mapix++) {
-			CFStringRef str = (CFStringRef) cssmresultmap[mapix].checkstr;
-			if (CFStringCompare(str, key, 0) == kCFCompareEqualTo) {
-				statusCode = (CSSM_RETURN) cssmresultmap[mapix].resultcode;
-				break;
-			}
-		}
-		if (statusCode == CSSMERR_TP_CERT_REVOKED) {
-			SInt32 reason;
-			CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(detail, key);
-			if (number && CFNumberGetValue(number, kCFNumberSInt32Type, &reason)) {
-				statusCodes[*numStatusCodes] = (CSSM_RETURN)reason;
-			}
-		}
-		statusCodes[ix] = statusCode;
-	}
-
-	CFReleaseSafe(details);
-	return statusCodes;
 }
 
 static uint8_t convertCssmResultToPriority(CSSM_RETURN resultCode) {
@@ -625,9 +292,9 @@ OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
     uint8_t resultCodePriority = 0xFF;
     CFIndex ix, count = SecTrustGetCertificateCount(trustRef);
     for (ix = 0; ix < count; ix++) {
-        unsigned int numStatusCodes;
+        CFIndex numStatusCodes;
         CSSM_RETURN *statusCodes = NULL;
-        statusCodes = copyCssmStatusCodes(trustRef, (uint32_t)ix, &numStatusCodes);
+        statusCodes = (CSSM_RETURN*)SecTrustCopyStatusCodes(trustRef, ix, &numStatusCodes);
         if (statusCodes && numStatusCodes > 0) {
             unsigned int statusIX;
             for (statusIX = 0; statusIX < numStatusCodes; statusIX++) {
@@ -669,11 +336,50 @@ OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
 {
 	BEGIN_SECAPI
-
-	return SecTrustSettingsCopyUnrestrictedRoots(
+    CFArrayRef outArray;
+	OSStatus status = SecTrustSettingsCopyUnrestrictedRoots(
 			true, true, true,		/* all domains */
-			anchorCertificates);
-
+			&outArray);
+    if (status != errSecSuccess) {
+        return status;
+    }
+    CFIndex count = outArray ? CFArrayGetCount(outArray) : 0;
+    if(count == 0) {
+        return errSecNoTrustSettings;
+    }
+    
+    /* Go through outArray and do a SecTrustEvaluate */
+    CFIndex i;
+    SecPolicyRef policy = SecPolicyCreateBasicX509();
+    CFMutableArrayRef trustedCertArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    for (i = 0; i < count ; i++) {
+        SecTrustRef trust;
+        SecTrustResultType result;
+        SecCertificateRef certificate = (SecCertificateRef) CFArrayGetValueAtIndex(outArray, i);
+        status = SecTrustCreateWithCertificates(certificate, policy, &trust);
+        if (status != errSecSuccess) {
+            CFReleaseSafe(trustedCertArray);
+            goto out;
+        }
+        status = SecTrustEvaluate(trust, &result);
+        if (status != errSecSuccess) {
+			CFReleaseSafe(trustedCertArray);
+            goto out;
+        }
+        if (result != kSecTrustResultFatalTrustFailure) {
+            CFArrayAppendValue(trustedCertArray, certificate);
+        }
+    }
+    if (CFArrayGetCount(trustedCertArray) == 0) {
+    	status = errSecNoTrustSettings;
+        CFReleaseSafe(trustedCertArray);
+        goto out;
+    }
+    *anchorCertificates = trustedCertArray;
+out:
+	CFReleaseSafe(outArray);
+    CFReleaseSafe(policy);
+    return status;
 	END_SECAPI
 }
 
@@ -708,7 +414,6 @@ typedef struct __TSecTrust {
     bool                    _keychainsAllowed;
     void*                   _legacy_info_array;
     void*                   _legacy_status_array;
-    SecTrustResultType      _trustResultBeforeExceptions;
     dispatch_queue_t        _trustQueue;
 } TSecTrust;
 
@@ -819,7 +524,7 @@ SecTrustGetEvidenceInfo(SecTrustRef trust)
 
 	CSSM_TP_APPLE_EVIDENCE_INFO *infoArray = (CSSM_TP_APPLE_EVIDENCE_INFO *)calloc(count, sizeof(CSSM_TP_APPLE_EVIDENCE_INFO));
 	CSSM_RETURN *statusArray = NULL;
-	unsigned int numStatusCodes = 0;
+	CFIndex numStatusCodes = 0;
 
 	// Set status codes for each certificate in the constructed chain
 	for (idx=0; idx < count; idx++) {
@@ -918,19 +623,19 @@ SecTrustGetEvidenceInfo(SecTrustRef trust)
 			CFRelease(hashStr);
 		}
 
-		unsigned int numCodes=0;
-		CSSM_RETURN *statusCodes = copyCssmStatusCodes(trust, (unsigned int)idx, &numCodes);
+		CFIndex numCodes=0;
+		CSSM_RETURN *statusCodes = (CSSM_RETURN*)SecTrustCopyStatusCodes(trust, idx, &numCodes);
 		if (statusCodes) {
 			// Realloc space for these status codes at end of our status codes block.
 			// Two important things to note:
-			// 1. the actual length is numCodes+1 because copyCssmStatusCodes
+			// 1. the actual length is numCodes+1 because SecTrustCopyStatusCodes
 			// allocates one more element at the end for the CrlReason value.
 			// 2. realloc may cause the pointer to move, which means we will
 			// need to fix up the StatusCodes fields after we're done with this loop.
-			unsigned int totalStatusCodes = numStatusCodes + numCodes + 1;
+			CFIndex totalStatusCodes = numStatusCodes + numCodes + 1;
 			statusArray = (CSSM_RETURN *)realloc(statusArray, totalStatusCodes * sizeof(CSSM_RETURN));
 			evInfo->StatusCodes = &statusArray[numStatusCodes];
-			evInfo->NumStatusCodes = numCodes;
+			evInfo->NumStatusCodes = (uint32)numCodes;
 			// Copy the new codes (plus one) into place
 			for (unsigned int cpix = 0; cpix <= numCodes; cpix++) {
 				evInfo->StatusCodes[cpix] = statusCodes[cpix];
@@ -1008,11 +713,11 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust) {
         }
 
         /* Populate a revocation reason if the cert was revoked */
-        unsigned int numStatusCodes;
+        CFIndex numStatusCodes;
         CSSM_RETURN *statusCodes = NULL;
-        statusCodes = copyCssmStatusCodes(trust, (uint32_t)ix, &numStatusCodes);
+        statusCodes = (CSSM_RETURN*)SecTrustCopyStatusCodes(trust, ix, &numStatusCodes);
         if (statusCodes) {
-            int32_t reason = statusCodes[numStatusCodes];  // stored at end of status codes array
+            SInt32 reason = statusCodes[numStatusCodes];  // stored at end of status codes array
             if (reason > 0) {
                 CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
                 if (cfreason) {

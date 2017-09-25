@@ -182,7 +182,8 @@ __BEGIN_DECLS
 
 #define OS_SPINLOCK_INIT 0
 typedef int32_t OSSpinLock OSSPINLOCK_DEPRECATED_REPLACE_WITH(os_unfair_lock);
-typedef volatile OSSpinLock *_os_nospin_lock_t;
+typedef volatile OSSpinLock *_os_nospin_lock_t
+		OSSPINLOCK_DEPRECATED_REPLACE_WITH(os_unfair_lock_t);
 
 OSSPINLOCK_DEPRECATED_REPLACE_WITH(os_unfair_lock_lock)
 OS_NOSPIN_LOCK_AVAILABILITY

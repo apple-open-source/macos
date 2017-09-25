@@ -22,10 +22,10 @@
 	<true/>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
-        <key>UserName</key>
-        <string>_hidd</string>
-        <key>Group</key>
-        <string>_hidd</string>
+    <key>UserName</key>
+    <string>_hidd</string>
+    <key>Group</key>
+    <string>_hidd</string>
 	<key>LaunchEvents</key>
 	<dict>
 		<key>com.apple.iokit.matching</key>

@@ -31,6 +31,7 @@
 #import "APIData.h"
 #import "DataReference.h"
 #import "DownloadProxy.h"
+#import "DrawingAreaProxy.h"
 #import "InteractionInformationAtPosition.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
@@ -40,6 +41,7 @@
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import "WKGeolocationProviderIOS.h"
+#import "WKPasswordView.h"
 #import "WKProcessPoolInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProviderRegistry.h"
@@ -53,6 +55,7 @@
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/TextIndicator.h>
 #import <WebCore/ValidationBubble.h>
+#import <wtf/BlockPtr.h>
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_webView->_page->process().connection())
 
@@ -63,7 +66,7 @@ using namespace WebKit;
 {
     RefPtr<WebEditCommandProxy> m_command;
 }
-- (id)initWithWebEditCommandProxy:(PassRefPtr<WebEditCommandProxy>)command;
+- (id)initWithWebEditCommandProxy:(Ref<WebEditCommandProxy>&&)command;
 - (WebEditCommandProxy*)command;
 @end
 
@@ -74,13 +77,13 @@ using namespace WebKit;
 
 @implementation WKEditCommandObjC
 
-- (id)initWithWebEditCommandProxy:(PassRefPtr<WebEditCommandProxy>)command
+- (id)initWithWebEditCommandProxy:(Ref<WebEditCommandProxy>&&)command
 {
     self = [super init];
     if (!self)
         return nil;
     
-    m_command = command;
+    m_command = WTFMove(command);
     return self;
 }
 
@@ -134,6 +137,14 @@ void PageClientImpl::requestScroll(const FloatPoint& scrollPosition, const IntPo
 {
     UNUSED_PARAM(isProgrammaticScroll);
     [m_webView _scrollToContentScrollPosition:scrollPosition scrollOrigin:scrollOrigin];
+}
+
+WebCore::FloatPoint PageClientImpl::viewScrollPosition()
+{
+    if (UIScrollView *scroller = [m_contentView _scroller])
+        return scroller.contentOffset;
+
+    return { };
 }
 
 IntSize PageClientImpl::viewSize()
@@ -220,6 +231,11 @@ void PageClientImpl::didNotHandleTapAsClick(const WebCore::IntPoint& point)
 {
     [m_contentView _didNotHandleTapAsClick:point];
 }
+    
+void PageClientImpl::didCompleteSyntheticClick()
+{
+    [m_contentView _didCompleteSyntheticClick];
+}
 
 bool PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& frame, API::SecurityOrigin& origin, GeolocationPermissionRequestProxy& request)
 {
@@ -227,8 +243,19 @@ bool PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& 
     return true;
 }
 
+void PageClientImpl::didStartProvisionalLoadForMainFrame()
+{
+    [m_webView _hidePasswordView];
+}
+
+void PageClientImpl::didFailProvisionalLoadForMainFrame()
+{
+    [m_webView _hidePasswordView];
+}
+
 void PageClientImpl::didCommitLoadForMainFrame(const String& mimeType, bool useCustomContentProvider)
 {
+    [m_webView _hidePasswordView];
     [m_webView _setHasCustomContentView:useCustomContentProvider loadedMIMEType:mimeType];
     [m_contentView _didCommitLoadForMainFrame];
 }
@@ -278,11 +305,9 @@ void PageClientImpl::didChangeViewportProperties(const ViewportAttributes&)
     notImplemented();
 }
 
-void PageClientImpl::registerEditCommand(PassRefPtr<WebEditCommandProxy> prpCommand, WebPageProxy::UndoOrRedo undoOrRedo)
+void PageClientImpl::registerEditCommand(Ref<WebEditCommandProxy>&& command, WebPageProxy::UndoOrRedo undoOrRedo)
 {
-    RefPtr<WebEditCommandProxy> command = prpCommand;
-    
-    RetainPtr<WKEditCommandObjC> commandObjC = adoptNS([[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command]);
+    RetainPtr<WKEditCommandObjC> commandObjC = adoptNS([[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command.copyRef()]);
     String actionName = WebEditCommandProxy::nameForEditAction(command->editAction());
     
     NSUndoManager *undoManager = [m_contentView undoManager];
@@ -329,7 +354,7 @@ void PageClientImpl::positionInformationDidChange(const InteractionInformationAt
     [m_contentView _positionInformationDidChange:info];
 }
 
-void PageClientImpl::saveImageToLibrary(PassRefPtr<SharedBuffer> imageBuffer)
+void PageClientImpl::saveImageToLibrary(Ref<SharedBuffer>&& imageBuffer)
 {
     RetainPtr<NSData> imageData = imageBuffer->createNSData();
     UIImageDataWriteToSavedPhotosAlbum(imageData.get(), nil, NULL, NULL);
@@ -341,7 +366,7 @@ bool PageClientImpl::executeSavedCommandBySelector(const String&)
     return false;
 }
 
-void PageClientImpl::setDragImage(const IntPoint&, PassRefPtr<ShareableBitmap>, bool)
+void PageClientImpl::setDragImage(const IntPoint&, Ref<ShareableBitmap>&&, DragSourceAction)
 {
     notImplemented();
 }
@@ -427,7 +452,7 @@ RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy&)
 }
 
 #if ENABLE(CONTEXT_MENUS)
-std::unique_ptr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy&, const UserData&)
+RefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy&, const UserData&)
 {
     return nullptr;
 }
@@ -469,7 +494,7 @@ LayerOrView *PageClientImpl::acceleratedCompositingRootLayer() const
     return nullptr;
 }
 
-PassRefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot()
+RefPtr<ViewSnapshot> PageClientImpl::takeViewSnapshot()
 {
     return [m_webView _takeViewSnapshot];
 }
@@ -509,12 +534,12 @@ void PageClientImpl::couldNotRestorePageState()
     [m_webView _couldNotRestorePageState];
 }
 
-void PageClientImpl::restorePageState(const WebCore::FloatPoint& scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatSize& obscuredInsetOnSave, double scale)
+void PageClientImpl::restorePageState(std::optional<WebCore::FloatPoint> scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatBoxExtent& obscuredInsetsOnSave, double scale)
 {
-    [m_webView _restorePageScrollPosition:scrollPosition scrollOrigin:scrollOrigin previousObscuredInset:obscuredInsetOnSave scale:scale];
+    [m_webView _restorePageScrollPosition:scrollPosition scrollOrigin:scrollOrigin previousObscuredInset:obscuredInsetsOnSave scale:scale];
 }
 
-void PageClientImpl::restorePageCenterAndScale(const WebCore::FloatPoint& center, double scale)
+void PageClientImpl::restorePageCenterAndScale(std::optional<WebCore::FloatPoint> center, double scale)
 {
     [m_webView _restorePageStateToUnobscuredCenter:center scale:scale];
 }
@@ -546,6 +571,11 @@ bool PageClientImpl::isAssistingNode()
 void PageClientImpl::stopAssistingNode()
 {
     [m_contentView _stopAssistingNode];
+}
+
+bool PageClientImpl::allowsBlockSelection()
+{
+    return [m_webView _allowsBlockSelection];
 }
 
 void PageClientImpl::didUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold)
@@ -634,11 +664,6 @@ void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String& 
 {
     RetainPtr<NSData> data = adoptNS([[NSData alloc] initWithBytes:dataReference.data() length:dataReference.size()]);
     [m_webView _didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:suggestedFilename data:data.get()];
-}
-
-void PageClientImpl::zoomToRect(FloatRect rect, double minimumScale, double maximumScale)
-{
-    [m_contentView _zoomToRect:rect withOrigin:rect.center() fitEntireRect:YES minimumScale:minimumScale maximumScale:maximumScale minimumScrollDistance:0];
 }
 
 void PageClientImpl::overflowScrollViewWillStartPanGesture()
@@ -745,14 +770,65 @@ WebCore::UserInterfaceLayoutDirection PageClientImpl::userInterfaceLayoutDirecti
     return ([UIView userInterfaceLayoutDirectionForSemanticContentAttribute:[m_webView semanticContentAttribute]] == UIUserInterfaceLayoutDirectionLeftToRight) ? WebCore::UserInterfaceLayoutDirection::LTR : WebCore::UserInterfaceLayoutDirection::RTL;
 }
 
-Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& message)
+Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& message, const ValidationBubble::Settings& settings)
 {
-    return ValidationBubble::create(m_contentView, message);
+    return ValidationBubble::create(m_contentView, message, settings);
 }
+
+#if ENABLE(DATA_INTERACTION)
+void PageClientImpl::didPerformDataInteractionControllerOperation(bool handled)
+{
+    [m_contentView _didPerformDataInteractionControllerOperation:handled];
+}
+
+void PageClientImpl::didHandleStartDataInteractionRequest(bool started)
+{
+    [m_contentView _didHandleStartDataInteractionRequest:started];
+}
+
+void PageClientImpl::startDrag(const DragItem& item, const ShareableBitmap::Handle& image)
+{
+    [m_contentView _startDrag:ShareableBitmap::create(image)->makeCGImageCopy() item:item];
+}
+
+void PageClientImpl::didConcludeEditDataInteraction(std::optional<TextIndicatorData> data)
+{
+    [m_contentView _didConcludeEditDataInteraction:data];
+}
+
+void PageClientImpl::didChangeDataInteractionCaretRect(const IntRect& previousCaretRect, const IntRect& caretRect)
+{
+    [m_contentView _didChangeDataInteractionCaretRect:previousCaretRect currentRect:caretRect];
+}
+#endif
 
 void PageClientImpl::handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession, const String& title, double duration, double elapsedTime)
 {
     [m_webView _handleActiveNowPlayingSessionInfoResponse:hasActiveSession title:nsStringFromWebCoreString(title) duration:duration elapsedTime:elapsedTime];
+}
+
+#if USE(QUICK_LOOK)
+void PageClientImpl::requestPasswordForQuickLookDocument(const String& fileName, WTF::Function<void(const String&)>&& completionHandler)
+{
+    auto passwordHandler = BlockPtr<void (NSString *)>::fromCallable([completionHandler = WTFMove(completionHandler)](NSString *password) {
+        completionHandler(password);
+    });
+
+    if (WKPasswordView *passwordView = m_webView._passwordView) {
+        ASSERT(fileName == String { passwordView.documentName });
+        [passwordView showPasswordFailureAlert];
+        passwordView.userDidEnterPassword = passwordHandler.get();
+        return;
+    }
+
+    [m_webView _showPasswordViewWithDocumentName:fileName passwordHandler:passwordHandler.get()];
+    NavigationState::fromWebPage(*m_webView->_page).didRequestPasswordForQuickLookDocument();
+}
+#endif
+
+void PageClientImpl::didChangeAvoidsUnsafeArea(bool avoidsUnsafeArea)
+{
+    [m_webView _didChangeAvoidsUnsafeArea:avoidsUnsafeArea];
 }
 
 } // namespace WebKit

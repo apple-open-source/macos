@@ -216,6 +216,7 @@ typedef struct timelib_special {
 typedef struct timelib_rel_time {
 	timelib_sll y, m, d; /* Years, Months and Days */
 	timelib_sll h, i, s; /* Hours, mInutes and Seconds */
+	double      f;       /* Fraction */
 
 	int weekday; /* Stores the day in 'next monday' */
 	int weekday_behavior; /* 0: the current day should *not* be counted when advancing forwards; 1: the current day *should* be counted */

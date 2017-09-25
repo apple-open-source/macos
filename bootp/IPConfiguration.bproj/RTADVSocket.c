@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,6 +73,7 @@
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
 #include "IPv6Socket.h"
+#include "ifutil.h"
 
 STATIC const struct sockaddr_in6 sin6_allrouters = {
     sizeof(sin6_allrouters),
@@ -87,19 +88,6 @@ STATIC const struct sockaddr_in6 sin6_allrouters = {
 
 #define ND_OPT_ALIGN			8
 #define ND_RTADV_HOP_LIMIT		IPV6_MAXHLIM
-
-#ifndef ND_OPT_RDNSS
-#define ND_OPT_RDNSS		25
-
-struct nd_opt_rdnss {	/* recursive domain name system servers */
-    u_int8_t		nd_opt_rdnss_type;
-    u_int8_t		nd_opt_rdnss_len;
-    u_int16_t		nd_opt_rdnss_reserved;
-    u_int32_t		nd_opt_rdnss_lifetime;
-    struct in6_addr	nd_opt_rdnss_addr[1];
-} __attribute__((__packed__));
-
-#endif /* ND_OPT_RDNSS */
 
 struct _nd_opt_linkaddr {
     u_int8_t		nd_opt_linkaddr_type;
@@ -127,10 +115,15 @@ typedef struct RTADVSocketGlobals {
 
 struct RTADVSocket {
     interface_t *		if_p;
+    struct in6_addr		linklocal_addr;
     boolean_t			fd_open;
     RTADVSocketReceiveFuncPtr	receive_func;
     void *			receive_arg1;
     void *			receive_arg2;
+    boolean_t			router_lifetime_is_zero;
+    boolean_t			router_lifetime_is_maximum;
+    boolean_t			prefix_lifetime_is_infinite;
+    boolean_t			router_source_address_collision;
 };
 
 STATIC RTADVSocketGlobalsRef	S_globals;
@@ -309,6 +302,9 @@ S_nd_opt_name(int nd_opt)
     case ND_OPT_RDNSS:
 	str = "Domain Name Servers";
 	break;
+    case ND_OPT_DNSSL:
+	str = "DNS Search List";
+	break;
     default:
 	str = "<unknown>";
 	break;
@@ -397,10 +393,88 @@ find_source_link_address(ptrlist_t * options_p, int * ret_len)
     return (NULL);
 }
 
+#define ND_OPT_DNSSL_MIN_LENGTH		sizeof(struct nd_opt_dnssl)
+#define ND_OPT_DNSSL_HEADER_LENGTH	offsetof(struct nd_opt_dnssl,	\
+						 nd_opt_dnssl_domains)
+
+STATIC const uint8_t *
+find_dnssl(ptrlist_t * options_p, int * ret_len)
+{
+    int		count;
+    int		i;
+
+    count = ptrlist_count(options_p);
+    for (i = 0; i < count; i++) {
+	const struct nd_opt_dnssl * opt;
+
+	opt = (const struct nd_opt_dnssl *)ptrlist_element(options_p, i);
+	if (opt->nd_opt_dnssl_type == ND_OPT_DNSSL) {
+	    int			opt_len = opt->nd_opt_dnssl_len * ND_OPT_ALIGN;
+	    const uint8_t *	domains;
+	    int			domains_len;
+
+	    if (opt_len < ND_OPT_DNSSL_MIN_LENGTH) {
+		/* no domain names */
+		break;
+	    }
+	    if (opt->nd_opt_dnssl_lifetime == 0) {
+		/* skip it */
+		continue;
+	    }
+	    domains_len = opt_len - ND_OPT_DNSSL_HEADER_LENGTH;
+	    domains = opt->nd_opt_dnssl_domains;
+
+	    /* remove all but the last trailing nul */
+	    while (domains_len >= 2 && domains[domains_len - 2] == 0) {
+		domains_len--;
+	    }
+
+	    if (domains_len > 0) {
+		*ret_len = domains_len;
+		return (domains);
+	    }
+	}
+    }
+    *ret_len = 0;
+    return (NULL);
+}
+
+#define ND_OPT_PREFIX_INFORMATION_LENGTH sizeof(struct nd_opt_prefix_info)
+
+STATIC void
+find_prefix_lifetime(ptrlist_t * options_p, uint32_t * prefix_lifetime)
+{
+    int					count;
+    int					i;
+    const struct nd_opt_prefix_info * 	opt;
+    int					opt_len;
+
+    count = ptrlist_count(options_p);
+    for (i = 0; i < count; i++) {
+
+	opt = (const struct nd_opt_prefix_info *)ptrlist_element(options_p, i);
+	if (opt->nd_opt_pi_type != ND_OPT_PREFIX_INFORMATION) {
+	    continue;
+	}
+	opt_len = opt->nd_opt_pi_len * ND_OPT_ALIGN;
+	if (opt_len < ND_OPT_PREFIX_INFORMATION_LENGTH) {
+	    break;
+	}
+	if (opt->nd_opt_pi_valid_time == 0
+	    || opt->nd_opt_pi_preferred_time == 0) {
+	    continue;
+	}
+	*prefix_lifetime = ntohl(opt->nd_opt_pi_valid_time);
+	break;
+    }
+    return;
+}
+
 STATIC void
 RTADVSocketReceiveDataInit(RTADVSocketReceiveDataRef data_p,
 			   const struct in6_addr * router_p,
-			   const struct nd_router_advert * ndra_p, int n)
+			   const struct nd_router_advert * ndra_p, int n,
+			   uint32_t * prefix_lifetime)
 {
     ptrlist_t			options;
 
@@ -418,11 +492,72 @@ RTADVSocketReceiveDataInit(RTADVSocketReceiveDataRef data_p,
     data_p->dns_servers = find_rdnss(&options, &data_p->dns_servers_count);
     data_p->router_hwaddr
 	= find_source_link_address(&options, &data_p->router_hwaddr_len);
+    data_p->dns_search_domains
+	= find_dnssl(&options, &data_p->dns_search_domains_len);
+    *prefix_lifetime = 0;
+    find_prefix_lifetime(&options, prefix_lifetime);
     ptrlist_free(&options);
     return;
 }
 
-	
+STATIC void
+RTADVSocketSetRouterLifetimeIsZero(RTADVSocketRef sock, bool val)
+{
+    sock->router_lifetime_is_zero = val;
+}
+
+STATIC void
+RTADVSetRouterLifetimeIsZero(int if_index, bool val)
+{
+    RTADVSocketRef		sock;
+
+    sock = RTADVSocketFind(if_index);
+    if (sock == NULL || sock->receive_func == NULL) {
+	return;
+    }
+    RTADVSocketSetRouterLifetimeIsZero(sock, val);
+}
+
+STATIC void
+RTADVSocketSetRouterLifetimeIsMaximum(RTADVSocketRef sock, bool val)
+{
+    sock->router_lifetime_is_maximum = val;
+}
+
+STATIC void
+RTADVSocketSetPrefixLifetimeIsInfinite(RTADVSocketRef sock, bool val)
+{
+    sock->prefix_lifetime_is_infinite = val;
+}
+
+STATIC void
+RTADVSocketSetRouterSourceAddressCollision(RTADVSocketRef sock, bool val)
+{
+    sock->router_source_address_collision = val;
+}
+
+STATIC void
+RTADVSocketCheckDuplicateAddress(RTADVSocketRef sock,
+				 const struct in6_addr * router_p)
+{
+    interface_t *	if_p;
+
+    if_p = RTADVSocketGetInterface(sock);
+    if (if_ift_type(if_p) != IFT_CELLULAR) {
+	/* don't care except for cellular */
+	return;
+    }
+    if (IN6_IS_ADDR_UNSPECIFIED(&sock->linklocal_addr)
+	&& !inet6_get_linklocal_address(if_link_index(if_p),
+					&sock->linklocal_addr)) {
+	/* couldn't get our link-local address */
+	return;
+    }
+    if (IN6_ARE_ADDR_EQUAL(router_p, &sock->linklocal_addr)) {
+	RTADVSocketSetRouterSourceAddressCollision(sock, TRUE);
+    }
+}
+
 STATIC void
 RTADVSocketDemux(int if_index, const struct in6_addr * router_p,
 		 const struct nd_router_advert * ndra_p, int n)
@@ -435,8 +570,18 @@ RTADVSocketDemux(int if_index, const struct in6_addr * router_p,
     }
     if (sock->receive_func != NULL) {
 	RTADVSocketReceiveData		data;
+	uint32_t			prefix_lifetime = 0;
 
-	RTADVSocketReceiveDataInit(&data, router_p, ndra_p, n);
+#define ROUTER_LIFETIME_MAXIMUM		((uint16_t)0xffff)
+	if (ndra_p->nd_ra_router_lifetime == ROUTER_LIFETIME_MAXIMUM) {
+	    RTADVSocketSetRouterLifetimeIsMaximum(sock, TRUE);
+	}
+	RTADVSocketReceiveDataInit(&data, router_p, ndra_p, n,
+				   &prefix_lifetime);
+	if (prefix_lifetime == ND6_INFINITE_LIFETIME) {
+	    RTADVSocketSetPrefixLifetimeIsInfinite(sock, TRUE);
+	}
+	RTADVSocketCheckDuplicateAddress(sock, router_p);
 	(*sock->receive_func)(sock->receive_arg1, sock->receive_arg2, &data);
     }
     return;
@@ -546,7 +691,7 @@ RTADVSocketRead(void * arg1, void * arg2)
 	return;
     }
     if (ndra_p->nd_ra_router_lifetime == 0) {
-	/* router lifetime is zero, ignore it */
+	RTADVSetRouterLifetimeIsZero(pktinfo->ipi6_ifindex, TRUE);
 	return;
     }
     if (*hop_limit_p != ND_RTADV_HOP_LIMIT) {
@@ -743,6 +888,10 @@ RTADVSocketEnableReceive(RTADVSocketRef sock,
     if (RTADVSocketOpenSocket(sock) == FALSE) {
 	my_log_fl(LOG_NOTICE, "%s: failed", if_name(sock->if_p));
     }
+    RTADVSocketSetRouterLifetimeIsZero(sock, FALSE);
+    RTADVSocketSetRouterLifetimeIsMaximum(sock, FALSE);
+    RTADVSocketSetPrefixLifetimeIsInfinite(sock, FALSE);
+    RTADVSocketSetRouterSourceAddressCollision(sock, FALSE);
     return;
 }
 
@@ -752,6 +901,7 @@ RTADVSocketDisableReceive(RTADVSocketRef sock)
     sock->receive_func = NULL;
     sock->receive_arg1 = NULL;
     sock->receive_arg2 = NULL;
+    bzero(&sock->linklocal_addr, sizeof(sock->linklocal_addr));
     RTADVSocketCloseSocket(sock);
     return;
 }
@@ -786,10 +936,35 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
     return (ret);
 }
 
+PRIVATE_EXTERN bool
+RTADVSocketRouterLifetimeIsZero(RTADVSocketRef sock)
+{
+    return (sock->router_lifetime_is_zero);
+}
+
+bool
+RTADVSocketRouterLifetimeIsMaximum(RTADVSocketRef sock)
+{
+    return (sock->router_lifetime_is_maximum);
+}
+
+bool
+RTADVSocketPrefixLifetimeIsInfinite(RTADVSocketRef sock)
+{
+    return (sock->prefix_lifetime_is_infinite);
+}
+
+bool
+RTADVSocketRouterSourceAddressCollision(RTADVSocketRef sock)
+{
+    return (sock->router_source_address_collision);
+}
+
 #ifdef TEST_RTADVSOCKET
 
 #include <CoreFoundation/CFRunLoop.h>
 #include "ipconfigd_threads.h"
+#include "DNSNameList.h"
 
 Boolean G_IPConfiguration_verbose = TRUE;
 
@@ -857,10 +1032,28 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 
 	    for (i = 0; i < data->dns_servers_count; i++) {
 		my_log(LOG_NOTICE,
-		       "RTADV %s: DNS Server %s",
+		       "RTADV %s: Recursive DNS Server %s",
 		       if_name(if_p),
 		       inet_ntop(AF_INET6, data->dns_servers + i,
 				 ntopbuf, sizeof(ntopbuf)));
+	    }
+	}
+	if (data->dns_search_domains != NULL) {
+	    int 		count = 0;
+	    int 		i;
+	    const char * *	list;
+
+	    list = DNSNameListCreate(data->dns_search_domains,
+				     data->dns_search_domains_len,
+				     &count);
+	    for (i = 0; i < count; i++) {
+		my_log(LOG_NOTICE,
+		       "RTADV %s: DNS Search List %s",
+		       if_name(if_p),
+		       list[i]);
+	    }
+	    if (list != NULL) {
+		free(list);
 	    }
 	}
 	break;
@@ -873,12 +1066,15 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 int
 main(int argc, char * argv[])
 {
+    os_log_t 		handle;
     interface_t *	if_p;
     const char *	ifname;
     interface_list_t *	interfaces = NULL;
     RTADVInfo		rtadv;
 
-    (void) openlog("rtadv", LOG_PERROR | LOG_PID, LOG_DAEMON);
+    handle = os_log_create(kIPConfigurationLogSubsystem,
+			   kIPConfigurationLogCategoryServer);
+    IPConfigLogSetHandle(handle);
     interfaces = ifl_init();
     if (argc != 2) {
 	fprintf(stderr, "rtadv <ifname>\n");

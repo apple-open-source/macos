@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,8 +29,7 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <regex.h>
-#include <asl.h>
-#include <asl_private.h>
+#include <os/log.h>
 #include <unistd.h>
 #include <sys/sysctl.h>
 #include <GSS/gssapi.h>
@@ -149,7 +148,7 @@ traced()
 	mib[3] = getpid();
 	len = sizeof(kp);
 	if (sysctl(mib, 4, &kp, &len, NULL, 0) == -1) {
-		gssd_log(ASL_LEVEL_ERR, "sysctl: %s", strerror(errno));
+		gssd_log(OS_LOG_TYPE_ERROR, "sysctl: %s", strerror(errno));
 		return (FALSE);
 	}
 
@@ -531,22 +530,16 @@ static regex_t gre;
 static pthread_once_t ronce = PTHREAD_ONCE_INIT;
 
 #define GSSD_FACILITY "com.apple.gssd"
-static aslclient asl = NULL;
-
-#define ASL_INIT_FILTER ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE)
+static os_log_t osl = OS_LOG_DEFAULT;
 
 static void
 gssd_log_init(void)
 {
 	int rerr;
 
-
 	/* Check if were in the forground */
 	foreground = in_foreground(2);
 	istraced = traced();
-
-	asl = asl_open(getprogname(), GSSD_FACILITY, 0);
-	asl_set_filter(asl, ASL_INIT_FILTER);
 
 	rerr = regcomp(&pre, prfrexp, REG_EXTENDED);
 	if (rerr)
@@ -558,29 +551,33 @@ gssd_log_init(void)
 #endif
 }
 
+static void
+os_vlog_with_type(os_log_t os_logger, os_log_type_t level, const char *fmt, va_list ap)
+{
+	char *msg = NULL;
+	int err;
+
+	err = vasprintf(&msg, fmt, ap);
+	if (err < 0 || msg == NULL) {
+		os_log_error(os_logger, "Could not log message");
+		return;
+	}
+	os_log_with_type(osl, level, "%s", msg);
+	free(msg);
+}
+
 void
 fatal(const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	asl_vlog(asl, NULL, ASL_LEVEL_ERR, fmt, ap);
+	os_vlog_with_type(osl, OS_LOG_TYPE_ERROR, fmt, ap);
 	va_end(ap);
 	exit(1);
 }
 
 static int debug = 0;
-static void (*disable_timeout)(int);
-
-/*
- * set a callback to disable the processes timeout.
- * If the argument is zero reenable the time out
- * else disable the timeout.
- */
-void set_debug_level_init(void (*dto)(int))
-{
-	disable_timeout = dto;
-}
 
 int get_debug_level(void)
 {
@@ -588,118 +585,54 @@ int get_debug_level(void)
 }
 
 /*
- * Set the debug level and filter mask to allow asl debug messages.
- * This routine is called at startup and from the signal handler thread.
- * That thread registers for notifications from syslog the master or remote
- * filter have been install/removed.
+ * Set the debug level. Ask os_log if debug or info is enabled
+ * and use the max value between os_lag and the level passed in.
+ * Log a message if the debug level changes.
  *
- * - debug level 0 - turn off debugging and do not send messages syslogd
- * - debug level 1 - set debugging to 1 and log to syslog at info level
- * - debug level >= 2 set the debugging level and log to syslogd at debug level
- *
- * - debug level -1, set the debug level to what the asl log level allows.
- *   N.B. If the active asl log level is debug and the current debug level is
- *   greater than 1, log at the current debug level. If the previous active filter
- *   was remote and the current active filter is local turn off debug. This would
- *   indicate that someone explicitly is turning off debuging with syslog -c gssd off.
- *
- *   Normally seting a debug level greater than zero will stop gssd from timing out.
- *   The exception is that we are turning debugging on because of a master filter notification.
- *   in that case we leave the time out setting alone. As long as the master filter is
- *   active and is greater than notice, we will log to syslog in each startup of gssd.
- *
- *   Limitations: Only one filter is active at a time. The filter priorities are
- *	remote > master > local.
- *	Raising the debug level with SIGUSR1 will have no apparent effect if the
- *	remote or master filter is the active filter and if the filter does not have
- *	debug set. If info is set you will see  only info messages.
+ * We'll ifdef out the os_log_*_enabled for now, since they
+ * alway return true :(.
  */
 void
 set_debug_level(int debug_level)
 {
-	int filter, local, master, remote, active = 0;
-	int status;
-	static int last_active = 0;
-
 	pthread_once(&ronce, gssd_log_init);
-	if (debug_level < 0) {
-		/*
-		 * We've got notified by syslog that our filter mask have changed.
-		 * Use that to determine the debug level.
-		 */
-		status = asl_get_filter(asl, &local, &master, &remote, &active);
-		if (status) {
-			Log("asl_get_filter failed\n");
-			return;
-		}
 
-		//Log("l = %x m = %x r = %x active = %d, last_active = %d", local, master, remote, active, last_active);
-		switch (active) {
-			case 0:	filter = local;
-				break;
-			case 1: filter = master;
-				/*
-				 * If someone turns on global debugging we don't
-				 * alter whether we time out or not. If global
-				 * debugging was in effect when gssd started, we
-				 * will continue to send debug output as long as
-				 * interest in global debugging is in effect.
-				 * If global debugging is enabled after explicit debugging
-				 * was enabled either with a remote filter or signal then
-				 * we should keep the current timout behavor until the user
-				 * turns off explicit debugging.
-				 */
-				break;
-			case 2: filter = remote;
-				break;
-			default:
-				Log("Unkown active ASL filter %d", active);
-				return;
-		}
-		if (ASL_FILTER_MASK(ASL_LEVEL_DEBUG) & filter)
-			debug_level = maximum(debug, 2);
-		else if (ASL_FILTER_MASK(ASL_LEVEL_INFO) & filter)
-			debug_level = 1;
-		else
-			debug_level = 0;
-		if (last_active == 2 && active == 0) {
-			/*
-			 * We got here because the user gave the command
-			 * syslog -c gssd off, so the user as explicitly
-			 * told us, she is no longer interested in debugging.
-			 * turn debugging off.
-			 */
-			debug_level = 0;
-		}
-		last_active = active;
+#if 0
+	int os_log_debug_level = 0;
+
+	if (os_log_debug_enabled(osl)) {
+		os_log_debug_level = 2;
+	} else if (os_log_info_enabled(osl)) {
+		os_log_debug_level = 1;
+	} else {
+		os_log_debug_level = 0;
 	}
-	if (debug == debug_level)
+
+	if (os_log_debug_level)
+		gssd_log(OS_LOG_TYPE_INFO, "os log level is %d", os_log_debug_level);
+
+	debug_level = maximum(os_log_debug_level, debug_level);
+#else
+	if (debug_level < 0) {
+		debug_level = debug;
+		if (debug > 2)
+			gssd_log(OS_LOG_TYPE_DEBUG, "Current debug level is %d", debug);
+	}
+#endif
+
+ 	if (debug == debug_level)
 		return; /* Nothing has changed. */
 
-	if (active == 0) {
-		switch (debug_level) {
-		case 0:	/* Debug has been turned off. */
-			local = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
-			break;
-		case 1:	/* Debug hs been set to 1 turn on INFO level loging. */
-			local = ASL_FILTER_MASK_UPTO(ASL_LEVEL_INFO) | ASL_FILTER_MASK_TUNNEL;
-			break;
-		default:	/* Anything else turn on DEBUG level logging. */
-			local = ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG) | ASL_FILTER_MASK_TUNNEL;
-			break;
-		}
-		asl_set_filter(asl, local);
-	}
-
 	debug = debug_level;
+
 	if (debug == 0)
-		gssd_log(ASL_LEVEL_NOTICE, "Leaving debug mode");
-	if (active != 1 && disable_timeout)
-		disable_timeout(debug != 0);
+		gssd_log(OS_LOG_TYPE_DEFAULT, "Leaving debug mode");
+	else 
+		gssd_log(OS_LOG_TYPE_INFO, "Entering debug mode %d", debug);
 }
 
 static void
-g_vlog(int level, const char *fmt, va_list ap)
+g_vlog(os_log_type_t level, const char *fmt, va_list ap)
 {
 	int saved_errno = errno;
 
@@ -714,14 +647,14 @@ g_vlog(int level, const char *fmt, va_list ap)
 			fflush(stdout);
 			va_end(ap2);
 		}
-		asl_vlog(asl, NULL, level, fmt, ap);
+		os_vlog_with_type(osl, level, fmt, ap);
 	}
 
 	errno = saved_errno;
 }
 
 static void
-g_log(int level, const char *fmt, ...)
+g_log(os_log_type_t level, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -972,7 +905,7 @@ fmt_parse(char *out_buffer, char **obp, const char *ofp, va_list *ap)
 }
 
 void
-gssd_log(int log_level, const char *fmt, ...)
+gssd_log(os_log_type_t log_level, const char *fmt, ...)
 {
 	int saved_errno = errno;
 	const char *ofp = fmt;
@@ -1001,7 +934,7 @@ gssd_log(int log_level, const char *fmt, ...)
 		} else {
 			ofp = fmt_parse(output_buffer, &obp, ofp, &ap);
 			if (ofp == NULL) {
-				g_log(ASL_LEVEL_ERR, "Invalid log format %s skipping ...\n", fmt);
+				g_log(OS_LOG_TYPE_ERROR, "Invalid log format %s skipping ...\n", fmt);
 				va_end(ap);
 				return;
 			}
@@ -1125,44 +1058,7 @@ HexDump(const char *inBuffer, size_t inLength)
 	while(currentSize > 0)
 	{
 		HexLine(inBuffer, &currentSize, linebuf);
-		gssd_log(ASL_LEVEL_DEBUG, "\t%s", linebuf);
+		gssd_log(OS_LOG_TYPE_DEBUG, "\t%s", linebuf);
 		inBuffer += 16;
 	}
 }
-
-#if 0
-/* LogToMessageTracer.
- * Currently not used, but we may want this in the future.
- * At any rate this apparently is how it is done.
- */
-
-void LogToMessageTracer(const char *domain, const char *signature,
-						const char *optResult, const char *optValue,
-						const char *fmt,...)
-{
-	aslmsg m;
-	va_list ap;
-
-	if ( (domain == NULL) || (signature == NULL) || (fmt == NULL) ) {
-		/* domain, signature and msg are required */
-		return;
-	}
-
-	m = asl_new(ASL_TYPE_MSG);
-	asl_set(m, "com.apple.message.domain", domain);
-	asl_set(m, "com.apple.message.signature", signature);
-
-	if (optResult != NULL) {
-		asl_set(m, "com.apple.message.result", optResult);
-	}
-	if (optValue != NULL) {
-		asl_set(m, "com.apple.message.value", optValue);
-	}
-
-	va_start(ap, fmt);
-	asl_vlog(NULL, m, ASL_LEVEL_NOTICE, fmt, ap);
-	va_end(ap);
-
-	asl_free(m);
-}
-#endif

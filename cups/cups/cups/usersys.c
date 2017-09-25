@@ -1,14 +1,14 @@
 /*
  * User, system, and password routines for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  *
  * This file is subject to the Apple OS-Developed Software exception.
  */
@@ -132,6 +132,8 @@ cupsEncryption(void)
  * thread in a program. Multi-threaded programs that override the setting via
  * the @link cupsSetPasswordCB@ or @link cupsSetPasswordCB2@ functions need to
  * do so in each thread for the same function to be used.
+ *
+ * @exclude all@
  */
 
 const char *				/* O - Password */
@@ -145,7 +147,7 @@ cupsGetPassword(const char *prompt)	/* I - Prompt string */
 
 
 /*
- * 'cupsGetPassword2()' - Get a password from the user using the advanced
+ * 'cupsGetPassword2()' - Get a password from the user using the current
  *                        password callback.
  *
  * Uses the current password callback function. Returns @code NULL@ if the
@@ -153,8 +155,8 @@ cupsGetPassword(const char *prompt)	/* I - Prompt string */
  *
  * Note: The current password callback function is tracked separately for each
  * thread in a program. Multi-threaded programs that override the setting via
- * the @link cupsSetPasswordCB@ or @link cupsSetPasswordCB2@ functions need to
- * do so in each thread for the same function to be used.
+ * the @link cupsSetPasswordCB2@ function need to do so in each thread for the
+ * same function to be used.
  *
  * @since CUPS 1.4/macOS 10.6@
  */
@@ -297,6 +299,8 @@ cupsSetEncryption(http_encryption_t e)	/* I - New encryption preference */
  * Note: The current password callback is tracked separately for each thread
  * in a program. Multi-threaded programs that override the callback need to do
  * so in each thread for the same callback to be used.
+ *
+ * @exclude all@
  */
 
 void
@@ -1363,6 +1367,8 @@ cups_set_ssl_options(
       options |= _HTTP_TLS_ALLOW_SSL3;
     else if (!_cups_strcasecmp(start, "AllowDH"))
       options |= _HTTP_TLS_ALLOW_DH;
+    else if (!_cups_strcasecmp(start, "DenyCBC"))
+      options |= _HTTP_TLS_DENY_CBC;
     else if (!_cups_strcasecmp(start, "DenyTLS1.0"))
       options |= _HTTP_TLS_DENY_TLS10;
     else if (!_cups_strcasecmp(start, "None"))

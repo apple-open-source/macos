@@ -5,5 +5,7 @@ PUBLIC_HEADERS_FOLDER_PATH = /usr/include/libxml2/libxml;
 DYLIB_COMPATIBILITY_VERSION = 10.0.0;
 DYLIB_CURRENT_VERSION = 10.9.0;
 
+OTHER_LDFLAGS = $(inherited) -Wl,-force_load,"$(BUILT_PRODUCTS_DIR)/libxml2.a";
+
 SECTORDER_FLAGS = $(SECTORDER_FLAGS_$(CONFIGURATION));
 SECTORDER_FLAGS_Production[sdk=iphoneos*] = -Wl,-order_file,$(SDKROOT)/AppleInternal/OrderFiles/libxml2.order;

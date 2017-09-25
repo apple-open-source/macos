@@ -748,19 +748,15 @@ libtop_p_fw_scan(task_t task, mach_vm_address_t region_base, mach_vm_size_t regi
 	mach_vm_size_t	linkedit = 0;
 	mach_vm_size_t	pagesize = tsamp.pagesize;
 	
-	mach_vm_address_t	addr;
-	mach_vm_size_t		size;
-
-	
-	for (addr = region_base; addr < (region_base + region_size); addr += size) {
-		kern_return_t kr;
+	mach_vm_size_t size;
+	for (mach_vm_address_t addr = region_base; addr < (region_base + region_size); addr += size) {
 		uint32_t depth = 1;
 		vm_region_submap_info_data_64_t sinfo;
 		mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
 
 		// Get the next submap in the specified region of memory
-		kr = mach_vm_region_recurse(task, &addr, &size, &depth,
-									(vm_region_recurse_info_t)&sinfo, &count);
+		kern_return_t kr = mach_vm_region_recurse(task, &addr, &size, &depth,
+				(vm_region_recurse_info_t)&sinfo, &count);
 		if (kr != KERN_SUCCESS) break;
 
 		/* 
@@ -772,8 +768,8 @@ libtop_p_fw_scan(task_t task, mach_vm_address_t region_base, mach_vm_size_t regi
 		vsize += size;
 		
 		switch (sinfo.share_mode) {
-			case SM_SHARED:
-			case SM_COW:
+			case SM_SHARED: /* FALLTHROUGH */
+			case SM_COW: /* FALLTHROUGH */
 			case SM_TRUESHARED:
 				if (sinfo.max_protection & VM_PROT_EXECUTE) {
 					// CODE
@@ -786,6 +782,8 @@ libtop_p_fw_scan(task_t task, mach_vm_address_t region_base, mach_vm_size_t regi
 					// LINKEDIT
 					linkedit += sinfo.pages_resident;
 				}
+				break;
+			default:
 				break;
 		}
 	}
@@ -810,22 +808,16 @@ libtop_p_fw_sample(boolean_t fw)
 	tsamp.fw_vsize = 0;
 	tsamp.fw_private = 0;
 
-#ifdef	__arm__
+#if defined(__arm__)
 	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_ARM, SHARED_REGION_SIZE_ARM);
-#else
-	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_PPC, SHARED_REGION_SIZE_PPC);
-	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_PPC64, SHARED_REGION_SIZE_PPC64);
-
-	assert(SHARED_REGION_BASE_PPC <= SHARED_REGION_BASE_I386);
-	assert(SHARED_REGION_SIZE_PPC >= SHARED_REGION_SIZE_I386);
-	// Skip: i386 region is a subset of PPC region.
-	//libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_I386, SHARED_REGION_SIZE_I386);
-	
-	assert(SHARED_REGION_BASE_PPC64 <= SHARED_REGION_BASE_X86_64);
-	assert(SHARED_REGION_SIZE_PPC64 >= SHARED_REGION_SIZE_X86_64);
-	// Skip: x86_64 region is a subset of ppc64 region.
-	//libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_X86_64, SHARED_REGION_SIZE_X86_64);
-#endif
+#elif defined(__arm64__)
+	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_ARM64, SHARED_REGION_SIZE_ARM64);
+#elif defined(__x86_64__) || defined(__i386__)
+	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_I386, SHARED_REGION_BASE_I386);
+	libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_X86_64, SHARED_REGION_BASE_X86_64);
+#else /* !defined(__arm__) && !defined(__arm64__) && !defined(__x86_64__) && !defined(__i386__) */
+#error "unsupported architecture"
+#endif /* !defined(__arm__) && !defined(__arm64__) && !defined(__x86_64__) && !defined(__i386__) */
 
 	// Iterate through all processes, collecting their individual fw stats
 	libtop_piter = NULL;
@@ -2027,8 +2019,8 @@ libtop_p_task_update(task_t task, boolean_t reg)
 		libtop_update_vm_regions(task, pinfo);
 	} 
 
-	/* 
-	 * These need to be copied regardless of the region reporting above. 
+	/*
+	 * These need to be copied regardless of the region reporting above.
 	 * The previous (p_) values were copied earlier.
 	 */
 	pinfo->psamp.rsize = ti.resident_size;
@@ -2041,11 +2033,19 @@ libtop_p_task_update(task_t task, boolean_t reg)
 	pinfo->psamp.p_cpu_billed_to_me = pinfo->psamp.cpu_billed_to_me;
 	pinfo->psamp.p_cpu_billed_to_others = pinfo->psamp.cpu_billed_to_others;
 
+	// Previous instructions retired and cycles
+	pinfo->psamp.p_instructions = pinfo->psamp.instructions;
+	pinfo->psamp.p_cycles = pinfo->psamp.cycles;
+
 	//Update the on-behalf CPU time
-	struct rusage_info_v3 ri;
-	proc_pid_rusage(pid, RUSAGE_INFO_V3, (rusage_info_t)&ri);
+	struct rusage_info_v4 ri;
+	proc_pid_rusage(pid, RUSAGE_INFO_V4, (rusage_info_t)&ri);
 	pinfo->psamp.cpu_billed_to_me = ri.ri_billed_system_time;
 	pinfo->psamp.cpu_billed_to_others = ri.ri_serviced_system_time;
+
+	// Instructions retired and cycles
+	pinfo->psamp.instructions = ri.ri_instructions;
+	pinfo->psamp.cycles = ri.ri_cycles;
 
 	if (pinfo->psamp.p_seq == 0) {
 		/* Set initial values. */
@@ -2053,6 +2053,10 @@ libtop_p_task_update(task_t task, boolean_t reg)
 		pinfo->psamp.b_cpu_billed_to_others = pinfo->psamp.cpu_billed_to_others;
 		pinfo->psamp.p_cpu_billed_to_me = pinfo->psamp.cpu_billed_to_me;
 		pinfo->psamp.p_cpu_billed_to_others = pinfo->psamp.cpu_billed_to_others;
+		pinfo->psamp.b_instructions = pinfo->psamp.instructions;
+		pinfo->psamp.b_cycles = pinfo->psamp.cycles;
+		pinfo->psamp.p_instructions = pinfo->psamp.instructions;
+		pinfo->psamp.p_cycles = pinfo->psamp.cycles;
 	}
 
 	/*
@@ -2064,7 +2068,7 @@ libtop_p_task_update(task_t task, boolean_t reg)
 	TIME_VALUE_TO_TIMEVAL(&ti.user_time, &pinfo->psamp.total_time);
 	TIME_VALUE_TO_TIMEVAL(&ti.system_time, &tv);
 	timeradd(&pinfo->psamp.total_time, &tv, &pinfo->psamp.total_time);
-	
+
 	/*
 	 * Get CPU usage statistics.
 	 */

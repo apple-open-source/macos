@@ -89,6 +89,26 @@ struct gpt_ent
 
 #define GPT_ENT_ATTR_PLATFORM 0x00000001
 
+/*!
+ * @defined kIOGUIDPartitionSchemeUUIDKey
+ * @abstract
+ * A property of IOGUIDPartitionSchemeGUID objects
+ * @discussion
+ * The kIOGUIDPartitionSchemeUUIDKey property has an OSString value and contains
+ * a persistent GUID for the disk define in GPT header
+ */
+#define kIOGUIDPartitionSchemeUUIDKey	"UUID"
+
+/*!
+ * @defined kIOMediaGPTPartitionAttributesKey
+ * @abstrat
+ * A property of IOMedia objects for GPT partitions
+ * @discussion
+ * The kIOMediaGPTPartitionAttributesKey property has an OSNumber value of 64bit
+ * GPT partition attributes
+ */
+#define kIOMediaGPTPartitionAttributesKey "GPT Attributes"
+
 #pragma pack(pop)                        /* (reset to default struct packing) */
 
 #ifdef KERNEL

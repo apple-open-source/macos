@@ -1,4 +1,4 @@
-*windows.txt*   For Vim version 7.4.  Last change: 2015 Aug 29
+*windows.txt*   For Vim version 8.0.  Last change: 2016 Dec 01
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -75,6 +75,16 @@ places where a Normal mode command can't be used or is inconvenient.
 
 The main Vim window can hold several split windows.  There are also tab pages
 |tab-page|, each of which can hold multiple windows.
+					*window-ID* *winid* *windowid*
+Each window has a unique identifier called the window ID.  This identifier
+will not change within a Vim session. The |win_getid()| and |win_id2tabwin()|
+functions can be used to convert between the window/tab number and the
+identifier.  There is also the window number, which may change whenever
+windows are opened or closed, see |winnr()|.
+
+Each buffer has a unique number and the number will not change within a Vim
+session.  The |bufnr()| and |bufname()| functions can be used to convert
+between a buffer name and the buffer number.
 
 ==============================================================================
 2. Starting Vim						*windows-starting*
@@ -245,7 +255,7 @@ window will appear.
 		far left and occupies the full height of the Vim window.
 		Doesn't work for |:execute| and |:normal|.
 
-						*:botright*
+						*:bo* *:botright*
 :bo[tright] {cmd}
 		Execute {cmd}.  If it contains a command that splits a window,
 		it will appear at the bottom and occupy the full width of the
@@ -285,8 +295,8 @@ CTRL-W CTRL-Q						*CTRL-W_CTRL-Q*
 		    :1quit  " quit the first window
 		    :$quit  " quit the last window
 		    :9quit  " quit the last window
-			     " if there are less than 9 windows opened
-		    :-quit  " quit the previews window
+			    " if there are fewer than 9 windows opened
+		    :-quit  " quit the previous window
 		    :+quit  " quit the next window
 		    :+2quit " quit the second next window
 <
@@ -686,6 +696,8 @@ can also get to them with the buffer list commands, like ":bnext".
 		- If the file is not open in a window edit the file in the
 		  current window.  If the current buffer can't be |abandon|ed,
 		  the window is split first.
+		- Windows that are not in the argument list or are not full
+		  width will be closed if possible.
 		The |argument-list| is set, like with the |:next| command.
 		The purpose of this command is that it can be used from a
 		program that wants Vim to edit another file, e.g., a debugger.
@@ -721,7 +733,7 @@ can also get to them with the buffer list commands, like ":bnext".
 							*:bufdo*
 :[range]bufdo[!] {cmd}	Execute {cmd} in each buffer in the buffer list or if
 			[range] is given only for buffers for which their
-			buffer numer is in the [range].  It works like doing
+			buffer number is in the [range].  It works like doing
 			this: >
 				:bfirst
 				:{cmd}
@@ -1023,7 +1035,7 @@ list of buffers. |unlisted-buffer|
 		     -   buffers with 'modifiable' off
 		     =   readonly buffers
 		     a   active buffers
-		     u   unloaded buffers (overrides the "!")
+		     u   unlisted buffers (overrides the "!")
 		     h   hidden buffers
 		     x   buffers with a read error
 		     %   current buffer
@@ -1032,6 +1044,10 @@ list of buffers. |unlisted-buffer|
 		     h+   hidden buffers which are modified
 		     a+   active buffers which are modified
 
+		When using |:filter| the pattern is matched against the
+		displayed buffer name, e.g.: >
+			filter /\.vim/ ls
+<
 						*:bad* *:badd*
 :bad[d]	[+lnum] {fname}
 		Add file name {fname} to the buffer list, without loading it.

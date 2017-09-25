@@ -59,6 +59,7 @@ int run_access(__unused test_ctx_t *ctx)
 		assert_fail("access_vector[0] != ENOENT (== %u)!", access_vector[0]);
 	
 	free(path);
+	assert_no_err (close(fd));
 
 	return 0;
 }

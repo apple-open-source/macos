@@ -1,0 +1,47 @@
+(version 1)
+
+(deny default)
+
+(import "system.sb")
+
+(allow file-read* file-write*
+    (subpath "/private/var/db/mds")
+    (regex #"^/private/var/folders/[^/]+/[^/]+/T(/|$)")
+    (regex (string-append "^" (regex-quote (param "_HOME")) #"/Library/Keychains(/|$)")))
+
+
+;;;;;; will be fully fixed in 29465717
+(allow file-read* (subpath "/"))
+
+(allow user-preference-read
+    (preference-domain ".GlobalPreferences"))
+(allow user-preference-read
+    (preference-domain "com.apple.security"))
+
+(allow file-read*
+    (literal "/usr/libexec/secd")
+    (literal "/Library/Preferences/com.apple.security.plist")
+    (literal "/Library/Preferences/.GlobalPreferences.plist")
+    (literal "/AppleInternal")
+    (literal "/usr/libexec"))
+
+
+(allow mach-lookup
+        (global-name "com.apple.system.opendirectoryd.api")
+        (global-name "com.apple.SystemConfiguration.configd")
+        (global-name "com.apple.security.cloudkeychainproxy3")
+        (global-name "com.apple.security.keychainsyncingoveridsproxy")
+        (global-name "com.apple.cloudd")
+        (global-name "com.apple.apsd")
+        (global-name "com.apple.windowserver.active"))
+
+(allow iokit-open
+    (iokit-user-client-class "AppleKeyStoreUserClient"))
+
+(allow iokit-get-properties (iokit-registry-entry-class "IOPlatformExpertDevice"))
+
+(allow ipc-posix-shm
+    (ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+(allow network-outbound)
+(allow system-socket)

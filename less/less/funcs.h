@@ -38,6 +38,7 @@
 	public void sync_logfile ();
 	public int ch_seek ();
 	public int ch_end_seek ();
+	public int ch_end_buffer_seek ();
 	public int ch_beg_seek ();
 	public POSITION ch_length ();
 	public POSITION ch_tell ();
@@ -58,6 +59,7 @@
 	public char * prutfchar ();
 	public int utf_len ();
 	public int is_utf8_well_formed ();
+	public int utf_bin_count ();
 	public LWCHAR get_wchar ();
 	public void put_wchar ();
 	public LWCHAR step_char ();
@@ -159,6 +161,7 @@
 	public POSITION back_line ();
 	public void set_attnpos ();
 	public void jump_forw ();
+	public void jump_forw_buffered ();
 	public void jump_back ();
 	public void repaint ();
 	public void jump_percent ();
@@ -179,6 +182,7 @@
 	public void null_line ();
 	public POSITION forw_raw_line ();
 	public POSITION back_raw_line ();
+	public int rrshift ();
 	public void clr_linenum ();
 	public void add_lnum ();
 	public LINENUM find_linenum ();
@@ -228,7 +232,7 @@
 	public struct loption * findopt_name ();
 	public int iread ();
 	public void intread ();
-	public long get_time ();
+	public time_type get_time ();
 	public char * errno_message ();
 	public int percentage ();
 	public POSITION percent_pos ();
@@ -243,6 +247,7 @@
 	public int query ();
 	public int compile_pattern ();
 	public void uncompile_pattern ();
+	public int valid_pattern ();
 	public int is_null_pattern ();
 	public int match_pattern ();
 	public POSITION position ();
@@ -268,9 +273,11 @@
 	public void clr_hilite ();
 	public void clr_filter ();
 	public int is_filtered ();
+	public POSITION next_unfiltered ();
+	public POSITION prev_unfiltered ();
 	public int is_hilited ();
-	public void chg_caseless ();
 	public void chg_hilite ();
+	public void chg_caseless ();
 	public int search ();
 	public void prep_hilite ();
 	public void set_filter_pattern ();

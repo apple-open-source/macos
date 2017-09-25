@@ -7,7 +7,7 @@ extern "C" {
 
 
 #include <CoreFoundation/CoreFoundation.h>
-
+#include "SecCFRelease.h"
 
 void MyDispatchAsync(dispatch_queue_t queue, void(^block)(void));
 dispatch_queue_t MyDispatchQueueCreate(const char* name, dispatch_queue_attr_t attr);

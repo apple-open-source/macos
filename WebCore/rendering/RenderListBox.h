@@ -67,6 +67,8 @@ public:
     bool scrolledToRight() const override;
 
 private:
+    void willBeDestroyed() override;
+
     void element() const = delete;
 
     const char* renderName() const override { return "RenderListBox"; }
@@ -141,8 +143,8 @@ private:
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     void scrollTo(int newOffset);
 
-    using PaintFunction = std::function<void(PaintInfo&, const LayoutPoint&, int listItemIndex)>;
-    void paintItem(PaintInfo&, const LayoutPoint&, PaintFunction);
+    using PaintFunction = WTF::Function<void(PaintInfo&, const LayoutPoint&, int listItemIndex)>;
+    void paintItem(PaintInfo&, const LayoutPoint&, const PaintFunction&);
 
     void setHasVerticalScrollbar(bool hasScrollbar);
     Ref<Scrollbar> createScrollbar();

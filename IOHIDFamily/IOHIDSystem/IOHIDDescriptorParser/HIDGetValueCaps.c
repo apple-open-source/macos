@@ -178,7 +178,7 @@ OSStatus HIDGetSpecificValueCaps(HIDReportType reportType,
 /*
  *					  Only copy if there's room
 */
-					  if (*piValueCapsLength >= iMaxCaps)
+					  if (*piValueCapsLength >= (UInt32)iMaxCaps)
 						  return kHIDBufferTooSmallErr;
 					  ptCapability = &valueCaps[(*piValueCapsLength)++];
 /*
@@ -245,7 +245,7 @@ OSStatus HIDGetSpecificValueCaps(HIDReportType reportType,
 						ptCapability->u.notRange.designatorIndex = 0;
 					  }
 
-					  ptCapability->bitSize = ptReportItem->globals.reportSize;
+					  ptCapability->bitSize = (UInt32)ptReportItem->globals.reportSize;
 
 					  ptCapability->logicalMin = ptReportItem->globals.logicalMinimum;
 					  ptCapability->logicalMax = ptReportItem->globals.logicalMaximum;
@@ -411,7 +411,7 @@ OSStatus HIDGetSpecificValueCapabilities(HIDReportType reportType,
 /*
  *					  Only copy if there's room
 */
-					  if (*piValueCapsLength >= iMaxCaps)
+					  if (*piValueCapsLength >= (UInt32)iMaxCaps)
 						  return kHIDBufferTooSmallErr;
 					  ptCapability = &valueCaps[(*piValueCapsLength)++];
 
@@ -485,7 +485,7 @@ OSStatus HIDGetSpecificValueCapabilities(HIDReportType reportType,
 						ptCapability->u.notRange.designatorIndex = 0;
 					  }
 
-					  ptCapability->bitSize = ptReportItem->globals.reportSize;
+					  ptCapability->bitSize = (UInt32)ptReportItem->globals.reportSize;
 
 					  ptCapability->logicalMin = ptReportItem->globals.logicalMinimum;
 					  ptCapability->logicalMax = ptReportItem->globals.logicalMaximum;

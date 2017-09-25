@@ -117,7 +117,9 @@ IOReturn IOHIDInterface::message(UInt32 type,
             provider->close(this);
         }
     } else if  (type == kIOHIDMessageOpenedByEventSystem && provider != _owner) {
-        result = _owner->message(type, provider, argument);
+        result = _owner->message(type, this, argument);
+    } else if  (type == kIOHIDMessageRelayServiceInterfaceActive && provider != _owner) {
+        result = _owner->message(type, this, argument);
     } else {
         result = super::message(type, provider, argument);
     }
@@ -136,7 +138,7 @@ bool IOHIDInterface::start( IOService * provider )
         OSObject *obj = copyProperty(key);  \
         val = OSDynamicCast(OSString, obj); \
         if (!val) {                         \
-            OSSafeRelease(obj);             \
+            OSSafeReleaseNULL(obj);         \
         }                                   \
     } while (0)
     

@@ -194,11 +194,11 @@ private:
     void finishCreation(VM& vm, const String& name)
     {
         Base::finishCreation(vm, name);
-        ASSERT(inherits(info()));
+        ASSERT(inherits(vm, info()));
     }
 };
 
-const ClassInfo ObjCRuntimeMethod::s_info = { "ObjCRuntimeMethod", &RuntimeMethod::s_info, 0, CREATE_METHOD_TABLE(ObjCRuntimeMethod) };
+const ClassInfo ObjCRuntimeMethod::s_info = { "ObjCRuntimeMethod", &RuntimeMethod::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(ObjCRuntimeMethod) };
 
 JSC::JSValue ObjcInstance::getMethod(ExecState* exec, PropertyName propertyName)
 {
@@ -211,7 +211,7 @@ JSC::JSValue ObjcInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeM
     JSC::VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (!asObject(runtimeMethod)->inherits(ObjCRuntimeMethod::info()))
+    if (!asObject(runtimeMethod)->inherits(vm, ObjCRuntimeMethod::info()))
         return throwTypeError(exec, scope, ASCIILiteral("Attempt to invoke non-plug-in method on plug-in object."));
 
     ObjcMethod *method = static_cast<ObjcMethod*>(runtimeMethod->method());

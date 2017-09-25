@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -176,8 +176,10 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	if (storePrivate->name != NULL) CFRelease(storePrivate->name);
 	if (storePrivate->options != NULL) CFRelease(storePrivate->options);
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	/* release activity tracing */
 	if (storePrivate->activity != NULL) os_release(storePrivate->activity);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	return;
 }
@@ -253,6 +255,7 @@ __SCDynamicStoreInitialize(void)
 static mach_port_t
 __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t *status)
 {
+#pragma unused(storePrivate)
 	mach_port_t	server	= MACH_PORT_NULL;
 	char		*server_name;
 
@@ -334,10 +337,12 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	/* client side of the "configd" session */
 	storePrivate->name				= (name != NULL) ? CFRetain(name) : NULL;
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	/* "client" activity tracing */
 	storePrivate->activity				= os_activity_create("accessing SCDynamicStore",
 									     OS_ACTIVITY_CURRENT,
 									     OS_ACTIVITY_FLAG_DEFAULT);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	/* Notification status */
 	storePrivate->notifyStatus			= NotifierNotRegistered;
@@ -389,7 +394,9 @@ updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int
 static Boolean
 __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 {
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	struct os_activity_scope_state_s	activity_state;
+#endif	// VERBOSE_ACTIVITY_LOGGING
 	kern_return_t				kr		= KERN_SUCCESS;
 	CFDataRef				myName;			/* serialized name */
 	xmlData_t				myNameRef;
@@ -419,7 +426,9 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 	updateServerPort(storePrivate, &server, &sc_status);
 
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_activity_scope_enter(storePrivate->activity, &activity_state);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	while (server != MACH_PORT_NULL) {
 		// if SCDynamicStore server available
@@ -442,6 +451,11 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 					storePrivate->server = server;
 					sc_status = kSCStatusOK;
 				} else {
+					if (kr == KERN_INVALID_RIGHT) {
+						// We can get KERN_INVALID_RIGHT if the server dies and we try to
+						// add a send right to a stale (now dead) port name
+						kr = MACH_SEND_INVALID_DEST;
+					}
 					storePrivate->server = MACH_PORT_NULL;
 				}
 			} else {
@@ -467,7 +481,9 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 	}
 	__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreAddSession", storePrivate->server);
 
+#ifdef	VERBOSE_ACTIVITY_LOGGING
 	os_activity_scope_leave(&activity_state);
+#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	// clean up
 	CFRelease(myName);
@@ -483,7 +499,8 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 			sc_status = kSCStatusNoStoreServer;
 			break;
 		default :
-			SC_log((kr == KERN_SUCCESS) ? LOG_INFO : LOG_ERR, "configopen() failed: %s",
+			SC_log((kr == KERN_SUCCESS) ? LOG_INFO : LOG_ERR, "configopen() failed: %d: %s",
+			       sc_status,
 			       SCErrorString(sc_status));
 			break;
 	}
@@ -555,6 +572,8 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 		if (__SCDynamicStoreReconnect(store)) {
 			/* retry needed */
 			return TRUE;
+		} else {
+			status = SCError();
 		}
 	} else {
 		/* an unexpected error, leave the [session] port alone */
@@ -776,6 +795,7 @@ SCDynamicStoreGetTypeID(void) {
 	pthread_once(&initialized, __SCDynamicStoreInitialize);	/* initialize runtime */
 	return __kSCDynamicStoreTypeID;
 }
+
 
 Boolean
 SCDynamicStoreSetDisconnectCallBack(SCDynamicStoreRef			store,

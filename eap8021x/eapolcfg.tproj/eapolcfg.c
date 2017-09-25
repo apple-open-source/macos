@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,6 +88,9 @@ show_command_usage(const char * cmd);
 #define kCommandClearLoginWindowProfiles "clearLoginWindowProfiles"
 #define kCommandGetSystemProfile	"getSystemProfile"
 #define kCommandSetSystemProfile	"setSystemProfile"
+#define kCommandGetSystemEthernetProfile "getSystemEthernetProfile"
+#define kCommandSetSystemEthernetProfile "setSystemEthernetProfile"
+#define kCommandClearSystemEthernetProfile "clearSystemEthernetProfile"
 #define kCommandGetLoginWindowInterfaces "getLoginWindowInterfaces"
 #define kCommandGetSystemInterfaces	"getSystemInterfaces"
 #define kCommandClearSystemProfile	"clearSystemProfile"
@@ -2193,6 +2196,110 @@ S_set_system_profile(const char * command, int argc, char * const * argv)
 }
 
 STATIC int
+S_set_system_ethernet_profile(const char * command, int argc, char * const * argv)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+    CFStringRef			profileID = NULL;
+    int				ch;
+    struct option 		longopts[] = {
+	{ "profileID",		required_argument,	NULL,	'p' },
+	{ "profileid",		required_argument,	NULL,	'p' },
+	{ NULL,			0,			NULL,	0 }
+    };
+    EAPOLClientProfileRef	profile;
+    int				ret = 1;
+    CFDataRef			ssid = NULL;
+
+    while ((ch = getopt_long(argc, argv, "p", longopts, NULL)) != -1) {
+	switch (ch) {
+	    case 'p':
+		if (profileID != NULL) {
+		    fprintf(stderr, "profileID specified twice\n");
+		    goto done;
+		}
+		profileID = CFStringCreateWithCString(NULL, optarg,
+						      kCFStringEncodingUTF8);
+		break;
+	    default:
+		show_command_usage(command);
+		goto done;
+	}
+    }
+    argc -= optind;
+    /* argv += optind; */
+    if (profileID == NULL) {
+	fprintf(stderr, "No profile specified\n");
+	show_command_usage(command);
+	goto done;
+    }
+    if (argc > 0) {
+	fprintf(stderr, "Too many arguments specified\n");
+	show_command_usage(command);
+	goto done;
+    }
+    cfg = configuration_open(TRUE);
+    if (cfg == NULL) {
+	fprintf(stderr, "Can't open configuration\n");
+	goto done;
+    }
+
+    profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
+    if (profile == NULL) {
+	fprintf(stderr, "No such profile\n");
+	ret = 1;
+	goto done;
+    }
+    if (EAPOLClientConfigurationSetSystemEthernetProfile(cfg, profile) == FALSE) {
+	fprintf(stderr, "Failed to set System Ethernet profile.\n");
+	goto done;
+    }
+    if (EAPOLClientConfigurationSave(cfg) == FALSE) {
+	fprintf(stderr,
+		"Failed to save the configuration, %s\n",
+		SCErrorString(SCError()));
+	ret = 2;
+	goto done;
+    }
+    ret = 0;
+
+done:
+    my_CFRelease(&profileID);
+    my_CFRelease(&ssid);
+    my_CFRelease(&cfg);
+    return (ret);
+}
+
+STATIC int
+S_clear_system_ethernet_profile(const char * command, int argc, char * const * argv)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+    int				ret = 1;
+
+    cfg = configuration_open(TRUE);
+    if (cfg == NULL) {
+	fprintf(stderr, "Can't open configuration\n");
+	goto done;
+    }
+
+    if (EAPOLClientConfigurationSetSystemEthernetProfile(cfg, NULL) == FALSE) {
+	fprintf(stderr, "Failed to clear System Ethernet profile.\n");
+	goto done;
+    }
+    if (EAPOLClientConfigurationSave(cfg) == FALSE) {
+	fprintf(stderr,
+		"Failed to save the configuration, %s\n",
+		SCErrorString(SCError()));
+	ret = 2;
+	goto done;
+    }
+    ret = 0;
+
+done:
+    my_CFRelease(&cfg);
+    return (ret);
+}
+
+STATIC int
 S_get_clear_system_profile(const char * command, int argc, char * const * argv)
 {
     EAPOLClientConfigurationRef	cfg = NULL;
@@ -2272,6 +2379,54 @@ S_get_clear_system_profile(const char * command, int argc, char * const * argv)
     return (ret);
 }
 
+STATIC int
+S_get_system_ethernet_profile(const char * command, int argc, char * const * argv)
+{
+    EAPOLClientConfigurationRef	cfg = NULL;
+    EAPOLClientProfileRef	profile;
+    int				ch;
+    bool			details = FALSE;
+    struct option 		longopts[] = {
+	{ "details",	no_argument,	NULL,	'd' },
+	{ NULL,		0,		NULL,	0 }
+    };
+    int				ret = 1;
+
+    while ((ch = getopt_long(argc, argv, "d", longopts, NULL)) != -1) {
+	switch (ch) {
+	    case 'd':
+		details = TRUE;
+		break;
+	    default:
+		show_command_usage(command);
+		goto done;
+	}
+    }
+    argc -= optind;
+    if (argc != 0) {
+	fprintf(stderr, "Too many arguments specified\n");
+	show_command_usage(command);
+	goto done;
+    }
+
+    cfg = EAPOLClientConfigurationCreate(NULL);
+    if (cfg == NULL) {
+	fprintf(stderr, "EAPOLClientConfigurationCreate failed\n");
+	goto done;
+    }
+
+    profile = EAPOLClientConfigurationGetSystemEthernetProfile(cfg);
+    if (profile == NULL) {
+	fprintf(stderr, "No System Ethernet profile found.\n");
+	goto done;
+    }
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), EAPOLClientProfileGetID(profile));
+    ret = 0;
+
+done:
+    my_CFRelease(&cfg);
+    return (ret);
+}
 
 STATIC int
 S_get_system_loginwindow_interfaces(const char * command,
@@ -2590,6 +2745,15 @@ STATIC struct command_info 	commands[] = {
     { kCommandSetSystemProfile, S_set_system_profile, 1,
       "--interface <ifname> "
       "( --profileID <profileID> | --SSID <SSID> )"
+    },
+    { kCommandGetSystemEthernetProfile, S_get_system_ethernet_profile, 0,
+	"[ --details ]"
+    },
+    { kCommandSetSystemEthernetProfile, S_set_system_ethernet_profile, 1,
+	"--profileID <profileID> "
+    },
+    { kCommandClearSystemEthernetProfile, S_clear_system_ethernet_profile, 0,
+	""
     },
     { kCommandClearSystemProfile, S_get_clear_system_profile, 1,
       "--interface <ifname>" 

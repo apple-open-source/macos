@@ -34,7 +34,7 @@
 #include <security_utilities/hashing.h>
 
 #ifdef DEBUGDUMP
-#include <security_codesigning/reqdumper.h>
+#include "reqdumper.h"
 #endif
 
 namespace Security {
@@ -141,10 +141,10 @@ const SHA1::Digest &Requirement::testAppleAnchorHash()
 
 #endif //TEST_APPLE_ANCHOR
 
-
 //
 // Debug dump support
 //
+#if TARGET_OS_OSX
 #ifdef DEBUGDUMP
 
 void Requirement::dump() const
@@ -153,6 +153,7 @@ void Requirement::dump() const
 }
 
 #endif //DEBUGDUMP
+#endif
 
 
 }	// CodeSigning

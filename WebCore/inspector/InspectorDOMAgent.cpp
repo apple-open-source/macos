@@ -45,16 +45,15 @@
 #include "ContainerNode.h"
 #include "Cookie.h"
 #include "CookieJar.h"
-#include "CryptoDigest.h"
 #include "DOMEditor.h"
 #include "DOMPatchSupport.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentType.h"
+#include "Editing.h"
 #include "Element.h"
 #include "Event.h"
 #include "EventListener.h"
-#include "EventNames.h"
 #include "ExceptionCodeDescription.h"
 #include "FrameTree.h"
 #include "HTMLElement.h"
@@ -72,6 +71,7 @@
 #include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
 #include "IntRect.h"
+#include "JSDOMBindingSecurity.h"
 #include "JSEventListener.h"
 #include "JSNode.h"
 #include "MainFrame.h"
@@ -85,6 +85,7 @@
 #include "RenderStyleConstants.h"
 #include "ScriptState.h"
 #include "ShadowRoot.h"
+#include "StaticNodeList.h"
 #include "StyleProperties.h"
 #include "StyleResolver.h"
 #include "StyleSheetList.h"
@@ -92,11 +93,11 @@
 #include "TextNodeTraversal.h"
 #include "Timer.h"
 #include "XPathResult.h"
-#include "htmlediting.h"
 #include "markup.h"
 #include <inspector/IdentifiersFactory.h>
 #include <inspector/InjectedScript.h>
 #include <inspector/InjectedScriptManager.h>
+#include <pal/crypto/CryptoDigest.h>
 #include <runtime/JSCInlines.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
@@ -185,7 +186,7 @@ void RevalidateStyleAttributeTask::scheduleFor(Element* element)
 {
     m_elements.add(element);
     if (!m_timer.isActive())
-        m_timer.startOneShot(0);
+        m_timer.startOneShot(0_s);
 }
 
 void RevalidateStyleAttributeTask::timerFired()
@@ -328,10 +329,7 @@ void InspectorDOMAgent::unbind(Node* node, NodeToIdMap* nodesMap)
 
     if (node->isFrameOwnerElement()) {
         const HTMLFrameOwnerElement* frameOwner = static_cast<const HTMLFrameOwnerElement*>(node);
-        Document* contentDocument = frameOwner->contentDocument();
-        if (m_domListener)
-            m_domListener->didRemoveDocument(contentDocument);
-        if (contentDocument)
+        if (Document* contentDocument = frameOwner->contentDocument())
             unbind(contentDocument, nodesMap);
     }
 
@@ -347,7 +345,7 @@ void InspectorDOMAgent::unbind(Node* node, NodeToIdMap* nodesMap)
 
     nodesMap->remove(node);
     if (m_domListener)
-        m_domListener->didRemoveDOMNode(node);
+        m_domListener->didRemoveDOMNode(*node, id);
 
     bool childrenRequested = m_childrenRequested.contains(id);
     if (childrenRequested) {
@@ -1149,6 +1147,40 @@ void InspectorDOMAgent::highlightNode(ErrorString& errorString, const InspectorO
     m_overlay->highlightNode(node, *highlightConfig);
 }
 
+void InspectorDOMAgent::highlightNodeList(ErrorString& errorString, const InspectorArray& nodeIds, const InspectorObject& highlightInspectorObject)
+{
+    Vector<Ref<Node>> nodes;
+    for (auto& nodeValue : nodeIds) {
+        if (!nodeValue) {
+            errorString = ASCIILiteral("Invalid nodeIds item.");
+            return;
+        }
+
+        int nodeId = 0;
+        if (!nodeValue->asInteger(nodeId)) {
+            errorString = ASCIILiteral("Invalid nodeIds item type. Expecting integer types.");
+            return;
+        }
+
+        // In the case that a node is removed in the time between when highlightNodeList is invoked
+        // by the frontend and it is executed by the backend, we should still attempt to highlight
+        // as many nodes as possible. As such, we should ignore any errors generated when attempting
+        // to get a Node from a given nodeId. 
+        ErrorString ignored;
+        Node* node = assertNode(ignored, nodeId);
+        if (!node)
+            continue;
+
+        nodes.append(*node);
+    }
+
+    std::unique_ptr<HighlightConfig> highlightConfig = highlightConfigFromInspectorObject(errorString, &highlightInspectorObject);
+    if (!highlightConfig)
+        return;
+
+    m_overlay->highlightNodeList(StaticNodeList::create(WTFMove(nodes)), *highlightConfig);
+}
+
 void InspectorDOMAgent::highlightFrame(ErrorString& errorString, const String& frameId, const InspectorObject* color, const InspectorObject* outlineColor)
 {
     Frame* frame = m_pageAgent->assertFrame(errorString, frameId);
@@ -1320,7 +1352,7 @@ static String computeContentSecurityPolicySHA256Hash(const Element& element)
     TextEncoding documentEncoding = element.document().textEncoding();
     const TextEncoding& encodingToUse = documentEncoding.isValid() ? documentEncoding : UTF8Encoding();
     CString content = encodingToUse.encode(TextNodeTraversal::contentsAsString(element), EntitiesForUnencodables);
-    auto cryptoDigest = CryptoDigest::create(CryptoDigest::Algorithm::SHA_256);
+    auto cryptoDigest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
     cryptoDigest->addBytes(content.data(), content.length());
     Vector<uint8_t> digest = cryptoDigest->computeHash();
     return makeString("sha256-", base64Encode(digest.data(), digest.size()));
@@ -1514,7 +1546,7 @@ Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEv
         handler = scriptListener->jsFunction(&node->document());
         if (handler && state) {
             body = handler->toString(state)->value(state);
-            if (auto function = jsDynamicDowncast<JSC::JSFunction*>(handler)) {
+            if (auto function = jsDynamicDowncast<JSC::JSFunction*>(state->vm(), handler)) {
                 if (!function->isHostOrBuiltinFunction()) {
                     if (auto executable = function->jsExecutable()) {
                         lineNumber = executable->firstLine() - 1;
@@ -1549,6 +1581,10 @@ Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEv
         if (!sourceName.isEmpty())
             value->setSourceName(sourceName);
     }
+    if (registeredEventListener.isPassive())
+        value->setPassive(true);
+    if (registeredEventListener.isOnce())
+        value->setOnce(true);
     return value;
 }
     
@@ -2021,7 +2057,7 @@ void InspectorDOMAgent::didModifyDOMAttr(Element& element, const AtomicString& n
         return;
 
     if (m_domListener)
-        m_domListener->didModifyDOMAttr(&element);
+        m_domListener->didModifyDOMAttr(element);
 
     m_frontendDispatcher->attributeModified(id, name, value);
 }
@@ -2034,7 +2070,7 @@ void InspectorDOMAgent::didRemoveDOMAttr(Element& element, const AtomicString& n
         return;
 
     if (m_domListener)
-        m_domListener->didModifyDOMAttr(&element);
+        m_domListener->didModifyDOMAttr(element);
 
     m_frontendDispatcher->attributeRemoved(id, name);
 }
@@ -2049,7 +2085,7 @@ void InspectorDOMAgent::styleAttributeInvalidated(const Vector<Element*>& elemen
             continue;
 
         if (m_domListener)
-            m_domListener->didModifyDOMAttr(element);
+            m_domListener->didModifyDOMAttr(*element);
         nodeIds->addItem(id);
     }
     m_frontendDispatcher->inlineStyleInvalidated(WTFMove(nodeIds));
@@ -2150,28 +2186,37 @@ Node* InspectorDOMAgent::nodeForPath(const String& path)
 {
     // The path is of form "1,HTML,2,BODY,1,DIV"
     if (!m_document)
-        return 0;
+        return nullptr;
 
     Node* node = m_document.get();
     Vector<String> pathTokens;
     path.split(',', false, pathTokens);
     if (!pathTokens.size())
-        return 0;
+        return nullptr;
+
     for (size_t i = 0; i < pathTokens.size() - 1; i += 2) {
         bool success = true;
         unsigned childNumber = pathTokens[i].toUInt(&success);
         if (!success)
-            return 0;
-        if (childNumber >= innerChildNodeCount(node))
-            return 0;
+            return nullptr;
 
-        Node* child = innerFirstChild(node);
-        String childName = pathTokens[i + 1];
-        for (size_t j = 0; child && j < childNumber; ++j)
-            child = innerNextSibling(child);
+        Node* child;
+        if (is<HTMLFrameOwnerElement>(*node)) {
+            ASSERT(!childNumber);
+            auto& frameOwner = downcast<HTMLFrameOwnerElement>(*node);
+            child = frameOwner.contentDocument();
+        } else {
+            if (childNumber >= innerChildNodeCount(node))
+                return nullptr;
 
+            child = innerFirstChild(node);
+            for (size_t j = 0; child && j < childNumber; ++j)
+                child = innerNextSibling(child);
+        }
+
+        const auto& childName = pathTokens[i + 1];
         if (!child || child->nodeName() != childName)
-            return 0;
+            return nullptr;
         node = child;
     }
     return node;
@@ -2231,9 +2276,9 @@ RefPtr<Inspector::Protocol::Runtime::RemoteObject> InspectorDOMAgent::resolveNod
 
 Node* InspectorDOMAgent::scriptValueAsNode(JSC::JSValue value)
 {
-    if (!value)
+    if (!value || !value.isObject())
         return nullptr;
-    return JSNode::toWrapped(value);
+    return JSNode::toWrapped(*value.getObject()->vm(), value.getObject());
 }
 
 JSC::JSValue InspectorDOMAgent::nodeAsScriptValue(JSC::ExecState& state, Node* node)

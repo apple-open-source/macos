@@ -2,7 +2,7 @@
 
   compar.c -
 
-  $Author: usa $
+  $Author: marcandre $
   created at: Thu Aug 26 14:39:48 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -18,17 +18,16 @@ static ID cmp;
 void
 rb_cmperr(VALUE x, VALUE y)
 {
-    const char *classname;
+    VALUE classname;
 
     if (SPECIAL_CONST_P(y) || BUILTIN_TYPE(y) == T_FLOAT) {
-	y = rb_inspect(y);
-	classname = StringValuePtr(y);
+	classname = rb_inspect(y);
     }
     else {
-	classname = rb_obj_classname(y);
+	classname = rb_obj_class(y);
     }
-    rb_raise(rb_eArgError, "comparison of %s with %s failed",
-	     rb_obj_classname(x), classname);
+    rb_raise(rb_eArgError, "comparison of %"PRIsVALUE" with %"PRIsVALUE" failed",
+	     rb_obj_class(x), classname);
 }
 
 static VALUE
@@ -54,24 +53,8 @@ rb_invcmp(VALUE x, VALUE y)
 static VALUE
 cmp_eq_recursive(VALUE arg1, VALUE arg2, int recursive)
 {
-    if (recursive) return Qfalse;
-    return rb_funcall(arg1, cmp, 1, arg2);
-}
-
-static VALUE
-cmp_eq(VALUE *a)
-{
-    VALUE c = rb_exec_recursive_paired_outer(cmp_eq_recursive, a[0], a[1], a[1]);
-
-    if (NIL_P(c)) return Qfalse;
-    if (rb_cmpint(c, a[0], a[1]) == 0) return Qtrue;
-    return Qfalse;
-}
-
-static VALUE
-cmp_failed(void)
-{
-    return Qfalse;
+    if (recursive) return Qnil;
+    return rb_funcallv(arg1, cmp, 1, &arg2);
 }
 
 /*
@@ -81,20 +64,19 @@ cmp_failed(void)
  *  Compares two objects based on the receiver's <code><=></code>
  *  method, returning true if it returns 0. Also returns true if
  *  _obj_ and _other_ are the same object.
- *
- *  Even if _obj_ <=> _other_ raised an exception, the exception
- *  is ignoread and returns false.
  */
 
 static VALUE
 cmp_equal(VALUE x, VALUE y)
 {
-    VALUE a[2];
-
+    VALUE c;
     if (x == y) return Qtrue;
 
-    a[0] = x; a[1] = y;
-    return rb_rescue(cmp_eq, (VALUE)a, cmp_failed, 0);
+    c = rb_exec_recursive_paired_outer(cmp_eq_recursive, x, y, y);
+
+    if (NIL_P(c)) return Qfalse;
+    if (rb_cmpint(c, x, y) == 0) return Qtrue;
+    return Qfalse;
 }
 
 /*
@@ -203,8 +185,8 @@ cmp_between(VALUE x, VALUE min, VALUE max)
  *     class SizeMatters
  *       include Comparable
  *       attr :str
- *       def <=>(anOther)
- *         str.size <=> anOther.str.size
+ *       def <=>(other)
+ *         str.size <=> other.str.size
  *       end
  *       def initialize(str)
  *         @str = str

@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/he.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 he{
-    Version{"2.1.23.7"}
+    Version{"2.1.32.59"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -98,7 +92,7 @@ he{
                 two{"{0} רגל רבועה"}
             }
             square-inch{
-                dnam{"אינצ׳ רבוע"}
+                dnam{"אינץ׳ רבוע"}
                 many{"{0} אינץ׳ רבוע"}
                 one{"{0} אינץ׳ רבוע"}
                 other{"{0} אינץ׳ רבוע"}
@@ -110,6 +104,7 @@ he{
                 many{"{0} קילומטר רבוע"}
                 one{"קילומטר רבוע {0}"}
                 other{"{0} קילומטר רבוע"}
+                per{"{0}/לקילומטר רבוע"}
                 two{"{0} קילומטר רבוע"}
             }
             square-meter{
@@ -125,6 +120,7 @@ he{
                 many{"{0} מייל רבוע"}
                 one{"מייל רבוע {0}"}
                 other{"{0} מייל רבוע"}
+                per{"{0}/למייל רבוע"}
                 two{"{0} מייל רבוע"}
             }
             square-yard{
@@ -145,6 +141,27 @@ he{
                 one{"קראט אחד"}
                 other{"{0} קראט"}
                 two{"{0} קראט"}
+            }
+            milligram-per-deciliter{
+                dnam{"מיליגרם/דציליטר"}
+                many{"{0} מיליגרם/דציליטר"}
+                one{"{0} מיליגרם/דציליטר"}
+                other{"{0} מיליגרם/דציליטר"}
+                two{"{0} מיליגרם/דציליטר"}
+            }
+            millimole-per-liter{
+                dnam{"מילימול/ליטר"}
+                many{"{0} מילימול/ליטר"}
+                one{"{0} מילימול/ליטר"}
+                other{"{0} מילימול/ליטר"}
+                two{"{0} מילימול/ליטר"}
+            }
+            part-per-million{
+                dnam{"חלקים למיליון"}
+                many{"{0} חלקים למיליון"}
+                one{"{0} חלקים למיליון"}
+                other{"{0} חלקים למיליון"}
+                two{"{0} חלקים למיליון"}
             }
         }
         consumption{
@@ -168,6 +185,13 @@ he{
                 one{"{0} מייל/גלון"}
                 other{"{0} מייל/גלון"}
                 two{"{0} מייל/גלון"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"מייל/גלון אימפריאלי"}
+                many{"{0} מייל/גלון אימפריאלי"}
+                one{"{0} מייל/גלון אימפריאלי"}
+                other{"{0} מייל/גלון אימפריאלי"}
+                two{"{0} מייל/גלון אימפריאלי"}
             }
         }
         coordinate{
@@ -330,6 +354,7 @@ he{
                 many{"{0} שנה"}
                 one{"שנה"}
                 other{"{0} שנים"}
+                per{"‏{0} לשנה"}
                 two{"שנתיים"}
             }
         }
@@ -555,6 +580,12 @@ he{
                 other{"{0} פיקומטר"}
                 two{"{0} פיקומטר"}
             }
+            point{
+                many{"{0} נקודות"}
+                one{"נקודה אחת"}
+                other{"{0} נקודות"}
+                two{"שתי נקודות"}
+            }
             yard{
                 dnam{"יארד"}
                 many{"{0} יארד"}
@@ -694,11 +725,11 @@ he{
         }
         pressure{
             hectopascal{
-                dnam{"הקטופסקל"}
-                many{"{0} הקטופסקל"}
-                one{"הקטופסקל {0}"}
-                other{"{0} הקטופסקל"}
-                two{"{0} הקטופסקל"}
+                dnam{"מיליבר"}
+                many{"{0} מיליבר"}
+                one{"{0} מיליבר"}
+                other{"{0} מיליבר"}
+                two{"{0} מיליבר"}
             }
             inch-hg{
                 dnam{"אינץ׳ כספית"}
@@ -890,6 +921,9 @@ he{
                 other{"{0} גלונים"}
                 per{"{0}/גלון"}
                 two{"{0} גלונים"}
+            }
+            gallon-imperial{
+                per{"{0}/גלון אימפריאלי"}
             }
             hectoliter{
                 dnam{"הקטוליטר"}
@@ -1160,6 +1194,12 @@ he{
                 other{"{0} פיקומטר"}
                 two{"{0} פיקומטר"}
             }
+            point{
+                many{"{0}נק׳"}
+                one{"{0}נק׳"}
+                other{"{0}נק׳"}
+                two{"{0}נק׳"}
+            }
             yard{
                 many{"{0} יארד"}
                 one{"יארד {0}"}
@@ -1216,12 +1256,6 @@ he{
             }
         }
         pressure{
-            hectopascal{
-                many{"{0} hPa"}
-                one{"{0} hPa"}
-                other{"{0} hPa"}
-                two{"{0} hPa"}
-            }
             inch-hg{
                 many{"{0} inHg"}
                 one{"{0} inHg"}
@@ -1390,6 +1424,7 @@ he{
                 many{"{0} קמ״ר"}
                 one{"{0} קמ״ר"}
                 other{"{0} קמ״ר"}
+                per{"{0}/קמ״ר"}
                 two{"{0} קמ״ר"}
             }
             square-meter{
@@ -1426,6 +1461,27 @@ he{
                 other{"{0} kt"}
                 two{"{0} kt"}
             }
+            milligram-per-deciliter{
+                dnam{"mg/dL"}
+                many{"{0} mg/dL"}
+                one{"{0} mg/dL"}
+                other{"{0} mg/dL"}
+                two{"{0} mg/dL"}
+            }
+            millimole-per-liter{
+                dnam{"mmol/L"}
+                many{"{0} mmol/L"}
+                one{"{0} mmol/L"}
+                other{"{0} mmol/L"}
+                two{"{0} mmol/L"}
+            }
+            part-per-million{
+                dnam{"ppm"}
+                many{"{0} ppm"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
+                two{"{0} ppm"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -1448,6 +1504,13 @@ he{
                 one{"{0} mpg"}
                 other{"{0} mpg"}
                 two{"{0} mpg"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"miles/gal Imp."}
+                many{"{0} mpg Imp."}
+                one{"{0} mpg Imp."}
+                other{"{0} mpg Imp."}
+                two{"{0} mpg Imp."}
             }
         }
         coordinate{
@@ -1746,6 +1809,7 @@ he{
                 many{"{0} רגל"}
                 one{"רגל {0}"}
                 other{"{0} רגל"}
+                per{"{0}/ft"}
                 two{"{0} רגל"}
             }
             inch{
@@ -1753,12 +1817,13 @@ he{
                 many{"{0} אינץ׳"}
                 one{"אינץ׳ {0}"}
                 other{"{0} אינץ׳"}
+                per{"{0}/in"}
                 two{"{0} אינץ׳"}
             }
             kilometer{
                 dnam{"ק״מ"}
                 many{"{0} ק״מ"}
-                one{"ק״מ {0}"}
+                one{"{0} ק״מ"}
                 other{"{0} ק״מ"}
                 per{"{0}/ק״מ"}
                 two{"{0} ק״מ"}
@@ -1828,11 +1893,17 @@ he{
                 two{"{0} pc"}
             }
             picometer{
-                dnam{"pm"}
+                dnam{"פ״מ"}
                 many{"{0} פיקומטר"}
                 one{"פיקומטר {0}"}
                 other{"{0} פיקומטר"}
                 two{"{0} פיקומטר"}
+            }
+            point{
+                many{"{0} נק׳"}
+                one{"{0} נק׳"}
+                other{"{0} נק׳"}
+                two{"{0} נק׳"}
             }
             yard{
                 dnam{"יארד"}
@@ -1973,11 +2044,11 @@ he{
         }
         pressure{
             hectopascal{
-                dnam{"hPa"}
-                many{"{0} hPa"}
-                one{"{0} hPa"}
-                other{"{0} hPa"}
-                two{"{0} hPa"}
+                dnam{"מ״ב"}
+                many{"{0} מ״ב"}
+                one{"{0} מ״ב"}
+                other{"{0} מ״ב"}
+                two{"{0} מ״ב"}
             }
             inch-hg{
                 dnam{"in Hg"}
@@ -2169,6 +2240,14 @@ he{
                 other{"{0} גל׳"}
                 per{"{0}/גל׳"}
                 two{"{0} גל׳"}
+            }
+            gallon-imperial{
+                dnam{"גלון בריטי"}
+                many{"{0} גלון בריטי"}
+                one{"{0} גלון בריטי"}
+                other{"{0} גלון בריטי"}
+                per{"{0}/גלון בריטי"}
+                two{"{0} גלון בריטי"}
             }
             hectoliter{
                 dnam{"hL"}

@@ -135,7 +135,10 @@ mod_export HashTable keymapnamtab;
 /**/
 char *keybuf;
 
-static int keybuflen, keybufsz = 20;
+/**/
+int keybuflen;
+
+static int keybufsz = 20;
 
 /* last command executed with execute-named-command */
 
@@ -1322,15 +1325,15 @@ default_bindings(void)
 	amap->first[i] = refthingy(t_undefinedkey);
 
     /* safe fallback keymap:
-     *   0-255  self-insert, except: *
-     *    '\n'  accept-line          *
-     *    '\r'  accept-line          */
+     *   0-255  .self-insert, except: *
+     *    '\n'  .accept-line          *
+     *    '\r'  .accept-line          */
     for (i = 0; i < 256; i++)
-	smap->first[i] = refthingy(t_selfinsert);
-    unrefthingy(t_selfinsert);
-    unrefthingy(t_selfinsert);
-    smap->first['\n'] = refthingy(t_acceptline);
-    smap->first['\r'] = refthingy(t_acceptline);
+	smap->first[i] = refthingy(t_Dselfinsert);
+    unrefthingy(t_Dselfinsert);
+    unrefthingy(t_Dselfinsert);
+    smap->first['\n'] = refthingy(t_Dacceptline);
+    smap->first['\r'] = refthingy(t_Dacceptline);
 
     /* vt100 arrow keys are bound by default, for historical reasons. *
      * Both standard and keypad modes are supported.                  */
@@ -1366,6 +1369,8 @@ default_bindings(void)
     bindkey(vismap, "\33", refthingy(t_deactivateregion), NULL);
     bindkey(vismap, "o", refthingy(t_exchangepointandmark), NULL);
     bindkey(vismap, "p", refthingy(t_putreplaceselection), NULL);
+    bindkey(vismap, "u", refthingy(t_vidowncase), NULL);
+    bindkey(vismap, "U", refthingy(t_viupcase), NULL);
     bindkey(vismap, "x", refthingy(t_videlete), NULL);
     bindkey(vismap, "~", refthingy(t_vioperswapcase), NULL);
 
@@ -1374,8 +1379,12 @@ default_bindings(void)
     bindkey(amap, "ge", refthingy(t_vibackwardwordend), NULL);
     bindkey(amap, "gE", refthingy(t_vibackwardblankwordend), NULL);
     bindkey(amap, "gg", refthingy(t_beginningofbufferorhistory), NULL);
+    bindkey(amap, "gu", refthingy(t_vidowncase), NULL);
+    bindkey(amap, "gU", refthingy(t_viupcase), NULL);
     bindkey(amap, "g~", refthingy(t_vioperswapcase), NULL);
     bindkey(amap, "g~~", NULL, "g~g~");
+    bindkey(amap, "guu", NULL, "gugu");
+    bindkey(amap, "gUU", NULL, "gUgU");
 
     /* emacs mode: arrow keys */ 
     add_cursor_key(emap, TCUPCURSOR, t_uplineorhistory, 'A');
@@ -1449,6 +1458,104 @@ default_bindings(void)
 /*************************/
 /* reading key sequences */
 /*************************/
+/**/
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * Get the remainder of a character if we support multibyte
+ * input strings.  It may not require any more input, but
+ * we haven't yet checked.  What's read in so far is available
+ * in keybuf; if we read more we will top keybuf up.
+ *
+ * This version is used when we are still resolving the input key stream
+ * into bindings.  Once that has been done this function shouldn't be
+ * used: instead, see getrestchar() in zle_main.c.
+ *
+ * This supports a self-insert binding at any stage of a key sequence.
+ * Typically we handle 8-bit characters by having only the first byte
+ * bound to self insert; then we immediately get here and read in as
+ * many further bytes as necessary.  However, it's possible that any set
+ * of bytes up to full character is bound to self-insert; then we get
+ * here later and read as much as possible, which could be a complete
+ * character, from keybuf before attempting further input.
+ *
+ * At the end of the process, the full multibyte character is available
+ * in keybuf, so the return value may be superfluous.
+ */
+
+/**/
+mod_export ZLE_INT_T
+getrestchar_keybuf(void)
+{
+    char c;
+    wchar_t outchar;
+    int inchar, timeout, bufind = 0, buflen = keybuflen;
+    static mbstate_t mbs;
+    size_t cnt;
+
+    /*
+     * We are guaranteed to set a valid wide last character,
+     * although it may be WEOF (which is technically not
+     * a wide character at all...)
+     */
+    lastchar_wide_valid = 1;
+    memset(&mbs, 0, sizeof mbs);
+
+    /*
+     * Return may be zero if we have a NULL; handle this like
+     * any other character.
+     */
+    while (1) {
+	if (bufind < buflen) {
+	    c = STOUC(keybuf[bufind++]);
+	    if (c == Meta) {
+		DPUTS(bufind == buflen, "Meta at end of keybuf");
+		c = STOUC(keybuf[bufind++]) ^ 32;
+	    }
+	} else {
+	    /*
+	     * Always apply KEYTIMEOUT to the remains of the input
+	     * character.  The parts of a multibyte character should
+	     * arrive together.  If we don't do this the input can
+	     * get stuck if an invalid byte sequence arrives.
+	     */
+	    inchar = getbyte(1L, &timeout);
+	    /* getbyte deliberately resets lastchar_wide_valid */
+	    lastchar_wide_valid = 1;
+	    if (inchar == EOF) {
+		memset(&mbs, 0, sizeof mbs);
+		if (timeout)
+		{
+		    /*
+		     * This case means that we got a valid initial byte
+		     * (since we tested for EOF above), but the followup
+		     * timed out.  This probably indicates a duff character.
+		     * Return a '?'.
+		     */
+		    lastchar = '?';
+		    return lastchar_wide = L'?';
+		}
+		else
+		    return lastchar_wide = WEOF;
+	    }
+	    c = inchar;
+	    addkeybuf(inchar);
+	}
+
+	cnt = mbrtowc(&outchar, &c, 1, &mbs);
+	if (cnt == MB_INVALID) {
+	    /*
+	     * Invalid input.  Hmm, what's the right thing to do here?
+	     */
+	    memset(&mbs, 0, sizeof mbs);
+	    return lastchar_wide = WEOF;
+	}
+	if (cnt != MB_INCOMPLETE)
+	    break;
+    }
+    return lastchar_wide = (ZLE_INT_T)outchar;
+}
+/**/
+#endif
 
 /* read a sequence of keys that is bound to some command in a keymap */
 
@@ -1503,16 +1610,9 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
 		    f->widget->flags & ZLE_VIOPER);
 #ifdef MULTIBYTE_SUPPORT
 	    if ((f == Th(z_selfinsert) || f == Th(z_selfinsertunmeta)) &&
-		!lastchar_wide_valid) {
-		int len;
-		VARARR(char, mbc, MB_CUR_MAX);
-		ZLE_INT_T inchar = getrestchar(lastchar, mbc, &len);
-		if (inchar != WEOF && len) {
-		    char *ptr = mbc;
-		    while (len--)
-			addkeybuf(STOUC(*ptr++));
-		    lastlen = keybuflen;
-		}
+		!lastchar_wide_valid && !ispfx) {
+		(void)getrestchar_keybuf();
+		lastlen = keybuflen;
 	    }
 #endif
 	}
@@ -1524,11 +1624,18 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
     else
 	lastchar = lastc;
     if(lastlen != keybuflen) {
+	/*
+	 * We want to keep only the first lastlen bytes of the key
+	 * buffer in the key buffer that were marked as used by the key
+	 * binding above, and make the rest available for input again.
+	 * That rest (but not what we are keeping) needs to be
+	 * unmetafied.
+	 */
 	unmetafy(keybuf + lastlen, &keybuflen);
 	ungetbytes(keybuf+lastlen, keybuflen);
 	if(vichgflag)
-	    vichgbufptr -= keybuflen;
-	keybuf[lastlen] = 0;
+	    curvichg.bufptr -= keybuflen;
+	keybuf[keybuflen = lastlen] = 0;
     }
     *funcp = func;
     *strp = str;
@@ -1581,7 +1688,7 @@ getkeybuf(int w)
 mod_export void
 ungetkeycmd(void)
 {
-    ungetbytes(keybuf, keybuflen);
+    ungetbytes_unmeta(keybuf, keybuflen);
 }
 
 /* read a command from the current keymap, with widgets */
@@ -1599,17 +1706,12 @@ getkeycmd(void)
     if(!*seq)
 	return NULL;
     if(!func) {
-	int len;
-	char *pb;
-
 	if (++hops == 20) {
 	    zerr("string inserting another one too many times");
 	    hops = 0;
 	    return NULL;
 	}
-	pb = unmetafy(ztrdup(str), &len);
-	ungetbytes(pb, len);
-	zfree(pb, strlen(str) + 1);
+	ungetbytes_unmeta(str, strlen(str));
 	goto sentstring;
     }
     if (func == Th(z_executenamedcmd) && !statusline) {

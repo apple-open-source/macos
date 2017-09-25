@@ -65,7 +65,7 @@ static pthread_mutex_t ifdh_context_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int LogLevel = DEBUG_LEVEL_CRITICAL | DEBUG_LEVEL_INFO;
 int DriverOptions = 0;
-int PowerOnVoltage = VOLTAGE_5V;
+int PowerOnVoltage = -1;
 static int DebugInitialized = FALSE;
 
 /* local functions */
@@ -85,10 +85,11 @@ static void FreeChannel(int reader_index)
 #endif
 
 	(void)ClosePort(reader_index);
-	ReleaseReaderIndex(reader_index);
 
 	free(CcidSlots[reader_index].readerName);
 	memset(&CcidSlots[reader_index], 0, sizeof(CcidSlots[reader_index]));
+
+	ReleaseReaderIndex(reader_index);
 
 #ifdef HAVE_PTHREAD
 	(void)pthread_mutex_unlock(&ifdh_context_mutex);
@@ -114,7 +115,17 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 		DEBUG_INFO3("Lun: " DWORD_X ", Channel: " DWORD_X, Lun, Channel);
 	}
 
-	if (-1 == (reader_index = GetNewReaderIndex(Lun)))
+#ifdef HAVE_PTHREAD
+	(void)pthread_mutex_lock(&ifdh_context_mutex);
+#endif
+
+	reader_index = GetNewReaderIndex(Lun);
+
+#ifdef HAVE_PTHREAD
+	(void)pthread_mutex_unlock(&ifdh_context_mutex);
+#endif
+
+	if (-1 == reader_index)
 		return IFD_COMMUNICATION_ERROR;
 
 	/* Reset ATR buffer */
@@ -129,10 +140,6 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 		CcidSlots[reader_index].readerName = strdup(lpcDevice);
 	else
 		CcidSlots[reader_index].readerName = strdup("no name");
-
-#ifdef HAVE_PTHREAD
-	(void)pthread_mutex_lock(&ifdh_context_mutex);
-#endif
 
 	if (lpcDevice)
 		ret = OpenPortByName(reader_index, lpcDevice);
@@ -203,10 +210,6 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 	}
 
 error:
-#ifdef HAVE_PTHREAD
-	(void)pthread_mutex_unlock(&ifdh_context_mutex);
-#endif
-
 	if (return_value != IFD_SUCCESS)
 	{
 		/* release the allocated resources */
@@ -460,9 +463,13 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 					 * multi-slot reader */
 					int readerID =  get_ccid_descriptor(reader_index) -> readerID;
 
-					if ((GEMALTOPROXDU == readerID) || (GEMALTOPROXSU == readerID))
+					/* 2 CCID interfaces */
+					if ((GEMALTOPROXDU == readerID)
+						|| (GEMALTOPROXSU == readerID)
+						|| (HID_OMNIKEY_5422 == readerID))
 						*Value = 2;
 
+					/* 3 CCID interfaces */
 					if (FEITIANR502DUAL == readerID)
 						*Value = 3;
 				}
@@ -831,9 +838,7 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 				/* the card is too fast for the reader */
 				if ((card_baudrate > ccid_desc->dwMaxDataRate +2)
 					/* but TA1 <= 97 */
-					&& (atr.ib[0][ATR_INTERFACE_BYTE_TA].value <= 0x97)
-					/* and the reader has a baud rate table */
-					&& ccid_desc->arrayOfSupportedDataRates)
+					&& (atr.ib[0][ATR_INTERFACE_BYTE_TA].value <= 0x97))
 				{
 					unsigned char old_TA1;
 
@@ -850,8 +855,15 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 						card_baudrate = (unsigned int) (1000 *
 							ccid_desc->dwDefaultClock * d / f);
 
-						if (find_baud_rate(card_baudrate,
+						/* the reader has a baud rate table */
+						if ((ccid_desc->arrayOfSupportedDataRates
+							/* and the baud rate is supported */
+							&& find_baud_rate(card_baudrate,
 							ccid_desc->arrayOfSupportedDataRates))
+							/* or the reader has NO baud rate table */
+							|| ((NULL == ccid_desc->arrayOfSupportedDataRates)
+							/* and the baud rate is bellow the limit */
+							&& (card_baudrate <= ccid_desc->dwMaxDataRate)))
 						{
 							pps[1] |= 0x10; /* PTS1 presence */
 							pps[2] = atr.ib[0][ATR_INTERFACE_BYTE_TA].value;
@@ -1070,7 +1082,7 @@ EXTERNAL RESPONSECODE IFDHSetProtocolParameters(DWORD Lun, DWORD Protocol,
 		/* IFSD not negociated by the reader? */
 		if (! (ccid_desc->dwFeatures & CCID_CLASS_AUTO_IFSD))
 		{
-			DEBUG_COMM2("Negociate IFSD at %d", ccid_desc -> dwMaxIFSD);
+			DEBUG_COMM2("Negotiate IFSD at %d", ccid_desc -> dwMaxIFSD);
 			if (t1_negotiate_ifsd(t1, 0, ccid_desc -> dwMaxIFSD) < 0)
 				return IFD_COMMUNICATION_ERROR;
 		}

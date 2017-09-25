@@ -48,17 +48,11 @@ extern "C" {
     #endif
 #endif	/* endian */
 
-#ifndef	NeXT
-    #define bcopy(s, d, l)	memmove(d, s, l)
-    #define bzero(s, l)		memset(s, 0, l)
-    #define bcmp(s, d, l)	memcmp(s, d, l)
-#endif
-
 /*
  * Other platform-dependent functions in platform.c.
  */
 
-extern void CKRaise(const char *reason);
+extern void CKRaise(const char *reason) __attribute__((noreturn));
 
 /*
  * Come up with some kind of "really" random int with which to seed the

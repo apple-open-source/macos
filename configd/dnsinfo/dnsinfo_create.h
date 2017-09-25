@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009, 2011-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2011-2013, 2015, 2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -100,7 +100,8 @@ _dns_resolver_set_flags		(dns_create_resolver_t	*_resolver,
 
 void
 _dns_resolver_set_if_index	(dns_create_resolver_t	*_resolver,
-				 uint32_t		if_index)		__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
+				 uint32_t		if_index,
+				 const char		*if_name)		__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
 void
 _dns_resolver_set_options	(dns_create_resolver_t	*_resolver,

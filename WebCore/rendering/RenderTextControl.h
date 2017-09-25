@@ -64,7 +64,7 @@ protected:
     virtual LayoutUnit computeControlLogicalHeight(LayoutUnit lineHeight, LayoutUnit nonContentHeight) const = 0;
 
     LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
-    RenderObject* layoutSpecialExcludedChild(bool relayoutChildren) override;
+    void layoutExcludedChildren(bool relayoutChildren) override;
 
 private:
     void element() const = delete;
@@ -80,8 +80,6 @@ private:
     void addFocusRingRects(Vector<LayoutRect>&, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer = 0) override;
 
     bool canBeProgramaticallyScrolled() const override { return true; }
-
-    bool requiresForcedStyleRecalcPropagation() const override { return true; }
 };
 
 // Renderer for our inner container, for <search> and others.

@@ -50,7 +50,7 @@ int BLLoadFile(BLContextPtr context, const char * src, int useRsrcFork,
     CFURLRef                 loadSrc;
     char rsrcpath[MAXPATHLEN];
 
-
+	if (data) *data = NULL;
     if(useRsrcFork) {
         err = BLIsMountHFS(context, src, &isHFS);
         if(err) return 2;
@@ -87,7 +87,7 @@ int BLLoadFile(BLContextPtr context, const char * src, int useRsrcFork,
 
     CFRelease(loadSrc); loadSrc = NULL;
 
-    *data = (void *)output;
+    *data = output;
     
     return 0;
 }

@@ -29,7 +29,7 @@
 
 #include "csgeneric.h"
 #include "StaticCode.h"
-#include "PidDiskRep.h"
+#include "piddiskrep.h"
 #include <security_utilities/utilities.h>
 
 namespace Security {

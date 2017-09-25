@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>expat</string>
 	<key>OpenSourceVersion</key>
-	<string>2.1.0</string>
+	<string>2.2.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://expat.sourceforge.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://iweb.dl.sourceforge.net/project/expat/expat/2.1.0/expat-2.1.0.tar.gz</string>
+	<string>https://downloads.sourceforge.net/project/expat/expat/2.2.1/expat-2.2.1.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>b08197d146930a5543a7b99e871cba3da614f6f0</string>
+	<string>f45eb724f182776a9cacec9ed70d549e87198987</string>
 	<key>OpenSourceImportDate</key>
-	<string>2015-09-02</string>
+	<string>2017-06-02</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>
@@ -21,7 +21,6 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Added availability attribute to XML_SetHashSalt.</string>
-		<string>Added patch for CVE-2016-0718</string>
 	</array>
 </dict>
 </plist>

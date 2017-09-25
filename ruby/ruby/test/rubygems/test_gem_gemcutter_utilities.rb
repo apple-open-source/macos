@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'rubygems/test_case'
 require 'rubygems'
 require 'rubygems/command'
@@ -143,6 +144,15 @@ class TestGemGemcutterUtilities < Gem::TestCase
     api_key     = 'a5fdbb6ba150cbb83aad2bb2fede64cf040453903'
     Gem.configuration.rubygems_api_key = api_key
 
+    util_sign_in [api_key, 200, 'OK']
+
+    assert_equal "", @sign_in_ui.output
+  end
+
+  def test_sign_in_skips_with_key_override
+    api_key     = 'a5fdbb6ba150cbb83aad2bb2fede64cf040453903'
+    Gem.configuration.api_keys[:KEY]  = 'other'
+    @cmd.options[:key] = :KEY
     util_sign_in [api_key, 200, 'OK']
 
     assert_equal "", @sign_in_ui.output

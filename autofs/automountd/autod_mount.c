@@ -164,6 +164,7 @@ retry:
 	}
 
 	alphead = NULL;
+	alp = NULL;
 
 	/*
 	 * Each mapent in the list describes a mount to be done.

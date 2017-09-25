@@ -1,9 +1,9 @@
+# frozen_string_literal: false
 require 'test/unit'
 require 'timeout'
 require 'tmpdir'
 require 'tempfile'
 require 'fileutils'
-require_relative 'envutil'
 
 class TestArgf < Test::Unit::TestCase
   def setup
@@ -44,10 +44,10 @@ class TestArgf < Test::Unit::TestCase
     t
   end
 
-  def ruby(*args)
+  def ruby(*args, external_encoding: Encoding::UTF_8)
     args = ['-e', '$>.write($<.read)'] if args.empty?
     ruby = EnvUtil.rubybin
-    f = IO.popen([ruby] + args, 'r+')
+    f = IO.popen([ruby] + args, 'r+', external_encoding: external_encoding)
     yield(f)
   ensure
     f.close unless !f || f.closed?
@@ -212,6 +212,13 @@ class TestArgf < Test::Unit::TestCase
       assert_equal([], r)
       assert_equal("foo\nbar\nbaz\n", File.read(t.path))
     end
+
+    base = "argf-\u{30c6 30b9 30c8}"
+    name = "#{@tmpdir}/#{base}"
+    File.write(name, "foo")
+    argf = ARGF.class.new(name)
+    argf.inplace_mode = '/\\:'
+    assert_warning(/#{base}/) {argf.gets}
   end
 
   def test_inplace_no_backup
@@ -247,8 +254,6 @@ class TestArgf < Test::Unit::TestCase
   end
 
   def test_inplace_stdin
-    t = make_tempfile
-
     assert_in_out_err(["-", "-"], <<-INPUT, [], /Can't do inplace edit for stdio; skipping/)
       ARGF.inplace_mode = '.bak'
       f = ARGF.dup
@@ -259,8 +264,6 @@ class TestArgf < Test::Unit::TestCase
   end
 
   def test_inplace_stdin2
-    t = make_tempfile
-
     assert_in_out_err(["-"], <<-INPUT, [], /Can't do inplace edit for stdio/)
       ARGF.inplace_mode = '.bak'
       while line = ARGF.gets
@@ -508,6 +511,17 @@ class TestArgf < Test::Unit::TestCase
     end
   end
 
+  def test_readpartial_eof_twice
+    ruby('-W1', '-e', <<-SRC, @t1.path) do |f|
+      $stderr = $stdout
+      print ARGF.readpartial(256)
+      ARGF.readpartial(256) rescue p($!.class)
+      ARGF.readpartial(256) rescue p($!.class)
+    SRC
+      assert_equal("1\n2\nEOFError\nEOFError\n", f.read)
+    end
+  end
+
   def test_getc
     ruby('-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
       s = ""
@@ -683,6 +697,49 @@ class TestArgf < Test::Unit::TestCase
     end
   end
 
+  def test_skip_in_each_line
+    ruby('-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
+      ARGF.each_line {|l| print l; ARGF.skip}
+    SRC
+      assert_equal("1\n3\n5\n", f.read, '[ruby-list:49185]')
+    end
+    ruby('-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
+      ARGF.each_line {|l| ARGF.skip; puts [l, ARGF.gets].map {|s| s ? s.chomp : s.inspect}.join("+")}
+    SRC
+      assert_equal("1+3\n4+5\n6+nil\n", f.read, '[ruby-list:49185]')
+    end
+  end
+
+  def test_skip_in_each_byte
+    ruby('-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
+      ARGF.each_byte {|l| print l; ARGF.skip}
+    SRC
+      assert_equal("135".unpack("C*").join(""), f.read, '[ruby-list:49185]')
+    end
+  end
+
+  def test_skip_in_each_char
+    [[@t1, "\u{3042}"], [@t2, "\u{3044}"], [@t3, "\u{3046}"]].each do |f, s|
+      File.write(f.path, s, mode: "w:utf-8")
+    end
+    ruby('-Eutf-8', '-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
+      ARGF.each_char {|l| print l; ARGF.skip}
+    SRC
+      assert_equal("\u{3042 3044 3046}", f.read, '[ruby-list:49185]')
+    end
+  end
+
+  def test_skip_in_each_codepoint
+    [[@t1, "\u{3042}"], [@t2, "\u{3044}"], [@t3, "\u{3046}"]].each do |f, s|
+      File.write(f.path, s, mode: "w:utf-8")
+    end
+    ruby('-Eutf-8', '-Eutf-8', '-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
+      ARGF.each_codepoint {|l| printf "%x:", l; ARGF.skip}
+    SRC
+      assert_equal("3042:3044:3046:", f.read, '[ruby-list:49185]')
+    end
+  end
+
   def test_close
     ruby('-e', <<-SRC, @t1.path, @t2.path, @t3.path) do |f|
       ARGF.close
@@ -760,8 +817,7 @@ class TestArgf < Test::Unit::TestCase
     end
     argf = ARGF.class.new(*paths)
     paths.each do |path|
-      e = assert_raise(Errno::ENOENT) {argf.gets}
-      assert_match(/- #{Regexp.quote(path)}\z/, e.message)
+      assert_raise_with_message(Errno::ENOENT, /- #{Regexp.quote(path)}\z/) {argf.gets}
     end
     assert_nil(argf.gets, bug4274)
   end
@@ -811,5 +867,56 @@ class TestArgf < Test::Unit::TestCase
       assert_match(/deprecated/, f.gets)
       assert_equal([49, 10, 50, 10, 51, 10, 52, 10, 53, 10, 54, 10], Marshal.load(f.read))
     end
+  end
+
+  def test_read_nonblock
+    ruby('-e', <<-SRC) do |f|
+      $stdout.sync = true
+      :wait_readable == ARGF.read_nonblock(1, "", exception: false) or
+        abort "did not return :wait_readable"
+
+      begin
+        ARGF.read_nonblock(1)
+        abort 'fail to raise IO::WaitReadable'
+      rescue IO::WaitReadable
+      end
+      puts 'starting select'
+
+      IO.select([ARGF]) == [[ARGF], [], []] or
+        abort 'did not awaken for readability (before byte)'
+
+      buf = ''
+      buf.object_id == ARGF.read_nonblock(1, buf).object_id or
+        abort "read destination buffer failed"
+      print buf
+
+      IO.select([ARGF]) == [[ARGF], [], []] or
+        abort 'did not awaken for readability (before EOF)'
+
+      ARGF.read_nonblock(1, buf, exception: false) == nil or
+        abort "EOF should return nil if exception: false"
+
+      begin
+        ARGF.read_nonblock(1, buf)
+        abort 'fail to raise IO::WaitReadable'
+      rescue EOFError
+        puts 'done with eof'
+      end
+    SRC
+      f.sync = true
+      assert_equal "starting select\n", f.gets
+      f.write('.') # wake up from IO.select
+      assert_equal '.', f.read(1)
+      f.close_write
+      assert_equal "done with eof\n", f.gets
+    end
+  end
+
+  def test_wrong_type
+    assert_separately([], <<-'end;')
+      bug11610 = '[ruby-core:71140] [Bug #11610]'
+      ARGV[0] = nil
+      assert_raise(TypeError, bug11610) {gets}
+    end;
   end
 end

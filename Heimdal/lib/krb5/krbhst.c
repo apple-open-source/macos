@@ -1814,20 +1814,27 @@ krbhost_dealloc(void *ptr)
 	free(handle->hostname);
     if (handle->sitename)
 	free(handle->sitename);
+#if __APPLE__
+    if (handle->main_sd) {
+	DNSServiceRef client = handle->main_sd;
+	handle->main_sd = NULL;
+
+	dispatch_async((dispatch_queue_t)handle->srv_queue, ^{
+	    DNSServiceRefDeallocate(client);
+	});
+    }
+    if (handle->addrinfo_sd) {
+	DNSServiceRef client = handle->addrinfo_sd;
+	handle->addrinfo_sd = NULL;
+	dispatch_async((dispatch_queue_t)handle->addrinfo_queue, ^{
+	    DNSServiceRefDeallocate(client);
+	});
+    }
+#endif
     if (handle->srv_queue)
 	heim_queue_release(handle->srv_queue);
     if (handle->addrinfo_queue)
 	heim_queue_release(handle->addrinfo_queue);
-#if __APPLE__
-    if (handle->main_sd) {
-	DNSServiceRefDeallocate(handle->main_sd);
-	handle->main_sd = NULL;
-    }
-    if (handle->addrinfo_sd) {
-	DNSServiceRefDeallocate(handle->addrinfo_sd);
-	handle->addrinfo_sd = NULL;
-    }
-#endif
     HEIMDAL_MUTEX_destroy(&handle->mutex);
 
     free(handle->realm);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2012  Mark Nudelman
+ * Copyright (C) 1984-2016  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -66,6 +66,9 @@
 #define	A_PREV_TAG		54
 #define	A_FILTER		55
 #define	A_F_UNTIL_HILITE	56
+#define	A_GOEND_BUF		57
+#define	A_LLSHIFT		58
+#define	A_RRSHIFT		59
 
 #define	A_INVALID		100
 #define	A_NOACTION		101

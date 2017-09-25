@@ -322,12 +322,12 @@ tests(void)
         pthread_create(&client_thread, NULL, securetransport_ssl_thread, client);
         pthread_create(&server_thread, NULL, securetransport_ssl_thread, server);
 
-        int server_err, client_err;
+        intptr_t server_err, client_err;
         pthread_join(client_thread, (void*)&client_err);
         pthread_join(server_thread, (void*)&server_err);
 
-        ok(!server_err, "Server error = %d", server_err);
-        ok(!client_err, "Client error = %d", client_err);
+        ok(!server_err, "Server error = %ld", server_err);
+        ok(!client_err, "Client error = %ld", client_err);
 
         /* one byte split is expected only for AES when using TLS 1.0 or lower, and when not disabled */
         bool expected_split = (i==0) && (s!=2) && (versions[j]<=kTLSProtocol1);

@@ -103,6 +103,8 @@ static int g_exec = 1;
 static int g_mode = DMODE_EXEC;
 static int g_status = E_SUCCESS;
 static int g_grabanon = 0;
+static int g_proc_created_grabbed = 0;
+static int g_wait_proc = 0;
 static const char *g_ofile = NULL;
 static const char *g_script_name = NULL;
 static FILE *g_ofp = NULL;
@@ -682,9 +684,10 @@ exec_prog(const dtrace_cmd_t *dcp)
 	} else if (dtrace_program_exec(g_dtp, dcp->dc_prog, &dpi) == -1) {
 		dfatal("failed to enable '%s'", dcp->dc_name);
 	} else {
-		notice("%s '%s' matched %u probe%s\n",
-		    dcp->dc_desc, dcp->dc_name,
-		    dpi.dpi_matches, dpi.dpi_matches == 1 ? "" : "s");
+		if (!(dpi.dpi_matches == 0 && (g_wait_proc && !g_proc_created_grabbed)))
+			notice("%s '%s' matched %u probe%s\n",
+			    dcp->dc_desc, dcp->dc_name,
+			    dpi.dpi_matches, dpi.dpi_matches == 1 ? "" : "s");
 	}
 
 	if (g_verbose) {
@@ -975,7 +978,7 @@ compile_str(dtrace_cmd_t *dcp)
 	char *p;
 
 	if ((dcp->dc_prog = dtrace_program_strcompile(g_dtp, dcp->dc_arg,
-	    dcp->dc_spec, g_cflags | DTRACE_C_PSPEC, g_argc, g_argv)) == NULL)
+	    dcp->dc_spec, g_cflags, g_argc, g_argv)) == NULL)
 		dfatal("invalid probe specifier %s", dcp->dc_arg);
 
 	if ((p = strpbrk(dcp->dc_arg, "{/;")) != NULL)
@@ -1904,6 +1907,7 @@ main(int argc, char *argv[])
 
 				g_psv[g_psc++] = P;
 				free(v);
+				g_proc_created_grabbed++;
 				break;
 
 			case 'p':
@@ -1918,6 +1922,7 @@ main(int argc, char *argv[])
 					dfatal(NULL); /* dtrace_errmsg() only */
 
 				g_psv[g_psc++] = P;
+				g_proc_created_grabbed++;
 				break;
 
 			case 'W':
@@ -1925,6 +1930,7 @@ main(int argc, char *argv[])
 				if (P == NULL)
 					dfatal(NULL);
 				g_psv[g_psc++] = P;
+				g_wait_proc++;
 				break;
 
 			case 'a':

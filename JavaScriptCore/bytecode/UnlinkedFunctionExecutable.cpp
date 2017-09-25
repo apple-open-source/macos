@@ -42,7 +42,7 @@ namespace JSC {
 
 static_assert(sizeof(UnlinkedFunctionExecutable) <= 256, "UnlinkedFunctionExecutable should fit in a 256-byte cell.");
 
-const ClassInfo UnlinkedFunctionExecutable::s_info = { "UnlinkedFunctionExecutable", 0, 0, CREATE_METHOD_TABLE(UnlinkedFunctionExecutable) };
+const ClassInfo UnlinkedFunctionExecutable::s_info = { "UnlinkedFunctionExecutable", nullptr, nullptr, nullptr, CREATE_METHOD_TABLE(UnlinkedFunctionExecutable) };
 
 static UnlinkedFunctionCodeBlock* generateUnlinkedFunctionCodeBlock(
     VM& vm, UnlinkedFunctionExecutable* executable, const SourceCode& source,
@@ -88,7 +88,6 @@ UnlinkedFunctionExecutable::UnlinkedFunctionExecutable(VM* vm, Structure* struct
     , m_typeProfilingStartOffset(node->functionKeywordStart())
     , m_typeProfilingEndOffset(node->startStartOffset() + node->source().length() - 1)
     , m_parameterCount(node->parameterCount())
-    , m_functionLength(node->functionLength())
     , m_features(0)
     , m_sourceParseMode(node->parseMode())
     , m_isInStrictContext(node->isInStrictContext())

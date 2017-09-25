@@ -29,6 +29,7 @@
 #if PLATFORM(MAC)
 
 #import "APILegacyContextHistoryClient.h"
+#import "AttributedString.h"
 #import "ColorSpaceData.h"
 #import "FullscreenClient.h"
 #import "GenericCallback.h"
@@ -86,7 +87,6 @@
 #import <WebCore/NSTouchBarSPI.h>
 #import <WebCore/NSWindowSPI.h>
 #import <WebCore/PlatformEventFactoryMac.h>
-#import <WebCore/SoftLinking.h>
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/TextUndoInsertionMarkupMac.h>
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
@@ -99,11 +99,17 @@
 #import <sys/stat.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/SetForScope.h>
+#import <wtf/SoftLinking.h>
 
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 SOFT_LINK_FRAMEWORK(AVKit)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+SOFT_LINK_CLASS(AVKit, AVTouchBarPlaybackControlsProvider)
+SOFT_LINK_CLASS(AVKit, AVTouchBarScrubber)
+#else
 SOFT_LINK_CLASS(AVKit, AVFunctionBarPlaybackControlsProvider)
 SOFT_LINK_CLASS(AVKit, AVFunctionBarScrubber)
+#endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 
 static NSString * const WKMediaExitFullScreenItem = @"WKMediaExitFullScreenItem";
 #endif // HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
@@ -122,6 +128,13 @@ SOFT_LINK_CONSTANT_MAY_FAIL(Lookup, LUNotificationPopoverWillClose, NSString *)
 - (void)handleEventByInputMethod:(NSEvent *)event completionHandler:(void(^)(BOOL handled))completionHandler;
 - (BOOL)handleEventByKeyboardLayout:(NSEvent *)event;
 @end
+
+#if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+// FIXME: Remove this once -setCanShowMediaSelectionButton: is declared in an SDK used by Apple's buildbot.
+@interface AVTouchBarScrubber ()
+- (void)setCanShowMediaSelectionButton:(BOOL)canShowMediaSelectionButton;
+@end
+#endif
 
 @interface WKAccessibilitySettingsObserver : NSObject {
     WebKit::WebViewImpl *_impl;
@@ -662,6 +675,9 @@ static const NSUInteger orderedListSegment = 2;
         colorPickerItem.target = self;
         colorPickerItem.action = @selector(_wkChangeColor:);
         colorPickerItem.showsAlpha = NO;
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+        colorPickerItem.allowedColorSpaces = @[ [NSColorSpace sRGBColorSpace] ];
+#endif
     }
 
     return item;
@@ -902,14 +918,18 @@ NSCandidateListTouchBarItem *WebViewImpl::candidateListTouchBarItem() const
     return isRichlyEditable() ? m_richTextCandidateListTouchBarItem.get() : m_plainTextCandidateListTouchBarItem.get();
 }
 
-AVFunctionBarScrubber *WebViewImpl::mediaPlaybackControlsView() const
-{
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+AVTouchBarScrubber *WebViewImpl::mediaPlaybackControlsView() const
+#else
+AVFunctionBarScrubber *WebViewImpl::mediaPlaybackControlsView() const
+#endif
+{
     if (m_page->hasActiveVideoForControlsManager())
         return m_mediaPlaybackControlsView.get();
-#endif
     return nil;
 }
+#endif
 
 bool WebViewImpl::useMediaPlaybackControlsView() const
 {
@@ -1125,14 +1145,30 @@ void WebViewImpl::updateTextTouchBar()
 void WebViewImpl::updateMediaTouchBar()
 {
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER) && ENABLE(VIDEO_PRESENTATION_MODE)
-    if (!m_mediaTouchBarProvider)
+    if (!m_mediaTouchBarProvider) {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+        m_mediaTouchBarProvider = adoptNS([allocAVTouchBarPlaybackControlsProviderInstance() init]);
+#else
         m_mediaTouchBarProvider = adoptNS([allocAVFunctionBarPlaybackControlsProviderInstance() init]);
+#endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    }
 
-    if (!m_mediaPlaybackControlsView)
+    if (!m_mediaPlaybackControlsView) {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+        m_mediaPlaybackControlsView = adoptNS([allocAVTouchBarScrubberInstance() init]);
+        // FIXME: Remove this once setCanShowMediaSelectionButton: is declared in an SDK used by Apple's buildbot.
+        if ([m_mediaPlaybackControlsView respondsToSelector:@selector(setCanShowMediaSelectionButton:)])
+            [m_mediaPlaybackControlsView setCanShowMediaSelectionButton:YES];
+#else
         m_mediaPlaybackControlsView = adoptNS([allocAVFunctionBarScrubberInstance() init]);
+#endif // __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+    }
 
-    if (!m_playbackControlsManager)
+    if (!m_playbackControlsManager) {
         m_playbackControlsManager = adoptNS([[WebPlaybackControlsManager alloc] init]);
+        [m_playbackControlsManager setAllowsPictureInPicturePlayback:m_page->preferences().allowsPictureInPictureMediaPlayback()];
+        [m_playbackControlsManager setCanTogglePictureInPicture:YES];
+    }
 
     if (PlatformWebPlaybackSessionInterface* interface = m_page->playbackSessionManager()->controlsManagerInterface())
         [m_playbackControlsManager setWebPlaybackSessionInterfaceMac:interface];
@@ -1184,11 +1220,6 @@ bool WebViewImpl::shouldRequestCandidates() const
     return !m_page->editorState().isInPasswordField && candidateListTouchBarItem().candidateListVisible;
 }
 
-void WebViewImpl::showCandidates(NSArray *candidates, NSString *string, NSRect rectOfTypedString, NSRange selectedRange, NSView *view, void (^completionHandler)(NSTextCheckingResult *acceptedCandidate))
-{
-    [candidateListTouchBarItem() setCandidates:candidates forSelectedRange:selectedRange inString:string];
-}
-
 void WebViewImpl::setEditableElementIsFocused(bool editableElementIsFocused)
 {
     m_editableElementIsFocused = editableElementIsFocused;
@@ -1201,7 +1232,7 @@ void WebViewImpl::setEditableElementIsFocused(bool editableElementIsFocused)
 }
 
 } // namespace WebKit
-#else
+#else // !HAVE(TOUCH_BAR)
 namespace WebKit {
 
 void WebViewImpl::forceRequestCandidatesForTesting()
@@ -1211,10 +1242,6 @@ void WebViewImpl::forceRequestCandidatesForTesting()
 bool WebViewImpl::shouldRequestCandidates() const
 {
     return false;
-}
-
-void WebViewImpl::showCandidates(NSArray *candidates, NSString *string, NSRect rectOfTypedString, NSRange selectedRange, NSView *view, void (^completionHandler)(NSTextCheckingResult *acceptedCandidate))
-{
 }
 
 void WebViewImpl::setEditableElementIsFocused(bool editableElementIsFocused)
@@ -1325,6 +1352,8 @@ NSWindow *WebViewImpl::window()
 
 void WebViewImpl::processDidExit()
 {
+    dismissContentRelativeChildWindowsWithAnimation(true);
+
     notifyInputContextAboutDiscardedComposition();
 
     if (m_layerHostingView)
@@ -1358,6 +1387,11 @@ bool WebViewImpl::drawsBackground() const
 bool WebViewImpl::isOpaque() const
 {
     return m_page->drawsBackground();
+}
+
+void WebViewImpl::setShouldSuppressFirstResponderChanges(bool shouldSuppress)
+{   
+    m_pageClient->setShouldSuppressFirstResponderChanges(shouldSuppress);
 }
 
 bool WebViewImpl::acceptsFirstResponder()
@@ -1573,9 +1607,6 @@ void WebViewImpl::updateLayer()
     // udpate response if setFrameSize is called.
     if (frameSizeUpdatesDisabled())
         return;
-
-    if (DrawingAreaProxy* drawingArea = m_page->drawingArea())
-        drawingArea->waitForPossibleGeometryUpdate();
 }
 
 void WebViewImpl::drawRect(CGRect rect)
@@ -2176,7 +2207,7 @@ void WebViewImpl::endDeferringViewInWindowChangesSync()
     }
 }
 
-void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, std::function<void()> completionHandler)
+void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, WTF::Function<void()>&& completionHandler)
 {
     m_shouldDeferViewInWindowChanges = true;
     viewWillMoveToWindow(targetWindow);
@@ -2186,7 +2217,7 @@ void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, std::function<v
     m_shouldDeferViewInWindowChanges = false;
 
     auto weakThis = createWeakPtr();
-    m_page->installActivityStateChangeCompletionHandler([weakThis, completionHandler]() {
+    m_page->installActivityStateChangeCompletionHandler([weakThis, completionHandler = WTFMove(completionHandler)]() {
         completionHandler();
 
         if (!weakThis)
@@ -2504,11 +2535,9 @@ void WebViewImpl::executeEditCommandForSelector(SEL selector, const String& argu
     m_page->executeEditCommand(commandNameForSelector(selector), argument);
 }
 
-void WebViewImpl::registerEditCommand(RefPtr<WebEditCommandProxy> prpCommand, WebPageProxy::UndoOrRedo undoOrRedo)
+void WebViewImpl::registerEditCommand(Ref<WebEditCommandProxy>&& command, WebPageProxy::UndoOrRedo undoOrRedo)
 {
-    RefPtr<WebEditCommandProxy> command = prpCommand;
-
-    RetainPtr<WKEditCommandObjC> commandObjC = adoptNS([[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command]);
+    RetainPtr<WKEditCommandObjC> commandObjC = adoptNS([[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command.ptr()]);
     String actionName = WebEditCommandProxy::nameForEditAction(command->editAction());
 
     NSUndoManager *undoManager = [m_view undoManager];
@@ -2583,9 +2612,13 @@ void WebViewImpl::selectionDidChange()
 #endif
 }
 
-void WebViewImpl::startObservingFontPanel()
+void WebViewImpl::didBecomeEditable()
 {
     [m_windowVisibilityObserver startObservingFontPanel];
+
+    dispatch_async(dispatch_get_main_queue(), [] {
+        [[NSSpellChecker sharedSpellChecker] _preflightChosenSpellServer];
+    });
 }
 
 void WebViewImpl::updateFontPanelIfNeeded()
@@ -2997,15 +3030,15 @@ void WebViewImpl::handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NS
     if (m_lastStringForCandidateRequest != postLayoutData.stringForCandidateRequest)
         return;
 
+#if HAVE(TOUCH_BAR)
     NSRange selectedRange = NSMakeRange(postLayoutData.candidateRequestStartPosition, postLayoutData.selectedTextLength);
-    auto weakThis = createWeakPtr();
-    showCandidates(candidates, postLayoutData.paragraphContextForCandidateRequest, postLayoutData.selectionClipRect, selectedRange, m_view, [weakThis](NSTextCheckingResult *acceptedCandidate) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (!weakThis)
-                return;
-            weakThis->handleAcceptedCandidate(acceptedCandidate);
-        });
-    });
+    WebCore::IntRect offsetSelectionRect = postLayoutData.selectionClipRect;
+    offsetSelectionRect.move(0, offsetSelectionRect.height());
+
+    [candidateListTouchBarItem() setCandidates:candidates forSelectedRange:selectedRange inString:postLayoutData.paragraphContextForCandidateRequest rect:offsetSelectionRect view:m_view completionHandler:nil];
+#else
+    UNUSED_PARAM(candidates);
+#endif
 }
 
 static WebCore::TextCheckingResult textCheckingResultFromNSTextCheckingResult(NSTextCheckingResult *nsResult)
@@ -3121,11 +3154,8 @@ void WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly()
     if (m_view.window.isKeyWindow || hasActiveImmediateAction) {
         WebCore::DictionaryLookup::hidePopup();
 
-        if (DataDetectorsLibrary()) {
-            DDActionsManager *actionsManager = [getDDActionsManagerClass() sharedManager];
-            if ([actionsManager respondsToSelector:@selector(requestBubbleClosureUnanchorOnFailure:)])
-                [actionsManager requestBubbleClosureUnanchorOnFailure:YES];
-        }
+        if (DataDetectorsLibrary())
+            [[getDDActionsManagerClass() sharedManager] requestBubbleClosureUnanchorOnFailure:YES];
     }
 
     clearTextIndicatorWithAnimation(WebCore::TextIndicatorWindowDismissalAnimation::FadeOut);
@@ -3589,10 +3619,16 @@ NSDragOperation WebViewImpl::draggingEntered(id <NSDraggingInfo> draggingInfo)
 {
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, m_view.window));
-    WebCore::DragData dragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view, draggingInfo));
+#if WK_API_ENABLED
+    auto dragDestinationAction = static_cast<WebCore::DragDestinationAction>([m_view _web_dragDestinationActionForDraggingInfo:draggingInfo]);
+#else
+    auto dragDestinationAction = WebCore::DragDestinationActionAny;
+#endif
+    WebCore::DragData dragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view, draggingInfo), dragDestinationAction);
 
     m_page->resetCurrentDragInformation();
     m_page->dragEntered(dragData, draggingInfo.draggingPasteboard.name);
+    m_initialNumberOfValidItemsForDrop = draggingInfo.numberOfValidItemsForDrop;
     return NSDragOperationCopy;
 }
 
@@ -3600,10 +3636,19 @@ NSDragOperation WebViewImpl::draggingUpdated(id <NSDraggingInfo> draggingInfo)
 {
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, m_view.window));
-    WebCore::DragData dragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view, draggingInfo));
+#if WK_API_ENABLED
+    auto dragDestinationAction = static_cast<WebCore::DragDestinationAction>([m_view _web_dragDestinationActionForDraggingInfo:draggingInfo]);
+#else
+    auto dragDestinationAction = WebCore::DragDestinationActionAny;
+#endif
+    WebCore::DragData dragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view, draggingInfo), dragDestinationAction);
     m_page->dragUpdated(dragData, draggingInfo.draggingPasteboard.name);
 
     NSInteger numberOfValidItemsForDrop = m_page->currentDragNumberOfFilesToBeAccepted();
+
+    if (m_page->currentDragOperation() == WebCore::DragOperationNone)
+        numberOfValidItemsForDrop = m_initialNumberOfValidItemsForDrop;
+
     NSDraggingFormation draggingFormation = NSDraggingFormationNone;
     if (m_page->currentDragIsOverFileInput() && numberOfValidItemsForDrop > 0)
         draggingFormation = NSDraggingFormationList;
@@ -3623,33 +3668,13 @@ void WebViewImpl::draggingExited(id <NSDraggingInfo> draggingInfo)
     WebCore::DragData dragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view, draggingInfo));
     m_page->dragExited(dragData, draggingInfo.draggingPasteboard.name);
     m_page->resetCurrentDragInformation();
+    draggingInfo.numberOfValidItemsForDrop = m_initialNumberOfValidItemsForDrop;
+    m_initialNumberOfValidItemsForDrop = 0;
 }
 
 bool WebViewImpl::prepareForDragOperation(id <NSDraggingInfo>)
 {
     return true;
-}
-
-void WebViewImpl::createSandboxExtensionsIfNeeded(const Vector<String>& files, SandboxExtension::Handle& handle, SandboxExtension::HandleArray& handles)
-{
-    if (!files.size())
-        return;
-
-    if (files.size() == 1) {
-        BOOL isDirectory;
-        if ([[NSFileManager defaultManager] fileExistsAtPath:files[0] isDirectory:&isDirectory] && !isDirectory) {
-            SandboxExtension::createHandle("/", SandboxExtension::ReadOnly, handle);
-            m_page->process().willAcquireUniversalFileReadSandboxExtension();
-        }
-    }
-
-    handles.allocate(files.size());
-    for (size_t i = 0; i< files.size(); i++) {
-        NSString *file = files[i];
-        if (![[NSFileManager defaultManager] fileExistsAtPath:file])
-            continue;
-        SandboxExtension::createHandle(file, SandboxExtension::ReadOnly, handles[i]);
-    }
 }
 
 bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
@@ -3673,7 +3698,7 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
 
         for (NSString *file in files)
             fileNames.append(file);
-        createSandboxExtensionsIfNeeded(fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
+        m_page->createSandboxExtensionsIfNeeded(fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
     }
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     else if (![types containsObject:PasteboardTypes::WebArchivePboardType] && [types containsObject:NSFilesPromisePboardType]) {
@@ -3700,7 +3725,7 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
                         SandboxExtension::Handle sandboxExtensionHandle;
                         SandboxExtension::HandleArray sandboxExtensionForUpload;
 
-                        createSandboxExtensionsIfNeeded(*fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
+                        m_page->createSandboxExtensionsIfNeeded(*fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
                         dragData->setFileNames(*fileNames);
                         m_page->performDragOperation(*dragData, pasteboardName, sandboxExtensionHandle, sandboxExtensionForUpload);
                         delete dragData;
@@ -3739,25 +3764,26 @@ void WebViewImpl::registerDraggedTypes()
 }
 #endif // ENABLE(DRAG_SUPPORT)
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
 void WebViewImpl::startWindowDrag()
 {
     [m_view.window performWindowDragWithEvent:m_lastMouseDownEvent.get()];
 }
-#endif
 
-void WebViewImpl::dragImageForView(NSView *view, NSImage *image, CGPoint clientPoint, bool linkDrag)
+void WebViewImpl::dragImageForView(NSView *view, NSImage *image, CGPoint clientPoint, bool)
 {
     // The call below could release the view.
     RetainPtr<NSView> protector(m_view);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:NSDragPboard];
+#pragma clang diagnostic pop
     [pasteboard setString:@"" forType:PasteboardTypes::WebDummyPboardType];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [view dragImage:image
                  at:NSPointFromCGPoint(clientPoint)
              offset:NSZeroSize
-              event:linkDrag ? [NSApp currentEvent] : m_lastMouseDownEvent.get()
+              event:m_lastMouseDownEvent.get()
          pasteboard:pasteboard
              source:m_view
           slideBack:YES];
@@ -3779,8 +3805,8 @@ void WebViewImpl::setFileAndURLTypes(NSString *filename, NSString *extension, NS
     [pasteboard setString:visibleURL forType:NSStringPboardType];
     [pasteboard setString:visibleURL forType:PasteboardTypes::WebURLPboardType];
     [pasteboard setString:title forType:PasteboardTypes::WebURLNamePboardType];
-    [pasteboard setPropertyList:[NSArray arrayWithObjects:[NSArray arrayWithObject:visibleURL], [NSArray arrayWithObject:title], nil] forType:PasteboardTypes::WebURLsWithTitlesPboardType];
-    [pasteboard setPropertyList:[NSArray arrayWithObject:extension] forType:NSFilesPromisePboardType];
+    [pasteboard setPropertyList:@[@[visibleURL], @[title]] forType:PasteboardTypes::WebURLsWithTitlesPboardType];
+    [pasteboard setPropertyList:@[extension] forType:NSFilesPromisePboardType];
     m_promisedFilename = filename;
     m_promisedURL = url;
 }
@@ -3808,11 +3834,8 @@ void WebViewImpl::setPromisedDataForAttachment(NSString *filename, NSString *ext
     [types addObjectsFromArray:PasteboardTypes::forURL()];
     [pasteboard declareTypes:types.get() owner:m_view];
     setFileAndURLTypes(filename, extension, title, url, visibleURL, pasteboard);
-    
-    RetainPtr<NSMutableArray> paths = adoptNS([[NSMutableArray alloc] init]);
-    [paths addObject:title];
-    [pasteboard setPropertyList:paths.get() forType:NSFilenamesPboardType];
-    
+    [pasteboard setPropertyList:@[title] forType:NSFilenamesPboardType];
+
     m_promisedImage = nullptr;
 }
 #endif
@@ -3897,7 +3920,7 @@ NSArray *WebViewImpl::namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestin
         LOG_ERROR("Failed to create image file via -[NSFileWrapper writeToURL:options:originalContentsURL:error:]");
 
     if (!m_promisedURL.isEmpty())
-        WebCore::setMetadataURL(m_promisedURL, "", String(path));
+        WebCore::setMetadataURL(String(path), m_promisedURL);
     
     return [NSArray arrayWithObject:[path lastPathComponent]];
 }
@@ -4648,8 +4671,6 @@ bool WebViewImpl::performKeyEquivalent(NSEvent *event)
         // first performs the original key equivalent, and if that isn't handled, it dispatches a synthetic Cmd+'+'.
         return [m_view _web_superPerformKeyEquivalent:event];
     }
-
-    ASSERT(event == [NSApp currentEvent]);
 
     disableComplexTextInputIfNecessary();
 

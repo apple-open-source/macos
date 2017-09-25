@@ -93,7 +93,6 @@ hc_i2d_RSAPrivateKey
 hc_i2d_RSAPublicKey
 %endif
 hc_UI_UTIL_read_pw_string
-hc_UI_UTIL_read_pw_string_stdio
 hc_ENGINE_add_conf_module
 hc_ENGINE_by_dso
 hc_ENGINE_by_id

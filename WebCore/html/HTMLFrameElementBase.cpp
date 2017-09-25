@@ -25,19 +25,19 @@
 #include "HTMLFrameElementBase.h"
 
 #include "Document.h"
-#include "EventNames.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
-#include "URL.h"
+#include "JSDOMBindingSecurity.h"
 #include "Page.h"
 #include "RenderWidget.h"
 #include "ScriptController.h"
 #include "Settings.h"
 #include "SubframeLoader.h"
+#include "URL.h"
 
 namespace WebCore {
 
@@ -121,7 +121,7 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
     } else if (name == scrollingAttr) {
         // Auto and yes both simply mean "allow scrolling." No means "don't allow scrolling."
         if (equalLettersIgnoringASCIICase(value, "auto") || equalLettersIgnoringASCIICase(value, "yes"))
-            m_scrolling = document().frameElementsShouldIgnoreScrolling() ? ScrollbarAlwaysOff : ScrollbarAuto;
+            m_scrolling = ScrollbarAuto;
         else if (equalLettersIgnoringASCIICase(value, "no"))
             m_scrolling = ScrollbarAlwaysOff;
         // FIXME: If we are already attached, this has no effect.
@@ -141,17 +141,17 @@ void HTMLFrameElementBase::setNameAndOpenURL()
 Node::InsertionNotificationRequest HTMLFrameElementBase::insertedInto(ContainerNode& insertionPoint)
 {
     HTMLFrameOwnerElement::insertedInto(insertionPoint);
-    if (insertionPoint.inDocument())
+    if (insertionPoint.isConnected())
         return InsertionShouldCallFinishedInsertingSubtree;
     return InsertionDone;
 }
 
 void HTMLFrameElementBase::finishedInsertingSubtree()
 {
-    if (!inDocument())
+    if (!isConnected())
         return;
 
-    // DocumentFragments don't kick of any loads.
+    // DocumentFragments don't kick off any loads.
     if (!document().frame())
         return;
 
@@ -180,14 +180,23 @@ URL HTMLFrameElementBase::location() const
 
 void HTMLFrameElementBase::setLocation(const String& str)
 {
-    Settings* settings = document().settings();
-    if (settings && settings->needsAcrobatFrameReloadingQuirk() && m_URL == str)
+    if (document().settings().needsAcrobatFrameReloadingQuirk() && m_URL == str)
         return;
 
     m_URL = AtomicString(str);
 
-    if (inDocument())
+    if (isConnected())
         openURL(LockHistory::No, LockBackForwardList::No);
+}
+
+void HTMLFrameElementBase::setLocation(JSC::ExecState& state, const String& newLocation)
+{
+    if (protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(newLocation))) {
+        if (!BindingSecurity::shouldAllowAccessToNode(state, contentDocument()))
+            return;
+    }
+
+    setLocation(newLocation);
 }
 
 bool HTMLFrameElementBase::supportsFocus() const

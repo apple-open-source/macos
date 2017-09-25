@@ -27,7 +27,6 @@
 #pragma once
 
 #include "DocumentMarker.h"
-#include "IntRect.h"
 #include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
@@ -52,13 +51,14 @@ public:
     void addMarker(Range*, DocumentMarker::MarkerType);
     void addMarker(Range*, DocumentMarker::MarkerType, const String& description);
     void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType);
-    void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType, RefPtr<DocumentMarkerDetails>&&);
+    void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType, DocumentMarker::Data&&);
     WEBCORE_EXPORT void addTextMatchMarker(const Range*, bool activeMatch);
 #if PLATFORM(IOS)
     void addMarker(Range*, DocumentMarker::MarkerType, const String& description, const Vector<String>& interpretations, const RetainPtr<id>& metadata);
     void addDictationPhraseWithAlternativesMarker(Range*, const Vector<String>& interpretations);
     void addDictationResultMarker(Range*, const RetainPtr<id>& metadata);
 #endif
+    void addDraggedContentMarker(RefPtr<Range>);
 
     void copyMarkers(Node* srcNode, unsigned startOffset, int length, Node* dstNode, int delta);
     bool hasMarkers() const
@@ -66,7 +66,7 @@ public:
         ASSERT(m_markers.isEmpty() == !m_possiblyExistingMarkerTypes.intersects(DocumentMarker::AllMarkers()));
         return !m_markers.isEmpty();
     }
-    bool hasMarkers(Range*, DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
+    bool hasMarkers(Range&, DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
 
     // When a marker partially overlaps with range, if removePartiallyOverlappingMarkers is true, we completely
     // remove the marker. If the argument is false, we will adjust the span of the marker so that it retains
@@ -83,8 +83,8 @@ public:
     void setMarkersActive(Node*, unsigned startOffset, unsigned endOffset, bool);
 
     WEBCORE_EXPORT Vector<RenderedDocumentMarker*> markersFor(Node*, DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
-    WEBCORE_EXPORT Vector<RenderedDocumentMarker*> markersInRange(Range*, DocumentMarker::MarkerTypes);
-    void clearDescriptionOnMarkersIntersectingRange(Range*, DocumentMarker::MarkerTypes);
+    WEBCORE_EXPORT Vector<RenderedDocumentMarker*> markersInRange(Range&, DocumentMarker::MarkerTypes);
+    void clearDescriptionOnMarkersIntersectingRange(Range&, DocumentMarker::MarkerTypes);
 
     WEBCORE_EXPORT void updateRectsForInvalidatedMarkersOfType(DocumentMarker::MarkerType);
 

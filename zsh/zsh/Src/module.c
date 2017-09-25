@@ -2242,6 +2242,7 @@ load_module(char const *name, Feature_enables enablesarr, int silent)
 	return 0;
     }
     if (m->node.flags & MOD_BUSY) {
+	unqueue_signals();
 	zerr("circular dependencies for module ;%s", name);
 	return 1;
     }
@@ -3350,6 +3351,8 @@ setfeatureenables(Module m, Features f, int *e)
     if (f->mf_size) {
 	if (setmathfuncs(m->node.nam, f->mf_list, f->mf_size, e))
 	    ret = 1;
+	if (e)
+	    e += f->mf_size;
     }
     if (f->pd_size) {
 	if (setparamdefs(m->node.nam, f->pd_list, f->pd_size, e))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ namespace JSC {
 
 BuiltinExecutables::BuiltinExecutables(VM& vm)
     : m_vm(vm)
-#define INITIALIZE_BUILTIN_SOURCE_MEMBERS(name, functionName, length) , m_##name##Source(makeSource(StringImpl::createFromLiteral(s_##name, length)))
+#define INITIALIZE_BUILTIN_SOURCE_MEMBERS(name, functionName, length) , m_##name##Source(makeSource(StringImpl::createFromLiteral(s_##name, length), { }))
     JSC_FOREACH_BUILTIN_CODE(INITIALIZE_BUILTIN_SOURCE_MEMBERS)
 #undef EXPOSE_BUILTIN_STRINGS
 {
@@ -44,16 +44,16 @@ BuiltinExecutables::BuiltinExecutables(VM& vm)
 
 UnlinkedFunctionExecutable* BuiltinExecutables::createDefaultConstructor(ConstructorKind constructorKind, const Identifier& name)
 {
-    static NeverDestroyed<const String> baseConstructorCode(ASCIILiteral("(function () { })"));
-    static NeverDestroyed<const String> derivedConstructorCode(ASCIILiteral("(function (...args) { super(...args); })"));
+    static NeverDestroyed<const String> baseConstructorCode(MAKE_STATIC_STRING_IMPL("(function () { })"));
+    static NeverDestroyed<const String> derivedConstructorCode(MAKE_STATIC_STRING_IMPL("(function (...args) { super(...args); })"));
 
     switch (constructorKind) {
     case ConstructorKind::None:
         break;
     case ConstructorKind::Base:
-        return createExecutable(m_vm, makeSource(baseConstructorCode), name, constructorKind, ConstructAbility::CanConstruct);
+        return createExecutable(m_vm, makeSource(baseConstructorCode, { }), name, constructorKind, ConstructAbility::CanConstruct);
     case ConstructorKind::Extends:
-        return createExecutable(m_vm, makeSource(derivedConstructorCode), name, constructorKind, ConstructAbility::CanConstruct);
+        return createExecutable(m_vm, makeSource(derivedConstructorCode, { }), name, constructorKind, ConstructAbility::CanConstruct);
     }
     ASSERT_NOT_REACHED();
     return nullptr;

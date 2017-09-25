@@ -69,8 +69,9 @@
 #include "kextd_watchvol.h"
 
 #include "bootcaches.h"
-
 #include "pgo.h"
+#include "security.h"
+#include "staging.h"
 
 /*******************************************************************************
 * Globals set from invocation arguments (xxx - could use fewer globals).
@@ -198,6 +199,12 @@ int main(int argc, char * const * argv)
     snprintf(logSpecBuffer, sizeof(logSpecBuffer), "0x%x",
         OSKextGetLogFilter(/* kernel? */ false));
     setenv("KEXT_LOG_FILTER_USER", logSpecBuffer, /* overwrite */ 1);
+
+
+    /* Setup OSKext Authentication, using the default options.
+     */
+    _OSKextSetAuthenticationFunction(&authenticateKext, NULL);
+    _OSKextSetStrictAuthentication(true);
 
     gRepositoryURLs = OSKextGetSystemExtensionsFolderURLs();
     if (!gRepositoryURLs) {
@@ -976,8 +983,7 @@ void readExtensions(void)
         OSKextLog(/* kext */ NULL,
             kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
             "Reading extensions.");
-        sAllKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
-            gRepositoryURLs);
+        sAllKexts = createStagedKextsFromURLs(gRepositoryURLs, true);
     }
     scheduleReleaseExtensions();
     return;

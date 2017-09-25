@@ -159,7 +159,8 @@ static inline size_t encodeLen(void *ctx, size_t len)
 static int
 deCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
 {
-    uint8_t *src = (uint8_t *) in, *dest = (uint8_t *) out;
+    const uint8_t *src = in;
+    uint8_t *dest = out;
     CNEncoder *coderRef = (CNEncoder *) ctx;
     size_t i;
     size_t dPos = 0;
@@ -200,7 +201,8 @@ deCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
 static int
 enCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
 {
-    uint8_t *src = (uint8_t *) in, *dest = (uint8_t *) out;
+    const uint8_t *src = in;
+    uint8_t *dest = out;
     CNEncoder *coderRef = (CNEncoder *) ctx;
     size_t i;
     int destBits = baselog(coderRef);

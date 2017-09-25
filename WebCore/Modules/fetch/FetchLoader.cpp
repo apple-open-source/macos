@@ -77,7 +77,7 @@ void FetchLoader::start(ScriptExecutionContext& context, const FetchRequest& req
     ThreadableLoaderOptions options(request.fetchOptions(), ConsiderPreflight,
         context.shouldBypassMainWorldContentSecurityPolicy() ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective,
         String(cachedResourceRequestInitiators().fetch),
-        OpaqueResponseBodyPolicy::DoNotReceive, ResponseFilteringPolicy::Enable);
+        ResponseFilteringPolicy::Enable);
     options.sendLoadCallbacks = SendCallbacks;
     options.dataBufferingPolicy = DoNotBufferData;
     options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
@@ -141,7 +141,7 @@ void FetchLoader::didReceiveData(const char* value, int size)
     m_consumer->append(value, size);
 }
 
-void FetchLoader::didFinishLoading(unsigned long, double)
+void FetchLoader::didFinishLoading(unsigned long)
 {
     m_client.didSucceed();
 }

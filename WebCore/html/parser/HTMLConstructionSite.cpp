@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google, Inc. All Rights Reserved.
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -164,6 +164,7 @@ static inline void executeTakeAllChildrenAndReparentTask(HTMLConstructionSiteTas
     auto* furthestBlock = task.oldParent();
     task.parent->takeAllChildrenFrom(furthestBlock);
 
+    RELEASE_ASSERT(!task.parent->parentNode());
     furthestBlock->parserAppendChild(*task.parent);
 }
 
@@ -189,7 +190,7 @@ static inline void executeTask(HTMLConstructionSiteTask& task)
 
 void HTMLConstructionSite::attachLater(ContainerNode& parent, Ref<Node>&& child, bool selfClosing)
 {
-    ASSERT(scriptingContentIsAllowed(m_parserContentPolicy) || !is<Element>(child.get()) || !toScriptElementIfPossible(downcast<Element>(child.ptr())));
+    ASSERT(scriptingContentIsAllowed(m_parserContentPolicy) || !is<Element>(child.get()) || !isScriptElement(downcast<Element>(child.get())));
     ASSERT(pluginContentIsAllowed(m_parserContentPolicy) || !child->isPluginElement());
 
     if (shouldFosterParent()) {
@@ -482,10 +483,14 @@ void HTMLConstructionSite::insertHTMLBodyElement(AtomicHTMLToken&& token)
 void HTMLConstructionSite::insertHTMLFormElement(AtomicHTMLToken&& token, bool isDemoted)
 {
     auto element = createHTMLElement(token);
-    m_form = &downcast<HTMLFormElement>(element.get());
-    m_form->setDemoted(isDemoted);
-    attachLater(currentNode(), *m_form);
-    m_openElements.push(HTMLStackItem::create(*m_form, WTFMove(token)));
+    auto& formElement = downcast<HTMLFormElement>(element.get());
+    // If there is no template element on the stack of open elements, set the
+    // form element pointer to point to the element created.
+    if (!openElements().hasTemplateInHTMLScope())
+        m_form = &formElement;
+    formElement.setDemoted(isDemoted);
+    attachLater(currentNode(), formElement);
+    m_openElements.push(HTMLStackItem::create(formElement, WTFMove(token)));
 }
 
 void HTMLConstructionSite::insertHTMLElement(AtomicHTMLToken&& token)
@@ -556,7 +561,7 @@ void HTMLConstructionSite::insertForeignElement(AtomicHTMLToken&& token, const A
     notImplemented(); // parseError when xmlns or xmlns:xlink are wrong.
 
     auto element = createElement(token, namespaceURI);
-    if (scriptingContentIsAllowed(m_parserContentPolicy) || !toScriptElementIfPossible(element.ptr()))
+    if (scriptingContentIsAllowed(m_parserContentPolicy) || !isScriptElement(element.get()))
         attachLater(currentNode(), element.copyRef(), token.selfClosing());
     if (!token.selfClosing())
         m_openElements.push(HTMLStackItem::create(WTFMove(element), WTFMove(token), namespaceURI));
@@ -636,7 +641,7 @@ void HTMLConstructionSite::takeAllChildrenAndReparent(HTMLStackItem& newParent, 
 
 Ref<Element> HTMLConstructionSite::createElement(AtomicHTMLToken& token, const AtomicString& namespaceURI)
 {
-    QualifiedName tagName(nullAtom, token.name(), namespaceURI);
+    QualifiedName tagName(nullAtom(), token.name(), namespaceURI);
     auto element = ownerDocumentForCurrentNode().createElement(tagName, true);
     setAttributes(element, token, m_parserContentPolicy);
     return element;
@@ -671,7 +676,7 @@ RefPtr<Element> HTMLConstructionSite::createHTMLElementOrFindCustomElementInterf
             }
         }
 
-        QualifiedName qualifiedName(nullAtom, localName, xhtmlNamespaceURI);
+        QualifiedName qualifiedName(nullAtom(), localName, xhtmlNamespaceURI);
         if (Document::validateCustomElementName(localName) == CustomElementNameValidationStatus::Valid) {
             element = HTMLElement::create(qualifiedName, ownerDocument);
             element->setIsCustomElementUpgradeCandidate();

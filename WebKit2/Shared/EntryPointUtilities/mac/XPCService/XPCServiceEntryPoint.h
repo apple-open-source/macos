@@ -75,7 +75,7 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
     // so ensure that we have an outstanding transaction here.
     xpc_transaction_begin();
 
-    InitializeWebKit2(ChildProcess);
+    InitializeWebKit2();
 
     if (!delegate.checkEntitlements())
         exit(EXIT_FAILURE);
@@ -103,7 +103,7 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
 
 #if HAVE(QOS_CLASSES)
     if (parameters.extraInitializationData.contains(ASCIILiteral("always-runs-at-background-priority")))
-        setGlobalMaxQOSClass(QOS_CLASS_UTILITY);
+        Thread::setGlobalMaxQOSClass(QOS_CLASS_UTILITY);
 #endif
 
     XPCServiceType::singleton().initialize(parameters);

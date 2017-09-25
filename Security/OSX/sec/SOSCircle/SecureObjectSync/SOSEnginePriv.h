@@ -35,14 +35,14 @@ struct __OpaqueSOSEngine {
     bool haveLoadedCoders;
 
     bool codersNeedSaving;
-
     dispatch_queue_t queue;                     // Engine queue
 
     dispatch_source_t save_timer;               // Engine state save timer
-    bool save_timer_pending;                    // Engine state timer running, read/modify on engine queue
-
     dispatch_queue_t syncCompleteQueue;              // Non-retained queue for async notificaion
     SOSEnginePeerInSyncBlock syncCompleteListener;   // Block to call to notify the listener.
+
+    bool save_timer_pending;                    // Engine state timer running, read/modify on engine queue
+
 };
 
 #endif /* SOSEnginePriv_h */

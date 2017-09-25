@@ -112,7 +112,7 @@ public extension DispatchSource {
 	}
 #endif
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 	public struct ProcessEvent : OptionSet, RawRepresentable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
@@ -170,7 +170,7 @@ public extension DispatchSource {
 	}
 #endif
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 	public class func makeProcessSource(identifier: pid_t, eventMask: ProcessEvent, queue: DispatchQueue? = nil) -> DispatchSourceProcess {
 		let source = dispatch_source_create(_swift_dispatch_source_type_proc(), UInt(identifier), eventMask.rawValue, queue?.__wrapped)
 		return DispatchSource(source: source) as DispatchSourceProcess
@@ -201,8 +201,13 @@ public extension DispatchSource {
 		let source = dispatch_source_create(_swift_dispatch_source_type_data_or(), 0, 0, queue?.__wrapped)
 		return DispatchSource(source: source) as DispatchSourceUserDataOr
 	}
+    
+	public class func makeUserDataReplaceSource(queue: DispatchQueue? = nil) -> DispatchSourceUserDataReplace {
+		let source = dispatch_source_create(_swift_dispatch_source_type_data_replace(), 0, 0, queue?.__wrapped)
+		return DispatchSource(source: source) as DispatchSourceUserDataReplace
+	}
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 	public class func makeFileSystemObjectSource(fileDescriptor: Int32, eventMask: FileSystemEvent, queue: DispatchQueue? = nil) -> DispatchSourceFileSystemObject {
 		let source = dispatch_source_create(_swift_dispatch_source_type_vnode(), UInt(fileDescriptor), eventMask.rawValue, queue?.__wrapped)
 		return DispatchSource(source: source) as DispatchSourceFileSystemObject
@@ -255,7 +260,7 @@ public extension DispatchSourceMemoryPressure {
 }
 #endif
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 public extension DispatchSourceProcess {
 	public var handle: pid_t {
 		return pid_t(dispatch_source_get_handle(self as! DispatchSource))
@@ -274,32 +279,346 @@ public extension DispatchSourceProcess {
 #endif
 
 public extension DispatchSourceTimer {
+	///
+	/// Sets the deadline and leeway for a timer event that fires once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared and the next timer event will occur at `deadline`.
+	///
+	/// Delivery of the timer event may be delayed by the system in order to improve power consumption
+	/// and system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	/// - note: Delivery of the timer event does not cancel the timer source.
+	///
+	/// - parameter deadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on Mach absolute
+	///     time.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, deprecated: 4, renamed: "schedule(deadline:repeating:leeway:)")
 	public func scheduleOneshot(deadline: DispatchTime, leeway: DispatchTimeInterval = .nanoseconds(0)) {
 		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, ~0, UInt64(leeway.rawValue))
 	}
 
+	///
+	/// Sets the deadline and leeway for a timer event that fires once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared and the next timer event will occur at `wallDeadline`.
+	///
+	/// Delivery of the timer event may be delayed by the system in order to improve power consumption
+	/// and system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	/// - note: Delivery of the timer event does not cancel the timer source.
+	///
+	/// - parameter wallDeadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on
+	///     `gettimeofday(3)`.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, deprecated: 4, renamed: "schedule(wallDeadline:repeating:leeway:)")
 	public func scheduleOneshot(wallDeadline: DispatchWallTime, leeway: DispatchTimeInterval = .nanoseconds(0)) {
 		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, ~0, UInt64(leeway.rawValue))
 	}
 
+	///
+	/// Sets the deadline, interval and leeway for a timer event that fires at least once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `deadline` and every `interval` units of
+	/// time thereafter until the timer source is canceled.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption
+	/// and system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `deadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `deadline + N * interval`, the upper
+	/// limit is the smaller of `leeway` and `interval/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter deadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on Mach absolute
+	///     time.
+	/// - parameter interval: the interval for the timer.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, deprecated: 4, renamed: "schedule(deadline:repeating:leeway:)")
 	public func scheduleRepeating(deadline: DispatchTime, interval: DispatchTimeInterval, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, UInt64(interval.rawValue), UInt64(leeway.rawValue))
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
 	}
 
+	///
+	/// Sets the deadline, interval and leeway for a timer event that fires at least once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `deadline` and every `interval` seconds
+	/// thereafter until the timer source is canceled.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption and
+	/// system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `deadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `deadline + N * interval`, the upper
+	/// limit is the smaller of `leeway` and `interval/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter deadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on Mach absolute
+	///     time.
+	/// - parameter interval: the interval for the timer in seconds.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, deprecated: 4, renamed: "schedule(deadline:repeating:leeway:)")
 	public func scheduleRepeating(deadline: DispatchTime, interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
 	}
 
+	///
+	/// Sets the deadline, interval and leeway for a timer event that fires at least once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `wallDeadline` and every `interval` units of
+	/// time thereafter until the timer source is canceled.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption and
+	/// system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `wallDeadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `wallDeadline + N * interval`, the upper
+	/// limit is the smaller of `leeway` and `interval/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter wallDeadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on
+	///     `gettimeofday(3)`.
+	/// - parameter interval: the interval for the timer.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, deprecated: 4, renamed: "schedule(wallDeadline:repeating:leeway:)")
 	public func scheduleRepeating(wallDeadline: DispatchWallTime, interval: DispatchTimeInterval, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, UInt64(interval.rawValue), UInt64(leeway.rawValue))
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
 	}
 
+	///
+	/// Sets the deadline, interval and leeway for a timer event that fires at least once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `wallDeadline` and every `interval` seconds
+	/// thereafter until the timer source is canceled.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption and
+	/// system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `wallDeadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `wallDeadline + N * interval`, the upper
+	/// limit is the smaller of `leeway` and `interval/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter wallDeadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on
+	///     `gettimeofday(3)`.
+	/// - parameter interval: the interval for the timer in seconds.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, deprecated: 4, renamed: "schedule(wallDeadline:repeating:leeway:)")
 	public func scheduleRepeating(wallDeadline: DispatchWallTime, interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
-		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+	}
+
+	///
+	/// Sets the deadline, repeat interval and leeway for a timer event.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `deadline` and every `repeating` units of
+	/// time thereafter until the timer source is canceled. If the value of `repeating` is `.never`,
+	/// or is defaulted, the timer fires only once.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption
+	/// and system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `deadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `deadline + N * repeating`, the upper
+	/// limit is the smaller of `leeway` and `repeating/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter deadline: the time at which the first timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on Mach absolute
+	///     time.
+	/// - parameter repeating: the repeat interval for the timer, or `.never` if the timer should fire
+	///		only once.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, introduced: 4)
+	public func schedule(deadline: DispatchTime, repeating interval: DispatchTimeInterval = .never, leeway: DispatchTimeInterval = .nanoseconds(0)) {
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
+	}
+
+	///
+	/// Sets the deadline, repeat interval and leeway for a timer event.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `deadline` and every `repeating` seconds
+	/// thereafter until the timer source is canceled. If the value of `repeating` is `.infinity`,
+	/// the timer fires only once.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption
+	/// and system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `deadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `deadline + N * repeating`, the upper
+	/// limit is the smaller of `leeway` and `repeating/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter deadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on Mach absolute
+	///     time.
+	/// - parameter repeating: the repeat interval for the timer in seconds, or `.infinity` if the timer
+	///		should fire only once.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, introduced: 4)
+	public func schedule(deadline: DispatchTime, repeating interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, deadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
+	}
+
+	///
+	/// Sets the deadline, repeat interval and leeway for a timer event.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `wallDeadline` and every `repeating` units of
+	/// time thereafter until the timer source is canceled. If the value of `repeating` is `.never`,
+	/// or is defaulted, the timer fires only once.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption and
+	/// system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `wallDeadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `wallDeadline + N * repeating`, the upper
+	/// limit is the smaller of `leeway` and `repeating/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter wallDeadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on
+	///     `gettimeofday(3)`.
+	/// - parameter repeating: the repeat interval for the timer, or `.never` if the timer should fire
+	///		only once.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, introduced: 4)
+	public func schedule(wallDeadline: DispatchWallTime, repeating interval: DispatchTimeInterval = .never, leeway: DispatchTimeInterval = .nanoseconds(0)) {
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval == .never ? ~0 : UInt64(interval.rawValue), UInt64(leeway.rawValue))
+	}
+
+	///
+	/// Sets the deadline, repeat interval and leeway for a timer event that fires at least once.
+	///
+	/// Once this function returns, any pending source data accumulated for the previous timer values
+	/// has been cleared. The next timer event will occur at `wallDeadline` and every `repeating` seconds
+	/// thereafter until the timer source is canceled. If the value of `repeating` is `.infinity`,
+	/// the timer fires only once.
+	///
+	/// Delivery of a timer event may be delayed by the system in order to improve power consumption
+	/// and system performance. The upper limit to the allowable delay may be configured with the `leeway`
+	/// argument; the lower limit is under the control of the system.
+	///
+	/// For the initial timer fire at `wallDeadline`, the upper limit to the allowable delay is set to
+	/// `leeway`. For the subsequent timer fires at `wallDeadline + N * repeating`, the upper
+	/// limit is the smaller of `leeway` and `repeating/2`.
+	///
+	/// The lower limit to the allowable delay may vary with process state such as visibility of the
+	/// application UI. If the timer source was created with flags `TimerFlags.strict`, the system
+	/// will make a best effort to strictly observe the provided `leeway` value, even if it is smaller
+	/// than the current lower limit. Note that a minimal amount of delay is to be expected even if
+	/// this flag is specified.
+	///
+	/// Calling this method has no effect if the timer source has already been canceled.
+	///
+	/// - parameter wallDeadline: the time at which the timer event will be delivered, subject to the
+	///     leeway and other considerations described above. The deadline is based on
+	///     `gettimeofday(3)`.
+	/// - parameter repeating: the repeat interval for the timer in seconds, or `.infinity` if the timer
+	///		should fire only once.
+	/// - parameter leeway: the leeway for the timer.
+	///
+	@available(swift, introduced: 4)
+	public func schedule(wallDeadline: DispatchWallTime, repeating interval: Double, leeway: DispatchTimeInterval = .nanoseconds(0)) {
+		dispatch_source_set_timer((self as! DispatchSource).__wrapped, wallDeadline.rawValue, interval.isInfinite ? ~0 : UInt64(interval * Double(NSEC_PER_SEC)), UInt64(leeway.rawValue))
 	}
 }
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 public extension DispatchSourceFileSystemObject {
 	public var handle: Int32 {
 		return Int32(dispatch_source_get_handle((self as! DispatchSource).__wrapped))
@@ -318,35 +637,35 @@ public extension DispatchSourceFileSystemObject {
 #endif
 
 public extension DispatchSourceUserDataAdd {
-	/// @function mergeData
+	/// Merges data into a dispatch source of type `DISPATCH_SOURCE_TYPE_DATA_ADD`
+	/// and submits its event handler block to its target queue.
 	///
-	/// @abstract
-	/// Merges data into a dispatch source of type DISPATCH_SOURCE_TYPE_DATA_ADD or
-	/// DISPATCH_SOURCE_TYPE_DATA_OR and submits its event handler block to its
-	/// target queue.
-	///
-	/// @param value
-	/// The value to coalesce with the pending data using a logical OR or an ADD
-	/// as specified by the dispatch source type. A value of zero has no effect
-	/// and will not result in the submission of the event handler block.
+	/// - parameter data: the value to add to the current pending data. A value of zero
+	///		has no effect and will not result in the submission of the event handler block.
 	public func add(data: UInt) {
 		dispatch_source_merge_data((self as! DispatchSource).__wrapped, data)
 	}
 }
 
 public extension DispatchSourceUserDataOr {
-	/// @function mergeData
+	/// Merges data into a dispatch source of type `DISPATCH_SOURCE_TYPE_DATA_OR` and
+	/// submits its event handler block to its target queue.
 	///
-	/// @abstract
-	/// Merges data into a dispatch source of type DISPATCH_SOURCE_TYPE_DATA_ADD or
-	/// DISPATCH_SOURCE_TYPE_DATA_OR and submits its event handler block to its
-	/// target queue.
-	///
-	/// @param value
-	/// The value to coalesce with the pending data using a logical OR or an ADD
-	/// as specified by the dispatch source type. A value of zero has no effect
-	/// and will not result in the submission of the event handler block.
+	/// - parameter data: The value to OR into the current pending data. A value of zero
+	///		has no effect and will not result in the submission of the event handler block.
 	public func or(data: UInt) {
+		dispatch_source_merge_data((self as! DispatchSource).__wrapped, data)
+	}
+}
+
+public extension DispatchSourceUserDataReplace {
+	/// Merges data into a dispatch source of type `DISPATCH_SOURCE_TYPE_DATA_REPLACE`
+	/// and submits its event handler block to its target queue.
+	///
+	/// - parameter data: The value that will replace the current pending data.
+	///		A value of zero will be stored but will not result in the submission of the event
+	///		handler block.
+	public func replace(data: UInt) {
 		dispatch_source_merge_data((self as! DispatchSource).__wrapped, data)
 	}
 }
@@ -356,6 +675,9 @@ internal func _swift_dispatch_source_type_data_add() -> dispatch_source_type_t
 
 @_silgen_name("_swift_dispatch_source_type_DATA_OR")
 internal func _swift_dispatch_source_type_data_or() -> dispatch_source_type_t
+
+@_silgen_name("_swift_dispatch_source_type_DATA_REPLACE")
+internal func _swift_dispatch_source_type_data_replace() -> dispatch_source_type_t
 
 #if HAVE_MACH
 @_silgen_name("_swift_dispatch_source_type_MACH_SEND")
@@ -368,7 +690,7 @@ internal func _swift_dispatch_source_type_mach_recv() -> dispatch_source_type_t
 internal func _swift_dispatch_source_type_memorypressure() -> dispatch_source_type_t
 #endif
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 @_silgen_name("_swift_dispatch_source_type_PROC")
 internal func _swift_dispatch_source_type_proc() -> dispatch_source_type_t
 #endif
@@ -382,7 +704,7 @@ internal func _swift_dispatch_source_type_signal() -> dispatch_source_type_t
 @_silgen_name("_swift_dispatch_source_type_TIMER")
 internal func _swift_dispatch_source_type_timer() -> dispatch_source_type_t
 
-#if !os(Linux)
+#if !os(Linux) && !os(Android)
 @_silgen_name("_swift_dispatch_source_type_VNODE")
 internal func _swift_dispatch_source_type_vnode() -> dispatch_source_type_t
 #endif

@@ -204,7 +204,8 @@ int Init (struct EAP_Input *eap_in, void **context)
 			(log_error)("EAP-TLS: Cannot allocate memory\n");
 		goto failed;
 	}
-
+	/* set TLS version to TLS1.0 to ensure the interoperability */
+	CFDictionarySetValue(eapProperties, kEAPClientPropTLSMaximumVersion, kEAPTLSVersion1_0);
 	*((CFDictionaryRef *)&eapData.properties) = eapProperties;
 	
 	//CFDictionarySetValue(prop_dict, kEAPClientPropTLSVerifyServerCertificate, kCFBooleanFalse);

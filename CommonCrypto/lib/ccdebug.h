@@ -40,34 +40,12 @@
     #define DIAGNOSTIC
 #endif
 
-#ifdef KERNEL
-    #include <stdarg.h>
 
-       #if DIAGNOSTIC
-        #define CC_DEBUG_LOG(lvl, fmt, ...) do {				      \
-            const char *lvl_type[] = { "INVALID", "DEBUG", "ERROR", "FAILURE" };  \
-            char fmtbuffer[256]; 						      \
-            int l = lvl;							      \
-                                                \
-            if (l < 0 || l > 3) l = 0;					      \
-            snprintf(fmtbuffer, sizeof(fmtbuffer),				      \
-                "CommonCrypto Function: %s:%d (%s) - %s", __FILE__, __LINE__,     \
-                lvl_type[l], fmt);					              \
-            printf(fmtbuffer, __VA_ARGS__);		      			      \
-        } while (0)
-
-    #else
-        #define CC_DEBUG_LOG(lvl,fmt,...) {}
-    #endif /* DIAGNOSTIC */
-
-#else //KERNEL
-
-    #ifdef DIAGNOSTIC
+#ifdef DIAGNOSTIC
     #include <os/log.h>
     #define CC_DEBUG_LOG(lvl,fmt, ...)      os_log(OS_LOG_TYPE_DEBUG, __FUNCTION__ ## "  " ## fmt , __VA_ARGS__)
-    #else
-    #define CC_DEBUG_LOG(lvl,...) {}
-    #endif /* DEBUG */
+#else
+    #define CC_DEBUG_LOG(...)  
+#endif /* DEBUG */
 
-#endif /* KERNEL */
 

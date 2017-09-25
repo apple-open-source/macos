@@ -29,12 +29,13 @@
 #include "corecrypto/ccn.h"
 #include "stdio.h"
 #include "misc.h"
+#include "Utilities.h"
 
 // corecrypto headers don't like C++ (on a deaper level then extern "C" {} can fix
 // so we need a C "shim" for all our corecrypto use.
 
 CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue);
-CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue)
+CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue) CF_RETURNS_RETAINED
 {
 	cc_unit paddingBuffer[ccn_nof_size(desired_message_length)];
 	bzero(paddingBuffer, sizeof(cc_unit) * ccn_nof_size(desired_message_length)); // XXX needed??
@@ -55,7 +56,7 @@ CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue)
 }
 
 CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage);
-CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage)
+CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage) CF_RETURNS_RETAINED
 {
 	size_t mlen = CFDataGetLength(encodedMessage);
 	cc_size n = ccn_nof_size(mlen);
@@ -68,7 +69,9 @@ CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage)
 	
     if (err) {
 		// XXX should make a CFError or something.
-		return (void*)fancy_error(CFSTR("CoreCrypto"), err, CFSTR("OAEP decode error"));
+        CFErrorRef error = fancy_error(CFSTR("CoreCrypto"), err, CFSTR("OAEP decode error"));
+        CFRetainSafe(error);
+        return (void*)error;
     }
 	CFDataRef result = CFDataCreate(NULL, (UInt8*)plainText, plainTextLength);
 	return result;

@@ -23,7 +23,7 @@
 
 #include "cms-hashagility-test.h"
 
-#include <test/testmore.h>
+#include <regressions/test/testmore.h>
 #include <Security/SecBase.h>
 #include <utilities/SecCFRelease.h>
 #include <Security/CMSEncoder.h>

@@ -37,7 +37,7 @@ extern CFStringRef bskbRkbgPrefix;
 // This should be fixed when we get a portable AKS interface.
 typedef int32_t bskb_keybag_handle_t;
 
-typedef struct __OpaqueSOSBackupSliceKeyBag *SOSBackupSliceKeyBagRef;
+typedef struct CF_BRIDGED_TYPE(id) __OpaqueSOSBackupSliceKeyBag *SOSBackupSliceKeyBagRef;
 
 CFTypeRef SOSBackupSliceKeyBageGetTypeID(void);
 

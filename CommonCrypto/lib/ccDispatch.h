@@ -36,7 +36,7 @@
     void cc_dispatch_once(dispatch_once_t *predicate, void *context, dispatch_function_t function);
 #else
     #include <dispatch/dispatch.h>
-    #define cc_dispatch_once(predicate, context, function) dispatch_once_f(predicate, context, function);
+    #define cc_dispatch_once(predicate, context, function) dispatch_once_f(predicate, context, function)
 #endif
 
 #endif /* ccDispatch_h */

@@ -52,7 +52,7 @@
       ayrıntıları ile açıklayan belgeler listelenmiştir.</p>
 
 </div>
-<div id="quickview"><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#support">Sanal Konak Desteği</a></li>
+<div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#support">Sanal Konak Desteği</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#directives">Yapılandırma Yönergeleri</a></li>
 </ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><code class="module"><a href="../mod/mod_vhost_alias.html">mod_vhost_alias</a></code></li><li><a href="name-based.html">İsme Dayalı Sanal Konaklar</a></li><li><a href="ip-based.html">IP Adresine Dayalı Sanal Konaklar</a>
 </li><li><a href="examples.html">Sanal Konak Örnekleri</a></li><li><a href="fd-limits.html">Dosya Tanıtıcı Sınırları</a></li><li><a href="mass.html">Kütlesel Sanal Konaklık</a></li><li><a href="details.html">Ayrıntılı olarak Konak Eşleme</a></li></ul></div>
@@ -114,7 +114,7 @@
 <a href="../tr/vhosts/" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/vhosts/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2016 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2017 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

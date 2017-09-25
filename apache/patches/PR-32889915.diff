@@ -1,0 +1,240 @@
+--- modules/ssl/mod_ssl.c.orig	2017-04-03 11:39:20 UTC
++++ modules/ssl/mod_ssl.c
+@@ -337,12 +337,12 @@ static apr_status_t ssl_cleanup_pre_conf
+ #if HAVE_ENGINE_LOAD_BUILTIN_ENGINES
+     ENGINE_cleanup();
+ #endif
+-#if OPENSSL_VERSION_NUMBER >= 0x1000200fL
++#if OPENSSL_VERSION_NUMBER >= 0x1000200fL && !defined(OPENSSL_NO_COMP)
+     SSL_COMP_free_compression_methods();
+ #endif
+ 
+     /* Usually needed per thread, but this parent process is single-threaded */
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ #if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+     ERR_remove_thread_state(NULL);
+ #else
+@@ -383,14 +383,14 @@ static int ssl_hook_pre_config(apr_pool_
+     /* Some OpenSSL internals are allocated per-thread, make sure they
+      * are associated to the/our same thread-id until cleaned up.
+      */
+-#if APR_HAS_THREADS && OPENSSL_VERSION_NUMBER < 0x10100000L
++#if APR_HAS_THREADS && OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+     ssl_util_thread_id_setup(pconf);
+ #endif
+ 
+     /* We must register the library in full, to ensure our configuration
+      * code can successfully test the SSL environment.
+      */
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+     CRYPTO_malloc_init();
+ #else
+     OPENSSL_malloc_init();
+--- modules/ssl/ssl_engine_init.c.orig	2017-04-03 11:39:20 UTC
++++ modules/ssl/ssl_engine_init.c
+@@ -47,7 +47,7 @@ APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl,
+ #define KEYTYPES "RSA or DSA"
+ #endif
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ /* OpenSSL Pre-1.1.0 compatibility */
+ /* Taken from OpenSSL 1.1.0 snapshot 20160410 */
+ static int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g)
+@@ -257,7 +257,7 @@ apr_status_t ssl_init_Module(apr_pool_t 
+ #endif
+     }
+ 
+-#if APR_HAS_THREADS && OPENSSL_VERSION_NUMBER < 0x10100000L
++#if APR_HAS_THREADS && ( OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER) )
+     ssl_util_thread_setup(p);
+ #endif
+ 
+@@ -380,7 +380,7 @@ apr_status_t ssl_init_Module(apr_pool_t 
+     modssl_init_app_data2_idx(); /* for modssl_get_app_data2() at request time */
+ 
+     init_dh_params();
+-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
+     init_bio_methods();
+ #endif
+ 
+@@ -1301,7 +1301,7 @@ static apr_status_t ssl_init_server_cert
+      * or configure NIST P-256 (required to enable ECDHE for earlier versions)
+      * ECDH is always enabled in 1.1.0 unless excluded from SSLCipherList
+      */
+-#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
++#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+     else {
+ #if defined(SSL_CTX_set_ecdh_auto)
+         SSL_CTX_set_ecdh_auto(mctx->ssl_ctx, 1);
+@@ -2011,7 +2011,7 @@ apr_status_t ssl_init_ModuleKill(void *d
+ 
+     }
+ 
+-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
+     free_bio_methods();
+ #endif
+     free_dh_params();
+--- modules/ssl/ssl_engine_io.c.orig	2017-05-30 12:26:05 UTC
++++ modules/ssl/ssl_engine_io.c
+@@ -164,7 +164,7 @@ static int bio_filter_create(BIO *bio)
+ {
+     BIO_set_shutdown(bio, 1);
+     BIO_set_init(bio, 1);
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+     /* No setter method for OpenSSL 1.1.0 available,
+      * but I can't find any functional use of the
+      * "num" field there either.
+@@ -549,7 +549,7 @@ static long bio_filter_in_ctrl(BIO *bio,
+     return -1;
+ }
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+         
+ static BIO_METHOD bio_filter_out_method = {
+     BIO_TYPE_MEM,
+@@ -2024,7 +2024,7 @@ static void ssl_io_input_add_filter(ssl_
+ 
+     filter_ctx->pInputFilter = ap_add_input_filter(ssl_io_filter, inctx, r, c);
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+     filter_ctx->pbioRead = BIO_new(&bio_filter_in_method);
+ #else
+     filter_ctx->pbioRead = BIO_new(bio_filter_in_method);
+@@ -2059,7 +2059,7 @@ void ssl_io_filter_init(conn_rec *c, req
+     filter_ctx->pOutputFilter   = ap_add_output_filter(ssl_io_filter,
+                                                        filter_ctx, r, c);
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+     filter_ctx->pbioWrite       = BIO_new(&bio_filter_out_method);
+ #else
+     filter_ctx->pbioWrite       = BIO_new(bio_filter_out_method);
+--- modules/ssl/ssl_engine_kernel.c.orig	2017-05-02 11:01:17 UTC
++++ modules/ssl/ssl_engine_kernel.c
+@@ -1733,7 +1733,7 @@ static void modssl_proxy_info_log(conn_r
+  * so we need to increment here to prevent them from
+  * being freed.
+  */
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ #define modssl_set_cert_info(info, cert, pkey) \
+     *cert = info->x509; \
+     CRYPTO_add(&(*cert)->references, +1, CRYPTO_LOCK_X509); \
+--- modules/ssl/ssl_engine_vars.c.orig	2017-03-20 12:01:16 UTC
++++ modules/ssl/ssl_engine_vars.c
+@@ -529,7 +529,7 @@ static char *ssl_var_lookup_ssl_cert(apr
+         resdup = FALSE;
+     }
+     else if (strcEQ(var, "A_SIG")) {
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+         nid = OBJ_obj2nid((ASN1_OBJECT *)(xs->cert_info->signature->algorithm));
+ #else
+         const ASN1_OBJECT *paobj;
+--- modules/ssl/ssl_private.h.orig	2017-04-03 11:39:20 UTC
++++ modules/ssl/ssl_private.h
+@@ -123,6 +123,16 @@
+ #define MODSSL_SSL_METHOD_CONST
+ #endif
+ 
++#if defined(LIBRESSL_VERSION_NUMBER)
++/* Missing from LibreSSL */
++#define SSL_CTRL_SET_MIN_PROTO_VERSION          123
++#define SSL_CTRL_SET_MAX_PROTO_VERSION          124
++#define SSL_CTX_set_min_proto_version(ctx, version) \
++        SSL_CTX_ctrl(ctx, SSL_CTRL_SET_MIN_PROTO_VERSION, version, NULL)
++#define SSL_CTX_set_max_proto_version(ctx, version) \
++        SSL_CTX_ctrl(ctx, SSL_CTRL_SET_MAX_PROTO_VERSION, version, NULL)
++#endif
++
+ #if defined(OPENSSL_FIPS)
+ #define HAVE_FIPS
+ #endif
+@@ -136,7 +146,7 @@
+ #endif
+ 
+ /* session id constness */
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ #define IDCONST
+ #else
+ #define IDCONST const
+@@ -199,7 +209,7 @@
+ 
+ #endif /* !defined(OPENSSL_NO_TLSEXT) && defined(SSL_set_tlsext_host_name) */
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ #define BN_get_rfc2409_prime_768   get_rfc2409_prime_768
+ #define BN_get_rfc2409_prime_1024  get_rfc2409_prime_1024
+ #define BN_get_rfc3526_prime_1536  get_rfc3526_prime_1536
+@@ -219,7 +229,7 @@ void init_bio_methods(void);
+ void free_bio_methods(void);
+ #endif
+ 
+-#if OPENSSL_VERSION_NUMBER < 0x10002000L
++#if OPENSSL_VERSION_NUMBER < 0x10002000L || defined(LIBRESSL_VERSION_NUMBER)
+ #define X509_STORE_CTX_get0_store(x) (x->ctx)
+ #endif
+ 
+@@ -934,7 +944,7 @@ char        *ssl_util_readfilter(server_
+                                  const char * const *);
+ BOOL         ssl_util_path_check(ssl_pathcheck_t, const char *, apr_pool_t *);
+ #if APR_HAS_THREADS
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ void         ssl_util_thread_setup(apr_pool_t *);
+ #endif
+ void         ssl_util_thread_id_setup(apr_pool_t *);
+--- modules/ssl/ssl_util.c.orig	2017-03-24 13:31:03 UTC
++++ modules/ssl/ssl_util.c
+@@ -247,7 +247,7 @@ void ssl_asn1_table_unset(apr_hash_t *ta
+ }
+ 
+ #if APR_HAS_THREADS
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ /*
+  * To ensure thread-safetyness in OpenSSL - work in progress
+  */
+--- modules/ssl/ssl_util_stapling.c.orig	2017-06-20 20:02:47.000000000 -0700
++++ modules/ssl/ssl_util_stapling.c	2017-06-20 20:04:50.000000000 -0700
+@@ -91,7 +91,7 @@
+     for (i = 0; i < sk_X509_num(extra_certs); i++) {
+         issuer = sk_X509_value(extra_certs, i);
+         if (X509_check_issued(issuer, x) == X509_V_OK) {
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+             CRYPTO_add(&issuer->references, 1, CRYPTO_LOCK_X509);
+ #else
+             X509_up_ref(issuer);
+--- modules/ssl/ssl_util_ssl.h.orig	2017-03-20 12:01:16 UTC
++++ modules/ssl/ssl_util_ssl.h
+@@ -41,7 +41,7 @@
+ #define MODSSL_LIBRARY_VERSION OPENSSL_VERSION_NUMBER
+ #define MODSSL_LIBRARY_NAME    "OpenSSL"
+ #define MODSSL_LIBRARY_TEXT    OPENSSL_VERSION_TEXT
+-#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+ #define MODSSL_LIBRARY_DYNTEXT SSLeay_version(SSLEAY_VERSION)
+ #else
+ #define MODSSL_LIBRARY_DYNTEXT OpenSSL_version(OPENSSL_VERSION)
+--- support/ab.c.orig	2017-05-28 21:15:41 UTC
++++ support/ab.c
+@@ -2514,7 +2514,7 @@ int main(int argc, const char * const ar
+         exit(1);
+     }
+     SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
+     SSL_CTX_set_max_proto_version(ssl_ctx, max_prot);
+     SSL_CTX_set_min_proto_version(ssl_ctx, min_prot);
+ #endif

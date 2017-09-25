@@ -33,11 +33,13 @@
 // but its dump support is conditionally included.
 //
 NodeCore::~NodeCore()
-{
+try {
 #if defined(DEBUGDUMP)
 	StLock<Mutex> _(mCoreLock);
 	mCoreNodes.erase(this);
 #endif //DEBUGDUMP
+} catch(...) {
+    return;
 }
 
 

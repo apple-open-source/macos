@@ -157,13 +157,13 @@ out:
     return 0;
 }
 
-int sectask_11_sectask_audittoken(int argc, char *const *argv)
+int sectask_10_sectask(int argc, char *const *argv)
 {
     SecTaskRef task=NULL;
     CFStringRef appId=NULL;
     CFStringRef signingIdentifier=NULL;
 
-    plan_tests(6);
+    plan_tests(7);
 
     init_self_audittoken();
 

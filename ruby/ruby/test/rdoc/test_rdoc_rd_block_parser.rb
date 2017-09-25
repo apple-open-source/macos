@@ -1,3 +1,4 @@
+# frozen_string_literal: false
 require 'rdoc/test_case'
 
 class TestRDocRdBlockParser < RDoc::TestCase
@@ -6,13 +7,6 @@ class TestRDocRdBlockParser < RDoc::TestCase
     super
 
     @block_parser = RDoc::RD::BlockParser.new
-  end
-
-  def mu_pp(obj)
-    s = ""
-    s = PP.pp obj, s
-    s = s.force_encoding(Encoding.default_external) if defined? Encoding
-    s.chomp
   end
 
   def test_add_footnote
@@ -160,7 +154,7 @@ class TestRDocRdBlockParser < RDoc::TestCase
         blank_line,
         blank_line)
 
-    Tempfile.open %w[parse_include .rd] do |io|
+    tf = Tempfile.open %w[parse_include .rd] do |io|
       io.puts "=begin\ninclude ((*worked*))\n=end"
       io.flush
 
@@ -169,7 +163,9 @@ class TestRDocRdBlockParser < RDoc::TestCase
       STR
 
       assert_equal expected, parse(str)
+      io
     end
+    tf.close! if tf.respond_to? :close!
   end
 
   def test_parse_heading
@@ -538,4 +534,3 @@ two
   end
 
 end
-

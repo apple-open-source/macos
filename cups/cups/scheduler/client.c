@@ -1,7 +1,7 @@
 /*
  * Client routines for the CUPS scheduler.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * This file contains Kerberos support code, copyright 2006 by
@@ -11,7 +11,7 @@
  * property of Apple Inc. and are protected by Federal copyright
  * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -812,7 +812,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
   * Handle new transfers...
   */
 
-  cupsdLogClient(con, CUPSD_LOG_DEBUG, "Read: status=%d", status);
+  cupsdLogClient(con, CUPSD_LOG_DEBUG, "Read: status=%d, state=%d", status, httpGetState(con->http));
 
   if (status == HTTP_STATUS_OK)
   {
@@ -2349,17 +2349,15 @@ cupsdSendHeader(
 
     if (auth_type == CUPSD_AUTH_BASIC)
       strlcpy(auth_str, "Basic realm=\"CUPS\"", sizeof(auth_str));
-#ifdef HAVE_GSSAPI
     else if (auth_type == CUPSD_AUTH_NEGOTIATE)
     {
-#  ifdef AF_LOCAL
+#ifdef AF_LOCAL
       if (httpAddrFamily(httpGetAddress(con->http)) == AF_LOCAL)
         strlcpy(auth_str, "Basic realm=\"CUPS\"", sizeof(auth_str));
       else
-#  endif /* AF_LOCAL */
+#endif /* AF_LOCAL */
       strlcpy(auth_str, "Negotiate", sizeof(auth_str));
     }
-#endif /* HAVE_GSSAPI */
 
     if (con->best && auth_type != CUPSD_AUTH_NEGOTIATE &&
         !_cups_strcasecmp(httpGetHostname(con->http, NULL, 0), "localhost"))
@@ -3890,9 +3888,6 @@ valid_host(cupsd_client_t *con)		/* I - Client connection */
 
     return (!_cups_strcasecmp(con->clientname, "localhost") ||
 	    !_cups_strcasecmp(con->clientname, "localhost.") ||
-#ifdef __linux
-	    !_cups_strcasecmp(con->clientname, "localhost.localdomain") ||
-#endif /* __linux */
             !strcmp(con->clientname, "127.0.0.1") ||
 	    !strcmp(con->clientname, "[::1]"));
   }

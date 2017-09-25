@@ -164,7 +164,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns CFTypeRef containing the property.
 */
 CF_EXPORT
-CFTypeRef IOHIDDeviceGetProperty(
+CFTypeRef _Nullable IOHIDDeviceGetProperty(
                                 IOHIDDeviceRef                  device, 
                                 CFStringRef                     key)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;

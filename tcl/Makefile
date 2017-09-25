@@ -22,11 +22,8 @@ TCL_SRC_DIR           = $(SRCROOT)/tcl
 TCL_VERSION           = $(shell $(GREP) "TCL_VERSION=" "$(TCL_SRC_DIR)/tcl/unix/configure" | $(CUT) -d '=' -f 2)
 TCL_INIT              = $(TCL_FRAMEWORK_DIR)/Tcl.framework/Versions/$(TCL_VERSION)/Resources/Scripts/init.tcl
 
-ext ext84: TCL_EXT_DIR= $(NSLIBRARYDIR)/Tcl/$(TCL_VERSION)
-ext84: TCL_SRC_DIR    = $(SRCROOT)/tcl84
+ext : TCL_EXT_DIR= $(NSLIBRARYDIR)/Tcl/$(TCL_VERSION)
 ext:   TCL_VERSCHECK  = [catch {package present Tcl $(TCL_VERSION)-}]
-ext84: TCL_VERSCHECK  = [package vcompare $(TCL_VERSION) $$::tcl_version]
-ext84: TCL_AUTOPATH   = $(NSFRAMEWORKDIR)/Tk.framework/Versions/$(TCL_VERSION)/Resources
 fetch:: SRCROOT       = $(CURDIR)
 
 TCL_CONFIG_DIR        = $(OBJROOT)
@@ -38,7 +35,6 @@ MAKE_ARGS             = TclExtLibDir=$(TCL_EXT_DIR) LicenseInstallDir=$(OSL) Pli
                         CONFIG_SITE=$(TCL_CONFIG_DIR)/config.site
 
 ext:   EXT_MAKE_ARGS  = PureTclExt=NO Tcl84Ext=NO
-ext84: EXT_MAKE_ARGS  = PureTclExt=NO Tcl84Ext=YES
 ext_puretcl: EXT_MAKE_ARGS = PureTclExt=YES
 
 PLIST                 = $(SRCROOT)/$(Project).plist
@@ -48,14 +44,13 @@ OSL                   = /usr/local/OpenSourceLicenses
 export PATH          := $(PATH):/usr/X11/bin
 Cruft                += .git
 
-SubProjects          := tcl84 tk84 tcl tk tcl_ext
+SubProjects          := tcl tk tcl_ext
 Actions              := almostclean extract fetch install-license
 Actions_nodeps       := install
 include tcl_ext/SubprojActions.make
 
 ## Targets ##
 
-core84               := install-tcl84 install-tk84 ext84 cleanup84
 core                 := install-tcl install-tk ext ext_puretcl
 ext                  := install-tcl_ext
 
@@ -75,13 +70,12 @@ build::
 	$(_v) echo "cache_file=$(TCL_CONFIG_DIR)/config.cache" > "$(TCL_CONFIG_DIR)/config.site"
 	$(_v) for v in $(AC_VALS); do echo "$$v" >> "$(TCL_CONFIG_DIR)/config.site"; done
 
-install:: $(core84) $(core) install-plist
+install:: $(core) install-plist
 
-install1:: build $(core84)
-install2:: build $(core)
-install3:: install-plist
+install1:: build $(core)
+install2:: install-plist
 
-ext ext84:
+ext:
 	$(_v) $(MAKE) $(ext) $(EXT_MAKE_ARGS) \
 		TCL_EXT_DIR=$(TCL_EXT_DIR) TCL_CONFIG_DIR=$(OBJROOT) \
 		OBJROOT=$(OBJROOT)/$@ SYMROOT=$(SYMROOT)/$@ 
@@ -115,16 +109,11 @@ ext ext84:
 ext_puretcl:
 	$(_v) $(MAKE) $(ext) $(EXT_MAKE_ARGS)
 
-cleanup84:
-	$(_v) $(RMDIR) $(DSTROOT)$(USRDIR)/{include,lib,share/man/{man3,mann},local/include}
-	$(_v) $(RM) $(DSTROOT)$(NSFRAMEWORKDIR)/{Tcl,Tk}.framework/*8.4*
-	$(_v) $(RMDIR) $(DSTROOT)$(NSFRAMEWORKDIR)/{Tcl,Tk}.framework/Versions/8.4/Resources/Documentation
-
 install-plist: install-license
 	$(_v) $(MKDIR) $(DSTROOT)$(OSV) && $(INSTALL_FILE) $(PLIST) $(DSTROOT)$(OSV)/$(Project).plist
 
 extract::
 	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 
-.PHONY: ext ext84 ext_puretcl cleanup84 install-plist
+.PHONY: ext ext_puretcl install-plist
 .NOTPARALLEL:

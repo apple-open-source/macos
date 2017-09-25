@@ -1,13 +1,7 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/en.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en{
-    Version{"2.1.24.18"}
+    Version{"2.1.32.59"}
     units{
         acceleration{
             g-force{
@@ -80,6 +74,7 @@ en{
                 dnam{"square kilometers"}
                 one{"{0} square kilometer"}
                 other{"{0} square kilometers"}
+                per{"{0} per square kilometer"}
             }
             square-meter{
                 dnam{"square meters"}
@@ -91,6 +86,7 @@ en{
                 dnam{"square miles"}
                 one{"{0} square mile"}
                 other{"{0} square miles"}
+                per{"{0} per square mile"}
             }
             square-yard{
                 dnam{"square yards"}
@@ -144,6 +140,12 @@ en{
                 one{"{0} mile per Imp. gallon"}
                 other{"{0} miles per Imp. gallon"}
             }
+        }
+        coordinate{
+            east{"{0} east"}
+            north{"{0} north"}
+            south{"{0} south"}
+            west{"{0} west"}
         }
         digital{
             bit{
@@ -433,6 +435,11 @@ en{
                 one{"{0} picometer"}
                 other{"{0} picometers"}
             }
+            point{
+                dnam{"points"}
+                one{"{0} point"}
+                other{"{0} points"}
+            }
             yard{
                 dnam{"yards"}
                 one{"{0} yard"}
@@ -598,6 +605,11 @@ en{
                 dnam{"degrees Fahrenheit"}
                 one{"{0} degree Fahrenheit"}
                 other{"{0} degrees Fahrenheit"}
+            }
+            generic{
+                dnam{"degrees"}
+                one{"{0} degrees"}
+                other{"{0} degrees"}
             }
             kelvin{
                 dnam{"kelvins"}
@@ -808,6 +820,7 @@ en{
                 dnam{"mi²"}
                 one{"{0}mi²"}
                 other{"{0}mi²"}
+                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yd²"}
@@ -854,10 +867,16 @@ en{
                 other{"{0}mpg"}
             }
             mile-per-gallon-imperial{
-                dnam{"mpg Imp"}
-                one{"{0}mpgIm"}
-                other{"{0}mpgIm"}
+                dnam{"mpg UK"}
+                one{"{0}m/gUK"}
+                other{"{0}m/gUK"}
             }
+        }
+        coordinate{
+            east{"{0}E"}
+            north{"{0}N"}
+            south{"{0}S"}
+            west{"{0}W"}
         }
         digital{
             bit{
@@ -939,8 +958,9 @@ en{
             }
             month{
                 dnam{"month"}
-                one{"{0}m"}
-                other{"{0}m"}
+                one{"{0}mo"}
+                other{"{0}mo"}
+                per{"{0}/mo"}
             }
             nanosecond{
                 dnam{"ns"}
@@ -1130,6 +1150,11 @@ en{
                 one{"{0}pm"}
                 other{"{0}pm"}
             }
+            point{
+                dnam{"pts"}
+                one{"{0}pt"}
+                other{"{0}pt"}
+            }
             yard{
                 dnam{"yd"}
                 one{"{0}yd"}
@@ -1250,8 +1275,8 @@ en{
             }
             millimeter-of-mercury{
                 dnam{"mm Hg"}
-                one{"{0}mm Hg"}
-                other{"{0}mm Hg"}
+                one{"{0}mmHg"}
+                other{"{0}mmHg"}
             }
             pound-per-square-inch{
                 dnam{"psi"}
@@ -1503,6 +1528,7 @@ en{
                 dnam{"km²"}
                 one{"{0} km²"}
                 other{"{0} km²"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"meters²"}
@@ -1514,6 +1540,7 @@ en{
                 dnam{"sq miles"}
                 one{"{0} sq mi"}
                 other{"{0} sq mi"}
+                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yards²"}
@@ -1567,6 +1594,12 @@ en{
                 one{"{0} mpg Imp."}
                 other{"{0} mpg Imp."}
             }
+        }
+        coordinate{
+            east{"{0} E"}
+            north{"{0} N"}
+            south{"{0} S"}
+            west{"{0} W"}
         }
         digital{
             bit{
@@ -1658,7 +1691,7 @@ en{
                 dnam{"months"}
                 one{"{0} mth"}
                 other{"{0} mths"}
-                per{"{0}/m"}
+                per{"{0}/mth"}
             }
             nanosecond{
                 dnam{"nanosecs"}
@@ -1856,6 +1889,11 @@ en{
                 one{"{0} pm"}
                 other{"{0} pm"}
             }
+            point{
+                dnam{"points"}
+                one{"{0} pt"}
+                other{"{0} pt"}
+            }
             yard{
                 dnam{"yards"}
                 one{"{0} yd"}
@@ -1980,8 +2018,8 @@ en{
             }
             millimeter-of-mercury{
                 dnam{"mm Hg"}
-                one{"{0} mm Hg"}
-                other{"{0} mm Hg"}
+                one{"{0} mmHg"}
+                other{"{0} mmHg"}
             }
             pound-per-square-inch{
                 dnam{"psi"}
@@ -2021,6 +2059,11 @@ en{
                 dnam{"deg. F"}
                 one{"{0}°F"}
                 other{"{0}°F"}
+            }
+            generic{
+                dnam{"deg."}
+                one{"{0}°"}
+                other{"{0}°"}
             }
             kelvin{
                 dnam{"K"}
@@ -2118,6 +2161,7 @@ en{
                 dnam{"liters"}
                 one{"{0} L"}
                 other{"{0} L"}
+                per{"{0}/L"}
             }
             megaliter{
                 dnam{"ML"}

@@ -39,6 +39,7 @@
 #include "kextd_personalities.h"
 #include "kextd_usernotification.h"
 #include "kextd_globals.h"
+#include "staging.h"
 
 static OSReturn sendCachedPersonalitiesToKernel(Boolean resetFlag);
 
@@ -49,8 +50,9 @@ OSReturn sendSystemKextPersonalitiesToKernel(
     Boolean    resetFlag)
 {
     OSReturn          result         = kOSReturnSuccess;  // optimistic
-    CFArrayRef        personalities  = NULL;  // must release
-    CFMutableArrayRef authenticKexts = NULL; // must release
+    CFArrayRef        personalities  = NULL;    // must release
+    CFMutableArrayRef authenticKexts = NULL;    // must release
+    CFMutableArrayRef nonsecureKexts = NULL;    // must release
     CFIndex           count, i;
     
    /* Note that we are going to finish on success here!
@@ -70,17 +72,37 @@ OSReturn sendSystemKextPersonalitiesToKernel(
         goto finish;
     }
 
-   /* Check all the kexts to see if we need to raise alerts
-    * about improperly-installed extensions.
-    */
-    recordNonsecureKexts(kexts);
+    if (!createCFMutableArray(&nonsecureKexts, &kCFTypeArrayCallBacks)) {
+        OSKextLogMemError();
+        goto finish;
+    }
 
     count = CFArrayGetCount(kexts);
     for (i = 0; i < count; i++) {
         OSKextRef aKext = (OSKextRef)CFArrayGetValueAtIndex(kexts, i);
-        if (OSKextIsAuthentic(aKext)) {
-            CFArrayAppendValue(authenticKexts, aKext);
+        /* Since only authenticated personalities can be sent to the kernel, and authentication
+         * requires them being in a secure location, staging must happen here if necessary.
+         * Generally the kextcache rebuild has already taken care of caching these into the
+         * personality cache, but we can't depend on the cache.
+         */
+        OSKextRef stagedKext = createStagedKext(aKext);
+        if (!stagedKext) {
+            CFArrayAppendValue(nonsecureKexts, aKext);
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                              CFSTR("Unable to stage kext for iokit matching: %@"),
+                              aKext);
+            continue;
         }
+
+        if (OSKextIsAuthentic(stagedKext)) {
+            CFArrayAppendValue(authenticKexts, stagedKext);
+        }
+        SAFE_RELEASE(stagedKext);
+    }
+
+    if (CFArrayGetCount(nonsecureKexts) > 0) {
+        recordNonsecureKexts(nonsecureKexts);
     }
 
     result = OSKextSendPersonalitiesOfKextsToKernel(authenticKexts,
@@ -111,6 +133,7 @@ finish:
             "Sent %ld kext personalities to the IOCatalogue.",
             CFArrayGetCount(personalities));
     }
+    SAFE_RELEASE(nonsecureKexts);
     SAFE_RELEASE(personalities);
     SAFE_RELEASE(authenticKexts);
     return result;

@@ -130,6 +130,7 @@
 		7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		7434CA761255560B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		764807DA1E60799B00EB2DEF /* authorization_lacont in CopyFiles */ = {isa = PBXBuildFile; fileRef = 764807D91E6068B000EB2DEF /* authorization_lacont */; };
 		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */; };
 		F6529BBA1C84BE1D005245B2 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6529BB91C84BE1D005245B2 /* libctkclient.a */; };
@@ -339,6 +340,7 @@
 			dstPath = /private/etc/pam.d;
 			dstSubfolderSpec = 0;
 			files = (
+				764807DA1E60799B00EB2DEF /* authorization_lacont in CopyFiles */,
 				5FE441E11C5656AF0010C4FD /* authorization_la in CopyFiles */,
 				5FE441E21C5656AF0010C4FD /* screensaver_la in CopyFiles */,
 			);
@@ -435,6 +437,7 @@
 		7434C8AB125545DA001D7F9E /* pam_ntlm.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_ntlm.8; path = modules/pam_ntlm/pam_ntlm.8; sourceTree = "<group>"; };
 		7434C97812554E6F001D7F9E /* Common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = Common.c; path = common/Common.c; sourceTree = "<group>"; };
 		7434C97912554E6F001D7F9E /* Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Common.h; path = common/Common.h; sourceTree = "<group>"; };
+		764807D91E6068B000EB2DEF /* authorization_lacont */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = authorization_lacont; path = modules/pam_localauthentication/authorization_lacont; sourceTree = "<group>"; };
 		F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = System/Library/Frameworks/DirectoryService.framework; sourceTree = SDKROOT; };
 		F60F5FEF1C8478D4001C9533 /* CryptoTokenKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoTokenKit.framework; path = System/Library/Frameworks/CryptoTokenKit.framework; sourceTree = SDKROOT; };
 		F64D8B731C89BB960004B9AE /* libahpsmartcard.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libahpsmartcard.a; path = usr/local/lib/libahpsmartcard.a; sourceTree = SDKROOT; };
@@ -743,6 +746,7 @@
 				5FE441DD1C5656880010C4FD /* authorization_aks */,
 				F67CB7DF1C899EB800DABE90 /* authorization_ctk */,
 				5FE441DF1C5656880010C4FD /* authorization_la */,
+				764807D91E6068B000EB2DEF /* authorization_lacont */,
 				5FE441DE1C5656880010C4FD /* screensaver_aks */,
 				F67CB7E01C899EB800DABE90 /* screensaver_ctk */,
 				5FE441E01C5656880010C4FD /* screensaver_la */,

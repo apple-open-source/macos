@@ -35,6 +35,8 @@
 #include <CommonCrypto/CommonCryptorSPI.h>
 #include "CommonCryptorPriv.h"
 
+#include "CCCryptorReset_internal.h"
+
 #ifdef DEBUG
 #include <stdio.h>
 #include "CommonRandomSPI.h"
@@ -225,7 +227,7 @@ static int check_algorithm_keysize(CCAlgorithm alg, size_t keysize)
 static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, unsigned long key_len, const void *tweak_key, const void *iv)
 {
     if( check_algorithm_keysize(ref->cipher, key_len) <0 )
-        return kCCParamError;
+        return kCCKeySizeError;
 
     size_t blocksize = ccGetCipherBlockSize(ref);
     uint8_t defaultIV[blocksize];
@@ -786,25 +788,63 @@ CCCryptorStatus CCCryptorFinal(
 	return kCCSuccess;
 }
 
-CCCryptorStatus CCCryptorReset(
-	CCCryptorRef cryptorRef,
-	const void *iv)
-{
-    CC_DEBUG_LOG("Entering\n");
+// This is the old reset function that could be called mistakenly for
+// modes other than CBC
+CCCryptorStatus CCCryptorReset_binary_compatibility(
+                               CCCryptorRef cryptorRef,
+                               const void *iv)
+{    CC_DEBUG_LOG("Entering\n");
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
     CCCryptorStatus retval;
     
     /*
-    	This routine resets all buffering and sets or clears the IV.  It is
-    	documented to throw away any in-flight buffer data.
+     This routine resets all buffering and sets or clears the IV.  It is
+     documented to throw away any in-flight buffer data.
+     */
+    
+    cryptor->bytesProcessed = cryptor->bufferPos = 0;
+    
+    /*
+     Call the common routine to reset the IV - this will copy in the new
+     value. There is now always space for an IV in the cryptor.
+     */
+    
+    if(iv) {
+        retval = ccSetIV(cryptor, iv, ccGetCipherBlockSize(cryptor));
+    } else {
+        uint8_t ivzero[ccGetCipherBlockSize(cryptor)];
+        CC_XZEROMEM(ivzero, ccGetCipherBlockSize(cryptor));
+        retval = ccSetIV(cryptor, ivzero, ccGetCipherBlockSize(cryptor));
+    }
+    if(retval == kCCParamError) return kCCSuccess; //that is for when reset is unimplemented
+    return retval;
+}
+
+CCCryptorStatus CCCryptorReset(CCCryptorRef cryptorRef, const void *iv)
+{
+    if(!ProgramLinkedOnOrAfter_macOS1013_iOS11()) //switch to the old behavior
+        return CCCryptorReset_binary_compatibility(cryptorRef, iv);
+    
+    //continue with the new behavior: can only be called for CBC
+    CC_DEBUG_LOG("Entering\n");
+    CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
+    if(!cryptor) return kCCParamError;
+    if(cryptor->mode!=kCCModeCBC) return kCCUnimplemented;
+    
+    
+    CCCryptorStatus retval;
+    /*
+        This routine resets all buffering and sets or clears the IV.  It is
+        documented to throw away any in-flight buffer data. Currectly, it only works
+        for the CBC mode.
     */
     
     cryptor->bytesProcessed = cryptor->bufferPos = 0;
     
-    /* 
-    	Call the common routine to reset the IV - this will copy in the new 
-       	value. There is now always space for an IV in the cryptor.
+    /*
+        Call the common routine to reset the IV - this will copy in the new
+           value. There is now always space for an IV in the cryptor.
     */
     
     if(iv) {
@@ -814,7 +854,7 @@ CCCryptorStatus CCCryptorReset(
         CC_XZEROMEM(ivzero, ccGetCipherBlockSize(cryptor));
         retval = ccSetIV(cryptor, ivzero, ccGetCipherBlockSize(cryptor));
     }
-    if(retval == kCCParamError) return kCCSuccess;
+    
     return retval;
 }
 
@@ -829,8 +869,6 @@ CCCryptorGetIV(CCCryptorRef cryptorRef, void *iv)
     size_t blocksize = ccGetCipherBlockSize(cryptor);
     return ccGetIV(cryptor, iv, &blocksize);
 }
-
-
 
 /* 
  * One-shot is mostly service provider independent, except for the

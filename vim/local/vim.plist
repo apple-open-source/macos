@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2015-10-23</string>
+		<string>2017-06-15</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,11 +12,15 @@
 		<key>OpenSourceProject</key>
 		<string>vim</string>
 		<key>OpenSourceSCM</key>
-		<string>git clone https://github.com/vim/vim; git checkout 60cce2fb736c8ff6fdb9603f502d3c15f1f7a25d</string>
+		<string>git clone https://github.com/vim/vim; git checkout 8cf91286ca46a501d24e4b7d631b193256782c88</string>
 		<key>OpenSourceVersion</key>
-		<string>7.4.898</string>
+		<string>8.0.0642</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>33440987 - revert patch 504</string>
+		</array>
 	</dict>
 </array>
 </plist>

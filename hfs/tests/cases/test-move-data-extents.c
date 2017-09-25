@@ -60,7 +60,6 @@ static int make_frag_file(int blocks_per_extent)
 				.l2p_contigbytes = 1024 * 1024,
 				.l2p_devoffset   = len - 1,
 			};
-
 			if (fcntl(fd, F_LOG2PHYS_EXT, &l2p)) {
 				if (errno == ERANGE)
 					break;
@@ -87,12 +86,13 @@ int run_move_data_extents(__unused test_ctx_t *ctx)
 {
 	di = disk_image_get();
 	
-	int fd = make_frag_file(1);
+	int frag_fd = make_frag_file(1);
+	int fd;
+	int fd2;
 
 	struct stat sb;
-	fstat(fd, &sb);
+	fstat(frag_fd, &sb);
 
-	int fd2;
 	
 	asprintf(&file2, "%s/move_data_extents.2", di->mount_point);
 	assert_with_errno((fd2 = open(file2,
@@ -100,7 +100,7 @@ int run_move_data_extents(__unused test_ctx_t *ctx)
 
 #define F_MOVEDATAEXTENTS 69
 
-	assert_no_err(fcntl(fd, F_MOVEDATAEXTENTS, fd2));
+	assert_no_err(fcntl(frag_fd, F_MOVEDATAEXTENTS, fd2));
 
 	char buf[4096];
 	check_io(pread(fd2, buf, 4096, sb.st_size - 4096), 4096);
@@ -130,6 +130,7 @@ int run_move_data_extents(__unused test_ctx_t *ctx)
 	pthread_join(thread, NULL);
 
 	close(fd);
+	close(frag_fd);
 
 	/*
 	 * Make sure that the extents from move_data_extents.1 got deleted
@@ -194,6 +195,10 @@ int run_move_data_extents(__unused test_ctx_t *ctx)
 
 	assert_no_err(unlink(file2));
 	
+	assert_no_err (close(fd));
+	assert_no_err (close(fd2));
+	assert_no_err (close(fd3));
+
 	free(file1);
 	free(file2);
 	free(file3);
