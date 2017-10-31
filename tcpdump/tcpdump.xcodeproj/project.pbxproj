@@ -398,6 +398,13 @@
 		720E462F1231644C0056BE01 /* print-usb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-usb.c"; path = "tcpdump/print-usb.c"; sourceTree = "<group>"; };
 		720E46311231647B0056BE01 /* signature.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = signature.c; path = tcpdump/signature.c; sourceTree = "<group>"; };
 		720E4635123164FE0056BE01 /* bpf_dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_dump.c; path = tcpdump/bpf_dump.c; sourceTree = "<group>"; };
+		7218C1291F6749360052EB54 /* TESTLIST */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TESTLIST; path = tcpdump/tests/TESTLIST; sourceTree = "<group>"; };
+		7218C12A1F6749360052EB54 /* TESTonce */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = TESTonce; path = tcpdump/tests/TESTonce; sourceTree = "<group>"; };
+		7218C12B1F6749360052EB54 /* TESTrun.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = TESTrun.sh; path = tcpdump/tests/TESTrun.sh; sourceTree = "<group>"; };
+		7218C12D1F67496C0052EB54 /* crypto.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = crypto.sh; path = tcpdump/tests/crypto.sh; sourceTree = "<group>"; };
+		7218C12E1F67498B0052EB54 /* isis-seg-fault-1-v.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "isis-seg-fault-1-v.sh"; path = "tcpdump/tests/isis-seg-fault-1-v.sh"; sourceTree = "<group>"; };
+		7218C12F1F67499C0052EB54 /* lmp-v.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "lmp-v.sh"; path = "tcpdump/tests/lmp-v.sh"; sourceTree = "<group>"; };
+		7218C1301F6749A80052EB54 /* nflog-e.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "nflog-e.sh"; path = "tcpdump/tests/nflog-e.sh"; sourceTree = "<group>"; };
 		72272A3315D58874006E4EBD /* in_cksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = in_cksum.c; path = tcpdump/in_cksum.c; sourceTree = "<group>"; };
 		72272A3415D58874006E4EBD /* print-802_15_4.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-802_15_4.c"; path = "tcpdump/print-802_15_4.c"; sourceTree = "<group>"; };
 		72272A3515D58874006E4EBD /* print-babel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-babel.c"; path = "tcpdump/print-babel.c"; sourceTree = "<group>"; };
@@ -664,6 +671,7 @@
 				725CC4B815D5B05700D88ACA /* Headers */,
 				7255E4081C9C800700D64FA0 /* Resources */,
 				72DA6D111E4A569D00568AC1 /* gen_tcpdump_version */,
+				7218C1281F6749000052EB54 /* Scripts */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				FC791654103A2F1B00CBA90E /* libpcap.dylib */,
 				727B12DA162745A90039A877 /* libpcap_static.a */,
@@ -862,6 +870,20 @@
 				72DA6D001E4A52F300568AC1 /* gen_tcpdump_version */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7218C1281F6749000052EB54 /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+				7218C1291F6749360052EB54 /* TESTLIST */,
+				7218C12A1F6749360052EB54 /* TESTonce */,
+				7218C12B1F6749360052EB54 /* TESTrun.sh */,
+				7218C12D1F67496C0052EB54 /* crypto.sh */,
+				7218C12E1F67498B0052EB54 /* isis-seg-fault-1-v.sh */,
+				7218C12F1F67499C0052EB54 /* lmp-v.sh */,
+				7218C1301F6749A80052EB54 /* nflog-e.sh */,
+			);
+			name = Scripts;
 			sourceTree = "<group>";
 		};
 		7255E4081C9C800700D64FA0 /* Resources */ = {

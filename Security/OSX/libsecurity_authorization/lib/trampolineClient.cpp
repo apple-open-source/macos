@@ -100,21 +100,7 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 	if (flags != 0)
 		return errAuthorizationInvalidFlags;
 
-    // create the mailbox file
-    FILE *mbox = tmpfile();
-    if (!mbox)
-        return errAuthorizationInternal;
-    if (fwrite(extForm, sizeof(*extForm), 1, mbox) != 1) {
-        fclose(mbox);
-        return errAuthorizationInternal;
-    }
-    fflush(mbox);
-    
 	// compute the argument vector here because we can't allocate memory once we fork.
-
-    // make text representation of the temp-file descriptor
-    char mboxFdText[20];
-    snprintf(mboxFdText, sizeof(mboxFdText), "auth %d", fileno(mbox));
 
 	// where is the trampoline?
 #if defined(NDEBUG)
@@ -125,13 +111,26 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 		trampoline = TRAMPOLINE;
 #endif //NDEBUG
 
-	const char **argv = argVector(trampoline, pathToTool, mboxFdText, arguments);
+	// make a data exchange pipe
+	int dataPipe[2];
+	if (pipe(dataPipe)) {
+		secinfo("authexec", "data pipe failure");
+		return errAuthorizationToolExecuteFailure;
+	}
+
+	// make text representation of the pipe handle
+	char pipeFdText[20];
+	snprintf(pipeFdText, sizeof(pipeFdText), "auth %d", dataPipe[READ]);
+	const char **argv = argVector(trampoline, pathToTool, pipeFdText, arguments);
 	
 	// make a notifier pipe
 	int notify[2];
 	if (pipe(notify)) {
-        fclose(mbox);
-        if(argv) { free(argv); }
+		close(dataPipe[READ]); close(dataPipe[WRITE]);
+        if(argv) {
+			free(argv);
+		}
+		secinfo("authexec", "notify pipe failure");
 		return errAuthorizationToolExecuteFailure;
     }
 
@@ -139,8 +138,11 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 	int comm[2];
 	if (communicationsPipe && socketpair(AF_UNIX, SOCK_STREAM, 0, comm)) {
 		close(notify[READ]); close(notify[WRITE]);
-        fclose(mbox);
-        if(argv) { free(argv); }
+		close(dataPipe[READ]); close(dataPipe[WRITE]);
+        if(argv) {
+			free(argv);
+		}
+		secinfo("authexec", "comm pipe failure");
 		return errAuthorizationToolExecuteFailure;
 	}
 
@@ -169,10 +171,20 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 			close(notify[WRITE]);
 			if (communicationsPipe)
 				close(comm[WRITE]);
-                
-            // close mailbox file (child has it open now)
-            fclose(mbox);
-			
+
+			close(dataPipe[READ]);
+			if (write(dataPipe[WRITE], extForm, sizeof(*extForm)) != sizeof(*extForm)) {
+				secinfo("authexec", "fwrite data failed (errno=%d)", errno);
+				status = errAuthorizationInternal;
+				close(notify[READ]);
+				close(dataPipe[WRITE]);
+				if (communicationsPipe) {
+					close(comm[READ]);
+					close(comm[WRITE]);
+				}
+				goto exit_point;
+			}
+			close(dataPipe[WRITE]);
 			// get status notification from child
 			secinfo("authexec", "parent waiting for status");
 			ssize_t rc = read(notify[READ], &status, sizeof(status));
@@ -185,10 +197,15 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 			case sizeof(status):	// read succeeded: child reported an error
 				secinfo("authexec", "parent received status=%d", (int)status);
 				close(notify[READ]);
-				if (communicationsPipe) { close(comm[READ]); close(comm[WRITE]); }
+				close(dataPipe[WRITE]);
+				if (communicationsPipe) {
+					close(comm[READ]);
+					close(comm[WRITE]);
+				}
 				goto exit_point;
 			case 0:					// end of file: exec succeeded
 				close(notify[READ]);
+				close(dataPipe[WRITE]);
 				if (communicationsPipe)
 					*communicationsPipe = fdopen(comm[READ], "r+");
 				secinfo("authexec", "parent resumes (no error)");
@@ -202,7 +219,10 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 			close(notify[READ]);
 			if (communicationsPipe)
 				close(comm[READ]);
-			
+
+			// close write end of the data PIPE
+			close(dataPipe[WRITE]);
+
 			// fd 1 (stdout) holds the notify write end
 			dup2(notify[WRITE], 1);
 			close(notify[WRITE]);
@@ -222,6 +242,9 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 
 			// execute failed - tell the parent
 			{
+				// in case of failure, close read end of the data pipe as well
+				close(dataPipe[WRITE]);
+				close(dataPipe[READ]);
 				OSStatus error = errAuthorizationToolExecuteFailure;
 				error = h2n(error);
 				write(1, &error, sizeof(error));

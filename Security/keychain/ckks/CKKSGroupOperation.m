@@ -47,6 +47,32 @@
     }
 }
 
+-(void)linearDependenciesWithSelfFirst: (NSHashTable*) collection {
+    @synchronized(collection) {
+        for(NSOperation* existingop in collection) {
+            if(existingop == self) {
+                // don't depend on yourself
+                continue;
+            }
+
+            if([existingop isPending]) {
+                [existingop addDependency: self];
+                if([existingop isPending]) {
+                    // Good, we're ahead of this one.
+                } else {
+                    // It started before we told it to wait on us. Reverse the dependency.
+                    [existingop removeDependency: self];
+                    [self addDependency:existingop];
+                }
+            } else {
+                // Not a pending op? We depend on it.
+                [self addDependency: existingop];
+            }
+        }
+        [collection addObject:self];
+    }
+}
+
 -(NSString*)pendingDependenciesString:(NSString*)prefix {
     NSArray* dependencies = [self.dependencies copy];
     dependencies = [dependencies objectsAtIndexes: [dependencies indexesOfObjectsPassingTest: ^BOOL (id obj,

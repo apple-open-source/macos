@@ -106,9 +106,10 @@ bool _SecServerRollKeysGlue(bool force, CFErrorRef *error);
 
 
 /* initial sync */
-#define SecServerInitialSyncCredentialFlagTLK           1
-#define SecServerInitialSyncCredentialFlagPCS           2
-#define SecServerInitialSyncCredentialFlagPCSNonCurrent 4
+#define SecServerInitialSyncCredentialFlagTLK                (1 << 0)
+#define SecServerInitialSyncCredentialFlagPCS                (1 << 1)
+#define SecServerInitialSyncCredentialFlagPCSNonCurrent      (1 << 2)
+#define SecServerInitialSyncCredentialFlagBluetoothMigration (1 << 3)
 
 CFArrayRef _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error);
 bool _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error);

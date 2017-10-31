@@ -1,6 +1,292 @@
-2017-08-11  Jason Marcell  <jmarcell@apple.com>
+2017-10-05  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Cherry-pick r220571. rdar://problem/33829962
+        Revert r222431. rdar://problem/34826998
+
+2017-09-23  Alex Christensen  <achristensen@webkit.org>
+
+        REGRESSION(r214201): WebProcess hangs during policy decisions
+        https://bugs.webkit.org/show_bug.cgi?id=177411
+        <rdar://problem/33362929>
+
+        Reviewed by Geoffrey Garen.
+
+        decidePolicyForNavigationAction and decidePolicyForNavigationResponse used to have
+        a shortcut path for if you called the decisionHandler synchronously and a different path
+        for asynchronous decisionHandler calling.  r214201 made it so there is one path but the
+        WebProcess hangs, which prevents us from executing JavaScript in the WebProcess where we
+        could before.  This patch effectively reverts r214201 on the branch and pipes the WebsitePolicies
+        through the asynchronous decisionHandler path to be used only for decidePolicyForNavigationAction,
+        which is the only such callback that can set the WebsitePolicies.
+        
+        This patch is for the safari-604-branch branch.  I'll fix this problem on trunk by making all
+        policy messages async and using different message types for each policy check, and then I'll
+        get this same API test working on trunk.
+
+        * UIProcess/API/C/WKPage.cpp:
+        (WKPageSetPageNavigationClient):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::receivedPolicyDecision):
+        (WebKit::WebPageProxy::decidePolicyForNavigationAction):
+        (WebKit::WebPageProxy::decidePolicyForResponseSync):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebPageProxy.messages.in:
+        * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+        (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+        (WebKit::WebFrameLoaderClient::applyToDocumentLoader):
+        (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+        (WebKit::WebFrameLoaderClient::dispatchWillSubmitForm):
+        * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+        * WebProcess/WebPage/WebFrame.cpp:
+        (WebKit::WebFrame::setUpPolicyListener):
+        (WebKit::WebFrame::invalidatePolicyListener):
+        (WebKit::WebFrame::didReceivePolicyDecision):
+        * WebProcess/WebPage/WebFrame.h:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::didReceivePolicyDecision):
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/WebPage.messages.in:
+
+2017-09-14  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221647. rdar://problem/34439121
+
+    2017-09-05  Brent Fulgham  <bfulgham@apple.com>
+
+            Relax keychain access to permit users to permanently allow client certificates
+            https://bugs.webkit.org/show_bug.cgi?id=175857
+            <rdar://problem/32293867>
+
+            Reviewed by Alex Christensen.
+
+            Further relax the write permissions on the user's Keychain directory to support local certificates.
+
+            * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2017-09-14  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221061. rdar://problem/34439121
+
+    2017-08-22  Brent Fulgham  <bfulgham@apple.com>
+
+            Relax keychain access to permit users to permanently allow client certificates
+            https://bugs.webkit.org/show_bug.cgi?id=175857
+            <rdar://problem/32293867>
+
+            Reviewed by Alex Christensen.
+
+            * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+            * WebProcess/com.apple.WebProcess.sb.in:
+
+2017-09-12  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221906. rdar://problem/34404478
+
+    2017-09-11  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r221272): WKWebView gets stuck zoomed in if the web process crashes
+            https://bugs.webkit.org/show_bug.cgi?id=176767
+            <rdar://problem/34196874>
+
+            Reviewed by Dan Bernstein.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _processDidExit]):
+            Reset the "last sent" layout parameters when the Web Content process exits.
+            They're no longer "last sent", and if we short-circuit from sending them
+            again (from under _didRelaunchProcess), we will never send the correct
+            layout width (until it changes).
+
+2017-09-10  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220568. rdar://problem/34142025
+
+    2017-08-10  John Wilander  <wilander@apple.com>
+
+            Resource Load Statistics: Add significant figures to telemetry calls
+            https://bugs.webkit.org/show_bug.cgi?id=175442
+            <rdar://problem/33834834>
+
+            Reviewed by Brent Fulgham.
+
+            With this change, logged values are allowed to have 3 significant figures
+            as opposed to today's 0 which is wrong.
+
+            * UIProcess/WebResourceLoadStatisticsTelemetry.cpp:
+            (WebKit::submitTopList):
+            (WebKit::WebResourceLoadStatisticsTelemetry::calculateAndSubmit):
+
+2017-09-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r221444. rdar://problem/34215746
+
+    2017-08-31  David Quesada  <david_quesada@apple.com>
+
+            WKNavigationDelegatePrivate client redirect SPI needs to be able to detect redirects scheduled before the document finishes loading
+            https://bugs.webkit.org/show_bug.cgi?id=176128
+            rdar://problem/34068476
+
+            Reviewed by Brady Eidson.
+
+            _webView:didPerformClientRedirect: isn't useful for delegates that want to know about client redirects
+            started before the document is finished loading. This is because the method would be called after the
+            navigation scheduler's timer fires and the navigation for the redirect has begun. Since this happens in
+            a later iteration of the run loop, the document has already finished loading. Address this by replacing
+            the method with two that give the navigation delegate more information about when client redirects are
+            scheduled and canceled.
+
+            * UIProcess/API/APINavigationClient.h:
+            (API::NavigationClient::willPerformClientRedirect):
+            (API::NavigationClient::didCancelClientRedirect):
+            * UIProcess/API/Cocoa/WKNavigationDelegatePrivate.h:
+            * UIProcess/Cocoa/NavigationState.h:
+            * UIProcess/Cocoa/NavigationState.mm:
+            (WebKit::NavigationState::setNavigationDelegate):
+            (WebKit::NavigationState::NavigationClient::willPerformClientRedirect):
+            (WebKit::NavigationState::NavigationClient::didCancelClientRedirect):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::willPerformClientRedirectForFrame):
+            (WebKit::WebPageProxy::didCancelClientRedirectForFrame):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchDidCancelClientRedirect):
+            (WebKit::WebFrameLoaderClient::dispatchWillPerformClientRedirect):
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+
+2017-08-28  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221161. rdar://problem/34113784
+
+    2017-08-24  Tim Horton  <timothy_horton@apple.com>
+
+            Overflow scroll views are inset to avoid safe areas even if the parent view is not
+            https://bugs.webkit.org/show_bug.cgi?id=175949
+            <rdar://problem/34063057>
+
+            Reviewed by Beth Dakin.
+
+            * UIProcess/ios/RemoteLayerTreeHostIOS.mm:
+            (WebKit::RemoteLayerTreeHost::createLayer):
+            Disable automatic content inset adjustment to avoid safe areas on
+            all of WKWebView's child UIScrollViews.
+
+2017-08-28  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221153. rdar://problem/34113728
+
+    2017-08-24  Tim Horton  <timothy_horton@apple.com>
+
+            Layout size override changes during in-flight animated resize are dropped on the floor forever
+            https://bugs.webkit.org/show_bug.cgi?id=175916
+            <rdar://problem/33887295>
+
+            Reviewed by Beth Dakin.
+
+            Layout size override changes that come in during an animated resize
+            are currently stored, but not sent in a separate message, because
+            they're sent as part of the resize. However, if a layout size override
+            change happens after the animated resize message was already sent, but
+            before the animated resize is ended, that change will be stored, but
+            not sent in the animated resize message (because it's too late), and
+            then subsequent calls with the same size will early-return, because
+            we're testing against the stored size, not the size we last actually
+            sent to the Web Content process.
+
+            Instead, store the last-sent size, so that subsequent layout size override
+            changes with the same size won't bail, and if it differs from the active
+            state after the animated resize completes, send an out-of-band update.
+
+            All of the above also applies to device orientation, which follows
+            exactly the same pattern.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _initializeWithConfiguration:]):
+            (-[WKWebView _dispatchSetMinimumLayoutSize:]):
+            (-[WKWebView _dispatchSetMaximumUnobscuredSize:]):
+            (-[WKWebView _dispatchSetDeviceOrientation:]):
+            (-[WKWebView _frameOrBoundsChanged]):
+            (-[WKWebView _windowDidRotate:]):
+            (-[WKWebView _didRelaunchProcess]):
+            (-[WKWebView _setMinimumLayoutSizeOverride:]):
+            (-[WKWebView _setInterfaceOrientationOverride:]):
+            (-[WKWebView _setMaximumUnobscuredSizeOverride:]):
+            (-[WKWebView _beginAnimatedResizeWithUpdates:]):
+
+2017-08-28  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r221138. rdar://problem/34113574
+
+    2017-08-24  Chris Dumez  <cdumez@apple.com>
+
+            [iOS] ViewServices started by StoreKitUIService may get suspended unexpectedly
+            https://bugs.webkit.org/show_bug.cgi?id=175922
+            <rdar://problem/34028921>
+
+            Reviewed by Tim Horton.
+
+            ViewServices started by StoreKitUIService may get suspended unexpectedly. This is
+            because StoreKitUIService is itself a ViewService and is therefore in the background.
+            To address the issue, treat StoreKitUIService as initially foreground in
+            ApplicationStateTracker so that its ViewServices do not get suspended. We don't
+            have good way to deal with ViewServices started by other ViewServices unfortunately.
+
+            * Platform/spi/ios/UIKitSPI.h:
+            * UIProcess/ApplicationStateTracker.mm:
+            (WebKit::ApplicationStateTracker::ApplicationStateTracker):
+
+2017-08-15  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220286. rdar://problem/33904738
+
+    2017-08-04  Tim Horton  <timothy_horton@apple.com>
+
+            viewport-fit changes during animated resize can cause layout size to get stuck
+            https://bugs.webkit.org/show_bug.cgi?id=175169
+            <rdar://problem/33684697>
+
+            Reviewed by Simon Fraser.
+
+            If we get a commit that changes viewport-fit state while an animated
+            resize is underway, and that change causes the client to push a new
+            minimumLayoutSizeOverride, the new size will be lost forever, and we
+            will get stuck laying out at the wrong size.
+
+            This is because we unconditionally apply avoidsUnsafeArea for every commit,
+            while most other changes that come in from a commit are ignored if we're
+            inside animated resize. To fix, also ignore avoidsUnsafeArea changes during
+            animated resize, by moving the code that keeps track of it into WKWebView
+            like all of the rest, and read it out of the commit in didCommitLayerTree
+            *after* the animated-resize early-return.
+
+            Also, fix the associated layout tests by adding a missing assignment
+            in _computedContentInset, which was broken in r220138.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _initializeWithConfiguration:]):
+            (-[WKWebView _setHasCustomContentView:loadedMIMEType:]):
+            (-[WKWebView _processDidExit]):
+            (-[WKWebView _didCommitLayerTree:]):
+            (-[WKWebView _setAvoidsUnsafeArea:]):
+            (-[WKWebView _safeAreaShouldAffectObscuredInsets]):
+            (-[WKWebView _didChangeAvoidsUnsafeArea:]): Deleted.
+            * UIProcess/API/Cocoa/WKWebViewInternal.h:
+            * UIProcess/PageClient.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::resetState):
+            (WebKit::WebPageProxy::setAvoidsUnsafeArea): Deleted.
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::avoidsUnsafeArea const): Deleted.
+            * UIProcess/ios/PageClientImplIOS.h:
+            * UIProcess/ios/PageClientImplIOS.mm:
+            (WebKit::PageClientImpl::didChangeAvoidsUnsafeArea): Deleted.
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::didCommitLayerTree):
+
+2017-08-13  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220571. rdar://problem/33829966
 
     2017-08-10  John Wilander  <wilander@apple.com>
 
@@ -12,9 +298,9 @@
 
             * UIProcess/WebResourceLoadStatisticsStore.h:
 
-2017-08-10  Jason Marcell  <jmarcell@apple.com>
+2017-08-13  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r220505. rdar://problem/33829962
+        Cherry-pick r220505. rdar://problem/33829966
 
     2017-08-09  John Wilander  <wilander@apple.com>
 
@@ -28,7 +314,7 @@
 
 2017-08-09  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r220459. rdar://problem/33820786
+        Cherry-pick r220459. rdar://problem/33820790
 
     2017-08-09  Daniel Bates  <dabates@apple.com>
 
@@ -56,9 +342,25 @@
             depending on whether the navigation is in response to receiving a redirect response.
             * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
 
+2017-08-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r220473. rdar://problem/33810961
+
+    2017-08-09  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS DnD] ENABLE_DRAG_SUPPORT should be turned off for iOS 10 and enabled by default
+            https://bugs.webkit.org/show_bug.cgi?id=175392
+            <rdar://problem/33783207>
+
+            Reviewed by Tim Horton and Megan Gardner.
+
+            Tweak FeatureDefines to enable drag and drop by default, and disable only on unsupported platforms (i.e. iOS 10).
+
+            * Configurations/FeatureDefines.xcconfig:
+
 2017-08-07  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r220273. rdar://problem/33732754
+        Cherry-pick r220273. rdar://problem/33732762
 
     2017-08-04  Andreas Kling  <akling@apple.com>
 
@@ -74,13 +376,9 @@
             * NetworkProcess/NetworkLoad.cpp:
             (WebKit::NetworkLoad::~NetworkLoad):
 
-2017-08-04  Jason Marcell  <jmarcell@apple.com>
+2017-08-07  Jason Marcell  <jmarcell@apple.com>
 
-        Revert r219896. rdar://problem/33711000
-
-2017-08-03  Jason Marcell  <jmarcell@apple.com>
-
-        Cherry-pick r220185. rdar://problem/33713528
+        Cherry-pick r220185. rdar://problem/33713534
 
     2017-08-02  Chris Dumez  <cdumez@apple.com>
 
@@ -119,20 +417,76 @@
             (WebKit::NetworkResourceLoader::setDefersLoading):
             * NetworkProcess/NetworkResourceLoader.h:
 
-2017-08-03  Jason Marcell  <jmarcell@apple.com>
+2017-08-02  Jason Marcell  <jmarcell@apple.com>
 
-        Cherry-pick r219896. rdar://problem/33711000
+        Cherry-pick r220138. rdar://problem/33692550
 
-    2017-07-25  Andy Estes  <aestes@apple.com>
+    2017-08-02  Tim Horton  <timothy_horton@apple.com>
 
-            [Apple Pay] Add "carteBancaire" as a supported payment network
-            https://bugs.webkit.org/show_bug.cgi?id=174841
-            <rdar://problem/31935596>
+            WKPDFView doesn't respect safe area insets
+            https://bugs.webkit.org/show_bug.cgi?id=175046
+            <rdar://problem/33558386>
 
-            Reviewed by Alex Christensen.
+            Reviewed by Wenson Hsieh.
 
-            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
-            (WebKit::toSupportedNetwork):
+            * Platform/spi/ios/UIKitSPI.h:
+            Add some SPI.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _setHasCustomContentView:loadedMIMEType:]):
+            Drive-by fix two small custom content view issues:
+
+            - Reset _scrollViewBackgroundColor; it is used to early-return from
+            updating the background color if it hasn't changed, but if you go from a
+            site with (for example) a white background, to a PDF, to another site
+            with a white background, we will early-return and not reset the background
+            color from the grey WKPDFView background.
+
+            - When installing a custom content view, scroll to the origin. We miss
+            the usual mechanism for scrolling to the origin when custom content views
+            are installed, so do it here.
+
+            (-[WKWebView _effectiveObscuredInsetEdgesAffectedBySafeArea]):
+            Ignore _obscuredInsetEdgesAffectedBySafeArea for custom content views.
+            This is fairly arbitrary, and we should find a different way to
+            express different edge sets for different kinds of content (perhaps
+            bake this into default viewports?), but for now this works.
+
+            (-[WKWebView _computedContentInset]):
+            Use _effectiveObscuredInsetEdgesAffectedBySafeArea instead of the ivar directly.
+
+            (-[WKWebView _safeAreaShouldAffectObscuredInsets]):
+            Force safe areas to not affect obscured insets for custom content views,
+            so that it's up to every custom content view to take safe areas into
+            account themselves.
+
+            * UIProcess/API/Cocoa/WKWebViewInternal.h:
+            Expose _computedUnobscuredSafeAreaInset for WKPDFView's use.
+
+            * UIProcess/ios/WKPDFView.mm:
+            (-[WKPDFView web_setMinimumSize:]):
+            Avoid rebuilding the WKPDFView if the minimum size didn't change.
+
+            (-[WKPDFView _offsetForPageNumberIndicator]):
+            Take unobscured safe area insets into account when insetting
+            the page number indicator.
+
+            (-[WKPDFView web_computedContentInsetDidChange]):
+            Watch for unobscured safe area inset changes, and apply them to the
+            layout of the WKPDFView.
+
+            (-[WKPDFView _computePageAndDocumentFrames]):
+            Make it possible to only update the WKPDFView's size and position, without
+            rebuilding its subviews, if the width did not change. This prevents lots
+            of flashing of the child UIPDFPageViews when the unobscured safe area
+            insets change dynamically.
+
+            Take the safe area insets into account when determining what width
+            to lay out to.
+
+            (-[WKPDFView _updateDocumentFrame]):
+            Take the safe area insets into account when positioning the WKPDFView
+            inside the WKScrollView.
 
 2017-07-31  Jason Marcell  <jmarcell@apple.com>
 

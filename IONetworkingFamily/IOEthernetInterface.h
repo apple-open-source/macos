@@ -134,6 +134,7 @@ private:
     int syncSIOCSIFMTU(IONetworkController * ctr, struct ifreq * ifr, bool);
     int syncSIOCGIFDEVMTU(IONetworkController * ctr, struct ifreq * ifr);
     int syncSIOCSIFLLADDR(IONetworkController * ctr, const char * lladdr, int len);
+	int syncSIOCSIFCAP(IONetworkController * ctr, struct ifreq * ifr);
 	void _fixupVlanPacket(mbuf_t, u_int16_t, int);
     void reportInterfaceWakeFlags(IONetworkController * ctr);
 

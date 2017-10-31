@@ -1725,7 +1725,8 @@ ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs)
     ExitStatus         result               = EX_OSERR;
     ExitStatus         directoryResult      = EX_OK;  // flipped to error as needed
     CFArrayRef         systemExtensionsURLs = NULL;   // do not release
-    CFArrayRef         kexts                = NULL;   // must release
+    CFArrayRef         unauthenticatedKexts = NULL;   // must release
+    CFMutableArrayRef  authenticKexts       = NULL;   // must release
     CFURLRef           folderURL            = NULL;   // do not release
     char               folderPath[PATH_MAX] = "";
     const NXArchInfo * startArch            = OSKextGetArchitecture();
@@ -1742,9 +1743,34 @@ ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs)
         goto finish;
     }
 
-    kexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault, systemExtensionsURLs);
-    if (!kexts) {
+    /* Since only authenticated personalities can be sent to the kernel, and authentication
+     * requires them being in a secure location, staging must happen here.  Since
+     * this function is only called for the current system volume, it should always require
+     * staging unless SIP is disabled, which staging already takes care of checking.
+     */
+    unauthenticatedKexts = createStagedKextsFromURLs(systemExtensionsURLs, false);
+    if (!unauthenticatedKexts) {
         goto finish;
+    }
+
+    if (!createCFMutableArray(&authenticKexts, &kCFTypeArrayCallBacks)) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    /* Any kernel extension evaluated below is being evaluated for its personalities
+     * and not for inclusion in the kernel cache, so update the authentication options for
+     * the remainder of this function and ensure it gets set back to true in the end.
+     */
+    toolArgs->authenticationOptions.isCacheLoad = false;
+
+    count = CFArrayGetCount(unauthenticatedKexts);
+    for (i = 0; i < count; i++) {
+        OSKextRef aKext = (OSKextRef)CFArrayGetValueAtIndex(unauthenticatedKexts, i);
+        if (OSKextIsAuthentic(aKext)) {
+            CFArrayAppendValue(authenticKexts, aKext);
+        }
     }
 
    /* Update the global personalities & property-value caches, each per arch.
@@ -1761,11 +1787,11 @@ ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs)
             goto finish;
         }
 
-        personalities = OSKextCopyPersonalitiesOfKexts(kexts);
+        personalities = OSKextCopyPersonalitiesOfKexts(authenticKexts);
         if (!personalities) {
             goto finish;
         }
-        
+
         if (!_OSKextWriteCache(systemExtensionsURLs, CFSTR(kIOKitPersonalitiesKey),
             targetArch, _kOSKextCacheFormatIOXML, personalities)) {
 
@@ -1816,11 +1842,13 @@ ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs)
     }
 
 finish:
-    SAFE_RELEASE(kexts);
+    SAFE_RELEASE(unauthenticatedKexts);
+    SAFE_RELEASE(authenticKexts);
     SAFE_RELEASE(directoryValues);
     SAFE_RELEASE(personalities);
 
     OSKextSetArchitecture(startArch);
+    toolArgs->authenticationOptions.isCacheLoad = true;
 
     return result;
 }
@@ -1840,6 +1868,12 @@ ExitStatus updateDirectoryCaches(
         goto finish;
     }
 
+    /* The identifier cache is insecure, so no need to check for authentic kexts here.
+     * The bundle identifier cache is only used to speed up lookup of kexts by identifier
+     * in IOKit.  Lookups by identifier result in an OSKext object, but  any attempt
+     * to load the kext or its personalities will result in the kext being authenticated
+     * in that environment.
+     */
     if (!_OSKextWriteIdentifierCacheForKextsInDirectory(
                 kexts, folderURL, /* force? */ true)) {
         result = EX_OSERR;

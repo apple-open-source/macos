@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <Security/Authorization.h>
 #include <Security/SecBase.h>
+#include <dispatch/dispatch.h>
 
 //
 // In a tool launched via AuthorizationCopyPrivilegedReference, retrieve a copy
@@ -43,26 +44,39 @@ OSStatus AuthorizationCopyPrivilegedReference(AuthorizationRef *authorization,
 
 	// retrieve hex form of external form from environment
 	const char *mboxFdText = getenv("__AUTHORIZATION");
-	if (!mboxFdText)
+	if (!mboxFdText) {
 		return errAuthorizationInvalidRef;
+	}
 
-    // retrieve mailbox file and read external form
-    AuthorizationExternalForm extForm;
-    int fd;
-    if (sscanf(mboxFdText, "auth %d", &fd) != 1)
-        return errAuthorizationInvalidRef;
-    if (lseek(fd, 0, SEEK_SET) ||
-            read(fd, &extForm, sizeof(extForm)) != sizeof(extForm)) {
-        close(fd);
-        return errAuthorizationInvalidRef;
-    }
+	static AuthorizationExternalForm extForm;
+	static OSStatus result = errAuthorizationInvalidRef;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		// retrieve the pipe and read external form
+		int fd;
+		if (sscanf(mboxFdText, "auth %d", &fd) != 1) {
+			return;
+		}
+		ssize_t numOfBytes = read(fd, &extForm, sizeof(extForm));
+		close(fd);
+		if (numOfBytes == sizeof(extForm)) {
+			result = errAuthorizationSuccess;
+		}
+	});
+
+	if (result) {
+		// we had some trouble with reading the extform
+		return result;
+	}
 
 	// internalize the authorization
 	AuthorizationRef auth;
 	if (OSStatus error = AuthorizationCreateFromExternalForm(&extForm, &auth))
 		return error;
 
-	// well, here you go
-	*authorization = auth;
-	return errSecSuccess;
+	if (authorization) {
+		*authorization = auth;
+	}
+
+	return errAuthorizationSuccess;
 }

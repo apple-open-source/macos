@@ -6,5 +6,9 @@
 	<string>com.apple.swcagent</string>
 	<key>com.apple.private.associated-domains</key>
 	<true/>
+	<key>com.apple.private.tcc.allow</key>
+	<array>
+		<string>kTCCServiceFaceID</string>
+	</array>
 </dict>
 </plist>

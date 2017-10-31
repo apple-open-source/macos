@@ -3010,7 +3010,7 @@ bool _SecServerRollKeys(bool force, SecurityClient *client, CFErrorRef *error) {
 }
 
 static bool
-InitialSyncItems(CFMutableArrayRef items, bool limitToCurrent, CFStringRef agrp, const SecDbClass *qclass, CFErrorRef *error)
+InitialSyncItems(CFMutableArrayRef items, bool limitToCurrent, CFStringRef agrp, CFStringRef svce, const SecDbClass *qclass, CFErrorRef *error)
 {
     bool result = false;
     Query *q = NULL;
@@ -3025,6 +3025,8 @@ InitialSyncItems(CFMutableArrayRef items, bool limitToCurrent, CFStringRef agrp,
     query_add_attribute(kSecAttrAccessGroup, agrp, q);
     query_add_attribute(kSecAttrSynchronizable, kCFBooleanTrue, q);
     query_add_attribute(kSecAttrTombstone, kCFBooleanFalse, q);
+    if (svce)
+        query_add_attribute(kSecAttrService, svce, q);
 
     result = kc_with_dbt(false, error, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, error, ^{
@@ -3039,11 +3041,11 @@ InitialSyncItems(CFMutableArrayRef items, bool limitToCurrent, CFStringRef agrp,
                 CFMutableDictionaryRef attrs = SecDbItemCopyPListWithMask(item, kSecDbSyncFlag, &error3);
                 if (attrs) {
                     int match = true;
-                    CFStringRef vwht = CFDictionaryGetValue(attrs, kSecAttrSyncViewHint);
+                    CFStringRef itemvwht = CFDictionaryGetValue(attrs, kSecAttrSyncViewHint);
                     /*
                      * Saying its a SOS viewhint is really not the right answer post Triangle
                      */
-                    if (isString(vwht) && !SOSViewInSOSSystem(vwht)) {
+                    if (isString(itemvwht) && !SOSViewInSOSSystem(itemvwht)) {
                         match = false;
                     }
                     /*
@@ -3090,16 +3092,23 @@ _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error)
     CFMutableArrayRef items = CFArrayCreateMutableForCFTypes(NULL);
 
     if (flags & SecServerInitialSyncCredentialFlagTLK) {
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.security.ckks"), inet_class(), error), fail,
-                       secerror("failed to collect PCS-inet keys: %@", error ? *error : NULL));
+        require_action(InitialSyncItems(items, false, CFSTR("com.apple.security.ckks"), NULL, inet_class(), error), fail,
+                       secerror("failed to collect CKKS-inet keys: %@", error ? *error : NULL));
     }
     if (flags & SecServerInitialSyncCredentialFlagPCS) {
         bool onlyCurrent = !(flags & SecServerInitialSyncCredentialFlagPCSNonCurrent);
 
-        require_action(InitialSyncItems(items, false, CFSTR("com.apple.ProtectedCloudStorage"), genp_class(), error), fail,
+        require_action(InitialSyncItems(items, false, CFSTR("com.apple.ProtectedCloudStorage"), NULL, genp_class(), error), fail,
+                       secerror("failed to collect PCS-genp keys: %@", error ? *error : NULL));
+        require_action(InitialSyncItems(items, onlyCurrent, CFSTR("com.apple.ProtectedCloudStorage"), NULL, inet_class(), error), fail,
                        secerror("failed to collect PCS-inet keys: %@", error ? *error : NULL));
-        require_action(InitialSyncItems(items, onlyCurrent, CFSTR("com.apple.ProtectedCloudStorage"), inet_class(), error), fail,
-                       secerror("failed to collect PCS-inet keys: %@", error ? *error : NULL));
+    }
+    if (flags & SecServerInitialSyncCredentialFlagBluetoothMigration) {
+        require_action(InitialSyncItems(items, false, CFSTR("com.apple.nanoregistry.migration"), NULL, genp_class(), error), fail,
+                       secerror("failed to collect com.apple.nanoregistry.migration-genp item: %@", error ? *error : NULL));
+        require_action(InitialSyncItems(items, false, CFSTR("com.apple.bluetooth"), CFSTR("BluetoothLESync"), genp_class(), error), fail,
+                       secerror("failed to collect com.apple.bluetooth-genp item: %@", error ? *error : NULL));
+
     }
 
 fail:

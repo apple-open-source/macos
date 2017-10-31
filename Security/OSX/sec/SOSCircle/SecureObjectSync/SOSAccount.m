@@ -719,6 +719,9 @@ static bool Flush(CFErrorRef *error) {
         isflags |= SecServerInitialSyncCredentialFlagPCS;
     if (flags & SOSControlInitialSyncFlagPCSNonCurrent)
         isflags |= SecServerInitialSyncCredentialFlagPCSNonCurrent;
+    if (flags & SOSControlInitialSyncFlagBluetoothMigration)
+        isflags |= SecServerInitialSyncCredentialFlagBluetoothMigration;
+
 
     NSArray *array = CFBridgingRelease(_SecServerCopyInitialSyncCredentials(isflags, &error));
     complete(array, (__bridge NSError *)error);

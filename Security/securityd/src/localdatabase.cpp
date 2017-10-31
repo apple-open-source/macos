@@ -200,7 +200,7 @@ void LocalDatabase::wrapKey(const Context &context, const AccessCredentials *cre
 {
     keyToBeWrapped.validate(context.algorithm() == CSSM_ALGID_NONE ?
             CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR : CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED,
-        cred);
+                            cred, &keyToBeWrapped.database());
     if (wrappingKey) {
         context.replace(CSSM_ATTRIBUTE_KEY, myKey(*wrappingKey).cssmKey());
 		wrappingKey->validate(CSSM_ACL_AUTHORIZATION_ENCRYPT, context);

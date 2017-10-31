@@ -323,13 +323,18 @@ exit:
 IOMemoryDescriptor * IOHIDResourceDeviceUserClient::createMemoryDescriptorFromInputArguments(
                                             IOExternalMethodArguments * arguments)
 {
-    IOMemoryDescriptor * report = NULL;
+    IOBufferMemoryDescriptor * report = NULL;
     
     if ( arguments->structureInputDescriptor ) {
-        report = arguments->structureInputDescriptor;
-        report->retain();
+        IOByteCount length = arguments->structureInputDescriptor->getLength();
+        
+        report = IOBufferMemoryDescriptor::withCapacity(length, kIODirectionOut);
+        
+        arguments->structureInputDescriptor->prepare();
+        arguments->structureInputDescriptor->readBytes(0, report->getBytesNoCopy(), length);
+        arguments->structureInputDescriptor->complete();
     } else {
-        report = IOMemoryDescriptor::withAddress((void *)arguments->structureInput, arguments->structureInputSize, kIODirectionOut);
+        report = IOBufferMemoryDescriptor::withBytes(arguments->structureInput, arguments->structureInputSize, kIODirectionOut);
     }
     
     return report;

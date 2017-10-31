@@ -36,6 +36,15 @@
 #define kSMCNotifyAdapterDetailsChange 0x6
 #endif
 
+#define ASSERT_GATED() \
+do {  \
+    if (fWorkLoop->inGate() != true) {   \
+        panic("AppleSmartBattery: not inside workloop gate");  \
+    } \
+} while(false)
+
+
+
 uint32_t gBMDebugFlags = (BM_LOG_LEVEL0 | BM_LOG_LEVEL1);
 bool gDebugAllowed = true;
 /*
@@ -74,7 +83,8 @@ bool AppleSmartBatteryManager::start(IOService *provider)
     }
     
     PE_parse_boot_argn("batman", &gBMDebugFlags, sizeof(gBMDebugFlags));
-    
+
+
 
     fProvider = OSDynamicCast(IOSMBusController, provider);
     if (!fProvider) {
@@ -83,7 +93,12 @@ bool AppleSmartBatteryManager::start(IOService *provider)
     } else {
         BM_LOG1("Provider is IOSMBusController\n");
     }
-    
+
+    fWorkLoop = fProvider->getWorkLoop();
+    if (!fWorkLoop) {
+        return false;
+    }
+
     fSmbus = new SmbusHandler;
     if (!fSmbus) {
         BM_ERRLOG("Failed to instantiate SMBus Handler\n");
@@ -96,11 +111,6 @@ bool AppleSmartBatteryManager::start(IOService *provider)
     setProperty(gIOUserClientClassKey, (OSObject *) ucClassName);
     ucClassName->release();
     
-    fWorkLoop = IOWorkLoop::workLoop();
-    if (!fWorkLoop) {
-        return false;
-    }
-
     // Command gate for SmartBatteryManager
     fManagerGate = IOCommandGate::commandGate(this);
     if (!fManagerGate) {
@@ -158,21 +168,14 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
                                                               IOByteCount *outSize)    
 {
 
-    Action gatedHandler = (IOCommandGate::Action)OSMemberFunctionCast(IOCommandGate::Action, this, &AppleSmartBatteryManager::performExternalTransactionGated);
-    
-    return fManagerGate->runAction(gatedHandler, in, out, (void*)inSize, outSize);
-    
-}
-
-// This function blocks the thread until command is completed
-IOReturn AppleSmartBatteryManager::performExternalTransactionGated(void *in,  void *out, IOByteCount inSize, IOByteCount *outSize)
-{
-    while (fSmbusCommandInProgress) {
-        fManagerGate->commandWakeup(&fSmbusCommandInProgress, true);
+    if (!fWorkLoop->inGate()) {
+        Action gatedHandler = (IOCommandGate::Action)OSMemberFunctionCast(IOCommandGate::Action, this, &AppleSmartBatteryManager::performExternalTransaction);
+        return fWorkLoop->runAction( gatedHandler, this, in, out, (void*)inSize, outSize);
     }
-    fSmbusCommandInProgress = true;
-    
+
+    // This call blocks the thread until command is completed
     return fSmbus->smbusExternalTransaction(in, out, inSize, outSize);
+
 }
 
 
@@ -182,37 +185,18 @@ IOReturn AppleSmartBatteryManager::performExternalTransactionGated(void *in,  vo
  * Called by smart battery children
  */
 
-IOReturn AppleSmartBatteryManager::smbusCompletionHandlerGated(ASBMgrTransactionCompletion *completion, OSObject **target, void **ref)
-{
-    *target = fAsbmTarget;
-    *ref = fAsbmReference;
-    *completion = fAsbmCompletion;
-    
-    fSmbusCommandInProgress = false;
-    fManagerGate->commandWakeup(&fSmbusCommandInProgress);
-    
-    return kIOReturnSuccess;
-}
-
-
 IOReturn AppleSmartBatteryManager::smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *dataBuf)
 {
-    ASBMgrTransactionCompletion clientHandler;
-    OSObject                    *target;
-    void                        *clientRef;
     uint8_t                     inData[MAX_SMBUS_DATA_SIZE];
 
+    ASSERT_GATED();
     bzero(inData, sizeof(inData));
     if (byteCount) {
         memcpy(inData, dataBuf, (byteCount < MAX_SMBUS_DATA_SIZE) ? byteCount : MAX_SMBUS_DATA_SIZE);
     }
 
-    Action gatedHandler = (IOCommandGate::Action)OSMemberFunctionCast(
-            IOCommandGate::Action, this, &AppleSmartBatteryManager::smbusCompletionHandlerGated);
-    
-    fManagerGate->runAction(gatedHandler, &clientHandler, &target, &clientRef);
+    fAsbmCompletion(fAsbmTarget, fAsbmReference, status, byteCount, inData);
 
-    clientHandler(target, clientRef, status, byteCount, inData);
     
     return kIOReturnSuccess;
 }
@@ -223,10 +207,7 @@ IOReturn AppleSmartBatteryManager::performSmbusTransactionGated(
                                                                 OSObject *target, void *ref)
 {
     IOReturn ret = kIOReturnSuccess;
-    while (fSmbusCommandInProgress) {
-        fManagerGate->commandSleep(&fSmbusCommandInProgress);
-    }
-    fSmbusCommandInProgress = true;
+    ASSERT_GATED();
     
     // Save the incoming params
     fAsbmTarget = target;
@@ -235,11 +216,6 @@ IOReturn AppleSmartBatteryManager::performSmbusTransactionGated(
     
     ret = fSmbus->performTransaction(req, OSMemberFunctionCast(ASBMgrTransactionCompletion, this,
                                                          &AppleSmartBatteryManager::smbusCompletionHandler), this, NULL);
-    if (ret != kIOReturnSuccess) {
-        fSmbusCommandInProgress = false;
-        fManagerGate->commandWakeup(&fSmbusCommandInProgress);
-    }
-    
     return ret;
 }
 
@@ -452,6 +428,27 @@ void AppleSmartBatteryManager::handleFullDischarge(void)
 #endif
 }
 
+
+IOReturn AppleSmartBatteryManager::requestExclusiveSMBusAccessGated(bool request)
+{
+    if( request && fExclusiveUserClient) {
+        /* Oops - a second client reaching for exclusive access.
+         * This shouldn't happen.
+         */
+        return kIOReturnBusy;
+    }
+
+    fExclusiveUserClient = request;
+
+    fSmbus->handleExclusiveAccess(request);
+
+    if (!fExclusiveUserClient) {
+        requestPoll(kFull);
+    }
+
+    return kIOReturnSuccess;
+}
+
 /*
  * requestExclusiveSMBusAcess
  * 
@@ -463,28 +460,14 @@ void AppleSmartBatteryManager::handleFullDischarge(void)
 bool AppleSmartBatteryManager::requestExclusiveSMBusAccess(
     bool request)
 {
-    if( request && fExclusiveUserClient) {
-        /* Oops - a second client reaching for exclusive access.
-         * This shouldn't happen.
-         */
-        return false;
-    }
-
-    fExclusiveUserClient = request;
-
     /* Signal our driver, and the SMC firmware to either:
         - stop communicating with the battery
         - resume communications
      */
-    fManagerGate->runAction(
-                    OSMemberFunctionCast( 
-                        IOCommandGate::Action, this,
-                        &SmbusHandler::handleExclusiveAccess),
-                    (void *)request, NULL, NULL, NULL);
+    Action gatedHandler = (IOCommandGate::Action)OSMemberFunctionCast(
+                              IOCommandGate::Action, this, &AppleSmartBatteryManager::requestExclusiveSMBusAccessGated);
+    return  (fManagerGate->runAction(gatedHandler, (void *)request) == kIOReturnSuccess) ? true : false;
 
-    if (!fExclusiveUserClient) {
-        requestPoll(kFull);
-    }
 
     return true;
 }

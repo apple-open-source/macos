@@ -81,7 +81,12 @@ typedef WBSAutoFillDataClasses (*WBUAutoFillGetEnabledDataClasses_f)(void);
 #include <xpc/connection_private.h>
 #include <AssertMacros.h>
 
+#if TARGET_OS_IOS
 #import <LocalAuthentication/LocalAuthentication.h>
+#import <LocalAuthentication/LAContext+Private.h>
+#import <MobileGestalt.h>
+#import <ManagedConfiguration/MCProfileConnection.h>
+#endif
 
 static NSString *swca_string_table = @"SharedWebCredentials";
 
@@ -703,15 +708,24 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
                     CFTypeRef result = NULL;
                     // select a dictionary from an input array of dictionaries
                     if (swca_select_item(items, client, accessGroups, &result, &error) && result) {
-                        LAContext *ctx = [LAContext new];
-                        NSString *subTitle = NSLocalizedStringFromTableInBundle(@"SWC_FILLPWD", swca_string_table, swca_get_security_bundle(), nil);
-                        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-                        [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:subTitle reply:^(BOOL success, NSError * _Nullable laError) {
-                            if (success || ([laError.domain isEqual:LAErrorDomain] && laError.code == LAErrorPasscodeNotSet))
-                                SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
-                            dispatch_semaphore_signal(sema);
-                        }];
-                        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+#if TARGET_OS_IOS
+                        if (MGGetBoolAnswer(kMGOPearlIDCapability) &&
+                            [[MCProfileConnection sharedConnection] isAuthenticationBeforeAutoFillRequired]) {
+                            LAContext *ctx = [LAContext new];
+                            NSString *subTitle = NSLocalizedStringFromTableInBundle(@"SWC_FILLPWD", swca_string_table, swca_get_security_bundle(), nil);
+                            dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+                            [ctx evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:subTitle reply:^(BOOL success, NSError * _Nullable laError) {
+                                if (success || ([laError.domain isEqual:LAErrorDomain] && laError.code == LAErrorPasscodeNotSet))
+                                    SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+                                dispatch_semaphore_signal(sema);
+                            }];
+                            dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+                        } else {
+#endif
+                            SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
+#if TARGET_OS_IOS
+                        }
+#endif
                         CFRelease(result);
                     }
                     CFRelease(items);

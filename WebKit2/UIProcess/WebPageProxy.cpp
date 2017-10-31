@@ -3191,21 +3191,29 @@ void WebPageProxy::didReceiveServerRedirectForProvisionalLoadForFrame(uint64_t f
         m_loaderClient->didReceiveServerRedirectForProvisionalLoadForFrame(*this, *frame, navigation.get(), m_process->transformHandlesToObjects(userData.object()).get());
 }
 
-void WebPageProxy::didPerformClientRedirectForLoadForFrame(uint64_t frameID, uint64_t navigationID)
+void WebPageProxy::willPerformClientRedirectForFrame(uint64_t frameID, const String& url, double delay)
 {
     PageClientProtector protector(m_pageClient);
 
     WebFrameProxy* frame = m_process->webFrame(frameID);
     MESSAGE_CHECK(frame);
 
-    // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the page cache.
-    RefPtr<API::Navigation> navigation;
-    if (frame->isMainFrame() && navigationID)
-        navigation = &navigationState().navigation(navigationID);
+    if (m_navigationClient) {
+        if (frame->isMainFrame())
+            m_navigationClient->willPerformClientRedirect(*this, url, delay);
+    }
+}
+
+void WebPageProxy::didCancelClientRedirectForFrame(uint64_t frameID)
+{
+    PageClientProtector protector(m_pageClient);
+
+    WebFrameProxy* frame = m_process->webFrame(frameID);
+    MESSAGE_CHECK(frame);
 
     if (m_navigationClient) {
         if (frame->isMainFrame())
-            m_navigationClient->didPerformClientRedirectForNavigation(*this, navigation.get());
+            m_navigationClient->didCancelClientRedirect(*this);
     }
 }
 
@@ -5498,8 +5506,6 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 #if ENABLE(POINTER_LOCK)
     requestPointerUnlock();
 #endif
-
-    m_avoidsUnsafeArea = true;
 }
 
 void WebPageProxy::resetStateAfterProcessExited()
@@ -6932,16 +6938,6 @@ void WebPageProxy::stopURLSchemeTask(uint64_t handlerIdentifier, uint64_t taskId
     ASSERT(iterator != m_urlSchemeHandlersByIdentifier.end());
 
     iterator->value->stopTask(*this, taskIdentifier);
-}
-
-void WebPageProxy::setAvoidsUnsafeArea(bool avoidsUnsafeArea)
-{
-    if (m_avoidsUnsafeArea == avoidsUnsafeArea)
-        return;
-
-    m_avoidsUnsafeArea = avoidsUnsafeArea;
-
-    m_pageClient.didChangeAvoidsUnsafeArea(avoidsUnsafeArea);
 }
 
 } // namespace WebKit

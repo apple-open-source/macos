@@ -11,20 +11,15 @@ runComplexTests()
   for i in *.sh
   do
     case $i in TEST*.sh) continue;; esac
-    if sh ./$i
-    then
-      passed=`expr $passed + 1`
-    else
-      failed=`expr $failed + 1`
-    fi
+    sh ./$i
   done
 }
 
 runSimpleTests()
 {
+  passed=`cat .passed`
+  failed=`cat .failed`
   only=$1
-  echo $passed >.passed
-  echo $failed >.failed
   cat TESTLIST | while read name input output options
   do
     case $name in
@@ -35,12 +30,11 @@ runSimpleTests()
     [ "$only" != "" -a "$name" != "$only" ] && continue
     if ./TESTonce $name $input $output "$options"
     then
-      passed=`expr $passed + 1`
       echo $passed >.passed
+      passed=`expr $passed + 1`
     else
-      echo "### command: tcpdump -r $input $options" >> failure-outputs.txt
-      failed=`expr $failed + 1`
       echo $failed >.failed
+      failed=`expr $failed + 1`
     fi
     [ "$only" != "" -a "$name" = "$only" ] && break
   done
@@ -49,6 +43,8 @@ runSimpleTests()
   failed=`cat .failed`
 }
 
+echo $passed >.passed
+echo $failed >.failed
 if [ $# -eq 0 ]
 then
   runComplexTests

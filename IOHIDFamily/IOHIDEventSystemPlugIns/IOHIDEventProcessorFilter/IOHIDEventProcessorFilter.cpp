@@ -667,6 +667,7 @@ void IOHIDEventProcessor::dispatchEvent(IOHIDEventRef event, bool async)
         return;
     
     if ( async ) {
+        CFRetain(event);
         dispatch_async(_queue, ^{
             HIDLogDebug("asynchronously dispatching event = %p", event);
             _eventCallback(_eventTarget, _eventContext, _service, event, 0);
@@ -676,7 +677,6 @@ void IOHIDEventProcessor::dispatchEvent(IOHIDEventRef event, bool async)
     else {
         HIDLogDebug("synchronously dispatching event = %p", event);
         _eventCallback(_eventTarget, _eventContext, _service, event, 0);
-        CFRelease(event);
     }
 }
 
@@ -1268,6 +1268,7 @@ void ButtonEvent::TEEnter(IOHIDEventRef event)
     dispatchEvent(terminalEvent, (event ? true : false));
     
     _lastActionTimestamp = IOHIDEventGetTimeStamp(terminalEvent);
+    CFRelease(terminalEvent);
     
     _timer->registerEventTimeout(this, nextTimeout);
     
@@ -1342,6 +1343,8 @@ void ButtonEvent::LPEnter(IOHIDEventRef event)
             
             TEEnter(event);
         }
+        
+        CFRelease(lpEvent);
     }
 }
 
@@ -1560,6 +1563,7 @@ void TapEvent::TEEnter(IOHIDEventRef event)
     // If there is an event being processed, asynchronously dispatch the synthetic event afterward.
     // Otherwise, synchronously dispatch the synthetic event.
     dispatchEvent(terminalEvent, (event ? true : false));
+    CFRelease(terminalEvent);
     
     // There is no tap longpress (for now). Stop event timer.
     _timer->registerEventTimeout(this, 0);

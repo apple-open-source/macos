@@ -153,6 +153,8 @@ static void LoadedKextCallback(
                                const void *object,
                                CFDictionaryRef userInfo );
 
+static void LoadLatestExcludeList(void);
+
 /*******************************************************************************
 *******************************************************************************/
 
@@ -241,6 +243,10 @@ int main(int argc, char * const * argv)
    /* Tell the IOCatalogue that we are ready to service load requests.
     */
     sendActiveToKernel();
+
+    // Before sending personalities and triggering matching, ensure
+    // the latest AKEL has been loaded.
+    LoadLatestExcludeList();
 
    /*****
     * Send the kext personalities to the kernel to trigger matching.
@@ -1033,6 +1039,39 @@ void releaseExtensions(
     return;
 }
 
+void LoadLatestExcludeList()
+{
+    OSReturn ret = 0;
+    OSKextRef akelKext = NULL;
+
+    OSKextLogCFString(/* kext */ NULL,
+                      kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
+                      CFSTR("Loading latest KextExcludeList."));
+
+    akelKext = OSKextGetKextWithIdentifier(CFSTR("com.apple.driver.KextExcludeList"));
+    if (!akelKext) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("Failed to find KextExcludeList."));
+        return;
+    }
+
+    if (!OSKextIsAuthentic(akelKext)) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("Failed to validate KextExcludeList."));
+        return;
+    }
+
+    ret = OSKextLoad(akelKext);
+    if (ret) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          CFSTR("Failed to load KextExcludeList: %d"), ret);
+        return;
+    }
+}
+
 /*******************************************************************************
 *******************************************************************************/
 void rescanExtensions(void)
@@ -1047,6 +1086,10 @@ void rescanExtensions(void)
 
     releaseExtensions(/* timer */ NULL, /* context */ NULL);
     readExtensions();
+
+    // Before sending personalities and triggering matching, ensure
+    // the latest AKEL has been loaded.
+    LoadLatestExcludeList();
     
     // need to trigger check_rebuild (in watchvol.c) for mkext, etc
     // perhaps via mach message to the notification port

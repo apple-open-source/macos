@@ -968,6 +968,10 @@
 		6C588D811EAA20AC00D7E322 /* RateLimiter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CC7F5B31E9F99EE0014AE63 /* RateLimiter.m */; };
 		6C5B36BA1E2F9B95008AD443 /* WirelessDiagnostics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C3D1E2537C6007F95E5 /* WirelessDiagnostics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		6C5B36C01E2F9BEA008AD443 /* WirelessDiagnostics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C3D1E2537C6007F95E5 /* WirelessDiagnostics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		6C869A751F50CAF400957298 /* SOSEnsureBackup.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C860C7A1F4F63DB004100A1 /* SOSEnsureBackup.m */; };
+		6C869A761F50CAF500957298 /* SOSEnsureBackup.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C860C7A1F4F63DB004100A1 /* SOSEnsureBackup.m */; };
+		6C869A791F54C37900957298 /* AWDKeychainSOSKeychainBackupFailed.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C869A771F54C2D700957298 /* AWDKeychainSOSKeychainBackupFailed.m */; };
+		6C869A7A1F54C37A00957298 /* AWDKeychainSOSKeychainBackupFailed.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C869A771F54C2D700957298 /* AWDKeychainSOSKeychainBackupFailed.m */; };
 		6C8CC3AB1E2F913C009025C5 /* AWDKeychainCKKSRateLimiterAggregatedScores.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C3446501E2534E800F9522B /* AWDKeychainCKKSRateLimiterAggregatedScores.m */; };
 		6C8CC3AC1E2F913C009025C5 /* AWDKeychainCKKSRateLimiterOverload.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C3446521E2534E800F9522B /* AWDKeychainCKKSRateLimiterOverload.m */; };
 		6C8CC3AD1E2F913C009025C5 /* AWDKeychainCKKSRateLimiterTopWriters.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C3446541E2534E800F9522B /* AWDKeychainCKKSRateLimiterTopWriters.m */; };
@@ -1214,7 +1218,6 @@
 		D40B6A9B1E2B690E00CD6EE5 /* SecuritydXPC.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E9A1D8085FC00865A7C /* SecuritydXPC.c */; };
 		D40B6A9D1E2B6A2700CD6EE5 /* login.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DCE4E8271D7A4F0E00AFB96E /* login.framework */; };
 		D40B6A9E1E2B6A6F00CD6EE5 /* libtrustd.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D4ADA3191E2B41670031CEA3 /* libtrustd.a */; };
-		D40C2C241E94342A009D793B /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CDA43D251DFCA0790038E038 /* AggregateDictionary.framework */; };
 		D41257D01E9410A300781F23 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D40B6A881E2B5F9900CD6EE5 /* Foundation.framework */; };
 		D41257D91E9412B800781F23 /* trustd.c in Sources */ = {isa = PBXBuildFile; fileRef = D4BEECE61E93093A00F76D1A /* trustd.c */; };
 		D41257DA1E9412DC00781F23 /* libtrustd.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D4ADA3191E2B41670031CEA3 /* libtrustd.a */; };
@@ -8825,6 +8828,10 @@
 		6C3446561E2534E800F9522B /* AWDMetricIds_Keychain.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AWDMetricIds_Keychain.h; path = analytics/awd/AWDMetricIds_Keychain.h; sourceTree = "<group>"; };
 		6C5232D41E3C183F00330DB1 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/CloudKit.framework; sourceTree = DEVELOPER_DIR; };
 		6C588D791EAA149F00D7E322 /* RateLimiterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RateLimiterTests.m; sourceTree = "<group>"; };
+		6C860C741F4F63AD004100A1 /* SOSEnsureBackup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSEnsureBackup.h; sourceTree = "<group>"; };
+		6C860C7A1F4F63DB004100A1 /* SOSEnsureBackup.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SOSEnsureBackup.m; sourceTree = "<group>"; };
+		6C869A771F54C2D700957298 /* AWDKeychainSOSKeychainBackupFailed.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = AWDKeychainSOSKeychainBackupFailed.m; path = analytics/awd/AWDKeychainSOSKeychainBackupFailed.m; sourceTree = "<group>"; };
+		6C869A781F54C2D700957298 /* AWDKeychainSOSKeychainBackupFailed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AWDKeychainSOSKeychainBackupFailed.h; path = analytics/awd/AWDKeychainSOSKeychainBackupFailed.h; sourceTree = "<group>"; };
 		6C9808611E788AEB00E70590 /* CKKSCloudKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CKKSCloudKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C98089D1E788AFD00E70590 /* CKKSCloudKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CKKSCloudKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CA2B9431E9F9F5700C43444 /* RateLimiter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RateLimiter.h; sourceTree = "<group>"; };
@@ -12483,7 +12490,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D40C2C241E94342A009D793B /* AggregateDictionary.framework in Frameworks */,
 				D41258011E94230400781F23 /* IOKit.framework in Frameworks */,
 				D41257E01E94136000781F23 /* libz.dylib in Frameworks */,
 				D41257DF1E94133600781F23 /* CFNetwork.framework in Frameworks */,
@@ -14170,6 +14176,8 @@
 		6C34464E1E2534D200F9522B /* AWD */ = {
 			isa = PBXGroup;
 			children = (
+				6C869A781F54C2D700957298 /* AWDKeychainSOSKeychainBackupFailed.h */,
+				6C869A771F54C2D700957298 /* AWDKeychainSOSKeychainBackupFailed.m */,
 				6CD8D3B11EB22114009AC7DC /* AWDKeychainSecDbMarkedCorrupt.h */,
 				6CD8D3B21EB22114009AC7DC /* AWDKeychainSecDbMarkedCorrupt.m */,
 				6C34464F1E2534E800F9522B /* AWDKeychainCKKSRateLimiterAggregatedScores.h */,
@@ -17445,6 +17453,8 @@
 				0CD8CB041ECA50780076F37F /* SOSPeerOTRTimer.m */,
 				0CD8CB0C1ECA50D10076F37F /* SOSPeerOTRTimer.h */,
 				DC24B5821DA420D700330B48 /* SOSPersist.h */,
+				6C860C741F4F63AD004100A1 /* SOSEnsureBackup.h */,
+				6C860C7A1F4F63DB004100A1 /* SOSEnsureBackup.m */,
 			);
 			name = Engine;
 			sourceTree = "<group>";
@@ -26794,6 +26804,8 @@
 				DCBDB3B81E57C82300B61300 /* CKKSKeychainView.m in Sources */,
 				DC222C5A1E034D1F00B09171 /* iCloudTrace.c in Sources */,
 				DC5BB5011E0C98320010F836 /* CKKSOutgoingQueueOperation.m in Sources */,
+				6C869A7A1F54C37A00957298 /* AWDKeychainSOSKeychainBackupFailed.m in Sources */,
+				6C869A761F50CAF500957298 /* SOSEnsureBackup.m in Sources */,
 				5269658E1E6A154800627F9D /* SecBackupKeybagEntry.m in Sources */,
 				DC222C5D1E034D1F00B09171 /* CKKSMirrorEntry.m in Sources */,
 				DC54DD101EA7D9E800108E92 /* CKKSManifestLeafRecord.m in Sources */,
@@ -26912,6 +26924,8 @@
 				5269658D1E6A154700627F9D /* SecBackupKeybagEntry.m in Sources */,
 				DC52E7D41D80BD1D00B0A59C /* iCloudTrace.c in Sources */,
 				DCEA5D871E2F14810089CF55 /* CKKSAPSReceiver.m in Sources */,
+				6C869A791F54C37900957298 /* AWDKeychainSOSKeychainBackupFailed.m in Sources */,
+				6C869A751F50CAF400957298 /* SOSEnsureBackup.m in Sources */,
 				DCEA5D571E2826DB0089CF55 /* CKKSSIV.m in Sources */,
 				6C8CC3AB1E2F913C009025C5 /* AWDKeychainCKKSRateLimiterAggregatedScores.m in Sources */,
 				DC9082C41EA0277600D0C1C5 /* CKKSZoneChangeFetcher.m in Sources */,
@@ -32987,6 +33001,8 @@
 					"$(OTHER_LDFLAGS)",
 					"-framework",
 					SpringBoardServices,
+					"-framework",
+					ManagedConfiguration,
 				);
 				PRODUCT_NAME = swcagent;
 			};
@@ -33003,6 +33019,8 @@
 					"$(OTHER_LDFLAGS)",
 					"-framework",
 					SpringBoardServices,
+					"-framework",
+					ManagedConfiguration,
 				);
 				PRODUCT_NAME = swcagent;
 			};

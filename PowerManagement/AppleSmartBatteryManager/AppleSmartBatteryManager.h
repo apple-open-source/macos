@@ -142,16 +142,12 @@ private:
 
     IOReturn performSmbusTransactionGated(ASBMgrRequest *req, OSObject *target, void *ref);
     IOReturn smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *data);
-    IOReturn smbusCompletionHandlerGated(ASBMgrTransactionCompletion *completion, OSObject **target, void **ref);
-
-    IOReturn performExternalTransactionGated(void *in,  void *out, IOByteCount inSize, IOByteCount *outSize);
-
+    IOReturn requestExclusiveSMBusAccessGated(bool request);
 
     
 private:
     IOSMBusController           * fProvider;
     SmbusHandler                * fSmbus;
-    bool                        fSmbusCommandInProgress;
     ASBMgrTransactionCompletion fAsbmCompletion;
     OSObject                    *fAsbmTarget;
     void                        *fAsbmReference;

@@ -1211,6 +1211,13 @@ Bangkok)•</data>
 # modifier bases we do not support, but other platforms do
 # family/fitz-3, TWO WOMEN HOLDING HANDS/fitz-4, WOMAN WITH BUNNY EARS/fitz-5, HANDSHAKE/fitz-6, WRESTLERS/fitz-12, space
 <data>•\U0001F46A\U0001F3FC•\U0001F46D\U0001F3FD•\U0001F46F\U0001F3FE•\U0001F91D\U0001F3FF•\U0001F93C\U0001F3FB•\u0020•</data>
+# updates in emoji 5.0
+# sled, fitz4, breast-feeding, breast-feeding+fitz5, adult, adult+fitz3, space
+<data>•\U0001F6F7•\U0001F3FD•\U0001F931•\U0001F931\U0001F3FE•\U0001F9D1•\U0001F9D1\U0001F3FC•\u0020•</data>
+# mage, make+fitz4, woman mage, man mage + fitz4, space
+<data>•\U0001F9D9•\U0001F9D9\U0001F3FD•\U0001F9D9\u200D\u2640\uFE0F•\U0001F9D9\U0001F3FD\u200D\u2642\uFE0F•\u0020•</data>
+# person climbing, person climbing+fitz4, woman climbing, man climbing + fitz4, space
+<data>•\U0001F9D7•\U0001F9D7\U0001F3FD•\U0001F9D7\u200D\u2640\uFE0F•\U0001F9D7\U0001F3FD\u200D\u2642\uFE0F•\u0020•</data>
 
 # flags1    AE AF AL AM AO AR AT
 <data>•\U0001F1E6\U0001F1EA•\U0001F1E6\U0001F1EB•\U0001F1E6\U0001F1F1•\U0001F1E6\U0001F1F2•\U0001F1E6\U0001F1F4•\U0001F1E6\U0001F1F7•\U0001F1E6\U0001F1F9•</data>
@@ -1248,6 +1255,8 @@ Bangkok)•</data>
 <data>•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•</data>
 # flagsXtnd AE AF AL AM AO AR
 <data>•\U0001F1E6\U0001F1EA\u200C•\U0001F1E6\U0001F1EB\u200C•\U0001F1E6\U0001F1F1\u200C•\U0001F1E6\U0001F1F2\u0300•\U0001F1E6\U0001F1F4\u20DE•\U0001F1E6\U0001F1F7\u200C•</data>
+# subregion flag tag sequences for England, Scotland
+<data>•\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F•\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F•\u0020•</data>
 
 <word>
 # woman zwj woman zwj girl zwj girl, woman/fitz-1-2 zwj woman/fitz-4 zwj boy/fitz-6
@@ -1287,6 +1296,13 @@ Bangkok)•</data>
 # modifier bases we do not support, but other platforms do
 # family/fitz-3, TWO WOMEN HOLDING HANDS/fitz-4, WOMAN WITH BUNNY EARS/fitz-5, HANDSHAKE/fitz-6, WRESTLERS/fitz-12, space
 <data>•\U0001F46A\U0001F3FC•\U0001F46D\U0001F3FD•\U0001F46F\U0001F3FE•\U0001F91D\U0001F3FF•\U0001F93C\U0001F3FB•\u0020•</data>
+# updates in emoji 5.0
+# sled, fitz4, breast-feeding, breast-feeding+fitz5, adult, adult+fitz3, space
+<data>•\U0001F6F7•\U0001F3FD•\U0001F931•\U0001F931\U0001F3FE•\U0001F9D1•\U0001F9D1\U0001F3FC•\u0020•</data>
+# mage, make+fitz4, woman mage, man mage + fitz4, space
+<data>•\U0001F9D9•\U0001F9D9\U0001F3FD•\U0001F9D9\u200D\u2640\uFE0F•\U0001F9D9\U0001F3FD\u200D\u2642\uFE0F•\u0020•</data>
+# person climbing, person climbing+fitz4, woman climbing, man climbing + fitz4, space
+<data>•\U0001F9D7•\U0001F9D7\U0001F3FD•\U0001F9D7\u200D\u2640\uFE0F•\U0001F9D7\U0001F3FD\u200D\u2642\uFE0F•\u0020•</data>
 
 # flags1    AE AF AL AM AO AR AT
 <data>•\U0001F1E6\U0001F1EA•\U0001F1E6\U0001F1EB•\U0001F1E6\U0001F1F1•\U0001F1E6\U0001F1F2•\U0001F1E6\U0001F1F4•\U0001F1E6\U0001F1F7•\U0001F1E6\U0001F1F9•</data>
@@ -1324,6 +1340,8 @@ Bangkok)•</data>
 <data>•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1EC\U0001F1E7•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•\U0001F1E7\U0001F1EC•</data>
 # flagsXtnd AE AF AL AM AO AR
 <data>•\U0001F1E6\U0001F1EA\u200C•\U0001F1E6\U0001F1EB\u200C•\U0001F1E6\U0001F1F1\u200C•\U0001F1E6\U0001F1F2\u0300•\U0001F1E6\U0001F1F4\u20DE•\U0001F1E6\U0001F1F7\u200C•</data>
+# subregion flag tag sequences for England, Scotland
+<data>•\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F•\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F•\u0020•</data>
 
 <line>
 # woman zwj woman zwj girl zwj girl
@@ -1363,6 +1381,13 @@ Bangkok)•</data>
 # modifier bases we do not support, but other platforms do
 # family/fitz-3, TWO WOMEN HOLDING HANDS/fitz-4, WOMAN WITH BUNNY EARS/fitz-5, HANDSHAKE/fitz-6, WRESTLERS/fitz-12 space
 <data>•\U0001F46A\U0001F3FC•\U0001F46D\U0001F3FD•\U0001F46F\U0001F3FE•\U0001F91D\U0001F3FF•\U0001F93C\U0001F3FB\u0020•</data>
+# updates in emoji 5.0
+# sled, fitz4, breast-feeding, breast-feeding+fitz5, adult, adult+fitz3, space
+<data>•\U0001F6F7•\U0001F3FD•\U0001F931•\U0001F931\U0001F3FE•\U0001F9D1•\U0001F9D1\U0001F3FC\u0020•</data>
+# mage, make+fitz4, woman mage, man mage + fitz4, space
+<data>•\U0001F9D9•\U0001F9D9\U0001F3FD•\U0001F9D9\u200D\u2640\uFE0F•\U0001F9D9\U0001F3FD\u200D\u2642\uFE0F\u0020•</data>
+# person climbing, person climbing+fitz4, woman climbing, man climbing + fitz4, space
+<data>•\U0001F9D7•\U0001F9D7\U0001F3FD•\U0001F9D7\u200D\u2640\uFE0F•\U0001F9D7\U0001F3FD\u200D\u2642\uFE0F\u0020•</data>
 
 # no special flags handling for line
 
@@ -1394,5 +1419,12 @@ Bangkok)•</data>
 # modifiers we do not support, but other platforms do
 # family/fitz-3, wrestlers/fitz-4, space
 <data>•\U0001F46A\U0001F3FC•\U0001F93C\U0001F3FD\u0020•</data>
+# updates in emoji 5.0
+# sled, fitz4, breast-feeding, breast-feeding+fitz5, adult, adult+fitz3, space
+<data>•\U0001F6F7•\U0001F3FD•\U0001F931•\U0001F931\U0001F3FE•\U0001F9D1•\U0001F9D1\U0001F3FC\u0020•</data>
+# mage, make+fitz4, woman mage, man mage + fitz4, space
+<data>•\U0001F9D9•\U0001F9D9\U0001F3FD•\U0001F9D9\u200D\u2640\uFE0F•\U0001F9D9\U0001F3FD\u200D\u2642\uFE0F\u0020•</data>
+# person climbing, person climbing+fitz4, woman climbing, man climbing + fitz4, space
+<data>•\U0001F9D7•\U0001F9D7\U0001F3FD•\U0001F9D7\u200D\u2640\uFE0F•\U0001F9D7\U0001F3FD\u200D\u2642\uFE0F\u0020•</data>
 
 # no special flags handling for line

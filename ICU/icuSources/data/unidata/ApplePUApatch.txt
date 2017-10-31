@@ -1,5 +1,5 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2017-04-18 11:34:02.000000000 -0700
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2017-04-19 20:59:33.000000000 -0700
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2017-06-25 17:52:21.000000000 -0700
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2017-08-16 16:34:59.000000000 -0700
 @@ -163,6 +163,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -19,7 +19,7 @@
  
  # ================================================
  
-@@ -914,6 +917,11 @@
+@@ -917,6 +920,11 @@
  AC00..D7A3    ; Alphabetic
  D7B0..D7C6    ; Alphabetic
  D7CB..D7FB    ; Alphabetic
@@ -31,16 +31,16 @@
  F900..FA6D    ; Alphabetic
  FA70..FAD9    ; Alphabetic
  FB00..FB06    ; Alphabetic
-@@ -1237,7 +1245,7 @@
- 2B820..2CEA1  ; Alphabetic
+@@ -1269,7 +1277,7 @@
+ 2CEB0..2EBE0  ; Alphabetic
  2F800..2FA1D  ; Alphabetic
  
--# Total code points: 118240
-+# Total code points: 118240+ApplePUA
+-# Total code points: 126629
++# Total code points: 126629+ApplePUA
  
  # ================================================
  
-@@ -3007,6 +3015,10 @@
+@@ -3041,6 +3049,10 @@
  ABE5          ; Case_Ignorable
  ABE8          ; Case_Ignorable
  ABED          ; Case_Ignorable
@@ -51,16 +51,16 @@
  FB1E          ; Case_Ignorable
  FBB2..FBC1    ; Case_Ignorable
  FE00..FE0F    ; Case_Ignorable
-@@ -3117,7 +3129,7 @@
+@@ -3165,7 +3177,7 @@
  E0020..E007F  ; Case_Ignorable
  E0100..E01EF  ; Case_Ignorable
  
--# Total code points: 2240
-+# Total code points: 2240+ApplePUA
+-# Total code points: 2314
++# Total code points: 2314+ApplePUA
  
  # ================================================
  
-@@ -9596,6 +9608,9 @@
+@@ -9746,6 +9758,9 @@
  ABE5          ; Grapheme_Extend
  ABE8          ; Grapheme_Extend
  ABED          ; Grapheme_Extend
@@ -70,16 +70,16 @@
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
  FE20..FE2F    ; Grapheme_Extend
-@@ -9692,7 +9707,7 @@
+@@ -9856,7 +9871,7 @@
  E0020..E007F  ; Grapheme_Extend
  E0100..E01EF  ; Grapheme_Extend
  
--# Total code points: 1828
-+# Total code points: 1828+ApplePUA
+-# Total code points: 1901
++# Total code points: 1901+ApplePUA
  
  # ================================================
  
-@@ -10731,6 +10746,10 @@
+@@ -10898,6 +10913,10 @@
  AC00..D7A3    ; Grapheme_Base
  D7B0..D7C6    ; Grapheme_Base
  D7CB..D7FB    ; Grapheme_Base
@@ -90,24 +90,24 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -11251,7 +11270,7 @@
- 2B820..2CEA1  ; Grapheme_Base
+@@ -11438,7 +11457,7 @@
+ 2CEB0..2EBE0  ; Grapheme_Base
  2F800..2FA1D  ; Grapheme_Base
  
--# Total code points: 126288
-+# Total code points: 126288+ApplePUA
+-# Total code points: 134733
++# Total code points: 134733+ApplePUA
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2017-04-18 11:34:02.000000000 -0700
-+++ icuSources/data/unidata/ppucd.txt	2017-04-19 21:00:42.000000000 -0700
-@@ -18588,8 +18588,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2017-06-25 17:52:21.000000000 -0700
++++ icuSources/data/unidata/ppucd.txt	2017-08-16 16:42:17.000000000 -0700
+@@ -19059,8 +19059,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;GCB=CN;lb=SG
  # DC00..DFFF Low Surrogates
  
--block;E000..F8FF;age=1.1;blk=PUA;ea=A;gc=Co
+-block;E000..F8FF;age=1.1;blk=PUA;ea=A;gc=Co;vo=U
 -# E000..F8FF Private Use Area
-+block;E000..F7F2;age=1.1;blk=PUA;ea=A;gc=Co
++block;E000..F7F2;age=1.1;blk=PUA;ea=A;gc=Co;vo=U
 +# E000..F7F2 Private Use Area
 +
 +# Apple Corp Chars
@@ -149,11 +149,11 @@
 +cp;F8C1..F8D6;bc=L;ea=W;gc=Lo;lb=NS;Alpha;Gr_Base
 +cp;F8D7..F8FF;Gr_Base
  
- block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;XIDC;XIDS
+ block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;vo=U;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2017-04-18 11:34:02.000000000 -0700
-+++ icuSources/data/unidata/UnicodeData.txt	2017-04-19 21:04:53.000000000 -0700
-@@ -14932,7 +14932,65 @@
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2017-06-25 17:52:21.000000000 -0700
++++ icuSources/data/unidata/UnicodeData.txt	2017-08-15 22:13:06.000000000 -0700
+@@ -14968,7 +14968,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
  E000;<Private Use, First>;Co;0;L;;;;;N;;;;;

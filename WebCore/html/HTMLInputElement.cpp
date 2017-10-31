@@ -1117,6 +1117,11 @@ void HTMLInputElement::didDispatchClickEvent(Event& event, const InputElementCli
     m_inputType->didDispatchClick(&event, state);
 }
 
+void HTMLInputElement::didBlur()
+{
+    m_inputType->elementDidBlur();
+}
+
 void HTMLInputElement::defaultEventHandler(Event& event)
 {
     if (is<MouseEvent>(event) && event.type() == eventNames().clickEvent && downcast<MouseEvent>(event).button() == LeftButton) {

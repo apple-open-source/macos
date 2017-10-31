@@ -4,5 +4,7 @@
 <dict>
 	<key>com.apple.private.LocalAuthentication.ExtractCredential</key>
 	<true/>
+	<key>com.apple.keystore.console</key>
+	<true/>
 </dict>
 </plist>

@@ -74,6 +74,12 @@ else
 fi
 
 case "$ACTUAL_PLATFORM_NAME" in
+bridge*)
+    LOCALTIME="GMT"
+    ;;
+esac
+
+case "$ACTUAL_PLATFORM_NAME" in
 iphone*|appletv*|watch*|bridge*)
     mkdir -p "${PRIVATEDIR}/var/db"
     mkdir -p -m a+rx "${PRIVATEDIR}/var/db/timezone"

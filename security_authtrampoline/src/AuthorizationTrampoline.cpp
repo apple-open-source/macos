@@ -34,6 +34,13 @@
 
 #define EXECUTERIGHT kAuthorizationRightExecute
 
+//
+// A few names for clarity's sake
+//
+enum {
+	READ = 0,		// read end of standard UNIX pipe
+	WRITE = 1		// write end of standard UNIX pipe
+};
 
 static void fail(OSStatus cause) __attribute__ ((noreturn));
 
@@ -44,7 +51,7 @@ static void fail(OSStatus cause) __attribute__ ((noreturn));
 // Arguments:
 //	argv[0] = my name
 //	argv[1] = path to user tool
-//	argv[2] = "auth n", n=file descriptor of mailbox temp file
+//	argv[2] = "auth n", n=data pipe
 //	argv[3..n] = arguments to pass on
 //
 // File descriptors (set by fork/exec code in client):
@@ -65,25 +72,26 @@ int main(int argc, const char *argv[])
 	
 	// pick up arguments
 	const char *pathToTool = argv[1];
-	const char *mboxFdText = argv[2];
+	const char *pipeText = argv[2];
 	const char **restOfArguments = argv + 3;
 	secdebug("authtramp", "trampoline(%s,%s)", pathToTool, mboxFdText);
 
     // read the external form
     AuthorizationExternalForm extForm;
     int fd;
-    if (sscanf(mboxFdText, "auth %d", &fd) != 1)
+    if (sscanf(pipeText, "auth %d", &fd) != 1)
         return errAuthorizationInternal;
-    if (lseek(fd, 0, SEEK_SET) ||
-            read(fd, &extForm, sizeof(extForm)) != sizeof(extForm)) {
-        close(fd);
-        return errAuthorizationInternal;
+	ssize_t numOfBytes = read(fd, &extForm, sizeof(extForm));
+	close(fd);
+    if (numOfBytes != sizeof(extForm)) {
+        fail(errAuthorizationInternal);
     }
 
 	// internalize the authorization
 	AuthorizationRef auth;
-	if (OSStatus error = AuthorizationCreateFromExternalForm(&extForm, &auth))
+	if (OSStatus error = AuthorizationCreateFromExternalForm(&extForm, &auth)) {
 		fail(error);
+	}
 	secdebug("authtramp", "authorization recovered");
 	
 	// are we allowed to do this?
@@ -100,9 +108,25 @@ int main(int argc, const char *argv[])
 	
 	// let go of our authorization - the client tool will re-internalize it
 	AuthorizationFree(auth, kAuthorizationFlagDefaults);
-	
+
+	// make a data pipe
+	int dataPipe[2];
+	if (pipe(dataPipe)) {
+		secinfo("authtramp", "data pipe failure");
+		fail(errAuthorizationToolExecuteFailure);
+	}
+
+	if (write(dataPipe[WRITE], &extForm, sizeof(extForm)) != sizeof(extForm)) {
+		secinfo("authtramp", "fwrite data failed (errno=%d)", errno); // do not fail as only deprecated AuthorizationCopyPrivilegedReference relies on this
+	}
+	close(dataPipe[WRITE]);
+
+	char pipeFdText[20];
+	snprintf(pipeFdText, sizeof(pipeFdText), "auth %d", dataPipe[READ]);
+
+	close(dataPipe[WRITE]);
 	// put the external authorization form into the environment
-	setenv("__AUTHORIZATION", mboxFdText, true);
+	setenv("__AUTHORIZATION", pipeFdText, true);
 	setenv("_BASH_IMPLICIT_DASH_PEE", "-p", true);
 
 	// shuffle file descriptors
@@ -130,6 +154,6 @@ void fail(OSStatus cause)
 {
 	OSStatus tmp = h2n(cause);
 	write(1, &tmp, sizeof(tmp));	// ignore error - can't do anything if error
-	secdebug("authtramp", "trampoline aborting with status %ld", cause);
+	secinfo("authtramp", "trampoline aborting with status %d", (int)cause);
 	exit(1);
 }

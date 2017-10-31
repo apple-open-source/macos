@@ -311,17 +311,17 @@ bool AppleSmartBattery::initiateTransaction(const CommandStruct *cs)
     else {
         IOReturn ret;
         ASBMgrRequest req;
-        
+
         req.opType = cs->opType;
         req.address = cs->addr;
         req.command = cs->cmd;
         req.fullyDischarged = fFullyDischarged;
-        req.completionHandler = OSMemberFunctionCast(ASBMgrTransactionCompletion, 
+        req.completionHandler = OSMemberFunctionCast(ASBMgrTransactionCompletion,
                 this, &AppleSmartBattery::transactionCompletion);
-        
-        
-        ret = fProvider->performTransaction(&req, (OSObject *)this, (void *)(uintptr_t)cmd);
-    
+
+
+        ret = fProvider->performTransaction(&req, (OSObject *)this, (void *)cs);
+
         if (ret != kIOReturnSuccess) {
             BM_ERRLOG("Command 0x%x failed with error 0x%x\n", cmd, ret);
         }
@@ -329,6 +329,7 @@ bool AppleSmartBattery::initiateTransaction(const CommandStruct *cs)
     
     return true;
 }
+
 
 /******************************************************************************
  * AppleSmartBattery::initiateNextTransaction
@@ -574,6 +575,7 @@ void AppleSmartBattery::handleSetOverrideCapacity(uint16_t value, bool sticky)
     }
     if (sticky) {
         fCapacityOverride = true;
+        BM_LOG1("Capacity override is set to true\n");
     }
 
     setCurrentCapacity(value);
@@ -589,6 +591,7 @@ void AppleSmartBattery::handleSwitchToTrueCapacity(void)
     }
 
     fCapacityOverride = false;
+    BM_LOG1("Capacity override is set to false\n");
     return;
 }
 
@@ -746,11 +749,22 @@ bool AppleSmartBattery::handleSetItAndForgetIt(int state, int val, const uint8_t
 void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByteCount inCount, uint8_t *inData)
 {
     bool            transaction_success = (status == kIOReturnSuccess);
-    int             next_state = (int)(uintptr_t)ref;
+    uint32_t        next_state = kTransactionRestart;
     uint32_t        val = 0;
     OSNumber        *num = NULL;
-    uint32_t        cmd = (uint32_t)(uintptr_t)ref;
+    CommandStruct * cs = (CommandStruct *)ref;
+    uint32_t        cmd = kTransactionRestart;
+    uint32_t        smcKey = 0;
     
+
+    if (!fWorkLoop->inGate()) {
+        fWorkLoop->runAction(
+                OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::transactionCompletion),
+                this, ref, VOIDPTR(status), VOIDPTR(inCount), VOIDPTR(inData));
+        return;
+    }
+
+
 
     if (fCancelPolling) {
         goto abort;
@@ -759,6 +773,11 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
         BM_ERRLOG("Aborting transactions as system is sleeping\n");
         fPollRequestedInSleep = true;
         goto abort;
+    }
+
+    if (cs) {
+        next_state = cmd = cs->cmd;
+        smcKey = cs->smcKey;
     }
 
     if (cmd) {
@@ -776,7 +795,7 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
     if (!cmd || fRebootPolling)
     {
         // NULL cmd means we should start the state machine from scratch.
-        next_state = kTransactionRestart;
+        cmd = next_state = kTransactionRestart;
         fRebootPolling = false;
         BM_LOG1("Restarting poll type %d\n", fMachinePath);
     }
@@ -821,6 +840,7 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
                     acAttach_ts = 0;
                     if (rd) rd->receivePowerNotification(kIOPMSetACAdaptorConnected);
                 }
+                handleSwitchToTrueCapacity();
             }
 
             fACConnected = new_ac_connected;
@@ -939,8 +959,12 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
 
         fRemainingCapacity = val;
 
-        if (!fCapacityOverride)
+        if (!fCapacityOverride) {
             setCurrentCapacity(val);
+        }
+        else {
+            BM_LOG1("Capacity override is true\n");
+        }
 
         if (!fPermanentFailure && (0 == fRemainingCapacity))
         {
@@ -954,8 +978,11 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
 
         fFullChargeCapacity = val;
 
-        if (!fMaxCapacityOverride) {
+        if (!fCapacityOverride) {
             setMaxCapacity(val);
+        }
+        else {
+            BM_LOG1("Capacity override is true\n");
         }
 
         break;

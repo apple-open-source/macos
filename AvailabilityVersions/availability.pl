@@ -27,6 +27,7 @@ my @macosx_versions = (
     "10.12.2",
     "10.12.4",
     "10.13",
+    "10.13.1",
 );
 
 my @ios_versions = (
@@ -60,6 +61,7 @@ my @ios_versions = (
     "10.2",
     "10.3",
     "11.0",
+    "11.1",
 );
 
 my @appletvos_versions = (
@@ -71,6 +73,7 @@ my @appletvos_versions = (
     "10.1",
     "10.2",
     "11.0",
+    "11.1",
 );
 
 my @watchos_versions = (
@@ -83,6 +86,7 @@ my @watchos_versions = (
     "3.1.1",
     "3.2",
     "4.0",
+    "4.1",
 );
 
 my @bridgeos_versions = (

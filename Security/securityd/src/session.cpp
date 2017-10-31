@@ -177,10 +177,18 @@ void Session::updateAudit() const
     mAudit = info;
 }
 
-void Session::verifyKeyStorePassphrase(int32_t retries)
+// Second and third arguments defaults to false
+void Session::verifyKeyStorePassphrase(int32_t retries, bool useForACLFallback, const char *itemname)
 {
     QueryKeybagPassphrase keybagQuery(*this, retries);
     keybagQuery.inferHints(Server::process());
+    
+    // Parasitic takeover to enable user confirmation when ACL validation ends up without a database
+    if (useForACLFallback) {
+        keybagQuery.addHint("acl-fallback", &useForACLFallback, sizeof(useForACLFallback));
+        keybagQuery.addHint("keychain-item-name", itemname, itemname ? (uint32_t)strlen(itemname) : 0, 0);
+    }
+    
     if (keybagQuery.query() != SecurityAgent::noReason) {
         CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
     }

@@ -46,6 +46,9 @@
 #include <xpc/private.h>
 #include "securityd_service/securityd_service/securityd_service_client.h"
 
+// Includes for <rdar://problem/34677969> Always require the user's password on keychain approval dialogs
+#include "server.h"
+
 #define SECURITYAGENT_BOOTSTRAP_NAME_BASE               "com.apple.security.agent"
 #define SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE   "com.apple.security.agent.login"
 
@@ -486,7 +489,9 @@ QueryKeychainUse::QueryKeychainUse(bool needPass, const Database *db)
 {
 	// if passphrase checking requested, save KeychainDatabase reference
 	// (will quietly disable check if db isn't a keychain)
-	if (needPass)
+
+    // Always require password, <rdar://problem/34677969> Always require the user's password on keychain approval dialogs
+	// if (needPass)
 		mPassphraseCheck = dynamic_cast<const KeychainDatabase *>(db);
 
     setTerminateOnSleep(true);
@@ -506,7 +511,7 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 
 	// item name into hints
 
-	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? (uint32_t)strlen(description) : 0, const_cast<char*>(description))));
+    hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? (uint32_t)strlen(description) : 0, const_cast<char*>(description))));
 
 	// keychain name into hints
 	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? (uint32_t)strlen(database) : 0, const_cast<char*>(database))));
@@ -548,19 +553,28 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 			passwordItem->getCssmData(data);
 		}
 		while ((reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase)));
+        
+        readChoice();
 	}
 	else
 	{
-		create("builtin", "confirm-access");
-        setInput(hints, context);
-		invoke();
+//        create("builtin", "confirm-access");
+//        setInput(hints, context);
+//        invoke();
+        
+        // This is a hack to support <rdar://problem/34677969>, we can never simply prompt for confirmation
+        secerror("ACL validation fallback case! Must ask user for account password because we have no database");
+        Session &session = Server::session();
+        try{
+            session.verifyKeyStorePassphrase(1, true, description);
+        } catch (...) {
+            return SecurityAgent::invalidPassphrase;
+        }
+        SecurityAgentXPCQuery::allow = true;
 	}
-
-    readChoice();
 
 	return reason;
 }
-
 
 //
 // Obtain passphrases and submit them to the accept() method until it is accepted

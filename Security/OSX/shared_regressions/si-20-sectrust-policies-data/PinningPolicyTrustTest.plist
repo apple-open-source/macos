@@ -2856,5 +2856,26 @@
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>BAA_UCRT</string>
+		<key>MinorTestName</key>
+		<string>Positive</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.85</string>
+		</dict>
+		<key>Leaf</key>
+		<string>baa_ucrt_leaf</string>
+		<key>Intermediates</key>
+		<string>baa_user_subca1</string>
+		<key>Anchors</key>
+		<string>baa_user_root</string>
+		<key>VerifyDate</key>
+		<date>2017-08-10T06:00:00Z</date>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+	</dict>
 </array>
 </plist>

@@ -187,8 +187,11 @@ EAPTLSSecTrustSaveExceptionsBinding(SecTrustRef trust,
  *   Finds a stored trust exceptions object for the given domain, identifier,
  *   and server_cert_hash.  If it exists, applies the exceptions to the given
  *   trust object.
+ * Returns:
+ *   TRUE if the trust exception is successfully applied,
+ *   FALSE otherwise.
  */
-void
+bool
 EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain, 
 				     CFStringRef identifier,
 				     CFStringRef server_cert_hash);

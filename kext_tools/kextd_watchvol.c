@@ -326,8 +326,7 @@ int kextd_watch_volumes(int sourcePriority)
     if (!sAutoUpdateDelayer) {
         goto finish;
     }
-    CFRunLoopAddTimer(CFRunLoopGetCurrent(), sAutoUpdateDelayer,
-                        kCFRunLoopDefaultMode);
+    CFRunLoopAddTimer(rl, sAutoUpdateDelayer, kCFRunLoopDefaultMode);
     CFRelease(sAutoUpdateDelayer);        // later self-invalidation will free
 
     // if (signal(SIGCHLD, SIG_IGN) == SIG_ERR)  goto finish;
@@ -1194,6 +1193,28 @@ is_dadisk_busy(DADiskRef disk, void *ctx)
     if (!ddesc)     goto finish;
     volUUID = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumeUUIDKey);
     if (!volUUID)   goto finish;
+
+    // 34665360 - If a reboot / unmount happens exactly 5 minutes after boot,
+    // then kextd's auto update timer could fire and race with the unmount of the volume.
+    // The unmount(8)'s unmount(2) syscall blocks the stat(2) in check_rebuild() which
+    // is called via the 5 minute runloop timer. This would normally be OK, but the
+    // unmount also triggers a kext load which results in a system
+    // deadlock. Here, we are really getting a hint that the unmount is imminent, so we
+    // re-arm the timer to eliminate the race window (assuming the unmount happens within
+    // 5 minutes of this is_dadisk_busy call).
+    if (sAutoUpdateDelayer) {
+	    // cancel the existing timer (access should be serialized by the runloop)
+	    CFRunLoopTimerInvalidate(sAutoUpdateDelayer); // refcount -> 0
+	    sAutoUpdateDelayer = CFRunLoopTimerCreate(kCFAllocatorDefault,
+	                                              CFAbsoluteTimeGetCurrent() + kAutoUpdateDelay,
+	                                              0, 0, 0, checkAutoUpdate, NULL);
+	    if (sAutoUpdateDelayer) {
+		    CFRunLoopAddTimer(CFRunLoopGetCurrent(),
+		                      sAutoUpdateDelayer,
+		                      kCFRunLoopDefaultMode);
+		    CFRelease(sAutoUpdateDelayer); // later self-invalidation will free
+	    }
+    }
 
     result = -1;
     watched = (void*)CFDictionaryGetValue(sFsysWatchDict, volUUID);

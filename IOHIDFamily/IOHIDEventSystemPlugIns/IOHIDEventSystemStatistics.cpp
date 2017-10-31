@@ -513,7 +513,7 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESToggled250to500ms), hesStats.toggled_250_500ms);
     adclientKeys.SetValueForKey(CFSTR(kAggregateDictionaryCoverHESToggled500to1000ms), hesStats.toggled_500_1000ms);
     
-    ADClientBatchKeys(NULL, adclientKeys.Reference());
+    ADClientBatchKeys(adclientKeys.Reference(), NULL);
     
     if (logStrings) {
         for (int i = 0; i < CFArrayGetCount(logStrings); i++) {

@@ -20,8 +20,11 @@ enum {
 
 // Simple Metrics:
 // ---------------
-//    This component currently has no metrics compatible with the 'simple metric' API.
+//    The following metrics are compatible with the 'simple metric' API:
+enum {
 
+    AWDMetricId_Keychain_SOSKeychainBackupFailed = 0x600004
+};
 
 // General Metrics:
 // ----------------

@@ -119,8 +119,6 @@ struct PrintInfo;
 - (void)_showPasswordViewWithDocumentName:(NSString *)documentName passwordHandler:(void (^)(NSString *))passwordHandler;
 - (void)_hidePasswordView;
 
-- (void)_didChangeAvoidsUnsafeArea:(BOOL)avoidsUnsafeArea;
-
 - (void)_addShortcut:(id)sender;
 - (void)_arrowKey:(id)sender;
 - (void)_define:(id)sender;
@@ -143,6 +141,7 @@ struct PrintInfo;
 
 @property (nonatomic, readonly) BOOL _allowsDoubleTapGestures;
 @property (nonatomic, readonly) UIEdgeInsets _computedContentInset;
+@property (nonatomic, readonly) UIEdgeInsets _computedUnobscuredSafeAreaInset;
 #endif
 
 - (WKPageRef)_pageForTesting;

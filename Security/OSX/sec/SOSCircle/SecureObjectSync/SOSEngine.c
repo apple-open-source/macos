@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,6 +67,8 @@
 #include <keychain/ckks/CKKS.h>
 
 #include <CoreFoundation/CFURL.h>
+
+#include <Security/SecureObjectSync/SOSEnsureBackup.h>
 
 //
 // MARK: SOSEngine The Keychain database with syncable keychain support.
@@ -174,6 +176,7 @@ static bool SOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
 #if !TARGET_IPHONE_SIMULATOR
 static bool SOSEngineDeleteV0State(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 #endif
+
 static CFStringRef SOSPeerIDArrayCreateString(CFArrayRef peerIDs) {
     return peerIDs ? CFStringCreateByCombiningStrings(kCFAllocatorDefault, peerIDs, CFSTR(" ")) : CFSTR("");
 }
@@ -2888,6 +2891,10 @@ bool SOSEngineSetPeerConfirmedManifest(SOSEngineRef engine, CFStringRef backupNa
         SOSPeerSetSendObjects(peer, false);
         // Write data for this peer if we can, technically not needed for non legacy protocol support all the time.
         ok = SOSEngineWriteToBackup_locked(engine, peer, true, &dirty, &incomplete, error);
+
+        if (!ok && error && SecErrorGetOSStatus(*error) == errSecInteractionNotAllowed) {
+            SOSEnsureBackupWhileUnlocked();
+        }
 
         CFReleaseSafe(confirmed);
         CFReleaseSafe(computedKeybagDigest);

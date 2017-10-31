@@ -142,8 +142,6 @@
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.driver.AppleFDEKeyStore</key>
-		<string>28.21</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>11.0</string>
 		<key>com.apple.kpi.dsep</key>

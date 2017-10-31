@@ -334,6 +334,25 @@ done:
 }
 
 static void
+_kb_invalidate_bag(service_user_record_t *ur, const char * bag_file)
+{
+    uint8_t *buf = NULL;
+    size_t buf_size = 0;
+
+    require(ur, out);
+
+    if (_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size)) {
+        require_action(buf && buf_size <= INT_MAX, out, os_log(OS_LOG_DEFAULT, "failed to read: %s", bag_file));
+        require_noerr_action(aks_invalidate_bag(buf, (int)buf_size), out, os_log(OS_LOG_DEFAULT, "failed to invalidate file: %s", bag_file));
+    } else {
+        os_log(OS_LOG_DEFAULT, "failed to read file: %s", bag_file);
+    }
+
+out:
+    free(buf);
+}
+
+static void
 _kb_rename_bag_on_disk(service_user_record_t * ur, const char * bag_file)
 {
     char new_file[PATH_MAX] = {};
@@ -342,6 +361,7 @@ _kb_rename_bag_on_disk(service_user_record_t * ur, const char * bag_file)
         snprintf(new_file, sizeof(new_file), "%s-invalid", bag_file);
         unlink(new_file);
         rename(bag_file, new_file);
+        _kb_invalidate_bag(ur, new_file);
         _clear_thread_credentials();
     }
 }
@@ -351,6 +371,7 @@ _kb_delete_bag_on_disk(service_user_record_t * ur, const char * bag_file)
 {
     if (bag_file) {
         _set_thread_credentials(ur);
+        _kb_invalidate_bag(ur, bag_file);
         unlink(bag_file);
         _clear_thread_credentials();
     }
@@ -526,11 +547,22 @@ _service_kb_load_uid(uid_t s_uid)
             require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done, rc = KB_GeneralError; _stage = 2);
             require_action_quiet(_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size), done, rc = KB_BagNotFound; _stage = 3);
             rc = aks_load_bag(buf, (int)buf_size, &private_handle);
-            if (rc == kIOReturnNotPermitted || rc == kAKSReturnBadDeviceKey) {
-                os_log(OS_LOG_DEFAULT, "bag load failed %d for uid (%i)", rc, s_uid);
-                _kb_rename_bag_on_disk(ur, bag_file);
-                rc = KB_BagNotFound;
-            }
+            switch (rc) {
+                case kAKSReturnBadDeviceKey:
+                case kAKSReturnBadSignature:
+                case kAKSReturnDecodeError:
+                case kAKSReturnPolicyInvalid:
+                    os_log(OS_LOG_DEFAULT, "bag load failed 0x%x for uid (%i), discarding", rc, s_uid);
+                    _kb_rename_bag_on_disk(ur, bag_file);
+                    rc = KB_BagNotFound;
+                    break;
+                case kAKSReturnSuccess:
+                    /* nothing to do */
+                    break;
+                default:
+                    os_log(OS_LOG_DEFAULT, "bag load failed 0x%x for uid (%i)", rc, s_uid);
+                    break;
+             }
             require_noerr(rc, done; _stage = 4);
             require_noerr(rc = _service_kb_set_system(private_handle, s_uid), done; _stage = 5);
         }

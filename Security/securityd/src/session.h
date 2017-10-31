@@ -112,7 +112,7 @@ protected:
 	void kill();
 
 public:
-    void verifyKeyStorePassphrase(int32_t retries);
+    void verifyKeyStorePassphrase(int32_t retries, bool useForACLFallback = false, const char *itemname = NULL);
     void changeKeyStorePassphrase();
     void resetKeyStorePassphrase(const CssmData &passphrase);
     service_context_t get_current_service_context();

@@ -287,6 +287,8 @@ ip6_print(netdissect_options *ndo, const u_char *bp, u_int length)
 	advance = sizeof(struct ip6_hdr);
 	nh = ip6->ip6_nxt;
 	while (cp < ndo->ndo_snapend && advance > 0) {
+		if (len < (u_int)advance)
+			goto trunc;
 		cp += advance;
 		len -= advance;
 
@@ -329,10 +331,15 @@ ip6_print(netdissect_options *ndo, const u_char *bp, u_int length)
 			 * mobility header.
 			 */
 			advance = mobility_print(ndo, cp, (const u_char *)ip6);
+			if (advance < 0)
+				return;
 			nh = *cp;
 			return;
 		case IPPROTO_ROUTING:
+			ND_TCHECK(*cp);
 			advance = rt6_print(ndo, cp, (const u_char *)ip6);
+			if (advance < 0)
+				return;
 			nh = *cp;
 			break;
 		case IPPROTO_SCTP:
@@ -352,12 +359,16 @@ ip6_print(netdissect_options *ndo, const u_char *bp, u_int length)
 			return;
 		case IPPROTO_AH:
 			advance = ah_print(ndo, cp);
+			if (advance < 0)
+				return;
 			nh = *cp;
 			break;
 		case IPPROTO_ESP:
 		    {
 			int enh, padlen;
 			advance = esp_print(ndo, cp, len, (const u_char *)ip6, &enh, &padlen);
+			if (advance < 0)
+				return;
 			nh = enh & 0xff;
 			len -= padlen;
 			break;

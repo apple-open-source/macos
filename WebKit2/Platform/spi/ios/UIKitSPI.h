@@ -396,6 +396,7 @@ typedef enum {
 
 @interface UIViewController (ViewService)
 - (pid_t)_hostProcessIdentifier;
+@property (readonly) NSString *_hostApplicationBundleIdentifier;
 @end
 
 @protocol UIViewControllerContextTransitioningEx <UIViewControllerContextTransitioning>
@@ -967,5 +968,7 @@ extern const NSString *UIPreviewDataDDContext;
 
 extern const NSString *UIPreviewDataAttachmentList;
 extern const NSString *UIPreviewDataAttachmentIndex;
+
+UIEdgeInsets UIEdgeInsetsAdd(UIEdgeInsets lhs, UIEdgeInsets rhs, UIRectEdge);
 
 WTF_EXTERN_C_END

@@ -375,9 +375,14 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 {
     secnotice("pairing", "acceptor packet 3");
 
+    const uint32_t initialSyncCredentialsFlags =
+        SOSControlInitialSyncFlagTLK|
+        SOSControlInitialSyncFlagPCS|
+        SOSControlInitialSyncFlagBluetoothMigration;
+
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         complete(true, NULL, error);
-    }] initialSyncCredentials:(SOSControlInitialSyncFlagTLK|SOSControlInitialSyncFlagPCS) complete:^(NSArray *items, NSError *error2) {
+    }] initialSyncCredentials:initialSyncCredentialsFlags complete:^(NSArray *items, NSError *error2) {
         NSMutableDictionary *reply = [NSMutableDictionary dictionary];
 
         secnotice("pairing", "acceptor initialSyncCredentials complete: items %u: %@", (unsigned)[items count], error2);

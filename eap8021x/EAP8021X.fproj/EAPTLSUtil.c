@@ -1226,22 +1226,25 @@ EAPTLSTrustExceptionsCopy(CFStringRef domain, CFStringRef identifier,
  *   and server_cert_hash.  If it exists, sets the exceptions on the given
  *   trust object.
  */
-void
+bool
 EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain, 
 				     CFStringRef identifier,
 				     CFStringRef server_cert_hash)
 {
     CFDataRef		exceptions;
+    bool 		ret = false;
 
     exceptions = EAPTLSTrustExceptionsCopy(domain, identifier,
 					   server_cert_hash);
     if (exceptions != NULL) {
 	if (SecTrustSetExceptions(trust, exceptions) == FALSE) {
 	    EAPLOG_FL(LOG_NOTICE, "SecTrustSetExceptions failed");
+	} else {
+	    ret = true;
 	}
     }
     my_CFRelease(&exceptions);
-    return;
+    return ret;
 }
 
 static SecTrustRef
@@ -1249,11 +1252,12 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 		      CFArrayRef server_certs,
 		      OSStatus * ret_status,
 		      EAPClientStatus * ret_client_status,
-		      bool * ret_allow_exceptions,
+		      bool * ret_exceptions_applied,
 		      bool * ret_has_server_certs_or_names,
 		      CFStringRef * ret_server_hash_str)
 {
     bool		allow_exceptions;
+    bool 		exceptions_applied = false;
     EAPClientStatus	client_status;
     CFIndex		count;
     CFStringRef		domain = NULL;
@@ -1324,15 +1328,15 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 
 	server = (SecCertificateRef)CFArrayGetValueAtIndex(server_certs, 0);
 	server_hash_str = EAPSecCertificateCopySHA1DigestString(server);
-	EAPTLSSecTrustApplyExceptionsBinding(trust, domain, identifier, 
+	exceptions_applied = EAPTLSSecTrustApplyExceptionsBinding(trust, domain, identifier,
 					     server_hash_str);
     }
     client_status = kEAPClientStatusOK;
 
  done:
     if (client_status == kEAPClientStatusOK) {
-	if (ret_allow_exceptions != NULL) {
-	    *ret_allow_exceptions = allow_exceptions;
+	if (ret_exceptions_applied != NULL) {
+	    *ret_exceptions_applied = exceptions_applied;
 	}
 	if (ret_has_server_certs_or_names != NULL) {
 	    *ret_has_server_certs_or_names 
@@ -1380,7 +1384,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 				   CFArrayRef server_certs,
 				   OSStatus * ret_status)
 {
-    bool		allow_exceptions = FALSE;
+    bool		exceptions_applied = FALSE;
     bool		has_server_certs_or_names = FALSE;
     EAPClientStatus	client_status;
     OSStatus		status;
@@ -1388,12 +1392,11 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     SecTrustRef		trust = NULL;
     SecTrustResultType 	trust_result;
 
-
     trust = _EAPTLSCreateSecTrust(properties, 
 				  server_certs,
 				  &status,
 				  &client_status,
-				  &allow_exceptions,
+				  &exceptions_applied,
 				  &has_server_certs_or_names,
 				  &server_hash_str);
     if (trust == NULL) {
@@ -1409,8 +1412,11 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     }
     switch (trust_result) {
     case kSecTrustResultProceed:
-	client_status = kEAPClientStatusOK;
-	break;
+	if (exceptions_applied) {
+	    client_status = kEAPClientStatusOK;
+	    break;
+	}
+	/* FALL THROUGH */
     case kSecTrustResultUnspecified:
 	if (has_server_certs_or_names) {
 	    /* trusted certs or server names specified, it's OK to proceed */
@@ -1419,7 +1425,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	}
 	/* FALL THROUGH */
     case kSecTrustResultRecoverableTrustFailure:
-	if (allow_exceptions) {
+	if (has_server_certs_or_names == FALSE) {
 	    client_status = kEAPClientStatusUserInputRequired;
 	    break;
 	}

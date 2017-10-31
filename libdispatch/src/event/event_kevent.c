@@ -1167,7 +1167,7 @@ _dispatch_event_loop_merge(dispatch_kevent_t events, int nevents)
 	// now we can re-use the whole event list, but we need to save one slot
 	// for the event loop poke
 	memcpy(kev, events, sizeof(kev));
-	ddi->ddi_maxevents = DISPATCH_DEFERRED_ITEMS_EVENT_COUNT - 1;
+	ddi->ddi_maxevents = DISPATCH_DEFERRED_ITEMS_EVENT_COUNT - 2;
 
 	for (int i = 0; i < nevents; i++) {
 		_dispatch_kevent_drain(&kev[i]);

@@ -397,17 +397,7 @@ static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCre
     }
 
     if (dbconn->isCorrupted) {
-        /* SecDbHandleCorrupt must be executed on the db queue so nobody
-           can acquire a new connection while it is running. */
-        if (dispatch_get_current_queue() == dbconn->db->queue) {
-            ok = SecDbHandleCorrupt(dbconn, 0, error);
-        } else {
-            /* We aren't on the db queue already when we get here. It may be
-               unsafe to dispatch this work from the current queue, so log
-               and return false without attempting recovery. */
-            secerror("WARNING: unable to call SecDbHandleCorrupt (not on db queue)");
-            ok = false;
-        }
+        ok = SecDbHandleCorrupt(dbconn, 0, error);
     }
 
     secinfo("#SecDB", "#SecDB starting maintenance");
@@ -472,11 +462,17 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
     /* If it's already corrupted, don't try to recover */
     if (dbconn->isCorrupted) {
         CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
-                                                      CFSTR("SQL DB %@ is corrupted already. Not trying to recover, corruption error was: %d (previously %d)"),
+                                                      CFSTR("SQL DB %@ is corrupted already. Corruption error was: %d (previously %d)"),
                                                       dbconn->db->db_path, code, dbconn->maybeCorruptedCode);
         secerror("%@",reason);
         __security_simulatecrash(reason, __sec_exception_code_TwiceCorruptDb(knownDbPathIndex(dbconn)));
         CFReleaseSafe(reason);
+        // We can't fall through to the checking case because it eventually calls SecDbConnectionCheckCode again.
+        // However, this is the second time we're seeing corruption so let's take the ultimate measure.
+        if ((SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code)) {
+            secerror("SecDbConnectionCheckCode detected corruption twice: going to handle corrupt DB");
+            (void)SecDbHandleCorrupt(dbconn, code, error);
+        }
         return false;
     }
 
@@ -489,16 +485,7 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
         dbconn->isCorrupted = SecDbCheckCorrupted(dbconn);
         if (dbconn->isCorrupted) {
             secerror("operation returned code: %d integrity check=fail", code);
-            /* SecDbHandleCorrupt must be executed on the db queue so nobody
-               can acquire a new connection while it is running. */
-            if (dispatch_get_current_queue() == dbconn->db->queue) {
-                (void)SecDbHandleCorrupt(dbconn, code, error);
-            } else {
-                /* We aren't on the db queue already when we get here. It may be
-                   unsafe to dispatch this work from the current queue, so log
-                   and return false without attempting recovery. */
-                secerror("WARNING: unable to call SecDbHandleCorrupt (not on db queue)");
-            }
+            (void)SecDbHandleCorrupt(dbconn, code, error);
         } else {
             secerror("operation returned code: %d: integrity check=pass", code);
         }
@@ -1546,8 +1533,7 @@ bool SecDbForEach(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *err
             if (s3e == SQLITE_DONE) {
                 result = true;
             } else {
-                dbconn->hasIOFailure |= (s3e == SQLITE_IOERR);
-                SecDbErrorWithStmt(s3e, stmt, error, CFSTR("step[%d]"), row_ix);
+                SecDbConnectionCheckCode(dbconn, s3e, error, CFSTR("SecDbForEach step[%d]"), row_ix);
             }
             break;
         }

@@ -737,7 +737,7 @@ SOURCE=..\..\missing\strsep.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\Tcpdump.c
+SOURCE=..\..\tcpdump.c
 # End Source File
 # Begin Source File
 

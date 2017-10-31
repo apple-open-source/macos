@@ -470,6 +470,7 @@ SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
 		case SIOCSIFDEVMTU:
 		case SIOCGIFDEVMTU:
         case SIOCSIFLLADDR:
+		case SIOCSIFCAP:
             ret = (int) ctr->executeCommand(
                              this,            /* client */
                              (IONetworkController::Action)
@@ -545,6 +546,9 @@ int IOEthernetInterface::performGatedCommand(void * target,
             ret = self->syncSIOCSIFLLADDR( ctr, ifr->ifr_addr.sa_data,
                                            ifr->ifr_addr.sa_len );
             break;
+		case SIOCSIFCAP:
+			ret = self->syncSIOCSIFCAP( ctr, ifr );
+			break;
     }
 
     return ret;
@@ -877,6 +881,46 @@ int IOEthernetInterface::syncSIOCSIFLLADDR( IONetworkController * ctr,
 }
 
 //---------------------------------------------------------------------------
+
+int IOEthernetInterface::syncSIOCSIFCAP( IONetworkController * ctr,
+										struct ifreq *        ifr )
+{
+	int result = EINVAL;
+	
+	if(ifr)
+	{
+		u_int32_t curAV;
+		u_int32_t reqAV;
+		
+		curAV = ifr->ifr_curcap & IFCAP_AV;		// current ifcap, just look at AV bit
+		reqAV = ifr->ifr_reqcap & IFCAP_AV;		// requested ifcap, just look at AV bit
+		
+		if(curAV != reqAV)
+		{
+			IOEthernetController *controller = OSDynamicCast(IOEthernetController, ctr);
+			
+			if(controller)
+			{
+				IOEthernetControllerAVBStateEvent event = reqAV ? kIOEthernetControllerAVBStateEventEnable : kIOEthernetControllerAVBStateEventDisable;
+				
+				result = errnoFromReturn(controller->changeAVBControllerState(event));
+				
+				if(!result)
+				{
+					result = ifnet_set_capabilities_enabled(getIfnet(), reqAV, IFCAP_AV);
+				}
+			}
+		}
+		else
+		{
+			result = 0;
+		}
+	}
+	
+	return result;
+}
+
+//---------------------------------------------------------------------------
 // Enable a packet filter.
 
 #define getOneFilter(x)   ((x) & (~((x) - 1)))
@@ -1206,6 +1250,17 @@ IOReturn IOEthernetInterface::attachToDataLinkLayer( IOOptionBits options,
 		// Set defaults suitable for Ethernet interfaces.
 		ifnet_set_baudrate(getIfnet(), 0);
 		bpfattach( getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
+		
+		IOEthernetController *ctrl = OSDynamicCast(IOEthernetController, getController());
+		if(ctrl && ctrl->getAVBSupport(NULL))
+		{
+			ifnet_set_capabilities_supported(getIfnet(), IFCAP_AV, IFCAP_AV);
+			
+			if(kIOEthernetControllerAVBStateDisabled != ctrl->getControllerAVBState())
+			{
+				ifnet_set_capabilities_enabled(getIfnet(), IFCAP_AV, IFCAP_AV);
+			}
+		}
    }
     return ret;
 }

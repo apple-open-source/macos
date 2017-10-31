@@ -27,6 +27,7 @@
 0700	root	wheel	System/Library/DirectoryServices/DefaultLocalDB/Default
 0755	root	wheel	System/Library/Keychains
 0755	root	wheel	Volumes
+0755	root	wheel	private/var/db/Accessibility
 0755	root	wheel	private/var/db/ConfigurationProfiles
 0700	root	wheel	private/var/db/ConfigurationProfiles/Store
 0755	root	wheel	private/var/db/ConfigurationProfiles/Settings

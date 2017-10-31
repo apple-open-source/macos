@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		3EB206C51F5096F100B150D3 /* bridgeos */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 3EB206CC1F5096F100B150D3 /* Build configuration list for PBXAggregateTarget "bridgeos" */;
+			buildPhases = (
+			);
+			dependencies = (
+				3EB206C61F5096F100B150D3 /* PBXTargetDependency */,
+				3EB206C81F5096F100B150D3 /* PBXTargetDependency */,
+			);
+			name = bridgeos;
+			productName = ios;
+		};
 		FDA4990F199D69B800A32E83 /* tests */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDA49910199D69B800A32E83 /* Build configuration list for PBXAggregateTarget "tests" */;
@@ -80,6 +92,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3EB206C71F5096F100B150D3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA79F9C413BB718B006A292D;
+			remoteInfo = util;
+		};
+		3EB206C91F5096F100B150D3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDA4990F199D69B800A32E83;
+			remoteInfo = tests;
+		};
 		3EB98B661E37CEFE0059EC72 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA79F99713BB70D7006A292D /* Project object */;
@@ -434,6 +460,7 @@
 			projectRoot = "";
 			targets = (
 				FDBC26E81741B09D00CA4B2B /* ios */,
+				3EB206C51F5096F100B150D3 /* bridgeos */,
 				FDBC26E41741B09300CA4B2B /* osx */,
 				BA79F9C413BB718B006A292D /* util */,
 				FDBC26EF1741B13400CA4B2B /* tzlinkd */,
@@ -510,6 +537,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		3EB206C61F5096F100B150D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA79F9C413BB718B006A292D /* util */;
+			targetProxy = 3EB206C71F5096F100B150D3 /* PBXContainerItemProxy */;
+		};
+		3EB206C81F5096F100B150D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDA4990F199D69B800A32E83 /* tests */;
+			targetProxy = 3EB206C91F5096F100B150D3 /* PBXContainerItemProxy */;
+		};
 		3EB98B671E37CEFE0059EC72 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FDBC26EF1741B13400CA4B2B /* tzlinkd */;
@@ -548,6 +585,20 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		3EB206CD1F5096F100B150D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		3EB206CE1F5096F100B150D3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		BA79F99C13BB70D7006A292D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F09C378186D1F73007AF93C /* base.xcconfig */;
@@ -690,6 +741,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3EB206CC1F5096F100B150D3 /* Build configuration list for PBXAggregateTarget "bridgeos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3EB206CD1F5096F100B150D3 /* Debug */,
+				3EB206CE1F5096F100B150D3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BA79F99A13BB70D7006A292D /* Build configuration list for PBXProject "libutil" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

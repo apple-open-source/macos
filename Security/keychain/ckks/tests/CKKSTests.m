@@ -2724,6 +2724,49 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
 }
 
+- (void)testDeviceStateUploadBadKeyStateAfterRestart {
+    // This test has stuff in CloudKit, but no TLKs. It should become very sad.
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
+
+    // And restart CKKS...
+    self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:8*NSEC_PER_SEC], "CKKS entered waitfortlk");
+    XCTAssertEqual(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
+
+    __weak __typeof(self) weakSelf = self;
+    [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
+        deletedRecordTypeCounts:nil
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord: ^BOOL (CKRecord* record){
+                if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
+                    // Check that all the things matches
+                    __strong __typeof(weakSelf) strongSelf = weakSelf;
+                    XCTAssertNotNil(strongSelf, "self exists");
+
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], @"fake-circle-id", "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
+                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK), "Device is in waitfortlk");
+
+                    XCTAssertNil(record[SecCKRecordCurrentTLK]   , "No TLK");
+                    XCTAssertNil(record[SecCKRecordCurrentClassA], "No class A key");
+                    XCTAssertNil(record[SecCKRecordCurrentClassC], "No class C key");
+                    return YES;
+                } else {
+                    return NO;
+                }
+            }
+           runAfterModification:nil];
+
+    [self.keychainView updateDeviceState:false ckoperationGroup:nil];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+}
+
+
 - (void)testDeviceStateUploadBadCircleState {
     self.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];

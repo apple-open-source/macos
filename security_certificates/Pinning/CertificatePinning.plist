@@ -2,13 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>12</integer>
+	<integer>14</integer>
 	<dict>
 		<key>domains</key>
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^p..-content$|^p..-ckdatabase$|^p..-ckshare$|^p..-ckdevice$|^p..-ckcoderouter$|^gateway.icloud.com$|^p..-keyvalueservice$|^keyvalueservice$</string>
+				<string>^p..-content$|^p..-ckdatabase$|^p..-ckshare$|^p..-ckdevice$|^p..-ckcoderouter$|^gateway$|^p..-keyvalueservice$|^keyvalueservice$</string>
 				<key>suffix</key>
 				<string>icloud.com</string>
 			</dict>
@@ -141,7 +141,7 @@
 			</dict>
 			<dict>
 				<key>labelRegex</key>
-				<string>courier</string>
+				<string>^courier$</string>
 				<key>suffix</key>
 				<string>sandbox.push.apple.com</string>
 			</dict>

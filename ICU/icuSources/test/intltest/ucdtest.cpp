@@ -527,4 +527,10 @@ void UnicodeTest::TestEmojiProperties() {
                u_hasBinaryProperty(0x1F3FF, UCHAR_EMOJI_MODIFIER));
     assertTrue("happy person is Emoji_Modifier_Base",
                u_hasBinaryProperty(0x1F64B, UCHAR_EMOJI_MODIFIER_BASE));
+    assertTrue("asterisk is Emoji_Component",
+               u_hasBinaryProperty(0x2A, UCHAR_EMOJI_COMPONENT));
+    assertTrue("TAG char is Emoji_Component",
+               u_hasBinaryProperty(0xE0061, UCHAR_EMOJI_COMPONENT)); // Apple addition
+    assertTrue("ZWJ char is Emoji_Component",
+               u_hasBinaryProperty(0x200D, UCHAR_EMOJI_COMPONENT)); // Apple addition
 }

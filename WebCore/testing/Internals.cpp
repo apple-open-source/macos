@@ -464,13 +464,13 @@ void Internals::resetToConsistentState(Page& page)
     PreviewLoader::setClientForTesting(nullptr);
 #endif
 
-    printContextForTesting() = nullptr;
-
 #if USE(LIBWEBRTC)
     WebCore::useRealRTCPeerConnectionFactory();
 #endif
     
     ResourceLoadObserver::shared().setShouldThrottleObserverNotifications(true);
+
+    printContextForTesting() = nullptr;
 }
 
 Internals::Internals(Document& document)
@@ -3612,6 +3612,8 @@ String Internals::pageMediaState()
         string.append("HasMutedAudioCaptureDevice,");
     if (state & MediaProducer::HasMutedVideoCaptureDevice)
         string.append("HasMutedVideoCaptureDevice,");
+    if (state & MediaProducer::HasUserInteractedWithMediaElement)
+        string.append("HasUserInteractedWithMediaElement,");
 
     if (string.isEmpty())
         string.append("IsNotPlaying");

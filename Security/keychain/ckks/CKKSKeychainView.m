@@ -1546,7 +1546,8 @@
 
     // op modifies the CloudKit zone, so it should insert itself into the list of OutgoingQueueOperations.
     // Then, we won't have simultaneous zone-modifying operations and confuse ourselves.
-    [op linearDependencies:self.outgoingQueueOperations];
+    // However, since we might have pending OQOs, it should try to insert itself at the beginning of the linearized list
+    [op linearDependenciesWithSelfFirst:self.outgoingQueueOperations];
 
     // CKKSUpdateDeviceStateOperations are special: they should fire even if we don't believe we're in an iCloud account.
     [self scheduleAccountStatusOperation:op];

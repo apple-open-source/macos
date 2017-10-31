@@ -48,6 +48,7 @@ static const uint32_t microSecDelayTable[kRetryAttempts] =
 ((kIOSMBusStatusHostUnsupportedProtocol == err)            \
 || (kIOSMBusStatusPECError == err))
 
+#define VOIDPTR(arg)  ((void *)(uintptr_t)(arg))
 
 IOReturn SmbusHandler::initialize(AppleSmartBatteryManager *mgr)
 {
@@ -55,6 +56,7 @@ IOReturn SmbusHandler::initialize(AppleSmartBatteryManager *mgr)
     fRetryAttempts = 0;
     fExternalTransactionWait = 0;
     fMgr = mgr;
+    fWorkLoop = mgr->getWorkLoop();
     return kIOReturnSuccess;
 }
 
@@ -183,13 +185,26 @@ void SmbusHandler::smbusCompletion(void *ref, IOSMBusTransaction *transaction)
 {
     uint32_t delay_for;
     IOReturn ret;
-    ASBMgrOpType opType = (ASBMgrOpType)(uintptr_t)ref;
+    uint32_t cmdCount = (uint32_t)((uintptr_t)ref);
     
     if (!transaction) {
         BM_ERRLOG("smbus completion called without transaction\n");
         return;
     }
-    
+
+    if (!fWorkLoop->inGate()) {
+        fWorkLoop->runAction(
+                OSMemberFunctionCast(IOWorkLoop::Action, this,
+                    &SmbusHandler::smbusCompletion), this, VOIDPTR(ref), VOIDPTR(transaction));
+        return;
+    }
+
+
+    if (cmdCount != fCmdCount) {
+        BM_ERRLOG("Unexpected smbus completion. expected cmdCnt:%d completion cmdCnt:%d\n", fCmdCount, cmdCount);
+        return;
+    }
+
     BM_LOG2("transaction cmd: 0x%x status: 0x%02x; prot: 0x%02x; word: 0x%04x\n",
             transaction->command, transaction->status, transaction->protocol,
             (transaction->receiveData[1] << 8) | transaction->receiveData[0]);
@@ -211,10 +226,11 @@ void SmbusHandler::smbusCompletion(void *ref, IOSMBusTransaction *transaction)
         
         
 
+        fCmdCount++;
         ret = fMgr->fProvider->performTransaction(&fTransaction,
                                 OSMemberFunctionCast(IOSMBusTransactionCompletion,
                                                      this, &SmbusHandler::smbusCompletion),
-                                this, NULL);
+                                this, VOIDPTR(fCmdCount));
 
         if (ret != kIOReturnSuccess) {
             BM_ERRLOG("Smbus trasaction submission failed with error 0x%x\n", ret);
@@ -235,7 +251,7 @@ void SmbusHandler::smbusCompletion(void *ref, IOSMBusTransaction *transaction)
     }
     
     
-    switch (opType) {
+    switch (fOpType) {
         case kASBMSMBUSReadWord:
         case kASBMSMBUSReadBlock:
             fRetryAttempts = 0;
@@ -250,10 +266,12 @@ void SmbusHandler::smbusCompletion(void *ref, IOSMBusTransaction *transaction)
             BM_LOG2("Issuing read for extended read. proto:%d cmd:0x%x add:0x%x",
                     fTransaction.protocol, fTransaction.command, fTransaction.address);
 
+            fOpType = kASBMSMBUSReadWord;
+            fCmdCount++;
             ret = fMgr->fProvider->performTransaction(&fTransaction,
                                                      OSMemberFunctionCast(IOSMBusTransactionCompletion,
                                                                           this, &SmbusHandler::smbusCompletion),
-                                                     this, NULL);
+                                                     this, VOIDPTR(fCmdCount));
             if (ret != kIOReturnSuccess) {
                 BM_ERRLOG("Smbus trasaction submission failed with error 0x%x\n", ret);
                 fCompletion(fTarget, fReference, kIOReturnIOError, 0, NULL);
@@ -265,7 +283,7 @@ void SmbusHandler::smbusCompletion(void *ref, IOSMBusTransaction *transaction)
             break;
             
         default:
-            panic("Completion call for unexpected SMBUS transaction protocol %d\n", opType);
+            panic("Completion call for unexpected SMBUS transaction protocol %d\n", fOpType);
             break;
     }
     
@@ -280,6 +298,9 @@ IOReturn SmbusHandler::performTransaction(ASBMgrRequest *req,
 {
     IOReturn ret;
     
+    if (!fWorkLoop->inGate()) {
+        BM_ERRLOG("Called submit smbus transaction outside the workloop\n");
+    }
     BM_LOG2("opType:%d cmd:0x%x addr:0x%x\n", req->opType, req->command, req->address);
     
     if ((ret = isTransactionAllowed()) != kIOReturnSuccess) {
@@ -290,12 +311,14 @@ IOReturn SmbusHandler::performTransaction(ASBMgrRequest *req,
     bzero(&fTransaction, sizeof(fTransaction));
     fTransaction.address = req->address;
     fTransaction.command = req->command;
+    fOpType = req->opType;
     
     fCompletion = completion;
 	fFullyDischarged = req->fullyDischarged;
     fTarget = target;
     fReference = reference;
     fRetryAttempts = 0;
+
 
     switch (req->opType) {
         case kASBMSMBUSReadWord:
@@ -337,13 +360,17 @@ IOReturn SmbusHandler::performTransaction(ASBMgrRequest *req,
     }
 
     
+    fCmdCount++;
     ret = fMgr->fProvider->performTransaction(&fTransaction,
                                          OSMemberFunctionCast(IOSMBusTransactionCompletion,
                                                               this, &SmbusHandler::smbusCompletion),
-                                         this, (void *)(req->opType));
+                                         this, VOIDPTR(fCmdCount));
     
     if (ret != kIOReturnSuccess) {
         BM_ERRLOG("Smbus trasaction submission failed with error 0x%x\n", ret);
+    }
+    else {
+        BM_LOG2("Command submitted  opType:%d cmd:0x%x addr:0x%x\n", req->opType, req->command, req->address);
     }
     return ret;
     
@@ -351,7 +378,8 @@ IOReturn SmbusHandler::performTransaction(ASBMgrRequest *req,
 
 void SmbusHandler::smbusExternalTransactionCompletion(void *ref, IOSMBusTransaction *transaction)
 {
-    thread_wakeup_prim(&fExternalTransactionWait, true, THREAD_AWAKENED);
+    BM_LOG2("smbusExternalTransactionCompletion\n");
+    fMgr->fManagerGate->commandWakeup(ref, false);
 }
 
 
@@ -372,17 +400,11 @@ IOReturn SmbusHandler::smbusExternalTransaction(void *in, void *out, IOByteCount
         return kIOReturnBadArgument;
     }
 
-    if (isTransactionAllowed()) {
-        BM_ERRLOG("Smbus transaction is not allowed\n");
-        return kIOReturnInvalid;
-    }
-    
-    
-    bzero(&fTransaction, sizeof(fTransaction));
-
     /* Attempt up to 5 transactions if we get failures
      */
     do {
+
+        bzero(&fTransaction, sizeof(fTransaction));
 
         // Input: bus address
         if (kSMBusAppleDoublerAddr == inSMBus->batterySelector
@@ -478,15 +500,16 @@ IOReturn SmbusHandler::smbusExternalTransaction(void *in, void *out, IOByteCount
         }
         
         transactionSuccess = fMgr->fProvider->performTransaction(&fTransaction,
-                                OSMemberFunctionCast(IOSMBusTransactionCompletion, this, &SmbusHandler::smbusExternalTransactionCompletion));
+                                OSMemberFunctionCast(IOSMBusTransactionCompletion, this, &SmbusHandler::smbusExternalTransactionCompletion),
+                                this, &fTransaction);
         
         
         /* Output: status */
         if (kIOReturnSuccess == transactionSuccess)
         {
             // Block here until the transaction is completed
-            assert_wait(&fExternalTransactionWait, THREAD_UNINT);
-
+        BM_LOG2("smbusExternalTransaction blocked\n");
+            fMgr->fManagerGate->commandSleep(&fTransaction, THREAD_UNINT);
             outSMBus->status = kIOReturnSuccess;
         }
         else {
@@ -679,6 +702,7 @@ IOReturn SmbusHandler::disableInflow(int level)
     {
         // Block here until the transaction is completed
         assert_wait(&fExternalTransactionWait, THREAD_UNINT);
+        thread_block(THREAD_CONTINUE_NULL);
         
         return kIOReturnSuccess;
     }
@@ -716,6 +740,7 @@ IOReturn SmbusHandler::inhibitCharging(int level)
     {
         // Block here until the transaction is completed
         assert_wait(&fExternalTransactionWait, THREAD_UNINT);
+        thread_block(THREAD_CONTINUE_NULL);
         
         return kIOReturnSuccess;
     }

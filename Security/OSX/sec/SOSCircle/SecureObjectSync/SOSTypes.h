@@ -121,9 +121,10 @@ typedef int SOSSecurityPropertyActionCode;
 
 #import <Foundation/Foundation.h>
 
-#define SOSControlInitialSyncFlagTLK           1
-#define SOSControlInitialSyncFlagPCS           2
-#define SOSControlInitialSyncFlagPCSNonCurrent 4
+#define SOSControlInitialSyncFlagTLK                  (1 << 0)
+#define SOSControlInitialSyncFlagPCS                  (1 << 1)
+#define SOSControlInitialSyncFlagPCSNonCurrent        (1 << 2)
+#define SOSControlInitialSyncFlagBluetoothMigration   (1 << 3)
 
 @protocol SOSControlProtocol
 - (void)userPublicKey:(void ((^))(BOOL trusted, NSData *spki, NSError *error))complete;

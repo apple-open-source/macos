@@ -47,6 +47,7 @@
 #undef pthread_rwlock_t
 
 #include <sys/cdefs.h>
+#include <os/log.h>
 
 // <rdar://problem/26158937> panic() should be marked noreturn
 extern void panic(const char *string, ...) __printflike(1,2) __dead2;
@@ -3666,9 +3667,12 @@ wq_unpark_continue(void* __unused ptr, wait_result_t wait_result)
 		const user_addr_t     freeaddr = (user_addr_t)tl->th_stackaddr + guardsize;
 		const vm_map_offset_t freesize = vm_map_trunc_page_mask((PTH_DEFAULT_STACKSIZE + guardsize + PTHREAD_T_OFFSET) - 1, vm_map_page_mask(vmap)) - guardsize;
 
-		int kr;
-		kr = mach_vm_behavior_set(vmap, freeaddr, freesize, VM_BEHAVIOR_REUSABLE);
-		assert(kr == KERN_SUCCESS || kr == KERN_INVALID_ADDRESS);
+		__assert_only int kr = mach_vm_behavior_set(vmap, freeaddr, freesize, VM_BEHAVIOR_REUSABLE);
+#if MACH_ASSERT
+		if (kr != KERN_SUCCESS && kr != KERN_INVALID_ADDRESS) {
+			os_log_error(OS_LOG_DEFAULT, "unable to make thread stack reusable (kr: %d)", kr);
+		}
+#endif
 
 		workqueue_lock_spin(wq);
 

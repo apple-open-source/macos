@@ -39,6 +39,9 @@
 
 // Add all operations in this collection as dependencies, then add yourself to the collection
 -(void)linearDependencies:(NSHashTable*)collection;
+
+// Insert yourself as high up the linearized list of dependencies as possible
+-(void)linearDependenciesWithSelfFirst: (NSHashTable*) collection;
 @end
 
 @interface NSBlockOperation (CKKSUsefulConstructorOperation)

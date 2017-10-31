@@ -70,8 +70,6 @@ static CFMutableArrayRef        gUPSDataArrayRef = NULL;
 static unsigned int             gUPSCount = 0;
 static IONotificationPortRef	gNotifyPort = NULL;
 static io_iterator_t            gAddedIter = MACH_PORT_NULL;
-const unsigned int              BATTERY_CASE_BOOST_ENABLE_THRESHOLD = 95;
-const unsigned int              BATTERY_CASE_BOOST_DISABLE_THRESHOLD = 100;
 
 //---------------------------------------------------------------------------
 // TypeDefs
@@ -89,7 +87,6 @@ typedef struct UPSData {
     uint32_t                isAccessoryBattery:1;
     uint32_t                isUPS:1;
     Boolean                 hasACPower;
-    Boolean                 isBatteryCaseEnabled;
     io_object_t             batteryStateNotification;
     io_object_t             currentLimitNotification;
     io_object_t             requiredVoltageNotification;
@@ -506,7 +503,6 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                 // Initialize AC state manually according to the default value.
                 // If a UPS is not on battery power, this will get fixed in the
                 // first ProcessUPSEvent call below
-                upsDataRef->isBatteryCaseEnabled = true;
                 BatteryCaseHandleACStateChange(upsDataRef, CFSTR(kIOPSBatteryPowerValue));
                 
                 // Register for interest in battery state changes to update
@@ -722,7 +718,7 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event)
                 }
             // Battery cases will indicate how much current we can draw from them
             } else if (CFEqual(keys[index], CFSTR(kIOPSAppleBatteryCaseAvailableCurrentKey)) &&
-                       upsDataRef->isBatteryCase && !upsDataRef->hasACPower && upsDataRef->isBatteryCaseEnabled) {
+                       upsDataRef->isBatteryCase && !upsDataRef->hasACPower) {
                 BatteryCaseSetDeviceCurrentLimit(values[index]);
             }
             

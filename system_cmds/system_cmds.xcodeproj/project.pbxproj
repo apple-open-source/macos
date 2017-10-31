@@ -3331,6 +3331,14 @@
 			path = eostraced;
 			sourceTree = "<group>";
 		};
+		3F56BF751F56057800266763 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				C248DBAF1C1A1D0500F6E9AF /* libcompression.dylib */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		550C19DF1804C55E001DA380 /* iosim.tproj */ = {
 			isa = PBXGroup;
 			children = (
@@ -3483,6 +3491,7 @@
 				BA4B7A0D1373BBB600003422 /* Libraries */,
 				BA4FD2F01372FB3D0025925C /* Products */,
 				189337C11CC7CB4800B2A6A4 /* Frameworks */,
+				3F56BF751F56057800266763 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -7631,6 +7640,8 @@
 		1873301918CBD4A700275344 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "";
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = vm_purgeable_stat.tproj/entitlements.plist;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/local/bin;
@@ -7692,6 +7703,7 @@
 		55CCB17216B84EDA00B56979 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = vm_purgeable_stat.tproj/entitlements.plist;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/local/bin;
@@ -8519,6 +8531,7 @@
 				0D06BC631E8F08CB00C6EC2D /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		1523FE611595048900661E82 /* Build configuration list for PBXNativeTarget "ltop" */ = {
 			isa = XCConfigurationList;

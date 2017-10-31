@@ -694,15 +694,18 @@ void SecRVCDelete(SecRVCRef rvc) {
     if (rvc->orvc) {
         SecORVCFinish(rvc->orvc);
         free(rvc->orvc);
+        rvc->orvc = NULL;
     }
 #if ENABLE_CRLS
     if (rvc->crvc) {
         SecCRVCFinish(rvc->crvc);
         free(rvc->crvc);
+        rvc->crvc = NULL;
     }
 #endif
     if (rvc->valid_info) {
         SecValidInfoRelease(rvc->valid_info);
+        rvc->valid_info = NULL;
     }
 }
 
@@ -714,7 +717,16 @@ static void SecRVCInit(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX)
 #if ENABLE_CRLS
     rvc->crvc = SecCRVCCreate(rvc, builder, certIX);
 #endif
-    rvc->done = false;
+    if (!rvc->orvc
+#if ENABLE_CRLS
+        || !rvc->crvc
+#endif
+        ) {
+        SecRVCDelete(rvc);
+        rvc->done = true;
+    } else {
+        rvc->done = false;
+    }
 }
 
 #if ENABLE_CRLS
@@ -905,9 +917,9 @@ static void SecRVCCheckRevocationCaches(SecRVCRef rvc) {
 
 static void SecRVCUpdatePVC(SecRVCRef rvc) {
     SecRVCProcessValidInfoResults(rvc); /* restore the results we got from Valid */
-    SecORVCUpdatePVC(rvc->orvc);
+    if (rvc->orvc) { SecORVCUpdatePVC(rvc->orvc); }
 #if ENABLE_CRLS
-    SecCRVCUpdatePVC(rvc->crvc);
+    if (rvc->crvc) { SecCRVCUpdatePVC(rvc->crvc); }
 #endif
 }
 
@@ -1034,7 +1046,7 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
         /* The check is done if we found cached responses from either method. */
         if (rvc->orvc->done
 #if ENABLE_CRLS
-            || rvc->orvc->done
+            || rvc->crvc->done
 #endif
             ) {
             secdebug("rvc", "found cached response for cert: %ld", certIX);

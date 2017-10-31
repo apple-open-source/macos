@@ -66,6 +66,8 @@
 #include <sys/sysctl.h>
 #include <uuid/uuid.h>
 #include <libgen.h>
+#include <sandbox/rootless.h>
+#include <sys/csr.h>
 
 #include "OSKext.h"
 #include "OSKextPrivate.h"
@@ -279,7 +281,10 @@ typedef struct __OSKext {
         unsigned int      isLoadableInSafeBoot:1;
 
        /* Set as determined or on demand. */
-        unsigned int      validated:1;  // all possible checks done
+        unsigned int      sip_protected:1; // protected by installer:
+                                           // don't flush authentication bits
+
+        unsigned int      validated:1;     // all possible checks done
         unsigned int      invalid:1;       // at least 1 failure, or fully validated
         unsigned int      valid:1;         // all possible checks done & passed
 
@@ -387,6 +392,7 @@ static Boolean                __sOSKextSimulatedSafeBoot           = FALSE;
 static Boolean                __sOSKextUsesCaches                  = TRUE;
 static Boolean                __sOSKextStrictRecordingByLastOpened = FALSE;
 static Boolean                __sOSKextStrictAuthentication        = FALSE;
+static Boolean                __sOSKextIsSIPDisabled               = FALSE;
 static OSKextAuthFnPtr        __sOSKextAuthenticationFunction      = _OSKextBasicFilesystemAuthentication;
 static void                 * __sOSKextAuthenticationContext       = NULL;
 
@@ -1492,6 +1498,10 @@ static void __OSKextInitialize(void)
     * need to initialize.
     */
     __sOSKextInitializing = true;
+
+    if (csr_check(CSR_ALLOW_UNTRUSTED_KEXTS) == 0) {
+        __sOSKextIsSIPDisabled = TRUE;
+    }
 
     __kOSKextTypeID = _CFRuntimeRegisterClass(&__OSKextClass);
 
@@ -5691,17 +5701,20 @@ void OSKextFlushInfoDictionary(OSKextRef aKext)
         if (!OSKextIsFromMkext(aKext)) {
             SAFE_RELEASE_NULL(aKext->infoDictionary);
 
-           /* The info dict could change by the time we read it again,
-            * so clear all validation/authentication flags. Leave
-            * diagnostics in place (a bit funky I suppose).
-            */
-            aKext->flags.valid = 0;
-            aKext->flags.invalid = 0;
-            aKext->flags.validated = 0;
-            aKext->flags.authentic = 0;
-            aKext->flags.inauthentic = 0;
-            aKext->flags.authenticated = 0;
-            aKext->flags.isSigned = 0;
+            // Flush cached auth bits for non-Apple kexts only
+            if (!aKext->flags.sip_protected) {
+               /* The info dict could change by the time we read it again,
+                * so clear all validation/authentication flags. Leave
+                * diagnostics in place (a bit funky I suppose).
+                */
+                aKext->flags.valid = 0;
+                aKext->flags.invalid = 0;
+                aKext->flags.validated = 0;
+                aKext->flags.authentic = 0;
+                aKext->flags.inauthentic = 0;
+                aKext->flags.authenticated = 0;
+                aKext->flags.isSigned = 0;
+            }
         }
 
     } else if (__sOSKextsByURL) {
@@ -11751,17 +11764,20 @@ void OSKextFlushLoadInfo(
             }
             SAFE_FREE_NULL(aKext->loadInfo);
 
-           /* The executable could change by the time we read it again,
-            * so clear all validation/authentication flags. Leave
-            * diagnostics in place (a bit funky I suppose).
-            */
-            aKext->flags.valid = 0;
-            aKext->flags.invalid = 0;
-            aKext->flags.validated = 0;
-            aKext->flags.authentic = 0;
-            aKext->flags.inauthentic = 0;
-            aKext->flags.authenticated = 0;
-            aKext->flags.isSigned = 0;
+            // Flush cached auth bits for non-Apple kexts only
+            if (!aKext->flags.sip_protected) {
+               /* The executable could change by the time we read it again,
+                * so clear all validation/authentication flags. Leave
+                * diagnostics in place (a bit funky I suppose).
+                */
+                aKext->flags.valid = 0;
+                aKext->flags.invalid = 0;
+                aKext->flags.validated = 0;
+                aKext->flags.authentic = 0;
+                aKext->flags.inauthentic = 0;
+                aKext->flags.authenticated = 0;
+                aKext->flags.isSigned = 0;
+            }
        }
     } else if (__sOSKextsByURL) {
         flushingAll = true;
@@ -13245,12 +13261,26 @@ finish:
 Boolean OSKextAuthenticate(OSKextRef aKext)
 {
     Boolean     result        = true;
+    char        kextPath[PATH_MAX];
 
     aKext->flags.inauthentic = 0;
     aKext->flags.authentic = 0;
     aKext->flags.authenticated = 0;
+    aKext->flags.sip_protected = 0;
 
     if (__sOSKextAuthenticationFunction) {
+        if (!__OSKextGetFileSystemPath(aKext, NULL, true, kextPath)) {
+            OSKextLog(aKext,
+                kOSKextLogErrorLevel |
+                kOSKextLogGeneralFlag | kOSKextLogKextBookkeepingFlag,
+                "Could not get absolute path of kext!");
+            result = false;
+            goto finish;
+        }
+        if (!__sOSKextIsSIPDisabled && rootless_check_trusted(kextPath) == 0) {
+            aKext->flags.sip_protected = 1;
+        }
+
         result = __sOSKextAuthenticationFunction(aKext, __sOSKextAuthenticationContext);
     } else {
         // Setting a NULL authentication function means its not authenticated.
@@ -13260,6 +13290,7 @@ Boolean OSKextAuthenticate(OSKextRef aKext)
         result = false;
     }
 
+finish:
    /*****
     * Update to denote authentication has happened, and place its result in
     * the appropriate bit.
